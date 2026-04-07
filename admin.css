@@ -367,13 +367,16 @@ button, input {
 }
 
 .admin-launchpad-link {
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   gap: 4px;
-  padding: 14px;
-  border-radius: 14px;
-  background: var(--admin-surface);
-  border: 1px solid var(--admin-border);
-  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+  min-height: 78px;
+  padding: 14px 16px;
+  border-radius: 999px;
+  background: rgba(157, 255, 0, 0.08);
+  border: 1px solid rgba(157, 255, 0, 0.22);
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
 }
 
 .admin-launchpad-link span {
@@ -386,17 +389,35 @@ button, input {
 
 .admin-launchpad-link:hover {
   transform: translateY(-2px);
-  border-color: rgba(157, 255, 0, 0.24);
+  border-color: rgba(157, 255, 0, 0.42);
+  background: rgba(157, 255, 0, 0.14);
+  box-shadow: 0 10px 24px rgba(157, 255, 0, 0.12);
 }
 
 .admin-launchpad-link.is-disabled {
+  color: rgba(255, 255, 255, 0.58);
   cursor: not-allowed;
-  background: rgba(127, 127, 127, 0.08);
+  background: rgba(148, 163, 184, 0.08);
+  border-color: rgba(148, 163, 184, 0.16);
+  box-shadow: none;
+}
+
+:root[data-admin-theme='light'] .admin-launchpad-link.is-disabled {
+  color: rgba(15, 23, 42, 0.5);
+  background: rgba(148, 163, 184, 0.1);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+.admin-launchpad-link.is-disabled span,
+.admin-launchpad-link.is-disabled small {
+  color: inherit;
 }
 
 .admin-launchpad-link.is-disabled:hover {
   transform: none;
   border-color: var(--admin-border);
+  background: rgba(148, 163, 184, 0.08);
+  box-shadow: none;
 }
 
 .admin-status-pill {
