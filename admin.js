@@ -1,8 +1,8 @@
 const SOURCE_COLORS = {
-  youtube: ['#ff4d6d', '#ff7b72'],
-  facebook: ['#4f8cff', '#73b7ff'],
-  instagram: ['#ff8a5b', '#f94fd5'],
-  tiktok: ['#40f0d0', '#8b7bff']
+  youtube: ['#ff7a59', '#5b8cff'],
+  facebook: ['#5b8cff', '#7aa5ff'],
+  instagram: ['#ff7a59', '#ff9b83'],
+  tiktok: ['#22d3ee', '#5b8cff']
 };
 
 const formatSeconds = (seconds) => {

@@ -9,8 +9,11 @@
   --admin-text: #f4f7ff;
   --admin-muted: rgba(221, 230, 255, 0.68);
   --admin-shadow: 0 28px 90px rgba(0, 0, 0, 0.38);
-  --admin-gradient: linear-gradient(135deg, #7c4dff, #1de9b6 52%, #ff6f91);
-  --admin-gradient-soft: linear-gradient(135deg, rgba(124, 77, 255, 0.18), rgba(29, 233, 182, 0.16), rgba(255, 111, 145, 0.18));
+  --admin-accent-primary: #5b8cff;
+  --admin-accent-secondary: #22d3ee;
+  --admin-accent-tertiary: #ff7a59;
+  --admin-gradient: linear-gradient(135deg, var(--admin-accent-primary), var(--admin-accent-secondary) 58%, var(--admin-accent-tertiary));
+  --admin-gradient-soft: linear-gradient(135deg, rgba(91, 140, 255, 0.18), rgba(34, 211, 238, 0.16), rgba(255, 122, 89, 0.18));
 }
 
 :root[data-admin-theme='light'] {
@@ -22,7 +25,7 @@
   --admin-text: #0e1730;
   --admin-muted: rgba(31, 44, 77, 0.7);
   --admin-shadow: 0 24px 80px rgba(79, 97, 137, 0.18);
-  --admin-gradient-soft: linear-gradient(135deg, rgba(124, 77, 255, 0.12), rgba(29, 233, 182, 0.12), rgba(255, 111, 145, 0.14));
+  --admin-gradient-soft: linear-gradient(135deg, rgba(91, 140, 255, 0.12), rgba(34, 211, 238, 0.12), rgba(255, 122, 89, 0.14));
 }
 
 * {
@@ -38,9 +41,9 @@ body {
   font-family: 'Plus Jakarta Sans', sans-serif;
   color: var(--admin-text);
   background:
-    radial-gradient(circle at 12% 20%, rgba(124, 77, 255, 0.26), transparent 34%),
-    radial-gradient(circle at 88% 18%, rgba(29, 233, 182, 0.2), transparent 28%),
-    radial-gradient(circle at 70% 78%, rgba(255, 111, 145, 0.18), transparent 28%),
+    radial-gradient(circle at 12% 20%, rgba(91, 140, 255, 0.24), transparent 34%),
+    radial-gradient(circle at 88% 18%, rgba(34, 211, 238, 0.18), transparent 28%),
+    radial-gradient(circle at 70% 78%, rgba(255, 122, 89, 0.16), transparent 28%),
     linear-gradient(180deg, var(--admin-bg) 0%, color-mix(in srgb, var(--admin-bg) 88%, #030712) 100%);
   overflow-x: hidden;
 }
@@ -81,7 +84,7 @@ button, input {
   height: 300px;
   top: 10%;
   left: -40px;
-  background: rgba(121, 75, 255, 0.36);
+  background: rgba(91, 140, 255, 0.34);
 }
 
 .admin-login-orb-b,
@@ -90,7 +93,7 @@ button, input {
   height: 360px;
   right: -40px;
   bottom: 8%;
-  background: rgba(29, 233, 182, 0.22);
+  background: rgba(34, 211, 238, 0.22);
 }
 
 .admin-login-card,
@@ -127,7 +130,7 @@ button, input {
 }
 
 .admin-chip-accent {
-  background: linear-gradient(135deg, rgba(124, 77, 255, 0.26), rgba(29, 233, 182, 0.18), rgba(255, 111, 145, 0.22));
+  background: linear-gradient(135deg, rgba(91, 140, 255, 0.24), rgba(34, 211, 238, 0.18), rgba(255, 122, 89, 0.22));
 }
 
 .admin-login-brand h1,
@@ -180,8 +183,8 @@ button, input {
 }
 
 .admin-login-form input:focus {
-  border-color: rgba(124, 77, 255, 0.6);
-  box-shadow: 0 0 0 4px rgba(124, 77, 255, 0.14);
+  border-color: rgba(91, 140, 255, 0.6);
+  box-shadow: 0 0 0 4px rgba(91, 140, 255, 0.14);
 }
 
 .admin-primary-btn,
@@ -198,7 +201,7 @@ button, input {
   background: var(--admin-gradient);
   color: white;
   font-weight: 800;
-  box-shadow: 0 22px 40px rgba(124, 77, 255, 0.25);
+  box-shadow: 0 22px 40px rgba(91, 140, 255, 0.24);
 }
 
 .admin-link-btn {
@@ -277,8 +280,8 @@ button, input {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #1de9b6;
-  box-shadow: 0 0 0 10px rgba(29, 233, 182, 0.15);
+  background: var(--admin-accent-secondary);
+  box-shadow: 0 0 0 10px rgba(34, 211, 238, 0.15);
 }
 
 .admin-metric-grid {
