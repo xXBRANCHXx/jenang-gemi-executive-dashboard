@@ -25,7 +25,7 @@ $isAuthenticated = jg_admin_is_authenticated();
     <link rel="icon" type="image/png" href="https://jenanggemi.com/Media/Jenang%20Gemi%20Website%20Logo.png">
     <link rel="stylesheet" href="../admin.css?v=1">
 </head>
-<body class="admin-body<?php echo $isAuthenticated ? ' is-dashboard' : ' is-login'; ?>">
+<body class="admin-body<?php echo $isAuthenticated ? ' is-dashboard is-loading' : ' is-login'; ?>">
 <?php if (!$isAuthenticated): ?>
     <main class="admin-login-shell">
         <div class="admin-login-orb admin-login-orb-a"></div>
@@ -47,6 +47,17 @@ $isAuthenticated = jg_admin_is_authenticated();
         </section>
     </main>
 <?php else: ?>
+    <div class="admin-loader" data-admin-loader aria-live="polite">
+        <div class="admin-loader-panel">
+            <span class="admin-chip">Preparing Dashboard</span>
+            <h2>Loading executive overview</h2>
+            <p>Fetching analytics, rendering charts, and preparing the full interface before reveal.</p>
+            <div class="admin-loader-bar">
+                <span class="admin-loader-progress" data-admin-loader-progress></span>
+            </div>
+            <strong class="admin-loader-label" data-admin-loader-label>Initializing...</strong>
+        </div>
+    </div>
     <div class="admin-app" data-admin-dashboard data-analytics-endpoint="../api/analytics/">
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>

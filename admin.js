@@ -99,8 +99,33 @@ document.addEventListener('DOMContentLoaded', () => {
   const sourceCanvas = document.querySelector('[data-source-chart]');
   const urlCanvas = document.querySelector('[data-url-chart]');
   const sourceLegend = document.querySelector('[data-source-legend]');
+  const loader = document.querySelector('[data-admin-loader]');
+  const loaderProgress = document.querySelector('[data-admin-loader-progress]');
+  const loaderLabel = document.querySelector('[data-admin-loader-label]');
 
   if (endpointLabel) endpointLabel.textContent = endpoint;
+
+  const setLoaderState = (progress, label) => {
+    if (loaderProgress) {
+      loaderProgress.style.width = `${Math.max(8, Math.min(progress, 100))}%`;
+    }
+    if (loaderLabel && label) {
+      loaderLabel.textContent = label;
+    }
+  };
+
+  const finishLoader = () => {
+    setLoaderState(100, 'Dashboard ready');
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        document.body.classList.remove('is-loading');
+        document.body.classList.add('is-ready');
+        if (loader) {
+          window.setTimeout(() => loader.remove(), 500);
+        }
+      });
+    });
+  };
 
   const applyTheme = (theme) => {
     document.documentElement.dataset.adminTheme = theme;
@@ -137,11 +162,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const loadDashboard = async () => {
     try {
+      setLoaderState(20, 'Connecting to analytics');
       const response = await fetch(endpoint, {
         headers: { Accept: 'application/json' },
         credentials: 'same-origin'
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      setLoaderState(48, 'Processing campaign data');
       const data = await response.json();
       const summary = data.summary || {};
       const bySource = Array.isArray(data.by_source) ? data.by_source : [];
@@ -190,6 +217,7 @@ document.addEventListener('DOMContentLoaded', () => {
           : '<p class="admin-empty">Belum ada aktivitas.</p>';
       }
 
+      setLoaderState(72, 'Rendering charts');
       drawBarChart(sourceCanvas, bySource, {
         value: (item) => item.views || 0,
         label: (item) => String(item.source || 'unknown'),
@@ -202,11 +230,16 @@ document.addEventListener('DOMContentLoaded', () => {
         colors: (item) => SOURCE_COLORS[String(item.source || 'unknown').toLowerCase()] || ['#9ca3af', '#cbd5e1']
       });
 
+      setLoaderState(88, 'Finalizing interface');
       renderSourceLegend(bySource);
+      finishLoader();
     } catch (error) {
       if (recentEvents) {
         recentEvents.innerHTML = `<p class="admin-empty">Gagal memuat dashboard: ${escapeHtml(error.message)}</p>`;
       }
+      setLoaderState(100, 'Load failed');
+      document.body.classList.remove('is-loading');
+      document.body.classList.add('is-ready');
     }
   };
 

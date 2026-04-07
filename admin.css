@@ -63,10 +63,79 @@ button, input {
   min-height: 100svh;
 }
 
+.admin-body.is-loading {
+  overflow: hidden;
+}
+
+.admin-body.is-loading .admin-app {
+  opacity: 0;
+  visibility: hidden;
+}
+
 .admin-login-shell {
   display: grid;
   place-items: center;
   padding: 32px;
+}
+
+.admin-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 18% 22%, rgba(91, 140, 255, 0.22), transparent 28%),
+    linear-gradient(180deg, rgba(6, 12, 24, 0.96), rgba(8, 14, 28, 0.98));
+  transition: opacity 0.45s ease, visibility 0.45s ease;
+}
+
+.admin-body.is-ready .admin-loader {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.admin-loader-panel {
+  width: min(520px, 100%);
+  padding: 34px;
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(11, 18, 34, 0.88);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(18px);
+}
+
+.admin-loader-panel h2 {
+  margin: 16px 0 10px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: clamp(2rem, 5vw, 3rem);
+  letter-spacing: -0.04em;
+}
+
+.admin-loader-panel p,
+.admin-loader-label {
+  color: var(--admin-muted);
+}
+
+.admin-loader-bar {
+  width: 100%;
+  height: 14px;
+  margin: 22px 0 14px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.admin-loader-progress {
+  display: block;
+  width: 8%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--admin-accent-primary);
+  transition: width 0.3s ease;
 }
 
 .admin-login-orb,
@@ -232,6 +301,7 @@ button, input {
 
 .admin-app {
   padding: 28px;
+  transition: opacity 0.35s ease, visibility 0.35s ease;
 }
 
 .admin-topbar {
