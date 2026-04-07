@@ -1,7 +1,7 @@
 const SOURCE_COLORS = {
-  youtube: ['#ff7a59', '#ff7a59'],
-  facebook: ['#5b8cff', '#5b8cff'],
-  instagram: ['#7a879a', '#7a879a'],
+  youtube: ['#ff5252', '#ff5252'],
+  facebook: ['#ffd400', '#ffd400'],
+  instagram: ['#9dff00', '#9dff00'],
   tiktok: ['#22d3ee', '#22d3ee']
 };
 
