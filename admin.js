@@ -18,6 +18,8 @@ const METRIC_UNITS = {
   checkout_clicks: 'checkouts'
 };
 
+const DASHBOARD_TIMEZONE = 'Asia/Jakarta';
+
 const formatSeconds = (seconds) => {
   if (!Number.isFinite(seconds) || seconds <= 0) return '0s';
   if (seconds < 60) return `${Math.round(seconds)}s`;
@@ -47,6 +49,13 @@ const prepareCanvas = (canvas) => {
 };
 
 const formatMetricValue = (metric, value) => `${Number(value).toLocaleString('id-ID')} ${METRIC_UNITS[metric] || 'units'}`;
+const formatDashboardTime = (value, options = {}) => {
+  const date = value instanceof Date ? value : new Date(value);
+  return date.toLocaleString('id-ID', {
+    timeZone: DASHBOARD_TIMEZONE,
+    ...options
+  });
+};
 
 const getThemePalette = () => {
   const styles = window.getComputedStyle(document.documentElement);
@@ -285,11 +294,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const setLastUpdated = (isoString) => {
     if (!lastUpdated) return;
     const date = isoString ? new Date(isoString) : new Date();
-    lastUpdated.textContent = `Updated ${date.toLocaleTimeString('id-ID', {
+    lastUpdated.textContent = `Updated ${formatDashboardTime(date, {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit'
-    })}`;
+    })} WIB`;
   };
 
   const hideTooltip = () => {
@@ -362,7 +371,13 @@ document.addEventListener('DOMContentLoaded', () => {
               <div class="admin-event-item">
                 <strong>${escapeHtml(item.event_type || 'event')} • ${escapeHtml(item.source || 'unknown')}</strong>
                 <span>${escapeHtml(item.page_path || '-')}</span>
-                <small>${escapeHtml(item.occurred_at || '')}</small>
+                <small>${escapeHtml(item.occurred_at || (item.occurred_at_iso ? `${formatDashboardTime(item.occurred_at_iso, {
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })} WIB` : ''))}</small>
               </div>
             `).join('')
           : '<p class="admin-empty">Belum ada aktivitas.</p>';
