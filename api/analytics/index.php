@@ -8,10 +8,12 @@ header('Content-Type: application/json; charset=utf-8');
 
 $timeframe = (string) ($_GET['timeframe'] ?? '7d');
 $timezone = (string) ($_GET['timezone'] ?? '');
+$recentLimit = max(15, min(300, (int) ($_GET['recent_limit'] ?? 180)));
 $endpoint = 'https://jenanggemi.com/admin-analytics-api.php?timeframe=' . rawurlencode($timeframe);
 if ($timezone !== '') {
     $endpoint .= '&timezone=' . rawurlencode($timezone);
 }
+$endpoint .= '&recent_limit=' . rawurlencode((string) $recentLimit);
 $token = JG_ADMIN_CODE_HASH;
 
 $headers = [

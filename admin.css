@@ -635,10 +635,42 @@ button, input {
 }
 
 .admin-event-feed {
-  max-height: 880px;
+  position: relative;
+  max-height: 332px;
   overflow-y: auto;
-  padding-right: 6px;
+  padding: 0 6px 0 0;
   align-content: start;
+}
+
+.admin-event-feed::before,
+.admin-event-feed::after {
+  content: '';
+  position: sticky;
+  left: 0;
+  right: 6px;
+  display: block;
+  height: 26px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.16s ease;
+  z-index: 2;
+}
+
+.admin-event-feed::before {
+  top: 0;
+  margin-bottom: -26px;
+  background: linear-gradient(to bottom, var(--admin-surface), transparent);
+}
+
+.admin-event-feed::after {
+  bottom: 0;
+  margin-top: -26px;
+  background: linear-gradient(to top, var(--admin-surface), transparent);
+}
+
+.admin-event-feed.has-top-fade::before,
+.admin-event-feed.has-bottom-fade::after {
+  opacity: 1;
 }
 
 .admin-event-feed::-webkit-scrollbar {

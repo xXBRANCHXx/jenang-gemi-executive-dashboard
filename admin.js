@@ -220,6 +220,10 @@ document.addEventListener('DOMContentLoaded', () => {
     timeframe: '24h',
     metric: 'views',
     timezone: DASHBOARD_TIMEZONE,
+    recentBatchSize: 15,
+    recentWindowStart: 0,
+    recentEventsAll: [],
+    recentFeedLocked: false,
     refreshMs: 60000,
     refreshHandle: null
   };
@@ -290,6 +294,67 @@ document.addEventListener('DOMContentLoaded', () => {
     return items.map(formatter).join('');
   };
 
+  const formatRecentEventItem = (item) => `
+    <div class="admin-event-item">
+      <strong>${escapeHtml(item.event_type || 'event')} • ${escapeHtml(item.source || 'unknown')}</strong>
+      <span>${escapeHtml(item.page_path || '-')}</span>
+      <small>${escapeHtml(item.occurred_at_iso ? formatDashboardTime(item.occurred_at_iso, state.timezone, {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }) + ' WIB' : (item.occurred_at || ''))}</small>
+    </div>
+  `;
+
+  const syncRecentFeedChrome = () => {
+    if (!recentEvents) return;
+    const total = state.recentEventsAll.length;
+    const end = Math.min(total, state.recentWindowStart + state.recentBatchSize);
+    recentEvents.classList.toggle('has-top-fade', state.recentWindowStart > 0);
+    recentEvents.classList.toggle('has-bottom-fade', end < total);
+  };
+
+  const renderRecentFeed = (preserveScroll = false, scrollToBottom = false) => {
+    if (!recentEvents) return;
+    const items = state.recentEventsAll;
+    if (!items.length) {
+      recentEvents.innerHTML = '<p class="admin-empty">Belum ada aktivitas.</p>';
+      recentEvents.scrollTop = 0;
+      recentEvents.classList.remove('has-top-fade', 'has-bottom-fade');
+      return;
+    }
+
+    const maxStart = Math.max(0, items.length - state.recentBatchSize);
+    state.recentWindowStart = Math.max(0, Math.min(state.recentWindowStart, maxStart));
+    const visibleItems = items.slice(state.recentWindowStart, state.recentWindowStart + state.recentBatchSize);
+    recentEvents.innerHTML = visibleItems.map(formatRecentEventItem).join('');
+    syncRecentFeedChrome();
+
+    if (!preserveScroll) {
+      recentEvents.scrollTop = 0;
+      return;
+    }
+
+    recentEvents.scrollTop = scrollToBottom
+      ? Math.max(0, recentEvents.scrollHeight - recentEvents.clientHeight - 18)
+      : 18;
+  };
+
+  const stepRecentFeed = (direction) => {
+    if (!recentEvents || state.recentFeedLocked) return;
+    const nextStart = state.recentWindowStart + (direction * state.recentBatchSize);
+    const maxStart = Math.max(0, state.recentEventsAll.length - state.recentBatchSize);
+    if (nextStart < 0 || nextStart > maxStart) return;
+    state.recentFeedLocked = true;
+    state.recentWindowStart = nextStart;
+    renderRecentFeed(true, direction < 0);
+    window.setTimeout(() => {
+      state.recentFeedLocked = false;
+    }, 120);
+  };
+
   const renderSourceLegend = (items) => {
     if (!sourceLegend) return;
     sourceLegend.innerHTML = items.map((item) => {
@@ -344,7 +409,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const loadDashboard = async (showLoader = true) => {
     try {
       if (showLoader) setLoaderState(18, 'Connecting to analytics');
-      const response = await fetch(`${endpoint}?timeframe=${encodeURIComponent(state.timeframe)}&timezone=${encodeURIComponent(state.timezone)}`, {
+      const response = await fetch(`${endpoint}?timeframe=${encodeURIComponent(state.timeframe)}&timezone=${encodeURIComponent(state.timezone)}&recent_limit=180`, {
         headers: { Accept: 'application/json' },
         credentials: 'same-origin'
       });
@@ -389,22 +454,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (recentEvents) {
-        const items = Array.isArray(data.recent_events) ? data.recent_events : [];
-        recentEvents.innerHTML = items.length
-          ? items.map((item) => `
-              <div class="admin-event-item">
-                <strong>${escapeHtml(item.event_type || 'event')} • ${escapeHtml(item.source || 'unknown')}</strong>
-                <span>${escapeHtml(item.page_path || '-')}</span>
-                <small>${escapeHtml(item.occurred_at_iso ? formatDashboardTime(item.occurred_at_iso, state.timezone, {
-                  day: '2-digit',
-                  month: 'short',
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                }) + ' WIB' : (item.occurred_at || ''))}</small>
-              </div>
-            `).join('')
-          : '<p class="admin-empty">Belum ada aktivitas.</p>';
+        state.recentEventsAll = Array.isArray(data.recent_events) ? data.recent_events : [];
+        renderRecentFeed();
       }
 
       if (showLoader) setLoaderState(68, 'Rendering time charts');
@@ -466,6 +517,18 @@ document.addEventListener('DOMContentLoaded', () => {
       state.metric = button.dataset.metric || 'views';
       loadDashboard(false);
     });
+  });
+
+  recentEvents?.addEventListener('scroll', () => {
+    const threshold = 20;
+    const atTop = recentEvents.scrollTop <= threshold;
+    const atBottom = recentEvents.scrollTop + recentEvents.clientHeight >= recentEvents.scrollHeight - threshold;
+    if (atBottom) {
+      stepRecentFeed(1);
+    } else if (atTop) {
+      stepRecentFeed(-1);
+    }
+    syncRecentFeedChrome();
   });
 
   trendCanvas?.addEventListener('mousemove', (event) => {
