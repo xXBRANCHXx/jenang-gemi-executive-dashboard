@@ -634,6 +634,22 @@ button, input {
   gap: 10px;
 }
 
+.admin-event-feed {
+  max-height: 880px;
+  overflow-y: auto;
+  padding-right: 6px;
+  align-content: start;
+}
+
+.admin-event-feed::-webkit-scrollbar {
+  width: 10px;
+}
+
+.admin-event-feed::-webkit-scrollbar-thumb {
+  background: var(--admin-border);
+  border-radius: 999px;
+}
+
 .admin-event-item small {
   display: block;
   margin-top: 6px;
