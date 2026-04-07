@@ -48,8 +48,18 @@ const prepareCanvas = (canvas) => {
 
 const formatMetricValue = (metric, value) => `${Number(value).toLocaleString('id-ID')} ${METRIC_UNITS[metric] || 'units'}`;
 
-const drawGrid = (ctx, width, height, padding, maxValue, metric) => {
-  ctx.strokeStyle = 'rgba(148, 163, 184, 0.16)';
+const getThemePalette = () => {
+  const styles = window.getComputedStyle(document.documentElement);
+  return {
+    text: styles.getPropertyValue('--admin-text').trim() || '#0c1117',
+    muted: styles.getPropertyValue('--admin-muted').trim() || 'rgba(55, 65, 81, 0.68)',
+    border: styles.getPropertyValue('--admin-border').trim() || 'rgba(17, 24, 39, 0.08)',
+    surfaceSoft: styles.getPropertyValue('--admin-surface-soft').trim() || '#f6f8f4'
+  };
+};
+
+const drawGrid = (ctx, width, height, padding, maxValue, metric, palette) => {
+  ctx.strokeStyle = palette.border;
   ctx.lineWidth = 1;
   for (let i = 0; i < 4; i += 1) {
     const y = padding.top + ((height - padding.top - padding.bottom) / 3) * i;
@@ -59,7 +69,7 @@ const drawGrid = (ctx, width, height, padding, maxValue, metric) => {
     ctx.stroke();
 
     const tickValue = Math.round(maxValue - ((maxValue / 3) * i));
-    ctx.fillStyle = 'rgba(228,233,255,0.72)';
+    ctx.fillStyle = palette.muted;
     ctx.font = '600 11px "Plus Jakarta Sans", sans-serif';
     ctx.textAlign = 'left';
     ctx.fillText(formatMetricValue(metric, Math.max(0, tickValue)), 8, y - (i === 0 ? -12 : 4));
@@ -77,8 +87,9 @@ const drawBarChart = (canvas, items, config) => {
   const chartHeight = height - padding.top - padding.bottom;
   const barWidth = chartWidth / Math.max(chartItems.length, 1) * 0.58;
   const gap = chartWidth / Math.max(chartItems.length, 1) * 0.42;
+  const palette = getThemePalette();
 
-  drawGrid(ctx, width, height, padding, maxValue, config.metric || 'views');
+  drawGrid(ctx, width, height, padding, maxValue, config.metric || 'views', palette);
 
   chartItems.forEach((item, index) => {
     const value = Number(config.value(item));
@@ -87,7 +98,7 @@ const drawBarChart = (canvas, items, config) => {
     const y = padding.top + chartHeight - barHeight;
     const color = config.color(item);
 
-    ctx.fillStyle = 'rgba(255,255,255,0.04)';
+    ctx.fillStyle = palette.surfaceSoft;
     ctx.beginPath();
     ctx.roundRect(x, padding.top + 8, barWidth, chartHeight - 8, 10);
     ctx.fill();
@@ -97,12 +108,12 @@ const drawBarChart = (canvas, items, config) => {
     ctx.roundRect(x, y, barWidth, barHeight, 10);
     ctx.fill();
 
-    ctx.fillStyle = '#f5f7ff';
+    ctx.fillStyle = palette.text;
     ctx.font = '700 12px "Space Grotesk", sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(String(value), x + (barWidth / 2), y - 8);
 
-    ctx.fillStyle = 'rgba(228,233,255,0.75)';
+    ctx.fillStyle = palette.muted;
     ctx.font = '600 11px "Plus Jakarta Sans", sans-serif';
     ctx.fillText(config.label(item), x + (barWidth / 2), height - 16);
   });
@@ -119,8 +130,9 @@ const drawLineChart = (canvas, items, metric) => {
   const chartHeight = height - padding.top - padding.bottom;
   const values = items.map((item) => Number(item[metric] || 0));
   const maxValue = Math.max(...values, 1);
+  const palette = getThemePalette();
 
-  drawGrid(ctx, width, height, padding, maxValue, metric);
+  drawGrid(ctx, width, height, padding, maxValue, metric, palette);
 
   if (items.length === 0) {
     chartHoverState.set(canvas, []);
@@ -159,7 +171,7 @@ const drawLineChart = (canvas, items, metric) => {
     ctx.fill();
 
     if (index === 0 || index === items.length - 1 || items.length <= 8 || index % Math.ceil(items.length / 6) === 0) {
-      ctx.fillStyle = 'rgba(228,233,255,0.72)';
+      ctx.fillStyle = palette.muted;
       ctx.font = '600 11px "Plus Jakarta Sans", sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(item.label || '', x, height - 16);
