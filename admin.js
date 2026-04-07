@@ -12,6 +12,12 @@ const METRIC_LABELS = {
   checkout_clicks: 'Checkout clicks over time'
 };
 
+const METRIC_UNITS = {
+  views: 'visitors',
+  order_now_clicks: 'clicks',
+  checkout_clicks: 'checkouts'
+};
+
 const formatSeconds = (seconds) => {
   if (!Number.isFinite(seconds) || seconds <= 0) return '0s';
   if (seconds < 60) return `${Math.round(seconds)}s`;
@@ -40,7 +46,9 @@ const prepareCanvas = (canvas) => {
   return { ctx, width, height };
 };
 
-const drawGrid = (ctx, width, height, padding) => {
+const formatMetricValue = (metric, value) => `${Number(value).toLocaleString('id-ID')} ${METRIC_UNITS[metric] || 'units'}`;
+
+const drawGrid = (ctx, width, height, padding, maxValue, metric) => {
   ctx.strokeStyle = 'rgba(148, 163, 184, 0.16)';
   ctx.lineWidth = 1;
   for (let i = 0; i < 4; i += 1) {
@@ -49,6 +57,12 @@ const drawGrid = (ctx, width, height, padding) => {
     ctx.moveTo(padding.left, y);
     ctx.lineTo(width - padding.right, y);
     ctx.stroke();
+
+    const tickValue = Math.round(maxValue - ((maxValue / 3) * i));
+    ctx.fillStyle = 'rgba(228,233,255,0.72)';
+    ctx.font = '600 11px "Plus Jakarta Sans", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(formatMetricValue(metric, Math.max(0, tickValue)), 8, y - (i === 0 ? -12 : 4));
   }
 };
 
@@ -58,13 +72,13 @@ const drawBarChart = (canvas, items, config) => {
   const { ctx, width, height } = prepared;
   const chartItems = items.slice(0, config.limit || items.length);
   const maxValue = Math.max(...chartItems.map((item) => Number(config.value(item))), 1);
-  const padding = { top: 20, right: 20, bottom: 48, left: 18 };
+  const padding = { top: 20, right: 20, bottom: 48, left: 92 };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
   const barWidth = chartWidth / Math.max(chartItems.length, 1) * 0.58;
   const gap = chartWidth / Math.max(chartItems.length, 1) * 0.42;
 
-  drawGrid(ctx, width, height, padding);
+  drawGrid(ctx, width, height, padding, maxValue, config.metric || 'views');
 
   chartItems.forEach((item, index) => {
     const value = Number(config.value(item));
@@ -94,27 +108,40 @@ const drawBarChart = (canvas, items, config) => {
   });
 };
 
+const chartHoverState = new WeakMap();
+
 const drawLineChart = (canvas, items, metric) => {
   const prepared = prepareCanvas(canvas);
   if (!prepared) return;
   const { ctx, width, height } = prepared;
-  const padding = { top: 20, right: 18, bottom: 48, left: 18 };
+  const padding = { top: 20, right: 18, bottom: 48, left: 92 };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
   const values = items.map((item) => Number(item[metric] || 0));
   const maxValue = Math.max(...values, 1);
 
-  drawGrid(ctx, width, height, padding);
+  drawGrid(ctx, width, height, padding, maxValue, metric);
 
-  if (items.length === 0) return;
+  if (items.length === 0) {
+    chartHoverState.set(canvas, []);
+    return;
+  }
 
   ctx.strokeStyle = SOURCE_COLORS.instagram;
   ctx.lineWidth = 3;
   ctx.beginPath();
+  const points = [];
 
   items.forEach((item, index) => {
     const x = padding.left + (chartWidth * index / Math.max(items.length - 1, 1));
     const y = padding.top + chartHeight - ((Number(item[metric] || 0) / maxValue) * (chartHeight - 6));
+    points.push({
+      x,
+      y,
+      label: item.label || '',
+      value: Number(item[metric] || 0),
+      metric
+    });
     if (index === 0) {
       ctx.moveTo(x, y);
     } else {
@@ -138,6 +165,8 @@ const drawLineChart = (canvas, items, metric) => {
       ctx.fillText(item.label || '', x, height - 16);
     }
   });
+
+  chartHoverState.set(canvas, points);
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -166,6 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const trendCanvas = document.querySelector('[data-trend-chart]');
   const hourCanvas = document.querySelector('[data-hour-chart]');
   const sourceLegend = document.querySelector('[data-source-legend]');
+  const trendSurface = trendCanvas?.parentElement;
   const loader = document.querySelector('[data-admin-loader]');
   const loaderProgress = document.querySelector('[data-admin-loader-progress]');
   const loaderLabel = document.querySelector('[data-admin-loader-label]');
@@ -174,6 +204,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const trendMeta = document.querySelector('[data-trend-meta]');
   const timeframeButtons = document.querySelectorAll('[data-timeframe]');
   const metricButtons = document.querySelectorAll('[data-metric]');
+  const tooltip = document.createElement('div');
+  tooltip.className = 'admin-chart-tooltip';
+  tooltip.innerHTML = '<strong></strong><span></span>';
+  trendSurface?.appendChild(tooltip);
 
   if (endpointLabel) endpointLabel.textContent = endpoint;
 
@@ -246,6 +280,23 @@ document.addEventListener('DOMContentLoaded', () => {
     })}`;
   };
 
+  const hideTooltip = () => {
+    tooltip.classList.remove('is-visible');
+  };
+
+  const showTooltip = (point, canvas, event) => {
+    if (!trendSurface) return;
+    const surfaceRect = trendSurface.getBoundingClientRect();
+    const canvasRect = canvas.getBoundingClientRect();
+    const localX = event.clientX - canvasRect.left;
+    const localY = event.clientY - canvasRect.top;
+    tooltip.querySelector('strong').textContent = point.label;
+    tooltip.querySelector('span').textContent = formatMetricValue(point.metric, point.value);
+    tooltip.style.left = `${localX + (canvasRect.left - surfaceRect.left)}px`;
+    tooltip.style.top = `${localY + (canvasRect.top - surfaceRect.top)}px`;
+    tooltip.classList.add('is-visible');
+  };
+
   const loadDashboard = async (showLoader = true) => {
     try {
       if (showLoader) setLoaderState(18, 'Connecting to analytics');
@@ -311,18 +362,21 @@ document.addEventListener('DOMContentLoaded', () => {
         value: (item) => item[state.metric] || 0,
         label: (item) => `${String(item.hour).padStart(2, '0')}`,
         color: () => SOURCE_COLORS.facebook,
+        metric: state.metric,
         limit: 24
       });
       drawBarChart(sourceCanvas, bySource, {
         value: (item) => item.views || 0,
         label: (item) => String(item.source || 'unknown'),
         color: (item) => SOURCE_COLORS[String(item.source || 'unknown').toLowerCase()] || SOURCE_COLORS.unknown,
+        metric: 'views',
         limit: 6
       });
       drawBarChart(urlCanvas, byUrl, {
         value: (item) => item.checkout_clicks || 0,
         label: (item) => String(item.page_path || '-').replace('/bubur-', '').replace('.html', ''),
         color: (item) => SOURCE_COLORS[String(item.source || 'unknown').toLowerCase()] || SOURCE_COLORS.unknown,
+        metric: 'checkout_clicks',
         limit: 6
       });
 
@@ -362,6 +416,25 @@ document.addEventListener('DOMContentLoaded', () => {
       loadDashboard(false);
     });
   });
+
+  trendCanvas?.addEventListener('mousemove', (event) => {
+    const points = chartHoverState.get(trendCanvas) || [];
+    if (!points.length) return hideTooltip();
+    const rect = trendCanvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    let closest = points[0];
+    let closestDistance = Math.abs(points[0].x - x);
+    for (const point of points) {
+      const distance = Math.abs(point.x - x);
+      if (distance < closestDistance) {
+        closest = point;
+        closestDistance = distance;
+      }
+    }
+    showTooltip(closest, trendCanvas, event);
+  });
+
+  trendCanvas?.addEventListener('mouseleave', hideTooltip);
 
   state.refreshHandle = window.setInterval(() => {
     loadDashboard(false);

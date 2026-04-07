@@ -511,6 +511,7 @@ button, input {
 }
 
 .admin-chart-surface {
+  position: relative;
   padding: 12px;
   border-radius: 18px;
   background: var(--admin-surface-soft);
@@ -525,6 +526,42 @@ button, input {
 
 .admin-chart-canvas-lg {
   height: 360px;
+}
+
+.admin-chart-tooltip {
+  position: absolute;
+  z-index: 20;
+  min-width: 132px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--admin-border);
+  background: #0d131a;
+  color: var(--admin-text);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.32);
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, calc(-100% - 12px));
+  transition: opacity 0.12s ease;
+}
+
+:root[data-admin-theme='light'] .admin-chart-tooltip {
+  background: #ffffff;
+}
+
+.admin-chart-tooltip.is-visible {
+  opacity: 1;
+}
+
+.admin-chart-tooltip strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+
+.admin-chart-tooltip span {
+  display: block;
+  color: var(--admin-muted);
+  font-size: 12px;
 }
 
 .admin-chart-legend {
