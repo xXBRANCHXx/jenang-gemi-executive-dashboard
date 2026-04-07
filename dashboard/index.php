@@ -81,10 +81,60 @@ $isAuthenticated = jg_admin_is_authenticated();
                     <p>Views, Order Now clicks, checkout intent, average time spent, and the latest tracked sessions are available here without exposing the raw analytics endpoint publicly.</p>
                 </div>
                 <div class="admin-hero-actions">
-                    <a class="admin-soft-btn" href="https://jenanggemi.com/bubur-youtube.html" target="_blank" rel="noopener">Open Landing Page</a>
                     <div class="admin-status-pill">
                         <span class="admin-status-dot"></span>
                         <span>Secure Session Active</span>
+                    </div>
+                    <div class="admin-launchpad">
+                        <div class="admin-launchpad-section">
+                            <div class="admin-launchpad-head">
+                                <span class="admin-panel-kicker">Jenang Gemi Bubur</span>
+                                <strong>Live now</strong>
+                            </div>
+                            <div class="admin-launchpad-grid">
+                                <a class="admin-launchpad-link" href="https://jenanggemi.com/bubur-youtube.html" target="_blank" rel="noopener">
+                                    <span>YouTube</span>
+                                    <small>/bubur-youtube.html</small>
+                                </a>
+                                <a class="admin-launchpad-link" href="https://jenanggemi.com/bubur-facebook.html" target="_blank" rel="noopener">
+                                    <span>Facebook</span>
+                                    <small>/bubur-facebook.html</small>
+                                </a>
+                                <a class="admin-launchpad-link" href="https://jenanggemi.com/bubur-instagram.html" target="_blank" rel="noopener">
+                                    <span>Instagram</span>
+                                    <small>/bubur-instagram.html</small>
+                                </a>
+                                <a class="admin-launchpad-link" href="https://jenanggemi.com/bubur-tiktok.html" target="_blank" rel="noopener">
+                                    <span>TikTok</span>
+                                    <small>/bubur-tiktok.html</small>
+                                </a>
+                            </div>
+                        </div>
+
+                        <div class="admin-launchpad-section admin-launchpad-section-muted">
+                            <div class="admin-launchpad-head">
+                                <span class="admin-panel-kicker">Jenang Gemi Jamu</span>
+                                <strong>Coming soon</strong>
+                            </div>
+                            <div class="admin-launchpad-grid">
+                                <div class="admin-launchpad-link is-disabled" aria-disabled="true">
+                                    <span>YouTube</span>
+                                    <small>Coming soon</small>
+                                </div>
+                                <div class="admin-launchpad-link is-disabled" aria-disabled="true">
+                                    <span>Facebook</span>
+                                    <small>Coming soon</small>
+                                </div>
+                                <div class="admin-launchpad-link is-disabled" aria-disabled="true">
+                                    <span>Instagram</span>
+                                    <small>Coming soon</small>
+                                </div>
+                                <div class="admin-launchpad-link is-disabled" aria-disabled="true">
+                                    <span>TikTok</span>
+                                    <small>Coming soon</small>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>

@@ -312,6 +312,11 @@ button, input {
   border-radius: 24px;
 }
 
+.admin-hero-actions {
+  align-items: stretch;
+  flex-direction: column;
+}
+
 .admin-status-pill,
 .admin-live-status {
   display: inline-flex;
@@ -321,6 +326,77 @@ button, input {
   border-radius: 16px;
   background: var(--admin-surface-soft);
   border: 1px solid var(--admin-border);
+}
+
+.admin-launchpad {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-launchpad-section {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 18px;
+  background: var(--admin-surface-soft);
+  border: 1px solid var(--admin-border);
+}
+
+.admin-launchpad-section-muted {
+  opacity: 0.72;
+}
+
+.admin-launchpad-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.admin-launchpad-head strong {
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--admin-muted);
+}
+
+.admin-launchpad-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.admin-launchpad-link {
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.admin-launchpad-link span {
+  font-weight: 700;
+}
+
+.admin-launchpad-link small {
+  color: var(--admin-muted);
+}
+
+.admin-launchpad-link:hover {
+  transform: translateY(-2px);
+  border-color: rgba(157, 255, 0, 0.24);
+}
+
+.admin-launchpad-link.is-disabled {
+  cursor: not-allowed;
+  background: rgba(127, 127, 127, 0.08);
+}
+
+.admin-launchpad-link.is-disabled:hover {
+  transform: none;
+  border-color: var(--admin-border);
 }
 
 .admin-status-pill {
@@ -543,5 +619,9 @@ button, input {
 
   .admin-panel-head {
     flex-direction: column;
+  }
+
+  .admin-launchpad-grid {
+    grid-template-columns: 1fr;
   }
 }
