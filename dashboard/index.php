@@ -23,7 +23,7 @@ $isAuthenticated = jg_admin_is_authenticated();
     <title>Jenang Gemi Executive Dashboard</title>
     <meta name="robots" content="noindex,nofollow">
     <link rel="icon" type="image/png" href="https://jenanggemi.com/Media/Jenang%20Gemi%20Website%20Logo.png">
-    <link rel="stylesheet" href="../admin.css?v=1">
+    <link rel="stylesheet" href="../admin.css?v=2">
 </head>
 <body class="admin-body<?php echo $isAuthenticated ? ' is-dashboard is-loading' : ' is-login'; ?>">
 <?php if (!$isAuthenticated): ?>
@@ -69,7 +69,6 @@ $isAuthenticated = jg_admin_is_authenticated();
             </div>
             <div class="admin-topbar-actions">
                 <button type="button" class="admin-ghost-btn" data-theme-toggle aria-label="Toggle theme">Toggle Theme</button>
-                <button type="button" class="admin-ghost-btn" data-admin-refresh>Refresh</button>
                 <a class="admin-primary-btn admin-link-btn" href="../logout/">Lock Dashboard</a>
             </div>
         </header>
@@ -90,6 +89,31 @@ $isAuthenticated = jg_admin_is_authenticated();
                 </div>
             </section>
 
+            <section class="admin-control-strip">
+                <div class="admin-control-group">
+                    <span class="admin-control-label">Timeframe</span>
+                    <div class="admin-toggle-row" data-timeframe-controls>
+                        <button type="button" class="admin-toggle-pill is-active" data-timeframe="24h">24H</button>
+                        <button type="button" class="admin-toggle-pill" data-timeframe="7d">7D</button>
+                        <button type="button" class="admin-toggle-pill" data-timeframe="30d">30D</button>
+                        <button type="button" class="admin-toggle-pill" data-timeframe="90d">90D</button>
+                        <button type="button" class="admin-toggle-pill" data-timeframe="all">ALL</button>
+                    </div>
+                </div>
+                <div class="admin-control-group">
+                    <span class="admin-control-label">Trend Metric</span>
+                    <div class="admin-toggle-row" data-metric-controls>
+                        <button type="button" class="admin-toggle-pill is-active" data-metric="views">Views</button>
+                        <button type="button" class="admin-toggle-pill" data-metric="order_now_clicks">Order Now</button>
+                        <button type="button" class="admin-toggle-pill" data-metric="checkout_clicks">Checkout</button>
+                    </div>
+                </div>
+                <div class="admin-live-status">
+                    <strong>Live</strong>
+                    <span data-last-updated>Waiting for first sync</span>
+                </div>
+            </section>
+
             <section class="admin-metric-grid">
                 <article class="admin-metric-card"><span>Total Views</span><strong data-summary-total-views>0</strong><small>All campaign page views</small></article>
                 <article class="admin-metric-card"><span>Order Now Clicks</span><strong data-summary-order-clicks>0</strong><small>Sticky + hero CTA demand</small></article>
@@ -98,6 +122,32 @@ $isAuthenticated = jg_admin_is_authenticated();
             </section>
 
             <section class="admin-main-grid">
+                <article class="admin-panel admin-panel-chart admin-panel-wide">
+                    <div class="admin-panel-head">
+                        <div>
+                            <span class="admin-panel-kicker">Trend</span>
+                            <h3 data-trend-title>Views over time</h3>
+                        </div>
+                        <span class="admin-panel-meta" data-trend-meta>Live over selected timeframe</span>
+                    </div>
+                    <div class="admin-chart-surface">
+                        <canvas class="admin-chart-canvas admin-chart-canvas-lg" data-trend-chart width="1200" height="360"></canvas>
+                    </div>
+                </article>
+
+                <article class="admin-panel admin-panel-chart">
+                    <div class="admin-panel-head">
+                        <div>
+                            <span class="admin-panel-kicker">Time of Day</span>
+                            <h3>Activity by hour</h3>
+                        </div>
+                        <span class="admin-panel-meta">Peak engagement hours</span>
+                    </div>
+                    <div class="admin-chart-surface">
+                        <canvas class="admin-chart-canvas" data-hour-chart width="880" height="340"></canvas>
+                    </div>
+                </article>
+
                 <article class="admin-panel admin-panel-chart">
                     <div class="admin-panel-head">
                         <div>
@@ -187,12 +237,13 @@ $isAuthenticated = jg_admin_is_authenticated();
                         <div class="admin-note-card"><strong>Auth gate</strong><span>Dashboard and analytics access are protected by server-side session auth.</span></div>
                         <div class="admin-note-card"><strong>Source API</strong><span>Data is pulled server-side from jenanggemi.com over a shared secret header.</span></div>
                         <div class="admin-note-card"><strong>Endpoint</strong><span data-endpoint-label>../api/analytics/</span></div>
+                        <div class="admin-note-card"><strong>Auto Update</strong><span>Dashboard refreshes automatically every 60 seconds.</span></div>
                     </div>
                 </article>
             </section>
         </main>
     </div>
-    <script type="module" src="../admin.js?v=1"></script>
+    <script type="module" src="../admin.js?v=2"></script>
 <?php endif; ?>
 </body>
 </html>

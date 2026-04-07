@@ -6,7 +6,8 @@ jg_admin_require_auth_json();
 
 header('Content-Type: application/json; charset=utf-8');
 
-$endpoint = 'https://jenanggemi.com/admin-analytics-api.php';
+$timeframe = (string) ($_GET['timeframe'] ?? '7d');
+$endpoint = 'https://jenanggemi.com/admin-analytics-api.php?timeframe=' . rawurlencode($timeframe);
 $token = JG_ADMIN_CODE_HASH;
 
 $headers = [
