@@ -14,6 +14,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isAuthenticated = jg_admin_is_authenticated();
+$adminCssVersion = (string) @filemtime(dirname(__DIR__) . '/admin.css');
+$adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/admin.js');
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -23,7 +25,7 @@ $isAuthenticated = jg_admin_is_authenticated();
     <title>Jenang Gemi Executive Dashboard</title>
     <meta name="robots" content="noindex,nofollow">
     <link rel="icon" type="image/png" href="https://jenanggemi.com/Media/Jenang%20Gemi%20Website%20Logo.png">
-    <link rel="stylesheet" href="../admin.css?v=2">
+    <link rel="stylesheet" href="../admin.css?v=<?php echo urlencode($adminCssVersion ?: '1'); ?>">
 </head>
 <body class="admin-body<?php echo $isAuthenticated ? ' is-dashboard is-loading' : ' is-login'; ?>">
 <?php if (!$isAuthenticated): ?>
@@ -294,7 +296,7 @@ $isAuthenticated = jg_admin_is_authenticated();
             </section>
         </main>
     </div>
-    <script type="module" src="../admin.js?v=2"></script>
+    <script type="module" src="../admin.js?v=<?php echo urlencode($adminJsVersion ?: '1'); ?>"></script>
 <?php endif; ?>
 </body>
 </html>
