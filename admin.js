@@ -1,8 +1,8 @@
 const SOURCE_COLORS = {
-  youtube: ['#ff7a59', '#5b8cff'],
-  facebook: ['#5b8cff', '#7aa5ff'],
-  instagram: ['#ff7a59', '#ff9b83'],
-  tiktok: ['#22d3ee', '#5b8cff']
+  youtube: ['#ff7a59', '#ff7a59'],
+  facebook: ['#5b8cff', '#5b8cff'],
+  instagram: ['#7a879a', '#7a879a'],
+  tiktok: ['#22d3ee', '#22d3ee']
 };
 
 const formatSeconds = (seconds) => {
@@ -124,10 +124,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!sourceLegend) return;
     sourceLegend.innerHTML = items.map((item) => {
       const source = String(item.source || 'unknown').toLowerCase();
-      const [colorA, colorB] = SOURCE_COLORS[source] || ['#9ca3af', '#cbd5e1'];
+      const [colorA] = SOURCE_COLORS[source] || ['#9ca3af', '#9ca3af'];
       return `
         <div class="admin-legend-item">
-          <span class="admin-legend-swatch" style="background: linear-gradient(135deg, ${colorA}, ${colorB});"></span>
+          <span class="admin-legend-swatch" style="background: ${colorA};"></span>
           <strong>${escapeHtml(item.source || 'Unknown')}</strong>
           <span>${Number(item.views || 0).toLocaleString('id-ID')} views</span>
         </div>
