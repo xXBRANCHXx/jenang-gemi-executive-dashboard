@@ -63,8 +63,33 @@ const getThemePalette = () => {
     text: styles.getPropertyValue('--admin-text').trim() || '#0c1117',
     muted: styles.getPropertyValue('--admin-muted').trim() || 'rgba(55, 65, 81, 0.68)',
     border: styles.getPropertyValue('--admin-border').trim() || 'rgba(17, 24, 39, 0.08)',
+    surface: styles.getPropertyValue('--admin-surface').trim() || '#ffffff',
     surfaceSoft: styles.getPropertyValue('--admin-surface-soft').trim() || '#f6f8f4'
   };
+};
+
+const drawValueBadge = (ctx, x, y, text, palette) => {
+  ctx.font = '700 12px "Space Grotesk", sans-serif';
+  const metrics = ctx.measureText(text);
+  const badgeWidth = Math.ceil(metrics.width) + 14;
+  const badgeHeight = 22;
+  const badgeX = x - (badgeWidth / 2);
+  const badgeY = y - 24;
+
+  ctx.fillStyle = palette.surface;
+  ctx.beginPath();
+  ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 999);
+  ctx.fill();
+
+  ctx.strokeStyle = palette.border;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 999);
+  ctx.stroke();
+
+  ctx.fillStyle = palette.text;
+  ctx.textAlign = 'center';
+  ctx.fillText(text, x, badgeY + 15);
 };
 
 const drawGrid = (ctx, width, height, padding, maxValue, metric, palette) => {
@@ -117,10 +142,7 @@ const drawBarChart = (canvas, items, config) => {
     ctx.roundRect(x, y, barWidth, barHeight, 10);
     ctx.fill();
 
-    ctx.fillStyle = palette.text;
-    ctx.font = '700 12px "Space Grotesk", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(String(value), x + (barWidth / 2), y - 8);
+    drawValueBadge(ctx, x + (barWidth / 2), y, String(value), palette);
 
     ctx.fillStyle = palette.muted;
     ctx.font = '600 11px "Plus Jakarta Sans", sans-serif';
@@ -393,7 +415,7 @@ document.addEventListener('DOMContentLoaded', () => {
       drawLineChart(trendCanvas, timeseries, state.metric);
       drawBarChart(hourCanvas, hourOfDay, {
         value: (item) => item[state.metric] || 0,
-        label: (item) => `${String(item.hour).padStart(2, '0')}`,
+        label: (item) => `${String(item.hour).padStart(2, '0')}:00`,
         color: () => SOURCE_COLORS.facebook,
         metric: state.metric,
         limit: 24

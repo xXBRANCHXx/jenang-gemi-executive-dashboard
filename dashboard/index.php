@@ -143,6 +143,7 @@ $isAuthenticated = jg_admin_is_authenticated();
                 <div class="admin-control-group">
                     <span class="admin-control-label">Timeframe</span>
                     <div class="admin-toggle-row" data-timeframe-controls>
+                        <button type="button" class="admin-toggle-pill" data-timeframe="1h">1H</button>
                         <button type="button" class="admin-toggle-pill is-active" data-timeframe="24h">24H</button>
                         <button type="button" class="admin-toggle-pill" data-timeframe="7d">7D</button>
                         <button type="button" class="admin-toggle-pill" data-timeframe="30d">30D</button>

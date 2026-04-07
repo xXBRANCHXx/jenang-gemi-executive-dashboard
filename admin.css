@@ -556,6 +556,7 @@ button, input {
   display: block;
   margin-bottom: 4px;
   font-size: 13px;
+  color: var(--admin-text);
 }
 
 .admin-chart-tooltip span {
@@ -593,6 +594,14 @@ button, input {
 .admin-event-item strong {
   display: block;
   margin-bottom: 6px;
+  color: var(--admin-text);
+}
+
+.admin-legend-item span,
+.admin-note-card span,
+.admin-event-item span,
+.admin-event-item small {
+  color: var(--admin-muted);
 }
 
 .admin-table-wrap {

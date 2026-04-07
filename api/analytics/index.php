@@ -7,7 +7,11 @@ jg_admin_require_auth_json();
 header('Content-Type: application/json; charset=utf-8');
 
 $timeframe = (string) ($_GET['timeframe'] ?? '7d');
+$timezone = (string) ($_GET['timezone'] ?? '');
 $endpoint = 'https://jenanggemi.com/admin-analytics-api.php?timeframe=' . rawurlencode($timeframe);
+if ($timezone !== '') {
+    $endpoint .= '&timezone=' . rawurlencode($timezone);
+}
 $token = JG_ADMIN_CODE_HASH;
 
 $headers = [
