@@ -18,6 +18,8 @@ const METRIC_UNITS = {
   checkout_clicks: 'checkouts'
 };
 
+const DASHBOARD_TIMEZONE = 'Asia/Jakarta';
+
 const formatSeconds = (seconds) => {
   if (!Number.isFinite(seconds) || seconds <= 0) return '0s';
   if (seconds < 60) return `${Math.round(seconds)}s`;
@@ -54,8 +56,6 @@ const formatDashboardTime = (value, timezone, options = {}) => {
     ...options
   });
 };
-
-const getBrowserTimezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Makassar';
 
 const getThemePalette = () => {
   const styles = window.getComputedStyle(document.documentElement);
@@ -219,7 +219,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const state = {
     timeframe: '24h',
     metric: 'views',
-    timezone: getBrowserTimezone(),
+    timezone: DASHBOARD_TIMEZONE,
     refreshMs: 60000,
     refreshHandle: null
   };
@@ -317,14 +317,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const setLastUpdated = (isoString) => {
     if (!lastUpdated) return;
     const date = isoString ? new Date(isoString) : new Date();
-    const zoneLabel = formatDashboardTime(date, state.timezone, {
-      timeZoneName: 'short'
-    }).split(' ').pop();
     lastUpdated.textContent = `Updated ${formatDashboardTime(date, state.timezone, {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit'
-    })} ${zoneLabel}`;
+    })} WIB`;
   };
 
   const hideTooltip = () => {
@@ -359,7 +356,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const byUrl = Array.isArray(data.by_url) ? data.by_url : [];
       const timeseries = Array.isArray(data.timeseries) ? data.timeseries : [];
       const hourOfDay = Array.isArray(data.hour_of_day) ? data.hour_of_day : [];
-      state.timezone = data.meta?.timezone || state.timezone;
+      state.timezone = DASHBOARD_TIMEZONE;
 
       if (summaryViews) summaryViews.textContent = Number(summary.total_views || 0).toLocaleString('id-ID');
       if (summaryOrderClicks) summaryOrderClicks.textContent = Number(summary.order_now_clicks || 0).toLocaleString('id-ID');
@@ -403,9 +400,8 @@ document.addEventListener('DOMContentLoaded', () => {
                   month: 'short',
                   year: 'numeric',
                   hour: '2-digit',
-                  minute: '2-digit',
-                  timeZoneName: 'short'
-                }) : (item.occurred_at || ''))}</small>
+                  minute: '2-digit'
+                }) + ' WIB' : (item.occurred_at || ''))}</small>
               </div>
             `).join('')
           : '<p class="admin-empty">Belum ada aktivitas.</p>';
@@ -439,7 +435,7 @@ document.addEventListener('DOMContentLoaded', () => {
       syncControls();
       setLastUpdated(data.meta?.generated_at);
       if (trendTitle) trendTitle.textContent = METRIC_LABELS[state.metric] || 'Trend over time';
-      if (trendMeta) trendMeta.textContent = `Timeframe: ${state.timeframe.toUpperCase()} • Timezone: ${state.timezone}`;
+      if (trendMeta) trendMeta.textContent = `Timeframe: ${state.timeframe.toUpperCase()} • Timezone: WIB`;
 
       if (showLoader) {
         setLoaderState(88, 'Finalizing interface');
