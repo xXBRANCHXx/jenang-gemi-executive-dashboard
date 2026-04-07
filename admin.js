@@ -18,8 +18,6 @@ const METRIC_UNITS = {
   checkout_clicks: 'checkouts'
 };
 
-const DASHBOARD_TIMEZONE = 'Asia/Jakarta';
-
 const formatSeconds = (seconds) => {
   if (!Number.isFinite(seconds) || seconds <= 0) return '0s';
   if (seconds < 60) return `${Math.round(seconds)}s`;
@@ -49,13 +47,15 @@ const prepareCanvas = (canvas) => {
 };
 
 const formatMetricValue = (metric, value) => `${Number(value).toLocaleString('id-ID')} ${METRIC_UNITS[metric] || 'units'}`;
-const formatDashboardTime = (value, options = {}) => {
+const formatDashboardTime = (value, timezone, options = {}) => {
   const date = value instanceof Date ? value : new Date(value);
   return date.toLocaleString('id-ID', {
-    timeZone: DASHBOARD_TIMEZONE,
+    timeZone: timezone,
     ...options
   });
 };
+
+const getBrowserTimezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Makassar';
 
 const getThemePalette = () => {
   const styles = window.getComputedStyle(document.documentElement);
@@ -197,6 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const state = {
     timeframe: '24h',
     metric: 'views',
+    timezone: getBrowserTimezone(),
     refreshMs: 60000,
     refreshHandle: null
   };
@@ -294,11 +295,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const setLastUpdated = (isoString) => {
     if (!lastUpdated) return;
     const date = isoString ? new Date(isoString) : new Date();
-    lastUpdated.textContent = `Updated ${formatDashboardTime(date, {
+    const zoneLabel = formatDashboardTime(date, state.timezone, {
+      timeZoneName: 'short'
+    }).split(' ').pop();
+    lastUpdated.textContent = `Updated ${formatDashboardTime(date, state.timezone, {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit'
-    })} WIB`;
+    })} ${zoneLabel}`;
   };
 
   const hideTooltip = () => {
@@ -321,7 +325,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const loadDashboard = async (showLoader = true) => {
     try {
       if (showLoader) setLoaderState(18, 'Connecting to analytics');
-      const response = await fetch(`${endpoint}?timeframe=${encodeURIComponent(state.timeframe)}`, {
+      const response = await fetch(`${endpoint}?timeframe=${encodeURIComponent(state.timeframe)}&timezone=${encodeURIComponent(state.timezone)}`, {
         headers: { Accept: 'application/json' },
         credentials: 'same-origin'
       });
@@ -333,6 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const byUrl = Array.isArray(data.by_url) ? data.by_url : [];
       const timeseries = Array.isArray(data.timeseries) ? data.timeseries : [];
       const hourOfDay = Array.isArray(data.hour_of_day) ? data.hour_of_day : [];
+      state.timezone = data.meta?.timezone || state.timezone;
 
       if (summaryViews) summaryViews.textContent = Number(summary.total_views || 0).toLocaleString('id-ID');
       if (summaryOrderClicks) summaryOrderClicks.textContent = Number(summary.order_now_clicks || 0).toLocaleString('id-ID');
@@ -371,13 +376,14 @@ document.addEventListener('DOMContentLoaded', () => {
               <div class="admin-event-item">
                 <strong>${escapeHtml(item.event_type || 'event')} • ${escapeHtml(item.source || 'unknown')}</strong>
                 <span>${escapeHtml(item.page_path || '-')}</span>
-                <small>${escapeHtml(item.occurred_at || (item.occurred_at_iso ? `${formatDashboardTime(item.occurred_at_iso, {
+                <small>${escapeHtml(item.occurred_at_iso ? formatDashboardTime(item.occurred_at_iso, state.timezone, {
                   day: '2-digit',
                   month: 'short',
                   year: 'numeric',
                   hour: '2-digit',
-                  minute: '2-digit'
-                })} WIB` : ''))}</small>
+                  minute: '2-digit',
+                  timeZoneName: 'short'
+                }) : (item.occurred_at || ''))}</small>
               </div>
             `).join('')
           : '<p class="admin-empty">Belum ada aktivitas.</p>';
@@ -411,7 +417,7 @@ document.addEventListener('DOMContentLoaded', () => {
       syncControls();
       setLastUpdated(data.meta?.generated_at);
       if (trendTitle) trendTitle.textContent = METRIC_LABELS[state.metric] || 'Trend over time';
-      if (trendMeta) trendMeta.textContent = `Timeframe: ${state.timeframe.toUpperCase()}`;
+      if (trendMeta) trendMeta.textContent = `Timeframe: ${state.timeframe.toUpperCase()} • Timezone: ${state.timezone}`;
 
       if (showLoader) {
         setLoaderState(88, 'Finalizing interface');
