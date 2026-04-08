@@ -291,6 +291,10 @@ button, input {
   transition: opacity 0.3s ease, visibility 0.3s ease;
 }
 
+.admin-app-lab {
+  min-height: 100svh;
+}
+
 .admin-topbar {
   display: flex;
   justify-content: space-between;
@@ -311,6 +315,13 @@ button, input {
 .admin-layout {
   display: grid;
   gap: 18px;
+}
+
+.admin-bottom-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 6px;
+  padding-bottom: 8px;
 }
 
 .admin-hero-panel {
@@ -335,6 +346,10 @@ button, input {
   border-radius: 16px;
   background: var(--admin-surface-soft);
   border: 1px solid var(--admin-border);
+}
+
+.admin-lab-panel {
+  grid-template-columns: 1.1fr 0.9fr;
 }
 
 .admin-launchpad {

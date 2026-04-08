@@ -301,6 +301,9 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/admin.js');
                     </div>
                 </article>
             </section>
+            <div class="admin-bottom-actions">
+                <a class="admin-ghost-btn admin-link-btn" href="../back-dash/">Open Back-dash</a>
+            </div>
         </main>
     </div>
     <script type="module" src="../admin.js?v=<?php echo urlencode($adminJsVersion ?: '1'); ?>"></script>
