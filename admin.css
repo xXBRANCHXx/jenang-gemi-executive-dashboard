@@ -35,6 +35,11 @@ html, body {
   margin: 0;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   font-family: 'Plus Jakarta Sans', sans-serif;
   color: var(--admin-text);
@@ -58,6 +63,10 @@ button, input {
 .admin-body.is-loading .admin-app {
   opacity: 0;
   visibility: hidden;
+}
+
+.admin-rotate-screen {
+  display: none;
 }
 
 .admin-login-shell,
@@ -721,6 +730,11 @@ button, input {
 }
 
 @media (max-width: 820px) {
+  html, body {
+    width: 100%;
+    height: 100%;
+  }
+
   .admin-app,
   .admin-login-shell {
     padding: 10px;
@@ -846,6 +860,42 @@ button, input {
   .admin-live-status,
   .admin-status-pill {
     padding: 10px 12px;
+  }
+}
+
+@media (max-width: 820px) and (orientation: portrait) {
+  .admin-rotate-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 12000;
+    display: grid;
+    place-items: center;
+    padding: 18px;
+    background: rgba(8, 12, 17, 0.94);
+    backdrop-filter: blur(12px);
+  }
+
+  .admin-rotate-card {
+    width: min(420px, 100%);
+    padding: 26px 22px;
+    border-radius: 22px;
+    border: 1px solid var(--admin-border);
+    background: var(--admin-surface);
+    box-shadow: var(--admin-shadow);
+    text-align: center;
+  }
+
+  .admin-rotate-card h2 {
+    margin: 14px 0 10px;
+    font-family: 'Space Grotesk', sans-serif;
+    letter-spacing: -0.04em;
+    font-size: clamp(1.4rem, 6vw, 2rem);
+  }
+
+  .admin-rotate-card p {
+    margin: 0;
+    color: var(--admin-muted);
+    line-height: 1.5;
   }
 }
 

@@ -21,7 +21,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/admin.js');
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
     <title>Jenang Gemi Executive Dashboard</title>
     <meta name="robots" content="noindex,nofollow">
     <link rel="icon" type="image/png" href="https://jenanggemi.com/Media/Jenang%20Gemi%20Website%20Logo.png">
@@ -49,6 +49,13 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/admin.js');
         </section>
     </main>
 <?php else: ?>
+    <div class="admin-rotate-screen" aria-hidden="true">
+        <div class="admin-rotate-card">
+            <span class="admin-chip">Landscape Recommended</span>
+            <h2>Putar ponsel ke samping</h2>
+            <p>Dashboard ini dibuat untuk tampilan lebar agar grafik dan tabel tetap terbaca penuh.</p>
+        </div>
+    </div>
     <div class="admin-loader" data-admin-loader aria-live="polite">
         <div class="admin-loader-panel">
             <span class="admin-chip">Preparing Dashboard</span>
