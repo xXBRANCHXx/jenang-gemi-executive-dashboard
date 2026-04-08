@@ -330,13 +330,14 @@ button, input {
 
 .admin-launchpad {
   display: grid;
-  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .admin-launchpad-section {
   display: grid;
-  gap: 12px;
-  padding: 14px;
+  gap: 10px;
+  padding: 12px;
   border-radius: 18px;
   background: var(--admin-surface-soft);
   border: 1px solid var(--admin-border);
@@ -363,16 +364,16 @@ button, input {
 .admin-launchpad-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
 .admin-launchpad-link {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 4px;
-  min-height: 78px;
-  padding: 14px 16px;
+  gap: 3px;
+  min-height: 58px;
+  padding: 10px 12px;
   border-radius: 999px;
   background: rgba(157, 255, 0, 0.08);
   border: 1px solid rgba(157, 255, 0, 0.22);
@@ -381,10 +382,13 @@ button, input {
 
 .admin-launchpad-link span {
   font-weight: 700;
+  font-size: 13px;
 }
 
 .admin-launchpad-link small {
   color: var(--admin-muted);
+  font-size: 11px;
+  line-height: 1.2;
 }
 
 .admin-launchpad-link:hover {
@@ -719,17 +723,39 @@ button, input {
 @media (max-width: 820px) {
   .admin-app,
   .admin-login-shell {
-    padding: 16px;
+    padding: 10px;
   }
 
-  .admin-topbar,
-  .admin-hero-panel,
-  .admin-control-strip,
-  .admin-metric-grid,
-  .admin-main-grid,
-  .admin-chart-legend {
-    grid-template-columns: 1fr;
+  .admin-topbar {
     display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: start;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .admin-hero-panel {
+    grid-template-columns: 1.18fr 0.82fr;
+    gap: 12px;
+  }
+
+  .admin-control-strip {
+    grid-template-columns: 1fr 1fr auto;
+    gap: 10px;
+  }
+
+  .admin-metric-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .admin-main-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .admin-chart-legend {
+    grid-template-columns: 1fr 1fr;
   }
 
   .admin-login-card,
@@ -738,15 +764,121 @@ button, input {
   .admin-control-strip,
   .admin-panel,
   .admin-metric-card {
-    padding: 18px;
-    border-radius: 20px;
+    padding: 14px;
+    border-radius: 18px;
   }
 
-  .admin-panel-head {
-    flex-direction: column;
+  .admin-topbar-brand h1 {
+    font-size: clamp(1.3rem, 4vw, 2rem);
+  }
+
+  .admin-topbar-brand p,
+  .admin-hero-copy p,
+  .admin-panel-meta,
+  .admin-live-status span,
+  .admin-metric-card small,
+  .admin-event-item span,
+  .admin-event-item small {
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .admin-hero-copy h2,
+  .admin-panel-head h3 {
+    font-size: clamp(1.05rem, 3.4vw, 1.45rem);
+  }
+
+  .admin-control-label,
+  .admin-chip,
+  .admin-panel-kicker {
+    font-size: 10px;
+  }
+
+  .admin-primary-btn,
+  .admin-ghost-btn,
+  .admin-soft-btn,
+  .admin-toggle-pill {
+    padding: 10px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+  }
+
+  .admin-toggle-row {
+    gap: 6px;
+  }
+
+  .admin-metric-card strong {
+    font-size: clamp(1.1rem, 3.4vw, 1.55rem);
+  }
+
+  .admin-launchpad {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
   }
 
   .admin-launchpad-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-launchpad-link {
+    min-height: 52px;
+    padding: 8px 10px;
+  }
+
+  .admin-table th,
+  .admin-table td {
+    padding: 10px 8px;
+    font-size: 12px;
+  }
+
+  .admin-chart-canvas {
+    height: 220px;
+  }
+
+  .admin-chart-canvas-lg {
+    height: 260px;
+  }
+
+  .admin-panel-head {
+    gap: 6px;
+  }
+
+  .admin-live-status,
+  .admin-status-pill {
+    padding: 10px 12px;
+  }
+}
+
+@media (max-width: 820px) and (orientation: landscape) {
+  .admin-app {
+    padding: 8px;
+  }
+
+  .admin-topbar {
+    grid-template-columns: 1fr auto;
+  }
+
+  .admin-hero-panel {
+    grid-template-columns: 1.25fr 0.75fr;
+  }
+
+  .admin-control-strip {
+    grid-template-columns: 1fr 1fr auto;
+  }
+
+  .admin-main-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .admin-panel-wide {
+    grid-column: 1 / -1;
+  }
+
+  .admin-chart-canvas {
+    height: 240px;
+  }
+
+  .admin-chart-canvas-lg {
+    height: 300px;
   }
 }
