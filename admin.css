@@ -670,6 +670,57 @@ button, input {
   gap: 10px;
 }
 
+.admin-sandbox-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-sandbox-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--admin-muted);
+}
+
+.admin-sandbox-textarea {
+  width: 100%;
+  min-height: 180px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+  font: 500 15px/1.6 "Plus Jakarta Sans", sans-serif;
+  resize: vertical;
+}
+
+.admin-sandbox-textarea:focus {
+  outline: none;
+  border-color: rgba(41, 214, 107, 0.48);
+  box-shadow: 0 0 0 1px rgba(41, 214, 107, 0.18);
+}
+
+.admin-sandbox-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.admin-code-block {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(10, 16, 23, 0.08);
+  border: 1px solid var(--admin-border);
+  color: var(--admin-text);
+  font: 700 12px/1.4 "Space Grotesk", sans-serif;
+  letter-spacing: 0.04em;
+  overflow-wrap: anywhere;
+}
+
 .admin-event-feed {
   flex: 1 1 auto;
   min-height: 0;

@@ -5,6 +5,8 @@ require dirname(__DIR__) . '/auth.php';
 jg_admin_require_auth();
 
 $adminCssVersion = (string) @filemtime(dirname(__DIR__) . '/admin.css');
+$whatsappWebhookUrl = 'https://jenanggemi.com/whatsapp-webhook.php';
+$conversionWebhookUrl = 'https://jenanggemi.com/conversion-webhook.php';
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -61,8 +63,152 @@ $adminCssVersion = (string) @filemtime(dirname(__DIR__) . '/admin.css');
                         <div class="admin-note-card"><strong>Next step</strong><span>When you are ready, we can add dedicated panels, secret fields, API forms, log viewers, or webhook diagnostics here.</span></div>
                     </div>
                 </article>
+
+                <article class="admin-panel">
+                    <div class="admin-panel-head">
+                        <div>
+                            <span class="admin-panel-kicker">Meta Setup</span>
+                            <h3>WhatsApp webhook target</h3>
+                        </div>
+                    </div>
+                    <div class="admin-note-stack">
+                        <div class="admin-note-card">
+                            <strong>Callback URL</strong>
+                            <span class="admin-code-block"><?php echo htmlspecialchars($whatsappWebhookUrl, ENT_QUOTES, 'UTF-8'); ?></span>
+                        </div>
+                        <div class="admin-note-card">
+                            <strong>Verify token env var</strong>
+                            <span class="admin-code-block">JG_WHATSAPP_VERIFY_TOKEN</span>
+                        </div>
+                        <div class="admin-note-card">
+                            <strong>App secret env var</strong>
+                            <span class="admin-code-block">JG_WHATSAPP_APP_SECRET</span>
+                        </div>
+                        <div class="admin-note-card">
+                            <strong>Fallback internal webhook</strong>
+                            <span class="admin-code-block"><?php echo htmlspecialchars($conversionWebhookUrl, ENT_QUOTES, 'UTF-8'); ?></span>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="admin-panel">
+                    <div class="admin-panel-head">
+                        <div>
+                            <span class="admin-panel-kicker">Message Code</span>
+                            <h3>Expected order format</h3>
+                        </div>
+                    </div>
+                    <div class="admin-note-stack">
+                        <div class="admin-note-card">
+                            <strong>Pattern</strong>
+                            <span class="admin-code-block">(FB|YT|TK|IG)(JGB|JGJ)(15|30|60)(OR|KL|VA|GU)</span>
+                        </div>
+                        <div class="admin-note-card">
+                            <strong>Example</strong>
+                            <span class="admin-code-block">YTJGB30GU</span>
+                        </div>
+                        <div class="admin-note-card">
+                            <strong>Recommendation</strong>
+                            <span>Keep the code on the first line of the WhatsApp message so the webhook can match it reliably even if the customer adds extra text underneath.</span>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="admin-panel admin-panel-wide">
+                    <div class="admin-panel-head">
+                        <div>
+                            <span class="admin-panel-kicker">Parser Playground</span>
+                            <h3>Test a WhatsApp message before you connect Meta</h3>
+                        </div>
+                    </div>
+                    <div class="admin-sandbox-stack">
+                        <label class="admin-sandbox-label" for="message-test-input">Paste the incoming WhatsApp text here</label>
+                        <textarea id="message-test-input" class="admin-sandbox-textarea" spellcheck="false">YTJGB30GU
+
+Halo Admin Jenang Gemi, saya ingin order Jenang Gemi Bubur.
+Rasa yang dipilih: Gula Aren
+Paket yang dipilih: 30 Sachet</textarea>
+                        <div class="admin-sandbox-actions">
+                            <button type="button" class="admin-primary-btn" data-parser-run>Test Parser</button>
+                            <button type="button" class="admin-ghost-btn" data-parser-fill>Load Example</button>
+                        </div>
+                        <div class="admin-note-stack" data-parser-output>
+                            <div class="admin-note-card">
+                                <strong>Status</strong>
+                                <span>Waiting for test input.</span>
+                            </div>
+                        </div>
+                    </div>
+                </article>
             </section>
         </main>
     </div>
+    <script>
+        (() => {
+            const textarea = document.getElementById('message-test-input');
+            const output = document.querySelector('[data-parser-output]');
+            const runButton = document.querySelector('[data-parser-run]');
+            const fillButton = document.querySelector('[data-parser-fill]');
+            if (!textarea || !output || !runButton || !fillButton) return;
+
+            const exampleMessage = `YTJGB30GU
+
+Halo Admin Jenang Gemi, saya ingin order Jenang Gemi Bubur.
+Rasa yang dipilih: Gula Aren
+Paket yang dipilih: 30 Sachet`;
+
+            const maps = {
+                source: { FB: 'Facebook', YT: 'YouTube', TK: 'TikTok', IG: 'Instagram' },
+                product: { JGB: 'Jenang Gemi Bubur', JGJ: 'Jenang Gemi Jamu' },
+                flavor: { OR: 'Original', KL: 'Klepon', VA: 'Vanilla', GU: 'Gula Aren' }
+            };
+
+            const render = (html) => {
+                output.innerHTML = html;
+            };
+
+            const testParser = () => {
+                const text = textarea.value.trim();
+                const match = text.match(/\b(FB|YT|TK|IG)(JGB|JGJ)(15|30|60)(OR|KL|VA|GU)\b/i);
+
+                if (!match) {
+                    render(`
+                        <div class="admin-note-card">
+                            <strong>Status</strong>
+                            <span>Code not found. The webhook would ignore this message until one of the expected order codes appears inside it.</span>
+                        </div>
+                    `);
+                    return;
+                }
+
+                const sourceCode = match[1].toUpperCase();
+                const productCode = match[2].toUpperCase();
+                const packSize = match[3];
+                const flavorCode = match[4].toUpperCase();
+                const orderCode = match[0].toUpperCase();
+
+                render(`
+                    <div class="admin-note-card">
+                        <strong>Status</strong>
+                        <span>Matched successfully. This message would be stored as a real conversion.</span>
+                    </div>
+                    <div class="admin-note-card">
+                        <strong>Order code</strong>
+                        <span class="admin-code-block">${orderCode}</span>
+                    </div>
+                    <div class="admin-note-card">
+                        <strong>Decoded</strong>
+                        <span>${maps.source[sourceCode]} • ${maps.product[productCode]} • ${packSize} Sachet • ${maps.flavor[flavorCode]}</span>
+                    </div>
+                `);
+            };
+
+            runButton.addEventListener('click', testParser);
+            fillButton.addEventListener('click', () => {
+                textarea.value = exampleMessage;
+                testParser();
+            });
+        })();
+    </script>
 </body>
 </html>
