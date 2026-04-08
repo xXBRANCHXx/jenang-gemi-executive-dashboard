@@ -7,6 +7,7 @@ jg_admin_require_auth();
 $adminCssVersion = (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $whatsappWebhookUrl = 'https://jenanggemi.com/whatsapp-webhook.php';
 $conversionWebhookUrl = 'https://jenanggemi.com/conversion-webhook.php';
+$configPath = '/public_html/whatsapp-config.local.php';
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -77,12 +78,12 @@ $conversionWebhookUrl = 'https://jenanggemi.com/conversion-webhook.php';
                             <span class="admin-code-block"><?php echo htmlspecialchars($whatsappWebhookUrl, ENT_QUOTES, 'UTF-8'); ?></span>
                         </div>
                         <div class="admin-note-card">
-                            <strong>Verify token env var</strong>
-                            <span class="admin-code-block">JG_WHATSAPP_VERIFY_TOKEN</span>
+                            <strong>Config file path</strong>
+                            <span class="admin-code-block"><?php echo htmlspecialchars($configPath, ENT_QUOTES, 'UTF-8'); ?></span>
                         </div>
                         <div class="admin-note-card">
-                            <strong>App secret env var</strong>
-                            <span class="admin-code-block">JG_WHATSAPP_APP_SECRET</span>
+                            <strong>Config keys</strong>
+                            <span class="admin-code-block">whatsapp_verify_token • whatsapp_app_secret • conversion_webhook_secret</span>
                         </div>
                         <div class="admin-note-card">
                             <strong>Fallback internal webhook</strong>
