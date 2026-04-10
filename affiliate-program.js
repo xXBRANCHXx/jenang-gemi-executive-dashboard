@@ -280,10 +280,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const timeframeButtons = document.querySelectorAll('[data-timeframe]');
   const metricButtons = document.querySelectorAll('[data-metric]');
   const affiliateSelect = document.querySelector('[data-affiliate-select]');
-  const affiliateList = document.querySelector('[data-affiliate-list]');
-  const affiliateModal = document.querySelector('[data-affiliate-modal]');
-  const affiliateForm = document.querySelector('[data-affiliate-form]');
-  const affiliateFormError = document.querySelector('[data-affiliate-form-error]');
   const tooltip = document.createElement('div');
   tooltip.className = 'admin-chart-tooltip';
   tooltip.innerHTML = '<strong></strong><span></span>';
@@ -485,21 +481,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const closeAffiliateModal = () => {
-    if (!affiliateModal) return;
-    affiliateModal.hidden = true;
-    affiliateForm?.reset();
-    if (affiliateFormError) {
-      affiliateFormError.hidden = true;
-      affiliateFormError.textContent = '';
-    }
-  };
-
-  const openAffiliateModal = () => {
-    if (!affiliateModal) return;
-    affiliateModal.hidden = false;
-  };
-
   const buildAnalyticsUrl = () => {
     const params = new URLSearchParams({
       timeframe: state.timeframe,
@@ -513,77 +494,11 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${endpoint}?${params.toString()}`;
   };
 
-  const renderAffiliateCards = () => {
-    if (!affiliateList) return;
-
-    if (!state.affiliates.length) {
-      affiliateList.innerHTML = '<p class="admin-empty">Belum ada affiliate.</p>';
-      return;
-    }
-
-    affiliateList.innerHTML = state.affiliates.map((affiliate) => {
-      const platformSet = new Set(Array.isArray(affiliate.platforms) ? affiliate.platforms : []);
-      const urls = affiliate.urls && typeof affiliate.urls === 'object' ? affiliate.urls : {};
-
-      const platformOptions = state.platforms.map((platform) => `
-        <label class="admin-platform-choice">
-          <input type="checkbox" name="platforms[]" value="${escapeHtml(platform)}"${platformSet.has(platform) ? ' checked' : ''}>
-          <span>${escapeHtml(toTitleCase(platform))}</span>
-        </label>
-      `).join('');
-
-      const urlLinks = Object.entries(urls).map(([platform, url]) => `
-        <a class="admin-affiliate-url" href="https://jenanggemi.com${escapeHtml(String(url || ''))}" target="_blank" rel="noopener">
-          <strong>${escapeHtml(toTitleCase(platform))}</strong>
-          <span>${escapeHtml(String(url || ''))}</span>
-        </a>
-      `).join('');
-
-      return `
-        <article class="admin-affiliate-card" data-affiliate-card="${escapeHtml(affiliate.code || '')}">
-          <div class="admin-affiliate-head">
-            <div>
-              <span class="admin-chip">${escapeHtml(affiliate.code || '')}</span>
-              <h4>${escapeHtml(affiliate.name || affiliate.code || 'Affiliate')}</h4>
-            </div>
-            <div class="admin-affiliate-meta">
-              <span>Created ${escapeHtml(formatDashboardTime(affiliate.created_at || new Date(), state.timezone, {
-                day: '2-digit',
-                month: 'short',
-                year: 'numeric'
-              }))}</span>
-              <span>Updated ${escapeHtml(formatDashboardTime(affiliate.updated_at || new Date(), state.timezone, {
-                day: '2-digit',
-                month: 'short',
-                year: 'numeric'
-              }))}</span>
-            </div>
-          </div>
-          <form class="admin-affiliate-editor" data-affiliate-editor="${escapeHtml(affiliate.code || '')}">
-            <div class="admin-affiliate-field">
-              <span class="admin-control-label">Platforms</span>
-              <div class="admin-affiliate-platform-grid">${platformOptions}</div>
-            </div>
-            <div class="admin-affiliate-field">
-              <span class="admin-control-label">Landing URLs</span>
-              <div class="admin-affiliate-url-list">${urlLinks || '<p class="admin-empty">Belum ada URL.</p>'}</div>
-            </div>
-            <div class="admin-affiliate-actions">
-              <button type="submit" class="admin-ghost-btn">Save Platforms</button>
-              <button type="button" class="admin-ghost-btn" data-delete-affiliate="${escapeHtml(affiliate.code || '')}">Delete Affiliate</button>
-            </div>
-          </form>
-        </article>
-      `;
-    }).join('');
-  };
-
   const setAffiliates = (payload) => {
     const nextAffiliates = Array.isArray(payload.affiliates) ? payload.affiliates : [];
     const nextPlatforms = Array.isArray(payload.platforms) && payload.platforms.length ? payload.platforms : state.platforms;
     state.affiliates = nextAffiliates;
     state.platforms = nextPlatforms;
-    renderAffiliateCards();
     syncControls();
   };
 
@@ -798,99 +713,6 @@ document.addEventListener('DOMContentLoaded', () => {
     loadDashboard(false);
   });
 
-  document.querySelectorAll('[data-open-affiliate-modal]').forEach((button) => {
-    button.addEventListener('click', openAffiliateModal);
-  });
-
-  document.querySelectorAll('[data-close-affiliate-modal]').forEach((node) => {
-    node.addEventListener('click', closeAffiliateModal);
-  });
-
-  affiliateForm?.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const formData = new FormData(affiliateForm);
-    const payload = {
-      name: String(formData.get('name') || '').trim(),
-      platforms: formData.getAll('platforms[]').map((value) => String(value))
-    };
-
-    try {
-      if (affiliateFormError) {
-        affiliateFormError.hidden = true;
-        affiliateFormError.textContent = '';
-      }
-      const response = await requestJson(affiliatesEndpoint, {
-        method: 'POST',
-        body: JSON.stringify(payload)
-      });
-      closeAffiliateModal();
-      await loadAffiliates();
-      state.affiliateCode = response.affiliate?.code || state.affiliates[0]?.code || '';
-      syncControls();
-      await loadDashboard(false);
-    } catch (error) {
-      if (affiliateFormError) {
-        affiliateFormError.hidden = false;
-        affiliateFormError.textContent = error.message;
-      }
-    }
-  });
-
-  affiliateList?.addEventListener('submit', async (event) => {
-    const form = event.target;
-    if (!(form instanceof HTMLFormElement)) return;
-    if (!form.matches('[data-affiliate-editor]')) return;
-    event.preventDefault();
-
-    const code = form.getAttribute('data-affiliate-editor') || '';
-    const card = form.closest('[data-affiliate-card]');
-    const name = card?.querySelector('h4')?.textContent?.trim() || '';
-    const formData = new FormData(form);
-    const payload = {
-      code,
-      name,
-      platforms: formData.getAll('platforms[]').map((value) => String(value))
-    };
-
-    try {
-      await requestJson(affiliatesEndpoint, {
-        method: 'PATCH',
-        body: JSON.stringify(payload)
-      });
-      await loadAffiliates();
-      await loadDashboard(false);
-    } catch (error) {
-      window.alert(error.message);
-    }
-  });
-
-  affiliateList?.addEventListener('click', async (event) => {
-    const trigger = event.target;
-    if (!(trigger instanceof HTMLElement)) return;
-    const deleteButton = trigger.closest('[data-delete-affiliate]');
-    if (!deleteButton) return;
-
-    const code = deleteButton.getAttribute('data-delete-affiliate') || '';
-    if (!code) return;
-    if (!window.confirm(`Delete affiliate ${code}? This will remove all generated landing pages for that affiliate.`)) {
-      return;
-    }
-
-    try {
-      await requestJson(affiliatesEndpoint, {
-        method: 'DELETE',
-        body: JSON.stringify({ code })
-      });
-      if (state.affiliateCode === code) {
-        state.affiliateCode = '';
-      }
-      await loadAffiliates();
-      await loadDashboard(false);
-    } catch (error) {
-      window.alert(error.message);
-    }
-  });
-
   recentEvents?.addEventListener('scroll', () => {
     const threshold = 20;
     const atTop = recentEvents.scrollTop <= threshold;
@@ -943,9 +765,7 @@ document.addEventListener('DOMContentLoaded', () => {
       setLoaderState(12, 'Loading affiliate profiles');
       await loadAffiliates();
     } catch (error) {
-      if (affiliateList) {
-        affiliateList.innerHTML = `<p class="admin-empty">Gagal memuat affiliate: ${escapeHtml(error.message)}</p>`;
-      }
+      renderEmptyAnalytics(`Gagal memuat affiliate: ${escapeHtml(error.message)}`);
     }
     await loadDashboard(true);
     connectLiveStream();

@@ -45,6 +45,7 @@ $affiliateJsVersion = (string) @filemtime(dirname(__DIR__) . '/affiliate-program
             </div>
             <div class="admin-topbar-actions">
                 <a class="admin-ghost-btn admin-link-btn" href="../dashboard/">Main Dashboard</a>
+                <a class="admin-ghost-btn admin-link-btn" href="../affiliate-profiles/">Affiliate Profiles</a>
                 <button type="button" class="admin-ghost-btn" data-theme-toggle aria-label="Toggle theme">Toggle Theme</button>
                 <a class="admin-primary-btn admin-link-btn" href="../logout/">Lock Dashboard</a>
             </div>
@@ -53,16 +54,16 @@ $affiliateJsVersion = (string) @filemtime(dirname(__DIR__) . '/affiliate-program
         <main class="admin-layout">
             <section class="admin-hero-panel">
                 <div class="admin-hero-copy">
-                    <span class="admin-chip admin-chip-accent">Affiliate Management</span>
-                    <h2>Run affiliate tracking on its own page so the main dashboard stays fast and scalable.</h2>
-                    <p>Add affiliates, assign multiple platforms, open their generated landing pages, and view charts filtered to a single affiliate without cluttering the main executive dashboard.</p>
+                    <span class="admin-chip admin-chip-accent">Affiliate Performance</span>
+                    <h2>Watch affiliate traffic and conversions here without exposing editing controls on the analytics page.</h2>
+                    <p>Select an affiliate to inspect live performance charts. For profile changes, platform assignments, or deletion, use the dedicated Affiliate Profiles area.</p>
                 </div>
                 <div class="admin-hero-actions">
                     <div class="admin-status-pill">
                         <span class="admin-status-dot"></span>
                         <span>Secure Session Active</span>
                     </div>
-                    <button type="button" class="admin-primary-btn" data-open-affiliate-modal>Add Affiliate</button>
+                    <a class="admin-primary-btn admin-link-btn" href="../affiliate-profiles/">Open Affiliate Profiles</a>
                 </div>
             </section>
 
@@ -97,19 +98,6 @@ $affiliateJsVersion = (string) @filemtime(dirname(__DIR__) . '/affiliate-program
                 <div class="admin-live-status">
                     <strong>Live</strong>
                     <span data-last-updated>Waiting for first sync</span>
-                </div>
-            </section>
-
-            <section class="admin-panel admin-panel-affiliates">
-                <div class="admin-panel-head">
-                    <div>
-                        <span class="admin-panel-kicker">Affiliate Profiles</span>
-                        <h3>Manage affiliates and landing URLs</h3>
-                    </div>
-                    <button type="button" class="admin-primary-btn" data-open-affiliate-modal>Add Affiliate</button>
-                </div>
-                <div class="admin-affiliate-list" data-affiliate-list>
-                    <p class="admin-empty">Belum ada affiliate.</p>
                 </div>
             </section>
 
@@ -242,42 +230,10 @@ $affiliateJsVersion = (string) @filemtime(dirname(__DIR__) . '/affiliate-program
             </section>
 
             <div class="admin-bottom-actions">
+                <a class="admin-primary-btn admin-link-btn" href="../affiliate-profiles/">Manage Affiliate Profiles</a>
                 <a class="admin-ghost-btn admin-link-btn" href="../dashboard/">Return To Main Dashboard</a>
             </div>
         </main>
-    </div>
-
-    <div class="admin-modal-shell" data-affiliate-modal hidden>
-        <div class="admin-modal-backdrop" data-close-affiliate-modal></div>
-        <div class="admin-modal-card" role="dialog" aria-modal="true" aria-labelledby="affiliate-modal-title">
-            <div class="admin-modal-head">
-                <div>
-                    <span class="admin-panel-kicker">New Affiliate</span>
-                    <h3 id="affiliate-modal-title">Create trackable affiliate pages</h3>
-                </div>
-                <button type="button" class="admin-ghost-btn" data-close-affiliate-modal>Close</button>
-            </div>
-            <form class="admin-affiliate-form" data-affiliate-form>
-                <label>
-                    <span>Affiliate name</span>
-                    <input type="text" name="name" maxlength="120" placeholder="e.g. Rina Sulistyo" required>
-                </label>
-                <fieldset class="admin-affiliate-platforms">
-                    <legend>Platforms</legend>
-                    <div class="admin-affiliate-platform-grid">
-                        <label><input type="checkbox" name="platforms[]" value="youtube"> <span>YouTube</span></label>
-                        <label><input type="checkbox" name="platforms[]" value="facebook"> <span>Facebook</span></label>
-                        <label><input type="checkbox" name="platforms[]" value="instagram"> <span>Instagram</span></label>
-                        <label><input type="checkbox" name="platforms[]" value="tiktok"> <span>TikTok</span></label>
-                    </div>
-                </fieldset>
-                <p class="admin-form-error" data-affiliate-form-error hidden></p>
-                <div class="admin-modal-actions">
-                    <button type="button" class="admin-ghost-btn" data-close-affiliate-modal>Cancel</button>
-                    <button type="submit" class="admin-primary-btn">Create Affiliate</button>
-                </div>
-            </form>
-        </div>
     </div>
 
     <script type="module" src="../affiliate-program.js?v=<?php echo urlencode($affiliateJsVersion ?: '1'); ?>"></script>
