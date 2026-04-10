@@ -414,6 +414,10 @@ button, input {
   padding: 24px;
 }
 
+.admin-modal-shell[hidden] {
+  display: none;
+}
+
 .admin-modal-backdrop {
   position: absolute;
   inset: 0;
