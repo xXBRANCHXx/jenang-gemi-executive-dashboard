@@ -67,7 +67,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/admin.js');
             <strong class="admin-loader-label" data-admin-loader-label>Initializing...</strong>
         </div>
     </div>
-    <div class="admin-app" data-admin-dashboard data-analytics-endpoint="../api/analytics/" data-affiliates-endpoint="../api/affiliates/">
+    <div class="admin-app" data-admin-dashboard data-analytics-endpoint="../api/analytics/" data-affiliates-endpoint="../api/affiliates/" data-live-endpoint="../api/live/">
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
         <header class="admin-topbar">
@@ -325,7 +325,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/admin.js');
                         <div class="admin-note-card"><strong>Auth gate</strong><span>Dashboard and analytics access are protected by server-side session auth.</span></div>
                         <div class="admin-note-card"><strong>Source API</strong><span>Data is pulled server-side from jenanggemi.com over a shared secret header.</span></div>
                         <div class="admin-note-card"><strong>Endpoint</strong><span data-endpoint-label>../api/analytics/</span></div>
-                        <div class="admin-note-card"><strong>Auto Update</strong><span>Dashboard refreshes automatically every 60 seconds.</span></div>
+                        <div class="admin-note-card"><strong>Live Sync</strong><span>Dashboard listens for upstream analytics changes and refreshes automatically.</span></div>
                     </div>
                 </article>
             </section>

@@ -249,11 +249,14 @@ document.addEventListener('DOMContentLoaded', () => {
     recentEventsAll: [],
     recentFeedLocked: false,
     refreshMs: 60000,
-    refreshHandle: null
+    refreshHandle: null,
+    liveSequence: -1,
+    liveSource: null
   };
 
   const endpoint = root.dataset.analyticsEndpoint || './analytics.php';
   const affiliatesEndpoint = root.dataset.affiliatesEndpoint || './affiliates.php';
+  const liveEndpoint = root.dataset.liveEndpoint || './live/';
   const themeStorageKey = 'jg-admin-theme';
   const summaryViews = document.querySelector('[data-summary-total-views]');
   const summaryOrderClicks = document.querySelector('[data-summary-order-clicks]');
@@ -495,6 +498,13 @@ document.addEventListener('DOMContentLoaded', () => {
     return payload;
   };
 
+  const closeLiveStream = () => {
+    if (state.liveSource) {
+      state.liveSource.close();
+      state.liveSource = null;
+    }
+  };
+
   const renderAffiliateCards = () => {
     if (!affiliateList) return;
 
@@ -684,6 +694,38 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const connectLiveStream = () => {
+    if (!window.EventSource || !liveEndpoint) return;
+
+    closeLiveStream();
+    const streamUrl = `${liveEndpoint}?last_sequence=${encodeURIComponent(String(state.liveSequence))}`;
+    const source = new window.EventSource(streamUrl, { withCredentials: true });
+    state.liveSource = source;
+
+    source.addEventListener('change', (event) => {
+      try {
+        const payload = JSON.parse(event.data || '{}');
+        const nextSequence = Number(payload.sequence || 0);
+        if (!Number.isFinite(nextSequence) || nextSequence <= state.liveSequence) {
+          return;
+        }
+        state.liveSequence = nextSequence;
+        loadDashboard(false);
+      } catch (_) {
+        // Ignore malformed live payloads and keep the fallback refresh path intact.
+      }
+    });
+
+    source.addEventListener('error', () => {
+      closeLiveStream();
+      window.setTimeout(() => {
+        if (!document.hidden) {
+          connectLiveStream();
+        }
+      }, 2000);
+    });
+  };
+
   const closeAffiliateModal = () => {
     if (!affiliateModal) return;
     affiliateModal.hidden = true;
@@ -868,6 +910,16 @@ document.addEventListener('DOMContentLoaded', () => {
     loadDashboard(false);
   }, state.refreshMs);
 
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      closeLiveStream();
+      return;
+    }
+    connectLiveStream();
+    loadDashboard(false);
+  });
+
+  window.addEventListener('beforeunload', closeLiveStream);
   window.addEventListener('resize', () => loadDashboard(false));
 
   const initialize = async () => {
@@ -880,6 +932,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
     await loadDashboard(true);
+    connectLiveStream();
   };
 
   initialize();
