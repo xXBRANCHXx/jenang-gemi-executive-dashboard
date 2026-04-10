@@ -10,6 +10,10 @@ if (!jg_admin_is_authenticated()) {
     exit;
 }
 
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
+}
+
 header('Content-Type: text/event-stream; charset=utf-8');
 header('Cache-Control: no-cache, no-transform');
 header('Connection: keep-alive');
