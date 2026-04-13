@@ -617,6 +617,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="admin-event-item">
         <strong>${escapeHtml(item.page_path || '/')} • ${escapeHtml(item.region_label || 'Unknown')}</strong>
         <span>${escapeHtml(item.ip_address_masked || 'Unknown')}</span>
+        ${item.ip_address ? `<button type="button" class="admin-soft-btn" data-ignore-recorded-ip="${escapeHtml(String(item.ip_address))}">Ignore This Recorded IP</button>` : ''}
         <small>${escapeHtml(item.occurred_at || '')}</small>
       </div>
     `, 'Belum ada kunjungan website.');
@@ -937,6 +938,39 @@ document.addEventListener('DOMContentLoaded', () => {
       if (state.website.data) {
         await loadWebsiteSafely();
       }
+    } catch (error) {
+      if (websiteRefs.exclusionError) {
+        websiteRefs.exclusionError.hidden = false;
+        websiteRefs.exclusionError.textContent = error.message;
+      }
+    }
+  });
+
+  websiteRefs.recentEvents?.addEventListener('click', async (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const ipAddress = target.dataset.ignoreRecordedIp || '';
+    if (!ipAddress) return;
+
+    if (websiteRefs.exclusionError) {
+      websiteRefs.exclusionError.hidden = true;
+      websiteRefs.exclusionError.textContent = '';
+    }
+
+    try {
+      const data = await requestJson(buildSettingsUrl('website_exclusion_add'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ip_address: ipAddress,
+          label: 'Auto-ignored recorded IP'
+        })
+      });
+      state.website.exclusions = Array.isArray(data.excluded_ips) ? data.excluded_ips : state.website.exclusions;
+      renderExclusionList();
+      if (websiteRefs.excludedCount) websiteRefs.excludedCount.textContent = Number(state.website.exclusions.length).toLocaleString('id-ID');
+      await loadWebsiteSafely();
+      await loadWebsiteSettingsSafely();
     } catch (error) {
       if (websiteRefs.exclusionError) {
         websiteRefs.exclusionError.hidden = false;

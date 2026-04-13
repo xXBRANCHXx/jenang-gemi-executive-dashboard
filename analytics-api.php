@@ -489,6 +489,7 @@ function buildWebsiteAnalyticsPayload(
                     'region_label' => $regionLabel,
                     'country_code' => $countryCode,
                     'city_name' => $cityName,
+                    'ip_address' => $ipAddress,
                     'ip_address_masked' => maskIpAddress($ipAddress),
                     'session_id' => $sessionId,
                 ];
