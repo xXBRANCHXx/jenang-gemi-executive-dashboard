@@ -227,7 +227,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/admin.js');
                                 <span class="admin-panel-kicker">Source Mix</span>
                                 <h3>Views by source</h3>
                             </div>
-                            <span class="admin-panel-meta">Live from protected analytics proxy</span>
+                            <span class="admin-panel-meta">Live from the dashboard analytics service</span>
                         </div>
                         <div class="admin-chart-surface">
                             <canvas class="admin-chart-canvas" data-home-source-chart width="880" height="340"></canvas>
@@ -308,9 +308,9 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/admin.js');
                         </div>
                         <div class="admin-note-stack">
                             <div class="admin-note-card"><strong>Auth gate</strong><span>Dashboard and analytics access are protected by server-side session auth.</span></div>
-                            <div class="admin-note-card"><strong>Source API</strong><span>Data is pulled server-side from jenanggemi.com over a shared secret header.</span></div>
+                            <div class="admin-note-card"><strong>Source API</strong><span>Data is queried server-side from the dashboard analytics database.</span></div>
                             <div class="admin-note-card"><strong>Endpoint</strong><span data-home-endpoint-label>../api/analytics/</span></div>
-                            <div class="admin-note-card"><strong>Live Sync</strong><span>Dashboard listens for upstream analytics changes and refreshes automatically.</span></div>
+                            <div class="admin-note-card"><strong>Live Sync</strong><span>Dashboard listens for local analytics changes and refreshes automatically.</span></div>
                         </div>
                     </article>
                 </section>
