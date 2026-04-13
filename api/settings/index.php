@@ -5,6 +5,9 @@ require dirname(__DIR__, 2) . '/auth.php';
 jg_admin_require_auth_json();
 
 header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
 
 $action = strtolower(trim((string) ($_GET['action'] ?? 'website_settings')));
 $allowedActions = ['website_settings', 'website_exclusion_add', 'website_exclusion_delete'];
@@ -15,6 +18,10 @@ if (!in_array($action, $allowedActions, true)) {
 }
 
 $endpoint = 'https://jenanggemi.com/admin-analytics-api.php?action=' . rawurlencode($action);
+$cacheBust = (string) ($_GET['_ts'] ?? '');
+if ($cacheBust !== '') {
+    $endpoint .= '&_ts=' . rawurlencode($cacheBust);
+}
 $token = JG_ADMIN_CODE_HASH;
 
 $headers = [

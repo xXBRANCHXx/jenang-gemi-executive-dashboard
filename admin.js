@@ -243,16 +243,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const state = {
     activeView: window.localStorage.getItem(viewStorageKey) || 'home',
     timezone: DASHBOARD_TIMEZONE,
+    requestSequence: 0,
     home: {
       timeframe: '24h',
       metric: 'views',
-      data: null
+      data: null,
+      requestToken: 0
     },
     website: {
       timeframe: '7d',
       metric: 'visitors',
       data: null,
-      exclusions: []
+      exclusions: [],
+      requestToken: 0,
+      settingsRequestToken: 0
     },
     liveSequence: -1,
     liveSource: null
@@ -362,6 +366,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const response = await fetch(url, {
       headers: { Accept: 'application/json', ...(options.headers || {}) },
       credentials: 'same-origin',
+      cache: 'no-store',
       ...options
     });
     const payload = await response.json().catch(() => ({}));
@@ -444,12 +449,30 @@ document.addEventListener('DOMContentLoaded', () => {
       timeframe,
       timezone: state.timezone,
       recent_limit: '120',
-      dataset
+      dataset,
+      _ts: String(Date.now())
     });
     return `${endpoint}?${params.toString()}`;
   };
 
-  const buildSettingsUrl = (action) => `${settingsEndpoint}?action=${encodeURIComponent(action)}`;
+  const buildSettingsUrl = (action) => `${settingsEndpoint}?action=${encodeURIComponent(action)}&_ts=${encodeURIComponent(String(Date.now()))}`;
+
+  const beginRequest = (key, settings = false) => {
+    state.requestSequence += 1;
+    const token = state.requestSequence;
+    if (settings) {
+      state[key].settingsRequestToken = token;
+    } else {
+      state[key].requestToken = token;
+    }
+    return token;
+  };
+
+  const isLatestRequest = (key, token, settings = false) => (
+    settings
+      ? state[key].settingsRequestToken === token
+      : state[key].requestToken === token
+  );
 
   const renderHome = (data) => {
     state.home.data = data;
@@ -628,17 +651,23 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const loadHome = async () => {
+    const requestToken = beginRequest('home');
     const data = await requestJson(buildAnalyticsUrl('landing', state.home.timeframe));
+    if (!isLatestRequest('home', requestToken)) return;
     renderHome(data);
   };
 
   const loadWebsite = async () => {
+    const requestToken = beginRequest('website');
     const data = await requestJson(buildAnalyticsUrl('website', state.website.timeframe));
+    if (!isLatestRequest('website', requestToken)) return;
     renderWebsite(data);
   };
 
   const loadWebsiteSettings = async () => {
+    const requestToken = beginRequest('website', true);
     const data = await requestJson(buildSettingsUrl('website_settings'));
+    if (!isLatestRequest('website', requestToken, true)) return;
     state.website.exclusions = Array.isArray(data.excluded_ips) ? data.excluded_ips : [];
     renderExclusionList();
     if (websiteRefs.excludedCount) websiteRefs.excludedCount.textContent = Number(state.website.exclusions.length).toLocaleString('id-ID');

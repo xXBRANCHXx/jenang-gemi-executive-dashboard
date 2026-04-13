@@ -5,12 +5,16 @@ require dirname(__DIR__, 2) . '/auth.php';
 jg_admin_require_auth_json();
 
 header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
 
 $timeframe = (string) ($_GET['timeframe'] ?? '7d');
 $timezone = (string) ($_GET['timezone'] ?? '');
 $recentLimit = max(15, min(300, (int) ($_GET['recent_limit'] ?? 180)));
 $dataset = (string) ($_GET['dataset'] ?? 'landing');
 $affiliateCode = (string) ($_GET['affiliate_code'] ?? '');
+$cacheBust = (string) ($_GET['_ts'] ?? '');
 $endpoint = 'https://jenanggemi.com/admin-analytics-api.php?timeframe=' . rawurlencode($timeframe);
 if ($timezone !== '') {
     $endpoint .= '&timezone=' . rawurlencode($timezone);
@@ -19,6 +23,9 @@ $endpoint .= '&recent_limit=' . rawurlencode((string) $recentLimit);
 $endpoint .= '&dataset=' . rawurlencode($dataset);
 if ($affiliateCode !== '') {
     $endpoint .= '&affiliate_code=' . rawurlencode($affiliateCode);
+}
+if ($cacheBust !== '') {
+    $endpoint .= '&_ts=' . rawurlencode($cacheBust);
 }
 $token = JG_ADMIN_CODE_HASH;
 
