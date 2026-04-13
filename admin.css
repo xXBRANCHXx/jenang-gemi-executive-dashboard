@@ -519,6 +519,73 @@ button, input {
   padding-bottom: 8px;
 }
 
+.admin-view {
+  display: none;
+  gap: 18px;
+}
+
+.admin-view.is-active {
+  display: grid;
+}
+
+.admin-view-indicator {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 16px;
+  border-radius: 14px;
+  background: var(--admin-surface-soft);
+  border: 1px solid var(--admin-border);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.admin-menu-shell {
+  position: relative;
+}
+
+.admin-menu-trigger {
+  min-width: 54px;
+  font-size: 1.25rem;
+  letter-spacing: 0.1em;
+}
+
+.admin-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  z-index: 40;
+  display: grid;
+  gap: 8px;
+  min-width: 280px;
+  padding: 10px;
+  border-radius: 20px;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow);
+}
+
+.admin-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.admin-menu-item:hover {
+  border-color: rgba(157, 255, 0, 0.24);
+}
+
 .admin-hero-panel {
   display: grid;
   grid-template-columns: 1.25fr 0.75fr;
@@ -641,6 +708,15 @@ button, input {
   border-color: var(--admin-border);
   background: rgba(148, 163, 184, 0.08);
   box-shadow: none;
+}
+
+.admin-note-card-compact {
+  padding: 16px 18px;
+}
+
+.admin-note-card-compact strong {
+  display: block;
+  margin-bottom: 6px;
 }
 
 .admin-status-pill {
@@ -971,6 +1047,68 @@ button, input {
   margin-top: 6px;
 }
 
+.admin-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.admin-settings-card {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-settings-card-wide {
+  grid-column: 1 / -1;
+}
+
+.admin-settings-copy {
+  margin: 0;
+  color: var(--admin-muted);
+  line-height: 1.6;
+}
+
+.admin-settings-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: end;
+}
+
+.admin-settings-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.admin-settings-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 12px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-surface-soft);
+}
+
+.admin-settings-chip strong {
+  font-size: 13px;
+}
+
+.admin-settings-chip span {
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+
+.admin-settings-chip button {
+  border: 0;
+  background: transparent;
+  color: var(--admin-accent-tertiary);
+  font-weight: 800;
+  cursor: pointer;
+}
+
 @keyframes adminFloat {
   from { transform: translate3d(0, 0, 0); }
   to { transform: translate3d(0, 16px, 0); }
@@ -985,8 +1123,17 @@ button, input {
     grid-template-columns: 1fr 1fr;
   }
 
+  .admin-menu-panel {
+    min-width: 220px;
+  }
+
   .admin-panel-wide {
     grid-column: auto;
+  }
+
+  .admin-settings-grid,
+  .admin-settings-form {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1122,6 +1269,10 @@ button, input {
   .admin-status-pill {
     padding: 10px 12px;
   }
+
+  .admin-settings-form {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 820px) and (orientation: portrait) {
@@ -1191,5 +1342,24 @@ button, input {
 
   .admin-chart-canvas-lg {
     height: 300px;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-topbar-actions,
+  .admin-bottom-actions {
+    width: 100%;
+  }
+
+  .admin-view-indicator,
+  .admin-menu-shell,
+  .admin-menu-panel {
+    width: 100%;
+  }
+
+  .admin-menu-panel {
+    position: static;
+    margin-top: 10px;
+    min-width: 0;
   }
 }
