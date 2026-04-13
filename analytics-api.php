@@ -128,8 +128,15 @@ echo json_encode(
 function handleAdminAnalyticsAction(string $action): void
 {
     if ($action === 'website_settings') {
+        $currentRequestIps = analyticsResolveClientIps();
+        $currentRequestMatchKeys = [];
+        foreach ($currentRequestIps as $currentRequestIp) {
+            $currentRequestMatchKeys = array_merge($currentRequestMatchKeys, analyticsBuildIpMatchKeys((string) $currentRequestIp));
+        }
         analyticsJsonResponse([
             'excluded_ips' => analyticsLoadIpExclusions(),
+            'current_request_ips' => $currentRequestIps,
+            'current_request_match_keys' => array_values(array_unique($currentRequestMatchKeys)),
         ]);
     }
 

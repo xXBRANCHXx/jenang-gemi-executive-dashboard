@@ -518,6 +518,12 @@ $dashboardBuildVersion = 'ipv6-exclude';
                             </label>
                             <button type="submit" class="admin-primary-btn">Add Excluded IP</button>
                         </form>
+                        <div class="admin-note-stack">
+                            <div class="admin-note-card">
+                                <strong>Current detected IPs</strong>
+                                <span data-current-request-ips>Loading current request IPs...</span>
+                            </div>
+                        </div>
                         <p class="admin-form-error" data-ip-exclusion-error hidden></p>
                         <div class="admin-settings-chip-row" data-ip-exclusion-list>
                             <p class="admin-empty">Belum ada IP yang dikecualikan.</p>

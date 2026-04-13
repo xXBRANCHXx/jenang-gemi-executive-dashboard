@@ -409,6 +409,22 @@ function analyticsNormalizeIp(string $value): string
     return is_string($normalized) ? $normalized : $candidate;
 }
 
+function analyticsExtractForwardedIps(string $forwardedHeader): array
+{
+    $matches = [];
+    preg_match_all('/for=(?:"?\\[?)([^;,"\]]+)/i', $forwardedHeader, $matches);
+
+    $ips = [];
+    foreach ($matches[1] ?? [] as $candidate) {
+        $normalized = analyticsNormalizeIp((string) $candidate);
+        if ($normalized !== '') {
+            $ips[] = $normalized;
+        }
+    }
+
+    return array_values(array_unique($ips));
+}
+
 function analyticsBuildIpv6PrefixKey(string $ipAddress, int $prefixLength = 64): string
 {
     $normalized = analyticsNormalizeIp($ipAddress);
@@ -454,13 +470,14 @@ function analyticsBuildIpMatchKeys(string $ipAddress): array
 
 function analyticsResolveClientIp(): string
 {
-    $candidates = [
+    $forwardedCandidates = analyticsExtractForwardedIps((string) ($_SERVER['HTTP_FORWARDED'] ?? ''));
+    $candidates = array_merge($forwardedCandidates, [
         $_SERVER['HTTP_CF_CONNECTING_IP'] ?? '',
         $_SERVER['HTTP_TRUE_CLIENT_IP'] ?? '',
         $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '',
         $_SERVER['HTTP_X_REAL_IP'] ?? '',
         $_SERVER['REMOTE_ADDR'] ?? '',
-    ];
+    ]);
 
     foreach ($candidates as $candidate) {
         $normalized = analyticsNormalizeIp((string) $candidate);
@@ -474,13 +491,14 @@ function analyticsResolveClientIp(): string
 
 function analyticsResolveClientIps(): array
 {
-    $candidates = [
+    $forwardedCandidates = analyticsExtractForwardedIps((string) ($_SERVER['HTTP_FORWARDED'] ?? ''));
+    $candidates = array_merge($forwardedCandidates, [
         $_SERVER['HTTP_CF_CONNECTING_IP'] ?? '',
         $_SERVER['HTTP_TRUE_CLIENT_IP'] ?? '',
         $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '',
         $_SERVER['HTTP_X_REAL_IP'] ?? '',
         $_SERVER['REMOTE_ADDR'] ?? '',
-    ];
+    ]);
 
     $normalizedIps = [];
     foreach ($candidates as $candidate) {

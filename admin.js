@@ -316,7 +316,8 @@ document.addEventListener('DOMContentLoaded', () => {
     metricButtons: document.querySelectorAll('[data-website-metric]'),
     exclusionForm: document.querySelector('[data-ip-exclusion-form]'),
     exclusionError: document.querySelector('[data-ip-exclusion-error]'),
-    exclusionList: document.querySelector('[data-ip-exclusion-list]')
+    exclusionList: document.querySelector('[data-ip-exclusion-list]'),
+    currentRequestIps: document.querySelector('[data-current-request-ips]')
   };
 
   const setLoaderState = (progress, label) => {
@@ -665,6 +666,25 @@ document.addEventListener('DOMContentLoaded', () => {
     `).join('');
   };
 
+  const renderCurrentRequestIps = (ips, matchKeys = []) => {
+    if (!websiteRefs.currentRequestIps) return;
+    const currentIps = Array.isArray(ips) ? ips.filter(Boolean) : [];
+    const currentMatchKeys = Array.isArray(matchKeys) ? matchKeys.filter(Boolean) : [];
+    if (!currentIps.length) {
+      websiteRefs.currentRequestIps.textContent = 'No client IP detected on this request.';
+      return;
+    }
+
+    const lines = [
+      `IPs: ${currentIps.join(', ')}`
+    ];
+    const ipv6Prefixes = currentMatchKeys.filter((entry) => String(entry).startsWith('ipv6/64:'));
+    if (ipv6Prefixes.length) {
+      lines.push('IPv6 /64 prefix matching is active for exclusions on this network.');
+    }
+    websiteRefs.currentRequestIps.textContent = lines.join(' ');
+  };
+
   const loadHome = async () => {
     const requestToken = beginRequest('home');
     const data = await requestJson(buildAnalyticsUrl('landing', state.home.timeframe));
@@ -685,6 +705,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!isLatestRequest('website', requestToken, true)) return;
     state.website.exclusions = Array.isArray(data.excluded_ips) ? data.excluded_ips : [];
     renderExclusionList();
+    renderCurrentRequestIps(data.current_request_ips, data.current_request_match_keys);
     if (websiteRefs.excludedCount) websiteRefs.excludedCount.textContent = Number(state.website.exclusions.length).toLocaleString('id-ID');
   };
 
