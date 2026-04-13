@@ -1,3 +1,4 @@
 *.log
 .DS_Store
 config.local.php
+whatsapp-config.local.php
