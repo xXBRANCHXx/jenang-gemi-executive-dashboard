@@ -16,6 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $isAuthenticated = jg_admin_is_authenticated();
 $adminCssVersion = (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/admin.js');
+$dashboardBuildVersion = '45f1bc6';
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -31,6 +32,9 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/admin.js');
     <link rel="stylesheet" href="../admin.css?v=<?php echo urlencode($adminCssVersion ?: '1'); ?>">
 </head>
 <body class="admin-body<?php echo $isAuthenticated ? ' is-dashboard is-loading' : ' is-login'; ?>">
+<div class="admin-build-badge" aria-label="Dashboard build version">
+    Build <?php echo htmlspecialchars($dashboardBuildVersion, ENT_QUOTES); ?>
+</div>
 <?php if (!$isAuthenticated): ?>
     <main class="admin-login-shell">
         <div class="admin-login-orb admin-login-orb-a"></div>
