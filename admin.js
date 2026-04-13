@@ -392,6 +392,21 @@ document.addEventListener('DOMContentLoaded', () => {
     container.innerHTML = items.map(formatter).join('');
   };
 
+  const getFeedForView = (view) => {
+    if (view === 'website') return websiteRefs.recentEvents;
+    return homeRefs.recentEvents;
+  };
+
+  const renderViewError = (view, error) => {
+    const container = getFeedForView(view);
+    renderEventFeed(
+      container,
+      [],
+      () => '',
+      `Gagal memuat dashboard: ${error?.message || 'Unknown error'}`
+    );
+  };
+
   const renderSourceLegend = (items) => {
     if (!homeRefs.sourceLegend) return;
     homeRefs.sourceLegend.innerHTML = items.map((item) => {
@@ -687,6 +702,52 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const loadHomeSafely = async () => {
+    try {
+      await loadHome();
+      return true;
+    } catch (error) {
+      renderViewError('home', error);
+      return false;
+    }
+  };
+
+  const loadWebsiteSafely = async () => {
+    try {
+      await loadWebsite();
+      return true;
+    } catch (error) {
+      renderViewError('website', error);
+      return false;
+    }
+  };
+
+  const loadWebsiteSettingsSafely = async () => {
+    try {
+      await loadWebsiteSettings();
+      return true;
+    } catch (error) {
+      if (websiteRefs.exclusionError) {
+        websiteRefs.exclusionError.hidden = false;
+        websiteRefs.exclusionError.textContent = `Gagal memuat excluded IP list: ${error.message}`;
+      }
+      return false;
+    }
+  };
+
+  const loadActiveViewSafely = async () => {
+    if (state.activeView === 'home') {
+      return loadHomeSafely();
+    }
+    if (state.activeView === 'website') {
+      return loadWebsiteSafely();
+    }
+    if (state.activeView === 'settings') {
+      return loadWebsiteSettingsSafely();
+    }
+    return true;
+  };
+
   const renderCachedCharts = () => {
     if (state.home.data) renderHome(state.home.data);
     if (state.website.data) renderWebsite(state.website.data);
@@ -696,7 +757,7 @@ document.addEventListener('DOMContentLoaded', () => {
     state.activeView = nextView;
     syncViewState();
     closeMenu();
-    await loadActiveView();
+    await loadActiveViewSafely();
   };
 
   const closeLiveStream = () => {
@@ -737,26 +798,22 @@ document.addEventListener('DOMContentLoaded', () => {
   syncViewState();
   setLoaderState(20, 'Connecting to analytics');
 
-  Promise.all([loadHome(), loadWebsiteSettings()])
-    .then(() => {
+  Promise.allSettled([loadHomeSafely(), loadWebsiteSettingsSafely()])
+    .then(async () => {
       setLoaderState(70, 'Preparing interface');
-      return state.activeView === 'website' ? loadWebsite() : Promise.resolve();
+      if (state.activeView === 'website') {
+        await loadWebsiteSafely();
+      }
     })
-    .then(() => {
+    .finally(() => {
       finishLoader();
       connectLiveStream();
-    })
-    .catch((error) => {
-      document.body.classList.remove('is-loading');
-      document.body.classList.add('is-ready');
-      const target = state.activeView === 'website' ? websiteRefs.recentEvents : homeRefs.recentEvents;
-      renderEventFeed(target, [], () => '', `Gagal memuat dashboard: ${error.message}`);
     });
 
   homeRefs.timeframeButtons.forEach((button) => {
     button.addEventListener('click', async () => {
       state.home.timeframe = button.dataset.homeTimeframe || '24h';
-      await loadHome();
+      await loadHomeSafely();
     });
   });
 
@@ -770,7 +827,7 @@ document.addEventListener('DOMContentLoaded', () => {
   websiteRefs.timeframeButtons.forEach((button) => {
     button.addEventListener('click', async () => {
       state.website.timeframe = button.dataset.websiteTimeframe || '7d';
-      await loadWebsite();
+      await loadWebsiteSafely();
     });
   });
 
@@ -822,7 +879,7 @@ document.addEventListener('DOMContentLoaded', () => {
       renderExclusionList();
       if (websiteRefs.excludedCount) websiteRefs.excludedCount.textContent = Number(state.website.exclusions.length).toLocaleString('id-ID');
       if (state.website.data) {
-        await loadWebsite();
+        await loadWebsiteSafely();
       }
     } catch (error) {
       if (websiteRefs.exclusionError) {
@@ -848,7 +905,7 @@ document.addEventListener('DOMContentLoaded', () => {
       renderExclusionList();
       if (websiteRefs.excludedCount) websiteRefs.excludedCount.textContent = Number(state.website.exclusions.length).toLocaleString('id-ID');
       if (state.website.data) {
-        await loadWebsite();
+        await loadWebsiteSafely();
       }
     } catch (error) {
       if (websiteRefs.exclusionError) {
@@ -859,7 +916,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   window.setInterval(() => {
-    loadActiveView().catch(() => {});
+    loadActiveViewSafely().catch(() => {});
   }, 60000);
 
   document.addEventListener('visibilitychange', () => {
@@ -868,7 +925,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     connectLiveStream();
-    loadActiveView().catch(() => {});
+    loadActiveViewSafely().catch(() => {});
   });
 
   window.addEventListener('resize', () => renderCachedCharts());
