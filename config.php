@@ -11,8 +11,6 @@ function jg_dashboard_load_local_config(): array
 
     $config = [];
     $configFiles = [
-        __DIR__ . '/config.local.example.php',
-        '/public_html/config.local.example.php',
         __DIR__ . '/config.local.php',
         '/public_html/config.local.php',
     ];
