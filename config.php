@@ -10,14 +10,22 @@ function jg_dashboard_load_local_config(): array
     }
 
     $config = [];
-    $configFile = __DIR__ . '/config.local.php';
-    if (!file_exists($configFile)) {
-        return $config;
-    }
+    $configFiles = [
+        __DIR__ . '/config.local.php',
+        __DIR__ . '/config.local.example.php',
+        '/public_html/config.local.php',
+        '/public_html/config.local.example.php',
+    ];
 
-    $loaded = require $configFile;
-    if (is_array($loaded)) {
-        $config = $loaded;
+    foreach ($configFiles as $configFile) {
+        if (!file_exists($configFile)) {
+            continue;
+        }
+
+        $loaded = require $configFile;
+        if (is_array($loaded)) {
+            $config = array_merge($config, $loaded);
+        }
     }
 
     return $config;
