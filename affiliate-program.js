@@ -257,6 +257,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const affiliatesEndpoint = root.dataset.affiliatesEndpoint || './affiliates.php';
   const liveEndpoint = root.dataset.liveEndpoint || './live/';
   const themeStorageKey = 'jg-admin-theme';
+  const menuShell = document.querySelector('[data-menu-shell]');
+  const menuTrigger = document.querySelector('[data-menu-trigger]');
+  const menuPanel = document.querySelector('[data-menu-panel]');
   const summaryViews = document.querySelector('[data-summary-total-views]');
   const summaryOrderClicks = document.querySelector('[data-summary-order-clicks]');
   const summaryCheckoutClicks = document.querySelector('[data-summary-checkout-clicks]');
@@ -306,6 +309,41 @@ document.addEventListener('DOMContentLoaded', () => {
   const applyTheme = (theme) => {
     document.documentElement.dataset.adminTheme = theme;
     window.localStorage.setItem(themeStorageKey, theme);
+  };
+
+  const closeMenu = () => {
+    if (!menuPanel || !menuTrigger) return;
+    menuPanel.hidden = true;
+    menuTrigger.setAttribute('aria-expanded', 'false');
+  };
+
+  const openMenu = () => {
+    if (!menuPanel || !menuTrigger) return;
+    menuPanel.hidden = false;
+    menuTrigger.setAttribute('aria-expanded', 'true');
+  };
+
+  const setupTopbarMenu = () => {
+    menuTrigger?.addEventListener('click', () => {
+      if (menuPanel?.hidden === false) {
+        closeMenu();
+      } else {
+        openMenu();
+      }
+    });
+
+    document.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (menuShell && !menuShell.contains(target)) closeMenu();
+    });
+
+    document.querySelectorAll('[data-dashboard-view-link]').forEach((link) => {
+      link.addEventListener('click', () => {
+        const view = link.getAttribute('data-dashboard-view-link') || 'home';
+        window.localStorage.setItem('jg-dashboard-view', view);
+      });
+    });
   };
 
   const requestJson = async (url, options = {}) => {
@@ -688,6 +726,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   applyTheme(window.localStorage.getItem(themeStorageKey) || 'dark');
+  setupTopbarMenu();
 
   document.querySelector('[data-theme-toggle]')?.addEventListener('click', () => {
     applyTheme(document.documentElement.dataset.adminTheme === 'dark' ? 'light' : 'dark');

@@ -159,7 +159,6 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/admin.js');
                             </div>
                         </div>
                     </div>
-                </div>
                 </section>
 
                 <section class="admin-control-strip">

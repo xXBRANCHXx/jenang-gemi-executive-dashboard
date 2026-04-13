@@ -320,6 +320,29 @@ document.addEventListener('DOMContentLoaded', () => {
     if (loaderLabel && label) loaderLabel.textContent = label;
   };
 
+  const setupTopbarMenu = () => {
+    menuTrigger?.addEventListener('click', () => {
+      if (menuPanel?.hidden === false) {
+        closeMenu();
+      } else {
+        openMenu();
+      }
+    });
+
+    document.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (menuShell && !menuShell.contains(target)) closeMenu();
+    });
+
+    document.querySelectorAll('[data-dashboard-view-link]').forEach((link) => {
+      link.addEventListener('click', () => {
+        const view = link.getAttribute('data-dashboard-view-link') || 'home';
+        window.localStorage.setItem(viewStorageKey, view);
+      });
+    });
+  };
+
   const finishLoader = () => {
     setLoaderState(100, 'Dashboard ready');
     window.requestAnimationFrame(() => {
@@ -735,19 +758,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  menuTrigger?.addEventListener('click', () => {
-    if (menuPanel?.hidden === false) {
-      closeMenu();
-    } else {
-      openMenu();
-    }
-  });
-
-  document.addEventListener('click', (event) => {
-    const target = event.target;
-    if (!(target instanceof Node)) return;
-    if (menuShell && !menuShell.contains(target)) closeMenu();
-  });
+  setupTopbarMenu();
 
   document.querySelectorAll('[data-theme-toggle]').forEach((button) => {
     button.addEventListener('click', () => {

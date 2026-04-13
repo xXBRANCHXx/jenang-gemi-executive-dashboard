@@ -47,10 +47,18 @@ $affiliateJsVersion = (string) @filemtime(dirname(__DIR__) . '/affiliate-program
                 <p>Create affiliate landing pages, manage platform assignments, and watch affiliate performance live from a dedicated workspace.</p>
             </div>
             <div class="admin-topbar-actions">
-                <a class="admin-ghost-btn admin-link-btn" href="../dashboard/">Main Dashboard</a>
-                <a class="admin-ghost-btn admin-link-btn" href="../affiliate-profiles/">Affiliate Profiles</a>
-                <button type="button" class="admin-ghost-btn" data-theme-toggle aria-label="Toggle theme">Toggle Theme</button>
-                <a class="admin-primary-btn admin-link-btn" href="../logout/">Lock Dashboard</a>
+                <div class="admin-view-indicator">Affiliate Program</div>
+                <div class="admin-menu-shell" data-menu-shell>
+                    <button type="button" class="admin-ghost-btn admin-menu-trigger" data-menu-trigger aria-expanded="false" aria-label="Open dashboard menu">...</button>
+                    <div class="admin-menu-panel" data-menu-panel hidden>
+                        <a class="admin-menu-item admin-link-btn" href="../dashboard/" data-dashboard-view-link="home">Home Dashboard</a>
+                        <a class="admin-menu-item admin-link-btn" href="../dashboard/" data-dashboard-view-link="website">Official Website Dashboard</a>
+                        <a class="admin-menu-item admin-link-btn" href="../affiliate-program/">Affiliate Program Dashboard</a>
+                        <a class="admin-menu-item admin-link-btn" href="../affiliate-profiles/">Affiliate Profiles</a>
+                        <button type="button" class="admin-menu-item" data-theme-toggle>Toggle Theme</button>
+                        <a class="admin-menu-item admin-link-btn" href="../logout/">Lock Dashboard</a>
+                    </div>
+                </div>
             </div>
         </header>
 
