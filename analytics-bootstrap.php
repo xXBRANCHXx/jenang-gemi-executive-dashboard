@@ -384,6 +384,10 @@ function analyticsNormalizeIp(string $value): string
     }
 
     $candidate = trim($candidate, " \t\n\r\0\x0B[]");
+    $zoneSeparator = strpos($candidate, '%');
+    if ($zoneSeparator !== false) {
+        $candidate = substr($candidate, 0, $zoneSeparator);
+    }
     if ($candidate === '' || !filter_var($candidate, FILTER_VALIDATE_IP)) {
         return '';
     }
@@ -393,8 +397,59 @@ function analyticsNormalizeIp(string $value): string
         return $candidate;
     }
 
+    // Collapse IPv4-mapped IPv6 addresses so exclusions match either form.
+    if (strlen($packed) === 16 && substr($packed, 0, 12) === str_repeat("\x00", 10) . "\xff\xff") {
+        $ipv4 = @inet_ntop(substr($packed, 12, 4));
+        if (is_string($ipv4) && $ipv4 !== '') {
+            return $ipv4;
+        }
+    }
+
     $normalized = @inet_ntop($packed);
     return is_string($normalized) ? $normalized : $candidate;
+}
+
+function analyticsBuildIpv6PrefixKey(string $ipAddress, int $prefixLength = 64): string
+{
+    $normalized = analyticsNormalizeIp($ipAddress);
+    if ($normalized === '' || !filter_var($normalized, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+        return '';
+    }
+
+    $packed = @inet_pton($normalized);
+    if ($packed === false || !is_string($packed) || strlen($packed) !== 16) {
+        return '';
+    }
+
+    $prefixLength = max(0, min(128, $prefixLength));
+    $fullBytes = intdiv($prefixLength, 8);
+    $remainingBits = $prefixLength % 8;
+    $network = substr($packed, 0, $fullBytes);
+
+    if ($remainingBits > 0) {
+        $nextByte = ord($packed[$fullBytes]) & (0xFF << (8 - $remainingBits));
+        $network .= chr($nextByte);
+    }
+
+    return sprintf('ipv6/%d:%s', $prefixLength, bin2hex($network));
+}
+
+function analyticsBuildIpMatchKeys(string $ipAddress): array
+{
+    $normalized = analyticsNormalizeIp($ipAddress);
+    if ($normalized === '') {
+        return [];
+    }
+
+    $keys = [$normalized];
+    if (filter_var($normalized, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+        $prefixKey = analyticsBuildIpv6PrefixKey($normalized, 64);
+        if ($prefixKey !== '') {
+            $keys[] = $prefixKey;
+        }
+    }
+
+    return array_values(array_unique($keys));
 }
 
 function analyticsResolveClientIp(): string
@@ -415,6 +470,27 @@ function analyticsResolveClientIp(): string
     }
 
     return '';
+}
+
+function analyticsResolveClientIps(): array
+{
+    $candidates = [
+        $_SERVER['HTTP_CF_CONNECTING_IP'] ?? '',
+        $_SERVER['HTTP_TRUE_CLIENT_IP'] ?? '',
+        $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '',
+        $_SERVER['HTTP_X_REAL_IP'] ?? '',
+        $_SERVER['REMOTE_ADDR'] ?? '',
+    ];
+
+    $normalizedIps = [];
+    foreach ($candidates as $candidate) {
+        $normalized = analyticsNormalizeIp((string) $candidate);
+        if ($normalized !== '') {
+            $normalizedIps[] = $normalized;
+        }
+    }
+
+    return array_values(array_unique($normalizedIps));
 }
 
 function analyticsResolveGeoContext(): array
@@ -1005,9 +1081,9 @@ function analyticsLoadExcludedIpLookup(): array
 {
     $lookup = [];
     foreach (analyticsLoadIpExclusions() as $item) {
-        $normalizedIp = analyticsNormalizeIp((string) ($item['ip_address'] ?? ''));
-        if ($normalizedIp !== '') {
-            $lookup[$normalizedIp] = true;
+        $keys = analyticsBuildIpMatchKeys((string) ($item['ip_address'] ?? ''));
+        foreach ($keys as $key) {
+            $lookup[$key] = true;
         }
     }
     return $lookup;
