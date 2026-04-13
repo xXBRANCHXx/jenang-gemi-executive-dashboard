@@ -319,7 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
     exclusionError: document.querySelector('[data-ip-exclusion-error]'),
     exclusionList: document.querySelector('[data-ip-exclusion-list]'),
     currentRequestIps: document.querySelector('[data-current-request-ips]'),
-    blockDetectedIpButton: document.querySelector('[data-block-detected-ip]')
+    ignoreDetectedIpsButton: document.querySelector('[data-ignore-detected-ips]')
   };
 
   const setLoaderState = (progress, label) => {
@@ -673,9 +673,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentIps = Array.isArray(ips) ? ips.filter(Boolean) : [];
     const currentMatchKeys = Array.isArray(matchKeys) ? matchKeys.filter(Boolean) : [];
     state.website.currentRequestIps = currentIps;
-    if (websiteRefs.blockDetectedIpButton) {
-      websiteRefs.blockDetectedIpButton.disabled = currentIps.length === 0;
-      websiteRefs.blockDetectedIpButton.textContent = currentIps.length ? `Block ${currentIps[0]}` : 'Block Detected IP';
+    if (websiteRefs.ignoreDetectedIpsButton) {
+      websiteRefs.ignoreDetectedIpsButton.disabled = currentIps.length === 0;
+      websiteRefs.ignoreDetectedIpsButton.textContent = currentIps.length === 1
+        ? `Ignore ${currentIps[0]}`
+        : `Ignore ${currentIps.length} detected IPs`;
     }
     if (!currentIps.length) {
       websiteRefs.currentRequestIps.textContent = 'No client IP detected on this request.';
@@ -943,9 +945,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  websiteRefs.blockDetectedIpButton?.addEventListener('click', async () => {
-    const detectedIp = state.website.currentRequestIps[0] || '';
-    if (!detectedIp) return;
+  websiteRefs.ignoreDetectedIpsButton?.addEventListener('click', async () => {
+    const detectedIps = state.website.currentRequestIps.filter(Boolean);
+    if (!detectedIps.length) return;
 
     if (websiteRefs.exclusionError) {
       websiteRefs.exclusionError.hidden = true;
@@ -953,15 +955,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     try {
-      const data = await requestJson(buildSettingsUrl('website_exclusion_add'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ip_address: detectedIp,
-          label: 'Auto-blocked detected IP'
-        })
-      });
-      state.website.exclusions = Array.isArray(data.excluded_ips) ? data.excluded_ips : [];
+      let latestExcludedIps = state.website.exclusions;
+      for (const detectedIp of detectedIps) {
+        const data = await requestJson(buildSettingsUrl('website_exclusion_add'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ip_address: detectedIp,
+            label: 'Auto-ignored detected IP'
+          })
+        });
+        latestExcludedIps = Array.isArray(data.excluded_ips) ? data.excluded_ips : latestExcludedIps;
+      }
+      state.website.exclusions = latestExcludedIps;
       renderExclusionList();
       if (websiteRefs.excludedCount) websiteRefs.excludedCount.textContent = Number(state.website.exclusions.length).toLocaleString('id-ID');
       await loadWebsiteSettingsSafely();

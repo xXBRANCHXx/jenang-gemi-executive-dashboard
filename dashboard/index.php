@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $isAuthenticated = jg_admin_is_authenticated();
 $adminCssVersion = (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/admin.js');
-$dashboardBuildVersion = 'block-detected-ip';
+$dashboardBuildVersion = 'ignore-detected-ips';
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -522,7 +522,7 @@ $dashboardBuildVersion = 'block-detected-ip';
                             <div class="admin-note-card">
                                 <strong>Current detected IPs</strong>
                                 <span data-current-request-ips>Loading current request IPs...</span>
-                                <button type="button" class="admin-soft-btn" data-block-detected-ip disabled>Block Detected IP</button>
+                                <button type="button" class="admin-soft-btn" data-ignore-detected-ips disabled>Ignore Detected IPs</button>
                             </div>
                         </div>
                         <p class="admin-form-error" data-ip-exclusion-error hidden></p>
