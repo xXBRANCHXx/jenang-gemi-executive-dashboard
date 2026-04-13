@@ -252,12 +252,13 @@ document.addEventListener('DOMContentLoaded', () => {
     },
     website: {
       timeframe: '7d',
-      metric: 'visitors',
-      data: null,
-      exclusions: [],
-      requestToken: 0,
-      settingsRequestToken: 0
-    },
+    metric: 'visitors',
+    data: null,
+    exclusions: [],
+    currentRequestIps: [],
+    requestToken: 0,
+    settingsRequestToken: 0
+  },
     liveSequence: -1,
     liveSource: null
   };
@@ -317,7 +318,8 @@ document.addEventListener('DOMContentLoaded', () => {
     exclusionForm: document.querySelector('[data-ip-exclusion-form]'),
     exclusionError: document.querySelector('[data-ip-exclusion-error]'),
     exclusionList: document.querySelector('[data-ip-exclusion-list]'),
-    currentRequestIps: document.querySelector('[data-current-request-ips]')
+    currentRequestIps: document.querySelector('[data-current-request-ips]'),
+    blockDetectedIpButton: document.querySelector('[data-block-detected-ip]')
   };
 
   const setLoaderState = (progress, label) => {
@@ -670,6 +672,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!websiteRefs.currentRequestIps) return;
     const currentIps = Array.isArray(ips) ? ips.filter(Boolean) : [];
     const currentMatchKeys = Array.isArray(matchKeys) ? matchKeys.filter(Boolean) : [];
+    state.website.currentRequestIps = currentIps;
+    if (websiteRefs.blockDetectedIpButton) {
+      websiteRefs.blockDetectedIpButton.disabled = currentIps.length === 0;
+      websiteRefs.blockDetectedIpButton.textContent = currentIps.length ? `Block ${currentIps[0]}` : 'Block Detected IP';
+    }
     if (!currentIps.length) {
       websiteRefs.currentRequestIps.textContent = 'No client IP detected on this request.';
       return;
@@ -925,6 +932,39 @@ document.addEventListener('DOMContentLoaded', () => {
       state.website.exclusions = Array.isArray(data.excluded_ips) ? data.excluded_ips : [];
       renderExclusionList();
       if (websiteRefs.excludedCount) websiteRefs.excludedCount.textContent = Number(state.website.exclusions.length).toLocaleString('id-ID');
+      if (state.website.data) {
+        await loadWebsiteSafely();
+      }
+    } catch (error) {
+      if (websiteRefs.exclusionError) {
+        websiteRefs.exclusionError.hidden = false;
+        websiteRefs.exclusionError.textContent = error.message;
+      }
+    }
+  });
+
+  websiteRefs.blockDetectedIpButton?.addEventListener('click', async () => {
+    const detectedIp = state.website.currentRequestIps[0] || '';
+    if (!detectedIp) return;
+
+    if (websiteRefs.exclusionError) {
+      websiteRefs.exclusionError.hidden = true;
+      websiteRefs.exclusionError.textContent = '';
+    }
+
+    try {
+      const data = await requestJson(buildSettingsUrl('website_exclusion_add'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ip_address: detectedIp,
+          label: 'Auto-blocked detected IP'
+        })
+      });
+      state.website.exclusions = Array.isArray(data.excluded_ips) ? data.excluded_ips : [];
+      renderExclusionList();
+      if (websiteRefs.excludedCount) websiteRefs.excludedCount.textContent = Number(state.website.exclusions.length).toLocaleString('id-ID');
+      await loadWebsiteSettingsSafely();
       if (state.website.data) {
         await loadWebsiteSafely();
       }
