@@ -11,5 +11,7 @@ Private admin dashboard for `admin.jenanggemi.com`.
 ## Notes
 
 - Login code is validated server-side.
-- Analytics are fetched server-side from `https://jenanggemi.com/admin-analytics-api.php`.
+- Analytics are fetched server-side from the upstream base URL configured by
+  `JG_ANALYTICS_BASE_URL`, `JG_PRIMARY_SITE_URL`, or `config.local.php`.
+- If no override is set, the dashboard defaults to `https://jenanggemi.com`.
 - This repo is intended to be deployed as the root of the `admin.jenanggemi.com` site in Hostinger Git deployment.

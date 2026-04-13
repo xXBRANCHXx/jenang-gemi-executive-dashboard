@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/auth.php';
+require dirname(__DIR__, 2) . '/config.php';
 jg_admin_require_auth_json();
 
 header('Content-Type: application/json; charset=utf-8');
@@ -15,7 +16,7 @@ $recentLimit = max(15, min(300, (int) ($_GET['recent_limit'] ?? 180)));
 $dataset = (string) ($_GET['dataset'] ?? 'landing');
 $affiliateCode = (string) ($_GET['affiliate_code'] ?? '');
 $cacheBust = (string) ($_GET['_ts'] ?? '');
-$endpoint = 'https://jenanggemi.com/admin-analytics-api.php?timeframe=' . rawurlencode($timeframe);
+$endpoint = jg_dashboard_upstream_url('/admin-analytics-api.php') . '?timeframe=' . rawurlencode($timeframe);
 if ($timezone !== '') {
     $endpoint .= '&timezone=' . rawurlencode($timezone);
 }

@@ -2,11 +2,12 @@
 declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/auth.php';
+require dirname(__DIR__, 2) . '/config.php';
 jg_admin_require_auth_json();
 
 header('Content-Type: application/json; charset=utf-8');
 
-$endpoint = 'https://jenanggemi.com/admin-affiliates.php';
+$endpoint = jg_dashboard_upstream_url('/admin-affiliates.php');
 $token = JG_ADMIN_CODE_HASH;
 $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 $headers = [

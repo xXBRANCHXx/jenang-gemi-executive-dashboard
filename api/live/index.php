@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/auth.php';
+require dirname(__DIR__, 2) . '/config.php';
 
 if (!jg_admin_is_authenticated()) {
     http_response_code(401);
@@ -27,7 +28,7 @@ while (ob_get_level() > 0) {
 }
 ob_implicit_flush(true);
 
-$endpoint = 'https://jenanggemi.com/admin-live-state.php';
+$endpoint = jg_dashboard_upstream_url('/admin-live-state.php');
 $token = JG_ADMIN_CODE_HASH;
 $headers = [
     'Accept: application/json',

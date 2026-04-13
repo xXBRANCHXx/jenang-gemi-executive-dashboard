@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/auth.php';
+require dirname(__DIR__, 2) . '/config.php';
 jg_admin_require_auth_json();
 
 header('Content-Type: application/json; charset=utf-8');
@@ -17,7 +18,7 @@ if (!in_array($action, $allowedActions, true)) {
     exit;
 }
 
-$endpoint = 'https://jenanggemi.com/admin-analytics-api.php?action=' . rawurlencode($action);
+$endpoint = jg_dashboard_upstream_url('/admin-analytics-api.php') . '?action=' . rawurlencode($action);
 $cacheBust = (string) ($_GET['_ts'] ?? '');
 if ($cacheBust !== '') {
     $endpoint .= '&_ts=' . rawurlencode($cacheBust);
