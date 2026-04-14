@@ -372,6 +372,66 @@ function analyticsReadLiveState(): array
     ];
 }
 
+function analyticsReadNamedState(string $stateKey): ?array
+{
+    $normalizedKey = substr(trim($stateKey), 0, 32);
+    if ($normalizedKey === '') {
+        return null;
+    }
+
+    $pdo = analyticsDb();
+    try {
+        $stmt = $pdo->prepare(
+            'SELECT state_key, sequence, reason, updated_at
+             FROM live_state
+             WHERE state_key = :state_key
+             LIMIT 1'
+        );
+        $stmt->execute(['state_key' => $normalizedKey]);
+        $state = $stmt->fetch();
+    } catch (Throwable) {
+        $state = false;
+    }
+
+    if (!is_array($state)) {
+        return null;
+    }
+
+    return [
+        'state_key' => (string) ($state['state_key'] ?? $normalizedKey),
+        'sequence' => max(0, (int) ($state['sequence'] ?? 0)),
+        'reason' => substr((string) ($state['reason'] ?? 'update'), 0, 80),
+        'updated_at' => (new DateTimeImmutable((string) $state['updated_at'], new DateTimeZone('UTC')))->format(DATE_ATOM),
+    ];
+}
+
+function analyticsWriteNamedState(string $stateKey, string $reason = 'done'): ?array
+{
+    $normalizedKey = substr(trim($stateKey), 0, 32);
+    if ($normalizedKey === '') {
+        return null;
+    }
+
+    $pdo = analyticsDb();
+    $normalizedReason = substr($reason, 0, 80);
+
+    try {
+        $stmt = $pdo->prepare(
+            'INSERT INTO live_state (state_key, sequence, reason, updated_at)
+             VALUES (:state_key, 0, :reason, UTC_TIMESTAMP(6))
+             ON DUPLICATE KEY UPDATE reason = VALUES(reason), updated_at = VALUES(updated_at)'
+        );
+        $stmt->execute([
+            'state_key' => $normalizedKey,
+            'reason' => $normalizedReason,
+        ]);
+    } catch (Throwable) {
+        return null;
+    }
+
+    return analyticsReadNamedState($normalizedKey);
+}
+
 function analyticsNormalizeOccurredAt(string $value): string
 {
     try {
@@ -1288,6 +1348,8 @@ function analyticsCreateDeviceExclusion(string $deviceId, string $label = ''): a
         analyticsJsonResponse(['error' => 'Unable to save excluded device.', 'details' => $error->getMessage()], 500);
     }
 
+    analyticsDeleteEventsForDevice($normalizedDeviceId);
+
     analyticsTouchLiveState('website_settings');
 
     foreach (analyticsLoadDeviceExclusions() as $item) {
@@ -1330,4 +1392,59 @@ function analyticsDeleteDeviceExclusion(int $id = 0, string $deviceId = ''): voi
     }
 
     analyticsTouchLiveState('website_settings');
+}
+
+function analyticsDeleteEventsForDevice(string $deviceId): int
+{
+    $normalizedDeviceId = analyticsNormalizeDeviceId($deviceId);
+    if ($normalizedDeviceId === '') {
+        return 0;
+    }
+
+    $pdo = analyticsDb();
+    try {
+        $stmt = $pdo->prepare('DELETE FROM analytics_events WHERE device_id = :device_id');
+        $stmt->execute(['device_id' => $normalizedDeviceId]);
+        return max(0, (int) $stmt->rowCount());
+    } catch (Throwable) {
+        return 0;
+    }
+}
+
+function analyticsDeleteEventsBefore(string $cutoffIso): int
+{
+    $pdo = analyticsDb();
+    $cutoff = analyticsNormalizeOccurredAt($cutoffIso);
+
+    try {
+        $stmt = $pdo->prepare('DELETE FROM analytics_events WHERE occurred_at < :cutoff');
+        $stmt->execute(['cutoff' => $cutoff]);
+        return max(0, (int) $stmt->rowCount());
+    } catch (Throwable) {
+        return 0;
+    }
+}
+
+function analyticsRunOneTimePreDevicePurge(string $cutoffIso, string $stateKey = 'dev_purge_20260414'): array
+{
+    $existing = analyticsReadNamedState($stateKey);
+    if (is_array($existing)) {
+        return [
+            'performed' => false,
+            'deleted_rows' => 0,
+            'cutoff' => $cutoffIso,
+            'completed_at' => (string) ($existing['updated_at'] ?? ''),
+        ];
+    }
+
+    $deletedRows = analyticsDeleteEventsBefore($cutoffIso);
+    $writtenState = analyticsWriteNamedState($stateKey, 'completed');
+    analyticsTouchLiveState('analytics_purge');
+
+    return [
+        'performed' => true,
+        'deleted_rows' => $deletedRows,
+        'cutoff' => $cutoffIso,
+        'completed_at' => (string) ($writtenState['updated_at'] ?? gmdate(DATE_ATOM)),
+    ];
 }

@@ -5,6 +5,10 @@ require_once __DIR__ . '/analytics-bootstrap.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
+const ANALYTICS_DEVICE_ROLLOUT_CUTOFF = '2026-04-14T07:24:10+00:00';
+
+analyticsRunOneTimePreDevicePurge(ANALYTICS_DEVICE_ROLLOUT_CUTOFF);
+
 $action = strtolower(trim((string) ($_GET['action'] ?? '')));
 if ($action !== '') {
     handleAdminAnalyticsAction($action);
