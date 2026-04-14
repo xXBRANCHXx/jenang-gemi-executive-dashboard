@@ -80,7 +80,9 @@ const formatPageLabel = (pagePath = '') => {
 
 const normalizeSourceKey = (value) => String(value || '').trim().toLowerCase();
 
-const shouldHideSourceMetric = (value) => normalizeSourceKey(value) === 'internal';
+const HIDDEN_HOME_SOURCES = new Set(['internal', 'direct']);
+
+const shouldHideSourceMetric = (value) => HIDDEN_HOME_SOURCES.has(normalizeSourceKey(value));
 
 const prepareCanvas = (canvas) => {
   if (!(canvas instanceof HTMLCanvasElement)) return null;
@@ -638,9 +640,10 @@ document.addEventListener('DOMContentLoaded', () => {
     state.home.data = data;
     const summary = data.summary || {};
     const bySource = (Array.isArray(data.by_source) ? data.by_source : []).filter((item) => !shouldHideSourceMetric(item.source));
-    const byUrl = Array.isArray(data.by_url) ? data.by_url : [];
+    const byUrl = (Array.isArray(data.by_url) ? data.by_url : []).filter((item) => !shouldHideSourceMetric(item.source));
     const timeseries = Array.isArray(data.timeseries) ? data.timeseries : [];
     const hourOfDay = Array.isArray(data.hour_of_day) ? data.hour_of_day : [];
+    const recentEvents = (Array.isArray(data.recent_events) ? data.recent_events : []).filter((item) => !shouldHideSourceMetric(item.source));
 
     if (homeRefs.summaryViews) homeRefs.summaryViews.textContent = Number(summary.total_views || 0).toLocaleString('id-ID');
     if (homeRefs.summaryOrder) homeRefs.summaryOrder.textContent = Number(summary.order_now_clicks || 0).toLocaleString('id-ID');
@@ -673,7 +676,7 @@ document.addEventListener('DOMContentLoaded', () => {
       `);
     }
 
-    renderEventFeed(homeRefs.recentEvents, Array.isArray(data.recent_events) ? data.recent_events : [], (item) => `
+    renderEventFeed(homeRefs.recentEvents, recentEvents, (item) => `
       <div class="admin-event-item">
         <strong>${escapeHtml(item.event_type || 'event')} • ${escapeHtml(toTitleCase(item.source || 'unknown'))}</strong>
         <span>${escapeHtml(item.page_path || '-')}</span>
