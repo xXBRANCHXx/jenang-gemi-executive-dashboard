@@ -81,6 +81,10 @@ foreach ($events as $event) {
         continue;
     }
 
+    if (($dataset === 'landing' || $dataset === 'affiliate') && analyticsShouldHideTrafficSource((string) ($event['source'] ?? ''))) {
+        continue;
+    }
+
     if ($dataset === 'affiliate') {
         if ($eventAffiliateCode === '') {
             continue;
@@ -92,6 +96,9 @@ foreach ($events as $event) {
 
     if ($dataset === 'website') {
         if ($trafficKind !== 'website') {
+            continue;
+        }
+        if (analyticsIsDashboardTrafficEvent($event)) {
             continue;
         }
         if ($eventIpMatchKeys !== []) {
@@ -576,4 +583,54 @@ function maskIpAddress(string $ipAddress): string
     }
 
     return $normalized;
+}
+
+function analyticsShouldHideTrafficSource(string $source): bool
+{
+    return strtolower(trim($source)) === 'internal';
+}
+
+function analyticsIsDashboardTrafficEvent(array $event): bool
+{
+    $pagePath = strtolower(trim((string) ($event['page_path'] ?? '')));
+    $pageUrl = trim((string) ($event['page_url'] ?? ''));
+
+    if ($pagePath !== '' && analyticsMatchesDashboardPath($pagePath)) {
+        return true;
+    }
+
+    if ($pageUrl !== '') {
+        $parsedUrl = parse_url($pageUrl);
+        if (is_array($parsedUrl)) {
+            $host = strtolower((string) ($parsedUrl['host'] ?? ''));
+            $path = strtolower((string) ($parsedUrl['path'] ?? ''));
+            if ($host === 'admin.jenanggemi.com') {
+                return true;
+            }
+            if ($path !== '' && analyticsMatchesDashboardPath($path)) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+function analyticsMatchesDashboardPath(string $path): bool
+{
+    foreach ([
+        '/admin',
+        '/dashboard',
+        '/affiliate-program',
+        '/affiliate-profile',
+        '/affiliate-profiles',
+        '/back-dash',
+        '/logout',
+    ] as $prefix) {
+        if ($path === $prefix || str_starts_with($path, $prefix . '/')) {
+            return true;
+        }
+    }
+
+    return false;
 }

@@ -78,6 +78,10 @@ const formatPageLabel = (pagePath = '') => {
   return cleaned || '/';
 };
 
+const normalizeSourceKey = (value) => String(value || '').trim().toLowerCase();
+
+const shouldHideSourceMetric = (value) => normalizeSourceKey(value) === 'internal';
+
 const prepareCanvas = (canvas) => {
   if (!(canvas instanceof HTMLCanvasElement)) return null;
   const ctx = canvas.getContext('2d');
@@ -145,6 +149,103 @@ const drawGrid = (ctx, width, height, padding, maxValue, metric, unitsMap, palet
   }
 };
 
+const chartHoverState = new WeakMap();
+const chartTooltipState = new WeakMap();
+const chartBindingState = new WeakSet();
+
+const ensureChartTooltip = (canvas) => {
+  if (!(canvas instanceof HTMLCanvasElement)) return null;
+  const existing = chartTooltipState.get(canvas);
+  if (existing?.isConnected) return existing;
+
+  const surface = canvas.parentElement;
+  if (!(surface instanceof HTMLElement)) return null;
+
+  const tooltip = document.createElement('div');
+  tooltip.className = 'admin-chart-tooltip';
+  tooltip.innerHTML = '<strong></strong><span></span>';
+  surface.appendChild(tooltip);
+  chartTooltipState.set(canvas, tooltip);
+  return tooltip;
+};
+
+const hideChartTooltip = (canvas) => {
+  const tooltip = chartTooltipState.get(canvas);
+  if (!tooltip) return;
+  tooltip.classList.remove('is-visible');
+};
+
+const renderChartTooltip = (canvas, point, clientX, clientY) => {
+  const tooltip = ensureChartTooltip(canvas);
+  const surface = canvas.parentElement;
+  if (!tooltip || !(surface instanceof HTMLElement) || !point) return;
+
+  const titleNode = tooltip.querySelector('strong');
+  const valueNode = tooltip.querySelector('span');
+
+  if (titleNode) titleNode.textContent = point.tooltipTitle || point.label || '';
+  if (valueNode) {
+    valueNode.textContent = point.tooltipValue || formatMetricValue(point.metric || 'views', point.value || 0, point.unitsMap || HOME_METRIC_UNITS);
+  }
+
+  const surfaceRect = surface.getBoundingClientRect();
+  const relativeX = Math.max(12, Math.min(clientX - surfaceRect.left, surfaceRect.width - 12));
+  const relativeY = Math.max(12, Math.min(clientY - surfaceRect.top, surfaceRect.height - 12));
+  tooltip.style.left = `${relativeX}px`;
+  tooltip.style.top = `${relativeY}px`;
+  tooltip.classList.add('is-visible');
+};
+
+const resolveHoveredChartPoint = (canvas, clientX, clientY) => {
+  const points = chartHoverState.get(canvas) || [];
+  if (!points.length) return null;
+
+  const rect = canvas.getBoundingClientRect();
+  const x = clientX - rect.left;
+  const y = clientY - rect.top;
+  let closest = null;
+  let closestDistance = Number.POSITIVE_INFINITY;
+
+  points.forEach((point) => {
+    if (point.hitbox) {
+      const { left, top, right, bottom } = point.hitbox;
+      if (x >= left && x <= right && y >= top && y <= bottom) {
+        closest = point;
+        closestDistance = 0;
+        return;
+      }
+    }
+
+    if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) return;
+    const distance = Math.hypot(point.x - x, point.y - y);
+    if (distance < closestDistance) {
+      closest = point;
+      closestDistance = distance;
+    }
+  });
+
+  if (closestDistance > 28) return null;
+  return closest;
+};
+
+const bindChartHover = (canvas) => {
+  if (!(canvas instanceof HTMLCanvasElement) || chartBindingState.has(canvas)) return;
+  chartBindingState.add(canvas);
+
+  canvas.addEventListener('mousemove', (event) => {
+    const hoveredPoint = resolveHoveredChartPoint(canvas, event.clientX, event.clientY);
+    if (!hoveredPoint) {
+      hideChartTooltip(canvas);
+      return;
+    }
+    renderChartTooltip(canvas, hoveredPoint, event.clientX, event.clientY);
+  });
+
+  canvas.addEventListener('mouseleave', () => {
+    hideChartTooltip(canvas);
+  });
+};
+
 const drawBarChart = (canvas, items, config) => {
   const prepared = prepareCanvas(canvas);
   if (!prepared) return;
@@ -158,6 +259,9 @@ const drawBarChart = (canvas, items, config) => {
   const barWidth = (chartWidth / itemCount) * 0.58;
   const gap = (chartWidth / itemCount) * 0.42;
   const palette = getThemePalette();
+  const hoverPoints = [];
+
+  bindChartHover(canvas);
 
   drawGrid(ctx, width, height, padding, maxValue, config.metric, config.unitsMap, palette);
 
@@ -183,7 +287,26 @@ const drawBarChart = (canvas, items, config) => {
     ctx.font = '600 11px "Plus Jakarta Sans", sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(config.label(item), x + (barWidth / 2), height - 16);
+
+    hoverPoints.push({
+      x: x + (barWidth / 2),
+      y,
+      value,
+      metric: config.metric,
+      unitsMap: config.unitsMap,
+      label: config.label(item),
+      tooltipTitle: config.tooltipTitle ? config.tooltipTitle(item) : config.label(item),
+      tooltipValue: config.tooltipValue ? config.tooltipValue(item, value) : formatMetricValue(config.metric, value, config.unitsMap),
+      hitbox: {
+        left: x,
+        top: padding.top,
+        right: x + barWidth,
+        bottom: padding.top + chartHeight
+      }
+    });
   });
+
+  chartHoverState.set(canvas, hoverPoints);
 };
 
 const drawLineChart = (canvas, items, metric, unitsMap) => {
@@ -196,10 +319,16 @@ const drawLineChart = (canvas, items, metric, unitsMap) => {
   const values = items.map((item) => Number(item[metric] || 0));
   const maxValue = Math.max(...values, 1);
   const palette = getThemePalette();
+  const points = [];
+
+  bindChartHover(canvas);
 
   drawGrid(ctx, width, height, padding, maxValue, metric, unitsMap, palette);
 
-  if (!items.length) return;
+  if (!items.length) {
+    chartHoverState.set(canvas, []);
+    return;
+  }
 
   ctx.strokeStyle = SOURCE_COLORS.instagram;
   ctx.lineWidth = 3;
@@ -207,7 +336,18 @@ const drawLineChart = (canvas, items, metric, unitsMap) => {
 
   items.forEach((item, index) => {
     const x = padding.left + (chartWidth * index / Math.max(items.length - 1, 1));
-    const y = padding.top + chartHeight - ((Number(item[metric] || 0) / maxValue) * (chartHeight - 6));
+    const value = Number(item[metric] || 0);
+    const y = padding.top + chartHeight - ((value / maxValue) * (chartHeight - 6));
+    points.push({
+      x,
+      y,
+      value,
+      metric,
+      unitsMap,
+      label: item.label || '',
+      tooltipTitle: item.label || '',
+      tooltipValue: formatMetricValue(metric, value, unitsMap)
+    });
     if (index === 0) {
       ctx.moveTo(x, y);
     } else {
@@ -231,6 +371,8 @@ const drawLineChart = (canvas, items, metric, unitsMap) => {
       ctx.fillText(item.label || '', x, height - 16);
     }
   });
+
+  chartHoverState.set(canvas, points);
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -495,7 +637,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const renderHome = (data) => {
     state.home.data = data;
     const summary = data.summary || {};
-    const bySource = Array.isArray(data.by_source) ? data.by_source : [];
+    const bySource = (Array.isArray(data.by_source) ? data.by_source : []).filter((item) => !shouldHideSourceMetric(item.source));
     const byUrl = Array.isArray(data.by_url) ? data.by_url : [];
     const timeseries = Array.isArray(data.timeseries) ? data.timeseries : [];
     const hourOfDay = Array.isArray(data.hour_of_day) ? data.hour_of_day : [];
@@ -546,6 +688,7 @@ document.addEventListener('DOMContentLoaded', () => {
       color: () => SOURCE_COLORS.facebook,
       metric: state.home.metric,
       unitsMap: HOME_METRIC_UNITS,
+      tooltipTitle: (item) => `${String(item.hour).padStart(2, '0')}:00 WIB`,
       limit: 24
     });
     drawBarChart(homeRefs.sourceCanvas, bySource, {
@@ -554,6 +697,7 @@ document.addEventListener('DOMContentLoaded', () => {
       color: (item) => SOURCE_COLORS[String(item.source || 'unknown').toLowerCase()] || SOURCE_COLORS.unknown,
       metric: 'views',
       unitsMap: HOME_METRIC_UNITS,
+      tooltipTitle: (item) => `${toTitleCase(item.source || 'unknown')} source`,
       limit: 6
     });
     drawBarChart(homeRefs.urlCanvas, byUrl, {
@@ -562,6 +706,7 @@ document.addEventListener('DOMContentLoaded', () => {
       color: (item) => SOURCE_COLORS[String(item.source || 'unknown').toLowerCase()] || SOURCE_COLORS.unknown,
       metric: 'checkout_clicks',
       unitsMap: HOME_METRIC_UNITS,
+      tooltipTitle: (item) => item.page_path || '/',
       limit: 6
     });
     renderSourceLegend(bySource);
@@ -629,6 +774,7 @@ document.addEventListener('DOMContentLoaded', () => {
       color: () => SOURCE_COLORS.google,
       metric: 'visitors',
       unitsMap: WEBSITE_METRIC_UNITS,
+      tooltipTitle: (item) => item.region_label || 'Unknown',
       limit: 6
     });
     drawBarChart(websiteRefs.pageCanvas, pages, {
@@ -637,6 +783,7 @@ document.addEventListener('DOMContentLoaded', () => {
       color: () => SOURCE_COLORS.direct,
       metric: state.website.metric,
       unitsMap: WEBSITE_METRIC_UNITS,
+      tooltipTitle: (item) => item.page_path || '/',
       limit: 6
     });
 
