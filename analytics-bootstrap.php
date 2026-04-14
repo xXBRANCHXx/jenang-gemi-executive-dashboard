@@ -128,6 +128,7 @@ function analyticsEnsureDatabaseSchema(PDO $pdo): void
             id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
             event_type VARCHAR(80) NOT NULL,
             session_id VARCHAR(120) NOT NULL DEFAULT "",
+            device_id VARCHAR(120) NOT NULL DEFAULT "",
             source VARCHAR(50) NOT NULL DEFAULT "unknown",
             traffic_kind VARCHAR(20) NOT NULL DEFAULT "landing",
             affiliate_code VARCHAR(16) NOT NULL DEFAULT "",
@@ -163,6 +164,7 @@ function analyticsEnsureDatabaseSchema(PDO $pdo): void
             INDEX idx_analytics_traffic_kind (traffic_kind),
             INDEX idx_analytics_source (source),
             INDEX idx_analytics_session_id (session_id),
+            INDEX idx_analytics_device_id (device_id),
             INDEX idx_analytics_order_code (order_code),
             INDEX idx_analytics_page_path (page_path),
             INDEX idx_analytics_ip_address (ip_address),
@@ -218,7 +220,20 @@ function analyticsEnsureDatabaseSchema(PDO $pdo): void
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
     );
 
+    analyticsTryExec(
+        $pdo,
+        'CREATE TABLE IF NOT EXISTS analytics_device_exclusions (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            device_id VARCHAR(120) NOT NULL,
+            label VARCHAR(120) NOT NULL DEFAULT "",
+            created_at DATETIME(6) NOT NULL,
+            updated_at DATETIME(6) NOT NULL,
+            UNIQUE KEY uniq_analytics_device_exclusions_device_id (device_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+    );
+
     analyticsEnsureTableColumn($pdo, 'analytics_events', 'ip_address', 'VARCHAR(45) NOT NULL DEFAULT ""');
+    analyticsEnsureTableColumn($pdo, 'analytics_events', 'device_id', 'VARCHAR(120) NOT NULL DEFAULT ""');
     analyticsEnsureTableColumn($pdo, 'analytics_events', 'country_code', 'VARCHAR(8) NOT NULL DEFAULT ""');
     analyticsEnsureTableColumn($pdo, 'analytics_events', 'region_name', 'VARCHAR(160) NOT NULL DEFAULT ""');
     analyticsEnsureTableColumn($pdo, 'analytics_events', 'city_name', 'VARCHAR(160) NOT NULL DEFAULT ""');
@@ -409,6 +424,21 @@ function analyticsNormalizeIp(string $value): string
     return is_string($normalized) ? $normalized : $candidate;
 }
 
+function analyticsNormalizeDeviceId(string $value): string
+{
+    $candidate = trim($value);
+    if ($candidate === '') {
+        return '';
+    }
+
+    $candidate = substr($candidate, 0, 120);
+    if (!preg_match('/^[A-Za-z0-9._:-]+$/', $candidate)) {
+        return '';
+    }
+
+    return $candidate;
+}
+
 function analyticsExtractForwardedIps(string $forwardedHeader): array
 {
     $matches = [];
@@ -555,6 +585,7 @@ function analyticsAppendEvent(array $event): void
     $payload = [
         'event_type' => substr((string) ($event['event_type'] ?? 'unknown'), 0, 80),
         'session_id' => substr((string) ($event['session_id'] ?? ''), 0, 120),
+        'device_id' => analyticsNormalizeDeviceId((string) ($event['device_id'] ?? '')),
         'source' => substr((string) ($event['source'] ?? 'unknown'), 0, 50),
         'traffic_kind' => substr((string) ($event['traffic_kind'] ?? 'landing'), 0, 20),
         'affiliate_code' => strtoupper(substr((string) ($event['affiliate_code'] ?? ''), 0, 16)),
@@ -845,6 +876,7 @@ function analyticsLoadEvents(?DateTimeImmutable $rangeStart = null): array
     $expectedColumns = [
         'event_type' => "''",
         'session_id' => "''",
+        'device_id' => "''",
         'source' => "''",
         'traffic_kind' => "'landing'",
         'affiliate_code' => "''",
@@ -1107,6 +1139,47 @@ function analyticsLoadExcludedIpLookup(): array
     return $lookup;
 }
 
+function analyticsLoadDeviceExclusions(): array
+{
+    $pdo = analyticsDb();
+    if (analyticsListTableColumns($pdo, 'analytics_device_exclusions') === []) {
+        return [];
+    }
+
+    try {
+        $stmt = $pdo->query(
+            'SELECT id, device_id, label, created_at, updated_at
+             FROM analytics_device_exclusions
+             ORDER BY updated_at DESC, id DESC'
+        );
+        $rows = $stmt->fetchAll();
+    } catch (Throwable) {
+        return [];
+    }
+
+    return array_map(static function (array $row): array {
+        return [
+            'id' => (int) ($row['id'] ?? 0),
+            'device_id' => (string) ($row['device_id'] ?? ''),
+            'label' => (string) ($row['label'] ?? ''),
+            'created_at' => (new DateTimeImmutable((string) $row['created_at'], new DateTimeZone('UTC')))->format(DATE_ATOM),
+            'updated_at' => (new DateTimeImmutable((string) $row['updated_at'], new DateTimeZone('UTC')))->format(DATE_ATOM),
+        ];
+    }, $rows);
+}
+
+function analyticsLoadExcludedDeviceLookup(): array
+{
+    $lookup = [];
+    foreach (analyticsLoadDeviceExclusions() as $item) {
+        $deviceId = analyticsNormalizeDeviceId((string) ($item['device_id'] ?? ''));
+        if ($deviceId !== '') {
+            $lookup[$deviceId] = true;
+        }
+    }
+    return $lookup;
+}
+
 function analyticsCreateIpExclusion(string $ipAddress, string $label = ''): array
 {
     $normalizedIp = analyticsNormalizeIp($ipAddress);
@@ -1177,6 +1250,82 @@ function analyticsDeleteIpExclusion(int $id = 0, string $ipAddress = ''): void
             $stmt->execute(['ip_address' => $normalizedIp]);
         } catch (Throwable $error) {
             analyticsJsonResponse(['error' => 'Unable to delete excluded IP.', 'details' => $error->getMessage()], 500);
+        }
+    }
+
+    analyticsTouchLiveState('website_settings');
+}
+
+function analyticsCreateDeviceExclusion(string $deviceId, string $label = ''): array
+{
+    $normalizedDeviceId = analyticsNormalizeDeviceId($deviceId);
+    if ($normalizedDeviceId === '') {
+        analyticsJsonResponse(['error' => 'Invalid device ID.'], 422);
+    }
+
+    $pdo = analyticsDb();
+    if (analyticsListTableColumns($pdo, 'analytics_device_exclusions') === []) {
+        analyticsJsonResponse([
+            'error' => 'Device exclusions table is unavailable in the analytics database.',
+            'details' => 'Create or grant access to analytics_device_exclusions in BigN.',
+        ], 503);
+    }
+
+    $timestamp = analyticsNormalizeOccurredAt(gmdate(DATE_ATOM));
+    try {
+        $stmt = $pdo->prepare(
+            'INSERT INTO analytics_device_exclusions (device_id, label, created_at, updated_at)
+             VALUES (:device_id, :label, :created_at, :updated_at)
+             ON DUPLICATE KEY UPDATE label = VALUES(label), updated_at = VALUES(updated_at)'
+        );
+        $stmt->execute([
+            'device_id' => $normalizedDeviceId,
+            'label' => substr(trim($label), 0, 120),
+            'created_at' => $timestamp,
+            'updated_at' => $timestamp,
+        ]);
+    } catch (Throwable $error) {
+        analyticsJsonResponse(['error' => 'Unable to save excluded device.', 'details' => $error->getMessage()], 500);
+    }
+
+    analyticsTouchLiveState('website_settings');
+
+    foreach (analyticsLoadDeviceExclusions() as $item) {
+        if ((string) ($item['device_id'] ?? '') === $normalizedDeviceId) {
+            return $item;
+        }
+    }
+
+    analyticsJsonResponse(['error' => 'Unable to save excluded device.'], 500);
+}
+
+function analyticsDeleteDeviceExclusion(int $id = 0, string $deviceId = ''): void
+{
+    $pdo = analyticsDb();
+    if (analyticsListTableColumns($pdo, 'analytics_device_exclusions') === []) {
+        analyticsJsonResponse([
+            'error' => 'Device exclusions table is unavailable in the analytics database.',
+            'details' => 'Create or grant access to analytics_device_exclusions in BigN.',
+        ], 503);
+    }
+
+    if ($id > 0) {
+        try {
+            $stmt = $pdo->prepare('DELETE FROM analytics_device_exclusions WHERE id = :id');
+            $stmt->execute(['id' => $id]);
+        } catch (Throwable $error) {
+            analyticsJsonResponse(['error' => 'Unable to delete excluded device.', 'details' => $error->getMessage()], 500);
+        }
+    } else {
+        $normalizedDeviceId = analyticsNormalizeDeviceId($deviceId);
+        if ($normalizedDeviceId === '') {
+            analyticsJsonResponse(['error' => 'Missing excluded device identifier.'], 422);
+        }
+        try {
+            $stmt = $pdo->prepare('DELETE FROM analytics_device_exclusions WHERE device_id = :device_id');
+            $stmt->execute(['device_id' => $normalizedDeviceId]);
+        } catch (Throwable $error) {
+            analyticsJsonResponse(['error' => 'Unable to delete excluded device.', 'details' => $error->getMessage()], 500);
         }
     }
 

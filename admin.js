@@ -43,6 +43,48 @@ const WEBSITE_METRIC_UNITS = {
 };
 
 const DASHBOARD_TIMEZONE = 'Asia/Jakarta';
+const ANALYTICS_DEVICE_COOKIE = 'jg_analytics_device_id';
+const ANALYTICS_DEVICE_MAX_AGE = 60 * 60 * 24 * 365 * 2;
+
+const createAnalyticsDeviceId = () => {
+  if (window.crypto?.randomUUID) return `device-${window.crypto.randomUUID()}`;
+  return `device-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+};
+
+const readCookie = (name) => {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = document.cookie.match(new RegExp(`(?:^|; )${escaped}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : '';
+};
+
+const resolveAnalyticsCookieDomain = () => {
+  const host = window.location.hostname.toLowerCase();
+  if (host === 'jenanggemi.com' || host.endsWith('.jenanggemi.com')) {
+    return '.jenanggemi.com';
+  }
+  return '';
+};
+
+const writeCookie = (name, value, maxAgeSeconds) => {
+  const parts = [
+    `${name}=${encodeURIComponent(value)}`,
+    'Path=/',
+    'SameSite=Lax',
+    `Max-Age=${maxAgeSeconds}`
+  ];
+  const domain = resolveAnalyticsCookieDomain();
+  if (domain) parts.push(`Domain=${domain}`);
+  if (window.location.protocol === 'https:') parts.push('Secure');
+  document.cookie = parts.join('; ');
+};
+
+const ensureAnalyticsDeviceId = () => {
+  const existing = readCookie(ANALYTICS_DEVICE_COOKIE);
+  if (existing) return existing;
+  const next = createAnalyticsDeviceId();
+  writeCookie(ANALYTICS_DEVICE_COOKIE, next, ANALYTICS_DEVICE_MAX_AGE);
+  return next;
+};
 
 const formatSeconds = (seconds) => {
   if (!Number.isFinite(seconds) || seconds <= 0) return '0s';
@@ -396,13 +438,15 @@ document.addEventListener('DOMContentLoaded', () => {
     },
     website: {
       timeframe: '7d',
-    metric: 'visitors',
-    data: null,
-    exclusions: [],
-    currentRequestIps: [],
-    requestToken: 0,
-    settingsRequestToken: 0
-  },
+      metric: 'visitors',
+      data: null,
+      ipExclusions: [],
+      deviceExclusions: [],
+      currentRequestIps: [],
+      currentDeviceId: ensureAnalyticsDeviceId(),
+      requestToken: 0,
+      settingsRequestToken: 0
+    },
     liveSequence: -1,
     liveSource: null
   };
@@ -459,11 +503,16 @@ document.addEventListener('DOMContentLoaded', () => {
     trendMeta: document.querySelector('[data-website-trend-meta]'),
     timeframeButtons: document.querySelectorAll('[data-website-timeframe]'),
     metricButtons: document.querySelectorAll('[data-website-metric]'),
-    exclusionForm: document.querySelector('[data-ip-exclusion-form]'),
-    exclusionError: document.querySelector('[data-ip-exclusion-error]'),
-    exclusionList: document.querySelector('[data-ip-exclusion-list]'),
+    ipExclusionForm: document.querySelector('[data-ip-exclusion-form]'),
+    ipExclusionError: document.querySelector('[data-ip-exclusion-error]'),
+    ipExclusionList: document.querySelector('[data-ip-exclusion-list]'),
     currentRequestIps: document.querySelector('[data-current-request-ips]'),
-    ignoreDetectedIpsButton: document.querySelector('[data-ignore-detected-ips]')
+    ignoreDetectedIpsButton: document.querySelector('[data-ignore-detected-ips]'),
+    currentDeviceId: document.querySelector('[data-current-device-id]'),
+    ignoreCurrentDeviceButton: document.querySelector('[data-ignore-current-device]'),
+    deviceExclusionForm: document.querySelector('[data-device-exclusion-form]'),
+    deviceExclusionError: document.querySelector('[data-device-exclusion-error]'),
+    deviceExclusionList: document.querySelector('[data-device-exclusion-list]')
   };
 
   const setLoaderState = (progress, label) => {
@@ -726,7 +775,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const renderWebsite = (data) => {
     state.website.data = data;
-    state.website.exclusions = Array.isArray(data.excluded_ips) ? data.excluded_ips : state.website.exclusions;
+    state.website.ipExclusions = Array.isArray(data.excluded_ips) ? data.excluded_ips : state.website.ipExclusions;
     const summary = data.summary || {};
     const pages = Array.isArray(data.by_page) ? data.by_page : [];
     const regions = Array.isArray(data.by_region) ? data.by_region : [];
@@ -736,7 +785,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (websiteRefs.summaryPageViews) websiteRefs.summaryPageViews.textContent = Number(summary.total_page_views || 0).toLocaleString('id-ID');
     if (websiteRefs.summaryTime) websiteRefs.summaryTime.textContent = formatSeconds(Number(summary.avg_time_spent_seconds || 0));
     if (websiteRefs.summaryTopRegion) websiteRefs.summaryTopRegion.textContent = summary.top_region || 'Unknown';
-    if (websiteRefs.excludedCount) websiteRefs.excludedCount.textContent = Number(summary.excluded_ip_count || state.website.exclusions.length || 0).toLocaleString('id-ID');
+    if (websiteRefs.excludedCount) websiteRefs.excludedCount.textContent = Number(summary.excluded_ip_count || state.website.ipExclusions.length || 0).toLocaleString('id-ID');
     if (websiteRefs.settingsEndpointLabel) websiteRefs.settingsEndpointLabel.textContent = settingsEndpoint;
 
     if (websiteRefs.pageTableBody) {
@@ -799,22 +848,39 @@ document.addEventListener('DOMContentLoaded', () => {
     websiteRefs.metricButtons.forEach((button) => {
       button.classList.toggle('is-active', button.dataset.websiteMetric === state.website.metric);
     });
-    renderExclusionList();
+    renderIpExclusionList();
   };
 
-  const renderExclusionList = () => {
-    if (!websiteRefs.exclusionList) return;
-    const items = state.website.exclusions;
+  const renderIpExclusionList = () => {
+    if (!websiteRefs.ipExclusionList) return;
+    const items = state.website.ipExclusions;
     if (!items.length) {
-      websiteRefs.exclusionList.innerHTML = '<p class="admin-empty">Belum ada IP yang dikecualikan.</p>';
+      websiteRefs.ipExclusionList.innerHTML = '<p class="admin-empty">Belum ada IP yang dikecualikan.</p>';
       return;
     }
 
-    websiteRefs.exclusionList.innerHTML = items.map((item) => `
+    websiteRefs.ipExclusionList.innerHTML = items.map((item) => `
       <div class="admin-settings-chip">
         <strong>${escapeHtml(item.ip_address || '')}</strong>
         <span>${escapeHtml(item.label || 'No label')}</span>
-        <button type="button" data-delete-exclusion="${escapeHtml(String(item.id || ''))}">Remove</button>
+        <button type="button" data-delete-ip-exclusion="${escapeHtml(String(item.id || ''))}">Remove</button>
+      </div>
+    `).join('');
+  };
+
+  const renderDeviceExclusionList = () => {
+    if (!websiteRefs.deviceExclusionList) return;
+    const items = state.website.deviceExclusions;
+    if (!items.length) {
+      websiteRefs.deviceExclusionList.innerHTML = '<p class="admin-empty">Belum ada device yang dikecualikan.</p>';
+      return;
+    }
+
+    websiteRefs.deviceExclusionList.innerHTML = items.map((item) => `
+      <div class="admin-settings-chip">
+        <strong>${escapeHtml(item.device_id || '')}</strong>
+        <span>${escapeHtml(item.label || 'No label')}</span>
+        <button type="button" data-delete-device-exclusion="${escapeHtml(String(item.id || ''))}">Remove</button>
       </div>
     `).join('');
   };
@@ -845,6 +911,35 @@ document.addEventListener('DOMContentLoaded', () => {
     websiteRefs.currentRequestIps.textContent = lines.join(' ');
   };
 
+  const renderCurrentDeviceId = () => {
+    if (websiteRefs.currentDeviceId) {
+      websiteRefs.currentDeviceId.textContent = state.website.currentDeviceId || 'Unavailable on this browser.';
+    }
+    if (websiteRefs.ignoreCurrentDeviceButton) {
+      websiteRefs.ignoreCurrentDeviceButton.disabled = !state.website.currentDeviceId;
+    }
+  };
+
+  const clearIpExclusionError = () => {
+    if (!websiteRefs.ipExclusionError) return;
+    websiteRefs.ipExclusionError.hidden = true;
+    websiteRefs.ipExclusionError.textContent = '';
+  };
+
+  const clearDeviceExclusionError = () => {
+    if (!websiteRefs.deviceExclusionError) return;
+    websiteRefs.deviceExclusionError.hidden = true;
+    websiteRefs.deviceExclusionError.textContent = '';
+  };
+
+  const refreshAnalyticsAfterDeviceExclusion = async () => {
+    await Promise.allSettled([
+      loadHomeSafely(),
+      loadWebsiteSafely(),
+      loadWebsiteSettingsSafely()
+    ]);
+  };
+
   const loadHome = async () => {
     const requestToken = beginRequest('home');
     const data = await requestJson(buildAnalyticsUrl('landing', state.home.timeframe));
@@ -863,10 +958,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const requestToken = beginRequest('website', true);
     const data = await requestJson(buildSettingsUrl('website_settings'));
     if (!isLatestRequest('website', requestToken, true)) return;
-    state.website.exclusions = Array.isArray(data.excluded_ips) ? data.excluded_ips : [];
-    renderExclusionList();
+    state.website.ipExclusions = Array.isArray(data.excluded_ips) ? data.excluded_ips : [];
+    state.website.deviceExclusions = Array.isArray(data.excluded_devices) ? data.excluded_devices : [];
+    state.website.currentDeviceId = ensureAnalyticsDeviceId();
+    renderIpExclusionList();
+    renderDeviceExclusionList();
     renderCurrentRequestIps(data.current_request_ips, data.current_request_match_keys);
-    if (websiteRefs.excludedCount) websiteRefs.excludedCount.textContent = Number(state.website.exclusions.length).toLocaleString('id-ID');
+    renderCurrentDeviceId();
+    if (websiteRefs.excludedCount) websiteRefs.excludedCount.textContent = Number(state.website.ipExclusions.length).toLocaleString('id-ID');
   };
 
   const loadActiveView = async () => {
@@ -908,9 +1007,13 @@ document.addEventListener('DOMContentLoaded', () => {
       await loadWebsiteSettings();
       return true;
     } catch (error) {
-      if (websiteRefs.exclusionError) {
-        websiteRefs.exclusionError.hidden = false;
-        websiteRefs.exclusionError.textContent = `Gagal memuat excluded IP list: ${error.message}`;
+      if (websiteRefs.ipExclusionError) {
+        websiteRefs.ipExclusionError.hidden = false;
+        websiteRefs.ipExclusionError.textContent = `Gagal memuat excluded IP list: ${error.message}`;
+      }
+      if (websiteRefs.deviceExclusionError) {
+        websiteRefs.deviceExclusionError.hidden = false;
+        websiteRefs.deviceExclusionError.textContent = `Gagal memuat excluded device list: ${error.message}`;
       }
       return false;
     }
@@ -1033,7 +1136,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  websiteRefs.exclusionForm?.addEventListener('submit', async (event) => {
+  websiteRefs.ipExclusionForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
     if (!(form instanceof HTMLFormElement)) return;
@@ -1044,10 +1147,7 @@ document.addEventListener('DOMContentLoaded', () => {
       label: String(formData.get('label') || '').trim()
     };
 
-    if (websiteRefs.exclusionError) {
-      websiteRefs.exclusionError.hidden = true;
-      websiteRefs.exclusionError.textContent = '';
-    }
+    clearIpExclusionError();
 
     try {
       const data = await requestJson(buildSettingsUrl('website_exclusion_add'), {
@@ -1055,25 +1155,25 @@ document.addEventListener('DOMContentLoaded', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      state.website.exclusions = Array.isArray(data.excluded_ips) ? data.excluded_ips : [];
+      state.website.ipExclusions = Array.isArray(data.excluded_ips) ? data.excluded_ips : [];
       form.reset();
-      renderExclusionList();
-      if (websiteRefs.excludedCount) websiteRefs.excludedCount.textContent = Number(state.website.exclusions.length).toLocaleString('id-ID');
+      renderIpExclusionList();
+      if (websiteRefs.excludedCount) websiteRefs.excludedCount.textContent = Number(state.website.ipExclusions.length).toLocaleString('id-ID');
       if (state.website.data) {
         await loadWebsiteSafely();
       }
     } catch (error) {
-      if (websiteRefs.exclusionError) {
-        websiteRefs.exclusionError.hidden = false;
-        websiteRefs.exclusionError.textContent = error.message;
+      if (websiteRefs.ipExclusionError) {
+        websiteRefs.ipExclusionError.hidden = false;
+        websiteRefs.ipExclusionError.textContent = error.message;
       }
     }
   });
 
-  websiteRefs.exclusionList?.addEventListener('click', async (event) => {
+  websiteRefs.ipExclusionList?.addEventListener('click', async (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
-    const id = target.dataset.deleteExclusion || '';
+    const id = target.dataset.deleteIpExclusion || '';
     if (!id) return;
 
     try {
@@ -1082,16 +1182,16 @@ document.addEventListener('DOMContentLoaded', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: Number(id) })
       });
-      state.website.exclusions = Array.isArray(data.excluded_ips) ? data.excluded_ips : [];
-      renderExclusionList();
-      if (websiteRefs.excludedCount) websiteRefs.excludedCount.textContent = Number(state.website.exclusions.length).toLocaleString('id-ID');
+      state.website.ipExclusions = Array.isArray(data.excluded_ips) ? data.excluded_ips : [];
+      renderIpExclusionList();
+      if (websiteRefs.excludedCount) websiteRefs.excludedCount.textContent = Number(state.website.ipExclusions.length).toLocaleString('id-ID');
       if (state.website.data) {
         await loadWebsiteSafely();
       }
     } catch (error) {
-      if (websiteRefs.exclusionError) {
-        websiteRefs.exclusionError.hidden = false;
-        websiteRefs.exclusionError.textContent = error.message;
+      if (websiteRefs.ipExclusionError) {
+        websiteRefs.ipExclusionError.hidden = false;
+        websiteRefs.ipExclusionError.textContent = error.message;
       }
     }
   });
@@ -1102,10 +1202,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const ipAddress = target.dataset.ignoreRecordedIp || '';
     if (!ipAddress) return;
 
-    if (websiteRefs.exclusionError) {
-      websiteRefs.exclusionError.hidden = true;
-      websiteRefs.exclusionError.textContent = '';
-    }
+    clearIpExclusionError();
 
     try {
       const data = await requestJson(buildSettingsUrl('website_exclusion_add'), {
@@ -1116,15 +1213,15 @@ document.addEventListener('DOMContentLoaded', () => {
           label: 'Auto-ignored recorded IP'
         })
       });
-      state.website.exclusions = Array.isArray(data.excluded_ips) ? data.excluded_ips : state.website.exclusions;
-      renderExclusionList();
-      if (websiteRefs.excludedCount) websiteRefs.excludedCount.textContent = Number(state.website.exclusions.length).toLocaleString('id-ID');
+      state.website.ipExclusions = Array.isArray(data.excluded_ips) ? data.excluded_ips : state.website.ipExclusions;
+      renderIpExclusionList();
+      if (websiteRefs.excludedCount) websiteRefs.excludedCount.textContent = Number(state.website.ipExclusions.length).toLocaleString('id-ID');
       await loadWebsiteSafely();
       await loadWebsiteSettingsSafely();
     } catch (error) {
-      if (websiteRefs.exclusionError) {
-        websiteRefs.exclusionError.hidden = false;
-        websiteRefs.exclusionError.textContent = error.message;
+      if (websiteRefs.ipExclusionError) {
+        websiteRefs.ipExclusionError.hidden = false;
+        websiteRefs.ipExclusionError.textContent = error.message;
       }
     }
   });
@@ -1133,13 +1230,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const detectedIps = state.website.currentRequestIps.filter(Boolean);
     if (!detectedIps.length) return;
 
-    if (websiteRefs.exclusionError) {
-      websiteRefs.exclusionError.hidden = true;
-      websiteRefs.exclusionError.textContent = '';
-    }
+    clearIpExclusionError();
 
     try {
-      let latestExcludedIps = state.website.exclusions;
+      let latestExcludedIps = state.website.ipExclusions;
       for (const detectedIp of detectedIps) {
         const data = await requestJson(buildSettingsUrl('website_exclusion_add'), {
           method: 'POST',
@@ -1151,17 +1245,96 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         latestExcludedIps = Array.isArray(data.excluded_ips) ? data.excluded_ips : latestExcludedIps;
       }
-      state.website.exclusions = latestExcludedIps;
-      renderExclusionList();
-      if (websiteRefs.excludedCount) websiteRefs.excludedCount.textContent = Number(state.website.exclusions.length).toLocaleString('id-ID');
+      state.website.ipExclusions = latestExcludedIps;
+      renderIpExclusionList();
+      if (websiteRefs.excludedCount) websiteRefs.excludedCount.textContent = Number(state.website.ipExclusions.length).toLocaleString('id-ID');
       await loadWebsiteSettingsSafely();
       if (state.website.data) {
         await loadWebsiteSafely();
       }
     } catch (error) {
-      if (websiteRefs.exclusionError) {
-        websiteRefs.exclusionError.hidden = false;
-        websiteRefs.exclusionError.textContent = error.message;
+      if (websiteRefs.ipExclusionError) {
+        websiteRefs.ipExclusionError.hidden = false;
+        websiteRefs.ipExclusionError.textContent = error.message;
+      }
+    }
+  });
+
+  websiteRefs.deviceExclusionForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (!(form instanceof HTMLFormElement)) return;
+
+    const formData = new FormData(form);
+    const payload = {
+      device_id: String(formData.get('device_id') || '').trim(),
+      label: String(formData.get('label') || '').trim()
+    };
+
+    clearDeviceExclusionError();
+
+    try {
+      const data = await requestJson(buildSettingsUrl('website_device_exclusion_add'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      state.website.deviceExclusions = Array.isArray(data.excluded_devices) ? data.excluded_devices : [];
+      form.reset();
+      renderDeviceExclusionList();
+      await refreshAnalyticsAfterDeviceExclusion();
+    } catch (error) {
+      if (websiteRefs.deviceExclusionError) {
+        websiteRefs.deviceExclusionError.hidden = false;
+        websiteRefs.deviceExclusionError.textContent = error.message;
+      }
+    }
+  });
+
+  websiteRefs.deviceExclusionList?.addEventListener('click', async (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const id = target.dataset.deleteDeviceExclusion || '';
+    if (!id) return;
+
+    try {
+      const data = await requestJson(buildSettingsUrl('website_device_exclusion_delete'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: Number(id) })
+      });
+      state.website.deviceExclusions = Array.isArray(data.excluded_devices) ? data.excluded_devices : [];
+      renderDeviceExclusionList();
+      await refreshAnalyticsAfterDeviceExclusion();
+    } catch (error) {
+      if (websiteRefs.deviceExclusionError) {
+        websiteRefs.deviceExclusionError.hidden = false;
+        websiteRefs.deviceExclusionError.textContent = error.message;
+      }
+    }
+  });
+
+  websiteRefs.ignoreCurrentDeviceButton?.addEventListener('click', async () => {
+    if (!state.website.currentDeviceId) return;
+
+    clearDeviceExclusionError();
+
+    try {
+      const data = await requestJson(buildSettingsUrl('website_device_exclusion_add'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          device_id: state.website.currentDeviceId,
+          label: 'Ignored from current dashboard browser'
+        })
+      });
+      state.website.deviceExclusions = Array.isArray(data.excluded_devices) ? data.excluded_devices : state.website.deviceExclusions;
+      renderDeviceExclusionList();
+      await refreshAnalyticsAfterDeviceExclusion();
+    } catch (error) {
+      if (websiteRefs.deviceExclusionError) {
+        websiteRefs.deviceExclusionError.hidden = false;
+        websiteRefs.deviceExclusionError.textContent = error.message;
       }
     }
   });

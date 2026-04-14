@@ -57,6 +57,7 @@ $bucketLabelFormat = match ($timeframe) {
 $events = analyticsLoadEvents($rangeStart);
 $affiliates = analyticsLoadAffiliates();
 $excludedIpLookup = analyticsLoadExcludedIpLookup();
+$excludedDeviceLookup = analyticsLoadExcludedDeviceLookup();
 
 $filteredEvents = [];
 foreach ($events as $event) {
@@ -75,7 +76,12 @@ foreach ($events as $event) {
     $trafficKind = strtolower(trim((string) ($event['traffic_kind'] ?? 'landing')));
     $eventAffiliateCode = strtoupper(trim((string) ($event['affiliate_code'] ?? '')));
     $eventIp = analyticsNormalizeIp((string) ($event['ip_address'] ?? ''));
+    $eventDeviceId = analyticsNormalizeDeviceId((string) ($event['device_id'] ?? ''));
     $eventIpMatchKeys = analyticsBuildIpMatchKeys($eventIp);
+
+    if ($eventDeviceId !== '' && isset($excludedDeviceLookup[$eventDeviceId])) {
+        continue;
+    }
 
     if ($dataset === 'landing' && $trafficKind === 'affiliate') {
         continue;
@@ -142,6 +148,7 @@ function handleAdminAnalyticsAction(string $action): void
         }
         analyticsJsonResponse([
             'excluded_ips' => analyticsLoadIpExclusions(),
+            'excluded_devices' => analyticsLoadDeviceExclusions(),
             'current_request_ips' => $currentRequestIps,
             'current_request_match_keys' => array_values(array_unique($currentRequestMatchKeys)),
         ]);
@@ -175,6 +182,37 @@ function handleAdminAnalyticsAction(string $action): void
         analyticsJsonResponse([
             'ok' => true,
             'excluded_ips' => analyticsLoadIpExclusions(),
+        ]);
+    }
+
+    if ($action === 'website_device_exclusion_add') {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            analyticsJsonResponse(['error' => 'Method not allowed.'], 405);
+        }
+        $payload = json_decode(file_get_contents('php://input') ?: '', true);
+        if (!is_array($payload)) {
+            analyticsJsonResponse(['error' => 'Invalid JSON payload.'], 400);
+        }
+        $item = analyticsCreateDeviceExclusion((string) ($payload['device_id'] ?? ''), (string) ($payload['label'] ?? ''));
+        analyticsJsonResponse([
+            'ok' => true,
+            'item' => $item,
+            'excluded_devices' => analyticsLoadDeviceExclusions(),
+        ], 201);
+    }
+
+    if ($action === 'website_device_exclusion_delete') {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            analyticsJsonResponse(['error' => 'Method not allowed.'], 405);
+        }
+        $payload = json_decode(file_get_contents('php://input') ?: '', true);
+        if (!is_array($payload)) {
+            analyticsJsonResponse(['error' => 'Invalid JSON payload.'], 400);
+        }
+        analyticsDeleteDeviceExclusion((int) ($payload['id'] ?? 0), (string) ($payload['device_id'] ?? ''));
+        analyticsJsonResponse([
+            'ok' => true,
+            'excluded_devices' => analyticsLoadDeviceExclusions(),
         ]);
     }
 
