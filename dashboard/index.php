@@ -504,35 +504,6 @@ $dashboardBuildVersion = 'ignore-recorded-ip';
 
                     <article class="admin-panel admin-settings-card admin-settings-card-wide">
                         <div class="admin-panel-head">
-                            <div><span class="admin-panel-kicker">Website Exclusions</span><h3>Ignore your own IP addresses</h3></div>
-                        </div>
-                        <p class="admin-settings-copy">Add IPv4 or IPv6 addresses here so your own visits do not show up in the Official Website Dashboard charts.</p>
-                        <form class="admin-settings-form" data-ip-exclusion-form>
-                            <label class="admin-affiliate-field">
-                                <span>IP Address</span>
-                                <input type="text" name="ip_address" placeholder="Example: 2001:db8::1 or 123.45.67.89" required>
-                            </label>
-                            <label class="admin-affiliate-field">
-                                <span>Label</span>
-                                <input type="text" name="label" placeholder="Example: My laptop" maxlength="120">
-                            </label>
-                            <button type="submit" class="admin-primary-btn">Add Excluded IP</button>
-                        </form>
-                        <div class="admin-note-stack">
-                            <div class="admin-note-card">
-                                <strong>Current detected IPs</strong>
-                                <span data-current-request-ips>Loading current request IPs...</span>
-                                <button type="button" class="admin-soft-btn" data-ignore-detected-ips disabled>Ignore Detected IPs</button>
-                            </div>
-                        </div>
-                        <p class="admin-form-error" data-ip-exclusion-error hidden></p>
-                        <div class="admin-settings-chip-row" data-ip-exclusion-list>
-                            <p class="admin-empty">Belum ada IP yang dikecualikan.</p>
-                        </div>
-                    </article>
-
-                    <article class="admin-panel admin-settings-card admin-settings-card-wide">
-                        <div class="admin-panel-head">
                             <div><span class="admin-panel-kicker">Device Exclusions</span><h3>Ignore specific browsers and devices</h3></div>
                         </div>
                         <p class="admin-settings-copy">Use this when IPs keep changing. A saved device ID is shared between the website and dashboard, so future visits from that browser can be removed from landing-page and website analytics.</p>
@@ -540,6 +511,10 @@ $dashboardBuildVersion = 'ignore-recorded-ip';
                             <div class="admin-note-card">
                                 <strong>This browser device ID</strong>
                                 <span data-current-device-id>Loading current device ID...</span>
+                                <label class="admin-affiliate-field">
+                                    <span>Tag</span>
+                                    <input type="text" name="current_device_label" data-current-device-label placeholder="Example: Sales iPhone" maxlength="120">
+                                </label>
                                 <button type="button" class="admin-soft-btn" data-ignore-current-device disabled>Ignore This Device</button>
                             </div>
                         </div>

@@ -440,9 +440,7 @@ document.addEventListener('DOMContentLoaded', () => {
       timeframe: '7d',
       metric: 'visitors',
       data: null,
-      ipExclusions: [],
       deviceExclusions: [],
-      currentRequestIps: [],
       currentDeviceId: ensureAnalyticsDeviceId(),
       requestToken: 0,
       settingsRequestToken: 0
@@ -503,12 +501,8 @@ document.addEventListener('DOMContentLoaded', () => {
     trendMeta: document.querySelector('[data-website-trend-meta]'),
     timeframeButtons: document.querySelectorAll('[data-website-timeframe]'),
     metricButtons: document.querySelectorAll('[data-website-metric]'),
-    ipExclusionForm: document.querySelector('[data-ip-exclusion-form]'),
-    ipExclusionError: document.querySelector('[data-ip-exclusion-error]'),
-    ipExclusionList: document.querySelector('[data-ip-exclusion-list]'),
-    currentRequestIps: document.querySelector('[data-current-request-ips]'),
-    ignoreDetectedIpsButton: document.querySelector('[data-ignore-detected-ips]'),
     currentDeviceId: document.querySelector('[data-current-device-id]'),
+    currentDeviceLabel: document.querySelector('[data-current-device-label]'),
     ignoreCurrentDeviceButton: document.querySelector('[data-ignore-current-device]'),
     deviceExclusionForm: document.querySelector('[data-device-exclusion-form]'),
     deviceExclusionError: document.querySelector('[data-device-exclusion-error]'),
@@ -775,7 +769,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const renderWebsite = (data) => {
     state.website.data = data;
-    state.website.ipExclusions = Array.isArray(data.excluded_ips) ? data.excluded_ips : state.website.ipExclusions;
     const summary = data.summary || {};
     const pages = Array.isArray(data.by_page) ? data.by_page : [];
     const regions = Array.isArray(data.by_region) ? data.by_region : [];
@@ -785,7 +778,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (websiteRefs.summaryPageViews) websiteRefs.summaryPageViews.textContent = Number(summary.total_page_views || 0).toLocaleString('id-ID');
     if (websiteRefs.summaryTime) websiteRefs.summaryTime.textContent = formatSeconds(Number(summary.avg_time_spent_seconds || 0));
     if (websiteRefs.summaryTopRegion) websiteRefs.summaryTopRegion.textContent = summary.top_region || 'Unknown';
-    if (websiteRefs.excludedCount) websiteRefs.excludedCount.textContent = Number(summary.excluded_ip_count || state.website.ipExclusions.length || 0).toLocaleString('id-ID');
+    if (websiteRefs.excludedCount) websiteRefs.excludedCount.textContent = Number(summary.excluded_ip_count || 0).toLocaleString('id-ID');
     if (websiteRefs.settingsEndpointLabel) websiteRefs.settingsEndpointLabel.textContent = settingsEndpoint;
 
     if (websiteRefs.pageTableBody) {
@@ -848,24 +841,6 @@ document.addEventListener('DOMContentLoaded', () => {
     websiteRefs.metricButtons.forEach((button) => {
       button.classList.toggle('is-active', button.dataset.websiteMetric === state.website.metric);
     });
-    renderIpExclusionList();
-  };
-
-  const renderIpExclusionList = () => {
-    if (!websiteRefs.ipExclusionList) return;
-    const items = state.website.ipExclusions;
-    if (!items.length) {
-      websiteRefs.ipExclusionList.innerHTML = '<p class="admin-empty">Belum ada IP yang dikecualikan.</p>';
-      return;
-    }
-
-    websiteRefs.ipExclusionList.innerHTML = items.map((item) => `
-      <div class="admin-settings-chip">
-        <strong>${escapeHtml(item.ip_address || '')}</strong>
-        <span>${escapeHtml(item.label || 'No label')}</span>
-        <button type="button" data-delete-ip-exclusion="${escapeHtml(String(item.id || ''))}">Remove</button>
-      </div>
-    `).join('');
   };
 
   const renderDeviceExclusionList = () => {
@@ -885,32 +860,6 @@ document.addEventListener('DOMContentLoaded', () => {
     `).join('');
   };
 
-  const renderCurrentRequestIps = (ips, matchKeys = []) => {
-    if (!websiteRefs.currentRequestIps) return;
-    const currentIps = Array.isArray(ips) ? ips.filter(Boolean) : [];
-    const currentMatchKeys = Array.isArray(matchKeys) ? matchKeys.filter(Boolean) : [];
-    state.website.currentRequestIps = currentIps;
-    if (websiteRefs.ignoreDetectedIpsButton) {
-      websiteRefs.ignoreDetectedIpsButton.disabled = currentIps.length === 0;
-      websiteRefs.ignoreDetectedIpsButton.textContent = currentIps.length === 1
-        ? `Ignore ${currentIps[0]}`
-        : `Ignore ${currentIps.length} detected IPs`;
-    }
-    if (!currentIps.length) {
-      websiteRefs.currentRequestIps.textContent = 'No client IP detected on this request.';
-      return;
-    }
-
-    const lines = [
-      `IPs: ${currentIps.join(', ')}`
-    ];
-    const ipv6Prefixes = currentMatchKeys.filter((entry) => String(entry).startsWith('ipv6/64:'));
-    if (ipv6Prefixes.length) {
-      lines.push('IPv6 /64 prefix matching is active for exclusions on this network.');
-    }
-    websiteRefs.currentRequestIps.textContent = lines.join(' ');
-  };
-
   const renderCurrentDeviceId = () => {
     if (websiteRefs.currentDeviceId) {
       websiteRefs.currentDeviceId.textContent = state.website.currentDeviceId || 'Unavailable on this browser.';
@@ -918,12 +867,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (websiteRefs.ignoreCurrentDeviceButton) {
       websiteRefs.ignoreCurrentDeviceButton.disabled = !state.website.currentDeviceId;
     }
-  };
-
-  const clearIpExclusionError = () => {
-    if (!websiteRefs.ipExclusionError) return;
-    websiteRefs.ipExclusionError.hidden = true;
-    websiteRefs.ipExclusionError.textContent = '';
   };
 
   const clearDeviceExclusionError = () => {
@@ -958,14 +901,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const requestToken = beginRequest('website', true);
     const data = await requestJson(buildSettingsUrl('website_settings'));
     if (!isLatestRequest('website', requestToken, true)) return;
-    state.website.ipExclusions = Array.isArray(data.excluded_ips) ? data.excluded_ips : [];
     state.website.deviceExclusions = Array.isArray(data.excluded_devices) ? data.excluded_devices : [];
     state.website.currentDeviceId = ensureAnalyticsDeviceId();
-    renderIpExclusionList();
     renderDeviceExclusionList();
-    renderCurrentRequestIps(data.current_request_ips, data.current_request_match_keys);
     renderCurrentDeviceId();
-    if (websiteRefs.excludedCount) websiteRefs.excludedCount.textContent = Number(state.website.ipExclusions.length).toLocaleString('id-ID');
   };
 
   const loadActiveView = async () => {
@@ -1007,10 +946,6 @@ document.addEventListener('DOMContentLoaded', () => {
       await loadWebsiteSettings();
       return true;
     } catch (error) {
-      if (websiteRefs.ipExclusionError) {
-        websiteRefs.ipExclusionError.hidden = false;
-        websiteRefs.ipExclusionError.textContent = `Gagal memuat excluded IP list: ${error.message}`;
-      }
       if (websiteRefs.deviceExclusionError) {
         websiteRefs.deviceExclusionError.hidden = false;
         websiteRefs.deviceExclusionError.textContent = `Gagal memuat excluded device list: ${error.message}`;
@@ -1136,130 +1071,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  websiteRefs.ipExclusionForm?.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const form = event.currentTarget;
-    if (!(form instanceof HTMLFormElement)) return;
-
-    const formData = new FormData(form);
-    const payload = {
-      ip_address: String(formData.get('ip_address') || '').trim(),
-      label: String(formData.get('label') || '').trim()
-    };
-
-    clearIpExclusionError();
-
-    try {
-      const data = await requestJson(buildSettingsUrl('website_exclusion_add'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      state.website.ipExclusions = Array.isArray(data.excluded_ips) ? data.excluded_ips : [];
-      form.reset();
-      renderIpExclusionList();
-      if (websiteRefs.excludedCount) websiteRefs.excludedCount.textContent = Number(state.website.ipExclusions.length).toLocaleString('id-ID');
-      if (state.website.data) {
-        await loadWebsiteSafely();
-      }
-    } catch (error) {
-      if (websiteRefs.ipExclusionError) {
-        websiteRefs.ipExclusionError.hidden = false;
-        websiteRefs.ipExclusionError.textContent = error.message;
-      }
-    }
-  });
-
-  websiteRefs.ipExclusionList?.addEventListener('click', async (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
-    const id = target.dataset.deleteIpExclusion || '';
-    if (!id) return;
-
-    try {
-      const data = await requestJson(buildSettingsUrl('website_exclusion_delete'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: Number(id) })
-      });
-      state.website.ipExclusions = Array.isArray(data.excluded_ips) ? data.excluded_ips : [];
-      renderIpExclusionList();
-      if (websiteRefs.excludedCount) websiteRefs.excludedCount.textContent = Number(state.website.ipExclusions.length).toLocaleString('id-ID');
-      if (state.website.data) {
-        await loadWebsiteSafely();
-      }
-    } catch (error) {
-      if (websiteRefs.ipExclusionError) {
-        websiteRefs.ipExclusionError.hidden = false;
-        websiteRefs.ipExclusionError.textContent = error.message;
-      }
-    }
-  });
-
-  websiteRefs.recentEvents?.addEventListener('click', async (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
-    const ipAddress = target.dataset.ignoreRecordedIp || '';
-    if (!ipAddress) return;
-
-    clearIpExclusionError();
-
-    try {
-      const data = await requestJson(buildSettingsUrl('website_exclusion_add'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ip_address: ipAddress,
-          label: 'Auto-ignored recorded IP'
-        })
-      });
-      state.website.ipExclusions = Array.isArray(data.excluded_ips) ? data.excluded_ips : state.website.ipExclusions;
-      renderIpExclusionList();
-      if (websiteRefs.excludedCount) websiteRefs.excludedCount.textContent = Number(state.website.ipExclusions.length).toLocaleString('id-ID');
-      await loadWebsiteSafely();
-      await loadWebsiteSettingsSafely();
-    } catch (error) {
-      if (websiteRefs.ipExclusionError) {
-        websiteRefs.ipExclusionError.hidden = false;
-        websiteRefs.ipExclusionError.textContent = error.message;
-      }
-    }
-  });
-
-  websiteRefs.ignoreDetectedIpsButton?.addEventListener('click', async () => {
-    const detectedIps = state.website.currentRequestIps.filter(Boolean);
-    if (!detectedIps.length) return;
-
-    clearIpExclusionError();
-
-    try {
-      let latestExcludedIps = state.website.ipExclusions;
-      for (const detectedIp of detectedIps) {
-        const data = await requestJson(buildSettingsUrl('website_exclusion_add'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ip_address: detectedIp,
-            label: 'Auto-ignored detected IP'
-          })
-        });
-        latestExcludedIps = Array.isArray(data.excluded_ips) ? data.excluded_ips : latestExcludedIps;
-      }
-      state.website.ipExclusions = latestExcludedIps;
-      renderIpExclusionList();
-      if (websiteRefs.excludedCount) websiteRefs.excludedCount.textContent = Number(state.website.ipExclusions.length).toLocaleString('id-ID');
-      await loadWebsiteSettingsSafely();
-      if (state.website.data) {
-        await loadWebsiteSafely();
-      }
-    } catch (error) {
-      if (websiteRefs.ipExclusionError) {
-        websiteRefs.ipExclusionError.hidden = false;
-        websiteRefs.ipExclusionError.textContent = error.message;
-      }
-    }
-  });
-
   websiteRefs.deviceExclusionForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -1318,6 +1129,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!state.website.currentDeviceId) return;
 
     clearDeviceExclusionError();
+    const label = String(websiteRefs.currentDeviceLabel?.value || '').trim();
 
     try {
       const data = await requestJson(buildSettingsUrl('website_device_exclusion_add'), {
@@ -1325,11 +1137,12 @@ document.addEventListener('DOMContentLoaded', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           device_id: state.website.currentDeviceId,
-          label: 'Ignored from current dashboard browser'
+          label
         })
       });
       state.website.deviceExclusions = Array.isArray(data.excluded_devices) ? data.excluded_devices : state.website.deviceExclusions;
       renderDeviceExclusionList();
+      if (websiteRefs.currentDeviceLabel) websiteRefs.currentDeviceLabel.value = '';
       await refreshAnalyticsAfterDeviceExclusion();
     } catch (error) {
       if (websiteRefs.deviceExclusionError) {
