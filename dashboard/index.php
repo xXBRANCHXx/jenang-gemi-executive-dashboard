@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $isAuthenticated = jg_admin_is_authenticated();
 $adminCssVersion = (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/admin.js');
-$dashboardBuildVersion = 'ignore-recorded-ip';
+$dashboardBuildVersion = 'exec3.46.2';
 ?>
 <!DOCTYPE html>
 <html lang="id">
