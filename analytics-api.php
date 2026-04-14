@@ -87,7 +87,7 @@ foreach ($events as $event) {
         continue;
     }
 
-    if ($dataset === 'landing' && $trafficKind === 'affiliate') {
+    if ($dataset === 'landing' && $trafficKind !== 'landing') {
         continue;
     }
 
