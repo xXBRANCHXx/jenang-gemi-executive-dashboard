@@ -137,25 +137,25 @@ $dashboardBuildVersion = 'exec3.46.2';
                                 </div>
                             </div>
 
-                            <div class="admin-launchpad-section">
+                            <div class="admin-launchpad-section admin-launchpad-section-jamu">
                                 <div class="admin-launchpad-head">
                                     <span class="admin-panel-kicker">Jenang Gemi Jamu</span>
                                     <strong>Live now</strong>
                                 </div>
                                 <div class="admin-launchpad-grid">
-                                    <a class="admin-launchpad-link" href="https://jenanggemi.com/jamu-youtube.html" target="_blank" rel="noopener">
+                                    <a class="admin-launchpad-link admin-launchpad-link-jamu" href="https://jenanggemi.com/jamu-youtube.html" target="_blank" rel="noopener">
                                         <span>YouTube</span>
                                         <small>/jamu-youtube.html</small>
                                     </a>
-                                    <a class="admin-launchpad-link" href="https://jenanggemi.com/jamu-facebook.html" target="_blank" rel="noopener">
+                                    <a class="admin-launchpad-link admin-launchpad-link-jamu" href="https://jenanggemi.com/jamu-facebook.html" target="_blank" rel="noopener">
                                         <span>Facebook</span>
                                         <small>/jamu-facebook.html</small>
                                     </a>
-                                    <a class="admin-launchpad-link" href="https://jenanggemi.com/jamu-instagram.html" target="_blank" rel="noopener">
+                                    <a class="admin-launchpad-link admin-launchpad-link-jamu" href="https://jenanggemi.com/jamu-instagram.html" target="_blank" rel="noopener">
                                         <span>Instagram</span>
                                         <small>/jamu-instagram.html</small>
                                     </a>
-                                    <a class="admin-launchpad-link" href="https://jenanggemi.com/jamu-tiktok.html" target="_blank" rel="noopener">
+                                    <a class="admin-launchpad-link admin-launchpad-link-jamu" href="https://jenanggemi.com/jamu-tiktok.html" target="_blank" rel="noopener">
                                         <span>TikTok</span>
                                         <small>/jamu-tiktok.html</small>
                                     </a>
