@@ -185,6 +185,13 @@ $dashboardBuildVersion = 'exec3.46.2';
                             <button type="button" class="admin-toggle-pill" data-home-metric="checkout_clicks">Checkout</button>
                         </div>
                     </div>
+                    <div class="admin-control-group">
+                        <span class="admin-control-label">Trend Lines</span>
+                        <div class="admin-toggle-row" data-home-series-controls>
+                            <button type="button" class="admin-toggle-pill admin-toggle-pill-series admin-toggle-pill-series-bubur is-active" data-home-series="bubur">Bubur</button>
+                            <button type="button" class="admin-toggle-pill admin-toggle-pill-series admin-toggle-pill-series-jamu is-active" data-home-series="jamu">Jamu</button>
+                        </div>
+                    </div>
                     <div class="admin-live-status">
                         <strong>Live</strong>
                         <span data-home-last-updated>Waiting for first sync</span>

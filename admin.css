@@ -914,10 +914,42 @@ button, input {
   color: var(--admin-text);
 }
 
-.admin-chart-tooltip span {
+.admin-chart-tooltip span,
+.admin-chart-tooltip-body {
   display: block;
   color: var(--admin-muted);
   font-size: 12px;
+}
+
+.admin-chart-tooltip-body {
+  display: grid;
+  gap: 4px;
+}
+
+.admin-chart-tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--admin-muted);
+}
+
+.admin-chart-tooltip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+
+.admin-toggle-pill-series-bubur.is-active {
+  background: rgba(157, 255, 0, 0.14);
+  border-color: rgba(157, 255, 0, 0.38);
+  color: #c9ff74;
+}
+
+.admin-toggle-pill-series-jamu.is-active {
+  background: rgba(255, 122, 24, 0.16);
+  border-color: rgba(255, 122, 24, 0.4);
+  color: #ffb066;
 }
 
 .admin-chart-legend {

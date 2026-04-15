@@ -32,6 +32,12 @@ const HOME_METRIC_UNITS = {
   checkout_clicks: 'checkouts'
 };
 
+const HOME_TREND_SERIES = {
+  total: { label: 'Total', color: '#3b82f6' },
+  bubur: { label: 'Bubur', color: '#9dff00' },
+  jamu: { label: 'Jamu', color: '#ff7a18' }
+};
+
 const WEBSITE_METRIC_LABELS = {
   visitors: 'Website visitors over time',
   page_views: 'Website page views over time'
@@ -196,6 +202,8 @@ const drawGrid = (ctx, width, height, padding, maxValue, metric, unitsMap, palet
 const chartHoverState = new WeakMap();
 const chartTooltipState = new WeakMap();
 const chartBindingState = new WeakSet();
+const chartRendererState = new WeakMap();
+const chartActivePointState = new WeakMap();
 
 const ensureChartTooltip = (canvas) => {
   if (!(canvas instanceof HTMLCanvasElement)) return null;
@@ -207,7 +215,7 @@ const ensureChartTooltip = (canvas) => {
 
   const tooltip = document.createElement('div');
   tooltip.className = 'admin-chart-tooltip';
-  tooltip.innerHTML = '<strong></strong><span></span>';
+  tooltip.innerHTML = '<strong></strong><div class="admin-chart-tooltip-body"></div>';
   surface.appendChild(tooltip);
   chartTooltipState.set(canvas, tooltip);
   return tooltip;
@@ -225,11 +233,15 @@ const renderChartTooltip = (canvas, point, clientX, clientY) => {
   if (!tooltip || !(surface instanceof HTMLElement) || !point) return;
 
   const titleNode = tooltip.querySelector('strong');
-  const valueNode = tooltip.querySelector('span');
+  const valueNode = tooltip.querySelector('.admin-chart-tooltip-body');
 
   if (titleNode) titleNode.textContent = point.tooltipTitle || point.label || '';
   if (valueNode) {
-    valueNode.textContent = point.tooltipValue || formatMetricValue(point.metric || 'views', point.value || 0, point.unitsMap || HOME_METRIC_UNITS);
+    if (point.tooltipLinesHtml) {
+      valueNode.innerHTML = point.tooltipLinesHtml;
+    } else {
+      valueNode.textContent = point.tooltipValue || formatMetricValue(point.metric || 'views', point.value || 0, point.unitsMap || HOME_METRIC_UNITS);
+    }
   }
 
   const surfaceRect = surface.getBoundingClientRect();
@@ -279,13 +291,22 @@ const bindChartHover = (canvas) => {
   canvas.addEventListener('mousemove', (event) => {
     const hoveredPoint = resolveHoveredChartPoint(canvas, event.clientX, event.clientY);
     if (!hoveredPoint) {
+      chartActivePointState.delete(canvas);
+      const renderChart = chartRendererState.get(canvas);
+      if (renderChart) renderChart();
       hideChartTooltip(canvas);
       return;
     }
+    chartActivePointState.set(canvas, hoveredPoint);
+    const renderChart = chartRendererState.get(canvas);
+    if (renderChart) renderChart();
     renderChartTooltip(canvas, hoveredPoint, event.clientX, event.clientY);
   });
 
   canvas.addEventListener('mouseleave', () => {
+    chartActivePointState.delete(canvas);
+    const renderChart = chartRendererState.get(canvas);
+    if (renderChart) renderChart();
     hideChartTooltip(canvas);
   });
 };
@@ -354,6 +375,7 @@ const drawBarChart = (canvas, items, config) => {
 };
 
 const drawLineChart = (canvas, items, metric, unitsMap) => {
+  chartRendererState.set(canvas, () => drawLineChart(canvas, items, metric, unitsMap));
   const prepared = prepareCanvas(canvas);
   if (!prepared) return;
   const { ctx, width, height } = prepared;
@@ -419,6 +441,109 @@ const drawLineChart = (canvas, items, metric, unitsMap) => {
   chartHoverState.set(canvas, points);
 };
 
+const buildTrendTooltipLines = (metric, unitsMap, seriesValues) => seriesValues.map((seriesItem) => `
+  <div class="admin-chart-tooltip-row">
+    <span class="admin-chart-tooltip-dot" style="background:${seriesItem.color}"></span>
+    <span>${seriesItem.label}: ${formatMetricValue(metric, seriesItem.value, unitsMap)}</span>
+  </div>
+`).join('');
+
+const drawMultiLineChart = (canvas, items, metric, unitsMap, seriesConfig) => {
+  chartRendererState.set(canvas, () => drawMultiLineChart(canvas, items, metric, unitsMap, seriesConfig));
+  const prepared = prepareCanvas(canvas);
+  if (!prepared) return;
+  const { ctx, width, height } = prepared;
+  const padding = { top: 20, right: 18, bottom: 48, left: 92 };
+  const chartWidth = width - padding.left - padding.right;
+  const chartHeight = height - padding.top - padding.bottom;
+  const palette = getThemePalette();
+  const visibleSeries = seriesConfig.filter((series) => series.visible);
+  const maxValue = Math.max(
+    1,
+    ...visibleSeries.flatMap((series) => items.map((item) => Number(item[series.key]?.[metric] || 0)))
+  );
+  const hoverColumns = [];
+  const activeHover = chartActivePointState.get(canvas) || null;
+
+  bindChartHover(canvas);
+  drawGrid(ctx, width, height, padding, maxValue, metric, unitsMap, palette);
+
+  if (!items.length || !visibleSeries.length) {
+    chartHoverState.set(canvas, []);
+    return;
+  }
+
+  visibleSeries.forEach((series) => {
+    ctx.strokeStyle = series.color;
+    ctx.lineWidth = series.key === 'total' ? 3.5 : 3;
+    ctx.beginPath();
+
+    items.forEach((item, index) => {
+      const x = padding.left + (chartWidth * index / Math.max(items.length - 1, 1));
+      const value = Number(item[series.key]?.[metric] || 0);
+      const y = padding.top + chartHeight - ((value / maxValue) * (chartHeight - 6));
+      if (index === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    });
+    ctx.stroke();
+
+    items.forEach((item, index) => {
+      const x = padding.left + (chartWidth * index / Math.max(items.length - 1, 1));
+      const value = Number(item[series.key]?.[metric] || 0);
+      const y = padding.top + chartHeight - ((value / maxValue) * (chartHeight - 6));
+      ctx.fillStyle = series.color;
+      ctx.beginPath();
+      ctx.arc(x, y, series.key === 'total' ? 4 : 3.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (!hoverColumns[index]) {
+        const columnSeries = visibleSeries.map((entry) => ({
+          key: entry.key,
+          label: entry.label,
+          color: entry.color,
+          value: Number(item[entry.key]?.[metric] || 0)
+        }));
+        hoverColumns[index] = {
+          x,
+          y,
+          label: item.label || '',
+          metric,
+          unitsMap,
+          tooltipTitle: item.label || '',
+          tooltipLinesHtml: buildTrendTooltipLines(metric, unitsMap, columnSeries),
+          hitbox: {
+            left: index === 0 ? padding.left : x - (chartWidth / Math.max(items.length - 1, 1) / 2),
+            right: index === items.length - 1 ? width - padding.right : x + (chartWidth / Math.max(items.length - 1, 1) / 2),
+            top: padding.top,
+            bottom: padding.top + chartHeight
+          }
+        };
+      }
+
+      if (index === 0 || index === items.length - 1 || items.length <= 8 || index % Math.ceil(items.length / 6) === 0) {
+        ctx.fillStyle = palette.muted;
+        ctx.font = '600 11px "Plus Jakarta Sans", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(item.label || '', x, height - 16);
+      }
+    });
+  });
+
+  if (activeHover && Number.isFinite(activeHover.x)) {
+    ctx.strokeStyle = HOME_TREND_SERIES.total.color;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(activeHover.x, padding.top);
+    ctx.lineTo(activeHover.x, padding.top + chartHeight);
+    ctx.stroke();
+  }
+
+  chartHoverState.set(canvas, hoverColumns.filter(Boolean));
+};
+
 document.addEventListener('DOMContentLoaded', () => {
   const root = document.querySelector('[data-admin-dashboard]');
   if (!root) return;
@@ -433,6 +558,10 @@ document.addEventListener('DOMContentLoaded', () => {
     home: {
       timeframe: '24h',
       metric: 'views',
+      series: {
+        bubur: true,
+        jamu: true
+      },
       data: null,
       requestToken: 0
     },
@@ -480,7 +609,8 @@ document.addEventListener('DOMContentLoaded', () => {
     trendTitle: document.querySelector('[data-home-trend-title]'),
     trendMeta: document.querySelector('[data-home-trend-meta]'),
     timeframeButtons: document.querySelectorAll('[data-home-timeframe]'),
-    metricButtons: document.querySelectorAll('[data-home-metric]')
+    metricButtons: document.querySelectorAll('[data-home-metric]'),
+    seriesButtons: document.querySelectorAll('[data-home-series]')
   };
 
   const websiteRefs = {
@@ -685,6 +815,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const bySource = (Array.isArray(data.by_source) ? data.by_source : []).filter((item) => !shouldHideSourceMetric(item.source));
     const byUrl = (Array.isArray(data.by_url) ? data.by_url : []).filter((item) => !shouldHideSourceMetric(item.source));
     const timeseries = Array.isArray(data.timeseries) ? data.timeseries : [];
+    const timeseriesByProduct = Array.isArray(data.timeseries_by_product) ? data.timeseries_by_product : timeseries.map((item) => ({
+      bucket_start: item.bucket_start,
+      label: item.label,
+      total: {
+        views: Number(item.views || 0),
+        order_now_clicks: Number(item.order_now_clicks || 0),
+        checkout_clicks: Number(item.checkout_clicks || 0)
+      },
+      bubur: { views: 0, order_now_clicks: 0, checkout_clicks: 0 },
+      jamu: { views: 0, order_now_clicks: 0, checkout_clicks: 0 }
+    }));
     const hourOfDay = Array.isArray(data.hour_of_day) ? data.hour_of_day : [];
     const recentEvents = (Array.isArray(data.recent_events) ? data.recent_events : []).filter((item) => !shouldHideSourceMetric(item.source));
 
@@ -727,7 +868,11 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
     `, 'Belum ada aktivitas.');
 
-    drawLineChart(homeRefs.trendCanvas, timeseries, state.home.metric, HOME_METRIC_UNITS);
+    drawMultiLineChart(homeRefs.trendCanvas, timeseriesByProduct, state.home.metric, HOME_METRIC_UNITS, [
+      { key: 'total', label: HOME_TREND_SERIES.total.label, color: HOME_TREND_SERIES.total.color, visible: true },
+      { key: 'bubur', label: HOME_TREND_SERIES.bubur.label, color: HOME_TREND_SERIES.bubur.color, visible: state.home.series.bubur },
+      { key: 'jamu', label: HOME_TREND_SERIES.jamu.label, color: HOME_TREND_SERIES.jamu.color, visible: state.home.series.jamu }
+    ]);
     drawBarChart(homeRefs.hourCanvas, hourOfDay, {
       value: (item) => item[state.home.metric] || 0,
       label: (item) => `${String(item.hour).padStart(2, '0')}:00`,
@@ -764,6 +909,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     homeRefs.metricButtons.forEach((button) => {
       button.classList.toggle('is-active', button.dataset.homeMetric === state.home.metric);
+    });
+    homeRefs.seriesButtons.forEach((button) => {
+      const key = button.dataset.homeSeries;
+      button.classList.toggle('is-active', Boolean(key && state.home.series[key]));
     });
   };
 
@@ -1039,6 +1188,15 @@ document.addEventListener('DOMContentLoaded', () => {
   homeRefs.metricButtons.forEach((button) => {
     button.addEventListener('click', () => {
       state.home.metric = button.dataset.homeMetric || 'views';
+      if (state.home.data) renderHome(state.home.data);
+    });
+  });
+
+  homeRefs.seriesButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      const key = button.dataset.homeSeries;
+      if (!key || !(key in state.home.series)) return;
+      state.home.series[key] = !state.home.series[key];
       if (state.home.data) renderHome(state.home.data);
     });
   });
