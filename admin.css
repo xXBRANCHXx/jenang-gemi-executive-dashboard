@@ -947,9 +947,23 @@ button, input {
 }
 
 .admin-toggle-pill-series-jamu.is-active {
-  background: rgba(255, 122, 24, 0.16);
-  border-color: rgba(255, 122, 24, 0.4);
-  color: #ffb066;
+  background: rgba(255, 176, 43, 0.2);
+  border-color: rgba(255, 196, 84, 0.52);
+  color: #ffd98d;
+}
+
+.admin-toggle-pill-series {
+  min-height: 34px;
+  padding: 6px 12px;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.admin-panel-inline-toggles {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: -2px 0 12px;
 }
 
 .admin-chart-legend {

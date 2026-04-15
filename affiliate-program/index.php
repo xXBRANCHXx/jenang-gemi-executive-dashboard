@@ -128,6 +128,10 @@ $affiliateJsVersion = (string) @filemtime(dirname(__DIR__) . '/affiliate-program
                         </div>
                         <span class="admin-panel-meta" data-trend-meta>Select an affiliate to begin</span>
                     </div>
+                    <div class="admin-panel-inline-toggles" data-affiliate-series-controls>
+                        <button type="button" class="admin-toggle-pill admin-toggle-pill-series admin-toggle-pill-series-bubur is-active" data-affiliate-series="bubur">Bubur</button>
+                        <button type="button" class="admin-toggle-pill admin-toggle-pill-series admin-toggle-pill-series-jamu is-active" data-affiliate-series="jamu">Jamu</button>
+                    </div>
                     <div class="admin-chart-surface">
                         <canvas class="admin-chart-canvas admin-chart-canvas-lg" data-trend-chart width="1200" height="360"></canvas>
                     </div>

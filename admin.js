@@ -33,9 +33,9 @@ const HOME_METRIC_UNITS = {
 };
 
 const HOME_TREND_SERIES = {
-  total: { label: 'Total', color: '#3b82f6' },
+  total: { label: 'Total', color: '#12cfff' },
   bubur: { label: 'Bubur', color: '#9dff00' },
-  jamu: { label: 'Jamu', color: '#ff7a18' }
+  jamu: { label: 'Jamu', color: '#ffb12b' }
 };
 
 const WEBSITE_METRIC_LABELS = {

@@ -185,13 +185,6 @@ $dashboardBuildVersion = 'exec3.46.2';
                             <button type="button" class="admin-toggle-pill" data-home-metric="checkout_clicks">Checkout</button>
                         </div>
                     </div>
-                    <div class="admin-control-group">
-                        <span class="admin-control-label">Trend Lines</span>
-                        <div class="admin-toggle-row" data-home-series-controls>
-                            <button type="button" class="admin-toggle-pill admin-toggle-pill-series admin-toggle-pill-series-bubur is-active" data-home-series="bubur">Bubur</button>
-                            <button type="button" class="admin-toggle-pill admin-toggle-pill-series admin-toggle-pill-series-jamu is-active" data-home-series="jamu">Jamu</button>
-                        </div>
-                    </div>
                     <div class="admin-live-status">
                         <strong>Live</strong>
                         <span data-home-last-updated>Waiting for first sync</span>
@@ -213,6 +206,10 @@ $dashboardBuildVersion = 'exec3.46.2';
                                 <h3 data-home-trend-title>Views over time</h3>
                             </div>
                             <span class="admin-panel-meta" data-home-trend-meta>Live over selected timeframe</span>
+                        </div>
+                        <div class="admin-panel-inline-toggles" data-home-series-controls>
+                            <button type="button" class="admin-toggle-pill admin-toggle-pill-series admin-toggle-pill-series-bubur is-active" data-home-series="bubur">Bubur</button>
+                            <button type="button" class="admin-toggle-pill admin-toggle-pill-series admin-toggle-pill-series-jamu is-active" data-home-series="jamu">Jamu</button>
                         </div>
                         <div class="admin-chart-surface">
                             <canvas class="admin-chart-canvas admin-chart-canvas-lg" data-home-trend-chart width="1200" height="360"></canvas>

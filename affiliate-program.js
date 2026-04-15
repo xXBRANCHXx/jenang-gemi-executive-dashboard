@@ -26,6 +26,12 @@ const METRIC_UNITS = {
   checkout_clicks: 'checkouts'
 };
 
+const AFFILIATE_TREND_SERIES = {
+  total: { label: 'Total', color: '#12cfff' },
+  bubur: { label: 'Bubur', color: '#9dff00' },
+  jamu: { label: 'Jamu', color: '#ffb12b' }
+};
+
 const DASHBOARD_TIMEZONE = 'Asia/Jakarta';
 
 const formatSeconds = (seconds) => {
@@ -171,8 +177,11 @@ const drawBarChart = (canvas, items, config) => {
 };
 
 const chartHoverState = new WeakMap();
+const chartRendererState = new WeakMap();
+const chartActivePointState = new WeakMap();
 
 const drawLineChart = (canvas, items, metric) => {
+  chartRendererState.set(canvas, () => drawLineChart(canvas, items, metric));
   const prepared = prepareCanvas(canvas);
   if (!prepared) return;
   const { ctx, width, height } = prepared;
@@ -232,6 +241,96 @@ const drawLineChart = (canvas, items, metric) => {
   chartHoverState.set(canvas, points);
 };
 
+const buildTrendTooltipLines = (metric, seriesValues) => seriesValues.map((seriesItem) => `
+  <div class="admin-chart-tooltip-row">
+    <span class="admin-chart-tooltip-dot" style="background:${seriesItem.color}"></span>
+    <span>${seriesItem.label}: ${formatMetricValue(metric, seriesItem.value)}</span>
+  </div>
+`).join('');
+
+const drawMultiLineChart = (canvas, items, metric, seriesConfig) => {
+  chartRendererState.set(canvas, () => drawMultiLineChart(canvas, items, metric, seriesConfig));
+  const prepared = prepareCanvas(canvas);
+  if (!prepared) return;
+  const { ctx, width, height } = prepared;
+  const padding = { top: 20, right: 18, bottom: 48, left: 92 };
+  const chartWidth = width - padding.left - padding.right;
+  const chartHeight = height - padding.top - padding.bottom;
+  const palette = getThemePalette();
+  const visibleSeries = seriesConfig.filter((series) => series.visible);
+  const maxValue = Math.max(
+    1,
+    ...visibleSeries.flatMap((series) => items.map((item) => Number(item[series.key]?.[metric] || 0)))
+  );
+  const hoverColumns = [];
+  const activeHover = chartActivePointState.get(canvas) || null;
+
+  drawGrid(ctx, width, height, padding, maxValue, metric, palette);
+
+  if (!items.length || !visibleSeries.length) {
+    chartHoverState.set(canvas, []);
+    return;
+  }
+
+  visibleSeries.forEach((series) => {
+    ctx.strokeStyle = series.color;
+    ctx.lineWidth = series.key === 'total' ? 3.5 : 3;
+    ctx.beginPath();
+
+    items.forEach((item, index) => {
+      const x = padding.left + (chartWidth * index / Math.max(items.length - 1, 1));
+      const value = Number(item[series.key]?.[metric] || 0);
+      const y = padding.top + chartHeight - ((value / maxValue) * (chartHeight - 6));
+      if (index === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    items.forEach((item, index) => {
+      const x = padding.left + (chartWidth * index / Math.max(items.length - 1, 1));
+      const value = Number(item[series.key]?.[metric] || 0);
+      const y = padding.top + chartHeight - ((value / maxValue) * (chartHeight - 6));
+      ctx.fillStyle = series.color;
+      ctx.beginPath();
+      ctx.arc(x, y, series.key === 'total' ? 4 : 3.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (!hoverColumns[index]) {
+        const columnSeries = visibleSeries.map((entry) => ({
+          key: entry.key,
+          label: entry.label,
+          color: entry.color,
+          value: Number(item[entry.key]?.[metric] || 0)
+        }));
+        hoverColumns[index] = {
+          x,
+          label: item.label || '',
+          metric,
+          tooltipLinesHtml: buildTrendTooltipLines(metric, columnSeries)
+        };
+      }
+
+      if (index === 0 || index === items.length - 1 || items.length <= 8 || index % Math.ceil(items.length / 6) === 0) {
+        ctx.fillStyle = palette.muted;
+        ctx.font = '600 11px "Plus Jakarta Sans", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(item.label || '', x, height - 16);
+      }
+    });
+  });
+
+  if (activeHover && Number.isFinite(activeHover.x)) {
+    ctx.strokeStyle = AFFILIATE_TREND_SERIES.total.color;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(activeHover.x, padding.top);
+    ctx.lineTo(activeHover.x, padding.top + chartHeight);
+    ctx.stroke();
+  }
+
+  chartHoverState.set(canvas, hoverColumns.filter(Boolean));
+};
+
 document.addEventListener('DOMContentLoaded', () => {
   const root = document.querySelector('[data-affiliate-dashboard]');
   if (!root) return;
@@ -239,6 +338,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const state = {
     timeframe: '24h',
     metric: 'views',
+    series: {
+      bubur: true,
+      jamu: true
+    },
     affiliateCode: '',
     affiliates: [],
     platforms: ['youtube', 'facebook', 'instagram', 'tiktok'],
@@ -282,10 +385,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const trendMeta = document.querySelector('[data-trend-meta]');
   const timeframeButtons = document.querySelectorAll('[data-timeframe]');
   const metricButtons = document.querySelectorAll('[data-metric]');
+  const seriesButtons = document.querySelectorAll('[data-affiliate-series]');
   const affiliateSelect = document.querySelector('[data-affiliate-select]');
   const tooltip = document.createElement('div');
   tooltip.className = 'admin-chart-tooltip';
-  tooltip.innerHTML = '<strong></strong><span></span>';
+  tooltip.innerHTML = '<strong></strong><div class="admin-chart-tooltip-body"></div>';
   trendSurface?.appendChild(tooltip);
 
   if (endpointLabel) endpointLabel.textContent = endpoint;
@@ -482,6 +586,10 @@ document.addEventListener('DOMContentLoaded', () => {
     metricButtons.forEach((button) => {
       button.classList.toggle('is-active', button.dataset.metric === state.metric);
     });
+    seriesButtons.forEach((button) => {
+      const key = button.dataset.affiliateSeries;
+      button.classList.toggle('is-active', Boolean(key && state.series[key]));
+    });
     syncAffiliateSelect();
   };
 
@@ -506,7 +614,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const localX = event.clientX - canvasRect.left;
     const localY = event.clientY - canvasRect.top;
     tooltip.querySelector('strong').textContent = point.label;
-    tooltip.querySelector('span').textContent = formatMetricValue(point.metric, point.value);
+    const body = tooltip.querySelector('.admin-chart-tooltip-body');
+    if (body) {
+      body.innerHTML = point.tooltipLinesHtml || formatMetricValue(point.metric, point.value);
+    }
     tooltip.style.left = `${localX + (canvasRect.left - surfaceRect.left)}px`;
     tooltip.style.top = `${localY + (canvasRect.top - surfaceRect.top)}px`;
     tooltip.classList.add('is-visible');
@@ -559,7 +670,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (recentEvents) {
       recentEvents.innerHTML = `<p class="admin-empty">${escapeHtml(message)}</p>`;
     }
-    drawLineChart(trendCanvas, [], state.metric);
+    drawMultiLineChart(trendCanvas, [], state.metric, []);
     drawBarChart(hourCanvas, [], {
       value: () => 0,
       label: () => '',
@@ -604,7 +715,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const summary = data.summary || {};
       const bySource = Array.isArray(data.by_source) ? data.by_source : [];
       const byUrl = Array.isArray(data.by_url) ? data.by_url : [];
-      const timeseries = Array.isArray(data.timeseries) ? data.timeseries : [];
+      const timeseriesByProduct = Array.isArray(data.timeseries_by_product) ? data.timeseries_by_product : [];
       const hourOfDay = Array.isArray(data.hour_of_day) ? data.hour_of_day : [];
       state.timezone = DASHBOARD_TIMEZONE;
 
@@ -644,7 +755,11 @@ document.addEventListener('DOMContentLoaded', () => {
       state.recentEventsAll = Array.isArray(data.recent_events) ? data.recent_events : [];
       renderRecentFeed();
 
-      drawLineChart(trendCanvas, timeseries, state.metric);
+      drawMultiLineChart(trendCanvas, timeseriesByProduct, state.metric, [
+        { key: 'total', label: AFFILIATE_TREND_SERIES.total.label, color: AFFILIATE_TREND_SERIES.total.color, visible: true },
+        { key: 'bubur', label: AFFILIATE_TREND_SERIES.bubur.label, color: AFFILIATE_TREND_SERIES.bubur.color, visible: state.series.bubur },
+        { key: 'jamu', label: AFFILIATE_TREND_SERIES.jamu.label, color: AFFILIATE_TREND_SERIES.jamu.color, visible: state.series.jamu }
+      ]);
       drawBarChart(hourCanvas, hourOfDay, {
         value: (item) => item[state.metric] || 0,
         label: (item) => `${String(item.hour).padStart(2, '0')}:00`,
@@ -747,6 +862,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  seriesButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      const key = button.dataset.affiliateSeries;
+      if (!key || !(key in state.series)) return;
+      state.series[key] = !state.series[key];
+      loadDashboard(false);
+    });
+  });
+
   affiliateSelect?.addEventListener('change', () => {
     state.affiliateCode = affiliateSelect.value;
     loadDashboard(false);
@@ -766,7 +890,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   trendCanvas?.addEventListener('mousemove', (event) => {
     const points = chartHoverState.get(trendCanvas) || [];
-    if (!points.length) return hideTooltip();
+    if (!points.length) {
+      chartActivePointState.delete(trendCanvas);
+      const renderChart = chartRendererState.get(trendCanvas);
+      if (renderChart) renderChart();
+      return hideTooltip();
+    }
     const rect = trendCanvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     let closest = points[0];
@@ -778,10 +907,18 @@ document.addEventListener('DOMContentLoaded', () => {
         closestDistance = distance;
       }
     }
+    chartActivePointState.set(trendCanvas, closest);
+    const renderChart = chartRendererState.get(trendCanvas);
+    if (renderChart) renderChart();
     showTooltip(closest, trendCanvas, event);
   });
 
-  trendCanvas?.addEventListener('mouseleave', hideTooltip);
+  trendCanvas?.addEventListener('mouseleave', () => {
+    chartActivePointState.delete(trendCanvas);
+    const renderChart = chartRendererState.get(trendCanvas);
+    if (renderChart) renderChart();
+    hideTooltip();
+  });
 
   state.refreshHandle = window.setInterval(() => {
     loadDashboard(false);
