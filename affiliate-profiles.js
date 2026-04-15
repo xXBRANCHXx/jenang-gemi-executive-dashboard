@@ -141,6 +141,16 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
           </div>
           <div class="admin-affiliate-field">
+            <span class="admin-control-label">Products</span>
+            <div class="admin-affiliate-platform-grid">
+              ${(Array.isArray(affiliate.products) ? affiliate.products : []).map((product) => `
+                <div class="admin-platform-choice">
+                  <span>${escapeHtml(toTitleCase(product))}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          <div class="admin-affiliate-field">
             <span class="admin-control-label">Landing URLs</span>
             <div class="admin-affiliate-url-list">${urlLinks || '<p class="admin-empty">Belum ada URL.</p>'}</div>
           </div>
@@ -226,7 +236,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const formData = new FormData(affiliateForm);
     const payload = {
       name: String(formData.get('name') || '').trim(),
-      platforms: formData.getAll('platforms[]').map((value) => String(value))
+      platforms: formData.getAll('platforms[]').map((value) => String(value)),
+      products: formData.getAll('products[]').map((value) => String(value))
     };
 
     try {

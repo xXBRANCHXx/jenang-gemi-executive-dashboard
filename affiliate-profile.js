@@ -129,6 +129,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!(input instanceof HTMLInputElement)) return;
         input.checked = Array.isArray(affiliate.platforms) && affiliate.platforms.includes(input.value);
       });
+      profileForm.querySelectorAll('input[name="products[]"]').forEach((input) => {
+        if (!(input instanceof HTMLInputElement)) return;
+        input.checked = Array.isArray(affiliate.products) && affiliate.products.includes(input.value);
+      });
     }
     renderUrls(affiliate);
   };
@@ -162,7 +166,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const payload = {
       code: affiliateCode,
       name: String(formData.get('name') || '').trim(),
-      platforms: formData.getAll('platforms[]').map((value) => String(value))
+      platforms: formData.getAll('platforms[]').map((value) => String(value)),
+      products: formData.getAll('products[]').map((value) => String(value))
     };
 
     try {

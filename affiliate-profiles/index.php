@@ -121,6 +121,13 @@ $profilesJsVersion = (string) @filemtime(dirname(__DIR__) . '/affiliate-profiles
                         <label><input type="checkbox" name="platforms[]" value="tiktok"> <span>TikTok</span></label>
                     </div>
                 </fieldset>
+                <fieldset class="admin-affiliate-platforms">
+                    <legend>Products</legend>
+                    <div class="admin-affiliate-platform-grid">
+                        <label><input type="checkbox" name="products[]" value="bubur"> <span>Bubur</span></label>
+                        <label><input type="checkbox" name="products[]" value="jamu"> <span>Jamu</span></label>
+                    </div>
+                </fieldset>
                 <p class="admin-form-error" data-affiliate-form-error hidden></p>
                 <div class="admin-modal-actions">
                     <button type="button" class="admin-ghost-btn" data-close-affiliate-modal>Cancel</button>
