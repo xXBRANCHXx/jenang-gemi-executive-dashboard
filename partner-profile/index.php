@@ -1,0 +1,147 @@
+<?php
+declare(strict_types=1);
+
+require dirname(__DIR__) . '/auth.php';
+
+if (!jg_admin_is_authenticated()) {
+    header('Location: ../dashboard/');
+    exit;
+}
+
+$partnerCode = trim((string) ($_GET['code'] ?? ''));
+$adminCssVersion = (string) @filemtime(dirname(__DIR__) . '/admin.css');
+$profileJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-profile.js');
+$adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
+?>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
+    <title>Partner Profile | Jenang Gemi Executive Dashboard</title>
+    <meta name="robots" content="noindex,nofollow">
+    <link rel="icon" type="image/png" href="https://jenanggemi.com/Media/Jenang%20Gemi%20Website%20Logo.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap">
+    <link rel="stylesheet" href="../admin.css?v=<?php echo urlencode($adminCssVersion ?: '1'); ?>">
+</head>
+<body class="admin-body is-dashboard">
+    <div class="admin-app" data-partner-profile data-partners-endpoint="../api/partners/" data-partner-code="<?php echo htmlspecialchars($partnerCode, ENT_QUOTES); ?>">
+        <div class="admin-backdrop admin-backdrop-a"></div>
+        <div class="admin-backdrop admin-backdrop-b"></div>
+        <header class="admin-topbar">
+            <div class="admin-topbar-brand">
+                <span class="admin-chip">Partner Profile</span>
+                <h1>Edit Partner Profile</h1>
+                <p>Update company assignment, allowed brands/products, pricing agreements, and partner portal path here.</p>
+            </div>
+            <div class="admin-topbar-actions">
+                <div class="admin-view-indicator">Partner Profile</div>
+                <div class="admin-menu-shell" data-menu-shell>
+                    <button type="button" class="admin-ghost-btn admin-menu-trigger" data-menu-trigger aria-expanded="false" aria-label="Open dashboard menu">...</button>
+                    <div class="admin-menu-panel" data-menu-panel hidden>
+                        <a class="admin-menu-item admin-link-btn" href="../dashboard/" data-dashboard-view-link="home">Home Dashboard</a>
+                        <a class="admin-menu-item admin-link-btn" href="../dashboard/" data-dashboard-view-link="website">Official Website Dashboard</a>
+                        <a class="admin-menu-item admin-link-btn" href="../partner-program/">Partner Program Dashboard</a>
+                        <a class="admin-menu-item admin-link-btn" href="../partner-profiles/">Partner Profiles</a>
+                        <button type="button" class="admin-menu-item" data-theme-toggle>Toggle Theme</button>
+                        <a class="admin-menu-item admin-link-btn" href="../logout/">Lock Dashboard</a>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="admin-layout">
+            <section class="admin-hero-panel">
+                <div class="admin-hero-copy">
+                    <span class="admin-chip admin-chip-accent" data-partner-code-badge>Partner</span>
+                    <h2 data-partner-name>Loading partner profile</h2>
+                    <p>These settings control what the partner sees in the partner portal and which pricing agreement applies to them.</p>
+                </div>
+            </section>
+
+            <section class="admin-panel admin-panel-affiliates">
+                <div class="admin-panel-head">
+                    <div>
+                        <span class="admin-panel-kicker">Profile Settings</span>
+                        <h3>Edit partner profile</h3>
+                    </div>
+                </div>
+                <form class="admin-affiliate-editor" data-profile-form hidden>
+                    <input type="hidden" name="code">
+                    <label class="admin-affiliate-field">
+                        <span class="admin-control-label">Partner name</span>
+                        <input type="text" name="name" maxlength="160" required>
+                    </label>
+                    <label class="admin-affiliate-field">
+                        <span class="admin-control-label">Partner page slug</span>
+                        <input type="text" name="partner_slug" maxlength="160">
+                    </label>
+                    <fieldset class="admin-affiliate-platforms">
+                        <legend>Companies</legend>
+                        <div class="admin-affiliate-platform-grid">
+                            <label><input type="checkbox" name="companies[]" value="Jenang Gemi"> <span>Jenang Gemi</span></label>
+                            <label><input type="checkbox" name="companies[]" value="ZERO"> <span>ZERO</span></label>
+                            <label><input type="checkbox" name="companies[]" value="ZFIT"> <span>ZFIT</span></label>
+                        </div>
+                    </fieldset>
+                    <fieldset class="admin-affiliate-platforms">
+                        <legend>Allowed brands</legend>
+                        <div class="admin-affiliate-platform-grid">
+                            <label><input type="checkbox" name="allowed_brands[]" value="Jenang Gemi"> <span>Jenang Gemi</span></label>
+                            <label><input type="checkbox" name="allowed_brands[]" value="ZERO"> <span>ZERO</span></label>
+                            <label><input type="checkbox" name="allowed_brands[]" value="ZFIT"> <span>ZFIT</span></label>
+                        </div>
+                    </fieldset>
+                    <fieldset class="admin-affiliate-platforms">
+                        <legend>Allowed products</legend>
+                        <div class="admin-affiliate-platform-grid">
+                            <label><input type="checkbox" name="products[]" value="Bubur"> <span>Bubur</span></label>
+                            <label><input type="checkbox" name="products[]" value="Jamu"> <span>Jamu</span></label>
+                        </div>
+                    </fieldset>
+                    <label class="admin-affiliate-field">
+                        <span class="admin-control-label">Bubur pricing agreement</span>
+                        <input type="number" name="jenang_gemi_bubur" min="0" step="0.01">
+                    </label>
+                    <label class="admin-affiliate-field">
+                        <span class="admin-control-label">Jamu pricing agreement</span>
+                        <input type="number" name="jenang_gemi_jamu" min="0" step="0.01">
+                    </label>
+                    <label class="admin-affiliate-field">
+                        <span class="admin-control-label">Notes</span>
+                        <input type="text" name="notes" maxlength="300">
+                    </label>
+                    <p class="admin-form-error" data-profile-error hidden></p>
+                    <div class="admin-affiliate-actions">
+                        <button type="submit" class="admin-primary-btn">Save Profile</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="admin-panel admin-panel-affiliates">
+                <div class="admin-panel-head">
+                    <div>
+                        <span class="admin-panel-kicker">Portal Details</span>
+                        <h3>Partner login and destination</h3>
+                    </div>
+                </div>
+                <div class="admin-note-stack">
+                    <div class="admin-note-card"><strong>Partner Code</strong><span data-note-code>Pending</span></div>
+                    <div class="admin-note-card"><strong>Partner URL</strong><span data-note-url>Pending</span></div>
+                    <div class="admin-note-card"><strong>Login Hint</strong><span>The partner can use the profile code and their registered name to sign in on `partner.jenanggemi.com`.</span></div>
+                </div>
+            </section>
+
+            <div class="admin-bottom-actions">
+                <a class="admin-ghost-btn admin-link-btn" href="../partner-profiles/">Return To Partner Profiles</a>
+                <a class="admin-primary-btn admin-link-btn" href="https://partner.jenanggemi.com" target="_blank" rel="noopener">Open Partner Portal</a>
+            </div>
+        </main>
+    </div>
+
+    <script type="module" src="../partner-admin.js?v=<?php echo urlencode($adminJsVersion ?: '1'); ?>"></script>
+    <script type="module" src="../partner-profile.js?v=<?php echo urlencode($profileJsVersion ?: '1'); ?>"></script>
+</body>
+</html>
