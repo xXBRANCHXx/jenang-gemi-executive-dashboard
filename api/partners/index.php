@@ -139,6 +139,97 @@ function jg_partner_amount(mixed $value): float
     return round((float) $value, 2);
 }
 
+function jg_partner_default_product_access(): array
+{
+    return [
+        'Jenang Gemi' => [
+            'Bubur' => [
+                'enabled' => true,
+                'sizes' => ['15 Sachet', '30 Sachet', '60 Sachet'],
+            ],
+            'Jamu' => [
+                'enabled' => true,
+                'sizes' => ['15 Sachet', '30 Sachet', '60 Sachet'],
+            ],
+        ],
+        'ZERO' => [],
+        'ZFIT' => [],
+    ];
+}
+
+function jg_partner_default_pricing(): array
+{
+    return [
+        'Jenang Gemi' => [
+            'Bubur' => [
+                '15 Sachet' => 0,
+                '30 Sachet' => 0,
+                '60 Sachet' => 0,
+            ],
+            'Jamu' => [
+                '15 Sachet' => 0,
+                '30 Sachet' => 0,
+                '60 Sachet' => 0,
+            ],
+        ],
+        'ZERO' => [],
+        'ZFIT' => [],
+    ];
+}
+
+function jg_partner_normalize_sizes(mixed $value): array
+{
+    $allowed = ['15 Sachet', '30 Sachet', '60 Sachet'];
+    $values = jg_partner_list($value);
+    return array_values(array_filter($allowed, static fn(string $size): bool => in_array($size, $values, true)));
+}
+
+function jg_partner_product_access(mixed $value, array $companies): array
+{
+    $default = jg_partner_default_product_access();
+    $incoming = is_array($value) ? $value : [];
+
+    foreach ($default as $company => $products) {
+        if (!in_array($company, $companies, true)) {
+            $default[$company] = [];
+            continue;
+        }
+
+        foreach ($products as $productName => $config) {
+            $incomingConfig = is_array($incoming[$company][$productName] ?? null) ? $incoming[$company][$productName] : [];
+            $enabled = !empty($incomingConfig['enabled']);
+            $sizes = jg_partner_normalize_sizes($incomingConfig['sizes'] ?? []);
+            $default[$company][$productName] = [
+                'enabled' => $enabled,
+                'sizes' => $enabled ? $sizes : [],
+            ];
+        }
+    }
+
+    return $default;
+}
+
+function jg_partner_pricing_matrix(mixed $value, array $companies): array
+{
+    $default = jg_partner_default_pricing();
+    $incoming = is_array($value) ? $value : [];
+
+    foreach ($default as $company => $products) {
+        if (!in_array($company, $companies, true)) {
+            $default[$company] = [];
+            continue;
+        }
+
+        foreach ($products as $productName => $sizes) {
+            foreach ($sizes as $size => $amount) {
+                $default[$company][$productName][$size] = jg_partner_amount($incoming[$company][$productName][$size] ?? $amount);
+            }
+        }
+    }
+
+    return $default;
+}
+
 function jg_partner_response(array $data, ?array $partner = null): void
 {
     $payload = ['database' => $data];
@@ -189,12 +280,8 @@ if ($action === 'create') {
         'code' => $code,
         'name' => $name,
         'companies' => $companies,
-        'allowed_brands' => jg_partner_list($request['allowed_brands'] ?? ['Jenang Gemi']),
-        'products' => jg_partner_list($request['products'] ?? ['Bubur', 'Jamu']),
-        'pricing' => [
-            'jenang_gemi_bubur' => jg_partner_amount($request['pricing']['jenang_gemi_bubur'] ?? 0),
-            'jenang_gemi_jamu' => jg_partner_amount($request['pricing']['jenang_gemi_jamu'] ?? 0),
-        ],
+        'product_access' => jg_partner_product_access($request['product_access'] ?? [], $companies),
+        'pricing' => jg_partner_pricing_matrix($request['pricing'] ?? [], $companies),
         'notes' => trim((string) ($request['notes'] ?? '')),
         'partner_slug' => $slug,
         'store_path' => '/partner/' . $slug . '/',
@@ -229,12 +316,8 @@ if ($action === 'update') {
 
         $partner['name'] = $name;
         $partner['companies'] = $companies;
-        $partner['allowed_brands'] = jg_partner_list($request['allowed_brands'] ?? ($partner['allowed_brands'] ?? []));
-        $partner['products'] = jg_partner_list($request['products'] ?? ($partner['products'] ?? []));
-        $partner['pricing'] = [
-            'jenang_gemi_bubur' => jg_partner_amount($request['pricing']['jenang_gemi_bubur'] ?? ($partner['pricing']['jenang_gemi_bubur'] ?? 0)),
-            'jenang_gemi_jamu' => jg_partner_amount($request['pricing']['jenang_gemi_jamu'] ?? ($partner['pricing']['jenang_gemi_jamu'] ?? 0)),
-        ];
+        $partner['product_access'] = jg_partner_product_access($request['product_access'] ?? ($partner['product_access'] ?? []), $companies);
+        $partner['pricing'] = jg_partner_pricing_matrix($request['pricing'] ?? ($partner['pricing'] ?? []), $companies);
         $partner['notes'] = trim((string) ($request['notes'] ?? ($partner['notes'] ?? '')));
         $partner['partner_slug'] = $slug;
         $partner['store_path'] = '/partner/' . $slug . '/';

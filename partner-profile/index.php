@@ -57,7 +57,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                 <div class="admin-hero-copy">
                     <span class="admin-chip admin-chip-accent" data-partner-code-badge>Partner</span>
                     <h2 data-partner-name>Loading partner profile</h2>
-                    <p>These settings control what the partner sees in the partner portal and which pricing agreement applies to them.</p>
+                    <p>Companies are the brands. Product access and pricing here decide exactly which Jenang Gemi products and sizes the partner can sell.</p>
                 </div>
             </section>
 
@@ -87,28 +87,31 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                         </div>
                     </fieldset>
                     <fieldset class="admin-affiliate-platforms">
-                        <legend>Allowed brands</legend>
+                        <legend>Jenang Gemi product access</legend>
                         <div class="admin-affiliate-platform-grid">
-                            <label><input type="checkbox" name="allowed_brands[]" value="Jenang Gemi"> <span>Jenang Gemi</span></label>
-                            <label><input type="checkbox" name="allowed_brands[]" value="ZERO"> <span>ZERO</span></label>
-                            <label><input type="checkbox" name="allowed_brands[]" value="ZFIT"> <span>ZFIT</span></label>
+                            <label><input type="checkbox" name="product_access[Jenang Gemi][Bubur][enabled]" value="1"> <span>Enable Bubur</span></label>
+                            <label><input type="checkbox" name="product_access[Jenang Gemi][Bubur][sizes][]" value="15 Sachet"> <span>15 Sachet</span></label>
+                            <label><input type="checkbox" name="product_access[Jenang Gemi][Bubur][sizes][]" value="30 Sachet"> <span>30 Sachet</span></label>
+                            <label><input type="checkbox" name="product_access[Jenang Gemi][Bubur][sizes][]" value="60 Sachet"> <span>60 Sachet</span></label>
+                        </div>
+                        <div class="admin-affiliate-platform-grid">
+                            <label><input type="checkbox" name="product_access[Jenang Gemi][Jamu][enabled]" value="1"> <span>Enable Jamu</span></label>
+                            <label><input type="checkbox" name="product_access[Jenang Gemi][Jamu][sizes][]" value="15 Sachet"> <span>15 Sachet</span></label>
+                            <label><input type="checkbox" name="product_access[Jenang Gemi][Jamu][sizes][]" value="30 Sachet"> <span>30 Sachet</span></label>
+                            <label><input type="checkbox" name="product_access[Jenang Gemi][Jamu][sizes][]" value="60 Sachet"> <span>60 Sachet</span></label>
                         </div>
                     </fieldset>
                     <fieldset class="admin-affiliate-platforms">
-                        <legend>Allowed products</legend>
-                        <div class="admin-affiliate-platform-grid">
-                            <label><input type="checkbox" name="products[]" value="Bubur"> <span>Bubur</span></label>
-                            <label><input type="checkbox" name="products[]" value="Jamu"> <span>Jamu</span></label>
+                        <legend>Jenang Gemi pricing agreement</legend>
+                        <div class="admin-sku-form-grid">
+                            <label><span>Bubur 15 Sachet</span><input type="number" name="pricing[Jenang Gemi][Bubur][15 Sachet]" min="0" step="0.01"></label>
+                            <label><span>Bubur 30 Sachet</span><input type="number" name="pricing[Jenang Gemi][Bubur][30 Sachet]" min="0" step="0.01"></label>
+                            <label><span>Bubur 60 Sachet</span><input type="number" name="pricing[Jenang Gemi][Bubur][60 Sachet]" min="0" step="0.01"></label>
+                            <label><span>Jamu 15 Sachet</span><input type="number" name="pricing[Jenang Gemi][Jamu][15 Sachet]" min="0" step="0.01"></label>
+                            <label><span>Jamu 30 Sachet</span><input type="number" name="pricing[Jenang Gemi][Jamu][30 Sachet]" min="0" step="0.01"></label>
+                            <label><span>Jamu 60 Sachet</span><input type="number" name="pricing[Jenang Gemi][Jamu][60 Sachet]" min="0" step="0.01"></label>
                         </div>
                     </fieldset>
-                    <label class="admin-affiliate-field">
-                        <span class="admin-control-label">Bubur pricing agreement</span>
-                        <input type="number" name="jenang_gemi_bubur" min="0" step="0.01">
-                    </label>
-                    <label class="admin-affiliate-field">
-                        <span class="admin-control-label">Jamu pricing agreement</span>
-                        <input type="number" name="jenang_gemi_jamu" min="0" step="0.01">
-                    </label>
                     <label class="admin-affiliate-field">
                         <span class="admin-control-label">Notes</span>
                         <input type="text" name="notes" maxlength="300">

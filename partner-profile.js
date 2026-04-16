@@ -47,12 +47,22 @@ document.addEventListener('DOMContentLoaded', () => {
     form.elements.code.value = partner.code || '';
     form.elements.name.value = partner.name || '';
     form.elements.partner_slug.value = partner.partner_slug || '';
-    form.elements.jenang_gemi_bubur.value = partner.pricing?.jenang_gemi_bubur ?? 0;
-    form.elements.jenang_gemi_jamu.value = partner.pricing?.jenang_gemi_jamu ?? 0;
+    form.elements['pricing[Jenang Gemi][Bubur][15 Sachet]'].value = partner.pricing?.['Jenang Gemi']?.Bubur?.['15 Sachet'] ?? 0;
+    form.elements['pricing[Jenang Gemi][Bubur][30 Sachet]'].value = partner.pricing?.['Jenang Gemi']?.Bubur?.['30 Sachet'] ?? 0;
+    form.elements['pricing[Jenang Gemi][Bubur][60 Sachet]'].value = partner.pricing?.['Jenang Gemi']?.Bubur?.['60 Sachet'] ?? 0;
+    form.elements['pricing[Jenang Gemi][Jamu][15 Sachet]'].value = partner.pricing?.['Jenang Gemi']?.Jamu?.['15 Sachet'] ?? 0;
+    form.elements['pricing[Jenang Gemi][Jamu][30 Sachet]'].value = partner.pricing?.['Jenang Gemi']?.Jamu?.['30 Sachet'] ?? 0;
+    form.elements['pricing[Jenang Gemi][Jamu][60 Sachet]'].value = partner.pricing?.['Jenang Gemi']?.Jamu?.['60 Sachet'] ?? 0;
     form.elements.notes.value = partner.notes || '';
     setCheckedValues('companies[]', partner.companies || []);
-    setCheckedValues('allowed_brands[]', partner.allowed_brands || []);
-    setCheckedValues('products[]', partner.products || []);
+    setCheckedValues('product_access[Jenang Gemi][Bubur][sizes][]', partner.product_access?.['Jenang Gemi']?.Bubur?.sizes || []);
+    setCheckedValues('product_access[Jenang Gemi][Jamu][sizes][]', partner.product_access?.['Jenang Gemi']?.Jamu?.sizes || []);
+    const buburEnabled = !!partner.product_access?.['Jenang Gemi']?.Bubur?.enabled;
+    const jamuEnabled = !!partner.product_access?.['Jenang Gemi']?.Jamu?.enabled;
+    const buburEnabledInput = document.querySelector('input[name="product_access[Jenang Gemi][Bubur][enabled]"]');
+    const jamuEnabledInput = document.querySelector('input[name="product_access[Jenang Gemi][Jamu][enabled]"]');
+    if (buburEnabledInput instanceof HTMLInputElement) buburEnabledInput.checked = buburEnabled;
+    if (jamuEnabledInput instanceof HTMLInputElement) jamuEnabledInput.checked = jamuEnabled;
     if (partnerName) partnerName.textContent = partner.name || partner.code || 'Partner';
     if (partnerCodeBadge) partnerCodeBadge.textContent = partner.code || 'Partner';
     if (codeNote) codeNote.textContent = partner.code || 'Pending';
@@ -78,11 +88,31 @@ document.addEventListener('DOMContentLoaded', () => {
           name: formData.get('name'),
           partner_slug: formData.get('partner_slug'),
           companies: checkedValues('companies[]'),
-          allowed_brands: checkedValues('allowed_brands[]'),
-          products: checkedValues('products[]'),
+          product_access: {
+            'Jenang Gemi': {
+              Bubur: {
+                enabled: !!document.querySelector('input[name="product_access[Jenang Gemi][Bubur][enabled]"]')?.checked,
+                sizes: checkedValues('product_access[Jenang Gemi][Bubur][sizes][]')
+              },
+              Jamu: {
+                enabled: !!document.querySelector('input[name="product_access[Jenang Gemi][Jamu][enabled]"]')?.checked,
+                sizes: checkedValues('product_access[Jenang Gemi][Jamu][sizes][]')
+              }
+            }
+          },
           pricing: {
-            jenang_gemi_bubur: formData.get('jenang_gemi_bubur'),
-            jenang_gemi_jamu: formData.get('jenang_gemi_jamu')
+            'Jenang Gemi': {
+              Bubur: {
+                '15 Sachet': formData.get('pricing[Jenang Gemi][Bubur][15 Sachet]'),
+                '30 Sachet': formData.get('pricing[Jenang Gemi][Bubur][30 Sachet]'),
+                '60 Sachet': formData.get('pricing[Jenang Gemi][Bubur][60 Sachet]')
+              },
+              Jamu: {
+                '15 Sachet': formData.get('pricing[Jenang Gemi][Jamu][15 Sachet]'),
+                '30 Sachet': formData.get('pricing[Jenang Gemi][Jamu][30 Sachet]'),
+                '60 Sachet': formData.get('pricing[Jenang Gemi][Jamu][60 Sachet]')
+              }
+            }
           },
           notes: formData.get('notes')
         }

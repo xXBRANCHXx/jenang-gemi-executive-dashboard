@@ -31,6 +31,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const checkedValues = (name) => Array.from(document.querySelectorAll(`input[name="${name}"]:checked`)).map((input) => input.value);
 
+  const productAccessPayload = (scope) => ({
+    'Jenang Gemi': {
+      Bubur: {
+        enabled: !!scope.querySelector('input[name="product_access[Jenang Gemi][Bubur][enabled]"]')?.checked,
+        sizes: Array.from(scope.querySelectorAll('input[name="product_access[Jenang Gemi][Bubur][sizes][]"]:checked')).map((input) => input.value)
+      },
+      Jamu: {
+        enabled: !!scope.querySelector('input[name="product_access[Jenang Gemi][Jamu][enabled]"]')?.checked,
+        sizes: Array.from(scope.querySelectorAll('input[name="product_access[Jenang Gemi][Jamu][sizes][]"]:checked')).map((input) => input.value)
+      }
+    }
+  });
+
+  const pricingPayload = (formData) => ({
+    'Jenang Gemi': {
+      Bubur: {
+        '15 Sachet': formData.get('pricing[Jenang Gemi][Bubur][15 Sachet]'),
+        '30 Sachet': formData.get('pricing[Jenang Gemi][Bubur][30 Sachet]'),
+        '60 Sachet': formData.get('pricing[Jenang Gemi][Bubur][60 Sachet]')
+      },
+      Jamu: {
+        '15 Sachet': formData.get('pricing[Jenang Gemi][Jamu][15 Sachet]'),
+        '30 Sachet': formData.get('pricing[Jenang Gemi][Jamu][30 Sachet]'),
+        '60 Sachet': formData.get('pricing[Jenang Gemi][Jamu][60 Sachet]')
+      }
+    }
+  });
+
   const renderPartners = (partners) => {
     if (!partnerList) return;
     if (!partners.length) {
@@ -115,12 +143,8 @@ document.addEventListener('DOMContentLoaded', () => {
           name: formData.get('name'),
           partner_slug: formData.get('partner_slug'),
           companies: checkedValues('companies[]'),
-          allowed_brands: checkedValues('allowed_brands[]'),
-          products: checkedValues('products[]'),
-          pricing: {
-            jenang_gemi_bubur: formData.get('jenang_gemi_bubur'),
-            jenang_gemi_jamu: formData.get('jenang_gemi_jamu')
-          },
+          product_access: productAccessPayload(partnerForm),
+          pricing: pricingPayload(formData),
           notes: formData.get('notes')
         }
       });
