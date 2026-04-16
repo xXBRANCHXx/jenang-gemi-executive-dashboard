@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const partnerModal = document.querySelector('[data-partner-modal]');
   const partnerForm = document.querySelector('[data-partner-form]');
   const partnerFormError = document.querySelector('[data-partner-form-error]');
+  const companyEmptyState = document.querySelector('[data-company-empty-state]');
 
   const escapeHtml = (value) => String(value)
     .replace(/&/g, '&amp;')
@@ -30,6 +31,21 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const checkedValues = (name) => Array.from(document.querySelectorAll(`input[name="${name}"]:checked`)).map((input) => input.value);
+
+  const syncCompanySections = (scope) => {
+    const selectedCompanies = new Set(Array.from(scope.querySelectorAll('input[name="companies[]"]:checked')).map((input) => input.value));
+    scope.querySelectorAll('[data-company-section]').forEach((section) => {
+      const company = section.getAttribute('data-company-section') || '';
+      const active = selectedCompanies.has(company);
+      section.hidden = !active;
+      section.querySelectorAll('input, select, textarea').forEach((field) => {
+        field.disabled = !active;
+      });
+    });
+    if (companyEmptyState) {
+      companyEmptyState.hidden = selectedCompanies.size > 0;
+    }
+  };
 
   const productAccessPayload = (scope) => ({
     'Jenang Gemi': {
@@ -84,15 +100,9 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
         </div>
         <div class="admin-affiliate-field">
-          <span class="admin-control-label">Allowed brands</span>
+          <span class="admin-control-label">Enabled Jenang Gemi Products</span>
           <div class="admin-affiliate-platform-grid">
-            ${(partner.allowed_brands || []).map((brand) => `<div class="admin-platform-choice"><span>${escapeHtml(brand)}</span></div>`).join('')}
-          </div>
-        </div>
-        <div class="admin-affiliate-field">
-          <span class="admin-control-label">Products</span>
-          <div class="admin-affiliate-platform-grid">
-            ${(partner.products || []).map((product) => `<div class="admin-platform-choice"><span>${escapeHtml(product)}</span></div>`).join('')}
+            ${Object.entries(partner.product_access?.['Jenang Gemi'] || {}).filter(([, config]) => config?.enabled).map(([product, config]) => `<div class="admin-platform-choice"><span>${escapeHtml(`${product}: ${(config.sizes || []).join(', ')}`)}</span></div>`).join('')}
           </div>
         </div>
       </article>
@@ -108,6 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!partnerModal) return;
     partnerModal.hidden = true;
     partnerForm?.reset();
+    if (partnerForm) syncCompanySections(partnerForm);
     if (partnerFormError) {
       partnerFormError.hidden = true;
       partnerFormError.textContent = '';
@@ -125,6 +136,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.querySelectorAll('[data-close-partner-modal]').forEach((button) => {
     button.addEventListener('click', closePartnerModal);
+  });
+
+  partnerForm?.querySelectorAll('input[name="companies[]"]').forEach((input) => {
+    input.addEventListener('change', () => syncCompanySections(partnerForm));
   });
 
   partnerForm?.addEventListener('submit', async (event) => {
@@ -164,4 +179,6 @@ document.addEventListener('DOMContentLoaded', () => {
       partnerFormError.textContent = error instanceof Error ? error.message : 'Unable to load partners.';
     }
   });
+
+  if (partnerForm) syncCompanySections(partnerForm);
 });

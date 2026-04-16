@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const partnerCodeBadge = document.querySelector('[data-partner-code-badge]');
   const codeNote = document.querySelector('[data-note-code]');
   const urlNote = document.querySelector('[data-note-url]');
+  const companyEmptyState = document.querySelector('[data-company-empty-state]');
 
   const requestJson = async (url, options = {}) => {
     const response = await fetch(url, {
@@ -27,6 +28,21 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const checkedValues = (name) => Array.from(document.querySelectorAll(`input[name="${name}"]:checked`)).map((input) => input.value);
+
+  const syncCompanySections = () => {
+    const selectedCompanies = new Set(checkedValues('companies[]'));
+    document.querySelectorAll('[data-company-section]').forEach((section) => {
+      const company = section.getAttribute('data-company-section') || '';
+      const active = selectedCompanies.has(company);
+      section.hidden = !active;
+      section.querySelectorAll('input, select, textarea').forEach((field) => {
+        field.disabled = !active;
+      });
+    });
+    if (companyEmptyState) {
+      companyEmptyState.hidden = selectedCompanies.size > 0;
+    }
+  };
 
   const setCheckedValues = (name, values) => {
     const wanted = new Set(values || []);
@@ -63,6 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const jamuEnabledInput = document.querySelector('input[name="product_access[Jenang Gemi][Jamu][enabled]"]');
     if (buburEnabledInput instanceof HTMLInputElement) buburEnabledInput.checked = buburEnabled;
     if (jamuEnabledInput instanceof HTMLInputElement) jamuEnabledInput.checked = jamuEnabled;
+    syncCompanySections();
     if (partnerName) partnerName.textContent = partner.name || partner.code || 'Partner';
     if (partnerCodeBadge) partnerCodeBadge.textContent = partner.code || 'Partner';
     if (codeNote) codeNote.textContent = partner.code || 'Pending';
@@ -121,6 +138,10 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Unable to save partner.');
     }
+  });
+
+  document.querySelectorAll('input[name="companies[]"]').forEach((input) => {
+    input.addEventListener('change', syncCompanySections);
   });
 
   loadPartner().catch((error) => {

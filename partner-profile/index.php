@@ -34,7 +34,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
             <div class="admin-topbar-brand">
                 <span class="admin-chip">Partner Profile</span>
                 <h1>Edit Partner Profile</h1>
-                <p>Update company assignment, allowed brands/products, pricing agreements, and partner portal path here.</p>
+                <p>Update company assignment, product access, pricing agreements, and partner portal path here.</p>
             </div>
             <div class="admin-topbar-actions">
                 <div class="admin-view-indicator">Partner Profile</div>
@@ -78,7 +78,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                         <span class="admin-control-label">Partner page slug</span>
                         <input type="text" name="partner_slug" maxlength="160">
                     </label>
-                    <fieldset class="admin-affiliate-platforms">
+                    <fieldset class="admin-affiliate-platforms" data-company-section="Jenang Gemi">
                         <legend>Companies</legend>
                         <div class="admin-affiliate-platform-grid">
                             <label><input type="checkbox" name="companies[]" value="Jenang Gemi"> <span>Jenang Gemi</span></label>
@@ -86,7 +86,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                             <label><input type="checkbox" name="companies[]" value="ZFIT"> <span>ZFIT</span></label>
                         </div>
                     </fieldset>
-                    <fieldset class="admin-affiliate-platforms">
+                    <fieldset class="admin-affiliate-platforms" data-company-section="Jenang Gemi">
                         <legend>Jenang Gemi product access</legend>
                         <div class="admin-affiliate-platform-grid">
                             <label><input type="checkbox" name="product_access[Jenang Gemi][Bubur][enabled]" value="1"> <span>Enable Bubur</span></label>
@@ -112,6 +112,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                             <label><span>Jamu 60 Sachet</span><input type="number" name="pricing[Jenang Gemi][Jamu][60 Sachet]" min="0" step="0.01"></label>
                         </div>
                     </fieldset>
+                    <p class="admin-table-note" data-company-empty-state hidden>Select a company above to configure product access and pricing for that company.</p>
                     <label class="admin-affiliate-field">
                         <span class="admin-control-label">Notes</span>
                         <input type="text" name="notes" maxlength="300">

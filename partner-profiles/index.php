@@ -33,7 +33,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
             <div class="admin-topbar-brand">
                 <span class="admin-chip">Partner Profiles</span>
                 <h1>Partner Profiles</h1>
-                <p>Create partner records here and control which companies, brands, and products they can access inside the partner portal.</p>
+                <p>Create partner records here and control which companies, products, sizes, and pricing agreements they can access inside the partner portal.</p>
             </div>
             <div class="admin-topbar-actions">
                 <div class="admin-view-indicator">Partner Profiles</div>
@@ -105,7 +105,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                     <span>Partner page slug</span>
                     <input type="text" name="partner_slug" maxlength="160" placeholder="e.g. rina-sulistyo">
                 </label>
-                <fieldset class="admin-affiliate-platforms">
+                <fieldset class="admin-affiliate-platforms" data-company-section="Jenang Gemi">
                     <legend>Companies</legend>
                     <div class="admin-affiliate-platform-grid">
                         <label><input type="checkbox" name="companies[]" value="Jenang Gemi"> <span>Jenang Gemi</span></label>
@@ -113,7 +113,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                         <label><input type="checkbox" name="companies[]" value="ZFIT"> <span>ZFIT</span></label>
                     </div>
                 </fieldset>
-                <fieldset class="admin-affiliate-platforms">
+                <fieldset class="admin-affiliate-platforms" data-company-section="Jenang Gemi">
                     <legend>Jenang Gemi product access</legend>
                     <div class="admin-note-stack">
                         <div class="admin-note-card">
@@ -151,6 +151,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                         <label><span>Jamu 60 Sachet</span><input type="number" name="pricing[Jenang Gemi][Jamu][60 Sachet]" min="0" step="0.01" placeholder="e.g. 81000"></label>
                     </div>
                 </fieldset>
+                <p class="admin-table-note" data-company-empty-state hidden>Select a company above to configure product access and pricing for that company.</p>
                 <label>
                     <span>Notes</span>
                     <input type="text" name="notes" maxlength="300" placeholder="Optional note">
