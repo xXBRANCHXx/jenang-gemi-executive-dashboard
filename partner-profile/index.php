@@ -120,6 +120,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                     <p class="admin-form-error" data-profile-error hidden></p>
                     <div class="admin-affiliate-actions">
                         <button type="submit" class="admin-primary-btn">Save Profile</button>
+                        <button type="button" class="admin-danger-btn" data-delete-profile hidden>Delete Partner</button>
                     </div>
                 </form>
             </section>

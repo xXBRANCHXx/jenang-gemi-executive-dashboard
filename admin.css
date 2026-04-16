@@ -240,6 +240,7 @@ button, input {
 
 .admin-primary-btn,
 .admin-ghost-btn,
+.admin-danger-btn,
 .admin-soft-btn,
 .admin-toggle-pill {
   border: 1px solid transparent;
@@ -261,6 +262,13 @@ button, input {
   justify-content: center;
 }
 
+.admin-danger-btn {
+  background: rgba(255, 82, 82, 0.14);
+  border-color: rgba(255, 82, 82, 0.26);
+  color: #ffd9d9;
+  font-weight: 800;
+}
+
 .admin-ghost-btn,
 .admin-soft-btn,
 .admin-toggle-pill {
@@ -271,6 +279,7 @@ button, input {
 
 .admin-primary-btn:hover,
 .admin-ghost-btn:hover,
+.admin-danger-btn:hover,
 .admin-soft-btn:hover,
 .admin-toggle-pill:hover,
 .admin-panel:hover,
@@ -297,6 +306,14 @@ button, input {
 .admin-select:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+.admin-danger-btn:disabled,
+.admin-primary-btn:disabled,
+.admin-ghost-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+  transform: none;
 }
 
 .admin-panel-affiliates {

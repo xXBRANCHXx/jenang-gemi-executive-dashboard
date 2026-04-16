@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const codeNote = document.querySelector('[data-note-code]');
   const urlNote = document.querySelector('[data-note-url]');
   const companyEmptyState = document.querySelector('[data-company-empty-state]');
+  const deleteButton = document.querySelector('[data-delete-profile]');
 
   const requestJson = async (url, options = {}) => {
     const response = await fetch(url, {
@@ -84,6 +85,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (partnerCodeBadge) partnerCodeBadge.textContent = partner.code || 'Partner';
     if (codeNote) codeNote.textContent = partner.code || 'Pending';
     if (urlNote) urlNote.textContent = `https://partner.jenanggemi.com${partner.store_path || '/'}`;
+    if (deleteButton) {
+      deleteButton.hidden = false;
+      deleteButton.dataset.partnerCode = partner.code || '';
+      deleteButton.dataset.partnerName = partner.name || 'Partner';
+    }
   };
 
   const loadPartner = async () => {
@@ -142,6 +148,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.querySelectorAll('input[name="companies[]"]').forEach((input) => {
     input.addEventListener('change', syncCompanySections);
+  });
+
+  deleteButton?.addEventListener('click', async () => {
+    const code = deleteButton.dataset.partnerCode || '';
+    const name = deleteButton.dataset.partnerName || 'this partner';
+    const confirmed = window.confirm(`Delete ${name}? This will remove the partner record and its generated page.`);
+    if (!confirmed) return;
+
+    setError('');
+
+    try {
+      deleteButton.disabled = true;
+      await requestJson(endpoint, {
+        method: 'POST',
+        body: {
+          action: 'delete',
+          code
+        }
+      });
+      window.location.href = '../partner-profiles/';
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Unable to delete partner.');
+      deleteButton.disabled = false;
+    }
   });
 
   loadPartner().catch((error) => {

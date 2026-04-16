@@ -8,6 +8,7 @@ jg_admin_require_auth_json();
 header('Content-Type: application/json; charset=utf-8');
 
 const JG_PARTNER_FILE = __DIR__ . '/../../data/partners.json';
+const JG_PARTNER_PAGE_ROOT = __DIR__ . '/../../partner';
 
 function jg_partner_default(): array
 {
@@ -110,6 +111,19 @@ function jg_partner_slug(string $value): string
     return $value !== '' ? $value : 'partner';
 }
 
+function jg_partner_next_sequence(array $partners): int
+{
+    $max = 0;
+    foreach ($partners as $partner) {
+        $code = (string) ($partner['code'] ?? '');
+        if (preg_match('/^partner-(\d+)-/', $code, $matches)) {
+            $max = max($max, (int) $matches[1]);
+        }
+    }
+
+    return $max + 1;
+}
+
 function jg_partner_list(mixed $value): array
 {
     if (!is_array($value)) {
@@ -137,6 +151,35 @@ function jg_partner_amount(mixed $value): float
         jg_partner_fail('Pricing values must be numeric.');
     }
     return round((float) $value, 2);
+}
+
+function jg_partner_slug_exists(array $partners, string $slug, string $exceptCode = ''): bool
+{
+    foreach ($partners as $partner) {
+        if ($exceptCode !== '' && (string) ($partner['code'] ?? '') === $exceptCode) {
+            continue;
+        }
+
+        if ((string) ($partner['partner_slug'] ?? '') === $slug) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function jg_partner_unique_slug(string $value, array $partners, string $exceptCode = ''): string
+{
+    $base = jg_partner_slug($value);
+    $slug = $base;
+    $suffix = 2;
+
+    while (jg_partner_slug_exists($partners, $slug, $exceptCode)) {
+        $slug = $base . '-' . $suffix;
+        $suffix += 1;
+    }
+
+    return $slug;
 }
 
 function jg_partner_default_product_access(): array
@@ -240,8 +283,195 @@ function jg_partner_response(array $data, ?array $partner = null): void
     exit;
 }
 
+function jg_partner_page_path(string $slug): string
+{
+    $normalizedSlug = jg_partner_slug($slug);
+    return rtrim(JG_PARTNER_PAGE_ROOT, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $normalizedSlug;
+}
+
+function jg_partner_ensure_page_root(): void
+{
+    if (is_dir(JG_PARTNER_PAGE_ROOT)) {
+        return;
+    }
+
+    if (!mkdir(JG_PARTNER_PAGE_ROOT, 0775, true) && !is_dir(JG_PARTNER_PAGE_ROOT)) {
+        throw new RuntimeException('Unable to create partner page directory.');
+    }
+}
+
+function jg_partner_delete_directory(string $directory): void
+{
+    if (!is_dir($directory)) {
+        return;
+    }
+
+    $items = scandir($directory);
+    if ($items === false) {
+        throw new RuntimeException('Unable to read partner page directory.');
+    }
+
+    foreach ($items as $item) {
+        if ($item === '.' || $item === '..') {
+            continue;
+        }
+
+        $path = $directory . DIRECTORY_SEPARATOR . $item;
+        if (is_dir($path)) {
+            jg_partner_delete_directory($path);
+            continue;
+        }
+
+        if (!unlink($path)) {
+            throw new RuntimeException('Unable to remove partner page file.');
+        }
+    }
+
+    if (!rmdir($directory)) {
+        throw new RuntimeException('Unable to remove partner page directory.');
+    }
+}
+
+function jg_partner_page_markup(array $partner): string
+{
+    $name = htmlspecialchars((string) ($partner['name'] ?? 'Partner'), ENT_QUOTES, 'UTF-8');
+    $code = htmlspecialchars((string) ($partner['code'] ?? ''), ENT_QUOTES, 'UTF-8');
+
+    return <<<HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{$name} | Jenang Gemi Partner</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --page-bg: #f4efe4;
+            --card-bg: rgba(255, 252, 247, 0.94);
+            --text-main: #1f241c;
+            --text-muted: #5d6656;
+            --accent: #6f8f31;
+            --accent-soft: #dce8b5;
+            --border: rgba(31, 36, 28, 0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            font-family: "Plus Jakarta Sans", Arial, sans-serif;
+            color: var(--text-main);
+            background:
+                radial-gradient(circle at top left, rgba(220, 232, 181, 0.95), transparent 32%),
+                radial-gradient(circle at bottom right, rgba(111, 143, 49, 0.18), transparent 28%),
+                var(--page-bg);
+        }
+
+        .partner-page {
+            width: min(720px, 100%);
+            padding: 32px;
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            background: var(--card-bg);
+            box-shadow: 0 24px 60px rgba(31, 36, 28, 0.12);
+        }
+
+        .partner-kicker {
+            display: inline-flex;
+            align-items: center;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: var(--accent-soft);
+            color: var(--accent);
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        h1 {
+            margin: 18px 0 12px;
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            line-height: 1;
+        }
+
+        p {
+            margin: 0;
+            font-size: 1rem;
+            line-height: 1.7;
+            color: var(--text-muted);
+        }
+
+        .partner-code {
+            margin-top: 24px;
+            font-size: 0.95rem;
+            color: var(--text-main);
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+    <main class="partner-page">
+        <span class="partner-kicker">Partner Homepage</span>
+        <h1>{$name}</h1>
+        <p>This feature is under construction.</p>
+        <p class="partner-code">Partner code: {$code}</p>
+    </main>
+</body>
+</html>
+HTML;
+}
+
+function jg_partner_sync_page(array $partner, ?string $previousSlug = null): void
+{
+    jg_partner_ensure_page_root();
+
+    $slug = jg_partner_slug((string) ($partner['partner_slug'] ?? ''));
+    $directory = jg_partner_page_path($slug);
+
+    if ($previousSlug !== null && $previousSlug !== '' && $previousSlug !== $slug) {
+        $oldDirectory = jg_partner_page_path($previousSlug);
+        if (is_dir($oldDirectory) && !is_dir($directory) && !rename($oldDirectory, $directory)) {
+            throw new RuntimeException('Unable to rename partner page directory.');
+        }
+    }
+
+    if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
+        throw new RuntimeException('Unable to create partner page.');
+    }
+
+    $file = $directory . DIRECTORY_SEPARATOR . 'index.php';
+    if (file_put_contents($file, jg_partner_page_markup($partner), LOCK_EX) === false) {
+        throw new RuntimeException('Unable to write partner page.');
+    }
+}
+
+function jg_partner_remove_page(string $slug): void
+{
+    jg_partner_delete_directory(jg_partner_page_path($slug));
+}
+
+function jg_partner_sync_registry_pages(array $database): void
+{
+    foreach ($database['partners'] as $partner) {
+        if (!is_array($partner)) {
+            continue;
+        }
+
+        jg_partner_sync_page($partner);
+    }
+}
+
 $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 $database = jg_partner_read();
+jg_partner_sync_registry_pages($database);
 
 if ($method === 'GET') {
     $code = trim((string) ($_GET['code'] ?? ''));
@@ -272,11 +502,11 @@ if ($action === 'create') {
         jg_partner_fail('Select at least one company.');
     }
 
-    $sequence = count($database['partners']) + 1;
-    $slug = jg_partner_slug((string) ($request['partner_slug'] ?? $name));
+    $sequence = jg_partner_next_sequence($database['partners']);
+    $slug = jg_partner_unique_slug((string) ($request['partner_slug'] ?? $name), $database['partners']);
     $code = sprintf('partner-%03d-%s', $sequence, $slug);
 
-    $database['partners'][] = [
+    $partner = [
         'code' => $code,
         'name' => $name,
         'companies' => $companies,
@@ -288,6 +518,8 @@ if ($action === 'create') {
         'created_at' => gmdate(DATE_ATOM),
         'updated_at' => gmdate(DATE_ATOM),
     ];
+    jg_partner_sync_page($partner);
+    $database['partners'][] = $partner;
 
     $database['meta']['version'] = jg_partner_bump_patch((string) $database['meta']['version']);
     jg_partner_write($database);
@@ -312,7 +544,8 @@ if ($action === 'update') {
             jg_partner_fail('Select at least one company.');
         }
 
-        $slug = jg_partner_slug((string) ($request['partner_slug'] ?? ($partner['partner_slug'] ?? $name)));
+        $previousSlug = (string) ($partner['partner_slug'] ?? '');
+        $slug = jg_partner_unique_slug((string) ($request['partner_slug'] ?? ($partner['partner_slug'] ?? $name)), $database['partners'], $code);
 
         $partner['name'] = $name;
         $partner['companies'] = $companies;
@@ -322,12 +555,40 @@ if ($action === 'update') {
         $partner['partner_slug'] = $slug;
         $partner['store_path'] = '/partner/' . $slug . '/';
         $partner['updated_at'] = gmdate(DATE_ATOM);
+        jg_partner_sync_page($partner, $previousSlug);
         $updated = true;
         break;
     }
     unset($partner);
 
     if (!$updated) {
+        jg_partner_fail('Partner not found.', 404);
+    }
+
+    $database['meta']['version'] = jg_partner_bump_patch((string) $database['meta']['version']);
+    jg_partner_write($database);
+    jg_partner_response($database);
+}
+
+if ($action === 'delete') {
+    $code = trim((string) ($request['code'] ?? ''));
+    if ($code === '') {
+        jg_partner_fail('Partner code is required.');
+    }
+
+    $deleted = false;
+    foreach ($database['partners'] as $index => $partner) {
+        if ((string) ($partner['code'] ?? '') !== $code) {
+            continue;
+        }
+
+        jg_partner_remove_page((string) ($partner['partner_slug'] ?? ''));
+        array_splice($database['partners'], $index, 1);
+        $deleted = true;
+        break;
+    }
+
+    if (!$deleted) {
         jg_partner_fail('Partner not found.', 404);
     }
 

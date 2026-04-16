@@ -91,6 +91,8 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
           <div class="admin-affiliate-actions">
             <a class="admin-primary-btn admin-link-btn" href="../partner-profile/?code=${encodeURIComponent(partner.code || '')}">Edit Profile</a>
+            <a class="admin-ghost-btn admin-link-btn" href="${escapeHtml(partner.store_path || '/')}" target="_blank" rel="noopener">Open Page</a>
+            <button type="button" class="admin-danger-btn" data-delete-partner="${escapeHtml(partner.code || '')}" data-delete-name="${escapeHtml(partner.name || 'Partner')}">Delete</button>
           </div>
         </div>
         <div class="admin-affiliate-field">
@@ -112,6 +114,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const loadPartners = async () => {
     const payload = await requestJson();
     renderPartners(payload.database?.partners || []);
+  };
+
+  const deletePartner = async (code, name) => {
+    const confirmed = window.confirm(`Delete ${name}? This will remove the partner record and its generated page.`);
+    if (!confirmed) return;
+
+    await requestJson({
+      method: 'POST',
+      body: {
+        action: 'delete',
+        code
+      }
+    });
+
+    await loadPartners();
   };
 
   const closePartnerModal = () => {
@@ -136,6 +153,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.querySelectorAll('[data-close-partner-modal]').forEach((button) => {
     button.addEventListener('click', closePartnerModal);
+  });
+
+  partnerList?.addEventListener('click', async (event) => {
+    const button = event.target instanceof Element ? event.target.closest('[data-delete-partner]') : null;
+    if (!(button instanceof HTMLButtonElement)) return;
+
+    if (partnerFormError) {
+      partnerFormError.hidden = true;
+      partnerFormError.textContent = '';
+    }
+
+    try {
+      button.disabled = true;
+      await deletePartner(button.dataset.deletePartner || '', button.dataset.deleteName || 'this partner');
+    } catch (error) {
+      if (partnerFormError) {
+        partnerFormError.hidden = false;
+        partnerFormError.textContent = error instanceof Error ? error.message : 'Unable to delete partner.';
+      }
+    } finally {
+      button.disabled = false;
+    }
   });
 
   partnerForm?.querySelectorAll('input[name="companies[]"]').forEach((input) => {
