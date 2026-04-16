@@ -8,7 +8,7 @@ jg_admin_require_auth_json();
 header('Content-Type: application/json; charset=utf-8');
 
 const JG_PARTNER_FILE = __DIR__ . '/../../data/partners.json';
-const JG_PARTNER_PAGE_ROOT = __DIR__ . '/../../partner';
+const JG_PARTNER_PAGE_ROOT = __DIR__ . '/../../../../jenang-gemi-partner-portal/partner';
 
 function jg_partner_default(): array
 {

@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const partnerForm = document.querySelector('[data-partner-form]');
   const partnerFormError = document.querySelector('[data-partner-form-error]');
   const companyEmptyState = document.querySelector('[data-company-empty-state]');
+  const partnerSiteOrigin = 'https://partner.jenanggemi.com';
 
   const escapeHtml = (value) => String(value)
     .replace(/&/g, '&amp;')
@@ -91,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
           <div class="admin-affiliate-actions">
             <a class="admin-primary-btn admin-link-btn" href="../partner-profile/?code=${encodeURIComponent(partner.code || '')}">Edit Profile</a>
-            <a class="admin-ghost-btn admin-link-btn" href="${escapeHtml(partner.store_path || '/')}" target="_blank" rel="noopener">Open Page</a>
+            <a class="admin-ghost-btn admin-link-btn" href="${escapeHtml(`${partnerSiteOrigin}${partner.store_path || '/'}`)}" target="_blank" rel="noopener">Open Page</a>
             <button type="button" class="admin-danger-btn" data-delete-partner="${escapeHtml(partner.code || '')}" data-delete-name="${escapeHtml(partner.name || 'Partner')}">Delete</button>
           </div>
         </div>
