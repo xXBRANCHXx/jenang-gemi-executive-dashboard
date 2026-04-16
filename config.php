@@ -66,3 +66,19 @@ function jg_dashboard_upstream_url(string $path): string
 {
     return jg_dashboard_upstream_base_url() . '/' . ltrim($path, '/');
 }
+
+function jg_dashboard_partner_portal_base_url(): string
+{
+    $config = jg_dashboard_load_local_config();
+
+    $baseUrl = jg_dashboard_env_value('JG_PARTNER_PORTAL_URL')
+        ?: trim((string) ($config['partner_portal_url'] ?? ''))
+        ?: 'https://partner.jenanggemi.com';
+
+    return rtrim($baseUrl, '/');
+}
+
+function jg_dashboard_partner_portal_url(string $path): string
+{
+    return jg_dashboard_partner_portal_base_url() . '/' . ltrim($path, '/');
+}
