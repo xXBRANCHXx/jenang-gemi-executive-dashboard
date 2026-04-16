@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $isAuthenticated = jg_admin_is_authenticated();
 $adminCssVersion = (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/admin.js');
-$dashboardBuildVersion = 'exec3.46.3';
+$dashboardBuildVersion = 'exec3.46.2';
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -91,8 +91,6 @@ $dashboardBuildVersion = 'exec3.46.3';
                         <button type="button" class="admin-menu-item" data-view-switch="home">Home Dashboard</button>
                         <button type="button" class="admin-menu-item" data-view-switch="website">Official Website Dashboard</button>
                         <a class="admin-menu-item admin-link-btn" href="../affiliate-program/">Affiliate Program Dashboard</a>
-                        <a class="admin-menu-item admin-link-btn" href="../sku-db/">SKU Database</a>
-                        <a class="admin-menu-item admin-link-btn" href="../sku-db/new/">Add SKU</a>
                         <button type="button" class="admin-menu-item" data-view-switch="settings">Settings</button>
                     </div>
                 </div>

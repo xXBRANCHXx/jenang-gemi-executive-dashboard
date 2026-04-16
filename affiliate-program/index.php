@@ -55,8 +55,6 @@ $affiliateJsVersion = (string) @filemtime(dirname(__DIR__) . '/affiliate-program
                         <a class="admin-menu-item admin-link-btn" href="../dashboard/" data-dashboard-view-link="website">Official Website Dashboard</a>
                         <a class="admin-menu-item admin-link-btn" href="../affiliate-program/">Affiliate Program Dashboard</a>
                         <a class="admin-menu-item admin-link-btn" href="../affiliate-profiles/">Affiliate Profiles</a>
-                        <a class="admin-menu-item admin-link-btn" href="../sku-db/">SKU Database</a>
-                        <a class="admin-menu-item admin-link-btn" href="../sku-db/new/">Add SKU</a>
                         <button type="button" class="admin-menu-item" data-theme-toggle>Toggle Theme</button>
                         <a class="admin-menu-item admin-link-btn" href="../logout/">Lock Dashboard</a>
                     </div>
