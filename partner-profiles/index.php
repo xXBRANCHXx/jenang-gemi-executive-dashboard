@@ -105,7 +105,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                     <span>Partner page slug</span>
                     <input type="text" name="partner_slug" maxlength="160" placeholder="e.g. rina-sulistyo">
                 </label>
-                <fieldset class="admin-affiliate-platforms" data-company-section="Jenang Gemi">
+                <fieldset class="admin-affiliate-platforms">
                     <legend>Companies</legend>
                     <div class="admin-affiliate-platform-grid">
                         <label><input type="checkbox" name="companies[]" value="Jenang Gemi"> <span>Jenang Gemi</span></label>
