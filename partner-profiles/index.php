@@ -88,7 +88,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
 
     <div class="admin-modal-shell" data-partner-modal hidden>
         <div class="admin-modal-backdrop" data-close-partner-modal></div>
-        <div class="admin-modal-card" role="dialog" aria-modal="true" aria-labelledby="partner-modal-title">
+        <div class="admin-modal-card admin-modal-card-partner" role="dialog" aria-modal="true" aria-labelledby="partner-modal-title">
             <div class="admin-modal-head">
                 <div>
                     <span class="admin-panel-kicker">New Partner</span>
@@ -140,7 +140,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                         <label><input type="checkbox" name="product_access[Jenang Gemi][Jamu][sizes][]" value="60 Sachet"> <span>60 Sachet</span></label>
                     </div>
                 </fieldset>
-                <fieldset class="admin-affiliate-platforms">
+                <fieldset class="admin-affiliate-platforms" data-company-section="Jenang Gemi">
                     <legend>Jenang Gemi pricing agreement</legend>
                     <div class="admin-sku-form-grid">
                         <label><span>Bubur 15 Sachet</span><input type="number" name="pricing[Jenang Gemi][Bubur][15 Sachet]" min="0" step="0.01" placeholder="e.g. 18000"></label>
