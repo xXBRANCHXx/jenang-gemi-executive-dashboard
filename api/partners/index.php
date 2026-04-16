@@ -8,7 +8,7 @@ jg_admin_require_auth_json();
 header('Content-Type: application/json; charset=utf-8');
 
 const JG_PARTNER_FILE = __DIR__ . '/../../data/partners.json';
-const JG_PARTNER_PAGE_ROOT = __DIR__ . '/../../../../jenang-gemi-partner-portal/partner';
+const JG_PARTNER_PORTAL_ROOT = __DIR__ . '/../../../../jenang-gemi-partner-portal';
 
 function jg_partner_default(): array
 {
@@ -182,6 +182,33 @@ function jg_partner_unique_slug(string $value, array $partners, string $exceptCo
     return $slug;
 }
 
+function jg_partner_reserved_slugs(): array
+{
+    return [
+        'api',
+        'dashboard',
+        'data',
+        'logout',
+        'partner',
+        'profile',
+        'profiles',
+    ];
+}
+
+function jg_partner_safe_slug(string $value, array $partners, string $exceptCode = ''): string
+{
+    $base = jg_partner_slug($value);
+    $slug = $base;
+    $suffix = 2;
+
+    while (in_array($slug, jg_partner_reserved_slugs(), true) || jg_partner_slug_exists($partners, $slug, $exceptCode)) {
+        $slug = $base . '-' . $suffix;
+        $suffix += 1;
+    }
+
+    return $slug;
+}
+
 function jg_partner_default_product_access(): array
 {
     return [
@@ -286,18 +313,16 @@ function jg_partner_response(array $data, ?array $partner = null): void
 function jg_partner_page_path(string $slug): string
 {
     $normalizedSlug = jg_partner_slug($slug);
-    return rtrim(JG_PARTNER_PAGE_ROOT, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $normalizedSlug;
+    return rtrim(JG_PARTNER_PORTAL_ROOT, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $normalizedSlug;
 }
 
 function jg_partner_ensure_page_root(): void
 {
-    if (is_dir(JG_PARTNER_PAGE_ROOT)) {
+    if (is_dir(JG_PARTNER_PORTAL_ROOT)) {
         return;
     }
 
-    if (!mkdir(JG_PARTNER_PAGE_ROOT, 0775, true) && !is_dir(JG_PARTNER_PAGE_ROOT)) {
-        throw new RuntimeException('Unable to create partner page directory.');
-    }
+    throw new RuntimeException('Partner portal root is missing.');
 }
 
 function jg_partner_delete_directory(string $directory): void
@@ -503,7 +528,7 @@ if ($action === 'create') {
     }
 
     $sequence = jg_partner_next_sequence($database['partners']);
-    $slug = jg_partner_unique_slug((string) ($request['partner_slug'] ?? $name), $database['partners']);
+    $slug = jg_partner_safe_slug((string) ($request['partner_slug'] ?? $name), $database['partners']);
     $code = sprintf('partner-%03d-%s', $sequence, $slug);
 
     $partner = [
@@ -514,7 +539,7 @@ if ($action === 'create') {
         'pricing' => jg_partner_pricing_matrix($request['pricing'] ?? [], $companies),
         'notes' => trim((string) ($request['notes'] ?? '')),
         'partner_slug' => $slug,
-        'store_path' => '/partner/' . $slug . '/',
+        'store_path' => '/' . $slug . '/',
         'created_at' => gmdate(DATE_ATOM),
         'updated_at' => gmdate(DATE_ATOM),
     ];
@@ -545,7 +570,7 @@ if ($action === 'update') {
         }
 
         $previousSlug = (string) ($partner['partner_slug'] ?? '');
-        $slug = jg_partner_unique_slug((string) ($request['partner_slug'] ?? ($partner['partner_slug'] ?? $name)), $database['partners'], $code);
+        $slug = jg_partner_safe_slug((string) ($request['partner_slug'] ?? ($partner['partner_slug'] ?? $name)), $database['partners'], $code);
 
         $partner['name'] = $name;
         $partner['companies'] = $companies;
@@ -553,7 +578,7 @@ if ($action === 'update') {
         $partner['pricing'] = jg_partner_pricing_matrix($request['pricing'] ?? ($partner['pricing'] ?? []), $companies);
         $partner['notes'] = trim((string) ($request['notes'] ?? ($partner['notes'] ?? '')));
         $partner['partner_slug'] = $slug;
-        $partner['store_path'] = '/partner/' . $slug . '/';
+        $partner['store_path'] = '/' . $slug . '/';
         $partner['updated_at'] = gmdate(DATE_ATOM);
         jg_partner_sync_page($partner, $previousSlug);
         $updated = true;
