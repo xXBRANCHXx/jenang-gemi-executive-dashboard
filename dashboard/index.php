@@ -93,6 +93,7 @@ $dashboardBuildVersion = 'exec3.47.0';
                         <a class="admin-menu-item admin-link-btn" href="../affiliate-program/">Affiliate Program Dashboard</a>
                         <a class="admin-menu-item admin-link-btn" href="../partner-program/">Partner Program Dashboard</a>
                         <a class="admin-menu-item admin-link-btn" href="../partner-profiles/">Partner Profiles</a>
+                        <a class="admin-menu-item admin-link-btn" href="../sku-db/">SKU Database</a>
                         <button type="button" class="admin-menu-item" data-view-switch="settings">Settings</button>
                     </div>
                 </div>

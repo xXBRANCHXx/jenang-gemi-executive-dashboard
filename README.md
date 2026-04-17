@@ -5,8 +5,11 @@ Private admin dashboard for `admin.jenanggemi.com`.
 ## Routes
 
 - `/dashboard/`
+- `/sku-db/`
+- `/sku-db/new/`
 - `/logout/`
 - `/api/analytics/`
+- `/api/sku-db/`
 
 ## Notes
 
@@ -20,3 +23,5 @@ Private admin dashboard for `admin.jenanggemi.com`.
 - This repo tracks `config.local.php` directly so Git deployment keeps the
   dashboard database configuration in sync with the repository.
 - This repo is intended to be deployed as the root of the `admin.jenanggemi.com` site in Hostinger Git deployment.
+- SKU login is separate from the main executive dashboard login. `sku_branch_password_hash`
+  should be configured through `config.local.php` or `JG_SKU_BRANCH_PASSWORD_HASH`.
