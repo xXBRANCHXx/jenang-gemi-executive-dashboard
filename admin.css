@@ -1911,11 +1911,9 @@ body {
 }
 
 .admin-primary-btn,
-.admin-ghost-btn,
-.admin-soft-btn,
-.admin-toggle-pill,
-.admin-view-indicator,
-.admin-menu-trigger {
+.admin-toggle-pill.is-active,
+.admin-toggle-pill-series-bubur.is-active,
+.admin-toggle-pill-series-jamu.is-active {
   background:
     linear-gradient(#000000, #000000) padding-box,
     var(--admin-accent-gradient) border-box;
@@ -1927,21 +1925,24 @@ body {
   font-weight: 700;
 }
 
+.admin-ghost-btn,
+.admin-soft-btn,
+.admin-toggle-pill,
+.admin-view-indicator,
+.admin-menu-trigger,
+.admin-menu-item {
+  background:
+    linear-gradient(#000000, #000000) padding-box,
+    linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.45)) border-box;
+  color: var(--admin-text);
+  border: 1px solid transparent;
+}
+
 .admin-danger-btn {
   background:
     linear-gradient(#000000, #000000) padding-box,
     linear-gradient(135deg, rgba(255, 107, 107, 0.9), rgba(255, 150, 150, 0.8)) border-box;
   border: 1px solid transparent;
-  color: var(--admin-text);
-}
-
-.admin-toggle-pill.is-active,
-.admin-toggle-pill-series-bubur.is-active,
-.admin-toggle-pill-series-jamu.is-active {
-  background:
-    linear-gradient(#000000, #000000) padding-box,
-    var(--admin-accent-gradient) border-box;
-  border-color: transparent;
   color: var(--admin-text);
 }
 
@@ -2119,11 +2120,9 @@ body {
   min-height: 44px;
   padding: 10px 12px;
   border-radius: 14px;
-  border: 1px solid transparent;
   background:
     linear-gradient(rgba(8, 8, 8, 0.14), rgba(8, 8, 8, 0.14)) padding-box,
-    var(--admin-accent-gradient) border-box;
-  color: var(--admin-text);
+    linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.45)) border-box;
 }
 
 .admin-chart-tooltip {
