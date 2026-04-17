@@ -1900,7 +1900,9 @@ body {
 .admin-ghost-btn,
 .admin-danger-btn,
 .admin-soft-btn,
-.admin-toggle-pill {
+.admin-toggle-pill,
+.admin-view-indicator,
+.admin-menu-trigger {
   min-height: 42px;
   padding: 11px 16px;
   border-radius: 999px;
@@ -1908,34 +1910,39 @@ body {
   transform: none;
 }
 
-.admin-primary-btn {
-  background: var(--admin-accent-gradient);
-  color: #04110d;
-  border: 0;
-  font-weight: 700;
-}
-
+.admin-primary-btn,
 .admin-ghost-btn,
 .admin-soft-btn,
 .admin-toggle-pill,
-.admin-view-indicator {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.09);
+.admin-view-indicator,
+.admin-menu-trigger {
+  background:
+    linear-gradient(#000000, #000000) padding-box,
+    var(--admin-accent-gradient) border-box;
   color: var(--admin-text);
+  border: 1px solid transparent;
+}
+
+.admin-primary-btn {
+  font-weight: 700;
 }
 
 .admin-danger-btn {
-  background: rgba(255, 107, 107, 0.08);
-  border-color: rgba(255, 107, 107, 0.18);
-  color: #ffc5c5;
+  background:
+    linear-gradient(#000000, #000000) padding-box,
+    linear-gradient(135deg, rgba(255, 107, 107, 0.9), rgba(255, 150, 150, 0.8)) border-box;
+  border: 1px solid transparent;
+  color: var(--admin-text);
 }
 
 .admin-toggle-pill.is-active,
 .admin-toggle-pill-series-bubur.is-active,
 .admin-toggle-pill-series-jamu.is-active {
-  background: var(--admin-accent-gradient);
+  background:
+    linear-gradient(#000000, #000000) padding-box,
+    var(--admin-accent-gradient) border-box;
   border-color: transparent;
-  color: #04110d;
+  color: var(--admin-text);
 }
 
 .admin-primary-btn:hover,
@@ -1943,6 +1950,8 @@ body {
 .admin-danger-btn:hover,
 .admin-soft-btn:hover,
 .admin-toggle-pill:hover,
+.admin-view-indicator:hover,
+.admin-menu-trigger:hover,
 .admin-panel:hover,
 .admin-metric-card:hover,
 .admin-launchpad-link:hover {
@@ -1950,13 +1959,26 @@ body {
   box-shadow: none;
 }
 
+.admin-primary-btn:hover,
 .admin-ghost-btn:hover,
+.admin-danger-btn:hover,
 .admin-soft-btn:hover,
 .admin-toggle-pill:hover,
+.admin-view-indicator:hover,
+.admin-menu-trigger:hover,
 .admin-menu-item:hover,
 .admin-launchpad-link:hover {
-  border-color: rgba(0, 224, 184, 0.22);
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--admin-accent-gradient);
+  color: #04110d;
+  border-color: transparent;
+}
+
+.admin-toggle-pill.is-active:hover,
+.admin-toggle-pill-series-bubur.is-active:hover,
+.admin-toggle-pill-series-jamu.is-active:hover {
+  background: var(--admin-accent-gradient);
+  color: #04110d;
+  border-color: transparent;
 }
 
 .admin-topbar {
@@ -2080,16 +2102,17 @@ body {
 .admin-chart-tooltip,
 .admin-menu-panel,
 .admin-modal-card {
-  background: rgba(10, 10, 10, 0.38);
+  background: rgba(8, 8, 8, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: none;
-  backdrop-filter: blur(18px) saturate(120%);
-  -webkit-backdrop-filter: blur(18px) saturate(120%);
+  backdrop-filter: blur(24px) saturate(135%);
+  -webkit-backdrop-filter: blur(24px) saturate(135%);
 }
 
 .admin-menu-panel {
   gap: 6px;
-  background: rgba(10, 10, 10, 0.28);
+  background: rgba(8, 8, 8, 0.14);
+  isolation: isolate;
 }
 
 .admin-menu-item {
@@ -2097,14 +2120,15 @@ body {
   padding: 10px 12px;
   border-radius: 14px;
   border: 1px solid transparent;
-  background: transparent;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+  background:
+    linear-gradient(rgba(8, 8, 8, 0.14), rgba(8, 8, 8, 0.14)) padding-box,
+    var(--admin-accent-gradient) border-box;
+  color: var(--admin-text);
 }
 
 .admin-chart-tooltip {
   border-radius: 14px;
-  background: rgba(10, 10, 10, 0.34);
+  background: rgba(8, 8, 8, 0.18);
 }
 
 .admin-chart-tooltip strong {
