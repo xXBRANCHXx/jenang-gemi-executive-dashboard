@@ -1771,13 +1771,13 @@ body {
 }
 
 .admin-login-shell {
-  padding: 40px 24px;
+  padding: 52px 28px;
 }
 
 .admin-login-card,
 .admin-loader-panel {
   width: min(560px, 100%);
-  padding: 40px 0 0;
+  padding: 44px 0 0;
 }
 
 .admin-build-badge {
@@ -1807,7 +1807,18 @@ body {
 .admin-login-brand h1,
 .admin-topbar-brand h1 {
   color: var(--admin-text);
-  line-height: 0.96;
+  line-height: 0.94;
+}
+
+.admin-topbar-brand h1 {
+  font-size: clamp(2.25rem, 4vw, 3.8rem);
+  margin: 10px 0 14px;
+}
+
+.admin-hero-copy h2 {
+  font-size: clamp(1.6rem, 2.8vw, 2.35rem);
+  line-height: 1.04;
+  margin: 8px 0 14px;
 }
 
 .admin-topbar-brand p,
@@ -1827,7 +1838,8 @@ body {
 .admin-sku-preview small,
 .admin-muted-copy {
   color: var(--admin-muted);
-  line-height: 1.65;
+  line-height: 1.72;
+  max-width: 76ch;
 }
 
 .admin-chip,
@@ -1844,6 +1856,16 @@ body {
 .admin-table th {
   color: #9a9a9a;
   letter-spacing: 0.14em;
+}
+
+.admin-panel-kicker,
+.admin-panel-meta,
+.admin-control-label,
+.admin-login-form label,
+.admin-affiliate-form label span,
+.admin-affiliate-platforms legend,
+.admin-table th {
+  font-size: 11px;
 }
 
 .admin-chip {
@@ -1983,13 +2005,13 @@ body {
 }
 
 .admin-topbar {
-  margin-bottom: 30px;
-  gap: 32px;
+  margin-bottom: 38px;
+  gap: 40px;
 }
 
 .admin-layout,
 .admin-view {
-  gap: 32px;
+  gap: 40px;
 }
 
 .admin-hero-panel,
@@ -2001,11 +2023,11 @@ body {
 }
 
 .admin-hero-panel {
-  gap: 28px;
+  gap: 36px;
 }
 
 .admin-hero-actions {
-  gap: 14px;
+  gap: 18px;
 }
 
 .admin-status-pill,
@@ -2020,20 +2042,25 @@ body {
 }
 
 .admin-launchpad {
-  gap: 14px;
+  gap: 18px;
 }
 
 .admin-launchpad-section,
 .admin-launchpad-section-jamu,
 .admin-launchpad-link,
 .admin-launchpad-link-jamu {
-  background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: none;
 }
 
 .admin-launchpad-section {
-  padding: 0;
+  padding: 18px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.admin-launchpad-section-jamu {
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .admin-launchpad-link {
@@ -2042,21 +2069,23 @@ body {
 
 .admin-control-strip {
   grid-template-columns: 1fr 1fr auto;
-  gap: 18px;
+  gap: 24px;
   padding: 0;
 }
 
 .admin-control-group {
-  gap: 12px;
+  gap: 14px;
 }
 
 .admin-metric-grid {
-  gap: 18px;
+  gap: 20px;
 }
 
 .admin-metric-card {
-  padding: 16px 0 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 20px 20px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .admin-metric-card strong {
@@ -2064,15 +2093,16 @@ body {
   font-family: Inter, "Plus Jakarta Sans", sans-serif;
   font-weight: 600;
   color: var(--admin-text);
+  letter-spacing: -0.04em;
 }
 
 .admin-main-grid {
-  gap: 26px;
+  gap: 34px 26px;
 }
 
 .admin-panel {
-  padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .admin-panel-feed {
@@ -2080,12 +2110,13 @@ body {
 }
 
 .admin-panel-head {
-  margin-bottom: 18px;
+  margin-bottom: 22px;
 }
 
 .admin-panel-head h3 {
-  font-size: clamp(1.25rem, 2vw, 1.6rem);
-  line-height: 1.08;
+  font-size: clamp(1.35rem, 2vw, 1.72rem);
+  line-height: 1.05;
+  margin: 6px 0 0;
 }
 
 .admin-chart-surface {
@@ -2143,7 +2174,7 @@ body {
 .admin-settings-card,
 .admin-settings-chip-row,
 .admin-sandbox-stack {
-  gap: 12px;
+  gap: 14px;
 }
 
 .admin-legend-item,
@@ -2157,8 +2188,16 @@ body {
 .admin-sku-token,
 .admin-request-result {
   border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.025);
+  background: rgba(255, 255, 255, 0.03);
   box-shadow: none;
+}
+
+.admin-legend-item,
+.admin-note-card,
+.admin-event-item,
+.admin-affiliate-card {
+  border-radius: 20px;
+  padding: 16px 18px;
 }
 
 .admin-affiliate-url,
@@ -2169,7 +2208,7 @@ body {
 
 .admin-table-wrap {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
-  padding-top: 14px;
+  padding-top: 18px;
 }
 
 .admin-table {
@@ -2179,7 +2218,7 @@ body {
 
 .admin-table th,
 .admin-table td {
-  padding: 15px 10px;
+  padding: 16px 10px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
@@ -2214,13 +2253,14 @@ body {
 .admin-sku-preview,
 .admin-sku-master-card,
 .admin-request-card {
-  background: transparent;
-  border: 0;
-  padding: 0;
+  padding: 16px 18px;
 }
 
 .admin-sku-preview {
   gap: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .admin-sku-preview strong {
@@ -2230,8 +2270,9 @@ body {
 
 .admin-request-card,
 .admin-sku-master-card {
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  padding-top: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .admin-form-error,
@@ -2250,7 +2291,7 @@ body {
   .admin-view,
   .admin-main-grid,
   .admin-metric-grid {
-    gap: 18px;
+    gap: 22px;
   }
 
   .admin-login-card,
@@ -2259,7 +2300,14 @@ body {
   .admin-control-strip,
   .admin-panel,
   .admin-metric-card {
-    padding: 0;
-    border-radius: 0;
+    border-radius: 20px;
+  }
+
+  .admin-metric-card,
+  .admin-sku-preview,
+  .admin-request-card,
+  .admin-sku-master-card,
+  .admin-launchpad-section {
+    padding: 16px;
   }
 }
