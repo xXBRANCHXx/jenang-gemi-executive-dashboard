@@ -78,13 +78,22 @@ $dashboardBuildVersion = 'exec3.47.0';
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
         <header class="admin-topbar">
-            <div class="admin-topbar-brand">
-                <span class="admin-chip">Authenticated Session</span>
-                <h1>Jenang Gemi Executive Dashboard</h1>
-                <p>Track campaign performance, website visitors, and internal dashboard settings from one private control panel.</p>
+            <div class="admin-topbar-left">
+                <span class="admin-admin-mark">ADMIN</span>
+                <div class="admin-topbar-brand">
+                    <h1>Executive Dashboard</h1>
+                    <span class="admin-view-indicator admin-view-indicator-hidden" data-active-view-label>Home Dashboard</span>
+                </div>
             </div>
             <div class="admin-topbar-actions">
-                <div class="admin-view-indicator" data-active-view-label>Home Dashboard</div>
+                <div class="admin-search-shell" data-dashboard-search-shell>
+                    <button type="button" class="admin-ghost-btn admin-search-toggle" data-dashboard-search-toggle aria-expanded="false" aria-label="Open dashboard search">
+                        <span aria-hidden="true">⌕</span>
+                    </button>
+                    <form class="admin-search-form" data-dashboard-search-form hidden>
+                        <input type="search" class="admin-search-input" data-dashboard-search-input placeholder="Search current view" autocomplete="off">
+                    </form>
+                </div>
                 <div class="admin-menu-shell" data-menu-shell>
                     <button type="button" class="admin-ghost-btn admin-menu-trigger" data-menu-trigger aria-expanded="false" aria-label="Open dashboard menu">...</button>
                     <div class="admin-menu-panel" data-menu-panel hidden>
@@ -105,7 +114,7 @@ $dashboardBuildVersion = 'exec3.47.0';
                 <section class="admin-hero-panel">
                     <div class="admin-hero-copy">
                         <span class="admin-chip admin-chip-accent">Realtime Campaign Monitoring</span>
-                        <h2>High-contrast control panel for YouTube, Facebook, Instagram, and TikTok performance.</h2>
+                        <h2>Campaign performance across YouTube, Facebook, Instagram, and TikTok.</h2>
                         <p>Views, Order Now clicks, checkout intent, average time spent, and the latest tracked sessions are available here without exposing the raw analytics endpoint publicly.</p>
                     </div>
                     <div class="admin-hero-actions">

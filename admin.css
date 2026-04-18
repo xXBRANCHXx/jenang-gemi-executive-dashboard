@@ -2007,11 +2007,43 @@ body {
 .admin-topbar {
   margin-bottom: 38px;
   gap: 40px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .admin-layout,
 .admin-view {
   gap: 40px;
+}
+
+.admin-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+}
+
+.admin-admin-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #eaeaea;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.admin-topbar-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
 }
 
 .admin-hero-panel,
@@ -2028,6 +2060,24 @@ body {
 
 .admin-hero-actions {
   gap: 18px;
+}
+
+.admin-hero-copy .admin-chip {
+  margin-bottom: 10px;
+}
+
+.admin-hero-copy h2 {
+  font-size: 1.06rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.55;
+  color: #cfcfcf;
+  margin: 0 0 10px;
+}
+
+.admin-hero-copy p {
+  font-size: 0.98rem;
+  max-width: 70ch;
 }
 
 .admin-status-pill,
@@ -2156,6 +2206,49 @@ body {
   margin: 6px 0 0;
 }
 
+.admin-toggle-row,
+.admin-panel-inline-toggles {
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.admin-control-strip .admin-toggle-pill,
+.admin-panel-inline-toggles .admin-toggle-pill,
+.admin-panel-inline-toggles .admin-toggle-pill-series {
+  min-height: auto;
+  padding: 4px 0 8px;
+  border-radius: 0;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  background: transparent;
+  color: #9f9f9f;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.admin-control-strip .admin-toggle-pill:hover,
+.admin-panel-inline-toggles .admin-toggle-pill:hover,
+.admin-panel-inline-toggles .admin-toggle-pill-series:hover {
+  background: transparent;
+  color: #eaeaea;
+  border-bottom-color: rgba(255, 255, 255, 0.4);
+}
+
+.admin-control-strip .admin-toggle-pill.is-active,
+.admin-panel-inline-toggles .admin-toggle-pill.is-active,
+.admin-panel-inline-toggles .admin-toggle-pill-series.is-active {
+  background: transparent;
+  color: #eaeaea;
+  border-bottom: 1px solid rgba(175, 255, 0, 0.95);
+}
+
+.admin-control-strip .admin-toggle-pill.is-active:hover,
+.admin-panel-inline-toggles .admin-toggle-pill.is-active:hover,
+.admin-panel-inline-toggles .admin-toggle-pill-series.is-active:hover {
+  background: transparent;
+  color: #eaeaea;
+}
+
 .admin-chart-surface {
   padding: 2px 0 0;
   border: 0;
@@ -2193,6 +2286,43 @@ body {
   z-index: 120;
 }
 
+.admin-search-shell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-search-shell.is-open {
+  gap: 12px;
+}
+
+.admin-search-toggle {
+  min-width: 42px;
+  justify-content: center;
+  font-size: 1rem;
+}
+
+.admin-search-form {
+  display: flex;
+  align-items: center;
+}
+
+.admin-search-input {
+  width: 220px;
+  height: 42px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--admin-text);
+  outline: none;
+}
+
+.admin-search-input:focus {
+  border-color: rgba(175, 255, 0, 0.42);
+}
+
 .admin-menu-item {
   min-height: 44px;
   padding: 10px 12px;
@@ -2218,6 +2348,17 @@ body {
 
 .admin-chart-tooltip strong {
   color: var(--admin-text);
+}
+
+.admin-view-indicator-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
 }
 
 .admin-chart-legend,
@@ -2335,6 +2476,15 @@ body {
   color: #ff8585;
 }
 
+.admin-search-match {
+  border-color: rgba(175, 255, 0, 0.5) !important;
+  box-shadow: 0 0 0 1px rgba(175, 255, 0, 0.12);
+}
+
+.admin-search-dim {
+  opacity: 0.42;
+}
+
 @media (max-width: 820px) {
   .admin-app,
   .admin-login-shell {
@@ -2347,6 +2497,20 @@ body {
   .admin-main-grid,
   .admin-metric-grid {
     gap: 22px;
+  }
+
+  .admin-topbar {
+    padding: 12px 0 16px;
+  }
+
+  .admin-topbar-left,
+  .admin-topbar-brand,
+  .admin-topbar-actions {
+    flex-wrap: wrap;
+  }
+
+  .admin-search-input {
+    width: min(220px, 100%);
   }
 
   .admin-login-card,

@@ -590,6 +590,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const menuPanel = document.querySelector('[data-menu-panel]');
   const viewLabel = document.querySelector('[data-active-view-label]');
   const viewPanels = document.querySelectorAll('[data-view-panel]');
+  const searchShell = document.querySelector('[data-dashboard-search-shell]');
+  const searchToggle = document.querySelector('[data-dashboard-search-toggle]');
+  const searchForm = document.querySelector('[data-dashboard-search-form]');
+  const searchInput = document.querySelector('[data-dashboard-search-input]');
 
   const homeRefs = {
     summaryViews: document.querySelector('[data-home-summary-total-views]'),
@@ -644,6 +648,73 @@ document.addEventListener('DOMContentLoaded', () => {
     if (loaderLabel && label) loaderLabel.textContent = label;
   };
 
+  const searchableSelectors = [
+    '.admin-hero-panel',
+    '.admin-control-strip',
+    '.admin-metric-card',
+    '.admin-panel',
+    '.admin-settings-card',
+    '.admin-note-card',
+    '.admin-event-item',
+    '.admin-affiliate-card',
+    '.admin-request-card',
+    '.admin-sku-master-card'
+  ].join(', ');
+
+  const clearDashboardSearch = () => {
+    const activeView = document.querySelector('.admin-view.is-active');
+    if (!activeView) return;
+
+    activeView.querySelectorAll('.admin-search-match, .admin-search-dim').forEach((node) => {
+      node.classList.remove('admin-search-match', 'admin-search-dim');
+    });
+  };
+
+  const applyDashboardSearch = (query) => {
+    const activeView = document.querySelector('.admin-view.is-active');
+    if (!activeView) return [];
+
+    const normalized = String(query || '').trim().toLowerCase();
+    const surfaces = [...activeView.querySelectorAll(searchableSelectors)];
+    surfaces.forEach((node) => node.classList.remove('admin-search-match', 'admin-search-dim'));
+
+    if (!normalized) {
+      return [];
+    }
+
+    const matches = [];
+    surfaces.forEach((node) => {
+      const haystack = String(node.textContent || '').toLowerCase();
+      if (haystack.includes(normalized)) {
+        node.classList.add('admin-search-match');
+        matches.push(node);
+      } else {
+        node.classList.add('admin-search-dim');
+      }
+    });
+
+    return matches;
+  };
+
+  const closeSearch = ({ clear = false } = {}) => {
+    if (!searchForm || !searchToggle) return;
+    if (clear && searchInput) {
+      searchInput.value = '';
+      clearDashboardSearch();
+    }
+    searchForm.hidden = true;
+    searchShell?.classList.remove('is-open');
+    searchToggle.setAttribute('aria-expanded', 'false');
+  };
+
+  const openSearch = () => {
+    if (!searchForm || !searchToggle) return;
+    searchForm.hidden = false;
+    searchShell?.classList.add('is-open');
+    searchToggle.setAttribute('aria-expanded', 'true');
+    window.setTimeout(() => searchInput?.focus(), 0);
+  };
+
   const setupTopbarMenu = () => {
     menuTrigger?.addEventListener('click', () => {
       if (menuPanel?.hidden === false) {
@@ -657,6 +728,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const target = event.target;
       if (!(target instanceof Node)) return;
       if (menuShell && !menuShell.contains(target)) closeMenu();
+      if (searchShell && !searchShell.contains(target) && searchInput?.value === '') closeSearch();
     });
 
     document.querySelectorAll('[data-dashboard-view-link]').forEach((link) => {
@@ -664,6 +736,30 @@ document.addEventListener('DOMContentLoaded', () => {
         const view = link.getAttribute('data-dashboard-view-link') || 'home';
         window.localStorage.setItem(viewStorageKey, view);
       });
+    });
+
+    searchToggle?.addEventListener('click', () => {
+      if (searchForm?.hidden === false) {
+        closeSearch({ clear: !searchInput?.value });
+      } else {
+        openSearch();
+      }
+    });
+
+    searchForm?.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const matches = applyDashboardSearch(searchInput?.value || '');
+      matches[0]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+
+    searchInput?.addEventListener('input', () => {
+      applyDashboardSearch(searchInput.value || '');
+    });
+
+    searchInput?.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        closeSearch({ clear: true });
+      }
     });
   };
 
@@ -1125,6 +1221,7 @@ document.addEventListener('DOMContentLoaded', () => {
     state.activeView = nextView;
     syncViewState();
     closeMenu();
+    applyDashboardSearch(searchInput?.value || '');
     await loadActiveViewSafely();
   };
 
