@@ -48,6 +48,130 @@ const WEBSITE_METRIC_UNITS = {
   page_views: 'page views'
 };
 
+const JENANG_GEMI_SEARCH_INDEX = [
+  {
+    title: 'Jenang Gemi Homepage',
+    section: 'Official Website',
+    description: 'Main public homepage for Jenang Gemi.',
+    url: 'https://jenanggemi.com/',
+    keywords: ['home', 'homepage', 'official website', 'landing']
+  },
+  {
+    title: 'Bubur YouTube Campaign',
+    section: 'Campaign Landing Page',
+    description: 'Jenang Gemi Bubur campaign page for YouTube traffic.',
+    url: 'https://jenanggemi.com/bubur-youtube.html',
+    keywords: ['bubur', 'youtube', 'campaign', 'landing page']
+  },
+  {
+    title: 'Bubur Facebook Campaign',
+    section: 'Campaign Landing Page',
+    description: 'Jenang Gemi Bubur campaign page for Facebook traffic.',
+    url: 'https://jenanggemi.com/bubur-facebook.html',
+    keywords: ['bubur', 'facebook', 'campaign', 'landing page']
+  },
+  {
+    title: 'Bubur Instagram Campaign',
+    section: 'Campaign Landing Page',
+    description: 'Jenang Gemi Bubur campaign page for Instagram traffic.',
+    url: 'https://jenanggemi.com/bubur-instagram.html',
+    keywords: ['bubur', 'instagram', 'campaign', 'landing page']
+  },
+  {
+    title: 'Bubur TikTok Campaign',
+    section: 'Campaign Landing Page',
+    description: 'Jenang Gemi Bubur campaign page for TikTok traffic.',
+    url: 'https://jenanggemi.com/bubur-tiktok.html',
+    keywords: ['bubur', 'tiktok', 'campaign', 'landing page']
+  },
+  {
+    title: 'Jamu YouTube Campaign',
+    section: 'Campaign Landing Page',
+    description: 'Jenang Gemi Jamu campaign page for YouTube traffic.',
+    url: 'https://jenanggemi.com/jamu-youtube.html',
+    keywords: ['jamu', 'youtube', 'campaign', 'landing page']
+  },
+  {
+    title: 'Jamu Facebook Campaign',
+    section: 'Campaign Landing Page',
+    description: 'Jenang Gemi Jamu campaign page for Facebook traffic.',
+    url: 'https://jenanggemi.com/jamu-facebook.html',
+    keywords: ['jamu', 'facebook', 'campaign', 'landing page']
+  },
+  {
+    title: 'Jamu Instagram Campaign',
+    section: 'Campaign Landing Page',
+    description: 'Jenang Gemi Jamu campaign page for Instagram traffic.',
+    url: 'https://jenanggemi.com/jamu-instagram.html',
+    keywords: ['jamu', 'instagram', 'campaign', 'landing page']
+  },
+  {
+    title: 'Jamu TikTok Campaign',
+    section: 'Campaign Landing Page',
+    description: 'Jenang Gemi Jamu campaign page for TikTok traffic.',
+    url: 'https://jenanggemi.com/jamu-tiktok.html',
+    keywords: ['jamu', 'tiktok', 'campaign', 'landing page']
+  },
+  {
+    title: 'Executive Dashboard',
+    section: 'Admin',
+    description: 'Main executive analytics dashboard.',
+    url: '../dashboard/',
+    view: 'home',
+    keywords: ['admin', 'dashboard', 'analytics', 'executive']
+  },
+  {
+    title: 'Official Website Dashboard',
+    section: 'Admin',
+    description: 'Website analytics view inside the executive dashboard.',
+    url: '../dashboard/',
+    view: 'website',
+    keywords: ['website dashboard', 'site analytics', 'traffic']
+  },
+  {
+    title: 'Affiliate Program Dashboard',
+    section: 'Admin',
+    description: 'Affiliate performance control room.',
+    url: '../affiliate-program/',
+    keywords: ['affiliate', 'program', 'dashboard', 'performance']
+  },
+  {
+    title: 'Affiliate Profiles',
+    section: 'Admin',
+    description: 'Directory and management area for affiliate profiles.',
+    url: '../affiliate-profiles/',
+    keywords: ['affiliate', 'profiles', 'directory', 'edit']
+  },
+  {
+    title: 'Partner Program Dashboard',
+    section: 'Admin',
+    description: 'Partner program management dashboard.',
+    url: '../partner-program/',
+    keywords: ['partner', 'program', 'dashboard', 'dropshipper']
+  },
+  {
+    title: 'Partner Profiles',
+    section: 'Admin',
+    description: 'Partner profile registry and editing entry point.',
+    url: '../partner-profiles/',
+    keywords: ['partner', 'profiles', 'registry', 'edit']
+  },
+  {
+    title: 'SKU Database',
+    section: 'Admin',
+    description: 'SKU database, approvals, and source-of-truth records.',
+    url: '../sku-db/',
+    keywords: ['sku', 'database', 'branch', 'approval', 'inventory']
+  },
+  {
+    title: 'Partner Portal',
+    section: 'Partner',
+    description: 'Live partner-facing portal.',
+    url: 'https://partner.jenanggemi.com',
+    keywords: ['partner portal', 'portal', 'partner login']
+  }
+];
+
 const DASHBOARD_TIMEZONE = 'Asia/Jakarta';
 const ANALYTICS_DEVICE_COOKIE = 'jg_analytics_device_id';
 const ANALYTICS_DEVICE_MAX_AGE = 60 * 60 * 24 * 365 * 2;
@@ -592,9 +716,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const viewPanels = document.querySelectorAll('[data-view-panel]');
   const viewSwitchButtons = document.querySelectorAll('[data-view-switch]');
   const searchShell = document.querySelector('[data-dashboard-search-shell]');
-  const searchToggle = document.querySelector('[data-dashboard-search-toggle]');
   const searchForm = document.querySelector('[data-dashboard-search-form]');
   const searchInput = document.querySelector('[data-dashboard-search-input]');
+  const searchResults = document.querySelector('[data-dashboard-search-results]');
 
   const homeRefs = {
     summaryViews: document.querySelector('[data-home-summary-total-views]'),
@@ -649,71 +773,71 @@ document.addEventListener('DOMContentLoaded', () => {
     if (loaderLabel && label) loaderLabel.textContent = label;
   };
 
-  const searchableSelectors = [
-    '.admin-hero-panel',
-    '.admin-control-strip',
-    '.admin-metric-card',
-    '.admin-panel',
-    '.admin-settings-card',
-    '.admin-note-card',
-    '.admin-event-item',
-    '.admin-affiliate-card',
-    '.admin-request-card',
-    '.admin-sku-master-card'
-  ].join(', ');
+  const normalizeSearchText = (value) => String(value || '').trim().toLowerCase();
 
-  const clearDashboardSearch = () => {
-    const activeView = document.querySelector('.admin-view.is-active');
-    if (!activeView) return;
-
-    activeView.querySelectorAll('.admin-search-match, .admin-search-dim').forEach((node) => {
-      node.classList.remove('admin-search-match', 'admin-search-dim');
-    });
+  const closeSearchResults = ({ clear = false } = {}) => {
+    if (clear && searchInput) searchInput.value = '';
+    if (searchResults) {
+      searchResults.hidden = true;
+      searchResults.innerHTML = '';
+    }
+    searchShell?.classList.remove('is-open');
   };
 
-  const applyDashboardSearch = (query) => {
-    const activeView = document.querySelector('.admin-view.is-active');
-    if (!activeView) return [];
+  const scoreSearchEntry = (entry, tokens) => {
+    const title = normalizeSearchText(entry.title);
+    const section = normalizeSearchText(entry.section);
+    const description = normalizeSearchText(entry.description);
+    const url = normalizeSearchText(entry.url);
+    const keywords = Array.isArray(entry.keywords) ? entry.keywords.map(normalizeSearchText) : [];
+    let score = 0;
+    for (const token of tokens) {
+      if (!token) continue;
+      if (title.includes(token)) score += 6;
+      if (section.includes(token)) score += 3;
+      if (description.includes(token)) score += 2;
+      if (url.includes(token)) score += 2;
+      if (keywords.some((keyword) => keyword.includes(token))) score += 4;
+    }
+    return score;
+  };
 
-    const normalized = String(query || '').trim().toLowerCase();
-    const surfaces = [...activeView.querySelectorAll(searchableSelectors)];
-    surfaces.forEach((node) => node.classList.remove('admin-search-match', 'admin-search-dim'));
+  const getJenangGemiSearchResults = (query) => {
+    const normalized = normalizeSearchText(query);
+    if (!normalized) return [];
+    const tokens = normalized.split(/\s+/).filter(Boolean);
+    return JENANG_GEMI_SEARCH_INDEX
+      .map((entry) => ({ ...entry, score: scoreSearchEntry(entry, tokens) }))
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => b.score - a.score || a.title.localeCompare(b.title))
+      .slice(0, 8);
+  };
 
-    if (!normalized) {
+  const renderJenangGemiSearchResults = (query) => {
+    if (!searchResults) return [];
+    const results = getJenangGemiSearchResults(query);
+    if (!normalizeSearchText(query)) {
+      closeSearchResults();
       return [];
     }
 
-    const matches = [];
-    surfaces.forEach((node) => {
-      const haystack = String(node.textContent || '').toLowerCase();
-      if (haystack.includes(normalized)) {
-        node.classList.add('admin-search-match');
-        matches.push(node);
-      } else {
-        node.classList.add('admin-search-dim');
-      }
-    });
-
-    return matches;
-  };
-
-  const closeSearch = ({ clear = false } = {}) => {
-    if (!searchForm || !searchToggle) return;
-    if (clear && searchInput) {
-      searchInput.value = '';
-      clearDashboardSearch();
-    }
-    searchForm.hidden = true;
-    searchShell?.classList.remove('is-open');
-    searchToggle.setAttribute('aria-expanded', 'false');
-  };
-
-  const openSearch = () => {
-    if (!searchForm || !searchToggle) return;
-    searchForm.hidden = false;
     searchShell?.classList.add('is-open');
-    searchToggle.setAttribute('aria-expanded', 'true');
-    window.setTimeout(() => searchInput?.focus(), 0);
+    searchResults.hidden = false;
+
+    if (!results.length) {
+      searchResults.innerHTML = '<div class="admin-search-empty">No matching Jenang Gemi pages found.</div>';
+      return [];
+    }
+
+    searchResults.innerHTML = results.map((result) => `
+      <a class="admin-search-result" href="${escapeHtml(result.url)}"${result.view ? ` data-search-view="${escapeHtml(result.view)}"` : ''}>
+        <strong>${escapeHtml(result.title)}</strong>
+        <span>${escapeHtml(result.section)}</span>
+        <small>${escapeHtml(result.description)}</small>
+      </a>
+    `).join('');
+
+    return results;
   };
 
   const setupTopbarMenu = () => {
@@ -729,7 +853,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const target = event.target;
       if (!(target instanceof Node)) return;
       if (menuShell && !menuShell.contains(target)) closeMenu();
-      if (searchShell && !searchShell.contains(target) && searchInput?.value === '') closeSearch();
+      if (searchShell && !searchShell.contains(target)) closeSearchResults();
     });
 
     document.querySelectorAll('[data-dashboard-view-link]').forEach((link) => {
@@ -739,27 +863,36 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
 
-    searchToggle?.addEventListener('click', () => {
-      if (searchForm?.hidden === false) {
-        closeSearch({ clear: !searchInput?.value });
-      } else {
-        openSearch();
+    searchForm?.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const [firstResult] = renderJenangGemiSearchResults(searchInput?.value || '');
+      if (firstResult?.url) {
+        window.location.href = firstResult.url;
       }
     });
 
-    searchForm?.addEventListener('submit', (event) => {
-      event.preventDefault();
-      const matches = applyDashboardSearch(searchInput?.value || '');
-      matches[0]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    searchInput?.addEventListener('input', () => {
+      renderJenangGemiSearchResults(searchInput.value || '');
     });
 
-    searchInput?.addEventListener('input', () => {
-      applyDashboardSearch(searchInput.value || '');
+    searchInput?.addEventListener('focus', () => {
+      if (searchInput.value.trim()) renderJenangGemiSearchResults(searchInput.value);
     });
 
     searchInput?.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
-        closeSearch({ clear: true });
+        closeSearchResults({ clear: true });
+      }
+    });
+
+    searchResults?.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const link = target.closest('[data-search-view]');
+      if (!(link instanceof HTMLAnchorElement)) return;
+      const nextView = link.dataset.searchView;
+      if (nextView) {
+        window.localStorage.setItem(viewStorageKey, nextView);
       }
     });
   };
@@ -1231,7 +1364,7 @@ document.addEventListener('DOMContentLoaded', () => {
     state.activeView = nextView;
     syncViewState();
     closeMenu();
-    applyDashboardSearch(searchInput?.value || '');
+    renderJenangGemiSearchResults(searchInput?.value || '');
     await loadActiveViewSafely();
   };
 

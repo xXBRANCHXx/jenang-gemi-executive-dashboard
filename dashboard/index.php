@@ -138,12 +138,11 @@ $dashboardBuildVersion = 'exec3.47.0';
                     </div>
                     <div class="admin-topbar-actions">
                         <div class="admin-search-shell" data-dashboard-search-shell>
-                            <button type="button" class="admin-ghost-btn admin-search-toggle" data-dashboard-search-toggle aria-expanded="false" aria-label="Open dashboard search">
-                                <span aria-hidden="true">⌕</span>
-                            </button>
-                            <form class="admin-search-form" data-dashboard-search-form hidden>
-                                <input type="search" class="admin-search-input" data-dashboard-search-input placeholder="Search current admin view" autocomplete="off">
+                            <span class="admin-search-icon" aria-hidden="true">⌕</span>
+                            <form class="admin-search-form" data-dashboard-search-form role="search">
+                                <input type="search" class="admin-search-input" data-dashboard-search-input placeholder="Search all of Jenang Gemi" autocomplete="off">
                             </form>
+                            <div class="admin-search-results" data-dashboard-search-results hidden></div>
                         </div>
                         <div class="admin-menu-shell" data-menu-shell>
                             <button type="button" class="admin-ghost-btn admin-menu-trigger" data-menu-trigger aria-expanded="false" aria-label="Open dashboard menu">...</button>
