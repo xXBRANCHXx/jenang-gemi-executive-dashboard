@@ -3525,21 +3525,21 @@ body::after {
 /* Executive dashboard refinement pass */
 :root,
 :root[data-admin-theme='light'] {
-  --admin-shell-edge: rgba(255, 255, 255, 0.1);
-  --admin-panel-outline-hover: rgba(175, 255, 0, 0.28);
-  --admin-panel-shadow: 0 24px 54px rgba(0, 0, 0, 0.24);
-  --admin-panel-shadow-hover: 0 30px 62px rgba(0, 0, 0, 0.26);
-  --admin-panel-glass-bg: rgba(15, 19, 26, 0.44);
-  --admin-copy-soft: rgba(255, 255, 255, 0.7);
+  --admin-shell-edge: rgba(255, 255, 255, 0.08);
+  --admin-panel-outline-hover: rgba(175, 255, 0, 0.34);
+  --admin-panel-shadow: 0 24px 54px rgba(0, 0, 0, 0.3);
+  --admin-panel-shadow-hover: 0 30px 62px rgba(0, 0, 0, 0.36);
+  --admin-panel-glass-bg: rgba(5, 8, 12, 0.88);
+  --admin-copy-soft: rgba(255, 255, 255, 0.72);
 }
 
 :root[data-admin-theme='light'] {
-  --admin-shell-edge: rgba(15, 23, 42, 0.1);
-  --admin-panel-outline-hover: rgba(113, 177, 0, 0.34);
-  --admin-panel-shadow: 0 24px 54px rgba(15, 23, 42, 0.09);
-  --admin-panel-shadow-hover: 0 30px 62px rgba(15, 23, 42, 0.12);
-  --admin-panel-glass-bg: rgba(255, 255, 255, 0.7);
-  --admin-copy-soft: rgba(15, 23, 42, 0.66);
+  --admin-shell-edge: rgba(255, 255, 255, 0.08);
+  --admin-panel-outline-hover: rgba(175, 255, 0, 0.34);
+  --admin-panel-shadow: 0 24px 54px rgba(0, 0, 0, 0.3);
+  --admin-panel-shadow-hover: 0 30px 62px rgba(0, 0, 0, 0.36);
+  --admin-panel-glass-bg: rgba(5, 8, 12, 0.88);
+  --admin-copy-soft: rgba(255, 255, 255, 0.72);
 }
 
 body {
@@ -3547,34 +3547,41 @@ body {
 }
 
 body::before {
-  filter: blur(32px);
+  filter: blur(54px);
 }
 
 body::after {
-  filter: blur(42px);
+  filter: blur(68px);
 }
 
 .admin-app {
   isolation: isolate;
 }
 
+.admin-app[data-admin-dashboard] {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 24px 28px 40px 0;
+}
+
 .admin-backdrop {
-  filter: blur(12px) saturate(110%);
-  opacity: 0.95;
+  filter: blur(34px) saturate(125%);
+  opacity: 1;
 }
 
 .admin-backdrop-a {
   background:
-    radial-gradient(circle at 14% 16%, rgba(175, 255, 0, 0.11), transparent 30%),
-    radial-gradient(circle at 84% 14%, rgba(0, 224, 184, 0.12), transparent 28%),
-    radial-gradient(circle at 54% 88%, rgba(255, 255, 255, 0.04), transparent 24%);
+    radial-gradient(circle at 12% 18%, rgba(175, 255, 0, 0.16), transparent 28%),
+    radial-gradient(circle at 86% 12%, rgba(0, 224, 184, 0.18), transparent 24%),
+    radial-gradient(circle at 50% 84%, rgba(255, 255, 255, 0.05), transparent 20%);
 }
 
 .admin-backdrop-b {
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0)),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
-  opacity: 0.56;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0)),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0));
+  opacity: 0.7;
 }
 
 .admin-shell-main,
@@ -3614,6 +3621,21 @@ body::after {
   align-items: end;
 }
 
+.admin-app[data-admin-dashboard] .admin-shell {
+  gap: 22px;
+}
+
+.admin-app[data-admin-dashboard] .admin-rail {
+  top: 0;
+  min-height: 100svh;
+  padding: 24px 0 16px;
+}
+
+.admin-app[data-admin-dashboard] .admin-shell-main {
+  padding-left: 10px;
+  padding-right: 4px;
+}
+
 .admin-topbar-actions {
   justify-content: flex-end;
   align-self: stretch;
@@ -3623,14 +3645,22 @@ body::after {
   display: flex;
   align-items: center;
   gap: 4px;
+  min-width: 52px;
+  padding: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.62);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .admin-search-form {
   flex: 1 1 auto;
+  overflow: hidden;
 }
 
 .admin-search-shell.is-open {
-  min-width: min(100%, 320px);
+  min-width: min(100%, 340px);
+  border-color: rgba(175, 255, 0, 0.22);
+  background: rgba(2, 6, 10, 0.8);
 }
 
 .admin-hero-panel,
@@ -3655,8 +3685,8 @@ body::after {
 .admin-search-shell,
 .admin-menu-panel,
 .admin-rotate-card {
-  backdrop-filter: blur(24px) saturate(140%);
-  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(132%);
+  -webkit-backdrop-filter: blur(16px) saturate(132%);
 }
 
 .admin-hero-panel,
@@ -3671,6 +3701,9 @@ body::after {
 .admin-hero-panel {
   grid-template-columns: minmax(0, 1.12fr) minmax(300px, 0.88fr);
   align-items: start;
+  background:
+    linear-gradient(145deg, rgba(175, 255, 0, 0.04), rgba(0, 224, 184, 0.02)) border-box,
+    var(--admin-panel-glass-bg);
 }
 
 .admin-hero-copy {
@@ -3692,6 +3725,40 @@ body::after {
   align-content: start;
   justify-items: stretch;
   gap: 14px;
+}
+
+.admin-menu-panel,
+.admin-build-badge,
+.admin-chart-tooltip,
+.admin-modal-card,
+.admin-rotate-card {
+  background: rgba(4, 8, 12, 0.84);
+}
+
+.admin-search-input {
+  width: 260px;
+  height: 40px;
+  padding: 0 16px;
+  border: 0;
+  outline: 0;
+  color: #f3f6f8;
+  background: transparent;
+}
+
+.admin-search-input::placeholder {
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.admin-search-toggle {
+  border-radius: 14px;
+  border: 1px solid transparent;
+  color: rgba(255, 255, 255, 0.84);
+}
+
+.admin-search-shell.is-open .admin-search-toggle,
+.admin-search-toggle:hover {
+  border-color: rgba(175, 255, 0, 0.18);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .admin-status-pill,
@@ -3833,6 +3900,10 @@ body::after {
 }
 
 @media (max-width: 1120px) {
+  .admin-app[data-admin-dashboard] {
+    padding-left: 0;
+  }
+
   .admin-topbar {
     grid-template-columns: 1fr;
     align-items: start;
@@ -3848,6 +3919,11 @@ body::after {
 }
 
 @media (max-width: 820px) {
+  .admin-app[data-admin-dashboard] .admin-shell-main {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
   .admin-topbar-actions {
     gap: 10px;
   }
