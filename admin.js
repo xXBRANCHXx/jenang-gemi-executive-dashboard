@@ -590,6 +590,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const menuPanel = document.querySelector('[data-menu-panel]');
   const viewLabel = document.querySelector('[data-active-view-label]');
   const viewPanels = document.querySelectorAll('[data-view-panel]');
+  const viewSwitchButtons = document.querySelectorAll('[data-view-switch]');
   const searchShell = document.querySelector('[data-dashboard-search-shell]');
   const searchToggle = document.querySelector('[data-dashboard-search-toggle]');
   const searchForm = document.querySelector('[data-dashboard-search-form]');
@@ -856,6 +857,15 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     viewPanels.forEach((panel) => {
       panel.classList.toggle('is-active', panel.dataset.viewPanel === state.activeView);
+    });
+    viewSwitchButtons.forEach((button) => {
+      const isActive = button.dataset.viewSwitch === state.activeView;
+      button.classList.toggle('is-active', isActive);
+      if (isActive) {
+        button.setAttribute('aria-current', 'page');
+      } else {
+        button.removeAttribute('aria-current');
+      }
     });
     if (viewLabel) {
       viewLabel.textContent = labels[state.activeView] || 'Dashboard';

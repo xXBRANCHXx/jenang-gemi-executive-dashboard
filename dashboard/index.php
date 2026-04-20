@@ -23,7 +23,7 @@ $dashboardBuildVersion = 'exec3.47.0';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
-    <title>Jenang Gemi Executive Dashboard</title>
+    <title>Executive Dashboard</title>
     <meta name="robots" content="noindex,nofollow">
     <link rel="icon" type="image/png" href="https://jenanggemi.com/Media/Jenang%20Gemi%20Website%20Logo.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -42,8 +42,8 @@ $dashboardBuildVersion = 'exec3.47.0';
         <section class="admin-login-card">
             <div class="admin-login-brand">
                 <span class="admin-chip">Executive Access</span>
-                <h1>Jenang Gemi Executive Dashboard</h1>
-                <p>Secure access to traffic, source attribution, conversion flow, and session-depth analytics for Bubur campaign landing pages.</p>
+                <h1>Executive Dashboard</h1>
+                <p>Secure access to traffic, attribution, conversion flow, and operational views across the wider Jenang Gemi admin scope.</p>
             </div>
             <form method="post" class="admin-login-form" autocomplete="off">
                 <label for="admin_code">Security Code</label>
@@ -77,40 +77,91 @@ $dashboardBuildVersion = 'exec3.47.0';
     <div class="admin-app" data-admin-dashboard data-analytics-endpoint="../api/analytics/" data-live-endpoint="../api/live/" data-settings-endpoint="../api/settings/">
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
-        <header class="admin-topbar">
-            <div class="admin-topbar-left">
-                <span class="admin-admin-mark">ADMIN</span>
-                <div class="admin-topbar-brand">
-                    <h1>Executive Dashboard</h1>
-                    <span class="admin-view-indicator admin-view-indicator-hidden" data-active-view-label>Home Dashboard</span>
-                </div>
-            </div>
-            <div class="admin-topbar-actions">
-                <div class="admin-search-shell" data-dashboard-search-shell>
-                    <button type="button" class="admin-ghost-btn admin-search-toggle" data-dashboard-search-toggle aria-expanded="false" aria-label="Open dashboard search">
-                        <span aria-hidden="true">⌕</span>
+        <div class="admin-shell">
+            <aside class="admin-rail" aria-label="Admin navigation">
+                <a class="admin-rail-brand" href="./" aria-label="Executive Dashboard home">
+                    <span class="admin-rail-brand-mark" aria-hidden="true">
+                        <span class="admin-rail-brand-core"></span>
+                    </span>
+                    <span class="admin-rail-brand-wordmark">ADMIN</span>
+                </a>
+                <nav class="admin-rail-nav">
+                    <button type="button" class="admin-rail-link is-active" data-view-switch="home" aria-label="Open home dashboard">
+                        <span class="admin-rail-icon admin-rail-icon-home" aria-hidden="true">
+                            <span></span>
+                        </span>
+                        <span class="admin-rail-link-text">Home</span>
                     </button>
-                    <form class="admin-search-form" data-dashboard-search-form hidden>
-                        <input type="search" class="admin-search-input" data-dashboard-search-input placeholder="Search current view" autocomplete="off">
-                    </form>
+                    <button type="button" class="admin-rail-link" data-view-switch="website" aria-label="Open website dashboard">
+                        <span class="admin-rail-icon admin-rail-icon-rocket" aria-hidden="true">
+                            <span></span>
+                        </span>
+                        <span class="admin-rail-link-text">Website</span>
+                    </button>
+                    <a class="admin-rail-link" href="../affiliate-program/" aria-label="Open affiliate program dashboard">
+                        <span class="admin-rail-icon admin-rail-icon-affiliate" aria-hidden="true">
+                            <span></span>
+                        </span>
+                        <span class="admin-rail-link-text">Affiliate</span>
+                    </a>
+                    <a class="admin-rail-link" href="../partner-program/" aria-label="Open partner program dashboard">
+                        <span class="admin-rail-icon admin-rail-icon-partner" aria-hidden="true">
+                            <span></span>
+                        </span>
+                        <span class="admin-rail-link-text">Partner</span>
+                    </a>
+                    <a class="admin-rail-link" href="../sku-db/" aria-label="Open SKU database">
+                        <span class="admin-rail-icon admin-rail-icon-sku" aria-hidden="true">
+                            <span>SKU</span>
+                        </span>
+                        <span class="admin-rail-link-text">SKU DB</span>
+                    </a>
+                </nav>
+                <div class="admin-rail-footer">
+                    <button type="button" class="admin-rail-link admin-rail-link-settings" data-view-switch="settings" aria-label="Open admin settings">
+                        <span class="admin-rail-icon admin-rail-icon-settings" aria-hidden="true">
+                            <span></span>
+                        </span>
+                        <span class="admin-rail-link-text">Settings</span>
+                    </button>
                 </div>
-                <div class="admin-menu-shell" data-menu-shell>
-                    <button type="button" class="admin-ghost-btn admin-menu-trigger" data-menu-trigger aria-expanded="false" aria-label="Open dashboard menu">...</button>
-                    <div class="admin-menu-panel" data-menu-panel hidden>
-                        <button type="button" class="admin-menu-item" data-view-switch="home">Home Dashboard</button>
-                        <button type="button" class="admin-menu-item" data-view-switch="website">Official Website Dashboard</button>
-                        <a class="admin-menu-item admin-link-btn" href="../affiliate-program/">Affiliate Program Dashboard</a>
-                        <a class="admin-menu-item admin-link-btn" href="../partner-program/">Partner Program Dashboard</a>
-                        <a class="admin-menu-item admin-link-btn" href="../partner-profiles/">Partner Profiles</a>
-                        <a class="admin-menu-item admin-link-btn" href="../sku-db/">SKU Database</a>
-                        <button type="button" class="admin-menu-item" data-view-switch="settings">Settings</button>
-                    </div>
-                </div>
-            </div>
-        </header>
+            </aside>
 
-        <main class="admin-layout">
-            <section class="admin-view is-active" data-view-panel="home">
+            <div class="admin-shell-main">
+                <header class="admin-topbar">
+                    <div class="admin-topbar-left">
+                        <div class="admin-topbar-brand">
+                            <span class="admin-admin-mark">Admin Scope</span>
+                            <h1>Executive Dashboard</h1>
+                            <p data-active-view-label>Home Dashboard</p>
+                        </div>
+                    </div>
+                    <div class="admin-topbar-actions">
+                        <div class="admin-search-shell" data-dashboard-search-shell>
+                            <button type="button" class="admin-ghost-btn admin-search-toggle" data-dashboard-search-toggle aria-expanded="false" aria-label="Open dashboard search">
+                                <span aria-hidden="true">⌕</span>
+                            </button>
+                            <form class="admin-search-form" data-dashboard-search-form hidden>
+                                <input type="search" class="admin-search-input" data-dashboard-search-input placeholder="Search current admin view" autocomplete="off">
+                            </form>
+                        </div>
+                        <div class="admin-menu-shell" data-menu-shell>
+                            <button type="button" class="admin-ghost-btn admin-menu-trigger" data-menu-trigger aria-expanded="false" aria-label="Open dashboard menu">...</button>
+                            <div class="admin-menu-panel" data-menu-panel hidden>
+                                <button type="button" class="admin-menu-item" data-view-switch="home">Home Dashboard</button>
+                                <button type="button" class="admin-menu-item" data-view-switch="website">Official Website Dashboard</button>
+                                <a class="admin-menu-item admin-link-btn" href="../affiliate-program/">Affiliate Program Dashboard</a>
+                                <a class="admin-menu-item admin-link-btn" href="../partner-program/">Partner Program Dashboard</a>
+                                <a class="admin-menu-item admin-link-btn" href="../partner-profiles/">Partner Profiles</a>
+                                <a class="admin-menu-item admin-link-btn" href="../sku-db/">SKU Database</a>
+                                <button type="button" class="admin-menu-item" data-view-switch="settings">Settings</button>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+
+                <main class="admin-layout">
+                    <section class="admin-view is-active" data-view-panel="home">
                 <section class="admin-hero-panel">
                     <div class="admin-hero-copy">
                         <span class="admin-chip admin-chip-accent">Realtime Campaign Monitoring</span>
@@ -338,9 +389,9 @@ $dashboardBuildVersion = 'exec3.47.0';
                     <a class="admin-primary-btn admin-link-btn" href="../affiliate-program/">Go To Affiliate Program</a>
                     <a class="admin-ghost-btn admin-link-btn" href="../back-dash/">Open Back-dash</a>
                 </div>
-            </section>
+                    </section>
 
-            <section class="admin-view" data-view-panel="website">
+                    <section class="admin-view" data-view-panel="website">
                 <section class="admin-hero-panel admin-hero-panel-website">
                     <div class="admin-hero-copy">
                         <span class="admin-chip admin-chip-accent">Official Website Dashboard</span>
@@ -498,9 +549,9 @@ $dashboardBuildVersion = 'exec3.47.0';
                         </div>
                     </article>
                 </section>
-            </section>
+                    </section>
 
-            <section class="admin-view admin-view-settings" data-view-panel="settings">
+                    <section class="admin-view admin-view-settings" data-view-panel="settings">
                 <section class="admin-settings-grid">
                     <article class="admin-panel admin-settings-card">
                         <div class="admin-panel-head">
@@ -551,8 +602,10 @@ $dashboardBuildVersion = 'exec3.47.0';
                         </div>
                     </article>
                 </section>
-            </section>
-        </main>
+                    </section>
+                </main>
+            </div>
+        </div>
     </div>
     <script type="module" src="../admin.js?v=<?php echo urlencode($adminJsVersion ?: '1'); ?>"></script>
 <?php endif; ?>
