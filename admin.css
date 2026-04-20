@@ -3936,6 +3936,12 @@ body::after {
 }
 
 /* Dashboard-only icon + control treatment pass */
+.admin-body.is-executive-dashboard::before,
+.admin-body.is-executive-dashboard::after {
+  content: none;
+  display: none;
+}
+
 .admin-app[data-admin-dashboard] {
   background: #05080c;
 }
@@ -3993,6 +3999,21 @@ body::after {
   height: 18vw;
   background: rgba(12, 18, 26, 0.82);
   filter: blur(90px);
+}
+
+.admin-app[data-admin-dashboard]::after {
+  content: '';
+  position: fixed;
+  right: 28px;
+  bottom: 18px;
+  width: min(24vw, 260px);
+  height: min(24vw, 260px);
+  background: center / contain no-repeat url('./assets/admin-icons/admin-home.png');
+  opacity: 0.3;
+  transform: rotate(-18deg);
+  transform-origin: center;
+  pointer-events: none;
+  z-index: 0;
 }
 
 .admin-app[data-admin-dashboard] .admin-hero-panel {

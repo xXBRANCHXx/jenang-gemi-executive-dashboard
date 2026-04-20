@@ -31,7 +31,7 @@ $dashboardBuildVersion = 'exec3.47.0';
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap">
     <link rel="stylesheet" href="../admin.css?v=<?php echo urlencode($adminCssVersion ?: '1'); ?>">
 </head>
-<body class="admin-body<?php echo $isAuthenticated ? ' is-dashboard is-loading' : ' is-login'; ?>">
+<body class="admin-body<?php echo $isAuthenticated ? ' is-dashboard is-loading is-executive-dashboard' : ' is-login'; ?>">
 <div class="admin-build-badge" aria-label="Dashboard build version">
     Build <?php echo htmlspecialchars($dashboardBuildVersion, ENT_QUOTES); ?>
 </div>
