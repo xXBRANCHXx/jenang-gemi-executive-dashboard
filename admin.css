@@ -3942,26 +3942,89 @@ body::after {
   }
 }
 
-/* Icon asset + control treatment pass */
-.admin-rail-brand-mark {
+/* Dashboard-only icon + control treatment pass */
+.admin-app[data-admin-dashboard] {
+  background: #05080c;
+}
+
+.admin-app[data-admin-dashboard] .admin-backdrop {
+  filter: none;
+  opacity: 1;
+}
+
+.admin-app[data-admin-dashboard] .admin-backdrop-a,
+.admin-app[data-admin-dashboard] .admin-backdrop-b {
+  background: transparent;
+}
+
+.admin-app[data-admin-dashboard] .admin-backdrop-a::before,
+.admin-app[data-admin-dashboard] .admin-backdrop-a::after,
+.admin-app[data-admin-dashboard] .admin-backdrop-b::before,
+.admin-app[data-admin-dashboard] .admin-backdrop-b::after {
+  content: '';
+  position: fixed;
+  border-radius: 999px;
+  pointer-events: none;
+  filter: blur(120px);
+  opacity: 0.9;
+}
+
+.admin-app[data-admin-dashboard] .admin-backdrop-a::before {
+  top: 8vh;
+  left: -8vw;
+  width: 34vw;
+  height: 34vw;
+  background: rgba(157, 255, 0, 0.16);
+}
+
+.admin-app[data-admin-dashboard] .admin-backdrop-a::after {
+  top: -4vh;
+  right: 2vw;
+  width: 26vw;
+  height: 26vw;
+  background: rgba(41, 255, 166, 0.15);
+}
+
+.admin-app[data-admin-dashboard] .admin-backdrop-b::before {
+  bottom: 12vh;
+  right: 18vw;
+  width: 22vw;
+  height: 22vw;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.admin-app[data-admin-dashboard] .admin-backdrop-b::after {
+  bottom: -8vh;
+  left: 24vw;
+  width: 28vw;
+  height: 18vw;
+  background: rgba(12, 18, 26, 0.82);
+  filter: blur(90px);
+}
+
+.admin-app[data-admin-dashboard] .admin-hero-panel {
+  background: var(--admin-panel-glass-bg);
+}
+
+.admin-app[data-admin-dashboard] .admin-rail-brand-mark {
   width: 42px;
   height: 42px;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.02);
 }
 
-.admin-rail-brand-core {
+.admin-app[data-admin-dashboard] .admin-rail-brand-core {
   width: 22px;
   height: 22px;
   background: center / contain no-repeat url('./assets/admin-icons/admin-home.png');
   clip-path: none;
 }
 
-.admin-rail-brand-core::after {
+.admin-app[data-admin-dashboard] .admin-rail-brand-core::after {
   display: none;
 }
 
-.admin-rail-icon {
+.admin-app[data-admin-dashboard] .admin-rail-icon {
   width: 28px;
   height: 28px;
   background-position: center;
@@ -3969,87 +4032,90 @@ body::after {
   background-size: contain;
 }
 
-.admin-rail-icon::before,
-.admin-rail-icon::after,
-.admin-rail-icon span,
-.admin-rail-icon span::before,
-.admin-rail-icon span::after {
+.admin-app[data-admin-dashboard] .admin-rail-icon::before,
+.admin-app[data-admin-dashboard] .admin-rail-icon::after,
+.admin-app[data-admin-dashboard] .admin-rail-icon span,
+.admin-app[data-admin-dashboard] .admin-rail-icon span::before,
+.admin-app[data-admin-dashboard] .admin-rail-icon span::after {
   display: none !important;
   content: none !important;
 }
 
-.admin-rail-icon-home {
+.admin-app[data-admin-dashboard] .admin-rail-icon-home {
   background-image: url('./assets/admin-icons/admin-home.png');
 }
 
-.admin-rail-icon-rocket {
+.admin-app[data-admin-dashboard] .admin-rail-icon-rocket {
   transform: none;
   background-image: url('./assets/admin-icons/website.png');
 }
 
-.admin-rail-icon-affiliate {
+.admin-app[data-admin-dashboard] .admin-rail-icon-affiliate {
   background-image: url('./assets/admin-icons/affiliate.png');
 }
 
-.admin-rail-icon-partner {
+.admin-app[data-admin-dashboard] .admin-rail-icon-partner {
   background-image: url('./assets/admin-icons/partner.png');
 }
 
-.admin-rail-icon-sku {
+.admin-app[data-admin-dashboard] .admin-rail-icon-sku {
   width: 36px;
   background-image: url('./assets/admin-icons/sku.png');
 }
 
-.admin-rail-icon-settings {
+.admin-app[data-admin-dashboard] .admin-rail-icon-settings {
   animation: none;
   background-image: url('./assets/admin-icons/settings.png');
 }
 
-.admin-primary-btn,
-.admin-ghost-btn,
-.admin-soft-btn,
-.admin-danger-btn,
-.admin-toggle-pill,
-.admin-panel-inline-toggles .admin-toggle-pill-series,
-.admin-view-indicator,
-.admin-menu-trigger {
-  border-color: rgba(157, 255, 0, 0.3);
-  background: rgba(5, 8, 12, 0.88);
+.admin-app[data-admin-dashboard] .admin-primary-btn,
+.admin-app[data-admin-dashboard] .admin-ghost-btn,
+.admin-app[data-admin-dashboard] .admin-soft-btn,
+.admin-app[data-admin-dashboard] .admin-danger-btn,
+.admin-app[data-admin-dashboard] .admin-toggle-pill,
+.admin-app[data-admin-dashboard] .admin-panel-inline-toggles .admin-toggle-pill-series,
+.admin-app[data-admin-dashboard] .admin-view-indicator,
+.admin-app[data-admin-dashboard] .admin-menu-trigger {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 2px solid rgba(157, 255, 0, 0.34);
+  background: rgba(5, 8, 12, 0.9);
   color: #eef4f7;
-  box-shadow: inset 0 0 0 1px rgba(157, 255, 0, 0.08);
+  box-shadow: none;
 }
 
-.admin-primary-btn,
-.admin-toggle-pill.is-active,
-.admin-panel-inline-toggles .admin-toggle-pill.is-active,
-.admin-panel-inline-toggles .admin-toggle-pill-series.is-active,
-.admin-control-strip .admin-toggle-pill.is-active {
-  border-color: rgba(157, 255, 0, 0.64);
-  background: rgba(10, 16, 10, 0.96);
+.admin-app[data-admin-dashboard] .admin-primary-btn,
+.admin-app[data-admin-dashboard] .admin-toggle-pill.is-active,
+.admin-app[data-admin-dashboard] .admin-panel-inline-toggles .admin-toggle-pill.is-active,
+.admin-app[data-admin-dashboard] .admin-panel-inline-toggles .admin-toggle-pill-series.is-active,
+.admin-app[data-admin-dashboard] .admin-control-strip .admin-toggle-pill.is-active {
+  border-color: rgba(255, 255, 255, 0.08);
+  border-bottom-color: rgba(157, 255, 0, 0.84);
+  background: rgba(7, 11, 15, 0.94);
   color: #f4ffe9;
-  box-shadow: inset 0 0 0 1px rgba(157, 255, 0, 0.16);
+  box-shadow: none;
 }
 
-.admin-primary-btn:hover,
-.admin-ghost-btn:hover,
-.admin-soft-btn:hover,
-.admin-danger-btn:hover,
-.admin-toggle-pill:hover,
-.admin-panel-inline-toggles .admin-toggle-pill-series:hover,
-.admin-view-indicator:hover,
-.admin-menu-trigger:hover,
-.admin-control-strip .admin-toggle-pill.is-active:hover,
-.admin-panel-inline-toggles .admin-toggle-pill.is-active:hover,
-.admin-panel-inline-toggles .admin-toggle-pill-series.is-active:hover {
-  border-color: rgba(157, 255, 0, 0.76);
-  background: rgba(9, 14, 10, 0.96);
+.admin-app[data-admin-dashboard] .admin-primary-btn:hover,
+.admin-app[data-admin-dashboard] .admin-ghost-btn:hover,
+.admin-app[data-admin-dashboard] .admin-soft-btn:hover,
+.admin-app[data-admin-dashboard] .admin-danger-btn:hover,
+.admin-app[data-admin-dashboard] .admin-toggle-pill:hover,
+.admin-app[data-admin-dashboard] .admin-panel-inline-toggles .admin-toggle-pill-series:hover,
+.admin-app[data-admin-dashboard] .admin-view-indicator:hover,
+.admin-app[data-admin-dashboard] .admin-menu-trigger:hover,
+.admin-app[data-admin-dashboard] .admin-control-strip .admin-toggle-pill.is-active:hover,
+.admin-app[data-admin-dashboard] .admin-panel-inline-toggles .admin-toggle-pill.is-active:hover,
+.admin-app[data-admin-dashboard] .admin-panel-inline-toggles .admin-toggle-pill-series.is-active:hover {
+  border-color: rgba(255, 255, 255, 0.08);
+  border-bottom-color: rgba(157, 255, 0, 0.96);
+  background: rgba(8, 12, 16, 0.96);
   color: #ffffff;
-  box-shadow: inset 0 0 0 1px rgba(157, 255, 0, 0.22);
+  box-shadow: none;
 }
 
-.admin-control-strip .admin-toggle-pill,
-.admin-panel-inline-toggles .admin-toggle-pill,
-.admin-panel-inline-toggles .admin-toggle-pill-series {
-  background: rgba(5, 8, 12, 0.88);
+.admin-app[data-admin-dashboard] .admin-control-strip .admin-toggle-pill,
+.admin-app[data-admin-dashboard] .admin-panel-inline-toggles .admin-toggle-pill,
+.admin-app[data-admin-dashboard] .admin-panel-inline-toggles .admin-toggle-pill-series {
+  background: rgba(5, 8, 12, 0.9);
   color: #dce7db;
 }
