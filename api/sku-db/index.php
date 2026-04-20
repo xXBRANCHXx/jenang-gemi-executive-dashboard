@@ -73,12 +73,16 @@ function jg_sku_tag(string $value): string
         jg_sku_fail('TAG must be 1 to 50 characters.');
     }
 
-    if (!preg_match('/^[A-Z_]+$/', $tag)) {
-        jg_sku_fail('TAG may only use A-Z and underscore characters.');
+    if (!preg_match('/^[A-Z0-9_]+$/', $tag)) {
+        jg_sku_fail('TAG may only use A-Z, 0-9, and underscore characters.');
     }
 
     if (str_ends_with($tag, '_')) {
         jg_sku_fail('TAG may not end in an underscore.');
+    }
+
+    if (preg_match('/\d$/', $tag)) {
+        jg_sku_fail('TAG may not end in a number.');
     }
 
     return $tag;
