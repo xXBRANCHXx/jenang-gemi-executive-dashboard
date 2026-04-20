@@ -61,7 +61,7 @@ $pageBuildVersion = 'sku1.00.00';
     </main>
 <?php else: ?>
     <div
-        class="admin-app"
+        class="admin-app admin-app-suite"
         data-sku-db
         data-sku-role="<?php echo $isBranch ? 'branch' : 'requester'; ?>"
         data-sku-username="<?php echo htmlspecialchars(jg_sku_session_username(), ENT_QUOTES); ?>"

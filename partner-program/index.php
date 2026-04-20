@@ -26,7 +26,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
 </head>
 <body class="admin-body is-dashboard">
     <div class="admin-build-badge" aria-label="Dashboard build version">Build exec3.47.0</div>
-    <div class="admin-app">
+    <div class="admin-app admin-app-suite" data-partner-dashboard>
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
         <div class="admin-shell">

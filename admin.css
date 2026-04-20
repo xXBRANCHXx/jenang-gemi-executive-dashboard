@@ -3558,7 +3558,7 @@ body::after {
   isolation: isolate;
 }
 
-.admin-app[data-admin-dashboard] {
+.admin-app.admin-app-suite {
   width: 100%;
   max-width: none;
   margin: 0;
@@ -3616,17 +3616,17 @@ body::after {
   align-items: end;
 }
 
-.admin-app[data-admin-dashboard] .admin-shell {
+.admin-app.admin-app-suite .admin-shell {
   gap: 22px;
 }
 
-.admin-app[data-admin-dashboard] .admin-rail {
+.admin-app.admin-app-suite .admin-rail {
   top: 0;
   min-height: 100svh;
   padding: 24px 0 16px;
 }
 
-.admin-app[data-admin-dashboard] .admin-shell-main {
+.admin-app.admin-app-suite .admin-shell-main {
   padding-left: 10px;
   padding-right: 4px;
 }
@@ -3893,7 +3893,7 @@ body::after {
 }
 
 @media (max-width: 1120px) {
-  .admin-app[data-admin-dashboard] {
+  .admin-app.admin-app-suite {
     padding-left: 0;
   }
 
@@ -3912,7 +3912,7 @@ body::after {
 }
 
 @media (max-width: 820px) {
-  .admin-app[data-admin-dashboard] .admin-shell-main {
+  .admin-app.admin-app-suite .admin-shell-main {
     padding-left: 0;
     padding-right: 0;
   }
@@ -3942,24 +3942,24 @@ body::after {
   display: none;
 }
 
-.admin-app[data-admin-dashboard] {
+.admin-app.admin-app-suite {
   background: #05080c;
 }
 
-.admin-app[data-admin-dashboard] .admin-backdrop {
+.admin-app.admin-app-suite .admin-backdrop {
   filter: none;
   opacity: 1;
 }
 
-.admin-app[data-admin-dashboard] .admin-backdrop-a,
-.admin-app[data-admin-dashboard] .admin-backdrop-b {
+.admin-app.admin-app-suite .admin-backdrop-a,
+.admin-app.admin-app-suite .admin-backdrop-b {
   background: transparent;
 }
 
-.admin-app[data-admin-dashboard] .admin-backdrop-a::before,
-.admin-app[data-admin-dashboard] .admin-backdrop-a::after,
-.admin-app[data-admin-dashboard] .admin-backdrop-b::before,
-.admin-app[data-admin-dashboard] .admin-backdrop-b::after {
+.admin-app.admin-app-suite .admin-backdrop-a::before,
+.admin-app.admin-app-suite .admin-backdrop-a::after,
+.admin-app.admin-app-suite .admin-backdrop-b::before,
+.admin-app.admin-app-suite .admin-backdrop-b::after {
   content: '';
   position: fixed;
   border-radius: 999px;
@@ -3968,15 +3968,15 @@ body::after {
   opacity: 0.9;
 }
 
-.admin-app[data-admin-dashboard] .admin-backdrop-a::before {
+.admin-app.admin-app-suite .admin-backdrop-a::before {
   display: none;
 }
 
-.admin-app[data-admin-dashboard] .admin-backdrop-a::after {
+.admin-app.admin-app-suite .admin-backdrop-a::after {
   display: none;
 }
 
-.admin-app[data-admin-dashboard] .admin-backdrop-b::before {
+.admin-app.admin-app-suite .admin-backdrop-b::before {
   bottom: 12vh;
   right: 18vw;
   width: 22vw;
@@ -3984,7 +3984,7 @@ body::after {
   background: rgba(255, 255, 255, 0.08);
 }
 
-.admin-app[data-admin-dashboard] .admin-backdrop-b::after {
+.admin-app.admin-app-suite .admin-backdrop-b::after {
   bottom: -8vh;
   left: 24vw;
   width: 28vw;
@@ -3993,7 +3993,7 @@ body::after {
   filter: blur(90px);
 }
 
-.admin-app[data-admin-dashboard]::after {
+.admin-app.admin-app-suite::after {
   content: '';
   position: fixed;
   right: 28px;
@@ -4008,23 +4008,23 @@ body::after {
   z-index: 0;
 }
 
-.admin-app[data-admin-dashboard] .admin-hero-panel {
+.admin-app.admin-app-suite .admin-hero-panel {
   background: var(--admin-panel-glass-bg);
 }
 
-.admin-app[data-admin-dashboard] .admin-hero-panel::before,
-.admin-app[data-admin-dashboard] .admin-control-strip::before,
-.admin-app[data-admin-dashboard] .admin-panel::before,
-.admin-app[data-admin-dashboard] .admin-metric-card::before,
-.admin-app[data-admin-dashboard] .admin-launchpad-section::before,
-.admin-app[data-admin-dashboard] .admin-note-card::before,
-.admin-app[data-admin-dashboard] .admin-event-item::before,
-.admin-app[data-admin-dashboard] .admin-legend-item::before,
-.admin-app[data-admin-dashboard] .admin-affiliate-card::before,
-.admin-app[data-admin-dashboard] .admin-settings-chip::before,
-.admin-app[data-admin-dashboard] .admin-sku-preview::before,
-.admin-app[data-admin-dashboard] .admin-request-card::before,
-.admin-app[data-admin-dashboard] .admin-sku-master-card::before {
+.admin-app.admin-app-suite .admin-hero-panel::before,
+.admin-app.admin-app-suite .admin-control-strip::before,
+.admin-app.admin-app-suite .admin-panel::before,
+.admin-app.admin-app-suite .admin-metric-card::before,
+.admin-app.admin-app-suite .admin-launchpad-section::before,
+.admin-app.admin-app-suite .admin-note-card::before,
+.admin-app.admin-app-suite .admin-event-item::before,
+.admin-app.admin-app-suite .admin-legend-item::before,
+.admin-app.admin-app-suite .admin-affiliate-card::before,
+.admin-app.admin-app-suite .admin-settings-chip::before,
+.admin-app.admin-app-suite .admin-sku-preview::before,
+.admin-app.admin-app-suite .admin-request-card::before,
+.admin-app.admin-app-suite .admin-sku-master-card::before {
   background: none;
 }
 
@@ -4091,14 +4091,14 @@ body::after {
   background-image: url('./assets/admin-icons/settings.png');
 }
 
-.admin-app[data-admin-dashboard] .admin-primary-btn,
-.admin-app[data-admin-dashboard] .admin-ghost-btn,
-.admin-app[data-admin-dashboard] .admin-soft-btn,
-.admin-app[data-admin-dashboard] .admin-danger-btn,
-.admin-app[data-admin-dashboard] .admin-toggle-pill,
-.admin-app[data-admin-dashboard] .admin-panel-inline-toggles .admin-toggle-pill-series,
-.admin-app[data-admin-dashboard] .admin-view-indicator,
-.admin-app[data-admin-dashboard] .admin-menu-trigger {
+.admin-app.admin-app-suite .admin-primary-btn,
+.admin-app.admin-app-suite .admin-ghost-btn,
+.admin-app.admin-app-suite .admin-soft-btn,
+.admin-app.admin-app-suite .admin-danger-btn,
+.admin-app.admin-app-suite .admin-toggle-pill,
+.admin-app.admin-app-suite .admin-panel-inline-toggles .admin-toggle-pill-series,
+.admin-app.admin-app-suite .admin-view-indicator,
+.admin-app.admin-app-suite .admin-menu-trigger {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-bottom: 2px solid rgba(157, 255, 0, 0.34);
   background: rgba(5, 8, 12, 0.9);
@@ -4106,11 +4106,11 @@ body::after {
   box-shadow: none;
 }
 
-.admin-app[data-admin-dashboard] .admin-primary-btn,
-.admin-app[data-admin-dashboard] .admin-toggle-pill.is-active,
-.admin-app[data-admin-dashboard] .admin-panel-inline-toggles .admin-toggle-pill.is-active,
-.admin-app[data-admin-dashboard] .admin-panel-inline-toggles .admin-toggle-pill-series.is-active,
-.admin-app[data-admin-dashboard] .admin-control-strip .admin-toggle-pill.is-active {
+.admin-app.admin-app-suite .admin-primary-btn,
+.admin-app.admin-app-suite .admin-toggle-pill.is-active,
+.admin-app.admin-app-suite .admin-panel-inline-toggles .admin-toggle-pill.is-active,
+.admin-app.admin-app-suite .admin-panel-inline-toggles .admin-toggle-pill-series.is-active,
+.admin-app.admin-app-suite .admin-control-strip .admin-toggle-pill.is-active {
   border-color: rgba(255, 255, 255, 0.08);
   border-bottom-color: rgba(157, 255, 0, 0.84);
   background: rgba(7, 11, 15, 0.94);
@@ -4118,17 +4118,17 @@ body::after {
   box-shadow: none;
 }
 
-.admin-app[data-admin-dashboard] .admin-primary-btn:hover,
-.admin-app[data-admin-dashboard] .admin-ghost-btn:hover,
-.admin-app[data-admin-dashboard] .admin-soft-btn:hover,
-.admin-app[data-admin-dashboard] .admin-danger-btn:hover,
-.admin-app[data-admin-dashboard] .admin-toggle-pill:hover,
-.admin-app[data-admin-dashboard] .admin-panel-inline-toggles .admin-toggle-pill-series:hover,
-.admin-app[data-admin-dashboard] .admin-view-indicator:hover,
-.admin-app[data-admin-dashboard] .admin-menu-trigger:hover,
-.admin-app[data-admin-dashboard] .admin-control-strip .admin-toggle-pill.is-active:hover,
-.admin-app[data-admin-dashboard] .admin-panel-inline-toggles .admin-toggle-pill.is-active:hover,
-.admin-app[data-admin-dashboard] .admin-panel-inline-toggles .admin-toggle-pill-series.is-active:hover {
+.admin-app.admin-app-suite .admin-primary-btn:hover,
+.admin-app.admin-app-suite .admin-ghost-btn:hover,
+.admin-app.admin-app-suite .admin-soft-btn:hover,
+.admin-app.admin-app-suite .admin-danger-btn:hover,
+.admin-app.admin-app-suite .admin-toggle-pill:hover,
+.admin-app.admin-app-suite .admin-panel-inline-toggles .admin-toggle-pill-series:hover,
+.admin-app.admin-app-suite .admin-view-indicator:hover,
+.admin-app.admin-app-suite .admin-menu-trigger:hover,
+.admin-app.admin-app-suite .admin-control-strip .admin-toggle-pill.is-active:hover,
+.admin-app.admin-app-suite .admin-panel-inline-toggles .admin-toggle-pill.is-active:hover,
+.admin-app.admin-app-suite .admin-panel-inline-toggles .admin-toggle-pill-series.is-active:hover {
   border-color: rgba(255, 255, 255, 0.08);
   border-bottom-color: rgba(157, 255, 0, 0.96);
   background: rgba(8, 12, 16, 0.96);
@@ -4136,40 +4136,40 @@ body::after {
   box-shadow: none;
 }
 
-.admin-app[data-admin-dashboard] .admin-control-strip .admin-toggle-pill,
-.admin-app[data-admin-dashboard] .admin-panel-inline-toggles .admin-toggle-pill,
-.admin-app[data-admin-dashboard] .admin-panel-inline-toggles .admin-toggle-pill-series {
+.admin-app.admin-app-suite .admin-control-strip .admin-toggle-pill,
+.admin-app.admin-app-suite .admin-panel-inline-toggles .admin-toggle-pill,
+.admin-app.admin-app-suite .admin-panel-inline-toggles .admin-toggle-pill-series {
   background: rgba(5, 8, 12, 0.9);
   color: #dce7db;
 }
 
-.admin-app[data-admin-dashboard] .admin-rail-link::before {
+.admin-app.admin-app-suite .admin-rail-link::before {
   background: rgba(157, 255, 0, 0.08);
 }
 
-.admin-app[data-admin-dashboard] .admin-status-dot {
+.admin-app.admin-app-suite .admin-status-dot {
   background: #9dff00;
 }
 
-.admin-app[data-admin-dashboard] .admin-menu-item,
-.admin-app[data-admin-dashboard] .admin-menu-item:hover,
-.admin-app[data-admin-dashboard] .admin-primary-btn:hover,
-.admin-app[data-admin-dashboard] .admin-ghost-btn:hover,
-.admin-app[data-admin-dashboard] .admin-soft-btn:hover,
-.admin-app[data-admin-dashboard] .admin-danger-btn:hover,
-.admin-app[data-admin-dashboard] .admin-toggle-pill:hover,
-.admin-app[data-admin-dashboard] .admin-view-indicator:hover,
-.admin-app[data-admin-dashboard] .admin-menu-trigger:hover,
-.admin-app[data-admin-dashboard] .admin-control-strip .admin-toggle-pill.is-active,
-.admin-app[data-admin-dashboard] .admin-panel-inline-toggles .admin-toggle-pill.is-active,
-.admin-app[data-admin-dashboard] .admin-panel-inline-toggles .admin-toggle-pill-series.is-active,
-.admin-app[data-admin-dashboard] .admin-control-strip .admin-toggle-pill.is-active:hover,
-.admin-app[data-admin-dashboard] .admin-panel-inline-toggles .admin-toggle-pill.is-active:hover,
-.admin-app[data-admin-dashboard] .admin-panel-inline-toggles .admin-toggle-pill-series.is-active:hover {
+.admin-app.admin-app-suite .admin-menu-item,
+.admin-app.admin-app-suite .admin-menu-item:hover,
+.admin-app.admin-app-suite .admin-primary-btn:hover,
+.admin-app.admin-app-suite .admin-ghost-btn:hover,
+.admin-app.admin-app-suite .admin-soft-btn:hover,
+.admin-app.admin-app-suite .admin-danger-btn:hover,
+.admin-app.admin-app-suite .admin-toggle-pill:hover,
+.admin-app.admin-app-suite .admin-view-indicator:hover,
+.admin-app.admin-app-suite .admin-menu-trigger:hover,
+.admin-app.admin-app-suite .admin-control-strip .admin-toggle-pill.is-active,
+.admin-app.admin-app-suite .admin-panel-inline-toggles .admin-toggle-pill.is-active,
+.admin-app.admin-app-suite .admin-panel-inline-toggles .admin-toggle-pill-series.is-active,
+.admin-app.admin-app-suite .admin-control-strip .admin-toggle-pill.is-active:hover,
+.admin-app.admin-app-suite .admin-panel-inline-toggles .admin-toggle-pill.is-active:hover,
+.admin-app.admin-app-suite .admin-panel-inline-toggles .admin-toggle-pill-series.is-active:hover {
   background-image: none;
 }
 
-.admin-app[data-admin-dashboard] .admin-search-shell {
+.admin-app.admin-app-suite .admin-search-shell {
   position: relative;
   display: grid;
   grid-template-columns: 34px minmax(280px, 1fr);
@@ -4184,7 +4184,7 @@ body::after {
   box-shadow: none;
 }
 
-.admin-app[data-admin-dashboard] .admin-search-icon {
+.admin-app.admin-app-suite .admin-search-icon {
   display: grid;
   place-items: center;
   width: 34px;
@@ -4194,18 +4194,18 @@ body::after {
   color: rgba(255, 255, 255, 0.82);
 }
 
-.admin-app[data-admin-dashboard] .admin-search-form {
+.admin-app.admin-app-suite .admin-search-form {
   width: 100%;
 }
 
-.admin-app[data-admin-dashboard] .admin-search-input {
+.admin-app.admin-app-suite .admin-search-input {
   width: 100%;
   min-width: 0;
   height: 42px;
   padding: 0;
 }
 
-.admin-app[data-admin-dashboard] .admin-search-results {
+.admin-app.admin-app-suite .admin-search-results {
   position: absolute;
   top: calc(100% + 12px);
   left: 0;
@@ -4222,11 +4222,11 @@ body::after {
   -webkit-backdrop-filter: blur(18px);
 }
 
-.admin-app[data-admin-dashboard] .admin-search-results[hidden] {
+.admin-app.admin-app-suite .admin-search-results[hidden] {
   display: none !important;
 }
 
-.admin-app[data-admin-dashboard] .admin-search-result {
+.admin-app.admin-app-suite .admin-search-result {
   display: grid;
   gap: 4px;
   padding: 12px 14px;
@@ -4236,29 +4236,29 @@ body::after {
   transition: border-color 0.18s ease, background 0.18s ease;
 }
 
-.admin-app[data-admin-dashboard] .admin-search-result:hover {
+.admin-app.admin-app-suite .admin-search-result:hover {
   border-color: rgba(157, 255, 0, 0.34);
   background: rgba(255, 255, 255, 0.04);
 }
 
-.admin-app[data-admin-dashboard] .admin-search-result strong {
+.admin-app.admin-app-suite .admin-search-result strong {
   font-size: 0.96rem;
   color: #f3f6f8;
 }
 
-.admin-app[data-admin-dashboard] .admin-search-result span,
-.admin-app[data-admin-dashboard] .admin-search-result small,
-.admin-app[data-admin-dashboard] .admin-search-empty {
+.admin-app.admin-app-suite .admin-search-result span,
+.admin-app.admin-app-suite .admin-search-result small,
+.admin-app.admin-app-suite .admin-search-empty {
   color: rgba(255, 255, 255, 0.62);
 }
 
-.admin-app[data-admin-dashboard] .admin-search-empty {
+.admin-app.admin-app-suite .admin-search-empty {
   padding: 8px 4px 2px;
   font-size: 0.94rem;
 }
 
 @media (max-width: 820px) {
-  .admin-app[data-admin-dashboard] .admin-search-shell {
+  .admin-app.admin-app-suite .admin-search-shell {
     grid-template-columns: 30px minmax(0, 1fr);
     min-width: 0;
     width: 100%;
