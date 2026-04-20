@@ -37,7 +37,7 @@ $profilesJsVersion = (string) @filemtime(dirname(__DIR__) . '/affiliate-profiles
         </div>
     </div>
 
-    <div class="admin-app" data-affiliate-profiles data-affiliates-endpoint="../api/affiliates/" data-live-endpoint="../api/live/">
+    <div class="admin-app admin-app-suite" data-affiliate-profiles data-affiliates-endpoint="../api/affiliates/" data-live-endpoint="../api/live/">
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
         <div class="admin-shell">

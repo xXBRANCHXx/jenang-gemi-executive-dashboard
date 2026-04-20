@@ -20,7 +20,7 @@ $configPath = '/public_html/whatsapp-config.local.php';
     <link rel="stylesheet" href="../admin.css?v=<?php echo urlencode($adminCssVersion ?: '1'); ?>">
 </head>
 <body class="admin-body is-dashboard">
-    <div class="admin-app admin-app-lab">
+    <div class="admin-app admin-app-suite admin-app-lab">
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
         <div class="admin-shell">
