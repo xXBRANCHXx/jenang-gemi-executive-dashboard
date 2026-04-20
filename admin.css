@@ -3529,7 +3529,7 @@ body::after {
   --admin-panel-outline-hover: rgba(175, 255, 0, 0.34);
   --admin-panel-shadow: 0 24px 54px rgba(0, 0, 0, 0.3);
   --admin-panel-shadow-hover: 0 30px 62px rgba(0, 0, 0, 0.36);
-  --admin-panel-glass-bg: rgba(14, 18, 24, 0.78);
+  --admin-panel-glass-bg: rgba(7, 10, 14, 0.56);
   --admin-copy-soft: rgba(255, 255, 255, 0.72);
 }
 
@@ -3538,7 +3538,7 @@ body::after {
   --admin-panel-outline-hover: rgba(175, 255, 0, 0.34);
   --admin-panel-shadow: 0 24px 54px rgba(0, 0, 0, 0.3);
   --admin-panel-shadow-hover: 0 30px 62px rgba(0, 0, 0, 0.36);
-  --admin-panel-glass-bg: rgba(14, 18, 24, 0.78);
+  --admin-panel-glass-bg: rgba(7, 10, 14, 0.56);
   --admin-copy-soft: rgba(255, 255, 255, 0.72);
 }
 
