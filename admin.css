@@ -3941,3 +3941,115 @@ body::after {
     min-width: 620px;
   }
 }
+
+/* Icon asset + control treatment pass */
+.admin-rail-brand-mark {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.admin-rail-brand-core {
+  width: 22px;
+  height: 22px;
+  background: center / contain no-repeat url('./assets/admin-icons/admin-home.png');
+  clip-path: none;
+}
+
+.admin-rail-brand-core::after {
+  display: none;
+}
+
+.admin-rail-icon {
+  width: 28px;
+  height: 28px;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+.admin-rail-icon::before,
+.admin-rail-icon::after,
+.admin-rail-icon span,
+.admin-rail-icon span::before,
+.admin-rail-icon span::after {
+  display: none !important;
+  content: none !important;
+}
+
+.admin-rail-icon-home {
+  background-image: url('./assets/admin-icons/admin-home.png');
+}
+
+.admin-rail-icon-rocket {
+  transform: none;
+  background-image: url('./assets/admin-icons/website.png');
+}
+
+.admin-rail-icon-affiliate {
+  background-image: url('./assets/admin-icons/affiliate.png');
+}
+
+.admin-rail-icon-partner {
+  background-image: url('./assets/admin-icons/partner.png');
+}
+
+.admin-rail-icon-sku {
+  width: 36px;
+  background-image: url('./assets/admin-icons/sku.png');
+}
+
+.admin-rail-icon-settings {
+  animation: none;
+  background-image: url('./assets/admin-icons/settings.png');
+}
+
+.admin-primary-btn,
+.admin-ghost-btn,
+.admin-soft-btn,
+.admin-danger-btn,
+.admin-toggle-pill,
+.admin-panel-inline-toggles .admin-toggle-pill-series,
+.admin-view-indicator,
+.admin-menu-trigger {
+  border-color: rgba(157, 255, 0, 0.3);
+  background: rgba(5, 8, 12, 0.88);
+  color: #eef4f7;
+  box-shadow: inset 0 0 0 1px rgba(157, 255, 0, 0.08);
+}
+
+.admin-primary-btn,
+.admin-toggle-pill.is-active,
+.admin-panel-inline-toggles .admin-toggle-pill.is-active,
+.admin-panel-inline-toggles .admin-toggle-pill-series.is-active,
+.admin-control-strip .admin-toggle-pill.is-active {
+  border-color: rgba(157, 255, 0, 0.64);
+  background: rgba(10, 16, 10, 0.96);
+  color: #f4ffe9;
+  box-shadow: inset 0 0 0 1px rgba(157, 255, 0, 0.16);
+}
+
+.admin-primary-btn:hover,
+.admin-ghost-btn:hover,
+.admin-soft-btn:hover,
+.admin-danger-btn:hover,
+.admin-toggle-pill:hover,
+.admin-panel-inline-toggles .admin-toggle-pill-series:hover,
+.admin-view-indicator:hover,
+.admin-menu-trigger:hover,
+.admin-control-strip .admin-toggle-pill.is-active:hover,
+.admin-panel-inline-toggles .admin-toggle-pill.is-active:hover,
+.admin-panel-inline-toggles .admin-toggle-pill-series.is-active:hover {
+  border-color: rgba(157, 255, 0, 0.76);
+  background: rgba(9, 14, 10, 0.96);
+  color: #ffffff;
+  box-shadow: inset 0 0 0 1px rgba(157, 255, 0, 0.22);
+}
+
+.admin-control-strip .admin-toggle-pill,
+.admin-panel-inline-toggles .admin-toggle-pill,
+.admin-panel-inline-toggles .admin-toggle-pill-series {
+  background: rgba(5, 8, 12, 0.88);
+  color: #dce7db;
+}
