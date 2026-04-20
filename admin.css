@@ -3571,17 +3571,12 @@ body::after {
 }
 
 .admin-backdrop-a {
-  background:
-    radial-gradient(circle at 12% 18%, rgba(175, 255, 0, 0.16), transparent 28%),
-    radial-gradient(circle at 86% 12%, rgba(0, 224, 184, 0.18), transparent 24%),
-    radial-gradient(circle at 50% 84%, rgba(255, 255, 255, 0.05), transparent 20%);
+  background: transparent;
 }
 
 .admin-backdrop-b {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0)),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0));
-  opacity: 0.7;
+  background: transparent;
+  opacity: 1;
 }
 
 .admin-shell-main,
@@ -3701,9 +3696,7 @@ body::after {
 .admin-hero-panel {
   grid-template-columns: minmax(0, 1.12fr) minmax(300px, 0.88fr);
   align-items: start;
-  background:
-    linear-gradient(145deg, rgba(175, 255, 0, 0.04), rgba(0, 224, 184, 0.02)) border-box,
-    var(--admin-panel-glass-bg);
+  background: var(--admin-panel-glass-bg);
 }
 
 .admin-hero-copy {
