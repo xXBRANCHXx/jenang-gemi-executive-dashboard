@@ -29,29 +29,45 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
     <div class="admin-app">
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
-        <header class="admin-topbar">
-            <div class="admin-topbar-brand">
-                <span class="admin-chip">Partner Program</span>
-                <h1>Jenang Gemi Partner Program</h1>
-                <p>Manage partner profiles, pricing agreements, company access, and the live registry used by `partner.jenanggemi.com`.</p>
-            </div>
-            <div class="admin-topbar-actions">
-                <div class="admin-view-indicator">Partner Program</div>
-                <div class="admin-menu-shell" data-menu-shell>
-                    <button type="button" class="admin-ghost-btn admin-menu-trigger" data-menu-trigger aria-expanded="false" aria-label="Open dashboard menu">...</button>
-                    <div class="admin-menu-panel" data-menu-panel hidden>
-                        <a class="admin-menu-item admin-link-btn" href="../dashboard/" data-dashboard-view-link="home">Home Dashboard</a>
-                        <a class="admin-menu-item admin-link-btn" href="../dashboard/" data-dashboard-view-link="website">Official Website Dashboard</a>
-                        <a class="admin-menu-item admin-link-btn" href="../partner-program/">Partner Program Dashboard</a>
-                        <a class="admin-menu-item admin-link-btn" href="../partner-profiles/">Partner Profiles</a>
-                        <button type="button" class="admin-menu-item" data-theme-toggle>Toggle Theme</button>
-                        <a class="admin-menu-item admin-link-btn" href="../logout/">Lock Dashboard</a>
-                    </div>
+        <div class="admin-shell">
+            <aside class="admin-rail" aria-label="Admin navigation">
+                <a class="admin-rail-brand" href="../dashboard/" aria-label="Executive Dashboard home"><span class="admin-rail-brand-mark" aria-hidden="true"><span class="admin-rail-brand-core"></span></span><span class="admin-rail-brand-wordmark">ADMIN</span></a>
+                <nav class="admin-rail-nav">
+                    <a class="admin-rail-link" href="../dashboard/" aria-label="Open home dashboard"><span class="admin-rail-icon admin-rail-icon-home" aria-hidden="true"><span></span></span><span class="admin-rail-link-text">Home</span></a>
+                    <a class="admin-rail-link" href="../dashboard/" data-dashboard-view-link="website" aria-label="Open website dashboard"><span class="admin-rail-icon admin-rail-icon-rocket" aria-hidden="true"><span></span></span><span class="admin-rail-link-text">Website</span></a>
+                    <a class="admin-rail-link" href="../affiliate-program/" aria-label="Open affiliate program dashboard"><span class="admin-rail-icon admin-rail-icon-affiliate" aria-hidden="true"><span></span></span><span class="admin-rail-link-text">Affiliate</span></a>
+                    <a class="admin-rail-link is-active" aria-current="page" href="../partner-program/" aria-label="Open partner program dashboard"><span class="admin-rail-icon admin-rail-icon-partner" aria-hidden="true"><span></span></span><span class="admin-rail-link-text">Partner</span></a>
+                    <a class="admin-rail-link" href="../sku-db/" aria-label="Open SKU database"><span class="admin-rail-icon admin-rail-icon-sku" aria-hidden="true"><span>SKU</span></span><span class="admin-rail-link-text">SKU DB</span></a>
+                </nav>
+                <div class="admin-rail-footer">
+                    <a class="admin-rail-link" href="../dashboard/" data-dashboard-view-link="settings" aria-label="Open admin settings"><span class="admin-rail-icon admin-rail-icon-settings" aria-hidden="true"><span></span></span><span class="admin-rail-link-text">Settings</span></a>
                 </div>
-            </div>
-        </header>
+            </aside>
 
-        <main class="admin-layout">
+            <div class="admin-shell-main">
+                <header class="admin-topbar">
+                    <div class="admin-topbar-brand">
+                        <span class="admin-chip">Partner Program</span>
+                        <h1>Jenang Gemi Partner Program</h1>
+                        <p>Manage partner profiles, pricing agreements, company access, and the live registry used by `partner.jenanggemi.com`.</p>
+                    </div>
+                    <div class="admin-topbar-actions">
+                        <div class="admin-view-indicator">Partner Program</div>
+                        <div class="admin-menu-shell" data-menu-shell>
+                            <button type="button" class="admin-ghost-btn admin-menu-trigger" data-menu-trigger aria-expanded="false" aria-label="Open dashboard menu">...</button>
+                            <div class="admin-menu-panel" data-menu-panel hidden>
+                                <a class="admin-menu-item admin-link-btn" href="../dashboard/" data-dashboard-view-link="home">Home Dashboard</a>
+                                <a class="admin-menu-item admin-link-btn" href="../dashboard/" data-dashboard-view-link="website">Official Website Dashboard</a>
+                                <a class="admin-menu-item admin-link-btn" href="../partner-program/">Partner Program Dashboard</a>
+                                <a class="admin-menu-item admin-link-btn" href="../partner-profiles/">Partner Profiles</a>
+                                <button type="button" class="admin-menu-item" data-theme-toggle>Toggle Theme</button>
+                                <a class="admin-menu-item admin-link-btn" href="../logout/">Lock Dashboard</a>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+
+                <main class="admin-layout">
             <section class="admin-hero-panel">
                 <div class="admin-hero-copy">
                     <span class="admin-chip admin-chip-accent">Dropshipper Control Layer</span>
@@ -100,7 +116,9 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                     </div>
                 </article>
             </section>
-        </main>
+                </main>
+            </div>
+        </div>
     </div>
 
     <script type="module" src="../partner-admin.js?v=<?php echo urlencode($adminJsVersion ?: '1'); ?>"></script>

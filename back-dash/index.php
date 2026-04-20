@@ -23,19 +23,35 @@ $configPath = '/public_html/whatsapp-config.local.php';
     <div class="admin-app admin-app-lab">
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
-        <header class="admin-topbar">
-            <div class="admin-topbar-brand">
-                <span class="admin-chip admin-chip-accent">Experimental Sandbox</span>
-                <h1>Jenang Gemi Back-dash</h1>
-                <p>Isolated workspace for WhatsApp/API conversion tracking tests without disturbing the main executive dashboard.</p>
-            </div>
-            <div class="admin-topbar-actions">
-                <a class="admin-ghost-btn admin-link-btn" href="../dashboard/">Back to Dashboard</a>
-                <a class="admin-primary-btn admin-link-btn" href="../logout/">Lock Dashboard</a>
-            </div>
-        </header>
+        <div class="admin-shell">
+            <aside class="admin-rail" aria-label="Admin navigation">
+                <a class="admin-rail-brand" href="../dashboard/" aria-label="Executive Dashboard home"><span class="admin-rail-brand-mark" aria-hidden="true"><span class="admin-rail-brand-core"></span></span><span class="admin-rail-brand-wordmark">ADMIN</span></a>
+                <nav class="admin-rail-nav">
+                    <a class="admin-rail-link" href="../dashboard/" aria-label="Open home dashboard"><span class="admin-rail-icon admin-rail-icon-home" aria-hidden="true"><span></span></span><span class="admin-rail-link-text">Home</span></a>
+                    <a class="admin-rail-link" href="../dashboard/" data-dashboard-view-link="website" aria-label="Open website dashboard"><span class="admin-rail-icon admin-rail-icon-rocket" aria-hidden="true"><span></span></span><span class="admin-rail-link-text">Website</span></a>
+                    <a class="admin-rail-link" href="../affiliate-program/" aria-label="Open affiliate program dashboard"><span class="admin-rail-icon admin-rail-icon-affiliate" aria-hidden="true"><span></span></span><span class="admin-rail-link-text">Affiliate</span></a>
+                    <a class="admin-rail-link" href="../partner-program/" aria-label="Open partner program dashboard"><span class="admin-rail-icon admin-rail-icon-partner" aria-hidden="true"><span></span></span><span class="admin-rail-link-text">Partner</span></a>
+                    <a class="admin-rail-link" href="../sku-db/" aria-label="Open SKU database"><span class="admin-rail-icon admin-rail-icon-sku" aria-hidden="true"><span>SKU</span></span><span class="admin-rail-link-text">SKU DB</span></a>
+                </nav>
+                <div class="admin-rail-footer">
+                    <a class="admin-rail-link" href="../dashboard/" data-dashboard-view-link="settings" aria-label="Open admin settings"><span class="admin-rail-icon admin-rail-icon-settings" aria-hidden="true"><span></span></span><span class="admin-rail-link-text">Settings</span></a>
+                </div>
+            </aside>
 
-        <main class="admin-layout">
+            <div class="admin-shell-main">
+                <header class="admin-topbar">
+                    <div class="admin-topbar-brand">
+                        <span class="admin-chip admin-chip-accent">Experimental Sandbox</span>
+                        <h1>Jenang Gemi Back-dash</h1>
+                        <p>Isolated workspace for WhatsApp/API conversion tracking tests without disturbing the main executive dashboard.</p>
+                    </div>
+                    <div class="admin-topbar-actions">
+                        <a class="admin-ghost-btn admin-link-btn" href="../dashboard/">Back to Dashboard</a>
+                        <a class="admin-primary-btn admin-link-btn" href="../logout/">Lock Dashboard</a>
+                    </div>
+                </header>
+
+                <main class="admin-layout">
             <section class="admin-hero-panel admin-lab-panel">
                 <div class="admin-hero-copy">
                     <span class="admin-chip">Safe for Experiments</span>
@@ -142,7 +158,9 @@ Paket yang dipilih: 30 Sachet</textarea>
                     </div>
                 </article>
             </section>
-        </main>
+                </main>
+            </div>
+        </div>
     </div>
     <script>
         (() => {

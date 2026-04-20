@@ -4000,7 +4000,7 @@ body::after {
   bottom: 18px;
   width: min(24vw, 260px);
   height: min(24vw, 260px);
-  background: center / contain no-repeat url('./assets/admin-icons/admin-home.png');
+  background: center / contain no-repeat url('./assets/admin-icons/admin-mark.png');
   opacity: 0.3;
   transform: rotate(-18deg);
   transform-origin: center;
@@ -4028,25 +4028,26 @@ body::after {
   background: none;
 }
 
-.admin-app[data-admin-dashboard] .admin-rail-brand-mark {
+.admin-shell .admin-rail-brand-mark {
   width: 42px;
   height: 42px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.02);
+  border: 0;
+  background: transparent;
 }
 
-.admin-app[data-admin-dashboard] .admin-rail-brand-core {
+.admin-shell .admin-rail-brand-core {
   width: 22px;
   height: 22px;
-  background: center / contain no-repeat url('./assets/admin-icons/admin-home.png');
+  background: center / contain no-repeat url('./assets/admin-icons/admin-mark.png');
   clip-path: none;
 }
 
-.admin-app[data-admin-dashboard] .admin-rail-brand-core::after {
+.admin-shell .admin-rail-brand-core::after {
   display: none;
 }
 
-.admin-app[data-admin-dashboard] .admin-rail-icon {
+.admin-shell .admin-rail-icon {
   width: 28px;
   height: 28px;
   background-position: center;
@@ -4054,38 +4055,38 @@ body::after {
   background-size: contain;
 }
 
-.admin-app[data-admin-dashboard] .admin-rail-icon::before,
-.admin-app[data-admin-dashboard] .admin-rail-icon::after,
-.admin-app[data-admin-dashboard] .admin-rail-icon span,
-.admin-app[data-admin-dashboard] .admin-rail-icon span::before,
-.admin-app[data-admin-dashboard] .admin-rail-icon span::after {
+.admin-shell .admin-rail-icon::before,
+.admin-shell .admin-rail-icon::after,
+.admin-shell .admin-rail-icon span,
+.admin-shell .admin-rail-icon span::before,
+.admin-shell .admin-rail-icon span::after {
   display: none !important;
   content: none !important;
 }
 
-.admin-app[data-admin-dashboard] .admin-rail-icon-home {
-  background-image: url('./assets/admin-icons/admin-home.png');
+.admin-shell .admin-rail-icon-home {
+  background-image: url('./assets/admin-icons/home.png');
 }
 
-.admin-app[data-admin-dashboard] .admin-rail-icon-rocket {
+.admin-shell .admin-rail-icon-rocket {
   transform: none;
   background-image: url('./assets/admin-icons/website.png');
 }
 
-.admin-app[data-admin-dashboard] .admin-rail-icon-affiliate {
+.admin-shell .admin-rail-icon-affiliate {
   background-image: url('./assets/admin-icons/affiliate.png');
 }
 
-.admin-app[data-admin-dashboard] .admin-rail-icon-partner {
+.admin-shell .admin-rail-icon-partner {
   background-image: url('./assets/admin-icons/partner.png');
 }
 
-.admin-app[data-admin-dashboard] .admin-rail-icon-sku {
+.admin-shell .admin-rail-icon-sku {
   width: 36px;
   background-image: url('./assets/admin-icons/sku.png');
 }
 
-.admin-app[data-admin-dashboard] .admin-rail-icon-settings {
+.admin-shell .admin-rail-icon-settings {
   animation: none;
   background-image: url('./assets/admin-icons/settings.png');
 }
