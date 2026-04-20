@@ -4020,6 +4020,22 @@ body::after {
   background: var(--admin-panel-glass-bg);
 }
 
+.admin-app[data-admin-dashboard] .admin-hero-panel::before,
+.admin-app[data-admin-dashboard] .admin-control-strip::before,
+.admin-app[data-admin-dashboard] .admin-panel::before,
+.admin-app[data-admin-dashboard] .admin-metric-card::before,
+.admin-app[data-admin-dashboard] .admin-launchpad-section::before,
+.admin-app[data-admin-dashboard] .admin-note-card::before,
+.admin-app[data-admin-dashboard] .admin-event-item::before,
+.admin-app[data-admin-dashboard] .admin-legend-item::before,
+.admin-app[data-admin-dashboard] .admin-affiliate-card::before,
+.admin-app[data-admin-dashboard] .admin-settings-chip::before,
+.admin-app[data-admin-dashboard] .admin-sku-preview::before,
+.admin-app[data-admin-dashboard] .admin-request-card::before,
+.admin-app[data-admin-dashboard] .admin-sku-master-card::before {
+  background: none;
+}
+
 .admin-app[data-admin-dashboard] .admin-rail-brand-mark {
   width: 42px;
   height: 42px;
