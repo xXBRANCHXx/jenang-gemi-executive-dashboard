@@ -3521,3 +3521,347 @@ body::after {
     width: min(300px, calc(100vw - 28px));
   }
 }
+
+/* Executive dashboard refinement pass */
+:root,
+:root[data-admin-theme='light'] {
+  --admin-shell-edge: rgba(255, 255, 255, 0.1);
+  --admin-panel-outline-hover: rgba(175, 255, 0, 0.28);
+  --admin-panel-shadow: 0 24px 54px rgba(0, 0, 0, 0.24);
+  --admin-panel-shadow-hover: 0 30px 62px rgba(0, 0, 0, 0.26);
+  --admin-panel-glass-bg: rgba(15, 19, 26, 0.44);
+  --admin-copy-soft: rgba(255, 255, 255, 0.7);
+}
+
+:root[data-admin-theme='light'] {
+  --admin-shell-edge: rgba(15, 23, 42, 0.1);
+  --admin-panel-outline-hover: rgba(113, 177, 0, 0.34);
+  --admin-panel-shadow: 0 24px 54px rgba(15, 23, 42, 0.09);
+  --admin-panel-shadow-hover: 0 30px 62px rgba(15, 23, 42, 0.12);
+  --admin-panel-glass-bg: rgba(255, 255, 255, 0.7);
+  --admin-copy-soft: rgba(15, 23, 42, 0.66);
+}
+
+body {
+  position: relative;
+}
+
+body::before {
+  filter: blur(32px);
+}
+
+body::after {
+  filter: blur(42px);
+}
+
+.admin-app {
+  isolation: isolate;
+}
+
+.admin-backdrop {
+  filter: blur(12px) saturate(110%);
+  opacity: 0.95;
+}
+
+.admin-backdrop-a {
+  background:
+    radial-gradient(circle at 14% 16%, rgba(175, 255, 0, 0.11), transparent 30%),
+    radial-gradient(circle at 84% 14%, rgba(0, 224, 184, 0.12), transparent 28%),
+    radial-gradient(circle at 54% 88%, rgba(255, 255, 255, 0.04), transparent 24%);
+}
+
+.admin-backdrop-b {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0)),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
+  opacity: 0.56;
+}
+
+.admin-shell-main,
+.admin-layout,
+.admin-view,
+.admin-main-grid,
+.admin-metric-grid,
+.admin-control-strip,
+.admin-panel,
+.admin-panel-head,
+.admin-panel-feed,
+.admin-hero-panel,
+.admin-hero-copy,
+.admin-hero-actions,
+.admin-topbar,
+.admin-topbar-left,
+.admin-topbar-brand,
+.admin-topbar-actions,
+.admin-search-shell,
+.admin-search-form,
+.admin-chart-surface,
+.admin-note-stack,
+.admin-event-feed,
+.admin-affiliate-list,
+.admin-affiliate-editor,
+.admin-affiliate-form,
+.admin-sandbox-stack,
+.admin-request-stack,
+.admin-sku-form-grid,
+.admin-sku-builder {
+  min-width: 0;
+}
+
+.admin-topbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+.admin-topbar-actions {
+  justify-content: flex-end;
+  align-self: stretch;
+}
+
+.admin-search-shell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.admin-search-form {
+  flex: 1 1 auto;
+}
+
+.admin-search-shell.is-open {
+  min-width: min(100%, 320px);
+}
+
+.admin-hero-panel,
+.admin-control-strip,
+.admin-panel,
+.admin-metric-card,
+.admin-launchpad-section,
+.admin-note-card,
+.admin-event-item,
+.admin-legend-item,
+.admin-affiliate-card,
+.admin-affiliate-url,
+.admin-platform-choice,
+.admin-affiliate-platform-grid label,
+.admin-settings-chip,
+.admin-sku-preview,
+.admin-request-card,
+.admin-sku-master-card,
+.admin-modal-card,
+.admin-chart-tooltip,
+.admin-build-badge,
+.admin-search-shell,
+.admin-menu-panel,
+.admin-rotate-card {
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+}
+
+.admin-hero-panel,
+.admin-control-strip,
+.admin-panel,
+.admin-metric-card {
+  border-color: var(--admin-shell-edge);
+  background: var(--admin-panel-glass-bg);
+  box-shadow: var(--admin-panel-shadow);
+}
+
+.admin-hero-panel {
+  grid-template-columns: minmax(0, 1.12fr) minmax(300px, 0.88fr);
+  align-items: start;
+}
+
+.admin-hero-copy {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+}
+
+.admin-hero-copy h2 {
+  max-width: 12ch;
+}
+
+.admin-hero-copy p {
+  color: var(--admin-copy-soft);
+}
+
+.admin-hero-actions {
+  display: grid;
+  align-content: start;
+  justify-items: stretch;
+  gap: 14px;
+}
+
+.admin-status-pill,
+.admin-live-status {
+  min-height: 58px;
+}
+
+.admin-control-strip {
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  align-items: stretch;
+}
+
+.admin-control-group,
+.admin-live-status {
+  display: grid;
+  align-content: start;
+}
+
+.admin-live-status {
+  justify-self: stretch;
+}
+
+.admin-toggle-row,
+.admin-panel-inline-toggles {
+  flex-wrap: wrap;
+}
+
+.admin-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.admin-metric-card {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+
+.admin-main-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  align-items: start;
+}
+
+.admin-panel-wide {
+  grid-column: 1 / -1;
+}
+
+.admin-panel,
+.admin-panel-feed {
+  display: grid;
+  align-content: start;
+}
+
+.admin-chart-surface {
+  min-height: 280px;
+}
+
+.admin-chart-canvas {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+}
+
+.admin-table-wrap {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.admin-table {
+  min-width: 680px;
+}
+
+.admin-note-stack,
+.admin-event-feed,
+.admin-affiliate-list,
+.admin-request-stack {
+  display: grid;
+}
+
+.admin-sandbox-textarea,
+.admin-sku-mini-form input,
+.admin-sku-builder input,
+.admin-sku-builder select,
+.admin-sku-form-grid input,
+.admin-sku-form-grid select,
+.admin-select {
+  width: 100%;
+  max-width: 100%;
+}
+
+.admin-primary-btn,
+.admin-ghost-btn,
+.admin-danger-btn,
+.admin-soft-btn,
+.admin-toggle-pill,
+.admin-view-indicator,
+.admin-menu-trigger {
+  box-shadow: none;
+}
+
+.admin-hero-panel:hover,
+.admin-control-strip:hover,
+.admin-panel:hover,
+.admin-metric-card:hover,
+.admin-event-item:hover,
+.admin-note-card:hover,
+.admin-legend-item:hover,
+.admin-affiliate-card:hover,
+.admin-affiliate-url:hover,
+.admin-platform-choice:hover,
+.admin-affiliate-platform-grid label:hover,
+.admin-sku-preview:hover,
+.admin-request-card:hover,
+.admin-sku-master-card:hover {
+  border-color: var(--admin-panel-outline-hover);
+  background: var(--admin-panel-glass-bg);
+  box-shadow: var(--admin-panel-shadow-hover);
+}
+
+.admin-launchpad-link,
+.admin-launchpad-link-jamu {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admin-launchpad-link:hover,
+.admin-launchpad-link-jamu:hover {
+  border-color: var(--admin-panel-outline-hover);
+  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.14);
+}
+
+.admin-launchpad-link:hover {
+  background: rgba(175, 255, 0, 0.1);
+}
+
+.admin-launchpad-link-jamu:hover {
+  background: rgba(255, 124, 38, 0.14);
+}
+
+@media (max-width: 1120px) {
+  .admin-topbar {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .admin-topbar-actions {
+    justify-content: space-between;
+  }
+
+  .admin-hero-panel {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 820px) {
+  .admin-topbar-actions {
+    gap: 10px;
+  }
+
+  .admin-search-shell {
+    width: 100%;
+    max-width: none;
+  }
+
+  .admin-main-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-table {
+    min-width: 620px;
+  }
+}
