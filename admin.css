@@ -4149,3 +4149,29 @@ body::after {
   background: rgba(5, 8, 12, 0.9);
   color: #dce7db;
 }
+
+.admin-app[data-admin-dashboard] .admin-rail-link::before {
+  background: rgba(157, 255, 0, 0.08);
+}
+
+.admin-app[data-admin-dashboard] .admin-status-dot {
+  background: #9dff00;
+}
+
+.admin-app[data-admin-dashboard] .admin-menu-item,
+.admin-app[data-admin-dashboard] .admin-menu-item:hover,
+.admin-app[data-admin-dashboard] .admin-primary-btn:hover,
+.admin-app[data-admin-dashboard] .admin-ghost-btn:hover,
+.admin-app[data-admin-dashboard] .admin-soft-btn:hover,
+.admin-app[data-admin-dashboard] .admin-danger-btn:hover,
+.admin-app[data-admin-dashboard] .admin-toggle-pill:hover,
+.admin-app[data-admin-dashboard] .admin-view-indicator:hover,
+.admin-app[data-admin-dashboard] .admin-menu-trigger:hover,
+.admin-app[data-admin-dashboard] .admin-control-strip .admin-toggle-pill.is-active,
+.admin-app[data-admin-dashboard] .admin-panel-inline-toggles .admin-toggle-pill.is-active,
+.admin-app[data-admin-dashboard] .admin-panel-inline-toggles .admin-toggle-pill-series.is-active,
+.admin-app[data-admin-dashboard] .admin-control-strip .admin-toggle-pill.is-active:hover,
+.admin-app[data-admin-dashboard] .admin-panel-inline-toggles .admin-toggle-pill.is-active:hover,
+.admin-app[data-admin-dashboard] .admin-panel-inline-toggles .admin-toggle-pill-series.is-active:hover {
+  background-image: none;
+}
