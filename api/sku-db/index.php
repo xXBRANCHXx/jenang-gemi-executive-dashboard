@@ -868,6 +868,33 @@ try {
         jg_sku_response($pdo);
     }
 
+    if ($action === 'change_inventory') {
+        jg_sku_require_branch_json();
+
+        $sku = trim((string) ($request['sku'] ?? ''));
+        if ($sku === '') {
+            jg_sku_fail('SKU is required.');
+        }
+
+        $newStock = jg_sku_integer($request['new_stock'] ?? null, 'New stock');
+
+        $stmt = $pdo->prepare('SELECT sku FROM sku_skus WHERE sku = :sku LIMIT 1');
+        $stmt->execute([':sku' => $sku]);
+        if ($stmt->fetchColumn() === false) {
+            jg_sku_fail('SKU not found.', 404);
+        }
+
+        $updateStmt = $pdo->prepare('UPDATE sku_skus SET current_stock = :current_stock, updated_at = :updated_at WHERE sku = :sku');
+        $updateStmt->execute([
+            ':current_stock' => $newStock,
+            ':updated_at' => jg_sku_now(),
+            ':sku' => $sku,
+        ]);
+
+        jg_sku_touch_version($pdo);
+        jg_sku_response($pdo);
+    }
+
     jg_sku_fail('Unknown action.', 400);
 } catch (Throwable $throwable) {
     if ($pdo->inTransaction()) {

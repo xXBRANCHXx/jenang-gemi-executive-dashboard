@@ -462,6 +462,38 @@ $pageBuildVersion = 'sku1.00.00';
     </div>
 
     <?php if ($isBranch): ?>
+        <div class="admin-modal-shell" data-inventory-modal hidden>
+            <div class="admin-modal-backdrop" data-close-inventory-modal></div>
+            <div class="admin-modal-card">
+                <div class="admin-panel-head admin-modal-head">
+                    <div>
+                        <span class="admin-panel-kicker">Inventory Update</span>
+                        <h3>Change real inventory stock</h3>
+                    </div>
+                </div>
+                <form class="admin-sku-form-grid" data-inventory-form>
+                    <input type="hidden" name="sku">
+                    <label>
+                        <span>SKU</span>
+                        <input type="text" name="sku_display" readonly>
+                    </label>
+                    <label>
+                        <span>Current inventory stock</span>
+                        <input type="number" name="current_stock_display" min="0" step="1" readonly>
+                    </label>
+                    <label class="admin-sku-full-span">
+                        <span>New inventory stock</span>
+                        <input type="number" name="new_stock" min="0" step="1" required>
+                    </label>
+                    <div class="admin-sku-actions">
+                        <button type="submit" class="admin-primary-btn">Save Inventory Change</button>
+                        <button type="button" class="admin-ghost-btn" data-close-inventory-modal>Cancel</button>
+                    </div>
+                </form>
+                <p class="admin-form-error" data-inventory-error hidden></p>
+            </div>
+        </div>
+
         <div class="admin-modal-shell" data-approval-modal hidden>
             <div class="admin-modal-backdrop" data-close-approval-modal></div>
             <div class="admin-modal-card">

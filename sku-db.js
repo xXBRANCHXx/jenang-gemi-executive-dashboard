@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const setupError = document.querySelector('[data-setup-error]');
   const applyError = document.querySelector('[data-apply-error]');
   const cogsError = document.querySelector('[data-cogs-error]');
+  const inventoryError = document.querySelector('[data-inventory-error]');
   const approvalError = document.querySelector('[data-approval-error]');
   const skuPreview = document.querySelector('[data-sku-preview]');
   const applyPreview = document.querySelector('[data-apply-preview]');
@@ -26,6 +27,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const requestForm = document.querySelector('[data-request-form]');
   const cogsModal = document.querySelector('[data-cogs-modal]');
   const cogsForm = document.querySelector('[data-cogs-form]');
+  const inventoryModal = document.querySelector('[data-inventory-modal]');
+  const inventoryForm = document.querySelector('[data-inventory-form]');
   const approvalModal = document.querySelector('[data-approval-modal]');
   const approvalForm = document.querySelector('[data-approval-form]');
   const approvalSummary = document.querySelector('[data-approval-summary]');
@@ -368,7 +371,12 @@ document.addEventListener('DOMContentLoaded', () => {
         <td>${escapeHtml(row.stock_trigger ?? 0)}</td>
         <td>${escapeHtml(row.cogs ?? 0)}</td>
         <td>${role === 'branch'
-          ? `<button type="button" class="admin-primary-btn" data-change-cogs="${escapeHtml(row.sku || '')}">Change</button>`
+          ? `
+            <div class="admin-sku-actions">
+              <button type="button" class="admin-primary-btn" data-change-inventory="${escapeHtml(row.sku || '')}">Inventory</button>
+              <button type="button" class="admin-ghost-btn" data-change-cogs="${escapeHtml(row.sku || '')}">COGS</button>
+            </div>
+          `
           : '<span class="admin-muted-copy">View Only</span>'}</td>
       </tr>
     `).join('');
@@ -485,6 +493,13 @@ document.addEventListener('DOMContentLoaded', () => {
     setError(cogsError, '');
   };
 
+  const closeInventoryModal = () => {
+    if (!inventoryModal) return;
+    inventoryModal.hidden = true;
+    inventoryForm?.reset();
+    setError(inventoryError, '');
+  };
+
   const openCogsModal = (sku) => {
     if (!(cogsForm instanceof HTMLFormElement) || !cogsModal) return;
     const row = state.database.skus.find((item) => item.sku === sku);
@@ -497,6 +512,19 @@ document.addEventListener('DOMContentLoaded', () => {
     cogsForm.elements.takes_place.value = 'Next Purchase';
     setError(cogsError, '');
     cogsModal.hidden = false;
+  };
+
+  const openInventoryModal = (sku) => {
+    if (!(inventoryForm instanceof HTMLFormElement) || !inventoryModal) return;
+    const row = state.database.skus.find((item) => item.sku === sku);
+    if (!row) return;
+
+    inventoryForm.elements.sku.value = row.sku || '';
+    inventoryForm.elements.sku_display.value = row.sku || '';
+    inventoryForm.elements.current_stock_display.value = String(row.current_stock ?? row.starting_stock ?? 0);
+    inventoryForm.elements.new_stock.value = String(row.current_stock ?? row.starting_stock ?? 0);
+    setError(inventoryError, '');
+    inventoryModal.hidden = false;
   };
 
   const closeApprovalModal = () => {
@@ -689,9 +717,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
   tableBody?.addEventListener('click', (event) => {
     if (role !== 'branch') return;
-    const button = event.target instanceof Element ? event.target.closest('[data-change-cogs]') : null;
-    if (!(button instanceof HTMLButtonElement)) return;
-    openCogsModal(button.dataset.changeCogs || '');
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) return;
+
+    const inventoryButton = target.closest('[data-change-inventory]');
+    if (inventoryButton instanceof HTMLButtonElement) {
+      openInventoryModal(inventoryButton.dataset.changeInventory || '');
+      return;
+    }
+
+    const cogsButton = target.closest('[data-change-cogs]');
+    if (!(cogsButton instanceof HTMLButtonElement)) return;
+    openCogsModal(cogsButton.dataset.changeCogs || '');
   });
 
   cogsForm?.addEventListener('submit', async (event) => {
@@ -710,6 +747,24 @@ document.addEventListener('DOMContentLoaded', () => {
       closeCogsModal();
     } catch (error) {
       setError(cogsError, error instanceof Error ? error.message : 'Unable to change COGS.');
+    }
+  });
+
+  inventoryForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!(inventoryForm instanceof HTMLFormElement)) return;
+    setError(inventoryError, '');
+
+    try {
+      const formData = new window.FormData(inventoryForm);
+      await postAction({
+        action: 'change_inventory',
+        sku: formData.get('sku'),
+        new_stock: formData.get('new_stock')
+      });
+      closeInventoryModal();
+    } catch (error) {
+      setError(inventoryError, error instanceof Error ? error.message : 'Unable to change inventory.');
     }
   });
 
@@ -737,6 +792,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.querySelectorAll('[data-close-cogs-modal]').forEach((button) => {
     button.addEventListener('click', closeCogsModal);
+  });
+
+  document.querySelectorAll('[data-close-inventory-modal]').forEach((button) => {
+    button.addEventListener('click', closeInventoryModal);
   });
 
   document.querySelectorAll('[data-close-approval-modal]').forEach((button) => {
