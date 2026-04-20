@@ -3969,19 +3969,11 @@ body::after {
 }
 
 .admin-app[data-admin-dashboard] .admin-backdrop-a::before {
-  top: 8vh;
-  left: -8vw;
-  width: 34vw;
-  height: 34vw;
-  background: rgba(157, 255, 0, 0.16);
+  display: none;
 }
 
 .admin-app[data-admin-dashboard] .admin-backdrop-a::after {
-  top: -4vh;
-  right: 2vw;
-  width: 26vw;
-  height: 26vw;
-  background: rgba(41, 255, 166, 0.15);
+  display: none;
 }
 
 .admin-app[data-admin-dashboard] .admin-backdrop-b::before {
