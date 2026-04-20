@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const role = root.dataset.skuRole || 'requester';
   const username = root.dataset.skuUsername || '';
   const themeStorageKey = 'jg-admin-theme';
+  const brandSessionStorageKey = 'jg-sku-db-selected-brand';
 
   const menuShell = document.querySelector('[data-menu-shell]');
   const menuTrigger = document.querySelector('[data-menu-trigger]');
@@ -130,6 +131,55 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const findBrand = (brandId) => state.database.brands.find((brand) => brand.id === brandId) || null;
 
+  const allBrandSelects = () => [...brandSelects, ...(skuBrandSelect ? [skuBrandSelect] : [])];
+
+  const getStoredBrandId = () => {
+    try {
+      return window.sessionStorage.getItem(brandSessionStorageKey) || '';
+    } catch (_error) {
+      return '';
+    }
+  };
+
+  const storeBrandId = (brandId) => {
+    try {
+      if (brandId) {
+        window.sessionStorage.setItem(brandSessionStorageKey, brandId);
+      } else {
+        window.sessionStorage.removeItem(brandSessionStorageKey);
+      }
+    } catch (_error) {
+      // Ignore sessionStorage failures and keep the page usable.
+    }
+  };
+
+  const resolveSelectedBrandId = () => {
+    const storedBrandId = getStoredBrandId();
+    if (storedBrandId && state.database.brands.some((brand) => brand.id === storedBrandId)) {
+      return storedBrandId;
+    }
+
+    const liveBrandId = allBrandSelects()
+      .map((select) => String(select.value || ''))
+      .find((brandId) => brandId && state.database.brands.some((brand) => brand.id === brandId));
+
+    return liveBrandId || '';
+  };
+
+  const applySharedBrandSelection = (brandId) => {
+    const normalizedBrandId = brandId && state.database.brands.some((brand) => brand.id === brandId) ? brandId : '';
+
+    brandSelects.forEach((select) => {
+      select.value = normalizedBrandId;
+    });
+
+    if (skuBrandSelect) {
+      skuBrandSelect.value = normalizedBrandId || (state.database.brands[0]?.id || '');
+    }
+
+    storeBrandId(normalizedBrandId);
+  };
+
   const activePrimaryForm = () => requestForm || setupForm;
 
   const getPrimarySelections = () => {
@@ -146,20 +196,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const refreshBrandSelects = () => {
     const brands = state.database.brands || [];
+    const selectedBrandId = resolveSelectedBrandId();
 
     brandSelects.forEach((select) => {
-      const current = select.value;
       select.innerHTML = buildOptions(brands, 'Select brand');
-      if (current && brands.some((brand) => brand.id === current)) {
-        select.value = current;
-      }
     });
 
     if (skuBrandSelect) {
-      const current = skuBrandSelect.value;
       skuBrandSelect.innerHTML = buildOptions(brands, 'Select brand');
-      skuBrandSelect.value = current && brands.some((brand) => brand.id === current) ? current : (brands[0]?.id || '');
     }
+
+    applySharedBrandSelection(selectedBrandId);
   };
 
   const refreshUnitSelect = () => {
@@ -422,6 +469,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const formData = new window.FormData(form);
         await postAction(buildBody(formData));
         form.reset();
+        applySharedBrandSelection(resolveSelectedBrandId());
+        refreshBrandBoundSelects();
+        renderPreview();
       } catch (error) {
         setError(masterError, error instanceof Error ? error.message : 'Unable to save.');
       }
@@ -513,9 +563,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }));
 
   activePrimaryForm()?.addEventListener('input', renderPreview);
-  skuBrandSelect?.addEventListener('change', () => {
+  const handleBrandSelectionChange = (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLSelectElement)) return;
+    applySharedBrandSelection(String(target.value || ''));
     refreshBrandBoundSelects();
     renderPreview();
+  };
+
+  allBrandSelects().forEach((select) => {
+    select.addEventListener('change', handleBrandSelectionChange);
   });
   unitSelect?.addEventListener('change', renderPreview);
   flavorSelect?.addEventListener('change', renderPreview);
@@ -567,6 +624,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       setupForm.reset();
       applyForm.reset();
+      applySharedBrandSelection(resolveSelectedBrandId());
+      refreshBrandBoundSelects();
       if (applyPanel) applyPanel.hidden = true;
       renderPreview();
     } catch (error) {
@@ -595,6 +654,8 @@ document.addEventListener('DOMContentLoaded', () => {
         product_id: formData.get('product_id')
       });
       requestForm.reset();
+      applySharedBrandSelection(resolveSelectedBrandId());
+      refreshBrandBoundSelects();
       renderPreview();
     } catch (error) {
       setError(requestSubmitError, error instanceof Error ? error.message : 'Unable to submit request.');
