@@ -301,11 +301,22 @@ button, input {
   background: var(--admin-surface-soft);
   color: var(--admin-text);
   outline: none;
+  color-scheme: dark;
 }
 
 .admin-select:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+.admin-select option,
+.admin-select optgroup,
+.admin-sku-builder select option,
+.admin-sku-builder select optgroup,
+.admin-sku-form-grid select option,
+.admin-sku-form-grid select optgroup {
+  background: #111;
+  color: var(--admin-text);
 }
 
 .admin-danger-btn:disabled,
