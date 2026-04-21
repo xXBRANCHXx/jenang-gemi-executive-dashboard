@@ -439,14 +439,14 @@ document.addEventListener('DOMContentLoaded', () => {
         <td>${escapeHtml(row.current_stock ?? row.starting_stock ?? 0)}</td>
         <td>${escapeHtml(row.stock_trigger ?? 0)}</td>
         <td>${escapeHtml(row.cogs ?? 0)}</td>
-        <td>${role === 'branch'
-          ? `
-            <div class="admin-sku-actions">
-              <button type="button" class="admin-primary-btn" data-change-inventory="${escapeHtml(row.sku || '')}">Inventory</button>
-              <button type="button" class="admin-ghost-btn" data-change-cogs="${escapeHtml(row.sku || '')}">COGS</button>
-            </div>
-          `
-          : '<span class="admin-muted-copy">View Only</span>'}</td>
+        <td>
+          <div class="admin-sku-actions">
+            <button type="button" class="admin-primary-btn" data-change-inventory="${escapeHtml(row.sku || '')}">Inventory</button>
+            ${role === 'branch'
+              ? `<button type="button" class="admin-ghost-btn" data-change-cogs="${escapeHtml(row.sku || '')}">COGS</button>`
+              : ''}
+          </div>
+        </td>
       </tr>
     `).join('');
   };
@@ -804,7 +804,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   tableBody?.addEventListener('click', (event) => {
-    if (role !== 'branch') return;
     const target = event.target instanceof Element ? event.target : null;
     if (!target) return;
 
@@ -814,6 +813,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    if (role !== 'branch') return;
     const cogsButton = target.closest('[data-change-cogs]');
     if (!(cogsButton instanceof HTMLButtonElement)) return;
     openCogsModal(cogsButton.dataset.changeCogs || '');

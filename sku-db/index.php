@@ -488,54 +488,54 @@ $pageBuildVersion = 'sku1.00.00';
         </div>
     </div>
 
-    <?php if ($isBranch): ?>
-        <div class="admin-modal-shell" data-inventory-modal hidden>
-            <div class="admin-modal-backdrop" data-close-inventory-modal></div>
-            <div class="admin-modal-card">
-                <div class="admin-panel-head admin-modal-head">
-                    <div>
-                        <span class="admin-panel-kicker">Inventory Update</span>
-                        <h3>Change real inventory stock</h3>
-                    </div>
+    <div class="admin-modal-shell" data-inventory-modal hidden>
+        <div class="admin-modal-backdrop" data-close-inventory-modal></div>
+        <div class="admin-modal-card">
+            <div class="admin-panel-head admin-modal-head">
+                <div>
+                    <span class="admin-panel-kicker">Inventory Update</span>
+                    <h3>Change real inventory stock</h3>
                 </div>
-                <form class="admin-sku-form-grid" data-inventory-form>
-                    <input type="hidden" name="sku">
-                    <label>
-                        <span>SKU</span>
-                        <input type="text" name="sku_display" readonly>
-                    </label>
-                    <label>
-                        <span>Current inventory stock</span>
-                        <input type="number" name="current_stock_display" min="0" step="1" readonly>
-                    </label>
-                    <label>
-                        <span>Change type</span>
-                        <select class="admin-select" name="inventory_action" data-inventory-action required>
-                            <option value="set_total">Set total stock</option>
-                            <option value="add_stock">Add stock</option>
-                        </select>
-                    </label>
-                    <label class="admin-sku-full-span">
-                        <span>New inventory stock</span>
-                        <input type="number" name="new_stock" min="0" step="1" required>
-                    </label>
-                    <label class="admin-sku-full-span" data-inventory-add-wrap hidden>
-                        <span>Quantity to add</span>
-                        <input type="number" name="quantity_to_add" min="1" step="1">
-                    </label>
-                    <label class="admin-sku-full-span" data-inventory-batch-wrap hidden>
-                        <span>Batch Number</span>
-                        <input type="text" name="batch_number" maxlength="80" placeholder="e.g. BG-2026-04-01">
-                    </label>
-                    <div class="admin-sku-actions">
-                        <button type="submit" class="admin-primary-btn">Save Inventory Change</button>
-                        <button type="button" class="admin-ghost-btn" data-close-inventory-modal>Cancel</button>
-                    </div>
-                </form>
-                <p class="admin-form-error" data-inventory-error hidden></p>
             </div>
+            <form class="admin-sku-form-grid" data-inventory-form>
+                <input type="hidden" name="sku">
+                <label>
+                    <span>SKU</span>
+                    <input type="text" name="sku_display" readonly>
+                </label>
+                <label>
+                    <span>Current inventory stock</span>
+                    <input type="number" name="current_stock_display" min="0" step="1" readonly>
+                </label>
+                <label>
+                    <span>Change type</span>
+                    <select class="admin-select" name="inventory_action" data-inventory-action required>
+                        <option value="set_total">Set total stock</option>
+                        <option value="add_stock">Add stock</option>
+                    </select>
+                </label>
+                <label class="admin-sku-full-span">
+                    <span>New inventory stock</span>
+                    <input type="number" name="new_stock" min="0" step="1" required>
+                </label>
+                <label class="admin-sku-full-span" data-inventory-add-wrap hidden>
+                    <span>Quantity to add</span>
+                    <input type="number" name="quantity_to_add" min="1" step="1">
+                </label>
+                <label class="admin-sku-full-span" data-inventory-batch-wrap hidden>
+                    <span>Batch Number</span>
+                    <input type="text" name="batch_number" maxlength="80" placeholder="e.g. BG-2026-04-01">
+                </label>
+                <div class="admin-sku-actions">
+                    <button type="submit" class="admin-primary-btn">Save Inventory Change</button>
+                    <button type="button" class="admin-ghost-btn" data-close-inventory-modal>Cancel</button>
+                </div>
+            </form>
+            <p class="admin-form-error" data-inventory-error hidden></p>
         </div>
+    </div>
 
+    <?php if ($isBranch): ?>
         <div class="admin-modal-shell" data-approval-modal hidden>
             <div class="admin-modal-backdrop" data-close-approval-modal></div>
             <div class="admin-modal-card">
