@@ -27,8 +27,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const requestForm = document.querySelector('[data-request-form]');
   const cogsModal = document.querySelector('[data-cogs-modal]');
   const cogsForm = document.querySelector('[data-cogs-form]');
+  const cogsApplicationType = cogsForm?.querySelector('[data-cogs-application-type]') || null;
+  const cogsEndMode = cogsForm?.querySelector('[data-cogs-end-mode]') || null;
   const inventoryModal = document.querySelector('[data-inventory-modal]');
   const inventoryForm = document.querySelector('[data-inventory-form]');
+  const inventoryActionSelect = inventoryForm?.querySelector('[data-inventory-action]') || null;
   const approvalModal = document.querySelector('[data-approval-modal]');
   const approvalForm = document.querySelector('[data-approval-form]');
   const approvalSummary = document.querySelector('[data-approval-summary]');
@@ -87,6 +90,78 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!node) return;
     node.hidden = !message;
     node.textContent = message || '';
+  };
+
+  const setFieldRequired = (field, required) => {
+    if (!(field instanceof HTMLElement)) return;
+    if ('required' in field) field.required = required;
+  };
+
+  const syncCogsApplicationFields = () => {
+    if (!(cogsForm instanceof HTMLFormElement)) return;
+    const applicationType = String(cogsApplicationType?.value || 'next_purchase');
+    const endMode = String(cogsEndMode?.value || 'until_next_change');
+    const dateRangeFields = cogsForm.querySelectorAll('[data-cogs-date-range]');
+    const endModeWrap = cogsForm.querySelector('[data-cogs-end-mode-wrap]');
+    const endDateWrap = cogsForm.querySelector('[data-cogs-end-date-wrap]');
+    const batchWrap = cogsForm.querySelector('[data-cogs-batch-wrap]');
+    const startDateField = cogsForm.elements.start_date;
+    const endDateField = cogsForm.elements.end_date;
+    const batchField = cogsForm.elements.batch_number;
+
+    const showDateRange = applicationType === 'by_date';
+    const showBatch = applicationType === 'batch_number';
+    dateRangeFields.forEach((field) => {
+      field.hidden = !showDateRange;
+    });
+    if (endModeWrap instanceof HTMLElement) endModeWrap.hidden = !showDateRange;
+    if (endDateWrap instanceof HTMLElement) endDateWrap.hidden = !(showDateRange && endMode === 'custom_date');
+    if (batchWrap instanceof HTMLElement) batchWrap.hidden = !showBatch;
+
+    setFieldRequired(startDateField, showDateRange);
+    setFieldRequired(endDateField, showDateRange && endMode === 'custom_date');
+    setFieldRequired(batchField, showBatch);
+
+    if (!showDateRange) {
+      startDateField.value = '';
+      endDateField.value = '';
+      if (cogsEndMode instanceof HTMLSelectElement) cogsEndMode.value = 'until_next_change';
+    }
+
+    if (!(showDateRange && endMode === 'custom_date')) {
+      endDateField.value = '';
+    }
+
+    if (!showBatch) {
+      batchField.value = '';
+    }
+  };
+
+  const syncInventoryActionFields = () => {
+    if (!(inventoryForm instanceof HTMLFormElement)) return;
+    const inventoryAction = String(inventoryActionSelect?.value || 'set_total');
+    const newStockWrap = inventoryForm.querySelector('[name="new_stock"]')?.closest('label');
+    const addQuantityWrap = inventoryForm.querySelector('[data-inventory-add-quantity-wrap]');
+    const batchWrap = inventoryForm.querySelector('[data-inventory-batch-wrap]');
+    const newStockField = inventoryForm.elements.new_stock;
+    const quantityField = inventoryForm.elements.quantity_to_add;
+    const batchField = inventoryForm.elements.batch_number;
+    const addingStock = inventoryAction === 'add_stock';
+
+    if (newStockWrap instanceof HTMLElement) newStockWrap.hidden = addingStock;
+    if (addQuantityWrap instanceof HTMLElement) addQuantityWrap.hidden = !addingStock;
+    if (batchWrap instanceof HTMLElement) batchWrap.hidden = !addingStock;
+
+    setFieldRequired(newStockField, !addingStock);
+    setFieldRequired(quantityField, addingStock);
+    setFieldRequired(batchField, addingStock);
+
+    if (!addingStock) {
+      quantityField.value = '';
+      batchField.value = '';
+    } else {
+      newStockField.value = '';
+    }
   };
 
   const applyTheme = (theme) => {
@@ -490,6 +565,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!cogsModal) return;
     cogsModal.hidden = true;
     cogsForm?.reset();
+    if (cogsApplicationType instanceof HTMLSelectElement) cogsApplicationType.value = 'next_purchase';
+    if (cogsEndMode instanceof HTMLSelectElement) cogsEndMode.value = 'until_next_change';
+    syncCogsApplicationFields();
     setError(cogsError, '');
   };
 
@@ -497,6 +575,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!inventoryModal) return;
     inventoryModal.hidden = true;
     inventoryForm?.reset();
+    if (inventoryActionSelect instanceof HTMLSelectElement) inventoryActionSelect.value = 'set_total';
+    syncInventoryActionFields();
     setError(inventoryError, '');
   };
 
@@ -509,7 +589,12 @@ document.addEventListener('DOMContentLoaded', () => {
     cogsForm.elements.sku_display.value = row.sku || '';
     cogsForm.elements.old_price.value = String(row.cogs ?? 0);
     cogsForm.elements.new_price.value = String(row.cogs ?? 0);
-    cogsForm.elements.takes_place.value = 'Next Purchase';
+    if (cogsApplicationType instanceof HTMLSelectElement) cogsApplicationType.value = 'next_purchase';
+    if (cogsEndMode instanceof HTMLSelectElement) cogsEndMode.value = 'until_next_change';
+    cogsForm.elements.start_date.value = '';
+    cogsForm.elements.end_date.value = '';
+    cogsForm.elements.batch_number.value = '';
+    syncCogsApplicationFields();
     setError(cogsError, '');
     cogsModal.hidden = false;
   };
@@ -522,7 +607,11 @@ document.addEventListener('DOMContentLoaded', () => {
     inventoryForm.elements.sku.value = row.sku || '';
     inventoryForm.elements.sku_display.value = row.sku || '';
     inventoryForm.elements.current_stock_display.value = String(row.current_stock ?? row.starting_stock ?? 0);
+    if (inventoryActionSelect instanceof HTMLSelectElement) inventoryActionSelect.value = 'set_total';
     inventoryForm.elements.new_stock.value = String(row.current_stock ?? row.starting_stock ?? 0);
+    inventoryForm.elements.quantity_to_add.value = '';
+    inventoryForm.elements.batch_number.value = '';
+    syncInventoryActionFields();
     setError(inventoryError, '');
     inventoryModal.hidden = false;
   };
@@ -548,6 +637,7 @@ document.addEventListener('DOMContentLoaded', () => {
     approvalForm.elements.starting_stock.value = '0';
     approvalForm.elements.stock_trigger.value = '0';
     approvalForm.elements.cogs.value = '0';
+    approvalForm.elements.batch_number.value = '';
     approvalForm.elements.decision_notes.value = '';
 
     if (approvalSummary) {
@@ -602,6 +692,9 @@ document.addEventListener('DOMContentLoaded', () => {
   allBrandSelects().forEach((select) => {
     select.addEventListener('change', handleBrandSelectionChange);
   });
+  cogsApplicationType?.addEventListener('change', syncCogsApplicationFields);
+  cogsEndMode?.addEventListener('change', syncCogsApplicationFields);
+  inventoryActionSelect?.addEventListener('change', syncInventoryActionFields);
   unitSelect?.addEventListener('change', renderPreview);
   flavorSelect?.addEventListener('change', renderPreview);
   productSelect?.addEventListener('change', renderPreview);
@@ -647,7 +740,8 @@ document.addEventListener('DOMContentLoaded', () => {
         tag: String(setupData.get('tag') || '').toUpperCase().replace(/\s+/g, '_'),
         starting_stock: applyData.get('starting_stock'),
         stock_trigger: applyData.get('stock_trigger'),
-        cogs: applyData.get('cogs')
+        cogs: applyData.get('cogs'),
+        batch_number: String(applyData.get('batch_number') || '').toUpperCase()
       });
 
       setupForm.reset();
@@ -742,7 +836,11 @@ document.addEventListener('DOMContentLoaded', () => {
         action: 'change_cogs',
         sku: formData.get('sku'),
         new_price: formData.get('new_price'),
-        takes_place: formData.get('takes_place')
+        application_type: formData.get('application_type'),
+        start_date: formData.get('start_date'),
+        end_mode: formData.get('end_mode'),
+        end_date: formData.get('end_date'),
+        batch_number: String(formData.get('batch_number') || '').toUpperCase()
       });
       closeCogsModal();
     } catch (error) {
@@ -760,7 +858,10 @@ document.addEventListener('DOMContentLoaded', () => {
       await postAction({
         action: 'change_inventory',
         sku: formData.get('sku'),
-        new_stock: formData.get('new_stock')
+        inventory_action: formData.get('inventory_action'),
+        new_stock: formData.get('new_stock'),
+        quantity_to_add: formData.get('quantity_to_add'),
+        batch_number: String(formData.get('batch_number') || '').toUpperCase()
       });
       closeInventoryModal();
     } catch (error) {
@@ -782,6 +883,7 @@ document.addEventListener('DOMContentLoaded', () => {
         starting_stock: formData.get('starting_stock'),
         stock_trigger: formData.get('stock_trigger'),
         cogs: formData.get('cogs'),
+        batch_number: String(formData.get('batch_number') || '').toUpperCase(),
         decision_notes: formData.get('decision_notes')
       });
       closeApprovalModal();
@@ -807,6 +909,8 @@ document.addEventListener('DOMContentLoaded', () => {
     node?.addEventListener('change', renderTable);
   });
 
+  syncCogsApplicationFields();
+  syncInventoryActionFields();
   applyTheme(window.localStorage.getItem(themeStorageKey) || 'dark');
   setupTopbarMenu();
   document.querySelector('[data-theme-toggle]')?.addEventListener('click', () => {

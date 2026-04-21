@@ -260,6 +260,10 @@ $pageBuildVersion = 'sku1.00.00';
                                 <span>Opening COGS</span>
                                 <input type="number" name="cogs" min="0" step="0.01" placeholder="e.g. 12000" required>
                             </label>
+                            <label>
+                                <span>Opening Batch Number</span>
+                                <input type="text" name="batch_number" maxlength="80" placeholder="e.g. BG-2026-04-01" required>
+                            </label>
                             <div class="admin-sku-preview">
                                 <span class="admin-control-label">Ready To Push</span>
                                 <strong data-apply-preview>Finish step 1 first</strong>
@@ -449,8 +453,31 @@ $pageBuildVersion = 'sku1.00.00';
                     <input type="number" name="new_price" min="0" step="0.01" required>
                 </label>
                 <label>
-                    <span>Takes place</span>
-                    <input type="text" name="takes_place" placeholder="Next Purchase or 2026-04-17" required>
+                    <span>Apply by</span>
+                    <select class="admin-select" name="application_type" data-cogs-application-type required>
+                        <option value="next_purchase">Next Purchase</option>
+                        <option value="by_date">By Date</option>
+                        <option value="batch_number">Batch Number</option>
+                    </select>
+                </label>
+                <label data-cogs-date-range hidden>
+                    <span>Start date</span>
+                    <input type="date" name="start_date">
+                </label>
+                <label data-cogs-end-mode-wrap hidden>
+                    <span>End date</span>
+                    <select class="admin-select" name="end_mode" data-cogs-end-mode>
+                        <option value="until_next_change">Until next change</option>
+                        <option value="custom_date">Custom date</option>
+                    </select>
+                </label>
+                <label data-cogs-end-date-wrap hidden>
+                    <span>Custom end date</span>
+                    <input type="date" name="end_date">
+                </label>
+                <label data-cogs-batch-wrap hidden>
+                    <span>Batch Number</span>
+                    <input type="text" name="batch_number" maxlength="80" placeholder="e.g. BG-2026-04-01">
                 </label>
                 <div class="admin-sku-actions">
                     <button type="submit" class="admin-primary-btn">Save COGS Change</button>
@@ -481,9 +508,24 @@ $pageBuildVersion = 'sku1.00.00';
                         <span>Current inventory stock</span>
                         <input type="number" name="current_stock_display" min="0" step="1" readonly>
                     </label>
+                    <label>
+                        <span>Change type</span>
+                        <select class="admin-select" name="inventory_action" data-inventory-action required>
+                            <option value="set_total">Set total stock</option>
+                            <option value="add_stock">Add stock</option>
+                        </select>
+                    </label>
                     <label class="admin-sku-full-span">
                         <span>New inventory stock</span>
                         <input type="number" name="new_stock" min="0" step="1" required>
+                    </label>
+                    <label class="admin-sku-full-span" data-inventory-add-quantity-wrap hidden>
+                        <span>Quantity to add</span>
+                        <input type="number" name="quantity_to_add" min="1" step="1">
+                    </label>
+                    <label class="admin-sku-full-span" data-inventory-batch-wrap hidden>
+                        <span>Batch Number</span>
+                        <input type="text" name="batch_number" maxlength="80" placeholder="e.g. BG-2026-04-01">
                     </label>
                     <div class="admin-sku-actions">
                         <button type="submit" class="admin-primary-btn">Save Inventory Change</button>
@@ -525,6 +567,10 @@ $pageBuildVersion = 'sku1.00.00';
                     <label>
                         <span>Opening COGS</span>
                         <input type="number" name="cogs" min="0" step="0.01" required>
+                    </label>
+                    <label>
+                        <span>Opening Batch Number</span>
+                        <input type="text" name="batch_number" maxlength="80" placeholder="e.g. BG-2026-04-01" required>
                     </label>
                     <label class="admin-sku-full-span">
                         <span>Decision note</span>
