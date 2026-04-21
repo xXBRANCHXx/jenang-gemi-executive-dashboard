@@ -442,9 +442,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <td>
           <div class="admin-sku-actions">
             <button type="button" class="admin-primary-btn" data-change-inventory="${escapeHtml(row.sku || '')}">Inventory</button>
-            ${role === 'branch'
-              ? `<button type="button" class="admin-ghost-btn" data-change-cogs="${escapeHtml(row.sku || '')}">COGS</button>`
-              : ''}
+            <button type="button" class="admin-ghost-btn" data-change-cogs="${escapeHtml(row.sku || '')}">COGS</button>
           </div>
         </td>
       </tr>
@@ -813,7 +811,6 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    if (role !== 'branch') return;
     const cogsButton = target.closest('[data-change-cogs]');
     if (!(cogsButton instanceof HTMLButtonElement)) return;
     openCogsModal(cogsButton.dataset.changeCogs || '');
