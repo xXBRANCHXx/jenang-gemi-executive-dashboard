@@ -52,27 +52,6 @@ function jg_sku_db(): PDO
     return $pdo;
 }
 
-function jg_sku_table_exists(PDO $pdo, string $tableName): bool
-{
-    $stmt = $pdo->prepare('SHOW TABLES LIKE :table_name');
-    $stmt->execute([':table_name' => $tableName]);
-    return $stmt->fetchColumn() !== false;
-}
-
-function jg_sku_column_exists(PDO $pdo, string $tableName, string $columnName): bool
-{
-    $stmt = $pdo->prepare('SHOW COLUMNS FROM `' . str_replace('`', '``', $tableName) . '` LIKE :column_name');
-    $stmt->execute([':column_name' => $columnName]);
-    return $stmt->fetchColumn() !== false;
-}
-
-function jg_sku_index_exists(PDO $pdo, string $tableName, string $indexName): bool
-{
-    $stmt = $pdo->prepare('SHOW INDEX FROM `' . str_replace('`', '``', $tableName) . '` WHERE Key_name = :index_name');
-    $stmt->execute([':index_name' => $indexName]);
-    return $stmt->fetchColumn() !== false;
-}
-
 function jg_sku_ensure_schema(PDO $pdo): void
 {
     $statements = [
@@ -173,58 +152,14 @@ function jg_sku_ensure_schema(PDO $pdo): void
             old_price DECIMAL(12,2) NULL DEFAULT NULL,
             new_price DECIMAL(12,2) NOT NULL,
             takes_place VARCHAR(120) NOT NULL,
-            application_type VARCHAR(32) NOT NULL DEFAULT "next_purchase",
-            start_date DATE NULL DEFAULT NULL,
-            end_date DATE NULL DEFAULT NULL,
-            until_next_change TINYINT(1) NOT NULL DEFAULT 0,
-            batch_number VARCHAR(80) NOT NULL DEFAULT "",
             recorded_at DATETIME NOT NULL,
             KEY idx_sku_cogs_history_sku (sku, recorded_at),
             CONSTRAINT fk_sku_cogs_history_sku FOREIGN KEY (sku) REFERENCES sku_skus(sku) ON DELETE CASCADE
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
-        'CREATE TABLE IF NOT EXISTS sku_inventory_batches (
-            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-            sku VARCHAR(12) NOT NULL,
-            batch_number VARCHAR(80) NOT NULL,
-            starting_units INT UNSIGNED NOT NULL,
-            current_units INT UNSIGNED NOT NULL,
-            batch_cogs DECIMAL(12,2) NOT NULL,
-            created_at DATETIME NOT NULL,
-            updated_at DATETIME NOT NULL,
-            UNIQUE KEY uniq_sku_inventory_batch (sku, batch_number),
-            KEY idx_sku_inventory_batches_sku (sku, updated_at),
-            CONSTRAINT fk_sku_inventory_batches_sku FOREIGN KEY (sku) REFERENCES sku_skus(sku) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
     ];
 
     foreach ($statements as $sql) {
         $pdo->exec($sql);
-    }
-
-    if (jg_sku_table_exists($pdo, 'sku_cogs_history')) {
-        if (!jg_sku_column_exists($pdo, 'sku_cogs_history', 'application_type')) {
-            $pdo->exec('ALTER TABLE sku_cogs_history ADD COLUMN application_type VARCHAR(32) NOT NULL DEFAULT "next_purchase" AFTER takes_place');
-        }
-
-        if (!jg_sku_column_exists($pdo, 'sku_cogs_history', 'start_date')) {
-            $pdo->exec('ALTER TABLE sku_cogs_history ADD COLUMN start_date DATE NULL DEFAULT NULL AFTER application_type');
-        }
-
-        if (!jg_sku_column_exists($pdo, 'sku_cogs_history', 'end_date')) {
-            $pdo->exec('ALTER TABLE sku_cogs_history ADD COLUMN end_date DATE NULL DEFAULT NULL AFTER start_date');
-        }
-
-        if (!jg_sku_column_exists($pdo, 'sku_cogs_history', 'until_next_change')) {
-            $pdo->exec('ALTER TABLE sku_cogs_history ADD COLUMN until_next_change TINYINT(1) NOT NULL DEFAULT 0 AFTER end_date');
-        }
-
-        if (!jg_sku_column_exists($pdo, 'sku_cogs_history', 'batch_number')) {
-            $pdo->exec('ALTER TABLE sku_cogs_history ADD COLUMN batch_number VARCHAR(80) NOT NULL DEFAULT "" AFTER until_next_change');
-        }
-    }
-
-    if (jg_sku_table_exists($pdo, 'sku_inventory_batches') && !jg_sku_index_exists($pdo, 'sku_inventory_batches', 'uniq_sku_inventory_batch')) {
-        $pdo->exec('ALTER TABLE sku_inventory_batches ADD UNIQUE KEY uniq_sku_inventory_batch (sku, batch_number)');
     }
 
     $now = gmdate('Y-m-d H:i:s');

@@ -116,178 +116,6 @@ function jg_sku_money(mixed $value, string $label = 'COGS'): string
     return number_format($amount, 2, '.', '');
 }
 
-function jg_sku_batch_number(mixed $value, bool $required = true): string
-{
-    $batchNumber = strtoupper(trim((string) $value));
-    if ($batchNumber === '') {
-        if ($required) {
-            jg_sku_fail('Batch Number is required.');
-        }
-
-        return '';
-    }
-
-    if (strlen($batchNumber) > 80) {
-        jg_sku_fail('Batch Number is too long.');
-    }
-
-    if (!preg_match('/^[A-Z0-9._\-\/]+$/', $batchNumber)) {
-        jg_sku_fail('Batch Number may only use letters, numbers, dot, dash, underscore, and slash.');
-    }
-
-    return $batchNumber;
-}
-
-function jg_sku_date_value(mixed $value, string $label): string
-{
-    $date = trim((string) $value);
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
-        jg_sku_fail($label . ' must use YYYY-MM-DD.');
-    }
-
-    $parsed = DateTimeImmutable::createFromFormat('Y-m-d', $date);
-    if (!$parsed || $parsed->format('Y-m-d') !== $date) {
-        jg_sku_fail($label . ' is invalid.');
-    }
-
-    return $date;
-}
-
-function jg_sku_cogs_application(array $payload): array
-{
-    $type = trim((string) ($payload['application_type'] ?? 'next_purchase'));
-    if (!in_array($type, ['next_purchase', 'by_date', 'batch_number'], true)) {
-        jg_sku_fail('COGS application type is invalid.');
-    }
-
-    if ($type === 'next_purchase') {
-        return [
-            'application_type' => 'next_purchase',
-            'takes_place' => 'Next Purchase',
-            'start_date' => null,
-            'end_date' => null,
-            'until_next_change' => 0,
-            'batch_number' => '',
-        ];
-    }
-
-    if ($type === 'batch_number') {
-        $batchNumber = jg_sku_batch_number($payload['batch_number'] ?? null, true);
-        return [
-            'application_type' => 'batch_number',
-            'takes_place' => 'Batch ' . $batchNumber,
-            'start_date' => null,
-            'end_date' => null,
-            'until_next_change' => 0,
-            'batch_number' => $batchNumber,
-        ];
-    }
-
-    $startDate = jg_sku_date_value($payload['start_date'] ?? null, 'Start date');
-    $endMode = trim((string) ($payload['end_mode'] ?? 'until_next_change'));
-    if (!in_array($endMode, ['until_next_change', 'custom_date'], true)) {
-        jg_sku_fail('End date mode is invalid.');
-    }
-
-    $endDate = null;
-    $untilNextChange = 0;
-    if ($endMode === 'custom_date') {
-        $endDate = jg_sku_date_value($payload['end_date'] ?? null, 'End date');
-        if ($endDate < $startDate) {
-            jg_sku_fail('End date cannot be before start date.');
-        }
-    } else {
-        $untilNextChange = 1;
-    }
-
-    return [
-        'application_type' => 'by_date',
-        'takes_place' => $untilNextChange
-            ? sprintf('From %s until next change', $startDate)
-            : sprintf('From %s to %s', $startDate, $endDate),
-        'start_date' => $startDate,
-        'end_date' => $endDate,
-        'until_next_change' => $untilNextChange,
-        'batch_number' => '',
-    ];
-}
-
-function jg_sku_insert_cogs_history(PDO $pdo, string $sku, ?string $oldPrice, string $newPrice, array $application, string $recordedAt): void
-{
-    $historyStmt = $pdo->prepare(
-        'INSERT INTO sku_cogs_history (
-            sku, old_price, new_price, takes_place, application_type,
-            start_date, end_date, until_next_change, batch_number, recorded_at
-        ) VALUES (
-            :sku, :old_price, :new_price, :takes_place, :application_type,
-            :start_date, :end_date, :until_next_change, :batch_number, :recorded_at
-        )'
-    );
-    $historyStmt->execute([
-        ':sku' => $sku,
-        ':old_price' => $oldPrice,
-        ':new_price' => $newPrice,
-        ':takes_place' => $application['takes_place'],
-        ':application_type' => $application['application_type'],
-        ':start_date' => $application['start_date'],
-        ':end_date' => $application['end_date'],
-        ':until_next_change' => $application['until_next_change'],
-        ':batch_number' => $application['batch_number'],
-        ':recorded_at' => $recordedAt,
-    ]);
-}
-
-function jg_sku_upsert_inventory_batch(PDO $pdo, string $sku, string $batchNumber, int $quantity, string $batchCogs, string $recordedAt): void
-{
-    $stmt = $pdo->prepare(
-        'INSERT INTO sku_inventory_batches (
-            sku, batch_number, starting_units, current_units, batch_cogs, created_at, updated_at
-        ) VALUES (
-            :sku, :batch_number, :starting_units, :current_units, :batch_cogs, :created_at, :updated_at
-        )
-        ON DUPLICATE KEY UPDATE
-            current_units = current_units + VALUES(current_units),
-            updated_at = VALUES(updated_at)'
-    );
-    $stmt->execute([
-        ':sku' => $sku,
-        ':batch_number' => $batchNumber,
-        ':starting_units' => $quantity,
-        ':current_units' => $quantity,
-        ':batch_cogs' => $batchCogs,
-        ':created_at' => $recordedAt,
-        ':updated_at' => $recordedAt,
-    ]);
-}
-
-function jg_sku_resolve_batch_cogs(PDO $pdo, string $sku, string $batchNumber): string
-{
-    $historyStmt = $pdo->prepare(
-        'SELECT new_price
-         FROM sku_cogs_history
-         WHERE sku = :sku AND application_type = "batch_number" AND batch_number = :batch_number
-         ORDER BY recorded_at DESC, id DESC
-         LIMIT 1'
-    );
-    $historyStmt->execute([
-        ':sku' => $sku,
-        ':batch_number' => $batchNumber,
-    ]);
-    $batchPrice = $historyStmt->fetchColumn();
-    if ($batchPrice !== false) {
-        return number_format((float) $batchPrice, 2, '.', '');
-    }
-
-    $skuStmt = $pdo->prepare('SELECT cogs FROM sku_skus WHERE sku = :sku LIMIT 1');
-    $skuStmt->execute([':sku' => $sku]);
-    $price = $skuStmt->fetchColumn();
-    if ($price === false) {
-        jg_sku_fail('SKU not found.', 404);
-    }
-
-    return number_format((float) $price, 2, '.', '');
-}
-
 function jg_sku_bump_patch(string $version): string
 {
     if (!preg_match('/^(\d+)\.(\d{2})\.(\d{2})$/', $version, $matches)) {
@@ -637,7 +465,7 @@ function jg_sku_fetch_database(PDO $pdo): array
     );
     foreach ($skuStmt->fetchAll() as $row) {
         $historyStmt = $pdo->prepare(
-            'SELECT old_price, new_price, takes_place, application_type, start_date, end_date, until_next_change, batch_number, recorded_at
+            'SELECT old_price, new_price, takes_place, recorded_at
              FROM sku_cogs_history
              WHERE sku = :sku
              ORDER BY recorded_at DESC, id DESC'
@@ -649,11 +477,6 @@ function jg_sku_fetch_database(PDO $pdo): array
                 'old_price' => $historyRow['old_price'] === null ? null : number_format((float) $historyRow['old_price'], 2, '.', ''),
                 'new_price' => number_format((float) $historyRow['new_price'], 2, '.', ''),
                 'takes_place' => (string) ($historyRow['takes_place'] ?? ''),
-                'application_type' => (string) ($historyRow['application_type'] ?? 'next_purchase'),
-                'start_date' => $historyRow['start_date'] ? (string) $historyRow['start_date'] : null,
-                'end_date' => $historyRow['end_date'] ? (string) $historyRow['end_date'] : null,
-                'until_next_change' => (bool) ($historyRow['until_next_change'] ?? false),
-                'batch_number' => (string) ($historyRow['batch_number'] ?? ''),
                 'recorded_at' => (string) ($historyRow['recorded_at'] ?? ''),
             ];
         }
@@ -719,9 +542,6 @@ function jg_sku_create_sku(PDO $pdo, array $payload, ?int $approvalRequestId = n
     $startingStock = jg_sku_integer($payload['starting_stock'] ?? null, 'Starting stock');
     $stockTrigger = jg_sku_integer($payload['stock_trigger'] ?? null, 'Stock trigger');
     $cogs = jg_sku_money($payload['cogs'] ?? null);
-    $batchNumber = $startingStock > 0
-        ? jg_sku_batch_number($payload['batch_number'] ?? null, true)
-        : jg_sku_batch_number($payload['batch_number'] ?? null, false);
 
     $parts = jg_sku_compose_code($pdo, $brandId, $unitId, $volumeInput, $flavorId, $productId);
     jg_sku_assert_unique_sku_and_tag($pdo, $parts['sku'], $tag);
@@ -755,18 +575,15 @@ function jg_sku_create_sku(PDO $pdo, array $payload, ?int $approvalRequestId = n
         ':updated_at' => $now,
     ]);
 
-    jg_sku_insert_cogs_history($pdo, $parts['sku'], null, $cogs, [
-        'takes_place' => $batchNumber !== '' ? 'Batch ' . $batchNumber . ' (opening stock)' : 'Opening stock',
-        'application_type' => $batchNumber !== '' ? 'batch_number' : 'next_purchase',
-        'start_date' => null,
-        'end_date' => null,
-        'until_next_change' => 0,
-        'batch_number' => $batchNumber,
-    ], $now);
-
-    if ($startingStock > 0 && $batchNumber !== '') {
-        jg_sku_upsert_inventory_batch($pdo, $parts['sku'], $batchNumber, $startingStock, $cogs, $now);
-    }
+    $historyStmt = $pdo->prepare(
+        'INSERT INTO sku_cogs_history (sku, old_price, new_price, takes_place, recorded_at)
+         VALUES (:sku, NULL, :new_price, "starting stock", :recorded_at)'
+    );
+    $historyStmt->execute([
+        ':sku' => $parts['sku'],
+        ':new_price' => $cogs,
+        ':recorded_at' => $now,
+    ]);
 }
 
 jg_sku_require_auth_json();
@@ -961,7 +778,6 @@ try {
             'starting_stock' => $request['starting_stock'] ?? null,
             'stock_trigger' => $request['stock_trigger'] ?? null,
             'cogs' => $request['cogs'] ?? null,
-            'batch_number' => $request['batch_number'] ?? null,
         ], $requestId);
 
         $approvedSku = (string) ($requestRow['proposed_sku'] ?? '');
@@ -1019,7 +835,10 @@ try {
         }
 
         $newPrice = jg_sku_money($request['new_price'] ?? null, 'New price');
-        $application = jg_sku_cogs_application($request);
+        $takesPlace = trim((string) ($request['takes_place'] ?? ''));
+        if ($takesPlace === '') {
+            jg_sku_fail('Takes place is required.');
+        }
 
         $stmt = $pdo->prepare('SELECT cogs FROM sku_skus WHERE sku = :sku LIMIT 1');
         $stmt->execute([':sku' => $sku]);
@@ -1029,31 +848,24 @@ try {
         }
 
         $pdo->beginTransaction();
-        $recordedAt = jg_sku_now();
-        $today = gmdate('Y-m-d');
-        $shouldUpdateCurrentCogs = $application['application_type'] === 'next_purchase'
-            || ($application['application_type'] === 'by_date'
-                && $application['start_date'] !== null
-                && $application['start_date'] <= $today
-                && ($application['until_next_change'] || ($application['end_date'] !== null && $application['end_date'] >= $today)));
+        $updateStmt = $pdo->prepare('UPDATE sku_skus SET cogs = :cogs, updated_at = :updated_at WHERE sku = :sku');
+        $updateStmt->execute([
+            ':cogs' => $newPrice,
+            ':updated_at' => jg_sku_now(),
+            ':sku' => $sku,
+        ]);
 
-        if ($shouldUpdateCurrentCogs) {
-            $updateStmt = $pdo->prepare('UPDATE sku_skus SET cogs = :cogs, updated_at = :updated_at WHERE sku = :sku');
-            $updateStmt->execute([
-                ':cogs' => $newPrice,
-                ':updated_at' => $recordedAt,
-                ':sku' => $sku,
-            ]);
-        }
-
-        jg_sku_insert_cogs_history(
-            $pdo,
-            $sku,
-            number_format((float) $oldPrice, 2, '.', ''),
-            $newPrice,
-            $application,
-            $recordedAt
+        $historyStmt = $pdo->prepare(
+            'INSERT INTO sku_cogs_history (sku, old_price, new_price, takes_place, recorded_at)
+             VALUES (:sku, :old_price, :new_price, :takes_place, :recorded_at)'
         );
+        $historyStmt->execute([
+            ':sku' => $sku,
+            ':old_price' => number_format((float) $oldPrice, 2, '.', ''),
+            ':new_price' => $newPrice,
+            ':takes_place' => $takesPlace,
+            ':recorded_at' => jg_sku_now(),
+        ]);
 
         jg_sku_touch_version($pdo);
         $pdo->commit();
@@ -1068,47 +880,22 @@ try {
             jg_sku_fail('SKU is required.');
         }
 
-        $inventoryAction = trim((string) ($request['inventory_action'] ?? 'set_total'));
-        if (!in_array($inventoryAction, ['set_total', 'add_stock'], true)) {
-            jg_sku_fail('Inventory action is invalid.');
-        }
+        $newStock = jg_sku_integer($request['new_stock'] ?? null, 'New stock');
 
-        $stmt = $pdo->prepare('SELECT sku, current_stock FROM sku_skus WHERE sku = :sku LIMIT 1');
+        $stmt = $pdo->prepare('SELECT sku FROM sku_skus WHERE sku = :sku LIMIT 1');
         $stmt->execute([':sku' => $sku]);
-        $skuRow = $stmt->fetch();
-        if (!is_array($skuRow)) {
+        if ($stmt->fetchColumn() === false) {
             jg_sku_fail('SKU not found.', 404);
         }
 
-        $recordedAt = jg_sku_now();
-        $pdo->beginTransaction();
-        if ($inventoryAction === 'set_total') {
-            $newStock = jg_sku_integer($request['new_stock'] ?? null, 'New stock');
-            $updateStmt = $pdo->prepare('UPDATE sku_skus SET current_stock = :current_stock, updated_at = :updated_at WHERE sku = :sku');
-            $updateStmt->execute([
-                ':current_stock' => $newStock,
-                ':updated_at' => $recordedAt,
-                ':sku' => $sku,
-            ]);
-        } else {
-            $quantityToAdd = jg_sku_integer($request['quantity_to_add'] ?? null, 'Quantity to add');
-            if ($quantityToAdd < 1) {
-                jg_sku_fail('Quantity to add must be at least 1.');
-            }
-
-            $batchNumber = jg_sku_batch_number($request['batch_number'] ?? null, true);
-            $resolvedCogs = jg_sku_resolve_batch_cogs($pdo, $sku, $batchNumber);
-            $updateStmt = $pdo->prepare('UPDATE sku_skus SET current_stock = current_stock + :quantity_to_add, updated_at = :updated_at WHERE sku = :sku');
-            $updateStmt->execute([
-                ':quantity_to_add' => $quantityToAdd,
-                ':updated_at' => $recordedAt,
-                ':sku' => $sku,
-            ]);
-            jg_sku_upsert_inventory_batch($pdo, $sku, $batchNumber, $quantityToAdd, $resolvedCogs, $recordedAt);
-        }
+        $updateStmt = $pdo->prepare('UPDATE sku_skus SET current_stock = :current_stock, updated_at = :updated_at WHERE sku = :sku');
+        $updateStmt->execute([
+            ':current_stock' => $newStock,
+            ':updated_at' => jg_sku_now(),
+            ':sku' => $sku,
+        ]);
 
         jg_sku_touch_version($pdo);
-        $pdo->commit();
         jg_sku_response($pdo);
     }
 
