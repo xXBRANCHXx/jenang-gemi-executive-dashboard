@@ -15,6 +15,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const brandChoiceGrid = document.querySelector('[data-brand-choice-grid]');
   const productChoiceGrid = document.querySelector('[data-product-choice-grid]');
   const skuChoiceGrid = document.querySelector('[data-sku-choice-grid]');
+  const brandSearch = document.querySelector('[data-brand-search]');
+  const productSearch = document.querySelector('[data-product-search]');
+  const skuSearch = document.querySelector('[data-sku-search]');
   const selectedSkuList = document.querySelector('[data-partner-selected-skus]');
   const brandSummary = document.querySelector('[data-partner-brand-summary]');
   const productSummary = document.querySelector('[data-partner-product-summary]');
@@ -30,6 +33,11 @@ document.addEventListener('DOMContentLoaded', () => {
       brands: [],
       products: [],
       skus: []
+    },
+    search: {
+      brands: '',
+      products: '',
+      skus: ''
     },
     activeStep: 'brands'
   };
@@ -75,6 +83,8 @@ document.addEventListener('DOMContentLoaded', () => {
     return catalogSkus().filter((sku) => allowedBrands.has(sku.brand_id) && allowedProducts.has(sku.product_id));
   };
 
+  const matchesSearch = (value, searchTerm) => String(value || '').toLowerCase().includes(searchTerm.trim().toLowerCase());
+
   const hydrateSelections = () => {
     const validBrandIds = new Set(catalogBrands().map((brand) => brand.id));
     state.selections.brands = state.selections.brands.filter((brandId) => validBrandIds.has(brandId));
@@ -102,9 +112,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const renderBrands = () => {
     if (!brandChoiceGrid) return;
-    const brands = catalogBrands();
+    const brands = catalogBrands().filter((brand) => {
+      if (!state.search.brands) return true;
+      return [brand.name, brand.code].some((value) => matchesSearch(value, state.search.brands));
+    });
     if (!brands.length) {
-      brandChoiceGrid.innerHTML = '<div class="partner-access-empty">No brands are available in the SKU database yet.</div>';
+      brandChoiceGrid.innerHTML = `<div class="partner-access-empty">${state.search.brands ? 'No brands match that search.' : 'No brands are available in the SKU database yet.'}</div>`;
       return;
     }
 
@@ -121,13 +134,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const renderProducts = () => {
     if (!productChoiceGrid) return;
-    const products = filteredProducts();
+    const products = filteredProducts().filter((product) => {
+      if (!state.search.products) return true;
+      return [product.display_name || product.name, product.name, product.brand_name, product.code].some((value) => matchesSearch(value, state.search.products));
+    });
     if (!state.selections.brands.length) {
       productChoiceGrid.innerHTML = '<div class="partner-access-empty">Select a brand first.</div>';
       return;
     }
     if (!products.length) {
-      productChoiceGrid.innerHTML = '<div class="partner-access-empty">No products exist for the selected brand yet.</div>';
+      productChoiceGrid.innerHTML = `<div class="partner-access-empty">${state.search.products ? 'No products match that search.' : 'No products exist for the selected brand yet.'}</div>`;
       return;
     }
 
@@ -135,8 +151,8 @@ document.addEventListener('DOMContentLoaded', () => {
       <label class="partner-access-choice">
         <input type="checkbox" data-partner-product value="${escapeHtml(product.id || '')}" ${state.selections.products.includes(product.id) ? 'checked' : ''}>
         <span class="partner-access-choice-body">
-          <span class="partner-access-choice-title">${escapeHtml(product.name || '')}</span>
-          <span class="partner-access-choice-meta">${escapeHtml(product.brand_name || '')} · ${escapeHtml(product.code || '--')} · ${Number(product.sku_count || 0)} SKUs</span>
+          <span class="partner-access-choice-title">${escapeHtml(product.display_name || product.name || '')}</span>
+          <span class="partner-access-choice-meta">${escapeHtml(product.brand_name || '')} · ${escapeHtml(product.code || '--')} · ${Number(product.sku_count || 0)} SKUs in catalog</span>
         </span>
       </label>
     `).join('');
@@ -144,13 +160,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const renderSkus = () => {
     if (!skuChoiceGrid) return;
-    const skus = filteredSkus();
+    const skus = filteredSkus().filter((sku) => {
+      if (!state.search.skus) return true;
+      return [sku.product_name, sku.base_product_name, sku.sku, sku.flavor_name, sku.size_label, sku.label].some((value) => matchesSearch(value, state.search.skus));
+    });
     if (!state.selections.products.length) {
       skuChoiceGrid.innerHTML = '<div class="partner-access-empty">Select a product first.</div>';
       return;
     }
     if (!skus.length) {
-      skuChoiceGrid.innerHTML = '<div class="partner-access-empty">No SKUs match the current brand and product selection.</div>';
+      skuChoiceGrid.innerHTML = `<div class="partner-access-empty">${state.search.skus ? 'No SKUs match that search.' : 'No SKUs match the current brand and product selection.'}</div>`;
       return;
     }
 
@@ -158,8 +177,8 @@ document.addEventListener('DOMContentLoaded', () => {
       <label class="partner-access-choice">
         <input type="checkbox" data-partner-sku value="${escapeHtml(sku.sku || '')}" ${state.selections.skus.includes(sku.sku) ? 'checked' : ''}>
         <span class="partner-access-choice-body">
-          <span class="partner-access-choice-title">${escapeHtml(sku.label || sku.sku || '')}</span>
-          <span class="partner-access-choice-meta">${escapeHtml(sku.sku || '')} · TAG ${escapeHtml(sku.tag || '')} · Stock ${escapeHtml(sku.current_stock ?? 0)}</span>
+          <span class="partner-access-choice-title">${escapeHtml(sku.product_name || sku.label || sku.sku || '')}</span>
+          <span class="partner-access-choice-meta">${escapeHtml(sku.sku || '')} · ${escapeHtml(sku.flavor_name || 'No flavor')} · ${escapeHtml(sku.size_label || '')} · Stock ${escapeHtml(sku.current_stock ?? 0)}</span>
         </span>
       </label>
     `).join('');
@@ -188,7 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
     selectedSkuList.innerHTML = skuRecords.map((sku) => `
       <div class="partner-access-tag">
         <strong>${escapeHtml(sku.sku || '')}</strong>
-        <span>${escapeHtml(sku.label || '')}</span>
+        <span>${escapeHtml(sku.product_name || sku.label || '')}</span>
       </div>
     `).join('');
   };
@@ -262,6 +281,15 @@ document.addEventListener('DOMContentLoaded', () => {
     button.addEventListener('click', () => {
       setError('');
       openStep(button.getAttribute('data-partner-prev-step') || 'brands');
+    });
+  });
+
+  [brandSearch, productSearch, skuSearch].forEach((input) => {
+    input?.addEventListener('input', () => {
+      state.search.brands = brandSearch?.value || '';
+      state.search.products = productSearch?.value || '';
+      state.search.skus = skuSearch?.value || '';
+      renderSelectionUi();
     });
   });
 

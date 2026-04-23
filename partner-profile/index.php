@@ -75,7 +75,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                 <div class="admin-hero-copy">
                     <span class="admin-chip admin-chip-accent" data-partner-code-badge>Partner</span>
                     <h2 data-partner-name>Loading partner profile</h2>
-                    <p>Choose brands first, then products inside those brands, then the exact SKUs this partner can sell. Everything is sourced from the live SKU database.</p>
+                    <p>Edit the live SKU access using the same three-question flow: brand first, then product, then the exact SKU names this partner can sell.</p>
                 </div>
             </section>
 
@@ -97,27 +97,41 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                         <input type="text" name="partner_slug" maxlength="160">
                     </label>
                     <section class="partner-access-shell" data-profile-access-shell>
+                        <div class="partner-access-intro">
+                            <span class="partner-access-intro-kicker">Catalog-Guided Access</span>
+                            <h4>Update this partner by answering the same three catalog questions.</h4>
+                            <p>Every option is sourced from the live SKU database, so the profile stays tied to the actual catalog instead of a manually typed combination list.</p>
+                        </div>
                         <div class="partner-access-steps" data-partner-steps>
                             <article class="partner-access-step is-active" data-partner-step-indicator="brands">
-                                <span class="partner-access-step-index">1</span>
+                                <span class="partner-access-step-index">01</span>
                                 <strong>Brand</strong>
                                 <span>Select the brands this partner can access.</span>
                             </article>
                             <article class="partner-access-step" data-partner-step-indicator="products">
-                                <span class="partner-access-step-index">2</span>
+                                <span class="partner-access-step-index">02</span>
                                 <strong>Product</strong>
                                 <span>Filter the product list by the selected brands.</span>
                             </article>
                             <article class="partner-access-step" data-partner-step-indicator="skus">
-                                <span class="partner-access-step-index">3</span>
+                                <span class="partner-access-step-index">03</span>
                                 <strong>SKU</strong>
                                 <span>Choose the exact sellable SKUs. This can be changed at any time.</span>
                             </article>
                         </div>
 
                         <section class="partner-access-card" data-partner-step-panel="brands">
-                            <h4>Select brand</h4>
-                            <p>Multiple choice. The list is pulled from the live SKU database.</p>
+                            <div class="partner-access-card-head">
+                                <div>
+                                    <span class="partner-access-question-index">Question 1 of 3</span>
+                                    <h4>Select brand</h4>
+                                    <p>Multiple choice. The list is pulled from the live SKU database.</p>
+                                </div>
+                            </div>
+                            <label class="partner-access-search">
+                                <span>Search brands</span>
+                                <input type="search" placeholder="Type to filter brands" data-brand-search>
+                            </label>
                             <div class="partner-access-choice-grid" data-brand-choice-grid>
                                 <div class="partner-access-empty">Loading brands from the SKU database.</div>
                             </div>
@@ -128,8 +142,17 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                         </section>
 
                         <section class="partner-access-card" data-partner-step-panel="products" hidden>
-                            <h4>Select product</h4>
-                            <p>Multiple choice. Products are filtered by the brands you selected.</p>
+                            <div class="partner-access-card-head">
+                                <div>
+                                    <span class="partner-access-question-index">Question 2 of 3</span>
+                                    <h4>Select product</h4>
+                                    <p>Multiple choice. Products are filtered by the brands you selected.</p>
+                                </div>
+                            </div>
+                            <label class="partner-access-search">
+                                <span>Search products</span>
+                                <input type="search" placeholder="Type to filter products" data-product-search>
+                            </label>
                             <div class="partner-access-choice-grid" data-product-choice-grid>
                                 <div class="partner-access-empty">Select a brand first.</div>
                             </div>
@@ -140,8 +163,17 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                         </section>
 
                         <section class="partner-access-card" data-partner-step-panel="skus" hidden>
-                            <h4>Select SKU</h4>
-                            <p>Multiple choice. Choose exactly which SKUs the partner can sell.</p>
+                            <div class="partner-access-card-head">
+                                <div>
+                                    <span class="partner-access-question-index">Question 3 of 3</span>
+                                    <h4>Select SKU</h4>
+                                    <p>Multiple choice. Choose exactly which SKU names the partner can sell.</p>
+                                </div>
+                            </div>
+                            <label class="partner-access-search">
+                                <span>Search SKUs</span>
+                                <input type="search" placeholder="Type SKU, product, flavor, or size" data-sku-search>
+                            </label>
                             <div class="partner-access-choice-grid" data-sku-choice-grid>
                                 <div class="partner-access-empty">Select a product first.</div>
                             </div>
