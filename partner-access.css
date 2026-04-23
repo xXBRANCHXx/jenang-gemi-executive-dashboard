@@ -282,6 +282,21 @@
   gap: 1.15rem;
 }
 
+[data-partner-modal].admin-modal-shell {
+  overflow-y: auto;
+  align-items: start;
+  justify-items: center;
+  padding-block: 24px;
+}
+
+[data-partner-modal] .admin-modal-card-partner {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
 @media (max-width: 720px) {
   .partner-access-card-head {
     flex-direction: column;
@@ -290,5 +305,15 @@
   .partner-access-actions {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  [data-partner-modal].admin-modal-shell {
+    padding: 12px;
+  }
+
+  [data-partner-modal] .admin-modal-card-partner {
+    width: min(100vw - 24px, 1120px);
+    max-height: calc(100svh - 24px);
+    padding: 18px;
   }
 }
