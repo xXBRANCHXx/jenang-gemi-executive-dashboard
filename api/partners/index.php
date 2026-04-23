@@ -224,6 +224,7 @@ function jg_partner_sku_catalog(PDO $pdo): array
             'brand_name' => (string) ($row['brand_name'] ?? ''),
             'brand_code' => (string) ($row['brand_code'] ?? ''),
             'product_id' => (string) ($row['product_id'] ?? ''),
+            'product_key' => (string) ($row['brand_id'] ?? '') . '::' . $displayProductName,
             'product_name' => $displayProductName,
             'base_product_name' => $baseProductName,
             'product_code' => (string) ($row['product_code'] ?? ''),
@@ -236,7 +237,7 @@ function jg_partner_sku_catalog(PDO $pdo): array
         ];
 
         $brandId = $skuRow['brand_id'];
-        $productId = $skuRow['product_id'];
+        $productKey = $skuRow['product_key'];
 
         if (!isset($brands[$brandId])) {
             $brands[$brandId] = [
@@ -247,17 +248,18 @@ function jg_partner_sku_catalog(PDO $pdo): array
             ];
         }
 
-        if (!isset($brands[$brandId]['products'][$productId])) {
-            $brands[$brandId]['products'][$productId] = [
-                'id' => $productId,
-                'name' => $baseProductName,
+        if (!isset($brands[$brandId]['products'][$productKey])) {
+            $brands[$brandId]['products'][$productKey] = [
+                'id' => $productKey,
+                'product_id' => $skuRow['product_id'],
+                'name' => $displayProductName,
                 'display_name' => $displayProductName,
                 'code' => $skuRow['product_code'],
                 'sku_count' => 0,
             ];
         }
 
-        $brands[$brandId]['products'][$productId]['sku_count'] += 1;
+        $brands[$brandId]['products'][$productKey]['sku_count'] += 1;
         $skus[] = $skuRow;
     }
 
@@ -317,11 +319,15 @@ function jg_partner_enrich_record(array $partner, array $catalog): array
         $brandId = (string) ($sku['brand_id'] ?? '');
         $brandName = (string) ($sku['brand_name'] ?? '');
         $productId = (string) ($sku['product_id'] ?? '');
+        $productKey = (string) ($sku['product_key'] ?? '');
         $productName = (string) ($sku['base_product_name'] ?? $sku['product_name'] ?? '');
         $sizeLabel = (string) ($sku['size_label'] ?? '');
 
         $brandIds[$brandId] = $brandId;
         $productIds[$productId] = $productId;
+        if ($productKey !== '') {
+            $productIds[$productKey] = $productKey;
+        }
         $companyNames[$brandName] = $brandName;
 
         if (!isset($companies[$brandId])) {
@@ -359,6 +365,10 @@ function jg_partner_enrich_record(array $partner, array $catalog): array
     $partner['selected_skus'] = $selectedSkuCodes;
     $partner['selected_brand_ids'] = array_values($brandIds);
     $partner['selected_product_ids'] = array_values($productIds);
+    $partner['selected_product_keys'] = array_values(array_unique(array_filter(array_map(
+        static fn (array $sku): string => trim((string) ($sku['product_key'] ?? '')),
+        $selectedSkus
+    ))));
     $partner['companies'] = array_values($companyNames);
     $partner['company_records'] = array_values($companies);
     $partner['product_access'] = $productAccess;

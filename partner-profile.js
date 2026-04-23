@@ -80,7 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const filteredSkus = () => {
     const allowedBrands = new Set(state.selections.brands);
     const allowedProducts = new Set(state.selections.products);
-    return catalogSkus().filter((sku) => allowedBrands.has(sku.brand_id) && allowedProducts.has(sku.product_id));
+    return catalogSkus().filter((sku) => allowedBrands.has(sku.brand_id) && allowedProducts.has(sku.product_key));
   };
 
   const matchesSearch = (value, searchTerm) => String(value || '').toLowerCase().includes(searchTerm.trim().toLowerCase());
@@ -237,7 +237,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     state.selections = {
       brands: [...new Set(partner.selected_brand_ids || [])],
-      products: [...new Set(partner.selected_product_ids || [])],
+      products: [...new Set(partner.selected_product_keys || partner.selected_product_ids || [])],
       skus: [...new Set(partner.selected_skus || [])]
     };
 

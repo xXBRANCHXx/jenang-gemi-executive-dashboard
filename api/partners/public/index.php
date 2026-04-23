@@ -105,6 +105,7 @@ function jg_public_partner_sku_catalog(PDO $pdo): array
             'brand_name' => (string) ($row['brand_name'] ?? ''),
             'brand_code' => (string) ($row['brand_code'] ?? ''),
             'product_id' => (string) ($row['product_id'] ?? ''),
+            'product_key' => (string) ($row['brand_id'] ?? '') . '::' . $displayProductName,
             'product_name' => $displayProductName,
             'base_product_name' => $baseProductName,
             'product_code' => (string) ($row['product_code'] ?? ''),
@@ -152,10 +153,14 @@ function jg_public_partner_enrich(array $partner, array $catalog): array
         $brandId = (string) ($sku['brand_id'] ?? '');
         $brandName = (string) ($sku['brand_name'] ?? '');
         $productId = (string) ($sku['product_id'] ?? '');
+        $productKey = (string) ($sku['product_key'] ?? '');
         $productName = (string) ($sku['product_name'] ?? $sku['base_product_name'] ?? '');
 
         $brandIds[$brandId] = $brandId;
         $productIds[$productId] = $productId;
+        if ($productKey !== '') {
+            $productIds[$productKey] = $productKey;
+        }
         $companyNames[$brandName] = $brandName;
 
         if (!isset($companies[$brandId])) {
@@ -193,6 +198,10 @@ function jg_public_partner_enrich(array $partner, array $catalog): array
     $partner['selected_skus'] = $selectedSkuCodes;
     $partner['selected_brand_ids'] = array_values($brandIds);
     $partner['selected_product_ids'] = array_values($productIds);
+    $partner['selected_product_keys'] = array_values(array_unique(array_filter(array_map(
+        static fn (array $sku): string => trim((string) ($sku['product_key'] ?? '')),
+        $selectedSkus
+    ))));
     $partner['companies'] = array_values($companyNames);
     $partner['company_records'] = array_values($companies);
     $partner['product_access'] = $productAccess;

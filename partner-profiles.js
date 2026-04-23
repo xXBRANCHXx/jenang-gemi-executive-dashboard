@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const filteredSkus = () => {
     const allowedBrands = new Set(state.selections.brands);
     const allowedProducts = new Set(state.selections.products);
-    return catalogSkus().filter((sku) => allowedBrands.has(sku.brand_id) && allowedProducts.has(sku.product_id));
+    return catalogSkus().filter((sku) => allowedBrands.has(sku.brand_id) && allowedProducts.has(sku.product_key));
   };
 
   const matchesSearch = (value, searchTerm) => String(value || '').toLowerCase().includes(searchTerm.trim().toLowerCase());
