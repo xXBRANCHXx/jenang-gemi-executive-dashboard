@@ -157,7 +157,6 @@ document.addEventListener('DOMContentLoaded', () => {
         <input type="checkbox" data-partner-product value="${escapeHtml(product.id || '')}" ${state.selections.products.includes(product.id) ? 'checked' : ''}>
         <span class="partner-access-choice-body">
           <span class="partner-access-choice-title">${escapeHtml(product.display_name || product.name || '')}</span>
-          <span class="partner-access-choice-meta">${escapeHtml(product.brand_name || '')}</span>
         </span>
       </label>
     `).join('');
