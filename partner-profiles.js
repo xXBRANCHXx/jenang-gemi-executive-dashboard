@@ -7,8 +7,31 @@ document.addEventListener('DOMContentLoaded', () => {
   const partnerModal = document.querySelector('[data-partner-modal]');
   const partnerForm = document.querySelector('[data-partner-form]');
   const partnerFormError = document.querySelector('[data-partner-form-error]');
-  const companyEmptyState = document.querySelector('[data-company-empty-state]');
   const partnerSiteOrigin = 'https://partner.jenanggemi.com';
+
+  const brandChoiceGrid = document.querySelector('[data-brand-choice-grid]');
+  const productChoiceGrid = document.querySelector('[data-product-choice-grid]');
+  const skuChoiceGrid = document.querySelector('[data-sku-choice-grid]');
+  const selectedSkuList = document.querySelector('[data-partner-selected-skus]');
+  const brandSummary = document.querySelector('[data-partner-brand-summary]');
+  const productSummary = document.querySelector('[data-partner-product-summary]');
+  const skuSummary = document.querySelector('[data-partner-sku-summary]');
+
+  const state = {
+    partners: [],
+    skuCatalog: {
+      brands: [],
+      skus: []
+    },
+    selections: {
+      brands: [],
+      products: [],
+      skus: []
+    },
+    activeStep: 'brands'
+  };
+
+  const stepOrder = ['brands', 'products', 'skus'];
 
   const escapeHtml = (value) => String(value)
     .replace(/&/g, '&amp;')
@@ -31,50 +54,177 @@ document.addEventListener('DOMContentLoaded', () => {
     return payload;
   };
 
-  const checkedValues = (name) => Array.from(document.querySelectorAll(`input[name="${name}"]:checked`)).map((input) => input.value);
-
-  const syncCompanySections = (scope) => {
-    const selectedCompanies = new Set(Array.from(scope.querySelectorAll('input[name="companies[]"]:checked')).map((input) => input.value));
-    scope.querySelectorAll('[data-company-section]').forEach((section) => {
-      const company = section.getAttribute('data-company-section') || '';
-      const active = selectedCompanies.has(company);
-      section.hidden = !active;
-      section.querySelectorAll('input, select, textarea').forEach((field) => {
-        field.disabled = !active;
-      });
-    });
-    if (companyEmptyState) {
-      companyEmptyState.hidden = selectedCompanies.size > 0;
-    }
+  const setError = (message) => {
+    if (!partnerFormError) return;
+    partnerFormError.hidden = !message;
+    partnerFormError.textContent = message || '';
   };
 
-  const productAccessPayload = (scope) => ({
-    'Jenang Gemi': {
-      Bubur: {
-        enabled: !!scope.querySelector('input[name="product_access[Jenang Gemi][Bubur][enabled]"]')?.checked,
-        sizes: Array.from(scope.querySelectorAll('input[name="product_access[Jenang Gemi][Bubur][sizes][]"]:checked')).map((input) => input.value)
-      },
-      Jamu: {
-        enabled: !!scope.querySelector('input[name="product_access[Jenang Gemi][Jamu][enabled]"]')?.checked,
-        sizes: Array.from(scope.querySelectorAll('input[name="product_access[Jenang Gemi][Jamu][sizes][]"]:checked')).map((input) => input.value)
-      }
-    }
-  });
+  const catalogBrands = () => state.skuCatalog.brands || [];
+  const catalogSkus = () => state.skuCatalog.skus || [];
 
-  const pricingPayload = (formData) => ({
-    'Jenang Gemi': {
-      Bubur: {
-        '15 Sachet': formData.get('pricing[Jenang Gemi][Bubur][15 Sachet]'),
-        '30 Sachet': formData.get('pricing[Jenang Gemi][Bubur][30 Sachet]'),
-        '60 Sachet': formData.get('pricing[Jenang Gemi][Bubur][60 Sachet]')
-      },
-      Jamu: {
-        '15 Sachet': formData.get('pricing[Jenang Gemi][Jamu][15 Sachet]'),
-        '30 Sachet': formData.get('pricing[Jenang Gemi][Jamu][30 Sachet]'),
-        '60 Sachet': formData.get('pricing[Jenang Gemi][Jamu][60 Sachet]')
+  const selectedBrandRecords = () => catalogBrands().filter((brand) => state.selections.brands.includes(brand.id));
+  const selectedProductRecords = () => {
+    const brandIds = new Set(state.selections.brands);
+    return selectedBrandRecords()
+      .flatMap((brand) => (brand.products || []).map((product) => ({ ...product, brand_id: brand.id, brand_name: brand.name })))
+      .filter((product) => brandIds.has(product.brand_id) && state.selections.products.includes(product.id));
+  };
+
+  const filteredProducts = () => selectedBrandRecords()
+    .flatMap((brand) => (brand.products || []).map((product) => ({ ...product, brand_id: brand.id, brand_name: brand.name })));
+
+  const filteredSkus = () => {
+    const allowedBrands = new Set(state.selections.brands);
+    const allowedProducts = new Set(state.selections.products);
+    return catalogSkus().filter((sku) => allowedBrands.has(sku.brand_id) && allowedProducts.has(sku.product_id));
+  };
+
+  const hydrateSelections = () => {
+    const validBrandIds = new Set(catalogBrands().map((brand) => brand.id));
+    state.selections.brands = state.selections.brands.filter((brandId) => validBrandIds.has(brandId));
+
+    const validProducts = new Set(filteredProducts().map((product) => product.id));
+    state.selections.products = state.selections.products.filter((productId) => validProducts.has(productId));
+
+    const validSkus = new Set(filteredSkus().map((sku) => sku.sku));
+    state.selections.skus = state.selections.skus.filter((skuCode) => validSkus.has(skuCode));
+  };
+
+  const renderStepState = () => {
+    stepOrder.forEach((step, index) => {
+      const indicator = document.querySelector(`[data-partner-step-indicator="${step}"]`);
+      const panel = document.querySelector(`[data-partner-step-panel="${step}"]`);
+      if (panel instanceof HTMLElement) {
+        panel.hidden = step !== state.activeStep;
       }
+      if (indicator instanceof HTMLElement) {
+        indicator.classList.toggle('is-active', step === state.activeStep);
+        indicator.classList.toggle('is-complete', index < stepOrder.indexOf(state.activeStep));
+      }
+    });
+  };
+
+  const renderBrands = () => {
+    if (!brandChoiceGrid) return;
+    const brands = catalogBrands();
+    if (!brands.length) {
+      brandChoiceGrid.innerHTML = '<div class="partner-access-empty">No brands are available in the SKU database yet.</div>';
+      return;
     }
-  });
+
+    brandChoiceGrid.innerHTML = brands.map((brand) => `
+      <label class="partner-access-choice">
+        <input type="checkbox" data-partner-brand value="${escapeHtml(brand.id || '')}" ${state.selections.brands.includes(brand.id) ? 'checked' : ''}>
+        <span class="partner-access-choice-body">
+          <span class="partner-access-choice-title">${escapeHtml(brand.name || '')}</span>
+          <span class="partner-access-choice-meta">${escapeHtml(brand.code || '--')} · ${(brand.products || []).length} products</span>
+        </span>
+      </label>
+    `).join('');
+  };
+
+  const renderProducts = () => {
+    if (!productChoiceGrid) return;
+    const products = filteredProducts();
+    if (!state.selections.brands.length) {
+      productChoiceGrid.innerHTML = '<div class="partner-access-empty">Select a brand first.</div>';
+      return;
+    }
+    if (!products.length) {
+      productChoiceGrid.innerHTML = '<div class="partner-access-empty">No products exist for the selected brand yet.</div>';
+      return;
+    }
+
+    productChoiceGrid.innerHTML = products.map((product) => `
+      <label class="partner-access-choice">
+        <input type="checkbox" data-partner-product value="${escapeHtml(product.id || '')}" ${state.selections.products.includes(product.id) ? 'checked' : ''}>
+        <span class="partner-access-choice-body">
+          <span class="partner-access-choice-title">${escapeHtml(product.name || '')}</span>
+          <span class="partner-access-choice-meta">${escapeHtml(product.brand_name || '')} · ${escapeHtml(product.code || '--')} · ${Number(product.sku_count || 0)} SKUs</span>
+        </span>
+      </label>
+    `).join('');
+  };
+
+  const renderSkus = () => {
+    if (!skuChoiceGrid) return;
+    const skus = filteredSkus();
+    if (!state.selections.products.length) {
+      skuChoiceGrid.innerHTML = '<div class="partner-access-empty">Select a product first.</div>';
+      return;
+    }
+    if (!skus.length) {
+      skuChoiceGrid.innerHTML = '<div class="partner-access-empty">No SKUs match the current brand and product selection.</div>';
+      return;
+    }
+
+    skuChoiceGrid.innerHTML = skus.map((sku) => `
+      <label class="partner-access-choice">
+        <input type="checkbox" data-partner-sku value="${escapeHtml(sku.sku || '')}" ${state.selections.skus.includes(sku.sku) ? 'checked' : ''}>
+        <span class="partner-access-choice-body">
+          <span class="partner-access-choice-title">${escapeHtml(sku.label || sku.sku || '')}</span>
+          <span class="partner-access-choice-meta">${escapeHtml(sku.sku || '')} · TAG ${escapeHtml(sku.tag || '')} · Stock ${escapeHtml(sku.current_stock ?? 0)}</span>
+        </span>
+      </label>
+    `).join('');
+  };
+
+  const renderSummary = () => {
+    const brands = selectedBrandRecords();
+    const products = selectedProductRecords();
+    const skuRecords = catalogSkus().filter((sku) => state.selections.skus.includes(sku.sku));
+
+    if (brandSummary) {
+      brandSummary.textContent = brands.length ? brands.map((brand) => brand.name).join(', ') : 'None selected';
+    }
+    if (productSummary) {
+      productSummary.textContent = products.length ? products.map((product) => product.name).join(', ') : 'None selected';
+    }
+    if (skuSummary) {
+      skuSummary.textContent = skuRecords.length ? `${skuRecords.length} SKU${skuRecords.length === 1 ? '' : 's'} selected` : 'None selected';
+    }
+
+    if (!selectedSkuList) return;
+    if (!skuRecords.length) {
+      selectedSkuList.innerHTML = '<div class="partner-access-empty">Selected SKUs will show here.</div>';
+      return;
+    }
+
+    selectedSkuList.innerHTML = skuRecords.map((sku) => `
+      <div class="partner-access-tag">
+        <strong>${escapeHtml(sku.sku || '')}</strong>
+        <span>${escapeHtml(sku.label || '')}</span>
+      </div>
+    `).join('');
+  };
+
+  const renderSelectionUi = () => {
+    hydrateSelections();
+    renderStepState();
+    renderBrands();
+    renderProducts();
+    renderSkus();
+    renderSummary();
+  };
+
+  const syncSelection = (type, values) => {
+    state.selections[type] = [...new Set(values)];
+    if (type === 'brands') {
+      hydrateSelections();
+    }
+    if (type === 'products') {
+      hydrateSelections();
+    }
+    renderSelectionUi();
+  };
+
+  const selectedSkuPayload = () => [...new Set(state.selections.skus)];
+
+  const openStep = (step) => {
+    state.activeStep = step;
+    renderStepState();
+  };
 
   const renderPartners = (partners) => {
     if (!partnerList) return;
@@ -96,16 +246,34 @@ document.addEventListener('DOMContentLoaded', () => {
             <button type="button" class="admin-danger-btn" data-delete-partner="${escapeHtml(partner.code || '')}" data-delete-name="${escapeHtml(partner.name || 'Partner')}">Delete</button>
           </div>
         </div>
-        <div class="admin-affiliate-field">
-          <span class="admin-control-label">Companies</span>
-          <div class="admin-affiliate-platform-grid">
-            ${(partner.companies || []).map((company) => `<div class="admin-platform-choice"><span>${escapeHtml(company)}</span></div>`).join('')}
+        <div class="partner-profile-grid">
+          <div class="admin-affiliate-field">
+            <span class="admin-control-label">Brands</span>
+            <div class="admin-affiliate-platform-grid">
+              ${(partner.companies || []).map((company) => `<div class="admin-platform-choice"><span>${escapeHtml(company)}</span></div>`).join('')}
+            </div>
           </div>
-        </div>
-        <div class="admin-affiliate-field">
-          <span class="admin-control-label">Enabled Jenang Gemi Products</span>
-          <div class="admin-affiliate-platform-grid">
-            ${Object.entries(partner.product_access?.['Jenang Gemi'] || {}).filter(([, config]) => config?.enabled).map(([product, config]) => `<div class="admin-platform-choice"><span>${escapeHtml(`${product}: ${(config.sizes || []).join(', ')}`)}</span></div>`).join('')}
+          <div class="admin-affiliate-field">
+            <span class="admin-control-label">Products</span>
+            <div class="admin-affiliate-platform-grid">
+              ${Object.entries(partner.product_access || {}).flatMap(([brand, products]) => Object.entries(products || {}).map(([product, config]) => `
+                <div class="admin-platform-choice">
+                  <span>${escapeHtml(`${brand} · ${product}`)}</span>
+                  <small>${escapeHtml((config.sizes || []).join(', '))}</small>
+                </div>
+              `)).join('')}
+            </div>
+          </div>
+          <div class="admin-affiliate-field">
+            <span class="admin-control-label">Selected SKUs</span>
+            <div class="partner-access-tag-list">
+              ${(partner.selected_sku_records || []).map((sku) => `
+                <div class="partner-access-tag">
+                  <strong>${escapeHtml(sku.sku || '')}</strong>
+                  <span>${escapeHtml(sku.label || '')}</span>
+                </div>
+              `).join('')}
+            </div>
           </div>
         </div>
       </article>
@@ -114,38 +282,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const loadPartners = async () => {
     const payload = await requestJson();
-    renderPartners(payload.database?.partners || []);
-  };
-
-  const deletePartner = async (code, name) => {
-    const confirmed = window.confirm(`Delete ${name}? This will remove the partner record and its generated page.`);
-    if (!confirmed) return;
-
-    await requestJson({
-      method: 'POST',
-      body: {
-        action: 'delete',
-        code
-      }
-    });
-
-    await loadPartners();
+    state.partners = payload.database?.partners || [];
+    state.skuCatalog = payload.sku_catalog || state.skuCatalog;
+    renderPartners(state.partners);
+    renderSelectionUi();
   };
 
   const closePartnerModal = () => {
     if (!partnerModal) return;
     partnerModal.hidden = true;
     partnerForm?.reset();
-    if (partnerForm) syncCompanySections(partnerForm);
-    if (partnerFormError) {
-      partnerFormError.hidden = true;
-      partnerFormError.textContent = '';
-    }
+    state.selections = { brands: [], products: [], skus: [] };
+    state.activeStep = 'brands';
+    setError('');
+    renderSelectionUi();
   };
 
   const openPartnerModal = () => {
     if (!partnerModal) return;
     partnerModal.hidden = false;
+    state.activeStep = 'brands';
+    renderSelectionUi();
   };
 
   document.querySelectorAll('[data-open-partner-modal]').forEach((button) => {
@@ -156,37 +313,90 @@ document.addEventListener('DOMContentLoaded', () => {
     button.addEventListener('click', closePartnerModal);
   });
 
+  document.querySelectorAll('[data-partner-next-step]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const targetStep = button.getAttribute('data-partner-next-step') || '';
+      if (targetStep === 'products' && !state.selections.brands.length) {
+        setError('Select at least one brand before continuing.');
+        return;
+      }
+      if (targetStep === 'skus' && !state.selections.products.length) {
+        setError('Select at least one product before continuing.');
+        return;
+      }
+      setError('');
+      openStep(targetStep);
+    });
+  });
+
+  document.querySelectorAll('[data-partner-prev-step]').forEach((button) => {
+    button.addEventListener('click', () => {
+      setError('');
+      openStep(button.getAttribute('data-partner-prev-step') || 'brands');
+    });
+  });
+
+  partnerModal?.addEventListener('change', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) return;
+
+    if (target.matches('[data-partner-brand]')) {
+      syncSelection('brands', Array.from(document.querySelectorAll('[data-partner-brand]:checked')).map((input) => input.value));
+      return;
+    }
+
+    if (target.matches('[data-partner-product]')) {
+      syncSelection('products', Array.from(document.querySelectorAll('[data-partner-product]:checked')).map((input) => input.value));
+      return;
+    }
+
+    if (target.matches('[data-partner-sku]')) {
+      syncSelection('skus', Array.from(document.querySelectorAll('[data-partner-sku]:checked')).map((input) => input.value));
+    }
+  });
+
   partnerList?.addEventListener('click', async (event) => {
     const button = event.target instanceof Element ? event.target.closest('[data-delete-partner]') : null;
     if (!(button instanceof HTMLButtonElement)) return;
 
-    if (partnerFormError) {
-      partnerFormError.hidden = true;
-      partnerFormError.textContent = '';
-    }
+    const confirmed = window.confirm(`Delete ${button.dataset.deleteName || 'this partner'}? This will remove the partner record.`);
+    if (!confirmed) return;
 
     try {
       button.disabled = true;
-      await deletePartner(button.dataset.deletePartner || '', button.dataset.deleteName || 'this partner');
+      await requestJson({
+        method: 'POST',
+        body: {
+          action: 'delete',
+          code: button.dataset.deletePartner || ''
+        }
+      });
+      await loadPartners();
     } catch (error) {
-      if (partnerFormError) {
-        partnerFormError.hidden = false;
-        partnerFormError.textContent = error instanceof Error ? error.message : 'Unable to delete partner.';
-      }
+      setError(error instanceof Error ? error.message : 'Unable to delete partner.');
     } finally {
       button.disabled = false;
     }
   });
 
-  partnerForm?.querySelectorAll('input[name="companies[]"]').forEach((input) => {
-    input.addEventListener('change', () => syncCompanySections(partnerForm));
-  });
-
   partnerForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
-    if (partnerFormError) {
-      partnerFormError.hidden = true;
-      partnerFormError.textContent = '';
+    setError('');
+
+    if (!state.selections.brands.length) {
+      setError('Select at least one brand.');
+      openStep('brands');
+      return;
+    }
+    if (!state.selections.products.length) {
+      setError('Select at least one product.');
+      openStep('products');
+      return;
+    }
+    if (!state.selections.skus.length) {
+      setError('Select at least one SKU.');
+      openStep('skus');
+      return;
     }
 
     try {
@@ -197,28 +407,18 @@ document.addEventListener('DOMContentLoaded', () => {
           action: 'create',
           name: formData.get('name'),
           partner_slug: formData.get('partner_slug'),
-          companies: checkedValues('companies[]'),
-          product_access: productAccessPayload(partnerForm),
-          pricing: pricingPayload(formData),
+          selected_skus: selectedSkuPayload(),
           notes: formData.get('notes')
         }
       });
       closePartnerModal();
       await loadPartners();
     } catch (error) {
-      if (partnerFormError) {
-        partnerFormError.hidden = false;
-        partnerFormError.textContent = error instanceof Error ? error.message : 'Unable to create partner.';
-      }
+      setError(error instanceof Error ? error.message : 'Unable to create partner.');
     }
   });
 
   loadPartners().catch((error) => {
-    if (partnerFormError) {
-      partnerFormError.hidden = false;
-      partnerFormError.textContent = error instanceof Error ? error.message : 'Unable to load partners.';
-    }
+    setError(error instanceof Error ? error.message : 'Unable to load partners.');
   });
-
-  if (partnerForm) syncCompanySections(partnerForm);
 });

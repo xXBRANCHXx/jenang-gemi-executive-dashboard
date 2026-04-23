@@ -10,6 +10,7 @@ if (!jg_admin_is_authenticated()) {
 
 $partnerCode = trim((string) ($_GET['code'] ?? ''));
 $adminCssVersion = (string) @filemtime(dirname(__DIR__) . '/admin.css');
+$partnerAccessCssVersion = (string) @filemtime(dirname(__DIR__) . '/partner-access.css');
 $profileJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-profile.js');
 $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
 ?>
@@ -25,6 +26,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap">
     <link rel="stylesheet" href="../admin.css?v=<?php echo urlencode($adminCssVersion ?: '1'); ?>">
+    <link rel="stylesheet" href="../partner-access.css?v=<?php echo urlencode($partnerAccessCssVersion ?: '1'); ?>">
 </head>
 <body class="admin-body is-dashboard">
     <div class="admin-app admin-app-suite" data-partner-profile data-partners-endpoint="../api/partners/" data-partner-code="<?php echo htmlspecialchars($partnerCode, ENT_QUOTES); ?>">
@@ -50,7 +52,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                     <div class="admin-topbar-brand">
                         <span class="admin-chip">Partner Profile</span>
                         <h1>Edit Partner Profile</h1>
-                        <p>Update company assignment, product access, pricing agreements, and partner portal path here.</p>
+                        <p>Update the partner name, portal path, and exact live SKU access here.</p>
                     </div>
                     <div class="admin-topbar-actions">
                         <div class="admin-view-indicator">Partner Profile</div>
@@ -73,7 +75,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                 <div class="admin-hero-copy">
                     <span class="admin-chip admin-chip-accent" data-partner-code-badge>Partner</span>
                     <h2 data-partner-name>Loading partner profile</h2>
-                    <p>Companies are the brands. Product access and pricing here decide exactly which Jenang Gemi products and sizes the partner can sell.</p>
+                    <p>Choose brands first, then products inside those brands, then the exact SKUs this partner can sell. Everything is sourced from the live SKU database.</p>
                 </div>
             </section>
 
@@ -94,41 +96,80 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                         <span class="admin-control-label">Partner page slug</span>
                         <input type="text" name="partner_slug" maxlength="160">
                     </label>
-                    <fieldset class="admin-affiliate-platforms" data-company-section="Jenang Gemi">
-                        <legend>Companies</legend>
-                        <div class="admin-affiliate-platform-grid">
-                            <label><input type="checkbox" name="companies[]" value="Jenang Gemi"> <span>Jenang Gemi</span></label>
-                            <label><input type="checkbox" name="companies[]" value="ZERO"> <span>ZERO</span></label>
-                            <label><input type="checkbox" name="companies[]" value="ZFIT"> <span>ZFIT</span></label>
+                    <section class="partner-access-shell" data-profile-access-shell>
+                        <div class="partner-access-steps" data-partner-steps>
+                            <article class="partner-access-step is-active" data-partner-step-indicator="brands">
+                                <span class="partner-access-step-index">1</span>
+                                <strong>Brand</strong>
+                                <span>Select the brands this partner can access.</span>
+                            </article>
+                            <article class="partner-access-step" data-partner-step-indicator="products">
+                                <span class="partner-access-step-index">2</span>
+                                <strong>Product</strong>
+                                <span>Filter the product list by the selected brands.</span>
+                            </article>
+                            <article class="partner-access-step" data-partner-step-indicator="skus">
+                                <span class="partner-access-step-index">3</span>
+                                <strong>SKU</strong>
+                                <span>Choose the exact sellable SKUs. This can be changed at any time.</span>
+                            </article>
                         </div>
-                    </fieldset>
-                    <fieldset class="admin-affiliate-platforms" data-company-section="Jenang Gemi">
-                        <legend>Jenang Gemi product access</legend>
-                        <div class="admin-affiliate-platform-grid">
-                            <label><input type="checkbox" name="product_access[Jenang Gemi][Bubur][enabled]" value="1"> <span>Enable Bubur</span></label>
-                            <label><input type="checkbox" name="product_access[Jenang Gemi][Bubur][sizes][]" value="15 Sachet"> <span>15 Sachet</span></label>
-                            <label><input type="checkbox" name="product_access[Jenang Gemi][Bubur][sizes][]" value="30 Sachet"> <span>30 Sachet</span></label>
-                            <label><input type="checkbox" name="product_access[Jenang Gemi][Bubur][sizes][]" value="60 Sachet"> <span>60 Sachet</span></label>
-                        </div>
-                        <div class="admin-affiliate-platform-grid">
-                            <label><input type="checkbox" name="product_access[Jenang Gemi][Jamu][enabled]" value="1"> <span>Enable Jamu</span></label>
-                            <label><input type="checkbox" name="product_access[Jenang Gemi][Jamu][sizes][]" value="15 Sachet"> <span>15 Sachet</span></label>
-                            <label><input type="checkbox" name="product_access[Jenang Gemi][Jamu][sizes][]" value="30 Sachet"> <span>30 Sachet</span></label>
-                            <label><input type="checkbox" name="product_access[Jenang Gemi][Jamu][sizes][]" value="60 Sachet"> <span>60 Sachet</span></label>
-                        </div>
-                    </fieldset>
-                    <fieldset class="admin-affiliate-platforms">
-                        <legend>Jenang Gemi pricing agreement</legend>
-                        <div class="admin-sku-form-grid">
-                            <label><span>Bubur 15 Sachet</span><input type="number" name="pricing[Jenang Gemi][Bubur][15 Sachet]" min="0" step="0.01"></label>
-                            <label><span>Bubur 30 Sachet</span><input type="number" name="pricing[Jenang Gemi][Bubur][30 Sachet]" min="0" step="0.01"></label>
-                            <label><span>Bubur 60 Sachet</span><input type="number" name="pricing[Jenang Gemi][Bubur][60 Sachet]" min="0" step="0.01"></label>
-                            <label><span>Jamu 15 Sachet</span><input type="number" name="pricing[Jenang Gemi][Jamu][15 Sachet]" min="0" step="0.01"></label>
-                            <label><span>Jamu 30 Sachet</span><input type="number" name="pricing[Jenang Gemi][Jamu][30 Sachet]" min="0" step="0.01"></label>
-                            <label><span>Jamu 60 Sachet</span><input type="number" name="pricing[Jenang Gemi][Jamu][60 Sachet]" min="0" step="0.01"></label>
-                        </div>
-                    </fieldset>
-                    <p class="admin-table-note" data-company-empty-state hidden>Select a company above to configure product access and pricing for that company.</p>
+
+                        <section class="partner-access-card" data-partner-step-panel="brands">
+                            <h4>Select brand</h4>
+                            <p>Multiple choice. The list is pulled from the live SKU database.</p>
+                            <div class="partner-access-choice-grid" data-brand-choice-grid>
+                                <div class="partner-access-empty">Loading brands from the SKU database.</div>
+                            </div>
+                            <div class="partner-access-actions">
+                                <span class="partner-access-inline-note">Choose one or more brands.</span>
+                                <button type="button" class="admin-primary-btn" data-partner-next-step="products">Continue To Products</button>
+                            </div>
+                        </section>
+
+                        <section class="partner-access-card" data-partner-step-panel="products" hidden>
+                            <h4>Select product</h4>
+                            <p>Multiple choice. Products are filtered by the brands you selected.</p>
+                            <div class="partner-access-choice-grid" data-product-choice-grid>
+                                <div class="partner-access-empty">Select a brand first.</div>
+                            </div>
+                            <div class="partner-access-actions">
+                                <button type="button" class="admin-ghost-btn" data-partner-prev-step="brands">Back</button>
+                                <button type="button" class="admin-primary-btn" data-partner-next-step="skus">Continue To SKUs</button>
+                            </div>
+                        </section>
+
+                        <section class="partner-access-card" data-partner-step-panel="skus" hidden>
+                            <h4>Select SKU</h4>
+                            <p>Multiple choice. Choose exactly which SKUs the partner can sell.</p>
+                            <div class="partner-access-choice-grid" data-sku-choice-grid>
+                                <div class="partner-access-empty">Select a product first.</div>
+                            </div>
+                            <div class="partner-access-actions">
+                                <button type="button" class="admin-ghost-btn" data-partner-prev-step="products">Back</button>
+                            </div>
+                        </section>
+
+                        <section class="partner-access-summary">
+                            <div class="partner-access-summary-grid">
+                                <article class="partner-access-summary-card">
+                                    <strong>Brands</strong>
+                                    <span data-partner-brand-summary>None selected</span>
+                                </article>
+                                <article class="partner-access-summary-card">
+                                    <strong>Products</strong>
+                                    <span data-partner-product-summary>None selected</span>
+                                </article>
+                                <article class="partner-access-summary-card">
+                                    <strong>SKUs</strong>
+                                    <span data-partner-sku-summary>None selected</span>
+                                </article>
+                            </div>
+                            <div class="partner-access-tag-list" data-partner-selected-skus>
+                                <div class="partner-access-empty">Selected SKUs will show here.</div>
+                            </div>
+                        </section>
+                    </section>
                     <label class="admin-affiliate-field">
                         <span class="admin-control-label">Notes</span>
                         <input type="text" name="notes" maxlength="300">
@@ -148,12 +189,12 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                         <h3>Partner login and destination</h3>
                     </div>
                 </div>
-                <div class="admin-note-stack">
-                    <div class="admin-note-card"><strong>Partner Code</strong><span data-note-code>Pending</span></div>
-                    <div class="admin-note-card"><strong>Partner URL</strong><span data-note-url>Pending</span></div>
-                    <div class="admin-note-card"><strong>Login Hint</strong><span>The partner can use the profile code and their registered name to sign in on `partner.jenanggemi.com`.</span></div>
-                </div>
-            </section>
+                    <div class="admin-note-stack">
+                        <div class="admin-note-card"><strong>Partner Code</strong><span data-note-code>Pending</span></div>
+                        <div class="admin-note-card"><strong>Partner URL</strong><span data-note-url>Pending</span></div>
+                        <div class="admin-note-card"><strong>Access Hint</strong><span>The partner can only order from the SKUs selected above, and those selections stay editable from this page.</span></div>
+                    </div>
+                </section>
 
             <div class="admin-bottom-actions">
                 <a class="admin-ghost-btn admin-link-btn" href="../partner-profiles/">Return To Partner Profiles</a>
