@@ -95,6 +95,19 @@ document.addEventListener('DOMContentLoaded', () => {
     node.textContent = message || '';
   };
 
+  const closeSkuRowMenus = () => {
+    document.querySelectorAll('[data-sku-row-menu]').forEach((menu) => {
+      const trigger = menu.querySelector('[data-sku-row-menu-trigger]');
+      const panel = menu.querySelector('[data-sku-row-menu-panel]');
+      if (trigger instanceof HTMLButtonElement) {
+        trigger.setAttribute('aria-expanded', 'false');
+      }
+      if (panel instanceof HTMLElement) {
+        panel.hidden = true;
+      }
+    });
+  };
+
   const setRequired = (field, required) => {
     if (field && 'required' in field) field.required = required;
   };
@@ -443,10 +456,19 @@ document.addEventListener('DOMContentLoaded', () => {
         <td>${escapeHtml(row.stock_trigger ?? 0)}</td>
         <td>${escapeHtml(row.cogs ?? 0)}</td>
         <td>
-          <div class="admin-sku-actions">
-            <button type="button" class="admin-soft-btn" data-change-product-name="${escapeHtml(row.sku || '')}">Product Name</button>
-            <button type="button" class="admin-primary-btn" data-change-inventory="${escapeHtml(row.sku || '')}">Inventory</button>
-            <button type="button" class="admin-ghost-btn" data-change-cogs="${escapeHtml(row.sku || '')}">COGS</button>
+          <div class="admin-sku-row-menu" data-sku-row-menu>
+            <button
+              type="button"
+              class="admin-ghost-btn admin-sku-row-menu-trigger"
+              data-sku-row-menu-trigger
+              aria-expanded="false"
+              aria-label="Open SKU action menu"
+            >...</button>
+            <div class="admin-sku-row-menu-panel" data-sku-row-menu-panel hidden>
+              <button type="button" class="admin-menu-item" data-change-product-name="${escapeHtml(row.sku || '')}">Product Name</button>
+              <button type="button" class="admin-menu-item" data-change-inventory="${escapeHtml(row.sku || '')}">Inventory</button>
+              <button type="button" class="admin-menu-item" data-change-cogs="${escapeHtml(row.sku || '')}">COGS</button>
+            </div>
           </div>
         </td>
       </tr>
@@ -829,20 +851,36 @@ document.addEventListener('DOMContentLoaded', () => {
     const target = event.target instanceof Element ? event.target : null;
     if (!target) return;
 
+    const rowMenuTrigger = target.closest('[data-sku-row-menu-trigger]');
+    if (rowMenuTrigger instanceof HTMLButtonElement) {
+      const menu = rowMenuTrigger.closest('[data-sku-row-menu]');
+      const panel = menu?.querySelector('[data-sku-row-menu-panel]');
+      const willOpen = panel instanceof HTMLElement ? panel.hidden : false;
+      closeSkuRowMenus();
+      if (panel instanceof HTMLElement && willOpen) {
+        panel.hidden = false;
+        rowMenuTrigger.setAttribute('aria-expanded', 'true');
+      }
+      return;
+    }
+
     const productNameButton = target.closest('[data-change-product-name]');
     if (productNameButton instanceof HTMLButtonElement) {
+      closeSkuRowMenus();
       openProductNameModal(productNameButton.dataset.changeProductName || '');
       return;
     }
 
     const inventoryButton = target.closest('[data-change-inventory]');
     if (inventoryButton instanceof HTMLButtonElement) {
+      closeSkuRowMenus();
       openInventoryModal(inventoryButton.dataset.changeInventory || '');
       return;
     }
 
     const cogsButton = target.closest('[data-change-cogs]');
     if (!(cogsButton instanceof HTMLButtonElement)) return;
+    closeSkuRowMenus();
     openCogsModal(cogsButton.dataset.changeCogs || '');
   });
 
@@ -945,6 +983,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.querySelectorAll('[data-close-approval-modal]').forEach((button) => {
     button.addEventListener('click', closeApprovalModal);
+  });
+
+  document.addEventListener('click', (event) => {
+    const target = event.target;
+    if (!(target instanceof Node)) return;
+    if (!tableBody?.contains(target)) {
+      closeSkuRowMenus();
+    }
   });
 
   [searchInput, filterBrand, filterUnit, filterFlavor, filterProduct].forEach((node) => {
