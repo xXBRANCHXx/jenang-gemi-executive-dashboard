@@ -12,6 +12,61 @@ function jg_sku_fail(string $message, int $status = 422): void
     exit;
 }
 
+function jg_sku_product_name_store_path(): string
+{
+    return dirname(__DIR__, 2) . '/sku-product-names.json';
+}
+
+function jg_sku_read_product_name_map(): array
+{
+    $path = jg_sku_product_name_store_path();
+    if (!is_file($path)) {
+        return [];
+    }
+
+    $raw = @file_get_contents($path);
+    if (!is_string($raw) || trim($raw) === '') {
+        return [];
+    }
+
+    $decoded = json_decode($raw, true);
+    return is_array($decoded) ? $decoded : [];
+}
+
+function jg_sku_write_product_name_map(array $map): void
+{
+    $path = jg_sku_product_name_store_path();
+    $encoded = json_encode($map, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    if (!is_string($encoded)) {
+        jg_sku_fail('Unable to save Product Name.', 500);
+    }
+
+    if (@file_put_contents($path, $encoded . PHP_EOL, LOCK_EX) === false) {
+        jg_sku_fail('Unable to save Product Name.', 500);
+    }
+}
+
+function jg_sku_product_display_name(string $sku, string $fallback): string
+{
+    $map = jg_sku_read_product_name_map();
+    $value = trim((string) ($map[$sku] ?? ''));
+    return $value !== '' ? $value : $fallback;
+}
+
+function jg_sku_normalize_product_display_name(mixed $value): string
+{
+    $name = trim(preg_replace('/\s+/', ' ', (string) $value) ?? '');
+    if ($name === '') {
+        jg_sku_fail('Product Name is required.');
+    }
+
+    if (mb_strlen($name) > 160) {
+        jg_sku_fail('Product Name is too long.');
+    }
+
+    return $name;
+}
+
 function jg_sku_request_body(): array
 {
     $raw = file_get_contents('php://input');
@@ -535,6 +590,7 @@ function jg_sku_fetch_database(PDO $pdo): array
         ORDER BY s.created_at DESC, s.sku DESC'
     );
     foreach ($skuStmt->fetchAll() as $row) {
+        $baseProductName = (string) ($row['product_name'] ?? '');
         $historyStmt = $pdo->prepare(
             'SELECT old_price, new_price, takes_place, recorded_at
              FROM sku_cogs_history
@@ -563,7 +619,8 @@ function jg_sku_fetch_database(PDO $pdo): array
             'flavor_id' => (string) $row['flavor_id'],
             'flavor_name' => (string) $row['flavor_name'],
             'product_id' => (string) $row['product_id'],
-            'product_name' => (string) $row['product_name'],
+            'base_product_name' => $baseProductName,
+            'product_name' => jg_sku_product_display_name((string) ($row['sku'] ?? ''), $baseProductName),
             'starting_stock' => (int) ($row['starting_stock'] ?? 0),
             'current_stock' => (int) ($row['current_stock'] ?? 0),
             'stock_trigger' => (int) ($row['stock_trigger'] ?? 0),
@@ -943,6 +1000,27 @@ try {
 
         jg_sku_touch_version($pdo);
         $pdo->commit();
+        jg_sku_response($pdo);
+    }
+
+    if ($action === 'change_product_name') {
+        $sku = trim((string) ($request['sku'] ?? ''));
+        if ($sku === '') {
+            jg_sku_fail('SKU is required.');
+        }
+
+        $stmt = $pdo->prepare('SELECT sku, product_id FROM sku_skus WHERE sku = :sku LIMIT 1');
+        $stmt->execute([':sku' => $sku]);
+        $skuRow = $stmt->fetch();
+        if (!is_array($skuRow)) {
+            jg_sku_fail('SKU not found.', 404);
+        }
+
+        $productName = jg_sku_normalize_product_display_name($request['product_name'] ?? null);
+        $map = jg_sku_read_product_name_map();
+        $map[$sku] = $productName;
+        jg_sku_write_product_name_map($map);
+
         jg_sku_response($pdo);
     }
 

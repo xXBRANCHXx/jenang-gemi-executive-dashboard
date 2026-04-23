@@ -407,7 +407,7 @@ $pageBuildVersion = 'sku1.00.00';
                                 <th>SKU</th>
                                 <th>TAG</th>
                                 <th>Brand</th>
-                                <th>Product</th>
+                                <th>Product Name</th>
                                 <th>Flavor</th>
                                 <th>Unit</th>
                                 <th>Volume</th>
@@ -485,6 +485,38 @@ $pageBuildVersion = 'sku1.00.00';
                 </div>
             </form>
             <p class="admin-form-error" data-cogs-error hidden></p>
+        </div>
+    </div>
+
+    <div class="admin-modal-shell" data-product-name-modal hidden>
+        <div class="admin-modal-backdrop" data-close-product-name-modal></div>
+        <div class="admin-modal-card">
+            <div class="admin-panel-head admin-modal-head">
+                <div>
+                    <span class="admin-panel-kicker">Product Name</span>
+                    <h3>Change cosmetic product name</h3>
+                </div>
+            </div>
+            <form class="admin-sku-form-grid" data-product-name-form>
+                <input type="hidden" name="sku">
+                <label>
+                    <span>SKU</span>
+                    <input type="text" name="sku_display" readonly>
+                </label>
+                <label>
+                    <span>Base product</span>
+                    <input type="text" name="base_product_name" readonly>
+                </label>
+                <label class="admin-sku-full-span">
+                    <span>Product Name</span>
+                    <input type="text" name="product_name" maxlength="160" placeholder="Type readable product name" required>
+                </label>
+                <div class="admin-sku-actions">
+                    <button type="submit" class="admin-primary-btn">Save Product Name</button>
+                    <button type="button" class="admin-ghost-btn" data-close-product-name-modal>Cancel</button>
+                </div>
+            </form>
+            <p class="admin-form-error" data-product-name-error hidden></p>
         </div>
     </div>
 

@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const setupError = document.querySelector('[data-setup-error]');
   const applyError = document.querySelector('[data-apply-error]');
   const cogsError = document.querySelector('[data-cogs-error]');
+  const productNameError = document.querySelector('[data-product-name-error]');
   const inventoryError = document.querySelector('[data-inventory-error]');
   const approvalError = document.querySelector('[data-approval-error]');
   const skuPreview = document.querySelector('[data-sku-preview]');
@@ -27,6 +28,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const requestForm = document.querySelector('[data-request-form]');
   const cogsModal = document.querySelector('[data-cogs-modal]');
   const cogsForm = document.querySelector('[data-cogs-form]');
+  const productNameModal = document.querySelector('[data-product-name-modal]');
+  const productNameForm = document.querySelector('[data-product-name-form]');
   const cogsApplicationType = cogsForm?.querySelector('[data-cogs-application-type]');
   const cogsEndMode = cogsForm?.querySelector('[data-cogs-end-mode]');
   const inventoryModal = document.querySelector('[data-inventory-modal]');
@@ -441,6 +444,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <td>${escapeHtml(row.cogs ?? 0)}</td>
         <td>
           <div class="admin-sku-actions">
+            <button type="button" class="admin-soft-btn" data-change-product-name="${escapeHtml(row.sku || '')}">Product Name</button>
             <button type="button" class="admin-primary-btn" data-change-inventory="${escapeHtml(row.sku || '')}">Inventory</button>
             <button type="button" class="admin-ghost-btn" data-change-cogs="${escapeHtml(row.sku || '')}">COGS</button>
           </div>
@@ -563,6 +567,13 @@ document.addEventListener('DOMContentLoaded', () => {
     setError(cogsError, '');
   };
 
+  const closeProductNameModal = () => {
+    if (!productNameModal) return;
+    productNameModal.hidden = true;
+    productNameForm?.reset();
+    setError(productNameError, '');
+  };
+
   const closeInventoryModal = () => {
     if (!inventoryModal) return;
     inventoryModal.hidden = true;
@@ -589,6 +600,19 @@ document.addEventListener('DOMContentLoaded', () => {
     syncCogsFields();
     setError(cogsError, '');
     cogsModal.hidden = false;
+  };
+
+  const openProductNameModal = (sku) => {
+    if (!(productNameForm instanceof HTMLFormElement) || !productNameModal) return;
+    const row = state.database.skus.find((item) => item.sku === sku);
+    if (!row) return;
+
+    productNameForm.elements.sku.value = row.sku || '';
+    productNameForm.elements.sku_display.value = row.sku || '';
+    productNameForm.elements.base_product_name.value = row.base_product_name || row.product_name || '';
+    productNameForm.elements.product_name.value = row.product_name || row.base_product_name || '';
+    setError(productNameError, '');
+    productNameModal.hidden = false;
   };
 
   const openInventoryModal = (sku) => {
@@ -805,6 +829,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const target = event.target instanceof Element ? event.target : null;
     if (!target) return;
 
+    const productNameButton = target.closest('[data-change-product-name]');
+    if (productNameButton instanceof HTMLButtonElement) {
+      openProductNameModal(productNameButton.dataset.changeProductName || '');
+      return;
+    }
+
     const inventoryButton = target.closest('[data-change-inventory]');
     if (inventoryButton instanceof HTMLButtonElement) {
       openInventoryModal(inventoryButton.dataset.changeInventory || '');
@@ -836,6 +866,24 @@ document.addEventListener('DOMContentLoaded', () => {
       closeCogsModal();
     } catch (error) {
       setError(cogsError, error instanceof Error ? error.message : 'Unable to change COGS.');
+    }
+  });
+
+  productNameForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!(productNameForm instanceof HTMLFormElement)) return;
+    setError(productNameError, '');
+
+    try {
+      const formData = new window.FormData(productNameForm);
+      await postAction({
+        action: 'change_product_name',
+        sku: formData.get('sku'),
+        product_name: formData.get('product_name')
+      });
+      closeProductNameModal();
+    } catch (error) {
+      setError(productNameError, error instanceof Error ? error.message : 'Unable to change Product Name.');
     }
   });
 
@@ -885,6 +933,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.querySelectorAll('[data-close-cogs-modal]').forEach((button) => {
     button.addEventListener('click', closeCogsModal);
+  });
+
+  document.querySelectorAll('[data-close-product-name-modal]').forEach((button) => {
+    button.addEventListener('click', closeProductNameModal);
   });
 
   document.querySelectorAll('[data-close-inventory-modal]').forEach((button) => {
