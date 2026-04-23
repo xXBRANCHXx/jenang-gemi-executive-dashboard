@@ -128,8 +128,8 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                 <section class="partner-access-shell" data-partner-access-shell>
                     <div class="partner-access-intro">
                         <span class="partner-access-intro-kicker">Catalog-Guided Setup</span>
-                        <h4>Answer three questions to build this partner.</h4>
-                        <p>The choices below come directly from the SKU database, so the partner access list stays aligned with the real catalog instead of drifting into manual brand, product, and size combinations.</p>
+                        <h4>Answer two questions to build this partner.</h4>
+                        <p>The choices below come directly from the SKU database. Brand and product name are selected here, while SKU codes stay linked automatically in the backend.</p>
                     </div>
                     <div class="partner-access-steps" data-partner-steps>
                         <article class="partner-access-step is-active" data-partner-step-indicator="brands">
@@ -140,12 +140,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                         <article class="partner-access-step" data-partner-step-indicator="products">
                             <span class="partner-access-step-index">02</span>
                             <strong>Product</strong>
-                            <span>Pick the products inside the chosen brands.</span>
-                        </article>
-                        <article class="partner-access-step" data-partner-step-indicator="skus">
-                            <span class="partner-access-step-index">03</span>
-                            <strong>SKU</strong>
-                            <span>Select the exact SKU names this partner will sell.</span>
+                            <span>Pick the product names inside the chosen brands.</span>
                         </article>
                     </div>
 
@@ -173,9 +168,9 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                     <section class="partner-access-card" data-partner-step-panel="products" hidden>
                         <div class="partner-access-card-head">
                             <div>
-                                <span class="partner-access-question-index">Question 2 of 3</span>
+                                <span class="partner-access-question-index">Question 2 of 2</span>
                                 <h4>Select product</h4>
-                                <p>Multiple choice. Products are filtered by the brands you selected.</p>
+                                <p>Multiple choice. Products are filtered by the brands you selected. Matching SKU records are linked automatically in the backend.</p>
                             </div>
                         </div>
                         <label class="partner-access-search">
@@ -187,27 +182,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                         </div>
                         <div class="partner-access-actions">
                             <button type="button" class="admin-ghost-btn" data-partner-prev-step="brands">Back</button>
-                            <button type="button" class="admin-primary-btn" data-partner-next-step="skus">Continue To SKUs</button>
-                        </div>
-                    </section>
-
-                    <section class="partner-access-card" data-partner-step-panel="skus" hidden>
-                        <div class="partner-access-card-head">
-                            <div>
-                                <span class="partner-access-question-index">Question 3 of 3</span>
-                                <h4>Select SKU</h4>
-                                <p>Multiple choice. These are the exact SKU names this partner will be selling. This can be changed later at any time.</p>
-                            </div>
-                        </div>
-                        <label class="partner-access-search">
-                            <span>Search SKUs</span>
-                            <input type="search" placeholder="Type SKU, product, flavor, or size" data-sku-search>
-                        </label>
-                        <div class="partner-access-choice-grid" data-sku-choice-grid>
-                            <div class="partner-access-empty">Select a product first.</div>
-                        </div>
-                        <div class="partner-access-actions">
-                            <button type="button" class="admin-ghost-btn" data-partner-prev-step="products">Back</button>
+                            <span class="partner-access-inline-note">Related SKU records are assigned automatically.</span>
                         </div>
                     </section>
 
@@ -222,12 +197,12 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                                 <span data-partner-product-summary>None selected</span>
                             </article>
                             <article class="partner-access-summary-card">
-                                <strong>SKUs</strong>
-                                <span data-partner-sku-summary>None selected</span>
+                                <strong>Backend SKU Links</strong>
+                                <span data-partner-sku-summary>None linked yet</span>
                             </article>
                         </div>
                         <div class="partner-access-tag-list" data-partner-selected-skus>
-                            <div class="partner-access-empty">Selected SKUs will show here.</div>
+                            <div class="partner-access-empty">Linked backend SKU records will show here.</div>
                         </div>
                     </section>
                 </section>

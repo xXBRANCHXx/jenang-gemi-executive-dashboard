@@ -11,10 +11,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const brandChoiceGrid = document.querySelector('[data-brand-choice-grid]');
   const productChoiceGrid = document.querySelector('[data-product-choice-grid]');
-  const skuChoiceGrid = document.querySelector('[data-sku-choice-grid]');
   const brandSearch = document.querySelector('[data-brand-search]');
   const productSearch = document.querySelector('[data-product-search]');
-  const skuSearch = document.querySelector('[data-sku-search]');
   const selectedSkuList = document.querySelector('[data-partner-selected-skus]');
   const brandSummary = document.querySelector('[data-partner-brand-summary]');
   const productSummary = document.querySelector('[data-partner-product-summary]');
@@ -33,13 +31,12 @@ document.addEventListener('DOMContentLoaded', () => {
     },
     search: {
       brands: '',
-      products: '',
-      skus: ''
+      products: ''
     },
     activeStep: 'brands'
   };
 
-  const stepOrder = ['brands', 'products', 'skus'];
+  const stepOrder = ['brands', 'products'];
 
   const escapeHtml = (value) => String(value)
     .replace(/&/g, '&amp;')
@@ -99,6 +96,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const validSkus = new Set(filteredSkus().map((sku) => sku.sku));
     state.selections.skus = state.selections.skus.filter((skuCode) => validSkus.has(skuCode));
+  };
+
+  const syncDerivedSkus = () => {
+    state.selections.skus = filteredSkus().map((sku) => sku.sku);
   };
 
   const renderStepState = () => {
@@ -162,32 +163,6 @@ document.addEventListener('DOMContentLoaded', () => {
     `).join('');
   };
 
-  const renderSkus = () => {
-    if (!skuChoiceGrid) return;
-    const skus = filteredSkus().filter((sku) => {
-      if (!state.search.skus) return true;
-      return [sku.product_name, sku.base_product_name, sku.sku, sku.flavor_name, sku.size_label, sku.label].some((value) => matchesSearch(value, state.search.skus));
-    });
-    if (!state.selections.products.length) {
-      skuChoiceGrid.innerHTML = '<div class="partner-access-empty">Select a product first.</div>';
-      return;
-    }
-    if (!skus.length) {
-      skuChoiceGrid.innerHTML = `<div class="partner-access-empty">${state.search.skus ? 'No SKUs match that search.' : 'No SKUs match the current brand and product selection.'}</div>`;
-      return;
-    }
-
-    skuChoiceGrid.innerHTML = skus.map((sku) => `
-      <label class="partner-access-choice">
-        <input type="checkbox" data-partner-sku value="${escapeHtml(sku.sku || '')}" ${state.selections.skus.includes(sku.sku) ? 'checked' : ''}>
-        <span class="partner-access-choice-body">
-          <span class="partner-access-choice-title">${escapeHtml(sku.product_name || sku.label || sku.sku || '')}</span>
-          <span class="partner-access-choice-meta">${escapeHtml(sku.sku || '')} · ${escapeHtml(sku.flavor_name || 'No flavor')} · ${escapeHtml(sku.size_label || '')} · Stock ${escapeHtml(sku.current_stock ?? 0)}</span>
-        </span>
-      </label>
-    `).join('');
-  };
-
   const renderSummary = () => {
     const brands = selectedBrandRecords();
     const products = selectedProductRecords();
@@ -219,10 +194,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const renderSelectionUi = () => {
     hydrateSelections();
+    syncDerivedSkus();
     renderStepState();
     renderBrands();
     renderProducts();
-    renderSkus();
     renderSummary();
   };
 
@@ -338,10 +313,6 @@ document.addEventListener('DOMContentLoaded', () => {
         setError('Select at least one brand before continuing.');
         return;
       }
-      if (targetStep === 'skus' && !state.selections.products.length) {
-        setError('Select at least one product before continuing.');
-        return;
-      }
       setError('');
       openStep(targetStep);
     });
@@ -354,11 +325,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  [brandSearch, productSearch, skuSearch].forEach((input) => {
+  [brandSearch, productSearch].forEach((input) => {
     input?.addEventListener('input', () => {
       state.search.brands = brandSearch?.value || '';
       state.search.products = productSearch?.value || '';
-      state.search.skus = skuSearch?.value || '';
       renderSelectionUi();
     });
   });
@@ -377,9 +347,6 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    if (target.matches('[data-partner-sku]')) {
-      syncSelection('skus', Array.from(document.querySelectorAll('[data-partner-sku]:checked')).map((input) => input.value));
-    }
   });
 
   partnerList?.addEventListener('click', async (event) => {
@@ -420,12 +387,6 @@ document.addEventListener('DOMContentLoaded', () => {
       openStep('products');
       return;
     }
-    if (!state.selections.skus.length) {
-      setError('Select at least one SKU.');
-      openStep('skus');
-      return;
-    }
-
     try {
       const formData = new window.FormData(partnerForm);
       await requestJson({

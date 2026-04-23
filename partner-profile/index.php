@@ -99,8 +99,8 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                     <section class="partner-access-shell" data-profile-access-shell>
                         <div class="partner-access-intro">
                             <span class="partner-access-intro-kicker">Catalog-Guided Access</span>
-                            <h4>Update this partner by answering the same three catalog questions.</h4>
-                            <p>Every option is sourced from the live SKU database, so the profile stays tied to the actual catalog instead of a manually typed combination list.</p>
+                            <h4>Update this partner by answering the same two catalog questions.</h4>
+                            <p>Every option is sourced from the live SKU database, while SKU codes stay linked in the backend instead of being exposed in the editor.</p>
                         </div>
                         <div class="partner-access-steps" data-partner-steps>
                             <article class="partner-access-step is-active" data-partner-step-indicator="brands">
@@ -111,12 +111,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                             <article class="partner-access-step" data-partner-step-indicator="products">
                                 <span class="partner-access-step-index">02</span>
                                 <strong>Product</strong>
-                                <span>Filter the product list by the selected brands.</span>
-                            </article>
-                            <article class="partner-access-step" data-partner-step-indicator="skus">
-                                <span class="partner-access-step-index">03</span>
-                                <strong>SKU</strong>
-                                <span>Choose the exact sellable SKUs. This can be changed at any time.</span>
+                                <span>Filter the product-name list by the selected brands.</span>
                             </article>
                         </div>
 
@@ -144,9 +139,9 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                         <section class="partner-access-card" data-partner-step-panel="products" hidden>
                             <div class="partner-access-card-head">
                                 <div>
-                                    <span class="partner-access-question-index">Question 2 of 3</span>
+                                    <span class="partner-access-question-index">Question 2 of 2</span>
                                     <h4>Select product</h4>
-                                    <p>Multiple choice. Products are filtered by the brands you selected.</p>
+                                    <p>Multiple choice. Products are filtered by the brands you selected. Matching SKU records are linked automatically in the backend.</p>
                                 </div>
                             </div>
                             <label class="partner-access-search">
@@ -158,27 +153,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                             </div>
                             <div class="partner-access-actions">
                                 <button type="button" class="admin-ghost-btn" data-partner-prev-step="brands">Back</button>
-                                <button type="button" class="admin-primary-btn" data-partner-next-step="skus">Continue To SKUs</button>
-                            </div>
-                        </section>
-
-                        <section class="partner-access-card" data-partner-step-panel="skus" hidden>
-                            <div class="partner-access-card-head">
-                                <div>
-                                    <span class="partner-access-question-index">Question 3 of 3</span>
-                                    <h4>Select SKU</h4>
-                                    <p>Multiple choice. Choose exactly which SKU names the partner can sell.</p>
-                                </div>
-                            </div>
-                            <label class="partner-access-search">
-                                <span>Search SKUs</span>
-                                <input type="search" placeholder="Type SKU, product, flavor, or size" data-sku-search>
-                            </label>
-                            <div class="partner-access-choice-grid" data-sku-choice-grid>
-                                <div class="partner-access-empty">Select a product first.</div>
-                            </div>
-                            <div class="partner-access-actions">
-                                <button type="button" class="admin-ghost-btn" data-partner-prev-step="products">Back</button>
+                                <span class="partner-access-inline-note">Related SKU records are updated automatically.</span>
                             </div>
                         </section>
 
@@ -193,12 +168,12 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                                     <span data-partner-product-summary>None selected</span>
                                 </article>
                                 <article class="partner-access-summary-card">
-                                    <strong>SKUs</strong>
-                                    <span data-partner-sku-summary>None selected</span>
+                                    <strong>Backend SKU Links</strong>
+                                    <span data-partner-sku-summary>None linked yet</span>
                                 </article>
                             </div>
                             <div class="partner-access-tag-list" data-partner-selected-skus>
-                                <div class="partner-access-empty">Selected SKUs will show here.</div>
+                                <div class="partner-access-empty">Linked backend SKU records will show here.</div>
                             </div>
                         </section>
                     </section>
@@ -224,7 +199,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                     <div class="admin-note-stack">
                         <div class="admin-note-card"><strong>Partner Code</strong><span data-note-code>Pending</span></div>
                         <div class="admin-note-card"><strong>Partner URL</strong><span data-note-url>Pending</span></div>
-                        <div class="admin-note-card"><strong>Access Hint</strong><span>The partner can only order from the SKUs selected above, and those selections stay editable from this page.</span></div>
+                        <div class="admin-note-card"><strong>Access Hint</strong><span>The partner can only order from the product names selected above, while the related SKU records stay linked automatically in the backend.</span></div>
                     </div>
                 </section>
 
