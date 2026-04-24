@@ -10,6 +10,7 @@ Private admin dashboard for `admin.jenanggemi.com`.
 - `/logout/`
 - `/api/analytics/`
 - `/api/sku-db/`
+- `/api/partner-db-status/`
 
 ## Notes
 
@@ -25,3 +26,4 @@ Private admin dashboard for `admin.jenanggemi.com`.
 - This repo is intended to be deployed as the root of the `admin.jenanggemi.com` site in Hostinger Git deployment.
 - SKU login is separate from the main executive dashboard login. `sku_branch_password_hash`
   should be configured through `config.local.php` or `JG_SKU_BRANCH_PASSWORD_HASH`.
+- Partner profiles now use the partner MySQL database when `partner_db_*` is configured.
