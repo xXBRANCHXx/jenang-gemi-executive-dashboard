@@ -89,6 +89,13 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                 <form class="admin-affiliate-editor" data-profile-form hidden>
                     <input type="hidden" name="code">
                     <label class="admin-affiliate-field">
+                        <span class="admin-control-label">Partner code</span>
+                        <div class="admin-inline-input">
+                            <input type="text" name="partner_code" maxlength="64" required>
+                            <button type="button" class="admin-ghost-btn" data-regenerate-partner-code>Generate New Code</button>
+                        </div>
+                    </label>
+                    <label class="admin-affiliate-field">
                         <span class="admin-control-label">Partner name</span>
                         <input type="text" name="name" maxlength="160" required>
                     </label>

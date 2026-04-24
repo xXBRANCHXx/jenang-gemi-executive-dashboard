@@ -135,27 +135,61 @@ function jg_partner_slugify(string $value): string
     return $slug !== '' ? $slug : 'partner';
 }
 
-function jg_partner_code(string $name, array $database, ?string $currentCode = null): string
+function jg_partner_code_exists(array $database, string $candidate, ?string $currentCode = null): bool
 {
-    if ($currentCode !== null && $currentCode !== '') {
-        return $currentCode;
+    foreach ($database['partners'] ?? [] as $partner) {
+        $existingCode = (string) ($partner['code'] ?? '');
+        if ($existingCode === '') {
+            continue;
+        }
+        if ($currentCode !== null && $currentCode !== '' && $existingCode === $currentCode) {
+            continue;
+        }
+        if ($existingCode === $candidate) {
+            return true;
+        }
     }
 
-    $base = strtoupper(substr(preg_replace('/[^A-Z0-9]/', '', strtoupper($name)) ?? 'PTNR', 0, 4));
-    $base = str_pad($base !== '' ? $base : 'PTNR', 4, 'X');
-    $counter = count($database['partners'] ?? []) + 1;
+    return false;
+}
+
+function jg_partner_code_normalize(mixed $value, array $database, ?string $currentCode = null): string
+{
+    $normalized = strtoupper(trim((string) $value));
+    $normalized = preg_replace('/[^A-Z0-9-]+/', '-', $normalized) ?? '';
+    $normalized = trim((string) $normalized, '-');
+
+    if ($normalized === '') {
+        jg_partner_fail('Partner code is required.');
+    }
+    if (strlen($normalized) < 10) {
+        jg_partner_fail('Partner code must be at least 10 characters.');
+    }
+    if (strlen($normalized) > 64) {
+        jg_partner_fail('Partner code is too long.');
+    }
+    if (jg_partner_code_exists($database, $normalized, $currentCode)) {
+        jg_partner_fail('That partner code is already in use.');
+    }
+
+    return $normalized;
+}
+
+function jg_partner_generate_code(array $database, ?string $currentCode = null): string
+{
+    $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
     do {
-        $candidate = sprintf('%s-%03d', $base, $counter);
-        $exists = false;
-        foreach ($database['partners'] ?? [] as $partner) {
-            if ((string) ($partner['code'] ?? '') === $candidate) {
-                $exists = true;
-                break;
+        $segments = ['JGP'];
+        for ($segmentIndex = 0; $segmentIndex < 3; $segmentIndex += 1) {
+            $segment = '';
+            for ($charIndex = 0; $charIndex < 4; $charIndex += 1) {
+                $segment .= $alphabet[random_int(0, strlen($alphabet) - 1)];
             }
+            $segments[] = $segment;
         }
-        $counter += 1;
-    } while ($exists);
+        $candidate = implode('-', $segments);
+    } while (jg_partner_code_exists($database, $candidate, $currentCode));
 
     return $candidate;
 }
@@ -431,7 +465,11 @@ function jg_partner_build_record(array $payload, array $database, array $catalog
         jg_partner_fail('That partner page slug is already in use.');
     }
 
-    $code = jg_partner_code($name, $database, (string) ($existing['code'] ?? ''));
+    $currentCode = (string) ($existing['code'] ?? '');
+    $requestedCode = trim((string) ($payload['code'] ?? ''));
+    $code = $requestedCode !== ''
+        ? jg_partner_code_normalize($requestedCode, $database, $currentCode)
+        : ($currentCode !== '' ? $currentCode : jg_partner_generate_code($database));
     $createdAt = (string) ($existing['created_at'] ?? jg_partner_now());
     $updatedAt = jg_partner_now();
 
@@ -513,15 +551,15 @@ if ($action === 'create') {
 }
 
 if ($action === 'update') {
-    $code = trim((string) ($request['code'] ?? ''));
-    if ($code === '') {
+    $currentCode = trim((string) ($request['current_code'] ?? $request['code'] ?? ''));
+    if ($currentCode === '') {
         jg_partner_fail('Partner code is required.');
     }
 
     $matchIndex = null;
     $existing = null;
     foreach ($database['partners'] ?? [] as $index => $partner) {
-        if ((string) ($partner['code'] ?? '') === $code) {
+        if ((string) ($partner['code'] ?? '') === $currentCode) {
             $matchIndex = $index;
             $existing = $partner;
             break;

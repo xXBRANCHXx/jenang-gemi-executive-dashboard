@@ -3,7 +3,6 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!root) return;
 
   const endpoint = root.dataset.partnersEndpoint || '../api/partners/';
-  const partnerCode = root.dataset.partnerCode || '';
   const form = document.querySelector('[data-profile-form]');
   const errorNode = document.querySelector('[data-profile-error]');
   const partnerName = document.querySelector('[data-partner-name]');
@@ -11,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const codeNote = document.querySelector('[data-note-code]');
   const urlNote = document.querySelector('[data-note-url]');
   const deleteButton = document.querySelector('[data-delete-profile]');
+  const regenerateCodeButton = document.querySelector('[data-regenerate-partner-code]');
 
   const brandChoiceGrid = document.querySelector('[data-brand-choice-grid]');
   const productChoiceGrid = document.querySelector('[data-product-choice-grid]');
@@ -36,7 +36,16 @@ document.addEventListener('DOMContentLoaded', () => {
       brands: '',
       products: ''
     },
-    activeStep: 'brands'
+    activeStep: 'brands',
+    currentPartnerCode: root.dataset.partnerCode || ''
+  };
+
+  const generatePartnerCode = () => {
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const bytes = new Uint32Array(12);
+    window.crypto.getRandomValues(bytes);
+    const chars = Array.from(bytes, (value) => alphabet[value % alphabet.length]);
+    return `JGP-${chars.slice(0, 4).join('')}-${chars.slice(4, 8).join('')}-${chars.slice(8, 12).join('')}`;
   };
 
   const stepOrder = ['brands', 'products'];
@@ -205,6 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
     state.partner = partner;
     form.hidden = false;
     form.elements.code.value = partner.code || '';
+    form.elements.partner_code.value = partner.code || '';
     form.elements.name.value = partner.name || '';
     form.elements.partner_slug.value = partner.partner_slug || '';
     form.elements.notes.value = partner.notes || '';
@@ -229,8 +239,8 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const loadPartner = async () => {
-    if (!partnerCode) throw new Error('Missing partner code.');
-    const payload = await requestJson(`${endpoint}?code=${encodeURIComponent(partnerCode)}`);
+    if (!state.currentPartnerCode) throw new Error('Missing partner code.');
+    const payload = await requestJson(`${endpoint}?code=${encodeURIComponent(state.currentPartnerCode)}`);
     state.skuCatalog = payload.sku_catalog || state.skuCatalog;
     fillForm(payload.partner || {});
   };
@@ -300,17 +310,31 @@ document.addEventListener('DOMContentLoaded', () => {
         method: 'POST',
         body: {
           action: 'update',
-          code: formData.get('code'),
+          current_code: state.currentPartnerCode,
+          code: formData.get('partner_code'),
           name: formData.get('name'),
           partner_slug: formData.get('partner_slug'),
           selected_skus: [...new Set(state.selections.skus)],
           notes: formData.get('notes')
         }
       });
+      const nextCode = String(formData.get('partner_code') || '').trim();
+      if (nextCode) {
+        state.currentPartnerCode = nextCode;
+        state.partner = { ...(state.partner || {}), code: nextCode };
+        const nextUrl = new URL(window.location.href);
+        nextUrl.searchParams.set('code', nextCode);
+        window.history.replaceState({}, '', nextUrl.toString());
+      }
       await loadPartner();
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Unable to save partner.');
     }
+  });
+
+  regenerateCodeButton?.addEventListener('click', () => {
+    if (!(form instanceof HTMLFormElement)) return;
+    form.elements.partner_code.value = generatePartnerCode();
   });
 
   deleteButton?.addEventListener('click', async () => {
