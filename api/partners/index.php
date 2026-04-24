@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/auth.php';
 require_once dirname(__DIR__, 2) . '/sku-db-bootstrap.php';
+require_once dirname(__DIR__, 2) . '/partner-db-bootstrap.php';
 
 jg_admin_require_auth_json();
 
@@ -43,6 +44,42 @@ function jg_partner_request_body(): array
 
 function jg_partner_read_database(): array
 {
+    $pdo = jg_partner_db();
+    if ($pdo instanceof PDO) {
+        $stmt = $pdo->query(
+            'SELECT code, name, partner_slug, notes, selected_skus_json, pricing_json, created_at, updated_at
+             FROM partner_profiles
+             ORDER BY updated_at DESC, code ASC'
+        );
+
+        $partners = [];
+        $updatedAt = '';
+        foreach ($stmt->fetchAll() as $row) {
+            $selectedSkus = json_decode((string) ($row['selected_skus_json'] ?? ''), true);
+            $pricing = json_decode((string) ($row['pricing_json'] ?? ''), true);
+            $updatedAt = max($updatedAt, (string) ($row['updated_at'] ?? ''));
+            $partners[] = [
+                'code' => (string) ($row['code'] ?? ''),
+                'name' => (string) ($row['name'] ?? ''),
+                'partner_slug' => (string) ($row['partner_slug'] ?? ''),
+                'store_path' => '/' . trim((string) ($row['partner_slug'] ?? ''), '/') . '/',
+                'notes' => (string) ($row['notes'] ?? ''),
+                'selected_skus' => is_array($selectedSkus) ? array_values(array_filter(array_map('strval', $selectedSkus))) : [],
+                'pricing' => is_array($pricing) ? $pricing : [],
+                'created_at' => (string) ($row['created_at'] ?? ''),
+                'updated_at' => (string) ($row['updated_at'] ?? ''),
+            ];
+        }
+
+        return [
+            'meta' => [
+                'version' => 'mysql',
+                'updated_at' => $updatedAt,
+            ],
+            'partners' => $partners,
+        ];
+    }
+
     $path = jg_partner_store_path();
     $fallbackPath = dirname(__DIR__, 2) . '/data/partners.json';
     $readPath = is_file($path) ? $path : $fallbackPath;
@@ -80,6 +117,44 @@ function jg_partner_read_database(): array
 
 function jg_partner_write_database(array $database): void
 {
+    $pdo = jg_partner_db();
+    if ($pdo instanceof PDO) {
+        $pdo->beginTransaction();
+        try {
+            $pdo->exec('DELETE FROM partner_profiles');
+            $stmt = $pdo->prepare(
+                'INSERT INTO partner_profiles
+                    (code, name, partner_slug, notes, selected_skus_json, pricing_json, created_at, updated_at)
+                 VALUES
+                    (:code, :name, :partner_slug, :notes, :selected_skus_json, :pricing_json, :created_at, :updated_at)'
+            );
+
+            foreach ($database['partners'] ?? [] as $partner) {
+                if (!is_array($partner)) {
+                    continue;
+                }
+                $stmt->execute([
+                    ':code' => (string) ($partner['code'] ?? ''),
+                    ':name' => (string) ($partner['name'] ?? ''),
+                    ':partner_slug' => (string) ($partner['partner_slug'] ?? ''),
+                    ':notes' => (string) ($partner['notes'] ?? ''),
+                    ':selected_skus_json' => json_encode(array_values(array_filter((array) ($partner['selected_skus'] ?? []), 'is_string')), JSON_UNESCAPED_SLASHES),
+                    ':pricing_json' => json_encode((array) ($partner['pricing'] ?? []), JSON_UNESCAPED_SLASHES),
+                    ':created_at' => gmdate('Y-m-d H:i:s', strtotime((string) ($partner['created_at'] ?? jg_partner_now()))),
+                    ':updated_at' => gmdate('Y-m-d H:i:s', strtotime((string) ($partner['updated_at'] ?? jg_partner_now()))),
+                ]);
+            }
+
+            $pdo->commit();
+            return;
+        } catch (Throwable) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            jg_partner_fail('Unable to save partner registry.', 500);
+        }
+    }
+
     $path = jg_partner_store_path();
     $encoded = json_encode($database, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
     if (!is_string($encoded)) {

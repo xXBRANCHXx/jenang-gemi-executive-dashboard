@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__, 3) . '/sku-db-bootstrap.php';
+require_once dirname(__DIR__, 3) . '/partner-db-bootstrap.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -36,6 +37,41 @@ function jg_public_partner_product_name_map(): array
 
 function jg_public_partner_read_database(): array
 {
+    $pdo = jg_partner_db();
+    if ($pdo instanceof PDO) {
+        $stmt = $pdo->query(
+            'SELECT code, name, partner_slug, notes, selected_skus_json, pricing_json, created_at, updated_at
+             FROM partner_profiles
+             ORDER BY updated_at DESC, code ASC'
+        );
+
+        $partners = [];
+        $updatedAt = '';
+        foreach ($stmt->fetchAll() as $row) {
+            $selectedSkus = json_decode((string) ($row['selected_skus_json'] ?? ''), true);
+            $pricing = json_decode((string) ($row['pricing_json'] ?? ''), true);
+            $updatedAt = max($updatedAt, (string) ($row['updated_at'] ?? ''));
+            $partners[] = [
+                'code' => (string) ($row['code'] ?? ''),
+                'name' => (string) ($row['name'] ?? ''),
+                'partner_slug' => (string) ($row['partner_slug'] ?? ''),
+                'notes' => (string) ($row['notes'] ?? ''),
+                'selected_skus' => is_array($selectedSkus) ? array_values(array_filter(array_map('strval', $selectedSkus))) : [],
+                'pricing' => is_array($pricing) ? $pricing : [],
+                'created_at' => (string) ($row['created_at'] ?? ''),
+                'updated_at' => (string) ($row['updated_at'] ?? ''),
+            ];
+        }
+
+        return [
+            'meta' => [
+                'version' => 'mysql',
+                'updated_at' => $updatedAt,
+            ],
+            'partners' => $partners,
+        ];
+    }
+
     $path = jg_public_partner_store_path();
     if (!is_file($path)) {
         return [
