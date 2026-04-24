@@ -17,7 +17,12 @@ function jg_partner_fail(string $message, int $status = 422): void
 
 function jg_partner_store_path(): string
 {
-    return dirname(__DIR__, 2) . '/data/partners.json';
+    $runtimePath = dirname(__DIR__, 2) . '/data/partners.runtime.json';
+    if (is_file($runtimePath)) {
+        return $runtimePath;
+    }
+
+    return $runtimePath;
 }
 
 function jg_partner_now(): string
@@ -39,7 +44,9 @@ function jg_partner_request_body(): array
 function jg_partner_read_database(): array
 {
     $path = jg_partner_store_path();
-    if (!is_file($path)) {
+    $fallbackPath = dirname(__DIR__, 2) . '/data/partners.json';
+    $readPath = is_file($path) ? $path : $fallbackPath;
+    if (!is_file($readPath)) {
         return [
             'meta' => [
                 'version' => '1.00.00',
@@ -49,7 +56,7 @@ function jg_partner_read_database(): array
         ];
     }
 
-    $raw = @file_get_contents($path);
+    $raw = @file_get_contents($readPath);
     if (!is_string($raw) || trim($raw) === '') {
         return [
             'meta' => [

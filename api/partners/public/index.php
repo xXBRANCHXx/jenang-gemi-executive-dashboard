@@ -14,6 +14,11 @@ function jg_public_partner_response(array $payload, int $status = 200): void
 
 function jg_public_partner_store_path(): string
 {
+    $runtimePath = dirname(__DIR__, 3) . '/data/partners.runtime.json';
+    if (is_file($runtimePath)) {
+        return $runtimePath;
+    }
+
     return dirname(__DIR__, 3) . '/data/partners.json';
 }
 
