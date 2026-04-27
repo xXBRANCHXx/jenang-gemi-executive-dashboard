@@ -171,26 +171,26 @@ function jg_sku_money(mixed $value, string $label = 'COGS'): string
     return number_format($amount, 2, '.', '');
 }
 
-function jg_sku_batch_number(mixed $value, bool $required = true): string
+function jg_sku_po_number(mixed $value, bool $required = true): string
 {
-    $batchNumber = strtoupper(trim((string) $value));
-    if ($batchNumber === '') {
+    $poNumber = strtoupper(trim((string) $value));
+    if ($poNumber === '') {
         if ($required) {
-            jg_sku_fail('Batch Number is required.');
+            jg_sku_fail('PO Number is required.');
         }
 
         return '';
     }
 
-    if (strlen($batchNumber) > 80) {
-        jg_sku_fail('Batch Number is too long.');
+    if (strlen($poNumber) > 80) {
+        jg_sku_fail('PO Number is too long.');
     }
 
-    if (!preg_match('/^[A-Z0-9._\-\/]+$/', $batchNumber)) {
-        jg_sku_fail('Batch Number may only use letters, numbers, dot, dash, underscore, and slash.');
+    if (!preg_match('/^[A-Z0-9._\-\/ ]+$/', $poNumber)) {
+        jg_sku_fail('PO Number may only use letters, numbers, space, dot, dash, underscore, and slash.');
     }
 
-    return $batchNumber;
+    return preg_replace('/\s+/', ' ', $poNumber) ?? $poNumber;
 }
 
 function jg_sku_date_value(mixed $value, string $label): string
@@ -210,36 +210,8 @@ function jg_sku_date_value(mixed $value, string $label): string
 
 function jg_sku_build_takes_place(array $payload): string
 {
-    $type = trim((string) ($payload['application_type'] ?? 'next_purchase'));
-    if (!in_array($type, ['next_purchase', 'by_date', 'batch_number'], true)) {
-        jg_sku_fail('COGS application type is invalid.');
-    }
-
-    if ($type === 'next_purchase') {
-        return 'Next Purchase';
-    }
-
-    if ($type === 'batch_number') {
-        $batchNumber = jg_sku_batch_number($payload['batch_number'] ?? null, true);
-        return 'Batch Number | ' . $batchNumber;
-    }
-
-    $startDate = jg_sku_date_value($payload['start_date'] ?? null, 'Start date');
-    $endMode = trim((string) ($payload['end_mode'] ?? 'until_next_change'));
-    if (!in_array($endMode, ['until_next_change', 'custom_date'], true)) {
-        jg_sku_fail('End date mode is invalid.');
-    }
-
-    if ($endMode === 'custom_date') {
-        $endDate = jg_sku_date_value($payload['end_date'] ?? null, 'End date');
-        if ($endDate < $startDate) {
-            jg_sku_fail('End date cannot be before start date.');
-        }
-
-        return sprintf('By Date | %s -> %s', $startDate, $endDate);
-    }
-
-    return sprintf('By Date | %s -> until next change', $startDate);
+    $poNumber = jg_sku_po_number($payload['po_number'] ?? null, true);
+    return 'PO Number | ' . $poNumber;
 }
 
 function jg_sku_bump_patch(string $version): string
@@ -670,9 +642,9 @@ function jg_sku_create_sku(PDO $pdo, array $payload, ?int $approvalRequestId = n
     $startingStock = jg_sku_integer($payload['starting_stock'] ?? null, 'Starting stock');
     $stockTrigger = jg_sku_integer($payload['stock_trigger'] ?? null, 'Stock trigger');
     $cogs = jg_sku_money($payload['cogs'] ?? null);
-    $batchNumber = $startingStock > 0
-        ? jg_sku_batch_number($payload['batch_number'] ?? null, true)
-        : jg_sku_batch_number($payload['batch_number'] ?? null, false);
+    $poNumber = $startingStock > 0
+        ? jg_sku_po_number($payload['po_number'] ?? null, true)
+        : jg_sku_po_number($payload['po_number'] ?? null, false);
 
     $parts = jg_sku_compose_code($pdo, $brandId, $unitId, $volumeInput, $flavorId, $productId);
     jg_sku_assert_unique_sku_and_tag($pdo, $parts['sku'], $tag);
@@ -713,7 +685,7 @@ function jg_sku_create_sku(PDO $pdo, array $payload, ?int $approvalRequestId = n
     $historyStmt->execute([
         ':sku' => $parts['sku'],
         ':new_price' => $cogs,
-        ':takes_place' => $batchNumber !== '' ? ('Opening stock | Batch ' . $batchNumber) : 'Opening stock',
+        ':takes_place' => $poNumber !== '' ? ('Opening stock | PO ' . $poNumber) : 'Opening stock',
         ':recorded_at' => $now,
     ]);
 }
@@ -910,7 +882,7 @@ try {
             'starting_stock' => $request['starting_stock'] ?? null,
             'stock_trigger' => $request['stock_trigger'] ?? null,
             'cogs' => $request['cogs'] ?? null,
-            'batch_number' => $request['batch_number'] ?? null,
+            'po_number' => $request['po_number'] ?? null,
         ], $requestId);
 
         $approvedSku = (string) ($requestRow['proposed_sku'] ?? '');
@@ -976,15 +948,12 @@ try {
         }
 
         $pdo->beginTransaction();
-        $shouldUpdateCurrentCogs = trim((string) ($request['application_type'] ?? 'next_purchase')) !== 'batch_number';
-        if ($shouldUpdateCurrentCogs) {
-            $updateStmt = $pdo->prepare('UPDATE sku_skus SET cogs = :cogs, updated_at = :updated_at WHERE sku = :sku');
-            $updateStmt->execute([
-                ':cogs' => $newPrice,
-                ':updated_at' => jg_sku_now(),
-                ':sku' => $sku,
-            ]);
-        }
+        $updateStmt = $pdo->prepare('UPDATE sku_skus SET cogs = :cogs, updated_at = :updated_at WHERE sku = :sku');
+        $updateStmt->execute([
+            ':cogs' => $newPrice,
+            ':updated_at' => jg_sku_now(),
+            ':sku' => $sku,
+        ]);
 
         $historyStmt = $pdo->prepare(
             'INSERT INTO sku_cogs_history (sku, old_price, new_price, takes_place, recorded_at)
@@ -1049,7 +1018,7 @@ try {
                 jg_sku_fail('Quantity to add must be at least 1.');
             }
 
-            $batchNumber = jg_sku_batch_number($request['batch_number'] ?? null, true);
+            $poNumber = jg_sku_po_number($request['po_number'] ?? null, true);
             $updateStmt = $pdo->prepare('UPDATE sku_skus SET current_stock = current_stock + :quantity_to_add, updated_at = :updated_at WHERE sku = :sku');
             $updateStmt->execute([
                 ':quantity_to_add' => $quantityToAdd,
@@ -1064,7 +1033,7 @@ try {
             $historyStmt->execute([
                 ':sku' => $sku,
                 ':new_price' => number_format((float) ($skuRow['cogs'] ?? 0), 2, '.', ''),
-                ':takes_place' => sprintf('Inventory add | Batch %s | Qty %d', $batchNumber, $quantityToAdd),
+                ':takes_place' => sprintf('Inventory add | PO %s | Qty %d', $poNumber, $quantityToAdd),
                 ':recorded_at' => jg_sku_now(),
             ]);
         } else {

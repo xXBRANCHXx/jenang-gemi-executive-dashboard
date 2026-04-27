@@ -30,8 +30,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const cogsForm = document.querySelector('[data-cogs-form]');
   const productNameModal = document.querySelector('[data-product-name-modal]');
   const productNameForm = document.querySelector('[data-product-name-form]');
-  const cogsApplicationType = cogsForm?.querySelector('[data-cogs-application-type]');
-  const cogsEndMode = cogsForm?.querySelector('[data-cogs-end-mode]');
   const inventoryModal = document.querySelector('[data-inventory-modal]');
   const inventoryForm = document.querySelector('[data-inventory-form]');
   const inventoryAction = inventoryForm?.querySelector('[data-inventory-action]');
@@ -114,38 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const syncCogsFields = () => {
     if (!(cogsForm instanceof HTMLFormElement)) return;
-    const mode = String(cogsApplicationType?.value || 'next_purchase');
-    const endMode = String(cogsEndMode?.value || 'until_next_change');
-    const dateWrap = cogsForm.querySelector('[data-cogs-date-wrap]');
-    const endModeWrap = cogsForm.querySelector('[data-cogs-end-mode-wrap]');
-    const endDateWrap = cogsForm.querySelector('[data-cogs-end-date-wrap]');
-    const batchWrap = cogsForm.querySelector('[data-cogs-batch-wrap]');
-    const startDate = cogsForm.elements.start_date;
-    const endDate = cogsForm.elements.end_date;
-    const batchNumber = cogsForm.elements.batch_number;
-
-    if (dateWrap instanceof HTMLElement) dateWrap.hidden = mode !== 'by_date';
-    if (endModeWrap instanceof HTMLElement) endModeWrap.hidden = mode !== 'by_date';
-    if (endDateWrap instanceof HTMLElement) endDateWrap.hidden = !(mode === 'by_date' && endMode === 'custom_date');
-    if (batchWrap instanceof HTMLElement) batchWrap.hidden = mode !== 'batch_number';
-
-    setRequired(startDate, mode === 'by_date');
-    setRequired(endDate, mode === 'by_date' && endMode === 'custom_date');
-    setRequired(batchNumber, mode === 'batch_number');
-
-    if (mode !== 'by_date') {
-      startDate.value = '';
-      endDate.value = '';
-      if (cogsEndMode instanceof HTMLSelectElement) cogsEndMode.value = 'until_next_change';
-    }
-
-    if (!(mode === 'by_date' && endMode === 'custom_date')) {
-      endDate.value = '';
-    }
-
-    if (mode !== 'batch_number') {
-      batchNumber.value = '';
-    }
+    setRequired(cogsForm.elements.po_number, true);
   };
 
   const syncInventoryFields = () => {
@@ -153,22 +120,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const mode = String(inventoryAction?.value || 'set_total');
     const newStockWrap = inventoryForm.querySelector('[name="new_stock"]')?.closest('label');
     const addWrap = inventoryForm.querySelector('[data-inventory-add-wrap]');
-    const batchWrap = inventoryForm.querySelector('[data-inventory-batch-wrap]');
+    const poWrap = inventoryForm.querySelector('[data-inventory-po-wrap]');
     const newStock = inventoryForm.elements.new_stock;
     const quantityToAdd = inventoryForm.elements.quantity_to_add;
-    const batchNumber = inventoryForm.elements.batch_number;
+    const poNumber = inventoryForm.elements.po_number;
 
     if (newStockWrap instanceof HTMLElement) newStockWrap.hidden = mode === 'add_stock';
     if (addWrap instanceof HTMLElement) addWrap.hidden = mode !== 'add_stock';
-    if (batchWrap instanceof HTMLElement) batchWrap.hidden = mode !== 'add_stock';
+    if (poWrap instanceof HTMLElement) poWrap.hidden = mode !== 'add_stock';
 
     setRequired(newStock, mode !== 'add_stock');
     setRequired(quantityToAdd, mode === 'add_stock');
-    setRequired(batchNumber, mode === 'add_stock');
+    setRequired(poNumber, mode === 'add_stock');
 
     if (mode !== 'add_stock') {
       quantityToAdd.value = '';
-      batchNumber.value = '';
+      poNumber.value = '';
     } else {
       newStock.value = '';
     }
@@ -583,8 +550,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!cogsModal) return;
     cogsModal.hidden = true;
     cogsForm?.reset();
-    if (cogsApplicationType instanceof HTMLSelectElement) cogsApplicationType.value = 'next_purchase';
-    if (cogsEndMode instanceof HTMLSelectElement) cogsEndMode.value = 'until_next_change';
     syncCogsFields();
     setError(cogsError, '');
   };
@@ -614,11 +579,7 @@ document.addEventListener('DOMContentLoaded', () => {
     cogsForm.elements.sku_display.value = row.sku || '';
     cogsForm.elements.old_price.value = String(row.cogs ?? 0);
     cogsForm.elements.new_price.value = String(row.cogs ?? 0);
-    if (cogsApplicationType instanceof HTMLSelectElement) cogsApplicationType.value = 'next_purchase';
-    if (cogsEndMode instanceof HTMLSelectElement) cogsEndMode.value = 'until_next_change';
-    cogsForm.elements.start_date.value = '';
-    cogsForm.elements.end_date.value = '';
-    cogsForm.elements.batch_number.value = '';
+    cogsForm.elements.po_number.value = '';
     syncCogsFields();
     setError(cogsError, '');
     cogsModal.hidden = false;
@@ -648,7 +609,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (inventoryAction instanceof HTMLSelectElement) inventoryAction.value = 'set_total';
     inventoryForm.elements.new_stock.value = String(row.current_stock ?? row.starting_stock ?? 0);
     inventoryForm.elements.quantity_to_add.value = '';
-    inventoryForm.elements.batch_number.value = '';
+    inventoryForm.elements.po_number.value = '';
     syncInventoryFields();
     setError(inventoryError, '');
     inventoryModal.hidden = false;
@@ -675,7 +636,7 @@ document.addEventListener('DOMContentLoaded', () => {
     approvalForm.elements.starting_stock.value = '0';
     approvalForm.elements.stock_trigger.value = '0';
     approvalForm.elements.cogs.value = '0';
-    approvalForm.elements.batch_number.value = '';
+    approvalForm.elements.po_number.value = '';
     approvalForm.elements.decision_notes.value = '';
 
     if (approvalSummary) {
@@ -730,8 +691,6 @@ document.addEventListener('DOMContentLoaded', () => {
   allBrandSelects().forEach((select) => {
     select.addEventListener('change', handleBrandSelectionChange);
   });
-  cogsApplicationType?.addEventListener('change', syncCogsFields);
-  cogsEndMode?.addEventListener('change', syncCogsFields);
   inventoryAction?.addEventListener('change', syncInventoryFields);
   unitSelect?.addEventListener('change', renderPreview);
   flavorSelect?.addEventListener('change', renderPreview);
@@ -779,7 +738,7 @@ document.addEventListener('DOMContentLoaded', () => {
         starting_stock: applyData.get('starting_stock'),
         stock_trigger: applyData.get('stock_trigger'),
         cogs: applyData.get('cogs'),
-        batch_number: String(applyData.get('batch_number') || '').toUpperCase()
+        po_number: String(applyData.get('po_number') || '').toUpperCase()
       });
 
       setupForm.reset();
@@ -895,11 +854,7 @@ document.addEventListener('DOMContentLoaded', () => {
         action: 'change_cogs',
         sku: formData.get('sku'),
         new_price: formData.get('new_price'),
-        application_type: formData.get('application_type'),
-        start_date: formData.get('start_date'),
-        end_mode: formData.get('end_mode'),
-        end_date: formData.get('end_date'),
-        batch_number: String(formData.get('batch_number') || '').toUpperCase()
+        po_number: String(formData.get('po_number') || '').toUpperCase()
       });
       closeCogsModal();
     } catch (error) {
@@ -938,7 +893,7 @@ document.addEventListener('DOMContentLoaded', () => {
         inventory_action: formData.get('inventory_action'),
         new_stock: formData.get('new_stock'),
         quantity_to_add: formData.get('quantity_to_add'),
-        batch_number: String(formData.get('batch_number') || '').toUpperCase()
+        po_number: String(formData.get('po_number') || '').toUpperCase()
       });
       closeInventoryModal();
     } catch (error) {
@@ -960,7 +915,7 @@ document.addEventListener('DOMContentLoaded', () => {
         starting_stock: formData.get('starting_stock'),
         stock_trigger: formData.get('stock_trigger'),
         cogs: formData.get('cogs'),
-        batch_number: String(formData.get('batch_number') || '').toUpperCase(),
+        po_number: String(formData.get('po_number') || '').toUpperCase(),
         decision_notes: formData.get('decision_notes')
       });
       closeApprovalModal();
