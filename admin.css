@@ -4240,6 +4240,16 @@ body::after {
   color: #ffffff;
 }
 
+.admin-app.admin-app-suite .admin-menu-item-danger {
+  color: #ff8e8e;
+}
+
+.admin-app.admin-app-suite .admin-menu-item-danger:hover {
+  border-color: rgba(255, 82, 82, 0.28);
+  background: rgba(255, 82, 82, 0.12);
+  color: #ffd0d0;
+}
+
 .admin-app.admin-app-suite .admin-search-shell {
   position: relative;
   display: grid;

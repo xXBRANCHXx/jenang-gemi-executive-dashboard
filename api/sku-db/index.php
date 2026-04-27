@@ -1049,6 +1049,35 @@ try {
         jg_sku_response($pdo);
     }
 
+    if ($action === 'delete_sku') {
+        jg_sku_require_branch_json();
+
+        $sku = trim((string) ($request['sku'] ?? ''));
+        if ($sku === '') {
+            jg_sku_fail('SKU is required.');
+        }
+
+        $stmt = $pdo->prepare('SELECT sku FROM sku_skus WHERE sku = :sku LIMIT 1');
+        $stmt->execute([':sku' => $sku]);
+        if ($stmt->fetchColumn() === false) {
+            jg_sku_fail('SKU not found.', 404);
+        }
+
+        $pdo->beginTransaction();
+        $deleteStmt = $pdo->prepare('DELETE FROM sku_skus WHERE sku = :sku');
+        $deleteStmt->execute([':sku' => $sku]);
+        jg_sku_touch_version($pdo);
+        $pdo->commit();
+
+        $map = jg_sku_read_product_name_map();
+        if (array_key_exists($sku, $map)) {
+            unset($map[$sku]);
+            jg_sku_write_product_name_map($map);
+        }
+
+        jg_sku_response($pdo);
+    }
+
     jg_sku_fail('Unknown action.', 400);
 } catch (Throwable $throwable) {
     if ($pdo->inTransaction()) {

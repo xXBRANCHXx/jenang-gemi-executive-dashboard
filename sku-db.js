@@ -435,6 +435,7 @@ document.addEventListener('DOMContentLoaded', () => {
               <button type="button" class="admin-menu-item" data-change-product-name="${escapeHtml(row.sku || '')}">Product Name</button>
               <button type="button" class="admin-menu-item" data-change-inventory="${escapeHtml(row.sku || '')}">Inventory</button>
               <button type="button" class="admin-menu-item" data-change-cogs="${escapeHtml(row.sku || '')}">COGS</button>
+              ${role === 'branch' ? `<button type="button" class="admin-menu-item admin-menu-item-danger" data-delete-sku="${escapeHtml(row.sku || '')}">Delete SKU</button>` : ''}
             </div>
           </div>
         </td>
@@ -838,9 +839,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const cogsButton = target.closest('[data-change-cogs]');
-    if (!(cogsButton instanceof HTMLButtonElement)) return;
+    if (cogsButton instanceof HTMLButtonElement) {
+      closeSkuRowMenus();
+      openCogsModal(cogsButton.dataset.changeCogs || '');
+      return;
+    }
+
+    const deleteButton = target.closest('[data-delete-sku]');
+    if (!(deleteButton instanceof HTMLButtonElement)) return;
     closeSkuRowMenus();
-    openCogsModal(cogsButton.dataset.changeCogs || '');
+    const sku = deleteButton.dataset.deleteSku || '';
+    const row = state.database.skus.find((item) => item.sku === sku);
+    const label = row ? `${row.sku} (${row.tag || row.product_name || 'untagged'})` : sku;
+    const confirmed = window.confirm(`Delete approved SKU ${label}? This removes it from the live SKU database and deletes its COGS history.`);
+    if (!confirmed) return;
+
+    postAction({ action: 'delete_sku', sku }).catch((error) => {
+      window.alert(error instanceof Error ? error.message : 'Unable to delete SKU.');
+    });
   });
 
   cogsForm?.addEventListener('submit', async (event) => {
