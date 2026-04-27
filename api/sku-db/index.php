@@ -171,6 +171,15 @@ function jg_sku_money(mixed $value, string $label = 'COGS'): string
     return number_format($amount, 2, '.', '');
 }
 
+function jg_sku_optional_money(mixed $value, string $label = 'COGS'): string
+{
+    if ($value === '' || $value === null) {
+        return '0.00';
+    }
+
+    return jg_sku_money($value, $label);
+}
+
 function jg_sku_po_number(mixed $value, bool $required = true): string
 {
     $poNumber = strtoupper(trim((string) $value));
@@ -641,7 +650,7 @@ function jg_sku_create_sku(PDO $pdo, array $payload, ?int $approvalRequestId = n
     $tag = jg_sku_tag((string) ($payload['tag'] ?? ''));
     $startingStock = jg_sku_integer($payload['starting_stock'] ?? null, 'Starting stock');
     $stockTrigger = jg_sku_integer($payload['stock_trigger'] ?? null, 'Stock trigger');
-    $cogs = jg_sku_money($payload['cogs'] ?? null);
+    $cogs = jg_sku_optional_money($payload['cogs'] ?? null);
     $poNumber = jg_sku_po_number($payload['po_number'] ?? null, false);
 
     $parts = jg_sku_compose_code($pdo, $brandId, $unitId, $volumeInput, $flavorId, $productId);

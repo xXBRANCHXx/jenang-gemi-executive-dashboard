@@ -257,8 +257,8 @@ $pageBuildVersion = 'sku1.00.00';
                                 <input type="number" name="stock_trigger" min="0" step="1" placeholder="e.g. 20" required>
                             </label>
                             <label>
-                                <span>Opening COGS</span>
-                                <input type="number" name="cogs" min="0" step="0.01" placeholder="e.g. 12000" required>
+                                <span>Opening COGS (Optional)</span>
+                                <input type="number" name="cogs" min="0" step="0.01" placeholder="Add later from invoice import">
                             </label>
                             <label>
                                 <span>Opening PO Number (Optional)</span>
@@ -574,8 +574,8 @@ $pageBuildVersion = 'sku1.00.00';
                         <input type="number" name="stock_trigger" min="0" step="1" required>
                     </label>
                     <label>
-                        <span>Opening COGS</span>
-                        <input type="number" name="cogs" min="0" step="0.01" required>
+                        <span>Opening COGS (Optional)</span>
+                        <input type="number" name="cogs" min="0" step="0.01" placeholder="Add later from invoice import">
                     </label>
                     <label>
                         <span>Opening PO Number (Optional)</span>

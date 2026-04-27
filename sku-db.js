@@ -636,7 +636,7 @@ document.addEventListener('DOMContentLoaded', () => {
     approvalForm.elements.tag.value = '';
     approvalForm.elements.starting_stock.value = '0';
     approvalForm.elements.stock_trigger.value = '0';
-    approvalForm.elements.cogs.value = '0';
+    approvalForm.elements.cogs.value = '';
     approvalForm.elements.po_number.value = '';
     approvalForm.elements.decision_notes.value = '';
 
