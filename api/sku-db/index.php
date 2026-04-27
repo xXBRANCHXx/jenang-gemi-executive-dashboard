@@ -642,9 +642,7 @@ function jg_sku_create_sku(PDO $pdo, array $payload, ?int $approvalRequestId = n
     $startingStock = jg_sku_integer($payload['starting_stock'] ?? null, 'Starting stock');
     $stockTrigger = jg_sku_integer($payload['stock_trigger'] ?? null, 'Stock trigger');
     $cogs = jg_sku_money($payload['cogs'] ?? null);
-    $poNumber = $startingStock > 0
-        ? jg_sku_po_number($payload['po_number'] ?? null, true)
-        : jg_sku_po_number($payload['po_number'] ?? null, false);
+    $poNumber = jg_sku_po_number($payload['po_number'] ?? null, false);
 
     $parts = jg_sku_compose_code($pdo, $brandId, $unitId, $volumeInput, $flavorId, $productId);
     jg_sku_assert_unique_sku_and_tag($pdo, $parts['sku'], $tag);

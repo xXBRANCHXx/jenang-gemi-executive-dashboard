@@ -261,8 +261,8 @@ $pageBuildVersion = 'sku1.00.00';
                                 <input type="number" name="cogs" min="0" step="0.01" placeholder="e.g. 12000" required>
                             </label>
                             <label>
-                                <span>Opening PO Number</span>
-                                <input type="text" name="po_number" maxlength="80" placeholder="e.g. P01411" required>
+                                <span>Opening PO Number (Optional)</span>
+                                <input type="text" name="po_number" maxlength="80" placeholder="Add later from invoice import">
                             </label>
                             <div class="admin-sku-preview">
                                 <span class="admin-control-label">Ready To Push</span>
@@ -578,8 +578,8 @@ $pageBuildVersion = 'sku1.00.00';
                         <input type="number" name="cogs" min="0" step="0.01" required>
                     </label>
                     <label>
-                        <span>Opening PO Number</span>
-                        <input type="text" name="po_number" maxlength="80" placeholder="e.g. P01411" required>
+                        <span>Opening PO Number (Optional)</span>
+                        <input type="text" name="po_number" maxlength="80" placeholder="Add later from invoice import">
                     </label>
                     <label class="admin-sku-full-span">
                         <span>Decision note</span>
