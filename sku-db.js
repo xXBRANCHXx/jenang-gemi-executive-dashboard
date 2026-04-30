@@ -101,13 +101,15 @@ document.addEventListener('DOMContentLoaded', () => {
   copyMessage.hidden = true;
   root.append(copyMessage);
 
-  const showCopyMessage = (message, isError = false) => {
+  const showCopyMessage = (message, isError = false, placement = 'corner') => {
     copyMessage.textContent = message;
     copyMessage.classList.toggle('is-error', isError);
+    copyMessage.classList.toggle('is-center', placement === 'center');
     copyMessage.hidden = false;
     window.clearTimeout(copyMessageTimer);
     copyMessageTimer = window.setTimeout(() => {
       copyMessage.hidden = true;
+      copyMessage.classList.remove('is-center');
     }, 1800);
   };
 
@@ -790,12 +792,11 @@ document.addEventListener('DOMContentLoaded', () => {
         po_number: String(applyData.get('po_number') || '').toUpperCase()
       });
 
-      setupForm.reset();
       applyForm.reset();
       applySharedBrandSelection(resolveSelectedBrandId());
       refreshBrandBoundSelects();
-      if (applyPanel) applyPanel.hidden = true;
       renderPreview();
+      showCopyMessage('SKU pushed to the live database.', false, 'center');
     } catch (error) {
       setError(applyError, error instanceof Error ? error.message : 'Unable to create SKU.');
     }

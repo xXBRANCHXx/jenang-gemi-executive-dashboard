@@ -1665,6 +1665,18 @@ button, input {
   border-color: rgba(255, 90, 90, 0.38);
 }
 
+.admin-sku-copy-message.is-center {
+  top: 50%;
+  right: auto;
+  bottom: auto;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 16px 20px;
+  border-color: rgba(157, 255, 0, 0.46);
+  background: rgba(12, 16, 20, 0.94);
+  font-size: 15px;
+}
+
 .admin-sku-master-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
