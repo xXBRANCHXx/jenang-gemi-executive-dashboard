@@ -93,6 +93,47 @@ document.addEventListener('DOMContentLoaded', () => {
     node.textContent = message || '';
   };
 
+  const copyMessage = document.createElement('div');
+  let copyMessageTimer = 0;
+  copyMessage.className = 'admin-sku-copy-message';
+  copyMessage.setAttribute('role', 'status');
+  copyMessage.setAttribute('aria-live', 'polite');
+  copyMessage.hidden = true;
+  root.append(copyMessage);
+
+  const showCopyMessage = (message, isError = false) => {
+    copyMessage.textContent = message;
+    copyMessage.classList.toggle('is-error', isError);
+    copyMessage.hidden = false;
+    window.clearTimeout(copyMessageTimer);
+    copyMessageTimer = window.setTimeout(() => {
+      copyMessage.hidden = true;
+    }, 1800);
+  };
+
+  const copyTextToClipboard = async (text) => {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.top = '-999px';
+    textarea.style.left = '-999px';
+    document.body.append(textarea);
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
+    const copied = document.execCommand('copy');
+    textarea.remove();
+
+    if (!copied) {
+      throw new Error('Clipboard copy failed.');
+    }
+  };
+
   const closeSkuRowMenus = () => {
     document.querySelectorAll('[data-sku-row-menu]').forEach((menu) => {
       const trigger = menu.querySelector('[data-sku-row-menu-trigger]');
@@ -413,7 +454,14 @@ document.addEventListener('DOMContentLoaded', () => {
     tableBody.innerHTML = rows.map((row) => `
       <tr>
         <td><strong>${escapeHtml(row.sku || '')}</strong></td>
-        <td>${escapeHtml(row.tag || '')}</td>
+        <td>
+          <button
+            type="button"
+            class="admin-sku-tag-copy"
+            data-copy-sku-tag="${escapeHtml(row.tag || '')}"
+            aria-label="Copy item tag ${escapeHtml(row.tag || '')}"
+          >${escapeHtml(row.tag || '')}</button>
+        </td>
         <td>${escapeHtml(row.brand_name || '')}</td>
         <td>${escapeHtml(row.product_name || '')}</td>
         <td>${escapeHtml(row.flavor_name || '')}</td>
@@ -807,9 +855,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  tableBody?.addEventListener('click', (event) => {
+  tableBody?.addEventListener('click', async (event) => {
     const target = event.target instanceof Element ? event.target : null;
     if (!target) return;
+
+    const copyTagButton = target.closest('[data-copy-sku-tag]');
+    if (copyTagButton instanceof HTMLButtonElement) {
+      closeSkuRowMenus();
+      const itemTag = copyTagButton.dataset.copySkuTag || '';
+      if (!itemTag) return;
+
+      try {
+        await copyTextToClipboard(itemTag);
+        showCopyMessage(`Copied item tag: ${itemTag}`);
+      } catch (_error) {
+        showCopyMessage('Unable to copy item tag.', true);
+      }
+      return;
+    }
 
     const rowMenuTrigger = target.closest('[data-sku-row-menu-trigger]');
     if (rowMenuTrigger instanceof HTMLButtonElement) {

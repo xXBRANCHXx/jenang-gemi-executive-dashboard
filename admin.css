@@ -1619,6 +1619,52 @@ button, input {
   display: none;
 }
 
+.admin-sku-tag-copy {
+  display: inline-flex;
+  align-items: center;
+  max-width: 240px;
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+  color: var(--admin-text);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+.admin-sku-tag-copy:hover,
+.admin-sku-tag-copy:focus-visible {
+  color: var(--admin-accent-primary);
+  outline: none;
+}
+
+.admin-sku-copy-message {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 10020;
+  max-width: min(360px, calc(100vw - 32px));
+  padding: 10px 14px;
+  border: 1px solid rgba(157, 255, 0, 0.32);
+  border-radius: 14px;
+  background: rgba(12, 16, 20, 0.88);
+  color: var(--admin-text);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.28);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.admin-sku-copy-message[hidden] {
+  display: none;
+}
+
+.admin-sku-copy-message.is-error {
+  border-color: rgba(255, 90, 90, 0.38);
+}
+
 .admin-sku-master-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
