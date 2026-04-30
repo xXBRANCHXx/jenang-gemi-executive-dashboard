@@ -1655,6 +1655,9 @@ button, input {
   font-size: 13px;
   font-weight: 700;
   line-height: 1.35;
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.34s ease, transform 0.34s ease;
 }
 
 .admin-sku-copy-message[hidden] {
@@ -1675,6 +1678,15 @@ button, input {
   border-color: rgba(157, 255, 0, 0.46);
   background: rgba(12, 16, 20, 0.94);
   font-size: 15px;
+}
+
+.admin-sku-copy-message.is-hiding {
+  opacity: 0;
+  transform: translateY(14px);
+}
+
+.admin-sku-copy-message.is-center.is-hiding {
+  transform: translate(-50%, calc(-50% + 18px));
 }
 
 .admin-sku-master-grid {

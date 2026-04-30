@@ -95,6 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const copyMessage = document.createElement('div');
   let copyMessageTimer = 0;
+  let copyMessageCleanupTimer = 0;
   copyMessage.className = 'admin-sku-copy-message';
   copyMessage.setAttribute('role', 'status');
   copyMessage.setAttribute('aria-live', 'polite');
@@ -103,14 +104,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const showCopyMessage = (message, isError = false, placement = 'corner') => {
     copyMessage.textContent = message;
+    copyMessage.classList.remove('is-hiding');
     copyMessage.classList.toggle('is-error', isError);
     copyMessage.classList.toggle('is-center', placement === 'center');
     copyMessage.hidden = false;
     window.clearTimeout(copyMessageTimer);
+    window.clearTimeout(copyMessageCleanupTimer);
     copyMessageTimer = window.setTimeout(() => {
-      copyMessage.hidden = true;
-      copyMessage.classList.remove('is-center');
-    }, 1800);
+      copyMessage.classList.add('is-hiding');
+      copyMessageCleanupTimer = window.setTimeout(() => {
+        copyMessage.hidden = true;
+        copyMessage.classList.remove('is-center', 'is-hiding');
+      }, 360);
+    }, 1700);
   };
 
   const copyTextToClipboard = async (text) => {
