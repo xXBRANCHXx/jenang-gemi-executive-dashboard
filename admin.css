@@ -316,6 +316,11 @@ button, input {
   cursor: not-allowed;
 }
 
+.admin-select.admin-select-needs-brand {
+  border-color: rgba(255, 90, 90, 0.34);
+  color: var(--admin-accent-tertiary);
+}
+
 .admin-select option,
 .admin-select optgroup,
 .admin-sku-builder select option,

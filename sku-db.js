@@ -228,9 +228,20 @@ document.addEventListener('DOMContentLoaded', () => {
     ...items.map((item) => `<option value="${escapeHtml(item.id || '')}">${escapeHtml(item.code || '--')} · ${escapeHtml(item.name || '')}</option>`)
   ].join('');
 
-  const buildFilterOptions = (values, placeholder) => {
-    const normalized = [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b));
-    return [`<option value="">${escapeHtml(placeholder)}</option>`, ...normalized.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`)].join('');
+  const buildEntityFilterOptions = (items, placeholder) => [
+    `<option value="">${escapeHtml(placeholder)}</option>`,
+    ...items
+      .filter((item) => item?.id && item?.name)
+      .slice()
+      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
+      .map((item) => `<option value="${escapeHtml(item.id || '')}">${escapeHtml(item.name || '')}</option>`)
+  ].join('');
+
+  const setSelectValue = (select, value, isValid) => {
+    if (!select) return '';
+    const normalizedValue = isValid ? value : '';
+    select.value = normalizedValue;
+    return normalizedValue;
   };
 
   const findBrand = (brandId) => state.database.brands.find((brand) => brand.id === brandId) || null;
@@ -418,22 +429,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const filteredSkus = () => {
     const search = String(searchInput?.value || '').trim().toLowerCase();
-    const brand = String(filterBrand?.value || '');
-    const unit = String(filterUnit?.value || '');
-    const flavor = String(filterFlavor?.value || '');
-    const product = String(filterProduct?.value || '');
+    const brandId = String(filterBrand?.value || '');
+    const unitId = String(filterUnit?.value || '');
+    const flavorId = String(filterFlavor?.value || '');
+    const productId = String(filterProduct?.value || '');
 
     return state.database.skus.filter((row) => {
-      if (brand && row.brand_name !== brand) return false;
-      if (unit && row.unit_name !== unit) return false;
-      if (flavor && row.flavor_name !== flavor) return false;
-      if (product && row.product_name !== product) return false;
+      if (brandId && row.brand_id !== brandId) return false;
+      if (unitId && row.unit_id !== unitId) return false;
+      if (flavorId && row.flavor_id !== flavorId) return false;
+      if (productId && row.product_id !== productId) return false;
       if (!search) return true;
 
       const haystack = [
         row.sku,
         row.tag,
         row.brand_name,
+        row.base_product_name,
         row.product_name,
         row.flavor_name,
         row.unit_name
@@ -444,10 +456,55 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const renderFilters = () => {
-    if (filterBrand) filterBrand.innerHTML = buildFilterOptions(state.database.skus.map((row) => row.brand_name), 'All brands');
-    if (filterUnit) filterUnit.innerHTML = buildFilterOptions(state.database.skus.map((row) => row.unit_name), 'All units');
-    if (filterFlavor) filterFlavor.innerHTML = buildFilterOptions(state.database.skus.map((row) => row.flavor_name), 'All flavors');
-    if (filterProduct) filterProduct.innerHTML = buildFilterOptions(state.database.skus.map((row) => row.product_name), 'All products');
+    const selectedBrandId = String(filterBrand?.value || '');
+    const selectedUnitId = String(filterUnit?.value || '');
+    const selectedFlavorId = String(filterFlavor?.value || '');
+    const selectedProductId = String(filterProduct?.value || '');
+    const brand = findBrand(selectedBrandId);
+
+    if (filterBrand) {
+      filterBrand.innerHTML = buildEntityFilterOptions(state.database.brands || [], 'All brands');
+      setSelectValue(
+        filterBrand,
+        selectedBrandId,
+        state.database.brands.some((item) => item.id === selectedBrandId)
+      );
+    }
+
+    if (filterUnit) {
+      filterUnit.innerHTML = buildEntityFilterOptions(state.database.units || [], 'All units');
+      setSelectValue(
+        filterUnit,
+        selectedUnitId,
+        state.database.units.some((item) => item.id === selectedUnitId)
+      );
+    }
+
+    if (filterFlavor) {
+      filterFlavor.disabled = !brand;
+      filterFlavor.classList.toggle('admin-select-needs-brand', !brand);
+      filterFlavor.innerHTML = brand
+        ? buildEntityFilterOptions(brand.flavors || [], 'All flavors')
+        : '<option value="">select a brand</option>';
+      setSelectValue(
+        filterFlavor,
+        selectedFlavorId,
+        !!brand && (brand.flavors || []).some((item) => item.id === selectedFlavorId)
+      );
+    }
+
+    if (filterProduct) {
+      filterProduct.disabled = !brand;
+      filterProduct.classList.toggle('admin-select-needs-brand', !brand);
+      filterProduct.innerHTML = brand
+        ? buildEntityFilterOptions(brand.products || [], 'All products')
+        : '<option value="">select a brand</option>';
+      setSelectValue(
+        filterProduct,
+        selectedProductId,
+        !!brand && (brand.products || []).some((item) => item.id === selectedProductId)
+      );
+    }
   };
 
   const renderTable = () => {
@@ -1034,8 +1091,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  [searchInput, filterBrand, filterUnit, filterFlavor, filterProduct].forEach((node) => {
-    node?.addEventListener('input', renderTable);
+  searchInput?.addEventListener('input', renderTable);
+  filterBrand?.addEventListener('change', () => {
+    if (filterFlavor) filterFlavor.value = '';
+    if (filterProduct) filterProduct.value = '';
+    renderFilters();
+    renderTable();
+  });
+  [filterUnit, filterFlavor, filterProduct].forEach((node) => {
     node?.addEventListener('change', renderTable);
   });
 
