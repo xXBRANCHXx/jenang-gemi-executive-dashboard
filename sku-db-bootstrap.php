@@ -103,6 +103,7 @@ function jg_sku_ensure_schema(PDO $pdo): void
             brand_id VARCHAR(140) NOT NULL,
             unit_id VARCHAR(140) NOT NULL,
             volume DECIMAL(4,1) NOT NULL,
+            astra DECIMAL(6,2) NOT NULL,
             flavor_id VARCHAR(180) NOT NULL,
             product_id VARCHAR(180) NOT NULL,
             proposed_sku VARCHAR(12) NOT NULL,
@@ -125,6 +126,7 @@ function jg_sku_ensure_schema(PDO $pdo): void
             brand_id VARCHAR(140) NOT NULL,
             unit_id VARCHAR(140) NOT NULL,
             volume DECIMAL(4,1) NOT NULL,
+            astra DECIMAL(6,2) NOT NULL,
             flavor_id VARCHAR(180) NOT NULL,
             product_id VARCHAR(180) NOT NULL,
             starting_stock INT UNSIGNED NOT NULL,
@@ -162,6 +164,11 @@ function jg_sku_ensure_schema(PDO $pdo): void
         $pdo->exec($sql);
     }
 
+    jg_sku_ensure_column($pdo, 'sku_requests', 'astra', 'DECIMAL(6,2) NOT NULL DEFAULT 0.00 AFTER volume');
+    jg_sku_ensure_column($pdo, 'sku_skus', 'astra', 'DECIMAL(6,2) NOT NULL DEFAULT 0.00 AFTER volume');
+    $pdo->exec('UPDATE sku_requests SET astra = volume WHERE astra <= 0');
+    $pdo->exec('UPDATE sku_skus SET astra = volume WHERE astra <= 0');
+
     $now = gmdate('Y-m-d H:i:s');
     $stmt = $pdo->prepare(
         'INSERT INTO sku_meta (meta_key, meta_value, updated_at)
@@ -169,6 +176,25 @@ function jg_sku_ensure_schema(PDO $pdo): void
          ON DUPLICATE KEY UPDATE meta_key = meta_key'
     );
     $stmt->execute([':updated_at' => $now]);
+}
+
+function jg_sku_ensure_column(PDO $pdo, string $tableName, string $columnName, string $definition): void
+{
+    $stmt = $pdo->prepare(
+        'SELECT COUNT(*)
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = :table_name
+           AND COLUMN_NAME = :column_name'
+    );
+    $stmt->execute([
+        ':table_name' => $tableName,
+        ':column_name' => $columnName,
+    ]);
+
+    if ((int) $stmt->fetchColumn() === 0) {
+        $pdo->exec(sprintf('ALTER TABLE `%s` ADD COLUMN `%s` %s', $tableName, $columnName, $definition));
+    }
 }
 
 function jg_sku_now(): string

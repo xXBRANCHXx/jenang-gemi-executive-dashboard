@@ -121,6 +121,30 @@ function jg_sku_volume_decimal(string $value): string
     return number_format((float) $value, 1, '.', '');
 }
 
+function jg_sku_astra_decimal(mixed $value, string $volume): string
+{
+    if ($value === '' || $value === null) {
+        jg_sku_fail('ASTRA is required.');
+    }
+
+    $astra = trim((string) $value);
+    if (!preg_match('/^\d{1,3}(\.\d{1,2})?$/', $astra)) {
+        jg_sku_fail('ASTRA must use up to three whole digits and up to two decimal places.');
+    }
+
+    $astraNumber = round((float) $astra, 2);
+    $volumeNumber = round((float) $volume, 2);
+    if ($astraNumber <= 0) {
+        jg_sku_fail('ASTRA must be greater than zero.');
+    }
+
+    if ($volumeNumber > 0 && $astraNumber > $volumeNumber) {
+        jg_sku_fail('ASTRA cannot be larger than volume.');
+    }
+
+    return number_format($astraNumber, 2, '.', '');
+}
+
 function jg_sku_tag(string $value): string
 {
     $tag = strtoupper(trim($value));
@@ -420,6 +444,7 @@ function jg_sku_fetch_requests(PDO $pdo, string $forRole, string $username): arr
             r.brand_id,
             r.unit_id,
             r.volume,
+            r.astra,
             r.flavor_id,
             r.product_id,
             r.proposed_sku,
@@ -461,6 +486,7 @@ function jg_sku_fetch_requests(PDO $pdo, string $forRole, string $username): arr
             'unit_id' => (string) ($row['unit_id'] ?? ''),
             'unit_name' => (string) ($row['unit_name'] ?? ''),
             'volume' => number_format((float) ($row['volume'] ?? 0), 1, '.', ''),
+            'astra' => number_format((float) ($row['astra'] ?? $row['volume'] ?? 0), 2, '.', ''),
             'flavor_id' => (string) ($row['flavor_id'] ?? ''),
             'flavor_name' => (string) ($row['flavor_name'] ?? ''),
             'product_id' => (string) ($row['product_id'] ?? ''),
@@ -552,6 +578,7 @@ function jg_sku_fetch_database(PDO $pdo): array
             s.unit_id,
             u.name AS unit_name,
             s.volume,
+            s.astra,
             s.flavor_id,
             f.name AS flavor_name,
             s.product_id,
@@ -597,6 +624,7 @@ function jg_sku_fetch_database(PDO $pdo): array
             'unit_id' => (string) $row['unit_id'],
             'unit_name' => (string) $row['unit_name'],
             'volume' => number_format((float) $row['volume'], 1, '.', ''),
+            'astra' => number_format((float) ($row['astra'] ?? $row['volume'] ?? 0), 2, '.', ''),
             'flavor_id' => (string) $row['flavor_id'],
             'flavor_name' => (string) $row['flavor_name'],
             'product_id' => (string) $row['product_id'],
@@ -654,16 +682,17 @@ function jg_sku_create_sku(PDO $pdo, array $payload, ?int $approvalRequestId = n
     $poNumber = jg_sku_po_number($payload['po_number'] ?? null, false);
 
     $parts = jg_sku_compose_code($pdo, $brandId, $unitId, $volumeInput, $flavorId, $productId);
+    $astra = jg_sku_astra_decimal($payload['astra'] ?? null, $parts['volume']);
     jg_sku_assert_unique_sku_and_tag($pdo, $parts['sku'], $tag);
 
     $now = jg_sku_now();
     $stmt = $pdo->prepare(
         'INSERT INTO sku_skus (
-            sku, tag, brand_id, unit_id, volume, flavor_id, product_id,
+            sku, tag, brand_id, unit_id, volume, astra, flavor_id, product_id,
             starting_stock, current_stock, stock_trigger, inventory_mode, cogs,
             approval_request_id, created_at, updated_at
         ) VALUES (
-            :sku, :tag, :brand_id, :unit_id, :volume, :flavor_id, :product_id,
+            :sku, :tag, :brand_id, :unit_id, :volume, :astra, :flavor_id, :product_id,
             :starting_stock, :current_stock, :stock_trigger, "auto", :cogs,
             :approval_request_id, :created_at, :updated_at
         )'
@@ -674,6 +703,7 @@ function jg_sku_create_sku(PDO $pdo, array $payload, ?int $approvalRequestId = n
         ':brand_id' => $brandId,
         ':unit_id' => $unitId,
         ':volume' => $parts['volume'],
+        ':astra' => $astra,
         ':flavor_id' => $flavorId,
         ':product_id' => $productId,
         ':starting_stock' => $startingStock,
@@ -823,6 +853,7 @@ try {
         $brandId = (string) ($request['brand_id'] ?? '');
         $unitId = (string) ($request['unit_id'] ?? '');
         $volumeInput = (string) ($request['volume'] ?? '');
+        $astra = jg_sku_astra_decimal($request['astra'] ?? null, jg_sku_volume_decimal($volumeInput));
         $flavorId = (string) ($request['flavor_id'] ?? '');
         $productId = (string) ($request['product_id'] ?? '');
 
@@ -837,10 +868,10 @@ try {
 
         $insertStmt = $pdo->prepare(
             'INSERT INTO sku_requests (
-                requester_username, requester_role, brand_id, unit_id, volume,
+                requester_username, requester_role, brand_id, unit_id, volume, astra,
                 flavor_id, product_id, proposed_sku, status, created_at
             ) VALUES (
-                :requester_username, :requester_role, :brand_id, :unit_id, :volume,
+                :requester_username, :requester_role, :brand_id, :unit_id, :volume, :astra,
                 :flavor_id, :product_id, :proposed_sku, "pending", :created_at
             )'
         );
@@ -850,6 +881,7 @@ try {
             ':brand_id' => $brandId,
             ':unit_id' => $unitId,
             ':volume' => $parts['volume'],
+            ':astra' => $astra,
             ':flavor_id' => $flavorId,
             ':product_id' => $productId,
             ':proposed_sku' => $parts['sku'],
@@ -883,6 +915,7 @@ try {
             'brand_id' => (string) ($requestRow['brand_id'] ?? ''),
             'unit_id' => (string) ($requestRow['unit_id'] ?? ''),
             'volume' => (string) ($requestRow['volume'] ?? ''),
+            'astra' => (string) ($requestRow['astra'] ?? $requestRow['volume'] ?? ''),
             'flavor_id' => (string) ($requestRow['flavor_id'] ?? ''),
             'product_id' => (string) ($requestRow['product_id'] ?? ''),
             'tag' => (string) ($request['tag'] ?? ''),

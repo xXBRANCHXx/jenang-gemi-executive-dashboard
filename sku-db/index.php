@@ -216,6 +216,10 @@ $pageBuildVersion = 'sku1.00.00';
                                 <input type="text" name="volume" inputmode="decimal" placeholder="e.g. 15 or 15.2" required>
                             </label>
                             <label>
+                                <span>ASTRA</span>
+                                <input type="number" name="astra" min="0.01" step="0.01" placeholder="Base stock unit, e.g. 15" required>
+                            </label>
+                            <label>
                                 <span>Flavor</span>
                                 <select class="admin-select" name="flavor_id" data-flavor-select required></select>
                             </label>
@@ -327,6 +331,10 @@ $pageBuildVersion = 'sku1.00.00';
                                 <input type="text" name="volume" inputmode="decimal" placeholder="e.g. 15 or 15.2" required>
                             </label>
                             <label>
+                                <span>ASTRA base stock unit</span>
+                                <input type="number" name="astra" min="0.01" step="0.01" placeholder="e.g. 15" required>
+                            </label>
+                            <label>
                                 <span>Flavor</span>
                                 <select class="admin-select" name="flavor_id" data-flavor-select required></select>
                             </label>
@@ -411,6 +419,7 @@ $pageBuildVersion = 'sku1.00.00';
                                 <th>Flavor</th>
                                 <th>Unit</th>
                                 <th>Volume</th>
+                                <th>ASTRA</th>
                                 <th>Stock</th>
                                 <th>Trigger</th>
                                 <th>COGS</th>
@@ -418,7 +427,7 @@ $pageBuildVersion = 'sku1.00.00';
                             </tr>
                             </thead>
                             <tbody data-sku-table-body>
-                            <tr><td colspan="11" class="admin-empty">No SKUs yet.</td></tr>
+                            <tr><td colspan="12" class="admin-empty">No SKUs yet.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -576,6 +585,10 @@ $pageBuildVersion = 'sku1.00.00';
                     <label>
                         <span>Starting stock trigger</span>
                         <input type="number" name="stock_trigger" min="0" step="1" required>
+                    </label>
+                    <label>
+                        <span>ASTRA</span>
+                        <input type="number" name="astra" min="0.01" step="0.01" required>
                     </label>
                     <label>
                         <span>Opening COGS (Optional)</span>

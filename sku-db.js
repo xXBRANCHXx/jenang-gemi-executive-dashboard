@@ -304,6 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
       brand_id: String(form.elements.brand_id?.value || ''),
       unit_id: String(form.elements.unit_id?.value || ''),
       volume: String(form.elements.volume?.value || '').trim(),
+      astra: String(form.elements.astra?.value || '').trim(),
       flavor_id: String(form.elements.flavor_id?.value || ''),
       product_id: String(form.elements.product_id?.value || '')
     };
@@ -448,7 +449,8 @@ document.addEventListener('DOMContentLoaded', () => {
         row.base_product_name,
         row.product_name,
         row.flavor_name,
-        row.unit_name
+        row.unit_name,
+        row.astra
       ].join(' ').toLowerCase();
 
       return haystack.includes(search);
@@ -512,7 +514,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const rows = filteredSkus();
 
     if (!rows.length) {
-      tableBody.innerHTML = `<tr><td colspan="11" class="admin-empty">${state.database.skus.length ? 'No SKUs match the current filters.' : 'No approved SKUs yet.'}</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="12" class="admin-empty">${state.database.skus.length ? 'No SKUs match the current filters.' : 'No approved SKUs yet.'}</td></tr>`;
       return;
     }
 
@@ -532,6 +534,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <td>${escapeHtml(row.flavor_name || '')}</td>
         <td>${escapeHtml(row.unit_name || '')}</td>
         <td>${escapeHtml(row.volume || '')}</td>
+        <td>${escapeHtml(row.astra || '')}</td>
         <td>${escapeHtml(row.current_stock ?? row.starting_stock ?? 0)}</td>
         <td>${escapeHtml(row.stock_trigger ?? 0)}</td>
         <td>${escapeHtml(row.cogs ?? 0)}</td>
@@ -750,6 +753,7 @@ document.addEventListener('DOMContentLoaded', () => {
     approvalForm.elements.tag.value = '';
     approvalForm.elements.starting_stock.value = '0';
     approvalForm.elements.stock_trigger.value = '0';
+    approvalForm.elements.astra.value = request.astra || request.volume || '';
     approvalForm.elements.cogs.value = '';
     approvalForm.elements.po_number.value = '';
     approvalForm.elements.decision_notes.value = '';
@@ -769,6 +773,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const preview = computeSkuPreview();
     if (preview === 'Waiting for complete selection') return false;
     if (!(setupForm instanceof HTMLFormElement)) return false;
+    if (String(setupForm.elements.astra?.value || '').trim() === '') return false;
     return String(setupForm.elements.tag?.value || '').trim() !== '';
   };
 
@@ -814,7 +819,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelector('[data-continue-apply]')?.addEventListener('click', () => {
     setError(setupError, '');
     if (!setupIsComplete()) {
-      setError(setupError, 'Complete brand, unit, volume, flavor, product, and TAG before continuing.');
+      setError(setupError, 'Complete brand, unit, volume, ASTRA, flavor, product, and TAG before continuing.');
       return;
     }
 
@@ -847,6 +852,7 @@ document.addEventListener('DOMContentLoaded', () => {
         brand_id: setupData.get('brand_id'),
         unit_id: setupData.get('unit_id'),
         volume: setupData.get('volume'),
+        astra: setupData.get('astra'),
         flavor_id: setupData.get('flavor_id'),
         product_id: setupData.get('product_id'),
         tag: String(setupData.get('tag') || '').toUpperCase().replace(/\s+/g, '_'),
@@ -872,7 +878,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!(requestForm instanceof HTMLFormElement)) return;
     if (computeSkuPreview() === 'Waiting for complete selection') {
-      setError(requestSubmitError, 'Complete brand, unit, volume, flavor, and product before submitting.');
+      setError(requestSubmitError, 'Complete brand, unit, volume, ASTRA, flavor, and product before submitting.');
       return;
     }
 
@@ -883,6 +889,7 @@ document.addEventListener('DOMContentLoaded', () => {
         brand_id: formData.get('brand_id'),
         unit_id: formData.get('unit_id'),
         volume: formData.get('volume'),
+        astra: formData.get('astra'),
         flavor_id: formData.get('flavor_id'),
         product_id: formData.get('product_id')
       });
@@ -1058,6 +1065,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tag: String(formData.get('tag') || '').toUpperCase().replace(/\s+/g, '_'),
         starting_stock: formData.get('starting_stock'),
         stock_trigger: formData.get('stock_trigger'),
+        astra: formData.get('astra'),
         cogs: formData.get('cogs'),
         po_number: String(formData.get('po_number') || '').toUpperCase(),
         decision_notes: formData.get('decision_notes')
