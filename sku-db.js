@@ -705,7 +705,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!row) return;
 
     productNameForm.elements.sku.value = row.sku || '';
-    productNameForm.elements.sku_display.value = row.sku || '';
+    productNameForm.elements.brand_display.value = row.brand_name || '';
+    productNameForm.elements.flavor_display.value = row.flavor_name || '';
     productNameForm.elements.base_product_name.value = row.base_product_name || row.product_name || '';
     productNameForm.elements.product_name.value = row.product_name || row.base_product_name || '';
     setError(productNameError, '');
@@ -931,9 +932,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
       try {
         await copyTextToClipboard(itemTag);
-        showCopyMessage(`Copied item tag: ${itemTag}`);
+        showCopyMessage(`Copied item tag: ${itemTag}`, false, 'center');
       } catch (_error) {
-        showCopyMessage('Unable to copy item tag.', true);
+        showCopyMessage('Unable to copy item tag.', true, 'center');
       }
       return;
     }

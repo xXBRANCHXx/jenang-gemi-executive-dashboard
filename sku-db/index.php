@@ -477,11 +477,15 @@ $pageBuildVersion = 'sku1.00.00';
             <form class="admin-sku-form-grid" data-product-name-form>
                 <input type="hidden" name="sku">
                 <label>
-                    <span>SKU</span>
-                    <input type="text" name="sku_display" readonly>
+                    <span>Brand</span>
+                    <input type="text" name="brand_display" readonly>
                 </label>
                 <label>
-                    <span>Base product</span>
+                    <span>Flavor</span>
+                    <input type="text" name="flavor_display" readonly>
+                </label>
+                <label>
+                    <span>Product</span>
                     <input type="text" name="base_product_name" readonly>
                 </label>
                 <label class="admin-sku-full-span">
