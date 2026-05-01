@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const applyError = document.querySelector('[data-apply-error]');
   const cogsError = document.querySelector('[data-cogs-error]');
   const productNameError = document.querySelector('[data-product-name-error]');
+  const astraError = document.querySelector('[data-astra-error]');
   const inventoryError = document.querySelector('[data-inventory-error]');
   const approvalError = document.querySelector('[data-approval-error]');
   const skuPreview = document.querySelector('[data-sku-preview]');
@@ -30,6 +31,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const cogsForm = document.querySelector('[data-cogs-form]');
   const productNameModal = document.querySelector('[data-product-name-modal]');
   const productNameForm = document.querySelector('[data-product-name-form]');
+  const astraModal = document.querySelector('[data-astra-modal]');
+  const astraForm = document.querySelector('[data-astra-form]');
   const inventoryModal = document.querySelector('[data-inventory-modal]');
   const inventoryForm = document.querySelector('[data-inventory-form]');
   const inventoryAction = inventoryForm?.querySelector('[data-inventory-action]');
@@ -549,6 +552,7 @@ document.addEventListener('DOMContentLoaded', () => {
             >...</button>
             <div class="admin-sku-row-menu-panel" data-sku-row-menu-panel hidden>
               <button type="button" class="admin-menu-item" data-change-product-name="${escapeHtml(row.sku || '')}">Product Name</button>
+              ${role === 'branch' ? `<button type="button" class="admin-menu-item" data-change-astra="${escapeHtml(row.sku || '')}">ASTRA</button>` : ''}
               <button type="button" class="admin-menu-item" data-change-inventory="${escapeHtml(row.sku || '')}">Inventory</button>
               <button type="button" class="admin-menu-item" data-change-cogs="${escapeHtml(row.sku || '')}">COGS</button>
               ${role === 'branch' ? `<button type="button" class="admin-menu-item admin-menu-item-danger" data-delete-sku="${escapeHtml(row.sku || '')}">Delete SKU</button>` : ''}
@@ -678,6 +682,13 @@ document.addEventListener('DOMContentLoaded', () => {
     setError(productNameError, '');
   };
 
+  const closeAstraModal = () => {
+    if (!astraModal) return;
+    astraModal.hidden = true;
+    astraForm?.reset();
+    setError(astraError, '');
+  };
+
   const closeInventoryModal = () => {
     if (!inventoryModal) return;
     inventoryModal.hidden = true;
@@ -714,6 +725,19 @@ document.addEventListener('DOMContentLoaded', () => {
     productNameForm.elements.product_name.value = row.product_name || row.base_product_name || '';
     setError(productNameError, '');
     productNameModal.hidden = false;
+  };
+
+  const openAstraModal = (sku) => {
+    if (!(astraForm instanceof HTMLFormElement) || !astraModal) return;
+    const row = state.database.skus.find((item) => item.sku === sku);
+    if (!row) return;
+
+    astraForm.elements.sku.value = row.sku || '';
+    astraForm.elements.sku_display.value = row.sku || '';
+    astraForm.elements.volume_display.value = String(row.volume || '');
+    astraForm.elements.astra.value = String(row.astra || row.volume || '');
+    setError(astraError, '');
+    astraModal.hidden = false;
   };
 
   const openInventoryModal = (sku) => {
@@ -966,6 +990,13 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    const astraButton = target.closest('[data-change-astra]');
+    if (astraButton instanceof HTMLButtonElement) {
+      closeSkuRowMenus();
+      openAstraModal(astraButton.dataset.changeAstra || '');
+      return;
+    }
+
     const inventoryButton = target.closest('[data-change-inventory]');
     if (inventoryButton instanceof HTMLButtonElement) {
       closeSkuRowMenus();
@@ -1031,6 +1062,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  astraForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!(astraForm instanceof HTMLFormElement)) return;
+    setError(astraError, '');
+
+    try {
+      const formData = new window.FormData(astraForm);
+      await postAction({
+        action: 'change_astra',
+        sku: formData.get('sku'),
+        astra: formData.get('astra')
+      });
+      closeAstraModal();
+    } catch (error) {
+      setError(astraError, error instanceof Error ? error.message : 'Unable to change ASTRA.');
+    }
+  });
+
   inventoryForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (!(inventoryForm instanceof HTMLFormElement)) return;
@@ -1082,6 +1131,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.querySelectorAll('[data-close-product-name-modal]').forEach((button) => {
     button.addEventListener('click', closeProductNameModal);
+  });
+
+  document.querySelectorAll('[data-close-astra-modal]').forEach((button) => {
+    button.addEventListener('click', closeAstraModal);
   });
 
   document.querySelectorAll('[data-close-inventory-modal]').forEach((button) => {

@@ -510,6 +510,40 @@ $pageBuildVersion = 'sku1.00.00';
         </div>
     </div>
 
+    <?php if ($isBranch): ?>
+        <div class="admin-modal-shell" data-astra-modal hidden>
+            <div class="admin-modal-backdrop" data-close-astra-modal></div>
+            <div class="admin-modal-card">
+                <div class="admin-panel-head admin-modal-head">
+                    <div>
+                        <span class="admin-panel-kicker">ASTRA Update</span>
+                        <h3>Change base stock unit</h3>
+                    </div>
+                </div>
+                <form class="admin-sku-form-grid" data-astra-form>
+                    <input type="hidden" name="sku">
+                    <label>
+                        <span>SKU</span>
+                        <input type="text" name="sku_display" readonly>
+                    </label>
+                    <label>
+                        <span>Volume</span>
+                        <input type="text" name="volume_display" readonly>
+                    </label>
+                    <label class="admin-sku-full-span">
+                        <span>ASTRA</span>
+                        <input type="number" name="astra" min="0.01" step="0.01" required>
+                    </label>
+                    <div class="admin-sku-actions">
+                        <button type="submit" class="admin-primary-btn">Save ASTRA</button>
+                        <button type="button" class="admin-ghost-btn" data-close-astra-modal>Cancel</button>
+                    </div>
+                </form>
+                <p class="admin-form-error" data-astra-error hidden></p>
+            </div>
+        </div>
+    <?php endif; ?>
+
     <div class="admin-modal-shell" data-inventory-modal hidden>
         <div class="admin-modal-backdrop" data-close-inventory-modal></div>
         <div class="admin-modal-card">

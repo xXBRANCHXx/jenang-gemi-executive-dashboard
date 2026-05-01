@@ -1033,6 +1033,33 @@ try {
         jg_sku_response($pdo);
     }
 
+    if ($action === 'change_astra') {
+        jg_sku_require_branch_json();
+
+        $sku = trim((string) ($request['sku'] ?? ''));
+        if ($sku === '') {
+            jg_sku_fail('SKU is required.');
+        }
+
+        $stmt = $pdo->prepare('SELECT sku, volume FROM sku_skus WHERE sku = :sku LIMIT 1');
+        $stmt->execute([':sku' => $sku]);
+        $skuRow = $stmt->fetch();
+        if (!is_array($skuRow)) {
+            jg_sku_fail('SKU not found.', 404);
+        }
+
+        $astra = jg_sku_astra_decimal($request['astra'] ?? null, (string) ($skuRow['volume'] ?? '0'));
+        $updateStmt = $pdo->prepare('UPDATE sku_skus SET astra = :astra, updated_at = :updated_at WHERE sku = :sku');
+        $updateStmt->execute([
+            ':astra' => $astra,
+            ':updated_at' => jg_sku_now(),
+            ':sku' => $sku,
+        ]);
+
+        jg_sku_touch_version($pdo);
+        jg_sku_response($pdo);
+    }
+
     if ($action === 'change_inventory') {
         $sku = trim((string) ($request['sku'] ?? ''));
         if ($sku === '') {
