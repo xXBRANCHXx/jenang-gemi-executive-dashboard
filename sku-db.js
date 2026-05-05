@@ -146,7 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const fontObjectNumber = 3 + (pageCount * 2);
     const objects = [
       '<< /Type /Catalog /Pages 2 0 R >>',
-      `<< /Type /Pages /Kids ${pageContents.map((_, index) => `${3 + (index * 2)} 0 R`).join(' ')} /Count ${pageCount} >>`
+      `<< /Type /Pages /Kids [${pageContents.map((_, index) => `${3 + (index * 2)} 0 R`).join(' ')}] /Count ${pageCount} >>`
     ];
 
     pageContents.forEach((content, index) => {
