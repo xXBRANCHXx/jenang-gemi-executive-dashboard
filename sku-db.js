@@ -42,6 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const approvalRequester = document.querySelector('[data-approval-requester]');
   const requestList = document.querySelector('[data-request-list]');
   const tableBody = document.querySelector('[data-sku-table-body]');
+  const approvedLivePdfButton = document.querySelector('[data-download-approved-live-pdf]');
   const brandList = document.querySelector('[data-brand-list]');
   const unitList = document.querySelector('[data-unit-list]');
   const flavorList = document.querySelector('[data-flavor-list]');
@@ -120,6 +121,178 @@ document.addEventListener('DOMContentLoaded', () => {
         copyMessage.classList.remove('is-center', 'is-hiding');
       }, 360);
     }, 1700);
+  };
+
+  const pdfByteLength = (value) => new Blob([value]).size;
+
+  const normalizePdfText = (value) => String(value ?? '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\x20-\x7E]/g, '?');
+
+  const escapePdfString = (value) => normalizePdfText(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)');
+
+  const truncatePdfText = (value, maxCharacters) => {
+    const normalized = normalizePdfText(value).replace(/\s+/g, ' ').trim();
+    if (normalized.length <= maxCharacters) return normalized;
+    return `${normalized.slice(0, Math.max(0, maxCharacters - 3))}...`;
+  };
+
+  const buildPdfDocument = (pageContents) => {
+    const pageCount = pageContents.length;
+    const fontObjectNumber = 3 + (pageCount * 2);
+    const objects = [
+      '<< /Type /Catalog /Pages 2 0 R >>',
+      `<< /Type /Pages /Kids ${pageContents.map((_, index) => `${3 + (index * 2)} 0 R`).join(' ')} /Count ${pageCount} >>`
+    ];
+
+    pageContents.forEach((content, index) => {
+      const pageObjectNumber = 3 + (index * 2);
+      const contentObjectNumber = pageObjectNumber + 1;
+      objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources << /Font << /F1 ${fontObjectNumber} 0 R >> >> /Contents ${contentObjectNumber} 0 R >>`);
+      objects.push(`<< /Length ${pdfByteLength(content)} >>\nstream\n${content}\nendstream`);
+    });
+
+    objects.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
+
+    let pdf = '%PDF-1.4\n';
+    const offsets = [0];
+    objects.forEach((body, index) => {
+      offsets[index + 1] = pdfByteLength(pdf);
+      pdf += `${index + 1} 0 obj\n${body}\nendobj\n`;
+    });
+
+    const xrefOffset = pdfByteLength(pdf);
+    pdf += `xref\n0 ${objects.length + 1}\n`;
+    pdf += '0000000000 65535 f \n';
+    offsets.slice(1).forEach((offset) => {
+      pdf += `${String(offset).padStart(10, '0')} 00000 n \n`;
+    });
+    pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+    return new Blob([pdf], { type: 'application/pdf' });
+  };
+
+  const buildApprovedLivePdf = (rows) => {
+    const pageWidth = 842;
+    const pageHeight = 595;
+    const margin = 32;
+    const rowHeight = 18;
+    const rowsPerPage = 24;
+    const generatedAt = new Date().toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    const columns = [
+      { label: 'SKU', width: 75, value: (row) => row.sku, chars: 14 },
+      { label: 'TAG', width: 110, value: (row) => row.tag, chars: 23 },
+      { label: 'Product Name', width: 120, value: (row) => row.product_name, chars: 26 },
+      { label: 'Brand', width: 80, value: (row) => row.brand_name, chars: 17 },
+      { label: 'Flavor', width: 70, value: (row) => row.flavor_name, chars: 15 },
+      { label: 'Unit', width: 50, value: (row) => row.unit_name, chars: 10 },
+      { label: 'Vol', width: 35, value: (row) => row.volume, chars: 7 },
+      { label: 'ASTRA', width: 40, value: (row) => row.astra ?? '', chars: 8 },
+      { label: 'Stock', width: 40, value: (row) => row.current_stock ?? row.starting_stock ?? 0, chars: 8 },
+      { label: 'Trigger', width: 40, value: (row) => row.stock_trigger ?? 0, chars: 8 },
+      { label: 'COGS', width: 70, value: (row) => row.cogs ?? 0, chars: 13 }
+    ];
+    const tableWidth = columns.reduce((total, column) => total + column.width, 0);
+
+    const drawText = (commands, text, x, y, size = 7) => {
+      commands.push(`0 0 0 rg BT /F1 ${size} Tf ${x.toFixed(2)} ${y.toFixed(2)} Td (${escapePdfString(text)}) Tj ET`);
+    };
+
+    const drawMutedText = (commands, text, x, y, size = 7) => {
+      commands.push(`0.35 0.35 0.35 rg BT /F1 ${size} Tf ${x.toFixed(2)} ${y.toFixed(2)} Td (${escapePdfString(text)}) Tj ET`);
+    };
+
+    const drawRule = (commands, x1, y, x2) => {
+      commands.push(`0.80 0.80 0.80 RG 0.5 w ${x1.toFixed(2)} ${y.toFixed(2)} m ${x2.toFixed(2)} ${y.toFixed(2)} l S`);
+    };
+
+    const drawHeader = (commands, pageNumber, pageTotal) => {
+      drawText(commands, 'Approved Live SKU Database', margin, pageHeight - 38, 16);
+      drawMutedText(commands, `Generated ${generatedAt} | Version ${state.database.meta?.version || '1.00.00'} | ${rows.length} approved live SKUs`, margin, pageHeight - 56, 8);
+      drawMutedText(commands, `Page ${pageNumber} of ${pageTotal}`, pageWidth - margin - 72, pageHeight - 56, 8);
+      drawRule(commands, margin, pageHeight - 72, pageWidth - margin);
+    };
+
+    const drawTableHeader = (commands, y) => {
+      commands.push(`0.92 0.94 0.90 rg ${margin.toFixed(2)} ${(y - 5).toFixed(2)} ${tableWidth.toFixed(2)} 17 re f`);
+      let x = margin;
+      columns.forEach((column) => {
+        drawText(commands, column.label, x + 3, y, 7);
+        x += column.width;
+      });
+      drawRule(commands, margin, y - 8, margin + tableWidth);
+    };
+
+    const drawRow = (commands, row, y, index) => {
+      if (index % 2 === 1) {
+        commands.push(`0.98 0.98 0.96 rg ${margin.toFixed(2)} ${(y - 5).toFixed(2)} ${tableWidth.toFixed(2)} 16 re f`);
+      }
+
+      let x = margin;
+      columns.forEach((column) => {
+        drawText(commands, truncatePdfText(column.value(row), column.chars), x + 3, y, 7);
+        x += column.width;
+      });
+      drawRule(commands, margin, y - 8, margin + tableWidth);
+    };
+
+    const sortedRows = rows.slice().sort((a, b) => String(a.sku || '').localeCompare(String(b.sku || '')));
+    const pageTotal = Math.max(1, Math.ceil(sortedRows.length / rowsPerPage));
+    const pageContents = [];
+
+    for (let pageIndex = 0; pageIndex < pageTotal; pageIndex += 1) {
+      const commands = [];
+      const pageRows = sortedRows.slice(pageIndex * rowsPerPage, (pageIndex + 1) * rowsPerPage);
+      drawHeader(commands, pageIndex + 1, pageTotal);
+      drawTableHeader(commands, pageHeight - 102);
+
+      if (!pageRows.length) {
+        drawMutedText(commands, 'No approved live SKUs are currently available.', margin, pageHeight - 132, 9);
+      } else {
+        pageRows.forEach((row, rowIndex) => {
+          drawRow(commands, row, pageHeight - 125 - (rowIndex * rowHeight), rowIndex);
+        });
+      }
+
+      pageContents.push(commands.join('\n'));
+    }
+
+    return buildPdfDocument(pageContents);
+  };
+
+  const downloadApprovedLivePdf = () => {
+    const rows = state.database.skus || [];
+    if (!rows.length) {
+      showCopyMessage('No approved live SKUs to download.', true, 'center');
+      return;
+    }
+
+    try {
+      const blob = buildApprovedLivePdf(rows);
+      const date = new Date().toISOString().slice(0, 10);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `jenang-gemi-approved-live-skus-${date}.pdf`;
+      link.style.display = 'none';
+      root.append(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+      showCopyMessage('Approved Live PDF downloaded.', false, 'center');
+    } catch (_error) {
+      showCopyMessage('Unable to create Approved Live PDF.', true, 'center');
+    }
   };
 
   const copyTextToClipboard = async (text) => {
@@ -387,6 +560,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (brandCountNode) brandCountNode.textContent = String(state.database.brands.length);
     if (unitCountNode) unitCountNode.textContent = String(state.database.units.length);
     if (skuCountNode) skuCountNode.textContent = String(state.database.skus.length);
+    if (approvedLivePdfButton instanceof HTMLButtonElement) {
+      approvedLivePdfButton.disabled = state.database.skus.length === 0;
+    }
   };
 
   const renderMasterLists = () => {
@@ -1163,6 +1339,7 @@ document.addEventListener('DOMContentLoaded', () => {
   [filterUnit, filterFlavor, filterProduct].forEach((node) => {
     node?.addEventListener('change', renderTable);
   });
+  approvedLivePdfButton?.addEventListener('click', downloadApprovedLivePdf);
 
   syncCogsFields();
   syncInventoryFields();

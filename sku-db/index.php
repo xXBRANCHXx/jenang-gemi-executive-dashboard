@@ -406,7 +406,10 @@ $pageBuildVersion = 'sku1.00.00';
                             <span class="admin-panel-kicker">SKU Table</span>
                             <h3>Approved live SKUs</h3>
                         </div>
-                        <span class="admin-panel-meta"><?php echo $isBranch ? 'Change records COGS updates by PO number only' : 'Pending requests never appear in this table'; ?></span>
+                        <div class="admin-panel-actions">
+                            <span class="admin-panel-meta"><?php echo $isBranch ? 'Change records COGS updates by PO number only' : 'Pending requests never appear in this table'; ?></span>
+                            <button type="button" class="admin-ghost-btn admin-download-pdf-btn" data-download-approved-live-pdf disabled>Download PDF</button>
+                        </div>
                     </div>
                     <div class="admin-table-wrap">
                         <table class="admin-table">

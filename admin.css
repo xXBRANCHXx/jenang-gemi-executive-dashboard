@@ -898,6 +898,18 @@ button, input {
   margin-bottom: 16px;
 }
 
+.admin-panel-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.admin-download-pdf-btn {
+  white-space: nowrap;
+}
+
 .admin-panel-kicker,
 .admin-panel-meta {
   font-size: 12px;
