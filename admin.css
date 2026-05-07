@@ -4317,12 +4317,20 @@ body::after {
 .admin-shell .admin-rail-icon {
   width: 28px;
   height: 28px;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: contain;
+  background: none;
+  transform: none;
 }
 
-.admin-shell .admin-rail-icon::before,
+.admin-shell .admin-rail-icon::before {
+  content: '' !important;
+  display: block !important;
+  width: 23px;
+  height: 23px;
+  background: currentColor;
+  mask: var(--admin-rail-icon-mask) center / contain no-repeat;
+  -webkit-mask: var(--admin-rail-icon-mask) center / contain no-repeat;
+}
+
 .admin-shell .admin-rail-icon::after,
 .admin-shell .admin-rail-icon span,
 .admin-shell .admin-rail-icon span::before,
@@ -4332,30 +4340,32 @@ body::after {
 }
 
 .admin-shell .admin-rail-icon-home {
-  background-image: url('./assets/admin-icons/home.png');
+  border: 0;
+  --admin-rail-icon-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='black' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 11.5 12 4l9 7.5'/%3E%3Cpath d='M5.5 10.5V20h13v-9.5'/%3E%3Cpath d='M9.5 20v-5h5v5'/%3E%3C/g%3E%3C/svg%3E");
 }
 
 .admin-shell .admin-rail-icon-rocket {
-  transform: none;
-  background-image: url('./assets/admin-icons/website.png');
+  --admin-rail-icon-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='black' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M13 4h7v7'/%3E%3Cpath d='M20 4 10 14'/%3E%3Cpath d='M5 7h5v12H5z'/%3E%3Cpath d='M5 11h5'/%3E%3C/g%3E%3C/svg%3E");
 }
 
 .admin-shell .admin-rail-icon-affiliate {
-  background-image: url('./assets/admin-icons/affiliate.png');
+  --admin-rail-icon-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='black' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='5' r='2.5'/%3E%3Ccircle cx='6' cy='18' r='2.5'/%3E%3Ccircle cx='18' cy='18' r='2.5'/%3E%3Cpath d='M10.7 7.2 7.2 15.7'/%3E%3Cpath d='M13.3 7.2 16.8 15.7'/%3E%3Cpath d='M8.7 18h6.6'/%3E%3C/g%3E%3C/svg%3E");
 }
 
 .admin-shell .admin-rail-icon-partner {
-  background-image: url('./assets/admin-icons/partner.png');
+  --admin-rail-icon-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='black' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='9' cy='8' r='3'/%3E%3Cpath d='M3.5 19c.8-3.1 2.7-4.5 5.5-4.5s4.7 1.4 5.5 4.5'/%3E%3Ccircle cx='17' cy='9' r='2.4'/%3E%3Cpath d='M14.8 14.4c2.8.2 4.7 1.7 5.7 4.6'/%3E%3C/g%3E%3C/svg%3E");
 }
 
 .admin-shell .admin-rail-icon-sku {
-  width: 36px;
-  background-image: url('./assets/admin-icons/sku.png');
+  width: 28px;
+  font-size: 0;
+  letter-spacing: 0;
+  --admin-rail-icon-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='black' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 7.5 12 3l8 4.5-8 4.5z'/%3E%3Cpath d='M4 7.5v9L12 21l8-4.5v-9'/%3E%3Cpath d='M12 12v9'/%3E%3Cpath d='M8 5.3 16 9.8'/%3E%3C/g%3E%3C/svg%3E");
 }
 
 .admin-shell .admin-rail-icon-settings {
   animation: none;
-  background-image: url('./assets/admin-icons/settings.png');
+  --admin-rail-icon-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='black' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='3.2'/%3E%3Cpath d='M12 2.8v3'/%3E%3Cpath d='M12 18.2v3'/%3E%3Cpath d='M4.2 6.1l2.6 1.5'/%3E%3Cpath d='M17.2 16.4l2.6 1.5'/%3E%3Cpath d='M4.2 17.9l2.6-1.5'/%3E%3Cpath d='M17.2 7.6l2.6-1.5'/%3E%3C/g%3E%3C/svg%3E");
 }
 
 .admin-app.admin-app-suite .admin-primary-btn,
