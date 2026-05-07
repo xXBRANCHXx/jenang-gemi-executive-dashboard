@@ -1,12 +1,25 @@
 document.addEventListener('DOMContentLoaded', () => {
   const themeStorageKey = 'jg-admin-theme';
+  const themeOptions = ['dark', 'minimal-white', 'classic-white', 'minimal-black'];
   const menuShell = document.querySelector('[data-menu-shell]');
   const menuTrigger = document.querySelector('[data-menu-trigger]');
   const menuPanel = document.querySelector('[data-menu-panel]');
 
+  const normalizeTheme = (theme) => {
+    if (theme === 'light') return 'classic-white';
+    return themeOptions.includes(theme) ? theme : 'dark';
+  };
+
+  const getNextTheme = () => {
+    const currentTheme = normalizeTheme(document.documentElement.dataset.adminTheme);
+    const currentIndex = themeOptions.indexOf(currentTheme);
+    return themeOptions[(currentIndex + 1) % themeOptions.length];
+  };
+
   const applyTheme = (theme) => {
-    document.documentElement.dataset.adminTheme = theme;
-    window.localStorage.setItem(themeStorageKey, theme);
+    const normalizedTheme = normalizeTheme(theme);
+    document.documentElement.dataset.adminTheme = normalizedTheme;
+    window.localStorage.setItem(themeStorageKey, normalizedTheme);
   };
 
   const closeMenu = () => {
@@ -43,7 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.querySelectorAll('[data-theme-toggle]').forEach((button) => {
     button.addEventListener('click', () => {
-      applyTheme(document.documentElement.dataset.adminTheme === 'dark' ? 'light' : 'dark');
+      applyTheme(getNextTheme());
     });
   });
 });

@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const role = root.dataset.skuRole || 'requester';
   const username = root.dataset.skuUsername || '';
   const themeStorageKey = 'jg-admin-theme';
+  const themeOptions = ['dark', 'minimal-white', 'classic-white', 'minimal-black'];
   const brandSessionStorageKey = 'jg-sku-db-selected-brand';
 
   const menuShell = document.querySelector('[data-menu-shell]');
@@ -379,9 +380,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const normalizeTheme = (theme) => {
+    if (theme === 'light') return 'classic-white';
+    return themeOptions.includes(theme) ? theme : 'dark';
+  };
+
+  const getNextTheme = () => {
+    const currentTheme = normalizeTheme(document.documentElement.dataset.adminTheme);
+    const currentIndex = themeOptions.indexOf(currentTheme);
+    return themeOptions[(currentIndex + 1) % themeOptions.length];
+  };
+
   const applyTheme = (theme) => {
-    document.documentElement.dataset.adminTheme = theme;
-    window.localStorage.setItem(themeStorageKey, theme);
+    const normalizedTheme = normalizeTheme(theme);
+    document.documentElement.dataset.adminTheme = normalizedTheme;
+    window.localStorage.setItem(themeStorageKey, normalizedTheme);
   };
 
   const closeMenu = () => {
@@ -1476,7 +1489,7 @@ document.addEventListener('DOMContentLoaded', () => {
   applyTheme(window.localStorage.getItem(themeStorageKey) || 'dark');
   setupTopbarMenu();
   document.querySelector('[data-theme-toggle]')?.addEventListener('click', () => {
-    applyTheme(document.documentElement.dataset.adminTheme === 'light' ? 'dark' : 'light');
+    applyTheme(getNextTheme());
   });
 
   loadDatabase().catch((error) => {

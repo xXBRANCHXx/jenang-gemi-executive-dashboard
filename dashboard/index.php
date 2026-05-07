@@ -556,8 +556,25 @@ $dashboardBuildVersion = 'exec3.47.0';
                         <div class="admin-panel-head">
                             <div><span class="admin-panel-kicker">Appearance</span><h3>Theme</h3></div>
                         </div>
-                        <p class="admin-settings-copy">Switch the dashboard between dark and light mode without leaving the page.</p>
-                        <button type="button" class="admin-primary-btn" data-theme-toggle>Toggle Theme</button>
+                        <p class="admin-settings-copy">Choose the dashboard theme without changing dashboard access or abilities.</p>
+                        <div class="admin-theme-options" data-theme-options>
+                            <button type="button" class="admin-theme-option" data-theme-option="dark" aria-pressed="false">
+                                <span class="admin-theme-swatch admin-theme-swatch-current" aria-hidden="true"></span>
+                                <span><strong>Current Default</strong><small>Executive dark</small></span>
+                            </button>
+                            <button type="button" class="admin-theme-option" data-theme-option="minimal-white" aria-pressed="false">
+                                <span class="admin-theme-swatch admin-theme-swatch-minimal-white" aria-hidden="true"></span>
+                                <span><strong>Minimal White</strong><small>Clean and quiet</small></span>
+                            </button>
+                            <button type="button" class="admin-theme-option" data-theme-option="classic-white" aria-pressed="false">
+                                <span class="admin-theme-swatch admin-theme-swatch-classic-white" aria-hidden="true"></span>
+                                <span><strong>Polished White</strong><small>Layered and bright</small></span>
+                            </button>
+                            <button type="button" class="admin-theme-option" data-theme-option="minimal-black" aria-pressed="false">
+                                <span class="admin-theme-swatch admin-theme-swatch-minimal-black" aria-hidden="true"></span>
+                                <span><strong>Minimal Black</strong><small>Flat and focused</small></span>
+                            </button>
+                        </div>
                     </article>
 
                     <article class="admin-panel admin-settings-card">

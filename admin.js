@@ -674,6 +674,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const themeStorageKey = 'jg-admin-theme';
   const viewStorageKey = 'jg-dashboard-view';
+  const themeOptions = ['dark', 'minimal-white', 'classic-white', 'minimal-black'];
 
   const state = {
     activeView: window.localStorage.getItem(viewStorageKey) || 'home',
@@ -906,9 +907,30 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
+  const normalizeTheme = (theme) => {
+    if (theme === 'light') return 'classic-white';
+    return themeOptions.includes(theme) ? theme : 'dark';
+  };
+
+  const getNextTheme = () => {
+    const currentTheme = normalizeTheme(document.documentElement.dataset.adminTheme);
+    const currentIndex = themeOptions.indexOf(currentTheme);
+    return themeOptions[(currentIndex + 1) % themeOptions.length];
+  };
+
+  const syncThemeControls = (theme) => {
+    document.querySelectorAll('[data-theme-option]').forEach((button) => {
+      const isActive = button.dataset.themeOption === theme;
+      button.classList.toggle('is-active', isActive);
+      button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
+  };
+
   const applyTheme = (theme) => {
-    document.documentElement.dataset.adminTheme = theme;
-    window.localStorage.setItem(themeStorageKey, theme);
+    const normalizedTheme = normalizeTheme(theme);
+    document.documentElement.dataset.adminTheme = normalizedTheme;
+    window.localStorage.setItem(themeStorageKey, normalizedTheme);
+    syncThemeControls(normalizedTheme);
     renderCachedCharts();
   };
 
@@ -1465,7 +1487,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.querySelectorAll('[data-theme-toggle]').forEach((button) => {
     button.addEventListener('click', () => {
-      applyTheme(document.documentElement.dataset.adminTheme === 'dark' ? 'light' : 'dark');
+      applyTheme(getNextTheme());
+    });
+  });
+
+  document.querySelectorAll('[data-theme-option]').forEach((button) => {
+    button.addEventListener('click', () => {
+      applyTheme(button.dataset.themeOption || 'dark');
     });
   });
 
