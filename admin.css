@@ -5288,3 +5288,181 @@ body::after {
     grid-template-columns: 1fr;
   }
 }
+
+/* White-theme contrast sweep for older dark-theme hardcoded text rules. */
+:root[data-admin-theme='minimal-white'] :is(
+  .admin-app,
+  .admin-login-shell,
+  .admin-modal-card
+) :is(
+  h1, h2, h3, h4,
+  p,
+  label,
+  legend,
+  input,
+  select,
+  textarea,
+  .admin-search-input,
+  .admin-search-result strong,
+  .admin-hero-copy h2,
+  .admin-metric-card strong,
+  .admin-table td,
+  .admin-code-block,
+  .admin-chip,
+  .admin-sku-token,
+  .admin-sku-preview strong,
+  .admin-request-result,
+  .admin-launchpad-link span,
+  .admin-control-strip .admin-toggle-pill,
+  .admin-panel-inline-toggles .admin-toggle-pill,
+  .admin-panel-inline-toggles .admin-toggle-pill-series,
+  .admin-theme-option strong
+),
+:root[data-admin-theme='classic-white'] :is(
+  .admin-app,
+  .admin-login-shell,
+  .admin-modal-card
+) :is(
+  h1, h2, h3, h4,
+  p,
+  label,
+  legend,
+  input,
+  select,
+  textarea,
+  .admin-search-input,
+  .admin-search-result strong,
+  .admin-hero-copy h2,
+  .admin-metric-card strong,
+  .admin-table td,
+  .admin-code-block,
+  .admin-chip,
+  .admin-sku-token,
+  .admin-sku-preview strong,
+  .admin-request-result,
+  .admin-launchpad-link span,
+  .admin-control-strip .admin-toggle-pill,
+  .admin-panel-inline-toggles .admin-toggle-pill,
+  .admin-panel-inline-toggles .admin-toggle-pill-series,
+  .admin-theme-option strong
+) {
+  color: var(--admin-text);
+}
+
+:root[data-admin-theme='minimal-white'] :is(
+  .admin-admin-mark,
+  .admin-topbar-brand p,
+  .admin-panel-kicker,
+  .admin-panel-meta,
+  .admin-table th,
+  .admin-search-toggle,
+  .admin-search-result span,
+  .admin-search-result small,
+  .admin-search-empty,
+  .admin-launchpad-link small,
+  .admin-settings-copy,
+  .admin-theme-option small,
+  .admin-event-item span,
+  .admin-event-item small,
+  .admin-metric-card small,
+  .admin-empty,
+  .admin-live-status span
+),
+:root[data-admin-theme='classic-white'] :is(
+  .admin-admin-mark,
+  .admin-topbar-brand p,
+  .admin-panel-kicker,
+  .admin-panel-meta,
+  .admin-table th,
+  .admin-search-toggle,
+  .admin-search-result span,
+  .admin-search-result small,
+  .admin-search-empty,
+  .admin-launchpad-link small,
+  .admin-settings-copy,
+  .admin-theme-option small,
+  .admin-event-item span,
+  .admin-event-item small,
+  .admin-metric-card small,
+  .admin-empty,
+  .admin-live-status span
+) {
+  color: var(--admin-muted);
+}
+
+:root[data-admin-theme='minimal-white'] :is(.admin-search-input, input, textarea)::placeholder,
+:root[data-admin-theme='classic-white'] :is(.admin-search-input, input, textarea)::placeholder {
+  color: var(--admin-muted);
+  opacity: 1;
+}
+
+:root[data-admin-theme='minimal-white'] :is(
+  .admin-app.admin-app-suite .admin-primary-btn,
+  .admin-app.admin-app-suite .admin-primary-btn:hover
+),
+:root[data-admin-theme='classic-white'] :is(
+  .admin-app.admin-app-suite .admin-primary-btn,
+  .admin-app.admin-app-suite .admin-primary-btn:hover
+) {
+  color: #06210d;
+}
+
+:root[data-admin-theme='minimal-white'] :is(
+  .admin-control-strip .admin-toggle-pill.is-active,
+  .admin-panel-inline-toggles .admin-toggle-pill.is-active,
+  .admin-panel-inline-toggles .admin-toggle-pill-series.is-active
+),
+:root[data-admin-theme='classic-white'] :is(
+  .admin-control-strip .admin-toggle-pill.is-active,
+  .admin-panel-inline-toggles .admin-toggle-pill.is-active,
+  .admin-panel-inline-toggles .admin-toggle-pill-series.is-active
+) {
+  color: #0f2f17;
+}
+
+:root[data-admin-theme='minimal-white'] .admin-toggle-pill-series-bubur.is-active,
+:root[data-admin-theme='classic-white'] .admin-toggle-pill-series-bubur.is-active {
+  color: #164e20;
+}
+
+:root[data-admin-theme='minimal-white'] :is(.admin-toggle-pill-series-jamu.is-active, .admin-launchpad-link-jamu span),
+:root[data-admin-theme='classic-white'] :is(.admin-toggle-pill-series-jamu.is-active, .admin-launchpad-link-jamu span) {
+  color: #7c2d12;
+}
+
+:root[data-admin-theme='minimal-white'] .admin-launchpad-link-jamu small,
+:root[data-admin-theme='classic-white'] .admin-launchpad-link-jamu small {
+  color: #9a3412;
+}
+
+:root[data-admin-theme='minimal-white'] .admin-launchpad-link span,
+:root[data-admin-theme='classic-white'] .admin-launchpad-link span {
+  color: #14532d;
+}
+
+:root[data-admin-theme='minimal-white'] .admin-launchpad-link small,
+:root[data-admin-theme='classic-white'] .admin-launchpad-link small {
+  color: #3f6212;
+}
+
+:root[data-admin-theme='minimal-white'] .admin-launchpad-link.is-disabled,
+:root[data-admin-theme='classic-white'] .admin-launchpad-link.is-disabled {
+  color: #64748b;
+}
+
+:root[data-admin-theme='minimal-white'] :is(.admin-form-error, .admin-login-error, .admin-menu-item-danger, .admin-sku-token-remove),
+:root[data-admin-theme='classic-white'] :is(.admin-form-error, .admin-login-error, .admin-menu-item-danger, .admin-sku-token-remove) {
+  color: #b42318;
+}
+
+:root[data-admin-theme='minimal-white'] .admin-sku-token-remove:hover,
+:root[data-admin-theme='classic-white'] .admin-sku-token-remove:hover {
+  color: #7f1d1d;
+}
+
+:root[data-admin-theme='minimal-white'] .admin-event-feed::before,
+:root[data-admin-theme='minimal-white'] .admin-event-feed::after,
+:root[data-admin-theme='classic-white'] .admin-event-feed::before,
+:root[data-admin-theme='classic-white'] .admin-event-feed::after {
+  background: transparent;
+}
