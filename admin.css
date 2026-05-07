@@ -4745,6 +4745,7 @@ body::after {
   --admin-rail-border: rgba(15, 23, 42, 0.14);
   --admin-green-soft: rgba(33, 122, 60, 0.12);
   --admin-green-line: rgba(33, 122, 60, 0.5);
+  color-scheme: light;
 }
 
 :root[data-admin-theme='classic-white'] {
@@ -4774,6 +4775,7 @@ body::after {
   --admin-rail-border: rgba(15, 23, 42, 0.12);
   --admin-green-soft: rgba(95, 159, 24, 0.13);
   --admin-green-line: rgba(95, 159, 24, 0.5);
+  color-scheme: light;
 }
 
 :root[data-admin-theme='minimal-black'] {
@@ -4803,6 +4805,7 @@ body::after {
   --admin-rail-border: rgba(255, 255, 255, 0.12);
   --admin-green-soft: rgba(215, 255, 85, 0.13);
   --admin-green-line: rgba(215, 255, 85, 0.48);
+  color-scheme: dark;
 }
 
 :root[data-admin-theme='minimal-white'] body,
@@ -4810,6 +4813,33 @@ body::after {
 :root[data-admin-theme='minimal-black'] body {
   background: var(--admin-bg);
   color: var(--admin-text);
+}
+
+:root[data-admin-theme='minimal-white'],
+:root[data-admin-theme='minimal-white'] body,
+:root[data-admin-theme='minimal-white'] .admin-app.admin-app-suite {
+  background: #f7f8f5;
+}
+
+:root[data-admin-theme='classic-white'],
+:root[data-admin-theme='classic-white'] body,
+:root[data-admin-theme='classic-white'] .admin-app.admin-app-suite {
+  background:
+    radial-gradient(circle at 18% 10%, rgba(155, 226, 67, 0.16), transparent 28%),
+    radial-gradient(circle at 84% 0%, rgba(6, 182, 212, 0.13), transparent 24%),
+    linear-gradient(180deg, #f7faf4 0%, #eef3ee 48%, #e9efe8 100%);
+}
+
+:root[data-admin-theme='minimal-black'],
+:root[data-admin-theme='minimal-black'] body,
+:root[data-admin-theme='minimal-black'] .admin-app.admin-app-suite {
+  background: #050505;
+}
+
+:root[data-admin-theme='minimal-white'] :is(.admin-shell, .admin-shell-main, .admin-layout, .admin-view, .admin-main-grid, .admin-metric-grid, .admin-settings-grid, .admin-sku-form-grid, .admin-sku-master-grid, .admin-request-stack),
+:root[data-admin-theme='classic-white'] :is(.admin-shell, .admin-shell-main, .admin-layout, .admin-view, .admin-main-grid, .admin-metric-grid, .admin-settings-grid, .admin-sku-form-grid, .admin-sku-master-grid, .admin-request-stack),
+:root[data-admin-theme='minimal-black'] :is(.admin-shell, .admin-shell-main, .admin-layout, .admin-view, .admin-main-grid, .admin-metric-grid, .admin-settings-grid, .admin-sku-form-grid, .admin-sku-master-grid, .admin-request-stack) {
+  background: transparent;
 }
 
 :root[data-admin-theme='minimal-white'] body::before,
@@ -4845,7 +4875,67 @@ body::after {
 }
 
 :root[data-admin-theme='classic-white'] .admin-backdrop {
+  display: block;
   opacity: 0.58;
+}
+
+:root[data-admin-theme='minimal-white'] .admin-app.admin-app-suite::after,
+:root[data-admin-theme='minimal-black'] .admin-app.admin-app-suite::after,
+:root[data-admin-theme='minimal-white'] .admin-app.admin-app-suite .admin-backdrop-a::before,
+:root[data-admin-theme='minimal-white'] .admin-app.admin-app-suite .admin-backdrop-a::after,
+:root[data-admin-theme='minimal-white'] .admin-app.admin-app-suite .admin-backdrop-b::before,
+:root[data-admin-theme='minimal-white'] .admin-app.admin-app-suite .admin-backdrop-b::after,
+:root[data-admin-theme='minimal-black'] .admin-app.admin-app-suite .admin-backdrop-a::before,
+:root[data-admin-theme='minimal-black'] .admin-app.admin-app-suite .admin-backdrop-a::after,
+:root[data-admin-theme='minimal-black'] .admin-app.admin-app-suite .admin-backdrop-b::before,
+:root[data-admin-theme='minimal-black'] .admin-app.admin-app-suite .admin-backdrop-b::after {
+  display: none;
+}
+
+:root[data-admin-theme='classic-white'] .admin-app.admin-app-suite::after {
+  opacity: 0.08;
+  filter: invert(1);
+}
+
+:root[data-admin-theme='classic-white'] .admin-app.admin-app-suite .admin-backdrop-a::before,
+:root[data-admin-theme='classic-white'] .admin-app.admin-app-suite .admin-backdrop-a::after,
+:root[data-admin-theme='classic-white'] .admin-app.admin-app-suite .admin-backdrop-b::before,
+:root[data-admin-theme='classic-white'] .admin-app.admin-app-suite .admin-backdrop-b::after {
+  display: block;
+  opacity: 1;
+}
+
+:root[data-admin-theme='classic-white'] .admin-app.admin-app-suite .admin-backdrop-a::before {
+  top: -12vh;
+  left: 10vw;
+  width: 30vw;
+  height: 30vw;
+  background: rgba(155, 226, 67, 0.2);
+}
+
+:root[data-admin-theme='classic-white'] .admin-app.admin-app-suite .admin-backdrop-a::after {
+  top: -10vh;
+  right: 8vw;
+  width: 28vw;
+  height: 28vw;
+  background: rgba(6, 182, 212, 0.15);
+}
+
+:root[data-admin-theme='classic-white'] .admin-app.admin-app-suite .admin-backdrop-b::before {
+  bottom: 10vh;
+  right: 16vw;
+  width: 24vw;
+  height: 24vw;
+  background: rgba(16, 185, 129, 0.14);
+}
+
+:root[data-admin-theme='classic-white'] .admin-app.admin-app-suite .admin-backdrop-b::after {
+  bottom: -12vh;
+  left: 22vw;
+  width: 30vw;
+  height: 20vw;
+  background: rgba(148, 163, 184, 0.16);
+  filter: blur(90px);
 }
 
 :root[data-admin-theme='minimal-white'] :is(
