@@ -727,6 +727,53 @@ function jg_sku_create_sku(PDO $pdo, array $payload, ?int $approvalRequestId = n
     ]);
 }
 
+function jg_sku_count_references(PDO $pdo, string $columnName, string $itemId): int
+{
+    $skuStmt = $pdo->prepare('SELECT COUNT(*) FROM sku_skus WHERE ' . $columnName . ' = :item_id');
+    $skuStmt->execute([':item_id' => $itemId]);
+
+    $requestStmt = $pdo->prepare('SELECT COUNT(*) FROM sku_requests WHERE ' . $columnName . ' = :item_id');
+    $requestStmt->execute([':item_id' => $itemId]);
+
+    return (int) $skuStmt->fetchColumn() + (int) $requestStmt->fetchColumn();
+}
+
+function jg_sku_delete_brand_child(PDO $pdo, array $request, string $kind): void
+{
+    jg_sku_require_branch_password_json($request['password'] ?? null);
+
+    $brandId = (string) ($request['brand_id'] ?? '');
+    $itemId = (string) ($request['item_id'] ?? '');
+    $tableName = $kind === 'flavor' ? 'sku_flavors' : 'sku_products';
+    $label = $kind === 'flavor' ? 'Flavor' : 'Product';
+    $columnName = $kind === 'flavor' ? 'flavor_id' : 'product_id';
+
+    jg_sku_get_brand($pdo, $brandId);
+
+    $stmt = $pdo->prepare('SELECT id, name FROM ' . $tableName . ' WHERE id = :id AND brand_id = :brand_id LIMIT 1');
+    $stmt->execute([
+        ':id' => $itemId,
+        ':brand_id' => $brandId,
+    ]);
+    $item = $stmt->fetch();
+    if (!is_array($item)) {
+        jg_sku_fail($label . ' not found.', 404);
+    }
+
+    if (jg_sku_count_references($pdo, $columnName, $itemId) > 0) {
+        jg_sku_fail($label . ' is used by live SKUs or SKU requests and cannot be removed.');
+    }
+
+    $deleteStmt = $pdo->prepare('DELETE FROM ' . $tableName . ' WHERE id = :id AND brand_id = :brand_id');
+    $deleteStmt->execute([
+        ':id' => $itemId,
+        ':brand_id' => $brandId,
+    ]);
+
+    jg_sku_touch_version($pdo);
+    jg_sku_response($pdo);
+}
+
 jg_sku_require_auth_json();
 
 try {
@@ -837,6 +884,14 @@ try {
 
         jg_sku_touch_version($pdo);
         jg_sku_response($pdo);
+    }
+
+    if ($action === 'delete_flavor') {
+        jg_sku_delete_brand_child($pdo, $request, 'flavor');
+    }
+
+    if ($action === 'delete_product') {
+        jg_sku_delete_brand_child($pdo, $request, 'product');
     }
 
     if ($action === 'create_sku') {
@@ -1119,7 +1174,7 @@ try {
     }
 
     if ($action === 'delete_sku') {
-        jg_sku_require_branch_json();
+        jg_sku_require_branch_password_json($request['password'] ?? null);
 
         $sku = trim((string) ($request['sku'] ?? ''));
         if ($sku === '') {

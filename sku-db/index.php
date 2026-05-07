@@ -595,6 +595,34 @@ $pageBuildVersion = 'sku1.00.00';
     </div>
 
     <?php if ($isBranch): ?>
+        <div class="admin-modal-shell" data-delete-modal hidden>
+            <div class="admin-modal-backdrop" data-close-delete-modal></div>
+            <div class="admin-modal-card">
+                <div class="admin-panel-head admin-modal-head">
+                    <div>
+                        <span class="admin-panel-kicker">Password Required</span>
+                        <h3>Confirm removal</h3>
+                    </div>
+                </div>
+                <form class="admin-sku-form-grid" data-delete-form>
+                    <div class="admin-sku-preview admin-sku-preview-wide">
+                        <span class="admin-control-label">Removal target</span>
+                        <strong data-delete-summary>Waiting for selection</strong>
+                        <small>Enter the Branch password to remove this record from the SKU database.</small>
+                    </div>
+                    <label class="admin-sku-full-span">
+                        <span>Branch password</span>
+                        <input type="password" name="password" maxlength="255" placeholder="Enter password" autocomplete="current-password" required>
+                    </label>
+                    <div class="admin-sku-actions">
+                        <button type="submit" class="admin-primary-btn admin-danger-btn">Remove</button>
+                        <button type="button" class="admin-ghost-btn" data-close-delete-modal>Cancel</button>
+                    </div>
+                </form>
+                <p class="admin-form-error" data-delete-error hidden></p>
+            </div>
+        </div>
+
         <div class="admin-modal-shell" data-approval-modal hidden>
             <div class="admin-modal-backdrop" data-close-approval-modal></div>
             <div class="admin-modal-card">

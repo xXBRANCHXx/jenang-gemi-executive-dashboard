@@ -151,3 +151,18 @@ function jg_sku_require_branch_json(): void
     echo json_encode(['error' => 'Branch approval required.'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
     exit;
 }
+
+function jg_sku_require_branch_password_json(mixed $password): void
+{
+    jg_sku_require_branch_json();
+
+    $passwordValue = is_string($password) ? $password : '';
+    if (jg_sku_password_matches($passwordValue, jg_sku_branch_password_hash())) {
+        return;
+    }
+
+    http_response_code(403);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['error' => 'Branch password confirmation is required.'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    exit;
+}

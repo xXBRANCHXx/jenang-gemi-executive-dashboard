@@ -40,6 +40,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const approvalForm = document.querySelector('[data-approval-form]');
   const approvalSummary = document.querySelector('[data-approval-summary]');
   const approvalRequester = document.querySelector('[data-approval-requester]');
+  const deleteModal = document.querySelector('[data-delete-modal]');
+  const deleteForm = document.querySelector('[data-delete-form]');
+  const deleteSummary = document.querySelector('[data-delete-summary]');
+  const deleteError = document.querySelector('[data-delete-error]');
   const requestList = document.querySelector('[data-request-list]');
   const tableBody = document.querySelector('[data-sku-table-body]');
   const approvedLivePdfButton = document.querySelector('[data-download-approved-live-pdf]');
@@ -66,7 +70,8 @@ document.addEventListener('DOMContentLoaded', () => {
       skus: []
     },
     requests: [],
-    activeApprovalRequestId: null
+    activeApprovalRequestId: null,
+    pendingDelete: null
   };
 
   const escapeHtml = (value) => String(value)
@@ -565,6 +570,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const renderMasterChildToken = (kind, brand, item) => {
+    const brandId = escapeHtml(brand.id || '');
+    const itemId = escapeHtml(item.id || '');
+    const itemName = escapeHtml(item.name || '');
+    return `
+      <span class="admin-sku-token admin-sku-token-action">
+        <span>${escapeHtml(item.code || '--')} · ${itemName}</span>
+        ${role === 'branch'
+          ? `<button
+              type="button"
+              class="admin-sku-token-remove"
+              data-delete-master-kind="${kind}"
+              data-delete-master-brand-id="${brandId}"
+              data-delete-master-brand-name="${escapeHtml(brand.name || '')}"
+              data-delete-master-item-id="${itemId}"
+              data-delete-master-item-name="${itemName}"
+              aria-label="Remove ${kind} ${itemName}"
+            >Remove</button>`
+          : ''}
+      </span>
+    `;
+  };
+
   const renderMasterLists = () => {
     if (brandList) {
       brandList.innerHTML = state.database.brands.length
@@ -584,7 +612,9 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="admin-sku-brand-block">
               <strong>${escapeHtml(brand.name || '')}</strong>
               <div class="admin-sku-token-list">
-                ${(brand.flavors || []).map((item) => `<span class="admin-sku-token">${escapeHtml(item.code || '--')} · ${escapeHtml(item.name || '')}</span>`).join('')}
+                ${(brand.flavors || []).length
+                  ? (brand.flavors || []).map((item) => renderMasterChildToken('flavor', brand, item)).join('')
+                  : '<p class="admin-empty">No flavors yet.</p>'}
               </div>
             </div>
           `).join('')
@@ -598,7 +628,7 @@ document.addEventListener('DOMContentLoaded', () => {
               <strong>${escapeHtml(brand.name || '')}</strong>
               <div class="admin-sku-token-list">
                 ${(brand.products || []).length
-                  ? (brand.products || []).map((item) => `<span class="admin-sku-token">${escapeHtml(item.code || '--')} · ${escapeHtml(item.name || '')}</span>`).join('')
+                  ? (brand.products || []).map((item) => renderMasterChildToken('product', brand, item)).join('')
                   : '<p class="admin-empty">No products yet.</p>'}
               </div>
             </div>
@@ -943,6 +973,25 @@ document.addEventListener('DOMContentLoaded', () => {
     setError(approvalError, '');
   };
 
+  const closeDeleteModal = () => {
+    if (!deleteModal) return;
+    deleteModal.hidden = true;
+    deleteForm?.reset();
+    state.pendingDelete = null;
+    if (deleteSummary) deleteSummary.textContent = 'Waiting for selection';
+    setError(deleteError, '');
+  };
+
+  const openDeleteModal = (pendingDelete) => {
+    if (!(deleteForm instanceof HTMLFormElement) || !deleteModal) return;
+    state.pendingDelete = pendingDelete;
+    deleteForm.reset();
+    if (deleteSummary) deleteSummary.textContent = pendingDelete.summary || 'Confirm removal';
+    setError(deleteError, '');
+    deleteModal.hidden = false;
+    deleteForm.elements.password?.focus();
+  };
+
   const openApprovalModal = (requestId) => {
     if (!(approvalForm instanceof HTMLFormElement) || !approvalModal) return;
     const request = state.requests.find((item) => Number(item.id) === Number(requestId));
@@ -1193,11 +1242,29 @@ document.addEventListener('DOMContentLoaded', () => {
     const sku = deleteButton.dataset.deleteSku || '';
     const row = state.database.skus.find((item) => item.sku === sku);
     const label = row ? `${row.sku} (${row.tag || row.product_name || 'untagged'})` : sku;
-    const confirmed = window.confirm(`Delete approved SKU ${label}? This removes it from the live SKU database and deletes its COGS history.`);
-    if (!confirmed) return;
+    openDeleteModal({
+      action: 'delete_sku',
+      sku,
+      summary: `Delete approved SKU ${label}. This removes it from the live SKU database and deletes its COGS history.`
+    });
+  });
 
-    postAction({ action: 'delete_sku', sku }).catch((error) => {
-      window.alert(error instanceof Error ? error.message : 'Unable to delete SKU.');
+  [flavorList, productList].forEach((list) => {
+    list?.addEventListener('click', (event) => {
+      const button = event.target instanceof Element ? event.target.closest('[data-delete-master-kind]') : null;
+      if (!(button instanceof HTMLButtonElement)) return;
+
+      const kind = button.dataset.deleteMasterKind || '';
+      if (!['flavor', 'product'].includes(kind)) return;
+
+      const itemName = button.dataset.deleteMasterItemName || 'this item';
+      const brandName = button.dataset.deleteMasterBrandName || 'this brand';
+      openDeleteModal({
+        action: kind === 'flavor' ? 'delete_flavor' : 'delete_product',
+        brand_id: button.dataset.deleteMasterBrandId || '',
+        item_id: button.dataset.deleteMasterItemId || '',
+        summary: `Remove ${kind} ${itemName} from ${brandName}. This only works when it is not used by live SKUs or SKU requests.`
+      });
     });
   });
 
@@ -1277,6 +1344,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  deleteForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!(deleteForm instanceof HTMLFormElement) || !state.pendingDelete) return;
+    setError(deleteError, '');
+
+    try {
+      const formData = new window.FormData(deleteForm);
+      await postAction({
+        ...state.pendingDelete,
+        password: formData.get('password')
+      });
+      closeDeleteModal();
+      showCopyMessage('Removed from the SKU database.', false, 'center');
+    } catch (error) {
+      setError(deleteError, error instanceof Error ? error.message : 'Unable to remove item.');
+    }
+  });
+
   approvalForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (!(approvalForm instanceof HTMLFormElement)) return;
@@ -1319,6 +1404,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.querySelectorAll('[data-close-approval-modal]').forEach((button) => {
     button.addEventListener('click', closeApprovalModal);
+  });
+
+  document.querySelectorAll('[data-close-delete-modal]').forEach((button) => {
+    button.addEventListener('click', closeDeleteModal);
   });
 
   document.addEventListener('click', (event) => {
