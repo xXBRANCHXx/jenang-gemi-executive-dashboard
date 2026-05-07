@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
   const themeStorageKey = 'jg-admin-theme';
-  const themeOptions = ['dark', 'minimal-white', 'classic-white', 'minimal-black'];
+  const themeCookieMaxAge = 60 * 60 * 24 * 365 * 2;
+  const themeOptions = ['dark', 'minimal-white', 'classic-white', 'minimal-black', 'prism'];
   const menuShell = document.querySelector('[data-menu-shell]');
   const menuTrigger = document.querySelector('[data-menu-trigger]');
   const menuPanel = document.querySelector('[data-menu-panel]');
@@ -8,6 +9,34 @@ document.addEventListener('DOMContentLoaded', () => {
   const normalizeTheme = (theme) => {
     if (theme === 'light') return 'classic-white';
     return themeOptions.includes(theme) ? theme : 'dark';
+  };
+
+  const readThemeCookie = () => {
+    const escapedKey = themeStorageKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const match = document.cookie.match(new RegExp(`(?:^|; )${escapedKey}=([^;]*)`));
+    return match ? decodeURIComponent(match[1]) : '';
+  };
+
+  const writeThemeCookie = (theme) => {
+    const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+    document.cookie = `${themeStorageKey}=${encodeURIComponent(theme)}; Path=/; SameSite=Lax; Max-Age=${themeCookieMaxAge}${secure}`;
+  };
+
+  const readStoredTheme = () => {
+    try {
+      return window.localStorage.getItem(themeStorageKey) || readThemeCookie();
+    } catch (_error) {
+      return readThemeCookie();
+    }
+  };
+
+  const writeStoredTheme = (theme) => {
+    try {
+      window.localStorage.setItem(themeStorageKey, theme);
+    } catch (_error) {
+      // Cookies keep the device preference when localStorage is unavailable.
+    }
+    writeThemeCookie(theme);
   };
 
   const getNextTheme = () => {
@@ -19,7 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const applyTheme = (theme) => {
     const normalizedTheme = normalizeTheme(theme);
     document.documentElement.dataset.adminTheme = normalizedTheme;
-    window.localStorage.setItem(themeStorageKey, normalizedTheme);
+    writeStoredTheme(normalizedTheme);
   };
 
   const closeMenu = () => {
@@ -34,7 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
     menuTrigger.setAttribute('aria-expanded', 'true');
   };
 
-  applyTheme(window.localStorage.getItem(themeStorageKey) || 'dark');
+  applyTheme(readStoredTheme() || 'dark');
 
   menuTrigger?.addEventListener('click', () => {
     if (menuPanel?.hidden === false) closeMenu();

@@ -673,6 +673,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!root) return;
 
   const themeStorageKey = 'jg-admin-theme';
+  const themeCookieMaxAge = 60 * 60 * 24 * 365 * 2;
   const viewStorageKey = 'jg-dashboard-view';
   const themeOptions = ['dark', 'minimal-white', 'classic-white', 'minimal-black', 'prism'];
 
@@ -912,6 +913,34 @@ document.addEventListener('DOMContentLoaded', () => {
     return themeOptions.includes(theme) ? theme : 'dark';
   };
 
+  const readThemeCookie = () => {
+    const escapedKey = themeStorageKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const match = document.cookie.match(new RegExp(`(?:^|; )${escapedKey}=([^;]*)`));
+    return match ? decodeURIComponent(match[1]) : '';
+  };
+
+  const writeThemeCookie = (theme) => {
+    const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+    document.cookie = `${themeStorageKey}=${encodeURIComponent(theme)}; Path=/; SameSite=Lax; Max-Age=${themeCookieMaxAge}${secure}`;
+  };
+
+  const readStoredTheme = () => {
+    try {
+      return window.localStorage.getItem(themeStorageKey) || readThemeCookie();
+    } catch (_error) {
+      return readThemeCookie();
+    }
+  };
+
+  const writeStoredTheme = (theme) => {
+    try {
+      window.localStorage.setItem(themeStorageKey, theme);
+    } catch (_error) {
+      // Cookies keep the device preference when localStorage is unavailable.
+    }
+    writeThemeCookie(theme);
+  };
+
   const getNextTheme = () => {
     const currentTheme = normalizeTheme(document.documentElement.dataset.adminTheme);
     const currentIndex = themeOptions.indexOf(currentTheme);
@@ -929,7 +958,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const applyTheme = (theme) => {
     const normalizedTheme = normalizeTheme(theme);
     document.documentElement.dataset.adminTheme = normalizedTheme;
-    window.localStorage.setItem(themeStorageKey, normalizedTheme);
+    writeStoredTheme(normalizedTheme);
     syncThemeControls(normalizedTheme);
     renderCachedCharts();
   };
@@ -1424,7 +1453,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
-  applyTheme(window.localStorage.getItem(themeStorageKey) || 'dark');
+  applyTheme(readStoredTheme() || 'dark');
   syncViewState();
   setLoaderState(20, 'Connecting to analytics');
 
