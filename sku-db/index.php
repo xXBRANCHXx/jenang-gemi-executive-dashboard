@@ -41,7 +41,7 @@ $pageBuildVersion = 'sku1.00.00';
     <main class="admin-login-shell">
         <div class="admin-login-orb admin-login-orb-a"></div>
         <div class="admin-login-orb admin-login-orb-b"></div>
-        <section class="admin-login-card">
+        <section class="admin-login-card admin-sku-login-card">
             <div class="admin-login-brand">
                 <span class="admin-chip">SKU Access</span>
                 <h1>Jenang Gemi SKU Database</h1>
@@ -597,14 +597,14 @@ $pageBuildVersion = 'sku1.00.00';
     <?php if ($isBranch): ?>
         <div class="admin-modal-shell" data-delete-modal hidden>
             <div class="admin-modal-backdrop" data-close-delete-modal></div>
-            <div class="admin-modal-card">
+            <div class="admin-modal-card admin-delete-modal-card">
                 <div class="admin-panel-head admin-modal-head">
                     <div>
                         <span class="admin-panel-kicker">Password Required</span>
                         <h3>Confirm removal</h3>
                     </div>
                 </div>
-                <form class="admin-sku-form-grid" data-delete-form>
+                <form class="admin-sku-form-grid admin-delete-form-grid" data-delete-form>
                     <div class="admin-sku-preview admin-sku-preview-wide">
                         <span class="admin-control-label">Removal target</span>
                         <strong data-delete-summary>Waiting for selection</strong>
