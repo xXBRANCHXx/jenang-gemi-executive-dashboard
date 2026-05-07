@@ -153,7 +153,7 @@ $pageBuildVersion = 'sku1.00.00';
                             </div>
                             <span class="admin-panel-meta">Only Branch can extend the source-of-truth lists</span>
                         </div>
-                        <div class="admin-sku-form-grid">
+                        <div class="admin-sku-form-grid admin-sku-master-create-grid">
                             <form class="admin-sku-mini-form" data-add-brand-form>
                                 <label>
                                     <span>New brand</span>

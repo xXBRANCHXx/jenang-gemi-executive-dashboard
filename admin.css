@@ -1538,6 +1538,27 @@ button, input {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
+.admin-sku-master-create-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-sku-master-create-grid .admin-sku-mini-form {
+  align-content: start;
+  gap: 8px;
+}
+
+.admin-sku-master-create-grid .admin-sku-mini-form input,
+.admin-sku-master-create-grid .admin-sku-mini-form .admin-select {
+  padding: 10px 12px;
+}
+
+.admin-sku-master-create-grid .admin-primary-btn {
+  min-height: 36px;
+  padding: 9px 12px;
+  font-size: 12px;
+}
+
 .admin-sku-mini-form,
 .admin-sku-builder label {
   display: grid;
@@ -1753,10 +1774,18 @@ button, input {
 }
 
 .admin-sku-token-action {
-  padding-right: 6px;
+  cursor: pointer;
+  padding-right: 12px;
+}
+
+.admin-sku-token-action:focus-visible {
+  border-color: rgba(0, 224, 184, 0.42);
+  outline: none;
+  box-shadow: 0 0 0 1px rgba(0, 224, 184, 0.18);
 }
 
 .admin-sku-token-remove {
+  display: none;
   border: 1px solid rgba(255, 82, 82, 0.28);
   border-radius: 999px;
   background: rgba(255, 82, 82, 0.1);
@@ -1769,9 +1798,24 @@ button, input {
   padding: 6px 8px;
 }
 
+.admin-sku-token-action.is-remove-open {
+  border-color: rgba(255, 82, 82, 0.24);
+  padding-right: 6px;
+}
+
+.admin-sku-token-action.is-remove-open .admin-sku-token-remove {
+  display: inline-flex;
+}
+
 .admin-sku-token-remove:hover {
   background: rgba(255, 82, 82, 0.18);
   color: #ffffff;
+}
+
+@media (max-width: 700px) {
+  .admin-sku-master-create-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .admin-sku-brand-block {

@@ -336,6 +336,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
+  const closeMasterRemoveTokens = (exceptToken = null) => {
+    document.querySelectorAll('[data-master-token].is-remove-open').forEach((token) => {
+      if (exceptToken && token === exceptToken) return;
+      token.classList.remove('is-remove-open');
+      token.setAttribute('aria-expanded', 'false');
+    });
+  };
+
   const setRequired = (field, required) => {
     if (field && 'required' in field) field.required = required;
   };
@@ -575,7 +583,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const itemId = escapeHtml(item.id || '');
     const itemName = escapeHtml(item.name || '');
     return `
-      <span class="admin-sku-token admin-sku-token-action">
+      <span
+        class="admin-sku-token admin-sku-token-action"
+        data-master-token
+        tabindex="0"
+        aria-expanded="false"
+      >
         <span>${escapeHtml(item.code || '--')} · ${itemName}</span>
         ${role === 'branch'
           ? `<button
@@ -1251,20 +1264,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
   [flavorList, productList].forEach((list) => {
     list?.addEventListener('click', (event) => {
-      const button = event.target instanceof Element ? event.target.closest('[data-delete-master-kind]') : null;
-      if (!(button instanceof HTMLButtonElement)) return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (!target) return;
+
+      const button = target.closest('[data-delete-master-kind]');
+      if (!(button instanceof HTMLButtonElement)) {
+        const token = target.closest('[data-master-token]');
+        if (!(token instanceof HTMLElement)) return;
+
+        const willOpen = !token.classList.contains('is-remove-open');
+        closeMasterRemoveTokens(token);
+        token.classList.toggle('is-remove-open', willOpen);
+        token.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+        return;
+      }
 
       const kind = button.dataset.deleteMasterKind || '';
       if (!['flavor', 'product'].includes(kind)) return;
 
       const itemName = button.dataset.deleteMasterItemName || 'this item';
       const brandName = button.dataset.deleteMasterBrandName || 'this brand';
+      closeMasterRemoveTokens();
       openDeleteModal({
         action: kind === 'flavor' ? 'delete_flavor' : 'delete_product',
         brand_id: button.dataset.deleteMasterBrandId || '',
         item_id: button.dataset.deleteMasterItemId || '',
         summary: `Remove ${kind} ${itemName} from ${brandName}. This only works when it is not used by live SKUs or SKU requests.`
       });
+    });
+
+    list?.addEventListener('keydown', (event) => {
+      if (!['Enter', ' '].includes(event.key)) return;
+      const token = event.target instanceof Element ? event.target.closest('[data-master-token]') : null;
+      if (!(token instanceof HTMLElement)) return;
+
+      event.preventDefault();
+      const willOpen = !token.classList.contains('is-remove-open');
+      closeMasterRemoveTokens(token);
+      token.classList.toggle('is-remove-open', willOpen);
+      token.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
     });
   });
 
@@ -1415,6 +1453,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!(target instanceof Node)) return;
     if (!tableBody?.contains(target)) {
       closeSkuRowMenus();
+    }
+    if (!flavorList?.contains(target) && !productList?.contains(target)) {
+      closeMasterRemoveTokens();
     }
   });
 
