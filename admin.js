@@ -674,7 +674,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const themeStorageKey = 'jg-admin-theme';
   const viewStorageKey = 'jg-dashboard-view';
-  const themeOptions = ['dark', 'minimal-white', 'classic-white', 'minimal-black'];
+  const themeOptions = ['dark', 'minimal-white', 'classic-white', 'minimal-black', 'prism'];
 
   const state = {
     activeView: window.localStorage.getItem(viewStorageKey) || 'home',

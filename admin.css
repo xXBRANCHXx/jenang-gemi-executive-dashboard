@@ -4717,6 +4717,13 @@ body::after {
     linear-gradient(135deg, #050505 0 68%, #1f2937 68% 100%);
 }
 
+.admin-theme-swatch-prism {
+  background:
+    radial-gradient(circle at 18% 20%, #ff4ecd, transparent 42%),
+    radial-gradient(circle at 86% 18%, #37d7ff, transparent 38%),
+    linear-gradient(135deg, #0b0714 0%, #7c5cff 56%, #ff8f70 100%);
+}
+
 /* Dashboard theme variants. The default `dark` value intentionally keeps the current theme. */
 :root[data-admin-theme='minimal-white'] {
   --admin-bg: #f7f8f5;
@@ -4808,9 +4815,40 @@ body::after {
   color-scheme: dark;
 }
 
+:root[data-admin-theme='prism'] {
+  --admin-bg: #0b0714;
+  --admin-surface: rgba(23, 18, 37, 0.94);
+  --admin-surface-strong: rgba(35, 26, 58, 0.98);
+  --admin-surface-soft: rgba(255, 255, 255, 0.075);
+  --admin-border: rgba(239, 221, 255, 0.16);
+  --admin-text: #fff8ff;
+  --admin-muted: rgba(238, 226, 246, 0.68);
+  --admin-shadow: 0 28px 70px rgba(13, 8, 28, 0.46);
+  --admin-accent-primary: #ff4ecd;
+  --admin-accent-secondary: #7c5cff;
+  --admin-accent-tertiary: #ff8f70;
+  --admin-accent-quaternary: #37d7ff;
+  --admin-accent-gradient: linear-gradient(135deg, #ff4ecd 0%, #7c5cff 52%, #37d7ff 100%);
+  --admin-shell-edge: rgba(239, 221, 255, 0.14);
+  --admin-panel-outline-hover: rgba(255, 78, 205, 0.44);
+  --admin-panel-shadow: 0 26px 64px rgba(13, 8, 28, 0.42);
+  --admin-panel-shadow-hover: 0 32px 74px rgba(13, 8, 28, 0.5);
+  --admin-panel-glass-bg: rgba(23, 18, 37, 0.74);
+  --admin-copy-soft: rgba(238, 226, 246, 0.72);
+  --admin-surface-glass: rgba(22, 17, 37, 0.62);
+  --admin-surface-glass-strong: rgba(40, 28, 65, 0.86);
+  --admin-surface-panel: rgba(31, 22, 49, 0.68);
+  --admin-surface-panel-strong: rgba(45, 31, 72, 0.84);
+  --admin-rail-border: rgba(239, 221, 255, 0.14);
+  --admin-green-soft: rgba(255, 78, 205, 0.14);
+  --admin-green-line: rgba(55, 215, 255, 0.5);
+  color-scheme: dark;
+}
+
 :root[data-admin-theme='minimal-white'] body,
 :root[data-admin-theme='classic-white'] body,
-:root[data-admin-theme='minimal-black'] body {
+:root[data-admin-theme='minimal-black'] body,
+:root[data-admin-theme='prism'] body {
   background: var(--admin-bg);
   color: var(--admin-text);
 }
@@ -4836,9 +4874,20 @@ body::after {
   background: #050505;
 }
 
+:root[data-admin-theme='prism'],
+:root[data-admin-theme='prism'] body,
+:root[data-admin-theme='prism'] .admin-app.admin-app-suite {
+  background:
+    radial-gradient(circle at 10% 8%, rgba(255, 78, 205, 0.24), transparent 24rem),
+    radial-gradient(circle at 78% -6%, rgba(55, 215, 255, 0.2), transparent 25rem),
+    radial-gradient(circle at 88% 78%, rgba(124, 92, 255, 0.22), transparent 30rem),
+    linear-gradient(145deg, #090611 0%, #161024 45%, #0a0d1a 100%);
+}
+
 :root[data-admin-theme='minimal-white'] :is(.admin-shell, .admin-shell-main, .admin-layout, .admin-view, .admin-main-grid, .admin-metric-grid, .admin-settings-grid, .admin-sku-form-grid, .admin-sku-master-grid, .admin-request-stack),
 :root[data-admin-theme='classic-white'] :is(.admin-shell, .admin-shell-main, .admin-layout, .admin-view, .admin-main-grid, .admin-metric-grid, .admin-settings-grid, .admin-sku-form-grid, .admin-sku-master-grid, .admin-request-stack),
-:root[data-admin-theme='minimal-black'] :is(.admin-shell, .admin-shell-main, .admin-layout, .admin-view, .admin-main-grid, .admin-metric-grid, .admin-settings-grid, .admin-sku-form-grid, .admin-sku-master-grid, .admin-request-stack) {
+:root[data-admin-theme='minimal-black'] :is(.admin-shell, .admin-shell-main, .admin-layout, .admin-view, .admin-main-grid, .admin-metric-grid, .admin-settings-grid, .admin-sku-form-grid, .admin-sku-master-grid, .admin-request-stack),
+:root[data-admin-theme='prism'] :is(.admin-shell, .admin-shell-main, .admin-layout, .admin-view, .admin-main-grid, .admin-metric-grid, .admin-settings-grid, .admin-sku-form-grid, .admin-sku-master-grid, .admin-request-stack) {
   background: transparent;
 }
 
@@ -4981,6 +5030,27 @@ body::after {
   .admin-chart-tooltip
 ),
 :root[data-admin-theme='minimal-black'] :is(
+  .admin-loader-panel,
+  .admin-login-card,
+  .admin-hero-panel,
+  .admin-metric-card,
+  .admin-panel,
+  .admin-control-strip,
+  .admin-note-card,
+  .admin-legend-item,
+  .admin-affiliate-card,
+  .admin-affiliate-url,
+  .admin-platform-choice,
+  .admin-request-card,
+  .admin-sku-master-card,
+  .admin-status-pill,
+  .admin-settings-chip,
+  .admin-sku-token,
+  .admin-table-wrap,
+  .admin-modal-card,
+  .admin-chart-tooltip
+),
+:root[data-admin-theme='prism'] :is(
   .admin-loader-panel,
   .admin-login-card,
   .admin-hero-panel,
@@ -5404,7 +5474,8 @@ body::after {
   .admin-app.admin-app-suite .admin-primary-btn,
   .admin-app.admin-app-suite .admin-primary-btn:hover
 ) {
-  color: #06210d;
+  color: #ffffff;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.28);
 }
 
 :root[data-admin-theme='minimal-white'] :is(
@@ -5465,4 +5536,134 @@ body::after {
 :root[data-admin-theme='classic-white'] .admin-event-feed::before,
 :root[data-admin-theme='classic-white'] .admin-event-feed::after {
   background: transparent;
+}
+
+/* Expressive Prism theme */
+:root[data-admin-theme='prism'] body::before {
+  background:
+    radial-gradient(circle at 18% 22%, rgba(255, 78, 205, 0.34), transparent 38%),
+    linear-gradient(135deg, rgba(124, 92, 255, 0.18), transparent 68%);
+  opacity: 0.86;
+}
+
+:root[data-admin-theme='prism'] body::after {
+  background:
+    radial-gradient(circle at 76% 18%, rgba(55, 215, 255, 0.24), transparent 38%),
+    linear-gradient(135deg, rgba(255, 143, 112, 0.14), transparent 70%);
+  opacity: 0.8;
+}
+
+:root[data-admin-theme='prism'] .admin-backdrop {
+  display: block;
+  opacity: 0.72;
+}
+
+:root[data-admin-theme='prism'] .admin-app.admin-app-suite::after {
+  opacity: 0.12;
+  filter: hue-rotate(118deg) saturate(180%);
+}
+
+:root[data-admin-theme='prism'] .admin-app.admin-app-suite .admin-backdrop-a::before,
+:root[data-admin-theme='prism'] .admin-app.admin-app-suite .admin-backdrop-a::after,
+:root[data-admin-theme='prism'] .admin-app.admin-app-suite .admin-backdrop-b::before,
+:root[data-admin-theme='prism'] .admin-app.admin-app-suite .admin-backdrop-b::after {
+  display: block;
+}
+
+:root[data-admin-theme='prism'] .admin-app.admin-app-suite .admin-backdrop-a::before {
+  top: -14vh;
+  left: 8vw;
+  width: 30vw;
+  height: 30vw;
+  background: rgba(255, 78, 205, 0.24);
+}
+
+:root[data-admin-theme='prism'] .admin-app.admin-app-suite .admin-backdrop-a::after {
+  top: -10vh;
+  right: 7vw;
+  width: 28vw;
+  height: 28vw;
+  background: rgba(55, 215, 255, 0.18);
+}
+
+:root[data-admin-theme='prism'] .admin-app.admin-app-suite .admin-backdrop-b::before {
+  bottom: 8vh;
+  right: 16vw;
+  width: 26vw;
+  height: 26vw;
+  background: rgba(124, 92, 255, 0.2);
+}
+
+:root[data-admin-theme='prism'] .admin-app.admin-app-suite .admin-backdrop-b::after {
+  bottom: -12vh;
+  left: 18vw;
+  width: 34vw;
+  height: 20vw;
+  background: rgba(255, 143, 112, 0.16);
+}
+
+:root[data-admin-theme='prism'] :is(
+  .admin-hero-panel,
+  .admin-control-strip,
+  .admin-panel,
+  .admin-metric-card,
+  .admin-note-card,
+  .admin-legend-item,
+  .admin-affiliate-card,
+  .admin-request-card,
+  .admin-sku-master-card,
+  .admin-modal-card,
+  .admin-chart-tooltip
+) {
+  background:
+    linear-gradient(180deg, rgba(34, 25, 52, 0.88), rgba(15, 13, 28, 0.72)),
+    radial-gradient(circle at 0% 0%, rgba(255, 78, 205, 0.16), transparent 20rem);
+}
+
+:root[data-admin-theme='prism'] .admin-hero-panel {
+  background:
+    linear-gradient(135deg, rgba(255, 78, 205, 0.22), rgba(124, 92, 255, 0.12) 42%, rgba(55, 215, 255, 0.16)),
+    linear-gradient(180deg, rgba(34, 25, 52, 0.92), rgba(15, 13, 28, 0.78));
+}
+
+:root[data-admin-theme='prism'] :is(.admin-primary-btn, .admin-app.admin-app-suite .admin-primary-btn) {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: var(--admin-accent-gradient);
+  color: #ffffff;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.32);
+}
+
+:root[data-admin-theme='prism'] :is(
+  .admin-control-strip .admin-toggle-pill.is-active,
+  .admin-panel-inline-toggles .admin-toggle-pill.is-active,
+  .admin-panel-inline-toggles .admin-toggle-pill-series.is-active,
+  .admin-sku-token-action.is-remove-open
+) {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: var(--admin-accent-gradient);
+  color: #ffffff;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.32);
+}
+
+:root[data-admin-theme='prism'] :is(.admin-ghost-btn, .admin-soft-btn, .admin-menu-trigger, .admin-menu-item, .admin-toggle-pill, .admin-toggle-pill-series, .admin-view-indicator, .admin-search-shell, .admin-search-results, .admin-search-result) {
+  border-color: var(--admin-border);
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--admin-text);
+}
+
+:root[data-admin-theme='prism'] :is(.admin-menu-panel, .admin-search-results) {
+  background: rgba(24, 17, 40, 0.92);
+}
+
+:root[data-admin-theme='prism'] :is(input, select, textarea, .admin-select, .admin-search-input) {
+  border-color: var(--admin-border);
+  background: rgba(255, 255, 255, 0.075);
+  color: var(--admin-text);
+}
+
+:root[data-admin-theme='prism'] :is(.admin-metric-card strong, .admin-topbar-brand h1, .admin-hero-copy h2) {
+  background: linear-gradient(135deg, #fff8ff 0%, #ffb7eb 42%, #8beaff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }

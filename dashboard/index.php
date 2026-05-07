@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $isAuthenticated = jg_admin_is_authenticated();
 $adminCssVersion = (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/admin.js');
-$dashboardBuildVersion = 'exec3.47.0';
+$dashboardBuildVersion = 'exec3.47.2';
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -573,6 +573,10 @@ $dashboardBuildVersion = 'exec3.47.0';
                             <button type="button" class="admin-theme-option" data-theme-option="minimal-black" aria-pressed="false">
                                 <span class="admin-theme-swatch admin-theme-swatch-minimal-black" aria-hidden="true"></span>
                                 <span><strong>Minimal Black</strong><small>Flat and focused</small></span>
+                            </button>
+                            <button type="button" class="admin-theme-option" data-theme-option="prism" aria-pressed="false">
+                                <span class="admin-theme-swatch admin-theme-swatch-prism" aria-hidden="true"></span>
+                                <span><strong>Prism</strong><small>Vivid signal room</small></span>
                             </button>
                         </div>
                     </article>
