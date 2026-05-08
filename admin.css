@@ -4714,7 +4714,7 @@ body::after {
 
 .admin-theme-swatch-minimal-black {
   background:
-    linear-gradient(135deg, #050505 0 68%, #1f2937 68% 100%);
+    linear-gradient(135deg, #000000 0 68%, #1a1a1a 68% 84%, #ffffff 84% 100%);
 }
 
 .admin-theme-swatch-prism {
@@ -4786,32 +4786,32 @@ body::after {
 }
 
 :root[data-admin-theme='minimal-black'] {
-  --admin-bg: #050505;
-  --admin-surface: #0e0e0f;
-  --admin-surface-strong: #141416;
-  --admin-surface-soft: #161719;
+  --admin-bg: #000000;
+  --admin-surface: #080808;
+  --admin-surface-strong: #111111;
+  --admin-surface-soft: #171717;
   --admin-border: rgba(255, 255, 255, 0.12);
-  --admin-text: #f4f4f5;
-  --admin-muted: #a1a1aa;
+  --admin-text: #f5f5f5;
+  --admin-muted: #a3a3a3;
   --admin-shadow: none;
-  --admin-accent-primary: #d7ff55;
-  --admin-accent-secondary: #51e6a6;
-  --admin-accent-tertiary: #ff8a8a;
-  --admin-accent-quaternary: #67e8f9;
-  --admin-accent-gradient: linear-gradient(135deg, #d7ff55 0%, #51e6a6 100%);
+  --admin-accent-primary: #ffffff;
+  --admin-accent-secondary: #ffffff;
+  --admin-accent-tertiary: #ffffff;
+  --admin-accent-quaternary: #ffffff;
+  --admin-accent-gradient: linear-gradient(135deg, #ffffff 0%, #d9d9d9 100%);
   --admin-shell-edge: rgba(255, 255, 255, 0.12);
-  --admin-panel-outline-hover: rgba(215, 255, 85, 0.36);
+  --admin-panel-outline-hover: rgba(255, 255, 255, 0.36);
   --admin-panel-shadow: none;
   --admin-panel-shadow-hover: none;
-  --admin-panel-glass-bg: #0e0e0f;
-  --admin-copy-soft: #c4c4cc;
-  --admin-surface-glass: #0e0e0f;
-  --admin-surface-glass-strong: #151517;
-  --admin-surface-panel: #0e0e0f;
-  --admin-surface-panel-strong: #151517;
+  --admin-panel-glass-bg: #080808;
+  --admin-copy-soft: #c7c7c7;
+  --admin-surface-glass: #080808;
+  --admin-surface-glass-strong: #151515;
+  --admin-surface-panel: #080808;
+  --admin-surface-panel-strong: #151515;
   --admin-rail-border: rgba(255, 255, 255, 0.12);
-  --admin-green-soft: rgba(215, 255, 85, 0.13);
-  --admin-green-line: rgba(215, 255, 85, 0.48);
+  --admin-green-soft: rgba(255, 255, 255, 0.1);
+  --admin-green-line: rgba(255, 255, 255, 0.48);
   color-scheme: dark;
 }
 
@@ -4871,7 +4871,7 @@ body::after {
 :root[data-admin-theme='minimal-black'],
 :root[data-admin-theme='minimal-black'] body,
 :root[data-admin-theme='minimal-black'] .admin-app.admin-app-suite {
-  background: #050505;
+  background: #000000;
 }
 
 :root[data-admin-theme='prism'],
@@ -5206,8 +5206,8 @@ body::after {
 }
 
 :root[data-admin-theme='minimal-black'] :is(select option, select optgroup) {
-  background: #111113;
-  color: #f4f4f5;
+  background: #111111;
+  color: #f5f5f5;
 }
 
 :root[data-admin-theme='minimal-white'] :is(.admin-primary-btn, .admin-app.admin-app-suite .admin-primary-btn),
@@ -5219,9 +5219,9 @@ body::after {
 }
 
 :root[data-admin-theme='minimal-black'] :is(.admin-primary-btn, .admin-app.admin-app-suite .admin-primary-btn) {
-  border-color: rgba(215, 255, 85, 0.4);
+  border-color: rgba(255, 255, 255, 0.48);
   background: var(--admin-accent-gradient);
-  color: #050505;
+  color: #000000;
   box-shadow: none;
 }
 
@@ -5250,9 +5250,9 @@ body::after {
 }
 
 :root[data-admin-theme='minimal-black'] :is(.admin-danger-btn, .admin-sku-token-remove, .admin-menu-item-danger, .admin-app.admin-app-suite .admin-menu-item-danger) {
-  border-color: rgba(255, 138, 138, 0.28);
-  background: rgba(255, 138, 138, 0.11);
-  color: #ffb3b3;
+  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.08);
+  color: #f5f5f5;
 }
 
 :root[data-admin-theme='minimal-white'] :is(.admin-control-strip .admin-toggle-pill.is-active, .admin-panel-inline-toggles .admin-toggle-pill.is-active, .admin-panel-inline-toggles .admin-toggle-pill-series.is-active, .admin-sku-token-action.is-remove-open),
