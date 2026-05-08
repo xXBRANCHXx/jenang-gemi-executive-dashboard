@@ -116,7 +116,7 @@ const JENANG_GEMI_SEARCH_INDEX = [
     title: 'Executive Dashboard',
     section: 'Admin',
     description: 'Main executive analytics dashboard.',
-    url: '../dashboard/',
+    url: '../dashboard/?view=home',
     view: 'home',
     keywords: ['admin', 'dashboard', 'analytics', 'executive']
   },
@@ -124,7 +124,7 @@ const JENANG_GEMI_SEARCH_INDEX = [
     title: 'Official Website Dashboard',
     section: 'Admin',
     description: 'Website analytics view inside the executive dashboard.',
-    url: '../dashboard/',
+    url: '../dashboard/?view=website',
     view: 'website',
     keywords: ['website dashboard', 'site analytics', 'traffic']
   },
@@ -676,9 +676,22 @@ document.addEventListener('DOMContentLoaded', () => {
   const themeCookieMaxAge = 60 * 60 * 24 * 365 * 2;
   const viewStorageKey = 'jg-dashboard-view';
   const themeOptions = ['dark', 'minimal-white', 'classic-white', 'minimal-black', 'prism'];
+  const dashboardViews = ['home', 'website', 'settings'];
+
+  const readDashboardViewFromUrl = () => {
+    const view = new URLSearchParams(window.location.search).get('view') || '';
+    return dashboardViews.includes(view) ? view : '';
+  };
+
+  const readStoredDashboardView = () => {
+    const urlView = readDashboardViewFromUrl();
+    if (urlView) return urlView;
+    const storedView = window.localStorage.getItem(viewStorageKey) || '';
+    return dashboardViews.includes(storedView) ? storedView : 'home';
+  };
 
   const state = {
-    activeView: window.localStorage.getItem(viewStorageKey) || 'home',
+    activeView: readStoredDashboardView(),
     timezone: DASHBOARD_TIMEZONE,
     requestSequence: 0,
     home: {
@@ -1412,7 +1425,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const switchView = async (nextView) => {
-    state.activeView = nextView;
+    state.activeView = dashboardViews.includes(nextView) ? nextView : 'home';
     syncViewState();
     closeMenu();
     renderJenangGemiSearchResults(searchInput?.value || '');

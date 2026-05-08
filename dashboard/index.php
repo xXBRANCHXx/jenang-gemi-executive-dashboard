@@ -25,7 +25,7 @@ $dashboardBuildVersion = 'exec3.47.2';
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
     <title>Executive Dashboard</title>
     <meta name="robots" content="noindex,nofollow">
-    <link rel="icon" type="image/png" href="https://jenanggemi.com/Media/Jenang%20Gemi%20Website%20Logo.png">
+    <link rel="icon" type="image/svg+xml" href="/assets/admin-icons/executive-dashboard.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap">
@@ -79,7 +79,7 @@ $dashboardBuildVersion = 'exec3.47.2';
         <div class="admin-backdrop admin-backdrop-b"></div>
         <div class="admin-shell">
             <aside class="admin-rail" aria-label="Admin navigation">
-                <a class="admin-rail-brand" href="./" aria-label="Executive Dashboard home">
+                <a class="admin-rail-brand" href="./?view=home" aria-label="Executive Dashboard home">
                     <span class="admin-rail-brand-mark" aria-hidden="true">
                         <span class="admin-rail-brand-core"></span>
                     </span>

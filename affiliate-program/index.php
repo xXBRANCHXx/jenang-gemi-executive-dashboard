@@ -18,7 +18,7 @@ $affiliateJsVersion = (string) @filemtime(dirname(__DIR__) . '/affiliate-program
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
     <title>Affiliate Program | Jenang Gemi Executive Dashboard</title>
     <meta name="robots" content="noindex,nofollow">
-    <link rel="icon" type="image/png" href="https://jenanggemi.com/Media/Jenang%20Gemi%20Website%20Logo.png">
+    <link rel="icon" type="image/svg+xml" href="/assets/admin-icons/executive-dashboard.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap">
@@ -42,18 +42,18 @@ $affiliateJsVersion = (string) @filemtime(dirname(__DIR__) . '/affiliate-program
         <div class="admin-backdrop admin-backdrop-b"></div>
         <div class="admin-shell">
             <aside class="admin-rail" aria-label="Admin navigation">
-                <a class="admin-rail-brand" href="../dashboard/" aria-label="Executive Dashboard home">
+                <a class="admin-rail-brand" href="../dashboard/?view=home" aria-label="Executive Dashboard home">
                     <span class="admin-rail-brand-mark" aria-hidden="true">
                         <span class="admin-rail-brand-core"></span>
                     </span>
                     <span class="admin-rail-brand-wordmark">ADMIN</span>
                 </a>
                 <nav class="admin-rail-nav">
-                    <a class="admin-rail-link" href="../dashboard/" aria-label="Open home dashboard">
+                    <a class="admin-rail-link" href="../dashboard/?view=home" aria-label="Open home dashboard">
                         <span class="admin-rail-icon admin-rail-icon-home" aria-hidden="true"><span></span></span>
                         <span class="admin-rail-link-text">Home</span>
                     </a>
-                    <a class="admin-rail-link" href="../dashboard/" data-dashboard-view-link="website" aria-label="Open website dashboard">
+                    <a class="admin-rail-link" href="../dashboard/?view=website" data-dashboard-view-link="website" aria-label="Open website dashboard">
                         <span class="admin-rail-icon admin-rail-icon-rocket" aria-hidden="true"><span></span></span>
                         <span class="admin-rail-link-text">Website</span>
                     </a>
@@ -71,7 +71,7 @@ $affiliateJsVersion = (string) @filemtime(dirname(__DIR__) . '/affiliate-program
                     </a>
                 </nav>
                 <div class="admin-rail-footer">
-                    <a class="admin-rail-link" href="../dashboard/" data-dashboard-view-link="settings" aria-label="Open admin settings">
+                    <a class="admin-rail-link" href="../dashboard/?view=settings" data-dashboard-view-link="settings" aria-label="Open admin settings">
                         <span class="admin-rail-icon admin-rail-icon-settings" aria-hidden="true"><span></span></span>
                         <span class="admin-rail-link-text">Settings</span>
                     </a>
@@ -90,8 +90,8 @@ $affiliateJsVersion = (string) @filemtime(dirname(__DIR__) . '/affiliate-program
                         <div class="admin-menu-shell" data-menu-shell>
                             <button type="button" class="admin-ghost-btn admin-menu-trigger" data-menu-trigger aria-expanded="false" aria-label="Open dashboard menu">...</button>
                             <div class="admin-menu-panel" data-menu-panel hidden>
-                                <a class="admin-menu-item admin-link-btn" href="../dashboard/" data-dashboard-view-link="home">Home Dashboard</a>
-                                <a class="admin-menu-item admin-link-btn" href="../dashboard/" data-dashboard-view-link="website">Official Website Dashboard</a>
+                                <a class="admin-menu-item admin-link-btn" href="../dashboard/?view=home" data-dashboard-view-link="home">Home Dashboard</a>
+                                <a class="admin-menu-item admin-link-btn" href="../dashboard/?view=website" data-dashboard-view-link="website">Official Website Dashboard</a>
                                 <a class="admin-menu-item admin-link-btn" href="../affiliate-program/">Affiliate Program Dashboard</a>
                                 <a class="admin-menu-item admin-link-btn" href="../affiliate-profiles/">Affiliate Profiles</a>
                                 <button type="button" class="admin-menu-item" data-theme-toggle>Toggle Theme</button>
@@ -285,7 +285,7 @@ $affiliateJsVersion = (string) @filemtime(dirname(__DIR__) . '/affiliate-program
 
             <div class="admin-bottom-actions">
                 <a class="admin-primary-btn admin-link-btn" href="../affiliate-profiles/">Manage Affiliate Profiles</a>
-                <a class="admin-ghost-btn admin-link-btn" href="../dashboard/">Return To Main Dashboard</a>
+                <a class="admin-ghost-btn admin-link-btn" href="../dashboard/?view=home">Return To Main Dashboard</a>
             </div>
                 </main>
             </div>
