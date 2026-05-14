@@ -164,6 +164,13 @@ const JENANG_GEMI_SEARCH_INDEX = [
     keywords: ['sku', 'database', 'branch', 'approval', 'inventory']
   },
   {
+    title: 'API Health',
+    section: 'Admin',
+    description: 'Operational health checks for Shopee, Store Ops, and admin databases.',
+    url: '../api-health/',
+    keywords: ['api', 'health', 'errors', 'shopee', 'store ops', 'failures']
+  },
+  {
     title: 'Partner Portal',
     section: 'Partner',
     description: 'Live partner-facing portal.',

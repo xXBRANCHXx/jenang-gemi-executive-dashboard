@@ -15,4 +15,8 @@ return [
     'sku_db_charset' => 'utf8mb4',
     'sku_branch_username' => 'Branch Vincent',
     'sku_branch_password_hash' => '0ac7c01972ad3b4d008356045892fdd5b60fe2e4d7012a8c96892d50c21b381f',
+    'api_ingest_base_url' => 'https://api.jenanggemi.com',
+    'api_ingest_setup_token' => 'weoifngfj23095jgrkebranchmadethiskey',
+    'api_ingest_shopee_account' => 'jenang-gemi-shopee',
+    'store_ops_base_url' => 'https://store.jenanggemi.com',
 ];

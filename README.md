@@ -5,10 +5,12 @@ Private admin dashboard for `admin.jenanggemi.com`.
 ## Routes
 
 - `/dashboard/`
+- `/api-health/`
 - `/sku-db/`
 - `/sku-db/new/`
 - `/logout/`
 - `/api/analytics/`
+- `/api/api-health/`
 - `/api/sku-db/`
 - `/api/partner-db-status/`
 
@@ -27,3 +29,4 @@ Private admin dashboard for `admin.jenanggemi.com`.
 - SKU login is separate from the main executive dashboard login. `sku_branch_password_hash`
   should be configured through `config.local.php` or `JG_SKU_BRANCH_PASSWORD_HASH`.
 - Partner profiles now use the partner MySQL database when `partner_db_*` is configured.
+- API Health runs authenticated server-side checks for Shopee ingest, Store Ops deployment, and dashboard databases, then stores recent failures in `data/api-health-log.json`.

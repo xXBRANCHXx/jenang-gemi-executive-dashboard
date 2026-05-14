@@ -2,3 +2,4 @@
 .DS_Store
 whatsapp-config.local.php
 data/partners.runtime.json
+data/api-health-log.json

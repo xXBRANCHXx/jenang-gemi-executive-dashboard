@@ -116,6 +116,12 @@ $dashboardBuildVersion = 'exec3.47.2';
                         </span>
                         <span class="admin-rail-link-text">SKU DB</span>
                     </a>
+                    <a class="admin-rail-link" href="../api-health/" aria-label="Open API health">
+                        <span class="admin-rail-icon admin-rail-icon-settings" aria-hidden="true">
+                            <span></span>
+                        </span>
+                        <span class="admin-rail-link-text">API</span>
+                    </a>
                 </nav>
                 <div class="admin-rail-footer">
                     <button type="button" class="admin-rail-link admin-rail-link-settings" data-view-switch="settings" aria-label="Open admin settings">
@@ -153,6 +159,7 @@ $dashboardBuildVersion = 'exec3.47.2';
                                 <a class="admin-menu-item admin-link-btn" href="../partner-program/">Partner Program Dashboard</a>
                                 <a class="admin-menu-item admin-link-btn" href="../partner-profiles/">Partner Profiles</a>
                                 <a class="admin-menu-item admin-link-btn" href="../sku-db/">SKU Database</a>
+                                <a class="admin-menu-item admin-link-btn" href="../api-health/">API Health</a>
                                 <button type="button" class="admin-menu-item" data-view-switch="settings">Settings</button>
                             </div>
                         </div>
