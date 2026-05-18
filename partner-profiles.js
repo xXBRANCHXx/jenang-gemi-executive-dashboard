@@ -35,7 +35,8 @@ document.addEventListener('DOMContentLoaded', () => {
       brands: '',
       products: ''
     },
-    activeStep: 'brands'
+    activeStep: 'brands',
+    activeProductId: ''
   };
 
   const stepOrder = ['brands', 'products'];
@@ -89,6 +90,8 @@ document.addEventListener('DOMContentLoaded', () => {
     return filteredProducts().filter((product) => productSkus(product).some((sku) => selected.has(sku.sku)));
   };
 
+  const activeProduct = () => filteredProducts().find((product) => product.id === state.activeProductId) || null;
+
   const matchesSearch = (value, searchTerm) => String(value || '').toLowerCase().includes(searchTerm.trim().toLowerCase());
 
   const hydrateSelections = () => {
@@ -105,6 +108,9 @@ document.addEventListener('DOMContentLoaded', () => {
     state.selections.products = filteredProducts()
       .filter((product) => productSkus(product).some((sku) => selected.has(sku.sku)))
       .map((product) => product.id);
+    if (state.activeProductId && !filteredProducts().some((product) => product.id === state.activeProductId)) {
+      state.activeProductId = '';
+    }
   };
 
   const updateGatedControls = () => {
@@ -166,38 +172,65 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const selected = selectedSkuSet();
-    productChoiceGrid.innerHTML = products.map((product) => {
+    const currentProduct = activeProduct();
+    productChoiceGrid.innerHTML = `
+      <div class="partner-two-pane-picker ${currentProduct ? 'has-active-product' : ''}">
+        <div class="partner-product-pane">
+          ${products.map((product) => {
       const skus = productSkus(product);
       const selectedCount = skus.filter((sku) => selected.has(sku.sku)).length;
       const isChecked = skus.length > 0 && selectedCount === skus.length;
       const isPartial = selectedCount > 0 && selectedCount < skus.length;
       return `
-        <article class="partner-product-toggle ${selectedCount > 0 ? 'has-selection' : ''}">
-          <label class="partner-product-toggle-head">
-            <input type="checkbox" data-partner-product-toggle value="${escapeHtml(product.id || '')}" ${isChecked ? 'checked' : ''} ${isPartial ? 'data-indeterminate="true"' : ''}>
+        <article class="partner-product-row ${selectedCount > 0 ? 'has-selection' : ''} ${product.id === state.activeProductId ? 'is-active' : ''}">
+          <button type="button" class="partner-product-select" data-partner-product-select="${escapeHtml(product.id || '')}">
             <span>
               <strong>${escapeHtml(product.display_name || product.name || '')}</strong>
               <small>${escapeHtml(product.brand_name || '')} · ${selectedCount}/${skus.length} SKUs</small>
             </span>
+          </button>
+          <label class="partner-product-mini-toggle" title="Select all SKUs for this product">
+            <input type="checkbox" data-partner-product-toggle value="${escapeHtml(product.id || '')}" ${isChecked ? 'checked' : ''} ${isPartial ? 'data-indeterminate="true"' : ''}>
           </label>
-          <div class="partner-sku-choice-list">
-            ${skus.map((sku) => `
-              <label class="partner-sku-choice">
-                <input type="checkbox" data-partner-sku value="${escapeHtml(sku.sku || '')}" ${selected.has(sku.sku) ? 'checked' : ''}>
-                <span>
-                  <strong>${escapeHtml(sku.sku || '')}</strong>
-                  <small>${escapeHtml(sku.label || sku.product_name || '')}</small>
-                </span>
-              </label>
-            `).join('')}
-          </div>
         </article>
       `;
-    }).join('');
+    }).join('')}
+        </div>
+        <div class="partner-sku-pane">
+          ${currentProduct ? renderSkuPane(currentProduct, selected) : '<div class="partner-access-empty">Select a product to open SKU choices.</div>'}
+        </div>
+      </div>
+    `;
 
     productChoiceGrid.querySelectorAll('[data-indeterminate="true"]').forEach((input) => {
       if (input instanceof HTMLInputElement) input.indeterminate = true;
     });
+  };
+
+  const renderSkuPane = (product, selected) => {
+    const skus = productSkus(product);
+    const selectedCount = skus.filter((sku) => selected.has(sku.sku)).length;
+    const allSelected = skus.length > 0 && selectedCount === skus.length;
+    return `
+      <div class="partner-sku-pane-head">
+        <div>
+          <strong>${escapeHtml(product.display_name || product.name || '')}</strong>
+          <span>${escapeHtml(product.brand_name || '')} · ${selectedCount}/${skus.length} SKUs selected</span>
+        </div>
+        <button type="button" class="admin-ghost-btn partner-sku-pane-toggle" data-partner-product-action="${allSelected ? 'clear' : 'select'}" data-product-id="${escapeHtml(product.id || '')}">${allSelected ? 'Clear' : 'Select All'}</button>
+      </div>
+      <div class="partner-sku-choice-list">
+        ${skus.map((sku) => `
+          <label class="partner-sku-choice">
+            <input type="checkbox" data-partner-sku value="${escapeHtml(sku.sku || '')}" ${selected.has(sku.sku) ? 'checked' : ''}>
+            <span>
+              <strong>${escapeHtml(sku.sku || '')}</strong>
+              <small>${escapeHtml(sku.label || sku.product_name || '')}</small>
+            </span>
+          </label>
+        `).join('')}
+      </div>
+    `;
   };
 
   const renderSummary = () => {
@@ -321,6 +354,7 @@ document.addEventListener('DOMContentLoaded', () => {
     partnerModal.hidden = true;
     partnerForm?.reset();
     state.selections = { brands: [], products: [], skus: [] };
+    state.activeProductId = '';
     state.activeStep = 'brands';
     setError('');
     renderSelectionUi();
@@ -330,6 +364,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!partnerModal) return;
     partnerModal.hidden = false;
     state.activeStep = 'brands';
+    state.activeProductId = '';
     renderSelectionUi();
   };
 
@@ -380,6 +415,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (target.matches('[data-partner-product-toggle]')) {
       const product = filteredProducts().find((item) => item.id === target.value);
       if (!product) return;
+      state.activeProductId = product.id;
       const nextSkus = new Set(state.selections.skus);
       productSkus(product).forEach((sku) => {
         if (target.checked) nextSkus.add(sku.sku);
@@ -400,6 +436,31 @@ document.addEventListener('DOMContentLoaded', () => {
       renderSelectionUi();
       return;
     }
+  });
+
+  partnerModal?.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    const productButton = target?.closest('[data-partner-product-select]');
+    if (productButton instanceof HTMLButtonElement) {
+      state.activeProductId = productButton.dataset.partnerProductSelect || '';
+      renderSelectionUi();
+      return;
+    }
+
+    const actionButton = target?.closest('[data-partner-product-action]');
+    if (!(actionButton instanceof HTMLButtonElement)) return;
+    const product = filteredProducts().find((item) => item.id === actionButton.dataset.productId);
+    if (!product) return;
+    const nextSkus = new Set(state.selections.skus);
+    const shouldSelect = actionButton.dataset.partnerProductAction === 'select';
+    productSkus(product).forEach((sku) => {
+      if (shouldSelect) nextSkus.add(sku.sku);
+      else nextSkus.delete(sku.sku);
+    });
+    state.activeProductId = product.id;
+    state.selections.skus = [...nextSkus];
+    syncSelectedProductsFromSkus();
+    renderSelectionUi();
   });
 
   partnerList?.addEventListener('click', async (event) => {
