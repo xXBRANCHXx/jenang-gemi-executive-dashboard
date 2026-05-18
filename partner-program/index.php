@@ -25,7 +25,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
     <link rel="stylesheet" href="../admin.css?v=<?php echo urlencode($adminCssVersion ?: '1'); ?>">
 </head>
 <body class="admin-body is-dashboard">
-    <div class="admin-build-badge" aria-label="Dashboard build version">Build exec3.47.0</div>
+    <div class="admin-build-badge" aria-label="Dashboard build version">Build exec3.47.1</div>
     <div class="admin-app admin-app-suite" data-partner-dashboard>
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
@@ -72,7 +72,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                 <div class="admin-hero-copy">
                     <span class="admin-chip admin-chip-accent">Dropshipper Control Layer</span>
                     <h2>Keep partner management inside the executive dashboard while the partner-facing dashboard runs on its own subdomain.</h2>
-                    <p>Profiles created here are exposed to the partner portal through the live partner registry API. This is the admin side of the program.</p>
+                    <p>Profiles created here are exposed to the partner portal through the live partner registry API, and partner-created orders now flow into Store Ops as live listed orders.</p>
                 </div>
                 <div class="admin-hero-actions">
                     <div class="admin-status-pill">
@@ -87,7 +87,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                 <article class="admin-metric-card"><span>Profiles</span><strong>Live</strong><small>Create and edit partner records</small></article>
                 <article class="admin-metric-card"><span>Companies</span><strong>Live</strong><small>Jenang Gemi, ZERO, ZFIT assignment</small></article>
                 <article class="admin-metric-card"><span>Pricing</span><strong>Live</strong><small>Per-partner agreement fields</small></article>
-                <article class="admin-metric-card"><span>Partner Portal Feed</span><strong>Live</strong><small>Public partner registry endpoint is available</small></article>
+                <article class="admin-metric-card"><span>Store Ops Feed</span><strong>Live</strong><small>Partner orders enter fulfillment as IS_LISTED</small></article>
             </section>
 
             <section class="admin-main-grid">
@@ -110,7 +110,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                             <h3>Partner-facing environment</h3>
                         </div>
                     </div>
-                    <p class="admin-table-note">The partner portal should use these profiles to allow login and restrict brands/products shown to each partner.</p>
+                    <p class="admin-table-note">The partner portal uses these profiles for login and catalog restrictions; submitted partner orders are picked up by Store Ops from the shared partner data database.</p>
                     <div class="admin-bottom-actions">
                         <a class="admin-ghost-btn admin-link-btn" href="https://partner.jenanggemi.com" target="_blank" rel="noopener">Open Partner Portal</a>
                     </div>
