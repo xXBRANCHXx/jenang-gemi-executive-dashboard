@@ -324,6 +324,9 @@ function jg_partner_sku_catalog(PDO $pdo): array
         $sku = (string) ($row['sku'] ?? '');
         $baseProductName = (string) ($row['product_name'] ?? '');
         $displayProductName = trim((string) ($productNameMap[$sku] ?? '')) ?: $baseProductName;
+        $brandId = (string) ($row['brand_id'] ?? '');
+        $productId = (string) ($row['product_id'] ?? '');
+        $productKey = $brandId . '::' . ($productId !== '' ? $productId : $baseProductName);
         $flavorName = (string) ($row['flavor_name'] ?? '');
         $isUnflavored = strtoupper($flavorName) === 'UNFLAVORED';
         $sizeLabel = number_format((float) ($row['volume'] ?? 0), 1, '.', '') . ' ' . (string) ($row['unit_name'] ?? '');
@@ -336,11 +339,11 @@ function jg_partner_sku_catalog(PDO $pdo): array
         $skuRow = [
             'sku' => $sku,
             'tag' => (string) ($row['tag'] ?? ''),
-            'brand_id' => (string) ($row['brand_id'] ?? ''),
+            'brand_id' => $brandId,
             'brand_name' => (string) ($row['brand_name'] ?? ''),
             'brand_code' => (string) ($row['brand_code'] ?? ''),
-            'product_id' => (string) ($row['product_id'] ?? ''),
-            'product_key' => (string) ($row['brand_id'] ?? '') . '::' . $displayProductName,
+            'product_id' => $productId,
+            'product_key' => $productKey,
             'product_name' => $displayProductName,
             'base_product_name' => $baseProductName,
             'product_code' => (string) ($row['product_code'] ?? ''),
@@ -368,8 +371,8 @@ function jg_partner_sku_catalog(PDO $pdo): array
             $brands[$brandId]['products'][$productKey] = [
                 'id' => $productKey,
                 'product_id' => $skuRow['product_id'],
-                'name' => $displayProductName,
-                'display_name' => $displayProductName,
+                'name' => $baseProductName,
+                'display_name' => $baseProductName,
                 'code' => $skuRow['product_code'],
                 'sku_count' => 0,
             ];
