@@ -151,6 +151,10 @@
   margin-top: 1rem;
 }
 
+.partner-access-choice-grid:has(.partner-product-toggle) {
+  grid-template-columns: 1fr;
+}
+
 .partner-access-choice {
   position: relative;
   display: block;
@@ -187,6 +191,83 @@
 .partner-access-choice input:checked + .partner-access-choice-body {
   border-color: rgba(91, 255, 167, 0.42);
   background: rgba(91, 255, 167, 0.08);
+}
+
+.partner-product-toggle {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.95rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02)),
+    rgba(255, 255, 255, 0.018);
+}
+
+.partner-product-toggle.has-selection {
+  border-color: rgba(91, 255, 167, 0.34);
+  background: rgba(91, 255, 167, 0.06);
+}
+
+.partner-product-toggle-head,
+.partner-sku-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  cursor: pointer;
+}
+
+.partner-product-toggle-head input,
+.partner-sku-choice input {
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.16rem;
+  accent-color: #5bffa7;
+}
+
+.partner-product-toggle-head span,
+.partner-sku-choice span,
+.partner-product-toggle-head strong,
+.partner-sku-choice strong,
+.partner-product-toggle-head small,
+.partner-sku-choice small {
+  display: block;
+}
+
+.partner-product-toggle-head strong {
+  color: #fff;
+  font-size: 0.96rem;
+}
+
+.partner-product-toggle-head small,
+.partner-sku-choice small {
+  margin-top: 0.2rem;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.partner-sku-choice-list {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.partner-sku-choice {
+  padding: 0.7rem 0.75rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.partner-sku-choice:has(input:checked) {
+  border-color: rgba(91, 255, 167, 0.28);
+  background: rgba(91, 255, 167, 0.07);
+}
+
+.partner-sku-choice strong {
+  color: #fff;
+  font-size: 0.88rem;
 }
 
 .partner-access-choice-title {
@@ -275,6 +356,12 @@
   margin: 0;
   color: rgba(255, 255, 255, 0.62);
   font-size: 0.88rem;
+}
+
+[data-partner-gated-action]:disabled,
+[data-partner-locked-field] input:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
 }
 
 .partner-profile-grid {

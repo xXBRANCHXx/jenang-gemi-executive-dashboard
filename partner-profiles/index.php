@@ -140,14 +140,14 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                         <article class="partner-access-step" data-partner-step-indicator="products">
                             <span class="partner-access-step-index">02</span>
                             <strong>Product</strong>
-                            <span>Pick the product names inside the chosen brands.</span>
+                            <span>Pick products, then refine the SKU access.</span>
                         </article>
                     </div>
 
                     <section class="partner-access-card" data-partner-step-panel="brands">
                         <div class="partner-access-card-head">
                             <div>
-                                <span class="partner-access-question-index">Question 1 of 3</span>
+                                <span class="partner-access-question-index">Question 1 of 2</span>
                                 <h4>Select brand</h4>
                                 <p>Multiple choice. This list comes straight from the SKU database.</p>
                             </div>
@@ -169,8 +169,8 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                         <div class="partner-access-card-head">
                             <div>
                                 <span class="partner-access-question-index">Question 2 of 2</span>
-                                <h4>Select product</h4>
-                                <p>Multiple choice. Products are filtered by the brands you selected. Matching SKU records are linked automatically in the backend.</p>
+                                <h4>Select products and SKUs</h4>
+                                <p>Products are grouped by brand from the SKU database. Toggle a product to select all its SKUs, then deselect individual SKU records if needed.</p>
                             </div>
                         </div>
                         <label class="partner-access-search">
@@ -182,7 +182,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                         </div>
                         <div class="partner-access-actions">
                             <button type="button" class="admin-ghost-btn" data-partner-prev-step="brands">Back</button>
-                            <span class="partner-access-inline-note">Related SKU records are assigned automatically.</span>
+                            <span class="partner-access-inline-note">Select at least one SKU to unlock Notes and Create Partner.</span>
                         </div>
                     </section>
 
@@ -206,14 +206,14 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                         </div>
                     </section>
                 </section>
-                <label>
+                <label data-partner-locked-field>
                     <span>Notes</span>
                     <input type="text" name="notes" maxlength="300" placeholder="Optional note">
                 </label>
                 <p class="admin-form-error" data-partner-form-error hidden></p>
                 <div class="admin-modal-actions">
-                    <button type="button" class="admin-ghost-btn" data-close-partner-modal>Cancel</button>
-                    <button type="submit" class="admin-primary-btn">Create Partner</button>
+                    <button type="button" class="admin-ghost-btn" data-close-partner-modal data-partner-gated-action>Cancel</button>
+                    <button type="submit" class="admin-primary-btn" data-partner-gated-action>Create Partner</button>
                 </div>
             </form>
         </div>

@@ -125,7 +125,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                         <section class="partner-access-card" data-partner-step-panel="brands">
                             <div class="partner-access-card-head">
                                 <div>
-                                    <span class="partner-access-question-index">Question 1 of 3</span>
+                                    <span class="partner-access-question-index">Question 1 of 2</span>
                                     <h4>Select brand</h4>
                                     <p>Multiple choice. The list is pulled from the live SKU database.</p>
                                 </div>
@@ -147,8 +147,8 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                             <div class="partner-access-card-head">
                                 <div>
                                     <span class="partner-access-question-index">Question 2 of 2</span>
-                                    <h4>Select product</h4>
-                                    <p>Multiple choice. Products are filtered by the brands you selected. Matching SKU records are linked automatically in the backend.</p>
+                                    <h4>Select products and SKUs</h4>
+                                    <p>Products are grouped by brand from the SKU database. Toggle a product to select all its SKUs, then deselect individual SKU records if needed.</p>
                                 </div>
                             </div>
                             <label class="partner-access-search">
@@ -160,7 +160,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                             </div>
                             <div class="partner-access-actions">
                                 <button type="button" class="admin-ghost-btn" data-partner-prev-step="brands">Back</button>
-                                <span class="partner-access-inline-note">Related SKU records are updated automatically.</span>
+                                <span class="partner-access-inline-note">Product toggles select all SKUs; individual SKUs can be adjusted below.</span>
                             </div>
                         </section>
 
