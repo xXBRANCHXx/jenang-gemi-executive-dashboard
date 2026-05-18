@@ -103,6 +103,13 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                         <span class="admin-control-label">Partner page slug</span>
                         <input type="text" name="partner_slug" maxlength="160">
                     </label>
+                    <label class="admin-affiliate-field">
+                        <span class="admin-control-label">Portal password</span>
+                        <div class="admin-inline-input">
+                            <input type="text" name="portal_password" maxlength="160" placeholder="Leave blank to keep current password" autocomplete="new-password">
+                            <button type="button" class="admin-ghost-btn" data-generate-portal-password>Generate Password</button>
+                        </div>
+                    </label>
                     <section class="partner-access-shell" data-profile-access-shell>
                         <div class="partner-access-intro">
                             <span class="partner-access-intro-kicker">Catalog-Guided Access</span>
@@ -205,6 +212,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                 </div>
                     <div class="admin-note-stack">
                         <div class="admin-note-card"><strong>Partner Code</strong><span data-note-code>Pending</span></div>
+                        <div class="admin-note-card"><strong>Portal Password</strong><span data-note-password>Not configured</span></div>
                         <div class="admin-note-card"><strong>Partner URL</strong><span data-note-url>Pending</span></div>
                         <div class="admin-note-card"><strong>Access Hint</strong><span>The partner can only order from the product names selected above, while the related SKU records stay linked automatically in the backend.</span></div>
                     </div>

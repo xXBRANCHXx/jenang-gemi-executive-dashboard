@@ -69,10 +69,25 @@ function jg_partner_db_ensure_schema(PDO $pdo): void
             notes VARCHAR(300) NOT NULL DEFAULT "",
             selected_skus_json LONGTEXT NULL DEFAULT NULL,
             pricing_json LONGTEXT NULL DEFAULT NULL,
+            password_hash VARCHAR(255) NOT NULL DEFAULT "",
+            password_updated_at DATETIME NULL DEFAULT NULL,
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL,
             UNIQUE KEY uniq_partner_profiles_slug (partner_slug),
             KEY idx_partner_profiles_updated (updated_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
     );
+
+    $columns = [];
+    $stmt = $pdo->query('SHOW COLUMNS FROM partner_profiles');
+    foreach ($stmt->fetchAll() as $column) {
+        $columns[(string) ($column['Field'] ?? '')] = true;
+    }
+
+    if (!isset($columns['password_hash'])) {
+        $pdo->exec('ALTER TABLE partner_profiles ADD COLUMN password_hash VARCHAR(255) NOT NULL DEFAULT "" AFTER pricing_json');
+    }
+    if (!isset($columns['password_updated_at'])) {
+        $pdo->exec('ALTER TABLE partner_profiles ADD COLUMN password_updated_at DATETIME NULL DEFAULT NULL AFTER password_hash');
+    }
 }

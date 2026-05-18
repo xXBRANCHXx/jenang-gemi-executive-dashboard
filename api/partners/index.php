@@ -47,7 +47,7 @@ function jg_partner_read_database(): array
     $pdo = jg_partner_db();
     if ($pdo instanceof PDO) {
         $stmt = $pdo->query(
-            'SELECT code, name, partner_slug, notes, selected_skus_json, pricing_json, created_at, updated_at
+            'SELECT code, name, partner_slug, notes, selected_skus_json, pricing_json, password_hash, password_updated_at, created_at, updated_at
              FROM partner_profiles
              ORDER BY updated_at DESC, code ASC'
         );
@@ -66,6 +66,8 @@ function jg_partner_read_database(): array
                 'notes' => (string) ($row['notes'] ?? ''),
                 'selected_skus' => is_array($selectedSkus) ? array_values(array_filter(array_map('strval', $selectedSkus))) : [],
                 'pricing' => is_array($pricing) ? $pricing : [],
+                'password_hash' => (string) ($row['password_hash'] ?? ''),
+                'password_updated_at' => (string) ($row['password_updated_at'] ?? ''),
                 'created_at' => (string) ($row['created_at'] ?? ''),
                 'updated_at' => (string) ($row['updated_at'] ?? ''),
             ];
@@ -124,9 +126,9 @@ function jg_partner_write_database(array $database): void
             $pdo->exec('DELETE FROM partner_profiles');
             $stmt = $pdo->prepare(
                 'INSERT INTO partner_profiles
-                    (code, name, partner_slug, notes, selected_skus_json, pricing_json, created_at, updated_at)
+                    (code, name, partner_slug, notes, selected_skus_json, pricing_json, password_hash, password_updated_at, created_at, updated_at)
                  VALUES
-                    (:code, :name, :partner_slug, :notes, :selected_skus_json, :pricing_json, :created_at, :updated_at)'
+                    (:code, :name, :partner_slug, :notes, :selected_skus_json, :pricing_json, :password_hash, :password_updated_at, :created_at, :updated_at)'
             );
 
             foreach ($database['partners'] ?? [] as $partner) {
@@ -140,6 +142,8 @@ function jg_partner_write_database(array $database): void
                     ':notes' => (string) ($partner['notes'] ?? ''),
                     ':selected_skus_json' => json_encode(array_values(array_filter((array) ($partner['selected_skus'] ?? []), 'is_string')), JSON_UNESCAPED_SLASHES),
                     ':pricing_json' => json_encode((array) ($partner['pricing'] ?? []), JSON_UNESCAPED_SLASHES),
+                    ':password_hash' => (string) ($partner['password_hash'] ?? ''),
+                    ':password_updated_at' => trim((string) ($partner['password_updated_at'] ?? '')) !== '' ? gmdate('Y-m-d H:i:s', strtotime((string) ($partner['password_updated_at'] ?? jg_partner_now()))) : null,
                     ':created_at' => gmdate('Y-m-d H:i:s', strtotime((string) ($partner['created_at'] ?? jg_partner_now()))),
                     ':updated_at' => gmdate('Y-m-d H:i:s', strtotime((string) ($partner['updated_at'] ?? jg_partner_now()))),
                 ]);
@@ -206,6 +210,22 @@ function jg_partner_normalize_text(mixed $value, string $label, int $maxLength =
     }
 
     return $normalized;
+}
+
+function jg_partner_normalize_password(mixed $value): string
+{
+    $password = trim((string) $value);
+    if ($password === '') {
+        return '';
+    }
+    if (strlen($password) < 8) {
+        jg_partner_fail('Portal password must be at least 8 characters.');
+    }
+    if (strlen($password) > 160) {
+        jg_partner_fail('Portal password is too long.');
+    }
+
+    return $password;
 }
 
 function jg_partner_slugify(string $value): string
@@ -492,6 +512,10 @@ function jg_partner_enrich_record(array $partner, array $catalog): array
     $partner['company_records'] = array_values($companies);
     $partner['product_access'] = $productAccess;
     $partner['pricing'] = is_array($partner['pricing'] ?? null) ? $partner['pricing'] : [];
+    $passwordHash = (string) ($partner['password_hash'] ?? '');
+    $partner['password_configured'] = $passwordHash !== '';
+    $partner['password_updated_at'] = (string) ($partner['password_updated_at'] ?? '');
+    unset($partner['password_hash']);
     $partner['selected_sku_records'] = $selectedSkus;
     $partner['store_path'] = '/' . trim((string) ($partner['partner_slug'] ?? ''), '/') . '/';
 
@@ -557,6 +581,16 @@ function jg_partner_build_record(array $payload, array $database, array $catalog
         : ($currentCode !== '' ? $currentCode : jg_partner_generate_code($database));
     $createdAt = (string) ($existing['created_at'] ?? jg_partner_now());
     $updatedAt = jg_partner_now();
+    $portalPassword = jg_partner_normalize_password($payload['portal_password'] ?? '');
+    $passwordHash = (string) ($existing['password_hash'] ?? '');
+    $passwordUpdatedAt = (string) ($existing['password_updated_at'] ?? '');
+    if ($portalPassword !== '') {
+        $passwordHash = password_hash($portalPassword, PASSWORD_DEFAULT);
+        $passwordUpdatedAt = $updatedAt;
+    } elseif ($existing === null) {
+        $passwordHash = password_hash($code, PASSWORD_DEFAULT);
+        $passwordUpdatedAt = $updatedAt;
+    }
 
     $selectedSkuCodes = array_map(static fn (array $row): string => (string) ($row['sku'] ?? ''), $selectedSkuRecords);
 
@@ -568,6 +602,8 @@ function jg_partner_build_record(array $payload, array $database, array $catalog
         'notes' => $notes,
         'selected_skus' => $selectedSkuCodes,
         'pricing' => is_array($existing['pricing'] ?? null) ? $existing['pricing'] : [],
+        'password_hash' => $passwordHash,
+        'password_updated_at' => $passwordUpdatedAt,
         'created_at' => $createdAt,
         'updated_at' => $updatedAt,
     ];

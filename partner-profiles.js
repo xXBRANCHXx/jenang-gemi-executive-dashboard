@@ -41,6 +41,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const stepOrder = ['brands', 'products'];
 
+  const generatePortalPassword = () => {
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
+    const bytes = new Uint32Array(14);
+    window.crypto.getRandomValues(bytes);
+    return Array.from(bytes, (value) => alphabet[value % alphabet.length]).join('');
+  };
+
   const escapeHtml = (value) => String(value)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -514,6 +521,7 @@ document.addEventListener('DOMContentLoaded', () => {
           action: 'create',
           name: formData.get('name'),
           partner_slug: formData.get('partner_slug'),
+          portal_password: formData.get('portal_password'),
           selected_skus: selectedSkuPayload(),
           notes: formData.get('notes')
         }
@@ -523,6 +531,11 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Unable to create partner.');
     }
+  });
+
+  document.querySelector('[data-generate-portal-password]')?.addEventListener('click', () => {
+    if (!(partnerForm instanceof HTMLFormElement)) return;
+    partnerForm.elements.portal_password.value = generatePortalPassword();
   });
 
   loadPartners().catch((error) => {

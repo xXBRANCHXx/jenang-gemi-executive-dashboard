@@ -125,6 +125,13 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                     <span>Partner page slug</span>
                     <input type="text" name="partner_slug" maxlength="160" placeholder="e.g. rina-sulistyo">
                 </label>
+                <label data-partner-locked-field>
+                    <span>Initial portal password</span>
+                    <div class="admin-inline-input">
+                        <input type="text" name="portal_password" maxlength="160" placeholder="Blank uses generated partner code" autocomplete="new-password">
+                        <button type="button" class="admin-ghost-btn" data-generate-portal-password data-partner-gated-action>Generate Password</button>
+                    </div>
+                </label>
                 <section class="partner-access-shell" data-partner-access-shell>
                     <div class="partner-access-intro">
                         <span class="partner-access-intro-kicker">Catalog-Guided Setup</span>

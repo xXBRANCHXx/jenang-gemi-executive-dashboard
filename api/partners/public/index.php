@@ -129,6 +129,9 @@ function jg_public_partner_sku_catalog(PDO $pdo): array
         $sku = (string) ($row['sku'] ?? '');
         $baseProductName = (string) ($row['product_name'] ?? '');
         $displayProductName = trim((string) ($productNameMap[$sku] ?? '')) ?: $baseProductName;
+        $brandId = (string) ($row['brand_id'] ?? '');
+        $productId = (string) ($row['product_id'] ?? '');
+        $productKey = $brandId . '::' . ($productId !== '' ? $productId : $baseProductName);
         $flavorName = (string) ($row['flavor_name'] ?? '');
         $sizeLabel = number_format((float) ($row['volume'] ?? 0), 1, '.', '') . ' ' . (string) ($row['unit_name'] ?? '');
         $isUnflavored = strtoupper($flavorName) === 'UNFLAVORED';
@@ -142,11 +145,11 @@ function jg_public_partner_sku_catalog(PDO $pdo): array
         $skus[] = [
             'sku' => $sku,
             'tag' => (string) ($row['tag'] ?? ''),
-            'brand_id' => (string) ($row['brand_id'] ?? ''),
+            'brand_id' => $brandId,
             'brand_name' => (string) ($row['brand_name'] ?? ''),
             'brand_code' => (string) ($row['brand_code'] ?? ''),
-            'product_id' => (string) ($row['product_id'] ?? ''),
-            'product_key' => (string) ($row['brand_id'] ?? '') . '::' . $displayProductName,
+            'product_id' => $productId,
+            'product_key' => $productKey,
             'product_name' => $displayProductName,
             'base_product_name' => $baseProductName,
             'product_code' => (string) ($row['product_code'] ?? ''),
@@ -248,6 +251,7 @@ function jg_public_partner_enrich(array $partner, array $catalog): array
     $partner['product_access'] = $productAccess;
     $partner['selected_sku_records'] = $selectedSkus;
     $partner['store_path'] = '/' . trim((string) ($partner['partner_slug'] ?? ''), '/') . '/';
+    unset($partner['password_hash']);
 
     return $partner;
 }

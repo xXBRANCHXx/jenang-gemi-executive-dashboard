@@ -8,9 +8,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const partnerName = document.querySelector('[data-partner-name]');
   const partnerCodeBadge = document.querySelector('[data-partner-code-badge]');
   const codeNote = document.querySelector('[data-note-code]');
+  const passwordNote = document.querySelector('[data-note-password]');
   const urlNote = document.querySelector('[data-note-url]');
   const deleteButton = document.querySelector('[data-delete-profile]');
   const regenerateCodeButton = document.querySelector('[data-regenerate-partner-code]');
+  const generatePortalPasswordButton = document.querySelector('[data-generate-portal-password]');
 
   const brandChoiceGrid = document.querySelector('[data-brand-choice-grid]');
   const productChoiceGrid = document.querySelector('[data-product-choice-grid]');
@@ -47,6 +49,13 @@ document.addEventListener('DOMContentLoaded', () => {
     window.crypto.getRandomValues(bytes);
     const chars = Array.from(bytes, (value) => alphabet[value % alphabet.length]);
     return `JGP-${chars.slice(0, 4).join('')}-${chars.slice(4, 8).join('')}-${chars.slice(8, 12).join('')}`;
+  };
+
+  const generatePortalPassword = () => {
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
+    const bytes = new Uint32Array(14);
+    window.crypto.getRandomValues(bytes);
+    return Array.from(bytes, (value) => alphabet[value % alphabet.length]).join('');
   };
 
   const stepOrder = ['brands', 'products'];
@@ -279,6 +288,7 @@ document.addEventListener('DOMContentLoaded', () => {
     form.elements.partner_code.value = partner.code || '';
     form.elements.name.value = partner.name || '';
     form.elements.partner_slug.value = partner.partner_slug || '';
+    form.elements.portal_password.value = '';
     form.elements.notes.value = partner.notes || '';
 
     state.selections = {
@@ -291,6 +301,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (partnerName) partnerName.textContent = partner.name || partner.code || 'Partner';
     if (partnerCodeBadge) partnerCodeBadge.textContent = partner.code || 'Partner';
     if (codeNote) codeNote.textContent = partner.code || 'Pending';
+    if (passwordNote) {
+      passwordNote.textContent = partner.password_configured
+        ? `Configured${partner.password_updated_at ? ` · updated ${partner.password_updated_at}` : ''}`
+        : 'Uses partner code until changed';
+    }
     if (urlNote) urlNote.textContent = `https://partner.jenanggemi.com${partner.store_path || '/'}`;
     if (deleteButton) {
       deleteButton.hidden = false;
@@ -426,6 +441,7 @@ document.addEventListener('DOMContentLoaded', () => {
           code: formData.get('partner_code'),
           name: formData.get('name'),
           partner_slug: formData.get('partner_slug'),
+          portal_password: formData.get('portal_password'),
           selected_skus: [...new Set(state.selections.skus)],
           notes: formData.get('notes')
         }
@@ -447,6 +463,11 @@ document.addEventListener('DOMContentLoaded', () => {
   regenerateCodeButton?.addEventListener('click', () => {
     if (!(form instanceof HTMLFormElement)) return;
     form.elements.partner_code.value = generatePartnerCode();
+  });
+
+  generatePortalPasswordButton?.addEventListener('click', () => {
+    if (!(form instanceof HTMLFormElement)) return;
+    form.elements.portal_password.value = generatePortalPassword();
   });
 
   deleteButton?.addEventListener('click', async () => {
