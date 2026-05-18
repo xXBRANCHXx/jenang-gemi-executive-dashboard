@@ -304,7 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (passwordNote) {
       passwordNote.textContent = partner.password_configured
         ? `Configured${partner.password_updated_at ? ` · updated ${partner.password_updated_at}` : ''}`
-        : 'Uses partner code until changed';
+        : 'Not configured. Set a new password here.';
     }
     if (urlNote) urlNote.textContent = `https://partner.jenanggemi.com${partner.store_path || '/'}`;
     if (deleteButton) {

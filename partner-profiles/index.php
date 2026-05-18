@@ -128,7 +128,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                 <label data-partner-locked-field>
                     <span>Initial portal password</span>
                     <div class="admin-inline-input">
-                        <input type="text" name="portal_password" maxlength="160" placeholder="Blank uses generated partner code" autocomplete="new-password">
+                        <input type="text" name="portal_password" maxlength="160" placeholder="Set or generate an initial password" autocomplete="new-password" required>
                         <button type="button" class="admin-ghost-btn" data-generate-portal-password data-partner-gated-action>Generate Password</button>
                     </div>
                 </label>

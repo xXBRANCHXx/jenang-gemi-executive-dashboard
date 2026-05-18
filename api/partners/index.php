@@ -588,8 +588,7 @@ function jg_partner_build_record(array $payload, array $database, array $catalog
         $passwordHash = password_hash($portalPassword, PASSWORD_DEFAULT);
         $passwordUpdatedAt = $updatedAt;
     } elseif ($existing === null) {
-        $passwordHash = password_hash($code, PASSWORD_DEFAULT);
-        $passwordUpdatedAt = $updatedAt;
+        jg_partner_fail('Initial portal password is required.');
     }
 
     $selectedSkuCodes = array_map(static fn (array $row): string => (string) ($row['sku'] ?? ''), $selectedSkuRecords);
