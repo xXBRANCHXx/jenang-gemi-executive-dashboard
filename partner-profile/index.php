@@ -104,9 +104,9 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                         <input type="text" name="partner_slug" maxlength="160">
                     </label>
                     <label class="admin-affiliate-field">
-                        <span class="admin-control-label">Portal password</span>
+                        <span class="admin-control-label">Reset portal password</span>
                         <div class="admin-inline-input">
-                            <input type="text" name="portal_password" maxlength="160" placeholder="Leave blank to keep current password" autocomplete="new-password">
+                            <input type="text" name="portal_password" maxlength="160" placeholder="Enter or generate a new password" autocomplete="new-password">
                             <button type="button" class="admin-ghost-btn" data-generate-portal-password>Generate Password</button>
                         </div>
                     </label>

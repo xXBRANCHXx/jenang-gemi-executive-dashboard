@@ -316,6 +316,14 @@ document.addEventListener('DOMContentLoaded', () => {
     renderSelectionUi();
   };
 
+  const showSavedPortalPassword = (password) => {
+    if (!(form instanceof HTMLFormElement) || !password) return;
+    form.elements.portal_password.value = password;
+    if (passwordNote) {
+      passwordNote.textContent = `Password reset saved: ${password}`;
+    }
+  };
+
   const loadPartner = async () => {
     if (!state.currentPartnerCode) throw new Error('Missing partner code.');
     const payload = await requestJson(`${endpoint}?code=${encodeURIComponent(state.currentPartnerCode)}`);
@@ -433,6 +441,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     try {
       const formData = new window.FormData(form);
+      const savedPortalPassword = String(formData.get('portal_password') || '').trim();
       await requestJson(endpoint, {
         method: 'POST',
         body: {
@@ -455,6 +464,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.history.replaceState({}, '', nextUrl.toString());
       }
       await loadPartner();
+      showSavedPortalPassword(savedPortalPassword);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Unable to save partner.');
     }
