@@ -423,6 +423,7 @@ $pageBuildVersion = 'sku1.00.00';
                                 <th>Unit</th>
                                 <th>Volume</th>
                                 <th>ASTRA</th>
+                                <th>Skip Scan</th>
                                 <th>Stock</th>
                                 <th>Trigger</th>
                                 <th>COGS</th>
@@ -430,7 +431,7 @@ $pageBuildVersion = 'sku1.00.00';
                             </tr>
                             </thead>
                             <tbody data-sku-table-body>
-                            <tr><td colspan="12" class="admin-empty">No SKUs yet.</td></tr>
+                            <tr><td colspan="13" class="admin-empty">No SKUs yet.</td></tr>
                             </tbody>
                         </table>
                     </div>

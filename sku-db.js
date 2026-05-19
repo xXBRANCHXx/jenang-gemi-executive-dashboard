@@ -778,7 +778,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const rows = filteredSkus();
 
     if (!rows.length) {
-      tableBody.innerHTML = `<tr><td colspan="12" class="admin-empty">${state.database.skus.length ? 'No SKUs match the current filters.' : 'No approved SKUs yet.'}</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="13" class="admin-empty">${state.database.skus.length ? 'No SKUs match the current filters.' : 'No approved SKUs yet.'}</td></tr>`;
       return;
     }
 
@@ -799,6 +799,18 @@ document.addEventListener('DOMContentLoaded', () => {
         <td>${escapeHtml(row.unit_name || '')}</td>
         <td>${escapeHtml(row.volume || '')}</td>
         <td>${escapeHtml(row.astra || '')}</td>
+        <td>
+          <label class="admin-sku-switch" title="Skip Scan">
+            <input
+              type="checkbox"
+              data-change-skip-scan="${escapeHtml(row.sku || '')}"
+              ${row.skip_scan ? 'checked' : ''}
+              ${role === 'branch' ? '' : 'disabled'}
+              aria-label="Skip Scan for SKU ${escapeHtml(row.sku || '')}"
+            >
+            <span></span>
+          </label>
+        </td>
         <td>${escapeHtml(row.current_stock ?? row.starting_stock ?? 0)}</td>
         <td>${escapeHtml(row.stock_trigger ?? 0)}</td>
         <td>${escapeHtml(row.cogs ?? 0)}</td>
@@ -1302,6 +1314,31 @@ document.addEventListener('DOMContentLoaded', () => {
       sku,
       summary: `Delete approved SKU ${label}. This removes it from the live SKU database and deletes its COGS history.`
     });
+  });
+
+  tableBody?.addEventListener('change', async (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    const skipScanInput = target?.closest('[data-change-skip-scan]');
+    if (!(skipScanInput instanceof HTMLInputElement) || role !== 'branch') return;
+
+    const sku = skipScanInput.dataset.changeSkipScan || '';
+    const nextValue = skipScanInput.checked;
+    skipScanInput.disabled = true;
+    setError(requestError, '');
+
+    try {
+      await postAction({
+        action: 'change_skip_scan',
+        sku,
+        skip_scan: nextValue
+      });
+      showCopyMessage(`Skip Scan ${nextValue ? 'enabled' : 'disabled'} for ${sku}.`, false, 'center');
+    } catch (error) {
+      skipScanInput.checked = !nextValue;
+      setError(requestError, error instanceof Error ? error.message : 'Unable to update Skip Scan.');
+    } finally {
+      skipScanInput.disabled = false;
+    }
   });
 
   [flavorList, productList].forEach((list) => {

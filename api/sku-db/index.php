@@ -587,6 +587,7 @@ function jg_sku_fetch_database(PDO $pdo): array
             s.current_stock,
             s.stock_trigger,
             s.inventory_mode,
+            s.skip_scan,
             s.cogs,
             s.created_at,
             s.updated_at
@@ -634,6 +635,7 @@ function jg_sku_fetch_database(PDO $pdo): array
             'current_stock' => (int) ($row['current_stock'] ?? 0),
             'stock_trigger' => (int) ($row['stock_trigger'] ?? 0),
             'inventory_mode' => (string) ($row['inventory_mode'] ?? 'auto'),
+            'skip_scan' => (int) ($row['skip_scan'] ?? 0) === 1,
             'cogs' => number_format((float) $row['cogs'], 2, '.', ''),
             'cogs_history' => $history,
             'created_at' => (string) ($row['created_at'] ?? ''),
@@ -689,11 +691,11 @@ function jg_sku_create_sku(PDO $pdo, array $payload, ?int $approvalRequestId = n
     $stmt = $pdo->prepare(
         'INSERT INTO sku_skus (
             sku, tag, brand_id, unit_id, volume, astra, flavor_id, product_id,
-            starting_stock, current_stock, stock_trigger, inventory_mode, cogs,
+            starting_stock, current_stock, stock_trigger, inventory_mode, skip_scan, cogs,
             approval_request_id, created_at, updated_at
         ) VALUES (
             :sku, :tag, :brand_id, :unit_id, :volume, :astra, :flavor_id, :product_id,
-            :starting_stock, :current_stock, :stock_trigger, "auto", :cogs,
+            :starting_stock, :current_stock, :stock_trigger, "auto", 0, :cogs,
             :approval_request_id, :created_at, :updated_at
         )'
     );
@@ -1107,6 +1109,32 @@ try {
         $updateStmt = $pdo->prepare('UPDATE sku_skus SET astra = :astra, updated_at = :updated_at WHERE sku = :sku');
         $updateStmt->execute([
             ':astra' => $astra,
+            ':updated_at' => jg_sku_now(),
+            ':sku' => $sku,
+        ]);
+
+        jg_sku_touch_version($pdo);
+        jg_sku_response($pdo);
+    }
+
+    if ($action === 'change_skip_scan') {
+        jg_sku_require_branch_json();
+
+        $sku = trim((string) ($request['sku'] ?? ''));
+        if ($sku === '') {
+            jg_sku_fail('SKU is required.');
+        }
+
+        $stmt = $pdo->prepare('SELECT sku FROM sku_skus WHERE sku = :sku LIMIT 1');
+        $stmt->execute([':sku' => $sku]);
+        if ($stmt->fetchColumn() === false) {
+            jg_sku_fail('SKU not found.', 404);
+        }
+
+        $skipScan = !empty($request['skip_scan']) ? 1 : 0;
+        $updateStmt = $pdo->prepare('UPDATE sku_skus SET skip_scan = :skip_scan, updated_at = :updated_at WHERE sku = :sku');
+        $updateStmt->execute([
+            ':skip_scan' => $skipScan,
             ':updated_at' => jg_sku_now(),
             ':sku' => $sku,
         ]);

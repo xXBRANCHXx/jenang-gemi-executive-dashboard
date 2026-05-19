@@ -133,6 +133,7 @@ function jg_sku_ensure_schema(PDO $pdo): void
             current_stock INT UNSIGNED NOT NULL,
             stock_trigger INT UNSIGNED NOT NULL,
             inventory_mode VARCHAR(32) NOT NULL DEFAULT "auto",
+            skip_scan TINYINT(1) NOT NULL DEFAULT 0,
             cogs DECIMAL(12,2) NOT NULL,
             approval_request_id BIGINT UNSIGNED NULL DEFAULT NULL,
             created_at DATETIME NOT NULL,
@@ -166,6 +167,7 @@ function jg_sku_ensure_schema(PDO $pdo): void
 
     jg_sku_ensure_column($pdo, 'sku_requests', 'astra', 'DECIMAL(6,2) NOT NULL DEFAULT 0.00 AFTER volume');
     jg_sku_ensure_column($pdo, 'sku_skus', 'astra', 'DECIMAL(6,2) NOT NULL DEFAULT 0.00 AFTER volume');
+    jg_sku_ensure_column($pdo, 'sku_skus', 'skip_scan', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER inventory_mode');
     $pdo->exec('UPDATE sku_requests SET astra = volume WHERE astra <= 0');
     $pdo->exec('UPDATE sku_skus SET astra = volume WHERE astra <= 0');
 
