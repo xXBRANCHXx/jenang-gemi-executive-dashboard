@@ -33,13 +33,23 @@ const HOME_METRIC_UNITS = {
 };
 
 const OVERVIEW_METRIC_LABELS = {
-  sales: 'Total sales by month',
-  orders: 'Total orders by month'
+  sales: 'Net revenue by month',
+  net_revenue: 'Net revenue by month',
+  gross_revenue: 'Gross revenue by month',
+  marketplace_fees: 'Marketplace fees by month',
+  orders: 'Total orders by month',
+  average_order_value: 'Average order value by month',
+  item_count: 'Items sold by month'
 };
 
 const OVERVIEW_METRIC_UNITS = {
   sales: 'idr',
-  orders: 'orders'
+  net_revenue: 'idr',
+  gross_revenue: 'idr',
+  marketplace_fees: 'idr',
+  orders: 'orders',
+  average_order_value: 'idr',
+  item_count: 'items'
 };
 
 const OVERVIEW_PLATFORM_COLORS = {
@@ -743,6 +753,8 @@ document.addEventListener('DOMContentLoaded', () => {
     overview: {
       year: new Date().getFullYear(),
       metric: 'sales',
+      volumeMetric: 'orders',
+      platformMetric: 'sales',
       data: null,
       requestToken: 0
     },
@@ -806,7 +818,9 @@ document.addEventListener('DOMContentLoaded', () => {
     tableBody: document.querySelector('[data-overview-table-body]'),
     notes: document.querySelector('[data-overview-notes]'),
     yearControls: document.querySelector('[data-overview-year-controls]'),
-    metricButtons: document.querySelectorAll('[data-overview-metric]')
+    metricButtons: document.querySelectorAll('[data-overview-metric]'),
+    volumeMetricButtons: document.querySelectorAll('[data-overview-volume-metric]'),
+    platformMetricButtons: document.querySelectorAll('[data-overview-platform-metric]')
   };
 
   const homeRefs = {
@@ -1081,6 +1095,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const getFeedForView = (view) => {
+    if (view === 'overview') return overviewRefs.notes;
     if (view === 'website') return websiteRefs.recentEvents;
     return homeRefs.recentEvents;
   };
@@ -1233,37 +1248,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
-  const renderOverviewUnderConstruction = () => {
-    state.overview.data = null;
-    if (overviewRefs.summarySales) overviewRefs.summarySales.textContent = '--';
-    if (overviewRefs.summaryOrders) overviewRefs.summaryOrders.textContent = '--';
-    if (overviewRefs.summaryAov) overviewRefs.summaryAov.textContent = '--';
-    if (overviewRefs.summaryBestMonth) overviewRefs.summaryBestMonth.textContent = '--';
-    if (overviewRefs.summaryBestMonthMeta) overviewRefs.summaryBestMonthMeta.textContent = 'Nothing published yet';
-    if (overviewRefs.yearSummary) overviewRefs.yearSummary.textContent = 'Under construction';
-    if (overviewRefs.endpointLabel) overviewRefs.endpointLabel.textContent = 'No live source attached';
-    if (overviewRefs.trendTitle) overviewRefs.trendTitle.textContent = 'Homepage sales chart';
-    if (overviewRefs.trendMeta) overviewRefs.trendMeta.textContent = 'Under construction until the sales model is trustworthy';
-    if (overviewRefs.lastUpdated) overviewRefs.lastUpdated.textContent = 'Live marketplace totals disabled for now';
-    if (overviewRefs.tableBody) {
-      overviewRefs.tableBody.innerHTML = '<tr><td colspan="4" class="admin-empty">Under construction. Verified month-by-month marketplace reporting is not published yet.</td></tr>';
-    }
-    if (overviewRefs.notes) {
-      overviewRefs.notes.innerHTML = `
-        <div class="admin-note-card"><strong>Under construction</strong><span>The charts were disabled because the current marketplace totals are not reliable enough to publish.</span></div>
-        <div class="admin-note-card"><strong>Why it is static</strong><span>This keeps the homepage fast and prevents fake or misleading sales numbers from showing up in front of stakeholders.</span></div>
-        <div class="admin-note-card"><strong>Next step</strong><span>Once the aggregation model is rebuilt properly, this homepage can switch back to precomputed yearly data instead of live expensive requests.</span></div>
-      `;
-    }
-    if (overviewRefs.yearControls) {
-      overviewRefs.yearControls.innerHTML = '<button type="button" class="admin-toggle-pill is-active" disabled>Under Construction</button>';
-    }
-    overviewRefs.metricButtons.forEach((button) => {
-      button.disabled = true;
-      button.classList.toggle('is-active', button.dataset.overviewMetric === 'sales');
-    });
-  };
-
   const renderOverview = (data) => {
     state.overview.data = data;
     const totals = data.totals || {};
@@ -1274,7 +1258,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const monthlyRows = months.map((month) => ({
       label: month.label || '-',
       sales: Number(month.sales || 0),
-      orders: Number(month.orders || 0)
+      net_revenue: Number(month.net_revenue || month.sales || 0),
+      gross_revenue: Number(month.gross_revenue || 0),
+      marketplace_fees: Number(month.marketplace_fees || 0),
+      orders: Number(month.orders || 0),
+      item_count: Number(month.item_count || 0),
+      average_order_value: Number(month.orders || 0) > 0 ? Number(month.sales || 0) / Number(month.orders || 0) : 0
     }));
 
     if (overviewRefs.summarySales) overviewRefs.summarySales.textContent = formatCurrency(totals.sales || 0);
@@ -1292,7 +1281,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (overviewRefs.endpointLabel) overviewRefs.endpointLabel.textContent = salesEndpoint;
     if (overviewRefs.trendTitle) overviewRefs.trendTitle.textContent = OVERVIEW_METRIC_LABELS[state.overview.metric];
     if (overviewRefs.trendMeta) {
-      overviewRefs.trendMeta.textContent = `${state.overview.year} • ${Number(totals.active_platforms || 0)} active platforms • ${formatCurrency(totals.sales || 0)} total`;
+      overviewRefs.trendMeta.textContent = `${state.overview.year} • Net ${formatCurrency(totals.net_revenue || totals.sales || 0)} • Gross ${formatCurrency(totals.gross_revenue || 0)}`;
     }
 
     if (overviewRefs.tableBody) {
@@ -1315,20 +1304,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     drawLineChart(overviewRefs.trendCanvas, monthlyRows, state.overview.metric, OVERVIEW_METRIC_UNITS);
-    drawBarChart(overviewRefs.ordersCanvas, months, {
-      value: (item) => item.orders || 0,
+    drawBarChart(overviewRefs.ordersCanvas, monthlyRows, {
+      value: (item) => item[state.overview.volumeMetric] || 0,
       label: (item) => String(item.label || '-'),
       color: () => '#67f8d4',
-      metric: 'orders',
+      metric: state.overview.volumeMetric,
       unitsMap: OVERVIEW_METRIC_UNITS,
-      tooltipTitle: (item) => `${item.label || '-'} orders`,
+      tooltipTitle: (item) => `${item.label || '-'} ${OVERVIEW_METRIC_LABELS[state.overview.volumeMetric] || 'volume'}`,
       limit: 12
     });
     drawBarChart(overviewRefs.platformCanvas, platforms, {
-      value: (item) => item.sales || 0,
+      value: (item) => item[state.overview.platformMetric] || 0,
       label: (item) => String(item.label || 'Unknown').slice(0, 12),
       color: (item) => OVERVIEW_PLATFORM_COLORS[String(item.key || 'unknown').toLowerCase()] || OVERVIEW_PLATFORM_COLORS.unknown,
-      metric: 'sales',
+      metric: state.overview.platformMetric,
       unitsMap: OVERVIEW_METRIC_UNITS,
       tooltipTitle: (item) => item.label || 'Unknown',
       limit: 6
@@ -1338,6 +1327,12 @@ document.addEventListener('DOMContentLoaded', () => {
     renderOverviewYearControls(years);
     overviewRefs.metricButtons.forEach((button) => {
       button.classList.toggle('is-active', button.dataset.overviewMetric === state.overview.metric);
+    });
+    overviewRefs.volumeMetricButtons.forEach((button) => {
+      button.classList.toggle('is-active', button.dataset.overviewVolumeMetric === state.overview.volumeMetric);
+    });
+    overviewRefs.platformMetricButtons.forEach((button) => {
+      button.classList.toggle('is-active', button.dataset.overviewPlatformMetric === state.overview.platformMetric);
     });
   };
 
@@ -1558,6 +1553,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const refreshAnalyticsAfterDeviceExclusion = async () => {
     await Promise.allSettled([
+      loadOverviewSafely(),
       loadHomeSafely(),
       loadWebsiteSafely(),
       loadWebsiteSettingsSafely()
@@ -1565,7 +1561,10 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const loadOverview = async () => {
-    renderOverviewUnderConstruction();
+    const requestToken = beginRequest('overview');
+    const data = await requestJson(buildSalesUrl(state.overview.year));
+    if (!isLatestRequest('overview', requestToken)) return;
+    renderOverview(data);
   };
 
   const loadHome = async () => {
@@ -1611,8 +1610,13 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const loadOverviewSafely = async () => {
-    await loadOverview();
-    return true;
+    try {
+      await loadOverview();
+      return true;
+    } catch (error) {
+      renderViewError('overview', error);
+      return false;
+    }
   };
 
   const loadHomeSafely = async () => {
@@ -1665,6 +1669,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const renderCachedCharts = () => {
+    if (state.overview.data) renderOverview(state.overview.data);
     if (state.home.data) renderHome(state.home.data);
     if (state.website.data) renderWebsite(state.website.data);
   };
@@ -1730,6 +1735,20 @@ document.addEventListener('DOMContentLoaded', () => {
   overviewRefs.metricButtons.forEach((button) => {
     button.addEventListener('click', () => {
       state.overview.metric = button.dataset.overviewMetric || 'sales';
+      if (state.overview.data) renderOverview(state.overview.data);
+    });
+  });
+
+  overviewRefs.volumeMetricButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      state.overview.volumeMetric = button.dataset.overviewVolumeMetric || 'orders';
+      if (state.overview.data) renderOverview(state.overview.data);
+    });
+  });
+
+  overviewRefs.platformMetricButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      state.overview.platformMetric = button.dataset.overviewPlatformMetric || 'sales';
       if (state.overview.data) renderOverview(state.overview.data);
     });
   });
