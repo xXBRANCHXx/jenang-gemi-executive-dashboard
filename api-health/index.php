@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require dirname(__DIR__) . '/auth.php';
+require_once dirname(__DIR__) . '/admin-nav.php';
 
 if (!jg_admin_is_authenticated()) {
     header('Location: ../dashboard/');
@@ -18,7 +19,7 @@ $apiHealthJsVersion = (string) @filemtime(dirname(__DIR__) . '/api-health.js');
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
     <title>API Health | Jenang Gemi Executive Dashboard</title>
     <meta name="robots" content="noindex,nofollow">
-    <link rel="icon" type="image/png" href="https://jenanggemi.com/Media/Jenang%20Gemi%20Website%20Logo.png">
+    <link rel="icon" type="image/svg+xml" href="/assets/admin-icons/executive-dashboard.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap">
@@ -29,19 +30,7 @@ $apiHealthJsVersion = (string) @filemtime(dirname(__DIR__) . '/api-health.js');
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
         <div class="admin-shell">
-            <aside class="admin-rail" aria-label="Admin navigation">
-                <a class="admin-rail-brand" href="../dashboard/" aria-label="Executive Dashboard home"><span class="admin-rail-brand-mark" aria-hidden="true"><span class="admin-rail-brand-core"></span></span><span class="admin-rail-brand-wordmark">ADMIN</span></a>
-                <nav class="admin-rail-nav">
-                    <a class="admin-rail-link" href="../dashboard/" aria-label="Open home dashboard"><span class="admin-rail-icon admin-rail-icon-home" aria-hidden="true"><span></span></span><span class="admin-rail-link-text">Home</span></a>
-                    <a class="admin-rail-link" href="../dashboard/?view=website" data-dashboard-view-link="website" aria-label="Open website dashboard"><span class="admin-rail-icon admin-rail-icon-rocket" aria-hidden="true"><span></span></span><span class="admin-rail-link-text">Website</span></a>
-                    <a class="admin-rail-link" href="../affiliate-program/" aria-label="Open affiliate program dashboard"><span class="admin-rail-icon admin-rail-icon-affiliate" aria-hidden="true"><span></span></span><span class="admin-rail-link-text">Affiliate</span></a>
-                    <a class="admin-rail-link" href="../partner-program/" aria-label="Open partner program dashboard"><span class="admin-rail-icon admin-rail-icon-partner" aria-hidden="true"><span></span></span><span class="admin-rail-link-text">Partner</span></a>
-                    <a class="admin-rail-link" href="../sku-db/" aria-label="Open SKU database"><span class="admin-rail-icon admin-rail-icon-sku" aria-hidden="true"><span>SKU</span></span><span class="admin-rail-link-text">SKU DB</span></a>
-                </nav>
-                <div class="admin-rail-footer">
-                    <a class="admin-rail-link is-active" aria-current="page" href="./" aria-label="Open API health"><span class="admin-rail-icon admin-rail-icon-settings" aria-hidden="true"><span></span></span><span class="admin-rail-link-text">API</span></a>
-                </div>
-            </aside>
+            <?php render_admin_sidebar('api'); ?>
 
             <div class="admin-shell-main">
                 <header class="admin-topbar">
