@@ -97,6 +97,7 @@ function render_admin_sidebar_item(array $item, string $activeSection): void
         'class="' . $className . '"',
         'href="' . htmlspecialchars((string) ($item['href'] ?? '../dashboard/'), ENT_QUOTES, 'UTF-8') . '"',
         'aria-label="' . htmlspecialchars((string) ($item['aria'] ?? ''), ENT_QUOTES, 'UTF-8') . '"',
+        'data-nav-label="' . htmlspecialchars((string) ($item['label'] ?? ''), ENT_QUOTES, 'UTF-8') . '"',
         'data-dashboard-nav-section="' . htmlspecialchars((string) ($item['key'] ?? ''), ENT_QUOTES, 'UTF-8') . '"',
     ];
 
@@ -114,6 +115,5 @@ function render_admin_sidebar_item(array $item, string $activeSection): void
     echo '<a ' . implode(' ', $attributes) . '>';
     $iconText = htmlspecialchars((string) ($item['icon_text'] ?? ''), ENT_QUOTES, 'UTF-8');
     echo '<span class="admin-rail-icon ' . $iconClass . '" aria-hidden="true"><span>' . $iconText . '</span></span>';
-    echo '<span class="admin-rail-link-text">' . $label . '</span>';
     echo '</a>';
 }

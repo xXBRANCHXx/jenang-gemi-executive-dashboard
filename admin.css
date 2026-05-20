@@ -2944,15 +2944,15 @@ body::after {
   display: flex;
   flex-direction: column;
   min-height: calc(100svh - 48px);
-  padding: 10px 0 0;
+  padding: 14px 0 8px;
   border-right: 1px solid var(--admin-rail-border);
 }
 
 .admin-rail-brand {
   display: grid;
   justify-items: center;
-  gap: 12px;
-  padding: 0 18px 18px;
+  gap: 0;
+  padding: 0 18px 20px;
 }
 
 .admin-rail-brand-mark {
@@ -2984,77 +2984,99 @@ body::after {
 }
 
 .admin-rail-brand-wordmark {
-  color: #8dff1f;
-  font-family: "Space Grotesk", Inter, sans-serif;
-  font-size: 0.92rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  display: none;
 }
 
 .admin-rail-nav,
 .admin-rail-footer {
   display: grid;
   justify-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .admin-rail-nav {
-  padding-top: 18px;
+  padding-top: 10px;
 }
 
 .admin-rail-footer {
   margin-top: auto;
-  padding-bottom: 12px;
+  padding-bottom: 8px;
 }
 
 .admin-rail-link {
   position: relative;
-  display: grid;
-  justify-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 10px 8px;
-  border: 0;
-  border-left: 2px solid transparent;
+  display: inline-grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 18px;
   background: transparent;
-  color: #f1f1f1;
+  color: rgba(241, 245, 249, 0.72);
   cursor: pointer;
-  transition: color 0.22s ease, transform 0.22s ease, border-color 0.22s ease, opacity 0.22s ease;
+  isolation: isolate;
+  transition: color 0.22s ease, transform 0.22s ease, border-color 0.22s ease, background-color 0.22s ease, box-shadow 0.22s ease;
 }
 
 .admin-rail-link::before {
   content: '';
   position: absolute;
-  inset: 8px 10px;
-  border-radius: 18px;
-  background: linear-gradient(135deg, rgba(175, 255, 0, 0.16), rgba(0, 224, 184, 0.14));
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.01)),
+    rgba(255, 255, 255, 0.018);
   opacity: 0;
-  transform: scale(0.92);
-  transition: opacity 0.22s ease, transform 0.22s ease;
+  transform: scale(0.96);
+  transition: opacity 0.22s ease, transform 0.22s ease, border-color 0.22s ease, background 0.22s ease;
+}
+
+.admin-rail-link::after {
+  content: attr(data-nav-label);
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 14px);
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 12px;
+  background: rgba(7, 12, 20, 0.92);
+  color: #f8fafc;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate3d(-8px, -50%, 0);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.28);
+  transition: opacity 0.18s ease, transform 0.18s ease;
 }
 
 .admin-rail-link:hover,
 .admin-rail-link.is-active,
 .admin-rail-link[aria-current='page'] {
-  color: #a9ff27;
-  border-left-color: rgba(175, 255, 0, 0.78);
-  transform: translateX(2px);
+  color: #ffffff;
+  transform: translateY(-1px);
 }
 
 .admin-rail-link:hover::before,
 .admin-rail-link.is-active::before,
 .admin-rail-link[aria-current='page']::before {
-  opacity: 0.16;
+  border-color: rgba(175, 255, 0, 0.18);
+  background:
+    linear-gradient(180deg, rgba(175, 255, 0, 0.22), rgba(0, 224, 184, 0.14)),
+    rgba(255, 255, 255, 0.03);
+  opacity: 1;
   transform: scale(1);
 }
 
-.admin-rail-link-text {
-  position: relative;
-  z-index: 1;
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+.admin-rail-link:hover::after,
+.admin-rail-link:focus-visible::after {
+  opacity: 1;
+  transform: translate3d(0, -50%, 0);
 }
 
 .admin-rail-icon {
@@ -3802,8 +3824,7 @@ body::after {
     min-height: calc(100svh - 40px);
   }
 
-  .admin-rail-brand-wordmark,
-  .admin-rail-link-text {
+  .admin-rail-brand-wordmark {
     display: none;
   }
 
@@ -3863,17 +3884,20 @@ body::after {
   }
 
   .admin-rail-link {
-    justify-items: center;
-    padding: 10px 6px;
-    border-left: 0;
-    border-bottom: 2px solid transparent;
+    justify-self: center;
+    width: 100%;
+    max-width: 64px;
+    height: 52px;
   }
 
   .admin-rail-link:hover,
   .admin-rail-link.is-active,
   .admin-rail-link[aria-current='page'] {
     transform: none;
-    border-bottom-color: rgba(175, 255, 0, 0.78);
+  }
+
+  .admin-rail-link::after {
+    display: none;
   }
 
   .admin-topbar {
@@ -4463,8 +4487,8 @@ body::after {
 .admin-shell .admin-rail-icon {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border: 0;
   background: none;
   transform: none;
@@ -4475,8 +4499,8 @@ body::after {
   display: block !important;
   position: static !important;
   inset: auto !important;
-  width: 23px;
-  height: 23px;
+  width: 24px;
+  height: 24px;
   margin: 0;
   border: 0 !important;
   border-radius: 0 !important;
@@ -4591,7 +4615,15 @@ body::after {
 }
 
 .admin-app.admin-app-suite .admin-rail-link::before {
-  background: rgba(157, 255, 0, 0.08);
+  background:
+    linear-gradient(180deg, rgba(157, 255, 0, 0.18), rgba(57, 208, 184, 0.12)),
+    rgba(255, 255, 255, 0.03);
+}
+
+.admin-app.admin-app-suite .admin-rail-link:hover::before,
+.admin-app.admin-app-suite .admin-rail-link.is-active::before,
+.admin-app.admin-app-suite .admin-rail-link[aria-current='page']::before {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05), 0 12px 28px rgba(0, 0, 0, 0.18);
 }
 
 .admin-app.admin-app-suite .admin-status-dot {
