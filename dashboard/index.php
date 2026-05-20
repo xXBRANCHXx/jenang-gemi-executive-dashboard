@@ -121,50 +121,50 @@ $dashboardBuildVersion = 'exec3.47.2';
                 <section class="admin-hero-panel admin-hero-panel-overview">
                     <div class="admin-hero-copy">
                         <span class="admin-chip admin-chip-accent">Marketplace Sales Overview</span>
-                        <h2>Total sales by month across every connected marketplace account, built for year-over-year review.</h2>
-                        <p>The homepage now tracks annual sales performance across Shopee, TikTok Shop, and any future enabled marketplaces. Years are generated automatically from 2026 onward so the toggle stays useful as new data arrives.</p>
+                        <h2>Sales charts are under construction.</h2>
+                        <p>The marketplace aggregation layer needs a more reliable model before this homepage can show real year-by-year charts. Until that is finished, this view stays static so the dashboard does not load inaccurate or misleading data.</p>
                     </div>
                     <div class="admin-hero-actions">
                         <div class="admin-status-pill">
                             <span class="admin-status-dot"></span>
-                            <span>Marketplace aggregation active</span>
+                            <span>Charts paused</span>
                         </div>
                         <div class="admin-note-card admin-note-card-compact">
-                            <strong>Range</strong>
-                            <span data-overview-year-summary>Loading year window…</span>
+                            <strong>Status</strong>
+                            <span data-overview-year-summary>Under construction</span>
                         </div>
                         <div class="admin-note-card admin-note-card-compact">
-                            <strong>Sync</strong>
-                            <span data-overview-last-updated>Waiting for first marketplace sync</span>
+                            <strong>Reason</strong>
+                            <span data-overview-last-updated>Live marketplace totals disabled for now</span>
                         </div>
                     </div>
                 </section>
 
                 <section class="admin-control-strip">
                     <div class="admin-control-group">
-                        <span class="admin-control-label">Year</span>
+                        <span class="admin-control-label">Year Toggle</span>
                         <div class="admin-toggle-row" data-overview-year-controls>
-                            <button type="button" class="admin-toggle-pill is-active" data-overview-year-placeholder>Loading…</button>
+                            <button type="button" class="admin-toggle-pill is-active" data-overview-year-placeholder disabled>Under Construction</button>
                         </div>
                     </div>
                     <div class="admin-control-group">
-                        <span class="admin-control-label">Trend Metric</span>
+                        <span class="admin-control-label">Chart State</span>
                         <div class="admin-toggle-row" data-overview-metric-controls>
-                            <button type="button" class="admin-toggle-pill is-active" data-overview-metric="sales">Sales</button>
-                            <button type="button" class="admin-toggle-pill" data-overview-metric="orders">Orders</button>
+                            <button type="button" class="admin-toggle-pill is-active" data-overview-metric="sales" disabled>Paused</button>
+                            <button type="button" class="admin-toggle-pill" data-overview-metric="orders" disabled>Waiting</button>
                         </div>
                     </div>
                     <div class="admin-live-status">
-                        <strong>Source</strong>
-                        <span data-overview-endpoint-label>../api/sales/</span>
+                        <strong>Data</strong>
+                        <span data-overview-endpoint-label>No live source attached</span>
                     </div>
                 </section>
 
                 <section class="admin-metric-grid">
-                    <article class="admin-metric-card"><span>Year-To-Date Sales</span><strong data-overview-summary-sales>Rp0</strong><small>Combined marketplace revenue</small></article>
-                    <article class="admin-metric-card"><span>Total Orders</span><strong data-overview-summary-orders>0</strong><small>Orders counted across all channels</small></article>
-                    <article class="admin-metric-card"><span>Average Order Value</span><strong data-overview-summary-aov>Rp0</strong><small>Yearly blended AOV</small></article>
-                    <article class="admin-metric-card"><span>Best Month</span><strong data-overview-summary-best-month>-</strong><small data-overview-summary-best-month-meta>No peak yet</small></article>
+                    <article class="admin-metric-card"><span>Year-To-Date Sales</span><strong data-overview-summary-sales>--</strong><small>Waiting for verified aggregation</small></article>
+                    <article class="admin-metric-card"><span>Total Orders</span><strong data-overview-summary-orders>--</strong><small>Waiting for verified aggregation</small></article>
+                    <article class="admin-metric-card"><span>Average Order Value</span><strong data-overview-summary-aov>--</strong><small>Waiting for verified aggregation</small></article>
+                    <article class="admin-metric-card"><span>Best Month</span><strong data-overview-summary-best-month>--</strong><small data-overview-summary-best-month-meta>Nothing published yet</small></article>
                 </section>
 
                 <section class="admin-main-grid">
@@ -172,12 +172,12 @@ $dashboardBuildVersion = 'exec3.47.2';
                         <div class="admin-panel-head">
                             <div>
                                 <span class="admin-panel-kicker">Monthly Trend</span>
-                                <h3 data-overview-trend-title>Total sales by month</h3>
+                                <h3 data-overview-trend-title>Homepage sales chart</h3>
                             </div>
-                            <span class="admin-panel-meta" data-overview-trend-meta>All enabled marketplaces, selected year</span>
+                            <span class="admin-panel-meta" data-overview-trend-meta>Under construction until the sales model is trustworthy</span>
                         </div>
                         <div class="admin-chart-surface">
-                            <canvas class="admin-chart-canvas admin-chart-canvas-lg" data-overview-trend-chart width="1200" height="360"></canvas>
+                            <div class="admin-empty">Under construction. Real marketplace charting is paused until the numbers are verified.</div>
                         </div>
                     </article>
 
@@ -187,10 +187,10 @@ $dashboardBuildVersion = 'exec3.47.2';
                                 <span class="admin-panel-kicker">Orders</span>
                                 <h3>Monthly order volume</h3>
                             </div>
-                            <span class="admin-panel-meta">Order count by calendar month</span>
+                            <span class="admin-panel-meta">Will return after the real aggregation path is fixed</span>
                         </div>
                         <div class="admin-chart-surface">
-                            <canvas class="admin-chart-canvas" data-overview-orders-chart width="880" height="340"></canvas>
+                            <div class="admin-empty">Under construction.</div>
                         </div>
                     </article>
 
@@ -200,10 +200,10 @@ $dashboardBuildVersion = 'exec3.47.2';
                                 <span class="admin-panel-kicker">Platform Mix</span>
                                 <h3>Sales by marketplace</h3>
                             </div>
-                            <span class="admin-panel-meta">Annual contribution by platform</span>
+                            <span class="admin-panel-meta">Will return after the real aggregation path is fixed</span>
                         </div>
                         <div class="admin-chart-surface">
-                            <canvas class="admin-chart-canvas" data-overview-platform-chart width="880" height="340"></canvas>
+                            <div class="admin-empty">Under construction.</div>
                         </div>
                     </article>
 
@@ -222,7 +222,7 @@ $dashboardBuildVersion = 'exec3.47.2';
                                     </tr>
                                 </thead>
                                 <tbody data-overview-table-body>
-                                    <tr><td colspan="4" class="admin-empty">Belum ada data marketplace.</td></tr>
+                                    <tr><td colspan="4" class="admin-empty">Under construction. Verified month-by-month marketplace reporting is not published yet.</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -233,7 +233,9 @@ $dashboardBuildVersion = 'exec3.47.2';
                             <div><span class="admin-panel-kicker">Summary</span><h3>Annual notes</h3></div>
                         </div>
                         <div class="admin-note-stack" data-overview-notes>
-                            <div class="admin-note-card"><strong>Preparing</strong><span>Marketplace totals will appear once the yearly summary endpoint responds.</span></div>
+                            <div class="admin-note-card"><strong>Under construction</strong><span>The charts were disabled because the current marketplace totals are not reliable enough to publish.</span></div>
+                            <div class="admin-note-card"><strong>Why it is static</strong><span>This keeps the homepage fast and prevents fake or misleading sales numbers from showing up in front of stakeholders.</span></div>
+                            <div class="admin-note-card"><strong>Next step</strong><span>Once the aggregation model is rebuilt properly, this homepage can switch back to precomputed yearly data instead of live expensive requests.</span></div>
                         </div>
                     </article>
                 </section>

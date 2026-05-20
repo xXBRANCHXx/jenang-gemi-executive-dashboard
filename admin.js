@@ -1233,6 +1233,37 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
+  const renderOverviewUnderConstruction = () => {
+    state.overview.data = null;
+    if (overviewRefs.summarySales) overviewRefs.summarySales.textContent = '--';
+    if (overviewRefs.summaryOrders) overviewRefs.summaryOrders.textContent = '--';
+    if (overviewRefs.summaryAov) overviewRefs.summaryAov.textContent = '--';
+    if (overviewRefs.summaryBestMonth) overviewRefs.summaryBestMonth.textContent = '--';
+    if (overviewRefs.summaryBestMonthMeta) overviewRefs.summaryBestMonthMeta.textContent = 'Nothing published yet';
+    if (overviewRefs.yearSummary) overviewRefs.yearSummary.textContent = 'Under construction';
+    if (overviewRefs.endpointLabel) overviewRefs.endpointLabel.textContent = 'No live source attached';
+    if (overviewRefs.trendTitle) overviewRefs.trendTitle.textContent = 'Homepage sales chart';
+    if (overviewRefs.trendMeta) overviewRefs.trendMeta.textContent = 'Under construction until the sales model is trustworthy';
+    if (overviewRefs.lastUpdated) overviewRefs.lastUpdated.textContent = 'Live marketplace totals disabled for now';
+    if (overviewRefs.tableBody) {
+      overviewRefs.tableBody.innerHTML = '<tr><td colspan="4" class="admin-empty">Under construction. Verified month-by-month marketplace reporting is not published yet.</td></tr>';
+    }
+    if (overviewRefs.notes) {
+      overviewRefs.notes.innerHTML = `
+        <div class="admin-note-card"><strong>Under construction</strong><span>The charts were disabled because the current marketplace totals are not reliable enough to publish.</span></div>
+        <div class="admin-note-card"><strong>Why it is static</strong><span>This keeps the homepage fast and prevents fake or misleading sales numbers from showing up in front of stakeholders.</span></div>
+        <div class="admin-note-card"><strong>Next step</strong><span>Once the aggregation model is rebuilt properly, this homepage can switch back to precomputed yearly data instead of live expensive requests.</span></div>
+      `;
+    }
+    if (overviewRefs.yearControls) {
+      overviewRefs.yearControls.innerHTML = '<button type="button" class="admin-toggle-pill is-active" disabled>Under Construction</button>';
+    }
+    overviewRefs.metricButtons.forEach((button) => {
+      button.disabled = true;
+      button.classList.toggle('is-active', button.dataset.overviewMetric === 'sales');
+    });
+  };
+
   const renderOverview = (data) => {
     state.overview.data = data;
     const totals = data.totals || {};
@@ -1534,10 +1565,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const loadOverview = async () => {
-    const requestToken = beginRequest('overview');
-    const data = await requestJson(buildSalesUrl(state.overview.year));
-    if (!isLatestRequest('overview', requestToken)) return;
-    renderOverview(data);
+    renderOverviewUnderConstruction();
   };
 
   const loadHome = async () => {
@@ -1583,18 +1611,8 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const loadOverviewSafely = async () => {
-    try {
-      await loadOverview();
-      return true;
-    } catch (error) {
-      renderEventFeed(
-        overviewRefs.notes,
-        [],
-        () => '',
-        `Gagal memuat ringkasan marketplace: ${error?.message || 'Unknown error'}`
-      );
-      return false;
-    }
+    await loadOverview();
+    return true;
   };
 
   const loadHomeSafely = async () => {
@@ -1647,7 +1665,6 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const renderCachedCharts = () => {
-    if (state.overview.data) renderOverview(state.overview.data);
     if (state.home.data) renderHome(state.home.data);
     if (state.website.data) renderWebsite(state.website.data);
   };
