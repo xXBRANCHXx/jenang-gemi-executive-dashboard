@@ -288,12 +288,24 @@ const formatDashboardTime = (value, timezone, options = {}) => {
   });
 };
 
-const formatCurrency = (value) => `Rp${Math.round(Number(value) || 0).toLocaleString('id-ID')}`;
+const formatCompactNumber = (value) => {
+  const number = Number(value) || 0;
+  const absolute = Math.abs(number);
+  if (absolute >= 1000000000) return `${(number / 1000000000).toFixed(absolute >= 10000000000 ? 0 : 1).replace(/\.0$/, '')}B`;
+  if (absolute >= 1000000) return `${(number / 1000000).toFixed(absolute >= 10000000 ? 0 : 1).replace(/\.0$/, '')}M`;
+  if (absolute >= 1000) return `${(number / 1000).toFixed(absolute >= 10000 ? 0 : 1).replace(/\.0$/, '')}K`;
+  return Math.round(number).toLocaleString('id-ID');
+};
+
+const formatCurrency = (value, options = {}) => {
+  if (options.compact) return `Rp${formatCompactNumber(value)}`;
+  return `Rp${Math.round(Number(value) || 0).toLocaleString('id-ID')}`;
+};
 
 const formatMetricValue = (metric, value, unitsMap) => {
   const unit = unitsMap[metric] || 'units';
-  if (unit === 'idr') return formatCurrency(value);
-  return `${Number(value).toLocaleString('id-ID')} ${unit}`;
+  if (unit === 'idr') return formatCurrency(value, { compact: true });
+  return `${formatCompactNumber(value)} ${unit}`;
 };
 
 const formatPageLabel = (pagePath = '') => {
@@ -304,6 +316,7 @@ const formatPageLabel = (pagePath = '') => {
 const normalizeSourceKey = (value) => String(value || '').trim().toLowerCase();
 
 const HIDDEN_HOME_SOURCES = new Set(['internal', 'direct']);
+const OVERVIEW_CACHE_PREFIX = 'jg-overview-summary-v2';
 
 const shouldHideSourceMetric = (value) => HIDDEN_HOME_SOURCES.has(normalizeSourceKey(value));
 
@@ -1340,6 +1353,25 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${salesEndpoint}?${params.toString()}`;
   };
 
+  const overviewCacheKey = (year) => `${OVERVIEW_CACHE_PREFIX}:${year}`;
+
+  const readOverviewCache = (year) => {
+    try {
+      const cached = window.localStorage.getItem(overviewCacheKey(year));
+      return cached ? JSON.parse(cached) : null;
+    } catch (_error) {
+      return null;
+    }
+  };
+
+  const writeOverviewCache = (year, data) => {
+    try {
+      window.localStorage.setItem(overviewCacheKey(year), JSON.stringify(data));
+    } catch (_error) {
+      // Cache is an optimization only; live polling remains authoritative.
+    }
+  };
+
   const buildSettingsUrl = (action) => `${settingsEndpoint}?action=${encodeURIComponent(action)}&_ts=${encodeURIComponent(String(Date.now()))}`;
 
   const beginRequest = (key, settings = false) => {
@@ -1728,10 +1760,15 @@ document.addEventListener('DOMContentLoaded', () => {
     ]);
   };
 
-  const loadOverview = async () => {
+  const loadOverview = async (options = {}) => {
+    if (options.useCache) {
+      const cached = readOverviewCache(state.overview.year);
+      if (cached) renderOverview(cached);
+    }
     const requestToken = beginRequest('overview');
     const data = await requestJson(buildSalesUrl(state.overview.year));
     if (!isLatestRequest('overview', requestToken)) return;
+    writeOverviewCache(state.overview.year, data);
     renderOverview(data);
   };
 
@@ -1777,9 +1814,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const loadOverviewSafely = async () => {
+  const loadOverviewSafely = async (options = {}) => {
     try {
-      await loadOverview();
+      await loadOverview(options);
       return true;
     } catch (error) {
       renderViewError('overview', error);
@@ -1888,17 +1925,24 @@ document.addEventListener('DOMContentLoaded', () => {
   syncViewState();
   setLoaderState(20, 'Connecting to analytics');
 
-  loadActiveViewSafely()
-    .then(async () => {
-      setLoaderState(70, 'Preparing interface');
-      if (state.activeView === 'settings') {
-        await loadWebsiteSettingsSafely();
-      }
-    })
-    .finally(() => {
-      finishLoader();
-      connectLiveStream();
-    });
+  if (state.activeView === 'overview') {
+    loadOverviewSafely({ useCache: true }).catch(() => {});
+    setLoaderState(70, 'Preparing interface');
+    finishLoader();
+    connectLiveStream();
+  } else {
+    loadActiveViewSafely()
+      .then(async () => {
+        setLoaderState(70, 'Preparing interface');
+        if (state.activeView === 'settings') {
+          await loadWebsiteSettingsSafely();
+        }
+      })
+      .finally(() => {
+        finishLoader();
+        connectLiveStream();
+      });
+  }
 
   overviewRefs.metricButtons.forEach((button) => {
     button.addEventListener('click', () => {
@@ -2074,7 +2118,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   window.setInterval(() => {
-    loadActiveViewSafely().catch(() => {});
+    if (!document.hidden) loadActiveViewSafely().catch(() => {});
   }, 60000);
 
   document.addEventListener('visibilitychange', () => {
