@@ -1527,7 +1527,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const refreshAnalyticsAfterDeviceExclusion = async () => {
     await Promise.allSettled([
-      loadOverviewSafely(),
       loadHomeSafely(),
       loadWebsiteSafely(),
       loadWebsiteSettingsSafely()
@@ -1699,11 +1698,11 @@ document.addEventListener('DOMContentLoaded', () => {
   syncViewState();
   setLoaderState(20, 'Connecting to analytics');
 
-  Promise.allSettled([loadOverviewSafely(), loadHomeSafely(), loadWebsiteSettingsSafely()])
+  loadActiveViewSafely()
     .then(async () => {
       setLoaderState(70, 'Preparing interface');
-      if (state.activeView === 'website') {
-        await loadWebsiteSafely();
+      if (state.activeView === 'settings') {
+        await loadWebsiteSettingsSafely();
       }
     })
     .finally(() => {
