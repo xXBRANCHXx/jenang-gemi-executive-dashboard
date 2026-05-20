@@ -3094,6 +3094,74 @@ body::after {
   background: #000000;
 }
 
+.admin-rail-icon-overview::before,
+.admin-rail-icon-overview::after,
+.admin-rail-icon-overview span::before {
+  content: '';
+  position: absolute;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.admin-rail-icon-overview::before {
+  left: 2px;
+  right: 2px;
+  bottom: 2px;
+  height: 2px;
+  opacity: 0.7;
+}
+
+.admin-rail-icon-overview::after {
+  left: 4px;
+  bottom: 5px;
+  width: 5px;
+  height: 9px;
+  box-shadow: 7px -4px 0 currentColor, 14px -1px 0 currentColor;
+}
+
+.admin-rail-icon-overview span::before {
+  left: 3px;
+  top: 5px;
+  width: 18px;
+  height: 2px;
+  transform: rotate(-24deg);
+  transform-origin: left center;
+}
+
+.admin-rail-icon-campaigns::before,
+.admin-rail-icon-campaigns::after,
+.admin-rail-icon-campaigns span::before {
+  content: '';
+  position: absolute;
+  background: currentColor;
+}
+
+.admin-rail-icon-campaigns::before {
+  left: 2px;
+  top: 8px;
+  width: 13px;
+  height: 8px;
+  border-radius: 3px 8px 8px 3px;
+  transform: skewX(-14deg);
+}
+
+.admin-rail-icon-campaigns::after {
+  left: 14px;
+  top: 10px;
+  width: 7px;
+  height: 4px;
+  border-radius: 0 999px 999px 0;
+}
+
+.admin-rail-icon-campaigns span::before {
+  left: 6px;
+  top: 15px;
+  width: 3px;
+  height: 7px;
+  border-radius: 999px;
+  box-shadow: 7px -5px 0 0 rgba(255, 255, 255, 0.18);
+}
+
 .admin-rail-icon-rocket {
   transform: rotate(-35deg);
 }
@@ -3212,6 +3280,29 @@ body::after {
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.admin-rail-icon-api {
+  overflow: visible;
+}
+
+.admin-rail-icon-api::before {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+}
+
+.admin-rail-icon-api span::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 11px;
+  width: 16px;
+  height: 2px;
+  background: currentColor;
+  clip-path: polygon(0 50%, 18% 50%, 28% 0, 42% 100%, 56% 20%, 68% 50%, 100% 50%, 100% 100%, 0 100%);
 }
 
 .admin-rail-icon-settings {

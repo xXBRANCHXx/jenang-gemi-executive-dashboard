@@ -32,6 +32,23 @@ const HOME_METRIC_UNITS = {
   checkout_clicks: 'checkouts'
 };
 
+const OVERVIEW_METRIC_LABELS = {
+  sales: 'Total sales by month',
+  orders: 'Total orders by month'
+};
+
+const OVERVIEW_METRIC_UNITS = {
+  sales: 'idr',
+  orders: 'orders'
+};
+
+const OVERVIEW_PLATFORM_COLORS = {
+  shopee: '#ff8f1f',
+  tiktok: '#22d3ee',
+  tokopedia: '#5bff8a',
+  unknown: '#7a879a'
+};
+
 const HOME_TREND_SERIES = {
   total: { label: 'Total', color: '#12cfff' },
   bubur: { label: 'Bubur', color: '#9dff00' },
@@ -113,12 +130,20 @@ const JENANG_GEMI_SEARCH_INDEX = [
     keywords: ['jamu', 'tiktok', 'campaign', 'landing page']
   },
   {
-    title: 'Executive Dashboard',
+    title: 'Executive Sales Overview',
     section: 'Admin',
-    description: 'Main executive analytics dashboard.',
-    url: '../dashboard/?view=home',
+    description: 'Marketplace sales homepage with yearly monthly revenue charts.',
+    url: '../dashboard/',
+    view: 'overview',
+    keywords: ['home', 'homepage', 'sales', 'marketplace', 'overview', 'executive']
+  },
+  {
+    title: 'Campaigns Dashboard',
+    section: 'Admin',
+    description: 'Campaign landing-page analytics for Bubur and Jamu pages.',
+    url: '../dashboard/',
     view: 'home',
-    keywords: ['admin', 'dashboard', 'analytics', 'executive']
+    keywords: ['admin', 'dashboard', 'analytics', 'executive', 'landing pages', 'campaign landing', 'campaigns']
   },
   {
     title: 'Official Website Dashboard',
@@ -250,7 +275,13 @@ const formatDashboardTime = (value, timezone, options = {}) => {
   });
 };
 
-const formatMetricValue = (metric, value, unitsMap) => `${Number(value).toLocaleString('id-ID')} ${unitsMap[metric] || 'units'}`;
+const formatCurrency = (value) => `Rp${Math.round(Number(value) || 0).toLocaleString('id-ID')}`;
+
+const formatMetricValue = (metric, value, unitsMap) => {
+  const unit = unitsMap[metric] || 'units';
+  if (unit === 'idr') return formatCurrency(value);
+  return `${Number(value).toLocaleString('id-ID')} ${unit}`;
+};
 
 const formatPageLabel = (pagePath = '') => {
   const cleaned = String(pagePath).replace(/^\//, '').replace(/\.html$/i, '');
@@ -683,24 +714,38 @@ document.addEventListener('DOMContentLoaded', () => {
   const themeCookieMaxAge = 60 * 60 * 24 * 365 * 2;
   const viewStorageKey = 'jg-dashboard-view';
   const themeOptions = ['dark', 'minimal-white', 'classic-white', 'minimal-black', 'prism'];
-  const dashboardViews = ['home', 'website', 'settings'];
-
-  const readDashboardViewFromUrl = () => {
-    const view = new URLSearchParams(window.location.search).get('view') || '';
-    return dashboardViews.includes(view) ? view : '';
+  const viewAliases = {
+    landing: 'home',
+    landing_pages: 'home',
+    'landing-pages': 'home',
+    campaign: 'home',
+    campaigns: 'home',
+    overview: 'overview',
+    executive: 'overview',
+    homepage: 'overview'
   };
-
-  const readStoredDashboardView = () => {
-    const urlView = readDashboardViewFromUrl();
-    if (urlView) return urlView;
-    const storedView = window.localStorage.getItem(viewStorageKey) || '';
-    return dashboardViews.includes(storedView) ? storedView : 'home';
+  const validViews = new Set(['overview', 'home', 'website', 'settings']);
+  const normalizeDashboardView = (value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    const aliased = viewAliases[normalized] || normalized;
+    return validViews.has(aliased) ? aliased : 'overview';
+  };
+  const resolveInitialView = () => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedView = params.get('view') || window.location.hash.replace(/^#/, '');
+    return normalizeDashboardView(requestedView || window.localStorage.getItem(viewStorageKey));
   };
 
   const state = {
-    activeView: readStoredDashboardView(),
+    activeView: resolveInitialView(),
     timezone: DASHBOARD_TIMEZONE,
     requestSequence: 0,
+    overview: {
+      year: new Date().getFullYear(),
+      metric: 'sales',
+      data: null,
+      requestToken: 0
+    },
     home: {
       timeframe: '24h',
       metric: 'views',
@@ -727,6 +772,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const endpoint = root.dataset.analyticsEndpoint || './analytics.php';
   const liveEndpoint = root.dataset.liveEndpoint || './live/';
   const settingsEndpoint = root.dataset.settingsEndpoint || './settings/';
+  const salesEndpoint = root.dataset.salesEndpoint || './sales/';
 
   const loader = document.querySelector('[data-admin-loader]');
   const loaderProgress = document.querySelector('[data-admin-loader-progress]');
@@ -737,10 +783,31 @@ document.addEventListener('DOMContentLoaded', () => {
   const viewLabel = document.querySelector('[data-active-view-label]');
   const viewPanels = document.querySelectorAll('[data-view-panel]');
   const viewSwitchButtons = document.querySelectorAll('[data-view-switch]');
+  const navLinks = document.querySelectorAll('[data-dashboard-nav-section]');
   const searchShell = document.querySelector('[data-dashboard-search-shell]');
   const searchForm = document.querySelector('[data-dashboard-search-form]');
   const searchInput = document.querySelector('[data-dashboard-search-input]');
   const searchResults = document.querySelector('[data-dashboard-search-results]');
+
+  const overviewRefs = {
+    summarySales: document.querySelector('[data-overview-summary-sales]'),
+    summaryOrders: document.querySelector('[data-overview-summary-orders]'),
+    summaryAov: document.querySelector('[data-overview-summary-aov]'),
+    summaryBestMonth: document.querySelector('[data-overview-summary-best-month]'),
+    summaryBestMonthMeta: document.querySelector('[data-overview-summary-best-month-meta]'),
+    yearSummary: document.querySelector('[data-overview-year-summary]'),
+    endpointLabel: document.querySelector('[data-overview-endpoint-label]'),
+    trendCanvas: document.querySelector('[data-overview-trend-chart]'),
+    ordersCanvas: document.querySelector('[data-overview-orders-chart]'),
+    platformCanvas: document.querySelector('[data-overview-platform-chart]'),
+    trendTitle: document.querySelector('[data-overview-trend-title]'),
+    trendMeta: document.querySelector('[data-overview-trend-meta]'),
+    lastUpdated: document.querySelector('[data-overview-last-updated]'),
+    tableBody: document.querySelector('[data-overview-table-body]'),
+    notes: document.querySelector('[data-overview-notes]'),
+    yearControls: document.querySelector('[data-overview-year-controls]'),
+    metricButtons: document.querySelectorAll('[data-overview-metric]')
+  };
 
   const homeRefs = {
     summaryViews: document.querySelector('[data-home-summary-total-views]'),
@@ -1055,9 +1122,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const syncViewState = () => {
     const labels = {
-      home: 'Home Dashboard',
+      overview: 'Executive Sales Overview',
+      home: 'Campaigns Dashboard',
       website: 'Official Website Dashboard',
       settings: 'Settings'
+    };
+    const navSectionByView = {
+      overview: 'home',
+      home: 'campaigns',
+      website: 'website',
+      settings: 'settings'
     };
     viewPanels.forEach((panel) => {
       panel.classList.toggle('is-active', panel.dataset.viewPanel === state.activeView);
@@ -1069,6 +1143,15 @@ document.addEventListener('DOMContentLoaded', () => {
         button.setAttribute('aria-current', 'page');
       } else {
         button.removeAttribute('aria-current');
+      }
+    });
+    navLinks.forEach((link) => {
+      const isActive = link.getAttribute('data-dashboard-nav-section') === navSectionByView[state.activeView];
+      link.classList.toggle('is-active', isActive);
+      if (isActive) {
+        link.setAttribute('aria-current', 'page');
+      } else {
+        link.removeAttribute('aria-current');
       }
     });
     if (viewLabel) {
@@ -1100,6 +1183,14 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${endpoint}?${params.toString()}`;
   };
 
+  const buildSalesUrl = (year) => {
+    const params = new URLSearchParams({
+      year: String(year),
+      _ts: String(Date.now())
+    });
+    return `${salesEndpoint}?${params.toString()}`;
+  };
+
   const buildSettingsUrl = (action) => `${settingsEndpoint}?action=${encodeURIComponent(action)}&_ts=${encodeURIComponent(String(Date.now()))}`;
 
   const beginRequest = (key, settings = false) => {
@@ -1118,6 +1209,106 @@ document.addEventListener('DOMContentLoaded', () => {
       ? state[key].settingsRequestToken === token
       : state[key].requestToken === token
   );
+
+  const topPlatformForMonth = (month) => {
+    const entries = Object.entries(month?.platforms || {});
+    if (!entries.length) return 'No platform data';
+    entries.sort((left, right) => Number(right[1]?.sales || 0) - Number(left[1]?.sales || 0));
+    return entries[0] ? `${toTitleCase(entries[0][0])} • ${formatCurrency(entries[0][1]?.sales || 0)}` : 'No platform data';
+  };
+
+  const renderOverviewYearControls = (years) => {
+    if (!overviewRefs.yearControls) return;
+    overviewRefs.yearControls.innerHTML = years.map((year) => `
+      <button type="button" class="admin-toggle-pill${Number(year) === Number(state.overview.year) ? ' is-active' : ''}" data-overview-year="${escapeHtml(String(year))}">${escapeHtml(String(year))}</button>
+    `).join('');
+
+    overviewRefs.yearControls.querySelectorAll('[data-overview-year]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const nextYear = Number(button.getAttribute('data-overview-year') || state.overview.year);
+        if (!Number.isFinite(nextYear) || nextYear === state.overview.year) return;
+        state.overview.year = nextYear;
+        await loadOverviewSafely();
+      });
+    });
+  };
+
+  const renderOverview = (data) => {
+    state.overview.data = data;
+    const totals = data.totals || {};
+    const months = Array.isArray(data.months) ? data.months : [];
+    const platforms = Array.isArray(data.platforms) ? data.platforms : [];
+    const years = Array.isArray(data.years) ? data.years : [state.overview.year];
+    const bestMonth = totals.best_month || {};
+    const monthlyRows = months.map((month) => ({
+      label: month.label || '-',
+      sales: Number(month.sales || 0),
+      orders: Number(month.orders || 0)
+    }));
+
+    if (overviewRefs.summarySales) overviewRefs.summarySales.textContent = formatCurrency(totals.sales || 0);
+    if (overviewRefs.summaryOrders) overviewRefs.summaryOrders.textContent = Number(totals.orders || 0).toLocaleString('id-ID');
+    if (overviewRefs.summaryAov) overviewRefs.summaryAov.textContent = formatCurrency(totals.average_order_value || 0);
+    if (overviewRefs.summaryBestMonth) overviewRefs.summaryBestMonth.textContent = bestMonth.label || '-';
+    if (overviewRefs.summaryBestMonthMeta) {
+      overviewRefs.summaryBestMonthMeta.textContent = bestMonth.sales
+        ? `${formatCurrency(bestMonth.sales)} • ${Number(bestMonth.orders || 0).toLocaleString('id-ID')} orders`
+        : 'No peak yet';
+    }
+    if (overviewRefs.yearSummary) {
+      overviewRefs.yearSummary.textContent = `${years[0]} to ${years[years.length - 1]}`;
+    }
+    if (overviewRefs.endpointLabel) overviewRefs.endpointLabel.textContent = salesEndpoint;
+    if (overviewRefs.trendTitle) overviewRefs.trendTitle.textContent = OVERVIEW_METRIC_LABELS[state.overview.metric];
+    if (overviewRefs.trendMeta) {
+      overviewRefs.trendMeta.textContent = `${state.overview.year} • ${Number(totals.active_platforms || 0)} active platforms • ${formatCurrency(totals.sales || 0)} total`;
+    }
+
+    if (overviewRefs.tableBody) {
+      overviewRefs.tableBody.innerHTML = renderRows(months, 4, (month) => `
+        <tr>
+          <td><strong>${escapeHtml(month.label || '-')}</strong></td>
+          <td>${formatCurrency(month.sales || 0)}</td>
+          <td>${Number(month.orders || 0).toLocaleString('id-ID')}</td>
+          <td>${escapeHtml(topPlatformForMonth(month))}</td>
+        </tr>
+      `, 'Belum ada data marketplace.');
+    }
+
+    if (overviewRefs.notes) {
+      overviewRefs.notes.innerHTML = `
+        <div class="admin-note-card"><strong>Platforms</strong><span>${platforms.length ? platforms.map((platform) => `${platform.label}: ${formatCurrency(platform.sales || 0)}`).join(' • ') : 'No connected platform revenue yet.'}</span></div>
+        <div class="admin-note-card"><strong>Year Scope</strong><span>The year toggle is generated automatically from 2026 through the current calendar year so new years appear without manual edits.</span></div>
+        <div class="admin-note-card"><strong>Data Path</strong><span>Dashboard requests a protected marketplace summary endpoint, then renders the charts locally with hover tooltips and month-level comparisons.</span></div>
+      `;
+    }
+
+    drawLineChart(overviewRefs.trendCanvas, monthlyRows, state.overview.metric, OVERVIEW_METRIC_UNITS);
+    drawBarChart(overviewRefs.ordersCanvas, months, {
+      value: (item) => item.orders || 0,
+      label: (item) => String(item.label || '-'),
+      color: () => '#67f8d4',
+      metric: 'orders',
+      unitsMap: OVERVIEW_METRIC_UNITS,
+      tooltipTitle: (item) => `${item.label || '-'} orders`,
+      limit: 12
+    });
+    drawBarChart(overviewRefs.platformCanvas, platforms, {
+      value: (item) => item.sales || 0,
+      label: (item) => String(item.label || 'Unknown').slice(0, 12),
+      color: (item) => OVERVIEW_PLATFORM_COLORS[String(item.key || 'unknown').toLowerCase()] || OVERVIEW_PLATFORM_COLORS.unknown,
+      metric: 'sales',
+      unitsMap: OVERVIEW_METRIC_UNITS,
+      tooltipTitle: (item) => item.label || 'Unknown',
+      limit: 6
+    });
+
+    setLastUpdated(overviewRefs.lastUpdated, data.generated_at || data.meta?.generated_at);
+    renderOverviewYearControls(years);
+    overviewRefs.metricButtons.forEach((button) => {
+      button.classList.toggle('is-active', button.dataset.overviewMetric === state.overview.metric);
+    });
+  };
 
   const renderHome = (data) => {
     state.home.data = data;
@@ -1336,10 +1527,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const refreshAnalyticsAfterDeviceExclusion = async () => {
     await Promise.allSettled([
+      loadOverviewSafely(),
       loadHomeSafely(),
       loadWebsiteSafely(),
       loadWebsiteSettingsSafely()
     ]);
+  };
+
+  const loadOverview = async () => {
+    const requestToken = beginRequest('overview');
+    const data = await requestJson(buildSalesUrl(state.overview.year));
+    if (!isLatestRequest('overview', requestToken)) return;
+    renderOverview(data);
   };
 
   const loadHome = async () => {
@@ -1367,6 +1566,10 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const loadActiveView = async () => {
+    if (state.activeView === 'overview') {
+      await loadOverview();
+      return;
+    }
     if (state.activeView === 'home') {
       await loadHome();
       return;
@@ -1377,6 +1580,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (state.activeView === 'settings') {
       await loadWebsiteSettings();
+    }
+  };
+
+  const loadOverviewSafely = async () => {
+    try {
+      await loadOverview();
+      return true;
+    } catch (error) {
+      renderEventFeed(
+        overviewRefs.notes,
+        [],
+        () => '',
+        `Gagal memuat ringkasan marketplace: ${error?.message || 'Unknown error'}`
+      );
+      return false;
     }
   };
 
@@ -1414,6 +1632,9 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const loadActiveViewSafely = async () => {
+    if (state.activeView === 'overview') {
+      return loadOverviewSafely();
+    }
     if (state.activeView === 'home') {
       return loadHomeSafely();
     }
@@ -1427,12 +1648,13 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const renderCachedCharts = () => {
+    if (state.overview.data) renderOverview(state.overview.data);
     if (state.home.data) renderHome(state.home.data);
     if (state.website.data) renderWebsite(state.website.data);
   };
 
   const switchView = async (nextView) => {
-    state.activeView = dashboardViews.includes(nextView) ? nextView : 'home';
+    state.activeView = normalizeDashboardView(nextView);
     syncViewState();
     closeMenu();
     renderJenangGemiSearchResults(searchInput?.value || '');
@@ -1477,7 +1699,7 @@ document.addEventListener('DOMContentLoaded', () => {
   syncViewState();
   setLoaderState(20, 'Connecting to analytics');
 
-  Promise.allSettled([loadHomeSafely(), loadWebsiteSettingsSafely()])
+  Promise.allSettled([loadOverviewSafely(), loadHomeSafely(), loadWebsiteSettingsSafely()])
     .then(async () => {
       setLoaderState(70, 'Preparing interface');
       if (state.activeView === 'website') {
@@ -1488,6 +1710,13 @@ document.addEventListener('DOMContentLoaded', () => {
       finishLoader();
       connectLiveStream();
     });
+
+  overviewRefs.metricButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      state.overview.metric = button.dataset.overviewMetric || 'sales';
+      if (state.overview.data) renderOverview(state.overview.data);
+    });
+  });
 
   homeRefs.timeframeButtons.forEach((button) => {
     button.addEventListener('click', async () => {
