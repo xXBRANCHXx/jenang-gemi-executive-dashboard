@@ -4498,6 +4498,22 @@ body::after {
   --admin-rail-icon-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='black' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 11.5 12 4l9 7.5'/%3E%3Cpath d='M5.5 10.5V20h13v-9.5'/%3E%3Cpath d='M9.5 20v-5h5v5'/%3E%3C/g%3E%3C/svg%3E");
 }
 
+.admin-shell .admin-rail-icon-overview {
+  --admin-rail-icon-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='black' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3.5' y='4' width='17' height='16.5' rx='3'/%3E%3Cpath d='M7 15.5V12'/%3E%3Cpath d='M12 15.5V9.5'/%3E%3Cpath d='M17 15.5V7.5'/%3E%3Cpath d='M7 9.5 10.2 7l3 2.2L17 6.5'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+.admin-shell .admin-rail-icon-campaigns {
+  --admin-rail-icon-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='black' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 4.5v15'/%3E%3Cpath d='M8 5.5h10l-2.8 3.8L18 13H8z'/%3E%3Cpath d='M6 19.5h4'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+.admin-shell .admin-rail-icon-globe {
+  --admin-rail-icon-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='black' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='8.5'/%3E%3Cpath d='M3.8 12h16.4'/%3E%3Cpath d='M12 3.5c2.6 2.4 4 5.4 4 8.5s-1.4 6.1-4 8.5c-2.6-2.4-4-5.4-4-8.5s1.4-6.1 4-8.5Z'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+.admin-shell .admin-rail-icon-api {
+  --admin-rail-icon-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='black' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3.5' y='5' width='17' height='14' rx='3'/%3E%3Cpath d='M6.5 12h2.5l1.8-3.2 2.6 6.2 2.1-4h2.5'/%3E%3Cpath d='M7.5 8h.01'/%3E%3Cpath d='M16.5 8h.01'/%3E%3C/g%3E%3C/svg%3E");
+}
+
 .admin-shell .admin-rail-icon-rocket {
   --admin-rail-icon-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='black' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M13 4h7v7'/%3E%3Cpath d='M20 4 10 14'/%3E%3Cpath d='M5 7h5v12H5z'/%3E%3Cpath d='M5 11h5'/%3E%3C/g%3E%3C/svg%3E");
 }

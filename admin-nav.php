@@ -25,7 +25,7 @@ function render_admin_sidebar(string $activeSection = ''): void
             'key' => 'website',
             'href' => '../dashboard/?view=website',
             'label' => 'Website',
-            'icon' => 'admin-rail-icon-rocket',
+            'icon' => 'admin-rail-icon-globe',
             'aria' => 'Open website dashboard',
             'view' => 'website',
         ],
