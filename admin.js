@@ -2118,7 +2118,11 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   window.setInterval(() => {
-    if (!document.hidden) loadActiveViewSafely().catch(() => {});
+    if (!document.hidden && state.activeView === 'overview') loadOverviewSafely().catch(() => {});
+  }, 15000);
+
+  window.setInterval(() => {
+    if (!document.hidden && state.activeView !== 'overview') loadActiveViewSafely().catch(() => {});
   }, 60000);
 
   document.addEventListener('visibilitychange', () => {
