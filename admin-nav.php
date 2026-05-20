@@ -45,10 +45,10 @@ function render_admin_sidebar(string $activeSection = ''): void
         ],
         [
             'key' => 'api',
-            'href' => '../back-dash/',
+            'href' => '../api-health/',
             'label' => 'API',
             'icon' => 'admin-rail-icon-api',
-            'aria' => 'Open API ingest workspace',
+            'aria' => 'Open API health dashboard',
         ],
         [
             'key' => 'sku',
