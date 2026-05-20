@@ -78,3 +78,18 @@ function jg_admin_require_auth_page(): void
     header('Location: ./dashboard');
     exit;
 }
+
+function jg_admin_require_auth(): void
+{
+    $requestUri = (string) ($_SERVER['REQUEST_URI'] ?? '');
+    $acceptHeader = strtolower((string) ($_SERVER['HTTP_ACCEPT'] ?? ''));
+    $isApiRequest = str_contains($requestUri, '/api/')
+        || str_contains($acceptHeader, 'application/json');
+
+    if ($isApiRequest) {
+        jg_admin_require_auth_json();
+        return;
+    }
+
+    jg_admin_require_auth_page();
+}
