@@ -49,7 +49,8 @@ const OVERVIEW_METRIC_UNITS = {
   marketplace_fees: 'idr',
   orders: 'orders',
   average_order_value: 'idr',
-  item_count: 'items'
+  item_count: 'items',
+  quantity: 'qty'
 };
 
 const OVERVIEW_PLATFORM_COLORS = {
@@ -58,6 +59,8 @@ const OVERVIEW_PLATFORM_COLORS = {
   tokopedia: '#5bff8a',
   unknown: '#7a879a'
 };
+
+const OVERVIEW_PRODUCT_COLORS = ['#9dff00', '#22d3ee', '#ff8f1f', '#ff4ecd', '#8b5cf6', '#f8e16c', '#67f8d4', '#ff6b6b'];
 
 const HOME_TREND_SERIES = {
   total: { label: 'Total', color: '#12cfff' },
@@ -716,6 +719,131 @@ const drawMultiLineChart = (canvas, items, metric, unitsMap, seriesConfig) => {
   chartHoverState.set(canvas, hoverColumns.filter(Boolean));
 };
 
+const drawStackedBarChart = (canvas, items, config) => {
+  if (!(canvas instanceof HTMLCanvasElement)) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  prepareCanvas(canvas, ctx);
+  bindChartHover(canvas);
+  chartRendererState.set(canvas, () => drawStackedBarChart(canvas, items, config));
+
+  const width = canvas.width;
+  const height = canvas.height;
+  const padding = { top: 22, right: 18, bottom: 66, left: 58 };
+  const chartItems = items.slice(0, config.limit || 8);
+  const series = config.series || [];
+  const metric = config.metric || 'quantity';
+  const totals = chartItems.map((item) => series.reduce((sum, seriesItem) => sum + Number(item.platforms?.[seriesItem.key]?.[metric] || 0), 0));
+  const maxValue = Math.max(...totals, 1);
+  drawGrid(ctx, width, height, padding, maxValue, metric, config.unitsMap || OVERVIEW_METRIC_UNITS);
+
+  const chartWidth = width - padding.left - padding.right;
+  const chartHeight = height - padding.top - padding.bottom;
+  const slotWidth = chartWidth / Math.max(chartItems.length, 1);
+  const barWidth = slotWidth * 0.58;
+  const hoverPoints = [];
+
+  chartItems.forEach((item, index) => {
+    const x = padding.left + slotWidth * index + (slotWidth - barWidth) / 2;
+    let yCursor = padding.top + chartHeight;
+    series.forEach((seriesItem) => {
+      const value = Number(item.platforms?.[seriesItem.key]?.[metric] || 0);
+      const segmentHeight = (value / maxValue) * (chartHeight - 8);
+      if (segmentHeight <= 0) return;
+      yCursor -= segmentHeight;
+      ctx.fillStyle = seriesItem.color;
+      ctx.fillRect(x, yCursor, barWidth, segmentHeight);
+    });
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--admin-muted') || '#9ca3af';
+    ctx.font = '600 20px "Plus Jakarta Sans", sans-serif';
+    ctx.textAlign = 'right';
+    ctx.save();
+    ctx.translate(x + barWidth / 2, height - 18);
+    ctx.rotate(-Math.PI / 5);
+    ctx.fillText(String(config.label ? config.label(item) : item.label || '-').slice(0, 18), 0, 0);
+    ctx.restore();
+    hoverPoints.push({
+      x: x + barWidth / 2,
+      y: padding.top + chartHeight - ((totals[index] / maxValue) * chartHeight),
+      left: x - 8,
+      right: x + barWidth + 8,
+      top: padding.top,
+      bottom: padding.top + chartHeight,
+      label: config.tooltipTitle ? config.tooltipTitle(item) : item.label,
+      value: totals[index],
+      metric,
+      unitsMap: config.unitsMap || OVERVIEW_METRIC_UNITS
+    });
+  });
+
+  chartHoverState.set(canvas, hoverPoints);
+};
+
+const drawPieChart = (canvas, items, config) => {
+  if (!(canvas instanceof HTMLCanvasElement)) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  prepareCanvas(canvas, ctx);
+  bindChartHover(canvas);
+  chartRendererState.set(canvas, () => drawPieChart(canvas, items, config));
+
+  const metric = config.metric || 'quantity';
+  const rows = items.slice(0, config.limit || 8).filter((item) => Number(item[metric] || 0) > 0);
+  const total = rows.reduce((sum, item) => sum + Number(item[metric] || 0), 0);
+  if (!rows.length || total <= 0) {
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--admin-muted') || '#9ca3af';
+    ctx.font = '700 24px "Plus Jakarta Sans", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('No syrup flavor data yet', canvas.width / 2, canvas.height / 2);
+    chartHoverState.set(canvas, []);
+    return;
+  }
+
+  const cx = canvas.width * 0.34;
+  const cy = canvas.height * 0.48;
+  const radius = Math.min(canvas.width, canvas.height) * 0.28;
+  let start = -Math.PI / 2;
+  const hoverPoints = [];
+  rows.forEach((item, index) => {
+    const value = Number(item[metric] || 0);
+    const angle = (value / total) * Math.PI * 2;
+    const end = start + angle;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, radius, start, end);
+    ctx.closePath();
+    ctx.fillStyle = OVERVIEW_PRODUCT_COLORS[index % OVERVIEW_PRODUCT_COLORS.length];
+    ctx.fill();
+    const mid = start + angle / 2;
+    hoverPoints.push({
+      x: cx + Math.cos(mid) * radius * 0.72,
+      y: cy + Math.sin(mid) * radius * 0.72,
+      left: cx - radius,
+      right: cx + radius,
+      top: cy - radius,
+      bottom: cy + radius,
+      label: item.label || 'Flavor',
+      value,
+      metric,
+      unitsMap: config.unitsMap || OVERVIEW_METRIC_UNITS,
+      tooltipValue: `${formatMetricValue(metric, value, config.unitsMap || OVERVIEW_METRIC_UNITS)} • ${Math.round((value / total) * 100)}%`
+    });
+    start = end;
+  });
+
+  ctx.textAlign = 'left';
+  ctx.font = '700 22px "Plus Jakarta Sans", sans-serif';
+  rows.slice(0, 6).forEach((item, index) => {
+    const y = 44 + index * 36;
+    ctx.fillStyle = OVERVIEW_PRODUCT_COLORS[index % OVERVIEW_PRODUCT_COLORS.length];
+    ctx.fillRect(canvas.width * 0.64, y - 14, 18, 18);
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--admin-text') || '#f3f6f8';
+    ctx.fillText(`${String(item.label || 'Flavor').slice(0, 16)} ${formatMetricValue(metric, item[metric] || 0, config.unitsMap || OVERVIEW_METRIC_UNITS)}`, canvas.width * 0.64 + 28, y);
+  });
+
+  chartHoverState.set(canvas, hoverPoints);
+};
+
 document.addEventListener('DOMContentLoaded', () => {
   const root = document.querySelector('[data-admin-dashboard]');
   if (!root) return;
@@ -755,6 +883,8 @@ document.addEventListener('DOMContentLoaded', () => {
       metric: 'sales',
       volumeMetric: 'orders',
       platformMetric: 'sales',
+      productMetric: 'quantity',
+      flavorMetric: 'quantity',
       data: null,
       requestToken: 0
     },
@@ -812,6 +942,8 @@ document.addEventListener('DOMContentLoaded', () => {
     trendCanvas: document.querySelector('[data-overview-trend-chart]'),
     ordersCanvas: document.querySelector('[data-overview-orders-chart]'),
     platformCanvas: document.querySelector('[data-overview-platform-chart]'),
+    productStackCanvas: document.querySelector('[data-overview-product-stack-chart]'),
+    syrupFlavorCanvas: document.querySelector('[data-overview-syrup-flavor-chart]'),
     trendTitle: document.querySelector('[data-overview-trend-title]'),
     trendMeta: document.querySelector('[data-overview-trend-meta]'),
     lastUpdated: document.querySelector('[data-overview-last-updated]'),
@@ -820,7 +952,9 @@ document.addEventListener('DOMContentLoaded', () => {
     yearControls: document.querySelector('[data-overview-year-controls]'),
     metricButtons: document.querySelectorAll('[data-overview-metric]'),
     volumeMetricButtons: document.querySelectorAll('[data-overview-volume-metric]'),
-    platformMetricButtons: document.querySelectorAll('[data-overview-platform-metric]')
+    platformMetricButtons: document.querySelectorAll('[data-overview-platform-metric]'),
+    productMetricButtons: document.querySelectorAll('[data-overview-product-metric]'),
+    flavorMetricButtons: document.querySelectorAll('[data-overview-flavor-metric]')
   };
 
   const homeRefs = {
@@ -1253,6 +1387,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const totals = data.totals || {};
     const months = Array.isArray(data.months) ? data.months : [];
     const platforms = Array.isArray(data.platforms) ? data.platforms : [];
+    const products = data.products || {};
+    const productRows = Array.isArray(products.by_product) ? products.by_product : [];
+    const syrupFlavorRows = Array.isArray(products.syrup_flavors) ? products.syrup_flavors : [];
     const years = Array.isArray(data.years) ? data.years : [state.overview.year];
     const bestMonth = totals.best_month || {};
     const monthlyRows = months.map((month) => ({
@@ -1322,6 +1459,31 @@ document.addEventListener('DOMContentLoaded', () => {
       tooltipTitle: (item) => item.label || 'Unknown',
       limit: 6
     });
+    const platformSeries = (platforms.length ? platforms : [
+      { key: 'shopee', label: 'Shopee' },
+      { key: 'tiktok', label: 'TikTok Shop' },
+      { key: 'tokopedia', label: 'Tokopedia' }
+    ]).map((platform, index) => {
+      const key = String(platform.key || '').toLowerCase();
+      return {
+        key,
+        label: platform.label || toTitleCase(key),
+        color: OVERVIEW_PLATFORM_COLORS[key] || OVERVIEW_PRODUCT_COLORS[index % OVERVIEW_PRODUCT_COLORS.length]
+      };
+    });
+    drawStackedBarChart(overviewRefs.productStackCanvas, productRows, {
+      series: platformSeries,
+      metric: state.overview.productMetric,
+      unitsMap: OVERVIEW_METRIC_UNITS,
+      label: (item) => item.label || item.sku || '-',
+      tooltipTitle: (item) => item.label || item.sku || 'Product',
+      limit: 8
+    });
+    drawPieChart(overviewRefs.syrupFlavorCanvas, syrupFlavorRows, {
+      metric: state.overview.flavorMetric,
+      unitsMap: OVERVIEW_METRIC_UNITS,
+      limit: 8
+    });
 
     setLastUpdated(overviewRefs.lastUpdated, data.generated_at || data.meta?.generated_at);
     renderOverviewYearControls(years);
@@ -1333,6 +1495,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     overviewRefs.platformMetricButtons.forEach((button) => {
       button.classList.toggle('is-active', button.dataset.overviewPlatformMetric === state.overview.platformMetric);
+    });
+    overviewRefs.productMetricButtons.forEach((button) => {
+      button.classList.toggle('is-active', button.dataset.overviewProductMetric === state.overview.productMetric);
+    });
+    overviewRefs.flavorMetricButtons.forEach((button) => {
+      button.classList.toggle('is-active', button.dataset.overviewFlavorMetric === state.overview.flavorMetric);
     });
   };
 
@@ -1749,6 +1917,20 @@ document.addEventListener('DOMContentLoaded', () => {
   overviewRefs.platformMetricButtons.forEach((button) => {
     button.addEventListener('click', () => {
       state.overview.platformMetric = button.dataset.overviewPlatformMetric || 'sales';
+      if (state.overview.data) renderOverview(state.overview.data);
+    });
+  });
+
+  overviewRefs.productMetricButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      state.overview.productMetric = button.dataset.overviewProductMetric || 'quantity';
+      if (state.overview.data) renderOverview(state.overview.data);
+    });
+  });
+
+  overviewRefs.flavorMetricButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      state.overview.flavorMetric = button.dataset.overviewFlavorMetric || 'quantity';
       if (state.overview.data) renderOverview(state.overview.data);
     });
   });

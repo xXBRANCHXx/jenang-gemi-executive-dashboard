@@ -198,6 +198,38 @@ $dashboardBuildVersion = 'exec3.48.0';
                         </div>
                     </article>
 
+                    <article class="admin-panel admin-panel-chart admin-panel-wide">
+                        <div class="admin-panel-head">
+                            <div>
+                                <h3>Product quantity by platform</h3>
+                                <span class="admin-panel-meta">Stacked top products by units sold</span>
+                            </div>
+                            <div class="admin-panel-inline-toggles">
+                                <button type="button" class="admin-toggle-pill is-active" data-overview-product-metric="quantity">Qty</button>
+                                <button type="button" class="admin-toggle-pill" data-overview-product-metric="net_revenue">Net</button>
+                            </div>
+                        </div>
+                        <div class="admin-chart-surface">
+                            <canvas class="admin-chart-canvas" data-overview-product-stack-chart width="1200" height="300"></canvas>
+                        </div>
+                    </article>
+
+                    <article class="admin-panel admin-panel-chart">
+                        <div class="admin-panel-head">
+                            <div>
+                                <h3>Syrup flavor share</h3>
+                                <span class="admin-panel-meta">Most popular syrup flavors</span>
+                            </div>
+                            <div class="admin-panel-inline-toggles">
+                                <button type="button" class="admin-toggle-pill is-active" data-overview-flavor-metric="quantity">Qty</button>
+                                <button type="button" class="admin-toggle-pill" data-overview-flavor-metric="net_revenue">Net</button>
+                            </div>
+                        </div>
+                        <div class="admin-chart-surface">
+                            <canvas class="admin-chart-canvas" data-overview-syrup-flavor-chart width="880" height="280"></canvas>
+                        </div>
+                    </article>
+
                     <article class="admin-panel admin-panel-table">
                         <div class="admin-panel-head">
                             <div><span class="admin-panel-kicker">Monthly Breakdown</span><h3>Sales and orders by month</h3></div>
