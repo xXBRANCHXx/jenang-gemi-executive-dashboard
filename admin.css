@@ -6115,6 +6115,14 @@ body::after {
   font-size: 1.22rem;
 }
 
+.admin-app.admin-app-suite .admin-main-grid-compact .admin-overview-primary-chart .admin-panel-head h3 {
+  font-size: 1.85rem;
+}
+
+.admin-app.admin-app-suite .admin-main-grid-compact .admin-overview-primary-chart .admin-chart-canvas-lg {
+  height: 380px;
+}
+
 .admin-app.admin-app-suite .admin-main-grid-compact .admin-chart-canvas {
   height: 292px;
 }

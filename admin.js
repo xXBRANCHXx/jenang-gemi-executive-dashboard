@@ -325,7 +325,7 @@ const formatPageLabel = (pagePath = '') => {
 const normalizeSourceKey = (value) => String(value || '').trim().toLowerCase();
 
 const HIDDEN_HOME_SOURCES = new Set(['internal', 'direct']);
-const OVERVIEW_CACHE_PREFIX = 'jg-overview-summary-v4';
+const OVERVIEW_CACHE_PREFIX = 'jg-overview-summary-v5';
 
 const shouldHideSourceMetric = (value) => HIDDEN_HOME_SOURCES.has(normalizeSourceKey(value));
 
@@ -871,6 +871,78 @@ const normalizeOverviewProductRows = (rows) => (Array.isArray(rows) ? rows : [])
     platforms
   };
 });
+
+const overviewProductRowsFromPlatformFallback = (products, platforms, months) => {
+  const byPlatform = Array.isArray(products?.by_platform) ? products.by_platform : [];
+  const sourceRows = byPlatform.length ? byPlatform : (Array.isArray(platforms) ? platforms : []);
+  const rows = sourceRows.map((platform) => {
+    const key = String(platform?.key || platform?.platform || 'unknown').trim().toLowerCase() || 'unknown';
+    const label = platform?.label || toTitleCase(key);
+    const quantity = Number(platform?.quantity || platform?.item_count || platform?.items || 0);
+    const netRevenue = Number(platform?.net_revenue || platform?.sales || 0);
+    const grossRevenue = Number(platform?.gross_revenue || 0);
+    return {
+      key: `platform-total-${key}`,
+      label: `${label} total`,
+      sku: '',
+      product_type: 'Platform Total',
+      quantity,
+      net_revenue: netRevenue,
+      gross_revenue: grossRevenue,
+      platforms: {
+        [key]: {
+          key,
+          label,
+          quantity,
+          net_revenue: netRevenue,
+          gross_revenue: grossRevenue
+        }
+      }
+    };
+  }).filter((row) => row.quantity > 0 || row.net_revenue > 0);
+
+  if (rows.length) return rows;
+
+  const monthPlatformTotals = {};
+  (Array.isArray(months) ? months : []).forEach((month) => {
+    Object.entries(month?.platforms || {}).forEach(([platformKey, platformRow]) => {
+      const key = String(platformKey || platformRow?.key || 'unknown').trim().toLowerCase() || 'unknown';
+      monthPlatformTotals[key] = monthPlatformTotals[key] || {
+        key,
+        label: platformRow?.label || toTitleCase(key),
+        quantity: 0,
+        net_revenue: 0,
+        gross_revenue: 0
+      };
+      monthPlatformTotals[key].quantity += Number(platformRow?.item_count || platformRow?.quantity || 0);
+      monthPlatformTotals[key].net_revenue += Number(platformRow?.net_revenue || platformRow?.sales || 0);
+      monthPlatformTotals[key].gross_revenue += Number(platformRow?.gross_revenue || 0);
+    });
+  });
+
+  return Object.values(monthPlatformTotals)
+    .filter((row) => row.quantity > 0 || row.net_revenue > 0)
+    .map((platform) => ({
+      key: `platform-total-${platform.key}`,
+      label: `${platform.label} total`,
+      sku: '',
+      product_type: 'Platform Total',
+      quantity: platform.quantity,
+      net_revenue: platform.net_revenue,
+      gross_revenue: platform.gross_revenue,
+      platforms: {
+        [platform.key]: platform
+      }
+    }));
+};
+
+const overviewProductRowsForChart = (products, platforms, months) => {
+  const directRows = normalizeOverviewProductRows(products?.by_product);
+  if (directRows.some((row) => Number(row.quantity || row.net_revenue || 0) > 0 || Object.values(row.platforms || {}).some((platform) => Number(platform?.quantity || platform?.net_revenue || 0) > 0))) {
+    return directRows;
+  }
+  return normalizeOverviewProductRows(overviewProductRowsFromPlatformFallback(products, platforms, months));
+};
 
 const platformSeriesFromProductRows = (rows, fallbackPlatforms) => {
   const keyed = new Map();
@@ -1706,7 +1778,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const months = Array.isArray(data.months) ? data.months : [];
     const platforms = Array.isArray(data.platforms) ? data.platforms : [];
     const products = data.products || {};
-    const productRows = normalizeOverviewProductRows(products.by_product);
+    const productRows = overviewProductRowsForChart(products, platforms, months);
     const syrupFlavorRows = Array.isArray(products.syrup_flavors) ? products.syrup_flavors : [];
     const years = Array.isArray(data.years) ? data.years : [state.overview.year];
     const bestMonth = totals.best_month || {};
