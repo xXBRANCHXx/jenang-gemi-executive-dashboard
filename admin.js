@@ -1280,9 +1280,9 @@ const drawPieChart = (canvas, items, config) => {
     return;
   }
 
-  const cx = width * 0.34;
-  const cy = height * 0.48;
-  const radius = Math.min(width, height) * 0.28;
+  const cx = width < 640 ? width * 0.32 : width * 0.31;
+  const cy = height * 0.5;
+  const radius = Math.min(width * 0.3, height * 0.37);
   let start = -Math.PI / 2;
   const hoverPoints = [];
   rows.forEach((item, index) => {
