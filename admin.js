@@ -432,7 +432,7 @@ const formatPageLabel = (pagePath = '') => {
 const normalizeSourceKey = (value) => String(value || '').trim().toLowerCase();
 
 const HIDDEN_HOME_SOURCES = new Set(['internal', 'direct']);
-const OVERVIEW_CACHE_PREFIX = 'jg-overview-summary-v7';
+const OVERVIEW_CACHE_PREFIX = 'jg-overview-summary-v8';
 
 const shouldHideSourceMetric = (value) => HIDDEN_HOME_SOURCES.has(normalizeSourceKey(value));
 
@@ -1924,13 +1924,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }));
 
     if (overviewRefs.summarySales) overviewRefs.summarySales.textContent = formatCellCurrency(totals.revenue || totals.net_revenue || totals.sales || 0);
-    if (overviewRefs.summaryOrders) overviewRefs.summaryOrders.textContent = formatCompactNumber(totals.orders || 0);
+    if (overviewRefs.summaryOrders) overviewRefs.summaryOrders.textContent = formatCellCurrency(totals.marketplace_fees || 0);
     if (overviewRefs.summaryAov) overviewRefs.summaryAov.textContent = formatCellCurrency(totals.gross_profit || 0);
-    if (overviewRefs.summaryBestMonth) overviewRefs.summaryBestMonth.textContent = bestMonth.label || '-';
+    if (overviewRefs.summaryBestMonth) overviewRefs.summaryBestMonth.textContent = formatCompactNumber(totals.orders || 0);
     if (overviewRefs.summaryBestMonthMeta) {
-      overviewRefs.summaryBestMonthMeta.textContent = bestMonth.sales
-        ? `${formatCellCurrency(bestMonth.sales)} • ${formatCompactNumber(bestMonth.orders || 0)} orders`
-        : 'No peak yet';
+      overviewRefs.summaryBestMonthMeta.textContent = `${formatCompactNumber(totals.item_count || 0)} items`;
     }
     if (overviewRefs.yearSummary) {
       overviewRefs.yearSummary.textContent = `${years[0]} to ${years[years.length - 1]}`;

@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isAuthenticated = jg_admin_is_authenticated();
-$dashboardBuildVersion = 'exec3.51.0';
+$dashboardBuildVersion = 'exec3.52.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 ?>
@@ -175,16 +175,16 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                             <div>
                                 <div class="admin-chart-title-row">
                                     <h3>Current totals</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About current totals" data-chart-info="Summarizes the selected year's marketplace sales so far. Revenue is seller-received marketplace money, Gross Profit subtracts SKU DB COGS from revenue, Orders is order count, and Best month highlights the strongest month in the year."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About current totals" data-chart-info="Summarizes the selected year's marketplace sales so far. Revenue is seller-received marketplace money, Marketplace Fees are platform deductions, Gross Profit subtracts SKU DB COGS from revenue, and Orders QTY counts orders."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                                 <span class="admin-panel-meta">Year to date</span>
                             </div>
                         </div>
                         <div class="admin-mini-metric-list">
                             <div><span>Revenue</span><strong data-overview-summary-sales>Rp0</strong></div>
-                            <div><span>Orders</span><strong data-overview-summary-orders>0</strong></div>
+                            <div><span>Marketplace Fees</span><strong data-overview-summary-orders>Rp0</strong></div>
                             <div><span>Gross Profit</span><strong data-overview-summary-aov>Rp0</strong></div>
-                            <div><span>Best month</span><strong data-overview-summary-best-month>-</strong><small data-overview-summary-best-month-meta>No peak yet</small></div>
+                            <div><span>Orders QTY</span><strong data-overview-summary-best-month>0</strong><small data-overview-summary-best-month-meta>0 items</small></div>
                         </div>
                     </article>
 
