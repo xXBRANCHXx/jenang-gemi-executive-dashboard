@@ -15,9 +15,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isAuthenticated = jg_admin_is_authenticated();
-$adminCssVersion = (string) @filemtime(dirname(__DIR__) . '/admin.css');
-$adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/admin.js');
-$dashboardBuildVersion = 'exec3.48.0';
+$dashboardBuildVersion = 'exec3.48.1';
+$adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
+$adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -168,8 +168,8 @@ $dashboardBuildVersion = 'exec3.48.0';
                     <article class="admin-panel admin-panel-chart">
                         <div class="admin-panel-head">
                             <div>
-                                <h3>Marketplace mix</h3>
-                                <span class="admin-panel-meta">Shopee, TikTok Shop, future channels</span>
+                                <h3>Marketplace mix by year</h3>
+                                <span class="admin-panel-meta">Stacked by store and channel</span>
                             </div>
                             <div class="admin-panel-inline-toggles">
                                 <button type="button" class="admin-toggle-pill is-active" data-overview-platform-metric="sales">Net</button>

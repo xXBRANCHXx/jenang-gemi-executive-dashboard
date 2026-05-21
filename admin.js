@@ -867,7 +867,7 @@ const drawStackedBarChart = (canvas, items, config) => {
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
   const slotWidth = chartWidth / Math.max(chartItems.length, 1);
-  const barWidth = slotWidth * 0.58;
+  const barWidth = slotWidth * (config.barWidthRatio || 0.58);
   const hoverPoints = [];
 
   if (!chartItems.length || !series.length || maxValue <= 0) {
@@ -1669,6 +1669,7 @@ document.addEventListener('DOMContentLoaded', () => {
       padding: { top: 16, right: 18, bottom: 34, left: 74 },
       labelFont: '700 11px "Plus Jakarta Sans", sans-serif',
       labelLength: 8,
+      barWidthRatio: 0.34,
       limit: 1,
       emptyMessage: 'No marketplace mix data yet'
     });
