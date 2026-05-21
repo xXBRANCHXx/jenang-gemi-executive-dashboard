@@ -870,6 +870,15 @@ const drawStackedBarChart = (canvas, items, config) => {
   const barWidth = slotWidth * 0.58;
   const hoverPoints = [];
 
+  if (!chartItems.length || !series.length || maxValue <= 0) {
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--admin-muted') || '#9ca3af';
+    ctx.font = '700 14px "Plus Jakarta Sans", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(config.emptyMessage || 'No chart data yet', width / 2, height / 2);
+    chartHoverState.set(canvas, []);
+    return;
+  }
+
   chartItems.forEach((item, index) => {
     const x = padding.left + slotWidth * index + (slotWidth - barWidth) / 2;
     let yCursor = padding.top + chartHeight;
@@ -1615,8 +1624,32 @@ document.addEventListener('DOMContentLoaded', () => {
       padding: { top: 12, right: 16, bottom: 12, left: 16 },
       limit: 12
     });
-    const accountSeries = accounts
-      .filter((account) => Number(account.orders || 0) > 0)
+    const yearlyAccounts = accounts.length
+      ? accounts
+      : Object.values(monthlyRows.reduce((accumulator, month) => {
+        Object.entries(month.accounts || {}).forEach(([key, account]) => {
+          const current = accumulator[key] || { key, label: account.label || toTitleCase(key), platform: account.platform || '', orders: 0 };
+          current.orders += Number(account.orders || 0);
+          current.sales = Number(current.sales || 0) + Number(account.sales || 0);
+          current.net_revenue = Number(current.net_revenue || 0) + Number(account.net_revenue || account.sales || 0);
+          current.gross_revenue = Number(current.gross_revenue || 0) + Number(account.gross_revenue || 0);
+          current.marketplace_fees = Number(current.marketplace_fees || 0) + Number(account.marketplace_fees || 0);
+          current.item_count = Number(current.item_count || 0) + Number(account.item_count || 0);
+          accumulator[key] = current;
+        });
+        return accumulator;
+      }, {}));
+    const yearAccountMap = yearlyAccounts.reduce((accumulator, account) => {
+      const key = String(account.key || '').toLowerCase();
+      if (key) accumulator[key] = account;
+      return accumulator;
+    }, {});
+    const marketplaceMixRows = [{
+      label: String(state.overview.year),
+      accounts: yearAccountMap
+    }];
+    const accountSeries = yearlyAccounts
+      .filter((account) => Number(account.orders || 0) > 0 || Number(account.sales || account.net_revenue || 0) > 0)
       .map((account, index) => {
         const key = String(account.key || '').toLowerCase();
         const platformKey = String(account.platform || '').toLowerCase();
@@ -1626,16 +1659,18 @@ document.addEventListener('DOMContentLoaded', () => {
           color: OVERVIEW_ACCOUNT_COLORS[key] || OVERVIEW_PLATFORM_COLORS[platformKey] || OVERVIEW_PRODUCT_COLORS[index % OVERVIEW_PRODUCT_COLORS.length]
         };
       });
-    drawStackedBarChart(overviewRefs.platformCanvas, monthlyRows, {
+    drawStackedBarChart(overviewRefs.platformCanvas, marketplaceMixRows, {
       series: accountSeries,
       groupKey: 'accounts',
       metric: state.overview.platformMetric,
       unitsMap: OVERVIEW_METRIC_UNITS,
       label: (item) => item.label || '-',
-      tooltipTitle: (item) => item.label || 'Month',
-      padding: { top: 16, right: 16, bottom: 34, left: 74 },
-      labelLength: 4,
-      limit: 12
+      tooltipTitle: (item) => item.label || 'Year',
+      padding: { top: 16, right: 18, bottom: 34, left: 74 },
+      labelFont: '700 11px "Plus Jakarta Sans", sans-serif',
+      labelLength: 8,
+      limit: 1,
+      emptyMessage: 'No marketplace mix data yet'
     });
     const platformSeries = (platforms.length ? platforms : [
       { key: 'shopee', label: 'Shopee' },
