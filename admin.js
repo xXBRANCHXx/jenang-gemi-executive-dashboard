@@ -60,6 +60,18 @@ const OVERVIEW_PLATFORM_COLORS = {
   unknown: '#7a879a'
 };
 
+const OVERVIEW_ACCOUNT_COLORS = {
+  'jenang-gemi-shopee': '#ff8f1f',
+  'zero-shopee': '#ffb347',
+  'zfit-shopee': '#ffd166',
+  'jenang-gemi-tiktok': '#22d3ee',
+  'zero-tiktok': '#38bdf8',
+  'zfit-tiktok': '#67e8f9',
+  'jenang-gemi-tokopedia': '#5bff8a',
+  'zero-tokopedia': '#8cffb0',
+  'zfit-tokopedia': '#c6f6d5'
+};
+
 const OVERVIEW_PRODUCT_COLORS = ['#9dff00', '#22d3ee', '#ff8f1f', '#ff4ecd', '#8b5cf6', '#f8e16c', '#67f8d4', '#ff6b6b'];
 
 const HOME_TREND_SERIES = {
@@ -841,13 +853,16 @@ const drawStackedBarChart = (canvas, items, config) => {
   bindChartHover(canvas);
   chartRendererState.set(canvas, () => drawStackedBarChart(canvas, items, config));
 
-  const padding = { top: 22, right: 18, bottom: 66, left: 58 };
+  const padding = { top: 22, right: 18, bottom: 66, left: 58, ...(config.padding || {}) };
   const chartItems = items.slice(0, config.limit || 8);
   const series = config.series || [];
   const metric = config.metric || 'quantity';
-  const totals = chartItems.map((item) => series.reduce((sum, seriesItem) => sum + Number(item.platforms?.[seriesItem.key]?.[metric] || 0), 0));
+  const groupKey = config.groupKey || 'platforms';
+  const totals = chartItems.map((item) => series.reduce((sum, seriesItem) => sum + Number(item[groupKey]?.[seriesItem.key]?.[metric] || 0), 0));
   const maxValue = Math.max(...totals, 1);
-  drawGrid(ctx, width, height, padding, maxValue, metric, config.unitsMap || OVERVIEW_METRIC_UNITS);
+  if (config.showGrid !== false) {
+    drawGrid(ctx, width, height, padding, maxValue, metric, config.unitsMap || OVERVIEW_METRIC_UNITS);
+  }
 
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
@@ -859,37 +874,35 @@ const drawStackedBarChart = (canvas, items, config) => {
     const x = padding.left + slotWidth * index + (slotWidth - barWidth) / 2;
     let yCursor = padding.top + chartHeight;
     series.forEach((seriesItem) => {
-      const value = Number(item.platforms?.[seriesItem.key]?.[metric] || 0);
+      const value = Number(item[groupKey]?.[seriesItem.key]?.[metric] || 0);
       const segmentHeight = (value / maxValue) * (chartHeight - 8);
       if (segmentHeight <= 0) return;
       yCursor -= segmentHeight;
       ctx.fillStyle = seriesItem.color;
       ctx.fillRect(x, yCursor, barWidth, segmentHeight);
+      hoverPoints.push({
+        x: x + barWidth / 2,
+        y: yCursor + (segmentHeight / 2),
+        label: config.tooltipTitle ? config.tooltipTitle(item) : item.label,
+        value,
+        metric,
+        unitsMap: config.unitsMap || OVERVIEW_METRIC_UNITS,
+        tooltipTitle: `${item.label || '-'} • ${seriesItem.label}`,
+        tooltipValue: formatFullMetricValue(metric, value, config.unitsMap || OVERVIEW_METRIC_UNITS),
+        hitbox: {
+          left: x,
+          right: x + barWidth,
+          top: yCursor,
+          bottom: yCursor + segmentHeight
+        }
+      });
     });
-    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--admin-muted') || '#9ca3af';
-    ctx.font = '600 11px "Plus Jakarta Sans", sans-serif';
-    ctx.textAlign = 'right';
-    ctx.save();
-    ctx.translate(x + barWidth / 2, height - 18);
-    ctx.rotate(-Math.PI / 5);
-    ctx.fillText(String(config.label ? config.label(item) : item.label || '-').slice(0, 18), 0, 0);
-    ctx.restore();
-    hoverPoints.push({
-      x: x + barWidth / 2,
-      y: padding.top + chartHeight - ((totals[index] / maxValue) * chartHeight),
-      label: config.tooltipTitle ? config.tooltipTitle(item) : item.label,
-      value: totals[index],
-      metric,
-      unitsMap: config.unitsMap || OVERVIEW_METRIC_UNITS,
-      tooltipTitle: config.tooltipTitle ? config.tooltipTitle(item) : item.label,
-      tooltipValue: formatMetricValue(metric, totals[index], config.unitsMap || OVERVIEW_METRIC_UNITS),
-      hitbox: {
-        left: x - 8,
-        right: x + barWidth + 8,
-        top: padding.top,
-        bottom: padding.top + chartHeight
-      }
-    });
+    if (config.showXAxisLabels !== false) {
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--admin-muted') || '#9ca3af';
+      ctx.font = config.labelFont || '600 10px "Plus Jakarta Sans", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(String(config.label ? config.label(item) : item.label || '-').slice(0, config.labelLength || 18), x + barWidth / 2, height - 16);
+    }
   });
 
   chartHoverState.set(canvas, hoverPoints);
@@ -1527,6 +1540,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const totals = data.totals || {};
     const months = Array.isArray(data.months) ? data.months : [];
     const platforms = Array.isArray(data.platforms) ? data.platforms : [];
+    const accounts = Array.isArray(data.accounts) ? data.accounts : [];
     const products = data.products || {};
     const productRows = Array.isArray(products.by_product) ? products.by_product : [];
     const syrupFlavorRows = Array.isArray(products.syrup_flavors) ? products.syrup_flavors : [];
@@ -1541,6 +1555,8 @@ document.addEventListener('DOMContentLoaded', () => {
       orders: Number(month.orders || 0),
       item_count: Number(month.item_count || 0),
       average_order_value: Number(month.orders || 0) > 0 ? Number(month.sales || 0) / Number(month.orders || 0) : 0,
+      accounts: month.accounts || {},
+      platforms: month.platforms || {},
       tooltipLinesHtml: buildOverviewTooltipLines({
         ...month,
         average_order_value: Number(month.orders || 0) > 0 ? Number(month.sales || 0) / Number(month.orders || 0) : 0
@@ -1599,15 +1615,27 @@ document.addEventListener('DOMContentLoaded', () => {
       padding: { top: 12, right: 16, bottom: 12, left: 16 },
       limit: 12
     });
-    drawBarChart(overviewRefs.platformCanvas, platforms, {
-      value: (item) => item[state.overview.platformMetric] || 0,
-      label: (item) => String(item.label || 'Unknown').slice(0, 12),
-      color: (item) => OVERVIEW_PLATFORM_COLORS[String(item.key || 'unknown').toLowerCase()] || OVERVIEW_PLATFORM_COLORS.unknown,
+    const accountSeries = accounts
+      .filter((account) => Number(account.orders || 0) > 0)
+      .map((account, index) => {
+        const key = String(account.key || '').toLowerCase();
+        const platformKey = String(account.platform || '').toLowerCase();
+        return {
+          key,
+          label: account.label || toTitleCase(key),
+          color: OVERVIEW_ACCOUNT_COLORS[key] || OVERVIEW_PLATFORM_COLORS[platformKey] || OVERVIEW_PRODUCT_COLORS[index % OVERVIEW_PRODUCT_COLORS.length]
+        };
+      });
+    drawStackedBarChart(overviewRefs.platformCanvas, monthlyRows, {
+      series: accountSeries,
+      groupKey: 'accounts',
       metric: state.overview.platformMetric,
       unitsMap: OVERVIEW_METRIC_UNITS,
-      tooltipTitle: (item) => item.label || 'Unknown',
-      tooltipValue: (item, value) => formatFullMetricValue(state.overview.platformMetric, value, OVERVIEW_METRIC_UNITS),
-      limit: 6
+      label: (item) => item.label || '-',
+      tooltipTitle: (item) => item.label || 'Month',
+      padding: { top: 16, right: 16, bottom: 34, left: 74 },
+      labelLength: 4,
+      limit: 12
     });
     const platformSeries = (platforms.length ? platforms : [
       { key: 'shopee', label: 'Shopee' },
@@ -2079,6 +2107,9 @@ document.addEventListener('DOMContentLoaded', () => {
   overviewRefs.platformMetricButtons.forEach((button) => {
     button.addEventListener('click', () => {
       state.overview.platformMetric = button.dataset.overviewPlatformMetric || 'sales';
+      overviewRefs.platformMetricButtons.forEach((candidate) => {
+        candidate.classList.toggle('is-active', candidate === button);
+      });
       if (state.overview.data) renderOverview(state.overview.data);
     });
   });

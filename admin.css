@@ -6034,6 +6034,10 @@ body::after {
   height: 292px;
 }
 
+.admin-app.admin-app-suite [data-overview-platform-chart] {
+  height: 340px;
+}
+
 .admin-app.admin-app-suite .admin-main-grid-compact .admin-chart-canvas-lg {
   height: 336px;
 }
