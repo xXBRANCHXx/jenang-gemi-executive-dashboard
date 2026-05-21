@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require dirname(__DIR__) . '/auth.php';
+require dirname(__DIR__) . '/config.php';
 require_once dirname(__DIR__) . '/admin-nav.php';
 jg_admin_require_auth();
 
@@ -9,6 +10,19 @@ $adminCssVersion = (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $whatsappWebhookUrl = 'https://jenanggemi.com/whatsapp-webhook.php';
 $conversionWebhookUrl = 'https://jenanggemi.com/conversion-webhook.php';
 $configPath = '/public_html/whatsapp-config.local.php';
+$ingestBaseUrl = jg_dashboard_marketplace_api_base_url();
+$storeOpsBaseUrl = rtrim(jg_dashboard_env_value('JG_STORE_OPS_BASE_URL') ?: (string) (jg_dashboard_load_local_config()['store_ops_base_url'] ?? 'https://store.jenanggemi.com'), '/');
+$apiDocs = [
+    ['API Ingest', 'GET', $ingestBaseUrl . '/', 'Root service identity and reachability.', 'ok, service'],
+    ['API Ingest', 'GET', $ingestBaseUrl . '/health', 'Health probe for the ingest deployment.', 'ok, service'],
+    ['Sales', 'GET', $ingestBaseUrl . '/sales/summary?year=YYYY&setup_token=[redacted]', 'Yearly marketplace rollup used by the executive overview.', 'months, months[].accounts, months[].platforms, accounts, platforms, products, totals'],
+    ['Shopee', 'GET', $ingestBaseUrl . '/shopee/auth/status?account=ACCOUNT&setup_token=[redacted]', 'Shopee authorization status for a marketplace account.', 'status.shop_id, token flags, token expiry'],
+    ['Shopee', 'GET', $ingestBaseUrl . '/shopee/orders/listed?account=ACCOUNT&setup_token=[redacted]', 'Listed Shopee orders currently used as order feed health.', 'orders[]'],
+    ['Store Ops', 'GET', $storeOpsBaseUrl . '/api/orders/', 'Protected Store Ops orders route. A 401 still means the route exists.', 'Authenticated order payload'],
+    ['Store Ops', 'GET', $storeOpsBaseUrl . '/store-home.js', 'Store Ops deployed frontend asset checked for live-order marker.', 'deployment marker only'],
+    ['Dashboard Proxy', 'GET', '../api/sales/?year=YYYY', 'Authenticated dashboard proxy for sales summary plus SKU enrichment.', 'sales summary + products.syrup_flavors'],
+    ['Dashboard Proxy', 'GET', '../api/api-health/?run=1', 'Runs all configured API and database probes.', 'summary, checks, failures'],
+];
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -68,6 +82,41 @@ $configPath = '/public_html/whatsapp-config.local.php';
                         <div class="admin-note-card"><strong>Safe isolation</strong><span>If the experiment goes nowhere, this page can be left alone or removed later without touching the production dashboard flow.</span></div>
                         <div class="admin-note-card"><strong>Next step</strong><span>When you are ready, we can add dedicated panels, secret fields, API forms, log viewers, or webhook diagnostics here.</span></div>
                     </div>
+                </article>
+
+                <article class="admin-panel admin-panel-wide">
+                    <div class="admin-panel-head">
+                        <div>
+                            <span class="admin-panel-kicker">API Catalog</span>
+                            <h3>Known ingest and proxy APIs</h3>
+                        </div>
+                        <span class="admin-panel-meta">Also tracked by API Health where safe</span>
+                    </div>
+                    <div class="admin-table-wrap">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Area</th>
+                                    <th>Method</th>
+                                    <th>Endpoint</th>
+                                    <th>Meaning</th>
+                                    <th>Chart fields</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($apiDocs as $apiDoc): ?>
+                                    <tr>
+                                        <td><strong><?php echo htmlspecialchars($apiDoc[0], ENT_QUOTES, 'UTF-8'); ?></strong></td>
+                                        <td><?php echo htmlspecialchars($apiDoc[1], ENT_QUOTES, 'UTF-8'); ?></td>
+                                        <td><span class="admin-code-block"><?php echo htmlspecialchars($apiDoc[2], ENT_QUOTES, 'UTF-8'); ?></span></td>
+                                        <td><?php echo htmlspecialchars($apiDoc[3], ENT_QUOTES, 'UTF-8'); ?></td>
+                                        <td><?php echo htmlspecialchars($apiDoc[4], ENT_QUOTES, 'UTF-8'); ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="admin-table-note">The ingest service currently returns 404 for OpenAPI, Swagger, and route-list probes, so this catalog is built from the endpoints this dashboard can discover from configuration and code.</p>
                 </article>
 
                 <article class="admin-panel">

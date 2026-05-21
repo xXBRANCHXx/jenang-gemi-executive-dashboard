@@ -158,6 +158,13 @@ function jg_api_health_http_check(array $check): array
         $orders = is_array($decoded['orders'] ?? null) ? $decoded['orders'] : [];
         $ok = $status >= 200 && $status < 300 && !empty($decoded['ok']) && isset($decoded['orders']) && is_array($decoded['orders']);
         $details = is_array($decoded) ? 'READY_TO_SHIP orders: ' . count($orders) : 'Response was not JSON.';
+    } elseif ($expect === 'sales_summary') {
+        $months = is_array($decoded['months'] ?? null) ? $decoded['months'] : [];
+        $accounts = is_array($decoded['accounts'] ?? null) ? $decoded['accounts'] : [];
+        $ok = $status >= 200 && $status < 300 && !empty($decoded['ok']) && isset($decoded['months']) && isset($decoded['accounts']);
+        $details = is_array($decoded)
+            ? sprintf('months=%d accounts=%d year=%s', count($months), count($accounts), (string) ($decoded['year'] ?? ''))
+            : 'Response was not JSON.';
     } elseif ($expect === 'contains') {
         $needle = (string) ($check['contains'] ?? '');
         $ok = $status >= 200 && $status < 300 && $needle !== '' && str_contains((string) $result['body'], $needle);
@@ -270,6 +277,21 @@ function jg_api_health_run_checks(): array
             'category' => 'Ingest',
             'url' => $ingestBase . '/health',
             'expect' => 'json_ok',
+        ],
+        [
+            'id' => 'api-ingest-root',
+            'label' => 'API Ingest Root',
+            'category' => 'Ingest',
+            'url' => $ingestBase . '/',
+            'expect' => 'json_ok',
+        ],
+        [
+            'id' => 'marketplace-sales-summary',
+            'label' => 'Marketplace Sales Summary',
+            'category' => 'Sales',
+            'url' => $ingestBase . '/sales/summary?' . http_build_query(['year' => (string) max(2026, (int) gmdate('Y')), 'setup_token' => $setupToken]),
+            'expect' => 'sales_summary',
+            'requires_token' => true,
         ],
         [
             'id' => 'shopee-auth-status',

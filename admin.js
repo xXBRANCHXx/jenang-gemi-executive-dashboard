@@ -61,6 +61,7 @@ const OVERVIEW_PLATFORM_COLORS = {
 };
 
 const OVERVIEW_PRODUCT_COLORS = ['#9dff00', '#22d3ee', '#ff8f1f', '#ff4ecd', '#8b5cf6', '#f8e16c', '#67f8d4', '#ff6b6b'];
+const OVERVIEW_ACCOUNT_COLORS = ['#9dff00', '#22d3ee', '#ff8f1f', '#ff4ecd', '#8b5cf6', '#f8e16c', '#67f8d4', '#ff6b6b', '#c084fc', '#34d399', '#fb7185', '#60a5fa'];
 
 const numberFromFields = (item, fields, fallback = 0) => {
   for (const field of fields) {
@@ -104,6 +105,70 @@ const normalizePlatformMap = (platforms) => {
     normalizedPlatforms[platform.key] = platform;
     return normalizedPlatforms;
   }, {});
+};
+
+const normalizeAccountKey = (value) => String(value || 'unknown')
+  .trim()
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, '-')
+  .replace(/^-+|-+$/g, '') || 'unknown';
+
+const normalizeSalesAccountRow = (row, fallbackKey = 'unknown') => {
+  const key = normalizeAccountKey(row?.key || row?.account || row?.account_key || row?.name || fallbackKey);
+  const platform = normalizePlatformKey(row?.platform || row?.platform_key || row?.channel || '');
+  return {
+    ...(row || {}),
+    key,
+    label: row?.label || row?.account_label || row?.name || toTitleCase(key),
+    platform,
+    item_count: numberFromFields(row, ['item_count', 'quantity', 'items', 'items_sold', 'units_sold', 'sold_quantity']),
+    orders: numberFromFields(row, ['orders', 'order_count']),
+    sales: numberFromFields(row, ['sales', 'net_revenue', 'revenue', 'net_sales']),
+    net_revenue: numberFromFields(row, ['net_revenue', 'sales', 'revenue', 'net_sales']),
+    gross_revenue: numberFromFields(row, ['gross_revenue', 'gross_sales'])
+  };
+};
+
+const normalizeAccountMap = (accounts) => {
+  if (!accounts || typeof accounts !== 'object') return {};
+  const entries = Array.isArray(accounts)
+    ? accounts.map((row, index) => [row?.key || row?.account || row?.account_key || `account-${index}`, row])
+    : Object.entries(accounts);
+
+  return entries.reduce((normalizedAccounts, [key, value]) => {
+    if (!value || typeof value !== 'object') return normalizedAccounts;
+    const account = normalizeSalesAccountRow(value, key);
+    normalizedAccounts[account.key] = account;
+    return normalizedAccounts;
+  }, {});
+};
+
+const overviewMonthlyAccountRows = (months) => (Array.isArray(months) ? months : []).map((month) => ({
+  ...month,
+  label: month?.label || '-',
+  item_count: numberFromFields(month, ['item_count', 'quantity', 'items', 'items_sold', 'units_sold', 'sold_quantity']),
+  accounts: normalizeAccountMap(month?.accounts)
+}));
+
+const accountSeriesFromMonthlyRows = (monthRows, fallbackAccounts) => {
+  const keyed = new Map();
+  const addAccount = (account) => {
+    const normalized = normalizeSalesAccountRow(account);
+    if (!normalized.key || keyed.has(normalized.key)) return;
+    const platformPrefix = normalized.platform && normalized.platform !== 'unknown' ? `${toTitleCase(normalized.platform)} • ` : '';
+    keyed.set(normalized.key, {
+      key: normalized.key,
+      label: `${platformPrefix}${normalized.label}`,
+      color: OVERVIEW_ACCOUNT_COLORS[keyed.size % OVERVIEW_ACCOUNT_COLORS.length]
+    });
+  };
+
+  (Array.isArray(monthRows) ? monthRows : []).forEach((month) => {
+    Object.values(month?.accounts || {}).forEach(addAccount);
+  });
+  (Array.isArray(fallbackAccounts) ? fallbackAccounts : []).forEach(addAccount);
+
+  return Array.from(keyed.values());
 };
 
 const HOME_TREND_SERIES = {
@@ -1124,8 +1189,9 @@ const drawStackedBarChart = (canvas, items, config) => {
   const padding = { top: 22, right: 18, bottom: 66, left: 58, ...(config.padding || {}) };
   const palette = getThemePalette();
   const chartItems = sourceItems
-    .filter((item) => Number(item?.[metric] || 0) > 0 || Object.values(item?.[groupKey] || {}).some((row) => Number(row?.[metric] || 0) > 0))
+    .filter((item) => config.includeEmptyItems === true || Number(item?.[metric] || 0) > 0 || Object.values(item?.[groupKey] || {}).some((row) => Number(row?.[metric] || 0) > 0))
     .sort((left, right) => {
+      if (config.sortItems === false) return 0;
       const leftRows = Object.values(left?.[groupKey] || {});
       const rightRows = Object.values(right?.[groupKey] || {});
       const leftTotal = leftRows.length ? leftRows.reduce((sum, row) => sum + Number(row?.[metric] || 0), 0) : Number(left?.[metric] || 0);
@@ -1830,8 +1896,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const totals = data.totals || {};
     const months = Array.isArray(data.months) ? data.months : [];
     const platforms = Array.isArray(data.platforms) ? data.platforms : [];
+    const accounts = Array.isArray(data.accounts) ? data.accounts : [];
     const products = data.products || {};
-    const productRows = overviewProductRowsForChart(products, platforms, months);
+    const monthlyAccountRows = overviewMonthlyAccountRows(months);
     const syrupFlavorRows = Array.isArray(products.syrup_flavors) ? products.syrup_flavors : [];
     const years = Array.isArray(data.years) ? data.years : [state.overview.year];
     const bestMonth = totals.best_month || {};
@@ -1919,15 +1986,18 @@ document.addEventListener('DOMContentLoaded', () => {
       padding: { top: 12, right: 16, bottom: 12, left: 16 },
       limit: 12
     }));
-    const platformSeries = platformSeriesFromProductRows(productRows, platforms);
-    drawChartSafely(overviewRefs.productStackCanvas, () => drawStackedBarChart(overviewRefs.productStackCanvas, productRows, {
-      series: platformSeries,
-      metric: state.overview.productMetric,
+    const accountSeries = accountSeriesFromMonthlyRows(monthlyAccountRows, accounts);
+    drawChartSafely(overviewRefs.productStackCanvas, () => drawStackedBarChart(overviewRefs.productStackCanvas, monthlyAccountRows, {
+      series: accountSeries,
+      metric: 'item_count',
       unitsMap: OVERVIEW_METRIC_UNITS,
-      label: (item) => item.label || item.sku || '-',
-      tooltipTitle: (item) => item.label || item.sku || 'Product',
-      limit: 8
-    }), 'No product quantity data yet');
+      groupKey: 'accounts',
+      label: (item) => item.label || '-',
+      tooltipTitle: (item) => item.label || 'Month',
+      includeEmptyItems: true,
+      sortItems: false,
+      limit: 12
+    }), 'No monthly account unit data yet');
     drawChartSafely(overviewRefs.syrupFlavorCanvas, () => drawPieChart(overviewRefs.syrupFlavorCanvas, syrupFlavorRows, {
       metric: state.overview.flavorMetric,
       unitsMap: OVERVIEW_METRIC_UNITS,

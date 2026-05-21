@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isAuthenticated = jg_admin_is_authenticated();
-$dashboardBuildVersion = 'exec3.48.9';
+$dashboardBuildVersion = 'exec3.49.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 ?>
@@ -192,14 +192,10 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                         <div class="admin-panel-head">
                             <div>
                                 <div class="admin-chart-title-row">
-                                    <h3>Product quantity by platform</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About product quantity by platform" data-chart-info="Stacks top sold products by marketplace channel using stored order item facts. Qty counts units sold, while Rp switches the stack to marketplace sales value for those same products and channels."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                    <h3>Units sold by platform account</h3>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About units sold by platform account" data-chart-info="Stacks each month from January through December by marketplace account. Each colored segment is one account on one platform, and the value is units sold from stored order item facts, not order count."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
-                                <span class="admin-panel-meta">Stacked top products by units sold</span>
-                            </div>
-                            <div class="admin-panel-inline-toggles">
-                                <button type="button" class="admin-toggle-pill is-active" data-overview-product-metric="quantity">Qty</button>
-                                <button type="button" class="admin-toggle-pill" data-overview-product-metric="net_revenue">Rp</button>
+                                <span class="admin-panel-meta">Monthly unit contribution by account</span>
                             </div>
                         </div>
                         <div class="admin-chart-surface">
