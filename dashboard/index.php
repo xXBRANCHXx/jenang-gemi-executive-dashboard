@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isAuthenticated = jg_admin_is_authenticated();
-$dashboardBuildVersion = 'exec3.48.1';
+$dashboardBuildVersion = 'exec3.48.2';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 ?>
@@ -123,9 +123,8 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                         <button type="button" class="admin-toggle-pill is-active" data-overview-year-placeholder>Loading...</button>
                     </div>
                     <div class="admin-overview-strip-meta">
-                        <span data-overview-year-summary>Loading year window...</span>
-                        <span data-overview-last-updated>Waiting for first marketplace sync</span>
-                        <span data-overview-endpoint-label>../api/sales/</span>
+                        <span class="admin-live-pill"><span class="admin-live-dot"></span>Live</span>
+                        <small data-overview-last-updated>Updated after marketplace sync</small>
                     </div>
                 </section>
 

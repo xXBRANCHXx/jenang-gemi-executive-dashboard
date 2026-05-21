@@ -449,6 +449,26 @@ const hideChartTooltip = (canvas) => {
   tooltip.classList.remove('is-visible');
 };
 
+const drawChartMessage = (canvas, message) => {
+  const prepared = prepareCanvas(canvas);
+  if (!prepared) return;
+  const { ctx, width, height } = prepared;
+  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--admin-muted') || '#9ca3af';
+  ctx.font = '700 14px "Plus Jakarta Sans", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(message, width / 2, height / 2);
+  chartHoverState.set(canvas, []);
+};
+
+const drawChartSafely = (canvas, renderer, message = 'Chart unavailable') => {
+  try {
+    renderer();
+  } catch (error) {
+    console.error('Dashboard chart render failed', error);
+    drawChartMessage(canvas, message);
+  }
+};
+
 const renderChartTooltip = (canvas, point, clientX, clientY) => {
   const tooltip = ensureChartTooltip(canvas);
   const surface = canvas.parentElement;
@@ -1609,8 +1629,26 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
     }
 
-    drawLineChart(overviewRefs.trendCanvas, monthlyRows, state.overview.metric, OVERVIEW_METRIC_UNITS);
-    drawBarChart(overviewRefs.ordersCanvas, monthlyRows, {
+    setLastUpdated(overviewRefs.lastUpdated, data.generated_at || data.meta?.generated_at);
+    renderOverviewYearControls(years);
+    overviewRefs.metricButtons.forEach((button) => {
+      button.classList.toggle('is-active', button.dataset.overviewMetric === state.overview.metric);
+    });
+    overviewRefs.volumeMetricButtons.forEach((button) => {
+      button.classList.toggle('is-active', button.dataset.overviewVolumeMetric === state.overview.volumeMetric);
+    });
+    overviewRefs.platformMetricButtons.forEach((button) => {
+      button.classList.toggle('is-active', button.dataset.overviewPlatformMetric === state.overview.platformMetric);
+    });
+    overviewRefs.productMetricButtons.forEach((button) => {
+      button.classList.toggle('is-active', button.dataset.overviewProductMetric === state.overview.productMetric);
+    });
+    overviewRefs.flavorMetricButtons.forEach((button) => {
+      button.classList.toggle('is-active', button.dataset.overviewFlavorMetric === state.overview.flavorMetric);
+    });
+
+    drawChartSafely(overviewRefs.trendCanvas, () => drawLineChart(overviewRefs.trendCanvas, monthlyRows, state.overview.metric, OVERVIEW_METRIC_UNITS));
+    drawChartSafely(overviewRefs.ordersCanvas, () => drawBarChart(overviewRefs.ordersCanvas, monthlyRows, {
       value: (item) => item[state.overview.volumeMetric] || 0,
       label: (item) => String(item.label || '-'),
       color: () => '#67f8d4',
@@ -1623,7 +1661,7 @@ document.addEventListener('DOMContentLoaded', () => {
       showValueBadges: false,
       padding: { top: 12, right: 16, bottom: 12, left: 16 },
       limit: 12
-    });
+    }));
     const yearlyAccounts = accounts.length
       ? accounts
       : Object.values(monthlyRows.reduce((accumulator, month) => {
@@ -1659,7 +1697,7 @@ document.addEventListener('DOMContentLoaded', () => {
           color: OVERVIEW_ACCOUNT_COLORS[key] || OVERVIEW_PLATFORM_COLORS[platformKey] || OVERVIEW_PRODUCT_COLORS[index % OVERVIEW_PRODUCT_COLORS.length]
         };
       });
-    drawStackedBarChart(overviewRefs.platformCanvas, marketplaceMixRows, {
+    drawChartSafely(overviewRefs.platformCanvas, () => drawStackedBarChart(overviewRefs.platformCanvas, marketplaceMixRows, {
       series: accountSeries,
       groupKey: 'accounts',
       metric: state.overview.platformMetric,
@@ -1672,7 +1710,7 @@ document.addEventListener('DOMContentLoaded', () => {
       barWidthRatio: 0.34,
       limit: 1,
       emptyMessage: 'No marketplace mix data yet'
-    });
+    }));
     const platformSeries = (platforms.length ? platforms : [
       { key: 'shopee', label: 'Shopee' },
       { key: 'tiktok', label: 'TikTok Shop' },
@@ -1685,37 +1723,19 @@ document.addEventListener('DOMContentLoaded', () => {
         color: OVERVIEW_PLATFORM_COLORS[key] || OVERVIEW_PRODUCT_COLORS[index % OVERVIEW_PRODUCT_COLORS.length]
       };
     });
-    drawStackedBarChart(overviewRefs.productStackCanvas, productRows, {
+    drawChartSafely(overviewRefs.productStackCanvas, () => drawStackedBarChart(overviewRefs.productStackCanvas, productRows, {
       series: platformSeries,
       metric: state.overview.productMetric,
       unitsMap: OVERVIEW_METRIC_UNITS,
       label: (item) => item.label || item.sku || '-',
       tooltipTitle: (item) => item.label || item.sku || 'Product',
       limit: 8
-    });
-    drawPieChart(overviewRefs.syrupFlavorCanvas, syrupFlavorRows, {
+    }), 'No product quantity data yet');
+    drawChartSafely(overviewRefs.syrupFlavorCanvas, () => drawPieChart(overviewRefs.syrupFlavorCanvas, syrupFlavorRows, {
       metric: state.overview.flavorMetric,
       unitsMap: OVERVIEW_METRIC_UNITS,
       limit: 8
-    });
-
-    setLastUpdated(overviewRefs.lastUpdated, data.generated_at || data.meta?.generated_at);
-    renderOverviewYearControls(years);
-    overviewRefs.metricButtons.forEach((button) => {
-      button.classList.toggle('is-active', button.dataset.overviewMetric === state.overview.metric);
-    });
-    overviewRefs.volumeMetricButtons.forEach((button) => {
-      button.classList.toggle('is-active', button.dataset.overviewVolumeMetric === state.overview.volumeMetric);
-    });
-    overviewRefs.platformMetricButtons.forEach((button) => {
-      button.classList.toggle('is-active', button.dataset.overviewPlatformMetric === state.overview.platformMetric);
-    });
-    overviewRefs.productMetricButtons.forEach((button) => {
-      button.classList.toggle('is-active', button.dataset.overviewProductMetric === state.overview.productMetric);
-    });
-    overviewRefs.flavorMetricButtons.forEach((button) => {
-      button.classList.toggle('is-active', button.dataset.overviewFlavorMetric === state.overview.flavorMetric);
-    });
+    }));
   };
 
   const renderHome = (data) => {
@@ -2129,6 +2149,9 @@ document.addEventListener('DOMContentLoaded', () => {
   overviewRefs.metricButtons.forEach((button) => {
     button.addEventListener('click', () => {
       state.overview.metric = button.dataset.overviewMetric || 'sales';
+      overviewRefs.metricButtons.forEach((candidate) => {
+        candidate.classList.toggle('is-active', candidate === button);
+      });
       if (state.overview.data) renderOverview(state.overview.data);
     });
   });
@@ -2136,6 +2159,9 @@ document.addEventListener('DOMContentLoaded', () => {
   overviewRefs.volumeMetricButtons.forEach((button) => {
     button.addEventListener('click', () => {
       state.overview.volumeMetric = button.dataset.overviewVolumeMetric || 'orders';
+      overviewRefs.volumeMetricButtons.forEach((candidate) => {
+        candidate.classList.toggle('is-active', candidate === button);
+      });
       if (state.overview.data) renderOverview(state.overview.data);
     });
   });
@@ -2153,6 +2179,9 @@ document.addEventListener('DOMContentLoaded', () => {
   overviewRefs.productMetricButtons.forEach((button) => {
     button.addEventListener('click', () => {
       state.overview.productMetric = button.dataset.overviewProductMetric || 'quantity';
+      overviewRefs.productMetricButtons.forEach((candidate) => {
+        candidate.classList.toggle('is-active', candidate === button);
+      });
       if (state.overview.data) renderOverview(state.overview.data);
     });
   });
@@ -2160,6 +2189,9 @@ document.addEventListener('DOMContentLoaded', () => {
   overviewRefs.flavorMetricButtons.forEach((button) => {
     button.addEventListener('click', () => {
       state.overview.flavorMetric = button.dataset.overviewFlavorMetric || 'quantity';
+      overviewRefs.flavorMetricButtons.forEach((candidate) => {
+        candidate.classList.toggle('is-active', candidate === button);
+      });
       if (state.overview.data) renderOverview(state.overview.data);
     });
   });

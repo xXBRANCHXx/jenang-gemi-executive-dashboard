@@ -6009,15 +6009,39 @@ body::after {
 
 .admin-app.admin-app-suite .admin-overview-strip-meta {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
+  flex-direction: column;
   justify-content: flex-end;
-  gap: 12px;
+  gap: 3px;
   flex-wrap: wrap;
   color: rgba(255, 255, 255, 0.55);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.admin-app.admin-app-suite .admin-overview-strip-meta small {
+  display: block;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+.admin-app.admin-app-suite .admin-live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #9dff00;
+}
+
+.admin-app.admin-app-suite .admin-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #9dff00;
+  box-shadow: 0 0 12px rgba(157, 255, 0, 0.72);
 }
 
 .admin-app.admin-app-suite .admin-main-grid-compact .admin-panel-head {
