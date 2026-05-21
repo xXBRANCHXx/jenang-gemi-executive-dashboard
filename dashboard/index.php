@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isAuthenticated = jg_admin_is_authenticated();
-$dashboardBuildVersion = 'exec3.48.6';
+$dashboardBuildVersion = 'exec3.48.7';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 ?>
@@ -129,7 +129,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                 </section>
 
                 <section class="admin-main-grid admin-main-grid-compact">
-                    <article class="admin-panel admin-panel-chart admin-panel-wide">
+                    <article class="admin-panel admin-panel-chart">
                         <div class="admin-panel-head">
                             <div>
                                 <div class="admin-chart-title-row">
@@ -207,7 +207,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                         </div>
                     </article>
 
-                    <article class="admin-panel admin-panel-chart">
+                    <article class="admin-panel admin-panel-chart admin-panel-wide">
                         <div class="admin-panel-head">
                             <div>
                                 <div class="admin-chart-title-row">
@@ -222,7 +222,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                             </div>
                         </div>
                         <div class="admin-chart-surface">
-                            <canvas class="admin-chart-canvas" data-overview-syrup-flavor-chart width="880" height="280"></canvas>
+                            <canvas class="admin-chart-canvas admin-chart-canvas-lg" data-overview-syrup-flavor-chart width="1200" height="320"></canvas>
                         </div>
                     </article>
 

@@ -325,7 +325,7 @@ const formatPageLabel = (pagePath = '') => {
 const normalizeSourceKey = (value) => String(value || '').trim().toLowerCase();
 
 const HIDDEN_HOME_SOURCES = new Set(['internal', 'direct']);
-const OVERVIEW_CACHE_PREFIX = 'jg-overview-summary-v3';
+const OVERVIEW_CACHE_PREFIX = 'jg-overview-summary-v4';
 
 const shouldHideSourceMetric = (value) => HIDDEN_HOME_SOURCES.has(normalizeSourceKey(value));
 
@@ -575,6 +575,12 @@ const resolveHoveredChartPoint = (canvas, clientX, clientY) => {
   let closestDistance = Number.POSITIVE_INFINITY;
 
   points.forEach((point) => {
+    if (typeof point.hitTest === 'function' && point.hitTest(x, y)) {
+      closest = point;
+      closestDistance = 0;
+      return;
+    }
+
     if (point.hitbox) {
       const { left, top, right, bottom } = point.hitbox;
       if (x >= left && x <= right && y >= top && y <= bottom) {
@@ -841,6 +847,62 @@ const buildOverviewTooltipLines = (item, focusMetric = 'sales') => {
   `).join('');
 };
 
+const normalizeOverviewProductRows = (rows) => (Array.isArray(rows) ? rows : []).map((row) => {
+  const platforms = {};
+  Object.entries(row?.platforms || {}).forEach(([key, value]) => {
+    const normalizedKey = String(value?.key || key || 'unknown').trim().toLowerCase() || 'unknown';
+    platforms[normalizedKey] = {
+      ...(value || {}),
+      key: normalizedKey,
+      label: value?.label || toTitleCase(normalizedKey)
+    };
+  });
+  if (!Object.keys(platforms).length && Number(row?.quantity || row?.net_revenue || 0) > 0) {
+    platforms.unknown = {
+      key: 'unknown',
+      label: 'Unknown Platform',
+      quantity: Number(row?.quantity || 0),
+      net_revenue: Number(row?.net_revenue || 0),
+      gross_revenue: Number(row?.gross_revenue || 0)
+    };
+  }
+  return {
+    ...row,
+    platforms
+  };
+});
+
+const platformSeriesFromProductRows = (rows, fallbackPlatforms) => {
+  const keyed = new Map();
+  const addPlatform = (key, label = '') => {
+    const normalizedKey = String(key || '').trim().toLowerCase();
+    if (!normalizedKey || keyed.has(normalizedKey)) return;
+    keyed.set(normalizedKey, {
+      key: normalizedKey,
+      label: label || toTitleCase(normalizedKey),
+      color: OVERVIEW_PLATFORM_COLORS[normalizedKey] || OVERVIEW_PRODUCT_COLORS[keyed.size % OVERVIEW_PRODUCT_COLORS.length]
+    });
+  };
+
+  rows.forEach((row) => {
+    Object.entries(row?.platforms || {}).forEach(([key, value]) => {
+      addPlatform(value?.key || key, value?.label);
+    });
+  });
+  (Array.isArray(fallbackPlatforms) ? fallbackPlatforms : []).forEach((platform) => {
+    addPlatform(platform?.key, platform?.label);
+  });
+  if (!keyed.size) {
+    [
+      { key: 'shopee', label: 'Shopee' },
+      { key: 'tiktok', label: 'TikTok Shop' },
+      { key: 'tokopedia', label: 'Tokopedia' }
+    ].forEach((platform) => addPlatform(platform.key, platform.label));
+  }
+
+  return Array.from(keyed.values());
+};
+
 const drawMultiLineChart = (canvas, items, metric, unitsMap, seriesConfig) => {
   chartRendererState.set(canvas, () => drawMultiLineChart(canvas, items, metric, unitsMap, seriesConfig));
   const prepared = prepareCanvas(canvas);
@@ -939,11 +1001,16 @@ const drawStackedBarChart = (canvas, items, config) => {
   bindChartHover(canvas);
   chartRendererState.set(canvas, () => drawStackedBarChart(canvas, items, config));
 
-  const padding = { top: 22, right: 18, bottom: 66, left: 58, ...(config.padding || {}) };
-  const chartItems = items.slice(0, config.limit || 8);
-  const series = config.series || [];
   const metric = config.metric || 'quantity';
   const groupKey = config.groupKey || 'platforms';
+  const sourceItems = Array.isArray(items) ? items : [];
+  const padding = { top: 22, right: 18, bottom: 66, left: 58, ...(config.padding || {}) };
+  const chartItems = sourceItems
+    .filter((item) => Number(item?.[metric] || 0) > 0 || Object.values(item?.[groupKey] || {}).some((row) => Number(row?.[metric] || 0) > 0))
+    .slice(0, config.limit || 8);
+  const series = (Array.isArray(config.series) ? config.series : []).filter((seriesItem) => (
+    chartItems.some((item) => Number(item[groupKey]?.[seriesItem.key]?.[metric] || 0) > 0)
+  ));
   const totals = chartItems.map((item) => series.reduce((sum, seriesItem) => sum + Number(item[groupKey]?.[seriesItem.key]?.[metric] || 0), 0));
   const maxValue = Math.max(...totals, 1);
   if (config.showGrid !== false) {
@@ -1031,6 +1098,8 @@ const drawPieChart = (canvas, items, config) => {
     const value = Number(item[metric] || 0);
     const angle = (value / total) * Math.PI * 2;
     const end = start + angle;
+    const startAngle = start;
+    const endAngle = end;
     ctx.beginPath();
     ctx.moveTo(cx, cy);
     ctx.arc(cx, cy, radius, start, end);
@@ -1050,11 +1119,13 @@ const drawPieChart = (canvas, items, config) => {
       metric,
       unitsMap: config.unitsMap || OVERVIEW_METRIC_UNITS,
       tooltipValue: `${formatMetricValue(metric, value, config.unitsMap || OVERVIEW_METRIC_UNITS)} • ${Math.round((value / total) * 100)}%`,
-      hitbox: {
-        left: cx - radius,
-        right: cx + radius,
-        top: cy - radius,
-        bottom: cy + radius
+      hitTest: (x, y) => {
+        const dx = x - cx;
+        const dy = y - cy;
+        if (Math.hypot(dx, dy) > radius) return false;
+        let pointerAngle = Math.atan2(dy, dx);
+        if (pointerAngle < -Math.PI / 2) pointerAngle += Math.PI * 2;
+        return pointerAngle >= startAngle && pointerAngle <= endAngle;
       }
     });
     start = end;
@@ -1635,7 +1706,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const months = Array.isArray(data.months) ? data.months : [];
     const platforms = Array.isArray(data.platforms) ? data.platforms : [];
     const products = data.products || {};
-    const productRows = Array.isArray(products.by_product) ? products.by_product : [];
+    const productRows = normalizeOverviewProductRows(products.by_product);
     const syrupFlavorRows = Array.isArray(products.syrup_flavors) ? products.syrup_flavors : [];
     const years = Array.isArray(data.years) ? data.years : [state.overview.year];
     const bestMonth = totals.best_month || {};
@@ -1723,18 +1794,7 @@ document.addEventListener('DOMContentLoaded', () => {
       padding: { top: 12, right: 16, bottom: 12, left: 16 },
       limit: 12
     }));
-    const platformSeries = (platforms.length ? platforms : [
-      { key: 'shopee', label: 'Shopee' },
-      { key: 'tiktok', label: 'TikTok Shop' },
-      { key: 'tokopedia', label: 'Tokopedia' }
-    ]).map((platform, index) => {
-      const key = String(platform.key || '').toLowerCase();
-      return {
-        key,
-        label: platform.label || toTitleCase(key),
-        color: OVERVIEW_PLATFORM_COLORS[key] || OVERVIEW_PRODUCT_COLORS[index % OVERVIEW_PRODUCT_COLORS.length]
-      };
-    });
+    const platformSeries = platformSeriesFromProductRows(productRows, platforms);
     drawChartSafely(overviewRefs.productStackCanvas, () => drawStackedBarChart(overviewRefs.productStackCanvas, productRows, {
       series: platformSeries,
       metric: state.overview.productMetric,
