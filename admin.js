@@ -531,7 +531,7 @@ const drawBarChart = (canvas, items, config) => {
   const { ctx, width, height } = prepared;
   const chartItems = items.slice(0, config.limit || items.length);
   const maxValue = Math.max(...chartItems.map((item) => Number(config.value(item) || 0)), 1);
-  const padding = { top: 20, right: 20, bottom: 48, left: 92 };
+  const padding = { top: 20, right: 20, bottom: 48, left: 92, ...(config.padding || {}) };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
   const itemCount = Math.max(chartItems.length, 1);
@@ -542,7 +542,9 @@ const drawBarChart = (canvas, items, config) => {
 
   bindChartHover(canvas);
 
-  drawGrid(ctx, width, height, padding, maxValue, config.metric, config.unitsMap, palette);
+  if (config.showGrid !== false) {
+    drawGrid(ctx, width, height, padding, maxValue, config.metric, config.unitsMap, palette);
+  }
 
   chartItems.forEach((item, index) => {
     const value = Number(config.value(item) || 0);
@@ -560,12 +562,16 @@ const drawBarChart = (canvas, items, config) => {
     ctx.roundRect(x, y, barWidth, barHeight, 10);
     ctx.fill();
 
-    drawValueBadge(ctx, x + (barWidth / 2), y, formatMetricValue(config.metric, value, config.unitsMap), palette);
+    if (config.showValueBadges !== false) {
+      drawValueBadge(ctx, x + (barWidth / 2), y, formatMetricValue(config.metric, value, config.unitsMap), palette);
+    }
 
-    ctx.fillStyle = palette.muted;
-    ctx.font = '600 11px "Plus Jakarta Sans", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(config.label(item), x + (barWidth / 2), height - 16);
+    if (config.showXAxisLabels !== false) {
+      ctx.fillStyle = palette.muted;
+      ctx.font = '600 11px "Plus Jakarta Sans", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(config.label(item), x + (barWidth / 2), height - 16);
+    }
 
     hoverPoints.push({
       x: x + (barWidth / 2),
@@ -1585,8 +1591,12 @@ document.addEventListener('DOMContentLoaded', () => {
       color: () => '#67f8d4',
       metric: state.overview.volumeMetric,
       unitsMap: OVERVIEW_METRIC_UNITS,
-      tooltipTitle: (item) => `${item.label || '-'} ${OVERVIEW_METRIC_LABELS[state.overview.volumeMetric] || 'volume'}`,
+      tooltipTitle: (item) => `${item.label || '-'} Order Volume`,
       tooltipValue: (item, value) => formatFullMetricValue(state.overview.volumeMetric, value, OVERVIEW_METRIC_UNITS),
+      showGrid: false,
+      showXAxisLabels: false,
+      showValueBadges: false,
+      padding: { top: 12, right: 16, bottom: 12, left: 16 },
       limit: 12
     });
     drawBarChart(overviewRefs.platformCanvas, platforms, {

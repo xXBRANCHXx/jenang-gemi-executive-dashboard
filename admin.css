@@ -6031,22 +6031,22 @@ body::after {
 }
 
 .admin-app.admin-app-suite .admin-main-grid-compact .admin-chart-canvas {
-  height: 260px;
+  height: 292px;
 }
 
 .admin-app.admin-app-suite .admin-main-grid-compact .admin-chart-canvas-lg {
-  height: 300px;
+  height: 336px;
 }
 
 .admin-app.admin-app-suite .admin-mini-metric-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
 .admin-app.admin-app-suite .admin-mini-metric-list div {
-  min-height: 96px;
-  padding: 14px;
+  min-height: 104px;
+  padding: 12px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.025);
@@ -6056,17 +6056,19 @@ body::after {
 .admin-app.admin-app-suite .admin-mini-metric-list small {
   display: block;
   color: rgba(255, 255, 255, 0.58);
-  font-size: 0.72rem;
+  font-size: 0.66rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .admin-app.admin-app-suite .admin-mini-metric-list strong {
   display: block;
-  margin-top: 8px;
+  margin-top: 7px;
   color: #f3f6f8;
-  font-size: clamp(1.28rem, 2vw, 1.9rem);
+  font-size: clamp(1.12rem, 1.55vw, 1.56rem);
+  line-height: 1.06;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 820px) {
