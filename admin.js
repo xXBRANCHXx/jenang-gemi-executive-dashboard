@@ -33,16 +33,17 @@ const HOME_METRIC_UNITS = {
 };
 
 const OVERVIEW_METRIC_LABELS = {
-  sales: 'Rp sales by month',
-  net_revenue: 'Rp sales by month',
-  gross_revenue: 'Gross revenue by month',
-  marketplace_fees: 'Marketplace fees by month',
-  orders: 'Total orders by month',
+  revenue: 'Revenue by month',
+  gross_profit: 'Gross profit by month',
+  orders: 'Orders QTY by month',
   average_order_value: 'Average order value by month',
-  item_count: 'Items sold by month'
+  item_count: 'Items QTY by month'
 };
 
 const OVERVIEW_METRIC_UNITS = {
+  revenue: 'idr',
+  gross_profit: 'idr',
+  cogs: 'idr',
   sales: 'idr',
   net_revenue: 'idr',
   gross_revenue: 'idr',
@@ -434,7 +435,7 @@ const formatPageLabel = (pagePath = '') => {
 const normalizeSourceKey = (value) => String(value || '').trim().toLowerCase();
 
 const HIDDEN_HOME_SOURCES = new Set(['internal', 'direct']);
-const OVERVIEW_CACHE_PREFIX = 'jg-overview-summary-v5';
+const OVERVIEW_CACHE_PREFIX = 'jg-overview-summary-v6';
 
 const shouldHideSourceMetric = (value) => HIDDEN_HOME_SOURCES.has(normalizeSourceKey(value));
 
@@ -926,26 +927,38 @@ const buildTrendTooltipLines = (metric, unitsMap, seriesValues) => seriesValues.
 const buildOverviewTooltipLines = (item, focusMetric = 'sales') => {
   const gross = Number(item.gross_revenue || 0);
   const net = Number(item.net_revenue || item.sales || 0);
+  const revenue = Number(item.revenue || net);
+  const cogs = Number(item.cogs || 0);
+  const grossProfit = Number(item.gross_profit || revenue - cogs);
   const orders = Number(item.orders || 0);
   const items = Number(item.item_count || 0);
   const fees = Number(item.marketplace_fees || Math.max(0, gross - net));
-  const aov = orders > 0 ? net / orders : 0;
+  const aov = orders > 0 ? revenue / orders : 0;
+  const focusValue = focusMetric === 'revenue'
+    ? revenue
+    : focusMetric === 'gross_profit'
+      ? grossProfit
+      : focusMetric === 'average_order_value'
+        ? aov
+        : Number(item[focusMetric] || 0);
   const focusLabel = focusMetric === 'orders'
-    ? 'Orders'
-    : focusMetric === 'average_order_value'
-      ? 'AOV'
-      : focusMetric === 'gross_revenue'
-        ? 'Gross revenue'
-        : focusMetric === 'marketplace_fees'
-          ? 'Marketplace fees'
-          : 'Rp sales';
+    ? 'Orders QTY'
+    : focusMetric === 'item_count'
+      ? 'Items QTY'
+      : focusMetric === 'gross_profit'
+        ? 'Gross profit'
+        : focusMetric === 'average_order_value'
+          ? 'AOV'
+          : 'Revenue';
   const rows = [
-    [focusLabel, formatFullMetricValue(focusMetric, Number(item[focusMetric] || net), OVERVIEW_METRIC_UNITS), 'is-primary'],
+    [focusLabel, formatFullMetricValue(focusMetric, focusValue, OVERVIEW_METRIC_UNITS), 'is-primary'],
+    ['Revenue', formatFullMetricValue('revenue', revenue, OVERVIEW_METRIC_UNITS), ''],
+    ['Gross profit', formatFullMetricValue('gross_profit', grossProfit, OVERVIEW_METRIC_UNITS), ''],
     ['Order QTY', formatFullMetricValue('orders', orders, OVERVIEW_METRIC_UNITS), ''],
-    ['Items sold', formatFullMetricValue('item_count', items, OVERVIEW_METRIC_UNITS), ''],
-    ['Gross revenue', formatFullMetricValue('gross_revenue', gross, OVERVIEW_METRIC_UNITS), ''],
-    ['Rp after fees', formatFullMetricValue('net_revenue', net, OVERVIEW_METRIC_UNITS), ''],
+    ['Items QTY', formatFullMetricValue('item_count', items, OVERVIEW_METRIC_UNITS), ''],
+    ['Customer paid', formatFullMetricValue('gross_revenue', gross, OVERVIEW_METRIC_UNITS), ''],
     ['Marketplace fees', formatFullMetricValue('marketplace_fees', fees, OVERVIEW_METRIC_UNITS), ''],
+    ['COGS', formatFullMetricValue('cogs', cogs, OVERVIEW_METRIC_UNITS), ''],
     ['AOV', formatFullMetricValue('average_order_value', aov, OVERVIEW_METRIC_UNITS), '']
   ];
   return rows.map(([label, value, className]) => `
@@ -1373,7 +1386,7 @@ document.addEventListener('DOMContentLoaded', () => {
     requestSequence: 0,
     overview: {
       year: new Date().getFullYear(),
-      metric: 'sales',
+      metric: 'revenue',
       volumeMetric: 'orders',
       productMetric: 'quantity',
       flavorMetric: 'quantity',
@@ -1906,22 +1919,28 @@ document.addEventListener('DOMContentLoaded', () => {
       label: month.label || '-',
       sales: Number(month.sales || 0),
       net_revenue: Number(month.net_revenue || month.sales || 0),
+      revenue: Number(month.revenue || month.net_revenue || month.sales || 0),
       gross_revenue: Number(month.gross_revenue || 0),
       marketplace_fees: Number(month.marketplace_fees || 0),
+      cogs: Number(month.cogs || 0),
+      gross_profit: Number(month.gross_profit || 0),
       orders: Number(month.orders || 0),
       item_count: Number(month.item_count || 0),
-      average_order_value: Number(month.orders || 0) > 0 ? Number(month.sales || 0) / Number(month.orders || 0) : 0,
+      average_order_value: Number(month.orders || 0) > 0 ? Number(month.revenue || month.net_revenue || month.sales || 0) / Number(month.orders || 0) : 0,
       accounts: month.accounts || {},
       platforms: month.platforms || {},
       tooltipLinesHtml: buildOverviewTooltipLines({
         ...month,
-        average_order_value: Number(month.orders || 0) > 0 ? Number(month.sales || 0) / Number(month.orders || 0) : 0
+        revenue: Number(month.revenue || month.net_revenue || month.sales || 0),
+        cogs: Number(month.cogs || 0),
+        gross_profit: Number(month.gross_profit || 0),
+        average_order_value: Number(month.orders || 0) > 0 ? Number(month.revenue || month.net_revenue || month.sales || 0) / Number(month.orders || 0) : 0
       }, state.overview.metric)
     }));
 
-    if (overviewRefs.summarySales) overviewRefs.summarySales.textContent = formatCellCurrency(totals.sales || 0);
+    if (overviewRefs.summarySales) overviewRefs.summarySales.textContent = formatCellCurrency(totals.revenue || totals.net_revenue || totals.sales || 0);
     if (overviewRefs.summaryOrders) overviewRefs.summaryOrders.textContent = formatCompactNumber(totals.orders || 0);
-    if (overviewRefs.summaryAov) overviewRefs.summaryAov.textContent = formatCellCurrency(totals.average_order_value || 0);
+    if (overviewRefs.summaryAov) overviewRefs.summaryAov.textContent = formatCellCurrency(totals.gross_profit || 0);
     if (overviewRefs.summaryBestMonth) overviewRefs.summaryBestMonth.textContent = bestMonth.label || '-';
     if (overviewRefs.summaryBestMonthMeta) {
       overviewRefs.summaryBestMonthMeta.textContent = bestMonth.sales
@@ -1934,14 +1953,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (overviewRefs.endpointLabel) overviewRefs.endpointLabel.textContent = salesEndpoint;
     if (overviewRefs.trendTitle) overviewRefs.trendTitle.textContent = OVERVIEW_METRIC_LABELS[state.overview.metric];
     if (overviewRefs.trendMeta) {
-      overviewRefs.trendMeta.textContent = `${state.overview.year} • Sales ${formatCellCurrency(totals.net_revenue || totals.sales || 0)} • Gross ${formatCellCurrency(totals.gross_revenue || 0)}`;
+      overviewRefs.trendMeta.textContent = `${state.overview.year} • Revenue ${formatCellCurrency(totals.revenue || totals.net_revenue || totals.sales || 0)} • Gross profit ${formatCellCurrency(totals.gross_profit || 0)}`;
     }
 
     if (overviewRefs.tableBody) {
       overviewRefs.tableBody.innerHTML = renderRows(months, 4, (month) => `
         <tr>
           <td><strong>${escapeHtml(month.label || '-')}</strong></td>
-          <td title="${escapeHtml(formatCurrency(month.sales || 0))}">${formatCellCurrency(month.sales || 0)}</td>
+          <td title="${escapeHtml(formatCurrency(month.revenue || month.net_revenue || month.sales || 0))}">${formatCellCurrency(month.revenue || month.net_revenue || month.sales || 0)}</td>
           <td title="${escapeHtml(Number(month.orders || 0).toLocaleString('id-ID'))}">${formatCompactNumber(month.orders || 0)}</td>
           <td>${escapeHtml(topPlatformForMonth(month))}</td>
         </tr>
@@ -1950,9 +1969,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (overviewRefs.notes) {
       overviewRefs.notes.innerHTML = `
-        <div class="admin-note-card"><strong>Platforms</strong><span>${platforms.length ? platforms.map((platform) => `${platform.label}: ${formatCellCurrency(platform.sales || 0)}`).join(' • ') : 'No connected platform revenue yet.'}</span></div>
+        <div class="admin-note-card"><strong>Platforms</strong><span>${platforms.length ? platforms.map((platform) => `${platform.label}: ${formatCellCurrency(platform.revenue || platform.net_revenue || platform.sales || 0)}`).join(' • ') : 'No connected platform revenue yet.'}</span></div>
         <div class="admin-note-card"><strong>Year Scope</strong><span>The year toggle is generated automatically from 2026 through the current calendar year so new years appear without manual edits.</span></div>
-        <div class="admin-note-card"><strong>Data Path</strong><span>Dashboard requests a protected marketplace summary endpoint, then renders the charts locally with hover tooltips and month-level comparisons.</span></div>
+        <div class="admin-note-card"><strong>Data Path</strong><span>Dashboard requests protected marketplace sales, enriches it with SKU DB COGS, then renders seller-received revenue and gross profit locally.</span></div>
       `;
     }
 
@@ -2415,7 +2434,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   overviewRefs.metricButtons.forEach((button) => {
     button.addEventListener('click', () => {
-      state.overview.metric = button.dataset.overviewMetric || 'sales';
+      state.overview.metric = button.dataset.overviewMetric || 'revenue';
       overviewRefs.metricButtons.forEach((candidate) => {
         candidate.classList.toggle('is-active', candidate === button);
       });

@@ -29,7 +29,7 @@ These endpoints live inside this executive dashboard and are already normalized 
 
 | Endpoint | Meaning |
 | --- | --- |
-| `GET /api/sales/?year=YYYY` | Authenticated proxy around `/sales/summary`, with local SKU DB enrichment for syrup flavor charts. |
+| `GET /api/sales/?year=YYYY` | Authenticated proxy around `/sales/summary`, with local SKU DB enrichment for seller-received revenue, COGS, gross profit, and syrup flavor charts. |
 | `GET /api/analytics/?dataset=landing|website|affiliate` | Campaign, website, and affiliate analytics rollups from the dashboard analytics database. |
 | `GET /api/api-health/?run=1` | Runs every configured API/database probe and logs failures. |
 | `GET /api/sku-db/` | SKU master data and SKU approval workflow API. |
@@ -39,8 +39,12 @@ These endpoints live inside this executive dashboard and are already normalized 
 ## Chart Notes
 
 - Monthly unit sales by account should use `sales summary -> months[].accounts[*].item_count`.
-- Monthly revenue by account should use `months[].accounts[*].net_revenue` or `sales`.
+- Monthly revenue by account should use `months[].accounts[*].net_revenue` or `sales`; this is seller-received money after marketplace deductions when the ingest has fee data.
 - Monthly platform totals should use `months[].platforms[*].item_count` or `net_revenue`.
+- Executive revenue trend should use `/api/sales/ -> months[].revenue`, falling back to `net_revenue` or `sales`.
+- Executive gross profit trend should use `/api/sales/ -> months[].gross_profit`, calculated as seller-received `revenue - cogs`.
+- COGS comes from the local SKU DB `sku_skus.cogs`, matched to marketplace product SKU/tag during `/api/sales/` enrichment.
+- Customer-paid gross should stay separate as `gross_revenue`; do not use it for seller-received revenue.
 - Product charts should use `products.by_product`.
 - Product-by-platform charts should use `products.by_product[*].platforms`.
 - Syrup flavor charts use `/api/sales/` because the dashboard enriches `products.syrup_flavors` from the local SKU DB.

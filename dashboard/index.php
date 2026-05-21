@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isAuthenticated = jg_admin_is_authenticated();
-$dashboardBuildVersion = 'exec3.49.0';
+$dashboardBuildVersion = 'exec3.50.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 ?>
@@ -133,16 +133,16 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                         <div class="admin-panel-head">
                             <div>
                                 <div class="admin-chart-title-row">
-                                    <h3 data-overview-trend-title>Rp sales by month</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About Rp sales by month" data-chart-info="Tracks the selected sales metric by month for the chosen year. Rp shows marketplace sales after marketplace fees when that data is available, Gross shows sales before fees, Orders counts order volume, and AOV divides Rp sales by orders."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                    <h3 data-overview-trend-title>Revenue by month</h3>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About revenue by month" data-chart-info="Tracks the selected monthly metric for the chosen year. Revenue is seller-received marketplace money after platform deductions. Gross Profit subtracts SKU DB COGS from that revenue. Orders QTY counts orders, and Items QTY counts units sold."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                                 <span class="admin-panel-meta" data-overview-trend-meta>Selected year</span>
                             </div>
                             <div class="admin-panel-inline-toggles" data-overview-metric-controls>
-                                <button type="button" class="admin-toggle-pill is-active" data-overview-metric="sales">Rp</button>
-                                <button type="button" class="admin-toggle-pill" data-overview-metric="gross_revenue">Gross</button>
-                                <button type="button" class="admin-toggle-pill" data-overview-metric="orders">Orders</button>
-                                <button type="button" class="admin-toggle-pill" data-overview-metric="average_order_value">AOV</button>
+                                <button type="button" class="admin-toggle-pill is-active" data-overview-metric="revenue">Revenue</button>
+                                <button type="button" class="admin-toggle-pill" data-overview-metric="gross_profit">Gross Profit</button>
+                                <button type="button" class="admin-toggle-pill" data-overview-metric="orders">Orders QTY</button>
+                                <button type="button" class="admin-toggle-pill" data-overview-metric="item_count">Items QTY</button>
                             </div>
                         </div>
                         <div class="admin-chart-surface">
@@ -175,15 +175,15 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                             <div>
                                 <div class="admin-chart-title-row">
                                     <h3>Current totals</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About current totals" data-chart-info="Summarizes the selected year's marketplace sales so far. Rp sales is the fee-adjusted marketplace sales value when available, Orders is order count, AOV is Rp sales divided by orders, and Best month highlights the strongest month in the year."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About current totals" data-chart-info="Summarizes the selected year's marketplace sales so far. Revenue is seller-received marketplace money, Gross Profit subtracts SKU DB COGS from revenue, Orders is order count, and Best month highlights the strongest month in the year."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                                 <span class="admin-panel-meta">Year to date</span>
                             </div>
                         </div>
                         <div class="admin-mini-metric-list">
-                            <div><span>Rp sales</span><strong data-overview-summary-sales>Rp0</strong></div>
+                            <div><span>Revenue</span><strong data-overview-summary-sales>Rp0</strong></div>
                             <div><span>Orders</span><strong data-overview-summary-orders>0</strong></div>
-                            <div><span>AOV</span><strong data-overview-summary-aov>Rp0</strong></div>
+                            <div><span>Gross Profit</span><strong data-overview-summary-aov>Rp0</strong></div>
                             <div><span>Best month</span><strong data-overview-summary-best-month>-</strong><small data-overview-summary-best-month-meta>No peak yet</small></div>
                         </div>
                     </article>
@@ -224,14 +224,14 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
 
                     <article class="admin-panel admin-panel-table">
                         <div class="admin-panel-head">
-                            <div><span class="admin-panel-kicker">Monthly Breakdown</span><h3>Sales and orders by month</h3></div>
+                            <div><span class="admin-panel-kicker">Monthly Breakdown</span><h3>Revenue and orders by month</h3></div>
                         </div>
                         <div class="admin-table-wrap">
                             <table class="admin-table">
                                 <thead>
                                     <tr>
                                         <th>Month</th>
-                                        <th>Sales</th>
+                                        <th>Revenue</th>
                                         <th>Orders</th>
                                         <th>Top Platform</th>
                                     </tr>
