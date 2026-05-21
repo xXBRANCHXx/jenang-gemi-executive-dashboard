@@ -291,6 +291,7 @@ const formatDashboardTime = (value, timezone, options = {}) => {
 const formatCompactNumber = (value) => {
   const number = Number(value) || 0;
   const absolute = Math.abs(number);
+  if (absolute >= 1000000000000) return `${(number / 1000000000000).toFixed(absolute >= 10000000000000 ? 0 : 1).replace(/\.0$/, '')}T`;
   if (absolute >= 1000000000) return `${(number / 1000000000).toFixed(absolute >= 10000000000 ? 0 : 1).replace(/\.0$/, '')}B`;
   if (absolute >= 1000000) return `${(number / 1000000).toFixed(absolute >= 10000000 ? 0 : 1).replace(/\.0$/, '')}M`;
   if (absolute >= 1000) return `${(number / 1000).toFixed(absolute >= 10000 ? 0 : 1).replace(/\.0$/, '')}K`;
@@ -300,6 +301,14 @@ const formatCompactNumber = (value) => {
 const formatCurrency = (value, options = {}) => {
   if (options.compact) return `Rp${formatCompactNumber(value)}`;
   return `Rp${Math.round(Number(value) || 0).toLocaleString('id-ID')}`;
+};
+
+const formatCellCurrency = (value) => formatCurrency(value, { compact: true });
+
+const formatFullMetricValue = (metric, value, unitsMap) => {
+  const unit = unitsMap[metric] || 'units';
+  if (unit === 'idr') return formatCurrency(value);
+  return `${Math.round(Number(value) || 0).toLocaleString('id-ID')} ${unit}`;
 };
 
 const formatMetricValue = (metric, value, unitsMap) => {
@@ -369,6 +378,19 @@ const drawValueBadge = (ctx, x, y, text, palette) => {
   ctx.fillText(text, x, badgeY + 15);
 };
 
+const drawHoverGuide = (ctx, activeHover, padding, chartHeight, color = 'rgba(157, 255, 0, 0.72)') => {
+  if (!activeHover || !Number.isFinite(activeHover.x)) return;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([5, 6]);
+  ctx.beginPath();
+  ctx.moveTo(activeHover.x, padding.top);
+  ctx.lineTo(activeHover.x, padding.top + chartHeight);
+  ctx.stroke();
+  ctx.restore();
+};
+
 const drawGrid = (ctx, width, height, padding, maxValue, metric, unitsMap, palette) => {
   ctx.strokeStyle = palette.border;
   ctx.lineWidth = 1;
@@ -433,8 +455,12 @@ const renderChartTooltip = (canvas, point, clientX, clientY) => {
   }
 
   const surfaceRect = surface.getBoundingClientRect();
-  const relativeX = Math.max(12, Math.min(clientX - surfaceRect.left, surfaceRect.width - 12));
-  const relativeY = Math.max(12, Math.min(clientY - surfaceRect.top, surfaceRect.height - 12));
+  const tooltipRect = tooltip.getBoundingClientRect();
+  const tooltipWidth = tooltipRect.width || 240;
+  const tooltipHeight = tooltipRect.height || 120;
+  const xOffset = clientX - surfaceRect.left > surfaceRect.width * 0.62 ? -tooltipWidth - 14 : 14;
+  const relativeX = Math.max(12, Math.min(clientX - surfaceRect.left + xOffset, surfaceRect.width - tooltipWidth - 12));
+  const relativeY = Math.max(12, Math.min(clientY - surfaceRect.top - (tooltipHeight / 2), surfaceRect.height - tooltipHeight - 12));
   tooltip.style.left = `${relativeX}px`;
   tooltip.style.top = `${relativeY}px`;
   tooltip.classList.add('is-visible');
@@ -534,7 +560,7 @@ const drawBarChart = (canvas, items, config) => {
     ctx.roundRect(x, y, barWidth, barHeight, 10);
     ctx.fill();
 
-    drawValueBadge(ctx, x + (barWidth / 2), y, String(value), palette);
+    drawValueBadge(ctx, x + (barWidth / 2), y, formatMetricValue(config.metric, value, config.unitsMap), palette);
 
     ctx.fillStyle = palette.muted;
     ctx.font = '600 11px "Plus Jakarta Sans", sans-serif';
@@ -574,6 +600,7 @@ const drawLineChart = (canvas, items, metric, unitsMap) => {
   const maxValue = Math.max(...values, 1);
   const palette = getThemePalette();
   const points = [];
+  const activeHover = chartActivePointState.get(canvas) || null;
 
   bindChartHover(canvas);
 
@@ -584,7 +611,13 @@ const drawLineChart = (canvas, items, metric, unitsMap) => {
     return;
   }
 
-  ctx.strokeStyle = SOURCE_COLORS.instagram;
+  const lineColor = SOURCE_COLORS.instagram;
+  const fillGradient = ctx.createLinearGradient(0, padding.top, 0, padding.top + chartHeight);
+  fillGradient.addColorStop(0, 'rgba(157, 255, 0, 0.22)');
+  fillGradient.addColorStop(1, 'rgba(157, 255, 0, 0)');
+  const linePoints = [];
+
+  ctx.strokeStyle = lineColor;
   ctx.lineWidth = 3;
   ctx.beginPath();
 
@@ -592,6 +625,7 @@ const drawLineChart = (canvas, items, metric, unitsMap) => {
     const x = padding.left + (chartWidth * index / Math.max(items.length - 1, 1));
     const value = Number(item[metric] || 0);
     const y = padding.top + chartHeight - ((value / maxValue) * (chartHeight - 6));
+    linePoints.push({ x, y });
     points.push({
       x,
       y,
@@ -600,7 +634,14 @@ const drawLineChart = (canvas, items, metric, unitsMap) => {
       unitsMap,
       label: item.label || '',
       tooltipTitle: item.label || '',
-      tooltipValue: formatMetricValue(metric, value, unitsMap)
+      tooltipValue: formatMetricValue(metric, value, unitsMap),
+      tooltipLinesHtml: item.tooltipLinesHtml || null,
+      hitbox: {
+        left: index === 0 ? padding.left : x - (chartWidth / Math.max(items.length - 1, 1) / 2),
+        right: index === items.length - 1 ? width - padding.right : x + (chartWidth / Math.max(items.length - 1, 1) / 2),
+        top: padding.top,
+        bottom: padding.top + chartHeight
+      }
     });
     if (index === 0) {
       ctx.moveTo(x, y);
@@ -610,13 +651,40 @@ const drawLineChart = (canvas, items, metric, unitsMap) => {
   });
   ctx.stroke();
 
+  if (linePoints.length) {
+    ctx.lineTo(linePoints[linePoints.length - 1].x, padding.top + chartHeight);
+    ctx.lineTo(linePoints[0].x, padding.top + chartHeight);
+    ctx.closePath();
+    ctx.fillStyle = fillGradient;
+    ctx.fill();
+    ctx.strokeStyle = lineColor;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    linePoints.forEach((point, index) => {
+      if (index === 0) {
+        ctx.moveTo(point.x, point.y);
+      } else {
+        ctx.lineTo(point.x, point.y);
+      }
+    });
+    ctx.stroke();
+  }
+
+  drawHoverGuide(ctx, activeHover, padding, chartHeight);
+
   items.forEach((item, index) => {
     const x = padding.left + (chartWidth * index / Math.max(items.length - 1, 1));
     const y = padding.top + chartHeight - ((Number(item[metric] || 0) / maxValue) * (chartHeight - 6));
-    ctx.fillStyle = SOURCE_COLORS.instagram;
+    const isActive = activeHover && Math.abs(activeHover.x - x) < 1;
+    ctx.fillStyle = isActive ? '#ffffff' : lineColor;
     ctx.beginPath();
-    ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.arc(x, y, isActive ? 6 : 4, 0, Math.PI * 2);
     ctx.fill();
+    if (isActive) {
+      ctx.strokeStyle = lineColor;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
 
     if (index === 0 || index === items.length - 1 || items.length <= 8 || index % Math.ceil(items.length / 6) === 0) {
       ctx.fillStyle = palette.muted;
@@ -635,6 +703,39 @@ const buildTrendTooltipLines = (metric, unitsMap, seriesValues) => seriesValues.
     <span>${seriesItem.label}: ${formatMetricValue(metric, seriesItem.value, unitsMap)}</span>
   </div>
 `).join('');
+
+const buildOverviewTooltipLines = (item, focusMetric = 'sales') => {
+  const gross = Number(item.gross_revenue || 0);
+  const net = Number(item.net_revenue || item.sales || 0);
+  const orders = Number(item.orders || 0);
+  const items = Number(item.item_count || 0);
+  const fees = Number(item.marketplace_fees || Math.max(0, gross - net));
+  const aov = orders > 0 ? net / orders : 0;
+  const focusLabel = focusMetric === 'orders'
+    ? 'Orders'
+    : focusMetric === 'average_order_value'
+      ? 'AOV'
+      : focusMetric === 'gross_revenue'
+        ? 'Gross revenue'
+        : focusMetric === 'marketplace_fees'
+          ? 'Marketplace fees'
+          : 'Revenue';
+  const rows = [
+    [focusLabel, formatFullMetricValue(focusMetric, Number(item[focusMetric] || net), OVERVIEW_METRIC_UNITS), 'is-primary'],
+    ['Order QTY', formatFullMetricValue('orders', orders, OVERVIEW_METRIC_UNITS), ''],
+    ['Items sold', formatFullMetricValue('item_count', items, OVERVIEW_METRIC_UNITS), ''],
+    ['Gross revenue', formatFullMetricValue('gross_revenue', gross, OVERVIEW_METRIC_UNITS), ''],
+    ['GP after fees', formatFullMetricValue('net_revenue', net, OVERVIEW_METRIC_UNITS), ''],
+    ['Marketplace fees', formatFullMetricValue('marketplace_fees', fees, OVERVIEW_METRIC_UNITS), ''],
+    ['AOV', formatFullMetricValue('average_order_value', aov, OVERVIEW_METRIC_UNITS), '']
+  ];
+  return rows.map(([label, value, className]) => `
+    <div class="admin-chart-tooltip-row ${className}">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+    </div>
+  `).join('');
+};
 
 const drawMultiLineChart = (canvas, items, metric, unitsMap, seriesConfig) => {
   chartRendererState.set(canvas, () => drawMultiLineChart(canvas, items, metric, unitsMap, seriesConfig));
@@ -721,27 +822,19 @@ const drawMultiLineChart = (canvas, items, metric, unitsMap, seriesConfig) => {
   });
 
   if (activeHover && Number.isFinite(activeHover.x)) {
-    ctx.strokeStyle = HOME_TREND_SERIES.total.color;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(activeHover.x, padding.top);
-    ctx.lineTo(activeHover.x, padding.top + chartHeight);
-    ctx.stroke();
+    drawHoverGuide(ctx, activeHover, padding, chartHeight, HOME_TREND_SERIES.total.color);
   }
 
   chartHoverState.set(canvas, hoverColumns.filter(Boolean));
 };
 
 const drawStackedBarChart = (canvas, items, config) => {
-  if (!(canvas instanceof HTMLCanvasElement)) return;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-  prepareCanvas(canvas, ctx);
+  const prepared = prepareCanvas(canvas);
+  if (!prepared) return;
+  const { ctx, width, height } = prepared;
   bindChartHover(canvas);
   chartRendererState.set(canvas, () => drawStackedBarChart(canvas, items, config));
 
-  const width = canvas.width;
-  const height = canvas.height;
   const padding = { top: 22, right: 18, bottom: 66, left: 58 };
   const chartItems = items.slice(0, config.limit || 8);
   const series = config.series || [];
@@ -768,7 +861,7 @@ const drawStackedBarChart = (canvas, items, config) => {
       ctx.fillRect(x, yCursor, barWidth, segmentHeight);
     });
     ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--admin-muted') || '#9ca3af';
-    ctx.font = '600 20px "Plus Jakarta Sans", sans-serif';
+    ctx.font = '600 11px "Plus Jakarta Sans", sans-serif';
     ctx.textAlign = 'right';
     ctx.save();
     ctx.translate(x + barWidth / 2, height - 18);
@@ -778,14 +871,18 @@ const drawStackedBarChart = (canvas, items, config) => {
     hoverPoints.push({
       x: x + barWidth / 2,
       y: padding.top + chartHeight - ((totals[index] / maxValue) * chartHeight),
-      left: x - 8,
-      right: x + barWidth + 8,
-      top: padding.top,
-      bottom: padding.top + chartHeight,
       label: config.tooltipTitle ? config.tooltipTitle(item) : item.label,
       value: totals[index],
       metric,
-      unitsMap: config.unitsMap || OVERVIEW_METRIC_UNITS
+      unitsMap: config.unitsMap || OVERVIEW_METRIC_UNITS,
+      tooltipTitle: config.tooltipTitle ? config.tooltipTitle(item) : item.label,
+      tooltipValue: formatMetricValue(metric, totals[index], config.unitsMap || OVERVIEW_METRIC_UNITS),
+      hitbox: {
+        left: x - 8,
+        right: x + barWidth + 8,
+        top: padding.top,
+        bottom: padding.top + chartHeight
+      }
     });
   });
 
@@ -793,10 +890,9 @@ const drawStackedBarChart = (canvas, items, config) => {
 };
 
 const drawPieChart = (canvas, items, config) => {
-  if (!(canvas instanceof HTMLCanvasElement)) return;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-  prepareCanvas(canvas, ctx);
+  const prepared = prepareCanvas(canvas);
+  if (!prepared) return;
+  const { ctx, width, height } = prepared;
   bindChartHover(canvas);
   chartRendererState.set(canvas, () => drawPieChart(canvas, items, config));
 
@@ -805,16 +901,16 @@ const drawPieChart = (canvas, items, config) => {
   const total = rows.reduce((sum, item) => sum + Number(item[metric] || 0), 0);
   if (!rows.length || total <= 0) {
     ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--admin-muted') || '#9ca3af';
-    ctx.font = '700 24px "Plus Jakarta Sans", sans-serif';
+    ctx.font = '700 14px "Plus Jakarta Sans", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('No syrup flavor data yet', canvas.width / 2, canvas.height / 2);
+    ctx.fillText('No syrup flavor data yet', width / 2, height / 2);
     chartHoverState.set(canvas, []);
     return;
   }
 
-  const cx = canvas.width * 0.34;
-  const cy = canvas.height * 0.48;
-  const radius = Math.min(canvas.width, canvas.height) * 0.28;
+  const cx = width * 0.34;
+  const cy = height * 0.48;
+  const radius = Math.min(width, height) * 0.28;
   let start = -Math.PI / 2;
   const hoverPoints = [];
   rows.forEach((item, index) => {
@@ -839,19 +935,25 @@ const drawPieChart = (canvas, items, config) => {
       value,
       metric,
       unitsMap: config.unitsMap || OVERVIEW_METRIC_UNITS,
-      tooltipValue: `${formatMetricValue(metric, value, config.unitsMap || OVERVIEW_METRIC_UNITS)} • ${Math.round((value / total) * 100)}%`
+      tooltipValue: `${formatMetricValue(metric, value, config.unitsMap || OVERVIEW_METRIC_UNITS)} • ${Math.round((value / total) * 100)}%`,
+      hitbox: {
+        left: cx - radius,
+        right: cx + radius,
+        top: cy - radius,
+        bottom: cy + radius
+      }
     });
     start = end;
   });
 
   ctx.textAlign = 'left';
-  ctx.font = '700 22px "Plus Jakarta Sans", sans-serif';
+  ctx.font = '700 12px "Plus Jakarta Sans", sans-serif';
   rows.slice(0, 6).forEach((item, index) => {
     const y = 44 + index * 36;
     ctx.fillStyle = OVERVIEW_PRODUCT_COLORS[index % OVERVIEW_PRODUCT_COLORS.length];
-    ctx.fillRect(canvas.width * 0.64, y - 14, 18, 18);
+    ctx.fillRect(width * 0.64, y - 14, 18, 18);
     ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--admin-text') || '#f3f6f8';
-    ctx.fillText(`${String(item.label || 'Flavor').slice(0, 16)} ${formatMetricValue(metric, item[metric] || 0, config.unitsMap || OVERVIEW_METRIC_UNITS)}`, canvas.width * 0.64 + 28, y);
+    ctx.fillText(`${String(item.label || 'Flavor').slice(0, 16)} ${formatMetricValue(metric, item[metric] || 0, config.unitsMap || OVERVIEW_METRIC_UNITS)}`, width * 0.64 + 28, y);
   });
 
   chartHoverState.set(canvas, hoverPoints);
@@ -1395,7 +1497,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const entries = Object.entries(month?.platforms || {});
     if (!entries.length) return 'No platform data';
     entries.sort((left, right) => Number(right[1]?.sales || 0) - Number(left[1]?.sales || 0));
-    return entries[0] ? `${toTitleCase(entries[0][0])} • ${formatCurrency(entries[0][1]?.sales || 0)}` : 'No platform data';
+    return entries[0] ? `${toTitleCase(entries[0][0])} • ${formatCellCurrency(entries[0][1]?.sales || 0)}` : 'No platform data';
   };
 
   const renderOverviewYearControls = (years) => {
@@ -1432,16 +1534,20 @@ document.addEventListener('DOMContentLoaded', () => {
       marketplace_fees: Number(month.marketplace_fees || 0),
       orders: Number(month.orders || 0),
       item_count: Number(month.item_count || 0),
-      average_order_value: Number(month.orders || 0) > 0 ? Number(month.sales || 0) / Number(month.orders || 0) : 0
+      average_order_value: Number(month.orders || 0) > 0 ? Number(month.sales || 0) / Number(month.orders || 0) : 0,
+      tooltipLinesHtml: buildOverviewTooltipLines({
+        ...month,
+        average_order_value: Number(month.orders || 0) > 0 ? Number(month.sales || 0) / Number(month.orders || 0) : 0
+      }, state.overview.metric)
     }));
 
-    if (overviewRefs.summarySales) overviewRefs.summarySales.textContent = formatCurrency(totals.sales || 0);
-    if (overviewRefs.summaryOrders) overviewRefs.summaryOrders.textContent = Number(totals.orders || 0).toLocaleString('id-ID');
-    if (overviewRefs.summaryAov) overviewRefs.summaryAov.textContent = formatCurrency(totals.average_order_value || 0);
+    if (overviewRefs.summarySales) overviewRefs.summarySales.textContent = formatCellCurrency(totals.sales || 0);
+    if (overviewRefs.summaryOrders) overviewRefs.summaryOrders.textContent = formatCompactNumber(totals.orders || 0);
+    if (overviewRefs.summaryAov) overviewRefs.summaryAov.textContent = formatCellCurrency(totals.average_order_value || 0);
     if (overviewRefs.summaryBestMonth) overviewRefs.summaryBestMonth.textContent = bestMonth.label || '-';
     if (overviewRefs.summaryBestMonthMeta) {
       overviewRefs.summaryBestMonthMeta.textContent = bestMonth.sales
-        ? `${formatCurrency(bestMonth.sales)} • ${Number(bestMonth.orders || 0).toLocaleString('id-ID')} orders`
+        ? `${formatCellCurrency(bestMonth.sales)} • ${formatCompactNumber(bestMonth.orders || 0)} orders`
         : 'No peak yet';
     }
     if (overviewRefs.yearSummary) {
@@ -1450,15 +1556,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (overviewRefs.endpointLabel) overviewRefs.endpointLabel.textContent = salesEndpoint;
     if (overviewRefs.trendTitle) overviewRefs.trendTitle.textContent = OVERVIEW_METRIC_LABELS[state.overview.metric];
     if (overviewRefs.trendMeta) {
-      overviewRefs.trendMeta.textContent = `${state.overview.year} • Net ${formatCurrency(totals.net_revenue || totals.sales || 0)} • Gross ${formatCurrency(totals.gross_revenue || 0)}`;
+      overviewRefs.trendMeta.textContent = `${state.overview.year} • Net ${formatCellCurrency(totals.net_revenue || totals.sales || 0)} • Gross ${formatCellCurrency(totals.gross_revenue || 0)}`;
     }
 
     if (overviewRefs.tableBody) {
       overviewRefs.tableBody.innerHTML = renderRows(months, 4, (month) => `
         <tr>
           <td><strong>${escapeHtml(month.label || '-')}</strong></td>
-          <td>${formatCurrency(month.sales || 0)}</td>
-          <td>${Number(month.orders || 0).toLocaleString('id-ID')}</td>
+          <td title="${escapeHtml(formatCurrency(month.sales || 0))}">${formatCellCurrency(month.sales || 0)}</td>
+          <td title="${escapeHtml(Number(month.orders || 0).toLocaleString('id-ID'))}">${formatCompactNumber(month.orders || 0)}</td>
           <td>${escapeHtml(topPlatformForMonth(month))}</td>
         </tr>
       `, 'Belum ada data marketplace.');
@@ -1466,7 +1572,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (overviewRefs.notes) {
       overviewRefs.notes.innerHTML = `
-        <div class="admin-note-card"><strong>Platforms</strong><span>${platforms.length ? platforms.map((platform) => `${platform.label}: ${formatCurrency(platform.sales || 0)}`).join(' • ') : 'No connected platform revenue yet.'}</span></div>
+        <div class="admin-note-card"><strong>Platforms</strong><span>${platforms.length ? platforms.map((platform) => `${platform.label}: ${formatCellCurrency(platform.sales || 0)}`).join(' • ') : 'No connected platform revenue yet.'}</span></div>
         <div class="admin-note-card"><strong>Year Scope</strong><span>The year toggle is generated automatically from 2026 through the current calendar year so new years appear without manual edits.</span></div>
         <div class="admin-note-card"><strong>Data Path</strong><span>Dashboard requests a protected marketplace summary endpoint, then renders the charts locally with hover tooltips and month-level comparisons.</span></div>
       `;
@@ -1480,6 +1586,7 @@ document.addEventListener('DOMContentLoaded', () => {
       metric: state.overview.volumeMetric,
       unitsMap: OVERVIEW_METRIC_UNITS,
       tooltipTitle: (item) => `${item.label || '-'} ${OVERVIEW_METRIC_LABELS[state.overview.volumeMetric] || 'volume'}`,
+      tooltipValue: (item, value) => formatFullMetricValue(state.overview.volumeMetric, value, OVERVIEW_METRIC_UNITS),
       limit: 12
     });
     drawBarChart(overviewRefs.platformCanvas, platforms, {
@@ -1489,6 +1596,7 @@ document.addEventListener('DOMContentLoaded', () => {
       metric: state.overview.platformMetric,
       unitsMap: OVERVIEW_METRIC_UNITS,
       tooltipTitle: (item) => item.label || 'Unknown',
+      tooltipValue: (item, value) => formatFullMetricValue(state.overview.platformMetric, value, OVERVIEW_METRIC_UNITS),
       limit: 6
     });
     const platformSeries = (platforms.length ? platforms : [

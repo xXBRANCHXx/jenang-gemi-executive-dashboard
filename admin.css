@@ -944,7 +944,8 @@ button, input {
 .admin-chart-tooltip {
   position: absolute;
   z-index: 20;
-  min-width: 132px;
+  min-width: 180px;
+  max-width: min(320px, calc(100vw - 34px));
   padding: 10px 12px;
   border-radius: 12px;
   border: 1px solid var(--admin-border);
@@ -953,7 +954,7 @@ button, input {
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.32);
   pointer-events: none;
   opacity: 0;
-  transform: translate(-50%, calc(-100% - 12px));
+  transform: none;
   transition: opacity 0.12s ease;
 }
 
@@ -987,8 +988,21 @@ button, input {
 .admin-chart-tooltip-row {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
   color: var(--admin-muted);
+}
+
+.admin-chart-tooltip-row.is-primary {
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.admin-chart-tooltip-row strong {
+  margin: 0;
+  font-size: 12px;
+  text-align: right;
+  color: var(--admin-text);
 }
 
 .admin-chart-tooltip-dot {
@@ -3803,6 +3817,9 @@ body::after {
 .admin-chart-tooltip {
   border-radius: 16px;
   background: rgba(8, 8, 8, 0.5);
+  min-width: 220px;
+  max-width: min(320px, calc(100vw - 34px));
+  pointer-events: none;
 }
 
 .admin-search-match {
