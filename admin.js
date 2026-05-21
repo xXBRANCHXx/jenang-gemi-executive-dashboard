@@ -46,7 +46,6 @@ const OVERVIEW_METRIC_UNITS = {
   cogs: 'idr',
   sales: 'idr',
   net_revenue: 'idr',
-  gross_revenue: 'idr',
   marketplace_fees: 'idr',
   orders: 'orders',
   average_order_value: 'idr',
@@ -89,7 +88,6 @@ const normalizePlatformMetricRow = (row, fallbackKey = 'unknown') => {
     label: row?.label || row?.platform_label || row?.name || toTitleCase(key),
     quantity: numberFromFields(row, ['quantity', 'item_count', 'items', 'items_sold', 'units_sold', 'sold_quantity']),
     net_revenue: numberFromFields(row, ['net_revenue', 'sales', 'revenue', 'net_sales']),
-    gross_revenue: numberFromFields(row, ['gross_revenue', 'gross_sales']),
     orders: numberFromFields(row, ['orders', 'order_count'])
   };
 };
@@ -125,8 +123,7 @@ const normalizeSalesAccountRow = (row, fallbackKey = 'unknown') => {
     item_count: numberFromFields(row, ['item_count', 'quantity', 'items', 'items_sold', 'units_sold', 'sold_quantity']),
     orders: numberFromFields(row, ['orders', 'order_count']),
     sales: numberFromFields(row, ['sales', 'net_revenue', 'revenue', 'net_sales']),
-    net_revenue: numberFromFields(row, ['net_revenue', 'sales', 'revenue', 'net_sales']),
-    gross_revenue: numberFromFields(row, ['gross_revenue', 'gross_sales'])
+    net_revenue: numberFromFields(row, ['net_revenue', 'sales', 'revenue', 'net_sales'])
   };
 };
 
@@ -435,7 +432,7 @@ const formatPageLabel = (pagePath = '') => {
 const normalizeSourceKey = (value) => String(value || '').trim().toLowerCase();
 
 const HIDDEN_HOME_SOURCES = new Set(['internal', 'direct']);
-const OVERVIEW_CACHE_PREFIX = 'jg-overview-summary-v6';
+const OVERVIEW_CACHE_PREFIX = 'jg-overview-summary-v7';
 
 const shouldHideSourceMetric = (value) => HIDDEN_HOME_SOURCES.has(normalizeSourceKey(value));
 
@@ -925,14 +922,13 @@ const buildTrendTooltipLines = (metric, unitsMap, seriesValues) => seriesValues.
 `).join('');
 
 const buildOverviewTooltipLines = (item, focusMetric = 'sales') => {
-  const gross = Number(item.gross_revenue || 0);
   const net = Number(item.net_revenue || item.sales || 0);
   const revenue = Number(item.revenue || net);
   const cogs = Number(item.cogs || 0);
   const grossProfit = Number(item.gross_profit || revenue - cogs);
   const orders = Number(item.orders || 0);
   const items = Number(item.item_count || 0);
-  const fees = Number(item.marketplace_fees || Math.max(0, gross - net));
+  const fees = Number(item.marketplace_fees || 0);
   const aov = orders > 0 ? revenue / orders : 0;
   const focusValue = focusMetric === 'revenue'
     ? revenue
@@ -956,7 +952,6 @@ const buildOverviewTooltipLines = (item, focusMetric = 'sales') => {
     ['Gross profit', formatFullMetricValue('gross_profit', grossProfit, OVERVIEW_METRIC_UNITS), ''],
     ['Order QTY', formatFullMetricValue('orders', orders, OVERVIEW_METRIC_UNITS), ''],
     ['Items QTY', formatFullMetricValue('item_count', items, OVERVIEW_METRIC_UNITS), ''],
-    ['Customer paid', formatFullMetricValue('gross_revenue', gross, OVERVIEW_METRIC_UNITS), ''],
     ['Marketplace fees', formatFullMetricValue('marketplace_fees', fees, OVERVIEW_METRIC_UNITS), ''],
     ['COGS', formatFullMetricValue('cogs', cogs, OVERVIEW_METRIC_UNITS), ''],
     ['AOV', formatFullMetricValue('average_order_value', aov, OVERVIEW_METRIC_UNITS), '']
@@ -973,21 +968,18 @@ const normalizeOverviewProductRows = (rows) => (Array.isArray(rows) ? rows : [])
   const platforms = normalizePlatformMap(row?.platforms);
   const quantity = numberFromFields(row, ['quantity', 'item_count', 'items', 'items_sold', 'units_sold', 'sold_quantity']);
   const netRevenue = numberFromFields(row, ['net_revenue', 'sales', 'revenue', 'net_sales']);
-  const grossRevenue = numberFromFields(row, ['gross_revenue', 'gross_sales']);
   if (!Object.keys(platforms).length && (quantity > 0 || netRevenue > 0)) {
     platforms.unknown = {
       key: 'unknown',
       label: 'Unknown Platform',
       quantity,
-      net_revenue: netRevenue,
-      gross_revenue: grossRevenue
+      net_revenue: netRevenue
     };
   }
   return {
     ...row,
     quantity,
     net_revenue: netRevenue,
-    gross_revenue: grossRevenue,
     orders: numberFromFields(row, ['orders', 'order_count']),
     platforms
   };
@@ -1002,7 +994,6 @@ const overviewProductRowsFromPlatformFallback = (products, platforms, months) =>
     const label = normalizedPlatform.label;
     const quantity = normalizedPlatform.quantity;
     const netRevenue = normalizedPlatform.net_revenue;
-    const grossRevenue = normalizedPlatform.gross_revenue;
     return {
       key: `platform-total-${key}`,
       label: `${label} total`,
@@ -1010,14 +1001,12 @@ const overviewProductRowsFromPlatformFallback = (products, platforms, months) =>
       product_type: 'Platform Total',
       quantity,
       net_revenue: netRevenue,
-      gross_revenue: grossRevenue,
       platforms: {
         [key]: {
           key,
           label,
           quantity,
-          net_revenue: netRevenue,
-          gross_revenue: grossRevenue
+          net_revenue: netRevenue
         }
       }
     };
@@ -1033,12 +1022,10 @@ const overviewProductRowsFromPlatformFallback = (products, platforms, months) =>
         key,
         label: platformRow?.label || toTitleCase(key),
         quantity: 0,
-        net_revenue: 0,
-        gross_revenue: 0
+        net_revenue: 0
       };
       monthPlatformTotals[key].quantity += Number(platformRow?.quantity || 0);
       monthPlatformTotals[key].net_revenue += Number(platformRow?.net_revenue || 0);
-      monthPlatformTotals[key].gross_revenue += Number(platformRow?.gross_revenue || 0);
     });
   });
 
@@ -1051,7 +1038,6 @@ const overviewProductRowsFromPlatformFallback = (products, platforms, months) =>
       product_type: 'Platform Total',
       quantity: platform.quantity,
       net_revenue: platform.net_revenue,
-      gross_revenue: platform.gross_revenue,
       platforms: {
         [platform.key]: platform
       }
@@ -1920,7 +1906,6 @@ document.addEventListener('DOMContentLoaded', () => {
       sales: Number(month.sales || 0),
       net_revenue: Number(month.net_revenue || month.sales || 0),
       revenue: Number(month.revenue || month.net_revenue || month.sales || 0),
-      gross_revenue: Number(month.gross_revenue || 0),
       marketplace_fees: Number(month.marketplace_fees || 0),
       cogs: Number(month.cogs || 0),
       gross_profit: Number(month.gross_profit || 0),

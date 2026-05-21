@@ -10,7 +10,7 @@ Base URL: `JG_API_INGEST_BASE_URL` / `api_ingest_base_url`, currently expected a
 | --- | --- | --- | --- |
 | `GET /` | none | Root service identity. Confirms the API Ingest service is reachable. | `ok`, `service` |
 | `GET /health` | none | Health probe for uptime checks. | `ok`, `service` |
-| `GET /sales/summary?year=YYYY&setup_token=...` | setup token | Yearly marketplace sales rollup. This is the main source for executive sales charts. | `months`, `months[].accounts`, `months[].platforms`, `accounts`, `platforms`, `products.by_product`, `products.by_platform`, `totals` |
+| `GET /sales/summary?year=YYYY&setup_token=...` | setup token | Yearly marketplace sales rollup. This is the main source for executive sales charts. | `months`, `months[].accounts`, `months[].platforms`, `accounts`, `platforms`, `products.by_product`, `products.by_platform`, `products.by_month`, `totals` |
 | `GET /shopee/auth/status?account=...&setup_token=...` | setup token | Shopee authorization status for an account. Use it to detect expired/missing access and refresh tokens. | `status.account_key`, `status.shop_id`, `status.has_access_token`, `status.has_refresh_token`, token expiry fields |
 | `GET /shopee/orders/listed?account=...&setup_token=...` | setup token | Current Shopee listed orders, currently checked as READY_TO_SHIP order feed health. | `orders[]` |
 
@@ -39,12 +39,13 @@ These endpoints live inside this executive dashboard and are already normalized 
 ## Chart Notes
 
 - Monthly unit sales by account should use `sales summary -> months[].accounts[*].item_count`.
-- Monthly revenue by account should use `months[].accounts[*].net_revenue` or `sales`; this is seller-received money after marketplace deductions when the ingest has fee data.
+- Monthly revenue by account should use `months[].accounts[*].net_revenue` or `sales`; this is seller-received money after marketplace deductions.
 - Monthly platform totals should use `months[].platforms[*].item_count` or `net_revenue`.
 - Executive revenue trend should use `/api/sales/ -> months[].revenue`, falling back to `net_revenue` or `sales`.
 - Executive gross profit trend should use `/api/sales/ -> months[].gross_profit`, calculated as seller-received `revenue - cogs`.
 - COGS comes from the local SKU DB `sku_skus.cogs`, matched to marketplace product SKU/tag during `/api/sales/` enrichment.
-- Customer-paid gross should stay separate as `gross_revenue`; do not use it for seller-received revenue.
+- Exact monthly COGS comes from API Ingest `products.by_month` when available; `/api/sales/` falls back to product-total allocation only for older ingest payloads that do not expose monthly SKU rollups.
+- The executive dashboard proxy strips customer-paid gross fields from `/api/sales/` output so revenue charts cannot accidentally use them.
 - Product charts should use `products.by_product`.
 - Product-by-platform charts should use `products.by_product[*].platforms`.
 - Syrup flavor charts use `/api/sales/` because the dashboard enriches `products.syrup_flavors` from the local SKU DB.
