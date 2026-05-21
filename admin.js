@@ -62,6 +62,50 @@ const OVERVIEW_PLATFORM_COLORS = {
 
 const OVERVIEW_PRODUCT_COLORS = ['#9dff00', '#22d3ee', '#ff8f1f', '#ff4ecd', '#8b5cf6', '#f8e16c', '#67f8d4', '#ff6b6b'];
 
+const numberFromFields = (item, fields, fallback = 0) => {
+  for (const field of fields) {
+    const value = Number(item?.[field]);
+    if (Number.isFinite(value) && value !== 0) return value;
+  }
+  return fallback;
+};
+
+const normalizePlatformKey = (value) => {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return 'unknown';
+  if (normalized.includes('tiktok')) return 'tiktok';
+  if (normalized.includes('tokopedia')) return 'tokopedia';
+  if (normalized.includes('shopee')) return 'shopee';
+  return normalized.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'unknown';
+};
+
+const normalizePlatformMetricRow = (row, fallbackKey = 'unknown') => {
+  const key = normalizePlatformKey(row?.key || row?.platform || row?.channel || row?.source || row?.name || fallbackKey);
+  return {
+    ...(row || {}),
+    key,
+    label: row?.label || row?.platform_label || row?.name || toTitleCase(key),
+    quantity: numberFromFields(row, ['quantity', 'item_count', 'items', 'items_sold', 'units_sold', 'sold_quantity']),
+    net_revenue: numberFromFields(row, ['net_revenue', 'sales', 'revenue', 'net_sales']),
+    gross_revenue: numberFromFields(row, ['gross_revenue', 'gross_sales']),
+    orders: numberFromFields(row, ['orders', 'order_count'])
+  };
+};
+
+const normalizePlatformMap = (platforms) => {
+  if (!platforms || typeof platforms !== 'object') return {};
+  const entries = Array.isArray(platforms)
+    ? platforms.map((row, index) => [row?.key || row?.platform || row?.channel || row?.source || `platform-${index}`, row])
+    : Object.entries(platforms);
+
+  return entries.reduce((normalizedPlatforms, [key, value]) => {
+    if (!value || typeof value !== 'object') return normalizedPlatforms;
+    const platform = normalizePlatformMetricRow(value, key);
+    normalizedPlatforms[platform.key] = platform;
+    return normalizedPlatforms;
+  }, {});
+};
+
 const HOME_TREND_SERIES = {
   total: { label: 'Total', color: '#12cfff' },
   bubur: { label: 'Bubur', color: '#9dff00' },
@@ -848,26 +892,25 @@ const buildOverviewTooltipLines = (item, focusMetric = 'sales') => {
 };
 
 const normalizeOverviewProductRows = (rows) => (Array.isArray(rows) ? rows : []).map((row) => {
-  const platforms = {};
-  Object.entries(row?.platforms || {}).forEach(([key, value]) => {
-    const normalizedKey = String(value?.key || key || 'unknown').trim().toLowerCase() || 'unknown';
-    platforms[normalizedKey] = {
-      ...(value || {}),
-      key: normalizedKey,
-      label: value?.label || toTitleCase(normalizedKey)
-    };
-  });
-  if (!Object.keys(platforms).length && Number(row?.quantity || row?.net_revenue || 0) > 0) {
+  const platforms = normalizePlatformMap(row?.platforms);
+  const quantity = numberFromFields(row, ['quantity', 'item_count', 'items', 'items_sold', 'units_sold', 'sold_quantity']);
+  const netRevenue = numberFromFields(row, ['net_revenue', 'sales', 'revenue', 'net_sales']);
+  const grossRevenue = numberFromFields(row, ['gross_revenue', 'gross_sales']);
+  if (!Object.keys(platforms).length && (quantity > 0 || netRevenue > 0)) {
     platforms.unknown = {
       key: 'unknown',
       label: 'Unknown Platform',
-      quantity: Number(row?.quantity || 0),
-      net_revenue: Number(row?.net_revenue || 0),
-      gross_revenue: Number(row?.gross_revenue || 0)
+      quantity,
+      net_revenue: netRevenue,
+      gross_revenue: grossRevenue
     };
   }
   return {
     ...row,
+    quantity,
+    net_revenue: netRevenue,
+    gross_revenue: grossRevenue,
+    orders: numberFromFields(row, ['orders', 'order_count']),
     platforms
   };
 });
@@ -876,11 +919,12 @@ const overviewProductRowsFromPlatformFallback = (products, platforms, months) =>
   const byPlatform = Array.isArray(products?.by_platform) ? products.by_platform : [];
   const sourceRows = byPlatform.length ? byPlatform : (Array.isArray(platforms) ? platforms : []);
   const rows = sourceRows.map((platform) => {
-    const key = String(platform?.key || platform?.platform || 'unknown').trim().toLowerCase() || 'unknown';
-    const label = platform?.label || toTitleCase(key);
-    const quantity = Number(platform?.quantity || platform?.item_count || platform?.items || 0);
-    const netRevenue = Number(platform?.net_revenue || platform?.sales || 0);
-    const grossRevenue = Number(platform?.gross_revenue || 0);
+    const normalizedPlatform = normalizePlatformMetricRow(platform);
+    const key = normalizedPlatform.key;
+    const label = normalizedPlatform.label;
+    const quantity = normalizedPlatform.quantity;
+    const netRevenue = normalizedPlatform.net_revenue;
+    const grossRevenue = normalizedPlatform.gross_revenue;
     return {
       key: `platform-total-${key}`,
       label: `${label} total`,
@@ -905,8 +949,8 @@ const overviewProductRowsFromPlatformFallback = (products, platforms, months) =>
 
   const monthPlatformTotals = {};
   (Array.isArray(months) ? months : []).forEach((month) => {
-    Object.entries(month?.platforms || {}).forEach(([platformKey, platformRow]) => {
-      const key = String(platformKey || platformRow?.key || 'unknown').trim().toLowerCase() || 'unknown';
+    Object.entries(normalizePlatformMap(month?.platforms)).forEach(([platformKey, platformRow]) => {
+      const key = normalizePlatformKey(platformKey || platformRow?.key);
       monthPlatformTotals[key] = monthPlatformTotals[key] || {
         key,
         label: platformRow?.label || toTitleCase(key),
@@ -914,8 +958,8 @@ const overviewProductRowsFromPlatformFallback = (products, platforms, months) =>
         net_revenue: 0,
         gross_revenue: 0
       };
-      monthPlatformTotals[key].quantity += Number(platformRow?.item_count || platformRow?.quantity || 0);
-      monthPlatformTotals[key].net_revenue += Number(platformRow?.net_revenue || platformRow?.sales || 0);
+      monthPlatformTotals[key].quantity += Number(platformRow?.quantity || 0);
+      monthPlatformTotals[key].net_revenue += Number(platformRow?.net_revenue || 0);
       monthPlatformTotals[key].gross_revenue += Number(platformRow?.gross_revenue || 0);
     });
   });
@@ -962,7 +1006,8 @@ const platformSeriesFromProductRows = (rows, fallbackPlatforms) => {
     });
   });
   (Array.isArray(fallbackPlatforms) ? fallbackPlatforms : []).forEach((platform) => {
-    addPlatform(platform?.key, platform?.label);
+    const normalizedPlatform = normalizePlatformMetricRow(platform);
+    addPlatform(normalizedPlatform.key, normalizedPlatform.label);
   });
   if (!keyed.size) {
     [
@@ -1079,6 +1124,13 @@ const drawStackedBarChart = (canvas, items, config) => {
   const padding = { top: 22, right: 18, bottom: 66, left: 58, ...(config.padding || {}) };
   const chartItems = sourceItems
     .filter((item) => Number(item?.[metric] || 0) > 0 || Object.values(item?.[groupKey] || {}).some((row) => Number(row?.[metric] || 0) > 0))
+    .sort((left, right) => {
+      const leftRows = Object.values(left?.[groupKey] || {});
+      const rightRows = Object.values(right?.[groupKey] || {});
+      const leftTotal = leftRows.length ? leftRows.reduce((sum, row) => sum + Number(row?.[metric] || 0), 0) : Number(left?.[metric] || 0);
+      const rightTotal = rightRows.length ? rightRows.reduce((sum, row) => sum + Number(row?.[metric] || 0), 0) : Number(right?.[metric] || 0);
+      return rightTotal - leftTotal;
+    })
     .slice(0, config.limit || 8);
   const series = (Array.isArray(config.series) ? config.series : []).filter((seriesItem) => (
     chartItems.some((item) => Number(item[groupKey]?.[seriesItem.key]?.[metric] || 0) > 0)
