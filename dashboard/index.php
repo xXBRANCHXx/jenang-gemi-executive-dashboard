@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isAuthenticated = jg_admin_is_authenticated();
-$dashboardBuildVersion = 'exec3.48.5';
+$dashboardBuildVersion = 'exec3.48.6';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 ?>
@@ -134,7 +134,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                             <div>
                                 <div class="admin-chart-title-row">
                                     <h3 data-overview-trend-title>Rp sales by month</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About Rp sales by month" data-chart-info="Tracks the selected sales metric by month for the chosen year. Rp shows marketplace sales after marketplace fees when that data is available, Gross shows sales before fees, Orders counts order volume, and AOV divides Rp sales by orders.">i</button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About Rp sales by month" data-chart-info="Tracks the selected sales metric by month for the chosen year. Rp shows marketplace sales after marketplace fees when that data is available, Gross shows sales before fees, Orders counts order volume, and AOV divides Rp sales by orders."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                                 <span class="admin-panel-meta" data-overview-trend-meta>Selected year</span>
                             </div>
@@ -155,7 +155,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                             <div>
                                 <div class="admin-chart-title-row">
                                     <h3>Order volume</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About order volume" data-chart-info="Shows monthly order activity for the selected year. Orders counts completed marketplace orders, Items counts units sold, and AOV shows average Rp sales per order. Axis labels stay hidden so the chart stays clean, with exact month and value on hover.">i</button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About order volume" data-chart-info="Shows monthly order activity for the selected year. Orders counts completed marketplace orders, Items counts units sold, and AOV shows average Rp sales per order. Axis labels stay hidden so the chart stays clean, with exact month and value on hover."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                                 <span class="admin-panel-meta">Live from stored order facts</span>
                             </div>
@@ -175,7 +175,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                             <div>
                                 <div class="admin-chart-title-row">
                                     <h3>Current totals</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About current totals" data-chart-info="Summarizes the selected year's marketplace sales so far. Rp sales is the fee-adjusted marketplace sales value when available, Orders is order count, AOV is Rp sales divided by orders, and Best month highlights the strongest month in the year.">i</button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About current totals" data-chart-info="Summarizes the selected year's marketplace sales so far. Rp sales is the fee-adjusted marketplace sales value when available, Orders is order count, AOV is Rp sales divided by orders, and Best month highlights the strongest month in the year."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                                 <span class="admin-panel-meta">Year to date</span>
                             </div>
@@ -193,7 +193,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                             <div>
                                 <div class="admin-chart-title-row">
                                     <h3>Product quantity by platform</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About product quantity by platform" data-chart-info="Stacks top sold products by marketplace channel using stored order item facts. Qty counts units sold, while Rp switches the stack to marketplace sales value for those same products and channels.">i</button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About product quantity by platform" data-chart-info="Stacks top sold products by marketplace channel using stored order item facts. Qty counts units sold, while Rp switches the stack to marketplace sales value for those same products and channels."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                                 <span class="admin-panel-meta">Stacked top products by units sold</span>
                             </div>
@@ -212,7 +212,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                             <div>
                                 <div class="admin-chart-title-row">
                                     <h3>Syrup flavor share</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About syrup flavor share" data-chart-info="Uses the SKU DB to include syrup products only, then labels each slice with the SKU DB flavor name. New syrup flavors are picked up automatically after they are added to the SKU DB and appear in sold marketplace items.">i</button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About syrup flavor share" data-chart-info="Uses the SKU DB to include syrup products only, then labels each slice with the SKU DB flavor name. New syrup flavors are picked up automatically after they are added to the SKU DB and appear in sold marketplace items."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                                 <span class="admin-panel-meta">Most popular syrup flavors</span>
                             </div>
@@ -365,7 +365,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                 <span class="admin-panel-kicker">Trend</span>
                                 <div class="admin-chart-title-row">
                                     <h3 data-home-trend-title>Views over time</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About campaign trend" data-chart-info="Tracks campaign landing-page activity over the selected timeframe. The metric buttons switch between page views, Order Now clicks, and Checkout clicks, while the Bubur and Jamu controls show or hide each campaign line.">i</button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About campaign trend" data-chart-info="Tracks campaign landing-page activity over the selected timeframe. The metric buttons switch between page views, Order Now clicks, and Checkout clicks, while the Bubur and Jamu controls show or hide each campaign line."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                             </div>
                             <span class="admin-panel-meta" data-home-trend-meta>Live over selected timeframe</span>
@@ -385,7 +385,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                 <span class="admin-panel-kicker">Time of Day</span>
                                 <div class="admin-chart-title-row">
                                     <h3>Activity by hour</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About activity by hour" data-chart-info="Groups selected campaign activity by hour of day so peak engagement windows are easy to spot. Hovering a bar shows the exact hour and metric value.">i</button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About activity by hour" data-chart-info="Groups selected campaign activity by hour of day so peak engagement windows are easy to spot. Hovering a bar shows the exact hour and metric value."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                             </div>
                             <span class="admin-panel-meta">Peak engagement hours</span>
@@ -401,7 +401,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                 <span class="admin-panel-kicker">Source Mix</span>
                                 <div class="admin-chart-title-row">
                                     <h3>Views by source</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About views by source" data-chart-info="Breaks campaign visits down by detected traffic source such as YouTube, Facebook, Instagram, TikTok, Google, Direct, and Unknown. The chart uses the analytics service source fields from tracked browser events.">i</button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About views by source" data-chart-info="Breaks campaign visits down by detected traffic source such as YouTube, Facebook, Instagram, TikTok, Google, Direct, and Unknown. The chart uses the analytics service source fields from tracked browser events."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                             </div>
                             <span class="admin-panel-meta">Live from the dashboard analytics service</span>
@@ -418,7 +418,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                 <span class="admin-panel-kicker">URL Performance</span>
                                 <div class="admin-chart-title-row">
                                     <h3>Checkout by landing URL</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About checkout by landing URL" data-chart-info="Ranks landing-page URLs by checkout intent for the selected timeframe. It uses tracked campaign events and shows which page paths are driving the strongest WhatsApp checkout clicks.">i</button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About checkout by landing URL" data-chart-info="Ranks landing-page URLs by checkout intent for the selected timeframe. It uses tracked campaign events and shows which page paths are driving the strongest WhatsApp checkout clicks."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                             </div>
                             <span class="admin-panel-meta">Conversion intent by page path</span>
@@ -562,7 +562,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                 <span class="admin-panel-kicker">Trend</span>
                                 <div class="admin-chart-title-row">
                                     <h3 data-website-trend-title>Website visitors over time</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About website visitors over time" data-chart-info="Tracks official website traffic over the selected timeframe. Visitors counts unique tracked browser sessions, Page Views counts page loads, and saved excluded IPs are removed before the chart is drawn.">i</button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About website visitors over time" data-chart-info="Tracks official website traffic over the selected timeframe. Visitors counts unique tracked browser sessions, Page Views counts page loads, and saved excluded IPs are removed before the chart is drawn."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                             </div>
                             <span class="admin-panel-meta" data-website-trend-meta>Official website only</span>
@@ -578,7 +578,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                 <span class="admin-panel-kicker">Regions</span>
                                 <div class="admin-chart-title-row">
                                     <h3>Visitors by region</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About visitors by region" data-chart-info="Shows the strongest visitor regions for the selected website timeframe after excluded IPs are filtered out. Region names come from the website analytics location data attached to tracked browser sessions.">i</button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About visitors by region" data-chart-info="Shows the strongest visitor regions for the selected website timeframe after excluded IPs are filtered out. Region names come from the website analytics location data attached to tracked browser sessions."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                             </div>
                             <span class="admin-panel-meta">Excluded IPs already removed</span>
@@ -594,7 +594,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                 <span class="admin-panel-kicker">Top Pages</span>
                                 <div class="admin-chart-title-row">
                                     <h3>Visitors by page</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About visitors by page" data-chart-info="Ranks official website pages by selected visitor metric. It only uses browser-tracked website visits, so webhook, API, and excluded IP traffic stay out of the chart.">i</button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About visitors by page" data-chart-info="Ranks official website pages by selected visitor metric. It only uses browser-tracked website visits, so webhook, API, and excluded IP traffic stay out of the chart."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                             </div>
                             <span class="admin-panel-meta">Main site pages only</span>

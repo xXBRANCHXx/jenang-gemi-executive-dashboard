@@ -325,7 +325,7 @@ const formatPageLabel = (pagePath = '') => {
 const normalizeSourceKey = (value) => String(value || '').trim().toLowerCase();
 
 const HIDDEN_HOME_SOURCES = new Set(['internal', 'direct']);
-const OVERVIEW_CACHE_PREFIX = 'jg-overview-summary-v2';
+const OVERVIEW_CACHE_PREFIX = 'jg-overview-summary-v3';
 
 const shouldHideSourceMetric = (value) => HIDDEN_HOME_SOURCES.has(normalizeSourceKey(value));
 
