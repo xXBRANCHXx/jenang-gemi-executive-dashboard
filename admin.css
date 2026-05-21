@@ -923,6 +923,62 @@ button, input {
   font-size: 1.85rem;
 }
 
+.admin-chart-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.admin-chart-title-row h3 {
+  min-width: 0;
+}
+
+.admin-chart-info-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  border-radius: 999px;
+  border: 1px solid var(--admin-border);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.16s ease, border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+}
+
+.admin-chart-info-btn:hover,
+.admin-chart-info-btn:focus-visible,
+.admin-chart-info-btn.is-active {
+  border-color: rgba(157, 255, 0, 0.55);
+  background: rgba(157, 255, 0, 0.12);
+  color: var(--admin-text);
+  transform: translateY(-1px);
+}
+
+.admin-chart-info-popover {
+  position: fixed;
+  z-index: 120;
+  width: min(320px, calc(100vw - 28px));
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--admin-border);
+  background: #0d131a;
+  color: var(--admin-text);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.36);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+:root[data-admin-theme='light'] .admin-chart-info-popover {
+  background: #ffffff;
+}
+
 .admin-chart-surface {
   position: relative;
   padding: 12px;

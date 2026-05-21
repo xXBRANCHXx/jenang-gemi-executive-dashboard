@@ -33,8 +33,8 @@ const HOME_METRIC_UNITS = {
 };
 
 const OVERVIEW_METRIC_LABELS = {
-  sales: 'Net revenue by month',
-  net_revenue: 'Net revenue by month',
+  sales: 'Rp sales by month',
+  net_revenue: 'Rp sales by month',
   gross_revenue: 'Gross revenue by month',
   marketplace_fees: 'Marketplace fees by month',
   orders: 'Total orders by month',
@@ -414,6 +414,84 @@ const chartTooltipState = new WeakMap();
 const chartBindingState = new WeakSet();
 const chartRendererState = new WeakMap();
 const chartActivePointState = new WeakMap();
+let activeChartInfoButton = null;
+let activeChartInfoPopover = null;
+
+const closeChartInfoPopover = () => {
+  if (activeChartInfoButton) {
+    activeChartInfoButton.classList.remove('is-active');
+    activeChartInfoButton.setAttribute('aria-expanded', 'false');
+  }
+  activeChartInfoPopover?.remove();
+  activeChartInfoButton = null;
+  activeChartInfoPopover = null;
+};
+
+const positionChartInfoPopover = () => {
+  if (!activeChartInfoButton || !activeChartInfoPopover) return;
+
+  const buttonRect = activeChartInfoButton.getBoundingClientRect();
+  const popoverRect = activeChartInfoPopover.getBoundingClientRect();
+  const margin = 14;
+  const top = Math.min(
+    window.innerHeight - popoverRect.height - margin,
+    buttonRect.bottom + 10
+  );
+  const left = Math.min(
+    window.innerWidth - popoverRect.width - margin,
+    Math.max(margin, buttonRect.left - popoverRect.width + buttonRect.width)
+  );
+
+  activeChartInfoPopover.style.top = `${Math.max(margin, top)}px`;
+  activeChartInfoPopover.style.left = `${Math.max(margin, left)}px`;
+};
+
+const openChartInfoPopover = (button) => {
+  const text = button?.getAttribute('data-chart-info') || '';
+  if (!text) return;
+
+  closeChartInfoPopover();
+  const popover = document.createElement('div');
+  popover.className = 'admin-chart-info-popover';
+  popover.setAttribute('role', 'dialog');
+  popover.textContent = text;
+  document.body.appendChild(popover);
+
+  activeChartInfoButton = button;
+  activeChartInfoPopover = popover;
+  button.classList.add('is-active');
+  button.setAttribute('aria-expanded', 'true');
+  positionChartInfoPopover();
+};
+
+const bindChartInfoPopovers = () => {
+  document.querySelectorAll('[data-chart-info]').forEach((button) => {
+    button.setAttribute('aria-haspopup', 'dialog');
+    button.setAttribute('aria-expanded', 'false');
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (activeChartInfoButton === button) {
+        closeChartInfoPopover();
+        return;
+      }
+      openChartInfoPopover(button);
+    });
+  });
+
+  document.addEventListener('click', (event) => {
+    if (!activeChartInfoPopover) return;
+    if (activeChartInfoPopover.contains(event.target) || activeChartInfoButton?.contains(event.target)) return;
+    closeChartInfoPopover();
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeChartInfoPopover();
+  });
+
+  window.addEventListener('resize', positionChartInfoPopover);
+  window.addEventListener('scroll', positionChartInfoPopover, true);
+};
 
 const ensureChartTooltip = (canvas) => {
   if (!(canvas instanceof HTMLCanvasElement)) return null;
@@ -745,13 +823,13 @@ const buildOverviewTooltipLines = (item, focusMetric = 'sales') => {
         ? 'Gross revenue'
         : focusMetric === 'marketplace_fees'
           ? 'Marketplace fees'
-          : 'Revenue';
+          : 'Rp sales';
   const rows = [
     [focusLabel, formatFullMetricValue(focusMetric, Number(item[focusMetric] || net), OVERVIEW_METRIC_UNITS), 'is-primary'],
     ['Order QTY', formatFullMetricValue('orders', orders, OVERVIEW_METRIC_UNITS), ''],
     ['Items sold', formatFullMetricValue('item_count', items, OVERVIEW_METRIC_UNITS), ''],
     ['Gross revenue', formatFullMetricValue('gross_revenue', gross, OVERVIEW_METRIC_UNITS), ''],
-    ['GP after fees', formatFullMetricValue('net_revenue', net, OVERVIEW_METRIC_UNITS), ''],
+    ['Rp after fees', formatFullMetricValue('net_revenue', net, OVERVIEW_METRIC_UNITS), ''],
     ['Marketplace fees', formatFullMetricValue('marketplace_fees', fees, OVERVIEW_METRIC_UNITS), ''],
     ['AOV', formatFullMetricValue('average_order_value', aov, OVERVIEW_METRIC_UNITS), '']
   ];
@@ -998,6 +1076,8 @@ const drawPieChart = (canvas, items, config) => {
 document.addEventListener('DOMContentLoaded', () => {
   const root = document.querySelector('[data-admin-dashboard]');
   if (!root) return;
+
+  bindChartInfoPopovers();
 
   const themeStorageKey = 'jg-admin-theme';
   const themeCookieMaxAge = 60 * 60 * 24 * 365 * 2;
@@ -1591,7 +1671,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (overviewRefs.endpointLabel) overviewRefs.endpointLabel.textContent = salesEndpoint;
     if (overviewRefs.trendTitle) overviewRefs.trendTitle.textContent = OVERVIEW_METRIC_LABELS[state.overview.metric];
     if (overviewRefs.trendMeta) {
-      overviewRefs.trendMeta.textContent = `${state.overview.year} • Net ${formatCellCurrency(totals.net_revenue || totals.sales || 0)} • Gross ${formatCellCurrency(totals.gross_revenue || 0)}`;
+      overviewRefs.trendMeta.textContent = `${state.overview.year} • Sales ${formatCellCurrency(totals.net_revenue || totals.sales || 0)} • Gross ${formatCellCurrency(totals.gross_revenue || 0)}`;
     }
 
     if (overviewRefs.tableBody) {
