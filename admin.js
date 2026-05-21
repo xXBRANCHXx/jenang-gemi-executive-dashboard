@@ -1122,6 +1122,7 @@ const drawStackedBarChart = (canvas, items, config) => {
   const groupKey = config.groupKey || 'platforms';
   const sourceItems = Array.isArray(items) ? items : [];
   const padding = { top: 22, right: 18, bottom: 66, left: 58, ...(config.padding || {}) };
+  const palette = getThemePalette();
   const chartItems = sourceItems
     .filter((item) => Number(item?.[metric] || 0) > 0 || Object.values(item?.[groupKey] || {}).some((row) => Number(row?.[metric] || 0) > 0))
     .sort((left, right) => {
@@ -1138,7 +1139,7 @@ const drawStackedBarChart = (canvas, items, config) => {
   const totals = chartItems.map((item) => series.reduce((sum, seriesItem) => sum + Number(item[groupKey]?.[seriesItem.key]?.[metric] || 0), 0));
   const maxValue = Math.max(...totals, 1);
   if (config.showGrid !== false) {
-    drawGrid(ctx, width, height, padding, maxValue, metric, config.unitsMap || OVERVIEW_METRIC_UNITS);
+    drawGrid(ctx, width, height, padding, maxValue, metric, config.unitsMap || OVERVIEW_METRIC_UNITS, palette);
   }
 
   const chartWidth = width - padding.left - padding.right;
