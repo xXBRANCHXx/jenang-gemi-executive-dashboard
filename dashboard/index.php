@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isAuthenticated = jg_admin_is_authenticated();
-$dashboardBuildVersion = 'exec3.48.2';
+$dashboardBuildVersion = 'exec3.48.3';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 ?>
@@ -161,24 +161,6 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                         </div>
                         <div class="admin-chart-surface">
                             <canvas class="admin-chart-canvas" data-overview-orders-chart width="880" height="280"></canvas>
-                        </div>
-                    </article>
-
-                    <article class="admin-panel admin-panel-chart">
-                        <div class="admin-panel-head">
-                            <div>
-                                <h3>Marketplace mix by year</h3>
-                                <span class="admin-panel-meta">Stacked by store and channel</span>
-                            </div>
-                            <div class="admin-panel-inline-toggles">
-                                <button type="button" class="admin-toggle-pill is-active" data-overview-platform-metric="sales">Net</button>
-                                <button type="button" class="admin-toggle-pill" data-overview-platform-metric="gross_revenue">Gross</button>
-                                <button type="button" class="admin-toggle-pill" data-overview-platform-metric="orders">Orders</button>
-                                <button type="button" class="admin-toggle-pill" data-overview-platform-metric="marketplace_fees">Fees</button>
-                            </div>
-                        </div>
-                        <div class="admin-chart-surface">
-                            <canvas class="admin-chart-canvas" data-overview-platform-chart width="880" height="280"></canvas>
                         </div>
                     </article>
 

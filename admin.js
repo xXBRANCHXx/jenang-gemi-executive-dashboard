@@ -60,18 +60,6 @@ const OVERVIEW_PLATFORM_COLORS = {
   unknown: '#7a879a'
 };
 
-const OVERVIEW_ACCOUNT_COLORS = {
-  'jenang-gemi-shopee': '#ff8f1f',
-  'zero-shopee': '#ffb347',
-  'zfit-shopee': '#ffd166',
-  'jenang-gemi-tiktok': '#22d3ee',
-  'zero-tiktok': '#38bdf8',
-  'zfit-tiktok': '#67e8f9',
-  'jenang-gemi-tokopedia': '#5bff8a',
-  'zero-tokopedia': '#8cffb0',
-  'zfit-tokopedia': '#c6f6d5'
-};
-
 const OVERVIEW_PRODUCT_COLORS = ['#9dff00', '#22d3ee', '#ff8f1f', '#ff4ecd', '#8b5cf6', '#f8e16c', '#67f8d4', '#ff6b6b'];
 
 const HOME_TREND_SERIES = {
@@ -1045,7 +1033,6 @@ document.addEventListener('DOMContentLoaded', () => {
       year: new Date().getFullYear(),
       metric: 'sales',
       volumeMetric: 'orders',
-      platformMetric: 'sales',
       productMetric: 'quantity',
       flavorMetric: 'quantity',
       data: null,
@@ -1104,7 +1091,6 @@ document.addEventListener('DOMContentLoaded', () => {
     endpointLabel: document.querySelector('[data-overview-endpoint-label]'),
     trendCanvas: document.querySelector('[data-overview-trend-chart]'),
     ordersCanvas: document.querySelector('[data-overview-orders-chart]'),
-    platformCanvas: document.querySelector('[data-overview-platform-chart]'),
     productStackCanvas: document.querySelector('[data-overview-product-stack-chart]'),
     syrupFlavorCanvas: document.querySelector('[data-overview-syrup-flavor-chart]'),
     trendTitle: document.querySelector('[data-overview-trend-title]'),
@@ -1115,7 +1101,6 @@ document.addEventListener('DOMContentLoaded', () => {
     yearControls: document.querySelector('[data-overview-year-controls]'),
     metricButtons: document.querySelectorAll('[data-overview-metric]'),
     volumeMetricButtons: document.querySelectorAll('[data-overview-volume-metric]'),
-    platformMetricButtons: document.querySelectorAll('[data-overview-platform-metric]'),
     productMetricButtons: document.querySelectorAll('[data-overview-product-metric]'),
     flavorMetricButtons: document.querySelectorAll('[data-overview-flavor-metric]')
   };
@@ -1569,7 +1554,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const totals = data.totals || {};
     const months = Array.isArray(data.months) ? data.months : [];
     const platforms = Array.isArray(data.platforms) ? data.platforms : [];
-    const accounts = Array.isArray(data.accounts) ? data.accounts : [];
     const products = data.products || {};
     const productRows = Array.isArray(products.by_product) ? products.by_product : [];
     const syrupFlavorRows = Array.isArray(products.syrup_flavors) ? products.syrup_flavors : [];
@@ -1637,9 +1621,6 @@ document.addEventListener('DOMContentLoaded', () => {
     overviewRefs.volumeMetricButtons.forEach((button) => {
       button.classList.toggle('is-active', button.dataset.overviewVolumeMetric === state.overview.volumeMetric);
     });
-    overviewRefs.platformMetricButtons.forEach((button) => {
-      button.classList.toggle('is-active', button.dataset.overviewPlatformMetric === state.overview.platformMetric);
-    });
     overviewRefs.productMetricButtons.forEach((button) => {
       button.classList.toggle('is-active', button.dataset.overviewProductMetric === state.overview.productMetric);
     });
@@ -1661,55 +1642,6 @@ document.addEventListener('DOMContentLoaded', () => {
       showValueBadges: false,
       padding: { top: 12, right: 16, bottom: 12, left: 16 },
       limit: 12
-    }));
-    const yearlyAccounts = accounts.length
-      ? accounts
-      : Object.values(monthlyRows.reduce((accumulator, month) => {
-        Object.entries(month.accounts || {}).forEach(([key, account]) => {
-          const current = accumulator[key] || { key, label: account.label || toTitleCase(key), platform: account.platform || '', orders: 0 };
-          current.orders += Number(account.orders || 0);
-          current.sales = Number(current.sales || 0) + Number(account.sales || 0);
-          current.net_revenue = Number(current.net_revenue || 0) + Number(account.net_revenue || account.sales || 0);
-          current.gross_revenue = Number(current.gross_revenue || 0) + Number(account.gross_revenue || 0);
-          current.marketplace_fees = Number(current.marketplace_fees || 0) + Number(account.marketplace_fees || 0);
-          current.item_count = Number(current.item_count || 0) + Number(account.item_count || 0);
-          accumulator[key] = current;
-        });
-        return accumulator;
-      }, {}));
-    const yearAccountMap = yearlyAccounts.reduce((accumulator, account) => {
-      const key = String(account.key || '').toLowerCase();
-      if (key) accumulator[key] = account;
-      return accumulator;
-    }, {});
-    const marketplaceMixRows = [{
-      label: String(state.overview.year),
-      accounts: yearAccountMap
-    }];
-    const accountSeries = yearlyAccounts
-      .filter((account) => Number(account.orders || 0) > 0 || Number(account.sales || account.net_revenue || 0) > 0)
-      .map((account, index) => {
-        const key = String(account.key || '').toLowerCase();
-        const platformKey = String(account.platform || '').toLowerCase();
-        return {
-          key,
-          label: account.label || toTitleCase(key),
-          color: OVERVIEW_ACCOUNT_COLORS[key] || OVERVIEW_PLATFORM_COLORS[platformKey] || OVERVIEW_PRODUCT_COLORS[index % OVERVIEW_PRODUCT_COLORS.length]
-        };
-      });
-    drawChartSafely(overviewRefs.platformCanvas, () => drawStackedBarChart(overviewRefs.platformCanvas, marketplaceMixRows, {
-      series: accountSeries,
-      groupKey: 'accounts',
-      metric: state.overview.platformMetric,
-      unitsMap: OVERVIEW_METRIC_UNITS,
-      label: (item) => item.label || '-',
-      tooltipTitle: (item) => item.label || 'Year',
-      padding: { top: 16, right: 18, bottom: 34, left: 74 },
-      labelFont: '700 11px "Plus Jakarta Sans", sans-serif',
-      labelLength: 8,
-      barWidthRatio: 0.34,
-      limit: 1,
-      emptyMessage: 'No marketplace mix data yet'
     }));
     const platformSeries = (platforms.length ? platforms : [
       { key: 'shopee', label: 'Shopee' },
@@ -2160,16 +2092,6 @@ document.addEventListener('DOMContentLoaded', () => {
     button.addEventListener('click', () => {
       state.overview.volumeMetric = button.dataset.overviewVolumeMetric || 'orders';
       overviewRefs.volumeMetricButtons.forEach((candidate) => {
-        candidate.classList.toggle('is-active', candidate === button);
-      });
-      if (state.overview.data) renderOverview(state.overview.data);
-    });
-  });
-
-  overviewRefs.platformMetricButtons.forEach((button) => {
-    button.addEventListener('click', () => {
-      state.overview.platformMetric = button.dataset.overviewPlatformMetric || 'sales';
-      overviewRefs.platformMetricButtons.forEach((candidate) => {
         candidate.classList.toggle('is-active', candidate === button);
       });
       if (state.overview.data) renderOverview(state.overview.data);
