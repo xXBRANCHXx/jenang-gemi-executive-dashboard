@@ -163,15 +163,18 @@ function jg_sales_ratio(int $part, int $total): float
 
 /**
  * @param array<int, int> $monthlyCogs
+ * @param array<int, int> $monthlyFees
  */
-function jg_sales_enrich_totals_with_profit(array &$summary, int $totalCogs, int $totalRevenue, int $totalItems, array $monthlyCogs = []): void
+function jg_sales_enrich_totals_with_profit(array &$summary, int $totalCogs, int $totalRevenue, int $totalItems, array $monthlyCogs = [], array $monthlyFees = []): void
 {
     $totals = is_array($summary['totals'] ?? null) ? $summary['totals'] : [];
     if ($monthlyCogs !== []) {
         $totalCogs = array_sum($monthlyCogs);
     }
     $revenue = jg_sales_seller_received($totals, $totalRevenue);
-    $fees = (int) round((float) ($totals['marketplace_fees'] ?? 0));
+    $fees = $monthlyFees !== []
+        ? array_sum($monthlyFees)
+        : (int) round((float) ($totals['marketplace_fees'] ?? 0));
     $cogs = $totalCogs;
     $totals['revenue'] = $revenue;
     $totals['marketplace_fees'] = $fees;
@@ -192,12 +195,15 @@ function jg_sales_enrich_totals_with_profit(array &$summary, int $totalCogs, int
         $monthCogs = $monthlyCogs !== []
             ? (int) ($monthlyCogs[$monthNumber] ?? 0)
             : (int) round($totalCogs * jg_sales_ratio($monthItems, $totalItems));
+        $monthFees = $monthlyFees !== []
+            ? (int) ($monthlyFees[$monthNumber] ?? 0)
+            : (int) round((float) ($month['marketplace_fees'] ?? 0));
         $allocatedCogs += $monthCogs;
         if ($monthItems > 0) {
             $remainingMonthIndexes[] = $index;
         }
         $month['revenue'] = $monthRevenue;
-        $month['marketplace_fees'] = (int) round((float) ($month['marketplace_fees'] ?? 0));
+        $month['marketplace_fees'] = $monthFees;
         $month['cogs'] = $monthCogs;
         $month['gross_profit'] = $monthRevenue - $monthCogs;
         $month['cogs_source'] = $monthlyCogs !== [] ? 'product_monthly_rollups' : 'product_total_allocation';
@@ -216,16 +222,17 @@ function jg_sales_enrich_totals_with_profit(array &$summary, int $totalCogs, int
 /**
  * @param array<string, mixed> $products
  * @param array<string, array{sku:string, tag:string, product_name:string, flavor_name:string, cogs:float, is_syrup:bool}> $lookup
- * @return array<int, int>
+ * @return array{cogs: array<int, int>, fees: array<int, int>}
  */
 function jg_sales_enrich_monthly_product_cogs(array &$products, array $lookup): array
 {
     $rows = is_array($products['by_month'] ?? null) ? $products['by_month'] : [];
     if ($rows === []) {
-        return [];
+        return ['cogs' => [], 'fees' => []];
     }
 
     $monthlyCogs = [];
+    $monthlyFees = [];
     $enrichedRows = [];
     foreach ($rows as $row) {
         if (!is_array($row)) {
@@ -239,18 +246,22 @@ function jg_sales_enrich_monthly_product_cogs(array &$products, array $lookup): 
         $skuRecord = $lookup[$sku] ?? null;
         $quantity = (int) ($row['quantity'] ?? 0);
         $revenue = jg_sales_seller_received($row);
+        $grossRevenue = (int) round((float) ($row['gross_revenue'] ?? $revenue));
+        $fees = max(0, $grossRevenue - $revenue);
         $unitCogs = (float) ($skuRecord['cogs'] ?? 0);
         $rowCogs = (int) round($unitCogs * $quantity);
         $row['unit_cogs'] = $unitCogs;
         $row['cogs'] = $rowCogs;
         $row['revenue'] = $revenue;
+        $row['marketplace_fees'] = $fees;
         $row['gross_profit'] = $revenue - $rowCogs;
         $monthlyCogs[$month] = (int) ($monthlyCogs[$month] ?? 0) + $rowCogs;
+        $monthlyFees[$month] = (int) ($monthlyFees[$month] ?? 0) + $fees;
         $enrichedRows[] = $row;
     }
 
     $products['by_month'] = $enrichedRows;
-    return $monthlyCogs;
+    return ['cogs' => $monthlyCogs, 'fees' => $monthlyFees];
 }
 
 /**
@@ -266,7 +277,7 @@ function jg_sales_enrich_with_sku_db(array $summary): array
 
     $products = is_array($summary['products'] ?? null) ? $summary['products'] : [];
     $rows = is_array($products['by_product'] ?? null) ? $products['by_product'] : [];
-    $monthlyCogs = jg_sales_enrich_monthly_product_cogs($products, $lookup);
+    $monthlyProductMetrics = jg_sales_enrich_monthly_product_cogs($products, $lookup);
     $flavors = [];
     $enrichedRows = [];
     $totalCogs = 0;
@@ -343,7 +354,14 @@ function jg_sales_enrich_with_sku_db(array $summary): array
     $products['syrup_flavors'] = array_slice($flavorRows, 0, 16);
     $products['syrup_flavor_source'] = 'sku_db';
     $summary['products'] = $products;
-    jg_sales_enrich_totals_with_profit($summary, $totalCogs, $totalRevenue, $totalItems, $monthlyCogs);
+    jg_sales_enrich_totals_with_profit(
+        $summary,
+        $totalCogs,
+        $totalRevenue,
+        $totalItems,
+        $monthlyProductMetrics['cogs'],
+        $monthlyProductMetrics['fees']
+    );
 
     return $summary;
 }
