@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isAuthenticated = jg_admin_is_authenticated();
-$dashboardBuildVersion = 'exec3.59.0';
+$dashboardBuildVersion = 'exec3.60.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 ?>
@@ -162,8 +162,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                         </div>
                     </article>
 
-                    <div class="admin-overview-totals-row">
-                    <article class="admin-panel admin-panel-chart admin-overview-current-totals">
+                    <article class="admin-panel admin-panel-chart">
                         <div class="admin-panel-head">
                             <div>
                                 <div class="admin-chart-title-row">
@@ -183,6 +182,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                         </div>
                     </article>
 
+                    <div class="admin-overview-totals-row">
                     <article class="admin-panel admin-panel-chart">
                         <div class="admin-panel-head">
                             <div>
@@ -205,7 +205,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                         <div class="admin-panel-head">
                             <div>
                                 <div class="admin-chart-title-row">
-                                    <h3 data-overview-hourly-title>Today orders by hour</h3>
+                                    <h3 data-overview-hourly-title>Today Orders QTY by hour</h3>
                                     <button type="button" class="admin-chart-info-btn" aria-label="About today by hour" data-chart-info="Shows today's marketplace order activity by hour from 0 through 23. Toggle between seller-received revenue, gross profit, units sold, and order count."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                                 <span class="admin-panel-meta" data-overview-hourly-meta>Live today, 0-23</span>

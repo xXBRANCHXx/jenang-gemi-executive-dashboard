@@ -2011,17 +2011,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const value = String(timestamp || '').trim();
     if (!value) return null;
     const normalized = value.includes('T') ? value : value.replace(' ', 'T');
-    const explicitDate = new Date(normalized.includes('+') || normalized.endsWith('Z') ? normalized : `${normalized}Z`);
-    if (Number.isNaN(explicitDate.getTime())) return null;
-    if (normalized.includes('+') || normalized.endsWith('Z')) return explicitDate;
-
-    const localDateText = new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone }).format(explicitDate);
-    const today = todayDate();
-    if (localDateText === today && explicitDate.getTime() > Date.now()) {
-      const localDate = new Date(`${normalized}+07:00`);
-      return Number.isNaN(localDate.getTime()) ? explicitDate : localDate;
-    }
-    return explicitDate;
+    const date = new Date(normalized.includes('+') || normalized.endsWith('Z') ? normalized : `${normalized}+07:00`);
+    return Number.isNaN(date.getTime()) ? null : date;
   };
 
   const localHour = (date) => Number(new Intl.DateTimeFormat('en-GB', {
