@@ -6326,6 +6326,19 @@ body::after {
   height: 336px;
 }
 
+.admin-app.admin-app-suite .admin-overview-totals-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(260px, 360px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.admin-app.admin-app-suite .admin-overview-current-totals,
+.admin-app.admin-app-suite .admin-overview-hourly-card {
+  min-width: 0;
+}
+
 .admin-app.admin-app-suite .admin-overview-hourly-card .admin-panel-head {
   min-height: 0;
 }
@@ -6346,6 +6359,12 @@ body::after {
 
 .admin-app.admin-app-suite .admin-overview-hourly-card .admin-chart-canvas {
   height: 318px;
+}
+
+@media (max-width: 900px) {
+  .admin-app.admin-app-suite .admin-overview-totals-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 .admin-app.admin-app-suite .admin-mini-metric-list {

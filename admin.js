@@ -550,31 +550,8 @@ const chartTooltipState = new WeakMap();
 const chartBindingState = new WeakSet();
 const chartRendererState = new WeakMap();
 const chartActivePointState = new WeakMap();
-const liveChartPulseState = new Set();
-let liveChartPulseFrame = 0;
 let activeChartInfoButton = null;
 let activeChartInfoPopover = null;
-
-const scheduleLiveChartPulse = () => {
-  if (liveChartPulseFrame || document.hidden) return;
-  const tick = () => {
-    liveChartPulseFrame = -1;
-    liveChartPulseState.forEach((canvas) => {
-      if (!canvas.isConnected) {
-        liveChartPulseState.delete(canvas);
-        return;
-      }
-      const renderChart = chartRendererState.get(canvas);
-      if (renderChart) renderChart();
-    });
-    if (liveChartPulseState.size && !document.hidden) {
-      liveChartPulseFrame = window.requestAnimationFrame(tick);
-    } else {
-      liveChartPulseFrame = 0;
-    }
-  };
-  liveChartPulseFrame = window.requestAnimationFrame(tick);
-};
 
 const closeChartInfoPopover = () => {
   if (activeChartInfoButton) {
@@ -870,13 +847,6 @@ const drawLineChart = (canvas, items, metric, unitsMap, options = {}) => {
   const palette = getThemePalette();
   const points = [];
   const activeHover = chartActivePointState.get(canvas) || null;
-  const liveKey = options.liveKey || '';
-  if (liveKey) {
-    liveChartPulseState.add(canvas);
-    scheduleLiveChartPulse();
-  } else {
-    liveChartPulseState.delete(canvas);
-  }
 
   bindChartHover(canvas);
 
@@ -888,7 +858,7 @@ const drawLineChart = (canvas, items, metric, unitsMap, options = {}) => {
   }
 
   const lineColor = options.lineColor || SOURCE_COLORS.instagram;
-  const fillRgb = options.fillRgb || options.liveRgb || hexToRgbParts(lineColor);
+  const fillRgb = options.fillRgb || hexToRgbParts(lineColor);
   const fillGradient = ctx.createLinearGradient(0, padding.top, 0, padding.top + chartHeight);
   fillGradient.addColorStop(0, `rgba(${fillRgb}, 0.18)`);
   fillGradient.addColorStop(1, `rgba(${fillRgb}, 0)`);
@@ -953,27 +923,13 @@ const drawLineChart = (canvas, items, metric, unitsMap, options = {}) => {
     const x = padding.left + (chartWidth * index / Math.max(items.length - 1, 1));
     const y = padding.top + chartHeight - ((Number(item[metric] || 0) / maxValue) * (chartHeight - 6));
     const isActive = activeHover && Math.abs(activeHover.x - x) < 1;
-    const isLive = liveKey !== '' && String(item.liveKey || item.key || item.label || '') === liveKey;
-    if (isLive) {
-      const pulse = 0.5 + (0.5 * Math.sin(Date.now() / 420));
-      const rgb = options.liveRgb || '157, 255, 0';
-      ctx.beginPath();
-      ctx.fillStyle = `rgba(${rgb}, ${0.08 + pulse * 0.1})`;
-      ctx.arc(x, y, 8 + pulse * 4, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.strokeStyle = `rgba(${rgb}, ${0.42 + pulse * 0.26})`;
-      ctx.lineWidth = 2;
-      ctx.arc(x, y, 6 + pulse * 3, 0, Math.PI * 2);
-      ctx.stroke();
-    }
     ctx.fillStyle = isActive ? '#ffffff' : lineColor;
     ctx.beginPath();
-    ctx.arc(x, y, isActive || isLive ? 6 : 4, 0, Math.PI * 2);
+    ctx.arc(x, y, isActive ? 6 : 4, 0, Math.PI * 2);
     ctx.fill();
-    if (isActive || isLive) {
+    if (isActive) {
       ctx.strokeStyle = lineColor;
-      ctx.lineWidth = isLive ? 3.5 : 3;
+      ctx.lineWidth = 3;
       ctx.stroke();
     }
 
@@ -2055,8 +2011,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const value = String(timestamp || '').trim();
     if (!value) return null;
     const normalized = value.includes('T') ? value : value.replace(' ', 'T');
-    const date = new Date(normalized.includes('+') || normalized.endsWith('Z') ? normalized : `${normalized}Z`);
-    return Number.isNaN(date.getTime()) ? null : date;
+    const explicitDate = new Date(normalized.includes('+') || normalized.endsWith('Z') ? normalized : `${normalized}Z`);
+    if (Number.isNaN(explicitDate.getTime())) return null;
+    if (normalized.includes('+') || normalized.endsWith('Z')) return explicitDate;
+
+    const localDateText = new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone }).format(explicitDate);
+    const today = todayDate();
+    if (localDateText === today && explicitDate.getTime() > Date.now()) {
+      const localDate = new Date(`${normalized}+07:00`);
+      return Number.isNaN(localDate.getTime()) ? explicitDate : localDate;
+    }
+    return explicitDate;
   };
 
   const localHour = (date) => Number(new Intl.DateTimeFormat('en-GB', {
@@ -2064,14 +2029,6 @@ document.addEventListener('DOMContentLoaded', () => {
     hour: '2-digit',
     hour12: false
   }).format(date));
-  const localMonthKey = (date = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone }).format(date).slice(0, 7);
-
-  const liveTrendKey = (mode) => {
-    const now = new Date();
-    if (mode === 'hour') return String(localHour(now)).padStart(2, '0');
-    if (mode === 'day') return todayDate();
-    return localMonthKey(now);
-  };
 
   const orderMetricRow = (order) => {
     const revenue = Number(order?.revenue || 0);
@@ -2105,7 +2062,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const buckets = new Map();
     const ensureBucket = (key, label) => {
       if (!buckets.has(key)) {
-        buckets.set(key, { key, liveKey: key, label, revenue: 0, gross_profit: 0, orders: 0, item_count: 0 });
+        buckets.set(key, { key, label, revenue: 0, gross_profit: 0, orders: 0, item_count: 0 });
       }
       return buckets.get(key);
     };
@@ -2161,7 +2118,6 @@ document.addEventListener('DOMContentLoaded', () => {
       rows.push({
         hour,
         key: String(hour).padStart(2, '0'),
-        liveKey: String(hour).padStart(2, '0'),
         label: String(hour),
         revenue: 0,
         gross_profit: 0,
@@ -2218,7 +2174,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const bestMonth = totals.best_month || {};
     const monthlyRows = months.map((month, index) => ({
       key: `${state.overview.year}-${String(index + 1).padStart(2, '0')}`,
-      liveKey: `${state.overview.year}-${String(index + 1).padStart(2, '0')}`,
       label: month.label || '-',
       sales: Number(month.sales || 0),
       net_revenue: Number(month.net_revenue || month.sales || 0),
@@ -2244,7 +2199,6 @@ document.addEventListener('DOMContentLoaded', () => {
       ? aggregateOrdersForTrend(customRange.rows, customRange.startDate, customRange.endDate)
       : null;
     const trendRows = customTrend ? customTrend.rows : monthlyRows;
-    const trendMode = customTrend ? customTrend.mode : 'month';
     const trendLabel = customTrend
       ? `${customRange.startDate} to ${customRange.endDate}`
       : `${state.overview.year}`;
@@ -2326,10 +2280,7 @@ document.addEventListener('DOMContentLoaded', () => {
           ? '#ff8f1f'
           : '#ff4ecd';
 
-    drawChartSafely(overviewRefs.trendCanvas, () => drawLineChart(overviewRefs.trendCanvas, trendRows, state.overview.metric, OVERVIEW_METRIC_UNITS, {
-      liveKey: liveTrendKey(trendMode),
-      liveRgb: hexToRgbParts(SOURCE_COLORS.instagram)
-    }));
+    drawChartSafely(overviewRefs.trendCanvas, () => drawLineChart(overviewRefs.trendCanvas, trendRows, state.overview.metric, OVERVIEW_METRIC_UNITS));
     drawChartSafely(overviewRefs.ordersCanvas, () => drawBarChart(overviewRefs.ordersCanvas, monthlyRows, {
       value: (item) => item[state.overview.volumeMetric] || 0,
       label: (item) => String(item.label || '-'),
@@ -2345,12 +2296,10 @@ document.addEventListener('DOMContentLoaded', () => {
       limit: 12
     }));
     drawChartSafely(overviewRefs.hourlyCanvas, () => drawLineChart(overviewRefs.hourlyCanvas, state.overview.hourlyRows, state.overview.hourlyMetric, OVERVIEW_METRIC_UNITS, {
-      liveKey: liveTrendKey('hour'),
       padding: { top: 14, right: 16, bottom: 36, left: 68 },
       labelFont: '600 10px "Plus Jakarta Sans", sans-serif',
       maxLabels: 8,
-      lineColor: hourlyLineColor,
-      liveRgb: hexToRgbParts(hourlyLineColor)
+      lineColor: hourlyLineColor
     }));
     const accountSeries = accountSeriesFromMonthlyRows(monthlyAccountRows, accounts);
     drawChartSafely(overviewRefs.productStackCanvas, () => drawStackedBarChart(overviewRefs.productStackCanvas, monthlyAccountRows, {
@@ -3122,14 +3071,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
       closeLiveStream();
-      if (liveChartPulseFrame) {
-        if (liveChartPulseFrame > 0) window.cancelAnimationFrame(liveChartPulseFrame);
-        liveChartPulseFrame = 0;
-      }
       return;
     }
     connectLiveStream();
-    scheduleLiveChartPulse();
     loadActiveViewSafely().catch(() => {});
   });
 
