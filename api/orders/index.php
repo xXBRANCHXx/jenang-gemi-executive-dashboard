@@ -194,21 +194,31 @@ function jg_orders_ensure_opening_lots(PDO $pdo): void
 
 function jg_orders_sku_lookup(PDO $pdo): array
 {
+    $productNameMap = jg_orders_product_name_map();
     $stmt = $pdo->query(
-        'SELECT s.sku, s.tag, s.volume, s.astra, s.cogs, p.name AS product_name, f.name AS flavor_name
+        'SELECT s.sku, s.tag, s.volume, s.astra, s.cogs, u.name AS unit_name, p.name AS product_name, f.name AS flavor_name
          FROM sku_skus s
+         INNER JOIN sku_units u ON u.id = s.unit_id
          INNER JOIN sku_products p ON p.id = s.product_id
          INNER JOIN sku_flavors f ON f.id = s.flavor_id'
     );
     $lookup = [];
     foreach ($stmt->fetchAll() as $row) {
+        $sku = (string) $row['sku'];
+        $baseProductName = (string) ($row['product_name'] ?? $sku);
+        $displayFallback = jg_orders_compose_sku_product_name(
+            (float) ($row['volume'] ?? 0),
+            (string) ($row['unit_name'] ?? ''),
+            (string) ($row['flavor_name'] ?? ''),
+            $baseProductName
+        );
         $record = [
-            'sku' => (string) $row['sku'],
+            'sku' => $sku,
             'tag' => (string) $row['tag'],
             'volume' => (float) ($row['volume'] ?? 0),
             'astra' => (float) ($row['astra'] ?? $row['volume'] ?? 0),
             'cogs' => (float) ($row['cogs'] ?? 0),
-            'product_name' => (string) ($row['product_name'] ?? $row['sku']),
+            'product_name' => jg_orders_sku_product_display_name($sku, $displayFallback, $productNameMap),
             'flavor_name' => (string) ($row['flavor_name'] ?? ''),
         ];
         foreach ([$record['sku'], $record['tag']] as $key) {
@@ -219,6 +229,35 @@ function jg_orders_sku_lookup(PDO $pdo): array
         }
     }
     return $lookup;
+}
+
+function jg_orders_product_name_map(): array
+{
+    $path = dirname(__DIR__, 2) . '/sku-product-names.json';
+    if (!is_file($path)) {
+        return [];
+    }
+
+    $raw = file_get_contents($path);
+    $decoded = is_string($raw) ? json_decode($raw, true) : null;
+    return is_array($decoded) ? $decoded : [];
+}
+
+function jg_orders_sku_product_display_name(string $sku, string $fallback, array $productNameMap): string
+{
+    $mapped = trim((string) ($productNameMap[$sku] ?? ''));
+    return $mapped !== '' ? $mapped : $fallback;
+}
+
+function jg_orders_compose_sku_product_name(float $volume, string $unitName, string $flavorName, string $productName): string
+{
+    $volumeText = $volume > 0 ? rtrim(rtrim(number_format($volume, 1, '.', ''), '0'), '.') : '';
+    $unitText = trim($unitName);
+    $flavorText = trim($flavorName);
+    $baseText = trim($productName);
+    $prefix = trim($volumeText . $unitText);
+
+    return trim(implode(' ', array_filter([$prefix, $flavorText, $baseText], static fn (string $part): bool => $part !== '')));
 }
 
 function jg_orders_enrich_and_allocate(PDO $pdo, array $remoteRows, array $skuLookup): array
@@ -246,14 +285,12 @@ function jg_orders_enrich_and_allocate(PDO $pdo, array $remoteRows, array $skuLo
             }
         }
         $totalCogs = array_sum(array_map(static fn (array $allocation): float => (float) $allocation['total_cogs'], $allocations));
-        $remoteProductName = trim((string) ($remoteRow['product_name'] ?? ''));
-
         $rows[] = [
             'timestamp' => (string) ($remoteRow['timestamp'] ?? ''),
             'order_id' => (string) ($remoteRow['order_id'] ?? ''),
             'platform' => (string) ($remoteRow['platform'] ?? ''),
             'account_key' => (string) ($remoteRow['account_key'] ?? ''),
-            'product_name' => $remoteProductName !== '' ? $remoteProductName : (string) ($sku['product_name'] ?? ''),
+            'product_name' => (string) ($sku['product_name'] ?? ($remoteRow['product_name'] ?? '')),
             'marketplace_sku' => (string) ($remoteRow['sku'] ?? ''),
             'sku' => $sku['sku'] ?? '',
             'quantity' => (int) ($remoteRow['quantity'] ?? 0),
