@@ -1756,7 +1756,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const normalizeTheme = (theme) => {
     if (theme === 'light') return 'classic-white';
-    return themeOptions.includes(theme) ? theme : 'dark';
+    return themeOptions.includes(theme) ? theme : 'minimal-black';
   };
 
   const readThemeCookie = () => {
@@ -2028,7 +2028,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const value = String(timestamp || '').trim();
     if (!value) return null;
     const normalized = value.includes('T') ? value : value.replace(' ', 'T');
-    const date = new Date(normalized.includes('+') || normalized.endsWith('Z') ? normalized : `${normalized}+07:00`);
+    const date = new Date(normalized.includes('+') || normalized.endsWith('Z') ? normalized : `${normalized}Z`);
     return Number.isNaN(date.getTime()) ? null : date;
   };
 
@@ -2798,7 +2798,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
-  applyTheme(readStoredTheme() || 'dark');
+  applyTheme(readStoredTheme() || 'minimal-black');
   {
     const defaults = defaultOrderDates();
     if (ordersRefs.startDate && !ordersRefs.startDate.value) ordersRefs.startDate.value = state.orders.startDate || defaults.start;
@@ -2990,7 +2990,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.querySelectorAll('[data-theme-option]').forEach((button) => {
     button.addEventListener('click', () => {
-      applyTheme(button.dataset.themeOption || 'dark');
+      applyTheme(button.dataset.themeOption || 'minimal-black');
     });
   });
 
