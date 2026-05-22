@@ -1256,12 +1256,14 @@ try {
                 'INSERT INTO sku_stock_lots
                     (sku, po_number, received_qty_astra, remaining_qty_astra, cogs_per_astra, received_at, created_at, updated_at)
                  VALUES
-                    (:sku, :po_number, :qty, :qty, :cogs, :received_at, :created_at, :updated_at)'
+                    (:sku, :po_number, :received_qty, :remaining_qty, :cogs, :received_at, :created_at, :updated_at)'
             );
+            $lotQty = number_format((float) $quantityToAdd, 2, '.', '');
             $lotStmt->execute([
                 ':sku' => $sku,
                 ':po_number' => $poNumber,
-                ':qty' => number_format((float) $quantityToAdd, 2, '.', ''),
+                ':received_qty' => $lotQty,
+                ':remaining_qty' => $lotQty,
                 ':cogs' => number_format((float) ($skuRow['cogs'] ?? 0), 2, '.', ''),
                 ':received_at' => jg_sku_now(),
                 ':created_at' => jg_sku_now(),

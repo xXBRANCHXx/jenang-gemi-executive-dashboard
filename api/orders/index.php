@@ -176,12 +176,14 @@ function jg_orders_ensure_opening_lots(PDO $pdo): void
     $insert = $pdo->prepare(
         'INSERT INTO sku_stock_lots
             (sku, po_number, received_qty_astra, remaining_qty_astra, cogs_per_astra, received_at, created_at, updated_at)
-         VALUES (:sku, "OPENING", :qty, :qty, :cogs, :received_at, :created_at, :updated_at)'
+         VALUES (:sku, "OPENING", :received_qty, :remaining_qty, :cogs, :received_at, :created_at, :updated_at)'
     );
     foreach ($stmt->fetchAll() as $row) {
+        $qty = number_format((float) ($row['current_stock'] ?? 0), 2, '.', '');
         $insert->execute([
             ':sku' => (string) $row['sku'],
-            ':qty' => number_format((float) ($row['current_stock'] ?? 0), 2, '.', ''),
+            ':received_qty' => $qty,
+            ':remaining_qty' => $qty,
             ':cogs' => number_format((float) ($row['cogs'] ?? 0), 2, '.', ''),
             ':received_at' => (string) ($row['created_at'] ?? $now),
             ':created_at' => $now,
