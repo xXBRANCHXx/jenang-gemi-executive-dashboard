@@ -246,12 +246,14 @@ function jg_orders_enrich_and_allocate(PDO $pdo, array $remoteRows, array $skuLo
             }
         }
         $totalCogs = array_sum(array_map(static fn (array $allocation): float => (float) $allocation['total_cogs'], $allocations));
+        $remoteProductName = trim((string) ($remoteRow['product_name'] ?? ''));
+
         $rows[] = [
             'timestamp' => (string) ($remoteRow['timestamp'] ?? ''),
             'order_id' => (string) ($remoteRow['order_id'] ?? ''),
             'platform' => (string) ($remoteRow['platform'] ?? ''),
             'account_key' => (string) ($remoteRow['account_key'] ?? ''),
-            'product_name' => $sku['product_name'] ?? (string) ($remoteRow['product_name'] ?? ''),
+            'product_name' => $remoteProductName !== '' ? $remoteProductName : (string) ($sku['product_name'] ?? ''),
             'marketplace_sku' => (string) ($remoteRow['sku'] ?? ''),
             'sku' => $sku['sku'] ?? '',
             'quantity' => (int) ($remoteRow['quantity'] ?? 0),

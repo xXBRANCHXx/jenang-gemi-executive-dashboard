@@ -1162,6 +1162,113 @@ button, input {
   color: var(--admin-muted);
 }
 
+.admin-orders-table {
+  min-width: 1560px;
+  table-layout: fixed;
+}
+
+.admin-orders-table th,
+.admin-orders-table td {
+  padding: 9px 10px;
+  font-size: 10.5px;
+  line-height: 1.1;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.admin-orders-table th {
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+}
+
+.admin-orders-table th:nth-child(1),
+.admin-orders-table td:nth-child(1) {
+  width: 132px;
+}
+
+.admin-orders-table th:nth-child(2),
+.admin-orders-table td:nth-child(2) {
+  width: 130px;
+}
+
+.admin-orders-table th:nth-child(3),
+.admin-orders-table td:nth-child(3) {
+  width: 150px;
+}
+
+.admin-orders-table th:nth-child(4),
+.admin-orders-table td:nth-child(4) {
+  width: 460px;
+}
+
+.admin-orders-table th:nth-child(5),
+.admin-orders-table td:nth-child(5),
+.admin-orders-table th:nth-child(6),
+.admin-orders-table td:nth-child(6) {
+  width: 62px;
+}
+
+.admin-orders-table th:nth-child(7),
+.admin-orders-table td:nth-child(7),
+.admin-orders-table th:nth-child(8),
+.admin-orders-table td:nth-child(8) {
+  width: 86px;
+}
+
+.admin-orders-table th:nth-child(9),
+.admin-orders-table td:nth-child(9),
+.admin-orders-table th:nth-child(10),
+.admin-orders-table td:nth-child(10),
+.admin-orders-table th:nth-child(11),
+.admin-orders-table td:nth-child(11) {
+  width: 76px;
+  text-align: center;
+}
+
+.admin-orders-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-orders-table strong {
+  display: inline;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.admin-order-view-btn {
+  min-height: 24px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--admin-border);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--admin-text);
+  font: 800 9.5px/1 "Plus Jakarta Sans", sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+}
+
+.admin-order-view-btn:hover,
+.admin-order-view-btn:focus-visible {
+  border-color: rgba(255, 217, 141, 0.58);
+  color: #ffd98d;
+}
+
+.admin-order-popover {
+  position: fixed;
+  z-index: 2000;
+  max-width: min(520px, calc(100vw - 24px));
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 217, 141, 0.38);
+  background: rgba(12, 18, 28, 0.96);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.34);
+  color: var(--admin-text);
+  font: 700 12px/1.45 "Plus Jakarta Sans", sans-serif;
+  overflow-wrap: anywhere;
+}
+
 .admin-event-feed,
 .admin-note-stack {
   display: grid;

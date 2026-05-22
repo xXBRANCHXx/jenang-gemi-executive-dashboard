@@ -1535,6 +1535,27 @@ document.addEventListener('DOMContentLoaded', () => {
     deviceExclusionList: document.querySelector('[data-device-exclusion-list]')
   };
 
+  let orderPopover = null;
+  const closeOrderPopover = () => {
+    if (!orderPopover) return;
+    orderPopover.remove();
+    orderPopover = null;
+  };
+
+  const openOrderPopover = (button, value) => {
+    closeOrderPopover();
+    orderPopover = document.createElement('div');
+    orderPopover.className = 'admin-order-popover';
+    orderPopover.textContent = value;
+    document.body.appendChild(orderPopover);
+    const rect = button.getBoundingClientRect();
+    const popoverRect = orderPopover.getBoundingClientRect();
+    const left = Math.min(Math.max(12, rect.left), window.innerWidth - popoverRect.width - 12);
+    const top = Math.min(Math.max(12, rect.bottom + 8), window.innerHeight - popoverRect.height - 12);
+    orderPopover.style.left = `${left}px`;
+    orderPopover.style.top = `${top}px`;
+  };
+
   const setLoaderState = (progress, label) => {
     if (loaderProgress) loaderProgress.style.width = `${Math.max(8, Math.min(progress, 100))}%`;
     if (loaderLabel && label) loaderLabel.textContent = label;
@@ -1621,6 +1642,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!(target instanceof Node)) return;
       if (menuShell && !menuShell.contains(target)) closeMenu();
       if (searchShell && !searchShell.contains(target)) closeSearchResults();
+      if (orderPopover && !orderPopover.contains(target)) closeOrderPopover();
     });
 
     document.querySelectorAll('[data-dashboard-view-link]').forEach((link) => {
@@ -2081,6 +2103,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (ordersRefs.count) ordersRefs.count.textContent = `${formatCompactNumber(rows.length)} rows`;
     if (ordersRefs.lastUpdated) ordersRefs.lastUpdated.textContent = `Updated ${new Date().toLocaleString('id-ID', { timeZone: state.timezone })}`;
     if (!ordersRefs.tableBody) return;
+    const contactButton = (value, label) => {
+      const text = String(value || '').trim();
+      if (!text) return '-';
+      return `<button type="button" class="admin-order-view-btn" data-order-popover="${escapeHtml(text)}" aria-label="View ${escapeHtml(label)}">View</button>`;
+    };
     ordersRefs.tableBody.innerHTML = renderRows(rows, 11, (row) => {
       const platform = `${row.platform || '-'}${row.account_key ? ` / ${row.account_key}` : ''}`;
       const allocation = Array.isArray(row.allocations) && row.allocations.length
@@ -2094,14 +2121,14 @@ document.addEventListener('DOMContentLoaded', () => {
           <td>${escapeHtml(row.timestamp || '')}</td>
           <td><strong>${escapeHtml(row.order_id || '')}</strong></td>
           <td>${escapeHtml(platform)}</td>
-          <td><strong>${escapeHtml(row.product_name || row.sku || row.marketplace_sku || '')}</strong><small>${escapeHtml(allocation)}</small></td>
+          <td class="admin-order-product" title="${escapeHtml(row.product_name || row.sku || row.marketplace_sku || '')}"><strong>${escapeHtml(row.product_name || row.sku || row.marketplace_sku || '')}</strong></td>
           <td>${formatCompactNumber(row.quantity || 0)}</td>
-          <td>${escapeHtml(poNumbers)}</td>
+          <td title="${escapeHtml(allocation)}">${escapeHtml(poNumbers)}</td>
           <td>${formatCellCurrency(row.revenue || 0)}</td>
           <td>${formatCellCurrency(row.cogs || 0)}</td>
-          <td>${escapeHtml(row.username || '')}</td>
-          <td>${escapeHtml(row.address || '')}</td>
-          <td>${escapeHtml(row.phone || '')}</td>
+          <td>${contactButton(row.username, 'username')}</td>
+          <td>${contactButton(row.address, 'address')}</td>
+          <td>${contactButton(row.phone, 'phone')}</td>
         </tr>
       `;
     }, 'No orders found for this date range.');
@@ -2635,6 +2662,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   ordersRefs.endDate?.addEventListener('change', () => {
     state.orders.endDate = ordersRefs.endDate?.value || state.orders.endDate;
+  });
+
+  ordersRefs.tableBody?.addEventListener('click', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const button = target.closest('[data-order-popover]');
+    if (!(button instanceof HTMLElement)) return;
+    event.stopPropagation();
+    openOrderPopover(button, button.dataset.orderPopover || '');
   });
 
   document.querySelectorAll('[data-view-switch]').forEach((button) => {
