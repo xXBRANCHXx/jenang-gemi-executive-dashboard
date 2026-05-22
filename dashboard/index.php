@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isAuthenticated = jg_admin_is_authenticated();
-$dashboardBuildVersion = 'exec3.55.0';
+$dashboardBuildVersion = 'exec3.56.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 ?>
@@ -148,6 +148,17 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                         </div>
                         <div class="admin-chart-surface">
                             <canvas class="admin-chart-canvas admin-chart-canvas-lg" data-overview-trend-chart width="1200" height="300"></canvas>
+                            <div class="admin-chart-range-control" data-overview-range-shell>
+                                <button type="button" class="admin-chart-icon-btn" aria-label="Select custom chart date range" data-overview-range-toggle><span class="admin-chart-icon-calendar" aria-hidden="true"></span></button>
+                                <div class="admin-chart-range-popover" data-overview-range-popover hidden>
+                                    <label>Start<input type="date" data-overview-range-start></label>
+                                    <label>End<input type="date" data-overview-range-end></label>
+                                    <div class="admin-chart-range-actions">
+                                        <button type="button" class="admin-toggle-pill is-active" data-overview-range-apply>Apply</button>
+                                        <button type="button" class="admin-toggle-pill" data-overview-range-reset>Reset</button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </article>
 
@@ -186,6 +197,27 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                             <div><span>Marketplace Fees</span><strong data-overview-summary-orders>Rp0</strong></div>
                             <div><span>Gross Profit</span><strong data-overview-summary-aov>Rp0</strong></div>
                             <div><span>Orders QTY</span><strong data-overview-summary-best-month>0</strong><small data-overview-summary-best-month-meta>0 items</small></div>
+                        </div>
+                    </article>
+
+                    <article class="admin-panel admin-panel-chart admin-overview-hourly-card">
+                        <div class="admin-panel-head">
+                            <div>
+                                <div class="admin-chart-title-row">
+                                    <h3 data-overview-hourly-title>Today orders by hour</h3>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About today by hour" data-chart-info="Shows today's marketplace order activity by hour from 12 through 23. Toggle between seller-received revenue, gross profit, units sold, and order count."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                </div>
+                                <span class="admin-panel-meta" data-overview-hourly-meta>Live today, 12-23</span>
+                            </div>
+                            <div class="admin-panel-inline-toggles">
+                                <button type="button" class="admin-toggle-pill is-active" data-overview-hourly-metric="orders">Orders</button>
+                                <button type="button" class="admin-toggle-pill" data-overview-hourly-metric="gross_profit">Gross Profit</button>
+                                <button type="button" class="admin-toggle-pill" data-overview-hourly-metric="revenue">Revenue</button>
+                                <button type="button" class="admin-toggle-pill" data-overview-hourly-metric="item_count">QTY Sold</button>
+                            </div>
+                        </div>
+                        <div class="admin-chart-surface admin-chart-surface-tight">
+                            <canvas class="admin-chart-canvas" data-overview-hourly-chart width="880" height="280"></canvas>
                         </div>
                     </article>
 

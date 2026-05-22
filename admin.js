@@ -40,6 +40,17 @@ const OVERVIEW_METRIC_LABELS = {
   item_count: 'Items QTY by month'
 };
 
+const OVERVIEW_METRIC_SHORT_LABELS = {
+  revenue: 'Revenue',
+  gross_profit: 'Gross Profit',
+  orders: 'Orders QTY',
+  average_order_value: 'AOV',
+  item_count: 'Items QTY',
+  marketplace_fees: 'Marketplace Fees',
+  cogs: 'COGS',
+  quantity: 'QTY Sold'
+};
+
 const OVERVIEW_METRIC_UNITS = {
   revenue: 'idr',
   gross_profit: 'idr',
@@ -1400,8 +1411,16 @@ document.addEventListener('DOMContentLoaded', () => {
       year: new Date().getFullYear(),
       metric: 'revenue',
       volumeMetric: 'orders',
+      hourlyMetric: 'orders',
       productMetric: 'quantity',
       flavorMetric: 'quantity',
+      customRange: {
+        active: false,
+        startDate: '',
+        endDate: '',
+        rows: null
+      },
+      hourlyRows: [],
       data: null,
       requestToken: 0
     },
@@ -1464,16 +1483,27 @@ document.addEventListener('DOMContentLoaded', () => {
     endpointLabel: document.querySelector('[data-overview-endpoint-label]'),
     trendCanvas: document.querySelector('[data-overview-trend-chart]'),
     ordersCanvas: document.querySelector('[data-overview-orders-chart]'),
+    hourlyCanvas: document.querySelector('[data-overview-hourly-chart]'),
     productStackCanvas: document.querySelector('[data-overview-product-stack-chart]'),
     syrupFlavorCanvas: document.querySelector('[data-overview-syrup-flavor-chart]'),
     trendTitle: document.querySelector('[data-overview-trend-title]'),
     trendMeta: document.querySelector('[data-overview-trend-meta]'),
+    hourlyTitle: document.querySelector('[data-overview-hourly-title]'),
+    hourlyMeta: document.querySelector('[data-overview-hourly-meta]'),
+    rangeShell: document.querySelector('[data-overview-range-shell]'),
+    rangeToggle: document.querySelector('[data-overview-range-toggle]'),
+    rangePopover: document.querySelector('[data-overview-range-popover]'),
+    rangeStart: document.querySelector('[data-overview-range-start]'),
+    rangeEnd: document.querySelector('[data-overview-range-end]'),
+    rangeApply: document.querySelector('[data-overview-range-apply]'),
+    rangeReset: document.querySelector('[data-overview-range-reset]'),
     lastUpdated: document.querySelector('[data-overview-last-updated]'),
     tableBody: document.querySelector('[data-overview-table-body]'),
     notes: document.querySelector('[data-overview-notes]'),
     yearControls: document.querySelector('[data-overview-year-controls]'),
     metricButtons: document.querySelectorAll('[data-overview-metric]'),
     volumeMetricButtons: document.querySelectorAll('[data-overview-volume-metric]'),
+    hourlyMetricButtons: document.querySelectorAll('[data-overview-hourly-metric]'),
     productMetricButtons: document.querySelectorAll('[data-overview-product-metric]'),
     flavorMetricButtons: document.querySelectorAll('[data-overview-flavor-metric]')
   };
@@ -1643,6 +1673,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (menuShell && !menuShell.contains(target)) closeMenu();
       if (searchShell && !searchShell.contains(target)) closeSearchResults();
       if (orderPopover && !orderPopover.contains(target)) closeOrderPopover();
+      if (overviewRefs.rangeShell && !overviewRefs.rangeShell.contains(target)) closeOverviewRangePopover();
     });
 
     document.querySelectorAll('[data-dashboard-view-link]').forEach((link) => {
@@ -1893,6 +1924,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     return `${salesEndpoint}?${params.toString()}`;
   };
+  const buildOrderFactsUrl = (startDate, endDate) => {
+    const params = new URLSearchParams({
+      start_date: startDate,
+      end_date: endDate,
+      _ts: String(Date.now())
+    });
+    return `${ordersEndpoint}?${params.toString()}`;
+  };
   const todayDate = () => new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone }).format(new Date());
   const offsetDate = (dateValue, offsetDays) => {
     const date = new Date(`${dateValue}T00:00:00+07:00`);
@@ -1907,14 +1946,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const defaults = defaultOrderDates();
     const startDate = ordersRefs.startDate?.value || state.orders.startDate || defaults.start;
     const endDate = ordersRefs.endDate?.value || state.orders.endDate || defaults.end;
-    const params = new URLSearchParams({
-      start_date: startDate,
-      end_date: endDate,
-      _ts: String(Date.now())
-    });
     state.orders.startDate = startDate;
     state.orders.endDate = endDate;
-    return `${ordersEndpoint}?${params.toString()}`;
+    return buildOrderFactsUrl(startDate, endDate);
   };
 
   const overviewCacheKey = (year) => `${OVERVIEW_CACHE_PREFIX}:${year}`;
@@ -1960,6 +1994,134 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!entries.length) return 'No platform data';
     entries.sort((left, right) => Number(right[1]?.sales || 0) - Number(left[1]?.sales || 0));
     return entries[0] ? `${toTitleCase(entries[0][0])} • ${formatCellCurrency(entries[0][1]?.sales || 0)}` : 'No platform data';
+  };
+
+  const parseOrderTimestamp = (timestamp) => {
+    const value = String(timestamp || '').trim();
+    if (!value) return null;
+    const normalized = value.includes('T') ? value : value.replace(' ', 'T');
+    const date = new Date(normalized.includes('+') || normalized.endsWith('Z') ? normalized : `${normalized}+07:00`);
+    return Number.isNaN(date.getTime()) ? null : date;
+  };
+
+  const localHour = (date) => Number(new Intl.DateTimeFormat('en-GB', {
+    timeZone: state.timezone,
+    hour: '2-digit',
+    hour12: false
+  }).format(date));
+
+  const orderMetricRow = (order) => {
+    const revenue = Number(order?.revenue || 0);
+    const cogs = Number(order?.cogs || 0);
+    return {
+      revenue,
+      gross_profit: Number(order?.gross_profit ?? (revenue - cogs)),
+      orders: 1,
+      item_count: Number(order?.quantity || order?.item_count || 0)
+    };
+  };
+
+  const addOrderMetrics = (target, order) => {
+    const metrics = orderMetricRow(order);
+    target.revenue += metrics.revenue;
+    target.gross_profit += metrics.gross_profit;
+    const orderId = String(order?.order_id || '').trim();
+    if (!target._orderIds) target._orderIds = new Set();
+    if (orderId === '' || !target._orderIds.has(orderId)) {
+      target.orders += metrics.orders;
+      if (orderId !== '') target._orderIds.add(orderId);
+    }
+    target.item_count += metrics.item_count;
+  };
+
+  const aggregateOrdersForTrend = (orders, startDate, endDate) => {
+    const start = new Date(`${startDate}T00:00:00+07:00`);
+    const end = new Date(`${endDate}T00:00:00+07:00`);
+    const days = Math.max(1, Math.round((end - start) / 86400000) + 1);
+    const mode = days <= 1 ? 'hour' : days <= 92 ? 'day' : 'month';
+    const buckets = new Map();
+    const ensureBucket = (key, label) => {
+      if (!buckets.has(key)) {
+        buckets.set(key, { key, label, revenue: 0, gross_profit: 0, orders: 0, item_count: 0 });
+      }
+      return buckets.get(key);
+    };
+
+    if (mode === 'hour') {
+      for (let hour = 0; hour < 24; hour += 1) {
+        ensureBucket(String(hour).padStart(2, '0'), `${String(hour).padStart(2, '0')}:00`);
+      }
+    } else if (mode === 'day') {
+      for (let cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
+        const key = new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone }).format(cursor);
+        ensureBucket(key, new Intl.DateTimeFormat('id-ID', { timeZone: state.timezone, day: '2-digit', month: 'short' }).format(cursor));
+      }
+    } else {
+      const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+      const final = new Date(end.getFullYear(), end.getMonth(), 1);
+      while (cursor <= final) {
+        const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`;
+        ensureBucket(key, new Intl.DateTimeFormat('id-ID', { timeZone: state.timezone, month: 'short', year: '2-digit' }).format(cursor));
+        cursor.setMonth(cursor.getMonth() + 1);
+      }
+    }
+
+    orders.forEach((order) => {
+      const date = parseOrderTimestamp(order?.timestamp);
+      if (!date) return;
+      const localDate = new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone }).format(date);
+      if (localDate < startDate || localDate > endDate) return;
+      let key = localDate;
+      if (mode === 'hour') {
+        key = String(localHour(date)).padStart(2, '0');
+      } else if (mode === 'month') {
+        key = localDate.slice(0, 7);
+      }
+      const bucket = buckets.get(key);
+      if (bucket) addOrderMetrics(bucket, order);
+    });
+
+    return {
+      mode,
+      rows: Array.from(buckets.values()).map((row) => ({
+        ...row,
+        _orderIds: undefined,
+        average_order_value: row.orders > 0 ? row.revenue / row.orders : 0,
+        tooltipLinesHtml: buildOverviewTooltipLines(row, state.overview.metric)
+      }))
+    };
+  };
+
+  const hourlyOrderRows = (orders) => {
+    const rows = [];
+    for (let hour = 12; hour <= 23; hour += 1) {
+      rows.push({
+        hour,
+        label: String(hour),
+        revenue: 0,
+        gross_profit: 0,
+        orders: 0,
+        item_count: 0
+      });
+    }
+
+    orders.forEach((order) => {
+      const date = parseOrderTimestamp(order?.timestamp);
+      if (!date) return;
+      const hour = localHour(date);
+      const row = rows.find((item) => item.hour === hour);
+      if (row) addOrderMetrics(row, order);
+    });
+
+    return rows.map((row) => ({
+      ...row,
+      _orderIds: undefined,
+      tooltipLinesHtml: buildOverviewTooltipLines(row, state.overview.hourlyMetric)
+    }));
+  };
+
+  const closeOverviewRangePopover = () => {
+    if (overviewRefs.rangePopover) overviewRefs.rangePopover.hidden = true;
   };
 
   const renderOverviewYearControls = (years) => {
@@ -2010,6 +2172,14 @@ document.addEventListener('DOMContentLoaded', () => {
         average_order_value: Number(month.orders || 0) > 0 ? Number(month.revenue || month.net_revenue || month.sales || 0) / Number(month.orders || 0) : 0
       }, state.overview.metric)
     }));
+    const customRange = state.overview.customRange || {};
+    const customTrend = customRange.active && Array.isArray(customRange.rows)
+      ? aggregateOrdersForTrend(customRange.rows, customRange.startDate, customRange.endDate)
+      : null;
+    const trendRows = customTrend ? customTrend.rows : monthlyRows;
+    const trendLabel = customTrend
+      ? `${customRange.startDate} to ${customRange.endDate}`
+      : `${state.overview.year}`;
 
     if (overviewRefs.summarySales) overviewRefs.summarySales.textContent = formatCellCurrency(totals.revenue || totals.net_revenue || totals.sales || 0);
     if (overviewRefs.summaryOrders) overviewRefs.summaryOrders.textContent = formatCellCurrency(totals.marketplace_fees || 0);
@@ -2022,9 +2192,26 @@ document.addEventListener('DOMContentLoaded', () => {
       overviewRefs.yearSummary.textContent = `${years[0]} to ${years[years.length - 1]}`;
     }
     if (overviewRefs.endpointLabel) overviewRefs.endpointLabel.textContent = salesEndpoint;
-    if (overviewRefs.trendTitle) overviewRefs.trendTitle.textContent = OVERVIEW_METRIC_LABELS[state.overview.metric];
+    if (overviewRefs.trendTitle) overviewRefs.trendTitle.textContent = customTrend
+      ? `${OVERVIEW_METRIC_SHORT_LABELS[state.overview.metric] || 'Metric'} by ${customTrend.mode}`
+      : OVERVIEW_METRIC_LABELS[state.overview.metric];
     if (overviewRefs.trendMeta) {
-      overviewRefs.trendMeta.textContent = `${state.overview.year} • Revenue ${formatCellCurrency(totals.revenue || totals.net_revenue || totals.sales || 0)} • Gross profit ${formatCellCurrency(totals.gross_profit || 0)}`;
+      overviewRefs.trendMeta.textContent = customTrend
+        ? `${trendLabel} • ${formatCompactNumber(trendRows.reduce((sum, row) => sum + Number(row.orders || 0), 0))} orders`
+        : `${state.overview.year} • Revenue ${formatCellCurrency(totals.revenue || totals.net_revenue || totals.sales || 0)} • Gross profit ${formatCellCurrency(totals.gross_profit || 0)}`;
+    }
+    if (overviewRefs.rangeToggle) {
+      overviewRefs.rangeToggle.classList.toggle('is-active', Boolean(customTrend));
+      overviewRefs.rangeToggle.title = customTrend ? trendLabel : 'Select custom chart date range';
+    }
+    if (overviewRefs.rangeStart && customRange.startDate) overviewRefs.rangeStart.value = customRange.startDate;
+    if (overviewRefs.rangeEnd && customRange.endDate) overviewRefs.rangeEnd.value = customRange.endDate;
+    if (overviewRefs.hourlyTitle) {
+      overviewRefs.hourlyTitle.textContent = `Today ${OVERVIEW_METRIC_SHORT_LABELS[state.overview.hourlyMetric] || 'Orders'} by hour`;
+    }
+    if (overviewRefs.hourlyMeta) {
+      const hourlyTotal = state.overview.hourlyRows.reduce((sum, row) => sum + Number(row[state.overview.hourlyMetric] || 0), 0);
+      overviewRefs.hourlyMeta.textContent = `Live today, 12-23 • ${formatFullMetricValue(state.overview.hourlyMetric, hourlyTotal, OVERVIEW_METRIC_UNITS)}`;
     }
 
     if (overviewRefs.tableBody) {
@@ -2054,6 +2241,9 @@ document.addEventListener('DOMContentLoaded', () => {
     overviewRefs.volumeMetricButtons.forEach((button) => {
       button.classList.toggle('is-active', button.dataset.overviewVolumeMetric === state.overview.volumeMetric);
     });
+    overviewRefs.hourlyMetricButtons.forEach((button) => {
+      button.classList.toggle('is-active', button.dataset.overviewHourlyMetric === state.overview.hourlyMetric);
+    });
     overviewRefs.productMetricButtons.forEach((button) => {
       button.classList.toggle('is-active', button.dataset.overviewProductMetric === state.overview.productMetric);
     });
@@ -2061,7 +2251,7 @@ document.addEventListener('DOMContentLoaded', () => {
       button.classList.toggle('is-active', button.dataset.overviewFlavorMetric === state.overview.flavorMetric);
     });
 
-    drawChartSafely(overviewRefs.trendCanvas, () => drawLineChart(overviewRefs.trendCanvas, monthlyRows, state.overview.metric, OVERVIEW_METRIC_UNITS));
+    drawChartSafely(overviewRefs.trendCanvas, () => drawLineChart(overviewRefs.trendCanvas, trendRows, state.overview.metric, OVERVIEW_METRIC_UNITS));
     drawChartSafely(overviewRefs.ordersCanvas, () => drawBarChart(overviewRefs.ordersCanvas, monthlyRows, {
       value: (item) => item[state.overview.volumeMetric] || 0,
       label: (item) => String(item.label || '-'),
@@ -2074,6 +2264,20 @@ document.addEventListener('DOMContentLoaded', () => {
       showXAxisLabels: false,
       showValueBadges: false,
       padding: { top: 12, right: 16, bottom: 12, left: 16 },
+      limit: 12
+    }));
+    drawChartSafely(overviewRefs.hourlyCanvas, () => drawBarChart(overviewRefs.hourlyCanvas, state.overview.hourlyRows, {
+      value: (item) => item[state.overview.hourlyMetric] || 0,
+      label: (item) => String(item.label || '-'),
+      color: () => state.overview.hourlyMetric === 'gross_profit' ? '#9dff00' : state.overview.hourlyMetric === 'revenue' ? '#22d3ee' : state.overview.hourlyMetric === 'item_count' ? '#ff8f1f' : '#ff4ecd',
+      metric: state.overview.hourlyMetric,
+      unitsMap: OVERVIEW_METRIC_UNITS,
+      tooltipTitle: (item) => `${item.label || '-'}:00 today`,
+      tooltipValue: (item, value) => formatFullMetricValue(state.overview.hourlyMetric, value, OVERVIEW_METRIC_UNITS),
+      showGrid: true,
+      showXAxisLabels: true,
+      showValueBadges: false,
+      padding: { top: 12, right: 14, bottom: 32, left: 64 },
       limit: 12
     }));
     const accountSeries = accountSeriesFromMonthlyRows(monthlyAccountRows, accounts);
@@ -2364,8 +2568,19 @@ document.addEventListener('DOMContentLoaded', () => {
       if (cached) renderOverview(cached);
     }
     const requestToken = beginRequest('overview');
-    const data = await requestJson(buildSalesUrl(state.overview.year));
+    const today = todayDate();
+    const [data, hourlyData, customData] = await Promise.all([
+      requestJson(buildSalesUrl(state.overview.year)),
+      requestJson(buildOrderFactsUrl(today, today)).catch(() => ({ orders: [] })),
+      state.overview.customRange.active && state.overview.customRange.startDate && state.overview.customRange.endDate
+        ? requestJson(buildOrderFactsUrl(state.overview.customRange.startDate, state.overview.customRange.endDate)).catch(() => ({ orders: [] }))
+        : Promise.resolve(null)
+    ]);
     if (!isLatestRequest('overview', requestToken)) return;
+    state.overview.hourlyRows = hourlyOrderRows(Array.isArray(hourlyData.orders) ? hourlyData.orders : []);
+    if (customData) {
+      state.overview.customRange.rows = Array.isArray(customData.orders) ? customData.orders : [];
+    }
     writeOverviewCache(state.overview.year, data);
     renderOverview(data);
   };
@@ -2593,6 +2808,56 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       if (state.overview.data) renderOverview(state.overview.data);
     });
+  });
+
+  overviewRefs.hourlyMetricButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      state.overview.hourlyMetric = button.dataset.overviewHourlyMetric || 'orders';
+      overviewRefs.hourlyMetricButtons.forEach((candidate) => {
+        candidate.classList.toggle('is-active', candidate === button);
+      });
+      if (state.overview.data) renderOverview(state.overview.data);
+    });
+  });
+
+  overviewRefs.rangeToggle?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    if (!overviewRefs.rangePopover) return;
+    const defaults = defaultOrderDates();
+    if (overviewRefs.rangeStart && !overviewRefs.rangeStart.value) overviewRefs.rangeStart.value = state.overview.customRange.startDate || defaults.start;
+    if (overviewRefs.rangeEnd && !overviewRefs.rangeEnd.value) overviewRefs.rangeEnd.value = state.overview.customRange.endDate || defaults.end;
+    overviewRefs.rangePopover.hidden = !overviewRefs.rangePopover.hidden;
+  });
+
+  overviewRefs.rangePopover?.addEventListener('click', (event) => {
+    event.stopPropagation();
+  });
+
+  overviewRefs.rangeApply?.addEventListener('click', async () => {
+    const startDate = overviewRefs.rangeStart?.value || '';
+    const endDate = overviewRefs.rangeEnd?.value || '';
+    if (!startDate || !endDate) return;
+    state.overview.customRange = {
+      active: true,
+      startDate: startDate <= endDate ? startDate : endDate,
+      endDate: startDate <= endDate ? endDate : startDate,
+      rows: []
+    };
+    closeOverviewRangePopover();
+    await loadOverviewSafely();
+  });
+
+  overviewRefs.rangeReset?.addEventListener('click', () => {
+    state.overview.customRange = {
+      active: false,
+      startDate: '',
+      endDate: '',
+      rows: null
+    };
+    if (overviewRefs.rangeStart) overviewRefs.rangeStart.value = '';
+    if (overviewRefs.rangeEnd) overviewRefs.rangeEnd.value = '';
+    closeOverviewRangePopover();
+    if (state.overview.data) renderOverview(state.overview.data);
   });
 
   overviewRefs.productMetricButtons.forEach((button) => {

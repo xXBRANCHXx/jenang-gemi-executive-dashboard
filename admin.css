@@ -992,6 +992,90 @@ button, input {
   border: 1px solid var(--admin-border);
 }
 
+.admin-chart-surface-tight {
+  padding: 10px;
+}
+
+.admin-chart-range-control {
+  position: absolute;
+  left: 16px;
+  bottom: 14px;
+  z-index: 8;
+}
+
+.admin-chart-icon-btn {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid var(--admin-border);
+  background: rgba(13, 19, 26, 0.78);
+  color: var(--admin-text);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.24);
+  cursor: pointer;
+}
+
+.admin-chart-icon-btn:hover,
+.admin-chart-icon-btn:focus-visible,
+.admin-chart-icon-btn.is-active {
+  border-color: rgba(157, 255, 0, 0.48);
+  color: #9dff00;
+}
+
+.admin-chart-icon-calendar {
+  width: 17px;
+  height: 17px;
+  background: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 2v4'/%3E%3Cpath d='M16 2v4'/%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cpath d='M3 10h18'/%3E%3C/svg%3E") center / contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 2v4'/%3E%3Cpath d='M16 2v4'/%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cpath d='M3 10h18'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.admin-chart-range-popover {
+  position: absolute;
+  left: 0;
+  bottom: 42px;
+  width: 256px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--admin-border);
+  background: rgba(13, 19, 26, 0.96);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.34);
+}
+
+.admin-chart-range-popover[hidden] {
+  display: none;
+}
+
+.admin-chart-range-popover label {
+  display: grid;
+  gap: 6px;
+  color: var(--admin-muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-chart-range-popover input {
+  width: 100%;
+  min-height: 34px;
+  padding: 7px 9px;
+  border-radius: 10px;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  font: 700 12px/1 "Plus Jakarta Sans", sans-serif;
+}
+
+.admin-chart-range-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
 .admin-chart-canvas {
   display: block;
   width: 100%;
@@ -6240,6 +6324,27 @@ body::after {
 
 .admin-app.admin-app-suite .admin-main-grid-compact .admin-chart-canvas-lg {
   height: 336px;
+}
+
+.admin-app.admin-app-suite .admin-overview-hourly-card .admin-panel-head {
+  min-height: 120px;
+}
+
+.admin-app.admin-app-suite .admin-overview-hourly-card .admin-panel-inline-toggles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: min(100%, 260px);
+  gap: 7px;
+}
+
+.admin-app.admin-app-suite .admin-overview-hourly-card .admin-panel-inline-toggles .admin-toggle-pill {
+  min-height: 29px;
+  padding: 5px 8px;
+  font-size: 0.62rem;
+}
+
+.admin-app.admin-app-suite .admin-overview-hourly-card .admin-chart-canvas {
+  height: 220px;
 }
 
 .admin-app.admin-app-suite .admin-mini-metric-list {
