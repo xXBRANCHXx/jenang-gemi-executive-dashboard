@@ -16,6 +16,8 @@ $apiDocs = [
     ['API Ingest', 'GET', $ingestBaseUrl . '/', 'Root service identity and reachability.', 'ok, service'],
     ['API Ingest', 'GET', $ingestBaseUrl . '/health', 'Health probe for the ingest deployment.', 'ok, service'],
     ['Sales', 'GET', $ingestBaseUrl . '/sales/summary?year=YYYY&setup_token=[redacted]', 'Yearly marketplace rollup used by the executive overview.', 'months, months[].accounts, months[].platforms, accounts, platforms, products, totals'],
+    ['Sales', 'GET', $ingestBaseUrl . '/sales/orders?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD&setup_token=[redacted]', 'Item-level marketplace orders for the Orders page.', 'timestamp, order_id, sku, quantity, net seller revenue, marketplace fees, contact fields'],
+    ['Sales', 'GET', $ingestBaseUrl . '/sales/sync?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD&setup_token=[redacted]', 'Date-range backfill for all configured marketplace APIs.', 'sync.accounts[], stored order count, refreshed sales summary'],
     ['Shopee', 'GET', $ingestBaseUrl . '/shopee/auth/status?account=ACCOUNT&setup_token=[redacted]', 'Shopee authorization status for a marketplace account.', 'status.shop_id, token flags, token expiry'],
     ['Shopee', 'GET', $ingestBaseUrl . '/shopee/orders/listed?account=ACCOUNT&setup_token=[redacted]', 'Listed Shopee orders currently used as order feed health.', 'orders[]'],
     ['Store Ops', 'GET', $storeOpsBaseUrl . '/api/orders/', 'Protected Store Ops orders route. A 401 still means the route exists.', 'Authenticated order payload'],
@@ -119,6 +121,31 @@ $apiDocs = [
                     <p class="admin-table-note">The ingest service currently returns 404 for OpenAPI, Swagger, and route-list probes, so this catalog is built from the endpoints this dashboard can discover from configuration and code.</p>
                 </article>
 
+                <article class="admin-panel admin-panel-wide">
+                    <div class="admin-panel-head">
+                        <div>
+                            <span class="admin-panel-kicker">Marketplace Backfill</span>
+                            <h3>Pull exact seller revenue by date range</h3>
+                        </div>
+                        <span class="admin-panel-meta" data-backfill-status>Ready</span>
+                    </div>
+                    <div class="admin-sandbox-stack">
+                        <div class="admin-sandbox-actions">
+                            <label class="admin-sandbox-label" for="backfill-start-date">Start date</label>
+                            <input id="backfill-start-date" class="admin-date-input" type="date" data-backfill-start-date>
+                            <label class="admin-sandbox-label" for="backfill-end-date">End date</label>
+                            <input id="backfill-end-date" class="admin-date-input" type="date" data-backfill-end-date>
+                            <button type="button" class="admin-primary-btn" data-backfill-run>Run Backfill</button>
+                        </div>
+                        <div class="admin-note-stack" data-backfill-output>
+                            <div class="admin-note-card">
+                                <strong>Scope</strong>
+                                <span>Runs the ingest service for Shopee and TikTok over the selected dates, then refreshes dashboard order rows and FIFO COGS allocations.</span>
+                            </div>
+                        </div>
+                    </div>
+                </article>
+
                 <article class="admin-panel">
                     <div class="admin-panel-head">
                         <div>
@@ -201,6 +228,75 @@ Paket yang dipilih: 30 Sachet</textarea>
         </div>
     </div>
     <script>
+        (() => {
+            const startDate = document.querySelector('[data-backfill-start-date]');
+            const endDate = document.querySelector('[data-backfill-end-date]');
+            const backfillButton = document.querySelector('[data-backfill-run]');
+            const backfillStatus = document.querySelector('[data-backfill-status]');
+            const backfillOutput = document.querySelector('[data-backfill-output]');
+            const formatDate = (date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(date);
+            if (startDate && endDate && backfillButton && backfillStatus && backfillOutput) {
+                const today = new Date();
+                const yesterday = new Date(today);
+                yesterday.setDate(today.getDate() - 1);
+                if (!startDate.value) startDate.value = formatDate(yesterday);
+                if (!endDate.value) endDate.value = formatDate(today);
+
+                const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#039;'
+                }[char]));
+
+                backfillButton.addEventListener('click', async () => {
+                    const payload = {
+                        start_date: startDate.value,
+                        end_date: endDate.value
+                    };
+                    backfillButton.disabled = true;
+                    backfillStatus.textContent = 'Running';
+                    backfillOutput.innerHTML = '<div class="admin-note-card"><strong>Status</strong><span>Backfill is running. Shopee escrow detail can take a while.</span></div>';
+
+                    try {
+                        const response = await fetch('../api/orders/', {
+                            method: 'POST',
+                            credentials: 'same-origin',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        const data = await response.json();
+                        if (!response.ok || data.ok === false) {
+                            throw new Error(data.message || data.error || 'Backfill failed.');
+                        }
+                        const orders = Array.isArray(data.orders) ? data.orders : [];
+                        backfillStatus.textContent = 'Complete';
+                        backfillOutput.innerHTML = `
+                            <div class="admin-note-card">
+                                <strong>Backfilled</strong>
+                                <span>${orders.length} order item rows from ${escapeHtml(data.start_date)} to ${escapeHtml(data.end_date)}.</span>
+                            </div>
+                            <div class="admin-note-card">
+                                <strong>Next</strong>
+                                <span>Open the Executive Dashboard Orders page to inspect revenue, COGS, and FIFO PO allocations.</span>
+                            </div>
+                        `;
+                    } catch (error) {
+                        backfillStatus.textContent = 'Failed';
+                        backfillOutput.innerHTML = `
+                            <div class="admin-note-card">
+                                <strong>Error</strong>
+                                <span>${escapeHtml(error.message || 'Backfill failed.')}</span>
+                            </div>
+                        `;
+                    } finally {
+                        backfillButton.disabled = false;
+                    }
+                });
+            }
+        })();
+
         (() => {
             const textarea = document.getElementById('message-test-input');
             const output = document.querySelector('[data-parser-output]');

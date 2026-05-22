@@ -55,7 +55,7 @@ http_response_code($status >= 100 ? $status : 200);
 
 $decoded = json_decode($response, true);
 if (is_array($decoded) && ($status < 400 || $status === 200)) {
-    $decoded = jg_sales_enrich_with_sku_db($decoded);
+    $decoded = jg_sales_enrich_with_sku_db($decoded, $year);
     jg_sales_remove_customer_paid_fields($decoded);
     echo json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     exit;
@@ -126,6 +126,69 @@ function jg_sales_add_product_total(array $current, int $quantity, int $netReven
     $current['cogs'] = (int) ($current['cogs'] ?? 0) + $cogs;
     $current['gross_profit'] = (int) ($current['revenue'] ?? 0) - (int) ($current['cogs'] ?? 0);
     return $current;
+}
+
+/**
+ * @return array{monthly: array<string, int>, sku: array<string, int>}
+ */
+function jg_sales_fifo_cogs_index(int $year): array
+{
+    try {
+        $pdo = jg_sku_db();
+        $tableStmt = $pdo->prepare(
+            'SELECT COUNT(*)
+             FROM INFORMATION_SCHEMA.TABLES
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME = "marketplace_order_inventory_allocations"'
+        );
+        $tableStmt->execute();
+        if ((int) $tableStmt->fetchColumn() === 0) {
+            return ['monthly' => [], 'sku' => []];
+        }
+
+        $timezone = new DateTimeZone('Asia/Jakarta');
+        $from = (new DateTimeImmutable($year . '-01-01 00:00:00', $timezone))->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+        $to = (new DateTimeImmutable(($year + 1) . '-01-01 00:00:00', $timezone))->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+        $stmt = $pdo->prepare(
+            'SELECT
+                MONTH(DATE_ADD(consumed_at, INTERVAL 7 HOUR)) AS month,
+                platform,
+                account_key,
+                sku,
+                SUM(total_cogs) AS cogs
+             FROM marketplace_order_inventory_allocations
+             WHERE consumed_at >= :from_date
+               AND consumed_at < :to_date
+             GROUP BY MONTH(DATE_ADD(consumed_at, INTERVAL 7 HOUR)), platform, account_key, sku'
+        );
+        $stmt->execute([
+            ':from_date' => $from,
+            ':to_date' => $to,
+        ]);
+    } catch (Throwable $error) {
+        error_log('Unable to load FIFO COGS allocation index: ' . $error->getMessage());
+        return ['monthly' => [], 'sku' => []];
+    }
+
+    $monthly = [];
+    $skuTotals = [];
+    foreach ($stmt->fetchAll() as $row) {
+        $sku = jg_sales_normalize_sku_key($row['sku'] ?? '');
+        if ($sku === '') {
+            continue;
+        }
+        $cogs = (int) round((float) ($row['cogs'] ?? 0));
+        $key = implode('|', [
+            (int) ($row['month'] ?? 0),
+            (string) ($row['platform'] ?? ''),
+            (string) ($row['account_key'] ?? ''),
+            $sku,
+        ]);
+        $monthly[$key] = $cogs;
+        $skuTotals[$sku] = (int) ($skuTotals[$sku] ?? 0) + $cogs;
+    }
+
+    return ['monthly' => $monthly, 'sku' => $skuTotals];
 }
 
 /**
@@ -224,7 +287,7 @@ function jg_sales_enrich_totals_with_profit(array &$summary, int $totalCogs, int
  * @param array<string, array{sku:string, tag:string, product_name:string, flavor_name:string, cogs:float, is_syrup:bool}> $lookup
  * @return array{cogs: array<int, int>, fees: array<int, int>}
  */
-function jg_sales_enrich_monthly_product_cogs(array &$products, array $lookup): array
+function jg_sales_enrich_monthly_product_cogs(array &$products, array $lookup, array $fifoCogs): array
 {
     $rows = is_array($products['by_month'] ?? null) ? $products['by_month'] : [];
     if ($rows === []) {
@@ -249,9 +312,18 @@ function jg_sales_enrich_monthly_product_cogs(array &$products, array $lookup): 
         $grossRevenue = (int) round((float) ($row['gross_revenue'] ?? $revenue));
         $fees = max(0, $grossRevenue - $revenue);
         $unitCogs = (float) ($skuRecord['cogs'] ?? 0);
-        $rowCogs = (int) round($unitCogs * $quantity);
+        $fifoKey = implode('|', [
+            $month,
+            (string) ($row['platform'] ?? ''),
+            (string) ($row['account_key'] ?? ''),
+            $sku,
+        ]);
+        $rowCogs = array_key_exists($fifoKey, $fifoCogs)
+            ? (int) $fifoCogs[$fifoKey]
+            : (int) round($unitCogs * $quantity);
         $row['unit_cogs'] = $unitCogs;
         $row['cogs'] = $rowCogs;
+        $row['cogs_source'] = array_key_exists($fifoKey, $fifoCogs) ? 'fifo_po_allocations' : 'sku_current_cogs';
         $row['revenue'] = $revenue;
         $row['marketplace_fees'] = $fees;
         $row['gross_profit'] = $revenue - $rowCogs;
@@ -268,7 +340,7 @@ function jg_sales_enrich_monthly_product_cogs(array &$products, array $lookup): 
  * @param array<string, mixed> $summary
  * @return array<string, mixed>
  */
-function jg_sales_enrich_with_sku_db(array $summary): array
+function jg_sales_enrich_with_sku_db(array $summary, int $year): array
 {
     $lookup = jg_sales_sku_lookup();
     if ($lookup === []) {
@@ -277,7 +349,8 @@ function jg_sales_enrich_with_sku_db(array $summary): array
 
     $products = is_array($summary['products'] ?? null) ? $summary['products'] : [];
     $rows = is_array($products['by_product'] ?? null) ? $products['by_product'] : [];
-    $monthlyProductMetrics = jg_sales_enrich_monthly_product_cogs($products, $lookup);
+    $fifoCogsIndex = jg_sales_fifo_cogs_index($year);
+    $monthlyProductMetrics = jg_sales_enrich_monthly_product_cogs($products, $lookup, $fifoCogsIndex['monthly']);
     $flavors = [];
     $enrichedRows = [];
     $totalCogs = 0;
@@ -293,9 +366,12 @@ function jg_sales_enrich_with_sku_db(array $summary): array
         $quantity = (int) ($row['quantity'] ?? 0);
         $net = jg_sales_seller_received($row);
         $unitCogs = (float) ($skuRecord['cogs'] ?? 0);
-        $rowCogs = (int) round($unitCogs * $quantity);
+        $rowCogs = array_key_exists($sku, $fifoCogsIndex['sku'])
+            ? (int) $fifoCogsIndex['sku'][$sku]
+            : (int) round($unitCogs * $quantity);
         $row['unit_cogs'] = $unitCogs;
         $row['cogs'] = $rowCogs;
+        $row['cogs_source'] = array_key_exists($sku, $fifoCogsIndex['sku']) ? 'fifo_po_allocations' : 'sku_current_cogs';
         $row['revenue'] = $net;
         $row['gross_profit'] = $net - $rowCogs;
         $totalCogs += $rowCogs;
@@ -346,6 +422,30 @@ function jg_sales_enrich_with_sku_db(array $summary): array
                 'label' => (string) ($platformRow['label'] ?? ucfirst($platform)),
             ], $platformQuantity, $platformNet, (int) ($platformRow['orders'] ?? 0), $platformCogs);
         }
+    }
+
+    foreach ($lookup as $skuRecord) {
+        if (empty($skuRecord['is_syrup'])) {
+            continue;
+        }
+        $flavorName = trim($skuRecord['flavor_name']) !== '' ? $skuRecord['flavor_name'] : 'Unspecified';
+        $flavorKey = strtolower(preg_replace('/[^a-z0-9]+/i', '-', $flavorName) ?? $flavorName);
+        $flavorKey = trim($flavorKey, '-');
+        if ($flavorKey === '' || isset($flavors[$flavorKey])) {
+            continue;
+        }
+        $flavors[$flavorKey] = [
+            'key' => $flavorKey,
+            'label' => $flavorName,
+            'quantity' => 0,
+            'item_count' => 0,
+            'net_revenue' => 0,
+            'revenue' => 0,
+            'orders' => 0,
+            'cogs' => 0,
+            'gross_profit' => 0,
+            'platforms' => [],
+        ];
     }
 
     $flavorRows = array_values($flavors);

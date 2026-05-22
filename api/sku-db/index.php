@@ -247,6 +247,69 @@ function jg_sku_build_takes_place(array $payload): string
     return 'PO Number | ' . $poNumber;
 }
 
+function jg_sku_inventory_ensure_lot_schema(PDO $pdo): void
+{
+    $pdo->exec(
+        'CREATE TABLE IF NOT EXISTS sku_stock_lots (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            sku VARCHAR(12) NOT NULL,
+            po_number VARCHAR(80) NOT NULL,
+            received_qty_astra DECIMAL(14,2) NOT NULL DEFAULT 0,
+            remaining_qty_astra DECIMAL(14,2) NOT NULL DEFAULT 0,
+            cogs_per_astra DECIMAL(12,2) NOT NULL DEFAULT 0,
+            received_at DATETIME NOT NULL,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            KEY idx_sku_stock_lots_fifo (sku, received_at, id),
+            KEY idx_sku_stock_lots_po (po_number, sku)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+    );
+    $pdo->exec(
+        'CREATE TABLE IF NOT EXISTS marketplace_order_inventory_allocations (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            order_item_key VARCHAR(220) NOT NULL,
+            order_id VARCHAR(160) NOT NULL,
+            platform VARCHAR(32) NOT NULL,
+            account_key VARCHAR(80) NOT NULL,
+            sku VARCHAR(12) NOT NULL,
+            stock_lot_id BIGINT UNSIGNED NULL,
+            po_number VARCHAR(80) NOT NULL,
+            qty_astra_consumed DECIMAL(14,2) NOT NULL,
+            cogs_per_astra DECIMAL(12,2) NOT NULL,
+            total_cogs DECIMAL(14,2) NOT NULL,
+            consumed_at DATETIME NOT NULL,
+            created_at DATETIME NOT NULL,
+            UNIQUE KEY uq_order_lot (order_item_key, stock_lot_id, po_number),
+            KEY idx_alloc_order_item (order_item_key),
+            KEY idx_alloc_sku_po (sku, po_number)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+    );
+}
+
+function jg_sku_inventory_reprice_po(PDO $pdo, string $sku, string $poNumber, string $newPrice): void
+{
+    jg_sku_inventory_ensure_lot_schema($pdo);
+    $now = jg_sku_now();
+    $updateLots = $pdo->prepare('UPDATE sku_stock_lots SET cogs_per_astra = :cogs, updated_at = :updated_at WHERE sku = :sku AND po_number = :po_number');
+    $updateLots->execute([
+        ':cogs' => $newPrice,
+        ':updated_at' => $now,
+        ':sku' => $sku,
+        ':po_number' => $poNumber,
+    ]);
+    $updateAllocations = $pdo->prepare(
+        'UPDATE marketplace_order_inventory_allocations
+         SET cogs_per_astra = :cogs,
+             total_cogs = ROUND(qty_astra_consumed * :cogs, 2)
+         WHERE sku = :sku AND po_number = :po_number'
+    );
+    $updateAllocations->execute([
+        ':cogs' => $newPrice,
+        ':sku' => $sku,
+        ':po_number' => $poNumber,
+    ]);
+}
+
 function jg_sku_bump_patch(string $version): string
 {
     if (!preg_match('/^(\d+)\.(\d{2})\.(\d{2})$/', $version, $matches)) {
@@ -1035,6 +1098,7 @@ try {
         }
 
         $newPrice = jg_sku_money($request['new_price'] ?? null, 'New price');
+        $poNumber = jg_sku_po_number($request['po_number'] ?? null, true);
         $takesPlace = jg_sku_build_takes_place($request);
 
         $stmt = $pdo->prepare('SELECT cogs FROM sku_skus WHERE sku = :sku LIMIT 1');
@@ -1063,6 +1127,7 @@ try {
             ':takes_place' => $takesPlace,
             ':recorded_at' => jg_sku_now(),
         ]);
+        jg_sku_inventory_reprice_po($pdo, $sku, $poNumber, $newPrice);
 
         jg_sku_touch_version($pdo);
         $pdo->commit();
@@ -1169,6 +1234,7 @@ try {
             }
 
             $poNumber = jg_sku_po_number($request['po_number'] ?? null, true);
+            jg_sku_inventory_ensure_lot_schema($pdo);
             $updateStmt = $pdo->prepare('UPDATE sku_skus SET current_stock = current_stock + :quantity_to_add, updated_at = :updated_at WHERE sku = :sku');
             $updateStmt->execute([
                 ':quantity_to_add' => $quantityToAdd,
@@ -1185,6 +1251,21 @@ try {
                 ':new_price' => number_format((float) ($skuRow['cogs'] ?? 0), 2, '.', ''),
                 ':takes_place' => sprintf('Inventory add | PO %s | Qty %d', $poNumber, $quantityToAdd),
                 ':recorded_at' => jg_sku_now(),
+            ]);
+            $lotStmt = $pdo->prepare(
+                'INSERT INTO sku_stock_lots
+                    (sku, po_number, received_qty_astra, remaining_qty_astra, cogs_per_astra, received_at, created_at, updated_at)
+                 VALUES
+                    (:sku, :po_number, :qty, :qty, :cogs, :received_at, :created_at, :updated_at)'
+            );
+            $lotStmt->execute([
+                ':sku' => $sku,
+                ':po_number' => $poNumber,
+                ':qty' => number_format((float) $quantityToAdd, 2, '.', ''),
+                ':cogs' => number_format((float) ($skuRow['cogs'] ?? 0), 2, '.', ''),
+                ':received_at' => jg_sku_now(),
+                ':created_at' => jg_sku_now(),
+                ':updated_at' => jg_sku_now(),
             ]);
         } else {
             $newStock = jg_sku_integer($request['new_stock'] ?? null, 'New stock');

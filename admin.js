@@ -258,6 +258,14 @@ const JENANG_GEMI_SEARCH_INDEX = [
     keywords: ['home', 'homepage', 'sales', 'marketplace', 'overview', 'executive']
   },
   {
+    title: 'Orders',
+    section: 'Admin',
+    description: 'Marketplace order spreadsheet with seller revenue, FIFO COGS, customer, and address fields.',
+    url: '../dashboard/?view=orders',
+    view: 'orders',
+    keywords: ['orders', 'marketplace', 'spreadsheet', 'revenue', 'cogs']
+  },
+  {
     title: 'Campaigns Dashboard',
     section: 'Admin',
     description: 'Campaign landing-page analytics for Bubur and Jamu pages.',
@@ -432,7 +440,7 @@ const formatPageLabel = (pagePath = '') => {
 const normalizeSourceKey = (value) => String(value || '').trim().toLowerCase();
 
 const HIDDEN_HOME_SOURCES = new Set(['internal', 'direct']);
-const OVERVIEW_CACHE_PREFIX = 'jg-overview-summary-v8';
+const OVERVIEW_CACHE_PREFIX = 'jg-overview-summary-v9';
 
 const shouldHideSourceMetric = (value) => HIDDEN_HOME_SOURCES.has(normalizeSourceKey(value));
 
@@ -1268,13 +1276,23 @@ const drawPieChart = (canvas, items, config) => {
   chartRendererState.set(canvas, () => drawPieChart(canvas, items, config));
 
   const metric = config.metric || 'quantity';
-  const rows = items.slice(0, config.limit || 8).filter((item) => Number(item[metric] || 0) > 0);
+  const visibleItems = items.slice(0, config.limit || 8);
+  const rows = visibleItems.filter((item) => Number(item[metric] || 0) > 0);
   const total = rows.reduce((sum, item) => sum + Number(item[metric] || 0), 0);
   if (!rows.length || total <= 0) {
     ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--admin-muted') || '#9ca3af';
     ctx.font = '700 14px "Plus Jakarta Sans", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('No syrup flavor data yet', width / 2, height / 2);
+    ctx.fillText('No syrup flavor sales yet', width * 0.31, height / 2);
+    ctx.textAlign = 'left';
+    ctx.font = '700 12px "Plus Jakarta Sans", sans-serif';
+    visibleItems.slice(0, 6).forEach((item, index) => {
+      const y = 44 + index * 36;
+      ctx.fillStyle = OVERVIEW_PRODUCT_COLORS[index % OVERVIEW_PRODUCT_COLORS.length];
+      ctx.fillRect(width * 0.64, y - 14, 18, 18);
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--admin-text') || '#f3f6f8';
+      ctx.fillText(`${String(item.label || 'Flavor').slice(0, 16)} ${formatMetricValue(metric, item[metric] || 0, config.unitsMap || OVERVIEW_METRIC_UNITS)}`, width * 0.64 + 28, y);
+    });
     chartHoverState.set(canvas, []);
     return;
   }
@@ -1323,7 +1341,7 @@ const drawPieChart = (canvas, items, config) => {
 
   ctx.textAlign = 'left';
   ctx.font = '700 12px "Plus Jakarta Sans", sans-serif';
-  rows.slice(0, 6).forEach((item, index) => {
+  visibleItems.slice(0, 6).forEach((item, index) => {
     const y = 44 + index * 36;
     ctx.fillStyle = OVERVIEW_PRODUCT_COLORS[index % OVERVIEW_PRODUCT_COLORS.length];
     ctx.fillRect(width * 0.64, y - 14, 18, 18);
@@ -1352,9 +1370,10 @@ document.addEventListener('DOMContentLoaded', () => {
     campaigns: 'home',
     overview: 'overview',
     executive: 'overview',
-    homepage: 'overview'
+    homepage: 'overview',
+    orders: 'orders'
   };
-  const validViews = new Set(['overview', 'home', 'website', 'settings']);
+  const validViews = new Set(['overview', 'orders', 'home', 'website', 'settings']);
   const normalizeDashboardView = (value) => {
     const normalized = String(value || '').trim().toLowerCase();
     const aliased = viewAliases[normalized] || normalized;
@@ -1377,6 +1396,12 @@ document.addEventListener('DOMContentLoaded', () => {
       productMetric: 'quantity',
       flavorMetric: 'quantity',
       data: null,
+      requestToken: 0
+    },
+    orders: {
+      data: null,
+      startDate: '',
+      endDate: '',
       requestToken: 0
     },
     home: {
@@ -1444,6 +1469,15 @@ document.addEventListener('DOMContentLoaded', () => {
     volumeMetricButtons: document.querySelectorAll('[data-overview-volume-metric]'),
     productMetricButtons: document.querySelectorAll('[data-overview-product-metric]'),
     flavorMetricButtons: document.querySelectorAll('[data-overview-flavor-metric]')
+  };
+  const ordersEndpoint = root.dataset.ordersEndpoint || '../api/orders/';
+  const ordersRefs = {
+    startDate: document.querySelector('[data-orders-start-date]'),
+    endDate: document.querySelector('[data-orders-end-date]'),
+    refresh: document.querySelector('[data-orders-refresh]'),
+    tableBody: document.querySelector('[data-orders-table-body]'),
+    count: document.querySelector('[data-orders-count]'),
+    lastUpdated: document.querySelector('[data-orders-last-updated]')
   };
 
   const homeRefs = {
@@ -1761,12 +1795,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const syncViewState = () => {
     const labels = {
       overview: 'Executive Sales Overview',
+      orders: 'Orders',
       home: 'Campaigns Dashboard',
       website: 'Official Website Dashboard',
       settings: 'Settings'
     };
     const navSectionByView = {
       overview: 'home',
+      orders: 'home',
       home: 'campaigns',
       website: 'website',
       settings: 'settings'
@@ -1827,6 +1863,29 @@ document.addEventListener('DOMContentLoaded', () => {
       _ts: String(Date.now())
     });
     return `${salesEndpoint}?${params.toString()}`;
+  };
+  const todayDate = () => new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone }).format(new Date());
+  const offsetDate = (dateValue, offsetDays) => {
+    const date = new Date(`${dateValue}T00:00:00+07:00`);
+    date.setDate(date.getDate() + offsetDays);
+    return new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone }).format(date);
+  };
+  const defaultOrderDates = () => {
+    const today = todayDate();
+    return { start: offsetDate(today, -1), end: today };
+  };
+  const buildOrdersUrl = () => {
+    const defaults = defaultOrderDates();
+    const startDate = ordersRefs.startDate?.value || state.orders.startDate || defaults.start;
+    const endDate = ordersRefs.endDate?.value || state.orders.endDate || defaults.end;
+    const params = new URLSearchParams({
+      start_date: startDate,
+      end_date: endDate,
+      _ts: String(Date.now())
+    });
+    state.orders.startDate = startDate;
+    state.orders.endDate = endDate;
+    return `${ordersEndpoint}?${params.toString()}`;
   };
 
   const overviewCacheKey = (year) => `${OVERVIEW_CACHE_PREFIX}:${year}`;
@@ -2003,8 +2062,38 @@ document.addEventListener('DOMContentLoaded', () => {
     drawChartSafely(overviewRefs.syrupFlavorCanvas, () => drawPieChart(overviewRefs.syrupFlavorCanvas, syrupFlavorRows, {
       metric: state.overview.flavorMetric,
       unitsMap: OVERVIEW_METRIC_UNITS,
-      limit: 8
+      limit: 32
     }));
+  };
+
+  const renderOrders = (data) => {
+    state.orders.data = data;
+    const rows = Array.isArray(data.orders) ? data.orders : [];
+    if (ordersRefs.startDate && data.start_date) ordersRefs.startDate.value = data.start_date;
+    if (ordersRefs.endDate && data.end_date) ordersRefs.endDate.value = data.end_date;
+    if (ordersRefs.count) ordersRefs.count.textContent = `${formatCompactNumber(rows.length)} rows`;
+    if (ordersRefs.lastUpdated) ordersRefs.lastUpdated.textContent = `Updated ${new Date().toLocaleString('id-ID', { timeZone: state.timezone })}`;
+    if (!ordersRefs.tableBody) return;
+    ordersRefs.tableBody.innerHTML = renderRows(rows, 10, (row) => {
+      const platform = `${row.platform || '-'}${row.account_key ? ` / ${row.account_key}` : ''}`;
+      const allocation = Array.isArray(row.allocations) && row.allocations.length
+        ? row.allocations.map((item) => `${item.po_number}: ${formatCompactNumber(item.qty_astra_consumed || 0)}`).join(', ')
+        : 'No PO allocation';
+      return `
+        <tr>
+          <td>${escapeHtml(row.timestamp || '')}</td>
+          <td><strong>${escapeHtml(row.order_id || '')}</strong></td>
+          <td>${escapeHtml(platform)}</td>
+          <td><strong>${escapeHtml(row.product_name || row.sku || row.marketplace_sku || '')}</strong><small>${escapeHtml(allocation)}</small></td>
+          <td>${formatCompactNumber(row.quantity || 0)}</td>
+          <td>${formatCellCurrency(row.revenue || 0)}</td>
+          <td>${formatCellCurrency(row.cogs || 0)}</td>
+          <td>${escapeHtml(row.username || '')}</td>
+          <td>${escapeHtml(row.address || '')}</td>
+          <td>${escapeHtml(row.phone || '')}</td>
+        </tr>
+      `;
+    }, 'No orders found for this date range.');
   };
 
   const renderHome = (data) => {
@@ -2267,9 +2356,33 @@ document.addEventListener('DOMContentLoaded', () => {
     renderCurrentDeviceId();
   };
 
+  const loadOrders = async () => {
+    const requestToken = beginRequest('orders', true);
+    const data = await requestJson(buildOrdersUrl());
+    if (!isLatestRequest('orders', requestToken, true)) return;
+    renderOrders(data);
+  };
+
+  const loadOrdersSafely = async () => {
+    try {
+      await loadOrders();
+      return true;
+    } catch (error) {
+      if (ordersRefs.tableBody) {
+        ordersRefs.tableBody.innerHTML = `<tr><td colspan="10" class="admin-empty">${escapeHtml(error.message || 'Unable to load orders.')}</td></tr>`;
+      }
+      if (ordersRefs.count) ordersRefs.count.textContent = '0 rows';
+      return false;
+    }
+  };
+
   const loadActiveView = async () => {
     if (state.activeView === 'overview') {
       await loadOverview();
+      return;
+    }
+    if (state.activeView === 'orders') {
+      await loadOrders();
       return;
     }
     if (state.activeView === 'home') {
@@ -2332,6 +2445,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (state.activeView === 'overview') {
       return loadOverviewSafely();
     }
+    if (state.activeView === 'orders') {
+      return loadOrdersSafely();
+    }
     if (state.activeView === 'home') {
       return loadHomeSafely();
     }
@@ -2346,6 +2462,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const renderCachedCharts = () => {
     if (state.overview.data) renderOverview(state.overview.data);
+    if (state.orders.data) renderOrders(state.orders.data);
     if (state.home.data) renderHome(state.home.data);
     if (state.website.data) renderWebsite(state.website.data);
   };
@@ -2393,6 +2510,11 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   applyTheme(readStoredTheme() || 'dark');
+  {
+    const defaults = defaultOrderDates();
+    if (ordersRefs.startDate && !ordersRefs.startDate.value) ordersRefs.startDate.value = state.orders.startDate || defaults.start;
+    if (ordersRefs.endDate && !ordersRefs.endDate.value) ordersRefs.endDate.value = state.orders.endDate || defaults.end;
+  }
   syncViewState();
   setLoaderState(20, 'Connecting to analytics');
 
@@ -2490,6 +2612,18 @@ document.addEventListener('DOMContentLoaded', () => {
       state.website.metric = button.dataset.websiteMetric || 'visitors';
       if (state.website.data) renderWebsite(state.website.data);
     });
+  });
+
+  ordersRefs.refresh?.addEventListener('click', async () => {
+    await loadOrdersSafely();
+  });
+
+  ordersRefs.startDate?.addEventListener('change', () => {
+    state.orders.startDate = ordersRefs.startDate?.value || state.orders.startDate;
+  });
+
+  ordersRefs.endDate?.addEventListener('change', () => {
+    state.orders.endDate = ordersRefs.endDate?.value || state.orders.endDate;
   });
 
   document.querySelectorAll('[data-view-switch]').forEach((button) => {

@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isAuthenticated = jg_admin_is_authenticated();
-$dashboardBuildVersion = 'exec3.52.0';
+$dashboardBuildVersion = 'exec3.53.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 ?>
@@ -75,7 +75,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
             <strong class="admin-loader-label" data-admin-loader-label>Initializing...</strong>
         </div>
     </div>
-    <div class="admin-app admin-app-suite" data-admin-dashboard data-analytics-endpoint="../api/analytics/" data-live-endpoint="../api/live/" data-settings-endpoint="../api/settings/" data-sales-endpoint="../api/sales/">
+    <div class="admin-app admin-app-suite" data-admin-dashboard data-analytics-endpoint="../api/analytics/" data-live-endpoint="../api/live/" data-settings-endpoint="../api/settings/" data-sales-endpoint="../api/sales/" data-orders-endpoint="../api/orders/">
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
         <div class="admin-shell">
@@ -102,6 +102,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                             <button type="button" class="admin-ghost-btn admin-menu-trigger" data-menu-trigger aria-expanded="false" aria-label="Open dashboard menu">...</button>
                             <div class="admin-menu-panel" data-menu-panel hidden>
                                 <button type="button" class="admin-menu-item" data-view-switch="overview">Executive Sales Overview</button>
+                                <button type="button" class="admin-menu-item" data-view-switch="orders">Orders</button>
                                 <button type="button" class="admin-menu-item" data-view-switch="home">Campaigns Dashboard</button>
                                 <button type="button" class="admin-menu-item" data-view-switch="website">Official Website Dashboard</button>
                                 <a class="admin-menu-item admin-link-btn" href="../back-dash/">API Ingest Workspace</a>
@@ -249,6 +250,52 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                         </div>
                         <div class="admin-note-stack" data-overview-notes>
                             <div class="admin-note-card"><strong>Preparing</strong><span>Marketplace totals will appear once the yearly summary endpoint responds.</span></div>
+                        </div>
+                    </article>
+                </section>
+                    </section>
+
+                    <section class="admin-view" data-view-panel="orders">
+                <section class="admin-overview-strip">
+                    <div class="admin-toggle-row">
+                        <input class="admin-date-input" type="date" data-orders-start-date>
+                        <input class="admin-date-input" type="date" data-orders-end-date>
+                        <button type="button" class="admin-toggle-pill is-active" data-orders-refresh>Refresh</button>
+                    </div>
+                    <div class="admin-overview-strip-meta">
+                        <span class="admin-live-pill"><span class="admin-live-dot"></span>Live</span>
+                        <small data-orders-last-updated>Orders from marketplace facts</small>
+                    </div>
+                </section>
+                <section class="admin-main-grid">
+                    <article class="admin-panel admin-panel-table admin-panel-wide">
+                        <div class="admin-panel-head">
+                            <div>
+                                <span class="admin-panel-kicker">Orders</span>
+                                <h3>Marketplace order facts</h3>
+                            </div>
+                            <span class="admin-panel-meta" data-orders-count>0 rows</span>
+                        </div>
+                        <div class="admin-table-wrap">
+                            <table class="admin-table admin-orders-table">
+                                <thead>
+                                    <tr>
+                                        <th>Timestamp</th>
+                                        <th>Order ID</th>
+                                        <th>Platform + account</th>
+                                        <th>Product Name</th>
+                                        <th>QTY</th>
+                                        <th>Revenue</th>
+                                        <th>COGS</th>
+                                        <th>Username</th>
+                                        <th>Address</th>
+                                        <th>Phone</th>
+                                    </tr>
+                                </thead>
+                                <tbody data-orders-table-body>
+                                    <tr><td colspan="10" class="admin-empty">Select a date range to load orders.</td></tr>
+                                </tbody>
+                            </table>
                         </div>
                     </article>
                 </section>
