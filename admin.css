@@ -6327,7 +6327,7 @@ body::after {
 }
 
 .admin-app.admin-app-suite .admin-overview-hourly-card .admin-panel-head {
-  min-height: 120px;
+  min-height: 88px;
 }
 
 .admin-app.admin-app-suite .admin-overview-hourly-card .admin-panel-inline-toggles {
@@ -6344,7 +6344,7 @@ body::after {
 }
 
 .admin-app.admin-app-suite .admin-overview-hourly-card .admin-chart-canvas {
-  height: 220px;
+  height: 268px;
 }
 
 .admin-app.admin-app-suite .admin-mini-metric-list {

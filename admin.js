@@ -540,8 +540,31 @@ const chartTooltipState = new WeakMap();
 const chartBindingState = new WeakSet();
 const chartRendererState = new WeakMap();
 const chartActivePointState = new WeakMap();
+const liveChartPulseState = new Set();
+let liveChartPulseFrame = 0;
 let activeChartInfoButton = null;
 let activeChartInfoPopover = null;
+
+const scheduleLiveChartPulse = () => {
+  if (liveChartPulseFrame || document.hidden) return;
+  const tick = () => {
+    liveChartPulseFrame = -1;
+    liveChartPulseState.forEach((canvas) => {
+      if (!canvas.isConnected) {
+        liveChartPulseState.delete(canvas);
+        return;
+      }
+      const renderChart = chartRendererState.get(canvas);
+      if (renderChart) renderChart();
+    });
+    if (liveChartPulseState.size && !document.hidden) {
+      liveChartPulseFrame = window.requestAnimationFrame(tick);
+    } else {
+      liveChartPulseFrame = 0;
+    }
+  };
+  liveChartPulseFrame = window.requestAnimationFrame(tick);
+};
 
 const closeChartInfoPopover = () => {
   if (activeChartInfoButton) {
@@ -824,12 +847,12 @@ const drawBarChart = (canvas, items, config) => {
   chartHoverState.set(canvas, hoverPoints);
 };
 
-const drawLineChart = (canvas, items, metric, unitsMap) => {
-  chartRendererState.set(canvas, () => drawLineChart(canvas, items, metric, unitsMap));
+const drawLineChart = (canvas, items, metric, unitsMap, options = {}) => {
+  chartRendererState.set(canvas, () => drawLineChart(canvas, items, metric, unitsMap, options));
   const prepared = prepareCanvas(canvas);
   if (!prepared) return;
   const { ctx, width, height } = prepared;
-  const padding = { top: 20, right: 18, bottom: 48, left: 92 };
+  const padding = { top: 20, right: 18, bottom: 48, left: 92, ...(options.padding || {}) };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
   const values = items.map((item) => Number(item[metric] || 0));
@@ -837,6 +860,13 @@ const drawLineChart = (canvas, items, metric, unitsMap) => {
   const palette = getThemePalette();
   const points = [];
   const activeHover = chartActivePointState.get(canvas) || null;
+  const liveKey = options.liveKey || '';
+  if (liveKey) {
+    liveChartPulseState.add(canvas);
+    scheduleLiveChartPulse();
+  } else {
+    liveChartPulseState.delete(canvas);
+  }
 
   bindChartHover(canvas);
 
@@ -847,7 +877,7 @@ const drawLineChart = (canvas, items, metric, unitsMap) => {
     return;
   }
 
-  const lineColor = SOURCE_COLORS.instagram;
+  const lineColor = options.lineColor || SOURCE_COLORS.instagram;
   const fillGradient = ctx.createLinearGradient(0, padding.top, 0, padding.top + chartHeight);
   fillGradient.addColorStop(0, 'rgba(157, 255, 0, 0.22)');
   fillGradient.addColorStop(1, 'rgba(157, 255, 0, 0)');
@@ -912,19 +942,32 @@ const drawLineChart = (canvas, items, metric, unitsMap) => {
     const x = padding.left + (chartWidth * index / Math.max(items.length - 1, 1));
     const y = padding.top + chartHeight - ((Number(item[metric] || 0) / maxValue) * (chartHeight - 6));
     const isActive = activeHover && Math.abs(activeHover.x - x) < 1;
+    const isLive = liveKey !== '' && String(item.liveKey || item.key || item.label || '') === liveKey;
+    if (isLive) {
+      const pulse = 0.5 + (0.5 * Math.sin(Date.now() / 260));
+      ctx.beginPath();
+      ctx.fillStyle = `rgba(157, 255, 0, ${0.14 + pulse * 0.18})`;
+      ctx.arc(x, y, 10 + pulse * 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.strokeStyle = `rgba(157, 255, 0, ${0.34 + pulse * 0.36})`;
+      ctx.lineWidth = 2;
+      ctx.arc(x, y, 7 + pulse * 6, 0, Math.PI * 2);
+      ctx.stroke();
+    }
     ctx.fillStyle = isActive ? '#ffffff' : lineColor;
     ctx.beginPath();
-    ctx.arc(x, y, isActive ? 6 : 4, 0, Math.PI * 2);
+    ctx.arc(x, y, isActive || isLive ? 6 : 4, 0, Math.PI * 2);
     ctx.fill();
-    if (isActive) {
-      ctx.strokeStyle = lineColor;
-      ctx.lineWidth = 3;
+    if (isActive || isLive) {
+      ctx.strokeStyle = isLive ? '#9dff00' : lineColor;
+      ctx.lineWidth = isLive ? 4 : 3;
       ctx.stroke();
     }
 
-    if (index === 0 || index === items.length - 1 || items.length <= 8 || index % Math.ceil(items.length / 6) === 0) {
+    if (options.showXAxisLabels !== false && (index === 0 || index === items.length - 1 || items.length <= 8 || index % Math.ceil(items.length / (options.maxLabels || 6)) === 0)) {
       ctx.fillStyle = palette.muted;
-      ctx.font = '600 11px "Plus Jakarta Sans", sans-serif';
+      ctx.font = options.labelFont || '600 11px "Plus Jakarta Sans", sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(item.label || '', x, height - 16);
     }
@@ -2009,6 +2052,18 @@ document.addEventListener('DOMContentLoaded', () => {
     hour: '2-digit',
     hour12: false
   }).format(date));
+  const localMonthKey = (date = new Date()) => new Intl.DateTimeFormat('en-CA', {
+    timeZone: state.timezone,
+    year: 'numeric',
+    month: '2-digit'
+  }).format(date);
+
+  const liveTrendKey = (mode) => {
+    const now = new Date();
+    if (mode === 'hour') return String(localHour(now)).padStart(2, '0');
+    if (mode === 'day') return todayDate();
+    return localMonthKey(now);
+  };
 
   const orderMetricRow = (order) => {
     const revenue = Number(order?.revenue || 0);
@@ -2042,7 +2097,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const buckets = new Map();
     const ensureBucket = (key, label) => {
       if (!buckets.has(key)) {
-        buckets.set(key, { key, label, revenue: 0, gross_profit: 0, orders: 0, item_count: 0 });
+        buckets.set(key, { key, liveKey: key, label, revenue: 0, gross_profit: 0, orders: 0, item_count: 0 });
       }
       return buckets.get(key);
     };
@@ -2094,9 +2149,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const hourlyOrderRows = (orders) => {
     const rows = [];
-    for (let hour = 12; hour <= 23; hour += 1) {
+    for (let hour = 0; hour <= 23; hour += 1) {
       rows.push({
         hour,
+        key: String(hour).padStart(2, '0'),
+        liveKey: String(hour).padStart(2, '0'),
         label: String(hour),
         revenue: 0,
         gross_profit: 0,
@@ -2151,7 +2208,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const syrupFlavorRows = Array.isArray(products.syrup_flavors) ? products.syrup_flavors : [];
     const years = Array.isArray(data.years) ? data.years : [state.overview.year];
     const bestMonth = totals.best_month || {};
-    const monthlyRows = months.map((month) => ({
+    const monthlyRows = months.map((month, index) => ({
+      key: `${state.overview.year}-${String(index + 1).padStart(2, '0')}`,
+      liveKey: `${state.overview.year}-${String(index + 1).padStart(2, '0')}`,
       label: month.label || '-',
       sales: Number(month.sales || 0),
       net_revenue: Number(month.net_revenue || month.sales || 0),
@@ -2177,6 +2236,7 @@ document.addEventListener('DOMContentLoaded', () => {
       ? aggregateOrdersForTrend(customRange.rows, customRange.startDate, customRange.endDate)
       : null;
     const trendRows = customTrend ? customTrend.rows : monthlyRows;
+    const trendMode = customTrend ? customTrend.mode : 'month';
     const trendLabel = customTrend
       ? `${customRange.startDate} to ${customRange.endDate}`
       : `${state.overview.year}`;
@@ -2211,7 +2271,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (overviewRefs.hourlyMeta) {
       const hourlyTotal = state.overview.hourlyRows.reduce((sum, row) => sum + Number(row[state.overview.hourlyMetric] || 0), 0);
-      overviewRefs.hourlyMeta.textContent = `Live today, 12-23 • ${formatFullMetricValue(state.overview.hourlyMetric, hourlyTotal, OVERVIEW_METRIC_UNITS)}`;
+      overviewRefs.hourlyMeta.textContent = `Live today, 0-23 • ${formatFullMetricValue(state.overview.hourlyMetric, hourlyTotal, OVERVIEW_METRIC_UNITS)}`;
     }
 
     if (overviewRefs.tableBody) {
@@ -2251,7 +2311,9 @@ document.addEventListener('DOMContentLoaded', () => {
       button.classList.toggle('is-active', button.dataset.overviewFlavorMetric === state.overview.flavorMetric);
     });
 
-    drawChartSafely(overviewRefs.trendCanvas, () => drawLineChart(overviewRefs.trendCanvas, trendRows, state.overview.metric, OVERVIEW_METRIC_UNITS));
+    drawChartSafely(overviewRefs.trendCanvas, () => drawLineChart(overviewRefs.trendCanvas, trendRows, state.overview.metric, OVERVIEW_METRIC_UNITS, {
+      liveKey: liveTrendKey(trendMode)
+    }));
     drawChartSafely(overviewRefs.ordersCanvas, () => drawBarChart(overviewRefs.ordersCanvas, monthlyRows, {
       value: (item) => item[state.overview.volumeMetric] || 0,
       label: (item) => String(item.label || '-'),
@@ -2266,19 +2328,12 @@ document.addEventListener('DOMContentLoaded', () => {
       padding: { top: 12, right: 16, bottom: 12, left: 16 },
       limit: 12
     }));
-    drawChartSafely(overviewRefs.hourlyCanvas, () => drawBarChart(overviewRefs.hourlyCanvas, state.overview.hourlyRows, {
-      value: (item) => item[state.overview.hourlyMetric] || 0,
-      label: (item) => String(item.label || '-'),
-      color: () => state.overview.hourlyMetric === 'gross_profit' ? '#9dff00' : state.overview.hourlyMetric === 'revenue' ? '#22d3ee' : state.overview.hourlyMetric === 'item_count' ? '#ff8f1f' : '#ff4ecd',
-      metric: state.overview.hourlyMetric,
-      unitsMap: OVERVIEW_METRIC_UNITS,
-      tooltipTitle: (item) => `${item.label || '-'}:00 today`,
-      tooltipValue: (item, value) => formatFullMetricValue(state.overview.hourlyMetric, value, OVERVIEW_METRIC_UNITS),
-      showGrid: true,
-      showXAxisLabels: true,
-      showValueBadges: false,
-      padding: { top: 12, right: 14, bottom: 32, left: 64 },
-      limit: 12
+    drawChartSafely(overviewRefs.hourlyCanvas, () => drawLineChart(overviewRefs.hourlyCanvas, state.overview.hourlyRows, state.overview.hourlyMetric, OVERVIEW_METRIC_UNITS, {
+      liveKey: liveTrendKey('hour'),
+      padding: { top: 14, right: 16, bottom: 36, left: 68 },
+      labelFont: '600 10px "Plus Jakarta Sans", sans-serif',
+      maxLabels: 8,
+      lineColor: state.overview.hourlyMetric === 'gross_profit' ? '#9dff00' : state.overview.hourlyMetric === 'revenue' ? '#22d3ee' : state.overview.hourlyMetric === 'item_count' ? '#ff8f1f' : '#ff4ecd'
     }));
     const accountSeries = accountSeriesFromMonthlyRows(monthlyAccountRows, accounts);
     drawChartSafely(overviewRefs.productStackCanvas, () => drawStackedBarChart(overviewRefs.productStackCanvas, monthlyAccountRows, {
@@ -3050,9 +3105,14 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
       closeLiveStream();
+      if (liveChartPulseFrame) {
+        if (liveChartPulseFrame > 0) window.cancelAnimationFrame(liveChartPulseFrame);
+        liveChartPulseFrame = 0;
+      }
       return;
     }
     connectLiveStream();
+    scheduleLiveChartPulse();
     loadActiveViewSafely().catch(() => {});
   });
 

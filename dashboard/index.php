@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isAuthenticated = jg_admin_is_authenticated();
-$dashboardBuildVersion = 'exec3.56.0';
+$dashboardBuildVersion = 'exec3.57.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 ?>
@@ -205,9 +205,9 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                             <div>
                                 <div class="admin-chart-title-row">
                                     <h3 data-overview-hourly-title>Today orders by hour</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About today by hour" data-chart-info="Shows today's marketplace order activity by hour from 12 through 23. Toggle between seller-received revenue, gross profit, units sold, and order count."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About today by hour" data-chart-info="Shows today's marketplace order activity by hour from 0 through 23. Toggle between seller-received revenue, gross profit, units sold, and order count."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
-                                <span class="admin-panel-meta" data-overview-hourly-meta>Live today, 12-23</span>
+                                <span class="admin-panel-meta" data-overview-hourly-meta>Live today, 0-23</span>
                             </div>
                             <div class="admin-panel-inline-toggles">
                                 <button type="button" class="admin-toggle-pill is-active" data-overview-hourly-metric="orders">Orders</button>
