@@ -842,7 +842,8 @@ const drawLineChart = (canvas, items, metric, unitsMap, options = {}) => {
   const padding = { top: 20, right: 18, bottom: 48, left: 92, ...(options.padding || {}) };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
-  const values = items.map((item) => Number(item[metric] || 0));
+  const chartValue = (item) => (item?.future ? null : Number(item?.[metric] || 0));
+  const values = items.map(chartValue).filter((value) => Number.isFinite(value));
   const maxValue = Math.max(...values, 1);
   const palette = getThemePalette();
   const points = [];
@@ -867,10 +868,15 @@ const drawLineChart = (canvas, items, metric, unitsMap, options = {}) => {
   ctx.strokeStyle = lineColor;
   ctx.lineWidth = 3;
   ctx.beginPath();
+  let hasOpenLine = false;
 
   items.forEach((item, index) => {
     const x = padding.left + (chartWidth * index / Math.max(items.length - 1, 1));
-    const value = Number(item[metric] || 0);
+    const value = chartValue(item);
+    if (value === null) {
+      hasOpenLine = false;
+      return;
+    }
     const y = padding.top + chartHeight - ((value / maxValue) * (chartHeight - 6));
     linePoints.push({ x, y });
     points.push({
@@ -890,8 +896,9 @@ const drawLineChart = (canvas, items, metric, unitsMap, options = {}) => {
         bottom: padding.top + chartHeight
       }
     });
-    if (index === 0) {
+    if (!hasOpenLine) {
       ctx.moveTo(x, y);
+      hasOpenLine = true;
     } else {
       ctx.lineTo(x, y);
     }
@@ -921,7 +928,17 @@ const drawLineChart = (canvas, items, metric, unitsMap, options = {}) => {
 
   items.forEach((item, index) => {
     const x = padding.left + (chartWidth * index / Math.max(items.length - 1, 1));
-    const y = padding.top + chartHeight - ((Number(item[metric] || 0) / maxValue) * (chartHeight - 6));
+    const value = chartValue(item);
+    if (value === null) {
+      if (options.showXAxisLabels !== false && (index === 0 || index === items.length - 1 || items.length <= 8 || index % Math.ceil(items.length / (options.maxLabels || 6)) === 0)) {
+        ctx.fillStyle = palette.muted;
+        ctx.font = options.labelFont || '600 11px "Plus Jakarta Sans", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(item.label || '', x, height - 16);
+      }
+      return;
+    }
+    const y = padding.top + chartHeight - ((value / maxValue) * (chartHeight - 6));
     const isActive = activeHover && Math.abs(activeHover.x - x) < 1;
     ctx.fillStyle = isActive ? '#ffffff' : lineColor;
     ctx.beginPath();
@@ -2011,7 +2028,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const value = String(timestamp || '').trim();
     if (!value) return null;
     const normalized = value.includes('T') ? value : value.replace(' ', 'T');
-    const date = new Date(normalized.includes('+') || normalized.endsWith('Z') ? normalized : `${normalized}+07:00`);
+    const date = new Date(normalized.includes('+') || normalized.endsWith('Z') ? normalized : `${normalized}Z`);
     return Number.isNaN(date.getTime()) ? null : date;
   };
 
@@ -2105,11 +2122,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const hourlyOrderRows = (orders) => {
     const rows = [];
+    const now = new Date();
+    const currentHour = localHour(now);
+    const localToday = todayDate();
     for (let hour = 0; hour <= 23; hour += 1) {
       rows.push({
         hour,
         key: String(hour).padStart(2, '0'),
         label: String(hour),
+        future: hour > currentHour,
         revenue: 0,
         gross_profit: 0,
         orders: 0,
@@ -2120,6 +2141,9 @@ document.addEventListener('DOMContentLoaded', () => {
     orders.forEach((order) => {
       const date = parseOrderTimestamp(order?.order_create_time || order?.timestamp);
       if (!date) return;
+      if (date.getTime() > now.getTime()) return;
+      const localDate = new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone }).format(date);
+      if (localDate !== localToday) return;
       const hour = localHour(date);
       const row = rows.find((item) => item.hour === hour);
       if (row) addOrderMetrics(row, order);
