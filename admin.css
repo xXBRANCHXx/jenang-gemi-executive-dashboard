@@ -6329,7 +6329,7 @@ body::after {
 .admin-app.admin-app-suite .admin-overview-totals-row {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr);
   gap: 16px;
   align-items: stretch;
 }

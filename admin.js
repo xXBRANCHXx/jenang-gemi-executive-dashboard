@@ -2028,7 +2028,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const value = String(timestamp || '').trim();
     if (!value) return null;
     const normalized = value.includes('T') ? value : value.replace(' ', 'T');
-    const date = new Date(normalized.includes('+') || normalized.endsWith('Z') ? normalized : `${normalized}Z`);
+    const date = new Date(normalized.includes('+') || normalized.endsWith('Z') ? normalized : `${normalized}+07:00`);
     return Number.isNaN(date.getTime()) ? null : date;
   };
 

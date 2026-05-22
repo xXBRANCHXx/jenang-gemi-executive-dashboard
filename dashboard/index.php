@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isAuthenticated = jg_admin_is_authenticated();
-$dashboardBuildVersion = 'exec3.61.0';
+$dashboardBuildVersion = 'exec3.62.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 ?>
@@ -162,6 +162,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                         </div>
                     </article>
 
+                    <div class="admin-overview-totals-row">
                     <article class="admin-panel admin-panel-chart">
                         <div class="admin-panel-head">
                             <div>
@@ -182,7 +183,6 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                         </div>
                     </article>
 
-                    <div class="admin-overview-totals-row">
                     <article class="admin-panel admin-panel-chart">
                         <div class="admin-panel-head">
                             <div>
