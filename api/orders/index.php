@@ -139,6 +139,29 @@ function jg_orders_ensure_schema(PDO $pdo): void
             KEY idx_alloc_sku_po (sku, po_number)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
     );
+    jg_orders_ensure_column($pdo, 'sku_stock_lots', 'created_at', 'DATETIME NULL AFTER received_at');
+    jg_orders_ensure_column($pdo, 'sku_stock_lots', 'updated_at', 'DATETIME NULL AFTER created_at');
+    jg_orders_ensure_column($pdo, 'marketplace_order_inventory_allocations', 'created_at', 'DATETIME NULL AFTER consumed_at');
+}
+
+function jg_orders_ensure_column(PDO $pdo, string $tableName, string $columnName, string $definition): void
+{
+    $stmt = $pdo->prepare(
+        'SELECT COUNT(*)
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = :table_name
+           AND COLUMN_NAME = :column_name'
+    );
+    $stmt->execute([
+        ':table_name' => $tableName,
+        ':column_name' => $columnName,
+    ]);
+    if ((int) $stmt->fetchColumn() > 0) {
+        return;
+    }
+
+    $pdo->exec(sprintf('ALTER TABLE `%s` ADD COLUMN `%s` %s', $tableName, $columnName, $definition));
 }
 
 function jg_orders_ensure_opening_lots(PDO $pdo): void
@@ -206,13 +229,19 @@ function jg_orders_enrich_and_allocate(PDO $pdo, array $remoteRows, array $skuLo
         $sku = jg_orders_match_sku($remoteRow, $skuLookup);
         $astraQty = 0.0;
         $allocations = [];
+        $allocationError = '';
         if ($sku) {
             $quantity = max(0, (int) ($remoteRow['quantity'] ?? 0));
             $volume = (float) ($sku['volume'] ?? 0);
             $astra = (float) ($sku['astra'] ?? $volume);
             $multiplier = $volume > 0 && $astra > 0 ? max(1.0, $volume / $astra) : 1.0;
             $astraQty = round($quantity * $multiplier, 2);
-            $allocations = jg_orders_allocate_fifo($pdo, $remoteRow, $sku, $astraQty);
+            try {
+                $allocations = jg_orders_allocate_fifo($pdo, $remoteRow, $sku, $astraQty);
+            } catch (Throwable $error) {
+                error_log('Orders FIFO allocation failed for ' . (string) ($remoteRow['order_id'] ?? '') . ': ' . $error->getMessage());
+                $allocationError = $error->getMessage();
+            }
         }
         $totalCogs = array_sum(array_map(static fn (array $allocation): float => (float) $allocation['total_cogs'], $allocations));
         $rows[] = [
@@ -233,6 +262,7 @@ function jg_orders_enrich_and_allocate(PDO $pdo, array $remoteRows, array $skuLo
             'address' => (string) ($remoteRow['address'] ?? ''),
             'phone' => (string) ($remoteRow['phone'] ?? ''),
             'allocations' => $allocations,
+            'allocation_error' => $allocationError,
         ];
     }
     return $rows;
@@ -273,7 +303,7 @@ function jg_orders_allocate_fifo(PDO $pdo, array $remoteRow, array $sku, float $
         (string) ($remoteRow['platform'] ?? ''),
         (string) ($remoteRow['account_key'] ?? ''),
         (string) ($remoteRow['order_id'] ?? ''),
-        (string) ($remoteRow['item_row_id'] ?? $remoteRow['item_key'] ?? $remoteRow['sku'] ?? ''),
+        (string) ($remoteRow['item_key'] ?? $remoteRow['sku'] ?? $remoteRow['item_row_id'] ?? ''),
     ]);
     $skuCode = (string) $sku['sku'];
     $now = gmdate('Y-m-d H:i:s');
@@ -281,6 +311,7 @@ function jg_orders_allocate_fifo(PDO $pdo, array $remoteRow, array $sku, float $
 
     $pdo->beginTransaction();
     try {
+        jg_orders_restore_replaced_allocations($pdo, $remoteRow, $orderItemKey, $skuCode);
         jg_orders_restore_allocations($pdo, $orderItemKey, $skuCode);
         $remaining = $astraQty;
         $allocations = [];
@@ -371,6 +402,38 @@ function jg_orders_allocate_fifo(PDO $pdo, array $remoteRow, array $sku, float $
             $pdo->rollBack();
         }
         throw $error;
+    }
+}
+
+function jg_orders_restore_replaced_allocations(PDO $pdo, array $remoteRow, string $currentOrderItemKey, string $sku): void
+{
+    $stmt = $pdo->prepare(
+        'SELECT id, stock_lot_id, qty_astra_consumed
+         FROM marketplace_order_inventory_allocations
+         WHERE order_id = :order_id
+           AND platform = :platform
+           AND account_key = :account_key
+           AND sku = :sku
+           AND order_item_key <> :order_item_key'
+    );
+    $stmt->execute([
+        ':order_id' => (string) ($remoteRow['order_id'] ?? ''),
+        ':platform' => (string) ($remoteRow['platform'] ?? ''),
+        ':account_key' => (string) ($remoteRow['account_key'] ?? ''),
+        ':sku' => $sku,
+        ':order_item_key' => $currentOrderItemKey,
+    ]);
+    $restore = $pdo->prepare('UPDATE sku_stock_lots SET remaining_qty_astra = remaining_qty_astra + :qty, updated_at = :updated_at WHERE id = :id');
+    $delete = $pdo->prepare('DELETE FROM marketplace_order_inventory_allocations WHERE id = :id');
+    foreach ($stmt->fetchAll() as $row) {
+        if (!empty($row['stock_lot_id'])) {
+            $restore->execute([
+                ':qty' => number_format((float) $row['qty_astra_consumed'], 2, '.', ''),
+                ':updated_at' => gmdate('Y-m-d H:i:s'),
+                ':id' => (int) $row['stock_lot_id'],
+            ]);
+        }
+        $delete->execute([':id' => (int) $row['id']]);
     }
 }
 

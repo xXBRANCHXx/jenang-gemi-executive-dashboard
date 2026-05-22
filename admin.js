@@ -2085,7 +2085,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const platform = `${row.platform || '-'}${row.account_key ? ` / ${row.account_key}` : ''}`;
       const allocation = Array.isArray(row.allocations) && row.allocations.length
         ? row.allocations.map((item) => `${item.po_number}: ${formatCompactNumber(item.qty_astra_consumed || 0)}`).join(', ')
-        : 'No PO allocation';
+        : (row.allocation_error ? `Allocation needs review: ${row.allocation_error}` : 'No PO allocation');
       const poNumbers = Array.isArray(row.allocations) && row.allocations.length
         ? [...new Set(row.allocations.map((item) => item.po_number).filter(Boolean))].join(', ')
         : '-';
