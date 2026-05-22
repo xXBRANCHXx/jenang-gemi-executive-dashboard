@@ -74,6 +74,16 @@ const OVERVIEW_PLATFORM_COLORS = {
 const OVERVIEW_PRODUCT_COLORS = ['#9dff00', '#22d3ee', '#ff8f1f', '#ff4ecd', '#8b5cf6', '#f8e16c', '#67f8d4', '#ff6b6b'];
 const OVERVIEW_ACCOUNT_COLORS = ['#9dff00', '#22d3ee', '#ff8f1f', '#ff4ecd', '#8b5cf6', '#f8e16c', '#67f8d4', '#ff6b6b', '#c084fc', '#34d399', '#fb7185', '#60a5fa'];
 
+const hexToRgbParts = (hex) => {
+  const normalized = String(hex || '').replace('#', '').trim();
+  if (!/^[0-9a-f]{6}$/i.test(normalized)) return '157, 255, 0';
+  return [
+    parseInt(normalized.slice(0, 2), 16),
+    parseInt(normalized.slice(2, 4), 16),
+    parseInt(normalized.slice(4, 6), 16)
+  ].join(', ');
+};
+
 const numberFromFields = (item, fields, fallback = 0) => {
   for (const field of fields) {
     const value = Number(item?.[field]);
@@ -878,9 +888,10 @@ const drawLineChart = (canvas, items, metric, unitsMap, options = {}) => {
   }
 
   const lineColor = options.lineColor || SOURCE_COLORS.instagram;
+  const fillRgb = options.fillRgb || options.liveRgb || hexToRgbParts(lineColor);
   const fillGradient = ctx.createLinearGradient(0, padding.top, 0, padding.top + chartHeight);
-  fillGradient.addColorStop(0, 'rgba(157, 255, 0, 0.22)');
-  fillGradient.addColorStop(1, 'rgba(157, 255, 0, 0)');
+  fillGradient.addColorStop(0, `rgba(${fillRgb}, 0.18)`);
+  fillGradient.addColorStop(1, `rgba(${fillRgb}, 0)`);
   const linePoints = [];
 
   ctx.strokeStyle = lineColor;
@@ -944,15 +955,16 @@ const drawLineChart = (canvas, items, metric, unitsMap, options = {}) => {
     const isActive = activeHover && Math.abs(activeHover.x - x) < 1;
     const isLive = liveKey !== '' && String(item.liveKey || item.key || item.label || '') === liveKey;
     if (isLive) {
-      const pulse = 0.5 + (0.5 * Math.sin(Date.now() / 260));
+      const pulse = 0.5 + (0.5 * Math.sin(Date.now() / 420));
+      const rgb = options.liveRgb || '157, 255, 0';
       ctx.beginPath();
-      ctx.fillStyle = `rgba(157, 255, 0, ${0.14 + pulse * 0.18})`;
-      ctx.arc(x, y, 10 + pulse * 7, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${rgb}, ${0.08 + pulse * 0.1})`;
+      ctx.arc(x, y, 8 + pulse * 4, 0, Math.PI * 2);
       ctx.fill();
       ctx.beginPath();
-      ctx.strokeStyle = `rgba(157, 255, 0, ${0.34 + pulse * 0.36})`;
+      ctx.strokeStyle = `rgba(${rgb}, ${0.42 + pulse * 0.26})`;
       ctx.lineWidth = 2;
-      ctx.arc(x, y, 7 + pulse * 6, 0, Math.PI * 2);
+      ctx.arc(x, y, 6 + pulse * 3, 0, Math.PI * 2);
       ctx.stroke();
     }
     ctx.fillStyle = isActive ? '#ffffff' : lineColor;
@@ -960,8 +972,8 @@ const drawLineChart = (canvas, items, metric, unitsMap, options = {}) => {
     ctx.arc(x, y, isActive || isLive ? 6 : 4, 0, Math.PI * 2);
     ctx.fill();
     if (isActive || isLive) {
-      ctx.strokeStyle = isLive ? '#9dff00' : lineColor;
-      ctx.lineWidth = isLive ? 4 : 3;
+      ctx.strokeStyle = lineColor;
+      ctx.lineWidth = isLive ? 3.5 : 3;
       ctx.stroke();
     }
 
@@ -2043,7 +2055,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const value = String(timestamp || '').trim();
     if (!value) return null;
     const normalized = value.includes('T') ? value : value.replace(' ', 'T');
-    const date = new Date(normalized.includes('+') || normalized.endsWith('Z') ? normalized : `${normalized}+07:00`);
+    const date = new Date(normalized.includes('+') || normalized.endsWith('Z') ? normalized : `${normalized}Z`);
     return Number.isNaN(date.getTime()) ? null : date;
   };
 
@@ -2052,11 +2064,7 @@ document.addEventListener('DOMContentLoaded', () => {
     hour: '2-digit',
     hour12: false
   }).format(date));
-  const localMonthKey = (date = new Date()) => new Intl.DateTimeFormat('en-CA', {
-    timeZone: state.timezone,
-    year: 'numeric',
-    month: '2-digit'
-  }).format(date);
+  const localMonthKey = (date = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone }).format(date).slice(0, 7);
 
   const liveTrendKey = (mode) => {
     const now = new Date();
@@ -2122,7 +2130,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     orders.forEach((order) => {
-      const date = parseOrderTimestamp(order?.timestamp);
+      const date = parseOrderTimestamp(order?.order_create_time || order?.timestamp);
       if (!date) return;
       const localDate = new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone }).format(date);
       if (localDate < startDate || localDate > endDate) return;
@@ -2163,7 +2171,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     orders.forEach((order) => {
-      const date = parseOrderTimestamp(order?.timestamp);
+      const date = parseOrderTimestamp(order?.order_create_time || order?.timestamp);
       if (!date) return;
       const hour = localHour(date);
       const row = rows.find((item) => item.hour === hour);
@@ -2310,9 +2318,17 @@ document.addEventListener('DOMContentLoaded', () => {
     overviewRefs.flavorMetricButtons.forEach((button) => {
       button.classList.toggle('is-active', button.dataset.overviewFlavorMetric === state.overview.flavorMetric);
     });
+    const hourlyLineColor = state.overview.hourlyMetric === 'gross_profit'
+      ? '#9dff00'
+      : state.overview.hourlyMetric === 'revenue'
+        ? '#22d3ee'
+        : state.overview.hourlyMetric === 'item_count'
+          ? '#ff8f1f'
+          : '#ff4ecd';
 
     drawChartSafely(overviewRefs.trendCanvas, () => drawLineChart(overviewRefs.trendCanvas, trendRows, state.overview.metric, OVERVIEW_METRIC_UNITS, {
-      liveKey: liveTrendKey(trendMode)
+      liveKey: liveTrendKey(trendMode),
+      liveRgb: hexToRgbParts(SOURCE_COLORS.instagram)
     }));
     drawChartSafely(overviewRefs.ordersCanvas, () => drawBarChart(overviewRefs.ordersCanvas, monthlyRows, {
       value: (item) => item[state.overview.volumeMetric] || 0,
@@ -2333,7 +2349,8 @@ document.addEventListener('DOMContentLoaded', () => {
       padding: { top: 14, right: 16, bottom: 36, left: 68 },
       labelFont: '600 10px "Plus Jakarta Sans", sans-serif',
       maxLabels: 8,
-      lineColor: state.overview.hourlyMetric === 'gross_profit' ? '#9dff00' : state.overview.hourlyMetric === 'revenue' ? '#22d3ee' : state.overview.hourlyMetric === 'item_count' ? '#ff8f1f' : '#ff4ecd'
+      lineColor: hourlyLineColor,
+      liveRgb: hexToRgbParts(hourlyLineColor)
     }));
     const accountSeries = accountSeriesFromMonthlyRows(monthlyAccountRows, accounts);
     drawChartSafely(overviewRefs.productStackCanvas, () => drawStackedBarChart(overviewRefs.productStackCanvas, monthlyAccountRows, {

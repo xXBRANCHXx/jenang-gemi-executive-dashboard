@@ -287,6 +287,7 @@ function jg_orders_enrich_and_allocate(PDO $pdo, array $remoteRows, array $skuLo
         $totalCogs = array_sum(array_map(static fn (array $allocation): float => (float) $allocation['total_cogs'], $allocations));
         $rows[] = [
             'timestamp' => (string) ($remoteRow['timestamp'] ?? ''),
+            'order_create_time' => (string) ($remoteRow['order_create_time'] ?? ($remoteRow['timestamp'] ?? '')),
             'order_id' => (string) ($remoteRow['order_id'] ?? ''),
             'platform' => (string) ($remoteRow['platform'] ?? ''),
             'account_key' => (string) ($remoteRow['account_key'] ?? ''),

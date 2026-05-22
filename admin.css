@@ -6327,13 +6327,14 @@ body::after {
 }
 
 .admin-app.admin-app-suite .admin-overview-hourly-card .admin-panel-head {
-  min-height: 88px;
+  min-height: 0;
 }
 
 .admin-app.admin-app-suite .admin-overview-hourly-card .admin-panel-inline-toggles {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  width: min(100%, 260px);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  width: auto;
   gap: 7px;
 }
 
@@ -6344,7 +6345,7 @@ body::after {
 }
 
 .admin-app.admin-app-suite .admin-overview-hourly-card .admin-chart-canvas {
-  height: 268px;
+  height: 318px;
 }
 
 .admin-app.admin-app-suite .admin-mini-metric-list {
