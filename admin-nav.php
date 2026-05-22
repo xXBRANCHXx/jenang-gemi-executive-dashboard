@@ -22,6 +22,14 @@ function render_admin_sidebar(string $activeSection = ''): void
             'view' => 'home',
         ],
         [
+            'key' => 'orders',
+            'href' => '../dashboard/?view=orders',
+            'label' => 'Orders',
+            'icon' => 'admin-rail-icon-orders',
+            'aria' => 'Open marketplace orders',
+            'view' => 'orders',
+        ],
+        [
             'key' => 'website',
             'href' => '../dashboard/?view=website',
             'label' => 'Website',
@@ -72,7 +80,7 @@ function render_admin_sidebar(string $activeSection = ''): void
     ];
 
     echo '<aside class="admin-rail" aria-label="Admin navigation">';
-    echo '<a class="admin-rail-brand" href="../dashboard/" aria-label="Executive Dashboard home">';
+    echo '<a class="admin-rail-brand" href="../dashboard/?view=overview" aria-label="Executive Dashboard home">';
     echo '<span class="admin-rail-brand-mark" aria-hidden="true"><span class="admin-rail-brand-core"></span></span>';
     echo '<span class="admin-rail-brand-wordmark">ADMIN</span>';
     echo '</a>';

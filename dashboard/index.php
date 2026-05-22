@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isAuthenticated = jg_admin_is_authenticated();
-$dashboardBuildVersion = 'exec3.53.0';
+$dashboardBuildVersion = 'exec3.54.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 ?>
@@ -219,7 +219,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                             </div>
                         </div>
                         <div class="admin-chart-surface">
-                            <canvas class="admin-chart-canvas admin-chart-canvas-lg" data-overview-syrup-flavor-chart width="1200" height="320"></canvas>
+                            <canvas class="admin-chart-canvas admin-chart-canvas-lg" data-overview-syrup-flavor-chart width="1200" height="520"></canvas>
                         </div>
                     </article>
 
@@ -285,6 +285,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                         <th>Platform + account</th>
                                         <th>Product Name</th>
                                         <th>QTY</th>
+                                        <th>PO</th>
                                         <th>Revenue</th>
                                         <th>COGS</th>
                                         <th>Username</th>
@@ -293,7 +294,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                     </tr>
                                 </thead>
                                 <tbody data-orders-table-body>
-                                    <tr><td colspan="10" class="admin-empty">Select a date range to load orders.</td></tr>
+                                    <tr><td colspan="11" class="admin-empty">Select a date range to load orders.</td></tr>
                                 </tbody>
                             </table>
                         </div>

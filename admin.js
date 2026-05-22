@@ -1279,20 +1279,35 @@ const drawPieChart = (canvas, items, config) => {
   const visibleItems = items.slice(0, config.limit || 8);
   const rows = visibleItems.filter((item) => Number(item[metric] || 0) > 0);
   const total = rows.reduce((sum, item) => sum + Number(item[metric] || 0), 0);
+  const drawLegend = () => {
+    const textColor = getComputedStyle(document.documentElement).getPropertyValue('--admin-text') || '#f3f6f8';
+    const mutedColor = getComputedStyle(document.documentElement).getPropertyValue('--admin-muted') || '#9ca3af';
+    const rowHeight = 28;
+    const maxRows = Math.max(1, Math.floor((height - 32) / rowHeight));
+    const columns = Math.max(1, Math.ceil(visibleItems.length / maxRows));
+    const legendStartX = width < 760 ? width * 0.58 : width * 0.6;
+    const columnWidth = Math.max(150, (width - legendStartX - 16) / columns);
+    ctx.textAlign = 'left';
+    ctx.font = '700 11px "Plus Jakarta Sans", sans-serif';
+    visibleItems.forEach((item, index) => {
+      const column = Math.floor(index / maxRows);
+      const row = index % maxRows;
+      const x = legendStartX + column * columnWidth;
+      const y = 28 + row * rowHeight;
+      ctx.fillStyle = OVERVIEW_PRODUCT_COLORS[index % OVERVIEW_PRODUCT_COLORS.length];
+      ctx.fillRect(x, y - 12, 14, 14);
+      ctx.fillStyle = textColor;
+      ctx.fillText(String(item.label || 'Flavor').slice(0, columns > 2 ? 12 : 16), x + 22, y - 2);
+      ctx.fillStyle = mutedColor;
+      ctx.fillText(formatMetricValue(metric, item[metric] || 0, config.unitsMap || OVERVIEW_METRIC_UNITS), x + 22, y + 11);
+    });
+  };
   if (!rows.length || total <= 0) {
     ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--admin-muted') || '#9ca3af';
     ctx.font = '700 14px "Plus Jakarta Sans", sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('No syrup flavor sales yet', width * 0.31, height / 2);
-    ctx.textAlign = 'left';
-    ctx.font = '700 12px "Plus Jakarta Sans", sans-serif';
-    visibleItems.slice(0, 6).forEach((item, index) => {
-      const y = 44 + index * 36;
-      ctx.fillStyle = OVERVIEW_PRODUCT_COLORS[index % OVERVIEW_PRODUCT_COLORS.length];
-      ctx.fillRect(width * 0.64, y - 14, 18, 18);
-      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--admin-text') || '#f3f6f8';
-      ctx.fillText(`${String(item.label || 'Flavor').slice(0, 16)} ${formatMetricValue(metric, item[metric] || 0, config.unitsMap || OVERVIEW_METRIC_UNITS)}`, width * 0.64 + 28, y);
-    });
+    drawLegend();
     chartHoverState.set(canvas, []);
     return;
   }
@@ -1339,15 +1354,7 @@ const drawPieChart = (canvas, items, config) => {
     start = end;
   });
 
-  ctx.textAlign = 'left';
-  ctx.font = '700 12px "Plus Jakarta Sans", sans-serif';
-  visibleItems.slice(0, 6).forEach((item, index) => {
-    const y = 44 + index * 36;
-    ctx.fillStyle = OVERVIEW_PRODUCT_COLORS[index % OVERVIEW_PRODUCT_COLORS.length];
-    ctx.fillRect(width * 0.64, y - 14, 18, 18);
-    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--admin-text') || '#f3f6f8';
-    ctx.fillText(`${String(item.label || 'Flavor').slice(0, 16)} ${formatMetricValue(metric, item[metric] || 0, config.unitsMap || OVERVIEW_METRIC_UNITS)}`, width * 0.64 + 28, y);
-  });
+  drawLegend();
 
   chartHoverState.set(canvas, hoverPoints);
 };
@@ -1802,7 +1809,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const navSectionByView = {
       overview: 'home',
-      orders: 'home',
+      orders: 'orders',
       home: 'campaigns',
       website: 'website',
       settings: 'settings'
@@ -2074,11 +2081,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (ordersRefs.count) ordersRefs.count.textContent = `${formatCompactNumber(rows.length)} rows`;
     if (ordersRefs.lastUpdated) ordersRefs.lastUpdated.textContent = `Updated ${new Date().toLocaleString('id-ID', { timeZone: state.timezone })}`;
     if (!ordersRefs.tableBody) return;
-    ordersRefs.tableBody.innerHTML = renderRows(rows, 10, (row) => {
+    ordersRefs.tableBody.innerHTML = renderRows(rows, 11, (row) => {
       const platform = `${row.platform || '-'}${row.account_key ? ` / ${row.account_key}` : ''}`;
       const allocation = Array.isArray(row.allocations) && row.allocations.length
         ? row.allocations.map((item) => `${item.po_number}: ${formatCompactNumber(item.qty_astra_consumed || 0)}`).join(', ')
         : 'No PO allocation';
+      const poNumbers = Array.isArray(row.allocations) && row.allocations.length
+        ? [...new Set(row.allocations.map((item) => item.po_number).filter(Boolean))].join(', ')
+        : '-';
       return `
         <tr>
           <td>${escapeHtml(row.timestamp || '')}</td>
@@ -2086,6 +2096,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td>${escapeHtml(platform)}</td>
           <td><strong>${escapeHtml(row.product_name || row.sku || row.marketplace_sku || '')}</strong><small>${escapeHtml(allocation)}</small></td>
           <td>${formatCompactNumber(row.quantity || 0)}</td>
+          <td>${escapeHtml(poNumbers)}</td>
           <td>${formatCellCurrency(row.revenue || 0)}</td>
           <td>${formatCellCurrency(row.cogs || 0)}</td>
           <td>${escapeHtml(row.username || '')}</td>
@@ -2369,7 +2380,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return true;
     } catch (error) {
       if (ordersRefs.tableBody) {
-        ordersRefs.tableBody.innerHTML = `<tr><td colspan="10" class="admin-empty">${escapeHtml(error.message || 'Unable to load orders.')}</td></tr>`;
+        ordersRefs.tableBody.innerHTML = `<tr><td colspan="11" class="admin-empty">${escapeHtml(error.message || 'Unable to load orders.')}</td></tr>`;
       }
       if (ordersRefs.count) ordersRefs.count.textContent = '0 rows';
       return false;
