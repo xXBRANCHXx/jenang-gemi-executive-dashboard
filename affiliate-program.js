@@ -350,8 +350,6 @@ document.addEventListener('DOMContentLoaded', () => {
     recentWindowStart: 0,
     recentEventsAll: [],
     recentFeedLocked: false,
-    refreshMs: 60000,
-    refreshHandle: null,
     liveSequence: -1,
     liveSource: null
   };
@@ -868,7 +866,7 @@ document.addEventListener('DOMContentLoaded', () => {
         await loadAffiliates();
         await loadDashboard(false);
       } catch (_) {
-        // Ignore malformed live payloads and keep the fallback refresh path intact.
+        // Ignore malformed live payloads and wait for the next internal signal.
       }
     });
 
@@ -962,21 +960,15 @@ document.addEventListener('DOMContentLoaded', () => {
     hideTooltip();
   });
 
-  state.refreshHandle = window.setInterval(() => {
-    loadDashboard(false);
-  }, state.refreshMs);
-
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
       closeLiveStream();
       return;
     }
     connectLiveStream();
-    loadDashboard(false);
   });
 
   window.addEventListener('beforeunload', closeLiveStream);
-  window.addEventListener('resize', () => loadDashboard(false));
 
   const initialize = async () => {
     try {

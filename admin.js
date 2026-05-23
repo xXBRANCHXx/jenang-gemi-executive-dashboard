@@ -1996,7 +1996,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       window.localStorage.setItem(overviewCacheKey(year), JSON.stringify(data));
     } catch (_error) {
-      // Cache is an optimization only; live polling remains authoritative.
+      // Cache is only a first-paint optimization; data changes arrive through the live signal.
     }
   };
 
@@ -2624,18 +2624,6 @@ document.addEventListener('DOMContentLoaded', () => {
     renderOverview(data);
   };
 
-  const refreshOverviewHourly = async () => {
-    const today = todayDate();
-    if (state.overview.hourlyDate && state.overview.hourlyDate !== today) {
-      await loadOverview();
-      return;
-    }
-    const hourlyData = await requestOrderFacts(today, today).catch(() => ({ orders: [] }));
-    state.overview.hourlyRows = hourlyOrderRows(Array.isArray(hourlyData.orders) ? hourlyData.orders : []);
-    state.overview.hourlyDate = today;
-    if (state.overview.data) renderOverview(state.overview.data);
-  };
-
   const loadHome = async () => {
     const requestToken = beginRequest('home');
     const data = await requestJson(buildAnalyticsUrl('landing', state.home.timeframe));
@@ -2801,7 +2789,7 @@ document.addEventListener('DOMContentLoaded', () => {
         state.liveSequence = nextSequence;
         await loadActiveView();
       } catch (_) {
-        // Keep the polling fallback simple.
+        // Ignore malformed live payloads and wait for the next internal signal.
       }
     });
 
@@ -3090,25 +3078,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  window.setInterval(() => {
-    if (!document.hidden && state.activeView === 'overview') refreshOverviewHourly().catch(() => {});
-  }, 15000);
-
-  window.setInterval(() => {
-    if (!document.hidden && state.activeView === 'overview') loadOverviewSafely().catch(() => {});
-  }, 120000);
-
-  window.setInterval(() => {
-    if (!document.hidden && state.activeView !== 'overview') loadActiveViewSafely().catch(() => {});
-  }, 60000);
-
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
       closeLiveStream();
       return;
     }
     connectLiveStream();
-    loadActiveViewSafely().catch(() => {});
   });
 
   window.addEventListener('resize', () => renderCachedCharts());

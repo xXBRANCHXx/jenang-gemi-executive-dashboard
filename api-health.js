@@ -13,8 +13,6 @@ if (root) {
   const failingNode = document.querySelector('[data-health-failing]');
   const loggedNode = document.querySelector('[data-health-logged]');
   const lastNode = document.querySelector('[data-health-last]');
-  let refreshTimer = 0;
-
   const escapeHtml = (value) => String(value ?? '')
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
@@ -137,6 +135,4 @@ if (root) {
 
   refreshButton?.addEventListener('click', loadHealth);
   loadHealth();
-  refreshTimer = window.setInterval(loadHealth, 60000);
-  window.addEventListener('pagehide', () => window.clearInterval(refreshTimer));
 }
