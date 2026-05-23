@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const themeStorageKey = 'jg-admin-theme';
   const themeCookieMaxAge = 60 * 60 * 24 * 365 * 2;
-  const themeOptions = ['dark', 'minimal-white', 'classic-white', 'minimal-black', 'prism'];
+  const themeOptions = ['minimal-black', 'dark', 'minimal-white', 'classic-white', 'prism'];
   const endpoint = root.dataset.affiliatesEndpoint || './affiliates.php';
   const liveEndpoint = root.dataset.liveEndpoint || './live/';
   const menuShell = document.querySelector('[data-menu-shell]');
@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const normalizeTheme = (theme) => {
     if (theme === 'light') return 'classic-white';
-    return themeOptions.includes(theme) ? theme : 'dark';
+    return themeOptions.includes(theme) ? theme : 'minimal-black';
   };
 
   const readThemeCookie = () => {
@@ -258,7 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
-  applyTheme(readStoredTheme() || 'dark');
+  applyTheme(readStoredTheme() || 'minimal-black');
   setupTopbarMenu();
 
   document.querySelector('[data-theme-toggle]')?.addEventListener('click', () => {

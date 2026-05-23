@@ -1,14 +1,14 @@
 document.addEventListener('DOMContentLoaded', () => {
   const themeStorageKey = 'jg-admin-theme';
   const themeCookieMaxAge = 60 * 60 * 24 * 365 * 2;
-  const themeOptions = ['dark', 'minimal-white', 'classic-white', 'minimal-black', 'prism'];
+  const themeOptions = ['minimal-black', 'dark', 'minimal-white', 'classic-white', 'prism'];
   const menuShell = document.querySelector('[data-menu-shell]');
   const menuTrigger = document.querySelector('[data-menu-trigger]');
   const menuPanel = document.querySelector('[data-menu-panel]');
 
   const normalizeTheme = (theme) => {
     if (theme === 'light') return 'classic-white';
-    return themeOptions.includes(theme) ? theme : 'dark';
+    return themeOptions.includes(theme) ? theme : 'minimal-black';
   };
 
   const readThemeCookie = () => {
@@ -63,7 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
     menuTrigger.setAttribute('aria-expanded', 'true');
   };
 
-  applyTheme(readStoredTheme() || 'dark');
+  applyTheme(readStoredTheme() || 'minimal-black');
 
   menuTrigger?.addEventListener('click', () => {
     if (menuPanel?.hidden === false) closeMenu();

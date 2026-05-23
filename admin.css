@@ -5311,7 +5311,37 @@ body::after {
     linear-gradient(135deg, #0b0714 0%, #7c5cff 56%, #ff8f70 100%);
 }
 
-/* Dashboard theme variants. The default `dark` value intentionally keeps the current theme. */
+/* Dashboard theme variants. */
+:root[data-admin-theme='dark'] {
+  --admin-bg: #0b0f14;
+  --admin-surface: rgba(18, 24, 33, 0.88);
+  --admin-surface-strong: rgba(23, 31, 43, 0.94);
+  --admin-surface-soft: rgba(26, 36, 49, 0.82);
+  --admin-border: rgba(255, 255, 255, 0.08);
+  --admin-text: #eef4f7;
+  --admin-muted: rgba(219, 230, 238, 0.68);
+  --admin-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+  --admin-accent-primary: #9dff00;
+  --admin-accent-secondary: #ffd400;
+  --admin-accent-tertiary: #ff5252;
+  --admin-accent-quaternary: #22d3ee;
+  --admin-accent-gradient: linear-gradient(135deg, #9dff00 0%, #00ff88 52%, #22d3ee 100%);
+  --admin-shell-edge: rgba(157, 255, 0, 0.14);
+  --admin-panel-outline-hover: rgba(157, 255, 0, 0.36);
+  --admin-panel-shadow: 0 22px 54px rgba(0, 0, 0, 0.28);
+  --admin-panel-shadow-hover: 0 28px 64px rgba(0, 0, 0, 0.34);
+  --admin-panel-glass-bg: rgba(18, 24, 33, 0.72);
+  --admin-copy-soft: rgba(219, 230, 238, 0.74);
+  --admin-surface-glass: rgba(18, 24, 33, 0.58);
+  --admin-surface-glass-strong: rgba(23, 31, 43, 0.82);
+  --admin-surface-panel: rgba(18, 24, 33, 0.62);
+  --admin-surface-panel-strong: rgba(23, 31, 43, 0.82);
+  --admin-rail-border: rgba(157, 255, 0, 0.14);
+  --admin-green-soft: rgba(157, 255, 0, 0.14);
+  --admin-green-line: rgba(157, 255, 0, 0.5);
+  color-scheme: dark;
+}
+
 :root[data-admin-theme='minimal-white'] {
   --admin-bg: #f7f8f5;
   --admin-surface: #ffffff;
@@ -5400,6 +5430,19 @@ body::after {
   --admin-green-soft: rgba(255, 255, 255, 0.1);
   --admin-green-line: rgba(255, 255, 255, 0.48);
   color-scheme: dark;
+}
+
+:root[data-admin-theme='dark'],
+:root[data-admin-theme='dark'] body,
+:root[data-admin-theme='dark'] .admin-app.admin-app-suite {
+  background:
+    radial-gradient(circle at 18% 10%, rgba(157, 255, 0, 0.14), transparent 28rem),
+    radial-gradient(circle at 84% 0%, rgba(34, 211, 238, 0.12), transparent 24rem),
+    linear-gradient(180deg, #0b0f14 0%, #0f151f 48%, #0b0f14 100%);
+}
+
+:root[data-admin-theme='dark'] .admin-app {
+  color: var(--admin-text);
 }
 
 :root[data-admin-theme='prism'] {

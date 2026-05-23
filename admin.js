@@ -461,7 +461,7 @@ const formatPageLabel = (pagePath = '') => {
 const normalizeSourceKey = (value) => String(value || '').trim().toLowerCase();
 
 const HIDDEN_HOME_SOURCES = new Set(['internal', 'direct']);
-const OVERVIEW_CACHE_PREFIX = 'jg-overview-summary-v9';
+const OVERVIEW_CACHE_PREFIX = 'jg-overview-summary-v10';
 
 const shouldHideSourceMetric = (value) => HIDDEN_HOME_SOURCES.has(normalizeSourceKey(value));
 
@@ -1407,7 +1407,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const themeStorageKey = 'jg-admin-theme';
   const themeCookieMaxAge = 60 * 60 * 24 * 365 * 2;
   const viewStorageKey = 'jg-dashboard-view';
-  const themeOptions = ['dark', 'minimal-white', 'classic-white', 'minimal-black', 'prism'];
+  const themeOptions = ['minimal-black', 'dark', 'minimal-white', 'classic-white', 'prism'];
   const viewAliases = {
     landing: 'home',
     landing_pages: 'home',
@@ -1959,6 +1959,16 @@ document.addEventListener('DOMContentLoaded', () => {
       _ts: String(Date.now())
     });
     return `${ordersEndpoint}?${params.toString()}`;
+  };
+  const requestOrderFacts = (startDate, endDate, options = {}) => {
+    const method = options.sync ? 'POST' : 'GET';
+    return requestJson(buildOrderFactsUrl(startDate, endDate), method === 'POST'
+      ? {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ start_date: startDate, end_date: endDate })
+      }
+      : {});
   };
   const todayDate = () => new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone }).format(new Date());
   const offsetDate = (dateValue, offsetDays) => {
@@ -2605,11 +2615,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const requestToken = beginRequest('overview');
     const today = todayDate();
-    const [data, hourlyData, customData] = await Promise.all([
+    const hourlyData = await requestOrderFacts(today, today, { sync: true }).catch(() => ({ orders: [] }));
+    const [data, customData] = await Promise.all([
       requestJson(buildSalesUrl(state.overview.year)),
-      requestJson(buildOrderFactsUrl(today, today)).catch(() => ({ orders: [] })),
       state.overview.customRange.active && state.overview.customRange.startDate && state.overview.customRange.endDate
-        ? requestJson(buildOrderFactsUrl(state.overview.customRange.startDate, state.overview.customRange.endDate)).catch(() => ({ orders: [] }))
+        ? requestOrderFacts(state.overview.customRange.startDate, state.overview.customRange.endDate).catch(() => ({ orders: [] }))
         : Promise.resolve(null)
     ]);
     if (!isLatestRequest('overview', requestToken)) return;

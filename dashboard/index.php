@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isAuthenticated = jg_admin_is_authenticated();
-$dashboardBuildVersion = 'exec3.62.0';
+$dashboardBuildVersion = 'exec3.63.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 ?>
@@ -757,7 +757,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                         <div class="admin-theme-options" data-theme-options>
                             <button type="button" class="admin-theme-option" data-theme-option="dark" aria-pressed="false">
                                 <span class="admin-theme-swatch admin-theme-swatch-current" aria-hidden="true"></span>
-                                <span><strong>Current Default</strong><small>Executive dark</small></span>
+                                <span><strong>Green Glass</strong><small>Original executive dark</small></span>
                             </button>
                             <button type="button" class="admin-theme-option" data-theme-option="minimal-white" aria-pressed="false">
                                 <span class="admin-theme-swatch admin-theme-swatch-minimal-white" aria-hidden="true"></span>
@@ -769,7 +769,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                             </button>
                             <button type="button" class="admin-theme-option" data-theme-option="minimal-black" aria-pressed="false">
                                 <span class="admin-theme-swatch admin-theme-swatch-minimal-black" aria-hidden="true"></span>
-                                <span><strong>Minimal Black</strong><small>Flat and focused</small></span>
+                                <span><strong>Minimal Black</strong><small>Default flat dark</small></span>
                             </button>
                             <button type="button" class="admin-theme-option" data-theme-option="prism" aria-pressed="false">
                                 <span class="admin-theme-swatch admin-theme-swatch-prism" aria-hidden="true"></span>
