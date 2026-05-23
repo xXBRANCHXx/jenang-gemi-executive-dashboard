@@ -1449,6 +1449,7 @@ document.addEventListener('DOMContentLoaded', () => {
         rows: null
       },
       hourlyRows: [],
+      hourlyDate: '',
       data: null,
       requestToken: 0
     },
@@ -1960,16 +1961,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     return `${ordersEndpoint}?${params.toString()}`;
   };
-  const requestOrderFacts = (startDate, endDate, options = {}) => {
-    const method = options.sync ? 'POST' : 'GET';
-    return requestJson(buildOrderFactsUrl(startDate, endDate), method === 'POST'
-      ? {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ start_date: startDate, end_date: endDate })
-      }
-      : {});
-  };
+  const requestOrderFacts = (startDate, endDate) => requestJson(buildOrderFactsUrl(startDate, endDate));
   const todayDate = () => new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone }).format(new Date());
   const offsetDate = (dateValue, offsetDays) => {
     const date = new Date(`${dateValue}T00:00:00+07:00`);
@@ -2615,7 +2607,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const requestToken = beginRequest('overview');
     const today = todayDate();
-    const hourlyData = await requestOrderFacts(today, today, { sync: true }).catch(() => ({ orders: [] }));
+    const hourlyData = await requestOrderFacts(today, today).catch(() => ({ orders: [] }));
     const [data, customData] = await Promise.all([
       requestJson(buildSalesUrl(state.overview.year)),
       state.overview.customRange.active && state.overview.customRange.startDate && state.overview.customRange.endDate
@@ -2624,11 +2616,24 @@ document.addEventListener('DOMContentLoaded', () => {
     ]);
     if (!isLatestRequest('overview', requestToken)) return;
     state.overview.hourlyRows = hourlyOrderRows(Array.isArray(hourlyData.orders) ? hourlyData.orders : []);
+    state.overview.hourlyDate = today;
     if (customData) {
       state.overview.customRange.rows = Array.isArray(customData.orders) ? customData.orders : [];
     }
     writeOverviewCache(state.overview.year, data);
     renderOverview(data);
+  };
+
+  const refreshOverviewHourly = async () => {
+    const today = todayDate();
+    if (state.overview.hourlyDate && state.overview.hourlyDate !== today) {
+      await loadOverview();
+      return;
+    }
+    const hourlyData = await requestOrderFacts(today, today).catch(() => ({ orders: [] }));
+    state.overview.hourlyRows = hourlyOrderRows(Array.isArray(hourlyData.orders) ? hourlyData.orders : []);
+    state.overview.hourlyDate = today;
+    if (state.overview.data) renderOverview(state.overview.data);
   };
 
   const loadHome = async () => {
@@ -3086,8 +3091,12 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   window.setInterval(() => {
-    if (!document.hidden && state.activeView === 'overview') loadOverviewSafely().catch(() => {});
+    if (!document.hidden && state.activeView === 'overview') refreshOverviewHourly().catch(() => {});
   }, 15000);
+
+  window.setInterval(() => {
+    if (!document.hidden && state.activeView === 'overview') loadOverviewSafely().catch(() => {});
+  }, 120000);
 
   window.setInterval(() => {
     if (!document.hidden && state.activeView !== 'overview') loadActiveViewSafely().catch(() => {});
