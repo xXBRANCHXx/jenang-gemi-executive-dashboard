@@ -1451,6 +1451,7 @@ document.addEventListener('DOMContentLoaded', () => {
       },
       hourlyRows: [],
       hourlyDate: '',
+      hourlyRequestToken: 0,
       data: null,
       requestToken: 0
     },
@@ -2194,6 +2195,37 @@ document.addEventListener('DOMContentLoaded', () => {
     }));
   };
 
+  const overviewHourlyLineColor = (metric) => {
+    if (metric === 'gross_profit') return '#9dff00';
+    if (metric === 'revenue') return '#22d3ee';
+    if (metric === 'item_count') return '#ff8f1f';
+    return '#ff4ecd';
+  };
+
+  const currentHourlyRows = () => state.overview.hourlyRows.map((row) => ({
+    ...row,
+    tooltipLinesHtml: buildOverviewTooltipLines(row, state.overview.hourlyMetric)
+  }));
+
+  const renderOverviewHourlyPanel = () => {
+    if (overviewRefs.hourlyTitle) {
+      overviewRefs.hourlyTitle.textContent = `Today ${OVERVIEW_METRIC_SHORT_LABELS[state.overview.hourlyMetric] || 'Orders'} by hour`;
+    }
+    if (overviewRefs.hourlyMeta) {
+      const hourlyTotal = state.overview.hourlyRows.reduce((sum, row) => sum + Number(row[state.overview.hourlyMetric] || 0), 0);
+      overviewRefs.hourlyMeta.textContent = `Live today, 0-23 • ${formatFullMetricValue(state.overview.hourlyMetric, hourlyTotal, OVERVIEW_METRIC_UNITS)}`;
+    }
+    overviewRefs.hourlyMetricButtons.forEach((button) => {
+      button.classList.toggle('is-active', button.dataset.overviewHourlyMetric === state.overview.hourlyMetric);
+    });
+    drawChartSafely(overviewRefs.hourlyCanvas, () => drawLineChart(overviewRefs.hourlyCanvas, currentHourlyRows(), state.overview.hourlyMetric, OVERVIEW_METRIC_UNITS, {
+      padding: { top: 14, right: 16, bottom: 36, left: 68 },
+      labelFont: '600 10px "Plus Jakarta Sans", sans-serif',
+      maxLabels: 8,
+      lineColor: overviewHourlyLineColor(state.overview.hourlyMetric)
+    }));
+  };
+
   const closeOverviewRangePopover = () => {
     if (overviewRefs.rangePopover) overviewRefs.rangePopover.hidden = true;
   };
@@ -2404,13 +2436,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (overviewRefs.rangeReset) {
       overviewRefs.rangeReset.hidden = !customTrend;
     }
-    if (overviewRefs.hourlyTitle) {
-      overviewRefs.hourlyTitle.textContent = `Today ${OVERVIEW_METRIC_SHORT_LABELS[state.overview.hourlyMetric] || 'Orders'} by hour`;
-    }
-    if (overviewRefs.hourlyMeta) {
-      const hourlyTotal = state.overview.hourlyRows.reduce((sum, row) => sum + Number(row[state.overview.hourlyMetric] || 0), 0);
-      overviewRefs.hourlyMeta.textContent = `Live today, 0-23 • ${formatFullMetricValue(state.overview.hourlyMetric, hourlyTotal, OVERVIEW_METRIC_UNITS)}`;
-    }
+    renderOverviewHourlyPanel();
 
     if (overviewRefs.tableBody) {
       overviewRefs.tableBody.innerHTML = renderRows(months, 4, (month) => `
@@ -2439,22 +2465,12 @@ document.addEventListener('DOMContentLoaded', () => {
     overviewRefs.volumeMetricButtons.forEach((button) => {
       button.classList.toggle('is-active', button.dataset.overviewVolumeMetric === state.overview.volumeMetric);
     });
-    overviewRefs.hourlyMetricButtons.forEach((button) => {
-      button.classList.toggle('is-active', button.dataset.overviewHourlyMetric === state.overview.hourlyMetric);
-    });
     overviewRefs.productMetricButtons.forEach((button) => {
       button.classList.toggle('is-active', button.dataset.overviewProductMetric === state.overview.productMetric);
     });
     overviewRefs.flavorMetricButtons.forEach((button) => {
       button.classList.toggle('is-active', button.dataset.overviewFlavorMetric === state.overview.flavorMetric);
     });
-    const hourlyLineColor = state.overview.hourlyMetric === 'gross_profit'
-      ? '#9dff00'
-      : state.overview.hourlyMetric === 'revenue'
-        ? '#22d3ee'
-        : state.overview.hourlyMetric === 'item_count'
-          ? '#ff8f1f'
-          : '#ff4ecd';
 
     drawChartSafely(overviewRefs.trendCanvas, () => drawLineChart(overviewRefs.trendCanvas, trendRows, state.overview.metric, OVERVIEW_METRIC_UNITS));
     drawChartSafely(overviewRefs.ordersCanvas, () => drawBarChart(overviewRefs.ordersCanvas, monthlyRows, {
@@ -2470,12 +2486,6 @@ document.addEventListener('DOMContentLoaded', () => {
       showValueBadges: false,
       padding: { top: 12, right: 16, bottom: 12, left: 16 },
       limit: 12
-    }));
-    drawChartSafely(overviewRefs.hourlyCanvas, () => drawLineChart(overviewRefs.hourlyCanvas, state.overview.hourlyRows, state.overview.hourlyMetric, OVERVIEW_METRIC_UNITS, {
-      padding: { top: 14, right: 16, bottom: 36, left: 68 },
-      labelFont: '600 10px "Plus Jakarta Sans", sans-serif',
-      maxLabels: 8,
-      lineColor: hourlyLineColor
     }));
     const accountSeries = accountSeriesFromMonthlyRows(monthlyAccountRows, accounts);
     drawChartSafely(overviewRefs.productStackCanvas, () => drawStackedBarChart(overviewRefs.productStackCanvas, monthlyAccountRows, {
@@ -2759,15 +2769,16 @@ document.addEventListener('DOMContentLoaded', () => {
     ]);
   };
 
-  const refreshOverviewHourlyRows = async (requestToken) => {
+  const refreshOverviewHourlyRows = async (requestToken = null) => {
+    const hourlyRequestToken = state.overview.hourlyRequestToken + 1;
+    state.overview.hourlyRequestToken = hourlyRequestToken;
     const today = todayDate();
     const hourlyData = await requestOrderFacts(today, today, { lightweight: true });
-    if (!isLatestRequest('overview', requestToken)) return;
+    if (requestToken !== null && !isLatestRequest('overview', requestToken)) return;
+    if (hourlyRequestToken !== state.overview.hourlyRequestToken) return;
     state.overview.hourlyRows = hourlyOrderRows(Array.isArray(hourlyData.orders) ? hourlyData.orders : []);
     state.overview.hourlyDate = today;
-    if (state.overview.data) {
-      renderOverview(state.overview.data);
-    }
+    renderOverviewHourlyPanel();
   };
 
   const loadOverview = async (options = {}) => {
@@ -3043,10 +3054,7 @@ document.addEventListener('DOMContentLoaded', () => {
   overviewRefs.hourlyMetricButtons.forEach((button) => {
     button.addEventListener('click', () => {
       state.overview.hourlyMetric = button.dataset.overviewHourlyMetric || 'orders';
-      overviewRefs.hourlyMetricButtons.forEach((candidate) => {
-        candidate.classList.toggle('is-active', candidate === button);
-      });
-      if (state.overview.data) renderOverview(state.overview.data);
+      renderOverviewHourlyPanel();
     });
   });
 
@@ -3317,10 +3325,16 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('resize', () => renderCachedCharts());
   window.addEventListener('focus', () => {
     refreshForLocalDateRollover().catch(() => {});
+    if (state.activeView === 'overview') {
+      refreshOverviewHourlyRows().catch(() => {});
+    }
   });
   window.setInterval(() => {
     if (!document.hidden) {
       refreshForLocalDateRollover().catch(() => {});
+      if (state.activeView === 'overview') {
+        refreshOverviewHourlyRows().catch(() => {});
+      }
     }
   }, 60000);
   window.addEventListener('beforeunload', closeLiveStream);
