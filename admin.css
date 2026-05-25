@@ -1204,6 +1204,10 @@ button, input {
   background: rgba(255, 210, 86, 0.2);
 }
 
+.admin-range-day.is-final-range::before {
+  background: rgba(255, 210, 86, 0.8);
+}
+
 .admin-range-day.is-selected-start::before {
   left: 50%;
 }
