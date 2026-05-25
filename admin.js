@@ -1522,10 +1522,11 @@ document.addEventListener('DOMContentLoaded', () => {
     rangeShell: document.querySelector('[data-overview-range-shell]'),
     rangeToggle: document.querySelector('[data-overview-range-toggle]'),
     rangePopover: document.querySelector('[data-overview-range-popover]'),
-    rangeStart: document.querySelector('[data-overview-range-start]'),
-    rangeEnd: document.querySelector('[data-overview-range-end]'),
-    rangeApply: document.querySelector('[data-overview-range-apply]'),
     rangeReset: document.querySelector('[data-overview-range-reset]'),
+    rangeGrid: document.querySelector('[data-overview-range-grid]'),
+    rangeMonth: document.querySelector('[data-overview-range-month]'),
+    rangePrev: document.querySelector('[data-overview-range-prev]'),
+    rangeNext: document.querySelector('[data-overview-range-next]'),
     lastUpdated: document.querySelector('[data-overview-last-updated]'),
     tableBody: document.querySelector('[data-overview-table-body]'),
     notes: document.querySelector('[data-overview-notes]'),
@@ -2183,6 +2184,114 @@ document.addEventListener('DOMContentLoaded', () => {
     if (overviewRefs.rangePopover) overviewRefs.rangePopover.hidden = true;
   };
 
+  const dateKeyToWibDate = (dateValue) => new Date(`${dateValue}T00:00:00+07:00`);
+  const wibDateKey = (date) => new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone }).format(date);
+  const monthKeyFromDate = (dateValue) => dateValue.slice(0, 7);
+  const firstMonthDay = (monthKey) => `${monthKey}-01`;
+  let rangeCalendarMonth = monthKeyFromDate(todayDate());
+  let rangeDraftStart = '';
+  let rangeHoverDate = '';
+
+  const setRangeCalendarMonth = (dateValue = '') => {
+    const customRange = state.overview.customRange || {};
+    rangeCalendarMonth = monthKeyFromDate(dateValue || customRange.startDate || customRange.endDate || todayDate());
+  };
+
+  const rangeBounds = () => {
+    const customRange = state.overview.customRange || {};
+    if (rangeDraftStart && rangeHoverDate) {
+      return {
+        start: rangeDraftStart <= rangeHoverDate ? rangeDraftStart : rangeHoverDate,
+        end: rangeDraftStart <= rangeHoverDate ? rangeHoverDate : rangeDraftStart,
+        preview: true
+      };
+    }
+    if (rangeDraftStart) {
+      return { start: rangeDraftStart, end: rangeDraftStart, preview: true };
+    }
+    if (customRange.active && customRange.startDate && customRange.endDate) {
+      return { start: customRange.startDate, end: customRange.endDate, preview: false };
+    }
+    return { start: '', end: '', preview: false };
+  };
+
+  const renderOverviewRangeCalendar = () => {
+    if (!overviewRefs.rangeGrid || !overviewRefs.rangeMonth) return;
+    const firstDay = dateKeyToWibDate(firstMonthDay(rangeCalendarMonth));
+    const month = firstDay.getMonth();
+    const startOffset = (firstDay.getDay() + 6) % 7;
+    const gridStart = new Date(firstDay);
+    gridStart.setDate(firstDay.getDate() - startOffset);
+    const today = todayDate();
+    const bounds = rangeBounds();
+    overviewRefs.rangeMonth.textContent = new Intl.DateTimeFormat('id-ID', {
+      timeZone: state.timezone,
+      month: 'long',
+      year: 'numeric'
+    }).format(firstDay);
+
+    const days = [];
+    for (let index = 0; index < 42; index += 1) {
+      const date = new Date(gridStart);
+      date.setDate(gridStart.getDate() + index);
+      const key = wibDateKey(date);
+      const outside = date.getMonth() !== month;
+      const inRange = bounds.start && bounds.end && key >= bounds.start && key <= bounds.end;
+      const selectedStart = bounds.start && key === bounds.start;
+      const selectedEnd = bounds.end && key === bounds.end && bounds.end !== bounds.start;
+      const classes = [
+        'admin-range-day',
+        outside ? 'is-outside' : '',
+        inRange ? 'is-in-range' : '',
+        bounds.preview && inRange ? 'is-preview' : '',
+        selectedStart ? 'is-selected-start' : '',
+        selectedEnd ? 'is-selected-end' : '',
+        key === today ? 'is-today' : ''
+      ].filter(Boolean).join(' ');
+      days.push(`<button type="button" class="${classes}" data-overview-range-date="${key}">${date.getDate()}</button>`);
+    }
+    overviewRefs.rangeGrid.innerHTML = days.join('');
+  };
+
+  const openOverviewRangePopover = () => {
+    if (!overviewRefs.rangePopover) return;
+    rangeDraftStart = '';
+    rangeHoverDate = '';
+    setRangeCalendarMonth();
+    renderOverviewRangeCalendar();
+    overviewRefs.rangePopover.hidden = false;
+  };
+
+  const shiftRangeCalendarMonth = (offset) => {
+    const date = dateKeyToWibDate(firstMonthDay(rangeCalendarMonth));
+    date.setMonth(date.getMonth() + offset);
+    rangeCalendarMonth = monthKeyFromDate(wibDateKey(date));
+    renderOverviewRangeCalendar();
+  };
+
+  const selectOverviewRangeDate = async (dateValue) => {
+    if (!rangeDraftStart) {
+      rangeDraftStart = dateValue;
+      rangeHoverDate = dateValue;
+      setRangeCalendarMonth(dateValue);
+      renderOverviewRangeCalendar();
+      return;
+    }
+
+    const startDate = rangeDraftStart <= dateValue ? rangeDraftStart : dateValue;
+    const endDate = rangeDraftStart <= dateValue ? dateValue : rangeDraftStart;
+    state.overview.customRange = {
+      active: true,
+      startDate,
+      endDate,
+      rows: []
+    };
+    rangeDraftStart = '';
+    rangeHoverDate = '';
+    closeOverviewRangePopover();
+    await loadOverviewSafely();
+  };
+
   const renderOverviewYearControls = (years) => {
     if (!overviewRefs.yearControls) return;
     overviewRefs.yearControls.innerHTML = years.map((year) => `
@@ -2264,8 +2373,9 @@ document.addEventListener('DOMContentLoaded', () => {
       overviewRefs.rangeToggle.classList.toggle('is-active', Boolean(customTrend));
       overviewRefs.rangeToggle.title = customTrend ? trendLabel : 'Select custom chart date range';
     }
-    if (overviewRefs.rangeStart && customRange.startDate) overviewRefs.rangeStart.value = customRange.startDate;
-    if (overviewRefs.rangeEnd && customRange.endDate) overviewRefs.rangeEnd.value = customRange.endDate;
+    if (overviewRefs.rangeReset) {
+      overviewRefs.rangeReset.hidden = !customTrend;
+    }
     if (overviewRefs.hourlyTitle) {
       overviewRefs.hourlyTitle.textContent = `Today ${OVERVIEW_METRIC_SHORT_LABELS[state.overview.hourlyMetric] || 'Orders'} by hour`;
     }
@@ -2915,28 +3025,40 @@ document.addEventListener('DOMContentLoaded', () => {
   overviewRefs.rangeToggle?.addEventListener('click', (event) => {
     event.stopPropagation();
     if (!overviewRefs.rangePopover) return;
-    const defaults = defaultOrderDates();
-    if (overviewRefs.rangeStart && !overviewRefs.rangeStart.value) overviewRefs.rangeStart.value = state.overview.customRange.startDate || defaults.start;
-    if (overviewRefs.rangeEnd && !overviewRefs.rangeEnd.value) overviewRefs.rangeEnd.value = state.overview.customRange.endDate || defaults.end;
-    overviewRefs.rangePopover.hidden = !overviewRefs.rangePopover.hidden;
+    if (overviewRefs.rangePopover.hidden) {
+      openOverviewRangePopover();
+    } else {
+      closeOverviewRangePopover();
+    }
   });
 
   overviewRefs.rangePopover?.addEventListener('click', (event) => {
     event.stopPropagation();
   });
 
-  overviewRefs.rangeApply?.addEventListener('click', async () => {
-    const startDate = overviewRefs.rangeStart?.value || '';
-    const endDate = overviewRefs.rangeEnd?.value || '';
-    if (!startDate || !endDate) return;
-    state.overview.customRange = {
-      active: true,
-      startDate: startDate <= endDate ? startDate : endDate,
-      endDate: startDate <= endDate ? endDate : startDate,
-      rows: []
-    };
-    closeOverviewRangePopover();
-    await loadOverviewSafely();
+  overviewRefs.rangePrev?.addEventListener('click', () => {
+    shiftRangeCalendarMonth(-1);
+  });
+
+  overviewRefs.rangeNext?.addEventListener('click', () => {
+    shiftRangeCalendarMonth(1);
+  });
+
+  overviewRefs.rangeGrid?.addEventListener('mouseover', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const button = target.closest('[data-overview-range-date]');
+    if (!(button instanceof HTMLElement) || !rangeDraftStart) return;
+    rangeHoverDate = button.dataset.overviewRangeDate || rangeDraftStart;
+    renderOverviewRangeCalendar();
+  });
+
+  overviewRefs.rangeGrid?.addEventListener('click', async (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const button = target.closest('[data-overview-range-date]');
+    if (!(button instanceof HTMLElement)) return;
+    await selectOverviewRangeDate(button.dataset.overviewRangeDate || '');
   });
 
   overviewRefs.rangeReset?.addEventListener('click', () => {
@@ -2946,8 +3068,8 @@ document.addEventListener('DOMContentLoaded', () => {
       endDate: '',
       rows: null
     };
-    if (overviewRefs.rangeStart) overviewRefs.rangeStart.value = '';
-    if (overviewRefs.rangeEnd) overviewRefs.rangeEnd.value = '';
+    rangeDraftStart = '';
+    rangeHoverDate = '';
     closeOverviewRangePopover();
     if (state.overview.data) renderOverview(state.overview.data);
   });

@@ -150,12 +150,18 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                             <canvas class="admin-chart-canvas admin-chart-canvas-lg" data-overview-trend-chart width="1200" height="300"></canvas>
                             <div class="admin-chart-range-control" data-overview-range-shell>
                                 <button type="button" class="admin-chart-icon-btn" aria-label="Select custom chart date range" data-overview-range-toggle><span class="admin-chart-icon-calendar" aria-hidden="true"></span></button>
+                                <button type="button" class="admin-chart-icon-btn admin-chart-reset-btn" aria-label="Reset custom chart date range" data-overview-range-reset hidden><span class="admin-chart-icon-restart" aria-hidden="true"></span></button>
                                 <div class="admin-chart-range-popover" data-overview-range-popover hidden>
-                                    <label>Start<input type="date" data-overview-range-start></label>
-                                    <label>End<input type="date" data-overview-range-end></label>
-                                    <div class="admin-chart-range-actions">
-                                        <button type="button" class="admin-toggle-pill is-active" data-overview-range-apply>Apply</button>
-                                        <button type="button" class="admin-toggle-pill" data-overview-range-reset>Reset</button>
+                                    <div class="admin-range-calendar">
+                                        <div class="admin-range-calendar-head">
+                                            <button type="button" class="admin-range-nav" aria-label="Previous month" data-overview-range-prev></button>
+                                            <strong data-overview-range-month></strong>
+                                            <button type="button" class="admin-range-nav admin-range-nav-next" aria-label="Next month" data-overview-range-next></button>
+                                        </div>
+                                        <div class="admin-range-weekdays" aria-hidden="true">
+                                            <span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span>
+                                        </div>
+                                        <div class="admin-range-grid" data-overview-range-grid></div>
                                     </div>
                                 </div>
                             </div>
