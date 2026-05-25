@@ -20,7 +20,7 @@ $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 ?>
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" data-admin-theme="minimal-black">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
@@ -761,6 +761,10 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                         </div>
                         <p class="admin-settings-copy">Choose the dashboard theme without changing dashboard access or abilities.</p>
                         <div class="admin-theme-options" data-theme-options>
+                            <button type="button" class="admin-theme-option" data-theme-option="minimal-black" aria-pressed="false">
+                                <span class="admin-theme-swatch admin-theme-swatch-minimal-black" aria-hidden="true"></span>
+                                <span><strong>Minimal Black</strong><small>Default flat dark</small></span>
+                            </button>
                             <button type="button" class="admin-theme-option" data-theme-option="dark" aria-pressed="false">
                                 <span class="admin-theme-swatch admin-theme-swatch-current" aria-hidden="true"></span>
                                 <span><strong>Green Glass</strong><small>Original executive dark</small></span>
@@ -772,10 +776,6 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                             <button type="button" class="admin-theme-option" data-theme-option="classic-white" aria-pressed="false">
                                 <span class="admin-theme-swatch admin-theme-swatch-classic-white" aria-hidden="true"></span>
                                 <span><strong>Polished White</strong><small>Layered and bright</small></span>
-                            </button>
-                            <button type="button" class="admin-theme-option" data-theme-option="minimal-black" aria-pressed="false">
-                                <span class="admin-theme-swatch admin-theme-swatch-minimal-black" aria-hidden="true"></span>
-                                <span><strong>Minimal Black</strong><small>Default flat dark</small></span>
                             </button>
                             <button type="button" class="admin-theme-option" data-theme-option="prism" aria-pressed="false">
                                 <span class="admin-theme-swatch admin-theme-swatch-prism" aria-hidden="true"></span>

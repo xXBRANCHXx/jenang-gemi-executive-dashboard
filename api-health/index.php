@@ -5,7 +5,7 @@ require dirname(__DIR__) . '/auth.php';
 require_once dirname(__DIR__) . '/admin-nav.php';
 
 if (!jg_admin_is_authenticated()) {
-    header('Location: ../dashboard/');
+    header('Location: ../dashboard/?view=overview');
     exit;
 }
 
@@ -13,7 +13,7 @@ $adminCssVersion = (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $apiHealthJsVersion = (string) @filemtime(dirname(__DIR__) . '/api-health.js');
 ?>
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" data-admin-theme="minimal-black">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
@@ -45,7 +45,7 @@ $apiHealthJsVersion = (string) @filemtime(dirname(__DIR__) . '/api-health.js');
                         <div class="admin-menu-shell" data-menu-shell>
                             <button type="button" class="admin-ghost-btn admin-menu-trigger" data-menu-trigger aria-expanded="false" aria-label="Open dashboard menu">...</button>
                             <div class="admin-menu-panel" data-menu-panel hidden>
-                                <a class="admin-menu-item admin-link-btn" href="../dashboard/">Executive Dashboard</a>
+                                <a class="admin-menu-item admin-link-btn" href="../dashboard/?view=overview">Executive Dashboard</a>
                                 <a class="admin-menu-item admin-link-btn" href="../affiliate-program/">Affiliate Program</a>
                                 <a class="admin-menu-item admin-link-btn" href="../partner-program/">Partner Program</a>
                                 <a class="admin-menu-item admin-link-btn" href="../sku-db/">SKU Database</a>

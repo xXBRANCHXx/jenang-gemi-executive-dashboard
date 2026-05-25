@@ -27,7 +27,7 @@ $apiDocs = [
 ];
 ?>
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" data-admin-theme="minimal-black">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
@@ -51,7 +51,7 @@ $apiDocs = [
                         <p>Workspace for API ingest experiments, webhook diagnostics, conversion parsing, and other isolated integrations that should not crowd the executive homepage.</p>
                     </div>
                     <div class="admin-topbar-actions">
-                        <a class="admin-ghost-btn admin-link-btn" href="../dashboard/">Back to Homepage</a>
+                        <a class="admin-ghost-btn admin-link-btn" href="../dashboard/?view=overview">Back to Homepage</a>
                         <a class="admin-primary-btn admin-link-btn" href="../logout/">Lock Dashboard</a>
                     </div>
                 </header>

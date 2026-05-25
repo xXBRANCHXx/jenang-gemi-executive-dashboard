@@ -7,7 +7,7 @@ function render_admin_sidebar(string $activeSection = ''): void
     $items = [
         [
             'key' => 'home',
-            'href' => '../dashboard/',
+            'href' => '../dashboard/?view=overview',
             'label' => 'Home',
             'icon' => 'admin-rail-icon-home',
             'aria' => 'Open executive dashboard homepage',

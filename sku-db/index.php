@@ -22,7 +22,7 @@ $skuJsVersion = (string) @filemtime(dirname(__DIR__) . '/sku-db.js');
 $pageBuildVersion = 'sku1.00.00';
 ?>
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" data-admin-theme="minimal-black">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
@@ -87,7 +87,7 @@ $pageBuildVersion = 'sku1.00.00';
                         <div class="admin-menu-shell" data-menu-shell>
                             <button type="button" class="admin-ghost-btn admin-menu-trigger" data-menu-trigger aria-expanded="false" aria-label="Open dashboard menu">...</button>
                             <div class="admin-menu-panel" data-menu-panel hidden>
-                                <a class="admin-menu-item admin-link-btn" href="../dashboard/" data-dashboard-view-link="overview">Executive Sales Overview</a>
+                                <a class="admin-menu-item admin-link-btn" href="../dashboard/?view=overview" data-dashboard-view-link="overview">Executive Sales Overview</a>
                                 <a class="admin-menu-item admin-link-btn" href="../dashboard/?view=campaigns" data-dashboard-view-link="home">Campaigns Dashboard</a>
                                 <a class="admin-menu-item admin-link-btn" href="../back-dash/">API Ingest Workspace</a>
                                 <button type="button" class="admin-menu-item" data-theme-toggle>Toggle Theme</button>
@@ -109,7 +109,7 @@ $pageBuildVersion = 'sku1.00.00';
                         <span class="admin-status-dot"></span>
                         <span><?php echo htmlspecialchars(jg_sku_session_username(), ENT_QUOTES); ?> signed in</span>
                     </div>
-                    <a class="admin-ghost-btn admin-link-btn" href="../dashboard/">Back To Executive Homepage</a>
+                    <a class="admin-ghost-btn admin-link-btn" href="../dashboard/?view=overview">Back To Executive Homepage</a>
                 </div>
             </section>
 

@@ -274,7 +274,7 @@ const JENANG_GEMI_SEARCH_INDEX = [
     title: 'Executive Sales Overview',
     section: 'Admin',
     description: 'Marketplace sales homepage with yearly monthly revenue charts.',
-    url: '../dashboard/',
+    url: '../dashboard/?view=overview',
     view: 'overview',
     keywords: ['home', 'homepage', 'sales', 'marketplace', 'overview', 'executive']
   },
@@ -290,7 +290,7 @@ const JENANG_GEMI_SEARCH_INDEX = [
     title: 'Campaigns Dashboard',
     section: 'Admin',
     description: 'Campaign landing-page analytics for Bubur and Jamu pages.',
-    url: '../dashboard/',
+    url: '../dashboard/?view=campaigns',
     view: 'home',
     keywords: ['admin', 'dashboard', 'analytics', 'executive', 'landing pages', 'campaign landing', 'campaigns']
   },
