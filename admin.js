@@ -1405,6 +1405,7 @@ document.addEventListener('DOMContentLoaded', () => {
   bindChartInfoPopovers();
 
   const themeStorageKey = 'jg-admin-theme';
+  const themeDefaultMigrationKey = `${themeStorageKey}-minimal-black-default`;
   const themeCookieMaxAge = 60 * 60 * 24 * 365 * 2;
   const viewStorageKey = 'jg-dashboard-view';
   const themeOptions = ['minimal-black', 'dark', 'minimal-white', 'classic-white', 'prism'];
@@ -1774,15 +1775,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const readStoredTheme = () => {
     try {
-      return window.localStorage.getItem(themeStorageKey) || readThemeCookie();
+      const storedTheme = window.localStorage.getItem(themeStorageKey) || readThemeCookie();
+      if (storedTheme === 'dark' && window.localStorage.getItem(themeDefaultMigrationKey) !== '1') {
+        window.localStorage.setItem(themeStorageKey, 'minimal-black');
+        window.localStorage.setItem(themeDefaultMigrationKey, '1');
+        writeThemeCookie('minimal-black');
+        return 'minimal-black';
+      }
+      return storedTheme;
     } catch (_error) {
-      return readThemeCookie();
+      const cookieTheme = readThemeCookie();
+      if (cookieTheme === 'dark') {
+        writeThemeCookie('minimal-black');
+        return 'minimal-black';
+      }
+      return cookieTheme;
     }
   };
 
   const writeStoredTheme = (theme) => {
     try {
       window.localStorage.setItem(themeStorageKey, theme);
+      window.localStorage.setItem(themeDefaultMigrationKey, '1');
     } catch (_error) {
       // Cookies keep the device preference when localStorage is unavailable.
     }
