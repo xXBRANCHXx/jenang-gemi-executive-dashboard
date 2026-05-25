@@ -2621,14 +2621,24 @@ document.addEventListener('DOMContentLoaded', () => {
     ]);
   };
 
+  const refreshOverviewHourlyRows = async (requestToken) => {
+    const today = todayDate();
+    const hourlyData = await requestOrderFacts(today, today, { lightweight: true });
+    if (!isLatestRequest('overview', requestToken)) return;
+    state.overview.hourlyRows = hourlyOrderRows(Array.isArray(hourlyData.orders) ? hourlyData.orders : []);
+    state.overview.hourlyDate = today;
+    if (state.overview.data) {
+      renderOverview(state.overview.data);
+    }
+  };
+
   const loadOverview = async (options = {}) => {
     if (options.useCache) {
       const cached = readOverviewCache(state.overview.year);
       if (cached) renderOverview(cached);
     }
     const requestToken = beginRequest('overview');
-    const today = todayDate();
-    const hourlyData = await requestOrderFacts(today, today, { lightweight: true }).catch(() => ({ orders: [] }));
+    refreshOverviewHourlyRows(requestToken).catch(() => {});
     const [data, customData] = await Promise.all([
       requestJson(buildSalesUrl(state.overview.year)),
       state.overview.customRange.active && state.overview.customRange.startDate && state.overview.customRange.endDate
@@ -2636,8 +2646,6 @@ document.addEventListener('DOMContentLoaded', () => {
         : Promise.resolve(null)
     ]);
     if (!isLatestRequest('overview', requestToken)) return;
-    state.overview.hourlyRows = hourlyOrderRows(Array.isArray(hourlyData.orders) ? hourlyData.orders : []);
-    state.overview.hourlyDate = today;
     if (customData) {
       state.overview.customRange.rows = Array.isArray(customData.orders) ? customData.orders : [];
     }

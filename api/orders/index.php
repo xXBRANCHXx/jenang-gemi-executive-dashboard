@@ -133,12 +133,7 @@ function jg_orders_live_listed_rows(string $startDate, string $endDate): array
     $rows = [];
     foreach (['shopee', 'tiktok'] as $platform) {
         try {
-            $payload = jg_orders_fetch_json(jg_orders_remote_url('/' . $platform . '/orders/listed', [
-                'account' => 'all',
-                'fast' => '1',
-                'persist' => '1',
-                'escrow' => '0',
-            ]), 90);
+            $payload = jg_orders_live_listed_payload($platform);
         } catch (Throwable $error) {
             error_log('Unable to load live listed orders for hourly chart from ' . $platform . ': ' . $error->getMessage());
             continue;
@@ -161,6 +156,55 @@ function jg_orders_live_listed_rows(string $startDate, string $endDate): array
     }
 
     return $rows;
+}
+
+function jg_orders_live_listed_payload(string $platform): array
+{
+    $cacheKey = 'live-listed-' . preg_replace('/[^a-z0-9_-]+/i', '-', $platform);
+    $cached = jg_orders_cache_read($cacheKey, 120);
+    if (is_array($cached)) {
+        return $cached;
+    }
+
+    $payload = jg_orders_fetch_json(jg_orders_remote_url('/' . $platform . '/orders/listed', [
+        'account' => 'all',
+        'fast' => '1',
+        'persist' => '1',
+        'escrow' => '0',
+    ]), 45);
+    jg_orders_cache_write($cacheKey, $payload);
+
+    return $payload;
+}
+
+function jg_orders_cache_dir(): string
+{
+    $dir = sys_get_temp_dir() . '/jg-dashboard-orders-cache';
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0775, true);
+    }
+    return $dir;
+}
+
+function jg_orders_cache_path(string $key): string
+{
+    return jg_orders_cache_dir() . '/' . hash('sha256', $key) . '.json';
+}
+
+function jg_orders_cache_read(string $key, int $ttlSeconds): ?array
+{
+    $path = jg_orders_cache_path($key);
+    if (!is_file($path) || filemtime($path) < time() - $ttlSeconds) {
+        return null;
+    }
+    $raw = @file_get_contents($path);
+    $decoded = is_string($raw) ? json_decode($raw, true) : null;
+    return is_array($decoded) ? $decoded : null;
+}
+
+function jg_orders_cache_write(string $key, array $payload): void
+{
+    @file_put_contents(jg_orders_cache_path($key), json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}', LOCK_EX);
 }
 
 function jg_orders_lightweight_live_row(array $order, string $fallbackPlatform): ?array
