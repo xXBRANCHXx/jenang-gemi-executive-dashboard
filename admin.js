@@ -2263,7 +2263,18 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedEnd ? 'is-selected-end' : '',
         key === today ? 'is-today' : ''
       ].filter(Boolean).join(' ');
-      days.push(`<button type="button" class="${classes}" data-overview-range-date="${key}">${date.getDate()}</button>`);
+      const dayLabel = new Intl.DateTimeFormat('id-ID', {
+        timeZone: state.timezone,
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      }).format(date);
+      days.push(`
+        <button type="button" class="${classes}" data-overview-range-date="${key}" aria-label="Select ${escapeHtml(dayLabel)}">
+          <span class="admin-range-day-label">${date.getDate()}</span>
+        </button>
+      `);
     }
     overviewRefs.rangeGrid.innerHTML = days.join('');
   };
@@ -2285,6 +2296,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const selectOverviewRangeDate = async (dateValue) => {
+    if (!dateValue) return;
     if (!rangeDraftStart) {
       rangeDraftStart = dateValue;
       rangeHoverDate = dateValue;

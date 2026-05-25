@@ -1141,6 +1141,8 @@ button, input {
 .admin-range-day {
   position: relative;
   z-index: 0;
+  display: grid;
+  place-items: center;
   min-width: 0;
   height: 34px;
   border: 0;
@@ -1154,25 +1156,36 @@ button, input {
 .admin-range-day::before {
   content: "";
   position: absolute;
-  top: 4px;
+  top: 50%;
   right: 0;
   left: 0;
-  bottom: 4px;
+  height: 26px;
   z-index: -2;
   background: transparent;
+  transform: translateY(-50%);
 }
 
 .admin-range-day::after {
   content: "";
   position: absolute;
-  top: 4px;
+  top: 50%;
   left: 50%;
   width: 26px;
   height: 26px;
   z-index: -1;
   border-radius: 999px;
   background: transparent;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
+}
+
+.admin-range-day-label {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  line-height: 1;
 }
 
 .admin-range-day.is-outside {
@@ -1202,7 +1215,7 @@ button, input {
 .admin-range-day.is-selected-start::after,
 .admin-range-day.is-selected-end::after {
   border: 2px solid #ffd256;
-  background: rgba(255, 210, 86, 0.18);
+  background: #050505;
   color: var(--admin-text);
   box-shadow: none;
 }
@@ -1222,7 +1235,7 @@ button, input {
 
 .admin-range-day.is-final-range.is-selected-start,
 .admin-range-day.is-final-range.is-selected-end {
-  color: #050505;
+  color: var(--admin-text);
 }
 
 @media (max-width: 520px) {
