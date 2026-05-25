@@ -24,11 +24,16 @@ try {
     $remoteRows = jg_orders_remote_rows($startDate, $endDate);
     $lightweight = jg_orders_bool($_GET['lightweight'] ?? $_GET['summary'] ?? null);
     if ($lightweight) {
+        $includeLive = !jg_orders_bool($_GET['stored_only'] ?? null);
+        $rows = jg_orders_lightweight_rows($remoteRows);
+        if ($includeLive) {
+            $rows = jg_orders_merge_lightweight_rows($rows, jg_orders_live_listed_rows($startDate, $endDate));
+        }
         echo json_encode([
             'ok' => true,
             'start_date' => $startDate,
             'end_date' => $endDate,
-            'orders' => jg_orders_lightweight_rows($remoteRows),
+            'orders' => $rows,
         ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         exit;
     }
@@ -93,6 +98,113 @@ function jg_orders_lightweight_rows(array $remoteRows): array
     }
 
     return $rows;
+}
+
+function jg_orders_merge_lightweight_rows(array $storedRows, array $liveRows): array
+{
+    $merged = [];
+    foreach (array_merge($storedRows, $liveRows) as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $key = implode('|', [
+            (string) ($row['platform'] ?? ''),
+            (string) ($row['account_key'] ?? ''),
+            (string) ($row['order_id'] ?? ''),
+        ]);
+        if (trim($key, '|') === '') {
+            $key = hash('sha256', json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: serialize($row));
+        }
+        if (!isset($merged[$key])) {
+            $merged[$key] = $row;
+            continue;
+        }
+        $merged[$key]['quantity'] = max((int) ($merged[$key]['quantity'] ?? 0), (int) ($row['quantity'] ?? 0));
+        $merged[$key]['item_count'] = max((int) ($merged[$key]['item_count'] ?? 0), (int) ($row['item_count'] ?? 0));
+        $merged[$key]['revenue'] = max((int) ($merged[$key]['revenue'] ?? 0), (int) ($row['revenue'] ?? 0));
+        $merged[$key]['gross_profit'] = max((int) ($merged[$key]['gross_profit'] ?? 0), (int) ($row['gross_profit'] ?? 0));
+    }
+
+    return array_values($merged);
+}
+
+function jg_orders_live_listed_rows(string $startDate, string $endDate): array
+{
+    $rows = [];
+    foreach (['shopee', 'tiktok'] as $platform) {
+        try {
+            $payload = jg_orders_fetch_json(jg_orders_remote_url('/' . $platform . '/orders/listed', [
+                'account' => 'all',
+                'fast' => '1',
+                'persist' => '1',
+                'escrow' => '0',
+            ]), 90);
+        } catch (Throwable $error) {
+            error_log('Unable to load live listed orders for hourly chart from ' . $platform . ': ' . $error->getMessage());
+            continue;
+        }
+
+        foreach (is_array($payload['orders'] ?? null) ? $payload['orders'] : [] as $order) {
+            if (!is_array($order)) {
+                continue;
+            }
+            $row = jg_orders_lightweight_live_row($order, $platform);
+            if ($row === null) {
+                continue;
+            }
+            $localDate = jg_orders_local_date($row['order_create_time']);
+            if ($localDate < $startDate || $localDate > $endDate) {
+                continue;
+            }
+            $rows[] = $row;
+        }
+    }
+
+    return $rows;
+}
+
+function jg_orders_lightweight_live_row(array $order, string $fallbackPlatform): ?array
+{
+    $orderId = trim((string) ($order['id'] ?? $order['order_id'] ?? ''));
+    if ($orderId === '') {
+        return null;
+    }
+    $items = is_array($order['items'] ?? null) ? $order['items'] : [];
+    $quantity = 0;
+    foreach ($items as $item) {
+        if (is_array($item)) {
+            $quantity += max(0, (int) ($item['quantity'] ?? 0));
+        }
+    }
+    if ($quantity <= 0) {
+        $quantity = max(1, (int) ($order['quantity'] ?? $order['item_count'] ?? 1));
+    }
+    $financials = is_array($order['financials'] ?? null) ? $order['financials'] : [];
+    $revenue = (int) round((float) ($financials['netRevenue'] ?? $order['revenue'] ?? 0));
+    $platform = strtolower(trim((string) ($order['platform'] ?? $fallbackPlatform)));
+
+    return [
+        'timestamp' => (string) ($order['createdAt'] ?? $order['order_create_time'] ?? $order['timestamp'] ?? ''),
+        'order_create_time' => (string) ($order['createdAt'] ?? $order['order_create_time'] ?? $order['timestamp'] ?? ''),
+        'order_id' => $orderId,
+        'platform' => $platform,
+        'account_key' => (string) ($order['sourceAccountKey'] ?? $order['account_key'] ?? $order['account'] ?? ''),
+        'quantity' => $quantity,
+        'item_count' => $quantity,
+        'revenue' => $revenue,
+        'gross_profit' => $revenue,
+    ];
+}
+
+function jg_orders_local_date(string $timestamp): string
+{
+    $timezone = new DateTimeZone('Asia/Jakarta');
+    try {
+        $date = new DateTimeImmutable($timestamp !== '' ? $timestamp : 'now');
+    } catch (Throwable) {
+        $date = new DateTimeImmutable('now', $timezone);
+    }
+    return $date->setTimezone($timezone)->format('Y-m-d');
 }
 
 function jg_orders_remote_url(string $path, array $params): string
