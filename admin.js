@@ -2205,6 +2205,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let rangeCalendarMonth = monthKeyFromDate(todayDate());
   let rangeDraftStart = '';
   let rangeHoverDate = '';
+  let rangePointerSelectionHandled = false;
 
   const setRangeCalendarMonth = (dateValue = '') => {
     const customRange = state.overview.customRange || {};
@@ -3071,16 +3072,35 @@ document.addEventListener('DOMContentLoaded', () => {
     shiftRangeCalendarMonth(1);
   });
 
-  overviewRefs.rangeGrid?.addEventListener('mouseover', (event) => {
+  overviewRefs.rangeGrid?.addEventListener('pointerover', (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     const button = target.closest('[data-overview-range-date]');
     if (!(button instanceof HTMLElement) || !rangeDraftStart) return;
-    rangeHoverDate = button.dataset.overviewRangeDate || rangeDraftStart;
+    const nextHoverDate = button.dataset.overviewRangeDate || rangeDraftStart;
+    if (!nextHoverDate || nextHoverDate === rangeHoverDate) return;
+    rangeHoverDate = nextHoverDate;
     renderOverviewRangeCalendar();
   });
 
+  overviewRefs.rangeGrid?.addEventListener('pointerdown', async (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const button = target.closest('[data-overview-range-date]');
+    if (!(button instanceof HTMLElement)) return;
+    event.preventDefault();
+    rangePointerSelectionHandled = true;
+    window.setTimeout(() => {
+      rangePointerSelectionHandled = false;
+    }, 500);
+    await selectOverviewRangeDate(button.dataset.overviewRangeDate || '');
+  });
+
   overviewRefs.rangeGrid?.addEventListener('click', async (event) => {
+    if (rangePointerSelectionHandled) {
+      rangePointerSelectionHandled = false;
+      return;
+    }
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     const button = target.closest('[data-overview-range-date]');
