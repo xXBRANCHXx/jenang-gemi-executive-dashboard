@@ -1154,22 +1154,25 @@ button, input {
 .admin-range-day::before {
   content: "";
   position: absolute;
-  top: 50%;
+  top: 4px;
   right: 0;
   left: 0;
-  height: 2px;
+  bottom: 4px;
   z-index: -2;
   background: transparent;
-  transform: translateY(-50%);
 }
 
 .admin-range-day::after {
   content: "";
   position: absolute;
-  inset: 4px;
+  top: 4px;
+  left: 50%;
+  width: 26px;
+  height: 26px;
   z-index: -1;
   border-radius: 999px;
   background: transparent;
+  transform: translateX(-50%);
 }
 
 .admin-range-day.is-outside {
@@ -1181,11 +1184,11 @@ button, input {
 }
 
 .admin-range-day.is-in-range::before {
-  background: rgba(255, 210, 86, 0.92);
+  background: rgba(255, 210, 86, 0.26);
 }
 
 .admin-range-day.is-preview::before {
-  background: rgba(255, 210, 86, 0.92);
+  background: rgba(255, 210, 86, 0.2);
 }
 
 .admin-range-day.is-selected-start::before {
@@ -1199,14 +1202,27 @@ button, input {
 .admin-range-day.is-selected-start::after,
 .admin-range-day.is-selected-end::after {
   border: 2px solid #ffd256;
-  background: rgba(6, 6, 6, 0.98);
+  background: rgba(255, 210, 86, 0.18);
   color: var(--admin-text);
   box-shadow: none;
+}
+
+.admin-range-day.is-final-range {
+  color: #050505;
+}
+
+.admin-range-day.is-final-range.is-outside {
+  color: rgba(5, 5, 5, 0.52);
 }
 
 .admin-range-day.is-selected-start,
 .admin-range-day.is-selected-end {
   color: var(--admin-text);
+}
+
+.admin-range-day.is-final-range.is-selected-start,
+.admin-range-day.is-final-range.is-selected-end {
+  color: #050505;
 }
 
 @media (max-width: 520px) {

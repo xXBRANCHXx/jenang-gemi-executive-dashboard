@@ -2258,6 +2258,7 @@ document.addEventListener('DOMContentLoaded', () => {
         outside ? 'is-outside' : '',
         inRange ? 'is-in-range' : '',
         bounds.preview && inRange ? 'is-preview' : '',
+        !bounds.preview && inRange ? 'is-final-range' : '',
         selectedStart ? 'is-selected-start' : '',
         selectedEnd ? 'is-selected-end' : '',
         key === today ? 'is-today' : ''
@@ -3056,6 +3057,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   overviewRefs.rangeNext?.addEventListener('click', () => {
     shiftRangeCalendarMonth(1);
+  });
+
+  overviewRefs.rangeGrid?.addEventListener('mouseover', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const button = target.closest('[data-overview-range-date]');
+    if (!(button instanceof HTMLElement) || !rangeDraftStart) return;
+    rangeHoverDate = button.dataset.overviewRangeDate || rangeDraftStart;
+    renderOverviewRangeCalendar();
   });
 
   overviewRefs.rangeGrid?.addEventListener('click', async (event) => {
