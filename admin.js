@@ -1953,25 +1953,28 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     return `${salesEndpoint}?${params.toString()}`;
   };
-  const buildOrderFactsUrl = (startDate, endDate) => {
+  const buildOrderFactsUrl = (startDate, endDate, options = {}) => {
     const params = new URLSearchParams({
       start_date: startDate,
       end_date: endDate,
       _ts: String(Date.now())
     });
+    if (options.lightweight) {
+      params.set('lightweight', '1');
+    }
     return `${ordersEndpoint}?${params.toString()}`;
   };
-  const requestOrderFacts = (startDate, endDate) => requestJson(buildOrderFactsUrl(startDate, endDate));
+  const requestOrderFacts = (startDate, endDate, options = {}) => requestJson(buildOrderFactsUrl(startDate, endDate, options));
   const todayDate = () => new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone }).format(new Date());
   const offsetDate = (dateValue, offsetDays) => {
     const date = new Date(`${dateValue}T00:00:00+07:00`);
     date.setDate(date.getDate() + offsetDays);
     return new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone }).format(date);
   };
-  const defaultOrderDates = () => {
-    const today = todayDate();
+  const defaultOrderDatesFor = (today) => {
     return { start: offsetDate(today, -1), end: today };
   };
+  const defaultOrderDates = () => defaultOrderDatesFor(todayDate());
   const buildOrdersUrl = () => {
     const defaults = defaultOrderDates();
     const startDate = ordersRefs.startDate?.value || state.orders.startDate || defaults.start;
@@ -1981,7 +1984,10 @@ document.addEventListener('DOMContentLoaded', () => {
     return buildOrderFactsUrl(startDate, endDate);
   };
 
-  const overviewCacheKey = (year) => `${OVERVIEW_CACHE_PREFIX}:${year}`;
+  let activeLocalDate = todayDate();
+  state.overview.year = Number(activeLocalDate.slice(0, 4)) || state.overview.year;
+
+  const overviewCacheKey = (year, localDate = activeLocalDate) => `${OVERVIEW_CACHE_PREFIX}:${year}:${localDate}`;
 
   const readOverviewCache = (year) => {
     try {
@@ -1994,10 +2000,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const writeOverviewCache = (year, data) => {
     try {
-      window.localStorage.setItem(overviewCacheKey(year), JSON.stringify(data));
+      const cacheKey = overviewCacheKey(year);
+      window.localStorage.setItem(cacheKey, JSON.stringify(data));
+      for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
+        const key = window.localStorage.key(index);
+        if (key && key.startsWith(`${OVERVIEW_CACHE_PREFIX}:`) && key !== cacheKey) {
+          window.localStorage.removeItem(key);
+        }
+      }
     } catch (_error) {
-      // Cache is only a first-paint optimization; data changes arrive through the live signal.
+      // Cache is only a first-paint optimization; live signals and rollover checks fetch fresh data.
     }
+  };
+
+  const applyDefaultOrderDates = (defaults = defaultOrderDates(), force = false) => {
+    if (!force && ((ordersRefs.startDate && ordersRefs.startDate.value) || state.orders.startDate)) return;
+    state.orders.startDate = defaults.start;
+    state.orders.endDate = defaults.end;
+    if (ordersRefs.startDate) ordersRefs.startDate.value = defaults.start;
+    if (ordersRefs.endDate) ordersRefs.endDate.value = defaults.end;
   };
 
   const buildSettingsUrl = (action) => `${settingsEndpoint}?action=${encodeURIComponent(action)}&_ts=${encodeURIComponent(String(Date.now()))}`;
@@ -2607,7 +2628,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const requestToken = beginRequest('overview');
     const today = todayDate();
-    const hourlyData = await requestOrderFacts(today, today).catch(() => ({ orders: [] }));
+    const hourlyData = await requestOrderFacts(today, today, { lightweight: true }).catch(() => ({ orders: [] }));
     const [data, customData] = await Promise.all([
       requestJson(buildSalesUrl(state.overview.year)),
       state.overview.customRange.active && state.overview.customRange.startDate && state.overview.customRange.endDate
@@ -2752,6 +2773,34 @@ document.addEventListener('DOMContentLoaded', () => {
     return true;
   };
 
+  const refreshForLocalDateRollover = async () => {
+    const nextLocalDate = todayDate();
+    if (nextLocalDate === activeLocalDate) return false;
+
+    const previousDefaults = defaultOrderDatesFor(activeLocalDate);
+    activeLocalDate = nextLocalDate;
+    const nextDefaults = defaultOrderDatesFor(activeLocalDate);
+    const wasUsingDefaultOrders = (
+      (!state.orders.startDate || state.orders.startDate === previousDefaults.start)
+      && (!state.orders.endDate || state.orders.endDate === previousDefaults.end)
+      && (!ordersRefs.startDate?.value || ordersRefs.startDate.value === previousDefaults.start)
+      && (!ordersRefs.endDate?.value || ordersRefs.endDate.value === previousDefaults.end)
+    );
+
+    state.overview.year = Number(activeLocalDate.slice(0, 4)) || state.overview.year;
+    state.overview.hourlyRows = [];
+    state.overview.hourlyDate = activeLocalDate;
+    if (wasUsingDefaultOrders) {
+      applyDefaultOrderDates(nextDefaults, true);
+    }
+
+    await Promise.allSettled([
+      loadOverviewSafely(),
+      state.activeView === 'orders' ? loadOrdersSafely() : Promise.resolve(true)
+    ]);
+    return true;
+  };
+
   const renderCachedCharts = () => {
     if (state.overview.data) renderOverview(state.overview.data);
     if (state.orders.data) renderOrders(state.orders.data);
@@ -2802,11 +2851,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   applyTheme(readStoredTheme() || 'minimal-black');
-  {
-    const defaults = defaultOrderDates();
-    if (ordersRefs.startDate && !ordersRefs.startDate.value) ordersRefs.startDate.value = state.orders.startDate || defaults.start;
-    if (ordersRefs.endDate && !ordersRefs.endDate.value) ordersRefs.endDate.value = state.orders.endDate || defaults.end;
-  }
+  applyDefaultOrderDates(defaultOrderDates());
   syncViewState();
   setLoaderState(20, 'Connecting to analytics');
 
@@ -3084,8 +3129,22 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     connectLiveStream();
+    refreshForLocalDateRollover()
+      .then((refreshed) => {
+        if (!refreshed) return loadActiveViewSafely();
+        return true;
+      })
+      .catch(() => {});
   });
 
   window.addEventListener('resize', () => renderCachedCharts());
+  window.addEventListener('focus', () => {
+    refreshForLocalDateRollover().catch(() => {});
+  });
+  window.setInterval(() => {
+    if (!document.hidden) {
+      refreshForLocalDateRollover().catch(() => {});
+    }
+  }, 60000);
   window.addEventListener('beforeunload', closeLiveStream);
 });

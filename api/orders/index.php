@@ -22,6 +22,17 @@ try {
     }
 
     $remoteRows = jg_orders_remote_rows($startDate, $endDate);
+    $lightweight = jg_orders_bool($_GET['lightweight'] ?? $_GET['summary'] ?? null);
+    if ($lightweight) {
+        echo json_encode([
+            'ok' => true,
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'orders' => jg_orders_lightweight_rows($remoteRows),
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
     $pdo = jg_sku_db();
     jg_orders_ensure_schema($pdo);
     jg_orders_ensure_opening_lots($pdo);
@@ -52,6 +63,36 @@ function jg_orders_date(mixed $value, string $fallback): string
         $date = new DateTimeImmutable($fallback, $timezone);
     }
     return $date->format('Y-m-d');
+}
+
+function jg_orders_bool(mixed $value): bool
+{
+    return in_array(strtolower(trim((string) $value)), ['1', 'true', 'yes', 'on'], true);
+}
+
+function jg_orders_lightweight_rows(array $remoteRows): array
+{
+    $rows = [];
+    foreach ($remoteRows as $remoteRow) {
+        if (!is_array($remoteRow)) {
+            continue;
+        }
+        $quantity = (int) ($remoteRow['quantity'] ?? $remoteRow['item_count'] ?? 0);
+        $revenue = (int) round((float) ($remoteRow['revenue'] ?? $remoteRow['net_revenue'] ?? $remoteRow['sales'] ?? 0));
+        $rows[] = [
+            'timestamp' => (string) ($remoteRow['timestamp'] ?? ''),
+            'order_create_time' => (string) ($remoteRow['order_create_time'] ?? ($remoteRow['timestamp'] ?? '')),
+            'order_id' => (string) ($remoteRow['order_id'] ?? ''),
+            'platform' => (string) ($remoteRow['platform'] ?? ''),
+            'account_key' => (string) ($remoteRow['account_key'] ?? ''),
+            'quantity' => $quantity,
+            'item_count' => $quantity,
+            'revenue' => $revenue,
+            'gross_profit' => $revenue,
+        ];
+    }
+
+    return $rows;
 }
 
 function jg_orders_remote_url(string $path, array $params): string
