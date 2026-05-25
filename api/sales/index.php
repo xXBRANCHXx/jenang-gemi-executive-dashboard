@@ -24,6 +24,14 @@ $url = jg_dashboard_marketplace_api_base_url()
     . '/sales/summary?setup_token=' . rawurlencode($setupToken)
     . '&year=' . rawurlencode((string) $year);
 
+$cacheKey = 'sales-summary-' . $year;
+$cachedResponse = jg_sales_cache_read($cacheKey, 120);
+if (is_string($cachedResponse)) {
+    header('X-JG-Cache: HIT');
+    echo $cachedResponse;
+    exit;
+}
+
 $context = stream_context_create([
     'http' => [
         'method' => 'GET',
@@ -35,6 +43,13 @@ $context = stream_context_create([
 
 $response = @file_get_contents($url, false, $context);
 if (!is_string($response) || $response === '') {
+    $staleResponse = jg_sales_cache_read($cacheKey, 0);
+    if (is_string($staleResponse)) {
+        header('X-JG-Cache: STALE');
+        echo $staleResponse;
+        exit;
+    }
+
     http_response_code(502);
     echo json_encode([
         'ok' => false,
@@ -51,21 +66,67 @@ foreach (($http_response_header ?? []) as $headerLine) {
     }
 }
 
-http_response_code($status >= 100 ? $status : 200);
-
 $decoded = json_decode($response, true);
 if (is_array($decoded) && ($status < 400 || $status === 200)) {
+    http_response_code($status >= 100 ? $status : 200);
     $decoded = jg_sales_enrich_with_sku_db($decoded, $year);
     jg_sales_remove_customer_paid_fields($decoded);
-    echo json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    $encoded = json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if (is_string($encoded)) {
+        jg_sales_cache_write($cacheKey, $encoded);
+        header('X-JG-Cache: MISS');
+        echo $encoded;
+    } else {
+        echo '{}';
+    }
     exit;
 }
 
+$staleResponse = jg_sales_cache_read($cacheKey, 0);
+if (is_string($staleResponse)) {
+    header('X-JG-Cache: STALE');
+    echo $staleResponse;
+    exit;
+}
+
+http_response_code($status >= 100 ? $status : 200);
 echo $response;
 
 function jg_sales_normalize_sku_key(mixed $value): string
 {
     return strtoupper(trim((string) $value));
+}
+
+function jg_sales_cache_dir(): string
+{
+    $dir = sys_get_temp_dir() . '/jg-dashboard-sales-cache';
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0775, true);
+    }
+    return $dir;
+}
+
+function jg_sales_cache_path(string $key): string
+{
+    return jg_sales_cache_dir() . '/' . hash('sha256', $key) . '.json';
+}
+
+function jg_sales_cache_read(string $key, int $ttlSeconds): ?string
+{
+    $path = jg_sales_cache_path($key);
+    if (!is_file($path)) {
+        return null;
+    }
+    if ($ttlSeconds > 0 && filemtime($path) < time() - $ttlSeconds) {
+        return null;
+    }
+    $raw = @file_get_contents($path);
+    return is_string($raw) && $raw !== '' ? $raw : null;
+}
+
+function jg_sales_cache_write(string $key, string $payload): void
+{
+    @file_put_contents(jg_sales_cache_path($key), $payload, LOCK_EX);
 }
 
 /**

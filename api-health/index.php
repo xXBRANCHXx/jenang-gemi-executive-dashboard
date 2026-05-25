@@ -11,6 +11,7 @@ if (!jg_admin_is_authenticated()) {
 
 $adminCssVersion = (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $apiHealthJsVersion = (string) @filemtime(dirname(__DIR__) . '/api-health.js');
+$dashboardPrefetchYear = (new DateTimeImmutable('now', new DateTimeZone('Asia/Jakarta')))->format('Y');
 ?>
 <!DOCTYPE html>
 <html lang="id" data-admin-theme="minimal-black">
@@ -22,6 +23,7 @@ $apiHealthJsVersion = (string) @filemtime(dirname(__DIR__) . '/api-health.js');
     <link rel="icon" type="image/svg+xml" href="/assets/admin-icons/executive-dashboard.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="prefetch" href="../api/sales/?year=<?php echo urlencode($dashboardPrefetchYear); ?>" as="fetch">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap">
     <link rel="stylesheet" href="../admin.css?v=<?php echo urlencode($adminCssVersion ?: '1'); ?>">
 </head>
@@ -121,6 +123,14 @@ $apiHealthJsVersion = (string) @filemtime(dirname(__DIR__) . '/api-health.js');
             </div>
         </div>
     </div>
+    <script>
+        window.addEventListener('load', () => {
+            window.fetch('../api/sales/?year=<?php echo urlencode($dashboardPrefetchYear); ?>', {
+                credentials: 'same-origin',
+                headers: { Accept: 'application/json' }
+            }).catch(() => {});
+        }, { once: true });
+    </script>
     <script type="module" src="../api-health.js?v=<?php echo urlencode($apiHealthJsVersion ?: '1'); ?>"></script>
 </body>
 </html>

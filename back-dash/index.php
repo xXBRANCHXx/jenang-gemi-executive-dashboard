@@ -7,6 +7,7 @@ require_once dirname(__DIR__) . '/admin-nav.php';
 jg_admin_require_auth();
 
 $adminCssVersion = (string) @filemtime(dirname(__DIR__) . '/admin.css');
+$dashboardPrefetchYear = (new DateTimeImmutable('now', new DateTimeZone('Asia/Jakarta')))->format('Y');
 $whatsappWebhookUrl = 'https://jenanggemi.com/whatsapp-webhook.php';
 $conversionWebhookUrl = 'https://jenanggemi.com/conversion-webhook.php';
 $configPath = '/public_html/whatsapp-config.local.php';
@@ -34,6 +35,7 @@ $apiDocs = [
     <title>API Ingest Workspace | Jenang Gemi Executive Dashboard</title>
     <meta name="robots" content="noindex,nofollow">
     <link rel="icon" type="image/svg+xml" href="/assets/admin-icons/executive-dashboard.svg">
+    <link rel="prefetch" href="../api/sales/?year=<?php echo urlencode($dashboardPrefetchYear); ?>" as="fetch">
     <link rel="stylesheet" href="../admin.css?v=<?php echo urlencode($adminCssVersion ?: '1'); ?>">
 </head>
 <body class="admin-body is-dashboard">
@@ -228,6 +230,15 @@ Paket yang dipilih: 30 Sachet</textarea>
         </div>
     </div>
     <script>
+        (() => {
+            window.addEventListener('load', () => {
+                window.fetch('../api/sales/?year=<?php echo urlencode($dashboardPrefetchYear); ?>', {
+                    credentials: 'same-origin',
+                    headers: { Accept: 'application/json' }
+                }).catch(() => {});
+            }, { once: true });
+        })();
+
         (() => {
             const startDate = document.querySelector('[data-backfill-start-date]');
             const endDate = document.querySelector('[data-backfill-end-date]');

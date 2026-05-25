@@ -3058,15 +3058,6 @@ document.addEventListener('DOMContentLoaded', () => {
     shiftRangeCalendarMonth(1);
   });
 
-  overviewRefs.rangeGrid?.addEventListener('mouseover', (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
-    const button = target.closest('[data-overview-range-date]');
-    if (!(button instanceof HTMLElement) || !rangeDraftStart) return;
-    rangeHoverDate = button.dataset.overviewRangeDate || rangeDraftStart;
-    renderOverviewRangeCalendar();
-  });
-
   overviewRefs.rangeGrid?.addEventListener('click', async (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
