@@ -2252,7 +2252,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const outside = date.getMonth() !== month;
       const inRange = bounds.start && bounds.end && key >= bounds.start && key <= bounds.end;
       const selectedStart = bounds.start && key === bounds.start;
-      const selectedEnd = bounds.end && key === bounds.end && bounds.end !== bounds.start;
+      const selectedEnd = bounds.end && key === bounds.end;
       const classes = [
         'admin-range-day',
         outside ? 'is-outside' : '',

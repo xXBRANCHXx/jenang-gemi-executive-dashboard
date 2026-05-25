@@ -1082,6 +1082,10 @@ button, input {
   gap: 5px;
 }
 
+.admin-range-grid {
+  gap: 0;
+}
+
 .admin-range-calendar-head {
   grid-template-columns: 32px 1fr 32px;
   align-items: center;
@@ -1150,9 +1154,13 @@ button, input {
 .admin-range-day::before {
   content: "";
   position: absolute;
-  inset: 4px 0;
+  top: 50%;
+  right: 0;
+  left: 0;
+  height: 2px;
   z-index: -2;
   background: transparent;
+  transform: translateY(-50%);
 }
 
 .admin-range-day::after {
@@ -1173,11 +1181,11 @@ button, input {
 }
 
 .admin-range-day.is-in-range::before {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 210, 86, 0.92);
 }
 
 .admin-range-day.is-preview::before {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 210, 86, 0.92);
 }
 
 .admin-range-day.is-selected-start::before {
@@ -1190,14 +1198,15 @@ button, input {
 
 .admin-range-day.is-selected-start::after,
 .admin-range-day.is-selected-end::after {
-  background: #f7f7f7;
-  color: #050505;
+  border: 2px solid #ffd256;
+  background: rgba(6, 6, 6, 0.98);
+  color: var(--admin-text);
   box-shadow: none;
 }
 
 .admin-range-day.is-selected-start,
 .admin-range-day.is-selected-end {
-  color: #050505;
+  color: var(--admin-text);
 }
 
 @media (max-width: 520px) {
