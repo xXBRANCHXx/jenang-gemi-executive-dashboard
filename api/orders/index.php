@@ -86,7 +86,6 @@ function jg_orders_lightweight_rows(array $remoteRows): array
         $netRevenue = (int) round((float) ($remoteRow['revenue'] ?? $remoteRow['net_revenue'] ?? $remoteRow['sales'] ?? 0));
         $orderNetRevenue = (int) round((float) ($remoteRow['order_net_revenue'] ?? $netRevenue));
         $marketplaceFees = (int) round((float) ($remoteRow['order_marketplace_fees'] ?? $remoteRow['marketplace_fees'] ?? 0));
-        $grossRevenue = (int) round((float) ($remoteRow['order_gross_revenue'] ?? $remoteRow['gross_revenue'] ?? $remoteRow['customer_paid'] ?? $remoteRow['buyer_paid'] ?? ($orderNetRevenue + $marketplaceFees)));
         $key = implode('|', [
             (string) ($remoteRow['platform'] ?? ''),
             (string) ($remoteRow['account_key'] ?? ''),
@@ -104,18 +103,18 @@ function jg_orders_lightweight_rows(array $remoteRows): array
                 'account_key' => (string) ($remoteRow['account_key'] ?? ''),
                 'quantity' => 0,
                 'item_count' => 0,
-                'revenue' => $grossRevenue,
+                'revenue' => $orderNetRevenue,
                 'net_revenue' => $orderNetRevenue,
                 'marketplace_fees' => $marketplaceFees,
-                'gross_profit' => $grossRevenue,
+                'gross_profit' => $orderNetRevenue,
             ];
         }
         $rows[$key]['quantity'] += $quantity;
         $rows[$key]['item_count'] += $quantity;
-        $rows[$key]['revenue'] = max((int) ($rows[$key]['revenue'] ?? 0), $grossRevenue);
+        $rows[$key]['revenue'] = max((int) ($rows[$key]['revenue'] ?? 0), $orderNetRevenue);
         $rows[$key]['net_revenue'] = max((int) ($rows[$key]['net_revenue'] ?? 0), $orderNetRevenue);
         $rows[$key]['marketplace_fees'] = max((int) ($rows[$key]['marketplace_fees'] ?? 0), $marketplaceFees);
-        $rows[$key]['gross_profit'] = max((int) ($rows[$key]['gross_profit'] ?? 0), $grossRevenue);
+        $rows[$key]['gross_profit'] = max((int) ($rows[$key]['gross_profit'] ?? 0), $orderNetRevenue);
     }
 
     return array_values($rows);
@@ -260,10 +259,10 @@ function jg_orders_lightweight_live_row(array $order, string $fallbackPlatform):
         'account_key' => (string) ($order['sourceAccountKey'] ?? $order['account_key'] ?? $order['account'] ?? ''),
         'quantity' => $quantity,
         'item_count' => $quantity,
-        'revenue' => $grossRevenue,
+        'revenue' => $netRevenue,
         'net_revenue' => $netRevenue,
         'marketplace_fees' => $marketplaceFees,
-        'gross_profit' => $grossRevenue,
+        'gross_profit' => $netRevenue,
     ];
 }
 
@@ -520,11 +519,11 @@ function jg_orders_enrich_and_allocate(PDO $pdo, array $remoteRows, array $skuLo
             'sku' => $sku['sku'] ?? '',
             'quantity' => (int) ($remoteRow['quantity'] ?? 0),
             'astra_quantity' => $astraQty,
-            'revenue' => (int) round((float) ($remoteRow['order_gross_revenue'] ?? $remoteRow['gross_revenue'] ?? $remoteRow['customer_paid'] ?? $remoteRow['buyer_paid'] ?? ((float) ($remoteRow['revenue'] ?? 0) + (float) ($remoteRow['marketplace_fees'] ?? 0)))),
-            'net_revenue' => (int) round((float) ($remoteRow['order_net_revenue'] ?? $remoteRow['revenue'] ?? $remoteRow['net_revenue'] ?? $remoteRow['sales'] ?? 0)),
+            'revenue' => (int) round((float) ($remoteRow['revenue'] ?? $remoteRow['net_revenue'] ?? $remoteRow['sales'] ?? 0)),
+            'net_revenue' => (int) round((float) ($remoteRow['revenue'] ?? $remoteRow['net_revenue'] ?? $remoteRow['sales'] ?? 0)),
             'marketplace_fees' => (int) round((float) ($remoteRow['order_marketplace_fees'] ?? $remoteRow['marketplace_fees'] ?? 0)),
             'cogs' => (int) round($totalCogs),
-            'gross_profit' => (int) round((float) ($remoteRow['order_gross_revenue'] ?? $remoteRow['gross_revenue'] ?? $remoteRow['customer_paid'] ?? $remoteRow['buyer_paid'] ?? ((float) ($remoteRow['revenue'] ?? 0) + (float) ($remoteRow['marketplace_fees'] ?? 0))) - $totalCogs),
+            'gross_profit' => (int) round((float) ($remoteRow['revenue'] ?? $remoteRow['net_revenue'] ?? $remoteRow['sales'] ?? 0) - $totalCogs),
             'username' => (string) ($remoteRow['username'] ?? ''),
             'address' => (string) ($remoteRow['address'] ?? ''),
             'phone' => (string) ($remoteRow['phone'] ?? ''),
