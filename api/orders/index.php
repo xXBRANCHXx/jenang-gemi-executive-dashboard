@@ -97,11 +97,11 @@ function jg_orders_lightweight_rows(array $remoteRows): array
         }
         if (!isset($rows[$key])) {
             $rows[$key] = [
-            'timestamp' => (string) ($remoteRow['timestamp'] ?? ''),
-            'order_create_time' => (string) ($remoteRow['order_create_time'] ?? ($remoteRow['timestamp'] ?? '')),
-            'order_id' => (string) ($remoteRow['order_id'] ?? ''),
-            'platform' => (string) ($remoteRow['platform'] ?? ''),
-            'account_key' => (string) ($remoteRow['account_key'] ?? ''),
+                'timestamp' => (string) ($remoteRow['timestamp'] ?? ''),
+                'order_create_time' => (string) ($remoteRow['order_create_time'] ?? ($remoteRow['timestamp'] ?? '')),
+                'order_id' => (string) ($remoteRow['order_id'] ?? ''),
+                'platform' => (string) ($remoteRow['platform'] ?? ''),
+                'account_key' => (string) ($remoteRow['account_key'] ?? ''),
                 'quantity' => 0,
                 'item_count' => 0,
                 'revenue' => $grossRevenue,
@@ -193,7 +193,7 @@ function jg_orders_live_listed_payload(string $platform): array
         'account' => 'all',
         'fast' => '1',
         'persist' => '1',
-        'escrow' => '0',
+        'escrow' => '1',
     ]), 45);
     jg_orders_cache_write($cacheKey, $payload);
 
