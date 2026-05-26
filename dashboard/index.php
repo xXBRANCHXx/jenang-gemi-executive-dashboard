@@ -130,7 +130,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                 </section>
 
                 <section class="admin-main-grid admin-main-grid-compact">
-                    <article class="admin-panel admin-panel-chart admin-panel-wide admin-overview-primary-chart">
+                    <article class="admin-panel admin-panel-chart admin-panel-wide admin-overview-primary-chart" data-chart-id="C1">
                         <div class="admin-panel-head">
                             <div>
                                 <div class="admin-chart-title-row">
@@ -169,7 +169,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                     </article>
 
                     <div class="admin-overview-totals-row">
-                    <article class="admin-panel admin-panel-chart">
+                    <article class="admin-panel admin-panel-chart" data-chart-id="C2">
                         <div class="admin-panel-head">
                             <div>
                                 <div class="admin-chart-title-row">
@@ -189,7 +189,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                         </div>
                     </article>
 
-                    <article class="admin-panel admin-panel-chart">
+                    <article class="admin-panel admin-panel-chart" data-chart-id="C3">
                         <div class="admin-panel-head">
                             <div>
                                 <div class="admin-chart-title-row">
@@ -207,7 +207,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                         </div>
                     </article>
 
-                    <article class="admin-panel admin-panel-chart admin-overview-hourly-card">
+                    <article class="admin-panel admin-panel-chart admin-overview-hourly-card" data-chart-id="C4">
                         <div class="admin-panel-head">
                             <div>
                                 <div class="admin-chart-title-row">
@@ -229,7 +229,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                     </article>
                     </div>
 
-                    <article class="admin-panel admin-panel-chart admin-panel-wide">
+                    <article class="admin-panel admin-panel-chart admin-panel-wide" data-chart-id="C5">
                         <div class="admin-panel-head">
                             <div>
                                 <div class="admin-chart-title-row">
@@ -244,7 +244,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                         </div>
                     </article>
 
-                    <article class="admin-panel admin-panel-chart admin-panel-wide">
+                    <article class="admin-panel admin-panel-chart admin-panel-wide" data-chart-id="C6">
                         <div class="admin-panel-head">
                             <div>
                                 <div class="admin-chart-title-row">
