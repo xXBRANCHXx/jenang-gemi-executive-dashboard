@@ -129,7 +129,7 @@ $dashboardBuildVersion = 'exec3.48.0';
                 </section>
 
                 <section class="admin-main-grid admin-main-grid-compact">
-                    <article class="admin-panel admin-panel-chart admin-panel-wide">
+                    <article class="admin-panel admin-panel-chart admin-panel-wide" data-chart-id="C1">
                         <div class="admin-panel-head">
                             <div>
                                 <h3 data-overview-trend-title>Net revenue by month</h3>
@@ -147,7 +147,7 @@ $dashboardBuildVersion = 'exec3.48.0';
                         </div>
                     </article>
 
-                    <article class="admin-panel admin-panel-chart">
+                    <article class="admin-panel admin-panel-chart" data-chart-id="C2">
                         <div class="admin-panel-head">
                             <div>
                                 <h3>Order volume</h3>
@@ -182,7 +182,7 @@ $dashboardBuildVersion = 'exec3.48.0';
                         </div>
                     </article>
 
-                    <article class="admin-panel admin-panel-chart">
+                    <article class="admin-panel admin-panel-chart" data-chart-id="C3">
                         <div class="admin-panel-head">
                             <div>
                                 <h3>Current totals</h3>
@@ -347,7 +347,7 @@ $dashboardBuildVersion = 'exec3.48.0';
                         </div>
                     </article>
 
-                    <article class="admin-panel admin-panel-chart" data-c4-chart>
+                    <article class="admin-panel admin-panel-chart" data-c4-chart data-chart-id="C4">
                         <div class="admin-panel-head">
                             <div>
                                 <span class="admin-panel-kicker">C4</span>

@@ -1833,6 +1833,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }, 60000);
 
+  window.setInterval(() => {
+    if (!document.hidden && state.activeView === 'home') {
+      loadHomeSafely();
+    }
+  }, 60000);
+
   overviewRefs.metricButtons.forEach((button) => {
     button.addEventListener('click', () => {
       state.overview.metric = button.dataset.overviewMetric || 'sales';
