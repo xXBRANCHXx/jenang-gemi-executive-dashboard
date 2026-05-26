@@ -32,6 +32,47 @@ const HOME_METRIC_UNITS = {
   checkout_clicks: 'checkouts'
 };
 
+const OVERVIEW_METRIC_LABELS = {
+  sales: 'Net revenue by month',
+  net_revenue: 'Net revenue by month',
+  gross_revenue: 'Gross revenue by month',
+  marketplace_fees: 'Marketplace fees by month',
+  orders: 'Total orders by month',
+  average_order_value: 'Average order value by month',
+  item_count: 'Items sold by month'
+};
+
+const OVERVIEW_METRIC_UNITS = {
+  sales: 'idr',
+  net_revenue: 'idr',
+  gross_revenue: 'idr',
+  marketplace_fees: 'idr',
+  orders: 'orders',
+  average_order_value: 'idr',
+  item_count: 'items'
+};
+
+const OVERVIEW_PLATFORM_COLORS = {
+  shopee: '#ff8f1f',
+  tiktok: '#22d3ee',
+  tokopedia: '#5bff8a',
+  unknown: '#7a879a'
+};
+
+const C4_METRIC_LABELS = {
+  orders: 'Daily orders QTY by hour',
+  gross_profit: 'Gross profit by hour',
+  revenue: 'Revenue by hour',
+  item_count: 'QTY sold by hour'
+};
+
+const C4_METRIC_UNITS = {
+  orders: 'orders',
+  gross_profit: 'idr',
+  revenue: 'idr',
+  item_count: 'items'
+};
+
 const HOME_TREND_SERIES = {
   total: { label: 'Total', color: '#12cfff' },
   bubur: { label: 'Bubur', color: '#9dff00' },
@@ -113,12 +154,20 @@ const JENANG_GEMI_SEARCH_INDEX = [
     keywords: ['jamu', 'tiktok', 'campaign', 'landing page']
   },
   {
-    title: 'Executive Dashboard',
+    title: 'Executive Sales Overview',
     section: 'Admin',
-    description: 'Main executive analytics dashboard.',
+    description: 'Marketplace sales homepage with yearly monthly revenue charts.',
+    url: '../dashboard/',
+    view: 'overview',
+    keywords: ['home', 'homepage', 'sales', 'marketplace', 'overview', 'executive']
+  },
+  {
+    title: 'Campaigns Dashboard',
+    section: 'Admin',
+    description: 'Campaign landing-page analytics for Bubur and Jamu pages.',
     url: '../dashboard/',
     view: 'home',
-    keywords: ['admin', 'dashboard', 'analytics', 'executive']
+    keywords: ['admin', 'dashboard', 'analytics', 'executive', 'landing pages', 'campaign landing', 'campaigns']
   },
   {
     title: 'Official Website Dashboard',
@@ -243,7 +292,13 @@ const formatDashboardTime = (value, timezone, options = {}) => {
   });
 };
 
-const formatMetricValue = (metric, value, unitsMap) => `${Number(value).toLocaleString('id-ID')} ${unitsMap[metric] || 'units'}`;
+const formatCurrency = (value) => `Rp${Math.round(Number(value) || 0).toLocaleString('id-ID')}`;
+
+const formatMetricValue = (metric, value, unitsMap) => {
+  const unit = unitsMap[metric] || 'units';
+  if (unit === 'idr') return formatCurrency(value);
+  return `${Number(value).toLocaleString('id-ID')} ${unit}`;
+};
 
 const formatPageLabel = (pagePath = '') => {
   const cleaned = String(pagePath).replace(/^\//, '').replace(/\.html$/i, '');
@@ -674,14 +729,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const themeStorageKey = 'jg-admin-theme';
   const viewStorageKey = 'jg-dashboard-view';
+  const viewAliases = {
+    landing: 'home',
+    landing_pages: 'home',
+    'landing-pages': 'home',
+    campaign: 'home',
+    campaigns: 'home',
+    overview: 'overview',
+    executive: 'overview',
+    homepage: 'overview'
+  };
+  const validViews = new Set(['overview', 'home', 'website', 'settings']);
+  const normalizeDashboardView = (value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    const aliased = viewAliases[normalized] || normalized;
+    return validViews.has(aliased) ? aliased : 'overview';
+  };
+  const resolveInitialView = () => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedView = params.get('view') || window.location.hash.replace(/^#/, '');
+    return normalizeDashboardView(requestedView || window.localStorage.getItem(viewStorageKey));
+  };
 
   const state = {
-    activeView: window.localStorage.getItem(viewStorageKey) || 'home',
+    activeView: resolveInitialView(),
     timezone: DASHBOARD_TIMEZONE,
     requestSequence: 0,
+    overview: {
+      year: new Date().getFullYear(),
+      metric: 'sales',
+      volumeMetric: 'orders',
+      platformMetric: 'sales',
+      data: null,
+      requestToken: 0
+    },
     home: {
       timeframe: '24h',
       metric: 'views',
+      c4Metric: 'revenue',
       series: {
         bubur: true,
         jamu: true
@@ -705,6 +790,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const endpoint = root.dataset.analyticsEndpoint || './analytics.php';
   const liveEndpoint = root.dataset.liveEndpoint || './live/';
   const settingsEndpoint = root.dataset.settingsEndpoint || './settings/';
+  const salesEndpoint = root.dataset.salesEndpoint || './sales/';
 
   const loader = document.querySelector('[data-admin-loader]');
   const loaderProgress = document.querySelector('[data-admin-loader-progress]');
@@ -715,10 +801,33 @@ document.addEventListener('DOMContentLoaded', () => {
   const viewLabel = document.querySelector('[data-active-view-label]');
   const viewPanels = document.querySelectorAll('[data-view-panel]');
   const viewSwitchButtons = document.querySelectorAll('[data-view-switch]');
+  const navLinks = document.querySelectorAll('[data-dashboard-nav-section]');
   const searchShell = document.querySelector('[data-dashboard-search-shell]');
   const searchForm = document.querySelector('[data-dashboard-search-form]');
   const searchInput = document.querySelector('[data-dashboard-search-input]');
   const searchResults = document.querySelector('[data-dashboard-search-results]');
+
+  const overviewRefs = {
+    summarySales: document.querySelector('[data-overview-summary-sales]'),
+    summaryOrders: document.querySelector('[data-overview-summary-orders]'),
+    summaryAov: document.querySelector('[data-overview-summary-aov]'),
+    summaryBestMonth: document.querySelector('[data-overview-summary-best-month]'),
+    summaryBestMonthMeta: document.querySelector('[data-overview-summary-best-month-meta]'),
+    yearSummary: document.querySelector('[data-overview-year-summary]'),
+    endpointLabel: document.querySelector('[data-overview-endpoint-label]'),
+    trendCanvas: document.querySelector('[data-overview-trend-chart]'),
+    ordersCanvas: document.querySelector('[data-overview-orders-chart]'),
+    platformCanvas: document.querySelector('[data-overview-platform-chart]'),
+    trendTitle: document.querySelector('[data-overview-trend-title]'),
+    trendMeta: document.querySelector('[data-overview-trend-meta]'),
+    lastUpdated: document.querySelector('[data-overview-last-updated]'),
+    tableBody: document.querySelector('[data-overview-table-body]'),
+    notes: document.querySelector('[data-overview-notes]'),
+    yearControls: document.querySelector('[data-overview-year-controls]'),
+    metricButtons: document.querySelectorAll('[data-overview-metric]'),
+    volumeMetricButtons: document.querySelectorAll('[data-overview-volume-metric]'),
+    platformMetricButtons: document.querySelectorAll('[data-overview-platform-metric]')
+  };
 
   const homeRefs = {
     summaryViews: document.querySelector('[data-home-summary-total-views]'),
@@ -733,6 +842,9 @@ document.addEventListener('DOMContentLoaded', () => {
     urlCanvas: document.querySelector('[data-home-url-chart]'),
     trendCanvas: document.querySelector('[data-home-trend-chart]'),
     hourCanvas: document.querySelector('[data-home-hour-chart]'),
+    hourTitle: document.querySelector('[data-home-hour-title]'),
+    hourMeta: document.querySelector('[data-home-hour-meta]'),
+    c4MetricButtons: document.querySelectorAll('[data-c4-metric]'),
     sourceLegend: document.querySelector('[data-home-source-legend]'),
     lastUpdated: document.querySelector('[data-home-last-updated]'),
     trendTitle: document.querySelector('[data-home-trend-title]'),
@@ -984,9 +1096,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const syncViewState = () => {
     const labels = {
-      home: 'Home Dashboard',
+      overview: 'Executive Sales Overview',
+      home: 'Campaigns Dashboard',
       website: 'Official Website Dashboard',
       settings: 'Settings'
+    };
+    const navSectionByView = {
+      overview: 'home',
+      home: 'campaigns',
+      website: 'website',
+      settings: 'settings'
     };
     viewPanels.forEach((panel) => {
       panel.classList.toggle('is-active', panel.dataset.viewPanel === state.activeView);
@@ -998,6 +1117,15 @@ document.addEventListener('DOMContentLoaded', () => {
         button.setAttribute('aria-current', 'page');
       } else {
         button.removeAttribute('aria-current');
+      }
+    });
+    navLinks.forEach((link) => {
+      const isActive = link.getAttribute('data-dashboard-nav-section') === navSectionByView[state.activeView];
+      link.classList.toggle('is-active', isActive);
+      if (isActive) {
+        link.setAttribute('aria-current', 'page');
+      } else {
+        link.removeAttribute('aria-current');
       }
     });
     if (viewLabel) {
@@ -1029,6 +1157,55 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${endpoint}?${params.toString()}`;
   };
 
+  const buildSalesUrl = (year) => {
+    const params = new URLSearchParams({
+      year: String(year),
+      _ts: String(Date.now())
+    });
+    return `${salesEndpoint}?${params.toString()}`;
+  };
+
+  const getDashboardDateString = (date = new Date()) => {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: state.timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).formatToParts(date).reduce((result, part) => {
+      result[part.type] = part.value;
+      return result;
+    }, {});
+    return `${parts.year}-${parts.month}-${parts.day}`;
+  };
+
+  const getDashboardHour = (date) => {
+    const hour = new Intl.DateTimeFormat('en-US', {
+      timeZone: state.timezone,
+      hour: '2-digit',
+      hourCycle: 'h23',
+      hour12: false
+    }).format(date);
+    return Math.max(0, Math.min(23, Number(hour) || 0));
+  };
+
+  const parseSalesOrderDate = (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return null;
+    const normalized = raw.includes('T') ? raw : `${raw.replace(' ', 'T')}Z`;
+    const date = new Date(normalized);
+    return Number.isNaN(date.getTime()) ? null : date;
+  };
+
+  const buildSalesOrdersUrl = (startDate, endDate = startDate) => {
+    const params = new URLSearchParams({
+      action: 'orders',
+      start_date: startDate,
+      end_date: endDate,
+      _ts: String(Date.now())
+    });
+    return `${salesEndpoint}?${params.toString()}`;
+  };
+
   const buildSettingsUrl = (action) => `${settingsEndpoint}?action=${encodeURIComponent(action)}&_ts=${encodeURIComponent(String(Date.now()))}`;
 
   const beginRequest = (key, settings = false) => {
@@ -1048,6 +1225,183 @@ document.addEventListener('DOMContentLoaded', () => {
       : state[key].requestToken === token
   );
 
+  const topPlatformForMonth = (month) => {
+    const entries = Object.entries(month?.platforms || {});
+    if (!entries.length) return 'No platform data';
+    entries.sort((left, right) => Number(right[1]?.sales || 0) - Number(left[1]?.sales || 0));
+    return entries[0] ? `${toTitleCase(entries[0][0])} • ${formatCurrency(entries[0][1]?.sales || 0)}` : 'No platform data';
+  };
+
+  const buildTodaySalesByHour = (ordersPayload, salesDate) => {
+    const hourOfDay = Array.from({ length: 24 }, (_, hour) => ({
+      hour,
+      revenue: 0,
+      gross_profit: 0,
+      net_revenue: 0,
+      gross_revenue: 0,
+      marketplace_fees: 0,
+      orders: 0,
+      item_count: 0
+    }));
+    const orderIdsByHour = Array.from({ length: 24 }, () => new Set());
+    const rows = Array.isArray(ordersPayload?.orders) ? ordersPayload.orders : [];
+    let totalRevenue = 0;
+    let totalGrossProfit = 0;
+    let totalItems = 0;
+
+    rows.forEach((row) => {
+      const orderedAt = parseSalesOrderDate(row.order_create_time || row.timestamp || row.ordered_at);
+      if (!orderedAt || getDashboardDateString(orderedAt) !== salesDate) return;
+      const hour = getDashboardHour(orderedAt);
+      const revenue = Number(row.revenue || row.net_revenue || 0);
+      const marketplaceFees = Number(row.marketplace_fees || 0);
+      const grossRevenue = Number(row.gross_revenue || row.order_gross_revenue || (revenue + marketplaceFees) || 0);
+      const grossProfit = Number(row.gross_profit || row.profit || row.net_profit || revenue || 0);
+      const quantity = Number(row.quantity || 0);
+      const orderKey = [
+        row.platform || 'unknown',
+        row.account_key || 'unknown',
+        row.order_id || row.order_row_id || ''
+      ].join('|');
+
+      hourOfDay[hour].revenue += revenue;
+      hourOfDay[hour].net_revenue += revenue;
+      hourOfDay[hour].gross_revenue += grossRevenue;
+      hourOfDay[hour].gross_profit += grossProfit;
+      hourOfDay[hour].marketplace_fees += marketplaceFees;
+      hourOfDay[hour].item_count += quantity;
+      totalRevenue += revenue;
+      totalGrossProfit += grossProfit;
+      totalItems += quantity;
+      if (orderKey.trim() !== 'unknown|unknown|') {
+        orderIdsByHour[hour].add(orderKey);
+      }
+    });
+
+    let totalOrders = 0;
+    orderIdsByHour.forEach((orderSet, hour) => {
+      hourOfDay[hour].orders = orderSet.size;
+      totalOrders += orderSet.size;
+    });
+
+    return {
+      date: salesDate,
+      error: ordersPayload?.ok === false ? (ordersPayload.error || 'sales_orders_unavailable') : '',
+      hour_of_day: hourOfDay,
+      totals: {
+        revenue: totalRevenue,
+        net_revenue: totalRevenue,
+        gross_profit: totalGrossProfit,
+        orders: totalOrders,
+        item_count: totalItems
+      }
+    };
+  };
+
+  const renderOverviewYearControls = (years) => {
+    if (!overviewRefs.yearControls) return;
+    overviewRefs.yearControls.innerHTML = years.map((year) => `
+      <button type="button" class="admin-toggle-pill${Number(year) === Number(state.overview.year) ? ' is-active' : ''}" data-overview-year="${escapeHtml(String(year))}">${escapeHtml(String(year))}</button>
+    `).join('');
+
+    overviewRefs.yearControls.querySelectorAll('[data-overview-year]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const nextYear = Number(button.getAttribute('data-overview-year') || state.overview.year);
+        if (!Number.isFinite(nextYear) || nextYear === state.overview.year) return;
+        state.overview.year = nextYear;
+        await loadOverviewSafely();
+      });
+    });
+  };
+
+  const renderOverview = (data) => {
+    state.overview.data = data;
+    const totals = data.totals || {};
+    const months = Array.isArray(data.months) ? data.months : [];
+    const platforms = Array.isArray(data.platforms) ? data.platforms : [];
+    const years = Array.isArray(data.years) ? data.years : [state.overview.year];
+    const bestMonth = totals.best_month || {};
+    const monthlyRows = months.map((month) => ({
+      label: month.label || '-',
+      sales: Number(month.sales || 0),
+      net_revenue: Number(month.net_revenue || month.sales || 0),
+      gross_revenue: Number(month.gross_revenue || 0),
+      marketplace_fees: Number(month.marketplace_fees || 0),
+      orders: Number(month.orders || 0),
+      item_count: Number(month.item_count || 0),
+      average_order_value: Number(month.orders || 0) > 0 ? Number(month.sales || 0) / Number(month.orders || 0) : 0
+    }));
+
+    if (overviewRefs.summarySales) overviewRefs.summarySales.textContent = formatCurrency(totals.sales || 0);
+    if (overviewRefs.summaryOrders) overviewRefs.summaryOrders.textContent = Number(totals.orders || 0).toLocaleString('id-ID');
+    if (overviewRefs.summaryAov) overviewRefs.summaryAov.textContent = formatCurrency(totals.average_order_value || 0);
+    if (overviewRefs.summaryBestMonth) overviewRefs.summaryBestMonth.textContent = bestMonth.label || '-';
+    if (overviewRefs.summaryBestMonthMeta) {
+      overviewRefs.summaryBestMonthMeta.textContent = bestMonth.sales
+        ? `${formatCurrency(bestMonth.sales)} • ${Number(bestMonth.orders || 0).toLocaleString('id-ID')} orders`
+        : 'No peak yet';
+    }
+    if (overviewRefs.yearSummary) {
+      overviewRefs.yearSummary.textContent = `${years[0]} to ${years[years.length - 1]}`;
+    }
+    if (overviewRefs.endpointLabel) overviewRefs.endpointLabel.textContent = salesEndpoint;
+    if (overviewRefs.trendTitle) overviewRefs.trendTitle.textContent = OVERVIEW_METRIC_LABELS[state.overview.metric];
+    if (overviewRefs.trendMeta) {
+      overviewRefs.trendMeta.textContent = `${state.overview.year} • Net ${formatCurrency(totals.net_revenue || totals.sales || 0)} • Gross ${formatCurrency(totals.gross_revenue || 0)}`;
+    }
+
+    if (overviewRefs.tableBody) {
+      overviewRefs.tableBody.innerHTML = renderRows(months, 4, (month) => `
+        <tr>
+          <td><strong>${escapeHtml(month.label || '-')}</strong></td>
+          <td>${formatCurrency(month.sales || 0)}</td>
+          <td>${Number(month.orders || 0).toLocaleString('id-ID')}</td>
+          <td>${escapeHtml(topPlatformForMonth(month))}</td>
+        </tr>
+      `, 'Belum ada data marketplace.');
+    }
+
+    if (overviewRefs.notes) {
+      overviewRefs.notes.innerHTML = `
+        <div class="admin-note-card"><strong>Platforms</strong><span>${platforms.length ? platforms.map((platform) => `${platform.label}: ${formatCurrency(platform.sales || 0)}`).join(' • ') : 'No connected platform revenue yet.'}</span></div>
+        <div class="admin-note-card"><strong>Year Scope</strong><span>The year toggle is generated automatically from 2026 through the current calendar year so new years appear without manual edits.</span></div>
+        <div class="admin-note-card"><strong>Data Path</strong><span>Dashboard requests a protected marketplace summary endpoint, then renders the charts locally with hover tooltips and month-level comparisons.</span></div>
+      `;
+    }
+
+    drawLineChart(overviewRefs.trendCanvas, monthlyRows, state.overview.metric, OVERVIEW_METRIC_UNITS);
+    drawBarChart(overviewRefs.ordersCanvas, monthlyRows, {
+      value: (item) => item[state.overview.volumeMetric] || 0,
+      label: (item) => String(item.label || '-'),
+      color: () => '#67f8d4',
+      metric: state.overview.volumeMetric,
+      unitsMap: OVERVIEW_METRIC_UNITS,
+      tooltipTitle: (item) => `${item.label || '-'} ${OVERVIEW_METRIC_LABELS[state.overview.volumeMetric] || 'volume'}`,
+      limit: 12
+    });
+    drawBarChart(overviewRefs.platformCanvas, platforms, {
+      value: (item) => item[state.overview.platformMetric] || 0,
+      label: (item) => String(item.label || 'Unknown').slice(0, 12),
+      color: (item) => OVERVIEW_PLATFORM_COLORS[String(item.key || 'unknown').toLowerCase()] || OVERVIEW_PLATFORM_COLORS.unknown,
+      metric: state.overview.platformMetric,
+      unitsMap: OVERVIEW_METRIC_UNITS,
+      tooltipTitle: (item) => item.label || 'Unknown',
+      limit: 6
+    });
+
+    setLastUpdated(overviewRefs.lastUpdated, data.generated_at || data.meta?.generated_at);
+    renderOverviewYearControls(years);
+    overviewRefs.metricButtons.forEach((button) => {
+      button.classList.toggle('is-active', button.dataset.overviewMetric === state.overview.metric);
+    });
+    overviewRefs.volumeMetricButtons.forEach((button) => {
+      button.classList.toggle('is-active', button.dataset.overviewVolumeMetric === state.overview.volumeMetric);
+    });
+    overviewRefs.platformMetricButtons.forEach((button) => {
+      button.classList.toggle('is-active', button.dataset.overviewPlatformMetric === state.overview.platformMetric);
+    });
+  };
+
   const renderHome = (data) => {
     state.home.data = data;
     const summary = data.summary || {};
@@ -1065,7 +1419,8 @@ document.addEventListener('DOMContentLoaded', () => {
       bubur: { views: 0, order_now_clicks: 0, checkout_clicks: 0 },
       jamu: { views: 0, order_now_clicks: 0, checkout_clicks: 0 }
     }));
-    const hourOfDay = Array.isArray(data.hour_of_day) ? data.hour_of_day : [];
+    const salesToday = data.sales_today || {};
+    const hourOfDay = Array.isArray(salesToday.hour_of_day) ? salesToday.hour_of_day : [];
     const recentEvents = (Array.isArray(data.recent_events) ? data.recent_events : []).filter((item) => !shouldHideSourceMetric(item.source));
 
     if (homeRefs.summaryViews) homeRefs.summaryViews.textContent = Number(summary.total_views || 0).toLocaleString('id-ID');
@@ -1112,12 +1467,13 @@ document.addEventListener('DOMContentLoaded', () => {
       { key: 'bubur', label: HOME_TREND_SERIES.bubur.label, color: HOME_TREND_SERIES.bubur.color, visible: state.home.series.bubur },
       { key: 'jamu', label: HOME_TREND_SERIES.jamu.label, color: HOME_TREND_SERIES.jamu.color, visible: state.home.series.jamu }
     ]);
+    const c4Metric = C4_METRIC_LABELS[state.home.c4Metric] ? state.home.c4Metric : 'revenue';
     drawBarChart(homeRefs.hourCanvas, hourOfDay, {
-      value: (item) => item[state.home.metric] || 0,
+      value: (item) => item[c4Metric] || 0,
       label: (item) => `${String(item.hour).padStart(2, '0')}:00`,
-      color: () => SOURCE_COLORS.facebook,
-      metric: state.home.metric,
-      unitsMap: HOME_METRIC_UNITS,
+      color: () => OVERVIEW_PLATFORM_COLORS.shopee,
+      metric: c4Metric,
+      unitsMap: C4_METRIC_UNITS,
       tooltipTitle: (item) => `${String(item.hour).padStart(2, '0')}:00 WIB`,
       limit: 24
     });
@@ -1143,6 +1499,16 @@ document.addEventListener('DOMContentLoaded', () => {
     setLastUpdated(homeRefs.lastUpdated, data.meta?.generated_at);
     if (homeRefs.trendTitle) homeRefs.trendTitle.textContent = HOME_METRIC_LABELS[state.home.metric];
     if (homeRefs.trendMeta) homeRefs.trendMeta.textContent = `Timeframe: ${state.home.timeframe.toUpperCase()} • Scope: Landing pages • Timezone: WIB`;
+    if (homeRefs.hourTitle) homeRefs.hourTitle.textContent = C4_METRIC_LABELS[c4Metric];
+    if (homeRefs.hourMeta) {
+      const metricTotal = Number(salesToday.totals?.[c4Metric] || 0);
+      const metricSummary = C4_METRIC_UNITS[c4Metric] === 'idr'
+        ? formatCurrency(metricTotal)
+        : `${metricTotal.toLocaleString('id-ID')} ${C4_METRIC_UNITS[c4Metric] || ''}`.trim();
+      homeRefs.hourMeta.textContent = salesToday.error
+        ? `Marketplace orders unavailable: ${salesToday.error}`
+        : `${salesToday.date || getDashboardDateString()} • ${metricSummary}`;
+    }
     homeRefs.timeframeButtons.forEach((button) => {
       button.classList.toggle('is-active', button.dataset.homeTimeframe === state.home.timeframe);
     });
@@ -1152,6 +1518,9 @@ document.addEventListener('DOMContentLoaded', () => {
     homeRefs.seriesButtons.forEach((button) => {
       const key = button.dataset.homeSeries;
       button.classList.toggle('is-active', Boolean(key && state.home.series[key]));
+    });
+    homeRefs.c4MetricButtons.forEach((button) => {
+      button.classList.toggle('is-active', button.dataset.c4Metric === c4Metric);
     });
   };
 
@@ -1265,16 +1634,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const refreshAnalyticsAfterDeviceExclusion = async () => {
     await Promise.allSettled([
+      loadOverviewSafely(),
       loadHomeSafely(),
       loadWebsiteSafely(),
       loadWebsiteSettingsSafely()
     ]);
   };
 
+  const loadOverview = async () => {
+    const requestToken = beginRequest('overview');
+    const data = await requestJson(buildSalesUrl(state.overview.year));
+    if (!isLatestRequest('overview', requestToken)) return;
+    renderOverview(data);
+  };
+
   const loadHome = async () => {
     const requestToken = beginRequest('home');
-    const data = await requestJson(buildAnalyticsUrl('landing', state.home.timeframe));
+    const salesDate = getDashboardDateString();
+    const [data, salesOrders] = await Promise.all([
+      requestJson(buildAnalyticsUrl('landing', state.home.timeframe)),
+      requestJson(buildSalesOrdersUrl(salesDate)).catch((error) => ({
+        ok: false,
+        error: error?.message || 'sales_orders_unavailable',
+        orders: []
+      }))
+    ]);
     if (!isLatestRequest('home', requestToken)) return;
+    data.sales_today = buildTodaySalesByHour(salesOrders, salesDate);
     renderHome(data);
   };
 
@@ -1296,6 +1682,10 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const loadActiveView = async () => {
+    if (state.activeView === 'overview') {
+      await loadOverview();
+      return;
+    }
     if (state.activeView === 'home') {
       await loadHome();
       return;
@@ -1306,6 +1696,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (state.activeView === 'settings') {
       await loadWebsiteSettings();
+    }
+  };
+
+  const loadOverviewSafely = async () => {
+    try {
+      await loadOverview();
+      return true;
+    } catch (error) {
+      renderEventFeed(
+        overviewRefs.notes,
+        [],
+        () => '',
+        `Gagal memuat ringkasan marketplace: ${error?.message || 'Unknown error'}`
+      );
+      return false;
     }
   };
 
@@ -1343,6 +1748,9 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const loadActiveViewSafely = async () => {
+    if (state.activeView === 'overview') {
+      return loadOverviewSafely();
+    }
     if (state.activeView === 'home') {
       return loadHomeSafely();
     }
@@ -1356,12 +1764,13 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const renderCachedCharts = () => {
+    if (state.overview.data) renderOverview(state.overview.data);
     if (state.home.data) renderHome(state.home.data);
     if (state.website.data) renderWebsite(state.website.data);
   };
 
   const switchView = async (nextView) => {
-    state.activeView = nextView;
+    state.activeView = normalizeDashboardView(nextView);
     syncViewState();
     closeMenu();
     renderJenangGemiSearchResults(searchInput?.value || '');
@@ -1406,7 +1815,7 @@ document.addEventListener('DOMContentLoaded', () => {
   syncViewState();
   setLoaderState(20, 'Connecting to analytics');
 
-  Promise.allSettled([loadHomeSafely(), loadWebsiteSettingsSafely()])
+  Promise.allSettled([loadOverviewSafely(), loadHomeSafely(), loadWebsiteSettingsSafely()])
     .then(async () => {
       setLoaderState(70, 'Preparing interface');
       if (state.activeView === 'website') {
@@ -1417,6 +1826,33 @@ document.addEventListener('DOMContentLoaded', () => {
       finishLoader();
       connectLiveStream();
     });
+
+  window.setInterval(() => {
+    if (!document.hidden && state.activeView === 'overview') {
+      loadOverviewSafely();
+    }
+  }, 60000);
+
+  overviewRefs.metricButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      state.overview.metric = button.dataset.overviewMetric || 'sales';
+      if (state.overview.data) renderOverview(state.overview.data);
+    });
+  });
+
+  overviewRefs.volumeMetricButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      state.overview.volumeMetric = button.dataset.overviewVolumeMetric || 'orders';
+      if (state.overview.data) renderOverview(state.overview.data);
+    });
+  });
+
+  overviewRefs.platformMetricButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      state.overview.platformMetric = button.dataset.overviewPlatformMetric || 'sales';
+      if (state.overview.data) renderOverview(state.overview.data);
+    });
+  });
 
   homeRefs.timeframeButtons.forEach((button) => {
     button.addEventListener('click', async () => {
@@ -1437,6 +1873,15 @@ document.addEventListener('DOMContentLoaded', () => {
       const key = button.dataset.homeSeries;
       if (!key || !(key in state.home.series)) return;
       state.home.series[key] = !state.home.series[key];
+      if (state.home.data) renderHome(state.home.data);
+    });
+  });
+
+  homeRefs.c4MetricButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      const metric = button.dataset.c4Metric || 'revenue';
+      if (!C4_METRIC_LABELS[metric]) return;
+      state.home.c4Metric = metric;
       if (state.home.data) renderHome(state.home.data);
     });
   });

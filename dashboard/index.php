@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require dirname(__DIR__) . '/auth.php';
+require_once dirname(__DIR__) . '/admin-nav.php';
 
 $hasError = false;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -16,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $isAuthenticated = jg_admin_is_authenticated();
 $adminCssVersion = (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/admin.js');
-$dashboardBuildVersion = 'exec3.47.0';
+$dashboardBuildVersion = 'exec3.48.0';
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -74,58 +75,11 @@ $dashboardBuildVersion = 'exec3.47.0';
             <strong class="admin-loader-label" data-admin-loader-label>Initializing...</strong>
         </div>
     </div>
-    <div class="admin-app admin-app-suite" data-admin-dashboard data-analytics-endpoint="../api/analytics/" data-live-endpoint="../api/live/" data-settings-endpoint="../api/settings/">
+    <div class="admin-app admin-app-suite" data-admin-dashboard data-analytics-endpoint="../api/analytics/" data-live-endpoint="../api/live/" data-settings-endpoint="../api/settings/" data-sales-endpoint="../api/sales/">
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
         <div class="admin-shell">
-            <aside class="admin-rail" aria-label="Admin navigation">
-                <a class="admin-rail-brand" href="./" aria-label="Executive Dashboard home">
-                    <span class="admin-rail-brand-mark" aria-hidden="true">
-                        <span class="admin-rail-brand-core"></span>
-                    </span>
-                    <span class="admin-rail-brand-wordmark">ADMIN</span>
-                </a>
-                <nav class="admin-rail-nav">
-                    <button type="button" class="admin-rail-link is-active" data-view-switch="home" aria-label="Open home dashboard">
-                        <span class="admin-rail-icon admin-rail-icon-home" aria-hidden="true">
-                            <span></span>
-                        </span>
-                        <span class="admin-rail-link-text">Home</span>
-                    </button>
-                    <button type="button" class="admin-rail-link" data-view-switch="website" aria-label="Open website dashboard">
-                        <span class="admin-rail-icon admin-rail-icon-rocket" aria-hidden="true">
-                            <span></span>
-                        </span>
-                        <span class="admin-rail-link-text">Website</span>
-                    </button>
-                    <a class="admin-rail-link" href="../affiliate-program/" aria-label="Open affiliate program dashboard">
-                        <span class="admin-rail-icon admin-rail-icon-affiliate" aria-hidden="true">
-                            <span></span>
-                        </span>
-                        <span class="admin-rail-link-text">Affiliate</span>
-                    </a>
-                    <a class="admin-rail-link" href="../partner-program/" aria-label="Open partner program dashboard">
-                        <span class="admin-rail-icon admin-rail-icon-partner" aria-hidden="true">
-                            <span></span>
-                        </span>
-                        <span class="admin-rail-link-text">Partner</span>
-                    </a>
-                    <a class="admin-rail-link" href="../sku-db/" aria-label="Open SKU database">
-                        <span class="admin-rail-icon admin-rail-icon-sku" aria-hidden="true">
-                            <span>SKU</span>
-                        </span>
-                        <span class="admin-rail-link-text">SKU DB</span>
-                    </a>
-                </nav>
-                <div class="admin-rail-footer">
-                    <button type="button" class="admin-rail-link admin-rail-link-settings" data-view-switch="settings" aria-label="Open admin settings">
-                        <span class="admin-rail-icon admin-rail-icon-settings" aria-hidden="true">
-                            <span></span>
-                        </span>
-                        <span class="admin-rail-link-text">Settings</span>
-                    </button>
-                </div>
-            </aside>
+            <?php render_admin_sidebar('home'); ?>
 
             <div class="admin-shell-main">
                 <header class="admin-topbar">
@@ -133,7 +87,7 @@ $dashboardBuildVersion = 'exec3.47.0';
                         <div class="admin-topbar-brand">
                             <span class="admin-admin-mark">Admin Scope</span>
                             <h1>Executive Dashboard</h1>
-                            <p data-active-view-label>Home Dashboard</p>
+                            <p data-active-view-label>Executive Sales Overview</p>
                         </div>
                     </div>
                     <div class="admin-topbar-actions">
@@ -147,8 +101,10 @@ $dashboardBuildVersion = 'exec3.47.0';
                         <div class="admin-menu-shell" data-menu-shell>
                             <button type="button" class="admin-ghost-btn admin-menu-trigger" data-menu-trigger aria-expanded="false" aria-label="Open dashboard menu">...</button>
                             <div class="admin-menu-panel" data-menu-panel hidden>
-                                <button type="button" class="admin-menu-item" data-view-switch="home">Home Dashboard</button>
+                                <button type="button" class="admin-menu-item" data-view-switch="overview">Executive Sales Overview</button>
+                                <button type="button" class="admin-menu-item" data-view-switch="home">Campaigns Dashboard</button>
                                 <button type="button" class="admin-menu-item" data-view-switch="website">Official Website Dashboard</button>
+                                <a class="admin-menu-item admin-link-btn" href="../back-dash/">API Ingest Workspace</a>
                                 <a class="admin-menu-item admin-link-btn" href="../affiliate-program/">Affiliate Program Dashboard</a>
                                 <a class="admin-menu-item admin-link-btn" href="../partner-program/">Partner Program Dashboard</a>
                                 <a class="admin-menu-item admin-link-btn" href="../partner-profiles/">Partner Profiles</a>
@@ -160,10 +116,123 @@ $dashboardBuildVersion = 'exec3.47.0';
                 </header>
 
                 <main class="admin-layout">
-                    <section class="admin-view is-active" data-view-panel="home">
+                    <section class="admin-view is-active" data-view-panel="overview">
+                <section class="admin-overview-strip">
+                    <div class="admin-toggle-row" data-overview-year-controls>
+                        <button type="button" class="admin-toggle-pill is-active" data-overview-year-placeholder>Loading...</button>
+                    </div>
+                    <div class="admin-overview-strip-meta">
+                        <span data-overview-year-summary>Loading year window...</span>
+                        <span data-overview-last-updated>Waiting for first marketplace sync</span>
+                        <span data-overview-endpoint-label>../api/sales/</span>
+                    </div>
+                </section>
+
+                <section class="admin-main-grid admin-main-grid-compact">
+                    <article class="admin-panel admin-panel-chart admin-panel-wide">
+                        <div class="admin-panel-head">
+                            <div>
+                                <h3 data-overview-trend-title>Net revenue by month</h3>
+                                <span class="admin-panel-meta" data-overview-trend-meta>Selected year</span>
+                            </div>
+                            <div class="admin-panel-inline-toggles" data-overview-metric-controls>
+                                <button type="button" class="admin-toggle-pill is-active" data-overview-metric="sales">Net</button>
+                                <button type="button" class="admin-toggle-pill" data-overview-metric="gross_revenue">Gross</button>
+                                <button type="button" class="admin-toggle-pill" data-overview-metric="orders">Orders</button>
+                                <button type="button" class="admin-toggle-pill" data-overview-metric="average_order_value">AOV</button>
+                            </div>
+                        </div>
+                        <div class="admin-chart-surface">
+                            <canvas class="admin-chart-canvas admin-chart-canvas-lg" data-overview-trend-chart width="1200" height="300"></canvas>
+                        </div>
+                    </article>
+
+                    <article class="admin-panel admin-panel-chart">
+                        <div class="admin-panel-head">
+                            <div>
+                                <h3>Order volume</h3>
+                                <span class="admin-panel-meta">Live from stored order facts</span>
+                            </div>
+                            <div class="admin-panel-inline-toggles">
+                                <button type="button" class="admin-toggle-pill is-active" data-overview-volume-metric="orders">Orders</button>
+                                <button type="button" class="admin-toggle-pill" data-overview-volume-metric="item_count">Items</button>
+                                <button type="button" class="admin-toggle-pill" data-overview-volume-metric="average_order_value">AOV</button>
+                            </div>
+                        </div>
+                        <div class="admin-chart-surface">
+                            <canvas class="admin-chart-canvas" data-overview-orders-chart width="880" height="280"></canvas>
+                        </div>
+                    </article>
+
+                    <article class="admin-panel admin-panel-chart">
+                        <div class="admin-panel-head">
+                            <div>
+                                <h3>Marketplace mix</h3>
+                                <span class="admin-panel-meta">Shopee, TikTok Shop, future channels</span>
+                            </div>
+                            <div class="admin-panel-inline-toggles">
+                                <button type="button" class="admin-toggle-pill is-active" data-overview-platform-metric="sales">Net</button>
+                                <button type="button" class="admin-toggle-pill" data-overview-platform-metric="gross_revenue">Gross</button>
+                                <button type="button" class="admin-toggle-pill" data-overview-platform-metric="orders">Orders</button>
+                                <button type="button" class="admin-toggle-pill" data-overview-platform-metric="marketplace_fees">Fees</button>
+                            </div>
+                        </div>
+                        <div class="admin-chart-surface">
+                            <canvas class="admin-chart-canvas" data-overview-platform-chart width="880" height="280"></canvas>
+                        </div>
+                    </article>
+
+                    <article class="admin-panel admin-panel-chart">
+                        <div class="admin-panel-head">
+                            <div>
+                                <h3>Current totals</h3>
+                                <span class="admin-panel-meta">Year to date</span>
+                            </div>
+                        </div>
+                        <div class="admin-mini-metric-list">
+                            <div><span>Net revenue</span><strong data-overview-summary-sales>Rp0</strong></div>
+                            <div><span>Orders</span><strong data-overview-summary-orders>0</strong></div>
+                            <div><span>AOV</span><strong data-overview-summary-aov>Rp0</strong></div>
+                            <div><span>Best month</span><strong data-overview-summary-best-month>-</strong><small data-overview-summary-best-month-meta>No peak yet</small></div>
+                        </div>
+                    </article>
+
+                    <article class="admin-panel admin-panel-table">
+                        <div class="admin-panel-head">
+                            <div><span class="admin-panel-kicker">Monthly Breakdown</span><h3>Sales and orders by month</h3></div>
+                        </div>
+                        <div class="admin-table-wrap">
+                            <table class="admin-table">
+                                <thead>
+                                    <tr>
+                                        <th>Month</th>
+                                        <th>Sales</th>
+                                        <th>Orders</th>
+                                        <th>Top Platform</th>
+                                    </tr>
+                                </thead>
+                                <tbody data-overview-table-body>
+                                    <tr><td colspan="4" class="admin-empty">Belum ada data marketplace.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </article>
+
+                    <article class="admin-panel admin-panel-feed">
+                        <div class="admin-panel-head">
+                            <div><span class="admin-panel-kicker">Summary</span><h3>Annual notes</h3></div>
+                        </div>
+                        <div class="admin-note-stack" data-overview-notes>
+                            <div class="admin-note-card"><strong>Preparing</strong><span>Marketplace totals will appear once the yearly summary endpoint responds.</span></div>
+                        </div>
+                    </article>
+                </section>
+                    </section>
+
+                    <section class="admin-view" data-view-panel="home">
                 <section class="admin-hero-panel">
                     <div class="admin-hero-copy">
-                        <span class="admin-chip admin-chip-accent">Realtime Campaign Monitoring</span>
+                        <span class="admin-chip admin-chip-accent">Campaigns Dashboard</span>
                         <h2>Campaign performance across YouTube, Facebook, Instagram, and TikTok.</h2>
                         <p>Views, Order Now clicks, checkout intent, average time spent, and the latest tracked sessions are available here without exposing the raw analytics endpoint publicly.</p>
                     </div>
@@ -278,13 +347,19 @@ $dashboardBuildVersion = 'exec3.47.0';
                         </div>
                     </article>
 
-                    <article class="admin-panel admin-panel-chart">
+                    <article class="admin-panel admin-panel-chart" data-c4-chart>
                         <div class="admin-panel-head">
                             <div>
-                                <span class="admin-panel-kicker">Time of Day</span>
-                                <h3>Activity by hour</h3>
+                                <span class="admin-panel-kicker">C4</span>
+                                <h3 data-home-hour-title>Revenue by hour</h3>
                             </div>
-                            <span class="admin-panel-meta">Peak engagement hours</span>
+                            <span class="admin-panel-meta" data-home-hour-meta>Marketplace orders by WIB hour</span>
+                        </div>
+                        <div class="admin-panel-inline-toggles" data-c4-metric-controls>
+                            <button type="button" class="admin-toggle-pill" data-c4-metric="orders">Daily Orders QTY</button>
+                            <button type="button" class="admin-toggle-pill" data-c4-metric="gross_profit">Gross Profit</button>
+                            <button type="button" class="admin-toggle-pill is-active" data-c4-metric="revenue">Revenue</button>
+                            <button type="button" class="admin-toggle-pill" data-c4-metric="item_count">QTY Sold</button>
                         </div>
                         <div class="admin-chart-surface">
                             <canvas class="admin-chart-canvas" data-home-hour-chart width="880" height="340"></canvas>
@@ -386,7 +461,7 @@ $dashboardBuildVersion = 'exec3.47.0';
                 </section>
                 <div class="admin-bottom-actions">
                     <a class="admin-primary-btn admin-link-btn" href="../affiliate-program/">Go To Affiliate Program</a>
-                    <a class="admin-ghost-btn admin-link-btn" href="../back-dash/">Open Back-dash</a>
+                    <a class="admin-ghost-btn admin-link-btn" href="../back-dash/">Open API Workspace</a>
                 </div>
                     </section>
 
