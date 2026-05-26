@@ -155,7 +155,7 @@ function jg_orders_live_listed_rows(string $startDate, string $endDate): array
     $rows = [];
     foreach (['shopee', 'tiktok'] as $platform) {
         try {
-            $payload = jg_orders_live_listed_payload($platform);
+            $payload = jg_orders_live_listed_payload($platform, $startDate, $endDate);
         } catch (Throwable $error) {
             error_log('Unable to load live listed orders for hourly chart from ' . $platform . ': ' . $error->getMessage());
             continue;
@@ -180,9 +180,9 @@ function jg_orders_live_listed_rows(string $startDate, string $endDate): array
     return $rows;
 }
 
-function jg_orders_live_listed_payload(string $platform): array
+function jg_orders_live_listed_payload(string $platform, string $startDate, string $endDate): array
 {
-    $cacheKey = 'live-listed-' . preg_replace('/[^a-z0-9_-]+/i', '-', $platform);
+    $cacheKey = 'live-listed-' . preg_replace('/[^a-z0-9_-]+/i', '-', $platform) . '-' . $startDate . '-' . $endDate;
     $cached = jg_orders_cache_read($cacheKey, 120);
     if (is_array($cached)) {
         return $cached;
@@ -193,6 +193,8 @@ function jg_orders_live_listed_payload(string $platform): array
         'fast' => '1',
         'persist' => '1',
         'escrow' => '1',
+        'start_date' => $startDate,
+        'end_date' => $endDate,
     ]), 45);
     jg_orders_cache_write($cacheKey, $payload);
 
