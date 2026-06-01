@@ -75,7 +75,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
             <strong class="admin-loader-label" data-admin-loader-label>Initializing...</strong>
         </div>
     </div>
-    <div class="admin-app admin-app-suite" data-admin-dashboard data-analytics-endpoint="../api/analytics/" data-live-endpoint="../api/live/" data-settings-endpoint="../api/settings/" data-sales-endpoint="../api/sales/" data-orders-endpoint="../api/orders/">
+    <div class="admin-app admin-app-suite" data-admin-dashboard data-analytics-endpoint="../api/analytics/" data-live-endpoint="../api/live/" data-settings-endpoint="../api/settings/" data-sales-endpoint="../api/sales/" data-orders-endpoint="../api/orders/" data-zero-store-endpoint="../api/zero-store/">
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
         <div class="admin-shell">
@@ -661,6 +661,97 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                     <article class="admin-metric-card"><span>Page Views</span><strong data-website-summary-page-views>0</strong><small>Browser page loads only</small></article>
                     <article class="admin-metric-card"><span>Avg. Time Spent</span><strong data-website-summary-time-spent>0s</strong><small>Average per website session</small></article>
                     <article class="admin-metric-card"><span>Top Region</span><strong data-website-summary-top-region>Unknown</strong><small>Most active region in selected timeframe</small></article>
+                </section>
+
+                <section class="admin-main-grid" data-zero-store-panel hidden>
+                    <article class="admin-panel admin-panel-wide">
+                        <div class="admin-panel-head">
+                            <div>
+                                <span class="admin-panel-kicker">ZERO Store</span>
+                                <h3>Items For Sale</h3>
+                            </div>
+                            <span class="admin-panel-meta">Edit website stock and SKU prices here.</span>
+                        </div>
+                        <form class="admin-store-form" data-zero-item-form>
+                            <input type="hidden" name="is_active" value="1">
+                            <label><span>SKU</span><input name="sku" maxlength="80" placeholder="ZERO-SYRUP-PLAIN-250ML" required></label>
+                            <label><span>Product</span><input name="product_name" maxlength="160" placeholder="ZERO Syrup" required></label>
+                            <label><span>Variant</span><input name="variant_name" maxlength="160" placeholder="Plain"></label>
+                            <label><span>Size</span><input name="size_label" maxlength="80" placeholder="250ml"></label>
+                            <label><span>Stock</span><input name="stock" type="number" min="0" step="1" value="0" required></label>
+                            <label><span>Price</span><input name="price" type="number" min="0" step="1" value="0" required></label>
+                            <button type="submit" class="admin-primary-btn">Save Item</button>
+                        </form>
+                        <div class="admin-table-wrap">
+                            <table class="admin-table">
+                                <thead>
+                                    <tr>
+                                        <th>SKU</th>
+                                        <th>Product</th>
+                                        <th>Variant</th>
+                                        <th>Size</th>
+                                        <th>Stock</th>
+                                        <th>Price</th>
+                                        <th>Edit</th>
+                                    </tr>
+                                </thead>
+                                <tbody data-zero-item-table>
+                                    <tr><td colspan="7" class="admin-empty">No ZERO sale items yet.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </article>
+
+                    <article class="admin-panel admin-panel-wide">
+                        <div class="admin-panel-head">
+                            <div>
+                                <span class="admin-panel-kicker">Discounts</span>
+                                <h3>Discount Groups</h3>
+                            </div>
+                            <span class="admin-panel-meta">A SKU can only belong to one discount at a time.</span>
+                        </div>
+                        <form class="admin-store-form admin-store-form-discount" data-zero-discount-form>
+                            <input type="hidden" name="id">
+                            <input type="hidden" name="is_active" value="1">
+                            <input type="hidden" name="starts_on" data-zero-discount-start>
+                            <input type="hidden" name="ends_on" data-zero-discount-end>
+                            <label><span>Discount name</span><input name="name" maxlength="160" placeholder="Launch bundle" required></label>
+                            <label>
+                                <span>Type</span>
+                                <select name="discount_type" class="admin-select">
+                                    <option value="fixed">Fixed amount</option>
+                                    <option value="percent">Percent</option>
+                                </select>
+                            </label>
+                            <label><span>Amount</span><input name="amount" type="number" min="0" step="1" value="0" required></label>
+                            <div class="admin-store-date-range">
+                                <span class="admin-control-label">Start / End</span>
+                                <button type="button" class="admin-chart-icon-btn" data-zero-discount-calendar-toggle aria-label="Select discount date range"><span class="admin-chart-icon-calendar" aria-hidden="true"></span></button>
+                                <strong data-zero-discount-range-label>Select date range</strong>
+                                <div class="admin-chart-range-popover admin-store-calendar-popover" data-zero-discount-calendar hidden>
+                                    <div class="admin-range-calendar">
+                                        <div class="admin-range-calendar-head">
+                                            <button type="button" class="admin-range-nav" data-zero-discount-month-prev aria-label="Previous month"></button>
+                                            <strong data-zero-discount-month></strong>
+                                            <button type="button" class="admin-range-nav admin-range-nav-next" data-zero-discount-month-next aria-label="Next month"></button>
+                                        </div>
+                                        <div class="admin-range-weekdays" aria-hidden="true"><span>Sen</span><span>Sel</span><span>Rab</span><span>Kam</span><span>Jum</span><span>Sab</span><span>Min</span></div>
+                                        <div class="admin-range-grid" data-zero-discount-calendar-grid></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="admin-store-sku-picker" data-zero-discount-sku-picker>
+                                <span class="admin-control-label">Included SKUs</span>
+                                <p class="admin-empty">Add items first, then choose SKUs for the discount.</p>
+                            </div>
+                            <button type="submit" class="admin-primary-btn">Save Discount</button>
+                            <button type="button" class="admin-ghost-btn" data-zero-discount-reset>New Discount</button>
+                        </form>
+                        <p class="admin-form-error" data-zero-store-error hidden></p>
+                        <div class="admin-note-stack" data-zero-discount-list>
+                            <p class="admin-empty">No discounts yet.</p>
+                        </div>
+                    </article>
                 </section>
 
                 <section class="admin-main-grid">

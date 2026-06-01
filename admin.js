@@ -1501,6 +1501,16 @@ document.addEventListener('DOMContentLoaded', () => {
       requestToken: 0,
       settingsRequestToken: 0
     },
+    zeroStore: {
+      items: [],
+      discounts: [],
+      activeDiscountId: '',
+      rangeStart: '',
+      rangeEnd: '',
+      calendarMonth: new Date().toISOString().slice(0, 7),
+      draftStart: '',
+      hoverDate: ''
+    },
     liveSequence: -1,
     liveSource: null
   };
@@ -1509,6 +1519,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const liveEndpoint = root.dataset.liveEndpoint || './live/';
   const settingsEndpoint = root.dataset.settingsEndpoint || './settings/';
   const salesEndpoint = root.dataset.salesEndpoint || './sales/';
+  const zeroStoreEndpoint = root.dataset.zeroStoreEndpoint || '../api/zero-store/';
 
   const loader = document.querySelector('[data-admin-loader]');
   const loaderProgress = document.querySelector('[data-admin-loader-progress]');
@@ -1627,6 +1638,26 @@ document.addEventListener('DOMContentLoaded', () => {
     deviceExclusionForm: document.querySelector('[data-device-exclusion-form]'),
     deviceExclusionError: document.querySelector('[data-device-exclusion-error]'),
     deviceExclusionList: document.querySelector('[data-device-exclusion-list]')
+  };
+
+  const zeroStoreRefs = {
+    panel: document.querySelector('[data-zero-store-panel]'),
+    itemForm: document.querySelector('[data-zero-item-form]'),
+    itemTable: document.querySelector('[data-zero-item-table]'),
+    discountForm: document.querySelector('[data-zero-discount-form]'),
+    discountList: document.querySelector('[data-zero-discount-list]'),
+    skuPicker: document.querySelector('[data-zero-discount-sku-picker]'),
+    error: document.querySelector('[data-zero-store-error]'),
+    resetDiscount: document.querySelector('[data-zero-discount-reset]'),
+    rangeStart: document.querySelector('[data-zero-discount-start]'),
+    rangeEnd: document.querySelector('[data-zero-discount-end]'),
+    rangeLabel: document.querySelector('[data-zero-discount-range-label]'),
+    calendarToggle: document.querySelector('[data-zero-discount-calendar-toggle]'),
+    calendar: document.querySelector('[data-zero-discount-calendar]'),
+    calendarMonth: document.querySelector('[data-zero-discount-month]'),
+    calendarGrid: document.querySelector('[data-zero-discount-calendar-grid]'),
+    calendarPrev: document.querySelector('[data-zero-discount-month-prev]'),
+    calendarNext: document.querySelector('[data-zero-discount-month-next]')
   };
 
   let orderPopover = null;
@@ -2780,6 +2811,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     if (!isDetail || !siteConfig) {
+      if (zeroStoreRefs.panel) zeroStoreRefs.panel.hidden = true;
       if (websiteRefs.heroChip) websiteRefs.heroChip.textContent = 'Official Website Dashboard';
       if (websiteRefs.heroTitle) websiteRefs.heroTitle.textContent = 'Select a website dashboard.';
       if (websiteRefs.heroCopy) websiteRefs.heroCopy.textContent = 'Choose Jenang Gemi or ZERO to open the dedicated website analytics page. Each page uses browser-tagged website visits only.';
@@ -2793,6 +2825,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (websiteRefs.pageChartMeta) websiteRefs.pageChartMeta.textContent = siteConfig.pageMeta;
     if (websiteRefs.pageTableTitle) websiteRefs.pageTableTitle.textContent = siteConfig.pageTitle;
     if (websiteRefs.scopeNote) websiteRefs.scopeNote.textContent = siteConfig.scope;
+    if (zeroStoreRefs.panel) zeroStoreRefs.panel.hidden = state.website.site !== 'zero';
   };
 
   const showWebsiteSelector = () => {
@@ -2807,6 +2840,184 @@ document.addEventListener('DOMContentLoaded', () => {
     state.website.screen = 'detail';
     renderWebsiteShell();
     await loadWebsiteSafely();
+    if (site === 'zero') {
+      await loadZeroStoreSafely();
+    }
+  };
+
+  const setZeroStoreError = (message = '') => {
+    if (!zeroStoreRefs.error) return;
+    zeroStoreRefs.error.hidden = !message;
+    zeroStoreRefs.error.textContent = message;
+  };
+
+  const formatIdr = (value) => `Rp${Number(value || 0).toLocaleString('id-ID')}`;
+
+  const zeroStoreActionUrl = (action) => `${zeroStoreEndpoint}?action=${encodeURIComponent(action)}&_ts=${Date.now()}`;
+
+  const postZeroStore = (action, body) => requestJson(zeroStoreActionUrl(action), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+
+  const discountSummary = (discount) => {
+    const amount = discount.discount_type === 'percent'
+      ? `${Number(discount.amount || 0).toLocaleString('id-ID')}%`
+      : formatIdr(discount.amount);
+    return `${amount} | ${discount.starts_on || '-'} to ${discount.ends_on || '-'}`;
+  };
+
+  const syncZeroDiscountRangeFields = () => {
+    if (zeroStoreRefs.rangeStart) zeroStoreRefs.rangeStart.value = state.zeroStore.rangeStart;
+    if (zeroStoreRefs.rangeEnd) zeroStoreRefs.rangeEnd.value = state.zeroStore.rangeEnd;
+    if (zeroStoreRefs.rangeLabel) {
+      zeroStoreRefs.rangeLabel.textContent = state.zeroStore.rangeStart && state.zeroStore.rangeEnd
+        ? `${state.zeroStore.rangeStart} to ${state.zeroStore.rangeEnd}`
+        : 'Select date range';
+    }
+  };
+
+  const renderZeroStore = () => {
+    if (zeroStoreRefs.panel) zeroStoreRefs.panel.hidden = state.website.site !== 'zero';
+    if (state.website.site !== 'zero') return;
+    const items = state.zeroStore.items;
+    const discounts = state.zeroStore.discounts;
+    if (zeroStoreRefs.itemTable) {
+      zeroStoreRefs.itemTable.innerHTML = renderRows(items, 7, (item) => `
+        <tr>
+          <td><strong>${escapeHtml(item.sku || '')}</strong></td>
+          <td>${escapeHtml(item.product_name || '')}</td>
+          <td>${escapeHtml(item.variant_name || '')}</td>
+          <td>${escapeHtml(item.size_label || '')}</td>
+          <td>${Number(item.stock || 0).toLocaleString('id-ID')}</td>
+          <td>${formatIdr(item.price)}</td>
+          <td><button type="button" class="admin-soft-btn" data-zero-edit-item="${escapeHtml(item.sku || '')}">Edit</button></td>
+        </tr>
+      `, 'No ZERO sale items yet.');
+    }
+    if (zeroStoreRefs.skuPicker) {
+      zeroStoreRefs.skuPicker.innerHTML = `
+        <span class="admin-control-label">Included SKUs</span>
+        ${items.length ? items.map((item) => `
+          <label class="admin-store-sku-option">
+            <input type="checkbox" name="skus" value="${escapeHtml(item.sku || '')}">
+            <span><strong>${escapeHtml(item.sku || '')}</strong>${escapeHtml(` ${item.product_name || ''} ${item.variant_name || ''} ${item.size_label || ''}`)}</span>
+          </label>
+        `).join('') : '<p class="admin-empty">Add items first, then choose SKUs for the discount.</p>'}
+      `;
+    }
+    if (zeroStoreRefs.discountList) {
+      zeroStoreRefs.discountList.innerHTML = discounts.length ? discounts.map((discount) => `
+        <div class="admin-note-card">
+          <strong>${escapeHtml(discount.name || '')}</strong>
+          <span>${escapeHtml(discountSummary(discount))}</span>
+          <small>${(discount.skus || []).map(escapeHtml).join(', ') || 'No SKUs'}</small>
+          <div class="admin-inline-actions">
+            <button type="button" class="admin-soft-btn" data-zero-edit-discount="${Number(discount.id || 0)}">Edit</button>
+            <button type="button" class="admin-soft-btn" data-zero-delete-discount="${Number(discount.id || 0)}">Delete</button>
+          </div>
+        </div>
+      `).join('') : '<p class="admin-empty">No discounts yet.</p>';
+    }
+    syncZeroDiscountRangeFields();
+  };
+
+  const loadZeroStore = async () => {
+    const data = await requestJson(zeroStoreActionUrl('list'));
+    state.zeroStore.items = Array.isArray(data.items) ? data.items : [];
+    state.zeroStore.discounts = Array.isArray(data.discounts) ? data.discounts : [];
+    renderZeroStore();
+  };
+
+  const loadZeroStoreSafely = async () => {
+    try {
+      await loadZeroStore();
+      setZeroStoreError('');
+      return true;
+    } catch (error) {
+      setZeroStoreError(error.message);
+      return false;
+    }
+  };
+
+  const resetZeroDiscountForm = () => {
+    zeroStoreRefs.discountForm?.reset();
+    state.zeroStore.activeDiscountId = '';
+    state.zeroStore.rangeStart = '';
+    state.zeroStore.rangeEnd = '';
+    state.zeroStore.draftStart = '';
+    state.zeroStore.hoverDate = '';
+    if (zeroStoreRefs.discountForm?.elements.id) zeroStoreRefs.discountForm.elements.id.value = '';
+    syncZeroDiscountRangeFields();
+    renderZeroDiscountCalendar();
+  };
+
+  const zeroDiscountBounds = () => {
+    if (state.zeroStore.draftStart && state.zeroStore.hoverDate) {
+      return {
+        start: state.zeroStore.draftStart <= state.zeroStore.hoverDate ? state.zeroStore.draftStart : state.zeroStore.hoverDate,
+        end: state.zeroStore.draftStart <= state.zeroStore.hoverDate ? state.zeroStore.hoverDate : state.zeroStore.draftStart,
+        preview: true
+      };
+    }
+    if (state.zeroStore.draftStart) return { start: state.zeroStore.draftStart, end: state.zeroStore.draftStart, preview: true };
+    return { start: state.zeroStore.rangeStart, end: state.zeroStore.rangeEnd, preview: false };
+  };
+
+  const renderZeroDiscountCalendar = () => {
+    if (!zeroStoreRefs.calendarGrid || !zeroStoreRefs.calendarMonth) return;
+    const firstDay = dateKeyToWibDate(firstMonthDay(state.zeroStore.calendarMonth));
+    const month = firstDay.getMonth();
+    const startOffset = (firstDay.getDay() + 6) % 7;
+    const gridStart = new Date(firstDay);
+    gridStart.setDate(firstDay.getDate() - startOffset);
+    const today = todayDate();
+    const bounds = zeroDiscountBounds();
+    zeroStoreRefs.calendarMonth.textContent = new Intl.DateTimeFormat('id-ID', {
+      timeZone: state.timezone,
+      month: 'long',
+      year: 'numeric'
+    }).format(firstDay);
+    const days = [];
+    for (let index = 0; index < 42; index += 1) {
+      const date = new Date(gridStart);
+      date.setDate(gridStart.getDate() + index);
+      const key = wibDateKey(date);
+      const outside = date.getMonth() !== month;
+      const inRange = bounds.start && bounds.end && key >= bounds.start && key <= bounds.end;
+      const selectedStart = bounds.start && key === bounds.start;
+      const selectedEnd = bounds.end && key === bounds.end;
+      const classes = [
+        'admin-range-day',
+        outside ? 'is-outside' : '',
+        inRange ? 'is-in-range' : '',
+        bounds.preview && inRange ? 'is-preview' : '',
+        !bounds.preview && inRange ? 'is-final-range' : '',
+        selectedStart ? 'is-selected-start' : '',
+        selectedEnd ? 'is-selected-end' : '',
+        key === today ? 'is-today' : ''
+      ].filter(Boolean).join(' ');
+      days.push(`<button type="button" class="${classes}" data-zero-discount-date="${key}"><span class="admin-range-day-label">${date.getDate()}</span></button>`);
+    }
+    zeroStoreRefs.calendarGrid.innerHTML = days.join('');
+  };
+
+  const selectZeroDiscountDate = (dateValue) => {
+    if (!state.zeroStore.draftStart) {
+      state.zeroStore.draftStart = dateValue;
+      state.zeroStore.hoverDate = dateValue;
+      state.zeroStore.calendarMonth = monthKeyFromDate(dateValue);
+      renderZeroDiscountCalendar();
+      return;
+    }
+    state.zeroStore.rangeStart = state.zeroStore.draftStart <= dateValue ? state.zeroStore.draftStart : dateValue;
+    state.zeroStore.rangeEnd = state.zeroStore.draftStart <= dateValue ? dateValue : state.zeroStore.draftStart;
+    state.zeroStore.draftStart = '';
+    state.zeroStore.hoverDate = '';
+    if (zeroStoreRefs.calendar) zeroStoreRefs.calendar.hidden = true;
+    syncZeroDiscountRangeFields();
+    renderZeroDiscountCalendar();
   };
 
   const renderDeviceExclusionList = () => {
@@ -3288,6 +3499,135 @@ document.addEventListener('DOMContentLoaded', () => {
     button.addEventListener('click', () => {
       showWebsiteSelector();
     });
+  });
+
+  zeroStoreRefs.itemForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = new FormData(zeroStoreRefs.itemForm);
+    try {
+      const data = await postZeroStore('save_item', {
+        sku: form.get('sku'),
+        product_name: form.get('product_name'),
+        variant_name: form.get('variant_name'),
+        size_label: form.get('size_label'),
+        stock: form.get('stock'),
+        price: form.get('price'),
+        is_active: true
+      });
+      state.zeroStore.items = Array.isArray(data.items) ? data.items : [];
+      state.zeroStore.discounts = Array.isArray(data.discounts) ? data.discounts : [];
+      zeroStoreRefs.itemForm.reset();
+      renderZeroStore();
+      setZeroStoreError('');
+    } catch (error) {
+      setZeroStoreError(error.message);
+    }
+  });
+
+  zeroStoreRefs.itemTable?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-zero-edit-item]');
+    if (!button || !zeroStoreRefs.itemForm) return;
+    const item = state.zeroStore.items.find((candidate) => candidate.sku === button.dataset.zeroEditItem);
+    if (!item) return;
+    zeroStoreRefs.itemForm.elements.sku.value = item.sku || '';
+    zeroStoreRefs.itemForm.elements.product_name.value = item.product_name || '';
+    zeroStoreRefs.itemForm.elements.variant_name.value = item.variant_name || '';
+    zeroStoreRefs.itemForm.elements.size_label.value = item.size_label || '';
+    zeroStoreRefs.itemForm.elements.stock.value = item.stock || 0;
+    zeroStoreRefs.itemForm.elements.price.value = Number(item.price || 0);
+  });
+
+  zeroStoreRefs.discountForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = new FormData(zeroStoreRefs.discountForm);
+    const skus = Array.from(zeroStoreRefs.discountForm.querySelectorAll('input[name="skus"]:checked')).map((input) => input.value);
+    try {
+      const data = await postZeroStore('save_discount', {
+        id: form.get('id'),
+        name: form.get('name'),
+        discount_type: form.get('discount_type'),
+        amount: form.get('amount'),
+        starts_on: state.zeroStore.rangeStart,
+        ends_on: state.zeroStore.rangeEnd,
+        is_active: true,
+        skus
+      });
+      state.zeroStore.items = Array.isArray(data.items) ? data.items : [];
+      state.zeroStore.discounts = Array.isArray(data.discounts) ? data.discounts : [];
+      resetZeroDiscountForm();
+      renderZeroStore();
+      setZeroStoreError('');
+    } catch (error) {
+      setZeroStoreError(error.message);
+    }
+  });
+
+  zeroStoreRefs.discountList?.addEventListener('click', async (event) => {
+    const editButton = event.target.closest('[data-zero-edit-discount]');
+    const deleteButton = event.target.closest('[data-zero-delete-discount]');
+    if (editButton && zeroStoreRefs.discountForm) {
+      const id = Number(editButton.dataset.zeroEditDiscount || 0);
+      const discount = state.zeroStore.discounts.find((candidate) => Number(candidate.id) === id);
+      if (!discount) return;
+      zeroStoreRefs.discountForm.elements.id.value = discount.id || '';
+      zeroStoreRefs.discountForm.elements.name.value = discount.name || '';
+      zeroStoreRefs.discountForm.elements.discount_type.value = discount.discount_type || 'fixed';
+      zeroStoreRefs.discountForm.elements.amount.value = Number(discount.amount || 0);
+      state.zeroStore.rangeStart = discount.starts_on || '';
+      state.zeroStore.rangeEnd = discount.ends_on || '';
+      state.zeroStore.calendarMonth = (state.zeroStore.rangeStart || todayDate()).slice(0, 7);
+      renderZeroStore();
+      (discount.skus || []).forEach((sku) => {
+        const checkbox = Array.from(zeroStoreRefs.discountForm.querySelectorAll('input[name="skus"]')).find((input) => input.value === sku);
+        if (checkbox) checkbox.checked = true;
+      });
+      syncZeroDiscountRangeFields();
+      renderZeroDiscountCalendar();
+      return;
+    }
+    if (deleteButton) {
+      try {
+        const data = await postZeroStore('delete_discount', { id: deleteButton.dataset.zeroDeleteDiscount });
+        state.zeroStore.items = Array.isArray(data.items) ? data.items : [];
+        state.zeroStore.discounts = Array.isArray(data.discounts) ? data.discounts : [];
+        resetZeroDiscountForm();
+        renderZeroStore();
+        setZeroStoreError('');
+      } catch (error) {
+        setZeroStoreError(error.message);
+      }
+    }
+  });
+
+  zeroStoreRefs.resetDiscount?.addEventListener('click', resetZeroDiscountForm);
+  zeroStoreRefs.calendarToggle?.addEventListener('click', () => {
+    if (!zeroStoreRefs.calendar) return;
+    zeroStoreRefs.calendar.hidden = !zeroStoreRefs.calendar.hidden;
+    state.zeroStore.calendarMonth = (state.zeroStore.rangeStart || todayDate()).slice(0, 7);
+    renderZeroDiscountCalendar();
+  });
+  zeroStoreRefs.calendarPrev?.addEventListener('click', () => {
+    const date = dateKeyToWibDate(firstMonthDay(state.zeroStore.calendarMonth));
+    date.setMonth(date.getMonth() - 1);
+    state.zeroStore.calendarMonth = monthKeyFromDate(wibDateKey(date));
+    renderZeroDiscountCalendar();
+  });
+  zeroStoreRefs.calendarNext?.addEventListener('click', () => {
+    const date = dateKeyToWibDate(firstMonthDay(state.zeroStore.calendarMonth));
+    date.setMonth(date.getMonth() + 1);
+    state.zeroStore.calendarMonth = monthKeyFromDate(wibDateKey(date));
+    renderZeroDiscountCalendar();
+  });
+  zeroStoreRefs.calendarGrid?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-zero-discount-date]');
+    if (!button) return;
+    selectZeroDiscountDate(button.dataset.zeroDiscountDate || '');
+  });
+  zeroStoreRefs.calendarGrid?.addEventListener('pointerover', (event) => {
+    const button = event.target.closest('[data-zero-discount-date]');
+    if (!button || !state.zeroStore.draftStart) return;
+    state.zeroStore.hoverDate = button.dataset.zeroDiscountDate || '';
+    renderZeroDiscountCalendar();
   });
 
   ordersRefs.refresh?.addEventListener('click', async () => {
