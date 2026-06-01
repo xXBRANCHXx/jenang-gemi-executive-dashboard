@@ -587,11 +587,12 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                     <section class="admin-view" data-view-panel="website">
                 <section class="admin-hero-panel admin-hero-panel-website">
                     <div class="admin-hero-copy">
-                        <span class="admin-chip admin-chip-accent">Official Website Dashboard</span>
-                        <h2>Track real visitors, top regions, and page activity across the main Jenang Gemi website.</h2>
-                        <p>This view only uses browser-tagged website visits. API calls, webhook traffic, and excluded IP addresses stay out of the charts.</p>
+                        <span class="admin-chip admin-chip-accent" data-website-hero-chip>Official Website Dashboard</span>
+                        <h2 data-website-hero-title>Select a website dashboard.</h2>
+                        <p data-website-hero-copy>Choose Jenang Gemi or ZERO to open the dedicated website analytics page. Each page uses browser-tagged website visits only.</p>
                     </div>
                     <div class="admin-hero-actions">
+                        <button type="button" class="admin-ghost-btn" data-website-back hidden>Back To Website Selector</button>
                         <div class="admin-status-pill">
                             <span class="admin-status-dot"></span>
                             <span>Website Visitor Tracking Active</span>
@@ -607,6 +608,29 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                     </div>
                 </section>
 
+                <section class="admin-main-grid" data-website-selector>
+                    <article class="admin-panel admin-panel-wide">
+                        <div class="admin-panel-head">
+                            <div>
+                                <span class="admin-panel-kicker">Website Pages</span>
+                                <h3>Which website do you want to inspect?</h3>
+                            </div>
+                            <span class="admin-panel-meta">The old page is Jenang Gemi. The new page is ZERO.</span>
+                        </div>
+                        <div class="admin-launchpad-grid">
+                            <button type="button" class="admin-launchpad-link" data-website-open="jenang_gemi">
+                                <span>Jenang Gemi</span>
+                                <small>Official Jenang Gemi website analytics</small>
+                            </button>
+                            <button type="button" class="admin-launchpad-link" data-website-open="zero">
+                                <span>ZERO</span>
+                                <small>zerofoods.id website analytics</small>
+                            </button>
+                        </div>
+                    </article>
+                </section>
+
+                <div data-website-detail hidden>
                 <section class="admin-control-strip">
                     <div class="admin-control-group">
                         <span class="admin-control-label">Timeframe</span>
@@ -677,11 +701,11 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                             <div>
                                 <span class="admin-panel-kicker">Top Pages</span>
                                 <div class="admin-chart-title-row">
-                                    <h3>Visitors by page</h3>
+                                    <h3 data-website-page-chart-title>Visitors by page</h3>
                                     <button type="button" class="admin-chart-info-btn" aria-label="About visitors by page" data-chart-info="Ranks official website pages by selected visitor metric. It only uses browser-tracked website visits, so webhook, API, and excluded IP traffic stay out of the chart."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                             </div>
-                            <span class="admin-panel-meta">Main site pages only</span>
+                            <span class="admin-panel-meta" data-website-page-chart-meta>Selected website only</span>
                         </div>
                         <div class="admin-chart-surface">
                             <canvas class="admin-chart-canvas" data-website-page-chart width="880" height="340"></canvas>
@@ -690,7 +714,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
 
                     <article class="admin-panel admin-panel-table">
                         <div class="admin-panel-head">
-                            <div><span class="admin-panel-kicker">Pages</span><h3>Official website pages</h3></div>
+                            <div><span class="admin-panel-kicker">Pages</span><h3 data-website-page-table-title>Official website pages</h3></div>
                         </div>
                         <div class="admin-table-wrap">
                             <table class="admin-table">
@@ -744,13 +768,14 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                             <div><span class="admin-panel-kicker">Website Notes</span><h3>Filter and scope</h3></div>
                         </div>
                         <div class="admin-note-stack">
-                            <div class="admin-note-card"><strong>Scope</strong><span>Counts only `traffic_kind=website` browser events from the official website.</span></div>
+                            <div class="admin-note-card"><strong>Scope</strong><span data-website-scope-note>Counts only `traffic_kind=website` browser events from the selected website.</span></div>
                             <div class="admin-note-card"><strong>Exclusions</strong><span>Your saved IP list is applied at query time, so old visits from your IP disappear from the charts too.</span></div>
                             <div class="admin-note-card"><strong>Geo source</strong><span>Regions use whatever geolocation headers Hostinger or proxy layers expose to PHP.</span></div>
                             <div class="admin-note-card"><strong>Settings API</strong><span data-website-settings-endpoint>../api/settings/</span></div>
                         </div>
                     </article>
                 </section>
+                </div>
                     </section>
 
                     <section class="admin-view admin-view-settings" data-view-panel="settings">

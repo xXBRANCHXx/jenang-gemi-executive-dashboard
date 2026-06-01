@@ -131,6 +131,8 @@ function analyticsEnsureDatabaseSchema(PDO $pdo): void
             device_id VARCHAR(120) NOT NULL DEFAULT "",
             source VARCHAR(50) NOT NULL DEFAULT "unknown",
             traffic_kind VARCHAR(20) NOT NULL DEFAULT "landing",
+            site_key VARCHAR(40) NOT NULL DEFAULT "jenang_gemi",
+            site_label VARCHAR(120) NOT NULL DEFAULT "Jenang Gemi Website",
             affiliate_code VARCHAR(16) NOT NULL DEFAULT "",
             affiliate_name VARCHAR(120) NOT NULL DEFAULT "",
             page_path VARCHAR(255) NOT NULL DEFAULT "",
@@ -162,6 +164,7 @@ function analyticsEnsureDatabaseSchema(PDO $pdo): void
             INDEX idx_analytics_occurred_at (occurred_at),
             INDEX idx_analytics_affiliate_code (affiliate_code),
             INDEX idx_analytics_traffic_kind (traffic_kind),
+            INDEX idx_analytics_site_key (site_key),
             INDEX idx_analytics_source (source),
             INDEX idx_analytics_session_id (session_id),
             INDEX idx_analytics_device_id (device_id),
@@ -234,6 +237,8 @@ function analyticsEnsureDatabaseSchema(PDO $pdo): void
 
     analyticsEnsureTableColumn($pdo, 'analytics_events', 'ip_address', 'VARCHAR(45) NOT NULL DEFAULT ""');
     analyticsEnsureTableColumn($pdo, 'analytics_events', 'device_id', 'VARCHAR(120) NOT NULL DEFAULT ""');
+    analyticsEnsureTableColumn($pdo, 'analytics_events', 'site_key', 'VARCHAR(40) NOT NULL DEFAULT "jenang_gemi"');
+    analyticsEnsureTableColumn($pdo, 'analytics_events', 'site_label', 'VARCHAR(120) NOT NULL DEFAULT "Jenang Gemi Website"');
     analyticsEnsureTableColumn($pdo, 'analytics_events', 'country_code', 'VARCHAR(8) NOT NULL DEFAULT ""');
     analyticsEnsureTableColumn($pdo, 'analytics_events', 'region_name', 'VARCHAR(160) NOT NULL DEFAULT ""');
     analyticsEnsureTableColumn($pdo, 'analytics_events', 'city_name', 'VARCHAR(160) NOT NULL DEFAULT ""');
@@ -648,6 +653,8 @@ function analyticsAppendEvent(array $event): void
         'device_id' => analyticsNormalizeDeviceId((string) ($event['device_id'] ?? '')),
         'source' => substr((string) ($event['source'] ?? 'unknown'), 0, 50),
         'traffic_kind' => substr((string) ($event['traffic_kind'] ?? 'landing'), 0, 20),
+        'site_key' => substr((string) ($event['site_key'] ?? 'jenang_gemi'), 0, 40),
+        'site_label' => substr((string) ($event['site_label'] ?? 'Jenang Gemi Website'), 0, 120),
         'affiliate_code' => strtoupper(substr((string) ($event['affiliate_code'] ?? ''), 0, 16)),
         'affiliate_name' => substr((string) ($event['affiliate_name'] ?? ''), 0, 120),
         'page_path' => substr((string) ($event['page_path'] ?? ''), 0, 255),
@@ -939,6 +946,8 @@ function analyticsLoadEvents(?DateTimeImmutable $rangeStart = null): array
         'device_id' => "''",
         'source' => "''",
         'traffic_kind' => "'landing'",
+        'site_key' => "'jenang_gemi'",
+        'site_label' => "'Jenang Gemi Website'",
         'affiliate_code' => "''",
         'affiliate_name' => "''",
         'page_path' => "''",
