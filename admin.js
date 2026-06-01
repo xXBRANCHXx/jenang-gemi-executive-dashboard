@@ -777,6 +777,7 @@ document.addEventListener('DOMContentLoaded', () => {
     website: {
       timeframe: '7d',
       metric: 'visitors',
+      site: 'all',
       data: null,
       deviceExclusions: [],
       currentDeviceId: ensureAnalyticsDeviceId(),
@@ -872,6 +873,7 @@ document.addEventListener('DOMContentLoaded', () => {
     trendMeta: document.querySelector('[data-website-trend-meta]'),
     timeframeButtons: document.querySelectorAll('[data-website-timeframe]'),
     metricButtons: document.querySelectorAll('[data-website-metric]'),
+    siteButtons: document.querySelectorAll('[data-website-site]'),
     currentDeviceId: document.querySelector('[data-current-device-id]'),
     currentDeviceLabel: document.querySelector('[data-current-device-label]'),
     ignoreCurrentDeviceButton: document.querySelector('[data-ignore-current-device]'),
@@ -1154,6 +1156,9 @@ document.addEventListener('DOMContentLoaded', () => {
       dataset,
       _ts: String(Date.now())
     });
+    if (dataset === 'website') {
+      params.set('site', state.website.site || 'all');
+    }
     return `${endpoint}?${params.toString()}`;
   };
 
@@ -1591,12 +1596,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setLastUpdated(websiteRefs.lastUpdated, data.meta?.generated_at);
     if (websiteRefs.trendTitle) websiteRefs.trendTitle.textContent = WEBSITE_METRIC_LABELS[state.website.metric];
-    if (websiteRefs.trendMeta) websiteRefs.trendMeta.textContent = `Timeframe: ${state.website.timeframe.toUpperCase()} • Scope: Official website • Timezone: WIB`;
+    const siteLabel = state.website.site === 'zero' ? 'ZERO' : (state.website.site === 'jenang_gemi' ? 'Jenang Gemi' : 'All websites');
+    if (websiteRefs.trendMeta) websiteRefs.trendMeta.textContent = `Timeframe: ${state.website.timeframe.toUpperCase()} • Scope: ${siteLabel} • Timezone: WIB`;
     websiteRefs.timeframeButtons.forEach((button) => {
       button.classList.toggle('is-active', button.dataset.websiteTimeframe === state.website.timeframe);
     });
     websiteRefs.metricButtons.forEach((button) => {
       button.classList.toggle('is-active', button.dataset.websiteMetric === state.website.metric);
+    });
+    websiteRefs.siteButtons.forEach((button) => {
+      button.classList.toggle('is-active', button.dataset.websiteSite === state.website.site);
     });
   };
 
@@ -1903,6 +1912,13 @@ document.addEventListener('DOMContentLoaded', () => {
     button.addEventListener('click', () => {
       state.website.metric = button.dataset.websiteMetric || 'visitors';
       if (state.website.data) renderWebsite(state.website.data);
+    });
+  });
+
+  websiteRefs.siteButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      state.website.site = button.dataset.websiteSite || 'all';
+      loadWebsite().catch((error) => renderViewError('website', error));
     });
   });
 

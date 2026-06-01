@@ -19,6 +19,7 @@ $displayTimezone = analyticsResolveTimezone($_GET['timezone'] ?? null);
 $timeframe = (string) ($_GET['timeframe'] ?? '7d');
 $recentLimit = max(15, min(300, (int) ($_GET['recent_limit'] ?? 180)));
 $dataset = strtolower(trim((string) ($_GET['dataset'] ?? 'landing')));
+$siteFilter = strtolower(trim((string) ($_GET['site'] ?? 'all')));
 $affiliateCodeFilter = strtoupper(trim((string) ($_GET['affiliate_code'] ?? '')));
 $allowedTimeframes = ['1h', '24h', '7d', '30d', '90d', 'all'];
 if (!in_array($timeframe, $allowedTimeframes, true)) {
@@ -26,6 +27,9 @@ if (!in_array($timeframe, $allowedTimeframes, true)) {
 }
 if (!in_array($dataset, ['landing', 'affiliate', 'website'], true)) {
     $dataset = 'landing';
+}
+if (!in_array($siteFilter, ['all', 'jenang_gemi', 'zero'], true)) {
+    $siteFilter = 'all';
 }
 
 $now = new DateTimeImmutable('now', $displayTimezone);
@@ -108,6 +112,13 @@ foreach ($events as $event) {
         if ($trafficKind !== 'website') {
             continue;
         }
+        $eventSiteKey = strtolower(trim((string) ($event['site_key'] ?? '')));
+        if ($eventSiteKey === '') {
+            $eventSiteKey = strtolower(trim((string) ($event['source'] ?? ''))) === 'zero' ? 'zero' : 'jenang_gemi';
+        }
+        if ($siteFilter !== 'all' && $eventSiteKey !== $siteFilter) {
+            continue;
+        }
         if (analyticsIsDashboardTrafficEvent($event)) {
             continue;
         }
@@ -131,7 +142,7 @@ foreach ($events as $event) {
 
 if ($dataset === 'website') {
     echo json_encode(
-        buildWebsiteAnalyticsPayload($filteredEvents, $timeframe, $displayTimezone, $now, $rangeStart, $bucketInterval, $bucketLabelFormat, $recentLimit),
+        buildWebsiteAnalyticsPayload($filteredEvents, $timeframe, $displayTimezone, $now, $rangeStart, $bucketInterval, $bucketLabelFormat, $recentLimit, $siteFilter),
         JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES
     );
     exit;
@@ -461,7 +472,8 @@ function buildWebsiteAnalyticsPayload(
     ?DateTimeImmutable $rangeStart,
     string $bucketInterval,
     string $bucketLabelFormat,
-    int $recentLimit
+    int $recentLimit,
+    string $siteFilter = 'all'
 ): array {
     [$timeBuckets, $findBucketKey] = buildBucketCollection($filteredEvents, $timeframe, $now, $rangeStart, $bucketInterval, $bucketLabelFormat);
 
@@ -478,6 +490,7 @@ function buildWebsiteAnalyticsPayload(
     $pageSessionTimes = [];
     $pageStats = [];
     $regionStats = [];
+    $siteStats = [];
     $recentVisits = [];
 
     foreach ($filteredEvents as $event) {
@@ -492,6 +505,14 @@ function buildWebsiteAnalyticsPayload(
         $countryCode = strtoupper(trim((string) ($event['country_code'] ?? '')));
         $regionName = trim((string) ($event['region_name'] ?? ''));
         $cityName = trim((string) ($event['city_name'] ?? ''));
+        $siteKey = strtolower(trim((string) ($event['site_key'] ?? '')));
+        if ($siteKey === '') {
+            $siteKey = strtolower(trim((string) ($event['source'] ?? ''))) === 'zero' ? 'zero' : 'jenang_gemi';
+        }
+        $siteLabel = trim((string) ($event['site_label'] ?? ''));
+        if ($siteLabel === '') {
+            $siteLabel = $siteKey === 'zero' ? 'Official ZERO Website' : 'Jenang Gemi Website';
+        }
 
         $regionLabel = $regionName !== '' ? $regionName : ($countryCode !== '' ? $countryCode : 'Unknown');
         $regionKey = mb_strtolower($regionLabel);
@@ -500,6 +521,16 @@ function buildWebsiteAnalyticsPayload(
         if ($eventType === 'page_view') {
             $summary['total_page_views']++;
             $timeBuckets[$bucketKey]['page_views'] = ($timeBuckets[$bucketKey]['page_views'] ?? 0) + 1;
+
+            if (!isset($siteStats[$siteKey])) {
+                $siteStats[$siteKey] = [
+                    'site_key' => $siteKey,
+                    'site_label' => $siteLabel,
+                    'visitors' => 0,
+                    'page_views' => 0,
+                ];
+            }
+            $siteStats[$siteKey]['page_views']++;
 
             if (!isset($pageStats[$pagePath])) {
                 $pageStats[$pagePath] = [
@@ -529,6 +560,7 @@ function buildWebsiteAnalyticsPayload(
                 $timeBuckets[$bucketKey]['visitors'] = ($timeBuckets[$bucketKey]['visitors'] ?? 0) + 1;
                 $pageStats[$pagePath]['visitors']++;
                 $regionStats[$regionKey]['visitors']++;
+                $siteStats[$siteKey]['visitors']++;
 
                 $recentVisits[] = [
                     'occurred_at_iso' => $occurredAt->format(DATE_ATOM),
@@ -541,6 +573,8 @@ function buildWebsiteAnalyticsPayload(
                     'ip_address' => $ipAddress,
                     'ip_address_masked' => maskIpAddress($ipAddress),
                     'session_id' => $sessionId,
+                    'site_key' => $siteKey,
+                    'site_label' => $siteLabel,
                 ];
             }
         }
@@ -569,6 +603,10 @@ function buildWebsiteAnalyticsPayload(
     usort($regions, static function (array $a, array $b): int {
         return ($b['visitors'] <=> $a['visitors']) ?: ($b['page_views'] <=> $a['page_views']) ?: strcmp((string) $a['region_label'], (string) $b['region_label']);
     });
+    $sites = array_values($siteStats);
+    usort($sites, static function (array $a, array $b): int {
+        return ($b['visitors'] <=> $a['visitors']) ?: strcmp((string) $a['site_label'], (string) $b['site_label']);
+    });
     usort($recentVisits, static function (array $a, array $b): int {
         return strcmp((string) ($b['occurred_at_iso'] ?? ''), (string) ($a['occurred_at_iso'] ?? ''));
     });
@@ -587,6 +625,7 @@ function buildWebsiteAnalyticsPayload(
         'meta' => [
             'timeframe' => $timeframe,
             'dataset' => 'website',
+            'site' => $siteFilter,
             'generated_at' => $now->format(DATE_ATOM),
             'timezone' => $displayTimezone->getName(),
             'range_start' => $rangeStart?->format(DATE_ATOM),
@@ -595,6 +634,7 @@ function buildWebsiteAnalyticsPayload(
         'timeseries' => array_values($timeBuckets),
         'by_page' => $pages,
         'by_region' => $regions,
+        'by_site' => $sites,
         'recent_events' => array_slice($recentVisits, 0, $recentLimit),
         'excluded_ips' => analyticsLoadIpExclusions(),
     ];

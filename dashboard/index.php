@@ -309,6 +309,14 @@ $dashboardBuildVersion = 'exec3.48.0';
                         </div>
                     </div>
                     <div class="admin-control-group">
+                        <span class="admin-control-label">Website</span>
+                        <div class="admin-toggle-row" data-website-site-controls>
+                            <button type="button" class="admin-toggle-pill is-active" data-website-site="all">All</button>
+                            <button type="button" class="admin-toggle-pill" data-website-site="jenang_gemi">Jenang Gemi</button>
+                            <button type="button" class="admin-toggle-pill" data-website-site="zero">ZERO</button>
+                        </div>
+                    </div>
+                    <div class="admin-control-group">
                         <span class="admin-control-label">Trend Metric</span>
                         <div class="admin-toggle-row" data-home-metric-controls>
                             <button type="button" class="admin-toggle-pill is-active" data-home-metric="views">Views</button>
