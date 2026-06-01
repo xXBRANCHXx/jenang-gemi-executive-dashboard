@@ -89,6 +89,25 @@ const WEBSITE_METRIC_UNITS = {
   page_views: 'page views'
 };
 
+const WEBSITE_SITE_LABELS = {
+  jenang_gemi: {
+    title: 'Jenang Gemi',
+    chip: 'Jenang Gemi Website Dashboard',
+    copy: 'Track real visitors, top regions, and page activity across the main Jenang Gemi website.',
+    pageTitle: 'Jenang Gemi website pages',
+    pageMeta: 'Jenang Gemi website only',
+    scope: 'Counts only `traffic_kind=website` browser events from the Jenang Gemi website.'
+  },
+  zero: {
+    title: 'ZERO',
+    chip: 'ZERO Website Dashboard',
+    copy: 'Track real visitors, top regions, and page activity across zerofoods.id.',
+    pageTitle: 'ZERO website pages',
+    pageMeta: 'zerofoods.id only',
+    scope: 'Counts only `traffic_kind=website` browser events from zerofoods.id.'
+  }
+};
+
 const JENANG_GEMI_SEARCH_INDEX = [
   {
     title: 'Jenang Gemi Homepage',
@@ -777,7 +796,8 @@ document.addEventListener('DOMContentLoaded', () => {
     website: {
       timeframe: '7d',
       metric: 'visitors',
-      site: 'all',
+      site: '',
+      screen: 'select',
       data: null,
       deviceExclusions: [],
       currentDeviceId: ensureAnalyticsDeviceId(),
@@ -856,6 +876,13 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const websiteRefs = {
+    selector: document.querySelector('[data-website-selector]'),
+    detail: document.querySelector('[data-website-detail]'),
+    openButtons: document.querySelectorAll('[data-website-open]'),
+    backButtons: document.querySelectorAll('[data-website-back]'),
+    heroChip: document.querySelector('[data-website-hero-chip]'),
+    heroTitle: document.querySelector('[data-website-hero-title]'),
+    heroCopy: document.querySelector('[data-website-hero-copy]'),
     summaryVisitors: document.querySelector('[data-website-summary-total-visitors]'),
     summaryPageViews: document.querySelector('[data-website-summary-page-views]'),
     summaryTime: document.querySelector('[data-website-summary-time-spent]'),
@@ -871,9 +898,12 @@ document.addEventListener('DOMContentLoaded', () => {
     lastUpdated: document.querySelector('[data-website-last-updated]'),
     trendTitle: document.querySelector('[data-website-trend-title]'),
     trendMeta: document.querySelector('[data-website-trend-meta]'),
+    pageChartTitle: document.querySelector('[data-website-page-chart-title]'),
+    pageChartMeta: document.querySelector('[data-website-page-chart-meta]'),
+    pageTableTitle: document.querySelector('[data-website-page-table-title]'),
+    scopeNote: document.querySelector('[data-website-scope-note]'),
     timeframeButtons: document.querySelectorAll('[data-website-timeframe]'),
     metricButtons: document.querySelectorAll('[data-website-metric]'),
-    siteButtons: document.querySelectorAll('[data-website-site]'),
     currentDeviceId: document.querySelector('[data-current-device-id]'),
     currentDeviceLabel: document.querySelector('[data-current-device-label]'),
     ignoreCurrentDeviceButton: document.querySelector('[data-ignore-current-device]'),
@@ -1157,7 +1187,7 @@ document.addEventListener('DOMContentLoaded', () => {
       _ts: String(Date.now())
     });
     if (dataset === 'website') {
-      params.set('site', state.website.site || 'all');
+      params.set('site', state.website.site || 'jenang_gemi');
     }
     return `${endpoint}?${params.toString()}`;
   };
@@ -1531,6 +1561,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const renderWebsite = (data) => {
     state.website.data = data;
+    state.website.screen = 'detail';
+    renderWebsiteShell();
     const summary = data.summary || {};
     const pages = Array.isArray(data.by_page) ? data.by_page : [];
     const regions = Array.isArray(data.by_region) ? data.by_region : [];
@@ -1595,8 +1627,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     setLastUpdated(websiteRefs.lastUpdated, data.meta?.generated_at);
-    if (websiteRefs.trendTitle) websiteRefs.trendTitle.textContent = WEBSITE_METRIC_LABELS[state.website.metric];
-    const siteLabel = state.website.site === 'zero' ? 'ZERO' : (state.website.site === 'jenang_gemi' ? 'Jenang Gemi' : 'All websites');
+    const siteLabel = WEBSITE_SITE_LABELS[state.website.site]?.title || 'Website';
+    if (websiteRefs.trendTitle) websiteRefs.trendTitle.textContent = `${siteLabel} ${WEBSITE_METRIC_LABELS[state.website.metric].replace(/^Website\s+/i, '').replace(/^website\s+/i, '')}`;
     if (websiteRefs.trendMeta) websiteRefs.trendMeta.textContent = `Timeframe: ${state.website.timeframe.toUpperCase()} • Scope: ${siteLabel} • Timezone: WIB`;
     websiteRefs.timeframeButtons.forEach((button) => {
       button.classList.toggle('is-active', button.dataset.websiteTimeframe === state.website.timeframe);
@@ -1604,9 +1636,49 @@ document.addEventListener('DOMContentLoaded', () => {
     websiteRefs.metricButtons.forEach((button) => {
       button.classList.toggle('is-active', button.dataset.websiteMetric === state.website.metric);
     });
-    websiteRefs.siteButtons.forEach((button) => {
-      button.classList.toggle('is-active', button.dataset.websiteSite === state.website.site);
+  };
+
+  const renderWebsiteShell = () => {
+    const isDetail = state.website.screen === 'detail' && Boolean(state.website.site);
+    const siteConfig = WEBSITE_SITE_LABELS[state.website.site] || null;
+
+    if (websiteRefs.selector) websiteRefs.selector.hidden = isDetail;
+    if (websiteRefs.detail) websiteRefs.detail.hidden = !isDetail;
+    websiteRefs.backButtons.forEach((button) => {
+      button.hidden = !isDetail;
     });
+    websiteRefs.openButtons.forEach((button) => {
+      button.classList.toggle('is-active', button.dataset.websiteOpen === state.website.site);
+    });
+
+    if (!isDetail || !siteConfig) {
+      if (websiteRefs.heroChip) websiteRefs.heroChip.textContent = 'Official Website Dashboard';
+      if (websiteRefs.heroTitle) websiteRefs.heroTitle.textContent = 'Select a website dashboard.';
+      if (websiteRefs.heroCopy) websiteRefs.heroCopy.textContent = 'Choose Jenang Gemi or ZERO to open the dedicated website analytics page. Each page uses browser-tagged website visits only.';
+      return;
+    }
+
+    if (websiteRefs.heroChip) websiteRefs.heroChip.textContent = siteConfig.chip;
+    if (websiteRefs.heroTitle) websiteRefs.heroTitle.textContent = siteConfig.title;
+    if (websiteRefs.heroCopy) websiteRefs.heroCopy.textContent = siteConfig.copy;
+    if (websiteRefs.pageChartTitle) websiteRefs.pageChartTitle.textContent = `${siteConfig.title} visitors by page`;
+    if (websiteRefs.pageChartMeta) websiteRefs.pageChartMeta.textContent = siteConfig.pageMeta;
+    if (websiteRefs.pageTableTitle) websiteRefs.pageTableTitle.textContent = siteConfig.pageTitle;
+    if (websiteRefs.scopeNote) websiteRefs.scopeNote.textContent = siteConfig.scope;
+  };
+
+  const showWebsiteSelector = () => {
+    state.website.screen = 'select';
+    state.website.site = '';
+    renderWebsiteShell();
+  };
+
+  const openWebsiteSite = async (site) => {
+    if (!WEBSITE_SITE_LABELS[site]) return;
+    state.website.site = site;
+    state.website.screen = 'detail';
+    renderWebsiteShell();
+    await loadWebsiteSafely();
   };
 
   const renderDeviceExclusionList = () => {
@@ -1700,7 +1772,11 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     if (state.activeView === 'website') {
-      await loadWebsite();
+      if (state.website.screen === 'detail' && state.website.site) {
+        await loadWebsite();
+      } else {
+        showWebsiteSelector();
+      }
       return;
     }
     if (state.activeView === 'settings') {
@@ -1764,7 +1840,11 @@ document.addEventListener('DOMContentLoaded', () => {
       return loadHomeSafely();
     }
     if (state.activeView === 'website') {
-      return loadWebsiteSafely();
+      if (state.website.screen === 'detail' && state.website.site) {
+        return loadWebsiteSafely();
+      }
+      showWebsiteSelector();
+      return true;
     }
     if (state.activeView === 'settings') {
       return loadWebsiteSettingsSafely();
@@ -1775,11 +1855,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const renderCachedCharts = () => {
     if (state.overview.data) renderOverview(state.overview.data);
     if (state.home.data) renderHome(state.home.data);
-    if (state.website.data) renderWebsite(state.website.data);
+    if (state.website.screen === 'detail' && state.website.data) renderWebsite(state.website.data);
   };
 
   const switchView = async (nextView) => {
     state.activeView = normalizeDashboardView(nextView);
+    if (state.activeView === 'website') {
+      showWebsiteSelector();
+    }
     syncViewState();
     closeMenu();
     renderJenangGemiSearchResults(searchInput?.value || '');
@@ -1828,7 +1911,7 @@ document.addEventListener('DOMContentLoaded', () => {
     .then(async () => {
       setLoaderState(70, 'Preparing interface');
       if (state.activeView === 'website') {
-        await loadWebsiteSafely();
+        showWebsiteSelector();
       }
     })
     .finally(() => {
@@ -1915,10 +1998,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  websiteRefs.siteButtons.forEach((button) => {
+  websiteRefs.openButtons.forEach((button) => {
+    button.addEventListener('click', async () => {
+      await openWebsiteSite(button.dataset.websiteOpen || '');
+    });
+  });
+
+  websiteRefs.backButtons.forEach((button) => {
     button.addEventListener('click', () => {
-      state.website.site = button.dataset.websiteSite || 'all';
-      loadWebsite().catch((error) => renderViewError('website', error));
+      showWebsiteSelector();
     });
   });
 

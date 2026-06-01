@@ -745,6 +745,10 @@ button, input {
   border-radius: 999px;
   background: rgba(157, 255, 0, 0.08);
   border: 1px solid rgba(157, 255, 0, 0.22);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
   transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
 }
 
