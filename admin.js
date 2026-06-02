@@ -2868,6 +2868,12 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${amount} | ${discount.starts_on || '-'} to ${discount.ends_on || '-'}`;
   };
 
+  const zeroItemLabel = (item) => [
+    item.product_name || '',
+    item.option_name || item.variant_name || item.flavor_name || '',
+    item.size_label || ''
+  ].filter(Boolean).join(' · ');
+
   const syncZeroDiscountRangeFields = () => {
     if (zeroStoreRefs.rangeStart) zeroStoreRefs.rangeStart.value = state.zeroStore.rangeStart;
     if (zeroStoreRefs.rangeEnd) zeroStoreRefs.rangeEnd.value = state.zeroStore.rangeEnd;
@@ -2884,17 +2890,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const items = state.zeroStore.items;
     const discounts = state.zeroStore.discounts;
     if (zeroStoreRefs.itemTable) {
-      zeroStoreRefs.itemTable.innerHTML = renderRows(items, 7, (item) => `
+      zeroStoreRefs.itemTable.innerHTML = renderRows(items, 9, (item) => `
         <tr>
           <td><strong>${escapeHtml(item.sku || '')}</strong></td>
           <td>${escapeHtml(item.product_name || '')}</td>
-          <td>${escapeHtml(item.variant_name || '')}</td>
+          <td>${escapeHtml(item.option_name || item.variant_name || item.flavor_name || '')}</td>
           <td>${escapeHtml(item.size_label || '')}</td>
           <td>${Number(item.stock || 0).toLocaleString('id-ID')}</td>
+          <td>${formatIdr(item.cogs)}</td>
           <td>${formatIdr(item.price)}</td>
+          <td>${Number(item.is_active || 0) === 1 ? '<span class="admin-status-badge">Visible</span>' : '<span class="admin-status-badge admin-status-badge-warn">Hidden</span>'}</td>
           <td><button type="button" class="admin-soft-btn" data-zero-edit-item="${escapeHtml(item.sku || '')}">Edit</button></td>
         </tr>
-      `, 'No ZERO sale items yet.');
+      `, 'No ZERO SKUs found in the SKU DB.');
     }
     if (zeroStoreRefs.skuPicker) {
       zeroStoreRefs.skuPicker.innerHTML = `
@@ -2902,9 +2910,9 @@ document.addEventListener('DOMContentLoaded', () => {
         ${items.length ? items.map((item) => `
           <label class="admin-store-sku-option">
             <input type="checkbox" name="skus" value="${escapeHtml(item.sku || '')}">
-            <span><strong>${escapeHtml(item.sku || '')}</strong>${escapeHtml(` ${item.product_name || ''} ${item.variant_name || ''} ${item.size_label || ''}`)}</span>
+            <span><strong>${escapeHtml(item.sku || '')}</strong>${escapeHtml(` ${zeroItemLabel(item)}`)}</span>
           </label>
-        `).join('') : '<p class="admin-empty">Add items first, then choose SKUs for the discount.</p>'}
+        `).join('') : '<p class="admin-empty">No ZERO SKUs found in the SKU DB.</p>'}
       `;
     }
     if (zeroStoreRefs.discountList) {
@@ -3507,12 +3515,8 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const data = await postZeroStore('save_item', {
         sku: form.get('sku'),
-        product_name: form.get('product_name'),
-        variant_name: form.get('variant_name'),
-        size_label: form.get('size_label'),
-        stock: form.get('stock'),
         price: form.get('price'),
-        is_active: true
+        is_active: zeroStoreRefs.itemForm.elements.is_active_checkbox?.checked
       });
       state.zeroStore.items = Array.isArray(data.items) ? data.items : [];
       state.zeroStore.discounts = Array.isArray(data.discounts) ? data.discounts : [];
@@ -3530,11 +3534,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const item = state.zeroStore.items.find((candidate) => candidate.sku === button.dataset.zeroEditItem);
     if (!item) return;
     zeroStoreRefs.itemForm.elements.sku.value = item.sku || '';
-    zeroStoreRefs.itemForm.elements.product_name.value = item.product_name || '';
-    zeroStoreRefs.itemForm.elements.variant_name.value = item.variant_name || '';
-    zeroStoreRefs.itemForm.elements.size_label.value = item.size_label || '';
-    zeroStoreRefs.itemForm.elements.stock.value = item.stock || 0;
     zeroStoreRefs.itemForm.elements.price.value = Number(item.price || 0);
+    if (zeroStoreRefs.itemForm.elements.is_active_checkbox) {
+      zeroStoreRefs.itemForm.elements.is_active_checkbox.checked = Number(item.is_active || 0) === 1;
+    }
   });
 
   zeroStoreRefs.discountForm?.addEventListener('submit', async (event) => {

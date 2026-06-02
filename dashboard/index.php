@@ -670,17 +670,14 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                 <span class="admin-panel-kicker">ZERO Store</span>
                                 <h3>Items For Sale</h3>
                             </div>
-                            <span class="admin-panel-meta">Edit website stock and SKU prices here.</span>
+                            <span class="admin-panel-meta">SKU, stock, and COGS come from the SKU DB. Edit ZERO website price and availability here.</span>
                         </div>
                         <form class="admin-store-form" data-zero-item-form>
                             <input type="hidden" name="is_active" value="1">
-                            <label><span>SKU</span><input name="sku" maxlength="80" placeholder="ZERO-SYRUP-PLAIN-250ML" required></label>
-                            <label><span>Product</span><input name="product_name" maxlength="160" placeholder="ZERO Syrup" required></label>
-                            <label><span>Variant</span><input name="variant_name" maxlength="160" placeholder="Plain"></label>
-                            <label><span>Size</span><input name="size_label" maxlength="80" placeholder="250ml"></label>
-                            <label><span>Stock</span><input name="stock" type="number" min="0" step="1" value="0" required></label>
-                            <label><span>Price</span><input name="price" type="number" min="0" step="1" value="0" required></label>
-                            <button type="submit" class="admin-primary-btn">Save Item</button>
+                            <label><span>SKU DB code</span><input name="sku" maxlength="12" placeholder="12 character SKU" required></label>
+                            <label><span>Website price</span><input name="price" type="number" min="0" step="1" value="0" required></label>
+                            <label class="admin-checkbox-line"><input name="is_active_checkbox" type="checkbox" checked><span>Visible for sale on ZERO website</span></label>
+                            <button type="submit" class="admin-primary-btn">Save Website Settings</button>
                         </form>
                         <div class="admin-table-wrap">
                             <table class="admin-table">
@@ -691,12 +688,14 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                         <th>Variant</th>
                                         <th>Size</th>
                                         <th>Stock</th>
+                                        <th>COGS</th>
                                         <th>Price</th>
+                                        <th>Status</th>
                                         <th>Edit</th>
                                     </tr>
                                 </thead>
                                 <tbody data-zero-item-table>
-                                    <tr><td colspan="7" class="admin-empty">No ZERO sale items yet.</td></tr>
+                                    <tr><td colspan="9" class="admin-empty">Loading ZERO SKUs from the SKU DB...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -742,7 +741,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                             </div>
                             <div class="admin-store-sku-picker" data-zero-discount-sku-picker>
                                 <span class="admin-control-label">Included SKUs</span>
-                                <p class="admin-empty">Add items first, then choose SKUs for the discount.</p>
+                                <p class="admin-empty">Load ZERO SKUs first, then choose SKUs for the discount.</p>
                             </div>
                             <button type="submit" class="admin-primary-btn">Save Discount</button>
                             <button type="button" class="admin-ghost-btn" data-zero-discount-reset>New Discount</button>

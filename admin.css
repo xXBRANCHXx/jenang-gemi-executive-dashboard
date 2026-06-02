@@ -796,6 +796,22 @@ button, input {
   font: inherit;
 }
 
+.admin-store-form .admin-checkbox-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.admin-store-form .admin-checkbox-line input {
+  width: auto;
+  min-height: auto;
+}
+
 .admin-store-form .admin-primary-btn,
 .admin-store-form .admin-ghost-btn {
   align-self: end;

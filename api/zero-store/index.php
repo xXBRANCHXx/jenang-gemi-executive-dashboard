@@ -45,9 +45,9 @@ function zero_store_text(mixed $value, string $label, int $max = 160, bool $requ
 
 function zero_store_sku(mixed $value): string
 {
-    $sku = strtoupper(zero_store_text($value, 'SKU', 80));
-    if (!preg_match('/^[A-Z0-9._\-]+$/', $sku)) {
-        zero_store_json(['error' => 'SKU may only use letters, numbers, dot, dash, and underscore.'], 422);
+    $sku = strtoupper(zero_store_text($value, 'SKU', 20));
+    if (!preg_match('/^[A-Z0-9]{12}$/', $sku)) {
+        zero_store_json(['error' => 'SKU must be a 12 character SKU DB code.'], 422);
     }
     return $sku;
 }
@@ -64,18 +64,6 @@ function zero_store_money(mixed $value, string $label): string
     return number_format($amount, 2, '.', '');
 }
 
-function zero_store_int(mixed $value, string $label): int
-{
-    if ($value === '' || $value === null || !is_numeric($value)) {
-        zero_store_json(['error' => $label . ' must be numeric.'], 422);
-    }
-    $number = (int) round((float) $value);
-    if ($number < 0) {
-        zero_store_json(['error' => $label . ' cannot be negative.'], 422);
-    }
-    return $number;
-}
-
 function zero_store_date(mixed $value, string $label): string
 {
     $date = trim((string) $value);
@@ -86,23 +74,77 @@ function zero_store_date(mixed $value, string $label): string
     return $date;
 }
 
+function zero_store_slug(string $value): string
+{
+    $slug = strtolower(trim($value));
+    $slug = preg_replace('/[^a-z0-9]+/', '-', $slug) ?? '';
+    return trim($slug, '-');
+}
+
+function zero_store_normalize_name(string $value): string
+{
+    return strtolower(preg_replace('/[^a-z0-9]+/', ' ', $value) ?? '');
+}
+
+function zero_store_option_id(string $productSlug, string $flavorName): string
+{
+    if ($productSlug === 'maple-topping') {
+        return 'classic-maple';
+    }
+
+    $normalized = trim(zero_store_normalize_name($flavorName));
+    if ($normalized === '' || $normalized === 'unflavored' || $normalized === 'plain') {
+        return 'plain';
+    }
+
+    return zero_store_slug($flavorName);
+}
+
+function zero_store_product_slug(string $productName): string
+{
+    $name = zero_store_normalize_name($productName);
+    if (str_contains($name, 'drop')) {
+        return 'drops';
+    }
+    if (str_contains($name, 'maple') && str_contains($name, 'topping')) {
+        return 'maple-topping';
+    }
+    return 'syrup';
+}
+
+function zero_store_size_id(mixed $volume, string $unitName): string
+{
+    $number = (float) $volume;
+    $volumeLabel = abs($number - round($number)) < 0.01
+        ? (string) (int) round($number)
+        : rtrim(rtrim(number_format($number, 1, '.', ''), '0'), '.');
+    $unit = strtolower(preg_replace('/\s+/', '', $unitName) ?? '');
+    if (str_contains($unit, 'ml') || str_contains($unit, 'milli')) {
+        $unit = 'ml';
+    }
+    return $volumeLabel . $unit;
+}
+
+function zero_store_size_label(mixed $volume, string $unitName): string
+{
+    $id = zero_store_size_id($volume, $unitName);
+    return preg_replace('/([a-z]+)$/', '$1', $id) ?? $id;
+}
+
 function zero_store_ensure_schema(PDO $pdo): void
 {
     $pdo->exec(
-        'CREATE TABLE IF NOT EXISTS zero_sale_items (
-            sku VARCHAR(80) NOT NULL PRIMARY KEY,
-            product_name VARCHAR(160) NOT NULL,
-            variant_name VARCHAR(160) NOT NULL DEFAULT "",
-            size_label VARCHAR(80) NOT NULL DEFAULT "",
-            stock INT UNSIGNED NOT NULL DEFAULT 0,
-            price DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        'CREATE TABLE IF NOT EXISTS zero_store_sku_settings (
+            sku VARCHAR(12) NOT NULL PRIMARY KEY,
+            site_price DECIMAL(12,2) NOT NULL DEFAULT 0.00,
             is_active TINYINT(1) NOT NULL DEFAULT 1,
             created_at DATETIME NOT NULL,
-            updated_at DATETIME NOT NULL
+            updated_at DATETIME NOT NULL,
+            CONSTRAINT fk_zero_store_sku_settings_sku FOREIGN KEY (sku) REFERENCES sku_skus(sku) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
     );
     $pdo->exec(
-        'CREATE TABLE IF NOT EXISTS zero_sale_discounts (
+        'CREATE TABLE IF NOT EXISTS zero_store_discounts (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
             name VARCHAR(160) NOT NULL,
             discount_type VARCHAR(20) NOT NULL,
@@ -115,32 +157,129 @@ function zero_store_ensure_schema(PDO $pdo): void
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
     );
     $pdo->exec(
-        'CREATE TABLE IF NOT EXISTS zero_sale_discount_skus (
+        'CREATE TABLE IF NOT EXISTS zero_store_discount_skus (
             discount_id BIGINT UNSIGNED NOT NULL,
-            sku VARCHAR(80) NOT NULL,
+            sku VARCHAR(12) NOT NULL,
             created_at DATETIME NOT NULL,
             PRIMARY KEY (discount_id, sku),
-            UNIQUE KEY uniq_zero_sale_discount_sku (sku),
-            CONSTRAINT fk_zero_sale_discount_skus_discount FOREIGN KEY (discount_id) REFERENCES zero_sale_discounts(id) ON DELETE CASCADE,
-            CONSTRAINT fk_zero_sale_discount_skus_item FOREIGN KEY (sku) REFERENCES zero_sale_items(sku) ON DELETE CASCADE
+            UNIQUE KEY uniq_zero_store_discount_sku (sku),
+            CONSTRAINT fk_zero_store_discount_skus_discount FOREIGN KEY (discount_id) REFERENCES zero_store_discounts(id) ON DELETE CASCADE,
+            CONSTRAINT fk_zero_store_discount_skus_sku FOREIGN KEY (sku) REFERENCES sku_skus(sku) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
     );
 }
 
-function zero_store_load(PDO $pdo): array
+function zero_store_default_price(string $productSlug, string $sizeId): string
 {
-    zero_store_ensure_schema($pdo);
-    $items = $pdo->query('SELECT sku, product_name, variant_name, size_label, stock, price, is_active, updated_at FROM zero_sale_items ORDER BY product_name ASC, variant_name ASC, size_label ASC, sku ASC')->fetchAll();
+    $prices = [
+        'syrup' => ['50ml' => 10000, '250ml' => 39000, '550ml' => 69000],
+        'drops' => ['5ml' => 20000, '10ml' => 30000, '30ml' => 49000],
+        'maple-topping' => ['550ml' => 149000],
+    ];
+
+    return number_format((float) ($prices[$productSlug][$sizeId] ?? 0), 2, '.', '');
+}
+
+function zero_store_is_zero_row(array $row): bool
+{
+    $brandName = zero_store_normalize_name((string) ($row['brand_name'] ?? ''));
+    $productName = zero_store_normalize_name((string) ($row['product_name'] ?? ''));
+    $isZeroBrand = str_contains($brandName, 'zero') || str_contains($productName, 'zero');
+    $isWebsiteProduct = str_contains($productName, 'syrup')
+        || str_contains($productName, 'drop')
+        || str_contains($productName, 'maple')
+        || str_contains($productName, 'topping');
+    return $isZeroBrand && $isWebsiteProduct;
+}
+
+function zero_store_sku_rows(PDO $pdo): array
+{
+    $stmt = $pdo->query(
+        'SELECT
+            s.sku,
+            s.tag,
+            s.brand_id,
+            b.name AS brand_name,
+            s.product_id,
+            p.name AS product_name,
+            s.flavor_id,
+            f.name AS flavor_name,
+            s.unit_id,
+            u.name AS unit_name,
+            s.volume,
+            s.astra,
+            s.current_stock,
+            s.stock_trigger,
+            s.inventory_mode,
+            s.skip_scan,
+            s.cogs,
+            s.updated_at,
+            st.site_price,
+            st.is_active AS site_is_active,
+            st.updated_at AS site_updated_at
+         FROM sku_skus s
+         INNER JOIN sku_brands b ON b.id = s.brand_id
+         INNER JOIN sku_products p ON p.id = s.product_id
+         INNER JOIN sku_flavors f ON f.id = s.flavor_id
+         INNER JOIN sku_units u ON u.id = s.unit_id
+         LEFT JOIN zero_store_sku_settings st ON st.sku = s.sku
+         ORDER BY p.name, f.name, s.volume, s.sku'
+    );
+
+    $items = [];
+    foreach ($stmt->fetchAll() as $row) {
+        if (!zero_store_is_zero_row($row)) {
+            continue;
+        }
+
+        $productSlug = zero_store_product_slug((string) ($row['product_name'] ?? ''));
+        $sizeId = zero_store_size_id($row['volume'] ?? 0, (string) ($row['unit_name'] ?? ''));
+        $sitePrice = $row['site_price'] === null
+            ? zero_store_default_price($productSlug, $sizeId)
+            : number_format((float) $row['site_price'], 2, '.', '');
+        $optionId = zero_store_option_id($productSlug, (string) ($row['flavor_name'] ?? ''));
+
+        $items[] = [
+            'sku' => (string) ($row['sku'] ?? ''),
+            'tag' => (string) ($row['tag'] ?? ''),
+            'brand_name' => (string) ($row['brand_name'] ?? ''),
+            'product_slug' => $productSlug,
+            'product_name' => (string) ($row['product_name'] ?? ''),
+            'option_id' => $optionId,
+            'option_name' => $productSlug === 'maple-topping' ? 'Classic Maple' : (string) ($row['flavor_name'] ?? ''),
+            'flavor_name' => (string) ($row['flavor_name'] ?? ''),
+            'size_id' => $sizeId,
+            'size_label' => zero_store_size_label($row['volume'] ?? 0, (string) ($row['unit_name'] ?? '')),
+            'volume' => number_format((float) ($row['volume'] ?? 0), 1, '.', ''),
+            'astra' => number_format((float) ($row['astra'] ?? $row['volume'] ?? 0), 2, '.', ''),
+            'stock' => (int) ($row['current_stock'] ?? 0),
+            'stock_trigger' => (int) ($row['stock_trigger'] ?? 0),
+            'inventory_mode' => (string) ($row['inventory_mode'] ?? ''),
+            'skip_scan' => (int) ($row['skip_scan'] ?? 0) === 1,
+            'cogs' => number_format((float) ($row['cogs'] ?? 0), 2, '.', ''),
+            'price' => $sitePrice,
+            'site_price' => $sitePrice,
+            'is_active' => $row['site_is_active'] === null ? 1 : (int) $row['site_is_active'],
+            'updated_at' => (string) ($row['site_updated_at'] ?? $row['updated_at'] ?? ''),
+        ];
+    }
+
+    return $items;
+}
+
+function zero_store_discounts(PDO $pdo): array
+{
     $discounts = $pdo->query(
         'SELECT d.id, d.name, d.discount_type, d.amount, d.starts_on, d.ends_on, d.is_active, d.updated_at,
                 GROUP_CONCAT(ds.sku ORDER BY ds.sku SEPARATOR ",") AS sku_list
-         FROM zero_sale_discounts d
-         LEFT JOIN zero_sale_discount_skus ds ON ds.discount_id = d.id
+         FROM zero_store_discounts d
+         LEFT JOIN zero_store_discount_skus ds ON ds.discount_id = d.id
          GROUP BY d.id
          ORDER BY d.starts_on DESC, d.id DESC'
     )->fetchAll();
 
     foreach ($discounts as &$discount) {
+        $discount['amount'] = number_format((float) ($discount['amount'] ?? 0), 2, '.', '');
         $discount['skus'] = trim((string) ($discount['sku_list'] ?? '')) !== ''
             ? explode(',', (string) $discount['sku_list'])
             : [];
@@ -148,19 +287,18 @@ function zero_store_load(PDO $pdo): array
     }
     unset($discount);
 
-    return [
-        'ok' => true,
-        'items' => $items,
-        'discounts' => $discounts,
-        'meta' => ['generated_at' => gmdate(DATE_ATOM)],
-    ];
+    return $discounts;
 }
 
-function zero_store_slug(string $value): string
+function zero_store_load(PDO $pdo): array
 {
-    $slug = strtolower(trim($value));
-    $slug = preg_replace('/[^a-z0-9]+/', '-', $slug) ?? '';
-    return trim($slug, '-');
+    zero_store_ensure_schema($pdo);
+    return [
+        'ok' => true,
+        'items' => zero_store_sku_rows($pdo),
+        'discounts' => zero_store_discounts($pdo),
+        'meta' => ['generated_at' => gmdate(DATE_ATOM)],
+    ];
 }
 
 function zero_store_catalog(PDO $pdo): array
@@ -192,19 +330,19 @@ function zero_store_catalog(PDO $pdo): array
                 ? $price - ($price * ($amount / 100))
                 : $price - $amount;
         }
-        $productName = (string) ($item['product_name'] ?? '');
-        $productSlug = str_contains(strtolower($productName), 'drops')
-            ? 'drops'
-            : (str_contains(strtolower($productName), 'maple') && str_contains(strtolower($productName), 'topping') ? 'maple-topping' : 'syrup');
+
         $rows[] = [
             'sku_code' => $sku,
-            'product_slug' => $productSlug,
-            'product_name' => $productName,
-            'option_id' => zero_store_slug((string) ($item['variant_name'] ?? '')),
-            'option_name' => (string) ($item['variant_name'] ?? ''),
-            'size_id' => strtolower(trim((string) ($item['size_label'] ?? ''))),
+            'sku' => $sku,
+            'tag' => (string) ($item['tag'] ?? ''),
+            'product_slug' => (string) ($item['product_slug'] ?? ''),
+            'product_name' => (string) ($item['product_name'] ?? ''),
+            'option_id' => (string) ($item['option_id'] ?? ''),
+            'option_name' => (string) ($item['option_name'] ?? ''),
+            'size_id' => (string) ($item['size_id'] ?? ''),
             'size_label' => (string) ($item['size_label'] ?? ''),
             'stock' => (int) ($item['stock'] ?? 0),
+            'cogs' => (float) ($item['cogs'] ?? 0),
             'price' => (int) round($price),
             'sale_price' => max(0, (int) round($salePrice)),
             'status' => (int) ($item['is_active'] ?? 0) === 1 ? 'active' : 'inactive',
@@ -243,25 +381,23 @@ try {
 
     if ($action === 'save_item') {
         $sku = zero_store_sku($body['sku'] ?? '');
+        $skuExists = $pdo->prepare('SELECT COUNT(*) FROM sku_skus WHERE sku = :sku');
+        $skuExists->execute([':sku' => $sku]);
+        if ((int) $skuExists->fetchColumn() !== 1) {
+            zero_store_json(['error' => 'That SKU does not exist in the SKU DB.'], 422);
+        }
+
         $stmt = $pdo->prepare(
-            'INSERT INTO zero_sale_items (sku, product_name, variant_name, size_label, stock, price, is_active, created_at, updated_at)
-             VALUES (:sku, :product_name, :variant_name, :size_label, :stock, :price, :is_active, :created_at, :updated_at)
+            'INSERT INTO zero_store_sku_settings (sku, site_price, is_active, created_at, updated_at)
+             VALUES (:sku, :site_price, :is_active, :created_at, :updated_at)
              ON DUPLICATE KEY UPDATE
-                product_name = VALUES(product_name),
-                variant_name = VALUES(variant_name),
-                size_label = VALUES(size_label),
-                stock = VALUES(stock),
-                price = VALUES(price),
+                site_price = VALUES(site_price),
                 is_active = VALUES(is_active),
                 updated_at = VALUES(updated_at)'
         );
         $stmt->execute([
             ':sku' => $sku,
-            ':product_name' => zero_store_text($body['product_name'] ?? '', 'Product name'),
-            ':variant_name' => zero_store_text($body['variant_name'] ?? '', 'Variant', 160, false),
-            ':size_label' => zero_store_text($body['size_label'] ?? '', 'Size', 80, false),
-            ':stock' => zero_store_int($body['stock'] ?? 0, 'Stock'),
-            ':price' => zero_store_money($body['price'] ?? 0, 'Price'),
+            ':site_price' => zero_store_money($body['price'] ?? 0, 'Website price'),
             ':is_active' => !empty($body['is_active']) ? 1 : 0,
             ':created_at' => $now,
             ':updated_at' => $now,
@@ -290,13 +426,23 @@ try {
         }
 
         $placeholders = implode(',', array_fill(0, count($skus), '?'));
-        $itemCountStmt = $pdo->prepare('SELECT COUNT(*) FROM zero_sale_items WHERE sku IN (' . $placeholders . ')');
+        $itemCountStmt = $pdo->prepare('SELECT COUNT(*) FROM sku_skus WHERE sku IN (' . $placeholders . ')');
         $itemCountStmt->execute($skus);
         if ((int) $itemCountStmt->fetchColumn() !== count($skus)) {
-            zero_store_json(['error' => 'Every discount SKU must exist in Items For Sale first.'], 422);
+            zero_store_json(['error' => 'Every discount SKU must exist in the SKU DB.'], 422);
         }
 
-        $conflictSql = 'SELECT sku FROM zero_sale_discount_skus WHERE sku IN (' . $placeholders . ')';
+        $zeroSkuIndex = [];
+        foreach (zero_store_sku_rows($pdo) as $item) {
+            $zeroSkuIndex[(string) ($item['sku'] ?? '')] = true;
+        }
+        foreach ($skus as $sku) {
+            if (!isset($zeroSkuIndex[$sku])) {
+                zero_store_json(['error' => 'Discount SKUs must be ZERO website SKUs.'], 422);
+            }
+        }
+
+        $conflictSql = 'SELECT sku FROM zero_store_discount_skus WHERE sku IN (' . $placeholders . ')';
         $params = $skus;
         if ($id > 0) {
             $conflictSql .= ' AND discount_id <> ?';
@@ -311,7 +457,7 @@ try {
 
         $pdo->beginTransaction();
         if ($id > 0) {
-            $stmt = $pdo->prepare('UPDATE zero_sale_discounts SET name = :name, discount_type = :discount_type, amount = :amount, starts_on = :starts_on, ends_on = :ends_on, is_active = :is_active, updated_at = :updated_at WHERE id = :id');
+            $stmt = $pdo->prepare('UPDATE zero_store_discounts SET name = :name, discount_type = :discount_type, amount = :amount, starts_on = :starts_on, ends_on = :ends_on, is_active = :is_active, updated_at = :updated_at WHERE id = :id');
             $stmt->execute([
                 ':id' => $id,
                 ':name' => zero_store_text($body['name'] ?? '', 'Discount name'),
@@ -322,9 +468,9 @@ try {
                 ':is_active' => !empty($body['is_active']) ? 1 : 0,
                 ':updated_at' => $now,
             ]);
-            $pdo->prepare('DELETE FROM zero_sale_discount_skus WHERE discount_id = ?')->execute([$id]);
+            $pdo->prepare('DELETE FROM zero_store_discount_skus WHERE discount_id = ?')->execute([$id]);
         } else {
-            $stmt = $pdo->prepare('INSERT INTO zero_sale_discounts (name, discount_type, amount, starts_on, ends_on, is_active, created_at, updated_at) VALUES (:name, :discount_type, :amount, :starts_on, :ends_on, :is_active, :created_at, :updated_at)');
+            $stmt = $pdo->prepare('INSERT INTO zero_store_discounts (name, discount_type, amount, starts_on, ends_on, is_active, created_at, updated_at) VALUES (:name, :discount_type, :amount, :starts_on, :ends_on, :is_active, :created_at, :updated_at)');
             $stmt->execute([
                 ':name' => zero_store_text($body['name'] ?? '', 'Discount name'),
                 ':discount_type' => $type,
@@ -337,7 +483,7 @@ try {
             ]);
             $id = (int) $pdo->lastInsertId();
         }
-        $memberStmt = $pdo->prepare('INSERT INTO zero_sale_discount_skus (discount_id, sku, created_at) VALUES (:discount_id, :sku, :created_at)');
+        $memberStmt = $pdo->prepare('INSERT INTO zero_store_discount_skus (discount_id, sku, created_at) VALUES (:discount_id, :sku, :created_at)');
         foreach ($skus as $sku) {
             $memberStmt->execute([':discount_id' => $id, ':sku' => $sku, ':created_at' => $now]);
         }
@@ -347,7 +493,7 @@ try {
 
     if ($action === 'delete_discount') {
         $id = max(0, (int) ($body['id'] ?? 0));
-        $pdo->prepare('DELETE FROM zero_sale_discounts WHERE id = ?')->execute([$id]);
+        $pdo->prepare('DELETE FROM zero_store_discounts WHERE id = ?')->execute([$id]);
         zero_store_json(zero_store_load($pdo));
     }
 
