@@ -833,8 +833,7 @@ button, input {
   align-items: end;
 }
 
-.admin-store-date-range > .admin-control-label,
-.admin-store-calendar-popover {
+.admin-store-date-range > .admin-control-label {
   grid-column: 1 / -1;
 }
 
@@ -849,13 +848,10 @@ button, input {
 }
 
 .admin-store-calendar-popover {
-  position: static;
-  left: auto;
-  top: auto;
+  left: 0;
+  top: 72px;
   bottom: auto;
-  z-index: 1;
-  width: min(100%, 360px);
-  margin-top: 8px;
+  z-index: 20;
 }
 
 .admin-store-sku-picker {
@@ -1420,25 +1416,28 @@ button, input {
   gap: 7px 10px;
 }
 
-[data-zero-store-panel] .admin-store-date-range > .admin-control-label,
-[data-zero-store-panel] .admin-store-calendar-popover {
+[data-zero-store-panel] .admin-store-date-range:has(.admin-store-calendar-popover:not([hidden])) {
+  padding-bottom: 334px;
+}
+
+[data-zero-store-panel] .admin-store-date-range > .admin-control-label {
   grid-column: 1 / -1;
 }
 
 [data-zero-store-panel] .admin-store-calendar-popover {
-  position: static;
-  left: auto;
-  right: auto;
-  top: auto;
+  position: absolute;
+  left: 0;
+  top: 72px;
   bottom: auto;
-  z-index: 1;
-  width: min(360px, 100%);
-  margin-top: 8px;
+  z-index: 20;
+  width: 314px;
+  margin-top: 0;
 }
 
 [data-zero-store-panel] .admin-store-sku-picker {
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
   align-items: start;
+  gap: 10px;
   max-height: 360px;
   overflow-y: auto;
   overflow-x: hidden;
@@ -1446,19 +1445,23 @@ button, input {
 }
 
 [data-zero-store-panel] .admin-store-sku-option {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
   align-items: flex-start;
-  min-height: 54px;
-  padding: 8px 10px;
+  min-height: 68px;
+  padding: 10px 12px;
   gap: 8px;
 }
 
 [data-zero-store-panel] .admin-store-sku-option input[type='checkbox'] {
   flex: 0 0 14px;
-  width: 14px;
-  height: 14px;
+  width: 14px !important;
+  height: 14px !important;
   min-height: 14px;
-  margin-top: 3px;
+  margin: 2px 0 0;
   padding: 0;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
 }
 
 [data-zero-store-panel] .admin-store-sku-option span {
