@@ -2874,6 +2874,10 @@ document.addEventListener('DOMContentLoaded', () => {
     item.size_label || ''
   ].filter(Boolean).join(' · ');
 
+  const zeroItemIdentity = (item) => item.sku_linked
+    ? (item.sku || item.sku_code || '')
+    : (item.fallback_sku || item.sku_code || item.item_key || '');
+
   const syncZeroDiscountRangeFields = () => {
     if (zeroStoreRefs.rangeStart) zeroStoreRefs.rangeStart.value = state.zeroStore.rangeStart;
     if (zeroStoreRefs.rangeEnd) zeroStoreRefs.rangeEnd.value = state.zeroStore.rangeEnd;
@@ -2892,27 +2896,27 @@ document.addEventListener('DOMContentLoaded', () => {
     if (zeroStoreRefs.itemTable) {
       zeroStoreRefs.itemTable.innerHTML = renderRows(items, 9, (item) => `
         <tr>
-          <td><strong>${escapeHtml(item.sku || '')}</strong></td>
+          <td><strong>${escapeHtml(zeroItemIdentity(item))}</strong>${item.sku_linked ? '' : '<br><small>Needs SKU DB link</small>'}</td>
           <td>${escapeHtml(item.product_name || '')}</td>
           <td>${escapeHtml(item.option_name || item.variant_name || item.flavor_name || '')}</td>
           <td>${escapeHtml(item.size_label || '')}</td>
-          <td>${Number(item.stock || 0).toLocaleString('id-ID')}</td>
-          <td>${formatIdr(item.cogs)}</td>
+          <td>${item.sku_linked ? Number(item.stock || 0).toLocaleString('id-ID') : 'Unlinked'}</td>
+          <td>${item.sku_linked ? formatIdr(item.cogs) : 'Unlinked'}</td>
           <td>${formatIdr(item.price)}</td>
           <td>${Number(item.is_active || 0) === 1 ? '<span class="admin-status-badge">Visible</span>' : '<span class="admin-status-badge admin-status-badge-warn">Hidden</span>'}</td>
-          <td><button type="button" class="admin-soft-btn" data-zero-edit-item="${escapeHtml(item.sku || '')}">Edit</button></td>
+          <td><button type="button" class="admin-soft-btn" data-zero-edit-item="${escapeHtml(item.item_key || '')}">Edit</button></td>
         </tr>
-      `, 'No ZERO SKUs found in the SKU DB.');
+      `, 'No ZERO sale items found.');
     }
     if (zeroStoreRefs.skuPicker) {
       zeroStoreRefs.skuPicker.innerHTML = `
         <span class="admin-control-label">Included SKUs</span>
         ${items.length ? items.map((item) => `
           <label class="admin-store-sku-option">
-            <input type="checkbox" name="skus" value="${escapeHtml(item.sku || '')}">
-            <span><strong>${escapeHtml(item.sku || '')}</strong>${escapeHtml(` ${zeroItemLabel(item)}`)}</span>
+            <input type="checkbox" name="item_keys" value="${escapeHtml(item.item_key || '')}">
+            <span><strong>${escapeHtml(zeroItemIdentity(item))}</strong>${escapeHtml(` ${zeroItemLabel(item)}`)}</span>
           </label>
-        `).join('') : '<p class="admin-empty">No ZERO SKUs found in the SKU DB.</p>'}
+        `).join('') : '<p class="admin-empty">No ZERO sale items found.</p>'}
       `;
     }
     if (zeroStoreRefs.discountList) {
@@ -2920,7 +2924,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="admin-note-card">
           <strong>${escapeHtml(discount.name || '')}</strong>
           <span>${escapeHtml(discountSummary(discount))}</span>
-          <small>${(discount.skus || []).map(escapeHtml).join(', ') || 'No SKUs'}</small>
+          <small>${(discount.item_keys || discount.skus || []).map(escapeHtml).join(', ') || 'No items'}</small>
           <div class="admin-inline-actions">
             <button type="button" class="admin-soft-btn" data-zero-edit-discount="${Number(discount.id || 0)}">Edit</button>
             <button type="button" class="admin-soft-btn" data-zero-delete-discount="${Number(discount.id || 0)}">Delete</button>
@@ -3514,6 +3518,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const form = new FormData(zeroStoreRefs.itemForm);
     try {
       const data = await postZeroStore('save_item', {
+        item_key: form.get('item_key'),
         sku: form.get('sku'),
         price: form.get('price'),
         is_active: zeroStoreRefs.itemForm.elements.is_active_checkbox?.checked
@@ -3531,8 +3536,9 @@ document.addEventListener('DOMContentLoaded', () => {
   zeroStoreRefs.itemTable?.addEventListener('click', (event) => {
     const button = event.target.closest('[data-zero-edit-item]');
     if (!button || !zeroStoreRefs.itemForm) return;
-    const item = state.zeroStore.items.find((candidate) => candidate.sku === button.dataset.zeroEditItem);
+    const item = state.zeroStore.items.find((candidate) => candidate.item_key === button.dataset.zeroEditItem);
     if (!item) return;
+    zeroStoreRefs.itemForm.elements.item_key.value = item.item_key || '';
     zeroStoreRefs.itemForm.elements.sku.value = item.sku || '';
     zeroStoreRefs.itemForm.elements.price.value = Number(item.price || 0);
     if (zeroStoreRefs.itemForm.elements.is_active_checkbox) {
@@ -3543,7 +3549,7 @@ document.addEventListener('DOMContentLoaded', () => {
   zeroStoreRefs.discountForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
     const form = new FormData(zeroStoreRefs.discountForm);
-    const skus = Array.from(zeroStoreRefs.discountForm.querySelectorAll('input[name="skus"]:checked')).map((input) => input.value);
+    const itemKeys = Array.from(zeroStoreRefs.discountForm.querySelectorAll('input[name="item_keys"]:checked')).map((input) => input.value);
     try {
       const data = await postZeroStore('save_discount', {
         id: form.get('id'),
@@ -3553,7 +3559,7 @@ document.addEventListener('DOMContentLoaded', () => {
         starts_on: state.zeroStore.rangeStart,
         ends_on: state.zeroStore.rangeEnd,
         is_active: true,
-        skus
+        item_keys: itemKeys
       });
       state.zeroStore.items = Array.isArray(data.items) ? data.items : [];
       state.zeroStore.discounts = Array.isArray(data.discounts) ? data.discounts : [];
@@ -3580,8 +3586,8 @@ document.addEventListener('DOMContentLoaded', () => {
       state.zeroStore.rangeEnd = discount.ends_on || '';
       state.zeroStore.calendarMonth = (state.zeroStore.rangeStart || todayDate()).slice(0, 7);
       renderZeroStore();
-      (discount.skus || []).forEach((sku) => {
-        const checkbox = Array.from(zeroStoreRefs.discountForm.querySelectorAll('input[name="skus"]')).find((input) => input.value === sku);
+      (discount.item_keys || discount.skus || []).forEach((itemKey) => {
+        const checkbox = Array.from(zeroStoreRefs.discountForm.querySelectorAll('input[name="item_keys"]')).find((input) => input.value === itemKey);
         if (checkbox) checkbox.checked = true;
       });
       syncZeroDiscountRangeFields();

@@ -673,8 +673,9 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                             <span class="admin-panel-meta">SKU, stock, and COGS come from the SKU DB. Edit ZERO website price and availability here.</span>
                         </div>
                         <form class="admin-store-form" data-zero-item-form>
+                            <input type="hidden" name="item_key">
                             <input type="hidden" name="is_active" value="1">
-                            <label><span>SKU DB code</span><input name="sku" maxlength="12" placeholder="12 character SKU" required></label>
+                            <label><span>SKU DB code</span><input name="sku" maxlength="12" placeholder="12 character SKU"></label>
                             <label><span>Website price</span><input name="price" type="number" min="0" step="1" value="0" required></label>
                             <label class="admin-checkbox-line"><input name="is_active_checkbox" type="checkbox" checked><span>Visible for sale on ZERO website</span></label>
                             <button type="submit" class="admin-primary-btn">Save Website Settings</button>
@@ -690,7 +691,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                         <th>Stock</th>
                                         <th>COGS</th>
                                         <th>Price</th>
-                                        <th>Status</th>
+                                        <th>Sale Status</th>
                                         <th>Edit</th>
                                     </tr>
                                 </thead>
