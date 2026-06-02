@@ -1413,6 +1413,71 @@ button, input {
   }
 }
 
+[data-zero-store-panel] .admin-store-date-range {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: end;
+  gap: 7px 10px;
+}
+
+[data-zero-store-panel] .admin-store-date-range > .admin-control-label,
+[data-zero-store-panel] .admin-store-calendar-popover {
+  grid-column: 1 / -1;
+}
+
+[data-zero-store-panel] .admin-store-calendar-popover {
+  position: static;
+  left: auto;
+  right: auto;
+  top: auto;
+  bottom: auto;
+  z-index: 1;
+  width: min(360px, 100%);
+  margin-top: 8px;
+}
+
+[data-zero-store-panel] .admin-store-sku-picker {
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  align-items: start;
+  max-height: 360px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 6px;
+}
+
+[data-zero-store-panel] .admin-store-sku-option {
+  align-items: flex-start;
+  min-height: 54px;
+  padding: 8px 10px;
+  gap: 8px;
+}
+
+[data-zero-store-panel] .admin-store-sku-option input[type='checkbox'] {
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+  min-height: 14px;
+  margin-top: 3px;
+  padding: 0;
+}
+
+[data-zero-store-panel] .admin-store-sku-option span {
+  min-width: 0;
+  display: block;
+  overflow-wrap: anywhere;
+  color: var(--admin-muted);
+  font-size: 0.74rem;
+  line-height: 1.28;
+}
+
+[data-zero-store-panel] .admin-store-sku-option strong {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--admin-text);
+  font-size: 0.78rem;
+  line-height: 1.22;
+}
+
 .admin-chart-canvas {
   display: block;
   width: 100%;
