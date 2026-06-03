@@ -86,6 +86,11 @@ function zero_store_date(mixed $value, string $label): string
     return $date;
 }
 
+function zero_store_today_wib(): string
+{
+    return (new DateTimeImmutable('now', new DateTimeZone('Asia/Jakarta')))->format('Y-m-d');
+}
+
 function zero_store_slug(string $value): string
 {
     $slug = strtolower(trim($value));
@@ -460,7 +465,7 @@ function zero_store_catalog(PDO $pdo): array
 {
     $data = zero_store_load($pdo);
     $discountByItem = [];
-    $today = gmdate('Y-m-d');
+    $today = zero_store_today_wib();
     foreach ($data['discounts'] as $discount) {
         if ((int) ($discount['is_active'] ?? 0) !== 1) {
             continue;

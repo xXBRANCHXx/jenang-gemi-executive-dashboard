@@ -672,6 +672,17 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                             </div>
                             <span class="admin-panel-meta">SKU, stock, and COGS come from the SKU DB. Edit ZERO website price and availability here.</span>
                         </div>
+                        <div class="admin-store-toolbar">
+                            <label class="admin-store-filter">
+                                <span class="admin-control-label">Product Filter</span>
+                                <select class="admin-select" data-zero-product-filter>
+                                    <option value="">All Products</option>
+                                    <option value="syrup">ZERO Syrup</option>
+                                    <option value="drops">ZERO Drops</option>
+                                    <option value="maple-topping">ZERO Maple Topping</option>
+                                </select>
+                            </label>
+                        </div>
                         <form class="admin-store-form" data-zero-item-form>
                             <input type="hidden" name="item_key">
                             <input type="hidden" name="is_active" value="1">
@@ -709,6 +720,12 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                 <h3>Discount Groups</h3>
                             </div>
                             <span class="admin-panel-meta">A SKU can only belong to one discount at a time.</span>
+                        </div>
+                        <div class="admin-store-toolbar">
+                            <label class="admin-store-filter admin-store-filter-wide">
+                                <span class="admin-control-label">Search Discount Groups</span>
+                                <input type="search" data-zero-discount-search placeholder="Search by name, item, SKU, type, or date">
+                            </label>
                         </div>
                         <form class="admin-store-form admin-store-form-discount" data-zero-discount-form>
                             <input type="hidden" name="id">

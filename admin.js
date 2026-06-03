@@ -1505,6 +1505,8 @@ document.addEventListener('DOMContentLoaded', () => {
       items: [],
       discounts: [],
       activeDiscountId: '',
+      productFilter: '',
+      discountSearch: '',
       rangeStart: '',
       rangeEnd: '',
       calendarMonth: new Date().toISOString().slice(0, 7),
@@ -1644,8 +1646,10 @@ document.addEventListener('DOMContentLoaded', () => {
     panel: document.querySelector('[data-zero-store-panel]'),
     itemForm: document.querySelector('[data-zero-item-form]'),
     itemTable: document.querySelector('[data-zero-item-table]'),
+    productFilter: document.querySelector('[data-zero-product-filter]'),
     discountForm: document.querySelector('[data-zero-discount-form]'),
     discountList: document.querySelector('[data-zero-discount-list]'),
+    discountSearch: document.querySelector('[data-zero-discount-search]'),
     skuPicker: document.querySelector('[data-zero-discount-sku-picker]'),
     error: document.querySelector('[data-zero-store-error]'),
     resetDiscount: document.querySelector('[data-zero-discount-reset]'),
@@ -2878,6 +2882,26 @@ document.addEventListener('DOMContentLoaded', () => {
     ? (item.sku || item.sku_code || '')
     : (item.fallback_sku || item.sku_code || item.item_key || '');
 
+  const normalizeZeroStoreSearch = (value) => String(value || '').trim().toLowerCase();
+
+  const zeroDiscountSearchText = (discount, itemByKey) => {
+    const itemKeys = discount.item_keys || discount.skus || [];
+    const itemText = itemKeys.map((itemKey) => {
+      const item = itemByKey.get(String(itemKey));
+      return item
+        ? `${itemKey} ${zeroItemIdentity(item)} ${zeroItemLabel(item)}`
+        : String(itemKey);
+    }).join(' ');
+    return normalizeZeroStoreSearch([
+      discount.name,
+      discount.discount_type,
+      discount.amount,
+      discount.starts_on,
+      discount.ends_on,
+      itemText
+    ].filter(Boolean).join(' '));
+  };
+
   const syncZeroDiscountRangeFields = () => {
     if (zeroStoreRefs.rangeStart) zeroStoreRefs.rangeStart.value = state.zeroStore.rangeStart;
     if (zeroStoreRefs.rangeEnd) zeroStoreRefs.rangeEnd.value = state.zeroStore.rangeEnd;
@@ -2893,8 +2917,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (state.website.site !== 'zero') return;
     const items = state.zeroStore.items;
     const discounts = state.zeroStore.discounts;
+    const itemByKey = new Map(items.map((item) => [String(item.item_key || ''), item]));
+    const filteredItems = state.zeroStore.productFilter
+      ? items.filter((item) => String(item.product_slug || '') === state.zeroStore.productFilter)
+      : items;
+    const discountQuery = normalizeZeroStoreSearch(state.zeroStore.discountSearch);
+    const filteredDiscounts = discountQuery
+      ? discounts.filter((discount) => zeroDiscountSearchText(discount, itemByKey).includes(discountQuery))
+      : discounts;
+    if (zeroStoreRefs.productFilter) zeroStoreRefs.productFilter.value = state.zeroStore.productFilter;
+    if (zeroStoreRefs.discountSearch) zeroStoreRefs.discountSearch.value = state.zeroStore.discountSearch;
     if (zeroStoreRefs.itemTable) {
-      zeroStoreRefs.itemTable.innerHTML = renderRows(items, 9, (item) => `
+      zeroStoreRefs.itemTable.innerHTML = renderRows(filteredItems, 9, (item) => `
         <tr>
           <td><strong>${escapeHtml(zeroItemIdentity(item))}</strong>${item.sku_linked ? '' : '<br><small>Needs SKU DB link</small>'}</td>
           <td>${escapeHtml(item.product_name || '')}</td>
@@ -2906,7 +2940,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td>${Number(item.is_active || 0) === 1 ? '<span class="admin-status-badge">Visible</span>' : '<span class="admin-status-badge admin-status-badge-warn">Hidden</span>'}</td>
           <td><button type="button" class="admin-soft-btn" data-zero-edit-item="${escapeHtml(item.item_key || '')}">Edit</button></td>
         </tr>
-      `, 'No ZERO sale items found.');
+      `, state.zeroStore.productFilter ? 'No ZERO sale items match this product filter.' : 'No ZERO sale items found.');
     }
     if (zeroStoreRefs.skuPicker) {
       zeroStoreRefs.skuPicker.innerHTML = `
@@ -2920,7 +2954,7 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
     }
     if (zeroStoreRefs.discountList) {
-      zeroStoreRefs.discountList.innerHTML = discounts.length ? discounts.map((discount) => `
+      zeroStoreRefs.discountList.innerHTML = filteredDiscounts.length ? filteredDiscounts.map((discount) => `
         <div class="admin-note-card">
           <strong>${escapeHtml(discount.name || '')}</strong>
           <span>${escapeHtml(discountSummary(discount))}</span>
@@ -2930,7 +2964,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <button type="button" class="admin-soft-btn" data-zero-delete-discount="${Number(discount.id || 0)}">Delete</button>
           </div>
         </div>
-      `).join('') : '<p class="admin-empty">No discounts yet.</p>';
+      `).join('') : `<p class="admin-empty">${discountQuery ? 'No discount groups match this search.' : 'No discounts yet.'}</p>`;
     }
     syncZeroDiscountRangeFields();
   };
@@ -3016,10 +3050,14 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const selectZeroDiscountDate = (dateValue) => {
+    if (!dateValue) return;
     if (!state.zeroStore.draftStart) {
       state.zeroStore.draftStart = dateValue;
       state.zeroStore.hoverDate = dateValue;
+      state.zeroStore.rangeStart = '';
+      state.zeroStore.rangeEnd = '';
       state.zeroStore.calendarMonth = monthKeyFromDate(dateValue);
+      syncZeroDiscountRangeFields();
       renderZeroDiscountCalendar();
       return;
     }
@@ -3546,6 +3584,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  zeroStoreRefs.productFilter?.addEventListener('change', () => {
+    state.zeroStore.productFilter = zeroStoreRefs.productFilter?.value || '';
+    renderZeroStore();
+  });
+
+  zeroStoreRefs.discountSearch?.addEventListener('input', () => {
+    state.zeroStore.discountSearch = zeroStoreRefs.discountSearch?.value || '';
+    renderZeroStore();
+  });
+
   zeroStoreRefs.discountForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
     const form = new FormData(zeroStoreRefs.discountForm);
@@ -3627,15 +3675,18 @@ document.addEventListener('DOMContentLoaded', () => {
     state.zeroStore.calendarMonth = monthKeyFromDate(wibDateKey(date));
     renderZeroDiscountCalendar();
   });
-  zeroStoreRefs.calendarGrid?.addEventListener('click', (event) => {
+  zeroStoreRefs.calendarGrid?.addEventListener('pointerdown', (event) => {
     const button = event.target.closest('[data-zero-discount-date]');
     if (!button) return;
+    event.preventDefault();
     selectZeroDiscountDate(button.dataset.zeroDiscountDate || '');
   });
   zeroStoreRefs.calendarGrid?.addEventListener('pointerover', (event) => {
     const button = event.target.closest('[data-zero-discount-date]');
     if (!button || !state.zeroStore.draftStart) return;
-    state.zeroStore.hoverDate = button.dataset.zeroDiscountDate || '';
+    const hoverDate = button.dataset.zeroDiscountDate || '';
+    if (!hoverDate || hoverDate === state.zeroStore.hoverDate) return;
+    state.zeroStore.hoverDate = hoverDate;
     renderZeroDiscountCalendar();
   });
 

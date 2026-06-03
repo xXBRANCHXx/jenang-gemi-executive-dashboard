@@ -1416,6 +1416,40 @@ button, input {
   gap: 7px 10px;
 }
 
+[data-zero-store-panel] .admin-store-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0 0 14px;
+}
+
+[data-zero-store-panel] .admin-store-filter {
+  display: grid;
+  gap: 7px;
+  width: min(100%, 320px);
+}
+
+[data-zero-store-panel] .admin-store-filter-wide {
+  width: min(100%, 520px);
+}
+
+[data-zero-store-panel] .admin-store-filter input[type='search'] {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+  padding: 0 13px;
+  font: inherit;
+}
+
+[data-zero-store-panel] .admin-store-filter input[type='search']:focus {
+  outline: none;
+  border-color: rgba(96, 165, 250, 0.78);
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.16);
+}
+
 [data-zero-store-panel] .admin-store-date-range:has(.admin-store-calendar-popover:not([hidden])) {
   padding-bottom: 334px;
 }
