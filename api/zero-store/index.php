@@ -241,11 +241,35 @@ function zero_store_ensure_schema(PDO $pdo): void
             item_key VARCHAR(160) NOT NULL,
             created_at DATETIME NOT NULL,
             PRIMARY KEY (discount_id, item_key),
-            UNIQUE KEY uniq_zero_store_discount_item (item_key),
+            KEY idx_zero_store_discount_item (item_key),
             CONSTRAINT fk_zero_store_discount_items_discount FOREIGN KEY (discount_id) REFERENCES zero_store_discounts(id) ON DELETE CASCADE,
             CONSTRAINT fk_zero_store_discount_items_item FOREIGN KEY (item_key) REFERENCES zero_store_items(item_key) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
     );
+    $indexStmt = $pdo->query(
+        'SELECT INDEX_NAME, NON_UNIQUE
+         FROM INFORMATION_SCHEMA.STATISTICS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = "zero_store_discount_items"
+           AND INDEX_NAME IN ("uniq_zero_store_discount_item", "idx_zero_store_discount_item")'
+    );
+    $indexes = $indexStmt ? $indexStmt->fetchAll() : [];
+    $hasLegacyUnique = false;
+    $hasItemIndex = false;
+    foreach ($indexes as $index) {
+        if ((string) ($index['INDEX_NAME'] ?? '') === 'uniq_zero_store_discount_item') {
+            $hasLegacyUnique = true;
+        }
+        if ((string) ($index['INDEX_NAME'] ?? '') === 'idx_zero_store_discount_item') {
+            $hasItemIndex = true;
+        }
+    }
+    if ($hasLegacyUnique) {
+        $pdo->exec('ALTER TABLE zero_store_discount_items DROP INDEX uniq_zero_store_discount_item');
+    }
+    if (!$hasItemIndex) {
+        $pdo->exec('ALTER TABLE zero_store_discount_items ADD INDEX idx_zero_store_discount_item (item_key)');
+    }
 }
 
 function zero_store_size_id(mixed $volume, string $unitName): string
@@ -600,17 +624,25 @@ try {
             zero_store_json(['error' => 'Every discount item must exist in Items For Sale.'], 422);
         }
 
-        $conflictSql = 'SELECT item_key FROM zero_store_discount_items WHERE item_key IN (' . $placeholders . ')';
+        $conflictSql = 'SELECT DISTINCT di.item_key
+                        FROM zero_store_discount_items di
+                        INNER JOIN zero_store_discounts d ON d.id = di.discount_id
+                        WHERE di.item_key IN (' . $placeholders . ')
+                          AND d.is_active = 1
+                          AND d.starts_on <= ?
+                          AND d.ends_on >= ?';
         $params = $itemKeys;
+        $params[] = $endsOn;
+        $params[] = $startsOn;
         if ($id > 0) {
-            $conflictSql .= ' AND discount_id <> ?';
+            $conflictSql .= ' AND di.discount_id <> ?';
             $params[] = $id;
         }
         $conflictStmt = $pdo->prepare($conflictSql);
         $conflictStmt->execute($params);
         $conflicts = $conflictStmt->fetchAll(PDO::FETCH_COLUMN);
         if ($conflicts !== []) {
-            zero_store_json(['error' => 'An item can only belong to one discount. Conflicts: ' . implode(', ', $conflicts)], 409);
+            zero_store_json(['error' => 'An item can only belong to one active discount during overlapping dates. Conflicts: ' . implode(', ', $conflicts)], 409);
         }
 
         $pdo->beginTransaction();

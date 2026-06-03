@@ -719,7 +719,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                 <span class="admin-panel-kicker">Discounts</span>
                                 <h3>Discount Groups</h3>
                             </div>
-                            <span class="admin-panel-meta">A SKU can only belong to one discount at a time.</span>
+                            <span class="admin-panel-meta">A SKU can be scheduled in multiple discounts, but date ranges cannot overlap for the same SKU.</span>
                         </div>
                         <div class="admin-store-toolbar">
                             <label class="admin-store-filter admin-store-filter-wide">
