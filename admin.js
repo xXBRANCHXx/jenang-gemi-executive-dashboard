@@ -2944,9 +2944,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (zeroStoreRefs.skuPicker) {
       zeroStoreRefs.skuPicker.innerHTML = `
-        <span class="admin-control-label">Included SKUs</span>
+        <div class="admin-store-sku-picker-head">
+          <span class="admin-control-label">Included SKUs</span>
+          <button type="button" class="admin-soft-btn" data-zero-toggle-visible-items>Toggle All</button>
+        </div>
         ${items.length ? items.map((item) => `
-          <label class="admin-store-sku-option">
+          <label class="admin-store-sku-option" data-zero-sku-product="${escapeHtml(item.product_slug || '')}"${state.zeroStore.productFilter && String(item.product_slug || '') !== state.zeroStore.productFilter ? ' hidden' : ''}>
             <input type="checkbox" name="item_keys" value="${escapeHtml(item.item_key || '')}">
             <span><strong>${escapeHtml(zeroItemIdentity(item))}</strong>${escapeHtml(` ${zeroItemLabel(item)}`)}</span>
           </label>
@@ -3592,6 +3595,17 @@ document.addEventListener('DOMContentLoaded', () => {
   zeroStoreRefs.discountSearch?.addEventListener('input', () => {
     state.zeroStore.discountSearch = zeroStoreRefs.discountSearch?.value || '';
     renderZeroStore();
+  });
+
+  zeroStoreRefs.skuPicker?.addEventListener('click', (event) => {
+    const toggleButton = event.target.closest('[data-zero-toggle-visible-items]');
+    if (!toggleButton || !zeroStoreRefs.skuPicker) return;
+    const visibleInputs = Array.from(zeroStoreRefs.skuPicker.querySelectorAll('.admin-store-sku-option:not([hidden]) input[name="item_keys"]'));
+    if (!visibleInputs.length) return;
+    const shouldCheck = visibleInputs.some((input) => !input.checked);
+    visibleInputs.forEach((input) => {
+      input.checked = shouldCheck;
+    });
   });
 
   zeroStoreRefs.discountForm?.addEventListener('submit', async (event) => {
