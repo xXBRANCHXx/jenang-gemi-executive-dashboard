@@ -264,11 +264,11 @@ function zero_store_ensure_schema(PDO $pdo): void
             $hasItemIndex = true;
         }
     }
-    if ($hasLegacyUnique) {
-        $pdo->exec('ALTER TABLE zero_store_discount_items DROP INDEX uniq_zero_store_discount_item');
-    }
     if (!$hasItemIndex) {
         $pdo->exec('ALTER TABLE zero_store_discount_items ADD INDEX idx_zero_store_discount_item (item_key)');
+    }
+    if ($hasLegacyUnique) {
+        $pdo->exec('ALTER TABLE zero_store_discount_items DROP INDEX uniq_zero_store_discount_item');
     }
 }
 
