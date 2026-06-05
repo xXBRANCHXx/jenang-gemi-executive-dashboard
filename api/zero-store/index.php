@@ -305,9 +305,15 @@ function zero_store_size_id(mixed $volume, string $unitName): string
     return $volumeLabel . $unit;
 }
 
-function zero_store_product_slug(string $productName): string
+function zero_store_product_slug(string $productName, string $brandName = ''): string
 {
-    $name = zero_store_normalize_name($productName);
+    $name = zero_store_normalize_name($brandName . ' ' . $productName);
+    if (str_contains($name, 'fiber')) {
+        return 'fiber-syrup';
+    }
+    if (str_contains($name, 'acvs') || str_contains($name, 'apple cider')) {
+        return 'acvs';
+    }
     if (str_contains($name, 'drop')) {
         return 'drops';
     }
@@ -322,9 +328,12 @@ function zero_store_option_id(string $productSlug, string $flavorName): string
     if ($productSlug === 'maple-topping') {
         return 'classic-maple';
     }
+    if ($productSlug === 'acvs') {
+        return 'apple-cider-vinegar-syrup';
+    }
     $normalized = trim(zero_store_normalize_name($flavorName));
     if ($normalized === '' || $normalized === 'unflavored' || $normalized === 'plain') {
-        return 'plain';
+        return $productSlug === 'fiber-syrup' ? 'unflavored' : 'plain';
     }
     return zero_store_slug($flavorName);
 }
@@ -359,11 +368,18 @@ function zero_store_sku_index(PDO $pdo): array
     foreach ($stmt->fetchAll() as $row) {
         $brandName = zero_store_normalize_name((string) ($row['brand_name'] ?? ''));
         $productName = zero_store_normalize_name((string) ($row['product_name'] ?? ''));
-        if (!str_contains($brandName, 'zero') && !str_contains($productName, 'zero')) {
+        if (!str_contains($brandName, 'zero')
+            && !str_contains($productName, 'zero')
+            && !str_contains($brandName, 'zfit')
+            && !str_contains($productName, 'zfit')
+            && !str_contains($productName, 'fiber')
+            && !str_contains($productName, 'acvs')
+            && !str_contains($productName, 'apple cider')
+        ) {
             continue;
         }
 
-        $productSlug = zero_store_product_slug((string) ($row['product_name'] ?? ''));
+        $productSlug = zero_store_product_slug((string) ($row['product_name'] ?? ''), (string) ($row['brand_name'] ?? ''));
         $optionId = zero_store_option_id($productSlug, (string) ($row['flavor_name'] ?? ''));
         $sizeId = zero_store_size_id($row['volume'] ?? 0, (string) ($row['unit_name'] ?? ''));
         $record = [
