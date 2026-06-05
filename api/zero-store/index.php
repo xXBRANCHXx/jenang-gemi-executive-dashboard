@@ -429,7 +429,10 @@ function zero_store_seed_items(PDO $pdo): void
             size_id = VALUES(size_id),
             size_label = VALUES(size_label),
             fallback_sku = VALUES(fallback_sku),
-            sku = COALESCE(zero_store_items.sku, VALUES(sku)),
+            sku = CASE
+                WHEN VALUES(sku) IS NOT NULL AND VALUES(sku) <> "" THEN VALUES(sku)
+                ELSE zero_store_items.sku
+            END,
             site_price = IF(zero_store_items.site_price <= 0, VALUES(site_price), zero_store_items.site_price),
             updated_at = VALUES(updated_at)'
     );
