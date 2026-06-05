@@ -489,12 +489,17 @@ function zero_store_load(PDO $pdo): array
     $items = [];
     $stmt = $pdo->query('SELECT item_key, product_slug, product_name, option_id, option_name, size_id, size_label, fallback_sku, sku, site_price, is_active, updated_at FROM zero_store_items ORDER BY product_slug, option_name, size_id');
     foreach ($stmt->fetchAll() as $row) {
+        $itemKey = (string) ($row['item_key'] ?? '');
         $sku = (string) ($row['sku'] ?? '');
         $skuRow = $sku !== '' ? ($skuIndex['by_sku'][$sku] ?? null) : null;
+        if (!is_array($skuRow)) {
+            $skuRow = $skuIndex['by_selector'][$itemKey] ?? null;
+        }
+        $linkedSku = is_array($skuRow) ? (string) ($skuRow['sku'] ?? '') : $sku;
         $items[] = [
-            'item_key' => (string) ($row['item_key'] ?? ''),
-            'sku' => $sku,
-            'sku_code' => $sku !== '' ? $sku : (string) ($row['fallback_sku'] ?? ''),
+            'item_key' => $itemKey,
+            'sku' => $linkedSku,
+            'sku_code' => $linkedSku !== '' ? $linkedSku : (string) ($row['fallback_sku'] ?? ''),
             'fallback_sku' => (string) ($row['fallback_sku'] ?? ''),
             'sku_linked' => is_array($skuRow),
             'tag' => is_array($skuRow) ? (string) ($skuRow['tag'] ?? '') : '',
