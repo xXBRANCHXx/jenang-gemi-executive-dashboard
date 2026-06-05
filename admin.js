@@ -2882,6 +2882,12 @@ document.addEventListener('DOMContentLoaded', () => {
     ? (item.sku || item.sku_code || '')
     : (item.fallback_sku || item.sku_code || item.item_key || '');
 
+  const zeroItemLinkNote = (item) => {
+    if (item.sku_linked) return '';
+    const candidate = String(item.sku || item.sku_code || '').trim();
+    return /^[A-Z0-9]{12}$/.test(candidate) ? 'Needs SKU DB link' : 'No SKU DB code set';
+  };
+
   const normalizeZeroStoreSearch = (value) => String(value || '').trim().toLowerCase();
 
   const zeroDiscountSearchText = (discount, itemByKey) => {
@@ -2930,7 +2936,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (zeroStoreRefs.itemTable) {
       zeroStoreRefs.itemTable.innerHTML = renderRows(filteredItems, 9, (item) => `
         <tr>
-          <td><strong>${escapeHtml(zeroItemIdentity(item))}</strong>${item.sku_linked ? '' : '<br><small>Needs SKU DB link</small>'}</td>
+          <td><strong>${escapeHtml(zeroItemIdentity(item))}</strong>${item.sku_linked ? '' : `<br><small>${escapeHtml(zeroItemLinkNote(item))}</small>`}</td>
           <td>${escapeHtml(item.product_name || '')}</td>
           <td>${escapeHtml(item.option_name || item.variant_name || item.flavor_name || '')}</td>
           <td>${escapeHtml(item.size_label || '')}</td>
