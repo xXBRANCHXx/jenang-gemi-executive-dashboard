@@ -108,6 +108,87 @@ function zero_store_fallback_sku(string $productSlug, string $optionId, string $
     return 'ZERO-' . strtoupper(str_replace('-', '_', $productSlug . '-' . $optionId . '-' . $sizeId));
 }
 
+function zero_store_explicit_sku_links(): array
+{
+    return [
+        'drops:blue-raspberry:30ml' => '010103001802',
+        'drops:butterscotch:30ml' => '010103000802',
+        'drops:butterscotch:5ml' => '010100500802',
+        'drops:caramel:30ml' => '010103000502',
+        'drops:caramel:5ml' => '010100500502',
+        'drops:cucumber-mint:30ml' => '010103001902',
+        'drops:grapefruit:30ml' => '010103002002',
+        'drops:hazelnut:30ml' => '010103000202',
+        'drops:hazelnut:5ml' => '010100500202',
+        'drops:lemonade:30ml' => '010103000902',
+        'drops:lychee-bloom:30ml' => '010103001402',
+        'drops:pandan:30ml' => '010103000702',
+        'drops:pandan:5ml' => '010100500702',
+        'drops:peach-mango:30ml' => '010103001502',
+        'drops:pistachio:30ml' => '010103002702',
+        'drops:pistachio:5ml' => '010100502702',
+        'drops:plain:10ml' => '010101000102',
+        'drops:plain:30ml' => '010103000102',
+        'drops:plain:5ml' => '010100500102',
+        'drops:pumpkin-spice:30ml' => '010103000402',
+        'drops:pumpkin-spice:5ml' => '010100500402',
+        'drops:strawberry-kiwi:30ml' => '010103001702',
+        'drops:vanilla:30ml' => '010103001602',
+        'drops:vanilla:5ml' => '010100501602',
+        'fiber-syrup:lemonade-pomegranate:250ml' => '060125000105',
+        'fiber-syrup:unflavored:250ml' => '060125000005',
+        'maple-topping:classic-maple:550ml' => '010155000006',
+        'syrup:butterscotch:250ml' => '010125000801',
+        'syrup:butterscotch:50ml' => '010105000801',
+        'syrup:butterscotch:550ml' => '010155000801',
+        'syrup:caramel:250ml' => '010125000501',
+        'syrup:caramel:50ml' => '010105000501',
+        'syrup:caramel:550ml' => '010155000501',
+        'syrup:hazelnut:250ml' => '010125000201',
+        'syrup:hazelnut:50ml' => '010105000201',
+        'syrup:hazelnut:550ml' => '010155000201',
+        'syrup:lemonade:250ml' => '010125000901',
+        'syrup:lemonade:50ml' => '010105000901',
+        'syrup:lemonade:550ml' => '010155000901',
+        'syrup:lychee:250ml' => '010125001301',
+        'syrup:lychee:50ml' => '010105001301',
+        'syrup:lychee:550ml' => '010155001301',
+        'syrup:mango:250ml' => '010125001101',
+        'syrup:mango:50ml' => '010105001101',
+        'syrup:mango:550ml' => '010155001101',
+        'syrup:maple:250ml' => '010125000301',
+        'syrup:maple:50ml' => '010105000301',
+        'syrup:maple:550ml' => '010155000301',
+        'syrup:melon:250ml' => '010125002301',
+        'syrup:melon:50ml' => '010105002301',
+        'syrup:melon:550ml' => '010155002301',
+        'syrup:mint:250ml' => '010125001001',
+        'syrup:mint:50ml' => '010105001001',
+        'syrup:mint:550ml' => '010155001001',
+        'syrup:pandan:250ml' => '010125000701',
+        'syrup:pandan:50ml' => '010105000701',
+        'syrup:pandan:550ml' => '010155000701',
+        'syrup:pistachio:250ml' => '010125002701',
+        'syrup:pistachio:50ml' => '010105002701',
+        'syrup:pistachio:550ml' => '010155002701',
+        'syrup:plain:250ml' => '010125000101',
+        'syrup:plain:50ml' => '010105000101',
+        'syrup:plain:550ml' => '010155000101',
+        'syrup:pumpkin-spice:250ml' => '010125000401',
+        'syrup:pumpkin-spice:50ml' => '010105000401',
+        'syrup:pumpkin-spice:550ml' => '010155000401',
+        'syrup:salted-caramel:250ml' => '010125000601',
+        'syrup:salted-caramel:50ml' => '010105000601',
+        'syrup:salted-caramel:550ml' => '010155000601',
+        'syrup:strawberry:250ml' => '010125001201',
+        'syrup:strawberry:50ml' => '010105001201',
+        'syrup:strawberry:550ml' => '010155001201',
+        'syrup:vanilla:250ml' => '010125001601',
+        'syrup:vanilla:50ml' => '010105001601',
+        'syrup:vanilla:550ml' => '010155001601',
+    ];
+}
+
 function zero_store_website_items(): array
 {
     $products = [
@@ -413,6 +494,7 @@ function zero_store_seed_items(PDO $pdo): void
 {
     $now = gmdate('Y-m-d H:i:s');
     $skuIndex = zero_store_sku_index($pdo);
+    $explicitSkuLinks = zero_store_explicit_sku_links();
     $stmt = $pdo->prepare(
         'INSERT INTO zero_store_items (
             item_key, product_slug, product_name, option_id, option_name, size_id, size_label,
@@ -438,7 +520,7 @@ function zero_store_seed_items(PDO $pdo): void
     );
 
     foreach (zero_store_website_items() as $item) {
-        $matchedSku = (string) ($skuIndex['by_selector'][$item['item_key']]['sku'] ?? '');
+        $matchedSku = (string) ($explicitSkuLinks[$item['item_key']] ?? $skuIndex['by_selector'][$item['item_key']]['sku'] ?? '');
         $stmt->execute([
             ':item_key' => $item['item_key'],
             ':product_slug' => $item['product_slug'],
@@ -486,11 +568,12 @@ function zero_store_load(PDO $pdo): array
     zero_store_seed_items($pdo);
 
     $skuIndex = zero_store_sku_index($pdo);
+    $explicitSkuLinks = zero_store_explicit_sku_links();
     $items = [];
     $stmt = $pdo->query('SELECT item_key, product_slug, product_name, option_id, option_name, size_id, size_label, fallback_sku, sku, site_price, is_active, updated_at FROM zero_store_items ORDER BY product_slug, option_name, size_id');
     foreach ($stmt->fetchAll() as $row) {
         $itemKey = (string) ($row['item_key'] ?? '');
-        $sku = (string) ($row['sku'] ?? '');
+        $sku = (string) ($explicitSkuLinks[$itemKey] ?? $row['sku'] ?? '');
         $skuRow = $sku !== '' ? ($skuIndex['by_sku'][$sku] ?? null) : null;
         if (!is_array($skuRow)) {
             $skuRow = $skuIndex['by_selector'][$itemKey] ?? null;
