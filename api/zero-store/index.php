@@ -171,6 +171,26 @@ function zero_store_website_items(): array
                 ['id' => 'classic-maple', 'name' => 'Classic Maple'],
             ],
         ],
+        'fiber-syrup' => [
+            'name' => 'ZFIT Fiber Syrup',
+            'sizes' => [
+                ['id' => '250ml', 'label' => '250ml', 'price' => 129000],
+            ],
+            'options' => [
+                ['id' => 'unflavored', 'name' => 'Unflavored'],
+                ['id' => 'lemonade-pomegranate', 'name' => 'Lemonade Pomegranate'],
+            ],
+        ],
+        'acvs' => [
+            'name' => 'ZFIT ACVS',
+            'sizes' => [
+                ['id' => '100ml', 'label' => '100ml', 'price' => 29500],
+                ['id' => '250ml', 'label' => '250ml', 'price' => 49500],
+            ],
+            'options' => [
+                ['id' => 'apple-cider-vinegar-syrup', 'name' => 'Apple Cider Vinegar Syrup'],
+            ],
+        ],
     ];
 
     $rows = [];
