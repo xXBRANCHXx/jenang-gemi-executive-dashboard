@@ -447,24 +447,18 @@ function zero_store_sku_index(PDO $pdo): array
     $bySelector = [];
     $bySku = [];
     foreach ($stmt->fetchAll() as $row) {
-        $brandName = zero_store_normalize_name((string) ($row['brand_name'] ?? ''));
-        $productName = zero_store_normalize_name((string) ($row['product_name'] ?? ''));
-        if (!str_contains($brandName, 'zero')
-            && !str_contains($productName, 'zero')
-            && !str_contains($brandName, 'zfit')
-            && !str_contains($productName, 'zfit')
-            && !str_contains($productName, 'fiber')
-            && !str_contains($productName, 'acvs')
-            && !str_contains($productName, 'apple cider')
-        ) {
+        $sku = (string) ($row['sku'] ?? '');
+        if ($sku === '') {
             continue;
         }
 
+        $brandName = zero_store_normalize_name((string) ($row['brand_name'] ?? ''));
+        $productName = zero_store_normalize_name((string) ($row['product_name'] ?? ''));
         $productSlug = zero_store_product_slug((string) ($row['product_name'] ?? ''), (string) ($row['brand_name'] ?? ''));
         $optionId = zero_store_option_id($productSlug, (string) ($row['flavor_name'] ?? ''));
         $sizeId = zero_store_size_id($row['volume'] ?? 0, (string) ($row['unit_name'] ?? ''));
         $record = [
-            'sku' => (string) ($row['sku'] ?? ''),
+            'sku' => $sku,
             'tag' => (string) ($row['tag'] ?? ''),
             'product_slug' => $productSlug,
             'option_id' => $optionId,
@@ -476,11 +470,20 @@ function zero_store_sku_index(PDO $pdo): array
             'cogs' => number_format((float) ($row['cogs'] ?? 0), 2, '.', ''),
             'updated_at' => (string) ($row['updated_at'] ?? ''),
         ];
-        $sku = $record['sku'];
-        if ($sku === '') {
+
+        $bySku[$sku] = $record;
+
+        if (!str_contains($brandName, 'zero')
+            && !str_contains($productName, 'zero')
+            && !str_contains($brandName, 'zfit')
+            && !str_contains($productName, 'zfit')
+            && !str_contains($productName, 'fiber')
+            && !str_contains($productName, 'acvs')
+            && !str_contains($productName, 'apple cider')
+        ) {
             continue;
         }
-        $bySku[$sku] = $record;
+
         $selectorKey = $productSlug . ':' . $optionId . ':' . $sizeId;
         if (!isset($bySelector[$selectorKey])) {
             $bySelector[$selectorKey] = $record;
