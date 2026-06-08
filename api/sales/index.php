@@ -726,7 +726,7 @@ function jg_sales_attach_calculation_audit(array &$summary, int $year): void
         ],
         'cache' => [
             'default_behavior' => 'Dashboard serves the last calculated JSON immediately and refreshes with refresh=1 in the background.',
-            'fresh_refresh_query' => '../api/sales/?year=' . $year . '&refresh=1',
+            'fresh_refresh_query' => '../api/sales/?year=' . $year . '&refresh=1&audit=1',
         ],
         'generated_at' => gmdate(DATE_ATOM),
     ];

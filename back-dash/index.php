@@ -160,7 +160,7 @@ $apiDocs = [
                     <div class="admin-note-stack" data-calculation-audit-apis>
                         <div class="admin-note-card"><strong>Revenue source</strong><span>Seller-received money comes from API Ingest stored order facts and marketplace rollups, not customer-paid gross revenue.</span></div>
                     </div>
-                    <p class="admin-table-note">This audit block is returned by <span class="admin-code-block">../api/sales/?year=<?php echo htmlspecialchars($dashboardPrefetchYear, ENT_QUOTES, 'UTF-8'); ?>&amp;refresh=1</span>, so formula changes apply retroactively to the stored raw marketplace order data and rollups without forcing a one-year marketplace API backfill.</p>
+                    <p class="admin-table-note">This audit block is returned by <span class="admin-code-block">../api/sales/?year=<?php echo htmlspecialchars($dashboardPrefetchYear, ENT_QUOTES, 'UTF-8'); ?>&amp;refresh=1&amp;audit=1</span>, so formula changes apply retroactively to the stored raw marketplace order data and rollups without forcing a one-year marketplace API backfill.</p>
                 </article>
 
                 <article class="admin-panel admin-panel-wide">
