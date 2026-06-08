@@ -593,6 +593,12 @@ function jg_sales_attach_calculation_audit(array &$summary, int $year): void
                 'endpoint' => '/sales/sync',
                 'used_for' => 'Scheduled and manual pulls from Shopee, TikTok Shop, and Tokopedia APIs into raw order storage',
                 'json_paths' => [
+                    'Shopee /api/v2/order/get_order_list',
+                    'Shopee /api/v2/order/get_order_detail',
+                    'Shopee /api/v2/payment/get_escrow_detail',
+                    'TikTok /order/202309/orders/search',
+                    'TikTok /order/202309/orders',
+                    'Tokopedia configured order list endpoint',
                     'sync.accounts[].platform',
                     'sync.accounts[].account_key',
                     'sync.accounts[].fetched',
