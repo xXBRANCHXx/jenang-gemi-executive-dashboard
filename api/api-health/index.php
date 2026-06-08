@@ -161,9 +161,20 @@ function jg_api_health_http_check(array $check): array
     } elseif ($expect === 'sales_summary') {
         $months = is_array($decoded['months'] ?? null) ? $decoded['months'] : [];
         $accounts = is_array($decoded['accounts'] ?? null) ? $decoded['accounts'] : [];
-        $ok = $status >= 200 && $status < 300 && !empty($decoded['ok']) && isset($decoded['months']) && isset($decoded['accounts']);
+        $syncStatus = is_array($decoded['sync_status'] ?? null) ? $decoded['sync_status'] : [];
+        $syncOk = !empty($syncStatus['ok']);
+        $ok = $status >= 200 && $status < 300 && !empty($decoded['ok']) && isset($decoded['months']) && isset($decoded['accounts']) && $syncOk;
         $details = is_array($decoded)
-            ? sprintf('months=%d accounts=%d year=%s', count($months), count($accounts), (string) ($decoded['year'] ?? ''))
+            ? sprintf(
+                'months=%d accounts=%d year=%s sync=%s mode=%s finished=%s age=%ss',
+                count($months),
+                count($accounts),
+                (string) ($decoded['year'] ?? ''),
+                (string) ($syncStatus['status'] ?? 'missing'),
+                (string) ($syncStatus['mode'] ?? ''),
+                (string) ($syncStatus['finished_at'] ?? ''),
+                (string) ($syncStatus['age_seconds'] ?? '')
+            )
             : 'Response was not JSON.';
     } elseif ($expect === 'contains') {
         $needle = (string) ($check['contains'] ?? '');

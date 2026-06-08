@@ -148,6 +148,9 @@ $apiDocs = [
                             </tbody>
                         </table>
                     </div>
+                    <div class="admin-note-stack" data-marketplace-sync-status>
+                        <div class="admin-note-card"><strong>24/7 Sync</strong><span>Loading latest unattended marketplace sync run.</span></div>
+                    </div>
                     <div class="admin-note-stack" data-calculation-audit-apis>
                         <div class="admin-note-card"><strong>Revenue source</strong><span>Seller-received money comes from API Ingest stored order facts and marketplace rollups, not customer-paid gross revenue.</span></div>
                     </div>
@@ -274,7 +277,8 @@ Paket yang dipilih: 30 Sachet</textarea>
             const status = document.querySelector('[data-calculation-audit-status]');
             const metricsBody = document.querySelector('[data-calculation-audit-metrics]');
             const apiList = document.querySelector('[data-calculation-audit-apis]');
-            if (!status || !metricsBody || !apiList) return;
+            const syncStatusNode = document.querySelector('[data-marketplace-sync-status]');
+            if (!status || !metricsBody || !apiList || !syncStatusNode) return;
 
             const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
                 '&': '&amp;',
@@ -295,6 +299,7 @@ Paket yang dipilih: 30 Sachet</textarea>
                     const metrics = calculations.metrics || {};
                     const currentValues = calculations.current_values || {};
                     const apiCalls = Array.isArray(calculations.upstream_api_calls) ? calculations.upstream_api_calls : [];
+                    const syncStatus = data && typeof data === 'object' && data.sync_status ? data.sync_status : {};
                     const formatIdr = (value) => `Rp${Number(value || 0).toLocaleString('id-ID')}`;
                     const formatMetricValue = (key, value) => ['revenue', 'marketplace_fees', 'cogs', 'gross_profit', 'average_order_value'].includes(key)
                         ? formatIdr(value)
@@ -321,6 +326,13 @@ Paket yang dipilih: 30 Sachet</textarea>
                             <span>${listFields(api.json_paths || [])}</span>
                         </div>
                     `).join('') || '<div class="admin-note-card"><strong>API calls</strong><span>No API call metadata returned.</span></div>';
+                    syncStatusNode.innerHTML = `
+                        <div class="admin-note-card">
+                            <strong>24/7 Sync</strong>
+                            <span>${syncStatus.ok ? 'Fresh' : 'Needs attention'} • ${escapeHtml(syncStatus.message || 'No sync status returned.')}</span>
+                            <span><span class="admin-code-block">mode: ${escapeHtml(syncStatus.mode || '-')}</span> <span class="admin-code-block">finished_at: ${escapeHtml(syncStatus.finished_at || '-')}</span> <span class="admin-code-block">age_seconds: ${escapeHtml(syncStatus.age_seconds ?? '-')}</span></span>
+                        </div>
+                    `;
                     status.textContent = calculations.generated_at ? `Generated ${calculations.generated_at}` : 'Audit loaded';
                 })
                 .catch((error) => {
