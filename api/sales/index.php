@@ -25,9 +25,10 @@ $url = jg_dashboard_marketplace_api_base_url()
     . '&year=' . rawurlencode((string) $year);
 
 $cacheKey = 'sales-summary-' . $year;
-$cachedResponse = jg_sales_cache_read($cacheKey, 120);
+$forceRefresh = (string) ($_GET['refresh'] ?? '') === '1';
+$cachedResponse = jg_sales_cache_read($cacheKey, $forceRefresh ? 120 : 0);
 if (is_string($cachedResponse)) {
-    header('X-JG-Cache: HIT');
+    header('X-JG-Cache: ' . ($forceRefresh ? 'HIT' : 'STALE-FAST'));
     echo $cachedResponse;
     exit;
 }
@@ -35,7 +36,7 @@ if (is_string($cachedResponse)) {
 $context = stream_context_create([
     'http' => [
         'method' => 'GET',
-        'timeout' => 45,
+        'timeout' => 12,
         'header' => "Accept: application/json\r\n",
         'ignore_errors' => true,
     ],
@@ -70,6 +71,7 @@ $decoded = json_decode($response, true);
 if (is_array($decoded) && ($status < 400 || $status === 200)) {
     http_response_code($status >= 100 ? $status : 200);
     $decoded = jg_sales_enrich_with_sku_db($decoded, $year);
+    jg_sales_attach_calculation_audit($decoded, $year);
     jg_sales_remove_customer_paid_fields($decoded);
     $encoded = json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     if (is_string($encoded)) {
@@ -257,13 +259,18 @@ function jg_sales_fifo_cogs_index(int $year): array
  */
 function jg_sales_seller_received(array $row, int $fallback = 0): int
 {
+    $zeroCandidate = null;
     foreach (['seller_received', 'seller_receivable', 'settlement_amount', 'payout_amount', 'net_revenue', 'net_sales', 'sales', 'revenue'] as $field) {
         if (array_key_exists($field, $row) && is_numeric($row[$field])) {
-            return (int) round((float) $row[$field]);
+            $value = (int) round((float) $row[$field]);
+            if ($value !== 0) {
+                return $value;
+            }
+            $zeroCandidate ??= 0;
         }
     }
 
-    return $fallback;
+    return $fallback !== 0 ? $fallback : ($zeroCandidate ?? 0);
 }
 
 function jg_sales_remove_customer_paid_fields(mixed &$value): void
@@ -525,4 +532,96 @@ function jg_sales_enrich_with_sku_db(array $summary, int $year): array
     );
 
     return $summary;
+}
+
+/**
+ * @param array<string, mixed> $summary
+ */
+function jg_sales_attach_calculation_audit(array &$summary, int $year): void
+{
+    $summary['calculations'] = [
+        'year' => $year,
+        'timezone' => 'Asia/Jakarta for dashboard date controls; ingest stores order timestamps in UTC',
+        'upstream_api_calls' => [
+            [
+                'name' => 'Marketplace yearly sales summary',
+                'method' => 'GET',
+                'endpoint' => '/sales/summary',
+                'used_for' => 'Executive homepage revenue, marketplace fees, orders, item quantity, account/platform splits, and product rollups',
+                'json_paths' => [
+                    'months[].net_revenue',
+                    'months[].accounts[*].net_revenue',
+                    'months[].platforms[*].net_revenue',
+                    'products.by_month[].net_revenue',
+                    'products.by_product[].net_revenue',
+                    'totals.net_revenue',
+                ],
+            ],
+            [
+                'name' => 'Marketplace order facts',
+                'method' => 'GET',
+                'endpoint' => '/sales/orders',
+                'used_for' => 'Orders page, custom date-range charting, and per-order audit rows',
+                'json_paths' => [
+                    'orders[].net_revenue',
+                    'orders[].order_net_revenue',
+                    'orders[].quantity',
+                    'orders[].raw',
+                ],
+            ],
+            [
+                'name' => 'Marketplace sync/backfill',
+                'method' => 'GET',
+                'endpoint' => '/sales/sync',
+                'used_for' => 'Scheduled and manual pulls from Shopee, TikTok Shop, and Tokopedia APIs into raw order storage',
+                'json_paths' => [
+                    'sync.accounts[].platform',
+                    'sync.accounts[].account_key',
+                    'sync.accounts[].fetched',
+                    'sync.accounts[].stored',
+                ],
+            ],
+            [
+                'name' => 'Dashboard SKU DB enrichment',
+                'method' => 'local SQL',
+                'endpoint' => 'sku_skus + marketplace_order_inventory_allocations',
+                'used_for' => 'COGS and gross profit',
+                'json_paths' => [
+                    'sku_skus.sku',
+                    'sku_skus.tag',
+                    'sku_skus.cogs',
+                    'marketplace_order_inventory_allocations.total_cogs',
+                ],
+            ],
+        ],
+        'metrics' => [
+            'revenue' => [
+                'definition' => 'Seller-received company revenue after marketplace deductions; never customer-paid gross merchandise value.',
+                'formula' => 'first non-zero seller-received field from each rollup row, falling back to net_revenue/sales/revenue; yearly total is SUM(months[].revenue)',
+                'field_precedence' => ['seller_received', 'seller_receivable', 'settlement_amount', 'payout_amount', 'net_revenue', 'net_sales', 'sales', 'revenue'],
+                'dashboard_json_paths' => ['months[].revenue', 'months[].net_revenue', 'totals.revenue', 'totals.net_revenue'],
+                'raw_storage' => 'API Ingest stores the original marketplace JSON in marketplace_orders.raw_json; changing this formula recalculates from stored facts/rollups without a full marketplace backfill.',
+            ],
+            'marketplace_fees' => [
+                'definition' => 'Marketplace deductions when both gross and seller-received values are known.',
+                'formula' => 'SUM(gross_revenue - net_revenue), clamped at zero per source row where calculated',
+                'dashboard_json_paths' => ['months[].marketplace_fees', 'totals.marketplace_fees'],
+            ],
+            'cogs' => [
+                'definition' => 'Cost of goods sold from FIFO PO allocations when available, otherwise current SKU DB COGS times item quantity.',
+                'formula' => 'SUM(marketplace_order_inventory_allocations.total_cogs) OR SUM(sku_skus.cogs * products.by_month[].quantity)',
+                'dashboard_json_paths' => ['months[].cogs', 'products.by_month[].cogs', 'products.by_product[].cogs'],
+            ],
+            'gross_profit' => [
+                'definition' => 'Company revenue after product cost.',
+                'formula' => 'revenue - cogs',
+                'dashboard_json_paths' => ['months[].gross_profit', 'totals.gross_profit', 'products.by_month[].gross_profit'],
+            ],
+        ],
+        'cache' => [
+            'default_behavior' => 'Dashboard serves the last calculated JSON immediately and refreshes with refresh=1 in the background.',
+            'fresh_refresh_query' => '../api/sales/?year=' . $year . '&refresh=1',
+        ],
+        'generated_at' => gmdate(DATE_ATOM),
+    ];
 }

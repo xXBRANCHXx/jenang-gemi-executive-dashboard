@@ -1894,17 +1894,30 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const requestJson = async (url, options = {}) => {
-    const response = await fetch(url, {
-      headers: { Accept: 'application/json', ...(options.headers || {}) },
-      credentials: 'same-origin',
-      cache: 'no-store',
-      ...options
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(payload.error || `HTTP ${response.status}`);
+    const { timeoutMs = 20000, ...fetchOptions } = options;
+    const controller = timeoutMs > 0 && !fetchOptions.signal && window.AbortController ? new AbortController() : null;
+    const timeoutId = controller ? window.setTimeout(() => controller.abort(), timeoutMs) : null;
+    try {
+      const response = await fetch(url, {
+        headers: { Accept: 'application/json', ...(options.headers || {}) },
+        credentials: 'same-origin',
+        cache: 'no-store',
+        ...fetchOptions,
+        ...(controller ? { signal: controller.signal } : {})
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || `HTTP ${response.status}`);
+      }
+      return payload;
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        throw new Error('Request timed out.');
+      }
+      throw error;
+    } finally {
+      if (timeoutId) window.clearTimeout(timeoutId);
     }
-    return payload;
   };
 
   const renderRows = (items, emptyColspan, formatter, emptyMessage = 'Belum ada data.') => {
@@ -2032,11 +2045,14 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${endpoint}?${params.toString()}`;
   };
 
-  const buildSalesUrl = (year) => {
+  const buildSalesUrl = (year, options = {}) => {
     const params = new URLSearchParams({
       year: String(year),
       _ts: String(Date.now())
     });
+    if (options.refresh) {
+      params.set('refresh', '1');
+    }
     return `${salesEndpoint}?${params.toString()}`;
   };
   const buildOrderFactsUrl = (startDate, endDate, options = {}) => {
@@ -3151,6 +3167,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     writeOverviewCache(state.overview.year, data);
     renderOverview(data);
+    requestJson(buildSalesUrl(state.overview.year, { refresh: true }))
+      .then((freshData) => {
+        if (!isLatestRequest('overview', requestToken)) return;
+        writeOverviewCache(state.overview.year, freshData);
+        renderOverview(freshData);
+      })
+      .catch(() => {});
   };
 
   const loadHome = async () => {

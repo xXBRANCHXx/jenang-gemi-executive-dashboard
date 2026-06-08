@@ -19,6 +19,7 @@ $apiDocs = [
     ['Sales', 'GET', $ingestBaseUrl . '/sales/summary?year=YYYY&setup_token=[redacted]', 'Yearly marketplace rollup used by the executive overview.', 'months, months[].accounts, months[].platforms, accounts, platforms, products, totals'],
     ['Sales', 'GET', $ingestBaseUrl . '/sales/orders?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD&setup_token=[redacted]', 'Item-level marketplace orders for the Orders page.', 'timestamp, order_id, sku, quantity, net seller revenue, marketplace fees, contact fields'],
     ['Sales', 'GET', $ingestBaseUrl . '/sales/sync?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD&setup_token=[redacted]', 'Date-range backfill for all configured marketplace APIs.', 'sync.accounts[], stored order count, refreshed sales summary'],
+    ['Sales', 'GET', $ingestBaseUrl . '/sales/recalculate?year=YYYY&setup_token=[redacted]', 'Retroactively rebuilds normalized revenue, items, and rollups from raw marketplace JSON already stored locally.', 'recalculate.scanned, recalculate.recalculated, months, totals'],
     ['Shopee', 'GET', $ingestBaseUrl . '/shopee/auth/status?account=ACCOUNT&setup_token=[redacted]', 'Shopee authorization status for a marketplace account.', 'status.shop_id, token flags, token expiry'],
     ['Shopee', 'GET', $ingestBaseUrl . '/shopee/orders/listed?account=ACCOUNT&setup_token=[redacted]', 'Listed Shopee orders currently used as order feed health.', 'orders[]'],
     ['Store Ops', 'GET', $storeOpsBaseUrl . '/api/orders/', 'Protected Store Ops orders route. A 401 still means the route exists.', 'Authenticated order payload'],
@@ -121,6 +122,35 @@ $apiDocs = [
                         </table>
                     </div>
                     <p class="admin-table-note">The ingest service currently returns 404 for OpenAPI, Swagger, and route-list probes, so this catalog is built from the endpoints this dashboard can discover from configuration and code.</p>
+                </article>
+
+                <article class="admin-panel admin-panel-wide">
+                    <div class="admin-panel-head">
+                        <div>
+                            <span class="admin-panel-kicker">Homepage Calculations</span>
+                            <h3>Exact metric formulas and JSON sources</h3>
+                        </div>
+                        <span class="admin-panel-meta" data-calculation-audit-status>Loading audit</span>
+                    </div>
+                    <div class="admin-table-wrap">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Metric</th>
+                                    <th>Definition</th>
+                                    <th>Formula</th>
+                                    <th>JSON / SQL fields</th>
+                                </tr>
+                            </thead>
+                            <tbody data-calculation-audit-metrics>
+                                <tr><td colspan="4" class="admin-empty">Loading calculation metadata from the sales proxy.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="admin-note-stack" data-calculation-audit-apis>
+                        <div class="admin-note-card"><strong>Revenue source</strong><span>Seller-received money comes from API Ingest stored order facts and marketplace rollups, not customer-paid gross revenue.</span></div>
+                    </div>
+                    <p class="admin-table-note">This audit block is returned by <span class="admin-code-block">../api/sales/?year=<?php echo htmlspecialchars($dashboardPrefetchYear, ENT_QUOTES, 'UTF-8'); ?>&amp;refresh=1</span>, so formula changes apply retroactively to the stored raw marketplace order data and rollups without forcing a one-year marketplace API backfill.</p>
                 </article>
 
                 <article class="admin-panel admin-panel-wide">
@@ -237,6 +267,54 @@ Paket yang dipilih: 30 Sachet</textarea>
                     headers: { Accept: 'application/json' }
                 }).catch(() => {});
             }, { once: true });
+        })();
+
+        (() => {
+            const status = document.querySelector('[data-calculation-audit-status]');
+            const metricsBody = document.querySelector('[data-calculation-audit-metrics]');
+            const apiList = document.querySelector('[data-calculation-audit-apis]');
+            if (!status || !metricsBody || !apiList) return;
+
+            const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            }[char]));
+            const listFields = (fields) => Array.isArray(fields) ? fields.map((field) => `<span class="admin-code-block">${escapeHtml(field)}</span>`).join(' ') : '';
+
+            window.fetch('../api/sales/?year=<?php echo urlencode($dashboardPrefetchYear); ?>&refresh=1', {
+                credentials: 'same-origin',
+                headers: { Accept: 'application/json' }
+            })
+                .then((response) => response.json())
+                .then((data) => {
+                    const calculations = data && typeof data === 'object' ? data.calculations || {} : {};
+                    const metrics = calculations.metrics || {};
+                    const apiCalls = Array.isArray(calculations.upstream_api_calls) ? calculations.upstream_api_calls : [];
+                    const metricRows = Object.entries(metrics).map(([key, metric]) => `
+                        <tr>
+                            <td><strong>${escapeHtml(key.replace(/_/g, ' '))}</strong></td>
+                            <td>${escapeHtml(metric.definition || '')}</td>
+                            <td>${escapeHtml(metric.formula || '')}</td>
+                            <td>${listFields(metric.dashboard_json_paths || metric.field_precedence || [])}</td>
+                        </tr>
+                    `).join('');
+                    metricsBody.innerHTML = metricRows || '<tr><td colspan="4" class="admin-empty">No calculation metadata returned.</td></tr>';
+                    apiList.innerHTML = apiCalls.map((api) => `
+                        <div class="admin-note-card">
+                            <strong>${escapeHtml(api.name || api.endpoint || 'API call')}</strong>
+                            <span><span class="admin-code-block">${escapeHtml(api.method || 'GET')} ${escapeHtml(api.endpoint || '')}</span> ${escapeHtml(api.used_for || '')}</span>
+                            <span>${listFields(api.json_paths || [])}</span>
+                        </div>
+                    `).join('') || '<div class="admin-note-card"><strong>API calls</strong><span>No API call metadata returned.</span></div>';
+                    status.textContent = calculations.generated_at ? `Generated ${calculations.generated_at}` : 'Audit loaded';
+                })
+                .catch((error) => {
+                    status.textContent = 'Audit unavailable';
+                    metricsBody.innerHTML = `<tr><td colspan="4" class="admin-empty">${escapeHtml(error.message || 'Unable to load calculation audit.')}</td></tr>`;
+                });
         })();
 
         (() => {
