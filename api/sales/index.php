@@ -598,6 +598,7 @@ function jg_sales_attach_calculation_audit(array &$summary, int $year): void
                     'Shopee /api/v2/payment/get_escrow_detail',
                     'TikTok /order/202309/orders/search',
                     'TikTok /order/202309/orders',
+                    'TikTok /finance/202501/orders/{order_id}/statement_transactions',
                     'Tokopedia configured order list endpoint',
                     'sync.accounts[].platform',
                     'sync.accounts[].account_key',
