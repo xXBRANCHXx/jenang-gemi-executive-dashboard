@@ -615,7 +615,7 @@ function jg_sales_attach_calculation_audit(array &$summary, int $year): void
         'metrics' => [
             'revenue' => [
                 'definition' => 'Seller-received company revenue after marketplace deductions; never customer-paid gross merchandise value.',
-                'formula' => 'first non-zero seller-received field from each rollup row, falling back to net_revenue/sales/revenue; yearly total is SUM(months[].revenue)',
+                'formula' => 'SUM(months[].net_revenue) from stored seller/settlement fields; when a raw order lacks a seller-received field, Back Dash marks any customer-paid fallback as gross_revenue_fallback instead of hiding it.',
                 'field_precedence' => ['seller_received', 'seller_receivable', 'settlement_amount', 'payout_amount', 'net_revenue', 'net_sales', 'sales', 'revenue'],
                 'dashboard_json_paths' => ['months[].revenue', 'months[].net_revenue', 'totals.revenue', 'totals.net_revenue'],
                 'raw_storage' => 'API Ingest stores the original marketplace JSON in marketplace_orders.raw_json; changing this formula recalculates from stored facts/rollups without a full marketplace backfill.',
