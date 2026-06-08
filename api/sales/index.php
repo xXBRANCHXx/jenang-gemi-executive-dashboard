@@ -547,6 +547,7 @@ function jg_sales_attach_calculation_audit(array &$summary, int $year): void
     $orders = (int) round((float) ($totals['orders'] ?? 0));
     $itemCount = (int) round((float) ($totals['item_count'] ?? 0));
     $averageOrderValue = $orders > 0 ? (int) round($revenue / $orders) : 0;
+    $financialSources = is_array($summary['financial_sources'] ?? null) ? array_values($summary['financial_sources']) : [];
     $summary['calculations'] = [
         'year' => $year,
         'timezone' => 'Asia/Jakarta for dashboard date controls; ingest stores order timestamps in UTC',
@@ -696,6 +697,7 @@ function jg_sales_attach_calculation_audit(array &$summary, int $year): void
                 ],
             ],
         ],
+        'financial_source_summary' => $financialSources,
         'cache' => [
             'default_behavior' => 'Dashboard serves the last calculated JSON immediately and refreshes with refresh=1 in the background.',
             'fresh_refresh_query' => '../api/sales/?year=' . $year . '&refresh=1',

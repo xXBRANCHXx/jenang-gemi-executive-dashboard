@@ -151,6 +151,9 @@ $apiDocs = [
                     <div class="admin-note-stack" data-marketplace-sync-status>
                         <div class="admin-note-card"><strong>24/7 Sync</strong><span>Loading latest unattended marketplace sync run.</span></div>
                     </div>
+                    <div class="admin-note-stack" data-financial-source-audit>
+                        <div class="admin-note-card"><strong>JSON Field Provenance</strong><span>Loading marketplace revenue source paths.</span></div>
+                    </div>
                     <div class="admin-note-stack" data-calculation-audit-apis>
                         <div class="admin-note-card"><strong>Revenue source</strong><span>Seller-received money comes from API Ingest stored order facts and marketplace rollups, not customer-paid gross revenue.</span></div>
                     </div>
@@ -278,7 +281,8 @@ Paket yang dipilih: 30 Sachet</textarea>
             const metricsBody = document.querySelector('[data-calculation-audit-metrics]');
             const apiList = document.querySelector('[data-calculation-audit-apis]');
             const syncStatusNode = document.querySelector('[data-marketplace-sync-status]');
-            if (!status || !metricsBody || !apiList || !syncStatusNode) return;
+            const sourceAuditNode = document.querySelector('[data-financial-source-audit]');
+            if (!status || !metricsBody || !apiList || !syncStatusNode || !sourceAuditNode) return;
 
             const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
                 '&': '&amp;',
@@ -299,9 +303,10 @@ Paket yang dipilih: 30 Sachet</textarea>
                     const metrics = calculations.metrics || {};
                     const currentValues = calculations.current_values || {};
                     const apiCalls = Array.isArray(calculations.upstream_api_calls) ? calculations.upstream_api_calls : [];
+                    const financialSources = Array.isArray(calculations.financial_source_summary) ? calculations.financial_source_summary : [];
                     const syncStatus = data && typeof data === 'object' && data.sync_status ? data.sync_status : {};
                     const formatIdr = (value) => `Rp${Number(value || 0).toLocaleString('id-ID')}`;
-                    const formatMetricValue = (key, value) => ['revenue', 'marketplace_fees', 'cogs', 'gross_profit', 'average_order_value'].includes(key)
+                    const formatMetricValue = (key, value) => ['revenue', 'net_revenue', 'gross_revenue', 'marketplace_fees', 'cogs', 'gross_profit', 'average_order_value'].includes(key)
                         ? formatIdr(value)
                         : Number(value || 0).toLocaleString('id-ID');
                     const componentsFor = (key) => {
@@ -333,6 +338,13 @@ Paket yang dipilih: 30 Sachet</textarea>
                             <span><span class="admin-code-block">mode: ${escapeHtml(syncStatus.mode || '-')}</span> <span class="admin-code-block">finished_at: ${escapeHtml(syncStatus.finished_at || '-')}</span> <span class="admin-code-block">age_seconds: ${escapeHtml(syncStatus.age_seconds ?? '-')}</span></span>
                         </div>
                     `;
+                    sourceAuditNode.innerHTML = financialSources.slice(0, 18).map((source) => `
+                        <div class="admin-note-card">
+                            <strong>${escapeHtml(source.metric || 'metric')} • ${escapeHtml(source.platform || 'platform')} / ${escapeHtml(source.account_key || 'account')}</strong>
+                            <span><span class="admin-code-block">${escapeHtml(source.path || 'missing')}</span> ${escapeHtml(source.source || '')}</span>
+                            <span>${escapeHtml(Number(source.orders || 0).toLocaleString('id-ID'))} orders • ${escapeHtml(formatMetricValue(source.metric || '', source.value || 0))}</span>
+                        </div>
+                    `).join('') || '<div class="admin-note-card"><strong>JSON Field Provenance</strong><span>No financial source rows returned yet. Run /sales/recalculate or wait for the next sync to populate raw-order provenance.</span></div>';
                     status.textContent = calculations.generated_at ? `Generated ${calculations.generated_at}` : 'Audit loaded';
                 })
                 .catch((error) => {
