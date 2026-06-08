@@ -26,9 +26,9 @@ $url = jg_dashboard_marketplace_api_base_url()
 
 $cacheKey = 'sales-summary-' . $year;
 $forceRefresh = (string) ($_GET['refresh'] ?? '') === '1';
-$cachedResponse = jg_sales_cache_read($cacheKey, $forceRefresh ? 120 : 0);
+$cachedResponse = $forceRefresh ? null : jg_sales_cache_read($cacheKey, 0);
 if (is_string($cachedResponse)) {
-    header('X-JG-Cache: ' . ($forceRefresh ? 'HIT' : 'STALE-FAST'));
+    header('X-JG-Cache: STALE-FAST');
     echo $cachedResponse;
     exit;
 }
@@ -539,6 +539,14 @@ function jg_sales_enrich_with_sku_db(array $summary, int $year): array
  */
 function jg_sales_attach_calculation_audit(array &$summary, int $year): void
 {
+    $totals = is_array($summary['totals'] ?? null) ? $summary['totals'] : [];
+    $revenue = jg_sales_seller_received($totals);
+    $marketplaceFees = (int) round((float) ($totals['marketplace_fees'] ?? 0));
+    $cogs = (int) round((float) ($totals['cogs'] ?? 0));
+    $grossProfit = (int) round((float) ($totals['gross_profit'] ?? ($revenue - $cogs)));
+    $orders = (int) round((float) ($totals['orders'] ?? 0));
+    $itemCount = (int) round((float) ($totals['item_count'] ?? 0));
+    $averageOrderValue = $orders > 0 ? (int) round($revenue / $orders) : 0;
     $summary['calculations'] = [
         'year' => $year,
         'timezone' => 'Asia/Jakarta for dashboard date controls; ingest stores order timestamps in UTC',
@@ -616,6 +624,76 @@ function jg_sales_attach_calculation_audit(array &$summary, int $year): void
                 'definition' => 'Company revenue after product cost.',
                 'formula' => 'revenue - cogs',
                 'dashboard_json_paths' => ['months[].gross_profit', 'totals.gross_profit', 'products.by_month[].gross_profit'],
+            ],
+            'orders' => [
+                'definition' => 'Completed marketplace orders included in revenue.',
+                'formula' => 'SUM(months[].orders), excluding cancelled, unpaid, refunded, returned, rejected, failed, expired, or closed statuses.',
+                'dashboard_json_paths' => ['months[].orders', 'totals.orders'],
+            ],
+            'item_count' => [
+                'definition' => 'Units sold across included marketplace order items.',
+                'formula' => 'SUM(months[].item_count)',
+                'dashboard_json_paths' => ['months[].item_count', 'totals.item_count', 'products.by_month[].quantity'],
+            ],
+            'average_order_value' => [
+                'definition' => 'Average seller-received revenue per included marketplace order.',
+                'formula' => 'revenue / orders',
+                'dashboard_json_paths' => ['totals.average_order_value', 'totals.revenue', 'totals.orders'],
+            ],
+        ],
+        'current_values' => [
+            'revenue' => [
+                'value' => $revenue,
+                'formula' => 'SUM(months[].revenue)',
+                'components' => [
+                    ['path' => 'totals.revenue', 'value' => (int) round((float) ($totals['revenue'] ?? 0))],
+                    ['path' => 'totals.net_revenue', 'value' => (int) round((float) ($totals['net_revenue'] ?? 0))],
+                    ['path' => 'totals.sales', 'value' => (int) round((float) ($totals['sales'] ?? 0))],
+                ],
+            ],
+            'marketplace_fees' => [
+                'value' => $marketplaceFees,
+                'formula' => 'SUM(months[].marketplace_fees)',
+                'components' => [
+                    ['path' => 'totals.marketplace_fees', 'value' => $marketplaceFees],
+                ],
+            ],
+            'cogs' => [
+                'value' => $cogs,
+                'formula' => 'SUM(products.by_month[].cogs) or FIFO allocation total',
+                'components' => [
+                    ['path' => 'totals.cogs', 'value' => $cogs],
+                ],
+            ],
+            'gross_profit' => [
+                'value' => $grossProfit,
+                'formula' => 'revenue - cogs',
+                'components' => [
+                    ['path' => 'calculations.current_values.revenue.value', 'value' => $revenue],
+                    ['path' => 'calculations.current_values.cogs.value', 'value' => $cogs],
+                ],
+            ],
+            'orders' => [
+                'value' => $orders,
+                'formula' => 'SUM(months[].orders)',
+                'components' => [
+                    ['path' => 'totals.orders', 'value' => $orders],
+                ],
+            ],
+            'item_count' => [
+                'value' => $itemCount,
+                'formula' => 'SUM(months[].item_count)',
+                'components' => [
+                    ['path' => 'totals.item_count', 'value' => $itemCount],
+                ],
+            ],
+            'average_order_value' => [
+                'value' => $averageOrderValue,
+                'formula' => 'revenue / orders',
+                'components' => [
+                    ['path' => 'calculations.current_values.revenue.value', 'value' => $revenue],
+                    ['path' => 'calculations.current_values.orders.value', 'value' => $orders],
+                ],
             ],
         ],
         'cache' => [

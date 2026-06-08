@@ -137,13 +137,14 @@ $apiDocs = [
                             <thead>
                                 <tr>
                                     <th>Metric</th>
+                                    <th>Current Value</th>
                                     <th>Definition</th>
                                     <th>Formula</th>
                                     <th>JSON / SQL fields</th>
                                 </tr>
                             </thead>
                             <tbody data-calculation-audit-metrics>
-                                <tr><td colspan="4" class="admin-empty">Loading calculation metadata from the sales proxy.</td></tr>
+                                <tr><td colspan="5" class="admin-empty">Loading calculation metadata from the sales proxy.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -292,16 +293,27 @@ Paket yang dipilih: 30 Sachet</textarea>
                 .then((data) => {
                     const calculations = data && typeof data === 'object' ? data.calculations || {} : {};
                     const metrics = calculations.metrics || {};
+                    const currentValues = calculations.current_values || {};
                     const apiCalls = Array.isArray(calculations.upstream_api_calls) ? calculations.upstream_api_calls : [];
+                    const formatIdr = (value) => `Rp${Number(value || 0).toLocaleString('id-ID')}`;
+                    const formatMetricValue = (key, value) => ['revenue', 'marketplace_fees', 'cogs', 'gross_profit', 'average_order_value'].includes(key)
+                        ? formatIdr(value)
+                        : Number(value || 0).toLocaleString('id-ID');
+                    const componentsFor = (key) => {
+                        const row = currentValues[key] || {};
+                        const components = Array.isArray(row.components) ? row.components : [];
+                        return components.map((component) => `<span class="admin-code-block">${escapeHtml(component.path || '')}: ${escapeHtml(formatMetricValue(key, component.value || 0))}</span>`).join(' ');
+                    };
                     const metricRows = Object.entries(metrics).map(([key, metric]) => `
                         <tr>
                             <td><strong>${escapeHtml(key.replace(/_/g, ' '))}</strong></td>
+                            <td>${escapeHtml(formatMetricValue(key, currentValues[key]?.value || 0))}</td>
                             <td>${escapeHtml(metric.definition || '')}</td>
-                            <td>${escapeHtml(metric.formula || '')}</td>
-                            <td>${listFields(metric.dashboard_json_paths || metric.field_precedence || [])}</td>
+                            <td>${escapeHtml(currentValues[key]?.formula || metric.formula || '')}</td>
+                            <td>${componentsFor(key) || listFields(metric.dashboard_json_paths || metric.field_precedence || [])}</td>
                         </tr>
                     `).join('');
-                    metricsBody.innerHTML = metricRows || '<tr><td colspan="4" class="admin-empty">No calculation metadata returned.</td></tr>';
+                    metricsBody.innerHTML = metricRows || '<tr><td colspan="5" class="admin-empty">No calculation metadata returned.</td></tr>';
                     apiList.innerHTML = apiCalls.map((api) => `
                         <div class="admin-note-card">
                             <strong>${escapeHtml(api.name || api.endpoint || 'API call')}</strong>
@@ -313,7 +325,7 @@ Paket yang dipilih: 30 Sachet</textarea>
                 })
                 .catch((error) => {
                     status.textContent = 'Audit unavailable';
-                    metricsBody.innerHTML = `<tr><td colspan="4" class="admin-empty">${escapeHtml(error.message || 'Unable to load calculation audit.')}</td></tr>`;
+                    metricsBody.innerHTML = `<tr><td colspan="5" class="admin-empty">${escapeHtml(error.message || 'Unable to load calculation audit.')}</td></tr>`;
                 });
         })();
 
