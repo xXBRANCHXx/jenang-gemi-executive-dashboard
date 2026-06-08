@@ -599,6 +599,7 @@ function jg_sales_attach_calculation_audit(array &$summary, int $year): void
                     'TikTok /order/202309/orders/search',
                     'TikTok /order/202309/orders',
                     'TikTok /finance/202501/orders/{order_id}/statement_transactions',
+                    'raw_json.finance_statement.sku_transactions[].settlement_amount',
                     'Tokopedia configured order list endpoint',
                     'sync.accounts[].platform',
                     'sync.accounts[].account_key',
@@ -634,7 +635,7 @@ function jg_sales_attach_calculation_audit(array &$summary, int $year): void
             ],
             'cogs' => [
                 'definition' => 'Cost of goods sold from FIFO PO allocations when available, otherwise current SKU DB COGS times item quantity.',
-                'formula' => 'SUM(marketplace_order_inventory_allocations.total_cogs) OR SUM(sku_skus.cogs * products.by_month[].quantity)',
+                'formula' => 'SUM(marketplace_order_inventory_allocations.total_cogs) OR SUM(sku_skus.cogs * products.by_month[].quantity); product gross profit uses item-level net revenue, including raw_json.finance_statement.sku_transactions[].settlement_amount when available.',
                 'dashboard_json_paths' => ['months[].cogs', 'products.by_month[].cogs', 'products.by_product[].cogs'],
             ],
             'gross_profit' => [
