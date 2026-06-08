@@ -20,11 +20,17 @@ if ($setupToken === '') {
     exit;
 }
 
-$url = jg_dashboard_marketplace_api_base_url()
-    . '/sales/summary?setup_token=' . rawurlencode($setupToken)
-    . '&year=' . rawurlencode((string) $year);
+$includeAudit = in_array(strtolower(trim((string) ($_GET['audit'] ?? $_GET['include_audit'] ?? ''))), ['1', 'true', 'yes', 'on'], true);
+$urlParams = [
+    'setup_token' => $setupToken,
+    'year' => (string) $year,
+];
+if ($includeAudit) {
+    $urlParams['audit'] = '1';
+}
+$url = jg_dashboard_marketplace_api_base_url() . '/sales/summary?' . http_build_query($urlParams);
 
-$cacheKey = 'sales-summary-' . $year;
+$cacheKey = 'sales-summary-' . $year . ($includeAudit ? '-audit' : '-core');
 $forceRefresh = (string) ($_GET['refresh'] ?? '') === '1';
 $cachedResponse = $forceRefresh ? null : jg_sales_cache_read($cacheKey, 0);
 if (is_string($cachedResponse)) {
@@ -71,7 +77,9 @@ $decoded = json_decode($response, true);
 if (is_array($decoded) && ($status < 400 || $status === 200)) {
     http_response_code($status >= 100 ? $status : 200);
     $decoded = jg_sales_enrich_with_sku_db($decoded, $year);
-    jg_sales_attach_calculation_audit($decoded, $year);
+    if ($includeAudit) {
+        jg_sales_attach_calculation_audit($decoded, $year);
+    }
     jg_sales_remove_customer_paid_fields($decoded);
     $encoded = json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     if (is_string($encoded)) {
@@ -548,6 +556,7 @@ function jg_sales_attach_calculation_audit(array &$summary, int $year): void
     $itemCount = (int) round((float) ($totals['item_count'] ?? 0));
     $averageOrderValue = $orders > 0 ? (int) round($revenue / $orders) : 0;
     $financialSources = is_array($summary['financial_sources'] ?? null) ? array_values($summary['financial_sources']) : [];
+    $rawSourceTotals = jg_sales_financial_source_totals($financialSources);
     $summary['calculations'] = [
         'year' => $year,
         'timezone' => 'Asia/Jakarta for dashboard date controls; ingest stores order timestamps in UTC',
@@ -698,10 +707,48 @@ function jg_sales_attach_calculation_audit(array &$summary, int $year): void
             ],
         ],
         'financial_source_summary' => $financialSources,
+        'raw_integrity' => [
+            'net_revenue' => [
+                'rollup_value' => $revenue,
+                'raw_recomputed_value' => (int) ($rawSourceTotals['net_revenue'] ?? 0),
+                'delta' => $revenue - (int) ($rawSourceTotals['net_revenue'] ?? 0),
+            ],
+            'gross_revenue' => [
+                'rollup_value' => (int) round((float) ($totals['gross_revenue'] ?? 0)),
+                'raw_recomputed_value' => (int) ($rawSourceTotals['gross_revenue'] ?? 0),
+                'delta' => (int) round((float) ($totals['gross_revenue'] ?? 0)) - (int) ($rawSourceTotals['gross_revenue'] ?? 0),
+            ],
+            'marketplace_fees' => [
+                'rollup_value' => $marketplaceFees,
+                'raw_recomputed_value' => (int) ($rawSourceTotals['marketplace_fees'] ?? 0),
+                'delta' => $marketplaceFees - (int) ($rawSourceTotals['marketplace_fees'] ?? 0),
+            ],
+        ],
         'cache' => [
             'default_behavior' => 'Dashboard serves the last calculated JSON immediately and refreshes with refresh=1 in the background.',
             'fresh_refresh_query' => '../api/sales/?year=' . $year . '&refresh=1',
         ],
         'generated_at' => gmdate(DATE_ATOM),
     ];
+}
+
+/**
+ * @param array<int, mixed> $financialSources
+ * @return array<string, int>
+ */
+function jg_sales_financial_source_totals(array $financialSources): array
+{
+    $totals = [];
+    foreach ($financialSources as $source) {
+        if (!is_array($source)) {
+            continue;
+        }
+        $metric = (string) ($source['metric'] ?? '');
+        if ($metric === '') {
+            continue;
+        }
+        $totals[$metric] = (int) ($totals[$metric] ?? 0) + (int) round((float) ($source['value'] ?? 0));
+    }
+
+    return $totals;
 }

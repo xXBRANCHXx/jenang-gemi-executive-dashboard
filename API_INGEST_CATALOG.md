@@ -10,7 +10,7 @@ Base URL: `JG_API_INGEST_BASE_URL` / `api_ingest_base_url`, currently expected a
 | --- | --- | --- | --- |
 | `GET /` | none | Root service identity. Confirms the API Ingest service is reachable. | `ok`, `service` |
 | `GET /health` | none | Health probe for uptime checks. | `ok`, `service` |
-| `GET /sales/summary?year=YYYY&setup_token=...` | setup token | Yearly marketplace sales rollup. This is the main source for executive sales charts. | `months`, `months[].accounts`, `months[].platforms`, `accounts`, `platforms`, `products.by_product`, `products.by_platform`, `products.by_month`, `totals`, `sync_status`, `financial_sources` |
+| `GET /sales/summary?year=YYYY&setup_token=...` | setup token | Yearly marketplace sales rollup. This is the main source for executive sales charts. Add `audit=1` only for Back Dash provenance. | `months`, `months[].accounts`, `months[].platforms`, `accounts`, `platforms`, `products.by_product`, `products.by_platform`, `products.by_month`, `totals`, `sync_status`; with `audit=1`: `financial_sources` |
 | `GET /shopee/auth/status?account=...&setup_token=...` | setup token | Shopee authorization status for an account. Use it to detect expired/missing access and refresh tokens. | `status.account_key`, `status.shop_id`, `status.has_access_token`, `status.has_refresh_token`, token expiry fields |
 | `GET /shopee/orders/listed?account=...&setup_token=...` | setup token | Current Shopee listed orders, currently checked as READY_TO_SHIP order feed health. | `orders[]` |
 
@@ -47,7 +47,7 @@ These endpoints live inside this executive dashboard and are already normalized 
 - Exact monthly COGS comes from API Ingest `products.by_month` when available; `/api/sales/` falls back to product-total allocation only for older ingest payloads that do not expose monthly SKU rollups.
 - The executive dashboard proxy strips customer-paid gross fields from `/api/sales/` output so revenue charts cannot accidentally use them.
 - `sync_status` proves whether unattended marketplace sync is fresh. API Health should fail if the latest sync is stale or missing.
-- `financial_sources` lists the raw marketplace JSON paths used for net revenue, gross revenue, and marketplace-fee calculations by account.
+- `financial_sources` lists the raw marketplace JSON paths used for net revenue, gross revenue, and marketplace-fee calculations by account. It is audit-only so the homepage sales endpoint stays fast.
 - Product charts should use `products.by_product`.
 - Product-by-platform charts should use `products.by_product[*].platforms`.
 - Syrup flavor charts use `/api/sales/` because the dashboard enriches `products.syrup_flavors` from the local SKU DB.

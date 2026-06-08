@@ -154,6 +154,9 @@ $apiDocs = [
                     <div class="admin-note-stack" data-financial-source-audit>
                         <div class="admin-note-card"><strong>JSON Field Provenance</strong><span>Loading marketplace revenue source paths.</span></div>
                     </div>
+                    <div class="admin-note-stack" data-raw-integrity-audit>
+                        <div class="admin-note-card"><strong>Raw Integrity</strong><span>Loading raw JSON recompute deltas.</span></div>
+                    </div>
                     <div class="admin-note-stack" data-calculation-audit-apis>
                         <div class="admin-note-card"><strong>Revenue source</strong><span>Seller-received money comes from API Ingest stored order facts and marketplace rollups, not customer-paid gross revenue.</span></div>
                     </div>
@@ -282,7 +285,8 @@ Paket yang dipilih: 30 Sachet</textarea>
             const apiList = document.querySelector('[data-calculation-audit-apis]');
             const syncStatusNode = document.querySelector('[data-marketplace-sync-status]');
             const sourceAuditNode = document.querySelector('[data-financial-source-audit]');
-            if (!status || !metricsBody || !apiList || !syncStatusNode || !sourceAuditNode) return;
+            const rawIntegrityNode = document.querySelector('[data-raw-integrity-audit]');
+            if (!status || !metricsBody || !apiList || !syncStatusNode || !sourceAuditNode || !rawIntegrityNode) return;
 
             const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
                 '&': '&amp;',
@@ -293,7 +297,7 @@ Paket yang dipilih: 30 Sachet</textarea>
             }[char]));
             const listFields = (fields) => Array.isArray(fields) ? fields.map((field) => `<span class="admin-code-block">${escapeHtml(field)}</span>`).join(' ') : '';
 
-            window.fetch('../api/sales/?year=<?php echo urlencode($dashboardPrefetchYear); ?>&refresh=1', {
+            window.fetch('../api/sales/?year=<?php echo urlencode($dashboardPrefetchYear); ?>&refresh=1&audit=1', {
                 credentials: 'same-origin',
                 headers: { Accept: 'application/json' }
             })
@@ -304,6 +308,7 @@ Paket yang dipilih: 30 Sachet</textarea>
                     const currentValues = calculations.current_values || {};
                     const apiCalls = Array.isArray(calculations.upstream_api_calls) ? calculations.upstream_api_calls : [];
                     const financialSources = Array.isArray(calculations.financial_source_summary) ? calculations.financial_source_summary : [];
+                    const rawIntegrity = calculations.raw_integrity && typeof calculations.raw_integrity === 'object' ? calculations.raw_integrity : {};
                     const syncStatus = data && typeof data === 'object' && data.sync_status ? data.sync_status : {};
                     const formatIdr = (value) => `Rp${Number(value || 0).toLocaleString('id-ID')}`;
                     const formatMetricValue = (key, value) => ['revenue', 'net_revenue', 'gross_revenue', 'marketplace_fees', 'cogs', 'gross_profit', 'average_order_value'].includes(key)
@@ -345,6 +350,12 @@ Paket yang dipilih: 30 Sachet</textarea>
                             <span>${escapeHtml(Number(source.orders || 0).toLocaleString('id-ID'))} orders • ${escapeHtml(formatMetricValue(source.metric || '', source.value || 0))}</span>
                         </div>
                     `).join('') || '<div class="admin-note-card"><strong>JSON Field Provenance</strong><span>No financial source rows returned yet. Run /sales/recalculate or wait for the next sync to populate raw-order provenance.</span></div>';
+                    rawIntegrityNode.innerHTML = Object.entries(rawIntegrity).map(([metric, row]) => `
+                        <div class="admin-note-card">
+                            <strong>${escapeHtml(metric.replace(/_/g, ' '))}</strong>
+                            <span><span class="admin-code-block">rollup: ${escapeHtml(formatMetricValue(metric, row.rollup_value || 0))}</span> <span class="admin-code-block">raw: ${escapeHtml(formatMetricValue(metric, row.raw_recomputed_value || 0))}</span> <span class="admin-code-block">delta: ${escapeHtml(formatMetricValue(metric, row.delta || 0))}</span></span>
+                        </div>
+                    `).join('') || '<div class="admin-note-card"><strong>Raw Integrity</strong><span>No raw integrity rows returned.</span></div>';
                     status.textContent = calculations.generated_at ? `Generated ${calculations.generated_at}` : 'Audit loaded';
                 })
                 .catch((error) => {
