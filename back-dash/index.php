@@ -342,6 +342,16 @@ Paket yang dipilih: 30 Sachet</textarea>
                             <span>${syncStatus.ok ? 'Fresh' : 'Needs attention'} • ${escapeHtml(syncStatus.message || 'No sync status returned.')}</span>
                             <span><span class="admin-code-block">mode: ${escapeHtml(syncStatus.mode || '-')}</span> <span class="admin-code-block">finished_at: ${escapeHtml(syncStatus.finished_at || '-')}</span> <span class="admin-code-block">age_seconds: ${escapeHtml(syncStatus.age_seconds ?? '-')}</span></span>
                         </div>
+                        ${(Array.isArray(syncStatus.accounts) ? syncStatus.accounts : []).map((account) => `
+                            <div class="admin-note-card">
+                                <strong>${escapeHtml(account.platform || 'marketplace')} • ${escapeHtml(account.account_key || 'account')}</strong>
+                                <span>${account.skipped
+                                    ? `Skipped • ${escapeHtml(account.reason || 'Not configured.')}`
+                                    : account.ok
+                                        ? `Synced • ${escapeHtml(Number(account.fetched || 0).toLocaleString('id-ID'))} fetched • ${escapeHtml(Number(account.stored || 0).toLocaleString('id-ID'))} stored`
+                                        : `Action required • ${escapeHtml(account.error || 'Marketplace sync failed.')}`}</span>
+                            </div>
+                        `).join('')}
                     `;
                     sourceAuditNode.innerHTML = financialSources.slice(0, 18).map((source) => `
                         <div class="admin-note-card">
