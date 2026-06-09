@@ -6912,3 +6912,28 @@ body::after {
     grid-template-columns: 1fr;
   }
 }
+/* Keep the frequently used ZERO analytics ahead of store and discount controls. */
+[data-website-detail] {
+  display: flex;
+  flex-direction: column;
+}
+
+[data-website-detail][hidden] {
+  display: none;
+}
+
+[data-website-detail] > .admin-control-strip {
+  order: 1;
+}
+
+[data-website-detail] > .admin-metric-grid {
+  order: 2;
+}
+
+[data-website-detail] > .admin-main-grid:not([data-zero-store-panel]) {
+  order: 3;
+}
+
+[data-website-detail] > [data-zero-store-panel] {
+  order: 4;
+}

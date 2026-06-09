@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isAuthenticated = jg_admin_is_authenticated();
-$dashboardBuildVersion = 'exec3.66.3';
+$dashboardBuildVersion = 'exec3.66.4';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 ?>
@@ -649,6 +649,8 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                         <div class="admin-toggle-row" data-website-metric-controls>
                             <button type="button" class="admin-toggle-pill is-active" data-website-metric="visitors">Visitors</button>
                             <button type="button" class="admin-toggle-pill" data-website-metric="page_views">Page Views</button>
+                            <button type="button" class="admin-toggle-pill" data-website-metric="add_to_cart_events">Add To Cart</button>
+                            <button type="button" class="admin-toggle-pill" data-website-metric="checkout_clicks">Checkout</button>
                         </div>
                     </div>
                     <div class="admin-live-status">
@@ -660,6 +662,8 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                 <section class="admin-metric-grid">
                     <article class="admin-metric-card"><span>Total Visitors</span><strong data-website-summary-total-visitors>0</strong><small>Unique tracked website sessions</small></article>
                     <article class="admin-metric-card"><span>Page Views</span><strong data-website-summary-page-views>0</strong><small>Browser page loads only</small></article>
+                    <article class="admin-metric-card"><span>Add To Cart</span><strong data-website-summary-add-to-cart>0</strong><small>Tracked product additions</small></article>
+                    <article class="admin-metric-card"><span>Checkout Intent</span><strong data-website-summary-checkout>0</strong><small>WhatsApp checkout clicks</small></article>
                     <article class="admin-metric-card"><span>Avg. Time Spent</span><strong data-website-summary-time-spent>0s</strong><small>Average per website session</small></article>
                     <article class="admin-metric-card"><span>Top Region</span><strong data-website-summary-top-region>Unknown</strong><small>Most active region in selected timeframe</small></article>
                 </section>
