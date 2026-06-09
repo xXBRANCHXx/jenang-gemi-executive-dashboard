@@ -516,9 +516,10 @@ function jg_orders_enrich_and_allocate(PDO $pdo, array $remoteRows, array $skuLo
             'order_id' => (string) ($remoteRow['order_id'] ?? ''),
             'platform' => (string) ($remoteRow['platform'] ?? ''),
             'account_key' => (string) ($remoteRow['account_key'] ?? ''),
-            'product_name' => (string) ($sku['product_name'] ?? ($remoteRow['product_name'] ?? '')),
+            'product_name' => (string) ($sku['product_name'] ?? ''),
             'marketplace_sku' => (string) ($remoteRow['sku'] ?? ''),
             'sku' => $sku['sku'] ?? '',
+            'sku_linked' => $sku !== null,
             'quantity' => (int) ($remoteRow['quantity'] ?? 0),
             'astra_quantity' => $astraQty,
             'revenue' => (int) round((float) ($remoteRow['revenue'] ?? $remoteRow['net_revenue'] ?? $remoteRow['sales'] ?? 0)),
@@ -546,7 +547,6 @@ function jg_orders_match_sku(array $remoteRow, array $skuLookup): ?array
     $candidates = [
         (string) ($remoteRow['sku'] ?? ''),
         (string) ($remoteRow['item_key'] ?? ''),
-        (string) ($remoteRow['product_name'] ?? ''),
     ];
     foreach ($candidates as $candidate) {
         $key = strtoupper(trim($candidate));

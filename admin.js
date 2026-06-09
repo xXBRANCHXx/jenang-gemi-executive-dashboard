@@ -2628,6 +2628,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     ordersRefs.tableBody.innerHTML = renderRows(rows, 11, (row) => {
       const platform = `${row.platform || '-'}${row.account_key ? ` / ${row.account_key}` : ''}`;
+      const productLabel = row.product_name || row.sku || row.marketplace_sku || 'Unlinked SKU';
       const allocation = Array.isArray(row.allocations) && row.allocations.length
         ? row.allocations.map((item) => `${item.po_number}: ${formatCompactNumber(item.qty_astra_consumed || 0)}`).join(', ')
         : (row.allocation_error ? `Allocation needs review: ${row.allocation_error}` : 'No PO allocation');
@@ -2639,7 +2640,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td>${escapeHtml(formatOrderTimestamp(row.order_create_time || row.timestamp))}</td>
           <td><strong>${escapeHtml(row.order_id || '')}</strong></td>
           <td>${escapeHtml(platform)}</td>
-          <td class="admin-order-product" title="${escapeHtml(row.product_name || row.sku || row.marketplace_sku || '')}"><strong>${escapeHtml(row.product_name || row.sku || row.marketplace_sku || '')}</strong></td>
+          <td class="admin-order-product" title="${escapeHtml(productLabel)}"><strong>${escapeHtml(productLabel)}</strong></td>
           <td>${formatCompactNumber(row.quantity || 0)}</td>
           <td title="${escapeHtml(allocation)}">${escapeHtml(poNumbers)}</td>
           <td>${formatCellCurrency(row.revenue || 0)}</td>
