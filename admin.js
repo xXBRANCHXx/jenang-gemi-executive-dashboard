@@ -2628,7 +2628,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     ordersRefs.tableBody.innerHTML = renderRows(rows, 11, (row) => {
       const platform = `${row.platform || '-'}${row.account_key ? ` / ${row.account_key}` : ''}`;
-      const productLabel = row.product_name || row.sku || row.marketplace_sku || 'Unlinked SKU';
+      const productLabel = row.product_name || 'Unlinked SKU';
       const allocation = Array.isArray(row.allocations) && row.allocations.length
         ? row.allocations.map((item) => `${item.po_number}: ${formatCompactNumber(item.qty_astra_consumed || 0)}`).join(', ')
         : (row.allocation_error ? `Allocation needs review: ${row.allocation_error}` : 'No PO allocation');

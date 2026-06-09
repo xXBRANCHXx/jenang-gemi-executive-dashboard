@@ -421,8 +421,10 @@ function jg_orders_sku_lookup(PDO $pdo): array
 {
     $productNameMap = jg_orders_product_name_map();
     $stmt = $pdo->query(
-        'SELECT s.sku, s.tag, s.volume, s.astra, s.cogs, u.name AS unit_name, p.name AS product_name, f.name AS flavor_name
+        'SELECT s.sku, s.tag, s.volume, s.astra, s.cogs,
+                b.name AS brand_name, u.name AS unit_name, p.name AS product_name, f.name AS flavor_name
          FROM sku_skus s
+         INNER JOIN sku_brands b ON b.id = s.brand_id
          INNER JOIN sku_units u ON u.id = s.unit_id
          INNER JOIN sku_products p ON p.id = s.product_id
          INNER JOIN sku_flavors f ON f.id = s.flavor_id'
@@ -444,16 +446,54 @@ function jg_orders_sku_lookup(PDO $pdo): array
             'astra' => (float) ($row['astra'] ?? $row['volume'] ?? 0),
             'cogs' => (float) ($row['cogs'] ?? 0),
             'product_name' => jg_orders_sku_product_display_name($sku, $displayFallback, $productNameMap),
+            'brand_name' => (string) ($row['brand_name'] ?? ''),
+            'unit_name' => (string) ($row['unit_name'] ?? ''),
+            'base_product_name' => $baseProductName,
             'flavor_name' => (string) ($row['flavor_name'] ?? ''),
         ];
-        foreach ([$record['sku'], $record['tag']] as $key) {
-            $key = strtoupper(trim((string) $key));
+        foreach (jg_orders_sku_lookup_aliases($record) as $key) {
             if ($key !== '') {
                 $lookup[$key] = $record;
             }
         }
     }
     return $lookup;
+}
+
+/**
+ * @param array<string, mixed> $record
+ * @return array<int, string>
+ */
+function jg_orders_sku_lookup_aliases(array $record): array
+{
+    $brand = jg_orders_sku_key((string) ($record['brand_name'] ?? ''));
+    $brandInitial = $brand !== '' ? substr($brand, 0, 1) : '';
+    $product = jg_orders_sku_key((string) ($record['base_product_name'] ?? ''));
+    $flavor = jg_orders_sku_key((string) ($record['flavor_name'] ?? ''));
+    $unit = jg_orders_sku_key((string) ($record['unit_name'] ?? ''));
+    $volume = (float) ($record['volume'] ?? 0);
+    $volumeText = $volume > 0 ? rtrim(rtrim(number_format($volume, 1, '.', ''), '0'), '.') : '';
+    $size = jg_orders_sku_key($volumeText . $unit);
+    $aliases = [
+        jg_orders_sku_key((string) ($record['sku'] ?? '')),
+        jg_orders_sku_key((string) ($record['tag'] ?? '')),
+    ];
+
+    foreach (array_filter([$brand, $brandInitial]) as $brandKey) {
+        $aliases[] = $brandKey . $product . $flavor . $size;
+        $aliases[] = $brandKey . $product . $size . $flavor;
+        if (str_contains($product, 'STICKER')) {
+            $aliases[] = $brandKey . 'MERCHSTICKER';
+        }
+    }
+
+    return array_values(array_unique(array_filter($aliases)));
+}
+
+function jg_orders_sku_key(string $value): string
+{
+    $key = strtoupper(preg_replace('/[^A-Z0-9]+/i', '', trim($value)) ?? '');
+    return str_replace('SALTEDCARAMEL', 'SALTCARAMEL', $key);
 }
 
 function jg_orders_product_name_map(): array
@@ -549,13 +589,13 @@ function jg_orders_match_sku(array $remoteRow, array $skuLookup): ?array
         (string) ($remoteRow['item_key'] ?? ''),
     ];
     foreach ($candidates as $candidate) {
-        $key = strtoupper(trim($candidate));
+        $key = jg_orders_sku_key($candidate);
         if ($key !== '' && isset($skuLookup[$key])) {
             return $skuLookup[$key];
         }
     }
 
-    $haystack = strtoupper(implode(' ', $candidates));
+    $haystack = jg_orders_sku_key(implode(' ', $candidates));
     foreach ($skuLookup as $key => $record) {
         if (strlen($key) >= 3 && $haystack !== '' && str_contains($haystack, $key)) {
             return $record;
