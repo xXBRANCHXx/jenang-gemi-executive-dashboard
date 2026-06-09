@@ -81,12 +81,16 @@ const HOME_TREND_SERIES = {
 
 const WEBSITE_METRIC_LABELS = {
   visitors: 'Website visitors over time',
-  page_views: 'Website page views over time'
+  page_views: 'Website page views over time',
+  add_to_cart_events: 'Website add-to-cart activity over time',
+  checkout_clicks: 'Website checkout intent over time'
 };
 
 const WEBSITE_METRIC_UNITS = {
   visitors: 'visitors',
-  page_views: 'page views'
+  page_views: 'page views',
+  add_to_cart_events: 'add to carts',
+  checkout_clicks: 'checkout clicks'
 };
 
 const WEBSITE_SITE_LABELS = {
@@ -885,6 +889,8 @@ document.addEventListener('DOMContentLoaded', () => {
     heroCopy: document.querySelector('[data-website-hero-copy]'),
     summaryVisitors: document.querySelector('[data-website-summary-total-visitors]'),
     summaryPageViews: document.querySelector('[data-website-summary-page-views]'),
+    summaryAddToCart: document.querySelector('[data-website-summary-add-to-cart]'),
+    summaryCheckout: document.querySelector('[data-website-summary-checkout]'),
     summaryTime: document.querySelector('[data-website-summary-time-spent]'),
     summaryTopRegion: document.querySelector('[data-website-summary-top-region]'),
     excludedCount: document.querySelector('[data-website-excluded-ip-count]'),
@@ -1570,6 +1576,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (websiteRefs.summaryVisitors) websiteRefs.summaryVisitors.textContent = Number(summary.total_visitors || 0).toLocaleString('id-ID');
     if (websiteRefs.summaryPageViews) websiteRefs.summaryPageViews.textContent = Number(summary.total_page_views || 0).toLocaleString('id-ID');
+    if (websiteRefs.summaryAddToCart) websiteRefs.summaryAddToCart.textContent = Number(summary.add_to_cart_events || 0).toLocaleString('id-ID');
+    if (websiteRefs.summaryCheckout) websiteRefs.summaryCheckout.textContent = Number(summary.checkout_clicks || 0).toLocaleString('id-ID');
     if (websiteRefs.summaryTime) websiteRefs.summaryTime.textContent = formatSeconds(Number(summary.avg_time_spent_seconds || 0));
     if (websiteRefs.summaryTopRegion) websiteRefs.summaryTopRegion.textContent = summary.top_region || 'Unknown';
     if (websiteRefs.excludedCount) websiteRefs.excludedCount.textContent = Number(summary.excluded_ip_count || 0).toLocaleString('id-ID');

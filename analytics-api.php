@@ -480,6 +480,8 @@ function buildWebsiteAnalyticsPayload(
     $summary = [
         'total_visitors' => 0,
         'total_page_views' => 0,
+        'add_to_cart_events' => 0,
+        'checkout_clicks' => 0,
         'avg_time_spent_seconds' => 0,
         'top_region' => 'Unknown',
         'excluded_ip_count' => count(analyticsLoadIpExclusions()),
@@ -538,6 +540,8 @@ function buildWebsiteAnalyticsPayload(
                     'page_title' => $pageTitle,
                     'visitors' => 0,
                     'page_views' => 0,
+                    'add_to_cart_events' => 0,
+                    'checkout_clicks' => 0,
                     'avg_time_spent_seconds' => 0,
                 ];
             }
@@ -579,6 +583,40 @@ function buildWebsiteAnalyticsPayload(
             }
         }
 
+        if ($eventType === 'add_to_cart' || $eventType === 'add_to_cart_click') {
+            $summary['add_to_cart_events']++;
+            $timeBuckets[$bucketKey]['add_to_cart_events'] = ($timeBuckets[$bucketKey]['add_to_cart_events'] ?? 0) + 1;
+            if (!isset($pageStats[$pagePath])) {
+                $pageStats[$pagePath] = [
+                    'page_path' => $pagePath,
+                    'page_title' => $pageTitle,
+                    'visitors' => 0,
+                    'page_views' => 0,
+                    'add_to_cart_events' => 0,
+                    'checkout_clicks' => 0,
+                    'avg_time_spent_seconds' => 0,
+                ];
+            }
+            $pageStats[$pagePath]['add_to_cart_events']++;
+        }
+
+        if ($eventType === 'checkout_click') {
+            $summary['checkout_clicks']++;
+            $timeBuckets[$bucketKey]['checkout_clicks'] = ($timeBuckets[$bucketKey]['checkout_clicks'] ?? 0) + 1;
+            if (!isset($pageStats[$pagePath])) {
+                $pageStats[$pagePath] = [
+                    'page_path' => $pagePath,
+                    'page_title' => $pageTitle,
+                    'visitors' => 0,
+                    'page_views' => 0,
+                    'add_to_cart_events' => 0,
+                    'checkout_clicks' => 0,
+                    'avg_time_spent_seconds' => 0,
+                ];
+            }
+            $pageStats[$pagePath]['checkout_clicks']++;
+        }
+
         if ($eventType === 'time_spent' && $sessionId !== '') {
             $sessionTimes[$sessionId] = max($sessionTimes[$sessionId] ?? 0, $elapsedMs);
             $pageSessionTimes[$pagePath][$sessionId] = max($pageSessionTimes[$pagePath][$sessionId] ?? 0, $elapsedMs);
@@ -618,6 +656,8 @@ function buildWebsiteAnalyticsPayload(
     foreach ($timeBuckets as &$bucket) {
         $bucket['visitors'] = (int) ($bucket['visitors'] ?? 0);
         $bucket['page_views'] = (int) ($bucket['page_views'] ?? 0);
+        $bucket['add_to_cart_events'] = (int) ($bucket['add_to_cart_events'] ?? 0);
+        $bucket['checkout_clicks'] = (int) ($bucket['checkout_clicks'] ?? 0);
     }
     unset($bucket);
 
