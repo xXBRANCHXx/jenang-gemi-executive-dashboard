@@ -1337,6 +1337,50 @@ const drawStackedBarChart = (canvas, items, config) => {
   chartHoverState.set(canvas, hoverPoints);
 };
 
+const initLiquidChartToggles = (root) => {
+  root.querySelectorAll('[data-liquid-chart-toggle]').forEach((toggle) => {
+    if (toggle.dataset.liquidToggleReady === 'true') return;
+
+    const indicator = document.createElement('span');
+    indicator.className = 'admin-liquid-toggle-indicator';
+    indicator.setAttribute('aria-hidden', 'true');
+    toggle.prepend(indicator);
+    toggle.dataset.liquidToggleReady = 'true';
+
+    const syncIndicator = () => {
+      const buttons = Array.from(toggle.querySelectorAll('.admin-toggle-pill'));
+      const activeButton = buttons.find((button) => button.classList.contains('is-active'));
+      buttons.forEach((button) => {
+        button.setAttribute('aria-pressed', button === activeButton ? 'true' : 'false');
+      });
+      if (!activeButton) {
+        indicator.style.opacity = '0';
+        return;
+      }
+
+      indicator.style.setProperty('--liquid-toggle-x', `${activeButton.offsetLeft}px`);
+      indicator.style.setProperty('--liquid-toggle-y', `${activeButton.offsetTop}px`);
+      indicator.style.setProperty('--liquid-toggle-width', `${activeButton.offsetWidth}px`);
+      indicator.style.setProperty('--liquid-toggle-height', `${activeButton.offsetHeight}px`);
+      indicator.style.opacity = '1';
+    };
+
+    const observer = new MutationObserver(syncIndicator);
+    toggle.querySelectorAll('.admin-toggle-pill').forEach((button) => {
+      observer.observe(button, { attributes: true, attributeFilter: ['class'] });
+    });
+
+    if (window.ResizeObserver) {
+      const resizeObserver = new ResizeObserver(syncIndicator);
+      resizeObserver.observe(toggle);
+      toggle.querySelectorAll('.admin-toggle-pill').forEach((button) => resizeObserver.observe(button));
+    }
+
+    toggle.addEventListener('click', () => window.requestAnimationFrame(syncIndicator));
+    window.requestAnimationFrame(syncIndicator);
+  });
+};
+
 const drawPieChart = (canvas, items, config) => {
   const prepared = prepareCanvas(canvas);
   if (!prepared) return;
@@ -1433,6 +1477,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!root) return;
 
   bindChartInfoPopovers();
+  initLiquidChartToggles(root);
 
   const themeStorageKey = 'jg-admin-theme';
   const themeDefaultMigrationKey = `${themeStorageKey}-minimal-black-default`;

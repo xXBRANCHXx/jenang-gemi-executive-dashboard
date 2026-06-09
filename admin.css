@@ -6937,3 +6937,153 @@ body::after {
 [data-website-detail] > [data-zero-store-panel] {
   order: 4;
 }
+
+/* Premium liquid-glass metric selectors for Executive Sales charts. */
+.admin-app.admin-app-suite .admin-liquid-chart-toggle {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  width: auto;
+  max-width: 100%;
+  gap: 0;
+  margin: -2px 0 12px;
+  padding: 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 999px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.05), transparent 48%, rgba(0, 0, 0, 0.18)),
+    #0b0b0c;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 1px 0 0 rgba(255, 255, 255, 0.04),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3),
+    inset -1px 0 0 rgba(0, 0, 0, 0.16),
+    0 10px 30px rgba(0, 0, 0, 0.36);
+  scrollbar-width: none;
+}
+
+.admin-app.admin-app-suite .admin-liquid-chart-toggle::-webkit-scrollbar {
+  display: none;
+}
+
+.admin-app.admin-app-suite .admin-liquid-chart-toggle::after {
+  position: absolute;
+  z-index: -2;
+  inset: 1px;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.03),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.2);
+  content: "";
+  pointer-events: none;
+}
+
+.admin-app.admin-app-suite .admin-liquid-toggle-indicator {
+  --liquid-toggle-x: 4px;
+  --liquid-toggle-y: 4px;
+  --liquid-toggle-width: 0px;
+  --liquid-toggle-height: 0px;
+  position: absolute;
+  z-index: -1;
+  left: 0;
+  top: 0;
+  width: var(--liquid-toggle-width);
+  height: var(--liquid-toggle-height);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow:
+    inset 0 1.2px 0 rgba(255, 255, 255, 0.52),
+    inset 1px 0 0 rgba(255, 255, 255, 0.32),
+    inset 0 -1.2px 0 rgba(0, 0, 0, 0.38),
+    inset -1px 0 0 rgba(0, 0, 0, 0.24),
+    0 8px 18px rgba(0, 0, 0, 0.34);
+  opacity: 0;
+  transform: translate3d(var(--liquid-toggle-x), var(--liquid-toggle-y), 0);
+  transition:
+    width 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    height 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 420ms cubic-bezier(0.2, 0.9, 0.2, 1.08),
+    opacity 160ms ease;
+  backdrop-filter: blur(22px) saturate(1.8);
+  -webkit-backdrop-filter: blur(22px) saturate(1.8);
+  pointer-events: none;
+}
+
+.admin-app.admin-app-suite .admin-liquid-toggle-indicator::after {
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.18),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.22),
+    inset 6px 0 10px rgba(255, 255, 255, 0.06),
+    inset -6px 0 10px rgba(0, 0, 0, 0.1);
+  content: "";
+}
+
+.admin-app.admin-app-suite .admin-liquid-chart-toggle .admin-toggle-pill,
+.admin-app.admin-app-suite .admin-liquid-chart-toggle .admin-toggle-pill:hover,
+.admin-app.admin-app-suite .admin-liquid-chart-toggle .admin-toggle-pill.is-active,
+.admin-app.admin-app-suite .admin-liquid-chart-toggle .admin-toggle-pill.is-active:hover {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  text-shadow: none;
+  transform: none;
+  transition: color 300ms ease, transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.admin-app.admin-app-suite .admin-liquid-chart-toggle .admin-toggle-pill:hover {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.admin-app.admin-app-suite .admin-liquid-chart-toggle .admin-toggle-pill.is-active {
+  color: #ffffff;
+  transform: scaleX(1.015);
+}
+
+.admin-app.admin-app-suite .admin-liquid-chart-toggle .admin-toggle-pill:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.7);
+  outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-app.admin-app-suite .admin-liquid-toggle-indicator,
+  .admin-app.admin-app-suite .admin-liquid-chart-toggle .admin-toggle-pill {
+    transition-duration: 0.01ms;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-app.admin-app-suite .admin-liquid-chart-toggle {
+    justify-self: stretch;
+    width: 100%;
+  }
+
+  .admin-app.admin-app-suite .admin-liquid-chart-toggle .admin-toggle-pill,
+  .admin-app.admin-app-suite .admin-liquid-chart-toggle .admin-toggle-pill:hover,
+  .admin-app.admin-app-suite .admin-liquid-chart-toggle .admin-toggle-pill.is-active,
+  .admin-app.admin-app-suite .admin-liquid-chart-toggle .admin-toggle-pill.is-active:hover {
+    min-height: 32px;
+    padding: 8px 13px;
+    font-size: 0.72rem;
+  }
+}
