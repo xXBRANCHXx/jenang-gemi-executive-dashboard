@@ -2164,6 +2164,20 @@ document.addEventListener('DOMContentLoaded', () => {
     return Number.isNaN(date.getTime()) ? null : date;
   };
 
+  const formatOrderTimestamp = (timestamp) => {
+    const date = parseOrderTimestamp(timestamp);
+    if (!date) return String(timestamp || '');
+    return `${formatDashboardTime(date, state.timezone, {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    })} WIB`;
+  };
+
   const localHour = (date) => Number(new Intl.DateTimeFormat('en-GB', {
     timeZone: state.timezone,
     hour: '2-digit',
@@ -2622,7 +2636,7 @@ document.addEventListener('DOMContentLoaded', () => {
         : '-';
       return `
         <tr>
-          <td>${escapeHtml(row.timestamp || '')}</td>
+          <td>${escapeHtml(formatOrderTimestamp(row.order_create_time || row.timestamp))}</td>
           <td><strong>${escapeHtml(row.order_id || '')}</strong></td>
           <td>${escapeHtml(platform)}</td>
           <td class="admin-order-product" title="${escapeHtml(row.product_name || row.sku || row.marketplace_sku || '')}"><strong>${escapeHtml(row.product_name || row.sku || row.marketplace_sku || '')}</strong></td>
