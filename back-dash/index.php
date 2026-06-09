@@ -44,7 +44,7 @@ $apiDocs = [
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
         <div class="admin-shell">
-            <?php render_admin_sidebar('api'); ?>
+            <?php render_admin_sidebar('back-dash'); ?>
 
             <div class="admin-shell-main">
                 <header class="admin-topbar">

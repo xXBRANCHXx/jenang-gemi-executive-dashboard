@@ -306,6 +306,13 @@ const JENANG_GEMI_SEARCH_INDEX = [
     keywords: ['orders', 'marketplace', 'spreadsheet', 'revenue', 'cogs']
   },
   {
+    title: 'Back Dash',
+    section: 'Admin',
+    description: 'Marketplace sync status, revenue formulas, raw JSON mappings, API calls, and backfill controls.',
+    url: '../back-dash/',
+    keywords: ['back dash', 'backdash', 'marketplace', 'sync', 'revenue formula', 'raw json', 'backfill', 'api ingest']
+  },
+  {
     title: 'Campaigns Dashboard',
     section: 'Admin',
     description: 'Campaign landing-page analytics for Bubur and Jamu pages.',

@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isAuthenticated = jg_admin_is_authenticated();
-$dashboardBuildVersion = 'exec3.65.1';
+$dashboardBuildVersion = 'exec3.66.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 ?>
@@ -91,6 +91,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                         </div>
                     </div>
                     <div class="admin-topbar-actions">
+                        <a class="admin-ghost-btn admin-link-btn" href="../back-dash/">Back Dash</a>
                         <div class="admin-search-shell" data-dashboard-search-shell>
                             <span class="admin-search-icon" aria-hidden="true">⌕</span>
                             <form class="admin-search-form" data-dashboard-search-form role="search">
