@@ -916,7 +916,6 @@ const drawLineChart = (canvas, items, metric, unitsMap, options = {}) => {
       return;
     }
     const y = padding.top + chartHeight - ((value / maxValue) * (chartHeight - 6));
-    linePoints.push({ x, y });
     points.push({
       x,
       y,
@@ -924,7 +923,7 @@ const drawLineChart = (canvas, items, metric, unitsMap, options = {}) => {
       metric,
       unitsMap,
       label: item.label || '',
-      tooltipTitle: item.label || '',
+      tooltipTitle: item.tooltipTitle || item.label || '',
       tooltipValue: formatMetricValue(metric, value, unitsMap),
       tooltipLinesHtml: item.tooltipLinesHtml || null,
       hitbox: {
@@ -934,6 +933,11 @@ const drawLineChart = (canvas, items, metric, unitsMap, options = {}) => {
         bottom: padding.top + chartHeight
       }
     });
+    if (item?.projected) {
+      hasOpenLine = false;
+      return;
+    }
+    linePoints.push({ x, y });
     if (!hasOpenLine) {
       ctx.moveTo(x, y);
       hasOpenLine = true;
@@ -942,6 +946,27 @@ const drawLineChart = (canvas, items, metric, unitsMap, options = {}) => {
     }
   });
   ctx.stroke();
+
+  const projectedIndex = items.findIndex((item) => item?.projected);
+  if (projectedIndex > 0) {
+    const previousValue = chartValue(items[projectedIndex - 1]);
+    const projectedValue = chartValue(items[projectedIndex]);
+    if (previousValue !== null && projectedValue !== null) {
+      const previousX = padding.left + (chartWidth * (projectedIndex - 1) / Math.max(items.length - 1, 1));
+      const projectedX = padding.left + (chartWidth * projectedIndex / Math.max(items.length - 1, 1));
+      const previousY = padding.top + chartHeight - ((previousValue / maxValue) * (chartHeight - 6));
+      const projectedY = padding.top + chartHeight - ((projectedValue / maxValue) * (chartHeight - 6));
+      ctx.save();
+      ctx.strokeStyle = lineColor;
+      ctx.lineWidth = 3;
+      ctx.setLineDash([5, 6]);
+      ctx.beginPath();
+      ctx.moveTo(previousX, previousY);
+      ctx.lineTo(projectedX, projectedY);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
 
   if (linePoints.length) {
     ctx.lineTo(linePoints[linePoints.length - 1].x, padding.top + chartHeight);
@@ -978,11 +1003,12 @@ const drawLineChart = (canvas, items, metric, unitsMap, options = {}) => {
     }
     const y = padding.top + chartHeight - ((value / maxValue) * (chartHeight - 6));
     const isActive = activeHover && Math.abs(activeHover.x - x) < 1;
-    ctx.fillStyle = isActive ? '#ffffff' : lineColor;
+    const isProjected = Boolean(item?.projected);
+    ctx.fillStyle = isProjected || isActive ? palette.surface : lineColor;
     ctx.beginPath();
     ctx.arc(x, y, isActive ? 6 : 4, 0, Math.PI * 2);
     ctx.fill();
-    if (isActive) {
+    if (isProjected || isActive) {
       ctx.strokeStyle = lineColor;
       ctx.lineWidth = 3;
       ctx.stroke();
@@ -2771,11 +2797,35 @@ document.addEventListener('DOMContentLoaded', () => {
         average_order_value: Number(month.orders || 0) > 0 ? Number(month.revenue || month.net_revenue || month.sales || 0) / Number(month.orders || 0) : 0
       }, state.overview.metric)
     }));
+    const currentMonthKey = activeLocalDate.slice(0, 7);
+    const currentDay = Number(activeLocalDate.slice(8, 10));
+    const currentMonth = Number(activeLocalDate.slice(5, 7));
+    const daysInCurrentMonth = new Date(Date.UTC(state.overview.year, currentMonth, 0)).getUTCDate();
+    const projectionFactor = currentDay > 0 ? daysInCurrentMonth / currentDay : 1;
+    const projectedMonthlyRows = monthlyRows.map((row) => {
+      if (row.key !== currentMonthKey) return row;
+      const projected = {
+        ...row,
+        projected: true,
+        revenue: Number(row.revenue || 0) * projectionFactor,
+        sales: Number(row.sales || 0) * projectionFactor,
+        net_revenue: Number(row.net_revenue || 0) * projectionFactor,
+        marketplace_fees: Number(row.marketplace_fees || 0) * projectionFactor,
+        cogs: Number(row.cogs || 0) * projectionFactor,
+        gross_profit: Number(row.gross_profit || 0) * projectionFactor,
+        orders: Number(row.orders || 0) * projectionFactor,
+        item_count: Number(row.item_count || 0) * projectionFactor
+      };
+      projected.average_order_value = projected.orders > 0 ? projected.revenue / projected.orders : 0;
+      projected.tooltipTitle = `${row.label || '-'} (Projected)`;
+      projected.tooltipLinesHtml = buildOverviewTooltipLines(projected, state.overview.metric);
+      return projected;
+    });
     const customRange = state.overview.customRange || {};
     const customTrend = customRange.active && Array.isArray(customRange.rows)
       ? aggregateOrdersForTrend(customRange.rows, customRange.startDate, customRange.endDate)
       : null;
-    const trendRows = customTrend ? customTrend.rows : monthlyRows;
+    const trendRows = customTrend ? customTrend.rows : projectedMonthlyRows;
     const trendLabel = customTrend
       ? `${customRange.startDate} to ${customRange.endDate}`
       : `${state.overview.year}`;

@@ -131,7 +131,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                             <div>
                                 <div class="admin-chart-title-row">
                                     <h3 data-overview-trend-title>Revenue by month</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About revenue by month" data-chart-info="Tracks the selected monthly metric for the chosen year. Revenue is seller-received marketplace money after platform deductions. Gross Profit subtracts SKU DB COGS from that revenue. Orders QTY counts orders, and Items QTY counts units sold."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About revenue by month" data-chart-info="Tracks the selected monthly metric for the chosen year. The current month is projected by dividing its total so far by today's day number, then multiplying by the number of days in the month; its dotted line and hollow point distinguish it from actual results. Revenue is seller-received marketplace money after platform deductions. Gross Profit subtracts SKU DB COGS from that revenue. Orders QTY counts orders, and Items QTY counts units sold."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                                 <span class="admin-panel-meta" data-overview-trend-meta>Selected year</span>
                             </div>
