@@ -969,6 +969,14 @@ const drawLineChart = (canvas, items, metric, unitsMap, options = {}) => {
   }
 
   if (linePoints.length) {
+    ctx.beginPath();
+    linePoints.forEach((point, index) => {
+      if (index === 0) {
+        ctx.moveTo(point.x, point.y);
+      } else {
+        ctx.lineTo(point.x, point.y);
+      }
+    });
     ctx.lineTo(linePoints[linePoints.length - 1].x, padding.top + chartHeight);
     ctx.lineTo(linePoints[0].x, padding.top + chartHeight);
     ctx.closePath();
