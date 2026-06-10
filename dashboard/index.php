@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isAuthenticated = jg_admin_is_authenticated();
-$dashboardBuildVersion = 'exec3.66.4';
+$dashboardBuildVersion = 'exec3.66.5';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 ?>
@@ -141,10 +141,10 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                 <span class="admin-panel-meta" data-overview-trend-meta>Selected year</span>
                             </div>
                             <div class="admin-panel-inline-toggles admin-sliding-chart-toggle" data-overview-metric-controls data-sliding-chart-toggle role="group" aria-label="Revenue chart metric">
-                                <button type="button" class="admin-toggle-pill is-active" data-overview-metric="revenue">Revenue</button>
-                                <button type="button" class="admin-toggle-pill" data-overview-metric="gross_profit">Gross Profit</button>
-                                <button type="button" class="admin-toggle-pill" data-overview-metric="orders">Orders QTY</button>
-                                <button type="button" class="admin-toggle-pill" data-overview-metric="item_count">Items QTY</button>
+                                <button type="button" class="admin-toggle-pill is-active" data-overview-metric="revenue"><span>Revenue</span></button>
+                                <button type="button" class="admin-toggle-pill" data-overview-metric="gross_profit"><span>Gross Profit</span></button>
+                                <button type="button" class="admin-toggle-pill" data-overview-metric="orders"><span>Orders QTY</span></button>
+                                <button type="button" class="admin-toggle-pill" data-overview-metric="item_count"><span>Items QTY</span></button>
                             </div>
                         </div>
                         <div class="admin-chart-surface">
@@ -180,9 +180,9 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                 <span class="admin-panel-meta">Live from stored order facts</span>
                             </div>
                             <div class="admin-panel-inline-toggles admin-sliding-chart-toggle" data-sliding-chart-toggle role="group" aria-label="Order volume chart metric">
-                                <button type="button" class="admin-toggle-pill is-active" data-overview-volume-metric="orders">Orders</button>
-                                <button type="button" class="admin-toggle-pill" data-overview-volume-metric="item_count">Items</button>
-                                <button type="button" class="admin-toggle-pill" data-overview-volume-metric="average_order_value">AOV</button>
+                                <button type="button" class="admin-toggle-pill is-active" data-overview-volume-metric="orders"><span>Orders</span></button>
+                                <button type="button" class="admin-toggle-pill" data-overview-volume-metric="item_count"><span>Items</span></button>
+                                <button type="button" class="admin-toggle-pill" data-overview-volume-metric="average_order_value"><span>AOV</span></button>
                             </div>
                         </div>
                         <div class="admin-chart-surface">
@@ -218,10 +218,10 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                 <span class="admin-panel-meta" data-overview-hourly-meta>Live today, 0-23</span>
                             </div>
                             <div class="admin-panel-inline-toggles admin-sliding-chart-toggle" data-sliding-chart-toggle role="group" aria-label="Hourly chart metric">
-                                <button type="button" class="admin-toggle-pill is-active" data-overview-hourly-metric="orders">Orders</button>
-                                <button type="button" class="admin-toggle-pill" data-overview-hourly-metric="gross_profit">Gross Profit</button>
-                                <button type="button" class="admin-toggle-pill" data-overview-hourly-metric="revenue">Revenue</button>
-                                <button type="button" class="admin-toggle-pill" data-overview-hourly-metric="item_count">QTY Sold</button>
+                                <button type="button" class="admin-toggle-pill is-active" data-overview-hourly-metric="orders"><span>Orders</span></button>
+                                <button type="button" class="admin-toggle-pill" data-overview-hourly-metric="gross_profit"><span>Gross Profit</span></button>
+                                <button type="button" class="admin-toggle-pill" data-overview-hourly-metric="revenue"><span>Revenue</span></button>
+                                <button type="button" class="admin-toggle-pill" data-overview-hourly-metric="item_count"><span>QTY Sold</span></button>
                             </div>
                         </div>
                         <div class="admin-chart-surface admin-chart-surface-tight">
@@ -255,8 +255,8 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                 <span class="admin-panel-meta">Most popular syrup flavors</span>
                             </div>
                             <div class="admin-panel-inline-toggles admin-sliding-chart-toggle" data-sliding-chart-toggle role="group" aria-label="Syrup flavor chart metric">
-                                <button type="button" class="admin-toggle-pill is-active" data-overview-flavor-metric="quantity">Qty</button>
-                                <button type="button" class="admin-toggle-pill" data-overview-flavor-metric="net_revenue">Rp</button>
+                                <button type="button" class="admin-toggle-pill is-active" data-overview-flavor-metric="quantity"><span>Qty</span></button>
+                                <button type="button" class="admin-toggle-pill" data-overview-flavor-metric="net_revenue"><span>Rp</span></button>
                             </div>
                         </div>
                         <div class="admin-chart-surface">

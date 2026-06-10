@@ -7001,13 +7001,14 @@ body::after {
 .admin-app.admin-app-suite .admin-sliding-chart-toggle > .admin-toggle-pill.is-active,
 .admin-app.admin-app-suite .admin-sliding-chart-toggle > .admin-toggle-pill.is-active:hover {
   position: relative;
-  z-index: 3;
+  z-index: auto;
   flex: 0 0 auto;
   min-height: 36px;
   padding: 8px 16px;
   border: 0;
   border-radius: 999px;
-  background: transparent;
+  background: transparent !important;
+  background-image: none !important;
   box-shadow: none;
   color: rgba(255, 255, 255, 0.55);
   font-size: 0.78rem;
@@ -7017,6 +7018,16 @@ body::after {
   text-shadow: none;
   transform: none;
   filter: none;
+  transition: color 200ms ease;
+}
+
+.admin-app.admin-app-suite .admin-sliding-chart-toggle > .admin-toggle-pill > span {
+  position: relative;
+  z-index: 3;
+  display: block;
+  font: inherit;
+  line-height: inherit;
+  transform: none;
   transition: color 200ms ease;
 }
 
@@ -7047,8 +7058,15 @@ body::after {
 .admin-app.admin-app-suite .admin-overview-hourly-card .admin-sliding-chart-toggle > .admin-toggle-pill:hover,
 .admin-app.admin-app-suite .admin-overview-hourly-card .admin-sliding-chart-toggle > .admin-toggle-pill.is-active,
 .admin-app.admin-app-suite .admin-overview-hourly-card .admin-sliding-chart-toggle > .admin-toggle-pill.is-active:hover {
-  font-size: 0.62rem;
-  transform: none;
+  font-size: 0.62rem !important;
+  transform: none !important;
+  transition-property: color !important;
+}
+
+.admin-app.admin-app-suite .admin-overview-hourly-card .admin-sliding-chart-toggle > .admin-toggle-pill > span,
+.admin-app.admin-app-suite .admin-overview-hourly-card .admin-sliding-chart-toggle > .admin-toggle-pill:hover > span {
+  font-size: inherit !important;
+  transform: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
