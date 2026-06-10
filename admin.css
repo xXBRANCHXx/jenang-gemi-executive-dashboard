@@ -6942,6 +6942,7 @@ body::after {
 .admin-app.admin-app-suite .admin-sliding-chart-toggle {
   --sliding-toggle-pad: 4px;
   position: relative;
+  z-index: 10;
   isolation: isolate;
   display: inline-flex;
   align-items: center;
@@ -6969,7 +6970,7 @@ body::after {
 
 .admin-app.admin-app-suite .admin-sliding-toggle-indicator {
   position: absolute;
-  z-index: 0;
+  z-index: 2;
   left: 0;
   top: var(--sliding-toggle-pad);
   bottom: var(--sliding-toggle-pad);
@@ -7000,7 +7001,7 @@ body::after {
 .admin-app.admin-app-suite .admin-sliding-chart-toggle > .admin-toggle-pill.is-active,
 .admin-app.admin-app-suite .admin-sliding-chart-toggle > .admin-toggle-pill.is-active:hover {
   position: relative;
-  z-index: 1;
+  z-index: 3;
   flex: 0 0 auto;
   min-height: 36px;
   padding: 8px 16px;
@@ -7019,6 +7020,12 @@ body::after {
   transition: color 200ms ease;
 }
 
+.admin-app.admin-app-suite .admin-sliding-chart-toggle > .admin-toggle-pill::before,
+.admin-app.admin-app-suite .admin-sliding-chart-toggle > .admin-toggle-pill::after {
+  display: none;
+  content: none;
+}
+
 .admin-app.admin-app-suite .admin-sliding-chart-toggle > .admin-toggle-pill:hover {
   color: rgba(255, 255, 255, 0.85);
 }
@@ -7034,6 +7041,14 @@ body::after {
 .admin-app.admin-app-suite .admin-sliding-chart-toggle > .admin-toggle-pill:focus-visible {
   outline: 2px solid rgba(157, 255, 0, 0.86);
   outline-offset: -2px;
+}
+
+.admin-app.admin-app-suite .admin-overview-hourly-card .admin-sliding-chart-toggle > .admin-toggle-pill,
+.admin-app.admin-app-suite .admin-overview-hourly-card .admin-sliding-chart-toggle > .admin-toggle-pill:hover,
+.admin-app.admin-app-suite .admin-overview-hourly-card .admin-sliding-chart-toggle > .admin-toggle-pill.is-active,
+.admin-app.admin-app-suite .admin-overview-hourly-card .admin-sliding-chart-toggle > .admin-toggle-pill.is-active:hover {
+  font-size: 0.62rem;
+  transform: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
