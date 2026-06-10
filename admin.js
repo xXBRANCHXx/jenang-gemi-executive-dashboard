@@ -1337,47 +1337,74 @@ const drawStackedBarChart = (canvas, items, config) => {
   chartHoverState.set(canvas, hoverPoints);
 };
 
-const initLiquidChartToggles = (root) => {
-  root.querySelectorAll('[data-liquid-chart-toggle]').forEach((toggle) => {
-    if (toggle.dataset.liquidToggleReady === 'true') return;
+const initSlidingChartToggles = (root) => {
+  root.querySelectorAll('[data-sliding-chart-toggle]').forEach((toggle) => {
+    if (toggle.dataset.slidingToggleReady === 'true') return;
 
     const indicator = document.createElement('span');
-    indicator.className = 'admin-liquid-toggle-indicator';
+    indicator.className = 'admin-sliding-toggle-indicator';
     indicator.setAttribute('aria-hidden', 'true');
     toggle.prepend(indicator);
-    toggle.dataset.liquidToggleReady = 'true';
+    toggle.dataset.slidingToggleReady = 'true';
 
-    const syncIndicator = () => {
-      const buttons = Array.from(toggle.querySelectorAll('.admin-toggle-pill'));
-      const activeButton = buttons.find((button) => button.classList.contains('is-active'));
-      buttons.forEach((button) => {
-        button.setAttribute('aria-pressed', button === activeButton ? 'true' : 'false');
+    let animationFrame = 0;
+    const syncIndicator = ({ immediate = false } = {}) => {
+      window.cancelAnimationFrame(animationFrame);
+      animationFrame = window.requestAnimationFrame(() => {
+        const buttons = Array.from(toggle.querySelectorAll(':scope > .admin-toggle-pill'));
+        const activeButton = buttons.find((button) => button.classList.contains('is-active'));
+
+        buttons.forEach((button) => {
+          const isActive = button === activeButton;
+          button.setAttribute('aria-pressed', String(isActive));
+          button.tabIndex = isActive || !activeButton ? 0 : -1;
+        });
+
+        if (!activeButton) {
+          toggle.classList.remove('has-active-toggle');
+          return;
+        }
+
+        if (immediate) indicator.classList.add('is-positioning');
+        indicator.style.setProperty('--sliding-toggle-x', `${activeButton.offsetLeft}px`);
+        indicator.style.setProperty('--sliding-toggle-width', `${activeButton.offsetWidth}px`);
+        toggle.classList.add('has-active-toggle');
+
+        if (immediate) {
+          indicator.getBoundingClientRect();
+          indicator.classList.remove('is-positioning');
+        }
       });
-      if (!activeButton) {
-        indicator.style.opacity = '0';
-        return;
-      }
-
-      indicator.style.setProperty('--liquid-toggle-x', `${activeButton.offsetLeft}px`);
-      indicator.style.setProperty('--liquid-toggle-y', `${activeButton.offsetTop}px`);
-      indicator.style.setProperty('--liquid-toggle-width', `${activeButton.offsetWidth}px`);
-      indicator.style.setProperty('--liquid-toggle-height', `${activeButton.offsetHeight}px`);
-      indicator.style.opacity = '1';
     };
 
-    const observer = new MutationObserver(syncIndicator);
-    toggle.querySelectorAll('.admin-toggle-pill').forEach((button) => {
+    const observer = new MutationObserver(() => syncIndicator());
+    toggle.querySelectorAll(':scope > .admin-toggle-pill').forEach((button) => {
       observer.observe(button, { attributes: true, attributeFilter: ['class'] });
     });
 
     if (window.ResizeObserver) {
-      const resizeObserver = new ResizeObserver(syncIndicator);
+      const resizeObserver = new ResizeObserver(() => syncIndicator({ immediate: true }));
       resizeObserver.observe(toggle);
-      toggle.querySelectorAll('.admin-toggle-pill').forEach((button) => resizeObserver.observe(button));
     }
 
-    toggle.addEventListener('click', () => window.requestAnimationFrame(syncIndicator));
-    window.requestAnimationFrame(syncIndicator);
+    toggle.addEventListener('keydown', (event) => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      const buttons = Array.from(toggle.querySelectorAll(':scope > .admin-toggle-pill:not(:disabled)'));
+      if (!buttons.length) return;
+
+      const currentIndex = Math.max(0, buttons.indexOf(document.activeElement));
+      let nextIndex = currentIndex;
+      if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + buttons.length) % buttons.length;
+      if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % buttons.length;
+      if (event.key === 'Home') nextIndex = 0;
+      if (event.key === 'End') nextIndex = buttons.length - 1;
+
+      event.preventDefault();
+      buttons[nextIndex].focus();
+      buttons[nextIndex].click();
+    });
+
+    window.requestAnimationFrame(() => syncIndicator({ immediate: true }));
   });
 };
 
@@ -1477,7 +1504,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!root) return;
 
   bindChartInfoPopovers();
-  initLiquidChartToggles(root);
+  initSlidingChartToggles(root);
 
   const themeStorageKey = 'jg-admin-theme';
   const themeDefaultMigrationKey = `${themeStorageKey}-minimal-black-default`;

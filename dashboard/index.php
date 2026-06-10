@@ -140,7 +140,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                 </div>
                                 <span class="admin-panel-meta" data-overview-trend-meta>Selected year</span>
                             </div>
-                            <div class="admin-panel-inline-toggles admin-liquid-chart-toggle" data-overview-metric-controls data-liquid-chart-toggle role="group" aria-label="Revenue chart metric">
+                            <div class="admin-panel-inline-toggles admin-sliding-chart-toggle" data-overview-metric-controls data-sliding-chart-toggle role="group" aria-label="Revenue chart metric">
                                 <button type="button" class="admin-toggle-pill is-active" data-overview-metric="revenue">Revenue</button>
                                 <button type="button" class="admin-toggle-pill" data-overview-metric="gross_profit">Gross Profit</button>
                                 <button type="button" class="admin-toggle-pill" data-overview-metric="orders">Orders QTY</button>
@@ -179,7 +179,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                 </div>
                                 <span class="admin-panel-meta">Live from stored order facts</span>
                             </div>
-                            <div class="admin-panel-inline-toggles admin-liquid-chart-toggle" data-liquid-chart-toggle role="group" aria-label="Order volume chart metric">
+                            <div class="admin-panel-inline-toggles admin-sliding-chart-toggle" data-sliding-chart-toggle role="group" aria-label="Order volume chart metric">
                                 <button type="button" class="admin-toggle-pill is-active" data-overview-volume-metric="orders">Orders</button>
                                 <button type="button" class="admin-toggle-pill" data-overview-volume-metric="item_count">Items</button>
                                 <button type="button" class="admin-toggle-pill" data-overview-volume-metric="average_order_value">AOV</button>
@@ -217,7 +217,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                 </div>
                                 <span class="admin-panel-meta" data-overview-hourly-meta>Live today, 0-23</span>
                             </div>
-                            <div class="admin-panel-inline-toggles admin-liquid-chart-toggle" data-liquid-chart-toggle role="group" aria-label="Hourly chart metric">
+                            <div class="admin-panel-inline-toggles admin-sliding-chart-toggle" data-sliding-chart-toggle role="group" aria-label="Hourly chart metric">
                                 <button type="button" class="admin-toggle-pill is-active" data-overview-hourly-metric="orders">Orders</button>
                                 <button type="button" class="admin-toggle-pill" data-overview-hourly-metric="gross_profit">Gross Profit</button>
                                 <button type="button" class="admin-toggle-pill" data-overview-hourly-metric="revenue">Revenue</button>
@@ -254,7 +254,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                 </div>
                                 <span class="admin-panel-meta">Most popular syrup flavors</span>
                             </div>
-                            <div class="admin-panel-inline-toggles admin-liquid-chart-toggle" data-liquid-chart-toggle role="group" aria-label="Syrup flavor chart metric">
+                            <div class="admin-panel-inline-toggles admin-sliding-chart-toggle" data-sliding-chart-toggle role="group" aria-label="Syrup flavor chart metric">
                                 <button type="button" class="admin-toggle-pill is-active" data-overview-flavor-metric="quantity">Qty</button>
                                 <button type="button" class="admin-toggle-pill" data-overview-flavor-metric="net_revenue">Rp</button>
                             </div>
