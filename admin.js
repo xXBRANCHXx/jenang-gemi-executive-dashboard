@@ -310,6 +310,14 @@ const JENANG_GEMI_SEARCH_INDEX = [
     keywords: ['orders', 'marketplace', 'spreadsheet', 'revenue', 'cogs']
   },
   {
+    title: 'Open Context',
+    section: 'Admin',
+    description: 'Edit historical context values used by the Executive Sales C1 chart.',
+    url: '../dashboard/?view=context',
+    view: 'context',
+    keywords: ['context', 'historical', '2025', '2026', 'revenue', 'gross profit', 'orders', 'items']
+  },
+  {
     title: 'Back Dash',
     section: 'Admin',
     description: 'Marketplace sync status, revenue formulas, raw JSON mappings, API calls, and backfill controls.',
@@ -1520,9 +1528,11 @@ document.addEventListener('DOMContentLoaded', () => {
     overview: 'overview',
     executive: 'overview',
     homepage: 'overview',
-    orders: 'orders'
+    orders: 'orders',
+    context: 'context',
+    'open-context': 'context'
   };
-  const validViews = new Set(['overview', 'orders', 'home', 'website', 'settings']);
+  const validViews = new Set(['overview', 'orders', 'context', 'home', 'website', 'settings']);
   const normalizeDashboardView = (value) => {
     const normalized = String(value || '').trim().toLowerCase();
     const aliased = viewAliases[normalized] || normalized;
@@ -1561,6 +1571,15 @@ document.addEventListener('DOMContentLoaded', () => {
       data: null,
       startDate: '',
       endDate: '',
+      requestToken: 0
+    },
+    context: {
+      group: '2025',
+      periodKey: '2025-01',
+      records: {},
+      draft: {},
+      dirty: false,
+      loaded: false,
       requestToken: 0
     },
     home: {
@@ -1604,6 +1623,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const liveEndpoint = root.dataset.liveEndpoint || './live/';
   const settingsEndpoint = root.dataset.settingsEndpoint || './settings/';
   const salesEndpoint = root.dataset.salesEndpoint || './sales/';
+  const contextEndpoint = root.dataset.contextEndpoint || './context/';
   const zeroStoreEndpoint = root.dataset.zeroStoreEndpoint || '../api/zero-store/';
 
   const loader = document.querySelector('[data-admin-loader]');
@@ -1664,6 +1684,17 @@ document.addEventListener('DOMContentLoaded', () => {
     tableBody: document.querySelector('[data-orders-table-body]'),
     count: document.querySelector('[data-orders-count]'),
     lastUpdated: document.querySelector('[data-orders-last-updated]')
+  };
+  const contextRefs = {
+    groupButtons: document.querySelectorAll('[data-context-group]'),
+    periods: document.querySelector('[data-context-periods]'),
+    form: document.querySelector('[data-context-form]'),
+    fields: document.querySelectorAll('[data-context-field]'),
+    periodTitle: document.querySelector('[data-context-period-title]'),
+    status: document.querySelector('[data-context-status]'),
+    save: document.querySelector('[data-context-save]'),
+    error: document.querySelector('[data-context-error]'),
+    progress: document.querySelector('[data-context-progress-bar]')
   };
 
   const homeRefs = {
@@ -2012,6 +2043,158 @@ document.addEventListener('DOMContentLoaded', () => {
     return items.map(formatter).join('');
   };
 
+  const contextMonthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+  const contextPeriods = {
+    2025: contextMonthNames.map((label, index) => ({
+      key: `2025-${String(index + 1).padStart(2, '0')}`,
+      short: label.slice(0, 3),
+      title: `${label} 2025`
+    })),
+    '2026-months': contextMonthNames.slice(0, 4).map((label, index) => ({
+      key: `2026-${String(index + 1).padStart(2, '0')}`,
+      short: label.slice(0, 3),
+      title: `${label} 2026`
+    })),
+    '2026-may': Array.from({ length: 19 }, (_, index) => ({
+      key: `2026-05-${String(index + 1).padStart(2, '0')}`,
+      short: String(index + 1),
+      title: `May ${index + 1}, 2026`
+    }))
+  };
+  const contextMetricKeys = ['revenue', 'gross_profit', 'orders_qty', 'items_qty'];
+  const contextFormatInput = (value) => {
+    if (value === null || value === undefined || value === '') return '';
+    const number = Number(String(value).replace(/[^\d-]/g, ''));
+    return Number.isFinite(number) ? number.toLocaleString('id-ID') : '';
+  };
+  const contextParseInput = (value) => {
+    const normalized = String(value || '').replace(/[^\d-]/g, '');
+    if (normalized === '' || normalized === '-') return null;
+    const number = Number(normalized);
+    return Number.isFinite(number) ? Math.round(number) : null;
+  };
+  const currentContextPeriods = () => contextPeriods[state.context.group] || contextPeriods[2025];
+  const contextRecordFor = (periodKey) => state.context.draft[periodKey] || state.context.records[periodKey] || {};
+  const contextRecordComplete = (periodKey) => contextMetricKeys.every((key) => contextRecordFor(periodKey)[key] !== null && contextRecordFor(periodKey)[key] !== undefined);
+
+  const setContextError = (message = '') => {
+    if (!contextRefs.error) return;
+    contextRefs.error.hidden = !message;
+    contextRefs.error.textContent = message;
+  };
+
+  const renderContextProgress = () => {
+    const allPeriods = Object.values(contextPeriods).flat();
+    const complete = allPeriods.filter((period) => contextRecordComplete(period.key)).length;
+    const percentage = allPeriods.length ? (complete / allPeriods.length) * 100 : 0;
+    if (contextRefs.progress) contextRefs.progress.style.width = `${percentage}%`;
+    if (contextRefs.status && !state.context.dirty) {
+      contextRefs.status.textContent = `${complete} of ${allPeriods.length} complete`;
+    }
+  };
+
+  const renderContextEditor = () => {
+    const periods = currentContextPeriods();
+    if (!periods.some((period) => period.key === state.context.periodKey)) {
+      state.context.periodKey = periods[0]?.key || '2025-01';
+    }
+    const activePeriod = periods.find((period) => period.key === state.context.periodKey) || periods[0];
+    const record = contextRecordFor(state.context.periodKey);
+
+    contextRefs.groupButtons.forEach((button) => {
+      button.classList.toggle('is-active', button.dataset.contextGroup === state.context.group);
+    });
+    if (contextRefs.periods) {
+      contextRefs.periods.innerHTML = periods.map((period) => `
+        <button type="button" class="admin-context-period${period.key === state.context.periodKey ? ' is-active' : ''}${contextRecordComplete(period.key) ? ' is-complete' : ''}" data-context-period="${period.key}">
+          <span>${escapeHtml(period.short)}</span>
+          <i aria-hidden="true"></i>
+        </button>
+      `).join('');
+    }
+    if (contextRefs.periodTitle && activePeriod) contextRefs.periodTitle.textContent = activePeriod.title;
+    contextRefs.fields.forEach((input) => {
+      const key = input.dataset.contextField || '';
+      input.value = contextFormatInput(record[key]);
+    });
+    if (contextRefs.save) contextRefs.save.disabled = !state.context.dirty;
+    renderContextProgress();
+  };
+
+  const setContextGroup = (group) => {
+    if (!contextPeriods[group]) return;
+    state.context.group = group;
+    state.context.periodKey = contextPeriods[group][0].key;
+    renderContextEditor();
+  };
+
+  const updateContextDraft = (field, rawValue) => {
+    const periodKey = state.context.periodKey;
+    const current = { ...contextRecordFor(periodKey) };
+    current[field] = contextParseInput(rawValue);
+    state.context.draft[periodKey] = current;
+    state.context.dirty = true;
+    if (contextRefs.status) contextRefs.status.textContent = 'Unsaved changes';
+    if (contextRefs.save) contextRefs.save.disabled = false;
+    renderContextProgress();
+  };
+
+  const renderContextData = (data) => {
+    const records = Array.isArray(data.records) ? data.records : [];
+    state.context.records = records.reduce((map, row) => {
+      if (row?.period_key) {
+        map[row.period_key] = contextMetricKeys.reduce((record, key) => {
+          record[key] = row[key] === null || row[key] === undefined ? null : Number(row[key]);
+          return record;
+        }, {});
+      }
+      return map;
+    }, {});
+    state.context.draft = {};
+    state.context.dirty = false;
+    state.context.loaded = true;
+    setContextError('');
+    renderContextEditor();
+  };
+
+  const loadContext = async () => {
+    const requestToken = beginRequest('context');
+    const data = await requestJson(`${contextEndpoint}?_ts=${Date.now()}`);
+    if (!isLatestRequest('context', requestToken)) return;
+    renderContextData(data);
+  };
+
+  const saveContext = async () => {
+    if (!state.context.dirty) return;
+    setContextError('');
+    if (contextRefs.save) contextRefs.save.disabled = true;
+    if (contextRefs.status) contextRefs.status.textContent = 'Saving...';
+    try {
+      const records = Object.entries(state.context.draft).map(([periodKey, values]) => ({
+        period_key: periodKey,
+        ...contextMetricKeys.reduce((record, key) => {
+          record[key] = values[key] ?? null;
+          return record;
+        }, {})
+      }));
+      const data = await requestJson(contextEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ records })
+      });
+      renderContextData(data);
+      if (contextRefs.status) contextRefs.status.textContent = 'Saved to C1';
+      await loadOverviewSafely({ forceRefresh: true });
+    } catch (error) {
+      if (contextRefs.status) contextRefs.status.textContent = 'Save failed';
+      if (contextRefs.save) contextRefs.save.disabled = false;
+      setContextError(error.message || 'Unable to save context.');
+    }
+  };
+
   const renderEventFeed = (container, items, formatter, emptyMessage) => {
     if (!container) return;
     if (!items.length) {
@@ -2066,6 +2249,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const labels = {
       overview: 'Executive Sales Overview',
       orders: 'Orders',
+      context: 'Open Context',
       home: 'Campaigns Dashboard',
       website: 'Official Website Dashboard',
       settings: 'Settings'
@@ -2073,6 +2257,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const navSectionByView = {
       overview: 'home',
       orders: 'orders',
+      context: 'home',
       home: 'campaigns',
       website: 'website',
       settings: 'settings'
@@ -3258,7 +3443,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const requestToken = beginRequest('overview');
     refreshOverviewHourlyRows(requestToken).catch(() => {});
     const [data, customData] = await Promise.all([
-      requestJson(buildSalesUrl(state.overview.year)),
+      requestJson(buildSalesUrl(state.overview.year, { refresh: Boolean(options.forceRefresh) })),
       state.overview.customRange.active && state.overview.customRange.startDate && state.overview.customRange.endDate
         ? requestOrderFacts(state.overview.customRange.startDate, state.overview.customRange.endDate).catch(() => ({ orders: [] }))
         : Promise.resolve(null)
@@ -3331,6 +3516,10 @@ document.addEventListener('DOMContentLoaded', () => {
       await loadOrders();
       return;
     }
+    if (state.activeView === 'context') {
+      await loadContext();
+      return;
+    }
     if (state.activeView === 'home') {
       await loadHome();
       return;
@@ -3397,6 +3586,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (state.activeView === 'orders') {
       return loadOrdersSafely();
+    }
+    if (state.activeView === 'context') {
+      try {
+        await loadContext();
+        return true;
+      } catch (error) {
+        setContextError(error.message || 'Unable to load context.');
+        return false;
+      }
     }
     if (state.activeView === 'home') {
       return loadHomeSafely();
@@ -3497,6 +3695,7 @@ document.addEventListener('DOMContentLoaded', () => {
   applyTheme(readStoredTheme() || 'minimal-black');
   applyDefaultOrderDates(defaultOrderDates());
   syncViewState();
+  renderContextEditor();
   setLoaderState(20, 'Connecting to analytics');
 
   if (state.activeView === 'overview') {
@@ -3856,6 +4055,39 @@ document.addEventListener('DOMContentLoaded', () => {
     openOrderPopover(button, button.dataset.orderPopover || '');
   });
 
+  contextRefs.groupButtons.forEach((button) => {
+    button.addEventListener('click', () => setContextGroup(button.dataset.contextGroup || '2025'));
+  });
+
+  contextRefs.periods?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-context-period]');
+    if (!(button instanceof HTMLElement)) return;
+    state.context.periodKey = button.dataset.contextPeriod || state.context.periodKey;
+    renderContextEditor();
+  });
+
+  contextRefs.fields.forEach((input) => {
+    input.addEventListener('input', () => {
+      const field = input.dataset.contextField || '';
+      updateContextDraft(field, input.value);
+    });
+    input.addEventListener('blur', () => {
+      input.value = contextFormatInput(contextParseInput(input.value));
+    });
+  });
+
+  contextRefs.form?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    saveContext();
+  });
+  contextRefs.save?.addEventListener('click', saveContext);
+
+  document.addEventListener('keydown', (event) => {
+    if (state.activeView !== 'context' || !(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 's') return;
+    event.preventDefault();
+    saveContext();
+  });
+
   document.querySelectorAll('[data-view-switch]').forEach((button) => {
     button.addEventListener('click', async () => {
       await switchView(button.dataset.viewSwitch || 'home');
@@ -3986,5 +4218,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   }, 60000);
-  window.addEventListener('beforeunload', closeLiveStream);
+  window.addEventListener('beforeunload', (event) => {
+    closeLiveStream();
+    if (!state.context.dirty) return;
+    event.preventDefault();
+    event.returnValue = '';
+  });
 });

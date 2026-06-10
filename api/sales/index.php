@@ -4,14 +4,21 @@ declare(strict_types=1);
 require_once dirname(__DIR__, 2) . '/config.php';
 require_once dirname(__DIR__, 2) . '/auth.php';
 require_once dirname(__DIR__, 2) . '/sku-db-bootstrap.php';
+require_once dirname(__DIR__, 2) . '/analytics-bootstrap.php';
+require_once dirname(__DIR__, 2) . '/executive-context.php';
 
 jg_admin_require_auth();
 
 header('Content-Type: application/json; charset=utf-8');
 
-$year = max(2026, (int) ($_GET['year'] ?? gmdate('Y')));
+$year = max(2025, (int) ($_GET['year'] ?? gmdate('Y')));
 $setupToken = jg_dashboard_marketplace_api_setup_token();
 if ($setupToken === '') {
+    $contextOnly = jg_sales_context_only_summary($year);
+    if ($contextOnly !== null) {
+        echo json_encode($contextOnly, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        exit;
+    }
     http_response_code(500);
     echo json_encode([
         'ok' => false,
@@ -30,12 +37,12 @@ if ($includeAudit) {
 }
 $url = jg_dashboard_marketplace_api_base_url() . '/sales/summary?' . http_build_query($urlParams);
 
-$cacheKey = 'sales-summary-' . $year . ($includeAudit ? '-audit' : '-core');
+$cacheKey = 'sales-summary-base-v2-' . $year . ($includeAudit ? '-audit' : '-core');
 $forceRefresh = (string) ($_GET['refresh'] ?? '') === '1';
 $cachedResponse = $forceRefresh ? null : jg_sales_cache_read($cacheKey, 0);
 if (is_string($cachedResponse)) {
     header('X-JG-Cache: STALE-FAST');
-    echo $cachedResponse;
+    echo jg_sales_prepare_cached_response($cachedResponse, $year, $includeAudit);
     exit;
 }
 
@@ -53,7 +60,12 @@ if (!is_string($response) || $response === '') {
     $staleResponse = jg_sales_cache_read($cacheKey, 0);
     if (is_string($staleResponse)) {
         header('X-JG-Cache: STALE');
-        echo $staleResponse;
+        echo jg_sales_prepare_cached_response($staleResponse, $year, $includeAudit);
+        exit;
+    }
+    $contextOnly = jg_sales_context_only_summary($year);
+    if ($contextOnly !== null) {
+        echo json_encode($contextOnly, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         exit;
     }
 
@@ -77,15 +89,12 @@ $decoded = json_decode($response, true);
 if (is_array($decoded) && ($status < 400 || $status === 200)) {
     http_response_code($status >= 100 ? $status : 200);
     $decoded = jg_sales_enrich_with_sku_db($decoded, $year);
-    if ($includeAudit) {
-        jg_sales_attach_calculation_audit($decoded, $year);
-    }
     jg_sales_remove_customer_paid_fields($decoded);
-    $encoded = json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-    if (is_string($encoded)) {
-        jg_sales_cache_write($cacheKey, $encoded);
+    $baseEncoded = json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if (is_string($baseEncoded)) {
+        jg_sales_cache_write($cacheKey, $baseEncoded);
         header('X-JG-Cache: MISS');
-        echo $encoded;
+        echo jg_sales_prepare_cached_response($baseEncoded, $year, $includeAudit);
     } else {
         echo '{}';
     }
@@ -95,7 +104,13 @@ if (is_array($decoded) && ($status < 400 || $status === 200)) {
 $staleResponse = jg_sales_cache_read($cacheKey, 0);
 if (is_string($staleResponse)) {
     header('X-JG-Cache: STALE');
-    echo $staleResponse;
+    echo jg_sales_prepare_cached_response($staleResponse, $year, $includeAudit);
+    exit;
+}
+
+$contextOnly = jg_sales_context_only_summary($year);
+if ($contextOnly !== null) {
+    echo json_encode($contextOnly, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     exit;
 }
 
@@ -105,6 +120,91 @@ echo $response;
 function jg_sales_normalize_sku_key(mixed $value): string
 {
     return strtoupper(trim((string) $value));
+}
+
+function jg_sales_prepare_cached_response(string $baseResponse, int $year, bool $includeAudit): string
+{
+    $decoded = json_decode($baseResponse, true);
+    if (!is_array($decoded)) {
+        return $baseResponse;
+    }
+
+    $decoded = jg_sales_apply_executive_context($decoded, $year);
+    if ($includeAudit) {
+        jg_sales_attach_calculation_audit($decoded, $year);
+    }
+    jg_sales_remove_customer_paid_fields($decoded);
+
+    $encoded = json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    return is_string($encoded) ? $encoded : '{}';
+}
+
+/**
+ * @return array<int, array<string, int>>
+ */
+function jg_sales_context_by_month(int $year): array
+{
+    if ($year < 2025 || $year > 2026) {
+        return [];
+    }
+
+    try {
+        $pdo = analyticsDb();
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS executive_chart_context (
+                period_key VARCHAR(10) NOT NULL PRIMARY KEY,
+                granularity VARCHAR(10) NOT NULL,
+                revenue BIGINT NULL,
+                gross_profit BIGINT NULL,
+                orders_qty INT NULL,
+                items_qty INT NULL,
+                updated_at DATETIME(6) NOT NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
+        $stmt = $pdo->prepare(
+            'SELECT period_key, revenue, gross_profit, orders_qty, items_qty
+             FROM executive_chart_context
+             WHERE period_key LIKE :year_prefix
+             ORDER BY period_key'
+        );
+        $stmt->execute([':year_prefix' => $year . '-%']);
+    } catch (Throwable $error) {
+        error_log('Unable to load executive chart context: ' . $error->getMessage());
+        return [];
+    }
+
+    return jg_executive_context_group_by_month($stmt->fetchAll());
+}
+
+/**
+ * @param array<string, mixed> $summary
+ * @return array<string, mixed>
+ */
+function jg_sales_apply_executive_context(array $summary, int $year): array
+{
+    return jg_executive_context_apply_summary($summary, jg_sales_context_by_month($year));
+}
+
+/**
+ * @return array<string, mixed>|null
+ */
+function jg_sales_context_only_summary(int $year): ?array
+{
+    if (jg_sales_context_by_month($year) === []) {
+        return null;
+    }
+    return jg_sales_apply_executive_context([
+        'ok' => true,
+        'year' => $year,
+        'years' => [2025, 2026],
+        'months' => [],
+        'totals' => [],
+        'platforms' => [],
+        'accounts' => [],
+        'products' => [],
+        'generated_at' => gmdate(DATE_ATOM),
+        'context_only' => true,
+    ], $year);
 }
 
 function jg_sales_cache_dir(): string

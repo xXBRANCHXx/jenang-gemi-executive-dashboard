@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isAuthenticated = jg_admin_is_authenticated();
-$dashboardBuildVersion = 'exec3.66.5';
+$dashboardBuildVersion = 'exec3.67.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 ?>
@@ -75,7 +75,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
             <strong class="admin-loader-label" data-admin-loader-label>Initializing...</strong>
         </div>
     </div>
-    <div class="admin-app admin-app-suite" data-admin-dashboard data-analytics-endpoint="../api/analytics/" data-live-endpoint="../api/live/" data-settings-endpoint="../api/settings/" data-sales-endpoint="../api/sales/" data-orders-endpoint="../api/orders/" data-zero-store-endpoint="../api/zero-store/">
+    <div class="admin-app admin-app-suite" data-admin-dashboard data-analytics-endpoint="../api/analytics/" data-live-endpoint="../api/live/" data-settings-endpoint="../api/settings/" data-sales-endpoint="../api/sales/" data-orders-endpoint="../api/orders/" data-context-endpoint="../api/context/" data-zero-store-endpoint="../api/zero-store/">
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
         <div class="admin-shell">
@@ -104,14 +104,9 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                             <div class="admin-menu-panel" data-menu-panel hidden>
                                 <button type="button" class="admin-menu-item" data-view-switch="overview">Executive Sales Overview</button>
                                 <button type="button" class="admin-menu-item" data-view-switch="orders">Orders</button>
+                                <button type="button" class="admin-menu-item" data-view-switch="context">Open Context</button>
                                 <button type="button" class="admin-menu-item" data-view-switch="home">Campaigns Dashboard</button>
                                 <button type="button" class="admin-menu-item" data-view-switch="website">Official Website Dashboard</button>
-                                <a class="admin-menu-item admin-link-btn" href="../back-dash/">API Ingest Workspace</a>
-                                <a class="admin-menu-item admin-link-btn" href="../affiliate-program/">Affiliate Program Dashboard</a>
-                                <a class="admin-menu-item admin-link-btn" href="../partner-program/">Partner Program Dashboard</a>
-                                <a class="admin-menu-item admin-link-btn" href="../partner-profiles/">Partner Profiles</a>
-                                <a class="admin-menu-item admin-link-btn" href="../sku-db/">SKU Database</a>
-                                <a class="admin-menu-item admin-link-btn" href="../api-health/">API Health</a>
                                 <button type="button" class="admin-menu-item" data-view-switch="settings">Settings</button>
                             </div>
                         </div>
@@ -294,6 +289,54 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                         </div>
                     </article>
                 </section>
+                    </section>
+
+                    <section class="admin-view admin-context-view" data-view-panel="context">
+                        <section class="admin-context-toolbar">
+                            <div class="admin-context-segments" role="group" aria-label="Context period">
+                                <button type="button" class="admin-context-segment is-active" data-context-group="2025">2025</button>
+                                <button type="button" class="admin-context-segment" data-context-group="2026-months">2026 Jan-Apr</button>
+                                <button type="button" class="admin-context-segment" data-context-group="2026-may">May 1-19</button>
+                            </div>
+                            <button type="button" class="admin-chart-info-btn admin-context-info" aria-label="How to use Open Context" data-chart-info="Choose a period, enter any known values, then save. Monthly entries replace that month in C1. May 1-19 entries are added together into May. Leave a field empty when you do not want to replace that metric."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                            <span class="admin-context-status" data-context-status aria-live="polite">Ready</span>
+                            <button type="button" class="admin-primary-btn admin-context-save" data-context-save>Save changes</button>
+                        </section>
+                        <section class="admin-context-workspace">
+                            <nav class="admin-context-periods" data-context-periods aria-label="Editable context periods"></nav>
+                            <article class="admin-context-editor">
+                                <div class="admin-context-period-mark">
+                                    <strong data-context-period-title>January 2025</strong>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About this period" data-chart-info="Values saved here become the selected period's C1 context. Revenue and Gross Profit use Indonesian rupiah; Orders QTY and Items QTY use whole units."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                </div>
+                                <form class="admin-context-form" data-context-form autocomplete="off">
+                                    <label class="admin-context-field">
+                                        <span class="admin-context-field-icon">Rp</span>
+                                        <input type="text" inputmode="numeric" data-context-field="revenue" aria-label="Revenue" placeholder="Revenue">
+                                        <button type="button" class="admin-chart-info-btn" aria-label="About Revenue" data-chart-info="Seller-received revenue for this period, in rupiah."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                    </label>
+                                    <label class="admin-context-field">
+                                        <span class="admin-context-field-icon">Rp</span>
+                                        <input type="text" inputmode="numeric" data-context-field="gross_profit" aria-label="Gross Profit" placeholder="Gross Profit">
+                                        <button type="button" class="admin-chart-info-btn" aria-label="About Gross Profit" data-chart-info="Revenue after product cost for this period, in rupiah."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                    </label>
+                                    <label class="admin-context-field">
+                                        <span class="admin-context-field-icon">#</span>
+                                        <input type="text" inputmode="numeric" data-context-field="orders_qty" aria-label="Orders quantity" placeholder="Orders QTY">
+                                        <button type="button" class="admin-chart-info-btn" aria-label="About Orders QTY" data-chart-info="Completed marketplace orders in this period."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                    </label>
+                                    <label class="admin-context-field">
+                                        <span class="admin-context-field-icon">×</span>
+                                        <input type="text" inputmode="numeric" data-context-field="items_qty" aria-label="Items quantity" placeholder="Items QTY">
+                                        <button type="button" class="admin-chart-info-btn" aria-label="About Items QTY" data-chart-info="Individual units sold in this period."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                    </label>
+                                </form>
+                                <div class="admin-context-progress">
+                                    <span data-context-progress-bar></span>
+                                </div>
+                                <p class="admin-form-error" data-context-error hidden></p>
+                            </article>
+                        </section>
                     </section>
 
                     <section class="admin-view" data-view-panel="orders">
