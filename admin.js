@@ -881,7 +881,11 @@ const drawLineChart = (canvas, items, metric, unitsMap, options = {}) => {
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
   const chartValue = (item) => (item?.future ? null : Number(item?.[metric] || 0));
-  const values = items.map(chartValue).filter((value) => Number.isFinite(value));
+  const projectionValue = (item) => {
+    const value = Number(item?.projection?.[metric]);
+    return Number.isFinite(value) ? value : null;
+  };
+  const values = items.flatMap((item) => [chartValue(item), projectionValue(item)]).filter((value) => Number.isFinite(value));
   const maxValue = Math.max(...values, 1);
   const palette = getThemePalette();
   const points = [];
@@ -933,10 +937,6 @@ const drawLineChart = (canvas, items, metric, unitsMap, options = {}) => {
         bottom: padding.top + chartHeight
       }
     });
-    if (item?.projected) {
-      hasOpenLine = false;
-      return;
-    }
     linePoints.push({ x, y });
     if (!hasOpenLine) {
       ctx.moveTo(x, y);
@@ -946,27 +946,6 @@ const drawLineChart = (canvas, items, metric, unitsMap, options = {}) => {
     }
   });
   ctx.stroke();
-
-  const projectedIndex = items.findIndex((item) => item?.projected);
-  if (projectedIndex > 0) {
-    const previousValue = chartValue(items[projectedIndex - 1]);
-    const projectedValue = chartValue(items[projectedIndex]);
-    if (previousValue !== null && projectedValue !== null) {
-      const previousX = padding.left + (chartWidth * (projectedIndex - 1) / Math.max(items.length - 1, 1));
-      const projectedX = padding.left + (chartWidth * projectedIndex / Math.max(items.length - 1, 1));
-      const previousY = padding.top + chartHeight - ((previousValue / maxValue) * (chartHeight - 6));
-      const projectedY = padding.top + chartHeight - ((projectedValue / maxValue) * (chartHeight - 6));
-      ctx.save();
-      ctx.strokeStyle = lineColor;
-      ctx.lineWidth = 3;
-      ctx.setLineDash([5, 6]);
-      ctx.beginPath();
-      ctx.moveTo(previousX, previousY);
-      ctx.lineTo(projectedX, projectedY);
-      ctx.stroke();
-      ctx.restore();
-    }
-  }
 
   if (linePoints.length) {
     ctx.beginPath();
@@ -995,6 +974,27 @@ const drawLineChart = (canvas, items, metric, unitsMap, options = {}) => {
     ctx.stroke();
   }
 
+  const projectedIndex = items.findIndex((item) => projectionValue(item) !== null);
+  if (projectedIndex > 0) {
+    const previousValue = chartValue(items[projectedIndex - 1]);
+    const projectedValue = projectionValue(items[projectedIndex]);
+    if (previousValue !== null && projectedValue !== null) {
+      const previousX = padding.left + (chartWidth * (projectedIndex - 1) / Math.max(items.length - 1, 1));
+      const projectedX = padding.left + (chartWidth * projectedIndex / Math.max(items.length - 1, 1));
+      const previousY = padding.top + chartHeight - ((previousValue / maxValue) * (chartHeight - 6));
+      const projectedY = padding.top + chartHeight - ((projectedValue / maxValue) * (chartHeight - 6));
+      ctx.save();
+      ctx.strokeStyle = lineColor;
+      ctx.lineWidth = 3;
+      ctx.setLineDash([5, 6]);
+      ctx.beginPath();
+      ctx.moveTo(previousX, previousY);
+      ctx.lineTo(projectedX, projectedY);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
   drawHoverGuide(ctx, activeHover, padding, chartHeight);
 
   items.forEach((item, index) => {
@@ -1011,14 +1011,25 @@ const drawLineChart = (canvas, items, metric, unitsMap, options = {}) => {
     }
     const y = padding.top + chartHeight - ((value / maxValue) * (chartHeight - 6));
     const isActive = activeHover && Math.abs(activeHover.x - x) < 1;
-    const isProjected = Boolean(item?.projected);
-    ctx.fillStyle = isProjected || isActive ? palette.surface : lineColor;
+    ctx.fillStyle = isActive ? palette.surface : lineColor;
     ctx.beginPath();
     ctx.arc(x, y, isActive ? 6 : 4, 0, Math.PI * 2);
     ctx.fill();
-    if (isProjected || isActive) {
+    if (isActive) {
       ctx.strokeStyle = lineColor;
       ctx.lineWidth = 3;
+      ctx.stroke();
+    }
+
+    const projectedValue = projectionValue(item);
+    if (projectedValue !== null) {
+      const projectedY = padding.top + chartHeight - ((projectedValue / maxValue) * (chartHeight - 6));
+      ctx.fillStyle = palette.surface;
+      ctx.strokeStyle = lineColor;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(x, projectedY, 5, 0, Math.PI * 2);
+      ctx.fill();
       ctx.stroke();
     }
 
@@ -2812,9 +2823,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const projectionFactor = currentDay > 0 ? daysInCurrentMonth / currentDay : 1;
     const projectedMonthlyRows = monthlyRows.map((row) => {
       if (row.key !== currentMonthKey) return row;
-      const projected = {
+      const projection = {
         ...row,
-        projected: true,
         revenue: Number(row.revenue || 0) * projectionFactor,
         sales: Number(row.sales || 0) * projectionFactor,
         net_revenue: Number(row.net_revenue || 0) * projectionFactor,
@@ -2824,10 +2834,8 @@ document.addEventListener('DOMContentLoaded', () => {
         orders: Number(row.orders || 0) * projectionFactor,
         item_count: Number(row.item_count || 0) * projectionFactor
       };
-      projected.average_order_value = projected.orders > 0 ? projected.revenue / projected.orders : 0;
-      projected.tooltipTitle = `${row.label || '-'} (Projected)`;
-      projected.tooltipLinesHtml = buildOverviewTooltipLines(projected, state.overview.metric);
-      return projected;
+      projection.average_order_value = projection.orders > 0 ? projection.revenue / projection.orders : 0;
+      return { ...row, projection };
     });
     const customRange = state.overview.customRange || {};
     const customTrend = customRange.active && Array.isArray(customRange.rows)
