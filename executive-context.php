@@ -153,19 +153,27 @@ function jg_executive_context_apply_summary(array $summary, array $context): arr
     foreach ($context as $monthNumber => $values) {
         $index = $monthNumber - 1;
         $month = is_array($months[$index] ?? null) ? $months[$index] : [];
+        $isAdditive = ($values['source'] ?? '') === 'daily_context';
         if (array_key_exists('revenue', $values)) {
-            $month['revenue'] = $values['revenue'];
-            $month['net_revenue'] = $values['revenue'];
-            $month['sales'] = $values['revenue'];
+            $baseRevenue = $isAdditive
+                ? (int) ($month['revenue'] ?? $month['net_revenue'] ?? $month['sales'] ?? 0)
+                : 0;
+            $revenue = $baseRevenue + (int) $values['revenue'];
+            $month['revenue'] = $revenue;
+            $month['net_revenue'] = $revenue;
+            $month['sales'] = $revenue;
         }
         if (array_key_exists('gross_profit', $values)) {
-            $month['gross_profit'] = $values['gross_profit'];
+            $month['gross_profit'] = ($isAdditive ? (int) ($month['gross_profit'] ?? 0) : 0)
+                + (int) $values['gross_profit'];
         }
         if (array_key_exists('orders_qty', $values)) {
-            $month['orders'] = $values['orders_qty'];
+            $month['orders'] = ($isAdditive ? (int) ($month['orders'] ?? 0) : 0)
+                + (int) $values['orders_qty'];
         }
         if (array_key_exists('items_qty', $values)) {
-            $month['item_count'] = $values['items_qty'];
+            $month['item_count'] = ($isAdditive ? (int) ($month['item_count'] ?? 0) : 0)
+                + (int) $values['items_qty'];
         }
         $month['month'] = $monthNumber;
         $month['label'] = $month['label'] ?? $monthLabels[$index];
