@@ -9,8 +9,16 @@
     "Duplicate business postings across dates keep the most complete paid posting.",
     "Indonesian currency text is normalized to integer rupiah; blank amounts remain zero rather than being estimated.",
     "Obvious ZF versus ZERO WE flavor-prefix mistakes are normalized to the RP package family.",
-    "Daily Context totals supplement the live May marketplace totals; they do not replace the entire month."
+    "Daily Context totals replace the matching live date overlap, then supplement the rest of the live month."
   ],
+  "live_overlap": {
+    "2026-05": {
+      "revenue": 2438344,
+      "gross_profit": 1825641,
+      "orders_qty": 18,
+      "items_qty": 34
+    }
+  },
   "records": [
     {"period_key": "2026-05-01", "revenue": 4527148, "gross_profit": 3220481, "orders_qty": 82, "items_qty": 167},
     {"period_key": "2026-05-02", "revenue": 1779027, "gross_profit": 1298100, "orders_qty": 36, "items_qty": 79},

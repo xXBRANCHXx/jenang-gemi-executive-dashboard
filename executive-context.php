@@ -133,6 +133,21 @@ function jg_executive_context_group_by_month(array $rows): array
 }
 
 /**
+ * @return array<string, int>
+ */
+function jg_executive_context_live_overlap(int $year, int $month): array
+{
+    static $overlaps = null;
+    if ($overlaps === null) {
+        $raw = @file_get_contents(__DIR__ . '/data/executive-context-may-2026.json');
+        $migration = is_string($raw) ? json_decode($raw, true) : null;
+        $overlaps = is_array($migration['live_overlap'] ?? null) ? $migration['live_overlap'] : [];
+    }
+    $periodKey = sprintf('%04d-%02d', $year, $month);
+    return is_array($overlaps[$periodKey] ?? null) ? $overlaps[$periodKey] : [];
+}
+
+/**
  * @param array<string, mixed> $summary
  * @param array<int, array<string, int|string>> $context
  * @return array<string, mixed>
@@ -154,9 +169,16 @@ function jg_executive_context_apply_summary(array $summary, array $context): arr
         $index = $monthNumber - 1;
         $month = is_array($months[$index] ?? null) ? $months[$index] : [];
         $isAdditive = ($values['source'] ?? '') === 'daily_context';
+        $overlap = $isAdditive
+            ? jg_executive_context_live_overlap((int) ($summary['year'] ?? 0), $monthNumber)
+            : [];
         if (array_key_exists('revenue', $values)) {
             $baseRevenue = $isAdditive
-                ? (int) ($month['revenue'] ?? $month['net_revenue'] ?? $month['sales'] ?? 0)
+                ? max(
+                    0,
+                    (int) ($month['revenue'] ?? $month['net_revenue'] ?? $month['sales'] ?? 0)
+                    - (int) ($overlap['revenue'] ?? 0)
+                )
                 : 0;
             $revenue = $baseRevenue + (int) $values['revenue'];
             $month['revenue'] = $revenue;
@@ -164,15 +186,21 @@ function jg_executive_context_apply_summary(array $summary, array $context): arr
             $month['sales'] = $revenue;
         }
         if (array_key_exists('gross_profit', $values)) {
-            $month['gross_profit'] = ($isAdditive ? (int) ($month['gross_profit'] ?? 0) : 0)
+            $month['gross_profit'] = ($isAdditive
+                ? max(0, (int) ($month['gross_profit'] ?? 0) - (int) ($overlap['gross_profit'] ?? 0))
+                : 0)
                 + (int) $values['gross_profit'];
         }
         if (array_key_exists('orders_qty', $values)) {
-            $month['orders'] = ($isAdditive ? (int) ($month['orders'] ?? 0) : 0)
+            $month['orders'] = ($isAdditive
+                ? max(0, (int) ($month['orders'] ?? 0) - (int) ($overlap['orders_qty'] ?? 0))
+                : 0)
                 + (int) $values['orders_qty'];
         }
         if (array_key_exists('items_qty', $values)) {
-            $month['item_count'] = ($isAdditive ? (int) ($month['item_count'] ?? 0) : 0)
+            $month['item_count'] = ($isAdditive
+                ? max(0, (int) ($month['item_count'] ?? 0) - (int) ($overlap['items_qty'] ?? 0))
+                : 0)
                 + (int) $values['items_qty'];
         }
         $month['month'] = $monthNumber;
