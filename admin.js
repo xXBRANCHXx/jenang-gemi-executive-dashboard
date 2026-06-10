@@ -2505,13 +2505,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const addOrderMetrics = (target, order) => {
     const metrics = orderMetricRow(order);
-    target.revenue += metrics.revenue;
-    target.gross_profit += metrics.gross_profit;
     const orderId = String(order?.order_id || '').trim();
+    const orderKey = [
+      String(order?.platform || '').trim(),
+      String(order?.account_key || '').trim(),
+      orderId
+    ].join('|');
     if (!target._orderIds) target._orderIds = new Set();
-    if (orderId === '' || !target._orderIds.has(orderId)) {
+    const isFirstOrderRow = orderId === '' || !target._orderIds.has(orderKey);
+    const orderRevenue = Number(order?.order_net_revenue);
+    const hasOrderRevenue = Number.isFinite(orderRevenue) && orderRevenue > 0;
+    const revenueContribution = hasOrderRevenue
+      ? (isFirstOrderRow ? orderRevenue : 0)
+      : metrics.revenue;
+    const cogs = Number(order?.cogs || 0);
+
+    target.revenue += revenueContribution;
+    target.gross_profit += revenueContribution - cogs;
+    if (isFirstOrderRow) {
       target.orders += metrics.orders;
-      if (orderId !== '') target._orderIds.add(orderId);
+      if (orderId !== '') target._orderIds.add(orderKey);
     }
     target.item_count += metrics.item_count;
   };
@@ -2628,7 +2641,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (overviewRefs.hourlyMeta) {
       const hourlyTotal = state.overview.hourlyRows.reduce((sum, row) => sum + Number(row[state.overview.hourlyMetric] || 0), 0);
-      overviewRefs.hourlyMeta.textContent = `Live today, 0-23 • ${formatFullMetricValue(state.overview.hourlyMetric, hourlyTotal, OVERVIEW_METRIC_UNITS)}`;
+      const syncStatus = state.overview.data?.sync_status;
+      const syncFinishedAt = syncStatus?.finished_at ? new Date(syncStatus.finished_at) : null;
+      const staleLabel = syncStatus?.fresh === false
+        ? `Data stale${syncFinishedAt && !Number.isNaN(syncFinishedAt.getTime()) ? ` since ${formatDashboardTime(syncFinishedAt, state.timezone, { hour: '2-digit', minute: '2-digit', hour12: false })} WIB` : ''}`
+        : 'Live today, 0-23';
+      overviewRefs.hourlyMeta.textContent = `${staleLabel} • ${formatFullMetricValue(state.overview.hourlyMetric, hourlyTotal, OVERVIEW_METRIC_UNITS)}`;
     }
     overviewRefs.hourlyMetricButtons.forEach((button) => {
       button.classList.toggle('is-active', button.dataset.overviewHourlyMetric === state.overview.hourlyMetric);
