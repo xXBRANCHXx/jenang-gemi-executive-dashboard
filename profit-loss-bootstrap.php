@@ -94,6 +94,25 @@ function jg_profit_loss_settings(PDO $pdo, int $year): array
     ];
 }
 
+function jg_profit_loss_legacy_year(int $year): array
+{
+    static $legacy = null;
+
+    if ($legacy === null) {
+        $path = __DIR__ . '/data/profit-loss-legacy.json';
+        if (!is_file($path)) {
+            $legacy = [];
+        } else {
+            $decoded = json_decode((string) file_get_contents($path), true);
+            $legacy = is_array($decoded) ? $decoded : [];
+        }
+    }
+
+    $years = is_array($legacy['years'] ?? null) ? $legacy['years'] : [];
+    $data = $years[(string) $year] ?? [];
+    return is_array($data) ? $data : [];
+}
+
 function jg_profit_loss_json(array $payload, int $status = 200): never
 {
     http_response_code($status);

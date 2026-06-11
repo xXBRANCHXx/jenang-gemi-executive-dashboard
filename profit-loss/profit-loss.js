@@ -63,6 +63,7 @@ if (root) {
   const percent = (value) => `${(number(value) * 100).toLocaleString('id-ID', { maximumFractionDigits: 1 })}%`;
   const safeDivide = (top, bottom) => number(bottom) ? number(top) / number(bottom) : 0;
   const inputNumber = (value) => String(value ?? '').replace(/[^\d.-]/g, '');
+  const legacyMarker = '<span class="pl-legacy-star" title="From the old spreadsheets.">*</span>';
 
   const requestJson = async (url, options = {}) => {
     const response = await fetch(url, {
@@ -86,7 +87,9 @@ if (root) {
   };
 
   const initializeControls = () => {
-    refs.year.innerHTML = Array.from({ length: 7 }, (_, index) => currentYear - 4 + index)
+    const startYear = 2024;
+    const endYear = Math.max(currentYear + 2, startYear);
+    refs.year.innerHTML = Array.from({ length: endYear - startYear + 1 }, (_, index) => startYear + index)
       .map((year) => `<option value="${year}"${year === state.year ? ' selected' : ''}>${year}</option>`).join('');
     const monthOptions = fullMonthNames.map((name, index) => `<option value="${index + 1}">${name}</option>`).join('');
     refs.month.insertAdjacentHTML('beforeend', monthOptions);
@@ -113,6 +116,42 @@ if (root) {
     return rows.filter((row) => month === 0 || number(row.month) === month);
   };
 
+  const legacyMonth = (month) => state.stored?.legacy?.months?.[String(month)] || null;
+  const isLegacyMonth = (month) => Boolean(month && legacyMonth(month));
+  const hasLegacyYear = () => Boolean(Object.keys(state.stored?.legacy?.months || {}).length);
+
+  const legacyProductsForMonth = (month) => {
+    const products = Array.isArray(state.stored?.legacy?.products) ? state.stored.legacy.products : [];
+    return products.map((product) => {
+      const row = product.monthly?.[String(month)] || {};
+      const units = number(row.units);
+      const netRevenue = number(row.netRevenue);
+      const grossRevenue = number(row.grossRevenue || row.netRevenue);
+      const cogs = number(row.cogs);
+      return {
+        key: String(product.key || product.label || 'LEGACY'),
+        sku: String(product.sku || ''),
+        label: String(product.label || 'Legacy spreadsheet category'),
+        productType: String(product.productType || 'Legacy spreadsheet category'),
+        brand: String(product.brand || product.label || 'Legacy spreadsheet'),
+        units,
+        netRevenue,
+        grossRevenue,
+        orders: 0,
+        cogs,
+        directUnitCost: safeDivide(cogs, units),
+        hasCatalog: true,
+        hasCogs: true,
+        source: 'legacy_spreadsheet',
+        legacy: true,
+        grossProfit: netRevenue - cogs,
+        averagePrice: safeDivide(netRevenue, units),
+        profitPerUnit: safeDivide(netRevenue - cogs, units),
+        margin: safeDivide(netRevenue - cogs, netRevenue)
+      };
+    }).filter((product) => product.units || product.netRevenue || product.cogs);
+  };
+
   const catalogCogsForMonth = (catalogRow, month) => {
     const history = Array.isArray(catalogRow?.cogs_history) ? catalogRow.cogs_history : [];
     if (!history.length || !month) return number(catalogRow?.cogs);
@@ -130,6 +169,30 @@ if (root) {
   };
 
   const calculateProducts = (month) => {
+    if (month === 0) {
+      const aggregates = new Map();
+      for (let index = 1; index <= 12; index += 1) {
+        for (const row of calculateProducts(index)) {
+          const item = aggregates.get(row.key) || { ...row, units: 0, netRevenue: 0, grossRevenue: 0, orders: 0, cogs: 0, legacy: false };
+          item.units += row.units;
+          item.netRevenue += row.netRevenue;
+          item.grossRevenue += row.grossRevenue;
+          item.orders += row.orders;
+          item.cogs += row.cogs;
+          item.legacy ||= Boolean(row.legacy);
+          aggregates.set(row.key, item);
+        }
+      }
+      return Array.from(aggregates.values()).map((item) => ({
+        ...item,
+        directUnitCost: safeDivide(item.cogs, item.units),
+        grossProfit: item.netRevenue - item.cogs,
+        averagePrice: safeDivide(item.netRevenue, item.units),
+        profitPerUnit: safeDivide(item.netRevenue - item.cogs, item.units),
+        margin: safeDivide(item.netRevenue - item.cogs, item.netRevenue)
+      })).sort((left, right) => right.netRevenue - left.netRevenue);
+    }
+    if (isLegacyMonth(month)) return legacyProductsForMonth(month);
     const catalog = catalogMap();
     const inputs = skuInputMap();
     const aggregates = new Map();
@@ -186,12 +249,76 @@ if (root) {
     })).sort((left, right) => right.netRevenue - left.netRevenue);
   };
 
-  const entriesForPeriod = (month) => (state.stored?.entries || []).filter((entry) => month === 0 || number(entry.month) === month);
+  const entriesForPeriod = (month) => {
+    const saved = (state.stored?.entries || []).filter((entry) => month === 0 || number(entry.month) === month);
+    const legacy = (state.stored?.legacy?.entries || []).filter((entry) => month === 0 || number(entry.month) === month);
+    return [...legacy, ...saved];
+  };
   const entryTotal = (month, section) => entriesForPeriod(month)
     .filter((entry) => entry.section === section)
     .reduce((sum, entry) => sum + number(entry.amount), 0);
 
   const calculateStatement = (month) => {
+    if (month === 0) {
+      return Array.from({ length: 12 }, (_, index) => calculateStatement(index + 1)).reduce((sum, row) => {
+        Object.keys(sum).forEach((key) => { sum[key] += number(row[key]); });
+        return {
+          ...sum,
+          legacy: Boolean(sum.legacy || row.legacy),
+          averagePrice: safeDivide(sum.revenue, sum.units),
+          grossProfitPerUnit: safeDivide(sum.grossProfit, sum.units),
+          grossMargin: safeDivide(sum.grossProfit, sum.revenue),
+          administrationPerUnit: safeDivide(sum.administration, sum.units),
+          administrationRate: safeDivide(sum.administration, sum.revenue),
+          marketingPerUnit: safeDivide(sum.marketing, sum.units),
+          marketingRate: safeDivide(sum.marketing, sum.revenue),
+          netMargin: safeDivide(sum.netProfit, sum.revenue),
+          netProfitPerUnit: safeDivide(sum.netProfit, sum.units)
+        };
+      }, {
+        units: 0, netRevenue: 0, grossRevenue: 0, cogs: 0, marketplaceFees: 0,
+        income: 0, revenue: 0, grossProfit: 0, grossProfitPerUnit: 0, grossMargin: 0,
+        administration: 0, administrationPerUnit: 0, administrationRate: 0,
+        marketing: 0, marketingPerUnit: 0, marketingRate: 0, other: 0,
+        netProfit: 0, netMargin: 0, netProfitPerUnit: 0, averagePrice: 0, legacy: false
+      });
+    }
+    const legacy = legacyMonth(month);
+    if (legacy) {
+      const units = number(legacy.units);
+      const revenue = number(legacy.revenue);
+      const grossRevenue = number(legacy.grossRevenue || legacy.revenue);
+      const cogs = number(legacy.cogs);
+      const grossProfit = number(legacy.grossProfit || revenue - cogs);
+      const administration = number(legacy.administration);
+      const marketing = number(legacy.marketing);
+      const other = number(legacy.other);
+      const netProfit = number(legacy.netProfit || grossProfit - administration - marketing - other);
+      return {
+        units,
+        netRevenue: number(legacy.netRevenue || revenue),
+        grossRevenue,
+        cogs,
+        marketplaceFees: number(legacy.marketplaceFees),
+        income: number(legacy.income),
+        revenue,
+        averagePrice: safeDivide(revenue, units),
+        grossProfit,
+        grossProfitPerUnit: safeDivide(grossProfit, units),
+        grossMargin: safeDivide(grossProfit, revenue),
+        administration,
+        administrationPerUnit: safeDivide(administration, units),
+        administrationRate: safeDivide(administration, revenue),
+        marketing,
+        marketingPerUnit: safeDivide(marketing, units),
+        marketingRate: safeDivide(marketing, revenue),
+        other,
+        netProfit,
+        netMargin: safeDivide(netProfit, revenue),
+        netProfitPerUnit: safeDivide(netProfit, units),
+        legacy: true
+      };
+    }
     const products = calculateProducts(month);
     const product = products.reduce((totals, row) => {
       totals.units += row.units;
@@ -243,7 +370,7 @@ if (root) {
       profit_per_unit: money(totals.netProfitPerUnit)
     };
     const meta = {
-      net_revenue: `${money(totals.marketplaceFees)} marketplace fees`,
+      net_revenue: `${money(totals.marketplaceFees)} marketplace fees${totals.legacy ? ' · old spreadsheet' : ''}`,
       units: `${integer(state.products.length)} product lines`,
       cogs: `${money(safeDivide(totals.cogs, totals.units))} / unit`,
       gross_profit: percent(totals.grossMargin),
@@ -255,7 +382,7 @@ if (root) {
     Object.entries(values).forEach(([key, value]) => {
       const target = root.querySelector(`[data-pl-kpi="${key}"]`);
       if (target) {
-        target.textContent = value;
+        target.innerHTML = `${escapeHtml(value)}${totals.legacy ? legacyMarker : ''}`;
         if (key === 'net_profit') target.classList.toggle('is-negative', totals.netProfit < 0);
       }
       const metaTarget = root.querySelector(`[data-pl-kpi-meta="${key}"]`);
@@ -283,23 +410,25 @@ if (root) {
         cogs: result.cogs + row.cogs
       }), { units: 0, revenue: 0, cogs: 0 });
       const grossProfit = totals.revenue - totals.cogs;
+      const legacy = rows.some((row) => row.legacy);
+      const marker = legacy ? legacyMarker : '';
       return `
-        <details class="pl-ledger-group" open>
+        <details class="pl-ledger-group">
           <summary>
-            <span><strong>${escapeHtml(brand)}</strong><small>${rows.length} SKU${rows.length === 1 ? '' : 's'}</small></span>
-            <span>${integer(totals.units)}</span><span>${money(totals.revenue, true)}</span><span>${money(safeDivide(totals.revenue, totals.units), true)}</span>
-            <span>${money(totals.cogs, true)}</span><span class="${grossProfit < 0 ? 'is-negative' : ''}">${money(grossProfit, true)}</span>
-            <span>${money(safeDivide(grossProfit, totals.units), true)}</span><span>${percent(safeDivide(grossProfit, totals.revenue))}</span><b aria-hidden="true"></b>
+            <span><strong>${escapeHtml(brand)}${marker}</strong><small>${rows.length} line${rows.length === 1 ? '' : 's'}</small></span>
+            <span>${integer(totals.units)}${marker}</span><span>${money(totals.revenue, true)}${marker}</span><span>${money(safeDivide(totals.revenue, totals.units), true)}${marker}</span>
+            <span>${money(totals.cogs, true)}${marker}</span><span class="${grossProfit < 0 ? 'is-negative' : ''}">${money(grossProfit, true)}${marker}</span>
+            <span>${money(safeDivide(grossProfit, totals.units), true)}${marker}</span><span>${percent(safeDivide(grossProfit, totals.revenue))}${marker}</span><b aria-hidden="true"></b>
           </summary>
           <div class="pl-ledger-rows">
             ${rows.map((row) => `
               <div class="pl-ledger-row">
-                <span><strong>${escapeHtml(row.label)}</strong><small>${escapeHtml(row.sku || 'No SKU')} ${row.flavor ? `· ${escapeHtml(row.flavor)}` : ''}</small></span>
-                <span>${integer(row.units)}</span><span>${money(row.netRevenue, true)}</span><span>${money(row.averagePrice, true)}</span>
-                <span>${money(row.cogs, true)}<small>${money(row.directUnitCost, true)} / unit</small></span>
-                <span class="${row.grossProfit < 0 ? 'is-negative' : ''}">${money(row.grossProfit, true)}</span>
-                <span>${money(row.profitPerUnit, true)}</span><span>${percent(row.margin)}</span>
-                <button type="button" class="pl-row-edit" data-pl-edit-sku="${escapeHtml(row.key)}" ${!row.sku || state.month === 0 ? 'disabled' : ''} aria-label="Edit direct costs" title="${state.month === 0 ? 'Select one month to edit direct costs' : 'Edit direct costs'}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16-.8 4 4-.8L18.5 7.9l-3.2-3.2z"/><path d="m13.8 6.2 3.2 3.2"/></svg></button>
+                <span><strong>${escapeHtml(row.label)}${row.legacy ? legacyMarker : ''}</strong><small>${escapeHtml(row.sku || (row.legacy ? 'Old spreadsheet category' : 'No SKU'))} ${row.flavor ? `· ${escapeHtml(row.flavor)}` : ''}</small></span>
+                <span>${integer(row.units)}${row.legacy ? legacyMarker : ''}</span><span>${money(row.netRevenue, true)}${row.legacy ? legacyMarker : ''}</span><span>${money(row.averagePrice, true)}${row.legacy ? legacyMarker : ''}</span>
+                <span>${money(row.cogs, true)}${row.legacy ? legacyMarker : ''}<small>${money(row.directUnitCost, true)} / unit${row.legacy ? legacyMarker : ''}</small></span>
+                <span class="${row.grossProfit < 0 ? 'is-negative' : ''}">${money(row.grossProfit, true)}${row.legacy ? legacyMarker : ''}</span>
+                <span>${money(row.profitPerUnit, true)}${row.legacy ? legacyMarker : ''}</span><span>${percent(row.margin)}${row.legacy ? legacyMarker : ''}</span>
+                <button type="button" class="pl-row-edit" data-pl-edit-sku="${escapeHtml(row.key)}" ${!row.sku || state.month === 0 || row.legacy ? 'disabled' : ''} aria-label="Edit direct costs" title="${row.legacy ? 'From the old spreadsheets.' : (state.month === 0 ? 'Select one month to edit direct costs' : 'Edit direct costs')}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16-.8 4 4-.8L18.5 7.9l-3.2-3.2z"/><path d="m13.8 6.2 3.2 3.2"/></svg></button>
               </div>
             `).join('')}
           </div>
@@ -318,14 +447,15 @@ if (root) {
     refs.entrySections.innerHTML = sections.map(([key, label]) => {
       const rows = entries.filter((entry) => entry.section === key);
       const total = rows.reduce((sum, row) => sum + number(row.amount), 0);
+      const legacy = rows.some((entry) => entry.source === 'legacy_spreadsheet');
       return `
-        <details class="pl-entry-section"${rows.length ? ' open' : ''}>
-          <summary><span>${label}<small>${rows.length} entries</small></span><strong>${money(total, true)}</strong></summary>
+        <details class="pl-entry-section">
+          <summary><span>${label}<small>${rows.length} entries</small></span><strong>${money(total, true)}${legacy ? legacyMarker : ''}</strong></summary>
           <div>
             ${rows.length ? rows.map((entry) => `
-              <button type="button" class="pl-entry-row" data-pl-edit-entry="${number(entry.id)}">
-                <span><strong>${escapeHtml(entry.label)}</strong><small>${fullMonthNames[number(entry.month) - 1]}${entry.notes ? ` · ${escapeHtml(entry.notes)}` : ''}</small></span>
-                <b>${money(entry.amount, true)}</b>
+              <button type="button" class="pl-entry-row" data-pl-edit-entry="${number(entry.id)}" ${entry.source === 'legacy_spreadsheet' ? 'disabled' : ''}>
+                <span><strong>${escapeHtml(entry.label)}${entry.source === 'legacy_spreadsheet' ? legacyMarker : ''}</strong><small>${fullMonthNames[number(entry.month) - 1]}${entry.notes ? ` · ${escapeHtml(entry.notes)}` : ''}</small></span>
+                <b>${money(entry.amount, true)}${entry.source === 'legacy_spreadsheet' ? legacyMarker : ''}</b>
               </button>`).join('') : '<p class="pl-empty">No saved entries.</p>'}
           </div>
         </details>`;
@@ -348,18 +478,23 @@ if (root) {
       ['Commissioner', bng * number(settings.commissioner_pct) / 100, `${number(settings.commissioner_pct)}% of BnG`],
       ['Advisor', bng * number(settings.advisor_pct) / 100, `${number(settings.advisor_pct)}% of BnG`]
     ];
-    refs.allocationList.innerHTML = rows.map(([label, amount, note]) => `<div><span>${label}<small>${note}</small></span><strong>${money(amount, true)}</strong></div>`).join('');
+    refs.allocationList.innerHTML = rows.map(([label, amount, note]) => `<div><span>${label}<small>${note}</small></span><strong>${money(amount, true)}${totals.legacy ? legacyMarker : ''}</strong></div>`).join('');
   };
 
   const renderQuality = () => {
-    const total = state.products.length;
-    const unmapped = state.products.filter((row) => !row.hasCatalog);
-    const missingCogs = state.products.filter((row) => !row.hasCogs);
-    const zeroSkuRows = state.products.filter((row) => !row.sku);
+    const liveProducts = state.products.filter((row) => !row.legacy);
+    const total = liveProducts.length;
+    const unmapped = liveProducts.filter((row) => !row.hasCatalog);
+    const missingCogs = liveProducts.filter((row) => !row.hasCogs);
+    const zeroSkuRows = liveProducts.filter((row) => !row.sku);
+    const legacyProducts = state.products.filter((row) => row.legacy);
     const covered = total ? Math.round(((total - missingCogs.length) / total) * 100) : 100;
-    refs.coverage.textContent = `${covered}% COGS coverage`;
+    refs.coverage.innerHTML = legacyProducts.length
+      ? `Spreadsheet total${legacyMarker}`
+      : `${covered}% COGS coverage`;
     refs.coverage.classList.toggle('is-warning', missingCogs.length > 0);
     const checks = [
+      [true, 'Source mode', legacyProducts.length ? 'This period is using the old spreadsheet totals.' : 'This period is using live SKU rows.'],
       [missingCogs.length === 0, 'COGS coverage', missingCogs.length ? `${missingCogs.length} sold product lines have no COGS.` : 'Every sold SKU has direct cost coverage.'],
       [unmapped.length === 0, 'SKU catalog match', unmapped.length ? `${unmapped.length} sales lines do not match the SKU database.` : 'All SKU-coded sales match the catalog.'],
       [zeroSkuRows.length === 0, 'Marketplace SKU field', zeroSkuRows.length ? `${zeroSkuRows.length} product lines arrived without a SKU.` : 'All product lines include a SKU.']
@@ -396,8 +531,8 @@ if (root) {
     refs.monthlyBody.innerHTML = rows.map(([label, key, formatter]) => `
       <tr class="${key === 'netProfit' || key === 'grossProfit' ? 'is-emphasis' : ''}">
         <th>${label}</th>
-        ${state.monthly.map((month) => `<td class="${number(month[key]) < 0 ? 'is-negative' : ''}">${formatter(month[key], true)}</td>`).join('')}
-        <td class="${number(ytd[key]) < 0 ? 'is-negative' : ''}">${formatter(ytd[key], true)}</td>
+        ${state.monthly.map((month, index) => `<td class="${number(month[key]) < 0 ? 'is-negative' : ''}">${formatter(month[key], true)}${month.legacy || isLegacyMonth(index + 1) ? legacyMarker : ''}</td>`).join('')}
+        <td class="${number(ytd[key]) < 0 ? 'is-negative' : ''}">${formatter(ytd[key], true)}${ytd.legacy ? legacyMarker : ''}</td>
       </tr>`).join('');
   };
 
@@ -424,7 +559,9 @@ if (root) {
       ]);
       state.sales = sales;
       state.stored = stored;
-      refs.syncLabel.textContent = sales.last_order_at ? `Live through ${new Date(sales.last_order_at).toLocaleString('en-GB', { timeZone: 'Asia/Jakarta', dateStyle: 'medium', timeStyle: 'short' })} WIB` : 'Live sales connected';
+      refs.syncLabel.textContent = hasLegacyYear()
+        ? 'Old spreadsheet months marked with red stars; live sales used outside them'
+        : (sales.last_order_at ? `Live through ${new Date(sales.last_order_at).toLocaleString('en-GB', { timeZone: 'Asia/Jakarta', dateStyle: 'medium', timeStyle: 'short' })} WIB` : 'Live sales connected');
       populateEntryLabels();
       render();
     } catch (error) {

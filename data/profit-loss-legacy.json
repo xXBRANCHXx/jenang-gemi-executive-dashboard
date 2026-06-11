@@ -1,0 +1,1139 @@
+{
+  "generated_from": "Profit and Loss sheets in user-provided legacy workbooks",
+  "years": {
+    "2024": {
+      "source": "From the old spreadsheets.",
+      "source_files": [
+        "/home/branch/Downloads/ZERO Sales Data [2024].xlsx"
+      ],
+      "months": {
+        "1": {
+          "units": 0.0,
+          "grossRevenue": 0.0,
+          "netRevenue": 0.0,
+          "marketplaceFees": 0,
+          "income": 0,
+          "revenue": 0.0,
+          "cogs": 0.0,
+          "grossProfit": 0.0,
+          "administration": 0.0,
+          "marketing": 0.0,
+          "other": 0,
+          "netProfit": 0.0,
+          "source": "legacy_spreadsheet"
+        },
+        "2": {
+          "units": 0.0,
+          "grossRevenue": 0.0,
+          "netRevenue": 0.0,
+          "marketplaceFees": 0,
+          "income": 0,
+          "revenue": 0.0,
+          "cogs": 0.0,
+          "grossProfit": 0.0,
+          "administration": 0.0,
+          "marketing": 0.0,
+          "other": 0,
+          "netProfit": 0.0,
+          "source": "legacy_spreadsheet"
+        },
+        "3": {
+          "units": 0.0,
+          "grossRevenue": 0.0,
+          "netRevenue": 0.0,
+          "marketplaceFees": 0,
+          "income": 0,
+          "revenue": 0.0,
+          "cogs": 0.0,
+          "grossProfit": 0.0,
+          "administration": 0.0,
+          "marketing": 0.0,
+          "other": 0,
+          "netProfit": 0.0,
+          "source": "legacy_spreadsheet"
+        },
+        "4": {
+          "units": 0.0,
+          "grossRevenue": 0.0,
+          "netRevenue": 0.0,
+          "marketplaceFees": 0,
+          "income": 0,
+          "revenue": 0.0,
+          "cogs": 0.0,
+          "grossProfit": 0.0,
+          "administration": 0.0,
+          "marketing": 0.0,
+          "other": 0,
+          "netProfit": 0.0,
+          "source": "legacy_spreadsheet"
+        },
+        "5": {
+          "units": 42.0,
+          "grossRevenue": 764000.0,
+          "netRevenue": 764000.0,
+          "marketplaceFees": 0,
+          "income": 0,
+          "revenue": 764000.0,
+          "cogs": 274221.479452,
+          "grossProfit": 489778.520548,
+          "administration": 0.0,
+          "marketing": 0.0,
+          "other": 0,
+          "netProfit": 489778.520548,
+          "source": "legacy_spreadsheet"
+        },
+        "6": {
+          "units": 21.0,
+          "grossRevenue": 705000.0,
+          "netRevenue": 705000.0,
+          "marketplaceFees": 0,
+          "income": 0,
+          "revenue": 705000.0,
+          "cogs": 145061.835972,
+          "grossProfit": 559938.164028,
+          "administration": 0.0,
+          "marketing": 15400.0,
+          "other": 0,
+          "netProfit": 544538.164028,
+          "source": "legacy_spreadsheet"
+        },
+        "7": {
+          "units": 146.0,
+          "grossRevenue": 3911250.0,
+          "netRevenue": 3911250.0,
+          "marketplaceFees": 0,
+          "income": 0,
+          "revenue": 3911250.0,
+          "cogs": 976494.152326,
+          "grossProfit": 2934755.847674,
+          "administration": 0.0,
+          "marketing": 144035.0,
+          "other": 0,
+          "netProfit": 2790720.847674,
+          "source": "legacy_spreadsheet"
+        },
+        "8": {
+          "units": 136.0,
+          "grossRevenue": 4924500.0,
+          "netRevenue": 4924500.0,
+          "marketplaceFees": 0,
+          "income": 0,
+          "revenue": 4924500.0,
+          "cogs": 1297980.275428,
+          "grossProfit": 3626519.724572,
+          "administration": 0.0,
+          "marketing": 118390.0,
+          "other": 0,
+          "netProfit": 3508129.724572,
+          "source": "legacy_spreadsheet"
+        },
+        "9": {
+          "units": 175.0,
+          "grossRevenue": 4919000.0,
+          "netRevenue": 4919000.0,
+          "marketplaceFees": 0,
+          "income": 0,
+          "revenue": 4919000.0,
+          "cogs": 974824.821344,
+          "grossProfit": 3944175.178656,
+          "administration": 20000.0,
+          "marketing": 237150.0,
+          "other": 0,
+          "netProfit": 3687025.178656,
+          "source": "legacy_spreadsheet"
+        },
+        "10": {
+          "units": 465.0,
+          "grossRevenue": 36149086.0,
+          "netRevenue": 36149086.0,
+          "marketplaceFees": 0,
+          "income": 0,
+          "revenue": 36149086.0,
+          "cogs": 8184915.521404,
+          "grossProfit": 27964170.478596,
+          "administration": 2881170.0,
+          "marketing": 182500.0,
+          "other": 0,
+          "netProfit": 24900500.478596,
+          "source": "legacy_spreadsheet"
+        },
+        "11": {
+          "units": 553.0,
+          "grossRevenue": 51762292.0,
+          "netRevenue": 51762292.0,
+          "marketplaceFees": 0,
+          "income": 0,
+          "revenue": 51762292.0,
+          "cogs": 9208171.700042,
+          "grossProfit": 42554120.299958,
+          "administration": 3963382.0,
+          "marketing": 784230.0,
+          "other": 0,
+          "netProfit": 37806508.3,
+          "source": "legacy_spreadsheet"
+        },
+        "12": {
+          "units": 550.0,
+          "grossRevenue": 46996857.0,
+          "netRevenue": 46996857.0,
+          "marketplaceFees": 0,
+          "income": 0,
+          "revenue": 46996857.0,
+          "cogs": 8679597.233,
+          "grossProfit": 38317259.77,
+          "administration": 4397100.0,
+          "marketing": 1063520.0,
+          "other": 3.725290298461914e-09,
+          "netProfit": 32856639.77,
+          "source": "legacy_spreadsheet"
+        }
+      },
+      "products": [
+        {
+          "key": "LEGACY_ALL_PRODUCTS_2024",
+          "sku": "",
+          "label": "All spreadsheet products",
+          "brand": "Old spreadsheets",
+          "productType": "Legacy spreadsheet total",
+          "source": "legacy_spreadsheet",
+          "monthly": {
+            "1": {
+              "units": 0.0,
+              "netRevenue": 0.0,
+              "grossRevenue": 0.0,
+              "cogs": 0.0
+            },
+            "2": {
+              "units": 0.0,
+              "netRevenue": 0.0,
+              "grossRevenue": 0.0,
+              "cogs": 0.0
+            },
+            "3": {
+              "units": 0.0,
+              "netRevenue": 0.0,
+              "grossRevenue": 0.0,
+              "cogs": 0.0
+            },
+            "4": {
+              "units": 0.0,
+              "netRevenue": 0.0,
+              "grossRevenue": 0.0,
+              "cogs": 0.0
+            },
+            "5": {
+              "units": 42.0,
+              "netRevenue": 764000.0,
+              "grossRevenue": 764000.0,
+              "cogs": 274221.479452
+            },
+            "6": {
+              "units": 21.0,
+              "netRevenue": 705000.0,
+              "grossRevenue": 705000.0,
+              "cogs": 145061.835972
+            },
+            "7": {
+              "units": 146.0,
+              "netRevenue": 3911250.0,
+              "grossRevenue": 3911250.0,
+              "cogs": 976494.152326
+            },
+            "8": {
+              "units": 136.0,
+              "netRevenue": 4924500.0,
+              "grossRevenue": 4924500.0,
+              "cogs": 1297980.275428
+            },
+            "9": {
+              "units": 175.0,
+              "netRevenue": 4919000.0,
+              "grossRevenue": 4919000.0,
+              "cogs": 974824.821344
+            },
+            "10": {
+              "units": 465.0,
+              "netRevenue": 36149086.0,
+              "grossRevenue": 36149086.0,
+              "cogs": 8184915.521404
+            },
+            "11": {
+              "units": 553.0,
+              "netRevenue": 51762292.0,
+              "grossRevenue": 51762292.0,
+              "cogs": 9208171.700042
+            },
+            "12": {
+              "units": 550.0,
+              "netRevenue": 46996857.0,
+              "grossRevenue": 46996857.0,
+              "cogs": 8679597.233
+            }
+          }
+        }
+      ],
+      "entries": [
+        {
+          "year": 2024,
+          "month": 6,
+          "section": "marketing",
+          "label": "Total Marketing",
+          "amount": 15400.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2024,
+          "month": 7,
+          "section": "marketing",
+          "label": "Total Marketing",
+          "amount": 144035.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2024,
+          "month": 8,
+          "section": "marketing",
+          "label": "Total Marketing",
+          "amount": 118390.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2024,
+          "month": 9,
+          "section": "administration",
+          "label": "Total Administration",
+          "amount": 20000.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2024,
+          "month": 9,
+          "section": "marketing",
+          "label": "Total Marketing",
+          "amount": 237150.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2024,
+          "month": 10,
+          "section": "administration",
+          "label": "Total Administration",
+          "amount": 2881170.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2024,
+          "month": 10,
+          "section": "marketing",
+          "label": "Total Marketing",
+          "amount": 182500.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2024,
+          "month": 11,
+          "section": "administration",
+          "label": "Total Administration",
+          "amount": 3963382.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2024,
+          "month": 11,
+          "section": "marketing",
+          "label": "Total Marketing",
+          "amount": 784230.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2024,
+          "month": 12,
+          "section": "administration",
+          "label": "Total Administration",
+          "amount": 4397100.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2024,
+          "month": 12,
+          "section": "marketing",
+          "label": "Total Marketing",
+          "amount": 1063520.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2024,
+          "month": 12,
+          "section": "other",
+          "label": "Other expenses",
+          "amount": 0.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        }
+      ]
+    },
+    "2025": {
+      "source": "From the old spreadsheets.",
+      "source_files": [
+        "/home/branch/Downloads/ZFI Sales Data [2025].xlsx"
+      ],
+      "months": {
+        "1": {
+          "units": 780.0,
+          "grossRevenue": 70041756.0,
+          "netRevenue": 70041756.0,
+          "marketplaceFees": 0,
+          "income": 0,
+          "revenue": 70041756.0,
+          "cogs": 13901826.439925,
+          "grossProfit": 56139929.560075,
+          "administration": 43009143.0,
+          "marketing": 2219592.888346,
+          "other": 0,
+          "netProfit": 10911193.671729,
+          "source": "legacy_spreadsheet"
+        },
+        "2": {
+          "units": 690.0,
+          "grossRevenue": 59827944.0,
+          "netRevenue": 59827944.0,
+          "marketplaceFees": 0,
+          "income": 0,
+          "revenue": 59827944.0,
+          "cogs": 12111763.94531,
+          "grossProfit": 47716180.05469,
+          "administration": 42955150.0,
+          "marketing": 4644442.0,
+          "other": 3.3905962482094765e-09,
+          "netProfit": 116588.05469,
+          "source": "legacy_spreadsheet"
+        },
+        "3": {
+          "units": 605.0,
+          "grossRevenue": 52086497.0,
+          "netRevenue": 52086497.0,
+          "marketplaceFees": 0,
+          "income": 0,
+          "revenue": 52086497.0,
+          "cogs": 12282115.404693,
+          "grossProfit": 39804381.595307,
+          "administration": 35495917.0,
+          "marketing": 7542734.346012,
+          "other": 0,
+          "netProfit": -3234269.750705,
+          "source": "legacy_spreadsheet"
+        },
+        "4": {
+          "units": 776.0,
+          "grossRevenue": 56043753.0,
+          "netRevenue": 56043753.0,
+          "marketplaceFees": 0,
+          "income": 0,
+          "revenue": 56043753.0,
+          "cogs": 13592352.095005,
+          "grossProfit": 42451400.904995,
+          "administration": 32902691.0,
+          "marketing": 5781288.662155,
+          "other": 2.3283064365386963e-09,
+          "netProfit": 3767421.24284,
+          "source": "legacy_spreadsheet"
+        },
+        "5": {
+          "units": 1038.0,
+          "grossRevenue": 66186082.2,
+          "netRevenue": 66186082.2,
+          "marketplaceFees": 0,
+          "income": 0,
+          "revenue": 66186082.2,
+          "cogs": 16520365.16512,
+          "grossProfit": 49665717.03488,
+          "administration": 19063301.0,
+          "marketing": 6150657.530225,
+          "other": 0,
+          "netProfit": 24451758.504655,
+          "source": "legacy_spreadsheet"
+        },
+        "6": {
+          "units": 1268.0,
+          "grossRevenue": 71928362.0,
+          "netRevenue": 71928362.0,
+          "marketplaceFees": 0,
+          "income": 0,
+          "revenue": 71928362.0,
+          "cogs": 18359082.28946,
+          "grossProfit": 53569279.71054,
+          "administration": 6164168.0,
+          "marketing": 10879843.72176,
+          "other": 0,
+          "netProfit": 36525267.98878,
+          "source": "legacy_spreadsheet"
+        },
+        "7": {
+          "units": 1275.0,
+          "grossRevenue": 73538105.0,
+          "netRevenue": 73538105.0,
+          "marketplaceFees": 0,
+          "income": 0,
+          "revenue": 73538105.0,
+          "cogs": 18733660.702066,
+          "grossProfit": 54804444.297934,
+          "administration": 8960405.0,
+          "marketing": 12150693.72176,
+          "other": 7.450580596923828e-09,
+          "netProfit": 33693345.576174,
+          "source": "legacy_spreadsheet"
+        },
+        "8": {
+          "units": 1484.0,
+          "grossRevenue": 83426305.27,
+          "netRevenue": 83426305.27,
+          "marketplaceFees": 0,
+          "income": 0,
+          "revenue": 83426305.27,
+          "cogs": 27184365.0,
+          "grossProfit": 56241940.27,
+          "administration": 6421959.0,
+          "marketing": 26592612.0,
+          "other": 3.725290298461914e-09,
+          "netProfit": 23227369.27,
+          "source": "legacy_spreadsheet"
+        },
+        "9": {
+          "units": 1800.0,
+          "grossRevenue": 92598518.6,
+          "netRevenue": 92598518.6,
+          "marketplaceFees": 0,
+          "income": 0,
+          "revenue": 92598518.6,
+          "cogs": 30627066.0,
+          "grossProfit": 61971452.6,
+          "administration": 7563617.0,
+          "marketing": 19872546.0,
+          "other": 0,
+          "netProfit": 34535289.6,
+          "source": "legacy_spreadsheet"
+        },
+        "10": {
+          "units": 1623.0,
+          "grossRevenue": 81178820.166667,
+          "netRevenue": 81178820.166667,
+          "marketplaceFees": 0,
+          "income": 0,
+          "revenue": 81178820.166667,
+          "cogs": 27764399.0,
+          "grossProfit": 53414421.166667,
+          "administration": 14312356.0,
+          "marketing": 17997674.0,
+          "other": 0,
+          "netProfit": 21104391.166667,
+          "source": "legacy_spreadsheet"
+        },
+        "11": {
+          "units": 1484.0,
+          "grossRevenue": 77617164.61,
+          "netRevenue": 77617164.61,
+          "marketplaceFees": 0,
+          "income": 0,
+          "revenue": 77617164.61,
+          "cogs": 26473225.0,
+          "grossProfit": 51143939.61,
+          "administration": 6571510.0,
+          "marketing": 15318510.0,
+          "other": 0,
+          "netProfit": 29253919.612857,
+          "source": "legacy_spreadsheet"
+        },
+        "12": {
+          "units": 1628.0,
+          "grossRevenue": 80542693.96,
+          "netRevenue": 80542693.96,
+          "marketplaceFees": 0,
+          "income": 0,
+          "revenue": 80542693.96,
+          "cogs": 25669340.0,
+          "grossProfit": 54873353.96,
+          "administration": 8989968.0,
+          "marketing": 0.0,
+          "other": 0,
+          "netProfit": 45883385.96,
+          "source": "legacy_spreadsheet"
+        }
+      },
+      "products": [
+        {
+          "key": "LEGACY_ALL_PRODUCTS_2025",
+          "sku": "",
+          "label": "All spreadsheet products",
+          "brand": "Old spreadsheets",
+          "productType": "Legacy spreadsheet total",
+          "source": "legacy_spreadsheet",
+          "monthly": {
+            "1": {
+              "units": 780.0,
+              "netRevenue": 70041756.0,
+              "grossRevenue": 70041756.0,
+              "cogs": 13901826.439925
+            },
+            "2": {
+              "units": 690.0,
+              "netRevenue": 59827944.0,
+              "grossRevenue": 59827944.0,
+              "cogs": 12111763.94531
+            },
+            "3": {
+              "units": 605.0,
+              "netRevenue": 52086497.0,
+              "grossRevenue": 52086497.0,
+              "cogs": 12282115.404693
+            },
+            "4": {
+              "units": 776.0,
+              "netRevenue": 56043753.0,
+              "grossRevenue": 56043753.0,
+              "cogs": 13592352.095005
+            },
+            "5": {
+              "units": 1038.0,
+              "netRevenue": 66186082.2,
+              "grossRevenue": 66186082.2,
+              "cogs": 16520365.16512
+            },
+            "6": {
+              "units": 1268.0,
+              "netRevenue": 71928362.0,
+              "grossRevenue": 71928362.0,
+              "cogs": 18359082.28946
+            },
+            "7": {
+              "units": 1275.0,
+              "netRevenue": 73538105.0,
+              "grossRevenue": 73538105.0,
+              "cogs": 18733660.702066
+            },
+            "8": {
+              "units": 1484.0,
+              "netRevenue": 83426305.27,
+              "grossRevenue": 83426305.27,
+              "cogs": 27184365.0
+            },
+            "9": {
+              "units": 1800.0,
+              "netRevenue": 92598518.6,
+              "grossRevenue": 92598518.6,
+              "cogs": 30627066.0
+            },
+            "10": {
+              "units": 1623.0,
+              "netRevenue": 81178820.166667,
+              "grossRevenue": 81178820.166667,
+              "cogs": 27764399.0
+            },
+            "11": {
+              "units": 1484.0,
+              "netRevenue": 77617164.61,
+              "grossRevenue": 77617164.61,
+              "cogs": 26473225.0
+            },
+            "12": {
+              "units": 1628.0,
+              "netRevenue": 80542693.96,
+              "grossRevenue": 80542693.96,
+              "cogs": 25669340.0
+            }
+          }
+        }
+      ],
+      "entries": [
+        {
+          "year": 2025,
+          "month": 1,
+          "section": "administration",
+          "label": "Total Administration",
+          "amount": 43009143.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2025,
+          "month": 1,
+          "section": "marketing",
+          "label": "Total Marketing",
+          "amount": 2219592.888346,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2025,
+          "month": 2,
+          "section": "administration",
+          "label": "Total Administration",
+          "amount": 42955150.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2025,
+          "month": 2,
+          "section": "marketing",
+          "label": "Total Marketing",
+          "amount": 4644442.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2025,
+          "month": 2,
+          "section": "other",
+          "label": "Other expenses",
+          "amount": 0.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2025,
+          "month": 3,
+          "section": "administration",
+          "label": "Total Administration",
+          "amount": 35495917.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2025,
+          "month": 3,
+          "section": "marketing",
+          "label": "Total Marketing",
+          "amount": 7542734.346012,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2025,
+          "month": 4,
+          "section": "administration",
+          "label": "Total Administration",
+          "amount": 32902691.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2025,
+          "month": 4,
+          "section": "marketing",
+          "label": "Total Marketing",
+          "amount": 5781288.662155,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2025,
+          "month": 4,
+          "section": "other",
+          "label": "Other expenses",
+          "amount": 0.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "section": "administration",
+          "label": "Total Administration",
+          "amount": 19063301.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "section": "marketing",
+          "label": "Total Marketing",
+          "amount": 6150657.530225,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "section": "administration",
+          "label": "Total Administration",
+          "amount": 6164168.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "section": "marketing",
+          "label": "Total Marketing",
+          "amount": 10879843.72176,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "section": "administration",
+          "label": "Total Administration",
+          "amount": 8960405.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "section": "marketing",
+          "label": "Total Marketing",
+          "amount": 12150693.72176,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "section": "other",
+          "label": "Other expenses",
+          "amount": 0.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "section": "administration",
+          "label": "Total Administration",
+          "amount": 6421959.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "section": "marketing",
+          "label": "Total Marketing",
+          "amount": 26592612.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "section": "other",
+          "label": "Other expenses",
+          "amount": 0.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "section": "administration",
+          "label": "Total Administration",
+          "amount": 7563617.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "section": "marketing",
+          "label": "Total Marketing",
+          "amount": 19872546.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "section": "administration",
+          "label": "Total Administration",
+          "amount": 14312356.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "section": "marketing",
+          "label": "Total Marketing",
+          "amount": 17997674.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "section": "administration",
+          "label": "Total Administration",
+          "amount": 6571510.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "section": "marketing",
+          "label": "Total Marketing",
+          "amount": 15318510.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "section": "administration",
+          "label": "Total Administration",
+          "amount": 8989968.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        }
+      ]
+    },
+    "2026": {
+      "source": "From the old spreadsheets.",
+      "source_files": [
+        "/home/branch/Downloads/Sales Data - ZFI [2026] (2).xlsx"
+      ],
+      "months": {
+        "1": {
+          "units": 2393.0,
+          "grossRevenue": 92462126.763869,
+          "netRevenue": 92462126.763869,
+          "marketplaceFees": 0,
+          "income": 0,
+          "revenue": 92462126.763869,
+          "cogs": 33011654.0,
+          "grossProfit": 59558472.763869,
+          "administration": 7118022.0,
+          "marketing": 14703963.0,
+          "other": 0,
+          "netProfit": 37736487.763869,
+          "source": "legacy_spreadsheet"
+        },
+        "2": {
+          "units": 2172.0,
+          "grossRevenue": 80922281.76746,
+          "netRevenue": 80922281.76746,
+          "marketplaceFees": 0,
+          "income": 0,
+          "revenue": 80922281.76746,
+          "cogs": 26879359.0,
+          "grossProfit": 55042922.76746,
+          "administration": 8656324.0,
+          "marketing": 13146591.0,
+          "other": 3.725290298461914e-09,
+          "netProfit": 33240007.76746,
+          "source": "legacy_spreadsheet"
+        },
+        "3": {
+          "units": 1966.0,
+          "grossRevenue": 80417995.375,
+          "netRevenue": 80417995.375,
+          "marketplaceFees": 0,
+          "income": 0,
+          "revenue": 80417995.375,
+          "cogs": 26714618.0,
+          "grossProfit": 54453377.375,
+          "administration": 15992807.0,
+          "marketing": 18223905.0,
+          "other": 0,
+          "netProfit": 20236665.375,
+          "source": "legacy_spreadsheet"
+        },
+        "4": {
+          "units": 2950.0,
+          "grossRevenue": 96728801.266667,
+          "netRevenue": 96728801.266667,
+          "marketplaceFees": 0,
+          "income": 0,
+          "revenue": 96728801.266667,
+          "cogs": 30982066.0,
+          "grossProfit": 65926735.266667,
+          "administration": 16883684.0,
+          "marketing": 18736221.0,
+          "other": 0,
+          "netProfit": 30306830.266667,
+          "source": "legacy_spreadsheet"
+        },
+        "5": {
+          "units": 4092.0,
+          "grossRevenue": 119687729.039744,
+          "netRevenue": 119687729.039744,
+          "marketplaceFees": 0,
+          "income": 0,
+          "revenue": 119687729.039744,
+          "cogs": 36144433.0,
+          "grossProfit": 83573296.039744,
+          "administration": 13969385.0,
+          "marketing": 16439335.0,
+          "other": 7.450580596923828e-09,
+          "netProfit": 53164576.039744,
+          "source": "legacy_spreadsheet"
+        }
+      },
+      "products": [
+        {
+          "key": "LEGACY_ALL_PRODUCTS_2026",
+          "sku": "",
+          "label": "All spreadsheet products",
+          "brand": "Old spreadsheets",
+          "productType": "Legacy spreadsheet total",
+          "source": "legacy_spreadsheet",
+          "monthly": {
+            "1": {
+              "units": 2393.0,
+              "netRevenue": 92462126.763869,
+              "grossRevenue": 92462126.763869,
+              "cogs": 33011654.0
+            },
+            "2": {
+              "units": 2172.0,
+              "netRevenue": 80922281.76746,
+              "grossRevenue": 80922281.76746,
+              "cogs": 26879359.0
+            },
+            "3": {
+              "units": 1966.0,
+              "netRevenue": 80417995.375,
+              "grossRevenue": 80417995.375,
+              "cogs": 26714618.0
+            },
+            "4": {
+              "units": 2950.0,
+              "netRevenue": 96728801.266667,
+              "grossRevenue": 96728801.266667,
+              "cogs": 30982066.0
+            },
+            "5": {
+              "units": 4092.0,
+              "netRevenue": 119687729.039744,
+              "grossRevenue": 119687729.039744,
+              "cogs": 36144433.0
+            }
+          }
+        }
+      ],
+      "entries": [
+        {
+          "year": 2026,
+          "month": 1,
+          "section": "administration",
+          "label": "Total Administration",
+          "amount": 7118022.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "section": "marketing",
+          "label": "Total Marketing",
+          "amount": 14703963.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "section": "administration",
+          "label": "Total Administration",
+          "amount": 8656324.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "section": "marketing",
+          "label": "Total Marketing",
+          "amount": 13146591.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "section": "other",
+          "label": "Other expenses",
+          "amount": 0.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "section": "administration",
+          "label": "Total Administration",
+          "amount": 15992807.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "section": "marketing",
+          "label": "Total Marketing",
+          "amount": 18223905.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2026,
+          "month": 4,
+          "section": "administration",
+          "label": "Total Administration",
+          "amount": 16883684.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2026,
+          "month": 4,
+          "section": "marketing",
+          "label": "Total Marketing",
+          "amount": 18736221.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2026,
+          "month": 5,
+          "section": "administration",
+          "label": "Total Administration",
+          "amount": 13969385.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2026,
+          "month": 5,
+          "section": "marketing",
+          "label": "Total Marketing",
+          "amount": 16439335.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        },
+        {
+          "year": 2026,
+          "month": 5,
+          "section": "other",
+          "label": "Other expenses",
+          "amount": 0.0,
+          "notes": "From the old spreadsheets.",
+          "source": "legacy_spreadsheet"
+        }
+      ]
+    }
+  }
+}

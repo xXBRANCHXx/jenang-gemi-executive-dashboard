@@ -17,7 +17,7 @@ function jg_profit_loss_body(): array
 function jg_profit_loss_year(mixed $value): int
 {
     $year = (int) $value;
-    if ($year < 2020 || $year > 2100) {
+    if ($year < 2024 || $year > 2100) {
         jg_profit_loss_json(['ok' => false, 'error' => 'invalid_year'], 422);
     }
     return $year;
@@ -126,6 +126,7 @@ try {
             'entries' => $entryStmt->fetchAll(),
             'settings' => jg_profit_loss_settings($pdo, $year),
             'default_entries' => jg_profit_loss_default_entries(),
+            'legacy' => jg_profit_loss_legacy_year($year),
         ]);
     }
 
