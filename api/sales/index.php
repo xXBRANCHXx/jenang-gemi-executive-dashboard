@@ -60,6 +60,30 @@ if ($action === 'sku_catalog') {
             unset($product);
         }
 
+        $skus = [];
+        $skuStmt = $pdo->query(
+            'SELECT
+                s.sku,
+                s.tag,
+                b.name AS brand_name,
+                p.name AS product_name,
+                f.name AS flavor_name
+             FROM sku_skus s
+             INNER JOIN sku_brands b ON b.id = s.brand_id
+             INNER JOIN sku_products p ON p.id = s.product_id
+             INNER JOIN sku_flavors f ON f.id = s.flavor_id
+             ORDER BY b.name, p.name, f.name, s.sku'
+        );
+        foreach ($skuStmt->fetchAll() as $row) {
+            $skus[] = [
+                'sku' => (string) ($row['sku'] ?? ''),
+                'tag' => (string) ($row['tag'] ?? ''),
+                'brand_name' => (string) ($row['brand_name'] ?? ''),
+                'product_name' => (string) ($row['product_name'] ?? ''),
+                'flavor_name' => (string) ($row['flavor_name'] ?? ''),
+            ];
+        }
+
         $catalog = array_map(static function (array $brand): array {
             $brand['products'] = array_values($brand['products']);
             return $brand;
@@ -68,6 +92,7 @@ if ($action === 'sku_catalog') {
         echo json_encode([
             'ok' => true,
             'catalog' => $catalog,
+            'skus' => $skus,
         ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     } catch (Throwable $error) {
         http_response_code(500);

@@ -1616,6 +1616,7 @@ document.addEventListener('DOMContentLoaded', () => {
       data: null,
       rows: [],
       catalog: [],
+      skuCatalogByCode: {},
       platforms: [],
       monthRanges: [],
       monthsSignature: '',
@@ -2457,6 +2458,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const normalizeOrderFilterValue = (value) => String(value || '').trim().toLowerCase();
 
+  const compactOrderFilterValue = (value) => normalizeOrderFilterValue(value).replace(/[^a-z0-9]+/g, '');
+
   const orderFilterIncludes = (items, value) => {
     if (!items.length) return true;
     return items.map(normalizeOrderFilterValue).includes(normalizeOrderFilterValue(value));
@@ -2465,10 +2468,68 @@ document.addEventListener('DOMContentLoaded', () => {
   const orderFilterMatchesAny = (items, values) => {
     if (!items.length) return true;
     const normalizedItems = items.map(normalizeOrderFilterValue);
+    const compactItems = items.map(compactOrderFilterValue).filter(Boolean);
     return values.some((value) => {
       const normalized = normalizeOrderFilterValue(value);
-      return normalized && normalizedItems.some((item) => normalized === item || normalized.includes(item));
+      const compact = compactOrderFilterValue(value);
+      return normalized && normalizedItems.some((item) => normalized === item || normalized.includes(item) || item.includes(normalized))
+        || compact && compactItems.some((item) => compact === item || compact.includes(item) || item.includes(compact));
     });
+  };
+
+  const skuCatalogRecordForOrder = (row) => {
+    const candidates = [
+      row?.sku,
+      row?.marketplace_sku,
+      row?.item_key
+    ].map((value) => String(value || '').trim()).filter(Boolean);
+    for (const candidate of candidates) {
+      const direct = state.orders.skuCatalogByCode[normalizeOrderFilterValue(candidate)];
+      if (direct) return direct;
+      const compact = state.orders.skuCatalogByCode[compactOrderFilterValue(candidate)];
+      if (compact) return compact;
+    }
+    return null;
+  };
+
+  const orderCompanyValues = (row) => {
+    const sku = skuCatalogRecordForOrder(row) || {};
+    return [
+      row?.brand_name,
+      sku.brand_name,
+      row?.company,
+      row?.account_key,
+      row?.product_name,
+      row?.marketplace_product_name
+    ];
+  };
+
+  const orderProductValues = (row) => {
+    const sku = skuCatalogRecordForOrder(row) || {};
+    return [
+      row?.base_product_name,
+      row?.product_type,
+      sku.product_name,
+      row?.product_name,
+      row?.marketplace_product_name,
+      row?.sku,
+      row?.marketplace_sku,
+      row?.item_key
+    ];
+  };
+
+  const orderFlavorValues = (row) => {
+    const sku = skuCatalogRecordForOrder(row) || {};
+    return [
+      row?.flavor_name,
+      row?.flavor,
+      sku.flavor_name,
+      row?.product_name,
+      row?.marketplace_product_name,
+      row?.sku,
+      row?.marketplace_sku,
+      row?.item_key
+    ];
   };
 
   const orderLocalDate = (row) => {
@@ -2530,9 +2591,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (filters.startDate && rowDate && rowDate < filters.startDate) return false;
     if (filters.endDate && rowDate && rowDate > filters.endDate) return false;
     return (
-      orderFilterIncludes(filters.companies, row.company || '') &&
-      orderFilterMatchesAny(filters.products, [row.product_type || '', row.product_name || '', row.sku || '']) &&
-      orderFilterIncludes(filters.flavors, row.flavor || '') &&
+      orderFilterMatchesAny(filters.companies, orderCompanyValues(row)) &&
+      orderFilterMatchesAny(filters.products, orderProductValues(row)) &&
+      orderFilterMatchesAny(filters.flavors, orderFlavorValues(row)) &&
       orderFilterIncludes(filters.platforms, row.platform || '')
     );
   };
@@ -3983,8 +4044,18 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const data = await requestJson(skuCatalogEndpoint);
       state.orders.catalog = Array.isArray(data.catalog) ? data.catalog : [];
+      state.orders.skuCatalogByCode = {};
+      (Array.isArray(data.skus) ? data.skus : []).forEach((sku) => {
+        [sku.sku, sku.tag].forEach((code) => {
+          const normalized = normalizeOrderFilterValue(code);
+          const compact = compactOrderFilterValue(code);
+          if (normalized) state.orders.skuCatalogByCode[normalized] = sku;
+          if (compact) state.orders.skuCatalogByCode[compact] = sku;
+        });
+      });
     } catch (_error) {
       state.orders.catalog = [];
+      state.orders.skuCatalogByCode = {};
     }
     renderSkuOrderTree();
   };
