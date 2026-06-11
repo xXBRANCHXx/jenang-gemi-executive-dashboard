@@ -11,6 +11,74 @@ jg_admin_require_auth();
 
 header('Content-Type: application/json; charset=utf-8');
 
+$action = strtolower(trim((string) ($_GET['action'] ?? 'summary')));
+if ($action === 'sku_catalog') {
+    try {
+        $pdo = jg_sku_db();
+        $brands = [];
+
+        $brandStmt = $pdo->query('SELECT id, name, code FROM sku_brands ORDER BY CAST(code AS UNSIGNED), name');
+        foreach ($brandStmt->fetchAll() as $row) {
+            $brands[(string) $row['id']] = [
+                'id' => (string) $row['id'],
+                'name' => (string) $row['name'],
+                'code' => (string) $row['code'],
+                'products' => [],
+            ];
+        }
+
+        $productStmt = $pdo->query('SELECT id, brand_id, name, code FROM sku_products ORDER BY brand_id, CAST(code AS UNSIGNED), name');
+        foreach ($productStmt->fetchAll() as $row) {
+            $brandId = (string) $row['brand_id'];
+            if (!isset($brands[$brandId])) {
+                continue;
+            }
+            $brands[$brandId]['products'][(string) $row['id']] = [
+                'id' => (string) $row['id'],
+                'brand_id' => $brandId,
+                'name' => (string) $row['name'],
+                'code' => (string) $row['code'],
+                'flavors' => [],
+            ];
+        }
+
+        $flavorStmt = $pdo->query('SELECT id, brand_id, name, code FROM sku_flavors ORDER BY brand_id, CAST(code AS UNSIGNED), name');
+        foreach ($flavorStmt->fetchAll() as $row) {
+            $brandId = (string) $row['brand_id'];
+            if (!isset($brands[$brandId])) {
+                continue;
+            }
+            $flavor = [
+                'id' => (string) $row['id'],
+                'brand_id' => $brandId,
+                'name' => (string) $row['name'],
+                'code' => (string) $row['code'],
+            ];
+            foreach ($brands[$brandId]['products'] as &$product) {
+                $product['flavors'][] = $flavor;
+            }
+            unset($product);
+        }
+
+        $catalog = array_map(static function (array $brand): array {
+            $brand['products'] = array_values($brand['products']);
+            return $brand;
+        }, array_values($brands));
+
+        echo json_encode([
+            'ok' => true,
+            'catalog' => $catalog,
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $error) {
+        http_response_code(500);
+        echo json_encode([
+            'ok' => false,
+            'error' => 'sku_catalog_unavailable',
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+    exit;
+}
+
 $year = max(2025, (int) ($_GET['year'] ?? gmdate('Y')));
 $setupToken = jg_dashboard_marketplace_api_setup_token();
 if ($setupToken === '') {

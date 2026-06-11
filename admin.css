@@ -1772,6 +1772,222 @@ button, input {
   line-height: inherit;
 }
 
+.admin-orders-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-orders-icon-btn,
+.admin-orders-reset-btn {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--admin-text);
+  cursor: pointer;
+}
+
+.admin-orders-reset-btn {
+  color: #ff4d57;
+}
+
+.admin-orders-icon-btn svg,
+.admin-orders-reset-btn svg,
+.admin-orders-filter-chip svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.admin-orders-table-wrap {
+  max-height: min(680px, 72vh);
+  overflow: auto;
+}
+
+.admin-orders-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.admin-orders-filter-bar[hidden] {
+  display: none;
+}
+
+.admin-orders-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+  padding: 6px 9px 6px 11px;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--admin-text);
+  font: 800 10px/1 "Plus Jakarta Sans", sans-serif;
+  cursor: pointer;
+}
+
+.admin-orders-filter-chip svg {
+  width: 14px;
+  height: 14px;
+  color: #ff4d57;
+}
+
+.admin-orders-filter-card {
+  width: min(760px, calc(100vw - 28px));
+  max-height: min(86vh, 860px);
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.admin-orders-filter-body {
+  display: grid;
+  gap: 12px;
+  overflow: auto;
+  padding: 18px 2px;
+}
+
+.admin-orders-accordion,
+.admin-orders-nested {
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: var(--admin-surface-soft);
+}
+
+.admin-orders-accordion > summary,
+.admin-orders-nested > summary {
+  min-height: 46px;
+  padding: 13px 15px;
+  color: var(--admin-text);
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.admin-orders-accordion[open] > summary,
+.admin-orders-nested[open] > summary {
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.admin-orders-accordion-content,
+.admin-orders-nested-content {
+  display: grid;
+  gap: 9px;
+  padding: 11px;
+}
+
+.admin-orders-nested-content {
+  padding-left: 18px;
+}
+
+.admin-orders-filter-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 11px;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--admin-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.admin-orders-filter-row small {
+  color: var(--admin-muted);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.admin-orders-filter-row.is-selected,
+.admin-orders-platform-choice.is-selected {
+  border-color: rgba(255, 210, 86, 0.72);
+  background: rgba(255, 210, 86, 0.16);
+}
+
+.admin-orders-platform-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 11px;
+}
+
+.admin-orders-platform-choice {
+  min-height: 40px;
+  padding: 8px 11px;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--admin-text);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.admin-orders-date-range {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 11px;
+}
+
+.admin-orders-date-field {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-orders-date-field > span {
+  color: var(--admin-muted);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-orders-date-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--admin-text);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.admin-orders-date-popover {
+  left: 11px;
+  right: auto;
+  top: calc(100% + 8px);
+  bottom: auto;
+}
+
+@media (max-width: 720px) {
+  .admin-orders-platform-grid,
+  .admin-orders-date-range {
+    grid-template-columns: 1fr;
+  }
+}
+
 .admin-order-view-btn {
   min-height: 24px;
   padding: 4px 8px;

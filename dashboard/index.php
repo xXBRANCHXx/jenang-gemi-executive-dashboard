@@ -75,7 +75,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
             <strong class="admin-loader-label" data-admin-loader-label>Initializing...</strong>
         </div>
     </div>
-    <div class="admin-app admin-app-suite" data-admin-dashboard data-analytics-endpoint="../api/analytics/" data-live-endpoint="../api/live/" data-settings-endpoint="../api/settings/" data-sales-endpoint="../api/sales/" data-orders-endpoint="../api/orders/" data-context-endpoint="../api/context/" data-zero-store-endpoint="../api/zero-store/">
+    <div class="admin-app admin-app-suite" data-admin-dashboard data-analytics-endpoint="../api/analytics/" data-live-endpoint="../api/live/" data-settings-endpoint="../api/settings/" data-sales-endpoint="../api/sales/" data-orders-endpoint="../api/orders/" data-sku-catalog-endpoint="../api/sales/?action=sku_catalog" data-context-endpoint="../api/context/" data-zero-store-endpoint="../api/zero-store/">
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
         <div class="admin-shell">
@@ -356,27 +356,25 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                     </section>
 
                     <section class="admin-view" data-view-panel="orders">
-                <section class="admin-overview-strip">
-                    <div class="admin-toggle-row">
-                        <input class="admin-date-input" type="date" data-orders-start-date>
-                        <input class="admin-date-input" type="date" data-orders-end-date>
-                        <button type="button" class="admin-toggle-pill is-active" data-orders-refresh>Refresh</button>
-                    </div>
-                    <div class="admin-overview-strip-meta">
-                        <span class="admin-live-pill"><span class="admin-live-dot"></span>Live</span>
-                        <small data-orders-last-updated>Orders from marketplace facts</small>
-                    </div>
-                </section>
                 <section class="admin-main-grid">
                     <article class="admin-panel admin-panel-table admin-panel-wide">
                         <div class="admin-panel-head">
                             <div>
                                 <span class="admin-panel-kicker">Orders</span>
                                 <h3>Marketplace order facts</h3>
+                                <span class="admin-panel-meta" data-orders-status>Loading stored orders from newest to oldest</span>
                             </div>
-                            <span class="admin-panel-meta" data-orders-count>0 rows</span>
+                            <div class="admin-orders-actions">
+                                <button type="button" class="admin-orders-icon-btn" data-orders-filter-open aria-label="Open order filters">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-6.2 7.1v5.2l-3.6 1.8v-7z"/></svg>
+                                </button>
+                                <button type="button" class="admin-orders-reset-btn" data-orders-filter-reset aria-label="Reset order filters" hidden>
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+                                </button>
+                            </div>
                         </div>
-                        <div class="admin-table-wrap">
+                        <div class="admin-orders-filter-bar" data-orders-active-filters hidden></div>
+                        <div class="admin-table-wrap admin-orders-table-wrap" data-orders-scroll>
                             <table class="admin-table admin-orders-table">
                                 <thead>
                                     <tr>
@@ -394,7 +392,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                     </tr>
                                 </thead>
                                 <tbody data-orders-table-body>
-                                    <tr><td colspan="11" class="admin-empty">Select a date range to load orders.</td></tr>
+                                    <tr><td colspan="11" class="admin-empty">Loading orders.</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -1026,6 +1024,70 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                 </main>
             </div>
         </div>
+    </div>
+    <div class="admin-modal-shell admin-orders-filter-modal" data-orders-filter-modal hidden>
+        <button type="button" class="admin-modal-backdrop" data-orders-filter-close aria-label="Close order filters"></button>
+        <section class="admin-modal-card admin-orders-filter-card" role="dialog" aria-modal="true" aria-labelledby="orders-filter-title">
+            <div class="admin-modal-head">
+                <div>
+                    <span class="admin-panel-kicker">Order Filters</span>
+                    <h3 id="orders-filter-title">Filter marketplace orders</h3>
+                </div>
+                <button type="button" class="admin-orders-icon-btn" data-orders-filter-close aria-label="Close order filters">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+                </button>
+            </div>
+            <div class="admin-orders-filter-body">
+                <details class="admin-orders-accordion">
+                    <summary>Companies</summary>
+                    <div class="admin-orders-accordion-content" data-orders-company-tree>
+                        <p class="admin-empty">Loading SKU database.</p>
+                    </div>
+                </details>
+                <details class="admin-orders-accordion">
+                    <summary>Start and End Dates</summary>
+                    <div class="admin-orders-date-range">
+                        <div class="admin-orders-date-field">
+                            <span>Start Date</span>
+                            <button type="button" class="admin-orders-date-button" data-orders-date-toggle="start">
+                                <span data-orders-start-label>Any start date</span>
+                                <i class="admin-chart-icon-calendar" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                        <div class="admin-orders-date-field">
+                            <span>End Date</span>
+                            <button type="button" class="admin-orders-date-button" data-orders-date-toggle="end">
+                                <span data-orders-end-label>Any end date</span>
+                                <i class="admin-chart-icon-calendar" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                        <div class="admin-orders-date-popover admin-chart-range-popover" data-orders-date-popover hidden>
+                            <div class="admin-range-calendar">
+                                <div class="admin-range-calendar-head">
+                                    <button type="button" class="admin-range-nav" aria-label="Previous month" data-orders-date-prev></button>
+                                    <strong data-orders-date-month></strong>
+                                    <button type="button" class="admin-range-nav admin-range-nav-next" aria-label="Next month" data-orders-date-next></button>
+                                </div>
+                                <div class="admin-range-weekdays" aria-hidden="true">
+                                    <span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span>
+                                </div>
+                                <div class="admin-range-grid" data-orders-date-grid></div>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+                <details class="admin-orders-accordion">
+                    <summary>Platforms</summary>
+                    <div class="admin-orders-platform-grid" data-orders-platforms>
+                        <p class="admin-empty">Platforms appear after orders load.</p>
+                    </div>
+                </details>
+            </div>
+            <div class="admin-modal-actions">
+                <button type="button" class="admin-danger-btn" data-orders-filter-clear>Clear Filters</button>
+                <button type="button" class="admin-primary-btn" data-orders-filter-close>Done</button>
+            </div>
+        </section>
     </div>
     <script type="module" src="../admin.js?v=<?php echo urlencode($adminJsVersion ?: '1'); ?>"></script>
 <?php endif; ?>
