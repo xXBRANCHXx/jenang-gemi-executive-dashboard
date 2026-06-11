@@ -5690,6 +5690,13 @@ body::after {
   gap: 12px;
 }
 
+.pl-main-stack {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+}
+
 .pl-surface {
   min-width: 0;
   overflow: hidden;

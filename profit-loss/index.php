@@ -66,6 +66,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/profit-loss.js');
                 </section>
 
                 <section class="pl-workspace-grid">
+                    <div class="pl-main-stack">
                     <article class="pl-surface pl-product-ledger">
                         <div class="pl-surface-bar">
                             <div class="pl-inline-title"><strong>SKU ledger</strong><i title="Sales are automatic. Select a row's edit button to add packaging, labor, other direct cost, or override COGS for a specific month.">i</i></div>
@@ -81,6 +82,19 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/profit-loss.js');
                             <p class="pl-empty">Loading live product facts...</p>
                         </div>
                     </article>
+
+                    <section class="pl-surface pl-monthly-surface">
+                        <div class="pl-surface-bar">
+                            <div class="pl-inline-title"><strong>Monthly statement</strong><i title="The full year in the same monthly structure as the old workbook, calculated from live sales and saved manual inputs.">i</i></div>
+                        </div>
+                        <div class="pl-monthly-scroll">
+                            <table class="pl-monthly-table">
+                                <thead><tr><th>Metric</th><th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>May</th><th>Jun</th><th>Jul</th><th>Aug</th><th>Sep</th><th>Oct</th><th>Nov</th><th>Dec</th><th>YTD</th></tr></thead>
+                                <tbody data-pl-monthly-body></tbody>
+                            </table>
+                        </div>
+                    </section>
+                    </div>
 
                     <aside class="pl-side-stack">
                         <article class="pl-surface">
@@ -104,18 +118,6 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/profit-loss.js');
                             <div data-pl-data-quality><p class="pl-empty">Running checks...</p></div>
                         </article>
                     </aside>
-                </section>
-
-                <section class="pl-surface pl-monthly-surface">
-                    <div class="pl-surface-bar">
-                        <div class="pl-inline-title"><strong>Monthly statement</strong><i title="The full year in the same monthly structure as the old workbook, calculated from live sales and saved manual inputs.">i</i></div>
-                    </div>
-                    <div class="pl-monthly-scroll">
-                        <table class="pl-monthly-table">
-                            <thead><tr><th>Metric</th><th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>May</th><th>Jun</th><th>Jul</th><th>Aug</th><th>Sep</th><th>Oct</th><th>Nov</th><th>Dec</th><th>YTD</th></tr></thead>
-                            <tbody data-pl-monthly-body></tbody>
-                        </table>
-                    </div>
                 </section>
             </main>
         </div>
