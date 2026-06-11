@@ -30,14 +30,6 @@ function render_admin_sidebar(string $activeSection = ''): void
             'view' => 'orders',
         ],
         [
-            'key' => 'profit-loss',
-            'href' => '../profit-loss/',
-            'label' => 'P&L',
-            'icon' => 'admin-rail-icon-profit-loss',
-            'icon_text' => 'P&L',
-            'aria' => 'Open profit and loss workspace',
-        ],
-        [
             'key' => 'website',
             'href' => '../dashboard/?view=website',
             'label' => 'Website',
