@@ -2292,7 +2292,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const syncViewState = () => {
     const labels = {
-      overview: 'Executive Sales Overview',
+      overview: 'Home',
       orders: 'Orders',
       context: 'Open Context',
       home: 'Campaigns Dashboard',

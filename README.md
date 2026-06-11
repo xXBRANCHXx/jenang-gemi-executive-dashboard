@@ -6,11 +6,13 @@ Private admin dashboard for `admin.jenanggemi.com`.
 
 - `/dashboard/`
 - `/api-health/`
+- `/profit-loss/`
 - `/sku-db/`
 - `/sku-db/new/`
 - `/logout/`
 - `/api/analytics/`
 - `/api/api-health/`
+- `/api/profit-loss/`
 - `/api/sku-db/`
 - `/api/partner-db-status/`
 
@@ -19,6 +21,9 @@ Private admin dashboard for `admin.jenanggemi.com`.
 - Login code is validated server-side.
 - Dashboard analytics, website settings, and live-state now run locally in this
   repo against MySQL using `JG_DB_*` env vars or `config.local.php`.
+- Profit and Loss combines API Ingest monthly SKU sales with SKU DB COGS. Manual
+  direct-cost overrides, operating entries, and allocation settings are stored
+  in the analytics MySQL database.
 - The repo also checks `/public_html/config.local.php` and
   `/public_html/whatsapp-config.local.php` to match common Hostinger setups.
 - `analytics_base_url` remains available in `config.local.php` only for the
