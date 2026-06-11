@@ -8332,3 +8332,42 @@ body::after {
     font-size: 0.72rem;
   }
 }
+
+/* Keep the dashboard overflow menu visually quiet and icon-led. */
+.admin-app.admin-app-suite .admin-menu-panel .admin-menu-item,
+:root[data-admin-theme] .admin-app.admin-app-suite .admin-menu-panel .admin-menu-item {
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 12px;
+  min-height: 54px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+  filter: none;
+  transform: none;
+}
+
+.admin-app.admin-app-suite .admin-menu-panel .admin-menu-item:hover,
+:root[data-admin-theme] .admin-app.admin-app-suite .admin-menu-panel .admin-menu-item:hover {
+  border: 0;
+  background: rgba(255, 255, 255, 0.055);
+  box-shadow: none;
+  color: var(--admin-text);
+  filter: none;
+  transform: none;
+}
+
+.admin-app.admin-app-suite .admin-menu-panel .admin-menu-icon {
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: currentColor;
+}
+
+.admin-app.admin-app-suite .admin-menu-panel .admin-menu-icon svg {
+  width: 20px;
+  height: 20px;
+}
