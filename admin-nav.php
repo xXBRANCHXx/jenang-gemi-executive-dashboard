@@ -58,6 +58,14 @@ function render_admin_sidebar(string $activeSection = ''): void
             'icon_text' => 'SKU',
             'aria' => 'Open SKU database',
         ],
+        [
+            'key' => 'profit-loss',
+            'href' => '../profit-loss/',
+            'label' => 'P&L',
+            'icon' => 'admin-rail-icon-profit-loss',
+            'icon_text' => 'P&L',
+            'aria' => 'Open profit and loss workspace',
+        ],
     ];
 
     $footerItems = [

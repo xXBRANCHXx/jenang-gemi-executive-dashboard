@@ -87,7 +87,7 @@ $dashboardBuildVersion = 'exec3.48.0';
                         <div class="admin-topbar-brand">
                             <span class="admin-admin-mark">Admin Scope</span>
                             <h1>Executive Dashboard</h1>
-                            <p data-active-view-label>Executive Sales Overview</p>
+                            <p data-active-view-label>Home</p>
                         </div>
                     </div>
                     <div class="admin-topbar-actions">
@@ -99,17 +99,26 @@ $dashboardBuildVersion = 'exec3.48.0';
                             <div class="admin-search-results" data-dashboard-search-results hidden></div>
                         </div>
                         <div class="admin-menu-shell" data-menu-shell>
-                            <button type="button" class="admin-ghost-btn admin-menu-trigger" data-menu-trigger aria-expanded="false" aria-label="Open dashboard menu">...</button>
+                            <button type="button" class="admin-ghost-btn admin-menu-trigger" data-menu-trigger aria-expanded="false" aria-label="Open dashboard menu">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+                            </button>
                             <div class="admin-menu-panel" data-menu-panel hidden>
-                                <button type="button" class="admin-menu-item" data-view-switch="overview">Executive Sales Overview</button>
-                                <button type="button" class="admin-menu-item" data-view-switch="home">Campaigns Dashboard</button>
-                                <button type="button" class="admin-menu-item" data-view-switch="website">Official Website Dashboard</button>
-                                <a class="admin-menu-item admin-link-btn" href="../back-dash/">API Ingest Workspace</a>
-                                <a class="admin-menu-item admin-link-btn" href="../affiliate-program/">Affiliate Program Dashboard</a>
-                                <a class="admin-menu-item admin-link-btn" href="../partner-program/">Partner Program Dashboard</a>
-                                <a class="admin-menu-item admin-link-btn" href="../partner-profiles/">Partner Profiles</a>
-                                <a class="admin-menu-item admin-link-btn" href="../sku-db/">SKU Database</a>
-                                <button type="button" class="admin-menu-item" data-view-switch="settings">Settings</button>
+                                <button type="button" class="admin-menu-item" data-view-switch="overview">
+                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-6h5v6"/></svg></span>
+                                    <span><strong>Home</strong><small>Executive sales overview</small></span>
+                                </button>
+                                <a class="admin-menu-item admin-link-btn" href="../dashboard/?view=overview#orders">
+                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3.5h12v17H6z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg></span>
+                                    <span><strong>Orders</strong><small>Monthly marketplace order facts</small></span>
+                                </a>
+                                <a class="admin-menu-item admin-link-btn" href="../back-dash/">
+                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5H5v14h14v-3"/><path d="M11 13 20 4M14 4h6v6"/></svg></span>
+                                    <span><strong>Open Context</strong><small>API ingest and webhook workspace</small></span>
+                                </a>
+                                <button type="button" class="admin-menu-item" data-view-switch="website">
+                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.4 3.8 5.4 3.8 9S14.5 18.6 12 21c-2.5-2.4-3.8-5.4-3.8-9S9.5 5.4 12 3z"/></svg></span>
+                                    <span><strong>Official Website Dashboard</strong><small>Site traffic and conversion analytics</small></span>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -197,7 +206,7 @@ $dashboardBuildVersion = 'exec3.48.0';
                         </div>
                     </article>
 
-                    <article class="admin-panel admin-panel-table">
+                    <article class="admin-panel admin-panel-table" id="orders">
                         <div class="admin-panel-head">
                             <div><span class="admin-panel-kicker">Monthly Breakdown</span><h3>Sales and orders by month</h3></div>
                         </div>

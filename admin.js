@@ -1134,7 +1134,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const syncViewState = () => {
     const labels = {
-      overview: 'Executive Sales Overview',
+      overview: 'Home',
       home: 'Campaigns Dashboard',
       website: 'Official Website Dashboard',
       settings: 'Settings'
