@@ -62,10 +62,15 @@ $bucketLabelFormat = match ($timeframe) {
     default => 'M Y',
 };
 
-$events = analyticsLoadEvents($rangeStart);
-$affiliates = analyticsLoadAffiliates();
-$excludedIpLookup = analyticsLoadExcludedIpLookup();
 $excludedDeviceLookup = analyticsLoadExcludedDeviceLookup();
+$excludedIpItems = $dataset === 'website' ? analyticsLoadIpExclusions() : [];
+$excludedIpLookup = $dataset === 'website' ? analyticsBuildExcludedIpLookup($excludedIpItems) : [];
+$events = analyticsLoadEvents($rangeStart, [
+    'dataset' => $dataset,
+    'site' => $siteFilter,
+    'affiliate_code' => $affiliateCodeFilter,
+]);
+$affiliates = $dataset === 'website' ? [] : analyticsLoadAffiliates();
 
 $filteredEvents = [];
 foreach ($events as $event) {
@@ -142,7 +147,7 @@ foreach ($events as $event) {
 
 if ($dataset === 'website') {
     echo json_encode(
-        buildWebsiteAnalyticsPayload($filteredEvents, $timeframe, $displayTimezone, $now, $rangeStart, $bucketInterval, $bucketLabelFormat, $recentLimit, $siteFilter),
+        buildWebsiteAnalyticsPayload($filteredEvents, $timeframe, $displayTimezone, $now, $rangeStart, $bucketInterval, $bucketLabelFormat, $recentLimit, $siteFilter, $excludedIpItems),
         JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES
     );
     exit;
@@ -474,7 +479,8 @@ function buildWebsiteAnalyticsPayload(
     string $bucketInterval,
     string $bucketLabelFormat,
     int $recentLimit,
-    string $siteFilter = 'all'
+    string $siteFilter = 'all',
+    array $excludedIpItems = []
 ): array {
     [$timeBuckets, $findBucketKey] = buildBucketCollection($filteredEvents, $timeframe, $now, $rangeStart, $bucketInterval, $bucketLabelFormat);
 
@@ -485,7 +491,7 @@ function buildWebsiteAnalyticsPayload(
         'checkout_clicks' => 0,
         'avg_time_spent_seconds' => 0,
         'top_region' => 'Unknown',
-        'excluded_ip_count' => count(analyticsLoadIpExclusions()),
+        'excluded_ip_count' => count($excludedIpItems),
     ];
 
     $sessionVisits = [];
@@ -677,7 +683,7 @@ function buildWebsiteAnalyticsPayload(
         'by_region' => $regions,
         'by_site' => $sites,
         'recent_events' => array_slice($recentVisits, 0, $recentLimit),
-        'excluded_ips' => analyticsLoadIpExclusions(),
+        'excluded_ips' => $excludedIpItems,
     ];
 }
 

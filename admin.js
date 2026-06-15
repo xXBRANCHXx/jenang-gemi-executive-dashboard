@@ -503,29 +503,48 @@ const OVERVIEW_CACHE_PREFIX = 'jg-overview-summary-v10';
 
 const shouldHideSourceMetric = (value) => HIDDEN_HOME_SOURCES.has(normalizeSourceKey(value));
 
+const canvasSizeState = new WeakMap();
+let themePaletteCache = null;
+
 const prepareCanvas = (canvas) => {
   if (!(canvas instanceof HTMLCanvasElement)) return null;
   const ctx = canvas.getContext('2d');
   if (!ctx) return null;
   const ratio = window.devicePixelRatio || 1;
-  const width = canvas.clientWidth || canvas.width;
-  const height = canvas.clientHeight || canvas.height;
-  canvas.width = width * ratio;
-  canvas.height = height * ratio;
+  const width = Math.max(1, Math.round(canvas.clientWidth || canvas.width || 1));
+  const height = Math.max(1, Math.round(canvas.clientHeight || canvas.height || 1));
+  const pixelWidth = Math.max(1, Math.round(width * ratio));
+  const pixelHeight = Math.max(1, Math.round(height * ratio));
+  const previousSize = canvasSizeState.get(canvas);
+  if (!previousSize || previousSize.pixelWidth !== pixelWidth || previousSize.pixelHeight !== pixelHeight || previousSize.ratio !== ratio) {
+    canvas.width = pixelWidth;
+    canvas.height = pixelHeight;
+    canvasSizeState.set(canvas, { pixelWidth, pixelHeight, ratio });
+  }
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
   ctx.clearRect(0, 0, width, height);
   return { ctx, width, height };
 };
 
 const getThemePalette = () => {
+  const themeKey = document.documentElement.dataset.adminTheme || '';
+  if (themePaletteCache?.key === themeKey) {
+    return themePaletteCache.palette;
+  }
   const styles = window.getComputedStyle(document.documentElement);
-  return {
+  const palette = {
     text: styles.getPropertyValue('--admin-text').trim() || '#0c1117',
     muted: styles.getPropertyValue('--admin-muted').trim() || 'rgba(55, 65, 81, 0.68)',
     border: styles.getPropertyValue('--admin-border').trim() || 'rgba(17, 24, 39, 0.08)',
     surface: styles.getPropertyValue('--admin-surface').trim() || '#ffffff',
     surfaceSoft: styles.getPropertyValue('--admin-surface-soft').trim() || '#f6f8f4'
   };
+  themePaletteCache = { key: themeKey, palette };
+  return palette;
+};
+
+const invalidateThemePalette = () => {
+  themePaletteCache = null;
 };
 
 const drawValueBadge = (ctx, x, y, text, palette) => {
@@ -783,22 +802,32 @@ const bindChartHover = (canvas) => {
   canvas.addEventListener('mousemove', (event) => {
     const hoveredPoint = resolveHoveredChartPoint(canvas, event.clientX, event.clientY);
     if (!hoveredPoint) {
-      chartActivePointState.delete(canvas);
-      const renderChart = chartRendererState.get(canvas);
-      if (renderChart) renderChart();
+      if (chartActivePointState.has(canvas)) {
+        chartActivePointState.delete(canvas);
+        const renderChart = chartRendererState.get(canvas);
+        if (renderChart) renderChart();
+      }
       hideChartTooltip(canvas);
       return;
     }
-    chartActivePointState.set(canvas, hoveredPoint);
-    const renderChart = chartRendererState.get(canvas);
-    if (renderChart) renderChart();
+
+    const activePoint = chartActivePointState.get(canvas);
+    const activeKey = activePoint?.hoverKey || '';
+    const hoveredKey = hoveredPoint.hoverKey || `${hoveredPoint.x}:${hoveredPoint.y}:${hoveredPoint.label}`;
+    if (activeKey !== hoveredKey) {
+      chartActivePointState.set(canvas, hoveredPoint);
+      const renderChart = chartRendererState.get(canvas);
+      if (renderChart) renderChart();
+    }
     renderChartTooltip(canvas, hoveredPoint, event.clientX, event.clientY);
   });
 
   canvas.addEventListener('mouseleave', () => {
-    chartActivePointState.delete(canvas);
-    const renderChart = chartRendererState.get(canvas);
-    if (renderChart) renderChart();
+    if (chartActivePointState.has(canvas)) {
+      chartActivePointState.delete(canvas);
+      const renderChart = chartRendererState.get(canvas);
+      if (renderChart) renderChart();
+    }
     hideChartTooltip(canvas);
   });
 };
@@ -858,6 +887,7 @@ const drawBarChart = (canvas, items, config) => {
       metric: config.metric,
       unitsMap: config.unitsMap,
       label: config.label(item),
+      hoverKey: `${config.metric || 'bar'}:${index}`,
       tooltipTitle: config.tooltipTitle ? config.tooltipTitle(item) : config.label(item),
       tooltipValue: config.tooltipValue ? config.tooltipValue(item, value) : formatMetricValue(config.metric, value, config.unitsMap),
       hitbox: {
@@ -927,6 +957,7 @@ const drawLineChart = (canvas, items, metric, unitsMap, options = {}) => {
       metric,
       unitsMap,
       label: item.label || '',
+      hoverKey: `${metric}:${index}`,
       tooltipTitle: item.tooltipTitle || item.label || '',
       tooltipValue: formatMetricValue(metric, value, unitsMap),
       tooltipLinesHtml: item.tooltipLinesHtml || null,
@@ -1278,6 +1309,7 @@ const drawMultiLineChart = (canvas, items, metric, unitsMap, seriesConfig) => {
           label: item.label || '',
           metric,
           unitsMap,
+          hoverKey: `${metric}:${index}`,
           tooltipTitle: item.label || '',
           tooltipLinesHtml: buildTrendTooltipLines(metric, unitsMap, columnSeries),
           hitbox: {
@@ -1369,6 +1401,7 @@ const drawStackedBarChart = (canvas, items, config) => {
         value,
         metric,
         unitsMap: config.unitsMap || OVERVIEW_METRIC_UNITS,
+        hoverKey: `${metric}:${index}:${seriesItem.key}`,
         tooltipTitle: `${item.label || '-'} • ${seriesItem.label}`,
         tooltipValue: formatFullMetricValue(metric, value, config.unitsMap || OVERVIEW_METRIC_UNITS),
         hitbox: {
@@ -1534,6 +1567,7 @@ const drawPieChart = (canvas, items, config) => {
       value,
       metric,
       unitsMap: config.unitsMap || OVERVIEW_METRIC_UNITS,
+      hoverKey: `${metric}:${index}`,
       tooltipValue: `${formatMetricValue(metric, value, config.unitsMap || OVERVIEW_METRIC_UNITS)} • ${Math.round((value / total) * 100)}%`,
       hitTest: (x, y) => {
         const dx = x - cx;
@@ -1610,20 +1644,26 @@ document.addEventListener('DOMContentLoaded', () => {
       hourlyDate: '',
       hourlyRequestToken: 0,
       data: null,
+      yearControlsSignature: '',
       requestToken: 0
     },
     orders: {
       data: null,
       rows: [],
+      rowKeys: new Set(),
       catalog: [],
       skuCatalogByCode: {},
       platforms: [],
       monthRanges: [],
       monthsSignature: '',
+      activeFiltersSignature: '',
+      platformsRenderSignature: '',
+      skuTreeSignature: '',
       nextMonthIndex: 0,
       loading: false,
       loadedAll: false,
       renderLimit: 80,
+      scrollPending: false,
       activeDateField: 'start',
       calendarMonth: new Date().toISOString().slice(0, 7),
       filters: {
@@ -2083,6 +2123,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.documentElement.dataset.adminTheme = normalizedTheme;
     writeStoredTheme(normalizedTheme);
     syncThemeControls(normalizedTheme);
+    invalidateThemePalette();
     renderCachedCharts();
   };
 
@@ -2460,20 +2501,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const compactOrderFilterValue = (value) => normalizeOrderFilterValue(value).replace(/[^a-z0-9]+/g, '');
 
-  const orderFilterIncludes = (items, value) => {
-    if (!items.length) return true;
-    return items.map(normalizeOrderFilterValue).includes(normalizeOrderFilterValue(value));
+  const orderFiltersSignature = () => {
+    const filters = state.orders.filters;
+    return [
+      filters.companies.join('\u001f'),
+      filters.products.join('\u001f'),
+      filters.flavors.join('\u001f'),
+      filters.platforms.join('\u001f'),
+      filters.startDate || '',
+      filters.endDate || ''
+    ].join('\u001e');
   };
 
-  const orderFilterMatchesAny = (items, values) => {
-    if (!items.length) return true;
-    const normalizedItems = items.map(normalizeOrderFilterValue);
-    const compactItems = items.map(compactOrderFilterValue).filter(Boolean);
+  const createOrderFilterMatchList = (items) => ({
+    normalized: items.map(normalizeOrderFilterValue).filter(Boolean),
+    compact: items.map(compactOrderFilterValue).filter(Boolean)
+  });
+
+  const createOrderFilterSnapshot = () => {
+    const filters = state.orders.filters;
+    return {
+      companies: createOrderFilterMatchList(filters.companies),
+      products: createOrderFilterMatchList(filters.products),
+      flavors: createOrderFilterMatchList(filters.flavors),
+      platforms: new Set(filters.platforms.map(normalizeOrderFilterValue).filter(Boolean)),
+      startDate: filters.startDate || '',
+      endDate: filters.endDate || ''
+    };
+  };
+
+  const orderFilterMatchesAny = (filter, values) => {
+    if (!filter.normalized.length && !filter.compact.length) return true;
     return values.some((value) => {
       const normalized = normalizeOrderFilterValue(value);
       const compact = compactOrderFilterValue(value);
-      return normalized && normalizedItems.some((item) => normalized === item || normalized.includes(item) || item.includes(normalized))
-        || compact && compactItems.some((item) => compact === item || compact.includes(item) || item.includes(compact));
+      return normalized && filter.normalized.some((item) => normalized === item || normalized.includes(item) || item.includes(normalized))
+        || compact && filter.compact.some((item) => compact === item || compact.includes(item) || item.includes(compact));
     });
   };
 
@@ -2533,6 +2596,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const orderLocalDate = (row) => {
+    if (typeof row?._orderLocalDate === 'string') return row._orderLocalDate;
     const date = parseOrderTimestamp(row?.order_create_time || row?.timestamp);
     return date ? new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone }).format(date) : '';
   };
@@ -2545,6 +2609,17 @@ document.addEventListener('DOMContentLoaded', () => {
     row?.item_key || '',
     row?.product_name || ''
   ].join('|');
+
+  const enrichOrderRow = (row) => {
+    const date = parseOrderTimestamp(row?.order_create_time || row?.timestamp);
+    return {
+      ...row,
+      _orderRowKey: uniqueOrderRowKey(row),
+      _orderTimestamp: date?.getTime() || 0,
+      _orderLocalDate: date ? new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone }).format(date) : '',
+      _platformKey: normalizeOrderFilterValue(row?.platform || '')
+    };
+  };
 
   const orderMonthRange = (year, month) => {
     const start = `${year}-${String(month).padStart(2, '0')}-01`;
@@ -2585,8 +2660,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ));
   };
 
-  const orderMatchesFilters = (row) => {
-    const filters = state.orders.filters;
+  const orderMatchesFilters = (row, filters) => {
     const rowDate = orderLocalDate(row);
     if (filters.startDate && rowDate && rowDate < filters.startDate) return false;
     if (filters.endDate && rowDate && rowDate > filters.endDate) return false;
@@ -2594,11 +2668,15 @@ document.addEventListener('DOMContentLoaded', () => {
       orderFilterMatchesAny(filters.companies, orderCompanyValues(row)) &&
       orderFilterMatchesAny(filters.products, orderProductValues(row)) &&
       orderFilterMatchesAny(filters.flavors, orderFlavorValues(row)) &&
-      orderFilterIncludes(filters.platforms, row.platform || '')
+      (!filters.platforms.size || filters.platforms.has(row._platformKey || normalizeOrderFilterValue(row.platform || '')))
     );
   };
 
-  const filteredOrderRows = () => state.orders.rows.filter(orderMatchesFilters);
+  const filteredOrderRows = () => {
+    if (!hasOrderFilters()) return state.orders.rows;
+    const filters = createOrderFilterSnapshot();
+    return state.orders.rows.filter((row) => orderMatchesFilters(row, filters));
+  };
 
   const hasOrderFilters = () => {
     const filters = state.orders.filters;
@@ -2988,6 +3066,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const renderOverviewYearControls = (years) => {
     if (!overviewRefs.yearControls) return;
+    const signature = `${(Array.isArray(years) ? years : []).join('\u001f')}\u001e${state.overview.year}`;
+    if (state.overview.yearControlsSignature === signature) return;
+    state.overview.yearControlsSignature = signature;
     overviewRefs.yearControls.innerHTML = years.map((year) => `
       <button type="button" class="admin-toggle-pill${Number(year) === Number(state.overview.year) ? ' is-active' : ''}" data-overview-year="${escapeHtml(String(year))}">${escapeHtml(String(year))}</button>
     `).join('');
@@ -3169,6 +3250,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const renderActiveOrderFilters = () => {
     if (!ordersRefs.activeFilters) return;
+    const signature = orderFiltersSignature();
+    if (state.orders.activeFiltersSignature === signature) {
+      ordersRefs.activeFilters.hidden = !hasOrderFilters();
+      return;
+    }
+    state.orders.activeFiltersSignature = signature;
     const filters = state.orders.filters;
     const chips = [];
     const addChip = (kind, label, value) => {
@@ -3192,6 +3279,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const renderOrderPlatforms = () => {
     if (!ordersRefs.platforms) return;
     const platforms = Array.from(new Set(state.orders.platforms.filter(Boolean))).sort();
+    const signature = `${platforms.join('\u001f')}\u001e${state.orders.filters.platforms.join('\u001f')}`;
+    if (state.orders.platformsRenderSignature === signature) return;
+    state.orders.platformsRenderSignature = signature;
     if (!platforms.length) {
       ordersRefs.platforms.innerHTML = '<p class="admin-empty">Platforms appear after orders load.</p>';
       return;
@@ -3209,6 +3299,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const renderSkuOrderTree = () => {
     if (!ordersRefs.companyTree) return;
     const catalog = Array.isArray(state.orders.catalog) ? state.orders.catalog : [];
+    const catalogSignature = catalog.map((company) => {
+      const products = Array.isArray(company.products) ? company.products : [];
+      return `${company.id || company.name}:${products.map((product) => {
+        const flavors = Array.isArray(product.flavors) ? product.flavors : [];
+        return `${product.id || product.name}:${flavors.map((flavor) => flavor.id || flavor.name).join(',')}`;
+      }).join(';')}`;
+    }).join('|');
+    const signature = `${catalogSignature}\u001e${orderFiltersSignature()}`;
+    if (state.orders.skuTreeSignature === signature) return;
+    state.orders.skuTreeSignature = signature;
     if (!catalog.length) {
       ordersRefs.companyTree.innerHTML = '<p class="admin-empty">No SKU companies are available yet.</p>';
       return;
@@ -3942,21 +4042,22 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const mergeLoadedOrderRows = (rows) => {
-    const seen = new Set(state.orders.rows.map(uniqueOrderRowKey));
+    if (!(state.orders.rowKeys instanceof Set)) {
+      state.orders.rowKeys = new Set(state.orders.rows.map(uniqueOrderRowKey));
+    }
+    const seen = state.orders.rowKeys;
     (Array.isArray(rows) ? rows : []).forEach((row) => {
       const key = uniqueOrderRowKey(row);
       if (seen.has(key)) return;
       seen.add(key);
-      state.orders.rows.push(row);
+      state.orders.rows.push(enrichOrderRow(row));
       const platform = String(row.platform || '').trim();
       if (platform && !state.orders.platforms.includes(platform)) {
         state.orders.platforms.push(platform);
       }
     });
     state.orders.rows.sort((left, right) => {
-      const leftDate = parseOrderTimestamp(left.order_create_time || left.timestamp);
-      const rightDate = parseOrderTimestamp(right.order_create_time || right.timestamp);
-      return (rightDate?.getTime() || 0) - (leftDate?.getTime() || 0);
+      return Number(right._orderTimestamp || 0) - Number(left._orderTimestamp || 0);
     });
   };
 
@@ -3974,7 +4075,10 @@ document.addEventListener('DOMContentLoaded', () => {
     state.orders.loadedAll = false;
     state.orders.renderLimit = 80;
     state.orders.rows = [];
+    state.orders.rowKeys = new Set();
     state.orders.platforms = [];
+    state.orders.activeFiltersSignature = '';
+    state.orders.platformsRenderSignature = '';
     renderOrders();
   };
 
@@ -4184,10 +4288,9 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const renderCachedCharts = () => {
-    if (state.overview.data) renderOverview(state.overview.data);
-    if (state.orders.data) renderOrders(state.orders.data);
-    if (state.home.data) renderHome(state.home.data);
-    if (state.website.screen === 'detail' && state.website.data) renderWebsite(state.website.data);
+    if (state.activeView === 'overview' && state.overview.data) renderOverview(state.overview.data);
+    if (state.activeView === 'home' && state.home.data) renderHome(state.home.data);
+    if (state.activeView === 'website' && state.website.screen === 'detail' && state.website.data) renderWebsite(state.website.data);
   };
 
   const switchView = async (nextView) => {
@@ -4656,20 +4759,25 @@ document.addEventListener('DOMContentLoaded', () => {
     await selectOrdersDate(button.getAttribute('data-orders-date') || '');
   });
 
-  ordersRefs.scroll?.addEventListener('scroll', async () => {
-    const node = ordersRefs.scroll;
-    if (!node || state.orders.loading) return;
-    const remaining = node.scrollHeight - node.scrollTop - node.clientHeight;
-    if (remaining < 220) {
-      const rows = filteredOrderRows();
-      if (state.orders.renderLimit < rows.length) {
-        state.orders.renderLimit += 80;
-        renderOrders();
-      } else {
-        await loadNextOrderWindow();
+  ordersRefs.scroll?.addEventListener('scroll', () => {
+    if (state.orders.scrollPending) return;
+    state.orders.scrollPending = true;
+    window.requestAnimationFrame(async () => {
+      state.orders.scrollPending = false;
+      const node = ordersRefs.scroll;
+      if (!node || state.orders.loading) return;
+      const remaining = node.scrollHeight - node.scrollTop - node.clientHeight;
+      if (remaining < 220) {
+        const rows = filteredOrderRows();
+        if (state.orders.renderLimit < rows.length) {
+          state.orders.renderLimit += 80;
+          renderOrders();
+        } else {
+          await loadNextOrderWindow();
+        }
       }
-    }
-  });
+    });
+  }, { passive: true });
 
   ordersRefs.tableBody?.addEventListener('click', (event) => {
     const target = event.target;
