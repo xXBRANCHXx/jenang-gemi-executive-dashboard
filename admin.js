@@ -501,7 +501,6 @@ const normalizeSourceKey = (value) => String(value || '').trim().toLowerCase();
 const HIDDEN_HOME_SOURCES = new Set(['internal', 'direct']);
 const OVERVIEW_CACHE_PREFIX = 'jg-overview-summary-v10';
 const ORDER_RENDER_BATCH_SIZE = 80;
-const ORDER_BOOTSTRAP_MIN_ROWS = 40;
 
 const shouldHideSourceMetric = (value) => HIDDEN_HOME_SOURCES.has(normalizeSourceKey(value));
 
@@ -3387,7 +3386,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (state.orders.loading) {
         ordersRefs.status.textContent = hasOrderFilters() ? 'Filtering older order windows...' : 'Loading older orders...';
       } else if (hasOrderFilters()) {
-        ordersRefs.status.textContent = `${formatCompactNumber(shown)} shown from ${formatCompactNumber(rows.length)} matching order lines across ${formatCompactNumber(loadedCount)} loaded${state.orders.loadedAll ? '' : ' while older windows load'}`;
+        ordersRefs.status.textContent = `${formatCompactNumber(shown)} shown from ${formatCompactNumber(rows.length)} matching order lines across ${formatCompactNumber(loadedCount)} loaded${state.orders.loadedAll ? '' : ' as you scroll'}`;
       } else {
         ordersRefs.status.textContent = `${formatCompactNumber(shown)} shown from ${formatCompactNumber(loadedCount)} loaded order lines${state.orders.loadedAll ? '' : ' as you scroll'}`;
       }
@@ -3402,8 +3401,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const message = state.orders.loading
         ? 'Loading orders.'
         : (hasOrderFilters()
-          ? (state.orders.loadedAll ? 'No orders match the current filters.' : 'Searching older order windows for matching orders.')
-          : (state.orders.loadedAll ? 'No stored orders found.' : 'Loading older order windows.'));
+          ? (state.orders.loadedAll ? 'No orders match the current filters.' : 'No loaded orders match the current filters yet.')
+          : (state.orders.loadedAll ? 'No stored orders found.' : 'No stored orders found in the loaded window yet.'));
       ordersRefs.tableBody.innerHTML = `<tr><td colspan="11" class="admin-empty">${escapeHtml(message)}</td></tr>`;
       return;
     }
@@ -4147,16 +4146,10 @@ document.addEventListener('DOMContentLoaded', () => {
     state.orders.ensureRunning = true;
     try {
       if (!state.orders.monthRanges.length && !state.orders.loadedAll) resetOrderWindowsFromOverview();
-      while (!state.orders.loadedAll) {
-        const rows = filteredOrderRows();
-        const shouldCompleteFilteredSet = hasOrderFilters();
-        const scrollNeedsRows = ordersRefs.scroll
-          ? ordersRefs.scroll.scrollHeight <= ordersRefs.scroll.clientHeight + 24
-          : false;
-        if (!shouldCompleteFilteredSet && rows.length >= ORDER_BOOTSTRAP_MIN_ROWS && !scrollNeedsRows) break;
+      if (!state.orders.rows.length && !state.orders.loadedAll) {
         if (state.orders.loading) {
           state.orders.ensurePending = true;
-          break;
+          return;
         }
         await loadNextOrderWindow();
       }
