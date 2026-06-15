@@ -5,58 +5,87 @@ require_once dirname(__DIR__, 2) . '/config.php';
 require_once dirname(__DIR__, 2) . '/auth.php';
 require_once dirname(__DIR__, 2) . '/sku-db-bootstrap.php';
 
-jg_admin_require_auth();
+if (!defined('JG_ORDERS_API_NO_DISPATCH')) {
+    jg_orders_handle_request();
+}
 
-header('Content-Type: application/json; charset=utf-8');
+function jg_orders_handle_request(): void
+{
+    jg_admin_require_auth();
 
-try {
-    $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
-    $startDate = jg_orders_date($_GET['start_date'] ?? null, '-1 day');
-    $endDate = jg_orders_date($_GET['end_date'] ?? null, 'today');
-    if ($method === 'POST') {
-        $payload = json_decode((string) file_get_contents('php://input'), true);
-        $payload = is_array($payload) ? $payload : [];
-        $startDate = jg_orders_date($payload['start_date'] ?? $startDate, '-1 day');
-        $endDate = jg_orders_date($payload['end_date'] ?? $endDate, 'today');
-        jg_orders_remote_sync($startDate, $endDate);
-    }
+    header('Content-Type: application/json; charset=utf-8');
 
-    $remoteRows = jg_orders_remote_rows($startDate, $endDate);
-    $lightweight = jg_orders_bool($_GET['lightweight'] ?? $_GET['summary'] ?? null);
-    if ($lightweight) {
-        $includeLive = !jg_orders_bool($_GET['stored_only'] ?? null);
-        $rows = jg_orders_lightweight_rows($remoteRows);
-        if ($includeLive) {
-            $rows = jg_orders_merge_lightweight_rows($rows, jg_orders_live_listed_rows($startDate, $endDate));
+    try {
+        $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+        $startDate = jg_orders_date($_GET['start_date'] ?? null, '-1 day');
+        $endDate = jg_orders_date($_GET['end_date'] ?? null, 'today');
+        if ($method === 'POST') {
+            $payload = json_decode((string) file_get_contents('php://input'), true);
+            $payload = is_array($payload) ? $payload : [];
+            $startDate = jg_orders_date($payload['start_date'] ?? $startDate, '-1 day');
+            $endDate = jg_orders_date($payload['end_date'] ?? $endDate, 'today');
+            jg_orders_remote_sync($startDate, $endDate);
         }
-        echo json_encode([
+
+        $remoteRows = jg_orders_remote_rows($startDate, $endDate);
+        $lightweight = jg_orders_bool($_GET['lightweight'] ?? $_GET['summary'] ?? null);
+        if ($lightweight) {
+            $includeLive = !jg_orders_bool($_GET['stored_only'] ?? null);
+            $rows = jg_orders_lightweight_rows($remoteRows);
+            if ($includeLive) {
+                $rows = jg_orders_merge_lightweight_rows($rows, jg_orders_live_listed_rows($startDate, $endDate));
+            }
+            echo json_encode([
+                'ok' => true,
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'orders' => $rows,
+            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        $inventoryWarning = '';
+        if ($method === 'POST') {
+            $pdo = jg_sku_db();
+            jg_orders_ensure_schema($pdo);
+            jg_orders_ensure_opening_lots($pdo);
+            $skuLookup = jg_orders_sku_lookup($pdo);
+            $rows = jg_orders_enrich_and_allocate($pdo, $remoteRows, $skuLookup);
+            $allocationMode = 'write';
+        } else {
+            try {
+                $pdo = jg_sku_db();
+                jg_orders_ensure_schema($pdo);
+                $skuLookup = jg_orders_sku_lookup($pdo);
+                $rows = jg_orders_enrich_for_read($pdo, $remoteRows, $skuLookup);
+                $allocationMode = 'read_only';
+            } catch (Throwable $inventoryError) {
+                error_log('Orders inventory enrichment unavailable: ' . $inventoryError->getMessage());
+                $rows = jg_orders_enrich_without_inventory($remoteRows);
+                $allocationMode = 'unavailable';
+                $inventoryWarning = 'inventory_enrichment_unavailable';
+            }
+        }
+
+        $response = [
             'ok' => true,
             'start_date' => $startDate,
             'end_date' => $endDate,
+            'allocation_mode' => $allocationMode,
             'orders' => $rows,
+        ];
+        if ($inventoryWarning !== '') {
+            $response['warning'] = $inventoryWarning;
+        }
+        echo json_encode($response, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $error) {
+        http_response_code(500);
+        echo json_encode([
+            'ok' => false,
+            'error' => 'orders_api_failed',
+            'message' => $error->getMessage(),
         ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        exit;
     }
-
-    $pdo = jg_sku_db();
-    jg_orders_ensure_schema($pdo);
-    jg_orders_ensure_opening_lots($pdo);
-    $skuLookup = jg_orders_sku_lookup($pdo);
-    $rows = jg_orders_enrich_and_allocate($pdo, $remoteRows, $skuLookup);
-
-    echo json_encode([
-        'ok' => true,
-        'start_date' => $startDate,
-        'end_date' => $endDate,
-        'orders' => $rows,
-    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-} catch (Throwable $error) {
-    http_response_code(500);
-    echo json_encode([
-        'ok' => false,
-        'error' => 'orders_api_failed',
-        'message' => $error->getMessage(),
-    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 }
 
 function jg_orders_date(mixed $value, string $fallback): string
@@ -549,40 +578,150 @@ function jg_orders_enrich_and_allocate(PDO $pdo, array $remoteRows, array $skuLo
                 $allocationError = $error->getMessage();
             }
         }
-        $totalCogs = array_sum(array_map(static fn (array $allocation): float => (float) $allocation['total_cogs'], $allocations));
-        $rows[] = [
-            'timestamp' => (string) ($remoteRow['timestamp'] ?? ''),
-            'order_create_time' => (string) ($remoteRow['order_create_time'] ?? ($remoteRow['timestamp'] ?? '')),
-            'order_id' => (string) ($remoteRow['order_id'] ?? ''),
-            'platform' => (string) ($remoteRow['platform'] ?? ''),
-            'account_key' => (string) ($remoteRow['account_key'] ?? ''),
-            'company' => (string) ($remoteRow['company'] ?? ''),
-            'brand_name' => (string) ($sku['brand_name'] ?? ''),
-            'product_name' => (string) ($sku['product_name'] ?? ($remoteRow['product_name'] ?? '')),
-            'marketplace_product_name' => (string) ($remoteRow['product_name'] ?? ''),
-            'base_product_name' => (string) ($sku['base_product_name'] ?? ''),
-            'flavor_name' => (string) ($sku['flavor_name'] ?? ($remoteRow['flavor'] ?? '')),
-            'product_type' => (string) ($remoteRow['product_type'] ?? ''),
-            'flavor' => (string) ($remoteRow['flavor'] ?? ''),
-            'marketplace_sku' => (string) ($remoteRow['sku'] ?? ''),
-            'item_key' => (string) ($remoteRow['item_key'] ?? ''),
-            'sku' => $sku['sku'] ?? '',
-            'sku_linked' => $sku !== null,
-            'quantity' => (int) ($remoteRow['quantity'] ?? 0),
-            'astra_quantity' => $astraQty,
-            'revenue' => (int) round((float) ($remoteRow['revenue'] ?? $remoteRow['net_revenue'] ?? $remoteRow['sales'] ?? 0)),
-            'net_revenue' => (int) round((float) ($remoteRow['revenue'] ?? $remoteRow['net_revenue'] ?? $remoteRow['sales'] ?? 0)),
-            'marketplace_fees' => (int) round((float) ($remoteRow['order_marketplace_fees'] ?? $remoteRow['marketplace_fees'] ?? 0)),
-            'cogs' => (int) round($totalCogs),
-            'gross_profit' => (int) round((float) ($remoteRow['revenue'] ?? $remoteRow['net_revenue'] ?? $remoteRow['sales'] ?? 0) - $totalCogs),
-            'username' => (string) ($remoteRow['username'] ?? ''),
-            'address' => (string) ($remoteRow['address'] ?? ''),
-            'phone' => (string) ($remoteRow['phone'] ?? ''),
-            'allocations' => $allocations,
-            'allocation_error' => $allocationError,
-        ];
+        $rows[] = jg_orders_enriched_row($remoteRow, $sku, $astraQty, $allocations, $allocationError);
     }
     return $rows;
+}
+
+function jg_orders_enrich_for_read(PDO $pdo, array $remoteRows, array $skuLookup): array
+{
+    $preparedRows = [];
+    $orderItemKeys = [];
+    foreach ($remoteRows as $remoteRow) {
+        if (!is_array($remoteRow)) {
+            continue;
+        }
+        $sku = jg_orders_match_sku($remoteRow, $skuLookup);
+        $orderItemKey = $sku ? jg_orders_order_item_key($remoteRow) : '';
+        if ($orderItemKey !== '') {
+            $orderItemKeys[$orderItemKey] = true;
+        }
+        $preparedRows[] = [
+            'remote' => $remoteRow,
+            'sku' => $sku,
+            'order_item_key' => $orderItemKey,
+        ];
+    }
+
+    $allocationMap = jg_orders_existing_allocations($pdo, array_keys($orderItemKeys));
+    $rows = [];
+    foreach ($preparedRows as $preparedRow) {
+        $remoteRow = $preparedRow['remote'];
+        $sku = $preparedRow['sku'];
+        $quantity = max(0, (int) ($remoteRow['quantity'] ?? 0));
+        $volume = (float) ($sku['volume'] ?? 0);
+        $astra = (float) ($sku['astra'] ?? $volume);
+        $multiplier = $volume > 0 && $astra > 0 ? max(1.0, $volume / $astra) : 1.0;
+        $astraQty = $sku ? round($quantity * $multiplier, 2) : 0.0;
+        $allocationKey = jg_orders_allocation_map_key(
+            (string) $preparedRow['order_item_key'],
+            (string) ($sku['sku'] ?? '')
+        );
+        $allocations = $allocationMap[$allocationKey] ?? [];
+        $rows[] = jg_orders_enriched_row($remoteRow, $sku, $astraQty, $allocations);
+    }
+
+    return $rows;
+}
+
+function jg_orders_enrich_without_inventory(array $remoteRows): array
+{
+    $rows = [];
+    foreach ($remoteRows as $remoteRow) {
+        if (is_array($remoteRow)) {
+            $rows[] = jg_orders_enriched_row($remoteRow, null, 0.0, []);
+        }
+    }
+    return $rows;
+}
+
+function jg_orders_existing_allocations(PDO $pdo, array $orderItemKeys): array
+{
+    $allocationMap = [];
+    $orderItemKeys = array_values(array_unique(array_filter(array_map('strval', $orderItemKeys))));
+    foreach (array_chunk($orderItemKeys, 400) as $chunk) {
+        $placeholders = implode(',', array_fill(0, count($chunk), '?'));
+        $stmt = $pdo->prepare(
+            'SELECT order_item_key, sku, po_number, qty_astra_consumed, cogs_per_astra, total_cogs
+             FROM marketplace_order_inventory_allocations
+             WHERE order_item_key IN (' . $placeholders . ')
+             ORDER BY order_item_key, id'
+        );
+        $stmt->execute($chunk);
+        foreach ($stmt->fetchAll() as $allocation) {
+            $mapKey = jg_orders_allocation_map_key(
+                (string) ($allocation['order_item_key'] ?? ''),
+                (string) ($allocation['sku'] ?? '')
+            );
+            $allocationMap[$mapKey][] = [
+                'po_number' => (string) ($allocation['po_number'] ?? ''),
+                'qty_astra_consumed' => (float) ($allocation['qty_astra_consumed'] ?? 0),
+                'cogs_per_astra' => (float) ($allocation['cogs_per_astra'] ?? 0),
+                'total_cogs' => (float) ($allocation['total_cogs'] ?? 0),
+            ];
+        }
+    }
+
+    return $allocationMap;
+}
+
+function jg_orders_allocation_map_key(string $orderItemKey, string $sku): string
+{
+    return $orderItemKey . "\x1f" . $sku;
+}
+
+function jg_orders_enriched_row(
+    array $remoteRow,
+    ?array $sku,
+    float $astraQty,
+    array $allocations,
+    string $allocationError = ''
+): array {
+    $allocatedQty = array_sum(array_map(
+        static fn (array $allocation): float => (float) ($allocation['qty_astra_consumed'] ?? 0),
+        $allocations
+    ));
+    $totalCogs = array_sum(array_map(
+        static fn (array $allocation): float => (float) ($allocation['total_cogs'] ?? 0),
+        $allocations
+    ));
+    $unallocatedQty = max(0.0, round($astraQty - $allocatedQty, 2));
+    $estimatedCogs = $unallocatedQty * (float) ($sku['cogs'] ?? 0);
+    $totalCogs += $estimatedCogs;
+    $revenue = (int) round((float) ($remoteRow['revenue'] ?? $remoteRow['net_revenue'] ?? $remoteRow['sales'] ?? 0));
+
+    return [
+        'timestamp' => (string) ($remoteRow['timestamp'] ?? ''),
+        'order_create_time' => (string) ($remoteRow['order_create_time'] ?? ($remoteRow['timestamp'] ?? '')),
+        'order_id' => (string) ($remoteRow['order_id'] ?? ''),
+        'platform' => (string) ($remoteRow['platform'] ?? ''),
+        'account_key' => (string) ($remoteRow['account_key'] ?? ''),
+        'company' => (string) ($remoteRow['company'] ?? ''),
+        'brand_name' => (string) ($sku['brand_name'] ?? ''),
+        'product_name' => (string) ($sku['product_name'] ?? ($remoteRow['product_name'] ?? '')),
+        'marketplace_product_name' => (string) ($remoteRow['product_name'] ?? ''),
+        'base_product_name' => (string) ($sku['base_product_name'] ?? ''),
+        'flavor_name' => (string) ($sku['flavor_name'] ?? ($remoteRow['flavor'] ?? '')),
+        'product_type' => (string) ($remoteRow['product_type'] ?? ''),
+        'flavor' => (string) ($remoteRow['flavor'] ?? ''),
+        'marketplace_sku' => (string) ($remoteRow['sku'] ?? ''),
+        'item_key' => (string) ($remoteRow['item_key'] ?? ''),
+        'sku' => (string) ($sku['sku'] ?? ''),
+        'sku_linked' => $sku !== null,
+        'quantity' => (int) ($remoteRow['quantity'] ?? 0),
+        'astra_quantity' => $astraQty,
+        'revenue' => $revenue,
+        'net_revenue' => $revenue,
+        'marketplace_fees' => (int) round((float) ($remoteRow['order_marketplace_fees'] ?? $remoteRow['marketplace_fees'] ?? 0)),
+        'cogs' => (int) round($totalCogs),
+        'cogs_estimated' => $unallocatedQty > 0,
+        'gross_profit' => (int) round($revenue - $totalCogs),
+        'username' => (string) ($remoteRow['username'] ?? ''),
+        'address' => (string) ($remoteRow['address'] ?? ''),
+        'phone' => (string) ($remoteRow['phone'] ?? ''),
+        'allocations' => $allocations,
+        'allocation_error' => $allocationError,
+    ];
 }
 
 /**
@@ -615,12 +754,7 @@ function jg_orders_match_sku(array $remoteRow, array $skuLookup): ?array
 
 function jg_orders_allocate_fifo(PDO $pdo, array $remoteRow, array $sku, float $astraQty): array
 {
-    $orderItemKey = implode('|', [
-        (string) ($remoteRow['platform'] ?? ''),
-        (string) ($remoteRow['account_key'] ?? ''),
-        (string) ($remoteRow['order_id'] ?? ''),
-        (string) ($remoteRow['item_key'] ?? $remoteRow['sku'] ?? $remoteRow['item_row_id'] ?? ''),
-    ]);
+    $orderItemKey = jg_orders_order_item_key($remoteRow);
     $skuCode = (string) $sku['sku'];
     $now = gmdate('Y-m-d H:i:s');
     $consumedAt = (string) ($remoteRow['timestamp'] ?? $now);
@@ -719,6 +853,24 @@ function jg_orders_allocate_fifo(PDO $pdo, array $remoteRow, array $sku, float $
         }
         throw $error;
     }
+}
+
+function jg_orders_order_item_key(array $remoteRow): string
+{
+    $itemKey = trim((string) ($remoteRow['item_key'] ?? ''));
+    if ($itemKey === '') {
+        $itemKey = trim((string) ($remoteRow['sku'] ?? ''));
+    }
+    if ($itemKey === '') {
+        $itemKey = trim((string) ($remoteRow['item_row_id'] ?? ''));
+    }
+
+    return implode('|', [
+        (string) ($remoteRow['platform'] ?? ''),
+        (string) ($remoteRow['account_key'] ?? ''),
+        (string) ($remoteRow['order_id'] ?? ''),
+        $itemKey,
+    ]);
 }
 
 function jg_orders_restore_replaced_allocations(PDO $pdo, array $remoteRow, string $currentOrderItemKey, string $sku): void

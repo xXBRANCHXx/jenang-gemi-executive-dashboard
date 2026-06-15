@@ -1778,6 +1778,24 @@ button, input {
   gap: 10px;
 }
 
+.admin-orders-load-btn {
+  min-height: 34px;
+  padding: 7px 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-orders-load-btn:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
 .admin-orders-icon-btn,
 .admin-orders-reset-btn {
   display: grid;

@@ -501,6 +501,9 @@ const normalizeSourceKey = (value) => String(value || '').trim().toLowerCase();
 const HIDDEN_HOME_SOURCES = new Set(['internal', 'direct']);
 const OVERVIEW_CACHE_PREFIX = 'jg-overview-summary-v10';
 const ORDER_RENDER_BATCH_SIZE = 80;
+const ORDER_LOAD_WINDOW_DAYS = 3;
+const ORDER_BOOTSTRAP_MIN_ROWS = 80;
+const ORDER_BOOTSTRAP_MAX_WINDOWS = 3;
 
 const shouldHideSourceMetric = (value) => HIDDEN_HOME_SOURCES.has(normalizeSourceKey(value));
 
@@ -1660,8 +1663,10 @@ document.addEventListener('DOMContentLoaded', () => {
       activeFiltersSignature: '',
       platformsRenderSignature: '',
       skuTreeSignature: '',
-      nextMonthIndex: 0,
+      loadedRangeKeys: new Set(),
       loading: false,
+      loadPromise: null,
+      loadGeneration: 0,
       loadedAll: false,
       renderLimit: ORDER_RENDER_BATCH_SIZE,
       scrollPending: false,
@@ -1788,6 +1793,7 @@ document.addEventListener('DOMContentLoaded', () => {
     tableBody: document.querySelector('[data-orders-table-body]'),
     scroll: document.querySelector('[data-orders-scroll]'),
     status: document.querySelector('[data-orders-status]'),
+    loadMore: document.querySelector('[data-orders-load-more]'),
     filterOpen: document.querySelector('[data-orders-filter-open]'),
     filterReset: document.querySelector('[data-orders-filter-reset]'),
     activeFilters: document.querySelector('[data-orders-active-filters]'),
@@ -2458,11 +2464,12 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${ordersEndpoint}?${params.toString()}`;
   };
   const requestOrderFacts = (startDate, endDate, options = {}) => requestJson(buildOrderFactsUrl(startDate, endDate, options));
-  const todayDate = () => new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone }).format(new Date());
+  const dashboardDateFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone });
+  const todayDate = () => dashboardDateFormatter.format(new Date());
   const offsetDate = (dateValue, offsetDays) => {
     const date = new Date(`${dateValue}T00:00:00+07:00`);
-    date.setDate(date.getDate() + offsetDays);
-    return new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone }).format(date);
+    date.setUTCDate(date.getUTCDate() + offsetDays);
+    return dashboardDateFormatter.format(date);
   };
   const defaultOrderDatesFor = (today) => {
     return { start: offsetDate(today, -1), end: today };
@@ -2601,7 +2608,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const orderLocalDate = (row) => {
     if (typeof row?._orderLocalDate === 'string') return row._orderLocalDate;
     const date = parseOrderTimestamp(row?.order_create_time || row?.timestamp);
-    return date ? new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone }).format(date) : '';
+    return date ? dashboardDateFormatter.format(date) : '';
   };
 
   const uniqueOrderRowKey = (row) => [
@@ -2619,48 +2626,38 @@ document.addEventListener('DOMContentLoaded', () => {
       ...row,
       _orderRowKey: uniqueOrderRowKey(row),
       _orderTimestamp: date?.getTime() || 0,
-      _orderLocalDate: date ? new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone }).format(date) : '',
+      _orderLocalDate: date ? dashboardDateFormatter.format(date) : '',
       _platformKey: normalizeOrderFilterValue(row?.platform || '')
     };
   };
 
-  const orderMonthRange = (year, month) => {
-    const start = `${year}-${String(month).padStart(2, '0')}-01`;
-    const end = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
-    return { year, month, start, end };
-  };
-
   const deriveOrderMonthRanges = (years, months) => {
-    const seen = new Set();
     const ranges = [];
-    const now = new Date();
-    const availableYears = (Array.isArray(years) && years.length ? years : [state.overview.year])
+    const monthYears = (Array.isArray(months) ? months : []).map((monthRow) => Number(monthRow?.year || 0));
+    const availableYears = [
+      ...(Array.isArray(years) && years.length ? years : [state.overview.year]),
+      ...monthYears
+    ]
       .map((yearValue) => Number(yearValue))
-      .filter((year) => Number.isFinite(year));
+      .filter((year) => Number.isFinite(year) && year >= 2000);
+    const earliestYear = availableYears.length ? Math.min(...availableYears) : Number(todayDate().slice(0, 4));
+    const earliestDate = `${earliestYear}-01-01`;
+    let end = todayDate();
 
-    (Array.isArray(months) ? months : []).forEach((monthRow) => {
-      const year = Number(monthRow.year || state.overview.year);
-      const month = Number(monthRow.month || 0);
-      if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) return;
-      const key = `${year}-${month}`;
-      if (seen.has(key)) return;
-      seen.add(key);
-      ranges.push(orderMonthRange(year, month));
-    });
+    while (end >= earliestDate) {
+      const candidateStart = offsetDate(end, -(ORDER_LOAD_WINDOW_DAYS - 1));
+      const start = candidateStart < earliestDate ? earliestDate : candidateStart;
+      ranges.push({
+        year: Number(start.slice(0, 4)),
+        month: Number(start.slice(5, 7)),
+        start,
+        end,
+        key: `${start}:${end}`
+      });
+      end = offsetDate(start, -1);
+    }
 
-    availableYears.forEach((year) => {
-      const maxMonth = year === now.getFullYear() ? now.getMonth() + 1 : 12;
-      for (let month = maxMonth; month >= 1; month -= 1) {
-        const key = `${year}-${month}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        ranges.push(orderMonthRange(year, month));
-      }
-    });
-
-    return ranges.sort((left, right) => (
-      right.year === left.year ? right.month - left.month : right.year - left.year
-    ));
+    return ranges;
   };
 
   const orderMatchesFilters = (row, filters) => {
@@ -2697,6 +2694,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!state.orders.filters[kind].some((item) => normalizeOrderFilterValue(item) === normalizeOrderFilterValue(normalized))) {
       state.orders.filters[kind].push(normalized);
       resetOrderRenderWindow();
+      syncOrderLoadedAll();
     }
   };
 
@@ -2707,10 +2705,11 @@ document.addEventListener('DOMContentLoaded', () => {
       state.orders.filters[kind] = state.orders.filters[kind].filter((item) => normalizeOrderFilterValue(item) !== normalizeOrderFilterValue(value));
     }
     resetOrderRenderWindow();
+    syncOrderLoadedAll();
     syncOrderFilterControls();
     renderSkuOrderTree();
     renderOrders();
-    ensureEnoughOrderRows();
+    ensureEnoughOrderRows().catch(showOrderLoadError);
   };
 
   const clearOrderFilters = () => {
@@ -2723,10 +2722,11 @@ document.addEventListener('DOMContentLoaded', () => {
       endDate: ''
     };
     resetOrderRenderWindow();
+    syncOrderLoadedAll();
     syncOrderFilterControls();
     renderSkuOrderTree();
     renderOrders();
-    ensureEnoughOrderRows();
+    ensureEnoughOrderRows().catch(showOrderLoadError);
   };
 
   const buildSettingsUrl = (action) => `${settingsEndpoint}?action=${encodeURIComponent(action)}&_ts=${encodeURIComponent(String(Date.now()))}`;
@@ -3254,7 +3254,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }));
     if (state.activeView === 'orders') {
       resetOrderWindowsFromOverview();
-      ensureEnoughOrderRows();
+      ensureEnoughOrderRows().catch(showOrderLoadError);
     }
   };
 
@@ -3391,6 +3391,11 @@ document.addEventListener('DOMContentLoaded', () => {
         ordersRefs.status.textContent = `${formatCompactNumber(shown)} shown from ${formatCompactNumber(loadedCount)} loaded order lines${state.orders.loadedAll ? '' : ' as you scroll'}`;
       }
     }
+    if (ordersRefs.loadMore) {
+      ordersRefs.loadMore.hidden = state.orders.loadedAll && !state.orders.loading;
+      ordersRefs.loadMore.disabled = state.orders.loading;
+      ordersRefs.loadMore.textContent = state.orders.loading ? 'Loading...' : 'Load older';
+    }
     if (!ordersRefs.tableBody) return;
     const contactButton = (value, label) => {
       const text = String(value || '').trim();
@@ -3424,7 +3429,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td>${formatCompactNumber(row.quantity || 0)}</td>
           <td title="${escapeHtml(allocation)}">${escapeHtml(poNumbers)}</td>
           <td>${formatCellCurrency(row.revenue || 0)}</td>
-          <td>${formatCellCurrency(row.cogs || 0)}</td>
+          <td${row.cogs_estimated ? ' title="Estimated from SKU COGS until FIFO allocation is recorded"' : ''}>${formatCellCurrency(row.cogs || 0)}</td>
           <td>${contactButton(row.username, 'username')}</td>
           <td>${contactButton(row.address, 'address')}</td>
           <td>${contactButton(row.phone, 'phone')}</td>
@@ -3482,11 +3487,16 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
     resetOrderRenderWindow();
+    syncOrderLoadedAll();
     syncOrderFilterControls();
     renderOrdersDateCalendar();
     renderOrders();
     closeOrdersDatePopover();
-    await ensureEnoughOrderRows();
+    try {
+      await ensureEnoughOrderRows();
+    } catch (error) {
+      showOrderLoadError(error);
+    }
   };
 
   const renderHome = (data) => {
@@ -4065,19 +4075,61 @@ document.addEventListener('DOMContentLoaded', () => {
       state.orders.rowKeys = new Set(state.orders.rows.map(uniqueOrderRowKey));
     }
     const seen = state.orders.rowKeys;
+    const incoming = [];
+    const platforms = new Set(state.orders.platforms);
     (Array.isArray(rows) ? rows : []).forEach((row) => {
       const key = uniqueOrderRowKey(row);
       if (seen.has(key)) return;
       seen.add(key);
-      state.orders.rows.push(enrichOrderRow(row));
+      incoming.push(enrichOrderRow(row));
       const platform = String(row.platform || '').trim();
-      if (platform && !state.orders.platforms.includes(platform)) {
+      if (platform && !platforms.has(platform)) {
+        platforms.add(platform);
         state.orders.platforms.push(platform);
       }
     });
-    state.orders.rows.sort((left, right) => {
-      return Number(right._orderTimestamp || 0) - Number(left._orderTimestamp || 0);
-    });
+    if (!incoming.length) return;
+    incoming.sort((left, right) => Number(right._orderTimestamp || 0) - Number(left._orderTimestamp || 0));
+    if (!state.orders.rows.length) {
+      state.orders.rows = incoming;
+      return;
+    }
+
+    const merged = [];
+    let currentIndex = 0;
+    let incomingIndex = 0;
+    while (currentIndex < state.orders.rows.length && incomingIndex < incoming.length) {
+      const current = state.orders.rows[currentIndex];
+      const next = incoming[incomingIndex];
+      if (Number(current._orderTimestamp || 0) >= Number(next._orderTimestamp || 0)) {
+        merged.push(current);
+        currentIndex += 1;
+      } else {
+        merged.push(next);
+        incomingIndex += 1;
+      }
+    }
+    state.orders.rows = merged
+      .concat(state.orders.rows.slice(currentIndex))
+      .concat(incoming.slice(incomingIndex));
+  };
+
+  const orderRangeKey = (range) => range?.key || `${range?.start || ''}:${range?.end || ''}`;
+
+  const orderRangeMatchesDateFilters = (range) => {
+    const { startDate, endDate } = state.orders.filters;
+    if (startDate && range.end < startDate) return false;
+    if (endDate && range.start > endDate) return false;
+    return true;
+  };
+
+  const nextOrderRange = () => state.orders.monthRanges.find((range) => (
+    orderRangeMatchesDateFilters(range) &&
+    !state.orders.loadedRangeKeys.has(orderRangeKey(range))
+  )) || null;
+
+  const syncOrderLoadedAll = () => {
+    state.orders.loadedAll = !nextOrderRange();
   };
 
   const resetOrderWindowsFromOverview = () => {
@@ -4085,13 +4137,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const years = Array.isArray(data.years) ? data.years : [state.overview.year];
     const months = Array.isArray(data.months) ? data.months : [];
     const ranges = deriveOrderMonthRanges(years, months);
-    const signature = ranges.map((range) => `${range.year}-${range.month}`).join('|');
-    if (signature === state.orders.monthsSignature && state.orders.rows.length) return;
+    const signature = ranges.map(orderRangeKey).join('|');
+    if (
+      signature === state.orders.monthsSignature &&
+      (state.orders.rows.length || state.orders.loadedAll || state.orders.loading || state.orders.loadPromise)
+    ) {
+      syncOrderLoadedAll();
+      return;
+    }
     state.orders.monthRanges = ranges;
     state.orders.monthsSignature = signature;
-    state.orders.nextMonthIndex = 0;
+    state.orders.loadedRangeKeys = new Set();
     state.orders.loading = false;
     state.orders.loadedAll = false;
+    state.orders.loadGeneration += 1;
+    state.orders.loadPromise = null;
     state.orders.renderLimit = ORDER_RENDER_BATCH_SIZE;
     state.orders.ensurePending = false;
     state.orders.rows = [];
@@ -4103,39 +4163,50 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const loadNextOrderWindow = async () => {
-    if (state.orders.loading || state.orders.loadedAll) return;
+    if (state.orders.loadPromise) return state.orders.loadPromise;
     if (!state.orders.monthRanges.length) resetOrderWindowsFromOverview();
-    const nextRange = state.orders.monthRanges[state.orders.nextMonthIndex];
+    syncOrderLoadedAll();
+    const nextRange = nextOrderRange();
     if (!nextRange) {
       state.orders.loadedAll = true;
       renderOrders();
       return;
     }
+    const generation = state.orders.loadGeneration;
     state.orders.loading = true;
     renderOrders();
-    try {
-      const requestToken = beginRequest('orders');
-      const data = await requestOrderFacts(nextRange.start, nextRange.end);
-      if (!isLatestRequest('orders', requestToken)) return;
-      mergeLoadedOrderRows(data.orders || []);
-      state.orders.nextMonthIndex += 1;
-      if (state.orders.nextMonthIndex >= state.orders.monthRanges.length) {
-        state.orders.loadedAll = true;
+    const loadPromise = (async () => {
+      let completed = false;
+      try {
+        const requestToken = beginRequest('orders');
+        const data = await requestOrderFacts(nextRange.start, nextRange.end);
+        if (!isLatestRequest('orders', requestToken) || generation !== state.orders.loadGeneration) return;
+        mergeLoadedOrderRows(data.orders || []);
+        state.orders.loadedRangeKeys.add(orderRangeKey(nextRange));
+        syncOrderLoadedAll();
+        state.orders.data = {
+          ok: true,
+          start_date: nextRange.start,
+          end_date: nextRange.end,
+          orders: state.orders.rows
+        };
+        completed = true;
+      } finally {
+        if (generation === state.orders.loadGeneration) {
+          state.orders.loading = false;
+          renderOrders();
+          if (completed && state.orders.ensurePending) {
+            state.orders.ensurePending = false;
+            ensureEnoughOrderRows().catch(showOrderLoadError);
+          }
+        }
+        if (state.orders.loadPromise === loadPromise) {
+          state.orders.loadPromise = null;
+        }
       }
-      state.orders.data = {
-        ok: true,
-        start_date: nextRange.start,
-        end_date: nextRange.end,
-        orders: state.orders.rows
-      };
-    } finally {
-      state.orders.loading = false;
-      renderOrders();
-      if (state.orders.ensurePending) {
-        state.orders.ensurePending = false;
-        ensureEnoughOrderRows();
-      }
-    }
+    })();
+    state.orders.loadPromise = loadPromise;
+    return loadPromise;
   };
 
   const ensureEnoughOrderRows = async () => {
@@ -4146,18 +4217,24 @@ document.addEventListener('DOMContentLoaded', () => {
     state.orders.ensureRunning = true;
     try {
       if (!state.orders.monthRanges.length && !state.orders.loadedAll) resetOrderWindowsFromOverview();
-      if (!state.orders.rows.length && !state.orders.loadedAll) {
-        if (state.orders.loading) {
-          state.orders.ensurePending = true;
-          return;
-        }
+      syncOrderLoadedAll();
+      let loadedWindows = 0;
+      while (!state.orders.loadedAll && loadedWindows < ORDER_BOOTSTRAP_MAX_WINDOWS) {
+        const rows = filteredOrderRows();
+        const needsViewportFill = ordersRefs.scroll
+          ? ordersRefs.scroll.scrollHeight <= ordersRefs.scroll.clientHeight + 24
+          : rows.length < ORDER_BOOTSTRAP_MIN_ROWS;
+        if (rows.length >= ORDER_BOOTSTRAP_MIN_ROWS && !needsViewportFill) break;
+        const loadedCount = state.orders.loadedRangeKeys.size;
         await loadNextOrderWindow();
+        if (state.orders.loadedRangeKeys.size === loadedCount) break;
+        loadedWindows += 1;
       }
     } finally {
       state.orders.ensureRunning = false;
       if (state.orders.ensurePending && !state.orders.loading) {
         state.orders.ensurePending = false;
-        ensureEnoughOrderRows();
+        ensureEnoughOrderRows().catch(showOrderLoadError);
       }
     }
   };
@@ -4168,6 +4245,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     resetOrderWindowsFromOverview();
     await ensureEnoughOrderRows();
+    if (state.orders.loadPromise) {
+      await state.orders.loadPromise;
+    }
+  };
+
+  const showOrderLoadError = (error) => {
+    state.orders.loading = false;
+    const message = error instanceof Error ? error.message : 'Unable to load orders.';
+    if (ordersRefs.tableBody && !state.orders.rows.length) {
+      ordersRefs.tableBody.innerHTML = `<tr><td colspan="11" class="admin-empty">${escapeHtml(message)}</td></tr>`;
+    }
+    if (ordersRefs.status) ordersRefs.status.textContent = message;
+    if (ordersRefs.loadMore) {
+      ordersRefs.loadMore.hidden = false;
+      ordersRefs.loadMore.disabled = false;
+      ordersRefs.loadMore.textContent = 'Retry';
+    }
   };
 
   const loadOrdersSafely = async () => {
@@ -4175,11 +4269,7 @@ document.addEventListener('DOMContentLoaded', () => {
       await loadOrders();
       return true;
     } catch (error) {
-      state.orders.loading = false;
-      if (ordersRefs.tableBody) {
-        ordersRefs.tableBody.innerHTML = `<tr><td colspan="11" class="admin-empty">${escapeHtml(error.message || 'Unable to load orders.')}</td></tr>`;
-      }
-      if (ordersRefs.status) ordersRefs.status.textContent = 'Unable to load orders';
+      showOrderLoadError(error);
       return false;
     }
   };
@@ -4720,6 +4810,14 @@ document.addEventListener('DOMContentLoaded', () => {
     renderZeroDiscountCalendar();
   });
 
+  ordersRefs.loadMore?.addEventListener('click', async () => {
+    try {
+      await loadNextOrderWindow();
+    } catch (error) {
+      showOrderLoadError(error);
+    }
+  });
+
   ordersRefs.filterOpen?.addEventListener('click', () => {
     if (!ordersRefs.filterModal) return;
     syncOrderFilterControls();
@@ -4753,7 +4851,11 @@ document.addEventListener('DOMContentLoaded', () => {
     syncOrderFilterControls();
     renderSkuOrderTree();
     renderOrders();
-    await ensureEnoughOrderRows();
+    try {
+      await ensureEnoughOrderRows();
+    } catch (error) {
+      showOrderLoadError(error);
+    }
   });
 
   ordersRefs.platforms?.addEventListener('click', async (event) => {
@@ -4763,12 +4865,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (state.orders.filters.platforms.some((item) => normalizeOrderFilterValue(item) === normalizeOrderFilterValue(platform))) {
       state.orders.filters.platforms = state.orders.filters.platforms.filter((item) => normalizeOrderFilterValue(item) !== normalizeOrderFilterValue(platform));
       resetOrderRenderWindow();
+      syncOrderLoadedAll();
     } else {
       addOrderFilter('platforms', platform);
     }
     syncOrderFilterControls();
     renderOrders();
-    await ensureEnoughOrderRows();
+    try {
+      await ensureEnoughOrderRows();
+    } catch (error) {
+      showOrderLoadError(error);
+    }
   });
 
   ordersRefs.dateToggleButtons.forEach((button) => {
@@ -4814,7 +4921,11 @@ document.addEventListener('DOMContentLoaded', () => {
           state.orders.renderLimit += 80;
           renderOrders();
         } else {
-          await loadNextOrderWindow();
+          try {
+            await loadNextOrderWindow();
+          } catch (error) {
+            showOrderLoadError(error);
+          }
         }
       }
     });

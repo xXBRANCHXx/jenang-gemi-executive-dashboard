@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isAuthenticated = jg_admin_is_authenticated();
-$dashboardBuildVersion = 'exec3.68.1';
+$dashboardBuildVersion = 'exec3.68.2';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 ?>
@@ -365,6 +365,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                 <span class="admin-panel-meta" data-orders-status>Loading stored orders from newest to oldest</span>
                             </div>
                             <div class="admin-orders-actions">
+                                <button type="button" class="admin-orders-load-btn" data-orders-load-more hidden>Load older</button>
                                 <button type="button" class="admin-orders-icon-btn" data-orders-filter-open aria-label="Open order filters">
                                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-6.2 7.1v5.2l-3.6 1.8v-7z"/></svg>
                                 </button>
