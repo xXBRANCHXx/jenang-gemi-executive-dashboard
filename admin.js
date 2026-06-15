@@ -1660,13 +1660,24 @@ document.addEventListener('DOMContentLoaded', () => {
       activeFiltersSignature: '',
       platformsRenderSignature: '',
       skuTreeSignature: '',
+      rowDataVersion: 0,
+      filteredRowsCache: {
+        dataVersion: -1,
+        filterSignature: '',
+        rows: []
+      },
+      tableRenderSignature: '',
       nextMonthIndex: 0,
       loading: false,
+      loadPromise: null,
+      loadGeneration: 0,
       loadedAll: false,
       renderLimit: ORDER_RENDER_BATCH_SIZE,
       scrollPending: false,
       ensureRunning: false,
       ensurePending: false,
+      catalogLoaded: false,
+      catalogPromise: null,
       activeDateField: 'start',
       calendarMonth: new Date().toISOString().slice(0, 7),
       filters: {
@@ -2458,11 +2469,12 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${ordersEndpoint}?${params.toString()}`;
   };
   const requestOrderFacts = (startDate, endDate, options = {}) => requestJson(buildOrderFactsUrl(startDate, endDate, options));
-  const todayDate = () => new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone }).format(new Date());
+  const dashboardDateFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone });
+  const todayDate = () => dashboardDateFormatter.format(new Date());
   const offsetDate = (dateValue, offsetDays) => {
     const date = new Date(`${dateValue}T00:00:00+07:00`);
     date.setDate(date.getDate() + offsetDays);
-    return new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone }).format(date);
+    return dashboardDateFormatter.format(date);
   };
   const defaultOrderDatesFor = (today) => {
     return { start: offsetDate(today, -1), end: today };
@@ -2601,7 +2613,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const orderLocalDate = (row) => {
     if (typeof row?._orderLocalDate === 'string') return row._orderLocalDate;
     const date = parseOrderTimestamp(row?.order_create_time || row?.timestamp);
-    return date ? new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone }).format(date) : '';
+    return date ? dashboardDateFormatter.format(date) : '';
   };
 
   const uniqueOrderRowKey = (row) => [
@@ -2619,7 +2631,7 @@ document.addEventListener('DOMContentLoaded', () => {
       ...row,
       _orderRowKey: uniqueOrderRowKey(row),
       _orderTimestamp: date?.getTime() || 0,
-      _orderLocalDate: date ? new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone }).format(date) : '',
+      _orderLocalDate: date ? dashboardDateFormatter.format(date) : '',
       _platformKey: normalizeOrderFilterValue(row?.platform || '')
     };
   };
@@ -2676,9 +2688,25 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const filteredOrderRows = () => {
-    if (!hasOrderFilters()) return state.orders.rows;
-    const filters = createOrderFilterSnapshot();
-    return state.orders.rows.filter((row) => orderMatchesFilters(row, filters));
+    const filterSignature = orderFiltersSignature();
+    const cache = state.orders.filteredRowsCache;
+    if (
+      cache.dataVersion === state.orders.rowDataVersion &&
+      cache.filterSignature === filterSignature
+    ) {
+      return cache.rows;
+    }
+
+    const filters = hasOrderFilters() ? createOrderFilterSnapshot() : null;
+    const rows = filters
+      ? state.orders.rows.filter((row) => orderMatchesFilters(row, filters))
+      : state.orders.rows;
+    state.orders.filteredRowsCache = {
+      dataVersion: state.orders.rowDataVersion,
+      filterSignature,
+      rows
+    };
+    return rows;
   };
 
   const hasOrderFilters = () => {
@@ -3318,11 +3346,13 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${product.id || product.name}:${flavors.map((flavor) => flavor.id || flavor.name).join(',')}`;
       }).join(';')}`;
     }).join('|');
-    const signature = `${catalogSignature}\u001e${orderFiltersSignature()}`;
+    const signature = `${catalogSignature}\u001e${orderFiltersSignature()}\u001e${state.orders.catalogPromise ? 'loading' : 'idle'}`;
     if (state.orders.skuTreeSignature === signature) return;
     state.orders.skuTreeSignature = signature;
     if (!catalog.length) {
-      ordersRefs.companyTree.innerHTML = '<p class="admin-empty">No SKU companies are available yet.</p>';
+      ordersRefs.companyTree.innerHTML = state.orders.catalogPromise
+        ? '<p class="admin-empty">Loading SKU companies...</p>'
+        : '<p class="admin-empty">No SKU companies are available yet.</p>';
       return;
     }
     ordersRefs.companyTree.innerHTML = catalog.map((company) => {
@@ -3375,6 +3405,40 @@ document.addEventListener('DOMContentLoaded', () => {
     renderOrderPlatforms();
   };
 
+  const orderContactButton = (value, label) => {
+    const text = String(value || '').trim();
+    if (!text) return '-';
+    return `<button type="button" class="admin-order-view-btn" data-order-popover="${escapeHtml(text)}" aria-label="View ${escapeHtml(label)}">View</button>`;
+  };
+
+  const orderRowHtml = (row) => {
+    if (row._orderTableHtml) return row._orderTableHtml;
+    const platform = `${row.platform || '-'}${row.account_key ? ` / ${row.account_key}` : ''}`;
+    const productLabel = row.product_name || 'Unlinked SKU';
+    const allocation = Array.isArray(row.allocations) && row.allocations.length
+      ? row.allocations.map((item) => `${item.po_number}: ${formatCompactNumber(item.qty_astra_consumed || 0)}`).join(', ')
+      : (row.allocation_error ? `Allocation needs review: ${row.allocation_error}` : 'No PO allocation');
+    const poNumbers = Array.isArray(row.allocations) && row.allocations.length
+      ? [...new Set(row.allocations.map((item) => item.po_number).filter(Boolean))].join(', ')
+      : '-';
+    row._orderTableHtml = `
+      <tr>
+        <td>${escapeHtml(formatOrderTimestamp(row.order_create_time || row.timestamp))}</td>
+        <td><strong>${escapeHtml(row.order_id || '')}</strong></td>
+        <td>${escapeHtml(platform)}</td>
+        <td class="admin-order-product" title="${escapeHtml(productLabel)}"><strong>${escapeHtml(productLabel)}</strong></td>
+        <td>${formatCompactNumber(row.quantity || 0)}</td>
+        <td title="${escapeHtml(allocation)}">${escapeHtml(poNumbers)}</td>
+        <td>${formatCellCurrency(row.revenue || 0)}</td>
+        <td>${formatCellCurrency(row.cogs || 0)}</td>
+        <td>${orderContactButton(row.username, 'username')}</td>
+        <td>${orderContactButton(row.address, 'address')}</td>
+        <td>${orderContactButton(row.phone, 'phone')}</td>
+      </tr>
+    `;
+    return row._orderTableHtml;
+  };
+
   const renderOrders = (data = state.orders.data) => {
     if (data) state.orders.data = data;
     const rows = filteredOrderRows();
@@ -3392,45 +3456,23 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
     if (!ordersRefs.tableBody) return;
-    const contactButton = (value, label) => {
-      const text = String(value || '').trim();
-      if (!text) return '-';
-      return `<button type="button" class="admin-order-view-btn" data-order-popover="${escapeHtml(text)}" aria-label="View ${escapeHtml(label)}">View</button>`;
-    };
     if (!visibleRows.length) {
       const message = state.orders.loading
         ? 'Loading orders.'
         : (hasOrderFilters()
           ? (state.orders.loadedAll ? 'No orders match the current filters.' : 'No loaded orders match the current filters yet.')
           : (state.orders.loadedAll ? 'No stored orders found.' : 'No stored orders found in the loaded window yet.'));
-      ordersRefs.tableBody.innerHTML = `<tr><td colspan="11" class="admin-empty">${escapeHtml(message)}</td></tr>`;
+      const signature = `empty:${message}`;
+      if (state.orders.tableRenderSignature !== signature) {
+        state.orders.tableRenderSignature = signature;
+        ordersRefs.tableBody.innerHTML = `<tr><td colspan="11" class="admin-empty">${escapeHtml(message)}</td></tr>`;
+      }
       return;
     }
-    ordersRefs.tableBody.innerHTML = renderRows(visibleRows, 11, (row) => {
-      const platform = `${row.platform || '-'}${row.account_key ? ` / ${row.account_key}` : ''}`;
-      const productLabel = row.product_name || 'Unlinked SKU';
-      const allocation = Array.isArray(row.allocations) && row.allocations.length
-        ? row.allocations.map((item) => `${item.po_number}: ${formatCompactNumber(item.qty_astra_consumed || 0)}`).join(', ')
-        : (row.allocation_error ? `Allocation needs review: ${row.allocation_error}` : 'No PO allocation');
-      const poNumbers = Array.isArray(row.allocations) && row.allocations.length
-        ? [...new Set(row.allocations.map((item) => item.po_number).filter(Boolean))].join(', ')
-        : '-';
-      return `
-        <tr>
-          <td>${escapeHtml(formatOrderTimestamp(row.order_create_time || row.timestamp))}</td>
-          <td><strong>${escapeHtml(row.order_id || '')}</strong></td>
-          <td>${escapeHtml(platform)}</td>
-          <td class="admin-order-product" title="${escapeHtml(productLabel)}"><strong>${escapeHtml(productLabel)}</strong></td>
-          <td>${formatCompactNumber(row.quantity || 0)}</td>
-          <td title="${escapeHtml(allocation)}">${escapeHtml(poNumbers)}</td>
-          <td>${formatCellCurrency(row.revenue || 0)}</td>
-          <td>${formatCellCurrency(row.cogs || 0)}</td>
-          <td>${contactButton(row.username, 'username')}</td>
-          <td>${contactButton(row.address, 'address')}</td>
-          <td>${contactButton(row.phone, 'phone')}</td>
-        </tr>
-      `;
-    }, 'No loaded orders match the current filters yet.');
+    const signature = visibleRows.map((row) => row._orderRowKey).join('\u001f');
+    if (state.orders.tableRenderSignature === signature) return;
+    state.orders.tableRenderSignature = signature;
+    ordersRefs.tableBody.innerHTML = visibleRows.map(orderRowHtml).join('');
   };
 
   const closeOrdersDatePopover = () => {
@@ -4065,19 +4107,49 @@ document.addEventListener('DOMContentLoaded', () => {
       state.orders.rowKeys = new Set(state.orders.rows.map(uniqueOrderRowKey));
     }
     const seen = state.orders.rowKeys;
+    const incoming = [];
+    const platforms = new Set(state.orders.platforms);
     (Array.isArray(rows) ? rows : []).forEach((row) => {
       const key = uniqueOrderRowKey(row);
       if (seen.has(key)) return;
       seen.add(key);
-      state.orders.rows.push(enrichOrderRow(row));
+      incoming.push(enrichOrderRow(row));
       const platform = String(row.platform || '').trim();
-      if (platform && !state.orders.platforms.includes(platform)) {
+      if (platform && !platforms.has(platform)) {
+        platforms.add(platform);
         state.orders.platforms.push(platform);
       }
     });
-    state.orders.rows.sort((left, right) => {
-      return Number(right._orderTimestamp || 0) - Number(left._orderTimestamp || 0);
-    });
+    if (!incoming.length) return;
+
+    incoming.sort((left, right) => Number(right._orderTimestamp || 0) - Number(left._orderTimestamp || 0));
+    if (!state.orders.rows.length) {
+      state.orders.rows = incoming;
+    } else if (
+      Number(state.orders.rows[state.orders.rows.length - 1]._orderTimestamp || 0) >=
+      Number(incoming[0]._orderTimestamp || 0)
+    ) {
+      state.orders.rows = state.orders.rows.concat(incoming);
+    } else {
+      const merged = [];
+      let currentIndex = 0;
+      let incomingIndex = 0;
+      while (currentIndex < state.orders.rows.length && incomingIndex < incoming.length) {
+        const current = state.orders.rows[currentIndex];
+        const next = incoming[incomingIndex];
+        if (Number(current._orderTimestamp || 0) >= Number(next._orderTimestamp || 0)) {
+          merged.push(current);
+          currentIndex += 1;
+        } else {
+          merged.push(next);
+          incomingIndex += 1;
+        }
+      }
+      state.orders.rows = merged
+        .concat(state.orders.rows.slice(currentIndex))
+        .concat(incoming.slice(incomingIndex));
+    }
+    state.orders.rowDataVersion += 1;
   };
 
   const resetOrderWindowsFromOverview = () => {
@@ -4086,7 +4158,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const months = Array.isArray(data.months) ? data.months : [];
     const ranges = deriveOrderMonthRanges(years, months);
     const signature = ranges.map((range) => `${range.year}-${range.month}`).join('|');
-    if (signature === state.orders.monthsSignature && state.orders.rows.length) return;
+    if (
+      signature === state.orders.monthsSignature &&
+      (state.orders.rows.length || state.orders.loading || state.orders.loadPromise)
+    ) {
+      return;
+    }
     state.orders.monthRanges = ranges;
     state.orders.monthsSignature = signature;
     state.orders.nextMonthIndex = 0;
@@ -4097,13 +4174,23 @@ document.addEventListener('DOMContentLoaded', () => {
     state.orders.rows = [];
     state.orders.rowKeys = new Set();
     state.orders.platforms = [];
+    state.orders.rowDataVersion += 1;
+    state.orders.filteredRowsCache = {
+      dataVersion: -1,
+      filterSignature: '',
+      rows: []
+    };
+    state.orders.tableRenderSignature = '';
     state.orders.activeFiltersSignature = '';
     state.orders.platformsRenderSignature = '';
+    state.orders.loadGeneration += 1;
+    state.orders.loadPromise = null;
     renderOrders();
   };
 
   const loadNextOrderWindow = async () => {
-    if (state.orders.loading || state.orders.loadedAll) return;
+    if (state.orders.loadPromise) return state.orders.loadPromise;
+    if (state.orders.loadedAll) return;
     if (!state.orders.monthRanges.length) resetOrderWindowsFromOverview();
     const nextRange = state.orders.monthRanges[state.orders.nextMonthIndex];
     if (!nextRange) {
@@ -4111,31 +4198,41 @@ document.addEventListener('DOMContentLoaded', () => {
       renderOrders();
       return;
     }
+    const generation = state.orders.loadGeneration;
     state.orders.loading = true;
     renderOrders();
-    try {
-      const requestToken = beginRequest('orders');
-      const data = await requestOrderFacts(nextRange.start, nextRange.end);
-      if (!isLatestRequest('orders', requestToken)) return;
-      mergeLoadedOrderRows(data.orders || []);
-      state.orders.nextMonthIndex += 1;
-      if (state.orders.nextMonthIndex >= state.orders.monthRanges.length) {
-        state.orders.loadedAll = true;
+    const loadPromise = (async () => {
+      try {
+        const requestToken = beginRequest('orders');
+        const data = await requestOrderFacts(nextRange.start, nextRange.end);
+        if (!isLatestRequest('orders', requestToken) || generation !== state.orders.loadGeneration) return;
+        mergeLoadedOrderRows(data.orders || []);
+        state.orders.nextMonthIndex += 1;
+        if (state.orders.nextMonthIndex >= state.orders.monthRanges.length) {
+          state.orders.loadedAll = true;
+        }
+        state.orders.data = {
+          ok: true,
+          start_date: nextRange.start,
+          end_date: nextRange.end,
+          orders: state.orders.rows
+        };
+      } finally {
+        if (generation === state.orders.loadGeneration) {
+          state.orders.loading = false;
+          renderOrders();
+          if (state.orders.ensurePending) {
+            state.orders.ensurePending = false;
+            ensureEnoughOrderRows();
+          }
+        }
+        if (state.orders.loadPromise === loadPromise) {
+          state.orders.loadPromise = null;
+        }
       }
-      state.orders.data = {
-        ok: true,
-        start_date: nextRange.start,
-        end_date: nextRange.end,
-        orders: state.orders.rows
-      };
-    } finally {
-      state.orders.loading = false;
-      renderOrders();
-      if (state.orders.ensurePending) {
-        state.orders.ensurePending = false;
-        ensureEnoughOrderRows();
-      }
-    }
+    })();
+    state.orders.loadPromise = loadPromise;
+    return loadPromise;
   };
 
   const ensureEnoughOrderRows = async () => {
@@ -4168,6 +4265,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     resetOrderWindowsFromOverview();
     await ensureEnoughOrderRows();
+    if (state.orders.loadPromise) {
+      await state.orders.loadPromise;
+    }
   };
 
   const loadOrdersSafely = async () => {
@@ -4185,23 +4285,38 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const loadOrderCatalog = async () => {
-    try {
-      const data = await requestJson(skuCatalogEndpoint);
-      state.orders.catalog = Array.isArray(data.catalog) ? data.catalog : [];
-      state.orders.skuCatalogByCode = {};
-      (Array.isArray(data.skus) ? data.skus : []).forEach((sku) => {
-        [sku.sku, sku.tag].forEach((code) => {
-          const normalized = normalizeOrderFilterValue(code);
-          const compact = compactOrderFilterValue(code);
-          if (normalized) state.orders.skuCatalogByCode[normalized] = sku;
-          if (compact) state.orders.skuCatalogByCode[compact] = sku;
+    if (state.orders.catalogLoaded) return;
+    if (state.orders.catalogPromise) return state.orders.catalogPromise;
+    const catalogPromise = (async () => {
+      try {
+        const data = await requestJson(skuCatalogEndpoint);
+        state.orders.catalog = Array.isArray(data.catalog) ? data.catalog : [];
+        state.orders.skuCatalogByCode = {};
+        (Array.isArray(data.skus) ? data.skus : []).forEach((sku) => {
+          [sku.sku, sku.tag].forEach((code) => {
+            const normalized = normalizeOrderFilterValue(code);
+            const compact = compactOrderFilterValue(code);
+            if (normalized) state.orders.skuCatalogByCode[normalized] = sku;
+            if (compact) state.orders.skuCatalogByCode[compact] = sku;
+          });
         });
-      });
-    } catch (_error) {
-      state.orders.catalog = [];
-      state.orders.skuCatalogByCode = {};
-    }
-    renderSkuOrderTree();
+        state.orders.catalogLoaded = true;
+        state.orders.rowDataVersion += 1;
+      } catch (_error) {
+        state.orders.catalog = [];
+        state.orders.skuCatalogByCode = {};
+      } finally {
+        if (state.orders.catalogPromise === catalogPromise) {
+          state.orders.catalogPromise = null;
+        }
+        renderSkuOrderTree();
+        if (state.activeView === 'orders') {
+          renderOrders();
+        }
+      }
+    })();
+    state.orders.catalogPromise = catalogPromise;
+    return catalogPromise;
   };
 
   const loadActiveView = async () => {
@@ -4378,8 +4493,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
+  const scheduleOrderCatalogLoad = () => {
+    if (state.orders.catalogLoaded || state.orders.catalogPromise) return;
+    const load = () => loadOrderCatalog().catch(() => {});
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(load, { timeout: 2500 });
+      return;
+    }
+    window.setTimeout(load, 250);
+  };
+
   applyTheme(readStoredTheme() || 'minimal-black');
-  loadOrderCatalog();
   syncViewState();
   renderContextEditor();
   setLoaderState(20, 'Connecting to analytics');
@@ -4389,6 +4513,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setLoaderState(70, 'Preparing interface');
     finishLoader();
     connectLiveStream();
+    scheduleOrderCatalogLoad();
   } else {
     loadActiveViewSafely()
       .then(async () => {
@@ -4400,6 +4525,7 @@ document.addEventListener('DOMContentLoaded', () => {
       .finally(() => {
         finishLoader();
         connectLiveStream();
+        scheduleOrderCatalogLoad();
       });
   }
 
@@ -4722,6 +4848,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   ordersRefs.filterOpen?.addEventListener('click', () => {
     if (!ordersRefs.filterModal) return;
+    if (!state.orders.catalogLoaded && !state.orders.catalog.length) {
+      loadOrderCatalog();
+    }
     syncOrderFilterControls();
     renderSkuOrderTree();
     closeOrdersDatePopover();
