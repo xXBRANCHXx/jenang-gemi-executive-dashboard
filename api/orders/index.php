@@ -19,6 +19,8 @@ function jg_orders_handle_request(): void
         $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
         $startDate = jg_orders_date($_GET['start_date'] ?? null, '-1 day');
         $endDate = jg_orders_date($_GET['end_date'] ?? null, 'today');
+        $limit = jg_orders_limit($_GET['limit'] ?? null);
+        $offset = max(0, (int) ($_GET['offset'] ?? 0));
         if ($method === 'POST') {
             $payload = json_decode((string) file_get_contents('php://input'), true);
             $payload = is_array($payload) ? $payload : [];
@@ -27,7 +29,8 @@ function jg_orders_handle_request(): void
             jg_orders_remote_sync($startDate, $endDate);
         }
 
-        $remoteRows = jg_orders_remote_rows($startDate, $endDate);
+        $remotePayload = jg_orders_remote_payload($startDate, $endDate, $limit, $offset);
+        $remoteRows = is_array($remotePayload['orders'] ?? null) ? $remotePayload['orders'] : [];
         $lightweight = jg_orders_bool($_GET['lightweight'] ?? $_GET['summary'] ?? null);
         if ($lightweight) {
             $includeLive = !jg_orders_bool($_GET['stored_only'] ?? null);
@@ -39,6 +42,11 @@ function jg_orders_handle_request(): void
                 'ok' => true,
                 'start_date' => $startDate,
                 'end_date' => $endDate,
+                'limit' => $limit,
+                'offset' => $offset,
+                'count' => count($rows),
+                'has_more' => !empty($remotePayload['has_more']),
+                'next_offset' => $remotePayload['next_offset'] ?? null,
                 'orders' => $rows,
             ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             return;
@@ -71,6 +79,11 @@ function jg_orders_handle_request(): void
             'ok' => true,
             'start_date' => $startDate,
             'end_date' => $endDate,
+            'limit' => $limit,
+            'offset' => $offset,
+            'count' => count($rows),
+            'has_more' => !empty($remotePayload['has_more']),
+            'next_offset' => $remotePayload['next_offset'] ?? null,
             'allocation_mode' => $allocationMode,
             'orders' => $rows,
         ];
@@ -102,6 +115,15 @@ function jg_orders_date(mixed $value, string $fallback): string
 function jg_orders_bool(mixed $value): bool
 {
     return in_array(strtolower(trim((string) $value)), ['1', 'true', 'yes', 'on'], true);
+}
+
+function jg_orders_limit(mixed $value): ?int
+{
+    $limit = (int) $value;
+    if ($limit <= 0) {
+        return null;
+    }
+    return max(1, min(500, $limit));
 }
 
 function jg_orders_lightweight_rows(array $remoteRows): array
@@ -349,11 +371,25 @@ function jg_orders_remote_sync(string $startDate, string $endDate): void
 
 function jg_orders_remote_rows(string $startDate, string $endDate): array
 {
-    $payload = jg_orders_fetch_json(jg_orders_remote_url('/sales/orders', [
+    $payload = jg_orders_remote_payload($startDate, $endDate);
+    return is_array($payload['orders'] ?? null) ? $payload['orders'] : [];
+}
+
+function jg_orders_remote_payload(string $startDate, string $endDate, ?int $limit = null, int $offset = 0): array
+{
+    $params = [
         'start_date' => $startDate,
         'end_date' => $endDate,
-    ]), 60);
-    return is_array($payload['orders'] ?? null) ? $payload['orders'] : [];
+        'skip_sync' => '1',
+    ];
+    if ($limit !== null) {
+        $params['limit'] = (string) $limit;
+    }
+    if ($offset > 0) {
+        $params['offset'] = (string) $offset;
+    }
+
+    return jg_orders_fetch_json(jg_orders_remote_url('/sales/orders', $params), 30);
 }
 
 function jg_orders_ensure_schema(PDO $pdo): void

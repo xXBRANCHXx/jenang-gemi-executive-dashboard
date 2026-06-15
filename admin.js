@@ -502,6 +502,7 @@ const HIDDEN_HOME_SOURCES = new Set(['internal', 'direct']);
 const OVERVIEW_CACHE_PREFIX = 'jg-overview-summary-v10';
 const ORDER_RENDER_BATCH_SIZE = 80;
 const ORDER_LOAD_WINDOW_DAYS = 3;
+const ORDER_LOAD_PAGE_SIZE = 240;
 const ORDER_BOOTSTRAP_MIN_ROWS = 80;
 const ORDER_BOOTSTRAP_MAX_WINDOWS = 3;
 
@@ -1664,6 +1665,7 @@ document.addEventListener('DOMContentLoaded', () => {
       platformsRenderSignature: '',
       skuTreeSignature: '',
       loadedRangeKeys: new Set(),
+      rangeOffsets: {},
       loading: false,
       loadPromise: null,
       loadGeneration: 0,
@@ -2460,6 +2462,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     if (options.lightweight) {
       params.set('lightweight', '1');
+    }
+    if (options.storedOnly) {
+      params.set('stored_only', '1');
+    }
+    const limit = Number(options.limit || 0);
+    if (Number.isFinite(limit) && limit > 0) {
+      params.set('limit', String(Math.floor(limit)));
+    }
+    const offset = Number(options.offset || 0);
+    if (Number.isFinite(offset) && offset > 0) {
+      params.set('offset', String(Math.floor(offset)));
     }
     return `${ordersEndpoint}?${params.toString()}`;
   };
@@ -4024,7 +4037,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (cached) renderOverview(cached);
     }
     const requestToken = beginRequest('overview');
-    refreshOverviewHourlyRows(requestToken).catch(() => {});
+    if (!options.skipHourly) {
+      refreshOverviewHourlyRows(requestToken).catch(() => {});
+    }
     const [data, customData] = await Promise.all([
       requestJson(buildSalesUrl(state.overview.year, { refresh: Boolean(options.forceRefresh) })),
       state.overview.customRange.active && state.overview.customRange.startDate && state.overview.customRange.endDate
@@ -4132,6 +4147,15 @@ document.addEventListener('DOMContentLoaded', () => {
     state.orders.loadedAll = !nextOrderRange();
   };
 
+  const orderLoadProgressSignature = () => [
+    state.orders.rows.length,
+    state.orders.loadedRangeKeys.size,
+    Object.keys(state.orders.rangeOffsets)
+      .sort()
+      .map((key) => `${key}:${state.orders.rangeOffsets[key]}`)
+      .join(',')
+  ].join('|');
+
   const resetOrderWindowsFromOverview = () => {
     const data = state.overview.data || {};
     const years = Array.isArray(data.years) ? data.years : [state.overview.year];
@@ -4148,6 +4172,7 @@ document.addEventListener('DOMContentLoaded', () => {
     state.orders.monthRanges = ranges;
     state.orders.monthsSignature = signature;
     state.orders.loadedRangeKeys = new Set();
+    state.orders.rangeOffsets = {};
     state.orders.loading = false;
     state.orders.loadedAll = false;
     state.orders.loadGeneration += 1;
@@ -4179,10 +4204,23 @@ document.addEventListener('DOMContentLoaded', () => {
       let completed = false;
       try {
         const requestToken = beginRequest('orders');
-        const data = await requestOrderFacts(nextRange.start, nextRange.end);
+        const rangeKey = orderRangeKey(nextRange);
+        const requestOffset = Number(state.orders.rangeOffsets[rangeKey] || 0);
+        const data = await requestOrderFacts(nextRange.start, nextRange.end, {
+          limit: ORDER_LOAD_PAGE_SIZE,
+          offset: requestOffset,
+          storedOnly: true
+        });
         if (!isLatestRequest('orders', requestToken) || generation !== state.orders.loadGeneration) return;
-        mergeLoadedOrderRows(data.orders || []);
-        state.orders.loadedRangeKeys.add(orderRangeKey(nextRange));
+        const rows = Array.isArray(data.orders) ? data.orders : [];
+        mergeLoadedOrderRows(rows);
+        const nextOffset = Number(data.next_offset);
+        if (data.has_more && Number.isFinite(nextOffset) && nextOffset > requestOffset) {
+          state.orders.rangeOffsets[rangeKey] = nextOffset;
+        } else {
+          state.orders.loadedRangeKeys.add(rangeKey);
+          delete state.orders.rangeOffsets[rangeKey];
+        }
         syncOrderLoadedAll();
         state.orders.data = {
           ok: true,
@@ -4225,9 +4263,9 @@ document.addEventListener('DOMContentLoaded', () => {
           ? ordersRefs.scroll.scrollHeight <= ordersRefs.scroll.clientHeight + 24
           : rows.length < ORDER_BOOTSTRAP_MIN_ROWS;
         if (rows.length >= ORDER_BOOTSTRAP_MIN_ROWS && !needsViewportFill) break;
-        const loadedCount = state.orders.loadedRangeKeys.size;
+        const progressSignature = orderLoadProgressSignature();
         await loadNextOrderWindow();
-        if (state.orders.loadedRangeKeys.size === loadedCount) break;
+        if (orderLoadProgressSignature() === progressSignature) break;
         loadedWindows += 1;
       }
     } finally {
@@ -4241,7 +4279,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const loadOrders = async () => {
     if (!state.overview.data) {
-      await loadOverviewSafely({ useCache: true });
+      await loadOverviewSafely({ useCache: true, skipHourly: true });
     }
     resetOrderWindowsFromOverview();
     await ensureEnoughOrderRows();

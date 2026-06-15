@@ -52,4 +52,16 @@ expect_same(1, count($fallback), 'Inventory fallback must retain order rows.');
 expect_same('Marketplace product', $fallback[0]['product_name'], 'Inventory fallback must retain marketplace product names.');
 expect_same(900, $fallback[0]['revenue'], 'Inventory fallback must retain revenue.');
 
+$ordersUrl = jg_orders_remote_url('/sales/orders', [
+    'start_date' => '2026-06-01',
+    'end_date' => '2026-06-03',
+    'skip_sync' => '1',
+    'limit' => '240',
+    'offset' => '480',
+]);
+parse_str((string) parse_url($ordersUrl, PHP_URL_QUERY), $ordersQuery);
+expect_same('240', $ordersQuery['limit'] ?? '', 'Orders proxy must forward row limit.');
+expect_same('480', $ordersQuery['offset'] ?? '', 'Orders proxy must forward row offset.');
+expect_same('1', $ordersQuery['skip_sync'] ?? '', 'Orders proxy must skip on-demand sync for paged reads.');
+
 echo "orders-api-test: ok\n";
