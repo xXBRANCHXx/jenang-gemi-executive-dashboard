@@ -42,12 +42,117 @@ function jg_profit_loss_ensure_schema(PDO $pdo): void
             advisor_pct DECIMAL(7,4) NOT NULL DEFAULT 25,
             updated_at DATETIME(6) NOT NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+        'CREATE TABLE IF NOT EXISTS profit_loss_syrup_groups (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            label VARCHAR(80) NOT NULL,
+            volume_ml DECIMAL(8,1) NULL DEFAULT NULL,
+            assignment_mode VARCHAR(16) NOT NULL DEFAULT "auto",
+            sku_codes_json LONGTEXT NOT NULL,
+            is_visible TINYINT(1) NOT NULL DEFAULT 1,
+            sort_order INT NOT NULL DEFAULT 0,
+            created_at DATETIME(6) NOT NULL,
+            updated_at DATETIME(6) NOT NULL,
+            KEY idx_profit_loss_syrup_groups_visible (is_visible, sort_order)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+        'CREATE TABLE IF NOT EXISTS profit_loss_statement_metrics (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            metric_key VARCHAR(64) NOT NULL,
+            label VARCHAR(120) NOT NULL,
+            value_key VARCHAR(64) NOT NULL,
+            display_format VARCHAR(16) NOT NULL DEFAULT "money",
+            is_visible TINYINT(1) NOT NULL DEFAULT 1,
+            sort_order INT NOT NULL DEFAULT 0,
+            created_at DATETIME(6) NOT NULL,
+            updated_at DATETIME(6) NOT NULL,
+            UNIQUE KEY uniq_profit_loss_metric_key (metric_key),
+            KEY idx_profit_loss_statement_metrics_visible (is_visible, sort_order)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
     ];
 
     foreach ($statements as $sql) {
         if (!analyticsTryExec($pdo, $sql)) {
             throw new RuntimeException('Unable to prepare Profit and Loss storage.');
         }
+    }
+
+    jg_profit_loss_seed_syrup_groups($pdo);
+    jg_profit_loss_seed_statement_metrics($pdo);
+}
+
+function jg_profit_loss_seed_syrup_groups(PDO $pdo): void
+{
+    $count = (int) $pdo->query('SELECT COUNT(*) FROM profit_loss_syrup_groups')->fetchColumn();
+    if ($count > 0) {
+        return;
+    }
+
+    $stmt = $pdo->prepare(
+        'INSERT INTO profit_loss_syrup_groups
+            (label, volume_ml, assignment_mode, sku_codes_json, is_visible, sort_order, created_at, updated_at)
+         VALUES
+            (:label, :volume_ml, "auto", "[]", 1, :sort_order, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))'
+    );
+    foreach ([
+        ['50 ML - SAMPLE', 50.0],
+        ['250 ML', 250.0],
+        ['550 ML', 550.0],
+    ] as $index => [$label, $volume]) {
+        $stmt->execute([
+            ':label' => $label,
+            ':volume_ml' => $volume,
+            ':sort_order' => ($index + 1) * 10,
+        ]);
+    }
+}
+
+function jg_profit_loss_default_statement_metric_rows(): array
+{
+    return [
+        ['units', 'Units sold', 'units', 'integer'],
+        ['gross_revenue', 'Gross revenue', 'grossRevenue', 'money'],
+        ['marketplace_fees', 'Marketplace fees', 'marketplaceFees', 'money'],
+        ['other_income', 'Other income', 'income', 'money'],
+        ['revenue', 'Net revenue + other income', 'revenue', 'money'],
+        ['average_price', 'Average selling price', 'averagePrice', 'money'],
+        ['cogs', 'COGS', 'cogs', 'money'],
+        ['average_cogs', 'Average COGS / unit', 'averageCogs', 'money'],
+        ['gross_profit', 'Gross profit', 'grossProfit', 'money'],
+        ['gross_profit_per_unit', 'Gross profit / unit', 'grossProfitPerUnit', 'money'],
+        ['gross_margin', 'Gross margin', 'grossMargin', 'percent'],
+        ['administration', 'Administration', 'administration', 'money'],
+        ['administration_per_unit', 'Administration / unit', 'administrationPerUnit', 'money'],
+        ['administration_rate', 'Administration %', 'administrationRate', 'percent'],
+        ['marketing', 'Marketing', 'marketing', 'money'],
+        ['marketing_per_unit', 'Marketing / unit', 'marketingPerUnit', 'money'],
+        ['marketing_rate', 'Marketing %', 'marketingRate', 'percent'],
+        ['other_expenses', 'Other expenses', 'other', 'money'],
+        ['net_profit', 'Net profit (loss)', 'netProfit', 'money'],
+        ['net_profit_per_unit', 'Net profit / unit', 'netProfitPerUnit', 'money'],
+        ['net_margin', 'Net margin', 'netMargin', 'percent'],
+    ];
+}
+
+function jg_profit_loss_seed_statement_metrics(PDO $pdo): void
+{
+    $count = (int) $pdo->query('SELECT COUNT(*) FROM profit_loss_statement_metrics')->fetchColumn();
+    if ($count > 0) {
+        return;
+    }
+
+    $stmt = $pdo->prepare(
+        'INSERT INTO profit_loss_statement_metrics
+            (metric_key, label, value_key, display_format, is_visible, sort_order, created_at, updated_at)
+         VALUES
+            (:metric_key, :label, :value_key, :display_format, 1, :sort_order, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))'
+    );
+    foreach (jg_profit_loss_default_statement_metric_rows() as $index => [$key, $label, $valueKey, $format]) {
+        $stmt->execute([
+            ':metric_key' => $key,
+            ':label' => $label,
+            ':value_key' => $valueKey,
+            ':display_format' => $format,
+            ':sort_order' => ($index + 1) * 10,
+        ]);
     }
 }
 
@@ -92,6 +197,65 @@ function jg_profit_loss_settings(PDO $pdo, int $year): array
         'advisor_pct' => (float) ($row['advisor_pct'] ?? 25),
         'updated_at' => (string) ($row['updated_at'] ?? ''),
     ];
+}
+
+function jg_profit_loss_decode_json_list(mixed $value): array
+{
+    $decoded = json_decode((string) $value, true);
+    if (!is_array($decoded)) {
+        return [];
+    }
+
+    return array_values(array_filter(array_map(
+        static fn (mixed $item): string => strtoupper(trim((string) $item)),
+        $decoded
+    ), static fn (string $item): bool => $item !== ''));
+}
+
+function jg_profit_loss_syrup_groups(PDO $pdo): array
+{
+    $stmt = $pdo->query(
+        'SELECT id, label, volume_ml, assignment_mode, sku_codes_json, is_visible, sort_order, updated_at
+         FROM profit_loss_syrup_groups
+         ORDER BY sort_order, id'
+    );
+    $rows = [];
+    foreach ($stmt->fetchAll() as $row) {
+        $rows[] = [
+            'id' => (int) ($row['id'] ?? 0),
+            'label' => (string) ($row['label'] ?? ''),
+            'volume_ml' => $row['volume_ml'] === null ? null : (float) $row['volume_ml'],
+            'assignment_mode' => (string) ($row['assignment_mode'] ?? 'auto') === 'manual' ? 'manual' : 'auto',
+            'sku_codes' => jg_profit_loss_decode_json_list($row['sku_codes_json'] ?? '[]'),
+            'is_visible' => (bool) (int) ($row['is_visible'] ?? 1),
+            'sort_order' => (int) ($row['sort_order'] ?? 0),
+            'updated_at' => (string) ($row['updated_at'] ?? ''),
+        ];
+    }
+    return $rows;
+}
+
+function jg_profit_loss_statement_metrics(PDO $pdo): array
+{
+    $stmt = $pdo->query(
+        'SELECT id, metric_key, label, value_key, display_format, is_visible, sort_order, updated_at
+         FROM profit_loss_statement_metrics
+         ORDER BY sort_order, id'
+    );
+    $rows = [];
+    foreach ($stmt->fetchAll() as $row) {
+        $rows[] = [
+            'id' => (int) ($row['id'] ?? 0),
+            'metric_key' => (string) ($row['metric_key'] ?? ''),
+            'label' => (string) ($row['label'] ?? ''),
+            'value_key' => (string) ($row['value_key'] ?? ''),
+            'display_format' => (string) ($row['display_format'] ?? 'money'),
+            'is_visible' => (bool) (int) ($row['is_visible'] ?? 1),
+            'sort_order' => (int) ($row['sort_order'] ?? 0),
+            'updated_at' => (string) ($row['updated_at'] ?? ''),
+        ];
+    }
+    return $rows;
 }
 
 function jg_profit_loss_legacy_year(int $year): array

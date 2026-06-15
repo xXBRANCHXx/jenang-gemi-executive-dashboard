@@ -16,7 +16,9 @@ if (root) {
     products: [],
     monthly: [],
     search: '',
-    loading: false
+    loading: false,
+    draftSyrupGroups: null,
+    draftMetrics: null
   };
 
   const refs = {
@@ -27,6 +29,7 @@ if (root) {
     refresh: root.querySelector('[data-pl-refresh]'),
     search: root.querySelector('[data-pl-search]'),
     ledger: root.querySelector('[data-pl-ledger]'),
+    syrupGroups: root.querySelector('[data-pl-syrup-groups]'),
     coverage: root.querySelector('[data-pl-coverage]'),
     entrySections: root.querySelector('[data-pl-entry-sections]'),
     allocationList: root.querySelector('[data-pl-allocation-list]'),
@@ -46,6 +49,16 @@ if (root) {
     allocationModal: root.querySelector('[data-pl-allocation-modal]'),
     allocationForm: root.querySelector('[data-pl-allocation-form]'),
     allocationError: root.querySelector('[data-pl-allocation-error]'),
+    syrupSettingsModal: root.querySelector('[data-pl-syrup-settings-modal]'),
+    syrupSettingsForm: root.querySelector('[data-pl-syrup-settings-form]'),
+    syrupSettingsList: root.querySelector('[data-pl-syrup-settings-list]'),
+    syrupSettingsError: root.querySelector('[data-pl-syrup-settings-error]'),
+    addSyrupGroup: root.querySelector('[data-pl-add-syrup-group]'),
+    metricsModal: root.querySelector('[data-pl-metrics-modal]'),
+    metricsForm: root.querySelector('[data-pl-metrics-form]'),
+    metricsList: root.querySelector('[data-pl-metrics-list]'),
+    metricsError: root.querySelector('[data-pl-metrics-error]'),
+    addMetric: root.querySelector('[data-pl-add-metric]'),
     toast: root.querySelector('[data-pl-toast]')
   };
 
@@ -64,6 +77,54 @@ if (root) {
   const safeDivide = (top, bottom) => number(bottom) ? number(top) / number(bottom) : 0;
   const inputNumber = (value) => String(value ?? '').replace(/[^\d.-]/g, '');
   const legacyMarker = '<span class="pl-legacy-star" title="From the old spreadsheets.">*</span>';
+  const defaultStatementMetrics = [
+    { metric_key: 'units', label: 'Units sold', value_key: 'units', display_format: 'integer', is_visible: true },
+    { metric_key: 'gross_revenue', label: 'Gross revenue', value_key: 'grossRevenue', display_format: 'money', is_visible: true },
+    { metric_key: 'marketplace_fees', label: 'Marketplace fees', value_key: 'marketplaceFees', display_format: 'money', is_visible: true },
+    { metric_key: 'other_income', label: 'Other income', value_key: 'income', display_format: 'money', is_visible: true },
+    { metric_key: 'revenue', label: 'Net revenue + other income', value_key: 'revenue', display_format: 'money', is_visible: true },
+    { metric_key: 'average_price', label: 'Average selling price', value_key: 'averagePrice', display_format: 'money', is_visible: true },
+    { metric_key: 'cogs', label: 'COGS', value_key: 'cogs', display_format: 'money', is_visible: true },
+    { metric_key: 'average_cogs', label: 'Average COGS / unit', value_key: 'averageCogs', display_format: 'money', is_visible: true },
+    { metric_key: 'gross_profit', label: 'Gross profit', value_key: 'grossProfit', display_format: 'money', is_visible: true },
+    { metric_key: 'gross_profit_per_unit', label: 'Gross profit / unit', value_key: 'grossProfitPerUnit', display_format: 'money', is_visible: true },
+    { metric_key: 'gross_margin', label: 'Gross margin', value_key: 'grossMargin', display_format: 'percent', is_visible: true },
+    { metric_key: 'administration', label: 'Administration', value_key: 'administration', display_format: 'money', is_visible: true },
+    { metric_key: 'administration_per_unit', label: 'Administration / unit', value_key: 'administrationPerUnit', display_format: 'money', is_visible: true },
+    { metric_key: 'administration_rate', label: 'Administration %', value_key: 'administrationRate', display_format: 'percent', is_visible: true },
+    { metric_key: 'marketing', label: 'Marketing', value_key: 'marketing', display_format: 'money', is_visible: true },
+    { metric_key: 'marketing_per_unit', label: 'Marketing / unit', value_key: 'marketingPerUnit', display_format: 'money', is_visible: true },
+    { metric_key: 'marketing_rate', label: 'Marketing %', value_key: 'marketingRate', display_format: 'percent', is_visible: true },
+    { metric_key: 'other_expenses', label: 'Other expenses', value_key: 'other', display_format: 'money', is_visible: true },
+    { metric_key: 'net_profit', label: 'Net profit (loss)', value_key: 'netProfit', display_format: 'money', is_visible: true },
+    { metric_key: 'net_profit_per_unit', label: 'Net profit / unit', value_key: 'netProfitPerUnit', display_format: 'money', is_visible: true },
+    { metric_key: 'net_margin', label: 'Net margin', value_key: 'netMargin', display_format: 'percent', is_visible: true }
+  ];
+  const metricDefinitions = [
+    ['units', 'Units sold', 'integer'],
+    ['grossRevenue', 'Gross revenue', 'money'],
+    ['netRevenue', 'Net sales revenue', 'money'],
+    ['marketplaceFees', 'Marketplace fees', 'money'],
+    ['income', 'Other income', 'money'],
+    ['revenue', 'Net revenue + other income', 'money'],
+    ['averagePrice', 'Average selling price', 'money'],
+    ['cogs', 'COGS', 'money'],
+    ['averageCogs', 'Average COGS / unit', 'money'],
+    ['grossProfit', 'Gross profit', 'money'],
+    ['grossProfitPerUnit', 'Gross profit / unit', 'money'],
+    ['grossMargin', 'Gross margin', 'percent'],
+    ['administration', 'Administration', 'money'],
+    ['administrationPerUnit', 'Administration / unit', 'money'],
+    ['administrationRate', 'Administration %', 'percent'],
+    ['marketing', 'Marketing', 'money'],
+    ['marketingPerUnit', 'Marketing / unit', 'money'],
+    ['marketingRate', 'Marketing %', 'percent'],
+    ['other', 'Other expenses', 'money'],
+    ['netProfit', 'Net profit (loss)', 'money'],
+    ['netProfitPerUnit', 'Net profit / unit', 'money'],
+    ['netMargin', 'Net margin', 'percent']
+  ].map(([key, label, format]) => ({ key, label, format }));
+  const formatters = { money, integer, percent };
 
   const requestJson = async (url, options = {}) => {
     const response = await fetch(url, {
@@ -109,6 +170,76 @@ if (root) {
     const map = new Map();
     for (const row of state.stored?.sku_catalog || []) map.set(String(row.sku || '').toUpperCase(), row);
     return map;
+  };
+
+  const catalogRows = () => Array.isArray(state.stored?.sku_catalog) ? state.stored.sku_catalog : [];
+  const syrupGroups = (includeHidden = false) => {
+    const rows = Array.isArray(state.stored?.syrup_groups) ? state.stored.syrup_groups : [];
+    return rows
+      .filter((group) => includeHidden || group.is_visible !== false)
+      .map((group, index) => ({
+        id: number(group.id),
+        label: String(group.label || `Volume ${index + 1}`),
+        volume_ml: group.volume_ml === null || group.volume_ml === '' || group.volume_ml === undefined ? null : number(group.volume_ml),
+        assignment_mode: group.assignment_mode === 'manual' ? 'manual' : 'auto',
+        sku_codes: Array.isArray(group.sku_codes) ? group.sku_codes.map((sku) => String(sku).toUpperCase()) : [],
+        is_visible: group.is_visible !== false,
+        sort_order: number(group.sort_order || index)
+      }));
+  };
+  const statementMetrics = (includeHidden = false) => {
+    const rows = Array.isArray(state.stored?.statement_metrics) && state.stored.statement_metrics.length
+      ? state.stored.statement_metrics
+      : defaultStatementMetrics;
+    return rows
+      .filter((row) => includeHidden || row.is_visible !== false)
+      .map((row, index) => ({
+        id: number(row.id),
+        metric_key: String(row.metric_key || `metric_${index}`),
+        label: String(row.label || 'Metric'),
+        value_key: String(row.value_key || 'revenue'),
+        display_format: ['money', 'integer', 'percent'].includes(row.display_format) ? row.display_format : 'money',
+        is_visible: row.is_visible !== false,
+        sort_order: number(row.sort_order || index)
+      }));
+  };
+  const skuSearchText = (row = {}) => [
+    row.sku, row.tag, row.brand_name || row.brand, row.product_name || row.label,
+    row.base_product_name, row.flavor_name || row.flavor, row.unit_name || row.productType,
+    row.volume
+  ].filter(Boolean).join(' ').toLowerCase();
+  const volumeTokens = (volume) => {
+    if (!number(volume)) return [];
+    const integerVolume = String(Math.round(number(volume)));
+    const decimalVolume = number(volume).toFixed(1).replace(/\.0$/, '');
+    return [
+      `${integerVolume}ml`, `${integerVolume} ml`, `${integerVolume} m l`,
+      `${decimalVolume}ml`, `${decimalVolume} ml`
+    ];
+  };
+  const volumeMatchesGroup = (row, group) => {
+    if (!number(group.volume_ml)) return false;
+    if (number(row.volume) && Math.abs(number(row.volume) - number(group.volume_ml)) < 0.1) return true;
+    const text = skuSearchText(row).replace(/\s+/g, ' ');
+    return volumeTokens(group.volume_ml).some((token) => text.includes(token));
+  };
+  const isSyrupCatalogRow = (row) => {
+    const text = skuSearchText(row);
+    const productText = [row.tag, row.product_name, row.base_product_name, row.flavor_name, row.brand_name].filter(Boolean).join(' ').toLowerCase();
+    const excluded = /\b(drop|drops|we\b|water enhancer|topping|latte|caps|capsule|jamu|bubur|shake|gerd|honey|pedros|shaker|merch|sticker|sample pack|custom|bundle|affiliate)\b/.test(text);
+    if (excluded) return false;
+    return /\b(syrup|syrups|sirup|syurp)\b/.test(text)
+      || /\bzf\s*[-_]/.test(productText)
+      || /\bzero foods?\b/.test(text);
+  };
+  const autoSyrupSkusForGroup = (group) => catalogRows()
+    .filter((row) => volumeMatchesGroup(row, group) && isSyrupCatalogRow(row))
+    .map((row) => String(row.sku || '').toUpperCase())
+    .filter(Boolean);
+  const groupMatchesProduct = (group, product) => {
+    const sku = String(product.sku || '').toUpperCase();
+    if (group.assignment_mode === 'manual') return sku && group.sku_codes.includes(sku);
+    return volumeMatchesGroup(product, group) && isSyrupCatalogRow(product);
   };
 
   const rowsForPeriod = (month) => {
@@ -236,6 +367,11 @@ if (root) {
       item.label = String(catalogRow?.product_name || row.label || item.label);
       item.tag = String(catalogRow?.tag || '');
       item.flavor = String(catalogRow?.flavor_name || row.flavor || '');
+      item.unit_name = String(catalogRow?.unit_name || row.unit_name || '');
+      item.volume = catalogRow?.volume !== undefined ? number(catalogRow.volume) : number(row.volume);
+      item.brand_name = item.brand;
+      item.product_name = item.label;
+      item.flavor_name = item.flavor;
       item.catalogCogs = catalogCogs;
       item.months.add(rowMonth);
       aggregates.set(key, item);
@@ -390,6 +526,69 @@ if (root) {
     });
   };
 
+  const calculateSyrupVolumes = (month) => {
+    const groups = syrupGroups();
+    const products = state.products.length && month === state.month ? state.products : calculateProducts(month);
+    const rows = groups.map((group) => ({
+      ...group,
+      units: 0,
+      netRevenue: 0,
+      grossRevenue: 0,
+      cogs: 0,
+      orders: 0,
+      skus: new Set(group.assignment_mode === 'manual' ? group.sku_codes : autoSyrupSkusForGroup(group))
+    }));
+    for (const product of products) {
+      const group = rows.find((candidate) => groupMatchesProduct(candidate, product));
+      if (!group) continue;
+      group.units += number(product.units);
+      group.netRevenue += number(product.netRevenue);
+      group.grossRevenue += number(product.grossRevenue);
+      group.cogs += number(product.cogs);
+      group.orders += number(product.orders);
+      if (product.sku) group.skus.add(String(product.sku).toUpperCase());
+    }
+    return rows.map((row) => {
+      const grossProfit = row.netRevenue - row.cogs;
+      return {
+        ...row,
+        grossProfit,
+        averagePrice: safeDivide(row.netRevenue, row.units),
+        profitPerUnit: safeDivide(grossProfit, row.units),
+        margin: safeDivide(grossProfit, row.netRevenue),
+        skuCount: row.skus.size
+      };
+    });
+  };
+
+  const renderSyrupVolumes = () => {
+    const rows = calculateSyrupVolumes(state.month);
+    if (!rows.length) {
+      refs.syrupGroups.innerHTML = '<p class="pl-empty">No syrup volume groups configured.</p>';
+      return;
+    }
+    refs.syrupGroups.innerHTML = rows.map((row) => {
+      const assignment = row.skuCount
+        ? `${row.skuCount} ${row.assignment_mode === 'manual' ? 'selected' : 'auto'} SKU${row.skuCount === 1 ? '' : 's'}`
+        : 'No matching SKUs';
+      return `
+        <article class="pl-syrup-card">
+          <div class="pl-syrup-card-head">
+            <span><strong>${escapeHtml(row.label)}</strong><small>${escapeHtml(assignment)}</small></span>
+            <b>${row.volume_ml ? `${integer(row.volume_ml)} ml` : 'Custom'}</b>
+          </div>
+          <div class="pl-syrup-metrics">
+            <span><small>Sold</small><strong>${integer(row.units)}</strong></span>
+            <span><small>Net</small><strong>${money(row.netRevenue, true)}</strong></span>
+            <span><small>COGS</small><strong>${money(row.cogs, true)}</strong></span>
+            <span><small>Gross profit</small><strong class="${row.grossProfit < 0 ? 'is-negative' : ''}">${money(row.grossProfit, true)}</strong></span>
+            <span><small>Avg GP</small><strong>${money(row.profitPerUnit, true)}</strong></span>
+            <span><small>Margin</small><strong>${percent(row.margin)}</strong></span>
+          </div>
+        </article>`;
+    }).join('');
+  };
+
   const renderLedger = () => {
     state.products = calculateProducts(state.month);
     const query = state.search.trim().toLowerCase();
@@ -505,40 +704,27 @@ if (root) {
   const renderMonthly = () => {
     state.monthly = Array.from({ length: 12 }, (_, index) => calculateStatement(index + 1));
     const ytd = calculateStatement(0);
-    const rows = [
-      ['Units sold', 'units', integer],
-      ['Gross revenue', 'grossRevenue', money],
-      ['Marketplace fees', 'marketplaceFees', money],
-      ['Other income', 'income', money],
-      ['Net revenue + other income', 'revenue', money],
-      ['Average selling price', 'averagePrice', money],
-      ['COGS', 'cogs', money],
-      ['Average COGS / unit', 'averageCogs', money],
-      ['Gross profit', 'grossProfit', money],
-      ['Gross profit / unit', 'grossProfitPerUnit', money],
-      ['Gross margin', 'grossMargin', percent],
-      ['Administration', 'administration', money],
-      ['Administration / unit', 'administrationPerUnit', money],
-      ['Administration %', 'administrationRate', percent],
-      ['Marketing', 'marketing', money],
-      ['Marketing / unit', 'marketingPerUnit', money],
-      ['Marketing %', 'marketingRate', percent],
-      ['Other expenses', 'other', money],
-      ['Net profit (loss)', 'netProfit', money],
-      ['Net profit / unit', 'netProfitPerUnit', money],
-      ['Net margin', 'netMargin', percent]
-    ];
-    refs.monthlyBody.innerHTML = rows.map(([label, key, formatter]) => `
+    const rows = statementMetrics();
+    if (!rows.length) {
+      refs.monthlyBody.innerHTML = '<tr><th>No visible metrics</th><td colspan="13">No visible metrics configured.</td></tr>';
+      return;
+    }
+    refs.monthlyBody.innerHTML = rows.map((row) => {
+      const key = row.value_key;
+      const formatter = formatters[row.display_format] || money;
+      return `
       <tr class="${key === 'netProfit' || key === 'grossProfit' ? 'is-emphasis' : ''}">
-        <th>${label}</th>
+        <th>${escapeHtml(row.label)}</th>
         ${state.monthly.map((month, index) => `<td class="${number(month[key]) < 0 ? 'is-negative' : ''}">${formatter(month[key], true)}${month.legacy || isLegacyMonth(index + 1) ? legacyMarker : ''}</td>`).join('')}
         <td class="${number(ytd[key]) < 0 ? 'is-negative' : ''}">${formatter(ytd[key], true)}${ytd.legacy ? legacyMarker : ''}</td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
   };
 
   const render = () => {
     refs.periodLabel.textContent = state.month ? `${fullMonthNames[state.month - 1]} ${state.year}` : `${state.year} year to date`;
     renderLedger();
+    renderSyrupVolumes();
     renderKpis();
     renderEntries();
     renderAllocation();
@@ -612,6 +798,111 @@ if (root) {
     refs.entryModal.hidden = false;
   };
 
+  const cloneGroup = (group) => ({
+    ...group,
+    sku_codes: Array.isArray(group.sku_codes) ? [...group.sku_codes] : []
+  });
+  const cloneMetric = (metric) => ({ ...metric });
+  const catalogOptionLabel = (row) => [
+    row.sku,
+    row.product_name || row.base_product_name,
+    row.flavor_name,
+    row.volume ? `${integer(row.volume)} ml` : '',
+    row.tag
+  ].filter(Boolean).join(' · ');
+  const renderSkuOptions = (selectedCodes) => {
+    const selected = new Set(selectedCodes.map((sku) => String(sku).toUpperCase()));
+    return catalogRows()
+      .slice()
+      .sort((left, right) => catalogOptionLabel(left).localeCompare(catalogOptionLabel(right)))
+      .map((row) => {
+        const sku = String(row.sku || '').toUpperCase();
+        return `<option value="${escapeHtml(sku)}"${selected.has(sku) ? ' selected' : ''}>${escapeHtml(catalogOptionLabel(row))}</option>`;
+      }).join('');
+  };
+
+  const renderSyrupSettings = () => {
+    const draft = Array.isArray(state.draftSyrupGroups) ? state.draftSyrupGroups : syrupGroups(true).map(cloneGroup);
+    refs.syrupSettingsList.innerHTML = draft.map((group, index) => {
+      const selectedCodes = group.assignment_mode === 'manual' ? group.sku_codes : autoSyrupSkusForGroup(group);
+      return `
+        <section class="pl-config-row" data-pl-syrup-row>
+          <input type="hidden" data-pl-syrup-id value="${number(group.id)}">
+          <div class="pl-config-row-head">
+            <strong>${escapeHtml(group.label || `Volume ${index + 1}`)}</strong>
+            <label><input type="checkbox" data-pl-syrup-visible ${group.is_visible !== false ? 'checked' : ''}> Visible</label>
+          </div>
+          <div class="pl-form-grid pl-settings-grid">
+            <label><span>Name</span><input data-pl-syrup-label maxlength="80" value="${escapeHtml(group.label || '')}" required></label>
+            <label><span>Volume ml</span><input data-pl-syrup-volume inputmode="decimal" value="${group.volume_ml ? escapeHtml(group.volume_ml) : ''}" placeholder="50"></label>
+            <label><span>Assignment</span><select data-pl-syrup-mode><option value="auto"${group.assignment_mode !== 'manual' ? ' selected' : ''}>Auto</option><option value="manual"${group.assignment_mode === 'manual' ? ' selected' : ''}>Manual</option></select></label>
+            <label class="is-wide"><span>SKUs</span><select data-pl-syrup-skus multiple size="7" ${group.assignment_mode === 'manual' ? '' : 'disabled'}>${renderSkuOptions(selectedCodes)}</select></label>
+          </div>
+        </section>`;
+    }).join('');
+  };
+
+  const collectSyrupSettings = () => Array.from(refs.syrupSettingsList.querySelectorAll('[data-pl-syrup-row]')).map((row) => {
+    const mode = row.querySelector('[data-pl-syrup-mode]')?.value === 'manual' ? 'manual' : 'auto';
+    const skuSelect = row.querySelector('[data-pl-syrup-skus]');
+    return {
+      id: number(row.querySelector('[data-pl-syrup-id]')?.value),
+      label: row.querySelector('[data-pl-syrup-label]')?.value || '',
+      volume_ml: inputNumber(row.querySelector('[data-pl-syrup-volume]')?.value || ''),
+      assignment_mode: mode,
+      sku_codes: mode === 'manual' ? Array.from(skuSelect?.selectedOptions || []).map((option) => option.value) : [],
+      is_visible: row.querySelector('[data-pl-syrup-visible]')?.checked || false
+    };
+  });
+
+  const openSyrupSettings = () => {
+    state.draftSyrupGroups = syrupGroups(true).map(cloneGroup);
+    refs.syrupSettingsError.hidden = true;
+    renderSyrupSettings();
+    refs.syrupSettingsModal.hidden = false;
+  };
+
+  const metricOptions = (selectedKey) => metricDefinitions.map((definition) => (
+    `<option value="${escapeHtml(definition.key)}"${definition.key === selectedKey ? ' selected' : ''}>${escapeHtml(definition.label)}</option>`
+  )).join('');
+  const formatOptions = (selectedFormat) => [
+    ['money', 'Currency'],
+    ['integer', 'Number'],
+    ['percent', 'Percent']
+  ].map(([value, label]) => `<option value="${value}"${value === selectedFormat ? ' selected' : ''}>${label}</option>`).join('');
+
+  const renderMetricSettings = () => {
+    const draft = Array.isArray(state.draftMetrics) ? state.draftMetrics : statementMetrics(true).map(cloneMetric);
+    refs.metricsList.innerHTML = draft.map((metric, index) => `
+      <section class="pl-config-row" data-pl-metric-row>
+        <input type="hidden" data-pl-metric-id value="${number(metric.id)}">
+        <div class="pl-config-row-head">
+          <strong>${escapeHtml(metric.label || `Metric ${index + 1}`)}</strong>
+          <label><input type="checkbox" data-pl-metric-visible ${metric.is_visible !== false ? 'checked' : ''}> Visible</label>
+        </div>
+        <div class="pl-form-grid pl-settings-grid">
+          <label><span>Name</span><input data-pl-metric-label maxlength="120" value="${escapeHtml(metric.label || '')}" required></label>
+          <label><span>Value</span><select data-pl-metric-value>${metricOptions(metric.value_key)}</select></label>
+          <label><span>Format</span><select data-pl-metric-format>${formatOptions(metric.display_format)}</select></label>
+        </div>
+      </section>`).join('');
+  };
+
+  const collectMetricSettings = () => Array.from(refs.metricsList.querySelectorAll('[data-pl-metric-row]')).map((row) => ({
+    id: number(row.querySelector('[data-pl-metric-id]')?.value),
+    label: row.querySelector('[data-pl-metric-label]')?.value || '',
+    value_key: row.querySelector('[data-pl-metric-value]')?.value || 'revenue',
+    display_format: row.querySelector('[data-pl-metric-format]')?.value || 'money',
+    is_visible: row.querySelector('[data-pl-metric-visible]')?.checked || false
+  }));
+
+  const openMetricsSettings = () => {
+    state.draftMetrics = statementMetrics(true).map(cloneMetric);
+    refs.metricsError.hidden = true;
+    renderMetricSettings();
+    refs.metricsModal.hidden = false;
+  };
+
   const closeModal = (modal) => { if (modal) modal.hidden = true; };
   const postAction = (payload) => requestJson(apiEndpoint, { method: 'POST', body: JSON.stringify({ year: state.year, ...payload }) });
 
@@ -639,10 +930,14 @@ if (root) {
     if (entry) openEntryModal(entry);
   });
   root.querySelector('[data-pl-add-entry]').addEventListener('click', () => openEntryModal());
+  root.querySelector('[data-pl-edit-syrup-settings]').addEventListener('click', openSyrupSettings);
+  root.querySelector('[data-pl-edit-metrics]').addEventListener('click', openMetricsSettings);
 
   root.querySelectorAll('[data-pl-close-sku]').forEach((element) => element.addEventListener('click', () => closeModal(refs.skuModal)));
   root.querySelectorAll('[data-pl-close-entry]').forEach((element) => element.addEventListener('click', () => closeModal(refs.entryModal)));
   root.querySelectorAll('[data-pl-close-allocation]').forEach((element) => element.addEventListener('click', () => closeModal(refs.allocationModal)));
+  root.querySelectorAll('[data-pl-close-syrup-settings]').forEach((element) => element.addEventListener('click', () => closeModal(refs.syrupSettingsModal)));
+  root.querySelectorAll('[data-pl-close-metrics]').forEach((element) => element.addEventListener('click', () => closeModal(refs.metricsModal)));
 
   refs.skuForm.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -731,11 +1026,78 @@ if (root) {
     }
   });
 
+  refs.addSyrupGroup.addEventListener('click', () => {
+    state.draftSyrupGroups = collectSyrupSettings();
+    state.draftSyrupGroups.push({
+      id: 0,
+      label: 'New volume',
+      volume_ml: '',
+      assignment_mode: 'manual',
+      sku_codes: [],
+      is_visible: true
+    });
+    renderSyrupSettings();
+  });
+
+  refs.syrupSettingsList.addEventListener('change', (event) => {
+    if (!event.target.matches('[data-pl-syrup-mode], [data-pl-syrup-volume]')) return;
+    state.draftSyrupGroups = collectSyrupSettings();
+    renderSyrupSettings();
+  });
+
+  refs.syrupSettingsForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    refs.syrupSettingsError.hidden = true;
+    try {
+      const response = await postAction({ action: 'save_syrup_groups', groups: collectSyrupSettings() });
+      state.stored = state.stored || {};
+      state.stored.syrup_groups = response.syrup_groups;
+      state.draftSyrupGroups = null;
+      closeModal(refs.syrupSettingsModal);
+      render();
+      showToast('Syrup settings saved.');
+    } catch (error) {
+      refs.syrupSettingsError.textContent = error.message;
+      refs.syrupSettingsError.hidden = false;
+    }
+  });
+
+  refs.addMetric.addEventListener('click', () => {
+    state.draftMetrics = collectMetricSettings();
+    state.draftMetrics.push({
+      id: 0,
+      label: 'New metric',
+      value_key: 'revenue',
+      display_format: 'money',
+      is_visible: true
+    });
+    renderMetricSettings();
+  });
+
+  refs.metricsForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    refs.metricsError.hidden = true;
+    try {
+      const response = await postAction({ action: 'save_statement_metrics', metrics: collectMetricSettings() });
+      state.stored = state.stored || {};
+      state.stored.statement_metrics = response.statement_metrics;
+      state.draftMetrics = null;
+      closeModal(refs.metricsModal);
+      renderMonthly();
+      showToast('Monthly metrics saved.');
+    } catch (error) {
+      refs.metricsError.textContent = error.message;
+      refs.metricsError.hidden = false;
+    }
+  });
+
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
     closeModal(refs.skuModal);
     closeModal(refs.entryModal);
     closeModal(refs.allocationModal);
+    closeModal(refs.syrupSettingsModal);
+    closeModal(refs.metricsModal);
   });
 
   initializeControls();

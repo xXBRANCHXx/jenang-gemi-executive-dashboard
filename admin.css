@@ -5815,6 +5815,13 @@ body::after {
   margin-top: 14px;
 }
 
+.pl-settings-icon {
+  flex: 0 0 auto;
+  width: 31px;
+  height: 31px;
+  margin-top: 0;
+}
+
 .pl-icon-button svg,
 .pl-row-edit svg,
 .pl-search svg {
@@ -6009,6 +6016,96 @@ body::after {
 .pl-data-badge.is-warning {
   border-color: rgba(255, 184, 77, 0.3);
   color: #ffc56f;
+}
+
+.pl-syrup-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px;
+}
+
+.pl-syrup-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.022);
+}
+
+.pl-syrup-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 42px;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+.pl-syrup-card-head span {
+  display: grid;
+  min-width: 0;
+}
+
+.pl-syrup-card-head strong {
+  overflow: hidden;
+  color: #eeeeea;
+  font-size: 0.7rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pl-syrup-card-head small {
+  overflow: hidden;
+  color: #77746e;
+  font-size: 0.54rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pl-syrup-card-head b {
+  flex: 0 0 auto;
+  color: var(--pl-green);
+  font: 700 0.64rem "Space Grotesk", sans-serif;
+}
+
+.pl-syrup-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.pl-syrup-metrics span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px 9px;
+  border-right: 1px solid rgba(255, 255, 255, 0.045);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.045);
+}
+
+.pl-syrup-metrics span:nth-child(3n) {
+  border-right: 0;
+}
+
+.pl-syrup-metrics span:nth-last-child(-n+3) {
+  border-bottom: 0;
+}
+
+.pl-syrup-metrics small {
+  overflow: hidden;
+  color: #77746e;
+  font-size: 0.51rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pl-syrup-metrics strong {
+  overflow: hidden;
+  color: #eeeeea;
+  font: 650 0.65rem "Space Grotesk", sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pl-ledger-head,
@@ -6436,6 +6533,76 @@ body::after {
   background: #0f0f0e;
 }
 
+.pl-settings-card {
+  width: min(900px, 100%);
+  max-height: min(88vh, 760px);
+  display: flex;
+  flex-direction: column;
+}
+
+.pl-settings-list {
+  display: grid;
+  gap: 10px;
+  max-height: 58vh;
+  overflow: auto;
+  padding: 12px;
+}
+
+.pl-config-row {
+  overflow: hidden;
+  border: 1px solid var(--pl-border);
+  border-radius: 8px;
+  background: #111110;
+}
+
+.pl-config-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 38px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--pl-border);
+}
+
+.pl-config-row-head strong {
+  overflow: hidden;
+  color: #eeeeea;
+  font-size: 0.7rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pl-config-row-head label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #aaa7a0;
+  font-size: 0.62rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.pl-config-row-head input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: #d7dfcb;
+}
+
+.pl-settings-grid {
+  padding: 10px;
+}
+
+.pl-settings-grid select[multiple] {
+  min-height: 168px;
+  padding: 6px;
+}
+
+.pl-settings-grid select:disabled {
+  color: #7f8c93;
+  background: #0f0f0e;
+}
+
 .pl-modal-actions {
   display: flex;
   align-items: center;
@@ -6521,6 +6688,10 @@ body::after {
   .pl-ledger-row {
     grid-template-columns: minmax(210px, 1.5fr) repeat(7, minmax(70px, 0.7fr)) 32px;
   }
+
+  .pl-syrup-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 1080px) {
@@ -6591,6 +6762,22 @@ body::after {
 
   .pl-form-grid label.is-wide {
     grid-column: auto;
+  }
+
+  .pl-syrup-grid,
+  .pl-syrup-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .pl-syrup-metrics span,
+  .pl-syrup-metrics span:nth-child(3n),
+  .pl-syrup-metrics span:nth-last-child(-n+3) {
+    border-right: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.045);
+  }
+
+  .pl-syrup-metrics span:last-child {
+    border-bottom: 0;
   }
 }
 
