@@ -500,6 +500,8 @@ const normalizeSourceKey = (value) => String(value || '').trim().toLowerCase();
 
 const HIDDEN_HOME_SOURCES = new Set(['internal', 'direct']);
 const OVERVIEW_CACHE_PREFIX = 'jg-overview-summary-v10';
+const ORDER_RENDER_BATCH_SIZE = 80;
+const ORDER_BOOTSTRAP_MIN_ROWS = 40;
 
 const shouldHideSourceMetric = (value) => HIDDEN_HOME_SOURCES.has(normalizeSourceKey(value));
 
@@ -1662,8 +1664,10 @@ document.addEventListener('DOMContentLoaded', () => {
       nextMonthIndex: 0,
       loading: false,
       loadedAll: false,
-      renderLimit: 80,
+      renderLimit: ORDER_RENDER_BATCH_SIZE,
       scrollPending: false,
+      ensureRunning: false,
+      ensurePending: false,
       activeDateField: 'start',
       calendarMonth: new Date().toISOString().slice(0, 7),
       filters: {
@@ -2683,11 +2687,17 @@ document.addEventListener('DOMContentLoaded', () => {
     return Boolean(filters.companies.length || filters.products.length || filters.flavors.length || filters.platforms.length || filters.startDate || filters.endDate);
   };
 
+  const resetOrderRenderWindow = () => {
+    state.orders.renderLimit = ORDER_RENDER_BATCH_SIZE;
+    if (ordersRefs.scroll) ordersRefs.scroll.scrollTop = 0;
+  };
+
   const addOrderFilter = (kind, value) => {
     const normalized = String(value || '').trim();
     if (!normalized || !Array.isArray(state.orders.filters[kind])) return;
     if (!state.orders.filters[kind].some((item) => normalizeOrderFilterValue(item) === normalizeOrderFilterValue(normalized))) {
       state.orders.filters[kind].push(normalized);
+      resetOrderRenderWindow();
     }
   };
 
@@ -2697,6 +2707,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (Array.isArray(state.orders.filters[kind])) {
       state.orders.filters[kind] = state.orders.filters[kind].filter((item) => normalizeOrderFilterValue(item) !== normalizeOrderFilterValue(value));
     }
+    resetOrderRenderWindow();
     syncOrderFilterControls();
     renderSkuOrderTree();
     renderOrders();
@@ -2712,9 +2723,11 @@ document.addEventListener('DOMContentLoaded', () => {
       startDate: '',
       endDate: ''
     };
+    resetOrderRenderWindow();
     syncOrderFilterControls();
     renderSkuOrderTree();
     renderOrders();
+    ensureEnoughOrderRows();
   };
 
   const buildSettingsUrl = (action) => `${settingsEndpoint}?action=${encodeURIComponent(action)}&_ts=${encodeURIComponent(String(Date.now()))}`;
@@ -3371,9 +3384,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (ordersRefs.status) {
       const loadedCount = state.orders.rows.length;
       const shown = Math.min(visibleRows.length, rows.length);
-      ordersRefs.status.textContent = state.orders.loading
-        ? 'Loading older orders...'
-        : `${formatCompactNumber(shown)} shown from ${formatCompactNumber(loadedCount)} loaded order lines${state.orders.loadedAll ? '' : ' as you scroll'}`;
+      if (state.orders.loading) {
+        ordersRefs.status.textContent = hasOrderFilters() ? 'Filtering older order windows...' : 'Loading older orders...';
+      } else if (hasOrderFilters()) {
+        ordersRefs.status.textContent = `${formatCompactNumber(shown)} shown from ${formatCompactNumber(rows.length)} matching order lines across ${formatCompactNumber(loadedCount)} loaded${state.orders.loadedAll ? '' : ' while older windows load'}`;
+      } else {
+        ordersRefs.status.textContent = `${formatCompactNumber(shown)} shown from ${formatCompactNumber(loadedCount)} loaded order lines${state.orders.loadedAll ? '' : ' as you scroll'}`;
+      }
     }
     if (!ordersRefs.tableBody) return;
     const contactButton = (value, label) => {
@@ -3384,7 +3401,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!visibleRows.length) {
       const message = state.orders.loading
         ? 'Loading orders.'
-        : (hasOrderFilters() ? 'No loaded orders match the current filters yet.' : 'No stored orders found.');
+        : (hasOrderFilters()
+          ? (state.orders.loadedAll ? 'No orders match the current filters.' : 'Searching older order windows for matching orders.')
+          : (state.orders.loadedAll ? 'No stored orders found.' : 'Loading older order windows.'));
       ordersRefs.tableBody.innerHTML = `<tr><td colspan="11" class="admin-empty">${escapeHtml(message)}</td></tr>`;
       return;
     }
@@ -3463,6 +3482,7 @@ document.addEventListener('DOMContentLoaded', () => {
         state.orders.filters.startDate = dateValue;
       }
     }
+    resetOrderRenderWindow();
     syncOrderFilterControls();
     renderOrdersDateCalendar();
     renderOrders();
@@ -4073,7 +4093,8 @@ document.addEventListener('DOMContentLoaded', () => {
     state.orders.nextMonthIndex = 0;
     state.orders.loading = false;
     state.orders.loadedAll = false;
-    state.orders.renderLimit = 80;
+    state.orders.renderLimit = ORDER_RENDER_BATCH_SIZE;
+    state.orders.ensurePending = false;
     state.orders.rows = [];
     state.orders.rowKeys = new Set();
     state.orders.platforms = [];
@@ -4111,14 +4132,40 @@ document.addEventListener('DOMContentLoaded', () => {
     } finally {
       state.orders.loading = false;
       renderOrders();
+      if (state.orders.ensurePending) {
+        state.orders.ensurePending = false;
+        ensureEnoughOrderRows();
+      }
     }
   };
 
   const ensureEnoughOrderRows = async () => {
-    let guard = 0;
-    while (!state.orders.loadedAll && filteredOrderRows().length < 40 && guard < 4) {
-      guard += 1;
-      await loadNextOrderWindow();
+    if (state.orders.ensureRunning) {
+      state.orders.ensurePending = true;
+      return;
+    }
+    state.orders.ensureRunning = true;
+    try {
+      if (!state.orders.monthRanges.length && !state.orders.loadedAll) resetOrderWindowsFromOverview();
+      while (!state.orders.loadedAll) {
+        const rows = filteredOrderRows();
+        const shouldCompleteFilteredSet = hasOrderFilters();
+        const scrollNeedsRows = ordersRefs.scroll
+          ? ordersRefs.scroll.scrollHeight <= ordersRefs.scroll.clientHeight + 24
+          : false;
+        if (!shouldCompleteFilteredSet && rows.length >= ORDER_BOOTSTRAP_MIN_ROWS && !scrollNeedsRows) break;
+        if (state.orders.loading) {
+          state.orders.ensurePending = true;
+          break;
+        }
+        await loadNextOrderWindow();
+      }
+    } finally {
+      state.orders.ensureRunning = false;
+      if (state.orders.ensurePending && !state.orders.loading) {
+        state.orders.ensurePending = false;
+        ensureEnoughOrderRows();
+      }
     }
   };
 
@@ -4722,6 +4769,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const platform = button.getAttribute('data-toggle-order-platform') || '';
     if (state.orders.filters.platforms.some((item) => normalizeOrderFilterValue(item) === normalizeOrderFilterValue(platform))) {
       state.orders.filters.platforms = state.orders.filters.platforms.filter((item) => normalizeOrderFilterValue(item) !== normalizeOrderFilterValue(platform));
+      resetOrderRenderWindow();
     } else {
       addOrderFilter('platforms', platform);
     }
