@@ -62,6 +62,7 @@ function jg_profit_loss_ensure_schema(PDO $pdo): void
             match_value VARCHAR(180) NOT NULL DEFAULT "",
             variant_mode VARCHAR(24) NOT NULL DEFAULT "auto",
             sku_codes_json LONGTEXT NOT NULL,
+            layout_json LONGTEXT NULL,
             is_visible TINYINT(1) NOT NULL DEFAULT 1,
             sort_order INT NOT NULL DEFAULT 0,
             created_at DATETIME(6) NOT NULL,
@@ -89,6 +90,8 @@ function jg_profit_loss_ensure_schema(PDO $pdo): void
             throw new RuntimeException('Unable to prepare Profit and Loss storage.');
         }
     }
+
+    analyticsEnsureTableColumn($pdo, 'profit_loss_product_cards', 'layout_json', 'LONGTEXT NULL AFTER `sku_codes_json`');
 
     jg_profit_loss_seed_syrup_groups($pdo);
     jg_profit_loss_seed_statement_metrics($pdo);
@@ -227,6 +230,16 @@ function jg_profit_loss_decode_json_list(mixed $value): array
     ), static fn (string $item): bool => $item !== ''));
 }
 
+function jg_profit_loss_decode_json_object(mixed $value): array
+{
+    $decoded = json_decode((string) $value, true);
+    if (!is_array($decoded) || array_is_list($decoded)) {
+        return [];
+    }
+
+    return $decoded;
+}
+
 function jg_profit_loss_syrup_groups(PDO $pdo): array
 {
     $stmt = $pdo->query(
@@ -241,40 +254,6 @@ function jg_profit_loss_syrup_groups(PDO $pdo): array
             'label' => (string) ($row['label'] ?? ''),
             'volume_ml' => $row['volume_ml'] === null ? null : (float) $row['volume_ml'],
             'assignment_mode' => (string) ($row['assignment_mode'] ?? 'auto') === 'manual' ? 'manual' : 'auto',
-            'sku_codes' => jg_profit_loss_decode_json_list($row['sku_codes_json'] ?? '[]'),
-            'is_visible' => (bool) (int) ($row['is_visible'] ?? 1),
-            'sort_order' => (int) ($row['sort_order'] ?? 0),
-            'updated_at' => (string) ($row['updated_at'] ?? ''),
-        ];
-    }
-    return $rows;
-}
-
-function jg_profit_loss_product_cards(PDO $pdo): array
-{
-    $stmt = $pdo->query(
-        'SELECT id, card_key, label, match_mode, match_value, variant_mode,
-                sku_codes_json, is_visible, sort_order, updated_at
-         FROM profit_loss_product_cards
-         ORDER BY sort_order, id'
-    );
-    $rows = [];
-    foreach ($stmt->fetchAll() as $row) {
-        $matchMode = (string) ($row['match_mode'] ?? 'auto_product');
-        if (!in_array($matchMode, ['auto_syrup', 'auto_product', 'auto_product_flavor', 'manual', 'legacy'], true)) {
-            $matchMode = 'auto_product';
-        }
-        $variantMode = (string) ($row['variant_mode'] ?? 'auto');
-        if (!in_array($variantMode, ['auto', 'volume', 'flavor', 'sku'], true)) {
-            $variantMode = 'auto';
-        }
-        $rows[] = [
-            'id' => (int) ($row['id'] ?? 0),
-            'card_key' => (string) ($row['card_key'] ?? ''),
-            'label' => (string) ($row['label'] ?? ''),
-            'match_mode' => $matchMode,
-            'match_value' => (string) ($row['match_value'] ?? ''),
-            'variant_mode' => $variantMode,
             'sku_codes' => jg_profit_loss_decode_json_list($row['sku_codes_json'] ?? '[]'),
             'is_visible' => (bool) (int) ($row['is_visible'] ?? 1),
             'sort_order' => (int) ($row['sort_order'] ?? 0),
@@ -299,6 +278,41 @@ function jg_profit_loss_statement_metrics(PDO $pdo): array
             'label' => (string) ($row['label'] ?? ''),
             'value_key' => (string) ($row['value_key'] ?? ''),
             'display_format' => (string) ($row['display_format'] ?? 'money'),
+            'is_visible' => (bool) (int) ($row['is_visible'] ?? 1),
+            'sort_order' => (int) ($row['sort_order'] ?? 0),
+            'updated_at' => (string) ($row['updated_at'] ?? ''),
+        ];
+    }
+    return $rows;
+}
+
+function jg_profit_loss_product_cards(PDO $pdo): array
+{
+    $stmt = $pdo->query(
+        'SELECT id, card_key, label, match_mode, match_value, variant_mode,
+                sku_codes_json, layout_json, is_visible, sort_order, updated_at
+         FROM profit_loss_product_cards
+         ORDER BY sort_order, id'
+    );
+    $rows = [];
+    foreach ($stmt->fetchAll() as $row) {
+        $matchMode = (string) ($row['match_mode'] ?? 'auto_product');
+        if (!in_array($matchMode, ['auto_syrup', 'auto_product', 'auto_product_flavor', 'manual', 'legacy'], true)) {
+            $matchMode = 'auto_product';
+        }
+        $variantMode = (string) ($row['variant_mode'] ?? 'auto');
+        if (!in_array($variantMode, ['auto', 'volume', 'flavor', 'sku'], true)) {
+            $variantMode = 'auto';
+        }
+        $rows[] = [
+            'id' => (int) ($row['id'] ?? 0),
+            'card_key' => (string) ($row['card_key'] ?? ''),
+            'label' => (string) ($row['label'] ?? ''),
+            'match_mode' => $matchMode,
+            'match_value' => (string) ($row['match_value'] ?? ''),
+            'variant_mode' => $variantMode,
+            'sku_codes' => jg_profit_loss_decode_json_list($row['sku_codes_json'] ?? '[]'),
+            'layout' => jg_profit_loss_decode_json_object($row['layout_json'] ?? '{}'),
             'is_visible' => (bool) (int) ($row['is_visible'] ?? 1),
             'sort_order' => (int) ($row['sort_order'] ?? 0),
             'updated_at' => (string) ($row['updated_at'] ?? ''),

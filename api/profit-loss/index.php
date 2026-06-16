@@ -84,6 +84,87 @@ function jg_profit_loss_sku_codes(mixed $value): array
     return array_keys($codes);
 }
 
+function jg_profit_loss_product_card_layout(mixed $value): array
+{
+    if (!is_array($value)) {
+        return [
+            'row_order' => [],
+            'row_labels' => [],
+            'hidden_rows' => [],
+            'metric_order' => [],
+            'metric_labels' => [],
+            'hidden_metrics' => [],
+        ];
+    }
+
+    $allowedMetrics = ['units', 'averagePrice', 'netRevenue', 'cogs', 'grossProfit', 'profitPerUnit'];
+
+    $rowOrder = [];
+    foreach (($value['row_order'] ?? []) as $item) {
+        $key = jg_profit_loss_text($item, 160);
+        if ($key !== '') {
+            $rowOrder[$key] = true;
+        }
+    }
+
+    $hiddenRows = [];
+    foreach (($value['hidden_rows'] ?? []) as $item) {
+        $key = jg_profit_loss_text($item, 160);
+        if ($key !== '') {
+            $hiddenRows[$key] = true;
+        }
+    }
+
+    $rowLabels = [];
+    $labelSource = $value['row_labels'] ?? [];
+    if (is_array($labelSource)) {
+        foreach ($labelSource as $key => $label) {
+            $rowKey = jg_profit_loss_text($key, 160);
+            $rowLabel = jg_profit_loss_text($label, 120);
+            if ($rowKey !== '' && $rowLabel !== '') {
+                $rowLabels[$rowKey] = $rowLabel;
+            }
+        }
+    }
+
+    $metricOrder = [];
+    foreach (($value['metric_order'] ?? []) as $item) {
+        $key = jg_profit_loss_text($item, 64);
+        if (in_array($key, $allowedMetrics, true)) {
+            $metricOrder[$key] = true;
+        }
+    }
+
+    $hiddenMetrics = [];
+    foreach (($value['hidden_metrics'] ?? []) as $item) {
+        $key = jg_profit_loss_text($item, 64);
+        if (in_array($key, $allowedMetrics, true)) {
+            $hiddenMetrics[$key] = true;
+        }
+    }
+
+    $metricLabels = [];
+    $metricLabelSource = $value['metric_labels'] ?? [];
+    if (is_array($metricLabelSource)) {
+        foreach ($metricLabelSource as $key => $label) {
+            $metricKey = jg_profit_loss_text($key, 64);
+            $metricLabel = jg_profit_loss_text($label, 80);
+            if (in_array($metricKey, $allowedMetrics, true) && $metricLabel !== '') {
+                $metricLabels[$metricKey] = $metricLabel;
+            }
+        }
+    }
+
+    return [
+        'row_order' => array_keys($rowOrder),
+        'row_labels' => $rowLabels,
+        'hidden_rows' => array_keys($hiddenRows),
+        'metric_order' => array_keys($metricOrder),
+        'metric_labels' => $metricLabels,
+        'hidden_metrics' => array_keys($hiddenMetrics),
+    ];
+}
+
 function jg_profit_loss_metric_key(string $label, int $index): string
 {
     $slug = strtolower(trim($label));
@@ -377,32 +458,52 @@ try {
         if (!is_array($cards)) {
             jg_profit_loss_json(['ok' => false, 'error' => 'invalid_product_cards'], 422);
         }
+        $deletedCards = $body['deleted_cards'] ?? [];
+        if (!is_array($deletedCards)) {
+            $deletedCards = [];
+        }
         $allowedMatchModes = ['auto_syrup', 'auto_product', 'auto_product_flavor', 'manual', 'legacy'];
         $allowedVariantModes = ['auto', 'volume', 'flavor', 'sku'];
 
         $pdo->beginTransaction();
         try {
+            $deleteByIdStmt = $pdo->prepare('DELETE FROM profit_loss_product_cards WHERE id = :id');
+            $deleteByKeyStmt = $pdo->prepare('DELETE FROM profit_loss_product_cards WHERE card_key = :card_key');
             $insertStmt = $pdo->prepare(
                 'INSERT INTO profit_loss_product_cards
                     (card_key, label, match_mode, match_value, variant_mode, sku_codes_json,
-                     is_visible, sort_order, created_at, updated_at)
+                     layout_json, is_visible, sort_order, created_at, updated_at)
                  VALUES
                     (:card_key, :label, :match_mode, :match_value, :variant_mode, :sku_codes_json,
-                     :is_visible, :sort_order, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))
+                     :layout_json, :is_visible, :sort_order, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))
                  ON DUPLICATE KEY UPDATE
                     label = VALUES(label), match_mode = VALUES(match_mode),
                     match_value = VALUES(match_value), variant_mode = VALUES(variant_mode),
-                    sku_codes_json = VALUES(sku_codes_json), is_visible = VALUES(is_visible),
+                    sku_codes_json = VALUES(sku_codes_json), layout_json = VALUES(layout_json), is_visible = VALUES(is_visible),
                     sort_order = VALUES(sort_order), updated_at = VALUES(updated_at)'
             );
             $updateStmt = $pdo->prepare(
                 'UPDATE profit_loss_product_cards
                  SET card_key = :card_key, label = :label, match_mode = :match_mode,
                      match_value = :match_value, variant_mode = :variant_mode,
-                     sku_codes_json = :sku_codes_json, is_visible = :is_visible,
+                     sku_codes_json = :sku_codes_json, layout_json = :layout_json, is_visible = :is_visible,
                      sort_order = :sort_order, updated_at = UTC_TIMESTAMP(6)
                  WHERE id = :id'
             );
+            foreach ($deletedCards as $deletedCard) {
+                if (!is_array($deletedCard)) {
+                    continue;
+                }
+                $deleteId = max(0, (int) ($deletedCard['id'] ?? 0));
+                if ($deleteId > 0) {
+                    $deleteByIdStmt->execute([':id' => $deleteId]);
+                    continue;
+                }
+                $deleteKey = jg_profit_loss_text($deletedCard['card_key'] ?? '', 120);
+                if ($deleteKey !== '') {
+                    $deleteByKeyStmt->execute([':card_key' => $deleteKey]);
+                }
+            }
             foreach (array_values($cards) as $index => $card) {
                 if (!is_array($card)) {
                     continue;
@@ -426,6 +527,7 @@ try {
                     ':match_value' => jg_profit_loss_text($card['match_value'] ?? '', 180),
                     ':variant_mode' => $variantMode,
                     ':sku_codes_json' => json_encode(jg_profit_loss_sku_codes($card['sku_codes'] ?? []), JSON_UNESCAPED_SLASHES),
+                    ':layout_json' => json_encode(jg_profit_loss_product_card_layout($card['layout'] ?? []), JSON_UNESCAPED_SLASHES),
                     ':is_visible' => jg_profit_loss_bool($card['is_visible'] ?? null) ? 1 : 0,
                     ':sort_order' => ($index + 1) * 10,
                 ];

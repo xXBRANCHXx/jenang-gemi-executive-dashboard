@@ -10,7 +10,7 @@ if (root) {
   const fullMonthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   const state = {
     year: currentYear,
-    month: 0,
+    month: currentMonth,
     sales: null,
     stored: null,
     products: [],
@@ -18,17 +18,22 @@ if (root) {
     search: '',
     loading: false,
     draftProductCards: null,
+    deletedProductCards: [],
+    productCardFilters: {},
+    draftSyrupGroups: null,
     draftMetrics: null
   };
 
   const refs = {
     year: root.querySelector('[data-pl-year]'),
+    month: root.querySelector('[data-pl-month]'),
     periodLabel: root.querySelector('[data-pl-period-label]'),
     syncLabel: root.querySelector('[data-pl-sync-label]'),
     refresh: root.querySelector('[data-pl-refresh]'),
     search: root.querySelector('[data-pl-search]'),
     ledger: root.querySelector('[data-pl-ledger]'),
     productCards: root.querySelector('[data-pl-product-cards]'),
+    syrupGroups: root.querySelector('[data-pl-syrup-groups]'),
     coverage: root.querySelector('[data-pl-coverage]'),
     entrySections: root.querySelector('[data-pl-entry-sections]'),
     allocationList: root.querySelector('[data-pl-allocation-list]'),
@@ -55,6 +60,12 @@ if (root) {
     productCardTitle: root.querySelector('[data-pl-product-card-title]'),
     deleteProductCard: root.querySelector('[data-pl-delete-product-card]'),
     addProductCard: root.querySelector('[data-pl-add-product-card]'),
+    addProductCardDraft: root.querySelector('[data-pl-add-product-card-draft]'),
+    syrupSettingsModal: root.querySelector('[data-pl-syrup-settings-modal]'),
+    syrupSettingsForm: root.querySelector('[data-pl-syrup-settings-form]'),
+    syrupSettingsList: root.querySelector('[data-pl-syrup-settings-list]'),
+    syrupSettingsError: root.querySelector('[data-pl-syrup-settings-error]'),
+    addSyrupGroup: root.querySelector('[data-pl-add-syrup-group]'),
     metricsModal: root.querySelector('[data-pl-metrics-modal]'),
     metricsForm: root.querySelector('[data-pl-metrics-form]'),
     metricsList: root.querySelector('[data-pl-metrics-list]'),
@@ -154,6 +165,8 @@ if (root) {
     refs.year.innerHTML = Array.from({ length: endYear - startYear + 1 }, (_, index) => startYear + index)
       .map((year) => `<option value="${year}"${year === state.year ? ' selected' : ''}>${year}</option>`).join('');
     const monthOptions = fullMonthNames.map((name, index) => `<option value="${index + 1}">${name}</option>`).join('');
+    refs.month.insertAdjacentHTML('beforeend', monthOptions);
+    refs.month.value = String(state.month);
     refs.entryForm.elements.month.innerHTML = monthOptions;
   };
 
@@ -172,6 +185,20 @@ if (root) {
   };
 
   const catalogRows = () => Array.isArray(state.stored?.sku_catalog) ? state.stored.sku_catalog : [];
+  const syrupGroups = (includeHidden = false) => {
+    const rows = Array.isArray(state.stored?.syrup_groups) ? state.stored.syrup_groups : [];
+    return rows
+      .filter((group) => includeHidden || group.is_visible !== false)
+      .map((group, index) => ({
+        id: number(group.id),
+        label: String(group.label || `Volume ${index + 1}`),
+        volume_ml: group.volume_ml === null || group.volume_ml === '' || group.volume_ml === undefined ? null : number(group.volume_ml),
+        assignment_mode: group.assignment_mode === 'manual' ? 'manual' : 'auto',
+        sku_codes: Array.isArray(group.sku_codes) ? group.sku_codes.map((sku) => String(sku).toUpperCase()) : [],
+        is_visible: group.is_visible !== false,
+        sort_order: number(group.sort_order || index)
+      }));
+  };
   const statementMetrics = (includeHidden = false) => {
     const rows = Array.isArray(state.stored?.statement_metrics) && state.stored.statement_metrics.length
       ? state.stored.statement_metrics
@@ -193,23 +220,6 @@ if (root) {
     row.base_product_name, row.flavor_name || row.flavor, row.unit_name || row.productType,
     row.volume
   ].filter(Boolean).join(' ').toLowerCase();
-  const isSyrupCatalogRow = (row) => {
-    const text = skuSearchText(row);
-    const productText = [row.tag, row.product_name, row.base_product_name, row.flavor_name, row.brand_name].filter(Boolean).join(' ').toLowerCase();
-    const excluded = /\b(drop|drops|we\b|water enhancer|topping|latte|caps|capsule|jamu|bubur|shake|gerd|honey|pedros|shaker|merch|sticker|sample pack|custom|bundle|affiliate)\b/.test(text);
-    if (excluded) return false;
-    return /\b(syrup|syrups|sirup|syurp)\b/.test(text)
-      || /\bzf\s*[-_]/.test(productText)
-      || /\bzero foods?\b/.test(text);
-  };
-  const productCardMetrics = [
-    { key: 'units', label: 'QTY Sold', valueKey: 'units', format: 'integer', tone: 'qty' },
-    { key: 'averagePrice', label: 'Avg Price', valueKey: 'averagePrice', format: 'money', tone: 'price' },
-    { key: 'netRevenue', label: 'Revenue', valueKey: 'netRevenue', format: 'money', tone: 'revenue' },
-    { key: 'cogs', label: 'COGS', valueKey: 'cogs', format: 'money', tone: 'cost' },
-    { key: 'grossProfit', label: 'Gross Profit', valueKey: 'grossProfit', format: 'money', tone: 'profit' },
-    { key: 'profitPerUnit', label: 'Avg Gross Profit', valueKey: 'profitPerUnit', format: 'money', tone: 'profit' }
-  ];
   const normalizeKey = (value) => String(value || '')
     .toLowerCase()
     .replace(/&/g, ' and ')
@@ -231,6 +241,38 @@ if (root) {
     return normalized;
   };
   const volumeUnitLabel = (row = {}) => number(row.volume) ? `${plainVolume(row.volume)} ${unitLabel(row)}` : '';
+  const volumeTokens = (volume) => {
+    if (!number(volume)) return [];
+    const integerVolume = String(Math.round(number(volume)));
+    const decimalVolume = number(volume).toFixed(1).replace(/\.0$/, '');
+    return [
+      `${integerVolume}ml`, `${integerVolume} ml`, `${integerVolume} m l`,
+      `${decimalVolume}ml`, `${decimalVolume} ml`
+    ];
+  };
+  const volumeMatchesGroup = (row, group) => {
+    if (!number(group.volume_ml)) return false;
+    if (number(row.volume) && Math.abs(number(row.volume) - number(group.volume_ml)) < 0.1) return true;
+    const text = skuSearchText(row).replace(/\s+/g, ' ');
+    return volumeTokens(group.volume_ml).some((token) => text.includes(token));
+  };
+  const isSyrupCatalogRow = (row) => {
+    const text = skuSearchText(row);
+    const productText = [row.tag, row.product_name, row.base_product_name, row.flavor_name, row.brand_name].filter(Boolean).join(' ').toLowerCase();
+    const excluded = /\b(drop|drops|we\b|water enhancer|topping|latte|caps|capsule|jamu|bubur|shake|gerd|honey|pedros|shaker|merch|sticker|sample pack|custom|bundle|affiliate)\b/.test(text);
+    if (excluded) return false;
+    return /\b(syrup|syrups|sirup|syurp)\b/.test(text)
+      || /\bzf\s*[-_]/.test(productText)
+      || /\bzero foods?\b/.test(text);
+  };
+  const productCardMetrics = [
+    { key: 'units', label: 'QTY Sold', valueKey: 'units', format: 'integer', tone: 'qty' },
+    { key: 'averagePrice', label: 'Avg Price', valueKey: 'averagePrice', format: 'money', tone: 'price' },
+    { key: 'netRevenue', label: 'Revenue', valueKey: 'netRevenue', format: 'money', tone: 'revenue' },
+    { key: 'cogs', label: 'COGS', valueKey: 'cogs', format: 'money', tone: 'cost' },
+    { key: 'grossProfit', label: 'Gross Profit', valueKey: 'grossProfit', format: 'money', tone: 'profit' },
+    { key: 'profitPerUnit', label: 'Avg Gross Profit', valueKey: 'profitPerUnit', format: 'money', tone: 'profit' }
+  ];
   const productFamilyKey = (row = {}) => normalizeKey([
     row.brand_name || row.brand,
     row.product_name || row.base_product_name || row.productType || row.label
@@ -276,6 +318,34 @@ if (root) {
     const [familyKey = '', flavorKey = ''] = String(value || '').split('|');
     return { familyKey, flavorKey };
   };
+  const normalizeProductCardLayout = (layout = {}) => {
+    const source = layout && typeof layout === 'object' ? layout : {};
+    const rowLabels = {};
+    if (source.row_labels && typeof source.row_labels === 'object') {
+      Object.entries(source.row_labels).forEach(([key, label]) => {
+        const rowKey = cleanText(key, '');
+        const rowLabel = cleanText(label, '');
+        if (rowKey && rowLabel) rowLabels[rowKey] = rowLabel;
+      });
+    }
+    const metricKeys = new Set(productCardMetrics.map((metric) => metric.key));
+    const metricLabels = {};
+    if (source.metric_labels && typeof source.metric_labels === 'object') {
+      Object.entries(source.metric_labels).forEach(([key, label]) => {
+        const metricKey = cleanText(key, '');
+        const metricLabel = cleanText(label, '');
+        if (metricKeys.has(metricKey) && metricLabel) metricLabels[metricKey] = metricLabel;
+      });
+    }
+    return {
+      row_order: Array.isArray(source.row_order) ? Array.from(new Set(source.row_order.map((key) => cleanText(key, '')).filter(Boolean))) : [],
+      row_labels: rowLabels,
+      hidden_rows: Array.isArray(source.hidden_rows) ? Array.from(new Set(source.hidden_rows.map((key) => cleanText(key, '')).filter(Boolean))) : [],
+      metric_order: Array.isArray(source.metric_order) ? Array.from(new Set(source.metric_order.map((key) => cleanText(key, '')).filter((key) => metricKeys.has(key)))) : [],
+      metric_labels: metricLabels,
+      hidden_metrics: Array.isArray(source.hidden_metrics) ? Array.from(new Set(source.hidden_metrics.map((key) => cleanText(key, '')).filter((key) => metricKeys.has(key)))) : []
+    };
+  };
   const normalizeProductCard = (card = {}, index = 0) => {
     const matchMode = ['auto_syrup', 'auto_product', 'auto_product_flavor', 'manual', 'legacy'].includes(card.match_mode) ? card.match_mode : 'manual';
     const variantMode = ['auto', 'volume', 'flavor', 'sku'].includes(card.variant_mode) ? card.variant_mode : 'auto';
@@ -287,9 +357,11 @@ if (root) {
       match_value: String(card.match_value || ''),
       variant_mode: variantMode,
       sku_codes: Array.isArray(card.sku_codes) ? card.sku_codes.map((sku) => String(sku).toUpperCase()).filter(Boolean) : [],
+      layout: normalizeProductCardLayout(card.layout),
       is_visible: card.is_visible !== false,
       sort_order: number(card.sort_order || index),
-      generated: Boolean(card.generated)
+      generated: Boolean(card.generated),
+      touched: Boolean(card.touched)
     };
   };
   const defaultProductCards = () => {
@@ -308,7 +380,7 @@ if (root) {
     let productCardIndex = 0;
     catalogProductFamilies()
       .filter((family) => family.rows.some((row) => !isSyrupCatalogRow(row)))
-      .forEach((family, index) => {
+      .forEach((family) => {
         if (familySplitsByFlavor(family)) {
           const flavors = new Map();
           for (const row of family.rows) {
@@ -377,7 +449,7 @@ if (root) {
       }
     }
     return merged
-      .filter((card) => !(card.match_mode === 'auto_product' && familySplitsByFlavorKey(card.match_value)))
+      .filter((card) => !(card.generated && card.match_mode === 'auto_product' && familySplitsByFlavorKey(card.match_value)))
       .filter((card) => includeHidden || card.is_visible !== false)
       .sort((left, right) => number(left.sort_order) - number(right.sort_order));
   };
@@ -430,7 +502,7 @@ if (root) {
     if (mode === 'flavor') return cleanText(product.flavor_name || product.flavor, 'Unflavored');
     return catalogVariantLabel(product);
   };
-  const variantDefinitionsForCard = (card) => {
+  const baseVariantDefinitionsForCard = (card) => {
     const mode = effectiveVariantMode(card);
     if (card.match_mode === 'legacy') return [{ key: 'legacy', label: 'All products', sort: 0 }];
     const rows = cardCatalogRows(card);
@@ -465,6 +537,37 @@ if (root) {
     }
     return Array.from(definitions.values()).sort((left, right) => left.sort === right.sort ? left.label.localeCompare(right.label) : left.sort - right.sort);
   };
+  const applyProductCardLayout = (card, definitions, includeHidden = false) => {
+    const layout = normalizeProductCardLayout(card.layout);
+    const hidden = new Set(layout.hidden_rows);
+    const order = new Map(layout.row_order.map((key, index) => [key, index]));
+    return definitions
+      .map((definition) => ({
+        ...definition,
+        originalLabel: definition.originalLabel || definition.label,
+        label: layout.row_labels[definition.key] || definition.label,
+        is_hidden: hidden.has(definition.key),
+        layoutSort: order.has(definition.key) ? order.get(definition.key) : 100000 + number(definition.sort)
+      }))
+      .filter((definition) => includeHidden || !definition.is_hidden)
+      .sort((left, right) => left.layoutSort === right.layoutSort ? left.label.localeCompare(right.label) : left.layoutSort - right.layoutSort);
+  };
+  const variantDefinitionsForCard = (card, includeHidden = false) => applyProductCardLayout(card, baseVariantDefinitionsForCard(card), includeHidden);
+  const productMetricsForCard = (card, includeHidden = false) => {
+    const layout = normalizeProductCardLayout(card.layout);
+    const hidden = new Set(layout.hidden_metrics);
+    const order = new Map(layout.metric_order.map((key, index) => [key, index]));
+    return productCardMetrics
+      .map((metric, index) => ({
+        ...metric,
+        originalLabel: metric.originalLabel || metric.label,
+        label: layout.metric_labels[metric.key] || metric.label,
+        is_hidden: hidden.has(metric.key),
+        layoutSort: order.has(metric.key) ? order.get(metric.key) : 100000 + index
+      }))
+      .filter((metric) => includeHidden || !metric.is_hidden)
+      .sort((left, right) => left.layoutSort === right.layoutSort ? left.label.localeCompare(right.label) : left.layoutSort - right.layoutSort);
+  };
   const emptyProductAggregate = () => ({
     units: 0,
     netRevenue: 0,
@@ -484,11 +587,13 @@ if (root) {
   const productCardMatrix = (card) => {
     const mode = effectiveVariantMode(card);
     const variants = new Map(variantDefinitionsForCard(card).map((variant) => [variant.key, variant]));
+    const hiddenVariants = new Set(variantDefinitionsForCard(card, true).filter((variant) => variant.is_hidden).map((variant) => variant.key));
     const cells = new Map();
     for (let month = 1; month <= 12; month += 1) {
       const products = calculateProducts(month).filter((product) => cardMatchesProduct(card, product));
       for (const product of products) {
         const key = variantKeyForProduct(product, mode);
+        if (hiddenVariants.has(key)) continue;
         if (!variants.has(key)) {
           variants.set(key, { key, label: variantLabelForProduct(product, mode), sort: variants.size + 1000 });
         }
@@ -531,6 +636,16 @@ if (root) {
       total: finalizeProductAggregate(cardTotal)
     };
   };
+  const autoSyrupSkusForGroup = (group) => catalogRows()
+    .filter((row) => volumeMatchesGroup(row, group) && isSyrupCatalogRow(row))
+    .map((row) => String(row.sku || '').toUpperCase())
+    .filter(Boolean);
+  const groupMatchesProduct = (group, product) => {
+    const sku = String(product.sku || '').toUpperCase();
+    if (group.assignment_mode === 'manual') return sku && group.sku_codes.includes(sku);
+    return volumeMatchesGroup(product, group) && isSyrupCatalogRow(product);
+  };
+  const syrupGroupForProduct = (product) => syrupGroups().find((group) => groupMatchesProduct(group, product)) || null;
 
   const rowsForPeriod = (month) => {
     const rows = Array.isArray(state.sales?.products?.by_month) ? state.sales.products.by_month : [];
@@ -692,6 +807,7 @@ if (root) {
           ...sum,
           legacy: Boolean(sum.legacy || row.legacy),
           averagePrice: safeDivide(sum.revenue, sum.units),
+          averageCogs: safeDivide(sum.cogs, sum.units),
           grossProfitPerUnit: safeDivide(sum.grossProfit, sum.units),
           grossMargin: safeDivide(sum.grossProfit, sum.revenue),
           administrationPerUnit: safeDivide(sum.administration, sum.units),
@@ -702,7 +818,7 @@ if (root) {
           netProfitPerUnit: safeDivide(sum.netProfit, sum.units)
         };
       }, {
-        units: 0, netRevenue: 0, grossRevenue: 0, cogs: 0, marketplaceFees: 0,
+        units: 0, netRevenue: 0, grossRevenue: 0, cogs: 0, averageCogs: 0, marketplaceFees: 0,
         income: 0, revenue: 0, grossProfit: 0, grossProfitPerUnit: 0, grossMargin: 0,
         administration: 0, administrationPerUnit: 0, administrationRate: 0,
         marketing: 0, marketingPerUnit: 0, marketingRate: 0, other: 0,
@@ -729,6 +845,7 @@ if (root) {
         income: number(legacy.income),
         revenue,
         averagePrice: safeDivide(revenue, units),
+        averageCogs: safeDivide(cogs, units),
         grossProfit,
         grossProfitPerUnit: safeDivide(grossProfit, units),
         grossMargin: safeDivide(grossProfit, revenue),
@@ -851,6 +968,7 @@ if (root) {
       </div>
     </section>`;
   const renderProductCards = () => {
+    if (!refs.productCards) return;
     const cards = productCards();
     if (!cards.length) {
       refs.productCards.innerHTML = '<p class="pl-empty">No product cards yet. Use + Add card to build one from SKU DB.</p>';
@@ -858,6 +976,7 @@ if (root) {
     }
     refs.productCards.innerHTML = cards.map((card) => {
       const matrix = productCardMatrix(card);
+      const metrics = productMetricsForCard(card);
       const skuCount = card.match_mode === 'manual' ? card.sku_codes.length : cardCatalogRows(card).length;
       const subtitle = card.match_mode === 'legacy'
         ? 'Old sheet total for months imported from the workbook'
@@ -877,7 +996,70 @@ if (root) {
               </button>
             </div>
           </div>
-          ${matrix.variants.length ? `<div class="pl-product-metric-grid">${productCardMetrics.map((metric) => renderProductMetricCard(metric, matrix)).join('')}</div>` : '<p class="pl-empty">This card has no matching SKU DB products yet.</p>'}
+          ${matrix.variants.length && metrics.length ? `<div class="pl-product-metric-grid">${metrics.map((metric) => renderProductMetricCard(metric, matrix)).join('')}</div>` : `<p class="pl-empty">${matrix.variants.length ? 'No visible metric panels. Open card settings to show at least one metric.' : 'This card has no matching SKU DB products yet.'}</p>`}
+        </article>`;
+    }).join('');
+  };
+
+  const calculateSyrupVolumes = (month) => {
+    const groups = syrupGroups();
+    const products = state.products.length && month === state.month ? state.products : calculateProducts(month);
+    const rows = groups.map((group) => ({
+      ...group,
+      units: 0,
+      netRevenue: 0,
+      grossRevenue: 0,
+      cogs: 0,
+      orders: 0,
+      skus: new Set(group.assignment_mode === 'manual' ? group.sku_codes : autoSyrupSkusForGroup(group))
+    }));
+    for (const product of products) {
+      const group = rows.find((candidate) => groupMatchesProduct(candidate, product));
+      if (!group) continue;
+      group.units += number(product.units);
+      group.netRevenue += number(product.netRevenue);
+      group.grossRevenue += number(product.grossRevenue);
+      group.cogs += number(product.cogs);
+      group.orders += number(product.orders);
+      if (product.sku) group.skus.add(String(product.sku).toUpperCase());
+    }
+    return rows.map((row) => {
+      const grossProfit = row.netRevenue - row.cogs;
+      return {
+        ...row,
+        grossProfit,
+        averagePrice: safeDivide(row.netRevenue, row.units),
+        profitPerUnit: safeDivide(grossProfit, row.units),
+        margin: safeDivide(grossProfit, row.netRevenue),
+        skuCount: row.skus.size
+      };
+    });
+  };
+
+  const renderSyrupVolumes = () => {
+    const rows = calculateSyrupVolumes(state.month);
+    if (!rows.length) {
+      refs.syrupGroups.innerHTML = '<p class="pl-empty">No syrup volume groups configured.</p>';
+      return;
+    }
+    refs.syrupGroups.innerHTML = rows.map((row) => {
+      const assignment = row.skuCount
+        ? `${row.skuCount} ${row.assignment_mode === 'manual' ? 'selected' : 'auto'} SKU${row.skuCount === 1 ? '' : 's'}`
+        : 'No matching SKUs';
+      return `
+        <article class="pl-syrup-card">
+          <div class="pl-syrup-card-head">
+            <span><strong>${escapeHtml(row.label)}</strong><small>${escapeHtml(assignment)}</small></span>
+            <b>${row.volume_ml ? `${integer(row.volume_ml)} ml` : 'Custom'}</b>
+          </div>
+          <div class="pl-syrup-metrics">
+            <span><small>Sold</small><strong>${integer(row.units)}</strong></span>
+            <span><small>Net</small><strong>${money(row.netRevenue, true)}</strong></span>
+            <span><small>COGS</small><strong>${money(row.cogs, true)}</strong></span>
+            <span><small>Gross profit</small><strong class="${row.grossProfit < 0 ? 'is-negative' : ''}">${money(row.grossProfit, true)}</strong></span>
+            <span><small>Avg GP</small><strong>${money(row.profitPerUnit, true)}</strong></span>
+            <span><small>Margin</small><strong>${percent(row.margin)}</strong></span>
+          </div>
         </article>`;
     }).join('');
   };
@@ -1015,9 +1197,10 @@ if (root) {
   };
 
   const render = () => {
-    refs.periodLabel.textContent = `${state.year} full-year view`;
+    refs.periodLabel.textContent = state.month ? `${fullMonthNames[state.month - 1]} ${state.year}` : `${state.year} year to date`;
     renderLedger();
     renderProductCards();
+    renderSyrupVolumes();
     renderKpis();
     renderEntries();
     renderAllocation();
@@ -1091,6 +1274,10 @@ if (root) {
     refs.entryModal.hidden = false;
   };
 
+  const cloneGroup = (group) => ({
+    ...group,
+    sku_codes: Array.isArray(group.sku_codes) ? [...group.sku_codes] : []
+  });
   const cloneMetric = (metric) => ({ ...metric });
   const catalogOptionLabel = (row) => [
     row.sku,
@@ -1099,84 +1286,68 @@ if (root) {
     volumeUnitLabel(row),
     row.tag
   ].filter(Boolean).join(' · ');
+  const skuCodeForRow = (row = {}) => String(row.sku || '').toUpperCase();
+  const uniqueSkuCodes = (codes) => Array.from(new Set(codes.map((sku) => String(sku).toUpperCase()).filter(Boolean)));
   const renderSkuOptions = (selectedCodes) => {
     const selected = new Set(selectedCodes.map((sku) => String(sku).toUpperCase()));
     return catalogRows()
       .slice()
       .sort((left, right) => catalogOptionLabel(left).localeCompare(catalogOptionLabel(right)))
       .map((row) => {
-        const sku = String(row.sku || '').toUpperCase();
+        const sku = skuCodeForRow(row);
         return `<option value="${escapeHtml(sku)}"${selected.has(sku) ? ' selected' : ''}>${escapeHtml(catalogOptionLabel(row))}</option>`;
       }).join('');
   };
-  const renderSelectedSkuOptions = (selectedCodes) => {
-    const selected = new Set(selectedCodes.map((sku) => String(sku).toUpperCase()));
-    const rows = catalogRows().filter((row) => selected.has(String(row.sku || '').toUpperCase()));
-    const known = new Set(rows.map((row) => String(row.sku || '').toUpperCase()));
-    const unknown = Array.from(selected).filter((sku) => !known.has(sku)).map((sku) => ({ sku, label: sku }));
-    return [
-      ...rows.map((row) => {
-        const sku = String(row.sku || '').toUpperCase();
-        return `<option value="${escapeHtml(sku)}" selected>${escapeHtml(catalogOptionLabel(row))}</option>`;
-      }),
-      ...unknown.map((row) => `<option value="${escapeHtml(row.sku)}" selected>${escapeHtml(row.label)}</option>`)
-    ].join('');
-  };
   const cloneProductCard = (card) => ({
     ...card,
-    sku_codes: Array.isArray(card.sku_codes) ? [...card.sku_codes] : []
+    sku_codes: Array.isArray(card.sku_codes) ? [...card.sku_codes] : [],
+    layout: normalizeProductCardLayout(card.layout)
   });
-  const cardIdentityMatches = (left, right) => {
-    if (!left || !right) return false;
-    if (number(left.id) > 0 && number(right.id) > 0) return number(left.id) === number(right.id);
-    if (left.card_key && right.card_key && left.card_key === right.card_key) return true;
-    return productCardSignature(left) === productCardSignature(right);
-  };
-  const mergeProductCardDrafts = (draftCards, options = {}) => {
-    const baseline = productCards(true).map(cloneProductCard);
-    const merged = [...baseline];
-    for (const draft of draftCards.map(cloneProductCard)) {
-      const index = merged.findIndex((card) => cardIdentityMatches(card, draft));
-      if (index >= 0) {
-        merged[index] = {
-          ...draft,
-          id: number(draft.id) || number(merged[index].id),
-          sort_order: number(merged[index].sort_order)
-        };
-      } else {
-        merged.push({ ...draft, sort_order: merged.length * 10 + 10 });
-      }
+  const catalogBrandKey = (row = {}) => normalizeKey(row.brand_name || row.brand || 'Unknown brand');
+  const catalogBrandLabel = (row = {}) => cleanText(row.brand_name || row.brand, 'Unknown brand');
+  const catalogBrands = () => {
+    const brands = new Map();
+    for (const row of catalogRows()) {
+      const key = catalogBrandKey(row);
+      if (!brands.has(key)) brands.set(key, { key, label: catalogBrandLabel(row), rows: [] });
+      brands.get(key).rows.push(row);
     }
-    if (options.deleteCard) {
-      const deleteCard = cloneProductCard(options.deleteCard);
-      const index = merged.findIndex((card) => cardIdentityMatches(card, deleteCard));
-      const hiddenCard = { ...deleteCard, is_visible: false };
-      if (index >= 0) {
-        merged[index] = {
-          ...hiddenCard,
-          id: number(hiddenCard.id) || number(merged[index].id),
-          sort_order: number(merged[index].sort_order)
-        };
-      } else {
-        merged.push({ ...hiddenCard, sort_order: merged.length * 10 + 10 });
-      }
-    }
-    return merged;
+    return Array.from(brands.values()).sort((left, right) => left.label.localeCompare(right.label));
   };
-  const productFamilyOptions = (selectedKey) => {
-    const families = catalogProductFamilies().filter((family) => family.rows.some((row) => !isSyrupCatalogRow(row)) && !familySplitsByFlavor(family));
+  const productFamiliesForBrand = (brandKey = '') => catalogProductFamilies()
+    .filter((family) => !brandKey || family.rows.some((row) => catalogBrandKey(row) === brandKey));
+  const productFamilyOptions = (selectedKey, brandKey = '') => {
+    const families = productFamiliesForBrand(brandKey);
     const hasSelected = families.some((family) => family.key === selectedKey);
     const options = families.map((family) => (
       `<option value="${escapeHtml(family.key)}"${family.key === selectedKey ? ' selected' : ''}>${escapeHtml(family.label)} (${family.rows.length} SKU${family.rows.length === 1 ? '' : 's'})</option>`
     ));
     if (selectedKey && !hasSelected) options.unshift(`<option value="${escapeHtml(selectedKey)}" selected>${escapeHtml(selectedKey)}</option>`);
-    return `<option value="">Choose SKU DB product</option>${options.join('')}`;
+    return `<option value="">All products</option>${options.join('')}`;
+  };
+  const productFlavorsForFamily = (familyKey) => {
+    const rows = catalogRows().filter((row) => productFamilyKey(row) === familyKey);
+    const flavors = new Map();
+    for (const row of rows) {
+      const key = productFlavorKey(row);
+      if (!flavors.has(key)) flavors.set(key, { key, label: productFlavorLabel(row), rows: [] });
+      flavors.get(key).rows.push(row);
+    }
+    return Array.from(flavors.values()).sort((left, right) => left.label.localeCompare(right.label));
+  };
+  const productFlavorOptions = (familyKey, selectedKey) => {
+    const flavors = productFlavorsForFamily(familyKey);
+    const options = flavors.map((flavor) => (
+      `<option value="${escapeHtml(flavor.key)}"${flavor.key === selectedKey ? ' selected' : ''}>${escapeHtml(flavor.label)} (${flavor.rows.length} SKU${flavor.rows.length === 1 ? '' : 's'})</option>`
+    ));
+    if (selectedKey && !flavors.some((flavor) => flavor.key === selectedKey)) options.unshift(`<option value="${escapeHtml(selectedKey)}" selected>${escapeHtml(selectedKey)}</option>`);
+    return `<option value="">Choose flavor</option>${options.join('')}`;
   };
   const matchModeOptions = (selectedMode) => [
-    ['auto_syrup', 'Syrup volumes'],
-    ['auto_product', 'SKU DB product'],
-    ['auto_product_flavor', 'SKU DB product flavor'],
     ['manual', 'Selected SKUs'],
+    ['auto_product', 'Whole SKU DB product'],
+    ['auto_product_flavor', 'Whole product flavor'],
+    ['auto_syrup', 'Syrup volumes'],
     ['legacy', 'Old sheet total']
   ].map(([value, label]) => `<option value="${value}"${value === selectedMode ? ' selected' : ''}>${label}</option>`).join('');
   const variantModeOptions = (selectedMode) => [
@@ -1185,109 +1356,377 @@ if (root) {
     ['flavor', 'Flavor rows'],
     ['sku', 'SKU rows']
   ].map(([value, label]) => `<option value="${value}"${value === selectedMode ? ' selected' : ''}>${label}</option>`).join('');
-  const newProductCardDraft = () => {
-    const draft = productCards(true).map(cloneProductCard);
-    const used = new Set(draft.map(productCardSignature));
-    const family = catalogProductFamilies()
-      .filter((candidate) => candidate.rows.some((row) => !isSyrupCatalogRow(row)) && !familySplitsByFlavor(candidate))
-      .find((candidate) => !used.has(`auto_product|${candidate.key}`));
-    if (family) {
-      return normalizeProductCard({
-        id: 0,
-        card_key: `auto_product_${family.key}`,
-        label: family.label,
-        match_mode: 'auto_product',
-        match_value: family.key,
-        variant_mode: autoVariantModeForRows(family.rows),
-        sku_codes: [],
-        is_visible: true
-      });
+  const newProductCardDraft = () => normalizeProductCard({
+    id: 0,
+    card_key: `manual_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+    label: 'New SKU card',
+    match_mode: 'manual',
+    match_value: '',
+    variant_mode: 'sku',
+    sku_codes: [],
+    is_visible: true,
+    touched: true
+  });
+  const sameStringList = (left = [], right = []) => left.length === right.length && left.every((value, index) => value === right[index]);
+  const layoutHasNoCustomRowLabels = (layout) => Object.keys(normalizeProductCardLayout(layout).row_labels).length === 0;
+  const isPristineGeneratedProductCard = (card) => {
+    if (!card.generated || card.touched || number(card.id) > 0) return false;
+    const defaultCard = defaultProductCards().find((candidate) => productCardSignature(candidate) === productCardSignature(card));
+    if (!defaultCard) return false;
+    const layout = normalizeProductCardLayout(card.layout);
+    const defaultRowOrder = baseVariantDefinitionsForCard(defaultCard).map((row) => row.key);
+    const orderIsDefault = layout.row_order.length === 0 || sameStringList(layout.row_order, defaultRowOrder);
+    return card.label === defaultCard.label
+      && card.match_mode === defaultCard.match_mode
+      && card.match_value === defaultCard.match_value
+      && card.variant_mode === defaultCard.variant_mode
+      && card.is_visible === defaultCard.is_visible
+      && sameStringList(card.sku_codes, defaultCard.sku_codes)
+      && orderIsDefault
+      && layout.hidden_rows.length === 0
+      && layout.hidden_metrics.length === 0
+      && layout.metric_order.length === 0
+      && layoutHasNoCustomRowLabels(layout)
+      && Object.keys(layout.metric_labels).length === 0;
+  };
+  const productCardDraftKey = (card, index = 0) => [
+    number(card.id),
+    card.card_key || productCardSignature(card) || `card_${index}`,
+    index
+  ].join(':');
+  const collectProductCardFilterState = () => {
+    if (!refs.productCardList) return;
+    refs.productCardList.querySelectorAll('[data-pl-product-card-row]').forEach((row) => {
+      const key = row.dataset.plProductCardDraftKey || '';
+      if (!key) return;
+      state.productCardFilters[key] = {
+        brand: row.querySelector('[data-pl-sku-filter-brand]')?.value || '',
+        product: row.querySelector('[data-pl-sku-filter-product]')?.value || '',
+        search: row.querySelector('[data-pl-sku-filter-search]')?.value || ''
+      };
+    });
+  };
+  const productCardFilterValues = (card, index) => {
+    const key = productCardDraftKey(card, index);
+    return {
+      brand: state.productCardFilters[key]?.brand || '',
+      product: state.productCardFilters[key]?.product || '',
+      search: state.productCardFilters[key]?.search || ''
+    };
+  };
+  const filteredCatalogSkuRows = (filters = {}) => {
+    const query = cleanText(filters.search, '').toLowerCase();
+    return catalogRows()
+      .filter((row) => !filters.brand || catalogBrandKey(row) === filters.brand)
+      .filter((row) => !filters.product || productFamilyKey(row) === filters.product)
+      .filter((row) => !query || skuSearchText(row).includes(query))
+      .slice()
+      .sort((left, right) => catalogOptionLabel(left).localeCompare(catalogOptionLabel(right)));
+  };
+  const selectedSkuRows = (selectedCodes) => {
+    const selected = new Set(selectedCodes.map((sku) => String(sku).toUpperCase()).filter(Boolean));
+    const rows = catalogRows().filter((row) => selected.has(skuCodeForRow(row)));
+    const known = new Set(rows.map(skuCodeForRow));
+    const unknown = Array.from(selected).filter((sku) => !known.has(sku)).map((sku) => ({ sku, label: sku, unknown: true }));
+    return [
+      ...rows.sort((left, right) => catalogOptionLabel(left).localeCompare(catalogOptionLabel(right))),
+      ...unknown
+    ];
+  };
+  const cardSelectedSkuCodes = (card) => card.match_mode === 'manual'
+    ? uniqueSkuCodes(card.sku_codes)
+    : uniqueSkuCodes(cardCatalogRows(card).map(skuCodeForRow));
+  const renderProductCardSkuPicker = (card, index) => {
+    const filters = productCardFilterValues(card, index);
+    const manual = card.match_mode === 'manual';
+    const rows = filteredCatalogSkuRows(filters);
+    const selectedCodes = cardSelectedSkuCodes(card);
+    const selected = new Set(selectedCodes);
+    const visibleCodes = new Set(rows.map(skuCodeForRow));
+    const selectedRows = selectedSkuRows(selectedCodes);
+    const brands = catalogBrands().map((brand) => (
+      `<option value="${escapeHtml(brand.key)}"${brand.key === filters.brand ? ' selected' : ''}>${escapeHtml(brand.label)} (${brand.rows.length})</option>`
+    )).join('');
+    const skuTiles = rows.length ? rows.map((row) => {
+      const sku = skuCodeForRow(row);
+      return `
+        <label class="pl-sku-tile${selected.has(sku) ? ' is-selected' : ''}">
+          <input type="checkbox" data-pl-product-card-sku-check value="${escapeHtml(sku)}"${selected.has(sku) ? ' checked' : ''}${manual ? '' : ' disabled'}>
+          <span>
+            <strong>${escapeHtml(row.product_name || row.base_product_name || row.sku)}</strong>
+            <small>${escapeHtml([sku, catalogBrandLabel(row), row.flavor_name, volumeUnitLabel(row), row.tag].filter(Boolean).join(' · '))}</small>
+          </span>
+        </label>`;
+    }).join('') : '<p class="pl-empty">No SKU DB rows match these filters.</p>';
+    const chips = selectedRows.length ? selectedRows.map((row) => {
+      const sku = skuCodeForRow(row);
+      const label = row.unknown ? row.label : catalogOptionLabel(row);
+      return `
+        <button type="button" class="pl-sku-chip${visibleCodes.has(sku) ? '' : ' is-offscreen'}" data-pl-selected-sku="${escapeHtml(sku)}" data-pl-remove-product-card-sku="${escapeHtml(sku)}"${manual ? '' : ' disabled'}>
+          <strong>${escapeHtml(sku)}</strong><span>${escapeHtml(label.replace(sku, '').replace(/^ · /, '') || 'Selected SKU')}</span>
+        </button>`;
+    }).join('') : '<p class="pl-empty">No SKUs selected yet.</p>';
+    return `
+      <div class="pl-sku-builder${manual ? '' : ' is-readonly'}">
+        <div class="pl-sku-filter-grid">
+          <label><span>Company</span><select data-pl-sku-filter-brand><option value="">All companies</option>${brands}</select></label>
+          <label><span>Product</span><select data-pl-sku-filter-product>${productFamilyOptions(filters.product, filters.brand)}</select></label>
+          <label><span>Find SKU</span><input type="search" data-pl-sku-filter-search value="${escapeHtml(filters.search)}" placeholder="Search SKU, TAG, flavor, unit"></label>
+        </div>
+        <div class="pl-sku-picker-actions">
+          <span>${selectedCodes.length} selected · ${rows.length} showing</span>
+          <button type="button" data-pl-sku-select-visible${manual ? '' : ' disabled'}>Select shown</button>
+          <button type="button" data-pl-sku-clear-visible${manual ? '' : ' disabled'}>Clear shown</button>
+          <button type="button" data-pl-sku-clear-all${manual ? '' : ' disabled'}>Clear all</button>
+        </div>
+        ${manual ? '' : '<p class="pl-sku-readonly-note">Switch coverage mode to Selected SKUs to choose individual SKU rows.</p>'}
+        <div class="pl-sku-picker-grid">${skuTiles}</div>
+        <div class="pl-selected-sku-list">${chips}</div>
+      </div>`;
+  };
+  const renderProductCardRowEditor = (card) => {
+    const rows = variantDefinitionsForCard(card, true);
+    if (!rows.length) {
+      return '<p class="pl-empty">Preview rows will appear after SKUs match this card.</p>';
     }
-    return normalizeProductCard({
-      id: 0,
-      card_key: `manual_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
-      label: 'New product card',
-      match_mode: 'manual',
-      match_value: '',
-      variant_mode: 'sku',
-      sku_codes: [],
-      is_visible: true
+    return `
+      <div class="pl-preview-row-editor">
+        ${rows.map((row, index) => `
+          <div class="pl-preview-row${row.is_hidden ? ' is-hidden' : ''}" draggable="true" data-pl-variant-row data-pl-variant-row-key="${escapeHtml(row.key)}">
+            <button type="button" class="pl-preview-row-drag" data-pl-variant-row-drag aria-label="Drag preview row">Drag</button>
+            <input data-pl-variant-row-label data-pl-variant-original-label="${escapeHtml(row.originalLabel || row.label)}" value="${escapeHtml(row.label)}" maxlength="120">
+            <div class="pl-preview-row-actions">
+              <button type="button" data-pl-variant-row-move="-1" ${index === 0 ? 'disabled' : ''}>Up</button>
+              <button type="button" data-pl-variant-row-move="1" ${index === rows.length - 1 ? 'disabled' : ''}>Down</button>
+              <button type="button" data-pl-variant-row-reset-label>Reset</button>
+              <label><input type="checkbox" data-pl-variant-row-visible ${row.is_hidden ? '' : 'checked'}> Visible</label>
+            </div>
+          </div>
+        `).join('')}
+      </div>`;
+  };
+  const renderProductCardMetricEditor = (card) => {
+    const metrics = productMetricsForCard(card, true);
+    return `
+      <div class="pl-preview-metric-editor">
+        ${metrics.map((metric, index) => `
+          <div class="pl-preview-metric-row${metric.is_hidden ? ' is-hidden' : ''}" draggable="true" data-pl-metric-panel-row data-pl-metric-panel-key="${escapeHtml(metric.key)}">
+            <button type="button" class="pl-preview-row-drag" data-pl-metric-panel-drag aria-label="Drag metric panel">Drag</button>
+            <input data-pl-metric-panel-label data-pl-metric-panel-original-label="${escapeHtml(metric.originalLabel || metric.label)}" value="${escapeHtml(metric.label)}" maxlength="80">
+            <div class="pl-preview-row-actions">
+              <button type="button" data-pl-metric-panel-move="-1" ${index === 0 ? 'disabled' : ''}>Up</button>
+              <button type="button" data-pl-metric-panel-move="1" ${index === metrics.length - 1 ? 'disabled' : ''}>Down</button>
+              <button type="button" data-pl-metric-panel-reset-label>Reset</button>
+              <label><input type="checkbox" data-pl-metric-panel-visible ${metric.is_hidden ? '' : 'checked'}> Visible</label>
+            </div>
+          </div>
+        `).join('')}
+      </div>`;
+  };
+  const renderProductCardDraftPreview = (card) => {
+    const matrix = productCardMatrix(card);
+    const metrics = productMetricsForCard(card);
+    const skuCount = card.match_mode === 'manual' ? card.sku_codes.length : cardCatalogRows(card).length;
+    return `
+      <div class="pl-product-card-preview">
+        <div class="pl-product-preview-head">
+          <span>Live preview</span>
+          <strong>${matrix.variants.length} row${matrix.variants.length === 1 ? '' : 's'} · ${metrics.length} metric${metrics.length === 1 ? '' : 's'} · ${skuCount} SKU${skuCount === 1 ? '' : 's'}</strong>
+        </div>
+        ${renderProductCardMetricEditor(card)}
+        ${renderProductCardRowEditor(card)}
+        ${matrix.variants.length && metrics.length ? `<div class="pl-product-preview-grid">${metrics.map((metric) => renderProductMetricCard(metric, matrix)).join('')}</div>` : `<p class="pl-empty">${matrix.variants.length ? 'No visible metric panels.' : 'Select at least one SKU to preview this card.'}</p>`}
+      </div>`;
+  };
+  const collectProductCardLayout = (row) => {
+    const rowOrder = [];
+    const rowLabels = {};
+    const hiddenRows = [];
+    const metricOrder = [];
+    const metricLabels = {};
+    const hiddenMetrics = [];
+    row.querySelectorAll('[data-pl-variant-row]').forEach((variantRow) => {
+      const key = cleanText(variantRow.dataset.plVariantRowKey || '', '');
+      if (!key) return;
+      rowOrder.push(key);
+      const labelInput = variantRow.querySelector('[data-pl-variant-row-label]');
+      const label = cleanText(labelInput?.value || '', '');
+      const originalLabel = cleanText(labelInput?.dataset.plVariantOriginalLabel || '', '');
+      if (label && label !== originalLabel) rowLabels[key] = label;
+      if (!variantRow.querySelector('[data-pl-variant-row-visible]')?.checked) hiddenRows.push(key);
+    });
+    row.querySelectorAll('[data-pl-metric-panel-row]').forEach((metricRow) => {
+      const key = cleanText(metricRow.dataset.plMetricPanelKey || '', '');
+      if (!key) return;
+      metricOrder.push(key);
+      const labelInput = metricRow.querySelector('[data-pl-metric-panel-label]');
+      const label = cleanText(labelInput?.value || '', '');
+      const originalLabel = cleanText(labelInput?.dataset.plMetricPanelOriginalLabel || '', '');
+      if (label && label !== originalLabel) metricLabels[key] = label;
+      if (!metricRow.querySelector('[data-pl-metric-panel-visible]')?.checked) hiddenMetrics.push(key);
+    });
+    return normalizeProductCardLayout({
+      row_order: rowOrder,
+      row_labels: rowLabels,
+      hidden_rows: hiddenRows,
+      metric_order: metricOrder,
+      metric_labels: metricLabels,
+      hidden_metrics: hiddenMetrics
     });
   };
   const renderProductCardSettings = () => {
     const draft = Array.isArray(state.draftProductCards) ? state.draftProductCards : productCards(true).map(cloneProductCard);
     refs.productCardList.innerHTML = draft.map((card, index) => {
-      const selectedCodes = card.match_mode === 'manual'
-        ? card.sku_codes
-        : cardCatalogRows(card).map((row) => String(row.sku || '').toUpperCase()).filter(Boolean);
-      const skuOptions = card.match_mode === 'manual'
-        ? renderSkuOptions(selectedCodes)
-        : renderSelectedSkuOptions(selectedCodes);
+      const flavorParts = parseFlavorMatchValue(card.match_mode === 'auto_product_flavor' ? card.match_value : '');
+      const matchFamilyValue = card.match_mode === 'auto_product_flavor' ? flavorParts.familyKey : card.match_value;
+      const draftKey = productCardDraftKey(card, index);
+      const hiddenClass = card.is_visible === false ? ' is-hidden' : '';
+      const selectedCount = cardSelectedSkuCodes(card).length;
       return `
-        <section class="pl-config-row" data-pl-product-card-row>
+        <section class="pl-config-row pl-product-config-row${hiddenClass}" data-pl-product-card-row data-pl-product-card-index="${index}" data-pl-product-card-draft-key="${escapeHtml(draftKey)}" data-pl-product-card-key-value="${escapeHtml(card.card_key)}" data-pl-product-card-generated="${card.generated ? '1' : '0'}" data-pl-product-card-touched="${card.touched ? '1' : '0'}">
           <input type="hidden" data-pl-product-card-id value="${number(card.id)}">
           <input type="hidden" data-pl-product-card-key value="${escapeHtml(card.card_key)}">
           <input type="hidden" data-pl-product-card-match-value value="${escapeHtml(card.match_value || '')}">
           <div class="pl-config-row-head">
-            <strong>${escapeHtml(card.label || `Product card ${index + 1}`)}</strong>
-            <label><input type="checkbox" data-pl-product-card-visible ${card.is_visible !== false ? 'checked' : ''}> Visible</label>
+            <div class="pl-config-row-title">
+              <button type="button" class="pl-card-drag-handle" draggable="true" data-pl-product-card-drag aria-label="Drag card">Drag</button>
+              <span><strong>${escapeHtml(card.label || `Product card ${index + 1}`)}</strong><small>${selectedCount} SKU${selectedCount === 1 ? '' : 's'} · ${escapeHtml(card.match_mode.replace(/_/g, ' '))}</small></span>
+            </div>
+            <div class="pl-config-row-actions">
+              <button type="button" data-pl-product-card-move="-1" ${index === 0 ? 'disabled' : ''}>Up</button>
+              <button type="button" data-pl-product-card-move="1" ${index === draft.length - 1 ? 'disabled' : ''}>Down</button>
+              <button type="button" data-pl-product-card-hide>${card.is_visible === false ? 'Show' : 'Hide'}</button>
+              <button type="button" class="is-danger" data-pl-product-card-delete>Delete</button>
+              <label><input type="checkbox" data-pl-product-card-visible ${card.is_visible !== false ? 'checked' : ''}> Visible</label>
+            </div>
           </div>
           <div class="pl-form-grid pl-settings-grid pl-product-settings-grid">
             <label><span>Name</span><input data-pl-product-card-label maxlength="120" value="${escapeHtml(card.label || '')}" required></label>
-            <label><span>Card source</span><select data-pl-product-card-mode>${matchModeOptions(card.match_mode)}</select></label>
-            <label><span>SKU DB product</span><select data-pl-product-card-match ${card.match_mode === 'auto_product' ? '' : 'disabled'}>${productFamilyOptions(card.match_value)}</select></label>
+            <label><span>Coverage mode</span><select data-pl-product-card-mode>${matchModeOptions(card.match_mode)}</select></label>
+            <label><span>SKU DB product</span><select data-pl-product-card-match ${['auto_product', 'auto_product_flavor'].includes(card.match_mode) ? '' : 'disabled'}>${productFamilyOptions(matchFamilyValue)}</select></label>
+            <label><span>Flavor</span><select data-pl-product-card-flavor ${card.match_mode === 'auto_product_flavor' ? '' : 'disabled'}>${productFlavorOptions(matchFamilyValue, flavorParts.flavorKey)}</select></label>
             <label><span>Rows on left</span><select data-pl-product-card-variant ${card.match_mode === 'legacy' ? 'disabled' : ''}>${variantModeOptions(card.variant_mode)}</select></label>
-            <label class="is-wide"><span>Selected SKUs</span><select data-pl-product-card-skus multiple size="8" ${card.match_mode === 'manual' ? '' : 'disabled'}>${skuOptions}</select></label>
           </div>
+          ${renderProductCardSkuPicker(card, index)}
+          ${renderProductCardDraftPreview(card)}
         </section>`;
     }).join('');
   };
   const collectProductCardSettings = () => Array.from(refs.productCardList.querySelectorAll('[data-pl-product-card-row]')).map((row) => {
     const mode = row.querySelector('[data-pl-product-card-mode]')?.value || 'manual';
-    const skuSelect = row.querySelector('[data-pl-product-card-skus]');
-    const existingMatchValue = row.querySelector('[data-pl-product-card-match-value]')?.value || '';
+    const visibleSkuCodes = new Set(Array.from(row.querySelectorAll('[data-pl-product-card-sku-check]')).map((input) => String(input.value || '').toUpperCase()));
+    const checkedSkuCodes = Array.from(row.querySelectorAll('[data-pl-product-card-sku-check]:checked')).map((input) => input.value);
+    const hiddenSelectedSkuCodes = Array.from(row.querySelectorAll('[data-pl-selected-sku]'))
+      .map((element) => element.dataset.plSelectedSku || '')
+      .filter((sku) => !visibleSkuCodes.has(String(sku).toUpperCase()));
+    const productValue = row.querySelector('[data-pl-product-card-match]')?.value || '';
+    const flavorValue = row.querySelector('[data-pl-product-card-flavor]')?.value || productFlavorsForFamily(productValue)[0]?.key || '';
     return normalizeProductCard({
       id: number(row.querySelector('[data-pl-product-card-id]')?.value),
       card_key: row.querySelector('[data-pl-product-card-key]')?.value || '',
       label: row.querySelector('[data-pl-product-card-label]')?.value || '',
       match_mode: mode,
       match_value: mode === 'auto_product'
-        ? (row.querySelector('[data-pl-product-card-match]')?.value || '')
-        : (mode === 'auto_product_flavor' ? existingMatchValue : ''),
+        ? productValue
+        : (mode === 'auto_product_flavor' ? flavorMatchValue(productValue, flavorValue) : ''),
       variant_mode: mode === 'legacy' ? 'sku' : (row.querySelector('[data-pl-product-card-variant]')?.value || 'auto'),
-      sku_codes: mode === 'manual' ? Array.from(skuSelect?.selectedOptions || []).map((option) => option.value) : [],
-      is_visible: row.querySelector('[data-pl-product-card-visible]')?.checked || false
+      sku_codes: mode === 'manual' ? uniqueSkuCodes([...checkedSkuCodes, ...hiddenSelectedSkuCodes]) : [],
+      layout: collectProductCardLayout(row),
+      is_visible: row.querySelector('[data-pl-product-card-visible]')?.checked || false,
+      generated: row.dataset.plProductCardGenerated === '1',
+      touched: row.dataset.plProductCardTouched === '1'
     });
   });
   const openProductCardSettings = (options = {}) => {
     const cards = productCards(true).map(cloneProductCard);
+    state.productCardFilters = {};
+    state.deletedProductCards = [];
     if (options.addNew) {
       state.draftProductCards = [newProductCardDraft()];
       refs.productCardTitle.textContent = 'New product card';
     } else {
-      const card = cards.find((row) => row.card_key === options.cardKey) || cards[0] || newProductCardDraft();
-      state.draftProductCards = [cloneProductCard(card)];
-      refs.productCardTitle.textContent = `${card.label} settings`;
+      state.draftProductCards = cards.length ? cards : [newProductCardDraft()];
+      refs.productCardTitle.textContent = 'Product card studio';
     }
     refs.productCardError.hidden = true;
     renderProductCardSettings();
     refs.productCardModal.hidden = false;
+    if (options.cardKey) {
+      const row = Array.from(refs.productCardList.querySelectorAll('[data-pl-product-card-row]'))
+        .find((candidate) => candidate.dataset.plProductCardKeyValue === options.cardKey);
+      row?.scrollIntoView({ block: 'center' });
+    }
   };
   const hydrateProductCardDrafts = () => {
-    const families = catalogProductFamilies().filter((family) => family.rows.some((row) => !isSyrupCatalogRow(row)) && !familySplitsByFlavor(family));
+    const families = catalogProductFamilies();
     state.draftProductCards = (Array.isArray(state.draftProductCards) ? state.draftProductCards : []).map((card) => {
       if (card.match_mode === 'auto_product' && !card.match_value && families.length) {
         return {
           ...card,
-          label: card.label === 'New product card' ? families[0].label : card.label,
+          label: card.label === 'New SKU card' ? families[0].label : card.label,
           match_value: families[0].key,
           variant_mode: card.variant_mode === 'sku' ? autoVariantModeForRows(families[0].rows) : card.variant_mode
         };
       }
-      if (card.match_mode === 'auto_syrup' && card.label === 'New product card') return { ...card, label: 'Syrup', variant_mode: 'volume' };
-      if (card.match_mode === 'legacy' && card.label === 'New product card') return { ...card, label: 'Old spreadsheet total', variant_mode: 'sku' };
+      if (card.match_mode === 'auto_product_flavor') {
+        const parsed = parseFlavorMatchValue(card.match_value);
+        const familyKey = parsed.familyKey || families[0]?.key || '';
+        const flavors = productFlavorsForFamily(familyKey);
+        const flavorKey = parsed.flavorKey || flavors[0]?.key || '';
+        const familyLabel = families.find((family) => family.key === familyKey)?.label || '';
+        const flavorLabel = flavors.find((flavor) => flavor.key === flavorKey)?.label || '';
+        return {
+          ...card,
+          label: card.label === 'New SKU card' ? [familyLabel, flavorLabel].filter(Boolean).join(' ') : card.label,
+          match_value: familyKey ? flavorMatchValue(familyKey, flavorKey) : '',
+          variant_mode: card.variant_mode === 'sku' ? 'volume' : card.variant_mode
+        };
+      }
+      if (card.match_mode === 'auto_syrup' && card.label === 'New SKU card') return { ...card, label: 'Syrup', variant_mode: 'volume' };
+      if (card.match_mode === 'legacy' && card.label === 'New SKU card') return { ...card, label: 'Old spreadsheet total', variant_mode: 'sku' };
       return card;
     });
+  };
+
+  const renderSyrupSettings = () => {
+    const draft = Array.isArray(state.draftSyrupGroups) ? state.draftSyrupGroups : syrupGroups(true).map(cloneGroup);
+    refs.syrupSettingsList.innerHTML = draft.map((group, index) => {
+      const selectedCodes = group.assignment_mode === 'manual' ? group.sku_codes : autoSyrupSkusForGroup(group);
+      return `
+        <section class="pl-config-row" data-pl-syrup-row>
+          <input type="hidden" data-pl-syrup-id value="${number(group.id)}">
+          <div class="pl-config-row-head">
+            <strong>${escapeHtml(group.label || `Volume ${index + 1}`)}</strong>
+            <label><input type="checkbox" data-pl-syrup-visible ${group.is_visible !== false ? 'checked' : ''}> Visible</label>
+          </div>
+          <div class="pl-form-grid pl-settings-grid">
+            <label><span>Name</span><input data-pl-syrup-label maxlength="80" value="${escapeHtml(group.label || '')}" required></label>
+            <label><span>Volume ml</span><input data-pl-syrup-volume inputmode="decimal" value="${group.volume_ml ? escapeHtml(group.volume_ml) : ''}" placeholder="50"></label>
+            <label><span>Assignment</span><select data-pl-syrup-mode><option value="auto"${group.assignment_mode !== 'manual' ? ' selected' : ''}>Auto</option><option value="manual"${group.assignment_mode === 'manual' ? ' selected' : ''}>Manual</option></select></label>
+            <label class="is-wide"><span>SKUs</span><select data-pl-syrup-skus multiple size="7" ${group.assignment_mode === 'manual' ? '' : 'disabled'}>${renderSkuOptions(selectedCodes)}</select></label>
+          </div>
+        </section>`;
+    }).join('');
+  };
+
+  const collectSyrupSettings = () => Array.from(refs.syrupSettingsList.querySelectorAll('[data-pl-syrup-row]')).map((row) => {
+    const mode = row.querySelector('[data-pl-syrup-mode]')?.value === 'manual' ? 'manual' : 'auto';
+    const skuSelect = row.querySelector('[data-pl-syrup-skus]');
+    return {
+      id: number(row.querySelector('[data-pl-syrup-id]')?.value),
+      label: row.querySelector('[data-pl-syrup-label]')?.value || '',
+      volume_ml: inputNumber(row.querySelector('[data-pl-syrup-volume]')?.value || ''),
+      assignment_mode: mode,
+      sku_codes: mode === 'manual' ? Array.from(skuSelect?.selectedOptions || []).map((option) => option.value) : [],
+      is_visible: row.querySelector('[data-pl-syrup-visible]')?.checked || false
+    };
+  });
+
+  const openSyrupSettings = () => {
+    state.draftSyrupGroups = syrupGroups(true).map(cloneGroup);
+    refs.syrupSettingsError.hidden = true;
+    renderSyrupSettings();
+    refs.syrupSettingsModal.hidden = false;
   };
 
   const metricOptions = (selectedKey) => metricDefinitions.map((definition) => (
@@ -1338,6 +1777,10 @@ if (root) {
     state.year = number(refs.year.value);
     load();
   });
+  refs.month.addEventListener('change', () => {
+    state.month = number(refs.month.value);
+    render();
+  });
   refs.search.addEventListener('input', () => {
     state.search = refs.search.value;
     renderLedger();
@@ -1347,6 +1790,10 @@ if (root) {
     const button = event.target.closest('[data-pl-edit-sku]');
     if (button) openSkuModal(button.dataset.plEditSku || '');
   });
+  refs.productCards?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-pl-edit-product-card]');
+    if (button) openProductCardSettings({ cardKey: button.dataset.plEditProductCard || '' });
+  });
   refs.entrySections.addEventListener('click', (event) => {
     const button = event.target.closest('[data-pl-edit-entry]');
     if (!button) return;
@@ -1354,17 +1801,15 @@ if (root) {
     if (entry) openEntryModal(entry);
   });
   root.querySelector('[data-pl-add-entry]').addEventListener('click', () => openEntryModal());
-  refs.addProductCard.addEventListener('click', () => openProductCardSettings({ addNew: true }));
-  refs.productCards.addEventListener('click', (event) => {
-    const button = event.target.closest('[data-pl-edit-product-card]');
-    if (button) openProductCardSettings({ cardKey: button.dataset.plEditProductCard || '' });
-  });
+  refs.addProductCard?.addEventListener('click', () => openProductCardSettings({ addNew: true }));
+  root.querySelector('[data-pl-edit-syrup-settings]').addEventListener('click', openSyrupSettings);
   root.querySelector('[data-pl-edit-metrics]').addEventListener('click', openMetricsSettings);
 
   root.querySelectorAll('[data-pl-close-sku]').forEach((element) => element.addEventListener('click', () => closeModal(refs.skuModal)));
   root.querySelectorAll('[data-pl-close-entry]').forEach((element) => element.addEventListener('click', () => closeModal(refs.entryModal)));
   root.querySelectorAll('[data-pl-close-allocation]').forEach((element) => element.addEventListener('click', () => closeModal(refs.allocationModal)));
   root.querySelectorAll('[data-pl-close-product-cards]').forEach((element) => element.addEventListener('click', () => closeModal(refs.productCardModal)));
+  root.querySelectorAll('[data-pl-close-syrup-settings]').forEach((element) => element.addEventListener('click', () => closeModal(refs.syrupSettingsModal)));
   root.querySelectorAll('[data-pl-close-metrics]').forEach((element) => element.addEventListener('click', () => closeModal(refs.metricsModal)));
 
   refs.skuForm.addEventListener('submit', async (event) => {
@@ -1454,50 +1899,434 @@ if (root) {
     }
   });
 
-  refs.productCardList.addEventListener('change', (event) => {
-    if (!event.target.matches('[data-pl-product-card-mode], [data-pl-product-card-match], [data-pl-product-card-variant]')) return;
+  const syncProductCardDrafts = () => {
+    collectProductCardFilterState();
     state.draftProductCards = collectProductCardSettings();
     hydrateProductCardDrafts();
+  };
+  const markProductCardTouched = (row) => {
+    if (row) row.dataset.plProductCardTouched = '1';
+  };
+  const focusProductCardField = (draftKey, selector, value = '') => {
+    window.requestAnimationFrame(() => {
+      const row = Array.from(refs.productCardList?.querySelectorAll('[data-pl-product-card-row]') || [])
+        .find((candidate) => candidate.dataset.plProductCardDraftKey === draftKey);
+      const field = row?.querySelector(selector);
+      if (!field) return;
+      field.focus();
+      if (typeof field.setSelectionRange === 'function') {
+        const position = String(value).length;
+        field.setSelectionRange(position, position);
+      }
+    });
+  };
+  const focusVariantRowLabel = (draftKey, rowKey, value = '') => {
+    window.requestAnimationFrame(() => {
+      const cardRow = Array.from(refs.productCardList?.querySelectorAll('[data-pl-product-card-row]') || [])
+        .find((candidate) => candidate.dataset.plProductCardDraftKey === draftKey);
+      const variantRow = Array.from(cardRow?.querySelectorAll('[data-pl-variant-row]') || [])
+        .find((candidate) => candidate.dataset.plVariantRowKey === rowKey);
+      const field = variantRow?.querySelector('[data-pl-variant-row-label]');
+      if (!field) return;
+      field.focus();
+      if (typeof field.setSelectionRange === 'function') {
+        const position = String(value).length;
+        field.setSelectionRange(position, position);
+      }
+    });
+  };
+  const focusMetricPanelLabel = (draftKey, metricKey, value = '') => {
+    window.requestAnimationFrame(() => {
+      const cardRow = Array.from(refs.productCardList?.querySelectorAll('[data-pl-product-card-row]') || [])
+        .find((candidate) => candidate.dataset.plProductCardDraftKey === draftKey);
+      const metricRow = Array.from(cardRow?.querySelectorAll('[data-pl-metric-panel-row]') || [])
+        .find((candidate) => candidate.dataset.plMetricPanelKey === metricKey);
+      const field = metricRow?.querySelector('[data-pl-metric-panel-label]');
+      if (!field) return;
+      field.focus();
+      if (typeof field.setSelectionRange === 'function') {
+        const position = String(value).length;
+        field.setSelectionRange(position, position);
+      }
+    });
+  };
+  const moveProductCardDraft = (fromIndex, toIndex) => {
+    const draft = Array.isArray(state.draftProductCards) ? [...state.draftProductCards] : [];
+    if (fromIndex < 0 || fromIndex >= draft.length || toIndex < 0 || toIndex >= draft.length || fromIndex === toIndex) return;
+    const [card] = draft.splice(fromIndex, 1);
+    draft.splice(toIndex, 0, card);
+    state.draftProductCards = draft;
+    renderProductCardSettings();
+  };
+  const deleteProductCardDraft = (index) => {
+    const draft = Array.isArray(state.draftProductCards) ? [...state.draftProductCards] : [];
+    const card = draft[index];
+    if (!card) return;
+    const deletion = {
+      id: number(card.id),
+      card_key: card.card_key || ''
+    };
+    if (card.generated && deletion.id <= 0) {
+      deletion.hidden_card = {
+        ...cloneProductCard(card),
+        is_visible: false,
+        touched: true
+      };
+    }
+    if (deletion.id > 0 || deletion.card_key) state.deletedProductCards.push(deletion);
+    draft.splice(index, 1);
+    state.draftProductCards = draft.length ? draft : [newProductCardDraft()];
+    renderProductCardSettings();
+  };
+  const moveProductCardVariantDraft = (cardIndex, fromKey, toKey) => {
+    const card = state.draftProductCards?.[cardIndex];
+    if (!card || !fromKey || !toKey || fromKey === toKey) return;
+    const orderedKeys = variantDefinitionsForCard(card, true).map((variant) => variant.key);
+    const fromIndex = orderedKeys.indexOf(fromKey);
+    const toIndex = orderedKeys.indexOf(toKey);
+    if (fromIndex < 0 || toIndex < 0) return;
+    const [key] = orderedKeys.splice(fromIndex, 1);
+    orderedKeys.splice(toIndex, 0, key);
+    card.layout = normalizeProductCardLayout({
+      ...card.layout,
+      row_order: orderedKeys
+    });
+    renderProductCardSettings();
+  };
+  const moveProductCardMetricDraft = (cardIndex, fromKey, toKey) => {
+    const card = state.draftProductCards?.[cardIndex];
+    if (!card || !fromKey || !toKey || fromKey === toKey) return;
+    const orderedKeys = productMetricsForCard(card, true).map((metric) => metric.key);
+    const fromIndex = orderedKeys.indexOf(fromKey);
+    const toIndex = orderedKeys.indexOf(toKey);
+    if (fromIndex < 0 || toIndex < 0) return;
+    const [key] = orderedKeys.splice(fromIndex, 1);
+    orderedKeys.splice(toIndex, 0, key);
+    card.layout = normalizeProductCardLayout({
+      ...card.layout,
+      metric_order: orderedKeys
+    });
+    renderProductCardSettings();
+  };
+
+  refs.productCardList?.addEventListener('input', (event) => {
+    if (!event.target.matches('[data-pl-sku-filter-search], [data-pl-variant-row-label], [data-pl-metric-panel-label]')) return;
+    const row = event.target.closest('[data-pl-product-card-row]');
+    const draftKey = row?.dataset.plProductCardDraftKey || '';
+    const value = event.target.value || '';
+    const variantRow = event.target.closest('[data-pl-variant-row]');
+    const variantKey = variantRow?.dataset.plVariantRowKey || '';
+    const metricRow = event.target.closest('[data-pl-metric-panel-row]');
+    const metricKey = metricRow?.dataset.plMetricPanelKey || '';
+    if (event.target.matches('[data-pl-variant-row-label], [data-pl-metric-panel-label]')) markProductCardTouched(row);
+    syncProductCardDrafts();
+    renderProductCardSettings();
+    if (event.target.matches('[data-pl-variant-row-label]')) {
+      focusVariantRowLabel(draftKey, variantKey, value);
+    } else if (event.target.matches('[data-pl-metric-panel-label]')) {
+      focusMetricPanelLabel(draftKey, metricKey, value);
+    } else {
+      focusProductCardField(draftKey, '[data-pl-sku-filter-search]', value);
+    }
+  });
+
+  refs.productCardList?.addEventListener('change', (event) => {
+    const target = event.target;
+    if (!target.matches([
+      '[data-pl-product-card-label]',
+      '[data-pl-product-card-mode]',
+      '[data-pl-product-card-match]',
+      '[data-pl-product-card-flavor]',
+      '[data-pl-product-card-variant]',
+      '[data-pl-product-card-visible]',
+      '[data-pl-product-card-sku-check]',
+      '[data-pl-sku-filter-brand]',
+      '[data-pl-sku-filter-product]',
+      '[data-pl-variant-row-visible]',
+      '[data-pl-metric-panel-visible]'
+    ].join(','))) return;
+    if (target.matches('[data-pl-sku-filter-brand]')) {
+      const row = target.closest('[data-pl-product-card-row]');
+      const productFilter = row?.querySelector('[data-pl-sku-filter-product]');
+      if (productFilter) productFilter.value = '';
+    }
+    if (!target.matches('[data-pl-sku-filter-brand], [data-pl-sku-filter-product]')) {
+      markProductCardTouched(target.closest('[data-pl-product-card-row]'));
+    }
+    syncProductCardDrafts();
     renderProductCardSettings();
   });
 
-  const saveProductCards = async (cards, message) => {
-    const response = await postAction({ action: 'save_product_cards', cards });
-    state.stored = state.stored || {};
-    state.stored.product_cards = response.product_cards;
-    state.draftProductCards = null;
-    closeModal(refs.productCardModal);
-    render();
-    showToast(message);
-  };
-
-  refs.deleteProductCard.addEventListener('click', async () => {
-    refs.productCardError.hidden = true;
-    const draft = collectProductCardSettings()[0];
-    if (!draft) return;
-    if (!window.confirm(`Delete ${draft.label} card?`)) return;
-    try {
-      if (!productCards(true).some((card) => cardIdentityMatches(card, draft))) {
-        state.draftProductCards = null;
-        closeModal(refs.productCardModal);
-        showToast('Product card discarded.');
-        return;
+  refs.productCardList?.addEventListener('click', (event) => {
+    const row = event.target.closest('[data-pl-product-card-row]');
+    if (!row) return;
+    if (event.target.closest('[data-pl-sku-select-visible]')) {
+      markProductCardTouched(row);
+      row.querySelectorAll('[data-pl-product-card-sku-check]').forEach((input) => { input.checked = true; });
+      syncProductCardDrafts();
+      renderProductCardSettings();
+      return;
+    }
+    if (event.target.closest('[data-pl-sku-clear-visible]')) {
+      markProductCardTouched(row);
+      row.querySelectorAll('[data-pl-product-card-sku-check]').forEach((input) => { input.checked = false; });
+      syncProductCardDrafts();
+      renderProductCardSettings();
+      return;
+    }
+    if (event.target.closest('[data-pl-sku-clear-all]')) {
+      markProductCardTouched(row);
+      syncProductCardDrafts();
+      const index = number(row.dataset.plProductCardIndex);
+      if (state.draftProductCards?.[index]) state.draftProductCards[index].sku_codes = [];
+      renderProductCardSettings();
+      return;
+    }
+    const removeSku = event.target.closest('[data-pl-remove-product-card-sku]');
+    if (removeSku) {
+      markProductCardTouched(row);
+      syncProductCardDrafts();
+      const index = number(row.dataset.plProductCardIndex);
+      const sku = String(removeSku.dataset.plRemoveProductCardSku || '').toUpperCase();
+      if (state.draftProductCards?.[index]) {
+        state.draftProductCards[index].sku_codes = state.draftProductCards[index].sku_codes.filter((code) => code !== sku);
       }
-      await saveProductCards(mergeProductCardDrafts([], { deleteCard: draft }), 'Product card deleted.');
+      renderProductCardSettings();
+      return;
+    }
+    const moveButton = event.target.closest('[data-pl-product-card-move]');
+    if (moveButton) {
+      markProductCardTouched(row);
+      syncProductCardDrafts();
+      const index = number(row.dataset.plProductCardIndex);
+      moveProductCardDraft(index, index + number(moveButton.dataset.plProductCardMove));
+      return;
+    }
+    if (event.target.closest('[data-pl-product-card-delete]')) {
+      syncProductCardDrafts();
+      const index = number(row.dataset.plProductCardIndex);
+      if (window.confirm('Delete this product card when you save?')) {
+        deleteProductCardDraft(index);
+      }
+      return;
+    }
+    const variantMoveButton = event.target.closest('[data-pl-variant-row-move]');
+    if (variantMoveButton) {
+      markProductCardTouched(row);
+      syncProductCardDrafts();
+      const index = number(row.dataset.plProductCardIndex);
+      const variantRow = variantMoveButton.closest('[data-pl-variant-row]');
+      const variants = variantDefinitionsForCard(state.draftProductCards?.[index], true);
+      const fromKey = variantRow?.dataset.plVariantRowKey || '';
+      const fromIndex = variants.findIndex((variant) => variant.key === fromKey);
+      const toVariant = variants[fromIndex + number(variantMoveButton.dataset.plVariantRowMove)];
+      if (toVariant) moveProductCardVariantDraft(index, fromKey, toVariant.key);
+      return;
+    }
+    const metricMoveButton = event.target.closest('[data-pl-metric-panel-move]');
+    if (metricMoveButton) {
+      markProductCardTouched(row);
+      syncProductCardDrafts();
+      const index = number(row.dataset.plProductCardIndex);
+      const metricRow = metricMoveButton.closest('[data-pl-metric-panel-row]');
+      const metrics = productMetricsForCard(state.draftProductCards?.[index], true);
+      const fromKey = metricRow?.dataset.plMetricPanelKey || '';
+      const fromIndex = metrics.findIndex((metric) => metric.key === fromKey);
+      const toMetric = metrics[fromIndex + number(metricMoveButton.dataset.plMetricPanelMove)];
+      if (toMetric) moveProductCardMetricDraft(index, fromKey, toMetric.key);
+      return;
+    }
+    const variantResetButton = event.target.closest('[data-pl-variant-row-reset-label]');
+    if (variantResetButton) {
+      markProductCardTouched(row);
+      const labelInput = variantResetButton.closest('[data-pl-variant-row]')?.querySelector('[data-pl-variant-row-label]');
+      if (labelInput) labelInput.value = labelInput.dataset.plVariantOriginalLabel || labelInput.value;
+      syncProductCardDrafts();
+      renderProductCardSettings();
+      return;
+    }
+    const metricResetButton = event.target.closest('[data-pl-metric-panel-reset-label]');
+    if (metricResetButton) {
+      markProductCardTouched(row);
+      const labelInput = metricResetButton.closest('[data-pl-metric-panel-row]')?.querySelector('[data-pl-metric-panel-label]');
+      if (labelInput) labelInput.value = labelInput.dataset.plMetricPanelOriginalLabel || labelInput.value;
+      syncProductCardDrafts();
+      renderProductCardSettings();
+      return;
+    }
+    if (event.target.closest('[data-pl-product-card-hide]')) {
+      markProductCardTouched(row);
+      syncProductCardDrafts();
+      const index = number(row.dataset.plProductCardIndex);
+      if (state.draftProductCards?.[index]) {
+        state.draftProductCards[index].is_visible = state.draftProductCards[index].is_visible === false;
+      }
+      renderProductCardSettings();
+    }
+  });
+
+  let productCardDragIndex = null;
+  let productVariantDrag = null;
+  let productMetricDrag = null;
+  refs.productCardList?.addEventListener('dragstart', (event) => {
+    const metricHandle = event.target.closest('[data-pl-metric-panel-drag]');
+    if (metricHandle) {
+      const row = metricHandle.closest('[data-pl-product-card-row]');
+      const metricRow = metricHandle.closest('[data-pl-metric-panel-row]');
+      markProductCardTouched(row);
+      syncProductCardDrafts();
+      productMetricDrag = {
+        cardIndex: number(row?.dataset.plProductCardIndex),
+        metricKey: metricRow?.dataset.plMetricPanelKey || ''
+      };
+      productVariantDrag = null;
+      productCardDragIndex = null;
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', productMetricDrag.metricKey);
+      metricRow?.classList.add('is-row-dragging');
+      return;
+    }
+    const variantHandle = event.target.closest('[data-pl-variant-row-drag]');
+    if (variantHandle) {
+      const row = variantHandle.closest('[data-pl-product-card-row]');
+      const variantRow = variantHandle.closest('[data-pl-variant-row]');
+      markProductCardTouched(row);
+      syncProductCardDrafts();
+      productVariantDrag = {
+        cardIndex: number(row?.dataset.plProductCardIndex),
+        rowKey: variantRow?.dataset.plVariantRowKey || ''
+      };
+      productCardDragIndex = null;
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', productVariantDrag.rowKey);
+      variantRow?.classList.add('is-row-dragging');
+      return;
+    }
+    const handle = event.target.closest('[data-pl-product-card-drag]');
+    if (!handle) return;
+    const row = handle.closest('[data-pl-product-card-row]');
+    markProductCardTouched(row);
+    syncProductCardDrafts();
+    productCardDragIndex = number(row?.dataset.plProductCardIndex);
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', String(productCardDragIndex));
+    row?.classList.add('is-dragging');
+  });
+  refs.productCardList?.addEventListener('dragover', (event) => {
+    if (productMetricDrag && event.target.closest('[data-pl-metric-panel-row]')) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+      return;
+    }
+    if (productVariantDrag && event.target.closest('[data-pl-variant-row]')) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+      return;
+    }
+    if (productCardDragIndex === null || !event.target.closest('[data-pl-product-card-row]')) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  });
+  refs.productCardList?.addEventListener('drop', (event) => {
+    if (productMetricDrag) {
+      const targetMetricRow = event.target.closest('[data-pl-metric-panel-row]');
+      const targetCardRow = event.target.closest('[data-pl-product-card-row]');
+      if (!targetMetricRow || !targetCardRow || number(targetCardRow.dataset.plProductCardIndex) !== productMetricDrag.cardIndex) return;
+      event.preventDefault();
+      moveProductCardMetricDraft(productMetricDrag.cardIndex, productMetricDrag.metricKey, targetMetricRow.dataset.plMetricPanelKey || '');
+      productMetricDrag = null;
+      return;
+    }
+    if (productVariantDrag) {
+      const targetVariantRow = event.target.closest('[data-pl-variant-row]');
+      const targetCardRow = event.target.closest('[data-pl-product-card-row]');
+      if (!targetVariantRow || !targetCardRow || number(targetCardRow.dataset.plProductCardIndex) !== productVariantDrag.cardIndex) return;
+      event.preventDefault();
+      moveProductCardVariantDraft(productVariantDrag.cardIndex, productVariantDrag.rowKey, targetVariantRow.dataset.plVariantRowKey || '');
+      productVariantDrag = null;
+      return;
+    }
+    const row = event.target.closest('[data-pl-product-card-row]');
+    if (productCardDragIndex === null || !row) return;
+    event.preventDefault();
+    moveProductCardDraft(productCardDragIndex, number(row.dataset.plProductCardIndex));
+    productCardDragIndex = null;
+  });
+  refs.productCardList?.addEventListener('dragend', () => {
+    refs.productCardList.querySelectorAll('.is-dragging').forEach((row) => row.classList.remove('is-dragging'));
+    refs.productCardList.querySelectorAll('.is-row-dragging').forEach((row) => row.classList.remove('is-row-dragging'));
+    productCardDragIndex = null;
+    productVariantDrag = null;
+    productMetricDrag = null;
+  });
+
+  refs.addProductCardDraft?.addEventListener('click', () => {
+    syncProductCardDrafts();
+    state.draftProductCards.push(newProductCardDraft());
+    renderProductCardSettings();
+    refs.productCardList.lastElementChild?.scrollIntoView({ block: 'center' });
+  });
+
+  refs.productCardForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    refs.productCardError.hidden = true;
+    try {
+      const deletedHiddenCards = state.deletedProductCards
+        .map((card) => card.hidden_card)
+        .filter(Boolean);
+      const deletedCards = state.deletedProductCards.map((card) => ({
+        id: number(card.id),
+        card_key: card.card_key || ''
+      }));
+      const response = await postAction({
+        action: 'save_product_cards',
+        cards: [...collectProductCardSettings(), ...deletedHiddenCards].filter((card) => !isPristineGeneratedProductCard(card)),
+        deleted_cards: deletedCards
+      });
+      state.stored.product_cards = response.product_cards;
+      state.draftProductCards = null;
+      state.deletedProductCards = [];
+      closeModal(refs.productCardModal);
+      render();
+      showToast('Product cards saved.');
     } catch (error) {
       refs.productCardError.textContent = error.message;
       refs.productCardError.hidden = false;
     }
   });
 
-  refs.productCardForm.addEventListener('submit', async (event) => {
+  refs.addSyrupGroup.addEventListener('click', () => {
+    state.draftSyrupGroups = collectSyrupSettings();
+    state.draftSyrupGroups.push({
+      id: 0,
+      label: 'New volume',
+      volume_ml: '',
+      assignment_mode: 'manual',
+      sku_codes: [],
+      is_visible: true
+    });
+    renderSyrupSettings();
+  });
+
+  refs.syrupSettingsList.addEventListener('change', (event) => {
+    if (!event.target.matches('[data-pl-syrup-mode], [data-pl-syrup-volume]')) return;
+    state.draftSyrupGroups = collectSyrupSettings();
+    renderSyrupSettings();
+  });
+
+  refs.syrupSettingsForm.addEventListener('submit', async (event) => {
     event.preventDefault();
-    refs.productCardError.hidden = true;
+    refs.syrupSettingsError.hidden = true;
     try {
-      await saveProductCards(mergeProductCardDrafts(collectProductCardSettings()), 'Product card saved.');
+      const response = await postAction({ action: 'save_syrup_groups', groups: collectSyrupSettings() });
+      state.stored.syrup_groups = response.syrup_groups;
+      state.draftSyrupGroups = null;
+      closeModal(refs.syrupSettingsModal);
+      render();
+      showToast('Syrup settings saved.');
     } catch (error) {
-      refs.productCardError.textContent = error.message;
-      refs.productCardError.hidden = false;
+      refs.syrupSettingsError.textContent = error.message;
+      refs.syrupSettingsError.hidden = false;
     }
   });
 
@@ -1518,7 +2347,6 @@ if (root) {
     refs.metricsError.hidden = true;
     try {
       const response = await postAction({ action: 'save_statement_metrics', metrics: collectMetricSettings() });
-      state.stored = state.stored || {};
       state.stored.statement_metrics = response.statement_metrics;
       state.draftMetrics = null;
       closeModal(refs.metricsModal);
@@ -1536,6 +2364,7 @@ if (root) {
     closeModal(refs.entryModal);
     closeModal(refs.allocationModal);
     closeModal(refs.productCardModal);
+    closeModal(refs.syrupSettingsModal);
     closeModal(refs.metricsModal);
   });
 

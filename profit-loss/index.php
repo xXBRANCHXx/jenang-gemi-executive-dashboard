@@ -41,6 +41,12 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/profit-loss.js');
                         <span>Year</span>
                         <select data-pl-year></select>
                     </label>
+                    <label class="pl-compact-control">
+                        <span>Period</span>
+                        <select data-pl-month>
+                            <option value="0">Year to date</option>
+                        </select>
+                    </label>
                     <button type="button" class="pl-icon-button" data-pl-refresh aria-label="Refresh live data" title="Refresh live sales and saved costs">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>
                     </button>
@@ -61,46 +67,43 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/profit-loss.js');
 
                 <section class="pl-workspace-grid">
                     <div class="pl-main-stack">
-                    <article class="pl-surface pl-product-card-surface">
-                        <div class="pl-surface-bar">
-                            <div class="pl-inline-title"><strong>Product cards</strong><i title="Each card reads the selected SKU DB products as a full-year month grid. Use card settings to add or change SKU coverage without code.">i</i></div>
-                            <button type="button" class="pl-text-button" data-pl-add-product-card>+ Add card</button>
-                        </div>
-                        <div class="pl-product-card-stack" data-pl-product-cards>
-                            <p class="pl-empty">Loading product cards...</p>
-                        </div>
-                    </article>
-
-                    <article class="pl-surface pl-product-ledger">
-                        <div class="pl-surface-bar">
-                            <div class="pl-inline-title"><strong>SKU ledger</strong><i title="Sales are automatic. Select a row's edit button to add packaging, labor, other direct cost, or override COGS for a specific month.">i</i></div>
-                            <div class="pl-ledger-tools">
-                                <label class="pl-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg><input type="search" data-pl-search placeholder="Find SKU or product"></label>
-                                <span class="pl-data-badge" data-pl-coverage>Checking SKU coverage</span>
+                        <article class="pl-surface pl-product-card-surface">
+                            <div class="pl-surface-bar">
+                                <div class="pl-inline-title"><strong>Product cards</strong><i title="Each card reads the selected SKU DB products as a full-year month grid. Use card settings to add or change SKU coverage without code.">i</i></div>
+                                <button type="button" class="pl-text-button" data-pl-add-product-card>+ Add card</button>
                             </div>
-                        </div>
-                        <div class="pl-ledger-head" aria-hidden="true">
-                            <span>Product / SKU</span><span>Sold</span><span>Net revenue</span><span>Avg price</span><span>COGS</span><span>Gross profit</span><span>GP / unit</span><span>Margin</span><span></span>
-                        </div>
-                        <div class="pl-ledger-groups" data-pl-ledger>
-                            <p class="pl-empty">Loading live product facts...</p>
-                        </div>
-                    </article>
+                            <div class="pl-product-card-stack" data-pl-product-cards>
+                                <p class="pl-empty">Loading product cards...</p>
+                            </div>
+                        </article>
 
-                    <section class="pl-surface pl-monthly-surface">
-                        <div class="pl-surface-bar">
-                            <div class="pl-inline-title"><strong>Monthly statement</strong><i title="The full year in the same monthly structure as the old workbook, calculated from live sales and saved manual inputs.">i</i></div>
-                            <button type="button" class="pl-icon-button pl-settings-icon" data-pl-edit-metrics aria-label="Configure monthly statement rows" title="Configure monthly statement rows">
-                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1A2 2 0 0 1 4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.3 7A2 2 0 1 1 7.1 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1A2 2 0 1 1 19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1a2 2 0 0 1 0 4H21a1.7 1.7 0 0 0-1.6 1z"/></svg>
-                            </button>
-                        </div>
-                        <div class="pl-monthly-scroll">
-                            <table class="pl-monthly-table">
-                                <thead><tr><th>Metric</th><th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>May</th><th>Jun</th><th>Jul</th><th>Aug</th><th>Sep</th><th>Oct</th><th>Nov</th><th>Dec</th><th>YTD</th></tr></thead>
-                                <tbody data-pl-monthly-body></tbody>
-                            </table>
-                        </div>
-                    </section>
+                        <article class="pl-surface pl-syrup-volume-surface">
+                            <div class="pl-surface-bar">
+                                <div class="pl-inline-title"><strong>Syrup volumes</strong><i title="Volume groups follow the old Profit & Loss syrup split and can use automatic or manual SKU assignments.">i</i></div>
+                                <button type="button" class="pl-icon-button pl-settings-icon" data-pl-edit-syrup-settings aria-label="Configure syrup volume SKU assignments" title="Configure syrup volume SKU assignments">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1A2 2 0 0 1 4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.3 7A2 2 0 1 1 7.1 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1A2 2 0 1 1 19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1a2 2 0 0 1 0 4H21a1.7 1.7 0 0 0-1.6 1z"/></svg>
+                                </button>
+                            </div>
+                            <div class="pl-syrup-grid" data-pl-syrup-groups>
+                                <p class="pl-empty">Loading syrup volume split...</p>
+                            </div>
+                        </article>
+
+                        <article class="pl-surface pl-product-ledger">
+                            <div class="pl-surface-bar">
+                                <div class="pl-inline-title"><strong>SKU ledger</strong><i title="Sales are automatic. Select a row's edit button to add packaging, labor, other direct cost, or override COGS for a specific month.">i</i></div>
+                                <div class="pl-ledger-tools">
+                                    <label class="pl-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg><input type="search" data-pl-search placeholder="Find SKU or product"></label>
+                                    <span class="pl-data-badge" data-pl-coverage>Checking SKU coverage</span>
+                                </div>
+                            </div>
+                            <div class="pl-ledger-head" aria-hidden="true">
+                                <span>Product / SKU</span><span>Sold</span><span>Net revenue</span><span>Avg price</span><span>COGS</span><span>Gross profit</span><span>GP / unit</span><span>Margin</span><span></span>
+                            </div>
+                            <div class="pl-ledger-groups" data-pl-ledger>
+                                <p class="pl-empty">Loading live product facts...</p>
+                            </div>
+                        </article>
                     </div>
 
                     <aside class="pl-side-stack">
@@ -115,7 +118,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/profit-loss.js');
                         <article class="pl-surface">
                             <div class="pl-surface-bar">
                                 <div class="pl-inline-title"><strong>Profit allocation</strong><i title="Legacy distribution model applied only when net profit is positive. Percentages are editable.">i</i></div>
-                                <button type="button" class="pl-text-button pl-edit-text" data-pl-edit-allocation>Edit</button>
+                                <button type="button" class="pl-text-button" data-pl-edit-allocation>Edit</button>
                             </div>
                             <div class="pl-allocation-list" data-pl-allocation-list></div>
                         </article>
@@ -125,6 +128,21 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/profit-loss.js');
                             <div data-pl-data-quality><p class="pl-empty">Running checks...</p></div>
                         </article>
                     </aside>
+                </section>
+
+                <section class="pl-surface pl-monthly-surface">
+                    <div class="pl-surface-bar">
+                        <div class="pl-inline-title"><strong>Monthly statement</strong><i title="The full year in the same monthly structure as the old workbook, calculated from live sales and saved manual inputs.">i</i></div>
+                        <button type="button" class="pl-icon-button pl-settings-icon" data-pl-edit-metrics aria-label="Configure monthly statement rows" title="Configure monthly statement rows">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1A2 2 0 0 1 4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.3 7A2 2 0 1 1 7.1 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1A2 2 0 1 1 19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1a2 2 0 0 1 0 4H21a1.7 1.7 0 0 0-1.6 1z"/></svg>
+                        </button>
+                    </div>
+                    <div class="pl-monthly-scroll">
+                        <table class="pl-monthly-table">
+                            <thead><tr><th>Metric</th><th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>May</th><th>Jun</th><th>Jul</th><th>Aug</th><th>Sep</th><th>Oct</th><th>Nov</th><th>Dec</th><th>YTD</th></tr></thead>
+                            <tbody data-pl-monthly-body></tbody>
+                        </table>
+                    </div>
                 </section>
             </main>
         </div>
@@ -185,6 +203,16 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/profit-loss.js');
         </form>
     </div>
 
+    <div class="pl-modal" data-pl-syrup-settings-modal hidden>
+        <div class="pl-modal-backdrop" data-pl-close-syrup-settings></div>
+        <form class="pl-modal-card pl-settings-card" data-pl-syrup-settings-form>
+            <div class="pl-modal-head"><div><small>SKU assignments</small><strong>Syrup volume groups</strong></div><button type="button" data-pl-close-syrup-settings aria-label="Close">×</button></div>
+            <div class="pl-settings-list" data-pl-syrup-settings-list></div>
+            <p class="pl-form-error" data-pl-syrup-settings-error hidden></p>
+            <div class="pl-modal-actions"><button type="button" class="pl-secondary-button" data-pl-add-syrup-group>Add volume</button><span></span><button type="button" class="pl-secondary-button" data-pl-close-syrup-settings>Cancel</button><button type="submit" class="pl-primary-button">Save syrup settings</button></div>
+        </form>
+    </div>
+
     <div class="pl-modal" data-pl-metrics-modal hidden>
         <div class="pl-modal-backdrop" data-pl-close-metrics></div>
         <form class="pl-modal-card pl-settings-card" data-pl-metrics-form>
@@ -201,7 +229,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/profit-loss.js');
             <div class="pl-modal-head"><div><small>SKU DB card builder</small><strong data-pl-product-card-title>Product card settings</strong></div><button type="button" data-pl-close-product-cards aria-label="Close">×</button></div>
             <div class="pl-settings-list" data-pl-product-card-list></div>
             <p class="pl-form-error" data-pl-product-card-error hidden></p>
-            <div class="pl-modal-actions"><button type="button" class="pl-trash-button" data-pl-delete-product-card aria-label="Delete card" title="Delete card"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg></button><span></span><button type="button" class="pl-secondary-button" data-pl-close-product-cards>Cancel</button><button type="submit" class="pl-primary-button">Save product card</button></div>
+            <div class="pl-modal-actions"><button type="button" class="pl-secondary-button" data-pl-add-product-card-draft>Add card</button><span></span><button type="button" class="pl-secondary-button" data-pl-close-product-cards>Cancel</button><button type="submit" class="pl-primary-button">Save product cards</button></div>
         </form>
     </div>
 
