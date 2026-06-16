@@ -483,6 +483,42 @@ if (root) {
     if (mode === 'flavor') return cleanText(product.flavor_name || product.flavor, 'Unflavored');
     return catalogVariantLabel(product);
   };
+  const legacyVariantDefinitionsForCard = (card, mode) => {
+    const definitions = new Map();
+    const products = Array.isArray(state.stored?.legacy?.products) ? state.stored.legacy.products : [];
+    for (const product of products) {
+      if (!product?.legacy_match) continue;
+      const monthly = product.monthly && typeof product.monthly === 'object' ? Object.values(product.monthly) : [];
+      const hasActivity = monthly.some((row) => number(row?.units) || number(row?.netRevenue) || number(row?.cogs));
+      if (!hasActivity) continue;
+      const row = {
+        key: String(product.key || product.label || 'LEGACY'),
+        sku: String(product.sku || ''),
+        label: String(product.label || 'Legacy spreadsheet category'),
+        productType: String(product.productType || 'Legacy spreadsheet category'),
+        brand: String(product.brand || product.label || 'Legacy spreadsheet'),
+        brand_name: String(product.brand_name || product.brand || product.label || 'Legacy spreadsheet'),
+        product_name: String(product.product_name || product.base_product_name || product.productType || product.label || 'Legacy spreadsheet category'),
+        base_product_name: String(product.base_product_name || product.product_name || product.productType || product.label || 'Legacy spreadsheet category'),
+        flavor: String(product.flavor || product.flavor_name || ''),
+        flavor_name: String(product.flavor_name || product.flavor || ''),
+        unit_name: String(product.unit_name || product.unit || ''),
+        volume: number(product.volume),
+        legacy_match: String(product.legacy_match || ''),
+        legacy: true
+      };
+      if (!legacyProductMatchesCard(card, row)) continue;
+      const key = variantKeyForProduct(row, mode);
+      if (!definitions.has(key)) {
+        definitions.set(key, {
+          key,
+          label: variantLabelForProduct(row, mode),
+          sort: mode === 'volume' ? -number(row.volume) : definitions.size + 1000
+        });
+      }
+    }
+    return Array.from(definitions.values());
+  };
   const baseVariantDefinitionsForCard = (card) => {
     const mode = effectiveVariantMode(card);
     if (card.match_mode === 'legacy') return [{ key: 'legacy', label: 'All products', sort: 0 }];
@@ -494,14 +530,22 @@ if (root) {
         ...fixedVolumes,
         ...rows.map((row) => Math.round(number(row.volume))).filter(Boolean)
       ]);
-      return Array.from(volumes)
+      Array.from(volumes)
         .sort((left, right) => {
           const leftFixed = fixedVolumes.indexOf(left);
           const rightFixed = fixedVolumes.indexOf(right);
           if (leftFixed !== -1 || rightFixed !== -1) return (leftFixed === -1 ? 99 : leftFixed) - (rightFixed === -1 ? 99 : rightFixed);
           return right - left;
         })
-        .map((volume, index) => ({ key: `volume:${plainVolume(volume)}`, label: `${plainVolume(volume)} ml`, sort: index }));
+        .forEach((volume, index) => {
+          definitions.set(`volume:${plainVolume(volume)}`, { key: `volume:${plainVolume(volume)}`, label: `${plainVolume(volume)} ml`, sort: index });
+        });
+      for (const definition of legacyVariantDefinitionsForCard(card, mode)) {
+        if (!definitions.has(definition.key)) {
+          definitions.set(definition.key, { ...definition, sort: definitions.size + 1000 });
+        }
+      }
+      return Array.from(definitions.values()).sort((left, right) => left.sort === right.sort ? left.label.localeCompare(right.label) : left.sort - right.sort);
     }
     for (const row of rows) {
       const key = variantKeyForProduct(row, mode);
@@ -515,6 +559,9 @@ if (root) {
     }
     if (definitions.size === 0 && card.match_mode === 'manual') {
       card.sku_codes.forEach((sku, index) => definitions.set(`sku:${sku}`, { key: `sku:${sku}`, label: sku, sort: index }));
+    }
+    for (const definition of legacyVariantDefinitionsForCard(card, mode)) {
+      if (!definitions.has(definition.key)) definitions.set(definition.key, { ...definition, sort: definitions.size + 1000 });
     }
     return Array.from(definitions.values()).sort((left, right) => left.sort === right.sort ? left.label.localeCompare(right.label) : left.sort - right.sort);
   };
@@ -568,7 +615,7 @@ if (root) {
   const productCardMatrix = (card) => {
     const mode = effectiveVariantMode(card);
     const variants = new Map(variantDefinitionsForCard(card).map((variant) => [variant.key, variant]));
-    const hiddenVariants = new Set(variantDefinitionsForCard(card, true).filter((variant) => variant.is_hidden).map((variant) => variant.key));
+    const hiddenVariants = new Set(normalizeProductCardLayout(card.layout).hidden_rows);
     const cells = new Map();
     for (let month = 1; month <= 12; month += 1) {
       const products = calculateProducts(month, { legacyProductMode: card.match_mode === 'legacy' ? 'summary' : 'details' })
