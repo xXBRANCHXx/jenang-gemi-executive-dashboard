@@ -425,9 +425,20 @@ if (root) {
     }
     return [];
   };
+  const legacyProductMatchesCard = (card, product) => {
+    const legacyMatch = normalizeKey(product.legacy_match || '');
+    if (!legacyMatch) return false;
+    const cardText = normalizeKey([
+      card.label,
+      card.match_value,
+      card.sku_codes?.join(' '),
+      cardCatalogRows(card).map(skuSearchText).join(' ')
+    ].filter(Boolean).join(' '));
+    return cardText.includes(legacyMatch);
+  };
   const cardMatchesProduct = (card, product) => {
     if (card.match_mode === 'legacy') return Boolean(product.legacy);
-    if (product.legacy) return false;
+    if (product.legacy) return legacyProductMatchesCard(card, product);
     const sku = String(product.sku || '').toUpperCase();
     if (card.match_mode === 'manual') return sku && card.sku_codes.includes(sku);
     if (card.match_mode === 'auto_syrup') return isSyrupCatalogRow(product);
@@ -450,13 +461,13 @@ if (root) {
     cleanText(row.tag, '')
   ].filter(Boolean).join(' · ') || cleanText(row.sku, 'SKU');
   const variantKeyForProduct = (product, mode) => {
-    if (product.legacy) return 'legacy';
+    if (product.legacy && mode === 'sku') return 'legacy';
     if (mode === 'volume') return `volume:${number(product.volume) ? plainVolume(product.volume) : 'unknown'}`;
     if (mode === 'flavor') return `flavor:${normalizeKey(product.flavor_name || product.flavor || 'Unflavored')}`;
     return `sku:${String(product.sku || product.key || product.label).toUpperCase()}`;
   };
   const variantLabelForProduct = (product, mode) => {
-    if (product.legacy) return 'All products';
+    if (product.legacy && mode === 'sku') return cleanText(product.label, 'All products');
     if (mode === 'volume') return volumeUnitLabel(product) || 'Unknown volume';
     if (mode === 'flavor') return cleanText(product.flavor_name || product.flavor, 'Unflavored');
     return catalogVariantLabel(product);
@@ -549,7 +560,8 @@ if (root) {
     const hiddenVariants = new Set(variantDefinitionsForCard(card, true).filter((variant) => variant.is_hidden).map((variant) => variant.key));
     const cells = new Map();
     for (let month = 1; month <= 12; month += 1) {
-      const products = calculateProducts(month).filter((product) => cardMatchesProduct(card, product));
+      const products = calculateProducts(month, { legacyProductMode: card.match_mode === 'legacy' ? 'summary' : 'details' })
+        .filter((product) => cardMatchesProduct(card, product));
       for (const product of products) {
         const key = variantKeyForProduct(product, mode);
         if (hiddenVariants.has(key)) continue;
@@ -611,13 +623,14 @@ if (root) {
     return rows.filter((row) => month === 0 || number(row.month) === month);
   };
 
-  const legacyMonth = (month) => state.stored?.legacy?.months?.[String(month)] || null;
+  const isLegacyPeriod = (year, month) => year === 2025 || (year === 2026 && month >= 1 && month <= 5);
+  const legacyMonth = (month) => isLegacyPeriod(state.year, month) ? (state.stored?.legacy?.months?.[String(month)] || null) : null;
   const isLegacyMonth = (month) => Boolean(month && legacyMonth(month));
-  const hasLegacyYear = () => Boolean(Object.keys(state.stored?.legacy?.months || {}).length);
+  const hasLegacyYear = () => Object.keys(state.stored?.legacy?.months || {}).some((month) => isLegacyPeriod(state.year, number(month)));
 
-  const legacyProductsForMonth = (month) => {
+  const legacyProductsForMonth = (month, mode = 'summary') => {
     const products = Array.isArray(state.stored?.legacy?.products) ? state.stored.legacy.products : [];
-    return products.map((product) => {
+    const rows = products.map((product) => {
       const row = product.monthly?.[String(month)] || {};
       const units = number(row.units);
       const netRevenue = number(row.netRevenue);
@@ -629,6 +642,14 @@ if (root) {
         label: String(product.label || 'Legacy spreadsheet category'),
         productType: String(product.productType || 'Legacy spreadsheet category'),
         brand: String(product.brand || product.label || 'Legacy spreadsheet'),
+        brand_name: String(product.brand_name || product.brand || product.label || 'Legacy spreadsheet'),
+        product_name: String(product.product_name || product.base_product_name || product.productType || product.label || 'Legacy spreadsheet category'),
+        base_product_name: String(product.base_product_name || product.product_name || product.productType || product.label || 'Legacy spreadsheet category'),
+        flavor: String(product.flavor || product.flavor_name || ''),
+        flavor_name: String(product.flavor_name || product.flavor || ''),
+        unit_name: String(product.unit_name || product.unit || ''),
+        volume: number(product.volume),
+        legacy_match: String(product.legacy_match || ''),
         units,
         netRevenue,
         grossRevenue,
@@ -645,6 +666,10 @@ if (root) {
         margin: safeDivide(netRevenue - cogs, netRevenue)
       };
     }).filter((product) => product.units || product.netRevenue || product.cogs);
+    if (mode === 'details') return rows.filter((product) => product.legacy_match);
+    if (mode === 'all') return rows;
+    const summaries = rows.filter((product) => !product.legacy_match);
+    return summaries.length ? summaries : rows;
   };
 
   const catalogCogsForMonth = (catalogRow, month) => {
@@ -663,11 +688,11 @@ if (root) {
       : number(history[0]?.new_price || catalogRow?.cogs);
   };
 
-  const calculateProducts = (month) => {
+  const calculateProducts = (month, options = {}) => {
     if (month === 0) {
       const aggregates = new Map();
       for (let index = 1; index <= 12; index += 1) {
-        for (const row of calculateProducts(index)) {
+        for (const row of calculateProducts(index, options)) {
           const item = aggregates.get(row.key) || { ...row, units: 0, netRevenue: 0, grossRevenue: 0, orders: 0, cogs: 0, legacy: false };
           item.units += row.units;
           item.netRevenue += row.netRevenue;
@@ -687,7 +712,7 @@ if (root) {
         margin: safeDivide(item.netRevenue - item.cogs, item.netRevenue)
       })).sort((left, right) => right.netRevenue - left.netRevenue);
     }
-    if (isLegacyMonth(month)) return legacyProductsForMonth(month);
+    if (isLegacyMonth(month)) return legacyProductsForMonth(month, options.legacyProductMode || 'summary');
     const catalog = catalogMap();
     const inputs = skuInputMap();
     const aggregates = new Map();

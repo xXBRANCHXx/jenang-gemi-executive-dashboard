@@ -652,6 +652,186 @@
               "cogs": 25669340.0
             }
           }
+        },
+        {
+          "key": "LEGACY_JG_BUBUR_30_2025",
+          "sku": "",
+          "label": "Jenang Gemi Bubur 30 sachet",
+          "brand": "Jenang Gemi",
+          "brand_name": "Jenang Gemi",
+          "productType": "Bubur",
+          "product_name": "Bubur",
+          "base_product_name": "Bubur",
+          "flavor": "All flavors",
+          "flavor_name": "All flavors",
+          "unit_name": "sachet",
+          "volume": 30,
+          "source": "legacy_spreadsheet",
+          "legacy_match": "bubur",
+          "monthly": {
+            "1": {
+              "units": 370,
+              "netRevenue": 49149504.0,
+              "grossRevenue": 49149504.0,
+              "cogs": 9866523.3125
+            },
+            "2": {
+              "units": 315,
+              "netRevenue": 41027265.0,
+              "grossRevenue": 41027265.0,
+              "cogs": 8483341.177500002
+            },
+            "3": {
+              "units": 232,
+              "netRevenue": 32723964.0,
+              "grossRevenue": 32723964.0,
+              "cogs": 7538259.530749999
+            },
+            "4": {
+              "units": 228,
+              "netRevenue": 31085567.0,
+              "grossRevenue": 31085567.0,
+              "cogs": 7288578.755249999
+            },
+            "5": {
+              "units": 250,
+              "netRevenue": 35152860.0,
+              "grossRevenue": 35152860.0,
+              "cogs": 8167634.081749998
+            },
+            "6": {
+              "units": 228,
+              "netRevenue": 31365800.0,
+              "grossRevenue": 31365800.0,
+              "cogs": 7403640.3675
+            },
+            "7": {
+              "units": 230,
+              "netRevenue": 31222003.0,
+              "grossRevenue": 31222003.0,
+              "cogs": 7454537.632750001
+            },
+            "8": {
+              "units": 239,
+              "netRevenue": 31312313.0,
+              "grossRevenue": 31312313.0,
+              "cogs": 11641865.0
+            },
+            "9": {
+              "units": 220,
+              "netRevenue": 30137477.0,
+              "grossRevenue": 30137477.0,
+              "cogs": 10822371.0
+            },
+            "10": {
+              "units": 202,
+              "netRevenue": 27859793.25,
+              "grossRevenue": 27859793.25,
+              "cogs": 10106064.0
+            },
+            "11": {
+              "units": 222,
+              "netRevenue": 29987538.8,
+              "grossRevenue": 29987538.8,
+              "cogs": 10944279.0
+            },
+            "12": {
+              "units": 220,
+              "netRevenue": 28338047.83,
+              "grossRevenue": 28338047.83,
+              "cogs": 10213469.0
+            }
+          }
+        },
+        {
+          "key": "LEGACY_JG_BUBUR_15_2025",
+          "sku": "",
+          "label": "Jenang Gemi Bubur 15 sachet",
+          "brand": "Jenang Gemi",
+          "brand_name": "Jenang Gemi",
+          "productType": "Bubur",
+          "product_name": "Bubur",
+          "base_product_name": "Bubur",
+          "flavor": "All flavors",
+          "flavor_name": "All flavors",
+          "unit_name": "sachet",
+          "volume": 15,
+          "source": "legacy_spreadsheet",
+          "legacy_match": "bubur",
+          "monthly": {
+            "1": {
+              "units": 127,
+              "netRevenue": 11376059.0,
+              "grossRevenue": 11376059.0,
+              "cogs": 1794416.9937500004
+            },
+            "2": {
+              "units": 118,
+              "netRevenue": 10307071.0,
+              "grossRevenue": 10307071.0,
+              "cogs": 1649119.3249999993
+            },
+            "3": {
+              "units": 97,
+              "netRevenue": 8421495.0,
+              "grossRevenue": 8421495.0,
+              "cogs": 1620214.8673750004
+            },
+            "4": {
+              "units": 117,
+              "netRevenue": 9853767.0,
+              "grossRevenue": 9853767.0,
+              "cogs": 1912007.3163750004
+            },
+            "5": {
+              "units": 101,
+              "netRevenue": 8585161.0,
+              "grossRevenue": 8585161.0,
+              "cogs": 1685739.9796249997
+            },
+            "6": {
+              "units": 114,
+              "netRevenue": 9421046.0,
+              "grossRevenue": 9421046.0,
+              "cogs": 1890980.5102500003
+            },
+            "7": {
+              "units": 132,
+              "netRevenue": 10943603.0,
+              "grossRevenue": 10943603.0,
+              "cogs": 2142230.1225000005
+            },
+            "8": {
+              "units": 118,
+              "netRevenue": 9555425.333333332,
+              "grossRevenue": 9555425.333333332,
+              "cogs": 2918112.999999999
+            },
+            "9": {
+              "units": 118,
+              "netRevenue": 9776957.2,
+              "grossRevenue": 9776957.2,
+              "cogs": 2908815.0
+            },
+            "10": {
+              "units": 103,
+              "netRevenue": 8486465.0,
+              "grossRevenue": 8486465.0,
+              "cogs": 2563324.0
+            },
+            "11": {
+              "units": 81,
+              "netRevenue": 6378567.5,
+              "grossRevenue": 6378567.5,
+              "cogs": 2027200.0
+            },
+            "12": {
+              "units": 116,
+              "netRevenue": 8779637.0,
+              "grossRevenue": 8779637.0,
+              "cogs": 2580716.0
+            }
+          }
         }
       ],
       "entries": [
@@ -1020,6 +1200,84 @@
               "netRevenue": 119687729.039744,
               "grossRevenue": 119687729.039744,
               "cogs": 36144433.0
+            }
+          }
+        },
+        {
+          "key": "LEGACY_JG_BUBUR_SACHET_2026",
+          "sku": "",
+          "label": "Jenang Gemi Bubur sachets",
+          "brand": "Jenang Gemi",
+          "brand_name": "Jenang Gemi",
+          "productType": "Bubur",
+          "product_name": "Bubur",
+          "base_product_name": "Bubur",
+          "flavor": "All flavors",
+          "flavor_name": "All flavors",
+          "unit_name": "sachet",
+          "volume": 1,
+          "source": "legacy_spreadsheet",
+          "legacy_match": "bubur",
+          "monthly": {
+            "4": {
+              "units": 15,
+              "netRevenue": 122339.70000000001,
+              "grossRevenue": 122339.70000000001,
+              "cogs": 7500.0
+            },
+            "5": {
+              "units": 29,
+              "netRevenue": 244001.7,
+              "grossRevenue": 244001.7,
+              "cogs": 29000.0
+            }
+          }
+        },
+        {
+          "key": "LEGACY_JG_BUBUR_15_2026",
+          "sku": "",
+          "label": "Jenang Gemi Bubur 15 sachet",
+          "brand": "Jenang Gemi",
+          "brand_name": "Jenang Gemi",
+          "productType": "Bubur",
+          "product_name": "Bubur",
+          "base_product_name": "Bubur",
+          "flavor": "All flavors",
+          "flavor_name": "All flavors",
+          "unit_name": "sachet",
+          "volume": 15,
+          "source": "legacy_spreadsheet",
+          "legacy_match": "bubur",
+          "monthly": {
+            "1": {
+              "units": 580,
+              "netRevenue": 38990551.833333336,
+              "grossRevenue": 38990551.833333336,
+              "cogs": 18430890.000000004
+            },
+            "2": {
+              "units": 475,
+              "netRevenue": 34616894.2,
+              "grossRevenue": 34616894.2,
+              "cogs": 15029968.0
+            },
+            "3": {
+              "units": 456,
+              "netRevenue": 35336427.55,
+              "grossRevenue": 35336427.55,
+              "cogs": 14407310.0
+            },
+            "4": {
+              "units": 423,
+              "netRevenue": 31223822.5,
+              "grossRevenue": 31223822.5,
+              "cogs": 13284496.0
+            },
+            "5": {
+              "units": 409,
+              "netRevenue": 30134266.899999995,
+              "grossRevenue": 30134266.899999995,
+              "cogs": 13080043.999999996
             }
           }
         }
