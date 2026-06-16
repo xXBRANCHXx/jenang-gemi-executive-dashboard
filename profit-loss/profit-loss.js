@@ -385,8 +385,16 @@ if (root) {
     if (card.match_mode === 'manual') return `manual|${card.card_key}`;
     return card.match_mode;
   };
+  const isRetiredGeneratedProductCard = (card) => {
+    const key = String(card.card_key || '');
+    return (card.match_mode === 'auto_product' && key.startsWith('auto_product_'))
+      || (card.match_mode === 'auto_product_flavor' && key.startsWith('auto_product_flavor_'))
+      || (card.match_mode === 'legacy' && key === 'legacy_spreadsheet_total');
+  };
   const productCards = (includeHidden = false) => {
-    const stored = Array.isArray(state.stored?.product_cards) ? state.stored.product_cards.map(normalizeProductCard) : [];
+    const stored = Array.isArray(state.stored?.product_cards)
+      ? state.stored.product_cards.map(normalizeProductCard).filter((card) => !isRetiredGeneratedProductCard(card))
+      : [];
     const generated = defaultProductCards();
     const merged = stored.length ? [...stored] : [...generated];
     const seen = new Set(merged.map(productCardSignature));
