@@ -70,7 +70,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/profit-loss.js');
                         <article class="pl-surface pl-product-card-surface">
                             <div class="pl-surface-bar">
                                 <div class="pl-inline-title"><strong>Product cards</strong><i title="Each card reads the selected SKU DB products as a full-year month grid. Use card settings to add or change SKU coverage without code.">i</i></div>
-                                <button type="button" class="pl-text-button pl-add-text" data-pl-add-product-card>+ Add card</button>
+                                <button type="button" class="pl-text-button pl-add-text" data-pl-add-product-card>+Add card</button>
                             </div>
                             <div class="pl-product-card-stack" data-pl-product-cards>
                                 <p class="pl-empty">Loading product cards...</p>
@@ -110,7 +110,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/profit-loss.js');
                         <article class="pl-surface">
                             <div class="pl-surface-bar">
                                 <div class="pl-inline-title"><strong>Operating entries</strong><i title="Add the costs and non-product income that marketplace and SKU systems cannot know automatically.">i</i></div>
-                                <button type="button" class="pl-text-button pl-add-text" data-pl-add-entry>+ Add</button>
+                                <button type="button" class="pl-text-button pl-add-text" data-pl-add-entry>+Add</button>
                             </div>
                             <div class="pl-entry-sections" data-pl-entry-sections></div>
                         </article>

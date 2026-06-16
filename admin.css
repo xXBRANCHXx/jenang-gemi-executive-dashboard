@@ -6019,7 +6019,7 @@ body::after {
 }
 
 .pl-add-text {
-  color: var(--pl-green) !important;
+  color: #4ade80 !important;
 }
 
 .pl-edit-text {
@@ -7490,6 +7490,19 @@ body::after {
 
 .admin-app.admin-app-suite .admin-menu-item-danger {
   color: #ff8e8e;
+}
+
+.is-profit-loss :is(.pl-text-button, .pl-secondary-button).pl-add-text {
+  color: #4ade80 !important;
+}
+
+.is-profit-loss :is(.pl-text-button, .pl-secondary-button).pl-add-text:hover,
+.is-profit-loss :is(.pl-text-button, .pl-secondary-button).pl-add-text:focus-visible {
+  color: #86efac !important;
+}
+
+.is-profit-loss :is(.pl-text-button, .pl-secondary-button).pl-edit-text {
+  color: #ffd166 !important;
 }
 
 .admin-app.admin-app-suite .admin-menu-item-danger:hover {
@@ -9515,4 +9528,21 @@ body::after {
 .admin-app.admin-app-suite .admin-menu-panel .admin-menu-icon svg {
   width: 20px;
   height: 20px;
+}
+
+.is-profit-loss :is(.pl-text-button, .pl-secondary-button).pl-add-text,
+:root[data-admin-theme] .is-profit-loss :is(.pl-text-button, .pl-secondary-button).pl-add-text {
+  color: #4ade80 !important;
+}
+
+.is-profit-loss :is(.pl-text-button, .pl-secondary-button).pl-add-text:hover,
+.is-profit-loss :is(.pl-text-button, .pl-secondary-button).pl-add-text:focus-visible,
+:root[data-admin-theme] .is-profit-loss :is(.pl-text-button, .pl-secondary-button).pl-add-text:hover,
+:root[data-admin-theme] .is-profit-loss :is(.pl-text-button, .pl-secondary-button).pl-add-text:focus-visible {
+  color: #86efac !important;
+}
+
+.is-profit-loss :is(.pl-text-button, .pl-secondary-button).pl-edit-text,
+:root[data-admin-theme] .is-profit-loss :is(.pl-text-button, .pl-secondary-button).pl-edit-text {
+  color: #ffd166 !important;
 }
