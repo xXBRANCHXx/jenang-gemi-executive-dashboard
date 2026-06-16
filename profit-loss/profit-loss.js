@@ -78,6 +78,12 @@ if (root) {
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
   })[character]);
   const number = (value) => Number.isFinite(Number(value)) ? Number(value) : 0;
+  const firstValue = (...values) => {
+    for (const value of values) {
+      if (value !== undefined && value !== null && value !== '') return value;
+    }
+    return 0;
+  };
   const money = (value, compact = false) => new Intl.NumberFormat('id-ID', {
     style: 'currency',
     currency: 'IDR',
@@ -180,7 +186,12 @@ if (root) {
 
   const catalogMap = () => {
     const map = new Map();
-    for (const row of state.stored?.sku_catalog || []) map.set(String(row.sku || '').toUpperCase(), row);
+    for (const row of state.stored?.sku_catalog || []) {
+      [row.sku, row.tag].forEach((code) => {
+        const key = String(code || '').trim().toUpperCase();
+        if (key && !map.has(key)) map.set(key, row);
+      });
+    }
     return map;
   };
 
@@ -717,12 +728,14 @@ if (root) {
     const inputs = skuInputMap();
     const aggregates = new Map();
     for (const row of rowsForPeriod(month)) {
-      const sku = String(row.sku || '').trim().toUpperCase();
+      const rawSku = String(row.sku || row.tag || '').trim().toUpperCase();
+      const catalogRow = catalog.get(rawSku);
+      const sku = String(catalogRow?.sku || rawSku).trim().toUpperCase();
       const key = sku || `UNMAPPED:${String(row.label || row.product_type || 'Unknown').trim()}`;
       const item = aggregates.get(key) || {
         key,
         sku,
-        label: String(row.label || row.product_type || sku || 'Unmapped product'),
+        label: String(catalogRow?.product_name || catalogRow?.base_product_name || row.product_name || row.label || row.product_type || sku || 'Unmapped product'),
         productType: String(row.product_type || 'Uncategorized'),
         brand: '',
         units: 0,
@@ -735,28 +748,35 @@ if (root) {
         hasCogs: false,
         months: new Set()
       };
-      const quantity = number(row.quantity);
+      const quantity = number(firstValue(row.quantity, row.item_count, row.items_qty, row.units));
       const rowMonth = number(row.month);
-      const catalogRow = catalog.get(sku);
-      const input = inputs.get(`${sku}|${rowMonth}`) || {};
+      const input = inputs.get(`${sku}|${rowMonth}`) || inputs.get(`${rawSku}|${rowMonth}`) || {};
       const catalogCogs = catalogCogsForMonth(catalogRow, rowMonth);
+      const extraUnitCost = number(input.packaging_per_unit) + number(input.labor_per_unit) + number(input.other_per_unit);
       const baseCogs = input.cogs_override !== null && input.cogs_override !== '' && input.cogs_override !== undefined
         ? number(input.cogs_override)
         : catalogCogs;
-      const unitCost = baseCogs + number(input.packaging_per_unit) + number(input.labor_per_unit) + number(input.other_per_unit);
+      const unitCost = baseCogs + extraUnitCost;
+      const rowNetRevenue = number(firstValue(row.net_revenue, row.netRevenue, row.revenue, row.net_sales, row.sales, row.seller_received, row.seller_receivable, row.settlement_amount, row.payout_amount));
+      const rowFees = number(row.marketplace_fees);
+      const rowGrossRevenue = number(firstValue(row.gross_revenue, row.grossRevenue, row.gross_sales, row.customer_paid, row.buyer_paid, rowFees ? rowNetRevenue + rowFees : '', rowNetRevenue));
+      const fallbackCogs = number(firstValue(row.cogs, row.total_cogs, row.cost_of_goods_sold));
+      const rowCogs = baseCogs > 0 || extraUnitCost > 0 ? quantity * unitCost : fallbackCogs;
       item.units += quantity;
-      item.netRevenue += number(row.net_revenue);
-      item.grossRevenue += number(row.gross_revenue);
-      item.orders += number(row.orders);
-      item.cogs += quantity * unitCost;
+      item.netRevenue += rowNetRevenue;
+      item.grossRevenue += rowGrossRevenue;
+      item.orders += number(firstValue(row.orders, row.order_count, row.orders_qty));
+      item.cogs += rowCogs;
       item.directUnitCost = safeDivide(item.cogs, item.units);
       item.hasCatalog ||= Boolean(catalogRow);
-      item.hasCogs ||= baseCogs > 0;
-      item.brand = String(catalogRow?.brand_name || item.brand || row.product_type || 'Uncategorized');
-      item.label = String(catalogRow?.product_name || row.label || item.label);
-      item.tag = String(catalogRow?.tag || '');
-      item.flavor = String(catalogRow?.flavor_name || row.flavor || '');
-      item.unit_name = String(catalogRow?.unit_name || row.unit_name || '');
+      item.hasCogs ||= baseCogs > 0 || rowCogs > 0;
+      item.productType = String(catalogRow?.product_type || catalogRow?.productType || row.product_type || item.productType || 'Uncategorized');
+      item.brand = String(catalogRow?.brand_name || catalogRow?.brand || item.brand || row.brand_name || row.brand || row.product_type || 'Uncategorized');
+      item.label = String(catalogRow?.product_name || catalogRow?.base_product_name || row.product_name || row.label || item.label);
+      item.base_product_name = String(catalogRow?.base_product_name || catalogRow?.product_name || row.base_product_name || row.product_name || item.label);
+      item.tag = String(catalogRow?.tag || row.tag || '');
+      item.flavor = String(catalogRow?.flavor_name || catalogRow?.flavor || row.flavor_name || row.flavor || '');
+      item.unit_name = String(catalogRow?.unit_name || catalogRow?.unit || row.unit_name || row.unit || '');
       item.volume = catalogRow?.volume !== undefined ? number(catalogRow.volume) : number(row.volume);
       item.brand_name = item.brand;
       item.product_name = item.label;
@@ -2263,6 +2283,7 @@ if (root) {
     event.preventDefault();
     refs.productCardError.hidden = true;
     try {
+      syncProductCardDrafts();
       const deletedHiddenCards = state.deletedProductCards
         .map((card) => card.hidden_card)
         .filter(Boolean);
@@ -2270,9 +2291,10 @@ if (root) {
         id: number(card.id),
         card_key: card.card_key || ''
       }));
+      const savedCards = Array.isArray(state.draftProductCards) ? state.draftProductCards : collectProductCardSettings();
       const response = await postAction({
         action: 'save_product_cards',
-        cards: [...collectProductCardSettings(), ...deletedHiddenCards].filter((card) => !isPristineGeneratedProductCard(card)),
+        cards: [...savedCards, ...deletedHiddenCards].filter((card) => !isPristineGeneratedProductCard(card)),
         deleted_cards: deletedCards
       });
       state.stored.product_cards = response.product_cards;

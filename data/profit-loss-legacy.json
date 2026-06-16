@@ -654,6 +654,276 @@
           }
         },
         {
+          "key": "LEGACY_SYRUP_550_2025",
+          "sku": "",
+          "label": "Syrup 550 ml",
+          "brand": "ZERO Foods",
+          "brand_name": "ZERO Foods",
+          "productType": "Syrup",
+          "product_name": "Syrup",
+          "base_product_name": "Syrup",
+          "flavor": "All flavors",
+          "flavor_name": "All flavors",
+          "unit_name": "ml",
+          "volume": 550,
+          "source": "legacy_spreadsheet",
+          "legacy_match": "syrup",
+          "monthly": {
+            "1": {
+              "units": 8.0,
+              "netRevenue": 439604.0,
+              "grossRevenue": 439604.0,
+              "cogs": 135721.55955663603
+            },
+            "2": {
+              "units": 28.0,
+              "netRevenue": 1463544.0,
+              "grossRevenue": 1463544.0,
+              "cogs": 428970.3192110454
+            },
+            "3": {
+              "units": 54.0,
+              "netRevenue": 3214173.0,
+              "grossRevenue": 3214173.0,
+              "cogs": 761858.0480378862
+            },
+            "4": {
+              "units": 80.0,
+              "netRevenue": 4622332.0,
+              "grossRevenue": 4622332.0,
+              "cogs": 924265.8961354634
+            },
+            "5": {
+              "units": 98.0,
+              "netRevenue": 5652462.0,
+              "grossRevenue": 5652462.0,
+              "cogs": 1544201.3070357693
+            },
+            "6": {
+              "units": 126.0,
+              "netRevenue": 7155660.000000001,
+              "grossRevenue": 7155660.000000001,
+              "cogs": 1976563.0226515932
+            },
+            "7": {
+              "units": 126.0,
+              "netRevenue": 7228015.0,
+              "grossRevenue": 7228015.0,
+              "cogs": 1983827.269524864
+            },
+            "8": {
+              "units": 129.0,
+              "netRevenue": 7059105.15,
+              "grossRevenue": 7059105.15,
+              "cogs": 2178082.0
+            },
+            "9": {
+              "units": 277.0,
+              "netRevenue": 15274370.300000003,
+              "grossRevenue": 15274370.300000003,
+              "cogs": 4226228.0
+            },
+            "10": {
+              "units": 209.0,
+              "netRevenue": 11713487.449999997,
+              "grossRevenue": 11713487.449999997,
+              "cogs": 4032653.999999999
+            },
+            "11": {
+              "units": 168.0,
+              "netRevenue": 10053864.149999999,
+              "grossRevenue": 10053864.149999999,
+              "cogs": 2663163.999999998
+            },
+            "12": {
+              "units": 242.0,
+              "netRevenue": 13993113.45,
+              "grossRevenue": 13993113.45,
+              "cogs": 4398563.0
+            }
+          }
+        },
+        {
+          "key": "LEGACY_SYRUP_250_2025",
+          "sku": "",
+          "label": "Syrup 250 ml",
+          "brand": "ZERO Foods",
+          "brand_name": "ZERO Foods",
+          "productType": "Syrup",
+          "product_name": "Syrup",
+          "base_product_name": "Syrup",
+          "flavor": "All flavors",
+          "flavor_name": "All flavors",
+          "unit_name": "ml",
+          "volume": 250,
+          "source": "legacy_spreadsheet",
+          "legacy_match": "syrup",
+          "monthly": {
+            "1": {
+              "units": 189.0,
+              "netRevenue": 6169351.0,
+              "grossRevenue": 6169351.0,
+              "cogs": 2038682.0603952683
+            },
+            "2": {
+              "units": 94.0,
+              "netRevenue": 2677512.0,
+              "grossRevenue": 2677512.0,
+              "cogs": 901142.9815703819
+            },
+            "3": {
+              "units": 73.0,
+              "netRevenue": 2149995.0,
+              "grossRevenue": 2149995.0,
+              "cogs": 769029.2580020463
+            },
+            "4": {
+              "units": 93.0,
+              "netRevenue": 2726775.0,
+              "grossRevenue": 2726775.0,
+              "cogs": 1158469.3113451349
+            },
+            "5": {
+              "units": 159.0,
+              "netRevenue": 4745812.5,
+              "grossRevenue": 4745812.5,
+              "cogs": 1858302.308018121
+            },
+            "6": {
+              "units": 198.0,
+              "netRevenue": 5800328.0,
+              "grossRevenue": 5800328.0,
+              "cogs": 2255153.219339099
+            },
+            "7": {
+              "units": 200.0,
+              "netRevenue": 5847894.0,
+              "grossRevenue": 5847894.0,
+              "cogs": 2298613.054874914
+            },
+            "8": {
+              "units": 272.0,
+              "netRevenue": 7776706.0,
+              "grossRevenue": 7776706.0,
+              "cogs": 2974120.0
+            },
+            "9": {
+              "units": 341.0,
+              "netRevenue": 9760002.750000002,
+              "grossRevenue": 9760002.750000002,
+              "cogs": 3873707.000000002
+            },
+            "10": {
+              "units": 323.0,
+              "netRevenue": 9175430.683333335,
+              "grossRevenue": 9175430.683333335,
+              "cogs": 3680358.000000002
+            },
+            "11": {
+              "units": 241.0,
+              "netRevenue": 7158830.45,
+              "grossRevenue": 7158830.45,
+              "cogs": 2675123.0
+            },
+            "12": {
+              "units": 252.0,
+              "netRevenue": 7719395.0,
+              "grossRevenue": 7719395.0,
+              "cogs": 2766147.0
+            }
+          }
+        },
+        {
+          "key": "LEGACY_SYRUP_50_2025",
+          "sku": "",
+          "label": "Syrup 50 ml",
+          "brand": "ZERO Foods",
+          "brand_name": "ZERO Foods",
+          "productType": "Syrup",
+          "product_name": "Syrup",
+          "base_product_name": "Syrup",
+          "flavor": "All flavors",
+          "flavor_name": "All flavors",
+          "unit_name": "ml",
+          "volume": 50,
+          "source": "legacy_spreadsheet",
+          "legacy_match": "syrup",
+          "monthly": {
+            "1": {
+              "units": 47.0,
+              "netRevenue": 380316.0,
+              "grossRevenue": 380316.0,
+              "cogs": 113790.25710247998
+            },
+            "2": {
+              "units": 60.0,
+              "netRevenue": 497455.0,
+              "grossRevenue": 497455.0,
+              "cogs": 160857.07748310186
+            },
+            "3": {
+              "units": 43.0,
+              "netRevenue": 335353.0,
+              "grossRevenue": 335353.0,
+              "cogs": 114166.45697232409
+            },
+            "4": {
+              "units": 139.0,
+              "netRevenue": 1072756.0,
+              "grossRevenue": 1072756.0,
+              "cogs": 373595.1653513133
+            },
+            "5": {
+              "units": 253.0,
+              "netRevenue": 2113222.6999999997,
+              "grossRevenue": 2113222.6999999997,
+              "cogs": 646402.4667361099
+            },
+            "6": {
+              "units": 373.0,
+              "netRevenue": 3165436.0,
+              "grossRevenue": 3165436.0,
+              "cogs": 979757.5760515328
+            },
+            "7": {
+              "units": 365.0,
+              "netRevenue": 2919173.0,
+              "grossRevenue": 2919173.0,
+              "cogs": 976285.0693118132
+            },
+            "8": {
+              "units": 399.0,
+              "netRevenue": 3046205.7199999997,
+              "grossRevenue": 3046205.7199999997,
+              "cogs": 1026439.0000000002
+            },
+            "9": {
+              "units": 463.0,
+              "netRevenue": 3462301.5,
+              "grossRevenue": 3462301.5,
+              "cogs": 1204202.0
+            },
+            "10": {
+              "units": 492.0,
+              "netRevenue": 3690717.2833333337,
+              "grossRevenue": 3690717.2833333337,
+              "cogs": 1281937.0
+            },
+            "11": {
+              "units": 461.0,
+              "netRevenue": 3412518.959523809,
+              "grossRevenue": 3412518.959523809,
+              "cogs": 1190079.0
+            },
+            "12": {
+              "units": 459.0,
+              "netRevenue": 3332051.429,
+              "grossRevenue": 3332051.429,
+              "cogs": 1190046.0
+            }
+          }
+        },
+        {
           "key": "LEGACY_JG_BUBUR_30_2025",
           "sku": "",
           "label": "Jenang Gemi Bubur 30 sachet",
@@ -1200,6 +1470,294 @@
               "netRevenue": 119687729.039744,
               "grossRevenue": 119687729.039744,
               "cogs": 36144433.0
+            }
+          }
+        },
+        {
+          "key": "LEGACY_SYRUP_550_2026",
+          "sku": "",
+          "label": "Syrup 550 ml",
+          "brand": "ZERO Foods",
+          "brand_name": "ZERO Foods",
+          "productType": "Syrup",
+          "product_name": "Syrup",
+          "base_product_name": "Syrup",
+          "flavor": "All flavors",
+          "flavor_name": "All flavors",
+          "unit_name": "ml",
+          "volume": 550,
+          "source": "legacy_spreadsheet",
+          "legacy_match": "syrup",
+          "monthly": {
+            "1": {
+              "units": 236.0,
+              "netRevenue": 13375925.350000001,
+              "grossRevenue": 13375925.350000001,
+              "cogs": 3485593.0
+            },
+            "2": {
+              "units": 227.0,
+              "netRevenue": 12833222.533333331,
+              "grossRevenue": 12833222.533333331,
+              "cogs": 2946078.9999999963
+            },
+            "3": {
+              "units": 225.0,
+              "netRevenue": 12650356.6,
+              "grossRevenue": 12650356.6,
+              "cogs": 3231584.000000002
+            },
+            "4": {
+              "units": 213.0,
+              "netRevenue": 11746940.461921848,
+              "grossRevenue": 11746940.461921848,
+              "cogs": 3159649.9999999963
+            },
+            "5": {
+              "units": 374.0,
+              "netRevenue": 20847125.8037797,
+              "grossRevenue": 20847125.8037797,
+              "cogs": 4752091.999999998
+            }
+          }
+        },
+        {
+          "key": "LEGACY_SYRUP_250_2026",
+          "sku": "",
+          "label": "Syrup 250 ml",
+          "brand": "ZERO Foods",
+          "brand_name": "ZERO Foods",
+          "productType": "Syrup",
+          "product_name": "Syrup",
+          "base_product_name": "Syrup",
+          "flavor": "All flavors",
+          "flavor_name": "All flavors",
+          "unit_name": "ml",
+          "volume": 250,
+          "source": "legacy_spreadsheet",
+          "legacy_match": "syrup",
+          "monthly": {
+            "1": {
+              "units": 406.0,
+              "netRevenue": 12262898.633333335,
+              "grossRevenue": 12262898.633333335,
+              "cogs": 3746470.000000002
+            },
+            "2": {
+              "units": 351.0,
+              "netRevenue": 10621365.983333334,
+              "grossRevenue": 10621365.983333334,
+              "cogs": 3071023.000000001
+            },
+            "3": {
+              "units": 262.0,
+              "netRevenue": 7947784.199999999,
+              "grossRevenue": 7947784.199999999,
+              "cogs": 2355934.999999999
+            },
+            "4": {
+              "units": 567.0,
+              "netRevenue": 17149310.29987469,
+              "grossRevenue": 17149310.29987469,
+              "cogs": 5126502.000000002
+            },
+            "5": {
+              "units": 721.0,
+              "netRevenue": 21668446.860548813,
+              "grossRevenue": 21668446.860548813,
+              "cogs": 6529893.000000007
+            }
+          }
+        },
+        {
+          "key": "LEGACY_SYRUP_50_2026",
+          "sku": "",
+          "label": "Syrup 50 ml",
+          "brand": "ZERO Foods",
+          "brand_name": "ZERO Foods",
+          "productType": "Syrup",
+          "product_name": "Syrup",
+          "base_product_name": "Syrup",
+          "flavor": "All flavors",
+          "flavor_name": "All flavors",
+          "unit_name": "ml",
+          "volume": 50,
+          "source": "legacy_spreadsheet",
+          "legacy_match": "syrup",
+          "monthly": {
+            "1": {
+              "units": 720.0,
+              "netRevenue": 5543974.797202798,
+              "grossRevenue": 5543974.797202798,
+              "cogs": 1604243.9999999995
+            },
+            "2": {
+              "units": 790.0,
+              "netRevenue": 6358262.834126984,
+              "grossRevenue": 6358262.834126984,
+              "cogs": 1719176.999999999
+            },
+            "3": {
+              "units": 683.0,
+              "netRevenue": 5332406.134523809,
+              "grossRevenue": 5332406.134523809,
+              "cogs": 1497208.0
+            },
+            "4": {
+              "units": 1200.0,
+              "netRevenue": 8975286.05465368,
+              "grossRevenue": 8975286.05465368,
+              "cogs": 2644123.000000001
+            },
+            "5": {
+              "units": 1941.0,
+              "netRevenue": 14703878.285250422,
+              "grossRevenue": 14703878.285250422,
+              "cogs": 4301117.000000002
+            }
+          }
+        },
+        {
+          "key": "LEGACY_SYRUP_30_2026",
+          "sku": "",
+          "label": "Syrup 30 ml",
+          "brand": "ZERO Foods",
+          "brand_name": "ZERO Foods",
+          "productType": "Syrup",
+          "product_name": "Syrup",
+          "base_product_name": "Syrup",
+          "flavor": "All flavors",
+          "flavor_name": "All flavors",
+          "unit_name": "ml",
+          "volume": 30,
+          "source": "legacy_spreadsheet",
+          "legacy_match": "syrup",
+          "monthly": {
+            "1": {
+              "units": 229.0,
+              "netRevenue": 8690659.149999997,
+              "grossRevenue": 8690659.149999997,
+              "cogs": 1548936.9999999981
+            },
+            "2": {
+              "units": 148.0,
+              "netRevenue": 5499801.616666666,
+              "grossRevenue": 5499801.616666666,
+              "cogs": 955441.0000000009
+            },
+            "3": {
+              "units": 129.0,
+              "netRevenue": 5047658.642857144,
+              "grossRevenue": 5047658.642857144,
+              "cogs": 863171.0
+            },
+            "4": {
+              "units": 213.0,
+              "netRevenue": 8308557.652380954,
+              "grossRevenue": 8308557.652380954,
+              "cogs": 1379462.999999999
+            },
+            "5": {
+              "units": 281.0,
+              "netRevenue": 11133890.768744413,
+              "grossRevenue": 11133890.768744413,
+              "cogs": 1889048.9999999963
+            }
+          }
+        },
+        {
+          "key": "LEGACY_SYRUP_10_2026",
+          "sku": "",
+          "label": "Syrup 10 ml",
+          "brand": "ZERO Foods",
+          "brand_name": "ZERO Foods",
+          "productType": "Syrup",
+          "product_name": "Syrup",
+          "base_product_name": "Syrup",
+          "flavor": "All flavors",
+          "flavor_name": "All flavors",
+          "unit_name": "ml",
+          "volume": 10,
+          "source": "legacy_spreadsheet",
+          "legacy_match": "syrup",
+          "monthly": {
+            "1": {
+              "units": 11.0,
+              "netRevenue": 262066.5,
+              "grossRevenue": 262066.5,
+              "cogs": 25333.0
+            },
+            "2": {
+              "units": 19.0,
+              "netRevenue": 460703.5,
+              "grossRevenue": 460703.5,
+              "cogs": 43757.0
+            },
+            "3": {
+              "units": 7.0,
+              "netRevenue": 147230.3,
+              "grossRevenue": 147230.3,
+              "cogs": 16121.0
+            },
+            "4": {
+              "units": 21.0,
+              "netRevenue": 473815.25000000006,
+              "grossRevenue": 473815.25000000006,
+              "cogs": 48363.0
+            },
+            "5": {
+              "units": 18.0,
+              "netRevenue": 385936.0,
+              "grossRevenue": 385936.0,
+              "cogs": 41454.0
+            }
+          }
+        },
+        {
+          "key": "LEGACY_SYRUP_5_2026",
+          "sku": "",
+          "label": "Syrup 5 ml",
+          "brand": "ZERO Foods",
+          "brand_name": "ZERO Foods",
+          "productType": "Syrup",
+          "product_name": "Syrup",
+          "base_product_name": "Syrup",
+          "flavor": "All flavors",
+          "flavor_name": "All flavors",
+          "unit_name": "ml",
+          "volume": 5,
+          "source": "legacy_spreadsheet",
+          "legacy_match": "syrup",
+          "monthly": {
+            "1": {
+              "units": 49.0,
+              "netRevenue": 756030.5,
+              "grossRevenue": 756030.5,
+              "cogs": 124560.0
+            },
+            "2": {
+              "units": 46.0,
+              "netRevenue": 664104.2,
+              "grossRevenue": 664104.2,
+              "cogs": 118689.99999999988
+            },
+            "3": {
+              "units": 36.0,
+              "netRevenue": 532942.4976190476,
+              "grossRevenue": 532942.4976190476,
+              "cogs": 90283.0
+            },
+            "4": {
+              "units": 98.0,
+              "netRevenue": 1389722.9978354978,
+              "grossRevenue": 1389722.9978354978,
+              "cogs": 220650.00000000023
+            },
+            "5": {
+              "units": 112.0,
+              "netRevenue": 1752970.550865801,
+              "grossRevenue": 1752970.550865801,
+              "cogs": 273906.0
             }
           }
         },
