@@ -261,7 +261,7 @@ function jg_profit_loss_product_cards(PDO $pdo): array
     $rows = [];
     foreach ($stmt->fetchAll() as $row) {
         $matchMode = (string) ($row['match_mode'] ?? 'auto_product');
-        if (!in_array($matchMode, ['auto_syrup', 'auto_product', 'manual', 'legacy'], true)) {
+        if (!in_array($matchMode, ['auto_syrup', 'auto_product', 'auto_product_flavor', 'manual', 'legacy'], true)) {
             $matchMode = 'auto_product';
         }
         $variantMode = (string) ($row['variant_mode'] ?? 'auto');

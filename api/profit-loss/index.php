@@ -377,7 +377,7 @@ try {
         if (!is_array($cards)) {
             jg_profit_loss_json(['ok' => false, 'error' => 'invalid_product_cards'], 422);
         }
-        $allowedMatchModes = ['auto_syrup', 'auto_product', 'manual', 'legacy'];
+        $allowedMatchModes = ['auto_syrup', 'auto_product', 'auto_product_flavor', 'manual', 'legacy'];
         $allowedVariantModes = ['auto', 'volume', 'flavor', 'sku'];
 
         $pdo->beginTransaction();

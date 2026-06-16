@@ -223,6 +223,14 @@ if (root) {
     const rounded = Math.round(number(value) * 10) / 10;
     return Number.isInteger(rounded) ? String(rounded) : String(rounded).replace(/\.0$/, '');
   };
+  const unitLabel = (row = {}) => {
+    const unit = cleanText(row.unit_name || row.unit || row.unitName, '');
+    const normalized = unit.toLowerCase();
+    if (!normalized || normalized === 'ml' || normalized === 'm l' || normalized.includes('milliliter')) return 'ml';
+    if (normalized.includes('sachet')) return 'sachet';
+    return normalized;
+  };
+  const volumeUnitLabel = (row = {}) => number(row.volume) ? `${plainVolume(row.volume)} ${unitLabel(row)}` : '';
   const productFamilyKey = (row = {}) => normalizeKey([
     row.brand_name || row.brand,
     row.product_name || row.base_product_name || row.productType || row.label
@@ -255,8 +263,21 @@ if (root) {
     if (flavors.size > 1) return 'flavor';
     return 'sku';
   };
+  const productFlavorKey = (row = {}) => normalizeKey(row.flavor_name || row.flavor || 'Unflavored');
+  const productFlavorLabel = (row = {}) => cleanText(row.flavor_name || row.flavor, 'Unflavored');
+  const isBuburCatalogRow = (row = {}) => /\bbubur\b/.test(skuSearchText(row));
+  const familySplitsByFlavor = (family) => Boolean(family?.rows?.some(isBuburCatalogRow));
+  const familySplitsByFlavorKey = (familyKey) => {
+    const family = catalogProductFamilies().find((candidate) => candidate.key === familyKey);
+    return familySplitsByFlavor(family);
+  };
+  const flavorMatchValue = (familyKey, flavorKey) => `${familyKey}|${flavorKey}`;
+  const parseFlavorMatchValue = (value) => {
+    const [familyKey = '', flavorKey = ''] = String(value || '').split('|');
+    return { familyKey, flavorKey };
+  };
   const normalizeProductCard = (card = {}, index = 0) => {
-    const matchMode = ['auto_syrup', 'auto_product', 'manual', 'legacy'].includes(card.match_mode) ? card.match_mode : 'manual';
+    const matchMode = ['auto_syrup', 'auto_product', 'auto_product_flavor', 'manual', 'legacy'].includes(card.match_mode) ? card.match_mode : 'manual';
     const variantMode = ['auto', 'volume', 'flavor', 'sku'].includes(card.variant_mode) ? card.variant_mode : 'auto';
     return {
       id: number(card.id),
@@ -284,9 +305,34 @@ if (root) {
         sort_order: 10
       }));
     }
+    let productCardIndex = 0;
     catalogProductFamilies()
       .filter((family) => family.rows.some((row) => !isSyrupCatalogRow(row)))
       .forEach((family, index) => {
+        if (familySplitsByFlavor(family)) {
+          const flavors = new Map();
+          for (const row of family.rows) {
+            const flavorKey = productFlavorKey(row);
+            const flavor = flavors.get(flavorKey) || { key: flavorKey, label: productFlavorLabel(row), rows: [] };
+            flavor.rows.push(row);
+            flavors.set(flavorKey, flavor);
+          }
+          Array.from(flavors.values())
+            .sort((left, right) => left.label.localeCompare(right.label))
+            .forEach((flavor) => {
+              cards.push(normalizeProductCard({
+                card_key: `auto_product_flavor_${family.key}_${flavor.key}`,
+                label: `${family.label} ${flavor.label}`,
+                match_mode: 'auto_product_flavor',
+                match_value: flavorMatchValue(family.key, flavor.key),
+                variant_mode: 'volume',
+                generated: true,
+                sort_order: 20 + (productCardIndex * 10)
+              }, productCardIndex));
+              productCardIndex += 1;
+            });
+          return;
+        }
         cards.push(normalizeProductCard({
           card_key: `auto_product_${family.key}`,
           label: family.label,
@@ -294,8 +340,9 @@ if (root) {
           match_value: family.key,
           variant_mode: autoVariantModeForRows(family.rows),
           generated: true,
-          sort_order: 20 + (index * 10)
-        }, index));
+          sort_order: 20 + (productCardIndex * 10)
+        }, productCardIndex));
+        productCardIndex += 1;
       });
     if (Array.isArray(state.stored?.legacy?.products) && state.stored.legacy.products.length) {
       cards.push(normalizeProductCard({
@@ -311,6 +358,7 @@ if (root) {
   };
   const productCardSignature = (card) => {
     if (card.match_mode === 'auto_product') return `auto_product|${card.match_value}`;
+    if (card.match_mode === 'auto_product_flavor') return `auto_product_flavor|${card.match_value}`;
     if (card.match_mode === 'manual') return `manual|${card.card_key}`;
     return card.match_mode;
   };
@@ -329,12 +377,17 @@ if (root) {
       }
     }
     return merged
+      .filter((card) => !(card.match_mode === 'auto_product' && familySplitsByFlavorKey(card.match_value)))
       .filter((card) => includeHidden || card.is_visible !== false)
       .sort((left, right) => number(left.sort_order) - number(right.sort_order));
   };
   const cardCatalogRows = (card) => {
     if (card.match_mode === 'auto_syrup') return catalogRows().filter(isSyrupCatalogRow);
     if (card.match_mode === 'auto_product') return catalogRows().filter((row) => productFamilyKey(row) === card.match_value);
+    if (card.match_mode === 'auto_product_flavor') {
+      const { familyKey, flavorKey } = parseFlavorMatchValue(card.match_value);
+      return catalogRows().filter((row) => productFamilyKey(row) === familyKey && productFlavorKey(row) === flavorKey);
+    }
     if (card.match_mode === 'manual') {
       const selected = new Set(card.sku_codes);
       return catalogRows().filter((row) => selected.has(String(row.sku || '').toUpperCase()));
@@ -348,6 +401,10 @@ if (root) {
     if (card.match_mode === 'manual') return sku && card.sku_codes.includes(sku);
     if (card.match_mode === 'auto_syrup') return isSyrupCatalogRow(product);
     if (card.match_mode === 'auto_product') return productFamilyKey(product) === card.match_value;
+    if (card.match_mode === 'auto_product_flavor') {
+      const { familyKey, flavorKey } = parseFlavorMatchValue(card.match_value);
+      return productFamilyKey(product) === familyKey && productFlavorKey(product) === flavorKey;
+    }
     return false;
   };
   const effectiveVariantMode = (card) => {
@@ -358,7 +415,7 @@ if (root) {
   };
   const catalogVariantLabel = (row) => [
     cleanText(row.flavor_name || row.flavor, ''),
-    number(row.volume) ? `${plainVolume(row.volume)} ml` : '',
+    volumeUnitLabel(row),
     cleanText(row.tag, '')
   ].filter(Boolean).join(' · ') || cleanText(row.sku, 'SKU');
   const variantKeyForProduct = (product, mode) => {
@@ -369,7 +426,7 @@ if (root) {
   };
   const variantLabelForProduct = (product, mode) => {
     if (product.legacy) return 'All products';
-    if (mode === 'volume') return number(product.volume) ? `${plainVolume(product.volume)} ml` : 'Unknown volume';
+    if (mode === 'volume') return volumeUnitLabel(product) || 'Unknown volume';
     if (mode === 'flavor') return cleanText(product.flavor_name || product.flavor, 'Unflavored');
     return catalogVariantLabel(product);
   };
@@ -1039,7 +1096,7 @@ if (root) {
     row.sku,
     row.product_name || row.base_product_name,
     row.flavor_name,
-    row.volume ? `${integer(row.volume)} ml` : '',
+    volumeUnitLabel(row),
     row.tag
   ].filter(Boolean).join(' · ');
   const renderSkuOptions = (selectedCodes) => {
@@ -1107,7 +1164,7 @@ if (root) {
     return merged;
   };
   const productFamilyOptions = (selectedKey) => {
-    const families = catalogProductFamilies().filter((family) => family.rows.some((row) => !isSyrupCatalogRow(row)));
+    const families = catalogProductFamilies().filter((family) => family.rows.some((row) => !isSyrupCatalogRow(row)) && !familySplitsByFlavor(family));
     const hasSelected = families.some((family) => family.key === selectedKey);
     const options = families.map((family) => (
       `<option value="${escapeHtml(family.key)}"${family.key === selectedKey ? ' selected' : ''}>${escapeHtml(family.label)} (${family.rows.length} SKU${family.rows.length === 1 ? '' : 's'})</option>`
@@ -1118,6 +1175,7 @@ if (root) {
   const matchModeOptions = (selectedMode) => [
     ['auto_syrup', 'Syrup volumes'],
     ['auto_product', 'SKU DB product'],
+    ['auto_product_flavor', 'SKU DB product flavor'],
     ['manual', 'Selected SKUs'],
     ['legacy', 'Old sheet total']
   ].map(([value, label]) => `<option value="${value}"${value === selectedMode ? ' selected' : ''}>${label}</option>`).join('');
@@ -1131,7 +1189,7 @@ if (root) {
     const draft = productCards(true).map(cloneProductCard);
     const used = new Set(draft.map(productCardSignature));
     const family = catalogProductFamilies()
-      .filter((candidate) => candidate.rows.some((row) => !isSyrupCatalogRow(row)))
+      .filter((candidate) => candidate.rows.some((row) => !isSyrupCatalogRow(row)) && !familySplitsByFlavor(candidate))
       .find((candidate) => !used.has(`auto_product|${candidate.key}`));
     if (family) {
       return normalizeProductCard({
@@ -1169,6 +1227,7 @@ if (root) {
         <section class="pl-config-row" data-pl-product-card-row>
           <input type="hidden" data-pl-product-card-id value="${number(card.id)}">
           <input type="hidden" data-pl-product-card-key value="${escapeHtml(card.card_key)}">
+          <input type="hidden" data-pl-product-card-match-value value="${escapeHtml(card.match_value || '')}">
           <div class="pl-config-row-head">
             <strong>${escapeHtml(card.label || `Product card ${index + 1}`)}</strong>
             <label><input type="checkbox" data-pl-product-card-visible ${card.is_visible !== false ? 'checked' : ''}> Visible</label>
@@ -1186,12 +1245,15 @@ if (root) {
   const collectProductCardSettings = () => Array.from(refs.productCardList.querySelectorAll('[data-pl-product-card-row]')).map((row) => {
     const mode = row.querySelector('[data-pl-product-card-mode]')?.value || 'manual';
     const skuSelect = row.querySelector('[data-pl-product-card-skus]');
+    const existingMatchValue = row.querySelector('[data-pl-product-card-match-value]')?.value || '';
     return normalizeProductCard({
       id: number(row.querySelector('[data-pl-product-card-id]')?.value),
       card_key: row.querySelector('[data-pl-product-card-key]')?.value || '',
       label: row.querySelector('[data-pl-product-card-label]')?.value || '',
       match_mode: mode,
-      match_value: mode === 'auto_product' ? (row.querySelector('[data-pl-product-card-match]')?.value || '') : '',
+      match_value: mode === 'auto_product'
+        ? (row.querySelector('[data-pl-product-card-match]')?.value || '')
+        : (mode === 'auto_product_flavor' ? existingMatchValue : ''),
       variant_mode: mode === 'legacy' ? 'sku' : (row.querySelector('[data-pl-product-card-variant]')?.value || 'auto'),
       sku_codes: mode === 'manual' ? Array.from(skuSelect?.selectedOptions || []).map((option) => option.value) : [],
       is_visible: row.querySelector('[data-pl-product-card-visible]')?.checked || false
@@ -1212,7 +1274,7 @@ if (root) {
     refs.productCardModal.hidden = false;
   };
   const hydrateProductCardDrafts = () => {
-    const families = catalogProductFamilies().filter((family) => family.rows.some((row) => !isSyrupCatalogRow(row)));
+    const families = catalogProductFamilies().filter((family) => family.rows.some((row) => !isSyrupCatalogRow(row)) && !familySplitsByFlavor(family));
     state.draftProductCards = (Array.isArray(state.draftProductCards) ? state.draftProductCards : []).map((card) => {
       if (card.match_mode === 'auto_product' && !card.match_value && families.length) {
         return {
