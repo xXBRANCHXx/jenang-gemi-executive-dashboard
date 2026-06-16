@@ -198,10 +198,10 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/profit-loss.js');
     <div class="pl-modal" data-pl-product-card-modal hidden>
         <div class="pl-modal-backdrop" data-pl-close-product-cards></div>
         <form class="pl-modal-card pl-settings-card pl-product-settings-card" data-pl-product-card-form>
-            <div class="pl-modal-head"><div><small>SKU DB card builder</small><strong>Product card settings</strong></div><button type="button" data-pl-close-product-cards aria-label="Close">×</button></div>
+            <div class="pl-modal-head"><div><small>SKU DB card builder</small><strong data-pl-product-card-title>Product card settings</strong></div><button type="button" data-pl-close-product-cards aria-label="Close">×</button></div>
             <div class="pl-settings-list" data-pl-product-card-list></div>
             <p class="pl-form-error" data-pl-product-card-error hidden></p>
-            <div class="pl-modal-actions"><button type="button" class="pl-secondary-button" data-pl-add-product-card-row>Add card</button><span></span><button type="button" class="pl-secondary-button" data-pl-close-product-cards>Cancel</button><button type="submit" class="pl-primary-button">Save product cards</button></div>
+            <div class="pl-modal-actions"><button type="button" class="pl-trash-button" data-pl-delete-product-card aria-label="Delete card" title="Delete card"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg></button><span></span><button type="button" class="pl-secondary-button" data-pl-close-product-cards>Cancel</button><button type="submit" class="pl-primary-button">Save product card</button></div>
         </form>
     </div>
 

@@ -6807,7 +6807,8 @@ body::after {
 
 .pl-primary-button,
 .pl-secondary-button,
-.pl-danger-button {
+.pl-danger-button,
+.pl-trash-button {
   min-height: 36px;
   padding: 0 13px;
   border-radius: 7px;
@@ -6831,6 +6832,32 @@ body::after {
   border: 1px solid rgba(255, 93, 93, 0.25);
   background: rgba(255, 93, 93, 0.08);
   color: #ff9292;
+}
+
+.pl-trash-button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  padding: 0;
+  border: 1px solid rgba(255, 93, 93, 0.28);
+  background: rgba(255, 93, 93, 0.08);
+  color: #ff7070;
+}
+
+.pl-trash-button:hover {
+  border-color: rgba(255, 93, 93, 0.48);
+  background: rgba(255, 93, 93, 0.14);
+  color: #ff9a9a;
+}
+
+.pl-trash-button svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.9;
 }
 
 .pl-form-error {

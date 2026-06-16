@@ -52,8 +52,9 @@ if (root) {
     productCardForm: root.querySelector('[data-pl-product-card-form]'),
     productCardList: root.querySelector('[data-pl-product-card-list]'),
     productCardError: root.querySelector('[data-pl-product-card-error]'),
+    productCardTitle: root.querySelector('[data-pl-product-card-title]'),
+    deleteProductCard: root.querySelector('[data-pl-delete-product-card]'),
     addProductCard: root.querySelector('[data-pl-add-product-card]'),
-    addProductCardRow: root.querySelector('[data-pl-add-product-card-row]'),
     metricsModal: root.querySelector('[data-pl-metrics-modal]'),
     metricsForm: root.querySelector('[data-pl-metrics-form]'),
     metricsList: root.querySelector('[data-pl-metrics-list]'),
@@ -1051,10 +1052,60 @@ if (root) {
         return `<option value="${escapeHtml(sku)}"${selected.has(sku) ? ' selected' : ''}>${escapeHtml(catalogOptionLabel(row))}</option>`;
       }).join('');
   };
+  const renderSelectedSkuOptions = (selectedCodes) => {
+    const selected = new Set(selectedCodes.map((sku) => String(sku).toUpperCase()));
+    const rows = catalogRows().filter((row) => selected.has(String(row.sku || '').toUpperCase()));
+    const known = new Set(rows.map((row) => String(row.sku || '').toUpperCase()));
+    const unknown = Array.from(selected).filter((sku) => !known.has(sku)).map((sku) => ({ sku, label: sku }));
+    return [
+      ...rows.map((row) => {
+        const sku = String(row.sku || '').toUpperCase();
+        return `<option value="${escapeHtml(sku)}" selected>${escapeHtml(catalogOptionLabel(row))}</option>`;
+      }),
+      ...unknown.map((row) => `<option value="${escapeHtml(row.sku)}" selected>${escapeHtml(row.label)}</option>`)
+    ].join('');
+  };
   const cloneProductCard = (card) => ({
     ...card,
     sku_codes: Array.isArray(card.sku_codes) ? [...card.sku_codes] : []
   });
+  const cardIdentityMatches = (left, right) => {
+    if (!left || !right) return false;
+    if (number(left.id) > 0 && number(right.id) > 0) return number(left.id) === number(right.id);
+    if (left.card_key && right.card_key && left.card_key === right.card_key) return true;
+    return productCardSignature(left) === productCardSignature(right);
+  };
+  const mergeProductCardDrafts = (draftCards, options = {}) => {
+    const baseline = productCards(true).map(cloneProductCard);
+    const merged = [...baseline];
+    for (const draft of draftCards.map(cloneProductCard)) {
+      const index = merged.findIndex((card) => cardIdentityMatches(card, draft));
+      if (index >= 0) {
+        merged[index] = {
+          ...draft,
+          id: number(draft.id) || number(merged[index].id),
+          sort_order: number(merged[index].sort_order)
+        };
+      } else {
+        merged.push({ ...draft, sort_order: merged.length * 10 + 10 });
+      }
+    }
+    if (options.deleteCard) {
+      const deleteCard = cloneProductCard(options.deleteCard);
+      const index = merged.findIndex((card) => cardIdentityMatches(card, deleteCard));
+      const hiddenCard = { ...deleteCard, is_visible: false };
+      if (index >= 0) {
+        merged[index] = {
+          ...hiddenCard,
+          id: number(hiddenCard.id) || number(merged[index].id),
+          sort_order: number(merged[index].sort_order)
+        };
+      } else {
+        merged.push({ ...hiddenCard, sort_order: merged.length * 10 + 10 });
+      }
+    }
+    return merged;
+  };
   const productFamilyOptions = (selectedKey) => {
     const families = catalogProductFamilies().filter((family) => family.rows.some((row) => !isSyrupCatalogRow(row)));
     const hasSelected = families.some((family) => family.key === selectedKey);
@@ -1077,7 +1128,7 @@ if (root) {
     ['sku', 'SKU rows']
   ].map(([value, label]) => `<option value="${value}"${value === selectedMode ? ' selected' : ''}>${label}</option>`).join('');
   const newProductCardDraft = () => {
-    const draft = Array.isArray(state.draftProductCards) ? state.draftProductCards : productCards(true).map(cloneProductCard);
+    const draft = productCards(true).map(cloneProductCard);
     const used = new Set(draft.map(productCardSignature));
     const family = catalogProductFamilies()
       .filter((candidate) => candidate.rows.some((row) => !isSyrupCatalogRow(row)))
@@ -1111,6 +1162,9 @@ if (root) {
       const selectedCodes = card.match_mode === 'manual'
         ? card.sku_codes
         : cardCatalogRows(card).map((row) => String(row.sku || '').toUpperCase()).filter(Boolean);
+      const skuOptions = card.match_mode === 'manual'
+        ? renderSkuOptions(selectedCodes)
+        : renderSelectedSkuOptions(selectedCodes);
       return `
         <section class="pl-config-row" data-pl-product-card-row>
           <input type="hidden" data-pl-product-card-id value="${number(card.id)}">
@@ -1124,7 +1178,7 @@ if (root) {
             <label><span>Card source</span><select data-pl-product-card-mode>${matchModeOptions(card.match_mode)}</select></label>
             <label><span>SKU DB product</span><select data-pl-product-card-match ${card.match_mode === 'auto_product' ? '' : 'disabled'}>${productFamilyOptions(card.match_value)}</select></label>
             <label><span>Rows on left</span><select data-pl-product-card-variant ${card.match_mode === 'legacy' ? 'disabled' : ''}>${variantModeOptions(card.variant_mode)}</select></label>
-            <label class="is-wide"><span>Selected SKUs</span><select data-pl-product-card-skus multiple size="8" ${card.match_mode === 'manual' ? '' : 'disabled'}>${renderSkuOptions(selectedCodes)}</select></label>
+            <label class="is-wide"><span>Selected SKUs</span><select data-pl-product-card-skus multiple size="8" ${card.match_mode === 'manual' ? '' : 'disabled'}>${skuOptions}</select></label>
           </div>
         </section>`;
     }).join('');
@@ -1144,8 +1198,15 @@ if (root) {
     });
   });
   const openProductCardSettings = (options = {}) => {
-    state.draftProductCards = productCards(true).map(cloneProductCard);
-    if (options.addNew) state.draftProductCards.push(newProductCardDraft());
+    const cards = productCards(true).map(cloneProductCard);
+    if (options.addNew) {
+      state.draftProductCards = [newProductCardDraft()];
+      refs.productCardTitle.textContent = 'New product card';
+    } else {
+      const card = cards.find((row) => row.card_key === options.cardKey) || cards[0] || newProductCardDraft();
+      state.draftProductCards = [cloneProductCard(card)];
+      refs.productCardTitle.textContent = `${card.label} settings`;
+    }
     refs.productCardError.hidden = true;
     renderProductCardSettings();
     refs.productCardModal.hidden = false;
@@ -1234,7 +1295,7 @@ if (root) {
   refs.addProductCard.addEventListener('click', () => openProductCardSettings({ addNew: true }));
   refs.productCards.addEventListener('click', (event) => {
     const button = event.target.closest('[data-pl-edit-product-card]');
-    if (button) openProductCardSettings();
+    if (button) openProductCardSettings({ cardKey: button.dataset.plEditProductCard || '' });
   });
   root.querySelector('[data-pl-edit-metrics]').addEventListener('click', openMetricsSettings);
 
@@ -1331,12 +1392,6 @@ if (root) {
     }
   });
 
-  refs.addProductCardRow.addEventListener('click', () => {
-    state.draftProductCards = collectProductCardSettings();
-    state.draftProductCards.push(newProductCardDraft());
-    renderProductCardSettings();
-  });
-
   refs.productCardList.addEventListener('change', (event) => {
     if (!event.target.matches('[data-pl-product-card-mode], [data-pl-product-card-match], [data-pl-product-card-variant]')) return;
     state.draftProductCards = collectProductCardSettings();
@@ -1344,17 +1399,40 @@ if (root) {
     renderProductCardSettings();
   });
 
+  const saveProductCards = async (cards, message) => {
+    const response = await postAction({ action: 'save_product_cards', cards });
+    state.stored = state.stored || {};
+    state.stored.product_cards = response.product_cards;
+    state.draftProductCards = null;
+    closeModal(refs.productCardModal);
+    render();
+    showToast(message);
+  };
+
+  refs.deleteProductCard.addEventListener('click', async () => {
+    refs.productCardError.hidden = true;
+    const draft = collectProductCardSettings()[0];
+    if (!draft) return;
+    if (!window.confirm(`Delete ${draft.label} card?`)) return;
+    try {
+      if (!productCards(true).some((card) => cardIdentityMatches(card, draft))) {
+        state.draftProductCards = null;
+        closeModal(refs.productCardModal);
+        showToast('Product card discarded.');
+        return;
+      }
+      await saveProductCards(mergeProductCardDrafts([], { deleteCard: draft }), 'Product card deleted.');
+    } catch (error) {
+      refs.productCardError.textContent = error.message;
+      refs.productCardError.hidden = false;
+    }
+  });
+
   refs.productCardForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     refs.productCardError.hidden = true;
     try {
-      const response = await postAction({ action: 'save_product_cards', cards: collectProductCardSettings() });
-      state.stored = state.stored || {};
-      state.stored.product_cards = response.product_cards;
-      state.draftProductCards = null;
-      closeModal(refs.productCardModal);
-      render();
-      showToast('Product cards saved.');
+      await saveProductCards(mergeProductCardDrafts(collectProductCardSettings()), 'Product card saved.');
     } catch (error) {
       refs.productCardError.textContent = error.message;
       refs.productCardError.hidden = false;
