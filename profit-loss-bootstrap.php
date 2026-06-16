@@ -54,6 +54,21 @@ function jg_profit_loss_ensure_schema(PDO $pdo): void
             updated_at DATETIME(6) NOT NULL,
             KEY idx_profit_loss_syrup_groups_visible (is_visible, sort_order)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+        'CREATE TABLE IF NOT EXISTS profit_loss_product_cards (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            card_key VARCHAR(120) NOT NULL,
+            label VARCHAR(120) NOT NULL,
+            match_mode VARCHAR(24) NOT NULL DEFAULT "auto_product",
+            match_value VARCHAR(180) NOT NULL DEFAULT "",
+            variant_mode VARCHAR(24) NOT NULL DEFAULT "auto",
+            sku_codes_json LONGTEXT NOT NULL,
+            is_visible TINYINT(1) NOT NULL DEFAULT 1,
+            sort_order INT NOT NULL DEFAULT 0,
+            created_at DATETIME(6) NOT NULL,
+            updated_at DATETIME(6) NOT NULL,
+            UNIQUE KEY uniq_profit_loss_product_card_key (card_key),
+            KEY idx_profit_loss_product_cards_visible (is_visible, sort_order)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
         'CREATE TABLE IF NOT EXISTS profit_loss_statement_metrics (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
             metric_key VARCHAR(64) NOT NULL,
@@ -226,6 +241,40 @@ function jg_profit_loss_syrup_groups(PDO $pdo): array
             'label' => (string) ($row['label'] ?? ''),
             'volume_ml' => $row['volume_ml'] === null ? null : (float) $row['volume_ml'],
             'assignment_mode' => (string) ($row['assignment_mode'] ?? 'auto') === 'manual' ? 'manual' : 'auto',
+            'sku_codes' => jg_profit_loss_decode_json_list($row['sku_codes_json'] ?? '[]'),
+            'is_visible' => (bool) (int) ($row['is_visible'] ?? 1),
+            'sort_order' => (int) ($row['sort_order'] ?? 0),
+            'updated_at' => (string) ($row['updated_at'] ?? ''),
+        ];
+    }
+    return $rows;
+}
+
+function jg_profit_loss_product_cards(PDO $pdo): array
+{
+    $stmt = $pdo->query(
+        'SELECT id, card_key, label, match_mode, match_value, variant_mode,
+                sku_codes_json, is_visible, sort_order, updated_at
+         FROM profit_loss_product_cards
+         ORDER BY sort_order, id'
+    );
+    $rows = [];
+    foreach ($stmt->fetchAll() as $row) {
+        $matchMode = (string) ($row['match_mode'] ?? 'auto_product');
+        if (!in_array($matchMode, ['auto_syrup', 'auto_product', 'manual', 'legacy'], true)) {
+            $matchMode = 'auto_product';
+        }
+        $variantMode = (string) ($row['variant_mode'] ?? 'auto');
+        if (!in_array($variantMode, ['auto', 'volume', 'flavor', 'sku'], true)) {
+            $variantMode = 'auto';
+        }
+        $rows[] = [
+            'id' => (int) ($row['id'] ?? 0),
+            'card_key' => (string) ($row['card_key'] ?? ''),
+            'label' => (string) ($row['label'] ?? ''),
+            'match_mode' => $matchMode,
+            'match_value' => (string) ($row['match_value'] ?? ''),
+            'variant_mode' => $variantMode,
             'sku_codes' => jg_profit_loss_decode_json_list($row['sku_codes_json'] ?? '[]'),
             'is_visible' => (bool) (int) ($row['is_visible'] ?? 1),
             'sort_order' => (int) ($row['sort_order'] ?? 0),

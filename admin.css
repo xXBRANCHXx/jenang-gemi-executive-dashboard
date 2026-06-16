@@ -5731,6 +5731,10 @@ body::after {
 /* Profit and Loss workspace */
 .is-profit-loss {
   --pl-green: #d7dfcb;
+  --pl-yellow: #ffd166;
+  --pl-blue: #6ee7ff;
+  --pl-profit: #9dff8f;
+  --pl-cost: #ffc56f;
   --pl-red: #ff4d57;
   --pl-border: rgba(238, 235, 228, 0.1);
   --pl-muted: #918f8a;
@@ -5983,6 +5987,10 @@ body::after {
   cursor: pointer;
 }
 
+.pl-text-button.pl-edit-text {
+  color: var(--pl-yellow);
+}
+
 .pl-search {
   display: grid;
   grid-template-columns: 22px minmax(100px, 180px);
@@ -6016,6 +6024,188 @@ body::after {
 .pl-data-badge.is-warning {
   border-color: rgba(255, 184, 77, 0.3);
   color: #ffc56f;
+}
+
+.pl-product-card-stack {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+}
+
+.pl-product-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.pl-product-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 54px;
+  padding: 9px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+.pl-product-card-head > div:first-child {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.pl-product-card-head strong {
+  overflow: hidden;
+  color: #eeeeea;
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pl-product-card-head small {
+  overflow: hidden;
+  color: #85827b;
+  font-size: 0.56rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pl-product-card-summary {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 12px;
+}
+
+.pl-product-card-summary span {
+  display: grid;
+  gap: 2px;
+  min-width: 76px;
+  text-align: right;
+}
+
+.pl-product-card-summary b {
+  color: #eeeeea;
+  font: 700 0.68rem "Space Grotesk", sans-serif;
+}
+
+.pl-product-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px;
+}
+
+.pl-product-metric-card {
+  min-width: 0;
+  overflow-x: auto;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.pl-product-metric-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 35px;
+  padding: 7px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.pl-product-metric-head strong {
+  color: #dcdad3;
+  font-size: 0.62rem;
+}
+
+.pl-product-metric-head span {
+  font: 700 0.62rem "Space Grotesk", sans-serif;
+}
+
+.pl-product-matrix {
+  display: grid;
+  min-width: 980px;
+  grid-template-columns: minmax(96px, 1.15fr) repeat(13, minmax(62px, 1fr));
+}
+
+.pl-product-month,
+.pl-product-variant,
+.pl-product-cell {
+  min-width: 0;
+  min-height: 28px;
+  padding: 6px 7px;
+  border-right: 1px solid rgba(255, 255, 255, 0.038);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pl-product-month {
+  color: #85827b;
+  font-size: 0.52rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.pl-product-month.is-row-label,
+.pl-product-variant {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: #121211;
+  text-align: left;
+}
+
+.pl-product-variant {
+  color: #c8c5be;
+  font-size: 0.57rem;
+  font-weight: 700;
+}
+
+.pl-product-cell {
+  color: #c9c6bf;
+  font: 650 0.57rem "Space Grotesk", sans-serif;
+  text-align: right;
+}
+
+.pl-product-month.is-ytd,
+.pl-product-cell.is-ytd {
+  background: rgba(215, 223, 203, 0.035);
+  color: #eeeeea;
+  font-weight: 800;
+}
+
+.pl-product-cell.is-qty,
+.is-qty .pl-product-metric-head span {
+  color: var(--pl-blue);
+}
+
+.pl-product-cell.is-price,
+.is-price .pl-product-metric-head span {
+  color: #e8e5dc;
+}
+
+.pl-product-cell.is-revenue,
+.is-revenue,
+.is-revenue .pl-product-metric-head span {
+  color: var(--pl-green);
+}
+
+.pl-product-cell.is-cost,
+.is-cost .pl-product-metric-head span {
+  color: var(--pl-cost);
+}
+
+.pl-product-cell.is-profit,
+.is-profit,
+.is-profit .pl-product-metric-head span {
+  color: var(--pl-profit);
 }
 
 .pl-syrup-grid {
@@ -6692,6 +6882,10 @@ body::after {
   .pl-syrup-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .pl-product-metric-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 1080px) {
@@ -6762,6 +6956,21 @@ body::after {
 
   .pl-form-grid label.is-wide {
     grid-column: auto;
+  }
+
+  .pl-product-card-head,
+  .pl-product-card-summary {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .pl-product-card-summary {
+    width: 100%;
+  }
+
+  .pl-product-card-summary span {
+    min-width: 0;
+    text-align: left;
   }
 
   .pl-syrup-grid,

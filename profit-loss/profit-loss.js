@@ -10,26 +10,25 @@ if (root) {
   const fullMonthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   const state = {
     year: currentYear,
-    month: currentMonth,
+    month: 0,
     sales: null,
     stored: null,
     products: [],
     monthly: [],
     search: '',
     loading: false,
-    draftSyrupGroups: null,
+    draftProductCards: null,
     draftMetrics: null
   };
 
   const refs = {
     year: root.querySelector('[data-pl-year]'),
-    month: root.querySelector('[data-pl-month]'),
     periodLabel: root.querySelector('[data-pl-period-label]'),
     syncLabel: root.querySelector('[data-pl-sync-label]'),
     refresh: root.querySelector('[data-pl-refresh]'),
     search: root.querySelector('[data-pl-search]'),
     ledger: root.querySelector('[data-pl-ledger]'),
-    syrupGroups: root.querySelector('[data-pl-syrup-groups]'),
+    productCards: root.querySelector('[data-pl-product-cards]'),
     coverage: root.querySelector('[data-pl-coverage]'),
     entrySections: root.querySelector('[data-pl-entry-sections]'),
     allocationList: root.querySelector('[data-pl-allocation-list]'),
@@ -49,11 +48,12 @@ if (root) {
     allocationModal: root.querySelector('[data-pl-allocation-modal]'),
     allocationForm: root.querySelector('[data-pl-allocation-form]'),
     allocationError: root.querySelector('[data-pl-allocation-error]'),
-    syrupSettingsModal: root.querySelector('[data-pl-syrup-settings-modal]'),
-    syrupSettingsForm: root.querySelector('[data-pl-syrup-settings-form]'),
-    syrupSettingsList: root.querySelector('[data-pl-syrup-settings-list]'),
-    syrupSettingsError: root.querySelector('[data-pl-syrup-settings-error]'),
-    addSyrupGroup: root.querySelector('[data-pl-add-syrup-group]'),
+    productCardModal: root.querySelector('[data-pl-product-card-modal]'),
+    productCardForm: root.querySelector('[data-pl-product-card-form]'),
+    productCardList: root.querySelector('[data-pl-product-card-list]'),
+    productCardError: root.querySelector('[data-pl-product-card-error]'),
+    addProductCard: root.querySelector('[data-pl-add-product-card]'),
+    addProductCardRow: root.querySelector('[data-pl-add-product-card-row]'),
     metricsModal: root.querySelector('[data-pl-metrics-modal]'),
     metricsForm: root.querySelector('[data-pl-metrics-form]'),
     metricsList: root.querySelector('[data-pl-metrics-list]'),
@@ -153,8 +153,6 @@ if (root) {
     refs.year.innerHTML = Array.from({ length: endYear - startYear + 1 }, (_, index) => startYear + index)
       .map((year) => `<option value="${year}"${year === state.year ? ' selected' : ''}>${year}</option>`).join('');
     const monthOptions = fullMonthNames.map((name, index) => `<option value="${index + 1}">${name}</option>`).join('');
-    refs.month.insertAdjacentHTML('beforeend', monthOptions);
-    refs.month.value = String(state.month);
     refs.entryForm.elements.month.innerHTML = monthOptions;
   };
 
@@ -173,20 +171,6 @@ if (root) {
   };
 
   const catalogRows = () => Array.isArray(state.stored?.sku_catalog) ? state.stored.sku_catalog : [];
-  const syrupGroups = (includeHidden = false) => {
-    const rows = Array.isArray(state.stored?.syrup_groups) ? state.stored.syrup_groups : [];
-    return rows
-      .filter((group) => includeHidden || group.is_visible !== false)
-      .map((group, index) => ({
-        id: number(group.id),
-        label: String(group.label || `Volume ${index + 1}`),
-        volume_ml: group.volume_ml === null || group.volume_ml === '' || group.volume_ml === undefined ? null : number(group.volume_ml),
-        assignment_mode: group.assignment_mode === 'manual' ? 'manual' : 'auto',
-        sku_codes: Array.isArray(group.sku_codes) ? group.sku_codes.map((sku) => String(sku).toUpperCase()) : [],
-        is_visible: group.is_visible !== false,
-        sort_order: number(group.sort_order || index)
-      }));
-  };
   const statementMetrics = (includeHidden = false) => {
     const rows = Array.isArray(state.stored?.statement_metrics) && state.stored.statement_metrics.length
       ? state.stored.statement_metrics
@@ -208,21 +192,6 @@ if (root) {
     row.base_product_name, row.flavor_name || row.flavor, row.unit_name || row.productType,
     row.volume
   ].filter(Boolean).join(' ').toLowerCase();
-  const volumeTokens = (volume) => {
-    if (!number(volume)) return [];
-    const integerVolume = String(Math.round(number(volume)));
-    const decimalVolume = number(volume).toFixed(1).replace(/\.0$/, '');
-    return [
-      `${integerVolume}ml`, `${integerVolume} ml`, `${integerVolume} m l`,
-      `${decimalVolume}ml`, `${decimalVolume} ml`
-    ];
-  };
-  const volumeMatchesGroup = (row, group) => {
-    if (!number(group.volume_ml)) return false;
-    if (number(row.volume) && Math.abs(number(row.volume) - number(group.volume_ml)) < 0.1) return true;
-    const text = skuSearchText(row).replace(/\s+/g, ' ');
-    return volumeTokens(group.volume_ml).some((token) => text.includes(token));
-  };
   const isSyrupCatalogRow = (row) => {
     const text = skuSearchText(row);
     const productText = [row.tag, row.product_name, row.base_product_name, row.flavor_name, row.brand_name].filter(Boolean).join(' ').toLowerCase();
@@ -232,14 +201,277 @@ if (root) {
       || /\bzf\s*[-_]/.test(productText)
       || /\bzero foods?\b/.test(text);
   };
-  const autoSyrupSkusForGroup = (group) => catalogRows()
-    .filter((row) => volumeMatchesGroup(row, group) && isSyrupCatalogRow(row))
-    .map((row) => String(row.sku || '').toUpperCase())
-    .filter(Boolean);
-  const groupMatchesProduct = (group, product) => {
+  const productCardMetrics = [
+    { key: 'units', label: 'QTY Sold', valueKey: 'units', format: 'integer', tone: 'qty' },
+    { key: 'averagePrice', label: 'Avg Price', valueKey: 'averagePrice', format: 'money', tone: 'price' },
+    { key: 'netRevenue', label: 'Revenue', valueKey: 'netRevenue', format: 'money', tone: 'revenue' },
+    { key: 'cogs', label: 'COGS', valueKey: 'cogs', format: 'money', tone: 'cost' },
+    { key: 'grossProfit', label: 'Gross Profit', valueKey: 'grossProfit', format: 'money', tone: 'profit' },
+    { key: 'profitPerUnit', label: 'Avg Gross Profit', valueKey: 'profitPerUnit', format: 'money', tone: 'profit' }
+  ];
+  const normalizeKey = (value) => String(value || '')
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '') || 'unknown';
+  const cleanText = (value, fallback = '') => {
+    const normalized = String(value || '').replace(/\s+/g, ' ').trim();
+    return normalized || fallback;
+  };
+  const plainVolume = (value) => {
+    const rounded = Math.round(number(value) * 10) / 10;
+    return Number.isInteger(rounded) ? String(rounded) : String(rounded).replace(/\.0$/, '');
+  };
+  const productFamilyKey = (row = {}) => normalizeKey([
+    row.brand_name || row.brand,
+    row.product_name || row.base_product_name || row.productType || row.label
+  ].filter(Boolean).join('|'));
+  const productFamilyLabel = (row = {}) => {
+    const product = cleanText(row.product_name || row.base_product_name || row.productType || row.label, 'Product');
+    const brand = cleanText(row.brand_name || row.brand, '');
+    return brand && !product.toLowerCase().includes(brand.toLowerCase()) ? `${brand} ${product}` : product;
+  };
+  const catalogProductFamilies = () => {
+    const families = new Map();
+    for (const row of catalogRows()) {
+      const key = productFamilyKey(row);
+      const family = families.get(key) || {
+        key,
+        label: productFamilyLabel(row),
+        rows: []
+      };
+      family.rows.push(row);
+      family.label = family.label || productFamilyLabel(row);
+      families.set(key, family);
+    }
+    return Array.from(families.values()).sort((left, right) => left.label.localeCompare(right.label));
+  };
+  const distinctValues = (rows, selector) => new Set(rows.map(selector).filter(Boolean));
+  const autoVariantModeForRows = (rows) => {
+    const volumes = distinctValues(rows, (row) => number(row.volume) ? plainVolume(row.volume) : '');
+    if (volumes.size > 1) return 'volume';
+    const flavors = distinctValues(rows, (row) => cleanText(row.flavor_name || row.flavor, ''));
+    if (flavors.size > 1) return 'flavor';
+    return 'sku';
+  };
+  const normalizeProductCard = (card = {}, index = 0) => {
+    const matchMode = ['auto_syrup', 'auto_product', 'manual', 'legacy'].includes(card.match_mode) ? card.match_mode : 'manual';
+    const variantMode = ['auto', 'volume', 'flavor', 'sku'].includes(card.variant_mode) ? card.variant_mode : 'auto';
+    return {
+      id: number(card.id),
+      card_key: String(card.card_key || `${matchMode}_${index + 1}`),
+      label: cleanText(card.label, `Product card ${index + 1}`),
+      match_mode: matchMode,
+      match_value: String(card.match_value || ''),
+      variant_mode: variantMode,
+      sku_codes: Array.isArray(card.sku_codes) ? card.sku_codes.map((sku) => String(sku).toUpperCase()).filter(Boolean) : [],
+      is_visible: card.is_visible !== false,
+      sort_order: number(card.sort_order || index),
+      generated: Boolean(card.generated)
+    };
+  };
+  const defaultProductCards = () => {
+    const cards = [];
+    const syrupRows = catalogRows().filter(isSyrupCatalogRow);
+    if (syrupRows.length) {
+      cards.push(normalizeProductCard({
+        card_key: 'auto_syrup',
+        label: 'Syrup',
+        match_mode: 'auto_syrup',
+        variant_mode: 'volume',
+        generated: true,
+        sort_order: 10
+      }));
+    }
+    catalogProductFamilies()
+      .filter((family) => family.rows.some((row) => !isSyrupCatalogRow(row)))
+      .forEach((family, index) => {
+        cards.push(normalizeProductCard({
+          card_key: `auto_product_${family.key}`,
+          label: family.label,
+          match_mode: 'auto_product',
+          match_value: family.key,
+          variant_mode: autoVariantModeForRows(family.rows),
+          generated: true,
+          sort_order: 20 + (index * 10)
+        }, index));
+      });
+    if (Array.isArray(state.stored?.legacy?.products) && state.stored.legacy.products.length) {
+      cards.push(normalizeProductCard({
+        card_key: 'legacy_spreadsheet_total',
+        label: 'Old spreadsheet total',
+        match_mode: 'legacy',
+        variant_mode: 'sku',
+        generated: true,
+        sort_order: 9000
+      }));
+    }
+    return cards;
+  };
+  const productCardSignature = (card) => {
+    if (card.match_mode === 'auto_product') return `auto_product|${card.match_value}`;
+    if (card.match_mode === 'manual') return `manual|${card.card_key}`;
+    return card.match_mode;
+  };
+  const productCards = (includeHidden = false) => {
+    const stored = Array.isArray(state.stored?.product_cards) ? state.stored.product_cards.map(normalizeProductCard) : [];
+    const generated = defaultProductCards();
+    const merged = stored.length ? [...stored] : [...generated];
+    const seen = new Set(merged.map(productCardSignature));
+    if (stored.length) {
+      for (const card of generated) {
+        const signature = productCardSignature(card);
+        if (!seen.has(signature)) {
+          merged.push(card);
+          seen.add(signature);
+        }
+      }
+    }
+    return merged
+      .filter((card) => includeHidden || card.is_visible !== false)
+      .sort((left, right) => number(left.sort_order) - number(right.sort_order));
+  };
+  const cardCatalogRows = (card) => {
+    if (card.match_mode === 'auto_syrup') return catalogRows().filter(isSyrupCatalogRow);
+    if (card.match_mode === 'auto_product') return catalogRows().filter((row) => productFamilyKey(row) === card.match_value);
+    if (card.match_mode === 'manual') {
+      const selected = new Set(card.sku_codes);
+      return catalogRows().filter((row) => selected.has(String(row.sku || '').toUpperCase()));
+    }
+    return [];
+  };
+  const cardMatchesProduct = (card, product) => {
+    if (card.match_mode === 'legacy') return Boolean(product.legacy);
+    if (product.legacy) return false;
     const sku = String(product.sku || '').toUpperCase();
-    if (group.assignment_mode === 'manual') return sku && group.sku_codes.includes(sku);
-    return volumeMatchesGroup(product, group) && isSyrupCatalogRow(product);
+    if (card.match_mode === 'manual') return sku && card.sku_codes.includes(sku);
+    if (card.match_mode === 'auto_syrup') return isSyrupCatalogRow(product);
+    if (card.match_mode === 'auto_product') return productFamilyKey(product) === card.match_value;
+    return false;
+  };
+  const effectiveVariantMode = (card) => {
+    if (card.match_mode === 'auto_syrup') return 'volume';
+    if (card.match_mode === 'legacy') return 'sku';
+    if (card.variant_mode !== 'auto') return card.variant_mode;
+    return autoVariantModeForRows(cardCatalogRows(card));
+  };
+  const catalogVariantLabel = (row) => [
+    cleanText(row.flavor_name || row.flavor, ''),
+    number(row.volume) ? `${plainVolume(row.volume)} ml` : '',
+    cleanText(row.tag, '')
+  ].filter(Boolean).join(' · ') || cleanText(row.sku, 'SKU');
+  const variantKeyForProduct = (product, mode) => {
+    if (product.legacy) return 'legacy';
+    if (mode === 'volume') return `volume:${number(product.volume) ? plainVolume(product.volume) : 'unknown'}`;
+    if (mode === 'flavor') return `flavor:${normalizeKey(product.flavor_name || product.flavor || 'Unflavored')}`;
+    return `sku:${String(product.sku || product.key || product.label).toUpperCase()}`;
+  };
+  const variantLabelForProduct = (product, mode) => {
+    if (product.legacy) return 'All products';
+    if (mode === 'volume') return number(product.volume) ? `${plainVolume(product.volume)} ml` : 'Unknown volume';
+    if (mode === 'flavor') return cleanText(product.flavor_name || product.flavor, 'Unflavored');
+    return catalogVariantLabel(product);
+  };
+  const variantDefinitionsForCard = (card) => {
+    const mode = effectiveVariantMode(card);
+    if (card.match_mode === 'legacy') return [{ key: 'legacy', label: 'All products', sort: 0 }];
+    const rows = cardCatalogRows(card);
+    const definitions = new Map();
+    if (card.match_mode === 'auto_syrup') {
+      const fixedVolumes = [550, 250, 50];
+      const volumes = new Set([
+        ...fixedVolumes,
+        ...rows.map((row) => Math.round(number(row.volume))).filter(Boolean)
+      ]);
+      return Array.from(volumes)
+        .sort((left, right) => {
+          const leftFixed = fixedVolumes.indexOf(left);
+          const rightFixed = fixedVolumes.indexOf(right);
+          if (leftFixed !== -1 || rightFixed !== -1) return (leftFixed === -1 ? 99 : leftFixed) - (rightFixed === -1 ? 99 : rightFixed);
+          return right - left;
+        })
+        .map((volume, index) => ({ key: `volume:${plainVolume(volume)}`, label: `${plainVolume(volume)} ml`, sort: index }));
+    }
+    for (const row of rows) {
+      const key = variantKeyForProduct(row, mode);
+      if (!definitions.has(key)) {
+        definitions.set(key, {
+          key,
+          label: variantLabelForProduct(row, mode),
+          sort: mode === 'volume' ? -number(row.volume) : definitions.size
+        });
+      }
+    }
+    if (definitions.size === 0 && card.match_mode === 'manual') {
+      card.sku_codes.forEach((sku, index) => definitions.set(`sku:${sku}`, { key: `sku:${sku}`, label: sku, sort: index }));
+    }
+    return Array.from(definitions.values()).sort((left, right) => left.sort === right.sort ? left.label.localeCompare(right.label) : left.sort - right.sort);
+  };
+  const emptyProductAggregate = () => ({
+    units: 0,
+    netRevenue: 0,
+    grossRevenue: 0,
+    cogs: 0,
+    grossProfit: 0,
+    averagePrice: 0,
+    profitPerUnit: 0,
+    legacy: false
+  });
+  const finalizeProductAggregate = (row) => ({
+    ...row,
+    grossProfit: number(row.netRevenue) - number(row.cogs),
+    averagePrice: safeDivide(row.netRevenue, row.units),
+    profitPerUnit: safeDivide(number(row.netRevenue) - number(row.cogs), row.units)
+  });
+  const productCardMatrix = (card) => {
+    const mode = effectiveVariantMode(card);
+    const variants = new Map(variantDefinitionsForCard(card).map((variant) => [variant.key, variant]));
+    const cells = new Map();
+    for (let month = 1; month <= 12; month += 1) {
+      const products = calculateProducts(month).filter((product) => cardMatchesProduct(card, product));
+      for (const product of products) {
+        const key = variantKeyForProduct(product, mode);
+        if (!variants.has(key)) {
+          variants.set(key, { key, label: variantLabelForProduct(product, mode), sort: variants.size + 1000 });
+        }
+        const cellKey = `${key}|${month}`;
+        const cell = cells.get(cellKey) || emptyProductAggregate();
+        cell.units += number(product.units);
+        cell.netRevenue += number(product.netRevenue);
+        cell.grossRevenue += number(product.grossRevenue);
+        cell.cogs += number(product.cogs);
+        cell.legacy ||= Boolean(product.legacy);
+        cells.set(cellKey, cell);
+      }
+    }
+    const orderedVariants = Array.from(variants.values()).sort((left, right) => left.sort === right.sort ? left.label.localeCompare(right.label) : left.sort - right.sort);
+    const rowTotals = new Map();
+    const cardTotal = emptyProductAggregate();
+    for (const variant of orderedVariants) {
+      const total = emptyProductAggregate();
+      for (let month = 1; month <= 12; month += 1) {
+        const cell = finalizeProductAggregate(cells.get(`${variant.key}|${month}`) || emptyProductAggregate());
+        cells.set(`${variant.key}|${month}`, cell);
+        total.units += cell.units;
+        total.netRevenue += cell.netRevenue;
+        total.grossRevenue += cell.grossRevenue;
+        total.cogs += cell.cogs;
+        total.legacy ||= cell.legacy;
+      }
+      rowTotals.set(variant.key, finalizeProductAggregate(total));
+      cardTotal.units += total.units;
+      cardTotal.netRevenue += total.netRevenue;
+      cardTotal.grossRevenue += total.grossRevenue;
+      cardTotal.cogs += total.cogs;
+      cardTotal.legacy ||= total.legacy;
+    }
+    return {
+      mode,
+      variants: orderedVariants,
+      cells,
+      rowTotals,
+      total: finalizeProductAggregate(cardTotal)
+    };
   };
 
   const rowsForPeriod = (month) => {
@@ -526,65 +758,68 @@ if (root) {
     });
   };
 
-  const calculateSyrupVolumes = (month) => {
-    const groups = syrupGroups();
-    const products = state.products.length && month === state.month ? state.products : calculateProducts(month);
-    const rows = groups.map((group) => ({
-      ...group,
-      units: 0,
-      netRevenue: 0,
-      grossRevenue: 0,
-      cogs: 0,
-      orders: 0,
-      skus: new Set(group.assignment_mode === 'manual' ? group.sku_codes : autoSyrupSkusForGroup(group))
-    }));
-    for (const product of products) {
-      const group = rows.find((candidate) => groupMatchesProduct(candidate, product));
-      if (!group) continue;
-      group.units += number(product.units);
-      group.netRevenue += number(product.netRevenue);
-      group.grossRevenue += number(product.grossRevenue);
-      group.cogs += number(product.cogs);
-      group.orders += number(product.orders);
-      if (product.sku) group.skus.add(String(product.sku).toUpperCase());
-    }
-    return rows.map((row) => {
-      const grossProfit = row.netRevenue - row.cogs;
-      return {
-        ...row,
-        grossProfit,
-        averagePrice: safeDivide(row.netRevenue, row.units),
-        profitPerUnit: safeDivide(grossProfit, row.units),
-        margin: safeDivide(grossProfit, row.netRevenue),
-        skuCount: row.skus.size
-      };
-    });
+  const formatProductCardValue = (metric, value) => {
+    if (metric.format === 'integer') return integer(value);
+    if (metric.format === 'percent') return percent(value);
+    return money(value, true);
   };
-
-  const renderSyrupVolumes = () => {
-    const rows = calculateSyrupVolumes(state.month);
-    if (!rows.length) {
-      refs.syrupGroups.innerHTML = '<p class="pl-empty">No syrup volume groups configured.</p>';
+  const productCardCellClass = (metric, value) => [
+    'pl-product-cell',
+    `is-${metric.tone}`,
+    number(value) < 0 ? 'is-negative' : ''
+  ].filter(Boolean).join(' ');
+  const renderProductMetricCard = (metric, matrix) => `
+    <section class="pl-product-metric-card is-${metric.tone}">
+      <div class="pl-product-metric-head">
+        <strong>${escapeHtml(metric.label)}</strong>
+        <span>${formatProductCardValue(metric, matrix.total[metric.valueKey])}${matrix.total.legacy ? legacyMarker : ''}</span>
+      </div>
+      <div class="pl-product-matrix" role="table" aria-label="${escapeHtml(metric.label)} by month">
+        <span class="pl-product-month is-row-label">Variant</span>
+        ${monthNames.map((name) => `<span class="pl-product-month">${name}</span>`).join('')}
+        <span class="pl-product-month is-ytd">YTD</span>
+        ${matrix.variants.map((variant) => {
+          const total = matrix.rowTotals.get(variant.key) || emptyProductAggregate();
+          return `
+            <span class="pl-product-variant">${escapeHtml(variant.label)}</span>
+            ${Array.from({ length: 12 }, (_, index) => {
+              const cell = matrix.cells.get(`${variant.key}|${index + 1}`) || emptyProductAggregate();
+              const value = cell[metric.valueKey];
+              return `<span class="${productCardCellClass(metric, value)}">${formatProductCardValue(metric, value)}${cell.legacy ? legacyMarker : ''}</span>`;
+            }).join('')}
+            <span class="${productCardCellClass(metric, total[metric.valueKey])} is-ytd">${formatProductCardValue(metric, total[metric.valueKey])}${total.legacy ? legacyMarker : ''}</span>
+          `;
+        }).join('')}
+      </div>
+    </section>`;
+  const renderProductCards = () => {
+    const cards = productCards();
+    if (!cards.length) {
+      refs.productCards.innerHTML = '<p class="pl-empty">No product cards yet. Use + Add card to build one from SKU DB.</p>';
       return;
     }
-    refs.syrupGroups.innerHTML = rows.map((row) => {
-      const assignment = row.skuCount
-        ? `${row.skuCount} ${row.assignment_mode === 'manual' ? 'selected' : 'auto'} SKU${row.skuCount === 1 ? '' : 's'}`
-        : 'No matching SKUs';
+    refs.productCards.innerHTML = cards.map((card) => {
+      const matrix = productCardMatrix(card);
+      const skuCount = card.match_mode === 'manual' ? card.sku_codes.length : cardCatalogRows(card).length;
+      const subtitle = card.match_mode === 'legacy'
+        ? 'Old sheet total for months imported from the workbook'
+        : `${matrix.variants.length} variant row${matrix.variants.length === 1 ? '' : 's'} · ${skuCount} SKU${skuCount === 1 ? '' : 's'} from SKU DB`;
       return `
-        <article class="pl-syrup-card">
-          <div class="pl-syrup-card-head">
-            <span><strong>${escapeHtml(row.label)}</strong><small>${escapeHtml(assignment)}</small></span>
-            <b>${row.volume_ml ? `${integer(row.volume_ml)} ml` : 'Custom'}</b>
+        <article class="pl-product-card">
+          <div class="pl-product-card-head">
+            <div>
+              <strong>${escapeHtml(card.label)}${matrix.total.legacy ? legacyMarker : ''}</strong>
+              <small>${escapeHtml(subtitle)}</small>
+            </div>
+            <div class="pl-product-card-summary">
+              <span><small>Revenue</small><b class="is-revenue">${money(matrix.total.netRevenue, true)}${matrix.total.legacy ? legacyMarker : ''}</b></span>
+              <span><small>Gross profit</small><b class="${matrix.total.grossProfit < 0 ? 'is-negative' : 'is-profit'}">${money(matrix.total.grossProfit, true)}${matrix.total.legacy ? legacyMarker : ''}</b></span>
+              <button type="button" class="pl-icon-button pl-settings-icon" data-pl-edit-product-card="${escapeHtml(card.card_key)}" aria-label="Configure ${escapeHtml(card.label)} card" title="Configure ${escapeHtml(card.label)} card">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1A2 2 0 0 1 4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.3 7A2 2 0 1 1 7.1 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1A2 2 0 1 1 19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1a2 2 0 0 1 0 4H21a1.7 1.7 0 0 0-1.6 1z"/></svg>
+              </button>
+            </div>
           </div>
-          <div class="pl-syrup-metrics">
-            <span><small>Sold</small><strong>${integer(row.units)}</strong></span>
-            <span><small>Net</small><strong>${money(row.netRevenue, true)}</strong></span>
-            <span><small>COGS</small><strong>${money(row.cogs, true)}</strong></span>
-            <span><small>Gross profit</small><strong class="${row.grossProfit < 0 ? 'is-negative' : ''}">${money(row.grossProfit, true)}</strong></span>
-            <span><small>Avg GP</small><strong>${money(row.profitPerUnit, true)}</strong></span>
-            <span><small>Margin</small><strong>${percent(row.margin)}</strong></span>
-          </div>
+          ${matrix.variants.length ? `<div class="pl-product-metric-grid">${productCardMetrics.map((metric) => renderProductMetricCard(metric, matrix)).join('')}</div>` : '<p class="pl-empty">This card has no matching SKU DB products yet.</p>'}
         </article>`;
     }).join('');
   };
@@ -722,9 +957,9 @@ if (root) {
   };
 
   const render = () => {
-    refs.periodLabel.textContent = state.month ? `${fullMonthNames[state.month - 1]} ${state.year}` : `${state.year} year to date`;
+    refs.periodLabel.textContent = `${state.year} full-year view`;
     renderLedger();
-    renderSyrupVolumes();
+    renderProductCards();
     renderKpis();
     renderEntries();
     renderAllocation();
@@ -798,10 +1033,6 @@ if (root) {
     refs.entryModal.hidden = false;
   };
 
-  const cloneGroup = (group) => ({
-    ...group,
-    sku_codes: Array.isArray(group.sku_codes) ? [...group.sku_codes] : []
-  });
   const cloneMetric = (metric) => ({ ...metric });
   const catalogOptionLabel = (row) => [
     row.sku,
@@ -820,46 +1051,120 @@ if (root) {
         return `<option value="${escapeHtml(sku)}"${selected.has(sku) ? ' selected' : ''}>${escapeHtml(catalogOptionLabel(row))}</option>`;
       }).join('');
   };
-
-  const renderSyrupSettings = () => {
-    const draft = Array.isArray(state.draftSyrupGroups) ? state.draftSyrupGroups : syrupGroups(true).map(cloneGroup);
-    refs.syrupSettingsList.innerHTML = draft.map((group, index) => {
-      const selectedCodes = group.assignment_mode === 'manual' ? group.sku_codes : autoSyrupSkusForGroup(group);
+  const cloneProductCard = (card) => ({
+    ...card,
+    sku_codes: Array.isArray(card.sku_codes) ? [...card.sku_codes] : []
+  });
+  const productFamilyOptions = (selectedKey) => {
+    const families = catalogProductFamilies().filter((family) => family.rows.some((row) => !isSyrupCatalogRow(row)));
+    const hasSelected = families.some((family) => family.key === selectedKey);
+    const options = families.map((family) => (
+      `<option value="${escapeHtml(family.key)}"${family.key === selectedKey ? ' selected' : ''}>${escapeHtml(family.label)} (${family.rows.length} SKU${family.rows.length === 1 ? '' : 's'})</option>`
+    ));
+    if (selectedKey && !hasSelected) options.unshift(`<option value="${escapeHtml(selectedKey)}" selected>${escapeHtml(selectedKey)}</option>`);
+    return `<option value="">Choose SKU DB product</option>${options.join('')}`;
+  };
+  const matchModeOptions = (selectedMode) => [
+    ['auto_syrup', 'Syrup volumes'],
+    ['auto_product', 'SKU DB product'],
+    ['manual', 'Selected SKUs'],
+    ['legacy', 'Old sheet total']
+  ].map(([value, label]) => `<option value="${value}"${value === selectedMode ? ' selected' : ''}>${label}</option>`).join('');
+  const variantModeOptions = (selectedMode) => [
+    ['auto', 'Auto rows'],
+    ['volume', 'Volume rows'],
+    ['flavor', 'Flavor rows'],
+    ['sku', 'SKU rows']
+  ].map(([value, label]) => `<option value="${value}"${value === selectedMode ? ' selected' : ''}>${label}</option>`).join('');
+  const newProductCardDraft = () => {
+    const draft = Array.isArray(state.draftProductCards) ? state.draftProductCards : productCards(true).map(cloneProductCard);
+    const used = new Set(draft.map(productCardSignature));
+    const family = catalogProductFamilies()
+      .filter((candidate) => candidate.rows.some((row) => !isSyrupCatalogRow(row)))
+      .find((candidate) => !used.has(`auto_product|${candidate.key}`));
+    if (family) {
+      return normalizeProductCard({
+        id: 0,
+        card_key: `auto_product_${family.key}`,
+        label: family.label,
+        match_mode: 'auto_product',
+        match_value: family.key,
+        variant_mode: autoVariantModeForRows(family.rows),
+        sku_codes: [],
+        is_visible: true
+      });
+    }
+    return normalizeProductCard({
+      id: 0,
+      card_key: `manual_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+      label: 'New product card',
+      match_mode: 'manual',
+      match_value: '',
+      variant_mode: 'sku',
+      sku_codes: [],
+      is_visible: true
+    });
+  };
+  const renderProductCardSettings = () => {
+    const draft = Array.isArray(state.draftProductCards) ? state.draftProductCards : productCards(true).map(cloneProductCard);
+    refs.productCardList.innerHTML = draft.map((card, index) => {
+      const selectedCodes = card.match_mode === 'manual'
+        ? card.sku_codes
+        : cardCatalogRows(card).map((row) => String(row.sku || '').toUpperCase()).filter(Boolean);
       return `
-        <section class="pl-config-row" data-pl-syrup-row>
-          <input type="hidden" data-pl-syrup-id value="${number(group.id)}">
+        <section class="pl-config-row" data-pl-product-card-row>
+          <input type="hidden" data-pl-product-card-id value="${number(card.id)}">
+          <input type="hidden" data-pl-product-card-key value="${escapeHtml(card.card_key)}">
           <div class="pl-config-row-head">
-            <strong>${escapeHtml(group.label || `Volume ${index + 1}`)}</strong>
-            <label><input type="checkbox" data-pl-syrup-visible ${group.is_visible !== false ? 'checked' : ''}> Visible</label>
+            <strong>${escapeHtml(card.label || `Product card ${index + 1}`)}</strong>
+            <label><input type="checkbox" data-pl-product-card-visible ${card.is_visible !== false ? 'checked' : ''}> Visible</label>
           </div>
-          <div class="pl-form-grid pl-settings-grid">
-            <label><span>Name</span><input data-pl-syrup-label maxlength="80" value="${escapeHtml(group.label || '')}" required></label>
-            <label><span>Volume ml</span><input data-pl-syrup-volume inputmode="decimal" value="${group.volume_ml ? escapeHtml(group.volume_ml) : ''}" placeholder="50"></label>
-            <label><span>Assignment</span><select data-pl-syrup-mode><option value="auto"${group.assignment_mode !== 'manual' ? ' selected' : ''}>Auto</option><option value="manual"${group.assignment_mode === 'manual' ? ' selected' : ''}>Manual</option></select></label>
-            <label class="is-wide"><span>SKUs</span><select data-pl-syrup-skus multiple size="7" ${group.assignment_mode === 'manual' ? '' : 'disabled'}>${renderSkuOptions(selectedCodes)}</select></label>
+          <div class="pl-form-grid pl-settings-grid pl-product-settings-grid">
+            <label><span>Name</span><input data-pl-product-card-label maxlength="120" value="${escapeHtml(card.label || '')}" required></label>
+            <label><span>Card source</span><select data-pl-product-card-mode>${matchModeOptions(card.match_mode)}</select></label>
+            <label><span>SKU DB product</span><select data-pl-product-card-match ${card.match_mode === 'auto_product' ? '' : 'disabled'}>${productFamilyOptions(card.match_value)}</select></label>
+            <label><span>Rows on left</span><select data-pl-product-card-variant ${card.match_mode === 'legacy' ? 'disabled' : ''}>${variantModeOptions(card.variant_mode)}</select></label>
+            <label class="is-wide"><span>Selected SKUs</span><select data-pl-product-card-skus multiple size="8" ${card.match_mode === 'manual' ? '' : 'disabled'}>${renderSkuOptions(selectedCodes)}</select></label>
           </div>
         </section>`;
     }).join('');
   };
-
-  const collectSyrupSettings = () => Array.from(refs.syrupSettingsList.querySelectorAll('[data-pl-syrup-row]')).map((row) => {
-    const mode = row.querySelector('[data-pl-syrup-mode]')?.value === 'manual' ? 'manual' : 'auto';
-    const skuSelect = row.querySelector('[data-pl-syrup-skus]');
-    return {
-      id: number(row.querySelector('[data-pl-syrup-id]')?.value),
-      label: row.querySelector('[data-pl-syrup-label]')?.value || '',
-      volume_ml: inputNumber(row.querySelector('[data-pl-syrup-volume]')?.value || ''),
-      assignment_mode: mode,
+  const collectProductCardSettings = () => Array.from(refs.productCardList.querySelectorAll('[data-pl-product-card-row]')).map((row) => {
+    const mode = row.querySelector('[data-pl-product-card-mode]')?.value || 'manual';
+    const skuSelect = row.querySelector('[data-pl-product-card-skus]');
+    return normalizeProductCard({
+      id: number(row.querySelector('[data-pl-product-card-id]')?.value),
+      card_key: row.querySelector('[data-pl-product-card-key]')?.value || '',
+      label: row.querySelector('[data-pl-product-card-label]')?.value || '',
+      match_mode: mode,
+      match_value: mode === 'auto_product' ? (row.querySelector('[data-pl-product-card-match]')?.value || '') : '',
+      variant_mode: mode === 'legacy' ? 'sku' : (row.querySelector('[data-pl-product-card-variant]')?.value || 'auto'),
       sku_codes: mode === 'manual' ? Array.from(skuSelect?.selectedOptions || []).map((option) => option.value) : [],
-      is_visible: row.querySelector('[data-pl-syrup-visible]')?.checked || false
-    };
+      is_visible: row.querySelector('[data-pl-product-card-visible]')?.checked || false
+    });
   });
-
-  const openSyrupSettings = () => {
-    state.draftSyrupGroups = syrupGroups(true).map(cloneGroup);
-    refs.syrupSettingsError.hidden = true;
-    renderSyrupSettings();
-    refs.syrupSettingsModal.hidden = false;
+  const openProductCardSettings = (options = {}) => {
+    state.draftProductCards = productCards(true).map(cloneProductCard);
+    if (options.addNew) state.draftProductCards.push(newProductCardDraft());
+    refs.productCardError.hidden = true;
+    renderProductCardSettings();
+    refs.productCardModal.hidden = false;
+  };
+  const hydrateProductCardDrafts = () => {
+    const families = catalogProductFamilies().filter((family) => family.rows.some((row) => !isSyrupCatalogRow(row)));
+    state.draftProductCards = (Array.isArray(state.draftProductCards) ? state.draftProductCards : []).map((card) => {
+      if (card.match_mode === 'auto_product' && !card.match_value && families.length) {
+        return {
+          ...card,
+          label: card.label === 'New product card' ? families[0].label : card.label,
+          match_value: families[0].key,
+          variant_mode: card.variant_mode === 'sku' ? autoVariantModeForRows(families[0].rows) : card.variant_mode
+        };
+      }
+      if (card.match_mode === 'auto_syrup' && card.label === 'New product card') return { ...card, label: 'Syrup', variant_mode: 'volume' };
+      if (card.match_mode === 'legacy' && card.label === 'New product card') return { ...card, label: 'Old spreadsheet total', variant_mode: 'sku' };
+      return card;
+    });
   };
 
   const metricOptions = (selectedKey) => metricDefinitions.map((definition) => (
@@ -910,10 +1215,6 @@ if (root) {
     state.year = number(refs.year.value);
     load();
   });
-  refs.month.addEventListener('change', () => {
-    state.month = number(refs.month.value);
-    render();
-  });
   refs.search.addEventListener('input', () => {
     state.search = refs.search.value;
     renderLedger();
@@ -930,13 +1231,17 @@ if (root) {
     if (entry) openEntryModal(entry);
   });
   root.querySelector('[data-pl-add-entry]').addEventListener('click', () => openEntryModal());
-  root.querySelector('[data-pl-edit-syrup-settings]').addEventListener('click', openSyrupSettings);
+  refs.addProductCard.addEventListener('click', () => openProductCardSettings({ addNew: true }));
+  refs.productCards.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-pl-edit-product-card]');
+    if (button) openProductCardSettings();
+  });
   root.querySelector('[data-pl-edit-metrics]').addEventListener('click', openMetricsSettings);
 
   root.querySelectorAll('[data-pl-close-sku]').forEach((element) => element.addEventListener('click', () => closeModal(refs.skuModal)));
   root.querySelectorAll('[data-pl-close-entry]').forEach((element) => element.addEventListener('click', () => closeModal(refs.entryModal)));
   root.querySelectorAll('[data-pl-close-allocation]').forEach((element) => element.addEventListener('click', () => closeModal(refs.allocationModal)));
-  root.querySelectorAll('[data-pl-close-syrup-settings]').forEach((element) => element.addEventListener('click', () => closeModal(refs.syrupSettingsModal)));
+  root.querySelectorAll('[data-pl-close-product-cards]').forEach((element) => element.addEventListener('click', () => closeModal(refs.productCardModal)));
   root.querySelectorAll('[data-pl-close-metrics]').forEach((element) => element.addEventListener('click', () => closeModal(refs.metricsModal)));
 
   refs.skuForm.addEventListener('submit', async (event) => {
@@ -1026,39 +1331,33 @@ if (root) {
     }
   });
 
-  refs.addSyrupGroup.addEventListener('click', () => {
-    state.draftSyrupGroups = collectSyrupSettings();
-    state.draftSyrupGroups.push({
-      id: 0,
-      label: 'New volume',
-      volume_ml: '',
-      assignment_mode: 'manual',
-      sku_codes: [],
-      is_visible: true
-    });
-    renderSyrupSettings();
+  refs.addProductCardRow.addEventListener('click', () => {
+    state.draftProductCards = collectProductCardSettings();
+    state.draftProductCards.push(newProductCardDraft());
+    renderProductCardSettings();
   });
 
-  refs.syrupSettingsList.addEventListener('change', (event) => {
-    if (!event.target.matches('[data-pl-syrup-mode], [data-pl-syrup-volume]')) return;
-    state.draftSyrupGroups = collectSyrupSettings();
-    renderSyrupSettings();
+  refs.productCardList.addEventListener('change', (event) => {
+    if (!event.target.matches('[data-pl-product-card-mode], [data-pl-product-card-match], [data-pl-product-card-variant]')) return;
+    state.draftProductCards = collectProductCardSettings();
+    hydrateProductCardDrafts();
+    renderProductCardSettings();
   });
 
-  refs.syrupSettingsForm.addEventListener('submit', async (event) => {
+  refs.productCardForm.addEventListener('submit', async (event) => {
     event.preventDefault();
-    refs.syrupSettingsError.hidden = true;
+    refs.productCardError.hidden = true;
     try {
-      const response = await postAction({ action: 'save_syrup_groups', groups: collectSyrupSettings() });
+      const response = await postAction({ action: 'save_product_cards', cards: collectProductCardSettings() });
       state.stored = state.stored || {};
-      state.stored.syrup_groups = response.syrup_groups;
-      state.draftSyrupGroups = null;
-      closeModal(refs.syrupSettingsModal);
+      state.stored.product_cards = response.product_cards;
+      state.draftProductCards = null;
+      closeModal(refs.productCardModal);
       render();
-      showToast('Syrup settings saved.');
+      showToast('Product cards saved.');
     } catch (error) {
-      refs.syrupSettingsError.textContent = error.message;
-      refs.syrupSettingsError.hidden = false;
+      refs.productCardError.textContent = error.message;
+      refs.productCardError.hidden = false;
     }
   });
 
@@ -1096,7 +1395,7 @@ if (root) {
     closeModal(refs.skuModal);
     closeModal(refs.entryModal);
     closeModal(refs.allocationModal);
-    closeModal(refs.syrupSettingsModal);
+    closeModal(refs.productCardModal);
     closeModal(refs.metricsModal);
   });
 

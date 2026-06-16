@@ -95,6 +95,20 @@ function jg_profit_loss_metric_key(string $label, int $index): string
     return mb_substr('custom_' . $slug . '_' . $index . '_' . bin2hex(random_bytes(3)), 0, 64);
 }
 
+function jg_profit_loss_card_key(mixed $value, string $label, int $index): string
+{
+    $key = strtolower(trim((string) $value));
+    $key = preg_replace('/[^a-z0-9_:-]+/', '_', $key) ?? '';
+    $key = trim($key, '_:-');
+    if ($key === '') {
+        $slug = strtolower(trim($label));
+        $slug = preg_replace('/[^a-z0-9]+/', '_', $slug) ?? '';
+        $slug = trim($slug, '_');
+        $key = ($slug !== '' ? $slug : 'card') . '_' . $index . '_' . bin2hex(random_bytes(3));
+    }
+    return mb_substr($key, 0, 120);
+}
+
 function jg_profit_loss_allowed_metric_value_keys(): array
 {
     return [
@@ -184,6 +198,7 @@ try {
             'entries' => $entryStmt->fetchAll(),
             'settings' => jg_profit_loss_settings($pdo, $year),
             'syrup_groups' => jg_profit_loss_syrup_groups($pdo),
+            'product_cards' => jg_profit_loss_product_cards($pdo),
             'statement_metrics' => jg_profit_loss_statement_metrics($pdo),
             'default_entries' => jg_profit_loss_default_entries(),
             'legacy' => jg_profit_loss_legacy_year($year),
@@ -355,6 +370,79 @@ try {
         }
 
         jg_profit_loss_json(['ok' => true, 'syrup_groups' => jg_profit_loss_syrup_groups($pdo)]);
+    }
+
+    if ($action === 'save_product_cards') {
+        $cards = $body['cards'] ?? [];
+        if (!is_array($cards)) {
+            jg_profit_loss_json(['ok' => false, 'error' => 'invalid_product_cards'], 422);
+        }
+        $allowedMatchModes = ['auto_syrup', 'auto_product', 'manual', 'legacy'];
+        $allowedVariantModes = ['auto', 'volume', 'flavor', 'sku'];
+
+        $pdo->beginTransaction();
+        try {
+            $insertStmt = $pdo->prepare(
+                'INSERT INTO profit_loss_product_cards
+                    (card_key, label, match_mode, match_value, variant_mode, sku_codes_json,
+                     is_visible, sort_order, created_at, updated_at)
+                 VALUES
+                    (:card_key, :label, :match_mode, :match_value, :variant_mode, :sku_codes_json,
+                     :is_visible, :sort_order, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))
+                 ON DUPLICATE KEY UPDATE
+                    label = VALUES(label), match_mode = VALUES(match_mode),
+                    match_value = VALUES(match_value), variant_mode = VALUES(variant_mode),
+                    sku_codes_json = VALUES(sku_codes_json), is_visible = VALUES(is_visible),
+                    sort_order = VALUES(sort_order), updated_at = VALUES(updated_at)'
+            );
+            $updateStmt = $pdo->prepare(
+                'UPDATE profit_loss_product_cards
+                 SET card_key = :card_key, label = :label, match_mode = :match_mode,
+                     match_value = :match_value, variant_mode = :variant_mode,
+                     sku_codes_json = :sku_codes_json, is_visible = :is_visible,
+                     sort_order = :sort_order, updated_at = UTC_TIMESTAMP(6)
+                 WHERE id = :id'
+            );
+            foreach (array_values($cards) as $index => $card) {
+                if (!is_array($card)) {
+                    continue;
+                }
+                $label = jg_profit_loss_text($card['label'] ?? '', 120);
+                if ($label === '') {
+                    jg_profit_loss_json(['ok' => false, 'error' => 'missing_product_card_label'], 422);
+                }
+                $matchMode = strtolower(jg_profit_loss_text($card['match_mode'] ?? 'manual', 24));
+                if (!in_array($matchMode, $allowedMatchModes, true)) {
+                    $matchMode = 'manual';
+                }
+                $variantMode = strtolower(jg_profit_loss_text($card['variant_mode'] ?? 'auto', 24));
+                if (!in_array($variantMode, $allowedVariantModes, true)) {
+                    $variantMode = 'auto';
+                }
+                $values = [
+                    ':card_key' => jg_profit_loss_card_key($card['card_key'] ?? '', $label, $index + 1),
+                    ':label' => $label,
+                    ':match_mode' => $matchMode,
+                    ':match_value' => jg_profit_loss_text($card['match_value'] ?? '', 180),
+                    ':variant_mode' => $variantMode,
+                    ':sku_codes_json' => json_encode(jg_profit_loss_sku_codes($card['sku_codes'] ?? []), JSON_UNESCAPED_SLASHES),
+                    ':is_visible' => jg_profit_loss_bool($card['is_visible'] ?? null) ? 1 : 0,
+                    ':sort_order' => ($index + 1) * 10,
+                ];
+                $id = max(0, (int) ($card['id'] ?? 0));
+                if ($id > 0) {
+                    $updateStmt->execute($values + [':id' => $id]);
+                } else {
+                    $insertStmt->execute($values);
+                }
+            }
+            $pdo->commit();
+        } catch (Throwable $error) {
+            $pdo->rollBack();
+            throw $error;
+        }
+
+        jg_profit_loss_json(['ok' => true, 'product_cards' => jg_profit_loss_product_cards($pdo)]);
     }
 
     if ($action === 'save_statement_metrics') {
