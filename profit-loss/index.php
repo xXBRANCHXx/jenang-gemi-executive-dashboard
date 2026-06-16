@@ -38,11 +38,11 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/profit-loss.js');
                 </div>
                 <div class="profit-loss-controls">
                     <label class="pl-compact-control">
-                        <span>Year</span>
+                        <span>Year <i title="Choose the fiscal year shown on this Profit &amp; Loss page. Years with imported workbook data use red stars on old-spreadsheet months.">i</i></span>
                         <select data-pl-year></select>
                     </label>
                     <label class="pl-compact-control">
-                        <span>Period</span>
+                        <span>Period <i title="Choose one month or Year to date. Monthly views allow SKU cost edits; YTD summarizes all months.">i</i></span>
                         <select data-pl-month>
                             <option value="0">Year to date</option>
                         </select>
@@ -70,7 +70,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/profit-loss.js');
                         <article class="pl-surface pl-product-card-surface">
                             <div class="pl-surface-bar">
                                 <div class="pl-inline-title"><strong>Product cards</strong><i title="Each card reads the selected SKU DB products as a full-year month grid. Use card settings to add or change SKU coverage without code.">i</i></div>
-                                <button type="button" class="pl-text-button" data-pl-add-product-card>+ Add card</button>
+                                <button type="button" class="pl-text-button pl-add-text" data-pl-add-product-card>+ Add card</button>
                             </div>
                             <div class="pl-product-card-stack" data-pl-product-cards>
                                 <p class="pl-empty">Loading product cards...</p>
@@ -79,7 +79,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/profit-loss.js');
 
                         <article class="pl-surface pl-syrup-volume-surface">
                             <div class="pl-surface-bar">
-                                <div class="pl-inline-title"><strong>Syrup volumes</strong><i title="Volume groups follow the old Profit & Loss syrup split and can use automatic or manual SKU assignments.">i</i></div>
+                                <div class="pl-inline-title"><strong>Syrup volumes</strong><i title="Volume groups follow the old Profit &amp; Loss syrup split and can use automatic or manual SKU assignments.">i</i></div>
                                 <button type="button" class="pl-icon-button pl-settings-icon" data-pl-edit-syrup-settings aria-label="Configure syrup volume SKU assignments" title="Configure syrup volume SKU assignments">
                                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1A2 2 0 0 1 4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.3 7A2 2 0 1 1 7.1 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1A2 2 0 1 1 19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1a2 2 0 0 1 0 4H21a1.7 1.7 0 0 0-1.6 1z"/></svg>
                                 </button>
@@ -110,7 +110,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/profit-loss.js');
                         <article class="pl-surface">
                             <div class="pl-surface-bar">
                                 <div class="pl-inline-title"><strong>Operating entries</strong><i title="Add the costs and non-product income that marketplace and SKU systems cannot know automatically.">i</i></div>
-                                <button type="button" class="pl-text-button" data-pl-add-entry>+ Add</button>
+                                <button type="button" class="pl-text-button pl-add-text" data-pl-add-entry>+ Add</button>
                             </div>
                             <div class="pl-entry-sections" data-pl-entry-sections></div>
                         </article>
@@ -118,13 +118,13 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/profit-loss.js');
                         <article class="pl-surface">
                             <div class="pl-surface-bar">
                                 <div class="pl-inline-title"><strong>Profit allocation</strong><i title="Legacy distribution model applied only when net profit is positive. Percentages are editable.">i</i></div>
-                                <button type="button" class="pl-text-button" data-pl-edit-allocation>Edit</button>
+                                <button type="button" class="pl-text-button pl-edit-text" data-pl-edit-allocation>Edit</button>
                             </div>
                             <div class="pl-allocation-list" data-pl-allocation-list></div>
                         </article>
 
                         <article class="pl-surface pl-data-quality">
-                            <div class="pl-surface-bar"><div class="pl-inline-title"><strong>Data quality</strong><i title="These checks identify missing SKU or COGS links that prevent a complete P&L.">i</i></div></div>
+                            <div class="pl-surface-bar"><div class="pl-inline-title"><strong>Data quality</strong><i title="These checks identify missing SKU or COGS links that prevent a complete P&amp;L.">i</i></div></div>
                             <div data-pl-data-quality><p class="pl-empty">Running checks...</p></div>
                         </article>
                     </aside>
@@ -157,10 +157,10 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/profit-loss.js');
             <div class="pl-form-grid">
                 <label><span>SKU DB COGS / unit <i title="Leave override blank to keep this automatic.">i</i></span><input name="catalog_cogs" readonly></label>
                 <label><span>COGS override / unit <i title="Optional period-specific replacement for SKU DB COGS.">i</i></span><input name="cogs_override" inputmode="decimal" placeholder="Automatic"></label>
-                <label><span>Packaging / unit</span><input name="packaging_per_unit" inputmode="decimal" value="0"></label>
-                <label><span>Direct labor / unit</span><input name="labor_per_unit" inputmode="decimal" value="0"></label>
-                <label><span>Other direct cost / unit</span><input name="other_per_unit" inputmode="decimal" value="0"></label>
-                <label class="is-wide"><span>Notes</span><textarea name="notes" rows="3" placeholder="Supplier change, allocation basis, or audit note"></textarea></label>
+                <label><span>Packaging / unit <i title="Optional extra packaging cost per sold unit for this SKU and month.">i</i></span><input name="packaging_per_unit" inputmode="decimal" value="0"></label>
+                <label><span>Direct labor / unit <i title="Optional direct labor cost per sold unit for this SKU and month.">i</i></span><input name="labor_per_unit" inputmode="decimal" value="0"></label>
+                <label><span>Other direct cost / unit <i title="Optional direct cost per sold unit that is not already in SKU DB COGS, packaging, or labor.">i</i></span><input name="other_per_unit" inputmode="decimal" value="0"></label>
+                <label class="is-wide"><span>Notes <i title="Internal audit context for why this month-specific cost input was added.">i</i></span><textarea name="notes" rows="3" placeholder="Supplier change, allocation basis, or audit note"></textarea></label>
             </div>
             <p class="pl-form-error" data-pl-sku-error hidden></p>
             <div class="pl-modal-actions"><button type="button" class="pl-secondary-button" data-pl-close-sku>Cancel</button><button type="submit" class="pl-primary-button">Save cost input</button></div>
@@ -173,11 +173,11 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/profit-loss.js');
             <div class="pl-modal-head"><div><small>Manual P&amp;L input</small><strong data-pl-entry-title>Add operating entry</strong></div><button type="button" data-pl-close-entry aria-label="Close">×</button></div>
             <input type="hidden" name="id">
             <div class="pl-form-grid">
-                <label><span>Month</span><select name="month" required></select></label>
-                <label><span>Section</span><select name="section" required><option value="administration">Administration</option><option value="marketing">Marketing</option><option value="income">Other income</option><option value="other">Other expense</option></select></label>
-                <label class="is-wide"><span>Label</span><input name="label" list="pl-entry-labels" maxlength="120" required placeholder="Choose a legacy line or enter a new one"></label>
-                <label><span>Amount</span><input name="amount" inputmode="decimal" required placeholder="0"></label>
-                <label><span>Notes</span><input name="notes" maxlength="500" placeholder="Optional audit note"></label>
+                <label><span>Month <i title="The month this manual P&amp;L entry belongs to.">i</i></span><select name="month" required></select></label>
+                <label><span>Section <i title="Choose whether the entry increases income or belongs to administration, marketing, or other operating expenses.">i</i></span><select name="section" required><option value="administration">Administration</option><option value="marketing">Marketing</option><option value="income">Other income</option><option value="other">Other expense</option></select></label>
+                <label class="is-wide"><span>Label <i title="Use a legacy workbook line when possible, or enter a clear new accounting label.">i</i></span><input name="label" list="pl-entry-labels" maxlength="120" required placeholder="Choose a legacy line or enter a new one"></label>
+                <label><span>Amount <i title="Positive amount for the selected section. Income increases revenue; expense sections reduce profit.">i</i></span><input name="amount" inputmode="decimal" required placeholder="0"></label>
+                <label><span>Notes <i title="Optional audit note explaining the source or reason for this manual entry.">i</i></span><input name="notes" maxlength="500" placeholder="Optional audit note"></label>
             </div>
             <datalist id="pl-entry-labels" data-pl-entry-labels></datalist>
             <p class="pl-form-error" data-pl-entry-error hidden></p>
@@ -190,13 +190,13 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/profit-loss.js');
         <form class="pl-modal-card" data-pl-allocation-form>
             <div class="pl-modal-head"><div><small>Percentage of positive profit</small><strong>Profit allocation model</strong></div><button type="button" data-pl-close-allocation aria-label="Close">×</button></div>
             <div class="pl-form-grid">
-                <label><span>Reinvest %</span><input name="reinvest_pct" inputmode="decimal"></label>
-                <label><span>Offering to SAGI %</span><input name="offering_pct" inputmode="decimal"></label>
-                <label><span>Ownership share %</span><input name="ownership_pct" inputmode="decimal"></label>
-                <label><span>Director share of ownership %</span><input name="director_pct" inputmode="decimal"></label>
-                <label><span>BnG loan share %</span><input name="bng_loan_pct" inputmode="decimal"></label>
-                <label><span>Commissioner share %</span><input name="commissioner_pct" inputmode="decimal"></label>
-                <label><span>Advisor share %</span><input name="advisor_pct" inputmode="decimal"></label>
+                <label><span>Reinvest % <i title="Share of positive net profit reserved for reinvestment before ownership allocations.">i</i></span><input name="reinvest_pct" inputmode="decimal"></label>
+                <label><span>Offering to SAGI % <i title="Share of positive net profit assigned to the SAGI offering line.">i</i></span><input name="offering_pct" inputmode="decimal"></label>
+                <label><span>Ownership share % <i title="Share of positive net profit that enters the ownership distribution model.">i</i></span><input name="ownership_pct" inputmode="decimal"></label>
+                <label><span>Director share of ownership % <i title="Part of the ownership share assigned directly to the director.">i</i></span><input name="director_pct" inputmode="decimal"></label>
+                <label><span>BnG loan share % <i title="Part of BnG's ownership share assigned to loan repayment.">i</i></span><input name="bng_loan_pct" inputmode="decimal"></label>
+                <label><span>Commissioner share % <i title="Part of BnG's ownership share assigned to the commissioner line.">i</i></span><input name="commissioner_pct" inputmode="decimal"></label>
+                <label><span>Advisor share % <i title="Part of BnG's ownership share assigned to the advisor line.">i</i></span><input name="advisor_pct" inputmode="decimal"></label>
             </div>
             <p class="pl-form-error" data-pl-allocation-error hidden></p>
             <div class="pl-modal-actions"><button type="button" class="pl-secondary-button" data-pl-close-allocation>Cancel</button><button type="submit" class="pl-primary-button">Save allocation</button></div>
@@ -209,7 +209,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/profit-loss.js');
             <div class="pl-modal-head"><div><small>SKU assignments</small><strong>Syrup volume groups</strong></div><button type="button" data-pl-close-syrup-settings aria-label="Close">×</button></div>
             <div class="pl-settings-list" data-pl-syrup-settings-list></div>
             <p class="pl-form-error" data-pl-syrup-settings-error hidden></p>
-            <div class="pl-modal-actions"><button type="button" class="pl-secondary-button" data-pl-add-syrup-group>Add volume</button><span></span><button type="button" class="pl-secondary-button" data-pl-close-syrup-settings>Cancel</button><button type="submit" class="pl-primary-button">Save syrup settings</button></div>
+            <div class="pl-modal-actions"><button type="button" class="pl-secondary-button pl-add-text" data-pl-add-syrup-group>Add volume</button><span></span><button type="button" class="pl-secondary-button" data-pl-close-syrup-settings>Cancel</button><button type="submit" class="pl-primary-button">Save syrup settings</button></div>
         </form>
     </div>
 
@@ -219,7 +219,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/profit-loss.js');
             <div class="pl-modal-head"><div><small>Statement rows</small><strong>Monthly metrics</strong></div><button type="button" data-pl-close-metrics aria-label="Close">×</button></div>
             <div class="pl-settings-list" data-pl-metrics-list></div>
             <p class="pl-form-error" data-pl-metrics-error hidden></p>
-            <div class="pl-modal-actions"><button type="button" class="pl-secondary-button" data-pl-add-metric>Add metric</button><span></span><button type="button" class="pl-secondary-button" data-pl-close-metrics>Cancel</button><button type="submit" class="pl-primary-button">Save metrics</button></div>
+            <div class="pl-modal-actions"><button type="button" class="pl-secondary-button pl-add-text" data-pl-add-metric>Add metric</button><span></span><button type="button" class="pl-secondary-button" data-pl-close-metrics>Cancel</button><button type="submit" class="pl-primary-button">Save metrics</button></div>
         </form>
     </div>
 
@@ -229,7 +229,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/profit-loss.js');
             <div class="pl-modal-head"><div><small>SKU DB card builder</small><strong data-pl-product-card-title>Product card settings</strong></div><button type="button" data-pl-close-product-cards aria-label="Close">×</button></div>
             <div class="pl-settings-list" data-pl-product-card-list></div>
             <p class="pl-form-error" data-pl-product-card-error hidden></p>
-            <div class="pl-modal-actions"><button type="button" class="pl-secondary-button" data-pl-add-product-card-draft>Add card</button><span></span><button type="button" class="pl-secondary-button" data-pl-close-product-cards>Cancel</button><button type="submit" class="pl-primary-button">Save product cards</button></div>
+            <div class="pl-modal-actions"><button type="button" class="pl-secondary-button pl-add-text" data-pl-add-product-card-draft>Add card</button><span></span><button type="button" class="pl-secondary-button" data-pl-close-product-cards>Cancel</button><button type="submit" class="pl-primary-button">Save product cards</button></div>
         </form>
     </div>
 

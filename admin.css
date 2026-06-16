@@ -5776,6 +5776,8 @@ body::after {
 }
 
 .pl-compact-control span {
+  display: inline-flex;
+  align-items: center;
   color: var(--pl-muted);
   font-size: 0.58rem;
   font-weight: 700;
@@ -5904,9 +5906,8 @@ body::after {
   white-space: nowrap;
 }
 
-.pl-kpi-strip i,
-.pl-inline-title i,
-.pl-form-grid i {
+.is-profit-loss i[data-pl-help],
+.is-profit-loss .pl-help-icon {
   display: inline-grid;
   place-items: center;
   width: 14px;
@@ -5916,7 +5917,33 @@ body::after {
   border-radius: 50%;
   color: #a19e97;
   font: 700 0.56rem/1 "Space Grotesk", sans-serif;
-  cursor: help;
+  cursor: pointer;
+  user-select: none;
+  vertical-align: 0.08em;
+}
+
+.is-profit-loss i[data-pl-help]:hover,
+.is-profit-loss i[data-pl-help]:focus-visible,
+.is-profit-loss i[data-pl-help][aria-expanded="true"] {
+  border-color: rgba(110, 231, 255, 0.55);
+  color: var(--pl-blue);
+  outline: none;
+}
+
+.pl-help-popover {
+  position: fixed;
+  z-index: 140;
+  padding: 9px 10px;
+  border: 1px solid rgba(110, 231, 255, 0.28);
+  border-radius: 8px;
+  background: #171918;
+  color: #eeeae2;
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.48);
+  font: 600 0.66rem/1.45 "Plus Jakarta Sans", sans-serif;
+}
+
+.pl-help-popover[hidden] {
+  display: none;
 }
 
 .is-negative {
@@ -5989,6 +6016,14 @@ body::after {
 
 .pl-text-button.pl-edit-text {
   color: var(--pl-yellow);
+}
+
+.pl-add-text {
+  color: var(--pl-green) !important;
+}
+
+.pl-edit-text {
+  color: var(--pl-yellow) !important;
 }
 
 .pl-search {
@@ -6701,6 +6736,8 @@ body::after {
 }
 
 .pl-form-grid label > span {
+  display: inline-flex;
+  align-items: center;
   color: #aaa7a0;
   font-size: 0.62rem;
   font-weight: 650;
@@ -6907,6 +6944,8 @@ body::after {
 }
 
 .pl-sku-filter-grid span {
+  display: inline-flex;
+  align-items: center;
   color: #aaa7a0;
   font-size: 0.58rem;
   font-weight: 750;
@@ -7052,6 +7091,24 @@ body::after {
 }
 
 .pl-product-preview-head span {
+  display: inline-flex;
+  align-items: center;
+  color: #85827b;
+  font-size: 0.58rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.pl-editor-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 24px;
+}
+
+.pl-editor-section-title span {
+  display: inline-flex;
+  align-items: center;
   color: #85827b;
   font-size: 0.58rem;
   font-weight: 800;

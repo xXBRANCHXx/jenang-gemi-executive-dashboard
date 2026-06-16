@@ -94,6 +94,9 @@ if (root) {
   const percent = (value) => `${(number(value) * 100).toLocaleString('id-ID', { maximumFractionDigits: 1 })}%`;
   const safeDivide = (top, bottom) => number(bottom) ? number(top) / number(bottom) : 0;
   const inputNumber = (value) => String(value ?? '').replace(/[^\d.-]/g, '');
+  const helpIcon = (copy, label = 'More information') => (
+    `<i class="pl-help-icon" role="button" tabindex="0" aria-label="${escapeHtml(label)}" data-pl-help="${escapeHtml(copy)}" title="${escapeHtml(copy)}">i</i>`
+  );
   const legacyMarker = '<span class="pl-legacy-star" title="From the old spreadsheets.">*</span>';
   const defaultStatementMetrics = [
     { metric_key: 'units', label: 'Units sold', value_key: 'units', display_format: 'integer', is_visible: true },
@@ -163,6 +166,57 @@ if (root) {
     refs.toast.hidden = false;
     window.clearTimeout(showToast.timer);
     showToast.timer = window.setTimeout(() => { refs.toast.hidden = true; }, 3200);
+  };
+
+  let helpPopover = null;
+  let activeHelpTarget = null;
+  const ensureHelpPopover = () => {
+    if (helpPopover) return helpPopover;
+    helpPopover = document.createElement('div');
+    helpPopover.className = 'pl-help-popover';
+    helpPopover.setAttribute('role', 'tooltip');
+    helpPopover.hidden = true;
+    document.body.appendChild(helpPopover);
+    return helpPopover;
+  };
+  const hydrateHelpTargets = (scope = root) => {
+    scope.querySelectorAll('i[title], i[data-pl-help]').forEach((target) => {
+      const text = target.dataset.plHelp || target.getAttribute('title') || '';
+      if (!text) return;
+      target.dataset.plHelp = text;
+      target.removeAttribute('title');
+      target.classList.add('pl-help-icon');
+      target.setAttribute('role', 'button');
+      target.setAttribute('tabindex', '0');
+      target.setAttribute('aria-label', 'More information');
+      target.setAttribute('aria-expanded', 'false');
+    });
+  };
+  const hideHelpPopover = () => {
+    if (activeHelpTarget) activeHelpTarget.setAttribute('aria-expanded', 'false');
+    activeHelpTarget = null;
+    if (helpPopover) helpPopover.hidden = true;
+  };
+  const positionHelpPopover = (target) => {
+    const popover = ensureHelpPopover();
+    const rect = target.getBoundingClientRect();
+    const width = Math.min(300, window.innerWidth - 24);
+    const left = Math.max(12, Math.min(rect.left + rect.width / 2 - width / 2, window.innerWidth - width - 12));
+    const top = rect.bottom + 9 + Math.min(0, window.innerHeight - rect.bottom - 130);
+    popover.style.width = `${width}px`;
+    popover.style.left = `${left}px`;
+    popover.style.top = `${Math.max(12, top)}px`;
+  };
+  const showHelpPopover = (target) => {
+    const text = target?.dataset?.plHelp || '';
+    if (!text) return;
+    const popover = ensureHelpPopover();
+    if (activeHelpTarget && activeHelpTarget !== target) activeHelpTarget.setAttribute('aria-expanded', 'false');
+    activeHelpTarget = target;
+    target.setAttribute('aria-expanded', 'true');
+    popover.textContent = text;
+    popover.hidden = false;
+    positionHelpPopover(target);
   };
 
   const initializeControls = () => {
@@ -1258,6 +1312,7 @@ if (root) {
     renderAllocation();
     renderQuality();
     renderMonthly();
+    hydrateHelpTargets();
   };
 
   const load = async () => {
@@ -1521,9 +1576,9 @@ if (root) {
     return `
       <div class="pl-sku-builder${manual ? '' : ' is-readonly'}">
         <div class="pl-sku-filter-grid">
-          <label><span>Company</span><select data-pl-sku-filter-brand><option value="">All companies</option>${brands}</select></label>
-          <label><span>Product</span><select data-pl-sku-filter-product>${productFamilyOptions(filters.product, filters.brand)}</select></label>
-          <label><span>Find SKU</span><input type="search" data-pl-sku-filter-search value="${escapeHtml(filters.search)}" placeholder="Search SKU, TAG, flavor, unit"></label>
+          <label><span>Company ${helpIcon('Filters the SKU picker by SKU DB company or brand. It does not change auto coverage unless the card is in Selected SKUs mode.')}</span><select data-pl-sku-filter-brand><option value="">All companies</option>${brands}</select></label>
+          <label><span>Product ${helpIcon('Filters the SKU picker by SKU DB product family so selected SKU cards are easier to build.')}</span><select data-pl-sku-filter-product>${productFamilyOptions(filters.product, filters.brand)}</select></label>
+          <label><span>Find SKU ${helpIcon('Searches SKU, TAG, company, product, flavor, unit, and volume in the SKU DB picker.')}</span><input type="search" data-pl-sku-filter-search value="${escapeHtml(filters.search)}" placeholder="Search SKU, TAG, flavor, unit"></label>
         </div>
         <div class="pl-sku-picker-actions">
           <span>${selectedCodes.length} selected · ${rows.length} showing</span>
@@ -1538,11 +1593,13 @@ if (root) {
   };
   const renderProductCardRowEditor = (card) => {
     const rows = variantDefinitionsForCard(card, true);
+    const title = `<div class="pl-editor-section-title"><span>Variant rows ${helpIcon('These are the rows shown on the left side of every product card metric grid. Rename, reorder, or hide rows here. Legacy-only rows can be hidden even when no live SKU exists for them.')}</span></div>`;
     if (!rows.length) {
-      return '<p class="pl-empty">Preview rows will appear after SKUs match this card.</p>';
+      return `<div class="pl-preview-row-editor">${title}<p class="pl-empty">Preview rows will appear after SKUs match this card.</p></div>`;
     }
     return `
       <div class="pl-preview-row-editor">
+        ${title}
         ${rows.map((row, index) => `
           <div class="pl-preview-row${row.is_hidden ? ' is-hidden' : ''}" draggable="true" data-pl-variant-row data-pl-variant-row-key="${escapeHtml(row.key)}">
             <button type="button" class="pl-preview-row-drag" data-pl-variant-row-drag aria-label="Drag preview row">Drag</button>
@@ -1561,6 +1618,7 @@ if (root) {
     const metrics = productMetricsForCard(card, true);
     return `
       <div class="pl-preview-metric-editor">
+        <div class="pl-editor-section-title"><span>Metric panels ${helpIcon('Each metric panel becomes one table inside the card. Hide a metric to remove that table from the card without changing the underlying sales data.')}</span></div>
         ${metrics.map((metric, index) => `
           <div class="pl-preview-metric-row${metric.is_hidden ? ' is-hidden' : ''}" draggable="true" data-pl-metric-panel-row data-pl-metric-panel-key="${escapeHtml(metric.key)}">
             <button type="button" class="pl-preview-row-drag" data-pl-metric-panel-drag aria-label="Drag metric panel">Drag</button>
@@ -1582,7 +1640,7 @@ if (root) {
     return `
       <div class="pl-product-card-preview">
         <div class="pl-product-preview-head">
-          <span>Live preview</span>
+          <span>Live preview ${helpIcon('This preview uses the same matching rules as the saved page. Red stars mean the value comes from the old workbook for a legacy month.')}</span>
           <strong>${matrix.variants.length} row${matrix.variants.length === 1 ? '' : 's'} · ${metrics.length} metric${metrics.length === 1 ? '' : 's'} · ${skuCount} SKU${skuCount === 1 ? '' : 's'}</strong>
         </div>
         ${renderProductCardMetricEditor(card)}
@@ -1654,11 +1712,11 @@ if (root) {
             </div>
           </div>
           <div class="pl-form-grid pl-settings-grid pl-product-settings-grid">
-            <label><span>Name</span><input data-pl-product-card-label maxlength="120" value="${escapeHtml(card.label || '')}" required></label>
-            <label><span>Coverage mode</span><select data-pl-product-card-mode>${matchModeOptions(card.match_mode)}</select></label>
-            <label><span>SKU DB product</span><select data-pl-product-card-match ${['auto_product', 'auto_product_flavor'].includes(card.match_mode) ? '' : 'disabled'}>${productFamilyOptions(matchFamilyValue)}</select></label>
-            <label><span>Flavor</span><select data-pl-product-card-flavor ${card.match_mode === 'auto_product_flavor' ? '' : 'disabled'}>${productFlavorOptions(matchFamilyValue, flavorParts.flavorKey)}</select></label>
-            <label><span>Rows on left</span><select data-pl-product-card-variant ${card.match_mode === 'legacy' ? 'disabled' : ''}>${variantModeOptions(card.variant_mode)}</select></label>
+            <label><span>Name ${helpIcon('The card title shown on the Profit & Loss page. Changing the name does not change the products matched by the card.')}</span><input data-pl-product-card-label maxlength="120" value="${escapeHtml(card.label || '')}" required></label>
+            <label><span>Coverage mode ${helpIcon('Selected SKUs uses only checked SKU DB rows. Whole SKU DB product updates automatically when new SKUs are added to that product. Whole product flavor narrows that product to one flavor. Syrup volumes groups syrup products by volume and can include old-workbook syrup rows. Old sheet total shows the imported workbook total.')}</span><select data-pl-product-card-mode>${matchModeOptions(card.match_mode)}</select></label>
+            <label><span>SKU DB product ${helpIcon('Choose the product family used by Whole SKU DB product and Whole product flavor cards. Disabled modes use their own matching rules.')}</span><select data-pl-product-card-match ${['auto_product', 'auto_product_flavor'].includes(card.match_mode) ? '' : 'disabled'}>${productFamilyOptions(matchFamilyValue)}</select></label>
+            <label><span>Flavor ${helpIcon('For Whole product flavor cards, this chooses which flavor inside the selected SKU DB product family is included.')}</span><select data-pl-product-card-flavor ${card.match_mode === 'auto_product_flavor' ? '' : 'disabled'}>${productFlavorOptions(matchFamilyValue, flavorParts.flavorKey)}</select></label>
+            <label><span>Rows on left ${helpIcon('Controls how matching products are split into card rows: automatic, volume, flavor, or individual SKU rows.')}</span><select data-pl-product-card-variant ${card.match_mode === 'legacy' ? 'disabled' : ''}>${variantModeOptions(card.variant_mode)}</select></label>
           </div>
           ${renderProductCardSkuPicker(card, index)}
           ${renderProductCardDraftPreview(card)}
@@ -1667,6 +1725,7 @@ if (root) {
     if (options.preserveScroll) {
       window.requestAnimationFrame(() => { refs.productCardList.scrollTop = previousScrollTop; });
     }
+    hydrateHelpTargets(refs.productCardList);
   };
   const collectProductCardSettings = () => Array.from(refs.productCardList.querySelectorAll('[data-pl-product-card-row]')).map((row) => {
     const mode = row.querySelector('[data-pl-product-card-mode]')?.value || 'manual';
@@ -1760,13 +1819,14 @@ if (root) {
             <label><input type="checkbox" data-pl-syrup-visible ${group.is_visible !== false ? 'checked' : ''}> Visible</label>
           </div>
           <div class="pl-form-grid pl-settings-grid">
-            <label><span>Name</span><input data-pl-syrup-label maxlength="80" value="${escapeHtml(group.label || '')}" required></label>
-            <label><span>Volume ml</span><input data-pl-syrup-volume inputmode="decimal" value="${group.volume_ml ? escapeHtml(group.volume_ml) : ''}" placeholder="50"></label>
-            <label><span>Assignment</span><select data-pl-syrup-mode><option value="auto"${group.assignment_mode !== 'manual' ? ' selected' : ''}>Auto</option><option value="manual"${group.assignment_mode === 'manual' ? ' selected' : ''}>Manual</option></select></label>
-            <label class="is-wide"><span>SKUs</span><select data-pl-syrup-skus multiple size="7" ${group.assignment_mode === 'manual' ? '' : 'disabled'}>${renderSkuOptions(selectedCodes)}</select></label>
+            <label><span>Name ${helpIcon('The label shown on the Syrup volumes summary card.')}</span><input data-pl-syrup-label maxlength="80" value="${escapeHtml(group.label || '')}" required></label>
+            <label><span>Volume ml ${helpIcon('The bottle or sachet volume used for automatic syrup matching. Leave blank only for a custom manual group.')}</span><input data-pl-syrup-volume inputmode="decimal" value="${group.volume_ml ? escapeHtml(group.volume_ml) : ''}" placeholder="50"></label>
+            <label><span>Assignment ${helpIcon('Auto uses SKU DB volume and syrup detection. Manual uses only the selected SKUs below.')}</span><select data-pl-syrup-mode><option value="auto"${group.assignment_mode !== 'manual' ? ' selected' : ''}>Auto</option><option value="manual"${group.assignment_mode === 'manual' ? ' selected' : ''}>Manual</option></select></label>
+            <label class="is-wide"><span>SKUs ${helpIcon('When Assignment is Manual, choose the exact SKU DB rows included in this syrup volume group.')}</span><select data-pl-syrup-skus multiple size="7" ${group.assignment_mode === 'manual' ? '' : 'disabled'}>${renderSkuOptions(selectedCodes)}</select></label>
           </div>
         </section>`;
     }).join('');
+    hydrateHelpTargets(refs.syrupSettingsList);
   };
 
   const collectSyrupSettings = () => Array.from(refs.syrupSettingsList.querySelectorAll('[data-pl-syrup-row]')).map((row) => {
@@ -1808,11 +1868,12 @@ if (root) {
           <label><input type="checkbox" data-pl-metric-visible ${metric.is_visible !== false ? 'checked' : ''}> Visible</label>
         </div>
         <div class="pl-form-grid pl-settings-grid">
-          <label><span>Name</span><input data-pl-metric-label maxlength="120" value="${escapeHtml(metric.label || '')}" required></label>
-          <label><span>Value</span><select data-pl-metric-value>${metricOptions(metric.value_key)}</select></label>
-          <label><span>Format</span><select data-pl-metric-format>${formatOptions(metric.display_format)}</select></label>
+          <label><span>Name ${helpIcon('The row label shown in the Monthly statement table.')}</span><input data-pl-metric-label maxlength="120" value="${escapeHtml(metric.label || '')}" required></label>
+          <label><span>Value ${helpIcon('The calculated Profit & Loss value this monthly statement row displays.')}</span><select data-pl-metric-value>${metricOptions(metric.value_key)}</select></label>
+          <label><span>Format ${helpIcon('How the row is displayed: currency, whole number, or percent.')}</span><select data-pl-metric-format>${formatOptions(metric.display_format)}</select></label>
         </div>
       </section>`).join('');
+    hydrateHelpTargets(refs.metricsList);
   };
 
   const collectMetricSettings = () => Array.from(refs.metricsList.querySelectorAll('[data-pl-metric-row]')).map((row) => ({
@@ -1832,6 +1893,38 @@ if (root) {
 
   const closeModal = (modal) => { if (modal) modal.hidden = true; };
   const postAction = (payload) => requestJson(apiEndpoint, { method: 'POST', body: JSON.stringify({ year: state.year, ...payload }) });
+
+  root.addEventListener('click', (event) => {
+    const helpTarget = event.target.closest('[data-pl-help]');
+    if (!helpTarget) {
+      if (!event.target.closest('.pl-help-popover')) hideHelpPopover();
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    showHelpPopover(helpTarget);
+  });
+  root.addEventListener('focusin', (event) => {
+    const helpTarget = event.target.closest('[data-pl-help]');
+    if (helpTarget) showHelpPopover(helpTarget);
+  });
+  root.addEventListener('keydown', (event) => {
+    const helpTarget = event.target.closest('[data-pl-help]');
+    if (!helpTarget || !['Enter', ' '].includes(event.key)) return;
+    event.preventDefault();
+    if (activeHelpTarget === helpTarget && !ensureHelpPopover().hidden) {
+      hideHelpPopover();
+    } else {
+      showHelpPopover(helpTarget);
+    }
+  });
+  document.addEventListener('click', (event) => {
+    if (!activeHelpTarget) return;
+    if (root.contains(event.target) || helpPopover?.contains(event.target)) return;
+    hideHelpPopover();
+  });
+  window.addEventListener('resize', hideHelpPopover);
+  window.addEventListener('scroll', hideHelpPopover, true);
 
   refs.year.addEventListener('change', () => {
     state.year = number(refs.year.value);
@@ -2434,6 +2527,7 @@ if (root) {
 
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
+    hideHelpPopover();
     closeModal(refs.skuModal);
     closeModal(refs.entryModal);
     closeModal(refs.allocationModal);
@@ -2443,5 +2537,6 @@ if (root) {
   });
 
   initializeControls();
+  hydrateHelpTargets();
   load();
 }
