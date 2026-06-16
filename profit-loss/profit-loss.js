@@ -391,6 +391,7 @@ if (root) {
     return cards;
   };
   const productCardSignature = (card) => {
+    if (card.card_key === 'auto_syrup') return 'auto_syrup';
     if (card.match_mode === 'auto_product') return `auto_product|${card.match_value}`;
     if (card.match_mode === 'auto_product_flavor') return `auto_product_flavor|${card.match_value}`;
     if (card.match_mode === 'manual') return `manual|${card.card_key}`;
@@ -2021,18 +2022,24 @@ if (root) {
     const draft = Array.isArray(state.draftProductCards) ? [...state.draftProductCards] : [];
     const card = draft[index];
     if (!card) return;
+    const signature = productCardSignature(card);
+    const defaultCard = defaultProductCards().find((candidate) => productCardSignature(candidate) === signature);
+    const remainingHasSignature = draft.some((candidate, candidateIndex) => candidateIndex !== index && productCardSignature(candidate) === signature);
     const deletion = {
       id: number(card.id),
-      card_key: card.card_key || ''
+      card_key: card.card_key || '',
+      signature
     };
-    if (card.generated && deletion.id <= 0) {
+    if (defaultCard && !remainingHasSignature) {
       deletion.hidden_card = {
-        ...cloneProductCard(card),
+        ...cloneProductCard(defaultCard),
+        id: 0,
+        sort_order: number(card.sort_order || defaultCard.sort_order),
         is_visible: false,
         touched: true
       };
     }
-    if (deletion.id > 0 || deletion.card_key) state.deletedProductCards.push(deletion);
+    if (deletion.id > 0 || (deletion.card_key && !remainingHasSignature)) state.deletedProductCards.push(deletion);
     draft.splice(index, 1);
     state.draftProductCards = draft.length ? draft : [newProductCardDraft()];
     renderProductCardSettings();
@@ -2334,14 +2341,20 @@ if (root) {
       const deletedHiddenCards = state.deletedProductCards
         .map((card) => card.hidden_card)
         .filter(Boolean);
-      const deletedCards = state.deletedProductCards.map((card) => ({
+      const savedCards = Array.isArray(state.draftProductCards) ? state.draftProductCards : collectProductCardSettings();
+      const savedSignatures = new Set(savedCards.map(productCardSignature));
+      const deletedCards = state.deletedProductCards.filter((card) => (
+        number(card.id) > 0 || !savedSignatures.has(card.signature || '')
+      )).map((card) => ({
         id: number(card.id),
         card_key: card.card_key || ''
       }));
-      const savedCards = Array.isArray(state.draftProductCards) ? state.draftProductCards : collectProductCardSettings();
       const response = await postAction({
         action: 'save_product_cards',
-        cards: [...savedCards, ...deletedHiddenCards].filter((card) => !isPristineGeneratedProductCard(card)),
+        cards: [
+          ...savedCards,
+          ...deletedHiddenCards.filter((card) => !savedSignatures.has(productCardSignature(card)))
+        ].filter((card) => !isPristineGeneratedProductCard(card)),
         deleted_cards: deletedCards
       });
       state.stored.product_cards = response.product_cards;
