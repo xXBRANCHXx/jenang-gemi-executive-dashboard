@@ -377,55 +377,6 @@ if (root) {
         sort_order: 10
       }));
     }
-    let productCardIndex = 0;
-    catalogProductFamilies()
-      .filter((family) => family.rows.some((row) => !isSyrupCatalogRow(row)))
-      .forEach((family) => {
-        if (familySplitsByFlavor(family)) {
-          const flavors = new Map();
-          for (const row of family.rows) {
-            const flavorKey = productFlavorKey(row);
-            const flavor = flavors.get(flavorKey) || { key: flavorKey, label: productFlavorLabel(row), rows: [] };
-            flavor.rows.push(row);
-            flavors.set(flavorKey, flavor);
-          }
-          Array.from(flavors.values())
-            .sort((left, right) => left.label.localeCompare(right.label))
-            .forEach((flavor) => {
-              cards.push(normalizeProductCard({
-                card_key: `auto_product_flavor_${family.key}_${flavor.key}`,
-                label: `${family.label} ${flavor.label}`,
-                match_mode: 'auto_product_flavor',
-                match_value: flavorMatchValue(family.key, flavor.key),
-                variant_mode: 'volume',
-                generated: true,
-                sort_order: 20 + (productCardIndex * 10)
-              }, productCardIndex));
-              productCardIndex += 1;
-            });
-          return;
-        }
-        cards.push(normalizeProductCard({
-          card_key: `auto_product_${family.key}`,
-          label: family.label,
-          match_mode: 'auto_product',
-          match_value: family.key,
-          variant_mode: autoVariantModeForRows(family.rows),
-          generated: true,
-          sort_order: 20 + (productCardIndex * 10)
-        }, productCardIndex));
-        productCardIndex += 1;
-      });
-    if (Array.isArray(state.stored?.legacy?.products) && state.stored.legacy.products.length) {
-      cards.push(normalizeProductCard({
-        card_key: 'legacy_spreadsheet_total',
-        label: 'Old spreadsheet total',
-        match_mode: 'legacy',
-        variant_mode: 'sku',
-        generated: true,
-        sort_order: 9000
-      }));
-    }
     return cards;
   };
   const productCardSignature = (card) => {
@@ -1574,7 +1525,8 @@ if (root) {
       hidden_metrics: hiddenMetrics
     });
   };
-  const renderProductCardSettings = () => {
+  const renderProductCardSettings = (options = {}) => {
+    const previousScrollTop = options.preserveScroll ? number(refs.productCardList.scrollTop) : 0;
     const draft = Array.isArray(state.draftProductCards) ? state.draftProductCards : productCards(true).map(cloneProductCard);
     refs.productCardList.innerHTML = draft.map((card, index) => {
       const flavorParts = parseFlavorMatchValue(card.match_mode === 'auto_product_flavor' ? card.match_value : '');
@@ -1611,6 +1563,9 @@ if (root) {
           ${renderProductCardDraftPreview(card)}
         </section>`;
     }).join('');
+    if (options.preserveScroll) {
+      window.requestAnimationFrame(() => { refs.productCardList.scrollTop = previousScrollTop; });
+    }
   };
   const collectProductCardSettings = () => Array.from(refs.productCardList.querySelectorAll('[data-pl-product-card-row]')).map((row) => {
     const mode = row.querySelector('[data-pl-product-card-mode]')?.value || 'manual';
@@ -1644,6 +1599,10 @@ if (root) {
     if (options.addNew) {
       state.draftProductCards = [newProductCardDraft()];
       refs.productCardTitle.textContent = 'New product card';
+    } else if (options.cardKey) {
+      const selectedCard = cards.find((card) => card.card_key === options.cardKey || productCardSignature(card) === options.cardKey);
+      state.draftProductCards = [selectedCard ? cloneProductCard(selectedCard) : newProductCardDraft()];
+      refs.productCardTitle.textContent = selectedCard ? `${selectedCard.label} card settings` : 'Product card settings';
     } else {
       state.draftProductCards = cards.length ? cards : [newProductCardDraft()];
       refs.productCardTitle.textContent = 'Product card studio';
@@ -1991,7 +1950,7 @@ if (root) {
       ...card.layout,
       row_order: orderedKeys
     });
-    renderProductCardSettings();
+    renderProductCardSettings({ preserveScroll: true });
   };
   const moveProductCardMetricDraft = (cardIndex, fromKey, toKey) => {
     const card = state.draftProductCards?.[cardIndex];
@@ -2006,7 +1965,7 @@ if (root) {
       ...card.layout,
       metric_order: orderedKeys
     });
-    renderProductCardSettings();
+    renderProductCardSettings({ preserveScroll: true });
   };
 
   refs.productCardList?.addEventListener('input', (event) => {
@@ -2020,7 +1979,7 @@ if (root) {
     const metricKey = metricRow?.dataset.plMetricPanelKey || '';
     if (event.target.matches('[data-pl-variant-row-label], [data-pl-metric-panel-label]')) markProductCardTouched(row);
     syncProductCardDrafts();
-    renderProductCardSettings();
+    renderProductCardSettings({ preserveScroll: true });
     if (event.target.matches('[data-pl-variant-row-label]')) {
       focusVariantRowLabel(draftKey, variantKey, value);
     } else if (event.target.matches('[data-pl-metric-panel-label]')) {
@@ -2054,7 +2013,7 @@ if (root) {
       markProductCardTouched(target.closest('[data-pl-product-card-row]'));
     }
     syncProductCardDrafts();
-    renderProductCardSettings();
+    renderProductCardSettings({ preserveScroll: true });
   });
 
   refs.productCardList?.addEventListener('click', (event) => {
@@ -2064,14 +2023,14 @@ if (root) {
       markProductCardTouched(row);
       row.querySelectorAll('[data-pl-product-card-sku-check]').forEach((input) => { input.checked = true; });
       syncProductCardDrafts();
-      renderProductCardSettings();
+      renderProductCardSettings({ preserveScroll: true });
       return;
     }
     if (event.target.closest('[data-pl-sku-clear-visible]')) {
       markProductCardTouched(row);
       row.querySelectorAll('[data-pl-product-card-sku-check]').forEach((input) => { input.checked = false; });
       syncProductCardDrafts();
-      renderProductCardSettings();
+      renderProductCardSettings({ preserveScroll: true });
       return;
     }
     if (event.target.closest('[data-pl-sku-clear-all]')) {
@@ -2079,7 +2038,7 @@ if (root) {
       syncProductCardDrafts();
       const index = number(row.dataset.plProductCardIndex);
       if (state.draftProductCards?.[index]) state.draftProductCards[index].sku_codes = [];
-      renderProductCardSettings();
+      renderProductCardSettings({ preserveScroll: true });
       return;
     }
     const removeSku = event.target.closest('[data-pl-remove-product-card-sku]');
@@ -2091,7 +2050,7 @@ if (root) {
       if (state.draftProductCards?.[index]) {
         state.draftProductCards[index].sku_codes = state.draftProductCards[index].sku_codes.filter((code) => code !== sku);
       }
-      renderProductCardSettings();
+      renderProductCardSettings({ preserveScroll: true });
       return;
     }
     const moveButton = event.target.closest('[data-pl-product-card-move]');
@@ -2142,7 +2101,7 @@ if (root) {
       const labelInput = variantResetButton.closest('[data-pl-variant-row]')?.querySelector('[data-pl-variant-row-label]');
       if (labelInput) labelInput.value = labelInput.dataset.plVariantOriginalLabel || labelInput.value;
       syncProductCardDrafts();
-      renderProductCardSettings();
+      renderProductCardSettings({ preserveScroll: true });
       return;
     }
     const metricResetButton = event.target.closest('[data-pl-metric-panel-reset-label]');
@@ -2151,7 +2110,7 @@ if (root) {
       const labelInput = metricResetButton.closest('[data-pl-metric-panel-row]')?.querySelector('[data-pl-metric-panel-label]');
       if (labelInput) labelInput.value = labelInput.dataset.plMetricPanelOriginalLabel || labelInput.value;
       syncProductCardDrafts();
-      renderProductCardSettings();
+      renderProductCardSettings({ preserveScroll: true });
       return;
     }
     if (event.target.closest('[data-pl-product-card-hide]')) {
@@ -2161,7 +2120,7 @@ if (root) {
       if (state.draftProductCards?.[index]) {
         state.draftProductCards[index].is_visible = state.draftProductCards[index].is_visible === false;
       }
-      renderProductCardSettings();
+      renderProductCardSettings({ preserveScroll: true });
     }
   });
 
