@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isAuthenticated = jg_admin_is_authenticated();
-$dashboardBuildVersion = 'exec3.68.7';
+$dashboardBuildVersion = 'exec3.68.8';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 ?>
@@ -147,7 +147,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                             <div>
                                 <div class="admin-chart-title-row">
                                     <h3 data-overview-trend-title>Revenue by month</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About revenue by month" data-chart-info="Tracks the selected monthly metric for the chosen year. The current month is projected by dividing its total so far by today's day number, then multiplying by the number of days in the month; its dotted line and hollow point distinguish it from actual results. Revenue is seller-received marketplace money after platform deductions. Gross Profit subtracts SKU DB COGS from that revenue. Orders QTY counts orders, and Items QTY counts units sold."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About revenue by month" data-chart-info="Shows how the selected year is performing month by month. Use the buttons to switch between seller-received revenue, gross profit after product cost, completed orders, and items sold. Historical values saved in Open Context are included. If the current month is still in progress, the dotted point estimates where it may finish based on the pace so far."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                                 <span class="admin-panel-meta" data-overview-trend-meta>Selected year</span>
                             </div>
@@ -186,7 +186,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                             <div>
                                 <div class="admin-chart-title-row">
                                     <h3>Order volume</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About order volume" data-chart-info="Shows monthly order activity for the selected year. Orders counts completed marketplace orders, Items counts units sold, and AOV shows average Rp sales per order. Axis labels stay hidden so the chart stays clean, with exact month and value on hover."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About order volume" data-chart-info="Compares monthly demand. Orders means completed marketplace orders, Items means units inside those orders, and AOV means average seller-received rupiah per order. Use it to see whether growth is coming from more buyers, bigger baskets, or both."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                                 <span class="admin-panel-meta">Live from stored order facts</span>
                             </div>
@@ -206,7 +206,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                             <div>
                                 <div class="admin-chart-title-row">
                                     <h3>Current totals</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About current totals" data-chart-info="Summarizes the selected year's marketplace sales so far. Revenue is seller-received marketplace money, Marketplace Fees are platform deductions, Gross Profit subtracts SKU DB COGS from revenue, and Orders QTY counts orders."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About current totals" data-chart-info="Year-to-date snapshot for the selected year. Revenue is money the business receives after marketplace deductions, Marketplace Fees are the platform deductions, Gross Profit is revenue minus product cost, and Orders QTY is completed orders with item count shown below."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                                 <span class="admin-panel-meta">Year to date</span>
                             </div>
@@ -224,7 +224,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                             <div>
                                 <div class="admin-chart-title-row">
                                     <h3 data-overview-hourly-title>Today Orders QTY by hour</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About today by hour" data-chart-info="Shows today's marketplace order activity by hour from 0 through 23. Revenue is seller-received marketplace money after platform deductions. Toggle between revenue, gross profit, units sold, and order count."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About today by hour" data-chart-info="Shows today's marketplace activity by hour in WIB. Use it to spot the hours when customers are buying, then switch metrics to compare orders, units, revenue, or gross profit."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                                 <span class="admin-panel-meta" data-overview-hourly-meta>Live today, 0-23</span>
                             </div>
@@ -246,7 +246,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                             <div>
                                 <div class="admin-chart-title-row">
                                     <h3>Units sold by platform account</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About units sold by platform account" data-chart-info="Stacks each month from January through December by marketplace account. Each colored segment is one account on one platform, and the value is units sold from stored order item facts, not order count."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About units sold by platform account" data-chart-info="Shows which marketplace accounts are supplying the units each month. Each color is one account, so a tall segment means that account drove more item sales in that month."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                                 <span class="admin-panel-meta">Monthly unit contribution by account</span>
                             </div>
@@ -261,7 +261,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                             <div>
                                 <div class="admin-chart-title-row">
                                     <h3>Syrup flavor share</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About syrup flavor share" data-chart-info="Uses the SKU DB to include syrup products only, then labels each slice with the SKU DB flavor name. New syrup flavors are picked up automatically after they are added to the SKU DB and appear in sold marketplace items."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About syrup flavor share" data-chart-info="Looks only at syrup SKUs from the SKU database and groups sales by flavor. Switch between Qty and Rp to see whether a flavor is winning by units sold or by seller-received revenue."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                                 <span class="admin-panel-meta">Most popular syrup flavors</span>
                             </div>
@@ -314,7 +314,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                 <button type="button" class="admin-context-segment" data-context-group="2026-months">2026 Jan-Apr</button>
                                 <button type="button" class="admin-context-segment" data-context-group="2026-may">May 1-19</button>
                             </div>
-                            <button type="button" class="admin-chart-info-btn admin-context-info" aria-label="How to use Open Context" data-chart-info="Choose a period, enter any known values, then save. Monthly entries replace that month in C1. May 1-19 entries are added together into May. Leave a field empty when you do not want to replace that metric."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                            <button type="button" class="admin-chart-info-btn admin-context-info" aria-label="How to use Open Context" data-chart-info="Use Open Context when trusted spreadsheet or manual history needs to appear in the executive charts. Pick a period, enter only the values you know, and save. Blank fields leave that metric untouched. Monthly periods replace that month; the May 1-19 daily entries are combined into May."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                             <span class="admin-context-status" data-context-status aria-live="polite">Ready</span>
                             <button type="button" class="admin-primary-btn admin-context-save" data-context-save>Save changes</button>
                         </section>
@@ -323,28 +323,28 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                             <article class="admin-context-editor">
                                 <div class="admin-context-period-mark">
                                     <strong data-context-period-title>January 2025</strong>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About this period" data-chart-info="Values saved here become the selected period's C1 context. Revenue and Gross Profit use Indonesian rupiah; Orders QTY and Items QTY use whole units."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About this period" data-chart-info="These saved values feed the C1 chart and annual totals for the selected period. Revenue and Gross Profit are rupiah amounts. Orders QTY and Items QTY are whole numbers, not rupiah."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                                 <form class="admin-context-form" data-context-form autocomplete="off">
                                     <label class="admin-context-field">
                                         <span class="admin-context-field-icon">Rp</span>
                                         <input type="text" inputmode="numeric" data-context-field="revenue" aria-label="Revenue" placeholder="Revenue">
-                                        <button type="button" class="admin-chart-info-btn" aria-label="About Revenue" data-chart-info="Seller-received revenue for this period, in rupiah."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                        <button type="button" class="admin-chart-info-btn" aria-label="About Revenue" data-chart-info="Money the business actually receives for the period after marketplace deductions. Do not enter the customer-paid checkout total if it includes platform fees that the business never keeps."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                     </label>
                                     <label class="admin-context-field">
                                         <span class="admin-context-field-icon">Rp</span>
                                         <input type="text" inputmode="numeric" data-context-field="gross_profit" aria-label="Gross Profit" placeholder="Gross Profit">
-                                        <button type="button" class="admin-chart-info-btn" aria-label="About Gross Profit" data-chart-info="Revenue after product cost for this period, in rupiah."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                        <button type="button" class="admin-chart-info-btn" aria-label="About Gross Profit" data-chart-info="Revenue left after product cost for the same period. This is before administration, marketing, loan, or other operating expenses."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                     </label>
                                     <label class="admin-context-field">
                                         <span class="admin-context-field-icon">#</span>
                                         <input type="text" inputmode="numeric" data-context-field="orders_qty" aria-label="Orders quantity" placeholder="Orders QTY">
-                                        <button type="button" class="admin-chart-info-btn" aria-label="About Orders QTY" data-chart-info="Completed marketplace orders in this period."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                        <button type="button" class="admin-chart-info-btn" aria-label="About Orders QTY" data-chart-info="Completed marketplace orders counted in this period. Cancelled, unpaid, refunded, returned, rejected, failed, expired, or closed orders should stay out."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                     </label>
                                     <label class="admin-context-field">
                                         <span class="admin-context-field-icon">×</span>
                                         <input type="text" inputmode="numeric" data-context-field="items_qty" aria-label="Items quantity" placeholder="Items QTY">
-                                        <button type="button" class="admin-chart-info-btn" aria-label="About Items QTY" data-chart-info="Individual units sold in this period."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                        <button type="button" class="admin-chart-info-btn" aria-label="About Items QTY" data-chart-info="Total units inside the completed orders. One order can contain more than one item, so this number is often higher than Orders QTY."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                     </label>
                                 </form>
                                 <div class="admin-context-progress">
@@ -508,7 +508,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                 <span class="admin-panel-kicker">Trend</span>
                                 <div class="admin-chart-title-row">
                                     <h3 data-home-trend-title>Views over time</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About campaign trend" data-chart-info="Tracks campaign landing-page activity over the selected timeframe. The metric buttons switch between page views, Order Now clicks, and Checkout clicks, while the Bubur and Jamu controls show or hide each campaign line."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About campaign trend" data-chart-info="Shows how the campaign landing pages are moving over time. Switch the metric to compare page views, Order Now clicks, or checkout clicks, and use the Bubur/Jamu buttons to see each product line separately or together."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                             </div>
                             <span class="admin-panel-meta" data-home-trend-meta>Live over selected timeframe</span>
@@ -528,7 +528,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                 <span class="admin-panel-kicker">Time of Day</span>
                                 <div class="admin-chart-title-row">
                                     <h3>Activity by hour</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About activity by hour" data-chart-info="Groups selected campaign activity by hour of day so peak engagement windows are easy to spot. Hovering a bar shows the exact hour and metric value."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About activity by hour" data-chart-info="Groups the selected campaign metric by hour in WIB. It helps reveal when people are most active so posting, ads, or live sessions can be timed around stronger demand windows."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                             </div>
                             <span class="admin-panel-meta">Peak engagement hours</span>
@@ -544,7 +544,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                 <span class="admin-panel-kicker">Source Mix</span>
                                 <div class="admin-chart-title-row">
                                     <h3>Views by source</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About views by source" data-chart-info="Breaks campaign visits down by detected traffic source such as YouTube, Facebook, Instagram, TikTok, Google, Direct, and Unknown. The chart uses the analytics service source fields from tracked browser events."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About views by source" data-chart-info="Shows where campaign visitors appear to come from, such as Facebook, Instagram, TikTok, YouTube, Google, direct visits, or unknown sources. Use it to compare which channels are creating attention."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                             </div>
                             <span class="admin-panel-meta">Live from the dashboard analytics service</span>
@@ -561,7 +561,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                 <span class="admin-panel-kicker">URL Performance</span>
                                 <div class="admin-chart-title-row">
                                     <h3>Checkout by landing URL</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About checkout by landing URL" data-chart-info="Ranks landing-page URLs by checkout intent for the selected timeframe. It uses tracked campaign events and shows which page paths are driving the strongest WhatsApp checkout clicks."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About checkout by landing URL" data-chart-info="Ranks landing pages by checkout intent. A higher bar means more people clicked toward WhatsApp checkout from that page during the selected timeframe."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                             </div>
                             <span class="admin-panel-meta">Conversion intent by page path</span>
@@ -841,7 +841,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                 <span class="admin-panel-kicker">Trend</span>
                                 <div class="admin-chart-title-row">
                                     <h3 data-website-trend-title>Website visitors over time</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About website visitors over time" data-chart-info="Tracks official website traffic over the selected timeframe. Visitors counts unique tracked browser sessions, Page Views counts page loads, and saved excluded IPs are removed before the chart is drawn."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About website visitors over time" data-chart-info="Shows official website traffic over the selected timeframe. Visitors are unique tracked sessions, Page Views are page loads, and saved internal or excluded IPs are removed before the chart is shown."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                             </div>
                             <span class="admin-panel-meta" data-website-trend-meta>Official website only</span>
@@ -857,7 +857,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                 <span class="admin-panel-kicker">Regions</span>
                                 <div class="admin-chart-title-row">
                                     <h3>Visitors by region</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About visitors by region" data-chart-info="Shows the strongest visitor regions for the selected website timeframe after excluded IPs are filtered out. Region names come from the website analytics location data attached to tracked browser sessions."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About visitors by region" data-chart-info="Shows the regions sending the most official website visitors after excluded IPs are removed. Location is based on the analytics data attached to each visit, so treat it as a useful guide rather than a perfect address."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                             </div>
                             <span class="admin-panel-meta">Excluded IPs already removed</span>
@@ -873,7 +873,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                 <span class="admin-panel-kicker">Top Pages</span>
                                 <div class="admin-chart-title-row">
                                     <h3 data-website-page-chart-title>Visitors by page</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About visitors by page" data-chart-info="Ranks official website pages by selected visitor metric. It only uses browser-tracked website visits, so webhook, API, and excluded IP traffic stay out of the chart."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About visitors by page" data-chart-info="Ranks official website pages by the selected metric. It uses normal browser visits only, so API calls, webhooks, and excluded internal traffic do not inflate the chart."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                             </div>
                             <span class="admin-panel-meta" data-website-page-chart-meta>Selected website only</span>

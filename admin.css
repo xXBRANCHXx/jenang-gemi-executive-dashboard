@@ -1106,7 +1106,7 @@ button, input {
   background: transparent;
   color: var(--admin-muted);
   cursor: pointer;
-  transition: color 0.16s ease, transform 0.16s ease;
+  transition: none;
 }
 
 .admin-chart-info-icon {
@@ -1122,8 +1122,8 @@ button, input {
 .admin-chart-info-btn:focus-visible,
 .admin-chart-info-btn.is-active {
   background: transparent;
-  color: #9dff00;
-  transform: translateY(-1px);
+  color: var(--admin-muted);
+  transform: none;
 }
 
 .admin-chart-info-popover {
@@ -5925,8 +5925,8 @@ body::after {
 .is-profit-loss i[data-pl-help]:hover,
 .is-profit-loss i[data-pl-help]:focus-visible,
 .is-profit-loss i[data-pl-help][aria-expanded="true"] {
-  border-color: rgba(110, 231, 255, 0.55);
-  color: var(--pl-blue);
+  border-color: #66635c;
+  color: #a19e97;
   outline: none;
 }
 

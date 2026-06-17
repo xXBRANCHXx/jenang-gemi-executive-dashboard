@@ -1576,9 +1576,9 @@ if (root) {
     return `
       <div class="pl-sku-builder${manual ? '' : ' is-readonly'}">
         <div class="pl-sku-filter-grid">
-          <label><span>Company ${helpIcon('Filters the SKU picker by SKU DB company or brand. It does not change auto coverage unless the card is in Selected SKUs mode.')}</span><select data-pl-sku-filter-brand><option value="">All companies</option>${brands}</select></label>
-          <label><span>Product ${helpIcon('Filters the SKU picker by SKU DB product family so selected SKU cards are easier to build.')}</span><select data-pl-sku-filter-product>${productFamilyOptions(filters.product, filters.brand)}</select></label>
-          <label><span>Find SKU ${helpIcon('Searches SKU, TAG, company, product, flavor, unit, and volume in the SKU DB picker.')}</span><input type="search" data-pl-sku-filter-search value="${escapeHtml(filters.search)}" placeholder="Search SKU, TAG, flavor, unit"></label>
+          <label><span>Company ${helpIcon('Narrows the SKU picker by company or brand so long SKU lists are easier to scan. It does not change an automatic card unless the card uses Selected SKUs.')}</span><select data-pl-sku-filter-brand><option value="">All companies</option>${brands}</select></label>
+          <label><span>Product ${helpIcon('Narrows the SKU picker to one product family, such as syrup or another SKU DB product group.')}</span><select data-pl-sku-filter-product>${productFamilyOptions(filters.product, filters.brand)}</select></label>
+          <label><span>Find SKU ${helpIcon('Searches SKU code, tag, company, product, flavor, unit, and volume in the picker.')}</span><input type="search" data-pl-sku-filter-search value="${escapeHtml(filters.search)}" placeholder="Search SKU, TAG, flavor, unit"></label>
         </div>
         <div class="pl-sku-picker-actions">
           <span>${selectedCodes.length} selected · ${rows.length} showing</span>
@@ -1593,7 +1593,7 @@ if (root) {
   };
   const renderProductCardRowEditor = (card) => {
     const rows = variantDefinitionsForCard(card, true);
-    const title = `<div class="pl-editor-section-title"><span>Variant rows ${helpIcon('These are the rows shown on the left side of every product card metric grid. Rename, reorder, or hide rows here. Legacy-only rows can be hidden even when no live SKU exists for them.')}</span></div>`;
+    const title = `<div class="pl-editor-section-title"><span>Variant rows ${helpIcon('These are the row labels on the left side of each product-card table. You can rename, reorder, or hide rows to make the card easier to read.')}</span></div>`;
     if (!rows.length) {
       return `<div class="pl-preview-row-editor">${title}<p class="pl-empty">Preview rows will appear after SKUs match this card.</p></div>`;
     }
@@ -1618,7 +1618,7 @@ if (root) {
     const metrics = productMetricsForCard(card, true);
     return `
       <div class="pl-preview-metric-editor">
-        <div class="pl-editor-section-title"><span>Metric panels ${helpIcon('Each metric panel becomes one table inside the card. Hide a metric to remove that table from the card without changing the underlying sales data.')}</span></div>
+        <div class="pl-editor-section-title"><span>Metric panels ${helpIcon('Each panel is one table inside the product card, such as revenue, COGS, or gross profit. Hide a panel when you do not need it on the main page.')}</span></div>
         ${metrics.map((metric, index) => `
           <div class="pl-preview-metric-row${metric.is_hidden ? ' is-hidden' : ''}" draggable="true" data-pl-metric-panel-row data-pl-metric-panel-key="${escapeHtml(metric.key)}">
             <button type="button" class="pl-preview-row-drag" data-pl-metric-panel-drag aria-label="Drag metric panel">Drag</button>
@@ -1640,7 +1640,7 @@ if (root) {
     return `
       <div class="pl-product-card-preview">
         <div class="pl-product-preview-head">
-          <span>Live preview ${helpIcon('This preview uses the same matching rules as the saved page. Red stars mean the value comes from the old workbook for a legacy month.')}</span>
+          <span>Live preview ${helpIcon('Shows how the card will look using the same matching rules as the saved dashboard. Red stars mean that value comes from the imported workbook.')}</span>
           <strong>${matrix.variants.length} row${matrix.variants.length === 1 ? '' : 's'} · ${metrics.length} metric${metrics.length === 1 ? '' : 's'} · ${skuCount} SKU${skuCount === 1 ? '' : 's'}</strong>
         </div>
         ${renderProductCardMetricEditor(card)}
@@ -1712,11 +1712,11 @@ if (root) {
             </div>
           </div>
           <div class="pl-form-grid pl-settings-grid pl-product-settings-grid">
-            <label><span>Name ${helpIcon('The card title shown on the Profit & Loss page. Changing the name does not change the products matched by the card.')}</span><input data-pl-product-card-label maxlength="120" value="${escapeHtml(card.label || '')}" required></label>
-            <label><span>Coverage mode ${helpIcon('Selected SKUs uses only checked SKU DB rows. Whole SKU DB product updates automatically when new SKUs are added to that product. Whole product flavor narrows that product to one flavor. Syrup volumes groups syrup products by volume and can include old-workbook syrup rows. Old sheet total shows the imported workbook total.')}</span><select data-pl-product-card-mode>${matchModeOptions(card.match_mode)}</select></label>
-            <label><span>SKU DB product ${helpIcon('Choose the product family used by Whole SKU DB product and Whole product flavor cards. Disabled modes use their own matching rules.')}</span><select data-pl-product-card-match ${['auto_product', 'auto_product_flavor'].includes(card.match_mode) ? '' : 'disabled'}>${productFamilyOptions(matchFamilyValue)}</select></label>
-            <label><span>Flavor ${helpIcon('For Whole product flavor cards, this chooses which flavor inside the selected SKU DB product family is included.')}</span><select data-pl-product-card-flavor ${card.match_mode === 'auto_product_flavor' ? '' : 'disabled'}>${productFlavorOptions(matchFamilyValue, flavorParts.flavorKey)}</select></label>
-            <label><span>Rows on left ${helpIcon('Controls how matching products are split into card rows: automatic, volume, flavor, or individual SKU rows.')}</span><select data-pl-product-card-variant ${card.match_mode === 'legacy' ? 'disabled' : ''}>${variantModeOptions(card.variant_mode)}</select></label>
+            <label><span>Name ${helpIcon('Card title shown on the Profit & Loss page. Rename it for clarity; the product matching rules stay the same.')}</span><input data-pl-product-card-label maxlength="120" value="${escapeHtml(card.label || '')}" required></label>
+            <label><span>Coverage mode ${helpIcon('Defines what this card includes. Selected SKUs uses checked rows, whole product updates automatically from SKU DB, whole product flavor focuses on one flavor, syrup volumes groups syrup by size, and old sheet total shows imported workbook totals.')}</span><select data-pl-product-card-mode>${matchModeOptions(card.match_mode)}</select></label>
+            <label><span>SKU DB product ${helpIcon('Product family used by whole-product card modes. Disabled when the selected coverage mode does not need a product family.')}</span><select data-pl-product-card-match ${['auto_product', 'auto_product_flavor'].includes(card.match_mode) ? '' : 'disabled'}>${productFamilyOptions(matchFamilyValue)}</select></label>
+            <label><span>Flavor ${helpIcon('Flavor used by Whole product flavor mode. Disabled for other coverage modes.')}</span><select data-pl-product-card-flavor ${card.match_mode === 'auto_product_flavor' ? '' : 'disabled'}>${productFlavorOptions(matchFamilyValue, flavorParts.flavorKey)}</select></label>
+            <label><span>Rows on left ${helpIcon('Controls how matching products are split into table rows: automatic, by volume, by flavor, or one row per SKU.')}</span><select data-pl-product-card-variant ${card.match_mode === 'legacy' ? 'disabled' : ''}>${variantModeOptions(card.variant_mode)}</select></label>
           </div>
           ${renderProductCardSkuPicker(card, index)}
           ${renderProductCardDraftPreview(card)}
@@ -1821,10 +1821,10 @@ if (root) {
             <label><input type="checkbox" data-pl-syrup-visible ${group.is_visible !== false ? 'checked' : ''}> Visible</label>
           </div>
           <div class="pl-form-grid pl-settings-grid">
-            <label><span>Name ${helpIcon('The label shown on the Syrup volumes summary card.')}</span><input data-pl-syrup-label maxlength="80" value="${escapeHtml(group.label || '')}" required></label>
-            <label><span>Volume ml ${helpIcon('The bottle or sachet volume used for automatic syrup matching. Leave blank only for a custom manual group.')}</span><input data-pl-syrup-volume inputmode="decimal" value="${group.volume_ml ? escapeHtml(group.volume_ml) : ''}" placeholder="50"></label>
-            <label><span>Assignment ${helpIcon('Auto uses SKU DB volume and syrup detection. Manual uses only the selected SKUs below.')}</span><select data-pl-syrup-mode><option value="auto"${group.assignment_mode !== 'manual' ? ' selected' : ''}>Auto</option><option value="manual"${group.assignment_mode === 'manual' ? ' selected' : ''}>Manual</option></select></label>
-            <label class="is-wide"><span>SKUs ${helpIcon('When Assignment is Manual, choose the exact SKU DB rows included in this syrup volume group.')}</span><select data-pl-syrup-skus multiple size="7" ${group.assignment_mode === 'manual' ? '' : 'disabled'}>${renderSkuOptions(selectedCodes)}</select></label>
+            <label><span>Name ${helpIcon('Label shown on the Syrup volumes summary card.')}</span><input data-pl-syrup-label maxlength="80" value="${escapeHtml(group.label || '')}" required></label>
+            <label><span>Volume ml ${helpIcon('Bottle or sample volume used for automatic syrup matching. Leave blank only for a custom manual group.')}</span><input data-pl-syrup-volume inputmode="decimal" value="${group.volume_ml ? escapeHtml(group.volume_ml) : ''}" placeholder="50"></label>
+            <label><span>Assignment ${helpIcon('Auto matches syrup SKUs by SKU DB volume and syrup keywords. Manual includes only the SKUs you select.')}</span><select data-pl-syrup-mode><option value="auto"${group.assignment_mode !== 'manual' ? ' selected' : ''}>Auto</option><option value="manual"${group.assignment_mode === 'manual' ? ' selected' : ''}>Manual</option></select></label>
+            <label class="is-wide"><span>SKUs ${helpIcon('For Manual assignment, choose the exact SKU DB rows included in this syrup volume group.')}</span><select data-pl-syrup-skus multiple size="7" ${group.assignment_mode === 'manual' ? '' : 'disabled'}>${renderSkuOptions(selectedCodes)}</select></label>
           </div>
         </section>`;
     }).join('');
@@ -1870,9 +1870,9 @@ if (root) {
           <label><input type="checkbox" data-pl-metric-visible ${metric.is_visible !== false ? 'checked' : ''}> Visible</label>
         </div>
         <div class="pl-form-grid pl-settings-grid">
-          <label><span>Name ${helpIcon('The row label shown in the Monthly statement table.')}</span><input data-pl-metric-label maxlength="120" value="${escapeHtml(metric.label || '')}" required></label>
-          <label><span>Value ${helpIcon('The calculated Profit & Loss value this monthly statement row displays.')}</span><select data-pl-metric-value>${metricOptions(metric.value_key)}</select></label>
-          <label><span>Format ${helpIcon('How the row is displayed: currency, whole number, or percent.')}</span><select data-pl-metric-format>${formatOptions(metric.display_format)}</select></label>
+          <label><span>Name ${helpIcon('Row name shown in the Monthly statement table.')}</span><input data-pl-metric-label maxlength="120" value="${escapeHtml(metric.label || '')}" required></label>
+          <label><span>Value ${helpIcon('Calculated P&L number this statement row should display.')}</span><select data-pl-metric-value>${metricOptions(metric.value_key)}</select></label>
+          <label><span>Format ${helpIcon('Display style for this row: rupiah currency, whole number, or percent.')}</span><select data-pl-metric-format>${formatOptions(metric.display_format)}</select></label>
         </div>
       </section>`).join('');
     hydrateHelpTargets(refs.metricsList);
@@ -1904,11 +1904,11 @@ if (root) {
     }
     event.preventDefault();
     event.stopPropagation();
-    showHelpPopover(helpTarget);
-  });
-  root.addEventListener('focusin', (event) => {
-    const helpTarget = event.target.closest('[data-pl-help]');
-    if (helpTarget) showHelpPopover(helpTarget);
+    if (activeHelpTarget === helpTarget && !ensureHelpPopover().hidden) {
+      hideHelpPopover();
+    } else {
+      showHelpPopover(helpTarget);
+    }
   });
   root.addEventListener('keydown', (event) => {
     const helpTarget = event.target.closest('[data-pl-help]');
