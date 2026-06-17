@@ -360,84 +360,42 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                     </section>
 
                     <section class="admin-view admin-view-daily" data-view-panel="daily">
-                <section class="daily-hero-panel">
-                    <div class="daily-hero-copy">
-                        <span class="admin-chip admin-chip-accent">Daily</span>
-                        <h2>Daily platform rundown</h2>
-                        <p data-daily-status>Loading current month Daily.</p>
+                <section class="daily-sheet-shell">
+                    <div class="daily-sheet-toolbar">
+                        <div class="daily-sheet-title">
+                            <span class="admin-chip admin-chip-accent">Daily</span>
+                            <h2>Daily spreadsheet</h2>
+                            <p data-daily-status>Loading current month Daily.</p>
+                        </div>
+                        <div class="daily-sheet-actions">
+                            <label class="daily-month-picker">
+                                <span>Month <span class="admin-info-dot" title="Shows the selected calendar month in WIB. The dashboard opens on the current month automatically." aria-label="Shows the selected calendar month in WIB. The dashboard opens on the current month automatically.">i</span></span>
+                                <input type="month" data-daily-month>
+                            </label>
+                            <button type="button" class="admin-ghost-btn daily-export-btn" data-daily-export disabled>
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11"/><path d="m7 10 5 5 5-5"/><path d="M5 19h14"/></svg>
+                                <span>Export PDF</span>
+                            </button>
+                        </div>
                     </div>
-                    <div class="daily-hero-actions">
-                        <label class="daily-month-picker">
-                            <span>Month <span class="admin-info-dot" title="Shows the selected calendar month in WIB. The dashboard opens on the current month automatically." aria-label="Shows the selected calendar month in WIB. The dashboard opens on the current month automatically.">i</span></span>
-                            <input type="month" data-daily-month>
-                        </label>
-                        <button type="button" class="admin-ghost-btn daily-export-btn" data-daily-export disabled>
-                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11"/><path d="m7 10 5 5 5-5"/><path d="M5 19h14"/></svg>
-                            <span>Export PDF</span>
-                        </button>
+
+                    <div class="daily-sheet-scroll" data-daily-sheet-scroll>
+                        <table class="daily-sheet-table" data-daily-sheet>
+                            <thead data-daily-sheet-head>
+                                <tr><th>Day</th><th>Loading Daily.</th></tr>
+                            </thead>
+                            <tbody data-daily-sheet-body>
+                                <tr><td colspan="2" class="admin-empty">Loading Daily.</td></tr>
+                            </tbody>
+                            <tfoot data-daily-sheet-foot></tfoot>
+                        </table>
                     </div>
-                </section>
 
-                <section class="admin-metric-grid daily-metric-grid">
-                    <article class="admin-metric-card"><span>Total Qty <span class="admin-info-dot" title="Total units sold from order lines in the selected month." aria-label="Total units sold from order lines in the selected month.">i</span></span><strong class="daily-text-green" data-daily-total-qty>0</strong><small>Units sold</small></article>
-                    <article class="admin-metric-card"><span>Total Rp <span class="admin-info-dot" title="Total net revenue from order lines in the selected month." aria-label="Total net revenue from order lines in the selected month.">i</span></span><strong class="daily-text-blue" data-daily-total-revenue>Rp0</strong><small>Revenue</small></article>
-                    <article class="admin-metric-card"><span>Avg Qty <span class="admin-info-dot" title="Average units per calendar day, including zero-sale days." aria-label="Average units per calendar day, including zero-sale days.">i</span></span><strong class="daily-text-yellow" data-daily-avg-qty>0</strong><small>Per day</small></article>
-                    <article class="admin-metric-card"><span>Avg Rp <span class="admin-info-dot" title="Average revenue per calendar day, including zero-sale days." aria-label="Average revenue per calendar day, including zero-sale days.">i</span></span><strong class="daily-text-red" data-daily-avg-revenue>Rp0</strong><small>Per day</small></article>
-                    <article class="admin-metric-card"><span>Platforms <span class="admin-info-dot" title="Platforms found in order data plus any manual placeholders." aria-label="Platforms found in order data plus any manual placeholders.">i</span></span><strong data-daily-platform-count>0</strong><small>Tracked channels</small></article>
-                    <article class="admin-metric-card"><span>Top Day <span class="admin-info-dot" title="The highest revenue day in the selected month." aria-label="The highest revenue day in the selected month.">i</span></span><strong data-daily-top-day>-</strong><small>By Rp</small></article>
-                </section>
-
-                <section class="admin-main-grid daily-main-grid">
-                    <article class="admin-panel admin-panel-wide daily-platform-panel">
-                        <div class="admin-panel-head">
-                            <div>
-                                <span class="admin-panel-kicker">Platform Rundown</span>
-                                <h3>QTY, Rp, and daily averages</h3>
-                                <span class="admin-panel-meta">Selected month by platform</span>
-                            </div>
-                        </div>
-                        <div class="daily-platform-summary" data-daily-platform-summary>
-                            <p class="admin-empty">Daily platform totals will appear after the month loads.</p>
-                        </div>
-                    </article>
-
-                    <article class="admin-panel admin-panel-table admin-panel-wide daily-days-panel">
-                        <div class="admin-panel-head">
-                            <div>
-                                <span class="admin-panel-kicker">Days</span>
-                                <h3>Every day in the selected month</h3>
-                                <span class="admin-panel-meta">Calendar days with platform totals</span>
-                            </div>
-                        </div>
-                        <div class="admin-table-wrap daily-table-wrap">
-                            <table class="admin-table daily-table">
-                                <thead>
-                                    <tr>
-                                        <th>Day</th>
-                                        <th>Total Qty</th>
-                                        <th>Total Rp</th>
-                                        <th>Platform breakdown</th>
-                                    </tr>
-                                </thead>
-                                <tbody data-daily-day-table-body>
-                                    <tr><td colspan="4" class="admin-empty">Loading Daily.</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </article>
-
-                    <article class="admin-panel daily-platform-manager">
-                        <div class="admin-panel-head">
-                            <div>
-                                <span class="admin-panel-kicker">Future Platforms</span>
-                                <h3>Add platform slot</h3>
-                                <span class="admin-panel-meta">For partner, website, or channel placeholders.</span>
-                            </div>
-                        </div>
+                    <div class="daily-sheet-footbar">
                         <form class="daily-platform-form" data-daily-platform-form>
                             <label>
-                                <span>Platform name <span class="admin-info-dot" title="Adds a zero-value placeholder until that platform appears in order data." aria-label="Adds a zero-value placeholder until that platform appears in order data.">i</span></span>
-                                <input type="text" data-daily-platform-name placeholder="Example: Partner Web" maxlength="48">
+                                <span>Add account column <span class="admin-info-dot" title="Adds a zero-value platform or platform/account column until that account appears in order data." aria-label="Adds a zero-value platform or platform/account column until that account appears in order data.">i</span></span>
+                                <input type="text" data-daily-platform-name placeholder="Example: Partner Web / Wholesale" maxlength="64">
                             </label>
                             <button type="submit" class="admin-soft-btn daily-add-platform-btn">
                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
@@ -445,9 +403,9 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                             </button>
                         </form>
                         <div class="daily-platform-list" data-daily-platform-list>
-                            <p class="admin-empty">No manual platform placeholders.</p>
+                            <p class="admin-empty">No manual account columns.</p>
                         </div>
-                    </article>
+                    </div>
                 </section>
                     </section>
 

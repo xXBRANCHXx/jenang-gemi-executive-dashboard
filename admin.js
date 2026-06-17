@@ -1842,14 +1842,9 @@ document.addEventListener('DOMContentLoaded', () => {
     monthInput: document.querySelector('[data-daily-month]'),
     status: document.querySelector('[data-daily-status]'),
     exportButton: document.querySelector('[data-daily-export]'),
-    totalQty: document.querySelector('[data-daily-total-qty]'),
-    totalRevenue: document.querySelector('[data-daily-total-revenue]'),
-    avgQty: document.querySelector('[data-daily-avg-qty]'),
-    avgRevenue: document.querySelector('[data-daily-avg-revenue]'),
-    platformCount: document.querySelector('[data-daily-platform-count]'),
-    topDay: document.querySelector('[data-daily-top-day]'),
-    platformSummary: document.querySelector('[data-daily-platform-summary]'),
-    dayTableBody: document.querySelector('[data-daily-day-table-body]'),
+    sheetHead: document.querySelector('[data-daily-sheet-head]'),
+    sheetBody: document.querySelector('[data-daily-sheet-body]'),
+    sheetFoot: document.querySelector('[data-daily-sheet-foot]'),
     platformForm: document.querySelector('[data-daily-platform-form]'),
     platformName: document.querySelector('[data-daily-platform-name]'),
     platformList: document.querySelector('[data-daily-platform-list]')
@@ -3318,7 +3313,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const platformLabel = (value) => toTitleCase(String(value || 'unknown').replace(/[-_]/g, ' '));
 
   const dailyPlatformKey = (value) => normalizePlatformKey(value || 'unknown');
-  const dailyTextTone = (index) => ['daily-text-green', 'daily-text-blue', 'daily-text-yellow', 'daily-text-red', 'daily-text-muted'][index % 5];
 
   const parseDailyMonth = (value) => {
     const raw = String(value || '').trim();
@@ -3349,13 +3343,38 @@ document.addEventListener('DOMContentLoaded', () => {
     return date ? dashboardDateFormatter.format(date) : '';
   };
 
+  const dailyAccountFromParts = (platformValue, accountValue = '', custom = false) => {
+    const platformRaw = String(platformValue || 'unknown').trim() || 'unknown';
+    const accountRaw = String(accountValue || '').trim();
+    const platform = platformLabel(platformRaw);
+    const account = accountRaw && normalizeAccountKey(accountRaw) !== dailyPlatformKey(platformRaw)
+      ? accountRaw
+      : '';
+    const label = account ? `${platform} / ${account}` : platform;
+    const key = `${dailyPlatformKey(platformRaw)}:${normalizeAccountKey(account || platformRaw)}`;
+    return { key, platform, account, label, custom };
+  };
+
+  const dailyAccountFromRow = (row) => dailyAccountFromParts(
+    row?.platform || 'unknown',
+    row?.account_label || row?.account_name || row?.shop_name || row?.store_name || row?.account_key || row?.account || ''
+  );
+
+  const dailyAccountFromCustomName = (name) => {
+    const parts = String(name || '').split('/').map((part) => part.trim()).filter(Boolean);
+    if (parts.length >= 2) {
+      return dailyAccountFromParts(parts.shift(), parts.join(' / '), true);
+    }
+    return dailyAccountFromParts(name, '', true);
+  };
+
   const readDailyCustomPlatforms = () => {
     try {
       const parsed = JSON.parse(window.localStorage.getItem(DAILY_CUSTOM_PLATFORMS_STORAGE_KEY) || '[]');
       return (Array.isArray(parsed) ? parsed : [])
         .map((name) => String(name || '').trim())
         .filter(Boolean)
-        .filter((name, index, items) => items.findIndex((item) => dailyPlatformKey(item) === dailyPlatformKey(name)) === index)
+        .filter((name, index, items) => items.findIndex((item) => dailyAccountFromCustomName(item).key === dailyAccountFromCustomName(name).key) === index)
         .slice(0, 24);
     } catch (_error) {
       return [];
@@ -3368,40 +3387,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
   state.daily.customPlatforms = readDailyCustomPlatforms();
 
-  const buildDailyPlatformMap = (rows) => {
-    const platformMap = new Map();
+  const buildDailyAccountMap = (rows) => {
+    const accountMap = new Map();
     state.daily.customPlatforms.forEach((name) => {
-      const key = dailyPlatformKey(name);
-      platformMap.set(key, {
-        key,
-        label: platformLabel(name),
-        custom: true,
+      const account = dailyAccountFromCustomName(name);
+      accountMap.set(account.key, {
+        ...account,
         qty: 0,
         revenue: 0,
         daysActive: 0
       });
     });
     (Array.isArray(rows) ? rows : []).forEach((row) => {
-      const raw = String(row?.platform || 'unknown').trim() || 'unknown';
-      const key = dailyPlatformKey(raw);
-      if (!platformMap.has(key)) {
-        platformMap.set(key, {
-          key,
-          label: platformLabel(raw),
-          custom: false,
+      const account = dailyAccountFromRow(row);
+      if (!accountMap.has(account.key)) {
+        accountMap.set(account.key, {
+          ...account,
           qty: 0,
           revenue: 0,
           daysActive: 0
         });
       }
     });
-    return platformMap;
+    return accountMap;
   };
 
   const aggregateDailyData = (rows, monthKey) => {
     const range = parseDailyMonth(monthKey);
     const dayCount = new Date(Date.UTC(range.year, range.month, 0)).getUTCDate();
-    const platformMap = buildDailyPlatformMap(rows);
+    const accountMap = buildDailyAccountMap(rows);
     const days = Array.from({ length: dayCount }, (_, index) => {
       const date = new Date(Date.UTC(range.year, range.month - 1, index + 1));
       const dateKey = date.toISOString().slice(0, 10);
@@ -3416,7 +3430,9 @@ document.addEventListener('DOMContentLoaded', () => {
         qty: 0,
         revenue: 0,
         orders: new Set(),
-        platforms: new Map()
+        accounts: new Map(),
+        avgQty: 0,
+        avgRevenue: 0
       };
     });
     const dayMap = new Map(days.map((day) => [day.date, day]));
@@ -3425,72 +3441,73 @@ document.addEventListener('DOMContentLoaded', () => {
       const date = dailyOrderDateString(row);
       const day = dayMap.get(date);
       if (!day) return;
-      const rawPlatform = String(row?.platform || 'unknown').trim() || 'unknown';
-      const platformKey = dailyPlatformKey(rawPlatform);
+      const account = dailyAccountFromRow(row);
       const quantity = Math.max(0, Number(row?.quantity || row?.item_count || 0));
       const revenue = Number(row?.revenue || row?.net_revenue || row?.sales || row?.gross_revenue || 0);
       const orderKey = [
-        rawPlatform,
+        row?.platform || '',
         row?.account_key || '',
         row?.order_id || '',
         row?.sku || '',
         row?.item_key || ''
       ].join('|');
 
-      if (!platformMap.has(platformKey)) {
-        platformMap.set(platformKey, {
-          key: platformKey,
-          label: platformLabel(rawPlatform),
-          custom: false,
+      if (!accountMap.has(account.key)) {
+        accountMap.set(account.key, {
+          ...account,
           qty: 0,
           revenue: 0,
           daysActive: 0
         });
       }
-      if (!day.platforms.has(platformKey)) {
-        day.platforms.set(platformKey, {
-          key: platformKey,
-          label: platformLabel(rawPlatform),
+      if (!day.accounts.has(account.key)) {
+        day.accounts.set(account.key, {
+          key: account.key,
+          label: account.label,
+          platform: account.platform,
+          account: account.account,
           qty: 0,
           revenue: 0,
           orders: new Set()
         });
       }
-      const platformDay = day.platforms.get(platformKey);
-      const platformTotal = platformMap.get(platformKey);
+      const accountDay = day.accounts.get(account.key);
+      const accountTotal = accountMap.get(account.key);
       day.qty += quantity;
       day.revenue += revenue;
-      platformDay.qty += quantity;
-      platformDay.revenue += revenue;
-      platformTotal.qty += quantity;
-      platformTotal.revenue += revenue;
+      accountDay.qty += quantity;
+      accountDay.revenue += revenue;
+      accountTotal.qty += quantity;
+      accountTotal.revenue += revenue;
       if (orderKey.replace(/\|/g, '').trim() !== '') {
         day.orders.add(orderKey);
-        platformDay.orders.add(orderKey);
+        accountDay.orders.add(orderKey);
       }
     });
 
+    const accountCount = Math.max(accountMap.size, 1);
+
     days.forEach((day) => {
-      day.platforms.forEach((platformDay) => {
-        const platformTotal = platformMap.get(platformDay.key);
-        if (platformTotal && (platformDay.qty > 0 || platformDay.revenue > 0)) {
-          platformTotal.daysActive += 1;
+      day.accounts.forEach((accountDay) => {
+        const accountTotal = accountMap.get(accountDay.key);
+        if (accountTotal && (accountDay.qty > 0 || accountDay.revenue > 0)) {
+          accountTotal.daysActive += 1;
         }
-        platformDay.orders = platformDay.orders.size;
+        accountDay.orders = accountDay.orders.size;
       });
       day.orders = day.orders.size;
-      day.platforms = Array.from(day.platforms.values())
-        .sort((left, right) => right.revenue - left.revenue || right.qty - left.qty || left.label.localeCompare(right.label));
+      day.avgQty = day.qty / accountCount;
+      day.avgRevenue = day.revenue / accountCount;
     });
 
-    const platforms = Array.from(platformMap.values())
-      .sort((left, right) => right.revenue - left.revenue || right.qty - left.qty || left.label.localeCompare(right.label))
-      .map((platform, index) => ({
-        ...platform,
-        tone: dailyTextTone(index),
-        avgQty: platform.qty / dayCount,
-        avgRevenue: platform.revenue / dayCount
+    const accounts = Array.from(accountMap.values())
+      .sort((left, right) => left.platform.localeCompare(right.platform) || left.label.localeCompare(right.label))
+      .map((account) => ({
+        ...account,
+        avgQty: account.qty / dayCount,
+        avgRevenue: account.revenue / dayCount
       }));
+
     const totalQty = days.reduce((sum, day) => sum + day.qty, 0);
     const totalRevenue = days.reduce((sum, day) => sum + day.revenue, 0);
     const topDay = days.reduce((best, day) => (
@@ -3505,13 +3522,13 @@ document.addEventListener('DOMContentLoaded', () => {
       dayCount,
       rows: Array.isArray(rows) ? rows : [],
       days,
-      platforms,
+      accounts,
       totals: {
         qty: totalQty,
         revenue: totalRevenue,
         avgQty: totalQty / dayCount,
         avgRevenue: totalRevenue / dayCount,
-        platformCount: platforms.length,
+        accountCount: accounts.length,
         activeDayCount: days.filter((day) => day.qty > 0 || day.revenue > 0).length,
         topDay
       }
@@ -3522,85 +3539,125 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!dailyRefs.platformList) return;
     const custom = state.daily.customPlatforms;
     if (!custom.length) {
-      dailyRefs.platformList.innerHTML = '<p class="admin-empty">No manual platform placeholders.</p>';
+      dailyRefs.platformList.innerHTML = '<p class="admin-empty">No manual account columns.</p>';
       return;
     }
     dailyRefs.platformList.innerHTML = custom.map((name) => `
       <button type="button" class="daily-platform-chip" data-daily-remove-platform="${escapeHtml(name)}">
-        <span>${escapeHtml(platformLabel(name))}</span>
+        <span>${escapeHtml(dailyAccountFromCustomName(name).label)}</span>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
       </button>
     `).join('');
   };
 
-  const renderDailyPlatformSummary = (dailyData) => {
-    if (!dailyRefs.platformSummary) return;
-    if (!dailyData.platforms.length) {
-      dailyRefs.platformSummary.innerHTML = '<p class="admin-empty">No platforms found for this month.</p>';
-      return;
-    }
-    dailyRefs.platformSummary.innerHTML = dailyData.platforms.map((platform) => `
-      <div class="daily-platform-row">
-        <div class="daily-platform-name">
-          <strong class="${escapeHtml(platform.tone)}">${escapeHtml(platform.label)}</strong>
-          <small>${platform.custom ? 'Manual placeholder' : `${platform.daysActive.toLocaleString('id-ID')} active days`}</small>
-        </div>
-        <span><small>Qty</small><b class="daily-text-green">${Number(platform.qty || 0).toLocaleString('id-ID')}</b></span>
-        <span><small>Rp</small><b class="daily-text-blue">${formatCurrency(platform.revenue || 0)}</b></span>
-        <span><small>Avg Qty</small><b class="daily-text-yellow">${Number(platform.avgQty || 0).toLocaleString('id-ID', { maximumFractionDigits: 1 })}</b></span>
-        <span><small>Avg Rp</small><b class="daily-text-red">${formatCurrency(platform.avgRevenue || 0)}</b></span>
-      </div>
-    `).join('');
+  const formatDailyQty = (value, options = {}) => Number(value || 0).toLocaleString('id-ID', {
+    maximumFractionDigits: options.average ? 1 : 0
+  });
+
+  const dailyQtyMarkup = (value, options = {}) => {
+    const amount = Number(value || 0);
+    return `<span class="${amount > 0 ? 'daily-qty-value' : 'daily-zero'}">${formatDailyQty(amount, options)}</span>`;
   };
 
-  const renderDailyRows = (dailyData) => {
-    if (!dailyRefs.dayTableBody) return;
+  const dailyRpMarkup = (value) => {
+    const amount = Number(value || 0);
+    return `<span class="${amount > 0 ? 'daily-rp-value' : 'daily-zero'}">${formatCurrency(amount)}</span>`;
+  };
+
+  const renderDailySheet = (dailyData) => {
+    if (!dailyRefs.sheetHead || !dailyRefs.sheetBody || !dailyRefs.sheetFoot) return;
+    const accounts = Array.isArray(dailyData.accounts) ? dailyData.accounts : [];
+    const columnCount = 1 + (accounts.length * 2) + 4;
+    const accountHeaders = accounts.map((account) => `
+      <th colspan="2" class="daily-account-header" title="${escapeHtml(account.label)}">
+        <span>${escapeHtml(account.platform)}</span>
+        <small>${escapeHtml(account.account || 'All accounts')}</small>
+      </th>
+    `).join('');
+    const accountSubheads = accounts.map(() => `
+      <th class="daily-subhead daily-qty-head">Qty</th>
+      <th class="daily-subhead">Rp</th>
+    `).join('');
+
+    dailyRefs.sheetHead.innerHTML = `
+      <tr>
+        <th rowspan="2" class="daily-day-header">Day</th>
+        ${accountHeaders}
+        <th colspan="4" class="daily-total-header">Totals & Avg <span class="admin-info-dot" title="Right-side columns summarize each day. The footer shows month totals and calendar-day averages." aria-label="Right-side columns summarize each day. The footer shows month totals and calendar-day averages.">i</span></th>
+      </tr>
+      <tr>
+        ${accountSubheads}
+        <th class="daily-subhead daily-total-subhead daily-qty-head">Total Qty</th>
+        <th class="daily-subhead daily-total-subhead">Total Rp</th>
+        <th class="daily-subhead daily-total-subhead daily-qty-head">Avg Qty</th>
+        <th class="daily-subhead daily-total-subhead">Avg Rp</th>
+      </tr>
+    `;
+
     if (!dailyData.days.length) {
-      dailyRefs.dayTableBody.innerHTML = '<tr><td colspan="4" class="admin-empty">No days available.</td></tr>';
+      dailyRefs.sheetBody.innerHTML = `<tr><td colspan="${columnCount}" class="admin-empty">No days available.</td></tr>`;
+      dailyRefs.sheetFoot.innerHTML = '';
       return;
     }
-    dailyRefs.dayTableBody.innerHTML = dailyData.days.map((day) => {
-      const platformHtml = day.platforms.length
-        ? day.platforms.map((platform) => `
-          <span class="daily-breakdown-item">
-            <strong>${escapeHtml(platform.label)}</strong>
-            <b class="daily-text-green">${Number(platform.qty || 0).toLocaleString('id-ID')} qty</b>
-            <b class="daily-text-blue">${formatCurrency(platform.revenue || 0)}</b>
-          </span>
-        `).join('')
-        : '<span class="daily-breakdown-empty">No platform sales</span>';
+
+    dailyRefs.sheetBody.innerHTML = dailyData.days.map((day) => {
+      const accountCells = accounts.map((account) => {
+        const accountDay = day.accounts.get(account.key) || { qty: 0, revenue: 0 };
+        return `
+          <td class="daily-number-cell daily-qty-cell">${dailyQtyMarkup(accountDay.qty)}</td>
+          <td class="daily-number-cell daily-rp-cell">${dailyRpMarkup(accountDay.revenue)}</td>
+        `;
+      }).join('');
       return `
         <tr>
-          <td><strong>${escapeHtml(day.label)}</strong><small class="admin-table-note">${escapeHtml(day.date)}</small></td>
-          <td><strong class="daily-text-green">${Number(day.qty || 0).toLocaleString('id-ID')}</strong></td>
-          <td><strong class="daily-text-blue">${formatCurrency(day.revenue || 0)}</strong></td>
-          <td><div class="daily-breakdown-list">${platformHtml}</div></td>
+          <th scope="row" class="daily-day-cell"><strong>${escapeHtml(day.label)}</strong><small>${escapeHtml(day.date)}</small></th>
+          ${accountCells}
+          <td class="daily-number-cell daily-total-cell daily-qty-cell">${dailyQtyMarkup(day.qty)}</td>
+          <td class="daily-number-cell daily-total-cell daily-rp-cell">${dailyRpMarkup(day.revenue)}</td>
+          <td class="daily-number-cell daily-total-cell daily-qty-cell">${dailyQtyMarkup(day.avgQty, { average: true })}</td>
+          <td class="daily-number-cell daily-total-cell daily-rp-cell">${dailyRpMarkup(day.avgRevenue)}</td>
         </tr>
       `;
     }).join('');
+
+    const totalAccountCells = accounts.map((account) => `
+      <td class="daily-number-cell daily-qty-cell">${dailyQtyMarkup(account.qty)}</td>
+      <td class="daily-number-cell daily-rp-cell">${dailyRpMarkup(account.revenue)}</td>
+    `).join('');
+    const averageAccountCells = accounts.map((account) => `
+      <td class="daily-number-cell daily-qty-cell">${dailyQtyMarkup(account.avgQty, { average: true })}</td>
+      <td class="daily-number-cell daily-rp-cell">${dailyRpMarkup(account.avgRevenue)}</td>
+    `).join('');
+
+    dailyRefs.sheetFoot.innerHTML = `
+      <tr>
+        <th scope="row" class="daily-day-cell"><strong>Total</strong><small>${escapeHtml(dailyData.label)}</small></th>
+        ${totalAccountCells}
+        <td class="daily-number-cell daily-total-cell daily-qty-cell">${dailyQtyMarkup(dailyData.totals.qty)}</td>
+        <td class="daily-number-cell daily-total-cell daily-rp-cell">${dailyRpMarkup(dailyData.totals.revenue)}</td>
+        <td class="daily-number-cell daily-total-cell daily-qty-cell">${dailyQtyMarkup(dailyData.totals.avgQty, { average: true })}</td>
+        <td class="daily-number-cell daily-total-cell daily-rp-cell">${dailyRpMarkup(dailyData.totals.avgRevenue)}</td>
+      </tr>
+      <tr>
+        <th scope="row" class="daily-day-cell"><strong>Avg / day</strong><small>${dailyData.dayCount.toLocaleString('id-ID')} days</small></th>
+        ${averageAccountCells}
+        <td class="daily-number-cell daily-total-cell daily-qty-cell">${dailyQtyMarkup(dailyData.totals.avgQty, { average: true })}</td>
+        <td class="daily-number-cell daily-total-cell daily-rp-cell">${dailyRpMarkup(dailyData.totals.avgRevenue)}</td>
+        <td class="daily-number-cell daily-total-cell daily-qty-cell">${dailyQtyMarkup(dailyData.totals.accountCount ? dailyData.totals.avgQty / dailyData.totals.accountCount : 0, { average: true })}</td>
+        <td class="daily-number-cell daily-total-cell daily-rp-cell">${dailyRpMarkup(dailyData.totals.accountCount ? dailyData.totals.avgRevenue / dailyData.totals.accountCount : 0)}</td>
+      </tr>
+    `;
   };
 
   const renderDaily = (dailyData) => {
     state.daily.data = dailyData;
     if (dailyRefs.monthInput) dailyRefs.monthInput.value = dailyData.month;
-    if (dailyRefs.totalQty) dailyRefs.totalQty.textContent = Number(dailyData.totals.qty || 0).toLocaleString('id-ID');
-    if (dailyRefs.totalRevenue) dailyRefs.totalRevenue.textContent = formatCurrency(dailyData.totals.revenue || 0);
-    if (dailyRefs.avgQty) dailyRefs.avgQty.textContent = Number(dailyData.totals.avgQty || 0).toLocaleString('id-ID', { maximumFractionDigits: 1 });
-    if (dailyRefs.avgRevenue) dailyRefs.avgRevenue.textContent = formatCurrency(dailyData.totals.avgRevenue || 0);
-    if (dailyRefs.platformCount) dailyRefs.platformCount.textContent = Number(dailyData.totals.platformCount || 0).toLocaleString('id-ID');
-    if (dailyRefs.topDay) {
-      const topDay = dailyData.totals.topDay;
-      dailyRefs.topDay.textContent = topDay && topDay.revenue > 0
-        ? `${topDay.label} • ${formatCurrency(topDay.revenue)}`
-        : '-';
-    }
     if (dailyRefs.status) {
-      dailyRefs.status.textContent = `${dailyData.label} • ${dailyData.rows.length.toLocaleString('id-ID')} order lines • ${dailyData.totals.activeDayCount.toLocaleString('id-ID')} active days`;
+      dailyRefs.status.textContent = `${dailyData.label} • ${dailyData.days.length.toLocaleString('id-ID')} days • ${dailyData.totals.accountCount.toLocaleString('id-ID')} account columns • ${dailyData.rows.length.toLocaleString('id-ID')} order lines`;
     }
     if (dailyRefs.exportButton) dailyRefs.exportButton.disabled = false;
     renderDailyPlatformList();
-    renderDailyPlatformSummary(dailyData);
-    renderDailyRows(dailyData);
+    renderDailySheet(dailyData);
   };
 
   const pdfEscape = (value) => String(value)
@@ -3658,6 +3715,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const downloadDailyPdf = () => {
     const dailyData = state.daily.data;
     if (!dailyData) return;
+    const accounts = Array.isArray(dailyData.accounts) ? dailyData.accounts : [];
     const lines = [
       `Month: ${dailyData.label}`,
       `Date range: ${dailyData.start} to ${dailyData.end}`,
@@ -3666,15 +3724,18 @@ document.addEventListener('DOMContentLoaded', () => {
       `Average Qty per day: ${Number(dailyData.totals.avgQty || 0).toLocaleString('id-ID', { maximumFractionDigits: 1 })}`,
       `Average Revenue per day: ${formatCurrency(dailyData.totals.avgRevenue || 0)}`,
       '',
-      'Platforms',
-      ...dailyData.platforms.map((platform) => `${platform.label}: Qty ${Number(platform.qty || 0).toLocaleString('id-ID')} | Revenue ${formatCurrency(platform.revenue || 0)} | Avg Qty ${Number(platform.avgQty || 0).toLocaleString('id-ID', { maximumFractionDigits: 1 })} | Avg Rp ${formatCurrency(platform.avgRevenue || 0)}`),
+      'Account columns',
+      ...accounts.map((account) => `${account.label}: Qty ${Number(account.qty || 0).toLocaleString('id-ID')} | Rp ${formatCurrency(account.revenue || 0)} | Avg Qty/day ${Number(account.avgQty || 0).toLocaleString('id-ID', { maximumFractionDigits: 1 })} | Avg Rp/day ${formatCurrency(account.avgRevenue || 0)}`),
       '',
-      'Daily Breakdown',
+      'Daily spreadsheet',
       ...dailyData.days.map((day) => {
-        const platforms = day.platforms.length
-          ? day.platforms.map((platform) => `${platform.label} ${Number(platform.qty || 0).toLocaleString('id-ID')} qty ${formatCurrency(platform.revenue || 0)}`).join('; ')
-          : 'No platform sales';
-        return `${day.date}: Total Qty ${Number(day.qty || 0).toLocaleString('id-ID')} | Total Rp ${formatCurrency(day.revenue || 0)} | ${platforms}`;
+        const accountCells = accounts.length
+          ? accounts.map((account) => {
+            const accountDay = day.accounts.get(account.key) || { qty: 0, revenue: 0 };
+            return `${account.label} Qty ${Number(accountDay.qty || 0).toLocaleString('id-ID')} Rp ${formatCurrency(accountDay.revenue || 0)}`;
+          }).join('; ')
+          : 'No account columns';
+        return `${day.date}: ${accountCells} | Total Qty ${Number(day.qty || 0).toLocaleString('id-ID')} | Total Rp ${formatCurrency(day.revenue || 0)} | Avg Qty ${Number(day.avgQty || 0).toLocaleString('id-ID', { maximumFractionDigits: 1 })} | Avg Rp ${formatCurrency(day.avgRevenue || 0)}`;
       })
     ];
     const pdf = buildSimplePdf(`Jenang Gemi Daily Report - ${dailyData.label}`, lines);
@@ -4775,9 +4836,10 @@ document.addEventListener('DOMContentLoaded', () => {
       if (dailyRefs.status) {
         dailyRefs.status.textContent = `Daily report unavailable: ${error?.message || 'Unknown error'}`;
       }
-      if (dailyRefs.dayTableBody) {
-        dailyRefs.dayTableBody.innerHTML = `<tr><td colspan="4" class="admin-empty">Unable to load Daily: ${escapeHtml(error?.message || 'Unknown error')}</td></tr>`;
+      if (dailyRefs.sheetBody) {
+        dailyRefs.sheetBody.innerHTML = `<tr><td colspan="6" class="admin-empty">Unable to load Daily: ${escapeHtml(error?.message || 'Unknown error')}</td></tr>`;
       }
+      if (dailyRefs.sheetFoot) dailyRefs.sheetFoot.innerHTML = '';
       return false;
     }
   };
