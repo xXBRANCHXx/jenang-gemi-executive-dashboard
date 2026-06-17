@@ -1757,8 +1757,8 @@ if (root) {
     state.productCardFilters = {};
     state.deletedProductCards = [];
     if (options.addNew) {
-      state.draftProductCards = [newProductCardDraft()];
-      refs.productCardTitle.textContent = 'New product card';
+      state.draftProductCards = [...cards, newProductCardDraft()];
+      refs.productCardTitle.textContent = 'Product card studio';
     } else if (options.cardKey) {
       const selectedCard = cards.find((card) => card.card_key === options.cardKey || productCardSignature(card) === options.cardKey);
       state.draftProductCards = [selectedCard ? cloneProductCard(selectedCard) : newProductCardDraft()];
@@ -1774,6 +1774,8 @@ if (root) {
       const row = Array.from(refs.productCardList.querySelectorAll('[data-pl-product-card-row]'))
         .find((candidate) => candidate.dataset.plProductCardKeyValue === options.cardKey);
       row?.scrollIntoView({ block: 'center' });
+    } else if (options.addNew) {
+      refs.productCardList.lastElementChild?.scrollIntoView({ block: 'center' });
     }
   };
   const hydrateProductCardDrafts = () => {
@@ -1954,6 +1956,7 @@ if (root) {
     if (entry) openEntryModal(entry);
   });
   root.querySelector('[data-pl-add-entry]').addEventListener('click', () => openEntryModal());
+  root.querySelector('[data-pl-edit-product-cards]')?.addEventListener('click', () => openProductCardSettings());
   refs.addProductCard?.addEventListener('click', () => openProductCardSettings({ addNew: true }));
   root.querySelector('[data-pl-edit-syrup-settings]').addEventListener('click', openSyrupSettings);
   root.querySelector('[data-pl-edit-metrics]').addEventListener('click', openMetricsSettings);
@@ -2436,6 +2439,7 @@ if (root) {
         .filter(Boolean);
       const savedCards = Array.isArray(state.draftProductCards) ? state.draftProductCards : collectProductCardSettings();
       const savedSignatures = new Set(savedCards.map(productCardSignature));
+      const keepGeneratedForOrder = savedCards.length > 1;
       const deletedCards = state.deletedProductCards.filter((card) => (
         number(card.id) > 0 || !savedSignatures.has(card.signature || '')
       )).map((card) => ({
@@ -2447,7 +2451,7 @@ if (root) {
         cards: [
           ...savedCards,
           ...deletedHiddenCards.filter((card) => !savedSignatures.has(productCardSignature(card)))
-        ].filter((card) => !isPristineGeneratedProductCard(card)),
+        ].filter((card) => keepGeneratedForOrder || !isPristineGeneratedProductCard(card)),
         deleted_cards: deletedCards
       });
       state.stored.product_cards = response.product_cards;

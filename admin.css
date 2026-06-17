@@ -5995,6 +5995,13 @@ body::after {
   border-bottom: 1px solid var(--pl-border);
 }
 
+.pl-surface-actions {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 12px;
+}
+
 .pl-inline-title {
   display: flex;
   align-items: center;
