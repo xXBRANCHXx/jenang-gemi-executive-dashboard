@@ -392,8 +392,22 @@ const JENANG_GEMI_SEARCH_INDEX = [
 ];
 
 const DASHBOARD_TIMEZONE = 'Asia/Jakarta';
+const DAILY_ORDER_PAGE_LIMIT = 500;
+const DAILY_CUSTOM_PLATFORMS_STORAGE_KEY = 'jg-dashboard-daily-custom-platforms';
 const ANALYTICS_DEVICE_COOKIE = 'jg_analytics_device_id';
 const ANALYTICS_DEVICE_MAX_AGE = 60 * 60 * 24 * 365 * 2;
+
+const getMonthKeyForTimezone = (date = new Date(), timezone = DASHBOARD_TIMEZONE) => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit'
+  }).formatToParts(date).reduce((result, part) => {
+    result[part.type] = part.value;
+    return result;
+  }, {});
+  return `${parts.year}-${parts.month}`;
+};
 
 const createAnalyticsDeviceId = () => {
   if (window.crypto?.randomUUID) return `device-${window.crypto.randomUUID()}`;
@@ -1613,10 +1627,13 @@ document.addEventListener('DOMContentLoaded', () => {
     executive: 'overview',
     homepage: 'overview',
     orders: 'orders',
+    daily: 'daily',
+    day: 'daily',
+    'daily-report': 'daily',
     context: 'context',
     'open-context': 'context'
   };
-  const validViews = new Set(['overview', 'orders', 'context', 'home', 'website', 'settings']);
+  const validViews = new Set(['overview', 'orders', 'daily', 'context', 'home', 'website', 'settings']);
   const normalizeDashboardView = (value) => {
     const normalized = String(value || '').trim().toLowerCase();
     const aliased = viewAliases[normalized] || normalized;
@@ -1684,6 +1701,14 @@ document.addEventListener('DOMContentLoaded', () => {
         startDate: '',
         endDate: ''
       },
+      requestToken: 0
+    },
+    daily: {
+      month: getMonthKeyForTimezone(new Date(), DASHBOARD_TIMEZONE),
+      data: null,
+      rows: [],
+      customPlatforms: [],
+      loading: false,
       requestToken: 0
     },
     context: {
@@ -1812,6 +1837,22 @@ document.addEventListener('DOMContentLoaded', () => {
     dateMonth: document.querySelector('[data-orders-date-month]'),
     datePrev: document.querySelector('[data-orders-date-prev]'),
     dateNext: document.querySelector('[data-orders-date-next]')
+  };
+  const dailyRefs = {
+    monthInput: document.querySelector('[data-daily-month]'),
+    status: document.querySelector('[data-daily-status]'),
+    exportButton: document.querySelector('[data-daily-export]'),
+    totalQty: document.querySelector('[data-daily-total-qty]'),
+    totalRevenue: document.querySelector('[data-daily-total-revenue]'),
+    avgQty: document.querySelector('[data-daily-avg-qty]'),
+    avgRevenue: document.querySelector('[data-daily-avg-revenue]'),
+    platformCount: document.querySelector('[data-daily-platform-count]'),
+    topDay: document.querySelector('[data-daily-top-day]'),
+    platformSummary: document.querySelector('[data-daily-platform-summary]'),
+    dayTableBody: document.querySelector('[data-daily-day-table-body]'),
+    platformForm: document.querySelector('[data-daily-platform-form]'),
+    platformName: document.querySelector('[data-daily-platform-name]'),
+    platformList: document.querySelector('[data-daily-platform-list]')
   };
   const contextRefs = {
     groupButtons: document.querySelectorAll('[data-context-group]'),
@@ -2378,6 +2419,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const labels = {
       overview: 'Home',
       orders: 'Orders',
+      daily: 'Daily',
       context: 'Open Context',
       home: 'Campaigns Dashboard',
       website: 'Official Website Dashboard',
@@ -2386,11 +2428,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const navSectionByView = {
       overview: 'home',
       orders: 'orders',
+      daily: '',
       context: 'home',
       home: 'campaigns',
       website: 'website',
       settings: 'settings'
     };
+    if (root) root.dataset.activeView = state.activeView;
     viewPanels.forEach((panel) => {
       panel.classList.toggle('is-active', panel.dataset.viewPanel === state.activeView);
     });
@@ -3273,6 +3317,379 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const platformLabel = (value) => toTitleCase(String(value || 'unknown').replace(/[-_]/g, ' '));
 
+  const dailyPlatformKey = (value) => normalizePlatformKey(value || 'unknown');
+  const dailyTextTone = (index) => ['daily-text-green', 'daily-text-blue', 'daily-text-yellow', 'daily-text-red', 'daily-text-muted'][index % 5];
+
+  const parseDailyMonth = (value) => {
+    const raw = String(value || '').trim();
+    const match = raw.match(/^(\d{4})-(\d{2})$/);
+    const fallback = getMonthKeyForTimezone(new Date(), state.timezone);
+    if (!match) return parseDailyMonth(fallback);
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) {
+      return parseDailyMonth(fallback);
+    }
+    const start = `${year}-${String(month).padStart(2, '0')}-01`;
+    const end = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+    return { year, month, start, end };
+  };
+
+  const formatDailyMonthLabel = (monthKey) => {
+    const range = parseDailyMonth(monthKey);
+    return new Date(Date.UTC(range.year, range.month - 1, 1)).toLocaleDateString('en-US', {
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'UTC'
+    });
+  };
+
+  const dailyOrderDateString = (row) => {
+    const date = parseOrderTimestamp(row?.order_create_time || row?.timestamp);
+    return date ? dashboardDateFormatter.format(date) : '';
+  };
+
+  const readDailyCustomPlatforms = () => {
+    try {
+      const parsed = JSON.parse(window.localStorage.getItem(DAILY_CUSTOM_PLATFORMS_STORAGE_KEY) || '[]');
+      return (Array.isArray(parsed) ? parsed : [])
+        .map((name) => String(name || '').trim())
+        .filter(Boolean)
+        .filter((name, index, items) => items.findIndex((item) => dailyPlatformKey(item) === dailyPlatformKey(name)) === index)
+        .slice(0, 24);
+    } catch (_error) {
+      return [];
+    }
+  };
+
+  const persistDailyCustomPlatforms = () => {
+    window.localStorage.setItem(DAILY_CUSTOM_PLATFORMS_STORAGE_KEY, JSON.stringify(state.daily.customPlatforms.slice(0, 24)));
+  };
+
+  state.daily.customPlatforms = readDailyCustomPlatforms();
+
+  const buildDailyPlatformMap = (rows) => {
+    const platformMap = new Map();
+    state.daily.customPlatforms.forEach((name) => {
+      const key = dailyPlatformKey(name);
+      platformMap.set(key, {
+        key,
+        label: platformLabel(name),
+        custom: true,
+        qty: 0,
+        revenue: 0,
+        daysActive: 0
+      });
+    });
+    (Array.isArray(rows) ? rows : []).forEach((row) => {
+      const raw = String(row?.platform || 'unknown').trim() || 'unknown';
+      const key = dailyPlatformKey(raw);
+      if (!platformMap.has(key)) {
+        platformMap.set(key, {
+          key,
+          label: platformLabel(raw),
+          custom: false,
+          qty: 0,
+          revenue: 0,
+          daysActive: 0
+        });
+      }
+    });
+    return platformMap;
+  };
+
+  const aggregateDailyData = (rows, monthKey) => {
+    const range = parseDailyMonth(monthKey);
+    const dayCount = new Date(Date.UTC(range.year, range.month, 0)).getUTCDate();
+    const platformMap = buildDailyPlatformMap(rows);
+    const days = Array.from({ length: dayCount }, (_, index) => {
+      const date = new Date(Date.UTC(range.year, range.month - 1, index + 1));
+      const dateKey = date.toISOString().slice(0, 10);
+      return {
+        date: dateKey,
+        label: date.toLocaleDateString('en-US', {
+          weekday: 'short',
+          month: 'short',
+          day: '2-digit',
+          timeZone: 'UTC'
+        }),
+        qty: 0,
+        revenue: 0,
+        orders: new Set(),
+        platforms: new Map()
+      };
+    });
+    const dayMap = new Map(days.map((day) => [day.date, day]));
+
+    (Array.isArray(rows) ? rows : []).forEach((row) => {
+      const date = dailyOrderDateString(row);
+      const day = dayMap.get(date);
+      if (!day) return;
+      const rawPlatform = String(row?.platform || 'unknown').trim() || 'unknown';
+      const platformKey = dailyPlatformKey(rawPlatform);
+      const quantity = Math.max(0, Number(row?.quantity || row?.item_count || 0));
+      const revenue = Number(row?.revenue || row?.net_revenue || row?.sales || row?.gross_revenue || 0);
+      const orderKey = [
+        rawPlatform,
+        row?.account_key || '',
+        row?.order_id || '',
+        row?.sku || '',
+        row?.item_key || ''
+      ].join('|');
+
+      if (!platformMap.has(platformKey)) {
+        platformMap.set(platformKey, {
+          key: platformKey,
+          label: platformLabel(rawPlatform),
+          custom: false,
+          qty: 0,
+          revenue: 0,
+          daysActive: 0
+        });
+      }
+      if (!day.platforms.has(platformKey)) {
+        day.platforms.set(platformKey, {
+          key: platformKey,
+          label: platformLabel(rawPlatform),
+          qty: 0,
+          revenue: 0,
+          orders: new Set()
+        });
+      }
+      const platformDay = day.platforms.get(platformKey);
+      const platformTotal = platformMap.get(platformKey);
+      day.qty += quantity;
+      day.revenue += revenue;
+      platformDay.qty += quantity;
+      platformDay.revenue += revenue;
+      platformTotal.qty += quantity;
+      platformTotal.revenue += revenue;
+      if (orderKey.replace(/\|/g, '').trim() !== '') {
+        day.orders.add(orderKey);
+        platformDay.orders.add(orderKey);
+      }
+    });
+
+    days.forEach((day) => {
+      day.platforms.forEach((platformDay) => {
+        const platformTotal = platformMap.get(platformDay.key);
+        if (platformTotal && (platformDay.qty > 0 || platformDay.revenue > 0)) {
+          platformTotal.daysActive += 1;
+        }
+        platformDay.orders = platformDay.orders.size;
+      });
+      day.orders = day.orders.size;
+      day.platforms = Array.from(day.platforms.values())
+        .sort((left, right) => right.revenue - left.revenue || right.qty - left.qty || left.label.localeCompare(right.label));
+    });
+
+    const platforms = Array.from(platformMap.values())
+      .sort((left, right) => right.revenue - left.revenue || right.qty - left.qty || left.label.localeCompare(right.label))
+      .map((platform, index) => ({
+        ...platform,
+        tone: dailyTextTone(index),
+        avgQty: platform.qty / dayCount,
+        avgRevenue: platform.revenue / dayCount
+      }));
+    const totalQty = days.reduce((sum, day) => sum + day.qty, 0);
+    const totalRevenue = days.reduce((sum, day) => sum + day.revenue, 0);
+    const topDay = days.reduce((best, day) => (
+      !best || day.revenue > best.revenue || (day.revenue === best.revenue && day.qty > best.qty) ? day : best
+    ), null);
+
+    return {
+      month: `${range.year}-${String(range.month).padStart(2, '0')}`,
+      label: formatDailyMonthLabel(`${range.year}-${String(range.month).padStart(2, '0')}`),
+      start: range.start,
+      end: range.end,
+      dayCount,
+      rows: Array.isArray(rows) ? rows : [],
+      days,
+      platforms,
+      totals: {
+        qty: totalQty,
+        revenue: totalRevenue,
+        avgQty: totalQty / dayCount,
+        avgRevenue: totalRevenue / dayCount,
+        platformCount: platforms.length,
+        activeDayCount: days.filter((day) => day.qty > 0 || day.revenue > 0).length,
+        topDay
+      }
+    };
+  };
+
+  const renderDailyPlatformList = () => {
+    if (!dailyRefs.platformList) return;
+    const custom = state.daily.customPlatforms;
+    if (!custom.length) {
+      dailyRefs.platformList.innerHTML = '<p class="admin-empty">No manual platform placeholders.</p>';
+      return;
+    }
+    dailyRefs.platformList.innerHTML = custom.map((name) => `
+      <button type="button" class="daily-platform-chip" data-daily-remove-platform="${escapeHtml(name)}">
+        <span>${escapeHtml(platformLabel(name))}</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    `).join('');
+  };
+
+  const renderDailyPlatformSummary = (dailyData) => {
+    if (!dailyRefs.platformSummary) return;
+    if (!dailyData.platforms.length) {
+      dailyRefs.platformSummary.innerHTML = '<p class="admin-empty">No platforms found for this month.</p>';
+      return;
+    }
+    dailyRefs.platformSummary.innerHTML = dailyData.platforms.map((platform) => `
+      <div class="daily-platform-row">
+        <div class="daily-platform-name">
+          <strong class="${escapeHtml(platform.tone)}">${escapeHtml(platform.label)}</strong>
+          <small>${platform.custom ? 'Manual placeholder' : `${platform.daysActive.toLocaleString('id-ID')} active days`}</small>
+        </div>
+        <span><small>Qty</small><b class="daily-text-green">${Number(platform.qty || 0).toLocaleString('id-ID')}</b></span>
+        <span><small>Rp</small><b class="daily-text-blue">${formatCurrency(platform.revenue || 0)}</b></span>
+        <span><small>Avg Qty</small><b class="daily-text-yellow">${Number(platform.avgQty || 0).toLocaleString('id-ID', { maximumFractionDigits: 1 })}</b></span>
+        <span><small>Avg Rp</small><b class="daily-text-red">${formatCurrency(platform.avgRevenue || 0)}</b></span>
+      </div>
+    `).join('');
+  };
+
+  const renderDailyRows = (dailyData) => {
+    if (!dailyRefs.dayTableBody) return;
+    if (!dailyData.days.length) {
+      dailyRefs.dayTableBody.innerHTML = '<tr><td colspan="4" class="admin-empty">No days available.</td></tr>';
+      return;
+    }
+    dailyRefs.dayTableBody.innerHTML = dailyData.days.map((day) => {
+      const platformHtml = day.platforms.length
+        ? day.platforms.map((platform) => `
+          <span class="daily-breakdown-item">
+            <strong>${escapeHtml(platform.label)}</strong>
+            <b class="daily-text-green">${Number(platform.qty || 0).toLocaleString('id-ID')} qty</b>
+            <b class="daily-text-blue">${formatCurrency(platform.revenue || 0)}</b>
+          </span>
+        `).join('')
+        : '<span class="daily-breakdown-empty">No platform sales</span>';
+      return `
+        <tr>
+          <td><strong>${escapeHtml(day.label)}</strong><small class="admin-table-note">${escapeHtml(day.date)}</small></td>
+          <td><strong class="daily-text-green">${Number(day.qty || 0).toLocaleString('id-ID')}</strong></td>
+          <td><strong class="daily-text-blue">${formatCurrency(day.revenue || 0)}</strong></td>
+          <td><div class="daily-breakdown-list">${platformHtml}</div></td>
+        </tr>
+      `;
+    }).join('');
+  };
+
+  const renderDaily = (dailyData) => {
+    state.daily.data = dailyData;
+    if (dailyRefs.monthInput) dailyRefs.monthInput.value = dailyData.month;
+    if (dailyRefs.totalQty) dailyRefs.totalQty.textContent = Number(dailyData.totals.qty || 0).toLocaleString('id-ID');
+    if (dailyRefs.totalRevenue) dailyRefs.totalRevenue.textContent = formatCurrency(dailyData.totals.revenue || 0);
+    if (dailyRefs.avgQty) dailyRefs.avgQty.textContent = Number(dailyData.totals.avgQty || 0).toLocaleString('id-ID', { maximumFractionDigits: 1 });
+    if (dailyRefs.avgRevenue) dailyRefs.avgRevenue.textContent = formatCurrency(dailyData.totals.avgRevenue || 0);
+    if (dailyRefs.platformCount) dailyRefs.platformCount.textContent = Number(dailyData.totals.platformCount || 0).toLocaleString('id-ID');
+    if (dailyRefs.topDay) {
+      const topDay = dailyData.totals.topDay;
+      dailyRefs.topDay.textContent = topDay && topDay.revenue > 0
+        ? `${topDay.label} • ${formatCurrency(topDay.revenue)}`
+        : '-';
+    }
+    if (dailyRefs.status) {
+      dailyRefs.status.textContent = `${dailyData.label} • ${dailyData.rows.length.toLocaleString('id-ID')} order lines • ${dailyData.totals.activeDayCount.toLocaleString('id-ID')} active days`;
+    }
+    if (dailyRefs.exportButton) dailyRefs.exportButton.disabled = false;
+    renderDailyPlatformList();
+    renderDailyPlatformSummary(dailyData);
+    renderDailyRows(dailyData);
+  };
+
+  const pdfEscape = (value) => String(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)');
+
+  const buildSimplePdf = (title, lines) => {
+    const safeLines = [title, '', ...lines].map((line) => String(line || '').slice(0, 120));
+    const pages = [];
+    for (let index = 0; index < safeLines.length; index += 46) {
+      pages.push(safeLines.slice(index, index + 46));
+    }
+    const objects = [];
+    const addObject = (body) => {
+      objects.push(body);
+      return objects.length;
+    };
+    const catalogId = addObject('<< /Type /Catalog /Pages 2 0 R >>');
+    const pagesId = addObject('');
+    const fontId = addObject('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
+    const pageIds = [];
+
+    pages.forEach((pageLines) => {
+      const content = [
+        'BT',
+        '/F1 10 Tf',
+        '14 TL',
+        '44 800 Td',
+        ...pageLines.map((line) => `(${pdfEscape(line)}) Tj T*`),
+        'ET'
+      ].join('\n');
+      const contentId = addObject(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
+      const pageId = addObject(`<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 ${fontId} 0 R >> >> /Contents ${contentId} 0 R >>`);
+      pageIds.push(pageId);
+    });
+
+    objects[pagesId - 1] = `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(' ')}] /Count ${pageIds.length} >>`;
+
+    let pdf = '%PDF-1.4\n';
+    const offsets = [0];
+    objects.forEach((body, index) => {
+      offsets.push(pdf.length);
+      pdf += `${index + 1} 0 obj\n${body}\nendobj\n`;
+    });
+    const xrefOffset = pdf.length;
+    pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+    offsets.slice(1).forEach((offset) => {
+      pdf += `${String(offset).padStart(10, '0')} 00000 n \n`;
+    });
+    pdf += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogId} 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+    return pdf;
+  };
+
+  const downloadDailyPdf = () => {
+    const dailyData = state.daily.data;
+    if (!dailyData) return;
+    const lines = [
+      `Month: ${dailyData.label}`,
+      `Date range: ${dailyData.start} to ${dailyData.end}`,
+      `Total Qty: ${Number(dailyData.totals.qty || 0).toLocaleString('id-ID')}`,
+      `Total Revenue: ${formatCurrency(dailyData.totals.revenue || 0)}`,
+      `Average Qty per day: ${Number(dailyData.totals.avgQty || 0).toLocaleString('id-ID', { maximumFractionDigits: 1 })}`,
+      `Average Revenue per day: ${formatCurrency(dailyData.totals.avgRevenue || 0)}`,
+      '',
+      'Platforms',
+      ...dailyData.platforms.map((platform) => `${platform.label}: Qty ${Number(platform.qty || 0).toLocaleString('id-ID')} | Revenue ${formatCurrency(platform.revenue || 0)} | Avg Qty ${Number(platform.avgQty || 0).toLocaleString('id-ID', { maximumFractionDigits: 1 })} | Avg Rp ${formatCurrency(platform.avgRevenue || 0)}`),
+      '',
+      'Daily Breakdown',
+      ...dailyData.days.map((day) => {
+        const platforms = day.platforms.length
+          ? day.platforms.map((platform) => `${platform.label} ${Number(platform.qty || 0).toLocaleString('id-ID')} qty ${formatCurrency(platform.revenue || 0)}`).join('; ')
+          : 'No platform sales';
+        return `${day.date}: Total Qty ${Number(day.qty || 0).toLocaleString('id-ID')} | Total Rp ${formatCurrency(day.revenue || 0)} | ${platforms}`;
+      })
+    ];
+    const pdf = buildSimplePdf(`Jenang Gemi Daily Report - ${dailyData.label}`, lines);
+    const blob = new Blob([pdf], { type: 'application/pdf' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `jenang-gemi-daily-${dailyData.month}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    window.setTimeout(() => {
+      URL.revokeObjectURL(link.href);
+      link.remove();
+    }, 0);
+  };
+
   const renderActiveOrderFilters = () => {
     if (!ordersRefs.activeFilters) return;
     const signature = orderFiltersSignature();
@@ -4061,6 +4478,43 @@ document.addEventListener('DOMContentLoaded', () => {
       .catch(() => {});
   };
 
+  const loadDaily = async () => {
+    const requestToken = beginRequest('daily');
+    const month = parseDailyMonth(state.daily.month);
+    state.daily.month = `${month.year}-${String(month.month).padStart(2, '0')}`;
+    state.daily.loading = true;
+    if (dailyRefs.status) dailyRefs.status.textContent = `Loading ${formatDailyMonthLabel(state.daily.month)} order lines...`;
+    if (dailyRefs.exportButton) dailyRefs.exportButton.disabled = true;
+
+    let offset = 0;
+    let guard = 0;
+    const rows = [];
+    while (guard < 80) {
+      guard += 1;
+      const payload = await requestOrderFacts(month.start, month.end, {
+        lightweight: true,
+        storedOnly: true,
+        limit: DAILY_ORDER_PAGE_LIMIT,
+        offset
+      });
+      if (!isLatestRequest('daily', requestToken)) return;
+      rows.push(...(Array.isArray(payload.orders) ? payload.orders : []));
+      const nextOffset = Number(payload.next_offset);
+      if (!payload.has_more || !Number.isFinite(nextOffset) || nextOffset <= offset) {
+        break;
+      }
+      offset = nextOffset;
+      if (dailyRefs.status) {
+        dailyRefs.status.textContent = `Loading ${formatDailyMonthLabel(state.daily.month)} order lines... ${rows.length.toLocaleString('id-ID')} loaded`;
+      }
+    }
+
+    if (!isLatestRequest('daily', requestToken)) return;
+    state.daily.rows = rows;
+    state.daily.loading = false;
+    renderDaily(aggregateDailyData(rows, state.daily.month));
+  };
+
   const loadHome = async () => {
     const requestToken = beginRequest('home');
     const data = await requestJson(buildAnalyticsUrl('landing', state.home.timeframe));
@@ -4312,6 +4766,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const loadDailySafely = async () => {
+    try {
+      await loadDaily();
+      return true;
+    } catch (error) {
+      state.daily.loading = false;
+      if (dailyRefs.status) {
+        dailyRefs.status.textContent = `Daily report unavailable: ${error?.message || 'Unknown error'}`;
+      }
+      if (dailyRefs.dayTableBody) {
+        dailyRefs.dayTableBody.innerHTML = `<tr><td colspan="4" class="admin-empty">Unable to load Daily: ${escapeHtml(error?.message || 'Unknown error')}</td></tr>`;
+      }
+      return false;
+    }
+  };
+
   const loadOrderCatalog = async () => {
     try {
       const data = await requestJson(skuCatalogEndpoint);
@@ -4339,6 +4809,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (state.activeView === 'orders') {
       await loadOrders();
+      return;
+    }
+    if (state.activeView === 'daily') {
+      await loadDaily();
       return;
     }
     if (state.activeView === 'context') {
@@ -4412,6 +4886,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (state.activeView === 'orders') {
       return loadOrdersSafely();
     }
+    if (state.activeView === 'daily') {
+      return loadDailySafely();
+    }
     if (state.activeView === 'context') {
       try {
         await loadContext();
@@ -4450,13 +4927,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     await Promise.allSettled([
       loadOverviewSafely(),
-      state.activeView === 'orders' ? loadOrdersSafely() : Promise.resolve(true)
+      state.activeView === 'orders' ? loadOrdersSafely() : Promise.resolve(true),
+      state.activeView === 'daily' ? loadDailySafely() : Promise.resolve(true)
     ]);
     return true;
   };
 
   const renderCachedCharts = () => {
     if (state.activeView === 'overview' && state.overview.data) renderOverview(state.overview.data);
+    if (state.activeView === 'daily' && state.daily.data) renderDaily(state.daily.data);
     if (state.activeView === 'home' && state.home.data) renderHome(state.home.data);
     if (state.activeView === 'website' && state.website.screen === 'detail' && state.website.data) renderWebsite(state.website.data);
   };
@@ -4507,6 +4986,8 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   applyTheme(readStoredTheme() || 'minimal-black');
+  if (dailyRefs.monthInput) dailyRefs.monthInput.value = state.daily.month;
+  renderDailyPlatformList();
   loadOrderCatalog();
   syncViewState();
   renderContextEditor();
@@ -4647,6 +5128,41 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       if (state.overview.data) renderOverview(state.overview.data);
     });
+  });
+
+  dailyRefs.monthInput?.addEventListener('change', async () => {
+    const nextMonth = String(dailyRefs.monthInput?.value || '').trim();
+    if (!nextMonth || nextMonth === state.daily.month) return;
+    state.daily.month = nextMonth;
+    await loadDailySafely();
+  });
+
+  dailyRefs.exportButton?.addEventListener('click', downloadDailyPdf);
+
+  dailyRefs.platformForm?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const name = String(dailyRefs.platformName?.value || '').trim();
+    if (!name) return;
+    const key = dailyPlatformKey(name);
+    if (!state.daily.customPlatforms.some((item) => dailyPlatformKey(item) === key)) {
+      state.daily.customPlatforms.push(name);
+      persistDailyCustomPlatforms();
+    }
+    if (dailyRefs.platformName) dailyRefs.platformName.value = '';
+    const rows = Array.isArray(state.daily.rows) ? state.daily.rows : [];
+    renderDaily(aggregateDailyData(rows, state.daily.month));
+  });
+
+  dailyRefs.platformList?.addEventListener('click', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const button = target.closest('[data-daily-remove-platform]');
+    if (!(button instanceof HTMLElement)) return;
+    const name = button.getAttribute('data-daily-remove-platform') || '';
+    state.daily.customPlatforms = state.daily.customPlatforms.filter((item) => dailyPlatformKey(item) !== dailyPlatformKey(name));
+    persistDailyCustomPlatforms();
+    const rows = Array.isArray(state.daily.rows) ? state.daily.rows : [];
+    renderDaily(aggregateDailyData(rows, state.daily.month));
   });
 
   homeRefs.timeframeButtons.forEach((button) => {
