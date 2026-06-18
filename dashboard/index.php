@@ -134,15 +134,15 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                 </button>
                                 <a class="admin-menu-item admin-link-btn" href="../profit-loss/">
                                     <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 19.5V10M10 19.5V5M16 19.5v-7M3 19.5h18"/><path d="m4 7 5-4 6 5 5-4"/></svg></span>
-                                    <span><strong>Profit &amp; Loss</strong><small>Revenue, costs, and operating profit</small></span>
+                                    <span><strong>P&amp;L</strong><small>Revenue, costs, and operating profit</small></span>
                                 </a>
                                 <button type="button" class="admin-menu-item" data-view-switch="context">
                                     <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5H5v14h14v-3"/><path d="M11 13 20 4M14 4h6v6"/></svg></span>
-                                    <span><strong>Open Context</strong><small>Operational context and live signals</small></span>
+                                    <span><strong>Context</strong><small>Operational context and live signals</small></span>
                                 </button>
                                 <button type="button" class="admin-menu-item" data-view-switch="website">
                                     <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.4 3.8 5.4 3.8 9S14.5 18.6 12 21c-2.5-2.4-3.8-5.4-3.8-9S9.5 5.4 12 3z"/></svg></span>
-                                    <span><strong>Official Website Dashboard</strong><small>Site traffic and conversion analytics</small></span>
+                                    <span><strong>Website</strong><small>Site traffic and conversion analytics</small></span>
                                 </button>
                                 <button type="button" class="admin-menu-item" data-view-switch="settings">
                                     <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19.4 15a1.8 1.8 0 0 0 .4 2l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.8 1.8 0 0 0-2-.4 1.8 1.8 0 0 0-1 1.6V21a2 2 0 0 1-4 0v-.1a1.8 1.8 0 0 0-1-1.6 1.8 1.8 0 0 0-2 .4l-.1.1a2 2 0 0 1-2.8-2.8l.1-.1a1.8 1.8 0 0 0 .4-2 1.8 1.8 0 0 0-1.6-1H3a2 2 0 0 1 0-4h.1a1.8 1.8 0 0 0 1.6-1 1.8 1.8 0 0 0-.4-2l-.1-.1a2 2 0 0 1 2.8-2.8l.1.1a1.8 1.8 0 0 0 2 .4 1.8 1.8 0 0 0 1-1.6V3a2 2 0 0 1 4 0v.1a1.8 1.8 0 0 0 1 1.6 1.8 1.8 0 0 0 2-.4l.1-.1a2 2 0 0 1 2.8 2.8l-.1.1a1.8 1.8 0 0 0-.4 2 1.8 1.8 0 0 0 1.6 1h.1a2 2 0 0 1 0 4h-.1a1.8 1.8 0 0 0-1.7 1z"/></svg></span>
