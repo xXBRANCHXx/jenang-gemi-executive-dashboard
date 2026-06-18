@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isAuthenticated = jg_admin_is_authenticated();
-$dashboardBuildVersion = 'exec3.69.1';
+$dashboardBuildVersion = 'exec3.69.2';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 ?>
@@ -92,13 +92,6 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                     </div>
                     <div class="admin-topbar-actions">
                         <a class="admin-ghost-btn admin-link-btn" href="../back-dash/">Back Dash</a>
-                        <div class="admin-search-shell" data-dashboard-search-shell>
-                            <span class="admin-search-icon" aria-hidden="true">⌕</span>
-                            <form class="admin-search-form" data-dashboard-search-form role="search">
-                                <input type="search" class="admin-search-input" data-dashboard-search-input placeholder="Search all of Jenang Gemi" autocomplete="off">
-                            </form>
-                            <div class="admin-search-results" data-dashboard-search-results hidden></div>
-                        </div>
                         <div class="admin-menu-shell" data-menu-shell>
                             <button type="button" class="admin-ghost-btn admin-menu-trigger" data-menu-trigger aria-expanded="false" aria-label="Open dashboard menu">
                                 <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
@@ -135,6 +128,27 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
 
                 <main class="admin-layout">
                     <section class="admin-view is-active" data-view-panel="overview">
+                <section class="admin-home-search-wrap" aria-label="Executive Dashboard search">
+                    <div class="admin-search-shell admin-search-shell-home" data-dashboard-search-shell>
+                        <div class="admin-search-surface" aria-hidden="true">
+                            <div class="admin-search-surface-glow"></div>
+                            <div class="admin-search-topline"></div>
+                        </div>
+                        <div class="admin-search-sweep" aria-hidden="true"></div>
+                        <button type="button" class="admin-search-icon-button" data-dashboard-search-open aria-label="Open dashboard search" aria-expanded="false">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 4.5 4.5"/></svg>
+                        </button>
+                        <form class="admin-search-form" data-dashboard-search-form role="search" aria-label="Search Executive Dashboard">
+                            <input type="search" class="admin-search-input" data-dashboard-search-input placeholder="Search" autocomplete="off">
+                        </form>
+                        <button type="button" class="admin-search-close-button" data-dashboard-search-close aria-label="Close dashboard search">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+                        </button>
+                        <div class="admin-search-focus-ring" aria-hidden="true"></div>
+                        <div class="admin-search-results" data-dashboard-search-results hidden></div>
+                    </div>
+                </section>
+
                 <section class="admin-overview-strip">
                     <div class="admin-toggle-row" data-overview-year-controls>
                         <button type="button" class="admin-toggle-pill is-active" data-overview-year-placeholder>Loading...</button>

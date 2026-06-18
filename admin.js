@@ -341,6 +341,14 @@ const JENANG_GEMI_SEARCH_INDEX = [
     keywords: ['website dashboard', 'site analytics', 'traffic']
   },
   {
+    title: 'Dashboard Settings',
+    section: 'Admin',
+    description: 'Appearance, lock controls, and analytics device exclusions.',
+    url: '../dashboard/?view=settings',
+    view: 'settings',
+    keywords: ['settings', 'theme', 'device exclusions', 'security', 'lock']
+  },
+  {
     title: 'Affiliate Program Dashboard',
     section: 'Admin',
     description: 'Affiliate performance control room.',
@@ -374,6 +382,13 @@ const JENANG_GEMI_SEARCH_INDEX = [
     description: 'SKU database, approvals, and source-of-truth records.',
     url: '../sku-db/',
     keywords: ['sku', 'database', 'branch', 'approval', 'inventory']
+  },
+  {
+    title: 'Profit and Loss Workspace',
+    section: 'Admin',
+    description: 'SKU-level profit, syrup costs, margins, and product finance controls.',
+    url: '../profit-loss/',
+    keywords: ['profit', 'loss', 'p&l', 'margin', 'gross profit', 'finance']
   },
   {
     title: 'API Health',
@@ -1778,7 +1793,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const searchShell = document.querySelector('[data-dashboard-search-shell]');
   const searchForm = document.querySelector('[data-dashboard-search-form]');
   const searchInput = document.querySelector('[data-dashboard-search-input]');
+  const searchOpenButton = document.querySelector('[data-dashboard-search-open]');
+  const searchCloseButton = document.querySelector('[data-dashboard-search-close]');
   const searchResults = document.querySelector('[data-dashboard-search-results]');
+  let searchFocusTimer = null;
 
   const overviewRefs = {
     summarySales: document.querySelector('[data-overview-summary-sales]'),
@@ -1972,13 +1990,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const normalizeSearchText = (value) => String(value || '').trim().toLowerCase();
 
-  const closeSearchResults = ({ clear = false } = {}) => {
-    if (clear && searchInput) searchInput.value = '';
+  const setSearchOpen = (open, { focus = false } = {}) => {
+    if (!searchShell) return;
+    searchShell.classList.toggle('is-search-open', open);
+    searchOpenButton?.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (searchFocusTimer) {
+      window.clearTimeout(searchFocusTimer);
+      searchFocusTimer = null;
+    }
+    if (open && focus && searchInput) {
+      searchFocusTimer = window.setTimeout(() => {
+        searchInput.focus();
+        searchFocusTimer = null;
+      }, 220);
+    }
+  };
+
+  const hideSearchResults = () => {
     if (searchResults) {
       searchResults.hidden = true;
       searchResults.innerHTML = '';
     }
     searchShell?.classList.remove('is-open');
+  };
+
+  const closeSearchResults = ({ clear = false, collapse = true } = {}) => {
+    if (clear && searchInput) searchInput.value = '';
+    hideSearchResults();
+    if (collapse) setSearchOpen(false);
   };
 
   const scoreSearchEntry = (entry, tokens) => {
@@ -2014,20 +2053,21 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!searchResults) return [];
     const results = getJenangGemiSearchResults(query);
     if (!normalizeSearchText(query)) {
-      closeSearchResults();
+      hideSearchResults();
       return [];
     }
 
+    setSearchOpen(true);
     searchShell?.classList.add('is-open');
     searchResults.hidden = false;
 
     if (!results.length) {
-      searchResults.innerHTML = '<div class="admin-search-empty">No matching Jenang Gemi pages found.</div>';
+      searchResults.innerHTML = '<div class="admin-search-empty">No matching dashboard pages found.</div>';
       return [];
     }
 
-    searchResults.innerHTML = results.map((result) => `
-      <a class="admin-search-result" href="${escapeHtml(result.url)}"${result.view ? ` data-search-view="${escapeHtml(result.view)}"` : ''}>
+    searchResults.innerHTML = results.map((result, index) => `
+      <a class="admin-search-result" href="${escapeHtml(result.url)}" data-search-result-index="${index}"${result.view ? ` data-search-view="${escapeHtml(result.view)}"` : ''}>
         <strong>${escapeHtml(result.title)}</strong>
         <span>${escapeHtml(result.section)}</span>
         <small>${escapeHtml(result.description)}</small>
@@ -2064,10 +2104,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     searchForm?.addEventListener('submit', (event) => {
       event.preventDefault();
+      if (!searchShell?.classList.contains('is-search-open')) {
+        setSearchOpen(true, { focus: true });
+        return;
+      }
       const [firstResult] = renderJenangGemiSearchResults(searchInput?.value || '');
       if (firstResult?.url) {
-        window.location.href = firstResult.url;
+        navigateSearchResult(firstResult);
       }
+    });
+
+    searchOpenButton?.addEventListener('click', () => {
+      setSearchOpen(true, { focus: true });
+      if (searchInput?.value.trim()) renderJenangGemiSearchResults(searchInput.value);
+    });
+
+    searchCloseButton?.addEventListener('click', () => {
+      closeSearchResults({ clear: true });
     });
 
     searchInput?.addEventListener('input', () => {
@@ -2075,6 +2128,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     searchInput?.addEventListener('focus', () => {
+      setSearchOpen(true);
       if (searchInput.value.trim()) renderJenangGemiSearchResults(searchInput.value);
     });
 
@@ -2087,12 +2141,12 @@ document.addEventListener('DOMContentLoaded', () => {
     searchResults?.addEventListener('click', (event) => {
       const target = event.target;
       if (!(target instanceof Element)) return;
-      const link = target.closest('[data-search-view]');
+      const link = target.closest('[data-search-result-index]');
       if (!(link instanceof HTMLAnchorElement)) return;
-      const nextView = link.dataset.searchView;
-      if (nextView) {
-        window.localStorage.setItem(viewStorageKey, nextView);
-      }
+      const result = getJenangGemiSearchResults(searchInput?.value || '')[Number(link.dataset.searchResultIndex || -1)];
+      if (!result) return;
+      event.preventDefault();
+      navigateSearchResult(result);
     });
   };
 
@@ -5011,6 +5065,40 @@ document.addEventListener('DOMContentLoaded', () => {
     closeMenu();
     renderJenangGemiSearchResults(searchInput?.value || '');
     await loadActiveViewSafely();
+  };
+
+  const navigateSearchResult = async (entry) => {
+    if (!entry?.url) return;
+
+    let targetUrl;
+    try {
+      targetUrl = new URL(entry.url, window.location.href);
+    } catch (_) {
+      window.location.href = entry.url;
+      return;
+    }
+
+    const currentUrl = new URL(window.location.href);
+    const normalizePath = (path) => String(path || '').replace(/\/+$/, '') || '/';
+    const isCurrentDashboard =
+      targetUrl.origin === currentUrl.origin &&
+      normalizePath(targetUrl.pathname) === normalizePath(currentUrl.pathname);
+    const requestedView = entry.view || targetUrl.searchParams.get('view') || targetUrl.hash.replace(/^#/, '');
+
+    if (entry.view) {
+      window.localStorage.setItem(viewStorageKey, normalizeDashboardView(entry.view));
+    }
+
+    closeSearchResults({ clear: true });
+
+    if (isCurrentDashboard && requestedView) {
+      await switchView(requestedView);
+      const nextPath = `${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`;
+      window.history.replaceState(null, '', nextPath || targetUrl.pathname);
+      return;
+    }
+
+    window.location.href = targetUrl.href;
   };
 
   const closeLiveStream = () => {
