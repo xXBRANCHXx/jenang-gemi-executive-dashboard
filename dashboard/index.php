@@ -92,11 +92,30 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                     </div>
                     <div class="admin-topbar-actions">
                         <a class="admin-ghost-btn admin-link-btn" href="../back-dash/">Back Dash</a>
+                        <div class="admin-search-shell admin-search-shell-topbar" data-dashboard-search-shell>
+                            <div class="admin-search-surface" aria-hidden="true">
+                                <div class="admin-search-surface-glow"></div>
+                                <div class="admin-search-topline"></div>
+                            </div>
+                            <div class="admin-search-sweep" aria-hidden="true"></div>
+                            <button type="button" class="admin-search-icon-button" data-dashboard-search-open aria-label="Open dashboard search" aria-expanded="false">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 4.5 4.5"/></svg>
+                            </button>
+                            <form class="admin-search-form" data-dashboard-search-form role="search" aria-label="Search Executive Dashboard">
+                                <input type="search" class="admin-search-input" data-dashboard-search-input placeholder="Search" autocomplete="off">
+                            </form>
+                            <button type="button" class="admin-search-close-button" data-dashboard-search-close aria-label="Close dashboard search">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+                            </button>
+                            <div class="admin-search-focus-ring" aria-hidden="true"></div>
+                            <div class="admin-search-results" data-dashboard-search-results hidden></div>
+                        </div>
                         <div class="admin-menu-shell" data-menu-shell>
                             <button type="button" class="admin-ghost-btn admin-menu-trigger" data-menu-trigger aria-expanded="false" aria-label="Open dashboard menu">
-                                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+                                <svg class="admin-menu-open-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+                                <svg class="admin-menu-close-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
                             </button>
-                            <div class="admin-menu-panel" data-menu-panel hidden>
+                            <div class="admin-menu-panel" data-menu-panel aria-label="Executive Dashboard navigation" hidden>
                                 <button type="button" class="admin-menu-item" data-view-switch="overview">
                                     <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-6h5v6"/></svg></span>
                                     <span><strong>Home</strong><small>Executive sales overview</small></span>
@@ -108,6 +127,10 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                 <button type="button" class="admin-menu-item" data-view-switch="orders">
                                     <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3.5h12v17H6z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg></span>
                                     <span><strong>Orders</strong><small>Order detail and fulfillment facts</small></span>
+                                </button>
+                                <button type="button" class="admin-menu-item" data-view-switch="home">
+                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 19V5"/><path d="M4 6h11l-.8 4 3.8 2H4"/><path d="M4 12h13"/></svg></span>
+                                    <span><strong>Campaigns</strong><small>Landing-page analytics</small></span>
                                 </button>
                                 <a class="admin-menu-item admin-link-btn" href="../profit-loss/">
                                     <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 19.5V10M10 19.5V5M16 19.5v-7M3 19.5h18"/><path d="m4 7 5-4 6 5 5-4"/></svg></span>
@@ -121,6 +144,10 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
                                     <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.4 3.8 5.4 3.8 9S14.5 18.6 12 21c-2.5-2.4-3.8-5.4-3.8-9S9.5 5.4 12 3z"/></svg></span>
                                     <span><strong>Official Website Dashboard</strong><small>Site traffic and conversion analytics</small></span>
                                 </button>
+                                <button type="button" class="admin-menu-item" data-view-switch="settings">
+                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19.4 15a1.8 1.8 0 0 0 .4 2l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.8 1.8 0 0 0-2-.4 1.8 1.8 0 0 0-1 1.6V21a2 2 0 0 1-4 0v-.1a1.8 1.8 0 0 0-1-1.6 1.8 1.8 0 0 0-2 .4l-.1.1a2 2 0 0 1-2.8-2.8l.1-.1a1.8 1.8 0 0 0 .4-2 1.8 1.8 0 0 0-1.6-1H3a2 2 0 0 1 0-4h.1a1.8 1.8 0 0 0 1.6-1 1.8 1.8 0 0 0-.4-2l-.1-.1a2 2 0 0 1 2.8-2.8l.1.1a1.8 1.8 0 0 0 2 .4 1.8 1.8 0 0 0 1-1.6V3a2 2 0 0 1 4 0v.1a1.8 1.8 0 0 0 1 1.6 1.8 1.8 0 0 0 2-.4l.1-.1a2 2 0 0 1 2.8 2.8l-.1.1a1.8 1.8 0 0 0-.4 2 1.8 1.8 0 0 0 1.6 1h.1a2 2 0 0 1 0 4h-.1a1.8 1.8 0 0 0-1.7 1z"/></svg></span>
+                                    <span><strong>Settings</strong><small>Theme, lock, and tracking controls</small></span>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -128,27 +155,6 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
 
                 <main class="admin-layout">
                     <section class="admin-view is-active" data-view-panel="overview">
-                <section class="admin-home-search-wrap" aria-label="Executive Dashboard search">
-                    <div class="admin-search-shell admin-search-shell-home" data-dashboard-search-shell>
-                        <div class="admin-search-surface" aria-hidden="true">
-                            <div class="admin-search-surface-glow"></div>
-                            <div class="admin-search-topline"></div>
-                        </div>
-                        <div class="admin-search-sweep" aria-hidden="true"></div>
-                        <button type="button" class="admin-search-icon-button" data-dashboard-search-open aria-label="Open dashboard search" aria-expanded="false">
-                            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 4.5 4.5"/></svg>
-                        </button>
-                        <form class="admin-search-form" data-dashboard-search-form role="search" aria-label="Search Executive Dashboard">
-                            <input type="search" class="admin-search-input" data-dashboard-search-input placeholder="Search" autocomplete="off">
-                        </form>
-                        <button type="button" class="admin-search-close-button" data-dashboard-search-close aria-label="Close dashboard search">
-                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
-                        </button>
-                        <div class="admin-search-focus-ring" aria-hidden="true"></div>
-                        <div class="admin-search-results" data-dashboard-search-results hidden></div>
-                    </div>
-                </section>
-
                 <section class="admin-overview-strip">
                     <div class="admin-toggle-row" data-overview-year-controls>
                         <button type="button" class="admin-toggle-pill is-active" data-overview-year-placeholder>Loading...</button>

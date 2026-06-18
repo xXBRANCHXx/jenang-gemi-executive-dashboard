@@ -1994,6 +1994,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!searchShell) return;
     searchShell.classList.toggle('is-search-open', open);
     searchOpenButton?.setAttribute('aria-expanded', open ? 'true' : 'false');
+    searchOpenButton?.setAttribute('aria-label', open ? 'Search dashboard' : 'Open dashboard search');
+    if (open) closeMenu();
     if (searchFocusTimer) {
       window.clearTimeout(searchFocusTimer);
       searchFocusTimer = null;
@@ -2515,12 +2517,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!menuPanel || !menuTrigger) return;
     menuPanel.hidden = true;
     menuTrigger.setAttribute('aria-expanded', 'false');
+    menuTrigger.setAttribute('aria-label', 'Open dashboard menu');
   };
 
   const openMenu = () => {
     if (!menuPanel || !menuTrigger) return;
+    closeSearchResults();
     menuPanel.hidden = false;
     menuTrigger.setAttribute('aria-expanded', 'true');
+    menuTrigger.setAttribute('aria-label', 'Close dashboard menu');
   };
 
   const buildAnalyticsUrl = (dataset, timeframe) => {
