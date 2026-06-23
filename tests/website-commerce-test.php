@@ -36,5 +36,11 @@ commerce_expect(true, jg_website_order_is_store_ops_eligible([
 commerce_expect('ZEROWEB', jg_website_order_prefix('zero_website'), 'ZERO order IDs need their independent prefix.');
 commerce_expect('JGWEB', jg_website_order_prefix('jenang_gemi_website'), 'Jenang Gemi order IDs need their independent prefix.');
 commerce_expect(['zero_website', 'jenang_gemi_website'], array_keys(JG_WEBSITE_PLATFORMS), 'Website platform identifiers must remain separate.');
+commerce_expect(
+    hash_hmac('sha256', 'jenang-gemi-website-orders-v1', 'shared-seed'),
+    jg_website_derive_store_ops_token('shared-seed'),
+    'The deployed Store Ops token fallback must be deterministic.'
+);
+commerce_expect('', jg_website_derive_store_ops_token(''), 'An empty shared seed must not create a bearer token.');
 
 echo "website-commerce-test: ok\n";

@@ -44,6 +44,6 @@ Private admin dashboard for `admin.jenanggemi.com`.
   should be configured through `config.local.php` or `JG_SKU_BRANCH_PASSWORD_HASH`.
 - Partner profiles now use the partner MySQL database when `partner_db_*` is configured.
 - API Health runs authenticated server-side checks for Shopee ingest, Store Ops deployment, and dashboard databases, then stores recent failures in `data/api-health-log.json`.
-- Website checkout notifications and paid metrics are independent of the Hard Set switch. Configure the same high-entropy `store_ops_website_token` on this dashboard and Store Ops, plus `store_ops_base_url` and `executive_dashboard_url`, before activation readiness can pass.
-- Hard Set is initialized server-side as OFF and exposes no disable operation. Its activation, UTC cutover boundary, audit record, and Store Ops outbox are persisted in MySQL.
+- Website checkout notifications and paid metrics are independent of the Hard Set switch. An explicit high-entropy `store_ops_website_token` can be configured on both applications; otherwise both deployments derive the bearer token from their existing shared marketplace setup credential. Configure `store_ops_base_url` and `executive_dashboard_url` before activation readiness can pass.
+- Hard Set is initialized server-side as OFF and exposes no disable operation. The activation switch remains locked until the current session authenticates with Branch-tier SKU Database credentials. Its UTC cutover boundary, audit record, and Store Ops outbox are persisted in MySQL.
 - Private PDF labels use `JG_WEBSITE_LABEL_STORAGE_PATH` / `website_label_storage_path`; the default is outside this dashboard's document root.

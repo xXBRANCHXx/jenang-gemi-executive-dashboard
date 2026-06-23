@@ -24,6 +24,21 @@ function jg_website_config(string $envKey, string $configKey, string $default = 
     return is_string($configured) && trim($configured) !== '' ? trim($configured) : $default;
 }
 
+function jg_website_derive_store_ops_token(string $seed): string
+{
+    $seed = trim($seed);
+    return $seed === '' ? '' : hash_hmac('sha256', 'jenang-gemi-website-orders-v1', $seed);
+}
+
+function jg_website_store_ops_token(): string
+{
+    $configured = jg_website_config('JG_STORE_OPS_WEBSITE_TOKEN', 'store_ops_website_token');
+    if ($configured !== '') {
+        return $configured;
+    }
+    return jg_website_derive_store_ops_token(jg_dashboard_marketplace_api_setup_token());
+}
+
 function jg_website_now(): string
 {
     return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('Y-m-d H:i:s.u');
@@ -1047,7 +1062,7 @@ function jg_website_publish_order(PDO $pdo, string $orderId): array
 
     try {
         $base = rtrim(jg_website_config('JG_STORE_OPS_BASE_URL', 'store_ops_base_url'), '/');
-        $token = jg_website_config('JG_STORE_OPS_WEBSITE_TOKEN', 'store_ops_website_token');
+        $token = jg_website_store_ops_token();
         if ($base === '' || $token === '') {
             throw new RuntimeException('Store Ops website-order integration is not configured.');
         }
@@ -1231,7 +1246,7 @@ function jg_hard_set_deliver_outbox(PDO $pdo): void
         return;
     }
     $base = rtrim(jg_website_config('JG_STORE_OPS_BASE_URL', 'store_ops_base_url'), '/');
-    $token = jg_website_config('JG_STORE_OPS_WEBSITE_TOKEN', 'store_ops_website_token');
+    $token = jg_website_store_ops_token();
     if ($base === '' || $token === '') {
         return;
     }
@@ -1301,7 +1316,7 @@ function jg_hard_set_readiness(PDO $analyticsPdo, PDO $skuPdo): array
         $add('metrics_sync', 'Metrics sync', false, 'Metrics outbox is unavailable');
     }
     $storeOpsBase = rtrim(jg_website_config('JG_STORE_OPS_BASE_URL', 'store_ops_base_url'), '/');
-    $storeOpsToken = jg_website_config('JG_STORE_OPS_WEBSITE_TOKEN', 'store_ops_website_token');
+    $storeOpsToken = jg_website_store_ops_token();
     $storeOpsReady = false;
     $storeOpsDetail = 'Store Ops endpoint or token missing';
     if ($storeOpsBase !== '' && $storeOpsToken !== '') {

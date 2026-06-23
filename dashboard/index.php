@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isAuthenticated = jg_admin_is_authenticated();
-$dashboardBuildVersion = 'exec3.70.1';
+$dashboardBuildVersion = 'exec3.70.2';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -111,8 +111,11 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                             <div class="admin-search-results" data-dashboard-search-results hidden></div>
                         </div>
                         <button type="button" class="admin-notification-button" data-notification-toggle aria-label="Open website order notifications" aria-expanded="false">
-                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>
-                            <span data-notification-count hidden>0</span>
+                            <span class="admin-notification-button-icon">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>
+                                <span data-notification-count hidden>0</span>
+                            </span>
+                            <span class="admin-notification-button-copy"><strong>Order verification</strong><small data-notification-summary>No website orders pending</small></span>
                         </button>
                         <a class="admin-ghost-btn admin-link-btn" href="../back-dash/">Back Dash</a>
                         <div class="admin-menu-shell" data-menu-shell>
@@ -1195,6 +1198,22 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                     </div>
                     <div class="admin-hard-set-state"><span>Current state</span><strong data-hard-set-state>Loading</strong><small data-hard-set-activation></small></div>
                 </section>
+                <section class="admin-hard-set-access" data-hard-set-access>
+                    <div class="admin-hard-set-lock-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24"><rect x="4.5" y="10" width="15" height="10" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v2.5"/></svg>
+                    </div>
+                    <div class="admin-hard-set-access-copy">
+                        <span class="admin-panel-kicker">Branch-tier lock</span>
+                        <h3 data-hard-set-access-title>Unlock activation controls</h3>
+                        <p data-hard-set-access-note>Use the same Branch username and password as the SKU Database.</p>
+                    </div>
+                    <form class="admin-hard-set-access-form" data-hard-set-unlock-form>
+                        <input name="username" autocomplete="username" placeholder="Branch username" required>
+                        <input name="password" type="password" autocomplete="current-password" placeholder="Branch password" required>
+                        <button type="submit" class="admin-primary-btn">Unlock Big Set</button>
+                    </form>
+                    <p class="admin-form-error" data-hard-set-access-error hidden></p>
+                </section>
                 <section class="admin-hard-set-switch-stage">
                     <button type="button" class="admin-hard-set-switch" data-hard-set-switch aria-label="Activate Big Set" aria-pressed="false" disabled>
                         <span class="admin-hard-set-track"><span class="admin-hard-set-knob"></span></span>
@@ -1289,13 +1308,20 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
             </div>
         </div>
     </div>
-    <aside class="admin-notification-drawer" data-notification-drawer aria-hidden="true">
+    <aside class="admin-notification-drawer" data-notification-drawer role="dialog" aria-label="Website order verification" aria-hidden="true">
         <div class="admin-notification-head">
-            <div><span class="admin-panel-kicker">Website Orders</span><h2>Notifications</h2></div>
+            <div class="admin-notification-head-main">
+                <button type="button" class="admin-notification-round-btn admin-notification-back" data-notification-back aria-label="Back to website orders" hidden>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+                </button>
+                <span class="admin-notification-store-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><path d="M4 9h16l-1.5-5h-13zM5 9v11h14V9M9 20v-6h6v6"/><path d="M4 9c0 2 3 2 4 0 1 2 3 2 4 0 1 2 3 2 4 0 1 2 4 2 4 0"/></svg>
+                </span>
+                <div><h2>Website orders</h2><p class="admin-notification-mode" data-notification-mode>Loading Hard Set state...</p></div>
+            </div>
             <button type="button" class="admin-orders-icon-btn" data-notification-close aria-label="Close notifications"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
         </div>
-        <p class="admin-notification-mode" data-notification-mode>Loading Hard Set state...</p>
-        <div class="admin-notification-list" data-notification-list><p class="admin-empty">Loading website orders...</p></div>
+        <div class="admin-notification-list" data-notification-list aria-live="polite"><p class="admin-empty">Loading website orders...</p></div>
     </aside>
     <div class="admin-notification-backdrop" data-notification-backdrop hidden></div>
     <dialog class="admin-hard-set-dialog" data-hard-set-dialog aria-labelledby="hard-set-confirm-title">

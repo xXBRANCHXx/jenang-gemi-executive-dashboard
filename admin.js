@@ -1805,11 +1805,14 @@ document.addEventListener('DOMContentLoaded', () => {
       orders: [],
       metrics: {},
       hardSet: { enabled: false },
-      open: false
+      open: false,
+      selectedOrderId: '',
+      feedback: null
     },
     hardSet: {
       state: { enabled: false },
       readiness: { ready: false, sources: {} },
+      access: { branch: false, username: '' },
       audit: [],
       loading: false
     },
@@ -1849,11 +1852,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const searchResults = document.querySelector('[data-dashboard-search-results]');
   const notificationToggle = document.querySelector('[data-notification-toggle]');
   const notificationCount = document.querySelector('[data-notification-count]');
+  const notificationSummary = document.querySelector('[data-notification-summary]');
   const notificationDrawer = document.querySelector('[data-notification-drawer]');
   const notificationClose = document.querySelector('[data-notification-close]');
+  const notificationBack = document.querySelector('[data-notification-back]');
   const notificationBackdrop = document.querySelector('[data-notification-backdrop]');
   const notificationMode = document.querySelector('[data-notification-mode]');
   const notificationList = document.querySelector('[data-notification-list]');
+  let notificationFeedbackTimer = null;
   let searchFocusTimer = null;
 
   const overviewRefs = {
@@ -2045,6 +2051,11 @@ document.addEventListener('DOMContentLoaded', () => {
     switchNote: document.querySelector('[data-hard-set-switch-note]'),
     readiness: document.querySelector('[data-hard-set-readiness]'),
     audit: document.querySelector('[data-hard-set-audit]'),
+    access: document.querySelector('[data-hard-set-access]'),
+    accessTitle: document.querySelector('[data-hard-set-access-title]'),
+    accessNote: document.querySelector('[data-hard-set-access-note]'),
+    accessForm: document.querySelector('[data-hard-set-unlock-form]'),
+    accessError: document.querySelector('[data-hard-set-access-error]'),
     dialog: document.querySelector('[data-hard-set-dialog]'),
     form: document.querySelector('[data-hard-set-form]'),
     cancel: document.querySelector('[data-hard-set-cancel]'),
@@ -2380,6 +2391,119 @@ document.addEventListener('DOMContentLoaded', () => {
     .filter(Boolean)
     .join(' · ');
 
+  const notificationOrderItemCount = (order) => (Array.isArray(order?.items) ? order.items : [])
+    .reduce((total, item) => total + Number(item.quantity || 0), 0);
+
+  const notificationRelativeTime = (value) => {
+    const timestamp = new Date(value || '').getTime();
+    if (!Number.isFinite(timestamp)) return '';
+    const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+    if (seconds < 60) return 'now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    return `${Math.floor(hours / 24)}d ago`;
+  };
+
+  const selectedNotificationOrder = () => state.notifications.orders
+    .find((order) => order.order_id === state.notifications.selectedOrderId) || null;
+
+  const notificationResultMarkup = (feedback) => {
+    const submitted = feedback?.type === 'submitted';
+    return `
+      <div class="admin-notification-result" role="status">
+        <span class="admin-notification-result-icon${submitted ? ' is-submitted' : ''}">
+          <svg viewBox="0 0 24 24" aria-hidden="true">${submitted ? '<path d="m5 12 4 4L19 6"/>' : '<path d="M6 6l12 12M18 6 6 18"/>'}</svg>
+        </span>
+        <h3>${escapeHtml(feedback?.title || '')}</h3>
+        <p>${escapeHtml(feedback?.message || '')}</p>
+      </div>
+    `;
+  };
+
+  const notificationListMarkup = (orders) => orders.map((order, index) => {
+    const itemCount = notificationOrderItemCount(order);
+    const customer = order.customer || {};
+    return `
+      <button type="button" class="admin-notification-order-row" data-notification-select="${escapeHtml(order.order_id)}" style="--notification-index:${index}">
+        <span class="admin-notification-user-icon">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.7-4 3-6 7-6s6.3 2 7 6"/></svg>
+        </span>
+        <span class="admin-notification-order-copy">
+          <span class="admin-notification-customer"><strong>${escapeHtml(customer.name || 'Website customer')}</strong><i></i></span>
+          <small>${formatCurrency(order.net_revenue || 0)} · ${itemCount} item${itemCount === 1 ? '' : 's'}</small>
+          <em>${escapeHtml(order.platform_label || order.platform || 'Website')} checkout → WhatsApp</em>
+        </span>
+        <span class="admin-notification-row-time">${escapeHtml(notificationRelativeTime(order.created_at))}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span>
+      </button>
+    `;
+  }).join('');
+
+  const notificationDetailMarkup = (order) => {
+    const isPending = order.status === 'PENDING_PAYMENT';
+    const canFulfill = order.status === 'AWAITING_FULFILLMENT_SETUP' && order.era === 'STORE_OPS_ELIGIBLE';
+    const readyToPublish = canFulfill && order.has_label && Number(order.deadline_hours || 0) >= 1;
+    const items = Array.isArray(order.items) ? order.items : [];
+    const itemCount = notificationOrderItemCount(order);
+    const customer = order.customer || {};
+    if (canFulfill) {
+      const deadline = Number(order.deadline_hours || 24);
+      return `
+        <article class="admin-notification-detail admin-notification-fulfillment" data-notification-order="${escapeHtml(order.order_id)}">
+          <div class="admin-notification-paid-banner">
+            <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg></span>
+            <div><strong>Payment confirmed</strong><small>Upload the shipping label and set the deadline.</small></div>
+          </div>
+          <label class="admin-notification-dropzone${order.has_label ? ' has-file' : ''}" data-notification-dropzone>
+            <input type="file" accept="application/pdf,.pdf" data-notification-label hidden>
+            <span class="admin-notification-upload-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true">${order.has_label ? '<path d="M7 3h7l4 4v14H7zM14 3v5h5M10 13h5M10 17h5"/>' : '<path d="M12 16V5M8 9l4-4 4 4M5 15v4h14v-4"/>'}</svg>
+            </span>
+            <strong>${escapeHtml(order.has_label ? (order.label_original_name || 'Shipping label.pdf') : 'Drop shipping label PDF')}</strong>
+            <small>${order.has_label ? 'PDF shipping label attached' : 'or click to choose from device · 10 MB max'}</small>
+          </label>
+          <div class="admin-notification-deadline">
+            <div><span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Store Ops deadline</span><strong data-notification-deadline-value>${deadline}h</strong></div>
+            <input type="range" min="1" max="48" value="${deadline}" data-notification-deadline>
+            <small><span>1 hour</span><span>48 hours max</span></small>
+          </div>
+          ${order.publication_error ? `<p class="admin-order-publication-error">${escapeHtml(order.publication_error)}</p>` : ''}
+          <button type="button" class="admin-notification-submit" data-notification-action="${order.publication_error ? 'retry_publish' : 'publish'}" ${readyToPublish ? '' : 'disabled'}>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 12 16-8-6 16-2-6zM12 14l4-6"/></svg>
+            ${order.publication_error ? 'Retry Store Ops' : 'Send to Store Ops'}
+          </button>
+        </article>
+      `;
+    }
+
+    return `
+      <article class="admin-notification-detail" data-notification-order="${escapeHtml(order.order_id)}">
+        <div class="admin-notification-order-card">
+          <div class="admin-notification-order-identity">
+            <span class="admin-notification-package-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 8 8-4 8 4-8 4zM4 8v9l8 4 8-4V8M12 12v9"/></svg></span>
+            <div><small>${escapeHtml(order.order_id)}</small><h3>${escapeHtml(customer.name || 'Website customer')}</h3><p>${escapeHtml(customer.phone || customer.address || '')}</p></div>
+          </div>
+          <div class="admin-notification-order-stats">
+            <div><small>Order total</small><strong>${formatCurrency(order.net_revenue || 0)}</strong></div>
+            <div><small>Items</small><strong>${itemCount}</strong></div>
+          </div>
+          <div class="admin-notification-line-items">${items.map((item) => `<div><span>${escapeHtml(notificationItemLabel(item))}</span><strong>× ${Number(item.quantity || 0)}</strong><small>${escapeHtml(item.sku || '')}</small></div>`).join('')}</div>
+          <div class="admin-notification-warning">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.5 20h19zM12 9v5M12 17h.01"/></svg>
+            <p>This order came through WhatsApp, so payment cannot be verified automatically. Confirm payment before Store Ops receives it.</p>
+          </div>
+        </div>
+        ${isPending ? `
+          <div class="admin-notification-actions">
+            <button type="button" data-notification-action="remove">Remove</button>
+            <button type="button" class="is-primary" data-notification-action="paid">Paid</button>
+          </div>
+        ` : ''}
+      </article>
+    `;
+  };
+
   const renderNotifications = () => {
     const orders = state.notifications.orders;
     const hardSetEnabled = Boolean(state.notifications.hardSet?.enabled);
@@ -2387,49 +2511,41 @@ document.addEventListener('DOMContentLoaded', () => {
       notificationCount.hidden = orders.length === 0;
       notificationCount.textContent = orders.length > 99 ? '99+' : String(orders.length);
     }
+    if (notificationSummary) {
+      notificationSummary.textContent = orders.length
+        ? `${orders.length} WhatsApp order${orders.length === 1 ? '' : 's'} pending`
+        : 'No website orders pending';
+    }
+    const selected = selectedNotificationOrder();
+    if (state.notifications.selectedOrderId && !selected && !state.notifications.feedback) {
+      state.notifications.selectedOrderId = '';
+    }
+    const detailOrder = selectedNotificationOrder();
+    if (notificationBack) notificationBack.hidden = !detailOrder;
     if (notificationMode) {
-      notificationMode.textContent = hardSetEnabled
-        ? 'Hard Set is ON. Eligible paid orders stay here until their PDF label and 1–48 hour deadline are sent to Store Ops.'
-        : 'Hard Set is OFF. Orders can only be marked Paid or permanently removed while unpaid.';
+      notificationMode.textContent = detailOrder
+        ? (detailOrder.status === 'AWAITING_FULFILLMENT_SETUP' ? 'Attach the label and deadline.' : 'Review the WhatsApp order.')
+        : hardSetEnabled
+          ? 'Verify payment before Store Ops receives it.'
+          : 'Verify payment. Store Ops stays isolated while Hard Set is off.';
     }
     if (!notificationList) return;
-    if (!orders.length) {
-      notificationList.innerHTML = '<p class="admin-empty">No actionable website orders.</p>';
+    if (state.notifications.feedback) {
+      notificationList.innerHTML = notificationResultMarkup(state.notifications.feedback);
       renderWebsitePaidMetrics();
       return;
     }
-    notificationList.innerHTML = orders.map((order) => {
-      const isPending = order.status === 'PENDING_PAYMENT';
-      const canFulfill = order.status === 'AWAITING_FULFILLMENT_SETUP' && order.era === 'STORE_OPS_ELIGIBLE';
-      const readyToPublish = canFulfill && order.has_label && Number(order.deadline_hours || 0) >= 1;
-      const items = Array.isArray(order.items) ? order.items : [];
-      return `
-        <article class="admin-order-notification" data-notification-order="${escapeHtml(order.order_id)}">
-          <div class="admin-order-notification-head">
-            <strong>${escapeHtml(order.order_id)}</strong>
-            <span>${escapeHtml(order.platform_label || order.platform)}<br>${escapeHtml(formatOrderTimestamp(order.created_at))}</span>
-          </div>
-          <p><strong>${escapeHtml(order.customer?.name || '')}</strong><br>${escapeHtml(order.customer?.address || '')}</p>
-          <ul class="admin-order-notification-items">${items.map((item) => `<li>${escapeHtml(notificationItemLabel(item))} × ${Number(item.quantity || 0)} <small>${escapeHtml(item.sku || '')}</small></li>`).join('')}</ul>
-          <p>Gross ${formatCurrency(order.gross_revenue || 0)} · Net paid ${formatCurrency(order.net_revenue || 0)} · ${escapeHtml(order.era || '')}</p>
-          ${isPending ? `
-            <div class="admin-order-notification-actions">
-              <button type="button" class="admin-primary-btn" data-notification-action="paid">Paid</button>
-              <button type="button" class="admin-danger-btn" data-notification-action="remove">Remove</button>
-            </div>
-          ` : ''}
-          ${canFulfill ? `
-            <div class="admin-order-fulfillment-setup">
-              <label><span>PDF shipping label (maximum 10 MB)</span><input type="file" accept="application/pdf,.pdf" data-notification-label></label>
-              <label><span>Fulfillment deadline</span><select data-notification-deadline><option value="">Choose 1–48 hours</option>${Array.from({ length: 48 }, (_, index) => `<option value="${index + 1}"${Number(order.deadline_hours) === index + 1 ? ' selected' : ''}>${index + 1} hour${index ? 's' : ''}</option>`).join('')}</select></label>
-              <small>${order.has_label ? `Label ready: ${escapeHtml(order.label_original_name || 'PDF')}` : 'Label not uploaded'}</small>
-              ${order.publication_error ? `<p class="admin-order-publication-error">${escapeHtml(order.publication_error)}</p>` : ''}
-              <button type="button" class="admin-primary-btn" data-notification-action="${order.publication_error ? 'retry_publish' : 'publish'}" ${readyToPublish ? '' : 'disabled'}>${order.publication_error ? 'Retry Store Ops' : 'Send to Store Ops'}</button>
-            </div>
-          ` : ''}
-        </article>
-      `;
-    }).join('');
+    if (detailOrder) {
+      notificationList.innerHTML = notificationDetailMarkup(detailOrder);
+      renderWebsitePaidMetrics();
+      return;
+    }
+    if (!orders.length) {
+      notificationList.innerHTML = '<div class="admin-notification-empty"><span>✓</span><strong>All caught up</strong><p>No actionable website orders.</p></div>';
+      renderWebsitePaidMetrics();
+      return;
+    }
+    notificationList.innerHTML = notificationListMarkup(orders);
     renderWebsitePaidMetrics();
   };
 
@@ -2448,6 +2564,11 @@ document.addEventListener('DOMContentLoaded', () => {
     notificationToggle?.setAttribute('aria-expanded', open ? 'true' : 'false');
     if (notificationBackdrop) notificationBackdrop.hidden = !open;
     document.body.classList.toggle('admin-notifications-open', open);
+    if (open) {
+      window.setTimeout(() => notificationClose?.focus(), 120);
+    } else if (notificationDrawer?.contains(document.activeElement)) {
+      notificationToggle?.focus();
+    }
   };
 
   const postWebsiteOrderAction = async (action, orderId, extra = {}) => {
@@ -2460,10 +2581,48 @@ document.addEventListener('DOMContentLoaded', () => {
     await loadNotifications();
   };
 
+  const showNotificationFeedback = (feedback) => {
+    if (notificationFeedbackTimer) window.clearTimeout(notificationFeedbackTimer);
+    state.notifications.selectedOrderId = '';
+    state.notifications.feedback = feedback;
+    renderNotifications();
+    notificationFeedbackTimer = window.setTimeout(() => {
+      state.notifications.feedback = null;
+      notificationFeedbackTimer = null;
+      renderNotifications();
+    }, 1300);
+  };
+
+  const appendNotificationError = (container, error) => {
+    container?.querySelector('.admin-order-publication-error.is-client')?.remove();
+    const message = document.createElement('p');
+    message.className = 'admin-order-publication-error is-client';
+    message.textContent = error?.message || 'Unable to update this order.';
+    container?.appendChild(message);
+  };
+
+  const uploadNotificationLabel = async (orderId, file, container) => {
+    if (!(file instanceof File)) return;
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      appendNotificationError(container, new Error('Choose a PDF shipping label.'));
+      return;
+    }
+    const form = new FormData();
+    form.set('order_id', orderId);
+    form.set('label', file);
+    try {
+      await requestJson(websiteOrderActionUrl('upload_label'), { method: 'POST', body: form, headers: {}, timeoutMs: 30000 });
+      await loadNotifications();
+    } catch (error) {
+      appendNotificationError(container, error);
+    }
+  };
+
   const renderHardSet = () => {
     const hardSet = state.hardSet.state || {};
     const readiness = state.hardSet.readiness || {};
     const enabled = Boolean(hardSet.enabled);
+    const hasBranchAccess = Boolean(state.hardSet.access?.branch);
     if (hardSetRefs.state) hardSetRefs.state.textContent = enabled ? 'ON · LOCKED' : 'OFF';
     if (hardSetRefs.activation) {
       hardSetRefs.activation.textContent = enabled
@@ -2472,12 +2631,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     hardSetRefs.switchButton?.classList.toggle('is-on', enabled);
     hardSetRefs.switchButton?.setAttribute('aria-pressed', enabled ? 'true' : 'false');
-    if (hardSetRefs.switchButton) hardSetRefs.switchButton.disabled = enabled || !readiness.ready || state.hardSet.loading;
+    if (hardSetRefs.switchButton) hardSetRefs.switchButton.disabled = enabled || !readiness.ready || !hasBranchAccess || state.hardSet.loading;
     if (hardSetRefs.switchLabel) hardSetRefs.switchLabel.textContent = enabled ? 'ON · LOCKED' : 'OFF';
     if (hardSetRefs.switchNote) {
       hardSetRefs.switchNote.textContent = enabled
         ? 'The cutover is permanent. There is no disable operation in the UI or API.'
-        : readiness.ready ? 'Ready. Activation permanently establishes the server cutover timestamp.' : 'All readiness checks must pass. Activation cannot be undone.';
+        : !hasBranchAccess
+          ? 'Branch-tier credentials are required before the physical switch can be used.'
+          : readiness.ready ? 'Ready. Activation permanently establishes the server cutover timestamp.' : 'All readiness checks must pass. Activation cannot be undone.';
+    }
+    if (hardSetRefs.access) {
+      hardSetRefs.access.hidden = enabled;
+      hardSetRefs.access.classList.toggle('is-unlocked', hasBranchAccess);
+    }
+    if (hardSetRefs.accessForm) hardSetRefs.accessForm.hidden = enabled || hasBranchAccess;
+    if (hardSetRefs.accessTitle) hardSetRefs.accessTitle.textContent = hasBranchAccess ? 'Branch tier unlocked' : 'Unlock activation controls';
+    if (hardSetRefs.accessNote) {
+      hardSetRefs.accessNote.textContent = hasBranchAccess
+        ? `${state.hardSet.access.username || 'Branch'} is authorized to operate the permanent switch.`
+        : 'Use the same Branch username and password as the SKU Database.';
     }
     if (hardSetRefs.explanation) {
       hardSetRefs.explanation.textContent = enabled
@@ -2504,6 +2676,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const data = await requestJson(`${hardSetEndpoint}?_ts=${Date.now()}`);
     state.hardSet.state = data.state || { enabled: false };
     state.hardSet.readiness = data.readiness || { ready: false, sources: {} };
+    state.hardSet.access = data.access || { branch: false, username: '' };
     state.hardSet.audit = Array.isArray(data.audit) ? data.audit : [];
     state.notifications.hardSet = state.hardSet.state;
     renderHardSet();
@@ -6075,10 +6248,25 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
   notificationClose?.addEventListener('click', () => setNotificationOpen(false));
+  notificationBack?.addEventListener('click', () => {
+    state.notifications.selectedOrderId = '';
+    state.notifications.feedback = null;
+    renderNotifications();
+  });
   notificationBackdrop?.addEventListener('click', () => setNotificationOpen(false));
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && state.notifications.open) setNotificationOpen(false);
+  });
   notificationList?.addEventListener('click', async (event) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
+    const selected = target.closest('[data-notification-select]');
+    if (selected instanceof HTMLElement) {
+      state.notifications.selectedOrderId = selected.dataset.notificationSelect || '';
+      state.notifications.feedback = null;
+      renderNotifications();
+      return;
+    }
     const button = target.closest('[data-notification-action]');
     const card = target.closest('[data-notification-order]');
     if (!(button instanceof HTMLButtonElement) || !(card instanceof HTMLElement)) return;
@@ -6088,13 +6276,44 @@ document.addEventListener('DOMContentLoaded', () => {
     button.disabled = true;
     try {
       await postWebsiteOrderAction(action, orderId);
+      if (action === 'paid') {
+        const updated = selectedNotificationOrder();
+        if (updated?.status === 'AWAITING_FULFILLMENT_SETUP') {
+          if (!Number(updated.deadline_hours || 0)) {
+            await postWebsiteOrderAction('deadline', orderId, { deadline_hours: 24 });
+          }
+          renderNotifications();
+        } else {
+          showNotificationFeedback({
+            type: 'submitted',
+            title: 'Payment confirmed',
+            message: 'The order is recorded in website sales metrics.'
+          });
+        }
+      } else if (action === 'remove') {
+        showNotificationFeedback({
+          type: 'removed',
+          title: 'Notification removed',
+          message: 'The unpaid order was permanently dismissed.'
+        });
+      } else if (action === 'publish' || action === 'retry_publish') {
+        showNotificationFeedback({
+          type: 'submitted',
+          title: 'Sent to Store Ops',
+          message: 'The order was persisted and is ready for fulfillment.'
+        });
+      }
     } catch (error) {
       button.disabled = false;
-      const message = document.createElement('p');
-      message.className = 'admin-order-publication-error';
-      message.textContent = error.message;
-      card.appendChild(message);
+      appendNotificationError(card, error);
     }
+  });
+  notificationList?.addEventListener('input', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement) || !target.matches('[data-notification-deadline]')) return;
+    const card = target.closest('[data-notification-order]');
+    const value = card?.querySelector('[data-notification-deadline-value]');
+    if (value) value.textContent = `${target.value}h`;
   });
   notificationList?.addEventListener('change', async (event) => {
     const target = event.target;
@@ -6108,18 +6327,62 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (target instanceof HTMLInputElement && target.matches('[data-notification-label]')) {
         const file = target.files?.[0];
-        if (!file) return;
-        const form = new FormData();
-        form.set('order_id', orderId);
-        form.set('label', file);
-        await requestJson(websiteOrderActionUrl('upload_label'), { method: 'POST', body: form, headers: {}, timeoutMs: 30000 });
-        await loadNotifications();
+        await uploadNotificationLabel(orderId, file, card);
       }
     } catch (error) {
-      const message = document.createElement('p');
-      message.className = 'admin-order-publication-error';
-      message.textContent = error.message;
-      card.appendChild(message);
+      appendNotificationError(card, error);
+    }
+  });
+  notificationList?.addEventListener('dragover', (event) => {
+    const dropzone = event.target instanceof Element ? event.target.closest('[data-notification-dropzone]') : null;
+    if (!(dropzone instanceof HTMLElement)) return;
+    event.preventDefault();
+    dropzone.classList.add('is-dragging');
+  });
+  notificationList?.addEventListener('dragleave', (event) => {
+    const dropzone = event.target instanceof Element ? event.target.closest('[data-notification-dropzone]') : null;
+    dropzone?.classList.remove('is-dragging');
+  });
+  notificationList?.addEventListener('drop', async (event) => {
+    const dropzone = event.target instanceof Element ? event.target.closest('[data-notification-dropzone]') : null;
+    const card = event.target instanceof Element ? event.target.closest('[data-notification-order]') : null;
+    if (!(dropzone instanceof HTMLElement) || !(card instanceof HTMLElement)) return;
+    event.preventDefault();
+    dropzone.classList.remove('is-dragging');
+    const file = event.dataTransfer?.files?.[0];
+    await uploadNotificationLabel(card.dataset.notificationOrder || '', file, card);
+  });
+
+  hardSetRefs.accessForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (!(form instanceof HTMLFormElement) || state.hardSet.loading) return;
+    const values = new FormData(form);
+    state.hardSet.loading = true;
+    if (hardSetRefs.accessError) {
+      hardSetRefs.accessError.hidden = true;
+      hardSetRefs.accessError.textContent = '';
+    }
+    renderHardSet();
+    try {
+      const data = await requestJson(`${hardSetEndpoint}?action=unlock`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: String(values.get('username') || ''),
+          password: String(values.get('password') || '')
+        })
+      });
+      state.hardSet.access = data.access || { branch: false, username: '' };
+      form.reset();
+    } catch (error) {
+      if (hardSetRefs.accessError) {
+        hardSetRefs.accessError.hidden = false;
+        hardSetRefs.accessError.textContent = error.message;
+      }
+    } finally {
+      state.hardSet.loading = false;
+      renderHardSet();
     }
   });
 
@@ -6149,6 +6412,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       state.hardSet.state = data.state || state.hardSet.state;
       state.hardSet.readiness = data.readiness || state.hardSet.readiness;
+      state.hardSet.access = data.access || state.hardSet.access;
       state.hardSet.audit = Array.isArray(data.audit) ? data.audit : state.hardSet.audit;
       hardSetRefs.dialog?.close();
       hardSetRefs.switchButton?.classList.add('is-activating');
