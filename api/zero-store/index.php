@@ -671,7 +671,7 @@ function zero_store_catalog(PDO $pdo): array
             'price' => (int) round($price),
             'sale_price' => max(0, (int) round($salePrice)),
             'status' => (int) ($item['is_active'] ?? 0) === 1 ? 'active' : 'inactive',
-            'available' => (int) ($item['is_active'] ?? 0) === 1 && (!$linked || (int) $stock > 0),
+            'available' => (int) ($item['is_active'] ?? 0) === 1 && $linked && (int) $stock > 0 && $price > 0,
             'discount' => is_array($discount) ? [
                 'id' => (int) ($discount['id'] ?? 0),
                 'type' => (string) ($discount['discount_type'] ?? ''),

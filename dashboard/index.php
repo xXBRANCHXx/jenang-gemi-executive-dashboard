@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isAuthenticated = jg_admin_is_authenticated();
-$dashboardBuildVersion = 'exec3.69.2';
+$dashboardBuildVersion = 'exec3.70.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -76,7 +76,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
             <strong class="admin-loader-label" data-admin-loader-label>Initializing...</strong>
         </div>
     </div>
-    <div class="admin-app admin-app-suite" data-admin-dashboard data-analytics-endpoint="../api/analytics/" data-live-endpoint="../api/live/" data-settings-endpoint="../api/settings/" data-sales-endpoint="../api/sales/" data-orders-endpoint="../api/orders/" data-sku-catalog-endpoint="../api/sales/?action=sku_catalog" data-context-endpoint="../api/context/" data-zero-store-endpoint="../api/zero-store/">
+    <div class="admin-app admin-app-suite" data-admin-dashboard data-analytics-endpoint="../api/analytics/" data-live-endpoint="../api/live/" data-settings-endpoint="../api/settings/" data-sales-endpoint="../api/sales/" data-orders-endpoint="../api/orders/" data-sku-catalog-endpoint="../api/sales/?action=sku_catalog" data-context-endpoint="../api/context/" data-zero-store-endpoint="../api/zero-store/" data-jenang-gemi-store-endpoint="../api/jenang-gemi-store/" data-website-orders-endpoint="../api/website-orders/" data-hard-set-endpoint="../api/hard-set/">
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
         <div class="admin-shell">
@@ -92,7 +92,6 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                         </div>
                     </div>
                     <div class="admin-topbar-actions">
-                        <a class="admin-ghost-btn admin-link-btn" href="../back-dash/">Back Dash</a>
                         <div class="admin-search-shell admin-search-shell-topbar" data-dashboard-search-shell>
                             <div class="admin-search-surface" aria-hidden="true">
                                 <div class="admin-search-surface-glow"></div>
@@ -111,6 +110,11 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                             <div class="admin-search-focus-ring" aria-hidden="true"></div>
                             <div class="admin-search-results" data-dashboard-search-results hidden></div>
                         </div>
+                        <button type="button" class="admin-notification-button" data-notification-toggle aria-label="Open website order notifications" aria-expanded="false">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>
+                            <span data-notification-count hidden>0</span>
+                        </button>
+                        <a class="admin-ghost-btn admin-link-btn" href="../back-dash/">Back Dash</a>
                         <div class="admin-menu-shell" data-menu-shell>
                             <button type="button" class="admin-ghost-btn admin-menu-trigger" data-menu-trigger aria-expanded="false" aria-label="Open dashboard menu">
                                 <svg class="admin-menu-open-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
@@ -144,6 +148,10 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                                 <button type="button" class="admin-menu-item" data-view-switch="website">
                                     <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.4 3.8 5.4 3.8 9S14.5 18.6 12 21c-2.5-2.4-3.8-5.4-3.8-9S9.5 5.4 12 3z"/></svg></span>
                                     <span><strong>Website</strong><small>Site traffic and conversion analytics</small></span>
+                                </button>
+                                <button type="button" class="admin-menu-item" data-view-switch="hard-set">
+                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/><circle cx="12" cy="12" r="9"/></svg></span>
+                                    <span><strong>Hard Set</strong><small>One-way Store Ops cutover</small></span>
                                 </button>
                                 <button type="button" class="admin-menu-item" data-view-switch="settings">
                                     <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19.4 15a1.8 1.8 0 0 0 .4 2l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.8 1.8 0 0 0-2-.4 1.8 1.8 0 0 0-1 1.6V21a2 2 0 0 1-4 0v-.1a1.8 1.8 0 0 0-1-1.6 1.8 1.8 0 0 0-2 .4l-.1.1a2 2 0 0 1-2.8-2.8l.1-.1a1.8 1.8 0 0 0 .4-2 1.8 1.8 0 0 0-1.6-1H3a2 2 0 0 1 0-4h.1a1.8 1.8 0 0 0 1.6-1 1.8 1.8 0 0 0-.4-2l-.1-.1a2 2 0 0 1 2.8-2.8l.1.1a1.8 1.8 0 0 0 2 .4 1.8 1.8 0 0 0 1-1.6V3a2 2 0 0 1 4 0v.1a1.8 1.8 0 0 0 1 1.6 1.8 1.8 0 0 0 2-.4l.1-.1a2 2 0 0 1 2.8 2.8l-.1.1a1.8 1.8 0 0 0-.4 2 1.8 1.8 0 0 0 1.6 1h.1a2 2 0 0 1 0 4h-.1a1.8 1.8 0 0 0-1.7 1z"/></svg></span>
@@ -901,6 +909,51 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                     <article class="admin-metric-card"><span>Checkout Intent</span><strong data-website-summary-checkout>0</strong><small>WhatsApp checkout clicks</small></article>
                     <article class="admin-metric-card"><span>Avg. Time Spent</span><strong data-website-summary-time-spent>0s</strong><small>Average per website session</small></article>
                     <article class="admin-metric-card"><span>Top Region</span><strong data-website-summary-top-region>Unknown</strong><small>Most active region in selected timeframe</small></article>
+                    <article class="admin-metric-card"><span>Paid Orders</span><strong data-website-paid-orders>0</strong><small>Confirmed website sales only</small></article>
+                    <article class="admin-metric-card"><span>Paid Quantity</span><strong data-website-paid-quantity>0</strong><small>Paid line-item units</small></article>
+                    <article class="admin-metric-card"><span>Paid Revenue</span><strong data-website-paid-revenue>Rp0</strong><small>Net revenue after discounts</small></article>
+                </section>
+
+                <section class="admin-main-grid" data-jenang-gemi-store-panel hidden>
+                    <article class="admin-panel admin-panel-wide">
+                        <div class="admin-panel-head">
+                            <div><span class="admin-panel-kicker">Jenang Gemi Store</span><h3>Items For Sale</h3></div>
+                            <span class="admin-panel-meta">Exact SKU DB linkage, stock, COGS, independent pricing, and availability.</span>
+                        </div>
+                        <form class="admin-store-form" data-jg-item-form>
+                            <input type="hidden" name="item_key">
+                            <label><span>SKU DB code</span><input name="sku" maxlength="12" placeholder="12 character SKU" required></label>
+                            <label><span>Website price</span><input name="price" type="number" min="0" step="1" required></label>
+                            <label class="admin-checkbox-line"><input name="is_active" type="checkbox"><span>Visible for sale on Jenang Gemi website</span></label>
+                            <button type="submit" class="admin-primary-btn">Save Website Settings</button>
+                        </form>
+                        <p class="admin-form-error" data-jg-store-error hidden></p>
+                        <div class="admin-table-wrap">
+                            <table class="admin-table">
+                                <thead><tr><th>SKU</th><th>Product</th><th>Variant</th><th>Size</th><th>Stock</th><th>COGS</th><th>Price</th><th>Status</th><th>Edit</th></tr></thead>
+                                <tbody data-jg-item-table><tr><td colspan="9" class="admin-empty">Loading Jenang Gemi catalog...</td></tr></tbody>
+                            </table>
+                        </div>
+                    </article>
+                    <article class="admin-panel admin-panel-wide">
+                        <div class="admin-panel-head">
+                            <div><span class="admin-panel-kicker">Jenang Gemi Discounts</span><h3>Scheduled Discount Groups</h3></div>
+                            <span class="admin-panel-meta">Overlapping active discounts on the same item are rejected.</span>
+                        </div>
+                        <form class="admin-store-form admin-store-form-discount" data-jg-discount-form>
+                            <input type="hidden" name="id">
+                            <label><span>Name</span><input name="name" maxlength="160" required></label>
+                            <label><span>Type</span><select name="discount_type" class="admin-select"><option value="fixed">Fixed amount</option><option value="percent">Percent</option></select></label>
+                            <label><span>Amount</span><input name="amount" type="number" min="0" step="1" required></label>
+                            <label><span>Starts</span><input name="starts_on" type="date" required></label>
+                            <label><span>Ends</span><input name="ends_on" type="date" required></label>
+                            <label class="admin-checkbox-line"><input name="is_active" type="checkbox" checked><span>Discount active</span></label>
+                            <div class="admin-store-sku-picker" data-jg-discount-items><p class="admin-empty">Load catalog items first.</p></div>
+                            <button type="submit" class="admin-primary-btn">Save Discount</button>
+                            <button type="button" class="admin-ghost-btn" data-jg-discount-reset>New Discount</button>
+                        </form>
+                        <div class="admin-note-stack" data-jg-discount-list><p class="admin-empty">No Jenang Gemi discounts yet.</p></div>
+                    </article>
                 </section>
 
                 <section class="admin-main-grid" data-zero-store-panel hidden>
@@ -1126,6 +1179,33 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                 </div>
                     </section>
 
+                    <section class="admin-view admin-hard-set-view" data-view-panel="hard-set">
+                <section class="admin-hard-set-hero">
+                    <div>
+                        <span class="admin-chip admin-chip-accent">Hard Set</span>
+                        <h2>Hard Set</h2>
+                        <p class="admin-hard-set-subtitle">Big Set</p>
+                        <p data-hard-set-explanation>Website orders notify and count in metrics now. Store Ops remains isolated until this switch is permanently activated.</p>
+                    </div>
+                    <div class="admin-hard-set-state"><span>Current state</span><strong data-hard-set-state>Loading</strong><small data-hard-set-activation></small></div>
+                </section>
+                <section class="admin-hard-set-switch-stage">
+                    <button type="button" class="admin-hard-set-switch" data-hard-set-switch aria-label="Activate Big Set" aria-pressed="false" disabled>
+                        <span class="admin-hard-set-track"><span class="admin-hard-set-knob"></span></span>
+                        <strong data-hard-set-switch-label>OFF</strong>
+                    </button>
+                    <p data-hard-set-switch-note>All readiness checks must pass. Activation cannot be undone.</p>
+                </section>
+                <section class="admin-hard-set-readiness" data-hard-set-readiness>
+                    <article class="admin-panel"><p class="admin-empty">Loading ZERO Website readiness...</p></article>
+                    <article class="admin-panel"><p class="admin-empty">Loading Jenang Gemi Website readiness...</p></article>
+                </section>
+                <section class="admin-panel admin-hard-set-audit-panel">
+                    <div class="admin-panel-head"><div><span class="admin-panel-kicker">Permanent Audit</span><h3>Activation record</h3></div></div>
+                    <div class="admin-note-stack" data-hard-set-audit><p class="admin-empty">No activation event.</p></div>
+                </section>
+                    </section>
+
                     <section class="admin-view admin-view-settings" data-view-panel="settings">
                 <section class="admin-settings-grid">
                     <article class="admin-panel admin-settings-card">
@@ -1203,6 +1283,25 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
             </div>
         </div>
     </div>
+    <aside class="admin-notification-drawer" data-notification-drawer aria-hidden="true">
+        <div class="admin-notification-head">
+            <div><span class="admin-panel-kicker">Website Orders</span><h2>Notifications</h2></div>
+            <button type="button" class="admin-orders-icon-btn" data-notification-close aria-label="Close notifications"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+        </div>
+        <p class="admin-notification-mode" data-notification-mode>Loading Hard Set state...</p>
+        <div class="admin-notification-list" data-notification-list><p class="admin-empty">Loading website orders...</p></div>
+    </aside>
+    <div class="admin-notification-backdrop" data-notification-backdrop hidden></div>
+    <dialog class="admin-hard-set-dialog" data-hard-set-dialog aria-labelledby="hard-set-confirm-title">
+        <form method="dialog" data-hard-set-form>
+            <span class="admin-panel-kicker">Irreversible cutover</span>
+            <h2 id="hard-set-confirm-title">Activate Big Set?</h2>
+            <p>Only orders created after the server records activation can enter Store Ops. Pre-activation orders remain manual-era forever.</p>
+            <label><span>Type <strong>ACTIVATE BIG SET</strong></span><input name="confirmation" autocomplete="off" required></label>
+            <p class="admin-form-error" data-hard-set-error hidden></p>
+            <div class="admin-modal-actions"><button type="button" class="admin-ghost-btn" data-hard-set-cancel>Cancel</button><button type="submit" class="admin-danger-btn">Activate Permanently</button></div>
+        </form>
+    </dialog>
     <div class="admin-modal-shell admin-orders-filter-modal" data-orders-filter-modal hidden>
         <button type="button" class="admin-modal-backdrop" data-orders-filter-close aria-label="Close order filters"></button>
         <section class="admin-modal-card admin-orders-filter-card" role="dialog" aria-modal="true" aria-labelledby="orders-filter-title">

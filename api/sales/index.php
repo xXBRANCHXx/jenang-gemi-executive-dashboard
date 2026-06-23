@@ -6,6 +6,7 @@ require_once dirname(__DIR__, 2) . '/auth.php';
 require_once dirname(__DIR__, 2) . '/sku-db-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/analytics-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/executive-context.php';
+require_once dirname(__DIR__, 2) . '/website-commerce-bootstrap.php';
 
 jg_admin_require_auth();
 
@@ -222,6 +223,11 @@ function jg_sales_prepare_cached_response(string $baseResponse, int $year, bool 
         return $baseResponse;
     }
 
+    try {
+        $decoded = jg_website_merge_sales_summary(analyticsDb(), $decoded, $year);
+    } catch (Throwable $websiteSalesError) {
+        error_log('Unable to merge website paid sales: ' . $websiteSalesError->getMessage());
+    }
     $decoded = jg_sales_apply_executive_context($decoded, $year);
     if ($includeAudit) {
         jg_sales_attach_calculation_audit($decoded, $year);
@@ -283,10 +289,8 @@ function jg_sales_apply_executive_context(array $summary, int $year): array
  */
 function jg_sales_context_only_summary(int $year): ?array
 {
-    if (jg_sales_context_by_month($year) === []) {
-        return null;
-    }
-    return jg_sales_apply_executive_context([
+    $context = jg_sales_context_by_month($year);
+    $summary = [
         'ok' => true,
         'year' => $year,
         'years' => [2025, 2026],
@@ -297,7 +301,16 @@ function jg_sales_context_only_summary(int $year): ?array
         'products' => [],
         'generated_at' => gmdate(DATE_ATOM),
         'context_only' => true,
-    ], $year);
+    ];
+    try {
+        $summary = jg_website_merge_sales_summary(analyticsDb(), $summary, $year);
+    } catch (Throwable $websiteSalesError) {
+        error_log('Unable to merge website paid sales into context summary: ' . $websiteSalesError->getMessage());
+    }
+    if ($context === [] && (int) ($summary['totals']['orders'] ?? 0) === 0) {
+        return null;
+    }
+    return jg_executive_context_apply_summary($summary, $context);
 }
 
 function jg_sales_cache_dir(): string

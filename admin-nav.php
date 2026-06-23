@@ -38,6 +38,15 @@ function render_admin_sidebar(string $activeSection = ''): void
             'view' => 'website',
         ],
         [
+            'key' => 'hard-set',
+            'href' => '../dashboard/?view=hard-set',
+            'label' => 'Hard Set',
+            'icon' => 'admin-rail-icon-hard-set',
+            'icon_text' => 'SET',
+            'aria' => 'Open irreversible Hard Set cutover',
+            'view' => 'hard-set',
+        ],
+        [
             'key' => 'affiliate',
             'href' => '../affiliate-program/',
             'label' => 'Affiliate',

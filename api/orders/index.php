@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once dirname(__DIR__, 2) . '/config.php';
 require_once dirname(__DIR__, 2) . '/auth.php';
 require_once dirname(__DIR__, 2) . '/sku-db-bootstrap.php';
+require_once dirname(__DIR__, 2) . '/website-commerce-bootstrap.php';
 
 if (!defined('JG_ORDERS_API_NO_DISPATCH')) {
     jg_orders_handle_request();
@@ -29,8 +30,22 @@ function jg_orders_handle_request(): void
             jg_orders_remote_sync($startDate, $endDate);
         }
 
-        $remotePayload = jg_orders_remote_payload($startDate, $endDate, $limit, $offset);
+        $remoteWarning = '';
+        try {
+            $remotePayload = jg_orders_remote_payload($startDate, $endDate, $limit, $offset);
+        } catch (Throwable $remoteOrdersError) {
+            $remotePayload = ['orders' => [], 'has_more' => false, 'next_offset' => null];
+            $remoteWarning = 'marketplace_orders_unavailable';
+            error_log('Marketplace orders unavailable; serving independent website sales: ' . $remoteOrdersError->getMessage());
+        }
         $remoteRows = is_array($remotePayload['orders'] ?? null) ? $remotePayload['orders'] : [];
+        if ($offset === 0) {
+            try {
+                $remoteRows = array_merge($remoteRows, jg_website_paid_order_rows(analyticsDb(), $startDate, $endDate));
+            } catch (Throwable $websiteOrdersError) {
+                error_log('Website paid orders unavailable in central order view: ' . $websiteOrdersError->getMessage());
+            }
+        }
         $lightweight = jg_orders_bool($_GET['lightweight'] ?? $_GET['summary'] ?? null);
         if ($lightweight) {
             $includeLive = !jg_orders_bool($_GET['stored_only'] ?? null);
@@ -48,11 +63,12 @@ function jg_orders_handle_request(): void
                 'has_more' => !empty($remotePayload['has_more']),
                 'next_offset' => $remotePayload['next_offset'] ?? null,
                 'orders' => $rows,
+                'warning' => $remoteWarning,
             ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             return;
         }
 
-        $inventoryWarning = '';
+        $inventoryWarning = $remoteWarning;
         if ($method === 'POST') {
             $pdo = jg_sku_db();
             jg_orders_ensure_schema($pdo);

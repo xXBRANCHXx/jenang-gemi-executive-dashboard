@@ -17,6 +17,8 @@ const SOURCE_LABELS = {
   google: 'Google',
   direct: 'Direct',
   internal: 'Internal',
+  zero_website: 'ZERO Website',
+  jenang_gemi_website: 'Jenang Gemi Website',
   unknown: 'Unknown'
 };
 
@@ -68,6 +70,8 @@ const OVERVIEW_PLATFORM_COLORS = {
   shopee: '#ff8f1f',
   tiktok: '#22d3ee',
   tokopedia: '#5bff8a',
+  zero_website: '#9dff00',
+  jenang_gemi_website: '#ffd400',
   unknown: '#7a879a'
 };
 
@@ -98,6 +102,8 @@ const normalizePlatformKey = (value) => {
   if (normalized.includes('tiktok')) return 'tiktok';
   if (normalized.includes('tokopedia')) return 'tokopedia';
   if (normalized.includes('shopee')) return 'shopee';
+  if (normalized === 'zero_website' || normalized === 'zero-website') return 'zero_website';
+  if (normalized === 'jenang_gemi_website' || normalized === 'jenang-gemi-website') return 'jenang_gemi_website';
   return normalized.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'unknown';
 };
 
@@ -316,6 +322,14 @@ const JENANG_GEMI_SEARCH_INDEX = [
     url: '../dashboard/?view=context',
     view: 'context',
     keywords: ['context', 'historical', '2025', '2026', 'revenue', 'gross profit', 'orders', 'items']
+  },
+  {
+    title: 'Hard Set',
+    section: 'Admin',
+    description: 'Big Set irreversible website-order cutover into Store Ops.',
+    url: '../dashboard/?view=hard-set',
+    view: 'hard-set',
+    keywords: ['hard set', 'big set', 'cutover', 'store ops', 'website orders', 'activation']
   },
   {
     title: 'Back Dash',
@@ -1658,9 +1672,11 @@ document.addEventListener('DOMContentLoaded', () => {
     store_ops: 'store-ops',
     fulfillment: 'store-ops',
     context: 'context',
-    'open-context': 'context'
+    'open-context': 'context',
+    hardset: 'hard-set',
+    'big-set': 'hard-set'
   };
-  const validViews = new Set(['overview', 'orders', 'daily', 'store-ops', 'context', 'home', 'website', 'settings']);
+  const validViews = new Set(['overview', 'orders', 'daily', 'store-ops', 'context', 'home', 'website', 'hard-set', 'settings']);
   const normalizeDashboardView = (value) => {
     const normalized = String(value || '').trim().toLowerCase();
     const aliased = viewAliases[normalized] || normalized;
@@ -1780,6 +1796,23 @@ document.addEventListener('DOMContentLoaded', () => {
       draftStart: '',
       hoverDate: ''
     },
+    jenangGemiStore: {
+      items: [],
+      discounts: [],
+      activeDiscountId: ''
+    },
+    notifications: {
+      orders: [],
+      metrics: {},
+      hardSet: { enabled: false },
+      open: false
+    },
+    hardSet: {
+      state: { enabled: false },
+      readiness: { ready: false, sources: {} },
+      audit: [],
+      loading: false
+    },
     liveSequence: -1,
     liveSource: null
   };
@@ -1791,6 +1824,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const skuCatalogEndpoint = root.dataset.skuCatalogEndpoint || `${salesEndpoint}?action=sku_catalog`;
   const contextEndpoint = root.dataset.contextEndpoint || './context/';
   const zeroStoreEndpoint = root.dataset.zeroStoreEndpoint || '../api/zero-store/';
+  const jenangGemiStoreEndpoint = root.dataset.jenangGemiStoreEndpoint || '../api/jenang-gemi-store/';
+  const websiteOrdersEndpoint = root.dataset.websiteOrdersEndpoint || '../api/website-orders/';
+  const hardSetEndpoint = root.dataset.hardSetEndpoint || '../api/hard-set/';
 
   const loader = document.querySelector('[data-admin-loader]');
   const loaderProgress = document.querySelector('[data-admin-loader-progress]');
@@ -1808,6 +1844,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const searchOpenButton = document.querySelector('[data-dashboard-search-open]');
   const searchCloseButton = document.querySelector('[data-dashboard-search-close]');
   const searchResults = document.querySelector('[data-dashboard-search-results]');
+  const notificationToggle = document.querySelector('[data-notification-toggle]');
+  const notificationCount = document.querySelector('[data-notification-count]');
+  const notificationDrawer = document.querySelector('[data-notification-drawer]');
+  const notificationClose = document.querySelector('[data-notification-close]');
+  const notificationBackdrop = document.querySelector('[data-notification-backdrop]');
+  const notificationMode = document.querySelector('[data-notification-mode]');
+  const notificationList = document.querySelector('[data-notification-list]');
   let searchFocusTimer = null;
 
   const overviewRefs = {
@@ -1927,6 +1970,9 @@ document.addEventListener('DOMContentLoaded', () => {
     summaryCheckout: document.querySelector('[data-website-summary-checkout]'),
     summaryTime: document.querySelector('[data-website-summary-time-spent]'),
     summaryTopRegion: document.querySelector('[data-website-summary-top-region]'),
+    paidOrders: document.querySelector('[data-website-paid-orders]'),
+    paidQuantity: document.querySelector('[data-website-paid-quantity]'),
+    paidRevenue: document.querySelector('[data-website-paid-revenue]'),
     excludedCount: document.querySelector('[data-website-excluded-ip-count]'),
     pageTableBody: document.querySelector('[data-website-page-table-body]'),
     regionTableBody: document.querySelector('[data-website-region-table-body]'),
@@ -1972,6 +2018,32 @@ document.addEventListener('DOMContentLoaded', () => {
     calendarGrid: document.querySelector('[data-zero-discount-calendar-grid]'),
     calendarPrev: document.querySelector('[data-zero-discount-month-prev]'),
     calendarNext: document.querySelector('[data-zero-discount-month-next]')
+  };
+
+  const jenangGemiStoreRefs = {
+    panel: document.querySelector('[data-jenang-gemi-store-panel]'),
+    itemForm: document.querySelector('[data-jg-item-form]'),
+    itemTable: document.querySelector('[data-jg-item-table]'),
+    error: document.querySelector('[data-jg-store-error]'),
+    discountForm: document.querySelector('[data-jg-discount-form]'),
+    discountItems: document.querySelector('[data-jg-discount-items]'),
+    discountList: document.querySelector('[data-jg-discount-list]'),
+    discountReset: document.querySelector('[data-jg-discount-reset]')
+  };
+
+  const hardSetRefs = {
+    state: document.querySelector('[data-hard-set-state]'),
+    activation: document.querySelector('[data-hard-set-activation]'),
+    explanation: document.querySelector('[data-hard-set-explanation]'),
+    switchButton: document.querySelector('[data-hard-set-switch]'),
+    switchLabel: document.querySelector('[data-hard-set-switch-label]'),
+    switchNote: document.querySelector('[data-hard-set-switch-note]'),
+    readiness: document.querySelector('[data-hard-set-readiness]'),
+    audit: document.querySelector('[data-hard-set-audit]'),
+    dialog: document.querySelector('[data-hard-set-dialog]'),
+    form: document.querySelector('[data-hard-set-form]'),
+    cancel: document.querySelector('[data-hard-set-cancel]'),
+    error: document.querySelector('[data-hard-set-error]')
   };
 
   let orderPopover = null;
@@ -2279,6 +2351,192 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const websiteOrderActionUrl = (action) => {
+    const url = new URL(websiteOrdersEndpoint, window.location.href);
+    url.searchParams.set('action', action);
+    url.searchParams.set('_ts', String(Date.now()));
+    return url.toString();
+  };
+
+  const websiteMetricForSelectedSite = () => {
+    const platform = state.website.site === 'zero' ? 'zero_website' : 'jenang_gemi_website';
+    return state.notifications.metrics?.[platform] || {};
+  };
+
+  const renderWebsitePaidMetrics = () => {
+    const metrics = websiteMetricForSelectedSite();
+    if (websiteRefs.paidOrders) websiteRefs.paidOrders.textContent = Number(metrics.paid_orders || 0).toLocaleString('id-ID');
+    if (websiteRefs.paidQuantity) websiteRefs.paidQuantity.textContent = Number(metrics.paid_quantity || 0).toLocaleString('id-ID');
+    if (websiteRefs.paidRevenue) websiteRefs.paidRevenue.textContent = formatCurrency(metrics.net_revenue || 0);
+  };
+
+  const notificationItemLabel = (item) => [item.product_name, item.option_name, item.size_label]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean)
+    .join(' · ');
+
+  const renderNotifications = () => {
+    const orders = state.notifications.orders;
+    const hardSetEnabled = Boolean(state.notifications.hardSet?.enabled);
+    if (notificationCount) {
+      notificationCount.hidden = orders.length === 0;
+      notificationCount.textContent = orders.length > 99 ? '99+' : String(orders.length);
+    }
+    if (notificationMode) {
+      notificationMode.textContent = hardSetEnabled
+        ? 'Hard Set is ON. Eligible paid orders stay here until their PDF label and 1–48 hour deadline are sent to Store Ops.'
+        : 'Hard Set is OFF. Orders can only be marked Paid or permanently removed while unpaid.';
+    }
+    if (!notificationList) return;
+    if (!orders.length) {
+      notificationList.innerHTML = '<p class="admin-empty">No actionable website orders.</p>';
+      renderWebsitePaidMetrics();
+      return;
+    }
+    notificationList.innerHTML = orders.map((order) => {
+      const isPending = order.status === 'PENDING_PAYMENT';
+      const canFulfill = order.status === 'AWAITING_FULFILLMENT_SETUP' && order.era === 'STORE_OPS_ELIGIBLE';
+      const readyToPublish = canFulfill && order.has_label && Number(order.deadline_hours || 0) >= 1;
+      const items = Array.isArray(order.items) ? order.items : [];
+      return `
+        <article class="admin-order-notification" data-notification-order="${escapeHtml(order.order_id)}">
+          <div class="admin-order-notification-head">
+            <strong>${escapeHtml(order.order_id)}</strong>
+            <span>${escapeHtml(order.platform_label || order.platform)}<br>${escapeHtml(formatOrderTimestamp(order.created_at))}</span>
+          </div>
+          <p><strong>${escapeHtml(order.customer?.name || '')}</strong><br>${escapeHtml(order.customer?.address || '')}</p>
+          <ul class="admin-order-notification-items">${items.map((item) => `<li>${escapeHtml(notificationItemLabel(item))} × ${Number(item.quantity || 0)} <small>${escapeHtml(item.sku || '')}</small></li>`).join('')}</ul>
+          <p>Gross ${formatCurrency(order.gross_revenue || 0)} · Net paid ${formatCurrency(order.net_revenue || 0)} · ${escapeHtml(order.era || '')}</p>
+          ${isPending ? `
+            <div class="admin-order-notification-actions">
+              <button type="button" class="admin-primary-btn" data-notification-action="paid">Paid</button>
+              <button type="button" class="admin-danger-btn" data-notification-action="remove">Remove</button>
+            </div>
+          ` : ''}
+          ${canFulfill ? `
+            <div class="admin-order-fulfillment-setup">
+              <label><span>PDF shipping label (maximum 10 MB)</span><input type="file" accept="application/pdf,.pdf" data-notification-label></label>
+              <label><span>Fulfillment deadline</span><select data-notification-deadline><option value="">Choose 1–48 hours</option>${Array.from({ length: 48 }, (_, index) => `<option value="${index + 1}"${Number(order.deadline_hours) === index + 1 ? ' selected' : ''}>${index + 1} hour${index ? 's' : ''}</option>`).join('')}</select></label>
+              <small>${order.has_label ? `Label ready: ${escapeHtml(order.label_original_name || 'PDF')}` : 'Label not uploaded'}</small>
+              ${order.publication_error ? `<p class="admin-order-publication-error">${escapeHtml(order.publication_error)}</p>` : ''}
+              <button type="button" class="admin-primary-btn" data-notification-action="${order.publication_error ? 'retry_publish' : 'publish'}" ${readyToPublish ? '' : 'disabled'}>${order.publication_error ? 'Retry Store Ops' : 'Send to Store Ops'}</button>
+            </div>
+          ` : ''}
+        </article>
+      `;
+    }).join('');
+    renderWebsitePaidMetrics();
+  };
+
+  const loadNotifications = async () => {
+    const data = await requestJson(websiteOrderActionUrl('notifications'));
+    state.notifications.orders = Array.isArray(data.orders) ? data.orders : [];
+    state.notifications.metrics = data.metrics || {};
+    state.notifications.hardSet = data.hard_set || { enabled: false };
+    renderNotifications();
+  };
+
+  const setNotificationOpen = (open) => {
+    state.notifications.open = open;
+    notificationDrawer?.classList.toggle('is-open', open);
+    notificationDrawer?.setAttribute('aria-hidden', open ? 'false' : 'true');
+    notificationToggle?.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (notificationBackdrop) notificationBackdrop.hidden = !open;
+    document.body.classList.toggle('admin-notifications-open', open);
+  };
+
+  const postWebsiteOrderAction = async (action, orderId, extra = {}) => {
+    await requestJson(websiteOrderActionUrl(action), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order_id: orderId, ...extra }),
+      timeoutMs: action.includes('publish') ? 25000 : 20000
+    });
+    await loadNotifications();
+  };
+
+  const renderHardSet = () => {
+    const hardSet = state.hardSet.state || {};
+    const readiness = state.hardSet.readiness || {};
+    const enabled = Boolean(hardSet.enabled);
+    if (hardSetRefs.state) hardSetRefs.state.textContent = enabled ? 'ON · LOCKED' : 'OFF';
+    if (hardSetRefs.activation) {
+      hardSetRefs.activation.textContent = enabled
+        ? `${hardSet.activated_at_wib || hardSet.activated_at_iso || ''} · ${hardSet.activated_by || 'Unknown actor'}`
+        : 'No cutover timestamp has been recorded.';
+    }
+    hardSetRefs.switchButton?.classList.toggle('is-on', enabled);
+    hardSetRefs.switchButton?.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+    if (hardSetRefs.switchButton) hardSetRefs.switchButton.disabled = enabled || !readiness.ready || state.hardSet.loading;
+    if (hardSetRefs.switchLabel) hardSetRefs.switchLabel.textContent = enabled ? 'ON · LOCKED' : 'OFF';
+    if (hardSetRefs.switchNote) {
+      hardSetRefs.switchNote.textContent = enabled
+        ? 'The cutover is permanent. There is no disable operation in the UI or API.'
+        : readiness.ready ? 'Ready. Activation permanently establishes the server cutover timestamp.' : 'All readiness checks must pass. Activation cannot be undone.';
+    }
+    if (hardSetRefs.explanation) {
+      hardSetRefs.explanation.textContent = enabled
+        ? 'Only website orders created after the recorded activation timestamp can enter Store Ops. Earlier orders remain manual-era permanently.'
+        : 'Website order notifications and paid metrics are live. Store Ops remains isolated until this switch is permanently activated.';
+    }
+    if (hardSetRefs.readiness) {
+      const sources = readiness.sources || {};
+      hardSetRefs.readiness.innerHTML = ['zero_website', 'jenang_gemi_website'].map((source) => {
+        const group = sources[source] || { label: source, ready: false, checks: [] };
+        return `<article class="admin-panel">
+          <div class="admin-panel-head"><div><span class="admin-panel-kicker">Readiness</span><h3>${escapeHtml(group.label || source)}</h3></div><span class="admin-panel-meta">${group.ready ? 'READY' : 'BLOCKED'}</span></div>
+          <div class="admin-readiness-list">${(group.checks || []).map((check) => `<div class="admin-readiness-row${check.ready ? ' is-ready' : ''}"><i></i><span><strong>${escapeHtml(check.label)}</strong><small>${escapeHtml(check.detail)}</small></span></div>`).join('')}</div>
+        </article>`;
+      }).join('');
+    }
+    if (hardSetRefs.audit) {
+      const audit = state.hardSet.audit || [];
+      hardSetRefs.audit.innerHTML = audit.length ? audit.map((event) => `<div class="admin-note-card"><strong>${escapeHtml(event.event_type)}</strong><span>${escapeHtml(event.created_at_wib || event.created_at || '')}</span><small>${escapeHtml(event.actor || '')}</small></div>`).join('') : '<p class="admin-empty">No activation event. Hard Set is OFF.</p>';
+    }
+  };
+
+  const loadHardSet = async () => {
+    const data = await requestJson(`${hardSetEndpoint}?_ts=${Date.now()}`);
+    state.hardSet.state = data.state || { enabled: false };
+    state.hardSet.readiness = data.readiness || { ready: false, sources: {} };
+    state.hardSet.audit = Array.isArray(data.audit) ? data.audit : [];
+    state.notifications.hardSet = state.hardSet.state;
+    renderHardSet();
+    renderNotifications();
+  };
+
+  const setJenangGemiStoreError = (message = '') => {
+    if (!jenangGemiStoreRefs.error) return;
+    jenangGemiStoreRefs.error.hidden = !message;
+    jenangGemiStoreRefs.error.textContent = message;
+  };
+
+  const renderJenangGemiStore = () => {
+    const items = state.jenangGemiStore.items;
+    if (jenangGemiStoreRefs.itemTable) {
+      jenangGemiStoreRefs.itemTable.innerHTML = items.length ? items.map((item) => `<tr>
+        <td><code>${escapeHtml(item.sku || '')}</code></td><td>${escapeHtml(item.product_name || '')}</td><td>${escapeHtml(item.option_name || '')}</td><td>${escapeHtml(item.size_label || '')}</td>
+        <td>${item.stock === null ? 'Unlinked' : Number(item.stock).toLocaleString('id-ID')}</td><td>${item.cogs === null ? '—' : formatCurrency(item.cogs)}</td><td>${formatCurrency(item.price || 0)}</td>
+        <td>${item.is_active && item.sku_linked && Number(item.stock) > 0 ? 'Active' : 'Disabled'}</td><td><button type="button" class="admin-soft-btn" data-jg-edit-item="${escapeHtml(item.item_key)}">Edit</button></td>
+      </tr>`).join('') : '<tr><td colspan="9" class="admin-empty">No Jenang Gemi SKU DB products found.</td></tr>';
+    }
+    if (jenangGemiStoreRefs.discountItems) {
+      jenangGemiStoreRefs.discountItems.innerHTML = `<span class="admin-control-label">Included SKUs</span>${items.map((item) => `<label class="admin-store-sku-option"><input type="checkbox" name="item_keys" value="${escapeHtml(item.item_key)}"><span><strong>${escapeHtml(item.sku || 'Unlinked')}</strong> ${escapeHtml(notificationItemLabel(item))}</span></label>`).join('')}`;
+    }
+    if (jenangGemiStoreRefs.discountList) {
+      const discounts = state.jenangGemiStore.discounts;
+      jenangGemiStoreRefs.discountList.innerHTML = discounts.length ? discounts.map((discount) => `<div class="admin-note-card"><strong>${escapeHtml(discount.name)}</strong><span>${escapeHtml(discount.discount_type)} ${Number(discount.amount).toLocaleString('id-ID')} · ${escapeHtml(discount.starts_on)} to ${escapeHtml(discount.ends_on)}</span><small>${(discount.item_keys || []).map(escapeHtml).join(', ')}</small><div class="admin-inline-actions"><button type="button" class="admin-soft-btn" data-jg-edit-discount="${Number(discount.id)}">Edit</button><button type="button" class="admin-danger-btn" data-jg-delete-discount="${Number(discount.id)}">Delete</button></div></div>`).join('') : '<p class="admin-empty">No Jenang Gemi discounts yet.</p>';
+    }
+  };
+
+  const loadJenangGemiStore = async () => {
+    const data = await requestJson(`${jenangGemiStoreEndpoint}?action=list&_ts=${Date.now()}`);
+    state.jenangGemiStore.items = Array.isArray(data.items) ? data.items : [];
+    state.jenangGemiStore.discounts = Array.isArray(data.discounts) ? data.discounts : [];
+    renderJenangGemiStore();
+    setJenangGemiStoreError('');
+  };
+
   const renderRows = (items, emptyColspan, formatter, emptyMessage = 'Belum ada data.') => {
     if (!items.length) {
       return `<tr><td colspan="${emptyColspan}" class="admin-empty">${escapeHtml(emptyMessage)}</td></tr>`;
@@ -2497,6 +2755,7 @@ document.addEventListener('DOMContentLoaded', () => {
       context: 'Open Context',
       home: 'Campaigns Dashboard',
       website: 'Official Website Dashboard',
+      'hard-set': 'Hard Set',
       settings: 'Settings'
     };
     const navSectionByView = {
@@ -2507,6 +2766,7 @@ document.addEventListener('DOMContentLoaded', () => {
       context: 'home',
       home: 'campaigns',
       website: 'website',
+      'hard-set': 'hard-set',
       settings: 'settings'
     };
     if (root) root.dataset.activeView = state.activeView;
@@ -4259,6 +4519,7 @@ document.addEventListener('DOMContentLoaded', () => {
     websiteRefs.metricButtons.forEach((button) => {
       button.classList.toggle('is-active', button.dataset.websiteMetric === state.website.metric);
     });
+    renderWebsitePaidMetrics();
   };
 
   const renderWebsiteShell = () => {
@@ -4276,6 +4537,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!isDetail || !siteConfig) {
       if (zeroStoreRefs.panel) zeroStoreRefs.panel.hidden = true;
+      if (jenangGemiStoreRefs.panel) jenangGemiStoreRefs.panel.hidden = true;
       if (websiteRefs.heroChip) websiteRefs.heroChip.textContent = 'Official Website Dashboard';
       if (websiteRefs.heroTitle) websiteRefs.heroTitle.textContent = 'Select a website dashboard.';
       if (websiteRefs.heroCopy) websiteRefs.heroCopy.textContent = 'Choose Jenang Gemi or ZERO to open the dedicated website analytics page. Each page uses browser-tagged website visits only.';
@@ -4290,6 +4552,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (websiteRefs.pageTableTitle) websiteRefs.pageTableTitle.textContent = siteConfig.pageTitle;
     if (websiteRefs.scopeNote) websiteRefs.scopeNote.textContent = siteConfig.scope;
     if (zeroStoreRefs.panel) zeroStoreRefs.panel.hidden = state.website.site !== 'zero';
+    if (jenangGemiStoreRefs.panel) jenangGemiStoreRefs.panel.hidden = state.website.site !== 'jenang_gemi';
+    renderWebsitePaidMetrics();
   };
 
   const showWebsiteSelector = () => {
@@ -4306,7 +4570,14 @@ document.addEventListener('DOMContentLoaded', () => {
     await loadWebsiteSafely();
     if (site === 'zero') {
       await loadZeroStoreSafely();
+    } else if (site === 'jenang_gemi') {
+      try {
+        await loadJenangGemiStore();
+      } catch (error) {
+        setJenangGemiStoreError(error.message);
+      }
     }
+    await loadNotifications().catch(() => {});
   };
 
   const setZeroStoreError = (message = '') => {
@@ -4979,6 +5250,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       return;
     }
+    if (state.activeView === 'hard-set') {
+      await loadHardSet();
+      return;
+    }
     if (state.activeView === 'settings') {
       await loadWebsiteSettings();
     }
@@ -5059,6 +5334,15 @@ document.addEventListener('DOMContentLoaded', () => {
       showWebsiteSelector();
       return true;
     }
+    if (state.activeView === 'hard-set') {
+      try {
+        await loadHardSet();
+        return true;
+      } catch (error) {
+        if (hardSetRefs.switchNote) hardSetRefs.switchNote.textContent = error.message || 'Unable to load Hard Set.';
+        return false;
+      }
+    }
     if (state.activeView === 'settings') {
       return loadWebsiteSettingsSafely();
     }
@@ -5097,6 +5381,10 @@ document.addEventListener('DOMContentLoaded', () => {
       showWebsiteSelector();
     }
     syncViewState();
+    const viewUrl = new URL(window.location.href);
+    viewUrl.searchParams.set('view', state.activeView);
+    viewUrl.hash = '';
+    window.history.replaceState(null, '', `${viewUrl.pathname}${viewUrl.search}`);
     closeMenu();
     renderJenangGemiSearchResults(searchInput?.value || '');
     await loadActiveViewSafely();
@@ -5159,7 +5447,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const nextSequence = Number(payload.sequence || 0);
         if (!Number.isFinite(nextSequence) || nextSequence <= state.liveSequence) return;
         state.liveSequence = nextSequence;
-        await loadActiveView();
+        await Promise.allSettled([loadActiveView(), loadNotifications()]);
       } catch (_) {
         // Ignore malformed live payloads and wait for the next internal signal.
       }
@@ -5177,6 +5465,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (dailyRefs.monthInput) dailyRefs.monthInput.value = state.daily.month;
   renderDailyPlatformList();
   loadOrderCatalog();
+  loadNotifications().catch(() => {});
   syncViewState();
   renderContextEditor();
   setLoaderState(20, 'Connecting to analytics');
@@ -5722,6 +6011,176 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   setupTopbarMenu();
+
+  notificationToggle?.addEventListener('click', () => {
+    setNotificationOpen(!state.notifications.open);
+    if (!state.notifications.open) return;
+    loadNotifications().catch((error) => {
+      if (notificationList) notificationList.innerHTML = `<p class="admin-empty">${escapeHtml(error.message)}</p>`;
+    });
+  });
+  notificationClose?.addEventListener('click', () => setNotificationOpen(false));
+  notificationBackdrop?.addEventListener('click', () => setNotificationOpen(false));
+  notificationList?.addEventListener('click', async (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const button = target.closest('[data-notification-action]');
+    const card = target.closest('[data-notification-order]');
+    if (!(button instanceof HTMLButtonElement) || !(card instanceof HTMLElement)) return;
+    const action = button.dataset.notificationAction || '';
+    const orderId = card.dataset.notificationOrder || '';
+    if (action === 'remove' && !window.confirm(`Permanently remove unpaid order ${orderId}?`)) return;
+    button.disabled = true;
+    try {
+      await postWebsiteOrderAction(action, orderId);
+    } catch (error) {
+      button.disabled = false;
+      const message = document.createElement('p');
+      message.className = 'admin-order-publication-error';
+      message.textContent = error.message;
+      card.appendChild(message);
+    }
+  });
+  notificationList?.addEventListener('change', async (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const card = target.closest('[data-notification-order]');
+    if (!(card instanceof HTMLElement)) return;
+    const orderId = card.dataset.notificationOrder || '';
+    try {
+      if (target.matches('[data-notification-deadline]')) {
+        await postWebsiteOrderAction('deadline', orderId, { deadline_hours: Number(target.value || 0) });
+      }
+      if (target instanceof HTMLInputElement && target.matches('[data-notification-label]')) {
+        const file = target.files?.[0];
+        if (!file) return;
+        const form = new FormData();
+        form.set('order_id', orderId);
+        form.set('label', file);
+        await requestJson(websiteOrderActionUrl('upload_label'), { method: 'POST', body: form, headers: {}, timeoutMs: 30000 });
+        await loadNotifications();
+      }
+    } catch (error) {
+      const message = document.createElement('p');
+      message.className = 'admin-order-publication-error';
+      message.textContent = error.message;
+      card.appendChild(message);
+    }
+  });
+
+  hardSetRefs.switchButton?.addEventListener('click', () => {
+    if (hardSetRefs.switchButton?.disabled || state.hardSet.state?.enabled) return;
+    if (hardSetRefs.error) {
+      hardSetRefs.error.hidden = true;
+      hardSetRefs.error.textContent = '';
+    }
+    hardSetRefs.form?.reset();
+    hardSetRefs.dialog?.showModal();
+  });
+  hardSetRefs.cancel?.addEventListener('click', () => hardSetRefs.dialog?.close());
+  hardSetRefs.form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (!(form instanceof HTMLFormElement)) return;
+    const confirmation = String(new FormData(form).get('confirmation') || '');
+    state.hardSet.loading = true;
+    renderHardSet();
+    try {
+      const data = await requestJson(`${hardSetEndpoint}?action=activate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirmation }),
+        timeoutMs: 30000
+      });
+      state.hardSet.state = data.state || state.hardSet.state;
+      state.hardSet.readiness = data.readiness || state.hardSet.readiness;
+      state.hardSet.audit = Array.isArray(data.audit) ? data.audit : state.hardSet.audit;
+      hardSetRefs.dialog?.close();
+      hardSetRefs.switchButton?.classList.add('is-activating');
+      window.setTimeout(() => hardSetRefs.switchButton?.classList.remove('is-activating'), 1000);
+      await loadNotifications().catch(() => {});
+    } catch (error) {
+      if (hardSetRefs.error) {
+        hardSetRefs.error.hidden = false;
+        hardSetRefs.error.textContent = error.message;
+      }
+    } finally {
+      state.hardSet.loading = false;
+      renderHardSet();
+    }
+  });
+
+  const jenangGemiStoreActionUrl = (action) => `${jenangGemiStoreEndpoint}?action=${encodeURIComponent(action)}&_ts=${Date.now()}`;
+  const resetJenangGemiDiscountForm = () => {
+    jenangGemiStoreRefs.discountForm?.reset();
+    state.jenangGemiStore.activeDiscountId = '';
+    if (jenangGemiStoreRefs.discountForm?.elements.id) jenangGemiStoreRefs.discountForm.elements.id.value = '';
+    jenangGemiStoreRefs.discountForm?.querySelectorAll('[name="item_keys"]').forEach((input) => { input.checked = false; });
+  };
+  jenangGemiStoreRefs.itemTable?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-jg-edit-item]');
+    if (!(button instanceof HTMLElement) || !jenangGemiStoreRefs.itemForm) return;
+    const item = state.jenangGemiStore.items.find((candidate) => candidate.item_key === button.dataset.jgEditItem);
+    if (!item) return;
+    jenangGemiStoreRefs.itemForm.elements.item_key.value = item.item_key || '';
+    jenangGemiStoreRefs.itemForm.elements.sku.value = item.sku || '';
+    jenangGemiStoreRefs.itemForm.elements.price.value = Number(item.price || 0);
+    jenangGemiStoreRefs.itemForm.elements.is_active.checked = Number(item.is_active || 0) === 1;
+    jenangGemiStoreRefs.itemForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+  jenangGemiStoreRefs.itemForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const values = new FormData(form);
+    try {
+      await requestJson(jenangGemiStoreActionUrl('save_item'), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item_key: values.get('item_key'), sku: values.get('sku'), price: Number(values.get('price') || 0), is_active: values.get('is_active') === 'on' })
+      });
+      await loadJenangGemiStore();
+    } catch (error) { setJenangGemiStoreError(error.message); }
+  });
+  jenangGemiStoreRefs.discountReset?.addEventListener('click', resetJenangGemiDiscountForm);
+  jenangGemiStoreRefs.discountList?.addEventListener('click', async (event) => {
+    const edit = event.target.closest('[data-jg-edit-discount]');
+    const remove = event.target.closest('[data-jg-delete-discount]');
+    if (edit instanceof HTMLElement && jenangGemiStoreRefs.discountForm) {
+      const discount = state.jenangGemiStore.discounts.find((candidate) => Number(candidate.id) === Number(edit.dataset.jgEditDiscount));
+      if (!discount) return;
+      const form = jenangGemiStoreRefs.discountForm;
+      form.elements.id.value = discount.id;
+      form.elements.name.value = discount.name || '';
+      form.elements.discount_type.value = discount.discount_type || 'fixed';
+      form.elements.amount.value = Number(discount.amount || 0);
+      form.elements.starts_on.value = discount.starts_on || '';
+      form.elements.ends_on.value = discount.ends_on || '';
+      form.elements.is_active.checked = Number(discount.is_active || 0) === 1;
+      form.querySelectorAll('[name="item_keys"]').forEach((input) => { input.checked = (discount.item_keys || []).includes(input.value); });
+      return;
+    }
+    if (remove instanceof HTMLElement && window.confirm('Delete this Jenang Gemi discount group?')) {
+      try {
+        await requestJson(jenangGemiStoreActionUrl('delete_discount'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: Number(remove.dataset.jgDeleteDiscount) }) });
+        await loadJenangGemiStore();
+      } catch (error) { setJenangGemiStoreError(error.message); }
+    }
+  });
+  jenangGemiStoreRefs.discountForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const values = new FormData(form);
+    const itemKeys = Array.from(form.querySelectorAll('[name="item_keys"]:checked')).map((input) => input.value);
+    try {
+      await requestJson(jenangGemiStoreActionUrl('save_discount'), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+          id: Number(values.get('id') || 0), name: values.get('name'), discount_type: values.get('discount_type'), amount: Number(values.get('amount') || 0),
+          starts_on: values.get('starts_on'), ends_on: values.get('ends_on'), is_active: values.get('is_active') === 'on', item_keys: itemKeys
+        })
+      });
+      resetJenangGemiDiscountForm();
+      await loadJenangGemiStore();
+    } catch (error) { setJenangGemiStoreError(error.message); }
+  });
 
   document.querySelectorAll('[data-theme-toggle]').forEach((button) => {
     button.addEventListener('click', () => {
