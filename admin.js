@@ -1813,6 +1813,9 @@ document.addEventListener('DOMContentLoaded', () => {
       audit: [],
       loading: false
     },
+    marketplaceRefresh: {
+      loading: false
+    },
     liveSequence: -1,
     liveSource: null
   };
@@ -1878,6 +1881,8 @@ document.addEventListener('DOMContentLoaded', () => {
     rangeMonth: document.querySelector('[data-overview-range-month]'),
     rangePrev: document.querySelector('[data-overview-range-prev]'),
     rangeNext: document.querySelector('[data-overview-range-next]'),
+    refreshButton: document.querySelector('[data-overview-refresh]'),
+    refreshLabel: document.querySelector('[data-overview-refresh-label]'),
     lastUpdated: document.querySelector('[data-overview-last-updated]'),
     tableBody: document.querySelector('[data-overview-table-body]'),
     notes: document.querySelector('[data-overview-notes]'),
@@ -2834,6 +2839,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (options.refresh) {
       params.set('refresh', '1');
     }
+    return `${salesEndpoint}?${params.toString()}`;
+  };
+  const buildSalesRefreshUrl = (year) => {
+    const params = new URLSearchParams({
+      action: 'refresh',
+      year: String(year),
+      _ts: String(Date.now())
+    });
     return `${salesEndpoint}?${params.toString()}`;
   };
   const buildOrderFactsUrl = (startDate, endDate, options = {}) => {
@@ -4893,6 +4906,46 @@ document.addEventListener('DOMContentLoaded', () => {
       .catch(() => {});
   };
 
+  const refreshMarketplaceData = async () => {
+    if (state.marketplaceRefresh.loading) return;
+    state.marketplaceRefresh.loading = true;
+    if (overviewRefs.refreshButton) {
+      overviewRefs.refreshButton.disabled = true;
+      overviewRefs.refreshButton.classList.add('is-loading');
+      overviewRefs.refreshButton.setAttribute('aria-busy', 'true');
+    }
+    if (overviewRefs.refreshLabel) overviewRefs.refreshLabel.textContent = 'Refreshing…';
+    if (overviewRefs.lastUpdated) overviewRefs.lastUpdated.textContent = 'Syncing every marketplace account…';
+
+    try {
+      const data = await requestJson(buildSalesRefreshUrl(state.overview.year), {
+        method: 'POST',
+        timeoutMs: 110000
+      });
+      writeOverviewCache(state.overview.year, data);
+      renderOverview(data);
+      await refreshOverviewHourlyRows().catch(() => {});
+      if (overviewRefs.refreshLabel) overviewRefs.refreshLabel.textContent = 'Refreshed';
+      window.setTimeout(() => {
+        if (!state.marketplaceRefresh.loading && overviewRefs.refreshLabel) {
+          overviewRefs.refreshLabel.textContent = 'Refresh data';
+        }
+      }, 1800);
+    } catch (error) {
+      if (overviewRefs.refreshLabel) overviewRefs.refreshLabel.textContent = 'Try again';
+      if (overviewRefs.lastUpdated) {
+        overviewRefs.lastUpdated.textContent = `Refresh failed: ${error.message || 'Unable to sync marketplace data.'}`;
+      }
+    } finally {
+      state.marketplaceRefresh.loading = false;
+      if (overviewRefs.refreshButton) {
+        overviewRefs.refreshButton.disabled = false;
+        overviewRefs.refreshButton.classList.remove('is-loading');
+        overviewRefs.refreshButton.removeAttribute('aria-busy');
+      }
+    }
+  };
+
   const loadDaily = async () => {
     const requestToken = beginRequest('daily');
     const month = parseDailyMonth(state.daily.month);
@@ -5498,6 +5551,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (state.overview.data) renderOverview(state.overview.data);
     });
   });
+
+  overviewRefs.refreshButton?.addEventListener('click', refreshMarketplaceData);
 
   overviewRefs.volumeMetricButtons.forEach((button) => {
     button.addEventListener('click', () => {

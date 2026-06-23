@@ -122,6 +122,61 @@ if ($setupToken === '') {
 }
 
 $includeAudit = in_array(strtolower(trim((string) ($_GET['audit'] ?? $_GET['include_audit'] ?? ''))), ['1', 'true', 'yes', 'on'], true);
+$cacheKey = 'sales-summary-base-v3-' . $year . ($includeAudit ? '-audit' : '-core');
+
+if ($action === 'refresh') {
+    if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
+        header('Allow: POST');
+        http_response_code(405);
+        echo json_encode([
+            'ok' => false,
+            'error' => 'method_not_allowed',
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    $refresh = jg_sales_run_manual_refresh($setupToken, $year, $includeAudit);
+    if (empty($refresh['ok']) || !is_array($refresh['payload'] ?? null)) {
+        http_response_code((int) ($refresh['status'] ?? 502));
+        echo json_encode([
+            'ok' => false,
+            'error' => (string) ($refresh['error'] ?? 'marketplace_refresh_failed'),
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    $decoded = $refresh['payload'];
+    $syncDetails = is_array($decoded['sync'] ?? null) ? $decoded['sync'] : [];
+    unset($decoded['sync']);
+    $decoded = jg_sales_enrich_with_sku_db($decoded, $year);
+    jg_sales_remove_customer_paid_fields($decoded);
+    $baseEncoded = json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if (!is_string($baseEncoded)) {
+        http_response_code(500);
+        echo json_encode([
+            'ok' => false,
+            'error' => 'marketplace_refresh_encoding_failed',
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    jg_sales_cache_write($cacheKey, $baseEncoded);
+    $prepared = json_decode(jg_sales_prepare_cached_response($baseEncoded, $year, $includeAudit), true);
+    if (!is_array($prepared)) {
+        $prepared = $decoded;
+    }
+    $prepared['manual_refresh'] = [
+        'ok' => true,
+        'completed_at' => gmdate(DATE_ATOM),
+        'stored' => (int) ($syncDetails['stored'] ?? 0),
+        'accounts_checked' => (int) ($syncDetails['status']['accounts_checked'] ?? count($syncDetails['accounts'] ?? [])),
+        'accounts_ok' => (int) ($syncDetails['status']['accounts_ok'] ?? 0),
+    ];
+    header('X-JG-Cache: MANUAL-REFRESH');
+    echo json_encode($prepared, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 $urlParams = [
     'setup_token' => $setupToken,
     'year' => (string) $year,
@@ -131,7 +186,6 @@ if ($includeAudit) {
 }
 $url = jg_dashboard_marketplace_api_base_url() . '/sales/summary?' . http_build_query($urlParams);
 
-$cacheKey = 'sales-summary-base-v3-' . $year . ($includeAudit ? '-audit' : '-core');
 $forceRefresh = (string) ($_GET['refresh'] ?? '') === '1';
 $cachedResponse = $forceRefresh ? null : jg_sales_cache_read($cacheKey, 0);
 if (is_string($cachedResponse)) {
@@ -343,6 +397,84 @@ function jg_sales_cache_read(string $key, int $ttlSeconds): ?string
 function jg_sales_cache_write(string $key, string $payload): void
 {
     @file_put_contents(jg_sales_cache_path($key), $payload, LOCK_EX);
+}
+
+/**
+ * @return array{ok:bool,status:int,error?:string,payload?:array<string,mixed>}
+ */
+function jg_sales_run_manual_refresh(string $setupToken, int $year, bool $includeAudit): array
+{
+    $lock = @fopen(sys_get_temp_dir() . '/jg-dashboard-marketplace-refresh.lock', 'c+');
+    if (!is_resource($lock)) {
+        return [
+            'ok' => false,
+            'status' => 500,
+            'error' => 'marketplace_refresh_lock_unavailable',
+        ];
+    }
+    if (!@flock($lock, LOCK_EX | LOCK_NB)) {
+        fclose($lock);
+        return [
+            'ok' => false,
+            'status' => 409,
+            'error' => 'marketplace_refresh_in_progress',
+        ];
+    }
+
+    try {
+        @set_time_limit(110);
+        $params = [
+            'setup_token' => $setupToken,
+            'mode' => 'rolling',
+            'year' => (string) $year,
+        ];
+        if ($includeAudit) {
+            $params['audit'] = '1';
+        }
+        $url = jg_dashboard_marketplace_api_base_url() . '/sales/sync?' . http_build_query($params);
+        $context = stream_context_create([
+            'http' => [
+                'method' => 'GET',
+                'timeout' => 95,
+                'header' => "Accept: application/json\r\nUser-Agent: Jenang-Gemi-Executive-Dashboard/1.0\r\n",
+                'ignore_errors' => true,
+            ],
+        ]);
+        $response = @file_get_contents($url, false, $context);
+        if (!is_string($response) || $response === '') {
+            return [
+                'ok' => false,
+                'status' => 502,
+                'error' => 'marketplace_refresh_unreachable',
+            ];
+        }
+
+        $status = 200;
+        foreach (($http_response_header ?? []) as $headerLine) {
+            if (preg_match('#^HTTP/\S+\s+(\d{3})#', (string) $headerLine, $matches)) {
+                $status = (int) ($matches[1] ?? 200);
+                break;
+            }
+        }
+        $decoded = json_decode($response, true);
+        if ($status >= 400 || !is_array($decoded) || empty($decoded['ok'])) {
+            error_log('Manual marketplace refresh rejected with HTTP ' . $status);
+            return [
+                'ok' => false,
+                'status' => $status >= 400 ? $status : 502,
+                'error' => 'marketplace_refresh_rejected',
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'status' => 200,
+            'payload' => $decoded,
+        ];
+    } finally {
+        @flock($lock, LOCK_UN);
+        fclose($lock);
+    }
 }
 
 /**

@@ -11,6 +11,7 @@ Private admin dashboard for `admin.jenanggemi.com`.
 - `/sku-db/new/`
 - `/logout/`
 - `/api/analytics/`
+- `/api/sales/` (authenticated summary; `POST ?action=refresh` runs a rolling marketplace sync)
 - `/api/api-health/`
 - `/api/profit-loss/`
 - `/api/sku-db/`
