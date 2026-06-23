@@ -8544,6 +8544,18 @@ body::after {
   padding-block: 0;
 }
 
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-notification-button {
+  height: var(--admin-topbar-control-height);
+  min-height: var(--admin-topbar-control-height);
+  padding: 3px 13px 3px 4px;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-notification-button-icon {
+  width: 34px;
+  height: 34px;
+  flex-basis: 34px;
+}
+
 .admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-shell {
   position: relative;
   flex: 0 0 auto;
