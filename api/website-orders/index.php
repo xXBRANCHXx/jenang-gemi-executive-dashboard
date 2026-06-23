@@ -46,7 +46,7 @@ function jg_website_orders_body(): array
 
 function jg_website_orders_require_token(): void
 {
-    $token = jg_website_config('JG_STORE_OPS_WEBSITE_TOKEN', 'store_ops_website_token');
+    $token = jg_website_store_ops_token();
     if (jg_website_token_matches($token)) {
         return;
     }
