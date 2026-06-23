@@ -53,6 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const buildParams = (extra = {}) => {
     const params = new URLSearchParams();
+    params.set('view', 'store-ops');
     if (refs.dateFrom?.value) params.set('date_from', refs.dateFrom.value);
     if (refs.dateTo?.value) params.set('date_to', refs.dateTo.value);
     const employees = selectedEmployees();
@@ -208,7 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
   refs.reset?.addEventListener('click', () => {
     refs.form?.reset();
     setStatusFilter('');
-    window.history.replaceState(null, '', window.location.pathname);
+    window.history.replaceState(null, '', `${window.location.pathname}?view=store-ops`);
     employeesRendered = false;
     load().catch(() => {});
   });
@@ -237,6 +238,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (refs.query instanceof HTMLInputElement) refs.query.value = params.get('q') || '';
     setStatusFilter(params.get('status') || '');
   };
+
+  window.addEventListener('jg-store-ops-refresh', () => {
+    initializeFromUrl();
+    load().catch((error) => {
+      if (refs.status) refs.status.textContent = 'Error';
+      if (refs.tableBody) refs.tableBody.innerHTML = `<tr><td colspan="9" class="admin-empty">${escapeHtml(error.message)}</td></tr>`;
+    });
+  });
 
   applyTheme();
   initializeFromUrl();

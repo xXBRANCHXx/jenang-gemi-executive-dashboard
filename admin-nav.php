@@ -59,14 +59,6 @@ function render_admin_sidebar(string $activeSection = ''): void
             'aria' => 'Open SKU database',
         ],
         [
-            'key' => 'store-ops',
-            'href' => '../store-ops/',
-            'label' => 'Store Ops',
-            'icon' => 'admin-rail-icon-store-ops',
-            'icon_text' => 'OPS',
-            'aria' => 'Open Store Ops fulfillment dashboard',
-        ],
-        [
             'key' => 'profit-loss',
             'href' => '../profit-loss/',
             'label' => 'P&L',

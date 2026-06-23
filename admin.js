@@ -239,7 +239,8 @@ const JENANG_GEMI_SEARCH_INDEX = [
     title: 'Store Ops Fulfillment',
     section: 'Admin',
     description: 'Search employee orders, fulfilled orders, active claims, scan errors, and order timelines.',
-    url: '../store-ops/',
+    url: '../dashboard/?view=store-ops',
+    view: 'store-ops',
     keywords: ['store ops', 'employee orders', 'fulfilled orders', 'order id', 'scan errors', 'claims', 'fulfillment']
   },
   {
@@ -767,9 +768,13 @@ document.addEventListener('DOMContentLoaded', () => {
     campaigns: 'home',
     overview: 'overview',
     executive: 'overview',
-    homepage: 'overview'
+    homepage: 'overview',
+    ops: 'store-ops',
+    'store-ops': 'store-ops',
+    store_ops: 'store-ops',
+    fulfillment: 'store-ops'
   };
-  const validViews = new Set(['overview', 'home', 'website', 'settings']);
+  const validViews = new Set(['overview', 'home', 'website', 'store-ops', 'settings']);
   const normalizeDashboardView = (value) => {
     const normalized = String(value || '').trim().toLowerCase();
     const aliased = viewAliases[normalized] || normalized;
@@ -972,7 +977,8 @@ document.addEventListener('DOMContentLoaded', () => {
           title: `Search Store Ops for "${query.trim()}"`,
           section: 'Admin',
           description: 'Open Store Ops fulfillment logs filtered to this order ID.',
-          url: `../store-ops/?q=${encodeURIComponent(query.trim())}`,
+          url: `../dashboard/?view=store-ops&q=${encodeURIComponent(query.trim())}`,
+          view: 'store-ops',
           score: 7
         }]
       : [];
@@ -1153,12 +1159,14 @@ document.addEventListener('DOMContentLoaded', () => {
       overview: 'Home',
       home: 'Campaigns Dashboard',
       website: 'Official Website Dashboard',
+      'store-ops': 'Ops',
       settings: 'Settings'
     };
     const navSectionByView = {
       overview: 'home',
       home: 'campaigns',
       website: 'website',
+      'store-ops': 'home',
       settings: 'settings'
     };
     viewPanels.forEach((panel) => {
@@ -1803,6 +1811,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       return;
     }
+    if (state.activeView === 'store-ops') {
+      return;
+    }
     if (state.activeView === 'settings') {
       await loadWebsiteSettings();
     }
@@ -1870,6 +1881,9 @@ document.addEventListener('DOMContentLoaded', () => {
       showWebsiteSelector();
       return true;
     }
+    if (state.activeView === 'store-ops') {
+      return true;
+    }
     if (state.activeView === 'settings') {
       return loadWebsiteSettingsSafely();
     }
@@ -1891,6 +1905,9 @@ document.addEventListener('DOMContentLoaded', () => {
     closeMenu();
     renderJenangGemiSearchResults(searchInput?.value || '');
     await loadActiveViewSafely();
+    if (state.activeView === 'store-ops') {
+      window.dispatchEvent(new CustomEvent('jg-store-ops-refresh'));
+    }
   };
 
   const closeLiveStream = () => {
