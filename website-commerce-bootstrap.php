@@ -1177,7 +1177,7 @@ function jg_website_activation_payload(array $state): array
         'enabled' => true,
         'activated_at' => $state['activated_at_iso'] ?? jg_website_atom((string) ($state['activated_at'] ?? '')),
         'activated_by' => (string) ($state['activated_by'] ?? ''),
-        'sources' => array_keys(JG_WEBSITE_PLATFORMS),
+        'sources' => array_merge(array_keys(JG_WEBSITE_PLATFORMS), ['shopee', 'tiktok']),
     ];
 }
 
@@ -1246,13 +1246,16 @@ function jg_hard_set_deliver_outbox(PDO $pdo): void
         return;
     }
     $base = rtrim(jg_website_config('JG_STORE_OPS_BASE_URL', 'store_ops_base_url'), '/');
+    $marketplaceBase = jg_dashboard_marketplace_api_base_url();
     $token = jg_website_store_ops_token();
-    if ($base === '' || $token === '') {
+    if ($base === '' || $marketplaceBase === '' || $token === '') {
         return;
     }
     try {
         $payload = json_decode((string) $row['payload_json'], true);
-        jg_website_http_json('POST', $base . '/api/website-orders/?action=activate', is_array($payload) ? $payload : [], $token);
+        $payload = is_array($payload) ? $payload : [];
+        jg_website_http_json('POST', $base . '/api/website-orders/?action=activate', $payload, $token);
+        jg_website_http_json('POST', $marketplaceBase . '/hard-set/activate', $payload, $token);
         $pdo->prepare(
             'UPDATE hard_set_outbox SET status = "delivered", attempts = attempts + 1, last_error = "", delivered_at = :delivered_at WHERE id = :id'
         )->execute([':delivered_at' => jg_website_now(), ':id' => $row['id']]);
@@ -1332,13 +1335,31 @@ function jg_hard_set_readiness(PDO $analyticsPdo, PDO $skuPdo): array
         $storeOpsDetail = $storeOpsReady ? 'Authenticated Store Ops endpoint responded' : 'Store Ops endpoint did not authenticate or respond';
     }
     $add('store_ops', 'Store Ops connectivity', $storeOpsReady, $storeOpsDetail);
+    $marketplaceBase = jg_dashboard_marketplace_api_base_url();
+    $marketplaceReady = false;
+    $marketplaceDetail = 'API Ingest endpoint or token missing';
+    if ($marketplaceBase !== '' && $storeOpsToken !== '') {
+        $context = stream_context_create(['http' => [
+            'method' => 'GET',
+            'header' => "Accept: application/json\r\nAuthorization: Bearer {$storeOpsToken}\r\n",
+            'timeout' => 4,
+            'ignore_errors' => true,
+        ]]);
+        $raw = @file_get_contents($marketplaceBase . '/hard-set/state', false, $context);
+        $decoded = is_string($raw) ? json_decode($raw, true) : null;
+        $marketplaceReady = is_array($decoded) && !empty($decoded['ok']);
+        $marketplaceDetail = $marketplaceReady
+            ? 'Authenticated API Ingest Hard Set endpoint responded'
+            : 'API Ingest Hard Set endpoint did not authenticate or respond';
+    }
+    $add('marketplace_fulfillment', 'Marketplace fulfillment connectivity', $marketplaceReady, $marketplaceDetail);
     $labelDir = jg_website_label_directory();
     $labelParent = jg_website_nearest_existing_directory($labelDir);
     $add('label_storage', 'Label storage', is_dir($labelParent) && is_writable($labelParent), 'Private path: ' . $labelDir);
 
     $grouped = [];
     foreach (JG_WEBSITE_PLATFORMS as $platform => $label) {
-        $keys = [$platform . '_webhook', $platform . '_catalog', 'stock_access', 'metrics_sync', 'store_ops', 'label_storage'];
+        $keys = [$platform . '_webhook', $platform . '_catalog', 'stock_access', 'metrics_sync', 'store_ops', 'marketplace_fulfillment', 'label_storage'];
         $sourceChecks = array_values(array_filter($checks, static fn (array $check): bool => in_array($check['key'], $keys, true)));
         $grouped[$platform] = [
             'label' => $label,
