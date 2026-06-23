@@ -236,6 +236,13 @@ const JENANG_GEMI_SEARCH_INDEX = [
     keywords: ['sku', 'database', 'branch', 'approval', 'inventory']
   },
   {
+    title: 'Store Ops Fulfillment',
+    section: 'Admin',
+    description: 'Search employee orders, fulfilled orders, active claims, scan errors, and order timelines.',
+    url: '../store-ops/',
+    keywords: ['store ops', 'employee orders', 'fulfilled orders', 'order id', 'scan errors', 'claims', 'fulfillment']
+  },
+  {
     title: 'Partner Portal',
     section: 'Partner',
     description: 'Live partner-facing portal.',
@@ -956,11 +963,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const normalized = normalizeSearchText(query);
     if (!normalized) return [];
     const tokens = normalized.split(/\s+/).filter(Boolean);
-    return JENANG_GEMI_SEARCH_INDEX
+    const staticResults = JENANG_GEMI_SEARCH_INDEX
       .map((entry) => ({ ...entry, score: scoreSearchEntry(entry, tokens) }))
       .filter((entry) => entry.score > 0)
-      .sort((a, b) => b.score - a.score || a.title.localeCompare(b.title))
-      .slice(0, 8);
+      .sort((a, b) => b.score - a.score || a.title.localeCompare(b.title));
+    const dynamicResults = /[a-z0-9._-]*\d[a-z0-9._-]*/i.test(normalized) && normalized.length >= 5
+      ? [{
+          title: `Search Store Ops for "${query.trim()}"`,
+          section: 'Admin',
+          description: 'Open Store Ops fulfillment logs filtered to this order ID.',
+          url: `../store-ops/?q=${encodeURIComponent(query.trim())}`,
+          score: 7
+        }]
+      : [];
+    return [...dynamicResults, ...staticResults].slice(0, 8);
   };
 
   const renderJenangGemiSearchResults = (query) => {

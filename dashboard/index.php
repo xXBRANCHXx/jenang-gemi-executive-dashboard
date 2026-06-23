@@ -111,6 +111,10 @@ $dashboardBuildVersion = 'exec3.48.0';
                                     <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3.5h12v17H6z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg></span>
                                     <span><strong>Orders</strong><small>Monthly marketplace order facts</small></span>
                                 </a>
+                                <a class="admin-menu-item admin-link-btn" href="../store-ops/">
+                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h16"/><path d="M17 10l3 2-3 2"/></svg></span>
+                                    <span><strong>Store Ops</strong><small>Fulfillment claims, scans, prints, and employee timelines</small></span>
+                                </a>
                                 <a class="admin-menu-item admin-link-btn" href="../back-dash/">
                                     <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5H5v14h14v-3"/><path d="M11 13 20 4M14 4h6v6"/></svg></span>
                                     <span><strong>Open Context</strong><small>API ingest and webhook workspace</small></span>
