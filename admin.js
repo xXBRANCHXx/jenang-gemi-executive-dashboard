@@ -349,6 +349,14 @@ const JENANG_GEMI_SEARCH_INDEX = [
     keywords: ['settings', 'theme', 'device exclusions', 'security', 'lock']
   },
   {
+    title: 'Store Ops Fulfillment',
+    section: 'Admin',
+    description: 'Search employee orders, fulfilled orders, active claims, scan errors, and order timelines.',
+    url: '../dashboard/?view=store-ops',
+    view: 'store-ops',
+    keywords: ['store ops', 'ops', 'employee orders', 'fulfilled orders', 'order id', 'scan errors', 'claims', 'fulfillment']
+  },
+  {
     title: 'Affiliate Program Dashboard',
     section: 'Admin',
     description: 'Affiliate performance control room.',
@@ -1645,10 +1653,14 @@ document.addEventListener('DOMContentLoaded', () => {
     daily: 'daily',
     day: 'daily',
     'daily-report': 'daily',
+    ops: 'store-ops',
+    'store-ops': 'store-ops',
+    store_ops: 'store-ops',
+    fulfillment: 'store-ops',
     context: 'context',
     'open-context': 'context'
   };
-  const validViews = new Set(['overview', 'orders', 'daily', 'context', 'home', 'website', 'settings']);
+  const validViews = new Set(['overview', 'orders', 'daily', 'store-ops', 'context', 'home', 'website', 'settings']);
   const normalizeDashboardView = (value) => {
     const normalized = String(value || '').trim().toLowerCase();
     const aliased = viewAliases[normalized] || normalized;
@@ -2044,11 +2056,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const normalized = normalizeSearchText(query);
     if (!normalized) return [];
     const tokens = normalized.split(/\s+/).filter(Boolean);
-    return JENANG_GEMI_SEARCH_INDEX
+    const staticResults = JENANG_GEMI_SEARCH_INDEX
       .map((entry) => ({ ...entry, score: scoreSearchEntry(entry, tokens) }))
       .filter((entry) => entry.score > 0)
-      .sort((a, b) => b.score - a.score || a.title.localeCompare(b.title))
-      .slice(0, 8);
+      .sort((a, b) => b.score - a.score || a.title.localeCompare(b.title));
+    const dynamicResults = /[a-z0-9._-]*\d[a-z0-9._-]*/i.test(normalized) && normalized.length >= 5
+      ? [{
+          title: `Search Store Ops for "${query.trim()}"`,
+          section: 'Admin',
+          description: 'Open Store Ops fulfillment logs filtered to this order ID.',
+          url: `../dashboard/?view=store-ops&q=${encodeURIComponent(query.trim())}`,
+          view: 'store-ops',
+          score: 7
+        }]
+      : [];
+    return [...dynamicResults, ...staticResults].slice(0, 8);
   };
 
   const renderJenangGemiSearchResults = (query) => {
@@ -2471,6 +2493,7 @@ document.addEventListener('DOMContentLoaded', () => {
       overview: 'Home',
       orders: 'Orders',
       daily: 'Daily',
+      'store-ops': 'Ops',
       context: 'Open Context',
       home: 'Campaigns Dashboard',
       website: 'Official Website Dashboard',
@@ -2480,6 +2503,7 @@ document.addEventListener('DOMContentLoaded', () => {
       overview: 'home',
       orders: 'orders',
       daily: '',
+      'store-ops': 'orders',
       context: 'home',
       home: 'campaigns',
       website: 'website',
@@ -4936,6 +4960,9 @@ document.addEventListener('DOMContentLoaded', () => {
       await loadDaily();
       return;
     }
+    if (state.activeView === 'store-ops') {
+      return;
+    }
     if (state.activeView === 'context') {
       await loadContext();
       return;
@@ -5010,6 +5037,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (state.activeView === 'daily') {
       return loadDailySafely();
     }
+    if (state.activeView === 'store-ops') {
+      return true;
+    }
     if (state.activeView === 'context') {
       try {
         await loadContext();
@@ -5070,6 +5100,9 @@ document.addEventListener('DOMContentLoaded', () => {
     closeMenu();
     renderJenangGemiSearchResults(searchInput?.value || '');
     await loadActiveViewSafely();
+    if (state.activeView === 'store-ops') {
+      window.dispatchEvent(new CustomEvent('jg-store-ops-refresh'));
+    }
   };
 
   const navigateSearchResult = async (entry) => {
@@ -5097,9 +5130,9 @@ document.addEventListener('DOMContentLoaded', () => {
     closeSearchResults({ clear: true });
 
     if (isCurrentDashboard && requestedView) {
-      await switchView(requestedView);
       const nextPath = `${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`;
       window.history.replaceState(null, '', nextPath || targetUrl.pathname);
+      await switchView(requestedView);
       return;
     }
 
