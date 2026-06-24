@@ -789,7 +789,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     tableBody.innerHTML = rows.map((row) => `
       <tr>
-        <td><strong>${escapeHtml(row.sku || '')}</strong></td>
+        <td>
+          <button
+            type="button"
+            class="admin-sku-tag-copy"
+            data-copy-sku="${escapeHtml(row.sku || '')}"
+            aria-label="Copy SKU ${escapeHtml(row.sku || '')}"
+          >${escapeHtml(row.sku || '')}</button>
+        </td>
         <td>
           <button
             type="button"
@@ -819,7 +826,18 @@ document.addEventListener('DOMContentLoaded', () => {
         <td>${escapeHtml(row.current_stock ?? row.starting_stock ?? 0)}</td>
         <td>${escapeHtml(row.stock_trigger ?? 0)}</td>
         <td>${escapeHtml(row.cogs ?? 0)}</td>
-        <td>${escapeHtml(row.sale_price ?? 0)}</td>
+        <td>
+          <input
+            type="number"
+            class="admin-sku-cell-input admin-sku-sale-price-input"
+            data-inline-sale-price="${escapeHtml(row.sku || '')}"
+            data-current-sale-price="${escapeHtml(row.sale_price ?? 0)}"
+            min="0"
+            step="0.01"
+            value="${escapeHtml(row.sale_price ?? 0)}"
+            aria-label="Sale price for SKU ${escapeHtml(row.sku || '')}"
+          >
+        </td>
         <td>
           <div class="admin-sku-row-menu" data-sku-row-menu>
             <button
@@ -924,6 +942,46 @@ document.addEventListener('DOMContentLoaded', () => {
     state.requests = payload.requests || state.requests;
     renderAll();
     return payload;
+  };
+
+  const normalizeSalePriceInput = (value) => {
+    const amount = Number(String(value ?? '').trim());
+    if (!Number.isFinite(amount) || amount < 0) return null;
+    return amount.toFixed(2);
+  };
+
+  const saveInlineSalePrice = async (input) => {
+    const sku = input.dataset.inlineSalePrice || '';
+    if (!sku || input.dataset.salePriceSaving === '1') return;
+
+    const previousValue = input.dataset.currentSalePrice || '0.00';
+    const nextValue = normalizeSalePriceInput(input.value);
+    if (nextValue === null) {
+      input.value = previousValue;
+      showCopyMessage('Sale price must be zero or higher.', true, 'center');
+      return;
+    }
+
+    input.value = nextValue;
+    if (nextValue === normalizeSalePriceInput(previousValue)) return;
+
+    input.dataset.salePriceSaving = '1';
+    input.disabled = true;
+
+    try {
+      await postAction({
+        action: 'change_sale_price',
+        sku,
+        sale_price: nextValue
+      });
+      showCopyMessage(`Sale price saved for ${sku}.`, false, 'center');
+    } catch (error) {
+      input.value = previousValue;
+      showCopyMessage(error instanceof Error ? error.message : 'Unable to change sale price.', true, 'center');
+    } finally {
+      input.disabled = false;
+      delete input.dataset.salePriceSaving;
+    }
   };
 
   const bindMasterForm = (selector, buildBody) => {
@@ -1275,6 +1333,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const target = event.target instanceof Element ? event.target : null;
     if (!target) return;
 
+    const copySkuButton = target.closest('[data-copy-sku]');
+    if (copySkuButton instanceof HTMLButtonElement) {
+      closeSkuRowMenus();
+      const sku = copySkuButton.dataset.copySku || '';
+      if (!sku) return;
+
+      try {
+        await copyTextToClipboard(sku);
+        showCopyMessage(`Copied SKU: ${sku}`, false, 'center');
+      } catch (_error) {
+        showCopyMessage('Unable to copy SKU.', true, 'center');
+      }
+      return;
+    }
+
     const copyTagButton = target.closest('[data-copy-sku-tag]');
     if (copyTagButton instanceof HTMLButtonElement) {
       closeSkuRowMenus();
@@ -1353,6 +1426,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   tableBody?.addEventListener('change', async (event) => {
     const target = event.target instanceof Element ? event.target : null;
+    const salePriceInput = target?.closest('[data-inline-sale-price]');
+    if (salePriceInput instanceof HTMLInputElement) {
+      await saveInlineSalePrice(salePriceInput);
+      return;
+    }
+
     const skipScanInput = target?.closest('[data-change-skip-scan]');
     if (!(skipScanInput instanceof HTMLInputElement) || role !== 'branch') return;
 
@@ -1373,6 +1452,32 @@ document.addEventListener('DOMContentLoaded', () => {
       setError(requestError, error instanceof Error ? error.message : 'Unable to update Skip Scan.');
     } finally {
       skipScanInput.disabled = false;
+    }
+  });
+
+  tableBody?.addEventListener('focusin', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    const salePriceInput = target?.closest('[data-inline-sale-price]');
+    if (salePriceInput instanceof HTMLInputElement) {
+      salePriceInput.select();
+    }
+  });
+
+  tableBody?.addEventListener('keydown', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    const salePriceInput = target?.closest('[data-inline-sale-price]');
+    if (!(salePriceInput instanceof HTMLInputElement)) return;
+
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      void saveInlineSalePrice(salePriceInput);
+      salePriceInput.blur();
+    }
+
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      salePriceInput.value = salePriceInput.dataset.currentSalePrice || '0.00';
+      salePriceInput.blur();
     }
   });
 

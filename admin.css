@@ -3334,6 +3334,12 @@ button, input {
   border-radius: 12px;
 }
 
+.admin-sku-sale-price-input {
+  max-width: 120px;
+  min-width: 96px;
+  padding: 8px 10px;
+}
+
 .admin-modal-shell {
   position: fixed;
   inset: 0;
