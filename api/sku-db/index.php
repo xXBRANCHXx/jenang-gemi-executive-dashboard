@@ -652,6 +652,7 @@ function jg_sku_fetch_database(PDO $pdo): array
             s.inventory_mode,
             s.skip_scan,
             s.cogs,
+            s.sale_price,
             s.created_at,
             s.updated_at
         FROM sku_skus s
@@ -700,6 +701,7 @@ function jg_sku_fetch_database(PDO $pdo): array
             'inventory_mode' => (string) ($row['inventory_mode'] ?? 'auto'),
             'skip_scan' => (int) ($row['skip_scan'] ?? 0) === 1,
             'cogs' => number_format((float) $row['cogs'], 2, '.', ''),
+            'sale_price' => number_format((float) ($row['sale_price'] ?? 0), 2, '.', ''),
             'cogs_history' => $history,
             'created_at' => (string) ($row['created_at'] ?? ''),
             'updated_at' => (string) ($row['updated_at'] ?? ''),
@@ -744,6 +746,7 @@ function jg_sku_create_sku(PDO $pdo, array $payload, ?int $approvalRequestId = n
     $startingStock = jg_sku_integer($payload['starting_stock'] ?? null, 'Starting stock');
     $stockTrigger = jg_sku_integer($payload['stock_trigger'] ?? null, 'Stock trigger');
     $cogs = jg_sku_optional_money($payload['cogs'] ?? null);
+    $salePrice = jg_sku_optional_money($payload['sale_price'] ?? null, 'Sale price');
     $poNumber = jg_sku_po_number($payload['po_number'] ?? null, false);
 
     $parts = jg_sku_compose_code($pdo, $brandId, $unitId, $volumeInput, $flavorId, $productId);
@@ -754,11 +757,11 @@ function jg_sku_create_sku(PDO $pdo, array $payload, ?int $approvalRequestId = n
     $stmt = $pdo->prepare(
         'INSERT INTO sku_skus (
             sku, tag, brand_id, unit_id, volume, astra, flavor_id, product_id,
-            starting_stock, current_stock, stock_trigger, inventory_mode, skip_scan, cogs,
+            starting_stock, current_stock, stock_trigger, inventory_mode, skip_scan, cogs, sale_price,
             approval_request_id, created_at, updated_at
         ) VALUES (
             :sku, :tag, :brand_id, :unit_id, :volume, :astra, :flavor_id, :product_id,
-            :starting_stock, :current_stock, :stock_trigger, "auto", 0, :cogs,
+            :starting_stock, :current_stock, :stock_trigger, "auto", 0, :cogs, :sale_price,
             :approval_request_id, :created_at, :updated_at
         )'
     );
@@ -775,6 +778,7 @@ function jg_sku_create_sku(PDO $pdo, array $payload, ?int $approvalRequestId = n
         ':current_stock' => $startingStock,
         ':stock_trigger' => $stockTrigger,
         ':cogs' => $cogs,
+        ':sale_price' => $salePrice,
         ':approval_request_id' => $approvalRequestId,
         ':created_at' => $now,
         ':updated_at' => $now,
@@ -1042,6 +1046,7 @@ try {
             'starting_stock' => $request['starting_stock'] ?? null,
             'stock_trigger' => $request['stock_trigger'] ?? null,
             'cogs' => $request['cogs'] ?? null,
+            'sale_price' => $request['sale_price'] ?? null,
             'po_number' => $request['po_number'] ?? null,
         ], $requestId);
 
@@ -1131,6 +1136,31 @@ try {
 
         jg_sku_touch_version($pdo);
         $pdo->commit();
+        jg_sku_response($pdo);
+    }
+
+    if ($action === 'change_sale_price') {
+        $sku = trim((string) ($request['sku'] ?? ''));
+        if ($sku === '') {
+            jg_sku_fail('SKU is required.');
+        }
+
+        $salePrice = jg_sku_money($request['sale_price'] ?? null, 'Sale price');
+
+        $stmt = $pdo->prepare('SELECT sku FROM sku_skus WHERE sku = :sku LIMIT 1');
+        $stmt->execute([':sku' => $sku]);
+        if ($stmt->fetchColumn() === false) {
+            jg_sku_fail('SKU not found.', 404);
+        }
+
+        $updateStmt = $pdo->prepare('UPDATE sku_skus SET sale_price = :sale_price, updated_at = :updated_at WHERE sku = :sku');
+        $updateStmt->execute([
+            ':sale_price' => $salePrice,
+            ':updated_at' => jg_sku_now(),
+            ':sku' => $sku,
+        ]);
+
+        jg_sku_touch_version($pdo);
         jg_sku_response($pdo);
     }
 

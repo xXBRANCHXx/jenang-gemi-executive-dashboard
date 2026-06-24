@@ -256,6 +256,10 @@ $pageBuildVersion = 'sku1.00.00';
                                 <input type="number" name="cogs" min="0" step="0.01" placeholder="Add later from invoice import">
                             </label>
                             <label>
+                                <span>Sale Price (Optional)</span>
+                                <input type="number" name="sale_price" min="0" step="0.01" placeholder="Add later">
+                            </label>
+                            <label>
                                 <span>Opening PO Number (Optional)</span>
                                 <input type="text" name="po_number" maxlength="80" placeholder="Add later from invoice import">
                             </label>
@@ -418,11 +422,12 @@ $pageBuildVersion = 'sku1.00.00';
                                 <th>Stock</th>
                                 <th>Trigger</th>
                                 <th>COGS</th>
+                                <th>Sale Price</th>
                                 <th>Action</th>
                             </tr>
                             </thead>
                             <tbody data-sku-table-body>
-                            <tr><td colspan="13" class="admin-empty">No SKUs yet.</td></tr>
+                            <tr><td colspan="14" class="admin-empty">No SKUs yet.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -466,6 +471,34 @@ $pageBuildVersion = 'sku1.00.00';
                 </div>
             </form>
             <p class="admin-form-error" data-cogs-error hidden></p>
+        </div>
+    </div>
+
+    <div class="admin-modal-shell" data-sale-price-modal hidden>
+        <div class="admin-modal-backdrop" data-close-sale-price-modal></div>
+        <div class="admin-modal-card">
+            <div class="admin-panel-head admin-modal-head">
+                <div>
+                    <span class="admin-panel-kicker">Sale Price</span>
+                    <h3>Change SKU sale price</h3>
+                </div>
+            </div>
+            <form class="admin-sku-form-grid" data-sale-price-form>
+                <input type="hidden" name="sku">
+                <label>
+                    <span>SKU</span>
+                    <input type="text" name="sku_display" readonly>
+                </label>
+                <label>
+                    <span>Sale Price</span>
+                    <input type="number" name="sale_price" min="0" step="0.01" required>
+                </label>
+                <div class="admin-sku-actions">
+                    <button type="submit" class="admin-primary-btn">Save Sale Price</button>
+                    <button type="button" class="admin-ghost-btn" data-close-sale-price-modal>Cancel</button>
+                </div>
+            </form>
+            <p class="admin-form-error" data-sale-price-error hidden></p>
         </div>
     </div>
 
@@ -650,6 +683,10 @@ $pageBuildVersion = 'sku1.00.00';
                     <label>
                         <span>Opening COGS (Optional)</span>
                         <input type="number" name="cogs" min="0" step="0.01" placeholder="Add later from invoice import">
+                    </label>
+                    <label>
+                        <span>Sale Price (Optional)</span>
+                        <input type="number" name="sale_price" min="0" step="0.01" placeholder="Add later">
                     </label>
                     <label>
                         <span>Opening PO Number (Optional)</span>

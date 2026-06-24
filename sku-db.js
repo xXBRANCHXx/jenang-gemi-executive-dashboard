@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const setupError = document.querySelector('[data-setup-error]');
   const applyError = document.querySelector('[data-apply-error]');
   const cogsError = document.querySelector('[data-cogs-error]');
+  const salePriceError = document.querySelector('[data-sale-price-error]');
   const productNameError = document.querySelector('[data-product-name-error]');
   const astraError = document.querySelector('[data-astra-error]');
   const inventoryError = document.querySelector('[data-inventory-error]');
@@ -31,6 +32,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const requestForm = document.querySelector('[data-request-form]');
   const cogsModal = document.querySelector('[data-cogs-modal]');
   const cogsForm = document.querySelector('[data-cogs-form]');
+  const salePriceModal = document.querySelector('[data-sale-price-modal]');
+  const salePriceForm = document.querySelector('[data-sale-price-form]');
   const productNameModal = document.querySelector('[data-product-name-modal]');
   const productNameForm = document.querySelector('[data-product-name-form]');
   const astraModal = document.querySelector('[data-astra-modal]');
@@ -198,8 +201,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     const columns = [
       { label: 'SKU', width: 75, value: (row) => row.sku, chars: 14 },
-      { label: 'TAG', width: 110, value: (row) => row.tag, chars: 23 },
-      { label: 'Product Name', width: 120, value: (row) => row.product_name, chars: 26 },
+      { label: 'TAG', width: 100, value: (row) => row.tag, chars: 21 },
+      { label: 'Product Name', width: 110, value: (row) => row.product_name, chars: 24 },
       { label: 'Brand', width: 80, value: (row) => row.brand_name, chars: 17 },
       { label: 'Flavor', width: 70, value: (row) => row.flavor_name, chars: 15 },
       { label: 'Unit', width: 50, value: (row) => row.unit_name, chars: 10 },
@@ -207,7 +210,8 @@ document.addEventListener('DOMContentLoaded', () => {
       { label: 'ASTRA', width: 40, value: (row) => row.astra ?? '', chars: 8 },
       { label: 'Stock', width: 40, value: (row) => row.current_stock ?? row.starting_stock ?? 0, chars: 8 },
       { label: 'Trigger', width: 40, value: (row) => row.stock_trigger ?? 0, chars: 8 },
-      { label: 'COGS', width: 70, value: (row) => row.cogs ?? 0, chars: 13 }
+      { label: 'COGS', width: 60, value: (row) => row.cogs ?? 0, chars: 11 },
+      { label: 'Sale', width: 65, value: (row) => row.sale_price ?? 0, chars: 12 }
     ];
     const tableWidth = columns.reduce((total, column) => total + column.width, 0);
 
@@ -714,7 +718,8 @@ document.addEventListener('DOMContentLoaded', () => {
         row.product_name,
         row.flavor_name,
         row.unit_name,
-        row.astra
+        row.astra,
+        row.sale_price
       ].join(' ').toLowerCase();
 
       return haystack.includes(search);
@@ -778,7 +783,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const rows = filteredSkus();
 
     if (!rows.length) {
-      tableBody.innerHTML = `<tr><td colspan="13" class="admin-empty">${state.database.skus.length ? 'No SKUs match the current filters.' : 'No approved SKUs yet.'}</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="14" class="admin-empty">${state.database.skus.length ? 'No SKUs match the current filters.' : 'No approved SKUs yet.'}</td></tr>`;
       return;
     }
 
@@ -814,6 +819,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <td>${escapeHtml(row.current_stock ?? row.starting_stock ?? 0)}</td>
         <td>${escapeHtml(row.stock_trigger ?? 0)}</td>
         <td>${escapeHtml(row.cogs ?? 0)}</td>
+        <td>${escapeHtml(row.sale_price ?? 0)}</td>
         <td>
           <div class="admin-sku-row-menu" data-sku-row-menu>
             <button
@@ -828,6 +834,7 @@ document.addEventListener('DOMContentLoaded', () => {
               ${role === 'branch' ? `<button type="button" class="admin-menu-item" data-change-astra="${escapeHtml(row.sku || '')}">ASTRA</button>` : ''}
               <button type="button" class="admin-menu-item" data-change-inventory="${escapeHtml(row.sku || '')}">Inventory</button>
               <button type="button" class="admin-menu-item" data-change-cogs="${escapeHtml(row.sku || '')}">COGS</button>
+              <button type="button" class="admin-menu-item" data-change-sale-price="${escapeHtml(row.sku || '')}">Sale Price</button>
               ${role === 'branch' ? `<button type="button" class="admin-menu-item admin-menu-item-danger" data-delete-sku="${escapeHtml(row.sku || '')}">Delete SKU</button>` : ''}
             </div>
           </div>
@@ -948,6 +955,13 @@ document.addEventListener('DOMContentLoaded', () => {
     setError(cogsError, '');
   };
 
+  const closeSalePriceModal = () => {
+    if (!salePriceModal) return;
+    salePriceModal.hidden = true;
+    salePriceForm?.reset();
+    setError(salePriceError, '');
+  };
+
   const closeProductNameModal = () => {
     if (!productNameModal) return;
     productNameModal.hidden = true;
@@ -984,6 +998,18 @@ document.addEventListener('DOMContentLoaded', () => {
     syncCogsFields();
     setError(cogsError, '');
     cogsModal.hidden = false;
+  };
+
+  const openSalePriceModal = (sku) => {
+    if (!(salePriceForm instanceof HTMLFormElement) || !salePriceModal) return;
+    const row = state.database.skus.find((item) => item.sku === sku);
+    if (!row) return;
+
+    salePriceForm.elements.sku.value = row.sku || '';
+    salePriceForm.elements.sku_display.value = row.sku || '';
+    salePriceForm.elements.sale_price.value = String(row.sale_price ?? 0);
+    setError(salePriceError, '');
+    salePriceModal.hidden = false;
   };
 
   const openProductNameModal = (sku) => {
@@ -1071,6 +1097,7 @@ document.addEventListener('DOMContentLoaded', () => {
     approvalForm.elements.stock_trigger.value = '0';
     approvalForm.elements.astra.value = request.astra || request.volume || '';
     approvalForm.elements.cogs.value = '';
+    approvalForm.elements.sale_price.value = '';
     approvalForm.elements.po_number.value = '';
     approvalForm.elements.decision_notes.value = '';
 
@@ -1175,6 +1202,7 @@ document.addEventListener('DOMContentLoaded', () => {
         starting_stock: applyData.get('starting_stock'),
         stock_trigger: applyData.get('stock_trigger'),
         cogs: applyData.get('cogs'),
+        sale_price: applyData.get('sale_price'),
         po_number: String(applyData.get('po_number') || '').toUpperCase()
       });
 
@@ -1303,6 +1331,13 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    const salePriceButton = target.closest('[data-change-sale-price]');
+    if (salePriceButton instanceof HTMLButtonElement) {
+      closeSkuRowMenus();
+      openSalePriceModal(salePriceButton.dataset.changeSalePrice || '');
+      return;
+    }
+
     const deleteButton = target.closest('[data-delete-sku]');
     if (!(deleteButton instanceof HTMLButtonElement)) return;
     closeSkuRowMenus();
@@ -1404,6 +1439,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  salePriceForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!(salePriceForm instanceof HTMLFormElement)) return;
+    setError(salePriceError, '');
+
+    try {
+      const formData = new window.FormData(salePriceForm);
+      await postAction({
+        action: 'change_sale_price',
+        sku: formData.get('sku'),
+        sale_price: formData.get('sale_price')
+      });
+      closeSalePriceModal();
+    } catch (error) {
+      setError(salePriceError, error instanceof Error ? error.message : 'Unable to change sale price.');
+    }
+  });
+
   productNameForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (!(productNameForm instanceof HTMLFormElement)) return;
@@ -1494,6 +1547,7 @@ document.addEventListener('DOMContentLoaded', () => {
         stock_trigger: formData.get('stock_trigger'),
         astra: formData.get('astra'),
         cogs: formData.get('cogs'),
+        sale_price: formData.get('sale_price'),
         po_number: String(formData.get('po_number') || '').toUpperCase(),
         decision_notes: formData.get('decision_notes')
       });
@@ -1505,6 +1559,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.querySelectorAll('[data-close-cogs-modal]').forEach((button) => {
     button.addEventListener('click', closeCogsModal);
+  });
+
+  document.querySelectorAll('[data-close-sale-price-modal]').forEach((button) => {
+    button.addEventListener('click', closeSalePriceModal);
   });
 
   document.querySelectorAll('[data-close-product-name-modal]').forEach((button) => {
