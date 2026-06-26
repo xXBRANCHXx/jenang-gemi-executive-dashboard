@@ -595,20 +595,6 @@
   gap: 0;
 }
 
-.partner-profile-loading {
-  display: grid;
-  gap: 10px;
-  width: min(520px, 100%);
-  padding: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.partner-profile-loading strong {
-  font-size: 1.15rem;
-}
-
 .partner-profile-editor {
   display: grid;
   gap: 16px;

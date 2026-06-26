@@ -38,12 +38,6 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
 
             <div class="admin-shell-main">
                 <main class="admin-layout partner-profile-page">
-                    <div class="partner-profile-loading" data-profile-loading>
-                        <span class="admin-chip admin-chip-accent">Partner Profile</span>
-                        <strong>Loading partner profile</strong>
-                        <span>Preparing live SKU access, password status, and pricing controls.</span>
-                    </div>
-
                     <p class="admin-form-error partner-profile-error" data-profile-error hidden></p>
 
                     <form class="partner-profile-editor" data-profile-form hidden>
