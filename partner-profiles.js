@@ -13,6 +13,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const partnerForm = document.querySelector('[data-partner-form]');
   const partnerFormError = document.querySelector('[data-partner-form-error]');
   const partnerSiteOrigin = 'https://partner.jenanggemi.com';
+  const partnerNameInput = document.querySelector('[data-partner-name-input]');
+  const partnerSlugInput = document.querySelector('[data-partner-slug-input]');
+  const partnerPasswordInput = document.querySelector('[data-partner-password-input]');
+  const partnerPreviewName = document.querySelector('[data-partner-preview-name]');
+  const partnerPreviewSlug = document.querySelector('[data-partner-preview-slug]');
+  const partnerPreviewPassword = document.querySelector('[data-partner-preview-password]');
+  const partnerCreateStage = document.querySelector('[data-partner-create-stage]');
+  const partnerCreateReady = document.querySelector('[data-partner-create-ready]');
 
   const brandChoiceGrid = document.querySelector('[data-brand-choice-grid]');
   const productChoiceGrid = document.querySelector('[data-product-choice-grid]');
@@ -44,7 +52,8 @@ document.addEventListener('DOMContentLoaded', () => {
       products: ''
     },
     activeStep: 'brands',
-    activeProductId: ''
+    activeProductId: '',
+    slugManuallyEdited: false
   };
 
   const stepOrder = ['brands', 'products'];
@@ -54,6 +63,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const bytes = new Uint32Array(14);
     window.crypto.getRandomValues(bytes);
     return Array.from(bytes, (value) => alphabet[value % alphabet.length]).join('');
+  };
+
+  const slugify = (value) => String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 160);
+
+  const updateCreatePreview = () => {
+    const name = partnerNameInput?.value.trim() || 'New partner';
+    const slug = partnerSlugInput?.value.trim() || slugify(name);
+    const passwordReady = Boolean(partnerPasswordInput?.value.trim());
+
+    if (partnerPreviewName) partnerPreviewName.textContent = name;
+    if (partnerPreviewSlug) partnerPreviewSlug.textContent = slug ? `/${slug}/` : '/';
+    if (partnerPreviewPassword) partnerPreviewPassword.textContent = passwordReady ? 'Password ready' : 'Password pending';
   };
 
   const escapeHtml = (value) => String(value)
@@ -199,6 +225,9 @@ document.addEventListener('DOMContentLoaded', () => {
         indicator.classList.toggle('is-complete', index < stepOrder.indexOf(state.activeStep));
       }
     });
+    if (partnerCreateStage) {
+      partnerCreateStage.textContent = state.activeStep === 'products' ? 'Access' : 'Brand';
+    }
   };
 
   const renderBrands = () => {
@@ -313,6 +342,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (skuSummary) {
       skuSummary.textContent = String(skuRecords.length);
+    }
+    if (partnerCreateReady) {
+      partnerCreateReady.textContent = `${skuRecords.length} SKU${skuRecords.length === 1 ? '' : 's'}`;
     }
 
     if (!selectedSkuList) return;
@@ -481,8 +513,10 @@ document.addEventListener('DOMContentLoaded', () => {
     state.pricing = {};
     state.activeProductId = '';
     state.activeStep = 'brands';
+    state.slugManuallyEdited = false;
     setError('');
     renderSelectionUi();
+    updateCreatePreview();
   };
 
   const openPartnerModal = () => {
@@ -492,8 +526,30 @@ document.addEventListener('DOMContentLoaded', () => {
     state.pricing = {};
     state.activeStep = 'brands';
     state.activeProductId = '';
+    state.slugManuallyEdited = false;
+    if (partnerForm instanceof HTMLFormElement) {
+      partnerForm.reset();
+      partnerForm.elements.portal_password.value = generatePortalPassword();
+    }
     renderSelectionUi();
+    updateCreatePreview();
+    partnerNameInput?.focus();
   };
+
+  partnerNameInput?.addEventListener('input', () => {
+    if (!state.slugManuallyEdited && partnerSlugInput instanceof HTMLInputElement) {
+      partnerSlugInput.value = slugify(partnerNameInput.value);
+    }
+    updateCreatePreview();
+  });
+
+  partnerSlugInput?.addEventListener('input', () => {
+    state.slugManuallyEdited = true;
+    partnerSlugInput.value = slugify(partnerSlugInput.value);
+    updateCreatePreview();
+  });
+
+  partnerPasswordInput?.addEventListener('input', updateCreatePreview);
 
   document.querySelectorAll('[data-open-partner-modal]').forEach((button) => {
     button.addEventListener('click', openPartnerModal);
@@ -668,6 +724,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelector('[data-generate-portal-password]')?.addEventListener('click', () => {
     if (!(partnerForm instanceof HTMLFormElement)) return;
     partnerForm.elements.portal_password.value = generatePortalPassword();
+    updateCreatePreview();
   });
 
   loadPartners().catch((error) => {
