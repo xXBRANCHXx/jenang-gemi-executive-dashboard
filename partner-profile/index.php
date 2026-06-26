@@ -37,30 +37,6 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
             <?php render_admin_sidebar('partner'); ?>
 
             <div class="admin-shell-main">
-                <header class="admin-topbar">
-                    <div class="admin-topbar-brand">
-                        <span class="admin-chip">Partner Profile</span>
-                        <h1>Edit Partner Profile</h1>
-                        <p>Update the partner name, portal path, and exact live SKU access here.</p>
-                    </div>
-                    <div class="admin-topbar-actions">
-                        <div class="admin-view-indicator">Partner Profile</div>
-                        <div class="admin-menu-shell" data-menu-shell>
-                            <button type="button" class="admin-ghost-btn admin-menu-trigger" data-menu-trigger aria-expanded="false" aria-label="Open dashboard menu">...</button>
-                            <div class="admin-menu-panel" data-menu-panel hidden>
-                                <a class="admin-menu-item admin-link-btn" href="../dashboard/?view=overview" data-dashboard-view-link="overview">Executive Sales Overview</a>
-                                <a class="admin-menu-item admin-link-btn" href="../dashboard/?view=campaigns" data-dashboard-view-link="home">Campaigns Dashboard</a>
-                                <a class="admin-menu-item admin-link-btn" href="../dashboard/?view=website" data-dashboard-view-link="website">Official Website Dashboard</a>
-                                <a class="admin-menu-item admin-link-btn" href="../back-dash/">API Ingest Workspace</a>
-                                <a class="admin-menu-item admin-link-btn" href="../partner-program/">Partner Program Dashboard</a>
-                                <a class="admin-menu-item admin-link-btn" href="../partner-profiles/">Partner Profiles</a>
-                                <button type="button" class="admin-menu-item" data-theme-toggle>Toggle Theme</button>
-                                <a class="admin-menu-item admin-link-btn" href="../logout/">Lock Dashboard</a>
-                            </div>
-                        </div>
-                    </div>
-                </header>
-
                 <main class="admin-layout partner-profile-page">
                     <div class="partner-profile-loading" data-profile-loading>
                         <span class="admin-chip admin-chip-accent">Partner Profile</span>
