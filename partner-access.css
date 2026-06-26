@@ -591,6 +591,427 @@
   }
 }
 
+.partner-profiles-page {
+  gap: 14px;
+}
+
+.partner-directory-toolbar {
+  display: grid;
+  grid-template-columns: auto minmax(220px, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.026);
+}
+
+.partner-directory-title,
+.partner-directory-actions,
+.partner-directory-row-actions,
+.partner-directory-row-stats,
+.partner-directory-brand-strip {
+  display: flex;
+  align-items: center;
+}
+
+.partner-directory-title {
+  gap: 10px;
+  min-width: 0;
+}
+
+.partner-directory-title span {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.partner-directory-title strong {
+  display: grid;
+  place-items: center;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #fff;
+  color: #000;
+  font-size: 14px;
+}
+
+.partner-directory-search {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.partner-directory-search span,
+.partner-directory-metrics span,
+.partner-directory-list-head,
+.partner-directory-partner span,
+.partner-directory-row-stats small {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.partner-directory-search input {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.25);
+  color: #fff;
+  font: inherit;
+  outline: none;
+}
+
+.partner-directory-search input:focus {
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.partner-directory-actions,
+.partner-directory-row-actions {
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.partner-directory-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.partner-directory-metrics div {
+  display: grid;
+  gap: 4px;
+  min-height: 74px;
+  padding: 13px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.022);
+}
+
+.partner-directory-metrics strong {
+  color: #fff;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.partner-directory-shell {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.partner-directory-list-head,
+.partner-directory-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.2fr) minmax(170px, 0.75fr) minmax(190px, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.partner-directory-list-head {
+  min-height: 40px;
+  padding: 0 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.partner-directory-list {
+  display: grid;
+}
+
+.partner-directory-row {
+  min-height: 76px;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.065);
+}
+
+.partner-directory-row:last-child {
+  border-bottom: 0;
+}
+
+.partner-directory-partner {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.partner-directory-partner strong,
+.partner-directory-partner span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.partner-directory-partner strong {
+  color: #fff;
+  font-size: 15px;
+}
+
+.partner-directory-row-stats {
+  gap: 8px;
+}
+
+.partner-directory-row-stats > span {
+  display: grid;
+  min-width: 70px;
+  gap: 3px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.partner-directory-row-stats strong {
+  color: #fff;
+  font-size: 16px;
+}
+
+.partner-directory-brand-strip {
+  gap: 6px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.partner-directory-brand-strip span {
+  max-width: 120px;
+  overflow: hidden;
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-partner-modal] .admin-modal-card-partner {
+  padding: 18px;
+  border-radius: 18px;
+}
+
+[data-partner-modal] .admin-affiliate-form {
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.partner-create-head {
+  min-height: 44px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.partner-create-head > span {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.partner-create-identity {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+[data-partner-modal] .admin-affiliate-form label {
+  gap: 7px;
+}
+
+[data-partner-modal] .admin-affiliate-form label span,
+.partner-access-search span,
+.partner-access-question-index {
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+[data-partner-modal] .admin-affiliate-form input[type='text'],
+.partner-access-search input,
+.partner-pricing-row input {
+  min-height: 42px;
+  padding: 0 12px;
+  border-radius: 10px;
+}
+
+.partner-access-shell {
+  gap: 10px;
+}
+
+.partner-access-steps {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(120px, 1fr));
+  gap: 4px;
+  width: min(360px, 100%);
+  padding: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.026);
+}
+
+.partner-access-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+}
+
+.partner-access-step.is-active {
+  background: #fff;
+  box-shadow: none;
+}
+
+.partner-access-step.is-complete {
+  border-color: transparent;
+}
+
+.partner-access-step-index {
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  border-color: currentColor;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 11px;
+}
+
+.partner-access-step .partner-access-step-index {
+  margin: 0;
+}
+
+.partner-access-step strong {
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 13px;
+}
+
+.partner-access-step.is-active .partner-access-step-index,
+.partner-access-step.is-active strong {
+  color: #000;
+}
+
+.partner-access-card,
+.partner-access-summary-card,
+.partner-pricing-editor {
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.024);
+}
+
+.partner-access-card,
+.partner-pricing-editor {
+  padding: 12px;
+}
+
+.partner-access-choice-grid,
+.partner-access-search {
+  margin-top: 10px;
+}
+
+.partner-access-choice-body {
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.026);
+}
+
+.partner-access-choice:hover .partner-access-choice-body {
+  background: rgba(255, 255, 255, 0.045);
+  transform: none;
+}
+
+.partner-access-choice input:checked + .partner-access-choice-body,
+.partner-product-row.has-selection,
+.partner-sku-choice:has(input:checked) {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.partner-product-pane,
+.partner-sku-pane,
+.partner-product-row,
+.partner-sku-choice,
+.partner-pricing-row {
+  background: rgba(255, 255, 255, 0.024);
+}
+
+.partner-product-row.is-active {
+  border-color: rgba(255, 255, 255, 0.36);
+  box-shadow: inset 3px 0 0 #fff;
+}
+
+.partner-sku-pane-head {
+  background: rgba(255, 255, 255, 0.052);
+}
+
+.partner-access-summary-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.partner-access-summary-card {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+}
+
+.partner-access-summary-card span {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.partner-access-summary-card strong {
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.partner-pricing-row {
+  border-radius: 10px;
+}
+
+@media (max-width: 1080px) {
+  .partner-directory-toolbar,
+  .partner-directory-list-head,
+  .partner-directory-row {
+    grid-template-columns: 1fr;
+  }
+
+  .partner-directory-list-head {
+    display: none;
+  }
+
+  .partner-directory-actions,
+  .partner-directory-row-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 720px) {
+  .partner-directory-metrics,
+  .partner-create-identity,
+  .partner-access-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .partner-directory-toolbar {
+    align-items: stretch;
+  }
+
+  .partner-directory-actions,
+  .partner-directory-row-actions {
+    display: grid;
+  }
+}
+
 .partner-profile-page {
   gap: 0;
 }

@@ -4,6 +4,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const endpoint = root.dataset.partnersEndpoint || '../api/partners/';
   const partnerList = document.querySelector('[data-partner-list]');
+  const partnerSearch = document.querySelector('[data-partner-search]');
+  const partnerCount = document.querySelector('[data-partner-count]');
+  const partnerBrandTotal = document.querySelector('[data-partner-brand-total]');
+  const partnerProductTotal = document.querySelector('[data-partner-product-total]');
+  const partnerSkuTotal = document.querySelector('[data-partner-sku-total]');
   const partnerModal = document.querySelector('[data-partner-modal]');
   const partnerForm = document.querySelector('[data-partner-form]');
   const partnerFormError = document.querySelector('[data-partner-form-error]');
@@ -34,6 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
     },
     pricing: {},
     search: {
+      partners: '',
       brands: '',
       products: ''
     },
@@ -107,6 +113,33 @@ document.addEventListener('DOMContentLoaded', () => {
   const filteredProducts = () => selectedBrandRecords()
     .flatMap((brand) => (brand.products || []).map((product) => ({ ...product, brand_id: brand.id, brand_name: brand.name })));
 
+  const partnerBrands = (partner = {}) => Array.isArray(partner.companies) ? partner.companies : [];
+
+  const partnerProductEntries = (partner = {}) => Object.entries(partner.product_access || {})
+    .flatMap(([brand, products]) => Object.entries(products || {}).map(([product, config]) => ({
+      brand,
+      product,
+      sizes: Array.isArray(config?.sizes) ? config.sizes : []
+    })));
+
+  const partnerSkuRecords = (partner = {}) => Array.isArray(partner.selected_sku_records) ? partner.selected_sku_records : [];
+
+  const partnerMatchesDirectorySearch = (partner = {}) => {
+    const term = state.search.partners.trim().toLowerCase();
+    if (!term) return true;
+    const products = partnerProductEntries(partner);
+    const skus = partnerSkuRecords(partner);
+    const haystack = [
+      partner.name,
+      partner.code,
+      partner.store_path,
+      ...partnerBrands(partner),
+      ...products.flatMap((entry) => [entry.brand, entry.product, ...entry.sizes]),
+      ...skus.flatMap((sku) => [sku.sku, sku.label, sku.product_name])
+    ].join(' ').toLowerCase();
+    return haystack.includes(term);
+  };
+
   const visibleBrandSkus = () => {
     const allowedBrands = new Set(state.selections.brands);
     return catalogSkus().filter((sku) => allowedBrands.has(sku.brand_id));
@@ -175,7 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return [brand.name, brand.code].some((value) => matchesSearch(value, state.search.brands));
     });
     if (!brands.length) {
-      brandChoiceGrid.innerHTML = `<div class="partner-access-empty">${state.search.brands ? 'No brands match that search.' : 'No brands are available in the SKU database yet.'}</div>`;
+      brandChoiceGrid.innerHTML = `<div class="partner-access-empty">${state.search.brands ? 'No matches.' : 'No brands.'}</div>`;
       return;
     }
 
@@ -197,11 +230,11 @@ document.addEventListener('DOMContentLoaded', () => {
       return [product.display_name || product.name, product.name, product.brand_name, product.code].some((value) => matchesSearch(value, state.search.products));
     });
     if (!state.selections.brands.length) {
-      productChoiceGrid.innerHTML = '<div class="partner-access-empty">Select a brand first.</div>';
+      productChoiceGrid.innerHTML = '<div class="partner-access-empty">Select a brand.</div>';
       return;
     }
     if (!products.length) {
-      productChoiceGrid.innerHTML = `<div class="partner-access-empty">${state.search.products ? 'No products match that search.' : 'No products exist for the selected brand yet.'}</div>`;
+      productChoiceGrid.innerHTML = `<div class="partner-access-empty">${state.search.products ? 'No matches.' : 'No products.'}</div>`;
       return;
     }
 
@@ -231,7 +264,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }).join('')}
         </div>
         <div class="partner-sku-pane">
-          ${currentProduct ? renderSkuPane(currentProduct, selected) : '<div class="partner-access-empty">Select a product to open SKU choices.</div>'}
+          ${currentProduct ? renderSkuPane(currentProduct, selected) : '<div class="partner-access-empty">Select a product.</div>'}
         </div>
       </div>
     `;
@@ -273,18 +306,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const skuRecords = selectedSkuRecords();
 
     if (brandSummary) {
-      brandSummary.textContent = brands.length ? brands.map((brand) => brand.name).join(', ') : 'None selected';
+      brandSummary.textContent = String(brands.length);
     }
     if (productSummary) {
-      productSummary.textContent = products.length ? products.map((product) => `${product.brand_name} · ${product.name}`).join(', ') : 'None selected';
+      productSummary.textContent = String(products.length);
     }
     if (skuSummary) {
-      skuSummary.textContent = skuRecords.length ? `${skuRecords.length} SKU${skuRecords.length === 1 ? '' : 's'} selected` : 'None selected';
+      skuSummary.textContent = String(skuRecords.length);
     }
 
     if (!selectedSkuList) return;
     if (!skuRecords.length) {
-      selectedSkuList.innerHTML = '<div class="partner-access-empty">Selected SKUs will show here.</div>';
+      selectedSkuList.innerHTML = '<div class="partner-access-empty">No SKU links.</div>';
       return;
     }
 
@@ -308,7 +341,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!pricingList) return;
     const skuRecords = selectedSkuRecords();
     if (!skuRecords.length) {
-      pricingList.innerHTML = '<div class="partner-access-empty">Select products to create partner prices.</div>';
+      pricingList.innerHTML = '<div class="partner-access-empty">No prices.</div>';
       return;
     }
 
@@ -370,65 +403,73 @@ document.addEventListener('DOMContentLoaded', () => {
     updateGatedControls();
   };
 
-  const renderPartners = (partners) => {
+  const renderDirectoryTotals = (partners) => {
+    const brandNames = new Set();
+    const productNames = new Set();
+    let skuTotal = 0;
+
+    partners.forEach((partner) => {
+      partnerBrands(partner).forEach((brand) => brandNames.add(brand));
+      partnerProductEntries(partner).forEach((entry) => productNames.add(`${entry.brand}:${entry.product}`));
+      skuTotal += partnerSkuRecords(partner).length;
+    });
+
+    if (partnerCount) partnerCount.textContent = String(partners.length);
+    if (partnerBrandTotal) partnerBrandTotal.textContent = String(brandNames.size);
+    if (partnerProductTotal) partnerProductTotal.textContent = String(productNames.size);
+    if (partnerSkuTotal) partnerSkuTotal.textContent = String(skuTotal);
+  };
+
+  const renderPartners = (partners = state.partners) => {
     if (!partnerList) return;
-    if (!partners.length) {
-      partnerList.innerHTML = '<p class="admin-empty">No partners yet.</p>';
+    const visiblePartners = partners.filter(partnerMatchesDirectorySearch);
+    renderDirectoryTotals(visiblePartners);
+
+    if (!visiblePartners.length) {
+      partnerList.innerHTML = `<div class="admin-empty">${state.search.partners ? 'No matches.' : 'No partners.'}</div>`;
       return;
     }
 
-    partnerList.innerHTML = partners.map((partner) => `
-      <article class="admin-affiliate-card">
-        <div class="admin-affiliate-head">
-          <div>
-            <span class="admin-chip">${escapeHtml(partner.code || '')}</span>
-            <h4>${escapeHtml(partner.name || 'Partner')}</h4>
+    partnerList.innerHTML = visiblePartners.map((partner) => {
+      const brands = partnerBrands(partner);
+      const products = partnerProductEntries(partner);
+      const skus = partnerSkuRecords(partner);
+      const brandPreview = brands.slice(0, 3);
+      const extraBrands = Math.max(0, brands.length - brandPreview.length);
+      return `
+        <article class="partner-directory-row">
+          <div class="partner-directory-partner">
+            <strong>${escapeHtml(partner.name || 'Partner')}</strong>
+            <span>${escapeHtml(partner.code || '')}</span>
           </div>
-          <div class="admin-affiliate-actions">
-            <a class="admin-primary-btn admin-link-btn" href="../partner-profile/?code=${encodeURIComponent(partner.code || '')}">Edit Profile</a>
-            <a class="admin-ghost-btn admin-link-btn" href="${escapeHtml(`${partnerSiteOrigin}${partner.store_path || '/'}`)}" target="_blank" rel="noopener">Open Page</a>
+          <div class="partner-directory-row-stats">
+            <span><strong>${products.length}</strong><small>Products</small></span>
+            <span><strong>${skus.length}</strong><small>SKUs</small></span>
+          </div>
+          <div class="partner-directory-brand-strip">
+            ${brandPreview.length ? brandPreview.map((company) => `<span>${escapeHtml(company)}</span>`).join('') : '<span>None</span>'}
+            ${extraBrands ? `<span>+${extraBrands}</span>` : ''}
+          </div>
+          <div class="partner-directory-row-actions">
+            <a class="admin-primary-btn admin-link-btn" href="../partner-profile/?code=${encodeURIComponent(partner.code || '')}">Edit</a>
+            <a class="admin-ghost-btn admin-link-btn" href="${escapeHtml(`${partnerSiteOrigin}${partner.store_path || '/'}`)}" target="_blank" rel="noopener">Open</a>
             <button type="button" class="admin-danger-btn" data-delete-partner="${escapeHtml(partner.code || '')}" data-delete-name="${escapeHtml(partner.name || 'Partner')}">Delete</button>
           </div>
-        </div>
-        <div class="partner-profile-grid">
-          <div class="admin-affiliate-field">
-            <span class="admin-control-label">Brands</span>
-            <div class="admin-affiliate-platform-grid">
-              ${(partner.companies || []).map((company) => `<div class="admin-platform-choice"><span>${escapeHtml(company)}</span></div>`).join('')}
-            </div>
-          </div>
-          <div class="admin-affiliate-field">
-            <span class="admin-control-label">Products</span>
-            <div class="admin-affiliate-platform-grid">
-              ${Object.entries(partner.product_access || {}).flatMap(([brand, products]) => Object.entries(products || {}).map(([product, config]) => `
-                <div class="admin-platform-choice">
-                  <span>${escapeHtml(`${brand} · ${product}`)}</span>
-                  <small>${escapeHtml((config.sizes || []).join(', '))}</small>
-                </div>
-              `)).join('')}
-            </div>
-          </div>
-          <div class="admin-affiliate-field">
-            <span class="admin-control-label">Selected SKUs</span>
-            <div class="partner-access-tag-list">
-              ${(partner.selected_sku_records || []).map((sku) => `
-                <div class="partner-access-tag">
-                  <strong>${escapeHtml(sku.sku || '')}</strong>
-                  <span>${escapeHtml(sku.label || '')} · unit ${escapeHtml(formatCurrency(sku.partner_unit_price || 0))} · SKU ${escapeHtml(formatCurrency(sku.partner_price || 0))}</span>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-        </div>
-      </article>
-    `).join('');
+        </article>
+      `;
+    }).join('');
   };
+
+  partnerSearch?.addEventListener('input', () => {
+    state.search.partners = partnerSearch.value || '';
+    renderPartners();
+  });
 
   const loadPartners = async () => {
     const payload = await requestJson();
     state.partners = payload.database?.partners || [];
     state.skuCatalog = payload.sku_catalog || state.skuCatalog;
-    renderPartners(state.partners);
+    renderPartners();
     renderSelectionUi();
   };
 

@@ -36,62 +36,48 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
             <?php render_admin_sidebar('partner'); ?>
 
             <div class="admin-shell-main">
-                <header class="admin-topbar">
-                    <div class="admin-topbar-brand">
-                        <span class="admin-chip">Partner Profiles</span>
-                        <h1>Partner Profiles</h1>
-                        <p>Create partner records here and control which brands, products, and live SKUs they can access inside the partner portal.</p>
-                    </div>
-                    <div class="admin-topbar-actions">
-                        <div class="admin-view-indicator">Partner Profiles</div>
-                        <div class="admin-menu-shell" data-menu-shell>
-                            <button type="button" class="admin-ghost-btn admin-menu-trigger" data-menu-trigger aria-expanded="false" aria-label="Open dashboard menu">...</button>
-                            <div class="admin-menu-panel" data-menu-panel hidden>
-                                <a class="admin-menu-item admin-link-btn" href="../dashboard/?view=overview" data-dashboard-view-link="overview">Executive Sales Overview</a>
-                                <a class="admin-menu-item admin-link-btn" href="../dashboard/?view=campaigns" data-dashboard-view-link="home">Campaigns Dashboard</a>
-                                <a class="admin-menu-item admin-link-btn" href="../dashboard/?view=website" data-dashboard-view-link="website">Official Website Dashboard</a>
-                                <a class="admin-menu-item admin-link-btn" href="../back-dash/">API Ingest Workspace</a>
-                                <a class="admin-menu-item admin-link-btn" href="../partner-program/">Partner Program Dashboard</a>
-                                <a class="admin-menu-item admin-link-btn" href="../partner-profiles/">Partner Profiles</a>
-                                <button type="button" class="admin-menu-item" data-theme-toggle>Toggle Theme</button>
-                                <a class="admin-menu-item admin-link-btn" href="../logout/">Lock Dashboard</a>
-                            </div>
+                <main class="admin-layout partner-profiles-page">
+                    <section class="partner-directory-toolbar">
+                        <div class="partner-directory-title">
+                            <span>Partner Profiles</span>
+                            <strong data-partner-count>0</strong>
                         </div>
-                    </div>
-                </header>
+                        <label class="partner-directory-search">
+                            <span>Search</span>
+                            <input type="search" placeholder="Name, code, brand, SKU" data-partner-search>
+                        </label>
+                        <div class="partner-directory-actions">
+                            <a class="admin-ghost-btn admin-link-btn" href="../partner-program/">Partner Program</a>
+                            <button type="button" class="admin-primary-btn" data-open-partner-modal>Add Partner</button>
+                        </div>
+                    </section>
 
-                <main class="admin-layout">
-            <section class="admin-hero-panel">
-                <div class="admin-hero-copy">
-                    <span class="admin-chip admin-chip-accent">Profile Directory</span>
-                    <h2>Build partner access from the live SKU database, one question at a time.</h2>
-                    <p>Question 1 asks for brand. Question 2 narrows to products inside those brands. Question 3 lists the exact SKU names the partner can sell, and those selections can be changed later at any time.</p>
-                </div>
-                <div class="admin-hero-actions">
-                    <div class="admin-status-pill">
-                        <span class="admin-status-dot"></span>
-                        <span>Secure Session Active</span>
-                    </div>
-                    <button type="button" class="admin-primary-btn" data-open-partner-modal>Add Partner</button>
-                </div>
-            </section>
+                    <section class="partner-directory-metrics">
+                        <div>
+                            <strong data-partner-brand-total>0</strong>
+                            <span>Brands</span>
+                        </div>
+                        <div>
+                            <strong data-partner-product-total>0</strong>
+                            <span>Products</span>
+                        </div>
+                        <div>
+                            <strong data-partner-sku-total>0</strong>
+                            <span>SKU links</span>
+                        </div>
+                    </section>
 
-            <section class="admin-panel admin-panel-affiliates">
-                <div class="admin-panel-head">
-                    <div>
-                        <span class="admin-panel-kicker">Profile List</span>
-                        <h3>Partner profiles</h3>
-                    </div>
-                    <button type="button" class="admin-primary-btn" data-open-partner-modal>Add Partner</button>
-                </div>
-                <div class="admin-affiliate-list" data-partner-list>
-                    <p class="admin-empty">No partners yet.</p>
-                </div>
-            </section>
-
-            <div class="admin-bottom-actions">
-                <a class="admin-ghost-btn admin-link-btn" href="../partner-program/">Return To Partner Program</a>
-            </div>
+                    <section class="partner-directory-shell">
+                        <div class="partner-directory-list-head">
+                            <span>Partner</span>
+                            <span>Access</span>
+                            <span>Brands</span>
+                            <span></span>
+                        </div>
+                        <div class="partner-directory-list" data-partner-list>
+                            <div class="admin-empty">No partners.</div>
+                        </div>
+                    </section>
                 </main>
             </div>
         </div>
@@ -100,130 +86,114 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
     <div class="admin-modal-shell" data-partner-modal hidden>
         <div class="admin-modal-backdrop" data-close-partner-modal></div>
         <div class="admin-modal-card admin-modal-card-partner" role="dialog" aria-modal="true" aria-labelledby="partner-modal-title">
-            <div class="admin-modal-head">
-                <div>
-                    <span class="admin-panel-kicker">New Partner</span>
-                    <h3 id="partner-modal-title">Create partner profile</h3>
-                </div>
+            <div class="admin-modal-head partner-create-head">
+                <span id="partner-modal-title">Create partner</span>
                 <button type="button" class="admin-ghost-btn" data-close-partner-modal>Close</button>
             </div>
             <form class="admin-affiliate-form" data-partner-form>
-                <label>
-                    <span>Partner name</span>
-                    <input type="text" name="name" maxlength="160" placeholder="e.g. Rina Sulistyo" required>
-                </label>
-                <label>
-                    <span>Partner page slug</span>
-                    <input type="text" name="partner_slug" maxlength="160" placeholder="e.g. rina-sulistyo">
-                </label>
-                <label data-partner-locked-field>
-                    <span>Initial portal password</span>
-                    <div class="admin-inline-input">
-                        <input type="text" name="portal_password" maxlength="160" placeholder="Set or generate an initial password" autocomplete="new-password" required>
-                        <button type="button" class="admin-ghost-btn" data-generate-portal-password data-partner-gated-action>Generate Password</button>
-                    </div>
-                </label>
+                <section class="partner-create-identity">
+                    <label>
+                        <span>Name</span>
+                        <input type="text" name="name" maxlength="160" placeholder="Baggos" required>
+                    </label>
+                    <label>
+                        <span>Slug</span>
+                        <input type="text" name="partner_slug" maxlength="160" placeholder="baggosmedia">
+                    </label>
+                    <label>
+                        <span>Password</span>
+                        <div class="admin-inline-input">
+                            <input type="text" name="portal_password" maxlength="160" placeholder="Portal login password" autocomplete="new-password" required>
+                            <button type="button" class="admin-ghost-btn" data-generate-portal-password>Generate</button>
+                        </div>
+                    </label>
+                    <label>
+                        <span>Notes</span>
+                        <input type="text" name="notes" maxlength="300" placeholder="Optional">
+                    </label>
+                </section>
                 <section class="partner-access-shell" data-partner-access-shell>
-                    <div class="partner-access-intro">
-                        <span class="partner-access-intro-kicker">Catalog-Guided Setup</span>
-                        <h4>Answer two questions to build this partner.</h4>
-                        <p>The choices below come directly from the SKU database. Brand and product name are selected here, while SKU codes stay linked automatically in the backend.</p>
-                    </div>
                     <div class="partner-access-steps" data-partner-steps>
                         <article class="partner-access-step is-active" data-partner-step-indicator="brands">
                             <span class="partner-access-step-index">01</span>
                             <strong>Brand</strong>
-                            <span>Choose the brands from the live SKU database.</span>
                         </article>
                         <article class="partner-access-step" data-partner-step-indicator="products">
                             <span class="partner-access-step-index">02</span>
-                            <strong>Product</strong>
-                            <span>Pick products, then refine the SKU access.</span>
+                            <strong>Access</strong>
                         </article>
                     </div>
 
                     <section class="partner-access-card" data-partner-step-panel="brands">
                         <div class="partner-access-card-head">
                             <div>
-                                <span class="partner-access-question-index">Question 1 of 2</span>
-                                <h4>Select brand</h4>
-                                <p>Multiple choice. This list comes straight from the SKU database.</p>
+                                <span class="partner-access-question-index">Brands</span>
                             </div>
                         </div>
                         <label class="partner-access-search">
                             <span>Search brands</span>
-                            <input type="search" placeholder="Type to filter brands" data-brand-search>
+                            <input type="search" placeholder="Filter brands" data-brand-search>
                         </label>
                         <div class="partner-access-choice-grid" data-brand-choice-grid>
-                            <div class="partner-access-empty">Loading brands from the SKU database.</div>
+                            <div class="partner-access-empty">Loading brands.</div>
                         </div>
                         <div class="partner-access-actions">
-                            <span class="partner-access-inline-note">You can choose more than one brand.</span>
-                            <button type="button" class="admin-primary-btn" data-partner-next-step="products">Continue To Products</button>
+                            <button type="button" class="admin-primary-btn" data-partner-next-step="products">Continue</button>
                         </div>
                     </section>
 
                     <section class="partner-access-card" data-partner-step-panel="products" hidden>
                         <div class="partner-access-card-head">
                             <div>
-                                <span class="partner-access-question-index">Question 2 of 2</span>
-                                <h4>Select products and SKUs</h4>
-                                <p>Products are grouped by brand from the SKU database. Toggle a product to select all its SKUs, then deselect individual SKU records if needed.</p>
+                                <span class="partner-access-question-index">Products / SKUs</span>
                             </div>
                         </div>
                         <label class="partner-access-search">
                             <span>Search products</span>
-                            <input type="search" placeholder="Type to filter products" data-product-search>
+                            <input type="search" placeholder="Filter products" data-product-search>
                         </label>
                         <div class="partner-access-choice-grid" data-product-choice-grid>
-                            <div class="partner-access-empty">Select a brand first.</div>
+                            <div class="partner-access-empty">Select a brand.</div>
                         </div>
                         <div class="partner-access-actions">
                             <button type="button" class="admin-ghost-btn" data-partner-prev-step="brands">Back</button>
-                            <span class="partner-access-inline-note">Select at least one SKU to unlock Notes and Create Partner.</span>
                         </div>
                     </section>
 
                     <section class="partner-access-summary">
                         <div class="partner-access-summary-grid">
                             <article class="partner-access-summary-card">
-                                <strong>Brands</strong>
-                                <span data-partner-brand-summary>None selected</span>
+                                <span>Brands</span>
+                                <strong data-partner-brand-summary>0</strong>
                             </article>
                             <article class="partner-access-summary-card">
-                                <strong>Products</strong>
-                                <span data-partner-product-summary>None selected</span>
+                                <span>Products</span>
+                                <strong data-partner-product-summary>0</strong>
                             </article>
                             <article class="partner-access-summary-card">
-                                <strong>Backend SKU Links</strong>
-                                <span data-partner-sku-summary>None linked yet</span>
+                                <span>SKU links</span>
+                                <strong data-partner-sku-summary>0</strong>
                             </article>
                         </div>
                         <div class="partner-access-tag-list" data-partner-selected-skus>
-                            <div class="partner-access-empty">Linked backend SKU records will show here.</div>
+                            <div class="partner-access-empty">No SKU links.</div>
                         </div>
                     </section>
 
                     <section class="partner-pricing-editor">
                         <div class="partner-access-card-head">
                             <div>
-                                <span class="partner-access-question-index">Revenue pricing</span>
-                                <h4>Partner unit prices</h4>
-                                <p>Set the partner price per billable unit. SKU price is calculated from volume divided by the SKU ASTRA value.</p>
+                                <span class="partner-access-question-index">Pricing</span>
                             </div>
                         </div>
                         <div class="partner-pricing-list" data-partner-pricing-list>
-                            <div class="partner-access-empty">Select products to create partner prices.</div>
+                            <div class="partner-access-empty">No prices.</div>
                         </div>
                     </section>
                 </section>
-                <label data-partner-locked-field>
-                    <span>Notes</span>
-                    <input type="text" name="notes" maxlength="300" placeholder="Optional note">
-                </label>
                 <p class="admin-form-error" data-partner-form-error hidden></p>
                 <div class="admin-modal-actions">
-                    <button type="button" class="admin-ghost-btn" data-close-partner-modal data-partner-gated-action>Cancel</button>
+                    <button type="button" class="admin-ghost-btn" data-close-partner-modal>Cancel</button>
                     <button type="submit" class="admin-primary-btn" data-partner-gated-action>Create Partner</button>
                 </div>
             </form>
