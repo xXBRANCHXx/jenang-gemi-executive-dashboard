@@ -82,3 +82,26 @@ function jg_dashboard_partner_portal_url(string $path): string
 {
     return jg_dashboard_partner_portal_base_url() . '/' . ltrim($path, '/');
 }
+
+function jg_dashboard_marketplace_api_base_url(): string
+{
+    $config = jg_dashboard_load_local_config();
+
+    $baseUrl = jg_dashboard_env_value('JG_MARKETPLACE_API_BASE_URL')
+        ?: jg_dashboard_env_value('JG_API_INGEST_BASE_URL')
+        ?: trim((string) ($config['marketplace_api_base_url'] ?? ''))
+        ?: trim((string) ($config['api_ingest_base_url'] ?? ''))
+        ?: 'https://api.jenanggemi.com';
+
+    return rtrim($baseUrl, '/');
+}
+
+function jg_dashboard_marketplace_api_setup_token(): string
+{
+    $config = jg_dashboard_load_local_config();
+
+    return jg_dashboard_env_value('JG_MARKETPLACE_API_SETUP_TOKEN')
+        ?: jg_dashboard_env_value('JG_API_INGEST_SETUP_TOKEN')
+        ?: trim((string) ($config['marketplace_api_setup_token'] ?? ''))
+        ?: trim((string) ($config['api_ingest_setup_token'] ?? ''));
+}

@@ -18,7 +18,7 @@ $isAuthenticated = jg_admin_is_authenticated();
 $adminCssVersion = (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
-$dashboardBuildVersion = 'exec3.48.0';
+$dashboardBuildVersion = 'exec3.49.1';
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -70,13 +70,20 @@ $dashboardBuildVersion = 'exec3.48.0';
             <span class="admin-chip">Preparing Dashboard</span>
             <h2>Loading executive overview</h2>
             <p>Fetching analytics, rendering charts, and preparing the full interface before reveal.</p>
+            <div class="admin-loader-worm" aria-hidden="true">
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
             <div class="admin-loader-bar">
                 <span class="admin-loader-progress" data-admin-loader-progress></span>
             </div>
             <strong class="admin-loader-label" data-admin-loader-label>Initializing...</strong>
         </div>
     </div>
-    <div class="admin-app admin-app-suite" data-admin-dashboard data-analytics-endpoint="../api/analytics/" data-live-endpoint="../api/live/" data-settings-endpoint="../api/settings/" data-sales-endpoint="../api/sales/">
+    <div class="admin-app admin-app-suite" data-admin-dashboard data-analytics-endpoint="../api/analytics/" data-live-endpoint="../api/live/" data-settings-endpoint="../api/settings/" data-sales-endpoint="../api/sales/" data-sku-catalog-endpoint="../api/sales/?action=sku_catalog">
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
         <div class="admin-shell">
@@ -92,33 +99,57 @@ $dashboardBuildVersion = 'exec3.48.0';
                         </div>
                     </div>
                     <div class="admin-topbar-actions">
-                        <div class="admin-search-shell" data-dashboard-search-shell>
-                            <span class="admin-search-icon" aria-hidden="true">⌕</span>
-                            <form class="admin-search-form" data-dashboard-search-form role="search">
-                                <input type="search" class="admin-search-input" data-dashboard-search-input placeholder="Search all of Jenang Gemi" autocomplete="off">
+                        <div class="admin-search-shell admin-search-shell-topbar" data-dashboard-search-shell>
+                            <div class="admin-search-surface" aria-hidden="true">
+                                <div class="admin-search-surface-glow"></div>
+                                <div class="admin-search-topline"></div>
+                            </div>
+                            <div class="admin-search-sweep" aria-hidden="true"></div>
+                            <button type="button" class="admin-search-icon-button" data-dashboard-search-open aria-label="Open dashboard search" aria-expanded="false">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 4.5 4.5"/></svg>
+                            </button>
+                            <form class="admin-search-form" data-dashboard-search-form role="search" aria-label="Search Executive Dashboard">
+                                <input type="search" class="admin-search-input" data-dashboard-search-input placeholder="Search" autocomplete="off">
                             </form>
+                            <button type="button" class="admin-search-close-button" data-dashboard-search-close aria-label="Close dashboard search">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+                            </button>
+                            <div class="admin-search-focus-ring" aria-hidden="true"></div>
                             <div class="admin-search-results" data-dashboard-search-results hidden></div>
                         </div>
                         <div class="admin-menu-shell" data-menu-shell>
                             <button type="button" class="admin-ghost-btn admin-menu-trigger" data-menu-trigger aria-expanded="false" aria-label="Open dashboard menu">
-                                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+                                <svg class="admin-menu-open-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+                                <svg class="admin-menu-close-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
                             </button>
-                            <div class="admin-menu-panel" data-menu-panel hidden>
+                            <div class="admin-menu-panel" data-menu-panel aria-label="Executive Dashboard navigation" hidden>
                                 <button type="button" class="admin-menu-item" data-view-switch="overview">
                                     <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-6h5v6"/></svg></span>
                                     <span><strong>Home</strong><small>Executive sales overview</small></span>
                                 </button>
-                                <a class="admin-menu-item admin-link-btn" href="../dashboard/?view=overview#orders">
+                                <button type="button" class="admin-menu-item" data-view-switch="daily">
+                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3v4M17 3v4"/><path d="M4.5 8.5h15"/><path d="M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/><path d="M8 13h3M13 13h3M8 17h3M13 17h3"/></svg></span>
+                                    <span><strong>Daily</strong><small>Daily platform Qty and Rp</small></span>
+                                </button>
+                                <button type="button" class="admin-menu-item" data-orders-nav>
                                     <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3.5h12v17H6z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg></span>
                                     <span><strong>Orders</strong><small>Monthly marketplace order facts</small></span>
-                                </a>
-                                <a class="admin-menu-item admin-link-btn" href="../back-dash/">
-                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5H5v14h14v-3"/><path d="M11 13 20 4M14 4h6v6"/></svg></span>
-                                    <span><strong>Open Context</strong><small>API ingest and webhook workspace</small></span>
-                                </a>
+                                </button>
+                                <button type="button" class="admin-menu-item" data-view-switch="home">
+                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 19V5"/><path d="M4 6h11l-.8 4 3.8 2H4"/><path d="M4 12h13"/></svg></span>
+                                    <span><strong>Campaigns</strong><small>Landing-page analytics</small></span>
+                                </button>
                                 <button type="button" class="admin-menu-item" data-view-switch="website">
                                     <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.4 3.8 5.4 3.8 9S14.5 18.6 12 21c-2.5-2.4-3.8-5.4-3.8-9S9.5 5.4 12 3z"/></svg></span>
                                     <span><strong>Official Website Dashboard</strong><small>Site traffic and conversion analytics</small></span>
+                                </button>
+                                <a class="admin-menu-item admin-link-btn" href="../back-dash/">
+                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5H5v14h14v-3"/><path d="M11 13 20 4M14 4h6v6"/></svg></span>
+                                    <span><strong>API Workspace</strong><small>Ingest and webhook controls</small></span>
+                                </a>
+                                <button type="button" class="admin-menu-item" data-view-switch="settings">
+                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19.4 15a1.8 1.8 0 0 0 .4 2l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.8 1.8 0 0 0-2-.4 1.8 1.8 0 0 0-1 1.6V21a2 2 0 0 1-4 0v-.1a1.8 1.8 0 0 0-1-1.6 1.8 1.8 0 0 0-2 .4l-.1.1a2 2 0 0 1-2.8-2.8l.1-.1a1.8 1.8 0 0 0 .4-2 1.8 1.8 0 0 0-1.6-1H3a2 2 0 0 1 0-4h.1a1.8 1.8 0 0 0 1.6-1 1.8 1.8 0 0 0-.4-2l-.1-.1a2 2 0 0 1 2.8-2.8l.1.1a1.8 1.8 0 0 0 2 .4 1.8 1.8 0 0 0 1-1.6V3a2 2 0 0 1 4 0v.1a1.8 1.8 0 0 0 1 1.6 1.8 1.8 0 0 0 2-.4l.1-.1a2 2 0 0 1 2.8 2.8l-.1.1a1.8 1.8 0 0 0-.4 2 1.8 1.8 0 0 0 1.6 1h.1a2 2 0 0 1 0 4h-.1a1.8 1.8 0 0 0-1.7 1z"/></svg></span>
+                                    <span><strong>Settings</strong><small>Theme, lock, and tracking controls</small></span>
                                 </button>
                             </div>
                         </div>
@@ -207,25 +238,40 @@ $dashboardBuildVersion = 'exec3.48.0';
                         </div>
                     </article>
 
-                    <article class="admin-panel admin-panel-table" id="orders">
+                    <article class="admin-panel admin-panel-table admin-orders-panel" id="orders">
                         <div class="admin-panel-head">
-                            <div><span class="admin-panel-kicker">Orders</span><h3>Sales and orders by month</h3></div>
-                            <div class="admin-panel-actions">
+                            <div>
+                                <span class="admin-panel-kicker">Orders</span>
+                                <h3>Marketplace order explorer</h3>
+                                <span class="admin-panel-meta" data-orders-status>Loading stored orders from newest to oldest</span>
+                            </div>
+                            <div class="admin-orders-actions">
                                 <button type="button" class="admin-primary-btn admin-orders-ops-btn" data-view-switch="store-ops">Ops</button>
+                                <button type="button" class="admin-orders-icon-btn" data-orders-filter-open aria-label="Open order filters">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-6.2 7.1v5.2l-3.6 1.8v-7z"/></svg>
+                                </button>
+                                <button type="button" class="admin-orders-reset-btn" data-orders-filter-reset aria-label="Reset order filters" hidden>
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+                                </button>
                             </div>
                         </div>
-                        <div class="admin-table-wrap">
+                        <div class="admin-orders-filter-bar" data-orders-active-filters hidden></div>
+                        <div class="admin-table-wrap admin-orders-table-wrap" data-orders-scroll>
                             <table class="admin-table">
                                 <thead>
                                     <tr>
-                                        <th>Month</th>
-                                        <th>Sales</th>
+                                        <th>Date</th>
+                                        <th>Order</th>
+                                        <th>Company</th>
+                                        <th>Product</th>
+                                        <th>Flavor</th>
+                                        <th>Platform</th>
+                                        <th>Net</th>
                                         <th>Orders</th>
-                                        <th>Top Platform</th>
                                     </tr>
                                 </thead>
-                                <tbody data-overview-table-body>
-                                    <tr><td colspan="4" class="admin-empty">Belum ada data marketplace.</td></tr>
+                                <tbody data-orders-table-body>
+                                    <tr><td colspan="8" class="admin-empty">Loading orders.</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -242,105 +288,96 @@ $dashboardBuildVersion = 'exec3.48.0';
                 </section>
                     </section>
 
-                    <section class="admin-view admin-store-ops-layout" data-view-panel="store-ops" data-store-ops-dashboard data-store-ops-endpoint="../api/store-ops/">
-                <section class="admin-metric-grid admin-store-ops-metrics">
-                    <article class="admin-metric-card"><span>Fulfilled Today</span><strong data-store-ops-metric="fulfilled_today">0</strong><small>Completed fulfillment rows</small></article>
-                    <article class="admin-metric-card"><span>Active Claims</span><strong data-store-ops-metric="active_claims">0</strong><small>Currently owned orders</small></article>
-                    <article class="admin-metric-card"><span>Avg Fulfillment</span><strong data-store-ops-metric="average_fulfillment_label">0s</strong><small>Claim to fulfilled</small></article>
-                    <article class="admin-metric-card"><span>Scan Errors</span><strong data-store-ops-metric="scan_errors">0</strong><small>Rejected or wrong scans</small></article>
-                    <article class="admin-metric-card"><span>Throughput</span><strong data-store-ops-throughput>0</strong><small data-store-ops-throughput-detail>No fulfilled orders yet</small></article>
-                </section>
-
-                <section class="admin-panel admin-panel-wide admin-store-ops-filter-panel">
-                    <div class="admin-panel-head">
-                        <div>
-                            <span class="admin-panel-kicker">Ops</span>
-                            <h3>Fulfillment activity</h3>
-                            <span class="admin-panel-meta" data-store-ops-status>Loading</span>
-                        </div>
+                    <section class="admin-view admin-view-daily" data-view-panel="daily">
+                <section class="daily-hero-panel">
+                    <div class="daily-hero-copy">
+                        <span class="admin-chip admin-chip-accent">Daily</span>
+                        <h2>Daily platform rundown</h2>
+                        <p data-daily-status>Loading current month Daily.</p>
                     </div>
-                    <form class="admin-store-ops-filter-grid" data-store-ops-filters>
-                        <label>
-                            <span>Date From</span>
-                            <input type="date" name="date_from" data-store-ops-date-from>
+                    <div class="daily-hero-actions">
+                        <label class="daily-month-picker">
+                            <span>Month <span class="admin-info-dot" title="Shows the selected calendar month in WIB. The dashboard opens on the current month automatically." aria-label="Shows the selected calendar month in WIB. The dashboard opens on the current month automatically.">i</span></span>
+                            <input type="month" data-daily-month>
                         </label>
-                        <label>
-                            <span>Date To</span>
-                            <input type="date" name="date_to" data-store-ops-date-to>
-                        </label>
-                        <label>
-                            <span>Employee</span>
-                            <select name="employees" multiple data-store-ops-employees></select>
-                        </label>
-                        <label>
-                            <span>Source</span>
-                            <input type="search" name="source" placeholder="shopee, tiktok, partner" data-store-ops-source>
-                        </label>
-                        <label>
-                            <span>Order ID</span>
-                            <input type="search" name="q" placeholder="SPX, PARTNER..." data-store-ops-query>
-                        </label>
-                        <div class="admin-store-ops-status-controls" data-store-ops-status-controls>
-                            <span>Status</span>
-                            <button type="button" class="admin-toggle-pill is-active" data-status-value="">All</button>
-                            <button type="button" class="admin-toggle-pill" data-status-value="CLAIMED">Claimed</button>
-                            <button type="button" class="admin-toggle-pill" data-status-value="SCAN_IN_PROGRESS">Scanning</button>
-                            <button type="button" class="admin-toggle-pill" data-status-value="SCAN_COMPLETED">Scan Done</button>
-                            <button type="button" class="admin-toggle-pill" data-status-value="LABEL_PRINTED">Printed</button>
-                            <button type="button" class="admin-toggle-pill" data-status-value="FULFILLED">Fulfilled</button>
-                        </div>
-                        <div class="admin-store-ops-filter-actions">
-                            <button type="submit" class="admin-primary-btn">Apply</button>
-                            <button type="button" class="admin-ghost-btn" data-store-ops-reset>Reset</button>
-                        </div>
-                    </form>
-                </section>
-
-                <section class="admin-panel admin-panel-wide">
-                    <div class="admin-panel-head">
-                        <div>
-                            <span class="admin-panel-kicker">Orders</span>
-                            <h3>Fulfillment log</h3>
-                            <span class="admin-panel-meta" data-store-ops-table-meta>Newest activity first</span>
-                        </div>
-                    </div>
-                    <div class="admin-table-wrap admin-store-ops-table-wrap">
-                        <table class="admin-table admin-store-ops-table">
-                            <thead>
-                                <tr>
-                                    <th>Order ID</th>
-                                    <th>Source</th>
-                                    <th>Status</th>
-                                    <th>Employee</th>
-                                    <th>Claimed</th>
-                                    <th>Scan Complete</th>
-                                    <th>Label Print</th>
-                                    <th>Fulfilled</th>
-                                    <th>Duration</th>
-                                </tr>
-                            </thead>
-                            <tbody data-store-ops-table-body>
-                                <tr><td colspan="9" class="admin-empty">Loading Store Ops activity.</td></tr>
-                            </tbody>
-                        </table>
+                        <button type="button" class="admin-ghost-btn daily-export-btn" data-daily-export disabled>
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11"/><path d="m7 10 5 5 5-5"/><path d="M5 19h14"/></svg>
+                            <span>Export PDF</span>
+                        </button>
                     </div>
                 </section>
 
-                <div class="admin-modal-shell admin-store-ops-drawer" data-store-ops-drawer hidden>
-                    <div class="admin-modal-backdrop" data-store-ops-drawer-close></div>
-                    <aside class="admin-modal-card admin-store-ops-drawer-card" role="dialog" aria-modal="true" aria-labelledby="store-ops-drawer-title">
-                        <div class="admin-modal-head">
+                <section class="admin-metric-grid daily-metric-grid">
+                    <article class="admin-metric-card"><span>Total Qty <span class="admin-info-dot" title="Total units sold from order lines in the selected month." aria-label="Total units sold from order lines in the selected month.">i</span></span><strong class="daily-text-green" data-daily-total-qty>0</strong><small>Units sold</small></article>
+                    <article class="admin-metric-card"><span>Total Rp <span class="admin-info-dot" title="Total net revenue from order lines in the selected month." aria-label="Total net revenue from order lines in the selected month.">i</span></span><strong class="daily-text-blue" data-daily-total-revenue>Rp0</strong><small>Revenue</small></article>
+                    <article class="admin-metric-card"><span>Avg Qty <span class="admin-info-dot" title="Average units per calendar day, including zero-sale days." aria-label="Average units per calendar day, including zero-sale days.">i</span></span><strong class="daily-text-yellow" data-daily-avg-qty>0</strong><small>Per day</small></article>
+                    <article class="admin-metric-card"><span>Avg Rp <span class="admin-info-dot" title="Average revenue per calendar day, including zero-sale days." aria-label="Average revenue per calendar day, including zero-sale days.">i</span></span><strong class="daily-text-red" data-daily-avg-revenue>Rp0</strong><small>Per day</small></article>
+                    <article class="admin-metric-card"><span>Platforms <span class="admin-info-dot" title="Platforms found in order data plus any manual placeholders." aria-label="Platforms found in order data plus any manual placeholders.">i</span></span><strong data-daily-platform-count>0</strong><small>Tracked channels</small></article>
+                    <article class="admin-metric-card"><span>Top Day <span class="admin-info-dot" title="The highest revenue day in the selected month." aria-label="The highest revenue day in the selected month.">i</span></span><strong data-daily-top-day>-</strong><small>By Rp</small></article>
+                </section>
+
+                <section class="admin-main-grid daily-main-grid">
+                    <article class="admin-panel admin-panel-wide daily-platform-panel">
+                        <div class="admin-panel-head">
                             <div>
-                                <span class="admin-panel-kicker">Timeline</span>
-                                <h3 id="store-ops-drawer-title" data-store-ops-drawer-title>Order</h3>
+                                <span class="admin-panel-kicker">Platform Rundown</span>
+                                <h3>QTY, Rp, and daily averages</h3>
+                                <span class="admin-panel-meta">Selected month by platform</span>
                             </div>
-                            <button type="button" class="admin-ghost-btn" data-store-ops-drawer-close>Close</button>
                         </div>
-                        <div class="admin-event-feed admin-store-ops-events" data-store-ops-events>
-                            <p class="admin-empty">Select an order.</p>
+                        <div class="daily-platform-summary" data-daily-platform-summary>
+                            <p class="admin-empty">Daily platform totals will appear after the month loads.</p>
                         </div>
-                    </aside>
-                </div>
+                    </article>
+
+                    <article class="admin-panel admin-panel-table admin-panel-wide daily-days-panel">
+                        <div class="admin-panel-head">
+                            <div>
+                                <span class="admin-panel-kicker">Days</span>
+                                <h3>Every day in the selected month</h3>
+                                <span class="admin-panel-meta">Calendar days with platform totals</span>
+                            </div>
+                        </div>
+                        <div class="admin-table-wrap daily-table-wrap">
+                            <table class="admin-table daily-table">
+                                <thead>
+                                    <tr>
+                                        <th>Day</th>
+                                        <th>Total Qty</th>
+                                        <th>Total Rp</th>
+                                        <th>Platform breakdown</th>
+                                    </tr>
+                                </thead>
+                                <tbody data-daily-day-table-body>
+                                    <tr><td colspan="4" class="admin-empty">Loading Daily.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </article>
+
+                    <article class="admin-panel daily-platform-manager">
+                        <div class="admin-panel-head">
+                            <div>
+                                <span class="admin-panel-kicker">Future Platforms</span>
+                                <h3>Add platform slot</h3>
+                                <span class="admin-panel-meta">For partner, website, or channel placeholders.</span>
+                            </div>
+                        </div>
+                        <form class="daily-platform-form" data-daily-platform-form>
+                            <label>
+                                <span>Platform name <span class="admin-info-dot" title="Adds a zero-value placeholder until that platform appears in sales data." aria-label="Adds a zero-value placeholder until that platform appears in sales data.">i</span></span>
+                                <input type="text" data-daily-platform-name placeholder="Example: Partner Web" maxlength="48">
+                            </label>
+                            <button type="submit" class="admin-soft-btn daily-add-platform-btn">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                                <span>Add</span>
+                            </button>
+                        </form>
+                        <div class="daily-platform-list" data-daily-platform-list>
+                            <p class="admin-empty">No manual platform placeholders.</p>
+                        </div>
+                    </article>
+                </section>
                     </section>
 
                     <section class="admin-view" data-view-panel="home">
@@ -768,6 +805,107 @@ $dashboardBuildVersion = 'exec3.48.0';
                 </div>
                     </section>
 
+                    <section class="admin-view" data-view-panel="store-ops" data-store-ops-dashboard data-store-ops-endpoint="../api/store-ops/">
+                <section class="admin-metric-grid admin-store-ops-metrics">
+                    <article class="admin-metric-card"><span>Fulfilled Today</span><strong data-store-ops-metric="fulfilled_today">0</strong><small>Completed fulfillment rows</small></article>
+                    <article class="admin-metric-card"><span>Active Claims</span><strong data-store-ops-metric="active_claims">0</strong><small>Currently owned orders</small></article>
+                    <article class="admin-metric-card"><span>Avg Fulfillment</span><strong data-store-ops-metric="average_fulfillment_label">0s</strong><small>Claim to fulfilled</small></article>
+                    <article class="admin-metric-card"><span>Scan Errors</span><strong data-store-ops-metric="scan_errors">0</strong><small>Rejected or wrong scans</small></article>
+                    <article class="admin-metric-card"><span>Throughput</span><strong data-store-ops-throughput>0</strong><small data-store-ops-throughput-detail>No fulfilled orders yet</small></article>
+                </section>
+
+                <section class="admin-panel admin-panel-wide admin-store-ops-filter-panel">
+                    <div class="admin-panel-head">
+                        <div>
+                            <span class="admin-panel-kicker">Ops</span>
+                            <h3>Fulfillment activity</h3>
+                            <span class="admin-panel-meta" data-store-ops-status>Loading</span>
+                        </div>
+                    </div>
+                    <form class="admin-store-ops-filter-grid" data-store-ops-filters>
+                        <label>
+                            <span>Date From</span>
+                            <input type="date" name="date_from" data-store-ops-date-from>
+                        </label>
+                        <label>
+                            <span>Date To</span>
+                            <input type="date" name="date_to" data-store-ops-date-to>
+                        </label>
+                        <label>
+                            <span>Employee</span>
+                            <select name="employees" multiple data-store-ops-employees></select>
+                        </label>
+                        <label>
+                            <span>Source</span>
+                            <input type="search" name="source" placeholder="shopee, tiktok, partner" data-store-ops-source>
+                        </label>
+                        <label>
+                            <span>Order ID</span>
+                            <input type="search" name="q" placeholder="SPX, PARTNER..." data-store-ops-query>
+                        </label>
+                        <div class="admin-store-ops-status-controls" data-store-ops-status-controls>
+                            <span>Status</span>
+                            <button type="button" class="admin-toggle-pill is-active" data-status-value="">All</button>
+                            <button type="button" class="admin-toggle-pill" data-status-value="CLAIMED">Claimed</button>
+                            <button type="button" class="admin-toggle-pill" data-status-value="SCAN_IN_PROGRESS">Scanning</button>
+                            <button type="button" class="admin-toggle-pill" data-status-value="SCAN_COMPLETED">Scan Done</button>
+                            <button type="button" class="admin-toggle-pill" data-status-value="LABEL_PRINTED">Printed</button>
+                            <button type="button" class="admin-toggle-pill" data-status-value="FULFILLED">Fulfilled</button>
+                        </div>
+                        <div class="admin-store-ops-filter-actions">
+                            <button type="submit" class="admin-primary-btn">Apply</button>
+                            <button type="button" class="admin-ghost-btn" data-store-ops-reset>Reset</button>
+                        </div>
+                    </form>
+                </section>
+
+                <section class="admin-panel admin-panel-wide">
+                    <div class="admin-panel-head">
+                        <div>
+                            <span class="admin-panel-kicker">Orders</span>
+                            <h3>Fulfillment log</h3>
+                            <span class="admin-panel-meta" data-store-ops-table-meta>Newest activity first</span>
+                        </div>
+                    </div>
+                    <div class="admin-table-wrap admin-store-ops-table-wrap">
+                        <table class="admin-table admin-store-ops-table">
+                            <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Source</th>
+                                    <th>Status</th>
+                                    <th>Employee</th>
+                                    <th>Claimed</th>
+                                    <th>Scan Complete</th>
+                                    <th>Label Print</th>
+                                    <th>Fulfilled</th>
+                                    <th>Duration</th>
+                                </tr>
+                            </thead>
+                            <tbody data-store-ops-table-body>
+                                <tr><td colspan="9" class="admin-empty">Loading Store Ops activity.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <div class="admin-modal-shell admin-store-ops-drawer" data-store-ops-drawer hidden>
+                    <div class="admin-modal-backdrop" data-store-ops-drawer-close></div>
+                    <aside class="admin-modal-card admin-store-ops-drawer-card" role="dialog" aria-modal="true" aria-labelledby="store-ops-drawer-title">
+                        <div class="admin-modal-head">
+                            <div>
+                                <span class="admin-panel-kicker">Timeline</span>
+                                <h3 id="store-ops-drawer-title" data-store-ops-drawer-title>Order</h3>
+                            </div>
+                            <button type="button" class="admin-ghost-btn" data-store-ops-drawer-close>Close</button>
+                        </div>
+                        <div class="admin-event-feed admin-store-ops-events" data-store-ops-events>
+                            <p class="admin-empty">Select an order.</p>
+                        </div>
+                    </aside>
+                </div>
+                    </section>
+
                     <section class="admin-view admin-view-settings" data-view-panel="settings">
                 <section class="admin-settings-grid">
                     <article class="admin-panel admin-settings-card">
@@ -823,6 +961,51 @@ $dashboardBuildVersion = 'exec3.48.0';
                 </main>
             </div>
         </div>
+    </div>
+    <div class="admin-modal-shell admin-orders-filter-modal" data-orders-filter-modal hidden>
+        <button type="button" class="admin-modal-backdrop" data-orders-filter-close aria-label="Close order filters"></button>
+        <section class="admin-modal-card admin-orders-filter-card" role="dialog" aria-modal="true" aria-labelledby="orders-filter-title">
+            <div class="admin-modal-head">
+                <div>
+                    <span class="admin-panel-kicker">Order Filters</span>
+                    <h3 id="orders-filter-title">Filter marketplace orders</h3>
+                </div>
+                <button type="button" class="admin-orders-icon-btn" data-orders-filter-close aria-label="Close order filters">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+                </button>
+            </div>
+            <div class="admin-orders-filter-body">
+                <details class="admin-orders-accordion">
+                    <summary>Companies</summary>
+                    <div class="admin-orders-accordion-content" data-orders-company-tree>
+                        <p class="admin-empty">Loading SKU database.</p>
+                    </div>
+                </details>
+                <details class="admin-orders-accordion">
+                    <summary>Start and End Dates</summary>
+                    <div class="admin-orders-date-grid">
+                        <label>
+                            <span>Start Date</span>
+                            <input type="date" data-orders-start-date>
+                        </label>
+                        <label>
+                            <span>End Date</span>
+                            <input type="date" data-orders-end-date>
+                        </label>
+                    </div>
+                </details>
+                <details class="admin-orders-accordion">
+                    <summary>Platforms</summary>
+                    <div class="admin-orders-platform-grid" data-orders-platforms>
+                        <p class="admin-empty">Platforms appear after orders load.</p>
+                    </div>
+                </details>
+            </div>
+            <div class="admin-modal-actions">
+                <button type="button" class="admin-danger-btn" data-orders-filter-clear>Clear Filters</button>
+                <button type="button" class="admin-primary-btn" data-orders-filter-close>Done</button>
+            </div>
+        </section>
     </div>
     <script type="module" src="../admin.js?v=<?php echo urlencode($adminJsVersion ?: '1'); ?>"></script>
     <script src="../store-ops.js?v=<?php echo urlencode($storeOpsJsVersion ?: '1'); ?>" defer></script>

@@ -932,7 +932,7 @@ function analyticsDeleteAffiliateLandingPages(array $affiliate): void
     }
 }
 
-function analyticsLoadEvents(?DateTimeImmutable $rangeStart = null): array
+function analyticsLoadEvents(?DateTimeImmutable $rangeStart = null, array $filters = []): array
 {
     $pdo = analyticsDb();
     $availableColumns = analyticsListTableColumns($pdo, 'analytics_events');
@@ -987,11 +987,63 @@ function analyticsLoadEvents(?DateTimeImmutable $rangeStart = null): array
     }
 
     $sql = 'SELECT ' . implode(",\n                ", $selectColumns) . "\n            FROM analytics_events";
+    $where = [];
     $params = [];
 
     if ($rangeStart !== null) {
-        $sql .= ' WHERE occurred_at >= :range_start';
+        $where[] = 'occurred_at >= :range_start';
         $params['range_start'] = $rangeStart->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s.u');
+    }
+
+    $dataset = strtolower(trim((string) ($filters['dataset'] ?? '')));
+    $siteFilter = strtolower(trim((string) ($filters['site'] ?? 'all')));
+    $affiliateCodeFilter = strtoupper(trim((string) ($filters['affiliate_code'] ?? '')));
+
+    if (isset($availableColumns['traffic_kind'])) {
+        if ($dataset === 'landing') {
+            $where[] = 'LOWER(TRIM(traffic_kind)) = :traffic_kind';
+            $params['traffic_kind'] = 'landing';
+        } elseif ($dataset === 'website') {
+            $where[] = 'LOWER(TRIM(traffic_kind)) = :traffic_kind';
+            $params['traffic_kind'] = 'website';
+        }
+    }
+
+    if (($dataset === 'landing' || $dataset === 'affiliate') && isset($availableColumns['source'])) {
+        $where[] = 'LOWER(TRIM(source)) <> :hidden_source';
+        $params['hidden_source'] = 'internal';
+    }
+
+    if ($dataset === 'affiliate' && isset($availableColumns['affiliate_code'])) {
+        $where[] = "TRIM(affiliate_code) <> ''";
+    }
+
+    if ($dataset === 'affiliate' && $affiliateCodeFilter !== '' && isset($availableColumns['affiliate_code'])) {
+        $where[] = 'UPPER(TRIM(affiliate_code)) = :affiliate_code';
+        $params['affiliate_code'] = $affiliateCodeFilter;
+    }
+
+    if ($dataset === 'website' && in_array($siteFilter, ['jenang_gemi', 'zero'], true) && isset($availableColumns['site_key'])) {
+        if ($siteFilter === 'zero') {
+            $siteCondition = 'LOWER(TRIM(site_key)) = :site_filter';
+            if (isset($availableColumns['source'])) {
+                $siteCondition = '(' . $siteCondition . " OR (TRIM(site_key) = '' AND LOWER(TRIM(source)) = :site_source_zero))";
+                $params['site_source_zero'] = 'zero';
+            }
+            $where[] = $siteCondition;
+        } else {
+            $siteCondition = 'LOWER(TRIM(site_key)) = :site_filter';
+            if (isset($availableColumns['source'])) {
+                $siteCondition = '(' . $siteCondition . " OR (TRIM(site_key) = '' AND LOWER(TRIM(source)) <> :site_source_zero))";
+                $params['site_source_zero'] = 'zero';
+            }
+            $where[] = $siteCondition;
+        }
+        $params['site_filter'] = $siteFilter;
+    }
+
+    if ($where !== []) {
+        $sql .= ' WHERE ' . implode(' AND ', $where);
     }
 
     $sql .= ' ORDER BY occurred_at DESC';
@@ -1196,16 +1248,21 @@ function analyticsLoadIpExclusions(): array
     }, $rows);
 }
 
-function analyticsLoadExcludedIpLookup(): array
+function analyticsBuildExcludedIpLookup(array $items): array
 {
     $lookup = [];
-    foreach (analyticsLoadIpExclusions() as $item) {
+    foreach ($items as $item) {
         $keys = analyticsBuildIpMatchKeys((string) ($item['ip_address'] ?? ''));
         foreach ($keys as $key) {
             $lookup[$key] = true;
         }
     }
     return $lookup;
+}
+
+function analyticsLoadExcludedIpLookup(): array
+{
+    return analyticsBuildExcludedIpLookup(analyticsLoadIpExclusions());
 }
 
 function analyticsLoadDeviceExclusions(): array

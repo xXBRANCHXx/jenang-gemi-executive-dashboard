@@ -46,6 +46,29 @@ document.addEventListener('DOMContentLoaded', () => {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 
+  const formatCurrency = (value) => new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    maximumFractionDigits: 0
+  }).format(Number(value || 0));
+
+  const formatNumber = (value) => {
+    const number = Number(value || 0);
+    if (!Number.isFinite(number)) return '0';
+    return number.toLocaleString('id-ID', {
+      maximumFractionDigits: number % 1 === 0 ? 0 : 2
+    });
+  };
+
+  const skuUnitCount = (sku = {}) => Math.max(1, Number(sku.unit_count || 1));
+
+  const skuUnitFormula = (sku = {}) => {
+    const astra = Number(sku.astra_value || 0);
+    const volume = Number(sku.volume || 0);
+    if (!astra || !volume) return `${formatNumber(skuUnitCount(sku))} billable unit`;
+    return `${formatNumber(volume)} / ASTRA ${formatNumber(astra)} = ${formatNumber(skuUnitCount(sku))} units`;
+  };
+
   const requestJson = async (options = {}) => {
     const response = await fetch(endpoint, {
       method: options.method || 'GET',
@@ -211,15 +234,22 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    pricingList.innerHTML = skuRecords.map((sku) => `
+    pricingList.innerHTML = skuRecords.map((sku) => {
+      const unitPrice = Number(state.pricing[sku.sku] || 0);
+      const skuPrice = unitPrice * skuUnitCount(sku);
+      return `
       <label class="partner-pricing-row">
         <span>
           <strong>${escapeHtml(sku.label || sku.product_name || sku.sku || '')}</strong>
-          <small>${escapeHtml(sku.sku || '')}</small>
+          <small>${escapeHtml(sku.sku || '')} · ${escapeHtml(skuUnitFormula(sku))}</small>
         </span>
-        <input type="number" min="0" step="100" inputmode="decimal" value="${escapeHtml(state.pricing[sku.sku] || 0)}" data-partner-sku-price="${escapeHtml(sku.sku || '')}">
+        <span class="partner-pricing-control">
+          <input type="number" min="0" step="100" inputmode="decimal" value="${escapeHtml(unitPrice)}" data-partner-sku-price="${escapeHtml(sku.sku || '')}" aria-label="Partner unit price for ${escapeHtml(sku.label || sku.sku || '')}">
+          <small class="partner-pricing-derived">SKU price ${escapeHtml(formatCurrency(skuPrice))}</small>
+        </span>
       </label>
-    `).join('');
+    `;
+    }).join('');
   };
 
   const renderSelectionUi = () => {
@@ -295,7 +325,7 @@ document.addEventListener('DOMContentLoaded', () => {
               ${(partner.selected_sku_records || []).map((sku) => `
                 <div class="partner-access-tag">
                   <strong>${escapeHtml(sku.sku || '')}</strong>
-                  <span>${escapeHtml(sku.label || '')} · Rp${Number(sku.partner_price || 0).toLocaleString('id-ID')}</span>
+                  <span>${escapeHtml(sku.label || '')} · unit ${escapeHtml(formatCurrency(sku.partner_unit_price || 0))} · SKU ${escapeHtml(formatCurrency(sku.partner_price || 0))}</span>
                 </div>
               `).join('')}
             </div>

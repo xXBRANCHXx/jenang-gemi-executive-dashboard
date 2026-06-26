@@ -69,6 +69,25 @@ function jg_admin_require_auth_json(): void
     exit;
 }
 
+function jg_admin_require_auth(): void
+{
+    if (jg_admin_is_authenticated()) {
+        return;
+    }
+
+    $uri = (string) ($_SERVER['REQUEST_URI'] ?? '');
+    $accept = strtolower((string) ($_SERVER['HTTP_ACCEPT'] ?? ''));
+    if (str_contains($uri, '/api/') || str_contains($accept, 'application/json')) {
+        http_response_code(401);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => 'Unauthorized'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        exit;
+    }
+
+    header('Location: ../dashboard/');
+    exit;
+}
+
 function jg_admin_require_auth_page(): void
 {
     if (jg_admin_is_authenticated()) {

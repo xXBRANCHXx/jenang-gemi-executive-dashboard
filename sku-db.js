@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const applyError = document.querySelector('[data-apply-error]');
   const cogsError = document.querySelector('[data-cogs-error]');
   const productNameError = document.querySelector('[data-product-name-error]');
+  const astraError = document.querySelector('[data-astra-error]');
   const inventoryError = document.querySelector('[data-inventory-error]');
   const approvalError = document.querySelector('[data-approval-error]');
   const skuPreview = document.querySelector('[data-sku-preview]');
@@ -30,6 +31,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const cogsForm = document.querySelector('[data-cogs-form]');
   const productNameModal = document.querySelector('[data-product-name-modal]');
   const productNameForm = document.querySelector('[data-product-name-form]');
+  const astraModal = document.querySelector('[data-astra-modal]');
+  const astraForm = document.querySelector('[data-astra-form]');
   const inventoryModal = document.querySelector('[data-inventory-modal]');
   const inventoryForm = document.querySelector('[data-inventory-form]');
   const inventoryAction = inventoryForm?.querySelector('[data-inventory-action]');
@@ -37,8 +40,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const approvalForm = document.querySelector('[data-approval-form]');
   const approvalSummary = document.querySelector('[data-approval-summary]');
   const approvalRequester = document.querySelector('[data-approval-requester]');
+  const deleteModal = document.querySelector('[data-delete-modal]');
+  const deleteForm = document.querySelector('[data-delete-form]');
+  const deleteSummary = document.querySelector('[data-delete-summary]');
+  const deleteError = document.querySelector('[data-delete-error]');
   const requestList = document.querySelector('[data-request-list]');
   const tableBody = document.querySelector('[data-sku-table-body]');
+  const approvedLivePdfButton = document.querySelector('[data-download-approved-live-pdf]');
   const brandList = document.querySelector('[data-brand-list]');
   const unitList = document.querySelector('[data-unit-list]');
   const flavorList = document.querySelector('[data-flavor-list]');
@@ -62,7 +70,8 @@ document.addEventListener('DOMContentLoaded', () => {
       skus: []
     },
     requests: [],
-    activeApprovalRequestId: null
+    activeApprovalRequestId: null,
+    pendingDelete: null
   };
 
   const escapeHtml = (value) => String(value)
@@ -117,6 +126,177 @@ document.addEventListener('DOMContentLoaded', () => {
         copyMessage.classList.remove('is-center', 'is-hiding');
       }, 360);
     }, 1700);
+  };
+
+  const pdfByteLength = (value) => new Blob([value]).size;
+
+  const normalizePdfText = (value) => String(value ?? '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\x20-\x7E]/g, '?');
+
+  const escapePdfString = (value) => normalizePdfText(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)');
+
+  const truncatePdfText = (value, maxCharacters) => {
+    const normalized = normalizePdfText(value).replace(/\s+/g, ' ').trim();
+    if (normalized.length <= maxCharacters) return normalized;
+    return `${normalized.slice(0, Math.max(0, maxCharacters - 3))}...`;
+  };
+
+  const buildPdfDocument = (pageContents) => {
+    const pageCount = pageContents.length;
+    const fontObjectNumber = 3 + (pageCount * 2);
+    const objects = [
+      '<< /Type /Catalog /Pages 2 0 R >>',
+      `<< /Type /Pages /Kids [${pageContents.map((_, index) => `${3 + (index * 2)} 0 R`).join(' ')}] /Count ${pageCount} >>`
+    ];
+
+    pageContents.forEach((content, index) => {
+      const pageObjectNumber = 3 + (index * 2);
+      const contentObjectNumber = pageObjectNumber + 1;
+      objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources << /Font << /F1 ${fontObjectNumber} 0 R >> >> /Contents ${contentObjectNumber} 0 R >>`);
+      objects.push(`<< /Length ${pdfByteLength(content)} >>\nstream\n${content}\nendstream`);
+    });
+
+    objects.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
+
+    let pdf = '%PDF-1.4\n';
+    const offsets = [0];
+    objects.forEach((body, index) => {
+      offsets[index + 1] = pdfByteLength(pdf);
+      pdf += `${index + 1} 0 obj\n${body}\nendobj\n`;
+    });
+
+    const xrefOffset = pdfByteLength(pdf);
+    pdf += `xref\n0 ${objects.length + 1}\n`;
+    pdf += '0000000000 65535 f \n';
+    offsets.slice(1).forEach((offset) => {
+      pdf += `${String(offset).padStart(10, '0')} 00000 n \n`;
+    });
+    pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+    return new Blob([pdf], { type: 'application/pdf' });
+  };
+
+  const buildApprovedLivePdf = (rows) => {
+    const pageWidth = 842;
+    const pageHeight = 595;
+    const margin = 32;
+    const rowHeight = 18;
+    const rowsPerPage = 24;
+    const generatedAt = new Date().toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    const columns = [
+      { label: 'SKU', width: 80, value: (row) => row.sku, chars: 15 },
+      { label: 'TAG', width: 120, value: (row) => row.tag, chars: 25 },
+      { label: 'Product Name', width: 130, value: (row) => row.product_name, chars: 29 },
+      { label: 'Brand', width: 90, value: (row) => row.brand_name, chars: 19 },
+      { label: 'Flavor', width: 80, value: (row) => row.flavor_name, chars: 17 },
+      { label: 'Unit', width: 60, value: (row) => row.unit_name, chars: 12 },
+      { label: 'Vol', width: 38, value: (row) => row.volume, chars: 7 },
+      { label: 'Stock', width: 45, value: (row) => row.current_stock ?? row.starting_stock ?? 0, chars: 8 },
+      { label: 'Trigger', width: 45, value: (row) => row.stock_trigger ?? 0, chars: 8 },
+      { label: 'COGS', width: 90, value: (row) => row.cogs ?? 0, chars: 16 }
+    ];
+    const tableWidth = columns.reduce((total, column) => total + column.width, 0);
+
+    const drawText = (commands, text, x, y, size = 7) => {
+      commands.push(`0 0 0 rg BT /F1 ${size} Tf ${x.toFixed(2)} ${y.toFixed(2)} Td (${escapePdfString(text)}) Tj ET`);
+    };
+
+    const drawMutedText = (commands, text, x, y, size = 7) => {
+      commands.push(`0.35 0.35 0.35 rg BT /F1 ${size} Tf ${x.toFixed(2)} ${y.toFixed(2)} Td (${escapePdfString(text)}) Tj ET`);
+    };
+
+    const drawRule = (commands, x1, y, x2) => {
+      commands.push(`0.80 0.80 0.80 RG 0.5 w ${x1.toFixed(2)} ${y.toFixed(2)} m ${x2.toFixed(2)} ${y.toFixed(2)} l S`);
+    };
+
+    const drawHeader = (commands, pageNumber, pageTotal) => {
+      drawText(commands, 'Approved Live SKU Database', margin, pageHeight - 38, 16);
+      drawMutedText(commands, `Generated ${generatedAt} | Version ${state.database.meta?.version || '1.00.00'} | ${rows.length} approved live SKUs`, margin, pageHeight - 56, 8);
+      drawMutedText(commands, `Page ${pageNumber} of ${pageTotal}`, pageWidth - margin - 72, pageHeight - 56, 8);
+      drawRule(commands, margin, pageHeight - 72, pageWidth - margin);
+    };
+
+    const drawTableHeader = (commands, y) => {
+      commands.push(`0.92 0.94 0.90 rg ${margin.toFixed(2)} ${(y - 5).toFixed(2)} ${tableWidth.toFixed(2)} 17 re f`);
+      let x = margin;
+      columns.forEach((column) => {
+        drawText(commands, column.label, x + 3, y, 7);
+        x += column.width;
+      });
+      drawRule(commands, margin, y - 8, margin + tableWidth);
+    };
+
+    const drawRow = (commands, row, y, index) => {
+      if (index % 2 === 1) {
+        commands.push(`0.98 0.98 0.96 rg ${margin.toFixed(2)} ${(y - 5).toFixed(2)} ${tableWidth.toFixed(2)} 16 re f`);
+      }
+
+      let x = margin;
+      columns.forEach((column) => {
+        drawText(commands, truncatePdfText(column.value(row), column.chars), x + 3, y, 7);
+        x += column.width;
+      });
+      drawRule(commands, margin, y - 8, margin + tableWidth);
+    };
+
+    const sortedRows = rows.slice().sort((a, b) => String(a.sku || '').localeCompare(String(b.sku || '')));
+    const pageTotal = Math.max(1, Math.ceil(sortedRows.length / rowsPerPage));
+    const pageContents = [];
+
+    for (let pageIndex = 0; pageIndex < pageTotal; pageIndex += 1) {
+      const commands = [];
+      const pageRows = sortedRows.slice(pageIndex * rowsPerPage, (pageIndex + 1) * rowsPerPage);
+      drawHeader(commands, pageIndex + 1, pageTotal);
+      drawTableHeader(commands, pageHeight - 102);
+
+      if (!pageRows.length) {
+        drawMutedText(commands, 'No approved live SKUs are currently available.', margin, pageHeight - 132, 9);
+      } else {
+        pageRows.forEach((row, rowIndex) => {
+          drawRow(commands, row, pageHeight - 125 - (rowIndex * rowHeight), rowIndex);
+        });
+      }
+
+      pageContents.push(commands.join('\n'));
+    }
+
+    return buildPdfDocument(pageContents);
+  };
+
+  const downloadApprovedLivePdf = () => {
+    const rows = state.database.skus || [];
+    if (!rows.length) {
+      showCopyMessage('No approved live SKUs to download.', true, 'center');
+      return;
+    }
+
+    try {
+      const blob = buildApprovedLivePdf(rows);
+      const date = new Date().toISOString().slice(0, 10);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `jenang-gemi-approved-live-skus-${date}.pdf`;
+      link.style.display = 'none';
+      root.append(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+      showCopyMessage('Approved Live PDF downloaded.', false, 'center');
+    } catch (_error) {
+      showCopyMessage('Unable to create Approved Live PDF.', true, 'center');
+    }
   };
 
   const copyTextToClipboard = async (text) => {
@@ -304,6 +484,7 @@ document.addEventListener('DOMContentLoaded', () => {
       brand_id: String(form.elements.brand_id?.value || ''),
       unit_id: String(form.elements.unit_id?.value || ''),
       volume: String(form.elements.volume?.value || '').trim(),
+      astra: String(form.elements.astra?.value || '').trim(),
       flavor_id: String(form.elements.flavor_id?.value || ''),
       product_id: String(form.elements.product_id?.value || '')
     };
@@ -383,6 +564,32 @@ document.addEventListener('DOMContentLoaded', () => {
     if (brandCountNode) brandCountNode.textContent = String(state.database.brands.length);
     if (unitCountNode) unitCountNode.textContent = String(state.database.units.length);
     if (skuCountNode) skuCountNode.textContent = String(state.database.skus.length);
+    if (approvedLivePdfButton instanceof HTMLButtonElement) {
+      approvedLivePdfButton.disabled = state.database.skus.length === 0;
+    }
+  };
+
+  const renderMasterChildToken = (kind, brand, item) => {
+    const brandId = escapeHtml(brand.id || '');
+    const itemId = escapeHtml(item.id || '');
+    const itemName = escapeHtml(item.name || '');
+    return `
+      <span class="admin-sku-token admin-sku-token-action">
+        <span>${escapeHtml(item.code || '--')} · ${itemName}</span>
+        ${role === 'branch'
+          ? `<button
+              type="button"
+              class="admin-sku-token-remove"
+              data-delete-master-kind="${kind}"
+              data-delete-master-brand-id="${brandId}"
+              data-delete-master-brand-name="${escapeHtml(brand.name || '')}"
+              data-delete-master-item-id="${itemId}"
+              data-delete-master-item-name="${itemName}"
+              aria-label="Remove ${kind} ${itemName}"
+            >Remove</button>`
+          : ''}
+      </span>
+    `;
   };
 
   const renderMasterLists = () => {
@@ -404,7 +611,9 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="admin-sku-brand-block">
               <strong>${escapeHtml(brand.name || '')}</strong>
               <div class="admin-sku-token-list">
-                ${(brand.flavors || []).map((item) => `<span class="admin-sku-token">${escapeHtml(item.code || '--')} · ${escapeHtml(item.name || '')}</span>`).join('')}
+                ${(brand.flavors || []).length
+                  ? (brand.flavors || []).map((item) => renderMasterChildToken('flavor', brand, item)).join('')
+                  : '<p class="admin-empty">No flavors yet.</p>'}
               </div>
             </div>
           `).join('')
@@ -418,7 +627,7 @@ document.addEventListener('DOMContentLoaded', () => {
               <strong>${escapeHtml(brand.name || '')}</strong>
               <div class="admin-sku-token-list">
                 ${(brand.products || []).length
-                  ? (brand.products || []).map((item) => `<span class="admin-sku-token">${escapeHtml(item.code || '--')} · ${escapeHtml(item.name || '')}</span>`).join('')
+                  ? (brand.products || []).map((item) => renderMasterChildToken('product', brand, item)).join('')
                   : '<p class="admin-empty">No products yet.</p>'}
               </div>
             </div>
@@ -448,7 +657,8 @@ document.addEventListener('DOMContentLoaded', () => {
         row.base_product_name,
         row.product_name,
         row.flavor_name,
-        row.unit_name
+        row.unit_name,
+        row.astra
       ].join(' ').toLowerCase();
 
       return haystack.includes(search);
@@ -512,7 +722,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const rows = filteredSkus();
 
     if (!rows.length) {
-      tableBody.innerHTML = `<tr><td colspan="11" class="admin-empty">${state.database.skus.length ? 'No SKUs match the current filters.' : 'No approved SKUs yet.'}</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="12" class="admin-empty">${state.database.skus.length ? 'No SKUs match the current filters.' : 'No approved SKUs yet.'}</td></tr>`;
       return;
     }
 
@@ -532,6 +742,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <td>${escapeHtml(row.flavor_name || '')}</td>
         <td>${escapeHtml(row.unit_name || '')}</td>
         <td>${escapeHtml(row.volume || '')}</td>
+        <td>${escapeHtml(row.astra || '')}</td>
         <td>${escapeHtml(row.current_stock ?? row.starting_stock ?? 0)}</td>
         <td>${escapeHtml(row.stock_trigger ?? 0)}</td>
         <td>${escapeHtml(row.cogs ?? 0)}</td>
@@ -546,6 +757,7 @@ document.addEventListener('DOMContentLoaded', () => {
             >...</button>
             <div class="admin-sku-row-menu-panel" data-sku-row-menu-panel hidden>
               <button type="button" class="admin-menu-item" data-change-product-name="${escapeHtml(row.sku || '')}">Product Name</button>
+              ${role === 'branch' ? `<button type="button" class="admin-menu-item" data-change-astra="${escapeHtml(row.sku || '')}">ASTRA</button>` : ''}
               <button type="button" class="admin-menu-item" data-change-inventory="${escapeHtml(row.sku || '')}">Inventory</button>
               <button type="button" class="admin-menu-item" data-change-cogs="${escapeHtml(row.sku || '')}">COGS</button>
               ${role === 'branch' ? `<button type="button" class="admin-menu-item admin-menu-item-danger" data-delete-sku="${escapeHtml(row.sku || '')}">Delete SKU</button>` : ''}
@@ -675,6 +887,13 @@ document.addEventListener('DOMContentLoaded', () => {
     setError(productNameError, '');
   };
 
+  const closeAstraModal = () => {
+    if (!astraModal) return;
+    astraModal.hidden = true;
+    astraForm?.reset();
+    setError(astraError, '');
+  };
+
   const closeInventoryModal = () => {
     if (!inventoryModal) return;
     inventoryModal.hidden = true;
@@ -713,6 +932,19 @@ document.addEventListener('DOMContentLoaded', () => {
     productNameModal.hidden = false;
   };
 
+  const openAstraModal = (sku) => {
+    if (!(astraForm instanceof HTMLFormElement) || !astraModal) return;
+    const row = state.database.skus.find((item) => item.sku === sku);
+    if (!row) return;
+
+    astraForm.elements.sku.value = row.sku || '';
+    astraForm.elements.sku_display.value = row.sku || '';
+    astraForm.elements.volume_display.value = String(row.volume || '');
+    astraForm.elements.astra.value = String(row.astra || row.volume || '');
+    setError(astraError, '');
+    astraModal.hidden = false;
+  };
+
   const openInventoryModal = (sku) => {
     if (!(inventoryForm instanceof HTMLFormElement) || !inventoryModal) return;
     const row = state.database.skus.find((item) => item.sku === sku);
@@ -740,6 +972,25 @@ document.addEventListener('DOMContentLoaded', () => {
     setError(approvalError, '');
   };
 
+  const closeDeleteModal = () => {
+    if (!deleteModal) return;
+    deleteModal.hidden = true;
+    deleteForm?.reset();
+    state.pendingDelete = null;
+    if (deleteSummary) deleteSummary.textContent = 'Waiting for selection';
+    setError(deleteError, '');
+  };
+
+  const openDeleteModal = (pendingDelete) => {
+    if (!(deleteForm instanceof HTMLFormElement) || !deleteModal) return;
+    state.pendingDelete = pendingDelete;
+    deleteForm.reset();
+    if (deleteSummary) deleteSummary.textContent = pendingDelete.summary || 'Confirm removal';
+    setError(deleteError, '');
+    deleteModal.hidden = false;
+    deleteForm.elements.password?.focus();
+  };
+
   const openApprovalModal = (requestId) => {
     if (!(approvalForm instanceof HTMLFormElement) || !approvalModal) return;
     const request = state.requests.find((item) => Number(item.id) === Number(requestId));
@@ -750,6 +1001,7 @@ document.addEventListener('DOMContentLoaded', () => {
     approvalForm.elements.tag.value = '';
     approvalForm.elements.starting_stock.value = '0';
     approvalForm.elements.stock_trigger.value = '0';
+    approvalForm.elements.astra.value = request.astra || request.volume || '';
     approvalForm.elements.cogs.value = '';
     approvalForm.elements.po_number.value = '';
     approvalForm.elements.decision_notes.value = '';
@@ -769,6 +1021,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const preview = computeSkuPreview();
     if (preview === 'Waiting for complete selection') return false;
     if (!(setupForm instanceof HTMLFormElement)) return false;
+    if (String(setupForm.elements.astra?.value || '').trim() === '') return false;
     return String(setupForm.elements.tag?.value || '').trim() !== '';
   };
 
@@ -814,7 +1067,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelector('[data-continue-apply]')?.addEventListener('click', () => {
     setError(setupError, '');
     if (!setupIsComplete()) {
-      setError(setupError, 'Complete brand, unit, volume, flavor, product, and TAG before continuing.');
+      setError(setupError, 'Complete brand, unit, volume, ASTRA, flavor, product, and TAG before continuing.');
       return;
     }
 
@@ -847,6 +1100,7 @@ document.addEventListener('DOMContentLoaded', () => {
         brand_id: setupData.get('brand_id'),
         unit_id: setupData.get('unit_id'),
         volume: setupData.get('volume'),
+        astra: setupData.get('astra'),
         flavor_id: setupData.get('flavor_id'),
         product_id: setupData.get('product_id'),
         tag: String(setupData.get('tag') || '').toUpperCase().replace(/\s+/g, '_'),
@@ -872,7 +1126,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!(requestForm instanceof HTMLFormElement)) return;
     if (computeSkuPreview() === 'Waiting for complete selection') {
-      setError(requestSubmitError, 'Complete brand, unit, volume, flavor, and product before submitting.');
+      setError(requestSubmitError, 'Complete brand, unit, volume, ASTRA, flavor, and product before submitting.');
+      return;
+    }
+    if (String(requestForm.elements.astra?.value || '').trim() === '') {
+      setError(requestSubmitError, 'Complete brand, unit, volume, ASTRA, flavor, and product before submitting.');
       return;
     }
 
@@ -883,6 +1141,7 @@ document.addEventListener('DOMContentLoaded', () => {
         brand_id: formData.get('brand_id'),
         unit_id: formData.get('unit_id'),
         volume: formData.get('volume'),
+        astra: formData.get('astra'),
         flavor_id: formData.get('flavor_id'),
         product_id: formData.get('product_id')
       });
@@ -959,6 +1218,13 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    const astraButton = target.closest('[data-change-astra]');
+    if (astraButton instanceof HTMLButtonElement) {
+      closeSkuRowMenus();
+      openAstraModal(astraButton.dataset.changeAstra || '');
+      return;
+    }
+
     const inventoryButton = target.closest('[data-change-inventory]');
     if (inventoryButton instanceof HTMLButtonElement) {
       closeSkuRowMenus();
@@ -979,11 +1245,29 @@ document.addEventListener('DOMContentLoaded', () => {
     const sku = deleteButton.dataset.deleteSku || '';
     const row = state.database.skus.find((item) => item.sku === sku);
     const label = row ? `${row.sku} (${row.tag || row.product_name || 'untagged'})` : sku;
-    const confirmed = window.confirm(`Delete approved SKU ${label}? This removes it from the live SKU database and deletes its COGS history.`);
-    if (!confirmed) return;
+    openDeleteModal({
+      action: 'delete_sku',
+      sku,
+      summary: `Delete approved SKU ${label}. This removes it from the live SKU database and deletes its COGS history.`
+    });
+  });
 
-    postAction({ action: 'delete_sku', sku }).catch((error) => {
-      window.alert(error instanceof Error ? error.message : 'Unable to delete SKU.');
+  [flavorList, productList].forEach((list) => {
+    list?.addEventListener('click', (event) => {
+      const button = event.target instanceof Element ? event.target.closest('[data-delete-master-kind]') : null;
+      if (!(button instanceof HTMLButtonElement)) return;
+
+      const kind = button.dataset.deleteMasterKind || '';
+      if (!['flavor', 'product'].includes(kind)) return;
+
+      const itemName = button.dataset.deleteMasterItemName || 'this item';
+      const brandName = button.dataset.deleteMasterBrandName || 'this brand';
+      openDeleteModal({
+        action: kind === 'flavor' ? 'delete_flavor' : 'delete_product',
+        brand_id: button.dataset.deleteMasterBrandId || '',
+        item_id: button.dataset.deleteMasterItemId || '',
+        summary: `Remove ${kind} ${itemName} from ${brandName}. This only works when it is not used by live SKUs or SKU requests.`
+      });
     });
   });
 
@@ -1024,6 +1308,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  astraForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!(astraForm instanceof HTMLFormElement)) return;
+    setError(astraError, '');
+
+    try {
+      const formData = new window.FormData(astraForm);
+      await postAction({
+        action: 'change_astra',
+        sku: formData.get('sku'),
+        astra: formData.get('astra')
+      });
+      closeAstraModal();
+    } catch (error) {
+      setError(astraError, error instanceof Error ? error.message : 'Unable to change ASTRA.');
+    }
+  });
+
   inventoryForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (!(inventoryForm instanceof HTMLFormElement)) return;
@@ -1045,6 +1347,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  deleteForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!(deleteForm instanceof HTMLFormElement) || !state.pendingDelete) return;
+    setError(deleteError, '');
+
+    try {
+      const formData = new window.FormData(deleteForm);
+      await postAction({
+        ...state.pendingDelete,
+        password: formData.get('password')
+      });
+      closeDeleteModal();
+      showCopyMessage('Removed from the SKU database.', false, 'center');
+    } catch (error) {
+      setError(deleteError, error instanceof Error ? error.message : 'Unable to remove item.');
+    }
+  });
+
   approvalForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (!(approvalForm instanceof HTMLFormElement)) return;
@@ -1058,6 +1378,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tag: String(formData.get('tag') || '').toUpperCase().replace(/\s+/g, '_'),
         starting_stock: formData.get('starting_stock'),
         stock_trigger: formData.get('stock_trigger'),
+        astra: formData.get('astra'),
         cogs: formData.get('cogs'),
         po_number: String(formData.get('po_number') || '').toUpperCase(),
         decision_notes: formData.get('decision_notes')
@@ -1076,12 +1397,20 @@ document.addEventListener('DOMContentLoaded', () => {
     button.addEventListener('click', closeProductNameModal);
   });
 
+  document.querySelectorAll('[data-close-astra-modal]').forEach((button) => {
+    button.addEventListener('click', closeAstraModal);
+  });
+
   document.querySelectorAll('[data-close-inventory-modal]').forEach((button) => {
     button.addEventListener('click', closeInventoryModal);
   });
 
   document.querySelectorAll('[data-close-approval-modal]').forEach((button) => {
     button.addEventListener('click', closeApprovalModal);
+  });
+
+  document.querySelectorAll('[data-close-delete-modal]').forEach((button) => {
+    button.addEventListener('click', closeDeleteModal);
   });
 
   document.addEventListener('click', (event) => {
@@ -1102,6 +1431,7 @@ document.addEventListener('DOMContentLoaded', () => {
   [filterUnit, filterFlavor, filterProduct].forEach((node) => {
     node?.addEventListener('change', renderTable);
   });
+  approvedLivePdfButton?.addEventListener('click', downloadApprovedLivePdf);
 
   syncCogsFields();
   syncInventoryFields();

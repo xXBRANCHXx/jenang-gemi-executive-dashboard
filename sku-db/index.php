@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/sku-auth.php';
+require_once dirname(__DIR__) . '/admin-nav.php';
 
 $hasError = false;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -70,19 +71,7 @@ $pageBuildVersion = 'sku1.00.00';
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
         <div class="admin-shell">
-            <aside class="admin-rail" aria-label="Admin navigation">
-                <a class="admin-rail-brand" href="../dashboard/" aria-label="Executive Dashboard home"><span class="admin-rail-brand-mark" aria-hidden="true"><span class="admin-rail-brand-core"></span></span><span class="admin-rail-brand-wordmark">ADMIN</span></a>
-                <nav class="admin-rail-nav">
-                    <a class="admin-rail-link" href="../dashboard/" aria-label="Open home dashboard"><span class="admin-rail-icon admin-rail-icon-home" aria-hidden="true"><span></span></span><span class="admin-rail-link-text">Home</span></a>
-                    <a class="admin-rail-link" href="../dashboard/" data-dashboard-view-link="website" aria-label="Open website dashboard"><span class="admin-rail-icon admin-rail-icon-rocket" aria-hidden="true"><span></span></span><span class="admin-rail-link-text">Website</span></a>
-                    <a class="admin-rail-link" href="../affiliate-program/" aria-label="Open affiliate program dashboard"><span class="admin-rail-icon admin-rail-icon-affiliate" aria-hidden="true"><span></span></span><span class="admin-rail-link-text">Affiliate</span></a>
-                    <a class="admin-rail-link" href="../partner-program/" aria-label="Open partner program dashboard"><span class="admin-rail-icon admin-rail-icon-partner" aria-hidden="true"><span></span></span><span class="admin-rail-link-text">Partner</span></a>
-                    <a class="admin-rail-link is-active" aria-current="page" href="../sku-db/" aria-label="Open SKU database"><span class="admin-rail-icon admin-rail-icon-sku" aria-hidden="true"><span>SKU</span></span><span class="admin-rail-link-text">SKU DB</span></a>
-                </nav>
-                <div class="admin-rail-footer">
-                    <a class="admin-rail-link" href="../dashboard/" data-dashboard-view-link="settings" aria-label="Open admin settings"><span class="admin-rail-icon admin-rail-icon-settings" aria-hidden="true"><span></span></span><span class="admin-rail-link-text">Settings</span></a>
-                </div>
-            </aside>
+            <?php render_admin_sidebar('sku'); ?>
 
             <div class="admin-shell-main">
                 <header class="admin-topbar">
@@ -98,7 +87,9 @@ $pageBuildVersion = 'sku1.00.00';
                         <div class="admin-menu-shell" data-menu-shell>
                             <button type="button" class="admin-ghost-btn admin-menu-trigger" data-menu-trigger aria-expanded="false" aria-label="Open dashboard menu">...</button>
                             <div class="admin-menu-panel" data-menu-panel hidden>
-                                <a class="admin-menu-item admin-link-btn" href="../dashboard/">Executive Dashboard</a>
+                                <a class="admin-menu-item admin-link-btn" href="../dashboard/" data-dashboard-view-link="overview">Executive Sales Overview</a>
+                                <a class="admin-menu-item admin-link-btn" href="../dashboard/?view=campaigns" data-dashboard-view-link="home">Campaigns Dashboard</a>
+                                <a class="admin-menu-item admin-link-btn" href="../back-dash/">API Ingest Workspace</a>
                                 <button type="button" class="admin-menu-item" data-theme-toggle>Toggle Theme</button>
                                 <a class="admin-menu-item admin-link-btn" href="./logout/">Lock SKU Database</a>
                             </div>
@@ -118,7 +109,7 @@ $pageBuildVersion = 'sku1.00.00';
                         <span class="admin-status-dot"></span>
                         <span><?php echo htmlspecialchars(jg_sku_session_username(), ENT_QUOTES); ?> signed in</span>
                     </div>
-                    <a class="admin-ghost-btn admin-link-btn" href="../dashboard/">Back To Executive Dashboard</a>
+                    <a class="admin-ghost-btn admin-link-btn" href="../dashboard/">Back To Executive Homepage</a>
                 </div>
             </section>
 
@@ -214,6 +205,10 @@ $pageBuildVersion = 'sku1.00.00';
                             <label>
                                 <span>Volume</span>
                                 <input type="text" name="volume" inputmode="decimal" placeholder="e.g. 15 or 15.2" required>
+                            </label>
+                            <label>
+                                <span>ASTRA</span>
+                                <input type="number" name="astra" min="0.01" step="0.01" placeholder="Base unit, e.g. 15" required>
                             </label>
                             <label>
                                 <span>Flavor</span>
@@ -327,6 +322,10 @@ $pageBuildVersion = 'sku1.00.00';
                                 <input type="text" name="volume" inputmode="decimal" placeholder="e.g. 15 or 15.2" required>
                             </label>
                             <label>
+                                <span>ASTRA base stock unit</span>
+                                <input type="number" name="astra" min="0.01" step="0.01" placeholder="e.g. 15" required>
+                            </label>
+                            <label>
                                 <span>Flavor</span>
                                 <select class="admin-select" name="flavor_id" data-flavor-select required></select>
                             </label>
@@ -398,7 +397,10 @@ $pageBuildVersion = 'sku1.00.00';
                             <span class="admin-panel-kicker">SKU Table</span>
                             <h3>Approved live SKUs</h3>
                         </div>
-                        <span class="admin-panel-meta"><?php echo $isBranch ? 'Change records COGS updates by PO number only' : 'Pending requests never appear in this table'; ?></span>
+                        <div class="admin-panel-actions">
+                            <span class="admin-panel-meta"><?php echo $isBranch ? 'Change records COGS updates by PO number only' : 'Pending requests never appear in this table'; ?></span>
+                            <button type="button" class="admin-ghost-btn admin-download-pdf-btn" data-download-approved-live-pdf disabled>Download PDF</button>
+                        </div>
                     </div>
                     <div class="admin-table-wrap">
                         <table class="admin-table">
@@ -411,6 +413,7 @@ $pageBuildVersion = 'sku1.00.00';
                                 <th>Flavor</th>
                                 <th>Unit</th>
                                 <th>Volume</th>
+                                <th>ASTRA</th>
                                 <th>Stock</th>
                                 <th>Trigger</th>
                                 <th>COGS</th>
@@ -418,7 +421,7 @@ $pageBuildVersion = 'sku1.00.00';
                             </tr>
                             </thead>
                             <tbody data-sku-table-body>
-                            <tr><td colspan="11" class="admin-empty">No SKUs yet.</td></tr>
+                            <tr><td colspan="12" class="admin-empty">No SKUs yet.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -501,6 +504,40 @@ $pageBuildVersion = 'sku1.00.00';
         </div>
     </div>
 
+    <?php if ($isBranch): ?>
+        <div class="admin-modal-shell" data-astra-modal hidden>
+            <div class="admin-modal-backdrop" data-close-astra-modal></div>
+            <div class="admin-modal-card">
+                <div class="admin-panel-head admin-modal-head">
+                    <div>
+                        <span class="admin-panel-kicker">ASTRA Update</span>
+                        <h3>Change base stock unit</h3>
+                    </div>
+                </div>
+                <form class="admin-sku-form-grid" data-astra-form>
+                    <input type="hidden" name="sku">
+                    <label>
+                        <span>SKU</span>
+                        <input type="text" name="sku_display" readonly>
+                    </label>
+                    <label>
+                        <span>Volume</span>
+                        <input type="text" name="volume_display" readonly>
+                    </label>
+                    <label class="admin-sku-full-span">
+                        <span>ASTRA</span>
+                        <input type="number" name="astra" min="0.01" step="0.01" required>
+                    </label>
+                    <div class="admin-sku-actions">
+                        <button type="submit" class="admin-primary-btn">Save ASTRA</button>
+                        <button type="button" class="admin-ghost-btn" data-close-astra-modal>Cancel</button>
+                    </div>
+                </form>
+                <p class="admin-form-error" data-astra-error hidden></p>
+            </div>
+        </div>
+    <?php endif; ?>
+
     <div class="admin-modal-shell" data-inventory-modal hidden>
         <div class="admin-modal-backdrop" data-close-inventory-modal></div>
         <div class="admin-modal-card">
@@ -549,6 +586,34 @@ $pageBuildVersion = 'sku1.00.00';
     </div>
 
     <?php if ($isBranch): ?>
+        <div class="admin-modal-shell" data-delete-modal hidden>
+            <div class="admin-modal-backdrop" data-close-delete-modal></div>
+            <div class="admin-modal-card">
+                <div class="admin-panel-head admin-modal-head">
+                    <div>
+                        <span class="admin-panel-kicker">Password Required</span>
+                        <h3>Confirm removal</h3>
+                    </div>
+                </div>
+                <form class="admin-sku-form-grid" data-delete-form>
+                    <div class="admin-sku-preview admin-sku-preview-wide">
+                        <span class="admin-control-label">Removal target</span>
+                        <strong data-delete-summary>Waiting for selection</strong>
+                        <small>Enter the Branch password to remove this record from the SKU database.</small>
+                    </div>
+                    <label class="admin-sku-full-span">
+                        <span>Branch password</span>
+                        <input type="password" name="password" maxlength="255" placeholder="Enter password" autocomplete="current-password" required>
+                    </label>
+                    <div class="admin-sku-actions">
+                        <button type="submit" class="admin-primary-btn admin-danger-btn">Remove</button>
+                        <button type="button" class="admin-ghost-btn" data-close-delete-modal>Cancel</button>
+                    </div>
+                </form>
+                <p class="admin-form-error" data-delete-error hidden></p>
+            </div>
+        </div>
+
         <div class="admin-modal-shell" data-approval-modal hidden>
             <div class="admin-modal-backdrop" data-close-approval-modal></div>
             <div class="admin-modal-card">
@@ -576,6 +641,10 @@ $pageBuildVersion = 'sku1.00.00';
                     <label>
                         <span>Starting stock trigger</span>
                         <input type="number" name="stock_trigger" min="0" step="1" required>
+                    </label>
+                    <label>
+                        <span>ASTRA</span>
+                        <input type="number" name="astra" min="0.01" step="0.01" required>
                     </label>
                     <label>
                         <span>Opening COGS (Optional)</span>
