@@ -203,6 +203,19 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                             <div class="partner-access-empty">Linked backend SKU records will show here.</div>
                         </div>
                     </section>
+
+                    <section class="partner-pricing-editor">
+                        <div class="partner-access-card-head">
+                            <div>
+                                <span class="partner-access-question-index">Revenue pricing</span>
+                                <h4>Partner unit prices</h4>
+                                <p>Set the partner price per billable unit. SKU price is calculated from volume divided by the SKU ASTRA value.</p>
+                            </div>
+                        </div>
+                        <div class="partner-pricing-list" data-partner-pricing-list>
+                            <div class="partner-access-empty">Select products to create partner prices.</div>
+                        </div>
+                    </section>
                 </section>
                 <label data-partner-locked-field>
                     <span>Notes</span>

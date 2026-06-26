@@ -35,6 +35,72 @@ function jg_public_partner_product_name_map(): array
     return is_array($decoded) ? $decoded : [];
 }
 
+function jg_public_partner_table_has_column(PDO $pdo, string $tableName, string $columnName): bool
+{
+    static $cache = [];
+
+    $cacheKey = $tableName . '.' . $columnName;
+    if (array_key_exists($cacheKey, $cache)) {
+        return $cache[$cacheKey];
+    }
+
+    try {
+        $stmt = $pdo->prepare(
+            'SELECT COUNT(*)
+             FROM INFORMATION_SCHEMA.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME = :table_name
+               AND COLUMN_NAME = :column_name'
+        );
+        $stmt->execute([
+            ':table_name' => $tableName,
+            ':column_name' => $columnName,
+        ]);
+        $cache[$cacheKey] = (int) $stmt->fetchColumn() > 0;
+    } catch (Throwable) {
+        $cache[$cacheKey] = false;
+    }
+
+    return $cache[$cacheKey];
+}
+
+function jg_public_partner_astra_select(PDO $pdo): string
+{
+    foreach (['astra_value', 'astra', 'astra_unit'] as $columnName) {
+        if (jg_public_partner_table_has_column($pdo, 'sku_skus', $columnName)) {
+            return 's.`' . $columnName . '` AS astra_value';
+        }
+    }
+
+    foreach (['astra_value', 'astra', 'astra_unit'] as $columnName) {
+        if (jg_public_partner_table_has_column($pdo, 'sku_units', $columnName)) {
+            return 'u.`' . $columnName . '` AS astra_value';
+        }
+    }
+
+    return 'NULL AS astra_value';
+}
+
+function jg_public_partner_billable_unit_count(float $volume, mixed $astraValue): float
+{
+    $astra = is_numeric($astraValue) ? (float) $astraValue : 0.0;
+    if ($volume <= 0 || $astra <= 0) {
+        return 1.0;
+    }
+
+    return max(1.0, round($volume / $astra, 4));
+}
+
+function jg_public_partner_decimal_string(mixed $value): string
+{
+    if (!is_numeric($value) || (float) $value <= 0) {
+        return '';
+    }
+
+    $formatted = number_format((float) $value, 4, '.', '');
+    return rtrim(rtrim($formatted, '0'), '.');
+}
+
 function jg_public_partner_read_database(): array
 {
     $pdo = jg_partner_db();
@@ -102,6 +168,7 @@ function jg_public_partner_read_database(): array
 function jg_public_partner_sku_catalog(PDO $pdo): array
 {
     $productNameMap = jg_public_partner_product_name_map();
+    $astraSelect = jg_public_partner_astra_select($pdo);
     $stmt = $pdo->query(
         'SELECT
             s.sku,
@@ -115,6 +182,7 @@ function jg_public_partner_sku_catalog(PDO $pdo): array
             f.name AS flavor_name,
             u.name AS unit_name,
             s.volume,
+            ' . $astraSelect . ',
             s.current_stock
          FROM sku_skus s
          INNER JOIN sku_brands b ON b.id = s.brand_id
@@ -133,7 +201,10 @@ function jg_public_partner_sku_catalog(PDO $pdo): array
         $productId = (string) ($row['product_id'] ?? '');
         $productKey = $brandId . '::' . ($productId !== '' ? $productId : $baseProductName);
         $flavorName = (string) ($row['flavor_name'] ?? '');
-        $sizeLabel = number_format((float) ($row['volume'] ?? 0), 1, '.', '') . ' ' . (string) ($row['unit_name'] ?? '');
+        $volume = (float) ($row['volume'] ?? 0);
+        $astraValue = is_numeric($row['astra_value'] ?? null) ? (float) $row['astra_value'] : 0.0;
+        $unitCount = jg_public_partner_billable_unit_count($volume, $astraValue);
+        $sizeLabel = number_format($volume, 1, '.', '') . ' ' . (string) ($row['unit_name'] ?? '');
         $isUnflavored = strtoupper($flavorName) === 'UNFLAVORED';
 
         $labelParts = [$displayProductName];
@@ -155,7 +226,9 @@ function jg_public_partner_sku_catalog(PDO $pdo): array
             'product_code' => (string) ($row['product_code'] ?? ''),
             'flavor_name' => $flavorName,
             'unit_name' => (string) ($row['unit_name'] ?? ''),
-            'volume' => number_format((float) ($row['volume'] ?? 0), 1, '.', ''),
+            'volume' => number_format($volume, 1, '.', ''),
+            'astra_value' => jg_public_partner_decimal_string($astraValue),
+            'unit_count' => $unitCount,
             'size_label' => $sizeLabel,
             'label' => implode(' · ', array_filter($labelParts, static fn ($value) => trim((string) $value) !== '')),
             'current_stock' => (int) ($row['current_stock'] ?? 0),
@@ -173,6 +246,7 @@ function jg_public_partner_enrich(array $partner, array $catalog): array
     foreach ((array) ($catalog['skus'] ?? []) as $sku) {
         $skuIndex[(string) ($sku['sku'] ?? '')] = $sku;
     }
+    $pricing = is_array($partner['pricing'] ?? null) ? $partner['pricing'] : [];
 
     $selectedSkuCodes = array_values(array_unique(array_filter(array_map(
         static fn ($value): string => trim((string) $value),
@@ -192,6 +266,10 @@ function jg_public_partner_enrich(array $partner, array $catalog): array
         }
 
         $sku = $skuIndex[$skuCode];
+        $partnerUnitPrice = max(0.0, (float) ($pricing[$skuCode] ?? 0));
+        $unitCount = max(1.0, (float) ($sku['unit_count'] ?? 1));
+        $sku['partner_unit_price'] = $partnerUnitPrice;
+        $sku['partner_price'] = round($partnerUnitPrice * $unitCount, 2);
         $selectedSkus[] = $sku;
 
         $brandId = (string) ($sku['brand_id'] ?? '');
@@ -249,6 +327,7 @@ function jg_public_partner_enrich(array $partner, array $catalog): array
     $partner['companies'] = array_values($companyNames);
     $partner['company_records'] = array_values($companies);
     $partner['product_access'] = $productAccess;
+    $partner['pricing'] = $pricing;
     $partner['selected_sku_records'] = $selectedSkus;
     $partner['store_path'] = '/' . trim((string) ($partner['partner_slug'] ?? ''), '/') . '/';
     unset($partner['password_hash']);
