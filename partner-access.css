@@ -277,6 +277,72 @@
   font-size: 0.88rem;
 }
 
+.partner-pricing-editor {
+  display: grid;
+  gap: 1rem;
+  padding: 1.2rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1.15rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02)),
+    rgba(255, 255, 255, 0.018);
+}
+
+.partner-pricing-list {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.partner-pricing-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(140px, 180px);
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.partner-pricing-row span,
+.partner-pricing-row strong,
+.partner-pricing-row small {
+  display: block;
+  min-width: 0;
+}
+
+.partner-pricing-row strong {
+  overflow: hidden;
+  color: #fff;
+  font-size: 0.92rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.partner-pricing-row small {
+  margin-top: 0.25rem;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.8rem;
+}
+
+.partner-pricing-row input {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.85rem;
+  outline: none;
+  background: rgba(11, 15, 20, 0.82);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+}
+
+.partner-pricing-row input:focus {
+  border-color: rgba(91, 255, 167, 0.36);
+  box-shadow: 0 0 0 4px rgba(91, 255, 167, 0.08);
+}
+
 .partner-profile-grid {
   display: grid;
   gap: 1.15rem;
@@ -305,6 +371,10 @@
   .partner-access-actions {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .partner-pricing-row {
+    grid-template-columns: 1fr;
   }
 
   [data-partner-modal].admin-modal-shell {

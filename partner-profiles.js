@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const brandSummary = document.querySelector('[data-partner-brand-summary]');
   const productSummary = document.querySelector('[data-partner-product-summary]');
   const skuSummary = document.querySelector('[data-partner-sku-summary]');
+  const pricingList = document.querySelector('[data-partner-pricing-list]');
 
   const state = {
     partners: [],
@@ -29,6 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
       products: [],
       skus: []
     },
+    pricing: {},
     search: {
       brands: '',
       products: ''
@@ -180,7 +182,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!selectedSkuList) return;
     if (!skuRecords.length) {
-      selectedSkuList.innerHTML = '<div class="partner-access-empty">Selected SKUs will show here.</div>';
+      selectedSkuList.innerHTML = '<div class="partner-access-empty">Sellable SKU links will show here.</div>';
       return;
     }
 
@@ -192,13 +194,43 @@ document.addEventListener('DOMContentLoaded', () => {
     `).join('');
   };
 
+  const syncPricing = () => {
+    const selectedSkuCodes = new Set(state.selections.skus);
+    const nextPricing = {};
+    selectedSkuCodes.forEach((skuCode) => {
+      nextPricing[skuCode] = Number(state.pricing[skuCode] || 0);
+    });
+    state.pricing = nextPricing;
+  };
+
+  const renderPricing = () => {
+    if (!pricingList) return;
+    const skuRecords = catalogSkus().filter((sku) => state.selections.skus.includes(sku.sku));
+    if (!skuRecords.length) {
+      pricingList.innerHTML = '<div class="partner-access-empty">Select products to create partner prices.</div>';
+      return;
+    }
+
+    pricingList.innerHTML = skuRecords.map((sku) => `
+      <label class="partner-pricing-row">
+        <span>
+          <strong>${escapeHtml(sku.label || sku.product_name || sku.sku || '')}</strong>
+          <small>${escapeHtml(sku.sku || '')}</small>
+        </span>
+        <input type="number" min="0" step="100" inputmode="decimal" value="${escapeHtml(state.pricing[sku.sku] || 0)}" data-partner-sku-price="${escapeHtml(sku.sku || '')}">
+      </label>
+    `).join('');
+  };
+
   const renderSelectionUi = () => {
     hydrateSelections();
     syncDerivedSkus();
+    syncPricing();
     renderStepState();
     renderBrands();
     renderProducts();
     renderSummary();
+    renderPricing();
   };
 
   const syncSelection = (type, values) => {
@@ -258,12 +290,12 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
           </div>
           <div class="admin-affiliate-field">
-            <span class="admin-control-label">Selected SKUs</span>
+            <span class="admin-control-label">Sellable SKUs</span>
             <div class="partner-access-tag-list">
               ${(partner.selected_sku_records || []).map((sku) => `
                 <div class="partner-access-tag">
                   <strong>${escapeHtml(sku.sku || '')}</strong>
-                  <span>${escapeHtml(sku.label || '')}</span>
+                  <span>${escapeHtml(sku.label || '')} · Rp${Number(sku.partner_price || 0).toLocaleString('id-ID')}</span>
                 </div>
               `).join('')}
             </div>
@@ -286,6 +318,7 @@ document.addEventListener('DOMContentLoaded', () => {
     partnerModal.hidden = true;
     partnerForm?.reset();
     state.selections = { brands: [], products: [], skus: [] };
+    state.pricing = {};
     state.activeStep = 'brands';
     setError('');
     renderSelectionUi();
@@ -294,6 +327,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const openPartnerModal = () => {
     if (!partnerModal) return;
     partnerModal.hidden = false;
+    state.selections = { brands: [], products: [], skus: [] };
+    state.pricing = {};
     state.activeStep = 'brands';
     renderSelectionUi();
   };
@@ -347,6 +382,19 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    const priceSku = target.getAttribute('data-partner-sku-price');
+    if (priceSku) {
+      state.pricing[priceSku] = Math.max(0, Number(target.value || 0));
+    }
+  });
+
+  partnerModal?.addEventListener('input', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    const priceSku = target.getAttribute('data-partner-sku-price');
+    if (priceSku) {
+      state.pricing[priceSku] = Math.max(0, Number(target.value || 0));
+    }
   });
 
   partnerList?.addEventListener('click', async (event) => {
@@ -396,6 +444,7 @@ document.addEventListener('DOMContentLoaded', () => {
           name: formData.get('name'),
           partner_slug: formData.get('partner_slug'),
           selected_skus: selectedSkuPayload(),
+          pricing: state.pricing,
           notes: formData.get('notes')
         }
       });

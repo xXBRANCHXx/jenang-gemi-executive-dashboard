@@ -205,6 +205,19 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                             <div class="partner-access-empty">Linked backend SKU records will show here.</div>
                         </div>
                     </section>
+
+                    <section class="partner-pricing-editor">
+                        <div class="partner-access-card-head">
+                            <div>
+                                <span class="partner-access-question-index">Revenue pricing</span>
+                                <h4>Partner SKU prices</h4>
+                                <p>Set the revenue price for each SKU this partner sells online.</p>
+                            </div>
+                        </div>
+                        <div class="partner-pricing-list" data-partner-pricing-list>
+                            <div class="partner-access-empty">Select products to create partner prices.</div>
+                        </div>
+                    </section>
                 </section>
                 <label>
                     <span>Notes</span>

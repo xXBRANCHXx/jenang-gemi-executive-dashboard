@@ -170,6 +170,7 @@ function jg_public_partner_enrich(array $partner, array $catalog): array
     foreach ((array) ($catalog['skus'] ?? []) as $sku) {
         $skuIndex[(string) ($sku['sku'] ?? '')] = $sku;
     }
+    $pricing = is_array($partner['pricing'] ?? null) ? $partner['pricing'] : [];
 
     $selectedSkuCodes = array_values(array_unique(array_filter(array_map(
         static fn ($value): string => trim((string) $value),
@@ -189,6 +190,7 @@ function jg_public_partner_enrich(array $partner, array $catalog): array
         }
 
         $sku = $skuIndex[$skuCode];
+        $sku['partner_price'] = max(0.0, (float) ($pricing[$skuCode] ?? 0));
         $selectedSkus[] = $sku;
 
         $brandId = (string) ($sku['brand_id'] ?? '');
@@ -246,6 +248,7 @@ function jg_public_partner_enrich(array $partner, array $catalog): array
     $partner['companies'] = array_values($companyNames);
     $partner['company_records'] = array_values($companies);
     $partner['product_access'] = $productAccess;
+    $partner['pricing'] = $pricing;
     $partner['selected_sku_records'] = $selectedSkus;
     $partner['store_path'] = '/' . trim((string) ($partner['partner_slug'] ?? ''), '/') . '/';
 

@@ -411,6 +411,7 @@ function jg_partner_enrich_record(array $partner, array $catalog): array
     foreach ($catalog['skus'] ?? [] as $sku) {
         $skuIndex[(string) ($sku['sku'] ?? '')] = $sku;
     }
+    $pricing = is_array($partner['pricing'] ?? null) ? $partner['pricing'] : [];
 
     $selectedSkuCodes = array_values(array_unique(array_filter(array_map(
         static fn ($value): string => trim((string) $value),
@@ -430,6 +431,7 @@ function jg_partner_enrich_record(array $partner, array $catalog): array
         }
 
         $sku = $skuIndex[$skuCode];
+        $sku['partner_price'] = max(0.0, (float) ($pricing[$skuCode] ?? 0));
         $selectedSkus[] = $sku;
 
         $brandId = (string) ($sku['brand_id'] ?? '');
@@ -488,7 +490,7 @@ function jg_partner_enrich_record(array $partner, array $catalog): array
     $partner['companies'] = array_values($companyNames);
     $partner['company_records'] = array_values($companies);
     $partner['product_access'] = $productAccess;
-    $partner['pricing'] = is_array($partner['pricing'] ?? null) ? $partner['pricing'] : [];
+    $partner['pricing'] = $pricing;
     $partner['selected_sku_records'] = $selectedSkus;
     $partner['store_path'] = '/' . trim((string) ($partner['partner_slug'] ?? ''), '/') . '/';
 
@@ -514,13 +516,43 @@ function jg_partner_validate_selected_skus(array $selectedSkus, array $catalog):
     $records = [];
     foreach ($normalized as $skuCode) {
         if (!isset($catalogIndex[$skuCode])) {
-            jg_partner_fail('One or more selected SKUs are no longer available in the SKU database.');
+            jg_partner_fail('One or more sellable SKUs are no longer available in the SKU database.');
         }
 
         $records[] = $catalogIndex[$skuCode];
     }
 
     return $records;
+}
+
+function jg_partner_normalize_pricing(mixed $value, array $selectedSkuRecords, array $existingPricing = []): array
+{
+    $incoming = is_array($value) ? $value : [];
+    $pricing = [];
+
+    foreach ($selectedSkuRecords as $sku) {
+        if (!is_array($sku)) {
+            continue;
+        }
+
+        $skuCode = trim((string) ($sku['sku'] ?? ''));
+        if ($skuCode === '') {
+            continue;
+        }
+
+        $raw = $incoming[$skuCode] ?? $existingPricing[$skuCode] ?? 0;
+        if (is_string($raw)) {
+            $raw = preg_replace('/[^0-9.\-]/', '', $raw) ?? '0';
+        }
+        if (!is_numeric($raw)) {
+            jg_partner_fail('Partner pricing values must be numeric.');
+        }
+
+        $pricing[$skuCode] = max(0.0, round((float) $raw, 2));
+    }
+
+    ksort($pricing);
+    return $pricing;
 }
 
 function jg_partner_build_record(array $payload, array $database, array $catalog, ?array $existing = null): array
@@ -556,6 +588,8 @@ function jg_partner_build_record(array $payload, array $database, array $catalog
     $updatedAt = jg_partner_now();
 
     $selectedSkuCodes = array_map(static fn (array $row): string => (string) ($row['sku'] ?? ''), $selectedSkuRecords);
+    $existingPricing = is_array($existing['pricing'] ?? null) ? $existing['pricing'] : [];
+    $pricing = jg_partner_normalize_pricing($payload['pricing'] ?? $existingPricing, $selectedSkuRecords, $existingPricing);
 
     return [
         'code' => $code,
@@ -564,7 +598,7 @@ function jg_partner_build_record(array $payload, array $database, array $catalog
         'store_path' => '/' . $partnerSlug . '/',
         'notes' => $notes,
         'selected_skus' => $selectedSkuCodes,
-        'pricing' => is_array($existing['pricing'] ?? null) ? $existing['pricing'] : [],
+        'pricing' => $pricing,
         'created_at' => $createdAt,
         'updated_at' => $updatedAt,
     ];
