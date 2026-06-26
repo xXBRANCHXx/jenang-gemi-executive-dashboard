@@ -70,6 +70,13 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
             <span class="admin-chip">Preparing Dashboard</span>
             <h2>Loading executive overview</h2>
             <p>Fetching analytics, rendering charts, and preparing the full interface before reveal.</p>
+            <div class="admin-loader-worm" aria-hidden="true">
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
             <div class="admin-loader-bar">
                 <span class="admin-loader-progress" data-admin-loader-progress></span>
             </div>

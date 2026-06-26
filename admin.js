@@ -433,6 +433,22 @@ const DAILY_ORDER_PAGE_LIMIT = 500;
 const DAILY_CUSTOM_PLATFORMS_STORAGE_KEY = 'jg-dashboard-daily-custom-platforms';
 const ANALYTICS_DEVICE_COOKIE = 'jg_analytics_device_id';
 const ANALYTICS_DEVICE_MAX_AGE = 60 * 60 * 24 * 365 * 2;
+const VIEW_CACHE_TTL_MS = {
+  overview: 2 * 60 * 1000,
+  orders: 2 * 60 * 1000,
+  daily: 5 * 60 * 1000,
+  home: 90 * 1000,
+  website: 2 * 60 * 1000,
+  settings: 5 * 60 * 1000
+};
+const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+const LIVE_REFRESH_DEBOUNCE_MS = 1200;
+const BACKGROUND_IDLE_TIMEOUT_MS = 5000;
+const BACKGROUND_TASK_DELAY_MS = 450;
+
+const wait = (duration) => new Promise((resolve) => {
+  window.setTimeout(resolve, duration);
+});
 
 const getMonthKeyForTimezone = (date = new Date(), timezone = DASHBOARD_TIMEZONE) => {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -1709,11 +1725,13 @@ document.addEventListener('DOMContentLoaded', () => {
       hourlyDate: '',
       hourlyRequestToken: 0,
       data: null,
+      loadedAt: 0,
       yearControlsSignature: '',
       requestToken: 0
     },
     orders: {
       data: null,
+      loadedAt: 0,
       rows: [],
       rowKeys: new Set(),
       catalog: [],
@@ -1749,6 +1767,7 @@ document.addEventListener('DOMContentLoaded', () => {
     daily: {
       month: getMonthKeyForTimezone(new Date(), DASHBOARD_TIMEZONE),
       data: null,
+      loadedAt: 0,
       rows: [],
       customPlatforms: [],
       loading: false,
@@ -1771,6 +1790,7 @@ document.addEventListener('DOMContentLoaded', () => {
         jamu: true
       },
       data: null,
+      loadedAt: 0,
       requestToken: 0
     },
     website: {
@@ -1779,7 +1799,9 @@ document.addEventListener('DOMContentLoaded', () => {
       site: '',
       screen: 'select',
       data: null,
+      loadedAt: 0,
       deviceExclusions: [],
+      settingsLoadedAt: 0,
       currentDeviceId: ensureAnalyticsDeviceId(),
       requestToken: 0,
       settingsRequestToken: 0
@@ -2348,7 +2370,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const response = await fetch(url, {
         headers: { Accept: 'application/json', ...(options.headers || {}) },
         credentials: 'same-origin',
-        cache: 'no-store',
+        cache: fetchOptions.cache || 'default',
         ...fetchOptions,
         ...(controller ? { signal: controller.signal } : {})
       });
@@ -2990,28 +3012,28 @@ document.addEventListener('DOMContentLoaded', () => {
     menuTrigger.setAttribute('aria-label', 'Close dashboard menu');
   };
 
-  const buildAnalyticsUrl = (dataset, timeframe) => {
+  const buildAnalyticsUrl = (dataset, timeframe, options = {}) => {
     const params = new URLSearchParams({
       timeframe,
       timezone: state.timezone,
       recent_limit: '120',
-      dataset,
-      _ts: String(Date.now())
+      dataset
     });
     if (dataset === 'website') {
       params.set('site', state.website.site || 'jenang_gemi');
     }
+    if (options.cacheBust) params.set('_ts', String(Date.now()));
     return `${endpoint}?${params.toString()}`;
   };
 
   const buildSalesUrl = (year, options = {}) => {
     const params = new URLSearchParams({
-      year: String(year),
-      _ts: String(Date.now())
+      year: String(year)
     });
     if (options.refresh) {
       params.set('refresh', '1');
     }
+    if (options.cacheBust || options.refresh) params.set('_ts', String(Date.now()));
     return `${salesEndpoint}?${params.toString()}`;
   };
   const buildSalesRefreshUrl = (year) => {
@@ -3025,9 +3047,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const buildOrderFactsUrl = (startDate, endDate, options = {}) => {
     const params = new URLSearchParams({
       start_date: startDate,
-      end_date: endDate,
-      _ts: String(Date.now())
+      end_date: endDate
     });
+    if (options.cacheBust) params.set('_ts', String(Date.now()));
     if (options.lightweight) {
       params.set('lightweight', '1');
     }
@@ -3310,7 +3332,11 @@ document.addEventListener('DOMContentLoaded', () => {
     ensureEnoughOrderRows().catch(showOrderLoadError);
   };
 
-  const buildSettingsUrl = (action) => `${settingsEndpoint}?action=${encodeURIComponent(action)}&_ts=${encodeURIComponent(String(Date.now()))}`;
+  const buildSettingsUrl = (action, options = {}) => {
+    const params = new URLSearchParams({ action });
+    if (options.cacheBust) params.set('_ts', String(Date.now()));
+    return `${settingsEndpoint}?${params.toString()}`;
+  };
 
   const beginRequest = (key, settings = false) => {
     state.requestSequence += 1;
@@ -3328,6 +3354,25 @@ document.addEventListener('DOMContentLoaded', () => {
       ? state[key].settingsRequestToken === token
       : state[key].requestToken === token
   );
+
+  const isFresh = (loadedAt, ttl) => (
+    Number.isFinite(loadedAt) &&
+    loadedAt > 0 &&
+    Date.now() - loadedAt < ttl
+  );
+
+  const hasFreshViewData = (view) => {
+    if (view === 'overview') return Boolean(state.overview.data) && isFresh(state.overview.loadedAt, VIEW_CACHE_TTL_MS.overview);
+    if (view === 'orders') return Boolean(state.orders.data) && isFresh(state.orders.loadedAt, VIEW_CACHE_TTL_MS.orders);
+    if (view === 'daily') return Boolean(state.daily.data) && isFresh(state.daily.loadedAt, VIEW_CACHE_TTL_MS.daily);
+    if (view === 'home') return Boolean(state.home.data) && isFresh(state.home.loadedAt, VIEW_CACHE_TTL_MS.home);
+    if (view === 'website') {
+      if (state.website.screen !== 'detail' || !state.website.site) return true;
+      return Boolean(state.website.data) && isFresh(state.website.loadedAt, VIEW_CACHE_TTL_MS.website);
+    }
+    if (view === 'settings') return isFresh(state.website.settingsLoadedAt, VIEW_CACHE_TTL_MS.settings);
+    return true;
+  };
 
   const topPlatformForMonth = (month) => {
     const entries = Object.entries(month?.platforms || {});
@@ -3654,7 +3699,7 @@ document.addEventListener('DOMContentLoaded', () => {
     rangeDraftStart = '';
     rangeHoverDate = '';
     closeOverviewRangePopover();
-    await loadOverviewSafely();
+    await loadOverviewSafely({ force: true, preferStale: false });
   };
 
   const renderOverviewYearControls = (years) => {
@@ -3671,7 +3716,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const nextYear = Number(button.getAttribute('data-overview-year') || state.overview.year);
         if (!Number.isFinite(nextYear) || nextYear === state.overview.year) return;
         state.overview.year = nextYear;
-        await loadOverviewSafely();
+        await loadOverviewSafely({ force: true, preferStale: false });
       });
     });
   };
@@ -4753,7 +4798,7 @@ document.addEventListener('DOMContentLoaded', () => {
     state.website.site = site;
     state.website.screen = 'detail';
     renderWebsiteShell();
-    await loadWebsiteSafely();
+    await loadWebsiteSafely({ force: true, preferStale: false });
     if (site === 'zero') {
       await loadZeroStoreSafely();
     } else if (site === 'jenang_gemi') {
@@ -5030,10 +5075,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const refreshAnalyticsAfterDeviceExclusion = async () => {
     await Promise.allSettled([
-      loadOverviewSafely(),
-      loadHomeSafely(),
-      loadWebsiteSafely(),
-      loadWebsiteSettingsSafely()
+      loadOverviewSafely({ force: true, preferStale: false }),
+      loadHomeSafely({ force: true, preferStale: false }),
+      loadWebsiteSafely({ force: true, preferStale: false }),
+      loadWebsiteSettingsSafely({ force: true, preferStale: false })
     ]);
   };
 
@@ -5050,6 +5095,17 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const loadOverview = async (options = {}) => {
+    if (!options.forceRefresh && !options.force && state.overview.data) {
+      if (isFresh(state.overview.loadedAt, VIEW_CACHE_TTL_MS.overview)) {
+        renderOverview(state.overview.data);
+        return;
+      }
+      if (options.preferStale !== false) {
+        renderOverview(state.overview.data);
+        if (!options.background) queueViewRefresh('overview');
+        return;
+      }
+    }
     if (options.useCache) {
       const cached = readOverviewCache(state.overview.year);
       if (cached) renderOverview(cached);
@@ -5059,7 +5115,10 @@ document.addEventListener('DOMContentLoaded', () => {
       refreshOverviewHourlyRows(requestToken).catch(() => {});
     }
     const [data, customData] = await Promise.all([
-      requestJson(buildSalesUrl(state.overview.year, { refresh: Boolean(options.forceRefresh) })),
+      requestJson(buildSalesUrl(state.overview.year, {
+        refresh: Boolean(options.forceRefresh),
+        cacheBust: Boolean(options.forceRefresh || options.force)
+      })),
       state.overview.customRange.active && state.overview.customRange.startDate && state.overview.customRange.endDate
         ? requestOrderFacts(state.overview.customRange.startDate, state.overview.customRange.endDate).catch(() => ({ orders: [] }))
         : Promise.resolve(null)
@@ -5069,14 +5128,8 @@ document.addEventListener('DOMContentLoaded', () => {
       state.overview.customRange.rows = Array.isArray(customData.orders) ? customData.orders : [];
     }
     writeOverviewCache(state.overview.year, data);
+    state.overview.loadedAt = Date.now();
     renderOverview(data);
-    requestJson(buildSalesUrl(state.overview.year, { refresh: true }))
-      .then((freshData) => {
-        if (!isLatestRequest('overview', requestToken)) return;
-        writeOverviewCache(state.overview.year, freshData);
-        renderOverview(freshData);
-      })
-      .catch(() => {});
   };
 
   const refreshMarketplaceData = async () => {
@@ -5119,7 +5172,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const loadDaily = async () => {
+  const loadDaily = async (options = {}) => {
+    if (!options.force && state.daily.data) {
+      if (isFresh(state.daily.loadedAt, VIEW_CACHE_TTL_MS.daily)) {
+        renderDaily(state.daily.data);
+        return;
+      }
+      if (options.preferStale !== false) {
+        renderDaily(state.daily.data);
+        if (!options.background) queueViewRefresh('daily');
+        return;
+      }
+    }
     const requestToken = beginRequest('daily');
     const month = parseDailyMonth(state.daily.month);
     state.daily.month = `${month.year}-${String(month.month).padStart(2, '0')}`;
@@ -5136,7 +5200,8 @@ document.addEventListener('DOMContentLoaded', () => {
         lightweight: true,
         storedOnly: true,
         limit: DAILY_ORDER_PAGE_LIMIT,
-        offset
+        offset,
+        cacheBust: Boolean(options.force)
       });
       if (!isLatestRequest('daily', requestToken)) return;
       rows.push(...(Array.isArray(payload.orders) ? payload.orders : []));
@@ -5153,29 +5218,60 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!isLatestRequest('daily', requestToken)) return;
     state.daily.rows = rows;
     state.daily.loading = false;
+    state.daily.loadedAt = Date.now();
     renderDaily(aggregateDailyData(rows, state.daily.month));
   };
 
-  const loadHome = async () => {
+  const loadHome = async (options = {}) => {
+    if (!options.force && state.home.data) {
+      if (isFresh(state.home.loadedAt, VIEW_CACHE_TTL_MS.home)) {
+        renderHome(state.home.data);
+        return;
+      }
+      if (options.preferStale !== false) {
+        renderHome(state.home.data);
+        if (!options.background) queueViewRefresh('home');
+        return;
+      }
+    }
     const requestToken = beginRequest('home');
-    const data = await requestJson(buildAnalyticsUrl('landing', state.home.timeframe));
+    const data = await requestJson(buildAnalyticsUrl('landing', state.home.timeframe, { cacheBust: Boolean(options.force) }));
     if (!isLatestRequest('home', requestToken)) return;
+    state.home.loadedAt = Date.now();
     renderHome(data);
   };
 
-  const loadWebsite = async () => {
+  const loadWebsite = async (options = {}) => {
+    if (!options.force && state.website.data) {
+      if (isFresh(state.website.loadedAt, VIEW_CACHE_TTL_MS.website)) {
+        renderWebsite(state.website.data);
+        return;
+      }
+      if (options.preferStale !== false) {
+        renderWebsite(state.website.data);
+        if (!options.background) queueViewRefresh('website');
+        return;
+      }
+    }
     const requestToken = beginRequest('website');
-    const data = await requestJson(buildAnalyticsUrl('website', state.website.timeframe));
+    const data = await requestJson(buildAnalyticsUrl('website', state.website.timeframe, { cacheBust: Boolean(options.force) }));
     if (!isLatestRequest('website', requestToken)) return;
+    state.website.loadedAt = Date.now();
     renderWebsite(data);
   };
 
-  const loadWebsiteSettings = async () => {
+  const loadWebsiteSettings = async (options = {}) => {
+    if (!options.force && isFresh(state.website.settingsLoadedAt, VIEW_CACHE_TTL_MS.settings)) {
+      renderDeviceExclusionList();
+      renderCurrentDeviceId();
+      return;
+    }
     const requestToken = beginRequest('website', true);
-    const data = await requestJson(buildSettingsUrl('website_settings'));
+    const data = await requestJson(buildSettingsUrl('website_settings', { cacheBust: Boolean(options.force) }));
     if (!isLatestRequest('website', requestToken, true)) return;
     state.website.deviceExclusions = Array.isArray(data.excluded_devices) ? data.excluded_devices : [];
     state.website.currentDeviceId = ensureAnalyticsDeviceId();
+    state.website.settingsLoadedAt = Date.now();
     renderDeviceExclusionList();
     renderCurrentDeviceId();
   };
@@ -5372,7 +5468,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const loadOrders = async () => {
+  const loadOrders = async (options = {}) => {
+    if (!options.force && state.orders.data) {
+      if (isFresh(state.orders.loadedAt, VIEW_CACHE_TTL_MS.orders)) {
+        renderOrders();
+        return;
+      }
+      if (options.preferStale !== false) {
+        renderOrders();
+        if (!options.background) queueViewRefresh('orders');
+        return;
+      }
+    }
     if (!state.overview.data) {
       await loadOverviewSafely({ useCache: true, skipHourly: true });
     }
@@ -5381,6 +5488,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (state.orders.loadPromise) {
       await state.orders.loadPromise;
     }
+    state.orders.loadedAt = Date.now();
   };
 
   const showOrderLoadError = (error) => {
@@ -5397,9 +5505,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const loadOrdersSafely = async () => {
+  const loadOrdersSafely = async (options = {}) => {
     try {
-      await loadOrders();
+      await loadOrders(options);
       return true;
     } catch (error) {
       showOrderLoadError(error);
@@ -5407,9 +5515,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const loadDailySafely = async () => {
+  const loadDailySafely = async (options = {}) => {
     try {
-      await loadDaily();
+      await loadDaily(options);
       return true;
     } catch (error) {
       state.daily.loading = false;
@@ -5444,17 +5552,17 @@ document.addEventListener('DOMContentLoaded', () => {
     renderSkuOrderTree();
   };
 
-  const loadActiveView = async () => {
+  const loadActiveView = async (options = {}) => {
     if (state.activeView === 'overview') {
-      await loadOverview();
+      await loadOverview(options);
       return;
     }
     if (state.activeView === 'orders') {
-      await loadOrders();
+      await loadOrders(options);
       return;
     }
     if (state.activeView === 'daily') {
-      await loadDaily();
+      await loadDaily(options);
       return;
     }
     if (state.activeView === 'store-ops') {
@@ -5465,12 +5573,12 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     if (state.activeView === 'home') {
-      await loadHome();
+      await loadHome(options);
       return;
     }
     if (state.activeView === 'website') {
       if (state.website.screen === 'detail' && state.website.site) {
-        await loadWebsite();
+        await loadWebsite(options);
       } else {
         showWebsiteSelector();
       }
@@ -5481,7 +5589,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     if (state.activeView === 'settings') {
-      await loadWebsiteSettings();
+      await loadWebsiteSettings(options);
     }
   };
 
@@ -5495,9 +5603,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const loadHomeSafely = async () => {
+  const loadHomeSafely = async (options = {}) => {
     try {
-      await loadHome();
+      await loadHome(options);
       return true;
     } catch (error) {
       renderViewError('home', error);
@@ -5505,9 +5613,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const loadWebsiteSafely = async () => {
+  const loadWebsiteSafely = async (options = {}) => {
     try {
-      await loadWebsite();
+      await loadWebsite(options);
       return true;
     } catch (error) {
       renderViewError('website', error);
@@ -5515,9 +5623,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const loadWebsiteSettingsSafely = async () => {
+  const loadWebsiteSettingsSafely = async (options = {}) => {
     try {
-      await loadWebsiteSettings();
+      await loadWebsiteSettings(options);
       return true;
     } catch (error) {
       if (websiteRefs.deviceExclusionError) {
@@ -5528,15 +5636,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const loadActiveViewSafely = async () => {
+  const loadActiveViewSafely = async (options = {}) => {
     if (state.activeView === 'overview') {
-      return loadOverviewSafely();
+      return loadOverviewSafely(options);
     }
     if (state.activeView === 'orders') {
-      return loadOrdersSafely();
+      return loadOrdersSafely(options);
     }
     if (state.activeView === 'daily') {
-      return loadDailySafely();
+      return loadDailySafely(options);
     }
     if (state.activeView === 'store-ops') {
       return true;
@@ -5551,11 +5659,11 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
     if (state.activeView === 'home') {
-      return loadHomeSafely();
+      return loadHomeSafely(options);
     }
     if (state.activeView === 'website') {
       if (state.website.screen === 'detail' && state.website.site) {
-        return loadWebsiteSafely();
+        return loadWebsiteSafely(options);
       }
       showWebsiteSelector();
       return true;
@@ -5570,9 +5678,34 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
     if (state.activeView === 'settings') {
-      return loadWebsiteSettingsSafely();
+      return loadWebsiteSettingsSafely(options);
     }
     return true;
+  };
+
+  let activeRefreshTimer = null;
+  const queueActiveViewRefresh = (options = {}) => {
+    if (activeRefreshTimer) window.clearTimeout(activeRefreshTimer);
+    activeRefreshTimer = window.setTimeout(() => {
+      activeRefreshTimer = null;
+      loadActiveViewSafely({
+        force: options.force !== false,
+        forceRefresh: Boolean(options.forceRefresh),
+        preferStale: false,
+        background: true
+      }).catch(() => {});
+    }, options.delay || LIVE_REFRESH_DEBOUNCE_MS);
+  };
+
+  const queueViewRefresh = (view) => {
+    const options = { force: true, preferStale: false, background: true };
+    if (view === 'overview') return loadOverviewSafely({ ...options, forceRefresh: false });
+    if (view === 'orders') return loadOrdersSafely(options);
+    if (view === 'daily') return loadDailySafely(options);
+    if (view === 'home') return loadHomeSafely(options);
+    if (view === 'website' && state.website.screen === 'detail' && state.website.site) return loadWebsiteSafely(options);
+    if (view === 'settings') return loadWebsiteSettingsSafely(options);
+    return Promise.resolve(false);
   };
 
   const refreshForLocalDateRollover = async () => {
@@ -5587,9 +5720,9 @@ document.addEventListener('DOMContentLoaded', () => {
     state.orders.monthsSignature = '';
 
     await Promise.allSettled([
-      loadOverviewSafely(),
-      state.activeView === 'orders' ? loadOrdersSafely() : Promise.resolve(true),
-      state.activeView === 'daily' ? loadDailySafely() : Promise.resolve(true)
+      loadOverviewSafely({ force: true, preferStale: false }),
+      state.activeView === 'orders' ? loadOrdersSafely({ force: true, preferStale: false }) : Promise.resolve(true),
+      state.activeView === 'daily' ? loadDailySafely({ force: true, preferStale: false }) : Promise.resolve(true)
     ]);
     return true;
   };
@@ -5667,13 +5800,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const source = new window.EventSource(streamUrl, { withCredentials: true });
     state.liveSource = source;
 
-    source.addEventListener('change', async (event) => {
+    source.addEventListener('change', (event) => {
       try {
         const payload = JSON.parse(event.data || '{}');
         const nextSequence = Number(payload.sequence || 0);
         if (!Number.isFinite(nextSequence) || nextSequence <= state.liveSequence) return;
         state.liveSequence = nextSequence;
-        await Promise.allSettled([loadActiveView(), loadNotifications()]);
+        queueActiveViewRefresh({ force: true });
+        loadNotifications().catch(() => {});
       } catch (_) {
         // Ignore malformed live payloads and wait for the next internal signal.
       }
@@ -5687,33 +5821,67 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
+  let backgroundLoadsScheduled = false;
+  const scheduleBackgroundLoads = () => {
+    if (backgroundLoadsScheduled) return;
+    backgroundLoadsScheduled = true;
+    const run = async () => {
+      const tasks = [];
+      if (state.activeView !== 'overview' && !state.overview.data) {
+        tasks.push(() => loadOverviewSafely({ background: true, preferStale: false, useCache: true, skipHourly: true }));
+      }
+      if (state.activeView !== 'home' && !state.home.data) {
+        tasks.push(() => loadHomeSafely({ background: true, preferStale: false }));
+      }
+      if (!state.website.settingsLoadedAt) {
+        tasks.push(() => loadWebsiteSettingsSafely({ background: true, preferStale: false }));
+      }
+      tasks.push(() => loadOrderCatalog());
+      tasks.push(() => loadNotifications());
+
+      for (const task of tasks) {
+        if (document.hidden) break;
+        await task().catch(() => {});
+        await wait(BACKGROUND_TASK_DELAY_MS);
+      }
+    };
+
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(() => {
+        run().catch(() => {});
+      }, { timeout: BACKGROUND_IDLE_TIMEOUT_MS });
+      return;
+    }
+
+    window.setTimeout(() => {
+      run().catch(() => {});
+    }, 1200);
+  };
+
   applyTheme(readStoredTheme() || 'minimal-black');
   if (dailyRefs.monthInput) dailyRefs.monthInput.value = state.daily.month;
   renderDailyPlatformList();
-  loadOrderCatalog();
-  loadNotifications().catch(() => {});
   syncViewState();
   renderContextEditor();
   setLoaderState(20, 'Connecting to analytics');
+  setLoaderState(34, 'Loading active dashboard charts');
 
-  if (state.activeView === 'overview') {
-    loadOverviewSafely({ useCache: true }).catch(() => {});
-    setLoaderState(70, 'Preparing interface');
-    finishLoader();
-    connectLiveStream();
-  } else {
-    loadActiveViewSafely()
-      .then(async () => {
-        setLoaderState(70, 'Preparing interface');
-        if (state.activeView === 'settings') {
-          await loadWebsiteSettingsSafely();
-        }
-      })
-      .finally(() => {
-        finishLoader();
-        connectLiveStream();
-      });
-  }
+  const initialLoad = state.activeView === 'overview'
+    ? loadOverviewSafely({ useCache: true, preferStale: false })
+    : loadActiveViewSafely({ preferStale: false });
+
+  initialLoad
+    .then(async () => {
+      setLoaderState(76, 'Rendering charts and tables');
+      if (state.activeView === 'settings') {
+        await loadWebsiteSettingsSafely();
+      }
+    })
+    .finally(() => {
+      finishLoader();
+      connectLiveStream();
+      scheduleBackgroundLoads();
+    });
 
   overviewRefs.metricButtons.forEach((button) => {
     button.addEventListener('click', () => {
@@ -5839,7 +6007,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const nextMonth = String(dailyRefs.monthInput?.value || '').trim();
     if (!nextMonth || nextMonth === state.daily.month) return;
     state.daily.month = nextMonth;
-    await loadDailySafely();
+    await loadDailySafely({ force: true, preferStale: false });
   });
 
   dailyRefs.exportButton?.addEventListener('click', downloadDailyPdf);
@@ -5873,7 +6041,7 @@ document.addEventListener('DOMContentLoaded', () => {
   homeRefs.timeframeButtons.forEach((button) => {
     button.addEventListener('click', async () => {
       state.home.timeframe = button.dataset.homeTimeframe || '24h';
-      await loadHomeSafely();
+      await loadHomeSafely({ force: true, preferStale: false });
     });
   });
 
@@ -5896,7 +6064,7 @@ document.addEventListener('DOMContentLoaded', () => {
   websiteRefs.timeframeButtons.forEach((button) => {
     button.addEventListener('click', async () => {
       state.website.timeframe = button.dataset.websiteTimeframe || '7d';
-      await loadWebsiteSafely();
+      await loadWebsiteSafely({ force: true, preferStale: false });
     });
   });
 
@@ -6602,7 +6770,7 @@ document.addEventListener('DOMContentLoaded', () => {
     connectLiveStream();
     refreshForLocalDateRollover()
       .then((refreshed) => {
-        if (!refreshed) return loadActiveViewSafely();
+        if (!refreshed && !hasFreshViewData(state.activeView)) return loadActiveViewSafely({ preferStale: true });
         return true;
       })
       .catch(() => {});
@@ -6622,7 +6790,7 @@ document.addEventListener('DOMContentLoaded', () => {
         refreshOverviewHourlyRows().catch(() => {});
       }
     }
-  }, 60000);
+  }, AUTO_REFRESH_INTERVAL_MS);
   window.addEventListener('beforeunload', (event) => {
     closeLiveStream();
     if (!state.context.dirty) return;

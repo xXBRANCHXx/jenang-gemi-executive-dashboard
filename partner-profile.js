@@ -4,25 +4,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const endpoint = root.dataset.partnersEndpoint || '../api/partners/';
   const form = document.querySelector('[data-profile-form]');
+  const loadingNode = document.querySelector('[data-profile-loading]');
   const errorNode = document.querySelector('[data-profile-error]');
+  const toastNode = document.querySelector('[data-profile-toast]');
   const partnerName = document.querySelector('[data-partner-name]');
   const partnerCodeBadge = document.querySelector('[data-partner-code-badge]');
-  const codeNote = document.querySelector('[data-note-code]');
   const passwordNote = document.querySelector('[data-note-password]');
   const urlNote = document.querySelector('[data-note-url]');
   const deleteButton = document.querySelector('[data-delete-profile]');
   const regenerateCodeButton = document.querySelector('[data-regenerate-partner-code]');
   const generatePortalPasswordButton = document.querySelector('[data-generate-portal-password]');
+  const copyCodeButton = document.querySelector('[data-copy-partner-code]');
+  const saveButtons = document.querySelectorAll('[data-save-profile]');
+  const portalLinks = document.querySelectorAll('[data-partner-portal-link]');
 
-  const brandChoiceGrid = document.querySelector('[data-brand-choice-grid]');
-  const productChoiceGrid = document.querySelector('[data-product-choice-grid]');
-  const brandSearch = document.querySelector('[data-brand-search]');
-  const productSearch = document.querySelector('[data-product-search]');
+  const brandFilterList = document.querySelector('[data-brand-filter-list]');
+  const productFilterList = document.querySelector('[data-product-filter-list]');
+  const skuSearch = document.querySelector('[data-sku-search]');
+  const skuList = document.querySelector('[data-sku-list]');
   const selectedSkuList = document.querySelector('[data-partner-selected-skus]');
+
+  const accessCount = document.querySelector('[data-partner-access-count]');
+  const productCount = document.querySelector('[data-partner-product-count]');
+  const brandCount = document.querySelector('[data-partner-brand-count]');
+  const selectedCount = document.querySelector('[data-partner-selected-count]');
+  const selectedSummary = document.querySelector('[data-partner-selected-summary]');
   const brandSummary = document.querySelector('[data-partner-brand-summary]');
   const productSummary = document.querySelector('[data-partner-product-summary]');
   const skuSummary = document.querySelector('[data-partner-sku-summary]');
-  const pricingList = document.querySelector('[data-partner-pricing-list]');
 
   const state = {
     skuCatalog: {
@@ -36,12 +45,9 @@ document.addEventListener('DOMContentLoaded', () => {
       skus: []
     },
     pricing: {},
-    search: {
-      brands: '',
-      products: ''
-    },
-    activeStep: 'brands',
-    activeProductId: '',
+    activeBrandId: 'all',
+    activeProductId: 'all',
+    skuSearch: '',
     currentPartnerCode: root.dataset.partnerCode || ''
   };
 
@@ -59,8 +65,6 @@ document.addEventListener('DOMContentLoaded', () => {
     window.crypto.getRandomValues(bytes);
     return Array.from(bytes, (value) => alphabet[value % alphabet.length]).join('');
   };
-
-  const stepOrder = ['brands', 'products'];
 
   const requestJson = async (url, options = {}) => {
     const response = await fetch(url, {
@@ -99,11 +103,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const skuUnitCount = (sku = {}) => Math.max(1, Number(sku.unit_count || 1));
 
-  const skuUnitFormula = (sku = {}) => {
-    const astra = Number(sku.astra_value || 0);
-    const volume = Number(sku.volume || 0);
-    if (!astra || !volume) return `${formatNumber(skuUnitCount(sku))} billable unit`;
-    return `${formatNumber(volume)} / ASTRA ${formatNumber(astra)} = ${formatNumber(skuUnitCount(sku))} units`;
+  const skuUnitLabel = (sku = {}) => {
+    const volume = formatNumber(sku.volume || 0);
+    const unit = String(sku.unit_name || '').trim();
+    return `${volume}${unit ? ` ${unit}` : ''}`.trim() || '1 unit';
   };
 
   const setError = (message) => {
@@ -112,253 +115,275 @@ document.addEventListener('DOMContentLoaded', () => {
     errorNode.textContent = message || '';
   };
 
-  const catalogBrands = () => state.skuCatalog.brands || [];
-  const catalogSkus = () => state.skuCatalog.skus || [];
-  const selectedBrandRecords = () => catalogBrands().filter((brand) => state.selections.brands.includes(brand.id));
-  const filteredProducts = () => selectedBrandRecords()
-    .flatMap((brand) => (brand.products || []).map((product) => ({ ...product, brand_id: brand.id, brand_name: brand.name })));
-  const visibleBrandSkus = () => {
-    const allowedBrands = new Set(state.selections.brands);
-    return catalogSkus().filter((sku) => allowedBrands.has(sku.brand_id));
+  const showToast = () => {
+    if (!toastNode) return;
+    toastNode.hidden = false;
+    window.clearTimeout(showToast.timer);
+    showToast.timer = window.setTimeout(() => {
+      toastNode.hidden = true;
+    }, 1500);
   };
-  const productSkus = (product) => visibleBrandSkus()
-    .filter((sku) => sku.brand_id === product.brand_id && sku.product_key === product.id);
-  const selectedSkuSet = () => new Set(state.selections.skus);
-  const selectedProductRecords = () => {
-    const selected = selectedSkuSet();
-    return filteredProducts().filter((product) => productSkus(product).some((sku) => selected.has(sku.sku)));
-  };
-  const selectedSkuRecords = () => catalogSkus().filter((sku) => state.selections.skus.includes(sku.sku));
-  const activeProduct = () => filteredProducts().find((product) => product.id === state.activeProductId) || null;
 
-  const matchesSearch = (value, searchTerm) => String(value || '').toLowerCase().includes(searchTerm.trim().toLowerCase());
+  const setSaving = (saving) => {
+    saveButtons.forEach((button) => {
+      button.disabled = saving;
+      button.textContent = saving ? 'Saving...' : 'Save profile';
+    });
+  };
+
+  const catalogBrands = () => Array.isArray(state.skuCatalog.brands) ? state.skuCatalog.brands : [];
+  const catalogSkus = () => Array.isArray(state.skuCatalog.skus) ? state.skuCatalog.skus : [];
+
+  const productRecords = () => catalogBrands().flatMap((brand) => (
+    Array.isArray(brand.products) ? brand.products : []
+  ).map((product) => ({
+    ...product,
+    brand_id: brand.id,
+    brand_name: brand.name
+  })));
+
+  const selectedSkuSet = () => new Set(state.selections.skus);
+  const productSkus = (productId) => catalogSkus().filter((sku) => sku.product_key === productId);
+
+  const selectedSkuRecords = () => {
+    const selected = selectedSkuSet();
+    return catalogSkus().filter((sku) => selected.has(sku.sku));
+  };
+
+  const deriveSelectionsFromSkus = () => {
+    const selectedRecords = selectedSkuRecords();
+    state.selections.brands = [...new Set(selectedRecords.map((sku) => sku.brand_id).filter(Boolean))];
+    state.selections.products = [...new Set(selectedRecords.map((sku) => sku.product_key).filter(Boolean))];
+  };
+
+  const visibleProducts = () => productRecords().filter((product) => (
+    state.activeBrandId === 'all' || product.brand_id === state.activeBrandId
+  ));
 
   const hydrateSelections = () => {
-    const validBrandIds = new Set(catalogBrands().map((brand) => brand.id));
-    state.selections.brands = state.selections.brands.filter((brandId) => validBrandIds.has(brandId));
+    const validSkuCodes = new Set(catalogSkus().map((sku) => sku.sku));
+    state.selections.skus = [...new Set(state.selections.skus)]
+      .filter((skuCode) => validSkuCodes.has(skuCode));
 
-    const validSkuCodes = new Set(visibleBrandSkus().map((sku) => sku.sku));
-    state.selections.skus = state.selections.skus.filter((skuCode) => validSkuCodes.has(skuCode));
-    syncSelectedProductsFromSkus();
-  };
-
-  const syncSelectedProductsFromSkus = () => {
-    const selected = selectedSkuSet();
-    state.selections.products = filteredProducts()
-      .filter((product) => productSkus(product).some((sku) => selected.has(sku.sku)))
-      .map((product) => product.id);
-    if (state.activeProductId && !filteredProducts().some((product) => product.id === state.activeProductId)) {
-      state.activeProductId = '';
-    }
-  };
-
-  const renderStepState = () => {
-    stepOrder.forEach((step, index) => {
-      const indicator = document.querySelector(`[data-partner-step-indicator="${step}"]`);
-      const panel = document.querySelector(`[data-partner-step-panel="${step}"]`);
-      if (panel instanceof HTMLElement) {
-        panel.hidden = step !== state.activeStep;
-      }
-      if (indicator instanceof HTMLElement) {
-        indicator.classList.toggle('is-active', step === state.activeStep);
-        indicator.classList.toggle('is-complete', index < stepOrder.indexOf(state.activeStep));
-      }
-    });
-  };
-
-  const renderBrands = () => {
-    if (!brandChoiceGrid) return;
-    const brands = catalogBrands().filter((brand) => {
-      if (!state.search.brands) return true;
-      return [brand.name, brand.code].some((value) => matchesSearch(value, state.search.brands));
-    });
-    if (!brands.length) {
-      brandChoiceGrid.innerHTML = `<div class="partner-access-empty">${state.search.brands ? 'No brands match that search.' : 'No brands are available in the SKU database yet.'}</div>`;
-      return;
-    }
-
-    brandChoiceGrid.innerHTML = brands.map((brand) => `
-      <label class="partner-access-choice">
-        <input type="checkbox" data-partner-brand value="${escapeHtml(brand.id || '')}" ${state.selections.brands.includes(brand.id) ? 'checked' : ''}>
-        <span class="partner-access-choice-body">
-          <span class="partner-access-choice-title">${escapeHtml(brand.name || '')}</span>
-          <span class="partner-access-choice-meta">${escapeHtml(brand.code || '--')} · ${(brand.products || []).length} products</span>
-        </span>
-      </label>
-    `).join('');
-  };
-
-  const renderProducts = () => {
-    if (!productChoiceGrid) return;
-    const products = filteredProducts().filter((product) => {
-      if (!state.search.products) return true;
-      return [product.display_name || product.name, product.name, product.brand_name, product.code].some((value) => matchesSearch(value, state.search.products));
-    });
-    if (!state.selections.brands.length) {
-      productChoiceGrid.innerHTML = '<div class="partner-access-empty">Select a brand first.</div>';
-      return;
-    }
-    if (!products.length) {
-      productChoiceGrid.innerHTML = `<div class="partner-access-empty">${state.search.products ? 'No products match that search.' : 'No products exist for the selected brand yet.'}</div>`;
-      return;
-    }
-
-    const selected = selectedSkuSet();
-    const currentProduct = activeProduct();
-    productChoiceGrid.innerHTML = `
-      <div class="partner-two-pane-picker ${currentProduct ? 'has-active-product' : ''}">
-        <div class="partner-product-pane">
-          ${products.map((product) => {
-      const skus = productSkus(product);
-      const selectedCount = skus.filter((sku) => selected.has(sku.sku)).length;
-      const isChecked = skus.length > 0 && selectedCount === skus.length;
-      const isPartial = selectedCount > 0 && selectedCount < skus.length;
-      return `
-        <article class="partner-product-row ${selectedCount > 0 ? 'has-selection' : ''} ${product.id === state.activeProductId ? 'is-active' : ''}">
-          <button type="button" class="partner-product-select" data-partner-product-select="${escapeHtml(product.id || '')}">
-            <span>
-              <strong>${escapeHtml(product.display_name || product.name || '')}</strong>
-              <small>${escapeHtml(product.brand_name || '')} · ${selectedCount}/${skus.length} SKUs</small>
-            </span>
-          </button>
-          <label class="partner-product-mini-toggle" title="Select all SKUs for this product">
-            <input type="checkbox" data-partner-product-toggle value="${escapeHtml(product.id || '')}" ${isChecked ? 'checked' : ''} ${isPartial ? 'data-indeterminate="true"' : ''}>
-          </label>
-        </article>
-      `;
-    }).join('')}
-        </div>
-        <div class="partner-sku-pane">
-          ${currentProduct ? renderSkuPane(currentProduct, selected) : '<div class="partner-access-empty">Select a product to open SKU choices.</div>'}
-        </div>
-      </div>
-    `;
-
-    productChoiceGrid.querySelectorAll('[data-indeterminate="true"]').forEach((input) => {
-      if (input instanceof HTMLInputElement) input.indeterminate = true;
-    });
-  };
-
-  const renderSkuPane = (product, selected) => {
-    const skus = productSkus(product);
-    const selectedCount = skus.filter((sku) => selected.has(sku.sku)).length;
-    const allSelected = skus.length > 0 && selectedCount === skus.length;
-    return `
-      <div class="partner-sku-pane-head">
-        <div>
-          <strong>${escapeHtml(product.display_name || product.name || '')}</strong>
-          <span>${escapeHtml(product.brand_name || '')} · ${selectedCount}/${skus.length} SKUs selected</span>
-        </div>
-        <button type="button" class="admin-ghost-btn partner-sku-pane-toggle" data-partner-product-action="${allSelected ? 'clear' : 'select'}" data-product-id="${escapeHtml(product.id || '')}">${allSelected ? 'Clear' : 'Select All'}</button>
-      </div>
-      <div class="partner-sku-choice-list">
-        ${skus.map((sku) => `
-          <label class="partner-sku-choice">
-            <input type="checkbox" data-partner-sku value="${escapeHtml(sku.sku || '')}" ${selected.has(sku.sku) ? 'checked' : ''}>
-            <span>
-              <strong>${escapeHtml(sku.sku || '')}</strong>
-              <small>${escapeHtml(sku.label || sku.product_name || '')}</small>
-            </span>
-          </label>
-        `).join('')}
-      </div>
-    `;
-  };
-
-  const renderSummary = () => {
-    const brands = selectedBrandRecords();
-    const products = selectedProductRecords();
-    const skuRecords = selectedSkuRecords();
-
-    if (brandSummary) {
-      brandSummary.textContent = brands.length ? brands.map((brand) => brand.name).join(', ') : 'None selected';
-    }
-    if (productSummary) {
-      productSummary.textContent = products.length ? products.map((product) => `${product.brand_name} · ${product.name}`).join(', ') : 'None selected';
-    }
-    if (skuSummary) {
-      skuSummary.textContent = skuRecords.length ? `${skuRecords.length} SKU${skuRecords.length === 1 ? '' : 's'} selected` : 'None selected';
-    }
-    if (!selectedSkuList) return;
-    if (!skuRecords.length) {
-      selectedSkuList.innerHTML = '<div class="partner-access-empty">Selected SKUs will show here.</div>';
-      return;
-    }
-
-    selectedSkuList.innerHTML = skuRecords.map((sku) => `
-      <div class="partner-access-tag">
-        <strong>${escapeHtml(sku.sku || '')}</strong>
-        <span>${escapeHtml(sku.product_name || sku.label || '')}</span>
-      </div>
-    `).join('');
-  };
-
-  const syncPricing = () => {
     const nextPricing = {};
-    selectedSkuSet().forEach((skuCode) => {
-      nextPricing[skuCode] = Number(state.pricing[skuCode] || 0);
+    state.selections.skus.forEach((skuCode) => {
+      nextPricing[skuCode] = Math.max(0, Number(state.pricing[skuCode] || 0));
     });
     state.pricing = nextPricing;
+    deriveSelectionsFromSkus();
+
+    const visibleProductIds = new Set(visibleProducts().map((product) => product.id));
+    if (state.activeProductId !== 'all' && !visibleProductIds.has(state.activeProductId)) {
+      state.activeProductId = 'all';
+    }
   };
 
-  const renderPricing = () => {
-    if (!pricingList) return;
-    const skuRecords = selectedSkuRecords();
-    if (!skuRecords.length) {
-      pricingList.innerHTML = '<div class="partner-access-empty">Select products to create partner prices.</div>';
+  const visibleSkus = () => {
+    const query = state.skuSearch.trim().toLowerCase();
+    return catalogSkus().filter((sku) => {
+      if (state.activeBrandId !== 'all' && sku.brand_id !== state.activeBrandId) return false;
+      if (state.activeProductId !== 'all' && sku.product_key !== state.activeProductId) return false;
+      if (!query) return true;
+      return [
+        sku.sku,
+        sku.tag,
+        sku.label,
+        sku.product_name,
+        sku.base_product_name,
+        sku.flavor_name,
+        sku.brand_name
+      ].some((value) => String(value || '').toLowerCase().includes(query));
+    });
+  };
+
+  const selectedBrandCount = () => state.selections.brands.length;
+  const selectedProductCount = () => state.selections.products.length;
+
+  const brandSkuStats = (brandId) => {
+    const skus = brandId === 'all'
+      ? catalogSkus()
+      : catalogSkus().filter((sku) => sku.brand_id === brandId);
+    const selected = selectedSkuSet();
+    return {
+      total: skus.length,
+      selected: skus.filter((sku) => selected.has(sku.sku)).length
+    };
+  };
+
+  const productSkuStats = (productId) => {
+    const skus = productId === 'all'
+      ? visibleProducts().flatMap((product) => productSkus(product.id))
+      : productSkus(productId);
+    const selected = selectedSkuSet();
+    return {
+      total: skus.length,
+      selected: skus.filter((sku) => selected.has(sku.sku)).length
+    };
+  };
+
+  const renderStats = () => {
+    const skuCount = state.selections.skus.length;
+    if (accessCount) accessCount.textContent = skuCount.toLocaleString('id-ID');
+    if (selectedCount) selectedCount.textContent = skuCount.toLocaleString('id-ID');
+    if (productCount) productCount.textContent = selectedProductCount().toLocaleString('id-ID');
+    if (brandCount) brandCount.textContent = `across ${selectedBrandCount().toLocaleString('id-ID')} brands`;
+    if (brandSummary) brandSummary.textContent = selectedBrandCount().toLocaleString('id-ID');
+    if (productSummary) productSummary.textContent = selectedProductCount().toLocaleString('id-ID');
+    if (skuSummary) skuSummary.textContent = skuCount.toLocaleString('id-ID');
+    if (selectedSummary) {
+      selectedSummary.textContent = skuCount
+        ? `${skuCount.toLocaleString('id-ID')} selected SKU links. Product toggles can still adjust groups.`
+        : 'Product toggles select all matching SKUs. Individual SKUs and prices can still be adjusted.';
+    }
+  };
+
+  const renderBrandFilters = () => {
+    if (!brandFilterList) return;
+    const brands = catalogBrands();
+    const allStats = brandSkuStats('all');
+    const brandRows = brands.map((brand) => {
+      const stats = brandSkuStats(brand.id);
+      const active = state.activeBrandId === brand.id;
+      return `
+        <button type="button" class="partner-profile-filter-choice${active ? ' is-active' : ''}" data-brand-filter="${escapeHtml(brand.id || '')}">
+          <span>${escapeHtml(brand.name || 'Unnamed brand')}</span>
+          <strong>${stats.selected}/${stats.total}</strong>
+        </button>
+      `;
+    }).join('');
+
+    brandFilterList.innerHTML = `
+      <button type="button" class="partner-profile-filter-choice${state.activeBrandId === 'all' ? ' is-active' : ''}" data-brand-filter="all">
+        <span>All brands</span>
+        <strong>${allStats.selected}/${allStats.total}</strong>
+      </button>
+      ${brandRows || '<div class="partner-access-empty">No brands are available.</div>'}
+    `;
+  };
+
+  const renderProductFilters = () => {
+    if (!productFilterList) return;
+    const products = visibleProducts();
+    const allStats = productSkuStats('all');
+    const productRows = products.map((product) => {
+      const stats = productSkuStats(product.id);
+      const active = state.activeProductId === product.id;
+      const allSelected = stats.total > 0 && stats.selected === stats.total;
+      return `
+        <div class="partner-profile-product-row${active ? ' is-active' : ''}">
+          <button type="button" class="partner-profile-product-filter" data-product-filter="${escapeHtml(product.id || '')}">
+            <span>${escapeHtml(product.display_name || product.name || 'Unnamed product')}</span>
+            <small>${escapeHtml(product.brand_name || '')} &middot; ${stats.selected}/${stats.total}</small>
+          </button>
+          <button type="button" class="partner-profile-check-btn${allSelected ? ' is-selected' : ''}" data-product-toggle="${escapeHtml(product.id || '')}" aria-label="Toggle ${escapeHtml(product.name || 'product')} access">${allSelected ? '&#10003;' : ''}</button>
+        </div>
+      `;
+    }).join('');
+
+    productFilterList.innerHTML = `
+      <button type="button" class="partner-profile-filter-choice${state.activeProductId === 'all' ? ' is-active' : ''}" data-product-filter="all">
+        <span>All products</span>
+        <strong>${allStats.selected}/${allStats.total}</strong>
+      </button>
+      ${productRows || '<div class="partner-access-empty">No products match this brand.</div>'}
+    `;
+  };
+
+  const renderSkuList = () => {
+    if (!skuList) return;
+    const rows = visibleSkus();
+    const selected = selectedSkuSet();
+    if (!rows.length) {
+      skuList.innerHTML = `<div class="partner-access-empty">${state.skuSearch ? 'No SKUs match that search.' : 'No SKU records match this filter.'}</div>`;
       return;
     }
 
-    pricingList.innerHTML = skuRecords.map((sku) => {
-      const unitPrice = Number(state.pricing[sku.sku] || 0);
-      const skuPrice = unitPrice * skuUnitCount(sku);
+    skuList.innerHTML = rows.map((sku) => {
+      const isSelected = selected.has(sku.sku);
+      const price = Math.max(0, Number(state.pricing[sku.sku] || 0));
       return `
-      <label class="partner-pricing-row">
-        <span>
-          <strong>${escapeHtml(sku.label || sku.product_name || sku.sku || '')}</strong>
-          <small>${escapeHtml(sku.sku || '')} · ${escapeHtml(skuUnitFormula(sku))}</small>
-        </span>
-        <span class="partner-pricing-control">
-          <input type="number" min="0" step="100" inputmode="decimal" value="${escapeHtml(unitPrice)}" data-partner-sku-price="${escapeHtml(sku.sku || '')}" aria-label="Partner unit price for ${escapeHtml(sku.label || sku.sku || '')}">
-          <small class="partner-pricing-derived">SKU price ${escapeHtml(formatCurrency(skuPrice))}</small>
-        </span>
-      </label>
-    `;
+        <div class="partner-profile-sku-row${isSelected ? ' is-selected' : ''}">
+          <button type="button" class="partner-profile-check-btn${isSelected ? ' is-selected' : ''}" data-toggle-sku="${escapeHtml(sku.sku || '')}" aria-label="Toggle ${escapeHtml(sku.label || sku.sku || 'SKU')}">${isSelected ? '&#10003;' : ''}</button>
+          <div class="partner-profile-sku-main">
+            <strong>${escapeHtml(sku.label || sku.product_name || sku.sku || '')}</strong>
+            <small>${escapeHtml(sku.sku || '')}</small>
+          </div>
+          <span>${escapeHtml(sku.flavor_name || 'Default')}</span>
+          <span>${escapeHtml(skuUnitLabel(sku))}</span>
+          <label class="partner-profile-price">
+            <input type="number" min="0" step="100" inputmode="decimal" value="${escapeHtml(price)}" data-partner-sku-price="${escapeHtml(sku.sku || '')}" aria-label="Partner unit price for ${escapeHtml(sku.label || sku.sku || 'SKU')}">
+          </label>
+        </div>
+      `;
     }).join('');
   };
 
-  const syncPriceInput = (input) => {
-    const skuCode = input.getAttribute('data-partner-sku-price');
-    if (!skuCode) return false;
-    const unitPrice = Math.max(0, Number(input.value || 0));
-    const sku = catalogSkus().find((row) => row.sku === skuCode) || {};
-    state.pricing[skuCode] = unitPrice;
-    const derived = input.closest('.partner-pricing-control')?.querySelector('.partner-pricing-derived');
-    if (derived instanceof HTMLElement) {
-      derived.textContent = `SKU price ${formatCurrency(unitPrice * skuUnitCount(sku))}`;
+  const renderSelectedSkus = () => {
+    if (!selectedSkuList) return;
+    const rows = selectedSkuRecords();
+    if (!rows.length) {
+      selectedSkuList.innerHTML = '<div class="partner-access-empty">Selected SKU links will show here.</div>';
+      return;
     }
-    return true;
+
+    selectedSkuList.innerHTML = rows.map((sku) => {
+      const unitPrice = Math.max(0, Number(state.pricing[sku.sku] || 0));
+      const skuPrice = unitPrice * skuUnitCount(sku);
+      return `
+        <article class="partner-profile-selected-card">
+          <div class="partner-profile-selected-icon">SKU</div>
+          <div>
+            <strong>${escapeHtml(sku.label || sku.product_name || sku.sku || '')}</strong>
+            <small>${escapeHtml(sku.sku || '')}</small>
+            <span>SKU price ${escapeHtml(formatCurrency(skuPrice))}</span>
+          </div>
+          <button type="button" class="partner-profile-remove-btn" data-toggle-sku="${escapeHtml(sku.sku || '')}" aria-label="Remove ${escapeHtml(sku.label || sku.sku || 'SKU')}">Remove</button>
+        </article>
+      `;
+    }).join('');
   };
 
-  const renderSelectionUi = () => {
+  const renderAll = () => {
     hydrateSelections();
-    syncPricing();
-    renderStepState();
-    renderBrands();
-    renderProducts();
-    renderSummary();
-    renderPricing();
+    renderStats();
+    renderBrandFilters();
+    renderProductFilters();
+    renderSkuList();
+    renderSelectedSkus();
   };
 
-  const openStep = (step) => {
-    state.activeStep = step;
-    renderStepState();
+  const toggleSku = (skuCode) => {
+    const selected = selectedSkuSet();
+    if (selected.has(skuCode)) {
+      selected.delete(skuCode);
+    } else {
+      selected.add(skuCode);
+    }
+    state.selections.skus = [...selected];
+    renderAll();
+  };
+
+  const toggleProduct = (productId) => {
+    const skus = productSkus(productId);
+    if (!skus.length) return;
+    const selected = selectedSkuSet();
+    const allSelected = skus.every((sku) => selected.has(sku.sku));
+    skus.forEach((sku) => {
+      if (allSelected) {
+        selected.delete(sku.sku);
+      } else {
+        selected.add(sku.sku);
+      }
+    });
+    state.selections.skus = [...selected];
+    renderAll();
   };
 
   const fillForm = (partner) => {
     if (!(form instanceof HTMLFormElement)) return;
     state.partner = partner;
     form.hidden = false;
+    if (loadingNode) loadingNode.hidden = true;
     form.elements.code.value = partner.code || '';
     form.elements.partner_code.value = partner.code || '';
     form.elements.name.value = partner.name || '';
@@ -366,30 +391,31 @@ document.addEventListener('DOMContentLoaded', () => {
     form.elements.portal_password.value = '';
     form.elements.notes.value = partner.notes || '';
 
-    state.selections = {
-      brands: [...new Set(partner.selected_brand_ids || [])],
-      products: [...new Set(partner.selected_product_keys || partner.selected_product_ids || [])],
-      skus: [...new Set(partner.selected_skus || [])]
-    };
+    state.selections.skus = [...new Set(partner.selected_skus || [])];
     state.pricing = { ...(partner.pricing || {}) };
-    state.activeProductId = state.selections.products[0] || '';
 
-    if (partnerName) partnerName.textContent = partner.name || partner.code || 'Partner';
+    const title = partner.name || partner.code || 'Partner';
+    if (partnerName) partnerName.textContent = `Edit ${title}`;
     if (partnerCodeBadge) partnerCodeBadge.textContent = partner.code || 'Partner';
-    if (codeNote) codeNote.textContent = partner.code || 'Pending';
     if (passwordNote) {
       passwordNote.textContent = partner.password_configured
-        ? `Configured${partner.password_updated_at ? ` · updated ${partner.password_updated_at}` : ''}`
+        ? `Configured${partner.password_updated_at ? `; updated ${partner.password_updated_at}` : ''}`
         : 'Not configured. Set a new password here.';
     }
-    if (urlNote) urlNote.textContent = `https://partner.jenanggemi.com${partner.store_path || '/'}`;
+
+    const portalHref = `https://partner.jenanggemi.com${partner.store_path || '/'}`;
+    portalLinks.forEach((link) => {
+      link.href = portalHref;
+    });
+    if (urlNote) urlNote.textContent = portalHref;
+
     if (deleteButton) {
       deleteButton.hidden = false;
       deleteButton.dataset.partnerCode = partner.code || '';
       deleteButton.dataset.partnerName = partner.name || 'Partner';
     }
 
-    renderSelectionUi();
+    renderAll();
   };
 
   const showSavedPortalPassword = (password) => {
@@ -407,128 +433,101 @@ document.addEventListener('DOMContentLoaded', () => {
     fillForm(payload.partner || {});
   };
 
-  document.querySelectorAll('[data-partner-next-step]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const targetStep = button.getAttribute('data-partner-next-step') || '';
-      if (targetStep === 'products' && !state.selections.brands.length) {
-        setError('Select at least one brand before continuing.');
-        return;
-      }
-      setError('');
-      openStep(targetStep);
-    });
-  });
-
-  document.querySelectorAll('[data-partner-prev-step]').forEach((button) => {
-    button.addEventListener('click', () => {
-      setError('');
-      openStep(button.getAttribute('data-partner-prev-step') || 'brands');
-    });
-  });
-
-  [brandSearch, productSearch].forEach((input) => {
-    input?.addEventListener('input', () => {
-      state.search.brands = brandSearch?.value || '';
-      state.search.products = productSearch?.value || '';
-      renderSelectionUi();
-    });
-  });
-
-  root.addEventListener('change', (event) => {
+  root.addEventListener('click', (event) => {
     const target = event.target;
-    if (!(target instanceof HTMLInputElement)) return;
+    if (!(target instanceof Element)) return;
 
-    if (target.matches('[data-partner-brand]')) {
-      state.selections.brands = Array.from(document.querySelectorAll('[data-partner-brand]:checked')).map((input) => input.value);
-      renderSelectionUi();
+    const brandButton = target.closest('[data-brand-filter]');
+    if (brandButton) {
+      state.activeBrandId = brandButton.getAttribute('data-brand-filter') || 'all';
+      state.activeProductId = 'all';
+      renderAll();
       return;
     }
 
-    if (target.matches('[data-partner-product-toggle]')) {
-      const product = filteredProducts().find((item) => item.id === target.value);
-      if (!product) return;
-      state.activeProductId = product.id;
-      const nextSkus = new Set(state.selections.skus);
-      productSkus(product).forEach((sku) => {
-        if (target.checked) nextSkus.add(sku.sku);
-        else nextSkus.delete(sku.sku);
-      });
-      state.selections.skus = [...nextSkus];
-      syncSelectedProductsFromSkus();
-      renderSelectionUi();
+    const productFilter = target.closest('[data-product-filter]');
+    if (productFilter) {
+      state.activeProductId = productFilter.getAttribute('data-product-filter') || 'all';
+      renderAll();
       return;
     }
 
-    if (target.matches('[data-partner-sku]')) {
-      const nextSkus = new Set(state.selections.skus);
-      if (target.checked) nextSkus.add(target.value);
-      else nextSkus.delete(target.value);
-      state.selections.skus = [...nextSkus];
-      syncSelectedProductsFromSkus();
-      renderSelectionUi();
+    const productToggle = target.closest('[data-product-toggle]');
+    if (productToggle) {
+      toggleProduct(productToggle.getAttribute('data-product-toggle') || '');
       return;
     }
 
-    if (syncPriceInput(target)) {
+    const skuToggle = target.closest('[data-toggle-sku]');
+    if (skuToggle) {
+      toggleSku(skuToggle.getAttribute('data-toggle-sku') || '');
       return;
     }
+
+    if (target.closest('[data-clear-selection]')) {
+      state.selections.skus = [];
+      renderAll();
+    }
+  });
+
+  skuSearch?.addEventListener('input', () => {
+    state.skuSearch = skuSearch.value || '';
+    renderSkuList();
   });
 
   root.addEventListener('input', (event) => {
     const target = event.target;
-    if (target instanceof HTMLInputElement) {
-      syncPriceInput(target);
-    }
+    if (!(target instanceof HTMLInputElement)) return;
+    const skuCode = target.getAttribute('data-partner-sku-price');
+    if (!skuCode) return;
+    state.pricing[skuCode] = Math.max(0, Number(target.value || 0));
+    renderSelectedSkus();
   });
 
-  root.addEventListener('click', (event) => {
-    const target = event.target instanceof Element ? event.target : null;
-    const productButton = target?.closest('[data-partner-product-select]');
-    if (productButton instanceof HTMLButtonElement) {
-      state.activeProductId = productButton.dataset.partnerProductSelect || '';
-      renderSelectionUi();
-      return;
-    }
+  regenerateCodeButton?.addEventListener('click', () => {
+    if (!(form instanceof HTMLFormElement)) return;
+    form.elements.partner_code.value = generatePartnerCode();
+    if (partnerCodeBadge) partnerCodeBadge.textContent = form.elements.partner_code.value;
+  });
 
-    const actionButton = target?.closest('[data-partner-product-action]');
-    if (!(actionButton instanceof HTMLButtonElement)) return;
-    const product = filteredProducts().find((item) => item.id === actionButton.dataset.productId);
-    if (!product) return;
-    const nextSkus = new Set(state.selections.skus);
-    const shouldSelect = actionButton.dataset.partnerProductAction === 'select';
-    productSkus(product).forEach((sku) => {
-      if (shouldSelect) nextSkus.add(sku.sku);
-      else nextSkus.delete(sku.sku);
-    });
-    state.activeProductId = product.id;
-    state.selections.skus = [...nextSkus];
-    syncSelectedProductsFromSkus();
-    renderSelectionUi();
+  generatePortalPasswordButton?.addEventListener('click', () => {
+    if (!(form instanceof HTMLFormElement)) return;
+    form.elements.portal_password.value = generatePortalPassword();
+  });
+
+  copyCodeButton?.addEventListener('click', async () => {
+    if (!(form instanceof HTMLFormElement)) return;
+    const code = String(form.elements.partner_code.value || '').trim();
+    if (!code) return;
+    try {
+      await navigator.clipboard.writeText(code);
+      copyCodeButton.textContent = 'Copied';
+      window.setTimeout(() => {
+        copyCodeButton.textContent = 'Copy';
+      }, 900);
+    } catch (_) {
+      copyCodeButton.textContent = 'Copy failed';
+      window.setTimeout(() => {
+        copyCodeButton.textContent = 'Copy';
+      }, 900);
+    }
   });
 
   form?.addEventListener('submit', async (event) => {
     event.preventDefault();
     setError('');
+    hydrateSelections();
 
-    if (!state.selections.brands.length) {
-      setError('Select at least one brand.');
-      openStep('brands');
-      return;
-    }
-    if (!state.selections.products.length) {
-      setError('Select at least one SKU.');
-      openStep('products');
-      return;
-    }
     if (!state.selections.skus.length) {
-      setError('Select at least one SKU.');
-      openStep('products');
+      setError('Select at least one SKU for this partner.');
       return;
     }
+
     try {
+      setSaving(true);
       const formData = new window.FormData(form);
       const savedPortalPassword = String(formData.get('portal_password') || '').trim();
-      await requestJson(endpoint, {
+      const payload = await requestJson(endpoint, {
         method: 'POST',
         body: {
           action: 'update',
@@ -542,29 +541,23 @@ document.addEventListener('DOMContentLoaded', () => {
           notes: formData.get('notes')
         }
       });
-      const nextCode = String(formData.get('partner_code') || '').trim();
+      state.skuCatalog = payload.sku_catalog || state.skuCatalog;
+      const savedPartner = payload.partner || {};
+      const nextCode = String(savedPartner.code || formData.get('partner_code') || '').trim();
       if (nextCode) {
         state.currentPartnerCode = nextCode;
-        state.partner = { ...(state.partner || {}), code: nextCode };
         const nextUrl = new URL(window.location.href);
         nextUrl.searchParams.set('code', nextCode);
         window.history.replaceState({}, '', nextUrl.toString());
       }
-      await loadPartner();
+      fillForm(savedPartner);
       showSavedPortalPassword(savedPortalPassword);
+      showToast();
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Unable to save partner.');
+    } finally {
+      setSaving(false);
     }
-  });
-
-  regenerateCodeButton?.addEventListener('click', () => {
-    if (!(form instanceof HTMLFormElement)) return;
-    form.elements.partner_code.value = generatePartnerCode();
-  });
-
-  generatePortalPasswordButton?.addEventListener('click', () => {
-    if (!(form instanceof HTMLFormElement)) return;
-    form.elements.portal_password.value = generatePortalPassword();
   });
 
   deleteButton?.addEventListener('click', async () => {
@@ -592,6 +585,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   loadPartner().catch((error) => {
+    if (loadingNode) loadingNode.hidden = true;
     setError(error instanceof Error ? error.message : 'Unable to load partner.');
   });
 });
