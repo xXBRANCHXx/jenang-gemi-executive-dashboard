@@ -2041,3 +2041,277 @@
     justify-self: start;
   }
 }
+
+/* Partner screens inherit the two platform themes explicitly. */
+:root[data-admin-theme='dark'] :is(.partner-profiles-page, .partner-profile-page, [data-partner-modal]) {
+  --partner-bg: #000000;
+  --partner-panel: #080808;
+  --partner-panel-soft: #111111;
+  --partner-panel-raised: #171717;
+  --partner-border: rgba(255, 255, 255, 0.12);
+  --partner-border-strong: rgba(255, 255, 255, 0.34);
+  --partner-text: #f5f5f5;
+  --partner-muted: #a3a3a3;
+  --partner-primary-bg: #ffffff;
+  --partner-primary-text: #000000;
+  --partner-input: #111111;
+}
+
+:root[data-admin-theme='light'] :is(.partner-profiles-page, .partner-profile-page, [data-partner-modal]) {
+  --partner-bg: #f7f7f7;
+  --partner-panel: #ffffff;
+  --partner-panel-soft: #f1f1f1;
+  --partner-panel-raised: #e9e9e9;
+  --partner-border: rgba(17, 24, 39, 0.14);
+  --partner-border-strong: rgba(17, 24, 39, 0.36);
+  --partner-text: #111111;
+  --partner-muted: #606060;
+  --partner-primary-bg: #111111;
+  --partner-primary-text: #ffffff;
+  --partner-input: #ffffff;
+}
+
+:root[data-admin-theme] :is(.partner-profiles-page, .partner-profile-page) {
+  gap: 18px;
+}
+
+:root[data-admin-theme] :is(
+  .partner-directory-title span,
+  .partner-directory-metrics strong,
+  .partner-directory-partner strong,
+  .partner-directory-row-stats strong,
+  .partner-create-title strong,
+  .partner-create-panel-head strong,
+  .partner-create-preview strong,
+  .partner-access-choice-title,
+  .partner-product-select strong,
+  .partner-sku-choice strong,
+  .partner-sku-pane-head strong,
+  .partner-access-summary-card strong,
+  .partner-pricing-row strong,
+  .partner-profile-editor-header h2,
+  .partner-profile-stat strong,
+  .partner-profile-panel-head strong,
+  .partner-profile-sku-head h3,
+  .partner-profile-sku-main strong,
+  .partner-profile-selected-card strong,
+  .partner-profile-selected-head strong,
+  .partner-profile-summary-lines strong
+) {
+  color: var(--partner-text);
+}
+
+:root[data-admin-theme] :is(
+  .partner-directory-search span,
+  .partner-directory-metrics span,
+  .partner-directory-list-head,
+  .partner-directory-partner span,
+  .partner-directory-row-stats small,
+  .partner-directory-brand-strip span,
+  .partner-create-title span,
+  .partner-create-status span,
+  .partner-create-panel-head span,
+  .partner-create-preview span,
+  .partner-create-preview small,
+  .partner-access-search span,
+  .partner-access-question-index,
+  .partner-access-choice-meta,
+  .partner-product-select small,
+  .partner-sku-choice small,
+  .partner-sku-pane-head span,
+  .partner-access-summary-card span,
+  .partner-pricing-row small,
+  .partner-pricing-row .partner-pricing-derived,
+  .partner-profile-editor-header p,
+  .partner-profile-kicker,
+  .partner-profile-stat span,
+  .partner-profile-stat small,
+  .partner-profile-panel-head span,
+  .partner-profile-sku-head span,
+  .partner-profile-field-stack label span,
+  .partner-profile-field-stack label small,
+  .partner-profile-summary-lines span,
+  .partner-profile-selected-head small,
+  .partner-profile-portal-note,
+  .partner-profile-sku-table-head,
+  .partner-profile-sku-main small,
+  .partner-profile-selected-card small,
+  .partner-profile-selected-card span
+) {
+  color: var(--partner-muted);
+}
+
+:root[data-admin-theme] :is(
+  .partner-directory-toolbar,
+  .partner-directory-metrics div,
+  .partner-directory-shell,
+  .partner-directory-row,
+  .partner-directory-row-stats > span,
+  .partner-create-modal,
+  .partner-create-footer,
+  .partner-create-panel,
+  .partner-create-preview,
+  .partner-access-steps,
+  .partner-access-card,
+  .partner-access-summary-card,
+  .partner-pricing-editor,
+  .partner-product-pane,
+  .partner-sku-pane,
+  .partner-product-row,
+  .partner-sku-choice,
+  .partner-pricing-row,
+  .partner-profile-stat,
+  .partner-profile-panel,
+  .partner-profile-sku-table-shell,
+  .partner-profile-sku-row,
+  .partner-profile-selected-card,
+  .partner-profile-summary-lines span
+) {
+  border-color: var(--partner-border);
+  background: var(--partner-panel);
+  color: var(--partner-text);
+}
+
+:root[data-admin-theme] :is(
+  .partner-directory-row-stats > span,
+  .partner-directory-brand-strip span,
+  .partner-create-status span,
+  .partner-create-preview,
+  .partner-access-steps,
+  .partner-access-choice-body,
+  .partner-sku-pane-head,
+  .partner-profile-filter-choice,
+  .partner-profile-product-row,
+  .partner-profile-selected-icon
+) {
+  border-color: var(--partner-border);
+  background: var(--partner-panel-soft);
+}
+
+:root[data-admin-theme] :is(
+  .partner-directory-search input,
+  [data-partner-modal] .partner-create-field-grid input[type='text'],
+  [data-partner-modal] .partner-access-search input,
+  [data-partner-modal] .partner-pricing-row input,
+  .partner-profile-code-row input,
+  .partner-profile-field-stack input,
+  .partner-profile-search input,
+  .partner-profile-price input
+) {
+  border-color: var(--partner-border);
+  background: var(--partner-input);
+  color: var(--partner-text);
+}
+
+:root[data-admin-theme] :is(
+  .partner-directory-search input,
+  [data-partner-modal] .partner-create-field-grid input[type='text'],
+  [data-partner-modal] .partner-access-search input,
+  [data-partner-modal] .partner-pricing-row input,
+  .partner-profile-code-row input,
+  .partner-profile-field-stack input,
+  .partner-profile-search input,
+  .partner-profile-price input
+)::placeholder {
+  color: var(--partner-muted);
+  opacity: 1;
+}
+
+:root[data-admin-theme] :is(
+  .partner-directory-search input:focus,
+  [data-partner-modal] .partner-create-field-grid input[type='text']:focus,
+  [data-partner-modal] .partner-access-search input:focus,
+  [data-partner-modal] .partner-pricing-row input:focus,
+  .partner-profile-code-row input:focus,
+  .partner-profile-field-stack input:focus,
+  .partner-profile-search input:focus,
+  .partner-profile-price input:focus
+) {
+  border-color: var(--partner-border-strong);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--partner-text) 10%, transparent);
+}
+
+:root[data-admin-theme] .partner-directory-toolbar {
+  padding: 14px;
+}
+
+:root[data-admin-theme] .partner-directory-row {
+  min-height: 82px;
+  padding: 14px 16px;
+}
+
+:root[data-admin-theme] .partner-directory-metrics div {
+  min-height: 82px;
+  padding: 16px;
+}
+
+:root[data-admin-theme] [data-partner-modal] .partner-create-modal {
+  background: var(--partner-bg);
+  color: var(--partner-text);
+}
+
+:root[data-admin-theme] [data-partner-modal] :is(.partner-create-sidebar, .partner-create-access, .partner-create-review, .partner-create-header, .partner-create-footer) {
+  border-color: var(--partner-border);
+}
+
+:root[data-admin-theme] [data-partner-modal] .partner-access-step {
+  background: transparent;
+}
+
+:root[data-admin-theme] [data-partner-modal] .partner-access-step strong,
+:root[data-admin-theme] [data-partner-modal] .partner-access-step .partner-access-step-index {
+  color: var(--partner-muted);
+}
+
+:root[data-admin-theme] [data-partner-modal] .partner-access-step.is-active {
+  background: var(--partner-primary-bg);
+}
+
+:root[data-admin-theme] [data-partner-modal] .partner-access-step.is-active strong,
+:root[data-admin-theme] [data-partner-modal] .partner-access-step.is-active .partner-access-step-index {
+  color: var(--partner-primary-text);
+}
+
+:root[data-admin-theme] :is(
+  [data-partner-modal] .admin-primary-btn,
+  .partner-profile-page .admin-primary-btn,
+  .partner-profiles-page .admin-primary-btn
+) {
+  border-color: var(--partner-border-strong);
+  background: var(--partner-primary-bg);
+  color: var(--partner-primary-text);
+}
+
+:root[data-admin-theme] :is(
+  [data-partner-modal] .admin-ghost-btn,
+  [data-partner-modal] .partner-profile-icon-btn,
+  [data-partner-modal] .partner-profile-check-btn,
+  .partner-profile-page .admin-ghost-btn,
+  .partner-profile-page .partner-profile-icon-btn,
+  .partner-profile-page .partner-profile-check-btn,
+  .partner-profiles-page .admin-ghost-btn,
+  .partner-profiles-page .admin-danger-btn
+) {
+  border-color: var(--partner-border);
+  background: var(--partner-panel-soft);
+  color: var(--partner-text);
+}
+
+:root[data-admin-theme] :is(
+  .partner-access-choice input:checked + .partner-access-choice-body,
+  .partner-product-row.has-selection,
+  .partner-sku-choice:has(input:checked),
+  .partner-profile-filter-choice.is-active,
+  .partner-profile-product-row.is-active,
+  .partner-profile-sku-row.is-selected,
+  .partner-profile-check-btn.is-selected
+) {
+  border-color: var(--partner-border-strong);
+  background: var(--partner-panel-raised);
+  color: var(--partner-text);
+}
+
+:root[data-admin-theme] .partner-access-empty {
+  border-color: var(--partner-border);
+  color: var(--partner-muted);
+}

@@ -21,7 +21,7 @@ $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__D
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
 ?>
 <!DOCTYPE html>
-<html lang="id" data-admin-theme="minimal-black">
+<html lang="id" data-admin-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
@@ -1246,25 +1246,13 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                         </div>
                         <p class="admin-settings-copy">Choose the dashboard theme without changing dashboard access or abilities.</p>
                         <div class="admin-theme-options" data-theme-options>
-                            <button type="button" class="admin-theme-option" data-theme-option="minimal-black" aria-pressed="false">
-                                <span class="admin-theme-swatch admin-theme-swatch-minimal-black" aria-hidden="true"></span>
-                                <span><strong>Minimal Black</strong><small>Default flat dark</small></span>
-                            </button>
                             <button type="button" class="admin-theme-option" data-theme-option="dark" aria-pressed="false">
-                                <span class="admin-theme-swatch admin-theme-swatch-current" aria-hidden="true"></span>
-                                <span><strong>Green Glass</strong><small>Original executive dark</small></span>
+                                <span class="admin-theme-swatch admin-theme-swatch-dark" aria-hidden="true"></span>
+                                <span><strong>Dark</strong><small>Black workspace</small></span>
                             </button>
-                            <button type="button" class="admin-theme-option" data-theme-option="minimal-white" aria-pressed="false">
-                                <span class="admin-theme-swatch admin-theme-swatch-minimal-white" aria-hidden="true"></span>
-                                <span><strong>Minimal White</strong><small>Clean and quiet</small></span>
-                            </button>
-                            <button type="button" class="admin-theme-option" data-theme-option="classic-white" aria-pressed="false">
-                                <span class="admin-theme-swatch admin-theme-swatch-classic-white" aria-hidden="true"></span>
-                                <span><strong>Polished White</strong><small>Layered and bright</small></span>
-                            </button>
-                            <button type="button" class="admin-theme-option" data-theme-option="prism" aria-pressed="false">
-                                <span class="admin-theme-swatch admin-theme-swatch-prism" aria-hidden="true"></span>
-                                <span><strong>Prism</strong><small>Vivid signal room</small></span>
+                            <button type="button" class="admin-theme-option" data-theme-option="light" aria-pressed="false">
+                                <span class="admin-theme-swatch admin-theme-swatch-light" aria-hidden="true"></span>
+                                <span><strong>Light</strong><small>White workspace</small></span>
                             </button>
                         </div>
                     </article>

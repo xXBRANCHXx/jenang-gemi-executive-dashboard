@@ -31,9 +31,15 @@ document.addEventListener('DOMContentLoaded', () => {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 
+  const normalizeTheme = (theme) => {
+    if (theme === 'minimal-white' || theme === 'classic-white' || theme === 'light') return 'light';
+    if (theme === 'minimal-black' || theme === 'prism' || theme === 'dark') return 'dark';
+    return 'dark';
+  };
+
   const applyTheme = () => {
     if (document.querySelector('[data-admin-dashboard]')) return;
-    document.documentElement.dataset.adminTheme = window.localStorage.getItem(themeStorageKey) || 'dark';
+    document.documentElement.dataset.adminTheme = normalizeTheme(window.localStorage.getItem(themeStorageKey) || 'dark');
   };
 
   const formatTime = (value) => {

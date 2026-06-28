@@ -1666,10 +1666,9 @@ document.addEventListener('DOMContentLoaded', () => {
   initSlidingChartToggles(root);
 
   const themeStorageKey = 'jg-admin-theme';
-  const themeDefaultMigrationKey = `${themeStorageKey}-minimal-black-default`;
   const themeCookieMaxAge = 60 * 60 * 24 * 365 * 2;
   const viewStorageKey = 'jg-dashboard-view';
-  const themeOptions = ['minimal-black', 'dark', 'minimal-white', 'classic-white', 'prism'];
+  const themeOptions = ['dark', 'light'];
   const viewAliases = {
     landing: 'home',
     landing_pages: 'home',
@@ -2294,8 +2293,9 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const normalizeTheme = (theme) => {
-    if (theme === 'light') return 'classic-white';
-    return themeOptions.includes(theme) ? theme : 'minimal-black';
+    if (theme === 'minimal-white' || theme === 'classic-white' || theme === 'light') return 'light';
+    if (theme === 'minimal-black' || theme === 'prism' || theme === 'dark') return 'dark';
+    return 'dark';
   };
 
   const readThemeCookie = () => {
@@ -2311,28 +2311,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const readStoredTheme = () => {
     try {
-      const storedTheme = window.localStorage.getItem(themeStorageKey) || readThemeCookie();
-      if (storedTheme === 'dark' && window.localStorage.getItem(themeDefaultMigrationKey) !== '1') {
-        window.localStorage.setItem(themeStorageKey, 'minimal-black');
-        window.localStorage.setItem(themeDefaultMigrationKey, '1');
-        writeThemeCookie('minimal-black');
-        return 'minimal-black';
-      }
-      return storedTheme;
+      return normalizeTheme(window.localStorage.getItem(themeStorageKey) || readThemeCookie());
     } catch (_error) {
-      const cookieTheme = readThemeCookie();
-      if (cookieTheme === 'dark') {
-        writeThemeCookie('minimal-black');
-        return 'minimal-black';
-      }
-      return cookieTheme;
+      return normalizeTheme(readThemeCookie());
     }
   };
 
   const writeStoredTheme = (theme) => {
     try {
       window.localStorage.setItem(themeStorageKey, theme);
-      window.localStorage.setItem(themeDefaultMigrationKey, '1');
     } catch (_error) {
       // Cookies keep the device preference when localStorage is unavailable.
     }
@@ -5858,7 +5845,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 1200);
   };
 
-  applyTheme(readStoredTheme() || 'minimal-black');
+  applyTheme(readStoredTheme() || 'dark');
   if (dailyRefs.monthInput) dailyRefs.monthInput.value = state.daily.month;
   renderDailyPlatformList();
   syncViewState();
@@ -6677,7 +6664,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.querySelectorAll('[data-theme-option]').forEach((button) => {
     button.addEventListener('click', () => {
-      applyTheme(button.dataset.themeOption || 'minimal-black');
+      applyTheme(button.dataset.themeOption || 'dark');
     });
   });
 

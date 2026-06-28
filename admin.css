@@ -9061,6 +9061,16 @@ body::after {
     linear-gradient(135deg, #000 0 58%, #afff00 58% 72%, #00ff88 72% 100%);
 }
 
+.admin-theme-swatch-dark {
+  background:
+    linear-gradient(135deg, #000000 0 70%, #202020 70% 86%, #f5f5f5 86% 100%);
+}
+
+.admin-theme-swatch-light {
+  background:
+    linear-gradient(135deg, #ffffff 0 70%, #f0f0f0 70% 86%, #111111 86% 100%);
+}
+
 .admin-theme-swatch-minimal-white {
   background:
     linear-gradient(135deg, #ffffff 0 68%, #e5e7eb 68% 100%);
@@ -11295,4 +11305,246 @@ body::after {
     opacity: 0.52;
     transform: translateY(2px) scale(0.94);
   }
+}
+
+/* Canonical two-theme system: dark and light only. */
+:root[data-admin-theme='dark'] {
+  --admin-bg: #000000;
+  --admin-surface: #080808;
+  --admin-surface-strong: #111111;
+  --admin-surface-soft: #171717;
+  --admin-border: rgba(255, 255, 255, 0.12);
+  --admin-text: #f5f5f5;
+  --admin-muted: #a3a3a3;
+  --admin-shadow: none;
+  --admin-accent-primary: #ffffff;
+  --admin-accent-secondary: #d9d9d9;
+  --admin-accent-tertiary: #f5f5f5;
+  --admin-accent-quaternary: #ffffff;
+  --admin-accent-gradient: linear-gradient(135deg, #ffffff 0%, #d9d9d9 100%);
+  --admin-shell-edge: rgba(255, 255, 255, 0.12);
+  --admin-panel-outline-hover: rgba(255, 255, 255, 0.34);
+  --admin-panel-shadow: none;
+  --admin-panel-shadow-hover: none;
+  --admin-panel-glass-bg: #080808;
+  --admin-copy-soft: #c7c7c7;
+  --admin-surface-glass: #080808;
+  --admin-surface-glass-strong: #151515;
+  --admin-surface-panel: #080808;
+  --admin-surface-panel-strong: #151515;
+  --admin-rail-border: rgba(255, 255, 255, 0.12);
+  --admin-green-soft: rgba(255, 255, 255, 0.1);
+  --admin-green-line: rgba(255, 255, 255, 0.46);
+  color-scheme: dark;
+}
+
+:root[data-admin-theme='light'] {
+  --admin-bg: #f7f7f7;
+  --admin-surface: #ffffff;
+  --admin-surface-strong: #ffffff;
+  --admin-surface-soft: #eeeeee;
+  --admin-border: rgba(17, 24, 39, 0.14);
+  --admin-text: #111111;
+  --admin-muted: #5f5f5f;
+  --admin-shadow: none;
+  --admin-accent-primary: #111111;
+  --admin-accent-secondary: #333333;
+  --admin-accent-tertiary: #111111;
+  --admin-accent-quaternary: #333333;
+  --admin-accent-gradient: linear-gradient(135deg, #111111 0%, #333333 100%);
+  --admin-shell-edge: rgba(17, 24, 39, 0.12);
+  --admin-panel-outline-hover: rgba(17, 24, 39, 0.34);
+  --admin-panel-shadow: none;
+  --admin-panel-shadow-hover: none;
+  --admin-panel-glass-bg: #ffffff;
+  --admin-copy-soft: #444444;
+  --admin-surface-glass: #ffffff;
+  --admin-surface-glass-strong: #f1f1f1;
+  --admin-surface-panel: #ffffff;
+  --admin-surface-panel-strong: #f1f1f1;
+  --admin-rail-border: rgba(17, 24, 39, 0.12);
+  --admin-green-soft: rgba(17, 24, 39, 0.08);
+  --admin-green-line: rgba(17, 24, 39, 0.42);
+  color-scheme: light;
+}
+
+:root[data-admin-theme='dark'],
+:root[data-admin-theme='dark'] body,
+:root[data-admin-theme='dark'] .admin-app.admin-app-suite {
+  background: #000000;
+  color: var(--admin-text);
+}
+
+:root[data-admin-theme='light'],
+:root[data-admin-theme='light'] body,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite {
+  background: #f7f7f7;
+  color: var(--admin-text);
+}
+
+:root[data-admin-theme='dark'] body::before,
+:root[data-admin-theme='dark'] body::after,
+:root[data-admin-theme='light'] body::before,
+:root[data-admin-theme='light'] body::after,
+:root[data-admin-theme='dark'] .admin-backdrop,
+:root[data-admin-theme='light'] .admin-backdrop,
+:root[data-admin-theme='dark'] .admin-app.admin-app-suite::after,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite::after {
+  display: none;
+}
+
+:root[data-admin-theme='dark'] :is(
+  .admin-loader-panel,
+  .admin-login-card,
+  .admin-hero-panel,
+  .admin-metric-card,
+  .admin-panel,
+  .admin-control-strip,
+  .admin-note-card,
+  .admin-legend-item,
+  .admin-affiliate-card,
+  .admin-affiliate-url,
+  .admin-platform-choice,
+  .admin-request-card,
+  .admin-sku-master-card,
+  .admin-status-pill,
+  .admin-settings-chip,
+  .admin-sku-token,
+  .admin-table-wrap,
+  .admin-modal-card,
+  .admin-chart-tooltip
+),
+:root[data-admin-theme='light'] :is(
+  .admin-loader-panel,
+  .admin-login-card,
+  .admin-hero-panel,
+  .admin-metric-card,
+  .admin-panel,
+  .admin-control-strip,
+  .admin-note-card,
+  .admin-legend-item,
+  .admin-affiliate-card,
+  .admin-affiliate-url,
+  .admin-platform-choice,
+  .admin-request-card,
+  .admin-sku-master-card,
+  .admin-status-pill,
+  .admin-settings-chip,
+  .admin-sku-token,
+  .admin-table-wrap,
+  .admin-modal-card,
+  .admin-chart-tooltip
+) {
+  border-color: var(--admin-border);
+  background: var(--admin-panel-glass-bg);
+  color: var(--admin-text);
+  box-shadow: none;
+}
+
+:root[data-admin-theme='dark'] :is(h1, h2, h3, h4, strong, label, legend, .admin-table td, .admin-search-result strong),
+:root[data-admin-theme='light'] :is(h1, h2, h3, h4, strong, label, legend, .admin-table td, .admin-search-result strong) {
+  color: var(--admin-text);
+}
+
+:root[data-admin-theme='dark'] :is(p, small, label span, .admin-empty, .admin-panel-kicker, .admin-panel-meta, .admin-settings-copy, .admin-table th, .admin-table-note, .admin-search-result span, .admin-search-result small, .admin-search-empty, .admin-chart-tooltip span),
+:root[data-admin-theme='light'] :is(p, small, label span, .admin-empty, .admin-panel-kicker, .admin-panel-meta, .admin-settings-copy, .admin-table th, .admin-table-note, .admin-search-result span, .admin-search-result small, .admin-search-empty, .admin-chart-tooltip span) {
+  color: var(--admin-muted);
+}
+
+:root[data-admin-theme='dark'] :is(input, select, textarea, .admin-select, .admin-search-input),
+:root[data-admin-theme='light'] :is(input, select, textarea, .admin-select, .admin-search-input) {
+  border-color: var(--admin-border);
+  background: var(--admin-surface-strong);
+  color: var(--admin-text);
+  box-shadow: none;
+}
+
+:root[data-admin-theme='dark'] :is(input, textarea, .admin-search-input)::placeholder,
+:root[data-admin-theme='light'] :is(input, textarea, .admin-search-input)::placeholder {
+  color: var(--admin-muted);
+  opacity: 1;
+}
+
+:root[data-admin-theme='dark'] :is(.admin-primary-btn, .admin-app.admin-app-suite .admin-primary-btn),
+:root[data-admin-theme='dark'] :is(.admin-primary-btn:hover, .admin-app.admin-app-suite .admin-primary-btn:hover) {
+  border-color: rgba(255, 255, 255, 0.42);
+  background: #ffffff;
+  color: #000000;
+  text-shadow: none;
+  box-shadow: none;
+}
+
+:root[data-admin-theme='light'] :is(.admin-primary-btn, .admin-app.admin-app-suite .admin-primary-btn),
+:root[data-admin-theme='light'] :is(.admin-primary-btn:hover, .admin-app.admin-app-suite .admin-primary-btn:hover) {
+  border-color: rgba(17, 24, 39, 0.38);
+  background: #111111;
+  color: #ffffff;
+  text-shadow: none;
+  box-shadow: none;
+}
+
+:root[data-admin-theme='dark'] :is(.admin-ghost-btn, .admin-soft-btn, .admin-menu-trigger, .admin-menu-item, .admin-toggle-pill, .admin-toggle-pill-series, .admin-view-indicator),
+:root[data-admin-theme='light'] :is(.admin-ghost-btn, .admin-soft-btn, .admin-menu-trigger, .admin-menu-item, .admin-toggle-pill, .admin-toggle-pill-series, .admin-view-indicator) {
+  border-color: var(--admin-border);
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+  box-shadow: none;
+}
+
+:root[data-admin-theme='dark'] :is(.admin-ghost-btn:hover, .admin-soft-btn:hover, .admin-menu-trigger:hover, .admin-menu-item:hover, .admin-toggle-pill:hover, .admin-toggle-pill-series:hover, .admin-view-indicator:hover),
+:root[data-admin-theme='light'] :is(.admin-ghost-btn:hover, .admin-soft-btn:hover, .admin-menu-trigger:hover, .admin-menu-item:hover, .admin-toggle-pill:hover, .admin-toggle-pill-series:hover, .admin-view-indicator:hover),
+:root[data-admin-theme='dark'] :is(.admin-toggle-pill.is-active, .admin-toggle-pill-series.is-active),
+:root[data-admin-theme='light'] :is(.admin-toggle-pill.is-active, .admin-toggle-pill-series.is-active) {
+  border-color: var(--admin-panel-outline-hover);
+  background: var(--admin-green-soft);
+  color: var(--admin-text);
+}
+
+:root[data-admin-theme='dark'] :is(.admin-danger-btn, .admin-menu-item-danger, .admin-sku-token-remove),
+:root[data-admin-theme='light'] :is(.admin-danger-btn, .admin-menu-item-danger, .admin-sku-token-remove) {
+  border-color: var(--admin-border);
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+}
+
+:root[data-admin-theme='dark'] :is(.admin-menu-panel, .admin-search-shell, .admin-search-results, .admin-search-result),
+:root[data-admin-theme='light'] :is(.admin-menu-panel, .admin-search-shell, .admin-search-results, .admin-search-result) {
+  border-color: var(--admin-border);
+  background: var(--admin-surface-strong);
+  color: var(--admin-text);
+  box-shadow: none;
+}
+
+:root[data-admin-theme='dark'] :is(.admin-rail, .admin-app.admin-app-suite .admin-rail),
+:root[data-admin-theme='light'] :is(.admin-rail, .admin-app.admin-app-suite .admin-rail) {
+  border-color: var(--admin-rail-border);
+  background: var(--admin-surface-glass);
+}
+
+:root[data-admin-theme='dark'] :is(.admin-rail-link, .admin-rail-footer-link),
+:root[data-admin-theme='light'] :is(.admin-rail-link, .admin-rail-footer-link) {
+  color: var(--admin-muted);
+}
+
+:root[data-admin-theme='dark'] :is(.admin-rail-link:hover, .admin-rail-link.is-active, .admin-rail-footer-link:hover),
+:root[data-admin-theme='light'] :is(.admin-rail-link:hover, .admin-rail-link.is-active, .admin-rail-footer-link:hover) {
+  border-color: var(--admin-green-line);
+  background: var(--admin-green-soft);
+  color: var(--admin-text);
+}
+
+:root[data-admin-theme='light'] :is(select option, select optgroup) {
+  background: #ffffff;
+  color: #111111;
+}
+
+:root[data-admin-theme='dark'] :is(select option, select optgroup) {
+  background: #111111;
+  color: #f5f5f5;
+}
+
+:root[data-admin-theme='dark'] .admin-loader-progress,
+:root[data-admin-theme='light'] .admin-loader-progress {
+  background: var(--admin-accent-gradient);
+  box-shadow: none;
 }

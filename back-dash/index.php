@@ -29,7 +29,7 @@ $apiDocs = [
 ];
 ?>
 <!DOCTYPE html>
-<html lang="id" data-admin-theme="minimal-black">
+<html lang="id" data-admin-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">

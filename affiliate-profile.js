@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const themeStorageKey = 'jg-admin-theme';
   const themeCookieMaxAge = 60 * 60 * 24 * 365 * 2;
-  const themeOptions = ['minimal-black', 'dark', 'minimal-white', 'classic-white', 'prism'];
+  const themeOptions = ['dark', 'light'];
   const endpoint = root.dataset.affiliatesEndpoint || './affiliates.php';
   const affiliateCode = (root.dataset.affiliateCode || '').trim().toUpperCase();
   const menuShell = document.querySelector('[data-menu-shell]');
@@ -33,8 +33,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const toTitleCase = (value) => String(value || '').toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
 
   const normalizeTheme = (theme) => {
-    if (theme === 'light') return 'classic-white';
-    return themeOptions.includes(theme) ? theme : 'minimal-black';
+    if (theme === 'minimal-white' || theme === 'classic-white' || theme === 'light') return 'light';
+    if (theme === 'minimal-black' || theme === 'prism' || theme === 'dark') return 'dark';
+    return 'dark';
   };
 
   const readThemeCookie = () => {
@@ -195,7 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (showLoader) finishLoader();
   };
 
-  applyTheme(readStoredTheme() || 'minimal-black');
+  applyTheme(readStoredTheme() || 'dark');
   setupTopbarMenu();
 
   document.querySelector('[data-theme-toggle]')?.addEventListener('click', () => {
