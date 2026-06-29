@@ -104,208 +104,247 @@ $pageBuildVersion = 'sku1.00.00';
                 <main class="admin-layout admin-sku-layout">
                     <?php if ($isBranch): ?>
                         <section class="admin-sku-workbench" aria-label="SKU creation workspace">
-                            <article class="admin-sku-composer">
-                                <div class="admin-sku-preview-surface">
-                                    <span class="admin-control-label">12-digit SKU</span>
-                                    <strong data-sku-preview>------------</strong>
-                                    <div class="admin-sku-segment-strip" data-sku-segment-strip aria-label="SKU code segments">
-                                        <span><b>BR</b><em>--</em></span>
-                                        <span><b>UN</b><em>--</em></span>
-                                        <span><b>VOL</b><em>----</em></span>
-                                        <span><b>FL</b><em>--</em></span>
-                                        <span><b>PR</b><em>--</em></span>
-                                    </div>
-                                </div>
+                            <article class="admin-sku-composer admin-sku-collapsible">
+                                <details class="admin-sku-collapse">
+                                    <summary class="admin-sku-collapse-toggle">
+                                        <span class="admin-sku-collapse-arrow" aria-hidden="true"></span>
+                                        <strong>Builder</strong>
+                                    </summary>
+                                    <div class="admin-sku-collapse-body">
+                                        <div class="admin-sku-preview-surface">
+                                            <span class="admin-control-label">12-digit SKU</span>
+                                            <strong data-sku-preview>------------</strong>
+                                            <div class="admin-sku-segment-strip" data-sku-segment-strip aria-label="SKU code segments">
+                                                <span><b>BR</b><em>--</em></span>
+                                                <span><b>UN</b><em>--</em></span>
+                                                <span><b>VOL</b><em>----</em></span>
+                                                <span><b>FL</b><em>--</em></span>
+                                                <span><b>PR</b><em>--</em></span>
+                                            </div>
+                                        </div>
 
-                                <form class="admin-sku-builder admin-sku-builder-compact" data-setup-form>
-                                    <label>
-                                        <span>Brand</span>
-                                        <select class="admin-select" name="brand_id" data-sku-brand-select required></select>
-                                    </label>
-                                    <label>
-                                        <span>Unit</span>
-                                        <select class="admin-select" name="unit_id" data-unit-select required></select>
-                                    </label>
-                                    <label>
-                                        <span>Volume</span>
-                                        <input type="text" name="volume" inputmode="decimal" placeholder="15 or 15.2" required>
-                                    </label>
-                                    <label>
-                                        <span>ASTRA</span>
-                                        <input type="number" name="astra" min="0.01" step="0.01" placeholder="15" required>
-                                    </label>
-                                    <label>
-                                        <span>Flavor</span>
-                                        <select class="admin-select" name="flavor_id" data-flavor-select required></select>
-                                    </label>
-                                    <label>
-                                        <span>Product</span>
-                                        <select class="admin-select" name="product_id" data-product-select required></select>
-                                    </label>
-                                    <label class="admin-sku-builder-tag">
-                                        <span>TAG</span>
-                                        <input type="text" name="tag" maxlength="50" placeholder="BAGGOSMEDIA_BUBUR_ORIGINAL" required>
-                                    </label>
-                                    <div class="admin-sku-actions admin-sku-builder-actions">
-                                        <button type="button" class="admin-primary-btn admin-sku-action-btn" data-continue-apply>
-                                            <span>Apply</span>
-                                        </button>
-                                    </div>
-                                </form>
-                                <p class="admin-form-error" data-setup-error hidden></p>
-                            </article>
-
-                            <aside class="admin-sku-side-stack" aria-label="SKU operations">
-                                <article class="admin-sku-dock admin-sku-request-dock">
-                                    <div class="admin-sku-dock-head">
-                                        <strong>Approvals</strong>
-                                    </div>
-                                    <div class="admin-request-stack" data-request-list>
-                                        <p class="admin-empty">No requests yet.</p>
-                                    </div>
-                                    <p class="admin-form-error" data-request-error hidden></p>
-                                </article>
-
-                                <article class="admin-sku-dock">
-                                    <div class="admin-sku-dock-head">
-                                        <strong>Mappings</strong>
-                                    </div>
-                                    <div class="admin-sku-form-grid admin-sku-master-create-grid">
-                                        <form class="admin-sku-mini-form" data-add-brand-form>
-                                            <label>
-                                                <span>New brand</span>
-                                                <input type="text" name="name" maxlength="120" placeholder="Jenang Gemi" required>
-                                            </label>
-                                            <button type="submit" class="admin-primary-btn admin-sku-add-btn">Add</button>
-                                        </form>
-                                        <form class="admin-sku-mini-form" data-add-unit-form>
-                                            <label>
-                                                <span>New unit</span>
-                                                <input type="text" name="name" maxlength="120" placeholder="sachet or ml" required>
-                                            </label>
-                                            <button type="submit" class="admin-primary-btn admin-sku-add-btn">Add</button>
-                                        </form>
-                                        <form class="admin-sku-mini-form" data-add-flavor-form>
+                                        <form class="admin-sku-builder admin-sku-builder-compact" data-setup-form>
                                             <label>
                                                 <span>Brand</span>
-                                                <select class="admin-select" name="brand_id" data-brand-select required></select>
+                                                <select class="admin-select" name="brand_id" data-sku-brand-select required></select>
+                                            </label>
+                                            <label>
+                                                <span>Unit</span>
+                                                <select class="admin-select" name="unit_id" data-unit-select required></select>
+                                            </label>
+                                            <label>
+                                                <span>Volume</span>
+                                                <input type="text" name="volume" inputmode="decimal" placeholder="15 or 15.2" required>
+                                            </label>
+                                            <label>
+                                                <span>ASTRA</span>
+                                                <input type="number" name="astra" min="0.01" step="0.01" placeholder="15" required>
                                             </label>
                                             <label>
                                                 <span>Flavor</span>
-                                                <input type="text" name="name" maxlength="120" placeholder="Pandan" required>
-                                            </label>
-                                            <button type="submit" class="admin-primary-btn admin-sku-add-btn">Add</button>
-                                        </form>
-                                        <form class="admin-sku-mini-form" data-add-product-form>
-                                            <label>
-                                                <span>Brand</span>
-                                                <select class="admin-select" name="brand_id" data-brand-select required></select>
+                                                <select class="admin-select" name="flavor_id" data-flavor-select required></select>
                                             </label>
                                             <label>
                                                 <span>Product</span>
-                                                <input type="text" name="name" maxlength="120" placeholder="Bubur" required>
+                                                <select class="admin-select" name="product_id" data-product-select required></select>
                                             </label>
-                                            <button type="submit" class="admin-primary-btn admin-sku-add-btn">Add</button>
+                                            <label class="admin-sku-builder-tag">
+                                                <span>TAG</span>
+                                                <input type="text" name="tag" maxlength="50" placeholder="BAGGOSMEDIA_BUBUR_ORIGINAL" required>
+                                            </label>
+                                            <div class="admin-sku-actions admin-sku-builder-actions">
+                                                <button type="button" class="admin-primary-btn admin-sku-action-btn" data-continue-apply>
+                                                    <span>Apply</span>
+                                                </button>
+                                            </div>
                                         </form>
+                                        <p class="admin-form-error" data-setup-error hidden></p>
                                     </div>
-                                    <p class="admin-form-error" data-master-form-error hidden></p>
+                                </details>
+                            </article>
+
+                            <aside class="admin-sku-side-stack" aria-label="SKU operations">
+                                <article class="admin-sku-dock admin-sku-request-dock admin-sku-collapsible">
+                                    <details class="admin-sku-collapse">
+                                        <summary class="admin-sku-collapse-toggle">
+                                            <span class="admin-sku-collapse-arrow" aria-hidden="true"></span>
+                                            <strong>Approvals</strong>
+                                        </summary>
+                                        <div class="admin-sku-collapse-body">
+                                            <div class="admin-request-stack" data-request-list>
+                                                <p class="admin-empty">No requests yet.</p>
+                                            </div>
+                                            <p class="admin-form-error" data-request-error hidden></p>
+                                        </div>
+                                    </details>
+                                </article>
+
+                                <article class="admin-sku-dock admin-sku-collapsible">
+                                    <details class="admin-sku-collapse">
+                                        <summary class="admin-sku-collapse-toggle">
+                                            <span class="admin-sku-collapse-arrow" aria-hidden="true"></span>
+                                            <strong>Mappings</strong>
+                                        </summary>
+                                        <div class="admin-sku-collapse-body">
+                                            <div class="admin-sku-form-grid admin-sku-master-create-grid">
+                                                <form class="admin-sku-mini-form" data-add-brand-form>
+                                                    <label>
+                                                        <span>New brand</span>
+                                                        <input type="text" name="name" maxlength="120" placeholder="Jenang Gemi" required>
+                                                    </label>
+                                                    <button type="submit" class="admin-primary-btn admin-sku-add-btn">Add</button>
+                                                </form>
+                                                <form class="admin-sku-mini-form" data-add-unit-form>
+                                                    <label>
+                                                        <span>New unit</span>
+                                                        <input type="text" name="name" maxlength="120" placeholder="sachet or ml" required>
+                                                    </label>
+                                                    <button type="submit" class="admin-primary-btn admin-sku-add-btn">Add</button>
+                                                </form>
+                                                <form class="admin-sku-mini-form" data-add-flavor-form>
+                                                    <label>
+                                                        <span>Brand</span>
+                                                        <select class="admin-select" name="brand_id" data-brand-select required></select>
+                                                    </label>
+                                                    <label>
+                                                        <span>Flavor</span>
+                                                        <input type="text" name="name" maxlength="120" placeholder="Pandan" required>
+                                                    </label>
+                                                    <button type="submit" class="admin-primary-btn admin-sku-add-btn">Add</button>
+                                                </form>
+                                                <form class="admin-sku-mini-form" data-add-product-form>
+                                                    <label>
+                                                        <span>Brand</span>
+                                                        <select class="admin-select" name="brand_id" data-brand-select required></select>
+                                                    </label>
+                                                    <label>
+                                                        <span>Product</span>
+                                                        <input type="text" name="name" maxlength="120" placeholder="Bubur" required>
+                                                    </label>
+                                                    <button type="submit" class="admin-primary-btn admin-sku-add-btn">Add</button>
+                                                </form>
+                                            </div>
+                                            <p class="admin-form-error" data-master-form-error hidden></p>
+                                        </div>
+                                    </details>
                                 </article>
                             </aside>
                         </section>
 
-                        <section class="admin-sku-apply-band" data-apply-panel hidden aria-label="Push SKU to live database">
-                            <div class="admin-sku-apply-preview">
-                                <span class="admin-control-label">Ready</span>
-                                <strong data-apply-preview>Finish setup first</strong>
-                            </div>
-                            <form class="admin-sku-form-grid" data-apply-form>
-                                <label>
-                                    <span>Stock</span>
-                                    <input type="number" name="starting_stock" min="0" step="1" placeholder="100" required>
-                                </label>
-                                <label>
-                                    <span>Trigger</span>
-                                    <input type="number" name="stock_trigger" min="0" step="1" placeholder="20" required>
-                                </label>
-                                <label>
-                                    <span>COGS</span>
-                                    <input type="number" name="cogs" min="0" step="0.01" placeholder="0">
-                                </label>
-                                <label>
-                                    <span>Sale</span>
-                                    <input type="number" name="sale_price" min="0" step="0.01" placeholder="0">
-                                </label>
-                                <label>
-                                    <span>PO</span>
-                                    <input type="text" name="po_number" maxlength="80" placeholder="P01411">
-                                </label>
-                                <div class="admin-sku-actions">
-                                    <button type="submit" class="admin-primary-btn admin-sku-action-btn">
-                                        <span>Push</span>
-                                    </button>
-                                    <button type="button" class="admin-ghost-btn admin-sku-action-btn" data-back-setup>Back</button>
+                        <section class="admin-sku-apply-band admin-sku-collapsible" data-apply-panel hidden aria-label="Push SKU to live database">
+                            <details class="admin-sku-collapse" open>
+                                <summary class="admin-sku-collapse-toggle">
+                                    <span class="admin-sku-collapse-arrow" aria-hidden="true"></span>
+                                    <strong>SKU Approver</strong>
+                                </summary>
+                                <div class="admin-sku-collapse-body admin-sku-apply-collapse-body">
+                                    <div class="admin-sku-apply-preview">
+                                        <span class="admin-control-label">Ready</span>
+                                        <strong data-apply-preview>Finish setup first</strong>
+                                    </div>
+                                    <form class="admin-sku-form-grid" data-apply-form>
+                                        <label>
+                                            <span>Stock</span>
+                                            <input type="number" name="starting_stock" min="0" step="1" placeholder="100" required>
+                                        </label>
+                                        <label>
+                                            <span>Trigger</span>
+                                            <input type="number" name="stock_trigger" min="0" step="1" placeholder="20" required>
+                                        </label>
+                                        <label>
+                                            <span>COGS</span>
+                                            <input type="number" name="cogs" min="0" step="0.01" placeholder="0">
+                                        </label>
+                                        <label>
+                                            <span>Sale</span>
+                                            <input type="number" name="sale_price" min="0" step="0.01" placeholder="0">
+                                        </label>
+                                        <label>
+                                            <span>PO</span>
+                                            <input type="text" name="po_number" maxlength="80" placeholder="P01411">
+                                        </label>
+                                        <div class="admin-sku-actions">
+                                            <button type="submit" class="admin-primary-btn admin-sku-action-btn">
+                                                <span>Push</span>
+                                            </button>
+                                            <button type="button" class="admin-ghost-btn admin-sku-action-btn" data-back-setup>Back</button>
+                                        </div>
+                                    </form>
+                                    <p class="admin-form-error" data-apply-error hidden></p>
                                 </div>
-                            </form>
-                            <p class="admin-form-error" data-apply-error hidden></p>
+                            </details>
                         </section>
 
                     <?php else: ?>
                         <section class="admin-sku-workbench admin-sku-workbench-request" aria-label="SKU request workspace">
-                            <article class="admin-sku-composer">
-                                <div class="admin-sku-preview-surface">
-                                    <span class="admin-control-label">Proposed SKU</span>
-                                    <strong data-sku-preview>------------</strong>
-                                    <div class="admin-sku-segment-strip" data-sku-segment-strip aria-label="SKU code segments">
-                                        <span><b>BR</b><em>--</em></span>
-                                        <span><b>UN</b><em>--</em></span>
-                                        <span><b>VOL</b><em>----</em></span>
-                                        <span><b>FL</b><em>--</em></span>
-                                        <span><b>PR</b><em>--</em></span>
-                                    </div>
-                                </div>
+                            <article class="admin-sku-composer admin-sku-collapsible">
+                                <details class="admin-sku-collapse">
+                                    <summary class="admin-sku-collapse-toggle">
+                                        <span class="admin-sku-collapse-arrow" aria-hidden="true"></span>
+                                        <strong>Builder</strong>
+                                    </summary>
+                                    <div class="admin-sku-collapse-body">
+                                        <div class="admin-sku-preview-surface">
+                                            <span class="admin-control-label">Proposed SKU</span>
+                                            <strong data-sku-preview>------------</strong>
+                                            <div class="admin-sku-segment-strip" data-sku-segment-strip aria-label="SKU code segments">
+                                                <span><b>BR</b><em>--</em></span>
+                                                <span><b>UN</b><em>--</em></span>
+                                                <span><b>VOL</b><em>----</em></span>
+                                                <span><b>FL</b><em>--</em></span>
+                                                <span><b>PR</b><em>--</em></span>
+                                            </div>
+                                        </div>
 
-                                <form class="admin-sku-builder admin-sku-builder-compact" data-request-form>
-                                    <label>
-                                        <span>Brand</span>
-                                        <select class="admin-select" name="brand_id" data-sku-brand-select required></select>
-                                    </label>
-                                    <label>
-                                        <span>Unit</span>
-                                        <select class="admin-select" name="unit_id" data-unit-select required></select>
-                                    </label>
-                                    <label>
-                                        <span>Volume</span>
-                                        <input type="text" name="volume" inputmode="decimal" placeholder="15 or 15.2" required>
-                                    </label>
-                                    <label>
-                                        <span>ASTRA</span>
-                                        <input type="number" name="astra" min="0.01" step="0.01" placeholder="15" required>
-                                    </label>
-                                    <label>
-                                        <span>Flavor</span>
-                                        <select class="admin-select" name="flavor_id" data-flavor-select required></select>
-                                    </label>
-                                    <label>
-                                        <span>Product</span>
-                                        <select class="admin-select" name="product_id" data-product-select required></select>
-                                    </label>
-                                    <div class="admin-sku-actions admin-sku-builder-actions">
-                                        <button type="submit" class="admin-primary-btn admin-sku-action-btn">
-                                            <span>Submit</span>
-                                        </button>
+                                        <form class="admin-sku-builder admin-sku-builder-compact" data-request-form>
+                                            <label>
+                                                <span>Brand</span>
+                                                <select class="admin-select" name="brand_id" data-sku-brand-select required></select>
+                                            </label>
+                                            <label>
+                                                <span>Unit</span>
+                                                <select class="admin-select" name="unit_id" data-unit-select required></select>
+                                            </label>
+                                            <label>
+                                                <span>Volume</span>
+                                                <input type="text" name="volume" inputmode="decimal" placeholder="15 or 15.2" required>
+                                            </label>
+                                            <label>
+                                                <span>ASTRA</span>
+                                                <input type="number" name="astra" min="0.01" step="0.01" placeholder="15" required>
+                                            </label>
+                                            <label>
+                                                <span>Flavor</span>
+                                                <select class="admin-select" name="flavor_id" data-flavor-select required></select>
+                                            </label>
+                                            <label>
+                                                <span>Product</span>
+                                                <select class="admin-select" name="product_id" data-product-select required></select>
+                                            </label>
+                                            <div class="admin-sku-actions admin-sku-builder-actions">
+                                                <button type="submit" class="admin-primary-btn admin-sku-action-btn">
+                                                    <span>Submit</span>
+                                                </button>
+                                            </div>
+                                        </form>
+                                        <p class="admin-form-error" data-request-submit-error hidden></p>
                                     </div>
-                                </form>
-                                <p class="admin-form-error" data-request-submit-error hidden></p>
+                                </details>
                             </article>
 
                             <aside class="admin-sku-side-stack" aria-label="Request status">
-                                <article class="admin-sku-dock admin-sku-request-dock">
-                                    <div class="admin-sku-dock-head">
-                                        <strong>Requests</strong>
-                                    </div>
-                                    <div class="admin-request-stack" data-request-list>
-                                        <p class="admin-empty">You have not submitted any requests yet.</p>
-                                    </div>
+                                <article class="admin-sku-dock admin-sku-request-dock admin-sku-collapsible">
+                                    <details class="admin-sku-collapse">
+                                        <summary class="admin-sku-collapse-toggle">
+                                            <span class="admin-sku-collapse-arrow" aria-hidden="true"></span>
+                                            <strong>Requests</strong>
+                                        </summary>
+                                        <div class="admin-sku-collapse-body">
+                                            <div class="admin-request-stack" data-request-list>
+                                                <p class="admin-empty">You have not submitted any requests yet.</p>
+                                            </div>
+                                        </div>
+                                    </details>
                                 </article>
                             </aside>
                         </section>

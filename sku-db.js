@@ -1287,7 +1287,11 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    if (applyPanel) applyPanel.hidden = false;
+    if (applyPanel) {
+      applyPanel.hidden = false;
+      const applyCollapse = applyPanel.querySelector('.admin-sku-collapse');
+      if (applyCollapse instanceof HTMLDetailsElement) applyCollapse.open = true;
+    }
     applyPanel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
