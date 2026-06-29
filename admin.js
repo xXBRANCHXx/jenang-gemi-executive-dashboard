@@ -445,6 +445,8 @@ const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const LIVE_REFRESH_DEBOUNCE_MS = 1200;
 const BACKGROUND_IDLE_TIMEOUT_MS = 800;
 const BACKGROUND_TASK_DELAY_MS = 80;
+const INACTIVE_VIEW_UNLOAD_DELAY_MS = 15 * 1000;
+const INACTIVE_VIEW_UNLOAD_STEP_MS = 140;
 
 const wait = (duration) => new Promise((resolve) => {
   window.setTimeout(resolve, duration);
@@ -2986,6 +2988,66 @@ document.addEventListener('DOMContentLoaded', () => {
     window.localStorage.setItem(viewStorageKey, state.activeView);
   };
 
+  const inactiveViewUnloadTimers = new Map();
+
+  const cancelDeferredViewUnload = (view) => {
+    const timer = inactiveViewUnloadTimers.get(view);
+    if (!timer) return;
+    window.clearTimeout(timer);
+    inactiveViewUnloadTimers.delete(view);
+  };
+
+  const clearInactiveCanvas = (canvas, view) => {
+    if (!(canvas instanceof HTMLCanvasElement) || state.activeView === view) return;
+    chartRendererState.delete(canvas);
+    chartHoverState.delete(canvas);
+    chartActivePointState.delete(canvas);
+    hideChartTooltip(canvas);
+    const context = canvas.getContext('2d');
+    if (context) context.clearRect(0, 0, canvas.width, canvas.height);
+  };
+
+  const inactiveViewDomNodes = (view) => {
+    if (view === 'overview') {
+      return [
+        overviewRefs.tableBody,
+        overviewRefs.notes
+      ].filter(Boolean);
+    }
+    if (view === 'home') {
+      return [
+        homeRefs.urlTableBody,
+        homeRefs.sourceTableBody,
+        homeRefs.recentEvents,
+        homeRefs.sourceLegend
+      ].filter(Boolean);
+    }
+    return [];
+  };
+
+  const unloadInactiveViewRenderState = (view) => {
+    inactiveViewUnloadTimers.delete(view);
+    if (state.activeView === view) return;
+    const panel = Array.from(viewPanels).find((candidate) => candidate.dataset.viewPanel === view);
+    const canvases = panel ? Array.from(panel.querySelectorAll('canvas')) : [];
+    canvases.forEach((canvas, index) => {
+      window.setTimeout(() => clearInactiveCanvas(canvas, view), index * INACTIVE_VIEW_UNLOAD_STEP_MS);
+    });
+    inactiveViewDomNodes(view).forEach((node, index) => {
+      window.setTimeout(() => {
+        if (state.activeView !== view) node.replaceChildren();
+      }, (canvases.length + index) * INACTIVE_VIEW_UNLOAD_STEP_MS);
+    });
+  };
+
+  const scheduleDeferredViewUnload = (view) => {
+    if (!['overview', 'home'].includes(view) || state.activeView === view) return;
+    cancelDeferredViewUnload(view);
+    inactiveViewUnloadTimers.set(view, window.setTimeout(() => {
+      unloadInactiveViewRenderState(view);
+    }, INACTIVE_VIEW_UNLOAD_DELAY_MS));
+  };
+
   const closeMenu = () => {
     if (!menuPanel || !menuTrigger) return;
     menuPanel.hidden = true;
@@ -5339,6 +5401,10 @@ document.addEventListener('DOMContentLoaded', () => {
       .join(',')
   ].join('|');
 
+  const renderOrdersIfActive = () => {
+    if (state.activeView === 'orders') renderOrders();
+  };
+
   const resetOrderWindowsFromOverview = () => {
     const data = state.overview.data || {};
     const years = Array.isArray(data.years) ? data.years : [state.overview.year];
@@ -5367,7 +5433,7 @@ document.addEventListener('DOMContentLoaded', () => {
     state.orders.platforms = [];
     state.orders.activeFiltersSignature = '';
     state.orders.platformsRenderSignature = '';
-    renderOrders();
+    renderOrdersIfActive();
   };
 
   const loadNextOrderWindow = async () => {
@@ -5377,12 +5443,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const nextRange = nextOrderRange();
     if (!nextRange) {
       state.orders.loadedAll = true;
-      renderOrders();
+      renderOrdersIfActive();
       return;
     }
     const generation = state.orders.loadGeneration;
     state.orders.loading = true;
-    renderOrders();
+    renderOrdersIfActive();
     const loadPromise = (async () => {
       let completed = false;
       try {
@@ -5415,7 +5481,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } finally {
         if (generation === state.orders.loadGeneration) {
           state.orders.loading = false;
-          renderOrders();
+          renderOrdersIfActive();
           if (completed && state.orders.ensurePending) {
             state.orders.ensurePending = false;
             ensureEnoughOrderRows().catch(showOrderLoadError);
@@ -5469,13 +5535,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     orderMemoryPreloadPromise = (async () => {
-      if (!state.overview.data) {
-        await loadOverviewSafely({
+      if (!state.overview.data && !options.skipOverviewRefresh) {
+        loadOverviewSafely({
           background: true,
           preferStale: false,
           useCache: true,
           skipHourly: true
-        });
+        }).catch(() => {});
       }
       if (!state.orders.monthRanges.length || options.reset) {
         resetOrderWindowsFromOverview();
@@ -5512,11 +5578,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const loadOrders = async (options = {}) => {
     if (!options.force && state.orders.data) {
       if (isFresh(state.orders.loadedAt, VIEW_CACHE_TTL_MS.orders)) {
-        renderOrders();
+        renderOrdersIfActive();
         return;
       }
       if (options.preferStale !== false) {
-        renderOrders();
+        renderOrdersIfActive();
         if (!options.background) queueViewRefresh('orders');
         return;
       }
@@ -5775,18 +5841,43 @@ document.addEventListener('DOMContentLoaded', () => {
     if (state.activeView === 'website' && state.website.screen === 'detail' && state.website.data) renderWebsite(state.website.data);
   };
 
+  const activateOrdersViewInstantly = () => {
+    if (!state.orders.monthRanges.length && !state.orders.loadedAll) {
+      resetOrderWindowsFromOverview();
+    }
+    if (!state.orders.rows.length && !state.orders.loadedAll && !state.orders.loading) {
+      state.orders.loading = true;
+    }
+    renderOrders();
+    ensureEnoughOrderRows()
+      .then(async () => {
+        if (state.orders.loadPromise) await state.orders.loadPromise;
+        state.orders.loadedAt = Date.now();
+        preloadOrderMemory().catch(showOrderLoadError);
+      })
+      .catch(showOrderLoadError);
+  };
+
   const switchView = async (nextView) => {
-    state.activeView = normalizeDashboardView(nextView);
+    const previousView = state.activeView;
+    const normalizedNextView = normalizeDashboardView(nextView);
+    cancelDeferredViewUnload(normalizedNextView);
+    state.activeView = normalizedNextView;
     if (state.activeView === 'website') {
       showWebsiteSelector();
     }
     syncViewState();
+    scheduleDeferredViewUnload(previousView);
     const viewUrl = new URL(window.location.href);
     viewUrl.searchParams.set('view', state.activeView);
     viewUrl.hash = '';
     window.history.replaceState(null, '', `${viewUrl.pathname}${viewUrl.search}`);
     closeMenu();
     renderJenangGemiSearchResults(searchInput?.value || '');
+    if (state.activeView === 'orders') {
+      activateOrdersViewInstantly();
+      return;
+    }
     await loadActiveViewSafely();
     if (state.activeView === 'store-ops') {
       window.dispatchEvent(new CustomEvent('jg-store-ops-refresh'));
@@ -5921,7 +6012,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const initialLoad = state.activeView === 'overview'
     ? loadOverviewSafely({ useCache: true, cacheFirst: true, preferStale: false })
+    : state.activeView === 'orders'
+      ? Promise.resolve().then(() => activateOrdersViewInstantly())
     : loadActiveViewSafely({ preferStale: false });
+
+  if (state.activeView !== 'orders') {
+    window.setTimeout(() => {
+      preloadOrderMemory({ skipOverviewRefresh: state.activeView === 'overview' }).catch(() => {});
+    }, 0);
+  }
 
   initialLoad
     .then(async () => {
