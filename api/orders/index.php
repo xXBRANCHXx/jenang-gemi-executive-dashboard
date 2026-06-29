@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/config.php';
 require_once dirname(__DIR__, 2) . '/auth.php';
+require_once dirname(__DIR__, 2) . '/analytics-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/sku-db-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/website-commerce-bootstrap.php';
 
@@ -12,31 +13,48 @@ if (!defined('JG_ORDERS_API_NO_DISPATCH')) {
 
 function jg_orders_handle_request(): void
 {
-    jg_admin_require_auth();
+    $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+    $action = strtolower(trim((string) ($_GET['action'] ?? 'list')));
+    if ($method === 'POST' && in_array($action, ['webhook', 'mirror'], true)) {
+        jg_orders_handle_webhook();
+        return;
+    }
 
+    jg_admin_require_auth();
     header('Content-Type: application/json; charset=utf-8');
 
     try {
-        $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
         $startDate = jg_orders_date($_GET['start_date'] ?? null, '-1 day');
         $endDate = jg_orders_date($_GET['end_date'] ?? null, 'today');
         $limit = jg_orders_limit($_GET['limit'] ?? null);
         $offset = max(0, (int) ($_GET['offset'] ?? 0));
+        if ($method === 'GET' && $action === 'status') {
+            $pdo = analyticsDb();
+            jg_orders_ensure_mirror_schema($pdo);
+            echo json_encode([
+                'ok' => true,
+                'mirror' => jg_orders_mirror_status($pdo),
+            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        $payload = [];
         if ($method === 'POST') {
             $payload = json_decode((string) file_get_contents('php://input'), true);
             $payload = is_array($payload) ? $payload : [];
             $startDate = jg_orders_date($payload['start_date'] ?? $startDate, '-1 day');
             $endDate = jg_orders_date($payload['end_date'] ?? $endDate, 'today');
-            jg_orders_remote_sync($startDate, $endDate);
         }
 
         $remoteWarning = '';
         try {
-            $remotePayload = jg_orders_remote_payload($startDate, $endDate, $limit, $offset);
-        } catch (Throwable $remoteOrdersError) {
+            $mirrorPdo = analyticsDb();
+            jg_orders_ensure_mirror_schema($mirrorPdo);
+            $remotePayload = jg_orders_mirror_payload($mirrorPdo, $startDate, $endDate, $limit, $offset);
+        } catch (Throwable $mirrorOrdersError) {
             $remotePayload = ['orders' => [], 'has_more' => false, 'next_offset' => null];
-            $remoteWarning = 'marketplace_orders_unavailable';
-            error_log('Marketplace orders unavailable; serving independent website sales: ' . $remoteOrdersError->getMessage());
+            $remoteWarning = 'order_mirror_unavailable';
+            error_log('Dashboard order mirror unavailable; serving independent website sales: ' . $mirrorOrdersError->getMessage());
         }
         $remoteRows = is_array($remotePayload['orders'] ?? null) ? $remotePayload['orders'] : [];
         if ($offset === 0) {
@@ -48,11 +66,7 @@ function jg_orders_handle_request(): void
         }
         $lightweight = jg_orders_bool($_GET['lightweight'] ?? $_GET['summary'] ?? null);
         if ($lightweight) {
-            $includeLive = !jg_orders_bool($_GET['stored_only'] ?? null);
             $rows = jg_orders_lightweight_rows($remoteRows);
-            if ($includeLive) {
-                $rows = jg_orders_merge_lightweight_rows($rows, jg_orders_live_listed_rows($startDate, $endDate));
-            }
             echo json_encode([
                 'ok' => true,
                 'start_date' => $startDate,
@@ -69,7 +83,8 @@ function jg_orders_handle_request(): void
         }
 
         $inventoryWarning = $remoteWarning;
-        if ($method === 'POST') {
+        $writeAllocations = $method === 'POST' && jg_orders_bool($payload['allocate'] ?? $_GET['allocate'] ?? null);
+        if ($writeAllocations) {
             $pdo = jg_sku_db();
             jg_orders_ensure_schema($pdo);
             jg_orders_ensure_opening_lots($pdo);
@@ -117,6 +132,94 @@ function jg_orders_handle_request(): void
     }
 }
 
+function jg_orders_json(array $payload, int $status = 200): void
+{
+    http_response_code($status);
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
+    echo json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+}
+
+function jg_orders_handle_webhook(): void
+{
+    try {
+        jg_orders_require_webhook_token();
+        $payload = jg_orders_request_body();
+        $rows = jg_orders_webhook_rows($payload);
+        if ($rows === []) {
+            throw new InvalidArgumentException('Webhook payload did not contain any order rows.');
+        }
+
+        $pdo = analyticsDb();
+        jg_orders_ensure_mirror_schema($pdo);
+        $result = jg_orders_upsert_mirror_rows($pdo, $rows, $payload);
+        $liveState = analyticsTouchLiveState('orders_webhook');
+        jg_orders_json([
+            'ok' => true,
+            'mirror' => $result,
+            'live_state' => $liveState,
+        ]);
+    } catch (InvalidArgumentException $error) {
+        jg_orders_json(['ok' => false, 'error' => $error->getMessage()], 422);
+    } catch (DomainException $error) {
+        jg_orders_json(['ok' => false, 'error' => $error->getMessage()], 401);
+    } catch (Throwable $error) {
+        error_log('Orders webhook failed: ' . $error->getMessage());
+        jg_orders_json(['ok' => false, 'error' => 'orders_webhook_failed'], 500);
+    }
+}
+
+function jg_orders_request_body(): array
+{
+    $raw = file_get_contents('php://input');
+    $decoded = is_string($raw) ? json_decode($raw, true) : null;
+    return is_array($decoded) ? $decoded : [];
+}
+
+function jg_orders_webhook_token(): string
+{
+    $config = jg_dashboard_load_local_config();
+    return jg_dashboard_env_value('JG_ORDER_WEBHOOK_TOKEN')
+        ?: trim((string) ($config['order_webhook_token'] ?? ''))
+        ?: jg_dashboard_env_value('JG_MARKETPLACE_WEBHOOK_TOKEN')
+        ?: trim((string) ($config['marketplace_webhook_token'] ?? ''))
+        ?: jg_dashboard_marketplace_api_setup_token();
+}
+
+function jg_orders_supplied_webhook_token(): string
+{
+    $authorization = trim((string) ($_SERVER['HTTP_AUTHORIZATION'] ?? ''));
+    if (preg_match('/^Bearer\s+(.+)$/i', $authorization, $matches)) {
+        return trim((string) ($matches[1] ?? ''));
+    }
+
+    foreach ([
+        'HTTP_X_JG_ORDERS_WEBHOOK_TOKEN',
+        'HTTP_X_ORDER_WEBHOOK_TOKEN',
+        'HTTP_X_WEBHOOK_TOKEN',
+        'HTTP_X_API_KEY',
+    ] as $header) {
+        $value = trim((string) ($_SERVER[$header] ?? ''));
+        if ($value !== '') {
+            return $value;
+        }
+    }
+
+    return trim((string) ($_GET['token'] ?? $_GET['setup_token'] ?? ''));
+}
+
+function jg_orders_require_webhook_token(): void
+{
+    $expected = jg_orders_webhook_token();
+    if ($expected === '') {
+        throw new DomainException('Orders webhook token is not configured.');
+    }
+
+    if (!hash_equals($expected, jg_orders_supplied_webhook_token())) {
+        throw new DomainException('Unauthorized');
+    }
+}
+
 function jg_orders_date(mixed $value, string $fallback): string
 {
     $timezone = new DateTimeZone('Asia/Jakarta');
@@ -139,7 +242,503 @@ function jg_orders_limit(mixed $value): ?int
     if ($limit <= 0) {
         return null;
     }
-    return max(1, min(500, $limit));
+    return max(1, min(2000, $limit));
+}
+
+function jg_orders_ensure_mirror_schema(PDO $pdo): void
+{
+    analyticsTryExec(
+        $pdo,
+        'CREATE TABLE IF NOT EXISTS dashboard_order_mirror (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            order_item_hash CHAR(64) NOT NULL,
+            platform VARCHAR(40) NOT NULL DEFAULT "",
+            account_key VARCHAR(120) NOT NULL DEFAULT "",
+            order_id VARCHAR(160) NOT NULL DEFAULT "",
+            item_key VARCHAR(220) NOT NULL DEFAULT "",
+            sku VARCHAR(80) NOT NULL DEFAULT "",
+            status VARCHAR(80) NOT NULL DEFAULT "",
+            order_create_time DATETIME(6) NULL DEFAULT NULL,
+            order_create_date DATE NULL DEFAULT NULL,
+            timestamp_utc DATETIME(6) NULL DEFAULT NULL,
+            company VARCHAR(160) NOT NULL DEFAULT "",
+            brand_name VARCHAR(160) NOT NULL DEFAULT "",
+            product_name VARCHAR(255) NOT NULL DEFAULT "",
+            marketplace_product_name VARCHAR(255) NOT NULL DEFAULT "",
+            base_product_name VARCHAR(255) NOT NULL DEFAULT "",
+            flavor_name VARCHAR(160) NOT NULL DEFAULT "",
+            product_type VARCHAR(160) NOT NULL DEFAULT "",
+            flavor VARCHAR(160) NOT NULL DEFAULT "",
+            quantity INT NOT NULL DEFAULT 0,
+            revenue DECIMAL(16,2) NOT NULL DEFAULT 0,
+            order_net_revenue DECIMAL(16,2) NOT NULL DEFAULT 0,
+            gross_revenue DECIMAL(16,2) NOT NULL DEFAULT 0,
+            marketplace_fees DECIMAL(16,2) NOT NULL DEFAULT 0,
+            cogs DECIMAL(16,2) NOT NULL DEFAULT 0,
+            gross_profit DECIMAL(16,2) NOT NULL DEFAULT 0,
+            username VARCHAR(255) NOT NULL DEFAULT "",
+            address TEXT NULL,
+            phone VARCHAR(80) NOT NULL DEFAULT "",
+            source_event VARCHAR(80) NOT NULL DEFAULT "",
+            source_updated_at DATETIME(6) NULL DEFAULT NULL,
+            raw_json LONGTEXT NOT NULL,
+            mirrored_at DATETIME(6) NOT NULL,
+            deleted_at DATETIME(6) NULL DEFAULT NULL,
+            UNIQUE KEY uniq_dashboard_order_item_hash (order_item_hash),
+            KEY idx_dashboard_order_mirror_created (order_create_time),
+            KEY idx_dashboard_order_mirror_date (order_create_date),
+            KEY idx_dashboard_order_mirror_order (platform, account_key, order_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+    );
+
+    analyticsEnsureTableColumn($pdo, 'dashboard_order_mirror', 'gross_revenue', 'DECIMAL(16,2) NOT NULL DEFAULT 0 AFTER `order_net_revenue`');
+    analyticsEnsureTableColumn($pdo, 'dashboard_order_mirror', 'deleted_at', 'DATETIME(6) NULL DEFAULT NULL AFTER `mirrored_at`');
+}
+
+function jg_orders_is_list_array(array $value): bool
+{
+    return $value === [] || array_keys($value) === range(0, count($value) - 1);
+}
+
+function jg_orders_pick(array $row, array $keys, mixed $fallback = ''): mixed
+{
+    foreach ($keys as $key) {
+        if (array_key_exists($key, $row) && $row[$key] !== null && $row[$key] !== '') {
+            return $row[$key];
+        }
+    }
+    return $fallback;
+}
+
+function jg_orders_float(mixed $value): float
+{
+    if (is_numeric($value)) {
+        return (float) $value;
+    }
+    $normalized = preg_replace('/[^0-9.\-]+/', '', (string) $value);
+    return is_numeric($normalized) ? (float) $normalized : 0.0;
+}
+
+function jg_orders_int(mixed $value): int
+{
+    return max(0, (int) round(jg_orders_float($value)));
+}
+
+function jg_orders_order_datetime(mixed $value): ?DateTimeImmutable
+{
+    if ($value instanceof DateTimeImmutable) {
+        return $value->setTimezone(new DateTimeZone('UTC'));
+    }
+    if ($value instanceof DateTimeInterface) {
+        return (new DateTimeImmutable($value->format(DATE_ATOM)))->setTimezone(new DateTimeZone('UTC'));
+    }
+    if (is_int($value) || (is_string($value) && preg_match('/^\d{10,13}$/', trim($value)))) {
+        $timestamp = (int) $value;
+        if ($timestamp > 9999999999) {
+            $timestamp = (int) floor($timestamp / 1000);
+        }
+        return (new DateTimeImmutable('@' . $timestamp))->setTimezone(new DateTimeZone('UTC'));
+    }
+    $raw = trim((string) $value);
+    if ($raw === '') {
+        return null;
+    }
+    if (!preg_match('/(?:Z|[+-]\d{2}:?\d{2})$/', $raw)) {
+        $raw .= ' UTC';
+    }
+    try {
+        return (new DateTimeImmutable($raw))->setTimezone(new DateTimeZone('UTC'));
+    } catch (Throwable) {
+        return null;
+    }
+}
+
+function jg_orders_sql_datetime(?DateTimeImmutable $date): ?string
+{
+    return $date instanceof DateTimeImmutable ? $date->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s.u') : null;
+}
+
+function jg_orders_atom_datetime(?string $value): string
+{
+    if ($value === null || trim($value) === '') {
+        return '';
+    }
+    try {
+        return (new DateTimeImmutable($value, new DateTimeZone('UTC')))->format(DATE_ATOM);
+    } catch (Throwable) {
+        return '';
+    }
+}
+
+function jg_orders_local_date_from_utc(?DateTimeImmutable $date): ?string
+{
+    return $date instanceof DateTimeImmutable
+        ? $date->setTimezone(new DateTimeZone('Asia/Jakarta'))->format('Y-m-d')
+        : null;
+}
+
+function jg_orders_webhook_rows(array $payload): array
+{
+    $candidates = [];
+    foreach (['orders', 'rows', 'order_rows', 'items'] as $key) {
+        $value = $payload[$key] ?? null;
+        if (is_array($value) && jg_orders_is_list_array($value)) {
+            foreach ($value as $item) {
+                if (is_array($item)) {
+                    $candidates[] = $item;
+                }
+            }
+        }
+    }
+
+    if (isset($payload['data']) && is_array($payload['data'])) {
+        $data = $payload['data'];
+        if (jg_orders_is_list_array($data)) {
+            foreach ($data as $item) {
+                if (is_array($item)) {
+                    $candidates[] = $item;
+                }
+            }
+        } else {
+            foreach (['orders', 'rows', 'order_rows'] as $key) {
+                if (isset($data[$key]) && is_array($data[$key]) && jg_orders_is_list_array($data[$key])) {
+                    foreach ($data[$key] as $item) {
+                        if (is_array($item)) {
+                            $candidates[] = $item;
+                        }
+                    }
+                }
+            }
+            if ($candidates === []) {
+                $candidates[] = $data;
+            }
+        }
+    }
+
+    if ($candidates === [] && (isset($payload['order_id']) || isset($payload['id']) || isset($payload['order_sn']))) {
+        $candidates[] = $payload;
+    }
+
+    $rows = [];
+    foreach ($candidates as $candidate) {
+        foreach (jg_orders_flatten_webhook_order($candidate, $payload) as $row) {
+            $normalized = jg_orders_normalize_mirror_row($row, $payload);
+            if ($normalized !== null) {
+                $rows[] = $normalized;
+            }
+        }
+    }
+
+    return $rows;
+}
+
+function jg_orders_flatten_webhook_order(array $order, array $payload): array
+{
+    $items = isset($order['items']) && is_array($order['items']) && jg_orders_is_list_array($order['items'])
+        ? $order['items']
+        : [];
+    if ($items === []) {
+        return [$order];
+    }
+
+    $rows = [];
+    $totalQuantity = 0;
+    foreach ($items as $item) {
+        if (is_array($item)) {
+            $totalQuantity += max(0, jg_orders_int(jg_orders_pick($item, ['quantity', 'qty', 'model_quantity', 'amount'], 0)));
+        }
+    }
+    $orderNetRevenue = jg_orders_float(jg_orders_pick(
+        $order,
+        ['order_net_revenue', 'net_revenue', 'revenue', 'seller_revenue', 'settlement_amount'],
+        0
+    ));
+
+    foreach ($items as $index => $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $quantity = max(0, jg_orders_int(jg_orders_pick($item, ['quantity', 'qty', 'model_quantity', 'amount'], 0)));
+        $itemRevenue = jg_orders_pick($item, ['revenue', 'net_revenue', 'seller_revenue', 'settlement_amount'], null);
+        if (($itemRevenue === null || $itemRevenue === '') && $orderNetRevenue > 0 && $totalQuantity > 0) {
+            $itemRevenue = $orderNetRevenue * ($quantity / $totalQuantity);
+        }
+        $rows[] = array_merge($order, [
+            'item_key' => jg_orders_pick($item, ['item_key', 'order_item_key', 'line_item_id', 'model_id', 'id', 'sku_id'], $index),
+            'sku' => jg_orders_pick($item, ['sku', 'seller_sku', 'model_sku', 'item_sku', 'sku_code'], jg_orders_pick($order, ['sku'], '')),
+            'quantity' => $quantity,
+            'revenue' => $itemRevenue,
+            'product_name' => jg_orders_pick($item, ['product_name', 'item_name', 'name', 'title'], jg_orders_pick($order, ['product_name', 'item_name', 'name'], '')),
+            'flavor' => jg_orders_pick($item, ['flavor', 'flavor_name', 'variant_name', 'option_name'], jg_orders_pick($order, ['flavor'], '')),
+            '_webhook_item_raw' => $item,
+        ]);
+    }
+
+    return $rows;
+}
+
+function jg_orders_normalize_mirror_row(array $row, array $payload): ?array
+{
+    $financials = isset($row['financials']) && is_array($row['financials']) ? $row['financials'] : [];
+    $customer = isset($row['customer']) && is_array($row['customer']) ? $row['customer'] : [];
+    $platform = strtolower(trim((string) jg_orders_pick($row, ['platform', 'source_platform', 'marketplace'], $payload['platform'] ?? '')));
+    $accountKey = trim((string) jg_orders_pick($row, ['account_key', 'sourceAccountKey', 'source_account', 'account', 'shop_id'], ''));
+    $orderId = trim((string) jg_orders_pick($row, ['order_id', 'id', 'order_sn', 'orderId'], ''));
+    $itemKey = trim((string) jg_orders_pick($row, ['item_key', 'order_item_key', 'item_row_id', 'line_item_id'], ''));
+    $sku = trim((string) jg_orders_pick($row, ['sku', 'marketplace_sku', 'seller_sku', 'item_sku'], ''));
+    $productName = trim((string) jg_orders_pick($row, ['product_name', 'item_name', 'name', 'title'], ''));
+
+    if ($platform === '' && $orderId === '' && $itemKey === '' && $sku === '' && $productName === '') {
+        return null;
+    }
+
+    if ($itemKey === '') {
+        $itemKey = $sku !== '' ? $sku : substr(hash('sha256', json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: serialize($row)), 0, 40);
+    }
+
+    $timestamp = jg_orders_order_datetime(jg_orders_pick($row, [
+        'order_create_time',
+        'timestamp',
+        'createdAt',
+        'created_at',
+        'create_time',
+        'paid_at',
+    ], null));
+    $sourceUpdatedAt = jg_orders_order_datetime(jg_orders_pick($row, [
+        'updated_at',
+        'source_updated_at',
+        'update_time',
+        'modified_at',
+    ], null));
+    if (!$timestamp instanceof DateTimeImmutable) {
+        $timestamp = $sourceUpdatedAt instanceof DateTimeImmutable
+            ? $sourceUpdatedAt
+            : new DateTimeImmutable('now', new DateTimeZone('UTC'));
+    }
+
+    $netRevenue = jg_orders_float(jg_orders_pick($row, ['revenue', 'net_revenue', 'sales', 'seller_revenue', 'settlement_amount'], jg_orders_pick($financials, ['netRevenue', 'net_revenue'], 0)));
+    $orderNetRevenue = jg_orders_float(jg_orders_pick($row, ['order_net_revenue', 'net_revenue', 'revenue'], jg_orders_pick($financials, ['netRevenue', 'net_revenue'], $netRevenue)));
+    $grossRevenue = jg_orders_float(jg_orders_pick($row, ['gross_revenue', 'order_gross_revenue', 'customer_paid'], jg_orders_pick($financials, ['grossRevenue', 'totalAmount'], $orderNetRevenue)));
+    $marketplaceFees = jg_orders_float(jg_orders_pick($row, ['order_marketplace_fees', 'marketplace_fees', 'fees'], jg_orders_pick($financials, ['marketplaceFees', 'fees'], max(0, $grossRevenue - $orderNetRevenue))));
+    $cogs = jg_orders_float(jg_orders_pick($row, ['cogs', 'total_cogs'], 0));
+    $grossProfit = jg_orders_float(jg_orders_pick($row, ['gross_profit'], $netRevenue - $cogs));
+    $status = strtoupper(trim((string) jg_orders_pick($row, ['status', 'order_status'], '')));
+    $sourceEvent = substr(trim((string) ($payload['event'] ?? $payload['event_type'] ?? $payload['type'] ?? 'webhook')), 0, 80);
+    $deleted = jg_orders_bool($row['deleted'] ?? $row['_deleted'] ?? false)
+        || in_array($status, ['DELETED', 'REMOVED'], true)
+        || in_array(strtolower($sourceEvent), ['order_deleted', 'orders_deleted', 'delete'], true);
+    $rawJson = json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+    return [
+        'order_item_hash' => hash('sha256', implode("\x1f", [$platform, $accountKey, $orderId, $itemKey, $sku, $productName])),
+        'platform' => substr($platform, 0, 40),
+        'account_key' => substr($accountKey, 0, 120),
+        'order_id' => substr($orderId, 0, 160),
+        'item_key' => substr($itemKey, 0, 220),
+        'sku' => substr($sku, 0, 80),
+        'status' => substr($status, 0, 80),
+        'order_create_time' => jg_orders_sql_datetime($timestamp),
+        'order_create_date' => jg_orders_local_date_from_utc($timestamp),
+        'timestamp_utc' => jg_orders_sql_datetime($timestamp),
+        'company' => substr((string) jg_orders_pick($row, ['company', 'brand', 'brand_name'], ''), 0, 160),
+        'brand_name' => substr((string) jg_orders_pick($row, ['brand_name', 'brand'], ''), 0, 160),
+        'product_name' => substr($productName, 0, 255),
+        'marketplace_product_name' => substr((string) jg_orders_pick($row, ['marketplace_product_name', 'product_name', 'item_name', 'name'], $productName), 0, 255),
+        'base_product_name' => substr((string) jg_orders_pick($row, ['base_product_name'], ''), 0, 255),
+        'flavor_name' => substr((string) jg_orders_pick($row, ['flavor_name'], ''), 0, 160),
+        'product_type' => substr((string) jg_orders_pick($row, ['product_type', 'category'], ''), 0, 160),
+        'flavor' => substr((string) jg_orders_pick($row, ['flavor', 'variant_name', 'option_name'], ''), 0, 160),
+        'quantity' => jg_orders_int(jg_orders_pick($row, ['quantity', 'item_count', 'qty'], 0)),
+        'revenue' => $netRevenue,
+        'order_net_revenue' => $orderNetRevenue,
+        'gross_revenue' => $grossRevenue,
+        'marketplace_fees' => $marketplaceFees,
+        'cogs' => $cogs,
+        'gross_profit' => $grossProfit,
+        'username' => substr((string) jg_orders_pick($row, ['username', 'buyer_username', 'customer_name'], $customer['name'] ?? ''), 0, 255),
+        'address' => (string) jg_orders_pick($row, ['address', 'customer_address', 'shipping_address'], $customer['address'] ?? ''),
+        'phone' => substr((string) jg_orders_pick($row, ['phone', 'customer_phone', 'buyer_phone'], $customer['phone'] ?? ''), 0, 80),
+        'source_event' => $sourceEvent,
+        'source_updated_at' => jg_orders_sql_datetime($sourceUpdatedAt),
+        'raw_json' => is_string($rawJson) ? $rawJson : '{}',
+        'deleted_at' => $deleted ? gmdate('Y-m-d H:i:s.u') : null,
+    ];
+}
+
+function jg_orders_upsert_mirror_rows(PDO $pdo, array $rows, array $payload): array
+{
+    $now = gmdate('Y-m-d H:i:s.u');
+    $stmt = $pdo->prepare(
+        'INSERT INTO dashboard_order_mirror
+            (order_item_hash, platform, account_key, order_id, item_key, sku, status,
+             order_create_time, order_create_date, timestamp_utc, company, brand_name,
+             product_name, marketplace_product_name, base_product_name, flavor_name,
+             product_type, flavor, quantity, revenue, order_net_revenue, gross_revenue,
+             marketplace_fees, cogs, gross_profit, username, address, phone,
+             source_event, source_updated_at, raw_json, mirrored_at, deleted_at)
+         VALUES
+            (:order_item_hash, :platform, :account_key, :order_id, :item_key, :sku, :status,
+             :order_create_time, :order_create_date, :timestamp_utc, :company, :brand_name,
+             :product_name, :marketplace_product_name, :base_product_name, :flavor_name,
+             :product_type, :flavor, :quantity, :revenue, :order_net_revenue, :gross_revenue,
+             :marketplace_fees, :cogs, :gross_profit, :username, :address, :phone,
+             :source_event, :source_updated_at, :raw_json, :mirrored_at, :deleted_at)
+         ON DUPLICATE KEY UPDATE
+             platform = VALUES(platform),
+             account_key = VALUES(account_key),
+             order_id = VALUES(order_id),
+             item_key = VALUES(item_key),
+             sku = VALUES(sku),
+             status = VALUES(status),
+             order_create_time = VALUES(order_create_time),
+             order_create_date = VALUES(order_create_date),
+             timestamp_utc = VALUES(timestamp_utc),
+             company = VALUES(company),
+             brand_name = VALUES(brand_name),
+             product_name = VALUES(product_name),
+             marketplace_product_name = VALUES(marketplace_product_name),
+             base_product_name = VALUES(base_product_name),
+             flavor_name = VALUES(flavor_name),
+             product_type = VALUES(product_type),
+             flavor = VALUES(flavor),
+             quantity = VALUES(quantity),
+             revenue = VALUES(revenue),
+             order_net_revenue = VALUES(order_net_revenue),
+             gross_revenue = VALUES(gross_revenue),
+             marketplace_fees = VALUES(marketplace_fees),
+             cogs = VALUES(cogs),
+             gross_profit = VALUES(gross_profit),
+             username = VALUES(username),
+             address = VALUES(address),
+             phone = VALUES(phone),
+             source_event = VALUES(source_event),
+             source_updated_at = VALUES(source_updated_at),
+             raw_json = VALUES(raw_json),
+             mirrored_at = VALUES(mirrored_at),
+             deleted_at = VALUES(deleted_at)'
+    );
+
+    $upserted = 0;
+    foreach ($rows as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $params = $row;
+        $params['mirrored_at'] = $now;
+        foreach (['revenue', 'order_net_revenue', 'gross_revenue', 'marketplace_fees', 'cogs', 'gross_profit'] as $key) {
+            $params[$key] = number_format((float) ($params[$key] ?? 0), 2, '.', '');
+        }
+        $stmt->execute($params);
+        $upserted += 1;
+    }
+
+    return [
+        'upserted' => $upserted,
+        'source_event' => (string) ($payload['event'] ?? $payload['event_type'] ?? $payload['type'] ?? 'webhook'),
+        'status' => jg_orders_mirror_status($pdo),
+    ];
+}
+
+function jg_orders_range_bounds(string $startDate, string $endDate): array
+{
+    $timezone = new DateTimeZone('Asia/Jakarta');
+    $from = (new DateTimeImmutable($startDate . ' 00:00:00', $timezone))->setTimezone(new DateTimeZone('UTC'));
+    $to = (new DateTimeImmutable($endDate . ' 00:00:00', $timezone))->modify('+1 day')->setTimezone(new DateTimeZone('UTC'));
+    return [$from->format('Y-m-d H:i:s.u'), $to->format('Y-m-d H:i:s.u')];
+}
+
+function jg_orders_mirror_payload(PDO $pdo, string $startDate, string $endDate, ?int $limit = null, int $offset = 0): array
+{
+    [$from, $to] = jg_orders_range_bounds($startDate, $endDate);
+    $pageLimit = $limit !== null ? $limit + 1 : null;
+    $sql = 'SELECT *
+            FROM dashboard_order_mirror
+            WHERE deleted_at IS NULL
+              AND order_create_time >= :from_date
+              AND order_create_time < :to_date
+            ORDER BY order_create_time DESC, id DESC';
+    if ($pageLimit !== null) {
+        $sql .= ' LIMIT ' . (int) $pageLimit . ' OFFSET ' . max(0, $offset);
+    }
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([
+        ':from_date' => $from,
+        ':to_date' => $to,
+    ]);
+    $rows = $stmt->fetchAll();
+    $hasMore = false;
+    if ($limit !== null && count($rows) > $limit) {
+        $hasMore = true;
+        $rows = array_slice($rows, 0, $limit);
+    }
+
+    return [
+        'orders' => array_map('jg_orders_mirror_response_row', $rows),
+        'has_more' => $hasMore,
+        'next_offset' => $hasMore ? $offset + $limit : null,
+        'source' => 'dashboard_order_mirror',
+    ];
+}
+
+function jg_orders_mirror_response_row(array $row): array
+{
+    $timestamp = jg_orders_atom_datetime((string) ($row['timestamp_utc'] ?? $row['order_create_time'] ?? ''));
+    return [
+        'timestamp' => $timestamp,
+        'order_create_time' => jg_orders_atom_datetime((string) ($row['order_create_time'] ?? '')) ?: $timestamp,
+        'order_id' => (string) ($row['order_id'] ?? ''),
+        'platform' => (string) ($row['platform'] ?? ''),
+        'account_key' => (string) ($row['account_key'] ?? ''),
+        'company' => (string) ($row['company'] ?? ''),
+        'brand_name' => (string) ($row['brand_name'] ?? ''),
+        'product_name' => (string) ($row['product_name'] ?? ''),
+        'marketplace_product_name' => (string) ($row['marketplace_product_name'] ?? ''),
+        'base_product_name' => (string) ($row['base_product_name'] ?? ''),
+        'flavor_name' => (string) ($row['flavor_name'] ?? ''),
+        'product_type' => (string) ($row['product_type'] ?? ''),
+        'flavor' => (string) ($row['flavor'] ?? ''),
+        'marketplace_sku' => (string) ($row['sku'] ?? ''),
+        'item_key' => (string) ($row['item_key'] ?? ''),
+        'sku' => (string) ($row['sku'] ?? ''),
+        'status' => (string) ($row['status'] ?? ''),
+        'quantity' => (int) ($row['quantity'] ?? 0),
+        'item_count' => (int) ($row['quantity'] ?? 0),
+        'revenue' => (int) round((float) ($row['revenue'] ?? 0)),
+        'net_revenue' => (int) round((float) ($row['revenue'] ?? 0)),
+        'order_net_revenue' => (int) round((float) ($row['order_net_revenue'] ?? 0)),
+        'gross_revenue' => (int) round((float) ($row['gross_revenue'] ?? 0)),
+        'marketplace_fees' => (int) round((float) ($row['marketplace_fees'] ?? 0)),
+        'cogs' => (int) round((float) ($row['cogs'] ?? 0)),
+        'gross_profit' => (int) round((float) ($row['gross_profit'] ?? 0)),
+        'username' => (string) ($row['username'] ?? ''),
+        'address' => (string) ($row['address'] ?? ''),
+        'phone' => (string) ($row['phone'] ?? ''),
+        'source' => 'dashboard_order_mirror',
+        'mirrored_at' => jg_orders_atom_datetime((string) ($row['mirrored_at'] ?? '')),
+    ];
+}
+
+function jg_orders_mirror_status(PDO $pdo): array
+{
+    try {
+        $summary = $pdo->query(
+            'SELECT COUNT(*) AS rows_count,
+                    MIN(order_create_time) AS oldest_order_at,
+                    MAX(order_create_time) AS newest_order_at,
+                    MAX(mirrored_at) AS last_mirrored_at
+             FROM dashboard_order_mirror
+             WHERE deleted_at IS NULL'
+        )->fetch();
+    } catch (Throwable) {
+        $summary = false;
+    }
+
+    return [
+        'rows' => (int) ($summary['rows_count'] ?? 0),
+        'oldest_order_at' => jg_orders_atom_datetime((string) ($summary['oldest_order_at'] ?? '')),
+        'newest_order_at' => jg_orders_atom_datetime((string) ($summary['newest_order_at'] ?? '')),
+        'last_mirrored_at' => jg_orders_atom_datetime((string) ($summary['last_mirrored_at'] ?? '')),
+    ];
 }
 
 function jg_orders_lightweight_rows(array $remoteRows): array
@@ -153,6 +752,7 @@ function jg_orders_lightweight_rows(array $remoteRows): array
         $netRevenue = (int) round((float) ($remoteRow['revenue'] ?? $remoteRow['net_revenue'] ?? $remoteRow['sales'] ?? 0));
         $orderNetRevenue = (int) round((float) ($remoteRow['order_net_revenue'] ?? $netRevenue));
         $marketplaceFees = (int) round((float) ($remoteRow['order_marketplace_fees'] ?? $remoteRow['marketplace_fees'] ?? 0));
+        $cogs = (int) round((float) ($remoteRow['cogs'] ?? 0));
         $key = implode('|', [
             (string) ($remoteRow['platform'] ?? ''),
             (string) ($remoteRow['account_key'] ?? ''),
@@ -173,6 +773,7 @@ function jg_orders_lightweight_rows(array $remoteRows): array
                 'revenue' => $orderNetRevenue,
                 'net_revenue' => $orderNetRevenue,
                 'marketplace_fees' => $marketplaceFees,
+                'cogs' => 0,
                 'gross_profit' => $orderNetRevenue,
             ];
         }
@@ -181,169 +782,11 @@ function jg_orders_lightweight_rows(array $remoteRows): array
         $rows[$key]['revenue'] = max((int) ($rows[$key]['revenue'] ?? 0), $orderNetRevenue);
         $rows[$key]['net_revenue'] = max((int) ($rows[$key]['net_revenue'] ?? 0), $orderNetRevenue);
         $rows[$key]['marketplace_fees'] = max((int) ($rows[$key]['marketplace_fees'] ?? 0), $marketplaceFees);
-        $rows[$key]['gross_profit'] = max((int) ($rows[$key]['gross_profit'] ?? 0), $orderNetRevenue);
+        $rows[$key]['cogs'] += $cogs;
+        $rows[$key]['gross_profit'] = (int) ($rows[$key]['net_revenue'] ?? $orderNetRevenue) - (int) ($rows[$key]['cogs'] ?? 0);
     }
 
     return array_values($rows);
-}
-
-function jg_orders_merge_lightweight_rows(array $storedRows, array $liveRows): array
-{
-    $merged = [];
-    foreach (array_merge($storedRows, $liveRows) as $row) {
-        if (!is_array($row)) {
-            continue;
-        }
-        $key = implode('|', [
-            (string) ($row['platform'] ?? ''),
-            (string) ($row['account_key'] ?? ''),
-            (string) ($row['order_id'] ?? ''),
-        ]);
-        if (trim($key, '|') === '') {
-            $key = hash('sha256', json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: serialize($row));
-        }
-        if (!isset($merged[$key])) {
-            $merged[$key] = $row;
-            continue;
-        }
-        $merged[$key]['quantity'] = max((int) ($merged[$key]['quantity'] ?? 0), (int) ($row['quantity'] ?? 0));
-        $merged[$key]['item_count'] = max((int) ($merged[$key]['item_count'] ?? 0), (int) ($row['item_count'] ?? 0));
-        $merged[$key]['revenue'] = max((int) ($merged[$key]['revenue'] ?? 0), (int) ($row['revenue'] ?? 0));
-        $merged[$key]['net_revenue'] = max((int) ($merged[$key]['net_revenue'] ?? 0), (int) ($row['net_revenue'] ?? 0));
-        $merged[$key]['marketplace_fees'] = max((int) ($merged[$key]['marketplace_fees'] ?? 0), (int) ($row['marketplace_fees'] ?? 0));
-        $merged[$key]['gross_profit'] = max((int) ($merged[$key]['gross_profit'] ?? 0), (int) ($row['gross_profit'] ?? 0));
-    }
-
-    return array_values($merged);
-}
-
-function jg_orders_live_listed_rows(string $startDate, string $endDate): array
-{
-    $rows = [];
-    foreach (['shopee', 'tiktok'] as $platform) {
-        try {
-            $payload = jg_orders_live_listed_payload($platform, $startDate, $endDate);
-        } catch (Throwable $error) {
-            error_log('Unable to load live listed orders for hourly chart from ' . $platform . ': ' . $error->getMessage());
-            continue;
-        }
-
-        foreach (is_array($payload['orders'] ?? null) ? $payload['orders'] : [] as $order) {
-            if (!is_array($order)) {
-                continue;
-            }
-            $row = jg_orders_lightweight_live_row($order, $platform);
-            if ($row === null) {
-                continue;
-            }
-            $localDate = jg_orders_local_date($row['order_create_time']);
-            if ($localDate < $startDate || $localDate > $endDate) {
-                continue;
-            }
-            $rows[] = $row;
-        }
-    }
-
-    return $rows;
-}
-
-function jg_orders_live_listed_payload(string $platform, string $startDate, string $endDate): array
-{
-    $cacheKey = 'live-listed-' . preg_replace('/[^a-z0-9_-]+/i', '-', $platform) . '-' . $startDate . '-' . $endDate;
-    $cached = jg_orders_cache_read($cacheKey, 120);
-    if (is_array($cached)) {
-        return $cached;
-    }
-
-    $payload = jg_orders_fetch_json(jg_orders_remote_url('/' . $platform . '/orders/listed', [
-        'account' => 'all',
-        'fast' => '1',
-        'persist' => '1',
-        'escrow' => '1',
-        'start_date' => $startDate,
-        'end_date' => $endDate,
-    ]), 45);
-    jg_orders_cache_write($cacheKey, $payload);
-
-    return $payload;
-}
-
-function jg_orders_cache_dir(): string
-{
-    $dir = sys_get_temp_dir() . '/jg-dashboard-orders-cache';
-    if (!is_dir($dir)) {
-        @mkdir($dir, 0775, true);
-    }
-    return $dir;
-}
-
-function jg_orders_cache_path(string $key): string
-{
-    return jg_orders_cache_dir() . '/' . hash('sha256', $key) . '.json';
-}
-
-function jg_orders_cache_read(string $key, int $ttlSeconds): ?array
-{
-    $path = jg_orders_cache_path($key);
-    if (!is_file($path) || filemtime($path) < time() - $ttlSeconds) {
-        return null;
-    }
-    $raw = @file_get_contents($path);
-    $decoded = is_string($raw) ? json_decode($raw, true) : null;
-    return is_array($decoded) ? $decoded : null;
-}
-
-function jg_orders_cache_write(string $key, array $payload): void
-{
-    @file_put_contents(jg_orders_cache_path($key), json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}', LOCK_EX);
-}
-
-function jg_orders_lightweight_live_row(array $order, string $fallbackPlatform): ?array
-{
-    $orderId = trim((string) ($order['id'] ?? $order['order_id'] ?? ''));
-    if ($orderId === '') {
-        return null;
-    }
-    $items = is_array($order['items'] ?? null) ? $order['items'] : [];
-    $quantity = 0;
-    foreach ($items as $item) {
-        if (is_array($item)) {
-            $quantity += max(0, (int) ($item['quantity'] ?? 0));
-        }
-    }
-    if ($quantity <= 0) {
-        $quantity = max(1, (int) ($order['quantity'] ?? $order['item_count'] ?? 1));
-    }
-    $financials = is_array($order['financials'] ?? null) ? $order['financials'] : [];
-    $netRevenue = (int) round((float) ($financials['netRevenue'] ?? $order['net_revenue'] ?? $order['revenue'] ?? 0));
-    $grossRevenue = (int) round((float) ($financials['grossRevenue'] ?? $financials['totalAmount'] ?? $order['gross_revenue'] ?? $order['customer_paid'] ?? $netRevenue));
-    $marketplaceFees = max(0, $grossRevenue - $netRevenue);
-    $platform = strtolower(trim((string) ($order['platform'] ?? $fallbackPlatform)));
-
-    return [
-        'timestamp' => (string) ($order['createdAt'] ?? $order['order_create_time'] ?? $order['timestamp'] ?? ''),
-        'order_create_time' => (string) ($order['createdAt'] ?? $order['order_create_time'] ?? $order['timestamp'] ?? ''),
-        'order_id' => $orderId,
-        'platform' => $platform,
-        'account_key' => (string) ($order['sourceAccountKey'] ?? $order['account_key'] ?? $order['account'] ?? ''),
-        'quantity' => $quantity,
-        'item_count' => $quantity,
-        'revenue' => $netRevenue,
-        'net_revenue' => $netRevenue,
-        'marketplace_fees' => $marketplaceFees,
-        'gross_profit' => $netRevenue,
-    ];
-}
-
-function jg_orders_local_date(string $timestamp): string
-{
-    $timezone = new DateTimeZone('Asia/Jakarta');
-    try {
-        $date = new DateTimeImmutable($timestamp !== '' ? $timestamp : 'now');
-    } catch (Throwable) {
-        $date = new DateTimeImmutable('now', $timezone);
-    }
-    return $date->setTimezone($timezone)->format('Y-m-d');
 }
 
 function jg_orders_remote_url(string $path, array $params): string
@@ -354,58 +797,6 @@ function jg_orders_remote_url(string $path, array $params): string
     }
     $params['setup_token'] = $token;
     return jg_dashboard_marketplace_api_base_url() . $path . '?' . http_build_query($params);
-}
-
-function jg_orders_fetch_json(string $url, int $timeout = 180): array
-{
-    $context = stream_context_create([
-        'http' => [
-            'method' => 'GET',
-            'timeout' => $timeout,
-            'header' => "Accept: application/json\r\n",
-            'ignore_errors' => true,
-        ],
-    ]);
-    $raw = @file_get_contents($url, false, $context);
-    $decoded = is_string($raw) ? json_decode($raw, true) : null;
-    if (!is_array($decoded)) {
-        throw new RuntimeException('Marketplace API returned invalid JSON.');
-    }
-    if (($decoded['ok'] ?? true) === false) {
-        throw new RuntimeException((string) ($decoded['message'] ?? $decoded['error'] ?? 'Marketplace API failed.'));
-    }
-    return $decoded;
-}
-
-function jg_orders_remote_sync(string $startDate, string $endDate): void
-{
-    jg_orders_fetch_json(jg_orders_remote_url('/sales/sync', [
-        'start_date' => $startDate,
-        'end_date' => $endDate,
-    ]), 240);
-}
-
-function jg_orders_remote_rows(string $startDate, string $endDate): array
-{
-    $payload = jg_orders_remote_payload($startDate, $endDate);
-    return is_array($payload['orders'] ?? null) ? $payload['orders'] : [];
-}
-
-function jg_orders_remote_payload(string $startDate, string $endDate, ?int $limit = null, int $offset = 0): array
-{
-    $params = [
-        'start_date' => $startDate,
-        'end_date' => $endDate,
-        'skip_sync' => '1',
-    ];
-    if ($limit !== null) {
-        $params['limit'] = (string) $limit;
-    }
-    if ($offset > 0) {
-        $params['offset'] = (string) $offset;
-    }
-
-    return jg_orders_fetch_json(jg_orders_remote_url('/sales/orders', $params), 30);
 }
 
 function jg_orders_ensure_schema(PDO $pdo): void

@@ -52,6 +52,44 @@ expect_same(1, count($fallback), 'Inventory fallback must retain order rows.');
 expect_same('Marketplace product', $fallback[0]['product_name'], 'Inventory fallback must retain marketplace product names.');
 expect_same(900, $fallback[0]['revenue'], 'Inventory fallback must retain revenue.');
 
+$lightweight = jg_orders_lightweight_rows([array_merge($remoteRow, [
+    'order_net_revenue' => 900,
+    'cogs' => 120,
+])]);
+expect_same(120, $lightweight[0]['cogs'], 'Lightweight order summaries must retain COGS.');
+expect_same(780, $lightweight[0]['gross_profit'], 'Lightweight order summaries must calculate gross profit after COGS.');
+
+$webhookRows = jg_orders_webhook_rows([
+    'event' => 'order_updated',
+    'platform' => 'shopee',
+    'orders' => [[
+        'id' => 'ORDER-2',
+        'sourceAccountKey' => 'main',
+        'createdAt' => '2026-06-29T01:02:03Z',
+        'financials' => [
+            'netRevenue' => 1200,
+            'grossRevenue' => 1500,
+        ],
+        'customer' => [
+            'name' => 'Buyer One',
+            'phone' => '+620000',
+        ],
+        'items' => [[
+            'id' => 'ITEM-1',
+            'seller_sku' => 'JG0101',
+            'name' => 'Webhook product',
+            'quantity' => 2,
+        ]],
+    ]],
+]);
+expect_same(1, count($webhookRows), 'Webhook order payloads must flatten item rows.');
+expect_same('shopee', $webhookRows[0]['platform'], 'Webhook rows must inherit payload platform.');
+expect_same('ORDER-2', $webhookRows[0]['order_id'], 'Webhook rows must map marketplace order IDs.');
+expect_same('ITEM-1', $webhookRows[0]['item_key'], 'Webhook rows must map item keys.');
+expect_same(2, $webhookRows[0]['quantity'], 'Webhook rows must preserve item quantity.');
+expect_same(1200.0, $webhookRows[0]['order_net_revenue'], 'Webhook rows must preserve order-level net revenue.');
+expect_same('Buyer One', $webhookRows[0]['username'], 'Webhook rows must map customer names.');
+
 $ordersUrl = jg_orders_remote_url('/sales/orders', [
     'start_date' => '2026-06-01',
     'end_date' => '2026-06-03',

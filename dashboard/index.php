@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isAuthenticated = jg_admin_is_authenticated();
-$dashboardBuildVersion = 'exec3.70.3';
+$dashboardBuildVersion = 'exec3.71.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -180,9 +180,9 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                     </div>
                     <div class="admin-overview-strip-meta">
                         <div class="admin-overview-sync-row">
-                            <button type="button" class="admin-overview-refresh" data-overview-refresh aria-label="Refresh all marketplace data">
+                            <button type="button" class="admin-overview-refresh" data-overview-refresh aria-label="Refresh dashboard view">
                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 4v7h-7"/></svg>
-                                <span data-overview-refresh-label>Refresh data</span>
+                                <span data-overview-refresh-label>Refresh view</span>
                             </button>
                             <span class="admin-live-pill"><span class="admin-live-dot"></span>Live</span>
                         </div>

@@ -30,6 +30,8 @@ These endpoints live inside this executive dashboard and are already normalized 
 | Endpoint | Meaning |
 | --- | --- |
 | `GET /api/sales/?year=YYYY` | Authenticated proxy around `/sales/summary`, with local SKU DB enrichment for seller-received revenue, COGS, gross profit, and syrup flavor charts. |
+| `GET /api/orders/?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD` | Authenticated read from the dashboard-local `dashboard_order_mirror` table. The table is the server-side order mirror used by the Orders, Daily, and hourly Executive views. |
+| `POST /api/orders/?action=webhook` | Token-authenticated order mirror upsert endpoint for API Ingest webhooks. It stores extracted order fields plus the raw order row JSON and bumps dashboard live-state so clients refresh themselves. |
 | `GET /api/analytics/?dataset=landing|website|affiliate` | Campaign, website, and affiliate analytics rollups from the dashboard analytics database. |
 | `GET /api/api-health/?run=1` | Runs every configured API/database probe and logs failures. |
 | `GET /api/sku-db/` | SKU master data and SKU approval workflow API. |
@@ -46,6 +48,9 @@ These endpoints live inside this executive dashboard and are already normalized 
 - COGS comes from the local SKU DB `sku_skus.cogs`, matched to marketplace product SKU/tag during `/api/sales/` enrichment.
 - Exact monthly COGS comes from API Ingest `products.by_month` when available; `/api/sales/` falls back to product-total allocation only for older ingest payloads that do not expose monthly SKU rollups.
 - The executive dashboard proxy strips customer-paid gross fields from `/api/sales/` output so revenue charts cannot accidentally use them.
+- Dashboard UI refresh actions only reload cached/client views. They do not call
+  `/sales/sync`; order detail freshness comes from API Ingest webhooks writing to
+  `/api/orders/?action=webhook`.
 - `sync_status` proves whether unattended marketplace sync is fresh. API Health should fail if the latest sync is stale or missing.
 - `financial_sources` lists the raw marketplace JSON paths used for net revenue, gross revenue, and marketplace-fee calculations by account. It is audit-only so the homepage sales endpoint stays fast.
 - Product charts should use `products.by_product`.
