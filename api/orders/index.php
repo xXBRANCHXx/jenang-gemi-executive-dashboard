@@ -67,7 +67,7 @@ function jg_orders_handle_request(): void
         $lightweight = jg_orders_bool($_GET['lightweight'] ?? $_GET['summary'] ?? null);
         if ($lightweight) {
             $rows = jg_orders_lightweight_rows($remoteRows);
-            echo json_encode([
+            $response = [
                 'ok' => true,
                 'start_date' => $startDate,
                 'end_date' => $endDate,
@@ -78,7 +78,11 @@ function jg_orders_handle_request(): void
                 'next_offset' => $remotePayload['next_offset'] ?? null,
                 'orders' => $rows,
                 'warning' => $remoteWarning,
-            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            ];
+            if (isset($remotePayload['mirror_repair'])) {
+                $response['mirror_repair'] = $remotePayload['mirror_repair'];
+            }
+            echo json_encode($response, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             return;
         }
 
@@ -120,6 +124,9 @@ function jg_orders_handle_request(): void
         ];
         if ($inventoryWarning !== '') {
             $response['warning'] = $inventoryWarning;
+        }
+        if (isset($remotePayload['mirror_repair'])) {
+            $response['mirror_repair'] = $remotePayload['mirror_repair'];
         }
         echo json_encode($response, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     } catch (Throwable $error) {
