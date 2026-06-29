@@ -73,17 +73,26 @@ $pageBuildVersion = 'sku1.00.00';
         <div class="admin-shell">
             <?php render_admin_sidebar('sku'); ?>
 
-            <div class="admin-shell-main">
-                <header class="admin-topbar">
-                    <div class="admin-topbar-brand">
-                        <span class="admin-chip"><?php echo $isBranch ? 'Branch Access' : 'Restricted Request Mode'; ?></span>
-                        <h1>Jenang Gemi SKU Database</h1>
-                        <p><?php echo $isBranch
-                            ? 'Directly manage brands, units, flavors, products, live SKUs, and incoming approval requests from one executive dashboard module.'
-                            : 'Select only from approved master lists, generate a proposed SKU, and submit it to Branch for approval.'; ?></p>
+            <div class="admin-shell-main admin-sku-shell-main">
+                <h1 class="admin-sr-only">Jenang Gemi SKU Database</h1>
+
+                <div class="admin-sku-commandbar" aria-label="SKU database controls">
+                    <div class="admin-sku-commandmark">
+                        <span class="admin-sku-commandglyph" aria-hidden="true"></span>
+                        <span class="admin-sku-mode"><?php echo $isBranch ? 'Branch' : 'Request'; ?></span>
                     </div>
-                    <div class="admin-topbar-actions">
-                        <div class="admin-view-indicator"><?php echo $isBranch ? 'Branch Admin Sheet' : 'Approval Request Sheet'; ?></div>
+                    <div class="admin-sku-commandmetrics" aria-label="SKU database status">
+                        <span><strong data-sku-brand-count>0</strong><small>Brands</small></span>
+                        <span><strong data-sku-unit-count>0</strong><small>Units</small></span>
+                        <span><strong data-sku-count>0</strong><small>Live</small></span>
+                        <span><strong data-sku-version>1.00.00</strong><small>Version</small></span>
+                    </div>
+                    <div class="admin-sku-command-actions">
+                        <span class="admin-status-pill">
+                            <span class="admin-status-dot"></span>
+                            <span><?php echo htmlspecialchars(jg_sku_session_username(), ENT_QUOTES); ?></span>
+                        </span>
+                        <a class="admin-ghost-btn admin-link-btn" href="../dashboard/?view=overview">Home</a>
                         <div class="admin-menu-shell" data-menu-shell>
                             <button type="button" class="admin-ghost-btn admin-menu-trigger" data-menu-trigger aria-expanded="false" aria-label="Open dashboard menu">...</button>
                             <div class="admin-menu-panel" data-menu-panel hidden>
@@ -95,344 +104,295 @@ $pageBuildVersion = 'sku1.00.00';
                             </div>
                         </div>
                     </div>
-                </header>
-
-                <main class="admin-layout">
-            <section class="admin-hero-panel">
-                <div class="admin-hero-copy">
-                    <span class="admin-chip admin-chip-accent">SKU System</span>
-                    <h2>The SKU database remains the source of truth for 12-digit SKU mapping, COGS history, and brand-specific flavor/product codes.</h2>
-                    <p>Brand and unit codes are global. Flavor and product codes are brand-specific. Pending requests never become live SKUs until Branch approves them.</p>
                 </div>
-                <div class="admin-hero-actions">
-                    <div class="admin-status-pill">
-                        <span class="admin-status-dot"></span>
-                        <span><?php echo htmlspecialchars(jg_sku_session_username(), ENT_QUOTES); ?> signed in</span>
-                    </div>
-                    <a class="admin-ghost-btn admin-link-btn" href="../dashboard/?view=overview">Back To Executive Homepage</a>
-                </div>
-            </section>
 
-            <section class="admin-metric-grid">
-                <article class="admin-metric-card"><span>Brands</span><strong data-sku-brand-count>0</strong><small>Master brand records</small></article>
-                <article class="admin-metric-card"><span>Units</span><strong data-sku-unit-count>0</strong><small>Shared unit records</small></article>
-                <article class="admin-metric-card"><span>SKUs</span><strong data-sku-count>0</strong><small>Approved live SKUs</small></article>
-                <article class="admin-metric-card"><span>Version</span><strong data-sku-version>1.00.00</strong><small>SKU database revision</small></article>
-            </section>
+                <main class="admin-layout admin-sku-layout">
+                    <?php if ($isBranch): ?>
+                        <section class="admin-sku-workbench" aria-label="SKU creation workspace">
+                            <article class="admin-sku-composer">
+                                <div class="admin-sku-preview-surface">
+                                    <span class="admin-control-label">12-digit SKU</span>
+                                    <strong data-sku-preview>------------</strong>
+                                    <div class="admin-sku-segment-strip" data-sku-segment-strip aria-label="SKU code segments">
+                                        <span><b>BR</b><em>--</em></span>
+                                        <span><b>UN</b><em>--</em></span>
+                                        <span><b>VOL</b><em>----</em></span>
+                                        <span><b>FL</b><em>--</em></span>
+                                        <span><b>PR</b><em>--</em></span>
+                                    </div>
+                                </div>
 
-            <section class="admin-main-grid admin-main-grid-sku">
-                <?php if ($isBranch): ?>
-                    <article class="admin-panel admin-panel-wide">
-                        <div class="admin-panel-head">
-                            <div>
-                                <span class="admin-panel-kicker">Notifications</span>
-                                <h3>Incoming SKU approval requests</h3>
+                                <form class="admin-sku-builder admin-sku-builder-compact" data-setup-form>
+                                    <label>
+                                        <span>Brand</span>
+                                        <select class="admin-select" name="brand_id" data-sku-brand-select required></select>
+                                    </label>
+                                    <label>
+                                        <span>Unit</span>
+                                        <select class="admin-select" name="unit_id" data-unit-select required></select>
+                                    </label>
+                                    <label>
+                                        <span>Volume</span>
+                                        <input type="text" name="volume" inputmode="decimal" placeholder="15 or 15.2" required>
+                                    </label>
+                                    <label>
+                                        <span>ASTRA</span>
+                                        <input type="number" name="astra" min="0.01" step="0.01" placeholder="15" required>
+                                    </label>
+                                    <label>
+                                        <span>Flavor</span>
+                                        <select class="admin-select" name="flavor_id" data-flavor-select required></select>
+                                    </label>
+                                    <label>
+                                        <span>Product</span>
+                                        <select class="admin-select" name="product_id" data-product-select required></select>
+                                    </label>
+                                    <label class="admin-sku-builder-tag">
+                                        <span>TAG</span>
+                                        <input type="text" name="tag" maxlength="50" placeholder="BAGGOSMEDIA_BUBUR_ORIGINAL" required>
+                                    </label>
+                                    <div class="admin-sku-actions admin-sku-builder-actions">
+                                        <button type="button" class="admin-primary-btn" data-continue-apply>Apply</button>
+                                    </div>
+                                </form>
+                                <p class="admin-form-error" data-setup-error hidden></p>
+                            </article>
+
+                            <aside class="admin-sku-side-stack" aria-label="SKU operations">
+                                <article class="admin-sku-dock admin-sku-request-dock">
+                                    <div class="admin-sku-dock-head">
+                                        <span class="admin-sku-dock-mark">01</span>
+                                        <strong>Approvals</strong>
+                                    </div>
+                                    <div class="admin-request-stack" data-request-list>
+                                        <p class="admin-empty">No requests yet.</p>
+                                    </div>
+                                    <p class="admin-form-error" data-request-error hidden></p>
+                                </article>
+
+                                <article class="admin-sku-dock">
+                                    <div class="admin-sku-dock-head">
+                                        <span class="admin-sku-dock-mark">02</span>
+                                        <strong>Mappings</strong>
+                                    </div>
+                                    <div class="admin-sku-form-grid admin-sku-master-create-grid">
+                                        <form class="admin-sku-mini-form" data-add-brand-form>
+                                            <label>
+                                                <span>New brand</span>
+                                                <input type="text" name="name" maxlength="120" placeholder="Jenang Gemi" required>
+                                            </label>
+                                            <button type="submit" class="admin-primary-btn">Add</button>
+                                        </form>
+                                        <form class="admin-sku-mini-form" data-add-unit-form>
+                                            <label>
+                                                <span>New unit</span>
+                                                <input type="text" name="name" maxlength="120" placeholder="sachet or ml" required>
+                                            </label>
+                                            <button type="submit" class="admin-primary-btn">Add</button>
+                                        </form>
+                                        <form class="admin-sku-mini-form" data-add-flavor-form>
+                                            <label>
+                                                <span>Brand</span>
+                                                <select class="admin-select" name="brand_id" data-brand-select required></select>
+                                            </label>
+                                            <label>
+                                                <span>Flavor</span>
+                                                <input type="text" name="name" maxlength="120" placeholder="Pandan" required>
+                                            </label>
+                                            <button type="submit" class="admin-primary-btn">Add</button>
+                                        </form>
+                                        <form class="admin-sku-mini-form" data-add-product-form>
+                                            <label>
+                                                <span>Brand</span>
+                                                <select class="admin-select" name="brand_id" data-brand-select required></select>
+                                            </label>
+                                            <label>
+                                                <span>Product</span>
+                                                <input type="text" name="name" maxlength="120" placeholder="Bubur" required>
+                                            </label>
+                                            <button type="submit" class="admin-primary-btn">Add</button>
+                                        </form>
+                                    </div>
+                                    <p class="admin-form-error" data-master-form-error hidden></p>
+                                </article>
+                            </aside>
+                        </section>
+
+                        <section class="admin-sku-apply-band" data-apply-panel hidden aria-label="Push SKU to live database">
+                            <div class="admin-sku-apply-preview">
+                                <span class="admin-control-label">Ready</span>
+                                <strong data-apply-preview>Finish setup first</strong>
                             </div>
-                            <span class="admin-panel-meta">Approve to create a live SKU or deny to reject the request</span>
-                        </div>
-                        <div class="admin-request-stack" data-request-list>
-                            <p class="admin-empty">No requests yet.</p>
-                        </div>
-                        <p class="admin-form-error" data-request-error hidden></p>
-                    </article>
-
-                    <article class="admin-panel">
-                        <div class="admin-panel-head">
-                            <div>
-                                <span class="admin-panel-kicker">Master Lists</span>
-                                <h3>Create missing mappings</h3>
-                            </div>
-                            <span class="admin-panel-meta">Only Branch can extend the source-of-truth lists</span>
-                        </div>
-                        <div class="admin-sku-form-grid admin-sku-master-create-grid">
-                            <form class="admin-sku-mini-form" data-add-brand-form>
+                            <form class="admin-sku-form-grid" data-apply-form>
                                 <label>
-                                    <span>New brand</span>
-                                    <input type="text" name="name" maxlength="120" placeholder="e.g. Jenang Gemi" required>
+                                    <span>Stock</span>
+                                    <input type="number" name="starting_stock" min="0" step="1" placeholder="100" required>
                                 </label>
-                                <button type="submit" class="admin-primary-btn">Add Brand</button>
+                                <label>
+                                    <span>Trigger</span>
+                                    <input type="number" name="stock_trigger" min="0" step="1" placeholder="20" required>
+                                </label>
+                                <label>
+                                    <span>COGS</span>
+                                    <input type="number" name="cogs" min="0" step="0.01" placeholder="0">
+                                </label>
+                                <label>
+                                    <span>Sale</span>
+                                    <input type="number" name="sale_price" min="0" step="0.01" placeholder="0">
+                                </label>
+                                <label>
+                                    <span>PO</span>
+                                    <input type="text" name="po_number" maxlength="80" placeholder="P01411">
+                                </label>
+                                <div class="admin-sku-actions">
+                                    <button type="submit" class="admin-primary-btn">Push Live</button>
+                                    <button type="button" class="admin-ghost-btn" data-back-setup>Back</button>
+                                </div>
                             </form>
-                            <form class="admin-sku-mini-form" data-add-unit-form>
+                            <p class="admin-form-error" data-apply-error hidden></p>
+                        </section>
+
+                    <?php else: ?>
+                        <section class="admin-sku-workbench admin-sku-workbench-request" aria-label="SKU request workspace">
+                            <article class="admin-sku-composer">
+                                <div class="admin-sku-preview-surface">
+                                    <span class="admin-control-label">Proposed SKU</span>
+                                    <strong data-sku-preview>------------</strong>
+                                    <div class="admin-sku-segment-strip" data-sku-segment-strip aria-label="SKU code segments">
+                                        <span><b>BR</b><em>--</em></span>
+                                        <span><b>UN</b><em>--</em></span>
+                                        <span><b>VOL</b><em>----</em></span>
+                                        <span><b>FL</b><em>--</em></span>
+                                        <span><b>PR</b><em>--</em></span>
+                                    </div>
+                                </div>
+
+                                <form class="admin-sku-builder admin-sku-builder-compact" data-request-form>
+                                    <label>
+                                        <span>Brand</span>
+                                        <select class="admin-select" name="brand_id" data-sku-brand-select required></select>
+                                    </label>
+                                    <label>
+                                        <span>Unit</span>
+                                        <select class="admin-select" name="unit_id" data-unit-select required></select>
+                                    </label>
+                                    <label>
+                                        <span>Volume</span>
+                                        <input type="text" name="volume" inputmode="decimal" placeholder="15 or 15.2" required>
+                                    </label>
+                                    <label>
+                                        <span>ASTRA</span>
+                                        <input type="number" name="astra" min="0.01" step="0.01" placeholder="15" required>
+                                    </label>
+                                    <label>
+                                        <span>Flavor</span>
+                                        <select class="admin-select" name="flavor_id" data-flavor-select required></select>
+                                    </label>
+                                    <label>
+                                        <span>Product</span>
+                                        <select class="admin-select" name="product_id" data-product-select required></select>
+                                    </label>
+                                    <div class="admin-sku-actions admin-sku-builder-actions">
+                                        <button type="submit" class="admin-primary-btn">Submit</button>
+                                    </div>
+                                </form>
+                                <p class="admin-form-error" data-request-submit-error hidden></p>
+                            </article>
+
+                            <aside class="admin-sku-side-stack" aria-label="Request status">
+                                <article class="admin-sku-dock admin-sku-request-dock">
+                                    <div class="admin-sku-dock-head">
+                                        <span class="admin-sku-dock-mark">01</span>
+                                        <strong>Requests</strong>
+                                    </div>
+                                    <div class="admin-request-stack" data-request-list>
+                                        <p class="admin-empty">You have not submitted any requests yet.</p>
+                                    </div>
+                                </article>
+                            </aside>
+                        </section>
+                    <?php endif; ?>
+
+                    <section class="admin-sku-table-shell" aria-label="Approved live SKU database">
+                        <div class="admin-sku-table-toolbar">
+                            <div class="admin-sku-live-gauge">
+                                <strong data-sku-visible-count>0</strong>
+                                <span>Shown</span>
+                            </div>
+                            <div class="admin-sku-filter-strip">
                                 <label>
-                                    <span>New unit</span>
-                                    <input type="text" name="name" maxlength="120" placeholder="e.g. sachet or ml" required>
-                                </label>
-                                <button type="submit" class="admin-primary-btn">Add Unit</button>
-                            </form>
-                            <form class="admin-sku-mini-form" data-add-flavor-form>
-                                <label>
-                                    <span>Brand for flavor</span>
-                                    <select class="admin-select" name="brand_id" data-brand-select required></select>
+                                    <span>Search</span>
+                                    <input type="text" data-sku-search placeholder="SKU, TAG, brand, product">
                                 </label>
                                 <label>
-                                    <span>New flavor</span>
-                                    <input type="text" name="name" maxlength="120" placeholder="e.g. Pandan" required>
-                                </label>
-                                <button type="submit" class="admin-primary-btn">Add Flavor</button>
-                            </form>
-                            <form class="admin-sku-mini-form" data-add-product-form>
-                                <label>
-                                    <span>Brand for product</span>
-                                    <select class="admin-select" name="brand_id" data-brand-select required></select>
+                                    <span>Brand</span>
+                                    <select class="admin-select" data-filter-brand></select>
                                 </label>
                                 <label>
-                                    <span>New product</span>
-                                    <input type="text" name="name" maxlength="120" placeholder="e.g. Bubur" required>
+                                    <span>Unit</span>
+                                    <select class="admin-select" data-filter-unit></select>
                                 </label>
-                                <button type="submit" class="admin-primary-btn">Add Product</button>
-                            </form>
+                                <label>
+                                    <span>Flavor</span>
+                                    <select class="admin-select" data-filter-flavor></select>
+                                </label>
+                                <label>
+                                    <span>Product</span>
+                                    <select class="admin-select" data-filter-product></select>
+                                </label>
+                            </div>
+                            <button type="button" class="admin-ghost-btn admin-download-pdf-btn" data-download-approved-live-pdf disabled>PDF</button>
                         </div>
-                        <p class="admin-form-error" data-master-form-error hidden></p>
-                    </article>
 
-                    <article class="admin-panel admin-panel-wide">
-                        <div class="admin-panel-head">
-                            <div>
-                                <span class="admin-panel-kicker">Step 1</span>
-                                <h3>Setup</h3>
-                            </div>
-                            <span class="admin-panel-meta">Generate the 12-digit SKU and choose the TAG</span>
+                        <div class="admin-table-wrap admin-sku-table-wrap">
+                            <table class="admin-table admin-sku-data-table">
+                                <thead>
+                                <tr>
+                                    <th>SKU</th>
+                                    <th>TAG</th>
+                                    <th>Brand</th>
+                                    <th>Product</th>
+                                    <th>Flavor</th>
+                                    <th>Unit</th>
+                                    <th>Vol</th>
+                                    <th>ASTRA</th>
+                                    <th>Skip</th>
+                                    <th>Stock</th>
+                                    <th>Trigger</th>
+                                    <th>COGS</th>
+                                    <th>Sale</th>
+                                    <th></th>
+                                </tr>
+                                </thead>
+                                <tbody data-sku-table-body>
+                                <tr><td colspan="14" class="admin-empty">No SKUs yet.</td></tr>
+                                </tbody>
+                            </table>
                         </div>
-                        <form class="admin-sku-builder" data-setup-form>
-                            <label>
-                                <span>Brand</span>
-                                <select class="admin-select" name="brand_id" data-sku-brand-select required></select>
-                            </label>
-                            <label>
-                                <span>Unit</span>
-                                <select class="admin-select" name="unit_id" data-unit-select required></select>
-                            </label>
-                            <label>
-                                <span>Volume</span>
-                                <input type="text" name="volume" inputmode="decimal" placeholder="e.g. 15 or 15.2" required>
-                            </label>
-                            <label>
-                                <span>ASTRA</span>
-                                <input type="number" name="astra" min="0.01" step="0.01" placeholder="Base stock unit, e.g. 15" required>
-                            </label>
-                            <label>
-                                <span>Flavor</span>
-                                <select class="admin-select" name="flavor_id" data-flavor-select required></select>
-                            </label>
-                            <label>
-                                <span>Product</span>
-                                <select class="admin-select" name="product_id" data-product-select required></select>
-                            </label>
-                            <label>
-                                <span>TAG</span>
-                                <input type="text" name="tag" maxlength="50" placeholder="e.g. BAGGOSMEDIA_BUBUR_ORIGINAL" required>
-                            </label>
-                            <div class="admin-sku-preview">
-                                <span class="admin-control-label">SKU Preview</span>
-                                <strong data-sku-preview>Waiting for complete selection</strong>
-                                <small>Brand 2 digits + Unit 2 digits + Volume 4 digits + Flavor 2 digits + Product 2 digits</small>
-                            </div>
-                            <div class="admin-sku-actions">
-                                <button type="button" class="admin-primary-btn" data-continue-apply>Continue To Apply</button>
-                            </div>
-                        </form>
-                        <p class="admin-form-error" data-setup-error hidden></p>
-                    </article>
+                    </section>
 
-                    <article class="admin-panel admin-panel-wide" data-apply-panel hidden>
-                        <div class="admin-panel-head">
-                            <div>
-                                <span class="admin-panel-kicker">Step 2</span>
-                                <h3>Apply</h3>
+                    <?php if ($isBranch): ?>
+                        <section class="admin-sku-reference-band" aria-label="Current SKU mappings">
+                            <div class="admin-sku-master-grid">
+                                <section class="admin-sku-master-card">
+                                    <h2>Brands</h2>
+                                    <div data-brand-list class="admin-sku-token-list"></div>
+                                </section>
+                                <section class="admin-sku-master-card">
+                                    <h2>Units</h2>
+                                    <div data-unit-list class="admin-sku-token-list"></div>
+                                </section>
+                                <section class="admin-sku-master-card admin-sku-master-card-wide">
+                                    <h2>Flavors</h2>
+                                    <div data-flavor-list class="admin-sku-master-stack"></div>
+                                </section>
+                                <section class="admin-sku-master-card admin-sku-master-card-wide">
+                                    <h2>Products</h2>
+                                    <div data-product-list class="admin-sku-master-stack"></div>
+                                </section>
                             </div>
-                            <span class="admin-panel-meta">Push the new SKU into the live SKU database</span>
-                        </div>
-                        <form class="admin-sku-form-grid" data-apply-form>
-                            <label>
-                                <span>Starting stock</span>
-                                <input type="number" name="starting_stock" min="0" step="1" placeholder="e.g. 100" required>
-                            </label>
-                            <label>
-                                <span>Starting stock trigger</span>
-                                <input type="number" name="stock_trigger" min="0" step="1" placeholder="e.g. 20" required>
-                            </label>
-                            <label>
-                                <span>Opening COGS (Optional)</span>
-                                <input type="number" name="cogs" min="0" step="0.01" placeholder="Add later from invoice import">
-                            </label>
-                            <label>
-                                <span>Sale Price (Optional)</span>
-                                <input type="number" name="sale_price" min="0" step="0.01" placeholder="Add later">
-                            </label>
-                            <label>
-                                <span>Opening PO Number (Optional)</span>
-                                <input type="text" name="po_number" maxlength="80" placeholder="Add later from invoice import">
-                            </label>
-                            <div class="admin-sku-preview">
-                                <span class="admin-control-label">Ready To Push</span>
-                                <strong data-apply-preview>Finish step 1 first</strong>
-                                <small>The SKU becomes live immediately after push and is searchable in the live table below.</small>
-                            </div>
-                            <div class="admin-sku-actions">
-                                <button type="submit" class="admin-primary-btn">Push SKU</button>
-                                <button type="button" class="admin-ghost-btn" data-back-setup>Previous</button>
-                            </div>
-                        </form>
-                        <p class="admin-form-error" data-apply-error hidden></p>
-                    </article>
-
-                    <article class="admin-panel admin-panel-wide">
-                        <div class="admin-panel-head">
-                            <div>
-                                <span class="admin-panel-kicker">Reference</span>
-                                <h3>Current master lists</h3>
-                            </div>
-                            <span class="admin-panel-meta">Codes are assigned in list order</span>
-                        </div>
-                        <div class="admin-sku-master-grid">
-                            <section class="admin-sku-master-card">
-                                <h4>Brands</h4>
-                                <div data-brand-list class="admin-sku-token-list"></div>
-                            </section>
-                            <section class="admin-sku-master-card">
-                                <h4>Units</h4>
-                                <div data-unit-list class="admin-sku-token-list"></div>
-                            </section>
-                            <section class="admin-sku-master-card admin-sku-master-card-wide">
-                                <h4>Brand flavors</h4>
-                                <div data-flavor-list class="admin-sku-master-stack"></div>
-                            </section>
-                            <section class="admin-sku-master-card admin-sku-master-card-wide">
-                                <h4>Brand products</h4>
-                                <div data-product-list class="admin-sku-master-stack"></div>
-                            </section>
-                        </div>
-                    </article>
-                <?php else: ?>
-                    <article class="admin-panel admin-panel-wide">
-                        <div class="admin-panel-head">
-                            <div>
-                                <span class="admin-panel-kicker">Request Sheet</span>
-                                <h3>Build a SKU request for Branch approval</h3>
-                            </div>
-                            <span class="admin-panel-meta">You can only select from already-approved brands, units, flavors, and products</span>
-                        </div>
-                        <form class="admin-sku-builder" data-request-form>
-                            <label>
-                                <span>Brand</span>
-                                <select class="admin-select" name="brand_id" data-sku-brand-select required></select>
-                            </label>
-                            <label>
-                                <span>Unit</span>
-                                <select class="admin-select" name="unit_id" data-unit-select required></select>
-                            </label>
-                            <label>
-                                <span>How many of that unit are in the product?</span>
-                                <input type="text" name="volume" inputmode="decimal" placeholder="e.g. 15 or 15.2" required>
-                            </label>
-                            <label>
-                                <span>ASTRA base stock unit</span>
-                                <input type="number" name="astra" min="0.01" step="0.01" placeholder="e.g. 15" required>
-                            </label>
-                            <label>
-                                <span>Flavor</span>
-                                <select class="admin-select" name="flavor_id" data-flavor-select required></select>
-                            </label>
-                            <label>
-                                <span>Product</span>
-                                <select class="admin-select" name="product_id" data-product-select required></select>
-                            </label>
-                            <div class="admin-sku-preview">
-                                <span class="admin-control-label">Proposed SKU Preview</span>
-                                <strong data-sku-preview>Waiting for complete selection</strong>
-                                <small>This preview stays out of the live database until Branch approves it.</small>
-                            </div>
-                            <div class="admin-sku-actions">
-                                <button type="submit" class="admin-primary-btn">Submit For Approval</button>
-                            </div>
-                        </form>
-                        <p class="admin-form-error" data-request-submit-error hidden></p>
-                    </article>
-
-                    <article class="admin-panel admin-panel-wide">
-                        <div class="admin-panel-head">
-                            <div>
-                                <span class="admin-panel-kicker">My Requests</span>
-                                <h3>Status tracker</h3>
-                            </div>
-                            <span class="admin-panel-meta">Pending requests remain hidden from the live SKU database until Branch approves them</span>
-                        </div>
-                        <div class="admin-request-stack" data-request-list>
-                            <p class="admin-empty">You have not submitted any requests yet.</p>
-                        </div>
-                    </article>
-                <?php endif; ?>
-
-                <article class="admin-panel admin-panel-wide">
-                    <div class="admin-panel-head">
-                        <div>
-                            <span class="admin-panel-kicker">Live COGS Mapping</span>
-                            <h3>Search approved SKU database</h3>
-                        </div>
-                        <span class="admin-panel-meta">Only approved SKUs appear here</span>
-                    </div>
-                    <div class="admin-sku-form-grid">
-                        <label>
-                            <span>Search</span>
-                            <input type="text" data-sku-search placeholder="Search SKU, TAG, brand, product, flavor, or unit">
-                        </label>
-                        <label>
-                            <span>Brand</span>
-                            <select class="admin-select" data-filter-brand></select>
-                        </label>
-                        <label>
-                            <span>Unit</span>
-                            <select class="admin-select" data-filter-unit></select>
-                        </label>
-                        <label>
-                            <span>Flavor</span>
-                            <select class="admin-select" data-filter-flavor></select>
-                        </label>
-                        <label>
-                            <span>Product</span>
-                            <select class="admin-select" data-filter-product></select>
-                        </label>
-                    </div>
-                </article>
-
-                <article class="admin-panel admin-panel-wide">
-                    <div class="admin-panel-head">
-                        <div>
-                            <span class="admin-panel-kicker">SKU Table</span>
-                            <h3>Approved live SKUs</h3>
-                        </div>
-                        <div class="admin-panel-actions">
-                            <span class="admin-panel-meta"><?php echo $isBranch ? 'Change records COGS updates by PO number only' : 'Pending requests never appear in this table'; ?></span>
-                            <button type="button" class="admin-ghost-btn admin-download-pdf-btn" data-download-approved-live-pdf disabled>Download PDF</button>
-                        </div>
-                    </div>
-                    <div class="admin-table-wrap">
-                        <table class="admin-table">
-                            <thead>
-                            <tr>
-                                <th>SKU</th>
-                                <th>TAG</th>
-                                <th>Brand</th>
-                                <th>Product Name</th>
-                                <th>Flavor</th>
-                                <th>Unit</th>
-                                <th>Volume</th>
-                                <th>ASTRA</th>
-                                <th>Skip Scan</th>
-                                <th>Stock</th>
-                                <th>Trigger</th>
-                                <th>COGS</th>
-                                <th>Sale Price</th>
-                                <th>Action</th>
-                            </tr>
-                            </thead>
-                            <tbody data-sku-table-body>
-                            <tr><td colspan="14" class="admin-empty">No SKUs yet.</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </article>
-            </section>
+                        </section>
+                    <?php endif; ?>
                 </main>
             </div>
         </div>

@@ -25,6 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const inventoryError = document.querySelector('[data-inventory-error]');
   const approvalError = document.querySelector('[data-approval-error]');
   const skuPreview = document.querySelector('[data-sku-preview]');
+  const skuSegmentStrip = document.querySelector('[data-sku-segment-strip]');
   const applyPreview = document.querySelector('[data-apply-preview]');
   const applyPanel = document.querySelector('[data-apply-panel]');
   const setupForm = document.querySelector('[data-setup-form]');
@@ -57,6 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const flavorList = document.querySelector('[data-flavor-list]');
   const productList = document.querySelector('[data-product-list]');
   const searchInput = document.querySelector('[data-sku-search]');
+  const visibleCountNode = document.querySelector('[data-sku-visible-count]');
   const filterBrand = document.querySelector('[data-filter-brand]');
   const filterUnit = document.querySelector('[data-filter-unit]');
   const filterFlavor = document.querySelector('[data-filter-flavor]');
@@ -589,25 +591,66 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const computeSkuPreview = () => {
     const values = getPrimarySelections();
-    if (!values) return 'Waiting for complete selection';
+    if (!values) return '------------';
+
+    const brand = findBrand(values.brand_id);
+    const unit = state.database.units.find((item) => item.id === values.unit_id);
+    const flavor = brand?.flavors?.find((item) => item.id === values.flavor_id);
+    const product = brand?.products?.find((item) => item.id === values.product_id);
+    const volumeDigits = /^\d{1,3}(\.\d)?$/.test(values.volume)
+      ? String(Math.round(Number(values.volume) * 10)).padStart(4, '0')
+      : '----';
+
+    return `${brand?.code || '--'}${unit?.code || '--'}${volumeDigits}${flavor?.code || '--'}${product?.code || '--'}`;
+  };
+
+  const isPrimarySelectionComplete = () => {
+    const values = getPrimarySelections();
+    if (!values || !/^\d{1,3}(\.\d)?$/.test(values.volume)) return false;
 
     const brand = findBrand(values.brand_id);
     const unit = state.database.units.find((item) => item.id === values.unit_id);
     const flavor = brand?.flavors?.find((item) => item.id === values.flavor_id);
     const product = brand?.products?.find((item) => item.id === values.product_id);
 
-    if (!brand || !unit || !flavor || !product || !/^\d{1,3}(\.\d)?$/.test(values.volume)) {
-      return 'Waiting for complete selection';
-    }
+    return !!(brand && unit && flavor && product);
+  };
 
-    const scaled = String(Math.round(Number(values.volume) * 10)).padStart(4, '0');
-    return `${brand.code}${unit.code}${scaled}${flavor.code}${product.code}`;
+  const getPreviewSegments = () => {
+    const values = getPrimarySelections();
+    const brand = values ? findBrand(values.brand_id) : null;
+    const unit = values ? state.database.units.find((item) => item.id === values.unit_id) : null;
+    const flavor = values ? brand?.flavors?.find((item) => item.id === values.flavor_id) : null;
+    const product = values ? brand?.products?.find((item) => item.id === values.product_id) : null;
+    const volumeDigits = values && /^\d{1,3}(\.\d)?$/.test(values.volume)
+      ? String(Math.round(Number(values.volume) * 10)).padStart(4, '0')
+      : '----';
+
+    return [
+      { label: 'BR', value: brand?.code || '--', name: brand?.name || 'Brand' },
+      { label: 'UN', value: unit?.code || '--', name: unit?.name || 'Unit' },
+      { label: 'VOL', value: volumeDigits, name: values?.volume || 'Volume' },
+      { label: 'FL', value: flavor?.code || '--', name: flavor?.name || 'Flavor' },
+      { label: 'PR', value: product?.code || '--', name: product?.name || 'Product' }
+    ];
+  };
+
+  const renderPreviewSegments = () => {
+    if (!skuSegmentStrip) return;
+    skuSegmentStrip.innerHTML = getPreviewSegments().map((segment) => `
+      <span>
+        <b>${escapeHtml(segment.label)}</b>
+        <em>${escapeHtml(segment.value)}</em>
+        <small>${escapeHtml(segment.name)}</small>
+      </span>
+    `).join('');
   };
 
   const renderPreview = () => {
     const preview = computeSkuPreview();
     if (skuPreview) skuPreview.textContent = preview;
     if (applyPreview) applyPreview.textContent = preview;
+    renderPreviewSegments();
   };
 
   const renderCounts = () => {
@@ -779,26 +822,47 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const skuStockState = (row) => {
+    const stock = Number(row.current_stock ?? row.starting_stock ?? 0);
+    const trigger = Number(row.stock_trigger ?? 0);
+    if (trigger > 0 && stock <= trigger) return 'is-low';
+    if (trigger > 0 && stock <= trigger * 1.5) return 'is-watch';
+    return 'is-ok';
+  };
+
+  const skuStockLabel = (stateName) => {
+    if (stateName === 'is-low') return 'Low';
+    if (stateName === 'is-watch') return 'Watch';
+    return 'OK';
+  };
+
   const renderTable = () => {
     if (!tableBody) return;
     const rows = filteredSkus();
+    if (visibleCountNode) visibleCountNode.textContent = String(rows.length);
 
     if (!rows.length) {
       tableBody.innerHTML = `<tr><td colspan="14" class="admin-empty">${state.database.skus.length ? 'No SKUs match the current filters.' : 'No approved SKUs yet.'}</td></tr>`;
       return;
     }
 
-    tableBody.innerHTML = rows.map((row) => `
-      <tr>
-        <td>
+    tableBody.innerHTML = rows.map((row) => {
+      const stock = row.current_stock ?? row.starting_stock ?? 0;
+      const trigger = row.stock_trigger ?? 0;
+      const stockState = skuStockState(row);
+      const skipScan = !!row.skip_scan;
+
+      return `
+      <tr class="admin-sku-row ${stockState}">
+        <td data-col="SKU">
           <button
             type="button"
             class="admin-sku-tag-copy"
             data-copy-sku="${escapeHtml(row.sku || '')}"
             aria-label="Copy SKU ${escapeHtml(row.sku || '')}"
-          >${escapeHtml(row.sku || '')}</button>
+          ><span class="admin-sku-row-code">${escapeHtml(row.sku || '')}</span></button>
         </td>
-        <td>
+        <td data-col="TAG">
           <button
             type="button"
             class="admin-sku-tag-copy"
@@ -806,28 +870,33 @@ document.addEventListener('DOMContentLoaded', () => {
             aria-label="Copy item tag ${escapeHtml(row.tag || '')}"
           >${escapeHtml(row.tag || '')}</button>
         </td>
-        <td>${escapeHtml(row.brand_name || '')}</td>
-        <td>${escapeHtml(row.product_name || '')}</td>
-        <td>${escapeHtml(row.flavor_name || '')}</td>
-        <td>${escapeHtml(row.unit_name || '')}</td>
-        <td>${escapeHtml(row.volume || '')}</td>
-        <td>${escapeHtml(row.astra || '')}</td>
-        <td>
+        <td data-col="Brand"><span class="admin-sku-brand-pill">${escapeHtml(row.brand_name || '')}</span></td>
+        <td data-col="Product">${escapeHtml(row.product_name || '')}</td>
+        <td data-col="Flavor">${escapeHtml(row.flavor_name || '')}</td>
+        <td data-col="Unit">${escapeHtml(row.unit_name || '')}</td>
+        <td data-col="Vol">${escapeHtml(row.volume || '')}</td>
+        <td data-col="ASTRA">${escapeHtml(row.astra || '')}</td>
+        <td data-col="Skip">
           <label class="admin-sku-switch" title="Skip Scan">
             <input
               type="checkbox"
               data-change-skip-scan="${escapeHtml(row.sku || '')}"
-              ${row.skip_scan ? 'checked' : ''}
+              ${skipScan ? 'checked' : ''}
               ${role === 'branch' ? '' : 'disabled'}
               aria-label="Skip Scan for SKU ${escapeHtml(row.sku || '')}"
             >
             <span></span>
           </label>
         </td>
-        <td>${escapeHtml(row.current_stock ?? row.starting_stock ?? 0)}</td>
-        <td>${escapeHtml(row.stock_trigger ?? 0)}</td>
-        <td>${escapeHtml(row.cogs ?? 0)}</td>
-        <td>
+        <td data-col="Stock">
+          <span class="admin-sku-stock-pill ${stockState}">
+            <strong>${escapeHtml(stock)}</strong>
+            <small>${escapeHtml(skuStockLabel(stockState))}</small>
+          </span>
+        </td>
+        <td data-col="Trigger">${escapeHtml(trigger)}</td>
+        <td data-col="COGS">${escapeHtml(row.cogs ?? 0)}</td>
+        <td data-col="Sale">
           <input
             type="number"
             class="admin-sku-cell-input admin-sku-sale-price-input"
@@ -839,7 +908,7 @@ document.addEventListener('DOMContentLoaded', () => {
             aria-label="Sale price for SKU ${escapeHtml(row.sku || '')}"
           >
         </td>
-        <td>
+        <td data-col="Action">
           <div class="admin-sku-row-menu" data-sku-row-menu>
             <button
               type="button"
@@ -859,7 +928,8 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
         </td>
       </tr>
-    `).join('');
+    `;
+    }).join('');
   };
 
   const requestStatusLabel = (request) => {
@@ -1172,8 +1242,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const setupIsComplete = () => {
-    const preview = computeSkuPreview();
-    if (preview === 'Waiting for complete selection') return false;
+    if (!isPrimarySelectionComplete()) return false;
     if (!(setupForm instanceof HTMLFormElement)) return false;
     if (String(setupForm.elements.astra?.value || '').trim() === '') return false;
     return String(setupForm.elements.tag?.value || '').trim() !== '';
@@ -1280,7 +1349,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setError(requestSubmitError, '');
 
     if (!(requestForm instanceof HTMLFormElement)) return;
-    if (computeSkuPreview() === 'Waiting for complete selection') {
+    if (!isPrimarySelectionComplete()) {
       setError(requestSubmitError, 'Complete brand, unit, volume, ASTRA, flavor, and product before submitting.');
       return;
     }
