@@ -78,28 +78,33 @@ $pageBuildVersion = 'sku1.00.00';
 
                 <div class="admin-sku-commandbar" aria-label="SKU database controls">
                     <div class="admin-sku-commandmark">
-                        <span class="admin-sku-commandglyph" aria-hidden="true"></span>
-                        <span class="admin-sku-mode"><?php echo $isBranch ? 'Branch' : 'Request'; ?></span>
-                    </div>
-                    <div class="admin-sku-commandmetrics" aria-label="SKU database status">
-                        <span><strong data-sku-brand-count>0</strong><small>Brands</small></span>
-                        <span><strong data-sku-unit-count>0</strong><small>Units</small></span>
-                        <span><strong data-sku-count>0</strong><small>Live</small></span>
-                        <span><strong data-sku-version>1.00.00</strong><small>Version</small></span>
+                        <span class="admin-sku-commandglyph" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h16M4 12h16M4 18.5h16M8 3v18M16 3v18"/></svg>
+                        </span>
+                        <span class="admin-sku-mode"><?php echo $isBranch ? 'Branch SKU' : 'SKU Request'; ?></span>
                     </div>
                     <div class="admin-sku-command-actions">
-                        <span class="admin-status-pill">
-                            <span class="admin-status-dot"></span>
+                        <span class="admin-sku-user-chip" title="<?php echo htmlspecialchars(jg_sku_session_username(), ENT_QUOTES); ?>">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21a8 8 0 0 0-16 0M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z"/></svg>
                             <span><?php echo htmlspecialchars(jg_sku_session_username(), ENT_QUOTES); ?></span>
                         </span>
-                        <a class="admin-ghost-btn admin-link-btn" href="../dashboard/?view=overview">Home</a>
+                        <a class="admin-ghost-btn admin-link-btn admin-icon-btn" href="../dashboard/?view=overview" aria-label="Back to executive dashboard" title="Home">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg>
+                        </a>
+                        <button type="button" class="admin-ghost-btn admin-icon-btn" data-theme-toggle aria-label="Toggle theme" title="Theme">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9Z"/></svg>
+                        </button>
+                        <a class="admin-ghost-btn admin-link-btn admin-icon-btn" href="./logout/" aria-label="Lock SKU database" title="Lock">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+                        </a>
                         <div class="admin-menu-shell" data-menu-shell>
-                            <button type="button" class="admin-ghost-btn admin-menu-trigger" data-menu-trigger aria-expanded="false" aria-label="Open dashboard menu">...</button>
+                            <button type="button" class="admin-ghost-btn admin-menu-trigger admin-icon-btn" data-menu-trigger aria-expanded="false" aria-label="Open dashboard menu" title="Menu">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+                            </button>
                             <div class="admin-menu-panel" data-menu-panel hidden>
                                 <a class="admin-menu-item admin-link-btn" href="../dashboard/?view=overview" data-dashboard-view-link="overview">Executive Sales Overview</a>
                                 <a class="admin-menu-item admin-link-btn" href="../dashboard/?view=campaigns" data-dashboard-view-link="home">Campaigns Dashboard</a>
                                 <a class="admin-menu-item admin-link-btn" href="../back-dash/">API Ingest Workspace</a>
-                                <button type="button" class="admin-menu-item" data-theme-toggle>Toggle Theme</button>
                                 <a class="admin-menu-item admin-link-btn" href="./logout/">Lock SKU Database</a>
                             </div>
                         </div>
@@ -152,7 +157,10 @@ $pageBuildVersion = 'sku1.00.00';
                                         <input type="text" name="tag" maxlength="50" placeholder="BAGGOSMEDIA_BUBUR_ORIGINAL" required>
                                     </label>
                                     <div class="admin-sku-actions admin-sku-builder-actions">
-                                        <button type="button" class="admin-primary-btn" data-continue-apply>Apply</button>
+                                        <button type="button" class="admin-primary-btn admin-sku-action-btn" data-continue-apply>
+                                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+                                            <span>Apply</span>
+                                        </button>
                                     </div>
                                 </form>
                                 <p class="admin-form-error" data-setup-error hidden></p>
@@ -181,14 +189,18 @@ $pageBuildVersion = 'sku1.00.00';
                                                 <span>New brand</span>
                                                 <input type="text" name="name" maxlength="120" placeholder="Jenang Gemi" required>
                                             </label>
-                                            <button type="submit" class="admin-primary-btn">Add</button>
+                                            <button type="submit" class="admin-primary-btn admin-icon-btn" aria-label="Add brand" title="Add brand">
+                                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                                            </button>
                                         </form>
                                         <form class="admin-sku-mini-form" data-add-unit-form>
                                             <label>
                                                 <span>New unit</span>
                                                 <input type="text" name="name" maxlength="120" placeholder="sachet or ml" required>
                                             </label>
-                                            <button type="submit" class="admin-primary-btn">Add</button>
+                                            <button type="submit" class="admin-primary-btn admin-icon-btn" aria-label="Add unit" title="Add unit">
+                                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                                            </button>
                                         </form>
                                         <form class="admin-sku-mini-form" data-add-flavor-form>
                                             <label>
@@ -199,7 +211,9 @@ $pageBuildVersion = 'sku1.00.00';
                                                 <span>Flavor</span>
                                                 <input type="text" name="name" maxlength="120" placeholder="Pandan" required>
                                             </label>
-                                            <button type="submit" class="admin-primary-btn">Add</button>
+                                            <button type="submit" class="admin-primary-btn admin-icon-btn" aria-label="Add flavor" title="Add flavor">
+                                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                                            </button>
                                         </form>
                                         <form class="admin-sku-mini-form" data-add-product-form>
                                             <label>
@@ -210,7 +224,9 @@ $pageBuildVersion = 'sku1.00.00';
                                                 <span>Product</span>
                                                 <input type="text" name="name" maxlength="120" placeholder="Bubur" required>
                                             </label>
-                                            <button type="submit" class="admin-primary-btn">Add</button>
+                                            <button type="submit" class="admin-primary-btn admin-icon-btn" aria-label="Add product" title="Add product">
+                                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                                            </button>
                                         </form>
                                     </div>
                                     <p class="admin-form-error" data-master-form-error hidden></p>
@@ -245,8 +261,13 @@ $pageBuildVersion = 'sku1.00.00';
                                     <input type="text" name="po_number" maxlength="80" placeholder="P01411">
                                 </label>
                                 <div class="admin-sku-actions">
-                                    <button type="submit" class="admin-primary-btn">Push Live</button>
-                                    <button type="button" class="admin-ghost-btn" data-back-setup>Back</button>
+                                    <button type="submit" class="admin-primary-btn admin-sku-action-btn">
+                                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                                        <span>Push</span>
+                                    </button>
+                                    <button type="button" class="admin-ghost-btn admin-icon-btn" data-back-setup aria-label="Back to setup" title="Back">
+                                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+                                    </button>
                                 </div>
                             </form>
                             <p class="admin-form-error" data-apply-error hidden></p>
@@ -293,7 +314,10 @@ $pageBuildVersion = 'sku1.00.00';
                                         <select class="admin-select" name="product_id" data-product-select required></select>
                                     </label>
                                     <div class="admin-sku-actions admin-sku-builder-actions">
-                                        <button type="submit" class="admin-primary-btn">Submit</button>
+                                        <button type="submit" class="admin-primary-btn admin-sku-action-btn">
+                                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4 20-7Z"/><path d="M22 2 11 13"/></svg>
+                                            <span>Submit</span>
+                                        </button>
                                     </div>
                                 </form>
                                 <p class="admin-form-error" data-request-submit-error hidden></p>
@@ -315,10 +339,6 @@ $pageBuildVersion = 'sku1.00.00';
 
                     <section class="admin-sku-table-shell" aria-label="Approved live SKU database">
                         <div class="admin-sku-table-toolbar">
-                            <div class="admin-sku-live-gauge">
-                                <strong data-sku-visible-count>0</strong>
-                                <span>Shown</span>
-                            </div>
                             <div class="admin-sku-filter-strip">
                                 <label>
                                     <span>Search</span>
@@ -341,7 +361,9 @@ $pageBuildVersion = 'sku1.00.00';
                                     <select class="admin-select" data-filter-product></select>
                                 </label>
                             </div>
-                            <button type="button" class="admin-ghost-btn admin-download-pdf-btn" data-download-approved-live-pdf disabled>PDF</button>
+                            <button type="button" class="admin-ghost-btn admin-download-pdf-btn admin-icon-btn" data-download-approved-live-pdf disabled aria-label="Download approved live SKU PDF" title="Download PDF">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+                            </button>
                         </div>
 
                         <div class="admin-table-wrap admin-sku-table-wrap">

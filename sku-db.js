@@ -916,7 +916,7 @@ document.addEventListener('DOMContentLoaded', () => {
               data-sku-row-menu-trigger
               aria-expanded="false"
               aria-label="Open SKU action menu"
-            >...</button>
+            ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
             <div class="admin-sku-row-menu-panel" data-sku-row-menu-panel hidden>
               <button type="button" class="admin-menu-item" data-change-product-name="${escapeHtml(row.sku || '')}">Product Name</button>
               ${role === 'branch' ? `<button type="button" class="admin-menu-item" data-change-astra="${escapeHtml(row.sku || '')}">ASTRA</button>` : ''}
@@ -969,8 +969,14 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="admin-sku-actions">
             ${role === 'branch' && request.status === 'pending'
               ? `
-                <button type="button" class="admin-primary-btn" data-approve-request="${request.id}">Approve</button>
-                <button type="button" class="admin-ghost-btn" data-deny-request="${request.id}">Deny</button>
+                <button type="button" class="admin-primary-btn admin-sku-action-btn" data-approve-request="${request.id}">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                  <span>Approve</span>
+                </button>
+                <button type="button" class="admin-ghost-btn admin-sku-action-btn" data-deny-request="${request.id}">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                  <span>Deny</span>
+                </button>
               `
               : ''}
             ${request.status === 'approved' && request.approved_sku

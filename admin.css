@@ -12370,3 +12370,387 @@ body:has(.admin-app[data-sku-db]) .admin-build-badge {
     min-width: 0;
   }
 }
+
+/* SKU DB correction: monochrome Store Ops-aligned workspace */
+body:has(.admin-app[data-sku-db])::before,
+body:has(.admin-app[data-sku-db])::after {
+  display: none;
+}
+
+.admin-app[data-sku-db] {
+  --sku-bg: #050505;
+  --sku-ink: #f6f6f2;
+  --sku-muted: rgba(246, 246, 242, 0.52);
+  --sku-line: rgba(246, 246, 242, 0.12);
+  --sku-panel: rgba(246, 246, 242, 0.035);
+  --sku-panel-strong: rgba(246, 246, 242, 0.055);
+  --sku-toggle: #9dff00;
+  --sku-radius: 24px;
+  background: var(--sku-bg);
+}
+
+:root[data-admin-theme='light'] .admin-app[data-sku-db] {
+  --sku-bg: #f7f7f4;
+  --sku-ink: #111111;
+  --sku-muted: rgba(17, 17, 17, 0.52);
+  --sku-line: rgba(17, 17, 17, 0.13);
+  --sku-panel: rgba(17, 17, 17, 0.035);
+  --sku-panel-strong: rgba(17, 17, 17, 0.055);
+}
+
+.admin-app[data-sku-db] :where(svg) {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: 0 0 auto;
+}
+
+.admin-sku-commandbar {
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 54px;
+  padding: 8px;
+  border-radius: 999px;
+  background: var(--sku-panel);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.admin-sku-commandmark {
+  min-width: 0;
+  padding: 0 12px 0 4px;
+}
+
+.admin-sku-commandglyph {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--sku-line);
+  border-radius: 999px;
+  background: var(--sku-panel-strong);
+  color: var(--sku-ink);
+}
+
+.admin-sku-commandglyph svg {
+  width: 19px;
+  height: 19px;
+}
+
+.admin-sku-mode {
+  font-size: 0.84rem;
+  font-weight: 850;
+}
+
+.admin-sku-commandmetrics {
+  display: none;
+}
+
+.admin-sku-command-actions {
+  gap: 8px;
+}
+
+.admin-sku-user-chip,
+.admin-icon-btn,
+.admin-sku-action-btn,
+.admin-app[data-sku-db] .admin-primary-btn,
+.admin-app[data-sku-db] .admin-ghost-btn,
+.admin-app[data-sku-db] .admin-menu-trigger,
+.admin-app[data-sku-db] .admin-menu-item,
+.admin-sku-tag-copy,
+.admin-sku-brand-pill,
+.admin-sku-stock-pill,
+.admin-request-result,
+.admin-request-card .admin-chip,
+.admin-sku-token {
+  border-radius: 999px;
+}
+
+.admin-sku-user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  max-width: 230px;
+  padding: 0 13px;
+  border: 1px solid var(--sku-line);
+  background: var(--sku-panel-strong);
+  color: var(--sku-ink);
+  font-weight: 750;
+}
+
+.admin-sku-user-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  min-width: 38px;
+  height: 38px;
+  padding: 0;
+}
+
+.admin-sku-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 16px;
+}
+
+.admin-app[data-sku-db] .admin-primary-btn,
+.admin-app[data-sku-db] .admin-primary-btn:hover {
+  border-color: var(--sku-ink);
+  background: var(--sku-ink);
+  color: var(--sku-bg);
+}
+
+.admin-app[data-sku-db] .admin-ghost-btn,
+.admin-app[data-sku-db] .admin-menu-trigger,
+.admin-app[data-sku-db] .admin-menu-item {
+  border-color: var(--sku-line);
+  background: var(--sku-panel-strong);
+  color: var(--sku-ink);
+}
+
+.admin-sku-composer,
+.admin-sku-dock,
+.admin-sku-apply-band,
+.admin-sku-reference-band,
+.admin-sku-table-shell,
+.admin-sku-reference-band .admin-sku-master-card,
+.admin-request-card {
+  border-color: var(--sku-line);
+  border-radius: var(--sku-radius);
+  background: var(--sku-panel);
+  box-shadow: none;
+}
+
+.admin-sku-preview-surface {
+  grid-template-columns: minmax(430px, 1fr) minmax(300px, 0.8fr);
+  min-height: 142px;
+  border-color: var(--sku-line);
+  border-radius: var(--sku-radius);
+  background: var(--sku-panel-strong);
+}
+
+.admin-sku-preview-surface strong {
+  overflow-wrap: normal;
+  white-space: nowrap;
+  font-size: clamp(2.4rem, 4.4vw, 3.9rem);
+  color: var(--sku-ink);
+}
+
+.admin-app[data-sku-db] .admin-chip,
+.admin-app[data-sku-db] .admin-request-card .admin-chip {
+  border-color: var(--sku-line);
+  background: var(--sku-panel-strong);
+  color: var(--sku-ink);
+}
+
+.admin-app[data-sku-db] .admin-rail-brand-mark,
+.admin-app[data-sku-db] .admin-rail-link:hover,
+.admin-app[data-sku-db] .admin-rail-link:focus-visible,
+.admin-app[data-sku-db] .admin-rail-link.is-active,
+.admin-app[data-sku-db] .admin-rail-link[aria-current='page'] {
+  border-color: var(--sku-line);
+  background: var(--sku-panel-strong);
+  color: var(--sku-ink);
+}
+
+.admin-app[data-sku-db] .admin-rail-brand-core {
+  background: var(--sku-ink);
+}
+
+.admin-app[data-sku-db] .admin-rail-link::before {
+  background: var(--sku-ink);
+}
+
+.admin-sku-segment-strip span {
+  border-color: var(--sku-line);
+  border-radius: 999px;
+  background: var(--sku-panel);
+}
+
+.admin-sku-segment-strip em {
+  color: var(--sku-ink);
+}
+
+.admin-sku-dock-mark {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--sku-line);
+  border-radius: 999px;
+  background: var(--sku-panel-strong);
+  color: var(--sku-ink);
+}
+
+.admin-sku-request-dock .admin-sku-dock-mark {
+  background: var(--sku-panel-strong);
+  color: var(--sku-ink);
+}
+
+.admin-app[data-sku-db] :where(.admin-select, .admin-sku-builder input, .admin-sku-mini-form input, .admin-sku-form-grid input, .admin-sku-cell-input, .admin-sku-filter-strip input) {
+  min-height: 44px;
+  border-radius: 999px;
+  border-color: var(--sku-line);
+  background: var(--sku-panel-strong);
+  color: var(--sku-ink);
+}
+
+.admin-app[data-sku-db] :where(.admin-select:focus, .admin-sku-builder input:focus, .admin-sku-mini-form input:focus, .admin-sku-form-grid input:focus, .admin-sku-cell-input:focus, .admin-sku-filter-strip input:focus) {
+  border-color: rgba(246, 246, 242, 0.42);
+  box-shadow: 0 0 0 2px rgba(246, 246, 242, 0.1);
+}
+
+:root[data-admin-theme='light'] .admin-app[data-sku-db] :where(.admin-select:focus, .admin-sku-builder input:focus, .admin-sku-mini-form input:focus, .admin-sku-form-grid input:focus, .admin-sku-cell-input:focus, .admin-sku-filter-strip input:focus) {
+  border-color: rgba(17, 17, 17, 0.42);
+  box-shadow: 0 0 0 2px rgba(17, 17, 17, 0.08);
+}
+
+.admin-sku-apply-band {
+  border-color: var(--sku-line);
+  background: var(--sku-panel);
+}
+
+.admin-sku-apply-preview {
+  border-color: var(--sku-line);
+  border-radius: 999px;
+  background: var(--sku-panel-strong);
+}
+
+.admin-sku-table-toolbar {
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 12px;
+}
+
+.admin-sku-live-gauge {
+  display: none;
+}
+
+.admin-sku-filter-strip {
+  grid-template-columns: minmax(260px, 1.2fr) repeat(4, minmax(130px, 0.7fr));
+}
+
+.admin-sku-data-table {
+  border-collapse: collapse;
+  border-spacing: 0;
+  padding: 0;
+}
+
+.admin-sku-data-table th {
+  background: var(--sku-bg);
+}
+
+.admin-sku-data-table td {
+  border-top: 1px solid var(--sku-line);
+  border-bottom: 0;
+  background: transparent;
+}
+
+.admin-sku-data-table tr td:first-child,
+.admin-sku-data-table tr td:last-child {
+  border-radius: 0;
+}
+
+.admin-sku-data-table tr td:first-child,
+.admin-sku-data-table tr.is-low td:first-child,
+.admin-sku-data-table tr.is-watch td:first-child,
+.admin-sku-data-table tr.is-ok td:first-child {
+  border-left-color: transparent;
+}
+
+.admin-sku-brand-pill,
+.admin-sku-stock-pill {
+  border-color: var(--sku-line);
+  background: var(--sku-panel-strong);
+  color: var(--sku-ink);
+}
+
+.admin-sku-stock-pill.is-low,
+.admin-sku-stock-pill.is-watch {
+  background: var(--sku-panel-strong);
+}
+
+.admin-sku-tag-copy:hover,
+.admin-sku-tag-copy:focus-visible {
+  color: var(--sku-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.admin-sku-switch span {
+  border-color: var(--sku-line);
+  background: var(--sku-panel-strong);
+}
+
+.admin-sku-switch span::after {
+  background: var(--sku-ink);
+}
+
+.admin-sku-switch input:checked + span {
+  border-color: color-mix(in srgb, var(--sku-toggle) 64%, transparent);
+  background: color-mix(in srgb, var(--sku-toggle) 24%, transparent);
+}
+
+.admin-sku-switch input:focus-visible + span {
+  outline-color: color-mix(in srgb, var(--sku-toggle) 48%, transparent);
+}
+
+.admin-sku-row-menu-trigger {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  padding: 0;
+}
+
+.admin-sku-row-menu-panel {
+  border-color: var(--sku-line);
+  border-radius: 18px;
+  background: var(--sku-bg);
+}
+
+@media (max-width: 1320px) {
+  .admin-sku-commandbar {
+    grid-template-columns: 1fr;
+    border-radius: 28px;
+  }
+
+  .admin-sku-preview-surface {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 820px) {
+  .admin-sku-commandbar {
+    border-radius: 24px;
+  }
+
+  .admin-sku-command-actions {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .admin-sku-user-chip {
+    max-width: calc(100vw - 120px);
+  }
+
+  .admin-sku-segment-strip span {
+    min-height: 44px;
+    border-radius: 999px;
+  }
+
+  .admin-sku-preview-surface strong {
+    font-size: 2.15rem;
+  }
+}
