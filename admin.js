@@ -464,6 +464,23 @@ const getMonthKeyForTimezone = (date = new Date(), timezone = DASHBOARD_TIMEZONE
   return `${parts.year}-${parts.month}`;
 };
 
+const getJakartaMonthStart = (year, month) => new Date(`${year}-${String(month).padStart(2, '0')}-01T00:00:00+07:00`);
+
+const getCurrentMonthVelocity = (date = new Date()) => {
+  const monthKey = getMonthKeyForTimezone(date, DASHBOARD_TIMEZONE);
+  const year = Number(monthKey.slice(0, 4));
+  const month = Number(monthKey.slice(5, 7));
+  const nextMonthYear = month === 12 ? year + 1 : year;
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const monthStart = getJakartaMonthStart(year, month).getTime();
+  const monthEnd = getJakartaMonthStart(nextMonthYear, nextMonth).getTime();
+  const monthDuration = Math.max(monthEnd - monthStart, 1);
+  const elapsed = Math.min(Math.max(date.getTime() - monthStart, 0), monthDuration);
+  const projectionFactor = elapsed > 0 ? Math.max(1, monthDuration / elapsed) : 1;
+
+  return { monthKey, projectionFactor };
+};
+
 const createAnalyticsDeviceId = () => {
   if (window.crypto?.randomUUID) return `device-${window.crypto.randomUUID()}`;
   return `device-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -3797,11 +3814,7 @@ document.addEventListener('DOMContentLoaded', () => {
         average_order_value: Number(month.orders || 0) > 0 ? Number(month.revenue || month.net_revenue || month.sales || 0) / Number(month.orders || 0) : 0
       }, state.overview.metric)
     }));
-    const currentMonthKey = activeLocalDate.slice(0, 7);
-    const currentDay = Number(activeLocalDate.slice(8, 10));
-    const currentMonth = Number(activeLocalDate.slice(5, 7));
-    const daysInCurrentMonth = new Date(Date.UTC(state.overview.year, currentMonth, 0)).getUTCDate();
-    const projectionFactor = currentDay > 0 ? daysInCurrentMonth / currentDay : 1;
+    const { monthKey: currentMonthKey, projectionFactor } = getCurrentMonthVelocity();
     const projectedMonthlyRows = monthlyRows.map((row) => {
       if (row.key !== currentMonthKey) return row;
       const projection = {
