@@ -7,12 +7,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const username = root.dataset.skuUsername || '';
   const themeStorageKey = 'jg-admin-theme';
   const themeCookieMaxAge = 60 * 60 * 24 * 365 * 2;
-  const themeOptions = ['dark', 'light'];
   const brandSessionStorageKey = 'jg-sku-db-selected-brand';
 
-  const menuShell = document.querySelector('[data-menu-shell]');
-  const menuTrigger = document.querySelector('[data-menu-trigger]');
-  const menuPanel = document.querySelector('[data-menu-panel]');
   const masterError = document.querySelector('[data-master-form-error]');
   const requestError = document.querySelector('[data-request-error]');
   const requestSubmitError = document.querySelector('[data-request-submit-error]');
@@ -421,44 +417,10 @@ document.addEventListener('DOMContentLoaded', () => {
     writeThemeCookie(theme);
   };
 
-  const getNextTheme = () => {
-    const currentTheme = normalizeTheme(document.documentElement.dataset.adminTheme);
-    const currentIndex = themeOptions.indexOf(currentTheme);
-    return themeOptions[(currentIndex + 1) % themeOptions.length];
-  };
-
   const applyTheme = (theme) => {
     const normalizedTheme = normalizeTheme(theme);
     document.documentElement.dataset.adminTheme = normalizedTheme;
     writeStoredTheme(normalizedTheme);
-  };
-
-  const closeMenu = () => {
-    if (!menuPanel || !menuTrigger) return;
-    menuPanel.hidden = true;
-    menuTrigger.setAttribute('aria-expanded', 'false');
-  };
-
-  const openMenu = () => {
-    if (!menuPanel || !menuTrigger) return;
-    menuPanel.hidden = false;
-    menuTrigger.setAttribute('aria-expanded', 'true');
-  };
-
-  const setupTopbarMenu = () => {
-    menuTrigger?.addEventListener('click', () => {
-      if (menuPanel?.hidden === false) {
-        closeMenu();
-      } else {
-        openMenu();
-      }
-    });
-
-    document.addEventListener('click', (event) => {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (menuShell && !menuShell.contains(target)) closeMenu();
-    });
   };
 
   const buildOptions = (items, placeholder) => [
@@ -927,7 +889,7 @@ document.addEventListener('DOMContentLoaded', () => {
               data-sku-row-menu-trigger
               aria-expanded="false"
               aria-label="Open SKU action menu"
-            ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+            >Actions</button>
             <div class="admin-sku-row-menu-panel" data-sku-row-menu-panel hidden>
               <button type="button" class="admin-menu-item" data-change-product-name="${escapeHtml(row.sku || '')}">Product Name</button>
               ${role === 'branch' ? `<button type="button" class="admin-menu-item" data-change-astra="${escapeHtml(row.sku || '')}">ASTRA</button>` : ''}
@@ -981,11 +943,9 @@ document.addEventListener('DOMContentLoaded', () => {
             ${role === 'branch' && request.status === 'pending'
               ? `
                 <button type="button" class="admin-primary-btn admin-sku-action-btn" data-approve-request="${request.id}">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
                   <span>Approve</span>
                 </button>
                 <button type="button" class="admin-ghost-btn admin-sku-action-btn" data-deny-request="${request.id}">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
                   <span>Deny</span>
                 </button>
               `
@@ -1803,10 +1763,6 @@ document.addEventListener('DOMContentLoaded', () => {
   syncCogsFields();
   syncInventoryFields();
   applyTheme(readStoredTheme() || 'dark');
-  setupTopbarMenu();
-  document.querySelector('[data-theme-toggle]')?.addEventListener('click', () => {
-    applyTheme(getNextTheme());
-  });
 
   loadDatabase().catch((error) => {
     const message = error instanceof Error ? error.message : 'Unable to load the SKU database.';
