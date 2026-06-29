@@ -90,10 +90,34 @@ expect_same(2, $webhookRows[0]['quantity'], 'Webhook rows must preserve item qua
 expect_same(1200.0, $webhookRows[0]['order_net_revenue'], 'Webhook rows must preserve order-level net revenue.');
 expect_same('Buyer One', $webhookRows[0]['username'], 'Webhook rows must map customer names.');
 
+$repairRows = jg_orders_webhook_rows([
+    'event' => 'mirror_read_repair',
+    'rows' => [[
+        'platform' => 'tiktok',
+        'account_key' => 'main',
+        'order_id' => 'ORDER-3',
+        'order_create_time' => '2026-06-29T02:03:04Z',
+        'status' => 'COMPLETED',
+        'sku' => 'JG0201',
+        'item_key' => 'ROW-1',
+        'product_name' => 'API product',
+        'quantity' => 1,
+        'revenue' => 4500,
+        'order_net_revenue' => 4500,
+        'gross_revenue' => 5000,
+        'username' => 'API Buyer',
+    ]],
+]);
+expect_same(1, count($repairRows), 'Mirror read repair rows must normalize API Ingest order rows.');
+expect_same('tiktok', $repairRows[0]['platform'], 'Mirror read repair must preserve platform.');
+expect_same('ORDER-3', $repairRows[0]['order_id'], 'Mirror read repair must preserve order ids.');
+expect_same(4500.0, $repairRows[0]['order_net_revenue'], 'Mirror read repair must preserve order revenue.');
+
 $ordersUrl = jg_orders_remote_url('/sales/orders', [
     'start_date' => '2026-06-01',
     'end_date' => '2026-06-03',
     'skip_sync' => '1',
+    'sync' => '0',
     'limit' => '240',
     'offset' => '480',
 ]);
@@ -101,5 +125,6 @@ parse_str((string) parse_url($ordersUrl, PHP_URL_QUERY), $ordersQuery);
 expect_same('240', $ordersQuery['limit'] ?? '', 'Orders proxy must forward row limit.');
 expect_same('480', $ordersQuery['offset'] ?? '', 'Orders proxy must forward row offset.');
 expect_same('1', $ordersQuery['skip_sync'] ?? '', 'Orders proxy must skip on-demand sync for paged reads.');
+expect_same('0', $ordersQuery['sync'] ?? '', 'Orders mirror repair must request read-only API rows.');
 
 echo "orders-api-test: ok\n";

@@ -671,13 +671,91 @@ function jg_orders_mirror_payload(PDO $pdo, string $startDate, string $endDate, 
         $hasMore = true;
         $rows = array_slice($rows, 0, $limit);
     }
+    $repair = ['attempted' => false, 'fetched' => 0, 'upserted' => 0];
+    if ($offset === 0 && $rows === []) {
+        $repair = jg_orders_repair_mirror_range_from_api($pdo, $startDate, $endDate, $limit);
+        if ((int) ($repair['upserted'] ?? 0) > 0) {
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([
+                ':from_date' => $from,
+                ':to_date' => $to,
+            ]);
+            $rows = $stmt->fetchAll();
+            $hasMore = false;
+            if ($limit !== null && count($rows) > $limit) {
+                $hasMore = true;
+                $rows = array_slice($rows, 0, $limit);
+            }
+        }
+    }
 
-    return [
+    $payload = [
         'orders' => array_map('jg_orders_mirror_response_row', $rows),
         'has_more' => $hasMore,
         'next_offset' => $hasMore ? $offset + $limit : null,
         'source' => 'dashboard_order_mirror',
     ];
+    if (!empty($repair['attempted'])) {
+        $payload['mirror_repair'] = $repair;
+    }
+
+    return $payload;
+}
+
+function jg_orders_repair_mirror_range_from_api(PDO $pdo, string $startDate, string $endDate, ?int $limit): array
+{
+    $targetRows = $limit !== null ? min(2001, max(1, $limit + 1)) : 500;
+    $fetchedRows = [];
+    $offset = 0;
+
+    try {
+        while (count($fetchedRows) < $targetRows) {
+            $pageLimit = min(500, $targetRows - count($fetchedRows));
+            $payload = jg_orders_fetch_json(jg_orders_remote_url('/sales/orders', [
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'skip_sync' => '1',
+                'sync' => '0',
+                'limit' => (string) $pageLimit,
+                'offset' => (string) $offset,
+            ]));
+            $rows = is_array($payload['orders'] ?? null) ? $payload['orders'] : [];
+            foreach ($rows as $row) {
+                if (is_array($row)) {
+                    $fetchedRows[] = $row;
+                }
+            }
+
+            $nextOffset = (int) ($payload['next_offset'] ?? 0);
+            if (empty($payload['has_more']) || $nextOffset <= $offset || $rows === []) {
+                break;
+            }
+            $offset = $nextOffset;
+        }
+
+        $mirrorRows = jg_orders_webhook_rows([
+            'event' => 'mirror_read_repair',
+            'source' => 'api_ingest',
+            'rows' => $fetchedRows,
+        ]);
+        $result = $mirrorRows !== []
+            ? jg_orders_upsert_mirror_rows($pdo, $mirrorRows, ['event' => 'mirror_read_repair'])
+            : ['upserted' => 0];
+
+        return [
+            'attempted' => true,
+            'fetched' => count($fetchedRows),
+            'upserted' => (int) ($result['upserted'] ?? 0),
+        ];
+    } catch (Throwable $error) {
+        error_log('Dashboard order mirror read repair failed: ' . $error->getMessage());
+        return [
+            'attempted' => true,
+            'fetched' => count($fetchedRows),
+            'upserted' => 0,
+            'error' => 'mirror_read_repair_failed',
+        ];
+    }
 }
 
 function jg_orders_mirror_response_row(array $row): array
@@ -797,6 +875,27 @@ function jg_orders_remote_url(string $path, array $params): string
     }
     $params['setup_token'] = $token;
     return jg_dashboard_marketplace_api_base_url() . $path . '?' . http_build_query($params);
+}
+
+function jg_orders_fetch_json(string $url): array
+{
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'GET',
+            'timeout' => 12,
+            'header' => "Accept: application/json\r\n",
+            'ignore_errors' => true,
+        ],
+    ]);
+    $raw = @file_get_contents($url, false, $context);
+    if (!is_string($raw) || $raw === '') {
+        throw new RuntimeException('Unable to read API Ingest order response.');
+    }
+    $decoded = json_decode($raw, true);
+    if (!is_array($decoded) || empty($decoded['ok'])) {
+        throw new RuntimeException('API Ingest order response was not successful.');
+    }
+    return $decoded;
 }
 
 function jg_orders_ensure_schema(PDO $pdo): void
