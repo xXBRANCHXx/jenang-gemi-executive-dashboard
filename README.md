@@ -48,8 +48,9 @@ Private admin dashboard for `admin.jenanggemi.com`.
 - Marketplace order detail is mirrored into this dashboard's MySQL database through
   `POST /api/orders/?action=webhook` with `JG_ORDER_WEBHOOK_TOKEN` /
   `order_webhook_token` or the existing marketplace setup token. Normal dashboard
-  view reloads read cached/local data; the Overview `Refresh view` button is an
-  explicit rolling marketplace sync/repair action for yesterday and today.
+  view reloads read cached/local data. Visible dashboard sessions automatically
+  run a throttled rolling marketplace sync/repair for yesterday and today; the
+  Overview `Refresh view` button runs the same path immediately.
 - Website checkout notifications and paid metrics are independent of the Hard Set switch. An explicit high-entropy `store_ops_website_token` can be configured on both applications; otherwise both deployments derive the bearer token from their existing shared marketplace setup credential. Configure `store_ops_base_url` and `executive_dashboard_url` before activation readiness can pass.
 - Hard Set is initialized server-side as OFF and exposes no disable operation. The activation switch remains locked until the current session authenticates with Branch-tier SKU Database credentials. Its UTC cutover boundary, audit record, and outbox are persisted in MySQL. Activation is delivered idempotently to both Store Ops and API Ingest; deploy API Ingest's `/hard-set/state` and `/hard-set/activate` endpoints before enabling the switch.
 - Private PDF labels use `JG_WEBSITE_LABEL_STORAGE_PATH` / `website_label_storage_path`; the default is outside this dashboard's document root.

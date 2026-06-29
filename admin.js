@@ -442,6 +442,8 @@ const VIEW_CACHE_TTL_MS = {
   settings: 5 * 60 * 1000
 };
 const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+const AUTO_MARKETPLACE_REFRESH_MIN_MS = 5 * 60 * 1000;
+const AUTO_MARKETPLACE_REFRESH_STORAGE_KEY = 'jg-dashboard-auto-marketplace-refresh-at-v1';
 const LIVE_REFRESH_DEBOUNCE_MS = 1200;
 const BACKGROUND_IDLE_TIMEOUT_MS = 800;
 const BACKGROUND_TASK_DELAY_MS = 80;
@@ -1878,7 +1880,8 @@ document.addEventListener('DOMContentLoaded', () => {
       loading: false
     },
     marketplaceRefresh: {
-      loading: false
+      loading: false,
+      lastAutoAttemptAt: 0
     },
     liveSequence: -1,
     liveSource: null
@@ -5226,16 +5229,47 @@ document.addEventListener('DOMContentLoaded', () => {
     renderOverview(data);
   };
 
-  const refreshMarketplaceData = async () => {
-    if (state.marketplaceRefresh.loading) return;
+  const readAutoMarketplaceRefreshAt = () => {
+    try {
+      return Math.max(0, Number(window.localStorage.getItem(AUTO_MARKETPLACE_REFRESH_STORAGE_KEY) || 0));
+    } catch (_) {
+      return 0;
+    }
+  };
+
+  const writeAutoMarketplaceRefreshAt = (timestamp) => {
+    state.marketplaceRefresh.lastAutoAttemptAt = timestamp;
+    try {
+      window.localStorage.setItem(AUTO_MARKETPLACE_REFRESH_STORAGE_KEY, String(timestamp));
+    } catch (_) {
+      // Local storage is a tab-level optimization only; the server lock is authoritative.
+    }
+  };
+
+  const syncActiveOrderViewsAfterRepair = async () => {
+    if (state.activeView === 'orders') {
+      state.orders.monthsSignature = '';
+      await loadOrdersSafely({ force: true, preferStale: false, repair: true });
+      return;
+    }
+    if (state.activeView === 'daily') {
+      await loadDailySafely({ force: true, preferStale: false, repair: true });
+      return;
+    }
+    preloadOrderMemory({ reset: true, repair: true }).catch(() => {});
+  };
+
+  const runMarketplaceRefresh = async (options = {}) => {
+    const interactive = Boolean(options.interactive);
+    if (state.marketplaceRefresh.loading) return false;
     state.marketplaceRefresh.loading = true;
-    if (overviewRefs.refreshButton) {
+    if (interactive && overviewRefs.refreshButton) {
       overviewRefs.refreshButton.disabled = true;
       overviewRefs.refreshButton.classList.add('is-loading');
       overviewRefs.refreshButton.setAttribute('aria-busy', 'true');
     }
-    if (overviewRefs.refreshLabel) overviewRefs.refreshLabel.textContent = 'Refreshing…';
-    if (overviewRefs.lastUpdated) overviewRefs.lastUpdated.textContent = 'Refreshing the dashboard view…';
+    if (interactive && overviewRefs.refreshLabel) overviewRefs.refreshLabel.textContent = 'Refreshing…';
+    if (interactive && overviewRefs.lastUpdated) overviewRefs.lastUpdated.textContent = 'Refreshing the dashboard view…';
 
     try {
       const data = await requestJson(buildSalesUrl(state.overview.year, {
@@ -5245,26 +5279,48 @@ document.addEventListener('DOMContentLoaded', () => {
       writeOverviewCache(state.overview.year, data);
       renderOverview(data);
       await refreshOverviewHourlyRows(null, { repair: true }).catch(() => {});
-      preloadOrderMemory({ reset: true, repair: true }).catch(() => {});
-      if (overviewRefs.refreshLabel) overviewRefs.refreshLabel.textContent = 'Refreshed';
-      window.setTimeout(() => {
-        if (!state.marketplaceRefresh.loading && overviewRefs.refreshLabel) {
-          overviewRefs.refreshLabel.textContent = 'Refresh view';
-        }
-      }, 1800);
-    } catch (error) {
-      if (overviewRefs.refreshLabel) overviewRefs.refreshLabel.textContent = 'Try again';
-      if (overviewRefs.lastUpdated) {
-        overviewRefs.lastUpdated.textContent = `Refresh failed: ${error.message || 'Unable to sync marketplace data.'}`;
+      await syncActiveOrderViewsAfterRepair();
+      if (interactive && overviewRefs.refreshLabel) {
+        overviewRefs.refreshLabel.textContent = 'Refreshed';
+        window.setTimeout(() => {
+          if (!state.marketplaceRefresh.loading && overviewRefs.refreshLabel) {
+            overviewRefs.refreshLabel.textContent = 'Refresh view';
+          }
+        }, 1800);
       }
+      return true;
+    } catch (error) {
+      if (interactive && overviewRefs.refreshLabel) overviewRefs.refreshLabel.textContent = 'Try again';
+      if (interactive && overviewRefs.lastUpdated) {
+        overviewRefs.lastUpdated.textContent = `Refresh failed: ${error.message || 'Unable to sync marketplace data.'}`;
+      } else if (!String(error?.message || '').includes('marketplace_refresh_in_progress')) {
+        console.warn('Automatic marketplace refresh failed', error);
+      }
+      return false;
     } finally {
       state.marketplaceRefresh.loading = false;
-      if (overviewRefs.refreshButton) {
+      if (interactive && overviewRefs.refreshButton) {
         overviewRefs.refreshButton.disabled = false;
         overviewRefs.refreshButton.classList.remove('is-loading');
         overviewRefs.refreshButton.removeAttribute('aria-busy');
       }
     }
+  };
+
+  const refreshMarketplaceData = () => runMarketplaceRefresh({ interactive: true });
+
+  const runAutomaticMarketplaceRefresh = async (options = {}) => {
+    if (document.hidden || state.marketplaceRefresh.loading) return false;
+    const now = Date.now();
+    const lastAttemptAt = Math.max(state.marketplaceRefresh.lastAutoAttemptAt, readAutoMarketplaceRefreshAt());
+    const syncStatus = state.overview.data?.sync_status;
+    const syncLooksStale = syncStatus?.fresh === false || syncStatus?.status === 'missing';
+    const force = Boolean(options.force || syncLooksStale);
+    if (!force && now - lastAttemptAt < AUTO_MARKETPLACE_REFRESH_MIN_MS) {
+      return false;
+    }
+    writeAutoMarketplaceRefreshAt(now);
+    return runMarketplaceRefresh({ interactive: false });
   };
 
   const loadDaily = async (options = {}) => {
@@ -5294,9 +5350,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const payload = await requestOrderFacts(month.start, month.end, {
         lightweight: true,
         storedOnly: true,
+        repair: Boolean(options.repair) && offset === 0,
         limit: DAILY_ORDER_PAGE_LIMIT,
         offset,
-        cacheBust: Boolean(options.force)
+        cacheBust: Boolean(options.force || options.repair)
       });
       if (!isLatestRequest('daily', requestToken)) return;
       rows.push(...(Array.isArray(payload.orders) ? payload.orders : []));
@@ -5841,6 +5898,7 @@ document.addEventListener('DOMContentLoaded', () => {
       loadActiveViewSafely({
         force: options.force !== false,
         forceRefresh: Boolean(options.forceRefresh),
+        repair: Boolean(options.repair),
         preferStale: false,
         background: true
       }).catch(() => {});
@@ -5849,7 +5907,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const queueViewRefresh = (view) => {
     const options = { force: true, preferStale: false, background: true };
-    if (view === 'overview') return loadOverviewSafely({ ...options, forceRefresh: false });
+    if (view === 'overview') return loadOverviewSafely({ ...options, forceRefresh: true });
     if (view === 'orders') return loadOrdersSafely(options);
     if (view === 'daily') return loadDailySafely(options);
     if (view === 'home') return loadHomeSafely(options);
@@ -5973,10 +6031,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const orderRelated = reason.includes('order') || reason.includes('marketplace') || reason.includes('sales');
     if (orderRelated) {
       if (state.activeView === 'orders' || state.activeView === 'daily' || state.activeView === 'overview') {
-        queueActiveViewRefresh({ force: true });
+        queueActiveViewRefresh({ force: true, forceRefresh: true, repair: true });
       }
-      refreshOverviewHourlyRows().catch(() => {});
-      preloadOrderMemory({ reset: true }).catch(() => {});
+      refreshOverviewHourlyRows(null, { repair: true }).catch(() => {});
+      preloadOrderMemory({ reset: true, repair: true }).catch(() => {});
     } else {
       queueActiveViewRefresh({ force: true });
     }
@@ -6076,6 +6134,12 @@ document.addEventListener('DOMContentLoaded', () => {
       finishLoader();
       connectLiveStream();
       scheduleBackgroundLoads();
+      window.setTimeout(() => {
+        const syncStatus = state.overview.data?.sync_status;
+        if (syncStatus?.fresh === false || syncStatus?.status === 'missing') {
+          runAutomaticMarketplaceRefresh({ force: true }).catch(() => {});
+        }
+      }, 2500);
     });
 
   overviewRefs.metricButtons.forEach((button) => {
@@ -6976,15 +7040,17 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('focus', () => {
     refreshForLocalDateRollover().catch(() => {});
     preloadOrderMemory().catch(() => {});
+    runAutomaticMarketplaceRefresh().catch(() => {});
     if (state.activeView === 'overview') {
-      refreshOverviewHourlyRows().catch(() => {});
+      refreshOverviewHourlyRows(null, { repair: true }).catch(() => {});
     }
   });
   window.setInterval(() => {
     if (!document.hidden) {
       refreshForLocalDateRollover().catch(() => {});
+      runAutomaticMarketplaceRefresh().catch(() => {});
       if (state.activeView === 'overview') {
-        refreshOverviewHourlyRows().catch(() => {});
+        refreshOverviewHourlyRows(null, { repair: true }).catch(() => {});
       }
     }
   }, AUTO_REFRESH_INTERVAL_MS);
