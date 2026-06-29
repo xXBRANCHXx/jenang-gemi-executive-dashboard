@@ -650,13 +650,13 @@ const drawValueBadge = (ctx, x, y, text, palette) => {
 
   ctx.fillStyle = palette.surface;
   ctx.beginPath();
-  ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 999);
+  roundedRect(ctx, badgeX, badgeY, badgeWidth, badgeHeight, 999);
   ctx.fill();
 
   ctx.strokeStyle = palette.border;
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 999);
+  roundedRect(ctx, badgeX, badgeY, badgeWidth, badgeHeight, 999);
   ctx.stroke();
 
   ctx.fillStyle = palette.text;
@@ -693,6 +693,24 @@ const drawGrid = (ctx, width, height, padding, maxValue, metric, unitsMap, palet
     ctx.textAlign = 'left';
     ctx.fillText(formatMetricValue(metric, Math.max(0, tickValue), unitsMap), 8, y - (i === 0 ? -12 : 4));
   }
+};
+
+const roundedRect = (ctx, x, y, width, height, radius) => {
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(x, y, width, height, radius);
+    return;
+  }
+
+  const safeRadius = Math.min(Math.max(Number(radius) || 0, 0), Math.abs(width) / 2, Math.abs(height) / 2);
+  ctx.moveTo(x + safeRadius, y);
+  ctx.lineTo(x + width - safeRadius, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
+  ctx.lineTo(x + width, y + height - safeRadius);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
+  ctx.lineTo(x + safeRadius, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
+  ctx.lineTo(x, y + safeRadius);
+  ctx.quadraticCurveTo(x, y, x + safeRadius, y);
 };
 
 const chartHoverState = new WeakMap();
@@ -813,6 +831,7 @@ const drawChartMessage = (canvas, message) => {
 };
 
 const drawChartSafely = (canvas, renderer, message = 'Chart unavailable') => {
+  if (!(canvas instanceof HTMLCanvasElement)) return;
   try {
     renderer();
   } catch (error) {
@@ -954,12 +973,12 @@ const drawBarChart = (canvas, items, config) => {
 
     ctx.fillStyle = palette.surfaceSoft;
     ctx.beginPath();
-    ctx.roundRect(x, padding.top + 8, barWidth, chartHeight - 8, 10);
+    roundedRect(ctx, x, padding.top + 8, barWidth, chartHeight - 8, 10);
     ctx.fill();
 
     ctx.fillStyle = config.color(item);
     ctx.beginPath();
-    ctx.roundRect(x, y, barWidth, barHeight, 10);
+    roundedRect(ctx, x, y, barWidth, barHeight, 10);
     ctx.fill();
 
     if (config.showValueBadges !== false) {
@@ -3098,10 +3117,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams({
       year: String(year)
     });
-    if (options.refresh) {
+    if (options.manualRefresh) {
+      params.set('action', 'refresh');
+    } else if (options.refresh) {
       params.set('refresh', '1');
     }
-    if (options.cacheBust || options.refresh) params.set('_ts', String(Date.now()));
+    if (options.cacheBust || options.refresh || options.manualRefresh) params.set('_ts', String(Date.now()));
     return `${salesEndpoint}?${params.toString()}`;
   };
   const buildOrderFactsUrl = (startDate, endDate, options = {}) => {
@@ -3115,6 +3136,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (options.storedOnly) {
       params.set('stored_only', '1');
+    }
+    if (options.repair) {
+      params.set('repair', '1');
     }
     const limit = Number(options.limit || 0);
     if (Number.isFinite(limit) && limit > 0) {
@@ -5138,11 +5162,15 @@ document.addEventListener('DOMContentLoaded', () => {
     ]);
   };
 
-  const refreshOverviewHourlyRows = async (requestToken = null) => {
+  const refreshOverviewHourlyRows = async (requestToken = null, options = {}) => {
     const hourlyRequestToken = state.overview.hourlyRequestToken + 1;
     state.overview.hourlyRequestToken = hourlyRequestToken;
     const today = todayDate();
-    const hourlyData = await requestOrderFacts(today, today, { lightweight: true });
+    const hourlyData = await requestOrderFacts(today, today, {
+      lightweight: true,
+      repair: Boolean(options.repair),
+      cacheBust: Boolean(options.repair)
+    });
     if (requestToken !== null && !isLatestRequest('overview', requestToken)) return;
     if (hourlyRequestToken !== state.overview.hourlyRequestToken) return;
     state.overview.hourlyRows = hourlyOrderRows(Array.isArray(hourlyData.orders) ? hourlyData.orders : []);
@@ -5211,13 +5239,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       const data = await requestJson(buildSalesUrl(state.overview.year, {
-        refresh: true,
+        manualRefresh: true,
         cacheBust: true
-      }), { timeoutMs: 25000 });
+      }), { method: 'POST', timeoutMs: 90000 });
       writeOverviewCache(state.overview.year, data);
       renderOverview(data);
-      await refreshOverviewHourlyRows().catch(() => {});
-      preloadOrderMemory({ reset: true }).catch(() => {});
+      await refreshOverviewHourlyRows(null, { repair: true }).catch(() => {});
+      preloadOrderMemory({ reset: true, repair: true }).catch(() => {});
       if (overviewRefs.refreshLabel) overviewRefs.refreshLabel.textContent = 'Refreshed';
       window.setTimeout(() => {
         if (!state.marketplaceRefresh.loading && overviewRefs.refreshLabel) {
@@ -5449,7 +5477,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderOrdersIfActive();
   };
 
-  const loadNextOrderWindow = async () => {
+  const loadNextOrderWindow = async (options = {}) => {
     if (state.orders.loadPromise) return state.orders.loadPromise;
     if (!state.orders.monthRanges.length) resetOrderWindowsFromOverview();
     syncOrderLoadedAll();
@@ -5471,7 +5499,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await requestOrderFacts(nextRange.start, nextRange.end, {
           limit: ORDER_LOAD_PAGE_SIZE,
           offset: requestOffset,
-          storedOnly: true
+          storedOnly: true,
+          repair: Boolean(options.repair) && requestOffset === 0,
+          cacheBust: Boolean(options.repair) && requestOffset === 0
         });
         if (!isLatestRequest('orders', requestToken) || generation !== state.orders.loadGeneration) return;
         const rows = Array.isArray(data.orders) ? data.orders : [];
@@ -5497,7 +5527,7 @@ document.addEventListener('DOMContentLoaded', () => {
           renderOrdersIfActive();
           if (completed && state.orders.ensurePending) {
             state.orders.ensurePending = false;
-            ensureEnoughOrderRows().catch(showOrderLoadError);
+            ensureEnoughOrderRows(options).catch(showOrderLoadError);
           }
         }
         if (state.orders.loadPromise === loadPromise) {
@@ -5509,7 +5539,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return loadPromise;
   };
 
-  const ensureEnoughOrderRows = async () => {
+  const ensureEnoughOrderRows = async (options = {}) => {
     if (state.orders.ensureRunning) {
       state.orders.ensurePending = true;
       return;
@@ -5526,7 +5556,7 @@ document.addEventListener('DOMContentLoaded', () => {
           : rows.length < ORDER_BOOTSTRAP_MIN_ROWS;
         if (rows.length >= ORDER_BOOTSTRAP_MIN_ROWS && !needsViewportFill) break;
         const progressSignature = orderLoadProgressSignature();
-        await loadNextOrderWindow();
+        await loadNextOrderWindow({ repair: Boolean(options.repair) });
         if (orderLoadProgressSignature() === progressSignature) break;
         loadedWindows += 1;
       }
@@ -5534,7 +5564,7 @@ document.addEventListener('DOMContentLoaded', () => {
       state.orders.ensureRunning = false;
       if (state.orders.ensurePending && !state.orders.loading) {
         state.orders.ensurePending = false;
-        ensureEnoughOrderRows().catch(showOrderLoadError);
+        ensureEnoughOrderRows(options).catch(showOrderLoadError);
       }
     }
   };
@@ -5569,7 +5599,7 @@ document.addEventListener('DOMContentLoaded', () => {
         windowsLoaded < ORDER_BACKGROUND_MAX_WINDOWS
       ) {
         const progressSignature = orderLoadProgressSignature();
-        await loadNextOrderWindow();
+        await loadNextOrderWindow({ repair: Boolean(options.repair) });
         if (orderLoadProgressSignature() === progressSignature) break;
         windowsLoaded += 1;
         await wait(BACKGROUND_TASK_DELAY_MS);
@@ -5604,7 +5634,7 @@ document.addEventListener('DOMContentLoaded', () => {
       await loadOverviewSafely({ useCache: true, skipHourly: true });
     }
     resetOrderWindowsFromOverview();
-    await ensureEnoughOrderRows();
+    await ensureEnoughOrderRows({ repair: Boolean(options.repair) });
     if (state.orders.loadPromise) {
       await state.orders.loadPromise;
     }

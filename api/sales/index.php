@@ -168,7 +168,7 @@ if ($action === 'refresh') {
     $prepared['manual_refresh'] = [
         'ok' => true,
         'completed_at' => gmdate(DATE_ATOM),
-        'mode' => 'client_cache_refresh',
+        'mode' => 'marketplace_rolling_sync',
         'stored' => (int) ($syncDetails['stored'] ?? 0),
         'accounts_checked' => (int) ($syncDetails['status']['accounts_checked'] ?? count($syncDetails['accounts'] ?? [])),
         'accounts_ok' => (int) ($syncDetails['status']['accounts_ok'] ?? 0),
@@ -427,15 +427,16 @@ function jg_sales_run_manual_refresh(string $setupToken, int $year, bool $includ
         $params = [
             'setup_token' => $setupToken,
             'year' => (string) $year,
+            'mode' => 'rolling',
         ];
         if ($includeAudit) {
             $params['audit'] = '1';
         }
-        $url = jg_dashboard_marketplace_api_base_url() . '/sales/summary?' . http_build_query($params);
+        $url = jg_dashboard_marketplace_api_base_url() . '/sales/sync?' . http_build_query($params);
         $context = stream_context_create([
             'http' => [
                 'method' => 'GET',
-                'timeout' => 20,
+                'timeout' => 80,
                 'header' => "Accept: application/json\r\nUser-Agent: Jenang-Gemi-Executive-Dashboard/1.0\r\n",
                 'ignore_errors' => true,
             ],
@@ -445,7 +446,7 @@ function jg_sales_run_manual_refresh(string $setupToken, int $year, bool $includ
             return [
                 'ok' => false,
                 'status' => 502,
-                'error' => 'marketplace_summary_unreachable',
+                'error' => 'marketplace_sync_unreachable',
             ];
         }
 
@@ -462,7 +463,7 @@ function jg_sales_run_manual_refresh(string $setupToken, int $year, bool $includ
             return [
                 'ok' => false,
                 'status' => $status >= 400 ? $status : 502,
-                'error' => 'marketplace_summary_rejected',
+                'error' => 'marketplace_sync_rejected',
             ];
         }
 

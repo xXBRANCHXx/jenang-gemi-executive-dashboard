@@ -47,10 +47,11 @@ function jg_orders_handle_request(): void
         }
 
         $remoteWarning = '';
+        $forceRepair = jg_orders_bool($_GET['repair'] ?? $_GET['force_repair'] ?? null);
         try {
             $mirrorPdo = analyticsDb();
             jg_orders_ensure_mirror_schema($mirrorPdo);
-            $remotePayload = jg_orders_mirror_payload($mirrorPdo, $startDate, $endDate, $limit, $offset);
+            $remotePayload = jg_orders_mirror_payload($mirrorPdo, $startDate, $endDate, $limit, $offset, $forceRepair);
         } catch (Throwable $mirrorOrdersError) {
             $remotePayload = ['orders' => [], 'has_more' => false, 'next_offset' => null];
             $remoteWarning = 'order_mirror_unavailable';
@@ -654,7 +655,7 @@ function jg_orders_range_bounds(string $startDate, string $endDate): array
     return [$from->format('Y-m-d H:i:s.u'), $to->format('Y-m-d H:i:s.u')];
 }
 
-function jg_orders_mirror_payload(PDO $pdo, string $startDate, string $endDate, ?int $limit = null, int $offset = 0): array
+function jg_orders_mirror_payload(PDO $pdo, string $startDate, string $endDate, ?int $limit = null, int $offset = 0, bool $forceRepair = false): array
 {
     [$from, $to] = jg_orders_range_bounds($startDate, $endDate);
     $pageLimit = $limit !== null ? $limit + 1 : null;
@@ -679,7 +680,7 @@ function jg_orders_mirror_payload(PDO $pdo, string $startDate, string $endDate, 
         $rows = array_slice($rows, 0, $limit);
     }
     $repair = ['attempted' => false, 'fetched' => 0, 'upserted' => 0];
-    if ($offset === 0 && $rows === []) {
+    if ($offset === 0 && ($forceRepair || $rows === [])) {
         $repair = jg_orders_repair_mirror_range_from_api($pdo, $startDate, $endDate, $limit);
         if ((int) ($repair['upserted'] ?? 0) > 0) {
             $stmt = $pdo->prepare($sql);
