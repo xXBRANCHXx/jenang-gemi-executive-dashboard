@@ -13304,6 +13304,13 @@ body:has(.admin-app[data-sku-db])::after {
 }
 
 /* SKU DB sidebar reset: inherit the shared admin rail instead of custom SKU rail geometry. */
+.admin-app[data-sku-db] {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 24px 28px 40px 0;
+}
+
 .admin-app[data-sku-db] .admin-shell {
   grid-template-columns: var(--admin-rail-width) minmax(0, 1fr);
   gap: 22px;
