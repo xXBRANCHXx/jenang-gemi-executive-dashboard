@@ -46,6 +46,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const deleteForm = document.querySelector('[data-delete-form]');
   const deleteSummary = document.querySelector('[data-delete-summary]');
   const deleteError = document.querySelector('[data-delete-error]');
+  const branchTierModal = document.querySelector('[data-branch-tier-modal]');
+  const branchTierKeyInput = document.querySelector('[data-branch-tier-key]');
   const requestList = document.querySelector('[data-request-list]');
   const tableBody = document.querySelector('[data-sku-table-body]');
   const approvedLivePdfButton = document.querySelector('[data-download-approved-live-pdf]');
@@ -1181,6 +1183,20 @@ document.addEventListener('DOMContentLoaded', () => {
     setError(deleteError, '');
   };
 
+  const openBranchTierModal = () => {
+    if (!branchTierModal) return;
+    branchTierModal.hidden = false;
+    if (branchTierKeyInput instanceof HTMLInputElement) {
+      window.setTimeout(() => branchTierKeyInput.focus(), 0);
+    }
+  };
+
+  const closeBranchTierModal = () => {
+    if (!branchTierModal) return;
+    branchTierModal.hidden = true;
+    if (branchTierKeyInput instanceof HTMLInputElement) branchTierKeyInput.value = '';
+  };
+
   const openDeleteModal = (pendingDelete) => {
     if (!(deleteForm instanceof HTMLFormElement) || !deleteModal) return;
     state.pendingDelete = pendingDelete;
@@ -1736,6 +1752,16 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('[data-close-delete-modal]').forEach((button) => {
     button.addEventListener('click', closeDeleteModal);
   });
+
+  document.querySelector('[data-branch-tier-open]')?.addEventListener('click', openBranchTierModal);
+
+  document.querySelectorAll('[data-close-branch-tier-modal]').forEach((button) => {
+    button.addEventListener('click', closeBranchTierModal);
+  });
+
+  if (branchTierModal && !branchTierModal.hidden && branchTierKeyInput instanceof HTMLInputElement) {
+    window.setTimeout(() => branchTierKeyInput.focus(), 0);
+  }
 
   document.addEventListener('click', (event) => {
     const target = event.target;

@@ -13136,6 +13136,10 @@ body:has(.admin-app[data-sku-db])::after {
   min-height: 44px;
 }
 
+.admin-app[data-sku-db] .admin-sku-tier-form {
+  margin: 0;
+}
+
 .admin-app[data-sku-db] .admin-sku-tier-button {
   display: inline-flex;
   align-items: center;
@@ -13147,8 +13151,10 @@ body:has(.admin-app[data-sku-db])::after {
   background: var(--sku-panel-strong);
   color: var(--sku-ink);
   font-size: 0.8rem;
+  font-family: inherit;
   font-weight: 900;
   text-decoration: none;
+  cursor: pointer;
 }
 
 .admin-app[data-sku-db] .admin-sku-tier-button:hover,
@@ -13438,8 +13444,8 @@ body:has(.admin-app[data-sku-db])::after {
     position: static;
     top: auto;
     width: auto;
-    min-height: 100svh;
-    padding: 24px 0 16px;
+    min-height: auto;
+    padding: 0 0 16px;
     border-right: 0;
     border-bottom: 1px solid var(--admin-rail-border);
   }

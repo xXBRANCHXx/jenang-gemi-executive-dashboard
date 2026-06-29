@@ -116,6 +116,39 @@ function jg_sku_attempt_login(string $username, string $password): bool
     return true;
 }
 
+function jg_sku_switch_to_admin_version(): void
+{
+    jg_admin_start_session();
+    if (empty($_SESSION['jg_sku_authenticated'])) {
+        return;
+    }
+
+    $_SESSION['jg_sku_authenticated'] = true;
+    $_SESSION['jg_sku_role'] = 'requester';
+    $_SESSION['jg_sku_username'] = 'Admin';
+    $_SESSION['jg_sku_login_at'] = gmdate(DATE_ATOM);
+}
+
+function jg_sku_unlock_branch_tier(string $key): bool
+{
+    jg_admin_start_session();
+    if (empty($_SESSION['jg_sku_authenticated'])) {
+        return false;
+    }
+
+    if (!jg_sku_password_matches($key, jg_sku_branch_password_hash())) {
+        return false;
+    }
+
+    session_regenerate_id(true);
+    $_SESSION['jg_sku_authenticated'] = true;
+    $_SESSION['jg_sku_role'] = 'branch';
+    $_SESSION['jg_sku_username'] = jg_sku_branch_username();
+    $_SESSION['jg_sku_login_at'] = gmdate(DATE_ATOM);
+
+    return true;
+}
+
 function jg_sku_logout(): void
 {
     jg_admin_start_session();

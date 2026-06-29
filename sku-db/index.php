@@ -5,14 +5,28 @@ require_once dirname(__DIR__) . '/sku-auth.php';
 require_once dirname(__DIR__) . '/admin-nav.php';
 
 $hasError = false;
+$tierError = false;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $submittedUsername = (string) ($_POST['username'] ?? '');
-    $submittedPassword = (string) ($_POST['password'] ?? '');
-    if (jg_sku_attempt_login($submittedUsername, $submittedPassword)) {
+    $skuAction = (string) ($_POST['sku_action'] ?? '');
+    if ($skuAction === 'switch_admin') {
+        jg_sku_switch_to_admin_version();
         header('Location: ./');
         exit;
+    } elseif ($skuAction === 'unlock_branch_tier') {
+        if (jg_sku_unlock_branch_tier((string) ($_POST['branch_key'] ?? ''))) {
+            header('Location: ./');
+            exit;
+        }
+        $tierError = true;
+    } else {
+        $submittedUsername = (string) ($_POST['username'] ?? '');
+        $submittedPassword = (string) ($_POST['password'] ?? '');
+        if (jg_sku_attempt_login($submittedUsername, $submittedPassword)) {
+            header('Location: ./');
+            exit;
+        }
+        $hasError = true;
     }
-    $hasError = true;
 }
 
 $isAuthenticated = jg_sku_is_authenticated();
@@ -78,9 +92,12 @@ $pageBuildVersion = 'sku1.00.00';
 
                 <div class="admin-sku-tierbar" aria-label="SKU database access tier">
                     <?php if ($isBranch): ?>
-                        <a class="admin-sku-tier-button" href="./" aria-current="page">Branch-Tier</a>
+                        <form method="post" class="admin-sku-tier-form">
+                            <input type="hidden" name="sku_action" value="switch_admin">
+                            <button type="submit" class="admin-sku-tier-button" aria-current="page">Branch-Tier</button>
+                        </form>
                     <?php else: ?>
-                        <a class="admin-sku-tier-button" href="./logout/">Admin</a>
+                        <button type="button" class="admin-sku-tier-button" data-branch-tier-open>Admin</button>
                     <?php endif; ?>
                 </div>
 
@@ -374,6 +391,32 @@ $pageBuildVersion = 'sku1.00.00';
             </div>
         </div>
     </div>
+
+    <?php if (!$isBranch): ?>
+        <div class="admin-modal-shell" data-branch-tier-modal<?php echo $tierError ? '' : ' hidden'; ?>>
+            <div class="admin-modal-backdrop" data-close-branch-tier-modal></div>
+            <div class="admin-modal-card">
+                <div class="admin-panel-head admin-modal-head">
+                    <div>
+                        <span class="admin-panel-kicker">Admin</span>
+                        <h3>Branch-Tier</h3>
+                    </div>
+                </div>
+                <form method="post" class="admin-sku-form-grid" autocomplete="off">
+                    <input type="hidden" name="sku_action" value="unlock_branch_tier">
+                    <label class="admin-sku-full-span">
+                        <span>Key</span>
+                        <input type="password" name="branch_key" maxlength="255" autocomplete="current-password" required data-branch-tier-key>
+                    </label>
+                    <div class="admin-sku-actions">
+                        <button type="submit" class="admin-primary-btn">Unlock</button>
+                        <button type="button" class="admin-ghost-btn" data-close-branch-tier-modal>Cancel</button>
+                    </div>
+                </form>
+                <p class="admin-form-error" data-branch-tier-error<?php echo $tierError ? '' : ' hidden'; ?>>Key is not valid.</p>
+            </div>
+        </div>
+    <?php endif; ?>
 
     <div class="admin-modal-shell" data-cogs-modal hidden>
         <div class="admin-modal-backdrop" data-close-cogs-modal></div>
