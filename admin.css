@@ -11614,7 +11614,7 @@ body:has(.admin-app[data-sku-db]) .admin-build-badge {
   gap: 14px;
 }
 
-.admin-sku-commandbar {
+.admin-app[data-sku-db] .admin-sku-commandbar {
   position: sticky;
   top: 14px;
   z-index: 30;
@@ -12409,7 +12409,7 @@ body:has(.admin-app[data-sku-db])::after {
   flex: 0 0 auto;
 }
 
-.admin-sku-commandbar {
+.admin-app[data-sku-db] .admin-sku-commandbar {
   grid-template-columns: minmax(0, 1fr) auto;
   min-height: 54px;
   padding: 8px;
@@ -12752,5 +12752,326 @@ body:has(.admin-app[data-sku-db])::after {
 
   .admin-sku-preview-surface strong {
     font-size: 2.15rem;
+  }
+}
+
+/* SKU DB professional cleanup */
+.admin-app[data-sku-db] {
+  --sku-radius: 8px;
+  width: 100%;
+  max-width: none;
+}
+
+.admin-app[data-sku-db] .admin-shell {
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.admin-app[data-sku-db] .admin-rail {
+  width: 72px;
+  min-height: calc(100svh - 36px);
+  padding: 16px 0 12px;
+  border-right: 1px solid var(--sku-line);
+  background: transparent;
+}
+
+.admin-app[data-sku-db] .admin-rail-brand {
+  padding: 0 0 16px;
+}
+
+.admin-app[data-sku-db] .admin-rail-nav,
+.admin-app[data-sku-db] .admin-rail-footer {
+  gap: 8px;
+}
+
+.admin-app[data-sku-db] .admin-rail-link {
+  width: 48px;
+  height: 46px;
+  border-radius: var(--sku-radius);
+}
+
+.admin-app[data-sku-db] .admin-rail-link::before {
+  bottom: 5px;
+  width: 0;
+  height: 2px;
+  border-radius: 2px;
+}
+
+.admin-app[data-sku-db] .admin-rail-link:hover::before,
+.admin-app[data-sku-db] .admin-rail-link:focus-visible::before,
+.admin-app[data-sku-db] .admin-rail-link.is-active::before,
+.admin-app[data-sku-db] .admin-rail-link[aria-current='page']::before {
+  width: 18px;
+}
+
+.admin-app[data-sku-db] .admin-sku-commandbar {
+  grid-template-columns: minmax(0, 1fr) auto;
+  border-radius: var(--sku-radius);
+}
+
+.admin-app[data-sku-db] .admin-sku-commandglyph,
+.admin-app[data-sku-db] .admin-icon-btn,
+.admin-app[data-sku-db] .admin-sku-action-btn,
+.admin-app[data-sku-db] .admin-primary-btn,
+.admin-app[data-sku-db] .admin-ghost-btn,
+.admin-app[data-sku-db] .admin-menu-trigger,
+.admin-app[data-sku-db] .admin-menu-item,
+.admin-app[data-sku-db] .admin-sku-tag-copy,
+.admin-app[data-sku-db] .admin-request-result,
+.admin-app[data-sku-db] .admin-request-card .admin-chip,
+.admin-app[data-sku-db] .admin-sku-token {
+  border-radius: var(--sku-radius);
+}
+
+.admin-app[data-sku-db] .admin-sku-user-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  max-width: 220px;
+  padding: 0 6px;
+  color: var(--sku-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.admin-app[data-sku-db] .admin-sku-user-label span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-app[data-sku-db] .admin-sku-dock-head {
+  justify-content: flex-start;
+  min-height: 0;
+}
+
+.admin-app[data-sku-db] .admin-sku-dock-head strong {
+  color: var(--sku-ink);
+  font-size: 0.78rem;
+  letter-spacing: 0;
+}
+
+.admin-app[data-sku-db] .admin-sku-dock-mark {
+  display: none;
+}
+
+.admin-app[data-sku-db] .admin-sku-master-create-grid {
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.admin-app[data-sku-db] .admin-sku-master-create-grid .admin-sku-mini-form {
+  grid-template-columns: minmax(0, 1fr) 40px;
+  gap: 8px;
+}
+
+.admin-app[data-sku-db] .admin-sku-master-create-grid .admin-sku-mini-form:has(select) {
+  grid-template-columns: minmax(120px, 0.52fr) minmax(0, 1fr) 40px;
+}
+
+.admin-app[data-sku-db] .admin-sku-master-create-grid .admin-primary-btn {
+  width: 40px;
+  min-width: 40px;
+}
+
+.admin-app[data-sku-db] .admin-sku-preview-surface,
+.admin-app[data-sku-db] .admin-sku-segment-strip span,
+.admin-app[data-sku-db] .admin-sku-apply-preview,
+.admin-app[data-sku-db] :where(.admin-select, .admin-sku-builder input, .admin-sku-mini-form input, .admin-sku-form-grid input, .admin-sku-cell-input, .admin-sku-filter-strip input) {
+  border-radius: var(--sku-radius);
+}
+
+.admin-app[data-sku-db] .admin-sku-preview-surface strong {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.admin-app[data-sku-db] .admin-sku-master-card h2,
+.admin-app[data-sku-db] .admin-request-card h4 {
+  letter-spacing: 0;
+}
+
+.admin-app[data-sku-db] .admin-sku-token-list,
+.admin-app[data-sku-db] .admin-sku-reference-list,
+.admin-app[data-sku-db] .admin-sku-master-stack {
+  display: grid;
+  gap: 6px;
+}
+
+.admin-app[data-sku-db] .admin-sku-token,
+.admin-app[data-sku-db] .admin-sku-reference-row {
+  display: grid;
+  grid-template-columns: minmax(42px, auto) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+  padding: 7px 0;
+  border: 0;
+  border-bottom: 1px solid var(--sku-line);
+  background: transparent;
+  color: var(--sku-ink);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.admin-app[data-sku-db] .admin-sku-token:last-child,
+.admin-app[data-sku-db] .admin-sku-reference-row:last-child {
+  border-bottom: 0;
+}
+
+.admin-app[data-sku-db] .admin-sku-reference-row code {
+  color: var(--sku-muted);
+  font-family: "Space Grotesk", Inter, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.admin-app[data-sku-db] .admin-sku-reference-row span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-app[data-sku-db] .admin-sku-reference-row-action {
+  cursor: pointer;
+}
+
+.admin-app[data-sku-db] .admin-sku-reference-row-action:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--sku-ink) 26%, transparent);
+  outline-offset: 2px;
+}
+
+.admin-app[data-sku-db] .admin-sku-reference-row-action.is-remove-open {
+  border-color: rgba(255, 82, 82, 0.32);
+}
+
+.admin-app[data-sku-db] .admin-sku-reference-row-action.is-remove-open .admin-sku-token-remove {
+  display: inline-flex;
+}
+
+.admin-app[data-sku-db] .admin-sku-token-remove {
+  border-radius: 6px;
+}
+
+.admin-app[data-sku-db] .admin-sku-brand-block {
+  padding: 6px 0 10px;
+  border-bottom: 1px solid var(--sku-line);
+}
+
+.admin-app[data-sku-db] .admin-sku-brand-block:last-child {
+  border-bottom: 0;
+}
+
+.admin-app[data-sku-db] .admin-sku-brand-block strong {
+  color: var(--sku-ink);
+  font-size: 0.74rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.admin-app[data-sku-db] .admin-sku-brand-text {
+  display: inline;
+  color: var(--sku-ink);
+  font-weight: 750;
+}
+
+.admin-app[data-sku-db] .admin-sku-brand-pill {
+  display: inline;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--sku-ink);
+}
+
+.admin-app[data-sku-db] .admin-sku-stock-pill {
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  align-items: baseline;
+  gap: 7px;
+  min-width: 74px;
+  min-height: 28px;
+  padding: 5px 7px;
+  border-radius: 6px;
+  border: 1px solid var(--sku-line);
+  background: transparent;
+}
+
+.admin-app[data-sku-db] .admin-sku-stock-pill.is-low {
+  border-color: rgba(255, 116, 107, 0.44);
+}
+
+.admin-app[data-sku-db] .admin-sku-stock-pill.is-watch {
+  border-color: rgba(243, 196, 95, 0.44);
+}
+
+.admin-app[data-sku-db] .admin-sku-stock-pill strong,
+.admin-app[data-sku-db] .admin-sku-stock-pill small {
+  line-height: 1;
+}
+
+.admin-app[data-sku-db] .admin-sku-table-wrap {
+  overflow: auto;
+}
+
+.admin-app[data-sku-db] .admin-sku-data-table th,
+.admin-app[data-sku-db] .admin-sku-data-table td {
+  text-align: left;
+}
+
+.admin-app[data-sku-db] .admin-sku-data-table td {
+  line-height: 1.28;
+}
+
+@media (max-width: 1320px) {
+  .admin-app[data-sku-db] .admin-sku-commandbar {
+    border-radius: var(--sku-radius);
+  }
+}
+
+@media (max-width: 820px) {
+  .admin-app[data-sku-db] .admin-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-app[data-sku-db] .admin-rail {
+    width: auto;
+    min-height: 0;
+    padding: 8px;
+    border-right: 0;
+    border-bottom: 1px solid var(--sku-line);
+  }
+
+  .admin-app[data-sku-db] .admin-sku-commandbar {
+    grid-template-columns: 1fr;
+    border-radius: var(--sku-radius);
+  }
+
+  .admin-app[data-sku-db] .admin-sku-commandmark {
+    width: 100%;
+    padding: 0;
+  }
+
+  .admin-app[data-sku-db] .admin-sku-mode {
+    white-space: nowrap;
+  }
+
+  .admin-app[data-sku-db] .admin-sku-command-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) repeat(4, 38px);
+    width: 100%;
+    gap: 8px;
+  }
+
+  .admin-app[data-sku-db] .admin-sku-user-label {
+    max-width: none;
+    padding-left: 0;
+  }
+
+  .admin-app[data-sku-db] .admin-sku-segment-strip span {
+    border-radius: var(--sku-radius);
   }
 }

@@ -84,8 +84,7 @@ $pageBuildVersion = 'sku1.00.00';
                         <span class="admin-sku-mode"><?php echo $isBranch ? 'Branch SKU' : 'SKU Request'; ?></span>
                     </div>
                     <div class="admin-sku-command-actions">
-                        <span class="admin-sku-user-chip" title="<?php echo htmlspecialchars(jg_sku_session_username(), ENT_QUOTES); ?>">
-                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21a8 8 0 0 0-16 0M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z"/></svg>
+                        <span class="admin-sku-user-label" title="<?php echo htmlspecialchars(jg_sku_session_username(), ENT_QUOTES); ?>">
                             <span><?php echo htmlspecialchars(jg_sku_session_username(), ENT_QUOTES); ?></span>
                         </span>
                         <a class="admin-ghost-btn admin-link-btn admin-icon-btn" href="../dashboard/?view=overview" aria-label="Back to executive dashboard" title="Home">
@@ -169,7 +168,6 @@ $pageBuildVersion = 'sku1.00.00';
                             <aside class="admin-sku-side-stack" aria-label="SKU operations">
                                 <article class="admin-sku-dock admin-sku-request-dock">
                                     <div class="admin-sku-dock-head">
-                                        <span class="admin-sku-dock-mark">01</span>
                                         <strong>Approvals</strong>
                                     </div>
                                     <div class="admin-request-stack" data-request-list>
@@ -180,7 +178,6 @@ $pageBuildVersion = 'sku1.00.00';
 
                                 <article class="admin-sku-dock">
                                     <div class="admin-sku-dock-head">
-                                        <span class="admin-sku-dock-mark">02</span>
                                         <strong>Mappings</strong>
                                     </div>
                                     <div class="admin-sku-form-grid admin-sku-master-create-grid">
@@ -326,7 +323,6 @@ $pageBuildVersion = 'sku1.00.00';
                             <aside class="admin-sku-side-stack" aria-label="Request status">
                                 <article class="admin-sku-dock admin-sku-request-dock">
                                     <div class="admin-sku-dock-head">
-                                        <span class="admin-sku-dock-mark">01</span>
                                         <strong>Requests</strong>
                                     </div>
                                     <div class="admin-request-stack" data-request-list>

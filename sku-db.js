@@ -673,13 +673,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const itemId = escapeHtml(item.id || '');
     const itemName = escapeHtml(item.name || '');
     return `
-      <span
-        class="admin-sku-token admin-sku-token-action"
+      <div
+        class="admin-sku-reference-row admin-sku-reference-row-action"
         data-master-token
         tabindex="0"
         aria-expanded="false"
       >
-        <span>${escapeHtml(item.code || '--')} · ${itemName}</span>
+        <code>${escapeHtml(item.code || '--')}</code>
+        <span>${itemName}</span>
         ${role === 'branch'
           ? `<button
               type="button"
@@ -692,20 +693,30 @@ document.addEventListener('DOMContentLoaded', () => {
               aria-label="Remove ${kind} ${itemName}"
             >Remove</button>`
           : ''}
-      </span>
+      </div>
     `;
   };
 
   const renderMasterLists = () => {
     if (brandList) {
       brandList.innerHTML = state.database.brands.length
-        ? state.database.brands.map((brand) => `<span class="admin-sku-token">${escapeHtml(brand.code || '--')} · ${escapeHtml(brand.name || '')}</span>`).join('')
+        ? state.database.brands.map((brand) => `
+            <div class="admin-sku-reference-row">
+              <code>${escapeHtml(brand.code || '--')}</code>
+              <span>${escapeHtml(brand.name || '')}</span>
+            </div>
+          `).join('')
         : '<p class="admin-empty">No brands yet.</p>';
     }
 
     if (unitList) {
       unitList.innerHTML = state.database.units.length
-        ? state.database.units.map((unit) => `<span class="admin-sku-token">${escapeHtml(unit.code || '--')} · ${escapeHtml(unit.name || '')}</span>`).join('')
+        ? state.database.units.map((unit) => `
+            <div class="admin-sku-reference-row">
+              <code>${escapeHtml(unit.code || '--')}</code>
+              <span>${escapeHtml(unit.name || '')}</span>
+            </div>
+          `).join('')
         : '<p class="admin-empty">No units yet.</p>';
     }
 
@@ -714,7 +725,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ? state.database.brands.map((brand) => `
             <div class="admin-sku-brand-block">
               <strong>${escapeHtml(brand.name || '')}</strong>
-              <div class="admin-sku-token-list">
+              <div class="admin-sku-reference-list">
                 ${(brand.flavors || []).length
                   ? (brand.flavors || []).map((item) => renderMasterChildToken('flavor', brand, item)).join('')
                   : '<p class="admin-empty">No flavors yet.</p>'}
@@ -729,7 +740,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ? state.database.brands.map((brand) => `
             <div class="admin-sku-brand-block">
               <strong>${escapeHtml(brand.name || '')}</strong>
-              <div class="admin-sku-token-list">
+              <div class="admin-sku-reference-list">
                 ${(brand.products || []).length
                   ? (brand.products || []).map((item) => renderMasterChildToken('product', brand, item)).join('')
                   : '<p class="admin-empty">No products yet.</p>'}
@@ -870,7 +881,7 @@ document.addEventListener('DOMContentLoaded', () => {
             aria-label="Copy item tag ${escapeHtml(row.tag || '')}"
           >${escapeHtml(row.tag || '')}</button>
         </td>
-        <td data-col="Brand"><span class="admin-sku-brand-pill">${escapeHtml(row.brand_name || '')}</span></td>
+        <td data-col="Brand"><span class="admin-sku-brand-text">${escapeHtml(row.brand_name || '')}</span></td>
         <td data-col="Product">${escapeHtml(row.product_name || '')}</td>
         <td data-col="Flavor">${escapeHtml(row.flavor_name || '')}</td>
         <td data-col="Unit">${escapeHtml(row.unit_name || '')}</td>
