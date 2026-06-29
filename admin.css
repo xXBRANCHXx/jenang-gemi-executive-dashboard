@@ -13590,3 +13590,121 @@ body:has(.admin-app[data-sku-db])::after {
     display: none;
   }
 }
+
+/* SKU DB refinement: simpler setup panels, zebra SKU rows, and no header gap. */
+.admin-app[data-sku-db] .admin-sku-workbench .admin-sku-collapsible {
+  padding: 0;
+  background: var(--sku-panel);
+}
+
+.admin-app[data-sku-db] .admin-sku-workbench .admin-sku-collapse-toggle {
+  min-height: 54px;
+  gap: 10px;
+  padding: 0 14px;
+}
+
+.admin-app[data-sku-db] .admin-sku-workbench .admin-sku-collapse-toggle strong {
+  font-size: 0.95rem;
+  font-weight: 850;
+  line-height: 1.2;
+  text-transform: none;
+}
+
+.admin-app[data-sku-db] .admin-sku-workbench .admin-sku-collapse-arrow {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--sku-line);
+  border-radius: 50%;
+  background: var(--sku-panel-strong);
+}
+
+.admin-app[data-sku-db] .admin-sku-workbench .admin-sku-collapse-arrow::before {
+  content: '+';
+  font-family: Inter, sans-serif;
+  font-size: 1rem;
+  font-weight: 800;
+  transform: none;
+}
+
+.admin-app[data-sku-db] .admin-sku-workbench .admin-sku-collapse[open] > .admin-sku-collapse-toggle .admin-sku-collapse-arrow::before {
+  content: '-';
+  transform: none;
+}
+
+.admin-app[data-sku-db] .admin-sku-workbench .admin-sku-collapse-body {
+  gap: 14px;
+  padding: 0 14px 14px;
+}
+
+.admin-app[data-sku-db] .admin-sku-workbench .admin-sku-preview-surface {
+  grid-template-columns: 1fr;
+  min-height: 0;
+  padding: 14px;
+  border-color: var(--sku-line);
+  background: var(--sku-panel-strong);
+}
+
+.admin-app[data-sku-db] .admin-sku-workbench .admin-sku-preview-surface > .admin-control-label {
+  grid-column: auto;
+}
+
+.admin-app[data-sku-db] .admin-sku-workbench .admin-sku-preview-surface strong {
+  overflow-wrap: anywhere;
+  white-space: normal;
+  font-size: clamp(1.7rem, 3vw, 2.65rem);
+  line-height: 1.05;
+}
+
+.admin-app[data-sku-db] .admin-sku-workbench .admin-sku-segment-strip {
+  display: none;
+}
+
+.admin-app[data-sku-db] .admin-sku-workbench .admin-sku-builder-compact {
+  grid-template-columns: repeat(3, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.admin-app[data-sku-db] .admin-sku-workbench .admin-sku-builder-tag {
+  grid-column: span 2;
+}
+
+.admin-app[data-sku-db] .admin-sku-workbench .admin-sku-builder-actions {
+  justify-content: flex-start;
+}
+
+.admin-app[data-sku-db] .admin-sku-workbench .admin-sku-master-create-grid {
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.admin-app[data-sku-db] .admin-sku-workbench .admin-sku-master-create-grid .admin-sku-mini-form {
+  grid-template-columns: minmax(0, 1fr) 72px;
+}
+
+.admin-app[data-sku-db] .admin-sku-workbench .admin-sku-master-create-grid .admin-sku-mini-form:has(select) {
+  grid-template-columns: minmax(120px, 0.42fr) minmax(0, 1fr) 72px;
+}
+
+.admin-app[data-sku-db] .admin-sku-table-wrap {
+  padding-top: 0;
+}
+
+.admin-app[data-sku-db] .admin-sku-data-table tr.admin-sku-row:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+:root[data-admin-theme='light'] .admin-app[data-sku-db] .admin-sku-data-table tr.admin-sku-row:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.68);
+}
+
+@media (max-width: 900px) {
+  .admin-app[data-sku-db] .admin-sku-workbench .admin-sku-builder-compact,
+  .admin-app[data-sku-db] .admin-sku-workbench .admin-sku-master-create-grid .admin-sku-mini-form,
+  .admin-app[data-sku-db] .admin-sku-workbench .admin-sku-master-create-grid .admin-sku-mini-form:has(select) {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-app[data-sku-db] .admin-sku-workbench .admin-sku-builder-tag {
+    grid-column: auto;
+  }
+}

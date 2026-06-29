@@ -114,13 +114,6 @@ $pageBuildVersion = 'sku1.00.00';
                                         <div class="admin-sku-preview-surface">
                                             <span class="admin-control-label">12-digit SKU</span>
                                             <strong data-sku-preview>------------</strong>
-                                            <div class="admin-sku-segment-strip" data-sku-segment-strip aria-label="SKU code segments">
-                                                <span><b>BR</b><em>--</em></span>
-                                                <span><b>UN</b><em>--</em></span>
-                                                <span><b>VOL</b><em>----</em></span>
-                                                <span><b>FL</b><em>--</em></span>
-                                                <span><b>PR</b><em>--</em></span>
-                                            </div>
                                         </div>
 
                                         <form class="admin-sku-builder admin-sku-builder-compact" data-setup-form>
@@ -287,13 +280,6 @@ $pageBuildVersion = 'sku1.00.00';
                                         <div class="admin-sku-preview-surface">
                                             <span class="admin-control-label">Proposed SKU</span>
                                             <strong data-sku-preview>------------</strong>
-                                            <div class="admin-sku-segment-strip" data-sku-segment-strip aria-label="SKU code segments">
-                                                <span><b>BR</b><em>--</em></span>
-                                                <span><b>UN</b><em>--</em></span>
-                                                <span><b>VOL</b><em>----</em></span>
-                                                <span><b>FL</b><em>--</em></span>
-                                                <span><b>PR</b><em>--</em></span>
-                                            </div>
                                         </div>
 
                                         <form class="admin-sku-builder admin-sku-builder-compact" data-request-form>
