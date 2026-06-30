@@ -62,9 +62,13 @@ function jg_orders_handle_request(): void
             if ($year < 2000) {
                 $year = (int) substr($startDate, 0, 4);
             }
+            $backfillLimit = jg_orders_limit($payload['limit'] ?? 1000) ?? 1000;
+            $backfillLimit = min(1500, max(1, $backfillLimit));
+            $backfillOffset = max(0, (int) ($payload['offset'] ?? 0));
+            $runSync = jg_orders_bool($payload['run_sync'] ?? $payload['sync'] ?? false);
             $pdo = analyticsDb();
             jg_orders_ensure_mirror_schema($pdo);
-            $response = jg_orders_backfill_mirror_range($pdo, $startDate, $endDate, $year);
+            $response = jg_orders_backfill_mirror_range($pdo, $startDate, $endDate, $year, $backfillLimit, $backfillOffset, $runSync);
             if (empty($response['ok'])) {
                 http_response_code((int) ($response['status'] ?? 500));
             }
@@ -1157,7 +1161,7 @@ function jg_orders_extract_js_object_literal(string $source, string $name): arra
     return [];
 }
 
-function jg_orders_backfill_mirror_range(PDO $pdo, string $startDate, string $endDate, int $year): array
+function jg_orders_backfill_mirror_range(PDO $pdo, string $startDate, string $endDate, int $year, int $limit = 1000, int $offset = 0, bool $runSync = false): array
 {
     $lock = @fopen(sys_get_temp_dir() . '/jg-dashboard-order-map-backfill.lock', 'c+');
     if (!is_resource($lock)) {
@@ -1177,29 +1181,25 @@ function jg_orders_backfill_mirror_range(PDO $pdo, string $startDate, string $en
     }
 
     try {
-        @set_time_limit(180);
+        @set_time_limit(70);
         $before = jg_orders_mirror_range_summary($pdo, $startDate, $endDate);
-        $sync = jg_orders_run_ingest_year_sync($year);
-        $import = jg_orders_import_mirror_range_from_api($pdo, $startDate, $endDate, 60000, 'mirror_map_backfill');
+        $sync = $runSync ? jg_orders_run_ingest_year_sync($year, 25) : ['ok' => false, 'skipped' => true];
+        $import = jg_orders_import_mirror_range_from_api($pdo, $startDate, $endDate, $limit, 'mirror_map_backfill', $offset);
         $after = jg_orders_mirror_range_summary($pdo, $startDate, $endDate);
-        $ok = !empty($sync['ok']) || (int) ($import['fetched'] ?? 0) > 0 || (int) ($import['upserted'] ?? 0) > 0;
 
-        $response = [
-            'ok' => $ok,
-            'status' => $ok ? 200 : 502,
+        return [
+            'ok' => true,
+            'status' => 200,
             'start_date' => $startDate,
             'end_date' => $endDate,
             'year' => $year,
+            'offset' => $offset,
+            'limit' => $limit,
             'before' => $before,
             'after' => $after,
             'sync' => $sync,
             'import' => $import,
         ];
-        if (!$ok) {
-            $response['error'] = 'order_map_backfill_empty';
-        }
-
-        return $response;
     } catch (Throwable $error) {
         error_log('Dashboard order map backfill failed: ' . $error->getMessage());
         return [
@@ -1214,13 +1214,13 @@ function jg_orders_backfill_mirror_range(PDO $pdo, string $startDate, string $en
     }
 }
 
-function jg_orders_run_ingest_year_sync(int $year): array
+function jg_orders_run_ingest_year_sync(int $year, int $timeout = 120): array
 {
     try {
         $payload = jg_orders_fetch_json_with_timeout(jg_orders_remote_url('/sales/sync', [
             'year' => (string) $year,
             'mode' => 'year',
-        ]), 120);
+        ]), $timeout);
         $sync = is_array($payload['sync'] ?? null) ? $payload['sync'] : [];
 
         return [
@@ -1239,12 +1239,12 @@ function jg_orders_run_ingest_year_sync(int $year): array
     }
 }
 
-function jg_orders_import_mirror_range_from_api(PDO $pdo, string $startDate, string $endDate, int $maxRows, string $event): array
+function jg_orders_import_mirror_range_from_api(PDO $pdo, string $startDate, string $endDate, int $maxRows, string $event, int $startOffset = 0): array
 {
     $fetched = 0;
     $upserted = 0;
     $pages = 0;
-    $offset = 0;
+    $offset = max(0, $startOffset);
     $hasMore = false;
     $nextOffset = null;
     $maxRows = max(1, $maxRows);
@@ -1296,6 +1296,7 @@ function jg_orders_import_mirror_range_from_api(PDO $pdo, string $startDate, str
         'fetched' => $fetched,
         'upserted' => $upserted,
         'pages' => $pages,
+        'offset' => $startOffset,
         'has_more' => $hasMore,
         'next_offset' => $hasMore ? $nextOffset : null,
         'truncated' => $hasMore && $fetched >= $maxRows,

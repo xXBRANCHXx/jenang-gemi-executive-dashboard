@@ -1979,6 +1979,7 @@ document.addEventListener('DOMContentLoaded', () => {
       locationMapSignatureByTheme: {},
       locationBackfillLoading: false,
       locationBackfillError: '',
+      locationBackfillProgress: '',
       locationBackfillCompletedSignature: '',
       provinceGeoJson: null,
       provinceMapError: '',
@@ -3875,7 +3876,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const overviewLocationTargetOrders = () => Math.max(0, Number(state.overview.data?.totals?.orders || 0));
 
   const overviewLocationBackfillStatusSuffix = () => {
-    if (state.overview.locationBackfillLoading) return ' • backfilling mirror';
+    if (state.overview.locationBackfillLoading) return ` • backfilling mirror${state.overview.locationBackfillProgress ? ` ${state.overview.locationBackfillProgress}` : ''}`;
     if (state.overview.locationBackfillError) return ' • backfill failed';
     return '';
   };
@@ -4182,19 +4183,43 @@ document.addEventListener('DOMContentLoaded', () => {
     const range = overviewLocationDateRange();
     state.overview.locationBackfillLoading = true;
     state.overview.locationBackfillError = '';
+    state.overview.locationBackfillProgress = '';
     renderOverviewLocationHeatmap();
 
     try {
-      await requestJson(buildOrderMapBackfillUrl(), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          year: state.overview.year,
-          start_date: range.start,
-          end_date: range.end
-        }),
-        timeoutMs: 180000
-      });
+      let offset = 0;
+      let hasMore = false;
+      let pages = 0;
+      let fetched = 0;
+      let upserted = 0;
+      do {
+        const payload = await requestJson(buildOrderMapBackfillUrl(), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            year: state.overview.year,
+            start_date: range.start,
+            end_date: range.end,
+            offset,
+            limit: 1000,
+            run_sync: pages === 0
+          }),
+          timeoutMs: pages === 0 ? 65000 : 45000
+        });
+        const result = payload?.import || {};
+        fetched += Math.max(0, Number(result.fetched || 0));
+        upserted += Math.max(0, Number(result.upserted || 0));
+        const nextOffset = Number(result.next_offset);
+        hasMore = Boolean(result.has_more) && Number.isFinite(nextOffset) && nextOffset > offset;
+        offset = hasMore ? nextOffset : offset;
+        pages += 1;
+        state.overview.locationBackfillProgress = `(${formatCompactNumber(fetched)} checked)`;
+        renderOverviewLocationHeatmap();
+      } while (hasMore && pages < 80);
+
+      state.overview.locationBackfillProgress = upserted > 0
+        ? `(${formatCompactNumber(upserted)} rows mirrored)`
+        : '(no new rows)';
       removeOverviewLocationCache(range);
       state.overview.locationCacheReady = false;
       state.overview.locationLoadedAt = 0;
@@ -4205,6 +4230,7 @@ document.addEventListener('DOMContentLoaded', () => {
       state.overview.locationBackfillError = error?.message || 'Unable to backfill map orders.';
     } finally {
       state.overview.locationBackfillLoading = false;
+      if (state.overview.locationBackfillError) state.overview.locationBackfillProgress = '';
       renderOverviewLocationHeatmap();
     }
   };
