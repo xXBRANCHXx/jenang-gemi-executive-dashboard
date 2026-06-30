@@ -131,43 +131,43 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                             </button>
                             <div class="admin-menu-panel" data-menu-panel aria-label="Executive Dashboard navigation" hidden>
                                 <button type="button" class="admin-menu-item" data-view-switch="overview">
-                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-6h5v6"/></svg></span>
+                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>
                                     <span><strong>Home</strong><small>Executive sales overview</small></span>
                                 </button>
                                 <button type="button" class="admin-menu-item" data-view-switch="daily">
-                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3v4M17 3v4"/><path d="M4.5 8.5h15"/><path d="M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/><path d="M8 13h3M13 13h3M8 17h3M13 17h3"/></svg></span>
+                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg></span>
                                     <span><strong>Daily</strong><small>Daily platform Qty and Rp</small></span>
                                 </button>
                                 <button type="button" class="admin-menu-item" data-view-switch="orders">
-                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3.5h12v17H6z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg></span>
+                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 16H8"/><path d="M14 8H8"/><path d="M16 12H8"/><path d="M4 3a1 1 0 0 1 1-1 1.3 1.3 0 0 1 .7.2l.933.6a1.3 1.3 0 0 0 1.4 0l.934-.6a1.3 1.3 0 0 1 1.4 0l.933.6a1.3 1.3 0 0 0 1.4 0l.933-.6a1.3 1.3 0 0 1 1.4 0l.934.6a1.3 1.3 0 0 0 1.4 0l.933-.6A1.3 1.3 0 0 1 19 2a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1 1.3 1.3 0 0 1-.7-.2l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.934.6a1.3 1.3 0 0 1-1.4 0l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-1.4 0l-.934-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-.7.2 1 1 0 0 1-1-1z"/></svg></span>
                                     <span><strong>Orders</strong><small>Order detail and fulfillment facts</small></span>
                                 </button>
                                 <button type="button" class="admin-menu-item" data-view-switch="home">
-                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 19V5"/><path d="M4 6h11l-.8 4 3.8 2H4"/><path d="M4 12h13"/></svg></span>
+                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M11 6a13 13 0 0 0 8.4-2.8A1 1 0 0 1 21 4v12a1 1 0 0 1-1.6.8A13 13 0 0 0 11 14H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/><path d="M6 14a12 12 0 0 0 2.4 7.2 2 2 0 0 0 3.2-2.4A8 8 0 0 1 10 14"/><path d="M8 6v8"/></svg></span>
                                     <span><strong>Campaigns</strong><small>Landing-page analytics</small></span>
                                 </button>
                                 <a class="admin-menu-item admin-link-btn" href="../profit-loss/">
-                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 19.5V10M10 19.5V5M16 19.5v-7M3 19.5h18"/><path d="m4 7 5-4 6 5 5-4"/></svg></span>
+                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16v5"/><path d="M16 14.639V21"/><path d="M20 10.656V21"/><path d="m22 3-8.646 8.646a.5.5 0 0 1-.708 0L9.354 8.354a.5.5 0 0 0-.707 0L2 15"/><path d="M4 18.463V21"/><path d="M8 14.656V21"/></svg></span>
                                     <span><strong>P&amp;L</strong><small>Revenue, costs, and operating profit</small></span>
                                 </a>
                                 <a class="admin-menu-item admin-link-btn" href="../back-dash/">
-                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M19 12H5"/><path d="m12 5-7 7 7 7"/><path d="M19 5v14"/></svg></span>
+                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg></span>
                                     <span><strong>Back Dash</strong><small>Marketplace control workspace</small></span>
                                 </a>
                                 <button type="button" class="admin-menu-item" data-view-switch="context">
-                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5H5v14h14v-3"/><path d="M11 13 20 4M14 4h6v6"/></svg></span>
+                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></span>
                                     <span><strong>Context</strong><small>Operational context and live signals</small></span>
                                 </button>
                                 <button type="button" class="admin-menu-item" data-view-switch="website">
-                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.4 3.8 5.4 3.8 9S14.5 18.6 12 21c-2.5-2.4-3.8-5.4-3.8-9S9.5 5.4 12 3z"/></svg></span>
+                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></span>
                                     <span><strong>Website</strong><small>Site traffic and conversion analytics</small></span>
                                 </button>
                                 <button type="button" class="admin-menu-item" data-view-switch="hard-set">
-                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/><circle cx="12" cy="12" r="9"/></svg></span>
+                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg></span>
                                     <span><strong>Hard Set</strong><small>One-way Store Ops cutover</small></span>
                                 </button>
                                 <button type="button" class="admin-menu-item" data-view-switch="settings">
-                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19.4 15a1.8 1.8 0 0 0 .4 2l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.8 1.8 0 0 0-2-.4 1.8 1.8 0 0 0-1 1.6V21a2 2 0 0 1-4 0v-.1a1.8 1.8 0 0 0-1-1.6 1.8 1.8 0 0 0-2 .4l-.1.1a2 2 0 0 1-2.8-2.8l.1-.1a1.8 1.8 0 0 0 .4-2 1.8 1.8 0 0 0-1.6-1H3a2 2 0 0 1 0-4h.1a1.8 1.8 0 0 0 1.6-1 1.8 1.8 0 0 0-.4-2l-.1-.1a2 2 0 0 1 2.8-2.8l.1.1a1.8 1.8 0 0 0 2 .4 1.8 1.8 0 0 0 1-1.6V3a2 2 0 0 1 4 0v.1a1.8 1.8 0 0 0 1 1.6 1.8 1.8 0 0 0 2-.4l.1-.1a2 2 0 0 1 2.8 2.8l-.1.1a1.8 1.8 0 0 0-.4 2 1.8 1.8 0 0 0 1.6 1h.1a2 2 0 0 1 0 4h-.1a1.8 1.8 0 0 0-1.7 1z"/></svg></span>
+                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg></span>
                                     <span><strong>Settings</strong><small>Theme, lock, and tracking controls</small></span>
                                 </button>
                             </div>

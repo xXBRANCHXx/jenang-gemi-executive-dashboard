@@ -76,7 +76,8 @@ const OVERVIEW_PLATFORM_COLORS = {
 };
 
 const OVERVIEW_PRODUCT_COLORS = ['#9dff00', '#22d3ee', '#ff8f1f', '#ff4ecd', '#8b5cf6', '#f8e16c', '#67f8d4', '#ff6b6b'];
-const OVERVIEW_PRODUCT_COLORS_LIGHT = ['#2563eb', '#db2777', '#16a34a', '#ea580c', '#7c3aed', '#0891b2', '#be123c', '#4d7c0f'];
+const OVERVIEW_PRODUCT_COLORS_LIGHT = ['#2563eb', '#7c3aed', '#0891b2', '#16a34a', '#ea580c', '#db2777', '#4d7c0f', '#be123c'];
+const OVERVIEW_FLAVOR_COLORS_LIGHT = ['#0ea5e9', '#8b5cf6', '#f97316', '#10b981', '#f43f5e', '#eab308', '#06b6d4', '#d946ef', '#84cc16', '#6366f1', '#14b8a6', '#ec4899'];
 const OVERVIEW_ACCOUNT_COLORS = ['#9dff00', '#22d3ee', '#ff8f1f', '#ff4ecd', '#8b5cf6', '#f8e16c', '#67f8d4', '#ff6b6b', '#c084fc', '#34d399', '#fb7185', '#60a5fa'];
 const OVERVIEW_ACCOUNT_COLORS_LIGHT = ['#2563eb', '#db2777', '#16a34a', '#ea580c', '#7c3aed', '#0891b2', '#be123c', '#4d7c0f', '#9333ea', '#047857', '#e11d48', '#0284c7'];
 const OVERVIEW_PLATFORM_COLORS_LIGHT = {
@@ -93,6 +94,11 @@ const isLightAdminTheme = () => (document.documentElement.dataset.adminTheme || 
 const getOverviewProductColor = (index) => {
   const colors = isLightAdminTheme() ? OVERVIEW_PRODUCT_COLORS_LIGHT : OVERVIEW_PRODUCT_COLORS;
   return colors[index % colors.length];
+};
+
+const getOverviewFlavorColor = (index) => {
+  if (!isLightAdminTheme()) return getOverviewProductColor(index);
+  return OVERVIEW_FLAVOR_COLORS_LIGHT[index % OVERVIEW_FLAVOR_COLORS_LIGHT.length];
 };
 
 const getOverviewAccountColor = (index) => {
@@ -1670,6 +1676,7 @@ const drawPieChart = (canvas, items, config) => {
   const visibleItems = items.slice(0, config.limit || 8);
   const rows = visibleItems.filter((item) => Number(item[metric] || 0) > 0);
   const total = rows.reduce((sum, item) => sum + Number(item[metric] || 0), 0);
+  const colorForIndex = typeof config.colorForIndex === 'function' ? config.colorForIndex : getOverviewProductColor;
   const drawLegend = () => {
     const textColor = getComputedStyle(document.documentElement).getPropertyValue('--admin-text') || '#f3f6f8';
     const mutedColor = getComputedStyle(document.documentElement).getPropertyValue('--admin-muted') || '#9ca3af';
@@ -1685,7 +1692,7 @@ const drawPieChart = (canvas, items, config) => {
       const row = index % maxRows;
       const x = legendStartX + column * columnWidth;
       const y = 28 + row * rowHeight;
-      ctx.fillStyle = getOverviewProductColor(index);
+      ctx.fillStyle = colorForIndex(index);
       ctx.fillRect(x, y - 12, 14, 14);
       ctx.fillStyle = textColor;
       ctx.fillText(String(item.label || 'Flavor').slice(0, columns > 2 ? 12 : 16), x + 22, y - 2);
@@ -1718,8 +1725,11 @@ const drawPieChart = (canvas, items, config) => {
     ctx.moveTo(cx, cy);
     ctx.arc(cx, cy, radius, start, end);
     ctx.closePath();
-    ctx.fillStyle = getOverviewProductColor(index);
+    ctx.fillStyle = colorForIndex(index);
     ctx.fill();
+    ctx.lineWidth = isLightAdminTheme() ? 2 : 1;
+    ctx.strokeStyle = isLightAdminTheme() ? 'rgba(255, 255, 255, 0.86)' : 'rgba(0, 0, 0, 0.24)';
+    ctx.stroke();
     const mid = start + angle / 2;
     hoverPoints.push({
       x: cx + Math.cos(mid) * radius * 0.72,
@@ -4024,13 +4034,15 @@ document.addEventListener('DOMContentLoaded', () => {
       metric: state.overview.flavorMetric,
       unitsMap: OVERVIEW_METRIC_UNITS,
       limit: 32,
-      emptyMessage: 'No syrup flavor sales yet'
+      emptyMessage: 'No syrup flavor sales yet',
+      colorForIndex: getOverviewFlavorColor
     }));
     drawChartSafely(overviewRefs.dropsFlavorCanvas, () => drawPieChart(overviewRefs.dropsFlavorCanvas, dropsFlavorRows, {
       metric: state.overview.flavorMetric,
       unitsMap: OVERVIEW_METRIC_UNITS,
       limit: 32,
-      emptyMessage: 'No drops flavor sales yet'
+      emptyMessage: 'No drops flavor sales yet',
+      colorForIndex: getOverviewFlavorColor
     }));
     if (state.activeView === 'orders') {
       resetOrderWindowsFromOverview();

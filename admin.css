@@ -14189,6 +14189,29 @@ body:has(.admin-app[data-sku-db])::after {
   color: var(--admin-text);
   backdrop-filter: blur(22px);
   -webkit-backdrop-filter: blur(22px);
+  scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
+  scrollbar-width: thin;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-panel::-webkit-scrollbar {
+  width: 4px;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-panel::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.28);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-panel {
+  scrollbar-color: rgba(15, 23, 42, 0.28) transparent;
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-panel::-webkit-scrollbar-thumb {
+  background: rgba(15, 23, 42, 0.28);
 }
 
 .admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-panel::before {
@@ -14216,6 +14239,18 @@ body:has(.admin-app[data-sku-db])::after {
 .admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-panel .admin-menu-icon,
 .admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-panel .admin-menu-item.is-active .admin-menu-icon {
   background: transparent;
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-panel .admin-menu-item,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-panel .admin-menu-item:hover,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-panel .admin-menu-item.is-active,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-panel .admin-menu-icon,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-panel .admin-menu-item strong {
+  color: #050505;
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-panel .admin-menu-item small {
+  color: rgba(5, 5, 5, 0.62);
 }
 
 .admin-app.admin-app-suite[data-admin-dashboard] .admin-search-shell.admin-search-shell-topbar {
@@ -14336,6 +14371,88 @@ body:has(.admin-app[data-sku-db])::after {
 
 :root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-overview-refresh:hover {
   color: #2563eb;
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-chart-range-control .admin-chart-icon-btn {
+  border-color: rgba(15, 23, 42, 0.1);
+  background: rgba(255, 255, 255, 0.94);
+  color: #0f172a;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.12);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-chart-range-control .admin-chart-icon-btn:hover,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-chart-range-control .admin-chart-icon-btn:focus-visible {
+  border-color: rgba(37, 99, 235, 0.34);
+  background: #ffffff;
+  color: #2563eb;
+  box-shadow: 0 14px 28px rgba(37, 99, 235, 0.14);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-chart-range-control .admin-chart-icon-btn.is-active {
+  border-color: rgba(37, 99, 235, 0.38);
+  background: #172033;
+  color: #ffffff;
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-chart-range-control .admin-chart-range-popover {
+  border-color: rgba(15, 23, 42, 0.1);
+  background: rgba(255, 255, 255, 0.96);
+  color: #0f172a;
+  box-shadow: 0 24px 54px rgba(15, 23, 42, 0.16);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-chart-range-control .admin-range-calendar-head strong,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-chart-range-control .admin-range-day {
+  color: #0f172a;
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-chart-range-control .admin-range-weekdays span {
+  color: rgba(71, 85, 105, 0.78);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-chart-range-control .admin-range-nav {
+  border-color: rgba(15, 23, 42, 0.1);
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-chart-range-control .admin-range-nav:hover,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-chart-range-control .admin-range-nav:focus-visible {
+  border-color: rgba(37, 99, 235, 0.22);
+  background: rgba(37, 99, 235, 0.08);
+  color: #2563eb;
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-chart-range-control .admin-range-day.is-outside {
+  color: rgba(100, 116, 139, 0.54);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-chart-range-control .admin-range-day.is-today::after {
+  border-color: rgba(37, 99, 235, 0.34);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-chart-range-control .admin-range-day.is-in-range::before,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-chart-range-control .admin-range-day.is-preview::before {
+  background: rgba(37, 99, 235, 0.12);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-chart-range-control .admin-range-day.is-final-range::before {
+  background: rgba(37, 99, 235, 0.18);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-chart-range-control .admin-range-day.is-selected-start::after,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-chart-range-control .admin-range-day.is-selected-end::after {
+  border-color: #2563eb;
+  background: #2563eb;
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-chart-range-control .admin-range-day.is-selected-start,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-chart-range-control .admin-range-day.is-selected-end,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-chart-range-control .admin-range-day.is-final-range.is-selected-start,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-chart-range-control .admin-range-day.is-final-range.is-selected-end {
+  color: #ffffff;
 }
 
 :root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-overview-year-select {
