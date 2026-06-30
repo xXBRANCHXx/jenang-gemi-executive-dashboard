@@ -14047,41 +14047,6 @@ body:has(.admin-app[data-sku-db])::after {
   display: none;
 }
 
-.admin-app.admin-app-suite[data-admin-dashboard] .admin-location-backfill-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 34px;
-  padding: 0 12px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.07);
-  color: #f4f4f5;
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0;
-  line-height: 1;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.admin-app.admin-app-suite[data-admin-dashboard] .admin-location-backfill-btn:hover,
-.admin-app.admin-app-suite[data-admin-dashboard] .admin-location-backfill-btn:focus-visible {
-  border-color: rgba(157, 255, 0, 0.34);
-  background: rgba(255, 255, 255, 0.11);
-  color: #ffffff;
-  outline: none;
-}
-
-.admin-app.admin-app-suite[data-admin-dashboard] .admin-location-backfill-btn:disabled {
-  cursor: wait;
-  opacity: 0.68;
-}
-
-.admin-app.admin-app-suite[data-admin-dashboard] .admin-location-backfill-btn[hidden] {
-  display: none;
-}
-
 .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-heatmap-shell {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(210px, 280px);
@@ -14513,21 +14478,6 @@ body:has(.admin-app[data-sku-db])::after {
   background-image: none;
 }
 
-:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-backfill-btn {
-  border-color: rgba(15, 23, 42, 0.14);
-  background: #ffffff;
-  color: #0f172a;
-  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
-}
-
-:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-backfill-btn:hover,
-:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-backfill-btn:focus-visible {
-  border-color: rgba(33, 122, 60, 0.36);
-  background: #f8fafc;
-  color: #0f172a;
-  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.12);
-}
-
 :root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-legend i {
   background: linear-gradient(90deg, #eef2f7, #1d4ed8);
   box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
@@ -14712,10 +14662,6 @@ body:has(.admin-app[data-sku-db])::after {
   .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-heatmap-card .admin-panel-head {
     align-items: stretch;
     flex-direction: column;
-  }
-
-  .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-backfill-btn {
-    width: 100%;
   }
 
   .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-map,

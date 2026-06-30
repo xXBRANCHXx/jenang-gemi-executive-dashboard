@@ -43,15 +43,7 @@ function jg_orders_handle_request(): void
             jg_orders_ensure_mirror_schema($pdo);
             jg_orders_ensure_location_cache_schema($pdo);
             $forceRefresh = jg_orders_bool($_GET['refresh'] ?? $_GET['force'] ?? null);
-            $mirrorRepair = null;
-            if (jg_orders_bool($_GET['repair'] ?? $_GET['mirror_repair'] ?? null)) {
-                $forceRefresh = true;
-                $mirrorRepair = jg_orders_import_mirror_range_from_api($pdo, $startDate, $endDate, 1000, 'mirror_location_summary_repair');
-            }
             $response = jg_orders_location_summary_payload($pdo, $startDate, $endDate, $forceRefresh);
-            if (is_array($mirrorRepair)) {
-                $response['mirror_repair'] = $mirrorRepair;
-            }
             echo json_encode($response, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             return;
         }
@@ -62,26 +54,6 @@ function jg_orders_handle_request(): void
             $payload = is_array($payload) ? $payload : [];
             $startDate = jg_orders_date($payload['start_date'] ?? $startDate, '-1 day');
             $endDate = jg_orders_date($payload['end_date'] ?? $endDate, 'today');
-        }
-        if ($method === 'POST' && in_array($action, ['map_backfill', 'location_backfill'], true)) {
-            $year = (int) ($payload['year'] ?? substr($startDate, 0, 4));
-            if ($year < 2000) {
-                $year = (int) substr($startDate, 0, 4);
-            }
-            $backfillLimit = jg_orders_limit($payload['limit'] ?? 1000) ?? 1000;
-            $backfillLimit = min(1500, max(1, $backfillLimit));
-            $backfillOffset = max(0, (int) ($payload['offset'] ?? 0));
-            $runSync = jg_orders_bool($payload['run_sync'] ?? $payload['sync'] ?? false);
-            $includeSummary = jg_orders_bool($payload['include_summary'] ?? $payload['summary'] ?? false);
-            $pdo = analyticsDb();
-            jg_orders_ensure_mirror_schema($pdo);
-            jg_orders_ensure_location_cache_schema($pdo);
-            $response = jg_orders_backfill_mirror_range($pdo, $startDate, $endDate, $year, $backfillLimit, $backfillOffset, $runSync, $includeSummary);
-            if (empty($response['ok'])) {
-                http_response_code((int) ($response['status'] ?? 500));
-            }
-            echo json_encode($response, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-            return;
         }
 
         $remoteWarning = '';
@@ -1167,94 +1139,6 @@ function jg_orders_extract_js_object_literal(string $source, string $name): arra
     }
 
     return [];
-}
-
-function jg_orders_backfill_mirror_range(PDO $pdo, string $startDate, string $endDate, int $year, int $limit = 1000, int $offset = 0, bool $runSync = false, bool $includeSummary = false): array
-{
-    $lock = @fopen(sys_get_temp_dir() . '/jg-dashboard-order-map-backfill.lock', 'c+');
-    if (!is_resource($lock)) {
-        return [
-            'ok' => false,
-            'status' => 500,
-            'error' => 'order_map_backfill_lock_unavailable',
-        ];
-    }
-    if (!@flock($lock, LOCK_EX | LOCK_NB)) {
-        fclose($lock);
-        return [
-            'ok' => false,
-            'status' => 409,
-            'error' => 'order_map_backfill_in_progress',
-            'message' => 'Another order map backfill request is still running.',
-            'retry_after_seconds' => 2,
-        ];
-    }
-
-    try {
-        @set_time_limit(70);
-        $before = jg_orders_mirror_range_summary($pdo, $startDate, $endDate);
-        $sync = $runSync ? jg_orders_run_ingest_year_sync($year, 25) : ['ok' => false, 'skipped' => true];
-        $import = jg_orders_import_mirror_range_from_api($pdo, $startDate, $endDate, $limit, 'mirror_map_backfill', $offset);
-        $after = jg_orders_mirror_range_summary($pdo, $startDate, $endDate);
-        $locationSummary = ($includeSummary || empty($import['has_more']))
-            ? jg_orders_location_summary_payload($pdo, $startDate, $endDate, true)
-            : null;
-
-        $response = [
-            'ok' => true,
-            'status' => 200,
-            'start_date' => $startDate,
-            'end_date' => $endDate,
-            'year' => $year,
-            'offset' => $offset,
-            'limit' => $limit,
-            'before' => $before,
-            'after' => $after,
-            'sync' => $sync,
-            'import' => $import,
-        ];
-        if (is_array($locationSummary)) {
-            $response['location_summary'] = $locationSummary;
-        }
-
-        return $response;
-    } catch (Throwable $error) {
-        error_log('Dashboard order map backfill failed: ' . $error->getMessage());
-        return [
-            'ok' => false,
-            'status' => 502,
-            'error' => 'order_map_backfill_failed',
-            'message' => $error->getMessage(),
-        ];
-    } finally {
-        @flock($lock, LOCK_UN);
-        fclose($lock);
-    }
-}
-
-function jg_orders_run_ingest_year_sync(int $year, int $timeout = 120): array
-{
-    try {
-        $payload = jg_orders_fetch_json_with_timeout(jg_orders_remote_url('/sales/sync', [
-            'year' => (string) $year,
-            'mode' => 'year',
-        ]), $timeout);
-        $sync = is_array($payload['sync'] ?? null) ? $payload['sync'] : [];
-
-        return [
-            'ok' => true,
-            'mode' => 'year',
-            'stored' => (int) ($sync['stored'] ?? $payload['stored'] ?? 0),
-            'accounts_checked' => (int) ($sync['status']['accounts_checked'] ?? count($sync['accounts'] ?? [])),
-            'accounts_ok' => (int) ($sync['status']['accounts_ok'] ?? 0),
-        ];
-    } catch (Throwable $error) {
-        error_log('Dashboard order map sync request failed: ' . $error->getMessage());
-        return [
-            'ok' => false,
-            'error' => 'api_ingest_year_sync_failed',
-        ];
-    }
 }
 
 function jg_orders_import_mirror_range_from_api(PDO $pdo, string $startDate, string $endDate, int $maxRows, string $event, int $startOffset = 0): array

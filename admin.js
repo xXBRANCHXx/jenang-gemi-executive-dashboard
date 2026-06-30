@@ -672,12 +672,9 @@ const ORDER_BACKGROUND_TARGET_ROWS = 24000;
 const ORDER_BACKGROUND_MAX_WINDOWS = 72;
 const OVERVIEW_LOCATION_PAGE_SIZE = 2000;
 const OVERVIEW_LOCATION_MAX_PAGES = 25;
-const OVERVIEW_LOCATION_BACKFILL_PAGE_SIZE = 500;
-const OVERVIEW_LOCATION_BACKFILL_MAX_PAGES = 160;
 const OVERVIEW_LOCATION_CACHE_VERSION = 5;
 const OVERVIEW_LOCATION_GEOCODER_VERSION = 3;
 const OVERVIEW_LOCATION_CACHE_PREFIX = `jg-overview-location-v${OVERVIEW_LOCATION_CACHE_VERSION}`;
-const OVERVIEW_LOCATION_BACKFILL_TARGET_RATE = 0.8;
 
 const INDONESIA_PROVINCE_ALIASES = {
   'Aceh': ['aceh', 'nanggroe aceh darussalam', 'nad'],
@@ -1979,10 +1976,6 @@ document.addEventListener('DOMContentLoaded', () => {
       locationRenderSignature: '',
       locationMapHtmlByTheme: {},
       locationMapSignatureByTheme: {},
-      locationBackfillLoading: false,
-      locationBackfillError: '',
-      locationBackfillProgress: '',
-      locationBackfillCompletedSignature: '',
       provinceGeoJson: null,
       provinceMapError: '',
       data: null,
@@ -2163,7 +2156,6 @@ document.addEventListener('DOMContentLoaded', () => {
     dropsFlavorCanvas: document.querySelector('[data-overview-drops-flavor-chart]'),
     locationMap: document.querySelector('[data-overview-location-map]'),
     locationStatus: document.querySelector('[data-overview-location-status]'),
-    locationBackfill: document.querySelector('[data-overview-location-backfill]'),
     locationList: document.querySelector('[data-overview-location-list]'),
     trendTitle: document.querySelector('[data-overview-trend-title]'),
     trendMeta: document.querySelector('[data-overview-trend-meta]'),
@@ -3395,18 +3387,10 @@ document.addEventListener('DOMContentLoaded', () => {
       end_date: endDate
     });
     if (options.refresh || options.force || options.repair) params.set('refresh', '1');
-    if (options.repair) params.set('repair', '1');
     if (options.cacheBust || options.refresh || options.force || options.repair) params.set('_ts', String(Date.now()));
     return `${ordersEndpoint}?${params.toString()}`;
   };
   const requestOrderLocationSummary = (startDate, endDate, options = {}) => requestJson(buildOrderLocationSummaryUrl(startDate, endDate, options));
-  const buildOrderMapBackfillUrl = () => {
-    const params = new URLSearchParams({
-      action: 'map_backfill',
-      _ts: String(Date.now())
-    });
-    return `${ordersEndpoint}?${params.toString()}`;
-  };
   const dashboardDateFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone });
   const todayDate = () => dashboardDateFormatter.format(new Date());
   const offsetDate = (dateValue, offsetDays) => {
@@ -3879,34 +3863,6 @@ document.addEventListener('DOMContentLoaded', () => {
     `).join('');
   };
 
-  const overviewLocationTargetOrders = () => Math.max(0, Number(state.overview.data?.totals?.orders || 0));
-
-  const overviewLocationBackfillStatusSuffix = () => {
-    if (state.overview.locationBackfillLoading) return ` • backfilling mirror${state.overview.locationBackfillProgress ? ` ${state.overview.locationBackfillProgress}` : ''}`;
-    if (state.overview.locationBackfillError) return ' • backfill failed';
-    return '';
-  };
-
-  const renderOverviewLocationBackfillControl = (aggregate) => {
-    const button = overviewRefs.locationBackfill;
-    if (!button) return;
-    const targetOrders = overviewLocationTargetOrders();
-    const loadedOrders = Math.max(0, Number(aggregate.totalOrders || 0));
-    const coverage = targetOrders > 0 ? loadedOrders / targetOrders : 1;
-    const range = overviewLocationDateRange();
-    const completed = state.overview.locationBackfillCompletedSignature === range.signature;
-    const hasLoaded = Boolean(state.overview.locationLoadedAt || loadedOrders > 0 || state.overview.locationError);
-    const needsBackfill = hasLoaded && targetOrders > 0 && coverage < OVERVIEW_LOCATION_BACKFILL_TARGET_RATE && !completed;
-
-    button.hidden = !state.overview.locationBackfillLoading && !needsBackfill;
-    button.disabled = Boolean(state.overview.locationBackfillLoading || state.overview.locationLoading);
-    button.textContent = state.overview.locationBackfillLoading ? 'Backfilling...' : 'Backfill map';
-    button.title = targetOrders > 0
-      ? `${formatCompactNumber(Math.max(0, targetOrders - loadedOrders))} orders missing from the map mirror`
-      : 'Backfill missing map orders';
-    button.setAttribute('aria-busy', state.overview.locationBackfillLoading ? 'true' : 'false');
-  };
-
   const overviewLocationThemeKey = () => document.documentElement.dataset.adminTheme || 'dark';
 
   const overviewLocationCachedMap = (signature) => {
@@ -3942,24 +3898,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const aggregate = finalizeOverviewLocationAggregate(state.overview.locationAggregate || createOverviewLocationAggregate());
     const loading = Boolean(state.overview.locationLoading);
     const truncated = Boolean(state.overview.locationTruncated);
-    const statusSuffix = overviewLocationBackfillStatusSuffix();
     if (overviewRefs.locationStatus) {
       if (state.overview.provinceMapError) {
-        overviewRefs.locationStatus.textContent = `Map unavailable: ${state.overview.provinceMapError}${statusSuffix}`;
+        overviewRefs.locationStatus.textContent = `Map unavailable: ${state.overview.provinceMapError}`;
       } else if (state.overview.locationError) {
-        overviewRefs.locationStatus.textContent = `Location data unavailable: ${state.overview.locationError}${statusSuffix}`;
+        overviewRefs.locationStatus.textContent = `Location data unavailable: ${state.overview.locationError}`;
       } else if (loading && !aggregate.totalOrders) {
-        overviewRefs.locationStatus.textContent = `Loading ${state.overview.year} order locations${statusSuffix}`;
+        overviewRefs.locationStatus.textContent = `Loading ${state.overview.year} order locations`;
       } else if (aggregate.matchedOrders > 0) {
         const mappedRate = aggregate.totalOrders > 0 ? Math.round((aggregate.matchedOrders / aggregate.totalOrders) * 1000) / 10 : 0;
-        overviewRefs.locationStatus.textContent = `${formatCompactNumber(aggregate.matchedOrders)} mapped orders • ${mappedRate}% mapped${aggregate.unmatchedOrders ? ` • ${formatCompactNumber(aggregate.unmatchedOrders)} unmatched` : ''}${truncated ? ' • sample capped' : ''}${loading ? ' • checking new orders' : ''}${statusSuffix}`;
+        overviewRefs.locationStatus.textContent = `${formatCompactNumber(aggregate.matchedOrders)} mapped orders • ${mappedRate}% mapped${aggregate.unmatchedOrders ? ` • ${formatCompactNumber(aggregate.unmatchedOrders)} unmatched` : ''}${truncated ? ' • sample capped' : ''}${loading ? ' • checking new orders' : ''}`;
       } else if (aggregate.totalOrders > 0) {
-        overviewRefs.locationStatus.textContent = `${formatCompactNumber(aggregate.totalOrders)} loaded orders • no province matches${statusSuffix}`;
+        overviewRefs.locationStatus.textContent = `${formatCompactNumber(aggregate.totalOrders)} loaded orders • no province matches`;
       } else {
-        overviewRefs.locationStatus.textContent = loading ? `Loading ${state.overview.year} order locations${statusSuffix}` : `No ${state.overview.year} order locations yet${statusSuffix}`;
+        overviewRefs.locationStatus.textContent = loading ? `Loading ${state.overview.year} order locations` : `No ${state.overview.year} order locations yet`;
       }
     }
-    renderOverviewLocationBackfillControl(aggregate);
 
     const aggregateSignature = overviewLocationAggregateSignature(aggregate);
     if (!state.overview.provinceGeoJson) {
@@ -4181,99 +4135,6 @@ document.addEventListener('DOMContentLoaded', () => {
         state.overview.locationLoading = false;
         renderOverviewLocationHeatmap();
       }
-    }
-  };
-
-  const runOverviewLocationBackfill = async () => {
-    if (state.overview.locationBackfillLoading) return;
-    const range = overviewLocationDateRange();
-    state.overview.locationBackfillLoading = true;
-    state.overview.locationBackfillError = '';
-    state.overview.locationBackfillProgress = '';
-    renderOverviewLocationHeatmap();
-
-    try {
-      let offset = 0;
-      let hasMore = false;
-      let pages = 0;
-      let fetched = 0;
-      let upserted = 0;
-      let lockRetries = 0;
-      let latestLocationSummary = null;
-      const applyBackfillLocationSummary = (summaryPayload) => {
-        if (!summaryPayload) return;
-        latestLocationSummary = summaryPayload;
-        state.overview.locationSignature = range.signature;
-        state.overview.locationCacheReady = true;
-        applyOverviewLocationSummaryPayload(summaryPayload, range);
-        if (!state.overview.provinceGeoJson) {
-          loadProvinceMapData().catch(() => {});
-        }
-      };
-      do {
-        let payload = null;
-        try {
-          payload = await requestJson(buildOrderMapBackfillUrl(), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              year: state.overview.year,
-              start_date: range.start,
-              end_date: range.end,
-              offset,
-              limit: OVERVIEW_LOCATION_BACKFILL_PAGE_SIZE,
-              include_summary: pages === 0
-            }),
-            timeoutMs: 30000
-          });
-          lockRetries = 0;
-        } catch (error) {
-          const isBackfillLock = error?.status === 409 || error?.payload?.error === 'order_map_backfill_in_progress' || error?.message === 'order_map_backfill_in_progress';
-          if (isBackfillLock && lockRetries < 6) {
-            lockRetries += 1;
-            state.overview.locationBackfillProgress = '(waiting for previous run)';
-            renderOverviewLocationHeatmap();
-            await wait(1200 * lockRetries);
-            continue;
-          }
-          throw error;
-        }
-        const result = payload?.import || {};
-        if (payload?.location_summary) {
-          applyBackfillLocationSummary(payload.location_summary);
-        }
-        fetched += Math.max(0, Number(result.fetched || 0));
-        upserted += Math.max(0, Number(result.upserted || 0));
-        const nextOffset = Number(result.next_offset);
-        hasMore = Boolean(result.has_more) && Number.isFinite(nextOffset) && nextOffset > offset;
-        offset = hasMore ? nextOffset : offset;
-        pages += 1;
-        state.overview.locationBackfillProgress = `(${formatCompactNumber(upserted)} mirrored / ${formatCompactNumber(fetched)} checked)`;
-        renderOverviewLocationHeatmap();
-      } while (hasMore && pages < OVERVIEW_LOCATION_BACKFILL_MAX_PAGES);
-
-      state.overview.locationBackfillProgress = upserted > 0
-        ? `(${formatCompactNumber(upserted)} rows mirrored)`
-        : '(no new rows)';
-      removeOverviewLocationCache(range);
-      state.overview.locationCacheReady = false;
-      state.overview.locationLoadedAt = 0;
-      state.overview.locationSignature = '';
-      if (!hasMore) {
-        state.overview.locationBackfillCompletedSignature = range.signature;
-      }
-      if (latestLocationSummary) {
-        applyBackfillLocationSummary(latestLocationSummary);
-        renderOverviewLocationHeatmap();
-      } else {
-        await loadOverviewLocationRows({ force: true, incremental: false });
-      }
-    } catch (error) {
-      state.overview.locationBackfillError = error?.message || 'Unable to backfill map orders.';
-    } finally {
-      state.overview.locationBackfillLoading = false;
-      if (state.overview.locationBackfillError) state.overview.locationBackfillProgress = '';
-      renderOverviewLocationHeatmap();
     }
   };
 
@@ -7150,7 +7011,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   overviewRefs.refreshButton?.addEventListener('click', refreshMarketplaceData);
-  overviewRefs.locationBackfill?.addEventListener('click', runOverviewLocationBackfill);
   overviewRefs.locationMap?.addEventListener('pointermove', (event) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
