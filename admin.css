@@ -14039,6 +14039,11 @@ body:has(.admin-app[data-sku-db])::after {
 
 .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-heatmap-card {
   min-width: 0;
+  background: var(--admin-surface-panel, var(--admin-surface));
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-location-heatmap-card::before {
+  display: none;
 }
 
 .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-heatmap-shell {
@@ -14049,14 +14054,13 @@ body:has(.admin-app[data-sku-db])::after {
 }
 
 .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-map {
+  position: relative;
   display: grid;
   place-items: center;
   min-height: 420px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
-  background:
-    radial-gradient(circle at 22% 24%, rgba(34, 211, 238, 0.1), transparent 30%),
-    rgba(7, 12, 20, 0.24);
+  background: rgba(7, 12, 20, 0.24);
   overflow: hidden;
 }
 
@@ -14080,7 +14084,11 @@ body:has(.admin-app[data-sku-db])::after {
   transition: fill 160ms ease, stroke 160ms ease;
 }
 
-.admin-app.admin-app-suite[data-admin-dashboard] .admin-location-province:hover {
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-location-province:focus {
+  outline: none;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-location-province:is(:hover, :focus-visible, .is-active) {
   stroke-width: 1.8;
 }
 
@@ -14107,7 +14115,8 @@ body:has(.admin-app[data-sku-db])::after {
   display: block;
   height: 8px;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(30, 64, 175, 0.2), #38bdf8);
+  background: #38bdf8;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
 }
 
 .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-list {
@@ -14458,14 +14467,16 @@ body:has(.admin-app[data-sku-db])::after {
 
 :root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-map {
   border-color: rgba(15, 23, 42, 0.09);
-  background:
-    radial-gradient(circle at 22% 24%, rgba(37, 99, 235, 0.1), transparent 32%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(241, 245, 249, 0.78)),
-    #ffffff;
+  background: #ffffff;
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-heatmap-card {
+  background: #ffffff;
 }
 
 :root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-legend i {
-  background: linear-gradient(90deg, #dbeafe, #1d4ed8);
+  background: #1d4ed8;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
 }
 
 :root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-row {

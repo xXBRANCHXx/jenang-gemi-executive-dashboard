@@ -925,27 +925,31 @@ const bindChartInfoPopovers = () => {
   window.addEventListener('scroll', positionChartInfoPopover, true);
 };
 
-const ensureChartTooltip = (canvas) => {
-  if (!(canvas instanceof HTMLCanvasElement)) return null;
-  const existing = chartTooltipState.get(canvas);
-  if (existing?.isConnected) return existing;
-
-  const surface = canvas.parentElement;
+const ensureSurfaceTooltip = (surface, key) => {
   if (!(surface instanceof HTMLElement)) return null;
+  const tooltipKey = key || surface;
+  const existing = chartTooltipState.get(tooltipKey);
+  if (existing?.isConnected) return existing;
 
   const tooltip = document.createElement('div');
   tooltip.className = 'admin-chart-tooltip';
   tooltip.innerHTML = '<strong></strong><div class="admin-chart-tooltip-body"></div>';
   surface.appendChild(tooltip);
-  chartTooltipState.set(canvas, tooltip);
+  chartTooltipState.set(tooltipKey, tooltip);
   return tooltip;
 };
 
-const hideChartTooltip = (canvas) => {
-  const tooltip = chartTooltipState.get(canvas);
+const ensureChartTooltip = (canvas) => (
+  canvas instanceof HTMLCanvasElement ? ensureSurfaceTooltip(canvas.parentElement, canvas) : null
+);
+
+const hideSurfaceTooltip = (key) => {
+  const tooltip = chartTooltipState.get(key);
   if (!tooltip) return;
   tooltip.classList.remove('is-visible');
 };
+
+const hideChartTooltip = (canvas) => hideSurfaceTooltip(canvas);
 
 const drawChartMessage = (canvas, message) => {
   const prepared = prepareCanvas(canvas);
@@ -968,9 +972,8 @@ const drawChartSafely = (canvas, renderer, message = 'Chart unavailable') => {
   }
 };
 
-const renderChartTooltip = (canvas, point, clientX, clientY) => {
-  const tooltip = ensureChartTooltip(canvas);
-  const surface = canvas.parentElement;
+const renderSurfaceTooltip = (surface, key, point, clientX, clientY) => {
+  const tooltip = ensureSurfaceTooltip(surface, key);
   if (!tooltip || !(surface instanceof HTMLElement) || !point) return;
 
   const titleNode = tooltip.querySelector('strong');
@@ -995,6 +998,10 @@ const renderChartTooltip = (canvas, point, clientX, clientY) => {
   tooltip.style.left = `${relativeX}px`;
   tooltip.style.top = `${relativeY}px`;
   tooltip.classList.add('is-visible');
+};
+
+const renderChartTooltip = (canvas, point, clientX, clientY) => {
+  renderSurfaceTooltip(canvas?.parentElement, canvas, point, clientX, clientY);
 };
 
 const resolveHoveredChartPoint = (canvas, clientX, clientY) => {
@@ -1898,8 +1905,10 @@ document.addEventListener('DOMContentLoaded', () => {
       hourlyDate: '',
       hourlyRequestToken: 0,
       locationRows: [],
+      locationRowKeys: new Set(),
       locationSignature: '',
       locationLoadedAt: 0,
+      locationMirroredAfter: '',
       locationLoading: false,
       locationError: '',
       locationTruncated: false,
@@ -3291,6 +3300,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (options.repair) {
       params.set('repair', '1');
     }
+    if (options.mirroredAfter) {
+      params.set('mirrored_after', String(options.mirroredAfter));
+    }
     const limit = Number(options.limit || 0);
     if (Number.isFinite(limit) && limit > 0) {
       params.set('limit', String(Math.floor(limit)));
@@ -3502,6 +3514,46 @@ document.addEventListener('DOMContentLoaded', () => {
     return uniqueOrderRowKey(row);
   };
 
+  const updateOverviewLocationCursor = (rows) => {
+    let cursorDate = state.overview.locationMirroredAfter
+      ? parseOrderTimestamp(state.overview.locationMirroredAfter)
+      : null;
+    (Array.isArray(rows) ? rows : []).forEach((row) => {
+      const mirroredDate = parseOrderTimestamp(row?.mirrored_at);
+      if (!mirroredDate) return;
+      if (!cursorDate || mirroredDate.getTime() > cursorDate.getTime()) {
+        cursorDate = mirroredDate;
+      }
+    });
+    state.overview.locationMirroredAfter = cursorDate ? cursorDate.toISOString() : state.overview.locationMirroredAfter;
+  };
+
+  const mergeOverviewLocationRows = (rows, options = {}) => {
+    if (!(state.overview.locationRowKeys instanceof Set) || options.reset) {
+      state.overview.locationRowKeys = new Set();
+    }
+    if (options.reset) {
+      state.overview.locationRows = [];
+      state.overview.locationMirroredAfter = '';
+    } else if (!state.overview.locationRowKeys.size && state.overview.locationRows.length) {
+      state.overview.locationRows.forEach((row) => {
+        const key = uniqueProvinceOrderKey(row);
+        if (key) state.overview.locationRowKeys.add(key);
+      });
+    }
+
+    let added = 0;
+    (Array.isArray(rows) ? rows : []).forEach((row) => {
+      const key = uniqueProvinceOrderKey(row);
+      if (!key || state.overview.locationRowKeys.has(key)) return;
+      state.overview.locationRowKeys.add(key);
+      state.overview.locationRows.push(row);
+      added += 1;
+    });
+    updateOverviewLocationCursor(rows);
+    return added;
+  };
+
   const aggregateProvinceOrders = (rows) => {
     const seen = new Set();
     const byProvince = new Map();
@@ -3618,19 +3670,68 @@ document.addEventListener('DOMContentLoaded', () => {
       const orders = Number(aggregate.byProvince.get(province)?.orders || 0);
       const path = provinceFeaturePath(feature, project);
       if (!path) return '';
+      const share = aggregate.matchedOrders > 0 ? orders / aggregate.matchedOrders : 0;
       const title = `${province || 'Unknown province'}: ${orders.toLocaleString('id-ID')} orders`;
+      const shareLabel = `${Math.round(share * 1000) / 10}% of mapped orders`;
       return `
-        <path class="admin-location-province" d="${path}" fill="${provinceFillColor(orders, aggregate.maxOrders)}" stroke="${stroke}" stroke-width="0.8" fill-rule="evenodd" tabindex="0" aria-label="${escapeHtml(title)}">
-          <title>${escapeHtml(title)}</title>
-        </path>
+        <path class="admin-location-province" d="${path}" fill="${provinceFillColor(orders, aggregate.maxOrders)}" stroke="${stroke}" stroke-width="0.8" fill-rule="evenodd" tabindex="0" role="listitem" data-location-province="${escapeHtml(province || 'Unknown province')}" data-location-orders="${escapeHtml(String(orders))}" data-location-share="${escapeHtml(String(share))}" aria-label="${escapeHtml(`${title}, ${shareLabel}`)}"></path>
       `;
     }).join('');
 
     return `
-      <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Indonesia order heat map by province" preserveAspectRatio="xMidYMid meet">
+      <svg viewBox="0 0 ${width} ${height}" role="list" aria-label="Indonesia order heat map by province" preserveAspectRatio="xMidYMid meet">
         <g>${paths}</g>
       </svg>
     `;
+  };
+
+  const locationTooltipPoint = (provincePath) => {
+    if (!(provincePath instanceof Element) || !provincePath.classList.contains('admin-location-province')) return null;
+    const province = provincePath.getAttribute('data-location-province') || 'Unknown province';
+    const orders = Number(provincePath.getAttribute('data-location-orders') || 0);
+    const share = Number(provincePath.getAttribute('data-location-share') || 0);
+    return {
+      label: province,
+      tooltipTitle: province,
+      tooltipLinesHtml: `
+        <div class="admin-chart-tooltip-row is-primary">
+          <span>Orders</span>
+          <strong>${formatCompactNumber(orders)}</strong>
+        </div>
+        <div class="admin-chart-tooltip-row">
+          <span>Share</span>
+          <strong>${Number.isFinite(share) ? `${Math.round(share * 1000) / 10}%` : '0%'}</strong>
+        </div>
+        <div class="admin-chart-tooltip-row">
+          <span>Basis</span>
+          <strong>Mapped orders</strong>
+        </div>
+      `
+    };
+  };
+
+  let activeLocationProvince = null;
+  const setActiveLocationProvince = (provincePath) => {
+    if (activeLocationProvince === provincePath) return;
+    if (activeLocationProvince?.classList) activeLocationProvince.classList.remove('is-active');
+    activeLocationProvince = provincePath;
+    if (activeLocationProvince?.classList) activeLocationProvince.classList.add('is-active');
+  };
+
+  const hideLocationTooltip = () => {
+    if (overviewRefs.locationMap) hideSurfaceTooltip(overviewRefs.locationMap);
+    setActiveLocationProvince(null);
+  };
+
+  const showLocationTooltip = (provincePath, clientX, clientY) => {
+    if (!overviewRefs.locationMap) return;
+    const point = locationTooltipPoint(provincePath);
+    if (!point) {
+      hideLocationTooltip();
+      return;
+    }
+    setActiveLocationProvince(provincePath);
+    renderSurfaceTooltip(overviewRefs.locationMap, overviewRefs.locationMap, point, clientX, clientY);
   };
 
   const renderOverviewLocationList = (aggregate) => {
@@ -3717,27 +3818,38 @@ document.addEventListener('DOMContentLoaded', () => {
   const loadOverviewLocationRows = async (options = {}) => {
     if (!overviewRefs.locationMap) return;
     const range = overviewLocationDateRange();
+    const sameRange = state.overview.locationSignature === range.signature;
     if (
       !options.force &&
-      state.overview.locationSignature === range.signature &&
+      sameRange &&
       (state.overview.locationLoadedAt || state.overview.locationLoading)
     ) {
       renderOverviewLocationHeatmap();
       return;
     }
 
+    const canLoadIncrementally = Boolean(
+      sameRange &&
+      state.overview.locationRows.length &&
+      state.overview.locationMirroredAfter &&
+      (options.incremental || options.force || options.repair)
+    );
     const requestToken = state.overview.locationRequestToken + 1;
     state.overview.locationRequestToken = requestToken;
     state.overview.locationSignature = range.signature;
-    state.overview.locationRows = [];
+    if (!canLoadIncrementally) {
+      mergeOverviewLocationRows([], { reset: true });
+    } else {
+      mergeOverviewLocationRows([]);
+    }
     state.overview.locationLoadedAt = 0;
     state.overview.locationLoading = true;
     state.overview.locationError = '';
     state.overview.locationTruncated = false;
+    const mirroredAfter = canLoadIncrementally ? state.overview.locationMirroredAfter : '';
     renderOverviewLocationHeatmap();
 
     try {
-      const loadedRows = [];
       let offset = 0;
       let pageCount = 0;
       let hasMore = false;
@@ -3745,12 +3857,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const payload = await requestOrderFacts(range.start, range.end, {
           limit: OVERVIEW_LOCATION_PAGE_SIZE,
           offset,
-          storedOnly: true
+          storedOnly: true,
+          repair: Boolean(options.repair && !canLoadIncrementally),
+          mirroredAfter
         });
         if (state.overview.locationRequestToken !== requestToken) return;
         const rows = Array.isArray(payload.orders) ? payload.orders : [];
-        loadedRows.push(...rows);
-        state.overview.locationRows = loadedRows;
+        mergeOverviewLocationRows(rows);
         renderOverviewLocationHeatmap();
 
         const nextOffset = Number(payload.next_offset);
@@ -3773,11 +3886,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const ensureOverviewLocationHeatmap = () => {
+  const ensureOverviewLocationHeatmap = (options = {}) => {
     if (!overviewRefs.locationMap) return;
     renderOverviewLocationHeatmap();
     loadProvinceMapData().catch(() => {});
-    loadOverviewLocationRows().catch(() => {});
+    loadOverviewLocationRows(options).catch(() => {});
   };
 
   const deriveOrderMonthRanges = (years, months) => {
@@ -5761,6 +5874,9 @@ document.addEventListener('DOMContentLoaded', () => {
       writeOverviewCache(state.overview.year, data);
       renderOverview(data);
       await refreshOverviewHourlyRows(null, { repair: true }).catch(() => {});
+      if (state.activeView === 'overview') {
+        await loadOverviewLocationRows({ force: true, incremental: true, repair: true }).catch(() => {});
+      }
       await syncActiveOrderViewsAfterRepair();
       if (interactive && overviewRefs.refreshLabel) {
         overviewRefs.refreshLabel.textContent = 'Refreshed';
@@ -6516,6 +6632,9 @@ document.addEventListener('DOMContentLoaded', () => {
         queueActiveViewRefresh({ force: true, forceRefresh: true, repair: true });
       }
       refreshOverviewHourlyRows(null, { repair: true }).catch(() => {});
+      if (state.activeView === 'overview') {
+        loadOverviewLocationRows({ force: true, incremental: true, repair: true }).catch(() => {});
+      }
       preloadOrderMemory({ reset: true, repair: true }).catch(() => {});
     } else {
       queueActiveViewRefresh({ force: true });
@@ -6638,6 +6757,26 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   overviewRefs.refreshButton?.addEventListener('click', refreshMarketplaceData);
+  overviewRefs.locationMap?.addEventListener('pointermove', (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const provincePath = target.closest('.admin-location-province');
+    if (!provincePath || !overviewRefs.locationMap.contains(provincePath)) {
+      hideLocationTooltip();
+      return;
+    }
+    showLocationTooltip(provincePath, event.clientX, event.clientY);
+  });
+  overviewRefs.locationMap?.addEventListener('pointerleave', hideLocationTooltip);
+  overviewRefs.locationMap?.addEventListener('focusin', (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const provincePath = target.closest('.admin-location-province');
+    if (!provincePath || !overviewRefs.locationMap.contains(provincePath)) return;
+    const rect = provincePath.getBoundingClientRect();
+    showLocationTooltip(provincePath, rect.left + (rect.width / 2), rect.top + (rect.height / 2));
+  });
+  overviewRefs.locationMap?.addEventListener('focusout', hideLocationTooltip);
 
   overviewRefs.volumeMetricButtons.forEach((button) => {
     button.addEventListener('click', () => {
