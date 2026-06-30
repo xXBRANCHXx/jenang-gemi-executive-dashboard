@@ -14012,3 +14012,378 @@ body:has(.admin-app[data-sku-db])::after {
     transform: none;
   }
 }
+
+/* Executive dashboard homepage UX refinement. */
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-flavor-chart-grid {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  min-width: 0;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-flavor-chart-card {
+  min-width: 0;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-flavor-chart-card .admin-chart-canvas-lg {
+  height: 328px;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-overview-year-field {
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  color: var(--admin-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-overview-year-select {
+  min-width: 104px;
+  height: 40px;
+  padding: 0 34px 0 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  appearance: none;
+  background:
+    linear-gradient(45deg, transparent 50%, currentColor 50%) calc(100% - 17px) 16px / 6px 6px no-repeat,
+    linear-gradient(135deg, currentColor 50%, transparent 50%) calc(100% - 12px) 16px / 6px 6px no-repeat,
+    var(--admin-surface-strong);
+  color: var(--admin-text);
+  font: 800 0.86rem/1 "Space Grotesk", sans-serif;
+  cursor: pointer;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-overview-year-select:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-sliding-toggle-indicator {
+  z-index: 1;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-sliding-chart-toggle > .admin-toggle-pill,
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-sliding-chart-toggle > .admin-toggle-pill:hover,
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-sliding-chart-toggle > .admin-toggle-pill.is-active,
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-sliding-chart-toggle > .admin-toggle-pill.is-active:hover {
+  z-index: 2;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-overview-totals-row > .admin-panel:not(.admin-overview-hourly-card) .admin-panel-head {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-overview-totals-row > .admin-panel:not(.admin-overview-hourly-card) .admin-panel-inline-toggles {
+  justify-self: start;
+  margin-top: 8px;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-overview-refresh,
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-overview-refresh:hover {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--admin-text);
+  box-shadow: none;
+  font-size: 0.78rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-overview-refresh {
+  transition: color 160ms ease, opacity 160ms ease;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-overview-refresh svg {
+  width: 16px;
+  height: 16px;
+  transition: transform 180ms ease;
+  transform-origin: 50% 50%;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-overview-refresh:hover svg {
+  transform: scale(1.24);
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-topbar-actions {
+  gap: 14px;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-notification-button,
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-trigger,
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-search-shell.admin-search-shell-topbar,
+:root[data-admin-theme='dark'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-notification-button,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-notification-button,
+:root[data-admin-theme='dark'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-trigger,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-trigger,
+:root[data-admin-theme='dark'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-search-shell.admin-search-shell-topbar,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-search-shell.admin-search-shell-topbar {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--admin-text);
+  box-shadow: none;
+  filter: none;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-notification-button,
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-notification-button:hover {
+  width: var(--admin-topbar-control-height);
+  min-width: var(--admin-topbar-control-height);
+  padding: 0;
+  overflow: visible;
+  justify-content: center;
+  transform: none;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-notification-button-copy {
+  display: none;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-notification-button-icon {
+  width: var(--admin-topbar-control-height);
+  height: var(--admin-topbar-control-height);
+  flex-basis: var(--admin-topbar-control-height);
+  border-radius: 0;
+  background: transparent;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-notification-button-icon > span {
+  top: 1px;
+  right: 1px;
+  background: var(--admin-text);
+  color: var(--admin-bg);
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-trigger::before,
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-search-surface,
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-search-surface-glow,
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-search-sweep,
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-search-focus-ring {
+  display: none;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-trigger:hover,
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-trigger[aria-expanded="true"] {
+  border: 0;
+  background: transparent;
+  color: var(--admin-text);
+  box-shadow: none;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-panel,
+:root[data-admin-theme='dark'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-panel,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-panel {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--admin-text);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-panel::before {
+  display: none;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-panel .admin-menu-item,
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-panel .admin-menu-item:hover,
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-panel .admin-menu-item.is-active,
+:root[data-admin-theme] .admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-panel .admin-menu-item,
+:root[data-admin-theme] .admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-panel .admin-menu-item:hover {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-panel .admin-menu-item::before {
+  display: none;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-panel .admin-menu-item:hover {
+  color: var(--admin-text);
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-panel .admin-menu-icon,
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-menu-panel .admin-menu-item.is-active .admin-menu-icon {
+  background: transparent;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-search-shell.admin-search-shell-topbar {
+  overflow: visible;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-search-shell.admin-search-shell-topbar::after {
+  content: "";
+  position: absolute;
+  right: 44px;
+  bottom: 4px;
+  left: 48px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0;
+  transform: scaleX(0.2);
+  transform-origin: left center;
+  transition: opacity 220ms ease, transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-search-shell.admin-search-shell-topbar.is-search-open,
+:root[data-admin-theme='dark'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-search-shell.admin-search-shell-topbar.is-search-open,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-search-shell.admin-search-shell-topbar.is-search-open {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-search-shell.admin-search-shell-topbar.is-search-open::after {
+  opacity: 0.34;
+  transform: scaleX(1);
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-search-shell-topbar .admin-search-icon-button,
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-search-shell-topbar .admin-search-close-button {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--admin-text);
+  box-shadow: none;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-search-shell-topbar .admin-search-input,
+:root[data-admin-theme='dark'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-search-shell-topbar .admin-search-input,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-search-shell-topbar .admin-search-input {
+  border: 0;
+  background: transparent;
+  color: var(--admin-text);
+  box-shadow: none;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-search-shell-topbar .admin-search-input::placeholder {
+  color: var(--admin-muted);
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-search-shell-topbar .admin-search-results {
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] {
+  --admin-bg: #f5f7fb;
+  --admin-surface: #ffffff;
+  --admin-surface-strong: #ffffff;
+  --admin-surface-soft: #eef2f7;
+  --admin-border: rgba(15, 23, 42, 0.12);
+  --admin-muted: rgba(51, 65, 85, 0.72);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-panel {
+  border-color: rgba(15, 23, 42, 0.1);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96)),
+    #ffffff;
+  box-shadow: 0 18px 46px rgba(15, 23, 42, 0.08);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-chart-surface,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-mini-metric-list div {
+  border-color: rgba(15, 23, 42, 0.09);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(241, 245, 249, 0.72)),
+    #ffffff;
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-sliding-chart-toggle {
+  border-color: rgba(15, 23, 42, 0.12);
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7), 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-sliding-toggle-indicator {
+  border-color: rgba(15, 23, 42, 0.08);
+  background: #172033;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.18);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-sliding-chart-toggle > .admin-toggle-pill,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-sliding-chart-toggle > .admin-toggle-pill:hover {
+  color: #64748b;
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-sliding-chart-toggle > .admin-toggle-pill.is-active,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-sliding-chart-toggle > .admin-toggle-pill.is-active:hover {
+  color: #ffffff;
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-live-pill,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-live-dot {
+  color: #15803d;
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-live-dot {
+  background: #16a34a;
+  box-shadow: 0 0 0 4px rgba(22, 163, 74, 0.14), 0 0 14px rgba(22, 163, 74, 0.42);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-overview-refresh:hover {
+  color: #2563eb;
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-overview-year-select {
+  border-color: rgba(15, 23, 42, 0.14);
+  background:
+    linear-gradient(45deg, transparent 50%, currentColor 50%) calc(100% - 17px) 16px / 6px 6px no-repeat,
+    linear-gradient(135deg, currentColor 50%, transparent 50%) calc(100% - 12px) 16px / 6px 6px no-repeat,
+    #ffffff;
+  color: #172033;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-search-shell-topbar .admin-search-results {
+  border-color: rgba(15, 23, 42, 0.1);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.12);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-notification-drawer {
+  border-color: rgba(15, 23, 42, 0.1);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 250, 252, 0.9)),
+    #ffffff;
+  color: #172033;
+  box-shadow: 0 28px 70px rgba(15, 23, 42, 0.14);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-notification-drawer :is(h2, h3, strong) {
+  color: #172033;
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-notification-drawer :is(p, small, em, .admin-notification-mode, .admin-notification-row-time) {
+  color: rgba(51, 65, 85, 0.68);
+}
+
+@media (max-width: 1100px) {
+  .admin-app.admin-app-suite[data-admin-dashboard] .admin-flavor-chart-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-app.admin-app-suite[data-admin-dashboard] .admin-overview-year-field {
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .admin-app.admin-app-suite[data-admin-dashboard] .admin-search-shell.admin-search-shell-topbar.is-search-open {
+    flex-basis: min(100%, 320px);
+  }
+}

@@ -76,7 +76,50 @@ const OVERVIEW_PLATFORM_COLORS = {
 };
 
 const OVERVIEW_PRODUCT_COLORS = ['#9dff00', '#22d3ee', '#ff8f1f', '#ff4ecd', '#8b5cf6', '#f8e16c', '#67f8d4', '#ff6b6b'];
+const OVERVIEW_PRODUCT_COLORS_LIGHT = ['#2563eb', '#db2777', '#16a34a', '#ea580c', '#7c3aed', '#0891b2', '#be123c', '#4d7c0f'];
 const OVERVIEW_ACCOUNT_COLORS = ['#9dff00', '#22d3ee', '#ff8f1f', '#ff4ecd', '#8b5cf6', '#f8e16c', '#67f8d4', '#ff6b6b', '#c084fc', '#34d399', '#fb7185', '#60a5fa'];
+const OVERVIEW_ACCOUNT_COLORS_LIGHT = ['#2563eb', '#db2777', '#16a34a', '#ea580c', '#7c3aed', '#0891b2', '#be123c', '#4d7c0f', '#9333ea', '#047857', '#e11d48', '#0284c7'];
+const OVERVIEW_PLATFORM_COLORS_LIGHT = {
+  shopee: '#d35400',
+  tiktok: '#0e7490',
+  tokopedia: '#15803d',
+  zero_website: '#4d7c0f',
+  jenang_gemi_website: '#b45309',
+  unknown: '#64748b'
+};
+
+const isLightAdminTheme = () => (document.documentElement.dataset.adminTheme || '') === 'light';
+
+const getOverviewProductColor = (index) => {
+  const colors = isLightAdminTheme() ? OVERVIEW_PRODUCT_COLORS_LIGHT : OVERVIEW_PRODUCT_COLORS;
+  return colors[index % colors.length];
+};
+
+const getOverviewAccountColor = (index) => {
+  const colors = isLightAdminTheme() ? OVERVIEW_ACCOUNT_COLORS_LIGHT : OVERVIEW_ACCOUNT_COLORS;
+  return colors[index % colors.length];
+};
+
+const getOverviewPlatformColor = (key, index = 0) => (
+  isLightAdminTheme()
+    ? (OVERVIEW_PLATFORM_COLORS_LIGHT[key] || getOverviewProductColor(index))
+    : (OVERVIEW_PLATFORM_COLORS[key] || getOverviewProductColor(index))
+);
+
+const getOverviewMetricColor = (metric) => {
+  if (isLightAdminTheme()) {
+    if (metric === 'gross_profit') return '#16a34a';
+    if (metric === 'orders') return '#2563eb';
+    if (metric === 'item_count') return '#7c3aed';
+    if (metric === 'average_order_value') return '#db2777';
+    return '#ea580c';
+  }
+  if (metric === 'gross_profit') return '#9dff00';
+  if (metric === 'orders') return '#22d3ee';
+  if (metric === 'item_count') return '#8b5cf6';
+  if (metric === 'average_order_value') return '#ff4ecd';
+  return '#67f8d4';
+};
 
 const hexToRgbParts = (hex) => {
   const normalized = String(hex || '').replace('#', '').trim();
@@ -184,7 +227,7 @@ const accountSeriesFromMonthlyRows = (monthRows, fallbackAccounts) => {
     keyed.set(normalized.key, {
       key: normalized.key,
       label: `${platformPrefix}${normalized.label}`,
-      color: OVERVIEW_ACCOUNT_COLORS[keyed.size % OVERVIEW_ACCOUNT_COLORS.length]
+      color: getOverviewAccountColor(keyed.size)
     });
   };
 
@@ -1343,7 +1386,7 @@ const platformSeriesFromProductRows = (rows, fallbackPlatforms) => {
     keyed.set(normalizedKey, {
       key: normalizedKey,
       label: label || toTitleCase(normalizedKey),
-      color: OVERVIEW_PLATFORM_COLORS[normalizedKey] || OVERVIEW_PRODUCT_COLORS[keyed.size % OVERVIEW_PRODUCT_COLORS.length]
+      color: getOverviewPlatformColor(normalizedKey, keyed.size)
     });
   };
 
@@ -1642,7 +1685,7 @@ const drawPieChart = (canvas, items, config) => {
       const row = index % maxRows;
       const x = legendStartX + column * columnWidth;
       const y = 28 + row * rowHeight;
-      ctx.fillStyle = OVERVIEW_PRODUCT_COLORS[index % OVERVIEW_PRODUCT_COLORS.length];
+      ctx.fillStyle = getOverviewProductColor(index);
       ctx.fillRect(x, y - 12, 14, 14);
       ctx.fillStyle = textColor;
       ctx.fillText(String(item.label || 'Flavor').slice(0, columns > 2 ? 12 : 16), x + 22, y - 2);
@@ -1654,7 +1697,7 @@ const drawPieChart = (canvas, items, config) => {
     ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--admin-muted') || '#9ca3af';
     ctx.font = '700 14px "Plus Jakarta Sans", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('No syrup flavor sales yet', width * 0.31, height / 2);
+    ctx.fillText(config.emptyMessage || 'No flavor sales yet', width * 0.31, height / 2);
     drawLegend();
     chartHoverState.set(canvas, []);
     return;
@@ -1675,7 +1718,7 @@ const drawPieChart = (canvas, items, config) => {
     ctx.moveTo(cx, cy);
     ctx.arc(cx, cy, radius, start, end);
     ctx.closePath();
-    ctx.fillStyle = OVERVIEW_PRODUCT_COLORS[index % OVERVIEW_PRODUCT_COLORS.length];
+    ctx.fillStyle = getOverviewProductColor(index);
     ctx.fill();
     const mid = start + angle / 2;
     hoverPoints.push({
@@ -1947,6 +1990,7 @@ document.addEventListener('DOMContentLoaded', () => {
     hourlyCanvas: document.querySelector('[data-overview-hourly-chart]'),
     productStackCanvas: document.querySelector('[data-overview-product-stack-chart]'),
     syrupFlavorCanvas: document.querySelector('[data-overview-syrup-flavor-chart]'),
+    dropsFlavorCanvas: document.querySelector('[data-overview-drops-flavor-chart]'),
     trendTitle: document.querySelector('[data-overview-trend-title]'),
     trendMeta: document.querySelector('[data-overview-trend-meta]'),
     hourlyTitle: document.querySelector('[data-overview-hourly-title]'),
@@ -1965,6 +2009,7 @@ document.addEventListener('DOMContentLoaded', () => {
     tableBody: document.querySelector('[data-overview-table-body]'),
     notes: document.querySelector('[data-overview-notes]'),
     yearControls: document.querySelector('[data-overview-year-controls]'),
+    yearSelect: document.querySelector('[data-overview-year-select]'),
     metricButtons: document.querySelectorAll('[data-overview-metric]'),
     volumeMetricButtons: document.querySelectorAll('[data-overview-volume-metric]'),
     hourlyMetricButtons: document.querySelectorAll('[data-overview-hourly-metric]'),
@@ -3798,22 +3843,30 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const renderOverviewYearControls = (years) => {
-    if (!overviewRefs.yearControls) return;
-    const signature = `${(Array.isArray(years) ? years : []).join('\u001f')}\u001e${state.overview.year}`;
+    const yearSelect = overviewRefs.yearSelect || overviewRefs.yearControls?.querySelector('[data-overview-year-select]');
+    if (!yearSelect) return;
+    const yearOptions = (Array.isArray(years) ? years : [])
+      .map((year) => Number(year))
+      .filter((year) => Number.isFinite(year))
+      .sort((left, right) => right - left);
+    const signature = `${yearOptions.join('\u001f')}\u001e${state.overview.year}`;
     if (state.overview.yearControlsSignature === signature) return;
     state.overview.yearControlsSignature = signature;
-    overviewRefs.yearControls.innerHTML = years.map((year) => `
-      <button type="button" class="admin-toggle-pill${Number(year) === Number(state.overview.year) ? ' is-active' : ''}" data-overview-year="${escapeHtml(String(year))}">${escapeHtml(String(year))}</button>
+    yearSelect.innerHTML = yearOptions.map((year) => `
+      <option value="${escapeHtml(String(year))}">${escapeHtml(String(year))}</option>
     `).join('');
+    yearSelect.value = String(state.overview.year);
+    yearSelect.disabled = yearOptions.length <= 1;
 
-    overviewRefs.yearControls.querySelectorAll('[data-overview-year]').forEach((button) => {
-      button.addEventListener('click', async () => {
-        const nextYear = Number(button.getAttribute('data-overview-year') || state.overview.year);
+    if (yearSelect.dataset.overviewYearSelectReady !== 'true') {
+      yearSelect.addEventListener('change', async () => {
+        const nextYear = Number(yearSelect.value || state.overview.year);
         if (!Number.isFinite(nextYear) || nextYear === state.overview.year) return;
         state.overview.year = nextYear;
         await loadOverviewSafely({ force: true, preferStale: false });
       });
-    });
+      yearSelect.dataset.overviewYearSelectReady = 'true';
+    }
   };
 
   const renderOverview = (data) => {
@@ -3825,6 +3878,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const products = data.products || {};
     const monthlyAccountRows = overviewMonthlyAccountRows(months);
     const syrupFlavorRows = Array.isArray(products.syrup_flavors) ? products.syrup_flavors : [];
+    const dropsFlavorRows = Array.isArray(products.drops_flavors) ? products.drops_flavors : [];
     const years = Array.isArray(data.years) ? data.years : [state.overview.year];
     const bestMonth = totals.best_month || {};
     const monthlyRows = months.map((month, index) => ({
@@ -3937,11 +3991,13 @@ document.addEventListener('DOMContentLoaded', () => {
       button.classList.toggle('is-active', button.dataset.overviewFlavorMetric === state.overview.flavorMetric);
     });
 
-    drawChartSafely(overviewRefs.trendCanvas, () => drawLineChart(overviewRefs.trendCanvas, trendRows, state.overview.metric, OVERVIEW_METRIC_UNITS));
+    drawChartSafely(overviewRefs.trendCanvas, () => drawLineChart(overviewRefs.trendCanvas, trendRows, state.overview.metric, OVERVIEW_METRIC_UNITS, {
+      lineColor: getOverviewMetricColor(state.overview.metric)
+    }));
     drawChartSafely(overviewRefs.ordersCanvas, () => drawBarChart(overviewRefs.ordersCanvas, monthlyRows, {
       value: (item) => item[state.overview.volumeMetric] || 0,
       label: (item) => String(item.label || '-'),
-      color: () => '#67f8d4',
+      color: () => getOverviewMetricColor(state.overview.volumeMetric),
       metric: state.overview.volumeMetric,
       unitsMap: OVERVIEW_METRIC_UNITS,
       tooltipTitle: (item) => `${item.label || '-'} Order Volume`,
@@ -3967,7 +4023,14 @@ document.addEventListener('DOMContentLoaded', () => {
     drawChartSafely(overviewRefs.syrupFlavorCanvas, () => drawPieChart(overviewRefs.syrupFlavorCanvas, syrupFlavorRows, {
       metric: state.overview.flavorMetric,
       unitsMap: OVERVIEW_METRIC_UNITS,
-      limit: 32
+      limit: 32,
+      emptyMessage: 'No syrup flavor sales yet'
+    }));
+    drawChartSafely(overviewRefs.dropsFlavorCanvas, () => drawPieChart(overviewRefs.dropsFlavorCanvas, dropsFlavorRows, {
+      metric: state.overview.flavorMetric,
+      unitsMap: OVERVIEW_METRIC_UNITS,
+      limit: 32,
+      emptyMessage: 'No drops flavor sales yet'
     }));
     if (state.activeView === 'orders') {
       resetOrderWindowsFromOverview();
@@ -5292,7 +5355,7 @@ document.addEventListener('DOMContentLoaded', () => {
         overviewRefs.refreshLabel.textContent = 'Refreshed';
         window.setTimeout(() => {
           if (!state.marketplaceRefresh.loading && overviewRefs.refreshLabel) {
-            overviewRefs.refreshLabel.textContent = 'Refresh view';
+            overviewRefs.refreshLabel.textContent = 'Refresh View';
           }
         }, 1800);
       }

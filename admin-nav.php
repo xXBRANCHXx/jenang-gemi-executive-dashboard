@@ -68,13 +68,6 @@ function render_admin_sidebar(string $activeSection = ''): void
             'aria' => 'Open API health dashboard',
         ],
         [
-            'key' => 'back-dash',
-            'href' => '../back-dash/',
-            'label' => 'Back Dash',
-            'icon' => 'admin-rail-icon-back-dash',
-            'aria' => 'Open marketplace Back Dash',
-        ],
-        [
             'key' => 'sku',
             'href' => '../sku-db/',
             'label' => 'SKU DB',

@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isAuthenticated = jg_admin_is_authenticated();
-$dashboardBuildVersion = 'exec3.71.1';
+$dashboardBuildVersion = 'exec3.72.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -124,7 +124,6 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                             </span>
                             <span class="admin-notification-button-copy"><strong>Order verification</strong><small data-notification-summary>No website orders pending</small></span>
                         </button>
-                        <a class="admin-ghost-btn admin-link-btn" href="../back-dash/">Back Dash</a>
                         <div class="admin-menu-shell" data-menu-shell>
                             <button type="button" class="admin-ghost-btn admin-menu-trigger" data-menu-trigger aria-expanded="false" aria-label="Open dashboard menu">
                                 <svg class="admin-menu-open-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
@@ -151,6 +150,10 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                                     <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 19.5V10M10 19.5V5M16 19.5v-7M3 19.5h18"/><path d="m4 7 5-4 6 5 5-4"/></svg></span>
                                     <span><strong>P&amp;L</strong><small>Revenue, costs, and operating profit</small></span>
                                 </a>
+                                <a class="admin-menu-item admin-link-btn" href="../back-dash/">
+                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M19 12H5"/><path d="m12 5-7 7 7 7"/><path d="M19 5v14"/></svg></span>
+                                    <span><strong>Back Dash</strong><small>Marketplace control workspace</small></span>
+                                </a>
                                 <button type="button" class="admin-menu-item" data-view-switch="context">
                                     <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5H5v14h14v-3"/><path d="M11 13 20 4M14 4h6v6"/></svg></span>
                                     <span><strong>Context</strong><small>Operational context and live signals</small></span>
@@ -175,14 +178,17 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                 <main class="admin-layout">
                     <section class="admin-view is-active" data-view-panel="overview">
                 <section class="admin-overview-strip">
-                    <div class="admin-toggle-row" data-overview-year-controls>
-                        <button type="button" class="admin-toggle-pill is-active" data-overview-year-placeholder>Loading...</button>
-                    </div>
+                    <label class="admin-overview-year-field" data-overview-year-controls>
+                        <span>Year</span>
+                        <select class="admin-overview-year-select" data-overview-year-select aria-label="Select sales year" disabled>
+                            <option>Loading...</option>
+                        </select>
+                    </label>
                     <div class="admin-overview-strip-meta">
                         <div class="admin-overview-sync-row">
                             <button type="button" class="admin-overview-refresh" data-overview-refresh aria-label="Refresh dashboard view">
                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 4v7h-7"/></svg>
-                                <span data-overview-refresh-label>Refresh view</span>
+                                <span data-overview-refresh-label>Refresh View</span>
                             </button>
                             <span class="admin-live-pill"><span class="admin-live-dot"></span>Live</span>
                         </div>
@@ -305,7 +311,8 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                         </div>
                     </article>
 
-                    <article class="admin-panel admin-panel-chart admin-panel-wide" data-chart-id="C6">
+                    <div class="admin-flavor-chart-grid">
+                    <article class="admin-panel admin-panel-chart admin-flavor-chart-card" data-chart-id="C6">
                         <div class="admin-panel-head">
                             <div>
                                 <div class="admin-chart-title-row">
@@ -320,39 +327,29 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                             </div>
                         </div>
                         <div class="admin-chart-surface">
-                            <canvas class="admin-chart-canvas admin-chart-canvas-lg" data-overview-syrup-flavor-chart width="1200" height="520"></canvas>
+                            <canvas class="admin-chart-canvas admin-chart-canvas-lg" data-overview-syrup-flavor-chart width="720" height="440"></canvas>
                         </div>
                     </article>
 
-                    <article class="admin-panel admin-panel-table" id="orders">
+                    <article class="admin-panel admin-panel-chart admin-flavor-chart-card" data-chart-id="C7">
                         <div class="admin-panel-head">
-                            <div><span class="admin-panel-kicker">Monthly Breakdown</span><h3>Revenue and orders by month</h3></div>
+                            <div>
+                                <div class="admin-chart-title-row">
+                                    <h3>Drops flavor share</h3>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About drops flavor share" data-chart-info="Looks only at drops SKUs from the SKU database and groups sales by flavor. Switch between Qty and Rp to compare unit demand against seller-received revenue."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                </div>
+                                <span class="admin-panel-meta">Most popular drops flavors</span>
+                            </div>
+                            <div class="admin-panel-inline-toggles admin-sliding-chart-toggle" data-sliding-chart-toggle role="group" aria-label="Drops flavor chart metric">
+                                <button type="button" class="admin-toggle-pill is-active" data-overview-flavor-metric="quantity"><span>Qty</span></button>
+                                <button type="button" class="admin-toggle-pill" data-overview-flavor-metric="net_revenue"><span>Rp</span></button>
+                            </div>
                         </div>
-                        <div class="admin-table-wrap">
-                            <table class="admin-table">
-                                <thead>
-                                    <tr>
-                                        <th>Month</th>
-                                        <th>Revenue</th>
-                                        <th>Orders</th>
-                                        <th>Top Platform</th>
-                                    </tr>
-                                </thead>
-                                <tbody data-overview-table-body>
-                                    <tr><td colspan="4" class="admin-empty">Belum ada data marketplace.</td></tr>
-                                </tbody>
-                            </table>
+                        <div class="admin-chart-surface">
+                            <canvas class="admin-chart-canvas admin-chart-canvas-lg" data-overview-drops-flavor-chart width="720" height="440"></canvas>
                         </div>
                     </article>
-
-                    <article class="admin-panel admin-panel-feed">
-                        <div class="admin-panel-head">
-                            <div><span class="admin-panel-kicker">Summary</span><h3>Annual notes</h3></div>
-                        </div>
-                        <div class="admin-note-stack" data-overview-notes>
-                            <div class="admin-note-card"><strong>Preparing</strong><span>Marketplace totals will appear once the yearly summary endpoint responds.</span></div>
-                        </div>
-                    </article>
+                    </div>
                 </section>
                     </section>
 

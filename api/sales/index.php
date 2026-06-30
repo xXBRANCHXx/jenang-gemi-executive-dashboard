@@ -479,7 +479,7 @@ function jg_sales_run_manual_refresh(string $setupToken, int $year, bool $includ
 }
 
 /**
- * @return array<string, array{sku:string, tag:string, product_name:string, base_product_name:string, flavor_name:string, cogs:float, is_syrup:bool}>
+ * @return array<string, array{sku:string, tag:string, product_name:string, base_product_name:string, flavor_name:string, cogs:float, is_syrup:bool, is_drops:bool}>
  */
 function jg_sales_sku_lookup(): array
 {
@@ -505,6 +505,7 @@ function jg_sales_sku_lookup(): array
         $sku = (string) ($row['sku'] ?? '');
         $productName = (string) ($row['product_name'] ?? '');
         $displayProductName = jg_sales_sku_product_display_name($sku, $productName, $productNameMap);
+        $productKindName = strtolower($productName . ' ' . $displayProductName);
         $record = [
             'sku' => $sku,
             'tag' => (string) ($row['tag'] ?? ''),
@@ -512,7 +513,8 @@ function jg_sales_sku_lookup(): array
             'base_product_name' => $productName,
             'flavor_name' => (string) ($row['flavor_name'] ?? 'Unspecified'),
             'cogs' => (float) ($row['cogs'] ?? 0),
-            'is_syrup' => str_contains(strtolower($productName), 'syrup') || str_contains(strtolower($productName), 'sirup'),
+            'is_syrup' => str_contains($productKindName, 'syrup') || str_contains($productKindName, 'sirup'),
+            'is_drops' => str_contains($productKindName, 'drop'),
         ];
 
         foreach ([$record['sku'], $record['tag']] as $keyValue) {
@@ -562,6 +564,32 @@ function jg_sales_add_product_total(array $current, int $quantity, int $netReven
     $current['cogs'] = (int) ($current['cogs'] ?? 0) + $cogs;
     $current['gross_profit'] = (int) ($current['revenue'] ?? 0) - (int) ($current['cogs'] ?? 0);
     return $current;
+}
+
+function jg_sales_flavor_key(string $flavorName): string
+{
+    $key = strtolower(preg_replace('/[^a-z0-9]+/i', '-', $flavorName) ?? $flavorName);
+    $key = trim($key, '-');
+    return $key !== '' ? $key : 'unspecified';
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function jg_sales_empty_flavor_row(string $flavorKey, string $flavorName): array
+{
+    return [
+        'key' => $flavorKey,
+        'label' => $flavorName,
+        'quantity' => 0,
+        'item_count' => 0,
+        'net_revenue' => 0,
+        'revenue' => 0,
+        'orders' => 0,
+        'cogs' => 0,
+        'gross_profit' => 0,
+        'platforms' => [],
+    ];
 }
 
 /**
@@ -725,7 +753,7 @@ function jg_sales_enrich_totals_with_profit(array &$summary, int $totalCogs, int
 
 /**
  * @param array<string, mixed> $products
- * @param array<string, array{sku:string, tag:string, product_name:string, base_product_name:string, flavor_name:string, cogs:float, is_syrup:bool}> $lookup
+ * @param array<string, array{sku:string, tag:string, product_name:string, base_product_name:string, flavor_name:string, cogs:float, is_syrup:bool, is_drops:bool}> $lookup
  * @return array{cogs: array<int, int>, fees: array<int, int>}
  */
 function jg_sales_enrich_monthly_product_cogs(array &$products, array $lookup, array $fifoCogs): array
@@ -799,7 +827,10 @@ function jg_sales_enrich_with_sku_db(array $summary, int $year): array
     $rows = is_array($products['by_product'] ?? null) ? $products['by_product'] : [];
     $fifoCogsIndex = jg_sales_fifo_cogs_index($year);
     $monthlyProductMetrics = jg_sales_enrich_monthly_product_cogs($products, $lookup, $fifoCogsIndex['monthly']);
-    $flavors = [];
+    $flavorGroups = [
+        'syrup' => [],
+        'drops' => [],
+    ];
     $enrichedRows = [];
     $totalCogs = 0;
     $totalRevenue = 0;
@@ -850,64 +881,73 @@ function jg_sales_enrich_with_sku_db(array $summary, int $year): array
         $row['platforms'] = $platforms;
         $enrichedRows[] = $row;
 
-        if (!$skuRecord || empty($skuRecord['is_syrup'])) {
+        $productFlavorGroups = [];
+        if ($skuRecord && !empty($skuRecord['is_syrup'])) {
+            $productFlavorGroups[] = 'syrup';
+        }
+        if ($skuRecord && !empty($skuRecord['is_drops'])) {
+            $productFlavorGroups[] = 'drops';
+        }
+        if ($productFlavorGroups === []) {
             continue;
         }
 
         $flavorName = trim($skuRecord['flavor_name']) !== '' ? $skuRecord['flavor_name'] : 'Unspecified';
-        $flavorKey = strtolower(preg_replace('/[^a-z0-9]+/i', '-', $flavorName) ?? $flavorName);
-        $flavorKey = trim($flavorKey, '-');
+        $flavorKey = jg_sales_flavor_key($flavorName);
 
-        $flavors[$flavorKey] = jg_sales_add_product_total($flavors[$flavorKey] ?? [
-            'key' => $flavorKey,
-            'label' => $flavorName,
-            'platforms' => [],
-        ], $quantity, $net, (int) ($row['orders'] ?? 0), $rowCogs);
+        foreach ($productFlavorGroups as $flavorGroup) {
+            $flavorGroups[$flavorGroup][$flavorKey] = jg_sales_add_product_total($flavorGroups[$flavorGroup][$flavorKey] ?? [
+                'key' => $flavorKey,
+                'label' => $flavorName,
+                'platforms' => [],
+            ], $quantity, $net, (int) ($row['orders'] ?? 0), $rowCogs);
 
-        foreach ($platforms as $platformKey => $platformRow) {
-            if (!is_array($platformRow)) {
-                continue;
+            foreach ($platforms as $platformKey => $platformRow) {
+                if (!is_array($platformRow)) {
+                    continue;
+                }
+                $platform = (string) $platformKey;
+                $platformQuantity = (int) ($platformRow['quantity'] ?? 0);
+                $platformNet = jg_sales_seller_received($platformRow);
+                $platformCogs = (int) round((float) ($platformRow['cogs'] ?? 0));
+                $flavorGroups[$flavorGroup][$flavorKey]['platforms'][$platform] = jg_sales_add_product_total($flavorGroups[$flavorGroup][$flavorKey]['platforms'][$platform] ?? [
+                    'key' => $platform,
+                    'label' => (string) ($platformRow['label'] ?? ucfirst($platform)),
+                ], $platformQuantity, $platformNet, (int) ($platformRow['orders'] ?? 0), $platformCogs);
             }
-            $platform = (string) $platformKey;
-            $platformQuantity = (int) ($platformRow['quantity'] ?? 0);
-            $platformNet = jg_sales_seller_received($platformRow);
-            $platformCogs = (int) round((float) ($platformRow['cogs'] ?? 0));
-            $flavors[$flavorKey]['platforms'][$platform] = jg_sales_add_product_total($flavors[$flavorKey]['platforms'][$platform] ?? [
-                'key' => $platform,
-                'label' => (string) ($platformRow['label'] ?? ucfirst($platform)),
-            ], $platformQuantity, $platformNet, (int) ($platformRow['orders'] ?? 0), $platformCogs);
         }
     }
 
     foreach ($lookup as $skuRecord) {
-        if (empty($skuRecord['is_syrup'])) {
+        $productFlavorGroups = [];
+        if (!empty($skuRecord['is_syrup'])) {
+            $productFlavorGroups[] = 'syrup';
+        }
+        if (!empty($skuRecord['is_drops'])) {
+            $productFlavorGroups[] = 'drops';
+        }
+        if ($productFlavorGroups === []) {
             continue;
         }
         $flavorName = trim($skuRecord['flavor_name']) !== '' ? $skuRecord['flavor_name'] : 'Unspecified';
-        $flavorKey = strtolower(preg_replace('/[^a-z0-9]+/i', '-', $flavorName) ?? $flavorName);
-        $flavorKey = trim($flavorKey, '-');
-        if ($flavorKey === '' || isset($flavors[$flavorKey])) {
-            continue;
+        $flavorKey = jg_sales_flavor_key($flavorName);
+        foreach ($productFlavorGroups as $flavorGroup) {
+            if (isset($flavorGroups[$flavorGroup][$flavorKey])) {
+                continue;
+            }
+            $flavorGroups[$flavorGroup][$flavorKey] = jg_sales_empty_flavor_row($flavorKey, $flavorName);
         }
-        $flavors[$flavorKey] = [
-            'key' => $flavorKey,
-            'label' => $flavorName,
-            'quantity' => 0,
-            'item_count' => 0,
-            'net_revenue' => 0,
-            'revenue' => 0,
-            'orders' => 0,
-            'cogs' => 0,
-            'gross_profit' => 0,
-            'platforms' => [],
-        ];
     }
 
-    $flavorRows = array_values($flavors);
-    usort($flavorRows, static fn (array $left, array $right): int => (int) ($right['quantity'] ?? 0) <=> (int) ($left['quantity'] ?? 0));
+    $syrupFlavorRows = array_values($flavorGroups['syrup']);
+    $dropsFlavorRows = array_values($flavorGroups['drops']);
+    usort($syrupFlavorRows, static fn (array $left, array $right): int => (int) ($right['quantity'] ?? 0) <=> (int) ($left['quantity'] ?? 0));
+    usort($dropsFlavorRows, static fn (array $left, array $right): int => (int) ($right['quantity'] ?? 0) <=> (int) ($left['quantity'] ?? 0));
     $products['by_product'] = $enrichedRows;
-    $products['syrup_flavors'] = array_slice($flavorRows, 0, 16);
+    $products['syrup_flavors'] = array_slice($syrupFlavorRows, 0, 16);
+    $products['drops_flavors'] = array_slice($dropsFlavorRows, 0, 16);
     $products['syrup_flavor_source'] = 'sku_db';
+    $products['drops_flavor_source'] = 'sku_db';
     $summary['products'] = $products;
     jg_sales_enrich_totals_with_profit(
         $summary,
