@@ -68,6 +68,7 @@ function jg_orders_handle_request(): void
             $runSync = jg_orders_bool($payload['run_sync'] ?? $payload['sync'] ?? false);
             $pdo = analyticsDb();
             jg_orders_ensure_mirror_schema($pdo);
+            jg_orders_ensure_location_cache_schema($pdo);
             $response = jg_orders_backfill_mirror_range($pdo, $startDate, $endDate, $year, $backfillLimit, $backfillOffset, $runSync);
             if (empty($response['ok'])) {
                 http_response_code((int) ($response['status'] ?? 500));
@@ -1188,8 +1189,11 @@ function jg_orders_backfill_mirror_range(PDO $pdo, string $startDate, string $en
         $sync = $runSync ? jg_orders_run_ingest_year_sync($year, 25) : ['ok' => false, 'skipped' => true];
         $import = jg_orders_import_mirror_range_from_api($pdo, $startDate, $endDate, $limit, 'mirror_map_backfill', $offset);
         $after = jg_orders_mirror_range_summary($pdo, $startDate, $endDate);
+        $locationSummary = empty($import['has_more'])
+            ? jg_orders_location_summary_payload($pdo, $startDate, $endDate, true)
+            : null;
 
-        return [
+        $response = [
             'ok' => true,
             'status' => 200,
             'start_date' => $startDate,
@@ -1202,6 +1206,11 @@ function jg_orders_backfill_mirror_range(PDO $pdo, string $startDate, string $en
             'sync' => $sync,
             'import' => $import,
         ];
+        if (is_array($locationSummary)) {
+            $response['location_summary'] = $locationSummary;
+        }
+
+        return $response;
     } catch (Throwable $error) {
         error_log('Dashboard order map backfill failed: ' . $error->getMessage());
         return [

@@ -4198,6 +4198,7 @@ document.addEventListener('DOMContentLoaded', () => {
       let fetched = 0;
       let upserted = 0;
       let lockRetries = 0;
+      let latestLocationSummary = null;
       do {
         let payload = null;
         try {
@@ -4226,13 +4227,16 @@ document.addEventListener('DOMContentLoaded', () => {
           throw error;
         }
         const result = payload?.import || {};
+        if (payload?.location_summary) {
+          latestLocationSummary = payload.location_summary;
+        }
         fetched += Math.max(0, Number(result.fetched || 0));
         upserted += Math.max(0, Number(result.upserted || 0));
         const nextOffset = Number(result.next_offset);
         hasMore = Boolean(result.has_more) && Number.isFinite(nextOffset) && nextOffset > offset;
         offset = hasMore ? nextOffset : offset;
         pages += 1;
-        state.overview.locationBackfillProgress = `(${formatCompactNumber(fetched)} checked)`;
+        state.overview.locationBackfillProgress = `(${formatCompactNumber(upserted)} mirrored / ${formatCompactNumber(fetched)} checked)`;
         renderOverviewLocationHeatmap();
       } while (hasMore && pages < OVERVIEW_LOCATION_BACKFILL_MAX_PAGES);
 
@@ -4243,8 +4247,20 @@ document.addEventListener('DOMContentLoaded', () => {
       state.overview.locationCacheReady = false;
       state.overview.locationLoadedAt = 0;
       state.overview.locationSignature = '';
-      state.overview.locationBackfillCompletedSignature = range.signature;
-      await loadOverviewLocationRows({ force: true, incremental: false });
+      if (!hasMore) {
+        state.overview.locationBackfillCompletedSignature = range.signature;
+      }
+      if (latestLocationSummary) {
+        state.overview.locationSignature = range.signature;
+        state.overview.locationCacheReady = true;
+        applyOverviewLocationSummaryPayload(latestLocationSummary, range);
+        if (!state.overview.provinceGeoJson) {
+          loadProvinceMapData().catch(() => {});
+        }
+        renderOverviewLocationHeatmap();
+      } else {
+        await loadOverviewLocationRows({ force: true, incremental: false });
+      }
     } catch (error) {
       state.overview.locationBackfillError = error?.message || 'Unable to backfill map orders.';
     } finally {
