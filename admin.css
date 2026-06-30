@@ -2503,6 +2503,13 @@ button, input {
   overflow-wrap: anywhere;
 }
 
+:root[data-admin-theme='light'] .admin-order-popover {
+  border-color: rgba(15, 23, 42, 0.12);
+  background: #ffffff;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.16);
+  color: #050505;
+}
+
 .admin-event-feed,
 .admin-note-stack {
   display: grid;
