@@ -14124,19 +14124,27 @@ body:has(.admin-app[data-sku-db])::after {
 .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-list {
   display: grid;
   align-content: start;
-  gap: 8px;
+  gap: 9px;
   min-width: 0;
 }
 
 .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: center;
-  padding: 10px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-location-row::after {
+  content: "";
+  order: 2;
+  flex: 1 1 24px;
+  min-width: 24px;
+  border-bottom: 1px dotted rgba(219, 230, 238, 0.34);
+  transform: translateY(-0.22em);
 }
 
 .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-row strong,
@@ -14145,6 +14153,8 @@ body:has(.admin-app[data-sku-db])::after {
 }
 
 .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-row strong {
+  order: 1;
+  flex: 0 1 auto;
   overflow: hidden;
   color: var(--admin-text);
   font-size: 0.82rem;
@@ -14154,6 +14164,8 @@ body:has(.admin-app[data-sku-db])::after {
 }
 
 .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-row span {
+  order: 3;
+  flex: 0 0 auto;
   color: var(--admin-muted);
   font-size: 0.72rem;
   font-weight: 800;
@@ -14484,8 +14496,11 @@ body:has(.admin-app[data-sku-db])::after {
 }
 
 :root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-row {
-  border-color: rgba(15, 23, 42, 0.09);
-  background: rgba(255, 255, 255, 0.82);
+  background: transparent;
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-row::after {
+  border-bottom-color: rgba(15, 23, 42, 0.26);
 }
 
 :root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-sliding-chart-toggle {
