@@ -15181,6 +15181,24 @@ body:has(.admin-app[data-sku-db])::after {
   padding: 3px;
 }
 
+.admin-campaign-controls,
+.admin-affiliate-controls {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.admin-control-strip-compact .admin-control-group {
+  flex: 0 0 auto;
+  width: max-content;
+  max-width: 100%;
+}
+
+.admin-control-strip-compact .admin-control-group:has(.admin-select) {
+  min-width: min(240px, 100%);
+}
+
 .admin-panel-inline-toggles.admin-sliding-chart-toggle {
   align-self: flex-start;
   justify-self: start;
@@ -15291,6 +15309,16 @@ body:has(.admin-app[data-sku-db])::after {
 }
 
 @media (max-width: 640px) {
+  .admin-campaign-controls,
+  .admin-affiliate-controls {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .admin-control-strip-compact .admin-control-group {
+    width: 100%;
+  }
+
   .admin-control-strip-compact .admin-sliding-chart-toggle,
   .admin-panel-inline-toggles.admin-sliding-chart-toggle {
     width: 100%;
