@@ -14037,6 +14037,118 @@ body:has(.admin-app[data-sku-db])::after {
   height: 328px;
 }
 
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-location-heatmap-card {
+  min-width: 0;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-location-heatmap-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(210px, 280px);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-location-map {
+  display: grid;
+  place-items: center;
+  min-height: 420px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 22% 24%, rgba(34, 211, 238, 0.1), transparent 30%),
+    rgba(7, 12, 20, 0.24);
+  overflow: hidden;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-location-map-empty {
+  color: var(--admin-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-location-map svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 420px;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-location-province {
+  vector-effect: non-scaling-stroke;
+  transition: fill 160ms ease, stroke 160ms ease;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-location-province:hover {
+  stroke-width: 1.8;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-location-summary {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 14px;
+  min-width: 0;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-location-legend {
+  display: grid;
+  grid-template-columns: auto minmax(80px, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  color: var(--admin-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-location-legend i {
+  display: block;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(30, 64, 175, 0.2), #38bdf8);
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-location-list {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-location-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-location-row strong,
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-location-row span {
+  min-width: 0;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-location-row strong {
+  overflow: hidden;
+  color: var(--admin-text);
+  font-size: 0.82rem;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-location-row span {
+  color: var(--admin-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 .admin-app.admin-app-suite[data-admin-dashboard] .admin-overview-year-field {
   display: inline-grid;
   grid-template-columns: auto auto;
@@ -14344,6 +14456,23 @@ body:has(.admin-app[data-sku-db])::after {
     #ffffff;
 }
 
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-map {
+  border-color: rgba(15, 23, 42, 0.09);
+  background:
+    radial-gradient(circle at 22% 24%, rgba(37, 99, 235, 0.1), transparent 32%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(241, 245, 249, 0.78)),
+    #ffffff;
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-legend i {
+  background: linear-gradient(90deg, #dbeafe, #1d4ed8);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-row {
+  border-color: rgba(15, 23, 42, 0.09);
+  background: rgba(255, 255, 255, 0.82);
+}
+
 :root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-sliding-chart-toggle {
   border-color: rgba(15, 23, 42, 0.12);
   background: #ffffff;
@@ -14499,12 +14628,25 @@ body:has(.admin-app[data-sku-db])::after {
   .admin-app.admin-app-suite[data-admin-dashboard] .admin-flavor-chart-grid {
     grid-template-columns: 1fr;
   }
+
+  .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-heatmap-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-summary {
+    grid-template-rows: auto auto;
+  }
 }
 
 @media (max-width: 640px) {
   .admin-app.admin-app-suite[data-admin-dashboard] .admin-overview-year-field {
     width: 100%;
     grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-map,
+  .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-map svg {
+    min-height: 300px;
   }
 
   .admin-app.admin-app-suite[data-admin-dashboard] .admin-search-shell.admin-search-shell-topbar.is-search-open {

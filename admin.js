@@ -357,6 +357,14 @@ const JENANG_GEMI_SEARCH_INDEX = [
     keywords: ['home', 'homepage', 'sales', 'marketplace', 'overview', 'executive']
   },
   {
+    title: 'Orders by Province',
+    section: 'Admin',
+    description: 'C8 Indonesia heat map showing where marketplace orders come from.',
+    url: '../dashboard/?view=overview',
+    view: 'overview',
+    keywords: ['c8', 'province', 'provinsi', 'location', 'heat map', 'indonesia map', 'orders by province']
+  },
+  {
     title: 'Orders',
     section: 'Admin',
     description: 'Marketplace order spreadsheet with seller revenue, FIFO COGS, customer, and address fields.',
@@ -599,6 +607,16 @@ const toTitleCase = (value) => {
   return SOURCE_LABELS[normalized] || normalized.replace(/\b\w/g, (char) => char.toUpperCase());
 };
 
+const normalizeTextToken = (value) => String(value || '')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase()
+  .replace(/&/g, ' dan ')
+  .replace(/[^a-z0-9]+/g, ' ')
+  .trim();
+
+const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 const formatDashboardTime = (value, timezone, options = {}) => {
   const date = value instanceof Date ? value : new Date(value);
   return date.toLocaleString('id-ID', {
@@ -652,6 +670,57 @@ const ORDER_BOOTSTRAP_MIN_ROWS = 320;
 const ORDER_BOOTSTRAP_MAX_WINDOWS = 2;
 const ORDER_BACKGROUND_TARGET_ROWS = 24000;
 const ORDER_BACKGROUND_MAX_WINDOWS = 72;
+const OVERVIEW_LOCATION_PAGE_SIZE = 2000;
+const OVERVIEW_LOCATION_MAX_PAGES = 25;
+
+const INDONESIA_PROVINCE_ALIASES = {
+  'Aceh': ['aceh', 'nanggroe aceh darussalam', 'nad'],
+  'Bali': ['bali'],
+  'Banten': ['banten'],
+  'Bengkulu': ['bengkulu'],
+  'DKI Jakarta': ['dki jakarta', 'jakarta', 'jakarta raya'],
+  'Daerah Istimewa Yogyakarta': ['daerah istimewa yogyakarta', 'di yogyakarta', 'd i yogyakarta', 'yogyakarta', 'jogjakarta', 'jogja', 'diy'],
+  'Gorontalo': ['gorontalo'],
+  'Jambi': ['jambi'],
+  'Jawa Barat': ['jawa barat', 'west java', 'jabar'],
+  'Jawa Tengah': ['jawa tengah', 'central java', 'jateng'],
+  'Jawa Timur': ['jawa timur', 'east java', 'jatim'],
+  'Kalimantan Barat': ['kalimantan barat', 'west kalimantan', 'kalbar'],
+  'Kalimantan Selatan': ['kalimantan selatan', 'south kalimantan', 'kalsel'],
+  'Kalimantan Tengah': ['kalimantan tengah', 'central kalimantan', 'kalteng'],
+  'Kalimantan Timur': ['kalimantan timur', 'east kalimantan', 'kaltim'],
+  'Kalimantan Utara': ['kalimantan utara', 'north kalimantan', 'kaltra'],
+  'Kepulauan Bangka Belitung': ['kepulauan bangka belitung', 'bangka belitung', 'babel'],
+  'Kepulauan Riau': ['kepulauan riau', 'riau islands', 'kep riau', 'kepri'],
+  'Lampung': ['lampung'],
+  'Maluku': ['maluku'],
+  'Maluku Utara': ['maluku utara', 'north maluku', 'malut'],
+  'Nusa Tenggara Barat': ['nusa tenggara barat', 'ntb', 'west nusa tenggara'],
+  'Nusa Tenggara Timur': ['nusa tenggara timur', 'ntt', 'east nusa tenggara'],
+  'Papua': ['papua'],
+  'Papua Barat': ['papua barat', 'west papua'],
+  'Papua Barat Daya': ['papua barat daya', 'southwest papua'],
+  'Papua Pegunungan': ['papua pegunungan', 'highland papua'],
+  'Papua Selatan': ['papua selatan', 'south papua'],
+  'Papua Tengah': ['papua tengah', 'central papua'],
+  'Riau': ['riau'],
+  'Sulawesi Barat': ['sulawesi barat', 'west sulawesi', 'sulbar'],
+  'Sulawesi Selatan': ['sulawesi selatan', 'south sulawesi', 'sulsel'],
+  'Sulawesi Tengah': ['sulawesi tengah', 'central sulawesi', 'sulteng'],
+  'Sulawesi Tenggara': ['sulawesi tenggara', 'southeast sulawesi', 'sultra'],
+  'Sulawesi Utara': ['sulawesi utara', 'north sulawesi', 'sulut'],
+  'Sumatera Barat': ['sumatera barat', 'sumatra barat', 'west sumatra', 'sumbar'],
+  'Sumatera Selatan': ['sumatera selatan', 'sumatra selatan', 'south sumatra', 'sumsel'],
+  'Sumatera Utara': ['sumatera utara', 'sumatra utara', 'north sumatra', 'sumut']
+};
+
+const INDONESIA_PROVINCE_ALIAS_ENTRIES = Object.entries(INDONESIA_PROVINCE_ALIASES)
+  .flatMap(([province, aliases]) => aliases.map((alias) => ({
+    province,
+    alias: normalizeTextToken(alias)
+  })))
+  .filter((entry) => entry.alias)
+  .sort((left, right) => right.alias.length - left.alias.length);
 
 const shouldHideSourceMetric = (value) => HIDDEN_HOME_SOURCES.has(normalizeSourceKey(value));
 
@@ -1828,6 +1897,15 @@ document.addEventListener('DOMContentLoaded', () => {
       hourlyRows: [],
       hourlyDate: '',
       hourlyRequestToken: 0,
+      locationRows: [],
+      locationSignature: '',
+      locationLoadedAt: 0,
+      locationLoading: false,
+      locationError: '',
+      locationTruncated: false,
+      locationRequestToken: 0,
+      provinceGeoJson: null,
+      provinceMapError: '',
       data: null,
       loadedAt: 0,
       yearControlsSignature: '',
@@ -1960,6 +2038,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const jenangGemiStoreEndpoint = root.dataset.jenangGemiStoreEndpoint || '../api/jenang-gemi-store/';
   const websiteOrdersEndpoint = root.dataset.websiteOrdersEndpoint || '../api/website-orders/';
   const hardSetEndpoint = root.dataset.hardSetEndpoint || '../api/hard-set/';
+  const provinceMapUrl = root.dataset.provinceMapUrl || '../assets/data/indonesia-38-provinces.geojson';
 
   const loader = document.querySelector('[data-admin-loader]');
   const loaderProgress = document.querySelector('[data-admin-loader-progress]');
@@ -2003,6 +2082,9 @@ document.addEventListener('DOMContentLoaded', () => {
     productStackCanvas: document.querySelector('[data-overview-product-stack-chart]'),
     syrupFlavorCanvas: document.querySelector('[data-overview-syrup-flavor-chart]'),
     dropsFlavorCanvas: document.querySelector('[data-overview-drops-flavor-chart]'),
+    locationMap: document.querySelector('[data-overview-location-map]'),
+    locationStatus: document.querySelector('[data-overview-location-status]'),
+    locationList: document.querySelector('[data-overview-location-list]'),
     trendTitle: document.querySelector('[data-overview-trend-title]'),
     trendMeta: document.querySelector('[data-overview-trend-meta]'),
     hourlyTitle: document.querySelector('[data-overview-hourly-title]'),
@@ -2455,6 +2537,7 @@ document.addEventListener('DOMContentLoaded', () => {
     syncThemeControls(normalizedTheme);
     invalidateThemePalette();
     renderCachedCharts();
+    renderOverviewLocationHeatmap();
   };
 
   const requestJson = async (url, options = {}) => {
@@ -3386,6 +3469,317 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   };
 
+  const provinceAliasMatches = (text, alias) => {
+    if (!text || !alias) return false;
+    return new RegExp(`(^|\\s)${escapeRegExp(alias)}(?=\\s|$)`).test(text);
+  };
+
+  const provinceFromOrderRow = (row) => {
+    const searchable = normalizeTextToken([
+      row?.province,
+      row?.state,
+      row?.region,
+      row?.city,
+      row?.district,
+      row?.address,
+      row?.customer_address,
+      row?.shipping_address
+    ].filter(Boolean).join(' '));
+    if (!searchable) return '';
+    const matched = INDONESIA_PROVINCE_ALIAS_ENTRIES.find((entry) => provinceAliasMatches(searchable, entry.alias));
+    return matched?.province || '';
+  };
+
+  const uniqueProvinceOrderKey = (row) => {
+    const orderId = String(row?.order_id || '').trim();
+    if (orderId) {
+      return [
+        normalizeTextToken(row?.platform || 'unknown'),
+        normalizeTextToken(row?.account_key || ''),
+        orderId
+      ].join('|');
+    }
+    return uniqueOrderRowKey(row);
+  };
+
+  const aggregateProvinceOrders = (rows) => {
+    const seen = new Set();
+    const byProvince = new Map();
+    let totalOrders = 0;
+    let unmatchedOrders = 0;
+    (Array.isArray(rows) ? rows : []).forEach((row) => {
+      const key = uniqueProvinceOrderKey(row);
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      totalOrders += 1;
+      const province = provinceFromOrderRow(row);
+      if (!province) {
+        unmatchedOrders += 1;
+        return;
+      }
+      const current = byProvince.get(province) || { province, orders: 0 };
+      current.orders += 1;
+      byProvince.set(province, current);
+    });
+    const provinceRows = Array.from(byProvince.values()).sort((left, right) => (
+      right.orders - left.orders || left.province.localeCompare(right.province)
+    ));
+    return {
+      byProvince,
+      rows: provinceRows,
+      totalOrders,
+      matchedOrders: totalOrders - unmatchedOrders,
+      unmatchedOrders,
+      maxOrders: Math.max(0, ...provinceRows.map((row) => Number(row.orders || 0)))
+    };
+  };
+
+  const coordinateGroupsForFeature = (feature) => {
+    const geometry = feature?.geometry || {};
+    if (geometry.type === 'Polygon') return [geometry.coordinates || []];
+    if (geometry.type === 'MultiPolygon') return geometry.coordinates || [];
+    return [];
+  };
+
+  const provinceMapBounds = (features) => {
+    const bounds = {
+      minLon: Infinity,
+      maxLon: -Infinity,
+      minLat: Infinity,
+      maxLat: -Infinity
+    };
+    (Array.isArray(features) ? features : []).forEach((feature) => {
+      coordinateGroupsForFeature(feature).forEach((polygon) => {
+        polygon.forEach((ring) => {
+          ring.forEach((point) => {
+            const lon = Number(point?.[0]);
+            const lat = Number(point?.[1]);
+            if (!Number.isFinite(lon) || !Number.isFinite(lat)) return;
+            bounds.minLon = Math.min(bounds.minLon, lon);
+            bounds.maxLon = Math.max(bounds.maxLon, lon);
+            bounds.minLat = Math.min(bounds.minLat, lat);
+            bounds.maxLat = Math.max(bounds.maxLat, lat);
+          });
+        });
+      });
+    });
+    if (!Number.isFinite(bounds.minLon)) {
+      return { minLon: 95, maxLon: 142, minLat: -12, maxLat: 7 };
+    }
+    return bounds;
+  };
+
+  const provinceFeaturePath = (feature, project) => coordinateGroupsForFeature(feature)
+    .map((polygon) => polygon
+      .map((ring) => ring
+        .map((point, index) => {
+          const projected = project(Number(point?.[0]), Number(point?.[1]));
+          return `${index === 0 ? 'M' : 'L'}${projected.x.toFixed(2)} ${projected.y.toFixed(2)}`;
+        })
+        .join(' ')
+        .concat(' Z'))
+      .join(' '))
+    .join(' ');
+
+  const interpolateRgb = (from, to, amount) => {
+    const channel = (index) => Math.round(from[index] + ((to[index] - from[index]) * amount));
+    return `rgb(${channel(0)}, ${channel(1)}, ${channel(2)})`;
+  };
+
+  const provinceFillColor = (orders, maxOrders) => {
+    const count = Number(orders || 0);
+    if (count <= 0 || maxOrders <= 0) return isLightAdminTheme() ? '#eef2f7' : '#101827';
+    const weight = Math.pow(Math.min(1, count / maxOrders), 0.55);
+    return isLightAdminTheme()
+      ? interpolateRgb([191, 219, 254], [29, 78, 216], weight)
+      : interpolateRgb([22, 78, 130], [56, 189, 248], weight);
+  };
+
+  const renderProvinceHeatmapSvg = (geoJson, aggregate) => {
+    const features = Array.isArray(geoJson?.features) ? geoJson.features : [];
+    if (!features.length) return '<div class="admin-location-map-empty">Map unavailable</div>';
+    const width = 1000;
+    const height = 420;
+    const margin = 20;
+    const bounds = provinceMapBounds(features);
+    const lonSpan = Math.max(1, bounds.maxLon - bounds.minLon);
+    const latSpan = Math.max(1, bounds.maxLat - bounds.minLat);
+    const scale = Math.min((width - margin * 2) / lonSpan, (height - margin * 2) / latSpan);
+    const offsetX = (width - lonSpan * scale) / 2;
+    const offsetY = (height - latSpan * scale) / 2;
+    const stroke = isLightAdminTheme() ? 'rgba(15, 23, 42, 0.22)' : 'rgba(255, 255, 255, 0.18)';
+    const project = (lon, lat) => ({
+      x: offsetX + ((lon - bounds.minLon) * scale),
+      y: offsetY + ((bounds.maxLat - lat) * scale)
+    });
+
+    const paths = features.map((feature) => {
+      const province = String(feature?.properties?.PROVINSI || feature?.properties?.province || '').trim();
+      const orders = Number(aggregate.byProvince.get(province)?.orders || 0);
+      const path = provinceFeaturePath(feature, project);
+      if (!path) return '';
+      const title = `${province || 'Unknown province'}: ${orders.toLocaleString('id-ID')} orders`;
+      return `
+        <path class="admin-location-province" d="${path}" fill="${provinceFillColor(orders, aggregate.maxOrders)}" stroke="${stroke}" stroke-width="0.8" fill-rule="evenodd" tabindex="0" aria-label="${escapeHtml(title)}">
+          <title>${escapeHtml(title)}</title>
+        </path>
+      `;
+    }).join('');
+
+    return `
+      <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Indonesia order heat map by province" preserveAspectRatio="xMidYMid meet">
+        <g>${paths}</g>
+      </svg>
+    `;
+  };
+
+  const renderOverviewLocationList = (aggregate) => {
+    if (!overviewRefs.locationList) return;
+    const topRows = aggregate.rows.slice(0, 8);
+    if (!topRows.length) {
+      overviewRefs.locationList.innerHTML = '<p class="admin-empty">No province orders mapped yet.</p>';
+      return;
+    }
+    overviewRefs.locationList.innerHTML = topRows.map((row) => `
+      <div class="admin-location-row">
+        <strong>${escapeHtml(row.province)}</strong>
+        <span>${formatCompactNumber(row.orders)} orders</span>
+      </div>
+    `).join('');
+  };
+
+  const renderOverviewLocationHeatmap = () => {
+    if (!overviewRefs.locationMap) return;
+    const aggregate = aggregateProvinceOrders(state.overview.locationRows);
+    const loading = Boolean(state.overview.locationLoading);
+    const truncated = Boolean(state.overview.locationTruncated);
+    if (overviewRefs.locationStatus) {
+      if (state.overview.provinceMapError) {
+        overviewRefs.locationStatus.textContent = `Map unavailable: ${state.overview.provinceMapError}`;
+      } else if (state.overview.locationError) {
+        overviewRefs.locationStatus.textContent = `Location data unavailable: ${state.overview.locationError}`;
+      } else if (loading && !state.overview.locationRows.length) {
+        overviewRefs.locationStatus.textContent = `Loading ${state.overview.year} order locations`;
+      } else if (aggregate.matchedOrders > 0) {
+        overviewRefs.locationStatus.textContent = `${formatCompactNumber(aggregate.matchedOrders)} mapped orders${aggregate.unmatchedOrders ? ` • ${formatCompactNumber(aggregate.unmatchedOrders)} unmatched` : ''}${truncated ? ' • sample capped' : ''}${loading ? ' • loading' : ''}`;
+      } else if (aggregate.totalOrders > 0) {
+        overviewRefs.locationStatus.textContent = `${formatCompactNumber(aggregate.totalOrders)} loaded orders • no province matches`;
+      } else {
+        overviewRefs.locationStatus.textContent = loading ? `Loading ${state.overview.year} order locations` : `No ${state.overview.year} order locations yet`;
+      }
+    }
+
+    if (!state.overview.provinceGeoJson) {
+      overviewRefs.locationMap.innerHTML = '<div class="admin-location-map-empty">Loading Indonesia map</div>';
+    } else {
+      overviewRefs.locationMap.innerHTML = renderProvinceHeatmapSvg(state.overview.provinceGeoJson, aggregate);
+    }
+    renderOverviewLocationList(aggregate);
+  };
+
+  let provinceMapPromise = null;
+  const loadProvinceMapData = async () => {
+    if (state.overview.provinceGeoJson) return state.overview.provinceGeoJson;
+    if (provinceMapPromise) return provinceMapPromise;
+    state.overview.provinceMapError = '';
+    provinceMapPromise = fetch(provinceMapUrl, {
+      credentials: 'same-origin',
+      cache: 'force-cache',
+      headers: { Accept: 'application/json' }
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const payload = await response.json();
+        if (!payload || !Array.isArray(payload.features)) throw new Error('invalid map data');
+        state.overview.provinceGeoJson = payload;
+        return payload;
+      })
+      .catch((error) => {
+        state.overview.provinceMapError = error?.message || 'unable to load map';
+        throw error;
+      })
+      .finally(() => {
+        provinceMapPromise = null;
+        renderOverviewLocationHeatmap();
+      });
+    return provinceMapPromise;
+  };
+
+  const overviewLocationDateRange = () => {
+    const year = Number(state.overview.year || activeLocalDate.slice(0, 4));
+    const start = `${year}-01-01`;
+    const yearEnd = `${year}-12-31`;
+    const today = todayDate();
+    const end = year === Number(today.slice(0, 4)) && today < yearEnd ? today : yearEnd;
+    return { start, end, signature: `${start}:${end}` };
+  };
+
+  const loadOverviewLocationRows = async (options = {}) => {
+    if (!overviewRefs.locationMap) return;
+    const range = overviewLocationDateRange();
+    if (
+      !options.force &&
+      state.overview.locationSignature === range.signature &&
+      (state.overview.locationLoadedAt || state.overview.locationLoading)
+    ) {
+      renderOverviewLocationHeatmap();
+      return;
+    }
+
+    const requestToken = state.overview.locationRequestToken + 1;
+    state.overview.locationRequestToken = requestToken;
+    state.overview.locationSignature = range.signature;
+    state.overview.locationRows = [];
+    state.overview.locationLoadedAt = 0;
+    state.overview.locationLoading = true;
+    state.overview.locationError = '';
+    state.overview.locationTruncated = false;
+    renderOverviewLocationHeatmap();
+
+    try {
+      const loadedRows = [];
+      let offset = 0;
+      let pageCount = 0;
+      let hasMore = false;
+      do {
+        const payload = await requestOrderFacts(range.start, range.end, {
+          limit: OVERVIEW_LOCATION_PAGE_SIZE,
+          offset,
+          storedOnly: true
+        });
+        if (state.overview.locationRequestToken !== requestToken) return;
+        const rows = Array.isArray(payload.orders) ? payload.orders : [];
+        loadedRows.push(...rows);
+        state.overview.locationRows = loadedRows;
+        renderOverviewLocationHeatmap();
+
+        const nextOffset = Number(payload.next_offset);
+        hasMore = Boolean(payload.has_more) && Number.isFinite(nextOffset) && nextOffset > offset;
+        offset = hasMore ? nextOffset : offset;
+        pageCount += 1;
+      } while (hasMore && pageCount < OVERVIEW_LOCATION_MAX_PAGES);
+
+      if (state.overview.locationRequestToken !== requestToken) return;
+      state.overview.locationTruncated = hasMore;
+      state.overview.locationLoadedAt = Date.now();
+    } catch (error) {
+      if (state.overview.locationRequestToken !== requestToken) return;
+      state.overview.locationError = error?.message || 'unable to load orders';
+    } finally {
+      if (state.overview.locationRequestToken === requestToken) {
+        state.overview.locationLoading = false;
+        renderOverviewLocationHeatmap();
+      }
+    }
+  };
+
+  const ensureOverviewLocationHeatmap = () => {
+    if (!overviewRefs.locationMap) return;
+    renderOverviewLocationHeatmap();
+    loadProvinceMapData().catch(() => {});
+    loadOverviewLocationRows().catch(() => {});
+  };
+
   const deriveOrderMonthRanges = (years, months) => {
     const ranges = [];
     const monthYears = (Array.isArray(months) ? months : []).map((monthRow) => Number(monthRow?.year || 0));
@@ -4046,6 +4440,9 @@ document.addEventListener('DOMContentLoaded', () => {
       emptyMessage: 'No drops flavor sales yet',
       colorForIndex: getOverviewFlavorColor
     }));
+    if (state.activeView === 'overview') {
+      ensureOverviewLocationHeatmap();
+    }
     if (state.activeView === 'orders') {
       resetOrderWindowsFromOverview();
       ensureEnoughOrderRows().catch(showOrderLoadError);
@@ -6193,6 +6590,9 @@ document.addEventListener('DOMContentLoaded', () => {
   renderDailyPlatformList();
   syncViewState();
   renderContextEditor();
+  if (state.activeView === 'overview') {
+    window.setTimeout(() => ensureOverviewLocationHeatmap(), 0);
+  }
   setLoaderState(20, 'Connecting to analytics');
   setLoaderState(34, 'Loading active dashboard charts');
 

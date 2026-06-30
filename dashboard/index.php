@@ -83,7 +83,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
             <strong class="admin-loader-label" data-admin-loader-label>Initializing...</strong>
         </div>
     </div>
-    <div class="admin-app admin-app-suite" data-admin-dashboard data-analytics-endpoint="../api/analytics/" data-live-endpoint="../api/live/" data-settings-endpoint="../api/settings/" data-sales-endpoint="../api/sales/" data-orders-endpoint="../api/orders/" data-sku-catalog-endpoint="../api/sales/?action=sku_catalog" data-context-endpoint="../api/context/" data-zero-store-endpoint="../api/zero-store/" data-jenang-gemi-store-endpoint="../api/jenang-gemi-store/" data-website-orders-endpoint="../api/website-orders/" data-hard-set-endpoint="../api/hard-set/">
+    <div class="admin-app admin-app-suite" data-admin-dashboard data-analytics-endpoint="../api/analytics/" data-live-endpoint="../api/live/" data-settings-endpoint="../api/settings/" data-sales-endpoint="../api/sales/" data-orders-endpoint="../api/orders/" data-sku-catalog-endpoint="../api/sales/?action=sku_catalog" data-context-endpoint="../api/context/" data-zero-store-endpoint="../api/zero-store/" data-jenang-gemi-store-endpoint="../api/jenang-gemi-store/" data-website-orders-endpoint="../api/website-orders/" data-hard-set-endpoint="../api/hard-set/" data-province-map-url="../assets/data/indonesia-38-provinces.geojson">
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
         <div class="admin-shell">
@@ -350,6 +350,29 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                         </div>
                     </article>
                     </div>
+
+                    <article class="admin-panel admin-panel-chart admin-panel-wide admin-location-heatmap-card" data-chart-id="C8">
+                        <div class="admin-panel-head">
+                            <div>
+                                <div class="admin-chart-title-row">
+                                    <h3>Orders by province</h3>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About orders by province" data-chart-info="Maps distinct completed marketplace orders by Indonesian province for the selected year. Darker blue means more matched order addresses. Rows without a recognizable province stay out of the map count."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                </div>
+                                <span class="admin-panel-meta" data-overview-location-status>Loading order locations</span>
+                            </div>
+                        </div>
+                        <div class="admin-location-heatmap-shell">
+                            <div class="admin-location-map" data-overview-location-map aria-label="Indonesia orders by province heat map"></div>
+                            <aside class="admin-location-summary" aria-label="Top provinces by order count">
+                                <div class="admin-location-legend" aria-hidden="true">
+                                    <span>Low</span>
+                                    <i></i>
+                                    <span>High</span>
+                                </div>
+                                <div class="admin-location-list" data-overview-location-list></div>
+                            </aside>
+                        </div>
+                    </article>
                 </section>
                     </section>
 
