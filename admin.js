@@ -869,7 +869,10 @@ const drawHoverGuide = (ctx, activeHover, padding, chartHeight, color = 'rgba(15
   ctx.restore();
 };
 
-const drawGrid = (ctx, width, height, padding, maxValue, metric, unitsMap, palette) => {
+const drawGrid = (ctx, width, height, padding, maxValue, metric, unitsMap, palette, options = {}) => {
+  const formatTick = typeof options.valueLabel === 'function'
+    ? (value) => options.valueLabel(null, value)
+    : (value) => formatMetricValue(metric, value, unitsMap);
   ctx.strokeStyle = palette.border;
   ctx.lineWidth = 1;
   for (let i = 0; i < 4; i += 1) {
@@ -883,7 +886,7 @@ const drawGrid = (ctx, width, height, padding, maxValue, metric, unitsMap, palet
     ctx.fillStyle = palette.muted;
     ctx.font = '600 11px "Plus Jakarta Sans", sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText(formatMetricValue(metric, Math.max(0, tickValue), unitsMap), 8, y - (i === 0 ? -12 : 4));
+    ctx.fillText(formatTick(Math.max(0, tickValue)), 8, y - (i === 0 ? -12 : 4));
   }
 };
 
@@ -1161,7 +1164,7 @@ const drawBarChart = (canvas, items, config) => {
   bindChartHover(canvas);
 
   if (config.showGrid !== false) {
-    drawGrid(ctx, width, height, padding, maxValue, config.metric, config.unitsMap, palette);
+    drawGrid(ctx, width, height, padding, maxValue, config.metric, config.unitsMap, palette, config);
   }
 
   chartItems.forEach((item, index) => {
@@ -1181,7 +1184,10 @@ const drawBarChart = (canvas, items, config) => {
     ctx.fill();
 
     if (config.showValueBadges !== false) {
-      drawValueBadge(ctx, x + (barWidth / 2), y, formatMetricValue(config.metric, value, config.unitsMap), palette);
+      const valueLabel = typeof config.valueLabel === 'function'
+        ? config.valueLabel(item, value)
+        : formatMetricValue(config.metric, value, config.unitsMap);
+      drawValueBadge(ctx, x + (barWidth / 2), y, valueLabel, palette);
     }
 
     if (config.showXAxisLabels !== false) {
@@ -5635,11 +5641,13 @@ document.addEventListener('DOMContentLoaded', () => {
     ]);
     drawBarChart(homeRefs.hourCanvas, hourOfDay, {
       value: (item) => item[state.home.metric] || 0,
-      label: (item) => `${String(item.hour).padStart(2, '0')}:00`,
+      label: (item) => String(Number(item.hour || 0)),
       color: () => SOURCE_COLORS.facebook,
       metric: state.home.metric,
       unitsMap: HOME_METRIC_UNITS,
-      tooltipTitle: (item) => `${String(item.hour).padStart(2, '0')}:00 WIB`,
+      valueLabel: (_item, value) => Math.round(Number(value) || 0).toLocaleString('id-ID'),
+      tooltipTitle: (item) => `Hour ${Number(item.hour || 0)} WIB`,
+      tooltipValue: (_item, value) => Math.round(Number(value) || 0).toLocaleString('id-ID'),
       limit: 24
     });
     renderProductCartRundown(homeRefs.productCartRundown, homeRefs.productCartMeta, data.product_cart, 'No cart adds in this timeframe.');

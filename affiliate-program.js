@@ -122,7 +122,10 @@ const drawValueBadge = (ctx, x, y, text, palette) => {
   ctx.fillText(text, x, badgeY + 15);
 };
 
-const drawGrid = (ctx, width, height, padding, maxValue, metric, palette) => {
+const drawGrid = (ctx, width, height, padding, maxValue, metric, palette, options = {}) => {
+  const formatTick = typeof options.valueLabel === 'function'
+    ? (value) => options.valueLabel(null, value)
+    : (value) => formatMetricValue(metric, value);
   ctx.strokeStyle = palette.border;
   ctx.lineWidth = 1;
   for (let i = 0; i < 4; i += 1) {
@@ -136,7 +139,7 @@ const drawGrid = (ctx, width, height, padding, maxValue, metric, palette) => {
     ctx.fillStyle = palette.muted;
     ctx.font = '600 11px "Plus Jakarta Sans", sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText(formatMetricValue(metric, Math.max(0, tickValue)), 8, y - (i === 0 ? -12 : 4));
+    ctx.fillText(formatTick(Math.max(0, tickValue)), 8, y - (i === 0 ? -12 : 4));
   }
 };
 
@@ -153,7 +156,7 @@ const drawBarChart = (canvas, items, config) => {
   const gap = chartWidth / Math.max(chartItems.length, 1) * 0.42;
   const palette = getThemePalette();
 
-  drawGrid(ctx, width, height, padding, maxValue, config.metric || 'views', palette);
+  drawGrid(ctx, width, height, padding, maxValue, config.metric || 'views', palette, config);
 
   chartItems.forEach((item, index) => {
     const value = Number(config.value(item));
@@ -172,7 +175,10 @@ const drawBarChart = (canvas, items, config) => {
     ctx.roundRect(x, y, barWidth, barHeight, 10);
     ctx.fill();
 
-    drawValueBadge(ctx, x + (barWidth / 2), y, String(value), palette);
+    const valueLabel = typeof config.valueLabel === 'function'
+      ? config.valueLabel(item, value)
+      : String(value);
+    drawValueBadge(ctx, x + (barWidth / 2), y, valueLabel, palette);
 
     ctx.fillStyle = palette.muted;
     ctx.font = '600 11px "Plus Jakarta Sans", sans-serif';
@@ -848,6 +854,7 @@ document.addEventListener('DOMContentLoaded', () => {
       label: () => '',
       color: () => SOURCE_COLORS.unknown,
       metric: state.metric,
+      valueLabel: (_item, value) => Math.round(Number(value) || 0).toLocaleString('id-ID'),
       limit: 24
     });
     drawBarChart(sourceCanvas, [], {
@@ -935,9 +942,10 @@ document.addEventListener('DOMContentLoaded', () => {
       ]);
       drawBarChart(hourCanvas, hourOfDay, {
         value: (item) => item[state.metric] || 0,
-        label: (item) => `${String(item.hour).padStart(2, '0')}:00`,
+        label: (item) => String(Number(item.hour || 0)),
         color: () => SOURCE_COLORS.facebook,
         metric: state.metric,
+        valueLabel: (_item, value) => Math.round(Number(value) || 0).toLocaleString('id-ID'),
         limit: 24
       });
       renderProductCartRundown(data.product_cart, 'No cart adds in this timeframe.');
