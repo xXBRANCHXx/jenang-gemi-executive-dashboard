@@ -50,7 +50,6 @@ $profileJsVersion = (string) @filemtime(dirname(__DIR__) . '/affiliate-profile.j
                     <div class="admin-topbar-brand">
                         <span class="admin-chip">Affiliate Profile</span>
                         <h1 data-profile-title>Affiliate Profile</h1>
-                        <p>Dedicated editing surface for a single affiliate profile.</p>
                     </div>
                     <div class="admin-topbar-actions">
                         <div class="admin-view-indicator">Affiliate Profile</div>
@@ -71,18 +70,12 @@ $profileJsVersion = (string) @filemtime(dirname(__DIR__) . '/affiliate-profile.j
                 </header>
 
                 <main class="admin-layout">
-            <section class="admin-hero-panel">
-                <div class="admin-hero-copy">
+            <section class="admin-affiliate-toolbar admin-affiliate-profile-toolbar" aria-label="Affiliate profile identity">
+                <div class="admin-affiliate-identity">
                     <span class="admin-chip admin-chip-accent" data-profile-code>Affiliate</span>
-                    <h2 data-profile-name>Loading affiliate profile</h2>
-                    <p>Edit profile details here without exposing mutation controls on the analytics pages.</p>
+                    <strong data-profile-name>Loading affiliate profile</strong>
                 </div>
-                <div class="admin-hero-actions">
-                    <div class="admin-status-pill">
-                        <span class="admin-status-dot"></span>
-                        <span>Secure Session Active</span>
-                    </div>
-                </div>
+                <a class="admin-ghost-btn admin-link-btn" href="../affiliate-profiles/">Affiliate Profiles</a>
             </section>
 
             <section class="admin-panel admin-panel-affiliates">
@@ -132,10 +125,6 @@ $profileJsVersion = (string) @filemtime(dirname(__DIR__) . '/affiliate-profile.j
                     <p class="admin-empty">Belum ada URL.</p>
                 </div>
             </section>
-
-            <div class="admin-bottom-actions">
-                <a class="admin-ghost-btn admin-link-btn" href="../affiliate-profiles/">Return To Affiliate Profiles</a>
-            </div>
                 </main>
             </div>
         </div>

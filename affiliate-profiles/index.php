@@ -49,7 +49,6 @@ $profilesJsVersion = (string) @filemtime(dirname(__DIR__) . '/affiliate-profiles
                     <div class="admin-topbar-brand">
                         <span class="admin-chip">Affiliate Profiles</span>
                         <h1>Jenang Gemi Affiliate Profiles</h1>
-                        <p>View every affiliate, open their landing pages, and enter dedicated edit pages for controlled profile changes.</p>
                     </div>
                     <div class="admin-topbar-actions">
                         <div class="admin-view-indicator">Affiliate Profiles</div>
@@ -70,37 +69,16 @@ $profilesJsVersion = (string) @filemtime(dirname(__DIR__) . '/affiliate-profiles
                 </header>
 
                 <main class="admin-layout">
-            <section class="admin-hero-panel">
-                <div class="admin-hero-copy">
-                    <span class="admin-chip admin-chip-accent">Profile Directory</span>
-                    <h2>Keep profile changes intentional by editing each affiliate on its own page.</h2>
-                    <p>This directory is only for listing affiliates and entering their dedicated profile pages. Each edit path is isolated so accidental changes are less likely.</p>
-                </div>
-                <div class="admin-hero-actions">
-                    <div class="admin-status-pill">
-                        <span class="admin-status-dot"></span>
-                        <span>Secure Session Active</span>
-                    </div>
-                    <button type="button" class="admin-primary-btn" data-open-affiliate-modal>Add Affiliate</button>
-                </div>
+            <section class="admin-affiliate-toolbar" aria-label="Affiliate profile shortcuts">
+                <button type="button" class="admin-primary-btn" data-open-affiliate-modal>Add Affiliate</button>
+                <a class="admin-ghost-btn admin-link-btn" href="../affiliate-program/">Affiliate Program</a>
             </section>
 
-            <section class="admin-panel admin-panel-affiliates">
-                <div class="admin-panel-head">
-                    <div>
-                        <span class="admin-panel-kicker">Profile List</span>
-                        <h3>Affiliate profiles</h3>
-                    </div>
-                    <button type="button" class="admin-primary-btn" data-open-affiliate-modal>Add Affiliate</button>
-                </div>
+            <section class="admin-panel admin-panel-affiliates admin-affiliate-directory-panel">
                 <div class="admin-affiliate-list" data-affiliate-list>
                     <p class="admin-empty">Belum ada affiliate.</p>
                 </div>
             </section>
-
-            <div class="admin-bottom-actions">
-                <a class="admin-ghost-btn admin-link-btn" href="../affiliate-program/">Return To Affiliate Program</a>
-            </div>
                 </main>
             </div>
         </div>

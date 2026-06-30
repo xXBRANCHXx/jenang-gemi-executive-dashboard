@@ -1744,12 +1744,13 @@ const initSlidingChartToggles = (root) => {
       window.cancelAnimationFrame(animationFrame);
       animationFrame = window.requestAnimationFrame(() => {
         const buttons = Array.from(toggle.querySelectorAll(':scope > .admin-toggle-pill'));
-        const activeButton = buttons.find((button) => button.classList.contains('is-active'));
+        const activeButtons = buttons.filter((button) => button.classList.contains('is-active'));
+        const activeButton = activeButtons[0] || null;
 
         buttons.forEach((button) => {
-          const isActive = button === activeButton;
+          const isActive = activeButtons.includes(button);
           button.setAttribute('aria-pressed', String(isActive));
-          button.tabIndex = isActive || !activeButton ? 0 : -1;
+          button.tabIndex = isActive || !activeButtons.length ? 0 : -1;
         });
 
         if (!activeButton) {
@@ -1758,8 +1759,10 @@ const initSlidingChartToggles = (root) => {
         }
 
         if (immediate) indicator.classList.add('is-positioning');
+        const lastActiveButton = activeButtons[activeButtons.length - 1] || activeButton;
+        const indicatorWidth = (lastActiveButton.offsetLeft + lastActiveButton.offsetWidth) - activeButton.offsetLeft;
         indicator.style.setProperty('--sliding-toggle-x', `${activeButton.offsetLeft}px`);
-        indicator.style.setProperty('--sliding-toggle-width', `${activeButton.offsetWidth}px`);
+        indicator.style.setProperty('--sliding-toggle-width', `${indicatorWidth}px`);
         toggle.classList.add('has-active-toggle');
 
         if (immediate) {
@@ -1768,6 +1771,8 @@ const initSlidingChartToggles = (root) => {
         }
       });
     };
+
+    toggle.syncSlidingIndicator = syncIndicator;
 
     const observer = new MutationObserver(() => syncIndicator());
     toggle.querySelectorAll(':scope > .admin-toggle-pill').forEach((button) => {
@@ -3247,6 +3252,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (viewLabel) {
       viewLabel.textContent = labels[state.activeView] || 'Dashboard';
     }
+    window.requestAnimationFrame(() => {
+      root.querySelectorAll('[data-sliding-chart-toggle]').forEach((toggle) => {
+        if (typeof toggle.syncSlidingIndicator === 'function') {
+          toggle.syncSlidingIndicator({ immediate: true });
+        }
+      });
+    });
     window.localStorage.setItem(viewStorageKey, state.activeView);
   };
 

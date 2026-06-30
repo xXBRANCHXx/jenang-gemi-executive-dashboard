@@ -14697,3 +14697,451 @@ body:has(.admin-app[data-sku-db])::after {
     flex-basis: min(100%, 320px);
   }
 }
+
+/* Campaigns and Affiliate UX cleanup. */
+.admin-campaign-view,
+.admin-app.admin-app-suite:is([data-affiliate-dashboard], [data-affiliate-profiles], [data-affiliate-profile]) .admin-layout {
+  gap: 14px;
+}
+
+.admin-campaign-command,
+.admin-affiliate-toolbar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.admin-campaign-command > .admin-link-btn,
+.admin-affiliate-toolbar > .admin-link-btn,
+.admin-affiliate-toolbar > .admin-primary-btn,
+.admin-affiliate-toolbar > .admin-ghost-btn {
+  min-height: 40px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.admin-campaign-command .admin-primary-btn,
+.admin-affiliate-toolbar .admin-primary-btn {
+  flex: 0 0 auto;
+}
+
+.admin-affiliate-toolbar {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.admin-affiliate-profile-toolbar {
+  justify-content: space-between;
+}
+
+.admin-affiliate-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.admin-affiliate-identity strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 1rem;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-launchpad-compact {
+  flex: 1 1 760px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  min-width: 0;
+}
+
+.admin-launchpad-compact .admin-launchpad-section {
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(34, 211, 238, 0.24);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(34, 211, 238, 0.14), rgba(157, 255, 0, 0.1)),
+    var(--admin-panel-glass-bg);
+}
+
+.admin-launchpad-compact .admin-launchpad-section-jamu {
+  border-color: rgba(245, 158, 11, 0.3);
+  background:
+    linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(255, 82, 82, 0.08)),
+    var(--admin-panel-glass-bg);
+}
+
+.admin-launchpad-compact .admin-launchpad-head {
+  gap: 8px;
+}
+
+.admin-launchpad-compact .admin-launchpad-head strong {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.admin-launchpad-compact .admin-launchpad-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.admin-launchpad-compact .admin-launchpad-link,
+.admin-launchpad-compact .admin-launchpad-link-jamu {
+  min-height: 44px;
+  padding: 8px 9px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.admin-launchpad-compact .admin-launchpad-link span,
+.admin-launchpad-compact .admin-launchpad-link small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-launchpad-compact .admin-launchpad-link span {
+  font-size: 12px;
+}
+
+.admin-launchpad-compact .admin-launchpad-link small {
+  font-size: 10px;
+}
+
+.admin-control-strip-compact {
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  align-items: end;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.admin-control-strip-compact .admin-control-group {
+  gap: 7px;
+}
+
+.admin-control-strip-compact .admin-control-label {
+  padding-left: 2px;
+}
+
+.admin-control-strip-compact .admin-select-wrap {
+  min-width: 0;
+}
+
+.admin-control-strip-compact .admin-select {
+  min-height: 40px;
+  padding: 9px 13px;
+  border-radius: 999px;
+}
+
+.admin-control-strip-compact .admin-sliding-chart-toggle,
+.admin-panel-inline-toggles.admin-sliding-chart-toggle {
+  margin: 0;
+}
+
+.admin-control-strip-compact .admin-sliding-chart-toggle {
+  width: fit-content;
+}
+
+.admin-app.admin-app-suite .admin-sliding-toggle-indicator {
+  z-index: 1;
+}
+
+.admin-app.admin-app-suite .admin-sliding-chart-toggle > .admin-toggle-pill,
+.admin-app.admin-app-suite .admin-sliding-chart-toggle > .admin-toggle-pill:hover,
+.admin-app.admin-app-suite .admin-sliding-chart-toggle > .admin-toggle-pill.is-active,
+.admin-app.admin-app-suite .admin-sliding-chart-toggle > .admin-toggle-pill.is-active:hover {
+  z-index: 3;
+}
+
+.admin-affiliate-controls {
+  grid-template-columns: minmax(220px, 0.85fr) repeat(2, minmax(260px, 1fr));
+}
+
+.admin-campaign-view .admin-metric-grid,
+.admin-app.admin-app-suite[data-affiliate-dashboard] .admin-metric-grid {
+  gap: 10px;
+}
+
+.admin-campaign-view .admin-metric-card,
+.admin-app.admin-app-suite[data-affiliate-dashboard] .admin-metric-card {
+  gap: 8px;
+  min-height: 0;
+  padding: 14px;
+  border-radius: 8px;
+}
+
+.admin-campaign-view .admin-metric-card strong,
+.admin-app.admin-app-suite[data-affiliate-dashboard] .admin-metric-card strong {
+  margin: 2px 0;
+  font-size: clamp(1.55rem, 3vw, 2.2rem);
+  line-height: 1;
+}
+
+.admin-campaign-view .admin-panel,
+.admin-app.admin-app-suite[data-affiliate-dashboard] .admin-panel,
+.admin-app.admin-app-suite:is([data-affiliate-profiles], [data-affiliate-profile]) .admin-panel {
+  padding: 16px;
+  border-radius: 8px;
+}
+
+.admin-campaign-view .admin-panel-head,
+.admin-app.admin-app-suite[data-affiliate-dashboard] .admin-panel-head,
+.admin-app.admin-app-suite:is([data-affiliate-profiles], [data-affiliate-profile]) .admin-panel-head {
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.admin-campaign-view .admin-panel-head h3,
+.admin-app.admin-app-suite[data-affiliate-dashboard] .admin-panel-head h3,
+.admin-app.admin-app-suite:is([data-affiliate-profiles], [data-affiliate-profile]) .admin-panel-head h3 {
+  font-size: clamp(1.05rem, 1.7vw, 1.35rem);
+  line-height: 1.15;
+}
+
+.admin-campaign-view .admin-chart-surface,
+.admin-app.admin-app-suite[data-affiliate-dashboard] .admin-chart-surface {
+  min-height: 250px;
+  border-radius: 8px;
+}
+
+.admin-campaign-view .admin-chart-canvas-lg,
+.admin-app.admin-app-suite[data-affiliate-dashboard] .admin-chart-canvas-lg {
+  min-height: 300px;
+}
+
+.admin-app.admin-app-suite:is([data-affiliate-dashboard], [data-affiliate-profiles], [data-affiliate-profile]) .admin-topbar {
+  align-items: center;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.admin-app.admin-app-suite:is([data-affiliate-dashboard], [data-affiliate-profiles], [data-affiliate-profile]) .admin-topbar-brand h1 {
+  margin: 6px 0 0;
+  font-size: clamp(1.45rem, 2.4vw, 2.25rem);
+  line-height: 1;
+}
+
+.admin-app.admin-app-suite:is([data-affiliate-dashboard], [data-affiliate-profiles], [data-affiliate-profile]) .admin-view-indicator {
+  min-height: 40px;
+  border-radius: 999px;
+}
+
+.admin-affiliate-directory-panel {
+  margin-top: 0;
+}
+
+.admin-app.admin-app-suite:is([data-affiliate-profiles], [data-affiliate-profile]) .admin-affiliate-list,
+.admin-app.admin-app-suite:is([data-affiliate-profiles], [data-affiliate-profile]) .admin-affiliate-editor,
+.admin-app.admin-app-suite:is([data-affiliate-profiles], [data-affiliate-profile]) .admin-affiliate-form {
+  gap: 12px;
+}
+
+.admin-app.admin-app-suite:is([data-affiliate-profiles], [data-affiliate-profile]) .admin-affiliate-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 8px;
+}
+
+.admin-app.admin-app-suite:is([data-affiliate-profiles], [data-affiliate-profile]) .admin-affiliate-head h4 {
+  margin: 7px 0 0;
+  font-size: 1.05rem;
+  line-height: 1.2;
+}
+
+.admin-app.admin-app-suite:is([data-affiliate-profiles], [data-affiliate-profile]) .admin-affiliate-field,
+.admin-app.admin-app-suite:is([data-affiliate-profiles], [data-affiliate-profile]) .admin-affiliate-platforms {
+  gap: 8px;
+}
+
+.admin-app.admin-app-suite:is([data-affiliate-profiles], [data-affiliate-profile]) .admin-affiliate-platform-grid {
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 8px;
+}
+
+.admin-app.admin-app-suite:is([data-affiliate-profiles], [data-affiliate-profile]) :is(.admin-platform-choice, .admin-affiliate-platform-grid label) {
+  min-height: 40px;
+  padding: 9px 11px;
+  border-radius: 999px;
+}
+
+.admin-app.admin-app-suite:is([data-affiliate-profiles], [data-affiliate-profile]) .admin-affiliate-platform-grid label input {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  accent-color: #111111;
+}
+
+.admin-app.admin-app-suite:is([data-affiliate-profiles], [data-affiliate-profile]) .admin-affiliate-platform-grid label:has(input:checked) {
+  border-color: rgba(34, 211, 238, 0.38);
+  background: rgba(34, 211, 238, 0.12);
+}
+
+.admin-app.admin-app-suite:is([data-affiliate-profiles], [data-affiliate-profile]) .admin-affiliate-url-list {
+  gap: 8px;
+}
+
+.admin-app.admin-app-suite:is([data-affiliate-profiles], [data-affiliate-profile]) .admin-affiliate-url {
+  min-height: 42px;
+  padding: 10px 12px;
+  border-radius: 8px;
+}
+
+.admin-app.admin-app-suite:is([data-affiliate-profiles], [data-affiliate-profile]) .admin-affiliate-url span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-app.admin-app-suite:is([data-affiliate-profiles], [data-affiliate-profile]) .admin-affiliate-actions {
+  flex-wrap: wrap;
+}
+
+.admin-app.admin-app-suite:is([data-affiliate-profiles], [data-affiliate-profile]) .admin-affiliate-form input[type='text'] {
+  border-radius: 8px;
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite:is([data-admin-dashboard], [data-affiliate-dashboard], [data-affiliate-profiles], [data-affiliate-profile]) {
+  --admin-bg: #f5f7fb;
+  --admin-surface: #ffffff;
+  --admin-surface-strong: #ffffff;
+  --admin-surface-soft: #eef2f7;
+  --admin-border: rgba(15, 23, 42, 0.12);
+  --admin-text: #0f172a;
+  --admin-muted: rgba(51, 65, 85, 0.72);
+  --admin-panel-glass-bg: #ffffff;
+  --admin-panel-outline-hover: rgba(37, 99, 235, 0.26);
+  background: #f5f7fb;
+}
+
+:root[data-admin-theme='light'] .admin-control-strip-compact,
+:root[data-admin-theme='light'] .admin-campaign-view :is(.admin-panel, .admin-metric-card),
+:root[data-admin-theme='light'] .admin-app.admin-app-suite:is([data-affiliate-dashboard], [data-affiliate-profiles], [data-affiliate-profile]) :is(.admin-panel, .admin-metric-card, .admin-affiliate-card, .admin-affiliate-url, .admin-platform-choice, .admin-affiliate-platform-grid label, .admin-modal-card) {
+  border-color: rgba(15, 23, 42, 0.1);
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.06);
+}
+
+:root[data-admin-theme='light'] .admin-campaign-command,
+:root[data-admin-theme='light'] .admin-affiliate-toolbar {
+  background: transparent;
+  box-shadow: none;
+}
+
+:root[data-admin-theme='light'] .admin-campaign-view .admin-chart-surface,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-affiliate-dashboard] .admin-chart-surface,
+:root[data-admin-theme='light'] .admin-campaign-view .admin-table-wrap,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-affiliate-dashboard] .admin-table-wrap {
+  border-color: rgba(15, 23, 42, 0.09);
+  background: #f8fafc;
+}
+
+:root[data-admin-theme='light'] .admin-launchpad-compact .admin-launchpad-section {
+  background:
+    linear-gradient(135deg, rgba(14, 165, 233, 0.16), rgba(34, 197, 94, 0.12)),
+    #ffffff;
+}
+
+:root[data-admin-theme='light'] .admin-launchpad-compact .admin-launchpad-section-jamu {
+  background:
+    linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(239, 68, 68, 0.09)),
+    #ffffff;
+}
+
+:root[data-admin-theme='light'] .admin-launchpad-compact .admin-launchpad-link {
+  border-color: rgba(14, 165, 233, 0.2);
+  background: rgba(255, 255, 255, 0.76);
+}
+
+:root[data-admin-theme='light'] .admin-launchpad-compact .admin-launchpad-link-jamu {
+  border-color: rgba(245, 158, 11, 0.26);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite:is([data-admin-dashboard], [data-affiliate-dashboard]) .admin-sliding-chart-toggle {
+  border-color: rgba(15, 23, 42, 0.12);
+  background: #ffffff;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.07);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite:is([data-admin-dashboard], [data-affiliate-dashboard]) .admin-sliding-toggle-indicator {
+  border-color: rgba(15, 23, 42, 0.08);
+  background: #172033;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.16);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite:is([data-admin-dashboard], [data-affiliate-dashboard]) .admin-sliding-chart-toggle > .admin-toggle-pill,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite:is([data-admin-dashboard], [data-affiliate-dashboard]) .admin-sliding-chart-toggle > .admin-toggle-pill:hover {
+  color: #64748b;
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite:is([data-admin-dashboard], [data-affiliate-dashboard]) .admin-sliding-chart-toggle > .admin-toggle-pill.is-active,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite:is([data-admin-dashboard], [data-affiliate-dashboard]) .admin-sliding-chart-toggle > .admin-toggle-pill.is-active:hover {
+  color: #ffffff;
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite:is([data-affiliate-profiles], [data-affiliate-profile]) .admin-affiliate-platform-grid label:has(input:checked) {
+  border-color: rgba(37, 99, 235, 0.28);
+  background: rgba(37, 99, 235, 0.08);
+}
+
+@media (max-width: 1100px) {
+  .admin-campaign-command {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-launchpad-compact {
+    flex-basis: auto;
+    width: 100%;
+  }
+
+  .admin-affiliate-controls {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .admin-launchpad-compact,
+  .admin-launchpad-compact .admin-launchpad-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .admin-control-strip-compact .admin-sliding-chart-toggle {
+    width: 100%;
+  }
+
+  .admin-affiliate-profile-toolbar,
+  .admin-affiliate-identity,
+  .admin-app.admin-app-suite:is([data-affiliate-profiles], [data-affiliate-profile]) .admin-affiliate-head,
+  .admin-app.admin-app-suite:is([data-affiliate-profiles], [data-affiliate-profile]) .admin-affiliate-url {
+    align-items: stretch;
+  }
+
+  .admin-affiliate-profile-toolbar,
+  .admin-app.admin-app-suite:is([data-affiliate-profiles], [data-affiliate-profile]) .admin-affiliate-url {
+    flex-direction: column;
+  }
+
+  .admin-affiliate-identity {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-launchpad-compact,
+  .admin-launchpad-compact .admin-launchpad-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isAuthenticated = jg_admin_is_authenticated();
-$dashboardBuildVersion = 'exec3.72.0';
+$dashboardBuildVersion = 'exec3.72.1';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -622,96 +622,81 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                 </div>
                     </section>
 
-                    <section class="admin-view" data-view-panel="home">
-                <section class="admin-hero-panel">
-                    <div class="admin-hero-copy">
-                        <span class="admin-chip admin-chip-accent">Campaigns Dashboard</span>
-                        <h2>Campaign performance across YouTube, Facebook, Instagram, and TikTok.</h2>
-                        <p>Views, Order Now clicks, checkout intent, average time spent, and the latest tracked sessions are available here without exposing the raw analytics endpoint publicly.</p>
-                    </div>
-                    <div class="admin-hero-actions">
-                        <div class="admin-status-pill">
-                            <span class="admin-status-dot"></span>
-                            <span>Secure Session Active</span>
-                        </div>
-                        <a class="admin-primary-btn admin-link-btn" href="../affiliate-program/">Open Affiliate Program</a>
-                        <div class="admin-launchpad">
-                            <div class="admin-launchpad-section">
-                                <div class="admin-launchpad-head">
-                                    <span class="admin-panel-kicker">Jenang Gemi Bubur</span>
-                                    <strong>Live now</strong>
-                                </div>
-                                <div class="admin-launchpad-grid">
-                                    <a class="admin-launchpad-link" href="https://jenanggemi.com/bubur-youtube.html" target="_blank" rel="noopener">
-                                        <span>YouTube</span>
-                                        <small>/bubur-youtube.html</small>
-                                    </a>
-                                    <a class="admin-launchpad-link" href="https://jenanggemi.com/bubur-facebook.html" target="_blank" rel="noopener">
-                                        <span>Facebook</span>
-                                        <small>/bubur-facebook.html</small>
-                                    </a>
-                                    <a class="admin-launchpad-link" href="https://jenanggemi.com/bubur-instagram.html" target="_blank" rel="noopener">
-                                        <span>Instagram</span>
-                                        <small>/bubur-instagram.html</small>
-                                    </a>
-                                    <a class="admin-launchpad-link" href="https://jenanggemi.com/bubur-tiktok.html" target="_blank" rel="noopener">
-                                        <span>TikTok</span>
-                                        <small>/bubur-tiktok.html</small>
-                                    </a>
-                                </div>
+                    <section class="admin-view admin-campaign-view" data-view-panel="home">
+                <section class="admin-campaign-command" aria-label="Campaign shortcuts">
+                    <a class="admin-primary-btn admin-link-btn" href="../affiliate-program/">Affiliate Program</a>
+                    <div class="admin-launchpad admin-launchpad-compact" aria-label="Landing page launchpad">
+                        <div class="admin-launchpad-section">
+                            <div class="admin-launchpad-head">
+                                <span class="admin-panel-kicker">Bubur</span>
+                                <strong>4 pages</strong>
                             </div>
+                            <div class="admin-launchpad-grid">
+                                <a class="admin-launchpad-link" href="https://jenanggemi.com/bubur-youtube.html" target="_blank" rel="noopener">
+                                    <span>YouTube</span>
+                                    <small>/bubur-youtube.html</small>
+                                </a>
+                                <a class="admin-launchpad-link" href="https://jenanggemi.com/bubur-facebook.html" target="_blank" rel="noopener">
+                                    <span>Facebook</span>
+                                    <small>/bubur-facebook.html</small>
+                                </a>
+                                <a class="admin-launchpad-link" href="https://jenanggemi.com/bubur-instagram.html" target="_blank" rel="noopener">
+                                    <span>Instagram</span>
+                                    <small>/bubur-instagram.html</small>
+                                </a>
+                                <a class="admin-launchpad-link" href="https://jenanggemi.com/bubur-tiktok.html" target="_blank" rel="noopener">
+                                    <span>TikTok</span>
+                                    <small>/bubur-tiktok.html</small>
+                                </a>
+                            </div>
+                        </div>
 
-                            <div class="admin-launchpad-section admin-launchpad-section-jamu">
-                                <div class="admin-launchpad-head">
-                                    <span class="admin-panel-kicker">Jenang Gemi Jamu</span>
-                                    <strong>Live now</strong>
-                                </div>
-                                <div class="admin-launchpad-grid">
-                                    <a class="admin-launchpad-link admin-launchpad-link-jamu" href="https://jenanggemi.com/jamu-youtube.html" target="_blank" rel="noopener">
-                                        <span>YouTube</span>
-                                        <small>/jamu-youtube.html</small>
-                                    </a>
-                                    <a class="admin-launchpad-link admin-launchpad-link-jamu" href="https://jenanggemi.com/jamu-facebook.html" target="_blank" rel="noopener">
-                                        <span>Facebook</span>
-                                        <small>/jamu-facebook.html</small>
-                                    </a>
-                                    <a class="admin-launchpad-link admin-launchpad-link-jamu" href="https://jenanggemi.com/jamu-instagram.html" target="_blank" rel="noopener">
-                                        <span>Instagram</span>
-                                        <small>/jamu-instagram.html</small>
-                                    </a>
-                                    <a class="admin-launchpad-link admin-launchpad-link-jamu" href="https://jenanggemi.com/jamu-tiktok.html" target="_blank" rel="noopener">
-                                        <span>TikTok</span>
-                                        <small>/jamu-tiktok.html</small>
-                                    </a>
-                                </div>
+                        <div class="admin-launchpad-section admin-launchpad-section-jamu">
+                            <div class="admin-launchpad-head">
+                                <span class="admin-panel-kicker">Jamu</span>
+                                <strong>4 pages</strong>
+                            </div>
+                            <div class="admin-launchpad-grid">
+                                <a class="admin-launchpad-link admin-launchpad-link-jamu" href="https://jenanggemi.com/jamu-youtube.html" target="_blank" rel="noopener">
+                                    <span>YouTube</span>
+                                    <small>/jamu-youtube.html</small>
+                                </a>
+                                <a class="admin-launchpad-link admin-launchpad-link-jamu" href="https://jenanggemi.com/jamu-facebook.html" target="_blank" rel="noopener">
+                                    <span>Facebook</span>
+                                    <small>/jamu-facebook.html</small>
+                                </a>
+                                <a class="admin-launchpad-link admin-launchpad-link-jamu" href="https://jenanggemi.com/jamu-instagram.html" target="_blank" rel="noopener">
+                                    <span>Instagram</span>
+                                    <small>/jamu-instagram.html</small>
+                                </a>
+                                <a class="admin-launchpad-link admin-launchpad-link-jamu" href="https://jenanggemi.com/jamu-tiktok.html" target="_blank" rel="noopener">
+                                    <span>TikTok</span>
+                                    <small>/jamu-tiktok.html</small>
+                                </a>
                             </div>
                         </div>
                     </div>
                 </section>
 
-                <section class="admin-control-strip">
+                <section class="admin-control-strip admin-control-strip-compact admin-campaign-controls">
                     <div class="admin-control-group">
                         <span class="admin-control-label">Timeframe</span>
-                        <div class="admin-toggle-row" data-home-timeframe-controls>
-                            <button type="button" class="admin-toggle-pill" data-home-timeframe="1h">1H</button>
-                            <button type="button" class="admin-toggle-pill is-active" data-home-timeframe="24h">24H</button>
-                            <button type="button" class="admin-toggle-pill" data-home-timeframe="7d">7D</button>
-                            <button type="button" class="admin-toggle-pill" data-home-timeframe="30d">30D</button>
-                            <button type="button" class="admin-toggle-pill" data-home-timeframe="90d">90D</button>
-                            <button type="button" class="admin-toggle-pill" data-home-timeframe="all">ALL</button>
+                        <div class="admin-toggle-row admin-sliding-chart-toggle" data-home-timeframe-controls data-sliding-chart-toggle role="group" aria-label="Campaign timeframe">
+                            <button type="button" class="admin-toggle-pill" data-home-timeframe="1h"><span>1H</span></button>
+                            <button type="button" class="admin-toggle-pill is-active" data-home-timeframe="24h"><span>24H</span></button>
+                            <button type="button" class="admin-toggle-pill" data-home-timeframe="7d"><span>7D</span></button>
+                            <button type="button" class="admin-toggle-pill" data-home-timeframe="30d"><span>30D</span></button>
+                            <button type="button" class="admin-toggle-pill" data-home-timeframe="90d"><span>90D</span></button>
+                            <button type="button" class="admin-toggle-pill" data-home-timeframe="all"><span>ALL</span></button>
                         </div>
                     </div>
                     <div class="admin-control-group">
                         <span class="admin-control-label">Trend Metric</span>
-                        <div class="admin-toggle-row" data-home-metric-controls>
-                            <button type="button" class="admin-toggle-pill is-active" data-home-metric="views">Views</button>
-                            <button type="button" class="admin-toggle-pill" data-home-metric="order_now_clicks">Order Now</button>
-                            <button type="button" class="admin-toggle-pill" data-home-metric="checkout_clicks">Checkout</button>
+                        <div class="admin-toggle-row admin-sliding-chart-toggle" data-home-metric-controls data-sliding-chart-toggle role="group" aria-label="Campaign trend metric">
+                            <button type="button" class="admin-toggle-pill is-active" data-home-metric="views"><span>Views</span></button>
+                            <button type="button" class="admin-toggle-pill" data-home-metric="order_now_clicks"><span>Order Now</span></button>
+                            <button type="button" class="admin-toggle-pill" data-home-metric="checkout_clicks"><span>Checkout</span></button>
                         </div>
-                    </div>
-                    <div class="admin-live-status">
-                        <strong>Live</strong>
-                        <span data-home-last-updated>Waiting for first sync</span>
                     </div>
                 </section>
 
@@ -734,9 +719,9 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                             </div>
                             <span class="admin-panel-meta" data-home-trend-meta>Live over selected timeframe</span>
                         </div>
-                        <div class="admin-panel-inline-toggles" data-home-series-controls>
-                            <button type="button" class="admin-toggle-pill admin-toggle-pill-series admin-toggle-pill-series-bubur is-active" data-home-series="bubur">Bubur</button>
-                            <button type="button" class="admin-toggle-pill admin-toggle-pill-series admin-toggle-pill-series-jamu is-active" data-home-series="jamu">Jamu</button>
+                        <div class="admin-panel-inline-toggles admin-sliding-chart-toggle" data-home-series-controls data-sliding-chart-toggle role="group" aria-label="Campaign product lines">
+                            <button type="button" class="admin-toggle-pill admin-toggle-pill-series admin-toggle-pill-series-bubur is-active" data-home-series="bubur"><span>Bubur</span></button>
+                            <button type="button" class="admin-toggle-pill admin-toggle-pill-series admin-toggle-pill-series-jamu is-active" data-home-series="jamu"><span>Jamu</span></button>
                         </div>
                         <div class="admin-chart-surface">
                             <canvas class="admin-chart-canvas admin-chart-canvas-lg" data-home-trend-chart width="1200" height="360"></canvas>
@@ -837,31 +822,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                         </div>
                     </article>
 
-                    <article class="admin-panel admin-panel-feed">
-                        <div class="admin-panel-head">
-                            <div><span class="admin-panel-kicker">Recent Events</span><h3>Latest tracked actions</h3></div>
-                        </div>
-                        <div class="admin-event-feed" data-home-recent-events>
-                            <p class="admin-empty">Belum ada aktivitas.</p>
-                        </div>
-                    </article>
-
-                    <article class="admin-panel admin-panel-feed">
-                        <div class="admin-panel-head">
-                            <div><span class="admin-panel-kicker">Protected Access</span><h3>System notes</h3></div>
-                        </div>
-                        <div class="admin-note-stack">
-                            <div class="admin-note-card"><strong>Auth gate</strong><span>Dashboard and analytics access are protected by server-side session auth.</span></div>
-                            <div class="admin-note-card"><strong>Source API</strong><span>Data is queried server-side from the dashboard analytics database.</span></div>
-                            <div class="admin-note-card"><strong>Endpoint</strong><span data-home-endpoint-label>../api/analytics/</span></div>
-                            <div class="admin-note-card"><strong>Live Sync</strong><span>Dashboard listens for local analytics changes and refreshes automatically.</span></div>
-                        </div>
-                    </article>
                 </section>
-                <div class="admin-bottom-actions">
-                    <a class="admin-primary-btn admin-link-btn" href="../affiliate-program/">Go To Affiliate Program</a>
-                    <a class="admin-ghost-btn admin-link-btn" href="../back-dash/">Open API Workspace</a>
-                </div>
                     </section>
 
                     <section class="admin-view" data-view-panel="website">

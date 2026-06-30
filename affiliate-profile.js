@@ -160,9 +160,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const renderAffiliate = (affiliate) => {
     state.affiliate = affiliate;
-    if (profileTitle) profileTitle.textContent = `${affiliate.name || 'Affiliate Profile'} | Jenang Gemi Executive Dashboard`;
+    const displayName = affiliate.name || affiliate.code || 'Affiliate Profile';
+    if (profileTitle) profileTitle.textContent = displayName;
+    document.title = `${displayName} | Jenang Gemi Executive Dashboard`;
     if (profileCode) profileCode.textContent = affiliate.code || 'Affiliate';
-    if (profileName) profileName.textContent = affiliate.name || affiliate.code || 'Affiliate';
+    if (profileName) profileName.textContent = displayName;
     if (profileForm) {
       const nameInput = profileForm.querySelector('input[name="name"]');
       if (nameInput instanceof HTMLInputElement) {

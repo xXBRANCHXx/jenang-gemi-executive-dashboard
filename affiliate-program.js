@@ -456,6 +456,80 @@ document.addEventListener('DOMContentLoaded', () => {
     writeStoredTheme(normalizedTheme);
   };
 
+  const initSlidingChartToggles = (scope) => {
+    scope.querySelectorAll('[data-sliding-chart-toggle]').forEach((toggle) => {
+      if (toggle.dataset.slidingToggleReady === 'true') return;
+
+      const indicator = document.createElement('span');
+      indicator.className = 'admin-sliding-toggle-indicator';
+      indicator.setAttribute('aria-hidden', 'true');
+      toggle.prepend(indicator);
+      toggle.dataset.slidingToggleReady = 'true';
+
+      let animationFrame = 0;
+      const syncIndicator = ({ immediate = false } = {}) => {
+        window.cancelAnimationFrame(animationFrame);
+        animationFrame = window.requestAnimationFrame(() => {
+          const buttons = Array.from(toggle.querySelectorAll(':scope > .admin-toggle-pill'));
+          const activeButtons = buttons.filter((button) => button.classList.contains('is-active'));
+          const activeButton = activeButtons[0] || null;
+
+          buttons.forEach((button) => {
+            const isActive = activeButtons.includes(button);
+            button.setAttribute('aria-pressed', String(isActive));
+            button.tabIndex = isActive || !activeButtons.length ? 0 : -1;
+          });
+
+          if (!activeButton) {
+            toggle.classList.remove('has-active-toggle');
+            return;
+          }
+
+          if (immediate) indicator.classList.add('is-positioning');
+          const lastActiveButton = activeButtons[activeButtons.length - 1] || activeButton;
+          const indicatorWidth = (lastActiveButton.offsetLeft + lastActiveButton.offsetWidth) - activeButton.offsetLeft;
+          indicator.style.setProperty('--sliding-toggle-x', `${activeButton.offsetLeft}px`);
+          indicator.style.setProperty('--sliding-toggle-width', `${indicatorWidth}px`);
+          toggle.classList.add('has-active-toggle');
+
+          if (immediate) {
+            indicator.getBoundingClientRect();
+            indicator.classList.remove('is-positioning');
+          }
+        });
+      };
+
+      const observer = new MutationObserver(() => syncIndicator());
+      toggle.querySelectorAll(':scope > .admin-toggle-pill').forEach((button) => {
+        observer.observe(button, { attributes: true, attributeFilter: ['class'] });
+      });
+
+      if (window.ResizeObserver) {
+        const resizeObserver = new ResizeObserver(() => syncIndicator({ immediate: true }));
+        resizeObserver.observe(toggle);
+      }
+
+      toggle.addEventListener('keydown', (event) => {
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        const buttons = Array.from(toggle.querySelectorAll(':scope > .admin-toggle-pill:not(:disabled)'));
+        if (!buttons.length) return;
+
+        const currentIndex = Math.max(0, buttons.indexOf(document.activeElement));
+        let nextIndex = currentIndex;
+        if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + buttons.length) % buttons.length;
+        if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % buttons.length;
+        if (event.key === 'Home') nextIndex = 0;
+        if (event.key === 'End') nextIndex = buttons.length - 1;
+
+        event.preventDefault();
+        buttons[nextIndex]?.focus();
+        buttons[nextIndex]?.click();
+      });
+
+      syncIndicator({ immediate: true });
+    });
+  };
+
   const closeMenu = () => {
     if (!menuPanel || !menuTrigger) return;
     menuPanel.hidden = true;
@@ -883,6 +957,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   applyTheme(readStoredTheme() || 'dark');
   setupTopbarMenu();
+  initSlidingChartToggles(root);
 
   document.querySelector('[data-theme-toggle]')?.addEventListener('click', () => {
     applyTheme(getNextTheme());

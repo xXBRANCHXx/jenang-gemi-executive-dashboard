@@ -49,7 +49,6 @@ $affiliateJsVersion = (string) @filemtime(dirname(__DIR__) . '/affiliate-program
                     <div class="admin-topbar-brand">
                         <span class="admin-chip">Affiliate Program</span>
                         <h1>Jenang Gemi Affiliate Program</h1>
-                        <p>Create affiliate landing pages, manage platform assignments, and watch affiliate performance live from a dedicated workspace.</p>
                     </div>
                     <div class="admin-topbar-actions">
                         <div class="admin-view-indicator">Affiliate Program</div>
@@ -70,22 +69,12 @@ $affiliateJsVersion = (string) @filemtime(dirname(__DIR__) . '/affiliate-program
                 </header>
 
                 <main class="admin-layout">
-            <section class="admin-hero-panel">
-                <div class="admin-hero-copy">
-                    <span class="admin-chip admin-chip-accent">Affiliate Performance</span>
-                    <h2>Watch affiliate traffic and conversions here without exposing editing controls on the analytics page.</h2>
-                    <p>Select an affiliate to inspect live performance charts. For profile changes, platform assignments, or deletion, use the dedicated Affiliate Profiles area.</p>
-                </div>
-                <div class="admin-hero-actions">
-                    <div class="admin-status-pill">
-                        <span class="admin-status-dot"></span>
-                        <span>Secure Session Active</span>
-                    </div>
-                    <a class="admin-primary-btn admin-link-btn" href="../affiliate-profiles/">Open Affiliate Profiles</a>
-                </div>
+            <section class="admin-affiliate-toolbar" aria-label="Affiliate shortcuts">
+                <a class="admin-primary-btn admin-link-btn" href="../affiliate-profiles/">Affiliate Profiles</a>
+                <a class="admin-ghost-btn admin-link-btn" href="../dashboard/?view=campaigns">Campaigns</a>
             </section>
 
-            <section class="admin-control-strip">
+            <section class="admin-control-strip admin-control-strip-compact admin-affiliate-controls">
                 <div class="admin-control-group">
                     <span class="admin-control-label">Affiliate</span>
                     <label class="admin-select-wrap">
@@ -96,26 +85,22 @@ $affiliateJsVersion = (string) @filemtime(dirname(__DIR__) . '/affiliate-program
                 </div>
                 <div class="admin-control-group">
                     <span class="admin-control-label">Timeframe</span>
-                    <div class="admin-toggle-row" data-timeframe-controls>
-                        <button type="button" class="admin-toggle-pill" data-timeframe="1h">1H</button>
-                        <button type="button" class="admin-toggle-pill is-active" data-timeframe="24h">24H</button>
-                        <button type="button" class="admin-toggle-pill" data-timeframe="7d">7D</button>
-                        <button type="button" class="admin-toggle-pill" data-timeframe="30d">30D</button>
-                        <button type="button" class="admin-toggle-pill" data-timeframe="90d">90D</button>
-                        <button type="button" class="admin-toggle-pill" data-timeframe="all">ALL</button>
+                    <div class="admin-toggle-row admin-sliding-chart-toggle" data-timeframe-controls data-sliding-chart-toggle role="group" aria-label="Affiliate timeframe">
+                        <button type="button" class="admin-toggle-pill" data-timeframe="1h"><span>1H</span></button>
+                        <button type="button" class="admin-toggle-pill is-active" data-timeframe="24h"><span>24H</span></button>
+                        <button type="button" class="admin-toggle-pill" data-timeframe="7d"><span>7D</span></button>
+                        <button type="button" class="admin-toggle-pill" data-timeframe="30d"><span>30D</span></button>
+                        <button type="button" class="admin-toggle-pill" data-timeframe="90d"><span>90D</span></button>
+                        <button type="button" class="admin-toggle-pill" data-timeframe="all"><span>ALL</span></button>
                     </div>
                 </div>
                 <div class="admin-control-group">
                     <span class="admin-control-label">Trend Metric</span>
-                    <div class="admin-toggle-row" data-metric-controls>
-                        <button type="button" class="admin-toggle-pill is-active" data-metric="views">Views</button>
-                        <button type="button" class="admin-toggle-pill" data-metric="order_now_clicks">Order Now</button>
-                        <button type="button" class="admin-toggle-pill" data-metric="checkout_clicks">Checkout</button>
+                    <div class="admin-toggle-row admin-sliding-chart-toggle" data-metric-controls data-sliding-chart-toggle role="group" aria-label="Affiliate trend metric">
+                        <button type="button" class="admin-toggle-pill is-active" data-metric="views"><span>Views</span></button>
+                        <button type="button" class="admin-toggle-pill" data-metric="order_now_clicks"><span>Order Now</span></button>
+                        <button type="button" class="admin-toggle-pill" data-metric="checkout_clicks"><span>Checkout</span></button>
                     </div>
-                </div>
-                <div class="admin-live-status">
-                    <strong>Live</strong>
-                    <span data-last-updated>Waiting for first sync</span>
                 </div>
             </section>
 
@@ -135,9 +120,9 @@ $affiliateJsVersion = (string) @filemtime(dirname(__DIR__) . '/affiliate-program
                         </div>
                         <span class="admin-panel-meta" data-trend-meta>Select an affiliate to begin</span>
                     </div>
-                    <div class="admin-panel-inline-toggles" data-affiliate-series-controls>
-                        <button type="button" class="admin-toggle-pill admin-toggle-pill-series admin-toggle-pill-series-bubur is-active" data-affiliate-series="bubur">Bubur</button>
-                        <button type="button" class="admin-toggle-pill admin-toggle-pill-series admin-toggle-pill-series-jamu is-active" data-affiliate-series="jamu">Jamu</button>
+                    <div class="admin-panel-inline-toggles admin-sliding-chart-toggle" data-affiliate-series-controls data-sliding-chart-toggle role="group" aria-label="Affiliate product lines">
+                        <button type="button" class="admin-toggle-pill admin-toggle-pill-series admin-toggle-pill-series-bubur is-active" data-affiliate-series="bubur"><span>Bubur</span></button>
+                        <button type="button" class="admin-toggle-pill admin-toggle-pill-series admin-toggle-pill-series-jamu is-active" data-affiliate-series="jamu"><span>Jamu</span></button>
                     </div>
                     <div class="admin-chart-surface">
                         <canvas class="admin-chart-canvas admin-chart-canvas-lg" data-trend-chart width="1200" height="360"></canvas>
@@ -229,32 +214,7 @@ $affiliateJsVersion = (string) @filemtime(dirname(__DIR__) . '/affiliate-program
                     </div>
                 </article>
 
-                <article class="admin-panel admin-panel-feed">
-                    <div class="admin-panel-head">
-                        <div><span class="admin-panel-kicker">Recent Events</span><h3>Latest affiliate actions</h3></div>
-                    </div>
-                    <div class="admin-event-feed" data-recent-events>
-                        <p class="admin-empty">Pilih affiliate untuk melihat aktivitas.</p>
-                    </div>
-                </article>
-
-                <article class="admin-panel admin-panel-feed">
-                    <div class="admin-panel-head">
-                        <div><span class="admin-panel-kicker">Protected Access</span><h3>System notes</h3></div>
-                    </div>
-                    <div class="admin-note-stack">
-                        <div class="admin-note-card"><strong>Auth gate</strong><span>Affiliate controls and analytics are protected by server-side session auth.</span></div>
-                        <div class="admin-note-card"><strong>Source API</strong><span>Affiliate data is pulled server-side from jenanggemi.com over a shared secret header.</span></div>
-                        <div class="admin-note-card"><strong>Endpoint</strong><span data-endpoint-label>../api/analytics/</span></div>
-                        <div class="admin-note-card"><strong>Live Sync</strong><span>Affiliate charts refresh automatically when new affiliate events arrive.</span></div>
-                    </div>
-                </article>
             </section>
-
-            <div class="admin-bottom-actions">
-                <a class="admin-primary-btn admin-link-btn" href="../affiliate-profiles/">Manage Affiliate Profiles</a>
-                <a class="admin-ghost-btn admin-link-btn" href="../dashboard/?view=home">Return To Main Dashboard</a>
-            </div>
                 </main>
             </div>
         </div>
