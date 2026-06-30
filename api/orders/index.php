@@ -676,7 +676,7 @@ function jg_orders_mirror_payload(PDO $pdo, string $startDate, string $endDate, 
         ':to_date' => $to,
     ];
     if ($mirroredAfter !== null) {
-        $sql .= ' AND mirrored_at > :mirrored_after';
+        $sql .= ' AND mirrored_at >= :mirrored_after';
         $params[':mirrored_after'] = $mirroredAfter;
     }
     $sql .= ' ORDER BY order_create_time DESC, id DESC';

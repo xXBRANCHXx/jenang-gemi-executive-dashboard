@@ -672,6 +672,9 @@ const ORDER_BACKGROUND_TARGET_ROWS = 24000;
 const ORDER_BACKGROUND_MAX_WINDOWS = 72;
 const OVERVIEW_LOCATION_PAGE_SIZE = 2000;
 const OVERVIEW_LOCATION_MAX_PAGES = 25;
+const OVERVIEW_LOCATION_CACHE_VERSION = 4;
+const OVERVIEW_LOCATION_GEOCODER_VERSION = 2;
+const OVERVIEW_LOCATION_CACHE_PREFIX = `jg-overview-location-v${OVERVIEW_LOCATION_CACHE_VERSION}`;
 
 const INDONESIA_PROVINCE_ALIASES = {
   'Aceh': ['aceh', 'nanggroe aceh darussalam', 'nad'],
@@ -714,12 +717,68 @@ const INDONESIA_PROVINCE_ALIASES = {
   'Sumatera Utara': ['sumatera utara', 'sumatra utara', 'north sumatra', 'sumut']
 };
 
+const INDONESIA_LOCALITY_ALIASES = {
+  'Aceh': ['banda aceh', 'langsa', 'lhokseumawe', 'sabang', 'subulussalam', 'aceh besar', 'aceh jaya', 'aceh selatan', 'aceh singkil', 'aceh tamiang', 'aceh tengah', 'aceh tenggara', 'aceh timur', 'aceh utara', 'bener meriah', 'bireuen', 'gayo lues', 'nagan raya', 'pidie', 'pidie jaya', 'simeulue'],
+  'Bali': ['denpasar', 'badung', 'bangli', 'buleleng', 'gianyar', 'jembrana', 'karangasem', 'klungkung', 'tabanan'],
+  'Banten': ['tangerang', 'tangerang selatan', 'tangsel', 'serang', 'cilegon', 'lebak', 'pandeglang'],
+  'Bengkulu': ['bengkulu selatan', 'bengkulu tengah', 'bengkulu utara', 'kaur', 'kepahiang', 'lebong', 'mukomuko', 'rejang lebong', 'seluma'],
+  'DKI Jakarta': ['jakarta pusat', 'jakarta selatan', 'jakarta barat', 'jakarta timur', 'jakarta utara', 'kepulauan seribu'],
+  'Daerah Istimewa Yogyakarta': ['bantul', 'gunungkidul', 'gunung kidul', 'kulon progo', 'sleman'],
+  'Gorontalo': ['boalemo', 'bone bolango', 'gorontalo utara', 'pohuwato'],
+  'Jambi': ['sungai penuh', 'batanghari', 'bungo', 'kerinci', 'merangin', 'muaro jambi', 'sarolangun', 'tanjung jabung barat', 'tanjung jabung timur', 'tebo'],
+  'Jawa Barat': ['bandung', 'bandung barat', 'banjar', 'bekasi', 'bogor', 'cimahi', 'cirebon', 'depok', 'garut', 'indramayu', 'karawang', 'kuningan', 'majalengka', 'pangandaran', 'purwakarta', 'subang', 'sukabumi', 'sumedang', 'tasikmalaya', 'ciamis', 'cianjur'],
+  'Jawa Tengah': ['semarang', 'surakarta', 'solo', 'salatiga', 'magelang', 'pekalongan', 'tegal', 'banjarnegara', 'banyumas', 'batang', 'blora', 'boyolali', 'brebes', 'cilacap', 'demak', 'grobogan', 'jepara', 'karanganyar', 'kebumen', 'kendal', 'klaten', 'kudus', 'pati', 'pemalang', 'purbalingga', 'purworejo', 'rembang', 'sragen', 'sukoharjo', 'temanggung', 'wonogiri', 'wonosobo'],
+  'Jawa Timur': ['surabaya', 'batu', 'blitar', 'kediri', 'madiun', 'malang', 'mojokerto', 'pasuruan', 'probolinggo', 'banyuwangi', 'bojonegoro', 'bondowoso', 'gresik', 'jember', 'jombang', 'lamongan', 'lumajang', 'magetan', 'nganjuk', 'ngawi', 'pacitan', 'pamekasan', 'ponorogo', 'sampang', 'sidoarjo', 'situbondo', 'sumenep', 'trenggalek', 'tuban', 'tulungagung'],
+  'Kalimantan Barat': ['pontianak', 'singkawang', 'bengkayang', 'kapuas hulu', 'kayong utara', 'ketapang', 'kubu raya', 'landak', 'melawi', 'mempawah', 'sambas', 'sanggau', 'sekadau', 'sintang'],
+  'Kalimantan Selatan': ['banjarmasin', 'banjarbaru', 'balangan', 'banjar', 'barito kuala', 'hulu sungai selatan', 'hulu sungai tengah', 'hulu sungai utara', 'kotabaru', 'tabalong', 'tanah bumbu', 'tanah laut', 'tapin'],
+  'Kalimantan Tengah': ['palangka raya', 'barito selatan', 'barito timur', 'barito utara', 'gunung mas', 'kapuas', 'katingan', 'kotawaringin barat', 'kotawaringin timur', 'lamandau', 'murung raya', 'pulang pisau', 'seruyan', 'sukamara'],
+  'Kalimantan Timur': ['balikpapan', 'bontang', 'samarinda', 'berau', 'kutai barat', 'kutai kartanegara', 'kutai timur', 'mahakam ulu', 'paser', 'penajam paser utara'],
+  'Kalimantan Utara': ['tarakan', 'bulungan', 'malinau', 'nunukan', 'tana tidung'],
+  'Kepulauan Bangka Belitung': ['pangkal pinang', 'bangka', 'bangka barat', 'bangka selatan', 'bangka tengah', 'belitung', 'belitung timur'],
+  'Kepulauan Riau': ['batam', 'tanjung pinang', 'bintan', 'karimun', 'kepulauan anambas', 'lingga', 'natuna'],
+  'Lampung': ['bandar lampung', 'metro', 'lampung barat', 'lampung selatan', 'lampung tengah', 'lampung timur', 'lampung utara', 'mesuji', 'pesawaran', 'pesisir barat', 'pringsewu', 'tanggamus', 'tulang bawang', 'tulang bawang barat', 'way kanan'],
+  'Maluku': ['ambon', 'tual', 'buru', 'buru selatan', 'kepulauan aru', 'maluku barat daya', 'maluku tengah', 'maluku tenggara', 'seram bagian barat', 'seram bagian timur', 'kepulauan tanimbar'],
+  'Maluku Utara': ['ternate', 'tidore', 'halmahera barat', 'halmahera tengah', 'halmahera selatan', 'halmahera timur', 'halmahera utara', 'kepulauan sula', 'pulau morotai', 'pulau taliabu'],
+  'Nusa Tenggara Barat': ['mataram', 'bima', 'dompu', 'lombok barat', 'lombok tengah', 'lombok timur', 'lombok utara', 'sumbawa', 'sumbawa barat'],
+  'Nusa Tenggara Timur': ['kupang', 'alor', 'belu', 'ende', 'flores timur', 'lembata', 'malaka', 'manggarai', 'manggarai barat', 'manggarai timur', 'nagekeo', 'ngada', 'rote ndao', 'sabu raijua', 'sikka', 'sumba barat', 'sumba barat daya', 'sumba tengah', 'sumba timur', 'timor tengah selatan', 'timor tengah utara'],
+  'Papua': ['jayapura', 'biak numfor', 'kepulauan yapen', 'mamberamo raya', 'sarmi', 'supiori', 'waropen', 'keerom'],
+  'Papua Barat': ['manokwari', 'fakfak', 'kaimana', 'teluk bintuni', 'teluk wondama'],
+  'Papua Barat Daya': ['sorong', 'raja ampat', 'maybrat', 'tambrauw'],
+  'Papua Pegunungan': ['jayawijaya', 'yahukimo', 'tolikara', 'mamberamo tengah', 'yalimo', 'lanny jaya', 'nduga', 'pegunungan bintang'],
+  'Papua Selatan': ['merauke', 'asmat', 'boven digoel', 'mappi'],
+  'Papua Tengah': ['nabire', 'mimika', 'paniai', 'puncak', 'puncak jaya', 'dogiyai', 'deiyai', 'intan jaya'],
+  'Riau': ['pekanbaru', 'dumai', 'bengkalis', 'indragiri hilir', 'indragiri hulu', 'kampar', 'kepulauan meranti', 'kuantan singingi', 'pelalawan', 'rokan hilir', 'rokan hulu', 'siak'],
+  'Sulawesi Barat': ['mamuju', 'majene', 'mamasa', 'mamuju tengah', 'pasangkayu', 'polewali mandar', 'polman'],
+  'Sulawesi Selatan': ['makassar', 'palopo', 'parepare', 'bantaeng', 'barru', 'bone', 'bulukumba', 'enrekang', 'gowa', 'jeneponto', 'kepulauan selayar', 'luwu', 'luwu timur', 'luwu utara', 'maros', 'pangkajene kepulauan', 'pangkep', 'pinrang', 'sidenreng rappang', 'sidrap', 'sinjai', 'soppeng', 'takalar', 'tana toraja', 'toraja utara', 'wajo'],
+  'Sulawesi Tengah': ['palu', 'banggai', 'banggai kepulauan', 'banggai laut', 'buol', 'donggala', 'morowali', 'morowali utara', 'parigi moutong', 'poso', 'sigi', 'tojo una una', 'tolitoli'],
+  'Sulawesi Tenggara': ['kendari', 'bau bau', 'baubau', 'bombana', 'buton', 'buton selatan', 'buton tengah', 'buton utara', 'kolaka', 'kolaka timur', 'kolaka utara', 'konawe', 'konawe kepulauan', 'konawe selatan', 'konawe utara', 'muna', 'muna barat', 'wakatobi'],
+  'Sulawesi Utara': ['manado', 'bitung', 'kotamobagu', 'tomohon', 'bolaang mongondow', 'bolaang mongondow selatan', 'bolaang mongondow timur', 'bolaang mongondow utara', 'kepulauan sangihe', 'kepulauan siau tagulandang biaro', 'kepulauan talaud', 'minahasa', 'minahasa selatan', 'minahasa tenggara', 'minahasa utara'],
+  'Sumatera Barat': ['padang', 'bukittinggi', 'padang panjang', 'pariaman', 'payakumbuh', 'sawahlunto', 'solok', 'agam', 'dharmasraya', 'kepulauan mentawai', 'lima puluh kota', 'padang pariaman', 'pasaman', 'pasaman barat', 'pesisir selatan', 'sijunjung', 'solok selatan', 'tanah datar'],
+  'Sumatera Selatan': ['palembang', 'pagar alam', 'prabumulih', 'lubuklinggau', 'banyuasin', 'empat lawang', 'lahat', 'muara enim', 'musi banyuasin', 'musi rawas', 'musi rawas utara', 'ogan ilir', 'ogan komering ilir', 'ogan komering ulu', 'ogan komering ulu selatan', 'ogan komering ulu timur', 'penukal abab lematang ilir'],
+  'Sumatera Utara': ['medan', 'binjai', 'gunungsitoli', 'padangsidimpuan', 'pematangsiantar', 'sibolga', 'tanjungbalai', 'tebing tinggi', 'asahan', 'batu bara', 'dairi', 'deli serdang', 'humbang hasundutan', 'karo', 'labuhanbatu', 'labuhanbatu selatan', 'labuhanbatu utara', 'langkat', 'mandailing natal', 'nias', 'nias barat', 'nias selatan', 'nias utara', 'padang lawas', 'padang lawas utara', 'pakpak bharat', 'samosir', 'serdang bedagai', 'simalungun', 'tapanuli selatan', 'tapanuli tengah', 'tapanuli utara', 'toba']
+};
+
 const INDONESIA_PROVINCE_ALIAS_ENTRIES = Object.entries(INDONESIA_PROVINCE_ALIASES)
   .flatMap(([province, aliases]) => aliases.map((alias) => ({
     province,
     alias: normalizeTextToken(alias)
   })))
   .filter((entry) => entry.alias)
+  .sort((left, right) => right.alias.length - left.alias.length);
+
+const INDONESIA_LOCALITY_ALIAS_ENTRIES = Object.entries(INDONESIA_LOCALITY_ALIASES)
+  .flatMap(([province, aliases]) => aliases.flatMap((alias) => {
+    const normalized = normalizeTextToken(alias);
+    if (!normalized) return [];
+    const expanded = new Set([
+      normalized,
+      `kota ${normalized}`,
+      `kabupaten ${normalized}`,
+      `kab ${normalized}`,
+      `kab ${normalized.replace(/^kota /, '')}`
+    ].map(normalizeTextToken).filter(Boolean));
+    return Array.from(expanded).map((entryAlias) => ({ province, alias: entryAlias }));
+  }))
   .sort((left, right) => right.alias.length - left.alias.length);
 
 const shouldHideSourceMetric = (value) => HIDDEN_HOME_SOURCES.has(normalizeSourceKey(value));
@@ -1904,8 +1963,8 @@ document.addEventListener('DOMContentLoaded', () => {
       hourlyRows: [],
       hourlyDate: '',
       hourlyRequestToken: 0,
-      locationRows: [],
       locationRowKeys: new Set(),
+      locationAggregate: null,
       locationSignature: '',
       locationLoadedAt: 0,
       locationMirroredAfter: '',
@@ -1913,6 +1972,8 @@ document.addEventListener('DOMContentLoaded', () => {
       locationError: '',
       locationTruncated: false,
       locationRequestToken: 0,
+      locationCacheReady: false,
+      locationRenderSignature: '',
       provinceGeoJson: null,
       provinceMapError: '',
       data: null,
@@ -3499,7 +3560,9 @@ document.addEventListener('DOMContentLoaded', () => {
     ].filter(Boolean).join(' '));
     if (!searchable) return '';
     const matched = INDONESIA_PROVINCE_ALIAS_ENTRIES.find((entry) => provinceAliasMatches(searchable, entry.alias));
-    return matched?.province || '';
+    if (matched?.province) return matched.province;
+    const localityMatched = INDONESIA_LOCALITY_ALIAS_ENTRIES.find((entry) => provinceAliasMatches(searchable, entry.alias));
+    return localityMatched?.province || '';
   };
 
   const uniqueProvinceOrderKey = (row) => {
@@ -3512,6 +3575,65 @@ document.addEventListener('DOMContentLoaded', () => {
       ].join('|');
     }
     return uniqueOrderRowKey(row);
+  };
+
+  const createOverviewLocationAggregate = () => ({
+    byProvince: new Map(),
+    rows: [],
+    totalOrders: 0,
+    matchedOrders: 0,
+    unmatchedOrders: 0,
+    maxOrders: 0
+  });
+
+  const finalizeOverviewLocationAggregate = (aggregate) => {
+    const byProvince = aggregate?.byProvince instanceof Map ? aggregate.byProvince : new Map();
+    const rows = Array.from(byProvince.values()).sort((left, right) => (
+      Number(right.orders || 0) - Number(left.orders || 0) || String(left.province || '').localeCompare(String(right.province || ''))
+    ));
+    aggregate.byProvince = byProvince;
+    aggregate.rows = rows;
+    aggregate.totalOrders = Math.max(0, Number(aggregate.totalOrders || 0));
+    aggregate.unmatchedOrders = Math.max(0, Number(aggregate.unmatchedOrders || 0));
+    aggregate.matchedOrders = Math.max(0, aggregate.totalOrders - aggregate.unmatchedOrders);
+    aggregate.maxOrders = Math.max(0, ...rows.map((row) => Number(row.orders || 0)));
+    return aggregate;
+  };
+
+  const overviewLocationAggregateSignature = (aggregate) => {
+    const normalized = finalizeOverviewLocationAggregate(aggregate || createOverviewLocationAggregate());
+    return [
+      normalized.totalOrders,
+      normalized.unmatchedOrders,
+      normalized.maxOrders,
+      normalized.rows.map((row) => `${row.province}:${row.orders}`).join('|')
+    ].join('::');
+  };
+
+  const addOrderToOverviewLocationAggregate = (aggregate, row) => {
+    const province = provinceFromOrderRow(row);
+    aggregate.totalOrders += 1;
+    if (!province) {
+      aggregate.unmatchedOrders += 1;
+      return;
+    }
+    const current = aggregate.byProvince.get(province) || { province, orders: 0 };
+    current.orders += 1;
+    aggregate.byProvince.set(province, current);
+  };
+
+  const normalizeOverviewLocationAggregate = (value = {}) => {
+    const aggregate = createOverviewLocationAggregate();
+    const counts = value.provinceCounts && typeof value.provinceCounts === 'object'
+      ? value.provinceCounts
+      : {};
+    Object.entries(counts).forEach(([province, orders]) => {
+      const count = Math.max(0, Number(orders || 0));
+      if (province && count > 0) aggregate.byProvince.set(province, { province, orders: count });
+    });
+    aggregate.totalOrders = Math.max(0, Number(value.totalOrders || 0));
+    aggregate.unmatchedOrders = Math.max(0, Number(value.unmatchedOrders || 0));
+    return finalizeOverviewLocationAggregate(aggregate);
   };
 
   const updateOverviewLocationCursor = (rows) => {
@@ -3533,13 +3655,12 @@ document.addEventListener('DOMContentLoaded', () => {
       state.overview.locationRowKeys = new Set();
     }
     if (options.reset) {
-      state.overview.locationRows = [];
+      state.overview.locationAggregate = createOverviewLocationAggregate();
       state.overview.locationMirroredAfter = '';
-    } else if (!state.overview.locationRowKeys.size && state.overview.locationRows.length) {
-      state.overview.locationRows.forEach((row) => {
-        const key = uniqueProvinceOrderKey(row);
-        if (key) state.overview.locationRowKeys.add(key);
-      });
+      state.overview.locationRenderSignature = '';
+    }
+    if (!state.overview.locationAggregate) {
+      state.overview.locationAggregate = createOverviewLocationAggregate();
     }
 
     let added = 0;
@@ -3547,43 +3668,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const key = uniqueProvinceOrderKey(row);
       if (!key || state.overview.locationRowKeys.has(key)) return;
       state.overview.locationRowKeys.add(key);
-      state.overview.locationRows.push(row);
+      addOrderToOverviewLocationAggregate(state.overview.locationAggregate, row);
       added += 1;
     });
+    finalizeOverviewLocationAggregate(state.overview.locationAggregate);
     updateOverviewLocationCursor(rows);
     return added;
-  };
-
-  const aggregateProvinceOrders = (rows) => {
-    const seen = new Set();
-    const byProvince = new Map();
-    let totalOrders = 0;
-    let unmatchedOrders = 0;
-    (Array.isArray(rows) ? rows : []).forEach((row) => {
-      const key = uniqueProvinceOrderKey(row);
-      if (!key || seen.has(key)) return;
-      seen.add(key);
-      totalOrders += 1;
-      const province = provinceFromOrderRow(row);
-      if (!province) {
-        unmatchedOrders += 1;
-        return;
-      }
-      const current = byProvince.get(province) || { province, orders: 0 };
-      current.orders += 1;
-      byProvince.set(province, current);
-    });
-    const provinceRows = Array.from(byProvince.values()).sort((left, right) => (
-      right.orders - left.orders || left.province.localeCompare(right.province)
-    ));
-    return {
-      byProvince,
-      rows: provinceRows,
-      totalOrders,
-      matchedOrders: totalOrders - unmatchedOrders,
-      unmatchedOrders,
-      maxOrders: Math.max(0, ...provinceRows.map((row) => Number(row.orders || 0)))
-    };
   };
 
   const coordinateGroupsForFeature = (feature) => {
@@ -3751,7 +3841,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const renderOverviewLocationHeatmap = () => {
     if (!overviewRefs.locationMap) return;
-    const aggregate = aggregateProvinceOrders(state.overview.locationRows);
+    const aggregate = finalizeOverviewLocationAggregate(state.overview.locationAggregate || createOverviewLocationAggregate());
     const loading = Boolean(state.overview.locationLoading);
     const truncated = Boolean(state.overview.locationTruncated);
     if (overviewRefs.locationStatus) {
@@ -3759,10 +3849,11 @@ document.addEventListener('DOMContentLoaded', () => {
         overviewRefs.locationStatus.textContent = `Map unavailable: ${state.overview.provinceMapError}`;
       } else if (state.overview.locationError) {
         overviewRefs.locationStatus.textContent = `Location data unavailable: ${state.overview.locationError}`;
-      } else if (loading && !state.overview.locationRows.length) {
+      } else if (loading && !aggregate.totalOrders) {
         overviewRefs.locationStatus.textContent = `Loading ${state.overview.year} order locations`;
       } else if (aggregate.matchedOrders > 0) {
-        overviewRefs.locationStatus.textContent = `${formatCompactNumber(aggregate.matchedOrders)} mapped orders${aggregate.unmatchedOrders ? ` • ${formatCompactNumber(aggregate.unmatchedOrders)} unmatched` : ''}${truncated ? ' • sample capped' : ''}${loading ? ' • loading' : ''}`;
+        const mappedRate = aggregate.totalOrders > 0 ? Math.round((aggregate.matchedOrders / aggregate.totalOrders) * 1000) / 10 : 0;
+        overviewRefs.locationStatus.textContent = `${formatCompactNumber(aggregate.matchedOrders)} mapped orders • ${mappedRate}% mapped${aggregate.unmatchedOrders ? ` • ${formatCompactNumber(aggregate.unmatchedOrders)} unmatched` : ''}${truncated ? ' • sample capped' : ''}${loading ? ' • checking new orders' : ''}`;
       } else if (aggregate.totalOrders > 0) {
         overviewRefs.locationStatus.textContent = `${formatCompactNumber(aggregate.totalOrders)} loaded orders • no province matches`;
       } else {
@@ -3771,9 +3862,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (!state.overview.provinceGeoJson) {
-      overviewRefs.locationMap.innerHTML = '<div class="admin-location-map-empty">Loading Indonesia map</div>';
+      const emptySignature = 'empty:loading-map';
+      if (state.overview.locationRenderSignature !== emptySignature) {
+        overviewRefs.locationMap.innerHTML = '<div class="admin-location-map-empty">Loading Indonesia map</div>';
+        state.overview.locationRenderSignature = emptySignature;
+      }
     } else {
-      overviewRefs.locationMap.innerHTML = renderProvinceHeatmapSvg(state.overview.provinceGeoJson, aggregate);
+      const mapSignature = [
+        document.documentElement.dataset.adminTheme || 'dark',
+        state.overview.provinceGeoJson.features?.length || 0,
+        overviewLocationAggregateSignature(aggregate)
+      ].join('::');
+      if (state.overview.locationRenderSignature !== mapSignature) {
+        overviewRefs.locationMap.innerHTML = renderProvinceHeatmapSvg(state.overview.provinceGeoJson, aggregate);
+        state.overview.locationRenderSignature = mapSignature;
+      }
     }
     renderOverviewLocationList(aggregate);
   };
@@ -3815,12 +3918,95 @@ document.addEventListener('DOMContentLoaded', () => {
     return { start, end, signature: `${start}:${end}` };
   };
 
+  const overviewLocationCacheKey = (range) => `${OVERVIEW_LOCATION_CACHE_PREFIX}:${OVERVIEW_LOCATION_GEOCODER_VERSION}:${range.signature}`;
+
+  const overviewLocationCachePayload = (range) => {
+    const aggregate = finalizeOverviewLocationAggregate(state.overview.locationAggregate || createOverviewLocationAggregate());
+    const provinceCounts = {};
+    aggregate.byProvince.forEach((row, province) => {
+      provinceCounts[province] = Number(row.orders || 0);
+    });
+    return {
+      version: OVERVIEW_LOCATION_CACHE_VERSION,
+      geocoderVersion: OVERVIEW_LOCATION_GEOCODER_VERSION,
+      signature: range.signature,
+      mirroredAfter: state.overview.locationMirroredAfter || '',
+      loadedAt: state.overview.locationLoadedAt || Date.now(),
+      truncated: Boolean(state.overview.locationTruncated),
+      totalOrders: aggregate.totalOrders,
+      unmatchedOrders: aggregate.unmatchedOrders,
+      provinceCounts,
+      orderKeys: Array.from(state.overview.locationRowKeys || [])
+    };
+  };
+
+  const writeOverviewLocationCache = (range) => {
+    if (!range?.signature || !state.overview.locationAggregate) return;
+    try {
+      window.localStorage.setItem(overviewLocationCacheKey(range), JSON.stringify(overviewLocationCachePayload(range)));
+    } catch (_) {
+      // The map can still work from the server when browser storage is full or disabled.
+    }
+  };
+
+  const readOverviewLocationCache = (range) => {
+    try {
+      const raw = window.localStorage.getItem(overviewLocationCacheKey(range));
+      if (!raw) return null;
+      const payload = JSON.parse(raw);
+      if (
+        !payload ||
+        payload.version !== OVERVIEW_LOCATION_CACHE_VERSION ||
+        payload.geocoderVersion !== OVERVIEW_LOCATION_GEOCODER_VERSION ||
+        payload.signature !== range.signature
+      ) {
+        return null;
+      }
+      return payload;
+    } catch (_) {
+      return null;
+    }
+  };
+
+  const applyOverviewLocationCache = (range) => {
+    if (
+      state.overview.locationCacheReady &&
+      state.overview.locationSignature === range.signature
+    ) {
+      return Boolean(state.overview.locationAggregate);
+    }
+
+    const cached = readOverviewLocationCache(range);
+    state.overview.locationSignature = range.signature;
+    state.overview.locationRenderSignature = '';
+    state.overview.locationError = '';
+    state.overview.locationCacheReady = true;
+
+    if (!cached) {
+      state.overview.locationRowKeys = new Set();
+      state.overview.locationAggregate = createOverviewLocationAggregate();
+      state.overview.locationMirroredAfter = '';
+      state.overview.locationLoadedAt = 0;
+      state.overview.locationTruncated = false;
+      return false;
+    }
+
+    state.overview.locationAggregate = normalizeOverviewLocationAggregate(cached);
+    state.overview.locationRowKeys = new Set(Array.isArray(cached.orderKeys) ? cached.orderKeys : []);
+    state.overview.locationMirroredAfter = String(cached.mirroredAfter || '');
+    state.overview.locationLoadedAt = Number(cached.loadedAt || 0);
+    state.overview.locationTruncated = Boolean(cached.truncated);
+    return true;
+  };
+
   const loadOverviewLocationRows = async (options = {}) => {
     if (!overviewRefs.locationMap) return;
     const range = overviewLocationDateRange();
+    applyOverviewLocationCache(range);
     const sameRange = state.overview.locationSignature === range.signature;
     if (
       !options.force &&
+      !options.incremental &&
       sameRange &&
       (state.overview.locationLoadedAt || state.overview.locationLoading)
     ) {
@@ -3830,7 +4016,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const canLoadIncrementally = Boolean(
       sameRange &&
-      state.overview.locationRows.length &&
+      state.overview.locationRowKeys.size &&
       state.overview.locationMirroredAfter &&
       (options.incremental || options.force || options.repair)
     );
@@ -3863,8 +4049,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (state.overview.locationRequestToken !== requestToken) return;
         const rows = Array.isArray(payload.orders) ? payload.orders : [];
-        mergeOverviewLocationRows(rows);
-        renderOverviewLocationHeatmap();
+        const added = mergeOverviewLocationRows(rows);
+        if (added > 0) {
+          writeOverviewLocationCache(range);
+          renderOverviewLocationHeatmap();
+        }
 
         const nextOffset = Number(payload.next_offset);
         hasMore = Boolean(payload.has_more) && Number.isFinite(nextOffset) && nextOffset > offset;
@@ -3875,6 +4064,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (state.overview.locationRequestToken !== requestToken) return;
       state.overview.locationTruncated = hasMore;
       state.overview.locationLoadedAt = Date.now();
+      writeOverviewLocationCache(range);
     } catch (error) {
       if (state.overview.locationRequestToken !== requestToken) return;
       state.overview.locationError = error?.message || 'unable to load orders';
@@ -3888,9 +4078,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const ensureOverviewLocationHeatmap = (options = {}) => {
     if (!overviewRefs.locationMap) return;
+    const range = overviewLocationDateRange();
+    applyOverviewLocationCache(range);
     renderOverviewLocationHeatmap();
     loadProvinceMapData().catch(() => {});
-    loadOverviewLocationRows(options).catch(() => {});
+    loadOverviewLocationRows({ incremental: true, ...options }).catch(() => {});
   };
 
   const deriveOrderMonthRanges = (years, months) => {
