@@ -483,6 +483,14 @@ const getCurrentMonthVelocity = (date = new Date()) => {
   return { monthKey, projectionFactor };
 };
 
+const filterElapsedMonthlyRows = (rows, date = new Date()) => {
+  const currentMonthKey = getMonthKeyForTimezone(date, DASHBOARD_TIMEZONE);
+  return rows.filter((row) => {
+    const rowKey = String(row?.key || '');
+    return /^\d{4}-\d{2}$/.test(rowKey) ? rowKey <= currentMonthKey : true;
+  });
+};
+
 const createAnalyticsDeviceId = () => {
   if (window.crypto?.randomUUID) return `device-${window.crypto.randomUUID()}`;
   return `device-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -3862,7 +3870,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const customTrend = customRange.active && Array.isArray(customRange.rows)
       ? aggregateOrdersForTrend(customRange.rows, customRange.startDate, customRange.endDate)
       : null;
-    const trendRows = customTrend ? customTrend.rows : projectedMonthlyRows;
+    const trendRows = customTrend ? customTrend.rows : filterElapsedMonthlyRows(projectedMonthlyRows);
     const trendLabel = customTrend
       ? `${customRange.startDate} to ${customRange.endDate}`
       : `${state.overview.year}`;
