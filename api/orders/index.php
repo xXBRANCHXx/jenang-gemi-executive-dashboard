@@ -1177,6 +1177,8 @@ function jg_orders_backfill_mirror_range(PDO $pdo, string $startDate, string $en
             'ok' => false,
             'status' => 409,
             'error' => 'order_map_backfill_in_progress',
+            'message' => 'Another order map backfill request is still running.',
+            'retry_after_seconds' => 2,
         ];
     }
 

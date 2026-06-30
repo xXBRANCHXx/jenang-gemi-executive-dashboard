@@ -672,6 +672,8 @@ const ORDER_BACKGROUND_TARGET_ROWS = 24000;
 const ORDER_BACKGROUND_MAX_WINDOWS = 72;
 const OVERVIEW_LOCATION_PAGE_SIZE = 2000;
 const OVERVIEW_LOCATION_MAX_PAGES = 25;
+const OVERVIEW_LOCATION_BACKFILL_PAGE_SIZE = 500;
+const OVERVIEW_LOCATION_BACKFILL_MAX_PAGES = 160;
 const OVERVIEW_LOCATION_CACHE_VERSION = 5;
 const OVERVIEW_LOCATION_GEOCODER_VERSION = 3;
 const OVERVIEW_LOCATION_CACHE_PREFIX = `jg-overview-location-v${OVERVIEW_LOCATION_CACHE_VERSION}`;
@@ -2632,7 +2634,10 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(payload.error || `HTTP ${response.status}`);
+        const requestError = new Error(payload.error || `HTTP ${response.status}`);
+        requestError.status = response.status;
+        requestError.payload = payload;
+        throw requestError;
       }
       return payload;
     } catch (error) {
@@ -4192,20 +4197,34 @@ document.addEventListener('DOMContentLoaded', () => {
       let pages = 0;
       let fetched = 0;
       let upserted = 0;
+      let lockRetries = 0;
       do {
-        const payload = await requestJson(buildOrderMapBackfillUrl(), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            year: state.overview.year,
-            start_date: range.start,
-            end_date: range.end,
-            offset,
-            limit: 1000,
-            run_sync: pages === 0
-          }),
-          timeoutMs: pages === 0 ? 65000 : 45000
-        });
+        let payload = null;
+        try {
+          payload = await requestJson(buildOrderMapBackfillUrl(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              year: state.overview.year,
+              start_date: range.start,
+              end_date: range.end,
+              offset,
+              limit: OVERVIEW_LOCATION_BACKFILL_PAGE_SIZE
+            }),
+            timeoutMs: 30000
+          });
+          lockRetries = 0;
+        } catch (error) {
+          const isBackfillLock = error?.status === 409 || error?.payload?.error === 'order_map_backfill_in_progress' || error?.message === 'order_map_backfill_in_progress';
+          if (isBackfillLock && lockRetries < 6) {
+            lockRetries += 1;
+            state.overview.locationBackfillProgress = '(waiting for previous run)';
+            renderOverviewLocationHeatmap();
+            await wait(1200 * lockRetries);
+            continue;
+          }
+          throw error;
+        }
         const result = payload?.import || {};
         fetched += Math.max(0, Number(result.fetched || 0));
         upserted += Math.max(0, Number(result.upserted || 0));
@@ -4215,7 +4234,7 @@ document.addEventListener('DOMContentLoaded', () => {
         pages += 1;
         state.overview.locationBackfillProgress = `(${formatCompactNumber(fetched)} checked)`;
         renderOverviewLocationHeatmap();
-      } while (hasMore && pages < 80);
+      } while (hasMore && pages < OVERVIEW_LOCATION_BACKFILL_MAX_PAGES);
 
       state.overview.locationBackfillProgress = upserted > 0
         ? `(${formatCompactNumber(upserted)} rows mirrored)`

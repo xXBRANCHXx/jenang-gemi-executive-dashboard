@@ -14039,7 +14039,7 @@ body:has(.admin-app[data-sku-db])::after {
 
 .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-heatmap-card {
   min-width: 0;
-  background: #0b0f14;
+  background: #101010;
   background-image: none;
 }
 
@@ -14053,10 +14053,10 @@ body:has(.admin-app[data-sku-db])::after {
   justify-content: center;
   min-height: 34px;
   padding: 0 12px;
-  border: 1px solid rgba(56, 189, 248, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
-  background: rgba(56, 189, 248, 0.12);
-  color: #e0f2fe;
+  background: rgba(255, 255, 255, 0.07);
+  color: #f4f4f5;
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0;
@@ -14067,8 +14067,8 @@ body:has(.admin-app[data-sku-db])::after {
 
 .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-backfill-btn:hover,
 .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-backfill-btn:focus-visible {
-  border-color: rgba(125, 211, 252, 0.62);
-  background: rgba(56, 189, 248, 0.2);
+  border-color: rgba(157, 255, 0, 0.34);
+  background: rgba(255, 255, 255, 0.11);
   color: #ffffff;
   outline: none;
 }
@@ -14096,7 +14096,7 @@ body:has(.admin-app[data-sku-db])::after {
   min-height: 420px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
-  background: #0b0f14;
+  background: #101010;
   background-image: none;
   overflow: hidden;
 }
@@ -14514,7 +14514,7 @@ body:has(.admin-app[data-sku-db])::after {
 }
 
 :root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-backfill-btn {
-  border-color: rgba(37, 99, 235, 0.28);
+  border-color: rgba(15, 23, 42, 0.14);
   background: #ffffff;
   color: #0f172a;
   box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
@@ -14522,10 +14522,10 @@ body:has(.admin-app[data-sku-db])::after {
 
 :root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-backfill-btn:hover,
 :root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-backfill-btn:focus-visible {
-  border-color: rgba(37, 99, 235, 0.44);
+  border-color: rgba(33, 122, 60, 0.36);
   background: #f8fafc;
   color: #0f172a;
-  box-shadow: 0 14px 28px rgba(37, 99, 235, 0.12);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.12);
 }
 
 :root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-legend i {
