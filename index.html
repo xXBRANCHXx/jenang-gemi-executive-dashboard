@@ -1,12 +1,54 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id" data-admin-theme="launch-pad">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="refresh" content="0; url=./dashboard/">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="robots" content="noindex,nofollow">
-  <title>Redirecting...</title>
+  <title>Launch Pad | Jenang Gemi</title>
+  <link rel="icon" type="image/svg+xml" href="/assets/admin-icons/executive-dashboard.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap">
+  <link rel="stylesheet" href="./admin.css">
 </head>
-<body>
-  <p>Redirecting to <a href="./dashboard/">dashboard</a>.</p>
+<body class="admin-body is-launch-pad">
+  <main class="admin-launch-pad" aria-labelledby="launch-pad-title">
+    <div class="admin-launch-shell">
+      <header class="admin-launch-header">
+        <div>
+          <span class="admin-launch-eyebrow">Jenang Gemi Admin</span>
+          <h1 id="launch-pad-title">Launch Pad</h1>
+        </div>
+        <span class="admin-launch-status">Public Entry</span>
+      </header>
+
+      <section class="admin-launch-grid" aria-label="Launch Pad destinations">
+        <a class="admin-launch-card admin-launch-card-executive" href="./dashboard/?view=overview" aria-label="Open Executive Dashboard">
+          <span class="admin-launch-card-meta">Secure</span>
+          <span class="admin-launch-mark" aria-hidden="true">ED</span>
+          <span class="admin-launch-card-title">Executive Dashboard</span>
+          <span class="admin-launch-open" aria-hidden="true">Open</span>
+        </a>
+        <a class="admin-launch-card admin-launch-card-store" href="https://store.jenanggemi.com/" aria-label="Open Store Ops">
+          <span class="admin-launch-card-meta">Secure</span>
+          <span class="admin-launch-mark" aria-hidden="true">SO</span>
+          <span class="admin-launch-card-title">Store Ops</span>
+          <span class="admin-launch-open" aria-hidden="true">Open</span>
+        </a>
+        <a class="admin-launch-card admin-launch-card-jenang" href="https://jenanggemi.com/" aria-label="Open Jenang Gemi Website">
+          <span class="admin-launch-card-meta">Website</span>
+          <span class="admin-launch-mark" aria-hidden="true">JG</span>
+          <span class="admin-launch-card-title">Jenang Gemi Website</span>
+          <span class="admin-launch-open" aria-hidden="true">Open</span>
+        </a>
+        <a class="admin-launch-card admin-launch-card-zero" href="https://zerofoods.id/" aria-label="Open ZERO Website">
+          <span class="admin-launch-card-meta">Website</span>
+          <span class="admin-launch-mark" aria-hidden="true">ZF</span>
+          <span class="admin-launch-card-title">ZERO Website</span>
+          <span class="admin-launch-open" aria-hidden="true">Open</span>
+        </a>
+      </section>
+    </div>
+  </main>
 </body>
 </html>

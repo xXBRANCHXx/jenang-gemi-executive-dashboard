@@ -13708,3 +13708,307 @@ body:has(.admin-app[data-sku-db])::after {
     grid-column: auto;
   }
 }
+
+/* Public Launch Pad entry. */
+.admin-body.is-launch-pad {
+  min-height: 100vh;
+  margin: 0;
+  overflow-x: hidden;
+  background:
+    linear-gradient(90deg, rgba(17, 19, 18, 0.04) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(17, 19, 18, 0.04) 1px, transparent 1px),
+    #f4f6f7;
+  background-size: 36px 36px, 36px 36px, auto;
+  color: #111312;
+  font-family: "Plus Jakarta Sans", Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.admin-body.is-launch-pad::before,
+.admin-body.is-launch-pad::after {
+  content: none;
+  display: none;
+}
+
+.admin-body.is-launch-pad *,
+.admin-body.is-launch-pad *::before,
+.admin-body.is-launch-pad *::after {
+  box-sizing: border-box;
+}
+
+.admin-launch-pad {
+  position: relative;
+  display: grid;
+  align-items: center;
+  min-height: 100vh;
+  padding: clamp(22px, 4vw, 56px);
+}
+
+.admin-launch-shell {
+  position: relative;
+  width: min(1180px, 100%);
+  margin: 0 auto;
+}
+
+.admin-launch-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: clamp(18px, 3vw, 28px);
+}
+
+.admin-launch-eyebrow,
+.admin-launch-card-meta,
+.admin-launch-open,
+.admin-launch-status {
+  font-family: "Space Grotesk", "Plus Jakarta Sans", sans-serif;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.admin-launch-eyebrow {
+  display: block;
+  color: #42564f;
+  font-size: 0.75rem;
+}
+
+.admin-launch-header h1 {
+  margin: 8px 0 0;
+  color: #111312;
+  font-family: "Space Grotesk", "Plus Jakarta Sans", sans-serif;
+  font-size: clamp(3.4rem, 8vw, 6.7rem);
+  font-weight: 700;
+  line-height: 0.92;
+  letter-spacing: 0;
+}
+
+.admin-launch-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(17, 19, 18, 0.16);
+  border-radius: 6px;
+  background: #ffffff;
+  color: #111312;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  box-shadow: 0 12px 28px rgba(17, 19, 18, 0.08);
+}
+
+.admin-launch-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: clamp(12px, 1.8vw, 18px);
+}
+
+.admin-launch-card {
+  position: relative;
+  display: flex;
+  min-height: 220px;
+  flex-direction: column;
+  gap: 16px;
+  grid-column: span 2;
+  padding: clamp(18px, 2.5vw, 28px);
+  overflow: hidden;
+  border: 1px solid rgba(17, 19, 18, 0.12);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #111312;
+  text-decoration: none;
+  box-shadow: 0 20px 50px rgba(17, 19, 18, 0.1);
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.admin-launch-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 6px;
+  background: var(--launch-accent, #1db584);
+}
+
+.admin-launch-card:hover {
+  border-color: rgba(17, 19, 18, 0.24);
+  box-shadow: 0 26px 64px rgba(17, 19, 18, 0.15);
+  transform: translateY(-3px);
+}
+
+.admin-launch-card:focus-visible {
+  outline: 3px solid #111312;
+  outline-offset: 5px;
+}
+
+.admin-launch-card-meta {
+  align-self: flex-start;
+  padding: 8px 10px;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  color: rgba(17, 19, 18, 0.68);
+  font-size: 0.68rem;
+}
+
+.admin-launch-mark {
+  display: grid;
+  place-items: center;
+  width: 66px;
+  height: 66px;
+  margin-left: auto;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  color: inherit;
+  font-family: "Space Grotesk", "Plus Jakarta Sans", sans-serif;
+  font-size: 1.3rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.admin-launch-card-title {
+  display: block;
+  margin-top: auto;
+  max-width: 100%;
+  color: inherit;
+  font-family: "Space Grotesk", "Plus Jakarta Sans", sans-serif;
+  font-size: clamp(1.9rem, 3.2vw, 3.3rem);
+  font-weight: 700;
+  line-height: 0.96;
+  letter-spacing: 0;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.admin-launch-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 6px;
+  background: #111312;
+  color: #ffffff;
+  font-size: 0.75rem;
+}
+
+.admin-launch-card-executive {
+  --launch-accent: #c9ff2f;
+  grid-column: 1 / -1;
+  min-height: min(42vh, 360px);
+  background: #111312;
+  color: #ffffff;
+}
+
+.admin-launch-card-executive .admin-launch-card-meta {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.admin-launch-card-executive .admin-launch-mark {
+  width: 96px;
+  height: 96px;
+  background: #c9ff2f;
+  color: #111312;
+}
+
+.admin-launch-card-executive .admin-launch-card-title {
+  max-width: 920px;
+  padding-right: 120px;
+  font-size: clamp(3.2rem, 8.6vw, 7.4rem);
+}
+
+.admin-launch-card-executive .admin-launch-open {
+  background: #ffffff;
+  color: #111312;
+}
+
+.admin-launch-card-store {
+  --launch-accent: #00a878;
+  background: #f3fff9;
+}
+
+.admin-launch-card-jenang {
+  --launch-accent: #ff6b4a;
+  background: #fff8f5;
+}
+
+.admin-launch-card-zero {
+  --launch-accent: #1e66ff;
+  background: #f2f7ff;
+}
+
+@media (min-width: 760px) {
+  .admin-launch-card-executive .admin-launch-mark {
+    position: absolute;
+    top: clamp(22px, 3vw, 34px);
+    right: clamp(22px, 3vw, 34px);
+  }
+}
+
+@media (max-width: 860px) {
+  .admin-launch-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .admin-launch-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-launch-card,
+  .admin-launch-card-executive {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 560px) {
+  .admin-launch-pad {
+    align-items: start;
+    padding: 18px;
+  }
+
+  .admin-launch-header h1 {
+    font-size: clamp(3rem, 18vw, 4.4rem);
+  }
+
+  .admin-launch-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-launch-card,
+  .admin-launch-card-executive {
+    min-height: 176px;
+    grid-column: 1;
+  }
+
+  .admin-launch-card-executive .admin-launch-card-title {
+    padding-right: 0;
+    font-size: clamp(2.6rem, 12vw, 3.2rem);
+  }
+
+  .admin-launch-card-title {
+    font-size: clamp(1.75rem, 8.8vw, 2.3rem);
+  }
+
+  .admin-launch-mark {
+    width: 56px;
+    height: 56px;
+    font-size: 1.1rem;
+  }
+
+  .admin-launch-card-executive .admin-launch-mark {
+    width: 68px;
+    height: 68px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-launch-card {
+    transition: none;
+  }
+
+  .admin-launch-card:hover {
+    transform: none;
+  }
+}

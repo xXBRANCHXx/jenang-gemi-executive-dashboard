@@ -1,9 +1,10 @@
 # Jenang Gemi Executive Dashboard
 
-Private admin dashboard for `admin.jenanggemi.com`.
+Private admin dashboard for `admin.jenanggemi.com` behind a public Launch Pad.
 
 ## Routes
 
+- `/` public Launch Pad
 - `/dashboard/`
 - `/api-health/`
 - `/profit-loss/`
@@ -26,6 +27,8 @@ Private admin dashboard for `admin.jenanggemi.com`.
 
 ## Notes
 
+- Launch Pad is public. Executive Dashboard and Store Ops remain protected by
+  their own authentication screens.
 - Login code is validated server-side.
 - Dashboard analytics, website settings, and live-state now run locally in this
   repo against MySQL using `JG_DB_*` env vars or `config.local.php`.
