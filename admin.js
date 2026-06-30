@@ -1727,9 +1727,11 @@ const drawPieChart = (canvas, items, config) => {
     ctx.closePath();
     ctx.fillStyle = colorForIndex(index);
     ctx.fill();
-    ctx.lineWidth = isLightAdminTheme() ? 2 : 1;
-    ctx.strokeStyle = isLightAdminTheme() ? 'rgba(255, 255, 255, 0.86)' : 'rgba(0, 0, 0, 0.24)';
-    ctx.stroke();
+    if (isLightAdminTheme()) {
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.86)';
+      ctx.stroke();
+    }
     const mid = start + angle / 2;
     hoverPoints.push({
       x: cx + Math.cos(mid) * radius * 0.72,
