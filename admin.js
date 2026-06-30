@@ -3395,6 +3395,7 @@ document.addEventListener('DOMContentLoaded', () => {
       end_date: endDate
     });
     if (options.refresh || options.force || options.repair) params.set('refresh', '1');
+    if (options.repair) params.set('repair', '1');
     if (options.cacheBust || options.refresh || options.force || options.repair) params.set('_ts', String(Date.now()));
     return `${ordersEndpoint}?${params.toString()}`;
   };
@@ -4199,6 +4200,16 @@ document.addEventListener('DOMContentLoaded', () => {
       let upserted = 0;
       let lockRetries = 0;
       let latestLocationSummary = null;
+      const applyBackfillLocationSummary = (summaryPayload) => {
+        if (!summaryPayload) return;
+        latestLocationSummary = summaryPayload;
+        state.overview.locationSignature = range.signature;
+        state.overview.locationCacheReady = true;
+        applyOverviewLocationSummaryPayload(summaryPayload, range);
+        if (!state.overview.provinceGeoJson) {
+          loadProvinceMapData().catch(() => {});
+        }
+      };
       do {
         let payload = null;
         try {
@@ -4210,7 +4221,8 @@ document.addEventListener('DOMContentLoaded', () => {
               start_date: range.start,
               end_date: range.end,
               offset,
-              limit: OVERVIEW_LOCATION_BACKFILL_PAGE_SIZE
+              limit: OVERVIEW_LOCATION_BACKFILL_PAGE_SIZE,
+              include_summary: pages === 0
             }),
             timeoutMs: 30000
           });
@@ -4228,7 +4240,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const result = payload?.import || {};
         if (payload?.location_summary) {
-          latestLocationSummary = payload.location_summary;
+          applyBackfillLocationSummary(payload.location_summary);
         }
         fetched += Math.max(0, Number(result.fetched || 0));
         upserted += Math.max(0, Number(result.upserted || 0));
@@ -4251,12 +4263,7 @@ document.addEventListener('DOMContentLoaded', () => {
         state.overview.locationBackfillCompletedSignature = range.signature;
       }
       if (latestLocationSummary) {
-        state.overview.locationSignature = range.signature;
-        state.overview.locationCacheReady = true;
-        applyOverviewLocationSummaryPayload(latestLocationSummary, range);
-        if (!state.overview.provinceGeoJson) {
-          loadProvinceMapData().catch(() => {});
-        }
+        applyBackfillLocationSummary(latestLocationSummary);
         renderOverviewLocationHeatmap();
       } else {
         await loadOverviewLocationRows({ force: true, incremental: false });
