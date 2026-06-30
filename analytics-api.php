@@ -306,6 +306,129 @@ function buildBucketCollection(
     return [$timeBuckets, $findBucketKey];
 }
 
+function analyticsProductMetricDefaults(): array
+{
+    return [
+        'views' => 0,
+        'order_now_clicks' => 0,
+        'checkout_clicks' => 0,
+        'add_to_cart_events' => 0,
+    ];
+}
+
+function analyticsBuildProductBucketCollection(array $timeBuckets): array
+{
+    $buckets = [];
+    foreach ($timeBuckets as $bucketKey => $bucket) {
+        $buckets[$bucketKey] = [
+            'bucket_start' => (string) ($bucket['bucket_start'] ?? ''),
+            'label' => (string) ($bucket['label'] ?? ''),
+            'total' => analyticsProductMetricDefaults(),
+            'bubur' => analyticsProductMetricDefaults(),
+            'jamu' => analyticsProductMetricDefaults(),
+        ];
+    }
+
+    return $buckets;
+}
+
+function analyticsBuildProductCartCollection(): array
+{
+    return [
+        'items' => [
+            'bubur' => [
+                'product_key' => 'bubur',
+                'label' => 'Bubur',
+                'add_to_cart_events' => 0,
+                'order_now_clicks' => 0,
+                'cart_events' => 0,
+                'share' => 0,
+            ],
+            'jamu' => [
+                'product_key' => 'jamu',
+                'label' => 'Jamu',
+                'add_to_cart_events' => 0,
+                'order_now_clicks' => 0,
+                'cart_events' => 0,
+                'share' => 0,
+            ],
+        ],
+        'total_cart_events' => 0,
+        'source_metric' => 'add_to_cart_events',
+    ];
+}
+
+function analyticsResolveTrafficProductKey(array $event): string
+{
+    $productCode = strtoupper(trim((string) ($event['product_code'] ?? '')));
+    if ($productCode === 'JGB' || str_contains($productCode, 'BUBUR')) {
+        return 'bubur';
+    }
+    if ($productCode === 'JGJ' || str_contains($productCode, 'JAMU')) {
+        return 'jamu';
+    }
+
+    $haystack = strtolower(implode(' ', [
+        (string) ($event['product_label'] ?? ''),
+        (string) ($event['page_path'] ?? ''),
+        (string) ($event['page_url'] ?? ''),
+        (string) ($event['page_title'] ?? ''),
+        (string) ($event['order_code'] ?? ''),
+    ]));
+
+    if (str_contains($haystack, 'jgb') || str_contains($haystack, 'bubur')) {
+        return 'bubur';
+    }
+    if (str_contains($haystack, 'jgj') || str_contains($haystack, 'jamu')) {
+        return 'jamu';
+    }
+
+    return '';
+}
+
+function analyticsIncrementProductBucketMetric(array &$buckets, string $bucketKey, string $productKey, string $metric): void
+{
+    if (!isset($buckets[$bucketKey])) {
+        return;
+    }
+
+    $buckets[$bucketKey]['total'][$metric] = (int) ($buckets[$bucketKey]['total'][$metric] ?? 0) + 1;
+    if (in_array($productKey, ['bubur', 'jamu'], true)) {
+        $buckets[$bucketKey][$productKey][$metric] = (int) ($buckets[$bucketKey][$productKey][$metric] ?? 0) + 1;
+    }
+}
+
+function analyticsIncrementProductCartMetric(array &$productCart, string $productKey, string $metric): void
+{
+    if (!in_array($productKey, ['bubur', 'jamu'], true)) {
+        return;
+    }
+
+    $productCart['items'][$productKey][$metric] = (int) ($productCart['items'][$productKey][$metric] ?? 0) + 1;
+}
+
+function analyticsFinalizeProductCartCollection(array $productCart, string $sourceMetric): array
+{
+    $sourceMetric = in_array($sourceMetric, ['add_to_cart_events', 'order_now_clicks'], true) ? $sourceMetric : 'add_to_cart_events';
+    $total = 0;
+    foreach ($productCart['items'] as $item) {
+        $total += (int) ($item[$sourceMetric] ?? 0);
+    }
+
+    foreach ($productCart['items'] as &$item) {
+        $count = (int) ($item[$sourceMetric] ?? 0);
+        $item['cart_events'] = $count;
+        $item['share'] = $total > 0 ? round(($count / $total) * 100, 1) : 0;
+    }
+    unset($item);
+
+    $productCart['items'] = array_values($productCart['items']);
+    $productCart['total_cart_events'] = $total;
+    $productCart['source_metric'] = $sourceMetric;
+
+    return $productCart;
+}
+
 function buildTrafficAnalyticsPayload(
     array $filteredEvents,
     array $affiliates,
@@ -326,10 +449,14 @@ function buildTrafficAnalyticsPayload(
     $bySource = [];
     $sessionTimeByUrl = [];
     $sessionTimeBySource = [];
+    $timeBucketsByProduct = analyticsBuildProductBucketCollection($timeBuckets);
+    $productCart = analyticsBuildProductCartCollection();
+    $hasProductAddToCartEvents = false;
     $summary = [
         'total_views' => 0,
         'order_now_clicks' => 0,
         'checkout_clicks' => 0,
+        'add_to_cart_events' => 0,
         'avg_time_spent_seconds' => 0,
     ];
 
@@ -356,6 +483,7 @@ function buildTrafficAnalyticsPayload(
         $urlKey = $pagePath . '|' . $source;
         $bucketKey = $findBucketKey($occurredAt);
         $hourIndex = (int) $occurredAt->format('G');
+        $productKey = analyticsResolveTrafficProductKey($event);
 
         if (!isset($byUrl[$urlKey])) {
             $byUrl[$urlKey] = [
@@ -386,6 +514,7 @@ function buildTrafficAnalyticsPayload(
             $summary['total_views']++;
             $timeBuckets[$bucketKey]['views'] = ($timeBuckets[$bucketKey]['views'] ?? 0) + 1;
             $hourOfDay[$hourIndex]['views']++;
+            analyticsIncrementProductBucketMetric($timeBucketsByProduct, $bucketKey, $productKey, 'views');
         }
 
         if ($eventType === 'order_now_click') {
@@ -394,6 +523,8 @@ function buildTrafficAnalyticsPayload(
             $summary['order_now_clicks']++;
             $timeBuckets[$bucketKey]['order_now_clicks'] = ($timeBuckets[$bucketKey]['order_now_clicks'] ?? 0) + 1;
             $hourOfDay[$hourIndex]['order_now_clicks']++;
+            analyticsIncrementProductBucketMetric($timeBucketsByProduct, $bucketKey, $productKey, 'order_now_clicks');
+            analyticsIncrementProductCartMetric($productCart, $productKey, 'order_now_clicks');
         }
 
         if ($eventType === 'checkout_click') {
@@ -402,6 +533,17 @@ function buildTrafficAnalyticsPayload(
             $summary['checkout_clicks']++;
             $timeBuckets[$bucketKey]['checkout_clicks'] = ($timeBuckets[$bucketKey]['checkout_clicks'] ?? 0) + 1;
             $hourOfDay[$hourIndex]['checkout_clicks']++;
+            analyticsIncrementProductBucketMetric($timeBucketsByProduct, $bucketKey, $productKey, 'checkout_clicks');
+        }
+
+        if ($eventType === 'add_to_cart' || $eventType === 'add_to_cart_click') {
+            $summary['add_to_cart_events']++;
+            $timeBuckets[$bucketKey]['add_to_cart_events'] = ($timeBuckets[$bucketKey]['add_to_cart_events'] ?? 0) + 1;
+            analyticsIncrementProductBucketMetric($timeBucketsByProduct, $bucketKey, $productKey, 'add_to_cart_events');
+            analyticsIncrementProductCartMetric($productCart, $productKey, 'add_to_cart_events');
+            if ($productKey !== '') {
+                $hasProductAddToCartEvents = true;
+            }
         }
 
         if ($eventType === 'time_spent') {
@@ -431,6 +573,8 @@ function buildTrafficAnalyticsPayload(
     $byUrl = array_values($byUrl);
     $bySource = array_values($bySource);
     $timeseries = array_values($timeBuckets);
+    $timeseriesByProduct = array_values($timeBucketsByProduct);
+    $productCart = analyticsFinalizeProductCartCollection($productCart, $hasProductAddToCartEvents ? 'add_to_cart_events' : 'order_now_clicks');
 
     usort($byUrl, static function (array $a, array $b): int {
         return ($b['views'] <=> $a['views']) ?: strcmp((string) $a['page_path'], (string) $b['page_path']);
@@ -466,7 +610,9 @@ function buildTrafficAnalyticsPayload(
         'by_source' => $bySource,
         'recent_events' => $recentEvents,
         'timeseries' => $timeseries,
+        'timeseries_by_product' => $timeseriesByProduct,
         'hour_of_day' => $hourOfDay,
+        'product_cart' => $productCart,
     ];
 }
 

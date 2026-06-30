@@ -129,7 +129,7 @@ $affiliateJsVersion = (string) @filemtime(dirname(__DIR__) . '/affiliate-program
                     </div>
                 </article>
 
-                <article class="admin-panel admin-panel-chart">
+                <article class="admin-panel admin-panel-chart admin-hour-activity-panel">
                     <div class="admin-panel-head">
                         <div>
                             <span class="admin-panel-kicker">Time of Day</span>
@@ -138,79 +138,20 @@ $affiliateJsVersion = (string) @filemtime(dirname(__DIR__) . '/affiliate-program
                         <span class="admin-panel-meta">Peak engagement hours</span>
                     </div>
                     <div class="admin-chart-surface">
-                        <canvas class="admin-chart-canvas" data-hour-chart width="880" height="340"></canvas>
+                        <canvas class="admin-chart-canvas admin-chart-canvas-tall" data-hour-chart width="1000" height="420"></canvas>
                     </div>
                 </article>
 
-                <article class="admin-panel admin-panel-chart">
+                <article class="admin-panel admin-product-cart-panel">
                     <div class="admin-panel-head">
                         <div>
-                            <span class="admin-panel-kicker">Source Mix</span>
-                            <h3>Views by platform</h3>
+                            <span class="admin-panel-kicker">Cart Composition</span>
+                            <h3>Product added to cart</h3>
                         </div>
-                        <span class="admin-panel-meta">Platform mix inside the selected affiliate</span>
+                        <span class="admin-panel-meta" data-product-cart-meta>Share of cart adds</span>
                     </div>
-                    <div class="admin-chart-surface">
-                        <canvas class="admin-chart-canvas" data-source-chart width="880" height="340"></canvas>
-                    </div>
-                    <div class="admin-chart-legend" data-source-legend></div>
-                </article>
-
-                <article class="admin-panel admin-panel-chart">
-                    <div class="admin-panel-head">
-                        <div>
-                            <span class="admin-panel-kicker">URL Performance</span>
-                            <h3>Checkout by affiliate landing URL</h3>
-                        </div>
-                        <span class="admin-panel-meta">Conversion intent by page path</span>
-                    </div>
-                    <div class="admin-chart-surface">
-                        <canvas class="admin-chart-canvas" data-url-chart width="880" height="340"></canvas>
-                    </div>
-                </article>
-
-                <article class="admin-panel admin-panel-table">
-                    <div class="admin-panel-head">
-                        <div><span class="admin-panel-kicker">Landing URLs</span><h3>Per URL metrics</h3></div>
-                    </div>
-                    <div class="admin-table-wrap">
-                        <table class="admin-table">
-                            <thead>
-                                <tr>
-                                    <th>Landing URL</th>
-                                    <th>Source</th>
-                                    <th>Views</th>
-                                    <th>Order Now</th>
-                                    <th>Checkout</th>
-                                    <th>Avg. Time</th>
-                                </tr>
-                            </thead>
-                            <tbody data-url-table-body>
-                                <tr><td colspan="6" class="admin-empty">Pilih affiliate untuk melihat data.</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </article>
-
-                <article class="admin-panel admin-panel-table">
-                    <div class="admin-panel-head">
-                        <div><span class="admin-panel-kicker">Platform Summary</span><h3>Per platform metrics</h3></div>
-                    </div>
-                    <div class="admin-table-wrap">
-                        <table class="admin-table">
-                            <thead>
-                                <tr>
-                                    <th>Platform</th>
-                                    <th>Views</th>
-                                    <th>Order Now</th>
-                                    <th>Checkout</th>
-                                    <th>Avg. Time</th>
-                                </tr>
-                            </thead>
-                            <tbody data-source-table-body>
-                                <tr><td colspan="5" class="admin-empty">Pilih affiliate untuk melihat data.</td></tr>
-                            </tbody>
-                        </table>
+                    <div class="admin-product-cart-rundown" data-product-cart-rundown>
+                        <p class="admin-empty">Pilih affiliate untuk melihat data.</p>
                     </div>
                 </article>
 

@@ -251,6 +251,11 @@ const HOME_TREND_SERIES = {
   jamu: { label: 'Jamu', color: '#ffb12b' }
 };
 
+const PRODUCT_CART_SERIES = {
+  bubur: { label: 'Bubur', color: '#9dff00' },
+  jamu: { label: 'Jamu', color: '#ffb12b' }
+};
+
 const WEBSITE_METRIC_LABELS = {
   visitors: 'Website visitors over time',
   page_views: 'Website page views over time',
@@ -2247,6 +2252,8 @@ document.addEventListener('DOMContentLoaded', () => {
     trendCanvas: document.querySelector('[data-home-trend-chart]'),
     hourCanvas: document.querySelector('[data-home-hour-chart]'),
     sourceLegend: document.querySelector('[data-home-source-legend]'),
+    productCartRundown: document.querySelector('[data-home-product-cart-rundown]'),
+    productCartMeta: document.querySelector('[data-home-product-cart-meta]'),
     lastUpdated: document.querySelector('[data-home-last-updated]'),
     trendTitle: document.querySelector('[data-home-trend-title]'),
     trendMeta: document.querySelector('[data-home-trend-meta]'),
@@ -3171,6 +3178,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const renderViewError = (view, error) => {
     const container = getFeedForView(view);
+    if (view === 'home') {
+      renderProductCartRundown(homeRefs.productCartRundown, homeRefs.productCartMeta, { items: [], total_cart_events: 0 });
+    }
     renderEventFeed(
       container,
       [],
@@ -3192,6 +3202,56 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       `;
     }).join('');
+  };
+
+  const normalizeProductCartItems = (productCart) => {
+    const rawItems = Array.isArray(productCart?.items) ? productCart.items : [];
+    const keyedItems = new Map(rawItems.map((item) => [String(item.product_key || '').toLowerCase(), item]));
+    const items = ['bubur', 'jamu'].map((key) => {
+      const source = keyedItems.get(key) || {};
+      const count = Number(source.cart_events ?? source.add_to_cart_events ?? source.order_now_clicks ?? 0);
+      return {
+        key,
+        label: source.label || PRODUCT_CART_SERIES[key].label,
+        color: PRODUCT_CART_SERIES[key].color,
+        count: Number.isFinite(count) ? Math.max(0, count) : 0,
+        share: Number(source.share ?? 0)
+      };
+    });
+    const total = Number(productCart?.total_cart_events) || items.reduce((sum, item) => sum + item.count, 0);
+
+    return items.map((item) => ({
+      ...item,
+      share: total > 0 ? Math.round(((item.count / total) * 100) * 10) / 10 : 0
+    }));
+  };
+
+  const renderProductCartRundown = (container, metaTarget, productCart, emptyMessage = 'Belum ada data.') => {
+    if (!container) return;
+    const items = normalizeProductCartItems(productCart);
+    const total = Number(productCart?.total_cart_events) || items.reduce((sum, item) => sum + item.count, 0);
+    const sourceMetric = String(productCart?.source_metric || 'add_to_cart_events');
+    if (metaTarget) {
+      metaTarget.textContent = total > 0
+        ? `${total.toLocaleString('id-ID')} ${sourceMetric === 'order_now_clicks' ? 'cart intents' : 'cart adds'}`
+        : 'No cart adds';
+    }
+
+    if (!productCart && total <= 0) {
+      container.innerHTML = `<p class="admin-empty">${escapeHtml(emptyMessage)}</p>`;
+      return;
+    }
+
+    container.innerHTML = items.map((item) => `
+      <div class="admin-product-cart-row admin-product-cart-row-${escapeHtml(item.key)}" style="--cart-share:${item.share}%; --cart-color:${item.color};">
+        <div class="admin-product-cart-row-head">
+          <strong>${escapeHtml(item.label)}</strong>
+          <span>${item.share.toLocaleString('id-ID')}%</span>
+        </div>
+        <div class="admin-product-cart-track" aria-hidden="true"><i></i></div>
+        <small>${item.count.toLocaleString('id-ID')} of ${total.toLocaleString('id-ID')}</small>
+      </div>
+    `).join('');
   };
 
   const setLastUpdated = (target, isoString) => {
@@ -5520,10 +5580,11 @@ document.addEventListener('DOMContentLoaded', () => {
       total: {
         views: Number(item.views || 0),
         order_now_clicks: Number(item.order_now_clicks || 0),
-        checkout_clicks: Number(item.checkout_clicks || 0)
+        checkout_clicks: Number(item.checkout_clicks || 0),
+        add_to_cart_events: Number(item.add_to_cart_events || 0)
       },
-      bubur: { views: 0, order_now_clicks: 0, checkout_clicks: 0 },
-      jamu: { views: 0, order_now_clicks: 0, checkout_clicks: 0 }
+      bubur: { views: 0, order_now_clicks: 0, checkout_clicks: 0, add_to_cart_events: 0 },
+      jamu: { views: 0, order_now_clicks: 0, checkout_clicks: 0, add_to_cart_events: 0 }
     }));
     const hourOfDay = Array.isArray(data.hour_of_day) ? data.hour_of_day : [];
     const recentEvents = (Array.isArray(data.recent_events) ? data.recent_events : []).filter((item) => !shouldHideSourceMetric(item.source));
@@ -5581,6 +5642,7 @@ document.addEventListener('DOMContentLoaded', () => {
       tooltipTitle: (item) => `${String(item.hour).padStart(2, '0')}:00 WIB`,
       limit: 24
     });
+    renderProductCartRundown(homeRefs.productCartRundown, homeRefs.productCartMeta, data.product_cart, 'No cart adds in this timeframe.');
     drawBarChart(homeRefs.sourceCanvas, bySource, {
       value: (item) => item.views || 0,
       label: (item) => String(toTitleCase(item.source || 'unknown')),

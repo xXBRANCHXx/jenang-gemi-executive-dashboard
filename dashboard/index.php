@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isAuthenticated = jg_admin_is_authenticated();
-$dashboardBuildVersion = 'exec3.72.1';
+$dashboardBuildVersion = 'exec3.72.2';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -728,7 +728,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                         </div>
                     </article>
 
-                    <article class="admin-panel admin-panel-chart">
+                    <article class="admin-panel admin-panel-chart admin-hour-activity-panel">
                         <div class="admin-panel-head">
                             <div>
                                 <span class="admin-panel-kicker">Time of Day</span>
@@ -740,85 +740,20 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                             <span class="admin-panel-meta">Peak engagement hours</span>
                         </div>
                         <div class="admin-chart-surface">
-                            <canvas class="admin-chart-canvas" data-home-hour-chart width="880" height="340"></canvas>
+                            <canvas class="admin-chart-canvas admin-chart-canvas-tall" data-home-hour-chart width="1000" height="420"></canvas>
                         </div>
                     </article>
 
-                    <article class="admin-panel admin-panel-chart">
+                    <article class="admin-panel admin-product-cart-panel">
                         <div class="admin-panel-head">
                             <div>
-                                <span class="admin-panel-kicker">Source Mix</span>
-                                <div class="admin-chart-title-row">
-                                    <h3>Views by source</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About views by source" data-chart-info="Shows where campaign visitors appear to come from, such as Facebook, Instagram, TikTok, YouTube, Google, direct visits, or unknown sources. Use it to compare which channels are creating attention."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
-                                </div>
+                                <span class="admin-panel-kicker">Cart Composition</span>
+                                <h3>Product added to cart</h3>
                             </div>
-                            <span class="admin-panel-meta">Live from the dashboard analytics service</span>
+                            <span class="admin-panel-meta" data-home-product-cart-meta>Share of cart adds</span>
                         </div>
-                        <div class="admin-chart-surface">
-                            <canvas class="admin-chart-canvas" data-home-source-chart width="880" height="340"></canvas>
-                        </div>
-                        <div class="admin-chart-legend" data-home-source-legend></div>
-                    </article>
-
-                    <article class="admin-panel admin-panel-chart">
-                        <div class="admin-panel-head">
-                            <div>
-                                <span class="admin-panel-kicker">URL Performance</span>
-                                <div class="admin-chart-title-row">
-                                    <h3>Checkout by landing URL</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About checkout by landing URL" data-chart-info="Ranks landing pages by checkout intent. A higher bar means more people clicked toward WhatsApp checkout from that page during the selected timeframe."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
-                                </div>
-                            </div>
-                            <span class="admin-panel-meta">Conversion intent by page path</span>
-                        </div>
-                        <div class="admin-chart-surface">
-                            <canvas class="admin-chart-canvas" data-home-url-chart width="880" height="340"></canvas>
-                        </div>
-                    </article>
-
-                    <article class="admin-panel admin-panel-table">
-                        <div class="admin-panel-head">
-                            <div><span class="admin-panel-kicker">Landing URLs</span><h3>Per URL metrics</h3></div>
-                        </div>
-                        <div class="admin-table-wrap">
-                            <table class="admin-table">
-                                <thead>
-                                    <tr>
-                                        <th>Landing URL</th>
-                                        <th>Source</th>
-                                        <th>Views</th>
-                                        <th>Order Now</th>
-                                        <th>Checkout</th>
-                                        <th>Avg. Time</th>
-                                    </tr>
-                                </thead>
-                                <tbody data-home-url-table-body>
-                                    <tr><td colspan="6" class="admin-empty">Belum ada data.</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </article>
-
-                    <article class="admin-panel admin-panel-table">
-                        <div class="admin-panel-head">
-                            <div><span class="admin-panel-kicker">Source Summary</span><h3>Per source metrics</h3></div>
-                        </div>
-                        <div class="admin-table-wrap">
-                            <table class="admin-table">
-                                <thead>
-                                    <tr>
-                                        <th>Source</th>
-                                        <th>Views</th>
-                                        <th>Order Now</th>
-                                        <th>Checkout</th>
-                                        <th>Avg. Time</th>
-                                    </tr>
-                                </thead>
-                                <tbody data-home-source-table-body>
-                                    <tr><td colspan="5" class="admin-empty">Belum ada data.</td></tr>
-                                </tbody>
-                            </table>
+                        <div class="admin-product-cart-rundown" data-home-product-cart-rundown>
+                            <p class="admin-empty">Belum ada data.</p>
                         </div>
                     </article>
 

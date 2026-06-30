@@ -32,6 +32,11 @@ const AFFILIATE_TREND_SERIES = {
   jamu: { label: 'Jamu', color: '#ffb12b' }
 };
 
+const PRODUCT_CART_SERIES = {
+  bubur: { label: 'Bubur', color: '#9dff00' },
+  jamu: { label: 'Jamu', color: '#ffb12b' }
+};
+
 const DASHBOARD_TIMEZONE = 'Asia/Jakarta';
 
 const formatSeconds = (seconds) => {
@@ -376,6 +381,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const trendCanvas = document.querySelector('[data-trend-chart]');
   const hourCanvas = document.querySelector('[data-hour-chart]');
   const sourceLegend = document.querySelector('[data-source-legend]');
+  const productCartRundown = document.querySelector('[data-product-cart-rundown]');
+  const productCartMeta = document.querySelector('[data-product-cart-meta]');
   const trendSurface = trendCanvas?.parentElement;
   const loader = document.querySelector('[data-admin-loader]');
   const loaderProgress = document.querySelector('[data-admin-loader-progress]');
@@ -674,6 +681,56 @@ document.addEventListener('DOMContentLoaded', () => {
     }).join('');
   };
 
+  const normalizeProductCartItems = (productCart) => {
+    const rawItems = Array.isArray(productCart?.items) ? productCart.items : [];
+    const keyedItems = new Map(rawItems.map((item) => [String(item.product_key || '').toLowerCase(), item]));
+    const items = ['bubur', 'jamu'].map((key) => {
+      const source = keyedItems.get(key) || {};
+      const count = Number(source.cart_events ?? source.add_to_cart_events ?? source.order_now_clicks ?? 0);
+      return {
+        key,
+        label: source.label || PRODUCT_CART_SERIES[key].label,
+        color: PRODUCT_CART_SERIES[key].color,
+        count: Number.isFinite(count) ? Math.max(0, count) : 0,
+        share: Number(source.share ?? 0)
+      };
+    });
+    const total = Number(productCart?.total_cart_events) || items.reduce((sum, item) => sum + item.count, 0);
+
+    return items.map((item) => ({
+      ...item,
+      share: total > 0 ? Math.round(((item.count / total) * 100) * 10) / 10 : 0
+    }));
+  };
+
+  const renderProductCartRundown = (productCart, emptyMessage = 'Belum ada data.') => {
+    if (!productCartRundown) return;
+    const items = normalizeProductCartItems(productCart);
+    const total = Number(productCart?.total_cart_events) || items.reduce((sum, item) => sum + item.count, 0);
+    const sourceMetric = String(productCart?.source_metric || 'add_to_cart_events');
+    if (productCartMeta) {
+      productCartMeta.textContent = total > 0
+        ? `${total.toLocaleString('id-ID')} ${sourceMetric === 'order_now_clicks' ? 'cart intents' : 'cart adds'}`
+        : 'No cart adds';
+    }
+
+    if (!productCart && total <= 0) {
+      productCartRundown.innerHTML = `<p class="admin-empty">${escapeHtml(emptyMessage)}</p>`;
+      return;
+    }
+
+    productCartRundown.innerHTML = items.map((item) => `
+      <div class="admin-product-cart-row admin-product-cart-row-${escapeHtml(item.key)}" style="--cart-share:${item.share}%; --cart-color:${item.color};">
+        <div class="admin-product-cart-row-head">
+          <strong>${escapeHtml(item.label)}</strong>
+          <span>${item.share.toLocaleString('id-ID')}%</span>
+        </div>
+        <div class="admin-product-cart-track" aria-hidden="true"><i></i></div>
+        <small>${item.count.toLocaleString('id-ID')} of ${total.toLocaleString('id-ID')}</small>
+      </div>
+    `).join('');
+  };
+
   const syncAffiliateSelect = () => {
     if (!affiliateSelect) return;
 
@@ -807,6 +864,7 @@ document.addEventListener('DOMContentLoaded', () => {
       metric: 'checkout_clicks',
       limit: 6
     });
+    renderProductCartRundown({ items: [], total_cart_events: 0 }, message);
     if (sourceLegend) sourceLegend.innerHTML = '';
     if (trendTitle) trendTitle.textContent = 'Affiliate performance over time';
     if (trendMeta) trendMeta.textContent = message;
@@ -882,6 +940,7 @@ document.addEventListener('DOMContentLoaded', () => {
         metric: state.metric,
         limit: 24
       });
+      renderProductCartRundown(data.product_cart, 'No cart adds in this timeframe.');
       drawBarChart(sourceCanvas, bySource, {
         value: (item) => item.views || 0,
         label: (item) => String(toTitleCase(item.source || 'unknown')),
@@ -914,6 +973,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (recentEvents) {
         recentEvents.innerHTML = `<p class="admin-empty">Gagal memuat affiliate program: ${escapeHtml(error.message)}</p>`;
       }
+      renderProductCartRundown({ items: [], total_cart_events: 0 });
       if (showLoader) {
         setLoaderState(100, 'Load failed');
         document.body.classList.remove('is-loading');
