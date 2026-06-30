@@ -38,6 +38,17 @@ function jg_orders_handle_request(): void
             ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             return;
         }
+        if ($method === 'GET' && in_array($action, ['location_summary', 'location_aggregate'], true)) {
+            $pdo = analyticsDb();
+            jg_orders_ensure_mirror_schema($pdo);
+            jg_orders_ensure_location_cache_schema($pdo);
+            $forceRefresh = jg_orders_bool($_GET['refresh'] ?? $_GET['force'] ?? null);
+            echo json_encode(
+                jg_orders_location_summary_payload($pdo, $startDate, $endDate, $forceRefresh),
+                JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+            );
+            return;
+        }
 
         $payload = [];
         if ($method === 'POST') {
@@ -45,6 +56,20 @@ function jg_orders_handle_request(): void
             $payload = is_array($payload) ? $payload : [];
             $startDate = jg_orders_date($payload['start_date'] ?? $startDate, '-1 day');
             $endDate = jg_orders_date($payload['end_date'] ?? $endDate, 'today');
+        }
+        if ($method === 'POST' && in_array($action, ['map_backfill', 'location_backfill'], true)) {
+            $year = (int) ($payload['year'] ?? substr($startDate, 0, 4));
+            if ($year < 2000) {
+                $year = (int) substr($startDate, 0, 4);
+            }
+            $pdo = analyticsDb();
+            jg_orders_ensure_mirror_schema($pdo);
+            $response = jg_orders_backfill_mirror_range($pdo, $startDate, $endDate, $year);
+            if (empty($response['ok'])) {
+                http_response_code((int) ($response['status'] ?? 500));
+            }
+            echo json_encode($response, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            return;
         }
 
         $remoteWarning = '';
@@ -308,6 +333,26 @@ function jg_orders_ensure_mirror_schema(PDO $pdo): void
 
     analyticsEnsureTableColumn($pdo, 'dashboard_order_mirror', 'gross_revenue', 'DECIMAL(16,2) NOT NULL DEFAULT 0 AFTER `order_net_revenue`');
     analyticsEnsureTableColumn($pdo, 'dashboard_order_mirror', 'deleted_at', 'DATETIME(6) NULL DEFAULT NULL AFTER `mirrored_at`');
+}
+
+function jg_orders_ensure_location_cache_schema(PDO $pdo): void
+{
+    analyticsTryExec(
+        $pdo,
+        'CREATE TABLE IF NOT EXISTS dashboard_order_location_cache (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            range_key VARCHAR(64) NOT NULL,
+            geocoder_version INT NOT NULL DEFAULT 1,
+            start_date DATE NOT NULL,
+            end_date DATE NOT NULL,
+            mirror_rows INT NOT NULL DEFAULT 0,
+            mirror_distinct_orders INT NOT NULL DEFAULT 0,
+            mirror_last_mirrored_at DATETIME(6) NULL DEFAULT NULL,
+            aggregate_json LONGTEXT NOT NULL,
+            generated_at DATETIME(6) NOT NULL,
+            UNIQUE KEY uniq_dashboard_order_location_cache (range_key, geocoder_version)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+    );
 }
 
 function jg_orders_is_list_array(array $value): bool
@@ -719,56 +764,554 @@ function jg_orders_mirror_payload(PDO $pdo, string $startDate, string $endDate, 
     return $payload;
 }
 
+function jg_orders_location_geocoder_version(): int
+{
+    return 3;
+}
+
+function jg_orders_location_summary_payload(PDO $pdo, string $startDate, string $endDate, bool $forceRefresh = false): array
+{
+    $summary = jg_orders_mirror_range_summary_raw($pdo, $startDate, $endDate);
+    $rangeKey = $startDate . ':' . $endDate;
+    $version = jg_orders_location_geocoder_version();
+
+    if (!$forceRefresh) {
+        $cached = jg_orders_read_location_cache($pdo, $rangeKey, $version, $summary);
+        if ($cached !== null) {
+            $cached['cached'] = true;
+            return [
+                'ok' => true,
+                'source' => 'dashboard_order_mirror_location_cache',
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'geocoder_version' => $version,
+                'mirror' => jg_orders_public_mirror_range_summary($summary),
+                'aggregate' => $cached,
+            ];
+        }
+    }
+
+    [$from, $to] = jg_orders_range_bounds($startDate, $endDate);
+    $stmt = $pdo->prepare(
+        'SELECT platform, account_key, order_id, order_item_hash, address, raw_json, mirrored_at
+         FROM dashboard_order_mirror
+         WHERE deleted_at IS NULL
+           AND order_create_time >= :from_date
+           AND order_create_time < :to_date
+         ORDER BY order_create_time DESC, id DESC'
+    );
+    $stmt->execute([
+        ':from_date' => $from,
+        ':to_date' => $to,
+    ]);
+
+    $seen = [];
+    $provinceCounts = [];
+    $totalOrders = 0;
+    $unmatchedOrders = 0;
+    foreach ($stmt->fetchAll() as $row) {
+        $key = jg_orders_location_order_key($row);
+        if ($key === '' || isset($seen[$key])) {
+            continue;
+        }
+        $seen[$key] = true;
+        $totalOrders += 1;
+        $province = jg_orders_location_province_from_row($row);
+        if ($province === '') {
+            $unmatchedOrders += 1;
+            continue;
+        }
+        $provinceCounts[$province] = ($provinceCounts[$province] ?? 0) + 1;
+    }
+
+    $aggregate = jg_orders_location_aggregate_payload($provinceCounts, $totalOrders, $unmatchedOrders, $summary);
+    jg_orders_write_location_cache($pdo, $rangeKey, $version, $startDate, $endDate, $summary, $aggregate);
+    $aggregate['cached'] = false;
+
+    return [
+        'ok' => true,
+        'source' => 'dashboard_order_mirror_location_aggregate',
+        'start_date' => $startDate,
+        'end_date' => $endDate,
+        'geocoder_version' => $version,
+        'mirror' => jg_orders_public_mirror_range_summary($summary),
+        'aggregate' => $aggregate,
+    ];
+}
+
+function jg_orders_location_aggregate_payload(array $provinceCounts, int $totalOrders, int $unmatchedOrders, array $summary): array
+{
+    ksort($provinceCounts);
+    $rows = [];
+    foreach ($provinceCounts as $province => $orders) {
+        $count = max(0, (int) $orders);
+        if ($province !== '' && $count > 0) {
+            $rows[] = ['province' => $province, 'orders' => $count];
+        }
+    }
+    usort($rows, static fn (array $left, array $right): int => ((int) $right['orders'] <=> (int) $left['orders']) ?: strcmp((string) $left['province'], (string) $right['province']));
+    $maxOrders = 0;
+    foreach ($rows as $row) {
+        $maxOrders = max($maxOrders, (int) ($row['orders'] ?? 0));
+    }
+    $matchedOrders = max(0, $totalOrders - $unmatchedOrders);
+    $aggregate = [
+        'totalOrders' => max(0, $totalOrders),
+        'matchedOrders' => $matchedOrders,
+        'unmatchedOrders' => max(0, $unmatchedOrders),
+        'maxOrders' => $maxOrders,
+        'provinceCounts' => $provinceCounts,
+        'rows' => $rows,
+        'mirroredAfter' => jg_orders_atom_datetime((string) ($summary['last_mirrored_at_sql'] ?? '')),
+        'generatedAt' => gmdate(DATE_ATOM),
+    ];
+    $aggregate['signature'] = sha1(json_encode([
+        $aggregate['totalOrders'],
+        $aggregate['unmatchedOrders'],
+        $aggregate['maxOrders'],
+        $aggregate['rows'],
+        $aggregate['mirroredAfter'],
+    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
+
+    return $aggregate;
+}
+
+function jg_orders_read_location_cache(PDO $pdo, string $rangeKey, int $version, array $summary): ?array
+{
+    $stmt = $pdo->prepare(
+        'SELECT mirror_rows, mirror_distinct_orders, mirror_last_mirrored_at, aggregate_json
+         FROM dashboard_order_location_cache
+         WHERE range_key = :range_key
+           AND geocoder_version = :geocoder_version
+         LIMIT 1'
+    );
+    $stmt->execute([
+        ':range_key' => $rangeKey,
+        ':geocoder_version' => $version,
+    ]);
+    $row = $stmt->fetch();
+    if (!is_array($row)) {
+        return null;
+    }
+    $cachedLast = (string) ($row['mirror_last_mirrored_at'] ?? '');
+    $summaryLast = (string) ($summary['last_mirrored_at_sql'] ?? '');
+    if (
+        (int) ($row['mirror_rows'] ?? -1) !== (int) ($summary['rows'] ?? 0) ||
+        (int) ($row['mirror_distinct_orders'] ?? -1) !== (int) ($summary['distinct_orders'] ?? 0) ||
+        $cachedLast !== $summaryLast
+    ) {
+        return null;
+    }
+    $decoded = json_decode((string) ($row['aggregate_json'] ?? ''), true);
+    return is_array($decoded) ? $decoded : null;
+}
+
+function jg_orders_write_location_cache(PDO $pdo, string $rangeKey, int $version, string $startDate, string $endDate, array $summary, array $aggregate): void
+{
+    $stmt = $pdo->prepare(
+        'INSERT INTO dashboard_order_location_cache
+            (range_key, geocoder_version, start_date, end_date, mirror_rows, mirror_distinct_orders,
+             mirror_last_mirrored_at, aggregate_json, generated_at)
+         VALUES
+            (:range_key, :geocoder_version, :start_date, :end_date, :mirror_rows, :mirror_distinct_orders,
+             :mirror_last_mirrored_at, :aggregate_json, :generated_at)
+         ON DUPLICATE KEY UPDATE
+             start_date = VALUES(start_date),
+             end_date = VALUES(end_date),
+             mirror_rows = VALUES(mirror_rows),
+             mirror_distinct_orders = VALUES(mirror_distinct_orders),
+             mirror_last_mirrored_at = VALUES(mirror_last_mirrored_at),
+             aggregate_json = VALUES(aggregate_json),
+             generated_at = VALUES(generated_at)'
+    );
+    $stmt->execute([
+        ':range_key' => $rangeKey,
+        ':geocoder_version' => $version,
+        ':start_date' => $startDate,
+        ':end_date' => $endDate,
+        ':mirror_rows' => (int) ($summary['rows'] ?? 0),
+        ':mirror_distinct_orders' => (int) ($summary['distinct_orders'] ?? 0),
+        ':mirror_last_mirrored_at' => ($summary['last_mirrored_at_sql'] ?? '') !== '' ? (string) $summary['last_mirrored_at_sql'] : null,
+        ':aggregate_json' => json_encode($aggregate, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}',
+        ':generated_at' => gmdate('Y-m-d H:i:s.u'),
+    ]);
+}
+
+function jg_orders_location_order_key(array $row): string
+{
+    $orderId = trim((string) ($row['order_id'] ?? ''));
+    if ($orderId !== '') {
+        return strtolower(trim((string) ($row['platform'] ?? 'unknown'))) . '|'
+            . strtolower(trim((string) ($row['account_key'] ?? ''))) . '|'
+            . $orderId;
+    }
+
+    return trim((string) ($row['order_item_hash'] ?? ''));
+}
+
+function jg_orders_location_province_from_row(array $row): string
+{
+    $fragments = [];
+    $address = trim((string) ($row['address'] ?? ''));
+    if ($address !== '') {
+        $fragments[] = $address;
+    }
+    $raw = json_decode((string) ($row['raw_json'] ?? ''), true);
+    if (is_array($raw)) {
+        jg_orders_location_collect_fragments($raw, '', $fragments);
+    }
+
+    return jg_orders_location_province_from_text(implode(' ', array_slice(array_unique($fragments), 0, 80)));
+}
+
+function jg_orders_location_collect_fragments(mixed $value, string $key, array &$fragments, int $depth = 0): void
+{
+    if ($depth > 5 || count($fragments) >= 80) {
+        return;
+    }
+    if (is_scalar($value)) {
+        if (jg_orders_location_key_matches($key)) {
+            $text = trim((string) $value);
+            if ($text !== '') {
+                $fragments[] = $text;
+            }
+        }
+        return;
+    }
+    if (!is_array($value)) {
+        return;
+    }
+    foreach ($value as $childKey => $childValue) {
+        if (count($fragments) >= 80) {
+            return;
+        }
+        jg_orders_location_collect_fragments($childValue, (string) $childKey, $fragments, $depth + 1);
+    }
+}
+
+function jg_orders_location_key_matches(string $key): bool
+{
+    return $key !== '' && (bool) preg_match('/province|provinsi|state|region|city|district|kecamatan|kelurahan|kabupaten|regency|address|alamat|shipping/i', $key);
+}
+
+function jg_orders_location_province_from_text(string $text): string
+{
+    $searchable = jg_orders_location_normalize_text($text);
+    if ($searchable === '') {
+        return '';
+    }
+    foreach (jg_orders_location_alias_entries('province') as $entry) {
+        if (jg_orders_location_alias_matches($searchable, (string) $entry['alias'])) {
+            return (string) $entry['province'];
+        }
+    }
+    foreach (jg_orders_location_alias_entries('locality') as $entry) {
+        if (jg_orders_location_alias_matches($searchable, (string) $entry['alias'])) {
+            return (string) $entry['province'];
+        }
+    }
+
+    return '';
+}
+
+function jg_orders_location_alias_matches(string $text, string $alias): bool
+{
+    if ($text === '' || $alias === '') {
+        return false;
+    }
+    return (bool) preg_match('/(^|\s)' . preg_quote($alias, '/') . '(?=\s|$)/', $text);
+}
+
+function jg_orders_location_normalize_text(string $value): string
+{
+    $text = strtolower(trim($value));
+    $converted = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $text);
+    if (is_string($converted) && $converted !== '') {
+        $text = strtolower($converted);
+    }
+    $text = preg_replace('/[^a-z0-9]+/', ' ', $text) ?? '';
+    return trim(preg_replace('/\s+/', ' ', $text) ?? '');
+}
+
+function jg_orders_location_alias_entries(string $kind): array
+{
+    static $cache = [];
+    if (isset($cache[$kind])) {
+        return $cache[$kind];
+    }
+    $aliases = jg_orders_location_aliases();
+    $source = $kind === 'province' ? ($aliases['province'] ?? []) : ($aliases['locality'] ?? []);
+    $entries = [];
+    foreach ($source as $province => $provinceAliases) {
+        if (!is_array($provinceAliases)) {
+            continue;
+        }
+        foreach ($provinceAliases as $alias) {
+            $normalized = jg_orders_location_normalize_text((string) $alias);
+            if ($normalized === '') {
+                continue;
+            }
+            if ($kind === 'locality') {
+                $expanded = array_unique(array_filter([
+                    $normalized,
+                    'kota ' . $normalized,
+                    'kabupaten ' . $normalized,
+                    'kab ' . $normalized,
+                    'kab ' . preg_replace('/^kota\s+/', '', $normalized),
+                ]));
+                foreach ($expanded as $entryAlias) {
+                    $entries[] = ['province' => (string) $province, 'alias' => jg_orders_location_normalize_text((string) $entryAlias)];
+                }
+                continue;
+            }
+            $entries[] = ['province' => (string) $province, 'alias' => $normalized];
+        }
+    }
+    usort($entries, static fn (array $left, array $right): int => strlen((string) $right['alias']) <=> strlen((string) $left['alias']));
+    $cache[$kind] = $entries;
+    return $entries;
+}
+
+function jg_orders_location_aliases(): array
+{
+    static $aliases = null;
+    if (is_array($aliases)) {
+        return $aliases;
+    }
+
+    $source = @file_get_contents(dirname(__DIR__, 2) . '/admin.js');
+    $province = [];
+    $locality = [];
+    if (is_string($source) && $source !== '') {
+        $province = jg_orders_extract_js_object_literal($source, 'INDONESIA_PROVINCE_ALIASES');
+        $locality = jg_orders_extract_js_object_literal($source, 'INDONESIA_LOCALITY_ALIASES');
+    }
+    if ($province === []) {
+        $province = [
+            'DKI Jakarta' => ['jakarta', 'dki jakarta'],
+            'Jawa Barat' => ['jawa barat', 'jabar'],
+            'Jawa Tengah' => ['jawa tengah', 'jateng'],
+            'Jawa Timur' => ['jawa timur', 'jatim'],
+            'Banten' => ['banten'],
+            'Bali' => ['bali'],
+            'Sumatera Utara' => ['sumatera utara', 'sumut'],
+            'Sumatera Barat' => ['sumatera barat', 'sumbar'],
+            'Sumatera Selatan' => ['sumatera selatan', 'sumsel'],
+        ];
+    }
+    $aliases = [
+        'province' => $province,
+        'locality' => is_array($locality) ? $locality : [],
+    ];
+    return $aliases;
+}
+
+function jg_orders_extract_js_object_literal(string $source, string $name): array
+{
+    $needle = 'const ' . $name . ' = ';
+    $start = strpos($source, $needle);
+    if ($start === false) {
+        return [];
+    }
+    $braceStart = strpos($source, '{', $start);
+    if ($braceStart === false) {
+        return [];
+    }
+    $length = strlen($source);
+    $depth = 0;
+    $inString = false;
+    $escaped = false;
+    for ($index = $braceStart; $index < $length; $index += 1) {
+        $char = $source[$index];
+        if ($inString) {
+            if ($escaped) {
+                $escaped = false;
+            } elseif ($char === '\\') {
+                $escaped = true;
+            } elseif ($char === "'") {
+                $inString = false;
+            }
+            continue;
+        }
+        if ($char === "'") {
+            $inString = true;
+            continue;
+        }
+        if ($char === '{') {
+            $depth += 1;
+        } elseif ($char === '}') {
+            $depth -= 1;
+            if ($depth === 0) {
+                $literal = substr($source, $braceStart, $index - $braceStart + 1);
+                $json = preg_replace_callback(
+                    "/'((?:\\\\.|[^'\\\\])*)'/",
+                    static fn (array $matches): string => json_encode(stripcslashes((string) $matches[1]), JSON_UNESCAPED_UNICODE) ?: '""',
+                    $literal
+                );
+                $decoded = is_string($json) ? json_decode($json, true) : null;
+                return is_array($decoded) ? $decoded : [];
+            }
+        }
+    }
+
+    return [];
+}
+
+function jg_orders_backfill_mirror_range(PDO $pdo, string $startDate, string $endDate, int $year): array
+{
+    $lock = @fopen(sys_get_temp_dir() . '/jg-dashboard-order-map-backfill.lock', 'c+');
+    if (!is_resource($lock)) {
+        return [
+            'ok' => false,
+            'status' => 500,
+            'error' => 'order_map_backfill_lock_unavailable',
+        ];
+    }
+    if (!@flock($lock, LOCK_EX | LOCK_NB)) {
+        fclose($lock);
+        return [
+            'ok' => false,
+            'status' => 409,
+            'error' => 'order_map_backfill_in_progress',
+        ];
+    }
+
+    try {
+        @set_time_limit(180);
+        $before = jg_orders_mirror_range_summary($pdo, $startDate, $endDate);
+        $sync = jg_orders_run_ingest_year_sync($year);
+        $import = jg_orders_import_mirror_range_from_api($pdo, $startDate, $endDate, 60000, 'mirror_map_backfill');
+        $after = jg_orders_mirror_range_summary($pdo, $startDate, $endDate);
+        $ok = !empty($sync['ok']) || (int) ($import['fetched'] ?? 0) > 0 || (int) ($import['upserted'] ?? 0) > 0;
+
+        $response = [
+            'ok' => $ok,
+            'status' => $ok ? 200 : 502,
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'year' => $year,
+            'before' => $before,
+            'after' => $after,
+            'sync' => $sync,
+            'import' => $import,
+        ];
+        if (!$ok) {
+            $response['error'] = 'order_map_backfill_empty';
+        }
+
+        return $response;
+    } catch (Throwable $error) {
+        error_log('Dashboard order map backfill failed: ' . $error->getMessage());
+        return [
+            'ok' => false,
+            'status' => 502,
+            'error' => 'order_map_backfill_failed',
+            'message' => $error->getMessage(),
+        ];
+    } finally {
+        @flock($lock, LOCK_UN);
+        fclose($lock);
+    }
+}
+
+function jg_orders_run_ingest_year_sync(int $year): array
+{
+    try {
+        $payload = jg_orders_fetch_json_with_timeout(jg_orders_remote_url('/sales/sync', [
+            'year' => (string) $year,
+            'mode' => 'year',
+        ]), 120);
+        $sync = is_array($payload['sync'] ?? null) ? $payload['sync'] : [];
+
+        return [
+            'ok' => true,
+            'mode' => 'year',
+            'stored' => (int) ($sync['stored'] ?? $payload['stored'] ?? 0),
+            'accounts_checked' => (int) ($sync['status']['accounts_checked'] ?? count($sync['accounts'] ?? [])),
+            'accounts_ok' => (int) ($sync['status']['accounts_ok'] ?? 0),
+        ];
+    } catch (Throwable $error) {
+        error_log('Dashboard order map sync request failed: ' . $error->getMessage());
+        return [
+            'ok' => false,
+            'error' => 'api_ingest_year_sync_failed',
+        ];
+    }
+}
+
+function jg_orders_import_mirror_range_from_api(PDO $pdo, string $startDate, string $endDate, int $maxRows, string $event): array
+{
+    $fetched = 0;
+    $upserted = 0;
+    $pages = 0;
+    $offset = 0;
+    $hasMore = false;
+    $nextOffset = null;
+    $maxRows = max(1, $maxRows);
+
+    while ($fetched < $maxRows) {
+        $pageLimit = min(500, $maxRows - $fetched);
+        $payload = jg_orders_fetch_json(jg_orders_remote_url('/sales/orders', [
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'skip_sync' => '1',
+            'sync' => '0',
+            'limit' => (string) $pageLimit,
+            'offset' => (string) $offset,
+        ]));
+        $rows = is_array($payload['orders'] ?? null) ? $payload['orders'] : [];
+        $pageRows = [];
+        foreach ($rows as $row) {
+            if (is_array($row)) {
+                $pageRows[] = $row;
+            }
+        }
+
+        $rowCount = count($pageRows);
+        $fetched += $rowCount;
+        $pages += 1;
+
+        if ($pageRows !== []) {
+            $mirrorRows = jg_orders_webhook_rows([
+                'event' => $event,
+                'source' => 'api_ingest',
+                'rows' => $pageRows,
+            ]);
+            if ($mirrorRows !== []) {
+                $result = jg_orders_upsert_mirror_rows($pdo, $mirrorRows, ['event' => $event]);
+                $upserted += (int) ($result['upserted'] ?? 0);
+            }
+        }
+
+        $nextOffset = (int) ($payload['next_offset'] ?? 0);
+        $hasMore = !empty($payload['has_more']) && $nextOffset > $offset && $rowCount > 0;
+        if (!$hasMore) {
+            break;
+        }
+        $offset = $nextOffset;
+    }
+
+    return [
+        'attempted' => true,
+        'fetched' => $fetched,
+        'upserted' => $upserted,
+        'pages' => $pages,
+        'has_more' => $hasMore,
+        'next_offset' => $hasMore ? $nextOffset : null,
+        'truncated' => $hasMore && $fetched >= $maxRows,
+    ];
+}
+
 function jg_orders_repair_mirror_range_from_api(PDO $pdo, string $startDate, string $endDate, ?int $limit): array
 {
     $targetRows = $limit !== null ? min(2001, max(1, $limit + 1)) : 500;
-    $fetchedRows = [];
-    $offset = 0;
-
     try {
-        while (count($fetchedRows) < $targetRows) {
-            $pageLimit = min(500, $targetRows - count($fetchedRows));
-            $payload = jg_orders_fetch_json(jg_orders_remote_url('/sales/orders', [
-                'start_date' => $startDate,
-                'end_date' => $endDate,
-                'skip_sync' => '1',
-                'sync' => '0',
-                'limit' => (string) $pageLimit,
-                'offset' => (string) $offset,
-            ]));
-            $rows = is_array($payload['orders'] ?? null) ? $payload['orders'] : [];
-            foreach ($rows as $row) {
-                if (is_array($row)) {
-                    $fetchedRows[] = $row;
-                }
-            }
-
-            $nextOffset = (int) ($payload['next_offset'] ?? 0);
-            if (empty($payload['has_more']) || $nextOffset <= $offset || $rows === []) {
-                break;
-            }
-            $offset = $nextOffset;
-        }
-
-        $mirrorRows = jg_orders_webhook_rows([
-            'event' => 'mirror_read_repair',
-            'source' => 'api_ingest',
-            'rows' => $fetchedRows,
-        ]);
-        $result = $mirrorRows !== []
-            ? jg_orders_upsert_mirror_rows($pdo, $mirrorRows, ['event' => 'mirror_read_repair'])
-            : ['upserted' => 0];
-
-        return [
-            'attempted' => true,
-            'fetched' => count($fetchedRows),
-            'upserted' => (int) ($result['upserted'] ?? 0),
-        ];
+        return jg_orders_import_mirror_range_from_api($pdo, $startDate, $endDate, $targetRows, 'mirror_read_repair');
     } catch (Throwable $error) {
         error_log('Dashboard order mirror read repair failed: ' . $error->getMessage());
         return [
             'attempted' => true,
-            'fetched' => count($fetchedRows),
+            'fetched' => 0,
             'upserted' => 0,
             'error' => 'mirror_read_repair_failed',
         ];
@@ -811,6 +1354,49 @@ function jg_orders_mirror_response_row(array $row): array
         'source' => 'dashboard_order_mirror',
         'mirrored_at' => jg_orders_atom_datetime((string) ($row['mirrored_at'] ?? '')),
     ];
+}
+
+function jg_orders_mirror_range_summary_raw(PDO $pdo, string $startDate, string $endDate): array
+{
+    [$from, $to] = jg_orders_range_bounds($startDate, $endDate);
+    try {
+        $stmt = $pdo->prepare(
+            'SELECT COUNT(*) AS rows_count,
+                    COUNT(DISTINCT CONCAT_WS("|", platform, account_key, CASE WHEN order_id = "" THEN order_item_hash ELSE order_id END)) AS distinct_orders,
+                    MAX(mirrored_at) AS last_mirrored_at
+             FROM dashboard_order_mirror
+             WHERE deleted_at IS NULL
+               AND order_create_time >= :from_date
+               AND order_create_time < :to_date'
+        );
+        $stmt->execute([
+            ':from_date' => $from,
+            ':to_date' => $to,
+        ]);
+        $summary = $stmt->fetch();
+    } catch (Throwable) {
+        $summary = false;
+    }
+
+    return [
+        'rows' => (int) ($summary['rows_count'] ?? 0),
+        'distinct_orders' => (int) ($summary['distinct_orders'] ?? 0),
+        'last_mirrored_at_sql' => (string) ($summary['last_mirrored_at'] ?? ''),
+    ];
+}
+
+function jg_orders_public_mirror_range_summary(array $summary): array
+{
+    return [
+        'rows' => (int) ($summary['rows'] ?? 0),
+        'distinct_orders' => (int) ($summary['distinct_orders'] ?? 0),
+        'last_mirrored_at' => jg_orders_atom_datetime((string) ($summary['last_mirrored_at_sql'] ?? $summary['last_mirrored_at'] ?? '')),
+    ];
+}
+
+function jg_orders_mirror_range_summary(PDO $pdo, string $startDate, string $endDate): array
+{
+    return jg_orders_public_mirror_range_summary(jg_orders_mirror_range_summary_raw($pdo, $startDate, $endDate));
 }
 
 function jg_orders_mirror_status(PDO $pdo): array
@@ -896,11 +1482,16 @@ function jg_orders_remote_url(string $path, array $params): string
 
 function jg_orders_fetch_json(string $url): array
 {
+    return jg_orders_fetch_json_with_timeout($url, 12);
+}
+
+function jg_orders_fetch_json_with_timeout(string $url, int $timeout): array
+{
     $context = stream_context_create([
         'http' => [
             'method' => 'GET',
-            'timeout' => 12,
-            'header' => "Accept: application/json\r\n",
+            'timeout' => max(1, $timeout),
+            'header' => "Accept: application/json\r\nUser-Agent: Jenang-Gemi-Executive-Dashboard/1.0\r\n",
             'ignore_errors' => true,
         ],
     ]);

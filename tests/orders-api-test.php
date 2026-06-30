@@ -112,6 +112,8 @@ expect_same(1, count($repairRows), 'Mirror read repair rows must normalize API I
 expect_same('tiktok', $repairRows[0]['platform'], 'Mirror read repair must preserve platform.');
 expect_same('ORDER-3', $repairRows[0]['order_id'], 'Mirror read repair must preserve order ids.');
 expect_same(4500.0, $repairRows[0]['order_net_revenue'], 'Mirror read repair must preserve order revenue.');
+expect_same('Jawa Barat', jg_orders_location_province_from_text('Kota Bandung, Jawa Barat'), 'Server-side location geocoder must map city and province aliases.');
+expect_same('DKI Jakarta', jg_orders_location_province_from_text('Jakarta Selatan'), 'Server-side location geocoder must map locality aliases from admin.js.');
 
 $ordersUrl = jg_orders_remote_url('/sales/orders', [
     'start_date' => '2026-06-01',

@@ -360,6 +360,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                                 </div>
                                 <span class="admin-panel-meta" data-overview-location-status>Loading order locations</span>
                             </div>
+                            <button type="button" class="admin-location-backfill-btn" data-overview-location-backfill hidden>Backfill map</button>
                         </div>
                         <div class="admin-location-heatmap-shell">
                             <div class="admin-location-map" data-overview-location-map aria-label="Indonesia orders by province heat map"></div>

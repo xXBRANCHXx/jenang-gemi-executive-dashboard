@@ -672,9 +672,10 @@ const ORDER_BACKGROUND_TARGET_ROWS = 24000;
 const ORDER_BACKGROUND_MAX_WINDOWS = 72;
 const OVERVIEW_LOCATION_PAGE_SIZE = 2000;
 const OVERVIEW_LOCATION_MAX_PAGES = 25;
-const OVERVIEW_LOCATION_CACHE_VERSION = 4;
-const OVERVIEW_LOCATION_GEOCODER_VERSION = 2;
+const OVERVIEW_LOCATION_CACHE_VERSION = 5;
+const OVERVIEW_LOCATION_GEOCODER_VERSION = 3;
 const OVERVIEW_LOCATION_CACHE_PREFIX = `jg-overview-location-v${OVERVIEW_LOCATION_CACHE_VERSION}`;
+const OVERVIEW_LOCATION_BACKFILL_TARGET_RATE = 0.8;
 
 const INDONESIA_PROVINCE_ALIASES = {
   'Aceh': ['aceh', 'nanggroe aceh darussalam', 'nad'],
@@ -1974,6 +1975,11 @@ document.addEventListener('DOMContentLoaded', () => {
       locationRequestToken: 0,
       locationCacheReady: false,
       locationRenderSignature: '',
+      locationMapHtmlByTheme: {},
+      locationMapSignatureByTheme: {},
+      locationBackfillLoading: false,
+      locationBackfillError: '',
+      locationBackfillCompletedSignature: '',
       provinceGeoJson: null,
       provinceMapError: '',
       data: null,
@@ -2154,6 +2160,7 @@ document.addEventListener('DOMContentLoaded', () => {
     dropsFlavorCanvas: document.querySelector('[data-overview-drops-flavor-chart]'),
     locationMap: document.querySelector('[data-overview-location-map]'),
     locationStatus: document.querySelector('[data-overview-location-status]'),
+    locationBackfill: document.querySelector('[data-overview-location-backfill]'),
     locationList: document.querySelector('[data-overview-location-list]'),
     trendTitle: document.querySelector('[data-overview-trend-title]'),
     trendMeta: document.querySelector('[data-overview-trend-meta]'),
@@ -3375,6 +3382,24 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${ordersEndpoint}?${params.toString()}`;
   };
   const requestOrderFacts = (startDate, endDate, options = {}) => requestJson(buildOrderFactsUrl(startDate, endDate, options));
+  const buildOrderLocationSummaryUrl = (startDate, endDate, options = {}) => {
+    const params = new URLSearchParams({
+      action: 'location_summary',
+      start_date: startDate,
+      end_date: endDate
+    });
+    if (options.refresh || options.force || options.repair) params.set('refresh', '1');
+    if (options.cacheBust || options.refresh || options.force || options.repair) params.set('_ts', String(Date.now()));
+    return `${ordersEndpoint}?${params.toString()}`;
+  };
+  const requestOrderLocationSummary = (startDate, endDate, options = {}) => requestJson(buildOrderLocationSummaryUrl(startDate, endDate, options));
+  const buildOrderMapBackfillUrl = () => {
+    const params = new URLSearchParams({
+      action: 'map_backfill',
+      _ts: String(Date.now())
+    });
+    return `${ordersEndpoint}?${params.toString()}`;
+  };
   const dashboardDateFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone });
   const todayDate = () => dashboardDateFormatter.format(new Date());
   const offsetDate = (dateValue, offsetDays) => {
@@ -3623,16 +3648,24 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const normalizeOverviewLocationAggregate = (value = {}) => {
+    const source = value.aggregate && typeof value.aggregate === 'object' ? value.aggregate : value;
     const aggregate = createOverviewLocationAggregate();
-    const counts = value.provinceCounts && typeof value.provinceCounts === 'object'
-      ? value.provinceCounts
+    const counts = source.provinceCounts && typeof source.provinceCounts === 'object'
+      ? source.provinceCounts
       : {};
     Object.entries(counts).forEach(([province, orders]) => {
       const count = Math.max(0, Number(orders || 0));
       if (province && count > 0) aggregate.byProvince.set(province, { province, orders: count });
     });
-    aggregate.totalOrders = Math.max(0, Number(value.totalOrders || 0));
-    aggregate.unmatchedOrders = Math.max(0, Number(value.unmatchedOrders || 0));
+    if (!aggregate.byProvince.size && Array.isArray(source.rows)) {
+      source.rows.forEach((row) => {
+        const province = String(row?.province || '').trim();
+        const count = Math.max(0, Number(row?.orders || 0));
+        if (province && count > 0) aggregate.byProvince.set(province, { province, orders: count });
+      });
+    }
+    aggregate.totalOrders = Math.max(0, Number(source.totalOrders || 0));
+    aggregate.unmatchedOrders = Math.max(0, Number(source.unmatchedOrders || 0));
     return finalizeOverviewLocationAggregate(aggregate);
   };
 
@@ -3839,29 +3872,96 @@ document.addEventListener('DOMContentLoaded', () => {
     `).join('');
   };
 
+  const overviewLocationTargetOrders = () => Math.max(0, Number(state.overview.data?.totals?.orders || 0));
+
+  const overviewLocationBackfillStatusSuffix = () => {
+    if (state.overview.locationBackfillLoading) return ' • backfilling mirror';
+    if (state.overview.locationBackfillError) return ' • backfill failed';
+    return '';
+  };
+
+  const renderOverviewLocationBackfillControl = (aggregate) => {
+    const button = overviewRefs.locationBackfill;
+    if (!button) return;
+    const targetOrders = overviewLocationTargetOrders();
+    const loadedOrders = Math.max(0, Number(aggregate.totalOrders || 0));
+    const coverage = targetOrders > 0 ? loadedOrders / targetOrders : 1;
+    const range = overviewLocationDateRange();
+    const completed = state.overview.locationBackfillCompletedSignature === range.signature;
+    const hasLoaded = Boolean(state.overview.locationLoadedAt || loadedOrders > 0 || state.overview.locationError);
+    const needsBackfill = hasLoaded && targetOrders > 0 && coverage < OVERVIEW_LOCATION_BACKFILL_TARGET_RATE && !completed;
+
+    button.hidden = !state.overview.locationBackfillLoading && !needsBackfill;
+    button.disabled = Boolean(state.overview.locationBackfillLoading || state.overview.locationLoading);
+    button.textContent = state.overview.locationBackfillLoading ? 'Backfilling...' : 'Backfill map';
+    button.title = targetOrders > 0
+      ? `${formatCompactNumber(Math.max(0, targetOrders - loadedOrders))} orders missing from the map mirror`
+      : 'Backfill missing map orders';
+    button.setAttribute('aria-busy', state.overview.locationBackfillLoading ? 'true' : 'false');
+  };
+
+  const overviewLocationThemeKey = () => document.documentElement.dataset.adminTheme || 'dark';
+
+  const overviewLocationCachedMap = (signature) => {
+    const theme = overviewLocationThemeKey();
+    const html = state.overview.locationMapHtmlByTheme?.[theme] || '';
+    const cachedSignature = state.overview.locationMapSignatureByTheme?.[theme] || '';
+    return html && cachedSignature === signature ? { html, signature: cachedSignature } : null;
+  };
+
+  const setOverviewLocationCachedMap = (signature, html) => {
+    const theme = overviewLocationThemeKey();
+    state.overview.locationMapHtmlByTheme = {
+      ...(state.overview.locationMapHtmlByTheme || {}),
+      [theme]: html
+    };
+    state.overview.locationMapSignatureByTheme = {
+      ...(state.overview.locationMapSignatureByTheme || {}),
+      [theme]: signature
+    };
+  };
+
+  const applyOverviewLocationMapHtml = (signature, html) => {
+    if (!overviewRefs.locationMap || !html) return false;
+    if (state.overview.locationRenderSignature !== signature) {
+      overviewRefs.locationMap.innerHTML = html;
+      state.overview.locationRenderSignature = signature;
+    }
+    return true;
+  };
+
   const renderOverviewLocationHeatmap = () => {
     if (!overviewRefs.locationMap) return;
     const aggregate = finalizeOverviewLocationAggregate(state.overview.locationAggregate || createOverviewLocationAggregate());
     const loading = Boolean(state.overview.locationLoading);
     const truncated = Boolean(state.overview.locationTruncated);
+    const statusSuffix = overviewLocationBackfillStatusSuffix();
     if (overviewRefs.locationStatus) {
       if (state.overview.provinceMapError) {
-        overviewRefs.locationStatus.textContent = `Map unavailable: ${state.overview.provinceMapError}`;
+        overviewRefs.locationStatus.textContent = `Map unavailable: ${state.overview.provinceMapError}${statusSuffix}`;
       } else if (state.overview.locationError) {
-        overviewRefs.locationStatus.textContent = `Location data unavailable: ${state.overview.locationError}`;
+        overviewRefs.locationStatus.textContent = `Location data unavailable: ${state.overview.locationError}${statusSuffix}`;
       } else if (loading && !aggregate.totalOrders) {
-        overviewRefs.locationStatus.textContent = `Loading ${state.overview.year} order locations`;
+        overviewRefs.locationStatus.textContent = `Loading ${state.overview.year} order locations${statusSuffix}`;
       } else if (aggregate.matchedOrders > 0) {
         const mappedRate = aggregate.totalOrders > 0 ? Math.round((aggregate.matchedOrders / aggregate.totalOrders) * 1000) / 10 : 0;
-        overviewRefs.locationStatus.textContent = `${formatCompactNumber(aggregate.matchedOrders)} mapped orders • ${mappedRate}% mapped${aggregate.unmatchedOrders ? ` • ${formatCompactNumber(aggregate.unmatchedOrders)} unmatched` : ''}${truncated ? ' • sample capped' : ''}${loading ? ' • checking new orders' : ''}`;
+        overviewRefs.locationStatus.textContent = `${formatCompactNumber(aggregate.matchedOrders)} mapped orders • ${mappedRate}% mapped${aggregate.unmatchedOrders ? ` • ${formatCompactNumber(aggregate.unmatchedOrders)} unmatched` : ''}${truncated ? ' • sample capped' : ''}${loading ? ' • checking new orders' : ''}${statusSuffix}`;
       } else if (aggregate.totalOrders > 0) {
-        overviewRefs.locationStatus.textContent = `${formatCompactNumber(aggregate.totalOrders)} loaded orders • no province matches`;
+        overviewRefs.locationStatus.textContent = `${formatCompactNumber(aggregate.totalOrders)} loaded orders • no province matches${statusSuffix}`;
       } else {
-        overviewRefs.locationStatus.textContent = loading ? `Loading ${state.overview.year} order locations` : `No ${state.overview.year} order locations yet`;
+        overviewRefs.locationStatus.textContent = loading ? `Loading ${state.overview.year} order locations${statusSuffix}` : `No ${state.overview.year} order locations yet${statusSuffix}`;
       }
     }
+    renderOverviewLocationBackfillControl(aggregate);
 
+    const aggregateSignature = overviewLocationAggregateSignature(aggregate);
     if (!state.overview.provinceGeoJson) {
+      const cachedThemeSignature = state.overview.locationMapSignatureByTheme?.[overviewLocationThemeKey()] || '';
+      const cached = cachedThemeSignature.includes(`::${aggregateSignature}`) ? overviewLocationCachedMap(cachedThemeSignature) : null;
+      if (cached && applyOverviewLocationMapHtml(cached.signature, cached.html)) {
+        renderOverviewLocationList(aggregate);
+        return;
+      }
       const emptySignature = 'empty:loading-map';
       if (state.overview.locationRenderSignature !== emptySignature) {
         overviewRefs.locationMap.innerHTML = '<div class="admin-location-map-empty">Loading Indonesia map</div>';
@@ -3871,11 +3971,18 @@ document.addEventListener('DOMContentLoaded', () => {
       const mapSignature = [
         document.documentElement.dataset.adminTheme || 'dark',
         state.overview.provinceGeoJson.features?.length || 0,
-        overviewLocationAggregateSignature(aggregate)
+        aggregateSignature
       ].join('::');
       if (state.overview.locationRenderSignature !== mapSignature) {
-        overviewRefs.locationMap.innerHTML = renderProvinceHeatmapSvg(state.overview.provinceGeoJson, aggregate);
-        state.overview.locationRenderSignature = mapSignature;
+        const cached = overviewLocationCachedMap(mapSignature);
+        if (cached) {
+          applyOverviewLocationMapHtml(cached.signature, cached.html);
+        } else {
+          const html = renderProvinceHeatmapSvg(state.overview.provinceGeoJson, aggregate);
+          applyOverviewLocationMapHtml(mapSignature, html);
+          setOverviewLocationCachedMap(mapSignature, html);
+          writeOverviewLocationCache(overviewLocationDateRange());
+        }
       }
     }
     renderOverviewLocationList(aggregate);
@@ -3936,7 +4043,9 @@ document.addEventListener('DOMContentLoaded', () => {
       totalOrders: aggregate.totalOrders,
       unmatchedOrders: aggregate.unmatchedOrders,
       provinceCounts,
-      orderKeys: Array.from(state.overview.locationRowKeys || [])
+      orderKeys: Array.from(state.overview.locationRowKeys || []),
+      mapHtmlByTheme: state.overview.locationMapHtmlByTheme || {},
+      mapSignatureByTheme: state.overview.locationMapSignatureByTheme || {}
     };
   };
 
@@ -3946,6 +4055,15 @@ document.addEventListener('DOMContentLoaded', () => {
       window.localStorage.setItem(overviewLocationCacheKey(range), JSON.stringify(overviewLocationCachePayload(range)));
     } catch (_) {
       // The map can still work from the server when browser storage is full or disabled.
+    }
+  };
+
+  const removeOverviewLocationCache = (range) => {
+    if (!range?.signature) return;
+    try {
+      window.localStorage.removeItem(overviewLocationCacheKey(range));
+    } catch (_) {
+      // Cache removal is best-effort; the follow-up server load remains authoritative.
     }
   };
 
@@ -3988,6 +4106,8 @@ document.addEventListener('DOMContentLoaded', () => {
       state.overview.locationMirroredAfter = '';
       state.overview.locationLoadedAt = 0;
       state.overview.locationTruncated = false;
+      state.overview.locationMapHtmlByTheme = {};
+      state.overview.locationMapSignatureByTheme = {};
       return false;
     }
 
@@ -3996,7 +4116,22 @@ document.addEventListener('DOMContentLoaded', () => {
     state.overview.locationMirroredAfter = String(cached.mirroredAfter || '');
     state.overview.locationLoadedAt = Number(cached.loadedAt || 0);
     state.overview.locationTruncated = Boolean(cached.truncated);
+    state.overview.locationMapHtmlByTheme = cached.mapHtmlByTheme && typeof cached.mapHtmlByTheme === 'object' ? cached.mapHtmlByTheme : {};
+    state.overview.locationMapSignatureByTheme = cached.mapSignatureByTheme && typeof cached.mapSignatureByTheme === 'object' ? cached.mapSignatureByTheme : {};
     return true;
+  };
+
+  const applyOverviewLocationSummaryPayload = (payload, range) => {
+    const aggregatePayload = payload?.aggregate && typeof payload.aggregate === 'object' ? payload.aggregate : payload;
+    const previousSignature = overviewLocationAggregateSignature(state.overview.locationAggregate || createOverviewLocationAggregate());
+    state.overview.locationAggregate = normalizeOverviewLocationAggregate(aggregatePayload || {});
+    state.overview.locationRowKeys = new Set();
+    state.overview.locationMirroredAfter = String(aggregatePayload?.mirroredAfter || payload?.mirror?.last_mirrored_at || '');
+    state.overview.locationLoadedAt = Date.now();
+    state.overview.locationTruncated = false;
+    const nextSignature = overviewLocationAggregateSignature(state.overview.locationAggregate);
+    writeOverviewLocationCache(range);
+    return previousSignature !== nextSignature;
   };
 
   const loadOverviewLocationRows = async (options = {}) => {
@@ -4014,57 +4149,23 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const canLoadIncrementally = Boolean(
-      sameRange &&
-      state.overview.locationRowKeys.size &&
-      state.overview.locationMirroredAfter &&
-      (options.incremental || options.force || options.repair)
-    );
     const requestToken = state.overview.locationRequestToken + 1;
     state.overview.locationRequestToken = requestToken;
     state.overview.locationSignature = range.signature;
-    if (!canLoadIncrementally) {
-      mergeOverviewLocationRows([], { reset: true });
-    } else {
-      mergeOverviewLocationRows([]);
-    }
-    state.overview.locationLoadedAt = 0;
     state.overview.locationLoading = true;
     state.overview.locationError = '';
-    state.overview.locationTruncated = false;
-    const mirroredAfter = canLoadIncrementally ? state.overview.locationMirroredAfter : '';
     renderOverviewLocationHeatmap();
 
     try {
-      let offset = 0;
-      let pageCount = 0;
-      let hasMore = false;
-      do {
-        const payload = await requestOrderFacts(range.start, range.end, {
-          limit: OVERVIEW_LOCATION_PAGE_SIZE,
-          offset,
-          storedOnly: true,
-          repair: Boolean(options.repair && !canLoadIncrementally),
-          mirroredAfter
-        });
-        if (state.overview.locationRequestToken !== requestToken) return;
-        const rows = Array.isArray(payload.orders) ? payload.orders : [];
-        const added = mergeOverviewLocationRows(rows);
-        if (added > 0) {
-          writeOverviewLocationCache(range);
-          renderOverviewLocationHeatmap();
-        }
-
-        const nextOffset = Number(payload.next_offset);
-        hasMore = Boolean(payload.has_more) && Number.isFinite(nextOffset) && nextOffset > offset;
-        offset = hasMore ? nextOffset : offset;
-        pageCount += 1;
-      } while (hasMore && pageCount < OVERVIEW_LOCATION_MAX_PAGES);
-
+      const payload = await requestOrderLocationSummary(range.start, range.end, {
+        refresh: Boolean(options.force || options.repair),
+        cacheBust: Boolean(options.force || options.repair)
+      });
       if (state.overview.locationRequestToken !== requestToken) return;
-      state.overview.locationTruncated = hasMore;
-      state.overview.locationLoadedAt = Date.now();
-      writeOverviewLocationCache(range);
+      const changed = applyOverviewLocationSummaryPayload(payload, range);
+      if (changed && !state.overview.provinceGeoJson) {
+        loadProvinceMapData().catch(() => {});
+      }
     } catch (error) {
       if (state.overview.locationRequestToken !== requestToken) return;
       state.overview.locationError = error?.message || 'unable to load orders';
@@ -4073,6 +4174,38 @@ document.addEventListener('DOMContentLoaded', () => {
         state.overview.locationLoading = false;
         renderOverviewLocationHeatmap();
       }
+    }
+  };
+
+  const runOverviewLocationBackfill = async () => {
+    if (state.overview.locationBackfillLoading) return;
+    const range = overviewLocationDateRange();
+    state.overview.locationBackfillLoading = true;
+    state.overview.locationBackfillError = '';
+    renderOverviewLocationHeatmap();
+
+    try {
+      await requestJson(buildOrderMapBackfillUrl(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          year: state.overview.year,
+          start_date: range.start,
+          end_date: range.end
+        }),
+        timeoutMs: 180000
+      });
+      removeOverviewLocationCache(range);
+      state.overview.locationCacheReady = false;
+      state.overview.locationLoadedAt = 0;
+      state.overview.locationSignature = '';
+      state.overview.locationBackfillCompletedSignature = range.signature;
+      await loadOverviewLocationRows({ force: true, incremental: false });
+    } catch (error) {
+      state.overview.locationBackfillError = error?.message || 'Unable to backfill map orders.';
+    } finally {
+      state.overview.locationBackfillLoading = false;
+      renderOverviewLocationHeatmap();
     }
   };
 
@@ -6949,6 +7082,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   overviewRefs.refreshButton?.addEventListener('click', refreshMarketplaceData);
+  overviewRefs.locationBackfill?.addEventListener('click', runOverviewLocationBackfill);
   overviewRefs.locationMap?.addEventListener('pointermove', (event) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
