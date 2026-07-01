@@ -207,9 +207,17 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                                 <h3 data-sales-recap-title>Yearly recap</h3>
                                 <span class="admin-panel-meta" data-sales-recap-meta>Waiting for sales data</span>
                             </div>
-                            <button type="button" class="admin-sales-recap-close" data-sales-recap-close aria-label="Close Sales Recap">
-                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
-                            </button>
+                            <div class="admin-sales-recap-actions">
+                                <button type="button" class="admin-sales-recap-icon" data-sales-recap-copy aria-label="Copy Sales Recap" title="Copy Sales Recap" disabled>
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+                                </button>
+                                <button type="button" class="admin-sales-recap-icon" data-sales-recap-download aria-label="Download Sales Recap CSV" title="Download Sales Recap CSV" disabled>
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+                                </button>
+                                <button type="button" class="admin-sales-recap-icon admin-sales-recap-close" data-sales-recap-close aria-label="Close Sales Recap" title="Close Sales Recap">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+                                </button>
+                            </div>
                         </div>
                         <div class="admin-sales-recap-table-wrap">
                             <table class="admin-sales-recap-table">

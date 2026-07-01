@@ -1981,6 +1981,7 @@ document.addEventListener('DOMContentLoaded', () => {
       productMetric: 'quantity',
       flavorMetric: 'quantity',
       salesRecapOpen: false,
+      salesRecapExport: null,
       customRange: {
         active: false,
         startDate: '',
@@ -2209,6 +2210,8 @@ document.addEventListener('DOMContentLoaded', () => {
     salesRecapMeta: document.querySelector('[data-sales-recap-meta]'),
     salesRecapHead: document.querySelector('[data-sales-recap-head]'),
     salesRecapBody: document.querySelector('[data-sales-recap-body]'),
+    salesRecapCopy: document.querySelector('[data-sales-recap-copy]'),
+    salesRecapDownload: document.querySelector('[data-sales-recap-download]'),
     salesRecapClose: document.querySelector('[data-sales-recap-close]'),
     metricButtons: document.querySelectorAll('[data-overview-metric]'),
     volumeMetricButtons: document.querySelectorAll('[data-overview-volume-metric]'),
@@ -4826,6 +4829,90 @@ document.addEventListener('DOMContentLoaded', () => {
     return `<td class="${classes}">${escapeHtml(formatSalesRecapValue(metric.format, value))}</td>`;
   };
 
+  const salesRecapExportData = () => {
+    const exportData = state.overview.salesRecapExport;
+    return exportData && Array.isArray(exportData.rows) && exportData.rows.length ? exportData : null;
+  };
+
+  const setSalesRecapExportActionsEnabled = () => {
+    const disabled = !salesRecapExportData();
+    [overviewRefs.salesRecapCopy, overviewRefs.salesRecapDownload].forEach((button) => {
+      if (button) button.disabled = disabled;
+    });
+  };
+
+  const normalizeSalesRecapExportValue = (value) => String(value ?? '').replace(/\t/g, ' ').replace(/\r?\n/g, ' ').trim();
+
+  const salesRecapRowsToTsv = (rows) => rows
+    .map((row) => row.map(normalizeSalesRecapExportValue).join('\t'))
+    .join('\n');
+
+  const salesRecapRowsToCsv = (rows) => rows
+    .map((row) => row.map((value) => {
+      const text = normalizeSalesRecapExportValue(value);
+      return /[",]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    }).join(','))
+    .join('\r\n');
+
+  const writeClipboardText = async (text) => {
+    if (navigator.clipboard?.writeText && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.top = '-1000px';
+    textarea.style.left = '-1000px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    const copied = document.execCommand('copy');
+    textarea.remove();
+    if (!copied) throw new Error('Unable to copy Sales Recap');
+  };
+
+  const flashSalesRecapActionLabel = (button, label) => {
+    if (!button) return;
+    const originalLabel = button.dataset.defaultLabel || button.getAttribute('aria-label') || '';
+    button.dataset.defaultLabel = originalLabel;
+    button.setAttribute('aria-label', label);
+    button.title = label;
+    window.clearTimeout(Number(button.dataset.feedbackTimer || 0));
+    button.dataset.feedbackTimer = String(window.setTimeout(() => {
+      button.setAttribute('aria-label', originalLabel);
+      button.title = originalLabel;
+    }, 1400));
+  };
+
+  const copySalesRecap = async () => {
+    const exportData = salesRecapExportData();
+    if (!exportData) return;
+    try {
+      await writeClipboardText(salesRecapRowsToTsv(exportData.rows));
+      flashSalesRecapActionLabel(overviewRefs.salesRecapCopy, 'Sales Recap copied');
+    } catch (error) {
+      flashSalesRecapActionLabel(overviewRefs.salesRecapCopy, 'Copy failed');
+    }
+  };
+
+  const downloadSalesRecapCsv = () => {
+    const exportData = salesRecapExportData();
+    if (!exportData) return;
+    const blob = new Blob([salesRecapRowsToCsv(exportData.rows)], { type: 'text/csv;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = exportData.filename;
+    document.body.appendChild(link);
+    link.click();
+    window.setTimeout(() => {
+      URL.revokeObjectURL(link.href);
+      link.remove();
+    }, 0);
+    flashSalesRecapActionLabel(overviewRefs.salesRecapDownload, 'Sales Recap downloaded');
+  };
+
   const setSalesRecapOpen = (isOpen) => {
     state.overview.salesRecapOpen = Boolean(isOpen);
     root.classList.toggle('is-sales-recap-open', state.overview.salesRecapOpen);
@@ -4870,14 +4957,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const values = columns.map((column) => salesRecapValuesForMonth(monthMap.get(column.month) || {}));
     const totals = salesRecapTotals(values);
     const lastMonthLabel = columns.length ? columns[columns.length - 1].label : '-';
+    const recapTitle = `Sales Recap ${selectedYear}`;
+    const recapMeta = selectedYear < currentYear
+      ? `${selectedYear} full year`
+      : `${selectedYear} YTD through ${lastMonthLabel}`;
 
     if (overviewRefs.salesRecapTitle) {
-      overviewRefs.salesRecapTitle.textContent = `Sales Recap ${selectedYear}`;
+      overviewRefs.salesRecapTitle.textContent = recapTitle;
     }
     if (overviewRefs.salesRecapMeta) {
-      overviewRefs.salesRecapMeta.textContent = selectedYear < currentYear
-        ? `${selectedYear} full year`
-        : `${selectedYear} YTD through ${lastMonthLabel}`;
+      overviewRefs.salesRecapMeta.textContent = recapMeta;
     }
 
     overviewRefs.salesRecapHead.innerHTML = `
@@ -4895,6 +4984,21 @@ document.addEventListener('DOMContentLoaded', () => {
         ${renderSalesRecapCell(metric, totals[metric.key], true)}
       </tr>
     `).join('');
+
+    state.overview.salesRecapExport = {
+      title: recapTitle,
+      meta: recapMeta,
+      filename: `jenang-gemi-sales-recap-${selectedYear}.csv`,
+      rows: [
+        ['Metric', ...columns.map((column) => column.label), 'Total'],
+        ...SALES_RECAP_METRICS.map((metric) => [
+          metric.label,
+          ...values.map((item) => formatSalesRecapValue(metric.format, item[metric.key])),
+          formatSalesRecapValue(metric.format, totals[metric.key])
+        ])
+      ]
+    };
+    setSalesRecapExportActionsEnabled();
   };
 
   const renderOverview = (data) => {
@@ -7275,6 +7379,8 @@ document.addEventListener('DOMContentLoaded', () => {
   overviewRefs.salesRecapToggle?.addEventListener('click', () => {
     setSalesRecapOpen(!state.overview.salesRecapOpen);
   });
+  overviewRefs.salesRecapCopy?.addEventListener('click', copySalesRecap);
+  overviewRefs.salesRecapDownload?.addEventListener('click', downloadSalesRecapCsv);
   overviewRefs.salesRecapClose?.addEventListener('click', () => {
     setSalesRecapOpen(false);
   });

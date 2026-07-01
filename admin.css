@@ -14304,7 +14304,14 @@ body:has(.admin-app[data-sku-db])::after {
   letter-spacing: 0;
 }
 
-.admin-app.admin-app-suite[data-admin-dashboard] .admin-sales-recap-close {
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-sales-recap-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-sales-recap-icon {
   display: inline-grid;
   place-items: center;
   flex: 0 0 auto;
@@ -14314,19 +14321,31 @@ body:has(.admin-app[data-sku-db])::after {
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: var(--admin-text);
+  color: var(--admin-muted);
   cursor: pointer;
   opacity: 0.72;
   transition: color 0.16s ease, opacity 0.16s ease, transform 0.16s ease;
 }
 
-.admin-app.admin-app-suite[data-admin-dashboard] .admin-sales-recap-close:hover {
-  color: #ff7b7b;
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-sales-recap-icon:hover,
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-sales-recap-icon:focus-visible {
+  color: var(--admin-text);
   opacity: 1;
   transform: scale(1.05);
+  outline: none;
 }
 
-.admin-app.admin-app-suite[data-admin-dashboard] .admin-sales-recap-close svg {
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-sales-recap-icon:disabled {
+  cursor: default;
+  opacity: 0.3;
+  transform: none;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-sales-recap-icon:disabled:hover {
+  color: var(--admin-muted);
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-sales-recap-icon svg {
   width: 21px;
   height: 21px;
   fill: none;
@@ -14465,14 +14484,19 @@ body:has(.admin-app[data-sku-db])::after {
   color: rgba(71, 85, 105, 0.78);
 }
 
-:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-sales-recap-close {
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-sales-recap-icon {
   background: transparent;
   color: rgba(23, 32, 51, 0.78);
 }
 
-:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-sales-recap-close:hover {
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-sales-recap-icon:hover,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-sales-recap-icon:focus-visible {
   background: transparent;
-  color: #b91c1c;
+  color: rgba(15, 23, 42, 0.96);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-sales-recap-icon:disabled:hover {
+  color: rgba(23, 32, 51, 0.78);
 }
 
 :root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-sales-recap-table-wrap {
