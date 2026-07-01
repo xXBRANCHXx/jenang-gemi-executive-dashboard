@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isAuthenticated = jg_admin_is_authenticated();
-$dashboardBuildVersion = 'exec3.72.4';
+$dashboardBuildVersion = 'exec3.73.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -184,6 +184,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                             <option>Loading...</option>
                         </select>
                     </label>
+                    <button type="button" class="admin-sales-recap-trigger" data-sales-recap-toggle aria-expanded="false">Sales Recap</button>
                     <div class="admin-overview-strip-meta">
                         <div class="admin-overview-sync-row">
                             <button type="button" class="admin-overview-refresh" data-overview-refresh aria-label="Refresh dashboard view">
@@ -194,6 +195,31 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                         </div>
                         <small data-overview-last-updated>Updated after marketplace sync</small>
                     </div>
+                </section>
+
+                <section class="admin-sales-recap" data-sales-recap aria-hidden="true">
+                    <article class="admin-sales-recap-sheet">
+                        <div class="admin-sales-recap-head">
+                            <div>
+                                <span class="admin-panel-kicker">Sales Recap</span>
+                                <h3 data-sales-recap-title>Yearly recap</h3>
+                                <span class="admin-panel-meta" data-sales-recap-meta>Waiting for sales data</span>
+                            </div>
+                            <button type="button" class="admin-sales-recap-close" data-sales-recap-close aria-label="Close Sales Recap">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+                            </button>
+                        </div>
+                        <div class="admin-sales-recap-table-wrap">
+                            <table class="admin-sales-recap-table">
+                                <thead data-sales-recap-head>
+                                    <tr><th>Metric</th><th>Total</th></tr>
+                                </thead>
+                                <tbody data-sales-recap-body>
+                                    <tr><td colspan="2" class="admin-empty">Loading Sales Recap.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </article>
                 </section>
 
                 <section class="admin-main-grid admin-main-grid-compact">

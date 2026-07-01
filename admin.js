@@ -495,6 +495,16 @@ const DAILY_ORDER_PAGE_LIMIT = 1000;
 const DAILY_CUSTOM_PLATFORMS_STORAGE_KEY = 'jg-dashboard-daily-custom-platforms';
 const ANALYTICS_DEVICE_COOKIE = 'jg_analytics_device_id';
 const ANALYTICS_DEVICE_MAX_AGE = 60 * 60 * 24 * 365 * 2;
+const SALES_RECAP_MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const SALES_RECAP_METRICS = [
+  { key: 'pcs', label: 'Total PCS', format: 'integer' },
+  { key: 'rev', label: 'Total Rev', format: 'money' },
+  { key: 'cogs', label: 'Total COGS', format: 'money' },
+  { key: 'avgCogs', label: 'AVG COGS', format: 'money' },
+  { key: 'gp', label: 'GP', format: 'money' },
+  { key: 'avgGp', label: 'AVG GP', format: 'money' },
+  { key: 'gpPct', label: 'GP%', format: 'percent' }
+];
 const VIEW_CACHE_TTL_MS = {
   overview: 2 * 60 * 1000,
   orders: 2 * 60 * 1000,
@@ -1970,6 +1980,7 @@ document.addEventListener('DOMContentLoaded', () => {
       hourlyMetric: 'orders',
       productMetric: 'quantity',
       flavorMetric: 'quantity',
+      salesRecapOpen: false,
       customRange: {
         active: false,
         startDate: '',
@@ -2192,6 +2203,13 @@ document.addEventListener('DOMContentLoaded', () => {
     notes: document.querySelector('[data-overview-notes]'),
     yearControls: document.querySelector('[data-overview-year-controls]'),
     yearSelect: document.querySelector('[data-overview-year-select]'),
+    salesRecapToggle: document.querySelector('[data-sales-recap-toggle]'),
+    salesRecap: document.querySelector('[data-sales-recap]'),
+    salesRecapTitle: document.querySelector('[data-sales-recap-title]'),
+    salesRecapMeta: document.querySelector('[data-sales-recap-meta]'),
+    salesRecapHead: document.querySelector('[data-sales-recap-head]'),
+    salesRecapBody: document.querySelector('[data-sales-recap-body]'),
+    salesRecapClose: document.querySelector('[data-sales-recap-close]'),
     metricButtons: document.querySelectorAll('[data-overview-metric]'),
     volumeMetricButtons: document.querySelectorAll('[data-overview-volume-metric]'),
     hourlyMetricButtons: document.querySelectorAll('[data-overview-hourly-metric]'),
@@ -4720,6 +4738,164 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const optionalNumberFrom = (source, keys) => {
+    if (!source || typeof source !== 'object') return null;
+    for (const key of keys) {
+      if (!Object.prototype.hasOwnProperty.call(source, key)) continue;
+      const value = source[key];
+      if (value === null || value === '') continue;
+      const number = Number(value);
+      if (Number.isFinite(number)) return number;
+    }
+    return null;
+  };
+
+  const salesRecapMonthNumber = (row, fallbackIndex = 0) => {
+    const numericMonth = Number(row?.month ?? row?.month_index ?? row?.monthNumber);
+    if (Number.isFinite(numericMonth) && numericMonth >= 1 && numericMonth <= 12) {
+      return Math.round(numericMonth);
+    }
+    const label = String(row?.label || row?.month_label || '').slice(0, 3).toLowerCase();
+    const labelIndex = SALES_RECAP_MONTH_LABELS.findIndex((month) => month.toLowerCase() === label);
+    if (labelIndex >= 0) return labelIndex + 1;
+    return fallbackIndex >= 0 && fallbackIndex < 12 ? fallbackIndex + 1 : 0;
+  };
+
+  const salesRecapValuesForMonth = (row = {}) => {
+    const pcs = optionalNumberFrom(row, ['item_count', 'total_pcs', 'pcs', 'quantity', 'qty', 'units', 'order_item_count']) ?? 0;
+    const rev = optionalNumberFrom(row, ['revenue', 'net_revenue', 'sales', 'total_revenue', 'grossRevenue', 'gross_revenue']) ?? 0;
+    const cogs = optionalNumberFrom(row, ['cogs', 'total_cogs', 'cost_of_goods_sold']);
+    const directGp = optionalNumberFrom(row, ['gross_profit', 'grossProfit', 'gp', 'profit']);
+    const gp = directGp !== null ? directGp : (cogs !== null ? rev - cogs : null);
+
+    return {
+      pcs,
+      rev,
+      cogs,
+      avgCogs: cogs !== null ? (pcs > 0 ? cogs / pcs : 0) : null,
+      gp,
+      avgGp: gp !== null ? (pcs > 0 ? gp / pcs : 0) : null,
+      gpPct: gp !== null && rev > 0 ? gp / rev : null
+    };
+  };
+
+  const salesRecapTotals = (values) => {
+    const pcs = values.reduce((sum, item) => sum + Number(item.pcs || 0), 0);
+    const rev = values.reduce((sum, item) => sum + Number(item.rev || 0), 0);
+    const hasFullCogs = values.every((item) => item.cogs !== null || (!item.pcs && !item.rev));
+    const hasFullGp = values.every((item) => item.gp !== null || (!item.pcs && !item.rev));
+    const cogs = hasFullCogs ? values.reduce((sum, item) => sum + Number(item.cogs || 0), 0) : null;
+    const gp = hasFullGp
+      ? values.reduce((sum, item) => sum + Number(item.gp || 0), 0)
+      : (cogs !== null ? rev - cogs : null);
+
+    return {
+      pcs,
+      rev,
+      cogs,
+      avgCogs: cogs !== null ? (pcs > 0 ? cogs / pcs : 0) : null,
+      gp,
+      avgGp: gp !== null ? (pcs > 0 ? gp / pcs : 0) : null,
+      gpPct: gp !== null && rev > 0 ? gp / rev : null
+    };
+  };
+
+  const formatSalesRecapValue = (format, value) => {
+    const number = Number(value);
+    if (value === null || value === undefined || !Number.isFinite(number)) return '-';
+    if (format === 'money') return formatCurrency(number);
+    if (format === 'percent') {
+      return `${(number * 100).toLocaleString('id-ID', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 1
+      })}%`;
+    }
+    return Math.round(number).toLocaleString('id-ID');
+  };
+
+  const renderSalesRecapCell = (metric, value, isTotal = false) => {
+    const number = Number(value);
+    const unavailable = value === null || value === undefined || !Number.isFinite(number);
+    const classes = [
+      'admin-sales-recap-cell',
+      `admin-sales-recap-cell-${metric.key}`,
+      isTotal ? 'is-total' : '',
+      !unavailable && number < 0 ? 'is-negative' : '',
+      unavailable ? 'is-empty' : ''
+    ].filter(Boolean).join(' ');
+    return `<td class="${classes}">${escapeHtml(formatSalesRecapValue(metric.format, value))}</td>`;
+  };
+
+  const setSalesRecapOpen = (isOpen) => {
+    state.overview.salesRecapOpen = Boolean(isOpen);
+    root.classList.toggle('is-sales-recap-open', state.overview.salesRecapOpen);
+    if (overviewRefs.salesRecap) {
+      overviewRefs.salesRecap.classList.toggle('is-open', state.overview.salesRecapOpen);
+      overviewRefs.salesRecap.setAttribute('aria-hidden', state.overview.salesRecapOpen ? 'false' : 'true');
+    }
+    if (overviewRefs.salesRecapToggle) {
+      overviewRefs.salesRecapToggle.classList.toggle('is-active', state.overview.salesRecapOpen);
+      overviewRefs.salesRecapToggle.setAttribute('aria-expanded', state.overview.salesRecapOpen ? 'true' : 'false');
+    }
+  };
+
+  const renderSalesRecap = (data) => {
+    if (!overviewRefs.salesRecapHead || !overviewRefs.salesRecapBody) return;
+
+    const months = Array.isArray(data?.months) ? data.months : [];
+    const currentMonthKey = getMonthKeyForTimezone(new Date(), state.timezone);
+    const currentYear = Number(currentMonthKey.slice(0, 4));
+    const currentMonth = Number(currentMonthKey.slice(5, 7));
+    const selectedYear = Number(data?.year || state.overview.year || currentYear);
+    const monthMap = new Map();
+    months.forEach((row, index) => {
+      const monthNumber = salesRecapMonthNumber(row, index);
+      if (monthNumber >= 1 && monthNumber <= 12) {
+        monthMap.set(monthNumber, row);
+      }
+    });
+
+    const availableMonths = Array.from(monthMap.keys()).sort((left, right) => left - right);
+    let maxMonth = selectedYear < currentYear ? 12 : (selectedYear === currentYear ? currentMonth : 0);
+    if (maxMonth <= 0 && availableMonths.length) {
+      maxMonth = Math.max(...availableMonths);
+    }
+
+    const monthNumbers = Array.from({ length: Math.max(0, Math.min(12, maxMonth)) }, (_, index) => index + 1);
+    const columns = monthNumbers.map((month) => ({
+      month,
+      label: SALES_RECAP_MONTH_LABELS[month - 1] || String(month)
+    }));
+    const values = columns.map((column) => salesRecapValuesForMonth(monthMap.get(column.month) || {}));
+    const totals = salesRecapTotals(values);
+    const lastMonthLabel = columns.length ? columns[columns.length - 1].label : '-';
+
+    if (overviewRefs.salesRecapTitle) {
+      overviewRefs.salesRecapTitle.textContent = `Sales Recap ${selectedYear}`;
+    }
+    if (overviewRefs.salesRecapMeta) {
+      overviewRefs.salesRecapMeta.textContent = selectedYear < currentYear
+        ? `${selectedYear} full year`
+        : `${selectedYear} YTD through ${lastMonthLabel}`;
+    }
+
+    overviewRefs.salesRecapHead.innerHTML = `
+      <tr>
+        <th scope="col" class="admin-sales-recap-corner">Metric</th>
+        ${columns.map((column) => `<th scope="col">${escapeHtml(column.label)}</th>`).join('')}
+        <th scope="col" class="is-total">Total</th>
+      </tr>
+    `;
+
+    overviewRefs.salesRecapBody.innerHTML = SALES_RECAP_METRICS.map((metric) => `
+      <tr>
+        <th scope="row">${escapeHtml(metric.label)}</th>
+        ${values.map((item) => renderSalesRecapCell(metric, item[metric.key])).join('')}
+        ${renderSalesRecapCell(metric, totals[metric.key], true)}
+      </tr>
+    `).join('');
+  };
+
   const renderOverview = (data) => {
     state.overview.data = data;
     const totals = data.totals || {};
@@ -4827,8 +5003,10 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
     }
 
+    renderSalesRecap(data);
     setLastUpdated(overviewRefs.lastUpdated, data.generated_at || data.meta?.generated_at);
     renderOverviewYearControls(years);
+    setSalesRecapOpen(state.overview.salesRecapOpen);
     overviewRefs.metricButtons.forEach((button) => {
       button.classList.toggle('is-active', button.dataset.overviewMetric === state.overview.metric);
     });
@@ -7093,6 +7271,12 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   overviewRefs.refreshButton?.addEventListener('click', refreshMarketplaceData);
+  overviewRefs.salesRecapToggle?.addEventListener('click', () => {
+    setSalesRecapOpen(!state.overview.salesRecapOpen);
+  });
+  overviewRefs.salesRecapClose?.addEventListener('click', () => {
+    setSalesRecapOpen(false);
+  });
   overviewRefs.locationMap?.addEventListener('pointermove', (event) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
