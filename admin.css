@@ -14224,22 +14224,23 @@ body:has(.admin-app[data-sku-db])::after {
   justify-content: center;
   min-height: 40px;
   padding: 0 14px;
-  border: 1px solid rgba(148, 163, 184, 0.26);
+  border: 1px solid var(--admin-border);
   border-radius: 10px;
-  background: rgba(148, 163, 184, 0.09);
+  background: var(--admin-surface-strong);
   color: var(--admin-text);
   font: 800 0.78rem/1 "Plus Jakarta Sans", sans-serif;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+  box-shadow: none;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
 }
 
 .admin-app.admin-app-suite[data-admin-dashboard] .admin-sales-recap-trigger:hover,
 .admin-app.admin-app-suite[data-admin-dashboard] .admin-sales-recap-trigger.is-active {
-  border-color: rgba(96, 165, 250, 0.58);
-  background: rgba(96, 165, 250, 0.13);
-  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.11);
+  border-color: var(--admin-border);
+  background: var(--admin-surface);
+  box-shadow: none;
 }
 
 .admin-app.admin-app-suite[data-admin-dashboard] .admin-sales-recap-trigger[hidden] {
@@ -14435,17 +14436,17 @@ body:has(.admin-app[data-sku-db])::after {
 }
 
 :root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-sales-recap-trigger {
-  border-color: rgba(37, 99, 235, 0.2);
-  background: rgba(37, 99, 235, 0.07);
+  border-color: rgba(15, 23, 42, 0.14);
+  background: #ffffff;
   color: #172033;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+  box-shadow: none;
 }
 
 :root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-sales-recap-trigger:hover,
 :root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-sales-recap-trigger.is-active {
-  border-color: rgba(37, 99, 235, 0.34);
-  background: rgba(37, 99, 235, 0.1);
-  box-shadow: 0 12px 26px rgba(37, 99, 235, 0.12);
+  border-color: rgba(15, 23, 42, 0.18);
+  background: #f8fafc;
+  box-shadow: none;
 }
 
 :root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-sales-recap-sheet {
