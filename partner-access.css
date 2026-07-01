@@ -1579,9 +1579,11 @@
   width: 42px;
   min-width: 42px;
   height: 42px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.08);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
   cursor: pointer;
 }
 
@@ -1606,8 +1608,8 @@
 }
 
 .partner-profile-branch-unlock.is-unlocked {
-  background: rgba(157, 255, 0, 0.16);
-  border-color: rgba(157, 255, 0, 0.34);
+  background: transparent;
+  border-color: transparent;
 }
 
 .partner-profile-workspace {
@@ -2145,7 +2147,7 @@
   --partner-border: rgba(17, 24, 39, 0.14);
   --partner-border-strong: rgba(17, 24, 39, 0.36);
   --partner-text: #111111;
-  --partner-muted: #606060;
+  --partner-muted: #515151;
   --partner-primary-bg: #111111;
   --partner-primary-text: #ffffff;
   --partner-input: #ffffff;
@@ -2452,4 +2454,123 @@
 :root[data-admin-theme] .partner-branch-tier-form input:focus {
   border-color: var(--partner-border-strong);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--partner-text) 10%, transparent);
+}
+
+/* Final partner access contrast and protected-control pass. */
+:root[data-admin-theme] .partner-profile-page .partner-profile-branch-unlock {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--partner-text);
+}
+
+:root[data-admin-theme] .partner-profile-page .partner-profile-branch-unlock:hover,
+:root[data-admin-theme] .partner-profile-page .partner-profile-branch-unlock:focus-visible {
+  background: transparent;
+  box-shadow: none;
+  opacity: 0.78;
+}
+
+:root[data-admin-theme] .partner-profile-page .partner-profile-branch-unlock.is-unlocked {
+  border-color: transparent;
+  background: transparent;
+}
+
+:root[data-admin-theme] .partner-profile-page .partner-profile-branch-unlock img {
+  filter: invert(1);
+}
+
+:root[data-admin-theme='light'] .partner-profile-page .partner-profile-branch-unlock img {
+  filter: none;
+}
+
+:root[data-admin-theme='light'] :is(.partner-profiles-page, .partner-profile-page, [data-partner-modal]) :is(
+  .partner-directory-search span,
+  .partner-directory-metrics span,
+  .partner-directory-list-head,
+  .partner-directory-partner span,
+  .partner-directory-row-stats small,
+  .partner-directory-brand-strip span,
+  .partner-create-title span,
+  .partner-create-status span,
+  .partner-create-panel-head span,
+  .partner-create-preview span,
+  .partner-create-preview small,
+  .partner-access-search span,
+  .partner-access-question-index,
+  .partner-access-choice-meta,
+  .partner-product-select small,
+  .partner-sku-choice small,
+  .partner-sku-pane-head span,
+  .partner-access-summary-card span,
+  .partner-pricing-row small,
+  .partner-pricing-row .partner-pricing-derived,
+  .partner-profile-editor-header p,
+  .partner-profile-kicker,
+  .partner-profile-stat span,
+  .partner-profile-stat small,
+  .partner-profile-panel-head span,
+  .partner-profile-sku-head span,
+  .partner-profile-field-stack label span,
+  .partner-profile-field-stack label small,
+  .partner-profile-summary-lines span,
+  .partner-profile-selected-head small,
+  .partner-profile-portal-note,
+  .partner-profile-sku-table-head,
+  .partner-profile-sku-main small,
+  .partner-profile-selected-card small,
+  .partner-profile-selected-card span,
+  .partner-profile-product-filter span,
+  .partner-profile-product-filter small,
+  .partner-profile-sku-row > span,
+  .partner-profile-editor-footer,
+  .partner-profile-filter-choice strong,
+  .partner-profile-selected-icon,
+  .partner-access-empty
+) {
+  color: var(--partner-muted);
+}
+
+:root[data-admin-theme='light'] :is(.partner-profiles-page, .partner-profile-page, [data-partner-modal]) :is(
+  .partner-directory-title strong,
+  .partner-directory-metrics strong,
+  .partner-directory-partner strong,
+  .partner-directory-row-stats strong,
+  .partner-create-title strong,
+  .partner-create-panel-head strong,
+  .partner-create-preview strong,
+  .partner-access-choice-title,
+  .partner-product-select strong,
+  .partner-sku-choice strong,
+  .partner-sku-pane-head strong,
+  .partner-access-summary-card strong,
+  .partner-pricing-row strong,
+  .partner-profile-editor-header h2,
+  .partner-profile-stat strong,
+  .partner-profile-panel-head strong,
+  .partner-profile-sku-head h3,
+  .partner-profile-sku-main strong,
+  .partner-profile-selected-card strong,
+  .partner-profile-selected-head strong,
+  .partner-profile-summary-lines strong
+) {
+  color: var(--partner-text);
+}
+
+:root[data-admin-theme='light'] .partner-profile-page :is(
+  .partner-profile-filter-choice,
+  .partner-profile-product-row,
+  .partner-profile-selected-icon
+) {
+  background: var(--partner-panel-soft);
+}
+
+:root[data-admin-theme='light'] .partner-profile-page :is(
+  .partner-profile-filter-choice.is-active,
+  .partner-profile-product-row.is-active,
+  .partner-profile-sku-row.is-selected,
+  .partner-profile-check-btn.is-selected
+) {
+  background: var(--partner-panel-raised);
 }

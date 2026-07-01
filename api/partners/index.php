@@ -42,6 +42,26 @@ function jg_partner_request_body(): array
     return is_array($decoded) ? $decoded : [];
 }
 
+function jg_partner_consume_password_unlock_token(mixed $value): bool
+{
+    $token = is_string($value) ? trim($value) : '';
+    jg_admin_start_session();
+    $storedHash = is_string($_SESSION['jg_partner_password_unlock_hash'] ?? null)
+        ? (string) $_SESSION['jg_partner_password_unlock_hash']
+        : '';
+    $expiresAt = (int) ($_SESSION['jg_partner_password_unlock_expires_at'] ?? 0);
+    unset(
+        $_SESSION['jg_partner_password_unlock_hash'],
+        $_SESSION['jg_partner_password_unlock_expires_at']
+    );
+
+    if ($token === '' || $storedHash === '' || $expiresAt < time()) {
+        return false;
+    }
+
+    return hash_equals($storedHash, hash('sha256', $token));
+}
+
 function jg_partner_read_database(): array
 {
     $pdo = jg_partner_db();
@@ -834,7 +854,10 @@ if ($action === 'update') {
     if ($currentCode === '') {
         jg_partner_fail('Partner code is required.');
     }
-    if (trim((string) ($request['portal_password'] ?? '')) !== '' && !jg_sku_is_branch()) {
+    if (
+        trim((string) ($request['portal_password'] ?? '')) !== ''
+        && !jg_partner_consume_password_unlock_token($request['partner_password_unlock_token'] ?? null)
+    ) {
         jg_partner_fail('Branch Tier Access is required to reset a partner password.', 403);
     }
 
@@ -859,7 +882,7 @@ if ($action === 'update') {
 }
 
 if ($action === 'create_password_reset_key') {
-    if (!jg_sku_is_branch()) {
+    if (!jg_partner_consume_password_unlock_token($request['partner_password_unlock_token'] ?? null)) {
         jg_partner_fail('Branch Tier Access is required to create a partner reset key.', 403);
     }
 

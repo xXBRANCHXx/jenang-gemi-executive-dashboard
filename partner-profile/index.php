@@ -58,7 +58,9 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                                 <p data-partner-code-badge>Partner</p>
                             </div>
                             <div class="partner-profile-actions">
-                                <a class="admin-ghost-btn admin-link-btn" href="../partner-profiles/">Back</a>
+                                <a class="admin-back-icon-link" href="../partner-profiles/" aria-label="Back to partner profiles" title="Back to partner profiles">
+                                    <img src="https://cdn.jsdelivr.net/npm/lucide-static@0.468.0/icons/arrow-left.svg" alt="" width="22" height="22" loading="lazy" referrerpolicy="no-referrer">
+                                </a>
                                 <a class="admin-ghost-btn admin-link-btn" href="https://partner.jenanggemi.com" target="_blank" rel="noopener" data-partner-portal-link>Open portal</a>
                                 <button type="submit" class="admin-primary-btn" data-save-profile>Save profile</button>
                             </div>

@@ -186,7 +186,9 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                                 <div class="partner-access-empty">Select a brand.</div>
                             </div>
                             <div class="partner-access-actions">
-                                <button type="button" class="admin-ghost-btn" data-partner-prev-step="brands">Back</button>
+                                <button type="button" class="admin-back-icon-button" data-partner-prev-step="brands" aria-label="Back to brand selection" title="Back to brand selection">
+                                    <img src="https://cdn.jsdelivr.net/npm/lucide-static@0.468.0/icons/arrow-left.svg" alt="" width="22" height="22" loading="lazy" referrerpolicy="no-referrer">
+                                </button>
                             </div>
                         </section>
                     </section>

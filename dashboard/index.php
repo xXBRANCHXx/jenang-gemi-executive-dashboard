@@ -805,7 +805,9 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                         <p data-website-hero-copy>Choose Jenang Gemi or ZERO to open the dedicated website analytics page. Each page uses browser-tagged website visits only.</p>
                     </div>
                     <div class="admin-hero-actions">
-                        <button type="button" class="admin-ghost-btn" data-website-back hidden>Back To Website Selector</button>
+                        <button type="button" class="admin-back-icon-button" data-website-back hidden aria-label="Back to website selector" title="Back to website selector">
+                            <img src="https://cdn.jsdelivr.net/npm/lucide-static@0.468.0/icons/arrow-left.svg" alt="" width="22" height="22" loading="lazy" referrerpolicy="no-referrer">
+                        </button>
                         <div class="admin-status-pill">
                             <span class="admin-status-dot"></span>
                             <span>Website Visitor Tracking Active</span>

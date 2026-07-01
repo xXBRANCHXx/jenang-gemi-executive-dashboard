@@ -268,7 +268,9 @@ $pageBuildVersion = 'sku1.00.00';
                                             <button type="submit" class="admin-primary-btn admin-sku-action-btn">
                                                 <span>Push</span>
                                             </button>
-                                            <button type="button" class="admin-ghost-btn admin-sku-action-btn" data-back-setup>Back</button>
+                                            <button type="button" class="admin-back-icon-button admin-sku-action-btn" data-back-setup aria-label="Back to setup" title="Back to setup">
+                                                <img src="https://cdn.jsdelivr.net/npm/lucide-static@0.468.0/icons/arrow-left.svg" alt="" width="22" height="22" loading="lazy" referrerpolicy="no-referrer">
+                                            </button>
                                         </div>
                                     </form>
                                     <p class="admin-form-error" data-apply-error hidden></p>

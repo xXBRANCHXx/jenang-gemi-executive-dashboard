@@ -57,7 +57,8 @@ document.addEventListener('DOMContentLoaded', () => {
     activeProductId: 'all',
     skuSearch: '',
     currentPartnerCode: root.dataset.partnerCode || '',
-    branchUnlocked: false
+    branchUnlocked: false,
+    branchUnlockToken: ''
   };
 
   const generatePartnerCode = () => {
@@ -131,6 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const renderBranchProtection = () => {
+    state.branchUnlocked = Boolean(state.branchUnlockToken);
     branchProtectedControls.forEach((control) => {
       if (!(control instanceof HTMLButtonElement || control instanceof HTMLInputElement)) return;
       control.disabled = !state.branchUnlocked;
@@ -149,6 +151,12 @@ document.addEventListener('DOMContentLoaded', () => {
       branchUnlockButton.setAttribute('aria-label', state.branchUnlocked ? 'Branch-tier password controls unlocked' : 'Unlock Branch-tier password controls');
       branchUnlockButton.title = state.branchUnlocked ? 'Branch-tier password controls unlocked' : 'Unlock Branch-tier password controls';
     }
+  };
+
+  const clearBranchUnlock = () => {
+    state.branchUnlockToken = '';
+    state.branchUnlocked = false;
+    renderBranchProtection();
   };
 
   const openBranchTierModal = () => {
@@ -493,12 +501,6 @@ document.addEventListener('DOMContentLoaded', () => {
     fillForm(payload.partner || {});
   };
 
-  const loadBranchTierState = async () => {
-    const payload = await requestJson(branchTierEndpoint);
-    state.branchUnlocked = Boolean(payload.branch_unlocked);
-    renderBranchProtection();
-  };
-
   root.addEventListener('click', (event) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
@@ -560,6 +562,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!(form instanceof HTMLFormElement)) return;
     if (!state.branchUnlocked) return;
     form.elements.portal_password.value = generatePortalPassword();
+    clearBranchUnlock();
   });
 
   branchUnlockButton?.addEventListener('click', () => {
@@ -587,7 +590,12 @@ document.addEventListener('DOMContentLoaded', () => {
         method: 'POST',
         body: { password }
       });
-      state.branchUnlocked = Boolean(payload.branch_unlocked);
+      const unlockToken = typeof payload.unlock_token === 'string' ? payload.unlock_token : '';
+      if (!payload.branch_unlocked || !unlockToken) {
+        throw new Error('Branch Tier Access unlock did not return a valid key.');
+      }
+      state.branchUnlockToken = unlockToken;
+      state.branchUnlocked = true;
       renderBranchProtection();
       closeBranchTierModal();
     } catch (error) {
@@ -617,7 +625,8 @@ document.addEventListener('DOMContentLoaded', () => {
         method: 'POST',
         body: {
           action: 'create_password_reset_key',
-          code
+          code,
+          partner_password_unlock_token: state.branchUnlockToken
         }
       });
       if (payload.partner) {
@@ -627,8 +636,8 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Unable to create reset key.');
     } finally {
-      createPasswordResetKeyButton.disabled = false;
       createPasswordResetKeyButton.textContent = 'Create one-time reset key';
+      clearBranchUnlock();
     }
   });
 
@@ -660,10 +669,19 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    let submittedPortalPassword = '';
+
     try {
       setSaving(true);
       const formData = new window.FormData(form);
-      const savedPortalPassword = String(formData.get('portal_password') || '').trim();
+      const savedPortalPassword = String(form.elements.portal_password?.value || '').trim();
+      submittedPortalPassword = savedPortalPassword;
+      if (savedPortalPassword && !state.branchUnlockToken) {
+        setSaving(false);
+        setError('Unlock Branch Tier Access before saving a partner password.');
+        return;
+      }
+
       const payload = await requestJson(endpoint, {
         method: 'POST',
         body: {
@@ -672,7 +690,8 @@ document.addEventListener('DOMContentLoaded', () => {
           code: formData.get('partner_code'),
           name: formData.get('name'),
           partner_slug: formData.get('partner_slug'),
-          portal_password: formData.get('portal_password'),
+          portal_password: savedPortalPassword,
+          partner_password_unlock_token: savedPortalPassword ? state.branchUnlockToken : '',
           selected_skus: [...new Set(state.selections.skus)],
           pricing: state.pricing,
           notes: formData.get('notes')
@@ -693,6 +712,9 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Unable to save partner.');
     } finally {
+      if (submittedPortalPassword !== '' || state.branchUnlockToken !== '') {
+        clearBranchUnlock();
+      }
       setSaving(false);
     }
   });
@@ -721,10 +743,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  loadBranchTierState().catch(() => {
-    state.branchUnlocked = false;
-    renderBranchProtection();
-  });
+  renderBranchProtection();
 
   loadPartner().catch((error) => {
     if (loadingNode) loadingNode.hidden = true;

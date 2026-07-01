@@ -18022,3 +18022,173 @@ body:has(.admin-app[data-sku-db])::after {
     width: 100%;
   }
 }
+
+/* Final icon-only navigation and rail alignment pass. */
+.admin-back-icon-link,
+.admin-back-icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 42px;
+  min-width: 42px;
+  height: 42px;
+  min-height: 42px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--admin-text);
+  box-shadow: none;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.admin-back-icon-link:hover,
+.admin-back-icon-link:focus-visible,
+.admin-back-icon-button:hover,
+.admin-back-icon-button:focus-visible {
+  background: transparent;
+  box-shadow: none;
+  opacity: 0.74;
+  transform: none;
+}
+
+.admin-back-icon-link img,
+.admin-back-icon-button img {
+  display: block;
+  width: 22px;
+  height: 22px;
+  filter: invert(1);
+  opacity: 0.92;
+}
+
+:root[data-admin-theme='light'] .admin-back-icon-link img,
+:root[data-admin-theme='light'] .admin-back-icon-button img {
+  filter: none;
+}
+
+.admin-sku-actions .admin-back-icon-button.admin-sku-action-btn {
+  width: 42px;
+  min-width: 42px;
+  padding: 0;
+}
+
+.admin-shell .admin-rail-brand-wordmark,
+.admin-app.admin-app-suite .admin-rail-brand-wordmark,
+.admin-app[data-sku-db] .admin-rail-brand-wordmark {
+  display: none !important;
+}
+
+.admin-shell .admin-rail-brand,
+.admin-app[data-sku-db] .admin-rail-brand {
+  justify-items: center;
+}
+
+.admin-shell .admin-rail-brand-mark,
+.admin-app[data-sku-db] .admin-rail-brand-mark {
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #ffffff;
+}
+
+.admin-shell .admin-rail-brand-core,
+.admin-app[data-sku-db] .admin-rail-brand-core {
+  background: center / contain no-repeat url('./assets/admin-icons/executive-dashboard-favicon-light.svg');
+}
+
+:root[data-admin-theme='light'] .admin-shell .admin-rail-brand-mark,
+:root[data-admin-theme='light'] .admin-app[data-sku-db] .admin-rail-brand-mark {
+  background: #05070a;
+}
+
+:root[data-admin-theme='light'] .admin-shell .admin-rail-brand-core,
+:root[data-admin-theme='light'] .admin-app[data-sku-db] .admin-rail-brand-core {
+  background-image: url('./assets/admin-icons/executive-dashboard-favicon-dark.svg');
+}
+
+.admin-shell .admin-rail-icon,
+.admin-app[data-sku-db] .admin-rail-icon {
+  display: grid;
+  place-items: center;
+  justify-self: center;
+}
+
+.admin-shell .admin-rail-icon::before,
+.admin-app[data-sku-db] .admin-rail-icon::before {
+  margin: auto;
+}
+
+@media (min-width: 821px) {
+  .admin-shell .admin-rail,
+  .admin-app.admin-app-suite .admin-rail,
+  .admin-app[data-sku-db] .admin-rail {
+    padding-top: 24px;
+  }
+
+  .admin-shell .admin-rail-brand,
+  .admin-app[data-sku-db] .admin-rail-brand,
+  .admin-shell .admin-rail:hover .admin-rail-brand,
+  .admin-shell .admin-rail:focus-within .admin-rail-brand,
+  .admin-app.admin-app-suite .admin-rail:hover .admin-rail-brand,
+  .admin-app.admin-app-suite .admin-rail:focus-within .admin-rail-brand,
+  .admin-app[data-sku-db] .admin-rail:hover .admin-rail-brand,
+  .admin-app[data-sku-db] .admin-rail:focus-within .admin-rail-brand {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    height: 42px;
+    padding: 0 0 32px;
+  }
+
+  .admin-shell .admin-rail-brand-mark,
+  .admin-app[data-sku-db] .admin-rail-brand-mark {
+    width: 36px;
+    height: 36px;
+  }
+
+  .admin-shell .admin-rail-brand-core,
+  .admin-app[data-sku-db] .admin-rail-brand-core {
+    width: 22px;
+    height: 22px;
+  }
+
+  .admin-shell .admin-rail-nav,
+  .admin-app[data-sku-db] .admin-rail-nav {
+    padding-top: 22px;
+  }
+
+  .admin-shell .admin-rail-link,
+  .admin-app.admin-app-suite .admin-rail-link,
+  .admin-app[data-sku-db] .admin-rail-link {
+    justify-items: center;
+    margin-inline: auto;
+  }
+
+  .admin-shell .admin-rail:not(:hover):not(:focus-within) .admin-rail-link,
+  .admin-app.admin-app-suite .admin-rail:not(:hover):not(:focus-within) .admin-rail-link,
+  .admin-app[data-sku-db] .admin-rail:not(:hover):not(:focus-within) .admin-rail-link {
+    grid-template-columns: 1fr;
+    padding: 0;
+  }
+}
+
+@media (max-width: 820px) {
+  .admin-shell .admin-rail-brand-mark,
+  .admin-app[data-sku-db] .admin-rail-brand-mark {
+    width: 36px;
+    height: 36px;
+  }
+
+  .admin-shell .admin-rail-brand-core,
+  .admin-app[data-sku-db] .admin-rail-brand-core {
+    width: 22px;
+    height: 22px;
+  }
+
+  .admin-shell .admin-rail-link,
+  .admin-app.admin-app-suite .admin-rail-link,
+  .admin-app[data-sku-db] .admin-rail-link {
+    display: grid;
+    place-items: center;
+    padding: 0;
+  }
+}
