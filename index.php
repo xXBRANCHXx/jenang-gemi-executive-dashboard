@@ -40,7 +40,8 @@ $launchItems = [
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Launch Pad | Jenang Gemi</title>
     <meta name="robots" content="noindex,nofollow">
-    <link rel="icon" type="image/svg+xml" href="/assets/admin-icons/executive-dashboard.svg">
+    <link rel="icon" type="image/svg+xml" href="/assets/admin-icons/executive-dashboard-favicon-light.svg" media="(prefers-color-scheme: light)">
+    <link rel="icon" type="image/svg+xml" href="/assets/admin-icons/executive-dashboard-favicon-dark.svg" media="(prefers-color-scheme: dark)">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap">

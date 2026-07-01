@@ -42,7 +42,8 @@ $pageBuildVersion = 'sku1.00.00';
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
     <title>Jenang Gemi SKU Database</title>
     <meta name="robots" content="noindex,nofollow">
-    <link rel="icon" type="image/svg+xml" href="/assets/admin-icons/executive-dashboard.svg">
+    <link rel="icon" type="image/svg+xml" href="/assets/admin-icons/executive-dashboard-favicon-light.svg" media="(prefers-color-scheme: light)">
+    <link rel="icon" type="image/svg+xml" href="/assets/admin-icons/executive-dashboard-favicon-dark.svg" media="(prefers-color-scheme: dark)">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap">
@@ -89,6 +90,13 @@ $pageBuildVersion = 'sku1.00.00';
 
             <div class="admin-shell-main admin-sku-shell-main">
                 <h1 class="admin-sr-only">Jenang Gemi SKU Database</h1>
+                <header class="admin-topbar admin-sku-topbar">
+                    <div class="admin-topbar-brand">
+                        <span class="admin-chip">SKU Database</span>
+                        <h1>SKU Database</h1>
+                    </div>
+                    <?php render_admin_topbar_actions(); ?>
+                </header>
 
                 <div class="admin-sku-tierbar" aria-label="SKU database access tier">
                     <?php if ($isBranch): ?>
@@ -711,6 +719,8 @@ $pageBuildVersion = 'sku1.00.00';
         </div>
     <?php endif; ?>
 
+    <?php render_admin_notification_drawer(); ?>
+    <?php render_admin_chrome_script(); ?>
     <script src="../sku-db.js?v=<?php echo urlencode($skuJsVersion ?: '1'); ?>" defer></script>
 <?php endif; ?>
 </body>

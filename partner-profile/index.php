@@ -22,7 +22,8 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
     <title>Partner Profile | Jenang Gemi Executive Dashboard</title>
     <meta name="robots" content="noindex,nofollow">
-    <link rel="icon" type="image/svg+xml" href="/assets/admin-icons/executive-dashboard.svg">
+    <link rel="icon" type="image/svg+xml" href="/assets/admin-icons/executive-dashboard-favicon-light.svg" media="(prefers-color-scheme: light)">
+    <link rel="icon" type="image/svg+xml" href="/assets/admin-icons/executive-dashboard-favicon-dark.svg" media="(prefers-color-scheme: dark)">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap">
@@ -37,6 +38,13 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
             <?php render_admin_sidebar('partner'); ?>
 
             <div class="admin-shell-main">
+                <header class="admin-topbar">
+                    <div class="admin-topbar-brand">
+                        <span class="admin-chip">Partner Profile</span>
+                        <h1>Partner Profile</h1>
+                    </div>
+                    <?php render_admin_topbar_actions(); ?>
+                </header>
                 <main class="admin-layout partner-profile-page">
                     <p class="admin-form-error partner-profile-error" data-profile-error hidden></p>
 
@@ -190,6 +198,8 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
         </div>
     </div>
 
+    <?php render_admin_notification_drawer(); ?>
+    <?php render_admin_chrome_script(); ?>
     <script type="module" src="../partner-admin.js?v=<?php echo urlencode($adminJsVersion ?: '1'); ?>"></script>
     <script type="module" src="../partner-profile.js?v=<?php echo urlencode($profileJsVersion ?: '1'); ?>"></script>
 </body>

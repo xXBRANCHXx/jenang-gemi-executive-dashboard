@@ -875,6 +875,935 @@ button, input {
   }
 }
 
+/* Final sidebar behavior: full-height icon rail that expands on hover/focus. */
+@media (min-width: 821px) {
+  :root,
+  :root[data-admin-theme='dark'],
+  :root[data-admin-theme='light'] {
+    --admin-rail-width: 64px;
+    --admin-rail-collapsed-width: 64px;
+    --admin-rail-expanded-width: 168px;
+  }
+
+  .admin-shell,
+  .admin-app[data-sku-db] .admin-shell {
+    grid-template-columns: var(--admin-rail-collapsed-width) minmax(0, 1fr);
+    gap: 28px;
+  }
+
+  .admin-shell .admin-rail,
+  .admin-app.admin-app-suite .admin-rail,
+  .admin-app[data-sku-db] .admin-rail {
+    position: sticky;
+    top: 0;
+    width: var(--admin-rail-collapsed-width);
+    min-height: 100svh;
+    height: 100svh;
+    margin-top: -24px;
+    padding: 18px 8px 14px;
+    overflow: hidden;
+    border-width: 0 1px 0 0;
+    border-radius: 0;
+    box-shadow: none;
+    transition: width 180ms ease, background 180ms ease, border-color 180ms ease;
+    will-change: width;
+  }
+
+  .admin-shell .admin-rail:hover,
+  .admin-shell .admin-rail:focus-within,
+  .admin-app.admin-app-suite .admin-rail:hover,
+  .admin-app.admin-app-suite .admin-rail:focus-within,
+  .admin-app[data-sku-db] .admin-rail:hover,
+  .admin-app[data-sku-db] .admin-rail:focus-within {
+    width: var(--admin-rail-expanded-width);
+    box-shadow: 18px 0 44px rgba(0, 0, 0, 0.22);
+  }
+
+  :root[data-admin-theme='light'] .admin-shell .admin-rail:hover,
+  :root[data-admin-theme='light'] .admin-shell .admin-rail:focus-within,
+  :root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-rail:hover,
+  :root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-rail:focus-within,
+  :root[data-admin-theme='light'] .admin-app[data-sku-db] .admin-rail:hover,
+  :root[data-admin-theme='light'] .admin-app[data-sku-db] .admin-rail:focus-within {
+    box-shadow: 18px 0 44px rgba(15, 23, 42, 0.12);
+  }
+
+  .admin-shell .admin-rail-brand,
+  .admin-app[data-sku-db] .admin-rail-brand {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 0;
+    height: 36px;
+    padding: 0 0 18px;
+  }
+
+  .admin-shell .admin-rail:hover .admin-rail-brand,
+  .admin-shell .admin-rail:focus-within .admin-rail-brand,
+  .admin-app.admin-app-suite .admin-rail:hover .admin-rail-brand,
+  .admin-app.admin-app-suite .admin-rail:focus-within .admin-rail-brand,
+  .admin-app[data-sku-db] .admin-rail:hover .admin-rail-brand,
+  .admin-app[data-sku-db] .admin-rail:focus-within .admin-rail-brand {
+    grid-template-columns: 32px minmax(0, 1fr);
+    justify-items: start;
+    gap: 10px;
+    padding-inline: 4px;
+  }
+
+  .admin-shell .admin-rail-brand-wordmark,
+  .admin-shell .admin-rail-link-text {
+    display: block;
+    max-width: 0;
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: opacity 150ms ease, max-width 180ms ease, transform 180ms ease;
+  }
+
+  .admin-shell .admin-rail:hover .admin-rail-brand-wordmark,
+  .admin-shell .admin-rail:focus-within .admin-rail-brand-wordmark,
+  .admin-shell .admin-rail:hover .admin-rail-link-text,
+  .admin-shell .admin-rail:focus-within .admin-rail-link-text,
+  .admin-app.admin-app-suite .admin-rail:hover .admin-rail-brand-wordmark,
+  .admin-app.admin-app-suite .admin-rail:focus-within .admin-rail-brand-wordmark,
+  .admin-app.admin-app-suite .admin-rail:hover .admin-rail-link-text,
+  .admin-app.admin-app-suite .admin-rail:focus-within .admin-rail-link-text,
+  .admin-app[data-sku-db] .admin-rail:hover .admin-rail-brand-wordmark,
+  .admin-app[data-sku-db] .admin-rail:focus-within .admin-rail-brand-wordmark,
+  .admin-app[data-sku-db] .admin-rail:hover .admin-rail-link-text,
+  .admin-app[data-sku-db] .admin-rail:focus-within .admin-rail-link-text {
+    max-width: 104px;
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  .admin-shell .admin-rail-nav,
+  .admin-shell .admin-rail-footer,
+  .admin-app[data-sku-db] .admin-rail-nav,
+  .admin-app[data-sku-db] .admin-rail-footer {
+    justify-items: center;
+    gap: 8px;
+  }
+
+  .admin-shell .admin-rail:hover .admin-rail-nav,
+  .admin-shell .admin-rail:hover .admin-rail-footer,
+  .admin-shell .admin-rail:focus-within .admin-rail-nav,
+  .admin-shell .admin-rail:focus-within .admin-rail-footer,
+  .admin-app.admin-app-suite .admin-rail:hover .admin-rail-nav,
+  .admin-app.admin-app-suite .admin-rail:hover .admin-rail-footer,
+  .admin-app.admin-app-suite .admin-rail:focus-within .admin-rail-nav,
+  .admin-app.admin-app-suite .admin-rail:focus-within .admin-rail-footer,
+  .admin-app[data-sku-db] .admin-rail:hover .admin-rail-nav,
+  .admin-app[data-sku-db] .admin-rail:hover .admin-rail-footer,
+  .admin-app[data-sku-db] .admin-rail:focus-within .admin-rail-nav,
+  .admin-app[data-sku-db] .admin-rail:focus-within .admin-rail-footer {
+    justify-items: stretch;
+  }
+
+  .admin-shell .admin-rail-link,
+  .admin-app.admin-app-suite .admin-rail-link,
+  .admin-app[data-sku-db] .admin-rail-link {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    width: 42px;
+    height: 36px;
+    padding: 0;
+  }
+
+  .admin-shell .admin-rail:hover .admin-rail-link,
+  .admin-shell .admin-rail:focus-within .admin-rail-link,
+  .admin-app.admin-app-suite .admin-rail:hover .admin-rail-link,
+  .admin-app.admin-app-suite .admin-rail:focus-within .admin-rail-link,
+  .admin-app[data-sku-db] .admin-rail:hover .admin-rail-link,
+  .admin-app[data-sku-db] .admin-rail:focus-within .admin-rail-link {
+    grid-template-columns: 24px minmax(0, 1fr);
+    justify-items: start;
+    width: 100%;
+    padding: 0 8px 0 12px;
+  }
+}
+
+/* Terminal sidebar scale adjustment. */
+@media (min-width: 821px) {
+  :root,
+  :root[data-admin-theme='dark'],
+  :root[data-admin-theme='light'] {
+    --admin-rail-width: 84px;
+    --admin-rail-collapsed-width: 84px;
+    --admin-rail-expanded-width: 220px;
+  }
+
+  .admin-shell,
+  .admin-app[data-sku-db] .admin-shell {
+    grid-template-columns: var(--admin-rail-collapsed-width) minmax(0, 1fr);
+  }
+
+  .admin-shell .admin-rail,
+  .admin-app.admin-app-suite .admin-rail,
+  .admin-app[data-sku-db] .admin-rail {
+    width: var(--admin-rail-collapsed-width);
+    z-index: 5000;
+    padding: 22px 14px 18px;
+    background: #05070a;
+  }
+
+  .admin-shell .admin-rail:hover,
+  .admin-shell .admin-rail:focus-within,
+  .admin-app.admin-app-suite .admin-rail:hover,
+  .admin-app.admin-app-suite .admin-rail:focus-within,
+  .admin-app[data-sku-db] .admin-rail:hover,
+  .admin-app[data-sku-db] .admin-rail:focus-within {
+    width: var(--admin-rail-expanded-width);
+    background: #05070a;
+    box-shadow: 18px 0 36px rgba(0, 0, 0, 0.28);
+  }
+
+  :root[data-admin-theme='light'] .admin-shell .admin-rail,
+  :root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-rail,
+  :root[data-admin-theme='light'] .admin-app[data-sku-db] .admin-rail,
+  :root[data-admin-theme='light'] .admin-shell .admin-rail:hover,
+  :root[data-admin-theme='light'] .admin-shell .admin-rail:focus-within,
+  :root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-rail:hover,
+  :root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-rail:focus-within,
+  :root[data-admin-theme='light'] .admin-app[data-sku-db] .admin-rail:hover,
+  :root[data-admin-theme='light'] .admin-app[data-sku-db] .admin-rail:focus-within {
+    background: #ffffff;
+  }
+
+  .admin-shell .admin-rail-brand,
+  .admin-app[data-sku-db] .admin-rail-brand {
+    height: 48px;
+    padding-bottom: 24px;
+  }
+
+  .admin-shell .admin-rail:hover .admin-rail-brand,
+  .admin-shell .admin-rail:focus-within .admin-rail-brand,
+  .admin-app.admin-app-suite .admin-rail:hover .admin-rail-brand,
+  .admin-app.admin-app-suite .admin-rail:focus-within .admin-rail-brand,
+  .admin-app[data-sku-db] .admin-rail:hover .admin-rail-brand,
+  .admin-app[data-sku-db] .admin-rail:focus-within .admin-rail-brand {
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 13px;
+  }
+
+  .admin-shell .admin-rail-brand-mark,
+  .admin-app[data-sku-db] .admin-rail-brand-mark {
+    width: 44px;
+    height: 44px;
+  }
+
+  .admin-shell .admin-rail-brand-core,
+  .admin-app[data-sku-db] .admin-rail-brand-core {
+    width: 38px;
+    height: 38px;
+  }
+
+  .admin-shell .admin-rail-nav,
+  .admin-shell .admin-rail-footer,
+  .admin-app[data-sku-db] .admin-rail-nav,
+  .admin-app[data-sku-db] .admin-rail-footer {
+    gap: 11px;
+  }
+
+  .admin-shell .admin-rail-link,
+  .admin-app.admin-app-suite .admin-rail-link,
+  .admin-app[data-sku-db] .admin-rail-link {
+    width: 56px;
+    height: 48px;
+  }
+
+  .admin-shell .admin-rail:hover .admin-rail-link,
+  .admin-shell .admin-rail:focus-within .admin-rail-link,
+  .admin-app.admin-app-suite .admin-rail:hover .admin-rail-link,
+  .admin-app.admin-app-suite .admin-rail:focus-within .admin-rail-link,
+  .admin-app[data-sku-db] .admin-rail:hover .admin-rail-link,
+  .admin-app[data-sku-db] .admin-rail:focus-within .admin-rail-link {
+    grid-template-columns: 34px minmax(0, 1fr);
+    width: 100%;
+    padding: 0 12px 0 15px;
+  }
+
+  .admin-shell .admin-rail-icon,
+  .admin-app[data-sku-db] .admin-rail-icon {
+    width: 34px;
+    height: 34px;
+  }
+
+  .admin-shell .admin-rail-icon::before,
+  .admin-app[data-sku-db] .admin-rail-icon::before {
+    width: 26px;
+    height: 26px;
+  }
+
+  .admin-shell .admin-rail-link-text {
+    font-size: 0.8rem;
+  }
+
+  .admin-shell .admin-rail:hover .admin-rail-brand-wordmark,
+  .admin-shell .admin-rail:focus-within .admin-rail-brand-wordmark,
+  .admin-shell .admin-rail:hover .admin-rail-link-text,
+  .admin-shell .admin-rail:focus-within .admin-rail-link-text,
+  .admin-app.admin-app-suite .admin-rail:hover .admin-rail-brand-wordmark,
+  .admin-app.admin-app-suite .admin-rail:focus-within .admin-rail-brand-wordmark,
+  .admin-app.admin-app-suite .admin-rail:hover .admin-rail-link-text,
+  .admin-app.admin-app-suite .admin-rail:focus-within .admin-rail-link-text,
+  .admin-app[data-sku-db] .admin-rail:hover .admin-rail-brand-wordmark,
+  .admin-app[data-sku-db] .admin-rail:focus-within .admin-rail-brand-wordmark,
+  .admin-app[data-sku-db] .admin-rail:hover .admin-rail-link-text,
+  .admin-app[data-sku-db] .admin-rail:focus-within .admin-rail-link-text {
+    max-width: 150px;
+  }
+
+  .admin-shell .admin-rail-link:hover:not(.is-active):not([aria-current='page'])::before,
+  .admin-app.admin-app-suite .admin-rail-link:hover:not(.is-active):not([aria-current='page'])::before,
+  .admin-app[data-sku-db] .admin-rail-link:hover:not(.is-active):not([aria-current='page'])::before {
+    opacity: 0;
+  }
+}
+
+/* Sidebar correction: sourced mark, neutral color, line-only active state. */
+:root,
+:root[data-admin-theme='dark'],
+:root[data-admin-theme='light'] {
+  --admin-rail-width: 136px;
+  --admin-rail-active-line: rgba(255, 255, 255, 0.92);
+  --admin-rail-text: rgba(238, 244, 247, 0.66);
+  --admin-rail-text-strong: #ffffff;
+}
+
+:root[data-admin-theme='light'] {
+  --admin-rail-active-line: rgba(15, 23, 42, 0.88);
+  --admin-rail-text: rgba(15, 23, 42, 0.62);
+  --admin-rail-text-strong: #0f172a;
+}
+
+.admin-rail,
+.admin-app.admin-app-suite .admin-rail,
+.admin-app[data-sku-db] .admin-rail {
+  padding: 16px 10px 12px;
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(7, 10, 14, 0.74);
+}
+
+:root[data-admin-theme='light'] .admin-rail,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-rail,
+:root[data-admin-theme='light'] .admin-app[data-sku-db] .admin-rail {
+  border-color: rgba(15, 23, 42, 0.1);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.admin-rail-brand,
+.admin-app[data-sku-db] .admin-rail-brand {
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 10px;
+  padding: 0 4px 16px;
+}
+
+.admin-shell .admin-rail-brand-mark,
+.admin-app[data-sku-db] .admin-rail-brand-mark {
+  width: 32px;
+  height: 32px;
+  border-radius: 0;
+}
+
+.admin-shell .admin-rail-brand-core,
+.admin-app[data-sku-db] .admin-rail-brand-core {
+  width: 28px;
+  height: 28px;
+  background: center / contain no-repeat url('./assets/admin-icons/executive-dashboard-favicon-dark.svg');
+  clip-path: none;
+}
+
+:root[data-admin-theme='light'] .admin-shell .admin-rail-brand-core,
+:root[data-admin-theme='light'] .admin-app[data-sku-db] .admin-rail-brand-core {
+  background-image: url('./assets/admin-icons/executive-dashboard-favicon-light.svg');
+}
+
+.admin-rail-brand-wordmark {
+  color: var(--admin-rail-text-strong);
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+}
+
+.admin-rail-nav,
+.admin-rail-footer,
+.admin-app[data-sku-db] .admin-rail-nav,
+.admin-app[data-sku-db] .admin-rail-footer {
+  gap: 7px;
+}
+
+.admin-rail-nav,
+.admin-app[data-sku-db] .admin-rail-nav {
+  padding-top: 6px;
+}
+
+.admin-rail-footer,
+.admin-app[data-sku-db] .admin-rail-footer {
+  padding-top: 12px;
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+:root[data-admin-theme='light'] .admin-rail-footer,
+:root[data-admin-theme='light'] .admin-app[data-sku-db] .admin-rail-footer {
+  border-top-color: rgba(15, 23, 42, 0.1);
+}
+
+.admin-rail-link,
+.admin-app[data-sku-db] .admin-rail-link {
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 9px;
+  height: 34px;
+  padding: 0 4px 0 10px;
+  border-radius: 0;
+  color: var(--admin-rail-text);
+  background: transparent;
+  box-shadow: none;
+}
+
+.admin-rail-link::before,
+.admin-app.admin-app-suite .admin-rail-link::before,
+.admin-app[data-sku-db] .admin-rail-link::before {
+  top: 7px;
+  bottom: 7px;
+  left: 0;
+  width: 2px;
+  background: var(--admin-rail-active-line);
+  box-shadow: none;
+}
+
+.admin-rail-link:hover,
+.admin-rail-link:focus-visible,
+.admin-rail-link.is-active,
+.admin-rail-link[aria-current='page'],
+.admin-app[data-sku-db] .admin-rail-link:hover,
+.admin-app[data-sku-db] .admin-rail-link:focus-visible,
+.admin-app[data-sku-db] .admin-rail-link.is-active,
+.admin-app[data-sku-db] .admin-rail-link[aria-current='page'],
+:root[data-admin-theme='light'] .admin-rail-link:hover,
+:root[data-admin-theme='light'] .admin-rail-link:focus-visible,
+:root[data-admin-theme='light'] .admin-rail-link.is-active,
+:root[data-admin-theme='light'] .admin-rail-link[aria-current='page'] {
+  color: var(--admin-rail-text-strong);
+  background: transparent;
+  box-shadow: none;
+}
+
+.admin-rail-link:hover::before,
+.admin-rail-link:focus-visible::before,
+.admin-rail-link.is-active::before,
+.admin-rail-link[aria-current='page']::before,
+.admin-app.admin-app-suite .admin-rail-link:hover::before,
+.admin-app.admin-app-suite .admin-rail-link.is-active::before,
+.admin-app.admin-app-suite .admin-rail-link[aria-current='page']::before,
+.admin-app[data-sku-db] .admin-rail-link:hover::before,
+.admin-app[data-sku-db] .admin-rail-link:focus-visible::before,
+.admin-app[data-sku-db] .admin-rail-link.is-active::before,
+.admin-app[data-sku-db] .admin-rail-link[aria-current='page']::before {
+  width: 2px;
+  box-shadow: none;
+}
+
+.admin-rail-link:not(:hover):not(:focus-visible):not(.is-active):not([aria-current='page'])::before {
+  opacity: 0;
+}
+
+.admin-rail-link-text {
+  font-size: 0.68rem;
+  font-weight: 750;
+  line-height: 1;
+}
+
+.admin-shell .admin-rail-icon,
+.admin-app[data-sku-db] .admin-rail-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.admin-shell .admin-rail-icon::before,
+.admin-app[data-sku-db] .admin-rail-icon::before {
+  width: 19px;
+  height: 19px;
+}
+
+@media (max-width: 1180px) {
+  :root,
+  :root[data-admin-theme='dark'],
+  :root[data-admin-theme='light'] {
+    --admin-rail-width: 64px;
+  }
+
+  .admin-rail,
+  .admin-app.admin-app-suite .admin-rail,
+  .admin-app[data-sku-db] .admin-rail {
+    padding: 12px 8px;
+  }
+
+  .admin-rail-link,
+  .admin-app[data-sku-db] .admin-rail-link {
+    height: 36px;
+  }
+}
+
+@media (max-width: 820px) {
+  .admin-rail,
+  .admin-app.admin-app-suite .admin-rail,
+  .admin-app[data-sku-db] .admin-rail {
+    padding: 10px;
+  }
+
+  .admin-rail-brand,
+  .admin-app[data-sku-db] .admin-rail-brand {
+    padding: 0;
+  }
+
+  .admin-rail-link,
+  .admin-app[data-sku-db] .admin-rail-link {
+    width: 38px;
+    height: 38px;
+    flex-basis: 38px;
+    padding: 0;
+  }
+
+  .admin-rail-nav,
+  .admin-rail-footer,
+  .admin-app[data-sku-db] .admin-rail-nav,
+  .admin-app[data-sku-db] .admin-rail-footer {
+    grid-template-columns: repeat(auto-fill, 38px);
+    gap: 5px;
+  }
+
+  .admin-rail-link::before,
+  .admin-app.admin-app-suite .admin-rail-link::before,
+  .admin-app[data-sku-db] .admin-rail-link::before {
+    bottom: 2px;
+    width: 16px;
+    height: 2px;
+  }
+
+  .admin-rail-link:hover::before,
+  .admin-rail-link:focus-visible::before,
+  .admin-rail-link.is-active::before,
+  .admin-rail-link[aria-current='page']::before,
+  .admin-app.admin-app-suite .admin-rail-link:hover::before,
+  .admin-app.admin-app-suite .admin-rail-link.is-active::before,
+  .admin-app.admin-app-suite .admin-rail-link[aria-current='page']::before,
+  .admin-app[data-sku-db] .admin-rail-link:hover::before,
+  .admin-app[data-sku-db] .admin-rail-link:focus-visible::before,
+  .admin-app[data-sku-db] .admin-rail-link.is-active::before,
+  .admin-app[data-sku-db] .admin-rail-link[aria-current='page']::before {
+    width: 16px;
+  }
+}
+
+/* Actual terminal sidebar scale adjustment. */
+@media (min-width: 821px) {
+  :root,
+  :root[data-admin-theme='dark'],
+  :root[data-admin-theme='light'] {
+    --admin-rail-width: 76px;
+    --admin-rail-collapsed-width: 76px;
+    --admin-rail-expanded-width: 196px;
+  }
+
+  .admin-shell,
+  .admin-app[data-sku-db] .admin-shell {
+    grid-template-columns: var(--admin-rail-collapsed-width) minmax(0, 1fr);
+  }
+
+  .admin-shell .admin-rail,
+  .admin-app.admin-app-suite .admin-rail,
+  .admin-app[data-sku-db] .admin-rail {
+    width: var(--admin-rail-collapsed-width);
+    padding: 20px 12px 16px;
+  }
+
+  .admin-shell .admin-rail:hover,
+  .admin-shell .admin-rail:focus-within,
+  .admin-app.admin-app-suite .admin-rail:hover,
+  .admin-app.admin-app-suite .admin-rail:focus-within,
+  .admin-app[data-sku-db] .admin-rail:hover,
+  .admin-app[data-sku-db] .admin-rail:focus-within {
+    width: var(--admin-rail-expanded-width);
+  }
+
+  .admin-shell .admin-rail-brand,
+  .admin-app[data-sku-db] .admin-rail-brand {
+    height: 44px;
+    padding-bottom: 22px;
+  }
+
+  .admin-shell .admin-rail:hover .admin-rail-brand,
+  .admin-shell .admin-rail:focus-within .admin-rail-brand,
+  .admin-app.admin-app-suite .admin-rail:hover .admin-rail-brand,
+  .admin-app.admin-app-suite .admin-rail:focus-within .admin-rail-brand,
+  .admin-app[data-sku-db] .admin-rail:hover .admin-rail-brand,
+  .admin-app[data-sku-db] .admin-rail:focus-within .admin-rail-brand {
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .admin-shell .admin-rail-brand-mark,
+  .admin-app[data-sku-db] .admin-rail-brand-mark {
+    width: 40px;
+    height: 40px;
+  }
+
+  .admin-shell .admin-rail-brand-core,
+  .admin-app[data-sku-db] .admin-rail-brand-core {
+    width: 34px;
+    height: 34px;
+  }
+
+  .admin-shell .admin-rail-nav,
+  .admin-shell .admin-rail-footer,
+  .admin-app[data-sku-db] .admin-rail-nav,
+  .admin-app[data-sku-db] .admin-rail-footer {
+    gap: 10px;
+  }
+
+  .admin-shell .admin-rail-link,
+  .admin-app.admin-app-suite .admin-rail-link,
+  .admin-app[data-sku-db] .admin-rail-link {
+    width: 52px;
+    height: 44px;
+  }
+
+  .admin-shell .admin-rail:hover .admin-rail-link,
+  .admin-shell .admin-rail:focus-within .admin-rail-link,
+  .admin-app.admin-app-suite .admin-rail:hover .admin-rail-link,
+  .admin-app.admin-app-suite .admin-rail:focus-within .admin-rail-link,
+  .admin-app[data-sku-db] .admin-rail:hover .admin-rail-link,
+  .admin-app[data-sku-db] .admin-rail:focus-within .admin-rail-link {
+    grid-template-columns: 30px minmax(0, 1fr);
+    padding: 0 10px 0 14px;
+  }
+
+  .admin-shell .admin-rail-icon,
+  .admin-app[data-sku-db] .admin-rail-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .admin-shell .admin-rail-icon::before,
+  .admin-app[data-sku-db] .admin-rail-icon::before {
+    width: 23px;
+    height: 23px;
+  }
+
+  .admin-shell .admin-rail-link-text {
+    font-size: 0.74rem;
+  }
+
+  .admin-shell .admin-rail:hover .admin-rail-brand-wordmark,
+  .admin-shell .admin-rail:focus-within .admin-rail-brand-wordmark,
+  .admin-shell .admin-rail:hover .admin-rail-link-text,
+  .admin-shell .admin-rail:focus-within .admin-rail-link-text,
+  .admin-app.admin-app-suite .admin-rail:hover .admin-rail-brand-wordmark,
+  .admin-app.admin-app-suite .admin-rail:focus-within .admin-rail-brand-wordmark,
+  .admin-app.admin-app-suite .admin-rail:hover .admin-rail-link-text,
+  .admin-app.admin-app-suite .admin-rail:focus-within .admin-rail-link-text,
+  .admin-app[data-sku-db] .admin-rail:hover .admin-rail-brand-wordmark,
+  .admin-app[data-sku-db] .admin-rail:focus-within .admin-rail-brand-wordmark,
+  .admin-app[data-sku-db] .admin-rail:hover .admin-rail-link-text,
+  .admin-app[data-sku-db] .admin-rail:focus-within .admin-rail-link-text {
+    max-width: 130px;
+  }
+}
+
+/* Final sidebar scale bump: larger rail, clearer hover panel. */
+@media (min-width: 821px) {
+  :root,
+  :root[data-admin-theme='dark'],
+  :root[data-admin-theme='light'] {
+    --admin-rail-width: 84px;
+    --admin-rail-collapsed-width: 84px;
+    --admin-rail-expanded-width: 220px;
+  }
+
+  .admin-shell,
+  .admin-app[data-sku-db] .admin-shell {
+    grid-template-columns: var(--admin-rail-collapsed-width) minmax(0, 1fr);
+  }
+
+  .admin-shell .admin-rail,
+  .admin-app.admin-app-suite .admin-rail,
+  .admin-app[data-sku-db] .admin-rail {
+    z-index: 20;
+    width: var(--admin-rail-collapsed-width);
+    padding: 22px 14px 18px;
+    background: #05070a;
+  }
+
+  .admin-shell .admin-rail:hover,
+  .admin-shell .admin-rail:focus-within,
+  .admin-app.admin-app-suite .admin-rail:hover,
+  .admin-app.admin-app-suite .admin-rail:focus-within,
+  .admin-app[data-sku-db] .admin-rail:hover,
+  .admin-app[data-sku-db] .admin-rail:focus-within {
+    width: var(--admin-rail-expanded-width);
+    background: #05070a;
+    box-shadow: 18px 0 36px rgba(0, 0, 0, 0.28);
+  }
+
+  :root[data-admin-theme='light'] .admin-shell .admin-rail,
+  :root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-rail,
+  :root[data-admin-theme='light'] .admin-app[data-sku-db] .admin-rail,
+  :root[data-admin-theme='light'] .admin-shell .admin-rail:hover,
+  :root[data-admin-theme='light'] .admin-shell .admin-rail:focus-within,
+  :root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-rail:hover,
+  :root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-rail:focus-within,
+  :root[data-admin-theme='light'] .admin-app[data-sku-db] .admin-rail:hover,
+  :root[data-admin-theme='light'] .admin-app[data-sku-db] .admin-rail:focus-within {
+    background: #ffffff;
+  }
+
+  .admin-shell .admin-rail-brand,
+  .admin-app[data-sku-db] .admin-rail-brand {
+    height: 48px;
+    padding-bottom: 24px;
+  }
+
+  .admin-shell .admin-rail:hover .admin-rail-brand,
+  .admin-shell .admin-rail:focus-within .admin-rail-brand,
+  .admin-app.admin-app-suite .admin-rail:hover .admin-rail-brand,
+  .admin-app.admin-app-suite .admin-rail:focus-within .admin-rail-brand,
+  .admin-app[data-sku-db] .admin-rail:hover .admin-rail-brand,
+  .admin-app[data-sku-db] .admin-rail:focus-within .admin-rail-brand {
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 13px;
+  }
+
+  .admin-shell .admin-rail-brand-mark,
+  .admin-app[data-sku-db] .admin-rail-brand-mark {
+    width: 44px;
+    height: 44px;
+  }
+
+  .admin-shell .admin-rail-brand-core,
+  .admin-app[data-sku-db] .admin-rail-brand-core {
+    width: 38px;
+    height: 38px;
+  }
+
+  .admin-shell .admin-rail-nav,
+  .admin-shell .admin-rail-footer,
+  .admin-app[data-sku-db] .admin-rail-nav,
+  .admin-app[data-sku-db] .admin-rail-footer {
+    gap: 11px;
+  }
+
+  .admin-shell .admin-rail-link,
+  .admin-app.admin-app-suite .admin-rail-link,
+  .admin-app[data-sku-db] .admin-rail-link {
+    width: 56px;
+    height: 48px;
+  }
+
+  .admin-shell .admin-rail:hover .admin-rail-link,
+  .admin-shell .admin-rail:focus-within .admin-rail-link,
+  .admin-app.admin-app-suite .admin-rail:hover .admin-rail-link,
+  .admin-app.admin-app-suite .admin-rail:focus-within .admin-rail-link,
+  .admin-app[data-sku-db] .admin-rail:hover .admin-rail-link,
+  .admin-app[data-sku-db] .admin-rail:focus-within .admin-rail-link {
+    grid-template-columns: 34px minmax(0, 1fr);
+    width: 100%;
+    padding: 0 12px 0 15px;
+  }
+
+  .admin-shell .admin-rail-icon,
+  .admin-app[data-sku-db] .admin-rail-icon {
+    width: 34px;
+    height: 34px;
+  }
+
+  .admin-shell .admin-rail-icon::before,
+  .admin-app[data-sku-db] .admin-rail-icon::before {
+    width: 26px;
+    height: 26px;
+  }
+
+  .admin-shell .admin-rail-link-text {
+    font-size: 0.8rem;
+  }
+
+  .admin-shell .admin-rail:hover .admin-rail-brand-wordmark,
+  .admin-shell .admin-rail:focus-within .admin-rail-brand-wordmark,
+  .admin-shell .admin-rail:hover .admin-rail-link-text,
+  .admin-shell .admin-rail:focus-within .admin-rail-link-text,
+  .admin-app.admin-app-suite .admin-rail:hover .admin-rail-brand-wordmark,
+  .admin-app.admin-app-suite .admin-rail:focus-within .admin-rail-brand-wordmark,
+  .admin-app.admin-app-suite .admin-rail:hover .admin-rail-link-text,
+  .admin-app.admin-app-suite .admin-rail:focus-within .admin-rail-link-text,
+  .admin-app[data-sku-db] .admin-rail:hover .admin-rail-brand-wordmark,
+  .admin-app[data-sku-db] .admin-rail:focus-within .admin-rail-brand-wordmark,
+  .admin-app[data-sku-db] .admin-rail:hover .admin-rail-link-text,
+  .admin-app[data-sku-db] .admin-rail:focus-within .admin-rail-link-text {
+    max-width: 150px;
+  }
+}
+
+/* Final sidebar hover correction: one active line only. */
+@media (min-width: 821px) {
+  .admin-shell .admin-rail-link:hover:not(.is-active):not([aria-current='page'])::before,
+  .admin-app.admin-app-suite .admin-rail-link:hover:not(.is-active):not([aria-current='page'])::before,
+  .admin-app[data-sku-db] .admin-rail-link:hover:not(.is-active):not([aria-current='page'])::before {
+    opacity: 0;
+  }
+}
+
+/* Terminal sidebar state: full-height collapsed icon rail, expanded on hover. */
+@media (min-width: 821px) {
+  :root,
+  :root[data-admin-theme='dark'],
+  :root[data-admin-theme='light'] {
+    --admin-rail-width: 64px;
+    --admin-rail-collapsed-width: 64px;
+    --admin-rail-expanded-width: 168px;
+  }
+
+  .admin-shell,
+  .admin-app[data-sku-db] .admin-shell {
+    grid-template-columns: var(--admin-rail-collapsed-width) minmax(0, 1fr);
+    gap: 28px;
+  }
+
+  .admin-shell .admin-rail,
+  .admin-app.admin-app-suite .admin-rail,
+  .admin-app[data-sku-db] .admin-rail {
+    position: sticky;
+    top: 0;
+    width: var(--admin-rail-collapsed-width);
+    min-height: 100svh;
+    height: 100svh;
+    margin-top: -24px;
+    padding: 18px 8px 14px;
+    overflow: hidden;
+    border-width: 0 1px 0 0;
+    border-radius: 0;
+    box-shadow: none;
+    transition: width 180ms ease, background 180ms ease, border-color 180ms ease;
+    will-change: width;
+  }
+
+  .admin-shell .admin-rail:hover,
+  .admin-shell .admin-rail:focus-within,
+  .admin-app.admin-app-suite .admin-rail:hover,
+  .admin-app.admin-app-suite .admin-rail:focus-within,
+  .admin-app[data-sku-db] .admin-rail:hover,
+  .admin-app[data-sku-db] .admin-rail:focus-within {
+    width: var(--admin-rail-expanded-width);
+    box-shadow: 18px 0 44px rgba(0, 0, 0, 0.22);
+  }
+
+  :root[data-admin-theme='light'] .admin-shell .admin-rail:hover,
+  :root[data-admin-theme='light'] .admin-shell .admin-rail:focus-within,
+  :root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-rail:hover,
+  :root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-rail:focus-within,
+  :root[data-admin-theme='light'] .admin-app[data-sku-db] .admin-rail:hover,
+  :root[data-admin-theme='light'] .admin-app[data-sku-db] .admin-rail:focus-within {
+    box-shadow: 18px 0 44px rgba(15, 23, 42, 0.12);
+  }
+
+  .admin-shell .admin-rail-brand,
+  .admin-app[data-sku-db] .admin-rail-brand {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 0;
+    height: 36px;
+    padding: 0 0 18px;
+  }
+
+  .admin-shell .admin-rail:hover .admin-rail-brand,
+  .admin-shell .admin-rail:focus-within .admin-rail-brand,
+  .admin-app.admin-app-suite .admin-rail:hover .admin-rail-brand,
+  .admin-app.admin-app-suite .admin-rail:focus-within .admin-rail-brand,
+  .admin-app[data-sku-db] .admin-rail:hover .admin-rail-brand,
+  .admin-app[data-sku-db] .admin-rail:focus-within .admin-rail-brand {
+    grid-template-columns: 32px minmax(0, 1fr);
+    justify-items: start;
+    gap: 10px;
+    padding-inline: 4px;
+  }
+
+  .admin-shell .admin-rail-brand-wordmark,
+  .admin-shell .admin-rail-link-text,
+  .admin-app.admin-app-suite .admin-rail-brand-wordmark,
+  .admin-app.admin-app-suite .admin-rail-link-text,
+  .admin-app[data-sku-db] .admin-rail-brand-wordmark,
+  .admin-app[data-sku-db] .admin-rail-link-text {
+    display: block;
+    max-width: 0;
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: opacity 150ms ease, max-width 180ms ease, transform 180ms ease;
+  }
+
+  .admin-shell .admin-rail:hover .admin-rail-brand-wordmark,
+  .admin-shell .admin-rail:focus-within .admin-rail-brand-wordmark,
+  .admin-shell .admin-rail:hover .admin-rail-link-text,
+  .admin-shell .admin-rail:focus-within .admin-rail-link-text,
+  .admin-app.admin-app-suite .admin-rail:hover .admin-rail-brand-wordmark,
+  .admin-app.admin-app-suite .admin-rail:focus-within .admin-rail-brand-wordmark,
+  .admin-app.admin-app-suite .admin-rail:hover .admin-rail-link-text,
+  .admin-app.admin-app-suite .admin-rail:focus-within .admin-rail-link-text,
+  .admin-app[data-sku-db] .admin-rail:hover .admin-rail-brand-wordmark,
+  .admin-app[data-sku-db] .admin-rail:focus-within .admin-rail-brand-wordmark,
+  .admin-app[data-sku-db] .admin-rail:hover .admin-rail-link-text,
+  .admin-app[data-sku-db] .admin-rail:focus-within .admin-rail-link-text {
+    max-width: 104px;
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  .admin-shell .admin-rail-nav,
+  .admin-shell .admin-rail-footer,
+  .admin-app[data-sku-db] .admin-rail-nav,
+  .admin-app[data-sku-db] .admin-rail-footer {
+    justify-items: center;
+    gap: 8px;
+  }
+
+  .admin-shell .admin-rail:hover .admin-rail-nav,
+  .admin-shell .admin-rail:hover .admin-rail-footer,
+  .admin-shell .admin-rail:focus-within .admin-rail-nav,
+  .admin-shell .admin-rail:focus-within .admin-rail-footer,
+  .admin-app.admin-app-suite .admin-rail:hover .admin-rail-nav,
+  .admin-app.admin-app-suite .admin-rail:hover .admin-rail-footer,
+  .admin-app.admin-app-suite .admin-rail:focus-within .admin-rail-nav,
+  .admin-app.admin-app-suite .admin-rail:focus-within .admin-rail-footer,
+  .admin-app[data-sku-db] .admin-rail:hover .admin-rail-nav,
+  .admin-app[data-sku-db] .admin-rail:hover .admin-rail-footer,
+  .admin-app[data-sku-db] .admin-rail:focus-within .admin-rail-nav,
+  .admin-app[data-sku-db] .admin-rail:focus-within .admin-rail-footer {
+    justify-items: stretch;
+  }
+
+  .admin-shell .admin-rail-link,
+  .admin-app.admin-app-suite .admin-rail-link,
+  .admin-app[data-sku-db] .admin-rail-link {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    width: 42px;
+    height: 36px;
+    padding: 0;
+  }
+
+  .admin-shell .admin-rail:hover .admin-rail-link,
+  .admin-shell .admin-rail:focus-within .admin-rail-link,
+  .admin-app.admin-app-suite .admin-rail:hover .admin-rail-link,
+  .admin-app.admin-app-suite .admin-rail:focus-within .admin-rail-link,
+  .admin-app[data-sku-db] .admin-rail:hover .admin-rail-link,
+  .admin-app[data-sku-db] .admin-rail:focus-within .admin-rail-link {
+    grid-template-columns: 24px minmax(0, 1fr);
+    justify-items: start;
+    width: 100%;
+    padding: 0 8px 0 12px;
+  }
+}
+
+.admin-shell .admin-rail-icon-hard-set,
+.admin-app[data-sku-db] .admin-rail-icon-hard-set {
+  --admin-rail-icon-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 2v10'/%3E%3Cpath d='M18.4 6.6a9 9 0 1 1-12.77.04'/%3E%3C/svg%3E");
+}
+
 .admin-primary-btn:hover {
   box-shadow: 0 10px 24px rgba(157, 255, 0, 0.2);
 }
@@ -15714,5 +16643,1382 @@ body:has(.admin-app[data-sku-db])::after {
   .admin-product-cart-rundown,
   .admin-hour-activity-panel .admin-chart-surface {
     min-height: 300px;
+  }
+}
+
+/* Shared executive sidebar hybrid rail polish. */
+:root,
+:root[data-admin-theme='dark'],
+:root[data-admin-theme='light'] {
+  --admin-rail-width: 148px;
+}
+
+.admin-shell,
+.admin-app[data-sku-db] .admin-shell {
+  grid-template-columns: var(--admin-rail-width) minmax(0, 1fr);
+  gap: 24px;
+}
+
+.admin-rail,
+.admin-app.admin-app-suite .admin-rail,
+.admin-app[data-sku-db] .admin-rail {
+  min-width: 0;
+  min-height: calc(100svh - 48px);
+  padding: 12px 10px;
+  overflow: visible;
+  border: 1px solid var(--admin-rail-border);
+  border-radius: 18px;
+  background: rgba(10, 14, 20, 0.72);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(18px) saturate(120%);
+  -webkit-backdrop-filter: blur(18px) saturate(120%);
+}
+
+.admin-rail-brand,
+.admin-app[data-sku-db] .admin-rail-brand {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  justify-items: start;
+  gap: 9px;
+  min-width: 0;
+  padding: 0 6px 12px;
+}
+
+.admin-shell .admin-rail-brand-mark,
+.admin-app[data-sku-db] .admin-rail-brand-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+}
+
+.admin-rail-brand-wordmark {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--admin-text);
+  font: 800 0.68rem/1 "Space Grotesk", sans-serif;
+  letter-spacing: 0.12em;
+  text-overflow: ellipsis;
+}
+
+.admin-rail-nav,
+.admin-rail-footer,
+.admin-app[data-sku-db] .admin-rail-nav,
+.admin-app[data-sku-db] .admin-rail-footer {
+  display: grid;
+  justify-items: stretch;
+  gap: 5px;
+  min-width: 0;
+}
+
+.admin-rail-nav,
+.admin-app[data-sku-db] .admin-rail-nav {
+  padding-top: 8px;
+}
+
+.admin-rail-footer,
+.admin-app[data-sku-db] .admin-rail-footer {
+  margin-top: auto;
+  padding: 8px 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admin-rail-link,
+.admin-app[data-sku-db] .admin-rail-link {
+  position: relative;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  justify-items: start;
+  gap: 8px;
+  width: 100%;
+  max-width: none;
+  height: 42px;
+  min-width: 0;
+  padding: 0 10px;
+  border-radius: 12px;
+  color: rgba(238, 244, 247, 0.68);
+  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.admin-rail-link::before,
+.admin-app.admin-app-suite .admin-rail-link::before,
+.admin-app[data-sku-db] .admin-rail-link::before {
+  content: '';
+  position: absolute;
+  top: 9px;
+  bottom: 9px;
+  left: 0;
+  width: 3px;
+  height: auto;
+  border-radius: 999px;
+  background: var(--admin-accent-primary);
+  opacity: 0;
+  transform: none;
+  transition: opacity 0.18s ease;
+}
+
+.admin-rail-link::after,
+.admin-app[data-sku-db] .admin-rail-link::after {
+  display: none;
+}
+
+.admin-rail-link:hover,
+.admin-rail-link:focus-visible,
+.admin-rail-link.is-active,
+.admin-rail-link[aria-current='page'],
+.admin-app[data-sku-db] .admin-rail-link:hover,
+.admin-app[data-sku-db] .admin-rail-link:focus-visible,
+.admin-app[data-sku-db] .admin-rail-link.is-active,
+.admin-app[data-sku-db] .admin-rail-link[aria-current='page'] {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.055);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  transform: none;
+}
+
+.admin-rail-link.is-active,
+.admin-rail-link[aria-current='page'],
+.admin-app[data-sku-db] .admin-rail-link.is-active,
+.admin-app[data-sku-db] .admin-rail-link[aria-current='page'] {
+  background: rgba(157, 255, 0, 0.105);
+  box-shadow: inset 0 0 0 1px rgba(157, 255, 0, 0.18);
+}
+
+.admin-rail-link:hover::before,
+.admin-rail-link:focus-visible::before,
+.admin-rail-link.is-active::before,
+.admin-rail-link[aria-current='page']::before,
+.admin-app.admin-app-suite .admin-rail-link:hover::before,
+.admin-app.admin-app-suite .admin-rail-link.is-active::before,
+.admin-app.admin-app-suite .admin-rail-link[aria-current='page']::before,
+.admin-app[data-sku-db] .admin-rail-link:hover::before,
+.admin-app[data-sku-db] .admin-rail-link:focus-visible::before,
+.admin-app[data-sku-db] .admin-rail-link.is-active::before,
+.admin-app[data-sku-db] .admin-rail-link[aria-current='page']::before {
+  width: 3px;
+  opacity: 1;
+  box-shadow: 0 0 14px rgba(157, 255, 0, 0.3);
+}
+
+.admin-rail-link-text {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-shell .admin-rail-icon,
+.admin-app[data-sku-db] .admin-rail-icon {
+  width: 28px;
+  height: 28px;
+  color: inherit;
+  transform: none;
+}
+
+.admin-shell .admin-rail-icon::before,
+.admin-app[data-sku-db] .admin-rail-icon::before {
+  width: 21px;
+  height: 21px;
+}
+
+.admin-rail-link:hover .admin-rail-icon,
+.admin-rail-link:focus-visible .admin-rail-icon,
+.admin-rail-link.is-active .admin-rail-icon,
+.admin-rail-link[aria-current='page'] .admin-rail-icon,
+.admin-app[data-sku-db] .admin-rail-link:hover .admin-rail-icon,
+.admin-app[data-sku-db] .admin-rail-link:focus-visible .admin-rail-icon,
+.admin-app[data-sku-db] .admin-rail-link.is-active .admin-rail-icon,
+.admin-app[data-sku-db] .admin-rail-link[aria-current='page'] .admin-rail-icon {
+  transform: none;
+}
+
+.admin-shell .admin-rail-icon-home,
+.admin-app[data-sku-db] .admin-rail-icon-home {
+  --admin-rail-icon-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8'/%3E%3Cpath d='M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3C/svg%3E");
+}
+
+.admin-shell .admin-rail-icon-campaigns,
+.admin-app[data-sku-db] .admin-rail-icon-campaigns {
+  --admin-rail-icon-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M11 6a13 13 0 0 0 8.4-2.8A1 1 0 0 1 21 4v12a1 1 0 0 1-1.6.8A13 13 0 0 0 11 14H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z'/%3E%3Cpath d='M6 14a12 12 0 0 0 2.4 7.2 2 2 0 0 0 3.2-2.4A8 8 0 0 1 10 14'/%3E%3Cpath d='M8 6v8'/%3E%3C/svg%3E");
+}
+
+.admin-shell .admin-rail-icon-hard-set,
+.admin-app[data-sku-db] .admin-rail-icon-hard-set {
+  --admin-rail-icon-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='18' height='18' x='3' y='3' rx='2'/%3E%3Cpath d='M12 7v4'/%3E%3Cpath d='M8 11a4 4 0 1 0 8 0'/%3E%3C/svg%3E");
+}
+
+.admin-shell .admin-rail-icon-profit-loss,
+.admin-app[data-sku-db] .admin-rail-icon-profit-loss {
+  --admin-rail-icon-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 16v5'/%3E%3Cpath d='M16 14.639V21'/%3E%3Cpath d='M20 10.656V21'/%3E%3Cpath d='m22 3-8.646 8.646a.5.5 0 0 1-.708 0L9.354 8.354a.5.5 0 0 0-.707 0L2 15'/%3E%3Cpath d='M4 18.463V21'/%3E%3Cpath d='M8 14.656V21'/%3E%3C/svg%3E");
+}
+
+.admin-shell .admin-rail-icon-back-dash,
+.admin-app[data-sku-db] .admin-rail-icon-back-dash {
+  --admin-rail-icon-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='7' height='9' x='3' y='3' rx='1'/%3E%3Crect width='7' height='5' x='14' y='3' rx='1'/%3E%3Crect width='7' height='9' x='14' y='12' rx='1'/%3E%3Crect width='7' height='5' x='3' y='16' rx='1'/%3E%3C/svg%3E");
+}
+
+:root[data-admin-theme='light'] .admin-rail {
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.08);
+}
+
+:root[data-admin-theme='light'] .admin-rail-link {
+  color: rgba(15, 23, 42, 0.68);
+}
+
+:root[data-admin-theme='light'] .admin-rail-link:hover,
+:root[data-admin-theme='light'] .admin-rail-link:focus-visible,
+:root[data-admin-theme='light'] .admin-rail-link.is-active,
+:root[data-admin-theme='light'] .admin-rail-link[aria-current='page'] {
+  color: #0f172a;
+  background: rgba(15, 23, 42, 0.055);
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.07);
+}
+
+:root[data-admin-theme='light'] .admin-rail-link.is-active,
+:root[data-admin-theme='light'] .admin-rail-link[aria-current='page'] {
+  background: rgba(77, 124, 15, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(77, 124, 15, 0.18);
+}
+
+@media (max-width: 1180px) {
+  :root,
+  :root[data-admin-theme='dark'],
+  :root[data-admin-theme='light'] {
+    --admin-rail-width: 72px;
+  }
+
+  .admin-shell,
+  .admin-app[data-sku-db] .admin-shell {
+    grid-template-columns: var(--admin-rail-width) minmax(0, 1fr);
+    gap: 20px;
+  }
+
+  .admin-rail,
+  .admin-app.admin-app-suite .admin-rail,
+  .admin-app[data-sku-db] .admin-rail {
+    padding: 10px 8px;
+  }
+
+  .admin-rail-brand,
+  .admin-app[data-sku-db] .admin-rail-brand {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    padding-inline: 0;
+  }
+
+  .admin-rail-brand-wordmark,
+  .admin-rail-link-text {
+    display: none;
+  }
+
+  .admin-rail-link,
+  .admin-app[data-sku-db] .admin-rail-link {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    height: 44px;
+    padding: 0;
+  }
+}
+
+@media (max-width: 820px) {
+  .admin-shell,
+  .admin-app[data-sku-db] .admin-shell {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .admin-rail,
+  .admin-app.admin-app-suite .admin-rail,
+  .admin-app[data-sku-db] .admin-rail {
+    position: static;
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    grid-template-areas:
+      "brand nav"
+      "brand footer";
+    align-items: start;
+    gap: 8px;
+    min-height: auto;
+    padding: 8px;
+    overflow: visible;
+    border-right: 1px solid var(--admin-rail-border);
+    border-bottom: 1px solid var(--admin-rail-border);
+  }
+
+  .admin-rail-brand,
+  .admin-app[data-sku-db] .admin-rail-brand {
+    grid-area: brand;
+    padding: 0;
+  }
+
+  .admin-rail-nav,
+  .admin-rail-footer,
+  .admin-app[data-sku-db] .admin-rail-nav,
+  .admin-app[data-sku-db] .admin-rail-footer {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 42px);
+    justify-content: start;
+    gap: 6px;
+    min-width: 0;
+    overflow: visible;
+  }
+
+  .admin-rail-nav,
+  .admin-app[data-sku-db] .admin-rail-nav {
+    grid-area: nav;
+    padding-top: 0;
+  }
+
+  .admin-rail-footer,
+  .admin-app[data-sku-db] .admin-rail-footer {
+    grid-area: footer;
+    margin-top: 0;
+    padding: 6px 0 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-left: 0;
+  }
+
+  .admin-rail-link,
+  .admin-app[data-sku-db] .admin-rail-link {
+    flex: 0 0 42px;
+    width: 42px;
+    height: 42px;
+  }
+
+  .admin-rail-link::before,
+  .admin-app.admin-app-suite .admin-rail-link::before,
+  .admin-app[data-sku-db] .admin-rail-link::before {
+    top: auto;
+    bottom: 4px;
+    left: 50%;
+    width: 18px;
+    height: 2px;
+    transform: translateX(-50%);
+  }
+
+  .admin-rail-link:hover::before,
+  .admin-rail-link:focus-visible::before,
+  .admin-rail-link.is-active::before,
+  .admin-rail-link[aria-current='page']::before,
+  .admin-app.admin-app-suite .admin-rail-link:hover::before,
+  .admin-app.admin-app-suite .admin-rail-link.is-active::before,
+  .admin-app.admin-app-suite .admin-rail-link[aria-current='page']::before,
+  .admin-app[data-sku-db] .admin-rail-link:hover::before,
+  .admin-app[data-sku-db] .admin-rail-link:focus-visible::before,
+  .admin-app[data-sku-db] .admin-rail-link.is-active::before,
+  .admin-app[data-sku-db] .admin-rail-link[aria-current='page']::before {
+    width: 18px;
+  }
+}
+
+/* Final sidebar pass: sourced mark, no green, no active pill. */
+:root,
+:root[data-admin-theme='dark'],
+:root[data-admin-theme='light'] {
+  --admin-rail-width: 136px;
+  --admin-rail-active-line: rgba(255, 255, 255, 0.92);
+  --admin-rail-text: rgba(238, 244, 247, 0.66);
+  --admin-rail-text-strong: #ffffff;
+}
+
+:root[data-admin-theme='light'] {
+  --admin-rail-active-line: rgba(15, 23, 42, 0.88);
+  --admin-rail-text: rgba(15, 23, 42, 0.62);
+  --admin-rail-text-strong: #0f172a;
+}
+
+.admin-shell,
+.admin-app[data-sku-db] .admin-shell {
+  grid-template-columns: var(--admin-rail-width) minmax(0, 1fr);
+  gap: 24px;
+}
+
+.admin-shell .admin-rail,
+.admin-app.admin-app-suite .admin-rail,
+.admin-app[data-sku-db] .admin-rail {
+  padding: 16px 10px 12px;
+  border-color: rgba(255, 255, 255, 0.1);
+  border-radius: 0;
+  background: rgba(7, 10, 14, 0.74);
+}
+
+:root[data-admin-theme='light'] .admin-shell .admin-rail,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-rail,
+:root[data-admin-theme='light'] .admin-app[data-sku-db] .admin-rail {
+  border-color: rgba(15, 23, 42, 0.1);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.admin-shell .admin-rail-brand,
+.admin-app[data-sku-db] .admin-rail-brand {
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 10px;
+  padding: 0 4px 16px;
+}
+
+.admin-shell .admin-rail-brand-mark,
+.admin-app[data-sku-db] .admin-rail-brand-mark {
+  width: 32px;
+  height: 32px;
+  border-radius: 0;
+}
+
+.admin-shell .admin-rail-brand-core,
+.admin-app[data-sku-db] .admin-rail-brand-core {
+  width: 28px;
+  height: 28px;
+  background: center / contain no-repeat url('./assets/admin-icons/executive-dashboard-favicon-dark.svg');
+  clip-path: none;
+}
+
+:root[data-admin-theme='light'] .admin-shell .admin-rail-brand-core,
+:root[data-admin-theme='light'] .admin-app[data-sku-db] .admin-rail-brand-core {
+  background-image: url('./assets/admin-icons/executive-dashboard-favicon-light.svg');
+}
+
+.admin-shell .admin-rail-brand-wordmark {
+  color: var(--admin-rail-text-strong);
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+}
+
+.admin-shell .admin-rail-nav,
+.admin-shell .admin-rail-footer,
+.admin-app[data-sku-db] .admin-rail-nav,
+.admin-app[data-sku-db] .admin-rail-footer {
+  gap: 7px;
+}
+
+.admin-shell .admin-rail-nav,
+.admin-app[data-sku-db] .admin-rail-nav {
+  padding-top: 6px;
+}
+
+.admin-shell .admin-rail-footer,
+.admin-app[data-sku-db] .admin-rail-footer {
+  padding-top: 12px;
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+:root[data-admin-theme='light'] .admin-shell .admin-rail-footer,
+:root[data-admin-theme='light'] .admin-app[data-sku-db] .admin-rail-footer {
+  border-top-color: rgba(15, 23, 42, 0.1);
+}
+
+.admin-shell .admin-rail-link,
+.admin-app.admin-app-suite .admin-rail-link,
+.admin-app[data-sku-db] .admin-rail-link {
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 9px;
+  height: 34px;
+  padding: 0 4px 0 10px;
+  border-radius: 0;
+  color: var(--admin-rail-text);
+  background: transparent;
+  box-shadow: none;
+}
+
+.admin-shell .admin-rail-link::before,
+.admin-app.admin-app-suite .admin-rail-link::before,
+.admin-app[data-sku-db] .admin-rail-link::before {
+  top: 7px;
+  bottom: 7px;
+  left: 0;
+  width: 2px;
+  background: var(--admin-rail-active-line);
+  box-shadow: none;
+}
+
+.admin-shell .admin-rail-link:hover,
+.admin-shell .admin-rail-link:focus-visible,
+.admin-shell .admin-rail-link.is-active,
+.admin-shell .admin-rail-link[aria-current='page'],
+.admin-app.admin-app-suite .admin-rail-link:hover,
+.admin-app.admin-app-suite .admin-rail-link:focus-visible,
+.admin-app.admin-app-suite .admin-rail-link.is-active,
+.admin-app.admin-app-suite .admin-rail-link[aria-current='page'],
+.admin-app[data-sku-db] .admin-rail-link:hover,
+.admin-app[data-sku-db] .admin-rail-link:focus-visible,
+.admin-app[data-sku-db] .admin-rail-link.is-active,
+.admin-app[data-sku-db] .admin-rail-link[aria-current='page'],
+:root[data-admin-theme='light'] .admin-shell .admin-rail-link:hover,
+:root[data-admin-theme='light'] .admin-shell .admin-rail-link:focus-visible,
+:root[data-admin-theme='light'] .admin-shell .admin-rail-link.is-active,
+:root[data-admin-theme='light'] .admin-shell .admin-rail-link[aria-current='page'] {
+  color: var(--admin-rail-text-strong);
+  background: transparent;
+  box-shadow: none;
+}
+
+.admin-shell .admin-rail-link:hover::before,
+.admin-shell .admin-rail-link:focus-visible::before,
+.admin-shell .admin-rail-link.is-active::before,
+.admin-shell .admin-rail-link[aria-current='page']::before,
+.admin-app.admin-app-suite .admin-rail-link:hover::before,
+.admin-app.admin-app-suite .admin-rail-link:focus-visible::before,
+.admin-app.admin-app-suite .admin-rail-link.is-active::before,
+.admin-app.admin-app-suite .admin-rail-link[aria-current='page']::before,
+.admin-app[data-sku-db] .admin-rail-link:hover::before,
+.admin-app[data-sku-db] .admin-rail-link:focus-visible::before,
+.admin-app[data-sku-db] .admin-rail-link.is-active::before,
+.admin-app[data-sku-db] .admin-rail-link[aria-current='page']::before {
+  width: 2px;
+  opacity: 1;
+  box-shadow: none;
+}
+
+.admin-shell .admin-rail-link:not(:hover):not(:focus-visible):not(.is-active):not([aria-current='page'])::before,
+.admin-app.admin-app-suite .admin-rail-link:not(:hover):not(:focus-visible):not(.is-active):not([aria-current='page'])::before,
+.admin-app[data-sku-db] .admin-rail-link:not(:hover):not(:focus-visible):not(.is-active):not([aria-current='page'])::before {
+  opacity: 0;
+}
+
+.admin-shell .admin-rail-link-text {
+  font-size: 0.68rem;
+  font-weight: 750;
+  line-height: 1;
+}
+
+.admin-shell .admin-rail-icon,
+.admin-app[data-sku-db] .admin-rail-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.admin-shell .admin-rail-icon::before,
+.admin-app[data-sku-db] .admin-rail-icon::before {
+  width: 19px;
+  height: 19px;
+}
+
+.admin-shell .admin-rail-icon-hard-set,
+.admin-app[data-sku-db] .admin-rail-icon-hard-set {
+  --admin-rail-icon-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 2v10'/%3E%3Cpath d='M18.4 6.6a9 9 0 1 1-12.77.04'/%3E%3C/svg%3E");
+}
+
+@media (max-width: 1180px) {
+  :root,
+  :root[data-admin-theme='dark'],
+  :root[data-admin-theme='light'] {
+    --admin-rail-width: 64px;
+  }
+
+  .admin-shell,
+  .admin-app[data-sku-db] .admin-shell {
+    grid-template-columns: var(--admin-rail-width) minmax(0, 1fr);
+    gap: 20px;
+  }
+
+  .admin-shell .admin-rail,
+  .admin-app.admin-app-suite .admin-rail,
+  .admin-app[data-sku-db] .admin-rail {
+    padding: 12px 8px;
+  }
+
+  .admin-shell .admin-rail-brand,
+  .admin-app[data-sku-db] .admin-rail-brand {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    padding-inline: 0;
+  }
+
+  .admin-shell .admin-rail-link,
+  .admin-app.admin-app-suite .admin-rail-link,
+  .admin-app[data-sku-db] .admin-rail-link {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    height: 36px;
+    padding: 0;
+  }
+
+  .admin-shell .admin-rail-brand-wordmark,
+  .admin-shell .admin-rail-link-text {
+    display: none;
+  }
+}
+
+@media (max-width: 820px) {
+  .admin-shell,
+  .admin-app[data-sku-db] .admin-shell {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .admin-shell .admin-rail,
+  .admin-app.admin-app-suite .admin-rail,
+  .admin-app[data-sku-db] .admin-rail {
+    padding: 10px;
+  }
+
+  .admin-shell .admin-rail-link,
+  .admin-app.admin-app-suite .admin-rail-link,
+  .admin-app[data-sku-db] .admin-rail-link {
+    width: 38px;
+    height: 38px;
+    flex-basis: 38px;
+  }
+
+  .admin-shell .admin-rail-nav,
+  .admin-shell .admin-rail-footer,
+  .admin-app[data-sku-db] .admin-rail-nav,
+  .admin-app[data-sku-db] .admin-rail-footer {
+    grid-template-columns: repeat(auto-fill, 38px);
+    gap: 5px;
+  }
+
+  .admin-shell .admin-rail-link::before,
+  .admin-app.admin-app-suite .admin-rail-link::before,
+  .admin-app[data-sku-db] .admin-rail-link::before {
+    top: auto;
+    bottom: 2px;
+    left: 50%;
+    width: 16px;
+    height: 2px;
+    transform: translateX(-50%);
+  }
+
+  .admin-shell .admin-rail-link:hover::before,
+  .admin-shell .admin-rail-link:focus-visible::before,
+  .admin-shell .admin-rail-link.is-active::before,
+  .admin-shell .admin-rail-link[aria-current='page']::before,
+  .admin-app.admin-app-suite .admin-rail-link:hover::before,
+  .admin-app.admin-app-suite .admin-rail-link:focus-visible::before,
+  .admin-app.admin-app-suite .admin-rail-link.is-active::before,
+  .admin-app.admin-app-suite .admin-rail-link[aria-current='page']::before,
+  .admin-app[data-sku-db] .admin-rail-link:hover::before,
+  .admin-app[data-sku-db] .admin-rail-link:focus-visible::before,
+  .admin-app[data-sku-db] .admin-rail-link.is-active::before,
+  .admin-app[data-sku-db] .admin-rail-link[aria-current='page']::before {
+    width: 16px;
+  }
+}
+
+/* EOF sidebar scale adjustment. */
+@media (min-width: 821px) {
+  :root,
+  :root[data-admin-theme='dark'],
+  :root[data-admin-theme='light'] {
+    --admin-rail-width: 84px;
+    --admin-rail-collapsed-width: 84px;
+    --admin-rail-expanded-width: 220px;
+  }
+
+  .admin-shell .admin-rail-link:hover:not(.is-active):not([aria-current='page'])::before,
+  .admin-app.admin-app-suite .admin-rail-link:hover:not(.is-active):not([aria-current='page'])::before,
+  .admin-app[data-sku-db] .admin-rail-link:hover:not(.is-active):not([aria-current='page'])::before {
+    opacity: 0;
+  }
+
+  .admin-shell,
+  .admin-app[data-sku-db] .admin-shell {
+    grid-template-columns: var(--admin-rail-collapsed-width) minmax(0, 1fr);
+  }
+
+  .admin-shell .admin-rail,
+  .admin-app.admin-app-suite .admin-rail,
+  .admin-app[data-sku-db] .admin-rail {
+    width: var(--admin-rail-collapsed-width);
+    z-index: 5000;
+    padding: 22px 14px 18px;
+    background: #05070a;
+  }
+
+  .admin-shell .admin-rail:hover,
+  .admin-shell .admin-rail:focus-within,
+  .admin-app.admin-app-suite .admin-rail:hover,
+  .admin-app.admin-app-suite .admin-rail:focus-within,
+  .admin-app[data-sku-db] .admin-rail:hover,
+  .admin-app[data-sku-db] .admin-rail:focus-within {
+    width: var(--admin-rail-expanded-width);
+    background: #05070a;
+    box-shadow: 18px 0 36px rgba(0, 0, 0, 0.28);
+  }
+
+  :root[data-admin-theme='light'] .admin-shell .admin-rail,
+  :root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-rail,
+  :root[data-admin-theme='light'] .admin-app[data-sku-db] .admin-rail,
+  :root[data-admin-theme='light'] .admin-shell .admin-rail:hover,
+  :root[data-admin-theme='light'] .admin-shell .admin-rail:focus-within,
+  :root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-rail:hover,
+  :root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-rail:focus-within,
+  :root[data-admin-theme='light'] .admin-app[data-sku-db] .admin-rail:hover,
+  :root[data-admin-theme='light'] .admin-app[data-sku-db] .admin-rail:focus-within {
+    background: #ffffff;
+  }
+
+  .admin-shell .admin-rail-brand,
+  .admin-app[data-sku-db] .admin-rail-brand {
+    height: 48px;
+    padding-bottom: 24px;
+  }
+
+  .admin-shell .admin-rail:hover .admin-rail-brand,
+  .admin-shell .admin-rail:focus-within .admin-rail-brand,
+  .admin-app.admin-app-suite .admin-rail:hover .admin-rail-brand,
+  .admin-app.admin-app-suite .admin-rail:focus-within .admin-rail-brand,
+  .admin-app[data-sku-db] .admin-rail:hover .admin-rail-brand,
+  .admin-app[data-sku-db] .admin-rail:focus-within .admin-rail-brand {
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 13px;
+  }
+
+  .admin-shell .admin-rail-brand-mark,
+  .admin-app[data-sku-db] .admin-rail-brand-mark {
+    width: 44px;
+    height: 44px;
+  }
+
+  .admin-shell .admin-rail-brand-core,
+  .admin-app[data-sku-db] .admin-rail-brand-core {
+    width: 38px;
+    height: 38px;
+  }
+
+  .admin-shell .admin-rail-nav,
+  .admin-shell .admin-rail-footer,
+  .admin-app[data-sku-db] .admin-rail-nav,
+  .admin-app[data-sku-db] .admin-rail-footer {
+    gap: 11px;
+  }
+
+  .admin-shell .admin-rail-link,
+  .admin-app.admin-app-suite .admin-rail-link,
+  .admin-app[data-sku-db] .admin-rail-link {
+    width: 56px;
+    height: 48px;
+  }
+
+  .admin-shell .admin-rail:hover .admin-rail-link,
+  .admin-shell .admin-rail:focus-within .admin-rail-link,
+  .admin-app.admin-app-suite .admin-rail:hover .admin-rail-link,
+  .admin-app.admin-app-suite .admin-rail:focus-within .admin-rail-link,
+  .admin-app[data-sku-db] .admin-rail:hover .admin-rail-link,
+  .admin-app[data-sku-db] .admin-rail:focus-within .admin-rail-link {
+    grid-template-columns: 34px minmax(0, 1fr);
+    width: 100%;
+    padding: 0 12px 0 15px;
+  }
+
+  .admin-shell .admin-rail-icon,
+  .admin-app[data-sku-db] .admin-rail-icon {
+    width: 34px;
+    height: 34px;
+  }
+
+  .admin-shell .admin-rail-icon::before,
+  .admin-app[data-sku-db] .admin-rail-icon::before {
+    width: 26px;
+    height: 26px;
+  }
+
+  .admin-shell .admin-rail-link-text {
+    font-size: 0.8rem;
+  }
+
+  .admin-shell .admin-rail:hover .admin-rail-brand-wordmark,
+  .admin-shell .admin-rail:focus-within .admin-rail-brand-wordmark,
+  .admin-shell .admin-rail:hover .admin-rail-link-text,
+  .admin-shell .admin-rail:focus-within .admin-rail-link-text,
+  .admin-app.admin-app-suite .admin-rail:hover .admin-rail-brand-wordmark,
+  .admin-app.admin-app-suite .admin-rail:focus-within .admin-rail-brand-wordmark,
+  .admin-app.admin-app-suite .admin-rail:hover .admin-rail-link-text,
+  .admin-app.admin-app-suite .admin-rail:focus-within .admin-rail-link-text,
+  .admin-app[data-sku-db] .admin-rail:hover .admin-rail-brand-wordmark,
+  .admin-app[data-sku-db] .admin-rail:focus-within .admin-rail-brand-wordmark,
+  .admin-app[data-sku-db] .admin-rail:hover .admin-rail-link-text,
+  .admin-app[data-sku-db] .admin-rail:focus-within .admin-rail-link-text {
+    max-width: 150px;
+  }
+}
+
+/* Final typography pass: quieter, simpler headers across the admin site. */
+:root,
+:root[data-admin-theme='dark'],
+:root[data-admin-theme='light'] {
+  --admin-heading-font: "Plus Jakarta Sans", Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.admin-body :is(h1, h2, h3, h4),
+.admin-body :is(
+  .admin-loader-panel h2,
+  .admin-login-brand h1,
+  .admin-topbar-brand h1,
+  .admin-hero-copy h2,
+  .admin-panel-head h3,
+  .admin-chart-title-row h3,
+  .admin-affiliate-head h4,
+  .admin-modal-head h3,
+  .admin-rotate-card h2,
+  .admin-sku-master-card h2,
+  .admin-sku-master-card h4,
+  .admin-request-card h4,
+  .admin-launch-header h1,
+  .admin-launch-card-title,
+  .admin-sales-recap-head h3,
+  .daily-sheet-title h2,
+  .pl-inline-title,
+  .pl-config-row-title,
+  .pl-editor-section-title,
+  .admin-context-period-mark strong,
+  .admin-notification-head h2,
+  .admin-notification-order-identity h3,
+  .admin-notification-result h3,
+  .admin-hard-set-subtitle,
+  .admin-hard-set-state strong,
+  .admin-hard-set-switch > strong,
+  .admin-rail-brand-wordmark
+) {
+  font-family: var(--admin-heading-font) !important;
+  letter-spacing: 0 !important;
+}
+
+.admin-body :is(h1, .admin-topbar-brand h1, .admin-login-brand h1, .admin-launch-header h1) {
+  font-weight: 700 !important;
+  line-height: 1.04;
+}
+
+.admin-body :is(h2, h3, h4, .admin-panel-head h3, .admin-modal-head h3, .admin-affiliate-head h4, .admin-request-card h4) {
+  font-weight: 700 !important;
+  line-height: 1.14;
+}
+
+.admin-body .admin-topbar-brand h1 {
+  font-size: clamp(1.85rem, 2.7vw, 2.85rem);
+}
+
+.admin-body .admin-hero-copy h2 {
+  font-size: clamp(1.75rem, 2.5vw, 2.75rem);
+  line-height: 1.08;
+  max-width: 14ch;
+}
+
+.admin-body .admin-panel-head h3 {
+  font-size: clamp(1.24rem, 1.65vw, 1.72rem);
+}
+
+.admin-body .admin-launch-header h1 {
+  font-size: clamp(2.8rem, 6vw, 5.2rem);
+  line-height: 1;
+}
+
+.admin-body .admin-launch-card-title {
+  font-size: clamp(1.65rem, 2.45vw, 2.55rem);
+  line-height: 1.08;
+}
+
+.admin-body .admin-launch-card-executive .admin-launch-card-title {
+  max-width: 760px;
+  font-size: clamp(2.55rem, 5.6vw, 4.9rem);
+  line-height: 1.04;
+}
+
+@media (max-width: 560px) {
+  .admin-body .admin-launch-header h1 {
+    font-size: clamp(2.7rem, 15vw, 3.8rem);
+  }
+
+  .admin-body .admin-launch-card-title,
+  .admin-body .admin-launch-card-executive .admin-launch-card-title {
+    font-size: clamp(2rem, 10vw, 2.65rem);
+  }
+}
+
+/* Shared topbar chrome for non-dashboard admin pages. */
+.admin-topbar {
+  position: relative;
+  z-index: 3200;
+}
+
+.admin-topbar-actions-shared {
+  --admin-topbar-control-height: 44px;
+  position: relative;
+  z-index: 4200;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+  gap: 10px;
+  min-width: 0;
+}
+
+.admin-topbar-actions-status {
+  flex-wrap: wrap;
+}
+
+.admin-topbar-actions-profit-loss {
+  flex-wrap: wrap;
+}
+
+.admin-topbar-actions-profit-loss .profit-loss-controls {
+  flex: 0 1 auto;
+}
+
+.admin-topbar-actions-shared > .admin-primary-btn,
+.admin-topbar-actions-shared > .admin-ghost-btn,
+.admin-topbar-actions-shared > .admin-link-btn,
+.admin-topbar-actions-shared > .admin-view-indicator {
+  height: var(--admin-topbar-control-height);
+  min-height: var(--admin-topbar-control-height);
+  padding-block: 0;
+}
+
+.admin-topbar-actions-shared .admin-menu-shell {
+  position: relative;
+  z-index: 6400;
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.admin-topbar-actions-shared .admin-menu-trigger,
+.admin-topbar-actions-shared .admin-search-shell.admin-search-shell-topbar {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: #111114;
+  color: rgba(255, 255, 255, 0.88);
+  box-shadow:
+    0 18px 60px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.09);
+}
+
+.admin-topbar-actions-shared .admin-menu-trigger {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--admin-topbar-control-height);
+  min-width: var(--admin-topbar-control-height);
+  height: var(--admin-topbar-control-height);
+  min-height: var(--admin-topbar-control-height);
+  padding: 0;
+  overflow: hidden;
+  border-radius: 999px;
+  letter-spacing: 0;
+  transition:
+    border-radius 0.34s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.16s ease,
+    border-color 0.18s ease,
+    background 0.18s ease;
+}
+
+.admin-topbar-actions-shared .admin-menu-trigger::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.09), transparent);
+}
+
+.admin-topbar-actions-shared .admin-menu-trigger:hover,
+.admin-topbar-actions-shared .admin-menu-trigger[aria-expanded="true"] {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: #151518;
+  color: #ffffff;
+  box-shadow:
+    0 18px 60px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.09);
+  filter: none;
+  transform: none;
+}
+
+.admin-topbar-actions-shared .admin-menu-trigger[aria-expanded="true"] {
+  border-radius: 22px;
+}
+
+.admin-topbar-actions-shared .admin-menu-trigger svg {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.2;
+  transition:
+    opacity 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.admin-topbar-actions-shared .admin-menu-close-icon {
+  opacity: 0;
+  transform: rotate(-90deg) scale(0.7);
+}
+
+.admin-topbar-actions-shared .admin-menu-trigger[aria-expanded="true"] .admin-menu-open-icon {
+  opacity: 0;
+  transform: rotate(90deg) scale(0.7);
+}
+
+.admin-topbar-actions-shared .admin-menu-trigger[aria-expanded="true"] .admin-menu-close-icon {
+  opacity: 1;
+  transform: rotate(0deg) scale(1);
+}
+
+.admin-topbar-actions-shared .admin-menu-panel {
+  right: 0;
+  left: auto;
+  top: 100%;
+  z-index: 6500;
+  width: min(270px, calc(100vw - 32px));
+  min-width: 0;
+  max-height: min(580px, calc(100vh - 140px));
+  gap: 4px;
+  padding: 10px;
+  overflow: hidden auto;
+  isolation: isolate;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  background: rgba(16, 16, 18, 0.96);
+  box-shadow:
+    0 28px 90px rgba(0, 0, 0, 0.62),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transform: translateY(14px);
+  transform-origin: top center;
+  animation: adminFloatingMenuIn 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+  animation-fill-mode: both;
+}
+
+.admin-topbar-actions-shared .admin-menu-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.07), transparent);
+}
+
+.admin-topbar-actions-shared .admin-menu-panel[hidden] {
+  display: none !important;
+}
+
+.admin-topbar-actions-shared .admin-menu-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 0 12px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: left;
+  letter-spacing: 0;
+  box-shadow: none;
+  filter: none;
+  transform: none;
+  animation: adminMenuItemIn 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.admin-topbar-actions-shared .admin-menu-item::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.075);
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+
+.admin-topbar-actions-shared .admin-menu-item:hover,
+.admin-topbar-actions-shared .admin-menu-item:focus-visible {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  box-shadow: none;
+  filter: none;
+  transform: none;
+}
+
+.admin-topbar-actions-shared .admin-menu-item:hover::before,
+.admin-topbar-actions-shared .admin-menu-item:focus-visible::before {
+  opacity: 1;
+}
+
+.admin-topbar-actions-shared .admin-menu-item > span {
+  position: relative;
+  z-index: 1;
+}
+
+.admin-topbar-actions-shared .admin-menu-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.055);
+  color: currentColor;
+}
+
+.admin-topbar-actions-shared .admin-menu-icon svg {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.admin-topbar-actions-shared .admin-menu-item strong {
+  color: currentColor;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.admin-topbar-actions-shared .admin-menu-item small {
+  display: none;
+}
+
+.admin-topbar-actions-shared .admin-menu-item-danger:hover,
+.admin-topbar-actions-shared .admin-menu-item-danger:focus-visible {
+  color: #ffd2d2;
+}
+
+.admin-topbar-actions-shared .admin-search-shell.admin-search-shell-topbar {
+  position: relative;
+  display: block;
+  flex: 0 0 var(--admin-topbar-control-height);
+  width: var(--admin-topbar-control-height);
+  min-width: var(--admin-topbar-control-height);
+  max-width: min(360px, calc(100vw - 118px));
+  height: var(--admin-topbar-control-height);
+  min-height: var(--admin-topbar-control-height);
+  padding: 0;
+  overflow: visible;
+  border-radius: 999px;
+  transition:
+    flex-basis 0.46s cubic-bezier(0.22, 1, 0.36, 1),
+    width 0.46s cubic-bezier(0.22, 1, 0.36, 1),
+    min-width 0.46s cubic-bezier(0.22, 1, 0.36, 1),
+    border-radius 0.34s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.18s ease,
+    background 0.18s ease;
+}
+
+.admin-topbar-actions-shared .admin-search-shell.admin-search-shell-topbar.is-search-open {
+  flex-basis: min(360px, calc(100vw - 118px));
+  width: min(360px, calc(100vw - 118px));
+  min-width: min(360px, calc(100vw - 118px));
+  border-radius: 22px;
+  border-color: rgba(255, 255, 255, 0.14);
+  background: #151518;
+  z-index: 6300;
+}
+
+.admin-topbar-actions-shared .admin-search-shell-topbar .admin-search-icon-button {
+  width: var(--admin-topbar-control-height);
+  height: var(--admin-topbar-control-height);
+}
+
+.admin-topbar-actions-shared .admin-search-shell-topbar .admin-search-icon-button svg,
+.admin-topbar-actions-shared .admin-search-shell-topbar .admin-search-close-button svg {
+  width: 22px;
+  height: 22px;
+}
+
+.admin-topbar-actions-shared .admin-search-shell-topbar .admin-search-close-button {
+  top: 6px;
+  right: 6px;
+  width: 36px;
+  height: 36px;
+}
+
+.admin-topbar-actions-shared .admin-search-shell-topbar .admin-search-form {
+  position: absolute;
+  inset: 0 50px 0 56px;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  width: auto;
+  min-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  clip-path: inset(0 100% 0 0);
+  transform: translateY(6px);
+  transition:
+    opacity 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+    clip-path 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.admin-topbar-actions-shared .admin-search-shell-topbar.is-search-open .admin-search-form {
+  opacity: 1;
+  pointer-events: auto;
+  clip-path: inset(0 0 0 0);
+  transform: translateY(0);
+}
+
+.admin-topbar-actions-shared .admin-search-shell-topbar .admin-search-input {
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #ffffff;
+  font-size: 0.98rem;
+  letter-spacing: 0;
+  outline: none;
+}
+
+.admin-topbar-actions-shared .admin-search-shell-topbar .admin-search-input::placeholder {
+  color: rgba(255, 255, 255, 0.36);
+}
+
+.admin-topbar-actions-shared .admin-search-shell-topbar .admin-search-results {
+  top: calc(100% + 12px);
+  right: 0;
+  left: auto;
+  z-index: 6500;
+  width: min(360px, calc(100vw - 32px));
+  max-height: min(460px, calc(100vh - 150px));
+  overflow: auto;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 18px;
+  background: rgba(17, 17, 20, 0.96);
+  box-shadow:
+    0 18px 60px rgba(0, 0, 0, 0.48),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.admin-topbar-actions-shared .admin-notification-button {
+  height: var(--admin-topbar-control-height);
+  min-height: var(--admin-topbar-control-height);
+  flex: 0 1 auto;
+  padding: 3px 13px 3px 4px;
+  box-shadow:
+    0 18px 54px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+.admin-topbar-actions-shared .admin-notification-button:hover {
+  transform: none;
+}
+
+.admin-topbar-actions-shared .admin-notification-button-icon {
+  width: 36px;
+  height: 36px;
+  flex-basis: 36px;
+}
+
+:root[data-admin-theme='light'] .admin-topbar-actions-shared .admin-menu-trigger,
+:root[data-admin-theme='light'] .admin-topbar-actions-shared .admin-search-shell.admin-search-shell-topbar,
+:root[data-admin-theme='light'] .admin-topbar-actions-shared .admin-notification-button {
+  border-color: rgba(15, 23, 42, 0.12);
+  background: #ffffff;
+  color: rgba(15, 23, 42, 0.82);
+  box-shadow:
+    0 16px 42px rgba(15, 23, 42, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+:root[data-admin-theme='light'] .admin-topbar-actions-shared .admin-menu-trigger:hover,
+:root[data-admin-theme='light'] .admin-topbar-actions-shared .admin-menu-trigger[aria-expanded="true"],
+:root[data-admin-theme='light'] .admin-topbar-actions-shared .admin-search-shell.admin-search-shell-topbar.is-search-open {
+  background: #f8fafc;
+  color: #0f172a;
+  border-color: rgba(15, 23, 42, 0.16);
+}
+
+:root[data-admin-theme='light'] .admin-topbar-actions-shared .admin-menu-panel,
+:root[data-admin-theme='light'] .admin-topbar-actions-shared .admin-search-shell-topbar .admin-search-results {
+  border-color: rgba(15, 23, 42, 0.12);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow:
+    0 28px 80px rgba(15, 23, 42, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+:root[data-admin-theme='light'] .admin-topbar-actions-shared .admin-menu-item {
+  color: rgba(15, 23, 42, 0.6);
+}
+
+:root[data-admin-theme='light'] .admin-topbar-actions-shared .admin-menu-item:hover,
+:root[data-admin-theme='light'] .admin-topbar-actions-shared .admin-menu-item:focus-visible {
+  color: #0f172a;
+}
+
+:root[data-admin-theme='light'] .admin-topbar-actions-shared .admin-menu-item::before,
+:root[data-admin-theme='light'] .admin-topbar-actions-shared .admin-menu-icon {
+  background: rgba(15, 23, 42, 0.06);
+}
+
+:root[data-admin-theme='light'] .admin-topbar-actions-shared .admin-search-shell-topbar .admin-search-input {
+  color: #0f172a;
+}
+
+:root[data-admin-theme='light'] .admin-topbar-actions-shared .admin-search-shell-topbar .admin-search-input::placeholder {
+  color: rgba(15, 23, 42, 0.42);
+}
+
+:root[data-admin-theme='light'] .admin-topbar-actions-shared .admin-notification-button-copy strong {
+  color: #0f172a;
+}
+
+:root[data-admin-theme='light'] .admin-topbar-actions-shared .admin-notification-button-copy small {
+  color: rgba(15, 23, 42, 0.48);
+}
+
+:root[data-admin-theme='light'] .admin-topbar-actions-shared .admin-notification-button-icon {
+  background: rgba(15, 23, 42, 0.06);
+}
+
+@media (max-width: 1080px) {
+  .admin-topbar-actions-shared .admin-notification-button-copy {
+    display: none;
+  }
+
+  .admin-topbar-actions-shared .admin-notification-button {
+    width: var(--admin-topbar-control-height);
+    padding: 3px;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 820px) {
+  .admin-topbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-topbar-actions-shared {
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .admin-topbar-actions-profit-loss .profit-loss-controls {
+    order: 3;
+    flex: 1 1 100%;
+    justify-content: flex-start;
+  }
+
+  .admin-topbar-actions-shared .admin-menu-panel {
+    position: absolute;
+    right: 0;
+    width: min(270px, calc(100vw - 24px));
+    max-height: calc(100svh - 150px);
+  }
+
+  .admin-topbar-actions-shared .admin-search-shell.admin-search-shell-topbar.is-search-open {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .admin-topbar-actions-shared .admin-search-shell-topbar .admin-search-results {
+    width: 100%;
   }
 }

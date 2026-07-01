@@ -35,7 +35,8 @@ $apiDocs = [
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
     <title>API Ingest Workspace | Jenang Gemi Executive Dashboard</title>
     <meta name="robots" content="noindex,nofollow">
-    <link rel="icon" type="image/svg+xml" href="/assets/admin-icons/executive-dashboard.svg">
+    <link rel="icon" type="image/svg+xml" href="/assets/admin-icons/executive-dashboard-favicon-light.svg" media="(prefers-color-scheme: light)">
+    <link rel="icon" type="image/svg+xml" href="/assets/admin-icons/executive-dashboard-favicon-dark.svg" media="(prefers-color-scheme: dark)">
     <link rel="prefetch" href="../api/sales/?year=<?php echo urlencode($dashboardPrefetchYear); ?>" as="fetch">
     <link rel="stylesheet" href="../admin.css?v=<?php echo urlencode($adminCssVersion ?: '1'); ?>">
 </head>
@@ -53,10 +54,7 @@ $apiDocs = [
                         <h1>Marketplace + Webhook Lab</h1>
                         <p>Workspace for API ingest experiments, webhook diagnostics, conversion parsing, and other isolated integrations that should not crowd the executive homepage.</p>
                     </div>
-                    <div class="admin-topbar-actions">
-                        <a class="admin-ghost-btn admin-link-btn" href="../dashboard/?view=overview">Back to Homepage</a>
-                        <a class="admin-primary-btn admin-link-btn" href="../logout/">Lock Dashboard</a>
-                    </div>
+                    <?php render_admin_topbar_actions(); ?>
                 </header>
 
                 <main class="admin-layout">
@@ -269,6 +267,8 @@ Paket yang dipilih: 30 Sachet</textarea>
             </div>
         </div>
     </div>
+    <?php render_admin_notification_drawer(); ?>
+    <?php render_admin_chrome_script(); ?>
     <script>
         (() => {
             window.addEventListener('load', () => {

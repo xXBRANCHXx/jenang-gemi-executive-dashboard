@@ -20,7 +20,8 @@ $dashboardPrefetchYear = (new DateTimeImmutable('now', new DateTimeZone('Asia/Ja
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
     <title>API Health | Jenang Gemi Executive Dashboard</title>
     <meta name="robots" content="noindex,nofollow">
-    <link rel="icon" type="image/svg+xml" href="/assets/admin-icons/executive-dashboard.svg">
+    <link rel="icon" type="image/svg+xml" href="/assets/admin-icons/executive-dashboard-favicon-light.svg" media="(prefers-color-scheme: light)">
+    <link rel="icon" type="image/svg+xml" href="/assets/admin-icons/executive-dashboard-favicon-dark.svg" media="(prefers-color-scheme: dark)">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="prefetch" href="../api/sales/?year=<?php echo urlencode($dashboardPrefetchYear); ?>" as="fetch">
@@ -41,19 +42,10 @@ $dashboardPrefetchYear = (new DateTimeImmutable('now', new DateTimeZone('Asia/Ja
                         <h1>API Health</h1>
                         <p data-api-health-updated>Waiting for first check</p>
                     </div>
-                    <div class="admin-topbar-actions">
+                    <div class="admin-topbar-actions admin-topbar-actions-shared admin-topbar-actions-status">
                         <div class="admin-view-indicator" data-api-health-status>Checking</div>
                         <button type="button" class="admin-primary-btn" data-api-health-refresh>Run Checks</button>
-                        <div class="admin-menu-shell" data-menu-shell>
-                            <button type="button" class="admin-ghost-btn admin-menu-trigger" data-menu-trigger aria-expanded="false" aria-label="Open dashboard menu">...</button>
-                            <div class="admin-menu-panel" data-menu-panel hidden>
-                                <a class="admin-menu-item admin-link-btn" href="../dashboard/?view=overview">Executive Dashboard</a>
-                                <a class="admin-menu-item admin-link-btn" href="../affiliate-program/">Affiliate Program</a>
-                                <a class="admin-menu-item admin-link-btn" href="../partner-program/">Partner Program</a>
-                                <a class="admin-menu-item admin-link-btn" href="../sku-db/">SKU Database</a>
-                                <a class="admin-menu-item admin-link-btn" href="../logout/">Lock Dashboard</a>
-                            </div>
-                        </div>
+                        <?php render_admin_topbar_action_buttons(); ?>
                     </div>
                 </header>
 
@@ -131,6 +123,8 @@ $dashboardPrefetchYear = (new DateTimeImmutable('now', new DateTimeZone('Asia/Ja
             }).catch(() => {});
         }, { once: true });
     </script>
+    <?php render_admin_notification_drawer(); ?>
+    <?php render_admin_chrome_script(); ?>
     <script type="module" src="../api-health.js?v=<?php echo urlencode($apiHealthJsVersion ?: '1'); ?>"></script>
 </body>
 </html>

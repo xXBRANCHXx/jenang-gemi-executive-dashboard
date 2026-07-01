@@ -19,7 +19,8 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/profit-loss.js');
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Profit and Loss | Executive Dashboard</title>
     <meta name="robots" content="noindex,nofollow">
-    <link rel="icon" type="image/png" href="https://jenanggemi.com/Media/Jenang%20Gemi%20Website%20Logo.png">
+    <link rel="icon" type="image/svg+xml" href="/assets/admin-icons/executive-dashboard-favicon-light.svg" media="(prefers-color-scheme: light)">
+    <link rel="icon" type="image/svg+xml" href="/assets/admin-icons/executive-dashboard-favicon-dark.svg" media="(prefers-color-scheme: dark)">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap">
@@ -36,20 +37,23 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/profit-loss.js');
                     <h1>Profit &amp; Loss</h1>
                     <p><span data-pl-period-label>Loading period</span> · <span data-pl-sync-label>Connecting to live sales</span></p>
                 </div>
-                <div class="profit-loss-controls">
-                    <label class="pl-compact-control">
-                        <span>Year <i title="Choose the year for this P&amp;L. Red stars mark months that came from the imported workbook instead of live marketplace rows.">i</i></span>
-                        <select data-pl-year></select>
-                    </label>
-                    <label class="pl-compact-control">
-                        <span>Period <i title="Choose one month or year to date. Pick a single month when you need to edit SKU-level costs; year to date is for the rolled-up view.">i</i></span>
-                        <select data-pl-month>
-                            <option value="0">Year to date</option>
-                        </select>
-                    </label>
-                    <button type="button" class="pl-icon-button" data-pl-refresh aria-label="Refresh live data" title="Refresh live sales and saved costs">
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>
-                    </button>
+                <div class="admin-topbar-actions admin-topbar-actions-shared admin-topbar-actions-profit-loss">
+                    <div class="profit-loss-controls">
+                        <label class="pl-compact-control">
+                            <span>Year <i title="Choose the year for this P&amp;L. Red stars mark months that came from the imported workbook instead of live marketplace rows.">i</i></span>
+                            <select data-pl-year></select>
+                        </label>
+                        <label class="pl-compact-control">
+                            <span>Period <i title="Choose one month or year to date. Pick a single month when you need to edit SKU-level costs; year to date is for the rolled-up view.">i</i></span>
+                            <select data-pl-month>
+                                <option value="0">Year to date</option>
+                            </select>
+                        </label>
+                        <button type="button" class="pl-icon-button" data-pl-refresh aria-label="Refresh live data" title="Refresh live sales and saved costs">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>
+                        </button>
+                    </div>
+                    <?php render_admin_topbar_action_buttons(); ?>
                 </div>
             </header>
 
@@ -238,6 +242,8 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/profit-loss.js');
 
     <div class="pl-toast" data-pl-toast hidden></div>
 </div>
+<?php render_admin_notification_drawer(); ?>
+<?php render_admin_chrome_script('../'); ?>
 <script type="module" src="./profit-loss.js?v=<?php echo urlencode($pageJsVersion ?: '1'); ?>"></script>
 </body>
 </html>
