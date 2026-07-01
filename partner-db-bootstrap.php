@@ -71,6 +71,10 @@ function jg_partner_db_ensure_schema(PDO $pdo): void
             pricing_json LONGTEXT NULL DEFAULT NULL,
             password_hash VARCHAR(255) NOT NULL DEFAULT "",
             password_updated_at DATETIME NULL DEFAULT NULL,
+            password_reset_key_hash VARCHAR(255) NOT NULL DEFAULT "",
+            password_reset_key_created_at DATETIME NULL DEFAULT NULL,
+            password_reset_token_hash VARCHAR(255) NOT NULL DEFAULT "",
+            password_reset_token_expires_at DATETIME NULL DEFAULT NULL,
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL,
             UNIQUE KEY uniq_partner_profiles_slug (partner_slug),
@@ -89,5 +93,17 @@ function jg_partner_db_ensure_schema(PDO $pdo): void
     }
     if (!isset($columns['password_updated_at'])) {
         $pdo->exec('ALTER TABLE partner_profiles ADD COLUMN password_updated_at DATETIME NULL DEFAULT NULL AFTER password_hash');
+    }
+    if (!isset($columns['password_reset_key_hash'])) {
+        $pdo->exec('ALTER TABLE partner_profiles ADD COLUMN password_reset_key_hash VARCHAR(255) NOT NULL DEFAULT "" AFTER password_updated_at');
+    }
+    if (!isset($columns['password_reset_key_created_at'])) {
+        $pdo->exec('ALTER TABLE partner_profiles ADD COLUMN password_reset_key_created_at DATETIME NULL DEFAULT NULL AFTER password_reset_key_hash');
+    }
+    if (!isset($columns['password_reset_token_hash'])) {
+        $pdo->exec('ALTER TABLE partner_profiles ADD COLUMN password_reset_token_hash VARCHAR(255) NOT NULL DEFAULT "" AFTER password_reset_key_created_at');
+    }
+    if (!isset($columns['password_reset_token_expires_at'])) {
+        $pdo->exec('ALTER TABLE partner_profiles ADD COLUMN password_reset_token_expires_at DATETIME NULL DEFAULT NULL AFTER password_reset_token_hash');
     }
 }

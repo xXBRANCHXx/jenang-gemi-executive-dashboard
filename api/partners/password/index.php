@@ -48,7 +48,31 @@ function jg_partner_password_verify(array $partner, string $password): bool
     return hash_equals((string) ($partner['code'] ?? ''), $password);
 }
 
-function jg_partner_password_change_mysql(string $code, string $currentPassword, string $newPassword): void
+function jg_partner_password_verify_reset_token(array $partner, string $resetToken): bool
+{
+    $tokenHash = (string) ($partner['password_reset_token_hash'] ?? '');
+    if ($tokenHash === '' || $resetToken === '') {
+        return false;
+    }
+
+    $expiresAt = strtotime((string) ($partner['password_reset_token_expires_at'] ?? ''));
+    if ($expiresAt > 0 && time() > $expiresAt) {
+        return false;
+    }
+
+    return hash_equals($tokenHash, hash('sha256', $resetToken));
+}
+
+function jg_partner_password_authorized(array $partner, string $currentPassword, string $resetToken): bool
+{
+    if (jg_partner_password_verify_reset_token($partner, $resetToken)) {
+        return true;
+    }
+
+    return $currentPassword !== '' && jg_partner_password_verify($partner, $currentPassword);
+}
+
+function jg_partner_password_change_mysql(string $code, string $currentPassword, string $newPassword, string $resetToken): void
 {
     $pdo = jg_partner_db();
     if (!$pdo instanceof PDO) {
@@ -56,14 +80,14 @@ function jg_partner_password_change_mysql(string $code, string $currentPassword,
     }
 
     $stmt = $pdo->prepare(
-        'SELECT code, password_hash
+        'SELECT code, password_hash, password_reset_token_hash, password_reset_token_expires_at
          FROM partner_profiles
          WHERE code = :code
          LIMIT 1'
     );
     $stmt->execute([':code' => $code]);
     $partner = $stmt->fetch();
-    if (!is_array($partner) || !jg_partner_password_verify($partner, $currentPassword)) {
+    if (!is_array($partner) || !jg_partner_password_authorized($partner, $currentPassword, $resetToken)) {
         jg_partner_password_response(['error' => 'Current password is incorrect.'], 401);
     }
 
@@ -72,6 +96,10 @@ function jg_partner_password_change_mysql(string $code, string $currentPassword,
         'UPDATE partner_profiles
          SET password_hash = :password_hash,
              password_updated_at = :password_updated_at,
+             password_reset_key_hash = "",
+             password_reset_key_created_at = NULL,
+             password_reset_token_hash = "",
+             password_reset_token_expires_at = NULL,
              updated_at = :updated_at
          WHERE code = :code'
     );
@@ -83,7 +111,7 @@ function jg_partner_password_change_mysql(string $code, string $currentPassword,
     ]);
 }
 
-function jg_partner_password_change_file(string $code, string $currentPassword, string $newPassword): void
+function jg_partner_password_change_file(string $code, string $currentPassword, string $newPassword, string $resetToken): void
 {
     $path = jg_partner_password_store_path();
     $database = is_file($path) ? json_decode((string) @file_get_contents($path), true) : ['partners' => []];
@@ -98,12 +126,16 @@ function jg_partner_password_change_file(string $code, string $currentPassword, 
         if ((string) ($partner['code'] ?? '') !== $code) {
             continue;
         }
-        if (!jg_partner_password_verify($partner, $currentPassword)) {
+        if (!jg_partner_password_authorized($partner, $currentPassword, $resetToken)) {
             jg_partner_password_response(['error' => 'Current password is incorrect.'], 401);
         }
 
         $partner['password_hash'] = password_hash($newPassword, PASSWORD_DEFAULT);
         $partner['password_updated_at'] = $now;
+        $partner['password_reset_key_hash'] = '';
+        $partner['password_reset_key_created_at'] = '';
+        $partner['password_reset_token_hash'] = '';
+        $partner['password_reset_token_expires_at'] = '';
         $partner['updated_at'] = $now;
         $matched = true;
         break;
@@ -129,17 +161,18 @@ if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
 $request = jg_partner_password_request();
 $code = strtoupper(trim((string) ($request['code'] ?? '')));
 $currentPassword = (string) ($request['current_password'] ?? '');
+$resetToken = (string) ($request['reset_token'] ?? '');
 $newPassword = jg_partner_password_validate((string) ($request['new_password'] ?? ''));
 
-if ($code === '' || $currentPassword === '') {
+if ($code === '' || ($currentPassword === '' && $resetToken === '')) {
     jg_partner_password_response(['error' => 'Partner code and current password are required.'], 422);
 }
 
 try {
     if (jg_partner_db() instanceof PDO) {
-        jg_partner_password_change_mysql($code, $currentPassword, $newPassword);
+        jg_partner_password_change_mysql($code, $currentPassword, $newPassword, $resetToken);
     } else {
-        jg_partner_password_change_file($code, $currentPassword, $newPassword);
+        jg_partner_password_change_file($code, $currentPassword, $newPassword, $resetToken);
     }
 } catch (Throwable) {
     jg_partner_password_response(['error' => 'Unable to update password.'], 500);

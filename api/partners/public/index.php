@@ -330,7 +330,13 @@ function jg_public_partner_enrich(array $partner, array $catalog): array
     $partner['pricing'] = $pricing;
     $partner['selected_sku_records'] = $selectedSkus;
     $partner['store_path'] = '/' . trim((string) ($partner['partner_slug'] ?? ''), '/') . '/';
-    unset($partner['password_hash']);
+    unset(
+        $partner['password_hash'],
+        $partner['password_reset_key_hash'],
+        $partner['password_reset_key_created_at'],
+        $partner['password_reset_token_hash'],
+        $partner['password_reset_token_expires_at']
+    );
 
     return $partner;
 }

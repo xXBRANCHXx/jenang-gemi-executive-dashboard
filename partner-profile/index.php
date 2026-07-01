@@ -106,6 +106,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                                                 <input type="text" name="portal_password" maxlength="160" placeholder="Configured" autocomplete="new-password">
                                                 <button type="button" class="partner-profile-icon-btn" data-generate-portal-password aria-label="Generate portal password">Key</button>
                                             </div>
+                                            <button type="button" class="admin-ghost-btn" data-create-password-reset-key>Create one-time reset key</button>
                                             <small data-note-password>Not configured</small>
                                         </label>
                                         <label>

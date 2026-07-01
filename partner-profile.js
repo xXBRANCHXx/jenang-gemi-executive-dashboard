@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const deleteButton = document.querySelector('[data-delete-profile]');
   const regenerateCodeButton = document.querySelector('[data-regenerate-partner-code]');
   const generatePortalPasswordButton = document.querySelector('[data-generate-portal-password]');
+  const createPasswordResetKeyButton = document.querySelector('[data-create-password-reset-key]');
   const copyCodeButton = document.querySelector('[data-copy-partner-code]');
   const saveButtons = document.querySelectorAll('[data-save-profile]');
   const portalLinks = document.querySelectorAll('[data-partner-portal-link]');
@@ -398,9 +399,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (partnerName) partnerName.textContent = `Edit ${title}`;
     if (partnerCodeBadge) partnerCodeBadge.textContent = partner.code || 'Partner';
     if (passwordNote) {
-      passwordNote.textContent = partner.password_configured
+      const passwordStatus = partner.password_configured
         ? `Configured${partner.password_updated_at ? `; updated ${partner.password_updated_at}` : ''}`
         : 'Not configured. Set a new password here.';
+      passwordNote.textContent = partner.password_reset_key_active
+        ? `${passwordStatus}. One-time reset key active${partner.password_reset_key_created_at ? ` since ${partner.password_reset_key_created_at}` : ''}.`
+        : passwordStatus;
     }
 
     const portalHref = `https://partner.jenanggemi.com${partner.store_path || '/'}`;
@@ -424,6 +428,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (passwordNote) {
       passwordNote.textContent = `Password reset saved: ${password}`;
     }
+  };
+
+  const showCreatedResetKey = (resetKey) => {
+    if (!resetKey || !passwordNote) return;
+    passwordNote.textContent = `One-time reset key: ${resetKey}. It is valid for 24 hours and will only be shown here once.`;
   };
 
   const loadPartner = async () => {
@@ -493,6 +502,36 @@ document.addEventListener('DOMContentLoaded', () => {
   generatePortalPasswordButton?.addEventListener('click', () => {
     if (!(form instanceof HTMLFormElement)) return;
     form.elements.portal_password.value = generatePortalPassword();
+  });
+
+  createPasswordResetKeyButton?.addEventListener('click', async () => {
+    const code = String(state.currentPartnerCode || '').trim();
+    if (!code) {
+      setError('Save the partner profile before creating a reset key.');
+      return;
+    }
+
+    setError('');
+    try {
+      createPasswordResetKeyButton.disabled = true;
+      createPasswordResetKeyButton.textContent = 'Creating...';
+      const payload = await requestJson(endpoint, {
+        method: 'POST',
+        body: {
+          action: 'create_password_reset_key',
+          code
+        }
+      });
+      if (payload.partner) {
+        fillForm(payload.partner);
+      }
+      showCreatedResetKey(payload.password_reset_key || '');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Unable to create reset key.');
+    } finally {
+      createPasswordResetKeyButton.disabled = false;
+      createPasswordResetKeyButton.textContent = 'Create one-time reset key';
+    }
   });
 
   copyCodeButton?.addEventListener('click', async () => {

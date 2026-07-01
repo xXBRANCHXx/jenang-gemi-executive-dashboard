@@ -47,7 +47,9 @@ function jg_partner_read_database(): array
     $pdo = jg_partner_db();
     if ($pdo instanceof PDO) {
         $stmt = $pdo->query(
-            'SELECT code, name, partner_slug, notes, selected_skus_json, pricing_json, password_hash, password_updated_at, created_at, updated_at
+            'SELECT code, name, partner_slug, notes, selected_skus_json, pricing_json, password_hash, password_updated_at,
+                    password_reset_key_hash, password_reset_key_created_at, password_reset_token_hash, password_reset_token_expires_at,
+                    created_at, updated_at
              FROM partner_profiles
              ORDER BY updated_at DESC, code ASC'
         );
@@ -68,6 +70,10 @@ function jg_partner_read_database(): array
                 'pricing' => is_array($pricing) ? $pricing : [],
                 'password_hash' => (string) ($row['password_hash'] ?? ''),
                 'password_updated_at' => (string) ($row['password_updated_at'] ?? ''),
+                'password_reset_key_hash' => (string) ($row['password_reset_key_hash'] ?? ''),
+                'password_reset_key_created_at' => (string) ($row['password_reset_key_created_at'] ?? ''),
+                'password_reset_token_hash' => (string) ($row['password_reset_token_hash'] ?? ''),
+                'password_reset_token_expires_at' => (string) ($row['password_reset_token_expires_at'] ?? ''),
                 'created_at' => (string) ($row['created_at'] ?? ''),
                 'updated_at' => (string) ($row['updated_at'] ?? ''),
             ];
@@ -126,9 +132,13 @@ function jg_partner_write_database(array $database): void
             $pdo->exec('DELETE FROM partner_profiles');
             $stmt = $pdo->prepare(
                 'INSERT INTO partner_profiles
-                    (code, name, partner_slug, notes, selected_skus_json, pricing_json, password_hash, password_updated_at, created_at, updated_at)
+                    (code, name, partner_slug, notes, selected_skus_json, pricing_json, password_hash, password_updated_at,
+                     password_reset_key_hash, password_reset_key_created_at, password_reset_token_hash, password_reset_token_expires_at,
+                     created_at, updated_at)
                  VALUES
-                    (:code, :name, :partner_slug, :notes, :selected_skus_json, :pricing_json, :password_hash, :password_updated_at, :created_at, :updated_at)'
+                    (:code, :name, :partner_slug, :notes, :selected_skus_json, :pricing_json, :password_hash, :password_updated_at,
+                     :password_reset_key_hash, :password_reset_key_created_at, :password_reset_token_hash, :password_reset_token_expires_at,
+                     :created_at, :updated_at)'
             );
 
             foreach ($database['partners'] ?? [] as $partner) {
@@ -144,6 +154,10 @@ function jg_partner_write_database(array $database): void
                     ':pricing_json' => json_encode((array) ($partner['pricing'] ?? []), JSON_UNESCAPED_SLASHES),
                     ':password_hash' => (string) ($partner['password_hash'] ?? ''),
                     ':password_updated_at' => trim((string) ($partner['password_updated_at'] ?? '')) !== '' ? gmdate('Y-m-d H:i:s', strtotime((string) ($partner['password_updated_at'] ?? jg_partner_now()))) : null,
+                    ':password_reset_key_hash' => (string) ($partner['password_reset_key_hash'] ?? ''),
+                    ':password_reset_key_created_at' => trim((string) ($partner['password_reset_key_created_at'] ?? '')) !== '' ? gmdate('Y-m-d H:i:s', strtotime((string) ($partner['password_reset_key_created_at'] ?? jg_partner_now()))) : null,
+                    ':password_reset_token_hash' => (string) ($partner['password_reset_token_hash'] ?? ''),
+                    ':password_reset_token_expires_at' => trim((string) ($partner['password_reset_token_expires_at'] ?? '')) !== '' ? gmdate('Y-m-d H:i:s', strtotime((string) ($partner['password_reset_token_expires_at'] ?? jg_partner_now()))) : null,
                     ':created_at' => gmdate('Y-m-d H:i:s', strtotime((string) ($partner['created_at'] ?? jg_partner_now()))),
                     ':updated_at' => gmdate('Y-m-d H:i:s', strtotime((string) ($partner['updated_at'] ?? jg_partner_now()))),
                 ]);
@@ -226,6 +240,22 @@ function jg_partner_normalize_password(mixed $value): string
     }
 
     return $password;
+}
+
+function jg_partner_generate_password_reset_key(): string
+{
+    $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    $segments = ['JGR'];
+
+    for ($segmentIndex = 0; $segmentIndex < 3; $segmentIndex += 1) {
+        $segment = '';
+        for ($charIndex = 0; $charIndex < 4; $charIndex += 1) {
+            $segment .= $alphabet[random_int(0, strlen($alphabet) - 1)];
+        }
+        $segments[] = $segment;
+    }
+
+    return implode('-', $segments);
 }
 
 function jg_partner_slugify(string $value): string
@@ -593,7 +623,10 @@ function jg_partner_enrich_record(array $partner, array $catalog): array
     $passwordHash = (string) ($partner['password_hash'] ?? '');
     $partner['password_configured'] = $passwordHash !== '';
     $partner['password_updated_at'] = (string) ($partner['password_updated_at'] ?? '');
+    $partner['password_reset_key_active'] = trim((string) ($partner['password_reset_key_hash'] ?? '')) !== '';
+    $partner['password_reset_key_created_at'] = (string) ($partner['password_reset_key_created_at'] ?? '');
     unset($partner['password_hash']);
+    unset($partner['password_reset_key_hash'], $partner['password_reset_token_hash'], $partner['password_reset_token_expires_at']);
     $partner['selected_sku_records'] = $selectedSkus;
     $partner['store_path'] = '/' . trim((string) ($partner['partner_slug'] ?? ''), '/') . '/';
 
@@ -692,9 +725,17 @@ function jg_partner_build_record(array $payload, array $database, array $catalog
     $portalPassword = jg_partner_normalize_password($payload['portal_password'] ?? '');
     $passwordHash = (string) ($existing['password_hash'] ?? '');
     $passwordUpdatedAt = (string) ($existing['password_updated_at'] ?? '');
+    $resetKeyHash = (string) ($existing['password_reset_key_hash'] ?? '');
+    $resetKeyCreatedAt = (string) ($existing['password_reset_key_created_at'] ?? '');
+    $resetTokenHash = (string) ($existing['password_reset_token_hash'] ?? '');
+    $resetTokenExpiresAt = (string) ($existing['password_reset_token_expires_at'] ?? '');
     if ($portalPassword !== '') {
         $passwordHash = password_hash($portalPassword, PASSWORD_DEFAULT);
         $passwordUpdatedAt = $updatedAt;
+        $resetKeyHash = '';
+        $resetKeyCreatedAt = '';
+        $resetTokenHash = '';
+        $resetTokenExpiresAt = '';
     } elseif ($existing === null) {
         jg_partner_fail('Initial portal password is required.');
     }
@@ -713,12 +754,16 @@ function jg_partner_build_record(array $payload, array $database, array $catalog
         'pricing' => $pricing,
         'password_hash' => $passwordHash,
         'password_updated_at' => $passwordUpdatedAt,
+        'password_reset_key_hash' => $resetKeyHash,
+        'password_reset_key_created_at' => $resetKeyCreatedAt,
+        'password_reset_token_hash' => $resetTokenHash,
+        'password_reset_token_expires_at' => $resetTokenExpiresAt,
         'created_at' => $createdAt,
         'updated_at' => $updatedAt,
     ];
 }
 
-function jg_partner_response(array $database, array $catalog, ?array $partner = null): void
+function jg_partner_response(array $database, array $catalog, ?array $partner = null, array $extra = []): void
 {
     $enrichedPartners = array_map(
         static fn (array $row): array => jg_partner_enrich_record($row, $catalog),
@@ -735,6 +780,10 @@ function jg_partner_response(array $database, array $catalog, ?array $partner = 
 
     if ($partner !== null) {
         $response['partner'] = jg_partner_enrich_record($partner, $catalog);
+    }
+
+    foreach ($extra as $key => $value) {
+        $response[$key] = $value;
     }
 
     echo json_encode($response, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
@@ -804,6 +853,39 @@ if ($action === 'update') {
     jg_partner_touch_meta($database);
     jg_partner_write_database($database);
     jg_partner_response($database, $skuCatalog, $database['partners'][$matchIndex]);
+}
+
+if ($action === 'create_password_reset_key') {
+    $code = trim((string) ($request['code'] ?? ''));
+    if ($code === '') {
+        jg_partner_fail('Partner code is required.');
+    }
+
+    $matchIndex = null;
+    foreach ($database['partners'] ?? [] as $index => $partner) {
+        if ((string) ($partner['code'] ?? '') === $code) {
+            $matchIndex = $index;
+            break;
+        }
+    }
+
+    if ($matchIndex === null || !is_array($database['partners'][$matchIndex] ?? null)) {
+        jg_partner_fail('Partner not found.', 404);
+    }
+
+    $now = jg_partner_now();
+    $resetKey = jg_partner_generate_password_reset_key();
+    $database['partners'][$matchIndex]['password_reset_key_hash'] = password_hash($resetKey, PASSWORD_DEFAULT);
+    $database['partners'][$matchIndex]['password_reset_key_created_at'] = $now;
+    $database['partners'][$matchIndex]['password_reset_token_hash'] = '';
+    $database['partners'][$matchIndex]['password_reset_token_expires_at'] = '';
+    $database['partners'][$matchIndex]['updated_at'] = $now;
+    jg_partner_touch_meta($database);
+    jg_partner_write_database($database);
+    jg_partner_response($database, $skuCatalog, $database['partners'][$matchIndex], [
+        'password_reset_key' => $resetKey,
+        'password_reset_key_expires_in_hours' => 24,
+    ]);
 }
 
 if ($action === 'delete') {
