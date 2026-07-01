@@ -18192,3 +18192,203 @@ body:has(.admin-app[data-sku-db])::after {
     padding: 0;
   }
 }
+
+/* Homepage chrome on every admin page. */
+.admin-app.admin-app-suite [data-admin-home-chrome] {
+  gap: 14px;
+}
+
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-notification-button,
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-menu-trigger,
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell.admin-search-shell-topbar,
+:root[data-admin-theme='dark'] .admin-app.admin-app-suite [data-admin-home-chrome] .admin-notification-button,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite [data-admin-home-chrome] .admin-notification-button,
+:root[data-admin-theme='dark'] .admin-app.admin-app-suite [data-admin-home-chrome] .admin-menu-trigger,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite [data-admin-home-chrome] .admin-menu-trigger,
+:root[data-admin-theme='dark'] .admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell.admin-search-shell-topbar,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell.admin-search-shell-topbar {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--admin-text);
+  box-shadow: none;
+  filter: none;
+}
+
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-notification-button,
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-notification-button:hover {
+  width: var(--admin-topbar-control-height);
+  min-width: var(--admin-topbar-control-height);
+  min-height: var(--admin-topbar-control-height);
+  padding: 0;
+  overflow: visible;
+  justify-content: center;
+  transform: none;
+}
+
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-notification-button-copy {
+  display: none;
+}
+
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-notification-button-icon {
+  width: var(--admin-topbar-control-height);
+  height: var(--admin-topbar-control-height);
+  flex-basis: var(--admin-topbar-control-height);
+  border-radius: 0;
+  background: transparent;
+}
+
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-notification-button-icon > span {
+  top: 1px;
+  right: 1px;
+  background: var(--admin-text);
+  color: var(--admin-bg);
+}
+
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-menu-trigger::before,
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-surface,
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-surface-glow,
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-sweep,
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-focus-ring {
+  display: none;
+}
+
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-menu-trigger:hover,
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-menu-trigger[aria-expanded="true"] {
+  border: 0;
+  background: transparent;
+  color: var(--admin-text);
+  box-shadow: none;
+}
+
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-menu-panel,
+:root[data-admin-theme='dark'] .admin-app.admin-app-suite [data-admin-home-chrome] .admin-menu-panel,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite [data-admin-home-chrome] .admin-menu-panel {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--admin-text);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
+  scrollbar-width: thin;
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite [data-admin-home-chrome] .admin-menu-panel {
+  scrollbar-color: rgba(15, 23, 42, 0.28) transparent;
+}
+
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-menu-panel::before,
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-menu-panel .admin-menu-item::before {
+  display: none;
+}
+
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-menu-panel .admin-menu-item,
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-menu-panel .admin-menu-item:hover,
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-menu-panel .admin-menu-item.is-active,
+:root[data-admin-theme] .admin-app.admin-app-suite [data-admin-home-chrome] .admin-menu-panel .admin-menu-item,
+:root[data-admin-theme] .admin-app.admin-app-suite [data-admin-home-chrome] .admin-menu-panel .admin-menu-item:hover {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-menu-panel .admin-menu-item:hover {
+  color: var(--admin-text);
+}
+
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-menu-panel .admin-menu-icon,
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-menu-panel .admin-menu-item.is-active .admin-menu-icon {
+  background: transparent;
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite [data-admin-home-chrome] .admin-menu-panel .admin-menu-item,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite [data-admin-home-chrome] .admin-menu-panel .admin-menu-item:hover,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite [data-admin-home-chrome] .admin-menu-panel .admin-menu-item.is-active,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite [data-admin-home-chrome] .admin-menu-panel .admin-menu-icon,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite [data-admin-home-chrome] .admin-menu-panel .admin-menu-item strong {
+  color: #050505;
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite [data-admin-home-chrome] .admin-menu-panel .admin-menu-item small {
+  color: rgba(5, 5, 5, 0.62);
+}
+
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell.admin-search-shell-topbar {
+  overflow: visible;
+}
+
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell.admin-search-shell-topbar::after {
+  content: "";
+  position: absolute;
+  right: 44px;
+  bottom: 4px;
+  left: 48px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0;
+  transform: scaleX(0.2);
+  transform-origin: left center;
+  transition: opacity 220ms ease, transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell.admin-search-shell-topbar.is-search-open,
+:root[data-admin-theme='dark'] .admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell.admin-search-shell-topbar.is-search-open,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell.admin-search-shell-topbar.is-search-open {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell.admin-search-shell-topbar.is-search-open::after {
+  opacity: 0.34;
+  transform: scaleX(1);
+}
+
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell-topbar .admin-search-icon-button,
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell-topbar .admin-search-close-button {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--admin-text);
+  box-shadow: none;
+}
+
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell-topbar .admin-search-input,
+:root[data-admin-theme='dark'] .admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell-topbar .admin-search-input,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell-topbar .admin-search-input {
+  border: 0;
+  background: transparent;
+  color: var(--admin-text);
+  box-shadow: none;
+}
+
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell-topbar .admin-search-input::placeholder {
+  color: var(--admin-muted);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell-topbar .admin-search-results {
+  border-color: rgba(15, 23, 42, 0.1);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.12);
+}
+
+@media (max-width: 820px) {
+  .admin-app.admin-app-suite [data-admin-home-chrome] {
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell.admin-search-shell-topbar.is-search-open {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell-topbar .admin-search-results {
+    width: 100%;
+  }
+}

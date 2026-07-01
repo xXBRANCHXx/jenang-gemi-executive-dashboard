@@ -42,7 +42,7 @@ $dashboardPrefetchYear = (new DateTimeImmutable('now', new DateTimeZone('Asia/Ja
                         <h1>API Health</h1>
                         <p data-api-health-updated>Waiting for first check</p>
                     </div>
-                    <div class="admin-topbar-actions admin-topbar-actions-shared admin-topbar-actions-status">
+                    <div class="admin-topbar-actions admin-topbar-actions-status" data-admin-home-chrome>
                         <div class="admin-view-indicator" data-api-health-status>Checking</div>
                         <button type="button" class="admin-primary-btn" data-api-health-refresh>Run Checks</button>
                         <?php render_admin_topbar_action_buttons(); ?>

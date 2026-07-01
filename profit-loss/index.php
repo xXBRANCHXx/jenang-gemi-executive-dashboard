@@ -37,7 +37,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/profit-loss.js');
                     <h1>Profit &amp; Loss</h1>
                     <p><span data-pl-period-label>Loading period</span> · <span data-pl-sync-label>Connecting to live sales</span></p>
                 </div>
-                <div class="admin-topbar-actions admin-topbar-actions-shared admin-topbar-actions-profit-loss">
+                <div class="admin-topbar-actions admin-topbar-actions-profit-loss" data-admin-home-chrome>
                     <div class="profit-loss-controls">
                         <label class="pl-compact-control">
                             <span>Year <i title="Choose the year for this P&amp;L. Red stars mark months that came from the imported workbook instead of live marketplace rows.">i</i></span>

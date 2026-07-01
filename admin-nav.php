@@ -151,7 +151,7 @@ function render_admin_sidebar_item(array $item, string $activeSection): void
 
 function render_admin_topbar_actions(): void
 {
-    echo '<div class="admin-topbar-actions admin-topbar-actions-shared">';
+    echo '<div class="admin-topbar-actions" data-admin-home-chrome>';
     render_admin_topbar_action_buttons();
     echo '</div>';
 }

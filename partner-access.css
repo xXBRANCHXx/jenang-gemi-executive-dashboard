@@ -2574,3 +2574,135 @@
 ) {
   background: var(--partner-panel-raised);
 }
+
+/* Final light-mode color reset for partner profile surfaces. */
+:root[data-admin-theme='light'] :is(.partner-profiles-page, .partner-profile-page, [data-partner-modal]) {
+  color: var(--partner-text);
+}
+
+:root[data-admin-theme='light'] :is(.partner-profiles-page, .partner-profile-page, [data-partner-modal]) :where(
+  h1,
+  h2,
+  h3,
+  h4,
+  p,
+  span,
+  strong,
+  small,
+  label,
+  button,
+  a,
+  input,
+  textarea,
+  div
+) {
+  color: inherit;
+}
+
+:root[data-admin-theme='light'] :is(.partner-profiles-page, .partner-profile-page, [data-partner-modal]) :is(
+  .partner-directory-search span,
+  .partner-directory-metrics span,
+  .partner-directory-list-head,
+  .partner-directory-partner span,
+  .partner-directory-row-stats small,
+  .partner-directory-brand-strip span,
+  .partner-create-title span,
+  .partner-create-status span,
+  .partner-create-panel-head span,
+  .partner-create-preview span,
+  .partner-create-preview small,
+  .partner-access-search span,
+  .partner-access-question-index,
+  .partner-access-choice-meta,
+  .partner-product-select small,
+  .partner-sku-choice small,
+  .partner-sku-pane-head span,
+  .partner-access-summary-card span,
+  .partner-pricing-row small,
+  .partner-pricing-row .partner-pricing-derived,
+  .partner-profile-editor-header p,
+  .partner-profile-kicker,
+  .partner-profile-stat span,
+  .partner-profile-stat small,
+  .partner-profile-panel-head span,
+  .partner-profile-sku-head span,
+  .partner-profile-field-stack label span,
+  .partner-profile-field-stack label small,
+  .partner-profile-summary-lines span,
+  .partner-profile-selected-head small,
+  .partner-profile-portal-note,
+  .partner-profile-sku-table-head,
+  .partner-profile-sku-main small,
+  .partner-profile-selected-card small,
+  .partner-profile-selected-card span,
+  .partner-profile-product-filter,
+  .partner-profile-product-filter span,
+  .partner-profile-product-filter small,
+  .partner-profile-sku-row > span,
+  .partner-profile-editor-footer,
+  .partner-profile-filter-choice,
+  .partner-profile-filter-choice span,
+  .partner-profile-filter-choice strong,
+  .partner-profile-selected-icon,
+  .partner-access-empty
+) {
+  color: var(--partner-muted);
+}
+
+:root[data-admin-theme='light'] :is(.partner-profiles-page, .partner-profile-page, [data-partner-modal]) :is(
+  .partner-directory-title strong,
+  .partner-directory-metrics strong,
+  .partner-directory-partner strong,
+  .partner-directory-row-stats strong,
+  .partner-create-title strong,
+  .partner-create-panel-head strong,
+  .partner-create-preview strong,
+  .partner-access-choice-title,
+  .partner-product-select strong,
+  .partner-sku-choice strong,
+  .partner-sku-pane-head strong,
+  .partner-access-summary-card strong,
+  .partner-pricing-row strong,
+  .partner-profile-editor-header h2,
+  .partner-profile-stat strong,
+  .partner-profile-panel-head strong,
+  .partner-profile-sku-head h3,
+  .partner-profile-sku-main strong,
+  .partner-profile-selected-card strong,
+  .partner-profile-selected-head strong,
+  .partner-profile-summary-lines strong
+) {
+  color: var(--partner-text);
+}
+
+:root[data-admin-theme='light'] :is(.partner-profiles-page, .partner-profile-page, [data-partner-modal]) :is(
+  .admin-primary-btn,
+  .admin-primary-btn *,
+  .partner-access-step.is-active,
+  .partner-access-step.is-active *
+) {
+  color: var(--partner-primary-text);
+}
+
+:root[data-admin-theme='light'] .partner-profile-page .partner-profile-check-btn.is-selected {
+  color: var(--partner-text);
+}
+
+:root[data-admin-theme='light'] :is(.partner-profiles-page, .partner-profile-page, [data-partner-modal]) :is(
+  .admin-danger-btn,
+  .partner-profile-remove-btn
+) {
+  color: #7f1d1d;
+}
+
+:root[data-admin-theme='light'] .partner-profile-page .partner-profile-filter-choice:hover,
+:root[data-admin-theme='light'] .partner-profile-page .partner-profile-filter-choice.is-active,
+:root[data-admin-theme='light'] .partner-profile-page .partner-profile-filter-choice:hover span,
+:root[data-admin-theme='light'] .partner-profile-page .partner-profile-filter-choice.is-active span {
+  color: var(--partner-text);
+}
+
+:root[data-admin-theme='light'] .partner-profile-page .partner-profile-filter-choice:hover strong,
+:root[data-admin-theme='light'] .partner-profile-page .partner-profile-filter-choice.is-active strong {
+  color: var(--partner-muted);
+}
