@@ -18195,7 +18195,22 @@ body:has(.admin-app[data-sku-db])::after {
 
 /* Homepage chrome on every admin page. */
 .admin-app.admin-app-suite [data-admin-home-chrome] {
+  --admin-topbar-control-height: 42px;
+  position: relative;
+  z-index: 4200;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
   gap: 14px;
+  min-width: 0;
+}
+
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-menu-shell {
+  position: relative;
+  z-index: 14020;
+  flex: 0 0 auto;
+  width: auto;
 }
 
 .admin-app.admin-app-suite [data-admin-home-chrome] .admin-notification-button,
@@ -18219,6 +18234,7 @@ body:has(.admin-app[data-sku-db])::after {
 .admin-app.admin-app-suite [data-admin-home-chrome] .admin-notification-button:hover {
   width: var(--admin-topbar-control-height);
   min-width: var(--admin-topbar-control-height);
+  height: var(--admin-topbar-control-height);
   min-height: var(--admin-topbar-control-height);
   padding: 0;
   overflow: visible;
@@ -18251,6 +18267,48 @@ body:has(.admin-app[data-sku-db])::after {
 .admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-sweep,
 .admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-focus-ring {
   display: none;
+}
+
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-menu-trigger {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--admin-topbar-control-height);
+  min-width: var(--admin-topbar-control-height);
+  height: var(--admin-topbar-control-height);
+  min-height: var(--admin-topbar-control-height);
+  padding: 0;
+  overflow: hidden;
+  letter-spacing: 0;
+}
+
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-menu-trigger svg {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.2;
+  transition:
+    opacity 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-menu-close-icon {
+  opacity: 0;
+  transform: rotate(-90deg) scale(0.7);
+}
+
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-menu-trigger[aria-expanded="true"] .admin-menu-open-icon {
+  opacity: 0;
+  transform: rotate(90deg) scale(0.7);
+}
+
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-menu-trigger[aria-expanded="true"] .admin-menu-close-icon {
+  opacity: 1;
+  transform: rotate(0deg) scale(1);
 }
 
 .admin-app.admin-app-suite [data-admin-home-chrome] .admin-menu-trigger:hover,
@@ -18315,7 +18373,21 @@ body:has(.admin-app[data-sku-db])::after {
 }
 
 .admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell.admin-search-shell-topbar {
+  position: relative;
+  display: block;
+  flex: 0 0 var(--admin-topbar-control-height);
+  width: var(--admin-topbar-control-height);
+  min-width: var(--admin-topbar-control-height);
+  max-width: min(360px, calc(100vw - 118px));
+  height: var(--admin-topbar-control-height);
+  min-height: var(--admin-topbar-control-height);
+  padding: 0;
   overflow: visible;
+  border-radius: 0;
+  transition:
+    flex-basis 0.46s cubic-bezier(0.22, 1, 0.36, 1),
+    width 0.46s cubic-bezier(0.22, 1, 0.36, 1),
+    min-width 0.46s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell.admin-search-shell-topbar::after {
@@ -18335,10 +18407,14 @@ body:has(.admin-app[data-sku-db])::after {
 .admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell.admin-search-shell-topbar.is-search-open,
 :root[data-admin-theme='dark'] .admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell.admin-search-shell-topbar.is-search-open,
 :root[data-admin-theme='light'] .admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell.admin-search-shell-topbar.is-search-open {
+  flex-basis: min(360px, calc(100vw - 118px));
+  width: min(360px, calc(100vw - 118px));
+  min-width: min(360px, calc(100vw - 118px));
   border: 0;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
+  z-index: 14010;
 }
 
 .admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell.admin-search-shell-topbar.is-search-open::after {
@@ -18355,6 +18431,56 @@ body:has(.admin-app[data-sku-db])::after {
   box-shadow: none;
 }
 
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell-topbar .admin-search-icon-button {
+  width: var(--admin-topbar-control-height);
+  height: var(--admin-topbar-control-height);
+}
+
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell-topbar .admin-search-icon-button svg,
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell-topbar .admin-search-close-button svg {
+  width: 22px;
+  height: 22px;
+}
+
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell-topbar .admin-search-close-button {
+  top: 6px;
+  right: 6px;
+  width: 44px;
+  height: 44px;
+}
+
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell-topbar.is-search-open .admin-search-close-button {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+}
+
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell-topbar .admin-search-form {
+  position: absolute;
+  inset: 0 50px 0 56px;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  width: auto;
+  min-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  clip-path: inset(0 100% 0 0);
+  transform: translateY(6px);
+  transition:
+    opacity 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+    clip-path 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell-topbar.is-search-open .admin-search-form {
+  opacity: 1;
+  pointer-events: auto;
+  clip-path: inset(0 0 0 0);
+  transform: translateY(0);
+}
+
 .admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell-topbar .admin-search-input,
 :root[data-admin-theme='dark'] .admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell-topbar .admin-search-input,
 :root[data-admin-theme='light'] .admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell-topbar .admin-search-input {
@@ -18362,6 +18488,24 @@ body:has(.admin-app[data-sku-db])::after {
   background: transparent;
   color: var(--admin-text);
   box-shadow: none;
+  width: 100%;
+  min-width: 0;
+  height: 56px;
+  padding: 0;
+  font-size: 0.98rem;
+  letter-spacing: 0;
+  outline: none;
+}
+
+.admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell-topbar .admin-search-results {
+  top: calc(100% + 12px);
+  right: 0;
+  left: auto;
+  z-index: 14030;
+  width: min(360px, calc(100vw - 32px));
+  max-height: min(460px, calc(100vh - 150px));
+  overflow: auto;
+  border-radius: 18px;
 }
 
 .admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell-topbar .admin-search-input::placeholder {
