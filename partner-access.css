@@ -1517,6 +1517,10 @@
   grid-template-columns: minmax(0, 1fr) auto auto;
 }
 
+.partner-profile-password-row {
+  grid-template-columns: minmax(0, 1fr) auto 42px;
+}
+
 .partner-profile-code-row input,
 .partner-profile-field-stack input,
 .partner-profile-search input,
@@ -1567,6 +1571,43 @@
   border-radius: 12px;
   font-size: 12px;
   font-weight: 800;
+}
+
+.partner-profile-branch-unlock {
+  display: inline-grid;
+  place-items: center;
+  width: 42px;
+  min-width: 42px;
+  height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+}
+
+.partner-profile-branch-unlock img {
+  display: block;
+  width: 18px;
+  height: 18px;
+  filter: invert(1);
+  opacity: 0.86;
+}
+
+.partner-profile-branch-unlock:disabled,
+.partner-profile-icon-btn:disabled,
+.partner-profile-field-stack input:disabled,
+.partner-profile-field-stack .admin-ghost-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.partner-profile-field-stack input:disabled {
+  color: rgba(255, 255, 255, 0.46);
+}
+
+.partner-profile-branch-unlock.is-unlocked {
+  background: rgba(157, 255, 0, 0.16);
+  border-color: rgba(157, 255, 0, 0.34);
 }
 
 .partner-profile-workspace {
@@ -1963,6 +2004,45 @@
   font-size: 12px;
 }
 
+.partner-branch-tier-card {
+  width: min(460px, calc(100vw - 28px));
+}
+
+.partner-branch-tier-form {
+  display: grid;
+  gap: 14px;
+  padding: 0 20px 20px;
+}
+
+.partner-branch-tier-form label {
+  display: grid;
+  gap: 8px;
+}
+
+.partner-branch-tier-form label span {
+  color: rgba(255, 255, 255, 0.64);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.partner-branch-tier-form input {
+  min-height: 44px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 0 12px;
+  background: rgba(0, 0, 0, 0.36);
+  color: #fff;
+  font: 700 14px/1.2 "Space Grotesk", monospace;
+  outline: none;
+}
+
+.partner-branch-tier-form input:focus {
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
 @media (max-width: 1420px) {
   .partner-profile-workspace {
     grid-template-columns: minmax(260px, 330px) minmax(0, 1fr);
@@ -2314,4 +2394,62 @@
 :root[data-admin-theme] .partner-access-empty {
   border-color: var(--partner-border);
   color: var(--partner-muted);
+}
+
+:root[data-admin-theme] :is(
+  .partner-profile-product-filter span,
+  .partner-profile-sku-row > span,
+  .partner-profile-editor-footer,
+  .partner-profile-filter-choice strong,
+  .partner-profile-selected-icon,
+  .partner-branch-tier-form label span
+) {
+  color: var(--partner-muted);
+}
+
+:root[data-admin-theme] .partner-profile-product-filter {
+  color: var(--partner-text);
+}
+
+:root[data-admin-theme] .partner-profile-product-filter small {
+  color: var(--partner-muted);
+}
+
+:root[data-admin-theme] :is(
+  .partner-profile-page .partner-profile-remove-btn,
+  .partner-profile-page .partner-profile-branch-unlock
+) {
+  border-color: var(--partner-border);
+  background: var(--partner-panel-soft);
+  color: var(--partner-text);
+}
+
+:root[data-admin-theme] .partner-profile-field-stack input:disabled {
+  color: var(--partner-muted);
+  background: var(--partner-panel-soft);
+}
+
+:root[data-admin-theme] .partner-profile-branch-unlock.is-unlocked {
+  background: color-mix(in srgb, var(--partner-primary-bg) 10%, var(--partner-panel-soft));
+  border-color: var(--partner-border-strong);
+}
+
+:root[data-admin-theme='light'] .partner-profile-branch-unlock img {
+  filter: none;
+}
+
+:root[data-admin-theme] .partner-branch-tier-card {
+  background: var(--partner-panel);
+  color: var(--partner-text);
+}
+
+:root[data-admin-theme] .partner-branch-tier-form input {
+  border-color: var(--partner-border);
+  background: var(--partner-input);
+  color: var(--partner-text);
+}
+
+:root[data-admin-theme] .partner-branch-tier-form input:focus {
+  border-color: var(--partner-border-strong);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--partner-text) 10%, transparent);
 }

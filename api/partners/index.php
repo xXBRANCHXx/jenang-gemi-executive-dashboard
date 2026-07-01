@@ -834,6 +834,9 @@ if ($action === 'update') {
     if ($currentCode === '') {
         jg_partner_fail('Partner code is required.');
     }
+    if (trim((string) ($request['portal_password'] ?? '')) !== '' && !jg_sku_is_branch()) {
+        jg_partner_fail('Branch Tier Access is required to reset a partner password.', 403);
+    }
 
     $matchIndex = null;
     $existing = null;
@@ -856,6 +859,10 @@ if ($action === 'update') {
 }
 
 if ($action === 'create_password_reset_key') {
+    if (!jg_sku_is_branch()) {
+        jg_partner_fail('Branch Tier Access is required to create a partner reset key.', 403);
+    }
+
     $code = trim((string) ($request['code'] ?? ''));
     if ($code === '') {
         jg_partner_fail('Partner code is required.');

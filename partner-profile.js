@@ -3,10 +3,16 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!root) return;
 
   const endpoint = root.dataset.partnersEndpoint || '../api/partners/';
+  const branchTierEndpoint = root.dataset.branchTierEndpoint || '../api/branch-tier/';
   const form = document.querySelector('[data-profile-form]');
   const loadingNode = document.querySelector('[data-profile-loading]');
   const errorNode = document.querySelector('[data-profile-error]');
   const toastNode = document.querySelector('[data-profile-toast]');
+  const branchTierModal = document.querySelector('[data-branch-tier-modal]');
+  const branchTierForm = document.querySelector('[data-branch-tier-form]');
+  const branchTierPasswordInput = document.querySelector('[data-branch-tier-password]');
+  const branchTierError = document.querySelector('[data-branch-tier-error]');
+  const branchProtectedControls = document.querySelectorAll('[data-branch-protected-control]');
   const partnerName = document.querySelector('[data-partner-name]');
   const partnerCodeBadge = document.querySelector('[data-partner-code-badge]');
   const passwordNote = document.querySelector('[data-note-password]');
@@ -15,6 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const regenerateCodeButton = document.querySelector('[data-regenerate-partner-code]');
   const generatePortalPasswordButton = document.querySelector('[data-generate-portal-password]');
   const createPasswordResetKeyButton = document.querySelector('[data-create-password-reset-key]');
+  const branchUnlockButton = document.querySelector('[data-unlock-branch-tier]');
   const copyCodeButton = document.querySelector('[data-copy-partner-code]');
   const saveButtons = document.querySelectorAll('[data-save-profile]');
   const portalLinks = document.querySelectorAll('[data-partner-portal-link]');
@@ -49,7 +56,8 @@ document.addEventListener('DOMContentLoaded', () => {
     activeBrandId: 'all',
     activeProductId: 'all',
     skuSearch: '',
-    currentPartnerCode: root.dataset.partnerCode || ''
+    currentPartnerCode: root.dataset.partnerCode || '',
+    branchUnlocked: false
   };
 
   const generatePartnerCode = () => {
@@ -114,6 +122,48 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!errorNode) return;
     errorNode.hidden = !message;
     errorNode.textContent = message || '';
+  };
+
+  const setBranchError = (message) => {
+    if (!branchTierError) return;
+    branchTierError.hidden = !message;
+    branchTierError.textContent = message || '';
+  };
+
+  const renderBranchProtection = () => {
+    branchProtectedControls.forEach((control) => {
+      if (!(control instanceof HTMLButtonElement || control instanceof HTMLInputElement)) return;
+      control.disabled = !state.branchUnlocked;
+    });
+
+    if (form instanceof HTMLFormElement) {
+      const passwordInput = form.elements.portal_password;
+      if (passwordInput instanceof HTMLInputElement) {
+        passwordInput.placeholder = state.branchUnlocked ? 'Configured' : 'Unlock Branch-tier access';
+      }
+    }
+
+    if (branchUnlockButton instanceof HTMLButtonElement) {
+      branchUnlockButton.disabled = state.branchUnlocked;
+      branchUnlockButton.classList.toggle('is-unlocked', state.branchUnlocked);
+      branchUnlockButton.setAttribute('aria-label', state.branchUnlocked ? 'Branch-tier password controls unlocked' : 'Unlock Branch-tier password controls');
+      branchUnlockButton.title = state.branchUnlocked ? 'Branch-tier password controls unlocked' : 'Unlock Branch-tier password controls';
+    }
+  };
+
+  const openBranchTierModal = () => {
+    if (!(branchTierModal instanceof HTMLElement) || !(branchTierForm instanceof HTMLFormElement)) return;
+    branchTierModal.hidden = false;
+    branchTierForm.reset();
+    setBranchError('');
+    branchTierPasswordInput?.focus();
+  };
+
+  const closeBranchTierModal = () => {
+    if (!(branchTierModal instanceof HTMLElement) || !(branchTierForm instanceof HTMLFormElement)) return;
+    branchTierModal.hidden = true;
+    branchTierForm.reset();
+    setBranchError('');
   };
 
   const showToast = () => {
@@ -419,6 +469,7 @@ document.addEventListener('DOMContentLoaded', () => {
       deleteButton.dataset.partnerName = partner.name || 'Partner';
     }
 
+    renderBranchProtection();
     renderAll();
   };
 
@@ -440,6 +491,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const payload = await requestJson(`${endpoint}?code=${encodeURIComponent(state.currentPartnerCode)}`);
     state.skuCatalog = payload.sku_catalog || state.skuCatalog;
     fillForm(payload.partner || {});
+  };
+
+  const loadBranchTierState = async () => {
+    const payload = await requestJson(branchTierEndpoint);
+    state.branchUnlocked = Boolean(payload.branch_unlocked);
+    renderBranchProtection();
   };
 
   root.addEventListener('click', (event) => {
@@ -501,10 +558,51 @@ document.addEventListener('DOMContentLoaded', () => {
 
   generatePortalPasswordButton?.addEventListener('click', () => {
     if (!(form instanceof HTMLFormElement)) return;
+    if (!state.branchUnlocked) return;
     form.elements.portal_password.value = generatePortalPassword();
   });
 
+  branchUnlockButton?.addEventListener('click', () => {
+    if (state.branchUnlocked) return;
+    openBranchTierModal();
+  });
+
+  document.querySelectorAll('[data-close-branch-tier-modal]').forEach((button) => {
+    button.addEventListener('click', closeBranchTierModal);
+  });
+
+  branchTierForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    setBranchError('');
+
+    const password = branchTierPasswordInput instanceof HTMLInputElement ? branchTierPasswordInput.value : '';
+    try {
+      const submitButton = branchTierForm.querySelector('button[type="submit"]');
+      if (submitButton instanceof HTMLButtonElement) {
+        submitButton.disabled = true;
+        submitButton.textContent = 'Unlocking...';
+      }
+
+      const payload = await requestJson(branchTierEndpoint, {
+        method: 'POST',
+        body: { password }
+      });
+      state.branchUnlocked = Boolean(payload.branch_unlocked);
+      renderBranchProtection();
+      closeBranchTierModal();
+    } catch (error) {
+      setBranchError(error instanceof Error ? error.message : 'Branch Tier Access password is invalid.');
+    } finally {
+      const submitButton = branchTierForm.querySelector('button[type="submit"]');
+      if (submitButton instanceof HTMLButtonElement) {
+        submitButton.disabled = false;
+        submitButton.textContent = 'Unlock';
+      }
+    }
+  });
+
   createPasswordResetKeyButton?.addEventListener('click', async () => {
+    if (!state.branchUnlocked) return;
     const code = String(state.currentPartnerCode || '').trim();
     if (!code) {
       setError('Save the partner profile before creating a reset key.');
@@ -621,6 +719,11 @@ document.addEventListener('DOMContentLoaded', () => {
       setError(error instanceof Error ? error.message : 'Unable to delete partner.');
       deleteButton.disabled = false;
     }
+  });
+
+  loadBranchTierState().catch(() => {
+    state.branchUnlocked = false;
+    renderBranchProtection();
   });
 
   loadPartner().catch((error) => {

@@ -31,7 +31,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
     <link rel="stylesheet" href="../partner-access.css?v=<?php echo urlencode($partnerAccessCssVersion ?: '1'); ?>">
 </head>
 <body class="admin-body is-dashboard">
-    <div class="admin-app admin-app-suite" data-partner-profile data-partners-endpoint="../api/partners/" data-partner-code="<?php echo htmlspecialchars($partnerCode, ENT_QUOTES); ?>">
+    <div class="admin-app admin-app-suite" data-partner-profile data-partners-endpoint="../api/partners/" data-branch-tier-endpoint="../api/branch-tier/" data-partner-code="<?php echo htmlspecialchars($partnerCode, ENT_QUOTES); ?>">
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
         <div class="admin-shell">
@@ -103,10 +103,13 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                                         <label>
                                             <span>Portal password</span>
                                             <div class="partner-profile-password-row">
-                                                <input type="text" name="portal_password" maxlength="160" placeholder="Configured" autocomplete="new-password">
-                                                <button type="button" class="partner-profile-icon-btn" data-generate-portal-password aria-label="Generate portal password">Key</button>
+                                                <input type="text" name="portal_password" maxlength="160" placeholder="Unlock Branch-tier access" autocomplete="new-password" data-branch-protected-control disabled>
+                                                <button type="button" class="partner-profile-icon-btn" data-generate-portal-password data-branch-protected-control aria-label="Generate portal password" disabled>Key</button>
+                                                <button type="button" class="partner-profile-branch-unlock" data-unlock-branch-tier aria-label="Unlock Branch-tier password controls" title="Unlock Branch-tier password controls">
+                                                    <img src="https://cdn.jsdelivr.net/npm/lucide-static@0.468.0/icons/lock-keyhole.svg" alt="" width="18" height="18" loading="lazy" referrerpolicy="no-referrer">
+                                                </button>
                                             </div>
-                                            <button type="button" class="admin-ghost-btn" data-create-password-reset-key>Create one-time reset key</button>
+                                            <button type="button" class="admin-ghost-btn" data-create-password-reset-key data-branch-protected-control disabled>Create one-time reset key</button>
                                             <small data-note-password>Not configured</small>
                                         </label>
                                         <label>
@@ -196,6 +199,30 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                     </form>
                 </main>
             </div>
+        </div>
+    </div>
+
+    <div class="admin-modal-shell" data-branch-tier-modal hidden>
+        <div class="admin-modal-backdrop" data-close-branch-tier-modal></div>
+        <div class="admin-modal-card partner-branch-tier-card" role="dialog" aria-modal="true" aria-labelledby="branch-tier-modal-title">
+            <div class="admin-modal-head">
+                <div>
+                    <span class="admin-panel-kicker">Branch Tier Access</span>
+                    <h3 id="branch-tier-modal-title">Unlock password controls</h3>
+                </div>
+                <button type="button" class="admin-ghost-btn" data-close-branch-tier-modal>Close</button>
+            </div>
+            <form class="partner-branch-tier-form" data-branch-tier-form autocomplete="off">
+                <label>
+                    <span>Branch Tier Access password</span>
+                    <input type="password" name="branch_password" maxlength="255" autocomplete="current-password" required data-branch-tier-password>
+                </label>
+                <p class="admin-form-error" data-branch-tier-error hidden></p>
+                <div class="admin-modal-actions">
+                    <button type="button" class="admin-ghost-btn" data-close-branch-tier-modal>Cancel</button>
+                    <button type="submit" class="admin-primary-btn">Unlock</button>
+                </div>
+            </form>
         </div>
     </div>
 
