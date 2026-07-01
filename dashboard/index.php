@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isAuthenticated = jg_admin_is_authenticated();
-$dashboardBuildVersion = 'exec3.73.0';
+$dashboardBuildVersion = 'exec3.73.1';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -178,13 +178,15 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                 <main class="admin-layout">
                     <section class="admin-view is-active" data-view-panel="overview">
                 <section class="admin-overview-strip">
-                    <label class="admin-overview-year-field" data-overview-year-controls>
-                        <span>Year</span>
-                        <select class="admin-overview-year-select" data-overview-year-select aria-label="Select sales year" disabled>
-                            <option>Loading...</option>
-                        </select>
-                    </label>
-                    <button type="button" class="admin-sales-recap-trigger" data-sales-recap-toggle aria-expanded="false">Sales Recap</button>
+                    <div class="admin-overview-year-actions">
+                        <label class="admin-overview-year-field" data-overview-year-controls>
+                            <span>Year</span>
+                            <select class="admin-overview-year-select" data-overview-year-select aria-label="Select sales year" disabled>
+                                <option>Loading...</option>
+                            </select>
+                        </label>
+                        <button type="button" class="admin-sales-recap-trigger" data-sales-recap-toggle aria-expanded="false">Sales Recap</button>
+                    </div>
                     <div class="admin-overview-strip-meta">
                         <div class="admin-overview-sync-row">
                             <button type="button" class="admin-overview-refresh" data-overview-refresh aria-label="Refresh dashboard view">

@@ -4834,6 +4834,7 @@ document.addEventListener('DOMContentLoaded', () => {
       overviewRefs.salesRecap.setAttribute('aria-hidden', state.overview.salesRecapOpen ? 'false' : 'true');
     }
     if (overviewRefs.salesRecapToggle) {
+      overviewRefs.salesRecapToggle.hidden = state.overview.salesRecapOpen;
       overviewRefs.salesRecapToggle.classList.toggle('is-active', state.overview.salesRecapOpen);
       overviewRefs.salesRecapToggle.setAttribute('aria-expanded', state.overview.salesRecapOpen ? 'true' : 'false');
     }
