@@ -239,6 +239,222 @@
 .admin-notification-empty strong { color: #fff; font-family: "Space Grotesk", sans-serif; }
 .admin-notification-empty p { margin: 6px 0 0; color: rgba(255,255,255,.34); font-size: 11px; }
 
+/* Light-mode website order notification protocol. */
+:root[data-admin-theme='light'] .admin-notification-button {
+  border-color: rgba(15, 23, 42, 0.12);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.92)),
+    #ffffff;
+  color: #172033;
+  box-shadow:
+    0 16px 42px rgba(15, 23, 42, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+:root[data-admin-theme='light'] .admin-notification-button:hover {
+  border-color: rgba(15, 23, 42, 0.18);
+}
+
+:root[data-admin-theme='light'] .admin-notification-button-icon {
+  background: rgba(15, 23, 42, 0.06);
+}
+
+:root[data-admin-theme='light'] .admin-notification-button-icon > span {
+  background: #172033;
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.18);
+}
+
+:root[data-admin-theme='light'] .admin-notification-button-copy strong {
+  color: #0f172a;
+}
+
+:root[data-admin-theme='light'] .admin-notification-button-copy small {
+  color: rgba(51, 65, 85, 0.62);
+}
+
+:root[data-admin-theme='light'] .admin-notification-drawer {
+  border-color: rgba(15, 23, 42, 0.1);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.92)),
+    #ffffff;
+  color: #172033;
+  box-shadow:
+    0 28px 70px rgba(15, 23, 42, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  scrollbar-color: rgba(15, 23, 42, 0.28) transparent;
+}
+
+:root[data-admin-theme='light'] .admin-notification-drawer::-webkit-scrollbar-thumb {
+  background: rgba(15, 23, 42, 0.28);
+}
+
+:root[data-admin-theme='light'] .admin-notification-head h2,
+:root[data-admin-theme='light'] .admin-notification-customer strong,
+:root[data-admin-theme='light'] .admin-notification-order-identity h3,
+:root[data-admin-theme='light'] .admin-notification-order-stats strong,
+:root[data-admin-theme='light'] .admin-notification-line-items strong,
+:root[data-admin-theme='light'] .admin-notification-paid-banner strong,
+:root[data-admin-theme='light'] .admin-notification-dropzone > strong,
+:root[data-admin-theme='light'] .admin-notification-result h3,
+:root[data-admin-theme='light'] .admin-notification-empty strong {
+  color: #172033;
+}
+
+:root[data-admin-theme='light'] .admin-notification-mode,
+:root[data-admin-theme='light'] .admin-notification-order-copy small,
+:root[data-admin-theme='light'] .admin-notification-order-identity p,
+:root[data-admin-theme='light'] .admin-notification-order-stats small,
+:root[data-admin-theme='light'] .admin-notification-line-items small,
+:root[data-admin-theme='light'] .admin-notification-paid-banner small,
+:root[data-admin-theme='light'] .admin-notification-dropzone > small,
+:root[data-admin-theme='light'] .admin-notification-deadline > small,
+:root[data-admin-theme='light'] .admin-notification-result p,
+:root[data-admin-theme='light'] .admin-notification-empty p {
+  color: rgba(51, 65, 85, 0.66);
+}
+
+:root[data-admin-theme='light'] .admin-notification-order-copy em,
+:root[data-admin-theme='light'] .admin-notification-row-time,
+:root[data-admin-theme='light'] .admin-notification-order-identity small {
+  color: rgba(71, 85, 105, 0.52);
+}
+
+:root[data-admin-theme='light'] .admin-notification-store-icon,
+:root[data-admin-theme='light'] .admin-notification-round-btn,
+:root[data-admin-theme='light'] .admin-notification-result-icon,
+:root[data-admin-theme='light'] .admin-notification-empty span {
+  background: #eef2f7;
+  color: #172033;
+}
+
+:root[data-admin-theme='light'] .admin-notification-drawer .admin-notification-head .admin-orders-icon-btn {
+  color: rgba(15, 23, 42, 0.46);
+}
+
+:root[data-admin-theme='light'] .admin-notification-drawer .admin-notification-head .admin-orders-icon-btn:hover {
+  background: rgba(15, 23, 42, 0.06) !important;
+  color: #0f172a;
+}
+
+:root[data-admin-theme='light'] .admin-notification-order-row {
+  border-color: rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.78);
+  color: #172033;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+:root[data-admin-theme='light'] .admin-notification-order-row:hover {
+  border-color: rgba(37, 99, 235, 0.2);
+  background: #ffffff;
+}
+
+:root[data-admin-theme='light'] .admin-notification-user-icon,
+:root[data-admin-theme='light'] .admin-notification-package-icon,
+:root[data-admin-theme='light'] .admin-notification-paid-banner > span,
+:root[data-admin-theme='light'] .admin-notification-dropzone.has-file .admin-notification-upload-icon,
+:root[data-admin-theme='light'] .admin-notification-result-icon.is-submitted {
+  background: #172033;
+  color: #ffffff;
+}
+
+:root[data-admin-theme='light'] .admin-notification-customer i {
+  background: #2563eb;
+}
+
+:root[data-admin-theme='light'] .admin-notification-order-card,
+:root[data-admin-theme='light'] .admin-notification-paid-banner,
+:root[data-admin-theme='light'] .admin-notification-deadline {
+  border-color: rgba(15, 23, 42, 0.09);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.07);
+}
+
+:root[data-admin-theme='light'] .admin-notification-order-stats div,
+:root[data-admin-theme='light'] .admin-notification-line-items div {
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  background: #eef2f7;
+}
+
+:root[data-admin-theme='light'] .admin-notification-line-items span {
+  color: rgba(15, 23, 42, 0.76);
+}
+
+:root[data-admin-theme='light'] .admin-notification-warning {
+  border-color: rgba(180, 83, 9, 0.18);
+  background: rgba(254, 243, 199, 0.58);
+}
+
+:root[data-admin-theme='light'] .admin-notification-warning svg {
+  color: #b45309;
+}
+
+:root[data-admin-theme='light'] .admin-notification-warning p {
+  color: #854d0e;
+}
+
+:root[data-admin-theme='light'] .admin-notification-actions button,
+:root[data-admin-theme='light'] .admin-notification-submit {
+  border-color: rgba(15, 23, 42, 0.1);
+  background: #ffffff;
+  color: rgba(15, 23, 42, 0.72);
+}
+
+:root[data-admin-theme='light'] .admin-notification-actions button:hover {
+  border-color: rgba(37, 99, 235, 0.22);
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+:root[data-admin-theme='light'] .admin-notification-actions button.is-primary,
+:root[data-admin-theme='light'] .admin-notification-submit {
+  border-color: #172033;
+  background: #172033;
+  color: #ffffff;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+}
+
+:root[data-admin-theme='light'] .admin-notification-dropzone {
+  border-color: rgba(15, 23, 42, 0.14);
+  background: rgba(248, 250, 252, 0.78);
+  color: #172033;
+}
+
+:root[data-admin-theme='light'] .admin-notification-dropzone:hover,
+:root[data-admin-theme='light'] .admin-notification-dropzone.is-dragging {
+  border-color: rgba(37, 99, 235, 0.28);
+  background: #ffffff;
+}
+
+:root[data-admin-theme='light'] .admin-notification-upload-icon {
+  background: #eef2f7;
+  color: rgba(15, 23, 42, 0.72);
+}
+
+:root[data-admin-theme='light'] .admin-notification-deadline > div > span {
+  color: rgba(15, 23, 42, 0.74);
+}
+
+:root[data-admin-theme='light'] .admin-notification-deadline > div > strong {
+  background: #172033;
+  color: #ffffff;
+}
+
+:root[data-admin-theme='light'] .admin-notification-deadline input {
+  accent-color: #172033;
+}
+
+:root[data-admin-theme='light'] .admin-notification-submit:disabled {
+  border-color: transparent;
+  background: #e2e8f0;
+  color: rgba(71, 85, 105, 0.48);
+  box-shadow: none;
+}
+
+:root[data-admin-theme='light'] .admin-order-publication-error {
+  color: #b91c1c !important;
+}
+
 @keyframes admin-notification-bell {
   0%, 72%, 100% { transform: rotate(0); }
   77% { transform: rotate(-8deg); }
