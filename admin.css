@@ -1941,6 +1941,10 @@ button, input {
   -webkit-backdrop-filter: blur(14px);
 }
 
+.admin-menu-item[hidden] {
+  display: none !important;
+}
+
 .admin-menu-item:hover {
   border-color: rgba(157, 255, 0, 0.24);
 }
