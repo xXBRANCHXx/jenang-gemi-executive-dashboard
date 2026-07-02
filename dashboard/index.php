@@ -277,7 +277,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                             <div>
                                 <div class="admin-chart-title-row">
                                     <h3 data-overview-hourly-title>Today Orders QTY by hour</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About today by hour" data-chart-info="Shows today's marketplace activity by hour in WIB. Use it to spot the hours when customers are buying, then switch metrics to compare orders, units, revenue, or gross profit."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About today by hour" data-chart-info="Shows today's marketplace activity by hour in the selected timezone. Use it to spot the hours when customers are buying, then switch metrics to compare orders, units, revenue, or gross profit."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                                 <span class="admin-panel-meta" data-overview-hourly-meta>Live today, 0-23</span>
                             </div>
@@ -510,7 +510,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                         </div>
                         <div class="daily-sheet-actions">
                             <label class="daily-month-picker">
-                                <span>Month <span class="admin-info-dot" title="Shows the selected calendar month in WIB. The dashboard opens on the current month automatically." aria-label="Shows the selected calendar month in WIB. The dashboard opens on the current month automatically.">i</span></span>
+                                <span>Month <span class="admin-info-dot" title="Shows the selected calendar month in the selected timezone. The dashboard opens on the current month automatically." aria-label="Shows the selected calendar month in the selected timezone. The dashboard opens on the current month automatically.">i</span></span>
                                 <input type="month" data-daily-month>
                             </label>
                             <button type="button" class="admin-ghost-btn daily-export-btn" data-daily-export disabled>
@@ -810,7 +810,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                                 <span class="admin-panel-kicker">Time of Day</span>
                                 <div class="admin-chart-title-row">
                                     <h3>Activity by hour</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About activity by hour" data-chart-info="Groups the selected campaign metric by hour in WIB. It helps reveal when people are most active so posting, ads, or live sessions can be timed around stronger demand windows."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About activity by hour" data-chart-info="Groups the selected campaign metric by hour in the selected timezone. It helps reveal when people are most active so posting, ads, or live sessions can be timed around stronger demand windows."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                             </div>
                             <span class="admin-panel-meta">Peak engagement hours</span>
@@ -1133,6 +1133,51 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                             <img src="https://cdn.jsdelivr.net/npm/lucide-static@0.468.0/icons/lock.svg" alt="" width="24" height="24" loading="lazy" referrerpolicy="no-referrer">
                         </a>
                     </div>
+
+                    <article class="admin-panel admin-settings-card admin-regional-card admin-settings-card-wide">
+                        <div class="admin-settings-card-head">
+                            <div><span class="admin-panel-kicker">Regional Defaults</span><h3>Locale and time</h3></div>
+                            <div class="admin-regional-preview" aria-label="Regional formatting preview">
+                                <strong data-regional-preview-date>Loading time preview</strong>
+                                <span data-regional-preview-currency>Rp1.234.567</span>
+                            </div>
+                        </div>
+                        <form class="admin-regional-grid" data-regional-defaults-form>
+                            <label class="admin-affiliate-field">
+                                <span>Timezone</span>
+                                <select class="admin-select" name="timezone" data-regional-setting>
+                                    <option value="Asia/Jakarta">Jakarta - WIB</option>
+                                    <option value="Asia/Singapore">Singapore - SGT</option>
+                                    <option value="UTC">UTC</option>
+                                    <option value="America/New_York">US Eastern - ET</option>
+                                    <option value="America/Los_Angeles">US Pacific - PT</option>
+                                </select>
+                            </label>
+                            <label class="admin-affiliate-field">
+                                <span>Number format</span>
+                                <select class="admin-select" name="numberLocale" data-regional-setting>
+                                    <option value="id-ID">Indonesia - 1.234.567</option>
+                                    <option value="en-US">United States - 1,234,567</option>
+                                    <option value="en-GB">United Kingdom - 1,234,567</option>
+                                </select>
+                            </label>
+                            <label class="admin-affiliate-field">
+                                <span>Date format</span>
+                                <select class="admin-select" name="dateFormat" data-regional-setting>
+                                    <option value="dmy">Day Month Year</option>
+                                    <option value="mdy">Month Day Year</option>
+                                    <option value="iso">ISO Year-Month-Day</option>
+                                </select>
+                            </label>
+                            <label class="admin-affiliate-field">
+                                <span>Currency</span>
+                                <select class="admin-select" name="currencyDisplay" data-regional-setting>
+                                    <option value="symbol">Rp symbol</option>
+                                    <option value="code">IDR code</option>
+                                </select>
+                            </label>
+                        </form>
+                    </article>
 
                     <article class="admin-panel admin-settings-card admin-settings-device-card admin-settings-card-wide">
                         <div class="admin-settings-card-head">

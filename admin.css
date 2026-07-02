@@ -19797,6 +19797,59 @@ body:has(.admin-app[data-sku-db])::after {
   min-height: 96px;
 }
 
+.admin-regional-card {
+  grid-column: 1 / -1;
+}
+
+.admin-regional-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-regional-grid label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.admin-regional-grid select {
+  width: 100%;
+  min-height: 44px;
+  border-radius: 12px;
+}
+
+.admin-regional-preview {
+  display: grid;
+  gap: 4px;
+  min-width: min(260px, 100%);
+  padding: 12px 14px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-card-inner-radius);
+  background: var(--admin-surface-soft);
+  text-align: right;
+}
+
+.admin-regional-preview strong,
+.admin-regional-preview span {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-regional-preview strong {
+  color: var(--admin-text);
+  font-size: 0.86rem;
+}
+
+.admin-regional-preview span {
+  color: var(--admin-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
 .admin-theme-toggle {
   display: grid;
   grid-template-columns: repeat(3, minmax(84px, 1fr));
@@ -20073,6 +20126,7 @@ body:has(.admin-app[data-sku-db])::after {
 }
 
 :root[data-admin-theme='light'] .admin-settings-grid-minimal .admin-panel,
+:root[data-admin-theme='light'] .admin-regional-preview,
 :root[data-admin-theme='light'] .admin-device-current,
 :root[data-admin-theme='light'] .admin-device-manual-entry,
 :root[data-admin-theme='light'] .admin-settings-device-row {
@@ -20092,6 +20146,7 @@ body:has(.admin-app[data-sku-db])::after {
 
 @media (max-width: 940px) {
   .admin-settings-grid-minimal,
+  .admin-regional-grid,
   .admin-device-current,
   .admin-device-current-actions,
   .admin-device-manual-entry .admin-settings-form {
@@ -20106,6 +20161,10 @@ body:has(.admin-app[data-sku-db])::after {
   .admin-settings-card-head {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .admin-regional-preview {
+    text-align: left;
   }
 
   .admin-theme-toggle {

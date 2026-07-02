@@ -487,6 +487,26 @@ const JENANG_GEMI_SEARCH_INDEX = [
 ];
 
 const DASHBOARD_TIMEZONE = 'Asia/Jakarta';
+const REGIONAL_DEFAULTS_STORAGE_KEY = 'jg-admin-regional-defaults';
+const REGIONAL_DEFAULT_OPTIONS = {
+  timezones: ['Asia/Jakarta', 'Asia/Singapore', 'UTC', 'America/New_York', 'America/Los_Angeles'],
+  numberLocales: ['id-ID', 'en-US', 'en-GB'],
+  dateFormats: ['dmy', 'mdy', 'iso'],
+  currencyDisplays: ['symbol', 'code']
+};
+const REGIONAL_DEFAULTS_FALLBACK = Object.freeze({
+  timezone: DASHBOARD_TIMEZONE,
+  numberLocale: 'id-ID',
+  dateFormat: 'dmy',
+  currencyDisplay: 'symbol'
+});
+const TIMEZONE_LABELS = {
+  'Asia/Jakarta': 'WIB',
+  'Asia/Singapore': 'SGT',
+  UTC: 'UTC',
+  'America/New_York': 'ET',
+  'America/Los_Angeles': 'PT'
+};
 const DAILY_ORDER_PAGE_LIMIT = 1000;
 const DAILY_CUSTOM_PLATFORMS_STORAGE_KEY = 'jg-dashboard-daily-custom-platforms';
 const ANALYTICS_DEVICE_COOKIE = 'jg_analytics_device_id';
@@ -521,6 +541,47 @@ const INACTIVE_VIEW_UNLOAD_STEP_MS = 140;
 const wait = (duration) => new Promise((resolve) => {
   window.setTimeout(resolve, duration);
 });
+
+const normalizeRegionalDefaults = (value = {}) => {
+  const candidate = value && typeof value === 'object' ? value : {};
+  return {
+    timezone: REGIONAL_DEFAULT_OPTIONS.timezones.includes(candidate.timezone) ? candidate.timezone : REGIONAL_DEFAULTS_FALLBACK.timezone,
+    numberLocale: REGIONAL_DEFAULT_OPTIONS.numberLocales.includes(candidate.numberLocale) ? candidate.numberLocale : REGIONAL_DEFAULTS_FALLBACK.numberLocale,
+    dateFormat: REGIONAL_DEFAULT_OPTIONS.dateFormats.includes(candidate.dateFormat) ? candidate.dateFormat : REGIONAL_DEFAULTS_FALLBACK.dateFormat,
+    currencyDisplay: REGIONAL_DEFAULT_OPTIONS.currencyDisplays.includes(candidate.currencyDisplay) ? candidate.currencyDisplay : REGIONAL_DEFAULTS_FALLBACK.currencyDisplay
+  };
+};
+
+const readRegionalDefaults = () => {
+  try {
+    return normalizeRegionalDefaults(JSON.parse(window.localStorage.getItem(REGIONAL_DEFAULTS_STORAGE_KEY) || '{}'));
+  } catch (_error) {
+    return { ...REGIONAL_DEFAULTS_FALLBACK };
+  }
+};
+
+let regionalDefaults = readRegionalDefaults();
+
+const writeRegionalDefaults = (defaults) => {
+  regionalDefaults = normalizeRegionalDefaults(defaults);
+  try {
+    window.localStorage.setItem(REGIONAL_DEFAULTS_STORAGE_KEY, JSON.stringify(regionalDefaults));
+  } catch (_error) {
+    // Browser-local settings are progressive enhancement only.
+  }
+  return regionalDefaults;
+};
+
+const getRegionalDateLocale = () => {
+  if (regionalDefaults.dateFormat === 'mdy') return 'en-US';
+  if (regionalDefaults.dateFormat === 'iso') return 'en-CA';
+  return regionalDefaults.numberLocale === 'id-ID' ? 'id-ID' : 'en-GB';
+};
+
+const getTimezoneLabel = (timezone = regionalDefaults.timezone) => TIMEZONE_LABELS[timezone] || timezone;
+
+const formatRegionalNumber = (value, options = {}) => Number(value || 0).toLocaleString(regionalDefaults.numberLocale, options);
+const formatRegionalInteger = (value) => formatRegionalNumber(Math.round(Number(value) || 0));
 
 const getMonthKeyForTimezone = (date = new Date(), timezone = DASHBOARD_TIMEZONE) => {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -628,10 +689,45 @@ const normalizeTextToken = (value) => String(value || '')
 
 const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+const formatRegionalDateKey = (date, timezone) => {
+  const parts = new Intl.DateTimeFormat('en', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(date).reduce((result, part) => {
+    result[part.type] = part.value;
+    return result;
+  }, {});
+  return `${parts.year}-${parts.month}-${parts.day}`;
+};
+
 const formatDashboardTime = (value, timezone, options = {}) => {
   const date = value instanceof Date ? value : new Date(value);
-  return date.toLocaleString('id-ID', {
-    timeZone: timezone,
+  const resolvedTimezone = timezone || regionalDefaults.timezone;
+  if (regionalDefaults.dateFormat === 'iso') {
+    const wantsDate = options.weekday || options.day || options.month || options.year;
+    const wantsTime = options.hour || options.minute || options.second;
+    const segments = [];
+    if (wantsDate) {
+      const weekday = options.weekday
+        ? `${new Intl.DateTimeFormat('en-GB', { timeZone: resolvedTimezone, weekday: options.weekday }).format(date)}, `
+        : '';
+      segments.push(`${weekday}${formatRegionalDateKey(date, resolvedTimezone)}`);
+    }
+    if (wantsTime) {
+      segments.push(new Intl.DateTimeFormat('en-GB', {
+        timeZone: resolvedTimezone,
+        hour: options.hour || '2-digit',
+        minute: options.minute || '2-digit',
+        ...(options.second ? { second: options.second } : {}),
+        hour12: options.hour12 ?? false
+      }).format(date));
+    }
+    if (segments.length) return segments.join(' ');
+  }
+  return date.toLocaleString(getRegionalDateLocale(), {
+    timeZone: resolvedTimezone,
     ...options
   });
 };
@@ -643,12 +739,13 @@ const formatCompactNumber = (value) => {
   if (absolute >= 1000000000) return `${(number / 1000000000).toFixed(absolute >= 10000000000 ? 0 : 1).replace(/\.0$/, '')}B`;
   if (absolute >= 1000000) return `${(number / 1000000).toFixed(absolute >= 10000000 ? 0 : 1).replace(/\.0$/, '')}M`;
   if (absolute >= 1000) return `${(number / 1000).toFixed(absolute >= 10000 ? 0 : 1).replace(/\.0$/, '')}K`;
-  return Math.round(number).toLocaleString('id-ID');
+  return formatRegionalNumber(Math.round(number));
 };
 
 const formatCurrency = (value, options = {}) => {
-  if (options.compact) return `Rp${formatCompactNumber(value)}`;
-  return `Rp${Math.round(Number(value) || 0).toLocaleString('id-ID')}`;
+  const prefix = regionalDefaults.currencyDisplay === 'code' ? 'IDR ' : 'Rp';
+  if (options.compact) return `${prefix}${formatCompactNumber(value)}`;
+  return `${prefix}${formatRegionalNumber(Math.round(Number(value) || 0))}`;
 };
 
 const formatCellCurrency = (value) => formatCurrency(value, { compact: true });
@@ -656,7 +753,7 @@ const formatCellCurrency = (value) => formatCurrency(value, { compact: true });
 const formatFullMetricValue = (metric, value, unitsMap) => {
   const unit = unitsMap[metric] || 'units';
   if (unit === 'idr') return formatCurrency(value);
-  return `${Math.round(Number(value) || 0).toLocaleString('id-ID')} ${unit}`;
+  return `${formatRegionalNumber(Math.round(Number(value) || 0))} ${unit}`;
 };
 
 const formatMetricValue = (metric, value, unitsMap) => {
@@ -2153,7 +2250,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const state = {
     activeView: resolveInitialView(),
-    timezone: DASHBOARD_TIMEZONE,
+    timezone: regionalDefaults.timezone,
     requestSequence: 0,
     overview: {
       year: new Date().getFullYear(),
@@ -2229,7 +2326,7 @@ document.addEventListener('DOMContentLoaded', () => {
       requestToken: 0
     },
     daily: {
-      month: getMonthKeyForTimezone(new Date(), DASHBOARD_TIMEZONE),
+      month: getMonthKeyForTimezone(new Date(), regionalDefaults.timezone),
       data: null,
       loadedAt: 0,
       rows: [],
@@ -2511,6 +2608,13 @@ document.addEventListener('DOMContentLoaded', () => {
     deviceExclusionForm: document.querySelector('[data-device-exclusion-form]'),
     deviceExclusionError: document.querySelector('[data-device-exclusion-error]'),
     deviceExclusionList: document.querySelector('[data-device-exclusion-list]')
+  };
+
+  const regionalRefs = {
+    form: document.querySelector('[data-regional-defaults-form]'),
+    controls: document.querySelectorAll('[data-regional-setting]'),
+    previewDate: document.querySelector('[data-regional-preview-date]'),
+    previewCurrency: document.querySelector('[data-regional-preview-currency]')
   };
 
   const zeroStoreRefs = {
@@ -2886,8 +2990,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const renderWebsitePaidMetrics = () => {
     const metrics = websiteMetricForSelectedSite();
-    if (websiteRefs.paidOrders) websiteRefs.paidOrders.textContent = Number(metrics.paid_orders || 0).toLocaleString('id-ID');
-    if (websiteRefs.paidQuantity) websiteRefs.paidQuantity.textContent = Number(metrics.paid_quantity || 0).toLocaleString('id-ID');
+    if (websiteRefs.paidOrders) websiteRefs.paidOrders.textContent = formatRegionalInteger(metrics.paid_orders);
+    if (websiteRefs.paidQuantity) websiteRefs.paidQuantity.textContent = formatRegionalInteger(metrics.paid_quantity);
     if (websiteRefs.paidRevenue) websiteRefs.paidRevenue.textContent = formatCurrency(metrics.net_revenue || 0);
   };
 
@@ -3128,10 +3232,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const readiness = state.hardSet.readiness || {};
     const enabled = Boolean(hardSet.enabled);
     const hasBranchAccess = Boolean(state.hardSet.access?.branch);
+    const formatHardSetTimestamp = (primaryValue, fallbackValue = '') => {
+      const raw = String(primaryValue || '').trim();
+      if (!raw) return fallbackValue;
+      const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T');
+      const date = new Date(normalized.includes('+') || normalized.endsWith('Z') ? normalized : `${normalized}Z`);
+      if (Number.isNaN(date.getTime())) return fallbackValue || raw;
+      return `${formatDashboardTime(date, state.timezone, {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      })} ${getTimezoneLabel(state.timezone)}`;
+    };
     if (hardSetRefs.state) hardSetRefs.state.textContent = enabled ? 'ON · LOCKED' : 'OFF';
     if (hardSetRefs.activation) {
       hardSetRefs.activation.textContent = enabled
-        ? `${hardSet.activated_at_wib || hardSet.activated_at_iso || ''} · ${hardSet.activated_by || 'Unknown actor'}`
+        ? `${formatHardSetTimestamp(hardSet.activated_at_iso || hardSet.activated_at, hardSet.activated_at_wib || '')} · ${hardSet.activated_by || 'Unknown actor'}`
         : 'No cutover timestamp has been recorded.';
     }
     hardSetRefs.switchButton?.classList.toggle('is-on', enabled);
@@ -3173,7 +3293,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (hardSetRefs.audit) {
       const audit = state.hardSet.audit || [];
-      hardSetRefs.audit.innerHTML = audit.length ? audit.map((event) => `<div class="admin-note-card"><strong>${escapeHtml(event.event_type)}</strong><span>${escapeHtml(event.created_at_wib || event.created_at || '')}</span><small>${escapeHtml(event.actor || '')}</small></div>`).join('') : '<p class="admin-empty">No activation event. Hard Set is OFF.</p>';
+      hardSetRefs.audit.innerHTML = audit.length ? audit.map((event) => `<div class="admin-note-card"><strong>${escapeHtml(event.event_type)}</strong><span>${escapeHtml(formatHardSetTimestamp(event.created_at_iso || event.created_at, event.created_at_wib || ''))}</span><small>${escapeHtml(event.actor || '')}</small></div>`).join('') : '<p class="admin-empty">No activation event. Hard Set is OFF.</p>';
     }
   };
 
@@ -3199,7 +3319,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (jenangGemiStoreRefs.itemTable) {
       jenangGemiStoreRefs.itemTable.innerHTML = items.length ? items.map((item) => `<tr>
         <td><code>${escapeHtml(item.sku || '')}</code></td><td>${escapeHtml(item.product_name || '')}</td><td>${escapeHtml(item.option_name || '')}</td><td>${escapeHtml(item.size_label || '')}</td>
-        <td>${item.stock === null ? 'Unlinked' : Number(item.stock).toLocaleString('id-ID')}</td><td>${item.cogs === null ? '—' : formatCurrency(item.cogs)}</td><td>${formatCurrency(item.price || 0)}</td>
+        <td>${item.stock === null ? 'Unlinked' : formatRegionalInteger(item.stock)}</td><td>${item.cogs === null ? '—' : formatCurrency(item.cogs)}</td><td>${formatCurrency(item.price || 0)}</td>
         <td>${item.is_active && item.sku_linked && Number(item.stock) > 0 ? 'Active' : 'Disabled'}</td><td><button type="button" class="admin-soft-btn" data-jg-edit-item="${escapeHtml(item.item_key)}">Edit</button></td>
       </tr>`).join('') : '<tr><td colspan="9" class="admin-empty">No Jenang Gemi SKU DB products found.</td></tr>';
     }
@@ -3208,7 +3328,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (jenangGemiStoreRefs.discountList) {
       const discounts = state.jenangGemiStore.discounts;
-      jenangGemiStoreRefs.discountList.innerHTML = discounts.length ? discounts.map((discount) => `<div class="admin-note-card"><strong>${escapeHtml(discount.name)}</strong><span>${escapeHtml(discount.discount_type)} ${Number(discount.amount).toLocaleString('id-ID')} · ${escapeHtml(discount.starts_on)} to ${escapeHtml(discount.ends_on)}</span><small>${(discount.item_keys || []).map(escapeHtml).join(', ')}</small><div class="admin-inline-actions"><button type="button" class="admin-soft-btn" data-jg-edit-discount="${Number(discount.id)}">Edit</button><button type="button" class="admin-danger-btn" data-jg-delete-discount="${Number(discount.id)}">Delete</button></div></div>`).join('') : '<p class="admin-empty">No Jenang Gemi discounts yet.</p>';
+      jenangGemiStoreRefs.discountList.innerHTML = discounts.length ? discounts.map((discount) => `<div class="admin-note-card"><strong>${escapeHtml(discount.name)}</strong><span>${escapeHtml(discount.discount_type)} ${formatRegionalNumber(discount.amount)} · ${escapeHtml(discount.starts_on)} to ${escapeHtml(discount.ends_on)}</span><small>${(discount.item_keys || []).map(escapeHtml).join(', ')}</small><div class="admin-inline-actions"><button type="button" class="admin-soft-btn" data-jg-edit-discount="${Number(discount.id)}">Edit</button><button type="button" class="admin-danger-btn" data-jg-delete-discount="${Number(discount.id)}">Delete</button></div></div>`).join('') : '<p class="admin-empty">No Jenang Gemi discounts yet.</p>';
     }
   };
 
@@ -3252,7 +3372,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const contextFormatInput = (value) => {
     if (value === null || value === undefined || value === '') return '';
     const number = Number(String(value).replace(/[^\d-]/g, ''));
-    return Number.isFinite(number) ? number.toLocaleString('id-ID') : '';
+    return Number.isFinite(number) ? formatRegionalNumber(number) : '';
   };
   const contextParseInput = (value) => {
     const normalized = String(value || '').replace(/[^\d-]/g, '');
@@ -3421,7 +3541,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="admin-legend-item">
           <span class="admin-legend-swatch" style="background:${color};"></span>
           <strong>${escapeHtml(toTitleCase(item.source || 'unknown'))}</strong>
-          <span>${Number(item.views || 0).toLocaleString('id-ID')} views</span>
+          <span>${formatRegionalInteger(item.views)} views</span>
         </div>
       `;
     }).join('');
@@ -3456,7 +3576,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const sourceMetric = String(productCart?.source_metric || 'add_to_cart_events');
     if (metaTarget) {
       metaTarget.textContent = total > 0
-        ? `${total.toLocaleString('id-ID')} ${sourceMetric === 'order_now_clicks' ? 'cart intents' : 'cart adds'}`
+        ? `${formatRegionalInteger(total)} ${sourceMetric === 'order_now_clicks' ? 'cart intents' : 'cart adds'}`
         : 'No cart adds';
     }
 
@@ -3469,10 +3589,10 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="admin-product-cart-row admin-product-cart-row-${escapeHtml(item.key)}" style="--cart-share:${item.share}%; --cart-color:${item.color};">
         <div class="admin-product-cart-row-head">
           <strong>${escapeHtml(item.label)}</strong>
-          <span>${item.share.toLocaleString('id-ID')}%</span>
+          <span>${formatRegionalNumber(item.share, { maximumFractionDigits: 1 })}%</span>
         </div>
         <div class="admin-product-cart-track" aria-hidden="true"><i></i></div>
-        <small>${item.count.toLocaleString('id-ID')} of ${total.toLocaleString('id-ID')}</small>
+        <small>${formatRegionalInteger(item.count)} of ${formatRegionalInteger(total)}</small>
       </div>
     `).join('');
   };
@@ -3484,7 +3604,7 @@ document.addEventListener('DOMContentLoaded', () => {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit'
-    })} WIB`;
+    })} ${getTimezoneLabel(state.timezone)}`;
   };
 
   const syncQuickMenuItems = () => {
@@ -3716,12 +3836,12 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${ordersEndpoint}?${params.toString()}`;
   };
   const requestOrderLocationSummary = (startDate, endDate, options = {}) => requestJson(buildOrderLocationSummaryUrl(startDate, endDate, options));
-  const dashboardDateFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone });
-  const todayDate = () => dashboardDateFormatter.format(new Date());
+  const dashboardDateKey = (date = new Date(), timezone = state.timezone) => new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(date);
+  const todayDate = () => dashboardDateKey(new Date());
   const offsetDate = (dateValue, offsetDays) => {
-    const date = new Date(`${dateValue}T00:00:00+07:00`);
+    const date = new Date(`${dateValue}T12:00:00Z`);
     date.setUTCDate(date.getUTCDate() + offsetDays);
-    return dashboardDateFormatter.format(date);
+    return dashboardDateKey(date);
   };
   const defaultOrderDatesFor = (today) => {
     return { start: offsetDate(today, -1), end: today };
@@ -3858,9 +3978,9 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const orderLocalDate = (row) => {
-    if (typeof row?._orderLocalDate === 'string') return row._orderLocalDate;
+    if (typeof row?._orderLocalDate === 'string' && row?._orderLocalTimezone === state.timezone) return row._orderLocalDate;
     const date = parseOrderTimestamp(row?.order_create_time || row?.timestamp);
-    return date ? dashboardDateFormatter.format(date) : '';
+    return date ? dashboardDateKey(date) : '';
   };
 
   const uniqueOrderRowKey = (row) => [
@@ -3878,7 +3998,8 @@ document.addEventListener('DOMContentLoaded', () => {
       ...row,
       _orderRowKey: uniqueOrderRowKey(row),
       _orderTimestamp: date?.getTime() || 0,
-      _orderLocalDate: date ? dashboardDateFormatter.format(date) : '',
+      _orderLocalDate: date ? dashboardDateKey(date) : '',
+      _orderLocalTimezone: state.timezone,
       _platformKey: normalizeOrderFilterValue(row?.platform || '')
     };
   };
@@ -4110,8 +4231,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const path = provinceFeaturePath(feature, project);
       if (!path) return '';
       const share = aggregate.matchedOrders > 0 ? orders / aggregate.matchedOrders : 0;
-      const title = `${province || 'Unknown province'}: ${orders.toLocaleString('id-ID')} orders`;
-      const shareLabel = `${Math.round(share * 1000) / 10}% of mapped orders`;
+      const title = `${province || 'Unknown province'}: ${formatRegionalInteger(orders)} orders`;
+      const shareLabel = `${formatRegionalNumber(Math.round(share * 1000) / 10, { maximumFractionDigits: 1 })}% of mapped orders`;
       return `
         <path class="admin-location-province" d="${path}" fill="${provinceFillColor(orders, aggregate.maxOrders)}" stroke="${stroke}" stroke-width="0.8" fill-rule="evenodd" tabindex="0" role="listitem" data-location-province="${escapeHtml(province || 'Unknown province')}" data-location-orders="${escapeHtml(String(orders))}" data-location-share="${escapeHtml(String(share))}" aria-label="${escapeHtml(`${title}, ${shareLabel}`)}"></path>
       `;
@@ -4638,7 +4759,7 @@ document.addEventListener('DOMContentLoaded', () => {
       minute: '2-digit',
       second: '2-digit',
       hour12: false
-    })} WIB`;
+    })} ${getTimezoneLabel(state.timezone)}`;
   };
 
   const localHour = (date) => Number(new Intl.DateTimeFormat('en-GB', {
@@ -4704,14 +4825,14 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (mode === 'day') {
       for (let cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
         const key = new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone }).format(cursor);
-        ensureBucket(key, new Intl.DateTimeFormat('id-ID', { timeZone: state.timezone, day: '2-digit', month: 'short' }).format(cursor));
+        ensureBucket(key, new Intl.DateTimeFormat(getRegionalDateLocale(), { timeZone: state.timezone, day: '2-digit', month: 'short' }).format(cursor));
       }
     } else {
       const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
       const final = new Date(end.getFullYear(), end.getMonth(), 1);
       while (cursor <= final) {
         const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`;
-        ensureBucket(key, new Intl.DateTimeFormat('id-ID', { timeZone: state.timezone, month: 'short', year: '2-digit' }).format(cursor));
+        ensureBucket(key, new Intl.DateTimeFormat(getRegionalDateLocale(), { timeZone: state.timezone, month: 'short', year: '2-digit' }).format(cursor));
         cursor.setMonth(cursor.getMonth() + 1);
       }
     }
@@ -4799,7 +4920,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const syncStatus = state.overview.data?.sync_status;
       const syncFinishedAt = syncStatus?.finished_at ? new Date(syncStatus.finished_at) : null;
       const staleLabel = syncStatus?.fresh === false
-        ? `Data stale${syncFinishedAt && !Number.isNaN(syncFinishedAt.getTime()) ? ` since ${formatDashboardTime(syncFinishedAt, state.timezone, { hour: '2-digit', minute: '2-digit', hour12: false })} WIB` : ''}`
+        ? `Data stale${syncFinishedAt && !Number.isNaN(syncFinishedAt.getTime()) ? ` since ${formatDashboardTime(syncFinishedAt, state.timezone, { hour: '2-digit', minute: '2-digit', hour12: false })} ${getTimezoneLabel(state.timezone)}` : ''}`
         : 'Live today, 0-23';
       overviewRefs.hourlyMeta.textContent = `${staleLabel} • ${formatFullMetricValue(state.overview.hourlyMetric, hourlyTotal, OVERVIEW_METRIC_UNITS)}`;
     }
@@ -4818,8 +4939,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (overviewRefs.rangePopover) overviewRefs.rangePopover.hidden = true;
   };
 
-  const dateKeyToWibDate = (dateValue) => new Date(`${dateValue}T00:00:00+07:00`);
-  const wibDateKey = (date) => new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone }).format(date);
+  const dateKeyToCalendarDate = (dateValue) => new Date(`${dateValue}T12:00:00Z`);
+  const calendarDateKey = (date) => new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone }).format(date);
   const monthKeyFromDate = (dateValue) => dateValue.slice(0, 7);
   const firstMonthDay = (monthKey) => `${monthKey}-01`;
   let rangeCalendarMonth = monthKeyFromDate(todayDate());
@@ -4852,14 +4973,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const renderOverviewRangeCalendar = () => {
     if (!overviewRefs.rangeGrid || !overviewRefs.rangeMonth) return;
-    const firstDay = dateKeyToWibDate(firstMonthDay(rangeCalendarMonth));
+    const firstDay = dateKeyToCalendarDate(firstMonthDay(rangeCalendarMonth));
     const month = firstDay.getMonth();
     const startOffset = (firstDay.getDay() + 6) % 7;
     const gridStart = new Date(firstDay);
     gridStart.setDate(firstDay.getDate() - startOffset);
     const today = todayDate();
     const bounds = rangeBounds();
-    overviewRefs.rangeMonth.textContent = new Intl.DateTimeFormat('id-ID', {
+    overviewRefs.rangeMonth.textContent = new Intl.DateTimeFormat(getRegionalDateLocale(), {
       timeZone: state.timezone,
       month: 'long',
       year: 'numeric'
@@ -4869,7 +4990,7 @@ document.addEventListener('DOMContentLoaded', () => {
     for (let index = 0; index < 42; index += 1) {
       const date = new Date(gridStart);
       date.setDate(gridStart.getDate() + index);
-      const key = wibDateKey(date);
+      const key = calendarDateKey(date);
       const outside = date.getMonth() !== month;
       const inRange = bounds.start && bounds.end && key >= bounds.start && key <= bounds.end;
       const selectedStart = bounds.start && key === bounds.start;
@@ -4884,7 +5005,7 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedEnd ? 'is-selected-end' : '',
         key === today ? 'is-today' : ''
       ].filter(Boolean).join(' ');
-      const dayLabel = new Intl.DateTimeFormat('id-ID', {
+      const dayLabel = new Intl.DateTimeFormat(getRegionalDateLocale(), {
         timeZone: state.timezone,
         weekday: 'long',
         day: 'numeric',
@@ -4910,9 +5031,9 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const shiftRangeCalendarMonth = (offset) => {
-    const date = dateKeyToWibDate(firstMonthDay(rangeCalendarMonth));
+    const date = dateKeyToCalendarDate(firstMonthDay(rangeCalendarMonth));
     date.setMonth(date.getMonth() + offset);
-    rangeCalendarMonth = monthKeyFromDate(wibDateKey(date));
+    rangeCalendarMonth = monthKeyFromDate(calendarDateKey(date));
     renderOverviewRangeCalendar();
   };
 
@@ -5034,12 +5155,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (value === null || value === undefined || !Number.isFinite(number)) return '-';
     if (format === 'money') return formatCurrency(number);
     if (format === 'percent') {
-      return `${(number * 100).toLocaleString('id-ID', {
+      return `${formatRegionalNumber(number * 100, {
         minimumFractionDigits: 0,
         maximumFractionDigits: 1
       })}%`;
     }
-    return Math.round(number).toLocaleString('id-ID');
+    return formatRegionalInteger(number);
   };
 
   const renderSalesRecapCell = (metric, value, isTotal = false) => {
@@ -5325,7 +5446,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <tr>
           <td><strong>${escapeHtml(month.label || '-')}</strong></td>
           <td title="${escapeHtml(formatCurrency(month.revenue || month.net_revenue || month.sales || 0))}">${formatCellCurrency(month.revenue || month.net_revenue || month.sales || 0)}</td>
-          <td title="${escapeHtml(Number(month.orders || 0).toLocaleString('id-ID'))}">${formatCompactNumber(month.orders || 0)}</td>
+          <td title="${escapeHtml(formatRegionalInteger(month.orders))}">${formatCompactNumber(month.orders || 0)}</td>
           <td>${escapeHtml(topPlatformForMonth(month))}</td>
         </tr>
       `, 'Belum ada data marketplace.');
@@ -5475,7 +5596,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const dailyOrderDateString = (row) => {
     const date = parseOrderTimestamp(row?.order_create_time || row?.timestamp);
-    return date ? dashboardDateFormatter.format(date) : '';
+    return date ? dashboardDateKey(date) : '';
   };
 
   const dailyAccountFromParts = (platformValue, accountValue = '', custom = false) => {
@@ -5685,7 +5806,7 @@ document.addEventListener('DOMContentLoaded', () => {
     `).join('');
   };
 
-  const formatDailyQty = (value, options = {}) => Number(value || 0).toLocaleString('id-ID', {
+  const formatDailyQty = (value, options = {}) => formatRegionalNumber(value, {
     maximumFractionDigits: options.average ? 1 : 0
   });
 
@@ -5711,7 +5832,7 @@ document.addEventListener('DOMContentLoaded', () => {
     `).join('');
     const accountSubheads = accounts.map(() => `
       <th class="daily-subhead daily-qty-head">Qty</th>
-      <th class="daily-subhead">Rp</th>
+      <th class="daily-subhead">Revenue</th>
     `).join('');
 
     dailyRefs.sheetHead.innerHTML = `
@@ -5723,9 +5844,9 @@ document.addEventListener('DOMContentLoaded', () => {
       <tr>
         ${accountSubheads}
         <th class="daily-subhead daily-total-subhead daily-qty-head">Total Qty</th>
-        <th class="daily-subhead daily-total-subhead">Total Rp</th>
+        <th class="daily-subhead daily-total-subhead">Total Revenue</th>
         <th class="daily-subhead daily-total-subhead daily-qty-head">Avg Qty</th>
-        <th class="daily-subhead daily-total-subhead">Avg Rp</th>
+        <th class="daily-subhead daily-total-subhead">Avg Revenue</th>
       </tr>
     `;
 
@@ -5774,7 +5895,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <td class="daily-number-cell daily-total-cell daily-rp-cell">${dailyRpMarkup(dailyData.totals.avgRevenue)}</td>
       </tr>
       <tr>
-        <th scope="row" class="daily-day-cell"><strong>Avg / day</strong><small>${dailyData.dayCount.toLocaleString('id-ID')} days</small></th>
+        <th scope="row" class="daily-day-cell"><strong>Avg / day</strong><small>${formatRegionalInteger(dailyData.dayCount)} days</small></th>
         ${averageAccountCells}
         <td class="daily-number-cell daily-total-cell daily-qty-cell">${dailyQtyMarkup(dailyData.totals.avgQty, { average: true })}</td>
         <td class="daily-number-cell daily-total-cell daily-rp-cell">${dailyRpMarkup(dailyData.totals.avgRevenue)}</td>
@@ -5788,7 +5909,7 @@ document.addEventListener('DOMContentLoaded', () => {
     state.daily.data = dailyData;
     if (dailyRefs.monthInput) dailyRefs.monthInput.value = dailyData.month;
     if (dailyRefs.status) {
-      dailyRefs.status.textContent = `${dailyData.label} • ${dailyData.days.length.toLocaleString('id-ID')} days • ${dailyData.totals.accountCount.toLocaleString('id-ID')} account columns • ${dailyData.rows.length.toLocaleString('id-ID')} order lines`;
+      dailyRefs.status.textContent = `${dailyData.label} • ${formatRegionalInteger(dailyData.days.length)} days • ${formatRegionalInteger(dailyData.totals.accountCount)} account columns • ${formatRegionalInteger(dailyData.rows.length)} order lines`;
     }
     if (dailyRefs.exportButton) dailyRefs.exportButton.disabled = false;
     renderDailyPlatformList();
@@ -5854,23 +5975,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const lines = [
       `Month: ${dailyData.label}`,
       `Date range: ${dailyData.start} to ${dailyData.end}`,
-      `Total Qty: ${Number(dailyData.totals.qty || 0).toLocaleString('id-ID')}`,
+      `Total Qty: ${formatRegionalInteger(dailyData.totals.qty)}`,
       `Total Revenue: ${formatCurrency(dailyData.totals.revenue || 0)}`,
-      `Average Qty per day: ${Number(dailyData.totals.avgQty || 0).toLocaleString('id-ID', { maximumFractionDigits: 1 })}`,
+      `Average Qty per day: ${formatRegionalNumber(dailyData.totals.avgQty, { maximumFractionDigits: 1 })}`,
       `Average Revenue per day: ${formatCurrency(dailyData.totals.avgRevenue || 0)}`,
       '',
       'Account columns',
-      ...accounts.map((account) => `${account.label}: Qty ${Number(account.qty || 0).toLocaleString('id-ID')} | Rp ${formatCurrency(account.revenue || 0)} | Avg Qty/day ${Number(account.avgQty || 0).toLocaleString('id-ID', { maximumFractionDigits: 1 })} | Avg Rp/day ${formatCurrency(account.avgRevenue || 0)}`),
+      ...accounts.map((account) => `${account.label}: Qty ${formatRegionalInteger(account.qty)} | Revenue ${formatCurrency(account.revenue || 0)} | Avg Qty/day ${formatRegionalNumber(account.avgQty, { maximumFractionDigits: 1 })} | Avg Revenue/day ${formatCurrency(account.avgRevenue || 0)}`),
       '',
       'Daily spreadsheet',
       ...dailyData.days.map((day) => {
         const accountCells = accounts.length
           ? accounts.map((account) => {
             const accountDay = day.accounts.get(account.key) || { qty: 0, revenue: 0 };
-            return `${account.label} Qty ${Number(accountDay.qty || 0).toLocaleString('id-ID')} Rp ${formatCurrency(accountDay.revenue || 0)}`;
+            return `${account.label} Qty ${formatRegionalInteger(accountDay.qty)} Revenue ${formatCurrency(accountDay.revenue || 0)}`;
           }).join('; ')
           : 'No account columns';
-        return `${day.date}: ${accountCells} | Total Qty ${Number(day.qty || 0).toLocaleString('id-ID')} | Total Rp ${formatCurrency(day.revenue || 0)} | Avg Qty ${Number(day.avgQty || 0).toLocaleString('id-ID', { maximumFractionDigits: 1 })} | Avg Rp ${formatCurrency(day.avgRevenue || 0)}`;
+        return `${day.date}: ${accountCells} | Total Qty ${formatRegionalInteger(day.qty)} | Total Revenue ${formatCurrency(day.revenue || 0)} | Avg Qty ${formatRegionalNumber(day.avgQty, { maximumFractionDigits: 1 })} | Avg Revenue ${formatCurrency(day.avgRevenue || 0)}`;
       })
     ];
     const pdf = buildSimplePdf(`Jenang Gemi Daily Report - ${dailyData.label}`, lines);
@@ -5959,7 +6080,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <summary>
             <button type="button" class="admin-orders-filter-row${companySelected ? ' is-selected' : ''}" data-add-order-filter="companies" data-filter-value="${escapeHtml(company.name || '')}">
               <span>${escapeHtml(company.name || 'Unnamed company')}</span>
-              <small>${products.length.toLocaleString('id-ID')} products</small>
+                      <small>${formatRegionalInteger(products.length)} products</small>
             </button>
           </summary>
           <div class="admin-orders-nested-content">
@@ -5971,7 +6092,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   <summary>
                     <button type="button" class="admin-orders-filter-row${productSelected ? ' is-selected' : ''}" data-add-order-filter="products" data-filter-value="${escapeHtml(product.name || '')}">
                       <span>${escapeHtml(product.name || 'Unnamed product')}</span>
-                      <small>${flavors.length.toLocaleString('id-ID')} flavors</small>
+                      <small>${formatRegionalInteger(flavors.length)} flavors</small>
                     </button>
                   </summary>
                   <div class="admin-orders-nested-content">
@@ -6075,11 +6196,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const renderOrdersDateCalendar = () => {
     if (!ordersRefs.dateGrid || !ordersRefs.dateMonth) return;
     const monthKey = state.orders.calendarMonth || monthKeyFromDate(todayDate());
-    const first = dateKeyToWibDate(firstMonthDay(monthKey));
+    const first = dateKeyToCalendarDate(firstMonthDay(monthKey));
     const calendarStart = new Date(first);
     const weekday = (calendarStart.getDay() + 6) % 7;
     calendarStart.setDate(calendarStart.getDate() - weekday);
-    const monthFormatter = new Intl.DateTimeFormat('id-ID', { timeZone: state.timezone, month: 'long', year: 'numeric' });
+    const monthFormatter = new Intl.DateTimeFormat(getRegionalDateLocale(), { timeZone: state.timezone, month: 'long', year: 'numeric' });
     ordersRefs.dateMonth.textContent = monthFormatter.format(first);
     const today = todayDate();
     const { startDate, endDate } = state.orders.filters;
@@ -6087,7 +6208,7 @@ document.addEventListener('DOMContentLoaded', () => {
     for (let index = 0; index < 42; index += 1) {
       const date = new Date(calendarStart);
       date.setDate(calendarStart.getDate() + index);
-      const key = wibDateKey(date);
+      const key = calendarDateKey(date);
       const inMonth = key.slice(0, 7) === monthKey;
       const inRange = startDate && endDate && key >= startDate && key <= endDate;
       const isStart = startDate && key === startDate;
@@ -6146,9 +6267,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const hourOfDay = Array.isArray(data.hour_of_day) ? data.hour_of_day : [];
     const recentEvents = (Array.isArray(data.recent_events) ? data.recent_events : []).filter((item) => !shouldHideSourceMetric(item.source));
 
-    if (homeRefs.summaryViews) homeRefs.summaryViews.textContent = Number(summary.total_views || 0).toLocaleString('id-ID');
-    if (homeRefs.summaryOrder) homeRefs.summaryOrder.textContent = Number(summary.order_now_clicks || 0).toLocaleString('id-ID');
-    if (homeRefs.summaryCheckout) homeRefs.summaryCheckout.textContent = Number(summary.checkout_clicks || 0).toLocaleString('id-ID');
+    if (homeRefs.summaryViews) homeRefs.summaryViews.textContent = formatRegionalInteger(summary.total_views);
+    if (homeRefs.summaryOrder) homeRefs.summaryOrder.textContent = formatRegionalInteger(summary.order_now_clicks);
+    if (homeRefs.summaryCheckout) homeRefs.summaryCheckout.textContent = formatRegionalInteger(summary.checkout_clicks);
     if (homeRefs.summaryTime) homeRefs.summaryTime.textContent = formatSeconds(Number(summary.avg_time_spent_seconds || 0));
     if (homeRefs.endpointLabel) homeRefs.endpointLabel.textContent = endpoint;
 
@@ -6157,9 +6278,9 @@ document.addEventListener('DOMContentLoaded', () => {
         <tr>
           <td><strong>${escapeHtml(item.page_path || '-')}</strong></td>
           <td>${escapeHtml(toTitleCase(item.source || 'unknown'))}</td>
-          <td>${Number(item.views || 0).toLocaleString('id-ID')}</td>
-          <td>${Number(item.order_now_clicks || 0).toLocaleString('id-ID')}</td>
-          <td>${Number(item.checkout_clicks || 0).toLocaleString('id-ID')}</td>
+          <td>${formatRegionalInteger(item.views)}</td>
+          <td>${formatRegionalInteger(item.order_now_clicks)}</td>
+          <td>${formatRegionalInteger(item.checkout_clicks)}</td>
           <td>${formatSeconds(Number(item.avg_time_spent_seconds || 0))}</td>
         </tr>
       `);
@@ -6169,9 +6290,9 @@ document.addEventListener('DOMContentLoaded', () => {
       homeRefs.sourceTableBody.innerHTML = renderRows(bySource, 5, (item) => `
         <tr>
           <td><strong>${escapeHtml(toTitleCase(item.source || 'unknown'))}</strong></td>
-          <td>${Number(item.views || 0).toLocaleString('id-ID')}</td>
-          <td>${Number(item.order_now_clicks || 0).toLocaleString('id-ID')}</td>
-          <td>${Number(item.checkout_clicks || 0).toLocaleString('id-ID')}</td>
+          <td>${formatRegionalInteger(item.views)}</td>
+          <td>${formatRegionalInteger(item.order_now_clicks)}</td>
+          <td>${formatRegionalInteger(item.checkout_clicks)}</td>
           <td>${formatSeconds(Number(item.avg_time_spent_seconds || 0))}</td>
         </tr>
       `);
@@ -6196,9 +6317,9 @@ document.addEventListener('DOMContentLoaded', () => {
       color: () => SOURCE_COLORS.facebook,
       metric: state.home.metric,
       unitsMap: HOME_METRIC_UNITS,
-      valueLabel: (_item, value) => Math.round(Number(value) || 0).toLocaleString('id-ID'),
-      tooltipTitle: (item) => `Hour ${Number(item.hour || 0)} WIB`,
-      tooltipValue: (_item, value) => Math.round(Number(value) || 0).toLocaleString('id-ID'),
+      valueLabel: (_item, value) => formatRegionalInteger(value),
+      tooltipTitle: (item) => `Hour ${Number(item.hour || 0)} ${getTimezoneLabel(state.timezone)}`,
+      tooltipValue: (_item, value) => formatRegionalInteger(value),
       limit: 24
     });
     renderProductCartRundown(homeRefs.productCartRundown, homeRefs.productCartMeta, data.product_cart, 'No cart adds in this timeframe.');
@@ -6223,7 +6344,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderSourceLegend(bySource);
     setLastUpdated(homeRefs.lastUpdated, data.meta?.generated_at);
     if (homeRefs.trendTitle) homeRefs.trendTitle.textContent = HOME_METRIC_LABELS[state.home.metric];
-    if (homeRefs.trendMeta) homeRefs.trendMeta.textContent = `Timeframe: ${state.home.timeframe.toUpperCase()} • Scope: Landing pages • Timezone: WIB`;
+    if (homeRefs.trendMeta) homeRefs.trendMeta.textContent = `Timeframe: ${state.home.timeframe.toUpperCase()} • Scope: Landing pages • Timezone: ${getTimezoneLabel(state.timezone)}`;
     homeRefs.timeframeButtons.forEach((button) => {
       button.classList.toggle('is-active', button.dataset.homeTimeframe === state.home.timeframe);
     });
@@ -6243,13 +6364,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const summary = data.summary || {};
     const timeseries = Array.isArray(data.timeseries) ? data.timeseries : [];
 
-    if (websiteRefs.summaryVisitors) websiteRefs.summaryVisitors.textContent = Number(summary.total_visitors || 0).toLocaleString('id-ID');
-    if (websiteRefs.summaryPageViews) websiteRefs.summaryPageViews.textContent = Number(summary.total_page_views || 0).toLocaleString('id-ID');
-    if (websiteRefs.summaryAddToCart) websiteRefs.summaryAddToCart.textContent = Number(summary.add_to_cart_events || 0).toLocaleString('id-ID');
-    if (websiteRefs.summaryCheckout) websiteRefs.summaryCheckout.textContent = Number(summary.checkout_clicks || 0).toLocaleString('id-ID');
+    if (websiteRefs.summaryVisitors) websiteRefs.summaryVisitors.textContent = formatRegionalInteger(summary.total_visitors);
+    if (websiteRefs.summaryPageViews) websiteRefs.summaryPageViews.textContent = formatRegionalInteger(summary.total_page_views);
+    if (websiteRefs.summaryAddToCart) websiteRefs.summaryAddToCart.textContent = formatRegionalInteger(summary.add_to_cart_events);
+    if (websiteRefs.summaryCheckout) websiteRefs.summaryCheckout.textContent = formatRegionalInteger(summary.checkout_clicks);
     if (websiteRefs.summaryTime) websiteRefs.summaryTime.textContent = formatSeconds(Number(summary.avg_time_spent_seconds || 0));
     if (websiteRefs.summaryTopRegion) websiteRefs.summaryTopRegion.textContent = summary.top_region || 'Unknown';
-    if (websiteRefs.excludedCount) websiteRefs.excludedCount.textContent = Number(summary.excluded_ip_count || 0).toLocaleString('id-ID');
+    if (websiteRefs.excludedCount) websiteRefs.excludedCount.textContent = formatRegionalInteger(summary.excluded_ip_count);
     if (websiteRefs.settingsEndpointLabel) websiteRefs.settingsEndpointLabel.textContent = settingsEndpoint;
 
     drawLineChart(websiteRefs.trendCanvas, timeseries, state.website.metric, WEBSITE_METRIC_UNITS, {
@@ -6259,7 +6380,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setLastUpdated(websiteRefs.lastUpdated, data.meta?.generated_at);
     const siteLabel = WEBSITE_SITE_LABELS[state.website.site]?.title || 'Website';
     if (websiteRefs.trendTitle) websiteRefs.trendTitle.textContent = `${siteLabel} ${WEBSITE_METRIC_LABELS[state.website.metric].replace(/^Website\s+/i, '').replace(/^website\s+/i, '')}`;
-    if (websiteRefs.trendMeta) websiteRefs.trendMeta.textContent = `Timeframe: ${state.website.timeframe.toUpperCase()} • Scope: ${siteLabel} • Timezone: WIB`;
+    if (websiteRefs.trendMeta) websiteRefs.trendMeta.textContent = `Timeframe: ${state.website.timeframe.toUpperCase()} • Scope: ${siteLabel} • Timezone: ${getTimezoneLabel(state.timezone)}`;
     websiteRefs.timeframeButtons.forEach((button) => {
       button.classList.toggle('is-active', button.dataset.websiteTimeframe === state.website.timeframe);
     });
@@ -6331,7 +6452,7 @@ document.addEventListener('DOMContentLoaded', () => {
     zeroStoreRefs.error.textContent = message;
   };
 
-  const formatIdr = (value) => `Rp${Number(value || 0).toLocaleString('id-ID')}`;
+  const formatIdr = (value) => formatCurrency(value);
 
   const zeroStoreActionUrl = (action) => `${zeroStoreEndpoint}?action=${encodeURIComponent(action)}&_ts=${Date.now()}`;
 
@@ -6343,7 +6464,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const discountSummary = (discount) => {
     const amount = discount.discount_type === 'percent'
-      ? `${Number(discount.amount || 0).toLocaleString('id-ID')}%`
+      ? `${formatRegionalNumber(discount.amount || 0)}%`
       : formatIdr(discount.amount);
     return `${amount} | ${discount.starts_on || '-'} to ${discount.ends_on || '-'}`;
   };
@@ -6416,7 +6537,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td>${escapeHtml(item.product_name || '')}</td>
           <td>${escapeHtml(item.option_name || item.variant_name || item.flavor_name || '')}</td>
           <td>${escapeHtml(item.size_label || '')}</td>
-          <td>${item.sku_linked ? Number(item.stock || 0).toLocaleString('id-ID') : 'Unlinked'}</td>
+          <td>${item.sku_linked ? formatRegionalInteger(item.stock) : 'Unlinked'}</td>
           <td>${item.sku_linked ? formatIdr(item.cogs) : 'Unlinked'}</td>
           <td>${formatIdr(item.price)}</td>
           <td>${Number(item.is_active || 0) === 1 ? '<span class="admin-status-badge">Visible</span>' : '<span class="admin-status-badge admin-status-badge-warn">Hidden</span>'}</td>
@@ -6498,14 +6619,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const renderZeroDiscountCalendar = () => {
     if (!zeroStoreRefs.calendarGrid || !zeroStoreRefs.calendarMonth) return;
-    const firstDay = dateKeyToWibDate(firstMonthDay(state.zeroStore.calendarMonth));
+    const firstDay = dateKeyToCalendarDate(firstMonthDay(state.zeroStore.calendarMonth));
     const month = firstDay.getMonth();
     const startOffset = (firstDay.getDay() + 6) % 7;
     const gridStart = new Date(firstDay);
     gridStart.setDate(firstDay.getDate() - startOffset);
     const today = todayDate();
     const bounds = zeroDiscountBounds();
-    zeroStoreRefs.calendarMonth.textContent = new Intl.DateTimeFormat('id-ID', {
+    zeroStoreRefs.calendarMonth.textContent = new Intl.DateTimeFormat(getRegionalDateLocale(), {
       timeZone: state.timezone,
       month: 'long',
       year: 'numeric'
@@ -6514,7 +6635,7 @@ document.addEventListener('DOMContentLoaded', () => {
     for (let index = 0; index < 42; index += 1) {
       const date = new Date(gridStart);
       date.setDate(gridStart.getDate() + index);
-      const key = wibDateKey(date);
+      const key = calendarDateKey(date);
       const outside = date.getMonth() !== month;
       const inRange = bounds.start && bounds.end && key >= bounds.start && key <= bounds.end;
       const selectedStart = bounds.start && key === bounds.start;
@@ -6802,7 +6923,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       offset = nextOffset;
       if (dailyRefs.status) {
-        dailyRefs.status.textContent = `Loading ${formatDailyMonthLabel(state.daily.month)} order lines... ${rows.length.toLocaleString('id-ID')} loaded`;
+        dailyRefs.status.textContent = `Loading ${formatDailyMonthLabel(state.daily.month)} order lines... ${formatRegionalInteger(rows.length)} loaded`;
       }
     }
 
@@ -7376,9 +7497,53 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const renderCachedCharts = () => {
     if (state.activeView === 'overview' && state.overview.data) renderOverview(state.overview.data);
-    if (state.activeView === 'daily' && state.daily.data) renderDaily(state.daily.data);
+    if (state.activeView === 'daily' && state.daily.data) renderDaily(aggregateDailyData(Array.isArray(state.daily.rows) ? state.daily.rows : state.daily.data.rows, state.daily.month));
     if (state.activeView === 'home' && state.home.data) renderHome(state.home.data);
     if (state.activeView === 'website' && state.website.screen === 'detail' && state.website.data) renderWebsite(state.website.data);
+  };
+
+  const syncRegionalControls = () => {
+    regionalRefs.controls.forEach((control) => {
+      if (!(control instanceof HTMLSelectElement)) return;
+      control.value = regionalDefaults[control.name] || REGIONAL_DEFAULTS_FALLBACK[control.name] || '';
+    });
+  };
+
+  const renderRegionalPreview = () => {
+    if (regionalRefs.previewDate) {
+      regionalRefs.previewDate.textContent = `${formatDashboardTime(new Date(), regionalDefaults.timezone, {
+        weekday: 'short',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      })} ${getTimezoneLabel(regionalDefaults.timezone)}`;
+    }
+    if (regionalRefs.previewCurrency) {
+      regionalRefs.previewCurrency.textContent = formatCurrency(1234567);
+    }
+  };
+
+  const applyRegionalSettings = (nextDefaults) => {
+    writeRegionalDefaults({ ...regionalDefaults, ...nextDefaults });
+    state.timezone = regionalDefaults.timezone;
+    syncRegionalControls();
+    renderRegionalPreview();
+    renderCachedCharts();
+    if (state.activeView === 'orders') {
+      renderOrdersDateCalendar();
+      renderOrders();
+    }
+    if (state.activeView === 'overview') {
+      renderOverviewRangeCalendar();
+      renderOverviewHourlyPanel();
+    }
+    if (state.activeView === 'hard-set') {
+      renderHardSet();
+    }
+    renderZeroDiscountCalendar();
   };
 
   const activateOrdersViewInstantly = () => {
@@ -7559,6 +7724,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   applyTheme(readStoredTheme() || 'dark');
+  syncRegionalControls();
+  renderRegionalPreview();
   if (dailyRefs.monthInput) dailyRefs.monthInput.value = state.daily.month;
   renderDailyPlatformList();
   syncViewState();
@@ -7956,15 +8123,15 @@ document.addEventListener('DOMContentLoaded', () => {
     renderZeroDiscountCalendar();
   });
   zeroStoreRefs.calendarPrev?.addEventListener('click', () => {
-    const date = dateKeyToWibDate(firstMonthDay(state.zeroStore.calendarMonth));
+    const date = dateKeyToCalendarDate(firstMonthDay(state.zeroStore.calendarMonth));
     date.setMonth(date.getMonth() - 1);
-    state.zeroStore.calendarMonth = monthKeyFromDate(wibDateKey(date));
+    state.zeroStore.calendarMonth = monthKeyFromDate(calendarDateKey(date));
     renderZeroDiscountCalendar();
   });
   zeroStoreRefs.calendarNext?.addEventListener('click', () => {
-    const date = dateKeyToWibDate(firstMonthDay(state.zeroStore.calendarMonth));
+    const date = dateKeyToCalendarDate(firstMonthDay(state.zeroStore.calendarMonth));
     date.setMonth(date.getMonth() + 1);
-    state.zeroStore.calendarMonth = monthKeyFromDate(wibDateKey(date));
+    state.zeroStore.calendarMonth = monthKeyFromDate(calendarDateKey(date));
     renderZeroDiscountCalendar();
   });
   zeroStoreRefs.calendarGrid?.addEventListener('pointerdown', (event) => {
@@ -8060,16 +8227,16 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   ordersRefs.datePrev?.addEventListener('click', () => {
-    const date = dateKeyToWibDate(firstMonthDay(state.orders.calendarMonth));
+    const date = dateKeyToCalendarDate(firstMonthDay(state.orders.calendarMonth));
     date.setMonth(date.getMonth() - 1);
-    state.orders.calendarMonth = monthKeyFromDate(wibDateKey(date));
+    state.orders.calendarMonth = monthKeyFromDate(calendarDateKey(date));
     renderOrdersDateCalendar();
   });
 
   ordersRefs.dateNext?.addEventListener('click', () => {
-    const date = dateKeyToWibDate(firstMonthDay(state.orders.calendarMonth));
+    const date = dateKeyToCalendarDate(firstMonthDay(state.orders.calendarMonth));
     date.setMonth(date.getMonth() + 1);
-    state.orders.calendarMonth = monthKeyFromDate(wibDateKey(date));
+    state.orders.calendarMonth = monthKeyFromDate(calendarDateKey(date));
     renderOrdersDateCalendar();
   });
 
@@ -8423,6 +8590,18 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('[data-theme-option]').forEach((button) => {
     button.addEventListener('click', () => {
       applyTheme(button.dataset.themeOption || 'dark');
+    });
+  });
+
+  regionalRefs.form?.addEventListener('change', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLSelectElement) || !target.matches('[data-regional-setting]')) return;
+    const formData = new FormData(regionalRefs.form);
+    applyRegionalSettings({
+      timezone: String(formData.get('timezone') || ''),
+      numberLocale: String(formData.get('numberLocale') || ''),
+      dateFormat: String(formData.get('dateFormat') || ''),
+      currencyDisplay: String(formData.get('currencyDisplay') || '')
     });
   });
 
