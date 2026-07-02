@@ -758,51 +758,28 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                     </section>
 
                     <section class="admin-view" data-view-panel="website">
-                <section class="admin-hero-panel admin-hero-panel-website">
-                    <div class="admin-hero-copy">
-                        <span class="admin-chip admin-chip-accent" data-website-hero-chip>Official Website Dashboard</span>
-                        <h2 data-website-hero-title>Select a website dashboard.</h2>
+                <section class="admin-website-header" data-website-header>
+                    <div class="admin-website-header-copy">
+                        <div class="admin-website-title-row">
+                            <button type="button" class="admin-back-icon-button admin-website-back-button" data-website-back hidden aria-label="Back to website selector" title="Back to website selector">
+                                <img src="https://cdn.jsdelivr.net/npm/lucide-static@0.468.0/icons/arrow-left.svg" alt="" width="22" height="22" loading="lazy" referrerpolicy="no-referrer">
+                            </button>
+                            <h2 data-website-hero-title>Select a website dashboard.</h2>
+                        </div>
                         <p data-website-hero-copy>Choose Jenang Gemi or ZERO to open the dedicated website analytics page. Each page uses browser-tagged website visits only.</p>
                     </div>
-                    <div class="admin-hero-actions">
-                        <button type="button" class="admin-back-icon-button" data-website-back hidden aria-label="Back to website selector" title="Back to website selector">
-                            <img src="https://cdn.jsdelivr.net/npm/lucide-static@0.468.0/icons/arrow-left.svg" alt="" width="22" height="22" loading="lazy" referrerpolicy="no-referrer">
+                    <div class="admin-website-selector" data-website-selector aria-label="Website selection">
+                        <button type="button" class="admin-website-selection-card" data-website-open="jenang_gemi">
+                            <span>Jenang Gemi</span>
+                            <strong>jenanggemi.com</strong>
+                            <small>Traffic, cart intent, checkout clicks, paid orders, and store settings.</small>
                         </button>
-                        <div class="admin-status-pill">
-                            <span class="admin-status-dot"></span>
-                            <span>Website Visitor Tracking Active</span>
-                        </div>
-                        <div class="admin-note-card admin-note-card-compact">
-                            <strong>Exclusions</strong>
-                            <span><span data-website-excluded-ip-count>0</span> IPs hidden from website analytics.</span>
-                        </div>
-                        <div class="admin-note-card admin-note-card-compact">
-                            <strong>Filtering</strong>
-                            <span>Website-only events, no webhooks, no backend requests.</span>
-                        </div>
+                        <button type="button" class="admin-website-selection-card" data-website-open="zero">
+                            <span>ZERO</span>
+                            <strong>zerofoods.id</strong>
+                            <small>Traffic, cart intent, checkout clicks, paid orders, and product setup.</small>
+                        </button>
                     </div>
-                </section>
-
-                <section class="admin-main-grid" data-website-selector>
-                    <article class="admin-panel admin-panel-wide">
-                        <div class="admin-panel-head">
-                            <div>
-                                <span class="admin-panel-kicker">Website</span>
-                                <h3>Which website do you want to inspect?</h3>
-                            </div>
-                            <span class="admin-panel-meta">Dedicated analytics for each public domain.</span>
-                        </div>
-                        <div class="admin-launchpad-grid">
-                            <button type="button" class="admin-launchpad-link" data-website-open="jenang_gemi">
-                                <span>jenanggemi.com</span>
-                                <small>Official Jenang Gemi website analytics</small>
-                            </button>
-                            <button type="button" class="admin-launchpad-link" data-website-open="zero">
-                                <span>zerofoods.id</span>
-                                <small>zerofoods.id website analytics</small>
-                            </button>
-                        </div>
-                    </article>
                 </section>
 
                 <div data-website-detail hidden>
@@ -830,6 +807,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                     <div class="admin-live-status admin-website-live-status">
                         <strong>Live</strong>
                         <span data-website-last-updated>Waiting for first sync</span>
+                        <small><span data-website-excluded-ip-count>0</span> IPs hidden from website analytics</small>
                     </div>
                 </section>
 

@@ -274,13 +274,13 @@ const WEBSITE_SITE_LABELS = {
   jenang_gemi: {
     title: 'jenanggemi.com',
     chip: 'Jenang Gemi Website Dashboard',
-    copy: 'Minimal traffic and paid-commerce view for jenanggemi.com.',
+    copy: 'Website traffic, cart intent, checkout clicks, paid orders, and Jenang Gemi store settings.',
     scope: 'Counts only `traffic_kind=website` browser events from the Jenang Gemi website.'
   },
   zero: {
     title: 'zerofoods.id',
     chip: 'ZERO Website Dashboard',
-    copy: 'Minimal traffic and paid-commerce view for zerofoods.id.',
+    copy: 'Website traffic, cart intent, checkout clicks, paid orders, and ZERO product setup.',
     scope: 'Counts only `traffic_kind=website` browser events from zerofoods.id.'
   }
 };
@@ -2346,6 +2346,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const websiteRefs = {
+    header: document.querySelector('[data-website-header]'),
     selector: document.querySelector('[data-website-selector]'),
     detail: document.querySelector('[data-website-detail]'),
     openButtons: document.querySelectorAll('[data-website-open]'),
@@ -6067,7 +6068,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (websiteRefs.excludedCount) websiteRefs.excludedCount.textContent = Number(summary.excluded_ip_count || 0).toLocaleString('id-ID');
     if (websiteRefs.settingsEndpointLabel) websiteRefs.settingsEndpointLabel.textContent = settingsEndpoint;
 
-    drawLineChart(websiteRefs.trendCanvas, timeseries, state.website.metric, WEBSITE_METRIC_UNITS);
+    drawLineChart(websiteRefs.trendCanvas, timeseries, state.website.metric, WEBSITE_METRIC_UNITS, {
+      lineColor: '#60a5fa'
+    });
 
     setLastUpdated(websiteRefs.lastUpdated, data.meta?.generated_at);
     const siteLabel = WEBSITE_SITE_LABELS[state.website.site]?.title || 'Website';
@@ -6088,6 +6091,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (websiteRefs.selector) websiteRefs.selector.hidden = isDetail;
     if (websiteRefs.detail) websiteRefs.detail.hidden = !isDetail;
+    if (websiteRefs.header) websiteRefs.header.classList.toggle('is-detail', isDetail);
     websiteRefs.backButtons.forEach((button) => {
       button.hidden = !isDetail;
     });
