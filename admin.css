@@ -15633,6 +15633,32 @@ body:has(.admin-app[data-sku-db])::after {
   height: 328px;
 }
 
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-product-mix-chart-grid {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(340px, 1.1fr) repeat(2, minmax(280px, 0.95fr));
+  gap: 16px;
+  min-width: 0;
+  align-items: stretch;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-product-mix-card {
+  min-width: 0;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-product-mix-card .admin-chart-canvas {
+  height: 286px;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-product-mix-card .admin-chart-canvas-lg {
+  height: 300px;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-sku-product-card .admin-panel-head h3,
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-product-mix-card .admin-panel-head h3 {
+  font-size: 1.02rem;
+}
+
 .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-heatmap-card {
   min-width: 0;
   background: #101010;
@@ -16626,11 +16652,27 @@ body:has(.admin-app[data-sku-db])::after {
   .admin-app.admin-app-suite[data-admin-dashboard] .admin-flavor-chart-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .admin-app.admin-app-suite[data-admin-dashboard] .admin-product-mix-chart-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-app.admin-app-suite[data-admin-dashboard] .admin-sku-product-card {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 1100px) {
   .admin-app.admin-app-suite[data-admin-dashboard] .admin-flavor-chart-grid {
     grid-template-columns: 1fr;
+  }
+
+  .admin-app.admin-app-suite[data-admin-dashboard] .admin-product-mix-chart-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-app.admin-app-suite[data-admin-dashboard] .admin-sku-product-card {
+    grid-column: auto;
   }
 
   .admin-app.admin-app-suite[data-admin-dashboard] .admin-location-heatmap-shell {

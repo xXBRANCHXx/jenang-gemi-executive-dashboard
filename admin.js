@@ -1627,23 +1627,42 @@ const productSeriesFromMonthlyRows = (rows) => {
     }));
 };
 
-const overviewVolumeBreakdownRows = (volumeBreakdown) => {
-  const groups = volumeBreakdown && typeof volumeBreakdown === 'object'
-    ? Object.values(volumeBreakdown)
-    : [];
-  return groups.flatMap((group, groupIndex) => {
-    const volumes = Array.isArray(group?.volumes) ? group.volumes : Object.values(group?.volumes || {});
-    return volumes.map((row, volumeIndex) => ({
-      ...normalizeOverviewRollupRow(row, {
-        key: row?.key || `${group?.key || `group-${groupIndex}`}-${volumeIndex}`,
-        label: row?.label || `${group?.label || 'Product'} ${row?.volume_label || ''}`.trim()
-      }),
-      product_key: row?.product_key || group?.key || '',
-      product_label: row?.product_label || group?.label || '',
-      volume_label: row?.volume_label || row?.short_label || row?.label || '',
-      short_label: row?.short_label || row?.volume_label || row?.label || ''
-    }));
+const shouldIncludeSkuProductSeries = (series) => {
+  const text = `${series?.key || ''} ${series?.label || ''}`.toLowerCase();
+  return !text.includes('sticker');
+};
+
+const filterMonthlyProductRowsForChart = (rows, series) => {
+  const allowedKeys = new Set(series.map((item) => item.key));
+  return rows.map((month) => {
+    const products = {};
+    Object.entries(month?.products || {}).forEach(([key, product]) => {
+      const productKey = product?.key || key;
+      if (allowedKeys.has(productKey)) {
+        products[productKey] = product;
+      }
+    });
+    return {
+      ...month,
+      products
+    };
   });
+};
+
+const overviewVolumeBreakdownGroupRows = (volumeBreakdown, groupKey) => {
+  const group = volumeBreakdown?.[groupKey] || Object.values(volumeBreakdown || {}).find((item) => item?.key === groupKey) || null;
+  const volumes = Array.isArray(group?.volumes) ? group.volumes : Object.values(group?.volumes || {});
+  return volumes.map((row, volumeIndex) => ({
+    ...normalizeOverviewRollupRow(row, {
+      key: row?.key || `${groupKey}-${volumeIndex}`,
+      label: row?.short_label || row?.volume_label || row?.label || `${group?.label || toTitleCase(groupKey)} ${volumeIndex + 1}`
+    }),
+    label: row?.short_label || row?.volume_label || row?.label || `${group?.label || toTitleCase(groupKey)} ${volumeIndex + 1}`,
+    product_key: row?.product_key || group?.key || groupKey,
+    product_label: row?.product_label || group?.label || toTitleCase(groupKey),
+    volume_label: row?.volume_label || row?.short_label || row?.label || '',
+    short_label: row?.short_label || row?.volume_label || row?.label || ''
+  }));
 };
 
 const drawMultiLineChart = (canvas, items, metric, unitsMap, seriesConfig) => {
@@ -1786,18 +1805,20 @@ const drawStackedBarChart = (canvas, items, config) => {
   }
 
   if (config.showLegend) {
-    const legendYStart = 18;
+    const sideLegend = config.legendPosition === 'side';
+    const legendYStart = sideLegend ? padding.top + 2 : 18;
     const legendGap = 18;
-    const maxLegendWidth = Math.max(160, width - padding.left - padding.right);
-    let legendX = padding.left;
+    const legendStartX = sideLegend ? width - padding.right + 18 : padding.left;
+    const maxLegendWidth = sideLegend ? Math.max(90, padding.right - 28) : Math.max(160, width - padding.left - padding.right);
+    let legendX = legendStartX;
     let legendY = legendYStart;
     ctx.font = '800 11px "Plus Jakarta Sans", sans-serif';
     ctx.textAlign = 'left';
     series.forEach((seriesItem) => {
       const label = String(seriesItem.label || seriesItem.key || '').slice(0, 24);
-      const labelWidth = ctx.measureText(label).width + 30;
-      if (legendX > padding.left && legendX + labelWidth > padding.left + maxLegendWidth) {
-        legendX = padding.left;
+      const labelWidth = sideLegend ? maxLegendWidth : ctx.measureText(label).width + 30;
+      if (!sideLegend && legendX > legendStartX && legendX + labelWidth > legendStartX + maxLegendWidth) {
+        legendX = legendStartX;
         legendY += legendGap;
       }
       ctx.fillStyle = seriesItem.color;
@@ -1806,7 +1827,11 @@ const drawStackedBarChart = (canvas, items, config) => {
       ctx.fill();
       ctx.fillStyle = palette.text || getComputedStyle(document.documentElement).getPropertyValue('--admin-text') || '#f3f6f8';
       ctx.fillText(label, legendX + 18, legendY);
-      legendX += labelWidth;
+      if (sideLegend) {
+        legendY += legendGap;
+      } else {
+        legendX += labelWidth;
+      }
     });
   }
 
@@ -2339,7 +2364,8 @@ document.addEventListener('DOMContentLoaded', () => {
     ordersCanvas: document.querySelector('[data-overview-orders-chart]'),
     hourlyCanvas: document.querySelector('[data-overview-hourly-chart]'),
     productStackCanvas: document.querySelector('[data-overview-product-stack-chart]'),
-    volumeBreakdownCanvas: document.querySelector('[data-overview-volume-breakdown-chart]'),
+    syrupVolumeCanvas: document.querySelector('[data-overview-syrup-volume-chart]'),
+    dropsVolumeCanvas: document.querySelector('[data-overview-drops-volume-chart]'),
     accountStackCanvas: document.querySelector('[data-overview-account-stack-chart]'),
     syrupFlavorCanvas: document.querySelector('[data-overview-syrup-flavor-chart]'),
     dropsFlavorCanvas: document.querySelector('[data-overview-drops-flavor-chart]'),
@@ -5201,7 +5227,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const monthlyAccountRows = overviewMonthlyAccountRows(months);
     const monthlyProductRows = normalizeOverviewMonthlyProductRows(products.monthly_product_groups, state.overview.year);
     const elapsedMonthlyProductRows = filterElapsedMonthlyRows(monthlyProductRows);
-    const volumeBreakdownRows = overviewVolumeBreakdownRows(products.volume_breakdown);
+    const syrupVolumeRows = overviewVolumeBreakdownGroupRows(products.volume_breakdown, 'syrup');
+    const dropsVolumeRows = overviewVolumeBreakdownGroupRows(products.volume_breakdown, 'drops');
     const syrupFlavorRows = Array.isArray(products.syrup_flavors) ? products.syrup_flavors : [];
     const dropsFlavorRows = Array.isArray(products.drops_flavors) ? products.drops_flavors : [];
     const buburFlavorRows = Array.isArray(products.bubur_flavors) ? products.bubur_flavors : [];
@@ -5336,8 +5363,9 @@ document.addEventListener('DOMContentLoaded', () => {
       padding: { top: 12, right: 16, bottom: 12, left: 16 },
       limit: 12
     }));
-    const productSeries = productSeriesFromMonthlyRows(elapsedMonthlyProductRows);
-    drawChartSafely(overviewRefs.productStackCanvas, () => drawStackedBarChart(overviewRefs.productStackCanvas, elapsedMonthlyProductRows, {
+    const productSeries = productSeriesFromMonthlyRows(elapsedMonthlyProductRows).filter(shouldIncludeSkuProductSeries);
+    const filteredMonthlyProductRows = filterMonthlyProductRowsForChart(elapsedMonthlyProductRows, productSeries);
+    drawChartSafely(overviewRefs.productStackCanvas, () => drawStackedBarChart(overviewRefs.productStackCanvas, filteredMonthlyProductRows, {
       series: productSeries,
       metric: state.overview.productMetric,
       unitsMap: OVERVIEW_METRIC_UNITS,
@@ -5347,23 +5375,24 @@ document.addEventListener('DOMContentLoaded', () => {
       includeEmptyItems: true,
       sortItems: false,
       showLegend: true,
-      padding: { top: 48, right: 18, bottom: 58, left: 82 },
+      legendPosition: 'side',
+      padding: { top: 22, right: 150, bottom: 44, left: 64 },
       limit: 12
     }), 'No monthly product sales yet');
-    drawChartSafely(overviewRefs.volumeBreakdownCanvas, () => drawBarChart(overviewRefs.volumeBreakdownCanvas, volumeBreakdownRows, {
-      value: (item) => item[state.overview.productMetric] || 0,
-      label: (item) => String(item.short_label || item.volume_label || item.label || '-'),
-      color: (item) => getOverviewProductColor(String(item.product_key || '').includes('drop') ? 2 : 0),
+    drawChartSafely(overviewRefs.syrupVolumeCanvas, () => drawPieChart(overviewRefs.syrupVolumeCanvas, syrupVolumeRows, {
       metric: state.overview.productMetric,
       unitsMap: OVERVIEW_METRIC_UNITS,
-      tooltipTitle: (item) => item.label || 'Volume',
-      tooltipValue: (item, value) => `${item.product_label || ''} ${formatFullMetricValue(state.overview.productMetric, value, OVERVIEW_METRIC_UNITS)}`.trim(),
-      showGrid: true,
-      showXAxisLabels: true,
-      showValueBadges: true,
-      padding: { top: 24, right: 18, bottom: 44, left: 82 },
-      limit: 6
-    }), 'No Syrup or Drops volume sales yet');
+      limit: 3,
+      emptyMessage: 'No syrup volume sales yet',
+      colorForIndex: getOverviewFlavorColor
+    }), 'No syrup volume sales yet');
+    drawChartSafely(overviewRefs.dropsVolumeCanvas, () => drawPieChart(overviewRefs.dropsVolumeCanvas, dropsVolumeRows, {
+      metric: state.overview.productMetric,
+      unitsMap: OVERVIEW_METRIC_UNITS,
+      limit: 3,
+      emptyMessage: 'No drops volume sales yet',
+      colorForIndex: getOverviewFlavorColor
+    }), 'No drops volume sales yet');
     const accountSeries = accountSeriesFromMonthlyRows(monthlyAccountRows, accounts);
     drawChartSafely(overviewRefs.accountStackCanvas, () => drawStackedBarChart(overviewRefs.accountStackCanvas, monthlyAccountRows, {
       series: accountSeries,
