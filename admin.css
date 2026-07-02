@@ -18524,9 +18524,17 @@ body:has(.admin-app[data-sku-db])::after {
 }
 
 .partner-program-page {
+  position: relative;
   display: grid;
   min-height: 100vh;
   align-items: center;
+}
+
+.partner-program-tools {
+  position: absolute;
+  top: clamp(18px, 4vw, 34px);
+  right: clamp(18px, 4vw, 38px);
+  z-index: 4500;
 }
 
 .partner-program-landing {
@@ -18594,9 +18602,16 @@ body:has(.admin-app[data-sku-db])::after {
     align-items: start;
   }
 
+  .partner-program-tools {
+    position: static;
+    display: flex;
+    justify-content: flex-end;
+    padding: 18px 18px 0;
+  }
+
   .partner-program-landing {
     width: 100%;
-    padding: 32px 18px 48px;
+    padding: 28px 18px 48px;
   }
 
   .partner-program-actions {

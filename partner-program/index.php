@@ -35,6 +35,9 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
             <?php render_admin_sidebar('partner'); ?>
 
             <div class="admin-shell-main partner-program-page">
+                <div class="partner-program-tools" aria-label="Dashboard tools">
+                    <?php render_admin_topbar_actions(); ?>
+                </div>
                 <main class="partner-program-landing" aria-labelledby="partner-program-title">
                     <section class="partner-program-intro">
                         <h1 id="partner-program-title">Jenang Gemi Partner Program</h1>
