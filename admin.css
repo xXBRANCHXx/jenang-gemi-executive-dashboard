@@ -19761,7 +19761,9 @@ body:has(.admin-app[data-sku-db])::after {
 }
 
 .admin-view-settings {
-  max-width: 1220px;
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
 }
 
 .admin-settings-grid-minimal {
@@ -19935,7 +19937,7 @@ body:has(.admin-app[data-sku-db])::after {
 
 @media (min-width: 1280px) {
   .admin-settings-grid-minimal {
-    grid-template-columns: minmax(0, 1fr) minmax(320px, 360px) 42px;
+    grid-template-columns: minmax(680px, 1fr) minmax(380px, 0.46fr) 42px;
     align-items: stretch;
   }
 
