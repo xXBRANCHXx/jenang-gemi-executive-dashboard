@@ -1568,6 +1568,84 @@ const platformSeriesFromProductRows = (rows, fallbackPlatforms) => {
   return Array.from(keyed.values());
 };
 
+const normalizeOverviewRollupRow = (row, fallback = {}) => ({
+  ...(row || {}),
+  ...fallback,
+  key: row?.key || fallback.key || '',
+  label: row?.label || fallback.label || '-',
+  quantity: numberFromFields(row, ['quantity', 'item_count', 'items', 'items_sold', 'units_sold', 'sold_quantity']),
+  item_count: numberFromFields(row, ['item_count', 'quantity', 'items', 'items_sold', 'units_sold', 'sold_quantity']),
+  net_revenue: numberFromFields(row, ['net_revenue', 'sales', 'revenue', 'net_sales']),
+  revenue: numberFromFields(row, ['revenue', 'net_revenue', 'sales', 'net_sales']),
+  orders: numberFromFields(row, ['orders', 'order_count']),
+  cogs: numberFromFields(row, ['cogs']),
+  gross_profit: numberFromFields(row, ['gross_profit'])
+});
+
+const normalizeOverviewMonthlyProductRows = (rows, year = new Date().getFullYear()) => (Array.isArray(rows) ? rows : []).map((month, index) => {
+  const products = {};
+  Object.entries(month?.products || {}).forEach(([key, value]) => {
+    if (!value || typeof value !== 'object') return;
+    const normalized = normalizeOverviewRollupRow(value, {
+      key,
+      label: value?.label || toTitleCase(key)
+    });
+    products[normalized.key || key] = normalized;
+  });
+  return {
+    ...normalizeOverviewRollupRow(month, {
+      key: month?.key || `${year}-${String(index + 1).padStart(2, '0')}`,
+      label: month?.label || '-'
+    }),
+    month: Number(month?.month || index + 1),
+    products
+  };
+});
+
+const productSeriesFromMonthlyRows = (rows) => {
+  const keyed = new Map();
+  rows.forEach((month) => {
+    Object.entries(month?.products || {}).forEach(([key, product]) => {
+      const normalizedKey = product?.key || key;
+      if (!normalizedKey) return;
+      const current = keyed.get(normalizedKey) || {
+        key: normalizedKey,
+        label: product?.label || toTitleCase(normalizedKey),
+        total: 0
+      };
+      current.total += Number(product?.quantity || product?.item_count || product?.net_revenue || product?.revenue || 0);
+      keyed.set(normalizedKey, current);
+    });
+  });
+
+  return Array.from(keyed.values())
+    .sort((left, right) => right.total - left.total)
+    .map((series, index) => ({
+      key: series.key,
+      label: series.label,
+      color: getOverviewProductColor(index)
+    }));
+};
+
+const overviewVolumeBreakdownRows = (volumeBreakdown) => {
+  const groups = volumeBreakdown && typeof volumeBreakdown === 'object'
+    ? Object.values(volumeBreakdown)
+    : [];
+  return groups.flatMap((group, groupIndex) => {
+    const volumes = Array.isArray(group?.volumes) ? group.volumes : Object.values(group?.volumes || {});
+    return volumes.map((row, volumeIndex) => ({
+      ...normalizeOverviewRollupRow(row, {
+        key: row?.key || `${group?.key || `group-${groupIndex}`}-${volumeIndex}`,
+        label: row?.label || `${group?.label || 'Product'} ${row?.volume_label || ''}`.trim()
+      }),
+      product_key: row?.product_key || group?.key || '',
+      product_label: row?.product_label || group?.label || '',
+      volume_label: row?.volume_label || row?.short_label || row?.label || '',
+      short_label: row?.short_label || row?.volume_label || row?.label || ''
+    }));
+  });
+};
+
 const drawMultiLineChart = (canvas, items, metric, unitsMap, seriesConfig) => {
   chartRendererState.set(canvas, () => drawMultiLineChart(canvas, items, metric, unitsMap, seriesConfig));
   const prepared = prepareCanvas(canvas);
@@ -1705,6 +1783,31 @@ const drawStackedBarChart = (canvas, items, config) => {
     ctx.fillText(config.emptyMessage || 'No chart data yet', width / 2, height / 2);
     chartHoverState.set(canvas, []);
     return;
+  }
+
+  if (config.showLegend) {
+    const legendYStart = 18;
+    const legendGap = 18;
+    const maxLegendWidth = Math.max(160, width - padding.left - padding.right);
+    let legendX = padding.left;
+    let legendY = legendYStart;
+    ctx.font = '800 11px "Plus Jakarta Sans", sans-serif';
+    ctx.textAlign = 'left';
+    series.forEach((seriesItem) => {
+      const label = String(seriesItem.label || seriesItem.key || '').slice(0, 24);
+      const labelWidth = ctx.measureText(label).width + 30;
+      if (legendX > padding.left && legendX + labelWidth > padding.left + maxLegendWidth) {
+        legendX = padding.left;
+        legendY += legendGap;
+      }
+      ctx.fillStyle = seriesItem.color;
+      ctx.beginPath();
+      roundedRect(ctx, legendX, legendY - 10, 12, 12, 3);
+      ctx.fill();
+      ctx.fillStyle = palette.text || getComputedStyle(document.documentElement).getPropertyValue('--admin-text') || '#f3f6f8';
+      ctx.fillText(label, legendX + 18, legendY);
+      legendX += labelWidth;
+    });
   }
 
   chartItems.forEach((item, index) => {
@@ -2236,8 +2339,11 @@ document.addEventListener('DOMContentLoaded', () => {
     ordersCanvas: document.querySelector('[data-overview-orders-chart]'),
     hourlyCanvas: document.querySelector('[data-overview-hourly-chart]'),
     productStackCanvas: document.querySelector('[data-overview-product-stack-chart]'),
+    volumeBreakdownCanvas: document.querySelector('[data-overview-volume-breakdown-chart]'),
+    accountStackCanvas: document.querySelector('[data-overview-account-stack-chart]'),
     syrupFlavorCanvas: document.querySelector('[data-overview-syrup-flavor-chart]'),
     dropsFlavorCanvas: document.querySelector('[data-overview-drops-flavor-chart]'),
+    buburFlavorCanvas: document.querySelector('[data-overview-bubur-flavor-chart]'),
     locationMap: document.querySelector('[data-overview-location-map]'),
     locationStatus: document.querySelector('[data-overview-location-status]'),
     locationList: document.querySelector('[data-overview-location-list]'),
@@ -5093,8 +5199,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const accounts = Array.isArray(data.accounts) ? data.accounts : [];
     const products = data.products || {};
     const monthlyAccountRows = overviewMonthlyAccountRows(months);
+    const monthlyProductRows = normalizeOverviewMonthlyProductRows(products.monthly_product_groups, state.overview.year);
+    const elapsedMonthlyProductRows = filterElapsedMonthlyRows(monthlyProductRows);
+    const volumeBreakdownRows = overviewVolumeBreakdownRows(products.volume_breakdown);
     const syrupFlavorRows = Array.isArray(products.syrup_flavors) ? products.syrup_flavors : [];
     const dropsFlavorRows = Array.isArray(products.drops_flavors) ? products.drops_flavors : [];
+    const buburFlavorRows = Array.isArray(products.bubur_flavors) ? products.bubur_flavors : [];
     const years = Array.isArray(data.years) ? data.years : [state.overview.year];
     const bestMonth = totals.best_month || {};
     const monthlyRows = months.map((month, index) => ({
@@ -5226,8 +5336,36 @@ document.addEventListener('DOMContentLoaded', () => {
       padding: { top: 12, right: 16, bottom: 12, left: 16 },
       limit: 12
     }));
+    const productSeries = productSeriesFromMonthlyRows(elapsedMonthlyProductRows);
+    drawChartSafely(overviewRefs.productStackCanvas, () => drawStackedBarChart(overviewRefs.productStackCanvas, elapsedMonthlyProductRows, {
+      series: productSeries,
+      metric: state.overview.productMetric,
+      unitsMap: OVERVIEW_METRIC_UNITS,
+      groupKey: 'products',
+      label: (item) => item.label || '-',
+      tooltipTitle: (item) => item.label || 'Month',
+      includeEmptyItems: true,
+      sortItems: false,
+      showLegend: true,
+      padding: { top: 48, right: 18, bottom: 58, left: 82 },
+      limit: 12
+    }), 'No monthly product sales yet');
+    drawChartSafely(overviewRefs.volumeBreakdownCanvas, () => drawBarChart(overviewRefs.volumeBreakdownCanvas, volumeBreakdownRows, {
+      value: (item) => item[state.overview.productMetric] || 0,
+      label: (item) => String(item.short_label || item.volume_label || item.label || '-'),
+      color: (item) => getOverviewProductColor(String(item.product_key || '').includes('drop') ? 2 : 0),
+      metric: state.overview.productMetric,
+      unitsMap: OVERVIEW_METRIC_UNITS,
+      tooltipTitle: (item) => item.label || 'Volume',
+      tooltipValue: (item, value) => `${item.product_label || ''} ${formatFullMetricValue(state.overview.productMetric, value, OVERVIEW_METRIC_UNITS)}`.trim(),
+      showGrid: true,
+      showXAxisLabels: true,
+      showValueBadges: true,
+      padding: { top: 24, right: 18, bottom: 44, left: 82 },
+      limit: 6
+    }), 'No Syrup or Drops volume sales yet');
     const accountSeries = accountSeriesFromMonthlyRows(monthlyAccountRows, accounts);
-    drawChartSafely(overviewRefs.productStackCanvas, () => drawStackedBarChart(overviewRefs.productStackCanvas, monthlyAccountRows, {
+    drawChartSafely(overviewRefs.accountStackCanvas, () => drawStackedBarChart(overviewRefs.accountStackCanvas, monthlyAccountRows, {
       series: accountSeries,
       metric: 'item_count',
       unitsMap: OVERVIEW_METRIC_UNITS,
@@ -5250,6 +5388,13 @@ document.addEventListener('DOMContentLoaded', () => {
       unitsMap: OVERVIEW_METRIC_UNITS,
       limit: 32,
       emptyMessage: 'No drops flavor sales yet',
+      colorForIndex: getOverviewFlavorColor
+    }));
+    drawChartSafely(overviewRefs.buburFlavorCanvas, () => drawPieChart(overviewRefs.buburFlavorCanvas, buburFlavorRows, {
+      metric: state.overview.flavorMetric,
+      unitsMap: OVERVIEW_METRIC_UNITS,
+      limit: 32,
+      emptyMessage: 'No Bubur flavor sales yet',
       colorForIndex: getOverviewFlavorColor
     }));
     if (state.activeView === 'overview') {

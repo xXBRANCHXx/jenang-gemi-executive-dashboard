@@ -122,7 +122,7 @@ if ($setupToken === '') {
 }
 
 $includeAudit = in_array(strtolower(trim((string) ($_GET['audit'] ?? $_GET['include_audit'] ?? ''))), ['1', 'true', 'yes', 'on'], true);
-$cacheKey = 'sales-summary-base-v3-' . $year . ($includeAudit ? '-audit' : '-core');
+$cacheKey = 'sales-summary-base-v4-' . $year . ($includeAudit ? '-audit' : '-core');
 
 if ($action === 'refresh') {
     if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
@@ -479,7 +479,7 @@ function jg_sales_run_manual_refresh(string $setupToken, int $year, bool $includ
 }
 
 /**
- * @return array<string, array{sku:string, tag:string, product_name:string, base_product_name:string, flavor_name:string, cogs:float, is_syrup:bool, is_drops:bool}>
+ * @return array<string, array{sku:string, tag:string, product_name:string, base_product_name:string, product_key:string, flavor_name:string, volume:float, volume_label:string, unit_name:string, unit_code:string, cogs:float, is_syrup:bool, is_drops:bool, is_bubur:bool}>
  */
 function jg_sales_sku_lookup(): array
 {
@@ -487,10 +487,19 @@ function jg_sales_sku_lookup(): array
         $pdo = jg_sku_db();
         $productNameMap = jg_sales_product_name_map();
         $stmt = $pdo->query(
-            'SELECT s.sku, s.tag, s.cogs, p.name AS product_name, f.name AS flavor_name
+            'SELECT
+                s.sku,
+                s.tag,
+                s.volume,
+                s.cogs,
+                p.name AS product_name,
+                f.name AS flavor_name,
+                u.name AS unit_name,
+                u.code AS unit_code
              FROM sku_skus s
              INNER JOIN sku_products p ON p.id = s.product_id
-             INNER JOIN sku_flavors f ON f.id = s.flavor_id'
+             INNER JOIN sku_flavors f ON f.id = s.flavor_id
+             INNER JOIN sku_units u ON u.id = s.unit_id'
         );
         if ($stmt === false) {
             return [];
@@ -506,15 +515,25 @@ function jg_sales_sku_lookup(): array
         $productName = (string) ($row['product_name'] ?? '');
         $displayProductName = jg_sales_sku_product_display_name($sku, $productName, $productNameMap);
         $productKindName = strtolower($productName . ' ' . $displayProductName);
+        $volume = (float) ($row['volume'] ?? 0);
+        $unitName = (string) ($row['unit_name'] ?? '');
+        $unitCode = (string) ($row['unit_code'] ?? '');
+        $baseProductName = trim($productName) !== '' ? trim($productName) : trim($displayProductName);
         $record = [
             'sku' => $sku,
             'tag' => (string) ($row['tag'] ?? ''),
             'product_name' => $displayProductName,
-            'base_product_name' => $productName,
+            'base_product_name' => $baseProductName,
+            'product_key' => jg_sales_rollup_key($baseProductName),
             'flavor_name' => (string) ($row['flavor_name'] ?? 'Unspecified'),
+            'volume' => $volume,
+            'volume_label' => jg_sales_volume_label($volume, $unitName, $unitCode),
+            'unit_name' => $unitName,
+            'unit_code' => $unitCode,
             'cogs' => (float) ($row['cogs'] ?? 0),
             'is_syrup' => str_contains($productKindName, 'syrup') || str_contains($productKindName, 'sirup'),
             'is_drops' => str_contains($productKindName, 'drop'),
+            'is_bubur' => str_contains($productKindName, 'bubur'),
         ];
 
         foreach ([$record['sku'], $record['tag']] as $keyValue) {
@@ -573,6 +592,51 @@ function jg_sales_flavor_key(string $flavorName): string
     return $key !== '' ? $key : 'unspecified';
 }
 
+function jg_sales_rollup_key(string $value): string
+{
+    $key = strtolower(preg_replace('/[^a-z0-9]+/i', '-', $value) ?? $value);
+    $key = trim($key, '-');
+    return $key !== '' ? $key : 'unspecified';
+}
+
+function jg_sales_volume_key(float $volume): string
+{
+    $rounded = round($volume, 1);
+    if (abs($rounded - round($rounded)) < 0.01) {
+        return (string) (int) round($rounded);
+    }
+
+    return rtrim(rtrim(number_format($rounded, 1, '.', ''), '0'), '.');
+}
+
+function jg_sales_volume_label(float $volume, string $unitName = '', string $unitCode = ''): string
+{
+    $unitSource = preg_match('/[a-z]/i', $unitCode) ? $unitCode : $unitName;
+    $unit = strtolower(trim($unitSource));
+    if ($unit === '' || str_contains($unit, 'milli') || str_contains($unit, 'mili')) {
+        $unit = 'ml';
+    }
+
+    return jg_sales_volume_key($volume) . $unit;
+}
+
+/**
+ * @return array<string, array{label:string, volumes:array<int, float>}>
+ */
+function jg_sales_target_volume_groups(): array
+{
+    return [
+        'syrup' => [
+            'label' => 'Syrup',
+            'volumes' => [550.0, 250.0, 50.0],
+        ],
+        'drops' => [
+            'label' => 'Drops',
+            'volumes' => [30.0, 10.0, 5.0],
+        ],
+    ];
+}
+
 /**
  * @return array<string, mixed>
  */
@@ -590,6 +654,51 @@ function jg_sales_empty_flavor_row(string $flavorKey, string $flavorName): array
         'gross_profit' => 0,
         'platforms' => [],
     ];
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function jg_sales_empty_rollup_row(string $key, string $label): array
+{
+    return [
+        'key' => $key,
+        'label' => $label,
+        'quantity' => 0,
+        'item_count' => 0,
+        'net_revenue' => 0,
+        'revenue' => 0,
+        'orders' => 0,
+        'cogs' => 0,
+        'gross_profit' => 0,
+    ];
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function jg_sales_empty_volume_row(string $groupKey, string $groupLabel, float $volume): array
+{
+    $volumeKey = jg_sales_volume_key($volume);
+    return array_merge(jg_sales_empty_rollup_row($groupKey . '-' . $volumeKey . 'ml', $groupLabel . ' ' . $volumeKey . 'ml'), [
+        'product_key' => $groupKey,
+        'product_label' => $groupLabel,
+        'volume' => $volume,
+        'volume_key' => $volumeKey,
+        'volume_label' => $volumeKey . 'ml',
+        'short_label' => $volumeKey . 'ml',
+    ]);
+}
+
+/**
+ * @param array<string, array<string, mixed>> $rows
+ * @return array<int, array<string, mixed>>
+ */
+function jg_sales_sorted_rollup_rows(array $rows, int $limit = 16): array
+{
+    $values = array_values($rows);
+    usort($values, static fn (array $left, array $right): int => (int) ($right['quantity'] ?? 0) <=> (int) ($left['quantity'] ?? 0));
+    return array_slice($values, 0, $limit);
 }
 
 /**
@@ -813,6 +922,178 @@ function jg_sales_enrich_monthly_product_cogs(array &$products, array $lookup, a
 }
 
 /**
+ * @param array<int, mixed> $rows
+ * @param array<string, array<string, mixed>> $lookup
+ * @return array<int, array<string, mixed>>
+ */
+function jg_sales_monthly_product_groups(array $rows, array $lookup, int $year): array
+{
+    $months = [];
+    for ($month = 1; $month <= 12; $month++) {
+        $months[$month] = [
+            'key' => sprintf('%04d-%02d', $year, $month),
+            'month' => $month,
+            'label' => (new DateTimeImmutable(sprintf('%04d-%02d-01', $year, $month)))->format('M'),
+            'quantity' => 0,
+            'item_count' => 0,
+            'net_revenue' => 0,
+            'revenue' => 0,
+            'orders' => 0,
+            'cogs' => 0,
+            'gross_profit' => 0,
+            'products' => [],
+        ];
+    }
+
+    foreach ($rows as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $month = (int) ($row['month'] ?? 0);
+        if ($month < 1 || $month > 12) {
+            continue;
+        }
+        $sku = jg_sales_normalize_sku_key($row['sku'] ?? '');
+        $skuRecord = $lookup[$sku] ?? null;
+        $productLabel = trim((string) ($skuRecord['base_product_name'] ?? $row['base_product_name'] ?? $row['product_name'] ?? ''));
+        if ($productLabel === '') {
+            $productLabel = 'Unlinked SKU';
+        }
+        $productKey = jg_sales_rollup_key((string) ($skuRecord['product_key'] ?? $productLabel));
+        $quantity = (int) ($row['quantity'] ?? $row['item_count'] ?? 0);
+        $net = jg_sales_seller_received($row);
+        $orders = (int) ($row['orders'] ?? 0);
+        $cogs = (int) round((float) ($row['cogs'] ?? 0));
+
+        $months[$month] = jg_sales_add_product_total($months[$month], $quantity, $net, $orders, $cogs);
+        $months[$month]['products'][$productKey] = jg_sales_add_product_total(
+            $months[$month]['products'][$productKey] ?? jg_sales_empty_rollup_row($productKey, $productLabel),
+            $quantity,
+            $net,
+            $orders,
+            $cogs
+        );
+    }
+
+    foreach ($months as &$month) {
+        $productRows = array_values($month['products']);
+        usort($productRows, static fn (array $left, array $right): int => (int) ($right['quantity'] ?? 0) <=> (int) ($left['quantity'] ?? 0));
+        $month['products'] = [];
+        foreach ($productRows as $productRow) {
+            $month['products'][(string) ($productRow['key'] ?? '')] = $productRow;
+        }
+    }
+    unset($month);
+
+    return array_values($months);
+}
+
+/**
+ * @param array<int, mixed> $rows
+ * @param array<string, array<string, mixed>> $lookup
+ * @return array<string, mixed>
+ */
+function jg_sales_product_detail_rollups(array $rows, array $lookup): array
+{
+    $flavorGroups = [
+        'syrup' => [],
+        'drops' => [],
+        'bubur' => [],
+    ];
+    $volumeGroups = [];
+    foreach (jg_sales_target_volume_groups() as $groupKey => $group) {
+        $volumeGroups[$groupKey] = [
+            'key' => $groupKey,
+            'label' => (string) $group['label'],
+            'volumes' => [],
+        ];
+        foreach ($group['volumes'] as $volume) {
+            $volumeKey = jg_sales_volume_key((float) $volume);
+            $volumeGroups[$groupKey]['volumes'][$volumeKey] = jg_sales_empty_volume_row($groupKey, (string) $group['label'], (float) $volume);
+        }
+    }
+
+    foreach ($rows as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $sku = jg_sales_normalize_sku_key($row['sku'] ?? '');
+        $skuRecord = $lookup[$sku] ?? null;
+        if (!is_array($skuRecord)) {
+            continue;
+        }
+
+        $quantity = (int) ($row['quantity'] ?? $row['item_count'] ?? 0);
+        $net = jg_sales_seller_received($row);
+        $orders = (int) ($row['orders'] ?? 0);
+        $cogs = (int) round((float) ($row['cogs'] ?? 0));
+        $flavorName = trim((string) ($skuRecord['flavor_name'] ?? '')) !== '' ? trim((string) $skuRecord['flavor_name']) : 'Unspecified';
+        $flavorKey = jg_sales_flavor_key($flavorName);
+        $productFlavorGroups = [];
+        if (!empty($skuRecord['is_syrup'])) {
+            $productFlavorGroups[] = 'syrup';
+        }
+        if (!empty($skuRecord['is_drops'])) {
+            $productFlavorGroups[] = 'drops';
+        }
+        if (!empty($skuRecord['is_bubur'])) {
+            $productFlavorGroups[] = 'bubur';
+        }
+
+        foreach ($productFlavorGroups as $flavorGroup) {
+            $flavorGroups[$flavorGroup][$flavorKey] = jg_sales_add_product_total($flavorGroups[$flavorGroup][$flavorKey] ?? [
+                'key' => $flavorKey,
+                'label' => $flavorName,
+                'platforms' => [],
+            ], $quantity, $net, $orders, $cogs);
+        }
+
+        $volumeKey = jg_sales_volume_key((float) ($skuRecord['volume'] ?? 0));
+        foreach (['syrup', 'drops'] as $volumeGroupKey) {
+            if (empty($skuRecord['is_' . $volumeGroupKey]) || !isset($volumeGroups[$volumeGroupKey]['volumes'][$volumeKey])) {
+                continue;
+            }
+            $volumeGroups[$volumeGroupKey]['volumes'][$volumeKey] = jg_sales_add_product_total(
+                $volumeGroups[$volumeGroupKey]['volumes'][$volumeKey],
+                $quantity,
+                $net,
+                $orders,
+                $cogs
+            );
+        }
+    }
+
+    $seenSkus = [];
+    foreach ($lookup as $skuRecord) {
+        $sku = (string) ($skuRecord['sku'] ?? '');
+        if ($sku === '' || isset($seenSkus[$sku])) {
+            continue;
+        }
+        $seenSkus[$sku] = true;
+        $flavorName = trim((string) ($skuRecord['flavor_name'] ?? '')) !== '' ? trim((string) $skuRecord['flavor_name']) : 'Unspecified';
+        $flavorKey = jg_sales_flavor_key($flavorName);
+        foreach (['syrup', 'drops', 'bubur'] as $flavorGroup) {
+            if (empty($skuRecord['is_' . $flavorGroup]) || isset($flavorGroups[$flavorGroup][$flavorKey])) {
+                continue;
+            }
+            $flavorGroups[$flavorGroup][$flavorKey] = jg_sales_empty_flavor_row($flavorKey, $flavorName);
+        }
+    }
+
+    foreach ($volumeGroups as &$volumeGroup) {
+        $volumeGroup['volumes'] = array_values($volumeGroup['volumes']);
+    }
+    unset($volumeGroup);
+
+    return [
+        'syrup_flavors' => jg_sales_sorted_rollup_rows($flavorGroups['syrup']),
+        'drops_flavors' => jg_sales_sorted_rollup_rows($flavorGroups['drops']),
+        'bubur_flavors' => jg_sales_sorted_rollup_rows($flavorGroups['bubur']),
+        'volume_breakdown' => $volumeGroups,
+    ];
+}
+
+/**
  * @param array<string, mixed> $summary
  * @return array<string, mixed>
  */
@@ -830,6 +1111,7 @@ function jg_sales_enrich_with_sku_db(array $summary, int $year): array
     $flavorGroups = [
         'syrup' => [],
         'drops' => [],
+        'bubur' => [],
     ];
     $enrichedRows = [];
     $totalCogs = 0;
@@ -888,6 +1170,9 @@ function jg_sales_enrich_with_sku_db(array $summary, int $year): array
         if ($skuRecord && !empty($skuRecord['is_drops'])) {
             $productFlavorGroups[] = 'drops';
         }
+        if ($skuRecord && !empty($skuRecord['is_bubur'])) {
+            $productFlavorGroups[] = 'bubur';
+        }
         if ($productFlavorGroups === []) {
             continue;
         }
@@ -926,6 +1211,9 @@ function jg_sales_enrich_with_sku_db(array $summary, int $year): array
         if (!empty($skuRecord['is_drops'])) {
             $productFlavorGroups[] = 'drops';
         }
+        if (!empty($skuRecord['is_bubur'])) {
+            $productFlavorGroups[] = 'bubur';
+        }
         if ($productFlavorGroups === []) {
             continue;
         }
@@ -939,15 +1227,25 @@ function jg_sales_enrich_with_sku_db(array $summary, int $year): array
         }
     }
 
-    $syrupFlavorRows = array_values($flavorGroups['syrup']);
-    $dropsFlavorRows = array_values($flavorGroups['drops']);
-    usort($syrupFlavorRows, static fn (array $left, array $right): int => (int) ($right['quantity'] ?? 0) <=> (int) ($left['quantity'] ?? 0));
-    usort($dropsFlavorRows, static fn (array $left, array $right): int => (int) ($right['quantity'] ?? 0) <=> (int) ($left['quantity'] ?? 0));
+    $rollupRows = is_array($products['by_month'] ?? null) && $products['by_month'] !== []
+        ? $products['by_month']
+        : $enrichedRows;
+    $detailRollups = jg_sales_product_detail_rollups($rollupRows, $lookup);
     $products['by_product'] = $enrichedRows;
-    $products['syrup_flavors'] = array_slice($syrupFlavorRows, 0, 16);
-    $products['drops_flavors'] = array_slice($dropsFlavorRows, 0, 16);
+    $products['monthly_product_groups'] = jg_sales_monthly_product_groups(
+        is_array($products['by_month'] ?? null) ? $products['by_month'] : [],
+        $lookup,
+        $year
+    );
+    $products['syrup_flavors'] = $detailRollups['syrup_flavors'];
+    $products['drops_flavors'] = $detailRollups['drops_flavors'];
+    $products['bubur_flavors'] = $detailRollups['bubur_flavors'];
+    $products['volume_breakdown'] = $detailRollups['volume_breakdown'];
     $products['syrup_flavor_source'] = 'sku_db';
     $products['drops_flavor_source'] = 'sku_db';
+    $products['bubur_flavor_source'] = 'sku_db';
+    $products['volume_breakdown_source'] = 'sku_db';
+    $products['monthly_product_group_source'] = 'sku_db_product_field';
     $summary['products'] = $products;
     jg_sales_enrich_totals_with_profit(
         $summary,

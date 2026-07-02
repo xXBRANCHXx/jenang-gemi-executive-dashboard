@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isAuthenticated = jg_admin_is_authenticated();
-$dashboardBuildVersion = 'exec3.73.2';
+$dashboardBuildVersion = 'exec3.74.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -297,6 +297,44 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                         <div class="admin-panel-head">
                             <div>
                                 <div class="admin-chart-title-row">
+                                    <h3>Sales by SKU product</h3>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About sales by SKU product" data-chart-info="Stacks each month by the general SKU DB product field, such as Bubur, Syrup, or Drops. It does not split the monthly bars by flavor or volume. Switch between Qty and Rp to compare units sold against seller-received revenue."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                </div>
+                                <span class="admin-panel-meta">Monthly product-family contribution from SKU DB</span>
+                            </div>
+                            <div class="admin-panel-inline-toggles admin-sliding-chart-toggle" data-sliding-chart-toggle role="group" aria-label="Product chart metric">
+                                <button type="button" class="admin-toggle-pill is-active" data-overview-product-metric="quantity"><span>Qty</span></button>
+                                <button type="button" class="admin-toggle-pill" data-overview-product-metric="net_revenue"><span>Rp</span></button>
+                            </div>
+                        </div>
+                        <div class="admin-chart-surface">
+                            <canvas class="admin-chart-canvas" data-overview-product-stack-chart width="1200" height="320"></canvas>
+                        </div>
+                    </article>
+
+                    <article class="admin-panel admin-panel-chart admin-panel-wide" data-chart-id="C6">
+                        <div class="admin-panel-head">
+                            <div>
+                                <div class="admin-chart-title-row">
+                                    <h3>Syrup and Drops volume mix</h3>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About Syrup and Drops volume mix" data-chart-info="Breaks sold units into the requested Syrup sizes 550ml, 250ml, and 50ml, plus Drops sizes 30ml, 10ml, and 5ml. Buckets come from SKU DB volume and unit fields."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                </div>
+                                <span class="admin-panel-meta">Fixed size buckets from SKU DB volumes</span>
+                            </div>
+                            <div class="admin-panel-inline-toggles admin-sliding-chart-toggle" data-sliding-chart-toggle role="group" aria-label="Volume chart metric">
+                                <button type="button" class="admin-toggle-pill is-active" data-overview-product-metric="quantity"><span>Qty</span></button>
+                                <button type="button" class="admin-toggle-pill" data-overview-product-metric="net_revenue"><span>Rp</span></button>
+                            </div>
+                        </div>
+                        <div class="admin-chart-surface">
+                            <canvas class="admin-chart-canvas" data-overview-volume-breakdown-chart width="1200" height="300"></canvas>
+                        </div>
+                    </article>
+
+                    <article class="admin-panel admin-panel-chart admin-panel-wide" data-chart-id="C7">
+                        <div class="admin-panel-head">
+                            <div>
+                                <div class="admin-chart-title-row">
                                     <h3>Units sold by platform account</h3>
                                     <button type="button" class="admin-chart-info-btn" aria-label="About units sold by platform account" data-chart-info="Shows which marketplace accounts are supplying the units each month. Each color is one account, so a tall segment means that account drove more item sales in that month."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
@@ -304,12 +342,12 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                             </div>
                         </div>
                         <div class="admin-chart-surface">
-                            <canvas class="admin-chart-canvas" data-overview-product-stack-chart width="1200" height="300"></canvas>
+                            <canvas class="admin-chart-canvas" data-overview-account-stack-chart width="1200" height="300"></canvas>
                         </div>
                     </article>
 
                     <div class="admin-flavor-chart-grid">
-                    <article class="admin-panel admin-panel-chart admin-flavor-chart-card" data-chart-id="C6">
+                    <article class="admin-panel admin-panel-chart admin-flavor-chart-card" data-chart-id="C8">
                         <div class="admin-panel-head">
                             <div>
                                 <div class="admin-chart-title-row">
@@ -328,7 +366,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                         </div>
                     </article>
 
-                    <article class="admin-panel admin-panel-chart admin-flavor-chart-card" data-chart-id="C7">
+                    <article class="admin-panel admin-panel-chart admin-flavor-chart-card" data-chart-id="C9">
                         <div class="admin-panel-head">
                             <div>
                                 <div class="admin-chart-title-row">
@@ -346,9 +384,28 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                             <canvas class="admin-chart-canvas admin-chart-canvas-lg" data-overview-drops-flavor-chart width="720" height="440"></canvas>
                         </div>
                     </article>
+
+                    <article class="admin-panel admin-panel-chart admin-flavor-chart-card" data-chart-id="C10">
+                        <div class="admin-panel-head">
+                            <div>
+                                <div class="admin-chart-title-row">
+                                    <h3>Bubur flavor share</h3>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About Bubur flavor share" data-chart-info="Looks only at Jenang Gemi Bubur SKUs from the SKU database and groups sales by flavor, matching the Syrup and Drops flavor chart behavior."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                </div>
+                                <span class="admin-panel-meta">Most popular Bubur flavors</span>
+                            </div>
+                            <div class="admin-panel-inline-toggles admin-sliding-chart-toggle" data-sliding-chart-toggle role="group" aria-label="Bubur flavor chart metric">
+                                <button type="button" class="admin-toggle-pill is-active" data-overview-flavor-metric="quantity"><span>Qty</span></button>
+                                <button type="button" class="admin-toggle-pill" data-overview-flavor-metric="net_revenue"><span>Rp</span></button>
+                            </div>
+                        </div>
+                        <div class="admin-chart-surface">
+                            <canvas class="admin-chart-canvas admin-chart-canvas-lg" data-overview-bubur-flavor-chart width="720" height="440"></canvas>
+                        </div>
+                    </article>
                     </div>
 
-                    <article class="admin-panel admin-panel-chart admin-panel-wide admin-location-heatmap-card" data-chart-id="C8">
+                    <article class="admin-panel admin-panel-chart admin-panel-wide admin-location-heatmap-card" data-chart-id="C11">
                         <div class="admin-panel-head">
                             <div>
                                 <div class="admin-chart-title-row">

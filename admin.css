@@ -15620,7 +15620,7 @@ body:has(.admin-app[data-sku-db])::after {
 .admin-app.admin-app-suite[data-admin-dashboard] .admin-flavor-chart-grid {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
   min-width: 0;
 }
@@ -16619,6 +16619,12 @@ body:has(.admin-app[data-sku-db])::after {
   .admin-app.admin-app-suite[data-admin-dashboard] .admin-sales-recap-table td {
     min-width: 82px;
     padding: 7px 8px;
+  }
+}
+
+@media (max-width: 1380px) {
+  .admin-app.admin-app-suite[data-admin-dashboard] .admin-flavor-chart-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
