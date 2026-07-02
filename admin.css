@@ -11666,6 +11666,89 @@ body::after {
   color: var(--admin-muted);
 }
 
+:root[data-admin-theme='light'] .admin-context-view {
+  color: #0f172a;
+}
+
+:root[data-admin-theme='light'] :is(.admin-context-toolbar, .admin-context-workspace, .admin-context-field) {
+  border-color: rgba(15, 23, 42, 0.1);
+  background: #ffffff;
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.07);
+}
+
+:root[data-admin-theme='light'] .admin-context-toolbar {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+:root[data-admin-theme='light'] .admin-context-workspace {
+  background: #ffffff;
+}
+
+:root[data-admin-theme='light'] .admin-context-periods {
+  border-color: rgba(15, 23, 42, 0.08);
+  background: #fbfdff;
+}
+
+:root[data-admin-theme='light'] :is(.admin-context-segments, .admin-context-field-icon) {
+  background: #f1f5f9;
+}
+
+:root[data-admin-theme='light'] :is(.admin-context-segment, .admin-context-period, .admin-context-status) {
+  color: #64748b;
+}
+
+:root[data-admin-theme='light'] :is(.admin-context-segment:hover, .admin-context-period:hover) {
+  border-color: rgba(15, 23, 42, 0.12);
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+:root[data-admin-theme='light'] :is(.admin-context-segment.is-active, .admin-context-period.is-active) {
+  border-color: rgba(15, 23, 42, 0.16);
+  background: #0f172a;
+  color: #ffffff;
+}
+
+:root[data-admin-theme='light'] .admin-context-period i {
+  background: rgba(15, 23, 42, 0.18);
+}
+
+:root[data-admin-theme='light'] .admin-context-period.is-active i {
+  background: rgba(255, 255, 255, 0.82);
+}
+
+:root[data-admin-theme='light'] .admin-context-period.is-complete i {
+  background: #15803d;
+  box-shadow: 0 0 10px rgba(21, 128, 61, 0.28);
+}
+
+:root[data-admin-theme='light'] .admin-context-period-mark strong,
+:root[data-admin-theme='light'] .admin-context-field input {
+  color: #0f172a;
+}
+
+:root[data-admin-theme='light'] .admin-context-field:focus-within {
+  border-color: rgba(22, 101, 52, 0.26);
+  background: #f8fff9;
+}
+
+:root[data-admin-theme='light'] .admin-context-field-icon {
+  color: #166534;
+}
+
+:root[data-admin-theme='light'] .admin-context-field input::placeholder {
+  color: #94a3b8;
+}
+
+:root[data-admin-theme='light'] .admin-context-progress {
+  background: #e5e7eb;
+}
+
+:root[data-admin-theme='light'] .admin-context-progress span {
+  background: #166534;
+  box-shadow: none;
+}
+
 @media (max-width: 900px) {
   .admin-app.admin-app-suite .admin-overview-totals-row {
     grid-template-columns: 1fr;

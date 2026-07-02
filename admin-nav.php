@@ -70,6 +70,13 @@ function admin_quick_menu_definitions(): array
             'label' => 'Context',
             'description' => 'Operational context and live signals',
         ],
+        'hard-set' => [
+            'href' => '../dashboard/?view=hard-set',
+            'view' => 'hard-set',
+            'icon' => 'hard-set',
+            'label' => 'Hard Set',
+            'description' => 'Website order cutover control',
+        ],
         'settings' => [
             'href' => '../dashboard/?view=settings',
             'view' => 'settings',
@@ -123,7 +130,7 @@ function admin_quick_menu_context_map(): array
         'daily' => ['home', 'orders', 'campaigns', 'back-dash', 'context', 'settings'],
         'orders' => ['home', 'daily', 'campaigns', 'back-dash', 'context', 'settings'],
         'campaigns' => ['home', 'orders', 'affiliates', 'back-dash', 'context', 'settings'],
-        'back-dash' => ['home', 'api', 'context', 'settings'],
+        'back-dash' => ['home', 'api', 'context', 'hard-set', 'settings'],
         'context' => ['home', 'api', 'back-dash', 'settings'],
         'settings' => ['home', 'daily', 'orders', 'campaigns', 'context'],
         'affiliates' => ['home', 'affiliate-profiles', 'campaigns', 'daily', 'orders', 'settings'],
@@ -132,7 +139,7 @@ function admin_quick_menu_context_map(): array
         'profit-loss' => ['home', 'daily', 'orders', 'campaigns', 'context', 'settings'],
         'website' => ['home', 'daily', 'orders', 'campaigns', 'affiliates', 'settings'],
         'partners' => ['home', 'partner-profiles', 'daily', 'orders', 'campaigns', 'settings'],
-        'api' => ['home', 'back-dash', 'context', 'settings'],
+        'api' => ['home', 'back-dash', 'context', 'hard-set', 'settings'],
         'sku-db' => ['home', 'daily', 'orders', 'back-dash', 'settings'],
         'partner-profiles' => ['home', 'partners', 'daily', 'orders', 'campaigns', 'settings'],
     ];
