@@ -21,6 +21,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
     <title>Partner Profiles | Jenang Gemi Executive Dashboard</title>
     <meta name="robots" content="noindex,nofollow">
+<?php render_admin_initial_theme_script(); ?>
 <?php render_admin_favicons('partner-profiles'); ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

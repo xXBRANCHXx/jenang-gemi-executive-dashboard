@@ -1,6 +1,31 @@
 <?php
 declare(strict_types=1);
 
+function render_admin_initial_theme_script(): void
+{
+    echo <<<'HTML'
+    <script>
+        (() => {
+            const key = 'jg-admin-theme';
+            const normalize = (theme) => {
+                if (theme === 'minimal-white' || theme === 'classic-white' || theme === 'light') return 'light';
+                if (theme === 'minimal-black' || theme === 'prism' || theme === 'dark') return 'dark';
+                return 'dark';
+            };
+            try {
+                const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const cookieMatch = document.cookie.match(new RegExp('(?:^|; )' + escapedKey + '=([^;]*)'));
+                const cookieTheme = cookieMatch ? decodeURIComponent(cookieMatch[1]) : '';
+                document.documentElement.dataset.adminTheme = normalize(window.localStorage.getItem(key) || cookieTheme);
+            } catch (_error) {
+                document.documentElement.dataset.adminTheme = 'dark';
+            }
+        })();
+    </script>
+
+HTML;
+}
+
 function admin_quick_menu_definitions(): array
 {
     return [

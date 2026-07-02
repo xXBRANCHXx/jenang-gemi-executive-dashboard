@@ -27,6 +27,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
     <title>Executive Dashboard</title>
     <meta name="robots" content="noindex,nofollow">
+<?php render_admin_initial_theme_script(); ?>
 <?php render_admin_favicons(admin_dashboard_view_favicon_key()); ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

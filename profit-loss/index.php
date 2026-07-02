@@ -19,24 +19,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/profit-loss.js');
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Profit and Loss | Executive Dashboard</title>
     <meta name="robots" content="noindex,nofollow">
-    <script>
-        (() => {
-            const key = 'jg-admin-theme';
-            const normalize = (theme) => {
-                if (theme === 'minimal-white' || theme === 'classic-white' || theme === 'light') return 'light';
-                if (theme === 'minimal-black' || theme === 'prism' || theme === 'dark') return 'dark';
-                return 'dark';
-            };
-            try {
-                const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const cookieMatch = document.cookie.match(new RegExp('(?:^|; )' + escapedKey + '=([^;]*)'));
-                const cookieTheme = cookieMatch ? decodeURIComponent(cookieMatch[1]) : '';
-                document.documentElement.dataset.adminTheme = normalize(window.localStorage.getItem(key) || cookieTheme);
-            } catch (_error) {
-                document.documentElement.dataset.adminTheme = 'dark';
-            }
-        })();
-    </script>
+<?php render_admin_initial_theme_script(); ?>
 <?php render_admin_favicons('profit-loss'); ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
