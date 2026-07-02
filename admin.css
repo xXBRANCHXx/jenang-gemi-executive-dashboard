@@ -11549,7 +11549,8 @@ body::after {
   grid-template-columns: minmax(0, 1fr) minmax(300px, 420px);
   gap: clamp(18px, 3vw, 36px);
   align-items: start;
-  padding: 8px 0 0;
+  margin-top: clamp(28px, 4vw, 52px);
+  padding: 0;
 }
 
 .admin-app.admin-app-suite .admin-website-header.is-detail {
@@ -11608,9 +11609,9 @@ body::after {
   gap: 9px;
   min-height: 142px;
   padding: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid transparent;
+  border-radius: 18px;
+  background: transparent;
   color: var(--admin-text);
   cursor: pointer;
   font: inherit;
@@ -11620,14 +11621,14 @@ body::after {
 
 .admin-app.admin-app-suite .admin-website-selection-card:hover,
 .admin-app.admin-app-suite .admin-website-selection-card:focus-visible {
-  border-color: rgba(96, 165, 250, 0.62);
-  background: rgba(96, 165, 250, 0.08);
-  outline: none;
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.055);
+  outline: 2px solid transparent;
   transform: translateY(-2px);
 }
 
 .admin-app.admin-app-suite .admin-website-selection-card span {
-  color: #93c5fd;
+  color: var(--admin-muted);
   font-size: 0.72rem;
   font-weight: 900;
   letter-spacing: 0.08em;
@@ -11723,7 +11724,7 @@ body::after {
 
 .admin-app.admin-app-suite .admin-website-controls .admin-toggle-pill.is-active,
 .admin-app.admin-app-suite .admin-website-controls .admin-toggle-pill.is-active:hover {
-  color: #0b0f14;
+  color: var(--admin-text);
 }
 
 .admin-app.admin-app-suite .admin-website-live-status {
@@ -11757,7 +11758,7 @@ body::after {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #60a5fa;
+  background: currentColor;
 }
 
 .admin-app.admin-app-suite .admin-website-live-status span,
@@ -11873,6 +11874,12 @@ body::after {
 
 :root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-bento-card strong {
   color: rgba(15, 23, 42, 0.9);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-selection-card:hover,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-selection-card:focus-visible {
+  border-color: rgba(17, 24, 39, 0.14);
+  background: rgba(17, 24, 39, 0.045);
 }
 
 :root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-live-status {
@@ -12080,12 +12087,12 @@ body::after {
 }
 
 .admin-app.admin-app-suite .admin-website-controls .admin-sliding-toggle-indicator {
-  border-color: rgba(96, 165, 250, 0.42);
-  background: rgba(96, 165, 250, 0.18);
+  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.13);
 }
 
 .admin-app.admin-app-suite .admin-website-controls .admin-sliding-chart-toggle > .admin-toggle-pill:focus-visible {
-  outline-color: rgba(96, 165, 250, 0.88);
+  outline-color: rgba(255, 255, 255, 0.74);
 }
 
 .admin-app.admin-app-suite .admin-overview-hourly-card .admin-sliding-chart-toggle > .admin-toggle-pill,
