@@ -1958,6 +1958,63 @@ document.addEventListener('DOMContentLoaded', () => {
     'big-set': 'hard-set'
   };
   const validViews = new Set(['overview', 'orders', 'daily', 'store-ops', 'context', 'home', 'website', 'hard-set', 'settings']);
+  const quickMenuContextByView = {
+    overview: 'overview',
+    daily: 'daily',
+    orders: 'orders',
+    home: 'campaigns',
+    context: 'context',
+    website: 'website',
+    'hard-set': 'hard-set',
+    settings: 'settings'
+  };
+  const quickMenuByContext = {
+    overview: ['daily', 'orders', 'campaigns', 'back-dash', 'context', 'settings'],
+    daily: ['home', 'orders', 'campaigns', 'back-dash', 'context', 'settings'],
+    orders: ['home', 'daily', 'campaigns', 'back-dash', 'context', 'settings'],
+    campaigns: ['home', 'orders', 'affiliates', 'back-dash', 'context', 'settings'],
+    context: ['home', 'api', 'back-dash', 'settings'],
+    settings: ['home', 'daily', 'orders', 'campaigns', 'context'],
+    website: ['home', 'daily', 'orders', 'campaigns', 'affiliates', 'settings'],
+    'hard-set': ['home', 'settings']
+  };
+  const faviconKeyByView = {
+    overview: 'home',
+    daily: 'home',
+    orders: 'orders',
+    'store-ops': 'orders',
+    home: 'campaigns',
+    context: 'home',
+    website: 'website',
+    'hard-set': 'hard-set',
+    settings: 'settings'
+  };
+  const dashboardFaviconAssets = {
+    home: {
+      light: '/assets/admin-icons/executive-dashboard-favicon-light.svg',
+      dark: '/assets/admin-icons/executive-dashboard-favicon-dark.svg'
+    },
+    orders: {
+      light: '/assets/admin-icons/favicon-orders-ops-light.svg',
+      dark: '/assets/admin-icons/favicon-orders-ops-dark.svg'
+    },
+    campaigns: {
+      light: '/assets/admin-icons/favicon-campaigns-light.svg',
+      dark: '/assets/admin-icons/favicon-campaigns-dark.svg'
+    },
+    website: {
+      light: '/assets/admin-icons/favicon-website-light.svg',
+      dark: '/assets/admin-icons/favicon-website-dark.svg'
+    },
+    'hard-set': {
+      light: '/assets/admin-icons/favicon-hard-set-light.svg',
+      dark: '/assets/admin-icons/favicon-hard-set-dark.svg'
+    },
+    settings: {
+      light: '/assets/admin-icons/favicon-settings-light.svg',
+      dark: '/assets/admin-icons/favicon-settings-dark.svg'
+    }
+  };
   const normalizeDashboardView = (value) => {
     const normalized = String(value || '').trim().toLowerCase();
     const aliased = viewAliases[normalized] || normalized;
@@ -2146,6 +2203,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const menuShell = document.querySelector('[data-menu-shell]');
   const menuTrigger = document.querySelector('[data-menu-trigger]');
   const menuPanel = document.querySelector('[data-menu-panel]');
+  const quickMenuItems = Array.from(document.querySelectorAll('[data-quick-menu-key]'));
+  const quickMenuItemsByKey = new Map(quickMenuItems.map((item) => [item.getAttribute('data-quick-menu-key'), item]));
+  const faviconLinks = Array.from(document.querySelectorAll('[data-admin-favicon]'));
   const viewLabel = document.querySelector('[data-active-view-label]');
   const viewPanels = document.querySelectorAll('[data-view-panel]');
   const viewSwitchButtons = document.querySelectorAll('[data-view-switch]');
@@ -3291,6 +3351,34 @@ document.addEventListener('DOMContentLoaded', () => {
     })} WIB`;
   };
 
+  const syncQuickMenuItems = () => {
+    if (!menuPanel || !quickMenuItems.length) return;
+    const menuContext = quickMenuContextByView[state.activeView] || 'overview';
+    const orderedKeys = quickMenuByContext[menuContext] || quickMenuByContext.overview;
+
+    quickMenuItems.forEach((item) => {
+      if (item instanceof HTMLElement) item.hidden = true;
+    });
+
+    orderedKeys.forEach((key) => {
+      const item = quickMenuItemsByKey.get(key);
+      if (!(item instanceof HTMLElement)) return;
+      item.hidden = false;
+      menuPanel.appendChild(item);
+    });
+  };
+
+  const syncFavicons = () => {
+    if (!faviconLinks.length) return;
+    const faviconKey = faviconKeyByView[state.activeView] || 'home';
+    const assets = dashboardFaviconAssets[faviconKey] || dashboardFaviconAssets.home;
+    faviconLinks.forEach((link) => {
+      if (!(link instanceof HTMLLinkElement)) return;
+      const scheme = link.dataset.adminFavicon;
+      if (scheme && assets[scheme]) link.href = assets[scheme];
+    });
+  };
+
   const syncViewState = () => {
     const labels = {
       overview: 'Home',
@@ -3339,6 +3427,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (viewLabel) {
       viewLabel.textContent = labels[state.activeView] || 'Dashboard';
     }
+    syncQuickMenuItems();
+    syncFavicons();
     window.requestAnimationFrame(() => {
       root.querySelectorAll('[data-sliding-chart-toggle]').forEach((toggle) => {
         if (typeof toggle.syncSlidingIndicator === 'function') {

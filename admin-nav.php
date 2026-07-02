@@ -1,6 +1,331 @@
 <?php
 declare(strict_types=1);
 
+function admin_quick_menu_definitions(): array
+{
+    return [
+        'home' => [
+            'href' => '../dashboard/?view=overview',
+            'view' => 'overview',
+            'icon' => 'home',
+            'label' => 'Home',
+            'description' => 'Executive sales overview',
+        ],
+        'daily' => [
+            'href' => '../dashboard/?view=daily',
+            'view' => 'daily',
+            'icon' => 'calendar',
+            'label' => 'Daily',
+            'description' => 'Daily platform Qty and Rp',
+        ],
+        'orders' => [
+            'href' => '../dashboard/?view=orders',
+            'view' => 'orders',
+            'icon' => 'orders',
+            'label' => 'Orders',
+            'description' => 'Order detail and fulfillment facts',
+        ],
+        'campaigns' => [
+            'href' => '../dashboard/?view=campaigns',
+            'view' => 'home',
+            'icon' => 'campaigns',
+            'label' => 'Campaigns',
+            'description' => 'Landing-page analytics',
+        ],
+        'back-dash' => [
+            'href' => '../back-dash/',
+            'icon' => 'back-dash',
+            'label' => 'Back Dash',
+            'description' => 'Marketplace control workspace',
+        ],
+        'context' => [
+            'href' => '../dashboard/?view=context',
+            'view' => 'context',
+            'icon' => 'context',
+            'label' => 'Context',
+            'description' => 'Operational context and live signals',
+        ],
+        'settings' => [
+            'href' => '../dashboard/?view=settings',
+            'view' => 'settings',
+            'icon' => 'settings',
+            'label' => 'Settings',
+            'description' => 'Appearance and lock controls',
+        ],
+        'affiliates' => [
+            'href' => '../affiliate-program/',
+            'icon' => 'affiliate',
+            'label' => 'Affiliates',
+            'description' => 'Affiliate performance control room',
+        ],
+        'affiliate-profiles' => [
+            'href' => '../affiliate-profiles/',
+            'icon' => 'users',
+            'label' => 'Affiliate Profiles',
+            'description' => 'Affiliate directory and edit area',
+        ],
+        'partners' => [
+            'href' => '../partner-program/',
+            'icon' => 'partner',
+            'label' => 'Partners',
+            'description' => 'Partner program management',
+        ],
+        'partner-profiles' => [
+            'href' => '../partner-profiles/',
+            'icon' => 'users',
+            'label' => 'Partner Profiles',
+            'description' => 'Partner registry and edit area',
+        ],
+        'api' => [
+            'href' => '../api-health/',
+            'icon' => 'api',
+            'label' => 'API',
+            'description' => 'Operational health checks',
+        ],
+        'sku-db' => [
+            'href' => '../sku-db/',
+            'icon' => 'sku',
+            'label' => 'SKU DB',
+            'description' => 'SKU source-of-truth records',
+        ],
+    ];
+}
+
+function admin_quick_menu_context_map(): array
+{
+    return [
+        'overview' => ['daily', 'orders', 'campaigns', 'back-dash', 'context', 'settings'],
+        'daily' => ['home', 'orders', 'campaigns', 'back-dash', 'context', 'settings'],
+        'orders' => ['home', 'daily', 'campaigns', 'back-dash', 'context', 'settings'],
+        'campaigns' => ['home', 'orders', 'affiliates', 'back-dash', 'context', 'settings'],
+        'back-dash' => ['home', 'api', 'context', 'settings'],
+        'context' => ['home', 'api', 'back-dash', 'settings'],
+        'settings' => ['home', 'daily', 'orders', 'campaigns', 'context'],
+        'affiliates' => ['home', 'affiliate-profiles', 'campaigns', 'daily', 'orders', 'settings'],
+        'affiliate-profiles' => ['home', 'affiliates', 'campaigns', 'daily', 'orders', 'settings'],
+        'hard-set' => ['home', 'settings'],
+        'profit-loss' => ['home', 'daily', 'orders', 'campaigns', 'context', 'settings'],
+        'website' => ['home', 'daily', 'orders', 'campaigns', 'affiliates', 'settings'],
+        'partners' => ['home', 'partner-profiles', 'daily', 'orders', 'campaigns', 'settings'],
+        'api' => ['home', 'back-dash', 'context', 'settings'],
+        'sku-db' => ['home', 'daily', 'orders', 'back-dash', 'settings'],
+        'partner-profiles' => ['home', 'partners', 'daily', 'orders', 'campaigns', 'settings'],
+    ];
+}
+
+function admin_normalize_quick_menu_context(string $context): string
+{
+    $normalized = strtolower(trim($context));
+    $aliases = [
+        '' => 'overview',
+        'dashboard' => 'overview',
+        'homepage' => 'overview',
+        'home' => 'overview',
+        'campaign' => 'campaigns',
+        'campaigns-dashboard' => 'campaigns',
+        'affiliate' => 'affiliates',
+        'affiliate-program' => 'affiliates',
+        'affiliate-profile' => 'affiliate-profiles',
+        'partner' => 'partners',
+        'partner-program' => 'partners',
+        'partner-profile' => 'partner-profiles',
+        'sku' => 'sku-db',
+        'api-health' => 'api',
+        'p&l' => 'profit-loss',
+        'profit-and-loss' => 'profit-loss',
+    ];
+    $context = $aliases[$normalized] ?? $normalized;
+
+    return array_key_exists($context, admin_quick_menu_context_map()) ? $context : 'overview';
+}
+
+function admin_dashboard_view_menu_context(): string
+{
+    $requestedView = strtolower(trim((string) ($_GET['view'] ?? 'overview')));
+    $aliases = [
+        '' => 'overview',
+        'overview' => 'overview',
+        'executive' => 'overview',
+        'homepage' => 'overview',
+        'daily' => 'daily',
+        'orders' => 'orders',
+        'home' => 'campaigns',
+        'campaign' => 'campaigns',
+        'campaigns' => 'campaigns',
+        'context' => 'context',
+        'open-context' => 'context',
+        'website' => 'website',
+        'hardset' => 'hard-set',
+        'hard-set' => 'hard-set',
+        'settings' => 'settings',
+    ];
+
+    return $aliases[$requestedView] ?? 'overview';
+}
+
+function admin_current_menu_context(): string
+{
+    $path = strtolower((string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH));
+    if (str_contains($path, '/dashboard/')) {
+        return admin_dashboard_view_menu_context();
+    }
+    if (str_contains($path, '/affiliate-profile/')) {
+        return 'affiliate-profiles';
+    }
+    if (str_contains($path, '/affiliate-profiles/')) {
+        return 'affiliate-profiles';
+    }
+    if (str_contains($path, '/affiliate-program/')) {
+        return 'affiliates';
+    }
+    if (str_contains($path, '/partner-profile/')) {
+        return 'partner-profiles';
+    }
+    if (str_contains($path, '/partner-profiles/')) {
+        return 'partner-profiles';
+    }
+    if (str_contains($path, '/partner-program/')) {
+        return 'partners';
+    }
+    if (str_contains($path, '/back-dash/')) {
+        return 'back-dash';
+    }
+    if (str_contains($path, '/api-health/')) {
+        return 'api';
+    }
+    if (str_contains($path, '/sku-db/')) {
+        return 'sku-db';
+    }
+    if (str_contains($path, '/profit-loss/')) {
+        return 'profit-loss';
+    }
+
+    return 'overview';
+}
+
+function admin_quick_menu_keys_for_context(string $context): array
+{
+    $context = admin_normalize_quick_menu_context($context);
+    $contextMap = admin_quick_menu_context_map();
+
+    return $contextMap[$context] ?? $contextMap['overview'];
+}
+
+function admin_favicon_assets(): array
+{
+    return [
+        'home' => [
+            'light' => '/assets/admin-icons/executive-dashboard-favicon-light.svg',
+            'dark' => '/assets/admin-icons/executive-dashboard-favicon-dark.svg',
+        ],
+        'settings' => [
+            'light' => '/assets/admin-icons/favicon-settings-light.svg',
+            'dark' => '/assets/admin-icons/favicon-settings-dark.svg',
+        ],
+        'sku-db' => [
+            'light' => '/assets/admin-icons/favicon-sku-db-light.svg',
+            'dark' => '/assets/admin-icons/favicon-sku-db-dark.svg',
+        ],
+        'api' => [
+            'light' => '/assets/admin-icons/favicon-api-light.svg',
+            'dark' => '/assets/admin-icons/favicon-api-dark.svg',
+        ],
+        'partners' => [
+            'light' => '/assets/admin-icons/favicon-partners-light.svg',
+            'dark' => '/assets/admin-icons/favicon-partners-dark.svg',
+        ],
+        'affiliates' => [
+            'light' => '/assets/admin-icons/favicon-affiliates-light.svg',
+            'dark' => '/assets/admin-icons/favicon-affiliates-dark.svg',
+        ],
+        'hard-set' => [
+            'light' => '/assets/admin-icons/favicon-hard-set-light.svg',
+            'dark' => '/assets/admin-icons/favicon-hard-set-dark.svg',
+        ],
+        'website' => [
+            'light' => '/assets/admin-icons/favicon-website-light.svg',
+            'dark' => '/assets/admin-icons/favicon-website-dark.svg',
+        ],
+        'campaigns' => [
+            'light' => '/assets/admin-icons/favicon-campaigns-light.svg',
+            'dark' => '/assets/admin-icons/favicon-campaigns-dark.svg',
+        ],
+        'orders' => [
+            'light' => '/assets/admin-icons/favicon-orders-ops-light.svg',
+            'dark' => '/assets/admin-icons/favicon-orders-ops-dark.svg',
+        ],
+        'profit-loss' => [
+            'light' => '/assets/admin-icons/favicon-profit-loss-light.svg',
+            'dark' => '/assets/admin-icons/favicon-profit-loss-dark.svg',
+        ],
+        'back-dash' => [
+            'light' => '/assets/admin-icons/favicon-back-dash-light.svg',
+            'dark' => '/assets/admin-icons/favicon-back-dash-dark.svg',
+        ],
+    ];
+}
+
+function admin_normalize_favicon_key(string $key): string
+{
+    $normalized = strtolower(trim($key));
+    $aliases = [
+        '' => 'home',
+        'overview' => 'home',
+        'homepage' => 'home',
+        'dashboard' => 'home',
+        'daily' => 'home',
+        'context' => 'home',
+        'store-ops' => 'orders',
+        'ops' => 'orders',
+        'affiliate' => 'affiliates',
+        'affiliate-program' => 'affiliates',
+        'affiliate-profile' => 'affiliates',
+        'affiliate-profiles' => 'affiliates',
+        'partner' => 'partners',
+        'partner-program' => 'partners',
+        'partner-profile' => 'partners',
+        'partner-profiles' => 'partners',
+        'api-health' => 'api',
+        'sku' => 'sku-db',
+        'p&l' => 'profit-loss',
+        'profit-and-loss' => 'profit-loss',
+    ];
+    $key = $aliases[$normalized] ?? $normalized;
+
+    return array_key_exists($key, admin_favicon_assets()) ? $key : 'home';
+}
+
+function admin_dashboard_view_favicon_key(): string
+{
+    $requestedView = strtolower(trim((string) ($_GET['view'] ?? 'overview')));
+    $aliases = [
+        '' => 'home',
+        'overview' => 'home',
+        'executive' => 'home',
+        'homepage' => 'home',
+        'daily' => 'home',
+        'orders' => 'orders',
+        'store-ops' => 'orders',
+        'home' => 'campaigns',
+        'campaign' => 'campaigns',
+        'campaigns' => 'campaigns',
+        'context' => 'home',
+        'website' => 'website',
+        'hardset' => 'hard-set',
+        'hard-set' => 'hard-set',
+        'settings' => 'settings',
+    ];
+
+    return $aliases[$requestedView] ?? 'home';
+}
+
+function render_admin_favicons(string $pageKey = 'home'): void
+{
+    $assets = admin_favicon_assets()[admin_normalize_favicon_key($pageKey)] ?? admin_favicon_assets()['home'];
+    echo '    <link rel="icon" type="image/svg+xml" href="' . htmlspecialchars($assets['light'], ENT_QUOTES, 'UTF-8') . '" media="(prefers-color-scheme: light)" data-admin-favicon="light">' . "\n";
+    echo '    <link rel="icon" type="image/svg+xml" href="' . htmlspecialchars($assets['dark'], ENT_QUOTES, 'UTF-8') . '" media="(prefers-color-scheme: dark)" data-admin-favicon="dark">' . "\n";
+}
+
 function render_admin_sidebar(string $activeSection = ''): void
 {
     $activeSection = strtolower(trim($activeSection));
@@ -38,26 +363,11 @@ function render_admin_sidebar(string $activeSection = ''): void
             'view' => 'website',
         ],
         [
-            'key' => 'hard-set',
-            'href' => '../dashboard/?view=hard-set',
-            'label' => 'Hard Set',
-            'icon' => 'admin-rail-icon-hard-set',
-            'aria' => 'Open irreversible Hard Set cutover',
-            'view' => 'hard-set',
-        ],
-        [
             'key' => 'profit-loss',
             'href' => '../profit-loss/',
             'label' => 'P&L',
             'icon' => 'admin-rail-icon-profit-loss',
             'aria' => 'Open profit and loss workspace',
-        ],
-        [
-            'key' => 'back-dash',
-            'href' => '../back-dash/',
-            'label' => 'Back Dash',
-            'icon' => 'admin-rail-icon-back-dash',
-            'aria' => 'Open Back Dash workspace',
         ],
         [
             'key' => 'affiliate',
@@ -149,15 +459,16 @@ function render_admin_sidebar_item(array $item, string $activeSection): void
     echo '</a>';
 }
 
-function render_admin_topbar_actions(): void
+function render_admin_topbar_actions(string $menuContext = ''): void
 {
     echo '<div class="admin-topbar-actions" data-admin-home-chrome>';
-    render_admin_topbar_action_buttons();
+    render_admin_topbar_action_buttons($menuContext);
     echo '</div>';
 }
 
-function render_admin_topbar_action_buttons(): void
+function render_admin_topbar_action_buttons(string $menuContext = ''): void
 {
+    $menuContext = $menuContext === '' ? admin_current_menu_context() : $menuContext;
     echo '<div class="admin-search-shell admin-search-shell-topbar" data-dashboard-search-shell data-admin-chrome data-website-orders-endpoint="../api/website-orders/">';
     echo '<div class="admin-search-surface" aria-hidden="true">';
     echo '<div class="admin-search-surface-glow"></div>';
@@ -192,55 +503,85 @@ function render_admin_topbar_action_buttons(): void
     echo '</button>';
     echo '<div class="admin-menu-panel" data-menu-panel aria-label="Executive Dashboard navigation" hidden>';
 
-    $menuItems = [
-        ['href' => '../dashboard/?view=overview', 'view' => 'overview', 'icon' => 'home', 'label' => 'Home', 'description' => 'Executive sales overview'],
-        ['href' => '../dashboard/?view=daily', 'view' => 'daily', 'icon' => 'calendar', 'label' => 'Daily', 'description' => 'Daily platform Qty and Rp'],
-        ['href' => '../dashboard/?view=orders', 'view' => 'orders', 'icon' => 'orders', 'label' => 'Orders', 'description' => 'Order detail and fulfillment facts'],
-        ['href' => '../dashboard/?view=campaigns', 'view' => 'home', 'icon' => 'campaigns', 'label' => 'Campaigns', 'description' => 'Landing-page analytics'],
-        ['href' => '../profit-loss/', 'icon' => 'profit-loss', 'label' => 'P&L', 'description' => 'Revenue, costs, and operating profit'],
-        ['href' => '../back-dash/', 'icon' => 'back-dash', 'label' => 'Back Dash', 'description' => 'Marketplace control workspace'],
-        ['href' => '../dashboard/?view=context', 'view' => 'context', 'icon' => 'context', 'label' => 'Context', 'description' => 'Operational context and live signals'],
-        ['href' => '../dashboard/?view=website', 'view' => 'website', 'icon' => 'website', 'label' => 'Website', 'description' => 'Site traffic and conversion analytics'],
-        ['href' => '../dashboard/?view=hard-set', 'view' => 'hard-set', 'icon' => 'hard-set', 'label' => 'Hard Set', 'description' => 'Irreversible website order cutover'],
-        ['href' => '../affiliate-program/', 'icon' => 'affiliate', 'label' => 'Affiliate', 'description' => 'Affiliate performance control room'],
-        ['href' => '../affiliate-profiles/', 'icon' => 'users', 'label' => 'Affiliate Profiles', 'description' => 'Affiliate directory and edit area'],
-        ['href' => '../partner-program/', 'icon' => 'partner', 'label' => 'Partner', 'description' => 'Partner program management'],
-        ['href' => '../partner-profiles/', 'icon' => 'users', 'label' => 'Partner Profiles', 'description' => 'Partner registry and edit area'],
-        ['href' => '../api-health/', 'icon' => 'api', 'label' => 'API', 'description' => 'Operational health checks'],
-        ['href' => '../sku-db/', 'icon' => 'sku', 'label' => 'SKU DB', 'description' => 'SKU source-of-truth records'],
-        ['href' => '../dashboard/?view=settings', 'view' => 'settings', 'icon' => 'settings', 'label' => 'Settings', 'description' => 'Appearance and lock controls'],
-    ];
-
-    foreach ($menuItems as $item) {
-        render_admin_topbar_menu_item($item);
-    }
-
-    echo '<button type="button" class="admin-menu-item" data-theme-toggle>';
-    echo '<span class="admin-menu-icon" aria-hidden="true">' . admin_topbar_menu_icon('theme') . '</span>';
-    echo '<span><strong>Theme</strong><small>Switch light or dark mode</small></span>';
-    echo '</button>';
-    echo '<a class="admin-menu-item admin-link-btn admin-menu-item-danger" href="../logout/">';
-    echo '<span class="admin-menu-icon" aria-hidden="true">' . admin_topbar_menu_icon('lock') . '</span>';
-    echo '<span><strong>Lock Dashboard</strong><small>End the current admin session</small></span>';
-    echo '</a>';
+    render_admin_topbar_menu_items($menuContext);
     echo '</div>';
     echo '</div>';
 }
 
-function render_admin_topbar_menu_item(array $item): void
+function render_admin_topbar_menu_items(string $menuContext): void
 {
+    $definitions = admin_quick_menu_definitions();
+    foreach (admin_quick_menu_keys_for_context($menuContext) as $key) {
+        if (!isset($definitions[$key])) {
+            continue;
+        }
+        render_admin_topbar_menu_item($definitions[$key]);
+    }
+}
+
+function render_admin_dashboard_topbar_menu_items(string $initialContext = ''): void
+{
+    $initialContext = admin_normalize_quick_menu_context($initialContext);
+    $definitions = admin_quick_menu_definitions();
+    $contextMap = admin_quick_menu_context_map();
+    $orderedKeys = admin_quick_menu_keys_for_context($initialContext);
+    foreach ($contextMap as $keys) {
+        foreach ($keys as $key) {
+            if (!in_array($key, $orderedKeys, true)) {
+                $orderedKeys[] = $key;
+            }
+        }
+    }
+
+    foreach ($orderedKeys as $key) {
+        if (!isset($definitions[$key])) {
+            continue;
+        }
+        $contexts = [];
+        foreach ($contextMap as $context => $keys) {
+            if (in_array($key, $keys, true)) {
+                $contexts[] = $context;
+            }
+        }
+        render_admin_topbar_menu_item($definitions[$key], [
+            'as_button' => isset($definitions[$key]['view']),
+            'hidden' => !in_array($initialContext, $contexts, true),
+            'attributes' => [
+                'data-quick-menu-key' => $key,
+                'data-quick-menu-contexts' => implode(' ', $contexts),
+            ],
+        ]);
+    }
+}
+
+function render_admin_topbar_menu_item(array $item, array $options = []): void
+{
+    $asButton = (bool) ($options['as_button'] ?? false);
     $href = htmlspecialchars((string) ($item['href'] ?? '../dashboard/?view=overview'), ENT_QUOTES, 'UTF-8');
     $label = htmlspecialchars((string) ($item['label'] ?? ''), ENT_QUOTES, 'UTF-8');
     $description = htmlspecialchars((string) ($item['description'] ?? ''), ENT_QUOTES, 'UTF-8');
     $view = trim((string) ($item['view'] ?? ''));
-    $viewAttribute = $view !== ''
+    $viewAttribute = $view !== '' && !$asButton
         ? ' data-dashboard-view-link="' . htmlspecialchars($view, ENT_QUOTES, 'UTF-8') . '"'
         : '';
+    $attributes = $options['attributes'] ?? [];
+    $extraAttributes = [];
+    foreach ($attributes as $name => $value) {
+        $extraAttributes[] = htmlspecialchars((string) $name, ENT_QUOTES, 'UTF-8') . '="' . htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8') . '"';
+    }
+    if (!empty($options['hidden'])) {
+        $extraAttributes[] = 'hidden';
+    }
 
-    echo '<a class="admin-menu-item admin-link-btn" href="' . $href . '"' . $viewAttribute . '>';
+    if ($asButton) {
+        $buttonView = $view !== '' ? $view : 'overview';
+        echo '<button type="button" class="admin-menu-item" data-view-switch="' . htmlspecialchars($buttonView, ENT_QUOTES, 'UTF-8') . '" ' . implode(' ', $extraAttributes) . '>';
+    } else {
+        echo '<a class="admin-menu-item admin-link-btn" href="' . $href . '"' . $viewAttribute . ($extraAttributes ? ' ' . implode(' ', $extraAttributes) : '') . '>';
+    }
     echo '<span class="admin-menu-icon" aria-hidden="true">' . admin_topbar_menu_icon((string) ($item['icon'] ?? 'home')) . '</span>';
     echo '<span><strong>' . $label . '</strong><small>' . $description . '</small></span>';
-    echo '</a>';
+    echo $asButton ? '</button>' : '</a>';
 }
 
 function admin_topbar_menu_icon(string $icon): string

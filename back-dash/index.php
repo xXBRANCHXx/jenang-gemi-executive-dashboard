@@ -35,8 +35,7 @@ $apiDocs = [
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
     <title>API Ingest Workspace | Jenang Gemi Executive Dashboard</title>
     <meta name="robots" content="noindex,nofollow">
-    <link rel="icon" type="image/svg+xml" href="/assets/admin-icons/executive-dashboard-favicon-light.svg" media="(prefers-color-scheme: light)">
-    <link rel="icon" type="image/svg+xml" href="/assets/admin-icons/executive-dashboard-favicon-dark.svg" media="(prefers-color-scheme: dark)">
+<?php render_admin_favicons('back-dash'); ?>
     <link rel="prefetch" href="../api/sales/?year=<?php echo urlencode($dashboardPrefetchYear); ?>" as="fetch">
     <link rel="stylesheet" href="../admin.css?v=<?php echo urlencode($adminCssVersion ?: '1'); ?>">
 </head>
