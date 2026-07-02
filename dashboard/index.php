@@ -1116,61 +1116,64 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                     </section>
 
                     <section class="admin-view admin-view-settings" data-view-panel="settings">
-                <section class="admin-settings-grid">
-                    <article class="admin-panel admin-settings-card">
-                        <div class="admin-panel-head">
-                            <div><span class="admin-panel-kicker">Appearance</span><h3>Theme</h3></div>
-                        </div>
-                        <p class="admin-settings-copy">Choose the dashboard theme without changing dashboard access or abilities.</p>
-                        <div class="admin-theme-options" data-theme-options>
-                            <button type="button" class="admin-theme-option" data-theme-option="dark" aria-pressed="false">
-                                <span class="admin-theme-swatch admin-theme-swatch-dark" aria-hidden="true"></span>
-                                <span><strong>Dark</strong><small>Black workspace</small></span>
-                            </button>
-                            <button type="button" class="admin-theme-option" data-theme-option="light" aria-pressed="false">
-                                <span class="admin-theme-swatch admin-theme-swatch-light" aria-hidden="true"></span>
-                                <span><strong>Light</strong><small>White workspace</small></span>
-                            </button>
-                        </div>
-                    </article>
-
-                    <article class="admin-panel admin-settings-card">
-                        <div class="admin-panel-head">
-                            <div><span class="admin-panel-kicker">Security</span><h3>Lock Dashboard</h3></div>
-                        </div>
-                        <p class="admin-settings-copy">End the current authenticated session and return to the access screen.</p>
-                        <a class="admin-primary-btn admin-link-btn" href="../logout/">Lock Dashboard</a>
-                    </article>
-
-                    <article class="admin-panel admin-settings-card admin-settings-card-wide">
-                        <div class="admin-panel-head">
-                            <div><span class="admin-panel-kicker">Device Exclusions</span><h3>Ignore specific browsers and devices</h3></div>
-                        </div>
-                        <p class="admin-settings-copy">Use this when IPs keep changing. A saved device ID is shared between the website and dashboard, so future visits from that browser can be removed from landing-page and website analytics.</p>
-                        <div class="admin-note-stack">
-                            <div class="admin-note-card">
-                                <strong>This browser device ID</strong>
-                                <span data-current-device-id>Loading current device ID...</span>
-                                <label class="admin-affiliate-field">
-                                    <span>Tag</span>
-                                    <input type="text" name="current_device_label" data-current-device-label placeholder="Example: Sales iPhone" maxlength="120">
-                                </label>
-                                <button type="button" class="admin-soft-btn" data-ignore-current-device disabled>Ignore This Device</button>
+                <section class="admin-settings-grid admin-settings-grid-minimal">
+                    <article class="admin-panel admin-settings-card admin-settings-theme-card">
+                        <div class="admin-settings-card-head">
+                            <div><span class="admin-panel-kicker">Appearance</span><h3>Dark Light System</h3></div>
+                            <div class="admin-theme-options admin-theme-toggle" data-theme-options role="group" aria-label="Dashboard theme">
+                                <button type="button" class="admin-theme-option" data-theme-option="dark" aria-pressed="false"><span>Dark</span></button>
+                                <button type="button" class="admin-theme-option" data-theme-option="light" aria-pressed="false"><span>Light</span></button>
+                                <button type="button" class="admin-theme-option" data-theme-option="system" aria-pressed="false"><span>System</span></button>
                             </div>
                         </div>
-                        <form class="admin-settings-form" data-device-exclusion-form>
-                            <label class="admin-affiliate-field">
-                                <span>Device ID</span>
-                                <input type="text" name="device_id" placeholder="Example: device-2a4f..." maxlength="120" required>
-                            </label>
-                            <label class="admin-affiliate-field">
-                                <span>Label</span>
-                                <input type="text" name="label" placeholder="Example: Sales iPhone" maxlength="120">
-                            </label>
-                            <button type="submit" class="admin-primary-btn">Add Excluded Device</button>
-                        </form>
+                    </article>
+
+                    <div class="admin-settings-lock-zone">
+                        <a class="admin-settings-lock-icon" href="../logout/" aria-label="Lock Dashboard" title="Lock Dashboard">
+                            <img src="https://cdn.jsdelivr.net/npm/lucide-static@0.468.0/icons/lock.svg" alt="" width="24" height="24" loading="lazy" referrerpolicy="no-referrer">
+                        </a>
+                    </div>
+
+                    <article class="admin-panel admin-settings-card admin-settings-device-card admin-settings-card-wide">
+                        <div class="admin-settings-card-head">
+                            <div><span class="admin-panel-kicker">Device Exclusions</span><h3>Browsers and devices</h3></div>
+                        </div>
+
+                        <div class="admin-device-current">
+                            <div class="admin-device-current-main">
+                                <span>Current browser</span>
+                                <code data-current-device-id>Loading current device ID...</code>
+                            </div>
+                            <div class="admin-device-current-actions">
+                                <label class="admin-affiliate-field admin-device-label-field">
+                                    <span>Label</span>
+                                    <input type="text" name="current_device_label" data-current-device-label placeholder="Example: Sales iPhone" maxlength="120">
+                                </label>
+                                <button type="button" class="admin-primary-btn admin-device-ignore-btn" data-ignore-current-device disabled>Ignore current</button>
+                            </div>
+                        </div>
+
+                        <details class="admin-device-manual-entry">
+                            <summary>Add another device ID</summary>
+                            <form class="admin-settings-form" data-device-exclusion-form>
+                                <label class="admin-affiliate-field">
+                                    <span>Device ID</span>
+                                    <input type="text" name="device_id" placeholder="Example: device-2a4f..." maxlength="120" required>
+                                </label>
+                                <label class="admin-affiliate-field">
+                                    <span>Label</span>
+                                    <input type="text" name="label" placeholder="Example: Sales iPhone" maxlength="120">
+                                </label>
+                                <button type="submit" class="admin-primary-btn">Add device</button>
+                            </form>
+                        </details>
+
                         <p class="admin-form-error" data-device-exclusion-error hidden></p>
-                        <div class="admin-settings-chip-row" data-device-exclusion-list>
+
+                        <div class="admin-settings-device-list-head">
+                            <span>Ignored devices</span>
+                        </div>
+                        <div class="admin-settings-chip-row admin-settings-device-list" data-device-exclusion-list>
                             <p class="admin-empty">Belum ada device yang dikecualikan.</p>
                         </div>
                     </article>

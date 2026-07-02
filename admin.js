@@ -2058,7 +2058,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const themeStorageKey = 'jg-admin-theme';
   const themeCookieMaxAge = 60 * 60 * 24 * 365 * 2;
   const viewStorageKey = 'jg-dashboard-view';
-  const themeOptions = ['dark', 'light'];
+  const themeOptions = ['dark', 'light', 'system'];
+  const systemThemeQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)') : null;
   const viewAliases = {
     landing: 'home',
     landing_pages: 'home',
@@ -2774,10 +2775,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
-  const normalizeTheme = (theme) => {
+  const normalizeThemePreference = (theme) => {
     if (theme === 'minimal-white' || theme === 'classic-white' || theme === 'light') return 'light';
     if (theme === 'minimal-black' || theme === 'prism' || theme === 'dark') return 'dark';
+    if (theme === 'system') return 'system';
     return 'dark';
+  };
+
+  const resolveThemePreference = (theme) => {
+    const preference = normalizeThemePreference(theme);
+    if (preference !== 'system') return preference;
+    return systemThemeQuery?.matches ? 'light' : 'dark';
   };
 
   const readThemeCookie = () => {
@@ -2793,9 +2801,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const readStoredTheme = () => {
     try {
-      return normalizeTheme(window.localStorage.getItem(themeStorageKey) || readThemeCookie());
+      return normalizeThemePreference(window.localStorage.getItem(themeStorageKey) || readThemeCookie());
     } catch (_error) {
-      return normalizeTheme(readThemeCookie());
+      return normalizeThemePreference(readThemeCookie());
     }
   };
 
@@ -2809,24 +2817,26 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const getNextTheme = () => {
-    const currentTheme = normalizeTheme(document.documentElement.dataset.adminTheme);
-    const currentIndex = themeOptions.indexOf(currentTheme);
+    const currentPreference = normalizeThemePreference(document.documentElement.dataset.adminThemeMode || readStoredTheme());
+    const currentIndex = themeOptions.indexOf(currentPreference);
     return themeOptions[(currentIndex + 1) % themeOptions.length];
   };
 
-  const syncThemeControls = (theme) => {
+  const syncThemeControls = (preference) => {
     document.querySelectorAll('[data-theme-option]').forEach((button) => {
-      const isActive = button.dataset.themeOption === theme;
+      const isActive = button.dataset.themeOption === preference;
       button.classList.toggle('is-active', isActive);
       button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     });
   };
 
   const applyTheme = (theme) => {
-    const normalizedTheme = normalizeTheme(theme);
-    document.documentElement.dataset.adminTheme = normalizedTheme;
-    writeStoredTheme(normalizedTheme);
-    syncThemeControls(normalizedTheme);
+    const preference = normalizeThemePreference(theme);
+    const resolvedTheme = resolveThemePreference(preference);
+    document.documentElement.dataset.adminTheme = resolvedTheme;
+    document.documentElement.dataset.adminThemeMode = preference;
+    writeStoredTheme(preference);
+    syncThemeControls(preference);
     invalidateThemePalette();
     renderCachedCharts();
     renderOverviewLocationHeatmap();
@@ -6554,10 +6564,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     websiteRefs.deviceExclusionList.innerHTML = items.map((item) => `
-      <div class="admin-settings-chip">
-        <strong>${escapeHtml(item.device_id || '')}</strong>
-        <span>${escapeHtml(item.label || 'No label')}</span>
-        <button type="button" data-delete-device-exclusion="${escapeHtml(String(item.id || ''))}">Remove</button>
+      <div class="admin-settings-device-row">
+        <span class="admin-settings-device-mark" aria-hidden="true"></span>
+        <span class="admin-settings-device-copy">
+          <strong>${escapeHtml(item.label || 'Unlabeled device')}</strong>
+          <code>${escapeHtml(item.device_id || '')}</code>
+        </span>
+        <button type="button" class="admin-settings-device-remove" data-delete-device-exclusion="${escapeHtml(String(item.id || ''))}" aria-label="Remove ignored device">
+          <img src="https://cdn.jsdelivr.net/npm/lucide-static@0.468.0/icons/trash-2.svg" alt="" width="18" height="18" loading="lazy" referrerpolicy="no-referrer">
+        </button>
       </div>
     `).join('');
   };
@@ -7530,6 +7545,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 160);
   };
 
+  if (systemThemeQuery) {
+    const handleSystemThemeChange = () => {
+      if (normalizeThemePreference(document.documentElement.dataset.adminThemeMode || readStoredTheme()) === 'system') {
+        applyTheme('system');
+      }
+    };
+    if (systemThemeQuery.addEventListener) {
+      systemThemeQuery.addEventListener('change', handleSystemThemeChange);
+    } else if (systemThemeQuery.addListener) {
+      systemThemeQuery.addListener(handleSystemThemeChange);
+    }
+  }
+
   applyTheme(readStoredTheme() || 'dark');
   if (dailyRefs.monthInput) dailyRefs.monthInput.value = state.daily.month;
   renderDailyPlatformList();
@@ -8432,7 +8460,9 @@ document.addEventListener('DOMContentLoaded', () => {
   websiteRefs.deviceExclusionList?.addEventListener('click', async (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
-    const id = target.dataset.deleteDeviceExclusion || '';
+    const button = target.closest('[data-delete-device-exclusion]');
+    if (!(button instanceof HTMLElement)) return;
+    const id = button.dataset.deleteDeviceExclusion || '';
     if (!id) return;
 
     try {
