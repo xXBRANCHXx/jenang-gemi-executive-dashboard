@@ -787,18 +787,18 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                     <article class="admin-panel admin-panel-wide">
                         <div class="admin-panel-head">
                             <div>
-                                <span class="admin-panel-kicker">Website Pages</span>
+                                <span class="admin-panel-kicker">Website</span>
                                 <h3>Which website do you want to inspect?</h3>
                             </div>
-                            <span class="admin-panel-meta">The old page is Jenang Gemi. The new page is ZERO.</span>
+                            <span class="admin-panel-meta">Dedicated analytics for each public domain.</span>
                         </div>
                         <div class="admin-launchpad-grid">
                             <button type="button" class="admin-launchpad-link" data-website-open="jenang_gemi">
-                                <span>Jenang Gemi</span>
+                                <span>jenanggemi.com</span>
                                 <small>Official Jenang Gemi website analytics</small>
                             </button>
                             <button type="button" class="admin-launchpad-link" data-website-open="zero">
-                                <span>ZERO</span>
+                                <span>zerofoods.id</span>
                                 <small>zerofoods.id website analytics</small>
                             </button>
                         </div>
@@ -806,43 +806,43 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                 </section>
 
                 <div data-website-detail hidden>
-                <section class="admin-control-strip">
+                <section class="admin-control-strip admin-control-strip-compact admin-website-controls">
                     <div class="admin-control-group">
                         <span class="admin-control-label">Timeframe</span>
-                        <div class="admin-toggle-row" data-website-timeframe-controls>
-                            <button type="button" class="admin-toggle-pill" data-website-timeframe="1h">1H</button>
-                            <button type="button" class="admin-toggle-pill" data-website-timeframe="24h">24H</button>
-                            <button type="button" class="admin-toggle-pill is-active" data-website-timeframe="7d">7D</button>
-                            <button type="button" class="admin-toggle-pill" data-website-timeframe="30d">30D</button>
-                            <button type="button" class="admin-toggle-pill" data-website-timeframe="90d">90D</button>
-                            <button type="button" class="admin-toggle-pill" data-website-timeframe="all">ALL</button>
+                        <div class="admin-toggle-row admin-sliding-chart-toggle" data-website-timeframe-controls data-sliding-chart-toggle role="group" aria-label="Website timeframe">
+                            <button type="button" class="admin-toggle-pill" data-website-timeframe="1h"><span>1H</span></button>
+                            <button type="button" class="admin-toggle-pill" data-website-timeframe="24h"><span>24H</span></button>
+                            <button type="button" class="admin-toggle-pill is-active" data-website-timeframe="7d"><span>7D</span></button>
+                            <button type="button" class="admin-toggle-pill" data-website-timeframe="30d"><span>30D</span></button>
+                            <button type="button" class="admin-toggle-pill" data-website-timeframe="90d"><span>90D</span></button>
+                            <button type="button" class="admin-toggle-pill" data-website-timeframe="all"><span>ALL</span></button>
                         </div>
                     </div>
                     <div class="admin-control-group">
                         <span class="admin-control-label">Trend Metric</span>
-                        <div class="admin-toggle-row" data-website-metric-controls>
-                            <button type="button" class="admin-toggle-pill is-active" data-website-metric="visitors">Visitors</button>
-                            <button type="button" class="admin-toggle-pill" data-website-metric="page_views">Page Views</button>
-                            <button type="button" class="admin-toggle-pill" data-website-metric="add_to_cart_events">Add To Cart</button>
-                            <button type="button" class="admin-toggle-pill" data-website-metric="checkout_clicks">Checkout</button>
+                        <div class="admin-toggle-row admin-sliding-chart-toggle" data-website-metric-controls data-sliding-chart-toggle role="group" aria-label="Website trend metric">
+                            <button type="button" class="admin-toggle-pill is-active" data-website-metric="visitors"><span>Visitors</span></button>
+                            <button type="button" class="admin-toggle-pill" data-website-metric="page_views"><span>Page Views</span></button>
+                            <button type="button" class="admin-toggle-pill" data-website-metric="add_to_cart_events"><span>Add To Cart</span></button>
+                            <button type="button" class="admin-toggle-pill" data-website-metric="checkout_clicks"><span>Checkout</span></button>
                         </div>
                     </div>
-                    <div class="admin-live-status">
+                    <div class="admin-live-status admin-website-live-status">
                         <strong>Live</strong>
                         <span data-website-last-updated>Waiting for first sync</span>
                     </div>
                 </section>
 
-                <section class="admin-metric-grid">
-                    <article class="admin-metric-card"><span>Total Visitors</span><strong data-website-summary-total-visitors>0</strong><small>Unique tracked website sessions</small></article>
-                    <article class="admin-metric-card"><span>Page Views</span><strong data-website-summary-page-views>0</strong><small>Browser page loads only</small></article>
-                    <article class="admin-metric-card"><span>Add To Cart</span><strong data-website-summary-add-to-cart>0</strong><small>Tracked product additions</small></article>
-                    <article class="admin-metric-card"><span>Checkout Intent</span><strong data-website-summary-checkout>0</strong><small>WhatsApp checkout clicks</small></article>
-                    <article class="admin-metric-card"><span>Avg. Time Spent</span><strong data-website-summary-time-spent>0s</strong><small>Average per website session</small></article>
-                    <article class="admin-metric-card"><span>Top Region</span><strong data-website-summary-top-region>Unknown</strong><small>Most active region in selected timeframe</small></article>
-                    <article class="admin-metric-card"><span>Paid Orders</span><strong data-website-paid-orders>0</strong><small>Confirmed website sales only</small></article>
-                    <article class="admin-metric-card"><span>Paid Quantity</span><strong data-website-paid-quantity>0</strong><small>Paid line-item units</small></article>
-                    <article class="admin-metric-card"><span>Paid Revenue</span><strong data-website-paid-revenue>Rp0</strong><small>Net revenue after discounts</small></article>
+                <section class="admin-website-bento" aria-label="Website analytics summary">
+                    <article class="admin-website-bento-card admin-website-bento-card-hero"><span>Total Visitors</span><strong data-website-summary-total-visitors>0</strong><small>Unique tracked website sessions</small></article>
+                    <article class="admin-website-bento-card"><span>Page Views</span><strong data-website-summary-page-views>0</strong><small>Browser page loads only</small></article>
+                    <article class="admin-website-bento-card"><span>Add to Cart</span><strong data-website-summary-add-to-cart>0</strong><small>Tracked product additions</small></article>
+                    <article class="admin-website-bento-card"><span>Checkout Intent</span><strong data-website-summary-checkout>0</strong><small>WhatsApp checkout clicks</small></article>
+                    <article class="admin-website-bento-card"><span>Avg. Time Spent</span><strong data-website-summary-time-spent>0s</strong><small>Average per website session</small></article>
+                    <article class="admin-website-bento-card admin-website-bento-card-wide"><span>Top Region</span><strong data-website-summary-top-region>Unknown</strong><small>Most active region in selected timeframe</small></article>
+                    <article class="admin-website-bento-card"><span>Paid Orders</span><strong data-website-paid-orders>0</strong><small>Confirmed website sales only</small></article>
+                    <article class="admin-website-bento-card"><span>Paid QTY</span><strong data-website-paid-quantity>0</strong><small>Paid line-item units</small></article>
+                    <article class="admin-website-bento-card admin-website-bento-card-revenue"><span>Paid Revenue</span><strong data-website-paid-revenue>Rp0</strong><small>Net revenue after discounts</small></article>
                 </section>
 
                 <section class="admin-main-grid" data-jenang-gemi-store-panel hidden>
@@ -995,11 +995,11 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                     </article>
                 </section>
 
-                <section class="admin-main-grid">
+                <section class="admin-main-grid admin-website-analytics-grid">
                     <article class="admin-panel admin-panel-chart admin-panel-wide">
                         <div class="admin-panel-head">
                             <div>
-                                <span class="admin-panel-kicker">Trend</span>
+                                <span class="admin-panel-kicker">Analytics</span>
                                 <div class="admin-chart-title-row">
                                     <h3 data-website-trend-title>Website visitors over time</h3>
                                     <button type="button" class="admin-chart-info-btn" aria-label="About website visitors over time" data-chart-info="Shows official website traffic over the selected timeframe. Visitors are unique tracked sessions, Page Views are page loads, and saved internal or excluded IPs are removed before the chart is shown."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
@@ -1009,101 +1009,6 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                         </div>
                         <div class="admin-chart-surface">
                             <canvas class="admin-chart-canvas admin-chart-canvas-lg" data-website-trend-chart width="1200" height="360"></canvas>
-                        </div>
-                    </article>
-
-                    <article class="admin-panel admin-panel-chart">
-                        <div class="admin-panel-head">
-                            <div>
-                                <span class="admin-panel-kicker">Regions</span>
-                                <div class="admin-chart-title-row">
-                                    <h3>Visitors by region</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About visitors by region" data-chart-info="Shows the regions sending the most official website visitors after excluded IPs are removed. Location is based on the analytics data attached to each visit, so treat it as a useful guide rather than a perfect address."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
-                                </div>
-                            </div>
-                            <span class="admin-panel-meta">Excluded IPs already removed</span>
-                        </div>
-                        <div class="admin-chart-surface">
-                            <canvas class="admin-chart-canvas" data-website-region-chart width="880" height="340"></canvas>
-                        </div>
-                    </article>
-
-                    <article class="admin-panel admin-panel-chart">
-                        <div class="admin-panel-head">
-                            <div>
-                                <span class="admin-panel-kicker">Top Pages</span>
-                                <div class="admin-chart-title-row">
-                                    <h3 data-website-page-chart-title>Visitors by page</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About visitors by page" data-chart-info="Ranks official website pages by the selected metric. It uses normal browser visits only, so API calls, webhooks, and excluded internal traffic do not inflate the chart."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
-                                </div>
-                            </div>
-                            <span class="admin-panel-meta" data-website-page-chart-meta>Selected website only</span>
-                        </div>
-                        <div class="admin-chart-surface">
-                            <canvas class="admin-chart-canvas" data-website-page-chart width="880" height="340"></canvas>
-                        </div>
-                    </article>
-
-                    <article class="admin-panel admin-panel-table">
-                        <div class="admin-panel-head">
-                            <div><span class="admin-panel-kicker">Pages</span><h3 data-website-page-table-title>Official website pages</h3></div>
-                        </div>
-                        <div class="admin-table-wrap">
-                            <table class="admin-table">
-                                <thead>
-                                    <tr>
-                                        <th>Page</th>
-                                        <th>Visitors</th>
-                                        <th>Page Views</th>
-                                        <th>Avg. Time</th>
-                                    </tr>
-                                </thead>
-                                <tbody data-website-page-table-body>
-                                    <tr><td colspan="4" class="admin-empty">Belum ada data website.</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </article>
-
-                    <article class="admin-panel admin-panel-table">
-                        <div class="admin-panel-head">
-                            <div><span class="admin-panel-kicker">Regions</span><h3>Visitor geography</h3></div>
-                        </div>
-                        <div class="admin-table-wrap">
-                            <table class="admin-table">
-                                <thead>
-                                    <tr>
-                                        <th>Region</th>
-                                        <th>Country</th>
-                                        <th>Visitors</th>
-                                        <th>Page Views</th>
-                                    </tr>
-                                </thead>
-                                <tbody data-website-region-table-body>
-                                    <tr><td colspan="4" class="admin-empty">Belum ada data region.</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </article>
-
-                    <article class="admin-panel admin-panel-feed">
-                        <div class="admin-panel-head">
-                            <div><span class="admin-panel-kicker">Recent Visits</span><h3>Latest website visitors</h3></div>
-                        </div>
-                        <div class="admin-event-feed" data-website-recent-events>
-                            <p class="admin-empty">Belum ada kunjungan website.</p>
-                        </div>
-                    </article>
-
-                    <article class="admin-panel admin-panel-feed">
-                        <div class="admin-panel-head">
-                            <div><span class="admin-panel-kicker">Website Notes</span><h3>Filter and scope</h3></div>
-                        </div>
-                        <div class="admin-note-stack">
-                            <div class="admin-note-card"><strong>Scope</strong><span data-website-scope-note>Counts only `traffic_kind=website` browser events from the selected website.</span></div>
-                            <div class="admin-note-card"><strong>Exclusions</strong><span>Your saved IP list is applied at query time, so old visits from your IP disappear from the charts too.</span></div>
-                            <div class="admin-note-card"><strong>Geo source</strong><span>Regions use whatever geolocation headers Hostinger or proxy layers expose to PHP.</span></div>
-                            <div class="admin-note-card"><strong>Settings API</strong><span data-website-settings-endpoint>../api/settings/</span></div>
                         </div>
                     </article>
                 </section>

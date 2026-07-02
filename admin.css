@@ -11547,9 +11547,13 @@ body::after {
 [data-website-detail] {
   display: flex;
   flex-direction: column;
+  gap: 14px;
 }
 
-[data-website-detail][hidden] {
+[data-website-detail][hidden],
+[data-website-selector][hidden],
+[data-zero-store-panel][hidden],
+[data-jenang-gemi-store-panel][hidden] {
   display: none;
 }
 
@@ -11557,16 +11561,186 @@ body::after {
   order: 1;
 }
 
-[data-website-detail] > .admin-metric-grid {
+[data-website-detail] > .admin-website-bento {
   order: 2;
 }
 
-[data-website-detail] > .admin-main-grid:not([data-zero-store-panel]) {
+[data-website-detail] > .admin-website-analytics-grid {
   order: 3;
 }
 
-[data-website-detail] > [data-zero-store-panel] {
+[data-website-detail] > [data-zero-store-panel],
+[data-website-detail] > [data-jenang-gemi-store-panel] {
   order: 4;
+}
+
+.admin-app.admin-app-suite[data-active-view='website']::after,
+.admin-app.admin-app-suite[data-active-view='website'] .admin-backdrop,
+.admin-app.admin-app-suite[data-active-view='website'] .admin-backdrop::before,
+.admin-app.admin-app-suite[data-active-view='website'] .admin-backdrop::after {
+  display: none;
+}
+
+.admin-app.admin-app-suite .admin-website-controls {
+  align-items: center;
+}
+
+.admin-app.admin-app-suite .admin-website-live-status {
+  min-width: 190px;
+  justify-content: center;
+}
+
+.admin-app.admin-app-suite .admin-website-bento {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-auto-rows: minmax(112px, auto);
+  gap: 12px;
+}
+
+.admin-app.admin-app-suite .admin-website-bento-card {
+  grid-column: span 3;
+  display: flex;
+  min-width: 0;
+  min-height: 112px;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  background: rgba(18, 24, 33, 0.82);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+}
+
+.admin-app.admin-app-suite .admin-website-bento-card-hero {
+  grid-column: span 6;
+  grid-row: span 2;
+  min-height: 236px;
+  background:
+    linear-gradient(135deg, rgba(103, 248, 212, 0.12), rgba(18, 24, 33, 0.82) 42%),
+    var(--admin-surface);
+}
+
+.admin-app.admin-app-suite .admin-website-bento-card-wide,
+.admin-app.admin-app-suite .admin-website-bento-card-revenue {
+  grid-column: span 6;
+}
+
+.admin-app.admin-app-suite .admin-website-bento-card-revenue {
+  background:
+    linear-gradient(135deg, rgba(157, 255, 0, 0.1), rgba(18, 24, 33, 0.82) 44%),
+    var(--admin-surface);
+}
+
+.admin-app.admin-app-suite .admin-website-bento-card span {
+  color: var(--admin-muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.admin-app.admin-app-suite .admin-website-bento-card strong {
+  display: block;
+  max-width: 100%;
+  color: var(--admin-text);
+  font-family: 'Space Grotesk', 'Plus Jakarta Sans', sans-serif;
+  font-size: 1.75rem;
+  line-height: 1.02;
+  overflow-wrap: anywhere;
+}
+
+.admin-app.admin-app-suite .admin-website-bento-card-hero strong {
+  font-size: 3rem;
+}
+
+.admin-app.admin-app-suite .admin-website-bento-card small {
+  color: var(--admin-muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-bento-card {
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-bento-card-hero {
+  background:
+    linear-gradient(135deg, rgba(6, 182, 212, 0.12), rgba(255, 255, 255, 0.9) 42%),
+    var(--admin-surface);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-bento-card-revenue {
+  background:
+    linear-gradient(135deg, rgba(124, 176, 0, 0.12), rgba(255, 255, 255, 0.9) 44%),
+    var(--admin-surface);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-bento-card span,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-bento-card small {
+  color: rgba(15, 23, 42, 0.62);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-bento-card strong {
+  color: rgba(15, 23, 42, 0.9);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-live-status {
+  border-color: rgba(15, 23, 42, 0.1);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-live-status strong {
+  color: rgba(15, 23, 42, 0.9);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-live-status span {
+  color: rgba(71, 85, 105, 0.72);
+}
+
+@media (max-width: 1180px) {
+  .admin-app.admin-app-suite .admin-website-bento-card,
+  .admin-app.admin-app-suite .admin-website-bento-card-wide,
+  .admin-app.admin-app-suite .admin-website-bento-card-revenue {
+    grid-column: span 4;
+  }
+
+  .admin-app.admin-app-suite .admin-website-bento-card-hero {
+    grid-column: span 8;
+  }
+}
+
+@media (max-width: 820px) {
+  .admin-app.admin-app-suite .admin-website-bento {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: minmax(108px, auto);
+  }
+
+  .admin-app.admin-app-suite .admin-website-bento-card,
+  .admin-app.admin-app-suite .admin-website-bento-card-wide,
+  .admin-app.admin-app-suite .admin-website-bento-card-revenue,
+  .admin-app.admin-app-suite .admin-website-bento-card-hero {
+    grid-column: span 1;
+    grid-row: span 1;
+    min-height: 108px;
+    padding: 13px;
+  }
+
+  .admin-app.admin-app-suite .admin-website-bento-card-hero,
+  .admin-app.admin-app-suite .admin-website-bento-card-revenue {
+    grid-column: 1 / -1;
+  }
+
+  .admin-app.admin-app-suite .admin-website-bento-card strong,
+  .admin-app.admin-app-suite .admin-website-bento-card-hero strong {
+    font-size: 1.45rem;
+  }
+
+  .admin-app.admin-app-suite .admin-website-bento-card span {
+    font-size: 0.66rem;
+  }
 }
 
 /* Sliding metric selectors for Executive Sales charts. */

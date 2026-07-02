@@ -272,19 +272,15 @@ const WEBSITE_METRIC_UNITS = {
 
 const WEBSITE_SITE_LABELS = {
   jenang_gemi: {
-    title: 'Jenang Gemi',
+    title: 'jenanggemi.com',
     chip: 'Jenang Gemi Website Dashboard',
-    copy: 'Track real visitors, top regions, and page activity across the main Jenang Gemi website.',
-    pageTitle: 'Jenang Gemi website pages',
-    pageMeta: 'Jenang Gemi website only',
+    copy: 'Minimal traffic and paid-commerce view for jenanggemi.com.',
     scope: 'Counts only `traffic_kind=website` browser events from the Jenang Gemi website.'
   },
   zero: {
-    title: 'ZERO',
+    title: 'zerofoods.id',
     chip: 'ZERO Website Dashboard',
-    copy: 'Track real visitors, top regions, and page activity across zerofoods.id.',
-    pageTitle: 'ZERO website pages',
-    pageMeta: 'zerofoods.id only',
+    copy: 'Minimal traffic and paid-commerce view for zerofoods.id.',
     scope: 'Counts only `traffic_kind=website` browser events from zerofoods.id.'
   }
 };
@@ -2367,19 +2363,11 @@ document.addEventListener('DOMContentLoaded', () => {
     paidQuantity: document.querySelector('[data-website-paid-quantity]'),
     paidRevenue: document.querySelector('[data-website-paid-revenue]'),
     excludedCount: document.querySelector('[data-website-excluded-ip-count]'),
-    pageTableBody: document.querySelector('[data-website-page-table-body]'),
-    regionTableBody: document.querySelector('[data-website-region-table-body]'),
-    recentEvents: document.querySelector('[data-website-recent-events]'),
     settingsEndpointLabel: document.querySelector('[data-website-settings-endpoint]'),
     trendCanvas: document.querySelector('[data-website-trend-chart]'),
-    regionCanvas: document.querySelector('[data-website-region-chart]'),
-    pageCanvas: document.querySelector('[data-website-page-chart]'),
     lastUpdated: document.querySelector('[data-website-last-updated]'),
     trendTitle: document.querySelector('[data-website-trend-title]'),
     trendMeta: document.querySelector('[data-website-trend-meta]'),
-    pageChartTitle: document.querySelector('[data-website-page-chart-title]'),
-    pageChartMeta: document.querySelector('[data-website-page-chart-meta]'),
-    pageTableTitle: document.querySelector('[data-website-page-table-title]'),
     scopeNote: document.querySelector('[data-website-scope-note]'),
     timeframeButtons: document.querySelectorAll('[data-website-timeframe]'),
     metricButtons: document.querySelectorAll('[data-website-metric]'),
@@ -3259,11 +3247,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const getFeedForView = (view) => {
     if (view === 'overview') return overviewRefs.notes;
-    if (view === 'website') return websiteRefs.recentEvents;
     return homeRefs.recentEvents;
   };
 
   const renderViewError = (view, error) => {
+    if (view === 'website') {
+      if (websiteRefs.trendMeta) {
+        websiteRefs.trendMeta.textContent = `Unable to load website analytics: ${error?.message || 'Unknown error'}`;
+      }
+      return;
+    }
     const container = getFeedForView(view);
     if (view === 'home') {
       renderProductCartRundown(homeRefs.productCartRundown, homeRefs.productCartMeta, { items: [], total_cart_events: 0 });
@@ -6063,8 +6056,6 @@ document.addEventListener('DOMContentLoaded', () => {
     state.website.screen = 'detail';
     renderWebsiteShell();
     const summary = data.summary || {};
-    const pages = Array.isArray(data.by_page) ? data.by_page : [];
-    const regions = Array.isArray(data.by_region) ? data.by_region : [];
     const timeseries = Array.isArray(data.timeseries) ? data.timeseries : [];
 
     if (websiteRefs.summaryVisitors) websiteRefs.summaryVisitors.textContent = Number(summary.total_visitors || 0).toLocaleString('id-ID');
@@ -6076,56 +6067,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (websiteRefs.excludedCount) websiteRefs.excludedCount.textContent = Number(summary.excluded_ip_count || 0).toLocaleString('id-ID');
     if (websiteRefs.settingsEndpointLabel) websiteRefs.settingsEndpointLabel.textContent = settingsEndpoint;
 
-    if (websiteRefs.pageTableBody) {
-      websiteRefs.pageTableBody.innerHTML = renderRows(pages, 4, (item) => `
-        <tr>
-          <td><strong>${escapeHtml(item.page_path || '/')}</strong></td>
-          <td>${Number(item.visitors || 0).toLocaleString('id-ID')}</td>
-          <td>${Number(item.page_views || 0).toLocaleString('id-ID')}</td>
-          <td>${formatSeconds(Number(item.avg_time_spent_seconds || 0))}</td>
-        </tr>
-      `, 'Belum ada data website.');
-    }
-
-    if (websiteRefs.regionTableBody) {
-      websiteRefs.regionTableBody.innerHTML = renderRows(regions, 4, (item) => `
-        <tr>
-          <td><strong>${escapeHtml(item.region_label || 'Unknown')}</strong></td>
-          <td>${escapeHtml(item.country_code || '-')}</td>
-          <td>${Number(item.visitors || 0).toLocaleString('id-ID')}</td>
-          <td>${Number(item.page_views || 0).toLocaleString('id-ID')}</td>
-        </tr>
-      `, 'Belum ada data region.');
-    }
-
-    renderEventFeed(websiteRefs.recentEvents, Array.isArray(data.recent_events) ? data.recent_events : [], (item) => `
-      <div class="admin-event-item">
-        <strong>${escapeHtml(item.page_path || '/')} • ${escapeHtml(item.region_label || 'Unknown')}</strong>
-        <span>${escapeHtml(item.ip_address_masked || 'Unknown')}</span>
-        ${item.ip_address ? `<button type="button" class="admin-soft-btn" data-ignore-recorded-ip="${escapeHtml(String(item.ip_address))}">Ignore This Recorded IP</button>` : ''}
-        <small>${escapeHtml(item.occurred_at || '')}</small>
-      </div>
-    `, 'Belum ada kunjungan website.');
-
     drawLineChart(websiteRefs.trendCanvas, timeseries, state.website.metric, WEBSITE_METRIC_UNITS);
-    drawBarChart(websiteRefs.regionCanvas, regions, {
-      value: (item) => item.visitors || 0,
-      label: (item) => String(item.region_label || 'Unknown').slice(0, 14),
-      color: () => SOURCE_COLORS.google,
-      metric: 'visitors',
-      unitsMap: WEBSITE_METRIC_UNITS,
-      tooltipTitle: (item) => item.region_label || 'Unknown',
-      limit: 6
-    });
-    drawBarChart(websiteRefs.pageCanvas, pages, {
-      value: (item) => item[state.website.metric] || 0,
-      label: (item) => formatPageLabel(item.page_path || '/').slice(0, 14),
-      color: () => SOURCE_COLORS.direct,
-      metric: state.website.metric,
-      unitsMap: WEBSITE_METRIC_UNITS,
-      tooltipTitle: (item) => item.page_path || '/',
-      limit: 6
-    });
 
     setLastUpdated(websiteRefs.lastUpdated, data.meta?.generated_at);
     const siteLabel = WEBSITE_SITE_LABELS[state.website.site]?.title || 'Website';
@@ -6158,16 +6100,13 @@ document.addEventListener('DOMContentLoaded', () => {
       if (jenangGemiStoreRefs.panel) jenangGemiStoreRefs.panel.hidden = true;
       if (websiteRefs.heroChip) websiteRefs.heroChip.textContent = 'Official Website Dashboard';
       if (websiteRefs.heroTitle) websiteRefs.heroTitle.textContent = 'Select a website dashboard.';
-      if (websiteRefs.heroCopy) websiteRefs.heroCopy.textContent = 'Choose Jenang Gemi or ZERO to open the dedicated website analytics page. Each page uses browser-tagged website visits only.';
+      if (websiteRefs.heroCopy) websiteRefs.heroCopy.textContent = 'Choose jenanggemi.com or zerofoods.id to open the dedicated website analytics page. Each page uses browser-tagged website visits only.';
       return;
     }
 
     if (websiteRefs.heroChip) websiteRefs.heroChip.textContent = siteConfig.chip;
     if (websiteRefs.heroTitle) websiteRefs.heroTitle.textContent = siteConfig.title;
     if (websiteRefs.heroCopy) websiteRefs.heroCopy.textContent = siteConfig.copy;
-    if (websiteRefs.pageChartTitle) websiteRefs.pageChartTitle.textContent = `${siteConfig.title} visitors by page`;
-    if (websiteRefs.pageChartMeta) websiteRefs.pageChartMeta.textContent = siteConfig.pageMeta;
-    if (websiteRefs.pageTableTitle) websiteRefs.pageTableTitle.textContent = siteConfig.pageTitle;
     if (websiteRefs.scopeNote) websiteRefs.scopeNote.textContent = siteConfig.scope;
     if (zeroStoreRefs.panel) zeroStoreRefs.panel.hidden = state.website.site !== 'zero';
     if (jenangGemiStoreRefs.panel) jenangGemiStoreRefs.panel.hidden = state.website.site !== 'jenang_gemi';
