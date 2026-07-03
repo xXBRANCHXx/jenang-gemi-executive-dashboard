@@ -254,6 +254,43 @@ function jg_orders_bool(mixed $value): bool
     return in_array(strtolower(trim((string) $value)), ['1', 'true', 'yes', 'on'], true);
 }
 
+function jg_orders_normalized_status(mixed $value): string
+{
+    return trim(preg_replace('/[^A-Z0-9]+/', '_', strtoupper((string) $value)) ?? '', '_');
+}
+
+function jg_orders_release_marker_trusted(string $platform, mixed $orderStatus, mixed $releaseStatus, mixed $releaseSource): bool
+{
+    $platform = strtolower(trim($platform));
+    if ($platform !== 'shopee') {
+        return true;
+    }
+
+    $source = strtolower(trim((string) $releaseSource));
+    $normalizedOrderStatus = jg_orders_normalized_status($orderStatus);
+    $normalizedReleaseStatus = jg_orders_normalized_status($releaseStatus);
+    $effectiveStatus = $normalizedReleaseStatus !== '' ? $normalizedReleaseStatus : $normalizedOrderStatus;
+
+    if (preg_match('/^order_status=([^;]+)/i', trim((string) $releaseSource), $matches)) {
+        return in_array(jg_orders_normalized_status($matches[1]), ['COMPLETED', 'COMPLETE'], true);
+    }
+
+    if ($source === 'settlement_payload') {
+        return !in_array($effectiveStatus, [
+            'READY_TO_SHIP',
+            'PROCESSED',
+            'SHIPPED',
+            'TO_CONFIRM_RECEIVE',
+            'IN_CANCEL',
+            'RETRY_SHIP',
+            'PAID',
+            'UNPAID',
+        ], true);
+    }
+
+    return true;
+}
+
 function jg_orders_optional_utc_datetime(mixed $value): ?string
 {
     $date = jg_orders_order_datetime($value);
@@ -574,14 +611,19 @@ function jg_orders_normalize_mirror_row(array $row, array $payload): ?array
     $orderNetRevenue = jg_orders_float(jg_orders_pick($row, ['order_net_revenue', 'net_revenue', 'revenue'], jg_orders_pick($financials, ['netRevenue', 'net_revenue'], $netRevenue)));
     $grossRevenue = jg_orders_float(jg_orders_pick($row, ['gross_revenue', 'order_gross_revenue', 'customer_paid'], jg_orders_pick($financials, ['grossRevenue', 'totalAmount'], $orderNetRevenue)));
     $marketplaceFees = jg_orders_float(jg_orders_pick($row, ['order_marketplace_fees', 'marketplace_fees', 'fees'], jg_orders_pick($financials, ['marketplaceFees', 'fees'], max(0, $grossRevenue - $orderNetRevenue))));
+    $status = strtoupper(trim((string) jg_orders_pick($row, ['status', 'order_status'], '')));
     $fundsReleased = jg_orders_bool(jg_orders_pick($row, ['funds_released', 'fundsReleased'], false));
     $fundsReleasedAt = jg_orders_order_datetime(jg_orders_pick($row, ['funds_released_at', 'fundsReleasedAt'], null));
     $fundsReleasedAmount = jg_orders_float(jg_orders_pick($row, ['funds_released_amount', 'fundsReleasedAmount'], $fundsReleased ? $orderNetRevenue : 0));
     $fundsReleaseStatus = substr(trim((string) jg_orders_pick($row, ['funds_release_status', 'fundsReleaseStatus'], '')), 0, 80);
     $fundsReleaseSource = substr(trim((string) jg_orders_pick($row, ['funds_release_source', 'fundsReleaseSource'], '')), 0, 220);
+    if ($fundsReleased && !jg_orders_release_marker_trusted($platform, $status, $fundsReleaseStatus, $fundsReleaseSource)) {
+        $fundsReleased = false;
+        $fundsReleasedAt = null;
+        $fundsReleasedAmount = 0;
+    }
     $cogs = jg_orders_float(jg_orders_pick($row, ['cogs', 'total_cogs'], 0));
     $grossProfit = jg_orders_float(jg_orders_pick($row, ['gross_profit'], $netRevenue - $cogs));
-    $status = strtoupper(trim((string) jg_orders_pick($row, ['status', 'order_status'], '')));
     $sourceEvent = substr(trim((string) ($payload['event'] ?? $payload['event_type'] ?? $payload['type'] ?? 'webhook')), 0, 80);
     $deleted = jg_orders_bool($row['deleted'] ?? $row['_deleted'] ?? false)
         || in_array($status, ['DELETED', 'REMOVED'], true)

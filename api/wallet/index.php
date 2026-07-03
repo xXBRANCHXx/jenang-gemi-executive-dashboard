@@ -873,7 +873,15 @@ function jg_wallet_order_totals(PDO $pdo, array $activeBalanceAnchors = []): arr
 
 function jg_wallet_order_bucket(array $order): string
 {
-    if ((int) ($order['funds_released'] ?? 0) > 0) {
+    if (
+        (int) ($order['funds_released'] ?? 0) > 0
+        && jg_orders_release_marker_trusted(
+            (string) ($order['platform'] ?? ''),
+            $order['order_status'] ?? $order['status'] ?? '',
+            $order['funds_release_status'] ?? '',
+            $order['funds_release_source'] ?? ''
+        )
+    ) {
         return 'released';
     }
 

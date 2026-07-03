@@ -68,6 +68,20 @@ wallet_expect('outstanding', jg_wallet_order_bucket([
     'funds_release_status' => '',
     'order_status' => 'CLOSED',
 ]), 'Closed Shopee orders without released funds must remain outstanding.');
+wallet_expect('outstanding', jg_wallet_order_bucket([
+    'platform' => 'shopee',
+    'funds_released' => 1,
+    'funds_release_status' => 'READY_TO_SHIP',
+    'funds_release_source' => 'settlement_payload',
+    'order_status' => 'READY_TO_SHIP',
+]), 'Shopee escrow revenue must stay outstanding until wallet release evidence exists.');
+wallet_expect('released', jg_wallet_order_bucket([
+    'platform' => 'shopee',
+    'funds_released' => 1,
+    'funds_release_status' => 'COMPLETED',
+    'funds_release_source' => 'settlement_payload',
+    'order_status' => 'COMPLETED',
+]), 'Completed Shopee settlement payloads may count as released.');
 wallet_expect(45000, jg_wallet_released_amount([
     'funds_released_amount' => 0,
 ], 45000), 'Released orders must fall back to order amount when the release amount is missing.');

@@ -97,6 +97,29 @@ expect_same(1, $webhookRows[0]['funds_released'], 'Webhook rows must preserve re
 expect_same(1200.0, $webhookRows[0]['funds_released_amount'], 'Webhook rows must preserve released wallet amounts.');
 expect_same('Buyer One', $webhookRows[0]['username'], 'Webhook rows must map customer names.');
 
+$unreleasedShopeeRows = jg_orders_webhook_rows([
+    'event' => 'marketplace_orders_upserted',
+    'rows' => [[
+        'platform' => 'shopee',
+        'account_key' => 'main',
+        'order_id' => 'ORDER-READY',
+        'order_create_time' => '2026-07-03T04:03:40Z',
+        'status' => 'READY_TO_SHIP',
+        'sku' => 'JG0101',
+        'quantity' => 1,
+        'revenue' => 95000,
+        'order_net_revenue' => 95000,
+        'funds_released' => true,
+        'funds_released_at' => '2026-07-03T04:03:40Z',
+        'funds_released_amount' => 95000,
+        'funds_release_status' => 'READY_TO_SHIP',
+        'funds_release_source' => 'settlement_payload',
+    ]],
+]);
+expect_same(1, count($unreleasedShopeeRows), 'Unreleased Shopee payload must normalize.');
+expect_same(0, $unreleasedShopeeRows[0]['funds_released'], 'Shopee escrow revenue must not count as released while READY_TO_SHIP.');
+expect_same(0, (int) $unreleasedShopeeRows[0]['funds_released_amount'], 'Untrusted Shopee release amounts must be cleared.');
+
 $repairRows = jg_orders_webhook_rows([
     'event' => 'mirror_read_repair',
     'rows' => [[
