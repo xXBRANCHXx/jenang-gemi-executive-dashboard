@@ -374,6 +374,14 @@ const JENANG_GEMI_SEARCH_INDEX = [
     keywords: ['orders', 'marketplace', 'spreadsheet', 'revenue', 'cogs']
   },
   {
+    title: 'Wallet',
+    section: 'Admin',
+    description: 'Marketplace wallet balances, outstanding funds, releases, and undo log.',
+    url: '../dashboard/?view=wallet',
+    view: 'wallet',
+    keywords: ['wallet', 'funds', 'released funds', 'shopee wallet', 'tiktok wallet', 'payout', 'release log']
+  },
+  {
     title: 'Open Context',
     section: 'Admin',
     description: 'Edit historical context values used by the Executive Sales C1 chart.',
@@ -524,6 +532,7 @@ const SALES_RECAP_METRICS = [
 const VIEW_CACHE_TTL_MS = {
   overview: 2 * 60 * 1000,
   orders: 2 * 60 * 1000,
+  wallet: 2 * 60 * 1000,
   daily: 5 * 60 * 1000,
   home: 90 * 1000,
   website: 2 * 60 * 1000,
@@ -2163,12 +2172,14 @@ document.addEventListener('DOMContentLoaded', () => {
     'landing-pages': 'home',
     campaign: 'home',
     campaigns: 'home',
-    overview: 'overview',
-    executive: 'overview',
-    homepage: 'overview',
-    orders: 'orders',
-    daily: 'daily',
-    day: 'daily',
+	    overview: 'overview',
+	    executive: 'overview',
+	    homepage: 'overview',
+	    orders: 'orders',
+	    wallet: 'wallet',
+	    wallets: 'wallet',
+	    daily: 'daily',
+	    day: 'daily',
     'daily-report': 'daily',
     ops: 'store-ops',
     'store-ops': 'store-ops',
@@ -2179,32 +2190,35 @@ document.addEventListener('DOMContentLoaded', () => {
     hardset: 'hard-set',
     'big-set': 'hard-set'
   };
-  const validViews = new Set(['overview', 'orders', 'daily', 'store-ops', 'context', 'home', 'website', 'hard-set', 'settings']);
+	  const validViews = new Set(['overview', 'orders', 'wallet', 'daily', 'store-ops', 'context', 'home', 'website', 'hard-set', 'settings']);
   const quickMenuContextByView = {
-    overview: 'overview',
-    daily: 'daily',
-    orders: 'orders',
-    home: 'campaigns',
+	    overview: 'overview',
+	    daily: 'daily',
+	    orders: 'orders',
+	    wallet: 'wallet',
+	    home: 'campaigns',
     context: 'context',
     website: 'website',
     'hard-set': 'hard-set',
     settings: 'settings'
   };
   const quickMenuByContext = {
-    overview: ['daily', 'orders', 'campaigns', 'back-dash', 'context', 'settings'],
-    daily: ['home', 'orders', 'campaigns', 'back-dash', 'context', 'settings'],
-    orders: ['home', 'daily', 'campaigns', 'back-dash', 'context', 'settings'],
-    campaigns: ['home', 'orders', 'affiliates', 'back-dash', 'context', 'settings'],
-    context: ['home', 'api', 'back-dash', 'settings'],
-    settings: ['home', 'daily', 'orders', 'campaigns', 'context'],
-    website: ['home', 'daily', 'orders', 'campaigns', 'affiliates', 'settings'],
-    'hard-set': ['home', 'settings']
+	    overview: ['daily', 'orders', 'wallet', 'campaigns', 'back-dash', 'context', 'settings'],
+	    daily: ['home', 'orders', 'wallet', 'campaigns', 'back-dash', 'context', 'settings'],
+	    orders: ['home', 'daily', 'wallet', 'campaigns', 'back-dash', 'context', 'settings'],
+	    wallet: ['home', 'orders', 'daily', 'back-dash', 'settings'],
+	    campaigns: ['home', 'orders', 'wallet', 'affiliates', 'back-dash', 'context', 'settings'],
+	    context: ['home', 'api', 'back-dash', 'settings'],
+	    settings: ['home', 'daily', 'orders', 'wallet', 'campaigns', 'context'],
+	    website: ['home', 'daily', 'orders', 'wallet', 'campaigns', 'affiliates', 'settings'],
+	    'hard-set': ['home', 'settings']
   };
   const faviconKeyByView = {
-    overview: 'home',
-    daily: 'home',
-    orders: 'orders',
-    'store-ops': 'orders',
+	    overview: 'home',
+	    daily: 'home',
+	    orders: 'orders',
+	    wallet: 'wallet',
+	    'store-ops': 'orders',
     home: 'campaigns',
     context: 'home',
     website: 'website',
@@ -2216,10 +2230,14 @@ document.addEventListener('DOMContentLoaded', () => {
       light: '/assets/admin-icons/executive-dashboard-favicon-light.svg',
       dark: '/assets/admin-icons/executive-dashboard-favicon-dark.svg'
     },
-    orders: {
-      light: '/assets/admin-icons/favicon-orders-ops-light.svg',
-      dark: '/assets/admin-icons/favicon-orders-ops-dark.svg'
-    },
+	    orders: {
+	      light: '/assets/admin-icons/favicon-orders-ops-light.svg',
+	      dark: '/assets/admin-icons/favicon-orders-ops-dark.svg'
+	    },
+	    wallet: {
+	      light: 'https://api.iconify.design/lucide:wallet.svg?color=%230f172a',
+	      dark: 'https://api.iconify.design/lucide:wallet.svg?color=%23ffffff'
+	    },
     campaigns: {
       light: '/assets/admin-icons/favicon-campaigns-light.svg',
       dark: '/assets/admin-icons/favicon-campaigns-dark.svg'
@@ -2290,9 +2308,9 @@ document.addEventListener('DOMContentLoaded', () => {
       yearControlsSignature: '',
       requestToken: 0
     },
-    orders: {
-      data: null,
-      loadedAt: 0,
+	    orders: {
+	      data: null,
+	      loadedAt: 0,
       rows: [],
       rowKeys: new Set(),
       catalog: [],
@@ -2322,11 +2340,19 @@ document.addEventListener('DOMContentLoaded', () => {
         platforms: [],
         startDate: '',
         endDate: ''
-      },
-      requestToken: 0
-    },
-    daily: {
-      month: getMonthKeyForTimezone(new Date(), regionalDefaults.timezone),
+	      },
+	      requestToken: 0
+	    },
+	    wallet: {
+	      data: null,
+	      loadedAt: 0,
+	      mode: 'wallet',
+	      loading: false,
+	      actionId: '',
+	      requestToken: 0
+	    },
+	    daily: {
+	      month: getMonthKeyForTimezone(new Date(), regionalDefaults.timezone),
       data: null,
       loadedAt: 0,
       rows: [],
@@ -2415,9 +2441,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const contextEndpoint = root.dataset.contextEndpoint || './context/';
   const zeroStoreEndpoint = root.dataset.zeroStoreEndpoint || '../api/zero-store/';
   const jenangGemiStoreEndpoint = root.dataset.jenangGemiStoreEndpoint || '../api/jenang-gemi-store/';
-  const websiteOrdersEndpoint = root.dataset.websiteOrdersEndpoint || '../api/website-orders/';
-  const hardSetEndpoint = root.dataset.hardSetEndpoint || '../api/hard-set/';
-  const provinceMapUrl = root.dataset.provinceMapUrl || '../assets/data/indonesia-38-provinces.geojson';
+	  const websiteOrdersEndpoint = root.dataset.websiteOrdersEndpoint || '../api/website-orders/';
+	  const hardSetEndpoint = root.dataset.hardSetEndpoint || '../api/hard-set/';
+	  const walletEndpoint = root.dataset.walletEndpoint || '../api/wallet/';
+	  const provinceMapUrl = root.dataset.provinceMapUrl || '../assets/data/indonesia-38-provinces.geojson';
 
   const loader = document.querySelector('[data-admin-loader]');
   const loaderProgress = document.querySelector('[data-admin-loader-progress]');
@@ -2505,8 +2532,8 @@ document.addEventListener('DOMContentLoaded', () => {
     productMetricButtons: document.querySelectorAll('[data-overview-product-metric]'),
     flavorMetricButtons: document.querySelectorAll('[data-overview-flavor-metric]')
   };
-  const ordersEndpoint = root.dataset.ordersEndpoint || '../api/orders/';
-  const ordersRefs = {
+	  const ordersEndpoint = root.dataset.ordersEndpoint || '../api/orders/';
+	  const ordersRefs = {
     tableBody: document.querySelector('[data-orders-table-body]'),
     scroll: document.querySelector('[data-orders-scroll]'),
     status: document.querySelector('[data-orders-status]'),
@@ -2526,9 +2553,23 @@ document.addEventListener('DOMContentLoaded', () => {
     dateGrid: document.querySelector('[data-orders-date-grid]'),
     dateMonth: document.querySelector('[data-orders-date-month]'),
     datePrev: document.querySelector('[data-orders-date-prev]'),
-    dateNext: document.querySelector('[data-orders-date-next]')
-  };
-  const dailyRefs = {
+	    dateNext: document.querySelector('[data-orders-date-next]')
+	  };
+	  const walletRefs = {
+	    status: document.querySelector('[data-wallet-status]'),
+	    tableMeta: document.querySelector('[data-wallet-table-meta]'),
+	    balance: document.querySelector('[data-wallet-total-balance]'),
+	    outstanding: document.querySelector('[data-wallet-total-outstanding]'),
+	    released: document.querySelector('[data-wallet-total-released]'),
+	    releasedOut: document.querySelector('[data-wallet-total-out]'),
+	    modeButtons: document.querySelectorAll('[data-wallet-mode]'),
+	    refresh: document.querySelector('[data-wallet-refresh]'),
+	    walletPanel: document.querySelector('[data-wallet-wallet-panel]'),
+	    logPanel: document.querySelector('[data-wallet-log-panel]'),
+	    tableBody: document.querySelector('[data-wallet-table-body]'),
+	    logBody: document.querySelector('[data-wallet-log-body]')
+	  };
+	  const dailyRefs = {
     monthInput: document.querySelector('[data-daily-month]'),
     status: document.querySelector('[data-daily-status]'),
     exportButton: document.querySelector('[data-daily-export]'),
@@ -3513,14 +3554,21 @@ document.addEventListener('DOMContentLoaded', () => {
     return homeRefs.recentEvents;
   };
 
-  const renderViewError = (view, error) => {
-    if (view === 'website') {
-      if (websiteRefs.trendMeta) {
-        websiteRefs.trendMeta.textContent = `Unable to load website analytics: ${error?.message || 'Unknown error'}`;
-      }
-      return;
-    }
-    const container = getFeedForView(view);
+	  const renderViewError = (view, error) => {
+	    if (view === 'website') {
+	      if (websiteRefs.trendMeta) {
+	        websiteRefs.trendMeta.textContent = `Unable to load website analytics: ${error?.message || 'Unknown error'}`;
+	      }
+	      return;
+	    }
+	    if (view === 'wallet') {
+	      const message = error?.message || 'Unable to load wallets.';
+	      if (walletRefs.status) walletRefs.status.textContent = message;
+	      if (walletRefs.tableBody) walletRefs.tableBody.innerHTML = `<tr><td colspan="6" class="admin-empty">${escapeHtml(message)}</td></tr>`;
+	      if (walletRefs.logBody) walletRefs.logBody.innerHTML = `<tr><td colspan="6" class="admin-empty">${escapeHtml(message)}</td></tr>`;
+	      return;
+	    }
+	    const container = getFeedForView(view);
     if (view === 'home') {
       renderProductCartRundown(homeRefs.productCartRundown, homeRefs.productCartMeta, { items: [], total_cart_events: 0 });
     }
@@ -3637,9 +3685,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const syncViewState = () => {
     const labels = {
-      overview: 'Home',
-      orders: 'Orders',
-      daily: 'Daily',
+	    overview: 'Home',
+	    orders: 'Orders',
+	    wallet: 'Wallet',
+	    daily: 'Daily',
       'store-ops': 'Ops',
       context: 'Open Context',
       home: 'Campaigns Dashboard',
@@ -3648,9 +3697,10 @@ document.addEventListener('DOMContentLoaded', () => {
       settings: 'Settings'
     };
     const navSectionByView = {
-      overview: 'home',
-      orders: 'orders',
-      daily: '',
+	    overview: 'home',
+	    orders: 'orders',
+	    wallet: 'wallet',
+	    daily: '',
       'store-ops': 'orders',
       context: 'home',
       home: 'campaigns',
@@ -3721,16 +3771,22 @@ document.addEventListener('DOMContentLoaded', () => {
         overviewRefs.notes
       ].filter(Boolean);
     }
-    if (view === 'home') {
-      return [
-        homeRefs.urlTableBody,
+	    if (view === 'home') {
+	      return [
+	        homeRefs.urlTableBody,
         homeRefs.sourceTableBody,
         homeRefs.recentEvents,
         homeRefs.sourceLegend
-      ].filter(Boolean);
-    }
-    return [];
-  };
+	      ].filter(Boolean);
+	    }
+	    if (view === 'wallet') {
+	      return [
+	        walletRefs.tableBody,
+	        walletRefs.logBody
+	      ].filter(Boolean);
+	    }
+	    return [];
+	  };
 
   const unloadInactiveViewRenderState = (view) => {
     inactiveViewUnloadTimers.delete(view);
@@ -4721,9 +4777,10 @@ document.addEventListener('DOMContentLoaded', () => {
   );
 
   const hasFreshViewData = (view) => {
-    if (view === 'overview') return Boolean(state.overview.data) && isFresh(state.overview.loadedAt, VIEW_CACHE_TTL_MS.overview);
-    if (view === 'orders') return Boolean(state.orders.data) && isFresh(state.orders.loadedAt, VIEW_CACHE_TTL_MS.orders);
-    if (view === 'daily') return Boolean(state.daily.data) && isFresh(state.daily.loadedAt, VIEW_CACHE_TTL_MS.daily);
+	    if (view === 'overview') return Boolean(state.overview.data) && isFresh(state.overview.loadedAt, VIEW_CACHE_TTL_MS.overview);
+	    if (view === 'orders') return Boolean(state.orders.data) && isFresh(state.orders.loadedAt, VIEW_CACHE_TTL_MS.orders);
+	    if (view === 'wallet') return Boolean(state.wallet.data) && isFresh(state.wallet.loadedAt, VIEW_CACHE_TTL_MS.wallet);
+	    if (view === 'daily') return Boolean(state.daily.data) && isFresh(state.daily.loadedAt, VIEW_CACHE_TTL_MS.daily);
     if (view === 'home') return Boolean(state.home.data) && isFresh(state.home.loadedAt, VIEW_CACHE_TTL_MS.home);
     if (view === 'website') {
       if (state.website.screen !== 'detail' || !state.website.site) return true;
@@ -6122,7 +6179,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderOrderPlatforms();
   };
 
-  const renderOrders = (data = state.orders.data) => {
+	  const renderOrders = (data = state.orders.data) => {
     if (data) state.orders.data = data;
     const rows = filteredOrderRows();
     const visibleRows = rows.slice(0, state.orders.renderLimit);
@@ -6155,35 +6212,131 @@ document.addEventListener('DOMContentLoaded', () => {
         : (hasOrderFilters()
           ? (state.orders.loadedAll ? 'No orders match the current filters.' : 'No loaded orders match the current filters yet.')
           : (state.orders.loadedAll ? 'No stored orders found.' : 'No stored orders found in the loaded window yet.'));
-      ordersRefs.tableBody.innerHTML = `<tr><td colspan="11" class="admin-empty">${escapeHtml(message)}</td></tr>`;
-      return;
-    }
-    ordersRefs.tableBody.innerHTML = renderRows(visibleRows, 11, (row) => {
-      const platform = `${row.platform || '-'}${row.account_key ? ` / ${row.account_key}` : ''}`;
-      const productLabel = row.product_name || 'Unlinked SKU';
+	      ordersRefs.tableBody.innerHTML = `<tr><td colspan="12" class="admin-empty">${escapeHtml(message)}</td></tr>`;
+	      return;
+	    }
+	    ordersRefs.tableBody.innerHTML = renderRows(visibleRows, 12, (row) => {
+	      const platform = `${row.platform || '-'}${row.account_key ? ` / ${row.account_key}` : ''}`;
+	      const productLabel = row.product_name || 'Unlinked SKU';
       const allocation = Array.isArray(row.allocations) && row.allocations.length
         ? row.allocations.map((item) => `${item.po_number}: ${formatCompactNumber(item.qty_astra_consumed || 0)}`).join(', ')
         : (row.allocation_error ? `Allocation needs review: ${row.allocation_error}` : 'No PO allocation');
-      const poNumbers = Array.isArray(row.allocations) && row.allocations.length
-        ? [...new Set(row.allocations.map((item) => item.po_number).filter(Boolean))].join(', ')
-        : '-';
-      return `
-        <tr>
-          <td>${escapeHtml(formatOrderTimestamp(row.order_create_time || row.timestamp))}</td>
-          <td><strong>${escapeHtml(row.order_id || '')}</strong></td>
-          <td>${escapeHtml(platform)}</td>
+	      const poNumbers = Array.isArray(row.allocations) && row.allocations.length
+	        ? [...new Set(row.allocations.map((item) => item.po_number).filter(Boolean))].join(', ')
+	        : '-';
+	      const fundsReleased = row.funds_released === true || row.funds_released === 1 || String(row.funds_released || '').toLowerCase() === 'true';
+	      const releasedAmount = Number(row.funds_released_amount || row.order_net_revenue || row.revenue || 0);
+	      const releasedTitle = fundsReleased
+	        ? `Funds released${releasedAmount > 0 ? `: ${formatCurrency(releasedAmount)}` : ''}${row.funds_released_at ? ` at ${formatOrderTimestamp(row.funds_released_at)}` : ''}`
+	        : 'Funds not released';
+	      return `
+	        <tr>
+	          <td>${escapeHtml(formatOrderTimestamp(row.order_create_time || row.timestamp))}</td>
+	          <td><strong>${escapeHtml(row.order_id || '')}</strong></td>
+	          <td>${escapeHtml(platform)}</td>
           <td class="admin-order-product" title="${escapeHtml(productLabel)}"><strong>${escapeHtml(productLabel)}</strong></td>
           <td>${formatCompactNumber(row.quantity || 0)}</td>
           <td title="${escapeHtml(allocation)}">${escapeHtml(poNumbers)}</td>
-          <td>${formatCellCurrency(row.revenue || 0)}</td>
-          <td${row.cogs_estimated ? ' title="Estimated from SKU COGS until FIFO allocation is recorded"' : ''}>${formatCellCurrency(row.cogs || 0)}</td>
-          <td>${contactButton(row.username, 'username')}</td>
-          <td>${contactButton(row.address, 'address')}</td>
-          <td>${contactButton(row.phone, 'phone')}</td>
-        </tr>
-      `;
-    }, 'No loaded orders match the current filters yet.');
-  };
+	          <td>${formatCellCurrency(row.revenue || 0)}</td>
+	          <td${row.cogs_estimated ? ' title="Estimated from SKU COGS until FIFO allocation is recorded"' : ''}>${formatCellCurrency(row.cogs || 0)}</td>
+	          <td class="admin-order-wallet-cell"><span class="admin-order-wallet-symbol${fundsReleased ? ' is-released' : ' is-pending'}" title="${escapeHtml(releasedTitle)}" aria-label="${escapeHtml(releasedTitle)}">${fundsReleased ? 'Rp' : '-'}</span></td>
+	          <td>${contactButton(row.username, 'username')}</td>
+	          <td>${contactButton(row.address, 'address')}</td>
+	          <td>${contactButton(row.phone, 'phone')}</td>
+	        </tr>
+	      `;
+	    }, 'No loaded orders match the current filters yet.');
+	  };
+
+	  const walletActionUrl = (action = 'summary') => {
+	    const url = new URL(walletEndpoint, window.location.href);
+	    url.searchParams.set('action', action);
+	    url.searchParams.set('_ts', String(Date.now()));
+	    return url.toString();
+	  };
+
+	  const walletAmount = (value) => Math.max(0, Math.round(Number(value) || 0));
+
+	  const walletAccountActionKey = (wallet) => `${wallet.platform || ''}|${wallet.account_key || ''}`;
+
+	  const setWalletMode = (mode) => {
+	    state.wallet.mode = mode === 'log' ? 'log' : 'wallet';
+	    walletRefs.modeButtons.forEach((button) => {
+	      const active = button.getAttribute('data-wallet-mode') === state.wallet.mode;
+	      button.classList.toggle('is-active', active);
+	      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+	    });
+	    if (walletRefs.walletPanel) walletRefs.walletPanel.hidden = state.wallet.mode !== 'wallet';
+	    if (walletRefs.logPanel) walletRefs.logPanel.hidden = state.wallet.mode !== 'log';
+	    if (walletRefs.tableMeta) walletRefs.tableMeta.textContent = state.wallet.mode === 'log' ? 'Release log' : 'Per account';
+	  };
+
+	  const renderWallet = (data = state.wallet.data) => {
+	    if (data) state.wallet.data = data;
+	    const wallets = Array.isArray(state.wallet.data?.wallets) ? state.wallet.data.wallets : [];
+	    const logs = Array.isArray(state.wallet.data?.logs) ? state.wallet.data.logs : [];
+	    const totals = state.wallet.data?.totals || {};
+	    const activeAction = state.wallet.actionId;
+
+	    setWalletMode(state.wallet.mode);
+	    if (walletRefs.balance) walletRefs.balance.textContent = formatCurrency(totals.wallet_balance || 0);
+	    if (walletRefs.outstanding) walletRefs.outstanding.textContent = formatCurrency(totals.outstanding_total || 0);
+	    if (walletRefs.released) walletRefs.released.textContent = formatCurrency(totals.released_total || 0);
+	    if (walletRefs.releasedOut) walletRefs.releasedOut.textContent = formatCurrency(totals.released_out || 0);
+	    if (walletRefs.status) {
+	      walletRefs.status.textContent = state.wallet.loading
+	        ? 'Loading wallets'
+	        : `${formatRegionalInteger(wallets.length)} wallets / ${formatRegionalInteger(logs.length)} releases`;
+	    }
+	    if (walletRefs.refresh) {
+	      walletRefs.refresh.disabled = state.wallet.loading;
+	      walletRefs.refresh.classList.toggle('is-loading', state.wallet.loading);
+	    }
+
+	    if (walletRefs.tableBody) {
+	      if (!wallets.length) {
+	        walletRefs.tableBody.innerHTML = `<tr><td colspan="6" class="admin-empty">${state.wallet.loading ? 'Loading wallets.' : 'No wallets found.'}</td></tr>`;
+	      } else {
+	        walletRefs.tableBody.innerHTML = renderRows(wallets, 6, (wallet) => {
+	          const balance = walletAmount(wallet.wallet_balance);
+	          const actionKey = `release:${walletAccountActionKey(wallet)}`;
+	          const disabled = state.wallet.loading || Boolean(activeAction) || balance <= 0;
+	          return `
+	            <tr>
+	              <td class="admin-wallet-account"><strong>${escapeHtml(wallet.label || wallet.account_key || '-')}</strong><small>${escapeHtml(wallet.platform || '-')} / ${escapeHtml(wallet.account_key || '-')}</small></td>
+	              <td>${formatCurrency(wallet.released_total || 0)}</td>
+	              <td><strong>${formatCurrency(balance)}</strong><small class="admin-wallet-muted">${formatCurrency(wallet.released_out || 0)} out</small></td>
+	              <td>${formatCurrency(wallet.outstanding_total || 0)}</td>
+	              <td><span class="admin-wallet-counts">${formatRegionalInteger(wallet.released_orders || 0)} / ${formatRegionalInteger(wallet.outstanding_orders || 0)}</span></td>
+	              <td class="admin-wallet-action-cell"><button type="button" class="admin-wallet-action" data-wallet-release data-wallet-platform="${escapeHtml(wallet.platform || '')}" data-wallet-account="${escapeHtml(wallet.account_key || '')}" ${disabled ? 'disabled' : ''}>${activeAction === actionKey ? 'Releasing' : 'Release'}</button></td>
+	            </tr>
+	          `;
+	        }, 'No wallets found.');
+	      }
+	    }
+
+	    if (walletRefs.logBody) {
+	      if (!logs.length) {
+	        walletRefs.logBody.innerHTML = `<tr><td colspan="6" class="admin-empty">${state.wallet.loading ? 'Loading release log.' : 'No releases yet.'}</td></tr>`;
+	      } else {
+	        walletRefs.logBody.innerHTML = renderRows(logs, 6, (log) => {
+	          const undone = Boolean(log.undone_at);
+	          const actionKey = `undo:${log.id}`;
+	          const disabled = state.wallet.loading || Boolean(activeAction) || undone;
+	          return `
+	            <tr>
+	              <td>${escapeHtml(formatOrderTimestamp(log.created_at || ''))}</td>
+	              <td class="admin-wallet-account"><strong>${escapeHtml(log.label || log.account_key || '-')}</strong><small>${escapeHtml(log.platform || '-')} / ${escapeHtml(log.account_key || '-')}</small></td>
+	              <td><strong>${formatCurrency(log.amount || 0)}</strong></td>
+	              <td>${escapeHtml(log.released_by || '-')}</td>
+	              <td><span class="admin-wallet-status-pill${undone ? ' is-undone' : ' is-active'}">${undone ? 'Undone' : 'Active'}</span></td>
+	              <td class="admin-wallet-action-cell"><button type="button" class="admin-wallet-action" data-wallet-undo="${escapeHtml(log.id || '')}" ${disabled ? 'disabled' : ''}>${activeAction === actionKey ? 'Undoing' : 'Undo'}</button></td>
+	            </tr>
+	          `;
+	        }, 'No releases yet.');
+	      }
+	    }
+	  };
 
   const closeOrdersDatePopover = () => {
     if (ordersRefs.datePopover) ordersRefs.datePopover.hidden = true;
@@ -6803,16 +6956,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const syncActiveOrderViewsAfterRepair = async () => {
-    if (state.activeView === 'orders') {
-      state.orders.monthsSignature = '';
-      await loadOrdersSafely({ force: true, preferStale: false, repair: true });
-      return;
-    }
-    if (state.activeView === 'daily') {
-      await loadDailySafely({ force: true, preferStale: false, repair: true });
-      return;
-    }
+	  const syncActiveOrderViewsAfterRepair = async () => {
+	    if (state.activeView === 'orders') {
+	      state.orders.monthsSignature = '';
+	      await loadOrdersSafely({ force: true, preferStale: false, repair: true });
+	      return;
+	    }
+	    if (state.activeView === 'wallet') {
+	      await loadWalletSafely({ force: true, preferStale: false });
+	      preloadOrderMemory({ reset: true, repair: true }).catch(() => {});
+	      return;
+	    }
+	    if (state.activeView === 'daily') {
+	      await loadDailySafely({ force: true, preferStale: false, repair: true });
+	      return;
+	    }
     preloadOrderMemory({ reset: true, repair: true }).catch(() => {});
   };
 
@@ -7258,12 +7416,12 @@ document.addEventListener('DOMContentLoaded', () => {
     state.orders.loadedAt = Date.now();
   };
 
-  const showOrderLoadError = (error) => {
-    state.orders.loading = false;
-    const message = error instanceof Error ? error.message : 'Unable to load orders.';
-    if (ordersRefs.tableBody && !state.orders.rows.length) {
-      ordersRefs.tableBody.innerHTML = `<tr><td colspan="11" class="admin-empty">${escapeHtml(message)}</td></tr>`;
-    }
+	  const showOrderLoadError = (error) => {
+	    state.orders.loading = false;
+	    const message = error instanceof Error ? error.message : 'Unable to load orders.';
+	    if (ordersRefs.tableBody && !state.orders.rows.length) {
+	      ordersRefs.tableBody.innerHTML = `<tr><td colspan="12" class="admin-empty">${escapeHtml(message)}</td></tr>`;
+	    }
     if (ordersRefs.status) ordersRefs.status.textContent = message;
     if (ordersRefs.loadMore) {
       ordersRefs.loadMore.hidden = false;
@@ -7272,7 +7430,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const loadOrdersSafely = async (options = {}) => {
+	  const loadOrdersSafely = async (options = {}) => {
     try {
       await loadOrders(options);
       return true;
@@ -7280,9 +7438,71 @@ document.addEventListener('DOMContentLoaded', () => {
       showOrderLoadError(error);
       return false;
     }
-  };
+	  };
 
-  const loadDailySafely = async (options = {}) => {
+	  const loadWallet = async (options = {}) => {
+	    if (!options.force && state.wallet.data) {
+	      if (isFresh(state.wallet.loadedAt, VIEW_CACHE_TTL_MS.wallet)) {
+	        renderWallet(state.wallet.data);
+	        return;
+	      }
+	      if (options.preferStale !== false) {
+	        renderWallet(state.wallet.data);
+	        if (!options.background) queueViewRefresh('wallet');
+	        return;
+	      }
+	    }
+	    const requestToken = beginRequest('wallet');
+	    state.wallet.loading = true;
+	    renderWallet(state.wallet.data);
+	    try {
+	      const data = await requestJson(walletActionUrl('summary'), { timeoutMs: 30000 });
+	      if (!isLatestRequest('wallet', requestToken)) return;
+	      state.wallet.loadedAt = Date.now();
+	      state.wallet.loading = false;
+	      renderWallet(data);
+	    } catch (error) {
+	      if (isLatestRequest('wallet', requestToken)) {
+	        state.wallet.loading = false;
+	      }
+	      throw error;
+	    }
+	  };
+
+	  const loadWalletSafely = async (options = {}) => {
+	    try {
+	      await loadWallet(options);
+	      return true;
+	    } catch (error) {
+	      renderViewError('wallet', error);
+	      return false;
+	    }
+	  };
+
+	  const postWalletAction = async (action, body, actionId) => {
+	    state.wallet.actionId = actionId;
+	    if (walletRefs.status) walletRefs.status.textContent = action === 'release' ? 'Releasing wallet' : 'Undoing release';
+	    renderWallet(state.wallet.data);
+	    try {
+	      const data = await requestJson(walletActionUrl(action), {
+	        method: 'POST',
+	        headers: { 'Content-Type': 'application/json' },
+	        body: JSON.stringify(body),
+	        timeoutMs: 30000
+	      });
+	      state.wallet.loadedAt = Date.now();
+	      renderWallet(data);
+	      return true;
+	    } catch (error) {
+	      renderViewError('wallet', error);
+	      return false;
+	    } finally {
+	      state.wallet.actionId = '';
+	      renderWallet(state.wallet.data);
+	    }
+	  };
+
+	  const loadDailySafely = async (options = {}) => {
     try {
       await loadDaily(options);
       return true;
@@ -7320,18 +7540,22 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const loadActiveView = async (options = {}) => {
-    if (state.activeView === 'overview') {
-      await loadOverview(options);
-      return;
-    }
-    if (state.activeView === 'orders') {
-      await loadOrders(options);
-      return;
-    }
-    if (state.activeView === 'daily') {
-      await loadDaily(options);
-      return;
-    }
+	    if (state.activeView === 'overview') {
+	      await loadOverview(options);
+	      return;
+	    }
+	    if (state.activeView === 'orders') {
+	      await loadOrders(options);
+	      return;
+	    }
+	    if (state.activeView === 'wallet') {
+	      await loadWallet(options);
+	      return;
+	    }
+	    if (state.activeView === 'daily') {
+	      await loadDaily(options);
+	      return;
+	    }
     if (state.activeView === 'store-ops') {
       return;
     }
@@ -7404,15 +7628,18 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const loadActiveViewSafely = async (options = {}) => {
-    if (state.activeView === 'overview') {
-      return loadOverviewSafely(options);
-    }
-    if (state.activeView === 'orders') {
-      return loadOrdersSafely(options);
-    }
-    if (state.activeView === 'daily') {
-      return loadDailySafely(options);
-    }
+	    if (state.activeView === 'overview') {
+	      return loadOverviewSafely(options);
+	    }
+	    if (state.activeView === 'orders') {
+	      return loadOrdersSafely(options);
+	    }
+	    if (state.activeView === 'wallet') {
+	      return loadWalletSafely(options);
+	    }
+	    if (state.activeView === 'daily') {
+	      return loadDailySafely(options);
+	    }
     if (state.activeView === 'store-ops') {
       return true;
     }
@@ -7466,10 +7693,11 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const queueViewRefresh = (view) => {
-    const options = { force: true, preferStale: false, background: true };
-    if (view === 'overview') return loadOverviewSafely({ ...options, forceRefresh: true });
-    if (view === 'orders') return loadOrdersSafely(options);
-    if (view === 'daily') return loadDailySafely(options);
+	    const options = { force: true, preferStale: false, background: true };
+	    if (view === 'overview') return loadOverviewSafely({ ...options, forceRefresh: true });
+	    if (view === 'orders') return loadOrdersSafely(options);
+	    if (view === 'wallet') return loadWalletSafely(options);
+	    if (view === 'daily') return loadDailySafely(options);
     if (view === 'home') return loadHomeSafely(options);
     if (view === 'website' && state.website.screen === 'detail' && state.website.site) return loadWebsiteSafely(options);
     if (view === 'settings') return loadWebsiteSettingsSafely(options);
@@ -7487,18 +7715,20 @@ document.addEventListener('DOMContentLoaded', () => {
     state.overview.hourlyDate = activeLocalDate;
     state.orders.monthsSignature = '';
 
-    await Promise.allSettled([
-      loadOverviewSafely({ force: true, preferStale: false }),
-      state.activeView === 'orders' ? loadOrdersSafely({ force: true, preferStale: false }) : Promise.resolve(true),
-      state.activeView === 'daily' ? loadDailySafely({ force: true, preferStale: false }) : Promise.resolve(true)
-    ]);
+	    await Promise.allSettled([
+	      loadOverviewSafely({ force: true, preferStale: false }),
+	      state.activeView === 'orders' ? loadOrdersSafely({ force: true, preferStale: false }) : Promise.resolve(true),
+	      state.activeView === 'wallet' ? loadWalletSafely({ force: true, preferStale: false }) : Promise.resolve(true),
+	      state.activeView === 'daily' ? loadDailySafely({ force: true, preferStale: false }) : Promise.resolve(true)
+	    ]);
     return true;
   };
 
   const renderCachedCharts = () => {
-    if (state.activeView === 'overview' && state.overview.data) renderOverview(state.overview.data);
-    if (state.activeView === 'daily' && state.daily.data) renderDaily(aggregateDailyData(Array.isArray(state.daily.rows) ? state.daily.rows : state.daily.data.rows, state.daily.month));
-    if (state.activeView === 'home' && state.home.data) renderHome(state.home.data);
+	    if (state.activeView === 'overview' && state.overview.data) renderOverview(state.overview.data);
+	    if (state.activeView === 'daily' && state.daily.data) renderDaily(aggregateDailyData(Array.isArray(state.daily.rows) ? state.daily.rows : state.daily.data.rows, state.daily.month));
+	    if (state.activeView === 'wallet' && state.wallet.data) renderWallet(state.wallet.data);
+	    if (state.activeView === 'home' && state.home.data) renderHome(state.home.data);
     if (state.activeView === 'website' && state.website.screen === 'detail' && state.website.data) renderWebsite(state.website.data);
   };
 
@@ -7531,11 +7761,14 @@ document.addEventListener('DOMContentLoaded', () => {
     state.timezone = regionalDefaults.timezone;
     syncRegionalControls();
     renderRegionalPreview();
-    renderCachedCharts();
-    if (state.activeView === 'orders') {
-      renderOrdersDateCalendar();
-      renderOrders();
-    }
+	    renderCachedCharts();
+	    if (state.activeView === 'orders') {
+	      renderOrdersDateCalendar();
+	      renderOrders();
+	    }
+	    if (state.activeView === 'wallet') {
+	      renderWallet();
+	    }
     if (state.activeView === 'overview') {
       renderOverviewRangeCalendar();
       renderOverviewHourlyPanel();
@@ -7578,11 +7811,11 @@ document.addEventListener('DOMContentLoaded', () => {
     viewUrl.hash = '';
     window.history.replaceState(null, '', `${viewUrl.pathname}${viewUrl.search}`);
     closeMenu();
-    renderJenangGemiSearchResults(searchInput?.value || '');
-    if (state.activeView === 'orders') {
-      activateOrdersViewInstantly();
-      return;
-    }
+	    renderJenangGemiSearchResults(searchInput?.value || '');
+	    if (state.activeView === 'orders') {
+	      activateOrdersViewInstantly();
+	      return;
+	    }
     await loadActiveViewSafely();
     if (state.activeView === 'store-ops') {
       window.dispatchEvent(new CustomEvent('jg-store-ops-refresh'));
@@ -7631,13 +7864,16 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const handleLiveChange = (payload = {}) => {
-    const reason = String(payload.reason || '').toLowerCase();
-    const orderRelated = reason.includes('order') || reason.includes('marketplace') || reason.includes('sales');
-    if (orderRelated) {
-      if (state.activeView === 'orders' || state.activeView === 'daily' || state.activeView === 'overview') {
-        queueActiveViewRefresh({ force: true, forceRefresh: true, repair: true });
-      }
-      refreshOverviewHourlyRows(null, { repair: true }).catch(() => {});
+	    const reason = String(payload.reason || '').toLowerCase();
+	    const orderRelated = reason.includes('order') || reason.includes('marketplace') || reason.includes('sales');
+	    if (orderRelated) {
+	      if (state.activeView === 'orders' || state.activeView === 'daily' || state.activeView === 'overview' || state.activeView === 'wallet') {
+	        queueActiveViewRefresh({ force: true, forceRefresh: true, repair: true });
+	      }
+	      if (state.activeView !== 'wallet') {
+	        queueViewRefresh('wallet').catch(() => {});
+	      }
+	      refreshOverviewHourlyRows(null, { repair: true }).catch(() => {});
       if (state.activeView === 'overview') {
         loadOverviewLocationRows({ force: true, incremental: true, repair: true }).catch(() => {});
       }
@@ -7688,10 +7924,13 @@ document.addEventListener('DOMContentLoaded', () => {
         state.activeView !== 'home' && !state.home.data
           ? loadHomeSafely({ background: true, preferStale: false })
           : Promise.resolve(true),
-        !state.website.settingsLoadedAt
-          ? loadWebsiteSettingsSafely({ background: true, preferStale: false })
-          : Promise.resolve(true),
-        loadOrderCatalog(),
+	        !state.website.settingsLoadedAt
+	          ? loadWebsiteSettingsSafely({ background: true, preferStale: false })
+	          : Promise.resolve(true),
+	        state.activeView !== 'wallet' && !state.wallet.data
+	          ? loadWalletSafely({ background: true, preferStale: false })
+	          : Promise.resolve(true),
+	        loadOrderCatalog(),
         loadNotifications(),
         preloadOrderMemory()
       ];
@@ -8140,16 +8379,46 @@ document.addEventListener('DOMContentLoaded', () => {
     event.preventDefault();
     selectZeroDiscountDate(button.dataset.zeroDiscountDate || '');
   });
-  zeroStoreRefs.calendarGrid?.addEventListener('pointerover', (event) => {
-    const button = event.target.closest('[data-zero-discount-date]');
-    if (!button || !state.zeroStore.draftStart) return;
-    const hoverDate = button.dataset.zeroDiscountDate || '';
-    if (!hoverDate || hoverDate === state.zeroStore.hoverDate) return;
-    state.zeroStore.hoverDate = hoverDate;
-    renderZeroDiscountCalendar();
-  });
+	  zeroStoreRefs.calendarGrid?.addEventListener('pointerover', (event) => {
+	    const button = event.target.closest('[data-zero-discount-date]');
+	    if (!button || !state.zeroStore.draftStart) return;
+	    const hoverDate = button.dataset.zeroDiscountDate || '';
+	    if (!hoverDate || hoverDate === state.zeroStore.hoverDate) return;
+	    state.zeroStore.hoverDate = hoverDate;
+	    renderZeroDiscountCalendar();
+	  });
 
-  ordersRefs.loadMore?.addEventListener('click', async () => {
+	  walletRefs.modeButtons.forEach((button) => {
+	    button.addEventListener('click', () => {
+	      setWalletMode(button.getAttribute('data-wallet-mode') || 'wallet');
+	    });
+	  });
+
+	  walletRefs.refresh?.addEventListener('click', () => {
+	    loadWalletSafely({ force: true, preferStale: false }).catch(() => {});
+	  });
+
+	  walletRefs.tableBody?.addEventListener('click', (event) => {
+	    const button = event.target.closest('[data-wallet-release]');
+	    if (!(button instanceof HTMLElement)) return;
+	    const platform = button.getAttribute('data-wallet-platform') || '';
+	    const accountKey = button.getAttribute('data-wallet-account') || '';
+	    if (!platform || !accountKey) return;
+	    postWalletAction('release', {
+	      platform,
+	      account_key: accountKey
+	    }, `release:${platform}|${accountKey}`).catch(() => {});
+	  });
+
+	  walletRefs.logBody?.addEventListener('click', (event) => {
+	    const button = event.target.closest('[data-wallet-undo]');
+	    if (!(button instanceof HTMLElement)) return;
+	    const id = Number(button.getAttribute('data-wallet-undo') || 0);
+	    if (!id) return;
+	    postWalletAction('undo', { id }, `undo:${id}`).catch(() => {});
+	  });
+
+	  ordersRefs.loadMore?.addEventListener('click', async () => {
     try {
       await loadNextOrderWindow();
     } catch (error) {

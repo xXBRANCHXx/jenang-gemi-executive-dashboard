@@ -84,7 +84,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
             <strong class="admin-loader-label" data-admin-loader-label>Initializing...</strong>
         </div>
     </div>
-    <div class="admin-app admin-app-suite" data-admin-dashboard data-analytics-endpoint="../api/analytics/" data-live-endpoint="../api/live/" data-settings-endpoint="../api/settings/" data-sales-endpoint="../api/sales/" data-orders-endpoint="../api/orders/" data-sku-catalog-endpoint="../api/sales/?action=sku_catalog" data-context-endpoint="../api/context/" data-zero-store-endpoint="../api/zero-store/" data-jenang-gemi-store-endpoint="../api/jenang-gemi-store/" data-website-orders-endpoint="../api/website-orders/" data-hard-set-endpoint="../api/hard-set/" data-province-map-url="../assets/data/indonesia-38-provinces.geojson">
+    <div class="admin-app admin-app-suite" data-admin-dashboard data-analytics-endpoint="../api/analytics/" data-live-endpoint="../api/live/" data-settings-endpoint="../api/settings/" data-sales-endpoint="../api/sales/" data-orders-endpoint="../api/orders/" data-wallet-endpoint="../api/wallet/" data-sku-catalog-endpoint="../api/sales/?action=sku_catalog" data-context-endpoint="../api/context/" data-zero-store-endpoint="../api/zero-store/" data-jenang-gemi-store-endpoint="../api/jenang-gemi-store/" data-website-orders-endpoint="../api/website-orders/" data-hard-set-endpoint="../api/hard-set/" data-province-map-url="../assets/data/indonesia-38-provinces.geojson">
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
         <div class="admin-shell">
@@ -581,23 +581,87 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                                         <th>Product Name</th>
                                         <th>QTY</th>
                                         <th>PO</th>
-                                        <th>Revenue</th>
-                                        <th>COGS</th>
-                                        <th>Username</th>
-                                        <th>Address</th>
-                                        <th>Phone</th>
-                                    </tr>
-                                </thead>
-                                <tbody data-orders-table-body>
-                                    <tr><td colspan="11" class="admin-empty">Loading orders.</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </article>
-                </section>
-                    </section>
+	                                        <th>Revenue</th>
+	                                        <th>COGS</th>
+	                                        <th>Wallet</th>
+	                                        <th>Username</th>
+	                                        <th>Address</th>
+	                                        <th>Phone</th>
+	                                    </tr>
+	                                </thead>
+	                                <tbody data-orders-table-body>
+	                                    <tr><td colspan="12" class="admin-empty">Loading orders.</td></tr>
+	                                </tbody>
+	                            </table>
+	                        </div>
+	                    </article>
+	                </section>
+	                    </section>
 
-                    <section class="admin-view admin-store-ops-layout" data-view-panel="store-ops" data-store-ops-dashboard data-store-ops-endpoint="../api/store-ops/">
+	                    <section class="admin-view admin-wallet-view" data-view-panel="wallet">
+	                <section class="admin-wallet-command">
+	                    <div class="admin-wallet-mode admin-sliding-chart-toggle" data-sliding-chart-toggle role="group" aria-label="Wallet mode">
+	                        <button type="button" class="admin-toggle-pill is-active" data-wallet-mode="wallet"><span>Wallet</span></button>
+	                        <button type="button" class="admin-toggle-pill" data-wallet-mode="log"><span>Log</span></button>
+	                    </div>
+	                    <div class="admin-wallet-actions">
+	                        <span class="admin-panel-meta" data-wallet-status>Loading wallets</span>
+	                        <button type="button" class="admin-orders-icon-btn admin-wallet-refresh" data-wallet-refresh aria-label="Refresh wallets">
+	                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 0 1-15.2 6.5L3 16"/><path d="M3 21v-5h5"/><path d="M3 12a9 9 0 0 1 15.2-6.5L21 8"/><path d="M21 3v5h-5"/></svg>
+	                        </button>
+	                    </div>
+	                </section>
+
+	                <section class="admin-wallet-summary" aria-label="Wallet totals">
+	                    <article class="admin-wallet-stat"><span>Wallet</span><strong data-wallet-total-balance>Rp0</strong></article>
+	                    <article class="admin-wallet-stat"><span>Outstanding</span><strong data-wallet-total-outstanding>Rp0</strong></article>
+	                    <article class="admin-wallet-stat"><span>Released</span><strong data-wallet-total-released>Rp0</strong></article>
+	                    <article class="admin-wallet-stat"><span>Out</span><strong data-wallet-total-out>Rp0</strong></article>
+	                </section>
+
+	                <section class="admin-panel admin-panel-table admin-panel-wide admin-wallet-panel">
+	                    <div class="admin-panel-head">
+	                        <div><span class="admin-panel-kicker">Wallet</span><h3>Marketplace balances</h3></div>
+	                        <span class="admin-panel-meta" data-wallet-table-meta>Per account</span>
+	                    </div>
+	                    <div class="admin-table-wrap admin-wallet-table-wrap" data-wallet-wallet-panel>
+	                        <table class="admin-table admin-wallet-table">
+	                            <thead>
+	                                <tr>
+	                                    <th>Account</th>
+	                                    <th>Released</th>
+	                                    <th>Wallet</th>
+	                                    <th>Outstanding</th>
+	                                    <th>Orders</th>
+	                                    <th></th>
+	                                </tr>
+	                            </thead>
+	                            <tbody data-wallet-table-body>
+	                                <tr><td colspan="6" class="admin-empty">Loading wallets.</td></tr>
+	                            </tbody>
+	                        </table>
+	                    </div>
+	                    <div class="admin-table-wrap admin-wallet-table-wrap" data-wallet-log-panel hidden>
+	                        <table class="admin-table admin-wallet-table admin-wallet-log-table">
+	                            <thead>
+	                                <tr>
+	                                    <th>Released</th>
+	                                    <th>Account</th>
+	                                    <th>Amount</th>
+	                                    <th>By</th>
+	                                    <th>Status</th>
+	                                    <th></th>
+	                                </tr>
+	                            </thead>
+	                            <tbody data-wallet-log-body>
+	                                <tr><td colspan="6" class="admin-empty">Loading release log.</td></tr>
+	                            </tbody>
+	                        </table>
+	                    </div>
+	                </section>
+	                    </section>
+
+	                    <section class="admin-view admin-store-ops-layout" data-view-panel="store-ops" data-store-ops-dashboard data-store-ops-endpoint="../api/store-ops/">
                 <section class="admin-metric-grid admin-store-ops-metrics">
                     <article class="admin-metric-card"><span>Fulfilled Today</span><strong data-store-ops-metric="fulfilled_today">0</strong><small>Completed fulfillment rows</small></article>
                     <article class="admin-metric-card"><span>Active Claims</span><strong data-store-ops-metric="active_claims">0</strong><small>Currently owned orders</small></article>

@@ -7124,6 +7124,10 @@ body::after {
   --admin-rail-icon-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 6h13'/%3E%3Cpath d='M8 12h13'/%3E%3Cpath d='M8 18h13'/%3E%3Cpath d='M3 6h.01'/%3E%3Cpath d='M3 12h.01'/%3E%3Cpath d='M3 18h.01'/%3E%3C/svg%3E");
 }
 
+.admin-shell .admin-rail-icon-wallet {
+  --admin-rail-icon-mask: url("https://api.iconify.design/lucide:wallet.svg");
+}
+
 .admin-shell .admin-rail-icon-globe {
   --admin-rail-icon-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath stroke='none' d='M0 0h24v24H0z' fill='none' /%3E%3Cpath d='M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0' /%3E%3Cpath d='M3.6 9h16.8' /%3E%3Cpath d='M3.6 15h16.8' /%3E%3Cpath d='M11.5 3a17 17 0 0 0 0 18' /%3E%3Cpath d='M12.5 3a17 17 0 0 1 0 18' /%3E%3C/svg%3E");
 }
@@ -7343,6 +7347,18 @@ body::after {
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 1.8;
+}
+
+.admin-menu-icon img {
+  display: block;
+  width: 18px;
+  height: 18px;
+  filter: invert(1);
+  opacity: 0.9;
+}
+
+:root[data-admin-theme='light'] .admin-menu-icon img {
+  filter: none;
 }
 
 .admin-shell .admin-rail-icon-profit-loss {
@@ -20239,6 +20255,245 @@ body:has(.admin-app[data-sku-db])::after {
 
   .admin-theme-toggle {
     grid-template-columns: 1fr;
+  }
+}
+
+.admin-wallet-view {
+  display: grid;
+  gap: 18px;
+  width: 100%;
+  max-width: none;
+}
+
+.admin-wallet-command {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 64px;
+  padding: 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-card-radius);
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow);
+}
+
+.admin-wallet-mode {
+  width: min(280px, 100%);
+}
+
+.admin-wallet-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+}
+
+.admin-wallet-refresh svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.admin-wallet-refresh.is-loading svg {
+  animation: admin-wallet-spin 900ms linear infinite;
+}
+
+.admin-wallet-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-wallet-stat {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-card-radius);
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow);
+}
+
+.admin-wallet-stat span {
+  color: var(--admin-muted);
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0;
+}
+
+.admin-wallet-stat strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--admin-text);
+  font: 800 clamp(1.35rem, 2.4vw, 2.2rem)/1 "Space Grotesk", sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-wallet-panel {
+  gap: 16px;
+}
+
+.admin-wallet-table-wrap[hidden] {
+  display: none;
+}
+
+.admin-wallet-table th,
+.admin-wallet-table td {
+  white-space: nowrap;
+}
+
+.admin-wallet-account {
+  min-width: min(280px, 42vw);
+}
+
+.admin-wallet-account strong,
+.admin-wallet-account small,
+.admin-wallet-muted {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-wallet-account strong {
+  color: var(--admin-text);
+  font-size: 0.9rem;
+}
+
+.admin-wallet-account small,
+.admin-wallet-muted {
+  margin-top: 4px;
+  color: var(--admin-muted);
+  font-size: 0.72rem;
+}
+
+.admin-wallet-counts {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 76px;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  color: var(--admin-text);
+  font: 800 0.76rem/1 "Space Grotesk", sans-serif;
+}
+
+.admin-wallet-action-cell {
+  text-align: right;
+}
+
+.admin-wallet-action {
+  min-width: 92px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  background: var(--admin-text);
+  color: var(--admin-bg);
+  font: 800 0.76rem/1 "Space Grotesk", sans-serif;
+  cursor: pointer;
+}
+
+.admin-wallet-action:hover:not(:disabled),
+.admin-wallet-action:focus-visible:not(:disabled) {
+  opacity: 0.82;
+  outline: none;
+}
+
+.admin-wallet-action:disabled {
+  background: transparent;
+  color: var(--admin-muted);
+  cursor: not-allowed;
+  opacity: 0.66;
+}
+
+.admin-wallet-status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  color: var(--admin-text);
+  font: 800 0.72rem/1 "Space Grotesk", sans-serif;
+}
+
+.admin-wallet-status-pill.is-undone {
+  color: var(--admin-muted);
+}
+
+.admin-order-wallet-cell {
+  text-align: center;
+}
+
+.admin-order-wallet-symbol {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  min-width: 32px;
+  height: 28px;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  color: var(--admin-muted);
+  font: 850 0.7rem/1 "Space Grotesk", sans-serif;
+}
+
+.admin-order-wallet-symbol.is-released {
+  border-color: color-mix(in srgb, var(--admin-text) 40%, transparent);
+  background: var(--admin-text);
+  color: var(--admin-bg);
+}
+
+:root[data-admin-theme='light'] .admin-wallet-command,
+:root[data-admin-theme='light'] .admin-wallet-stat {
+  border-color: rgba(15, 23, 42, 0.1);
+  background: #ffffff;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
+}
+
+@keyframes admin-wallet-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 980px) {
+  .admin-wallet-command {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-wallet-mode,
+  .admin-wallet-actions {
+    width: 100%;
+  }
+
+  .admin-wallet-actions {
+    justify-content: space-between;
+  }
+
+  .admin-wallet-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .admin-wallet-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-wallet-stat {
+    padding: 16px;
   }
 }
 

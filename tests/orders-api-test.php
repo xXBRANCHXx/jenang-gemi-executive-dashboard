@@ -70,6 +70,11 @@ $webhookRows = jg_orders_webhook_rows([
             'netRevenue' => 1200,
             'grossRevenue' => 1500,
         ],
+        'funds_released' => true,
+        'funds_released_at' => '2026-06-30T01:02:03Z',
+        'funds_released_amount' => 1200,
+        'funds_release_status' => 'SETTLED',
+        'funds_release_source' => 'finance_statement.status=SETTLED',
         'customer' => [
             'name' => 'Buyer One',
             'phone' => '+620000',
@@ -88,6 +93,8 @@ expect_same('ORDER-2', $webhookRows[0]['order_id'], 'Webhook rows must map marke
 expect_same('ITEM-1', $webhookRows[0]['item_key'], 'Webhook rows must map item keys.');
 expect_same(2, $webhookRows[0]['quantity'], 'Webhook rows must preserve item quantity.');
 expect_same(1200.0, $webhookRows[0]['order_net_revenue'], 'Webhook rows must preserve order-level net revenue.');
+expect_same(1, $webhookRows[0]['funds_released'], 'Webhook rows must preserve released wallet flags.');
+expect_same(1200.0, $webhookRows[0]['funds_released_amount'], 'Webhook rows must preserve released wallet amounts.');
 expect_same('Buyer One', $webhookRows[0]['username'], 'Webhook rows must map customer names.');
 
 $repairRows = jg_orders_webhook_rows([
@@ -105,6 +112,8 @@ $repairRows = jg_orders_webhook_rows([
         'revenue' => 4500,
         'order_net_revenue' => 4500,
         'gross_revenue' => 5000,
+        'funds_released' => true,
+        'funds_released_amount' => 4500,
         'username' => 'API Buyer',
     ]],
 ]);
@@ -112,6 +121,7 @@ expect_same(1, count($repairRows), 'Mirror read repair rows must normalize API I
 expect_same('tiktok', $repairRows[0]['platform'], 'Mirror read repair must preserve platform.');
 expect_same('ORDER-3', $repairRows[0]['order_id'], 'Mirror read repair must preserve order ids.');
 expect_same(4500.0, $repairRows[0]['order_net_revenue'], 'Mirror read repair must preserve order revenue.');
+expect_same(1, $repairRows[0]['funds_released'], 'Mirror read repair must preserve released wallet flags.');
 expect_same('Jawa Barat', jg_orders_location_province_from_text('Kota Bandung, Jawa Barat'), 'Server-side location geocoder must map city and province aliases.');
 expect_same('DKI Jakarta', jg_orders_location_province_from_text('Jakarta Selatan'), 'Server-side location geocoder must map locality aliases from admin.js.');
 

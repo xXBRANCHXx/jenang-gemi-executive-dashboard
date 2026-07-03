@@ -298,6 +298,11 @@ function jg_orders_ensure_mirror_schema(PDO $pdo): void
             order_net_revenue DECIMAL(16,2) NOT NULL DEFAULT 0,
             gross_revenue DECIMAL(16,2) NOT NULL DEFAULT 0,
             marketplace_fees DECIMAL(16,2) NOT NULL DEFAULT 0,
+            funds_released TINYINT(1) NOT NULL DEFAULT 0,
+            funds_released_at DATETIME(6) NULL DEFAULT NULL,
+            funds_released_amount DECIMAL(16,2) NOT NULL DEFAULT 0,
+            funds_release_status VARCHAR(80) NOT NULL DEFAULT "",
+            funds_release_source VARCHAR(220) NOT NULL DEFAULT "",
             cogs DECIMAL(16,2) NOT NULL DEFAULT 0,
             gross_profit DECIMAL(16,2) NOT NULL DEFAULT 0,
             username VARCHAR(255) NOT NULL DEFAULT "",
@@ -316,6 +321,11 @@ function jg_orders_ensure_mirror_schema(PDO $pdo): void
     );
 
     analyticsEnsureTableColumn($pdo, 'dashboard_order_mirror', 'gross_revenue', 'DECIMAL(16,2) NOT NULL DEFAULT 0 AFTER `order_net_revenue`');
+    analyticsEnsureTableColumn($pdo, 'dashboard_order_mirror', 'funds_released', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER `marketplace_fees`');
+    analyticsEnsureTableColumn($pdo, 'dashboard_order_mirror', 'funds_released_at', 'DATETIME(6) NULL DEFAULT NULL AFTER `funds_released`');
+    analyticsEnsureTableColumn($pdo, 'dashboard_order_mirror', 'funds_released_amount', 'DECIMAL(16,2) NOT NULL DEFAULT 0 AFTER `funds_released_at`');
+    analyticsEnsureTableColumn($pdo, 'dashboard_order_mirror', 'funds_release_status', 'VARCHAR(80) NOT NULL DEFAULT "" AFTER `funds_released_amount`');
+    analyticsEnsureTableColumn($pdo, 'dashboard_order_mirror', 'funds_release_source', 'VARCHAR(220) NOT NULL DEFAULT "" AFTER `funds_release_status`');
     analyticsEnsureTableColumn($pdo, 'dashboard_order_mirror', 'deleted_at', 'DATETIME(6) NULL DEFAULT NULL AFTER `mirrored_at`');
 }
 
@@ -564,6 +574,11 @@ function jg_orders_normalize_mirror_row(array $row, array $payload): ?array
     $orderNetRevenue = jg_orders_float(jg_orders_pick($row, ['order_net_revenue', 'net_revenue', 'revenue'], jg_orders_pick($financials, ['netRevenue', 'net_revenue'], $netRevenue)));
     $grossRevenue = jg_orders_float(jg_orders_pick($row, ['gross_revenue', 'order_gross_revenue', 'customer_paid'], jg_orders_pick($financials, ['grossRevenue', 'totalAmount'], $orderNetRevenue)));
     $marketplaceFees = jg_orders_float(jg_orders_pick($row, ['order_marketplace_fees', 'marketplace_fees', 'fees'], jg_orders_pick($financials, ['marketplaceFees', 'fees'], max(0, $grossRevenue - $orderNetRevenue))));
+    $fundsReleased = jg_orders_bool(jg_orders_pick($row, ['funds_released', 'fundsReleased'], false));
+    $fundsReleasedAt = jg_orders_order_datetime(jg_orders_pick($row, ['funds_released_at', 'fundsReleasedAt'], null));
+    $fundsReleasedAmount = jg_orders_float(jg_orders_pick($row, ['funds_released_amount', 'fundsReleasedAmount'], $fundsReleased ? $orderNetRevenue : 0));
+    $fundsReleaseStatus = substr(trim((string) jg_orders_pick($row, ['funds_release_status', 'fundsReleaseStatus'], '')), 0, 80);
+    $fundsReleaseSource = substr(trim((string) jg_orders_pick($row, ['funds_release_source', 'fundsReleaseSource'], '')), 0, 220);
     $cogs = jg_orders_float(jg_orders_pick($row, ['cogs', 'total_cogs'], 0));
     $grossProfit = jg_orders_float(jg_orders_pick($row, ['gross_profit'], $netRevenue - $cogs));
     $status = strtoupper(trim((string) jg_orders_pick($row, ['status', 'order_status'], '')));
@@ -597,6 +612,11 @@ function jg_orders_normalize_mirror_row(array $row, array $payload): ?array
         'order_net_revenue' => $orderNetRevenue,
         'gross_revenue' => $grossRevenue,
         'marketplace_fees' => $marketplaceFees,
+        'funds_released' => $fundsReleased ? 1 : 0,
+        'funds_released_at' => jg_orders_sql_datetime($fundsReleasedAt),
+        'funds_released_amount' => $fundsReleased ? $fundsReleasedAmount : 0,
+        'funds_release_status' => $fundsReleaseStatus,
+        'funds_release_source' => $fundsReleaseSource,
         'cogs' => $cogs,
         'gross_profit' => $grossProfit,
         'username' => substr((string) jg_orders_pick($row, ['username', 'buyer_username', 'customer_name'], $customer['name'] ?? ''), 0, 255),
@@ -618,14 +638,16 @@ function jg_orders_upsert_mirror_rows(PDO $pdo, array $rows, array $payload): ar
              order_create_time, order_create_date, timestamp_utc, company, brand_name,
              product_name, marketplace_product_name, base_product_name, flavor_name,
              product_type, flavor, quantity, revenue, order_net_revenue, gross_revenue,
-             marketplace_fees, cogs, gross_profit, username, address, phone,
+             marketplace_fees, funds_released, funds_released_at, funds_released_amount,
+             funds_release_status, funds_release_source, cogs, gross_profit, username, address, phone,
              source_event, source_updated_at, raw_json, mirrored_at, deleted_at)
          VALUES
             (:order_item_hash, :platform, :account_key, :order_id, :item_key, :sku, :status,
              :order_create_time, :order_create_date, :timestamp_utc, :company, :brand_name,
              :product_name, :marketplace_product_name, :base_product_name, :flavor_name,
              :product_type, :flavor, :quantity, :revenue, :order_net_revenue, :gross_revenue,
-             :marketplace_fees, :cogs, :gross_profit, :username, :address, :phone,
+             :marketplace_fees, :funds_released, :funds_released_at, :funds_released_amount,
+             :funds_release_status, :funds_release_source, :cogs, :gross_profit, :username, :address, :phone,
              :source_event, :source_updated_at, :raw_json, :mirrored_at, :deleted_at)
          ON DUPLICATE KEY UPDATE
              platform = VALUES(platform),
@@ -650,6 +672,11 @@ function jg_orders_upsert_mirror_rows(PDO $pdo, array $rows, array $payload): ar
              order_net_revenue = VALUES(order_net_revenue),
              gross_revenue = VALUES(gross_revenue),
              marketplace_fees = VALUES(marketplace_fees),
+             funds_released = VALUES(funds_released),
+             funds_released_at = VALUES(funds_released_at),
+             funds_released_amount = VALUES(funds_released_amount),
+             funds_release_status = VALUES(funds_release_status),
+             funds_release_source = VALUES(funds_release_source),
              cogs = VALUES(cogs),
              gross_profit = VALUES(gross_profit),
              username = VALUES(username),
@@ -669,7 +696,7 @@ function jg_orders_upsert_mirror_rows(PDO $pdo, array $rows, array $payload): ar
         }
         $params = $row;
         $params['mirrored_at'] = $now;
-        foreach (['revenue', 'order_net_revenue', 'gross_revenue', 'marketplace_fees', 'cogs', 'gross_profit'] as $key) {
+        foreach (['revenue', 'order_net_revenue', 'gross_revenue', 'marketplace_fees', 'funds_released_amount', 'cogs', 'gross_profit'] as $key) {
             $params[$key] = number_format((float) ($params[$key] ?? 0), 2, '.', '');
         }
         $stmt->execute($params);
@@ -1249,6 +1276,11 @@ function jg_orders_mirror_response_row(array $row): array
         'order_net_revenue' => (int) round((float) ($row['order_net_revenue'] ?? 0)),
         'gross_revenue' => (int) round((float) ($row['gross_revenue'] ?? 0)),
         'marketplace_fees' => (int) round((float) ($row['marketplace_fees'] ?? 0)),
+        'funds_released' => (int) ($row['funds_released'] ?? 0) === 1,
+        'funds_released_at' => jg_orders_atom_datetime((string) ($row['funds_released_at'] ?? '')),
+        'funds_released_amount' => (int) round((float) ($row['funds_released_amount'] ?? 0)),
+        'funds_release_status' => (string) ($row['funds_release_status'] ?? ''),
+        'funds_release_source' => (string) ($row['funds_release_source'] ?? ''),
         'cogs' => (int) round((float) ($row['cogs'] ?? 0)),
         'gross_profit' => (int) round((float) ($row['gross_profit'] ?? 0)),
         'username' => (string) ($row['username'] ?? ''),
@@ -1357,6 +1389,11 @@ function jg_orders_lightweight_rows(array $remoteRows): array
                 'revenue' => $orderNetRevenue,
                 'net_revenue' => $orderNetRevenue,
                 'marketplace_fees' => $marketplaceFees,
+                'funds_released' => false,
+                'funds_released_at' => '',
+                'funds_released_amount' => 0,
+                'funds_release_status' => '',
+                'funds_release_source' => '',
                 'cogs' => 0,
                 'gross_profit' => $orderNetRevenue,
             ];
@@ -1366,6 +1403,18 @@ function jg_orders_lightweight_rows(array $remoteRows): array
         $rows[$key]['revenue'] = max((int) ($rows[$key]['revenue'] ?? 0), $orderNetRevenue);
         $rows[$key]['net_revenue'] = max((int) ($rows[$key]['net_revenue'] ?? 0), $orderNetRevenue);
         $rows[$key]['marketplace_fees'] = max((int) ($rows[$key]['marketplace_fees'] ?? 0), $marketplaceFees);
+        $released = !empty($remoteRow['funds_released']);
+        $rows[$key]['funds_released'] = !empty($rows[$key]['funds_released']) || $released;
+        $rows[$key]['funds_released_amount'] = max((int) ($rows[$key]['funds_released_amount'] ?? 0), (int) round((float) ($remoteRow['funds_released_amount'] ?? 0)));
+        if (($rows[$key]['funds_released_at'] ?? '') === '' && !empty($remoteRow['funds_released_at'])) {
+            $rows[$key]['funds_released_at'] = (string) $remoteRow['funds_released_at'];
+        }
+        if (($rows[$key]['funds_release_status'] ?? '') === '' && !empty($remoteRow['funds_release_status'])) {
+            $rows[$key]['funds_release_status'] = (string) $remoteRow['funds_release_status'];
+        }
+        if (($rows[$key]['funds_release_source'] ?? '') === '' && !empty($remoteRow['funds_release_source'])) {
+            $rows[$key]['funds_release_source'] = (string) $remoteRow['funds_release_source'];
+        }
         $rows[$key]['cogs'] += $cogs;
         $rows[$key]['gross_profit'] = (int) ($rows[$key]['net_revenue'] ?? $orderNetRevenue) - (int) ($rows[$key]['cogs'] ?? 0);
     }
@@ -1766,6 +1815,11 @@ function jg_orders_enriched_row(
         'revenue' => $revenue,
         'net_revenue' => $revenue,
         'marketplace_fees' => (int) round((float) ($remoteRow['order_marketplace_fees'] ?? $remoteRow['marketplace_fees'] ?? 0)),
+        'funds_released' => !empty($remoteRow['funds_released']),
+        'funds_released_at' => (string) ($remoteRow['funds_released_at'] ?? ''),
+        'funds_released_amount' => (int) round((float) ($remoteRow['funds_released_amount'] ?? 0)),
+        'funds_release_status' => (string) ($remoteRow['funds_release_status'] ?? ''),
+        'funds_release_source' => (string) ($remoteRow['funds_release_source'] ?? ''),
         'cogs' => (int) round($totalCogs),
         'cogs_estimated' => $unallocatedQty > 0,
         'gross_profit' => (int) round($revenue - $totalCogs),
