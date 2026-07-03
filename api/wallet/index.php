@@ -14,6 +14,9 @@ const JG_WALLET_BACKTRACK_START_DATE = '2026-05-20';
 const JG_WALLET_BACKTRACK_CHUNK_DAYS = 1;
 const JG_WALLET_BACKTRACK_IMPORT_ROWS_PER_STEP = 500;
 const JG_WALLET_BACKTRACK_REMOTE_TIMEOUT_SECONDS = 75;
+const JG_WALLET_RELEASE_SYNC_DAYS = 45;
+const JG_WALLET_RELEASE_SYNC_IMPORT_ROWS = 2000;
+const JG_WALLET_RELEASE_SYNC_REMOTE_TIMEOUT_SECONDS = 90;
 
 if (!defined('JG_WALLET_API_NO_DISPATCH')) {
     jg_wallet_handle_request();
@@ -67,6 +70,11 @@ function jg_wallet_handle_request(): void
 
         if ($method === 'POST' && in_array($action, ['backtrack_step', 'sync_backtrack_step'], true)) {
             echo json_encode(jg_wallet_step_backtrack($pdo, $payload), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        if ($method === 'POST' && in_array($action, ['sync_releases', 'refresh_releases'], true)) {
+            echo json_encode(jg_wallet_sync_releases($pdo, $payload), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             return;
         }
 
@@ -590,6 +598,80 @@ function jg_wallet_release(PDO $pdo, array $payload): array
     analyticsTouchLiveState('wallet_release');
 
     return jg_wallet_summary($pdo);
+}
+
+function jg_wallet_sync_releases(PDO $pdo, array $payload): array
+{
+    if (function_exists('set_time_limit')) {
+        @set_time_limit(120);
+    }
+
+    $days = jg_wallet_positive_int($payload['days'] ?? JG_WALLET_RELEASE_SYNC_DAYS, 1, 120);
+    $endDate = jg_wallet_date((string) ($payload['end_date'] ?? ''), jg_wallet_today());
+    $startDate = jg_wallet_date((string) ($payload['start_date'] ?? ''), jg_wallet_add_days($endDate, -($days - 1)));
+    if ($startDate > $endDate) {
+        throw new InvalidArgumentException('wallet_release_sync_range_invalid');
+    }
+
+    $skipRemote = jg_wallet_truthy($payload['skip_remote'] ?? false);
+    $sync = [
+        'attempted' => !$skipRemote,
+        'ok' => $skipRemote,
+        'skipped' => $skipRemote,
+    ];
+    if (!$skipRemote) {
+        try {
+            $sync = jg_orders_fetch_json_with_timeout(jg_orders_remote_url('/sales/sync', [
+                'mode' => 'wallet_refresh',
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'summary' => '0',
+            ]), JG_WALLET_RELEASE_SYNC_REMOTE_TIMEOUT_SECONDS);
+            $sync['attempted'] = true;
+        } catch (Throwable $error) {
+            $sync = [
+                'attempted' => true,
+                'ok' => false,
+                'error' => $error->getMessage(),
+            ];
+            error_log('Wallet release sync failed: ' . $error->getMessage());
+        }
+    }
+
+    try {
+        $import = jg_orders_import_mirror_range_from_api(
+            $pdo,
+            $startDate,
+            $endDate,
+            JG_WALLET_RELEASE_SYNC_IMPORT_ROWS,
+            'wallet_release_refresh',
+            0,
+            45,
+            true
+        );
+    } catch (Throwable $error) {
+        $import = [
+            'attempted' => true,
+            'ok' => false,
+            'error' => $error->getMessage(),
+        ];
+        error_log('Wallet release mirror import failed: ' . $error->getMessage());
+    }
+
+    analyticsTouchLiveState('wallet_release_sync');
+
+    $summary = jg_wallet_summary_with_backtrack($pdo, jg_wallet_backtrack_latest($pdo));
+    $summary['release_sync'] = [
+        'ok' => !empty($sync['ok']) || !empty($import['upserted']),
+        'range' => [
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'days' => $days,
+        ],
+        'remote_sync' => $sync,
+        'mirror_import' => $import,
+    ];
+    return $summary;
 }
 
 function jg_wallet_start_backtrack(PDO $pdo, array $payload): array
@@ -1422,6 +1504,11 @@ function jg_wallet_amount_value(mixed $value): float
 function jg_wallet_positive_int(mixed $value, int $min, int $max): int
 {
     return max($min, min($max, (int) $value));
+}
+
+function jg_wallet_truthy(mixed $value): bool
+{
+    return in_array(strtolower(trim((string) $value)), ['1', 'true', 'yes', 'on'], true);
 }
 
 function jg_wallet_json_blob(array $payload): string

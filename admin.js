@@ -6309,6 +6309,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	  const walletActionStatus = (actionId = '') => {
 	    if (actionId === 'backtrack') return walletBacktrackStatus() || 'Backtracking from May 20, 2026';
+	    if (actionId.startsWith('sync_releases')) return 'Checking marketplace releases';
 	    if (actionId.startsWith('balance:')) return 'Setting wallet balance';
 	    if (actionId.startsWith('release:')) return 'Releasing wallet';
 	    if (actionId.startsWith('withdraw:')) return 'Withdrawing from wallet';
@@ -6533,8 +6534,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	        : `${formatRegionalInteger(wallets.length)} wallets / ${formatRegionalInteger(totals.outstanding_orders || 0)} outstanding / ${formatRegionalInteger(totals.manual_required_count || 0)} need set`);
 	    }
 	    if (walletRefs.refresh) {
-	      walletRefs.refresh.disabled = state.wallet.loading;
-	      walletRefs.refresh.classList.toggle('is-loading', state.wallet.loading);
+	      walletRefs.refresh.disabled = state.wallet.loading || Boolean(activeAction);
+	      walletRefs.refresh.classList.toggle('is-loading', state.wallet.loading || activeAction.startsWith('sync_releases'));
 	    }
 	    if (walletRefs.backtrack) {
 	      const backtracking = activeAction === 'backtrack' || Boolean(backtrack.active);
@@ -7239,7 +7240,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      return;
 	    }
 	    if (state.activeView === 'wallet') {
-	      await loadWalletSafely({ force: true, preferStale: false });
+	      await syncWalletReleases({ skipRemote: true, background: true });
 	      preloadOrderMemory({ reset: true, repair: true }).catch(() => {});
 	      return;
 	    }
@@ -7758,7 +7759,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    }
 	  };
 
-	  const postWalletAction = async (action, body, actionId) => {
+	  const postWalletAction = async (action, body, actionId, options = {}) => {
 	    state.wallet.actionId = actionId;
 	    if (walletRefs.status) {
 	      walletRefs.status.textContent = walletActionStatus(actionId);
@@ -7769,7 +7770,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	        method: 'POST',
 	        headers: { 'Content-Type': 'application/json' },
 	        body: JSON.stringify(body),
-	        timeoutMs: 30000
+	        timeoutMs: options.timeoutMs || 30000
 	      });
 	      state.wallet.loadedAt = Date.now();
 	      renderWallet(data);
@@ -7781,6 +7782,19 @@ document.addEventListener('DOMContentLoaded', () => {
 	      state.wallet.actionId = '';
 	      renderWallet(state.wallet.data);
 	    }
+	  };
+
+	  const syncWalletReleases = async (options = {}) => {
+	    const ok = await postWalletAction(
+	      'sync_releases',
+	      { skip_remote: Boolean(options.skipRemote) },
+	      options.background ? 'sync_releases:background' : 'sync_releases',
+	      { timeoutMs: 130000 }
+	    );
+	    if (!ok && options.fallback !== false) {
+	      return loadWalletSafely({ force: true, preferStale: false });
+	    }
+	    return ok;
 	  };
 
 	  const runWalletTerminal = async () => {
@@ -8757,13 +8771,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	  });
 
 	  walletRefs.refresh?.addEventListener('click', () => {
-	    if (walletRefs.status) walletRefs.status.textContent = 'Checking marketplace releases';
-	    runMarketplaceRefresh({ interactive: false }).then((synced) => {
-	      if (!synced) {
-	        return loadWalletSafely({ force: true, preferStale: false });
-	      }
-	      return true;
-	    }).catch(() => {
+	    syncWalletReleases().catch(() => {
 	      loadWalletSafely({ force: true, preferStale: false }).catch(() => {});
 	    });
 	  });

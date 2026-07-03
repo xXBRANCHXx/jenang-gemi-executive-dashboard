@@ -97,6 +97,27 @@ expect_same(1, $webhookRows[0]['funds_released'], 'Webhook rows must preserve re
 expect_same(1200.0, $webhookRows[0]['funds_released_amount'], 'Webhook rows must preserve released wallet amounts.');
 expect_same('Buyer One', $webhookRows[0]['username'], 'Webhook rows must map customer names.');
 
+$releasedWithoutTimeRows = jg_orders_webhook_rows([
+    'event' => 'marketplace_orders_upserted',
+    'rows' => [[
+        'platform' => 'shopee',
+        'account_key' => 'main',
+        'order_id' => 'ORDER-RELEASED-NO-TIME',
+        'order_create_time' => '2026-07-03T03:00:00Z',
+        'source_updated_at' => '2026-07-03T04:53:00Z',
+        'status' => 'COMPLETED',
+        'sku' => 'JG0101',
+        'quantity' => 1,
+        'revenue' => 75710,
+        'order_net_revenue' => 75710,
+        'funds_released' => true,
+        'funds_released_amount' => 75710,
+        'funds_release_status' => 'COMPLETED',
+        'funds_release_source' => 'order_status=COMPLETED',
+    ]],
+]);
+expect_same('2026-07-03 04:53:00.000000', $releasedWithoutTimeRows[0]['funds_released_at'], 'Released rows without a release timestamp must fall back to source update time for wallet anchors.');
+
 $unreleasedShopeeRows = jg_orders_webhook_rows([
     'event' => 'marketplace_orders_upserted',
     'rows' => [[

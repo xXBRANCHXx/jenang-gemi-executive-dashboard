@@ -622,6 +622,9 @@ function jg_orders_normalize_mirror_row(array $row, array $payload): ?array
         $fundsReleasedAt = null;
         $fundsReleasedAmount = 0;
     }
+    if ($fundsReleased && !$fundsReleasedAt instanceof DateTimeImmutable) {
+        $fundsReleasedAt = $sourceUpdatedAt instanceof DateTimeImmutable ? $sourceUpdatedAt : $timestamp;
+    }
     $cogs = jg_orders_float(jg_orders_pick($row, ['cogs', 'total_cogs'], 0));
     $grossProfit = jg_orders_float(jg_orders_pick($row, ['gross_profit'], $netRevenue - $cogs));
     $sourceEvent = substr(trim((string) ($payload['event'] ?? $payload['event_type'] ?? $payload['type'] ?? 'webhook')), 0, 80);
@@ -714,11 +717,15 @@ function jg_orders_upsert_mirror_rows(PDO $pdo, array $rows, array $payload): ar
              order_net_revenue = VALUES(order_net_revenue),
              gross_revenue = VALUES(gross_revenue),
              marketplace_fees = VALUES(marketplace_fees),
-             funds_released = VALUES(funds_released),
-             funds_released_at = VALUES(funds_released_at),
-             funds_released_amount = VALUES(funds_released_amount),
-             funds_release_status = VALUES(funds_release_status),
-             funds_release_source = VALUES(funds_release_source),
+             funds_released = IF(funds_released = 1 AND VALUES(funds_released) = 0, funds_released, VALUES(funds_released)),
+             funds_released_at = CASE
+                 WHEN funds_released = 0 AND VALUES(funds_released) = 1
+                     THEN COALESCE(VALUES(funds_released_at), VALUES(source_updated_at), VALUES(mirrored_at), UTC_TIMESTAMP(6))
+                 ELSE COALESCE(VALUES(funds_released_at), funds_released_at)
+             END,
+             funds_released_amount = IF(VALUES(funds_released_amount) > 0 OR funds_released_amount <= 0, VALUES(funds_released_amount), funds_released_amount),
+             funds_release_status = IF(VALUES(funds_release_status) <> "", VALUES(funds_release_status), funds_release_status),
+             funds_release_source = IF(VALUES(funds_release_source) <> "", VALUES(funds_release_source), funds_release_source),
              cogs = VALUES(cogs),
              gross_profit = VALUES(gross_profit),
              username = VALUES(username),
