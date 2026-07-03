@@ -20377,6 +20377,14 @@ body:has(.admin-app[data-sku-db])::after {
   min-width: min(280px, 42vw);
 }
 
+.admin-wallet-account-title {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  max-width: 100%;
+  min-width: 0;
+}
+
 .admin-wallet-account strong,
 .admin-wallet-account small,
 .admin-wallet-muted {
@@ -20389,6 +20397,29 @@ body:has(.admin-app[data-sku-db])::after {
 .admin-wallet-account strong {
   color: var(--admin-text);
   font-size: 0.9rem;
+}
+
+.admin-wallet-set-link {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: var(--admin-muted);
+  font: 850 0.68rem/1 "Space Grotesk", sans-serif;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.admin-wallet-set-link:hover:not(:disabled),
+.admin-wallet-set-link:focus-visible:not(:disabled) {
+  color: var(--admin-text);
+  outline: none;
+}
+
+.admin-wallet-set-link:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
 }
 
 .admin-wallet-account small,
@@ -20527,6 +20558,104 @@ body:has(.admin-app[data-sku-db])::after {
   color: var(--admin-text);
 }
 
+.admin-wallet-withdraw-card {
+  width: min(500px, calc(100vw - 28px));
+  border-radius: 18px;
+}
+
+.admin-wallet-withdraw-form {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-wallet-withdraw-account {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--admin-surface) 84%, var(--admin-bg));
+}
+
+.admin-wallet-withdraw-account strong,
+.admin-wallet-withdraw-account small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-wallet-withdraw-account strong {
+  color: var(--admin-text);
+  font: 850 0.9rem/1.15 "Space Grotesk", sans-serif;
+}
+
+.admin-wallet-withdraw-account small {
+  color: var(--admin-muted);
+  font: 750 0.72rem/1.2 "Space Grotesk", sans-serif;
+}
+
+.admin-wallet-withdraw-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.admin-wallet-withdraw-summary span {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-surface);
+}
+
+.admin-wallet-withdraw-summary small,
+.admin-wallet-field span {
+  color: var(--admin-muted);
+  font: 850 0.68rem/1 "Space Grotesk", sans-serif;
+}
+
+.admin-wallet-withdraw-summary strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--admin-text);
+  font: 850 1rem/1 "Space Grotesk", sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-wallet-field {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.admin-wallet-withdraw-time {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 0.55fr);
+  gap: 10px;
+}
+
+.admin-wallet-withdraw-input {
+  width: 100%;
+  min-height: 42px;
+  min-width: 0;
+  padding: 0 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  font: 800 0.82rem/1 "Space Grotesk", sans-serif;
+}
+
+.admin-wallet-withdraw-input:focus {
+  border-color: color-mix(in srgb, var(--admin-accent) 58%, var(--admin-border));
+  outline: none;
+}
+
 .admin-wallet-api[hidden] {
   display: none;
 }
@@ -20646,6 +20775,10 @@ body:has(.admin-app[data-sku-db])::after {
   .admin-wallet-balance-control {
     grid-template-columns: minmax(0, 1fr);
     min-width: min(260px, 72vw);
+  }
+
+  .admin-wallet-withdraw-time {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .admin-wallet-summary {

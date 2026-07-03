@@ -88,6 +88,7 @@ wallet_expect(45000, jg_wallet_released_amount([
 wallet_expect(0, jg_wallet_balance_value('0'), 'Wallet balance anchors must allow a zero balance after withdrawal.');
 wallet_expect(45000, jg_wallet_balance_value('Rp45.000'), 'Wallet balance anchors must accept formatted Rupiah input.');
 wallet_expect('2026-07-03 03:30:00.000000', jg_wallet_observed_at('2026-07-03T10:30'), 'Manual wallet observed times must be stored as UTC.');
+wallet_expect('2026-07-03 05:00:00.000000', jg_wallet_withdrawn_at('2026-07-03T12:00'), 'Withdrawal times must be stored as UTC.');
 wallet_expect(true, jg_wallet_release_is_after_anchor([
     'funds_released_at' => '2026-07-03 03:31:00.000000',
 ], [
@@ -97,6 +98,7 @@ wallet_expect(true, jg_wallet_release_is_after_anchor([
 $anchoredWallet = jg_wallet_empty_amounts();
 $anchoredWallet['released_total'] = 1000000;
 $anchoredWallet['released_since_anchor_total'] = 25000;
+$anchoredWallet['withdrawn_since_anchor_total'] = 40000;
 jg_wallet_apply_balance_anchor($anchoredWallet, [
     'id' => 7,
     'balance_amount' => 125000,
@@ -104,7 +106,7 @@ jg_wallet_apply_balance_anchor($anchoredWallet, [
     'created_at' => '2026-07-03 03:31:00.000000',
     'created_by' => 'Tester',
 ]);
-wallet_expect(150000, $anchoredWallet['wallet_balance'], 'Wallet balance must be manual anchor plus releases after anchor, not lifetime released funds.');
+wallet_expect(110000, $anchoredWallet['wallet_balance'], 'Wallet balance must subtract withdrawals after the manual anchor.');
 wallet_expect(true, $anchoredWallet['wallet_balance_known'], 'Anchored wallets must report known balances.');
 
 $unanchoredWallet = jg_wallet_empty_amounts();

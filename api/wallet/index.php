@@ -50,7 +50,7 @@ function jg_wallet_handle_request(): void
         $payload = json_decode((string) file_get_contents('php://input'), true);
         $payload = is_array($payload) ? $payload : [];
 
-        if ($method === 'POST' && $action === 'release') {
+        if ($method === 'POST' && in_array($action, ['release', 'withdraw'], true)) {
             echo json_encode(jg_wallet_release($pdo, $payload), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             return;
         }
@@ -105,6 +105,7 @@ function jg_wallet_ensure_schema(PDO $pdo): void
             amount DECIMAL(16,2) NOT NULL DEFAULT 0,
             release_note VARCHAR(255) NOT NULL DEFAULT "",
             released_by VARCHAR(160) NOT NULL DEFAULT "",
+            withdrawn_at DATETIME(6) NULL DEFAULT NULL,
             created_at DATETIME(6) NOT NULL,
             undone_at DATETIME(6) NULL DEFAULT NULL,
             undone_by VARCHAR(160) NOT NULL DEFAULT "",
@@ -113,6 +114,7 @@ function jg_wallet_ensure_schema(PDO $pdo): void
             KEY idx_dashboard_wallet_releases_created (created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
     );
+    analyticsEnsureTableColumn($pdo, 'dashboard_wallet_releases', 'withdrawn_at', 'DATETIME(6) NULL DEFAULT NULL AFTER released_by');
     analyticsTryExec(
         $pdo,
         'CREATE TABLE IF NOT EXISTS dashboard_wallet_balance_anchors (
@@ -196,7 +198,7 @@ function jg_wallet_summary(PDO $pdo): array
         ], jg_wallet_empty_amounts(), $row);
     }
 
-    $activeReleaseTotals = jg_wallet_active_release_totals($pdo);
+    $activeReleaseTotals = jg_wallet_active_release_totals($pdo, $activeBalanceAnchors);
     foreach ($activeReleaseTotals as $row) {
         $key = jg_wallet_account_key((string) $row['platform'], (string) $row['account_key']);
         if (!isset($accounts[$key])) {
@@ -208,6 +210,9 @@ function jg_wallet_summary(PDO $pdo): array
             ] + jg_wallet_empty_amounts();
         }
         $accounts[$key]['released_out'] = (int) round((float) ($row['amount'] ?? 0));
+        $accounts[$key]['withdrawn_since_anchor_total'] = (int) round((float) ($row['since_anchor_amount'] ?? 0));
+        $accounts[$key]['withdrawn_since_anchor_count'] = (int) ($row['since_anchor_count'] ?? 0);
+        $accounts[$key]['last_withdrawn_at'] = jg_orders_atom_datetime((string) ($row['last_withdrawn_at'] ?? ''));
     }
 
     foreach ($accounts as &$account) {
@@ -224,11 +229,14 @@ function jg_wallet_summary(PDO $pdo): array
         $account['non_settling_orders'] = (int) ($account['non_settling_orders'] ?? 0);
         $account['released_since_anchor_total'] = (int) round((float) ($account['released_since_anchor_total'] ?? 0));
         $account['released_since_anchor_orders'] = (int) ($account['released_since_anchor_orders'] ?? 0);
+        $account['withdrawn_since_anchor_total'] = (int) round((float) ($account['withdrawn_since_anchor_total'] ?? 0));
+        $account['withdrawn_since_anchor_count'] = (int) ($account['withdrawn_since_anchor_count'] ?? 0);
         $account['orders'] = (int) ($account['orders'] ?? 0);
         $account['last_released_at'] = jg_orders_atom_datetime((string) ($account['last_released_at'] ?? ''));
         $account['last_order_at'] = jg_orders_atom_datetime((string) ($account['last_order_at'] ?? ''));
         $account['last_source_updated_at'] = jg_orders_atom_datetime((string) ($account['last_source_updated_at'] ?? ''));
         $account['last_mirrored_at'] = jg_orders_atom_datetime((string) ($account['last_mirrored_at'] ?? ''));
+        $account['last_withdrawn_at'] = jg_orders_atom_datetime((string) ($account['last_withdrawn_at'] ?? ''));
         $key = jg_wallet_account_key((string) ($account['platform'] ?? ''), (string) ($account['account_key'] ?? ''));
         jg_wallet_apply_balance_anchor($account, $activeBalanceAnchors[$key] ?? null);
     }
@@ -255,6 +263,7 @@ function jg_wallet_summary(PDO $pdo): array
             'manual_wallet_balance' => array_sum(array_column($wallets, 'manual_wallet_balance')),
             'manual_anchor_balance_total' => array_sum(array_column($wallets, 'manual_anchor_balance')),
             'released_since_anchor_total' => array_sum(array_column($wallets, 'released_since_anchor_total')),
+            'withdrawn_since_anchor_total' => array_sum(array_column($wallets, 'withdrawn_since_anchor_total')),
             'released_total' => array_sum(array_column($wallets, 'released_total')),
             'released_out' => array_sum(array_column($wallets, 'released_out')),
             'manual_released_out' => array_sum(array_column($wallets, 'manual_released_out')),
@@ -265,6 +274,7 @@ function jg_wallet_summary(PDO $pdo): array
             'outstanding_orders' => array_sum(array_column($wallets, 'outstanding_orders')),
             'non_settling_orders' => array_sum(array_column($wallets, 'non_settling_orders')),
             'released_since_anchor_orders' => array_sum(array_column($wallets, 'released_since_anchor_orders')),
+            'withdrawn_since_anchor_count' => array_sum(array_column($wallets, 'withdrawn_since_anchor_count')),
             'manual_anchor_count' => count(array_filter($wallets, static fn (array $wallet): bool => !empty($wallet['wallet_balance_known']))),
             'manual_required_count' => count(array_filter($wallets, static fn (array $wallet): bool => empty($wallet['wallet_balance_known']))),
         ],
@@ -448,12 +458,14 @@ function jg_wallet_terminal_answer(array $wallet): string
     $observedAt = (string) ($wallet['manual_anchor_observed_at'] ?? '');
     $suffix = $observedAt !== '' ? ' Manual set time: ' . $observedAt . '.' : '';
 
+    $withdrawnSince = (int) ($wallet['withdrawn_since_anchor_total'] ?? 0);
     return sprintf(
-        '%s: wallet is %s from %s manual set plus %s released after it; %s outstanding across %d settling orders; %d non-settling orders excluded.%s',
+        '%s: wallet is %s from %s manual set plus %s released after it minus %s withdrawn after it; %s outstanding across %d settling orders; %d non-settling orders excluded.%s',
         $label,
         jg_wallet_rupiah($walletBalance),
         jg_wallet_rupiah($anchorBalance),
         jg_wallet_rupiah($releasedSince),
+        jg_wallet_rupiah($withdrawnSince),
         $open,
         $openOrders,
         $nonSettlingOrders,
@@ -478,9 +490,9 @@ function jg_wallet_source_metadata(array $wallets): array
     return [
         'order_source' => 'dashboard_order_mirror',
         'settlement_source' => 'marketplace_order_finance',
-        'wallet_balance_basis' => 'manual wallet balance anchor plus marketplace releases after the anchor time',
+        'wallet_balance_basis' => 'manual wallet balance anchor plus marketplace releases after the anchor time minus withdrawals after the anchor time',
         'outstanding_basis' => 'unreleased settling orders only; cancelled and other non-settling orders are excluded',
-        'cash_out_source' => 'manual_balance_anchor',
+        'cash_out_source' => 'manual_withdrawal_log',
         'live_refresh' => 'no-store API responses, dashboard live events, and a short client cache',
         'last_mirrored_at' => jg_wallet_latest_wallet_datetime($wallets, 'last_mirrored_at'),
         'last_source_updated_at' => jg_wallet_latest_wallet_datetime($wallets, 'last_source_updated_at'),
@@ -554,13 +566,17 @@ function jg_wallet_release(PDO $pdo, array $payload): array
         throw new InvalidArgumentException('wallet_account_not_found');
     }
 
-    $amount = jg_wallet_release_amount($payload['amount'] ?? '', max(0, (int) ($wallet['manual_wallet_balance'] ?? $wallet['wallet_balance'] ?? 0)));
+    $currentWalletBalance = !empty($wallet['wallet_balance_known'])
+        ? (int) ($wallet['wallet_balance'] ?? 0)
+        : (int) ($wallet['manual_wallet_balance'] ?? 0);
+    $amount = jg_wallet_release_amount($payload['amount'] ?? '', max(0, $currentWalletBalance));
+    $withdrawnAt = jg_wallet_withdrawn_at($payload['withdrawn_at'] ?? $payload['released_at'] ?? $payload['observed_at'] ?? '');
 
     $stmt = $pdo->prepare(
         'INSERT INTO dashboard_wallet_releases
-            (platform, account_key, amount, release_note, released_by, created_at)
+            (platform, account_key, amount, release_note, released_by, withdrawn_at, created_at)
          VALUES
-            (:platform, :account_key, :amount, :release_note, :released_by, UTC_TIMESTAMP(6))'
+            (:platform, :account_key, :amount, :release_note, :released_by, :withdrawn_at, UTC_TIMESTAMP(6))'
     );
     $stmt->execute([
         ':platform' => $platform,
@@ -568,6 +584,7 @@ function jg_wallet_release(PDO $pdo, array $payload): array
         ':amount' => number_format($amount, 2, '.', ''),
         ':release_note' => substr(trim((string) ($payload['note'] ?? '')), 0, 255),
         ':released_by' => jg_wallet_actor(),
+        ':withdrawn_at' => $withdrawnAt,
     ]);
 
     analyticsTouchLiveState('wallet_release');
@@ -905,6 +922,7 @@ function jg_wallet_release_is_after_anchor(array $order, array $anchor): bool
 function jg_wallet_apply_balance_anchor(array &$account, ?array $anchor): void
 {
     $releasedSinceAnchor = (int) round((float) ($account['released_since_anchor_total'] ?? 0));
+    $withdrawnSinceAnchor = (int) round((float) ($account['withdrawn_since_anchor_total'] ?? 0));
     $account['source_wallet_balance'] = (int) round((float) ($account['released_total'] ?? 0));
     $account['wallet_balance_basis'] = 'manual_required';
     $account['wallet_balance_known'] = false;
@@ -923,7 +941,7 @@ function jg_wallet_apply_balance_anchor(array &$account, ?array $anchor): void
 
     $anchorBalance = max(0, (int) round((float) ($anchor['balance_amount'] ?? 0)));
     $account['wallet_balance_known'] = true;
-    $account['wallet_balance_basis'] = 'manual_anchor_plus_releases_after_anchor';
+    $account['wallet_balance_basis'] = 'manual_anchor_plus_releases_after_anchor_minus_withdrawals_after_anchor';
     $account['manual_anchor_id'] = (int) ($anchor['id'] ?? 0);
     $account['manual_anchor_balance'] = $anchorBalance;
     $account['manual_anchor_observed_at'] = jg_orders_atom_datetime((string) ($anchor['observed_at_sql'] ?? $anchor['observed_at'] ?? ''));
@@ -931,7 +949,7 @@ function jg_wallet_apply_balance_anchor(array &$account, ?array $anchor): void
     $account['manual_anchor_created_by'] = (string) ($anchor['created_by'] ?? '');
     $account['last_wallet_cleared_at'] = $account['manual_anchor_observed_at'];
     $account['clearance_source'] = 'manual_balance_anchor';
-    $account['wallet_balance'] = $anchorBalance + $releasedSinceAnchor;
+    $account['wallet_balance'] = max(0, $anchorBalance + $releasedSinceAnchor - $withdrawnSinceAnchor);
 }
 
 function jg_wallet_is_non_settling_status(mixed $status): bool
@@ -1041,16 +1059,52 @@ function jg_wallet_active_balance_anchors(PDO $pdo): array
 /**
  * @return array<int, array<string, mixed>>
  */
-function jg_wallet_active_release_totals(PDO $pdo): array
+function jg_wallet_active_release_totals(PDO $pdo, array $activeBalanceAnchors = []): array
 {
     $stmt = $pdo->query(
-        'SELECT platform, account_key, SUM(amount) AS amount
+        'SELECT platform, account_key, amount, withdrawn_at, created_at
          FROM dashboard_wallet_releases
-         WHERE undone_at IS NULL
-         GROUP BY platform, account_key'
+         WHERE undone_at IS NULL'
     );
 
-    return $stmt ? $stmt->fetchAll() : [];
+    $rows = $stmt ? $stmt->fetchAll() : [];
+    $totals = [];
+    foreach ($rows as $row) {
+        $key = jg_wallet_account_key((string) ($row['platform'] ?? ''), (string) ($row['account_key'] ?? ''));
+        if ($key === '|') {
+            continue;
+        }
+
+        if (!isset($totals[$key])) {
+            $totals[$key] = [
+                'platform' => (string) ($row['platform'] ?? ''),
+                'account_key' => (string) ($row['account_key'] ?? ''),
+                'amount' => 0,
+                'count' => 0,
+                'since_anchor_amount' => 0,
+                'since_anchor_count' => 0,
+                'last_withdrawn_at' => '',
+            ];
+        }
+
+        $amount = max(0, (int) round((float) ($row['amount'] ?? 0)));
+        $withdrawnAt = trim((string) ($row['withdrawn_at'] ?? ''));
+        if ($withdrawnAt === '') {
+            $withdrawnAt = trim((string) ($row['created_at'] ?? ''));
+        }
+        $totals[$key]['amount'] += $amount;
+        $totals[$key]['count'] = (int) ($totals[$key]['count'] ?? 0) + 1;
+        $totals[$key]['last_withdrawn_at'] = jg_wallet_max_datetime((string) ($totals[$key]['last_withdrawn_at'] ?? ''), $withdrawnAt);
+
+        $anchor = $activeBalanceAnchors[$key] ?? null;
+        $anchorAt = is_array($anchor) ? trim((string) ($anchor['observed_at_sql'] ?? $anchor['observed_at'] ?? '')) : '';
+        if ($anchorAt !== '' && $withdrawnAt !== '' && strcmp($withdrawnAt, $anchorAt) > 0) {
+            $totals[$key]['since_anchor_amount'] += $amount;
+            $totals[$key]['since_anchor_count'] = (int) ($totals[$key]['since_anchor_count'] ?? 0) + 1;
+        }
+    }
+
+    return array_values($totals);
 }
 
 /**
@@ -1059,9 +1113,9 @@ function jg_wallet_active_release_totals(PDO $pdo): array
 function jg_wallet_release_logs(PDO $pdo): array
 {
     $stmt = $pdo->query(
-        'SELECT id, platform, account_key, amount, release_note, released_by, created_at, undone_at, undone_by, undo_note
+        'SELECT id, platform, account_key, amount, release_note, released_by, withdrawn_at, created_at, undone_at, undone_by, undo_note
          FROM dashboard_wallet_releases
-         ORDER BY created_at DESC, id DESC
+         ORDER BY COALESCE(withdrawn_at, created_at) DESC, id DESC
          LIMIT 120'
     );
     $rows = $stmt ? $stmt->fetchAll() : [];
@@ -1075,6 +1129,7 @@ function jg_wallet_release_logs(PDO $pdo): array
             'amount' => (int) round((float) ($row['amount'] ?? 0)),
             'note' => (string) ($row['release_note'] ?? ''),
             'released_by' => (string) ($row['released_by'] ?? ''),
+            'withdrawn_at' => jg_orders_atom_datetime((string) (($row['withdrawn_at'] ?? '') ?: ($row['created_at'] ?? ''))),
             'created_at' => jg_orders_atom_datetime((string) ($row['created_at'] ?? '')),
             'undone_at' => jg_orders_atom_datetime((string) ($row['undone_at'] ?? '')),
             'undone_by' => (string) ($row['undone_by'] ?? ''),
@@ -1252,6 +1307,8 @@ function jg_wallet_empty_amounts(): array
         'source_wallet_balance' => 0,
         'manual_wallet_balance' => 0,
         'manual_released_out' => 0,
+        'withdrawn_since_anchor_total' => 0,
+        'withdrawn_since_anchor_count' => 0,
         'wallet_balance_known' => false,
         'wallet_balance_basis' => 'manual_required',
         'manual_anchor_id' => 0,
@@ -1264,6 +1321,7 @@ function jg_wallet_empty_amounts(): array
         'outstanding_total' => 0,
         'non_settling_total' => 0,
         'last_released_at' => '',
+        'last_withdrawn_at' => '',
         'last_source_updated_at' => '',
         'last_mirrored_at' => '',
         'last_wallet_cleared_at' => '',
@@ -1297,6 +1355,15 @@ function jg_wallet_release_amount(mixed $requestedAmount, int $walletBalance): i
     }
 
     return $amount;
+}
+
+function jg_wallet_withdrawn_at(mixed $value): string
+{
+    try {
+        return jg_wallet_observed_at($value);
+    } catch (InvalidArgumentException) {
+        throw new InvalidArgumentException('wallet_withdrawn_at_invalid');
+    }
 }
 
 function jg_wallet_balance_value(mixed $requestedAmount): int

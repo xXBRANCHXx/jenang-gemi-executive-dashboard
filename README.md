@@ -58,15 +58,16 @@ Private admin dashboard for `admin.jenanggemi.com` behind a public Launch Pad.
 - Wallet reads the local marketplace order mirror and uses a manual balance
   anchor as the source-of-truth for current wallet cash. The displayed Wallet
   balance is the latest manually entered wallet balance plus marketplace releases
-  after that anchor time. Cancelled and other non-settling orders are excluded
-  from outstanding balances. Supported calls include `GET /api/wallet/?action=summary`,
+  after that anchor time minus withdrawals recorded after that anchor time.
+  Cancelled and other non-settling orders are excluded from outstanding balances.
+  Supported calls include `GET /api/wallet/?action=summary`,
   `GET /api/wallet/?action=account&platform=shopee&account_key=jenang-gemi-shopee`,
   `GET /api/wallet/?action=terminal&query=Jenang%20Gemi%20Shopee%20Wallet%20Info`,
   and `POST /api/wallet/?action=set_balance` with `platform`, `account_key`,
-  `balance`, and optional `observed_at`. Marketplace cash-out or bank withdrawal
-  statements are not integrated yet; set the wallet balance to `0` at the
-  withdrawal/clear time or set it to the visible marketplace wallet balance after
-  checking Shopee/TikTok manually.
+  `balance`, and optional `observed_at`. Use `POST /api/wallet/?action=withdraw`
+  with `platform`, `account_key`, `amount`, and optional `withdrawn_at` to record
+  marketplace cash-out or bank withdrawals without manually overwriting the
+  current wallet value.
 - Website checkout notifications and paid metrics are independent of the Hard Set switch. An explicit high-entropy `store_ops_website_token` can be configured on both applications; otherwise both deployments derive the bearer token from their existing shared marketplace setup credential. Configure `store_ops_base_url` and `executive_dashboard_url` before activation readiness can pass.
 - Hard Set is initialized server-side as OFF and exposes no disable operation. The activation switch remains locked until the current session authenticates with Branch-tier SKU Database credentials. Its UTC cutover boundary, audit record, and outbox are persisted in MySQL. Activation is delivered idempotently to both Store Ops and API Ingest; deploy API Ingest's `/hard-set/state` and `/hard-set/activate` endpoints before enabling the switch.
 - Private PDF labels use `JG_WEBSITE_LABEL_STORAGE_PATH` / `website_label_storage_path`; the default is outside this dashboard's document root.
