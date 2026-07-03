@@ -94,6 +94,54 @@ wallet_expect(true, jg_wallet_release_is_after_anchor([
 ], [
     'observed_at_sql' => '2026-07-03 03:30:00.000000',
 ]), 'Only releases after a manual wallet anchor should increase current wallet.');
+wallet_expect(false, jg_wallet_release_is_after_anchor([
+    'funds_released_at' => '2026-07-03 03:29:00.000000',
+    'source_updated_at' => '2026-07-03 03:45:00.000000',
+    'mirrored_at' => '2026-07-03 03:46:00.000000',
+], [
+    'observed_at_sql' => '2026-07-03 03:30:00.000000',
+]), 'Mirror updates after the anchor must not count unless funds_released_at itself is after the anchor.');
+wallet_expect('released_after_anchor', jg_wallet_release_anchor_class([
+    'platform' => 'shopee',
+    'funds_released' => 1,
+    'funds_released_at' => '2026-07-03 03:31:00.000000',
+    'funds_release_status' => 'COMPLETED',
+    'funds_release_source' => 'settlement_payload',
+    'order_status' => 'COMPLETED',
+], [
+    'observed_at_sql' => '2026-07-03 03:30:00.000000',
+]), 'Trusted release timestamps after the anchor must be classified as wallet additions.');
+wallet_expect('released_at_or_before_anchor', jg_wallet_release_anchor_class([
+    'platform' => 'tiktok',
+    'funds_released' => 1,
+    'funds_released_at' => '2026-07-03 03:29:00.000000',
+    'source_updated_at' => '2026-07-03 03:45:00.000000',
+    'funds_release_status' => 'SETTLED',
+    'funds_release_source' => 'finance_statement.status=SETTLED',
+    'order_status' => 'AWAITING_SHIPMENT',
+], [
+    'observed_at_sql' => '2026-07-03 03:30:00.000000',
+]), 'A row refreshed after the anchor must still be excluded when its stored release timestamp is before the anchor.');
+wallet_expect('released_missing_release_time', jg_wallet_release_anchor_class([
+    'platform' => 'tiktok',
+    'funds_released' => 1,
+    'funds_released_at' => '',
+    'funds_release_status' => 'SETTLED',
+    'funds_release_source' => 'finance_statement.status=SETTLED',
+    'order_status' => 'COMPLETED',
+], [
+    'observed_at_sql' => '2026-07-03 03:30:00.000000',
+]), 'Trusted releases without a release timestamp must be diagnosable.');
+wallet_expect('untrusted_release_marker', jg_wallet_release_anchor_class([
+    'platform' => 'shopee',
+    'funds_released' => 1,
+    'funds_released_at' => '2026-07-03 03:31:00.000000',
+    'funds_release_status' => 'READY_TO_SHIP',
+    'funds_release_source' => 'settlement_payload',
+    'order_status' => 'READY_TO_SHIP',
+], [
+    'observed_at_sql' => '2026-07-03 03:30:00.000000',
+]), 'Untrusted marketplace release markers must be separated from counted wallet additions.');
 
 $anchoredWallet = jg_wallet_empty_amounts();
 $anchoredWallet['released_total'] = 1000000;
