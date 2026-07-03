@@ -20433,6 +20433,14 @@ body:has(.admin-app[data-sku-db])::after {
   min-width: 220px;
 }
 
+.admin-wallet-balance-summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+
 .admin-wallet-balance-control {
   display: grid;
   grid-template-columns: minmax(96px, 0.8fr) minmax(168px, 1fr) auto;
@@ -20440,6 +20448,7 @@ body:has(.admin-app[data-sku-db])::after {
   align-items: center;
   justify-content: flex-end;
   min-width: 360px;
+  margin-top: 8px;
 }
 
 .admin-wallet-release-amount {

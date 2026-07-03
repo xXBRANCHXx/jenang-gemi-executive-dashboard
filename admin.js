@@ -2351,6 +2351,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      apiLoading: false,
 	      apiQuery: 'Jenang Gemi Shopee Wallet Info',
 	      apiResult: null,
+	      balanceEditorKey: '',
 	      backtrackRunning: false,
 	      actionId: '',
 	      requestToken: 0
@@ -6403,7 +6404,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	          const balanceKnown = Boolean(wallet.wallet_balance_known);
 	          const platform = escapeHtml(wallet.platform || '');
 	          const accountKey = escapeHtml(wallet.account_key || '');
-	          const actionKey = `balance:${wallet.platform || ''}|${wallet.account_key || ''}`;
+	          const walletKey = `${wallet.platform || ''}|${wallet.account_key || ''}`;
+	          const actionKey = `balance:${walletKey}`;
+	          const editorOpen = state.wallet.balanceEditorKey === walletKey;
 	          const disabled = state.wallet.loading || Boolean(activeAction);
 	          return `
 	            <tr>
@@ -6413,12 +6416,17 @@ document.addEventListener('DOMContentLoaded', () => {
 	              <td>${formatCurrency(wallet.outstanding_total || 0)}</td>
 	              <td><span class="admin-wallet-counts" title="Released / outstanding / excluded">${walletOrderCounts(wallet)}</span></td>
 	              <td class="admin-wallet-action-cell">
-	                <div class="admin-wallet-balance-control">
-	                  <input class="admin-wallet-balance-amount" type="number" min="0" step="1" inputmode="numeric" value="${balanceKnown ? balance : ''}" data-wallet-balance-amount aria-label="Wallet balance for ${escapeHtml(wallet.label || wallet.account_key || 'wallet')}" ${disabled ? 'disabled' : ''}>
-	                  <input class="admin-wallet-balance-at" type="datetime-local" value="${escapeHtml(walletDatetimeLocalValue(wallet.manual_anchor_observed_at || ''))}" data-wallet-balance-at aria-label="Observed time for ${escapeHtml(wallet.label || wallet.account_key || 'wallet')}" ${disabled ? 'disabled' : ''}>
-	                  <button type="button" class="admin-wallet-action" data-wallet-balance-set data-wallet-platform="${platform}" data-wallet-account="${accountKey}" ${disabled ? 'disabled' : ''}>${activeAction === actionKey ? 'Setting' : 'Set'}</button>
+	                <div class="admin-wallet-balance-summary">
+	                  <span><span class="admin-wallet-updated">${escapeHtml(walletSourceLabel(wallet))}</span></span>
+	                  <button type="button" class="admin-wallet-action is-secondary" data-wallet-balance-toggle data-wallet-key="${escapeHtml(walletKey)}" ${disabled ? 'disabled' : ''}>${editorOpen ? 'Close' : 'Set'}</button>
 	                </div>
-	                <small class="admin-wallet-muted">${escapeHtml(walletSourceLabel(wallet))}</small>
+	                ${editorOpen ? `
+	                  <div class="admin-wallet-balance-control">
+	                    <input class="admin-wallet-balance-amount" type="number" min="0" step="1" inputmode="numeric" value="${balanceKnown ? balance : ''}" data-wallet-balance-amount aria-label="Wallet balance for ${escapeHtml(wallet.label || wallet.account_key || 'wallet')}" ${disabled ? 'disabled' : ''}>
+	                    <input class="admin-wallet-balance-at" type="datetime-local" value="${escapeHtml(walletDatetimeLocalValue(wallet.manual_anchor_observed_at || ''))}" data-wallet-balance-at aria-label="Observed time for ${escapeHtml(wallet.label || wallet.account_key || 'wallet')}" ${disabled ? 'disabled' : ''}>
+	                    <button type="button" class="admin-wallet-action" data-wallet-balance-set data-wallet-platform="${platform}" data-wallet-account="${accountKey}" ${disabled ? 'disabled' : ''}>${activeAction === actionKey ? 'Setting' : 'Save'}</button>
+	                  </div>
+	                ` : ''}
 	              </td>
 	            </tr>
 	          `;
@@ -8621,6 +8629,14 @@ document.addEventListener('DOMContentLoaded', () => {
 	  });
 
 	  walletRefs.tableBody?.addEventListener('click', (event) => {
+	    const toggle = event.target.closest('[data-wallet-balance-toggle]');
+	    if (toggle instanceof HTMLElement) {
+	      const walletKey = toggle.getAttribute('data-wallet-key') || '';
+	      state.wallet.balanceEditorKey = state.wallet.balanceEditorKey === walletKey ? '' : walletKey;
+	      renderWallet(state.wallet.data);
+	      return;
+	    }
+
 	    const button = event.target.closest('[data-wallet-balance-set]');
 	    if (!(button instanceof HTMLElement)) return;
 	    const platform = button.getAttribute('data-wallet-platform') || '';
@@ -8636,7 +8652,12 @@ document.addEventListener('DOMContentLoaded', () => {
 	      account_key: accountKey,
 	      balance,
 	      observed_at: observedAt
-	    }, `balance:${platform}|${accountKey}`).catch(() => {});
+	    }, `balance:${platform}|${accountKey}`).then((saved) => {
+	      if (saved) {
+	        state.wallet.balanceEditorKey = '';
+	        renderWallet(state.wallet.data);
+	      }
+	    }).catch(() => {});
 	  });
 
 	  walletRefs.logBody?.addEventListener('click', (event) => {
