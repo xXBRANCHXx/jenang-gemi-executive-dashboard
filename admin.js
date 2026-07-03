@@ -2365,6 +2365,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	        note: ''
 	      },
 	      backtrackRunning: false,
+	      releaseSyncedAt: 0,
+	      releaseSyncPromise: null,
 	      actionId: '',
 	      requestToken: 0
 	    },
@@ -6349,6 +6351,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	  const walletMutationLabel = (wallet) => {
 	    const events = [
 	      { label: 'Set', value: wallet.manual_anchor_created_at || wallet.manual_anchor_observed_at || '' },
+	      { label: 'System', value: wallet.last_released_at || wallet.last_mirrored_at || '' },
 	      { label: 'Withdraw', value: wallet.last_withdrawn_at || '' }
 	    ]
 	      .map((event) => ({
@@ -7717,10 +7720,33 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 	  };
 
+	  const shouldAutoSyncWalletReleases = (options = {}) => {
+	    if (options.skipReleaseSync) return false;
+	    if (state.wallet.releaseSyncPromise || state.wallet.backtrackRunning) return false;
+	    if (state.wallet.actionId && !String(state.wallet.actionId).startsWith('sync_releases')) return false;
+	    const lastStarted = Number(state.wallet.releaseSyncedAt || 0);
+	    if (!lastStarted) return true;
+	    if (options.force) return Date.now() - lastStarted > 30000;
+	    return Date.now() - lastStarted >= AUTO_REFRESH_INTERVAL_MS;
+	  };
+
+	  const startWalletReleaseSync = (options = {}) => {
+	    if (!shouldAutoSyncWalletReleases(options)) return;
+	    state.wallet.releaseSyncedAt = Date.now();
+	    state.wallet.releaseSyncPromise = syncWalletReleases({
+	      background: true,
+	      fallback: false,
+	      silent: true
+	    }).finally(() => {
+	      state.wallet.releaseSyncPromise = null;
+	    });
+	  };
+
 	  const loadWallet = async (options = {}) => {
 	    if (!options.force && state.wallet.data) {
 	      if (isFresh(state.wallet.loadedAt, VIEW_CACHE_TTL_MS.wallet)) {
 	        renderWallet(state.wallet.data);
+	        startWalletReleaseSync(options);
 	        return;
 	      }
 	      if (options.preferStale !== false) {
@@ -7738,6 +7764,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      state.wallet.loadedAt = Date.now();
 	      state.wallet.loading = false;
 	      renderWallet(data);
+	      startWalletReleaseSync(options);
 	      if (data?.backtrack?.active && !state.wallet.backtrackRunning && !options.background) {
 	        runWalletBacktrack(false).catch(() => {});
 	      }
@@ -7776,7 +7803,11 @@ document.addEventListener('DOMContentLoaded', () => {
 	      renderWallet(data);
 	      return true;
 	    } catch (error) {
-	      renderViewError('wallet', error);
+	      if (options.silent) {
+	        if (walletRefs.status) walletRefs.status.textContent = error?.message || 'Wallet refresh unavailable';
+	      } else {
+	        renderViewError('wallet', error);
+	      }
 	      return false;
 	    } finally {
 	      state.wallet.actionId = '';
@@ -7789,8 +7820,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	      'sync_releases',
 	      { skip_remote: Boolean(options.skipRemote) },
 	      options.background ? 'sync_releases:background' : 'sync_releases',
-	      { timeoutMs: 130000 }
+	      { timeoutMs: 95000, silent: Boolean(options.silent) }
 	    );
+	    if (ok) state.wallet.releaseSyncedAt = Date.now();
 	    if (!ok && options.fallback !== false) {
 	      return loadWalletSafely({ force: true, preferStale: false });
 	    }
@@ -8303,7 +8335,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	          ? loadWebsiteSettingsSafely({ background: true, preferStale: false })
 	          : Promise.resolve(true),
 	        state.activeView !== 'wallet' && !state.wallet.data
-	          ? loadWalletSafely({ background: true, preferStale: false })
+	          ? loadWalletSafely({ background: true, preferStale: false, skipReleaseSync: true })
 	          : Promise.resolve(true),
 	        loadOrderCatalog(),
         loadNotifications(),

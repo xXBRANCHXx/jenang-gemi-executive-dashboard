@@ -15,8 +15,9 @@ const JG_WALLET_BACKTRACK_CHUNK_DAYS = 1;
 const JG_WALLET_BACKTRACK_IMPORT_ROWS_PER_STEP = 500;
 const JG_WALLET_BACKTRACK_REMOTE_TIMEOUT_SECONDS = 75;
 const JG_WALLET_RELEASE_SYNC_DAYS = 45;
-const JG_WALLET_RELEASE_SYNC_IMPORT_ROWS = 2000;
-const JG_WALLET_RELEASE_SYNC_REMOTE_TIMEOUT_SECONDS = 90;
+const JG_WALLET_RELEASE_SYNC_IMPORT_ROWS = 1000;
+const JG_WALLET_RELEASE_SYNC_REMOTE_TIMEOUT_SECONDS = 35;
+const JG_WALLET_RELEASE_SYNC_IMPORT_TIMEOUT_SECONDS = 18;
 
 if (!defined('JG_WALLET_API_NO_DISPATCH')) {
     jg_wallet_handle_request();
@@ -603,7 +604,7 @@ function jg_wallet_release(PDO $pdo, array $payload): array
 function jg_wallet_sync_releases(PDO $pdo, array $payload): array
 {
     if (function_exists('set_time_limit')) {
-        @set_time_limit(120);
+        @set_time_limit(90);
     }
 
     $days = jg_wallet_positive_int($payload['days'] ?? JG_WALLET_RELEASE_SYNC_DAYS, 1, 120);
@@ -613,65 +614,92 @@ function jg_wallet_sync_releases(PDO $pdo, array $payload): array
         throw new InvalidArgumentException('wallet_release_sync_range_invalid');
     }
 
-    $skipRemote = jg_wallet_truthy($payload['skip_remote'] ?? false);
-    $sync = [
-        'attempted' => !$skipRemote,
-        'ok' => $skipRemote,
-        'skipped' => $skipRemote,
-    ];
-    if (!$skipRemote) {
-        try {
-            $sync = jg_orders_fetch_json_with_timeout(jg_orders_remote_url('/sales/sync', [
-                'mode' => 'wallet_refresh',
+    $lock = @fopen(sys_get_temp_dir() . '/jg-wallet-release-sync.lock', 'c+');
+    $lockAcquired = !is_resource($lock) || @flock($lock, LOCK_EX | LOCK_NB);
+    if (!$lockAcquired) {
+        if (is_resource($lock)) {
+            fclose($lock);
+        }
+        $summary = jg_wallet_summary_with_backtrack($pdo, jg_wallet_backtrack_latest($pdo));
+        $summary['release_sync'] = [
+            'ok' => true,
+            'skipped' => true,
+            'reason' => 'wallet_release_sync_in_progress',
+            'range' => [
                 'start_date' => $startDate,
                 'end_date' => $endDate,
-                'summary' => '0',
-            ]), JG_WALLET_RELEASE_SYNC_REMOTE_TIMEOUT_SECONDS);
-            $sync['attempted'] = true;
+                'days' => $days,
+            ],
+        ];
+        return $summary;
+    }
+
+    $skipRemote = jg_wallet_truthy($payload['skip_remote'] ?? false);
+    try {
+        $sync = [
+            'attempted' => !$skipRemote,
+            'ok' => $skipRemote,
+            'skipped' => $skipRemote,
+        ];
+        if (!$skipRemote) {
+            try {
+                $sync = jg_orders_fetch_json_with_timeout(jg_orders_remote_url('/sales/sync', [
+                    'mode' => 'wallet_refresh',
+                    'start_date' => $startDate,
+                    'end_date' => $endDate,
+                    'summary' => '0',
+                ]), JG_WALLET_RELEASE_SYNC_REMOTE_TIMEOUT_SECONDS);
+                $sync['attempted'] = true;
+            } catch (Throwable $error) {
+                $sync = [
+                    'attempted' => true,
+                    'ok' => false,
+                    'error' => $error->getMessage(),
+                ];
+                error_log('Wallet release sync failed: ' . $error->getMessage());
+            }
+        }
+
+        try {
+            $import = jg_orders_import_mirror_range_from_api(
+                $pdo,
+                $startDate,
+                $endDate,
+                JG_WALLET_RELEASE_SYNC_IMPORT_ROWS,
+                'wallet_release_refresh',
+                0,
+                JG_WALLET_RELEASE_SYNC_IMPORT_TIMEOUT_SECONDS,
+                true
+            );
         } catch (Throwable $error) {
-            $sync = [
+            $import = [
                 'attempted' => true,
                 'ok' => false,
                 'error' => $error->getMessage(),
             ];
-            error_log('Wallet release sync failed: ' . $error->getMessage());
+            error_log('Wallet release mirror import failed: ' . $error->getMessage());
+        }
+
+        analyticsTouchLiveState('wallet_release_sync');
+
+        $summary = jg_wallet_summary_with_backtrack($pdo, jg_wallet_backtrack_latest($pdo));
+        $summary['release_sync'] = [
+            'ok' => !empty($sync['ok']) || !empty($import['upserted']) || !empty($import['fetched']),
+            'range' => [
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'days' => $days,
+            ],
+            'remote_sync' => $sync,
+            'mirror_import' => $import,
+        ];
+        return $summary;
+    } finally {
+        if (is_resource($lock)) {
+            @flock($lock, LOCK_UN);
+            fclose($lock);
         }
     }
-
-    try {
-        $import = jg_orders_import_mirror_range_from_api(
-            $pdo,
-            $startDate,
-            $endDate,
-            JG_WALLET_RELEASE_SYNC_IMPORT_ROWS,
-            'wallet_release_refresh',
-            0,
-            45,
-            true
-        );
-    } catch (Throwable $error) {
-        $import = [
-            'attempted' => true,
-            'ok' => false,
-            'error' => $error->getMessage(),
-        ];
-        error_log('Wallet release mirror import failed: ' . $error->getMessage());
-    }
-
-    analyticsTouchLiveState('wallet_release_sync');
-
-    $summary = jg_wallet_summary_with_backtrack($pdo, jg_wallet_backtrack_latest($pdo));
-    $summary['release_sync'] = [
-        'ok' => !empty($sync['ok']) || !empty($import['upserted']),
-        'range' => [
-            'start_date' => $startDate,
-            'end_date' => $endDate,
-            'days' => $days,
-        ],
-        'remote_sync' => $sync,
-        'mirror_import' => $import,
-    ];
-    return $summary;
 }
 
 function jg_wallet_start_backtrack(PDO $pdo, array $payload): array
