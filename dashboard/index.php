@@ -618,7 +618,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
 	                    <article class="admin-wallet-stat"><span>Wallet</span><strong data-wallet-total-balance>Rp0</strong></article>
 	                    <article class="admin-wallet-stat"><span>Outstanding</span><strong data-wallet-total-outstanding>Rp0</strong></article>
 	                    <article class="admin-wallet-stat"><span>Released</span><strong data-wallet-total-released>Rp0</strong></article>
-	                    <article class="admin-wallet-stat"><span>Manual Out</span><strong data-wallet-total-out>Rp0</strong></article>
+	                    <article class="admin-wallet-stat"><span>Since Set</span><strong data-wallet-total-out>Rp0</strong></article>
 	                </section>
 
 	                <section class="admin-panel admin-panel-table admin-panel-wide admin-wallet-panel">
@@ -635,7 +635,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
 	                                    <th>Wallet</th>
 	                                    <th>Outstanding</th>
 	                                    <th>Orders</th>
-	                                    <th>Updated</th>
+	                                    <th>Set Balance</th>
 	                                </tr>
 	                            </thead>
 	                            <tbody data-wallet-table-body>

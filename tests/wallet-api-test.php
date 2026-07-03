@@ -66,6 +66,33 @@ wallet_expect('outstanding', jg_wallet_order_bucket([
 wallet_expect(45000, jg_wallet_released_amount([
     'funds_released_amount' => 0,
 ], 45000), 'Released orders must fall back to order amount when the release amount is missing.');
+wallet_expect(0, jg_wallet_balance_value('0'), 'Wallet balance anchors must allow a zero balance after withdrawal.');
+wallet_expect(45000, jg_wallet_balance_value('Rp45.000'), 'Wallet balance anchors must accept formatted Rupiah input.');
+wallet_expect('2026-07-03 03:30:00.000000', jg_wallet_observed_at('2026-07-03T10:30'), 'Manual wallet observed times must be stored as UTC.');
+wallet_expect(true, jg_wallet_release_is_after_anchor([
+    'funds_released_at' => '2026-07-03 03:31:00.000000',
+], [
+    'observed_at_sql' => '2026-07-03 03:30:00.000000',
+]), 'Only releases after a manual wallet anchor should increase current wallet.');
+
+$anchoredWallet = jg_wallet_empty_amounts();
+$anchoredWallet['released_total'] = 1000000;
+$anchoredWallet['released_since_anchor_total'] = 25000;
+jg_wallet_apply_balance_anchor($anchoredWallet, [
+    'id' => 7,
+    'balance_amount' => 125000,
+    'observed_at_sql' => '2026-07-03 03:30:00.000000',
+    'created_at' => '2026-07-03 03:31:00.000000',
+    'created_by' => 'Tester',
+]);
+wallet_expect(150000, $anchoredWallet['wallet_balance'], 'Wallet balance must be manual anchor plus releases after anchor, not lifetime released funds.');
+wallet_expect(true, $anchoredWallet['wallet_balance_known'], 'Anchored wallets must report known balances.');
+
+$unanchoredWallet = jg_wallet_empty_amounts();
+$unanchoredWallet['released_total'] = 1000000;
+jg_wallet_apply_balance_anchor($unanchoredWallet, null);
+wallet_expect(0, $unanchoredWallet['wallet_balance'], 'Unanchored wallets must not pretend lifetime released funds are current wallet cash.');
+wallet_expect(false, $unanchoredWallet['wallet_balance_known'], 'Unanchored wallets must require a manual balance.');
 
 $matchedWallet = jg_wallet_match_wallet(array_map(static fn (array $account): array => $account + jg_wallet_empty_amounts(), jg_wallet_known_accounts()), [
     'query' => 'Jenang Gemi Shopee Wallet Info',

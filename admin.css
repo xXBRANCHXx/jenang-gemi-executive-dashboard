@@ -20433,6 +20433,15 @@ body:has(.admin-app[data-sku-db])::after {
   min-width: 220px;
 }
 
+.admin-wallet-balance-control {
+  display: grid;
+  grid-template-columns: minmax(96px, 0.8fr) minmax(168px, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 360px;
+}
+
 .admin-wallet-release-amount {
   width: 118px;
   min-height: 36px;
@@ -20444,12 +20453,37 @@ body:has(.admin-app[data-sku-db])::after {
   font: 800 0.76rem/1 "Space Grotesk", sans-serif;
 }
 
+.admin-wallet-balance-amount,
+.admin-wallet-balance-at {
+  width: 100%;
+  min-height: 36px;
+  min-width: 0;
+  padding: 0 10px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  font: 800 0.74rem/1 "Space Grotesk", sans-serif;
+}
+
 .admin-wallet-release-amount:focus {
   border-color: color-mix(in srgb, var(--admin-accent) 58%, var(--admin-border));
   outline: none;
 }
 
+.admin-wallet-balance-amount:focus,
+.admin-wallet-balance-at:focus {
+  border-color: color-mix(in srgb, var(--admin-accent) 58%, var(--admin-border));
+  outline: none;
+}
+
 .admin-wallet-release-amount:disabled {
+  color: var(--admin-muted);
+  opacity: 0.66;
+}
+
+.admin-wallet-balance-amount:disabled,
+.admin-wallet-balance-at:disabled {
   color: var(--admin-muted);
   opacity: 0.66;
 }
@@ -20598,6 +20632,11 @@ body:has(.admin-app[data-sku-db])::after {
 
   .admin-wallet-api-bar {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-wallet-balance-control {
+    grid-template-columns: minmax(0, 1fr);
+    min-width: min(260px, 72vw);
   }
 
   .admin-wallet-summary {

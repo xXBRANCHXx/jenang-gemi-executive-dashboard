@@ -6284,6 +6284,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	  const walletActionStatus = (actionId = '') => {
 	    if (actionId === 'backtrack') return walletBacktrackStatus() || 'Backtracking from May 20, 2026';
+	    if (actionId.startsWith('balance:')) return 'Setting wallet balance';
 	    if (actionId.startsWith('release:')) return 'Releasing wallet';
 	    if (actionId.startsWith('undo:')) return 'Undoing release';
 	    return '';
@@ -6318,6 +6319,20 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (wallet.last_mirrored_at) return `Mirror ${walletTimestamp(wallet.last_mirrored_at)}`;
 	    if (wallet.last_order_at) return `Order ${walletTimestamp(wallet.last_order_at)}`;
 	    return '-';
+	  };
+
+	  const walletDatetimeLocalValue = (value) => {
+	    const date = value ? new Date(value) : new Date();
+	    if (Number.isNaN(date.getTime())) return '';
+	    const offsetMs = date.getTimezoneOffset() * 60 * 1000;
+	    return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+	  };
+
+	  const walletBalanceNote = (wallet) => {
+	    if (!wallet.wallet_balance_known) return 'Manual balance required';
+	    const anchor = formatCurrency(wallet.manual_anchor_balance || 0);
+	    const since = formatCurrency(wallet.released_since_anchor_total || 0);
+	    return `${anchor} set + ${since} since`;
 	  };
 
 	  const walletOrderCounts = (wallet) => {
@@ -6357,14 +6372,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	    setWalletMode(state.wallet.mode);
 	    renderWalletApiOutput();
-	    if (walletRefs.balance) walletRefs.balance.textContent = formatCurrency(totals.wallet_balance || 0);
+	    if (walletRefs.balance) {
+	      walletRefs.balance.textContent = Number(totals.manual_anchor_count || 0) > 0 ? formatCurrency(totals.wallet_balance || 0) : 'Set balance';
+	    }
 	    if (walletRefs.outstanding) walletRefs.outstanding.textContent = formatCurrency(totals.outstanding_total || 0);
 	    if (walletRefs.released) walletRefs.released.textContent = formatCurrency(totals.released_total || 0);
-	    if (walletRefs.releasedOut) walletRefs.releasedOut.textContent = formatCurrency(totals.released_out || 0);
+	    if (walletRefs.releasedOut) walletRefs.releasedOut.textContent = formatCurrency(totals.released_since_anchor_total || 0);
 	    if (walletRefs.status) {
 	      walletRefs.status.textContent = walletActionStatus(activeAction) || walletBacktrackStatus(backtrack) || (state.wallet.loading
 	        ? 'Loading wallets'
-	        : `${formatRegionalInteger(wallets.length)} wallets / ${formatRegionalInteger(totals.outstanding_orders || 0)} outstanding`);
+	        : `${formatRegionalInteger(wallets.length)} wallets / ${formatRegionalInteger(totals.outstanding_orders || 0)} outstanding / ${formatRegionalInteger(totals.manual_required_count || 0)} need set`);
 	    }
 	    if (walletRefs.refresh) {
 	      walletRefs.refresh.disabled = state.wallet.loading;
@@ -6383,15 +6400,26 @@ document.addEventListener('DOMContentLoaded', () => {
 	      } else {
 	        walletRefs.tableBody.innerHTML = renderRows(wallets, 6, (wallet) => {
 	          const balance = walletAmount(wallet.wallet_balance);
-	          const manualOut = walletAmount(wallet.manual_released_out ?? wallet.released_out);
+	          const balanceKnown = Boolean(wallet.wallet_balance_known);
+	          const platform = escapeHtml(wallet.platform || '');
+	          const accountKey = escapeHtml(wallet.account_key || '');
+	          const actionKey = `balance:${wallet.platform || ''}|${wallet.account_key || ''}`;
+	          const disabled = state.wallet.loading || Boolean(activeAction);
 	          return `
 	            <tr>
 	              <td class="admin-wallet-account"><strong>${escapeHtml(wallet.label || wallet.account_key || '-')}</strong><small>${escapeHtml(wallet.platform || '-')} / ${escapeHtml(wallet.account_key || '-')}</small></td>
 	              <td>${formatCurrency(wallet.released_total || 0)}</td>
-	              <td><strong>${formatCurrency(balance)}</strong>${manualOut > 0 ? `<small class="admin-wallet-muted">${formatCurrency(manualOut)} manual out</small>` : ''}</td>
+	              <td><strong>${balanceKnown ? formatCurrency(balance) : 'Set balance'}</strong><small class="admin-wallet-muted">${escapeHtml(walletBalanceNote(wallet))}</small></td>
 	              <td>${formatCurrency(wallet.outstanding_total || 0)}</td>
 	              <td><span class="admin-wallet-counts" title="Released / outstanding / excluded">${walletOrderCounts(wallet)}</span></td>
-	              <td><span class="admin-wallet-updated">${escapeHtml(walletSourceLabel(wallet))}</span><small class="admin-wallet-muted">${escapeHtml(wallet.last_released_at ? `Released ${walletTimestamp(wallet.last_released_at)}` : 'No release yet')}</small></td>
+	              <td class="admin-wallet-action-cell">
+	                <div class="admin-wallet-balance-control">
+	                  <input class="admin-wallet-balance-amount" type="number" min="0" step="1" inputmode="numeric" value="${balanceKnown ? balance : ''}" data-wallet-balance-amount aria-label="Wallet balance for ${escapeHtml(wallet.label || wallet.account_key || 'wallet')}" ${disabled ? 'disabled' : ''}>
+	                  <input class="admin-wallet-balance-at" type="datetime-local" value="${escapeHtml(walletDatetimeLocalValue(wallet.manual_anchor_observed_at || ''))}" data-wallet-balance-at aria-label="Observed time for ${escapeHtml(wallet.label || wallet.account_key || 'wallet')}" ${disabled ? 'disabled' : ''}>
+	                  <button type="button" class="admin-wallet-action" data-wallet-balance-set data-wallet-platform="${platform}" data-wallet-account="${accountKey}" ${disabled ? 'disabled' : ''}>${activeAction === actionKey ? 'Setting' : 'Set'}</button>
+	                </div>
+	                <small class="admin-wallet-muted">${escapeHtml(walletSourceLabel(wallet))}</small>
+	              </td>
 	            </tr>
 	          `;
 	        }, 'No wallets found.');
@@ -8590,6 +8618,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	  walletRefs.apiCopy?.addEventListener('click', () => {
 	    copyWalletApiResult().catch(() => {});
+	  });
+
+	  walletRefs.tableBody?.addEventListener('click', (event) => {
+	    const button = event.target.closest('[data-wallet-balance-set]');
+	    if (!(button instanceof HTMLElement)) return;
+	    const platform = button.getAttribute('data-wallet-platform') || '';
+	    const accountKey = button.getAttribute('data-wallet-account') || '';
+	    if (!platform || !accountKey) return;
+	    const row = button.closest('tr');
+	    const amountInput = row?.querySelector('[data-wallet-balance-amount]');
+	    const observedInput = row?.querySelector('[data-wallet-balance-at]');
+	    const balance = amountInput instanceof HTMLInputElement ? amountInput.value : '';
+	    const observedAt = observedInput instanceof HTMLInputElement ? observedInput.value : '';
+	    postWalletAction('set_balance', {
+	      platform,
+	      account_key: accountKey,
+	      balance,
+	      observed_at: observedAt
+	    }, `balance:${platform}|${accountKey}`).catch(() => {});
 	  });
 
 	  walletRefs.logBody?.addEventListener('click', (event) => {
