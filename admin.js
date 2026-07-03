@@ -6345,10 +6345,20 @@ document.addEventListener('DOMContentLoaded', () => {
 	    });
 	  };
 
-	  const walletSourceLabel = (wallet) => {
-	    const value = wallet.last_source_updated_at || wallet.last_mirrored_at || wallet.last_order_at || '';
-	    const time = walletUpdateTime(value);
-	    return time ? `Last Updated: ${time}` : 'Last Updated: -';
+	  const walletMutationLabel = (wallet) => {
+	    const events = [
+	      { label: 'Set', value: wallet.manual_anchor_created_at || wallet.manual_anchor_observed_at || '' },
+	      { label: 'Withdraw', value: wallet.last_withdrawn_at || '' }
+	    ]
+	      .map((event) => ({
+	        ...event,
+	        date: parseOrderTimestamp(event.value)
+	      }))
+	      .filter((event) => event.date && !Number.isNaN(event.date.getTime()))
+	      .sort((a, b) => b.date.getTime() - a.date.getTime());
+	    if (!events.length) return 'Last Update: -';
+	    const time = walletUpdateTime(events[0].value);
+	    return time ? `${events[0].label}: ${time}` : 'Last Update: -';
 	  };
 
 	  const walletDatetimeLocalValue = (value) => {
@@ -6570,7 +6580,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	              <td><span class="admin-wallet-counts" title="Released / outstanding / excluded">${walletOrderCounts(wallet)}</span></td>
 	              <td class="admin-wallet-action-cell">
 	                <div class="admin-wallet-balance-summary">
-	                  <span><span class="admin-wallet-updated">${escapeHtml(walletSourceLabel(wallet))}</span></span>
+	                  <span><span class="admin-wallet-updated">${escapeHtml(walletMutationLabel(wallet))}</span></span>
 	                  <button type="button" class="admin-wallet-action" data-wallet-withdraw-open data-wallet-key="${escapeHtml(walletKey)}" ${(disabled || !canWithdraw) ? 'disabled' : ''}>${activeAction === withdrawActionKey ? 'Withdrawing' : 'Withdraw'}</button>
 	                </div>
 	              </td>
