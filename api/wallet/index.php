@@ -18,6 +18,7 @@ const JG_WALLET_RELEASE_SYNC_DAYS = 45;
 const JG_WALLET_RELEASE_SYNC_IMPORT_ROWS = 1000;
 const JG_WALLET_RELEASE_SYNC_REMOTE_TIMEOUT_SECONDS = 35;
 const JG_WALLET_RELEASE_SYNC_IMPORT_TIMEOUT_SECONDS = 18;
+const JG_WALLET_PLATFORM_TRANSACTION_TIMEOUT_SECONDS = 45;
 const JG_WALLET_RELEASE_BACKFILL_DAYS = 120;
 const JG_WALLET_RELEASE_BACKFILL_IMPORT_ROWS = 1500;
 const JG_WALLET_RELEASE_BACKFILL_REMOTE_TIMEOUT_SECONDS = 70;
@@ -1008,7 +1009,7 @@ function jg_wallet_run_release_refresh(PDO $pdo, array $payload, array $options)
                 $pdo,
                 $startDate,
                 $endDate,
-                $importTimeout
+                max($importTimeout, JG_WALLET_PLATFORM_TRANSACTION_TIMEOUT_SECONDS)
             );
         } catch (Throwable $error) {
             $walletTransactions = [
@@ -1067,9 +1068,20 @@ function jg_wallet_run_release_refresh(PDO $pdo, array $payload, array $options)
  */
 function jg_wallet_import_platform_transactions_from_api(PDO $pdo, string $startDate, string $endDate, int $timeout = 20): array
 {
+    $activeBalanceAnchors = jg_wallet_active_balance_anchors($pdo);
     $accounts = array_values(array_filter(
         jg_wallet_known_accounts(),
-        static fn (array $account): bool => (string) ($account['platform'] ?? '') === 'shopee'
+        static function (array $account) use ($activeBalanceAnchors): bool {
+            $platform = (string) ($account['platform'] ?? '');
+            $accountKey = (string) ($account['account_key'] ?? '');
+            if ($platform !== 'shopee') {
+                return false;
+            }
+            if ($activeBalanceAnchors === []) {
+                return true;
+            }
+            return isset($activeBalanceAnchors[jg_wallet_account_key($platform, $accountKey)]);
+        }
     ));
     $fetched = 0;
     $upserted = 0;
@@ -1339,7 +1351,7 @@ function jg_wallet_run_backtrack_step(PDO $pdo, array $run): array
             $pdo,
             $cursorDate,
             $chunkEnd,
-            30
+            JG_WALLET_PLATFORM_TRANSACTION_TIMEOUT_SECONDS
         );
     } catch (Throwable $error) {
         $walletTransactions = [
