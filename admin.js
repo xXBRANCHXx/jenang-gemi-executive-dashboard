@@ -6310,16 +6310,20 @@ document.addEventListener('DOMContentLoaded', () => {
 	    }
 	  };
 
-	  const walletTimestamp = (value) => {
-	    const formatted = formatOrderTimestamp(value || '');
-	    return formatted || '-';
+	  const walletUpdateTime = (value) => {
+	    const date = parseOrderTimestamp(value || '');
+	    if (!date) return '';
+	    return formatDashboardTime(date, state.timezone, {
+	      hour: '2-digit',
+	      minute: '2-digit',
+	      hour12: false
+	    });
 	  };
 
 	  const walletSourceLabel = (wallet) => {
-	    if (wallet.last_source_updated_at) return `Source ${walletTimestamp(wallet.last_source_updated_at)}`;
-	    if (wallet.last_mirrored_at) return `Mirror ${walletTimestamp(wallet.last_mirrored_at)}`;
-	    if (wallet.last_order_at) return `Order ${walletTimestamp(wallet.last_order_at)}`;
-	    return '-';
+	    const value = wallet.last_source_updated_at || wallet.last_mirrored_at || wallet.last_order_at || '';
+	    const time = walletUpdateTime(value);
+	    return time ? `Last Updated: ${time}` : 'Last Updated: -';
 	  };
 
 	  const walletDatetimeLocalValue = (value) => {

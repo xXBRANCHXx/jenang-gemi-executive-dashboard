@@ -63,6 +63,11 @@ wallet_expect('outstanding', jg_wallet_order_bucket([
     'funds_release_status' => '',
     'order_status' => 'READY_TO_SHIP',
 ]), 'Unreleased settling orders must remain outstanding.');
+wallet_expect('outstanding', jg_wallet_order_bucket([
+    'funds_released' => 0,
+    'funds_release_status' => '',
+    'order_status' => 'CLOSED',
+]), 'Closed Shopee orders without released funds must remain outstanding.');
 wallet_expect(45000, jg_wallet_released_amount([
     'funds_released_amount' => 0,
 ], 45000), 'Released orders must fall back to order amount when the release amount is missing.');

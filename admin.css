@@ -20413,10 +20413,10 @@ body:has(.admin-app[data-sku-db])::after {
 
 .admin-wallet-updated {
   display: block;
-  max-width: 220px;
+  max-width: 150px;
   overflow: hidden;
-  color: var(--admin-text);
-  font: 800 0.76rem/1.2 "Space Grotesk", sans-serif;
+  color: var(--admin-muted);
+  font: 700 0.68rem/1.15 "Space Grotesk", sans-serif;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

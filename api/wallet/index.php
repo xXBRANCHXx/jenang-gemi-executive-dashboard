@@ -947,7 +947,6 @@ function jg_wallet_is_non_settling_status(mixed $status): bool
         'REJECTED',
         'FAILED',
         'EXPIRED',
-        'CLOSED',
         'UNPAID',
         'VOID',
         'VOIDED',
