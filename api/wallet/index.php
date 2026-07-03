@@ -11,7 +11,9 @@ if (!defined('JG_ORDERS_API_NO_DISPATCH')) {
 require_once dirname(__DIR__) . '/orders/index.php';
 
 const JG_WALLET_BACKTRACK_START_DATE = '2026-05-20';
-const JG_WALLET_BACKTRACK_MAX_ROWS = 50000;
+const JG_WALLET_BACKTRACK_CHUNK_DAYS = 1;
+const JG_WALLET_BACKTRACK_IMPORT_ROWS_PER_STEP = 500;
+const JG_WALLET_BACKTRACK_REMOTE_TIMEOUT_SECONDS = 75;
 
 if (!defined('JG_WALLET_API_NO_DISPATCH')) {
     jg_wallet_handle_request();
@@ -31,7 +33,7 @@ function jg_wallet_handle_request(): void
         jg_wallet_ensure_schema($pdo);
 
         if ($method === 'GET' && in_array($action, ['summary', 'list'], true)) {
-            echo json_encode(jg_wallet_summary($pdo), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            echo json_encode(jg_wallet_summary_with_backtrack($pdo, jg_wallet_backtrack_latest($pdo)), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             return;
         }
 
@@ -44,7 +46,12 @@ function jg_wallet_handle_request(): void
         }
 
         if ($method === 'POST' && in_array($action, ['backtrack', 'sync_backtrack'], true)) {
-            echo json_encode(jg_wallet_backtrack($pdo, $payload), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            echo json_encode(jg_wallet_start_backtrack($pdo, $payload), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        if ($method === 'POST' && in_array($action, ['backtrack_step', 'sync_backtrack_step'], true)) {
+            echo json_encode(jg_wallet_step_backtrack($pdo, $payload), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             return;
         }
 
@@ -89,6 +96,36 @@ function jg_wallet_ensure_schema(PDO $pdo): void
             undo_note VARCHAR(255) NOT NULL DEFAULT "",
             KEY idx_dashboard_wallet_releases_account (platform, account_key, undone_at, created_at),
             KEY idx_dashboard_wallet_releases_created (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+    );
+    analyticsTryExec(
+        $pdo,
+        'CREATE TABLE IF NOT EXISTS dashboard_wallet_backtrack_runs (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            run_key CHAR(32) NOT NULL,
+            status VARCHAR(24) NOT NULL DEFAULT "running",
+            phase VARCHAR(24) NOT NULL DEFAULT "sync",
+            start_date DATE NOT NULL,
+            end_date DATE NOT NULL,
+            cursor_date DATE NOT NULL,
+            cursor_account_index INT NOT NULL DEFAULT 0,
+            import_offset INT NOT NULL DEFAULT 0,
+            chunk_days INT NOT NULL DEFAULT 1,
+            import_rows_per_step INT NOT NULL DEFAULT 500,
+            sync_calls INT NOT NULL DEFAULT 0,
+            import_pages INT NOT NULL DEFAULT 0,
+            imported_rows INT NOT NULL DEFAULT 0,
+            upserted_rows INT NOT NULL DEFAULT 0,
+            started_by VARCHAR(160) NOT NULL DEFAULT "",
+            last_message VARCHAR(255) NOT NULL DEFAULT "",
+            last_error VARCHAR(255) NOT NULL DEFAULT "",
+            last_sync_json LONGTEXT NULL,
+            last_import_json LONGTEXT NULL,
+            created_at DATETIME(6) NOT NULL,
+            updated_at DATETIME(6) NOT NULL,
+            completed_at DATETIME(6) NULL DEFAULT NULL,
+            UNIQUE KEY uniq_dashboard_wallet_backtrack_run_key (run_key),
+            KEY idx_dashboard_wallet_backtrack_status (status, updated_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
     );
 }
@@ -220,44 +257,188 @@ function jg_wallet_release(PDO $pdo, array $payload): array
     return jg_wallet_summary($pdo);
 }
 
-function jg_wallet_backtrack(PDO $pdo, array $payload): array
+function jg_wallet_start_backtrack(PDO $pdo, array $payload): array
 {
-    if (function_exists('set_time_limit')) {
-        @set_time_limit(240);
-    }
-
     $startDate = jg_wallet_date((string) ($payload['start_date'] ?? ''), JG_WALLET_BACKTRACK_START_DATE);
     $endDate = jg_wallet_date((string) ($payload['end_date'] ?? ''), jg_wallet_today());
     if ($startDate > $endDate) {
         throw new InvalidArgumentException('wallet_backtrack_range_invalid');
     }
 
-    $maxRows = max(1, min(JG_WALLET_BACKTRACK_MAX_ROWS, (int) ($payload['max_rows'] ?? JG_WALLET_BACKTRACK_MAX_ROWS)));
-    $syncPayload = jg_orders_fetch_json_with_timeout(jg_orders_remote_url('/sales/sync', [
-        'mode' => 'wallet_backtrack',
-        'start_date' => $startDate,
-        'end_date' => $endDate,
-    ]), 120);
-    $import = jg_orders_import_mirror_range_from_api($pdo, $startDate, $endDate, $maxRows, 'wallet_backtrack');
+    $active = jg_wallet_backtrack_active($pdo);
+    if (is_array($active)
+        && (string) ($active['start_date'] ?? '') === $startDate
+        && (string) ($active['end_date'] ?? '') === $endDate
+    ) {
+        return jg_wallet_summary_with_backtrack($pdo, $active);
+    }
 
-    analyticsTouchLiveState('wallet_backtrack');
+    $chunkDays = jg_wallet_positive_int($payload['chunk_days'] ?? JG_WALLET_BACKTRACK_CHUNK_DAYS, 1, 7);
+    $importRows = jg_wallet_positive_int($payload['import_rows_per_step'] ?? JG_WALLET_BACKTRACK_IMPORT_ROWS_PER_STEP, 50, 500);
+    $runKey = bin2hex(random_bytes(16));
+    $stmt = $pdo->prepare(
+        'INSERT INTO dashboard_wallet_backtrack_runs
+            (run_key, status, phase, start_date, end_date, cursor_date, cursor_account_index,
+             import_offset, chunk_days, import_rows_per_step, started_by, last_message, created_at, updated_at)
+         VALUES
+            (:run_key, "running", "sync", :start_date, :end_date, :cursor_date, 0,
+             0, :chunk_days, :import_rows_per_step, :started_by, :last_message, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))'
+    );
+    $stmt->execute([
+        ':run_key' => $runKey,
+        ':start_date' => $startDate,
+        ':end_date' => $endDate,
+        ':cursor_date' => $startDate,
+        ':chunk_days' => $chunkDays,
+        ':import_rows_per_step' => $importRows,
+        ':started_by' => jg_wallet_actor(),
+        ':last_message' => 'Backtrack queued from May 20, 2026.',
+    ]);
 
-    $summary = jg_wallet_summary($pdo);
-    $syncResults = is_array($syncPayload['sync']['results'] ?? null)
-        ? $syncPayload['sync']['results']
-        : ($syncPayload['results'] ?? []);
-    $summary['backtrack'] = [
-        'start_date' => $startDate,
-        'end_date' => $endDate,
-        'max_rows' => $maxRows,
-        'remote_sync' => [
-            'stored' => (int) ($syncPayload['sync']['stored'] ?? $syncPayload['stored'] ?? 0),
-            'accounts' => is_array($syncResults) ? count($syncResults) : 0,
-        ],
-        'mirror_import' => $import,
-    ];
+    return jg_wallet_summary_with_backtrack($pdo, jg_wallet_backtrack_by_key($pdo, $runKey));
+}
 
-    return $summary;
+function jg_wallet_step_backtrack(PDO $pdo, array $payload): array
+{
+    if (function_exists('set_time_limit')) {
+        @set_time_limit(120);
+    }
+
+    $runKey = trim((string) ($payload['run_key'] ?? ''));
+    $run = $runKey !== '' ? jg_wallet_backtrack_by_key($pdo, $runKey) : jg_wallet_backtrack_active($pdo);
+    if (!is_array($run)) {
+        throw new InvalidArgumentException('wallet_backtrack_not_found');
+    }
+    if (!in_array((string) ($run['status'] ?? ''), ['running'], true)) {
+        return jg_wallet_summary_with_backtrack($pdo, $run);
+    }
+
+    try {
+        $run = jg_wallet_run_backtrack_step($pdo, $run);
+        analyticsTouchLiveState('wallet_backtrack');
+    } catch (Throwable $error) {
+        $run = jg_wallet_fail_backtrack($pdo, $run, $error->getMessage());
+    }
+
+    return jg_wallet_summary_with_backtrack($pdo, $run);
+}
+
+function jg_wallet_run_backtrack_step(PDO $pdo, array $run): array
+{
+    $accounts = jg_wallet_backtrack_accounts();
+    if ($accounts === []) {
+        throw new RuntimeException('wallet_backtrack_accounts_missing');
+    }
+
+    $startDate = (string) ($run['start_date'] ?? JG_WALLET_BACKTRACK_START_DATE);
+    $endDate = (string) ($run['end_date'] ?? jg_wallet_today());
+    $cursorDate = jg_wallet_date((string) ($run['cursor_date'] ?? $startDate), $startDate);
+    if ($cursorDate > $endDate) {
+        return jg_wallet_complete_backtrack($pdo, $run, 'Backtrack complete.');
+    }
+
+    $chunkDays = jg_wallet_positive_int($run['chunk_days'] ?? JG_WALLET_BACKTRACK_CHUNK_DAYS, 1, 7);
+    $chunkEnd = jg_wallet_chunk_end($cursorDate, $endDate, $chunkDays);
+    $phase = (string) ($run['phase'] ?? 'sync');
+    $accountIndex = max(0, (int) ($run['cursor_account_index'] ?? 0));
+
+    if ($phase !== 'import' && $accountIndex < count($accounts)) {
+        $account = $accounts[$accountIndex];
+        $syncPayload = jg_orders_fetch_json_with_timeout(jg_orders_remote_url('/sales/sync', [
+            'mode' => 'wallet_backtrack',
+            'platform' => $account['platform'],
+            'account_key' => $account['account_key'],
+            'start_date' => $cursorDate,
+            'end_date' => $chunkEnd,
+            'summary' => '0',
+        ]), JG_WALLET_BACKTRACK_REMOTE_TIMEOUT_SECONDS);
+        $nextAccountIndex = $accountIndex + 1;
+        $nextPhase = $nextAccountIndex >= count($accounts) ? 'import' : 'sync';
+        $message = sprintf(
+            'Synced %s for %s to %s.',
+            (string) ($account['label'] ?? $account['account_key']),
+            $cursorDate,
+            $chunkEnd
+        );
+
+        $stmt = $pdo->prepare(
+            'UPDATE dashboard_wallet_backtrack_runs
+             SET phase = :phase,
+                 cursor_account_index = :cursor_account_index,
+                 sync_calls = sync_calls + 1,
+                 last_message = :last_message,
+                 last_error = "",
+                 last_sync_json = :last_sync_json,
+                 updated_at = UTC_TIMESTAMP(6)
+             WHERE run_key = :run_key'
+        );
+        $stmt->execute([
+            ':phase' => $nextPhase,
+            ':cursor_account_index' => $nextAccountIndex,
+            ':last_message' => $message,
+            ':last_sync_json' => jg_wallet_json_blob($syncPayload),
+            ':run_key' => (string) $run['run_key'],
+        ]);
+
+        return jg_wallet_backtrack_by_key($pdo, (string) $run['run_key']) ?: $run;
+    }
+
+    $importRows = jg_wallet_positive_int($run['import_rows_per_step'] ?? JG_WALLET_BACKTRACK_IMPORT_ROWS_PER_STEP, 50, 500);
+    $importOffset = max(0, (int) ($run['import_offset'] ?? 0));
+    $import = jg_orders_import_mirror_range_from_api(
+        $pdo,
+        $cursorDate,
+        $chunkEnd,
+        $importRows,
+        'wallet_backtrack',
+        $importOffset,
+        30,
+        true
+    );
+    $hasMore = !empty($import['has_more']);
+    $nextOffset = $hasMore ? max(0, (int) ($import['next_offset'] ?? 0)) : 0;
+    $nextCursorDate = $hasMore ? $cursorDate : jg_wallet_add_days($chunkEnd, 1);
+    $isComplete = !$hasMore && $nextCursorDate > $endDate;
+    $message = sprintf(
+        'Imported %s rows for %s to %s.',
+        number_format((int) ($import['fetched'] ?? 0)),
+        $cursorDate,
+        $chunkEnd
+    );
+
+    $stmt = $pdo->prepare(
+        'UPDATE dashboard_wallet_backtrack_runs
+         SET status = :status,
+             phase = :phase,
+             cursor_date = :cursor_date,
+             cursor_account_index = :cursor_account_index,
+             import_offset = :import_offset,
+             import_pages = import_pages + :import_pages,
+             imported_rows = imported_rows + :imported_rows,
+             upserted_rows = upserted_rows + :upserted_rows,
+             last_message = :last_message,
+             last_error = "",
+             last_import_json = :last_import_json,
+             updated_at = UTC_TIMESTAMP(6),
+             completed_at = CASE WHEN :complete_flag = 1 THEN UTC_TIMESTAMP(6) ELSE completed_at END
+         WHERE run_key = :run_key'
+    );
+    $stmt->execute([
+        ':status' => $isComplete ? 'complete' : 'running',
+        ':phase' => $hasMore ? 'import' : 'sync',
+        ':cursor_date' => $isComplete ? $endDate : $nextCursorDate,
+        ':cursor_account_index' => $hasMore ? count($accounts) : 0,
+        ':import_offset' => $nextOffset,
+        ':import_pages' => (int) ($import['pages'] ?? 0),
+        ':imported_rows' => (int) ($import['fetched'] ?? 0),
+        ':upserted_rows' => (int) ($import['upserted'] ?? 0),
+        ':last_message' => $isComplete ? 'Backtrack complete.' : $message,
+        ':last_import_json' => jg_wallet_json_blob($import),
+        ':complete_flag' => $isComplete ? 1 : 0,
+        ':run_key' => (string) $run['run_key'],
+    ]);
+
+    return jg_wallet_backtrack_by_key($pdo, (string) $run['run_key']) ?: $run;
 }
 
 function jg_wallet_undo_release(PDO $pdo, array $payload): array
@@ -376,6 +557,161 @@ function jg_wallet_release_logs(PDO $pdo): array
     }, $rows);
 }
 
+function jg_wallet_summary_with_backtrack(PDO $pdo, ?array $run): array
+{
+    $summary = jg_wallet_summary($pdo);
+    $summary['backtrack'] = jg_wallet_backtrack_public_state($run);
+    return $summary;
+}
+
+function jg_wallet_backtrack_active(PDO $pdo): ?array
+{
+    $stmt = $pdo->query(
+        'SELECT *
+         FROM dashboard_wallet_backtrack_runs
+         WHERE status = "running"
+         ORDER BY updated_at DESC, id DESC
+         LIMIT 1'
+    );
+    $row = $stmt ? $stmt->fetch() : false;
+    return is_array($row) ? $row : null;
+}
+
+function jg_wallet_backtrack_latest(PDO $pdo): ?array
+{
+    $stmt = $pdo->query(
+        'SELECT *
+         FROM dashboard_wallet_backtrack_runs
+         ORDER BY updated_at DESC, id DESC
+         LIMIT 1'
+    );
+    $row = $stmt ? $stmt->fetch() : false;
+    return is_array($row) ? $row : null;
+}
+
+function jg_wallet_backtrack_by_key(PDO $pdo, string $runKey): ?array
+{
+    $stmt = $pdo->prepare(
+        'SELECT *
+         FROM dashboard_wallet_backtrack_runs
+         WHERE run_key = :run_key
+         LIMIT 1'
+    );
+    $stmt->execute([':run_key' => $runKey]);
+    $row = $stmt->fetch();
+    return is_array($row) ? $row : null;
+}
+
+function jg_wallet_fail_backtrack(PDO $pdo, array $run, string $message): array
+{
+    $stmt = $pdo->prepare(
+        'UPDATE dashboard_wallet_backtrack_runs
+         SET status = "failed",
+             last_error = :last_error,
+             last_message = "Backtrack failed.",
+             updated_at = UTC_TIMESTAMP(6)
+         WHERE run_key = :run_key'
+    );
+    $stmt->execute([
+        ':last_error' => substr($message, 0, 255),
+        ':run_key' => (string) $run['run_key'],
+    ]);
+
+    return jg_wallet_backtrack_by_key($pdo, (string) $run['run_key']) ?: $run;
+}
+
+function jg_wallet_complete_backtrack(PDO $pdo, array $run, string $message): array
+{
+    $stmt = $pdo->prepare(
+        'UPDATE dashboard_wallet_backtrack_runs
+         SET status = "complete",
+             phase = "complete",
+             last_message = :last_message,
+             last_error = "",
+             updated_at = UTC_TIMESTAMP(6),
+             completed_at = UTC_TIMESTAMP(6)
+         WHERE run_key = :run_key'
+    );
+    $stmt->execute([
+        ':last_message' => substr($message, 0, 255),
+        ':run_key' => (string) $run['run_key'],
+    ]);
+
+    return jg_wallet_backtrack_by_key($pdo, (string) $run['run_key']) ?: $run;
+}
+
+/**
+ * @return array<int, array{platform:string,account_key:string,label:string}>
+ */
+function jg_wallet_backtrack_accounts(): array
+{
+    return array_values(array_map(static fn (array $account): array => [
+        'platform' => (string) $account['platform'],
+        'account_key' => (string) $account['account_key'],
+        'label' => (string) $account['label'],
+    ], jg_wallet_known_accounts()));
+}
+
+function jg_wallet_backtrack_public_state(?array $run): array
+{
+    if (!is_array($run)) {
+        return [
+            'active' => false,
+            'status' => 'idle',
+            'progress' => 0,
+        ];
+    }
+
+    $accounts = jg_wallet_backtrack_accounts();
+    $accountTotal = max(1, count($accounts));
+    $chunkDays = jg_wallet_positive_int($run['chunk_days'] ?? JG_WALLET_BACKTRACK_CHUNK_DAYS, 1, 7);
+    $startDate = (string) ($run['start_date'] ?? JG_WALLET_BACKTRACK_START_DATE);
+    $endDate = (string) ($run['end_date'] ?? $startDate);
+    $cursorDate = jg_wallet_date((string) ($run['cursor_date'] ?? $startDate), $startDate);
+    $chunkEnd = $cursorDate <= $endDate ? jg_wallet_chunk_end($cursorDate, $endDate, $chunkDays) : $endDate;
+    $chunkTotal = max(1, jg_wallet_total_chunks($startDate, $endDate, $chunkDays));
+    $chunkIndex = min($chunkTotal, max(1, jg_wallet_total_chunks($startDate, $cursorDate, $chunkDays)));
+    $status = (string) ($run['status'] ?? 'running');
+    $phase = (string) ($run['phase'] ?? 'sync');
+    $accountIndex = min($accountTotal, max(0, (int) ($run['cursor_account_index'] ?? 0)));
+    $unitsPerChunk = $accountTotal + 1;
+    $completedUnits = ($chunkIndex - 1) * $unitsPerChunk;
+    $completedUnits += $phase === 'import' ? $accountTotal : $accountIndex;
+    if ($status === 'complete') {
+        $progress = 100;
+    } else {
+        $progress = min(99, max(1, (int) floor(($completedUnits / max(1, $chunkTotal * $unitsPerChunk)) * 100)));
+    }
+
+    $currentAccount = $phase === 'sync' && isset($accounts[$accountIndex]) ? $accounts[$accountIndex] : null;
+
+    return [
+        'active' => $status === 'running',
+        'run_key' => (string) ($run['run_key'] ?? ''),
+        'status' => $status,
+        'phase' => $phase,
+        'progress' => $progress,
+        'start_date' => $startDate,
+        'end_date' => $endDate,
+        'cursor_date' => $cursorDate,
+        'chunk_end' => $chunkEnd,
+        'chunk_index' => $chunkIndex,
+        'chunk_total' => $chunkTotal,
+        'account_index' => $accountIndex,
+        'account_total' => $accountTotal,
+        'current_account' => $currentAccount,
+        'import_offset' => max(0, (int) ($run['import_offset'] ?? 0)),
+        'sync_calls' => max(0, (int) ($run['sync_calls'] ?? 0)),
+        'import_pages' => max(0, (int) ($run['import_pages'] ?? 0)),
+        'imported_rows' => max(0, (int) ($run['imported_rows'] ?? 0)),
+        'upserted_rows' => max(0, (int) ($run['upserted_rows'] ?? 0)),
+        'last_message' => (string) ($run['last_message'] ?? ''),
+        'last_error' => (string) ($run['last_error'] ?? ''),
+        'completed_at' => jg_orders_atom_datetime((string) ($run['completed_at'] ?? '')),
+        'updated_at' => jg_orders_atom_datetime((string) ($run['updated_at'] ?? '')),
+    ];
+}
+
 function jg_wallet_empty_amounts(): array
 {
     return [
@@ -432,6 +768,17 @@ function jg_wallet_amount_value(mixed $value): float
     return (float) ($negative ? '-' . $digits : $digits);
 }
 
+function jg_wallet_positive_int(mixed $value, int $min, int $max): int
+{
+    return max($min, min($max, (int) $value));
+}
+
+function jg_wallet_json_blob(array $payload): string
+{
+    $json = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    return is_string($json) ? $json : '{}';
+}
+
 function jg_wallet_date(string $value, string $fallback): string
 {
     $raw = trim($value) !== '' ? trim($value) : $fallback;
@@ -445,6 +792,33 @@ function jg_wallet_date(string $value, string $fallback): string
 function jg_wallet_today(): string
 {
     return (new DateTimeImmutable('today', new DateTimeZone('Asia/Jakarta')))->format('Y-m-d');
+}
+
+function jg_wallet_add_days(string $date, int $days): string
+{
+    return (new DateTimeImmutable($date . ' 00:00:00', new DateTimeZone('Asia/Jakarta')))
+        ->modify(sprintf('%+d days', $days))
+        ->format('Y-m-d');
+}
+
+function jg_wallet_days_between(string $startDate, string $endDate): int
+{
+    $start = new DateTimeImmutable($startDate . ' 00:00:00', new DateTimeZone('Asia/Jakarta'));
+    $end = new DateTimeImmutable($endDate . ' 00:00:00', new DateTimeZone('Asia/Jakarta'));
+    return max(0, (int) $start->diff($end)->format('%a'));
+}
+
+function jg_wallet_chunk_end(string $startDate, string $endDate, int $chunkDays): string
+{
+    return min($endDate, jg_wallet_add_days($startDate, max(1, $chunkDays) - 1));
+}
+
+function jg_wallet_total_chunks(string $startDate, string $endDate, int $chunkDays): int
+{
+    if ($startDate > $endDate) {
+        return 0;
+    }
+    return (int) ceil((jg_wallet_days_between($startDate, $endDate) + 1) / max(1, $chunkDays));
 }
 
 function jg_wallet_account_key(string $platform, string $accountKey): string

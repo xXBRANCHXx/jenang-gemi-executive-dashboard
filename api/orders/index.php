@@ -1168,7 +1168,16 @@ function jg_orders_extract_js_object_literal(string $source, string $name): arra
     return [];
 }
 
-function jg_orders_import_mirror_range_from_api(PDO $pdo, string $startDate, string $endDate, int $maxRows, string $event, int $startOffset = 0): array
+function jg_orders_import_mirror_range_from_api(
+    PDO $pdo,
+    string $startDate,
+    string $endDate,
+    int $maxRows,
+    string $event,
+    int $startOffset = 0,
+    int $timeout = 12,
+    bool $lightweight = false
+): array
 {
     $fetched = 0;
     $upserted = 0;
@@ -1185,9 +1194,10 @@ function jg_orders_import_mirror_range_from_api(PDO $pdo, string $startDate, str
             'end_date' => $endDate,
             'skip_sync' => '1',
             'sync' => '0',
+            'lightweight' => $lightweight ? '1' : '0',
             'limit' => (string) $pageLimit,
             'offset' => (string) $offset,
-        ]));
+        ]), $timeout);
         $rows = is_array($payload['orders'] ?? null) ? $payload['orders'] : [];
         $pageRows = [];
         foreach ($rows as $row) {

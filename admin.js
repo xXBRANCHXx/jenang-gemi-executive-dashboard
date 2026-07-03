@@ -2348,6 +2348,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      loadedAt: 0,
 	      mode: 'wallet',
 	      loading: false,
+	      backtrackRunning: false,
 	      actionId: '',
 	      requestToken: 0
 	    },
@@ -6260,8 +6261,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	  const walletAccountActionKey = (wallet) => `${wallet.platform || ''}|${wallet.account_key || ''}`;
 
+	  const walletBacktrackStatus = (backtrack = state.wallet.data?.backtrack) => {
+	    if (!backtrack || backtrack.status === 'idle') return '';
+	    if (backtrack.status === 'failed') return `Backtrack failed: ${backtrack.last_error || 'retry required'}`;
+	    if (backtrack.status === 'complete') return `Backtrack complete / ${formatRegionalInteger(backtrack.imported_rows || 0)} rows checked`;
+	    if (!backtrack.active) return '';
+	    const progress = Math.max(1, Math.min(99, Math.round(Number(backtrack.progress) || 1)));
+	    const phase = backtrack.phase === 'import' ? 'importing' : 'syncing';
+	    const range = backtrack.cursor_date && backtrack.chunk_end ? `${backtrack.cursor_date} to ${backtrack.chunk_end}` : 'May 20, 2026';
+	    return `Backtracking ${progress}% / ${phase} ${range}`;
+	  };
+
 	  const walletActionStatus = (actionId = '') => {
-	    if (actionId === 'backtrack') return 'Backtracking from May 20, 2026';
+	    if (actionId === 'backtrack') return walletBacktrackStatus() || 'Backtracking from May 20, 2026';
 	    if (actionId.startsWith('release:')) return 'Releasing wallet';
 	    if (actionId.startsWith('undo:')) return 'Undoing release';
 	    return '';
@@ -6285,6 +6297,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    const logs = Array.isArray(state.wallet.data?.logs) ? state.wallet.data.logs : [];
 	    const totals = state.wallet.data?.totals || {};
 	    const activeAction = state.wallet.actionId;
+	    const backtrack = state.wallet.data?.backtrack || {};
 
 	    setWalletMode(state.wallet.mode);
 	    if (walletRefs.balance) walletRefs.balance.textContent = formatCurrency(totals.wallet_balance || 0);
@@ -6292,7 +6305,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (walletRefs.released) walletRefs.released.textContent = formatCurrency(totals.released_total || 0);
 	    if (walletRefs.releasedOut) walletRefs.releasedOut.textContent = formatCurrency(totals.released_out || 0);
 	    if (walletRefs.status) {
-	      walletRefs.status.textContent = walletActionStatus(activeAction) || (state.wallet.loading
+	      walletRefs.status.textContent = walletActionStatus(activeAction) || walletBacktrackStatus(backtrack) || (state.wallet.loading
 	        ? 'Loading wallets'
 	        : `${formatRegionalInteger(wallets.length)} wallets / ${formatRegionalInteger(logs.length)} releases`);
 	    }
@@ -6301,7 +6314,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      walletRefs.refresh.classList.toggle('is-loading', state.wallet.loading);
 	    }
 	    if (walletRefs.backtrack) {
-	      const backtracking = activeAction === 'backtrack';
+	      const backtracking = activeAction === 'backtrack' || Boolean(backtrack.active);
 	      walletRefs.backtrack.disabled = state.wallet.loading || Boolean(activeAction);
 	      walletRefs.backtrack.textContent = backtracking ? 'Backtracking' : 'Backtrack';
 	      walletRefs.backtrack.classList.toggle('is-loading', backtracking);
@@ -7480,6 +7493,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	      state.wallet.loadedAt = Date.now();
 	      state.wallet.loading = false;
 	      renderWallet(data);
+	      if (data?.backtrack?.active && !state.wallet.backtrackRunning && !options.background) {
+	        runWalletBacktrack(false).catch(() => {});
+	      }
 	    } catch (error) {
 	      if (isLatestRequest('wallet', requestToken)) {
 	        state.wallet.loading = false;
@@ -7509,7 +7525,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	        method: 'POST',
 	        headers: { 'Content-Type': 'application/json' },
 	        body: JSON.stringify(body),
-	        timeoutMs: action === 'backtrack' ? 240000 : 30000
+	        timeoutMs: 30000
 	      });
 	      state.wallet.loadedAt = Date.now();
 	      renderWallet(data);
@@ -7519,6 +7535,52 @@ document.addEventListener('DOMContentLoaded', () => {
 	      return false;
 	    } finally {
 	      state.wallet.actionId = '';
+	      renderWallet(state.wallet.data);
+	    }
+	  };
+
+	  const runWalletBacktrack = async (startNew = true) => {
+	    if (state.wallet.backtrackRunning) return true;
+	    state.wallet.backtrackRunning = true;
+	    state.wallet.actionId = 'backtrack';
+	    renderWallet(state.wallet.data);
+	    try {
+	      let data = state.wallet.data;
+	      if (startNew || !data?.backtrack?.active) {
+	        data = await requestJson(walletActionUrl('backtrack'), {
+	          method: 'POST',
+	          headers: { 'Content-Type': 'application/json' },
+	          body: JSON.stringify({}),
+	          timeoutMs: 30000
+	        });
+	        state.wallet.loadedAt = Date.now();
+	        renderWallet(data);
+	      }
+
+	      let backtrack = data?.backtrack || state.wallet.data?.backtrack || {};
+	      for (let step = 0; backtrack.active && step < 1000; step += 1) {
+	        await wait(200);
+	        const stepData = await requestJson(walletActionUrl('backtrack_step'), {
+	          method: 'POST',
+	          headers: { 'Content-Type': 'application/json' },
+	          body: JSON.stringify({ run_key: backtrack.run_key || '' }),
+	          timeoutMs: 130000
+	        });
+	        state.wallet.loadedAt = Date.now();
+	        renderWallet(stepData);
+	        backtrack = stepData.backtrack || {};
+	      }
+
+	      if (backtrack.status === 'complete') {
+	        await loadWalletSafely({ force: true, preferStale: false });
+	      }
+	      return backtrack.status === 'complete';
+	    } catch (error) {
+	      renderViewError('wallet', error);
+	      return false;
+	    } finally {
+	      state.wallet.actionId = '';
+	      state.wallet.backtrackRunning = false;
 	      renderWallet(state.wallet.data);
 	    }
 	  };
@@ -8420,7 +8482,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	  });
 
 	  walletRefs.backtrack?.addEventListener('click', () => {
-	    postWalletAction('backtrack', {}, 'backtrack').catch(() => {});
+	    runWalletBacktrack(true).catch(() => {});
 	  });
 
 	  walletRefs.tableBody?.addEventListener('click', (event) => {
