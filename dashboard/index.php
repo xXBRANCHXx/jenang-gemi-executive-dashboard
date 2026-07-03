@@ -602,6 +602,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
 	                <section class="admin-wallet-command">
 	                    <div class="admin-wallet-mode admin-sliding-chart-toggle" data-sliding-chart-toggle role="group" aria-label="Wallet mode">
 	                        <button type="button" class="admin-toggle-pill is-active" data-wallet-mode="wallet"><span>Wallet</span></button>
+	                        <button type="button" class="admin-toggle-pill" data-wallet-mode="api"><span>API</span></button>
 	                        <button type="button" class="admin-toggle-pill" data-wallet-mode="log"><span>Log</span></button>
 	                    </div>
 	                    <div class="admin-wallet-actions">
@@ -617,7 +618,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
 	                    <article class="admin-wallet-stat"><span>Wallet</span><strong data-wallet-total-balance>Rp0</strong></article>
 	                    <article class="admin-wallet-stat"><span>Outstanding</span><strong data-wallet-total-outstanding>Rp0</strong></article>
 	                    <article class="admin-wallet-stat"><span>Released</span><strong data-wallet-total-released>Rp0</strong></article>
-	                    <article class="admin-wallet-stat"><span>Out</span><strong data-wallet-total-out>Rp0</strong></article>
+	                    <article class="admin-wallet-stat"><span>Manual Out</span><strong data-wallet-total-out>Rp0</strong></article>
 	                </section>
 
 	                <section class="admin-panel admin-panel-table admin-panel-wide admin-wallet-panel">
@@ -634,7 +635,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
 	                                    <th>Wallet</th>
 	                                    <th>Outstanding</th>
 	                                    <th>Orders</th>
-	                                    <th>Release</th>
+	                                    <th>Updated</th>
 	                                </tr>
 	                            </thead>
 	                            <tbody data-wallet-table-body>
@@ -642,11 +643,19 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
 	                            </tbody>
 	                        </table>
 	                    </div>
+	                    <div class="admin-wallet-api" data-wallet-api-panel hidden>
+	                        <div class="admin-wallet-api-bar">
+	                            <input type="text" data-wallet-api-input value="Jenang Gemi Shopee Wallet Info" autocomplete="off" spellcheck="false" aria-label="Wallet API query">
+	                            <button type="button" class="admin-wallet-action" data-wallet-api-run>Run</button>
+	                            <button type="button" class="admin-wallet-action is-secondary" data-wallet-api-copy>Copy</button>
+	                        </div>
+	                        <pre class="admin-wallet-api-output" data-wallet-api-output>{}</pre>
+	                    </div>
 	                    <div class="admin-table-wrap admin-wallet-table-wrap" data-wallet-log-panel hidden>
 	                        <table class="admin-table admin-wallet-table admin-wallet-log-table">
 	                            <thead>
 	                                <tr>
-	                                    <th>Released</th>
+	                                    <th>Logged</th>
 	                                    <th>Account</th>
 	                                    <th>Amount</th>
 	                                    <th>By</th>

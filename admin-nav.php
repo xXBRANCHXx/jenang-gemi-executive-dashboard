@@ -149,7 +149,7 @@ function admin_quick_menu_context_map(): array
         'campaigns' => ['home', 'orders', 'wallet', 'affiliates', 'back-dash', 'context', 'settings'],
         'back-dash' => ['home', 'api', 'context', 'hard-set', 'settings'],
         'context' => ['home', 'api', 'back-dash', 'settings'],
-        'settings' => ['home', 'daily', 'orders', 'wallet', 'campaigns', 'context'],
+        'settings' => ['home', 'daily', 'orders', 'campaigns', 'context'],
         'affiliates' => ['home', 'affiliate-profiles', 'campaigns', 'daily', 'orders', 'settings'],
         'affiliate-profiles' => ['home', 'affiliates', 'campaigns', 'daily', 'orders', 'settings'],
         'hard-set' => ['home', 'settings'],

@@ -37,6 +37,16 @@ function jg_wallet_handle_request(): void
             return;
         }
 
+        if ($method === 'GET' && $action === 'account') {
+            echo json_encode(jg_wallet_account_response($pdo, $_GET), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        if ($method === 'GET' && in_array($action, ['terminal', 'query'], true)) {
+            echo json_encode(jg_wallet_terminal_response($pdo, $_GET), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
         $payload = json_decode((string) file_get_contents('php://input'), true);
         $payload = is_array($payload) ? $payload : [];
 
@@ -181,13 +191,23 @@ function jg_wallet_summary(PDO $pdo): array
         $releasedOut = (int) round((float) ($account['released_out'] ?? 0));
         $account['released_total'] = $releasedTotal;
         $account['released_out'] = $releasedOut;
-        $account['wallet_balance'] = max(0, $releasedTotal - $releasedOut);
+        $account['manual_released_out'] = $releasedOut;
+        $account['wallet_balance'] = $releasedTotal;
+        $account['source_wallet_balance'] = $releasedTotal;
+        $account['manual_wallet_balance'] = max(0, $releasedTotal - $releasedOut);
         $account['outstanding_total'] = (int) round((float) ($account['outstanding_total'] ?? 0));
+        $account['non_settling_total'] = (int) round((float) ($account['non_settling_total'] ?? 0));
         $account['released_orders'] = (int) ($account['released_orders'] ?? 0);
         $account['outstanding_orders'] = (int) ($account['outstanding_orders'] ?? 0);
+        $account['non_settling_orders'] = (int) ($account['non_settling_orders'] ?? 0);
         $account['orders'] = (int) ($account['orders'] ?? 0);
         $account['last_released_at'] = jg_orders_atom_datetime((string) ($account['last_released_at'] ?? ''));
         $account['last_order_at'] = jg_orders_atom_datetime((string) ($account['last_order_at'] ?? ''));
+        $account['last_source_updated_at'] = jg_orders_atom_datetime((string) ($account['last_source_updated_at'] ?? ''));
+        $account['last_mirrored_at'] = jg_orders_atom_datetime((string) ($account['last_mirrored_at'] ?? ''));
+        $account['last_wallet_cleared_at'] = $account['last_released_at'];
+        $account['clearance_source'] = $account['last_released_at'] !== '' ? 'order_finance_release' : '';
+        $account['cash_out_source'] = 'not_integrated';
     }
     unset($account);
 
@@ -205,15 +225,242 @@ function jg_wallet_summary(PDO $pdo): array
         'generated_at' => gmdate(DATE_ATOM),
         'wallets' => $wallets,
         'logs' => $logs,
+        'source' => jg_wallet_source_metadata($wallets),
         'totals' => [
             'wallet_balance' => array_sum(array_column($wallets, 'wallet_balance')),
+            'source_wallet_balance' => array_sum(array_column($wallets, 'source_wallet_balance')),
+            'manual_wallet_balance' => array_sum(array_column($wallets, 'manual_wallet_balance')),
             'released_total' => array_sum(array_column($wallets, 'released_total')),
             'released_out' => array_sum(array_column($wallets, 'released_out')),
+            'manual_released_out' => array_sum(array_column($wallets, 'manual_released_out')),
             'outstanding_total' => array_sum(array_column($wallets, 'outstanding_total')),
+            'non_settling_total' => array_sum(array_column($wallets, 'non_settling_total')),
+            'orders' => array_sum(array_column($wallets, 'orders')),
             'released_orders' => array_sum(array_column($wallets, 'released_orders')),
             'outstanding_orders' => array_sum(array_column($wallets, 'outstanding_orders')),
+            'non_settling_orders' => array_sum(array_column($wallets, 'non_settling_orders')),
         ],
     ];
+}
+
+function jg_wallet_account_response(PDO $pdo, array $params): array
+{
+    $summary = jg_wallet_summary_with_backtrack($pdo, jg_wallet_backtrack_latest($pdo));
+    $wallet = jg_wallet_match_wallet($summary['wallets'], $params);
+    if (!is_array($wallet)) {
+        throw new InvalidArgumentException('wallet_account_not_found');
+    }
+
+    return [
+        'ok' => true,
+        'generated_at' => (string) ($summary['generated_at'] ?? gmdate(DATE_ATOM)),
+        'wallet' => $wallet,
+        'totals' => $summary['totals'] ?? [],
+        'source' => $summary['source'] ?? [],
+        'backtrack' => $summary['backtrack'] ?? [],
+        'api_call' => jg_wallet_api_call($wallet),
+    ];
+}
+
+function jg_wallet_terminal_response(PDO $pdo, array $params): array
+{
+    $query = trim((string) ($params['query'] ?? $params['q'] ?? ''));
+    $summary = jg_wallet_summary_with_backtrack($pdo, jg_wallet_backtrack_latest($pdo));
+    $wallet = jg_wallet_match_wallet($summary['wallets'], $params + ['query' => $query, 'q' => $query]);
+    if (is_array($wallet)) {
+        return [
+            'ok' => true,
+            'query' => $query,
+            'command' => 'wallet.info',
+            'generated_at' => (string) ($summary['generated_at'] ?? gmdate(DATE_ATOM)),
+            'answer' => jg_wallet_terminal_answer($wallet),
+            'wallet' => $wallet,
+            'totals' => $summary['totals'] ?? [],
+            'source' => $summary['source'] ?? [],
+            'api_call' => jg_wallet_api_call($wallet),
+            'terminal_call' => '/api/wallet/?' . http_build_query(['action' => 'terminal', 'query' => $query], '', '&', PHP_QUERY_RFC3986),
+        ];
+    }
+
+    return [
+        'ok' => true,
+        'query' => $query,
+        'command' => 'wallet.summary',
+        'generated_at' => (string) ($summary['generated_at'] ?? gmdate(DATE_ATOM)),
+        'answer' => jg_wallet_terminal_summary_answer($summary),
+        'wallets' => $summary['wallets'] ?? [],
+        'totals' => $summary['totals'] ?? [],
+        'source' => $summary['source'] ?? [],
+        'terminal_call' => '/api/wallet/?' . http_build_query(['action' => 'terminal', 'query' => $query], '', '&', PHP_QUERY_RFC3986),
+    ];
+}
+
+function jg_wallet_match_wallet(array $wallets, array $params): ?array
+{
+    $platform = jg_wallet_normalize_key($params['platform'] ?? '');
+    $accountKey = jg_wallet_normalize_key($params['account_key'] ?? $params['account'] ?? '');
+    if ($platform !== '' && $accountKey !== '') {
+        foreach ($wallets as $wallet) {
+            if (
+                jg_wallet_normalize_key((string) ($wallet['platform'] ?? '')) === $platform
+                && jg_wallet_normalize_key((string) ($wallet['account_key'] ?? '')) === $accountKey
+            ) {
+                return $wallet;
+            }
+        }
+    }
+
+    if ($accountKey !== '') {
+        foreach ($wallets as $wallet) {
+            if (jg_wallet_normalize_key((string) ($wallet['account_key'] ?? '')) === $accountKey) {
+                return $wallet;
+            }
+        }
+    }
+
+    $query = trim((string) ($params['query'] ?? $params['q'] ?? ''));
+    if ($query === '') {
+        return null;
+    }
+
+    $queryText = jg_wallet_terminal_text($query);
+    $tokens = jg_wallet_terminal_tokens($queryText);
+    $best = null;
+    $bestScore = 0;
+    foreach ($wallets as $wallet) {
+        $walletText = jg_wallet_terminal_text(implode(' ', [
+            (string) ($wallet['label'] ?? ''),
+            (string) ($wallet['company'] ?? ''),
+            (string) ($wallet['platform'] ?? ''),
+            (string) ($wallet['account_key'] ?? ''),
+        ]));
+        $score = 0;
+        foreach ($tokens as $token) {
+            if (str_contains($walletText, $token)) {
+                $score += 1;
+            }
+        }
+        $labelText = jg_wallet_terminal_text((string) ($wallet['label'] ?? ''));
+        if ($labelText !== '' && str_contains($queryText, $labelText)) {
+            $score += 6;
+        }
+        if ($platform !== '' && jg_wallet_normalize_key((string) ($wallet['platform'] ?? '')) === $platform) {
+            $score += 3;
+        }
+        if ($score > $bestScore) {
+            $bestScore = $score;
+            $best = $wallet;
+        }
+    }
+
+    return $bestScore >= 2 && is_array($best) ? $best : null;
+}
+
+function jg_wallet_terminal_text(string $value): string
+{
+    return trim(preg_replace('/[^a-z0-9]+/', ' ', strtolower($value)) ?? '');
+}
+
+/**
+ * @return array<int, string>
+ */
+function jg_wallet_terminal_tokens(string $queryText): array
+{
+    $stopwords = array_flip([
+        'api',
+        'balance',
+        'for',
+        'fund',
+        'funds',
+        'get',
+        'info',
+        'marketplace',
+        'please',
+        'rp',
+        'show',
+        'status',
+        'the',
+        'wallet',
+    ]);
+    $tokens = array_filter(explode(' ', $queryText), static function (string $token) use ($stopwords): bool {
+        return strlen($token) > 1 && !isset($stopwords[$token]);
+    });
+
+    return array_values(array_unique($tokens));
+}
+
+function jg_wallet_api_call(array $wallet): string
+{
+    return '/api/wallet/?' . http_build_query([
+        'action' => 'account',
+        'platform' => (string) ($wallet['platform'] ?? ''),
+        'account_key' => (string) ($wallet['account_key'] ?? ''),
+    ], '', '&', PHP_QUERY_RFC3986);
+}
+
+function jg_wallet_terminal_answer(array $wallet): string
+{
+    $label = (string) ($wallet['label'] ?? $wallet['account_key'] ?? 'Wallet');
+    $released = jg_wallet_rupiah((int) ($wallet['released_total'] ?? 0));
+    $open = jg_wallet_rupiah((int) ($wallet['outstanding_total'] ?? 0));
+    $releasedOrders = (int) ($wallet['released_orders'] ?? 0);
+    $openOrders = (int) ($wallet['outstanding_orders'] ?? 0);
+    $nonSettlingOrders = (int) ($wallet['non_settling_orders'] ?? 0);
+    $lastReleased = (string) ($wallet['last_released_at'] ?? '');
+    $suffix = $lastReleased !== '' ? ' Last marketplace release: ' . $lastReleased . '.' : '';
+
+    return sprintf(
+        '%s: %s released across %d orders; %s outstanding across %d settling orders; %d non-settling orders excluded.%s',
+        $label,
+        $released,
+        $releasedOrders,
+        $open,
+        $openOrders,
+        $nonSettlingOrders,
+        $suffix
+    );
+}
+
+function jg_wallet_terminal_summary_answer(array $summary): string
+{
+    $totals = is_array($summary['totals'] ?? null) ? $summary['totals'] : [];
+    return sprintf(
+        'Wallet summary: %s released, %s outstanding, %d settling orders outstanding, %d non-settling orders excluded.',
+        jg_wallet_rupiah((int) ($totals['released_total'] ?? 0)),
+        jg_wallet_rupiah((int) ($totals['outstanding_total'] ?? 0)),
+        (int) ($totals['outstanding_orders'] ?? 0),
+        (int) ($totals['non_settling_orders'] ?? 0)
+    );
+}
+
+function jg_wallet_source_metadata(array $wallets): array
+{
+    return [
+        'order_source' => 'dashboard_order_mirror',
+        'settlement_source' => 'marketplace_order_finance',
+        'wallet_balance_basis' => 'released marketplace order settlement amounts in the local order mirror',
+        'outstanding_basis' => 'unreleased settling orders only; cancelled and other non-settling orders are excluded',
+        'cash_out_source' => 'not_integrated',
+        'live_refresh' => 'no-store API responses, dashboard live events, and a short client cache',
+        'last_mirrored_at' => jg_wallet_latest_wallet_datetime($wallets, 'last_mirrored_at'),
+        'last_source_updated_at' => jg_wallet_latest_wallet_datetime($wallets, 'last_source_updated_at'),
+        'last_released_at' => jg_wallet_latest_wallet_datetime($wallets, 'last_released_at'),
+    ];
+}
+
+function jg_wallet_latest_wallet_datetime(array $wallets, string $field): string
+{
+    $latest = '';
+    foreach ($wallets as $wallet) {
+        $latest = jg_wallet_max_datetime($latest, $wallet[$field] ?? '');
+    }
+
+    return $latest;
+}
+
+function jg_wallet_rupiah(int $amount): string
+{
+    return 'Rp' . number_format(max(0, $amount), 0, ',', '.');
 }
 
 function jg_wallet_release(PDO $pdo, array $payload): array
@@ -236,7 +483,7 @@ function jg_wallet_release(PDO $pdo, array $payload): array
         throw new InvalidArgumentException('wallet_account_not_found');
     }
 
-    $amount = jg_wallet_release_amount($payload['amount'] ?? '', max(0, (int) ($wallet['wallet_balance'] ?? 0)));
+    $amount = jg_wallet_release_amount($payload['amount'] ?? '', max(0, (int) ($wallet['manual_wallet_balance'] ?? $wallet['wallet_balance'] ?? 0)));
 
     $stmt = $pdo->prepare(
         'INSERT INTO dashboard_wallet_releases
@@ -479,36 +726,159 @@ function jg_wallet_order_totals(PDO $pdo): array
     $stmt = $pdo->query(
         'SELECT platform,
                 account_key,
+                CASE WHEN order_id = "" THEN order_item_hash ELSE order_id END AS order_key,
                 MAX(company) AS company,
-                COUNT(*) AS orders,
-                SUM(CASE WHEN funds_released > 0 THEN 1 ELSE 0 END) AS released_orders,
-                SUM(CASE WHEN funds_released > 0 THEN 0 ELSE 1 END) AS outstanding_orders,
-                SUM(CASE WHEN funds_released > 0 THEN
-                    CASE WHEN funds_released_amount > 0 THEN funds_released_amount ELSE order_amount END
-                    ELSE 0 END) AS released_total,
-                SUM(CASE WHEN funds_released > 0 THEN 0 ELSE order_amount END) AS outstanding_total,
-                MAX(CASE WHEN funds_released > 0 THEN funds_released_at ELSE NULL END) AS last_released_at,
-                MAX(order_create_time) AS last_order_at
-         FROM (
-            SELECT platform,
-                   account_key,
-                   CASE WHEN order_id = "" THEN order_item_hash ELSE order_id END AS order_key,
-                   MAX(company) AS company,
-                   MAX(order_net_revenue) AS order_amount,
-                   MAX(funds_released) AS funds_released,
-                   MAX(funds_released_amount) AS funds_released_amount,
-                   MAX(funds_released_at) AS funds_released_at,
-                   MAX(order_create_time) AS order_create_time
-            FROM dashboard_order_mirror
-            WHERE deleted_at IS NULL
-              AND platform IN ("shopee", "tiktok")
-            GROUP BY platform, account_key, order_key
-         ) wallet_orders
-         GROUP BY platform, account_key
+                MAX(order_net_revenue) AS order_amount,
+                MAX(funds_released) AS funds_released,
+                MAX(funds_released_amount) AS funds_released_amount,
+                MAX(funds_released_at) AS funds_released_at,
+                MAX(order_create_time) AS order_create_time,
+                MAX(status) AS order_status,
+                MAX(funds_release_status) AS funds_release_status,
+                MAX(funds_release_source) AS funds_release_source,
+                MAX(source_updated_at) AS source_updated_at,
+                MAX(mirrored_at) AS mirrored_at
+         FROM dashboard_order_mirror
+         WHERE deleted_at IS NULL
+           AND platform IN ("shopee", "tiktok")
+         GROUP BY platform, account_key, order_key
          ORDER BY platform ASC, account_key ASC'
     );
 
-    return $stmt ? $stmt->fetchAll() : [];
+    $orders = $stmt ? $stmt->fetchAll() : [];
+    $accounts = [];
+    foreach ($orders as $order) {
+        $platform = (string) ($order['platform'] ?? '');
+        $accountKey = (string) ($order['account_key'] ?? '');
+        $key = jg_wallet_account_key($platform, $accountKey);
+        if (!isset($accounts[$key])) {
+            $accounts[$key] = [
+                'platform' => $platform,
+                'account_key' => $accountKey,
+                'company' => (string) ($order['company'] ?? ''),
+                'label' => jg_wallet_account_label((string) ($order['company'] ?? ''), $platform, $accountKey),
+            ] + jg_wallet_empty_amounts();
+        }
+
+        if ((string) ($accounts[$key]['company'] ?? '') === '' && trim((string) ($order['company'] ?? '')) !== '') {
+            $accounts[$key]['company'] = (string) $order['company'];
+            $accounts[$key]['label'] = jg_wallet_account_label((string) $order['company'], $platform, $accountKey);
+        }
+
+        $bucket = jg_wallet_order_bucket($order);
+        $orderAmount = jg_wallet_order_amount($order);
+        $releasedAmount = jg_wallet_released_amount($order, $orderAmount);
+        $accounts[$key]['orders'] = (int) ($accounts[$key]['orders'] ?? 0) + 1;
+        $accounts[$key]['last_order_at'] = jg_wallet_max_datetime((string) ($accounts[$key]['last_order_at'] ?? ''), $order['order_create_time'] ?? '');
+        $accounts[$key]['last_source_updated_at'] = jg_wallet_max_datetime((string) ($accounts[$key]['last_source_updated_at'] ?? ''), $order['source_updated_at'] ?? '');
+        $accounts[$key]['last_mirrored_at'] = jg_wallet_max_datetime((string) ($accounts[$key]['last_mirrored_at'] ?? ''), $order['mirrored_at'] ?? '');
+        jg_wallet_increment_breakdown($accounts[$key]['release_status_breakdown'], $order['funds_release_status'] ?? '');
+        jg_wallet_increment_breakdown($accounts[$key]['order_status_breakdown'], $order['order_status'] ?? '');
+        jg_wallet_increment_breakdown($accounts[$key]['release_source_breakdown'], $order['funds_release_source'] ?? '');
+
+        if ($bucket === 'released') {
+            $accounts[$key]['released_orders'] = (int) ($accounts[$key]['released_orders'] ?? 0) + 1;
+            $accounts[$key]['released_total'] = (int) ($accounts[$key]['released_total'] ?? 0) + $releasedAmount;
+            $accounts[$key]['last_released_at'] = jg_wallet_max_datetime((string) ($accounts[$key]['last_released_at'] ?? ''), $order['funds_released_at'] ?? '');
+            continue;
+        }
+
+        if ($bucket === 'non_settling') {
+            $accounts[$key]['non_settling_orders'] = (int) ($accounts[$key]['non_settling_orders'] ?? 0) + 1;
+            continue;
+        }
+
+        $accounts[$key]['outstanding_orders'] = (int) ($accounts[$key]['outstanding_orders'] ?? 0) + 1;
+        $accounts[$key]['outstanding_total'] = (int) ($accounts[$key]['outstanding_total'] ?? 0) + $orderAmount;
+    }
+
+    return array_values($accounts);
+}
+
+function jg_wallet_order_bucket(array $order): string
+{
+    if ((int) ($order['funds_released'] ?? 0) > 0) {
+        return 'released';
+    }
+
+    if (
+        jg_wallet_is_non_settling_status($order['funds_release_status'] ?? '')
+        || jg_wallet_is_non_settling_status($order['order_status'] ?? $order['status'] ?? '')
+    ) {
+        return 'non_settling';
+    }
+
+    return 'outstanding';
+}
+
+function jg_wallet_is_non_settling_status(mixed $status): bool
+{
+    $normalized = jg_wallet_normalize_status($status);
+    if ($normalized === '') {
+        return false;
+    }
+
+    return in_array($normalized, [
+        'CANCEL',
+        'CANCELED',
+        'CANCELLED',
+        'CANCELLED_BY_BUYER',
+        'CANCELLED_BY_SELLER',
+        'CANCELLED_BY_SYSTEM',
+        'REFUND',
+        'REFUNDED',
+        'RETURN',
+        'RETURNED',
+        'REJECTED',
+        'FAILED',
+        'EXPIRED',
+        'CLOSED',
+        'UNPAID',
+        'VOID',
+        'VOIDED',
+    ], true);
+}
+
+function jg_wallet_normalize_status(mixed $status): string
+{
+    return trim(preg_replace('/[^A-Z0-9]+/', '_', strtoupper((string) $status)) ?? '', '_');
+}
+
+function jg_wallet_order_amount(array $order): int
+{
+    return max(0, (int) round((float) ($order['order_amount'] ?? 0)));
+}
+
+function jg_wallet_released_amount(array $order, int $orderAmount): int
+{
+    $releasedAmount = max(0, (int) round((float) ($order['funds_released_amount'] ?? 0)));
+    return $releasedAmount > 0 ? $releasedAmount : max(0, $orderAmount);
+}
+
+function jg_wallet_max_datetime(string $left, mixed $right): string
+{
+    $candidate = trim((string) $right);
+    if ($candidate === '') {
+        return $left;
+    }
+    if ($left === '') {
+        return $candidate;
+    }
+
+    return strcmp($candidate, $left) > 0 ? $candidate : $left;
+}
+
+function jg_wallet_increment_breakdown(mixed &$breakdown, mixed $value): void
+{
+    if (!is_array($breakdown)) {
+        $breakdown = [];
+    }
+    $label = trim((string) $value);
+    if ($label === '') {
+        $label = 'UNKNOWN';
+    }
+    $breakdown[$label] = (int) ($breakdown[$label] ?? 0) + 1;
+    arsort($breakdown);
 }
 
 /**
@@ -718,12 +1088,25 @@ function jg_wallet_empty_amounts(): array
         'orders' => 0,
         'released_orders' => 0,
         'outstanding_orders' => 0,
+        'non_settling_orders' => 0,
         'released_total' => 0,
         'released_out' => 0,
         'wallet_balance' => 0,
+        'source_wallet_balance' => 0,
+        'manual_wallet_balance' => 0,
+        'manual_released_out' => 0,
         'outstanding_total' => 0,
+        'non_settling_total' => 0,
         'last_released_at' => '',
+        'last_source_updated_at' => '',
+        'last_mirrored_at' => '',
+        'last_wallet_cleared_at' => '',
         'last_order_at' => '',
+        'clearance_source' => '',
+        'cash_out_source' => 'not_integrated',
+        'release_status_breakdown' => [],
+        'order_status_breakdown' => [],
+        'release_source_breakdown' => [],
     ];
 }
 

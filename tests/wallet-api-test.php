@@ -52,9 +52,31 @@ wallet_expect(100, jg_wallet_backtrack_public_state([
     'cursor_date' => '2026-05-25',
     'chunk_days' => 2,
 ])['progress'], 'Completed wallet backtracks must report 100 percent progress.');
+wallet_expect(true, jg_wallet_is_non_settling_status('CANCELLED'), 'Cancelled marketplace orders must be separated from outstanding funds.');
+wallet_expect('non_settling', jg_wallet_order_bucket([
+    'funds_released' => 0,
+    'funds_release_status' => 'CANCELLED',
+    'order_status' => '',
+]), 'Cancelled unreleased orders must not count as outstanding.');
+wallet_expect('outstanding', jg_wallet_order_bucket([
+    'funds_released' => 0,
+    'funds_release_status' => '',
+    'order_status' => 'READY_TO_SHIP',
+]), 'Unreleased settling orders must remain outstanding.');
+wallet_expect(45000, jg_wallet_released_amount([
+    'funds_released_amount' => 0,
+], 45000), 'Released orders must fall back to order amount when the release amount is missing.');
+
+$matchedWallet = jg_wallet_match_wallet(array_map(static fn (array $account): array => $account + jg_wallet_empty_amounts(), jg_wallet_known_accounts()), [
+    'query' => 'Jenang Gemi Shopee Wallet Info',
+]);
+$matchedWallet = is_array($matchedWallet) ? $matchedWallet : [];
+wallet_expect('jenang-gemi-shopee', $matchedWallet['account_key'] ?? '', 'Wallet API terminal must resolve natural account queries.');
+wallet_expect('/api/wallet/?action=account&platform=shopee&account_key=jenang-gemi-shopee', jg_wallet_api_call($matchedWallet), 'Wallet account API calls must be deterministic.');
 
 $empty = jg_wallet_empty_amounts();
 wallet_expect(0, $empty['wallet_balance'], 'Wallet empty state must start at Rp0.');
+wallet_expect(0, $empty['non_settling_orders'], 'Wallet empty state must track excluded orders.');
 wallet_expect('', $empty['last_order_at'], 'Wallet empty state must avoid fake timestamps.');
 
 echo "wallet-api-test: ok\n";
