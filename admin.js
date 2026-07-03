@@ -6391,6 +6391,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	  const walletBalanceNote = (wallet) => {
 	    if (!wallet.wallet_balance_known) return 'Manual balance required';
 	    const anchor = formatCurrency(wallet.manual_anchor_balance || 0);
+	    if (wallet.wallet_activity_source === 'platform_wallet_transactions') {
+	      const activity = formatCurrency(wallet.wallet_activity_since_anchor_total || wallet.wallet_transaction_since_anchor_total || 0);
+	      return `${anchor} set + ${activity} wallet activity`;
+	    }
 	    const since = formatCurrency(wallet.released_since_anchor_total || 0);
 	    const withdrawn = formatCurrency(wallet.withdrawn_since_anchor_total || 0);
 	    return `${anchor} set + ${since} released - ${withdrawn} withdrawn`;
