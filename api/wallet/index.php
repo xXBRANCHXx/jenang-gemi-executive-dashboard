@@ -10,6 +10,9 @@ if (!defined('JG_ORDERS_API_NO_DISPATCH')) {
 }
 require_once dirname(__DIR__) . '/orders/index.php';
 
+const JG_WALLET_BACKTRACK_START_DATE = '2026-05-20';
+const JG_WALLET_BACKTRACK_MAX_ROWS = 50000;
+
 if (!defined('JG_WALLET_API_NO_DISPATCH')) {
     jg_wallet_handle_request();
 }
@@ -37,6 +40,11 @@ function jg_wallet_handle_request(): void
 
         if ($method === 'POST' && $action === 'release') {
             echo json_encode(jg_wallet_release($pdo, $payload), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        if ($method === 'POST' && in_array($action, ['backtrack', 'sync_backtrack'], true)) {
+            echo json_encode(jg_wallet_backtrack($pdo, $payload), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             return;
         }
 
@@ -191,10 +199,7 @@ function jg_wallet_release(PDO $pdo, array $payload): array
         throw new InvalidArgumentException('wallet_account_not_found');
     }
 
-    $amount = max(0, (int) ($wallet['wallet_balance'] ?? 0));
-    if ($amount <= 0) {
-        throw new InvalidArgumentException('wallet_balance_empty');
-    }
+    $amount = jg_wallet_release_amount($payload['amount'] ?? '', max(0, (int) ($wallet['wallet_balance'] ?? 0)));
 
     $stmt = $pdo->prepare(
         'INSERT INTO dashboard_wallet_releases
@@ -213,6 +218,46 @@ function jg_wallet_release(PDO $pdo, array $payload): array
     analyticsTouchLiveState('wallet_release');
 
     return jg_wallet_summary($pdo);
+}
+
+function jg_wallet_backtrack(PDO $pdo, array $payload): array
+{
+    if (function_exists('set_time_limit')) {
+        @set_time_limit(240);
+    }
+
+    $startDate = jg_wallet_date((string) ($payload['start_date'] ?? ''), JG_WALLET_BACKTRACK_START_DATE);
+    $endDate = jg_wallet_date((string) ($payload['end_date'] ?? ''), jg_wallet_today());
+    if ($startDate > $endDate) {
+        throw new InvalidArgumentException('wallet_backtrack_range_invalid');
+    }
+
+    $maxRows = max(1, min(JG_WALLET_BACKTRACK_MAX_ROWS, (int) ($payload['max_rows'] ?? JG_WALLET_BACKTRACK_MAX_ROWS)));
+    $syncPayload = jg_orders_fetch_json_with_timeout(jg_orders_remote_url('/sales/sync', [
+        'mode' => 'wallet_backtrack',
+        'start_date' => $startDate,
+        'end_date' => $endDate,
+    ]), 120);
+    $import = jg_orders_import_mirror_range_from_api($pdo, $startDate, $endDate, $maxRows, 'wallet_backtrack');
+
+    analyticsTouchLiveState('wallet_backtrack');
+
+    $summary = jg_wallet_summary($pdo);
+    $syncResults = is_array($syncPayload['sync']['results'] ?? null)
+        ? $syncPayload['sync']['results']
+        : ($syncPayload['results'] ?? []);
+    $summary['backtrack'] = [
+        'start_date' => $startDate,
+        'end_date' => $endDate,
+        'max_rows' => $maxRows,
+        'remote_sync' => [
+            'stored' => (int) ($syncPayload['sync']['stored'] ?? $syncPayload['stored'] ?? 0),
+            'accounts' => is_array($syncResults) ? count($syncResults) : 0,
+        ],
+        'mirror_import' => $import,
+    ];
+
+    return $summary;
 }
 
 function jg_wallet_undo_release(PDO $pdo, array $payload): array
@@ -344,6 +389,62 @@ function jg_wallet_empty_amounts(): array
         'last_released_at' => '',
         'last_order_at' => '',
     ];
+}
+
+function jg_wallet_release_amount(mixed $requestedAmount, int $walletBalance): int
+{
+    $walletBalance = max(0, $walletBalance);
+    if ($walletBalance <= 0) {
+        throw new InvalidArgumentException('wallet_balance_empty');
+    }
+
+    $rawAmount = is_string($requestedAmount) ? trim($requestedAmount) : $requestedAmount;
+    if ($rawAmount === '' || $rawAmount === null) {
+        return $walletBalance;
+    }
+
+    $amount = (int) round(jg_wallet_amount_value($rawAmount));
+    if ($amount <= 0) {
+        throw new InvalidArgumentException('wallet_release_amount_invalid');
+    }
+    if ($amount > $walletBalance) {
+        throw new InvalidArgumentException('wallet_release_amount_exceeds_balance');
+    }
+
+    return $amount;
+}
+
+function jg_wallet_amount_value(mixed $value): float
+{
+    if (is_int($value) || is_float($value)) {
+        return (float) $value;
+    }
+    $raw = trim((string) $value);
+    if (is_numeric($raw)) {
+        return (float) $raw;
+    }
+    $negative = str_starts_with($raw, '-');
+    $digits = preg_replace('/[^0-9]+/', '', $raw) ?? '';
+    if ($digits === '') {
+        return 0.0;
+    }
+
+    return (float) ($negative ? '-' . $digits : $digits);
+}
+
+function jg_wallet_date(string $value, string $fallback): string
+{
+    $raw = trim($value) !== '' ? trim($value) : $fallback;
+    try {
+        return (new DateTimeImmutable($raw, new DateTimeZone('Asia/Jakarta')))->format('Y-m-d');
+    } catch (Throwable) {
+        throw new InvalidArgumentException('wallet_backtrack_date_invalid');
+    }
+}
+
+function jg_wallet_today(): string
+{
+    return (new DateTimeImmutable('today', new DateTimeZone('Asia/Jakarta')))->format('Y-m-d');
 }
 
 function jg_wallet_account_key(string $platform, string $accountKey): string

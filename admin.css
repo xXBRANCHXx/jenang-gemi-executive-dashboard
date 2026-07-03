@@ -20304,6 +20304,29 @@ body:has(.admin-app[data-sku-db])::after {
   animation: admin-wallet-spin 900ms linear infinite;
 }
 
+.admin-wallet-backtrack {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  font: 800 0.76rem/1 "Space Grotesk", sans-serif;
+  cursor: pointer;
+}
+
+.admin-wallet-backtrack:hover:not(:disabled),
+.admin-wallet-backtrack:focus-visible:not(:disabled) {
+  border-color: color-mix(in srgb, var(--admin-accent) 58%, var(--admin-border));
+  outline: none;
+}
+
+.admin-wallet-backtrack:disabled {
+  color: var(--admin-muted);
+  cursor: not-allowed;
+  opacity: 0.66;
+}
+
 .admin-wallet-summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -20390,6 +20413,35 @@ body:has(.admin-app[data-sku-db])::after {
 
 .admin-wallet-action-cell {
   text-align: right;
+}
+
+.admin-wallet-release-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 220px;
+}
+
+.admin-wallet-release-amount {
+  width: 118px;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  font: 800 0.76rem/1 "Space Grotesk", sans-serif;
+}
+
+.admin-wallet-release-amount:focus {
+  border-color: color-mix(in srgb, var(--admin-accent) 58%, var(--admin-border));
+  outline: none;
+}
+
+.admin-wallet-release-amount:disabled {
+  color: var(--admin-muted);
+  opacity: 0.66;
 }
 
 .admin-wallet-action {

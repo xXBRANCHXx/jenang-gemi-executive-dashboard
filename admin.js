@@ -2564,6 +2564,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    releasedOut: document.querySelector('[data-wallet-total-out]'),
 	    modeButtons: document.querySelectorAll('[data-wallet-mode]'),
 	    refresh: document.querySelector('[data-wallet-refresh]'),
+	    backtrack: document.querySelector('[data-wallet-backtrack]'),
 	    walletPanel: document.querySelector('[data-wallet-wallet-panel]'),
 	    logPanel: document.querySelector('[data-wallet-log-panel]'),
 	    tableBody: document.querySelector('[data-wallet-table-body]'),
@@ -6259,6 +6260,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	  const walletAccountActionKey = (wallet) => `${wallet.platform || ''}|${wallet.account_key || ''}`;
 
+	  const walletActionStatus = (actionId = '') => {
+	    if (actionId === 'backtrack') return 'Backtracking from May 20, 2026';
+	    if (actionId.startsWith('release:')) return 'Releasing wallet';
+	    if (actionId.startsWith('undo:')) return 'Undoing release';
+	    return '';
+	  };
+
 	  const setWalletMode = (mode) => {
 	    state.wallet.mode = mode === 'log' ? 'log' : 'wallet';
 	    walletRefs.modeButtons.forEach((button) => {
@@ -6284,13 +6292,19 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (walletRefs.released) walletRefs.released.textContent = formatCurrency(totals.released_total || 0);
 	    if (walletRefs.releasedOut) walletRefs.releasedOut.textContent = formatCurrency(totals.released_out || 0);
 	    if (walletRefs.status) {
-	      walletRefs.status.textContent = state.wallet.loading
+	      walletRefs.status.textContent = walletActionStatus(activeAction) || (state.wallet.loading
 	        ? 'Loading wallets'
-	        : `${formatRegionalInteger(wallets.length)} wallets / ${formatRegionalInteger(logs.length)} releases`;
+	        : `${formatRegionalInteger(wallets.length)} wallets / ${formatRegionalInteger(logs.length)} releases`);
 	    }
 	    if (walletRefs.refresh) {
 	      walletRefs.refresh.disabled = state.wallet.loading;
 	      walletRefs.refresh.classList.toggle('is-loading', state.wallet.loading);
+	    }
+	    if (walletRefs.backtrack) {
+	      const backtracking = activeAction === 'backtrack';
+	      walletRefs.backtrack.disabled = state.wallet.loading || Boolean(activeAction);
+	      walletRefs.backtrack.textContent = backtracking ? 'Backtracking' : 'Backtrack';
+	      walletRefs.backtrack.classList.toggle('is-loading', backtracking);
 	    }
 
 	    if (walletRefs.tableBody) {
@@ -6308,7 +6322,12 @@ document.addEventListener('DOMContentLoaded', () => {
 	              <td><strong>${formatCurrency(balance)}</strong><small class="admin-wallet-muted">${formatCurrency(wallet.released_out || 0)} out</small></td>
 	              <td>${formatCurrency(wallet.outstanding_total || 0)}</td>
 	              <td><span class="admin-wallet-counts">${formatRegionalInteger(wallet.released_orders || 0)} / ${formatRegionalInteger(wallet.outstanding_orders || 0)}</span></td>
-	              <td class="admin-wallet-action-cell"><button type="button" class="admin-wallet-action" data-wallet-release data-wallet-platform="${escapeHtml(wallet.platform || '')}" data-wallet-account="${escapeHtml(wallet.account_key || '')}" ${disabled ? 'disabled' : ''}>${activeAction === actionKey ? 'Releasing' : 'Release'}</button></td>
+	              <td class="admin-wallet-action-cell">
+	                <div class="admin-wallet-release-control">
+	                  <input class="admin-wallet-release-amount" type="number" min="1" max="${balance}" step="1" inputmode="numeric" value="${balance > 0 ? balance : ''}" data-wallet-release-amount aria-label="Release amount for ${escapeHtml(wallet.label || wallet.account_key || 'wallet')}" ${disabled ? 'disabled' : ''}>
+	                  <button type="button" class="admin-wallet-action" data-wallet-release data-wallet-platform="${escapeHtml(wallet.platform || '')}" data-wallet-account="${escapeHtml(wallet.account_key || '')}" ${disabled ? 'disabled' : ''}>${activeAction === actionKey ? 'Releasing' : 'Release'}</button>
+	                </div>
+	              </td>
 	            </tr>
 	          `;
 	        }, 'No wallets found.');
@@ -7481,14 +7500,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	  const postWalletAction = async (action, body, actionId) => {
 	    state.wallet.actionId = actionId;
-	    if (walletRefs.status) walletRefs.status.textContent = action === 'release' ? 'Releasing wallet' : 'Undoing release';
+	    if (walletRefs.status) {
+	      walletRefs.status.textContent = walletActionStatus(actionId);
+	    }
 	    renderWallet(state.wallet.data);
 	    try {
 	      const data = await requestJson(walletActionUrl(action), {
 	        method: 'POST',
 	        headers: { 'Content-Type': 'application/json' },
 	        body: JSON.stringify(body),
-	        timeoutMs: 30000
+	        timeoutMs: action === 'backtrack' ? 240000 : 30000
 	      });
 	      state.wallet.loadedAt = Date.now();
 	      renderWallet(data);
@@ -8398,15 +8419,23 @@ document.addEventListener('DOMContentLoaded', () => {
 	    loadWalletSafely({ force: true, preferStale: false }).catch(() => {});
 	  });
 
+	  walletRefs.backtrack?.addEventListener('click', () => {
+	    postWalletAction('backtrack', {}, 'backtrack').catch(() => {});
+	  });
+
 	  walletRefs.tableBody?.addEventListener('click', (event) => {
 	    const button = event.target.closest('[data-wallet-release]');
 	    if (!(button instanceof HTMLElement)) return;
 	    const platform = button.getAttribute('data-wallet-platform') || '';
 	    const accountKey = button.getAttribute('data-wallet-account') || '';
 	    if (!platform || !accountKey) return;
+	    const row = button.closest('tr');
+	    const input = row?.querySelector('[data-wallet-release-amount]');
+	    const amount = input instanceof HTMLInputElement ? input.value : '';
 	    postWalletAction('release', {
 	      platform,
-	      account_key: accountKey
+	      account_key: accountKey,
+	      amount
 	    }, `release:${platform}|${accountKey}`).catch(() => {});
 	  });
 

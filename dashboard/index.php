@@ -606,6 +606,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
 	                    </div>
 	                    <div class="admin-wallet-actions">
 	                        <span class="admin-panel-meta" data-wallet-status>Loading wallets</span>
+	                        <button type="button" class="admin-wallet-backtrack" data-wallet-backtrack>Backtrack</button>
 	                        <button type="button" class="admin-orders-icon-btn admin-wallet-refresh" data-wallet-refresh aria-label="Refresh wallets">
 	                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 0 1-15.2 6.5L3 16"/><path d="M3 21v-5h5"/><path d="M3 12a9 9 0 0 1 15.2-6.5L21 8"/><path d="M21 3v5h-5"/></svg>
 	                        </button>
@@ -633,7 +634,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
 	                                    <th>Wallet</th>
 	                                    <th>Outstanding</th>
 	                                    <th>Orders</th>
-	                                    <th></th>
+	                                    <th>Release</th>
 	                                </tr>
 	                            </thead>
 	                            <tbody data-wallet-table-body>
