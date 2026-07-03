@@ -7818,13 +7818,17 @@ document.addEventListener('DOMContentLoaded', () => {
 	  const syncWalletReleases = async (options = {}) => {
 	    const ok = await postWalletAction(
 	      'sync_releases',
-	      { skip_remote: Boolean(options.skipRemote) },
+	      { skip_remote: Boolean(options.skipRemote), repair_backfill: Boolean(options.repairBackfill) },
 	      options.background ? 'sync_releases:background' : 'sync_releases',
 	      { timeoutMs: 95000, silent: Boolean(options.silent) }
 	    );
 	    if (ok) state.wallet.releaseSyncedAt = Date.now();
 	    if (!ok && options.fallback !== false) {
 	      return loadWalletSafely({ force: true, preferStale: false });
+	    }
+	    if (ok && options.repairBackfill && !options.background) {
+	      const repaired = await runWalletBacktrack(true);
+	      return repaired || ok;
 	    }
 	    return ok;
 	  };
@@ -8803,7 +8807,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	  });
 
 	  walletRefs.refresh?.addEventListener('click', () => {
-	    syncWalletReleases().catch(() => {
+	    syncWalletReleases({ repairBackfill: true }).catch(() => {
 	      loadWalletSafely({ force: true, preferStale: false }).catch(() => {});
 	    });
 	  });
