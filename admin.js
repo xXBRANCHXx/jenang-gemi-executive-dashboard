@@ -8747,7 +8747,15 @@ document.addEventListener('DOMContentLoaded', () => {
 	  });
 
 	  walletRefs.refresh?.addEventListener('click', () => {
-	    loadWalletSafely({ force: true, preferStale: false }).catch(() => {});
+	    if (walletRefs.status) walletRefs.status.textContent = 'Checking marketplace releases';
+	    runMarketplaceRefresh({ interactive: false }).then((synced) => {
+	      if (!synced) {
+	        return loadWalletSafely({ force: true, preferStale: false });
+	      }
+	      return true;
+	    }).catch(() => {
+	      loadWalletSafely({ force: true, preferStale: false }).catch(() => {});
+	    });
 	  });
 
 	  walletRefs.backtrack?.addEventListener('click', () => {
