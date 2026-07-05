@@ -374,14 +374,6 @@ const JENANG_GEMI_SEARCH_INDEX = [
     keywords: ['orders', 'marketplace', 'spreadsheet', 'revenue', 'cogs']
   },
   {
-    title: 'Wallet',
-    section: 'Admin',
-    description: 'Marketplace wallet balances, outstanding funds, withdrawals, and undo log.',
-    url: '../dashboard/?view=wallet',
-    view: 'wallet',
-    keywords: ['wallet', 'funds', 'released funds', 'shopee wallet', 'tiktok wallet', 'payout', 'withdrawal log']
-  },
-  {
     title: 'Open Context',
     section: 'Admin',
     description: 'Edit historical context values used by the Executive Sales C1 chart.',
@@ -532,7 +524,6 @@ const SALES_RECAP_METRICS = [
 const VIEW_CACHE_TTL_MS = {
   overview: 2 * 60 * 1000,
   orders: 2 * 60 * 1000,
-  wallet: 30 * 1000,
   daily: 5 * 60 * 1000,
   home: 90 * 1000,
   website: 2 * 60 * 1000,
@@ -2176,8 +2167,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	    executive: 'overview',
 	    homepage: 'overview',
 	    orders: 'orders',
-	    wallet: 'wallet',
-	    wallets: 'wallet',
 	    daily: 'daily',
 	    day: 'daily',
     'daily-report': 'daily',
@@ -2190,12 +2179,11 @@ document.addEventListener('DOMContentLoaded', () => {
     hardset: 'hard-set',
     'big-set': 'hard-set'
   };
-	  const validViews = new Set(['overview', 'orders', 'wallet', 'daily', 'store-ops', 'context', 'home', 'website', 'hard-set', 'settings']);
+	  const validViews = new Set(['overview', 'orders', 'daily', 'store-ops', 'context', 'home', 'website', 'hard-set', 'settings']);
   const quickMenuContextByView = {
 	    overview: 'overview',
 	    daily: 'daily',
 	    orders: 'orders',
-	    wallet: 'wallet',
 	    home: 'campaigns',
     context: 'context',
     website: 'website',
@@ -2203,21 +2191,19 @@ document.addEventListener('DOMContentLoaded', () => {
     settings: 'settings'
   };
   const quickMenuByContext = {
-	    overview: ['daily', 'orders', 'wallet', 'campaigns', 'back-dash', 'context', 'settings'],
-	    daily: ['home', 'orders', 'wallet', 'campaigns', 'back-dash', 'context', 'settings'],
-	    orders: ['home', 'daily', 'wallet', 'campaigns', 'back-dash', 'context', 'settings'],
-	    wallet: ['home', 'orders', 'daily', 'back-dash', 'settings'],
-	    campaigns: ['home', 'orders', 'wallet', 'affiliates', 'back-dash', 'context', 'settings'],
+	    overview: ['daily', 'orders', 'campaigns', 'back-dash', 'context', 'settings'],
+	    daily: ['home', 'orders', 'campaigns', 'back-dash', 'context', 'settings'],
+	    orders: ['home', 'daily', 'campaigns', 'back-dash', 'context', 'settings'],
+	    campaigns: ['home', 'orders', 'affiliates', 'back-dash', 'context', 'settings'],
 	    context: ['home', 'api', 'back-dash', 'settings'],
 	    settings: ['home', 'daily', 'orders', 'campaigns', 'context'],
-	    website: ['home', 'daily', 'orders', 'wallet', 'campaigns', 'affiliates', 'settings'],
+	    website: ['home', 'daily', 'orders', 'campaigns', 'affiliates', 'settings'],
 	    'hard-set': ['home', 'settings']
   };
   const faviconKeyByView = {
 	    overview: 'home',
 	    daily: 'home',
 	    orders: 'orders',
-	    wallet: 'wallet',
 	    'store-ops': 'orders',
     home: 'campaigns',
     context: 'home',
@@ -2233,10 +2219,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	    orders: {
 	      light: '/assets/admin-icons/favicon-orders-ops-light.svg',
 	      dark: '/assets/admin-icons/favicon-orders-ops-dark.svg'
-	    },
-	    wallet: {
-	      light: 'https://api.iconify.design/lucide:wallet.svg?color=%230f172a',
-	      dark: 'https://api.iconify.design/lucide:wallet.svg?color=%23ffffff'
 	    },
     campaigns: {
       light: '/assets/admin-icons/favicon-campaigns-light.svg',
@@ -2343,33 +2325,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	      },
 	      requestToken: 0
 	    },
-	    wallet: {
-	      data: null,
-	      loadedAt: 0,
-	      mode: 'wallet',
-	      loading: false,
-	      apiLoading: false,
-	      apiQuery: 'Jenang Gemi Shopee Wallet Info',
-	      apiResult: null,
-	      balanceEditorKey: '',
-	      withdrawal: {
-	        open: false,
-	        walletKey: '',
-	        platform: '',
-	        accountKey: '',
-	        label: '',
-	        balance: 0,
-	        amount: '',
-	        date: '',
-	        hour: '',
-	        note: ''
-	      },
-	      backtrackRunning: false,
-	      releaseSyncedAt: 0,
-	      releaseSyncPromise: null,
-	      actionId: '',
-	      requestToken: 0
-	    },
 	    daily: {
 	      month: getMonthKeyForTimezone(new Date(), regionalDefaults.timezone),
       data: null,
@@ -2462,7 +2417,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const jenangGemiStoreEndpoint = root.dataset.jenangGemiStoreEndpoint || '../api/jenang-gemi-store/';
 	  const websiteOrdersEndpoint = root.dataset.websiteOrdersEndpoint || '../api/website-orders/';
 	  const hardSetEndpoint = root.dataset.hardSetEndpoint || '../api/hard-set/';
-	  const walletEndpoint = root.dataset.walletEndpoint || '../api/wallet/';
 	  const provinceMapUrl = root.dataset.provinceMapUrl || '../assets/data/indonesia-38-provinces.geojson';
 
   const loader = document.querySelector('[data-admin-loader]');
@@ -2573,38 +2527,6 @@ document.addEventListener('DOMContentLoaded', () => {
     dateMonth: document.querySelector('[data-orders-date-month]'),
     datePrev: document.querySelector('[data-orders-date-prev]'),
 	    dateNext: document.querySelector('[data-orders-date-next]')
-	  };
-	  const walletRefs = {
-	    status: document.querySelector('[data-wallet-status]'),
-	    tableMeta: document.querySelector('[data-wallet-table-meta]'),
-	    balance: document.querySelector('[data-wallet-total-balance]'),
-	    outstanding: document.querySelector('[data-wallet-total-outstanding]'),
-	    released: document.querySelector('[data-wallet-total-released]'),
-	    releasedOut: document.querySelector('[data-wallet-total-out]'),
-	    modeButtons: document.querySelectorAll('[data-wallet-mode]'),
-	    refresh: document.querySelector('[data-wallet-refresh]'),
-	    backtrack: document.querySelector('[data-wallet-backtrack]'),
-	    walletPanel: document.querySelector('[data-wallet-wallet-panel]'),
-	    apiPanel: document.querySelector('[data-wallet-api-panel]'),
-	    apiInput: document.querySelector('[data-wallet-api-input]'),
-	    apiRun: document.querySelector('[data-wallet-api-run]'),
-	    apiCopy: document.querySelector('[data-wallet-api-copy]'),
-	    apiOutput: document.querySelector('[data-wallet-api-output]'),
-	    logPanel: document.querySelector('[data-wallet-log-panel]'),
-	    tableBody: document.querySelector('[data-wallet-table-body]'),
-	    logBody: document.querySelector('[data-wallet-log-body]'),
-	    withdrawModal: document.querySelector('[data-wallet-withdraw-modal]'),
-	    withdrawForm: document.querySelector('[data-wallet-withdraw-form]'),
-	    withdrawAccount: document.querySelector('[data-wallet-withdraw-account]'),
-	    withdrawPlatform: document.querySelector('[data-wallet-withdraw-platform]'),
-	    withdrawCurrent: document.querySelector('[data-wallet-withdraw-current]'),
-	    withdrawRemaining: document.querySelector('[data-wallet-withdraw-remaining]'),
-	    withdrawAmount: document.querySelector('[data-wallet-withdraw-amount]'),
-	    withdrawDate: document.querySelector('[data-wallet-withdraw-date]'),
-	    withdrawHour: document.querySelector('[data-wallet-withdraw-hour]'),
-	    withdrawNote: document.querySelector('[data-wallet-withdraw-note]'),
-	    withdrawSubmit: document.querySelector('[data-wallet-withdraw-submit]'),
-	    withdrawCloseButtons: document.querySelectorAll('[data-wallet-withdraw-close]')
 	  };
 	  const dailyRefs = {
     monthInput: document.querySelector('[data-daily-month]'),
@@ -3598,14 +3520,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	      }
 	      return;
 	    }
-	    if (view === 'wallet') {
-	      const message = error?.message || 'Unable to load wallets.';
-	      if (walletRefs.status) walletRefs.status.textContent = message;
-	      if (walletRefs.tableBody) walletRefs.tableBody.innerHTML = `<tr><td colspan="6" class="admin-empty">${escapeHtml(message)}</td></tr>`;
-	      if (walletRefs.logBody) walletRefs.logBody.innerHTML = `<tr><td colspan="6" class="admin-empty">${escapeHtml(message)}</td></tr>`;
-	      if (walletRefs.apiOutput) walletRefs.apiOutput.textContent = JSON.stringify({ ok: false, error: message }, null, 2);
-	      return;
-	    }
 	    const container = getFeedForView(view);
     if (view === 'home') {
       renderProductCartRundown(homeRefs.productCartRundown, homeRefs.productCartMeta, { items: [], total_cart_events: 0 });
@@ -3725,7 +3639,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const labels = {
 	    overview: 'Home',
 	    orders: 'Orders',
-	    wallet: 'Wallet',
 	    daily: 'Daily',
       'store-ops': 'Ops',
       context: 'Open Context',
@@ -3737,7 +3650,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const navSectionByView = {
 	    overview: 'home',
 	    orders: 'orders',
-	    wallet: 'wallet',
 	    daily: '',
       'store-ops': 'orders',
       context: 'home',
@@ -3815,12 +3727,6 @@ document.addEventListener('DOMContentLoaded', () => {
         homeRefs.sourceTableBody,
         homeRefs.recentEvents,
         homeRefs.sourceLegend
-	      ].filter(Boolean);
-	    }
-	    if (view === 'wallet') {
-	      return [
-	        walletRefs.tableBody,
-	        walletRefs.logBody
 	      ].filter(Boolean);
 	    }
 	    return [];
@@ -4817,7 +4723,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const hasFreshViewData = (view) => {
 	    if (view === 'overview') return Boolean(state.overview.data) && isFresh(state.overview.loadedAt, VIEW_CACHE_TTL_MS.overview);
 	    if (view === 'orders') return Boolean(state.orders.data) && isFresh(state.orders.loadedAt, VIEW_CACHE_TTL_MS.orders);
-	    if (view === 'wallet') return Boolean(state.wallet.data) && isFresh(state.wallet.loadedAt, VIEW_CACHE_TTL_MS.wallet);
 	    if (view === 'daily') return Boolean(state.daily.data) && isFresh(state.daily.loadedAt, VIEW_CACHE_TTL_MS.daily);
     if (view === 'home') return Boolean(state.home.data) && isFresh(state.home.loadedAt, VIEW_CACHE_TTL_MS.home);
     if (view === 'website') {
@@ -6250,10 +6155,10 @@ document.addEventListener('DOMContentLoaded', () => {
         : (hasOrderFilters()
           ? (state.orders.loadedAll ? 'No orders match the current filters.' : 'No loaded orders match the current filters yet.')
           : (state.orders.loadedAll ? 'No stored orders found.' : 'No stored orders found in the loaded window yet.'));
-	      ordersRefs.tableBody.innerHTML = `<tr><td colspan="12" class="admin-empty">${escapeHtml(message)}</td></tr>`;
+	      ordersRefs.tableBody.innerHTML = `<tr><td colspan="11" class="admin-empty">${escapeHtml(message)}</td></tr>`;
 	      return;
 	    }
-	    ordersRefs.tableBody.innerHTML = renderRows(visibleRows, 12, (row) => {
+	    ordersRefs.tableBody.innerHTML = renderRows(visibleRows, 11, (row) => {
 	      const platform = `${row.platform || '-'}${row.account_key ? ` / ${row.account_key}` : ''}`;
 	      const productLabel = row.product_name || 'Unlinked SKU';
       const allocation = Array.isArray(row.allocations) && row.allocations.length
@@ -6262,11 +6167,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	      const poNumbers = Array.isArray(row.allocations) && row.allocations.length
 	        ? [...new Set(row.allocations.map((item) => item.po_number).filter(Boolean))].join(', ')
 	        : '-';
-	      const fundsReleased = row.funds_released === true || row.funds_released === 1 || String(row.funds_released || '').toLowerCase() === 'true';
-	      const releasedAmount = Number(row.funds_released_amount || row.order_net_revenue || row.revenue || 0);
-	      const releasedTitle = fundsReleased
-	        ? `Funds released${releasedAmount > 0 ? `: ${formatCurrency(releasedAmount)}` : ''}${row.funds_released_at ? ` at ${formatOrderTimestamp(row.funds_released_at)}` : ''}`
-	        : 'Funds not released';
 	      return `
 	        <tr>
 	          <td>${escapeHtml(formatOrderTimestamp(row.order_create_time || row.timestamp))}</td>
@@ -6277,7 +6177,6 @@ document.addEventListener('DOMContentLoaded', () => {
           <td title="${escapeHtml(allocation)}">${escapeHtml(poNumbers)}</td>
 	          <td>${formatCellCurrency(row.revenue || 0)}</td>
 	          <td${row.cogs_estimated ? ' title="Estimated from SKU COGS until FIFO allocation is recorded"' : ''}>${formatCellCurrency(row.cogs || 0)}</td>
-	          <td class="admin-order-wallet-cell"><span class="admin-order-wallet-symbol${fundsReleased ? ' is-released' : ' is-pending'}" title="${escapeHtml(releasedTitle)}" aria-label="${escapeHtml(releasedTitle)}">${fundsReleased ? 'Rp' : '-'}</span></td>
 	          <td>${contactButton(row.username, 'username')}</td>
 	          <td>${contactButton(row.address, 'address')}</td>
 	          <td>${contactButton(row.phone, 'phone')}</td>
@@ -6286,341 +6185,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	    }, 'No loaded orders match the current filters yet.');
 	  };
 
-	  const walletActionUrl = (action = 'summary', params = {}) => {
-	    const url = new URL(walletEndpoint, window.location.href);
-	    url.searchParams.set('action', action);
-	    Object.entries(params || {}).forEach(([key, value]) => {
-	      if (value !== undefined && value !== null) url.searchParams.set(key, String(value));
-	    });
-	    url.searchParams.set('_ts', String(Date.now()));
-	    return url.toString();
-	  };
-
-	  const walletAmount = (value) => Math.max(0, Math.round(Number(value) || 0));
-
-	  const walletBacktrackStatus = (backtrack = state.wallet.data?.backtrack) => {
-	    if (!backtrack || backtrack.status === 'idle') return '';
-	    if (backtrack.status === 'failed') return `Backtrack failed: ${backtrack.last_error || 'retry required'}`;
-	    if (backtrack.status === 'complete') return `Backtrack complete / ${formatRegionalInteger(backtrack.imported_rows || 0)} rows checked`;
-	    if (!backtrack.active) return '';
-	    const progress = Math.max(1, Math.min(99, Math.round(Number(backtrack.progress) || 1)));
-	    const phase = backtrack.phase === 'import' ? 'importing' : 'syncing';
-	    const range = backtrack.cursor_date && backtrack.chunk_end ? `${backtrack.cursor_date} to ${backtrack.chunk_end}` : 'May 20, 2026';
-	    return `Backtracking ${progress}% / ${phase} ${range}`;
-	  };
-
-	  const walletActionStatus = (actionId = '') => {
-	    if (actionId === 'backtrack') return walletBacktrackStatus() || 'Backtracking from May 20, 2026';
-	    if (actionId.startsWith('sync_releases')) return 'Checking marketplace releases';
-	    if (actionId.startsWith('balance:')) return 'Setting wallet balance';
-	    if (actionId.startsWith('release:')) return 'Releasing wallet';
-	    if (actionId.startsWith('withdraw:')) return 'Withdrawing from wallet';
-	    if (actionId.startsWith('undo:')) return 'Undoing release';
-	    return '';
-	  };
-
-	  const setWalletMode = (mode) => {
-	    state.wallet.mode = ['wallet', 'api', 'log'].includes(mode) ? mode : 'wallet';
-	    walletRefs.modeButtons.forEach((button) => {
-	      const active = button.getAttribute('data-wallet-mode') === state.wallet.mode;
-	      button.classList.toggle('is-active', active);
-	      button.setAttribute('aria-pressed', active ? 'true' : 'false');
-	    });
-	    if (walletRefs.walletPanel) walletRefs.walletPanel.hidden = state.wallet.mode !== 'wallet';
-	    if (walletRefs.apiPanel) walletRefs.apiPanel.hidden = state.wallet.mode !== 'api';
-	    if (walletRefs.logPanel) walletRefs.logPanel.hidden = state.wallet.mode !== 'log';
-	    if (walletRefs.tableMeta) {
-	      walletRefs.tableMeta.textContent = state.wallet.mode === 'log'
-	        ? 'Manual log'
-	        : state.wallet.mode === 'api'
-	          ? 'API terminal'
-	          : 'Per account';
-	    }
-	  };
-
-	  const walletUpdateTime = (value) => {
-	    const date = parseOrderTimestamp(value || '');
-	    if (!date) return '';
-	    return formatDashboardTime(date, state.timezone, {
-	      hour: '2-digit',
-	      minute: '2-digit',
-	      hour12: false
-	    });
-	  };
-
-	  const walletMutationLabel = (wallet) => {
-	    const events = [
-	      { label: 'Set', value: wallet.manual_anchor_created_at || wallet.manual_anchor_observed_at || '' },
-	      { label: 'System', value: wallet.last_released_at || wallet.last_mirrored_at || '' },
-	      { label: 'Withdraw', value: wallet.last_withdrawn_at || '' }
-	    ]
-	      .map((event) => ({
-	        ...event,
-	        date: parseOrderTimestamp(event.value)
-	      }))
-	      .filter((event) => event.date && !Number.isNaN(event.date.getTime()))
-	      .sort((a, b) => b.date.getTime() - a.date.getTime());
-	    if (!events.length) return 'Last Update: -';
-	    const time = walletUpdateTime(events[0].value);
-	    return time ? `${events[0].label}: ${time}` : 'Last Update: -';
-	  };
-
-	  const walletDatetimeLocalValue = (value) => {
-	    const date = value ? new Date(value) : new Date();
-	    if (Number.isNaN(date.getTime())) return '';
-	    const offsetMs = date.getTimezoneOffset() * 60 * 1000;
-	    return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
-	  };
-
-	  const walletDateHourParts = (value = '') => {
-	    const date = value ? new Date(value) : new Date();
-	    const safeDate = Number.isNaN(date.getTime()) ? new Date() : date;
-	    const offsetMs = safeDate.getTimezoneOffset() * 60 * 1000;
-	    const localIso = new Date(safeDate.getTime() - offsetMs).toISOString();
-	    return {
-	      date: localIso.slice(0, 10),
-	      hour: `${localIso.slice(11, 13)}:00`
-	    };
-	  };
-
-	  const walletByKey = (walletKey) => {
-	    const wallets = Array.isArray(state.wallet.data?.wallets) ? state.wallet.data.wallets : [];
-	    return wallets.find((wallet) => `${wallet.platform || ''}|${wallet.account_key || ''}` === walletKey) || null;
-	  };
-
-	  const walletBalanceNote = (wallet) => {
-	    if (!wallet.wallet_balance_known) return 'Manual balance required';
-	    const anchor = formatCurrency(wallet.manual_anchor_balance || 0);
-	    if (wallet.wallet_activity_source === 'platform_wallet_transactions') {
-	      const activity = formatCurrency(wallet.wallet_activity_since_anchor_total || wallet.wallet_transaction_since_anchor_total || 0);
-	      return `${anchor} set + ${activity} wallet activity`;
-	    }
-	    const since = formatCurrency(wallet.released_since_anchor_total || 0);
-	    const withdrawn = formatCurrency(wallet.withdrawn_since_anchor_total || 0);
-	    return `${anchor} set + ${since} released - ${withdrawn} withdrawn`;
-	  };
-
-	  const syncWalletWithdrawalDraft = () => {
-	    const draft = state.wallet.withdrawal || {};
-	    if (walletRefs.withdrawAmount instanceof HTMLInputElement) draft.amount = walletRefs.withdrawAmount.value;
-	    if (walletRefs.withdrawDate instanceof HTMLInputElement) draft.date = walletRefs.withdrawDate.value;
-	    if (walletRefs.withdrawHour instanceof HTMLInputElement) draft.hour = walletRefs.withdrawHour.value;
-	    if (walletRefs.withdrawNote instanceof HTMLInputElement) draft.note = walletRefs.withdrawNote.value;
-	    state.wallet.withdrawal = draft;
-	    return draft;
-	  };
-
-	  const renderWalletWithdrawalTotals = () => {
-	    const draft = state.wallet.withdrawal || {};
-	    const balance = walletAmount(draft.balance);
-	    const amount = walletAmount(draft.amount);
-	    const remaining = Math.max(0, balance - amount);
-	    const valid = Boolean(draft.platform && draft.accountKey && draft.date && draft.hour)
-	      && amount > 0
-	      && amount <= balance
-	      && !state.wallet.loading
-	      && !state.wallet.actionId;
-	    if (walletRefs.withdrawCurrent) walletRefs.withdrawCurrent.textContent = formatCurrency(balance);
-	    if (walletRefs.withdrawRemaining) walletRefs.withdrawRemaining.textContent = formatCurrency(remaining);
-	    if (walletRefs.withdrawSubmit) {
-	      walletRefs.withdrawSubmit.disabled = !valid;
-	      walletRefs.withdrawSubmit.textContent = state.wallet.actionId.startsWith('withdraw:') ? 'Withdrawing' : 'Withdraw';
-	    }
-	  };
-
-	  const renderWalletWithdrawModal = () => {
-	    const draft = state.wallet.withdrawal || {};
-	    const isOpen = Boolean(draft.open);
-	    if (!walletRefs.withdrawModal) return;
-	    walletRefs.withdrawModal.hidden = !isOpen;
-	    walletRefs.withdrawModal.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
-	    if (!isOpen) return;
-	    if (walletRefs.withdrawAccount) walletRefs.withdrawAccount.textContent = draft.label || draft.accountKey || 'Wallet account';
-	    if (walletRefs.withdrawPlatform) walletRefs.withdrawPlatform.textContent = `${draft.platform || '-'} / ${draft.accountKey || '-'}`;
-	    const active = document.activeElement;
-	    if (walletRefs.withdrawAmount instanceof HTMLInputElement && active !== walletRefs.withdrawAmount) {
-	      walletRefs.withdrawAmount.value = draft.amount || '';
-	    }
-	    if (walletRefs.withdrawDate instanceof HTMLInputElement && active !== walletRefs.withdrawDate) {
-	      walletRefs.withdrawDate.value = draft.date || '';
-	    }
-	    if (walletRefs.withdrawHour instanceof HTMLInputElement && active !== walletRefs.withdrawHour) {
-	      walletRefs.withdrawHour.value = draft.hour || '';
-	    }
-	    if (walletRefs.withdrawNote instanceof HTMLInputElement && active !== walletRefs.withdrawNote) {
-	      walletRefs.withdrawNote.value = draft.note || '';
-	    }
-	    renderWalletWithdrawalTotals();
-	  };
-
-	  const openWalletWithdraw = (walletKey) => {
-	    const wallet = walletByKey(walletKey);
-	    if (!wallet) return;
-	    if (!wallet.wallet_balance_known) {
-	      state.wallet.balanceEditorKey = walletKey;
-	      if (walletRefs.status) walletRefs.status.textContent = 'Set this wallet once before withdrawing.';
-	      renderWallet(state.wallet.data);
-	      return;
-	    }
-	    const balance = walletAmount(wallet.wallet_balance);
-	    if (balance <= 0) {
-	      if (walletRefs.status) walletRefs.status.textContent = 'Wallet balance is empty.';
-	      return;
-	    }
-	    const parts = walletDateHourParts();
-	    state.wallet.withdrawal = {
-	      open: true,
-	      walletKey,
-	      platform: String(wallet.platform || ''),
-	      accountKey: String(wallet.account_key || ''),
-	      label: String(wallet.label || wallet.account_key || 'Wallet account'),
-	      balance,
-	      amount: '',
-	      date: parts.date,
-	      hour: parts.hour,
-	      note: ''
-	    };
-	    renderWalletWithdrawModal();
-	    window.setTimeout(() => walletRefs.withdrawAmount?.focus(), 0);
-	  };
-
-	  const closeWalletWithdraw = () => {
-	    state.wallet.withdrawal = {
-	      ...state.wallet.withdrawal,
-	      open: false
-	    };
-	    renderWalletWithdrawModal();
-	  };
-
-	  const walletOrderCounts = (wallet) => {
-	    const released = formatRegionalInteger(wallet.released_orders || 0);
-	    const open = formatRegionalInteger(wallet.outstanding_orders || 0);
-	    const nonSettling = Number(wallet.non_settling_orders || 0);
-	    return `${released} / ${open}${nonSettling > 0 ? ` / ${formatRegionalInteger(nonSettling)} excl` : ''}`;
-	  };
-
-	  const renderWalletApiOutput = () => {
-	    if (walletRefs.apiInput && document.activeElement !== walletRefs.apiInput) {
-	      walletRefs.apiInput.value = state.wallet.apiQuery || '';
-	    }
-	    if (walletRefs.apiRun) {
-	      walletRefs.apiRun.disabled = state.wallet.apiLoading;
-	      walletRefs.apiRun.textContent = state.wallet.apiLoading ? 'Running' : 'Run';
-	    }
-	    if (walletRefs.apiCopy) {
-	      walletRefs.apiCopy.disabled = !state.wallet.apiResult || state.wallet.apiLoading;
-	    }
-	    if (!walletRefs.apiOutput) return;
-	    const payload = state.wallet.apiResult || {
-	      query: state.wallet.apiQuery,
-	      endpoint: '/api/wallet/?action=terminal&query=' + encodeURIComponent(state.wallet.apiQuery || ''),
-	      result: 'ready'
-	    };
-	    walletRefs.apiOutput.textContent = JSON.stringify(payload, null, 2);
-	  };
-
-	  const renderWallet = (data = state.wallet.data) => {
-	    if (data) state.wallet.data = data;
-	    const wallets = Array.isArray(state.wallet.data?.wallets) ? state.wallet.data.wallets : [];
-	    const logs = Array.isArray(state.wallet.data?.logs) ? state.wallet.data.logs : [];
-	    const totals = state.wallet.data?.totals || {};
-	    const activeAction = state.wallet.actionId;
-	    const backtrack = state.wallet.data?.backtrack || {};
-
-	    setWalletMode(state.wallet.mode);
-	    renderWalletApiOutput();
-	    if (walletRefs.balance) {
-	      walletRefs.balance.textContent = Number(totals.manual_anchor_count || 0) > 0 ? formatCurrency(totals.wallet_balance || 0) : 'Set balance';
-	    }
-	    if (walletRefs.outstanding) walletRefs.outstanding.textContent = formatCurrency(totals.outstanding_total || 0);
-	    if (walletRefs.released) walletRefs.released.textContent = formatCurrency(totals.released_total || 0);
-	    if (walletRefs.releasedOut) walletRefs.releasedOut.textContent = formatCurrency(totals.released_out || 0);
-	    if (walletRefs.status) {
-	      walletRefs.status.textContent = walletActionStatus(activeAction) || walletBacktrackStatus(backtrack) || (state.wallet.loading
-	        ? 'Loading wallets'
-	        : `${formatRegionalInteger(wallets.length)} wallets / ${formatRegionalInteger(totals.outstanding_orders || 0)} outstanding / ${formatRegionalInteger(totals.manual_required_count || 0)} need set`);
-	    }
-	    if (walletRefs.refresh) {
-	      walletRefs.refresh.disabled = state.wallet.loading || Boolean(activeAction);
-	      walletRefs.refresh.classList.toggle('is-loading', state.wallet.loading || activeAction.startsWith('sync_releases'));
-	    }
-	    if (walletRefs.backtrack) {
-	      const backtracking = activeAction === 'backtrack' || Boolean(backtrack.active);
-	      walletRefs.backtrack.disabled = state.wallet.loading || Boolean(activeAction);
-	      walletRefs.backtrack.textContent = backtracking ? 'Backtracking' : 'Backtrack';
-	      walletRefs.backtrack.classList.toggle('is-loading', backtracking);
-	    }
-
-	    if (walletRefs.tableBody) {
-	      if (!wallets.length) {
-	        walletRefs.tableBody.innerHTML = `<tr><td colspan="6" class="admin-empty">${state.wallet.loading ? 'Loading wallets.' : 'No wallets found.'}</td></tr>`;
-	      } else {
-	        walletRefs.tableBody.innerHTML = renderRows(wallets, 6, (wallet) => {
-	          const balance = walletAmount(wallet.wallet_balance);
-	          const balanceKnown = Boolean(wallet.wallet_balance_known);
-	          const platform = escapeHtml(wallet.platform || '');
-	          const accountKey = escapeHtml(wallet.account_key || '');
-	          const walletKey = `${wallet.platform || ''}|${wallet.account_key || ''}`;
-	          const actionKey = `balance:${walletKey}`;
-	          const withdrawActionKey = `withdraw:${walletKey}`;
-	          const editorOpen = state.wallet.balanceEditorKey === walletKey;
-	          const disabled = state.wallet.loading || Boolean(activeAction);
-	          const canWithdraw = balanceKnown && balance > 0;
-	          return `
-	            <tr>
-	              <td class="admin-wallet-account">
-	                <span class="admin-wallet-account-title">
-	                  <strong>${escapeHtml(wallet.label || wallet.account_key || '-')}</strong>
-	                  <button type="button" class="admin-wallet-set-link" data-wallet-balance-toggle data-wallet-key="${escapeHtml(walletKey)}" ${disabled ? 'disabled' : ''}>${editorOpen ? 'Close' : 'Set'}</button>
-	                </span>
-	                <small>${escapeHtml(wallet.platform || '-')} / ${escapeHtml(wallet.account_key || '-')}</small>
-	                ${editorOpen ? `
-	                  <div class="admin-wallet-balance-control">
-	                    <input class="admin-wallet-balance-amount" type="number" min="0" step="1" inputmode="numeric" value="${balanceKnown ? balance : ''}" data-wallet-balance-amount aria-label="Wallet balance for ${escapeHtml(wallet.label || wallet.account_key || 'wallet')}" ${disabled ? 'disabled' : ''}>
-	                    <input class="admin-wallet-balance-at" type="datetime-local" value="${escapeHtml(walletDatetimeLocalValue(wallet.manual_anchor_observed_at || ''))}" data-wallet-balance-at aria-label="Observed time for ${escapeHtml(wallet.label || wallet.account_key || 'wallet')}" ${disabled ? 'disabled' : ''}>
-	                    <button type="button" class="admin-wallet-action" data-wallet-balance-set data-wallet-platform="${platform}" data-wallet-account="${accountKey}" ${disabled ? 'disabled' : ''}>${activeAction === actionKey ? 'Setting' : 'Save'}</button>
-	                  </div>
-	                ` : ''}
-	              </td>
-	              <td>${formatCurrency(wallet.released_total || 0)}</td>
-	              <td><strong>${balanceKnown ? formatCurrency(balance) : 'Set balance'}</strong><small class="admin-wallet-muted">${escapeHtml(walletBalanceNote(wallet))}</small></td>
-	              <td>${formatCurrency(wallet.outstanding_total || 0)}</td>
-	              <td><span class="admin-wallet-counts" title="Released / outstanding / excluded">${walletOrderCounts(wallet)}</span></td>
-	              <td class="admin-wallet-action-cell">
-	                <div class="admin-wallet-balance-summary">
-	                  <span><span class="admin-wallet-updated">${escapeHtml(walletMutationLabel(wallet))}</span></span>
-	                  <button type="button" class="admin-wallet-action" data-wallet-withdraw-open data-wallet-key="${escapeHtml(walletKey)}" ${(disabled || !canWithdraw) ? 'disabled' : ''}>${activeAction === withdrawActionKey ? 'Withdrawing' : 'Withdraw'}</button>
-	                </div>
-	              </td>
-	            </tr>
-	          `;
-	        }, 'No wallets found.');
-	      }
-	    }
-
-	    if (walletRefs.logBody) {
-	      if (!logs.length) {
-	        walletRefs.logBody.innerHTML = `<tr><td colspan="6" class="admin-empty">${state.wallet.loading ? 'Loading withdrawal log.' : 'No withdrawals yet.'}</td></tr>`;
-	      } else {
-	        walletRefs.logBody.innerHTML = renderRows(logs, 6, (log) => {
-	          const undone = Boolean(log.undone_at);
-	          const actionKey = `undo:${log.id}`;
-	          const disabled = state.wallet.loading || Boolean(activeAction) || undone;
-	          return `
-	            <tr>
-	              <td>${escapeHtml(formatOrderTimestamp(log.withdrawn_at || log.created_at || ''))}</td>
-	              <td class="admin-wallet-account"><strong>${escapeHtml(log.label || log.account_key || '-')}</strong><small>${escapeHtml(log.platform || '-')} / ${escapeHtml(log.account_key || '-')}</small></td>
-	              <td><strong>${formatCurrency(log.amount || 0)}</strong></td>
-	              <td>${escapeHtml(log.released_by || '-')}</td>
-	              <td><span class="admin-wallet-status-pill${undone ? ' is-undone' : ' is-active'}">${undone ? 'Undone' : 'Active'}</span></td>
-	              <td class="admin-wallet-action-cell"><button type="button" class="admin-wallet-action" data-wallet-undo="${escapeHtml(log.id || '')}" ${disabled ? 'disabled' : ''}>${activeAction === actionKey ? 'Undoing' : 'Undo'}</button></td>
-	            </tr>
-	          `;
-	        }, 'No withdrawals yet.');
-	      }
-	    }
-	    renderWalletWithdrawModal();
-	  };
 
   const closeOrdersDatePopover = () => {
     if (ordersRefs.datePopover) ordersRefs.datePopover.hidden = true;
@@ -7246,11 +6810,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	      await loadOrdersSafely({ force: true, preferStale: false, repair: true });
 	      return;
 	    }
-	    if (state.activeView === 'wallet') {
-	      await syncWalletReleases({ skipRemote: true, background: true });
-	      preloadOrderMemory({ reset: true, repair: true }).catch(() => {});
-	      return;
-	    }
 	    if (state.activeView === 'daily') {
 	      await loadDailySafely({ force: true, preferStale: false, repair: true });
 	      return;
@@ -7704,7 +7263,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    state.orders.loading = false;
 	    const message = error instanceof Error ? error.message : 'Unable to load orders.';
 	    if (ordersRefs.tableBody && !state.orders.rows.length) {
-	      ordersRefs.tableBody.innerHTML = `<tr><td colspan="12" class="admin-empty">${escapeHtml(message)}</td></tr>`;
+	      ordersRefs.tableBody.innerHTML = `<tr><td colspan="11" class="admin-empty">${escapeHtml(message)}</td></tr>`;
 	    }
     if (ordersRefs.status) ordersRefs.status.textContent = message;
     if (ordersRefs.loadMore) {
@@ -7724,198 +7283,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 	  };
 
-	  const shouldAutoSyncWalletReleases = (options = {}) => {
-	    if (options.skipReleaseSync) return false;
-	    if (state.wallet.releaseSyncPromise || state.wallet.backtrackRunning) return false;
-	    if (state.wallet.actionId && !String(state.wallet.actionId).startsWith('sync_releases')) return false;
-	    const lastStarted = Number(state.wallet.releaseSyncedAt || 0);
-	    if (!lastStarted) return true;
-	    if (options.force) return Date.now() - lastStarted > 30000;
-	    return Date.now() - lastStarted >= AUTO_REFRESH_INTERVAL_MS;
-	  };
-
-	  const startWalletReleaseSync = (options = {}) => {
-	    if (!shouldAutoSyncWalletReleases(options)) return;
-	    state.wallet.releaseSyncedAt = Date.now();
-	    state.wallet.releaseSyncPromise = syncWalletReleases({
-	      background: true,
-	      fallback: false,
-	      silent: true
-	    }).finally(() => {
-	      state.wallet.releaseSyncPromise = null;
-	    });
-	  };
-
-	  const loadWallet = async (options = {}) => {
-	    if (!options.force && state.wallet.data) {
-	      if (isFresh(state.wallet.loadedAt, VIEW_CACHE_TTL_MS.wallet)) {
-	        renderWallet(state.wallet.data);
-	        startWalletReleaseSync(options);
-	        return;
-	      }
-	      if (options.preferStale !== false) {
-	        renderWallet(state.wallet.data);
-	        if (!options.background) queueViewRefresh('wallet');
-	        return;
-	      }
-	    }
-	    const requestToken = beginRequest('wallet');
-	    state.wallet.loading = true;
-	    renderWallet(state.wallet.data);
-	    try {
-	      const data = await requestJson(walletActionUrl('summary'), { timeoutMs: 30000 });
-	      if (!isLatestRequest('wallet', requestToken)) return;
-	      state.wallet.loadedAt = Date.now();
-	      state.wallet.loading = false;
-	      renderWallet(data);
-	      startWalletReleaseSync(options);
-	      if (data?.backtrack?.active && !state.wallet.backtrackRunning && !options.background) {
-	        runWalletBacktrack(false).catch(() => {});
-	      }
-	    } catch (error) {
-	      if (isLatestRequest('wallet', requestToken)) {
-	        state.wallet.loading = false;
-	      }
-	      throw error;
-	    }
-	  };
-
-	  const loadWalletSafely = async (options = {}) => {
-	    try {
-	      await loadWallet(options);
-	      return true;
-	    } catch (error) {
-	      renderViewError('wallet', error);
-	      return false;
-	    }
-	  };
-
-	  const postWalletAction = async (action, body, actionId, options = {}) => {
-	    state.wallet.actionId = actionId;
-	    if (walletRefs.status) {
-	      walletRefs.status.textContent = walletActionStatus(actionId);
-	    }
-	    renderWallet(state.wallet.data);
-	    try {
-	      const data = await requestJson(walletActionUrl(action), {
-	        method: 'POST',
-	        headers: { 'Content-Type': 'application/json' },
-	        body: JSON.stringify(body),
-	        timeoutMs: options.timeoutMs || 30000
-	      });
-	      state.wallet.loadedAt = Date.now();
-	      renderWallet(data);
-	      return true;
-	    } catch (error) {
-	      if (options.silent) {
-	        if (walletRefs.status) walletRefs.status.textContent = error?.message || 'Wallet refresh unavailable';
-	      } else {
-	        renderViewError('wallet', error);
-	      }
-	      return false;
-	    } finally {
-	      state.wallet.actionId = '';
-	      renderWallet(state.wallet.data);
-	    }
-	  };
-
-	  const syncWalletReleases = async (options = {}) => {
-	    const ok = await postWalletAction(
-	      'sync_releases',
-	      { skip_remote: Boolean(options.skipRemote), repair_backfill: Boolean(options.repairBackfill) },
-	      options.background ? 'sync_releases:background' : 'sync_releases',
-	      { timeoutMs: 95000, silent: Boolean(options.silent) }
-	    );
-	    if (ok) state.wallet.releaseSyncedAt = Date.now();
-	    if (!ok && options.fallback !== false) {
-	      return loadWalletSafely({ force: true, preferStale: false });
-	    }
-	    if (ok && options.repairBackfill && !options.background) {
-	      const repaired = await runWalletBacktrack(true);
-	      return repaired || ok;
-	    }
-	    return ok;
-	  };
-
-	  const runWalletTerminal = async () => {
-	    const query = walletRefs.apiInput instanceof HTMLInputElement ? walletRefs.apiInput.value.trim() : state.wallet.apiQuery;
-	    state.wallet.apiQuery = query || 'Jenang Gemi Shopee Wallet Info';
-	    state.wallet.apiLoading = true;
-	    state.wallet.mode = 'api';
-	    renderWallet(state.wallet.data);
-	    try {
-	      const data = await requestJson(walletActionUrl('terminal', { query: state.wallet.apiQuery }), { timeoutMs: 30000 });
-	      state.wallet.apiResult = data;
-	      if (walletRefs.status) walletRefs.status.textContent = data?.command || 'Wallet API ready';
-	      renderWallet(state.wallet.data);
-	      return true;
-	    } catch (error) {
-	      state.wallet.apiResult = { ok: false, error: error?.message || 'wallet_api_failed', query: state.wallet.apiQuery };
-	      if (walletRefs.status) walletRefs.status.textContent = state.wallet.apiResult.error;
-	      renderWallet(state.wallet.data);
-	      return false;
-	    } finally {
-	      state.wallet.apiLoading = false;
-	      renderWallet(state.wallet.data);
-	    }
-	  };
-
-	  const copyWalletApiResult = async () => {
-	    const output = walletRefs.apiOutput?.textContent || '';
-	    if (!output) return;
-	    try {
-	      await navigator.clipboard.writeText(output);
-	      if (walletRefs.status) walletRefs.status.textContent = 'Wallet API copied';
-	    } catch (error) {
-	      if (walletRefs.status) walletRefs.status.textContent = 'Copy unavailable';
-	    }
-	  };
-
-	  const runWalletBacktrack = async (startNew = true) => {
-	    if (state.wallet.backtrackRunning) return true;
-	    state.wallet.backtrackRunning = true;
-	    state.wallet.actionId = 'backtrack';
-	    renderWallet(state.wallet.data);
-	    try {
-	      let data = state.wallet.data;
-	      if (startNew || !data?.backtrack?.active) {
-	        data = await requestJson(walletActionUrl('backtrack'), {
-	          method: 'POST',
-	          headers: { 'Content-Type': 'application/json' },
-	          body: JSON.stringify({}),
-	          timeoutMs: 30000
-	        });
-	        state.wallet.loadedAt = Date.now();
-	        renderWallet(data);
-	      }
-
-	      let backtrack = data?.backtrack || state.wallet.data?.backtrack || {};
-	      for (let step = 0; backtrack.active && step < 1000; step += 1) {
-	        await wait(200);
-	        const stepData = await requestJson(walletActionUrl('backtrack_step'), {
-	          method: 'POST',
-	          headers: { 'Content-Type': 'application/json' },
-	          body: JSON.stringify({ run_key: backtrack.run_key || '' }),
-	          timeoutMs: 130000
-	        });
-	        state.wallet.loadedAt = Date.now();
-	        renderWallet(stepData);
-	        backtrack = stepData.backtrack || {};
-	      }
-
-	      if (backtrack.status === 'complete') {
-	        await loadWalletSafely({ force: true, preferStale: false });
-	      }
-	      return backtrack.status === 'complete';
-	    } catch (error) {
-	      renderViewError('wallet', error);
-	      return false;
-	    } finally {
-	      state.wallet.actionId = '';
-	      state.wallet.backtrackRunning = false;
-	      renderWallet(state.wallet.data);
-	    }
-	  };
 
 	  const loadDailySafely = async (options = {}) => {
     try {
@@ -7961,10 +7328,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	    }
 	    if (state.activeView === 'orders') {
 	      await loadOrders(options);
-	      return;
-	    }
-	    if (state.activeView === 'wallet') {
-	      await loadWallet(options);
 	      return;
 	    }
 	    if (state.activeView === 'daily') {
@@ -8049,9 +7412,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (state.activeView === 'orders') {
 	      return loadOrdersSafely(options);
 	    }
-	    if (state.activeView === 'wallet') {
-	      return loadWalletSafely(options);
-	    }
 	    if (state.activeView === 'daily') {
 	      return loadDailySafely(options);
 	    }
@@ -8111,7 +7471,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	    const options = { force: true, preferStale: false, background: true };
 	    if (view === 'overview') return loadOverviewSafely({ ...options, forceRefresh: true });
 	    if (view === 'orders') return loadOrdersSafely(options);
-	    if (view === 'wallet') return loadWalletSafely(options);
 	    if (view === 'daily') return loadDailySafely(options);
     if (view === 'home') return loadHomeSafely(options);
     if (view === 'website' && state.website.screen === 'detail' && state.website.site) return loadWebsiteSafely(options);
@@ -8133,7 +7492,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	    await Promise.allSettled([
 	      loadOverviewSafely({ force: true, preferStale: false }),
 	      state.activeView === 'orders' ? loadOrdersSafely({ force: true, preferStale: false }) : Promise.resolve(true),
-	      state.activeView === 'wallet' ? loadWalletSafely({ force: true, preferStale: false }) : Promise.resolve(true),
 	      state.activeView === 'daily' ? loadDailySafely({ force: true, preferStale: false }) : Promise.resolve(true)
 	    ]);
     return true;
@@ -8142,7 +7500,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const renderCachedCharts = () => {
 	    if (state.activeView === 'overview' && state.overview.data) renderOverview(state.overview.data);
 	    if (state.activeView === 'daily' && state.daily.data) renderDaily(aggregateDailyData(Array.isArray(state.daily.rows) ? state.daily.rows : state.daily.data.rows, state.daily.month));
-	    if (state.activeView === 'wallet' && state.wallet.data) renderWallet(state.wallet.data);
 	    if (state.activeView === 'home' && state.home.data) renderHome(state.home.data);
     if (state.activeView === 'website' && state.website.screen === 'detail' && state.website.data) renderWebsite(state.website.data);
   };
@@ -8180,9 +7537,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (state.activeView === 'orders') {
 	      renderOrdersDateCalendar();
 	      renderOrders();
-	    }
-	    if (state.activeView === 'wallet') {
-	      renderWallet();
 	    }
     if (state.activeView === 'overview') {
       renderOverviewRangeCalendar();
@@ -8282,11 +7636,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	    const reason = String(payload.reason || '').toLowerCase();
 	    const orderRelated = reason.includes('order') || reason.includes('marketplace') || reason.includes('sales');
 	    if (orderRelated) {
-	      if (state.activeView === 'orders' || state.activeView === 'daily' || state.activeView === 'overview' || state.activeView === 'wallet') {
+	      if (state.activeView === 'orders' || state.activeView === 'daily' || state.activeView === 'overview') {
 	        queueActiveViewRefresh({ force: true, forceRefresh: true, repair: true });
-	      }
-	      if (state.activeView !== 'wallet') {
-	        queueViewRefresh('wallet').catch(() => {});
 	      }
 	      refreshOverviewHourlyRows(null, { repair: true }).catch(() => {});
       if (state.activeView === 'overview') {
@@ -8341,9 +7692,6 @@ document.addEventListener('DOMContentLoaded', () => {
           : Promise.resolve(true),
 	        !state.website.settingsLoadedAt
 	          ? loadWebsiteSettingsSafely({ background: true, preferStale: false })
-	          : Promise.resolve(true),
-	        state.activeView !== 'wallet' && !state.wallet.data
-	          ? loadWalletSafely({ background: true, preferStale: false, skipReleaseSync: true })
 	          : Promise.resolve(true),
 	        loadOrderCatalog(),
         loadNotifications(),
@@ -8801,124 +8149,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (!hoverDate || hoverDate === state.zeroStore.hoverDate) return;
 	    state.zeroStore.hoverDate = hoverDate;
 	    renderZeroDiscountCalendar();
-	  });
-
-	  walletRefs.modeButtons.forEach((button) => {
-	    button.addEventListener('click', () => {
-	      setWalletMode(button.getAttribute('data-wallet-mode') || 'wallet');
-	      renderWalletApiOutput();
-	    });
-	  });
-
-	  walletRefs.refresh?.addEventListener('click', () => {
-	    syncWalletReleases({ repairBackfill: true }).catch(() => {
-	      loadWalletSafely({ force: true, preferStale: false }).catch(() => {});
-	    });
-	  });
-
-	  walletRefs.backtrack?.addEventListener('click', () => {
-	    runWalletBacktrack(true).catch(() => {});
-	  });
-
-	  walletRefs.apiRun?.addEventListener('click', () => {
-	    runWalletTerminal().catch(() => {});
-	  });
-
-	  walletRefs.apiInput?.addEventListener('keydown', (event) => {
-	    if (event.key !== 'Enter') return;
-	    event.preventDefault();
-	    runWalletTerminal().catch(() => {});
-	  });
-
-	  walletRefs.apiInput?.addEventListener('input', () => {
-	    if (walletRefs.apiInput instanceof HTMLInputElement) {
-	      state.wallet.apiQuery = walletRefs.apiInput.value;
-	      renderWalletApiOutput();
-	    }
-	  });
-
-	  walletRefs.apiCopy?.addEventListener('click', () => {
-	    copyWalletApiResult().catch(() => {});
-	  });
-
-	  walletRefs.tableBody?.addEventListener('click', (event) => {
-	    const withdraw = event.target.closest('[data-wallet-withdraw-open]');
-	    if (withdraw instanceof HTMLElement) {
-	      openWalletWithdraw(withdraw.getAttribute('data-wallet-key') || '');
-	      return;
-	    }
-
-	    const toggle = event.target.closest('[data-wallet-balance-toggle]');
-	    if (toggle instanceof HTMLElement) {
-	      const walletKey = toggle.getAttribute('data-wallet-key') || '';
-	      state.wallet.balanceEditorKey = state.wallet.balanceEditorKey === walletKey ? '' : walletKey;
-	      renderWallet(state.wallet.data);
-	      return;
-	    }
-
-	    const button = event.target.closest('[data-wallet-balance-set]');
-	    if (!(button instanceof HTMLElement)) return;
-	    const platform = button.getAttribute('data-wallet-platform') || '';
-	    const accountKey = button.getAttribute('data-wallet-account') || '';
-	    if (!platform || !accountKey) return;
-	    const row = button.closest('tr');
-	    const amountInput = row?.querySelector('[data-wallet-balance-amount]');
-	    const observedInput = row?.querySelector('[data-wallet-balance-at]');
-	    const balance = amountInput instanceof HTMLInputElement ? amountInput.value : '';
-	    const observedAt = observedInput instanceof HTMLInputElement ? observedInput.value : '';
-	    postWalletAction('set_balance', {
-	      platform,
-	      account_key: accountKey,
-	      balance,
-	      observed_at: observedAt
-	    }, `balance:${platform}|${accountKey}`).then((saved) => {
-	      if (saved) {
-	        state.wallet.balanceEditorKey = '';
-	        renderWallet(state.wallet.data);
-	      }
-	    }).catch(() => {});
-	  });
-
-	  walletRefs.withdrawCloseButtons.forEach((button) => {
-	    button.addEventListener('click', () => closeWalletWithdraw());
-	  });
-
-	  [walletRefs.withdrawAmount, walletRefs.withdrawDate, walletRefs.withdrawHour, walletRefs.withdrawNote].forEach((input) => {
-	    input?.addEventListener('input', () => {
-	      syncWalletWithdrawalDraft();
-	      renderWalletWithdrawalTotals();
-	    });
-	  });
-
-	  walletRefs.withdrawForm?.addEventListener('submit', (event) => {
-	    event.preventDefault();
-	    const draft = syncWalletWithdrawalDraft();
-	    const amount = walletAmount(draft.amount);
-	    if (!draft.platform || !draft.accountKey || !draft.date || !draft.hour || amount <= 0) return;
-	    const withdrawnAt = `${draft.date}T${draft.hour}`;
-	    postWalletAction('withdraw', {
-	      platform: draft.platform,
-	      account_key: draft.accountKey,
-	      amount,
-	      withdrawn_at: withdrawnAt,
-	      note: draft.note || ''
-	    }, `withdraw:${draft.platform}|${draft.accountKey}`).then((saved) => {
-	      if (saved) closeWalletWithdraw();
-	    }).catch(() => {});
-	  });
-
-	  document.addEventListener('keydown', (event) => {
-	    if (event.key === 'Escape' && state.wallet.withdrawal?.open) {
-	      closeWalletWithdraw();
-	    }
-	  });
-
-	  walletRefs.logBody?.addEventListener('click', (event) => {
-	    const button = event.target.closest('[data-wallet-undo]');
-	    if (!(button instanceof HTMLElement)) return;
-	    const id = Number(button.getAttribute('data-wallet-undo') || 0);
-	    if (!id) return;
-	    postWalletAction('undo', { id }, `undo:${id}`).catch(() => {});
 	  });
 
 	  ordersRefs.loadMore?.addEventListener('click', async () => {
