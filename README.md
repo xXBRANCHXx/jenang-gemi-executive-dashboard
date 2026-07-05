@@ -55,8 +55,8 @@ Private admin dashboard for `admin.jenanggemi.com` behind a public Launch Pad.
   view reloads read cached/local data. Visible dashboard sessions automatically
   run a throttled rolling marketplace sync/repair for yesterday and today; the
   Overview `Refresh view` button runs the same path immediately.
-- Wallet API reads the local marketplace order mirror and uses a manual balance
-  anchor as the source-of-truth for current wallet cash. The reported wallet
+- Wallet reads the local marketplace order mirror and uses a manual balance
+  anchor as the source-of-truth for current wallet cash. The displayed Wallet
   balance is the latest manually entered wallet balance plus marketplace releases
   after that anchor time minus withdrawals recorded after that anchor time.
   Cancelled and other non-settling orders are excluded from outstanding balances.
@@ -69,11 +69,9 @@ Private admin dashboard for `admin.jenanggemi.com` behind a public Launch Pad.
   `balance`, and optional `observed_at`. Use `POST /api/wallet/?action=withdraw`
   with `platform`, `account_key`, `amount`, and optional `withdrawn_at` to record
   marketplace cash-out or bank withdrawals without manually overwriting the
-  current wallet value. Use
-  `POST /api/wallet/?action=sync_releases` for the quick release sync and
-  `POST /api/wallet/?action=backtrack` / `POST /api/wallet/?action=backtrack_step`
-  for chunked repair so releases after a balance anchor can be recovered without
-  one long request. Use
+  current wallet value. The Wallet refresh button runs the quick release sync,
+  then starts the chunked backtrack repair so releases after a balance anchor
+  can be recovered without one long request. Use
   `POST /api/wallet/?action=backfill_releases` to run a larger marketplace
   release backfill and log before/after wallet totals.
 - Website checkout notifications and paid metrics are independent of the Hard Set switch. An explicit high-entropy `store_ops_website_token` can be configured on both applications; otherwise both deployments derive the bearer token from their existing shared marketplace setup credential. Configure `store_ops_base_url` and `executive_dashboard_url` before activation readiness can pass.

@@ -59,6 +59,13 @@ function admin_quick_menu_definitions(): array
             'label' => 'Orders',
             'description' => 'Order detail and fulfillment facts',
         ],
+        'wallet' => [
+            'href' => '../dashboard/?view=wallet',
+            'view' => 'wallet',
+            'icon' => 'wallet',
+            'label' => 'Wallet',
+            'description' => 'Marketplace wallet balances',
+        ],
         'campaigns' => [
             'href' => '../dashboard/?view=campaigns',
             'view' => 'home',
@@ -135,10 +142,11 @@ function admin_quick_menu_definitions(): array
 function admin_quick_menu_context_map(): array
 {
     return [
-        'overview' => ['daily', 'orders', 'campaigns', 'back-dash', 'context', 'settings'],
-        'daily' => ['home', 'orders', 'campaigns', 'back-dash', 'context', 'settings'],
-        'orders' => ['home', 'daily', 'campaigns', 'back-dash', 'context', 'settings'],
-        'campaigns' => ['home', 'orders', 'affiliates', 'back-dash', 'context', 'settings'],
+        'overview' => ['daily', 'orders', 'wallet', 'campaigns', 'back-dash', 'context', 'settings'],
+        'daily' => ['home', 'orders', 'wallet', 'campaigns', 'back-dash', 'context', 'settings'],
+        'orders' => ['home', 'daily', 'wallet', 'campaigns', 'back-dash', 'context', 'settings'],
+        'wallet' => ['home', 'orders', 'daily', 'back-dash', 'settings'],
+        'campaigns' => ['home', 'orders', 'wallet', 'affiliates', 'back-dash', 'context', 'settings'],
         'back-dash' => ['home', 'api', 'context', 'hard-set', 'settings'],
         'context' => ['home', 'api', 'back-dash', 'settings'],
         'settings' => ['home', 'daily', 'orders', 'campaigns', 'context'],
@@ -190,6 +198,7 @@ function admin_dashboard_view_menu_context(): string
         'homepage' => 'overview',
         'daily' => 'daily',
         'orders' => 'orders',
+        'wallet' => 'wallet',
         'home' => 'campaigns',
         'campaign' => 'campaigns',
         'campaigns' => 'campaigns',
@@ -295,6 +304,10 @@ function admin_favicon_assets(): array
             'light' => '/assets/admin-icons/favicon-orders-ops-light.svg',
             'dark' => '/assets/admin-icons/favicon-orders-ops-dark.svg',
         ],
+        'wallet' => [
+            'light' => 'https://api.iconify.design/lucide:wallet.svg?color=%230f172a',
+            'dark' => 'https://api.iconify.design/lucide:wallet.svg?color=%23ffffff',
+        ],
         'profit-loss' => [
             'light' => '/assets/admin-icons/favicon-profit-loss-light.svg',
             'dark' => '/assets/admin-icons/favicon-profit-loss-dark.svg',
@@ -318,6 +331,7 @@ function admin_normalize_favicon_key(string $key): string
         'context' => 'home',
         'store-ops' => 'orders',
         'ops' => 'orders',
+        'wallets' => 'wallet',
         'affiliate' => 'affiliates',
         'affiliate-program' => 'affiliates',
         'affiliate-profile' => 'affiliates',
@@ -347,6 +361,7 @@ function admin_dashboard_view_favicon_key(): string
         'daily' => 'home',
         'orders' => 'orders',
         'store-ops' => 'orders',
+        'wallet' => 'wallet',
         'home' => 'campaigns',
         'campaign' => 'campaigns',
         'campaigns' => 'campaigns',
@@ -394,6 +409,14 @@ function render_admin_sidebar(string $activeSection = ''): void
             'icon' => 'admin-rail-icon-orders',
             'aria' => 'Open marketplace orders',
             'view' => 'orders',
+        ],
+        [
+            'key' => 'wallet',
+            'href' => '../dashboard/?view=wallet',
+            'label' => 'Wallet',
+            'icon' => 'admin-rail-icon-wallet',
+            'aria' => 'Open marketplace wallets',
+            'view' => 'wallet',
         ],
         [
             'key' => 'website',
@@ -631,6 +654,7 @@ function admin_topbar_menu_icon(string $icon): string
         'home' => '<svg viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
         'calendar' => '<svg viewBox="0 0 24 24"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>',
         'orders' => '<svg viewBox="0 0 24 24"><path d="M13 16H8"/><path d="M14 8H8"/><path d="M16 12H8"/><path d="M4 3a1 1 0 0 1 1-1 1.3 1.3 0 0 1 .7.2l.933.6a1.3 1.3 0 0 0 1.4 0l.934-.6a1.3 1.3 0 0 1 1.4 0l.933.6a1.3 1.3 0 0 0 1.4 0l.933-.6a1.3 1.3 0 0 1 1.4 0l.934.6a1.3 1.3 0 0 0 1.4 0l.933-.6A1.3 1.3 0 0 1 19 2a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1 1.3 1.3 0 0 1-.7-.2l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.934.6a1.3 1.3 0 0 1-1.4 0l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-1.4 0l-.934-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-.7.2 1 1 0 0 1-1-1z"/></svg>',
+        'wallet' => '<img src="https://cdn.jsdelivr.net/npm/lucide-static@0.468.0/icons/wallet.svg" alt="" width="21" height="21" loading="lazy" referrerpolicy="no-referrer">',
         'campaigns' => '<svg viewBox="0 0 24 24"><path d="M11 6a13 13 0 0 0 8.4-2.8A1 1 0 0 1 21 4v12a1 1 0 0 1-1.6.8A13 13 0 0 0 11 14H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/><path d="M6 14a12 12 0 0 0 2.4 7.2 2 2 0 0 0 3.2-2.4A8 8 0 0 1 10 14"/><path d="M8 6v8"/></svg>',
         'profit-loss' => '<svg viewBox="0 0 24 24"><path d="M12 16v5"/><path d="M16 14.639V21"/><path d="M20 10.656V21"/><path d="m22 3-8.646 8.646a.5.5 0 0 1-.708 0L9.354 8.354a.5.5 0 0 0-.707 0L2 15"/><path d="M4 18.463V21"/><path d="M8 14.656V21"/></svg>',
         'back-dash' => '<svg viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>',
