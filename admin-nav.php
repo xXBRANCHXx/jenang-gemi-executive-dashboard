@@ -142,7 +142,7 @@ function admin_quick_menu_definitions(): array
 function admin_quick_menu_context_map(): array
 {
     return [
-        'overview' => ['daily', 'orders', 'wallet', 'campaigns', 'back-dash', 'context', 'settings'],
+        'overview' => ['daily', 'orders', 'campaigns', 'back-dash', 'context', 'settings'],
         'daily' => ['home', 'orders', 'wallet', 'campaigns', 'back-dash', 'context', 'settings'],
         'orders' => ['home', 'daily', 'wallet', 'campaigns', 'back-dash', 'context', 'settings'],
         'wallet' => ['home', 'orders', 'daily', 'back-dash', 'settings'],
@@ -463,6 +463,14 @@ function render_admin_sidebar(string $activeSection = ''): void
             'aria' => 'Open SKU database',
         ],
     ];
+
+    $menuContext = admin_current_menu_context();
+    if (in_array($menuContext, ['overview', 'settings'], true)) {
+        $items = array_values(array_filter(
+            $items,
+            static fn (array $item): bool => strtolower((string) ($item['key'] ?? '')) !== 'wallet'
+        ));
+    }
 
     $footerItems = [
         [

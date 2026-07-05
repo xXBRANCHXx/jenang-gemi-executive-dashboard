@@ -2203,7 +2203,7 @@ document.addEventListener('DOMContentLoaded', () => {
     settings: 'settings'
   };
   const quickMenuByContext = {
-	    overview: ['daily', 'orders', 'wallet', 'campaigns', 'back-dash', 'context', 'settings'],
+	    overview: ['daily', 'orders', 'campaigns', 'back-dash', 'context', 'settings'],
 	    daily: ['home', 'orders', 'wallet', 'campaigns', 'back-dash', 'context', 'settings'],
 	    orders: ['home', 'daily', 'wallet', 'campaigns', 'back-dash', 'context', 'settings'],
 	    wallet: ['home', 'orders', 'daily', 'back-dash', 'settings'],
@@ -3759,8 +3759,13 @@ document.addEventListener('DOMContentLoaded', () => {
         button.removeAttribute('aria-current');
       }
     });
+    const hideWalletNav = state.activeView === 'overview' || state.activeView === 'settings';
     navLinks.forEach((link) => {
-      const isActive = link.getAttribute('data-dashboard-nav-section') === navSectionByView[state.activeView];
+      const navSection = link.getAttribute('data-dashboard-nav-section');
+      if (link instanceof HTMLElement && navSection === 'wallet') {
+        link.hidden = hideWalletNav;
+      }
+      const isActive = navSection === navSectionByView[state.activeView];
       link.classList.toggle('is-active', isActive);
       if (isActive) {
         link.setAttribute('aria-current', 'page');
