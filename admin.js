@@ -3759,12 +3759,8 @@ document.addEventListener('DOMContentLoaded', () => {
         button.removeAttribute('aria-current');
       }
     });
-    const hideWalletNav = state.activeView === 'overview' || state.activeView === 'settings';
     navLinks.forEach((link) => {
       const navSection = link.getAttribute('data-dashboard-nav-section');
-      if (link instanceof HTMLElement && navSection === 'wallet') {
-        link.hidden = hideWalletNav;
-      }
       const isActive = navSection === navSectionByView[state.activeView];
       link.classList.toggle('is-active', isActive);
       if (isActive) {
