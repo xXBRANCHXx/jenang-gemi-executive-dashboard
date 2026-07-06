@@ -6623,7 +6623,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	          const editorOpen = state.wallet.balanceEditorKey === walletKey;
 	          const disabled = state.wallet.loading || Boolean(activeAction);
 	          return `
-	            <tr>
+	            <tr class="${balanceKnown ? '' : 'admin-wallet-row-unset'}">
 	              <td class="admin-wallet-account">
 	                <span class="admin-wallet-account-title">
 	                  <strong>${escapeHtml(wallet.label || wallet.account_key || '-')}</strong>

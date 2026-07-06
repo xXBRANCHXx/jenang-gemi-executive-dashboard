@@ -20417,6 +20417,24 @@ body:has(.admin-app[data-sku-db])::after {
   color: var(--admin-text);
 }
 
+.admin-wallet-row-unset td {
+  background: color-mix(in srgb, var(--admin-surface) 72%, var(--admin-bg));
+  color: color-mix(in srgb, var(--admin-muted) 82%, var(--admin-text));
+}
+
+.admin-wallet-row-unset :is(strong, .admin-wallet-orders-cell, .admin-wallet-updated) {
+  color: color-mix(in srgb, var(--admin-muted) 72%, var(--admin-text));
+}
+
+.admin-wallet-row-unset .admin-wallet-muted,
+.admin-wallet-row-unset .admin-wallet-account small {
+  color: color-mix(in srgb, var(--admin-muted) 78%, var(--admin-bg));
+}
+
+.admin-wallet-row-unset .admin-wallet-set-link {
+  color: var(--admin-text);
+}
+
 .admin-wallet-set-link {
   flex: 0 0 auto;
   border: 0;
