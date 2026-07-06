@@ -2364,6 +2364,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      releaseSyncPromise: null,
 	      backgroundRefreshAt: 0,
 	      backgroundRefreshPromise: null,
+	      backgroundLoading: false,
 	      cacheWrittenAt: 0,
 	      usingCache: false,
 	      actionId: '',
@@ -6573,6 +6574,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (walletRefs.status) {
 	      walletRefs.status.textContent = walletActionStatus(activeAction) || walletBacktrackStatus(backtrack) || (state.wallet.loading
 	        ? 'Loading wallets'
+	        : state.wallet.backgroundLoading
+	          ? 'Updating wallets in background'
 	        : `${formatRegionalInteger(wallets.length)} wallets / ${formatRegionalInteger(totals.outstanding_orders || 0)} outstanding / ${formatRegionalInteger(totals.manual_required_count || 0)} need set`);
 	    }
 	    if (walletRefs.refresh) {
@@ -6588,7 +6591,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	    if (walletRefs.tableBody) {
 	      if (!wallets.length) {
-	        walletRefs.tableBody.innerHTML = `<tr><td colspan="6" class="admin-empty">${state.wallet.loading ? 'Loading wallets.' : 'No wallets found.'}</td></tr>`;
+	        walletRefs.tableBody.innerHTML = `<tr><td colspan="6" class="admin-empty">${state.wallet.loading || state.wallet.backgroundLoading ? 'Loading wallets.' : 'No wallets found.'}</td></tr>`;
 	      } else {
 	        walletRefs.tableBody.innerHTML = renderRows(wallets, 6, (wallet) => {
 	          const balance = walletAmount(wallet.wallet_balance);
@@ -6635,7 +6638,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	    if (walletRefs.logBody) {
 	      if (!logs.length) {
-	        walletRefs.logBody.innerHTML = `<tr><td colspan="6" class="admin-empty">${state.wallet.loading ? 'Loading withdrawal log.' : 'No withdrawals yet.'}</td></tr>`;
+	        walletRefs.logBody.innerHTML = `<tr><td colspan="6" class="admin-empty">${state.wallet.loading || state.wallet.backgroundLoading ? 'Loading withdrawal log.' : 'No withdrawals yet.'}</td></tr>`;
 	      } else {
 	        walletRefs.logBody.innerHTML = renderRows(logs, 6, (log) => {
 	          const undone = Boolean(log.undone_at);
@@ -8198,6 +8201,8 @@ document.addEventListener('DOMContentLoaded', () => {
       return false;
     }
     state.wallet.backgroundRefreshAt = now;
+    state.wallet.backgroundLoading = true;
+    renderWallet(state.wallet.data);
     state.wallet.backgroundRefreshPromise = loadWalletSafely({
       force: true,
       preferStale: false,
@@ -8205,6 +8210,8 @@ document.addEventListener('DOMContentLoaded', () => {
       skipReleaseSync: Boolean(options.skipReleaseSync)
     }).finally(() => {
       state.wallet.backgroundRefreshPromise = null;
+      state.wallet.backgroundLoading = false;
+      renderWallet(state.wallet.data);
     });
     return state.wallet.backgroundRefreshPromise;
   };
@@ -8314,6 +8321,18 @@ document.addEventListener('DOMContentLoaded', () => {
       .catch(showOrderLoadError);
   };
 
+  const activateWalletViewInstantly = () => {
+    const restored = state.wallet.data ? true : restoreWalletFromCache();
+    const online = isBrowserOnline();
+    state.wallet.backgroundLoading = online;
+    renderWallet(state.wallet.data);
+    if (online) {
+      scheduleWalletBackgroundRefresh({ force: true });
+    } else if (!restored && walletRefs.status) {
+      walletRefs.status.textContent = 'Offline / waiting for last wallet update';
+    }
+  };
+
   const switchView = async (nextView) => {
     const previousView = state.activeView;
     const normalizedNextView = normalizeDashboardView(nextView);
@@ -8332,6 +8351,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	    renderJenangGemiSearchResults(searchInput?.value || '');
 	    if (state.activeView === 'orders') {
 	      activateOrdersViewInstantly();
+	      return;
+	    }
+	    if (state.activeView === 'wallet') {
+	      activateWalletViewInstantly();
 	      return;
 	    }
     await loadActiveViewSafely();
@@ -8499,7 +8522,7 @@ document.addEventListener('DOMContentLoaded', () => {
     : state.activeView === 'orders'
       ? Promise.resolve().then(() => activateOrdersViewInstantly())
       : state.activeView === 'wallet'
-        ? loadWalletSafely({ preferStale: true })
+        ? Promise.resolve().then(() => activateWalletViewInstantly())
         : loadActiveViewSafely({ preferStale: false });
 
   if (state.activeView !== 'orders') {
