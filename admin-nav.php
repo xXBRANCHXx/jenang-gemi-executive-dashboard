@@ -464,13 +464,6 @@ function render_admin_sidebar(string $activeSection = ''): void
         ],
     ];
 
-    if (admin_current_menu_context() !== 'wallet') {
-        $items = array_values(array_filter(
-            $items,
-            static fn (array $item): bool => strtolower((string) ($item['key'] ?? '')) !== 'wallet'
-        ));
-    }
-
     $footerItems = [
         [
             'key' => 'settings',

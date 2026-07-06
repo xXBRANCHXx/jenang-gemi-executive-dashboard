@@ -3753,9 +3753,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     navLinks.forEach((link) => {
       const navSection = link.getAttribute('data-dashboard-nav-section');
-      if (link instanceof HTMLElement && navSection === 'wallet') {
-        link.hidden = state.activeView !== 'wallet';
-      }
       const isActive = navSection === navSectionByView[state.activeView];
       link.classList.toggle('is-active', isActive);
       if (isActive) {
