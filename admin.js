@@ -533,6 +533,9 @@ const VIEW_CACHE_TTL_MS = {
 const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const AUTO_MARKETPLACE_REFRESH_MIN_MS = 5 * 60 * 1000;
 const AUTO_MARKETPLACE_REFRESH_STORAGE_KEY = 'jg-dashboard-auto-marketplace-refresh-at-v1';
+const WALLET_CACHE_STORAGE_KEY = 'jg-dashboard-wallet-cache-v1';
+const WALLET_CACHE_WRITE_MIN_MS = 5 * 1000;
+const WALLET_BACKGROUND_REFRESH_MIN_MS = 60 * 1000;
 const LIVE_REFRESH_DEBOUNCE_MS = 1200;
 const BACKGROUND_IDLE_TIMEOUT_MS = 800;
 const BACKGROUND_TASK_DELAY_MS = 80;
@@ -2359,6 +2362,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	      backtrackRunning: false,
 	      releaseSyncedAt: 0,
 	      releaseSyncPromise: null,
+	      backgroundRefreshAt: 0,
+	      backgroundRefreshPromise: null,
+	      cacheWrittenAt: 0,
+	      usingCache: false,
 	      actionId: '',
 	      requestToken: 0
 	    },
@@ -3835,11 +3842,12 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const scheduleDeferredViewUnload = (view) => {
-    if (!['overview', 'home'].includes(view) || state.activeView === view) return;
+    if (!['overview', 'home', 'wallet'].includes(view) || state.activeView === view) return;
     cancelDeferredViewUnload(view);
+    const delay = view === 'wallet' ? BACKGROUND_TASK_DELAY_MS : INACTIVE_VIEW_UNLOAD_DELAY_MS;
     inactiveViewUnloadTimers.set(view, window.setTimeout(() => {
       unloadInactiveViewRenderState(view);
-    }, INACTIVE_VIEW_UNLOAD_DELAY_MS));
+    }, delay));
   };
 
   const closeMenu = () => {
@@ -3961,6 +3969,36 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch (_error) {
       // Cache is only a first-paint optimization; live signals and rollover checks fetch fresh data.
+    }
+  };
+
+  const isBrowserOnline = () => !('onLine' in navigator) || navigator.onLine;
+
+  const readWalletCache = () => {
+    try {
+      const cached = JSON.parse(window.localStorage.getItem(WALLET_CACHE_STORAGE_KEY) || '{}');
+      if (!cached || typeof cached !== 'object' || !cached.data || typeof cached.data !== 'object') return null;
+      return {
+        savedAt: Math.max(0, Number(cached.saved_at || 0)),
+        data: cached.data
+      };
+    } catch (_error) {
+      return null;
+    }
+  };
+
+  const writeWalletCache = (data, options = {}) => {
+    if (!data || typeof data !== 'object' || data.ok === false) return;
+    const now = Date.now();
+    if (!options.force && now - Number(state.wallet.cacheWrittenAt || 0) < WALLET_CACHE_WRITE_MIN_MS) return;
+    try {
+      window.localStorage.setItem(WALLET_CACHE_STORAGE_KEY, JSON.stringify({
+        saved_at: now,
+        data
+      }));
+      state.wallet.cacheWrittenAt = now;
+    } catch (_error) {
+      // Wallet cache is only for fast/offline first paint; the API remains the source of truth.
     }
   };
 
@@ -6513,7 +6551,11 @@ document.addEventListener('DOMContentLoaded', () => {
 	  };
 
 	  const renderWallet = (data = state.wallet.data) => {
-	    if (data) state.wallet.data = data;
+	    if (data) {
+	      state.wallet.data = data;
+	      if (!state.wallet.usingCache) writeWalletCache(data);
+	    }
+	    if (state.activeView !== 'wallet') return;
 	    const wallets = Array.isArray(state.wallet.data?.wallets) ? state.wallet.data.wallets : [];
 	    const logs = Array.isArray(state.wallet.data?.logs) ? state.wallet.data.logs : [];
 	    const totals = state.wallet.data?.totals || {};
@@ -7693,12 +7735,12 @@ document.addEventListener('DOMContentLoaded', () => {
     state.orders.loadedAt = Date.now();
   };
 
-	  const showOrderLoadError = (error) => {
-	    state.orders.loading = false;
-	    const message = error instanceof Error ? error.message : 'Unable to load orders.';
-	    if (ordersRefs.tableBody && !state.orders.rows.length) {
-	      ordersRefs.tableBody.innerHTML = `<tr><td colspan="12" class="admin-empty">${escapeHtml(message)}</td></tr>`;
-	    }
+  const showOrderLoadError = (error) => {
+    state.orders.loading = false;
+    const message = error instanceof Error ? error.message : 'Unable to load orders.';
+    if (ordersRefs.tableBody && !state.orders.rows.length) {
+      ordersRefs.tableBody.innerHTML = `<tr><td colspan="12" class="admin-empty">${escapeHtml(message)}</td></tr>`;
+    }
     if (ordersRefs.status) ordersRefs.status.textContent = message;
     if (ordersRefs.loadMore) {
       ordersRefs.loadMore.hidden = false;
@@ -7707,7 +7749,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-	  const loadOrdersSafely = async (options = {}) => {
+  const loadOrdersSafely = async (options = {}) => {
     try {
       await loadOrders(options);
       return true;
@@ -7715,10 +7757,11 @@ document.addEventListener('DOMContentLoaded', () => {
       showOrderLoadError(error);
       return false;
     }
-	  };
+  };
 
 	  const shouldAutoSyncWalletReleases = (options = {}) => {
 	    if (options.skipReleaseSync) return false;
+	    if (!isBrowserOnline()) return false;
 	    if (state.wallet.releaseSyncPromise || state.wallet.backtrackRunning) return false;
 	    if (state.wallet.actionId && !String(state.wallet.actionId).startsWith('sync_releases')) return false;
 	    const lastStarted = Number(state.wallet.releaseSyncedAt || 0);
@@ -7728,15 +7771,26 @@ document.addEventListener('DOMContentLoaded', () => {
 	  };
 
 	  const startWalletReleaseSync = (options = {}) => {
-	    if (!shouldAutoSyncWalletReleases(options)) return;
+	    if (!shouldAutoSyncWalletReleases(options)) return state.wallet.releaseSyncPromise || null;
 	    state.wallet.releaseSyncedAt = Date.now();
 	    state.wallet.releaseSyncPromise = syncWalletReleases({
 	      background: true,
 	      fallback: false,
-	      silent: true
+	      silent: true,
+	      skipRemote: Boolean(options.skipRemote)
 	    }).finally(() => {
 	      state.wallet.releaseSyncPromise = null;
 	    });
+	    return state.wallet.releaseSyncPromise;
+	  };
+
+	  const restoreWalletFromCache = () => {
+	    const cached = readWalletCache();
+	    if (!cached) return false;
+	    state.wallet.loadedAt = cached.savedAt || state.wallet.loadedAt || 0;
+	    state.wallet.usingCache = true;
+	    renderWallet(cached.data);
+	    return true;
 	  };
 
 	  const loadWallet = async (options = {}) => {
@@ -7752,21 +7806,36 @@ document.addEventListener('DOMContentLoaded', () => {
 	        return;
 	      }
 	    }
+	    if (!options.force && !state.wallet.data && options.useCache !== false) {
+	      const restored = restoreWalletFromCache();
+	      if (restored && options.preferStale !== false) {
+	        if (!options.background && isBrowserOnline()) queueViewRefresh('wallet');
+	        return;
+	      }
+	    }
+	    if (!isBrowserOnline()) {
+	      if (state.wallet.data || restoreWalletFromCache()) {
+	        if (state.activeView === 'wallet' && walletRefs.status) {
+	          walletRefs.status.textContent = 'Offline / showing last wallet update';
+	        }
+	        return;
+	      }
+	    }
+	    if (options.background && state.wallet.loading) return;
 	    const requestToken = beginRequest('wallet');
-	    state.wallet.loading = true;
+	    const showLoading = !options.background;
+	    if (showLoading) state.wallet.loading = true;
 	    renderWallet(state.wallet.data);
 	    try {
 	      const data = await requestJson(walletActionUrl('summary'), { timeoutMs: 30000 });
 	      if (!isLatestRequest('wallet', requestToken)) return;
 	      state.wallet.loadedAt = Date.now();
+	      state.wallet.usingCache = false;
 	      state.wallet.loading = false;
 	      renderWallet(data);
 	      startWalletReleaseSync(options);
-	      if (data?.backtrack?.active && !state.wallet.backtrackRunning && !options.background) {
-	        runWalletBacktrack(false).catch(() => {});
-	      }
 	    } catch (error) {
-	      if (isLatestRequest('wallet', requestToken)) {
+	      if (showLoading && isLatestRequest('wallet', requestToken)) {
 	        state.wallet.loading = false;
 	      }
 	      throw error;
@@ -7778,17 +7847,21 @@ document.addEventListener('DOMContentLoaded', () => {
 	      await loadWallet(options);
 	      return true;
 	    } catch (error) {
+	      if (options.background && state.wallet.data) {
+	        return false;
+	      }
 	      renderViewError('wallet', error);
 	      return false;
 	    }
 	  };
 
 	  const postWalletAction = async (action, body, actionId, options = {}) => {
-	    state.wallet.actionId = actionId;
-	    if (walletRefs.status) {
+	    const interactive = !options.background;
+	    if (interactive) state.wallet.actionId = actionId;
+	    if (interactive && walletRefs.status) {
 	      walletRefs.status.textContent = walletActionStatus(actionId);
 	    }
-	    renderWallet(state.wallet.data);
+	    if (interactive) renderWallet(state.wallet.data);
 	    try {
 	      const data = await requestJson(walletActionUrl(action), {
 	        method: 'POST',
@@ -7797,35 +7870,34 @@ document.addEventListener('DOMContentLoaded', () => {
 	        timeoutMs: options.timeoutMs || 30000
 	      });
 	      state.wallet.loadedAt = Date.now();
+	      state.wallet.usingCache = false;
 	      renderWallet(data);
 	      return true;
 	    } catch (error) {
-	      if (options.silent) {
+	      if (options.silent || !interactive) {
 	        if (walletRefs.status) walletRefs.status.textContent = error?.message || 'Wallet refresh unavailable';
 	      } else {
 	        renderViewError('wallet', error);
 	      }
 	      return false;
 	    } finally {
-	      state.wallet.actionId = '';
-	      renderWallet(state.wallet.data);
+	      if (interactive) {
+	        state.wallet.actionId = '';
+	        renderWallet(state.wallet.data);
+	      }
 	    }
 	  };
 
 	  const syncWalletReleases = async (options = {}) => {
 	    const ok = await postWalletAction(
 	      'sync_releases',
-	      { skip_remote: Boolean(options.skipRemote), repair_backfill: Boolean(options.repairBackfill) },
+	      { skip_remote: Boolean(options.skipRemote) },
 	      options.background ? 'sync_releases:background' : 'sync_releases',
-	      { timeoutMs: 95000, silent: Boolean(options.silent) }
+	      { timeoutMs: 95000, silent: Boolean(options.silent), background: Boolean(options.background) }
 	    );
 	    if (ok) state.wallet.releaseSyncedAt = Date.now();
 	    if (!ok && options.fallback !== false) {
 	      return loadWalletSafely({ force: true, preferStale: false });
-	    }
-	    if (ok && options.repairBackfill && !options.background) {
-	      const repaired = await runWalletBacktrack(true);
-	      return repaired || ok;
 	    }
 	    return ok;
 	  };
@@ -8101,15 +8173,53 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const queueViewRefresh = (view) => {
-	    const options = { force: true, preferStale: false, background: true };
-	    if (view === 'overview') return loadOverviewSafely({ ...options, forceRefresh: true });
-	    if (view === 'orders') return loadOrdersSafely(options);
-	    if (view === 'wallet') return loadWalletSafely(options);
-	    if (view === 'daily') return loadDailySafely(options);
+    const options = { force: true, preferStale: false, background: true };
+    if (view === 'overview') return loadOverviewSafely({ ...options, forceRefresh: true });
+    if (view === 'orders') return loadOrdersSafely(options);
+    if (view === 'wallet') return loadWalletSafely(options);
+    if (view === 'daily') return loadDailySafely(options);
     if (view === 'home') return loadHomeSafely(options);
     if (view === 'website' && state.website.screen === 'detail' && state.website.site) return loadWebsiteSafely(options);
     if (view === 'settings') return loadWebsiteSettingsSafely(options);
     return Promise.resolve(false);
+  };
+
+  let walletBackgroundRefreshTimer = null;
+
+  const runWalletBackgroundRefresh = async (options = {}) => {
+    if (document.hidden) return false;
+    if (!isBrowserOnline()) {
+      if (!state.wallet.data) restoreWalletFromCache();
+      return false;
+    }
+    if (state.wallet.backgroundRefreshPromise) return state.wallet.backgroundRefreshPromise;
+    const now = Date.now();
+    if (!options.force && now - Number(state.wallet.backgroundRefreshAt || 0) < WALLET_BACKGROUND_REFRESH_MIN_MS) {
+      return false;
+    }
+    state.wallet.backgroundRefreshAt = now;
+    state.wallet.backgroundRefreshPromise = loadWalletSafely({
+      force: true,
+      preferStale: false,
+      background: true,
+      skipReleaseSync: Boolean(options.skipReleaseSync)
+    }).finally(() => {
+      state.wallet.backgroundRefreshPromise = null;
+    });
+    return state.wallet.backgroundRefreshPromise;
+  };
+
+  const scheduleWalletBackgroundRefresh = (options = {}) => {
+    if (walletBackgroundRefreshTimer || state.wallet.backgroundRefreshPromise) return;
+    const run = () => {
+      walletBackgroundRefreshTimer = null;
+      runWalletBackgroundRefresh(options).catch(() => {});
+    };
+    if ('requestIdleCallback' in window) {
+      walletBackgroundRefreshTimer = window.requestIdleCallback(run, { timeout: BACKGROUND_IDLE_TIMEOUT_MS });
+      return;
+    }
+    walletBackgroundRefreshTimer = window.setTimeout(run, BACKGROUND_TASK_DELAY_MS);
   };
 
   const refreshForLocalDateRollover = async () => {
@@ -8332,17 +8442,18 @@ document.addEventListener('DOMContentLoaded', () => {
         state.activeView !== 'home' && !state.home.data
           ? loadHomeSafely({ background: true, preferStale: false })
           : Promise.resolve(true),
-	        !state.website.settingsLoadedAt
-	          ? loadWebsiteSettingsSafely({ background: true, preferStale: false })
-	          : Promise.resolve(true),
-	        state.activeView !== 'wallet' && !state.wallet.data
-	          ? loadWalletSafely({ background: true, preferStale: false, skipReleaseSync: true })
-	          : Promise.resolve(true),
-	        loadOrderCatalog(),
+        !state.website.settingsLoadedAt
+          ? loadWebsiteSettingsSafely({ background: true, preferStale: false })
+          : Promise.resolve(true),
+        state.activeView !== 'wallet' && !state.wallet.data
+          ? loadWalletSafely({ background: true, preferStale: false, skipReleaseSync: true })
+          : Promise.resolve(true),
+        loadOrderCatalog(),
         loadNotifications(),
         preloadOrderMemory()
       ];
       await Promise.allSettled(tasks);
+      scheduleWalletBackgroundRefresh({ force: true });
     };
 
     if ('requestIdleCallback' in window) {
@@ -8387,7 +8498,9 @@ document.addEventListener('DOMContentLoaded', () => {
     ? loadOverviewSafely({ useCache: true, cacheFirst: true, preferStale: false })
     : state.activeView === 'orders'
       ? Promise.resolve().then(() => activateOrdersViewInstantly())
-    : loadActiveViewSafely({ preferStale: false });
+      : state.activeView === 'wallet'
+        ? loadWalletSafely({ preferStale: true })
+        : loadActiveViewSafely({ preferStale: false });
 
   if (state.activeView !== 'orders') {
     window.setTimeout(() => {
@@ -8406,6 +8519,7 @@ document.addEventListener('DOMContentLoaded', () => {
       finishLoader();
       connectLiveStream();
       scheduleBackgroundLoads();
+      scheduleWalletBackgroundRefresh({ force: true });
       window.setTimeout(() => {
         const syncStatus = state.overview.data?.sync_status;
         if (syncStatus?.fresh === false || syncStatus?.status === 'missing') {
@@ -8804,7 +8918,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	  });
 
 	  walletRefs.refresh?.addEventListener('click', () => {
-	    syncWalletReleases({ repairBackfill: true }).catch(() => {
+	    syncWalletReleases().catch(() => {
 	      loadWalletSafely({ force: true, preferStale: false }).catch(() => {});
 	    });
 	  });
@@ -9460,6 +9574,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     connectLiveStream();
     preloadOrderMemory().catch(() => {});
+    scheduleWalletBackgroundRefresh({ force: true });
     refreshForLocalDateRollover()
       .then((refreshed) => {
         if (!refreshed && !hasFreshViewData(state.activeView)) return loadActiveViewSafely({ preferStale: true });
@@ -9473,14 +9588,19 @@ document.addEventListener('DOMContentLoaded', () => {
     refreshForLocalDateRollover().catch(() => {});
     preloadOrderMemory().catch(() => {});
     runAutomaticMarketplaceRefresh().catch(() => {});
+    scheduleWalletBackgroundRefresh({ force: true });
     if (state.activeView === 'overview') {
       refreshOverviewHourlyRows(null, { repair: true }).catch(() => {});
     }
+  });
+  window.addEventListener('online', () => {
+    scheduleWalletBackgroundRefresh({ force: true });
   });
   window.setInterval(() => {
     if (!document.hidden) {
       refreshForLocalDateRollover().catch(() => {});
       runAutomaticMarketplaceRefresh().catch(() => {});
+      scheduleWalletBackgroundRefresh();
       if (state.activeView === 'overview') {
         refreshOverviewHourlyRows(null, { repair: true }).catch(() => {});
       }

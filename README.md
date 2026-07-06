@@ -69,9 +69,9 @@ Private admin dashboard for `admin.jenanggemi.com` behind a public Launch Pad.
   `balance`, and optional `observed_at`. Use `POST /api/wallet/?action=withdraw`
   with `platform`, `account_key`, `amount`, and optional `withdrawn_at` to record
   marketplace cash-out or bank withdrawals without manually overwriting the
-  current wallet value. The Wallet refresh button runs the quick release sync,
-  then starts the chunked backtrack repair so releases after a balance anchor
-  can be recovered without one long request. Use
+  current wallet value. The Wallet refresh button runs the quick release sync.
+  The Backtrack button starts the chunked backtrack repair so releases after a
+  balance anchor can be recovered without one long request. Use
   `POST /api/wallet/?action=backfill_releases` to run a larger marketplace
   release backfill and log before/after wallet totals.
 - Website checkout notifications and paid metrics are independent of the Hard Set switch. An explicit high-entropy `store_ops_website_token` can be configured on both applications; otherwise both deployments derive the bearer token from their existing shared marketplace setup credential. Configure `store_ops_base_url` and `executive_dashboard_url` before activation readiness can pass.
