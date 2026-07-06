@@ -1,0 +1,849 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Accounting Workspace Tutorial</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 13mm 12mm 15mm;
+    }
+
+    :root {
+      --ink: #111111;
+      --muted: #666666;
+      --line: #d8d8d8;
+      --soft: #f5f5f5;
+      --panel: #ffffff;
+      --dark: #050505;
+      --radius: 18px;
+      --control-radius: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #ffffff;
+      color: var(--ink);
+      font: 11.5pt/1.55 Arial, Helvetica, sans-serif;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4 {
+      margin: 0;
+      color: var(--ink);
+      line-height: 1.12;
+    }
+
+    h1 {
+      font-size: 34pt;
+      letter-spacing: -0.02em;
+    }
+
+    h2 {
+      margin-top: 4mm;
+      font-size: 22pt;
+      break-after: avoid;
+    }
+
+    h3 {
+      margin-top: 5mm;
+      font-size: 15pt;
+      break-after: avoid;
+    }
+
+    h4 {
+      margin-top: 4mm;
+      font-size: 12.5pt;
+      break-after: avoid;
+    }
+
+    p {
+      margin: 2.5mm 0;
+    }
+
+    ul,
+    ol {
+      margin: 2.5mm 0 3.5mm;
+      padding-left: 6mm;
+    }
+
+    li {
+      margin: 1.3mm 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 4mm 0;
+      break-inside: avoid;
+    }
+
+    th,
+    td {
+      padding: 7px 8px;
+      border: 1px solid var(--line);
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      background: var(--soft);
+      font-size: 9pt;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    code {
+      padding: 1px 4px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--soft);
+      font: 9.5pt/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .cover {
+      min-height: 252mm;
+      display: grid;
+      align-content: space-between;
+      padding: 4mm 0;
+      break-after: page;
+    }
+
+    .eyebrow {
+      color: var(--muted);
+      font-size: 9pt;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .subtitle {
+      max-width: 150mm;
+      color: var(--muted);
+      font-size: 14pt;
+    }
+
+    .cover-card {
+      margin-top: 16mm;
+      padding: 14mm;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--soft);
+    }
+
+    .cover-meta {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4mm;
+      margin-top: 14mm;
+    }
+
+    .cover-meta div,
+    .callout,
+    .checklist,
+    .mode-card,
+    .warning,
+    .picture,
+    .toc {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+    }
+
+    .cover-meta div {
+      padding: 5mm;
+    }
+
+    .cover-meta strong,
+    .mode-card strong {
+      display: block;
+      margin-bottom: 1mm;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .page {
+      break-before: page;
+    }
+
+    .toc {
+      padding: 8mm;
+      break-after: page;
+    }
+
+    .toc ol {
+      columns: 2;
+      column-gap: 12mm;
+      padding-left: 5mm;
+    }
+
+    .callout,
+    .checklist,
+    .warning {
+      padding: 5mm;
+      margin: 4mm 0;
+      break-inside: avoid;
+    }
+
+    .warning {
+      border-style: dashed;
+      background: #fbfbfb;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 5mm;
+      margin: 4mm 0;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4mm;
+      margin: 4mm 0;
+    }
+
+    .mode-card {
+      padding: 5mm;
+      break-inside: avoid;
+    }
+
+    .picture {
+      margin: 5mm 0;
+      overflow: hidden;
+      break-inside: avoid;
+    }
+
+    .picture img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .picture figcaption {
+      padding: 3mm 4mm;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 9.5pt;
+    }
+
+    .screen-dark {
+      background: var(--dark);
+      padding: 4mm;
+    }
+
+    .crop {
+      position: relative;
+      height: 92mm;
+      overflow: hidden;
+      background: var(--dark);
+    }
+
+    .crop img {
+      position: absolute;
+      left: 0;
+      width: 100%;
+      max-width: none;
+    }
+
+    .crop-command img { top: 0; }
+    .crop-form img { top: -88mm; }
+    .crop-bills img { top: -172mm; }
+    .crop-ledger img { top: -238mm; }
+    .crop-summary img { top: -328mm; }
+
+    .mobile-crop {
+      height: 150mm;
+      overflow: hidden;
+      background: var(--dark);
+      text-align: center;
+    }
+
+    .mobile-crop img {
+      width: 70mm;
+      margin: 0 auto;
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: 9mm 1fr;
+      gap: 3mm;
+      margin: 3mm 0;
+      break-inside: avoid;
+    }
+
+    .step-number {
+      display: grid;
+      place-items: center;
+      width: 8mm;
+      height: 8mm;
+      border-radius: 50%;
+      background: var(--ink);
+      color: #ffffff;
+      font-size: 9pt;
+      font-weight: 700;
+    }
+
+    .section-label {
+      margin-top: 5mm;
+      color: var(--muted);
+      font-size: 9pt;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .do-dont {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 5mm;
+      margin: 4mm 0;
+    }
+
+    .do-dont > div {
+      padding: 5mm;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      break-inside: avoid;
+    }
+
+    .footer-note {
+      margin-top: 8mm;
+      padding-top: 4mm;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 9pt;
+    }
+  </style>
+</head>
+<body>
+  <section class="cover">
+    <div>
+      <div class="eyebrow">Jenang Gemi Executive Dashboard</div>
+      <div class="cover-card">
+        <h1>Accounting Workspace Tutorial</h1>
+        <p class="subtitle">An extensive operating guide for recording expenses, bills, bill payments, transfers, manual money in, review items, and month-end accounting checks.</p>
+        <div class="cover-meta">
+          <div><strong>Audience</strong><span class="muted">Operators, finance assistants, and owners who enter or review daily finance activity.</span></div>
+          <div><strong>Screen</strong><span class="muted">Dashboard -> Accounting</span></div>
+          <div><strong>Version</strong><span class="muted">Generated July 6, 2026. Screenshots use sample data.</span></div>
+        </div>
+      </div>
+    </div>
+    <p class="footer-note">This tutorial explains how to use the Accounting UI safely. It is not tax, audit, or legal advice. Use your final exported records with your accountant or finance reviewer.</p>
+  </section>
+
+  <section class="toc">
+    <div class="eyebrow">Contents</div>
+    <h2>What this guide covers</h2>
+    <ol>
+      <li>Accounting workspace purpose</li>
+      <li>Screen map and key areas</li>
+      <li>Core concepts and vocabulary</li>
+      <li>Command bar and month filters</li>
+      <li>KPI strip and what each number means</li>
+      <li>Daily entry form overview</li>
+      <li>Expense Paid workflow</li>
+      <li>Bill Received workflow</li>
+      <li>Pay Bill workflow</li>
+      <li>Transfer workflow</li>
+      <li>Manual Money In workflow</li>
+      <li>Receipt and reference rules</li>
+      <li>Bills Queue</li>
+      <li>Transaction Ledger</li>
+      <li>Summary, insights, and review queue</li>
+      <li>Export, month-end close, and troubleshooting</li>
+    </ol>
+  </section>
+
+  <section>
+    <div class="eyebrow">1. Purpose</div>
+    <h2>What the Accounting workspace is for</h2>
+    <p>The Accounting workspace is the operational finance screen inside the Executive Dashboard. It is designed for daily cash control: entering money out, entering bills before they are paid, paying saved bills, recording transfers between accounts, and logging non-marketplace money in.</p>
+    <p>The screen is intentionally separate from marketplace sales and wallet automation. Marketplace orders and wallet payouts are already tracked elsewhere. Accounting is where the team records manual finance events that would otherwise be missing from cash control.</p>
+
+    <div class="warning">
+      <strong>Important rule:</strong>
+      Do not record Shopee, TikTok, or Tokopedia sales as Manual Money In. Marketplace sales are already counted from Orders and Wallet. Use <strong>Transfer</strong> when marketplace money moves from a wallet into a bank account.
+    </div>
+
+    <h3>Use Accounting for</h3>
+    <div class="grid-2">
+      <div class="checklist">
+        <strong>Daily operator entries</strong>
+        <ul>
+          <li>Packaging purchases paid today.</li>
+          <li>Ad payments already charged.</li>
+          <li>Courier or fulfillment expenses.</li>
+          <li>Offline customer payments.</li>
+          <li>Owner injections and reimbursements.</li>
+        </ul>
+      </div>
+      <div class="checklist">
+        <strong>Finance control</strong>
+        <ul>
+          <li>Supplier bills that are not paid yet.</li>
+          <li>Partial bill payments.</li>
+          <li>Bank to cash transfers.</li>
+          <li>Marketplace wallet to bank transfers.</li>
+          <li>Receipt and data-quality review.</li>
+        </ul>
+      </div>
+    </div>
+
+    <figure class="picture">
+      <div class="crop crop-command"><img src="accounting-guide-assets/accounting-desktop-full.png" alt="Accounting workspace desktop screenshot"></div>
+      <figcaption>Desktop overview with sample data. The live dashboard will show your actual accounts, categories, bills, and transactions.</figcaption>
+    </figure>
+  </section>
+
+  <section class="page">
+    <div class="eyebrow">2. Screen Map</div>
+    <h2>Main areas of the screen</h2>
+    <p>The Accounting screen is organized from daily control at the top to review and reporting lower on the page.</p>
+
+    <figure class="picture">
+      <div class="crop crop-command"><img src="accounting-guide-assets/accounting-desktop-full.png" alt="Accounting command bar and KPI crop"></div>
+      <figcaption>Top area: command bar, period controls, action buttons, status, alerts, and KPI cards.</figcaption>
+    </figure>
+
+    <div class="grid-3">
+      <div class="mode-card"><strong>Command bar</strong><span class="muted">Controls the reporting month, date range, refresh, export, and entry mode shortcuts.</span></div>
+      <div class="mode-card"><strong>KPI cards</strong><span class="muted">Show cash, marketplace receivables, bills due, expenses, safe cash, and review count.</span></div>
+      <div class="mode-card"><strong>Daily entry</strong><span class="muted">The main form for entering expenses, bills, payments, transfers, and manual income.</span></div>
+      <div class="mode-card"><strong>Bills Queue</strong><span class="muted">Open supplier bills, due dates, paid amount, outstanding amount, and bill actions.</span></div>
+      <div class="mode-card"><strong>Ledger</strong><span class="muted">Manual transaction history for the selected period.</span></div>
+      <div class="mode-card"><strong>Review and insights</strong><span class="muted">Spend splits, monthly summary, and issues that need cleanup.</span></div>
+    </div>
+
+    <h3>Mobile layout</h3>
+    <p>On small screens, the same controls stack vertically. The workflow is identical, but tables may require horizontal scrolling.</p>
+    <figure class="picture screen-dark">
+      <div class="mobile-crop"><img src="accounting-guide-assets/accounting-mobile-full.png" alt="Accounting mobile screenshot"></div>
+      <figcaption>Mobile view: filters and actions stack into two-column or full-width rows so operators can enter data from a phone.</figcaption>
+    </figure>
+  </section>
+
+  <section class="page">
+    <div class="eyebrow">3. Core Concepts</div>
+    <h2>Terms you need to understand</h2>
+    <table>
+      <thead>
+        <tr><th>Concept</th><th>Meaning</th><th>Example</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Real Cash Available</td><td>Money currently available in spendable bank or cash accounts.</td><td>BCA Operating + Cash Drawer.</td></tr>
+        <tr><td>Marketplace Outstanding</td><td>Marketplace money expected but not treated as spendable bank cash yet.</td><td>Shopee wallet balance waiting for payout.</td></tr>
+        <tr><td>Bill</td><td>An obligation we owe but may not have paid yet.</td><td>Supplier invoice due July 14.</td></tr>
+        <tr><td>Expense</td><td>Money that already left the business.</td><td>Paid ads charged today.</td></tr>
+        <tr><td>Transfer</td><td>Money moved between accounts. It is not income or expense.</td><td>Shopee Wallet -> BCA Operating.</td></tr>
+        <tr><td>Manual Money In</td><td>Non-marketplace money entering the business manually.</td><td>Offline customer payment or owner injection.</td></tr>
+        <tr><td>Receipt Status</td><td>Evidence state for the transaction or bill.</td><td>Missing, Attached, or Not required.</td></tr>
+        <tr><td>Review Queue</td><td>Data-quality checks that need cleanup.</td><td>Missing receipt, duplicate, overdue bill.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <strong>Operating principle:</strong>
+      Each money movement should be entered once, with the clearest available account, category, vendor/source, brand, channel, and receipt status. Clean entries make cash reports useful.
+    </div>
+  </section>
+
+  <section class="page">
+    <div class="eyebrow">4. Command Bar</div>
+    <h2>Filtering, refreshing, and starting work</h2>
+    <p>The command bar controls what period you are looking at and gives quick entry shortcuts.</p>
+    <figure class="picture">
+      <div class="crop crop-command"><img src="accounting-guide-assets/accounting-desktop-full.png" alt="Command bar crop"></div>
+      <figcaption>Command bar with month selector, range buttons, date inputs, actions, status, and alerts.</figcaption>
+    </figure>
+
+    <h3>Month and range controls</h3>
+    <table>
+      <thead>
+        <tr><th>Control</th><th>Use it when</th><th>What happens</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Month</td><td>You want the default monthly accounting view.</td><td>The KPI cards, bills, ledger, and summary load for that month.</td></tr>
+        <tr><td>This Month</td><td>You are entering or reviewing current-period activity.</td><td>Uses the current month.</td></tr>
+        <tr><td>Last Month</td><td>You are checking the previous close.</td><td>Loads the previous calendar month.</td></tr>
+        <tr><td>YTD</td><td>You need year-to-date context.</td><td>Loads data from January 1 through the selected period.</td></tr>
+        <tr><td>Custom</td><td>You need a specific date window.</td><td>Uses the From and To fields.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Action buttons</h3>
+    <ul>
+      <li><strong>Refresh:</strong> reloads the latest Accounting data.</li>
+      <li><strong>Expense:</strong> switches the form to Expense Paid.</li>
+      <li><strong>Bill:</strong> switches the form to Bill Received.</li>
+      <li><strong>Pay Bill:</strong> switches the form to pay an existing open bill.</li>
+      <li><strong>Transfer:</strong> switches the form to internal movement between accounts.</li>
+      <li><strong>Export:</strong> downloads the current period as CSV.</li>
+      <li><strong>Settings:</strong> currently shows read-only seeded configuration information.</li>
+    </ul>
+  </section>
+
+  <section class="page">
+    <div class="eyebrow">5. KPI Cards</div>
+    <h2>Reading the top numbers</h2>
+    <p>The KPI cards provide the daily finance snapshot. They should be checked before entering new data and again after posting large transactions.</p>
+    <table>
+      <thead>
+        <tr><th>KPI</th><th>What it tells you</th><th>How to use it</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Cash Available</td><td>Spendable cash and bank balance.</td><td>Use it to decide whether bills can be paid now.</td></tr>
+        <tr><td>Marketplace</td><td>Expected marketplace money not treated as spendable cash yet.</td><td>Do not spend this until payout is transferred.</td></tr>
+        <tr><td>Bills Due</td><td>Open bills due soon.</td><td>Review this daily to prevent overdue invoices.</td></tr>
+        <tr><td>Overdue</td><td>Bills past due.</td><td>Act immediately: pay, schedule, investigate, or void.</td></tr>
+        <tr><td>Expenses</td><td>Paid expenses in the selected period.</td><td>Watch sudden increases by checking Insights.</td></tr>
+        <tr><td>Safe Cash</td><td>Estimated cash after known obligations.</td><td>Use as a conservative spending indicator.</td></tr>
+        <tr><td>Review</td><td>Open data-quality issues.</td><td>Keep this close to zero before month close.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="page">
+    <div class="eyebrow">6. Daily Entry Form</div>
+    <h2>How the form works</h2>
+    <figure class="picture">
+      <div class="crop crop-form"><img src="accounting-guide-assets/accounting-desktop-full.png" alt="Daily entry form crop"></div>
+      <figcaption>Daily entry form. Mode buttons change which fields are required.</figcaption>
+    </figure>
+
+    <p>The Daily Entry form changes based on the selected mode. This keeps the form shorter and reduces mistakes. The most important required fields are amount, date, account, category, and vendor/source when applicable.</p>
+
+    <h3>Shared fields</h3>
+    <table>
+      <thead>
+        <tr><th>Field</th><th>How to fill it</th><th>Why it matters</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Date</td><td>Use the date money moved or the bill was issued.</td><td>Controls monthly reporting.</td></tr>
+        <tr><td>Amount</td><td>Enter the gross amount in Rupiah.</td><td>Feeds cash movement and summaries.</td></tr>
+        <tr><td>Account</td><td>Choose the account money came from or entered into.</td><td>Keeps cash balances correct.</td></tr>
+        <tr><td>Category</td><td>Choose the best matching finance category.</td><td>Drives spend split and review quality.</td></tr>
+        <tr><td>Vendor / Source</td><td>Enter the vendor, payee, customer, owner, or money source.</td><td>Supports vendor reports and duplicate checks.</td></tr>
+        <tr><td>Brand</td><td>Select the brand that owns the activity.</td><td>Separates ZERO, Jenang Gemi, shared costs, and others.</td></tr>
+        <tr><td>Channel</td><td>Select operational channel.</td><td>Separates Shopee, TikTok, offline, ads, production, and internal activity.</td></tr>
+        <tr><td>Receipt URL</td><td>Paste an invoice or receipt link if available.</td><td>Reduces review work later.</td></tr>
+        <tr><td>Receipt Status</td><td>Choose Missing, Attached, or Not required.</td><td>Feeds review queue checks.</td></tr>
+        <tr><td>Reference No.</td><td>Enter invoice, bank, or payment reference.</td><td>Helps reconcile bank statements.</td></tr>
+        <tr><td>Order / SKU</td><td>Use when an expense relates to an order or SKU.</td><td>Improves traceability.</td></tr>
+        <tr><td>Notes</td><td>Add concise context.</td><td>Helps future reviewers understand unusual entries.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Save buttons</h3>
+    <ul>
+      <li><strong>Save:</strong> posts the entry and refreshes the workspace.</li>
+      <li><strong>Save &amp; Add:</strong> posts the entry and keeps you in entry mode for the next similar item.</li>
+      <li><strong>Draft:</strong> saves an entry that still needs confirmation.</li>
+      <li><strong>Cancel:</strong> resets the form.</li>
+    </ul>
+  </section>
+
+  <section class="page">
+    <div class="eyebrow">7. Entry Workflows</div>
+    <h2>How to record each type of activity</h2>
+
+    <h3>Expense Paid</h3>
+    <p>Use Expense Paid when money has already left the business. This is the most common daily entry mode.</p>
+    <div class="step"><div class="step-number">1</div><div>Select <strong>Expense Paid</strong>.</div></div>
+    <div class="step"><div class="step-number">2</div><div>Enter the payment date and amount.</div></div>
+    <div class="step"><div class="step-number">3</div><div>Choose the account that paid the expense.</div></div>
+    <div class="step"><div class="step-number">4</div><div>Choose category, vendor/payee, brand, and channel.</div></div>
+    <div class="step"><div class="step-number">5</div><div>Attach receipt URL or set Receipt Status correctly.</div></div>
+    <div class="step"><div class="step-number">6</div><div>Click <strong>Save</strong> or <strong>Save &amp; Add</strong>.</div></div>
+
+    <div class="callout">
+      <strong>Example:</strong>
+      Cash Drawer paid Rp275.000 to a courier for fulfillment. Category = Logistics, Channel = Fulfillment, Receipt Status = Attached.
+    </div>
+
+    <h3>Bill Received</h3>
+    <p>Use Bill Received when you receive a supplier invoice but have not fully paid it yet. This creates a bill in the Bills Queue.</p>
+    <div class="step"><div class="step-number">1</div><div>Select <strong>Bill Received</strong>.</div></div>
+    <div class="step"><div class="step-number">2</div><div>Enter Bill Date, Due Date, and Amount.</div></div>
+    <div class="step"><div class="step-number">3</div><div>Enter the vendor and bill/invoice number.</div></div>
+    <div class="step"><div class="step-number">4</div><div>Choose category, brand, and channel.</div></div>
+    <div class="step"><div class="step-number">5</div><div>Attach invoice URL if available.</div></div>
+    <div class="step"><div class="step-number">6</div><div>Click <strong>Save</strong>. The bill appears in Open Bills.</div></div>
+
+    <h3>Pay Bill</h3>
+    <p>Use Pay Bill when paying a bill that already exists in the Bills Queue. This reduces the outstanding amount and creates a payment transaction.</p>
+    <div class="step"><div class="step-number">1</div><div>Select <strong>Pay Bill</strong>, or click Pay from the bill row.</div></div>
+    <div class="step"><div class="step-number">2</div><div>Choose the bill. The amount fills from the outstanding amount when available.</div></div>
+    <div class="step"><div class="step-number">3</div><div>Choose the account that paid the bill.</div></div>
+    <div class="step"><div class="step-number">4</div><div>Adjust amount if it is a partial payment.</div></div>
+    <div class="step"><div class="step-number">5</div><div>Add receipt/reference details and Save.</div></div>
+
+    <div class="warning">
+      <strong>Do not enter a paid supplier invoice twice.</strong>
+      If the invoice already exists as a bill, use Pay Bill. If you enter it as a new Expense Paid too, expenses and cash movement will be overstated.
+    </div>
+  </section>
+
+  <section class="page">
+    <div class="eyebrow">8. Transfers and Money In</div>
+    <h2>Recording movement without double-counting</h2>
+
+    <h3>Transfer</h3>
+    <p>Use Transfer for wallet payout, bank-to-bank transfer, cash deposit, or any movement between accounts. Transfers do not count as income or expense.</p>
+    <div class="step"><div class="step-number">1</div><div>Select <strong>Transfer</strong>.</div></div>
+    <div class="step"><div class="step-number">2</div><div>Enter date and amount.</div></div>
+    <div class="step"><div class="step-number">3</div><div>Choose From Account and To Account.</div></div>
+    <div class="step"><div class="step-number">4</div><div>If there is a bank fee, enter Transfer Fee.</div></div>
+    <div class="step"><div class="step-number">5</div><div>Save.</div></div>
+
+    <div class="callout">
+      <strong>Marketplace payout example:</strong>
+      Shopee Wallet -> BCA Operating for Rp12.750.000. This is a Transfer because the sale was already captured by Orders/Wallet.
+    </div>
+
+    <h3>Manual Money In</h3>
+    <p>Use Manual Money In only for non-marketplace money. Examples include owner injection, offline customer payment, manual invoice payment, refund, reimbursement, loan received, or other non-marketplace income.</p>
+    <div class="step"><div class="step-number">1</div><div>Select <strong>Money In</strong>.</div></div>
+    <div class="step"><div class="step-number">2</div><div>Choose Income Type.</div></div>
+    <div class="step"><div class="step-number">3</div><div>Choose Received Into Account.</div></div>
+    <div class="step"><div class="step-number">4</div><div>Enter source/customer and category.</div></div>
+    <div class="step"><div class="step-number">5</div><div>Save after confirming this is not marketplace revenue.</div></div>
+
+    <div class="do-dont">
+      <div>
+        <h4>Do</h4>
+        <ul>
+          <li>Use Transfer for marketplace wallet payout.</li>
+          <li>Use Manual Money In for offline customer payment.</li>
+          <li>Use Owner Injection for owner capital added to bank.</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Do not</h4>
+        <ul>
+          <li>Do not enter Shopee order revenue manually.</li>
+          <li>Do not use Manual Money In to clean up wallet balances.</li>
+          <li>Do not skip the source field.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="page">
+    <div class="eyebrow">9. Bills Queue</div>
+    <h2>Managing unpaid and upcoming bills</h2>
+    <figure class="picture">
+      <div class="crop crop-bills"><img src="accounting-guide-assets/accounting-desktop-full.png" alt="Bills queue crop"></div>
+      <figcaption>Bills Queue with due date, status, vendor, amount, outstanding balance, receipt status, and actions.</figcaption>
+    </figure>
+
+    <h3>Bill statuses</h3>
+    <table>
+      <thead>
+        <tr><th>Status</th><th>Meaning</th><th>Action</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Unpaid</td><td>No payment recorded yet.</td><td>Pay when scheduled.</td></tr>
+        <tr><td>Partially paid</td><td>Some payment has been recorded but balance remains.</td><td>Pay remaining outstanding amount.</td></tr>
+        <tr><td>Overdue</td><td>Due date is past and outstanding remains.</td><td>Escalate and resolve quickly.</td></tr>
+        <tr><td>Paid</td><td>Outstanding amount is zero.</td><td>No action required unless receipt/reference is missing.</td></tr>
+        <tr><td>Void</td><td>Bill was cancelled with a reason.</td><td>Keep for audit trail; do not reuse.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Bill row actions</h3>
+    <ul>
+      <li><strong>Pay:</strong> switches the form into Pay Bill mode and selects that bill.</li>
+      <li><strong>View:</strong> opens a detail drawer with raw bill fields.</li>
+      <li><strong>Void:</strong> cancels the bill after you enter a reason. Use this only when the bill is invalid or duplicated.</li>
+    </ul>
+  </section>
+
+  <section class="page">
+    <div class="eyebrow">10. Ledger</div>
+    <h2>Reading manual transaction history</h2>
+    <figure class="picture">
+      <div class="crop crop-ledger"><img src="accounting-guide-assets/accounting-desktop-full.png" alt="Transaction ledger crop"></div>
+      <figcaption>Transaction Ledger with date, type, account, direction, vendor/source, category, amount, status, receipt, and actions.</figcaption>
+    </figure>
+
+    <h3>What to review in the ledger</h3>
+    <ul>
+      <li><strong>Date:</strong> confirm it belongs to the selected period.</li>
+      <li><strong>Type:</strong> expense, transfer, manual income, owner injection, refund, or draft.</li>
+      <li><strong>Direction:</strong> money out, money in, or internal transfer.</li>
+      <li><strong>Account:</strong> confirm the correct bank/cash/wallet account was used.</li>
+      <li><strong>Vendor / Payee:</strong> confirm the source or recipient is meaningful.</li>
+      <li><strong>Receipt:</strong> missing receipts should be resolved before closing.</li>
+      <li><strong>Related Bill:</strong> bill payments should point to the bill number when possible.</li>
+    </ul>
+
+    <h3>Voiding a transaction</h3>
+    <p>Voiding is used instead of deletion so the audit trail remains intact. Use Void only when an entry is wrong, duplicated, or should not count. Always enter a short reason that a reviewer can understand later.</p>
+  </section>
+
+  <section class="page">
+    <div class="eyebrow">11. Summary and Insights</div>
+    <h2>Using reporting sections</h2>
+    <figure class="picture">
+      <div class="crop crop-summary"><img src="accounting-guide-assets/accounting-desktop-full.png" alt="Summary and insights crop"></div>
+      <figcaption>Summary and Insights show period totals and spending distribution.</figcaption>
+    </figure>
+
+    <h3>Summary</h3>
+    <p>The Summary section gives profit context and cash movement context for the selected period. It helps compare operational cash movement against broader sales and gross profit context.</p>
+
+    <h3>Insights</h3>
+    <p>Insights group spending by category, vendor, brand, or channel. Use the tabs to answer questions such as:</p>
+    <ul>
+      <li>Which category consumed the most cash this month?</li>
+      <li>Which vendor drove the largest expense?</li>
+      <li>Which brand is carrying shared costs?</li>
+      <li>Which channel is generating the most operational spending?</li>
+    </ul>
+  </section>
+
+  <section class="page">
+    <div class="eyebrow">12. Review Queue</div>
+    <h2>Cleaning data before month close</h2>
+    <p>The Review Queue identifies records that need cleanup. A clean Review count is a good signal that the period can be exported and sent for finance review.</p>
+    <table>
+      <thead>
+        <tr><th>Issue</th><th>What it means</th><th>How to resolve</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Missing receipt</td><td>Receipt Status is Missing or no receipt URL exists.</td><td>Attach a link or mark Not required with a good reason.</td></tr>
+        <tr><td>Overdue bill</td><td>A bill is past due and still outstanding.</td><td>Pay, schedule, investigate, or void if invalid.</td></tr>
+        <tr><td>Missing category</td><td>Entry does not have a useful category.</td><td>Edit/update with the correct category.</td></tr>
+        <tr><td>Marketplace income risk</td><td>Manual Money In looks like marketplace revenue.</td><td>Void if duplicated, or re-enter as Transfer if it was a payout.</td></tr>
+        <tr><td>Duplicate risk</td><td>Similar amount/vendor/date already exists.</td><td>Confirm which entry is correct and void duplicates.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Review routine</h3>
+    <ol>
+      <li>Open the selected month.</li>
+      <li>Check the Review KPI count.</li>
+      <li>Open Review Queue and resolve each issue.</li>
+      <li>Refresh and confirm the Review KPI dropped.</li>
+      <li>Export only after critical issues are resolved.</li>
+    </ol>
+  </section>
+
+  <section class="page">
+    <div class="eyebrow">13. Export and Month-End Close</div>
+    <h2>Preparing data for finance review</h2>
+    <p>Use Export when you need a CSV of manual accounting transactions for the selected month or custom range. The export is intended for reconciliation, review, or handoff to the person preparing final accounting records.</p>
+
+    <h3>Export steps</h3>
+    <div class="step"><div class="step-number">1</div><div>Select the month or custom period.</div></div>
+    <div class="step"><div class="step-number">2</div><div>Click <strong>Refresh</strong> so the screen is current.</div></div>
+    <div class="step"><div class="step-number">3</div><div>Resolve critical review items and missing receipt items.</div></div>
+    <div class="step"><div class="step-number">4</div><div>Click <strong>Export</strong>.</div></div>
+    <div class="step"><div class="step-number">5</div><div>Open the CSV and compare against bank statements, cash counts, wallet payout history, and supplier invoices.</div></div>
+
+    <h3>Monthly close checklist</h3>
+    <div class="checklist">
+      <ul>
+        <li>All known supplier invoices are entered as bills.</li>
+        <li>All paid bills are marked paid or partially paid.</li>
+        <li>All daily expenses have category, vendor, brand, and channel.</li>
+        <li>Marketplace payouts are transfers, not manual income.</li>
+        <li>Offline/manual income has source and reference.</li>
+        <li>Receipt status is accurate for every material entry.</li>
+        <li>Overdue bills are explained or resolved.</li>
+        <li>Review Queue has no critical items.</li>
+        <li>Safe Cash is reviewed before discretionary spending.</li>
+        <li>CSV export is saved for the period.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="page">
+    <div class="eyebrow">14. Best Practices</div>
+    <h2>Rules that keep Accounting usable</h2>
+    <div class="grid-2">
+      <div class="mode-card">
+        <strong>Enter daily, not weekly</strong>
+        <p>Daily entry reduces forgotten vendors, missing receipts, and incorrect dates.</p>
+      </div>
+      <div class="mode-card">
+        <strong>Use bills for unpaid invoices</strong>
+        <p>If we owe money but have not paid, create a bill. Do not wait until payment day.</p>
+      </div>
+      <div class="mode-card">
+        <strong>Do not double-count payouts</strong>
+        <p>Marketplace payout is a transfer from wallet to bank, not new revenue.</p>
+      </div>
+      <div class="mode-card">
+        <strong>Attach evidence early</strong>
+        <p>Missing receipts create review work and slow month close.</p>
+      </div>
+      <div class="mode-card">
+        <strong>Void, do not delete</strong>
+        <p>Voiding keeps a reason and preserves audit history.</p>
+      </div>
+      <div class="mode-card">
+        <strong>Keep categories boring</strong>
+        <p>Use consistent categories. Do not create vague vendor names or broad catch-all notes.</p>
+      </div>
+    </div>
+
+    <h3>Common mistakes</h3>
+    <table>
+      <thead>
+        <tr><th>Mistake</th><th>Result</th><th>Correct approach</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Entering marketplace payout as Manual Money In</td><td>Revenue/cash is double-counted.</td><td>Use Transfer from marketplace wallet to bank.</td></tr>
+        <tr><td>Entering unpaid invoice as Expense Paid</td><td>Cash looks lower before payment happens.</td><td>Use Bill Received, then Pay Bill later.</td></tr>
+        <tr><td>Skipping vendor/source</td><td>Insights become useless.</td><td>Enter the vendor, payee, source, or customer.</td></tr>
+        <tr><td>Leaving receipt missing</td><td>Review Queue stays open.</td><td>Attach URL or mark Not required.</td></tr>
+        <tr><td>Using wrong date</td><td>Month totals become inaccurate.</td><td>Use actual movement date or invoice date.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="page">
+    <div class="eyebrow">15. Troubleshooting</div>
+    <h2>When something looks wrong</h2>
+    <table>
+      <thead>
+        <tr><th>Problem</th><th>Likely cause</th><th>What to do</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Numbers did not update after saving</td><td>Data has not refreshed yet.</td><td>Click Refresh and check selected month.</td></tr>
+        <tr><td>Bill does not appear in Pay Bill</td><td>Bill may already be paid/voided or filtered out.</td><td>Check Bills Queue status and selected month.</td></tr>
+        <tr><td>Amount is not accepted</td><td>Amount is blank or zero.</td><td>Enter a positive Rupiah amount.</td></tr>
+        <tr><td>Transfer form rejects entry</td><td>From and To accounts are the same or missing.</td><td>Choose two different accounts.</td></tr>
+        <tr><td>Manual income warning appears</td><td>The source/channel looks like marketplace revenue.</td><td>Use Transfer if this is a payout.</td></tr>
+        <tr><td>Export is missing rows</td><td>Wrong month/range selected.</td><td>Select the correct month or custom range before export.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Escalate when</h3>
+    <ul>
+      <li>Cash Available does not match the bank/cash reality after refresh.</li>
+      <li>Marketplace Outstanding looks materially wrong.</li>
+      <li>Safe Cash is negative or unexpectedly low.</li>
+      <li>Overdue bills are growing.</li>
+      <li>Review Queue contains items you cannot resolve confidently.</li>
+    </ul>
+
+    <div class="footer-note">
+      End of tutorial. Keep this PDF near the finance SOP and update it when Accounting workflows or fields change.
+    </div>
+  </section>
+</body>
+</html>
