@@ -6536,7 +6536,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	              <td>${formatCurrency(wallet.released_month_total || 0)}</td>
 	              <td><strong>${balanceKnown ? formatCurrency(balance) : 'Set balance'}</strong><small class="admin-wallet-muted">${escapeHtml(walletBalanceNote(wallet))}</small></td>
 	              <td>${formatCurrency(wallet.outstanding_total || 0)}</td>
-	              <td><span class="admin-wallet-counts" title="Outstanding orders">${walletOrderCounts(wallet)}</span></td>
+	              <td class="admin-wallet-orders-cell" title="Outstanding orders">${walletOrderCounts(wallet)}</td>
 	              <td class="admin-wallet-action-cell">
 	                <div class="admin-wallet-balance-summary">
 	                  <span><span class="admin-wallet-updated">${escapeHtml(walletMutationLabel(wallet))}</span></span>

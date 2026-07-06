@@ -20428,17 +20428,10 @@ body:has(.admin-app[data-sku-db])::after {
   font-size: 0.72rem;
 }
 
-.admin-wallet-counts {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 92px;
-  min-height: 30px;
-  padding: 0 10px;
-  border: 1px solid var(--admin-border);
-  border-radius: 999px;
+.admin-wallet-orders-cell {
   color: var(--admin-text);
-  font: 800 0.76rem/1 "Space Grotesk", sans-serif;
+  font: 800 0.82rem/1 "Space Grotesk", sans-serif;
+  text-align: center;
 }
 
 .admin-wallet-updated {
