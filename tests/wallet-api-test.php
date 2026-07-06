@@ -85,6 +85,15 @@ wallet_expect('released', jg_wallet_order_bucket([
 wallet_expect(45000, jg_wallet_released_amount([
     'funds_released_amount' => 0,
 ], 45000), 'Released orders must fall back to order amount when the release amount is missing.');
+$julyWindow = jg_wallet_current_month_window(new DateTimeImmutable('2026-07-06 12:00:00', new DateTimeZone('Asia/Jakarta')));
+wallet_expect('2026-06-30 17:00:00.000000', $julyWindow['start_at'], 'Wallet released month must start at midnight WIB.');
+wallet_expect('2026-07-31 17:00:00.000000', $julyWindow['end_at'], 'Wallet released month must end at the next midnight WIB.');
+wallet_expect(true, jg_wallet_released_in_window([
+    'funds_released_at' => '2026-06-30 17:00:00.000000',
+], $julyWindow), 'First UTC instant of the WIB month must count as released this month.');
+wallet_expect(false, jg_wallet_released_in_window([
+    'funds_released_at' => '2026-07-31 17:00:00.000000',
+], $julyWindow), 'First UTC instant of next WIB month must not count as released this month.');
 wallet_expect(0, jg_wallet_balance_value('0'), 'Wallet balance anchors must allow a zero balance after withdrawal.');
 wallet_expect(45000, jg_wallet_balance_value('Rp45.000'), 'Wallet balance anchors must accept formatted Rupiah input.');
 wallet_expect('2026-07-03 03:30:00.000000', jg_wallet_observed_at('2026-07-03T10:30'), 'Manual wallet observed times must be stored as UTC.');

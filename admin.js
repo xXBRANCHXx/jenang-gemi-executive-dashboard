@@ -6485,7 +6485,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      walletRefs.balance.textContent = Number(totals.manual_anchor_count || 0) > 0 ? formatCurrency(totals.wallet_balance || 0) : 'Set balance';
 	    }
 	    if (walletRefs.outstanding) walletRefs.outstanding.textContent = formatCurrency(totals.outstanding_total || 0);
-	    if (walletRefs.released) walletRefs.released.textContent = formatCurrency(totals.released_total || 0);
+	    if (walletRefs.released) walletRefs.released.textContent = formatCurrency(totals.released_month_total || 0);
 	    if (walletRefs.status) {
 	      walletRefs.status.textContent = walletActionStatus(activeAction) || walletBacktrackStatus(backtrack) || (state.wallet.loading
 	        ? 'Loading wallets'
@@ -6533,7 +6533,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	                  </div>
 	                ` : ''}
 	              </td>
-	              <td>${formatCurrency(wallet.released_total || 0)}</td>
+	              <td>${formatCurrency(wallet.released_month_total || 0)}</td>
 	              <td><strong>${balanceKnown ? formatCurrency(balance) : 'Set balance'}</strong><small class="admin-wallet-muted">${escapeHtml(walletBalanceNote(wallet))}</small></td>
 	              <td>${formatCurrency(wallet.outstanding_total || 0)}</td>
 	              <td><span class="admin-wallet-counts" title="Outstanding orders">${walletOrderCounts(wallet)}</span></td>
