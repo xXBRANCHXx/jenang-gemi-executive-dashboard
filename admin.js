@@ -2895,9 +2895,28 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.querySelectorAll('[data-dashboard-view-link]').forEach((link) => {
-      link.addEventListener('click', () => {
+      link.addEventListener('click', async (event) => {
         const view = link.getAttribute('data-dashboard-view-link') || 'home';
         window.localStorage.setItem(viewStorageKey, view);
+        if (!(link instanceof HTMLAnchorElement) || !view || link.target) return;
+        if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+        let targetUrl;
+        try {
+          targetUrl = new URL(link.href, window.location.href);
+        } catch (_error) {
+          return;
+        }
+
+        const currentUrl = new URL(window.location.href);
+        const normalizePath = (path) => String(path || '').replace(/\/(?:index\.php)?$/i, '') || '/';
+        const isSameDashboard =
+          targetUrl.origin === currentUrl.origin &&
+          normalizePath(targetUrl.pathname) === normalizePath(currentUrl.pathname);
+        if (!isSameDashboard) return;
+
+        event.preventDefault();
+        await switchView(view);
       });
     });
 
