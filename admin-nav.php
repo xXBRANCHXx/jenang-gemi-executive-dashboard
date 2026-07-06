@@ -66,6 +66,14 @@ function admin_quick_menu_definitions(): array
             'label' => 'Wallet',
             'description' => 'Marketplace wallet balances',
         ],
+        'inventory-recap' => [
+            'href' => '../dashboard/?view=inventory-recap',
+            'view' => 'inventory-recap',
+            'icon' => 'inventory-recap',
+            'label' => 'Inventory Recap',
+            'description' => 'Smart restock draft and cash fit',
+            'alert_key' => 'inventory-recap',
+        ],
         'campaigns' => [
             'href' => '../dashboard/?view=campaigns',
             'view' => 'home',
@@ -148,10 +156,11 @@ function admin_quick_menu_definitions(): array
 function admin_quick_menu_context_map(): array
 {
     return [
-        'overview' => ['daily', 'orders', 'campaigns', 'back-dash', 'context', 'settings'],
+        'overview' => ['inventory-recap', 'daily', 'orders', 'campaigns', 'back-dash', 'context', 'settings'],
         'daily' => ['home', 'orders', 'campaigns', 'back-dash', 'context', 'settings'],
         'orders' => ['home', 'daily', 'campaigns', 'back-dash', 'context', 'settings'],
         'wallet' => ['home', 'orders', 'daily', 'back-dash', 'settings'],
+        'inventory-recap' => ['home', 'wallet', 'orders', 'sku-db', 'settings'],
         'campaigns' => ['home', 'orders', 'affiliates', 'back-dash', 'context', 'settings'],
         'back-dash' => ['home', 'api', 'context', 'hard-set', 'settings'],
         'context' => ['home', 'api', 'back-dash', 'settings'],
@@ -190,6 +199,9 @@ function admin_normalize_quick_menu_context(string $context): string
         'cash-control' => 'profit-loss',
         'p&l' => 'profit-loss',
         'profit-and-loss' => 'profit-loss',
+        'inventory' => 'inventory-recap',
+        'inventory_recap' => 'inventory-recap',
+        'inventory-recap' => 'inventory-recap',
     ];
     $context = $aliases[$normalized] ?? $normalized;
 
@@ -207,6 +219,9 @@ function admin_dashboard_view_menu_context(): string
         'daily' => 'daily',
         'orders' => 'orders',
         'wallet' => 'wallet',
+        'inventory' => 'inventory-recap',
+        'inventory_recap' => 'inventory-recap',
+        'inventory-recap' => 'inventory-recap',
         'home' => 'campaigns',
         'campaign' => 'campaigns',
         'campaigns' => 'campaigns',
@@ -320,6 +335,10 @@ function admin_favicon_assets(): array
             'light' => 'https://api.iconify.design/lucide:wallet.svg?color=%230f172a',
             'dark' => 'https://api.iconify.design/lucide:wallet.svg?color=%23ffffff',
         ],
+        'inventory-recap' => [
+            'light' => 'https://api.iconify.design/lucide:package-check.svg?color=%230f172a',
+            'dark' => 'https://api.iconify.design/lucide:package-check.svg?color=%23ffffff',
+        ],
         'profit-loss' => [
             'light' => '/assets/admin-icons/favicon-profit-loss-light.svg',
             'dark' => '/assets/admin-icons/favicon-profit-loss-dark.svg',
@@ -344,6 +363,9 @@ function admin_normalize_favicon_key(string $key): string
         'store-ops' => 'orders',
         'ops' => 'orders',
         'wallets' => 'wallet',
+        'inventory' => 'inventory-recap',
+        'inventory_recap' => 'inventory-recap',
+        'inventory-recap' => 'inventory-recap',
         'affiliate' => 'affiliates',
         'affiliate-program' => 'affiliates',
         'affiliate-profile' => 'affiliates',
@@ -376,6 +398,9 @@ function admin_dashboard_view_favicon_key(): string
         'orders' => 'orders',
         'store-ops' => 'orders',
         'wallet' => 'wallet',
+        'inventory' => 'inventory-recap',
+        'inventory_recap' => 'inventory-recap',
+        'inventory-recap' => 'inventory-recap',
         'home' => 'campaigns',
         'campaign' => 'campaigns',
         'campaigns' => 'campaigns',
@@ -579,7 +604,7 @@ function render_admin_topbar_action_buttons(string $menuContext = ''): void
     echo '</button>';
 
     echo '<div class="admin-menu-shell" data-menu-shell>';
-    echo '<button type="button" class="admin-ghost-btn admin-menu-trigger" data-menu-trigger aria-expanded="false" aria-label="Open dashboard menu">';
+    echo '<button type="button" class="admin-ghost-btn admin-menu-trigger" data-menu-trigger data-menu-alert-trigger aria-expanded="false" aria-label="Open dashboard menu">';
     echo '<svg class="admin-menu-open-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>';
     echo '<svg class="admin-menu-close-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
     echo '</button>';
@@ -643,6 +668,7 @@ function render_admin_topbar_menu_item(array $item, array $options = []): void
     $label = htmlspecialchars((string) ($item['label'] ?? ''), ENT_QUOTES, 'UTF-8');
     $description = htmlspecialchars((string) ($item['description'] ?? ''), ENT_QUOTES, 'UTF-8');
     $view = trim((string) ($item['view'] ?? ''));
+    $alertKey = trim((string) ($item['alert_key'] ?? ''));
     $viewAttribute = $view !== '' && !$asButton
         ? ' data-dashboard-view-link="' . htmlspecialchars($view, ENT_QUOTES, 'UTF-8') . '"'
         : '';
@@ -654,6 +680,9 @@ function render_admin_topbar_menu_item(array $item, array $options = []): void
     if (!empty($options['hidden'])) {
         $extraAttributes[] = 'hidden';
     }
+    if ($alertKey !== '') {
+        $extraAttributes[] = 'data-menu-alert-item="' . htmlspecialchars($alertKey, ENT_QUOTES, 'UTF-8') . '"';
+    }
 
     if ($asButton) {
         $buttonView = $view !== '' ? $view : 'overview';
@@ -662,6 +691,9 @@ function render_admin_topbar_menu_item(array $item, array $options = []): void
         echo '<a class="admin-menu-item admin-link-btn" href="' . $href . '"' . $viewAttribute . ($extraAttributes ? ' ' . implode(' ', $extraAttributes) : '') . '>';
     }
     echo '<span class="admin-menu-icon" aria-hidden="true">' . admin_topbar_menu_icon((string) ($item['icon'] ?? 'home')) . '</span>';
+    if ($alertKey !== '') {
+        echo '<i class="admin-menu-alert-dot" aria-hidden="true"></i>';
+    }
     echo '<span><strong>' . $label . '</strong><small>' . $description . '</small></span>';
     echo $asButton ? '</button>' : '</a>';
 }
@@ -673,6 +705,7 @@ function admin_topbar_menu_icon(string $icon): string
         'calendar' => '<svg viewBox="0 0 24 24"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>',
         'orders' => '<svg viewBox="0 0 24 24"><path d="M13 16H8"/><path d="M14 8H8"/><path d="M16 12H8"/><path d="M4 3a1 1 0 0 1 1-1 1.3 1.3 0 0 1 .7.2l.933.6a1.3 1.3 0 0 0 1.4 0l.934-.6a1.3 1.3 0 0 1 1.4 0l.933.6a1.3 1.3 0 0 0 1.4 0l.933-.6a1.3 1.3 0 0 1 1.4 0l.934.6a1.3 1.3 0 0 0 1.4 0l.933-.6A1.3 1.3 0 0 1 19 2a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1 1.3 1.3 0 0 1-.7-.2l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.934.6a1.3 1.3 0 0 1-1.4 0l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-1.4 0l-.934-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-.7.2 1 1 0 0 1-1-1z"/></svg>',
         'wallet' => '<img src="https://cdn.jsdelivr.net/npm/lucide-static@0.468.0/icons/wallet.svg" alt="" width="21" height="21" loading="lazy" referrerpolicy="no-referrer">',
+        'inventory-recap' => '<svg viewBox="0 0 24 24"><path d="M16 16h6"/><path d="m19 13 3 3-3 3"/><path d="M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l2-1.14"/><path d="m7.5 4.27 9 5.15"/><path d="M3.29 7 12 12l8.71-5"/><path d="M12 22V12"/></svg>',
         'campaigns' => '<svg viewBox="0 0 24 24"><path d="M11 6a13 13 0 0 0 8.4-2.8A1 1 0 0 1 21 4v12a1 1 0 0 1-1.6.8A13 13 0 0 0 11 14H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/><path d="M6 14a12 12 0 0 0 2.4 7.2 2 2 0 0 0 3.2-2.4A8 8 0 0 1 10 14"/><path d="M8 6v8"/></svg>',
         'profit-loss' => '<svg viewBox="0 0 24 24"><path d="M12 16v5"/><path d="M16 14.639V21"/><path d="M20 10.656V21"/><path d="m22 3-8.646 8.646a.5.5 0 0 1-.708 0L9.354 8.354a.5.5 0 0 0-.707 0L2 15"/><path d="M4 18.463V21"/><path d="M8 14.656V21"/></svg>',
         'back-dash' => '<svg viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>',

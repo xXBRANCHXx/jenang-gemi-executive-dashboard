@@ -20653,6 +20653,334 @@ body:has(.admin-app[data-sku-db])::after {
   color: var(--admin-bg);
 }
 
+.admin-menu-trigger.has-critical-dot::after,
+.admin-menu-item.has-critical-dot .admin-menu-alert-dot {
+  content: "";
+  position: absolute;
+  display: block;
+  width: 9px;
+  height: 9px;
+  border: 2px solid var(--admin-surface);
+  border-radius: 999px;
+  background: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.16);
+}
+
+.admin-menu-trigger.has-critical-dot::after {
+  top: 8px;
+  right: 8px;
+}
+
+.admin-menu-item {
+  position: relative;
+}
+
+.admin-menu-alert-dot {
+  display: none;
+  top: 13px;
+  left: 39px;
+}
+
+.admin-inventory-recap-view {
+  gap: 18px;
+  width: 100%;
+  max-width: none;
+}
+
+.admin-inventory-recap-command {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 64px;
+  padding: 12px 14px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-card-radius);
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow);
+}
+
+.admin-inventory-recap-command > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.admin-inventory-recap-command strong {
+  overflow: hidden;
+  color: var(--admin-text);
+  font: 850 0.9rem/1.15 "Space Grotesk", sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-inventory-recap-refresh svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.admin-inventory-recap-refresh.is-loading svg {
+  animation: admin-wallet-spin 900ms linear infinite;
+}
+
+.admin-inventory-recap-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-inventory-recap-stat {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-card-radius);
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow);
+}
+
+.admin-inventory-recap-stat span,
+.admin-inventory-recap-stat small {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--admin-muted);
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-inventory-recap-stat strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--admin-text);
+  font: 800 clamp(1.35rem, 2.4vw, 2.2rem)/1 "Space Grotesk", sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-inventory-recap-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.02fr) minmax(320px, 0.98fr);
+  gap: 12px;
+}
+
+.admin-inventory-recap-panel {
+  gap: 14px;
+  min-width: 0;
+}
+
+.admin-inventory-recap-risk-list {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-inventory-recap-risk-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px 14px;
+  align-items: center;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--admin-border);
+  border-left: 4px solid var(--admin-muted);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--admin-surface) 88%, var(--admin-bg));
+}
+
+.admin-inventory-recap-risk-card > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.admin-inventory-recap-risk-card strong,
+.admin-inventory-recap-risk-card small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-inventory-recap-risk-card small {
+  color: var(--admin-muted);
+  font-size: 0.72rem;
+  font-weight: 760;
+}
+
+.admin-inventory-recap-risk-card > span {
+  color: var(--admin-text);
+  font: 850 0.84rem/1 "Space Grotesk", sans-serif;
+}
+
+.admin-inventory-recap-risk-card.is-critical,
+.admin-inventory-recap-table tr.is-critical {
+  border-left-color: #dc2626;
+}
+
+.admin-inventory-recap-risk-card.is-high,
+.admin-inventory-recap-table tr.is-high {
+  border-left-color: #ea580c;
+}
+
+.admin-inventory-recap-risk-card.is-medium,
+.admin-inventory-recap-table tr.is-medium,
+.admin-inventory-recap-risk-card.is-watch,
+.admin-inventory-recap-table tr.is-watch {
+  border-left-color: #d97706;
+}
+
+.admin-inventory-recap-risk-card.is-low,
+.admin-inventory-recap-table tr.is-low {
+  border-left-color: #65a30d;
+}
+
+.admin-inventory-recap-risk-card.is-covered,
+.admin-inventory-recap-table tr.is-covered {
+  border-left-color: #16a34a;
+}
+
+.admin-inventory-recap-play {
+  display: grid;
+  gap: 5px;
+  min-width: 160px;
+}
+
+.admin-inventory-recap-play-track {
+  position: relative;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--admin-muted) 18%, var(--admin-bg));
+}
+
+.admin-inventory-recap-play-track i,
+.admin-inventory-recap-play-track b {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: block;
+}
+
+.admin-inventory-recap-play-track i {
+  width: var(--inventory-min);
+  background: color-mix(in srgb, #16a34a 82%, var(--admin-surface));
+}
+
+.admin-inventory-recap-play-track b {
+  left: var(--inventory-min);
+  width: var(--inventory-buffer);
+  background: color-mix(in srgb, #d97706 80%, var(--admin-surface));
+}
+
+.admin-inventory-recap-play small {
+  overflow: hidden;
+  color: var(--admin-muted);
+  font-size: 0.68rem;
+  font-weight: 820;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-inventory-recap-draft {
+  min-height: 280px;
+  max-height: min(52vh, 520px);
+  margin: 0;
+  overflow: auto;
+  padding: 14px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--admin-surface) 84%, var(--admin-bg));
+  color: var(--admin-text);
+  font: 720 0.78rem/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  white-space: pre-wrap;
+}
+
+.admin-inventory-recap-table-panel {
+  gap: 16px;
+}
+
+.admin-inventory-recap-table {
+  min-width: 940px;
+}
+
+.admin-inventory-recap-table tr {
+  border-left: 4px solid transparent;
+}
+
+.admin-inventory-recap-table th,
+.admin-inventory-recap-table td {
+  white-space: nowrap;
+}
+
+.admin-inventory-recap-risk {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  color: var(--admin-text);
+  font: 850 0.68rem/1 "Space Grotesk", sans-serif;
+}
+
+.admin-inventory-recap-risk.is-critical {
+  border-color: rgba(220, 38, 38, 0.34);
+  background: rgba(220, 38, 38, 0.12);
+  color: #fca5a5;
+}
+
+.admin-inventory-recap-risk.is-high {
+  border-color: rgba(234, 88, 12, 0.34);
+  background: rgba(234, 88, 12, 0.12);
+  color: #fdba74;
+}
+
+.admin-inventory-recap-risk.is-medium,
+.admin-inventory-recap-risk.is-watch {
+  border-color: rgba(217, 119, 6, 0.34);
+  background: rgba(217, 119, 6, 0.12);
+  color: #fcd34d;
+}
+
+.admin-inventory-recap-risk.is-low,
+.admin-inventory-recap-risk.is-covered {
+  border-color: rgba(22, 163, 74, 0.34);
+  background: rgba(22, 163, 74, 0.12);
+  color: #86efac;
+}
+
+:root[data-admin-theme='light'] .admin-inventory-recap-command,
+:root[data-admin-theme='light'] .admin-inventory-recap-stat {
+  border-color: rgba(15, 23, 42, 0.1);
+  background: #ffffff;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
+}
+
+:root[data-admin-theme='light'] .admin-inventory-recap-risk.is-critical {
+  color: #b91c1c;
+}
+
+:root[data-admin-theme='light'] .admin-inventory-recap-risk.is-high {
+  color: #c2410c;
+}
+
+:root[data-admin-theme='light'] .admin-inventory-recap-risk.is-medium,
+:root[data-admin-theme='light'] .admin-inventory-recap-risk.is-watch {
+  color: #a16207;
+}
+
+:root[data-admin-theme='light'] .admin-inventory-recap-risk.is-low,
+:root[data-admin-theme='light'] .admin-inventory-recap-risk.is-covered {
+  color: #15803d;
+}
+
 :root[data-admin-theme='light'] .admin-wallet-command,
 :root[data-admin-theme='light'] .admin-wallet-stat {
   border-color: rgba(15, 23, 42, 0.1);
@@ -20691,6 +21019,14 @@ body:has(.admin-app[data-sku-db])::after {
   .admin-wallet-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .admin-inventory-recap-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-inventory-recap-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 560px) {
@@ -20700,6 +21036,23 @@ body:has(.admin-app[data-sku-db])::after {
 
   .admin-wallet-stat {
     padding: 16px;
+  }
+
+  .admin-inventory-recap-command {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-inventory-recap-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-inventory-recap-stat {
+    padding: 16px;
+  }
+
+  .admin-inventory-recap-risk-card {
+    grid-template-columns: 1fr;
   }
 }
 

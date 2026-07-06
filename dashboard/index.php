@@ -91,7 +91,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
             <strong class="admin-loader-label" data-admin-loader-label>Initializing...</strong>
         </div>
     </div>
-    <div class="admin-app admin-app-suite" data-admin-dashboard data-analytics-endpoint="../api/analytics/" data-live-endpoint="../api/live/" data-settings-endpoint="../api/settings/" data-sales-endpoint="../api/sales/" data-orders-endpoint="../api/orders/" data-wallet-endpoint="../api/wallet/" data-sku-catalog-endpoint="../api/sales/?action=sku_catalog" data-context-endpoint="../api/context/" data-zero-store-endpoint="../api/zero-store/" data-jenang-gemi-store-endpoint="../api/jenang-gemi-store/" data-website-orders-endpoint="../api/website-orders/" data-hard-set-endpoint="../api/hard-set/" data-province-map-url="../assets/data/indonesia-38-provinces.geojson">
+    <div class="admin-app admin-app-suite" data-admin-dashboard data-analytics-endpoint="../api/analytics/" data-live-endpoint="../api/live/" data-settings-endpoint="../api/settings/" data-sales-endpoint="../api/sales/" data-orders-endpoint="../api/orders/" data-wallet-endpoint="../api/wallet/" data-inventory-recap-endpoint="../api/inventory-recap/" data-sku-catalog-endpoint="../api/sales/?action=sku_catalog" data-context-endpoint="../api/context/" data-zero-store-endpoint="../api/zero-store/" data-jenang-gemi-store-endpoint="../api/jenang-gemi-store/" data-website-orders-endpoint="../api/website-orders/" data-hard-set-endpoint="../api/hard-set/" data-province-map-url="../assets/data/indonesia-38-provinces.geojson">
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
         <div class="admin-shell">
@@ -133,7 +133,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                             <span class="admin-notification-button-copy"><strong>Order verification</strong><small data-notification-summary>No website orders pending</small></span>
                         </button>
                         <div class="admin-menu-shell" data-menu-shell>
-                            <button type="button" class="admin-ghost-btn admin-menu-trigger" data-menu-trigger aria-expanded="false" aria-label="Open dashboard menu">
+                            <button type="button" class="admin-ghost-btn admin-menu-trigger" data-menu-trigger data-menu-alert-trigger aria-expanded="false" aria-label="Open dashboard menu">
                                 <svg class="admin-menu-open-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
                                 <svg class="admin-menu-close-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
                             </button>
@@ -658,6 +658,80 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
 		                    </div>
 		                </section>
 		                    </section>
+
+	                    <section class="admin-view admin-inventory-recap-view" data-view-panel="inventory-recap">
+	                <section class="admin-inventory-recap-command">
+	                    <div>
+	                        <span class="admin-panel-kicker">Inventory Recap</span>
+	                        <strong data-inventory-recap-status>Loading smart restock draft</strong>
+	                    </div>
+	                    <button type="button" class="admin-orders-icon-btn admin-inventory-recap-refresh" data-inventory-recap-refresh aria-label="Refresh Inventory Recap">
+	                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 0 1-15.2 6.5L3 16"/><path d="M3 21v-5h5"/><path d="M3 12a9 9 0 0 1 15.2-6.5L21 8"/><path d="M21 3v5h-5"/></svg>
+	                    </button>
+	                </section>
+
+	                <section class="admin-inventory-recap-summary" aria-label="Inventory Recap totals">
+	                    <article class="admin-inventory-recap-stat"><span>Cash Available</span><strong data-inventory-recap-cash>Rp0</strong><small>From Accounting</small></article>
+	                    <article class="admin-inventory-recap-stat"><span>Draft Cost</span><strong data-inventory-recap-cost>Rp0</strong><small data-inventory-recap-funding>Waiting for recap</small></article>
+	                    <article class="admin-inventory-recap-stat"><span>Critical</span><strong data-inventory-recap-critical>0</strong><small data-inventory-recap-critical-meta>No flagged SKUs</small></article>
+	                    <article class="admin-inventory-recap-stat"><span>Suggested</span><strong data-inventory-recap-suggested>0</strong><small>Production order lines</small></article>
+	                </section>
+
+	                <section class="admin-inventory-recap-grid">
+	                    <article class="admin-panel admin-inventory-recap-panel">
+	                        <div class="admin-panel-head">
+	                            <div>
+	                                <span class="admin-panel-kicker">Risk</span>
+	                                <h3>Coverage and margin of play</h3>
+	                            </div>
+	                            <span class="admin-panel-meta" data-inventory-recap-window>30 days + 10 buffer</span>
+	                        </div>
+	                        <div class="admin-inventory-recap-risk-list" data-inventory-recap-list>
+	                            <p class="admin-empty">Loading Inventory Recap.</p>
+	                        </div>
+	                    </article>
+
+	                    <article class="admin-panel admin-inventory-recap-panel">
+	                        <div class="admin-panel-head">
+	                            <div>
+	                                <span class="admin-panel-kicker">Draft</span>
+	                                <h3>Order to production</h3>
+	                            </div>
+	                            <button type="button" class="admin-ghost-btn" data-inventory-recap-copy>Copy</button>
+	                        </div>
+	                        <pre class="admin-inventory-recap-draft" data-inventory-recap-draft>Loading production draft.</pre>
+	                    </article>
+	                </section>
+
+	                <section class="admin-panel admin-panel-table admin-panel-wide admin-inventory-recap-table-panel">
+	                    <div class="admin-panel-head">
+	                        <div>
+	                            <span class="admin-panel-kicker">Products</span>
+	                            <h3>Restock suggestions</h3>
+	                        </div>
+	                        <span class="admin-panel-meta" data-inventory-recap-table-meta>SKU-level formula</span>
+	                    </div>
+	                    <div class="admin-table-wrap admin-inventory-recap-table-wrap">
+	                        <table class="admin-table admin-inventory-recap-table">
+	                            <thead>
+	                                <tr>
+	                                    <th>SKU</th>
+	                                    <th>Product</th>
+	                                    <th>Current</th>
+	                                    <th>Lasts</th>
+	                                    <th>Order</th>
+	                                    <th>Play</th>
+	                                    <th>Cost</th>
+	                                    <th>Risk</th>
+	                                </tr>
+	                            </thead>
+	                            <tbody data-inventory-recap-table-body>
+	                                <tr><td colspan="8" class="admin-empty">Loading Inventory Recap.</td></tr>
+	                            </tbody>
+	                        </table>
+	                    </div>
+	                </section>
+	                    </section>
 
 	                    <section class="admin-view admin-store-ops-layout" data-view-panel="store-ops" data-store-ops-dashboard data-store-ops-endpoint="../api/store-ops/">
                 <section class="admin-metric-grid admin-store-ops-metrics">

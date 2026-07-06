@@ -464,6 +464,14 @@ const JENANG_GEMI_SEARCH_INDEX = [
     keywords: ['sku', 'database', 'branch', 'approval', 'inventory']
   },
   {
+    title: 'Inventory Recap',
+    section: 'Admin',
+    description: 'Smart restock suggestions, production draft, and Accounting cash fit.',
+    url: '../dashboard/?view=inventory-recap',
+    view: 'inventory-recap',
+    keywords: ['inventory', 'recap', 'restock', 'production order', 'cash available', 'stock risk', 'purchase']
+  },
+  {
     title: 'Accounting Workspace',
     section: 'Admin',
     description: 'Cash, bills, expenses, transfers, manual income, and finance controls.',
@@ -525,6 +533,7 @@ const VIEW_CACHE_TTL_MS = {
   overview: 2 * 60 * 1000,
   orders: 2 * 60 * 1000,
   wallet: 30 * 1000,
+  'inventory-recap': 60 * 1000,
   daily: 5 * 60 * 1000,
   home: 90 * 1000,
   website: 2 * 60 * 1000,
@@ -2177,6 +2186,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	    orders: 'orders',
 	    wallet: 'wallet',
 	    wallets: 'wallet',
+	    inventory: 'inventory-recap',
+	    inventory_recap: 'inventory-recap',
+	    'inventory-recap': 'inventory-recap',
 	    daily: 'daily',
 	    day: 'daily',
     'daily-report': 'daily',
@@ -2189,12 +2201,13 @@ document.addEventListener('DOMContentLoaded', () => {
     hardset: 'hard-set',
     'big-set': 'hard-set'
   };
-	  const validViews = new Set(['overview', 'orders', 'wallet', 'daily', 'store-ops', 'context', 'home', 'website', 'hard-set', 'settings']);
+	  const validViews = new Set(['overview', 'orders', 'wallet', 'inventory-recap', 'daily', 'store-ops', 'context', 'home', 'website', 'hard-set', 'settings']);
   const quickMenuContextByView = {
 	    overview: 'overview',
 	    daily: 'daily',
 	    orders: 'orders',
 	    wallet: 'wallet',
+	    'inventory-recap': 'inventory-recap',
 	    home: 'campaigns',
     context: 'context',
     website: 'website',
@@ -2202,10 +2215,11 @@ document.addEventListener('DOMContentLoaded', () => {
     settings: 'settings'
   };
   const quickMenuByContext = {
-	    overview: ['daily', 'orders', 'campaigns', 'back-dash', 'context', 'settings'],
+	    overview: ['inventory-recap', 'daily', 'orders', 'campaigns', 'back-dash', 'context', 'settings'],
 	    daily: ['home', 'orders', 'campaigns', 'back-dash', 'context', 'settings'],
 	    orders: ['home', 'daily', 'campaigns', 'back-dash', 'context', 'settings'],
 	    wallet: ['home', 'orders', 'daily', 'back-dash', 'settings'],
+	    'inventory-recap': ['home', 'wallet', 'orders', 'sku-db', 'settings'],
 	    campaigns: ['home', 'orders', 'affiliates', 'back-dash', 'context', 'settings'],
 	    context: ['home', 'api', 'back-dash', 'settings'],
 	    settings: ['home', 'daily', 'orders', 'campaigns', 'context'],
@@ -2217,6 +2231,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    daily: 'home',
 	    orders: 'orders',
 	    wallet: 'wallet',
+	    'inventory-recap': 'inventory-recap',
 	    'store-ops': 'orders',
     home: 'campaigns',
     context: 'home',
@@ -2236,6 +2251,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	    wallet: {
 	      light: 'https://api.iconify.design/lucide:wallet.svg?color=%230f172a',
 	      dark: 'https://api.iconify.design/lucide:wallet.svg?color=%23ffffff'
+	    },
+	    'inventory-recap': {
+	      light: 'https://api.iconify.design/lucide:package-check.svg?color=%230f172a',
+	      dark: 'https://api.iconify.design/lucide:package-check.svg?color=%23ffffff'
 	    },
     campaigns: {
       light: '/assets/admin-icons/favicon-campaigns-light.svg',
@@ -2363,6 +2382,13 @@ document.addEventListener('DOMContentLoaded', () => {
 	      actionId: '',
 	      requestToken: 0
 	    },
+	    inventoryRecap: {
+	      data: null,
+	      loadedAt: 0,
+	      loading: false,
+	      copied: false,
+	      requestToken: 0
+	    },
 	    daily: {
 	      month: getMonthKeyForTimezone(new Date(), regionalDefaults.timezone),
       data: null,
@@ -2456,6 +2482,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	  const websiteOrdersEndpoint = root.dataset.websiteOrdersEndpoint || '../api/website-orders/';
 	  const hardSetEndpoint = root.dataset.hardSetEndpoint || '../api/hard-set/';
 	  const walletEndpoint = root.dataset.walletEndpoint || '../api/wallet/';
+	  const inventoryRecapEndpoint = root.dataset.inventoryRecapEndpoint || '../api/inventory-recap/';
 	  const provinceMapUrl = root.dataset.provinceMapUrl || '../assets/data/indonesia-38-provinces.geojson';
 
   const loader = document.querySelector('[data-admin-loader]');
@@ -2583,6 +2610,22 @@ document.addEventListener('DOMContentLoaded', () => {
 	    apiCopy: document.querySelector('[data-wallet-api-copy]'),
 	    apiOutput: document.querySelector('[data-wallet-api-output]'),
 	    tableBody: document.querySelector('[data-wallet-table-body]')
+	  };
+	  const inventoryRecapRefs = {
+	    status: document.querySelector('[data-inventory-recap-status]'),
+	    refresh: document.querySelector('[data-inventory-recap-refresh]'),
+	    cash: document.querySelector('[data-inventory-recap-cash]'),
+	    cost: document.querySelector('[data-inventory-recap-cost]'),
+	    funding: document.querySelector('[data-inventory-recap-funding]'),
+	    critical: document.querySelector('[data-inventory-recap-critical]'),
+	    criticalMeta: document.querySelector('[data-inventory-recap-critical-meta]'),
+	    suggested: document.querySelector('[data-inventory-recap-suggested]'),
+	    window: document.querySelector('[data-inventory-recap-window]'),
+	    list: document.querySelector('[data-inventory-recap-list]'),
+	    draft: document.querySelector('[data-inventory-recap-draft]'),
+	    copy: document.querySelector('[data-inventory-recap-copy]'),
+	    tableMeta: document.querySelector('[data-inventory-recap-table-meta]'),
+	    tableBody: document.querySelector('[data-inventory-recap-table-body]')
 	  };
 	  const dailyRefs = {
     monthInput: document.querySelector('[data-daily-month]'),
@@ -3614,6 +3657,14 @@ document.addEventListener('DOMContentLoaded', () => {
 	      if (walletRefs.apiOutput) walletRefs.apiOutput.textContent = JSON.stringify({ ok: false, error: message }, null, 2);
 	      return;
 	    }
+	    if (view === 'inventory-recap') {
+	      const message = error?.message || 'Unable to load Inventory Recap.';
+	      if (inventoryRecapRefs.status) inventoryRecapRefs.status.textContent = message;
+	      if (inventoryRecapRefs.list) inventoryRecapRefs.list.innerHTML = `<p class="admin-empty">${escapeHtml(message)}</p>`;
+	      if (inventoryRecapRefs.tableBody) inventoryRecapRefs.tableBody.innerHTML = `<tr><td colspan="8" class="admin-empty">${escapeHtml(message)}</td></tr>`;
+	      if (inventoryRecapRefs.draft) inventoryRecapRefs.draft.textContent = message;
+	      return;
+	    }
 	    const container = getFeedForView(view);
     if (view === 'home') {
       renderProductCartRundown(homeRefs.productCartRundown, homeRefs.productCartMeta, { items: [], total_cart_events: 0 });
@@ -3716,6 +3767,15 @@ document.addEventListener('DOMContentLoaded', () => {
       item.hidden = false;
       menuPanel.appendChild(item);
     });
+    syncInventoryRecapAlert();
+  };
+
+  const syncInventoryRecapAlert = () => {
+    const critical = state.activeView === 'overview' && Boolean(state.inventoryRecap.data?.summary?.is_critical);
+    menuTrigger?.classList.toggle('has-critical-dot', critical);
+    document.querySelectorAll('[data-menu-alert-item="inventory-recap"]').forEach((item) => {
+      item.classList.toggle('has-critical-dot', critical);
+    });
   };
 
   const syncFavicons = () => {
@@ -3734,6 +3794,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    overview: 'Home',
 	    orders: 'Orders',
 	    wallet: 'Wallet',
+	    'inventory-recap': 'Inventory Recap',
 	    daily: 'Daily',
       'store-ops': 'Ops',
       context: 'Open Context',
@@ -3746,6 +3807,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    overview: 'home',
 	    orders: 'orders',
 	    wallet: 'wallet',
+	    'inventory-recap': '',
 	    daily: '',
       'store-ops': 'orders',
       context: 'home',
@@ -4886,6 +4948,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (view === 'overview') return Boolean(state.overview.data) && isFresh(state.overview.loadedAt, VIEW_CACHE_TTL_MS.overview);
 	    if (view === 'orders') return Boolean(state.orders.data) && isFresh(state.orders.loadedAt, VIEW_CACHE_TTL_MS.orders);
 	    if (view === 'wallet') return Boolean(state.wallet.data) && isFresh(state.wallet.loadedAt, VIEW_CACHE_TTL_MS.wallet);
+	    if (view === 'inventory-recap') return Boolean(state.inventoryRecap.data) && isFresh(state.inventoryRecap.loadedAt, VIEW_CACHE_TTL_MS['inventory-recap']);
 	    if (view === 'daily') return Boolean(state.daily.data) && isFresh(state.daily.loadedAt, VIEW_CACHE_TTL_MS.daily);
     if (view === 'home') return Boolean(state.home.data) && isFresh(state.home.loadedAt, VIEW_CACHE_TTL_MS.home);
     if (view === 'website') {
@@ -6638,6 +6701,133 @@ document.addEventListener('DOMContentLoaded', () => {
 	    }
 	  };
 
+	  const inventoryRecapUrl = (options = {}) => {
+	    const url = new URL(inventoryRecapEndpoint, window.location.href);
+	    if (options.cacheBust || options.force) url.searchParams.set('_ts', String(Date.now()));
+	    return url.toString();
+	  };
+
+	  const inventoryRecapDays = (value) => {
+	    if (value === null || value === undefined || value === '') return 'No recent demand';
+	    const days = Number(value);
+	    if (!Number.isFinite(days)) return 'No recent demand';
+	    return `${formatRegionalNumber(days, { maximumFractionDigits: 1 })}d`;
+	  };
+
+	  const inventoryRecapRiskClass = (risk) => {
+	    const normalized = String(risk || '').toLowerCase();
+	    return ['critical', 'high', 'medium', 'low', 'covered', 'watch', 'quiet'].includes(normalized)
+	      ? `is-${normalized}`
+	      : 'is-quiet';
+	  };
+
+	  const inventoryRecapPlayBar = (item) => {
+	    const recommended = Math.max(0, Number(item.recommended_order_qty || 0));
+	    const minimum = Math.max(0, Number(item.minimum_order_qty || 0));
+	    const buffer = Math.max(0, Number(item.buffer_order_qty || 0));
+	    const minimumPercent = recommended > 0 ? Math.max(0, Math.min(100, (minimum / recommended) * 100)) : 0;
+	    const bufferPercent = recommended > 0 ? Math.max(0, Math.min(100, (buffer / recommended) * 100)) : 0;
+	    return `
+	      <div class="admin-inventory-recap-play" style="--inventory-min:${minimumPercent}%; --inventory-buffer:${bufferPercent}%;">
+	        <div class="admin-inventory-recap-play-track" aria-hidden="true"><i></i><b></b></div>
+	        <small>Min ${formatRegionalInteger(minimum)} / buffer ${formatRegionalInteger(buffer)}</small>
+	      </div>
+	    `;
+	  };
+
+	  const renderInventoryRecapRows = (rows) => {
+	    if (!rows.length) {
+	      return '<tr><td colspan="8" class="admin-empty">No restock suggestions from current velocity.</td></tr>';
+	    }
+	    return rows.map((item) => `
+	      <tr class="${inventoryRecapRiskClass(item.risk)}">
+	        <td><strong>${escapeHtml(item.sku || '-')}</strong><small class="admin-table-note">${escapeHtml(item.tag || '')}</small></td>
+	        <td>${escapeHtml(item.product_name || '-')}<small class="admin-table-note">${escapeHtml([item.brand_name, item.flavor_name].filter(Boolean).join(' / '))}</small></td>
+	        <td>${formatRegionalInteger(item.current_stock || 0)}</td>
+	        <td>${escapeHtml(inventoryRecapDays(item.current_days_remaining))}</td>
+	        <td><strong>${formatRegionalInteger(item.recommended_order_qty || 0)}</strong><small class="admin-table-note">${formatRegionalInteger(item.target_qty || 0)} target</small></td>
+	        <td>${inventoryRecapPlayBar(item)}</td>
+	        <td>${formatCurrency(item.estimated_cost || 0)}</td>
+	        <td><span class="admin-inventory-recap-risk ${inventoryRecapRiskClass(item.risk)}">${escapeHtml(item.risk_label || item.risk || '-')}</span></td>
+	      </tr>
+	    `).join('');
+	  };
+
+	  const renderInventoryRecapList = (rows) => {
+	    if (!inventoryRecapRefs.list) return;
+	    if (!rows.length) {
+	      inventoryRecapRefs.list.innerHTML = '<p class="admin-empty">No SKU needs a production order for the month-plus-buffer target.</p>';
+	      return;
+	    }
+	    inventoryRecapRefs.list.innerHTML = rows.slice(0, 5).map((item) => `
+	      <article class="admin-inventory-recap-risk-card ${inventoryRecapRiskClass(item.risk)}">
+	        <div>
+	          <strong>${escapeHtml(item.product_name || item.sku || '-')}</strong>
+	          <small>${escapeHtml(item.sku || '')} / ${escapeHtml(item.risk_label || '')}</small>
+	        </div>
+	        <span>${escapeHtml(inventoryRecapDays(item.current_days_remaining))}</span>
+	        ${inventoryRecapPlayBar(item)}
+	      </article>
+	    `).join('');
+	  };
+
+	  const renderInventoryRecap = (data = state.inventoryRecap.data) => {
+	    if (data) state.inventoryRecap.data = data;
+	    syncInventoryRecapAlert();
+	    if (state.activeView !== 'inventory-recap') return;
+	    const summary = state.inventoryRecap.data?.summary || {};
+	    const meta = state.inventoryRecap.data?.meta || {};
+	    const cash = state.inventoryRecap.data?.cash || {};
+	    const suggestions = Array.isArray(state.inventoryRecap.data?.suggestions) ? state.inventoryRecap.data.suggestions : [];
+	    const rows = suggestions.length
+	      ? suggestions
+	      : (Array.isArray(state.inventoryRecap.data?.items) ? state.inventoryRecap.data.items.slice(0, 12) : []);
+	    const critical = Boolean(summary.is_critical);
+
+	    if (inventoryRecapRefs.status) {
+	      inventoryRecapRefs.status.textContent = state.inventoryRecap.loading
+	        ? 'Refreshing Inventory Recap'
+	        : critical
+	          ? 'Critical restock report'
+	          : suggestions.length
+	            ? 'Restock suggestions ready'
+	            : 'Inventory coverage looks clear';
+	    }
+	    if (inventoryRecapRefs.refresh) {
+	      inventoryRecapRefs.refresh.disabled = state.inventoryRecap.loading;
+	      inventoryRecapRefs.refresh.classList.toggle('is-loading', state.inventoryRecap.loading);
+	    }
+	    if (inventoryRecapRefs.cash) inventoryRecapRefs.cash.textContent = formatCurrency(summary.cash_available ?? cash.available ?? 0);
+	    if (inventoryRecapRefs.cost) inventoryRecapRefs.cost.textContent = formatCurrency(summary.total_recommended_cost || 0);
+	    if (inventoryRecapRefs.funding) {
+	      inventoryRecapRefs.funding.textContent = summary.can_fund_recommended
+	        ? 'Cash can fund draft'
+	        : `Short ${formatCurrency(summary.funding_gap || 0)}`;
+	    }
+	    if (inventoryRecapRefs.critical) inventoryRecapRefs.critical.textContent = formatRegionalInteger(summary.critical_count || 0);
+	    if (inventoryRecapRefs.criticalMeta) {
+	      inventoryRecapRefs.criticalMeta.textContent = critical
+	        ? `${formatRegionalInteger(summary.watch_count || 0)} watch items / ${formatRegionalInteger(summary.matched_order_rows || 0)} demand rows`
+	        : 'No critical SKU flags';
+	    }
+	    if (inventoryRecapRefs.suggested) inventoryRecapRefs.suggested.textContent = formatRegionalInteger(summary.suggested_count || 0);
+	    if (inventoryRecapRefs.window) {
+	      inventoryRecapRefs.window.textContent = `${formatRegionalInteger(meta.order_days || 30)} days + ${formatRegionalInteger(meta.buffer_days || 10)} buffer / ${escapeHtml(meta.start_date || '')} to ${escapeHtml(meta.end_date || '')}`;
+	    }
+	    if (inventoryRecapRefs.tableMeta) {
+	      inventoryRecapRefs.tableMeta.textContent = `${formatRegionalInteger(summary.suggested_count || 0)} suggested / ${formatCurrency(summary.total_recommended_cost || 0)}`;
+	    }
+	    renderInventoryRecapList(rows);
+	    if (inventoryRecapRefs.tableBody) inventoryRecapRefs.tableBody.innerHTML = renderInventoryRecapRows(rows);
+	    if (inventoryRecapRefs.draft) {
+	      inventoryRecapRefs.draft.textContent = state.inventoryRecap.data?.production_order_draft?.text || 'No production draft available.';
+	    }
+	    if (inventoryRecapRefs.copy) {
+	      inventoryRecapRefs.copy.textContent = state.inventoryRecap.copied ? 'Copied' : 'Copy';
+	      inventoryRecapRefs.copy.disabled = state.inventoryRecap.loading || !state.inventoryRecap.data;
+	    }
+	  };
+
   const closeOrdersDatePopover = () => {
     if (ordersRefs.datePopover) ordersRefs.datePopover.hidden = true;
   };
@@ -7837,6 +8027,64 @@ document.addEventListener('DOMContentLoaded', () => {
 	    }
 	  };
 
+	  const loadInventoryRecap = async (options = {}) => {
+	    if (!options.force && state.inventoryRecap.data) {
+	      if (isFresh(state.inventoryRecap.loadedAt, VIEW_CACHE_TTL_MS['inventory-recap'])) {
+	        renderInventoryRecap(state.inventoryRecap.data);
+	        return;
+	      }
+	      if (options.preferStale !== false) {
+	        renderInventoryRecap(state.inventoryRecap.data);
+	        if (!options.background) queueViewRefresh('inventory-recap');
+	        return;
+	      }
+	    }
+	    if (options.background && state.inventoryRecap.loading) return;
+	    const requestToken = beginRequest('inventoryRecap');
+	    const showLoading = !options.background;
+	    if (showLoading) state.inventoryRecap.loading = true;
+	    renderInventoryRecap(state.inventoryRecap.data);
+	    try {
+	      const data = await requestJson(inventoryRecapUrl({ force: Boolean(options.force || options.cacheBust) }), { timeoutMs: 30000 });
+	      if (!isLatestRequest('inventoryRecap', requestToken)) return;
+	      state.inventoryRecap.loadedAt = Date.now();
+	      state.inventoryRecap.loading = false;
+	      renderInventoryRecap(data);
+	    } catch (error) {
+	      if (showLoading && isLatestRequest('inventoryRecap', requestToken)) {
+	        state.inventoryRecap.loading = false;
+	      }
+	      throw error;
+	    }
+	  };
+
+	  const loadInventoryRecapSafely = async (options = {}) => {
+	    try {
+	      await loadInventoryRecap(options);
+	      return true;
+	    } catch (error) {
+	      if (options.background && state.inventoryRecap.data) return false;
+	      renderViewError('inventory-recap', error);
+	      return false;
+	    }
+	  };
+
+	  const copyInventoryRecapDraft = async () => {
+	    const text = state.inventoryRecap.data?.production_order_draft?.text || inventoryRecapRefs.draft?.textContent || '';
+	    if (!text) return;
+	    try {
+	      await navigator.clipboard.writeText(text);
+	      state.inventoryRecap.copied = true;
+	      renderInventoryRecap(state.inventoryRecap.data);
+	      window.setTimeout(() => {
+	        state.inventoryRecap.copied = false;
+	        renderInventoryRecap(state.inventoryRecap.data);
+	      }, 1200);
+	    } catch (_error) {
+	      if (inventoryRecapRefs.status) inventoryRecapRefs.status.textContent = 'Copy unavailable';
+	    }
+	  };
+
 	  const postWalletAction = async (action, body, actionId, options = {}) => {
 	    const interactive = !options.background;
 	    if (interactive) state.wallet.actionId = actionId;
@@ -8049,6 +8297,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	      await loadWallet(options);
 	      return;
 	    }
+	    if (state.activeView === 'inventory-recap') {
+	      await loadInventoryRecap(options);
+	      return;
+	    }
 	    if (state.activeView === 'daily') {
 	      await loadDaily(options);
 	      return;
@@ -8134,6 +8386,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (state.activeView === 'wallet') {
 	      return loadWalletSafely(options);
 	    }
+	    if (state.activeView === 'inventory-recap') {
+	      return loadInventoryRecapSafely(options);
+	    }
 	    if (state.activeView === 'daily') {
 	      return loadDailySafely(options);
 	    }
@@ -8194,6 +8449,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (view === 'overview') return loadOverviewSafely({ ...options, forceRefresh: true });
     if (view === 'orders') return loadOrdersSafely(options);
     if (view === 'wallet') return loadWalletSafely(options);
+    if (view === 'inventory-recap') return loadInventoryRecapSafely(options);
     if (view === 'daily') return loadDailySafely(options);
     if (view === 'home') return loadHomeSafely(options);
     if (view === 'website' && state.website.screen === 'detail' && state.website.site) return loadWebsiteSafely(options);
@@ -8258,6 +8514,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      loadOverviewSafely({ force: true, preferStale: false }),
 	      state.activeView === 'orders' ? loadOrdersSafely({ force: true, preferStale: false }) : Promise.resolve(true),
 	      state.activeView === 'wallet' ? loadWalletSafely({ force: true, preferStale: false }) : Promise.resolve(true),
+	      state.activeView === 'inventory-recap' ? loadInventoryRecapSafely({ force: true, preferStale: false }) : Promise.resolve(true),
 	      state.activeView === 'daily' ? loadDailySafely({ force: true, preferStale: false }) : Promise.resolve(true)
 	    ]);
     return true;
@@ -8267,6 +8524,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (state.activeView === 'overview' && state.overview.data) renderOverview(state.overview.data);
 	    if (state.activeView === 'daily' && state.daily.data) renderDaily(aggregateDailyData(Array.isArray(state.daily.rows) ? state.daily.rows : state.daily.data.rows, state.daily.month));
 	    if (state.activeView === 'wallet' && state.wallet.data) renderWallet(state.wallet.data);
+	    if (state.activeView === 'inventory-recap' && state.inventoryRecap.data) renderInventoryRecap(state.inventoryRecap.data);
 	    if (state.activeView === 'home' && state.home.data) renderHome(state.home.data);
     if (state.activeView === 'website' && state.website.screen === 'detail' && state.website.data) renderWebsite(state.website.data);
   };
@@ -8307,6 +8565,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	    }
 	    if (state.activeView === 'wallet') {
 	      renderWallet();
+	    }
+	    if (state.activeView === 'inventory-recap') {
+	      renderInventoryRecap();
 	    }
     if (state.activeView === 'overview') {
       renderOverviewRangeCalendar();
@@ -8477,7 +8738,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    const reason = String(payload.reason || '').toLowerCase();
 	    const orderRelated = reason.includes('order') || reason.includes('marketplace') || reason.includes('sales');
 	    if (orderRelated) {
-	      if (state.activeView === 'orders' || state.activeView === 'daily' || state.activeView === 'overview' || state.activeView === 'wallet') {
+	      if (state.activeView === 'orders' || state.activeView === 'daily' || state.activeView === 'overview' || state.activeView === 'wallet' || state.activeView === 'inventory-recap') {
 	        queueActiveViewRefresh({ force: true, forceRefresh: true, repair: true });
 	      }
 	      if (state.activeView !== 'wallet') {
@@ -8488,6 +8749,9 @@ document.addEventListener('DOMContentLoaded', () => {
         loadOverviewLocationRows({ force: true, incremental: true, repair: true }).catch(() => {});
       }
       preloadOrderMemory({ reset: true, repair: true }).catch(() => {});
+      if (state.activeView !== 'inventory-recap') {
+        queueViewRefresh('inventory-recap').catch(() => {});
+      }
     } else {
       queueActiveViewRefresh({ force: true });
     }
@@ -8539,6 +8803,9 @@ document.addEventListener('DOMContentLoaded', () => {
           : Promise.resolve(true),
         state.activeView !== 'wallet' && !state.wallet.data
           ? loadWalletSafely({ background: true, preferStale: false, skipReleaseSync: true })
+          : Promise.resolve(true),
+        state.activeView !== 'inventory-recap' && !state.inventoryRecap.data
+          ? loadInventoryRecapSafely({ background: true, preferStale: false })
           : Promise.resolve(true),
         loadOrderCatalog(),
         loadNotifications(),
@@ -9052,6 +9319,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	  walletRefs.apiCopy?.addEventListener('click', () => {
 	    copyWalletApiResult().catch(() => {});
+	  });
+
+	  inventoryRecapRefs.refresh?.addEventListener('click', () => {
+	    loadInventoryRecapSafely({ force: true, preferStale: false, cacheBust: true }).catch(() => {});
+	  });
+
+	  inventoryRecapRefs.copy?.addEventListener('click', () => {
+	    copyInventoryRecapDraft().catch(() => {});
 	  });
 
 	  walletRefs.tableBody?.addEventListener('click', (event) => {

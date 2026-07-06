@@ -177,6 +177,14 @@ const JENANG_GEMI_SEARCH_INDEX = [
     keywords: ['sku', 'database', 'branch', 'approval', 'inventory']
   },
   {
+    title: 'Inventory Recap',
+    section: 'Admin',
+    description: 'Smart restock suggestions, production draft, and Accounting cash fit.',
+    url: '../dashboard/?view=inventory-recap',
+    view: 'inventory-recap',
+    keywords: ['inventory', 'recap', 'restock', 'production order', 'cash available', 'stock risk', 'purchase']
+  },
+  {
     title: 'Accounting Workspace',
     section: 'Admin',
     description: 'Cash, bills, expenses, transfers, manual income, and finance controls.',
