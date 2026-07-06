@@ -374,14 +374,6 @@ const JENANG_GEMI_SEARCH_INDEX = [
     keywords: ['orders', 'marketplace', 'spreadsheet', 'revenue', 'cogs']
   },
   {
-    title: 'Wallet',
-    section: 'Admin',
-    description: 'Marketplace wallet balances, outstanding funds, withdrawals, and undo log.',
-    url: '../dashboard/?view=wallet',
-    view: 'wallet',
-    keywords: ['wallet', 'funds', 'released funds', 'shopee wallet', 'tiktok wallet', 'payout', 'withdrawal log']
-  },
-  {
     title: 'Open Context',
     section: 'Admin',
     description: 'Edit historical context values used by the Executive Sales C1 chart.',
@@ -2204,13 +2196,13 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   const quickMenuByContext = {
 	    overview: ['daily', 'orders', 'campaigns', 'back-dash', 'context', 'settings'],
-	    daily: ['home', 'orders', 'wallet', 'campaigns', 'back-dash', 'context', 'settings'],
-	    orders: ['home', 'daily', 'wallet', 'campaigns', 'back-dash', 'context', 'settings'],
+	    daily: ['home', 'orders', 'campaigns', 'back-dash', 'context', 'settings'],
+	    orders: ['home', 'daily', 'campaigns', 'back-dash', 'context', 'settings'],
 	    wallet: ['home', 'orders', 'daily', 'back-dash', 'settings'],
-	    campaigns: ['home', 'orders', 'wallet', 'affiliates', 'back-dash', 'context', 'settings'],
+	    campaigns: ['home', 'orders', 'affiliates', 'back-dash', 'context', 'settings'],
 	    context: ['home', 'api', 'back-dash', 'settings'],
 	    settings: ['home', 'daily', 'orders', 'campaigns', 'context'],
-	    website: ['home', 'daily', 'orders', 'wallet', 'campaigns', 'affiliates', 'settings'],
+	    website: ['home', 'daily', 'orders', 'campaigns', 'affiliates', 'settings'],
 	    'hard-set': ['home', 'settings']
   };
   const faviconKeyByView = {
@@ -3761,6 +3753,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     navLinks.forEach((link) => {
       const navSection = link.getAttribute('data-dashboard-nav-section');
+      if (link instanceof HTMLElement && navSection === 'wallet') {
+        link.hidden = state.activeView !== 'wallet';
+      }
       const isActive = navSection === navSectionByView[state.activeView];
       link.classList.toggle('is-active', isActive);
       if (isActive) {

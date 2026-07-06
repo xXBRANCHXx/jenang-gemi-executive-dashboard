@@ -143,10 +143,10 @@ function admin_quick_menu_context_map(): array
 {
     return [
         'overview' => ['daily', 'orders', 'campaigns', 'back-dash', 'context', 'settings'],
-        'daily' => ['home', 'orders', 'wallet', 'campaigns', 'back-dash', 'context', 'settings'],
-        'orders' => ['home', 'daily', 'wallet', 'campaigns', 'back-dash', 'context', 'settings'],
+        'daily' => ['home', 'orders', 'campaigns', 'back-dash', 'context', 'settings'],
+        'orders' => ['home', 'daily', 'campaigns', 'back-dash', 'context', 'settings'],
         'wallet' => ['home', 'orders', 'daily', 'back-dash', 'settings'],
-        'campaigns' => ['home', 'orders', 'wallet', 'affiliates', 'back-dash', 'context', 'settings'],
+        'campaigns' => ['home', 'orders', 'affiliates', 'back-dash', 'context', 'settings'],
         'back-dash' => ['home', 'api', 'context', 'hard-set', 'settings'],
         'context' => ['home', 'api', 'back-dash', 'settings'],
         'settings' => ['home', 'daily', 'orders', 'campaigns', 'context'],
@@ -463,6 +463,13 @@ function render_admin_sidebar(string $activeSection = ''): void
             'aria' => 'Open SKU database',
         ],
     ];
+
+    if (admin_current_menu_context() !== 'wallet') {
+        $items = array_values(array_filter(
+            $items,
+            static fn (array $item): bool => strtolower((string) ($item['key'] ?? '')) !== 'wallet'
+        ));
+    }
 
     $footerItems = [
         [
