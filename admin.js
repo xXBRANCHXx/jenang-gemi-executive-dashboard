@@ -6493,6 +6493,68 @@ document.addEventListener('DOMContentLoaded', () => {
 	    `;
 	  };
 
+	  const walletApiSamplePayload = () => ({
+	    ok: true,
+	    sample: true,
+	    generated_at: '2026-07-06T03:31:00+00:00',
+	    contains_live_data: false,
+	    security: {
+	      public: false,
+	      sample: true,
+	      contains_live_data: false,
+	      authentication: 'active admin session required',
+	      session_cookie: 'HttpOnly; SameSite=Strict',
+	      request_scope: 'same-origin credentials only',
+	      cache_control: 'no-store',
+	      share_guidance: 'Safe to share as a schema example; values are placeholders.'
+	    },
+	    request: {
+	      method: 'POST',
+	      endpoint: '/api/wallet/?action=terminal',
+	      headers: {
+	        Accept: 'application/json',
+	        'Content-Type': 'application/json'
+	      },
+	      body: {
+	        query: 'Wallet summary'
+	      }
+	    },
+	    response: {
+	      ok: true,
+	      sample: true,
+	      command: 'wallet.summary',
+	      generated_at: '2026-07-06T03:31:00+00:00',
+	      answer: 'Wallet summary: Rp145.000 known wallet balance, Rp3.500.000 outstanding, 1 account needs manual balance, 2 non-settling orders excluded.',
+	      totals: {
+	        wallet_balance: 145000,
+	        released_month_total: 1200000,
+	        outstanding_total: 3500000,
+	        outstanding_orders: 42,
+	        manual_required_count: 1,
+	        non_settling_orders: 2
+	      },
+	      wallets: [
+	        {
+	          label: 'Example Shopee',
+	          platform: 'shopee',
+	          account_key: 'example-shopee',
+	          wallet_balance: 145000,
+	          wallet_balance_known: true,
+	          released_month_total: 950000,
+	          outstanding_total: 2750000,
+	          outstanding_orders: 31,
+	          last_released_at: '2026-07-06T02:15:00+00:00',
+	          last_mirrored_at: '2026-07-06T03:30:00+00:00'
+	        }
+	      ],
+	      source: {
+	        order_source: 'dashboard_order_mirror',
+	        released_metric_basis: 'current Asia/Jakarta calendar month by funds_released_at',
+	        outstanding_basis: 'unreleased settling orders only; cancelled and other non-settling orders are excluded'
+	      }
+	    }
+	  });
+
 	  const renderWalletApiOutput = () => {
 	    if (walletRefs.apiInput && document.activeElement !== walletRefs.apiInput) {
 	      walletRefs.apiInput.value = state.wallet.apiQuery || '';
@@ -6502,14 +6564,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	      walletRefs.apiRun.textContent = state.wallet.apiLoading ? 'Running' : 'Run';
 	    }
 	    if (walletRefs.apiCopy) {
-	      walletRefs.apiCopy.disabled = !state.wallet.apiResult || state.wallet.apiLoading;
+	      walletRefs.apiCopy.disabled = state.wallet.apiLoading;
 	    }
 	    if (!walletRefs.apiOutput) return;
-	    const payload = state.wallet.apiResult || {
-	      query: state.wallet.apiQuery,
-	      endpoint: '/api/wallet/?action=terminal&query=' + encodeURIComponent(state.wallet.apiQuery || ''),
-	      result: 'ready'
-	    };
+	    const payload = state.wallet.apiResult || walletApiSamplePayload();
 	    walletRefs.apiOutput.textContent = JSON.stringify(payload, null, 2);
 	  };
 
@@ -7850,7 +7908,12 @@ document.addEventListener('DOMContentLoaded', () => {
 	    state.wallet.mode = 'api';
 	    renderWallet(state.wallet.data);
 	    try {
-	      const data = await requestJson(walletActionUrl('terminal', { query: state.wallet.apiQuery }), { timeoutMs: 30000 });
+	      const data = await requestJson(walletActionUrl('terminal'), {
+	        method: 'POST',
+	        headers: { 'Content-Type': 'application/json' },
+	        body: JSON.stringify({ query: state.wallet.apiQuery }),
+	        timeoutMs: 30000
+	      });
 	      state.wallet.apiResult = data;
 	      if (walletRefs.status) walletRefs.status.textContent = data?.command || 'Wallet API ready';
 	      renderWallet(state.wallet.data);

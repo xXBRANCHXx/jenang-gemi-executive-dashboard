@@ -63,6 +63,11 @@ $cancelledBacktrack = jg_wallet_backtrack_public_state([
 ]);
 wallet_expect(false, $cancelledBacktrack['active'], 'Cancelled wallet backtracks must not remain active.');
 wallet_expect('cancelled', $cancelledBacktrack['status'], 'Cancelled wallet backtracks must expose cancelled status.');
+$walletApiSample = jg_wallet_api_sample_response();
+wallet_expect(true, $walletApiSample['sample'], 'Wallet API sample must be marked as a sample.');
+wallet_expect(false, $walletApiSample['contains_live_data'], 'Wallet API sample must not be marked as live data.');
+wallet_expect(false, $walletApiSample['security']['public'], 'Wallet API sample must document that live wallet API access is not public.');
+wallet_expect('POST', $walletApiSample['request']['method'], 'Wallet API terminal sample must use POST.');
 wallet_expect(true, jg_wallet_is_non_settling_status('CANCELLED'), 'Cancelled marketplace orders must be separated from outstanding funds.');
 wallet_expect('non_settling', jg_wallet_order_bucket([
     'funds_released' => 0,

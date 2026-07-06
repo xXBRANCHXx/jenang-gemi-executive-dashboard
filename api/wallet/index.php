@@ -65,6 +65,11 @@ function jg_wallet_handle_request(): void
             return;
         }
 
+        if ($method === 'GET' && in_array($action, ['sample', 'api_sample', 'schema'], true)) {
+            echo json_encode(jg_wallet_api_sample_response(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
         if ($method === 'GET' && in_array($action, ['terminal', 'query'], true)) {
             echo json_encode(jg_wallet_terminal_response($pdo, $_GET), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             return;
@@ -72,6 +77,11 @@ function jg_wallet_handle_request(): void
 
         $payload = json_decode((string) file_get_contents('php://input'), true);
         $payload = is_array($payload) ? $payload : [];
+
+        if ($method === 'POST' && in_array($action, ['terminal', 'query'], true)) {
+            echo json_encode(jg_wallet_terminal_response($pdo, $payload + $_GET), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            return;
+        }
 
         if ($method === 'POST' && in_array($action, ['release', 'withdraw'], true)) {
             echo json_encode(jg_wallet_release($pdo, $payload), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
@@ -605,8 +615,10 @@ function jg_wallet_terminal_response(PDO $pdo, array $params): array
             'wallet' => $wallet,
             'totals' => $summary['totals'] ?? [],
             'source' => $summary['source'] ?? [],
+            'security' => jg_wallet_api_security_metadata(false),
+            'request' => jg_wallet_terminal_request_sample($query),
             'api_call' => jg_wallet_api_call($wallet),
-            'terminal_call' => '/api/wallet/?' . http_build_query(['action' => 'terminal', 'query' => $query], '', '&', PHP_QUERY_RFC3986),
+            'terminal_call' => '/api/wallet/?action=terminal',
         ];
     }
 
@@ -619,7 +631,86 @@ function jg_wallet_terminal_response(PDO $pdo, array $params): array
         'wallets' => $summary['wallets'] ?? [],
         'totals' => $summary['totals'] ?? [],
         'source' => $summary['source'] ?? [],
-        'terminal_call' => '/api/wallet/?' . http_build_query(['action' => 'terminal', 'query' => $query], '', '&', PHP_QUERY_RFC3986),
+        'security' => jg_wallet_api_security_metadata(false),
+        'request' => jg_wallet_terminal_request_sample($query),
+        'terminal_call' => '/api/wallet/?action=terminal',
+    ];
+}
+
+function jg_wallet_api_sample_response(): array
+{
+    return [
+        'ok' => true,
+        'sample' => true,
+        'generated_at' => '2026-07-06T03:31:00+00:00',
+        'contains_live_data' => false,
+        'security' => jg_wallet_api_security_metadata(true),
+        'request' => jg_wallet_terminal_request_sample('Wallet summary'),
+        'response' => [
+            'ok' => true,
+            'sample' => true,
+            'command' => 'wallet.summary',
+            'generated_at' => '2026-07-06T03:31:00+00:00',
+            'answer' => 'Wallet summary: Rp145.000 known wallet balance, Rp3.500.000 outstanding, 1 account needs manual balance, 2 non-settling orders excluded.',
+            'totals' => [
+                'wallet_balance' => 145000,
+                'released_month_total' => 1200000,
+                'outstanding_total' => 3500000,
+                'outstanding_orders' => 42,
+                'manual_required_count' => 1,
+                'non_settling_orders' => 2,
+            ],
+            'wallets' => [
+                [
+                    'label' => 'Example Shopee',
+                    'platform' => 'shopee',
+                    'account_key' => 'example-shopee',
+                    'wallet_balance' => 145000,
+                    'wallet_balance_known' => true,
+                    'released_month_total' => 950000,
+                    'outstanding_total' => 2750000,
+                    'outstanding_orders' => 31,
+                    'last_released_at' => '2026-07-06T02:15:00+00:00',
+                    'last_mirrored_at' => '2026-07-06T03:30:00+00:00',
+                ],
+            ],
+            'source' => [
+                'order_source' => 'dashboard_order_mirror',
+                'released_metric_basis' => 'current Asia/Jakarta calendar month by funds_released_at',
+                'outstanding_basis' => 'unreleased settling orders only; cancelled and other non-settling orders are excluded',
+            ],
+        ],
+    ];
+}
+
+function jg_wallet_api_security_metadata(bool $sample): array
+{
+    return [
+        'public' => false,
+        'sample' => $sample,
+        'contains_live_data' => !$sample,
+        'authentication' => 'active admin session required',
+        'session_cookie' => 'HttpOnly; SameSite=Strict',
+        'request_scope' => 'same-origin credentials only',
+        'cache_control' => 'no-store',
+        'share_guidance' => $sample
+            ? 'Safe to share as a schema example; values are placeholders.'
+            : 'Do not share this response; it contains live wallet data.',
+    ];
+}
+
+function jg_wallet_terminal_request_sample(string $query): array
+{
+    return [
+        'method' => 'POST',
+        'endpoint' => '/api/wallet/?action=terminal',
+        'headers' => [
+            'Accept' => 'application/json',
+            'Content-Type' => 'application/json',
+        ],
+        'body' => [
+            'query' => $query !== '' ? $query : 'Wallet summary',
+        ],
     ];
 }
 
