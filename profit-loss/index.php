@@ -69,6 +69,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                         <button type="button" class="admin-soft-btn" data-accounting-open-mode="pay_bill">Pay Bill</button>
                         <button type="button" class="admin-soft-btn" data-accounting-open-mode="transfer">Transfer</button>
                         <button type="button" class="admin-ghost-btn" data-accounting-export>Export</button>
+                        <button type="button" class="admin-ghost-btn" data-accounting-cash-records-export>Cash Records</button>
                         <button type="button" class="admin-ghost-btn" data-accounting-settings>Settings</button>
                     </div>
                     <p class="admin-accounting-status" data-accounting-status>Accounting updated just now</p>
@@ -81,7 +82,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                     <article class="admin-accounting-metric">
                         <span>Cash Available</span>
                         <strong data-accounting-kpi="real-cash">Rp0</strong>
-                        <small>Bank + cash</small>
+                        <small>Bank + paid sources</small>
                     </article>
                     <article class="admin-accounting-metric">
                         <span>Marketplace</span>

@@ -80,6 +80,65 @@ function jg_accounting_export_csv(PDO $pdo): void
     exit;
 }
 
+function jg_accounting_export_cash_records_csv(PDO $pdo): void
+{
+    $month = jg_accounting_month($_GET['month'] ?? null);
+    $records = jg_accounting_automatic_cash_records($pdo, [
+        ...$_GET,
+        'month' => $month,
+    ]);
+
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="accounting-cash-records-' . $month . '.csv"');
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    $out = fopen('php://output', 'w');
+    if ($out === false) {
+        exit;
+    }
+    fputcsv($out, [
+        'Date',
+        'Month',
+        'Source Type',
+        'Source Key',
+        'Source Table',
+        'Source ID',
+        'Platform',
+        'Account Key',
+        'Order ID',
+        'Counterparty',
+        'Source Cash Amount',
+        'Manual Offset Amount',
+        'Usable Cash Amount',
+        'Currency',
+        'Record Status',
+        'Cash Basis',
+        'Notes',
+    ]);
+    foreach ($records as $record) {
+        fputcsv($out, [
+            $record['record_date'] ?? '',
+            $record['business_month'] ?? '',
+            $record['source_type'] ?? '',
+            $record['source_key'] ?? '',
+            $record['source_table'] ?? '',
+            $record['source_id'] ?? '',
+            $record['platform'] ?? '',
+            $record['account_key'] ?? '',
+            $record['order_id'] ?? '',
+            $record['counterparty'] ?? '',
+            $record['gross_amount'] ?? 0,
+            $record['manual_offset_amount'] ?? 0,
+            $record['usable_cash_amount'] ?? 0,
+            $record['currency'] ?? 'IDR',
+            $record['record_status'] ?? '',
+            $record['cash_basis'] ?? '',
+            $record['notes'] ?? '',
+        ]);
+    }
+    fclose($out);
+    exit;
+}
+
 try {
     $pdo = analyticsDb();
     jg_accounting_ensure_schema($pdo);
@@ -122,8 +181,21 @@ try {
                 'review_queue' => jg_accounting_review_queue($pdo),
             ], $month));
         }
+        if ($action === 'cash_records') {
+            $cashFilters = [
+                ...$_GET,
+                'month' => $month,
+            ];
+            jg_accounting_json(jg_accounting_endpoint_payload([
+                'cash_records' => jg_accounting_automatic_cash_records($pdo, $cashFilters),
+                'cash_context' => jg_accounting_automatic_usable_cash_context($pdo, $cashFilters),
+            ], $month));
+        }
         if ($action === 'export_csv') {
             jg_accounting_export_csv($pdo);
+        }
+        if ($action === 'export_cash_records_csv') {
+            jg_accounting_export_cash_records_csv($pdo);
         }
         jg_accounting_error('Unknown Accounting action.', 404);
     }

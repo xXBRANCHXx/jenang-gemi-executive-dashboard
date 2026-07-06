@@ -91,6 +91,7 @@ if (root) {
     rangeButtons: root.querySelectorAll('[data-accounting-range]'),
     openModeButtons: root.querySelectorAll('[data-accounting-open-mode]'),
     exportButton: root.querySelector('[data-accounting-export]'),
+    cashRecordsExportButton: root.querySelector('[data-accounting-cash-records-export]'),
     settingsButton: root.querySelector('[data-accounting-settings]'),
     kpis: {
       realCash: root.querySelector('[data-accounting-kpi="real-cash"]'),
@@ -441,6 +442,8 @@ if (root) {
       ['Owner Injection', monthly.owner_injection || 0],
       ['Manual Income', monthly.manual_income || 0],
       ['Wallet Withdrawals to Bank', monthly.wallet_withdrawals_to_bank || 0],
+      ['Website Paid Orders', monthly.website_payments_to_bank || 0],
+      ['Automatic Usable Cash', monthly.automatic_usable_cash || 0],
       ['Transfers In', monthly.transfers_in || 0],
       ['Transfers Out', monthly.transfers_out || 0],
       ['Bills Created', monthly.bills_created || 0],
@@ -822,6 +825,9 @@ if (root) {
   refs.refresh?.addEventListener('click', async () => loadSafely(true));
   refs.exportButton?.addEventListener('click', () => {
     window.location.href = buildUrl('export_csv', { ...rangeOptions(), include_voided: '0' });
+  });
+  refs.cashRecordsExportButton?.addEventListener('click', () => {
+    window.location.href = buildUrl('export_cash_records_csv', { ...rangeOptions() });
   });
   refs.settingsButton?.addEventListener('click', () => {
     setFormError('Settings are read-only in this version. Accounts and categories are seeded safely by the API.');

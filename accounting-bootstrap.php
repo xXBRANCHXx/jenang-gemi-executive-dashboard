@@ -862,46 +862,105 @@ function jg_accounting_month_utc_bounds(string $month): array
     ];
 }
 
-function jg_accounting_wallet_usable_cash_context(PDO $pdo, ?string $month = null): array
+function jg_accounting_date_utc_bound(string $date, bool $exclusiveEnd = false): string
 {
-    $releaseWhere = ['undone_at IS NULL'];
-    $releaseParams = [];
-    if ($month !== null) {
-        $bounds = jg_accounting_month_utc_bounds($month);
-        $releaseWhere[] = 'COALESCE(withdrawn_at, created_at) >= :release_start_at';
-        $releaseWhere[] = 'COALESCE(withdrawn_at, created_at) < :release_end_at';
-        $releaseParams[':release_start_at'] = $bounds['start_at'];
-        $releaseParams[':release_end_at'] = $bounds['end_at'];
+    $timezone = new DateTimeZone('Asia/Jakarta');
+    $start = DateTimeImmutable::createFromFormat('!Y-m-d H:i:s', $date . ' 00:00:00', $timezone);
+    if (!$start) {
+        $start = jg_accounting_now()->setTime(0, 0);
     }
+    $target = $exclusiveEnd ? $start->modify('+1 day') : $start;
+    return $target->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+}
 
-    $release = [
-        'amount' => 0,
-        'count' => 0,
-        'last_withdrawn_at' => '',
+function jg_accounting_cash_record_bounds(array $filters = []): array
+{
+    $month = trim((string) ($filters['month'] ?? ''));
+    $dateFrom = trim((string) ($filters['date_from'] ?? ''));
+    $dateTo = trim((string) ($filters['date_to'] ?? ''));
+    $bounds = [
+        'month' => $month,
+        'date_from' => $dateFrom,
+        'date_to' => $dateTo,
+        'start_at' => '',
+        'end_at' => '',
     ];
-    try {
-        $releaseStmt = $pdo->prepare(
-            'SELECT COALESCE(SUM(amount), 0) AS amount,
-                    COUNT(*) AS count,
-                    MAX(COALESCE(withdrawn_at, created_at)) AS last_withdrawn_at
-             FROM dashboard_wallet_releases
-             WHERE ' . implode(' AND ', $releaseWhere)
-        );
-        $releaseStmt->execute($releaseParams);
-        $release = $releaseStmt->fetch() ?: $release;
-    } catch (Throwable) {
-        return [
-            'amount' => 0,
-            'wallet_withdrawn_total' => 0,
-            'manual_marketplace_transfer_total' => 0,
-            'withdrawal_count' => 0,
-            'manual_transfer_count' => 0,
-            'last_withdrawn_at' => '',
-            'source' => 'wallet_releases_unavailable',
-            'label' => 'Wallet withdrawals to bank',
-        ];
+
+    if ($dateFrom !== '' || $dateTo !== '') {
+        if ($dateFrom !== '') {
+            $bounds['start_at'] = jg_accounting_date_utc_bound(jg_accounting_date($dateFrom, 'date_from'));
+        }
+        if ($dateTo !== '') {
+            $bounds['end_at'] = jg_accounting_date_utc_bound(jg_accounting_date($dateTo, 'date_to'), true);
+        }
+        return $bounds;
     }
 
+    if ($month !== '') {
+        $monthBounds = jg_accounting_month_utc_bounds($month);
+        $bounds['start_at'] = $monthBounds['start_at'];
+        $bounds['end_at'] = $monthBounds['end_at'];
+    }
+
+    return $bounds;
+}
+
+function jg_accounting_source_business_month(string $utcAt): string
+{
+    try {
+        $date = new DateTimeImmutable($utcAt, new DateTimeZone('UTC'));
+    } catch (Throwable) {
+        return '';
+    }
+    return $date->setTimezone(new DateTimeZone('Asia/Jakarta'))->format('Y-m');
+}
+
+function jg_accounting_source_local_date(string $utcAt): string
+{
+    try {
+        $date = new DateTimeImmutable($utcAt, new DateTimeZone('UTC'));
+    } catch (Throwable) {
+        return '';
+    }
+    return $date->setTimezone(new DateTimeZone('Asia/Jakarta'))->format('Y-m-d');
+}
+
+function jg_accounting_apply_source_time_filter(array &$where, array &$params, array $bounds, string $expression, string $prefix): void
+{
+    if (trim((string) ($bounds['start_at'] ?? '')) !== '') {
+        $where[] = $expression . ' >= :' . $prefix . '_start_at';
+        $params[':' . $prefix . '_start_at'] = (string) $bounds['start_at'];
+    }
+    if (trim((string) ($bounds['end_at'] ?? '')) !== '') {
+        $where[] = $expression . ' < :' . $prefix . '_end_at';
+        $params[':' . $prefix . '_end_at'] = (string) $bounds['end_at'];
+    }
+}
+
+function jg_accounting_apply_transaction_filter(array &$where, array &$params, array $bounds): void
+{
+    $dateFrom = trim((string) ($bounds['date_from'] ?? ''));
+    $dateTo = trim((string) ($bounds['date_to'] ?? ''));
+    $month = trim((string) ($bounds['month'] ?? ''));
+    if ($dateFrom !== '' || $dateTo !== '') {
+        if ($dateFrom !== '') {
+            $where[] = 't.transaction_date >= :transaction_date_from';
+            $params[':transaction_date_from'] = jg_accounting_date($dateFrom, 'date_from');
+        }
+        if ($dateTo !== '') {
+            $where[] = 't.transaction_date <= :transaction_date_to';
+            $params[':transaction_date_to'] = jg_accounting_date($dateTo, 'date_to');
+        }
+        return;
+    }
+    if ($month !== '') {
+        $where[] = 't.business_month = :transaction_month';
+        $params[':transaction_month'] = $month;
+    }
+}
+
+function jg_accounting_manual_marketplace_transfer_context(PDO $pdo, array $bounds = []): array
+{
     $manualWhere = [
         't.status = "posted"',
         't.type = "transfer"',
@@ -911,36 +970,263 @@ function jg_accounting_wallet_usable_cash_context(PDO $pdo, ?string $month = nul
         'dst.type IN ("bank", "cash", "ewallet")',
     ];
     $manualParams = [];
-    if ($month !== null) {
-        $manualWhere[] = 't.business_month = :manual_month';
-        $manualParams[':manual_month'] = $month;
+    jg_accounting_apply_transaction_filter($manualWhere, $manualParams, $bounds);
+
+    try {
+        $manualStmt = $pdo->prepare(
+            'SELECT COALESCE(SUM(t.amount), 0) AS amount,
+                    COUNT(*) AS count
+             FROM accounting_transactions t
+             INNER JOIN accounting_accounts src ON src.id = t.account_id
+             INNER JOIN accounting_accounts dst ON dst.id = t.to_account_id
+             WHERE ' . implode(' AND ', $manualWhere)
+        );
+        $manualStmt->execute($manualParams);
+        $manual = $manualStmt->fetch() ?: [];
+    } catch (Throwable) {
+        $manual = [];
     }
 
-    $manual = [
-        'amount' => 0,
-        'count' => 0,
+    return [
+        'amount' => (int) round((float) ($manual['amount'] ?? 0)),
+        'count' => (int) ($manual['count'] ?? 0),
     ];
-    $manualStmt = $pdo->prepare(
-        'SELECT COALESCE(SUM(t.amount), 0) AS amount,
-                COUNT(*) AS count
-         FROM accounting_transactions t
-         INNER JOIN accounting_accounts src ON src.id = t.account_id
-         INNER JOIN accounting_accounts dst ON dst.id = t.to_account_id
-         WHERE ' . implode(' AND ', $manualWhere)
-    );
-    $manualStmt->execute($manualParams);
-    $manual = $manualStmt->fetch() ?: $manual;
+}
 
-    $walletWithdrawn = (int) round((float) ($release['amount'] ?? 0));
-    $manualTransfers = (int) round((float) ($manual['amount'] ?? 0));
+function jg_accounting_wallet_cash_records(PDO $pdo, array $bounds = []): array
+{
+    $releaseWhere = ['undone_at IS NULL'];
+    $releaseParams = [];
+    $occurredExpression = 'COALESCE(withdrawn_at, created_at)';
+    jg_accounting_apply_source_time_filter($releaseWhere, $releaseParams, $bounds, $occurredExpression, 'release');
+
+    try {
+        $releaseStmt = $pdo->prepare(
+            'SELECT id, platform, account_key, amount, release_note, released_by, withdrawn_at, created_at,
+                    ' . $occurredExpression . ' AS occurred_at
+             FROM dashboard_wallet_releases
+             WHERE ' . implode(' AND ', $releaseWhere) . '
+             ORDER BY ' . $occurredExpression . ' ASC, id ASC'
+        );
+        $releaseStmt->execute($releaseParams);
+        $rows = $releaseStmt->fetchAll();
+    } catch (Throwable) {
+        return [];
+    }
+
+    $manual = jg_accounting_manual_marketplace_transfer_context($pdo, $bounds);
+    $manualOffsetRemaining = (int) $manual['amount'];
+    $records = [];
+    foreach ($rows as $row) {
+        $gross = max(0, (int) round((float) ($row['amount'] ?? 0)));
+        $manualOffset = min($gross, max(0, $manualOffsetRemaining));
+        $manualOffsetRemaining -= $manualOffset;
+        $usable = max(0, $gross - $manualOffset);
+        $occurredAt = trim((string) ($row['occurred_at'] ?? $row['withdrawn_at'] ?? $row['created_at'] ?? ''));
+        $platform = (string) ($row['platform'] ?? '');
+        $accountKey = (string) ($row['account_key'] ?? '');
+        $records[] = [
+            'source_key' => 'wallet_release:' . (int) ($row['id'] ?? 0),
+            'source_type' => 'wallet_withdrawal',
+            'source_table' => 'dashboard_wallet_releases',
+            'source_id' => (int) ($row['id'] ?? 0),
+            'source_label' => trim($platform . ' ' . $accountKey),
+            'occurred_at' => $occurredAt,
+            'record_date' => jg_accounting_source_local_date($occurredAt),
+            'business_month' => jg_accounting_source_business_month($occurredAt),
+            'platform' => $platform,
+            'account_key' => $accountKey,
+            'order_id' => '',
+            'counterparty' => $accountKey,
+            'gross_amount' => $gross,
+            'manual_offset_amount' => $manualOffset,
+            'usable_cash_amount' => $usable,
+            'amount' => $usable,
+            'currency' => 'IDR',
+            'record_status' => $usable > 0 ? ($manualOffset > 0 ? 'partially_offset' : 'usable') : 'fully_offset',
+            'cash_basis' => 'wallet_withdrawal_to_bank',
+            'notes' => (string) ($row['release_note'] ?? ''),
+        ];
+    }
+
+    return $records;
+}
+
+function jg_accounting_manual_website_money_in_offsets(PDO $pdo, array $orderIds): array
+{
+    $orderIds = array_values(array_unique(array_filter(array_map(static fn (mixed $value): string => trim((string) $value), $orderIds))));
+    if ($orderIds === []) {
+        return [];
+    }
+
+    $lookup = array_fill_keys($orderIds, true);
+    $offsets = array_fill_keys($orderIds, 0);
+    foreach (array_chunk($orderIds, 150) as $chunkIndex => $chunk) {
+        $whereParts = [];
+        $params = [];
+        foreach (['order_no', 'reference_no', 'invoice_no'] as $field) {
+            $placeholders = [];
+            foreach ($chunk as $index => $orderId) {
+                $placeholder = ':' . $field . '_' . $chunkIndex . '_' . $index;
+                $placeholders[] = $placeholder;
+                $params[$placeholder] = $orderId;
+            }
+            $whereParts[] = $field . ' IN (' . implode(', ', $placeholders) . ')';
+        }
+
+        try {
+            $stmt = $pdo->prepare(
+                'SELECT order_no, reference_no, invoice_no, amount
+                 FROM accounting_transactions
+                 WHERE status = "posted"
+                   AND direction = "money_in"
+                   AND type = "manual_income"
+                   AND (' . implode(' OR ', $whereParts) . ')'
+            );
+            $stmt->execute($params);
+            foreach ($stmt->fetchAll() as $row) {
+                foreach (['order_no', 'reference_no', 'invoice_no'] as $field) {
+                    $orderId = trim((string) ($row[$field] ?? ''));
+                    if ($orderId !== '' && isset($lookup[$orderId])) {
+                        $offsets[$orderId] += max(0, (int) round((float) ($row['amount'] ?? 0)));
+                        break;
+                    }
+                }
+            }
+        } catch (Throwable) {
+            return $offsets;
+        }
+    }
+
+    return $offsets;
+}
+
+function jg_accounting_website_cash_records(PDO $pdo, array $bounds = []): array
+{
+    $where = ['paid_at IS NOT NULL'];
+    $params = [];
+    jg_accounting_apply_source_time_filter($where, $params, $bounds, 'paid_at', 'website_paid');
+
+    try {
+        $stmt = $pdo->prepare(
+            'SELECT id, platform, order_id, status, customer_name, gross_revenue, net_revenue, paid_at, created_at
+             FROM website_orders
+             WHERE ' . implode(' AND ', $where) . '
+             ORDER BY paid_at ASC, id ASC'
+        );
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll();
+    } catch (Throwable) {
+        return [];
+    }
+
+    $offsets = jg_accounting_manual_website_money_in_offsets(
+        $pdo,
+        array_map(static fn (array $row): string => (string) ($row['order_id'] ?? ''), $rows)
+    );
+    $records = [];
+    foreach ($rows as $row) {
+        $orderId = (string) ($row['order_id'] ?? '');
+        $gross = max(0, (int) round((float) ($row['net_revenue'] ?? 0)));
+        $manualOffset = min($gross, max(0, (int) ($offsets[$orderId] ?? 0)));
+        $usable = max(0, $gross - $manualOffset);
+        $occurredAt = trim((string) ($row['paid_at'] ?? $row['created_at'] ?? ''));
+        $platform = (string) ($row['platform'] ?? '');
+        $records[] = [
+            'source_key' => 'website_order:' . $platform . ':' . $orderId,
+            'source_type' => 'website_payment',
+            'source_table' => 'website_orders',
+            'source_id' => (int) ($row['id'] ?? 0),
+            'source_label' => trim($platform . ' ' . $orderId),
+            'occurred_at' => $occurredAt,
+            'record_date' => jg_accounting_source_local_date($occurredAt),
+            'business_month' => jg_accounting_source_business_month($occurredAt),
+            'platform' => $platform,
+            'account_key' => $platform,
+            'order_id' => $orderId,
+            'counterparty' => (string) ($row['customer_name'] ?? ''),
+            'gross_amount' => $gross,
+            'manual_offset_amount' => $manualOffset,
+            'usable_cash_amount' => $usable,
+            'amount' => $usable,
+            'currency' => 'IDR',
+            'record_status' => $usable > 0 ? ($manualOffset > 0 ? 'partially_offset' : 'usable') : 'fully_offset',
+            'cash_basis' => 'confirmed_website_payment_net_revenue',
+            'notes' => (string) ($row['status'] ?? ''),
+        ];
+    }
+
+    return $records;
+}
+
+function jg_accounting_automatic_cash_records(PDO $pdo, array $filters = []): array
+{
+    $bounds = jg_accounting_cash_record_bounds($filters);
+    $records = array_merge(
+        jg_accounting_wallet_cash_records($pdo, $bounds),
+        jg_accounting_website_cash_records($pdo, $bounds)
+    );
+    usort($records, static function (array $left, array $right): int {
+        $time = strcmp((string) ($right['occurred_at'] ?? ''), (string) ($left['occurred_at'] ?? ''));
+        return $time !== 0 ? $time : strcmp((string) ($right['source_key'] ?? ''), (string) ($left['source_key'] ?? ''));
+    });
+    return $records;
+}
+
+function jg_accounting_automatic_usable_cash_context(PDO $pdo, array $filters = []): array
+{
+    $records = jg_accounting_automatic_cash_records($pdo, $filters);
+    $totals = [
+        'wallet_withdrawal' => 0,
+        'website_payment' => 0,
+    ];
+    $gross = 0;
+    $manualOffset = 0;
+    $usableCount = 0;
+    foreach ($records as $record) {
+        $sourceType = (string) ($record['source_type'] ?? '');
+        $amount = (int) ($record['usable_cash_amount'] ?? 0);
+        if (isset($totals[$sourceType])) {
+            $totals[$sourceType] += $amount;
+        }
+        $gross += (int) ($record['gross_amount'] ?? 0);
+        $manualOffset += (int) ($record['manual_offset_amount'] ?? 0);
+        if ($amount > 0) {
+            $usableCount++;
+        }
+    }
 
     return [
-        'amount' => max(0, $walletWithdrawn - $manualTransfers),
+        'amount' => (int) array_sum($totals),
+        'wallet_withdrawals_to_bank' => $totals['wallet_withdrawal'],
+        'website_payments_to_bank' => $totals['website_payment'],
+        'gross_source_total' => $gross,
+        'manual_offset_total' => $manualOffset,
+        'record_count' => count($records),
+        'usable_record_count' => $usableCount,
+        'source' => 'automatic_cash_source_records',
+        'label' => 'Automatic usable cash',
+        'sources' => [
+            'wallet_withdrawal' => 'Wallet withdrawals to bank',
+            'website_payment' => 'Confirmed website payments',
+        ],
+    ];
+}
+
+function jg_accounting_wallet_usable_cash_context(PDO $pdo, ?string $month = null): array
+{
+    $records = jg_accounting_wallet_cash_records($pdo, jg_accounting_cash_record_bounds($month !== null ? ['month' => $month] : []));
+    $walletWithdrawn = array_sum(array_map(static fn (array $record): int => (int) ($record['gross_amount'] ?? 0), $records));
+    $manualTransfers = array_sum(array_map(static fn (array $record): int => (int) ($record['manual_offset_amount'] ?? 0), $records));
+    $lastRecord = $records !== [] ? $records[count($records) - 1] : [];
+
+    return [
+        'amount' => array_sum(array_map(static fn (array $record): int => (int) ($record['usable_cash_amount'] ?? 0), $records)),
         'wallet_withdrawn_total' => $walletWithdrawn,
         'manual_marketplace_transfer_total' => $manualTransfers,
-        'withdrawal_count' => (int) ($release['count'] ?? 0),
-        'manual_transfer_count' => (int) ($manual['count'] ?? 0),
-        'last_withdrawn_at' => (string) ($release['last_withdrawn_at'] ?? ''),
+        'withdrawal_count' => count($records),
+        'manual_transfer_count' => jg_accounting_manual_marketplace_transfer_context($pdo, jg_accounting_cash_record_bounds($month !== null ? ['month' => $month] : []))['count'],
+        'last_withdrawn_at' => (string) ($lastRecord['occurred_at'] ?? ''),
         'source' => 'dashboard_wallet_releases',
         'label' => 'Wallet withdrawals to bank',
     ];
@@ -960,8 +1246,8 @@ function jg_accounting_summary(PDO $pdo, string $month): array
             $realCash += (int) ($balances[(int) $account['id']] ?? 0);
         }
     }
-    $walletUsableCash = jg_accounting_wallet_usable_cash_context($pdo);
-    $realCash += (int) $walletUsableCash['amount'];
+    $automaticUsableCash = jg_accounting_automatic_usable_cash_context($pdo);
+    $realCash += (int) $automaticUsableCash['amount'];
 
     $sumBill = static function (PDO $pdo, string $sql, array $params): int {
         $stmt = $pdo->prepare($sql);
@@ -1018,7 +1304,12 @@ function jg_accounting_summary(PDO $pdo, string $month): array
             'pending_manual_review' => $pendingReview,
         ],
         'marketplace_outstanding_context' => $marketplaceOutstanding,
-        'wallet_usable_cash_context' => $walletUsableCash,
+        'automatic_usable_cash_context' => $automaticUsableCash,
+        'wallet_usable_cash_context' => [
+            'amount' => (int) $automaticUsableCash['wallet_withdrawals_to_bank'],
+            'source' => 'dashboard_wallet_releases',
+            'label' => 'Wallet withdrawals to bank',
+        ],
         'monthly_summary' => $monthly,
         'category_summary' => jg_accounting_group_summary($pdo, $month, 'category'),
         'vendor_summary' => jg_accounting_group_summary($pdo, $month, 'vendor'),
@@ -1060,8 +1351,10 @@ function jg_accounting_monthly_summary(PDO $pdo, string $month): array
     $ownerInjection = (int) round((float) ($tx['owner_injection'] ?? 0));
     $ownerDraw = (int) round((float) ($tx['owner_draw'] ?? 0));
     $transferFees = (int) round((float) ($tx['transfer_fees'] ?? 0));
-    $walletUsableCash = jg_accounting_wallet_usable_cash_context($pdo, $month);
-    $walletWithdrawalsToBank = (int) $walletUsableCash['amount'];
+    $automaticUsableCash = jg_accounting_automatic_usable_cash_context($pdo, ['month' => $month]);
+    $walletWithdrawalsToBank = (int) $automaticUsableCash['wallet_withdrawals_to_bank'];
+    $websitePaymentsToBank = (int) $automaticUsableCash['website_payments_to_bank'];
+    $automaticCash = (int) $automaticUsableCash['amount'];
 
     return [
         'sales_revenue_context' => 0,
@@ -1075,13 +1368,15 @@ function jg_accounting_monthly_summary(PDO $pdo, string $month): array
         'owner_injection' => $ownerInjection,
         'manual_income' => $manualIncome,
         'wallet_withdrawals_to_bank' => $walletWithdrawalsToBank,
-        'wallet_usable_cash_context' => $walletUsableCash,
+        'website_payments_to_bank' => $websitePaymentsToBank,
+        'automatic_usable_cash' => $automaticCash,
+        'automatic_usable_cash_context' => $automaticUsableCash,
         'transfers_in' => (int) round((float) ($tx['transfers'] ?? 0)),
         'transfers_out' => (int) round((float) ($tx['transfers'] ?? 0)),
         'bills_created' => (int) round((float) ($bill['bills_created'] ?? 0)),
         'bills_paid' => (int) round((float) ($bill['bills_paid'] ?? 0)),
         'bills_still_unpaid' => (int) round((float) ($bill['bills_unpaid'] ?? 0)),
-        'estimated_net_cash_movement' => $manualIncome + $ownerInjection + $walletWithdrawalsToBank - $paidExpenses - $ownerDraw - $transferFees,
+        'estimated_net_cash_movement' => $manualIncome + $ownerInjection + $automaticCash - $paidExpenses - $ownerDraw - $transferFees,
     ];
 }
 
