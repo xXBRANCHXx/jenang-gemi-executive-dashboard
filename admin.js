@@ -540,6 +540,9 @@ const WALLET_BACKGROUND_REFRESH_MIN_MS = 60 * 1000;
 const LIVE_REFRESH_DEBOUNCE_MS = 1200;
 const BACKGROUND_IDLE_TIMEOUT_MS = 800;
 const BACKGROUND_TASK_DELAY_MS = 80;
+const INITIAL_VIEW_LOADER_CACHED_MS = 360;
+const INITIAL_VIEW_LOADER_MIN_MS = 700;
+const INITIAL_VIEW_LOADER_MAX_MS = 2200;
 const INACTIVE_VIEW_UNLOAD_DELAY_MS = 15 * 1000;
 const INACTIVE_VIEW_UNLOAD_STEP_MS = 140;
 
@@ -2975,6 +2978,18 @@ document.addEventListener('DOMContentLoaded', () => {
       document.body.classList.add('is-ready');
       if (loader) window.setTimeout(() => loader.remove(), 500);
     });
+  };
+
+  const waitForInitialViewReveal = (refreshPromise, options = {}) => {
+    const minimumDelay = wait(options.rendered ? INITIAL_VIEW_LOADER_CACHED_MS : INITIAL_VIEW_LOADER_MIN_MS);
+    if (options.rendered) return minimumDelay;
+    const refresh = refreshPromise && typeof refreshPromise.then === 'function'
+      ? refreshPromise
+      : Promise.resolve(false);
+    return Promise.race([
+      Promise.allSettled([refresh, minimumDelay]),
+      wait(INITIAL_VIEW_LOADER_MAX_MS)
+    ]);
   };
 
   const normalizeThemePreference = (theme) => {
@@ -8384,25 +8399,25 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const activateOverviewViewInstantly = () => {
+    let rendered = false;
     if (state.overview.data) {
       renderOverview(state.overview.data);
+      rendered = true;
     } else {
       const cached = readOverviewCache(state.overview.year);
       if (cached) {
         state.overview.loadedAt = Date.now();
         renderOverview(cached);
+        rendered = true;
       }
     }
     if (isBrowserOnline()) {
-      const run = () => {
-        loadOverviewSafely({ force: true, preferStale: false, background: true, useCache: true }).catch(() => {});
+      return {
+        rendered,
+        refreshPromise: loadOverviewSafely({ force: true, preferStale: false, background: true, useCache: true })
       };
-      if ('requestIdleCallback' in window) {
-        window.requestIdleCallback(run, { timeout: BACKGROUND_IDLE_TIMEOUT_MS });
-      } else {
-        window.setTimeout(run, BACKGROUND_TASK_DELAY_MS);
-      }
     }
+    return { rendered, refreshPromise: Promise.resolve(false) };
   };
 
   const restoreHomeFromCache = () => {
@@ -8422,15 +8437,12 @@ document.addEventListener('DOMContentLoaded', () => {
         : 'Offline / waiting for last campaign update';
     }
     if (isBrowserOnline()) {
-      const run = () => {
-        loadHomeSafely({ force: true, preferStale: false, background: true }).catch(() => {});
+      return {
+        rendered: restored,
+        refreshPromise: loadHomeSafely({ force: true, preferStale: false, background: true })
       };
-      if ('requestIdleCallback' in window) {
-        window.requestIdleCallback(run, { timeout: BACKGROUND_IDLE_TIMEOUT_MS });
-      } else {
-        window.setTimeout(run, BACKGROUND_TASK_DELAY_MS);
-      }
     }
+    return { rendered: restored, refreshPromise: Promise.resolve(false) };
   };
 
   const switchView = async (nextView) => {
@@ -8626,13 +8638,19 @@ document.addEventListener('DOMContentLoaded', () => {
   setLoaderState(34, 'Loading active dashboard charts');
 
   const initialLoad = state.activeView === 'overview'
-    ? Promise.resolve().then(() => activateOverviewViewInstantly())
+    ? Promise.resolve().then(() => {
+        const activation = activateOverviewViewInstantly();
+        return waitForInitialViewReveal(activation.refreshPromise, activation);
+      })
     : state.activeView === 'orders'
       ? Promise.resolve().then(() => activateOrdersViewInstantly())
       : state.activeView === 'wallet'
         ? Promise.resolve().then(() => activateWalletViewInstantly())
         : state.activeView === 'home'
-          ? Promise.resolve().then(() => activateHomeViewInstantly())
+          ? Promise.resolve().then(() => {
+              const activation = activateHomeViewInstantly();
+              return waitForInitialViewReveal(activation.refreshPromise, activation);
+            })
           : loadActiveViewSafely({ preferStale: false });
 
   if (state.activeView !== 'orders') {
