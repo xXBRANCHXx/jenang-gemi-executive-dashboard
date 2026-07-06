@@ -533,6 +533,7 @@ const VIEW_CACHE_TTL_MS = {
 const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const AUTO_MARKETPLACE_REFRESH_MIN_MS = 5 * 60 * 1000;
 const AUTO_MARKETPLACE_REFRESH_STORAGE_KEY = 'jg-dashboard-auto-marketplace-refresh-at-v1';
+const HOME_CACHE_PREFIX = 'jg-dashboard-home-cache-v1';
 const WALLET_CACHE_STORAGE_KEY = 'jg-dashboard-wallet-cache-v1';
 const WALLET_CACHE_WRITE_MIN_MS = 5 * 1000;
 const WALLET_BACKGROUND_REFRESH_MIN_MS = 60 * 1000;
@@ -3970,6 +3971,35 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch (_error) {
       // Cache is only a first-paint optimization; live signals and rollover checks fetch fresh data.
+    }
+  };
+
+  const homeCacheKey = (timeframe = state.home.timeframe, timezone = state.timezone, localDate = activeLocalDate) => (
+    `${HOME_CACHE_PREFIX}:${timeframe}:${timezone}:${localDate}`
+  );
+
+  const readHomeCache = () => {
+    try {
+      const cached = window.localStorage.getItem(homeCacheKey());
+      return cached ? JSON.parse(cached) : null;
+    } catch (_error) {
+      return null;
+    }
+  };
+
+  const writeHomeCache = (data) => {
+    if (!data || typeof data !== 'object') return;
+    try {
+      const cacheKey = homeCacheKey();
+      window.localStorage.setItem(cacheKey, JSON.stringify(data));
+      for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
+        const key = window.localStorage.key(index);
+        if (key && key.startsWith(`${HOME_CACHE_PREFIX}:`) && key !== cacheKey) {
+          window.localStorage.removeItem(key);
+        }
+      }
+    } catch (_error) {
+      // Home cache is only a first-paint optimization; the analytics API stays authoritative.
     }
   };
 
@@ -7429,6 +7459,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const requestToken = beginRequest('home');
     const data = await requestJson(buildAnalyticsUrl('landing', state.home.timeframe, { cacheBust: Boolean(options.force) }));
     if (!isLatestRequest('home', requestToken)) return;
+    writeHomeCache(data);
     state.home.loadedAt = Date.now();
     renderHome(data);
   };
@@ -8333,6 +8364,56 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const activateOverviewViewInstantly = () => {
+    if (state.overview.data) {
+      renderOverview(state.overview.data);
+    } else {
+      const cached = readOverviewCache(state.overview.year);
+      if (cached) {
+        state.overview.loadedAt = Date.now();
+        renderOverview(cached);
+      }
+    }
+    if (isBrowserOnline()) {
+      const run = () => {
+        loadOverviewSafely({ force: true, preferStale: false, background: true, useCache: true }).catch(() => {});
+      };
+      if ('requestIdleCallback' in window) {
+        window.requestIdleCallback(run, { timeout: BACKGROUND_IDLE_TIMEOUT_MS });
+      } else {
+        window.setTimeout(run, BACKGROUND_TASK_DELAY_MS);
+      }
+    }
+  };
+
+  const restoreHomeFromCache = () => {
+    const cached = readHomeCache();
+    if (!cached) return false;
+    state.home.loadedAt = Date.now();
+    renderHome(cached);
+    return true;
+  };
+
+  const activateHomeViewInstantly = () => {
+    const restored = state.home.data ? true : restoreHomeFromCache();
+    if (state.home.data) renderHome(state.home.data);
+    if (!restored && homeRefs.trendMeta) {
+      homeRefs.trendMeta.textContent = isBrowserOnline()
+        ? 'Loading campaign analytics in background'
+        : 'Offline / waiting for last campaign update';
+    }
+    if (isBrowserOnline()) {
+      const run = () => {
+        loadHomeSafely({ force: true, preferStale: false, background: true }).catch(() => {});
+      };
+      if ('requestIdleCallback' in window) {
+        window.requestIdleCallback(run, { timeout: BACKGROUND_IDLE_TIMEOUT_MS });
+      } else {
+        window.setTimeout(run, BACKGROUND_TASK_DELAY_MS);
+      }
+    }
+  };
+
   const switchView = async (nextView) => {
     const previousView = state.activeView;
     const normalizedNextView = normalizeDashboardView(nextView);
@@ -8349,6 +8430,10 @@ document.addEventListener('DOMContentLoaded', () => {
     window.history.replaceState(null, '', `${viewUrl.pathname}${viewUrl.search}`);
     closeMenu();
 	    renderJenangGemiSearchResults(searchInput?.value || '');
+	    if (state.activeView === 'overview') {
+	      activateOverviewViewInstantly();
+	      return;
+	    }
 	    if (state.activeView === 'orders') {
 	      activateOrdersViewInstantly();
 	      return;
@@ -8357,6 +8442,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	      activateWalletViewInstantly();
 	      return;
 	    }
+    if (state.activeView === 'home') {
+      activateHomeViewInstantly();
+      return;
+    }
     await loadActiveViewSafely();
     if (state.activeView === 'store-ops') {
       window.dispatchEvent(new CustomEvent('jg-store-ops-refresh'));
@@ -8518,12 +8607,14 @@ document.addEventListener('DOMContentLoaded', () => {
   setLoaderState(34, 'Loading active dashboard charts');
 
   const initialLoad = state.activeView === 'overview'
-    ? loadOverviewSafely({ useCache: true, cacheFirst: true, preferStale: false })
+    ? Promise.resolve().then(() => activateOverviewViewInstantly())
     : state.activeView === 'orders'
       ? Promise.resolve().then(() => activateOrdersViewInstantly())
       : state.activeView === 'wallet'
         ? Promise.resolve().then(() => activateWalletViewInstantly())
-        : loadActiveViewSafely({ preferStale: false });
+        : state.activeView === 'home'
+          ? Promise.resolve().then(() => activateHomeViewInstantly())
+          : loadActiveViewSafely({ preferStale: false });
 
   if (state.activeView !== 'orders') {
     window.setTimeout(() => {
