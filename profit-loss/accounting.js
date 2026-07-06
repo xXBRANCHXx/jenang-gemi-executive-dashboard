@@ -348,7 +348,7 @@ if (root) {
     if (!refs.alerts) return;
     const alerts = Array.isArray(summary?.alerts) ? summary.alerts : [];
     if (!alerts.length) {
-      refs.alerts.innerHTML = '<div class="admin-accounting-alert"><strong>No urgent alerts</strong><span>Checks appear after data loads.</span></div>';
+      refs.alerts.innerHTML = '<div class="admin-accounting-alert"><strong>No alerts</strong><span>Checks appear after data loads.</span></div>';
       return;
     }
     refs.alerts.innerHTML = alerts.map((alert) => `

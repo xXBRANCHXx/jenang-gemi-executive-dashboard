@@ -33,9 +33,9 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
         <div class="admin-shell-main">
             <header class="admin-topbar profit-loss-topbar admin-accounting-topbar">
                 <div class="admin-topbar-brand">
-                    <span class="admin-admin-mark">Finance</span>
-                    <h1>Accounting</h1>
-                    <p>Operational finance</p>
+                    <span class="admin-admin-mark">Admin Scope</span>
+                    <h1>Executive Dashboard</h1>
+                    <p>Accounting</p>
                 </div>
                 <?php render_admin_topbar_actions('profit-loss'); ?>
             </header>
@@ -72,6 +72,9 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                         <button type="button" class="admin-ghost-btn" data-accounting-settings>Settings</button>
                     </div>
                     <p class="admin-accounting-status" data-accounting-status>Accounting updated just now</p>
+                    <div class="admin-accounting-alert-strip" data-accounting-alerts>
+                        <div class="admin-accounting-alert"><strong>No alerts</strong><span>Checks appear after data loads.</span></div>
+                    </div>
                 </section>
 
                 <section class="admin-accounting-metrics" aria-label="Accounting metrics">
@@ -115,7 +118,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                 <section class="admin-accounting-workspace">
                     <article class="admin-accounting-panel admin-accounting-entry">
                         <div class="admin-panel-head">
-                            <div><span class="admin-panel-kicker">Quick Entry</span><h3>Daily entry</h3></div>
+                            <div><span class="admin-panel-kicker">Accounting</span><h3>Daily entry</h3></div>
                             <span class="admin-panel-meta" data-accounting-form-status>Ready</span>
                         </div>
                         <div class="admin-accounting-mode-row">
@@ -260,20 +263,11 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                             </div>
                         </form>
                     </article>
-
-                    <article class="admin-accounting-panel admin-accounting-alerts">
-                        <div class="admin-panel-head">
-                            <div><span class="admin-panel-kicker">Attention</span><h3>Checks</h3></div>
-                        </div>
-                        <div class="admin-accounting-alert-grid" data-accounting-alerts>
-                            <div class="admin-accounting-alert"><strong>No urgent alerts</strong><span>Checks appear after data loads.</span></div>
-                        </div>
-                    </article>
                 </section>
 
                 <section class="admin-accounting-panel admin-accounting-panel-wide">
                     <div class="admin-panel-head">
-                        <div><span class="admin-panel-kicker">Bills Queue</span><h3>Unpaid bills</h3></div>
+                        <div><span class="admin-panel-kicker">Bills</span><h3>Open bills</h3></div>
                         <span class="admin-panel-meta" data-accounting-bills-meta>Open bills</span>
                     </div>
                     <div class="admin-table-wrap admin-accounting-table-wrap">
@@ -304,7 +298,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
 
                 <section class="admin-accounting-panel admin-accounting-panel-wide">
                     <div class="admin-panel-head">
-                        <div><span class="admin-panel-kicker">Transaction Ledger</span><h3>Manual entries</h3></div>
+                        <div><span class="admin-panel-kicker">Ledger</span><h3>Manual entries</h3></div>
                         <span class="admin-panel-meta" data-accounting-ledger-meta>Selected month</span>
                     </div>
                     <div class="admin-table-wrap admin-accounting-table-wrap">
@@ -356,7 +350,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
 
                     <article class="admin-accounting-panel admin-accounting-panel-wide">
                         <div class="admin-panel-head">
-                            <div><span class="admin-panel-kicker">Review Queue</span><h3>Data checks</h3></div>
+                            <div><span class="admin-panel-kicker">Review</span><h3>Data checks</h3></div>
                             <span class="admin-panel-meta">Category, receipt, duplicate, marketplace income</span>
                         </div>
                         <div class="admin-table-wrap admin-accounting-table-wrap admin-accounting-review-wrap">

@@ -21169,108 +21169,129 @@ body:has(.admin-app[data-sku-db])::after {
   }
 }
 
-/* Accounting workspace: compact monochrome surface. */
+/* Accounting workspace: aligned to Wallet surface language. */
 .admin-accounting-view {
-  --accounting-surface: color-mix(in srgb, var(--admin-surface) 84%, var(--admin-bg));
-  --accounting-surface-soft: color-mix(in srgb, var(--admin-surface-soft) 72%, transparent);
+  --accounting-surface: var(--admin-surface);
   --accounting-border: var(--admin-border);
   --accounting-text: var(--admin-text);
   --accounting-muted: var(--admin-muted);
   display: grid;
-  gap: 10px;
+  gap: 18px;
+  width: 100%;
+  max-width: none;
 }
 
-.admin-accounting-view .admin-panel-head {
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 10px;
-}
-
-.admin-accounting-view .admin-panel-head h3 {
-  margin: 2px 0 0;
-  font-size: 1rem;
-  line-height: 1.2;
-  letter-spacing: 0;
-}
-
-.admin-accounting-view .admin-panel-kicker,
-.admin-accounting-view .admin-panel-meta,
-.admin-accounting-status,
-.admin-accounting-field span,
-.admin-accounting-form label span,
-.admin-accounting-metric span,
-.admin-accounting-metric small {
-  color: var(--accounting-muted);
-  font-size: 0.67rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+.admin-accounting-topbar .admin-topbar-brand .admin-admin-mark {
   text-transform: uppercase;
 }
 
+.admin-accounting-topbar .admin-topbar-brand {
+  max-width: min(100%, 680px);
+}
+
+.admin-accounting-topbar .admin-topbar-brand h1 {
+  max-width: 100%;
+}
+
 .admin-accounting-command,
-.admin-accounting-panel,
-.admin-accounting-metrics {
+.admin-accounting-metric,
+.admin-accounting-panel {
   border: 1px solid var(--accounting-border);
-  border-radius: 8px;
+  border-radius: var(--admin-card-radius);
   background: var(--accounting-surface);
-  box-shadow: none;
+  box-shadow: var(--admin-shadow);
 }
 
 .admin-accounting-command {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 10px;
-  align-items: end;
-  padding: 10px;
+  gap: 12px;
+  min-height: 64px;
+  padding: 12px;
+}
+
+.admin-accounting-command-fields,
+.admin-accounting-command-actions,
+.admin-accounting-range,
+.admin-accounting-mode-row,
+.admin-accounting-tabs,
+.admin-accounting-form-actions,
+.admin-accounting-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
 }
 
 .admin-accounting-command-fields {
-  display: grid;
-  grid-template-columns: minmax(132px, 160px) auto minmax(130px, 150px) minmax(130px, 150px);
-  gap: 8px;
   align-items: end;
-  justify-content: start;
-  min-width: 0;
+}
+
+.admin-accounting-command-actions {
+  align-items: center;
 }
 
 .admin-accounting-field,
 .admin-accounting-form label {
   display: grid;
-  gap: 5px;
+  gap: 6px;
   min-width: 0;
 }
 
-.admin-accounting-range,
-.admin-accounting-mode-row,
-.admin-accounting-tabs,
-.admin-accounting-command-actions,
-.admin-accounting-form-actions,
-.admin-accounting-row-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+.admin-accounting-field {
+  width: min(190px, 100%);
 }
 
-.admin-accounting-command-actions {
-  justify-content: flex-start;
-  max-width: none;
+.admin-accounting-range {
+  align-items: center;
 }
 
 .admin-accounting-status {
-  grid-column: 1 / -1;
   margin: 0;
-  text-transform: none;
+  color: var(--accounting-muted);
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-accounting-alert-strip {
+  display: grid;
+  gap: 8px;
+  max-width: 760px;
+}
+
+.admin-accounting-view .admin-panel-head {
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.admin-accounting-view .admin-panel-head h3 {
+  margin: 0;
+  color: var(--accounting-text);
+  font-size: 1.4rem;
+  line-height: 1.12;
+  letter-spacing: 0;
+}
+
+.admin-accounting-view .admin-panel-kicker,
+.admin-accounting-view .admin-panel-meta,
+.admin-accounting-field span,
+.admin-accounting-form label span,
+.admin-accounting-metric span,
+.admin-accounting-metric small {
+  color: var(--accounting-muted);
+  font-size: 0.72rem;
+  font-weight: 850;
   letter-spacing: 0;
 }
 
 .admin-accounting-view :is(.admin-primary-btn, .admin-ghost-btn, .admin-soft-btn, .admin-danger-btn, .admin-toggle-pill) {
-  min-height: 34px;
+  min-height: 36px;
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 0 14px;
   box-shadow: none;
-  font-size: 0.76rem;
-  font-weight: 800;
-  line-height: 1;
+  font: 800 0.76rem/1 "Space Grotesk", sans-serif;
   transform: none;
 }
 
@@ -21288,58 +21309,56 @@ body:has(.admin-app[data-sku-db])::after {
 :root[data-admin-theme='dark'] .admin-accounting-view :is(.admin-ghost-btn, .admin-soft-btn, .admin-danger-btn, .admin-toggle-pill),
 :root[data-admin-theme='light'] .admin-accounting-view :is(.admin-ghost-btn, .admin-soft-btn, .admin-danger-btn, .admin-toggle-pill) {
   border-color: var(--accounting-border);
-  background: transparent;
+  background: var(--accounting-surface);
   color: var(--accounting-text);
 }
 
 .admin-accounting-metrics {
   display: grid;
-  grid-template-columns: repeat(7, minmax(120px, 1fr));
-  overflow: hidden;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .admin-accounting-metric {
   display: grid;
-  gap: 5px;
-  min-height: 84px;
-  padding: 11px;
-  border-right: 1px solid var(--accounting-border);
-}
-
-.admin-accounting-metric:last-child {
-  border-right: 0;
+  gap: 8px;
+  min-width: 0;
+  min-height: 112px;
+  padding: 18px;
 }
 
 .admin-accounting-metric strong {
+  min-width: 0;
+  overflow: hidden;
   color: var(--accounting-text);
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: clamp(1rem, 1.15vw, 1.24rem);
-  line-height: 1.08;
-  overflow-wrap: anywhere;
+  font: 800 clamp(1.05rem, 1.45vw, 1.45rem)/1 "Space Grotesk", sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-accounting-metric.is-danger {
-  background: color-mix(in srgb, var(--accounting-text) 6%, transparent);
+  border-color: color-mix(in srgb, var(--accounting-text) 28%, var(--accounting-border));
 }
 
-.admin-accounting-workspace {
+.admin-accounting-workspace,
+.admin-accounting-secondary {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.34fr);
-  gap: 10px;
+  grid-template-columns: 1fr;
+  gap: 18px;
   align-items: start;
 }
 
+.admin-accounting-secondary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-accounting-secondary .admin-accounting-panel-wide {
+  grid-column: 1 / -1;
+}
+
 .admin-accounting-panel {
-  padding: 12px;
-}
-
-.admin-accounting-entry {
   min-width: 0;
-}
-
-.admin-accounting-alerts {
-  position: sticky;
-  top: 86px;
+  padding: 24px;
 }
 
 .admin-accounting-alert-grid,
@@ -21347,48 +21366,46 @@ body:has(.admin-app[data-sku-db])::after {
 .admin-accounting-insight-list,
 .admin-accounting-drawer-body {
   display: grid;
-  gap: 7px;
+  gap: 10px;
 }
 
 .admin-accounting-alert {
-  display: grid;
-  gap: 4px;
-  width: 100%;
+  display: inline-grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: baseline;
+  width: fit-content;
+  max-width: 100%;
   min-height: 0;
-  padding: 9px 0;
+  padding: 0;
   border: 0;
-  border-bottom: 1px solid var(--accounting-border);
-  border-radius: 0;
   background: transparent;
   color: var(--accounting-text);
   text-align: left;
 }
 
-.admin-accounting-alert:last-child {
-  border-bottom: 0;
-}
-
 .admin-accounting-alert strong {
   color: var(--accounting-text);
-  font-size: 0.86rem;
+  font-size: 0.78rem;
   line-height: 1.25;
+  white-space: nowrap;
 }
 
 .admin-accounting-alert span,
 .admin-accounting-helper,
 .admin-accounting-warning {
   color: var(--accounting-muted);
-  font-size: 0.76rem;
+  font-size: 0.78rem;
   line-height: 1.45;
 }
 
 .admin-accounting-helper,
 .admin-accounting-warning {
-  margin: 0 0 10px;
-  padding: 8px 10px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
   border: 1px solid var(--accounting-border);
   border-radius: 8px;
-  background: transparent;
+  background: var(--accounting-surface);
   font-weight: 700;
 }
 
@@ -21401,7 +21418,7 @@ body:has(.admin-app[data-sku-db])::after {
 .admin-accounting-form {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 9px;
+  gap: 12px;
 }
 
 .admin-accounting-form [hidden] {
@@ -21413,18 +21430,21 @@ body:has(.admin-app[data-sku-db])::after {
 .admin-accounting-form textarea,
 .admin-accounting-command input {
   width: 100%;
-  min-height: 36px;
+  min-height: 42px;
+  min-width: 0;
   border: 1px solid var(--accounting-border);
-  border-radius: 6px;
+  border-radius: 8px;
   outline: none;
-  background: transparent;
+  background: var(--accounting-surface);
   color: var(--accounting-text);
-  padding: 8px 9px;
+  padding: 0 12px;
   box-shadow: none;
+  font: 800 0.82rem/1 "Space Grotesk", sans-serif;
 }
 
 .admin-accounting-form textarea {
-  min-height: 72px;
+  min-height: 92px;
+  padding-block: 12px;
   resize: vertical;
 }
 
@@ -21432,8 +21452,8 @@ body:has(.admin-app[data-sku-db])::after {
 .admin-accounting-form select:focus,
 .admin-accounting-form textarea:focus,
 .admin-accounting-command input:focus {
-  border-color: color-mix(in srgb, var(--accounting-text) 44%, var(--accounting-border));
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accounting-text) 9%, transparent);
+  border-color: color-mix(in srgb, var(--admin-accent) 58%, var(--accounting-border));
+  box-shadow: none;
 }
 
 .admin-accounting-form-wide,
@@ -21443,22 +21463,12 @@ body:has(.admin-app[data-sku-db])::after {
 }
 
 .admin-accounting-form-actions {
-  position: static;
   justify-content: flex-end;
-  margin-top: 2px;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  backdrop-filter: none;
-}
-
-.admin-accounting-panel-wide {
-  min-width: 0;
+  margin-top: 4px;
 }
 
 .admin-accounting-table-wrap {
-  max-height: 410px;
+  max-height: 430px;
   border-top: 1px solid var(--accounting-border);
 }
 
@@ -21472,15 +21482,16 @@ body:has(.admin-app[data-sku-db])::after {
 
 .admin-accounting-table th,
 .admin-accounting-table td {
-  padding: 9px 8px;
-  font-size: 0.73rem;
+  padding: 12px 10px;
+  font-size: 0.78rem;
   line-height: 1.35;
   vertical-align: middle;
+  white-space: nowrap;
 }
 
 .admin-accounting-table th {
-  font-size: 0.63rem;
-  letter-spacing: 0.08em;
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
 }
 
 .admin-accounting-table tbody tr:hover,
@@ -21491,13 +21502,13 @@ body:has(.admin-app[data-sku-db])::after {
 .admin-accounting-chip {
   display: inline-flex;
   align-items: center;
-  min-height: 22px;
-  padding: 3px 7px;
+  min-height: 24px;
+  padding: 4px 8px;
   border: 1px solid var(--accounting-border);
   border-radius: 999px;
-  background: transparent;
+  background: var(--accounting-surface);
   color: var(--accounting-text);
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   font-weight: 850;
   line-height: 1;
   text-transform: capitalize;
@@ -21518,7 +21529,6 @@ body:has(.admin-app[data-sku-db])::after {
 .admin-accounting-chip-info,
 .admin-accounting-chip-transfer {
   border-color: color-mix(in srgb, var(--accounting-text) 28%, var(--accounting-border));
-  background: color-mix(in srgb, var(--accounting-text) 5%, transparent);
 }
 
 .admin-accounting-row-actions {
@@ -21526,19 +21536,9 @@ body:has(.admin-app[data-sku-db])::after {
 }
 
 .admin-accounting-row-actions :is(.admin-soft-btn, .admin-ghost-btn, .admin-danger-btn) {
-  min-height: 28px;
-  padding: 6px 8px;
-  font-size: 0.64rem;
-}
-
-.admin-accounting-secondary {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.admin-accounting-secondary .admin-accounting-panel-wide {
-  grid-column: 1 / -1;
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 0.68rem;
 }
 
 .admin-accounting-summary-list > div,
@@ -21546,13 +21546,10 @@ body:has(.admin-app[data-sku-db])::after {
 .admin-accounting-detail-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
-  padding: 8px 0;
-  border: 0;
+  padding: 10px 0;
   border-bottom: 1px solid var(--accounting-border);
-  border-radius: 0;
-  background: transparent;
 }
 
 .admin-accounting-summary-list > div:last-child,
@@ -21565,7 +21562,7 @@ body:has(.admin-app[data-sku-db])::after {
 .admin-accounting-insight-row span,
 .admin-accounting-detail-row span {
   color: var(--accounting-muted);
-  font-size: 0.72rem;
+  font-size: 0.76rem;
   font-weight: 750;
 }
 
@@ -21578,14 +21575,14 @@ body:has(.admin-app[data-sku-db])::after {
 }
 
 .admin-accounting-insight-row {
-  grid-template-columns: minmax(120px, 1fr) minmax(90px, 0.7fr) auto;
+  grid-template-columns: minmax(140px, 1fr) minmax(120px, 0.8fr) auto;
 }
 
 .admin-accounting-bar {
-  height: 4px;
+  height: 6px;
   overflow: hidden;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--accounting-muted) 20%, transparent);
+  background: color-mix(in srgb, var(--accounting-muted) 18%, transparent);
 }
 
 .admin-accounting-bar span {
@@ -21599,7 +21596,7 @@ body:has(.admin-app[data-sku-db])::after {
   width: min(520px, calc(100vw - 24px));
   max-height: calc(100svh - 28px);
   overflow: auto;
-  border-radius: 8px;
+  border-radius: var(--admin-card-radius);
   background: var(--accounting-surface);
   color: var(--accounting-text);
 }
@@ -21614,18 +21611,21 @@ body:has(.admin-app[data-sku-db])::after {
   bottom: 18px;
   z-index: 80;
   max-width: min(360px, calc(100vw - 36px));
-  padding: 10px 12px;
+  padding: 12px 14px;
   border: 1px solid var(--accounting-border);
   border-radius: 8px;
   background: var(--accounting-surface);
-  box-shadow: none;
+  box-shadow: var(--admin-shadow);
   color: var(--accounting-text);
   font-size: 0.8rem;
   font-weight: 800;
 }
 
-.admin-accounting-toast.is-error {
-  background: var(--accounting-surface);
+:root[data-admin-theme='light'] .admin-accounting-command,
+:root[data-admin-theme='light'] .admin-accounting-metric {
+  border-color: rgba(15, 23, 42, 0.1);
+  background: #ffffff;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
 }
 
 @media (max-width: 1320px) {
@@ -21633,31 +21633,53 @@ body:has(.admin-app[data-sku-db])::after {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  .admin-accounting-metric:nth-child(4n) {
-    border-right: 0;
-  }
-
   .admin-accounting-form {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 1080px) {
+@media (max-width: 980px) {
   .admin-accounting-command-fields,
-  .admin-accounting-workspace,
+  .admin-accounting-command-actions,
+  .admin-accounting-mode-row,
+  .admin-accounting-tabs {
+    width: 100%;
+  }
+
+  .admin-accounting-field {
+    width: min(100%, 280px);
+  }
+
   .admin-accounting-secondary {
     grid-template-columns: 1fr;
   }
 
-  .admin-accounting-alerts {
-    position: static;
+  .admin-accounting-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 760px) {
-  .admin-accounting-command,
-  .admin-accounting-panel {
-    padding: 10px;
+@media (max-width: 640px) {
+  .admin-accounting-view {
+    gap: 12px;
+  }
+
+  .admin-accounting-topbar {
+    padding-inline: 20px;
+  }
+
+  .admin-accounting-topbar .admin-topbar-brand {
+    width: 100%;
+  }
+
+  .admin-accounting-topbar .admin-topbar-brand h1 {
+    font-size: clamp(1.65rem, 7vw, 2rem);
+    line-height: 1.06;
+  }
+
+  .admin-accounting-panel,
+  .admin-accounting-metric {
+    padding: 16px;
   }
 
   .admin-accounting-metrics,
@@ -21666,22 +21688,19 @@ body:has(.admin-app[data-sku-db])::after {
     grid-template-columns: 1fr;
   }
 
-  .admin-accounting-metric,
-  .admin-accounting-metric:nth-child(4n) {
-    border-right: 0;
-    border-bottom: 1px solid var(--accounting-border);
-  }
-
-  .admin-accounting-metric:last-child {
-    border-bottom: 0;
-  }
-
-  .admin-accounting-view .admin-panel-head,
+  .admin-accounting-field,
+  .admin-accounting-range,
+  .admin-accounting-command-actions,
   .admin-accounting-form-actions {
-    align-items: stretch;
+    width: 100%;
   }
 
-  .admin-accounting-form-actions > * {
-    flex: 1 1 130px;
+  .admin-accounting-view :is(.admin-primary-btn, .admin-ghost-btn, .admin-soft-btn, .admin-danger-btn, .admin-toggle-pill) {
+    flex: 1 1 128px;
+  }
+
+  .admin-accounting-alert {
+    grid-template-columns: 1fr;
+    width: 100%;
   }
 }
