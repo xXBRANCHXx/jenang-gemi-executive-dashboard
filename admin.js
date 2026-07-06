@@ -6459,6 +6459,37 @@ document.addEventListener('DOMContentLoaded', () => {
 	    return formatRegionalInteger(wallet.outstanding_orders || 0);
 	  };
 
+	  const walletTotalBalanceKnown = (totals = {}) => Number(totals.manual_anchor_count || 0) > 0;
+
+	  const walletTotalBalanceNote = (totals = {}) => {
+	    const count = Number(totals.manual_anchor_count || 0);
+	    if (!count) return 'Manual balance required';
+	    return `${formatRegionalInteger(count)} account${count === 1 ? '' : 's'} set`;
+	  };
+
+	  const renderWalletTotalRow = (totals = {}, wallets = []) => {
+	    const balanceKnown = walletTotalBalanceKnown(totals);
+	    return `
+	      <tr class="admin-wallet-total-row">
+	        <td class="admin-wallet-account">
+	          <span class="admin-wallet-account-title">
+	            <strong>All marketplaces</strong>
+	          </span>
+	          <small>${formatRegionalInteger(wallets.length)} accounts</small>
+	        </td>
+	        <td>${formatCurrency(totals.released_month_total || 0)}</td>
+	        <td><strong>${balanceKnown ? formatCurrency(totals.wallet_balance || 0) : 'Set balance'}</strong><small class="admin-wallet-muted">${escapeHtml(walletTotalBalanceNote(totals))}</small></td>
+	        <td>${formatCurrency(totals.outstanding_total || 0)}</td>
+	        <td class="admin-wallet-orders-cell" title="Total outstanding orders">${formatRegionalInteger(totals.outstanding_orders || 0)}</td>
+	        <td class="admin-wallet-action-cell">
+	          <div class="admin-wallet-balance-summary">
+	            <span><span class="admin-wallet-updated">Totals</span></span>
+	          </div>
+	        </td>
+	      </tr>
+	    `;
+	  };
+
 	  const renderWalletApiOutput = () => {
 	    if (walletRefs.apiInput && document.activeElement !== walletRefs.apiInput) {
 	      walletRefs.apiInput.value = state.wallet.apiQuery || '';
@@ -6493,7 +6524,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    setWalletMode(state.wallet.mode);
 	    renderWalletApiOutput();
 	    if (walletRefs.balance) {
-	      walletRefs.balance.textContent = Number(totals.manual_anchor_count || 0) > 0 ? formatCurrency(totals.wallet_balance || 0) : 'Set balance';
+	      walletRefs.balance.textContent = walletTotalBalanceKnown(totals) ? formatCurrency(totals.wallet_balance || 0) : 'Set balance';
 	    }
 	    if (walletRefs.outstanding) walletRefs.outstanding.textContent = formatCurrency(totals.outstanding_total || 0);
 	    if (walletRefs.released) walletRefs.released.textContent = formatCurrency(totals.released_month_total || 0);
@@ -6519,7 +6550,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      if (!wallets.length) {
 	        walletRefs.tableBody.innerHTML = `<tr><td colspan="6" class="admin-empty">${state.wallet.loading || state.wallet.backgroundLoading ? 'Loading wallets.' : 'No wallets found.'}</td></tr>`;
 	      } else {
-	        walletRefs.tableBody.innerHTML = renderRows(wallets, 6, (wallet) => {
+	        const accountRows = renderRows(wallets, 6, (wallet) => {
 	          const balance = walletAmount(wallet.wallet_balance);
 	          const balanceKnown = Boolean(wallet.wallet_balance_known);
 	          const platform = escapeHtml(wallet.platform || '');
@@ -6556,6 +6587,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	            </tr>
 	          `;
 	        }, 'No wallets found.');
+	        walletRefs.tableBody.innerHTML = `${renderWalletTotalRow(totals, wallets)}${accountRows}`;
 	      }
 	    }
 	  };

@@ -20403,6 +20403,20 @@ body:has(.admin-app[data-sku-db])::after {
   font-size: 0.9rem;
 }
 
+.admin-wallet-total-row td {
+  background: color-mix(in srgb, var(--admin-surface) 84%, var(--admin-bg));
+  color: var(--admin-text);
+  font-weight: 850;
+}
+
+.admin-wallet-total-row .admin-wallet-account strong {
+  font-size: 0.94rem;
+}
+
+.admin-wallet-total-row .admin-wallet-updated {
+  color: var(--admin-text);
+}
+
 .admin-wallet-set-link {
   flex: 0 0 auto;
   border: 0;
