@@ -600,11 +600,10 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
 
 	                    <section class="admin-view admin-wallet-view" data-view-panel="wallet">
 	                <section class="admin-wallet-command">
-	                    <div class="admin-wallet-mode admin-sliding-chart-toggle" data-sliding-chart-toggle role="group" aria-label="Wallet mode">
-	                        <button type="button" class="admin-toggle-pill is-active" data-wallet-mode="wallet"><span>Wallet</span></button>
-	                        <button type="button" class="admin-toggle-pill" data-wallet-mode="api"><span>API</span></button>
-	                        <button type="button" class="admin-toggle-pill" data-wallet-mode="log"><span>Log</span></button>
-	                    </div>
+		                    <div class="admin-wallet-mode admin-sliding-chart-toggle" data-sliding-chart-toggle role="group" aria-label="Wallet mode">
+		                        <button type="button" class="admin-toggle-pill is-active" data-wallet-mode="wallet"><span>Wallet</span></button>
+		                        <button type="button" class="admin-toggle-pill" data-wallet-mode="api"><span>API</span></button>
+		                    </div>
 	                    <div class="admin-wallet-actions">
 	                        <span class="admin-panel-meta" data-wallet-status>Loading wallets</span>
 	                        <button type="button" class="admin-wallet-backtrack" data-wallet-backtrack>Backtrack</button>
@@ -615,11 +614,10 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
 	                </section>
 
 	                <section class="admin-wallet-summary" aria-label="Wallet totals">
-	                    <article class="admin-wallet-stat"><span>Wallet</span><strong data-wallet-total-balance>Rp0</strong></article>
-	                    <article class="admin-wallet-stat"><span>Outstanding</span><strong data-wallet-total-outstanding>Rp0</strong></article>
-	                    <article class="admin-wallet-stat"><span>Released</span><strong data-wallet-total-released>Rp0</strong></article>
-	                    <article class="admin-wallet-stat"><span>Withdrawn</span><strong data-wallet-total-out>Rp0</strong></article>
-	                </section>
+		                    <article class="admin-wallet-stat"><span>Wallet</span><strong data-wallet-total-balance>Rp0</strong></article>
+		                    <article class="admin-wallet-stat"><span>Outstanding</span><strong data-wallet-total-outstanding>Rp0</strong></article>
+		                    <article class="admin-wallet-stat"><span>Released</span><strong data-wallet-total-released>Rp0</strong></article>
+		                </section>
 
 	                <section class="admin-panel admin-panel-table admin-panel-wide admin-wallet-panel">
 	                    <div class="admin-panel-head">
@@ -648,72 +646,11 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
 	                            <input type="text" data-wallet-api-input value="Jenang Gemi Shopee Wallet Info" autocomplete="off" spellcheck="false" aria-label="Wallet API query">
 	                            <button type="button" class="admin-wallet-action" data-wallet-api-run>Run</button>
 	                            <button type="button" class="admin-wallet-action is-secondary" data-wallet-api-copy>Copy</button>
-	                        </div>
-	                        <pre class="admin-wallet-api-output" data-wallet-api-output>{}</pre>
-	                    </div>
-	                    <div class="admin-table-wrap admin-wallet-table-wrap" data-wallet-log-panel hidden>
-	                        <table class="admin-table admin-wallet-table admin-wallet-log-table">
-	                            <thead>
-	                                <tr>
-	                                    <th>Withdrawal</th>
-	                                    <th>Account</th>
-	                                    <th>Amount</th>
-	                                    <th>By</th>
-	                                    <th>Status</th>
-	                                    <th></th>
-	                                </tr>
-	                            </thead>
-	                            <tbody data-wallet-log-body>
-	                                <tr><td colspan="6" class="admin-empty">Loading withdrawal log.</td></tr>
-	                            </tbody>
-	                        </table>
-	                    </div>
-	                </section>
-	                <div class="admin-modal-shell admin-wallet-withdraw-modal" data-wallet-withdraw-modal hidden>
-	                    <button type="button" class="admin-modal-backdrop" data-wallet-withdraw-close aria-label="Close withdrawal"></button>
-	                    <section class="admin-modal-card admin-wallet-withdraw-card" role="dialog" aria-modal="true" aria-labelledby="wallet-withdraw-title">
-	                        <div class="admin-modal-head">
-	                            <div>
-	                                <span class="admin-panel-kicker">Wallet</span>
-	                                <h3 id="wallet-withdraw-title">Withdraw</h3>
-	                            </div>
-	                            <button type="button" class="admin-ghost-btn" data-wallet-withdraw-close>Close</button>
-	                        </div>
-	                        <form class="admin-wallet-withdraw-form" data-wallet-withdraw-form>
-	                            <div class="admin-wallet-withdraw-account">
-	                                <strong data-wallet-withdraw-account>Wallet account</strong>
-	                                <small data-wallet-withdraw-platform>-</small>
-	                            </div>
-	                            <div class="admin-wallet-withdraw-summary" aria-label="Withdrawal summary">
-	                                <span><small>Current</small><strong data-wallet-withdraw-current>Rp0</strong></span>
-	                                <span><small>Remaining</small><strong data-wallet-withdraw-remaining>Rp0</strong></span>
-	                            </div>
-	                            <label class="admin-wallet-field">
-	                                <span>Amount</span>
-	                                <input class="admin-wallet-withdraw-input" type="number" min="1" step="1" inputmode="numeric" data-wallet-withdraw-amount required>
-	                            </label>
-	                            <div class="admin-wallet-withdraw-time">
-	                                <label class="admin-wallet-field">
-	                                    <span>Day</span>
-	                                    <input class="admin-wallet-withdraw-input" type="date" data-wallet-withdraw-date required>
-	                                </label>
-	                                <label class="admin-wallet-field">
-	                                    <span>Hour</span>
-	                                    <input class="admin-wallet-withdraw-input" type="time" step="3600" data-wallet-withdraw-hour required>
-	                                </label>
-	                            </div>
-	                            <label class="admin-wallet-field">
-	                                <span>Note</span>
-	                                <input class="admin-wallet-withdraw-input" type="text" maxlength="160" data-wallet-withdraw-note>
-	                            </label>
-	                            <div class="admin-modal-actions">
-	                                <button type="button" class="admin-ghost-btn" data-wallet-withdraw-close>Cancel</button>
-	                                <button type="submit" class="admin-wallet-action" data-wallet-withdraw-submit>Withdraw</button>
-	                            </div>
-	                        </form>
-	                    </section>
-	                </div>
-	                    </section>
+		                        </div>
+		                        <pre class="admin-wallet-api-output" data-wallet-api-output>{}</pre>
+		                    </div>
+		                </section>
+		                    </section>
 
 	                    <section class="admin-view admin-store-ops-layout" data-view-panel="store-ops" data-store-ops-dashboard data-store-ops-endpoint="../api/store-ops/">
                 <section class="admin-metric-grid admin-store-ops-metrics">

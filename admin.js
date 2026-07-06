@@ -2351,18 +2351,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	      apiQuery: 'Jenang Gemi Shopee Wallet Info',
 	      apiResult: null,
 	      balanceEditorKey: '',
-	      withdrawal: {
-	        open: false,
-	        walletKey: '',
-	        platform: '',
-	        accountKey: '',
-	        label: '',
-	        balance: 0,
-	        amount: '',
-	        date: '',
-	        hour: '',
-	        note: ''
-	      },
 	      backtrackRunning: false,
 	      releaseSyncedAt: 0,
 	      releaseSyncPromise: null,
@@ -2584,7 +2572,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	    balance: document.querySelector('[data-wallet-total-balance]'),
 	    outstanding: document.querySelector('[data-wallet-total-outstanding]'),
 	    released: document.querySelector('[data-wallet-total-released]'),
-	    releasedOut: document.querySelector('[data-wallet-total-out]'),
 	    modeButtons: document.querySelectorAll('[data-wallet-mode]'),
 	    refresh: document.querySelector('[data-wallet-refresh]'),
 	    backtrack: document.querySelector('[data-wallet-backtrack]'),
@@ -2594,21 +2581,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    apiRun: document.querySelector('[data-wallet-api-run]'),
 	    apiCopy: document.querySelector('[data-wallet-api-copy]'),
 	    apiOutput: document.querySelector('[data-wallet-api-output]'),
-	    logPanel: document.querySelector('[data-wallet-log-panel]'),
-	    tableBody: document.querySelector('[data-wallet-table-body]'),
-	    logBody: document.querySelector('[data-wallet-log-body]'),
-	    withdrawModal: document.querySelector('[data-wallet-withdraw-modal]'),
-	    withdrawForm: document.querySelector('[data-wallet-withdraw-form]'),
-	    withdrawAccount: document.querySelector('[data-wallet-withdraw-account]'),
-	    withdrawPlatform: document.querySelector('[data-wallet-withdraw-platform]'),
-	    withdrawCurrent: document.querySelector('[data-wallet-withdraw-current]'),
-	    withdrawRemaining: document.querySelector('[data-wallet-withdraw-remaining]'),
-	    withdrawAmount: document.querySelector('[data-wallet-withdraw-amount]'),
-	    withdrawDate: document.querySelector('[data-wallet-withdraw-date]'),
-	    withdrawHour: document.querySelector('[data-wallet-withdraw-hour]'),
-	    withdrawNote: document.querySelector('[data-wallet-withdraw-note]'),
-	    withdrawSubmit: document.querySelector('[data-wallet-withdraw-submit]'),
-	    withdrawCloseButtons: document.querySelectorAll('[data-wallet-withdraw-close]')
+	    tableBody: document.querySelector('[data-wallet-table-body]')
 	  };
 	  const dailyRefs = {
     monthInput: document.querySelector('[data-daily-month]'),
@@ -3637,7 +3610,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	      const message = error?.message || 'Unable to load wallets.';
 	      if (walletRefs.status) walletRefs.status.textContent = message;
 	      if (walletRefs.tableBody) walletRefs.tableBody.innerHTML = `<tr><td colspan="6" class="admin-empty">${escapeHtml(message)}</td></tr>`;
-	      if (walletRefs.logBody) walletRefs.logBody.innerHTML = `<tr><td colspan="6" class="admin-empty">${escapeHtml(message)}</td></tr>`;
 	      if (walletRefs.apiOutput) walletRefs.apiOutput.textContent = JSON.stringify({ ok: false, error: message }, null, 2);
 	      return;
 	    }
@@ -3855,8 +3827,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    }
 	    if (view === 'wallet') {
 	      return [
-	        walletRefs.tableBody,
-	        walletRefs.logBody
+	        walletRefs.tableBody
 	      ].filter(Boolean);
 	    }
 	    return [];
@@ -6410,13 +6381,11 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (actionId.startsWith('sync_releases')) return 'Checking marketplace releases';
 	    if (actionId.startsWith('balance:')) return 'Setting wallet balance';
 	    if (actionId.startsWith('release:')) return 'Releasing wallet';
-	    if (actionId.startsWith('withdraw:')) return 'Withdrawing from wallet';
-	    if (actionId.startsWith('undo:')) return 'Undoing release';
 	    return '';
 	  };
 
 	  const setWalletMode = (mode) => {
-	    state.wallet.mode = ['wallet', 'api', 'log'].includes(mode) ? mode : 'wallet';
+	    state.wallet.mode = ['wallet', 'api'].includes(mode) ? mode : 'wallet';
 	    walletRefs.modeButtons.forEach((button) => {
 	      const active = button.getAttribute('data-wallet-mode') === state.wallet.mode;
 	      button.classList.toggle('is-active', active);
@@ -6424,11 +6393,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	    });
 	    if (walletRefs.walletPanel) walletRefs.walletPanel.hidden = state.wallet.mode !== 'wallet';
 	    if (walletRefs.apiPanel) walletRefs.apiPanel.hidden = state.wallet.mode !== 'api';
-	    if (walletRefs.logPanel) walletRefs.logPanel.hidden = state.wallet.mode !== 'log';
 	    if (walletRefs.tableMeta) {
-	      walletRefs.tableMeta.textContent = state.wallet.mode === 'log'
-	        ? 'Manual log'
-	        : state.wallet.mode === 'api'
+	      walletRefs.tableMeta.textContent = state.wallet.mode === 'api'
 	          ? 'API terminal'
 	          : 'Per account';
 	    }
@@ -6447,8 +6413,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	  const walletMutationLabel = (wallet) => {
 	    const events = [
 	      { label: 'Set', value: wallet.manual_anchor_created_at || wallet.manual_anchor_observed_at || '' },
-	      { label: 'System', value: wallet.last_released_at || wallet.last_mirrored_at || '' },
-	      { label: 'Withdraw', value: wallet.last_withdrawn_at || '' }
+	      { label: 'System', value: wallet.last_wallet_transaction_at || wallet.last_released_at || wallet.last_mirrored_at || '' }
 	    ]
 	      .map((event) => ({
 	        ...event,
@@ -6468,22 +6433,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	    return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
 	  };
 
-	  const walletDateHourParts = (value = '') => {
-	    const date = value ? new Date(value) : new Date();
-	    const safeDate = Number.isNaN(date.getTime()) ? new Date() : date;
-	    const offsetMs = safeDate.getTimezoneOffset() * 60 * 1000;
-	    const localIso = new Date(safeDate.getTime() - offsetMs).toISOString();
-	    return {
-	      date: localIso.slice(0, 10),
-	      hour: `${localIso.slice(11, 13)}:00`
-	    };
-	  };
-
-	  const walletByKey = (walletKey) => {
-	    const wallets = Array.isArray(state.wallet.data?.wallets) ? state.wallet.data.wallets : [];
-	    return wallets.find((wallet) => `${wallet.platform || ''}|${wallet.account_key || ''}` === walletKey) || null;
-	  };
-
 	  const walletBalanceNote = (wallet) => {
 	    if (!wallet.wallet_balance_known) return 'Manual balance required';
 	    const anchor = formatCurrency(wallet.manual_anchor_balance || 0);
@@ -6492,100 +6441,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      return `${anchor} set + ${activity} wallet activity`;
 	    }
 	    const since = formatCurrency(wallet.released_since_anchor_total || 0);
-	    const withdrawn = formatCurrency(wallet.withdrawn_since_anchor_total || 0);
-	    return `${anchor} set + ${since} released - ${withdrawn} withdrawn`;
-	  };
-
-	  const syncWalletWithdrawalDraft = () => {
-	    const draft = state.wallet.withdrawal || {};
-	    if (walletRefs.withdrawAmount instanceof HTMLInputElement) draft.amount = walletRefs.withdrawAmount.value;
-	    if (walletRefs.withdrawDate instanceof HTMLInputElement) draft.date = walletRefs.withdrawDate.value;
-	    if (walletRefs.withdrawHour instanceof HTMLInputElement) draft.hour = walletRefs.withdrawHour.value;
-	    if (walletRefs.withdrawNote instanceof HTMLInputElement) draft.note = walletRefs.withdrawNote.value;
-	    state.wallet.withdrawal = draft;
-	    return draft;
-	  };
-
-	  const renderWalletWithdrawalTotals = () => {
-	    const draft = state.wallet.withdrawal || {};
-	    const balance = walletAmount(draft.balance);
-	    const amount = walletAmount(draft.amount);
-	    const remaining = Math.max(0, balance - amount);
-	    const valid = Boolean(draft.platform && draft.accountKey && draft.date && draft.hour)
-	      && amount > 0
-	      && amount <= balance
-	      && !state.wallet.loading
-	      && !state.wallet.actionId;
-	    if (walletRefs.withdrawCurrent) walletRefs.withdrawCurrent.textContent = formatCurrency(balance);
-	    if (walletRefs.withdrawRemaining) walletRefs.withdrawRemaining.textContent = formatCurrency(remaining);
-	    if (walletRefs.withdrawSubmit) {
-	      walletRefs.withdrawSubmit.disabled = !valid;
-	      walletRefs.withdrawSubmit.textContent = state.wallet.actionId.startsWith('withdraw:') ? 'Withdrawing' : 'Withdraw';
-	    }
-	  };
-
-	  const renderWalletWithdrawModal = () => {
-	    const draft = state.wallet.withdrawal || {};
-	    const isOpen = Boolean(draft.open);
-	    if (!walletRefs.withdrawModal) return;
-	    walletRefs.withdrawModal.hidden = !isOpen;
-	    walletRefs.withdrawModal.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
-	    if (!isOpen) return;
-	    if (walletRefs.withdrawAccount) walletRefs.withdrawAccount.textContent = draft.label || draft.accountKey || 'Wallet account';
-	    if (walletRefs.withdrawPlatform) walletRefs.withdrawPlatform.textContent = `${draft.platform || '-'} / ${draft.accountKey || '-'}`;
-	    const active = document.activeElement;
-	    if (walletRefs.withdrawAmount instanceof HTMLInputElement && active !== walletRefs.withdrawAmount) {
-	      walletRefs.withdrawAmount.value = draft.amount || '';
-	    }
-	    if (walletRefs.withdrawDate instanceof HTMLInputElement && active !== walletRefs.withdrawDate) {
-	      walletRefs.withdrawDate.value = draft.date || '';
-	    }
-	    if (walletRefs.withdrawHour instanceof HTMLInputElement && active !== walletRefs.withdrawHour) {
-	      walletRefs.withdrawHour.value = draft.hour || '';
-	    }
-	    if (walletRefs.withdrawNote instanceof HTMLInputElement && active !== walletRefs.withdrawNote) {
-	      walletRefs.withdrawNote.value = draft.note || '';
-	    }
-	    renderWalletWithdrawalTotals();
-	  };
-
-	  const openWalletWithdraw = (walletKey) => {
-	    const wallet = walletByKey(walletKey);
-	    if (!wallet) return;
-	    if (!wallet.wallet_balance_known) {
-	      state.wallet.balanceEditorKey = walletKey;
-	      if (walletRefs.status) walletRefs.status.textContent = 'Set this wallet once before withdrawing.';
-	      renderWallet(state.wallet.data);
-	      return;
-	    }
-	    const balance = walletAmount(wallet.wallet_balance);
-	    if (balance <= 0) {
-	      if (walletRefs.status) walletRefs.status.textContent = 'Wallet balance is empty.';
-	      return;
-	    }
-	    const parts = walletDateHourParts();
-	    state.wallet.withdrawal = {
-	      open: true,
-	      walletKey,
-	      platform: String(wallet.platform || ''),
-	      accountKey: String(wallet.account_key || ''),
-	      label: String(wallet.label || wallet.account_key || 'Wallet account'),
-	      balance,
-	      amount: '',
-	      date: parts.date,
-	      hour: parts.hour,
-	      note: ''
-	    };
-	    renderWalletWithdrawModal();
-	    window.setTimeout(() => walletRefs.withdrawAmount?.focus(), 0);
-	  };
-
-	  const closeWalletWithdraw = () => {
-	    state.wallet.withdrawal = {
-	      ...state.wallet.withdrawal,
-	      open: false
-	    };
-	    renderWalletWithdrawModal();
+	    return `${anchor} set + ${since} released`;
 	  };
 
 	  const walletOrderCounts = (wallet) => {
@@ -6619,7 +6475,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	    }
 	    if (state.activeView !== 'wallet') return;
 	    const wallets = Array.isArray(state.wallet.data?.wallets) ? state.wallet.data.wallets : [];
-	    const logs = Array.isArray(state.wallet.data?.logs) ? state.wallet.data.logs : [];
 	    const totals = state.wallet.data?.totals || {};
 	    const activeAction = state.wallet.actionId;
 	    const backtrack = state.wallet.data?.backtrack || {};
@@ -6631,7 +6486,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	    }
 	    if (walletRefs.outstanding) walletRefs.outstanding.textContent = formatCurrency(totals.outstanding_total || 0);
 	    if (walletRefs.released) walletRefs.released.textContent = formatCurrency(totals.released_total || 0);
-	    if (walletRefs.releasedOut) walletRefs.releasedOut.textContent = formatCurrency(totals.released_out || 0);
 	    if (walletRefs.status) {
 	      walletRefs.status.textContent = walletActionStatus(activeAction) || walletBacktrackStatus(backtrack) || (state.wallet.loading
 	        ? 'Loading wallets'
@@ -6661,10 +6515,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	          const accountKey = escapeHtml(wallet.account_key || '');
 	          const walletKey = `${wallet.platform || ''}|${wallet.account_key || ''}`;
 	          const actionKey = `balance:${walletKey}`;
-	          const withdrawActionKey = `withdraw:${walletKey}`;
 	          const editorOpen = state.wallet.balanceEditorKey === walletKey;
 	          const disabled = state.wallet.loading || Boolean(activeAction);
-	          const canWithdraw = balanceKnown && balance > 0;
 	          return `
 	            <tr>
 	              <td class="admin-wallet-account">
@@ -6688,7 +6540,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	              <td class="admin-wallet-action-cell">
 	                <div class="admin-wallet-balance-summary">
 	                  <span><span class="admin-wallet-updated">${escapeHtml(walletMutationLabel(wallet))}</span></span>
-	                  <button type="button" class="admin-wallet-action" data-wallet-withdraw-open data-wallet-key="${escapeHtml(walletKey)}" ${(disabled || !canWithdraw) ? 'disabled' : ''}>${activeAction === withdrawActionKey ? 'Withdrawing' : 'Withdraw'}</button>
 	                </div>
 	              </td>
 	            </tr>
@@ -6696,29 +6547,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	        }, 'No wallets found.');
 	      }
 	    }
-
-	    if (walletRefs.logBody) {
-	      if (!logs.length) {
-	        walletRefs.logBody.innerHTML = `<tr><td colspan="6" class="admin-empty">${state.wallet.loading || state.wallet.backgroundLoading ? 'Loading withdrawal log.' : 'No withdrawals yet.'}</td></tr>`;
-	      } else {
-	        walletRefs.logBody.innerHTML = renderRows(logs, 6, (log) => {
-	          const undone = Boolean(log.undone_at);
-	          const actionKey = `undo:${log.id}`;
-	          const disabled = state.wallet.loading || Boolean(activeAction) || undone;
-	          return `
-	            <tr>
-	              <td>${escapeHtml(formatOrderTimestamp(log.withdrawn_at || log.created_at || ''))}</td>
-	              <td class="admin-wallet-account"><strong>${escapeHtml(log.label || log.account_key || '-')}</strong><small>${escapeHtml(log.platform || '-')} / ${escapeHtml(log.account_key || '-')}</small></td>
-	              <td><strong>${formatCurrency(log.amount || 0)}</strong></td>
-	              <td>${escapeHtml(log.released_by || '-')}</td>
-	              <td><span class="admin-wallet-status-pill${undone ? ' is-undone' : ' is-active'}">${undone ? 'Undone' : 'Active'}</span></td>
-	              <td class="admin-wallet-action-cell"><button type="button" class="admin-wallet-action" data-wallet-undo="${escapeHtml(log.id || '')}" ${disabled ? 'disabled' : ''}>${activeAction === actionKey ? 'Undoing' : 'Undo'}</button></td>
-	            </tr>
-	          `;
-	        }, 'No withdrawals yet.');
-	      }
-	    }
-	    renderWalletWithdrawModal();
 	  };
 
   const closeOrdersDatePopover = () => {
@@ -9097,12 +8925,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	  });
 
 	  walletRefs.tableBody?.addEventListener('click', (event) => {
-	    const withdraw = event.target.closest('[data-wallet-withdraw-open]');
-	    if (withdraw instanceof HTMLElement) {
-	      openWalletWithdraw(withdraw.getAttribute('data-wallet-key') || '');
-	      return;
-	    }
-
 	    const toggle = event.target.closest('[data-wallet-balance-toggle]');
 	    if (toggle instanceof HTMLElement) {
 	      const walletKey = toggle.getAttribute('data-wallet-key') || '';
@@ -9132,48 +8954,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	        renderWallet(state.wallet.data);
 	      }
 	    }).catch(() => {});
-	  });
-
-	  walletRefs.withdrawCloseButtons.forEach((button) => {
-	    button.addEventListener('click', () => closeWalletWithdraw());
-	  });
-
-	  [walletRefs.withdrawAmount, walletRefs.withdrawDate, walletRefs.withdrawHour, walletRefs.withdrawNote].forEach((input) => {
-	    input?.addEventListener('input', () => {
-	      syncWalletWithdrawalDraft();
-	      renderWalletWithdrawalTotals();
-	    });
-	  });
-
-	  walletRefs.withdrawForm?.addEventListener('submit', (event) => {
-	    event.preventDefault();
-	    const draft = syncWalletWithdrawalDraft();
-	    const amount = walletAmount(draft.amount);
-	    if (!draft.platform || !draft.accountKey || !draft.date || !draft.hour || amount <= 0) return;
-	    const withdrawnAt = `${draft.date}T${draft.hour}`;
-	    postWalletAction('withdraw', {
-	      platform: draft.platform,
-	      account_key: draft.accountKey,
-	      amount,
-	      withdrawn_at: withdrawnAt,
-	      note: draft.note || ''
-	    }, `withdraw:${draft.platform}|${draft.accountKey}`).then((saved) => {
-	      if (saved) closeWalletWithdraw();
-	    }).catch(() => {});
-	  });
-
-	  document.addEventListener('keydown', (event) => {
-	    if (event.key === 'Escape' && state.wallet.withdrawal?.open) {
-	      closeWalletWithdraw();
-	    }
-	  });
-
-	  walletRefs.logBody?.addEventListener('click', (event) => {
-	    const button = event.target.closest('[data-wallet-undo]');
-	    if (!(button instanceof HTMLElement)) return;
-	    const id = Number(button.getAttribute('data-wallet-undo') || 0);
-	    if (!id) return;
-	    postWalletAction('undo', { id }, `undo:${id}`).catch(() => {});
 	  });
 
 	  ordersRefs.loadMore?.addEventListener('click', async () => {
