@@ -6447,28 +6447,11 @@ document.addEventListener('DOMContentLoaded', () => {
 	    return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
 	  };
 
-	  const walletBalanceNote = (wallet) => {
-	    if (!wallet.wallet_balance_known) return 'Manual balance required';
-	    const anchor = formatCurrency(wallet.manual_anchor_balance || 0);
-	    if (wallet.wallet_activity_source === 'platform_wallet_transactions') {
-	      const activity = formatCurrency(wallet.wallet_activity_since_anchor_total || wallet.wallet_transaction_since_anchor_total || 0);
-	      return `${anchor} set + ${activity} wallet activity`;
-	    }
-	    const since = formatCurrency(wallet.released_since_anchor_total || 0);
-	    return `${anchor} set + ${since} released`;
-	  };
-
 	  const walletOrderCounts = (wallet) => {
 	    return formatRegionalInteger(wallet.outstanding_orders || 0);
 	  };
 
 	  const walletTotalBalanceKnown = (totals = {}) => Number(totals.manual_anchor_count || 0) > 0;
-
-	  const walletTotalBalanceNote = (totals = {}) => {
-	    const count = Number(totals.manual_anchor_count || 0);
-	    if (!count) return 'Manual balance required';
-	    return `${formatRegionalInteger(count)} account${count === 1 ? '' : 's'} set`;
-	  };
 
 	  const renderWalletTotalRow = (totals = {}, wallets = []) => {
 	    const balanceKnown = walletTotalBalanceKnown(totals);
@@ -6481,7 +6464,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	          <small>${formatRegionalInteger(wallets.length)} accounts</small>
 	        </td>
 	        <td>${formatCurrency(totals.released_month_total || 0)}</td>
-	        <td><strong>${balanceKnown ? formatCurrency(totals.wallet_balance || 0) : 'Set balance'}</strong><small class="admin-wallet-muted">${escapeHtml(walletTotalBalanceNote(totals))}</small></td>
+	        <td><strong>${balanceKnown ? formatCurrency(totals.wallet_balance || 0) : 'Set balance'}</strong></td>
 	        <td>${formatCurrency(totals.outstanding_total || 0)}</td>
 	        <td class="admin-wallet-orders-cell" title="Total outstanding orders">${formatRegionalInteger(totals.outstanding_orders || 0)}</td>
 	        <td class="admin-wallet-action-cell">
@@ -6639,7 +6622,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	                ` : ''}
 	              </td>
 	              <td>${formatCurrency(wallet.released_month_total || 0)}</td>
-	              <td><strong>${balanceKnown ? formatCurrency(balance) : 'Set balance'}</strong><small class="admin-wallet-muted">${escapeHtml(walletBalanceNote(wallet))}</small></td>
+	              <td><strong>${balanceKnown ? formatCurrency(balance) : 'Set balance'}</strong></td>
 	              <td>${formatCurrency(wallet.outstanding_total || 0)}</td>
 	              <td class="admin-wallet-orders-cell" title="Outstanding orders">${walletOrderCounts(wallet)}</td>
 	              <td class="admin-wallet-action-cell">
