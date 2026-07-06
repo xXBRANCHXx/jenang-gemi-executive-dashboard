@@ -634,7 +634,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
 	                                    <th>Released</th>
 	                                    <th>Wallet</th>
 	                                    <th>Outstanding</th>
-	                                    <th>Orders</th>
+	                                    <th>Orders Outstanding</th>
 	                                    <th>Updated</th>
 	                                </tr>
 	                            </thead>

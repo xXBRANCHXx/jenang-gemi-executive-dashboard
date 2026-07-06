@@ -6589,10 +6589,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	  };
 
 	  const walletOrderCounts = (wallet) => {
-	    const released = formatRegionalInteger(wallet.released_orders || 0);
-	    const open = formatRegionalInteger(wallet.outstanding_orders || 0);
-	    const nonSettling = Number(wallet.non_settling_orders || 0);
-	    return `${released} / ${open}${nonSettling > 0 ? ` / ${formatRegionalInteger(nonSettling)} excl` : ''}`;
+	    return formatRegionalInteger(wallet.outstanding_orders || 0);
 	  };
 
 	  const renderWalletApiOutput = () => {
@@ -6687,7 +6684,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	              <td>${formatCurrency(wallet.released_total || 0)}</td>
 	              <td><strong>${balanceKnown ? formatCurrency(balance) : 'Set balance'}</strong><small class="admin-wallet-muted">${escapeHtml(walletBalanceNote(wallet))}</small></td>
 	              <td>${formatCurrency(wallet.outstanding_total || 0)}</td>
-	              <td><span class="admin-wallet-counts" title="Released / outstanding / excluded">${walletOrderCounts(wallet)}</span></td>
+	              <td><span class="admin-wallet-counts" title="Outstanding orders">${walletOrderCounts(wallet)}</span></td>
 	              <td class="admin-wallet-action-cell">
 	                <div class="admin-wallet-balance-summary">
 	                  <span><span class="admin-wallet-updated">${escapeHtml(walletMutationLabel(wallet))}</span></span>
