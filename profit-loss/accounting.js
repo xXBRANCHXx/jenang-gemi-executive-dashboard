@@ -198,31 +198,31 @@ if (root) {
 
   const modeConfig = {
     expense_paid: {
-      helper: 'Use this when money already left the business.',
+      helper: 'Money out from a business account.',
       action: 'create_transaction',
       type: 'expense',
       direction: 'money_out',
       shown: ['transaction_date', 'account_id', 'category_id', 'counterparty']
     },
     bill_received: {
-      helper: 'Use this when we owe money but have not paid yet.',
+      helper: 'Supplier invoice saved before payment.',
       action: 'create_bill',
       shown: ['issue_date', 'due_date', 'category_id', 'counterparty', 'bill_no']
     },
     pay_bill: {
-      helper: 'Use this when paying a bill already saved below.',
+      helper: 'Payment against an open bill.',
       action: 'mark_bill_paid',
       shown: ['transaction_date', 'bill_id', 'account_id']
     },
     transfer: {
-      helper: 'Use this for wallet payout, bank transfer, cash deposit, or moving money. This does not count as income or expense.',
+      helper: 'Internal movement between accounts.',
       action: 'create_transaction',
       type: 'transfer',
       direction: 'internal_transfer',
       shown: ['transaction_date', 'account_id', 'to_account_id', 'transfer_fee_amount']
     },
     manual_income: {
-      helper: 'Use only for non-marketplace income, owner injection, refund, reimbursement, or offline/manual customer payment.',
+      helper: 'Non-marketplace money in.',
       action: 'create_transaction',
       type: 'manual_income',
       direction: 'money_in',
@@ -348,7 +348,7 @@ if (root) {
     if (!refs.alerts) return;
     const alerts = Array.isArray(summary?.alerts) ? summary.alerts : [];
     if (!alerts.length) {
-      refs.alerts.innerHTML = '<div class="admin-accounting-alert"><strong>No urgent alerts</strong><span>Accounting checks will appear after data loads.</span></div>';
+      refs.alerts.innerHTML = '<div class="admin-accounting-alert"><strong>No urgent alerts</strong><span>Checks appear after data loads.</span></div>';
       return;
     }
     refs.alerts.innerHTML = alerts.map((alert) => `
