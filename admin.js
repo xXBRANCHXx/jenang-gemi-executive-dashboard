@@ -6365,10 +6365,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	  const walletAmount = (value) => Math.max(0, Math.round(Number(value) || 0));
 
-	  const walletBacktrackStatus = (backtrack = state.wallet.data?.backtrack) => {
+	  const walletMarketplaceMeta = (totals = state.wallet.data?.totals || {}) => {
+	    const orderCount = formatRegionalInteger(totals.outstanding_orders || 0);
+	    return `${orderCount} orders outstanding / ${formatCurrency(totals.outstanding_total || 0)}`;
+	  };
+
+	  const walletStatusSummary = (wallets = [], totals = {}) => {
+	    return `${formatRegionalInteger(wallets.length)} wallets / ${walletMarketplaceMeta(totals)} / ${formatRegionalInteger(totals.manual_required_count || 0)} need set`;
+	  };
+
+	  const walletBacktrackStatus = (backtrack = state.wallet.data?.backtrack, options = {}) => {
 	    if (!backtrack || backtrack.status === 'idle') return '';
 	    if (backtrack.status === 'failed') return `Backtrack failed: ${backtrack.last_error || 'retry required'}`;
-	    if (backtrack.status === 'complete') return `Backtrack complete / ${formatRegionalInteger(backtrack.imported_rows || 0)} rows checked`;
+	    if (backtrack.status === 'complete') {
+	      return options.includeComplete ? `Backtrack complete / ${formatRegionalInteger(backtrack.imported_rows || 0)} rows checked` : '';
+	    }
 	    if (!backtrack.active) return '';
 	    const progress = Math.max(1, Math.min(99, Math.round(Number(backtrack.progress) || 1)));
 	    const phase = backtrack.phase === 'import' ? 'importing' : 'syncing';
@@ -6377,7 +6388,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	  };
 
 	  const walletActionStatus = (actionId = '') => {
-	    if (actionId === 'backtrack') return walletBacktrackStatus() || 'Backtracking from May 20, 2026';
+	    if (actionId === 'backtrack') return walletBacktrackStatus(state.wallet.data?.backtrack, { includeComplete: true }) || 'Backtracking from May 20, 2026';
 	    if (actionId.startsWith('sync_releases')) return 'Checking marketplace releases';
 	    if (actionId.startsWith('balance:')) return 'Setting wallet balance';
 	    if (actionId.startsWith('release:')) return 'Releasing wallet';
@@ -6396,7 +6407,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (walletRefs.tableMeta) {
 	      walletRefs.tableMeta.textContent = state.wallet.mode === 'api'
 	          ? 'API terminal'
-	          : 'Per account';
+	          : walletMarketplaceMeta();
 	    }
 	  };
 
@@ -6491,7 +6502,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	        ? 'Loading wallets'
 	        : state.wallet.backgroundLoading
 	          ? 'Updating wallets in background'
-	        : `${formatRegionalInteger(wallets.length)} wallets / ${formatRegionalInteger(totals.outstanding_orders || 0)} outstanding / ${formatRegionalInteger(totals.manual_required_count || 0)} need set`);
+	        : walletStatusSummary(wallets, totals));
 	    }
 	    if (walletRefs.refresh) {
 	      walletRefs.refresh.disabled = state.wallet.loading || Boolean(activeAction);

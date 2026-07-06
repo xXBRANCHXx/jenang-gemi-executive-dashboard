@@ -20372,6 +20372,11 @@ body:has(.admin-app[data-sku-db])::after {
   white-space: nowrap;
 }
 
+.admin-wallet-table th:nth-child(5),
+.admin-wallet-table td:nth-child(5) {
+  text-align: center;
+}
+
 .admin-wallet-account {
   min-width: min(280px, 42vw);
 }
@@ -20431,7 +20436,6 @@ body:has(.admin-app[data-sku-db])::after {
 .admin-wallet-orders-cell {
   color: var(--admin-text);
   font: 800 0.82rem/1 "Space Grotesk", sans-serif;
-  text-align: center;
 }
 
 .admin-wallet-updated {
