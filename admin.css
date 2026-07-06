@@ -20259,7 +20259,6 @@ body:has(.admin-app[data-sku-db])::after {
 }
 
 .admin-wallet-view {
-  display: grid;
   gap: 18px;
   width: 100%;
   max-width: none;
