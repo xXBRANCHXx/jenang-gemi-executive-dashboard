@@ -88,6 +88,11 @@ function jg_wallet_handle_request(): void
             return;
         }
 
+        if ($method === 'POST' && in_array($action, ['cancel_backtrack', 'backtrack_cancel'], true)) {
+            echo json_encode(jg_wallet_cancel_backtrack($pdo, $payload), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
         if ($method === 'POST' && in_array($action, ['backtrack_step', 'sync_backtrack_step'], true)) {
             echo json_encode(jg_wallet_step_backtrack($pdo, $payload), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             return;
@@ -1256,6 +1261,38 @@ function jg_wallet_start_backtrack(PDO $pdo, array $payload): array
     return jg_wallet_summary_with_backtrack($pdo, jg_wallet_backtrack_by_key($pdo, $runKey));
 }
 
+function jg_wallet_cancel_backtrack(PDO $pdo, array $payload): array
+{
+    $runKey = trim((string) ($payload['run_key'] ?? ''));
+    $run = $runKey !== '' ? jg_wallet_backtrack_by_key($pdo, $runKey) : jg_wallet_backtrack_active($pdo);
+    if (!is_array($run)) {
+        throw new InvalidArgumentException('wallet_backtrack_not_found');
+    }
+
+    if ((string) ($run['status'] ?? '') !== 'running') {
+        return jg_wallet_summary_with_backtrack($pdo, $run);
+    }
+
+    $stmt = $pdo->prepare(
+        'UPDATE dashboard_wallet_backtrack_runs
+         SET status = "cancelled",
+             phase = "cancelled",
+             last_message = "Backtrack cancelled.",
+             last_error = "",
+             updated_at = UTC_TIMESTAMP(6),
+             completed_at = UTC_TIMESTAMP(6)
+         WHERE run_key = :run_key
+           AND status = "running"'
+    );
+    $stmt->execute([
+        ':run_key' => (string) $run['run_key'],
+    ]);
+
+    analyticsTouchLiveState('wallet_backtrack_cancelled');
+
+    return jg_wallet_summary_with_backtrack($pdo, jg_wallet_backtrack_by_key($pdo, (string) $run['run_key']) ?: $run);
+}
+
 function jg_wallet_step_backtrack(PDO $pdo, array $payload): array
 {
     if (function_exists('set_time_limit')) {
@@ -1328,7 +1365,8 @@ function jg_wallet_run_backtrack_step(PDO $pdo, array $run): array
                  last_error = "",
                  last_sync_json = :last_sync_json,
                  updated_at = UTC_TIMESTAMP(6)
-             WHERE run_key = :run_key'
+             WHERE run_key = :run_key
+               AND status = "running"'
         );
         $stmt->execute([
             ':phase' => $nextPhase,
@@ -1393,7 +1431,8 @@ function jg_wallet_run_backtrack_step(PDO $pdo, array $run): array
              last_import_json = :last_import_json,
              updated_at = UTC_TIMESTAMP(6),
              completed_at = CASE WHEN :complete_flag = 1 THEN UTC_TIMESTAMP(6) ELSE completed_at END
-         WHERE run_key = :run_key'
+         WHERE run_key = :run_key
+           AND status = "running"'
     );
     $stmt->execute([
         ':status' => $isComplete ? 'complete' : 'running',
@@ -2174,7 +2213,8 @@ function jg_wallet_fail_backtrack(PDO $pdo, array $run, string $message): array
              last_error = :last_error,
              last_message = "Backtrack failed.",
              updated_at = UTC_TIMESTAMP(6)
-         WHERE run_key = :run_key'
+         WHERE run_key = :run_key
+           AND status = "running"'
     );
     $stmt->execute([
         ':last_error' => substr($message, 0, 255),
@@ -2194,7 +2234,8 @@ function jg_wallet_complete_backtrack(PDO $pdo, array $run, string $message): ar
              last_error = "",
              updated_at = UTC_TIMESTAMP(6),
              completed_at = UTC_TIMESTAMP(6)
-         WHERE run_key = :run_key'
+         WHERE run_key = :run_key
+           AND status = "running"'
     );
     $stmt->execute([
         ':last_message' => substr($message, 0, 255),

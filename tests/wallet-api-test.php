@@ -52,6 +52,17 @@ wallet_expect(100, jg_wallet_backtrack_public_state([
     'cursor_date' => '2026-05-25',
     'chunk_days' => 2,
 ])['progress'], 'Completed wallet backtracks must report 100 percent progress.');
+$cancelledBacktrack = jg_wallet_backtrack_public_state([
+    'run_key' => 'cancelled',
+    'status' => 'cancelled',
+    'phase' => 'cancelled',
+    'start_date' => '2026-05-20',
+    'end_date' => '2026-05-25',
+    'cursor_date' => '2026-05-21',
+    'chunk_days' => 2,
+]);
+wallet_expect(false, $cancelledBacktrack['active'], 'Cancelled wallet backtracks must not remain active.');
+wallet_expect('cancelled', $cancelledBacktrack['status'], 'Cancelled wallet backtracks must expose cancelled status.');
 wallet_expect(true, jg_wallet_is_non_settling_status('CANCELLED'), 'Cancelled marketplace orders must be separated from outstanding funds.');
 wallet_expect('non_settling', jg_wallet_order_bucket([
     'funds_released' => 0,

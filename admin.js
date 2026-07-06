@@ -2352,6 +2352,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      apiResult: null,
 	      balanceEditorKey: '',
 	      backtrackRunning: false,
+	      cancelBacktrackRequested: false,
 	      releaseSyncedAt: 0,
 	      releaseSyncPromise: null,
 	      backgroundRefreshAt: 0,
@@ -6377,6 +6378,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	  const walletBacktrackStatus = (backtrack = state.wallet.data?.backtrack, options = {}) => {
 	    if (!backtrack || backtrack.status === 'idle') return '';
 	    if (backtrack.status === 'failed') return `Backtrack failed: ${backtrack.last_error || 'retry required'}`;
+	    if (backtrack.status === 'cancelled') return options.includeComplete ? 'Backtrack cancelled' : '';
 	    if (backtrack.status === 'complete') {
 	      return options.includeComplete ? `Backtrack complete / ${formatRegionalInteger(backtrack.imported_rows || 0)} rows checked` : '';
 	    }
@@ -6389,6 +6391,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	  const walletActionStatus = (actionId = '') => {
 	    if (actionId === 'backtrack') return walletBacktrackStatus(state.wallet.data?.backtrack, { includeComplete: true }) || 'Backtracking from May 20, 2026';
+	    if (actionId === 'backtrack_cancel') return 'Cancelling backtrack';
 	    if (actionId.startsWith('sync_releases')) return 'Checking marketplace releases';
 	    if (actionId.startsWith('balance:')) return 'Setting wallet balance';
 	    if (actionId.startsWith('release:')) return 'Releasing wallet';
@@ -6541,8 +6544,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	    }
 	    if (walletRefs.backtrack) {
 	      const backtracking = activeAction === 'backtrack' || Boolean(backtrack.active);
-	      walletRefs.backtrack.disabled = state.wallet.loading || Boolean(activeAction);
-	      walletRefs.backtrack.textContent = backtracking ? 'Backtracking' : 'Backtrack';
+	      const cancellable = Boolean(backtrack.active && backtrack.run_key);
+	      const cancelling = activeAction === 'backtrack_cancel';
+	      walletRefs.backtrack.disabled = state.wallet.loading || cancelling || (backtracking && !cancellable) || (Boolean(activeAction) && !backtracking);
+	      walletRefs.backtrack.textContent = cancelling ? 'Cancelling' : (cancellable ? 'Cancel' : (backtracking ? 'Backtracking' : 'Backtrack'));
 	      walletRefs.backtrack.classList.toggle('is-loading', backtracking);
 	    }
 
@@ -7875,6 +7880,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	  const runWalletBacktrack = async (startNew = true) => {
 	    if (state.wallet.backtrackRunning) return true;
 	    state.wallet.backtrackRunning = true;
+	    state.wallet.cancelBacktrackRequested = false;
 	    state.wallet.actionId = 'backtrack';
 	    renderWallet(state.wallet.data);
 	    try {
@@ -7891,8 +7897,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	      }
 
 	      let backtrack = data?.backtrack || state.wallet.data?.backtrack || {};
-	      for (let step = 0; backtrack.active && step < 1000; step += 1) {
+	      for (let step = 0; backtrack.active && !state.wallet.cancelBacktrackRequested && step < 1000; step += 1) {
 	        await wait(200);
+	        if (state.wallet.cancelBacktrackRequested) break;
 	        const stepData = await requestJson(walletActionUrl('backtrack_step'), {
 	          method: 'POST',
 	          headers: { 'Content-Type': 'application/json' },
@@ -7914,6 +7921,34 @@ document.addEventListener('DOMContentLoaded', () => {
 	    } finally {
 	      state.wallet.actionId = '';
 	      state.wallet.backtrackRunning = false;
+	      renderWallet(state.wallet.data);
+	    }
+	  };
+
+	  const cancelWalletBacktrack = async () => {
+	    const backtrack = state.wallet.data?.backtrack || {};
+	    if (!state.wallet.backtrackRunning && !backtrack.active) return false;
+	    state.wallet.cancelBacktrackRequested = true;
+	    state.wallet.actionId = 'backtrack_cancel';
+	    renderWallet(state.wallet.data);
+	    try {
+	      const data = await requestJson(walletActionUrl('cancel_backtrack'), {
+	        method: 'POST',
+	        headers: { 'Content-Type': 'application/json' },
+	        body: JSON.stringify({ run_key: backtrack.run_key || '' }),
+	        timeoutMs: 30000
+	      });
+	      state.wallet.loadedAt = Date.now();
+	      state.wallet.usingCache = false;
+	      renderWallet(data);
+	      return true;
+	    } catch (error) {
+	      renderViewError('wallet', error);
+	      return false;
+	    } finally {
+	      if (state.wallet.actionId === 'backtrack_cancel') {
+	        state.wallet.actionId = state.wallet.backtrackRunning ? 'backtrack_cancel' : '';
+	      }
 	      renderWallet(state.wallet.data);
 	    }
 	  };
@@ -8943,6 +8978,12 @@ document.addEventListener('DOMContentLoaded', () => {
 	  });
 
 	  walletRefs.backtrack?.addEventListener('click', () => {
+	    const backtrack = state.wallet.data?.backtrack || {};
+	    if (backtrack.active && backtrack.run_key) {
+	      cancelWalletBacktrack().catch(() => {});
+	      return;
+	    }
+	    if (state.wallet.backtrackRunning) return;
 	    runWalletBacktrack(true).catch(() => {});
 	  });
 
