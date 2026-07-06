@@ -440,6 +440,7 @@ if (root) {
       ['Owner Draw', monthly.owner_draw || 0],
       ['Owner Injection', monthly.owner_injection || 0],
       ['Manual Income', monthly.manual_income || 0],
+      ['Wallet Withdrawals to Bank', monthly.wallet_withdrawals_to_bank || 0],
       ['Transfers In', monthly.transfers_in || 0],
       ['Transfers Out', monthly.transfers_out || 0],
       ['Bills Created', monthly.bills_created || 0],

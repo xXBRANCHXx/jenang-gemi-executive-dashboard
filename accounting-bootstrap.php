@@ -847,6 +847,105 @@ function jg_accounting_marketplace_outstanding_context(): array
     ];
 }
 
+function jg_accounting_month_utc_bounds(string $month): array
+{
+    $timezone = new DateTimeZone('Asia/Jakarta');
+    $start = DateTimeImmutable::createFromFormat('!Y-m-d H:i:s', $month . '-01 00:00:00', $timezone);
+    if (!$start) {
+        $start = jg_accounting_now()->modify('first day of this month')->setTime(0, 0);
+    }
+    $end = $start->modify('first day of next month');
+
+    return [
+        'start_at' => $start->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s'),
+        'end_at' => $end->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s'),
+    ];
+}
+
+function jg_accounting_wallet_usable_cash_context(PDO $pdo, ?string $month = null): array
+{
+    $releaseWhere = ['undone_at IS NULL'];
+    $releaseParams = [];
+    if ($month !== null) {
+        $bounds = jg_accounting_month_utc_bounds($month);
+        $releaseWhere[] = 'COALESCE(withdrawn_at, created_at) >= :release_start_at';
+        $releaseWhere[] = 'COALESCE(withdrawn_at, created_at) < :release_end_at';
+        $releaseParams[':release_start_at'] = $bounds['start_at'];
+        $releaseParams[':release_end_at'] = $bounds['end_at'];
+    }
+
+    $release = [
+        'amount' => 0,
+        'count' => 0,
+        'last_withdrawn_at' => '',
+    ];
+    try {
+        $releaseStmt = $pdo->prepare(
+            'SELECT COALESCE(SUM(amount), 0) AS amount,
+                    COUNT(*) AS count,
+                    MAX(COALESCE(withdrawn_at, created_at)) AS last_withdrawn_at
+             FROM dashboard_wallet_releases
+             WHERE ' . implode(' AND ', $releaseWhere)
+        );
+        $releaseStmt->execute($releaseParams);
+        $release = $releaseStmt->fetch() ?: $release;
+    } catch (Throwable) {
+        return [
+            'amount' => 0,
+            'wallet_withdrawn_total' => 0,
+            'manual_marketplace_transfer_total' => 0,
+            'withdrawal_count' => 0,
+            'manual_transfer_count' => 0,
+            'last_withdrawn_at' => '',
+            'source' => 'wallet_releases_unavailable',
+            'label' => 'Wallet withdrawals to bank',
+        ];
+    }
+
+    $manualWhere = [
+        't.status = "posted"',
+        't.type = "transfer"',
+        't.direction = "internal_transfer"',
+        'src.type = "marketplace_wallet"',
+        'dst.is_spendable = 1',
+        'dst.type IN ("bank", "cash", "ewallet")',
+    ];
+    $manualParams = [];
+    if ($month !== null) {
+        $manualWhere[] = 't.business_month = :manual_month';
+        $manualParams[':manual_month'] = $month;
+    }
+
+    $manual = [
+        'amount' => 0,
+        'count' => 0,
+    ];
+    $manualStmt = $pdo->prepare(
+        'SELECT COALESCE(SUM(t.amount), 0) AS amount,
+                COUNT(*) AS count
+         FROM accounting_transactions t
+         INNER JOIN accounting_accounts src ON src.id = t.account_id
+         INNER JOIN accounting_accounts dst ON dst.id = t.to_account_id
+         WHERE ' . implode(' AND ', $manualWhere)
+    );
+    $manualStmt->execute($manualParams);
+    $manual = $manualStmt->fetch() ?: $manual;
+
+    $walletWithdrawn = (int) round((float) ($release['amount'] ?? 0));
+    $manualTransfers = (int) round((float) ($manual['amount'] ?? 0));
+
+    return [
+        'amount' => max(0, $walletWithdrawn - $manualTransfers),
+        'wallet_withdrawn_total' => $walletWithdrawn,
+        'manual_marketplace_transfer_total' => $manualTransfers,
+        'withdrawal_count' => (int) ($release['count'] ?? 0),
+        'manual_transfer_count' => (int) ($manual['count'] ?? 0),
+        'last_withdrawn_at' => (string) ($release['last_withdrawn_at'] ?? ''),
+        'source' => 'dashboard_wallet_releases',
+        'label' => 'Wallet withdrawals to bank',
+    ];
+}
+
 function jg_accounting_summary(PDO $pdo, string $month): array
 {
     jg_accounting_update_overdue_bills($pdo);
@@ -861,6 +960,8 @@ function jg_accounting_summary(PDO $pdo, string $month): array
             $realCash += (int) ($balances[(int) $account['id']] ?? 0);
         }
     }
+    $walletUsableCash = jg_accounting_wallet_usable_cash_context($pdo);
+    $realCash += (int) $walletUsableCash['amount'];
 
     $sumBill = static function (PDO $pdo, string $sql, array $params): int {
         $stmt = $pdo->prepare($sql);
@@ -917,6 +1018,7 @@ function jg_accounting_summary(PDO $pdo, string $month): array
             'pending_manual_review' => $pendingReview,
         ],
         'marketplace_outstanding_context' => $marketplaceOutstanding,
+        'wallet_usable_cash_context' => $walletUsableCash,
         'monthly_summary' => $monthly,
         'category_summary' => jg_accounting_group_summary($pdo, $month, 'category'),
         'vendor_summary' => jg_accounting_group_summary($pdo, $month, 'vendor'),
@@ -958,6 +1060,8 @@ function jg_accounting_monthly_summary(PDO $pdo, string $month): array
     $ownerInjection = (int) round((float) ($tx['owner_injection'] ?? 0));
     $ownerDraw = (int) round((float) ($tx['owner_draw'] ?? 0));
     $transferFees = (int) round((float) ($tx['transfer_fees'] ?? 0));
+    $walletUsableCash = jg_accounting_wallet_usable_cash_context($pdo, $month);
+    $walletWithdrawalsToBank = (int) $walletUsableCash['amount'];
 
     return [
         'sales_revenue_context' => 0,
@@ -970,12 +1074,14 @@ function jg_accounting_monthly_summary(PDO $pdo, string $month): array
         'owner_draw' => $ownerDraw,
         'owner_injection' => $ownerInjection,
         'manual_income' => $manualIncome,
+        'wallet_withdrawals_to_bank' => $walletWithdrawalsToBank,
+        'wallet_usable_cash_context' => $walletUsableCash,
         'transfers_in' => (int) round((float) ($tx['transfers'] ?? 0)),
         'transfers_out' => (int) round((float) ($tx['transfers'] ?? 0)),
         'bills_created' => (int) round((float) ($bill['bills_created'] ?? 0)),
         'bills_paid' => (int) round((float) ($bill['bills_paid'] ?? 0)),
         'bills_still_unpaid' => (int) round((float) ($bill['bills_unpaid'] ?? 0)),
-        'estimated_net_cash_movement' => $manualIncome + $ownerInjection - $paidExpenses - $ownerDraw - $transferFees,
+        'estimated_net_cash_movement' => $manualIncome + $ownerInjection + $walletWithdrawalsToBank - $paidExpenses - $ownerDraw - $transferFees,
     ];
 }
 
