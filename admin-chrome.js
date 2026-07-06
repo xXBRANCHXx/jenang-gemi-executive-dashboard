@@ -177,11 +177,11 @@ const JENANG_GEMI_SEARCH_INDEX = [
     keywords: ['sku', 'database', 'branch', 'approval', 'inventory']
   },
   {
-    title: 'Profit and Loss Workspace',
+    title: 'Accounting Workspace',
     section: 'Admin',
-    description: 'SKU-level profit, syrup costs, margins, and product finance controls.',
+    description: 'Cash, bills, expenses, transfers, manual income, and finance controls.',
     url: '../profit-loss/',
-    keywords: ['profit', 'loss', 'p&l', 'margin', 'gross profit', 'finance']
+    keywords: ['accounting', 'cash control', 'bills', 'expenses', 'transfer', 'manual income', 'finance', 'profit', 'loss', 'p&l']
   },
   {
     title: 'API Health',
@@ -201,8 +201,9 @@ const JENANG_GEMI_SEARCH_INDEX = [
 
 const themeStorageKey = 'jg-admin-theme';
 const themeCookieMaxAge = 60 * 60 * 24 * 365 * 2;
-const themeOptions = ['dark', 'light'];
+const themeOptions = ['dark', 'light', 'system'];
 const viewStorageKey = 'jg-dashboard-view';
+const systemThemeQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)') : null;
 
 const escapeHtml = (value) => String(value ?? '')
   .replaceAll('&', '&amp;')
@@ -222,7 +223,14 @@ const normalizeSearchText = (value) => String(value || '').trim().toLowerCase();
 const normalizeTheme = (theme) => {
   if (theme === 'minimal-white' || theme === 'classic-white' || theme === 'light') return 'light';
   if (theme === 'minimal-black' || theme === 'prism' || theme === 'dark') return 'dark';
+  if (theme === 'system') return 'system';
   return 'dark';
+};
+
+const resolveTheme = (theme) => {
+  const normalizedTheme = normalizeTheme(theme);
+  if (normalizedTheme !== 'system') return normalizedTheme;
+  return systemThemeQuery?.matches ? 'light' : 'dark';
 };
 
 const readThemeCookie = () => {
@@ -255,14 +263,15 @@ const writeStoredTheme = (theme) => {
 };
 
 const getNextTheme = () => {
-  const currentTheme = normalizeTheme(document.documentElement.dataset.adminTheme);
+  const currentTheme = normalizeTheme(document.documentElement.dataset.adminThemeMode || readStoredTheme());
   const currentIndex = themeOptions.indexOf(currentTheme);
   return themeOptions[(currentIndex + 1) % themeOptions.length];
 };
 
 const applyTheme = (theme) => {
   const normalizedTheme = normalizeTheme(theme);
-  document.documentElement.dataset.adminTheme = normalizedTheme;
+  document.documentElement.dataset.adminTheme = resolveTheme(normalizedTheme);
+  document.documentElement.dataset.adminThemeMode = normalizedTheme;
   writeStoredTheme(normalizedTheme);
 };
 
@@ -333,6 +342,11 @@ document.addEventListener('DOMContentLoaded', () => {
   let searchFocusTimer = null;
 
   applyTheme(readStoredTheme() || 'dark');
+  systemThemeQuery?.addEventListener?.('change', () => {
+    if (normalizeTheme(document.documentElement.dataset.adminThemeMode || readStoredTheme()) === 'system') {
+      applyTheme('system');
+    }
+  });
 
   const closeMenu = () => {
     if (!menuPanel || !menuTrigger) return;

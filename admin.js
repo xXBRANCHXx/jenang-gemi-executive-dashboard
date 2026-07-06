@@ -464,11 +464,11 @@ const JENANG_GEMI_SEARCH_INDEX = [
     keywords: ['sku', 'database', 'branch', 'approval', 'inventory']
   },
   {
-    title: 'Profit and Loss Workspace',
+    title: 'Accounting Workspace',
     section: 'Admin',
-    description: 'SKU-level profit, syrup costs, margins, and product finance controls.',
+    description: 'Cash, bills, expenses, transfers, manual income, and finance controls.',
     url: '../profit-loss/',
-    keywords: ['profit', 'loss', 'p&l', 'margin', 'gross profit', 'finance']
+    keywords: ['accounting', 'cash control', 'bills', 'expenses', 'transfer', 'manual income', 'finance', 'profit', 'loss', 'p&l']
   },
   {
     title: 'API Health',

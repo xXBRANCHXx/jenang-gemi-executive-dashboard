@@ -7,7 +7,7 @@ Private admin dashboard for `admin.jenanggemi.com` behind a public Launch Pad.
 - `/` public Launch Pad
 - `/dashboard/`
 - `/api-health/`
-- `/profit-loss/`
+- `/profit-loss/` (Accounting workspace)
 - `/sku-db/`
 - `/sku-db/new/`
 - `/logout/`
@@ -16,6 +16,7 @@ Private admin dashboard for `admin.jenanggemi.com` behind a public Launch Pad.
 - `/api/orders/` (authenticated local order mirror reads; `POST ?action=webhook` updates the mirror)
 - `/api/wallet/` (authenticated marketplace settlement wallet summary, account lookup, and terminal query)
 - `/api/api-health/`
+- `/api/accounting/`
 - `/api/profit-loss/`
 - `/api/sku-db/`
 - `/api/partner-db-status/`
@@ -33,9 +34,10 @@ Private admin dashboard for `admin.jenanggemi.com` behind a public Launch Pad.
 - Login code is validated server-side.
 - Dashboard analytics, website settings, and live-state now run locally in this
   repo against MySQL using `JG_DB_*` env vars or `config.local.php`.
-- Profit and Loss combines API Ingest monthly SKU sales with SKU DB COGS. Manual
-  direct-cost overrides, operating entries, and allocation settings are stored
-  in the analytics MySQL database.
+- Accounting replaces the old Profit and Loss workspace at `/profit-loss/`.
+  It controls cash, bills, expenses, transfers, manual money-in entries, and
+  review queues through `/api/accounting/` without counting marketplace payout
+  transfers as new revenue.
 - The repo also checks `/public_html/config.local.php` and
   `/public_html/whatsapp-config.local.php` to match common Hostinger setups.
 - Deployment-only secrets can override tracked settings through the ignored
