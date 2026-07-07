@@ -22071,3 +22071,727 @@ body:has(.admin-app[data-sku-db])::after {
     width: 100%;
   }
 }
+
+/* Mobile executive shell: portrait-first drawer navigation. */
+.admin-mobile-rail-toggle,
+.admin-mobile-rail-backdrop {
+  display: none;
+}
+
+@media (max-width: 820px) {
+  :root,
+  :root[data-admin-theme='dark'],
+  :root[data-admin-theme='light'] {
+    --admin-mobile-rail-width: min(82vw, 312px);
+    --admin-mobile-edge-space: 40px;
+  }
+
+  html,
+  body {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    overflow-x: hidden;
+  }
+
+  .admin-body.admin-rail-open {
+    overflow: hidden;
+    touch-action: none;
+  }
+
+  body::before,
+  body::after,
+  .admin-backdrop,
+  .admin-rotate-screen {
+    display: none !important;
+  }
+
+  .admin-app,
+  .admin-app.admin-app-suite,
+  .admin-app[data-sku-db] {
+    width: 100%;
+    max-width: 100%;
+    min-height: 100svh;
+    margin: 0;
+    padding: 14px 12px 28px var(--admin-mobile-edge-space);
+  }
+
+  .admin-login-shell {
+    min-height: 100svh;
+    padding: 18px;
+  }
+
+  .admin-shell,
+  .admin-app.admin-app-suite .admin-shell,
+  .admin-app[data-sku-db] .admin-shell {
+    display: block;
+    min-width: 0;
+  }
+
+  .admin-shell-main,
+  .admin-app.admin-app-suite .admin-shell-main,
+  .admin-app[data-sku-db] .admin-shell-main,
+  .admin-app.admin-app-suite .admin-sku-shell-main {
+    min-width: 0;
+    width: 100%;
+    padding: 0;
+  }
+
+  .admin-mobile-rail-toggle {
+    position: fixed;
+    z-index: 16020;
+    top: max(92px, calc(env(safe-area-inset-top, 0px) + 86px));
+    left: 0;
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 78px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-left: 0;
+    border-radius: 0 16px 16px 0;
+    background: rgba(8, 12, 17, 0.94);
+    color: var(--admin-text);
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.36);
+    cursor: pointer;
+    transition:
+      left 240ms cubic-bezier(0.22, 1, 0.36, 1),
+      background 180ms ease,
+      color 180ms ease,
+      transform 180ms ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .admin-mobile-rail-toggle svg {
+    width: 22px;
+    height: 22px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform 220ms ease;
+  }
+
+  .admin-rail-open .admin-mobile-rail-toggle {
+    left: calc(var(--admin-mobile-rail-width) - 1px);
+    background: #ffffff;
+    color: #05070a;
+  }
+
+  .admin-rail-open .admin-mobile-rail-toggle svg {
+    transform: rotate(180deg);
+  }
+
+  .admin-mobile-rail-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 16000;
+    display: block;
+    background: rgba(5, 7, 10, 0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 220ms ease;
+  }
+
+  .admin-rail-open .admin-mobile-rail-backdrop:not([hidden]) {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .admin-shell .admin-rail,
+  .admin-app.admin-app-suite .admin-rail,
+  .admin-app[data-sku-db] .admin-rail {
+    position: fixed;
+    z-index: 16010;
+    inset: 0 auto 0 0;
+    display: flex;
+    width: var(--admin-mobile-rail-width);
+    max-width: var(--admin-mobile-rail-width);
+    height: 100svh;
+    min-height: 100svh;
+    padding: calc(env(safe-area-inset-top, 0px) + 18px) 16px calc(env(safe-area-inset-bottom, 0px) + 18px);
+    overflow: auto;
+    border: 0;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0;
+    background: #05070a;
+    box-shadow: 26px 0 70px rgba(0, 0, 0, 0.44);
+    transform: translateX(-100%);
+    transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-rail-open .admin-shell .admin-rail,
+  .admin-rail-open .admin-app.admin-app-suite .admin-rail,
+  .admin-rail-open .admin-app[data-sku-db] .admin-rail {
+    transform: translateX(0);
+  }
+
+  .admin-shell .admin-rail-brand,
+  .admin-app[data-sku-db] .admin-rail-brand,
+  .admin-shell .admin-rail:hover .admin-rail-brand,
+  .admin-shell .admin-rail:focus-within .admin-rail-brand,
+  .admin-app.admin-app-suite .admin-rail:hover .admin-rail-brand,
+  .admin-app.admin-app-suite .admin-rail:focus-within .admin-rail-brand,
+  .admin-app[data-sku-db] .admin-rail:hover .admin-rail-brand,
+  .admin-app[data-sku-db] .admin-rail:focus-within .admin-rail-brand {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    justify-items: start;
+    width: 100%;
+    height: auto;
+    padding: 0 0 20px;
+  }
+
+  .admin-shell .admin-rail-brand-mark,
+  .admin-app[data-sku-db] .admin-rail-brand-mark {
+    width: 40px;
+    height: 40px;
+  }
+
+  .admin-shell .admin-rail-brand-core,
+  .admin-app[data-sku-db] .admin-rail-brand-core {
+    width: 24px;
+    height: 24px;
+  }
+
+  .admin-shell .admin-rail-brand-wordmark,
+  .admin-app.admin-app-suite .admin-rail-brand-wordmark,
+  .admin-app[data-sku-db] .admin-rail-brand-wordmark {
+    display: block !important;
+    color: #ffffff;
+    font-size: 0.72rem;
+    font-weight: 850;
+    letter-spacing: 0.1em !important;
+  }
+
+  .admin-shell .admin-rail-nav,
+  .admin-shell .admin-rail-footer,
+  .admin-app[data-sku-db] .admin-rail-nav,
+  .admin-app[data-sku-db] .admin-rail-footer {
+    display: grid;
+    grid-template-columns: 1fr;
+    justify-items: stretch;
+    gap: 6px;
+    width: 100%;
+    min-width: 0;
+    overflow: visible;
+  }
+
+  .admin-shell .admin-rail-nav,
+  .admin-app[data-sku-db] .admin-rail-nav {
+    padding-top: 4px;
+  }
+
+  .admin-shell .admin-rail-footer,
+  .admin-app[data-sku-db] .admin-rail-footer {
+    margin-top: auto;
+    padding: 12px 0 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .admin-shell .admin-rail-link,
+  .admin-app.admin-app-suite .admin-rail-link,
+  .admin-app[data-sku-db] .admin-rail-link,
+  .admin-shell .admin-rail:hover .admin-rail-link,
+  .admin-shell .admin-rail:focus-within .admin-rail-link,
+  .admin-app.admin-app-suite .admin-rail:hover .admin-rail-link,
+  .admin-app.admin-app-suite .admin-rail:focus-within .admin-rail-link,
+  .admin-app[data-sku-db] .admin-rail:hover .admin-rail-link,
+  .admin-app[data-sku-db] .admin-rail:focus-within .admin-rail-link {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    justify-items: start;
+    width: 100%;
+    max-width: none;
+    height: 48px;
+    min-height: 48px;
+    padding: 0 12px;
+    border-radius: 12px;
+    color: rgba(238, 244, 247, 0.72);
+    background: transparent;
+    box-shadow: none;
+    transform: none;
+  }
+
+  .admin-shell .admin-rail-link:hover,
+  .admin-shell .admin-rail-link:focus-visible,
+  .admin-shell .admin-rail-link.is-active,
+  .admin-shell .admin-rail-link[aria-current='page'],
+  .admin-app.admin-app-suite .admin-rail-link:hover,
+  .admin-app.admin-app-suite .admin-rail-link:focus-visible,
+  .admin-app.admin-app-suite .admin-rail-link.is-active,
+  .admin-app.admin-app-suite .admin-rail-link[aria-current='page'],
+  .admin-app[data-sku-db] .admin-rail-link:hover,
+  .admin-app[data-sku-db] .admin-rail-link:focus-visible,
+  .admin-app[data-sku-db] .admin-rail-link.is-active,
+  .admin-app[data-sku-db] .admin-rail-link[aria-current='page'] {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .admin-shell .admin-rail-link::before,
+  .admin-app.admin-app-suite .admin-rail-link::before,
+  .admin-app[data-sku-db] .admin-rail-link::before {
+    top: 9px;
+    bottom: 9px;
+    left: 0;
+    width: 3px;
+    height: auto;
+    border-radius: 999px;
+    background: #ffffff;
+    opacity: 0;
+    transform: none;
+  }
+
+  .admin-shell .admin-rail-link:hover::before,
+  .admin-shell .admin-rail-link:focus-visible::before,
+  .admin-shell .admin-rail-link.is-active::before,
+  .admin-shell .admin-rail-link[aria-current='page']::before,
+  .admin-app.admin-app-suite .admin-rail-link:hover::before,
+  .admin-app.admin-app-suite .admin-rail-link:focus-visible::before,
+  .admin-app.admin-app-suite .admin-rail-link.is-active::before,
+  .admin-app.admin-app-suite .admin-rail-link[aria-current='page']::before,
+  .admin-app[data-sku-db] .admin-rail-link:hover::before,
+  .admin-app[data-sku-db] .admin-rail-link:focus-visible::before,
+  .admin-app[data-sku-db] .admin-rail-link.is-active::before,
+  .admin-app[data-sku-db] .admin-rail-link[aria-current='page']::before {
+    width: 3px;
+    opacity: 1;
+  }
+
+  .admin-shell .admin-rail-link::after,
+  .admin-app[data-sku-db] .admin-rail-link::after {
+    display: none;
+  }
+
+  .admin-shell .admin-rail-icon,
+  .admin-app[data-sku-db] .admin-rail-icon,
+  .admin-shell .admin-rail:hover .admin-rail-icon,
+  .admin-shell .admin-rail:focus-within .admin-rail-icon,
+  .admin-app.admin-app-suite .admin-rail:hover .admin-rail-icon,
+  .admin-app.admin-app-suite .admin-rail:focus-within .admin-rail-icon,
+  .admin-app[data-sku-db] .admin-rail:hover .admin-rail-icon,
+  .admin-app[data-sku-db] .admin-rail:focus-within .admin-rail-icon {
+    width: 32px;
+    height: 32px;
+    justify-self: center;
+  }
+
+  .admin-shell .admin-rail-icon::before,
+  .admin-app[data-sku-db] .admin-rail-icon::before {
+    width: 24px;
+    height: 24px;
+  }
+
+  .admin-shell .admin-rail-link-text,
+  .admin-app.admin-app-suite .admin-rail-link-text,
+  .admin-app[data-sku-db] .admin-rail-link-text,
+  .admin-shell .admin-rail:hover .admin-rail-link-text,
+  .admin-shell .admin-rail:focus-within .admin-rail-link-text,
+  .admin-app.admin-app-suite .admin-rail:hover .admin-rail-link-text,
+  .admin-app.admin-app-suite .admin-rail:focus-within .admin-rail-link-text,
+  .admin-app[data-sku-db] .admin-rail:hover .admin-rail-link-text,
+  .admin-app[data-sku-db] .admin-rail:focus-within .admin-rail-link-text {
+    display: block !important;
+    max-width: none;
+    overflow: hidden;
+    color: currentColor;
+    font-size: 0.88rem;
+    font-weight: 760;
+    line-height: 1.1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    opacity: 1;
+    transform: none;
+  }
+
+  .admin-topbar,
+  .admin-app.admin-app-suite:is([data-affiliate-dashboard], [data-affiliate-profiles], [data-affiliate-profile]) .admin-topbar,
+  .admin-app[data-sku-db] .admin-sku-topbar {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: start;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding: 0 0 14px;
+  }
+
+  .admin-topbar-brand,
+  .admin-accounting-topbar .admin-topbar-brand,
+  .admin-app[data-sku-db] .admin-sku-topbar .admin-topbar-brand {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .admin-topbar-brand h1,
+  .admin-body .admin-topbar-brand h1,
+  .admin-accounting-topbar .admin-topbar-brand h1,
+  .admin-app.admin-app-suite:is([data-affiliate-dashboard], [data-affiliate-profiles], [data-affiliate-profile]) .admin-topbar-brand h1 {
+    max-width: 100%;
+    font-size: clamp(1.55rem, 7.8vw, 2.1rem) !important;
+    line-height: 1.05;
+    overflow-wrap: anywhere;
+  }
+
+  .admin-topbar-brand p {
+    max-width: 100%;
+    font-size: 0.72rem;
+    line-height: 1.4;
+    white-space: normal;
+  }
+
+  .admin-topbar-actions,
+  .admin-topbar-actions-shared,
+  .admin-app.admin-app-suite [data-admin-home-chrome],
+  .admin-app.admin-app-suite[data-admin-dashboard] .admin-topbar-actions {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .admin-topbar-actions > *,
+  .admin-topbar-actions-shared > *,
+  .admin-app.admin-app-suite [data-admin-home-chrome] > * {
+    flex-shrink: 0;
+  }
+
+  .admin-layout,
+  .admin-view,
+  .admin-main-grid,
+  .admin-metric-grid,
+  .admin-control-strip,
+  .admin-accounting-view,
+  .admin-sku-layout {
+    gap: 14px;
+  }
+
+  .admin-main-grid,
+  .admin-metric-grid,
+  .admin-settings-grid,
+  .admin-settings-grid-minimal,
+  .admin-campaign-view .admin-main-grid,
+  .admin-app.admin-app-suite[data-affiliate-dashboard] .admin-main-grid,
+  .admin-app.admin-app-suite[data-admin-dashboard] .admin-flavor-chart-grid,
+  .admin-app.admin-app-suite[data-admin-dashboard] .admin-product-mix-chart-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-panel,
+  .admin-metric-card,
+  .admin-control-strip,
+  .admin-hero-panel,
+  .admin-launchpad-section,
+  .admin-accounting-panel,
+  .admin-sku-composer,
+  .admin-sku-dock,
+  .admin-sku-apply-band,
+  .admin-sku-reference-band,
+  .admin-sku-table-shell {
+    max-width: 100%;
+  }
+
+  .admin-panel,
+  .admin-metric-card,
+  .admin-control-strip,
+  .admin-hero-panel,
+  .admin-accounting-panel,
+  .admin-app.admin-app-suite :is(.admin-panel, .admin-metric-card, .admin-note-card, .admin-event-item, .admin-affiliate-card, .admin-request-card, .admin-sku-master-card, .admin-modal-card) {
+    border-radius: 14px;
+  }
+
+  .admin-panel-head,
+  .admin-hero-panel,
+  .admin-campaign-command,
+  .admin-affiliate-toolbar,
+  .admin-accounting-command-fields,
+  .admin-accounting-command-actions,
+  .admin-accounting-range,
+  .admin-accounting-mode-row,
+  .admin-accounting-tabs,
+  .admin-accounting-form-actions,
+  .admin-sku-actions,
+  .partner-program-actions,
+  .partner-profile-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-table-wrap,
+  .admin-orders-table-wrap,
+  .admin-accounting-table-wrap,
+  .admin-sku-table-scroll,
+  .partner-profile-sku-table-shell {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-notification-drawer {
+    top: auto;
+    right: 10px;
+    bottom: 10px;
+    left: 10px;
+    width: auto;
+    max-height: min(78svh, 620px);
+    border-radius: 20px;
+    transform-origin: bottom center;
+  }
+
+  .admin-search-shell.admin-search-shell-topbar.is-search-open,
+  .admin-topbar-actions-shared .admin-search-shell.admin-search-shell-topbar.is-search-open,
+  .admin-app.admin-app-suite[data-admin-dashboard] .admin-search-shell.admin-search-shell-topbar.is-search-open,
+  .admin-app.admin-app-suite [data-admin-home-chrome] .admin-search-shell.admin-search-shell-topbar.is-search-open {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  :root,
+  :root[data-admin-theme='dark'],
+  :root[data-admin-theme='light'] {
+    --admin-mobile-edge-space: 36px;
+  }
+
+  .admin-app,
+  .admin-app.admin-app-suite,
+  .admin-app[data-sku-db] {
+    padding-right: 10px;
+    padding-left: var(--admin-mobile-edge-space);
+  }
+
+  .admin-mobile-rail-toggle {
+    width: 32px;
+    height: 72px;
+  }
+
+  .admin-panel,
+  .admin-metric-card,
+  .admin-control-strip,
+  .admin-hero-panel,
+  .admin-accounting-panel {
+    padding: 14px;
+  }
+}
+
+@media (max-width: 560px) {
+  .admin-body.is-launch-pad .admin-launch-pad {
+    padding: 18px;
+  }
+
+  .admin-body.is-launch-pad .admin-launch-header {
+    gap: 14px;
+    width: 100%;
+  }
+
+  .admin-body.is-launch-pad .admin-launch-header h1 {
+    max-width: 100%;
+    font-size: clamp(2.55rem, 12vw, 3rem) !important;
+    line-height: 1.02;
+    overflow-wrap: normal;
+  }
+
+  .admin-body.is-launch-pad .admin-launch-card,
+  .admin-body.is-launch-pad .admin-launch-card-executive {
+    min-height: 166px;
+    padding: 18px;
+  }
+
+  .admin-body.is-launch-pad .admin-launch-card-executive .admin-launch-card-title {
+    font-size: clamp(2.1rem, 9.6vw, 2.6rem) !important;
+    line-height: 1.04;
+  }
+
+  .admin-body.is-launch-pad .admin-launch-card-title {
+    font-size: clamp(1.7rem, 8vw, 2.2rem) !important;
+  }
+}
+
+@media (max-width: 820px) {
+  .admin-sliding-chart-toggle,
+  .admin-panel-inline-toggles.admin-sliding-chart-toggle,
+  .admin-toggle-row.admin-sliding-chart-toggle,
+  .admin-control-strip-compact .admin-sliding-chart-toggle {
+    display: flex;
+    width: 100%;
+    max-width: 100%;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    gap: 6px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-sliding-chart-toggle::-webkit-scrollbar,
+  .admin-panel-inline-toggles.admin-sliding-chart-toggle::-webkit-scrollbar,
+  .admin-toggle-row.admin-sliding-chart-toggle::-webkit-scrollbar {
+    display: none;
+  }
+
+  .admin-app.admin-app-suite .admin-sliding-toggle-indicator {
+    display: none !important;
+  }
+
+  .admin-app.admin-app-suite .admin-sliding-chart-toggle > .admin-toggle-pill,
+  .admin-app.admin-app-suite .admin-sliding-chart-toggle > .admin-toggle-pill:hover,
+  .admin-app.admin-app-suite .admin-sliding-chart-toggle > .admin-toggle-pill.is-active,
+  .admin-app.admin-app-suite .admin-sliding-chart-toggle > .admin-toggle-pill.is-active:hover {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .admin-app.admin-app-suite .admin-sliding-chart-toggle > .admin-toggle-pill.is-active {
+    background: color-mix(in srgb, var(--admin-text) 14%, transparent);
+  }
+
+  .admin-accounting-command-fields {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .admin-accounting-range,
+  .admin-accounting-mode-row,
+  .admin-accounting-tabs {
+    display: flex;
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-accounting-range::-webkit-scrollbar,
+  .admin-accounting-mode-row::-webkit-scrollbar,
+  .admin-accounting-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .admin-accounting-range .admin-toggle-pill,
+  .admin-accounting-mode-row .admin-toggle-pill,
+  .admin-accounting-tabs .admin-toggle-pill {
+    flex: 0 0 auto !important;
+    min-height: 38px;
+    white-space: nowrap;
+  }
+
+  .admin-accounting-command-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+  }
+
+  .admin-accounting-command-actions :is(.admin-primary-btn, .admin-ghost-btn, .admin-soft-btn, .admin-danger-btn) {
+    width: 100%;
+    min-height: 40px;
+    flex: initial !important;
+    padding-inline: 10px;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 820px) {
+  .admin-sliding-chart-toggle,
+  .admin-panel-inline-toggles.admin-sliding-chart-toggle,
+  .admin-toggle-row.admin-sliding-chart-toggle,
+  .admin-control-strip-compact .admin-sliding-chart-toggle {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+
+  .admin-app.admin-app-suite .admin-sliding-chart-toggle > .admin-toggle-pill,
+  .admin-app.admin-app-suite .admin-sliding-chart-toggle > .admin-toggle-pill:hover,
+  .admin-app.admin-app-suite .admin-sliding-chart-toggle > .admin-toggle-pill.is-active,
+  .admin-app.admin-app-suite .admin-sliding-chart-toggle > .admin-toggle-pill.is-active:hover {
+    flex: 1 1 calc(50% - 6px);
+    min-width: min(144px, 100%);
+    justify-content: center;
+    text-align: center;
+  }
+
+  .admin-accounting-range,
+  .admin-accounting-mode-row,
+  .admin-accounting-tabs {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+
+  .admin-accounting-range .admin-toggle-pill,
+  .admin-accounting-mode-row .admin-toggle-pill,
+  .admin-accounting-tabs .admin-toggle-pill {
+    flex: 1 1 calc(50% - 8px) !important;
+    min-width: min(132px, 100%);
+    justify-content: center;
+    text-align: center;
+  }
+}
+
+@media (max-width: 820px) {
+  .admin-app.admin-app-suite .admin-sliding-chart-toggle,
+  .admin-app.admin-app-suite .admin-panel-inline-toggles.admin-sliding-chart-toggle,
+  .admin-app.admin-app-suite .admin-toggle-row.admin-sliding-chart-toggle,
+  .admin-app.admin-app-suite .admin-control-strip-compact .admin-sliding-chart-toggle {
+    display: flex;
+    width: 100%;
+    max-width: 100%;
+    min-height: 0;
+    height: auto;
+    max-height: none;
+    align-items: stretch;
+    align-content: stretch;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 6px;
+    overflow: visible;
+    border-radius: 18px;
+  }
+
+  .admin-app.admin-app-suite .admin-sliding-toggle-indicator {
+    display: none !important;
+  }
+
+  .admin-app.admin-app-suite .admin-sliding-chart-toggle > .admin-toggle-pill,
+  .admin-app.admin-app-suite .admin-sliding-chart-toggle > .admin-toggle-pill:hover,
+  .admin-app.admin-app-suite .admin-sliding-chart-toggle > .admin-toggle-pill.is-active,
+  .admin-app.admin-app-suite .admin-sliding-chart-toggle > .admin-toggle-pill.is-active:hover {
+    flex: 1 1 calc(50% - 6px);
+    min-width: min(132px, 100%);
+    min-height: 34px;
+    height: auto;
+    justify-content: center;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .admin-app.admin-app-suite .admin-sliding-chart-toggle > .admin-toggle-pill.is-active,
+  .admin-app.admin-app-suite .admin-sliding-chart-toggle > .admin-toggle-pill.is-active:hover {
+    background: color-mix(in srgb, var(--admin-text) 14%, transparent) !important;
+  }
+
+  .admin-accounting-range,
+  .admin-accounting-mode-row,
+  .admin-accounting-tabs {
+    min-height: 0;
+    height: auto;
+    max-height: none;
+    align-items: stretch;
+    align-content: stretch;
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+}

@@ -518,7 +518,11 @@ function render_admin_sidebar(string $activeSection = ''): void
         ],
     ];
 
-    echo '<aside class="admin-rail" aria-label="Admin navigation">';
+    echo '<button type="button" class="admin-mobile-rail-toggle" data-admin-rail-toggle aria-controls="admin-rail-nav" aria-expanded="false" aria-label="Open admin side panel" title="Open navigation">';
+    echo '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>';
+    echo '</button>';
+    echo '<div class="admin-mobile-rail-backdrop" data-admin-rail-backdrop hidden></div>';
+    echo '<aside class="admin-rail" id="admin-rail-nav" data-admin-rail aria-label="Admin navigation">';
     echo '<a class="admin-rail-brand" href="../dashboard/?view=overview" aria-label="Executive Dashboard home" data-dashboard-view-link="overview">';
     echo '<span class="admin-rail-brand-mark" aria-hidden="true"><span class="admin-rail-brand-core"></span></span>';
     echo '<span class="admin-rail-brand-wordmark">ADMIN</span>';
@@ -534,6 +538,62 @@ function render_admin_sidebar(string $activeSection = ''): void
     }
     echo '</div>';
     echo '</aside>';
+    render_admin_mobile_sidebar_script();
+}
+
+function render_admin_mobile_sidebar_script(): void
+{
+    static $rendered = false;
+    if ($rendered) {
+        return;
+    }
+    $rendered = true;
+    echo <<<'HTML'
+<script>
+(() => {
+    const bindAdminMobileSidebar = () => {
+        const toggle = document.querySelector('[data-admin-rail-toggle]');
+        const rail = document.querySelector('[data-admin-rail]');
+        const backdrop = document.querySelector('[data-admin-rail-backdrop]');
+        if (!toggle || !rail) return;
+
+        const mobileQuery = window.matchMedia ? window.matchMedia('(max-width: 820px)') : null;
+        const isMobile = () => !mobileQuery || mobileQuery.matches;
+        const setOpen = (open) => {
+            const shouldOpen = Boolean(open && isMobile());
+            document.body.classList.toggle('admin-rail-open', shouldOpen);
+            toggle.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+            toggle.setAttribute('aria-label', shouldOpen ? 'Close admin side panel' : 'Open admin side panel');
+            toggle.setAttribute('title', shouldOpen ? 'Close navigation' : 'Open navigation');
+            if (backdrop) backdrop.hidden = !shouldOpen;
+        };
+
+        toggle.addEventListener('click', (event) => {
+            event.preventDefault();
+            setOpen(toggle.getAttribute('aria-expanded') !== 'true');
+        });
+        backdrop?.addEventListener('click', () => setOpen(false));
+        rail.addEventListener('click', (event) => {
+            const link = event.target instanceof Element ? event.target.closest('a') : null;
+            if (link) setOpen(false);
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') setOpen(false);
+        });
+        mobileQuery?.addEventListener?.('change', (event) => {
+            if (!event.matches) setOpen(false);
+        });
+        setOpen(false);
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bindAdminMobileSidebar, { once: true });
+    } else {
+        bindAdminMobileSidebar();
+    }
+})();
+</script>
+HTML;
 }
 
 function render_admin_sidebar_item(array $item, string $activeSection): void
