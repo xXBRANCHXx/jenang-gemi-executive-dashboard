@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/sku-db-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/astra-stock-bootstrap.php';
+require_once dirname(__DIR__, 2) . '/analytics-bootstrap.php';
+require_once dirname(__DIR__, 2) . '/sku-shopee-price-sync.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -1237,6 +1239,81 @@ try {
 
         jg_sku_touch_version($pdo);
         jg_sku_response($pdo);
+    }
+
+    if ($action === 'preview_shopee_sale_prices') {
+        jg_sku_require_branch_json();
+
+        $days = max(30, min(730, (int) ($request['lookback_days'] ?? 365)));
+        echo json_encode(
+            jg_sku_shopee_preview($pdo, analyticsDb(), ['days' => $days]),
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+        );
+        exit;
+    }
+
+    if ($action === 'apply_shopee_sale_prices') {
+        jg_sku_require_branch_json();
+
+        $updates = $request['updates'] ?? [];
+        if (!is_array($updates) || $updates === []) {
+            jg_sku_fail('Choose at least one Shopee price to apply.');
+        }
+        if (count($updates) > 500) {
+            jg_sku_fail('Too many price updates in one request.');
+        }
+
+        $existsStmt = $pdo->prepare('SELECT sku FROM sku_skus WHERE sku = :sku LIMIT 1');
+        $updatesToApply = [];
+        foreach ($updates as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $sku = trim((string) ($row['sku'] ?? ''));
+            if ($sku === '') {
+                continue;
+            }
+            $salePrice = jg_sku_money($row['sale_price'] ?? null, 'Sale price');
+            $existsStmt->execute([':sku' => $sku]);
+            if ($existsStmt->fetchColumn() === false) {
+                jg_sku_fail('SKU not found: ' . $sku, 404);
+            }
+            $updatesToApply[] = ['sku' => $sku, 'sale_price' => $salePrice];
+        }
+        if ($updatesToApply === []) {
+            jg_sku_fail('No valid Shopee price updates were selected.');
+        }
+
+        $updateStmt = $pdo->prepare('UPDATE sku_skus SET sale_price = :sale_price, updated_at = :updated_at WHERE sku = :sku');
+        $pdo->beginTransaction();
+        foreach ($updatesToApply as $row) {
+            $updateStmt->execute([
+                ':sale_price' => $row['sale_price'],
+                ':updated_at' => jg_sku_now(),
+                ':sku' => $row['sku'],
+            ]);
+        }
+
+        jg_sku_touch_version($pdo);
+        $pdo->commit();
+
+        echo json_encode([
+            'ok' => true,
+            'applied' => $updatesToApply,
+            'database' => jg_sku_fetch_database($pdo),
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    if ($action === 'sync_sale_prices_to_site') {
+        jg_sku_require_branch_json();
+
+        $sync = jg_sku_sync_sale_prices_to_site($pdo);
+        echo json_encode([
+            ...$sync,
+            'database' => jg_sku_fetch_database($pdo),
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        exit;
     }
 
     if ($action === 'change_product_name') {
