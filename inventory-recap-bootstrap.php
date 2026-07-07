@@ -262,23 +262,23 @@ function jg_inventory_recap_risk(float $daysRemaining, float $currentStock, floa
 {
     if (!$hasDemand) {
         if ($stockTrigger > 0 && $currentStock <= $stockTrigger) {
-            return ['key' => 'watch', 'label' => 'Watch', 'color' => '#d97706', 'score' => 2];
+            return ['key' => 'watch', 'label' => 'Orange - below trigger', 'color' => '#d97706', 'score' => 2];
         }
-        return ['key' => 'quiet', 'label' => 'No recent demand', 'color' => '#64748b', 'score' => 0];
+        return ['key' => 'quiet', 'label' => 'No recent sales', 'color' => '#64748b', 'score' => 0];
     }
     if ($daysRemaining <= 10 || ($stockTrigger > 0 && $currentStock <= $stockTrigger && $daysRemaining <= $targetDays)) {
-        return ['key' => 'critical', 'label' => 'Critical', 'color' => '#dc2626', 'score' => 5];
+        return ['key' => 'critical', 'label' => 'Red - urgent', 'color' => '#dc2626', 'score' => 5];
     }
     if ($daysRemaining <= 20) {
-        return ['key' => 'high', 'label' => 'High risk', 'color' => '#ea580c', 'score' => 4];
+        return ['key' => 'high', 'label' => 'Orange - restock soon', 'color' => '#ea580c', 'score' => 4];
     }
     if ($daysRemaining <= 30) {
-        return ['key' => 'medium', 'label' => 'Month tight', 'color' => '#d97706', 'score' => 3];
+        return ['key' => 'medium', 'label' => 'Orange - under 30 days', 'color' => '#d97706', 'score' => 3];
     }
     if ($daysRemaining <= $targetDays) {
-        return ['key' => 'low', 'label' => 'Buffer tight', 'color' => '#65a30d', 'score' => 1];
+        return ['key' => 'low', 'label' => 'Green - buffer tight', 'color' => '#65a30d', 'score' => 1];
     }
-    return ['key' => 'covered', 'label' => 'Covered', 'color' => '#16a34a', 'score' => 0];
+    return ['key' => 'covered', 'label' => 'Green - covered', 'color' => '#16a34a', 'score' => 0];
 }
 
 function jg_inventory_recap_format_idr(float|int $amount): string
@@ -290,11 +290,19 @@ function jg_inventory_recap_order_draft(array $suggestions, array $summary, arra
 {
     $lines = [];
     foreach ($suggestions as $item) {
+        $daysRemaining = $item['current_days_remaining'] ?? null;
+        $daysLabel = is_numeric($daysRemaining)
+            ? rtrim(rtrim(number_format((float) $daysRemaining, 1, '.', ''), '0'), '.') . ' days left'
+            : 'no recent sales';
         $lines[] = sprintf(
-            '- %s / %s: order %s ASTRA, minimum %s, buffer %s, est. %s',
+            '- %s / %s: stock %s ASTRA now, lasts %s; order %s ASTRA to reach %d days (%d-day need %s, buffer %s), est. %s',
             (string) ($item['sku'] ?? ''),
             (string) ($item['product_name'] ?? ''),
+            number_format((float) ($item['current_stock'] ?? 0), 0, '.', ''),
+            $daysLabel,
             number_format((float) ($item['recommended_order_qty'] ?? 0), 0, '.', ''),
+            (int) $options['target_days'],
+            (int) $options['order_days'],
             number_format((float) ($item['minimum_order_qty'] ?? 0), 0, '.', ''),
             number_format((float) ($item['buffer_order_qty'] ?? 0), 0, '.', ''),
             jg_inventory_recap_format_idr((float) ($item['estimated_cost'] ?? 0))

@@ -20816,8 +20816,21 @@ body:has(.admin-app[data-sku-db])::after {
 }
 
 .admin-inventory-recap-risk-card > span {
+  display: grid;
+  gap: 4px;
+  justify-items: end;
+  min-width: 130px;
   color: var(--admin-text);
-  font: 850 0.84rem/1 "Space Grotesk", sans-serif;
+  font: 850 0.84rem/1.1 "Space Grotesk", sans-serif;
+  text-align: right;
+}
+
+.admin-inventory-recap-risk-card > span small {
+  display: block;
+  max-width: 190px;
+  color: var(--admin-muted);
+  font: 760 0.68rem/1.25 "Plus Jakarta Sans", sans-serif;
+  white-space: normal;
 }
 
 .admin-inventory-recap-risk-card.is-critical,
@@ -20850,7 +20863,7 @@ body:has(.admin-app[data-sku-db])::after {
 .admin-inventory-recap-play {
   display: grid;
   gap: 5px;
-  min-width: 160px;
+  min-width: 220px;
 }
 
 .admin-inventory-recap-play-track {
@@ -20884,8 +20897,9 @@ body:has(.admin-app[data-sku-db])::after {
   color: var(--admin-muted);
   font-size: 0.68rem;
   font-weight: 820;
+  line-height: 1.25;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .admin-inventory-recap-draft {
@@ -20907,7 +20921,7 @@ body:has(.admin-app[data-sku-db])::after {
 }
 
 .admin-inventory-recap-table {
-  min-width: 940px;
+  min-width: 1120px;
 }
 
 .admin-inventory-recap-table tr {

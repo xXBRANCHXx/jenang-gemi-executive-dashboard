@@ -673,18 +673,18 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
 	                <section class="admin-inventory-recap-summary" aria-label="Inventory Recap totals">
 	                    <article class="admin-inventory-recap-stat"><span>Cash Available</span><strong data-inventory-recap-cash>Rp0</strong><small>From Accounting</small></article>
 	                    <article class="admin-inventory-recap-stat"><span>Draft Cost</span><strong data-inventory-recap-cost>Rp0</strong><small data-inventory-recap-funding>Waiting for recap</small></article>
-	                    <article class="admin-inventory-recap-stat"><span>Critical</span><strong data-inventory-recap-critical>0</strong><small data-inventory-recap-critical-meta>No flagged SKUs</small></article>
-	                    <article class="admin-inventory-recap-stat"><span>Suggested</span><strong data-inventory-recap-suggested>0</strong><small>Production order lines</small></article>
+	                    <article class="admin-inventory-recap-stat"><span>Urgent SKUs</span><strong data-inventory-recap-critical>0</strong><small data-inventory-recap-critical-meta>No flagged SKUs</small></article>
+	                    <article class="admin-inventory-recap-stat"><span>Order Lines</span><strong data-inventory-recap-suggested>0</strong><small>Production suggestions</small></article>
 	                </section>
 
 	                <section class="admin-inventory-recap-grid">
 	                    <article class="admin-panel admin-inventory-recap-panel">
 	                        <div class="admin-panel-head">
 	                            <div>
-	                                <span class="admin-panel-kicker">Risk</span>
-	                                <h3>Coverage and margin of play</h3>
+	                                <span class="admin-panel-kicker">Stock Status</span>
+	                                <h3>Stock now and days left</h3>
 	                            </div>
-	                            <span class="admin-panel-meta" data-inventory-recap-window>30 days + 10 buffer</span>
+	                            <span class="admin-panel-meta" data-inventory-recap-window>30-day minimum + 10-day buffer</span>
 	                        </div>
 	                        <div class="admin-inventory-recap-risk-list" data-inventory-recap-list>
 	                            <p class="admin-empty">Loading Inventory Recap.</p>
@@ -707,7 +707,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
 	                    <div class="admin-panel-head">
 	                        <div>
 	                            <span class="admin-panel-kicker">Products</span>
-	                            <h3>Restock suggestions</h3>
+	                            <h3>Stock now and restock suggestion</h3>
 	                        </div>
 	                        <span class="admin-panel-meta" data-inventory-recap-table-meta>SKU-level formula</span>
 	                    </div>
@@ -717,12 +717,12 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
 	                                <tr>
 	                                    <th>SKU</th>
 	                                    <th>Product</th>
-	                                    <th>Current</th>
-	                                    <th>Lasts</th>
-	                                    <th>Order</th>
-	                                    <th>Play</th>
+	                                    <th>Stock now</th>
+	                                    <th>Current stock lasts</th>
+	                                    <th>Order for 40 days</th>
+	                                    <th>Can order less</th>
 	                                    <th>Cost</th>
-	                                    <th>Risk</th>
+	                                    <th>Status</th>
 	                                </tr>
 	                            </thead>
 	                            <tbody data-inventory-recap-table-body>

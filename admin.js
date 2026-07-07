@@ -6708,10 +6708,42 @@ document.addEventListener('DOMContentLoaded', () => {
 	  };
 
 	  const inventoryRecapDays = (value) => {
-	    if (value === null || value === undefined || value === '') return 'No recent demand';
+	    if (value === null || value === undefined || value === '') return 'No recent sales';
 	    const days = Number(value);
-	    if (!Number.isFinite(days)) return 'No recent demand';
-	    return `${formatRegionalNumber(days, { maximumFractionDigits: 1 })}d`;
+	    if (!Number.isFinite(days)) return 'No recent sales';
+	    const unit = Math.abs(days - 1) < 0.05 ? 'day' : 'days';
+	    return `${formatRegionalNumber(days, { maximumFractionDigits: 1 })} ${unit} left`;
+	  };
+
+	  const inventoryRecapTargetDays = () => {
+	    const meta = state.inventoryRecap.data?.meta || {};
+	    const targetDays = Number(meta.target_days || 0);
+	    if (Number.isFinite(targetDays) && targetDays > 0) return targetDays;
+	    const orderDays = Number(meta.order_days || 30);
+	    const bufferDays = Number(meta.buffer_days || 10);
+	    const fallback = orderDays + bufferDays;
+	    return Number.isFinite(fallback) && fallback > 0 ? fallback : 40;
+	  };
+
+	  const inventoryRecapOrderDaysText = () => `${formatRegionalInteger(inventoryRecapTargetDays())} days`;
+
+	  const inventoryRecapDaysNote = (item) => (
+	    Number.isFinite(Number(item?.current_days_remaining))
+	      ? 'at recent sales speed'
+	      : 'no sales in lookback'
+	  );
+
+	  const inventoryRecapStockText = (item) => `${formatRegionalInteger(item?.current_stock || 0)} ASTRA`;
+
+	  const inventoryRecapStatusNote = (item) => {
+	    const risk = String(item?.risk || '').toLowerCase();
+	    if (risk === 'critical') return 'red means urgent';
+	    if (risk === 'high') return 'orange means restock soon';
+	    if (risk === 'medium') return 'orange means under 30 days';
+	    if (risk === 'watch') return 'orange means below trigger';
+	    if (risk === 'low') return 'green means month covered, buffer tight';
+	    if (risk === 'covered') return `green means ${inventoryRecapOrderDaysText()} covered`;
+	    return 'no recent sales speed';
 	  };
 
 	  const inventoryRecapRiskClass = (risk) => {
@@ -6722,15 +6754,18 @@ document.addEventListener('DOMContentLoaded', () => {
 	  };
 
 	  const inventoryRecapPlayBar = (item) => {
+	    const meta = state.inventoryRecap.data?.meta || {};
+	    const orderDaysValue = Number(meta.order_days || 30);
+	    const orderDays = Number.isFinite(orderDaysValue) && orderDaysValue > 0 ? orderDaysValue : 30;
 	    const recommended = Math.max(0, Number(item.recommended_order_qty || 0));
 	    const minimum = Math.max(0, Number(item.minimum_order_qty || 0));
 	    const buffer = Math.max(0, Number(item.buffer_order_qty || 0));
 	    const minimumPercent = recommended > 0 ? Math.max(0, Math.min(100, (minimum / recommended) * 100)) : 0;
 	    const bufferPercent = recommended > 0 ? Math.max(0, Math.min(100, (buffer / recommended) * 100)) : 0;
 	    return `
-	      <div class="admin-inventory-recap-play" style="--inventory-min:${minimumPercent}%; --inventory-buffer:${bufferPercent}%;">
+	      <div class="admin-inventory-recap-play" style="--inventory-min:${minimumPercent}%; --inventory-buffer:${bufferPercent}%;" aria-label="Green is ${formatRegionalInteger(minimum)} for ${formatRegionalInteger(orderDays)} days; orange is ${formatRegionalInteger(buffer)} buffer">
 	        <div class="admin-inventory-recap-play-track" aria-hidden="true"><i></i><b></b></div>
-	        <small>Min ${formatRegionalInteger(minimum)} / buffer ${formatRegionalInteger(buffer)}</small>
+	        <small>Green: ${formatRegionalInteger(minimum)} for ${formatRegionalInteger(orderDays)}d; orange: +${formatRegionalInteger(buffer)} buffer</small>
 	      </div>
 	    `;
 	  };
@@ -6739,16 +6774,17 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (!rows.length) {
 	      return '<tr><td colspan="8" class="admin-empty">No restock suggestions from current velocity.</td></tr>';
 	    }
+	    const targetDays = inventoryRecapOrderDaysText();
 	    return rows.map((item) => `
 	      <tr class="${inventoryRecapRiskClass(item.risk)}">
 	        <td><strong>${escapeHtml(item.sku || '-')}</strong><small class="admin-table-note">${escapeHtml(item.tag || '')}</small></td>
 	        <td>${escapeHtml(item.product_name || '-')}<small class="admin-table-note">${escapeHtml([item.brand_name, item.flavor_name].filter(Boolean).join(' / '))}</small></td>
-	        <td>${formatRegionalInteger(item.current_stock || 0)}</td>
-	        <td>${escapeHtml(inventoryRecapDays(item.current_days_remaining))}</td>
-	        <td><strong>${formatRegionalInteger(item.recommended_order_qty || 0)}</strong><small class="admin-table-note">${formatRegionalInteger(item.target_qty || 0)} target</small></td>
+	        <td><strong>${formatRegionalInteger(item.current_stock || 0)}</strong><small class="admin-table-note">ASTRA stock now</small></td>
+	        <td><strong>${escapeHtml(inventoryRecapDays(item.current_days_remaining))}</strong><small class="admin-table-note">${escapeHtml(inventoryRecapDaysNote(item))}</small></td>
+	        <td><strong>${formatRegionalInteger(item.recommended_order_qty || 0)}</strong><small class="admin-table-note">to reach ${escapeHtml(targetDays)}</small></td>
 	        <td>${inventoryRecapPlayBar(item)}</td>
 	        <td>${formatCurrency(item.estimated_cost || 0)}</td>
-	        <td><span class="admin-inventory-recap-risk ${inventoryRecapRiskClass(item.risk)}">${escapeHtml(item.risk_label || item.risk || '-')}</span></td>
+	        <td><span class="admin-inventory-recap-risk ${inventoryRecapRiskClass(item.risk)}">${escapeHtml(item.risk_label || item.risk || '-')}</span><small class="admin-table-note">${escapeHtml(inventoryRecapStatusNote(item))}</small></td>
 	      </tr>
 	    `).join('');
 	  };
@@ -6763,9 +6799,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	      <article class="admin-inventory-recap-risk-card ${inventoryRecapRiskClass(item.risk)}">
 	        <div>
 	          <strong>${escapeHtml(item.product_name || item.sku || '-')}</strong>
+	          <small>Stock now: ${escapeHtml(inventoryRecapStockText(item))}</small>
 	          <small>${escapeHtml(item.sku || '')} / ${escapeHtml(item.risk_label || '')}</small>
 	        </div>
-	        <span>${escapeHtml(inventoryRecapDays(item.current_days_remaining))}</span>
+	        <span>${escapeHtml(inventoryRecapDays(item.current_days_remaining))}<small>${escapeHtml(inventoryRecapStatusNote(item))}</small></span>
 	        ${inventoryRecapPlayBar(item)}
 	      </article>
 	    `).join('');
@@ -6812,7 +6849,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    }
 	    if (inventoryRecapRefs.suggested) inventoryRecapRefs.suggested.textContent = formatRegionalInteger(summary.suggested_count || 0);
 	    if (inventoryRecapRefs.window) {
-	      inventoryRecapRefs.window.textContent = `${formatRegionalInteger(meta.order_days || 30)} days + ${formatRegionalInteger(meta.buffer_days || 10)} buffer / ${escapeHtml(meta.start_date || '')} to ${escapeHtml(meta.end_date || '')}`;
+	      inventoryRecapRefs.window.textContent = `${formatRegionalInteger(meta.order_days || 30)}-day minimum + ${formatRegionalInteger(meta.buffer_days || 10)}-day buffer / ${escapeHtml(meta.start_date || '')} to ${escapeHtml(meta.end_date || '')}`;
 	    }
 	    if (inventoryRecapRefs.tableMeta) {
 	      inventoryRecapRefs.tableMeta.textContent = `${formatRegionalInteger(summary.suggested_count || 0)} suggested / ${formatCurrency(summary.total_recommended_cost || 0)}`;
