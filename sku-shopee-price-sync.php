@@ -300,7 +300,7 @@ function jg_sku_shopee_fetch_order_rows(PDO $analyticsPdo, int $days = 365, int 
         ->format('Y-m-d H:i:s');
     $stmt = $analyticsPdo->prepare(
         'SELECT sku, item_key, product_name, marketplace_product_name, quantity, gross_revenue,
-                net_revenue, revenue, order_id, order_create_time, timestamp_utc, raw_json
+                revenue, order_id, order_create_time, timestamp_utc, raw_json
          FROM dashboard_order_mirror
          WHERE platform = "shopee"
            AND (deleted_at IS NULL OR deleted_at = "")
