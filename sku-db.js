@@ -61,12 +61,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const filterUnit = document.querySelector('[data-filter-unit]');
   const filterFlavor = document.querySelector('[data-filter-flavor]');
   const filterProduct = document.querySelector('[data-filter-product]');
-  const shopeePricePreviewButton = document.querySelector('[data-shopee-price-preview]');
-  const shopeePriceApplyButton = document.querySelector('[data-shopee-price-apply]');
-  const shopeePriceSiteSyncButton = document.querySelector('[data-shopee-price-site-sync]');
-  const shopeePriceStatus = document.querySelector('[data-shopee-price-status]');
-  const shopeePriceError = document.querySelector('[data-shopee-price-error]');
-  const shopeePriceBody = document.querySelector('[data-shopee-price-body]');
   const brandSelects = document.querySelectorAll('[data-brand-select]');
   const skuBrandSelect = document.querySelector('[data-sku-brand-select]');
   const unitSelect = document.querySelector('[data-unit-select]');
@@ -82,15 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
     },
     requests: [],
     activeApprovalRequestId: null,
-    pendingDelete: null,
-    shopeePrice: {
-      loading: false,
-      applying: false,
-      syncing: false,
-      reviewReady: false,
-      suggestions: [],
-      meta: null
-    }
+    pendingDelete: null
   };
 
   const escapeHtml = (value) => String(value)
@@ -978,81 +964,6 @@ document.addEventListener('DOMContentLoaded', () => {
     `).join('');
   };
 
-  const shopeePriceRows = () => Array.isArray(state.shopeePrice.suggestions)
-    ? state.shopeePrice.suggestions
-    : [];
-
-  const renderShopeePriceSync = () => {
-    if (!shopeePriceBody) return;
-    const rows = shopeePriceRows();
-    const changedRows = rows.filter((row) => !!row.changed);
-    const busy = state.shopeePrice.loading || state.shopeePrice.applying || state.shopeePrice.syncing;
-
-    if (shopeePricePreviewButton) {
-      shopeePricePreviewButton.disabled = busy;
-      shopeePricePreviewButton.textContent = state.shopeePrice.loading ? 'Scanning...' : 'Scan Shopee';
-    }
-    if (shopeePriceApplyButton) {
-      shopeePriceApplyButton.disabled = busy || !changedRows.length;
-      shopeePriceApplyButton.textContent = state.shopeePrice.applying ? 'Saving...' : 'Save selected to SKU DB';
-    }
-    if (shopeePriceSiteSyncButton) {
-      shopeePriceSiteSyncButton.disabled = busy || !state.shopeePrice.reviewReady;
-      shopeePriceSiteSyncButton.textContent = state.shopeePrice.syncing ? 'Syncing...' : 'Sync SKU prices to site';
-    }
-
-    if (shopeePriceStatus) {
-      const meta = state.shopeePrice.meta || {};
-      shopeePriceStatus.textContent = rows.length
-        ? `${rows.length} Shopee TAG matches / ${changedRows.length} price changes / ${meta.order_rows_scanned || 0} order rows scanned`
-        : 'Scan Shopee before changing website-facing prices.';
-    }
-
-    if (!rows.length) {
-      shopeePriceBody.innerHTML = '<tr><td colspan="7" class="admin-empty">No Shopee scan yet.</td></tr>';
-      return;
-    }
-
-    shopeePriceBody.innerHTML = rows.map((row, index) => {
-      const checked = row.changed ? 'checked' : '';
-      const disabled = row.changed ? '' : 'disabled';
-      const evidence = [
-        row.source_path || '',
-        row.latest_order_at || '',
-        row.observation_count ? `${row.observation_count} observations` : ''
-      ].filter(Boolean).join(' / ');
-      return `
-        <tr>
-          <td>
-            <input
-              type="checkbox"
-              data-shopee-price-select="${index}"
-              ${checked}
-              ${disabled}
-              aria-label="Use Shopee price for ${escapeHtml(row.sku || '')}"
-            >
-          </td>
-          <td><strong>${escapeHtml(row.sku || '')}</strong><small class="admin-table-note">${escapeHtml(row.product_name || '')}</small></td>
-          <td>${escapeHtml(row.tag || '')}</td>
-          <td>${escapeHtml(row.current_sale_price || '0.00')}</td>
-          <td>
-            <input
-              type="number"
-              class="admin-sku-cell-input"
-              min="0"
-              step="0.01"
-              data-shopee-price-value="${index}"
-              value="${escapeHtml(row.suggested_sale_price || '0.00')}"
-              ${disabled}
-            >
-          </td>
-          <td>${escapeHtml(row.confidence || 'review')}</td>
-          <td><small class="admin-table-note">${escapeHtml(evidence || 'Shopee JSON')}</small></td>
-        </tr>
-      `;
-    }).join('');
-  };
-
   const renderAll = () => {
     renderCounts();
     refreshBrandSelects();
@@ -1063,7 +974,6 @@ document.addEventListener('DOMContentLoaded', () => {
     renderFilters();
     renderTable();
     renderRequests();
-    renderShopeePriceSync();
   };
 
   const loadDatabase = async () => {
@@ -1121,103 +1031,6 @@ document.addEventListener('DOMContentLoaded', () => {
     } finally {
       input.disabled = false;
       delete input.dataset.salePriceSaving;
-    }
-  };
-
-  const previewShopeeSalePrices = async () => {
-    if (role !== 'branch') return;
-    setError(shopeePriceError, '');
-    state.shopeePrice.loading = true;
-    state.shopeePrice.reviewReady = false;
-    renderShopeePriceSync();
-    try {
-      const payload = await requestJson({
-        method: 'POST',
-        body: { action: 'preview_shopee_sale_prices' }
-      });
-      state.shopeePrice.suggestions = Array.isArray(payload.suggestions) ? payload.suggestions : [];
-      state.shopeePrice.meta = payload.meta || null;
-      state.shopeePrice.reviewReady = state.shopeePrice.suggestions.length > 0;
-      showCopyMessage(`Shopee scan found ${state.shopeePrice.suggestions.length} TAG matches.`, false, 'center');
-    } catch (error) {
-      setError(shopeePriceError, error instanceof Error ? error.message : 'Unable to scan Shopee prices.');
-    } finally {
-      state.shopeePrice.loading = false;
-      renderShopeePriceSync();
-    }
-  };
-
-  const selectedShopeePriceUpdates = () => {
-    if (!shopeePriceBody) return [];
-    return Array.from(shopeePriceBody.querySelectorAll('[data-shopee-price-select]:checked')).map((checkbox) => {
-      const index = Number(checkbox.getAttribute('data-shopee-price-select'));
-      const row = shopeePriceRows()[index] || {};
-      const input = shopeePriceBody.querySelector(`[data-shopee-price-value="${index}"]`);
-      const salePrice = input instanceof HTMLInputElement ? normalizeSalePriceInput(input.value) : normalizeSalePriceInput(row.suggested_sale_price);
-      return salePrice === null ? null : {
-        sku: row.sku,
-        sale_price: salePrice
-      };
-    }).filter(Boolean);
-  };
-
-  const applyShopeeSalePrices = async () => {
-    if (role !== 'branch') return;
-    const updates = selectedShopeePriceUpdates();
-    if (!updates.length) {
-      setError(shopeePriceError, 'Choose at least one Shopee price to save.');
-      return;
-    }
-    setError(shopeePriceError, '');
-    state.shopeePrice.applying = true;
-    renderShopeePriceSync();
-    try {
-      const payload = await requestJson({
-        method: 'POST',
-        body: { action: 'apply_shopee_sale_prices', updates }
-      });
-      state.database = payload.database || state.database;
-      const applied = Array.isArray(payload.applied) ? payload.applied : updates;
-      const appliedMap = new Map(applied.map((item) => [String(item.sku || ''), String(item.sale_price || '')]));
-      state.shopeePrice.suggestions = shopeePriceRows().map((row) => {
-        const appliedPrice = appliedMap.get(String(row.sku || ''));
-        return appliedPrice
-          ? { ...row, current_sale_price: appliedPrice, suggested_sale_price: appliedPrice, changed: false }
-          : row;
-      });
-      state.shopeePrice.reviewReady = shopeePriceRows().length > 0;
-      renderAll();
-      showCopyMessage(`Saved ${applied.length} Shopee prices to SKU DB.`, false, 'center');
-    } catch (error) {
-      setError(shopeePriceError, error instanceof Error ? error.message : 'Unable to save Shopee prices.');
-    } finally {
-      state.shopeePrice.applying = false;
-      renderShopeePriceSync();
-    }
-  };
-
-  const syncSalePricesToSite = async () => {
-    if (role !== 'branch') return;
-    if (!window.confirm('Sync confirmed SKU DB sale prices to the public website stores now?')) {
-      return;
-    }
-    setError(shopeePriceError, '');
-    state.shopeePrice.syncing = true;
-    renderShopeePriceSync();
-    try {
-      const payload = await requestJson({
-        method: 'POST',
-        body: { action: 'sync_sale_prices_to_site', confirmed: true }
-      });
-      state.database = payload.database || state.database;
-      state.shopeePrice.reviewReady = false;
-      renderAll();
-      showCopyMessage(`Synced ${payload.updated || 0} website prices.`, false, 'center');
-    } catch (error) {
-      setError(shopeePriceError, error instanceof Error ? error.message : 'Unable to sync SKU prices to site.');
-    } finally {
-      state.shopeePrice.syncing = false;
-      renderShopeePriceSync();
     }
   };
 
@@ -1982,9 +1795,6 @@ document.addEventListener('DOMContentLoaded', () => {
     node?.addEventListener('change', renderTable);
   });
   approvedLivePdfButton?.addEventListener('click', downloadApprovedLivePdf);
-  shopeePricePreviewButton?.addEventListener('click', previewShopeeSalePrices);
-  shopeePriceApplyButton?.addEventListener('click', applyShopeeSalePrices);
-  shopeePriceSiteSyncButton?.addEventListener('click', syncSalePricesToSite);
 
   syncCogsFields();
   syncInventoryFields();

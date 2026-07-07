@@ -373,42 +373,6 @@ $pageBuildVersion = 'sku1.00.00';
                             <button type="button" class="admin-ghost-btn admin-download-pdf-btn admin-sku-action-btn" data-download-approved-live-pdf disabled>PDF</button>
                         </div>
 
-                        <?php if ($isBranch): ?>
-                            <div class="admin-sku-price-sync" data-shopee-price-sync>
-                                <div class="admin-panel-head">
-                                    <div>
-                                        <span class="admin-panel-kicker">Shopee Price Sync</span>
-                                        <h3>Review marketplace sale prices</h3>
-                                    </div>
-                                    <div class="admin-sku-actions">
-                                        <button type="button" class="admin-ghost-btn admin-sku-action-btn" data-shopee-price-preview>Scan Shopee</button>
-                                        <button type="button" class="admin-primary-btn admin-sku-action-btn" data-shopee-price-apply disabled>Save selected to SKU DB</button>
-                                        <button type="button" class="admin-ghost-btn admin-sku-action-btn" data-shopee-price-site-sync>Sync SKU prices to site</button>
-                                    </div>
-                                </div>
-                                <p class="admin-form-error" data-shopee-price-error hidden></p>
-                                <p class="admin-table-note" data-shopee-price-status>Scan Shopee before changing website-facing prices.</p>
-                                <div class="admin-table-wrap admin-sku-table-wrap">
-                                    <table class="admin-table admin-sku-data-table">
-                                        <thead>
-                                        <tr>
-                                            <th>Use</th>
-                                            <th>SKU</th>
-                                            <th>TAG</th>
-                                            <th>Current</th>
-                                            <th>Shopee</th>
-                                            <th>Confidence</th>
-                                            <th>Evidence</th>
-                                        </tr>
-                                        </thead>
-                                        <tbody data-shopee-price-body>
-                                        <tr><td colspan="7" class="admin-empty">No Shopee scan yet.</td></tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        <?php endif; ?>
-
                         <div class="admin-table-wrap admin-sku-table-wrap">
                             <table class="admin-table admin-sku-data-table">
                                 <thead>

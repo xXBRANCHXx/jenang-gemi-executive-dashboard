@@ -13750,7 +13750,6 @@ body:has(.admin-app[data-sku-db]) .admin-build-badge {
 .admin-sku-dock,
 .admin-sku-apply-band,
 .admin-sku-reference-band,
-.admin-sku-price-sync,
 .admin-sku-table-shell {
   border: 1px solid var(--sku-line);
   border-radius: var(--sku-radius);
@@ -14118,15 +14117,6 @@ body:has(.admin-app[data-sku-db]) .admin-build-badge {
 
 .admin-sku-table-shell {
   overflow: hidden;
-}
-
-.admin-sku-price-sync {
-  display: grid;
-  gap: 10px;
-  margin: 10px;
-  padding: 12px;
-  border-radius: var(--sku-radius);
-  background: rgba(246, 247, 242, 0.035);
 }
 
 .admin-sku-table-toolbar {
@@ -14635,7 +14625,6 @@ body:has(.admin-app[data-sku-db])::after {
 .admin-sku-dock,
 .admin-sku-apply-band,
 .admin-sku-reference-band,
-.admin-sku-price-sync,
 .admin-sku-table-shell,
 .admin-sku-reference-band .admin-sku-master-card,
 .admin-request-card {
@@ -15317,7 +15306,7 @@ body:has(.admin-app[data-sku-db])::after {
   border-radius: var(--sku-control-radius);
 }
 
-.admin-app[data-sku-db] :where(.admin-sku-composer, .admin-sku-dock, .admin-sku-apply-band, .admin-sku-reference-band, .admin-sku-price-sync, .admin-sku-table-shell, .admin-sku-reference-band .admin-sku-master-card, .admin-request-card, .admin-sku-preview-surface) {
+.admin-app[data-sku-db] :where(.admin-sku-composer, .admin-sku-dock, .admin-sku-apply-band, .admin-sku-reference-band, .admin-sku-table-shell, .admin-sku-reference-band .admin-sku-master-card, .admin-request-card, .admin-sku-preview-surface) {
   border-radius: var(--sku-radius);
 }
 
@@ -21120,7 +21109,7 @@ body:has(.admin-app[data-sku-db])::after {
 }
 
 :root[data-admin-theme='light'] .admin-app[data-sku-db] .admin-sku-tier-button,
-:root[data-admin-theme='light'] .admin-app[data-sku-db] :where(.admin-sku-composer, .admin-sku-dock, .admin-sku-apply-band, .admin-sku-reference-band, .admin-sku-price-sync, .admin-sku-table-shell, .admin-sku-reference-band .admin-sku-master-card, .admin-request-card, .admin-modal-card) {
+:root[data-admin-theme='light'] .admin-app[data-sku-db] :where(.admin-sku-composer, .admin-sku-dock, .admin-sku-apply-band, .admin-sku-reference-band, .admin-sku-table-shell, .admin-sku-reference-band .admin-sku-master-card, .admin-request-card, .admin-modal-card) {
   border-color: rgba(15, 23, 42, 0.1);
   background: #ffffff;
   color: #111827;
