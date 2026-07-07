@@ -111,4 +111,54 @@ inventory_recap_expect(25, $suggestion['minimum_order_qty'] ?? 0, 'Minimum order
 inventory_recap_expect(10, $suggestion['buffer_order_qty'] ?? 0, 'Buffer order should expose the margin of play.');
 inventory_recap_expect('critical', $suggestion['risk'] ?? '', 'Five days remaining should be critical.');
 
+$skuPdo->exec("INSERT INTO sku_flavors VALUES ('flavor-chocolate', 'Chocolate')");
+$skuPdo->exec("INSERT INTO sku_skus VALUES
+    ('JGPC0150CHBU', 'BUBUR_CHOC_15', 'brand-jg', 'unit-pcs', 15, 15, 'flavor-chocolate', 'prod-bubur', 10, 10, 5, 'auto', 0, 1000, 5000),
+    ('JGPC0300CHBU', 'BUBUR_CHOC_30', 'brand-jg', 'unit-pcs', 30, 15, 'flavor-chocolate', 'prod-bubur', 0, 0, 0, 'auto', 0, 0, 9000)");
+for ($day = 0; $day < 30; $day++) {
+    $insert->execute([
+        ':sku' => 'JGPC0300CHBU',
+        ':item_key' => 'bundle-line-' . $day,
+        ':product_name' => 'Bubur Chocolate 30',
+        ':marketplace_product_name' => 'Bubur Chocolate 30',
+        ':base_product_name' => 'Bubur',
+        ':flavor_name' => 'Chocolate',
+        ':quantity' => 1,
+        ':order_create_time' => '2026-07-' . str_pad((string) max(1, min(30, $day + 1)), 2, '0', STR_PAD_LEFT) . ' 02:00:00.000000',
+        ':timestamp_utc' => '2026-07-' . str_pad((string) max(1, min(30, $day + 1)), 2, '0', STR_PAD_LEFT) . ' 02:00:00.000000',
+        ':platform' => 'shopee',
+        ':account_key' => 'test',
+        ':order_id' => 'BUNDLE-' . $day,
+        ':status' => 'COMPLETED',
+        ':revenue' => 9000,
+        ':net_revenue' => 9000,
+    ]);
+}
+
+$rollupPayload = jg_inventory_recap_payload($skuPdo, $analyticsPdo, [
+    'amount' => 150000,
+    'source' => 'test_accounting',
+    'label' => 'Accounting Cash Available',
+], [
+    'today' => '2026-07-30',
+    'lookback_days' => 30,
+    'order_days' => 30,
+    'buffer_days' => 10,
+]);
+$rollupSuggestions = $rollupPayload['suggestions'] ?? [];
+$stockSuggestions = array_values(array_filter($rollupSuggestions, static fn (array $item): bool => ($item['sku'] ?? '') === 'JGPC0150CHBU'));
+$bundleSuggestions = array_values(array_filter($rollupSuggestions, static fn (array $item): bool => ($item['sku'] ?? '') === 'JGPC0300CHBU'));
+$stockSuggestion = $stockSuggestions[0] ?? [];
+
+inventory_recap_expect(2, $rollupPayload['summary']['suggested_count'], 'The original SKU and the chocolate stock SKU should be suggested.');
+inventory_recap_expect(1, count($stockSuggestions), 'The 15-sachet stock SKU should receive the 30-sachet demand.');
+inventory_recap_expect(0, count($bundleSuggestions), 'The 30-sachet selling SKU must not become a purchase suggestion.');
+inventory_recap_expect(60.0, $stockSuggestion['sold_qty_astra'] ?? 0, 'Thirty 30-sachet sales should consume sixty 15-sachet stock units.');
+inventory_recap_expect(2.0, $stockSuggestion['daily_velocity'] ?? 0, 'The chocolate stock SKU should consume two 15-sachet boxes per day.');
+inventory_recap_expect(5.0, $stockSuggestion['current_days_remaining'] ?? 0, 'Ten 15-sachet boxes at two per day should last five days.');
+inventory_recap_expect(70, $stockSuggestion['recommended_order_qty'] ?? 0, 'Recommended order should buy 15-sachet stock units to reach 40 days.');
+inventory_recap_expect(50, $stockSuggestion['minimum_order_qty'] ?? 0, 'Minimum order should buy 15-sachet stock units to reach 30 days.');
+inventory_recap_expect(20, $stockSuggestion['buffer_order_qty'] ?? 0, 'Buffer should be ten extra days of 15-sachet stock units.');
+inventory_recap_expect(['JGPC0300CHBU'], $stockSuggestion['selling_skus'] ?? [], 'The 15-sachet stock SKU should report the 30-sachet selling SKU as its demand source.');
+
 echo "inventory-recap-test: ok\n";

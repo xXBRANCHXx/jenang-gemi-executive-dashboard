@@ -52,6 +52,11 @@ function jg_inventory_recap_number(mixed $value): float
     return is_numeric($normalized) ? (float) $normalized : 0.0;
 }
 
+function jg_inventory_recap_decimal_key(float $value): string
+{
+    return rtrim(rtrim(number_format($value, 2, '.', ''), '0'), '.') ?: '0';
+}
+
 function jg_inventory_recap_normalize_key(string $value): string
 {
     $key = strtoupper(preg_replace('/[^A-Z0-9]+/i', '', trim($value)) ?? '');
@@ -95,8 +100,12 @@ function jg_inventory_recap_sku_rows(PDO $pdo): array
         'SELECT
             s.sku,
             s.tag,
+            s.brand_id,
+            s.unit_id,
             s.volume,
             s.astra,
+            s.flavor_id,
+            s.product_id,
             s.starting_stock,
             s.current_stock,
             s.stock_trigger,
@@ -127,8 +136,12 @@ function jg_inventory_recap_sku_rows(PDO $pdo): array
         $rows[] = [
             'sku' => (string) ($row['sku'] ?? ''),
             'tag' => (string) ($row['tag'] ?? ''),
+            'brand_id' => (string) ($row['brand_id'] ?? ''),
+            'unit_id' => (string) ($row['unit_id'] ?? ''),
             'brand_name' => (string) ($row['brand_name'] ?? ''),
             'unit_name' => (string) ($row['unit_name'] ?? ''),
+            'product_id' => (string) ($row['product_id'] ?? ''),
+            'flavor_id' => (string) ($row['flavor_id'] ?? ''),
             'base_product_name' => (string) ($row['product_name'] ?? ''),
             'product_name' => jg_inventory_recap_display_product_name($row),
             'flavor_name' => (string) ($row['flavor_name'] ?? ''),
@@ -146,6 +159,51 @@ function jg_inventory_recap_sku_rows(PDO $pdo): array
     }
 
     return $rows;
+}
+
+function jg_inventory_recap_stock_group_key(array $sku): string
+{
+    return implode('|', [
+        (string) ($sku['brand_id'] ?? ''),
+        (string) ($sku['unit_id'] ?? ''),
+        (string) ($sku['product_id'] ?? ''),
+        (string) ($sku['flavor_id'] ?? ''),
+        jg_inventory_recap_decimal_key(max(0.0, jg_inventory_recap_number($sku['astra'] ?? $sku['volume'] ?? 0))),
+    ]);
+}
+
+function jg_inventory_recap_stock_index_map(array $skus): array
+{
+    $groups = [];
+    foreach ($skus as $index => $sku) {
+        $groups[jg_inventory_recap_stock_group_key($sku)][] = (int) $index;
+    }
+
+    $map = [];
+    foreach ($groups as $indexes) {
+        $stockIndex = null;
+        foreach ($indexes as $index) {
+            $volume = jg_inventory_recap_number($skus[$index]['volume'] ?? 0);
+            $astra = jg_inventory_recap_number($skus[$index]['astra'] ?? $volume);
+            if ($volume > 0 && $astra > 0 && abs($volume - $astra) < 0.01) {
+                $stockIndex = (int) $index;
+                break;
+            }
+        }
+
+        if ($stockIndex === null) {
+            foreach ($indexes as $index) {
+                $map[(int) $index] = (int) $index;
+            }
+            continue;
+        }
+
+        foreach ($indexes as $index) {
+            $map[(int) $index] = $stockIndex;
+        }
+    }
+
+    return $map;
 }
 
 function jg_inventory_recap_sku_aliases(array $sku): array
@@ -294,18 +352,32 @@ function jg_inventory_recap_order_draft(array $suggestions, array $summary, arra
         $daysLabel = is_numeric($daysRemaining)
             ? rtrim(rtrim(number_format((float) $daysRemaining, 1, '.', ''), '0'), '.') . ' days left'
             : 'no recent sales';
+        $stockUnitVolume = jg_inventory_recap_number($item['volume'] ?? $item['astra'] ?? 0);
+        $stockUnitName = trim((string) ($item['unit_name'] ?? ''));
+        $stockUnitSize = $stockUnitVolume > 0
+            ? rtrim(rtrim(number_format($stockUnitVolume, 1, '.', ''), '0'), '.') . ($stockUnitName !== '' ? ' ' . $stockUnitName : '')
+            : 'ASTRA';
+        $stockUnitLabel = trim($stockUnitSize . ' stock units');
+        $sellingSkus = array_values(array_filter(
+            (array) ($item['selling_skus'] ?? []),
+            static fn (mixed $sku): bool => trim((string) $sku) !== '' && trim((string) $sku) !== (string) ($item['sku'] ?? '')
+        ));
+        $sellingSkuLabel = $sellingSkus === [] ? '' : '; covers sales from ' . implode(', ', $sellingSkus);
         $lines[] = sprintf(
-            '- %s / %s: stock %s ASTRA now, lasts %s; order %s ASTRA to reach %d days (%d-day need %s, buffer %s), est. %s',
+            '- %s / %s: stock %s %s now, lasts %s; order %s %s to reach %d days (%d-day need %s, buffer %s), est. %s%s',
             (string) ($item['sku'] ?? ''),
             (string) ($item['product_name'] ?? ''),
             number_format((float) ($item['current_stock'] ?? 0), 0, '.', ''),
+            $stockUnitLabel,
             $daysLabel,
             number_format((float) ($item['recommended_order_qty'] ?? 0), 0, '.', ''),
+            $stockUnitLabel,
             (int) $options['target_days'],
             (int) $options['order_days'],
             number_format((float) ($item['minimum_order_qty'] ?? 0), 0, '.', ''),
             number_format((float) ($item['buffer_order_qty'] ?? 0), 0, '.', ''),
-            jg_inventory_recap_format_idr((float) ($item['estimated_cost'] ?? 0))
+            jg_inventory_recap_format_idr((float) ($item['estimated_cost'] ?? 0)),
+            $sellingSkuLabel
         );
     }
     if ($lines === []) {
@@ -344,12 +416,14 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
     $options = jg_inventory_recap_options($input);
     $skus = jg_inventory_recap_sku_rows($skuPdo);
     $lookup = jg_inventory_recap_sku_lookup($skus);
+    $stockIndexBySkuIndex = jg_inventory_recap_stock_index_map($skus);
     $demand = array_fill(0, count($skus), [
         'sold_qty' => 0.0,
         'sold_units' => 0,
         'order_count' => 0,
         'revenue' => 0.0,
         'sources' => [],
+        'selling_skus' => [],
     ]);
     $matchedOrders = 0;
     $unmatchedOrders = 0;
@@ -362,17 +436,26 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
         }
         $matchedOrders++;
         $quantity = max(0.0, jg_inventory_recap_number($orderRow['quantity'] ?? 0));
-        $astraQty = round($quantity * (float) ($skus[$skuIndex]['quantity_multiplier'] ?? 1), 2);
-        $demand[$skuIndex]['sold_qty'] += $astraQty;
-        $demand[$skuIndex]['sold_units'] += (int) round($quantity);
-        $demand[$skuIndex]['order_count'] += 1;
-        $demand[$skuIndex]['revenue'] += max(0.0, jg_inventory_recap_number($orderRow['revenue'] ?? $orderRow['net_revenue'] ?? 0));
+        $stockIndex = (int) ($stockIndexBySkuIndex[$skuIndex] ?? $skuIndex);
+        $sellingSku = $skus[$skuIndex];
+        $astraQty = round($quantity * (float) ($sellingSku['quantity_multiplier'] ?? 1), 2);
+        $demand[$stockIndex]['sold_qty'] += $astraQty;
+        $demand[$stockIndex]['sold_units'] += (int) round($quantity);
+        $demand[$stockIndex]['order_count'] += 1;
+        $demand[$stockIndex]['revenue'] += max(0.0, jg_inventory_recap_number($orderRow['revenue'] ?? $orderRow['net_revenue'] ?? 0));
         $source = (string) ($orderRow['source'] ?? 'orders');
-        $demand[$skuIndex]['sources'][$source] = ((int) ($demand[$skuIndex]['sources'][$source] ?? 0)) + 1;
+        $demand[$stockIndex]['sources'][$source] = ((int) ($demand[$stockIndex]['sources'][$source] ?? 0)) + 1;
+        $soldSku = (string) ($sellingSku['sku'] ?? '');
+        if ($soldSku !== '') {
+            $demand[$stockIndex]['selling_skus'][$soldSku] = ((int) ($demand[$stockIndex]['selling_skus'][$soldSku] ?? 0)) + 1;
+        }
     }
 
     $items = [];
     foreach ($skus as $index => $sku) {
+        if ((int) ($stockIndexBySkuIndex[$index] ?? $index) !== (int) $index) {
+            continue;
+        }
         $soldQty = round((float) ($demand[$index]['sold_qty'] ?? 0), 2);
         $dailyVelocity = $soldQty > 0 ? $soldQty / (int) $options['lookback_days'] : 0.0;
         $currentStock = (float) ($sku['current_stock'] ?? 0);
@@ -390,6 +473,8 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
         $estimatedCost = (int) round($recommendedOrderQty * (float) ($sku['cogs'] ?? 0));
         $minimumCost = (int) round($minimumOrderQty * (float) ($sku['cogs'] ?? 0));
         $playPercent = $recommendedOrderQty > 0 ? round(($bufferOrderQty / $recommendedOrderQty) * 100, 1) : 0.0;
+        $sellingSkus = array_keys($demand[$index]['selling_skus'] ?? []);
+        sort($sellingSkus);
 
         $items[] = [
             ...$sku,
@@ -415,6 +500,7 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
             'risk_color' => $risk['color'],
             'risk_score' => $risk['score'],
             'demand_sources' => $demand[$index]['sources'] ?? [],
+            'selling_skus' => $sellingSkus,
         ];
     }
 

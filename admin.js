@@ -6733,7 +6733,16 @@ document.addEventListener('DOMContentLoaded', () => {
 	      : 'no sales in lookback'
 	  );
 
-	  const inventoryRecapStockText = (item) => `${formatRegionalInteger(item?.current_stock || 0)} ASTRA`;
+	  const inventoryRecapStockUnitText = (item) => {
+	    const volume = Number(item?.volume || item?.astra || 0);
+	    const unitName = String(item?.unit_name || '').trim();
+	    const size = Number.isFinite(volume) && volume > 0
+	      ? `${formatRegionalNumber(volume, { maximumFractionDigits: 1 })}${unitName ? ` ${unitName}` : ''}`
+	      : '';
+	    return size ? `${size} stock units` : 'ASTRA stock units';
+	  };
+
+	  const inventoryRecapStockText = (item) => `${formatRegionalInteger(item?.current_stock || 0)} ${inventoryRecapStockUnitText(item)}`;
 
 	  const inventoryRecapStatusNote = (item) => {
 	    const risk = String(item?.risk || '').toLowerCase();
@@ -6763,9 +6772,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	    const minimumPercent = recommended > 0 ? Math.max(0, Math.min(100, (minimum / recommended) * 100)) : 0;
 	    const bufferPercent = recommended > 0 ? Math.max(0, Math.min(100, (buffer / recommended) * 100)) : 0;
 	    return `
-	      <div class="admin-inventory-recap-play" style="--inventory-min:${minimumPercent}%; --inventory-buffer:${bufferPercent}%;" aria-label="Green is ${formatRegionalInteger(minimum)} for ${formatRegionalInteger(orderDays)} days; orange is ${formatRegionalInteger(buffer)} buffer">
+	      <div class="admin-inventory-recap-play" style="--inventory-min:${minimumPercent}%; --inventory-buffer:${bufferPercent}%;" aria-label="Green is ${formatRegionalInteger(minimum)} stock units for ${formatRegionalInteger(orderDays)} days; orange is ${formatRegionalInteger(buffer)} buffer">
 	        <div class="admin-inventory-recap-play-track" aria-hidden="true"><i></i><b></b></div>
-	        <small>Green: ${formatRegionalInteger(minimum)} for ${formatRegionalInteger(orderDays)}d; orange: +${formatRegionalInteger(buffer)} buffer</small>
+	        <small>Green: ${formatRegionalInteger(minimum)} stock units for ${formatRegionalInteger(orderDays)}d; orange: +${formatRegionalInteger(buffer)} buffer</small>
 	      </div>
 	    `;
 	  };
@@ -6779,9 +6788,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	      <tr class="${inventoryRecapRiskClass(item.risk)}">
 	        <td><strong>${escapeHtml(item.sku || '-')}</strong><small class="admin-table-note">${escapeHtml(item.tag || '')}</small></td>
 	        <td>${escapeHtml(item.product_name || '-')}<small class="admin-table-note">${escapeHtml([item.brand_name, item.flavor_name].filter(Boolean).join(' / '))}</small></td>
-	        <td><strong>${formatRegionalInteger(item.current_stock || 0)}</strong><small class="admin-table-note">ASTRA stock now</small></td>
+	        <td><strong>${formatRegionalInteger(item.current_stock || 0)}</strong><small class="admin-table-note">${escapeHtml(inventoryRecapStockUnitText(item))} now</small></td>
 	        <td><strong>${escapeHtml(inventoryRecapDays(item.current_days_remaining))}</strong><small class="admin-table-note">${escapeHtml(inventoryRecapDaysNote(item))}</small></td>
-	        <td><strong>${formatRegionalInteger(item.recommended_order_qty || 0)}</strong><small class="admin-table-note">to reach ${escapeHtml(targetDays)}</small></td>
+	        <td><strong>${formatRegionalInteger(item.recommended_order_qty || 0)}</strong><small class="admin-table-note">stock units to reach ${escapeHtml(targetDays)}</small></td>
 	        <td>${inventoryRecapPlayBar(item)}</td>
 	        <td>${formatCurrency(item.estimated_cost || 0)}</td>
 	        <td><span class="admin-inventory-recap-risk ${inventoryRecapRiskClass(item.risk)}">${escapeHtml(item.risk_label || item.risk || '-')}</span><small class="admin-table-note">${escapeHtml(inventoryRecapStatusNote(item))}</small></td>
