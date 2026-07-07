@@ -36,6 +36,14 @@ $skuRows = [
         'brand_name' => 'Test',
         'flavor_name' => 'Test',
     ],
+    [
+        'sku' => 'TRAP0001',
+        'tag' => 'ROOT_TRAP',
+        'sale_price' => '0.00',
+        'product_name' => 'Root Trap',
+        'brand_name' => 'Test',
+        'flavor_name' => 'Test',
+    ],
 ];
 
 $orderRows = [
@@ -64,6 +72,21 @@ $orderRows = [
         'gross_revenue' => 22000,
         'raw_json' => '{}',
     ],
+    [
+        'order_id' => 'ORDER-3',
+        'order_create_time' => '2026-07-07 03:02:03',
+        'raw_json' => json_encode([
+            'order_income' => [
+                'order_discounted_price' => 999999,
+                'items' => [
+                    [
+                        'model_sku' => 'ROOT_TRAP',
+                        'discounted_price' => 13000,
+                    ],
+                ],
+            ],
+        ], JSON_UNESCAPED_SLASHES),
+    ],
 ];
 
 $suggestions = jg_sku_shopee_price_suggestions_from_rows($skuRows, $orderRows);
@@ -78,6 +101,8 @@ shopee_price_expect('high', $bySku['JG0001']['confidence'] ?? '', 'Explicit mode
 shopee_price_expect(1, $bySku['JG0001']['observation_count'] ?? 0, 'Only the matched Shopee item should count as evidence.');
 shopee_price_expect('11000.00', $bySku['ZG0001']['suggested_sale_price'] ?? '', 'Gross revenue fallback must be divided by quantity.');
 shopee_price_expect('gross_revenue / quantity', $bySku['ZG0001']['source_path'] ?? '', 'Gross fallback source should be explicit.');
+shopee_price_expect('13000.00', $bySku['TRAP0001']['suggested_sale_price'] ?? '', 'Item-level price should beat order-level Shopee income fields.');
+shopee_price_expect('order_income.items.0.discounted_price', $bySku['TRAP0001']['source_path'] ?? '', 'Order-level Shopee price fields must not attach to nested item TAGs.');
 shopee_price_expect(false, isset($bySku['NO0001']), 'Unmatched SKU TAG should not produce a suggestion.');
 
 echo "sku-shopee-price-sync-test: ok\n";

@@ -89,7 +89,7 @@ function jg_sku_shopee_tag_present(array $node, string $tagKey): bool
     return false;
 }
 
-function jg_sku_shopee_tag_keys_in_node(array $node, array $tagKeys): array
+function jg_sku_shopee_tag_keys_in_node(array $node, array $tagKeys, bool $recursive = true): array
 {
     if ($tagKeys === []) {
         return [];
@@ -98,8 +98,10 @@ function jg_sku_shopee_tag_keys_in_node(array $node, array $tagKeys): array
     $matches = [];
     foreach ($node as $key => $value) {
         if (is_array($value)) {
-            foreach (jg_sku_shopee_tag_keys_in_node($value, $tagKeys) as $matchedKey) {
-                $matches[$matchedKey] = $matchedKey;
+            if ($recursive) {
+                foreach (jg_sku_shopee_tag_keys_in_node($value, $tagKeys, true) as $matchedKey) {
+                    $matches[$matchedKey] = $matchedKey;
+                }
             }
             continue;
         }
@@ -244,7 +246,7 @@ function jg_sku_shopee_observations_by_tag_for_order(array $orderRow, array $tag
         if (!is_array($contextNode)) {
             continue;
         }
-        $matchedTagKeys = jg_sku_shopee_tag_keys_in_node($contextNode, $tagKeys);
+        $matchedTagKeys = jg_sku_shopee_tag_keys_in_node($contextNode, $tagKeys, false);
         if ($matchedTagKeys === []) {
             continue;
         }
@@ -272,7 +274,7 @@ function jg_sku_shopee_observations_by_tag_for_order(array $orderRow, array $tag
     if (isset($root['gross_revenue'], $root['quantity']) && (float) $root['quantity'] > 0) {
         $amount = jg_sku_shopee_money((float) $root['gross_revenue'] / (float) $root['quantity']);
         if ($amount !== null) {
-            foreach (jg_sku_shopee_tag_keys_in_node($root, $tagKeys) as $tagKey) {
+            foreach (jg_sku_shopee_tag_keys_in_node($root, $tagKeys, false) as $tagKey) {
                 if (!empty($observations[$tagKey])) {
                     continue;
                 }
