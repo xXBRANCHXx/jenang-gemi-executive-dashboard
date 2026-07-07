@@ -1308,6 +1308,11 @@ try {
     if ($action === 'sync_sale_prices_to_site') {
         jg_sku_require_branch_json();
 
+        $confirmed = $request['confirmed'] ?? false;
+        if (!($confirmed === true || $confirmed === 1 || $confirmed === '1' || $confirmed === 'true')) {
+            jg_sku_fail('Confirm reviewed SKU sale prices before syncing them to the public site.');
+        }
+
         $sync = jg_sku_sync_sale_prices_to_site($pdo);
         echo json_encode([
             ...$sync,

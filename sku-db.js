@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
       loading: false,
       applying: false,
       syncing: false,
-      siteSyncReady: false,
+      reviewReady: false,
       suggestions: [],
       meta: null
     }
@@ -997,7 +997,7 @@ document.addEventListener('DOMContentLoaded', () => {
       shopeePriceApplyButton.textContent = state.shopeePrice.applying ? 'Saving...' : 'Save selected to SKU DB';
     }
     if (shopeePriceSiteSyncButton) {
-      shopeePriceSiteSyncButton.disabled = busy || !state.shopeePrice.siteSyncReady;
+      shopeePriceSiteSyncButton.disabled = busy || !state.shopeePrice.reviewReady;
       shopeePriceSiteSyncButton.textContent = state.shopeePrice.syncing ? 'Syncing...' : 'Sync SKU prices to site';
     }
 
@@ -1128,7 +1128,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (role !== 'branch') return;
     setError(shopeePriceError, '');
     state.shopeePrice.loading = true;
-    state.shopeePrice.siteSyncReady = false;
+    state.shopeePrice.reviewReady = false;
     renderShopeePriceSync();
     try {
       const payload = await requestJson({
@@ -1137,6 +1137,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       state.shopeePrice.suggestions = Array.isArray(payload.suggestions) ? payload.suggestions : [];
       state.shopeePrice.meta = payload.meta || null;
+      state.shopeePrice.reviewReady = state.shopeePrice.suggestions.length > 0;
       showCopyMessage(`Shopee scan found ${state.shopeePrice.suggestions.length} TAG matches.`, false, 'center');
     } catch (error) {
       setError(shopeePriceError, error instanceof Error ? error.message : 'Unable to scan Shopee prices.');
@@ -1184,7 +1185,7 @@ document.addEventListener('DOMContentLoaded', () => {
           ? { ...row, current_sale_price: appliedPrice, suggested_sale_price: appliedPrice, changed: false }
           : row;
       });
-      state.shopeePrice.siteSyncReady = applied.length > 0;
+      state.shopeePrice.reviewReady = shopeePriceRows().length > 0;
       renderAll();
       showCopyMessage(`Saved ${applied.length} Shopee prices to SKU DB.`, false, 'center');
     } catch (error) {
@@ -1197,16 +1198,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const syncSalePricesToSite = async () => {
     if (role !== 'branch') return;
+    if (!window.confirm('Sync confirmed SKU DB sale prices to the public website stores now?')) {
+      return;
+    }
     setError(shopeePriceError, '');
     state.shopeePrice.syncing = true;
     renderShopeePriceSync();
     try {
       const payload = await requestJson({
         method: 'POST',
-        body: { action: 'sync_sale_prices_to_site' }
+        body: { action: 'sync_sale_prices_to_site', confirmed: true }
       });
       state.database = payload.database || state.database;
-      state.shopeePrice.siteSyncReady = false;
+      state.shopeePrice.reviewReady = false;
       renderAll();
       showCopyMessage(`Synced ${payload.updated || 0} website prices.`, false, 'center');
     } catch (error) {
