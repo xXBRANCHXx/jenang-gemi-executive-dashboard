@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/auth.php';
 require_once dirname(__DIR__, 2) . '/sku-db-bootstrap.php';
+require_once dirname(__DIR__, 2) . '/astra-stock-bootstrap.php';
 
 header('Content-Type: application/json; charset=utf-8');
 $origin = (string) ($_SERVER['HTTP_ORIGIN'] ?? '');
@@ -428,6 +429,8 @@ function zero_store_option_id(string $productSlug, string $flavorName): string
 
 function zero_store_sku_index(PDO $pdo): array
 {
+    jg_astra_stock_sync($pdo);
+
     $stmt = $pdo->query(
         'SELECT
             s.sku,

@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/analytics-bootstrap.php';
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/sku-db-bootstrap.php';
+require_once __DIR__ . '/astra-stock-bootstrap.php';
 
 const JG_WEBSITE_PLATFORMS = [
     'zero_website' => 'ZERO Website',
@@ -276,6 +277,8 @@ function jg_website_catalog_table_prefix(string $platform): string
 
 function jg_website_catalog_item(PDO $skuPdo, string $platform, array $requested): array
 {
+    jg_astra_stock_sync($skuPdo);
+
     $prefix = jg_website_catalog_table_prefix($platform);
     $itemKey = trim((string) ($requested['item_key'] ?? $requested['key'] ?? ''));
     $sku = strtoupper(trim((string) ($requested['sku'] ?? '')));

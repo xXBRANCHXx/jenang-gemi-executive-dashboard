@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/auth.php';
 require_once dirname(__DIR__, 2) . '/sku-db-bootstrap.php';
+require_once dirname(__DIR__, 2) . '/astra-stock-bootstrap.php';
 
 header('Content-Type: application/json; charset=utf-8');
 $origin = trim((string) ($_SERVER['HTTP_ORIGIN'] ?? ''));
@@ -186,6 +187,7 @@ function jg_store_load(PDO $pdo): array
 {
     jg_store_ensure_schema($pdo);
     jg_store_seed($pdo);
+    jg_astra_stock_sync($pdo);
     $rows = $pdo->query(
         'SELECT i.item_key, i.product_slug, i.product_name, i.option_id, i.option_name,
                 i.size_id, i.size_label, i.sku, i.site_price, i.is_active, i.updated_at,

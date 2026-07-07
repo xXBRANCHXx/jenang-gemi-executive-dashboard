@@ -5,6 +5,7 @@ require_once dirname(__DIR__, 2) . '/config.php';
 require_once dirname(__DIR__, 2) . '/auth.php';
 require_once dirname(__DIR__, 2) . '/analytics-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/sku-db-bootstrap.php';
+require_once dirname(__DIR__, 2) . '/astra-stock-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/website-commerce-bootstrap.php';
 
 if (!defined('JG_ORDERS_API_NO_DISPATCH')) {
@@ -1583,7 +1584,7 @@ function jg_orders_ensure_opening_lots(PDO $pdo): void
 {
     $now = gmdate('Y-m-d H:i:s');
     $stmt = $pdo->query(
-        'SELECT sku, current_stock, cogs, created_at
+        'SELECT sku, brand_id, unit_id, product_id, flavor_id, volume, astra, current_stock, cogs, created_at
          FROM sku_skus
          WHERE current_stock > 0
            AND sku NOT IN (SELECT sku FROM sku_stock_lots)'
@@ -1591,12 +1592,18 @@ function jg_orders_ensure_opening_lots(PDO $pdo): void
     $insert = $pdo->prepare(
         'INSERT INTO sku_stock_lots
             (sku, po_number, received_qty_astra, remaining_qty_astra, cogs_per_astra, received_at, created_at, updated_at)
-         VALUES (:sku, "OPENING", :received_qty, :remaining_qty, :cogs, :received_at, :created_at, :updated_at)'
+        VALUES (:sku, "OPENING", :received_qty, :remaining_qty, :cogs, :received_at, :created_at, :updated_at)'
     );
-    foreach ($stmt->fetchAll() as $row) {
+    $rows = array_values(array_filter($stmt->fetchAll(), 'is_array'));
+    $stockMap = jg_astra_stock_map($rows);
+    foreach ($rows as $row) {
+        $sku = (string) ($row['sku'] ?? '');
+        if (($stockMap[$sku]['stock_sku'] ?? $sku) !== $sku) {
+            continue;
+        }
         $qty = number_format((float) ($row['current_stock'] ?? 0), 2, '.', '');
         $insert->execute([
-            ':sku' => (string) $row['sku'],
+            ':sku' => $sku,
             ':received_qty' => $qty,
             ':remaining_qty' => $qty,
             ':cogs' => number_format((float) ($row['cogs'] ?? 0), 2, '.', ''),
@@ -1611,7 +1618,7 @@ function jg_orders_sku_lookup(PDO $pdo): array
 {
     $productNameMap = jg_orders_product_name_map();
     $stmt = $pdo->query(
-        'SELECT s.sku, s.tag, s.volume, s.astra, s.cogs,
+        'SELECT s.sku, s.tag, s.brand_id, s.unit_id, s.product_id, s.flavor_id, s.volume, s.astra, s.current_stock, s.cogs,
                 b.name AS brand_name, u.name AS unit_name, p.name AS product_name, f.name AS flavor_name
          FROM sku_skus s
          INNER JOIN sku_brands b ON b.id = s.brand_id
@@ -1620,8 +1627,16 @@ function jg_orders_sku_lookup(PDO $pdo): array
          INNER JOIN sku_flavors f ON f.id = s.flavor_id'
     );
     $lookup = [];
-    foreach ($stmt->fetchAll() as $row) {
+    $skuRows = array_values(array_filter($stmt->fetchAll(), 'is_array'));
+    $stockMap = jg_astra_stock_map($skuRows);
+    foreach ($skuRows as $row) {
         $sku = (string) $row['sku'];
+        $stockTarget = $stockMap[$sku] ?? [
+            'stock_sku' => $sku,
+            'stock_ratio' => 1.0,
+            'stock_row' => $row,
+        ];
+        $stockRow = is_array($stockTarget['stock_row'] ?? null) ? $stockTarget['stock_row'] : $row;
         $baseProductName = (string) ($row['product_name'] ?? $sku);
         $displayFallback = jg_orders_compose_sku_product_name(
             (float) ($row['volume'] ?? 0),
@@ -1634,7 +1649,9 @@ function jg_orders_sku_lookup(PDO $pdo): array
             'tag' => (string) $row['tag'],
             'volume' => (float) ($row['volume'] ?? 0),
             'astra' => (float) ($row['astra'] ?? $row['volume'] ?? 0),
-            'cogs' => (float) ($row['cogs'] ?? 0),
+            'cogs' => (float) ($stockRow['cogs'] ?? $row['cogs'] ?? 0),
+            'stock_sku' => (string) ($stockTarget['stock_sku'] ?? $sku),
+            'stock_ratio' => (float) ($stockTarget['stock_ratio'] ?? 1.0),
             'product_name' => jg_orders_sku_product_display_name($sku, $displayFallback, $productNameMap),
             'brand_name' => (string) ($row['brand_name'] ?? ''),
             'unit_name' => (string) ($row['unit_name'] ?? ''),
@@ -1922,6 +1939,7 @@ function jg_orders_allocate_fifo(PDO $pdo, array $remoteRow, array $sku, float $
 {
     $orderItemKey = jg_orders_order_item_key($remoteRow);
     $skuCode = (string) $sku['sku'];
+    $stockSkuCode = (string) ($sku['stock_sku'] ?? $skuCode);
     $now = gmdate('Y-m-d H:i:s');
     $consumedAt = (string) ($remoteRow['timestamp'] ?? $now);
 
@@ -1938,7 +1956,7 @@ function jg_orders_allocate_fifo(PDO $pdo, array $remoteRow, array $sku, float $
              ORDER BY received_at ASC, id ASC
              FOR UPDATE'
         );
-        $lotStmt->execute([':sku' => $skuCode]);
+        $lotStmt->execute([':sku' => $stockSkuCode]);
         $insert = $pdo->prepare(
             'INSERT INTO marketplace_order_inventory_allocations
                 (order_item_key, order_id, platform, account_key, sku, stock_lot_id, po_number, qty_astra_consumed, cogs_per_astra, total_cogs, consumed_at, created_at)
@@ -2010,7 +2028,7 @@ function jg_orders_allocate_fifo(PDO $pdo, array $remoteRow, array $sku, float $
             ];
         }
 
-        jg_orders_refresh_stock($pdo, $skuCode);
+        jg_orders_refresh_stock($pdo, $stockSkuCode);
         $pdo->commit();
         return $allocations;
     } catch (Throwable $error) {
@@ -2100,4 +2118,5 @@ function jg_orders_refresh_stock(PDO $pdo, string $sku): void
         ':updated_at' => gmdate('Y-m-d H:i:s'),
         ':sku' => $sku,
     ]);
+    jg_astra_stock_sync($pdo);
 }

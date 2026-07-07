@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/sku-db-bootstrap.php';
+require_once dirname(__DIR__, 2) . '/astra-stock-bootstrap.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -284,6 +285,64 @@ function jg_sku_inventory_ensure_lot_schema(PDO $pdo): void
             KEY idx_alloc_sku_po (sku, po_number)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
     );
+}
+
+function jg_sku_inventory_adjust_lots_to_total(PDO $pdo, string $sku, int $targetStock, float $cogs): void
+{
+    jg_sku_inventory_ensure_lot_schema($pdo);
+    $sumStmt = $pdo->prepare('SELECT COALESCE(SUM(remaining_qty_astra), 0) FROM sku_stock_lots WHERE sku = :sku');
+    $sumStmt->execute([':sku' => $sku]);
+    $currentLots = (float) $sumStmt->fetchColumn();
+    $delta = round((float) $targetStock - $currentLots, 2);
+    if (abs($delta) < 0.01) {
+        return;
+    }
+
+    $now = jg_sku_now();
+    if ($delta > 0) {
+        $qty = number_format($delta, 2, '.', '');
+        $insert = $pdo->prepare(
+            'INSERT INTO sku_stock_lots
+                (sku, po_number, received_qty_astra, remaining_qty_astra, cogs_per_astra, received_at, created_at, updated_at)
+             VALUES
+                (:sku, "SET-TOTAL", :received_qty, :remaining_qty, :cogs, :received_at, :created_at, :updated_at)'
+        );
+        $insert->execute([
+            ':sku' => $sku,
+            ':received_qty' => $qty,
+            ':remaining_qty' => $qty,
+            ':cogs' => number_format($cogs, 2, '.', ''),
+            ':received_at' => $now,
+            ':created_at' => $now,
+            ':updated_at' => $now,
+        ]);
+        return;
+    }
+
+    $remainingReduction = abs($delta);
+    $lotStmt = $pdo->prepare(
+        'SELECT id, remaining_qty_astra
+         FROM sku_stock_lots
+         WHERE sku = :sku AND remaining_qty_astra > 0
+         ORDER BY received_at DESC, id DESC'
+    );
+    $lotStmt->execute([':sku' => $sku]);
+    $update = $pdo->prepare('UPDATE sku_stock_lots SET remaining_qty_astra = remaining_qty_astra - :qty, updated_at = :updated_at WHERE id = :id');
+    foreach ($lotStmt->fetchAll() as $lot) {
+        if ($remainingReduction <= 0) {
+            break;
+        }
+        $take = min($remainingReduction, (float) ($lot['remaining_qty_astra'] ?? 0));
+        if ($take <= 0) {
+            continue;
+        }
+        $update->execute([
+            ':qty' => number_format($take, 2, '.', ''),
+            ':updated_at' => $now,
+            ':id' => (int) $lot['id'],
+        ]);
+        $remainingReduction = round($remainingReduction - $take, 2);
+    }
 }
 
 function jg_sku_inventory_reprice_po(PDO $pdo, string $sku, string $poNumber, string $newPrice): void
@@ -569,6 +628,8 @@ function jg_sku_fetch_requests(PDO $pdo, string $forRole, string $username): arr
 
 function jg_sku_fetch_database(PDO $pdo): array
 {
+    jg_astra_stock_sync($pdo);
+
     $version = jg_sku_meta_version($pdo);
     $metaUpdated = '';
     $metaStmt = $pdo->query('SELECT updated_at FROM sku_meta WHERE meta_key = "version" LIMIT 1');
@@ -662,15 +723,25 @@ function jg_sku_fetch_database(PDO $pdo): array
         INNER JOIN sku_products p ON p.id = s.product_id
         ORDER BY s.created_at DESC, s.sku DESC'
     );
-    foreach ($skuStmt->fetchAll() as $row) {
+    $skuRows = $skuStmt->fetchAll();
+    $stockMap = jg_astra_stock_map(array_values(array_filter($skuRows, 'is_array')));
+    foreach ($skuRows as $row) {
         $baseProductName = (string) ($row['product_name'] ?? '');
+        $sku = (string) ($row['sku'] ?? '');
+        $stockTarget = $stockMap[$sku] ?? [
+            'stock_sku' => $sku,
+            'stock_ratio' => 1.0,
+            'stock_row' => $row,
+            'has_base_stock_sku' => false,
+        ];
+        $stockRow = is_array($stockTarget['stock_row'] ?? null) ? $stockTarget['stock_row'] : $row;
         $historyStmt = $pdo->prepare(
             'SELECT old_price, new_price, takes_place, recorded_at
              FROM sku_cogs_history
              WHERE sku = :sku
              ORDER BY recorded_at DESC, id DESC'
         );
-        $historyStmt->execute([':sku' => (string) $row['sku']]);
+        $historyStmt->execute([':sku' => $sku]);
         $history = [];
         foreach ($historyStmt->fetchAll() as $historyRow) {
             $history[] = [
@@ -682,7 +753,7 @@ function jg_sku_fetch_database(PDO $pdo): array
         }
 
         $skus[] = [
-            'sku' => (string) $row['sku'],
+            'sku' => $sku,
             'tag' => (string) $row['tag'],
             'brand_id' => (string) $row['brand_id'],
             'brand_name' => (string) $row['brand_name'],
@@ -694,9 +765,13 @@ function jg_sku_fetch_database(PDO $pdo): array
             'flavor_name' => (string) $row['flavor_name'],
             'product_id' => (string) $row['product_id'],
             'base_product_name' => $baseProductName,
-            'product_name' => jg_sku_product_display_name((string) ($row['sku'] ?? ''), $baseProductName),
+            'product_name' => jg_sku_product_display_name($sku, $baseProductName),
             'starting_stock' => (int) ($row['starting_stock'] ?? 0),
             'current_stock' => (int) ($row['current_stock'] ?? 0),
+            'base_stock_sku' => (string) ($stockTarget['stock_sku'] ?? $sku),
+            'base_current_stock' => (int) ($stockRow['current_stock'] ?? $row['current_stock'] ?? 0),
+            'stock_ratio' => number_format((float) ($stockTarget['stock_ratio'] ?? 1.0), 4, '.', ''),
+            'is_base_stock_sku' => (string) ($stockTarget['stock_sku'] ?? $sku) === $sku,
             'stock_trigger' => (int) ($row['stock_trigger'] ?? 0),
             'inventory_mode' => (string) ($row['inventory_mode'] ?? 'auto'),
             'skip_scan' => (int) ($row['skip_scan'] ?? 0) === 1,
@@ -1249,12 +1324,13 @@ try {
             jg_sku_fail('Inventory action is invalid.');
         }
 
-        $stmt = $pdo->prepare('SELECT sku, cogs FROM sku_skus WHERE sku = :sku LIMIT 1');
-        $stmt->execute([':sku' => $sku]);
-        $skuRow = $stmt->fetch();
-        if (!is_array($skuRow)) {
+        $stockTarget = jg_astra_stock_resolve($pdo, $sku);
+        if (!is_array($stockTarget)) {
             jg_sku_fail('SKU not found.', 404);
         }
+        $stockSku = (string) ($stockTarget['stock_sku'] ?? $sku);
+        $stockRatio = (float) ($stockTarget['stock_ratio'] ?? 1.0);
+        $stockRow = is_array($stockTarget['stock_row'] ?? null) ? $stockTarget['stock_row'] : ($stockTarget['row'] ?? []);
 
         $pdo->beginTransaction();
         if ($inventoryAction === 'add_stock') {
@@ -1262,14 +1338,15 @@ try {
             if ($quantityToAdd < 1) {
                 jg_sku_fail('Quantity to add must be at least 1.');
             }
+            $baseQuantityToAdd = jg_astra_stock_to_base_units($quantityToAdd, $stockRatio);
 
             $poNumber = jg_sku_po_number($request['po_number'] ?? null, true);
             jg_sku_inventory_ensure_lot_schema($pdo);
             $updateStmt = $pdo->prepare('UPDATE sku_skus SET current_stock = current_stock + :quantity_to_add, updated_at = :updated_at WHERE sku = :sku');
             $updateStmt->execute([
-                ':quantity_to_add' => $quantityToAdd,
+                ':quantity_to_add' => $baseQuantityToAdd,
                 ':updated_at' => jg_sku_now(),
-                ':sku' => $sku,
+                ':sku' => $stockSku,
             ]);
 
             $historyStmt = $pdo->prepare(
@@ -1277,9 +1354,9 @@ try {
                  VALUES (:sku, NULL, :new_price, :takes_place, :recorded_at)'
             );
             $historyStmt->execute([
-                ':sku' => $sku,
-                ':new_price' => number_format((float) ($skuRow['cogs'] ?? 0), 2, '.', ''),
-                ':takes_place' => sprintf('Inventory add | PO %s | Qty %d', $poNumber, $quantityToAdd),
+                ':sku' => $stockSku,
+                ':new_price' => number_format((float) ($stockRow['cogs'] ?? 0), 2, '.', ''),
+                ':takes_place' => sprintf('Inventory add | PO %s | Qty %d%s', $poNumber, $baseQuantityToAdd, $stockSku !== $sku ? ' | from ' . $sku . ' x' . number_format($stockRatio, 2, '.', '') : ''),
                 ':recorded_at' => jg_sku_now(),
             ]);
             $lotStmt = $pdo->prepare(
@@ -1288,27 +1365,30 @@ try {
                  VALUES
                     (:sku, :po_number, :received_qty, :remaining_qty, :cogs, :received_at, :created_at, :updated_at)'
             );
-            $lotQty = number_format((float) $quantityToAdd, 2, '.', '');
+            $lotQty = number_format((float) $baseQuantityToAdd, 2, '.', '');
             $lotStmt->execute([
-                ':sku' => $sku,
+                ':sku' => $stockSku,
                 ':po_number' => $poNumber,
                 ':received_qty' => $lotQty,
                 ':remaining_qty' => $lotQty,
-                ':cogs' => number_format((float) ($skuRow['cogs'] ?? 0), 2, '.', ''),
+                ':cogs' => number_format((float) ($stockRow['cogs'] ?? 0), 2, '.', ''),
                 ':received_at' => jg_sku_now(),
                 ':created_at' => jg_sku_now(),
                 ':updated_at' => jg_sku_now(),
             ]);
         } else {
             $newStock = jg_sku_integer($request['new_stock'] ?? null, 'New stock');
+            $baseNewStock = jg_astra_stock_to_base_units($newStock, $stockRatio);
+            jg_sku_inventory_adjust_lots_to_total($pdo, $stockSku, $baseNewStock, (float) ($stockRow['cogs'] ?? 0));
             $updateStmt = $pdo->prepare('UPDATE sku_skus SET current_stock = :current_stock, updated_at = :updated_at WHERE sku = :sku');
             $updateStmt->execute([
-                ':current_stock' => $newStock,
+                ':current_stock' => $baseNewStock,
                 ':updated_at' => jg_sku_now(),
-                ':sku' => $sku,
+                ':sku' => $stockSku,
             ]);
         }
 
+        jg_astra_stock_sync($pdo);
         jg_sku_touch_version($pdo);
         $pdo->commit();
         jg_sku_response($pdo);

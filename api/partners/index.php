@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/auth.php';
 require_once dirname(__DIR__, 2) . '/sku-db-bootstrap.php';
+require_once dirname(__DIR__, 2) . '/astra-stock-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/partner-db-bootstrap.php';
 
 jg_admin_require_auth_json();
@@ -430,6 +431,8 @@ function jg_partner_decimal_string(mixed $value): string
 
 function jg_partner_sku_catalog(PDO $pdo): array
 {
+    jg_astra_stock_sync($pdo);
+
     $productNameMap = jg_partner_product_name_map();
     $astraSelect = jg_partner_astra_select($pdo);
     $stmt = $pdo->query(

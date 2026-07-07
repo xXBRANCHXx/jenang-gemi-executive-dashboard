@@ -603,8 +603,16 @@ $pageBuildVersion = 'sku1.00.00';
                     <input type="text" name="sku_display" readonly>
                 </label>
                 <label>
-                    <span>Current inventory stock</span>
+                    <span>Base stock SKU</span>
+                    <input type="text" name="base_stock_sku_display" readonly>
+                </label>
+                <label>
+                    <span>Current sellable stock</span>
                     <input type="number" name="current_stock_display" min="0" step="1" readonly>
+                </label>
+                <label>
+                    <span>Base stock units</span>
+                    <input type="number" name="base_stock_display" min="0" step="1" readonly>
                 </label>
                 <label>
                     <span>Change type</span>
@@ -614,11 +622,11 @@ $pageBuildVersion = 'sku1.00.00';
                     </select>
                 </label>
                 <label class="admin-sku-full-span">
-                    <span>New inventory stock</span>
+                    <span>New sellable stock</span>
                     <input type="number" name="new_stock" min="0" step="1" required>
                 </label>
                 <label class="admin-sku-full-span" data-inventory-add-wrap hidden>
-                    <span>Quantity to add</span>
+                    <span>Sellable quantity to add</span>
                     <input type="number" name="quantity_to_add" min="1" step="1">
                 </label>
                 <label class="admin-sku-full-span" data-inventory-po-wrap hidden>

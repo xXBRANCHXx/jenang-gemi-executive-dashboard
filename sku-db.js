@@ -1154,6 +1154,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     inventoryForm.elements.sku.value = row.sku || '';
     inventoryForm.elements.sku_display.value = row.sku || '';
+    if (inventoryForm.elements.base_stock_sku_display) {
+      inventoryForm.elements.base_stock_sku_display.value = String(row.base_stock_sku || row.sku || '');
+    }
+    if (inventoryForm.elements.base_stock_display) {
+      inventoryForm.elements.base_stock_display.value = String(row.base_current_stock ?? row.current_stock ?? row.starting_stock ?? 0);
+    }
     inventoryForm.elements.current_stock_display.value = String(row.current_stock ?? row.starting_stock ?? 0);
     if (inventoryAction instanceof HTMLSelectElement) inventoryAction.value = 'set_total';
     inventoryForm.elements.new_stock.value = String(row.current_stock ?? row.starting_stock ?? 0);

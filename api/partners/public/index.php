@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__, 3) . '/sku-db-bootstrap.php';
+require_once dirname(__DIR__, 3) . '/astra-stock-bootstrap.php';
 require_once dirname(__DIR__, 3) . '/partner-db-bootstrap.php';
 
 header('Content-Type: application/json; charset=utf-8');
@@ -167,6 +168,8 @@ function jg_public_partner_read_database(): array
 
 function jg_public_partner_sku_catalog(PDO $pdo): array
 {
+    jg_astra_stock_sync($pdo);
+
     $productNameMap = jg_public_partner_product_name_map();
     $astraSelect = jg_public_partner_astra_select($pdo);
     $stmt = $pdo->query(
