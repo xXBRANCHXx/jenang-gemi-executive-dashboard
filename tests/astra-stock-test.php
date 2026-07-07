@@ -45,4 +45,16 @@ astra_stock_expect(30, (int) $stocks['JGPC0150CHBU'], 'Base 15-sachet stock must
 astra_stock_expect(15, (int) $stocks['JGPC0300CHBU'], '30-sachet stock must be derived from base stock divided by 2.');
 astra_stock_expect(10, (int) $stocks['JGPC0450CHBU'], '45-sachet stock must be derived from base stock divided by 3.');
 
+$pdo->exec("DELETE FROM sku_skus");
+$pdo->exec("INSERT INTO sku_skus VALUES
+    ('JGPC0010CHBU', 'brand-jg', 'unit-pcs', 'prod-bubur', 'flavor-chocolate', 1, 1, 1000, 1000, '2026-07-07 00:00:00'),
+    ('JGPC0030CHBU', 'brand-jg', 'unit-pcs', 'prod-bubur', 'flavor-chocolate', 3, 1, 0, 2000, '2026-07-07 00:00:00')");
+$threeSachet = jg_astra_stock_resolve($pdo, 'JGPC0030CHBU');
+astra_stock_expect('JGPC0010CHBU', $threeSachet['stock_sku'] ?? '', '3-sachet SKU must resolve to the 1-sachet base stock SKU.');
+astra_stock_expect(3.0, $threeSachet['stock_ratio'] ?? 0.0, '3/1 stock ratio must be 3.');
+jg_astra_stock_sync($pdo);
+$oneSachetStocks = $pdo->query('SELECT sku, current_stock FROM sku_skus ORDER BY sku')->fetchAll(PDO::FETCH_KEY_PAIR);
+astra_stock_expect(1000, (int) $oneSachetStocks['JGPC0010CHBU'], 'Base 1-sachet stock must remain 1000.');
+astra_stock_expect(333, (int) $oneSachetStocks['JGPC0030CHBU'], '1000 one-sachet stock units must derive to 333 three-sachet units.');
+
 echo "astra-stock-test: ok\n";

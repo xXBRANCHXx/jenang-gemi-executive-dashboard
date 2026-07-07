@@ -1329,7 +1329,6 @@ try {
             jg_sku_fail('SKU not found.', 404);
         }
         $stockSku = (string) ($stockTarget['stock_sku'] ?? $sku);
-        $stockRatio = (float) ($stockTarget['stock_ratio'] ?? 1.0);
         $stockRow = is_array($stockTarget['stock_row'] ?? null) ? $stockTarget['stock_row'] : ($stockTarget['row'] ?? []);
 
         $pdo->beginTransaction();
@@ -1338,7 +1337,7 @@ try {
             if ($quantityToAdd < 1) {
                 jg_sku_fail('Quantity to add must be at least 1.');
             }
-            $baseQuantityToAdd = jg_astra_stock_to_base_units($quantityToAdd, $stockRatio);
+            $baseQuantityToAdd = $quantityToAdd;
 
             $poNumber = jg_sku_po_number($request['po_number'] ?? null, true);
             jg_sku_inventory_ensure_lot_schema($pdo);
@@ -1356,7 +1355,7 @@ try {
             $historyStmt->execute([
                 ':sku' => $stockSku,
                 ':new_price' => number_format((float) ($stockRow['cogs'] ?? 0), 2, '.', ''),
-                ':takes_place' => sprintf('Inventory add | PO %s | Qty %d%s', $poNumber, $baseQuantityToAdd, $stockSku !== $sku ? ' | from ' . $sku . ' x' . number_format($stockRatio, 2, '.', '') : ''),
+                ':takes_place' => sprintf('Inventory add | PO %s | Base Qty %d%s', $poNumber, $baseQuantityToAdd, $stockSku !== $sku ? ' | from ' . $sku : ''),
                 ':recorded_at' => jg_sku_now(),
             ]);
             $lotStmt = $pdo->prepare(
@@ -1378,7 +1377,7 @@ try {
             ]);
         } else {
             $newStock = jg_sku_integer($request['new_stock'] ?? null, 'New stock');
-            $baseNewStock = jg_astra_stock_to_base_units($newStock, $stockRatio);
+            $baseNewStock = $newStock;
             jg_sku_inventory_adjust_lots_to_total($pdo, $stockSku, $baseNewStock, (float) ($stockRow['cogs'] ?? 0));
             $updateStmt = $pdo->prepare('UPDATE sku_skus SET current_stock = :current_stock, updated_at = :updated_at WHERE sku = :sku');
             $updateStmt->execute([

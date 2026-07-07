@@ -617,16 +617,16 @@ $pageBuildVersion = 'sku1.00.00';
                 <label>
                     <span>Change type</span>
                     <select class="admin-select" name="inventory_action" data-inventory-action required>
-                        <option value="set_total">Set total stock</option>
-                        <option value="add_stock">Add stock</option>
+                        <option value="set_total">Set base stock</option>
+                        <option value="add_stock">Add base stock</option>
                     </select>
                 </label>
                 <label class="admin-sku-full-span">
-                    <span>New sellable stock</span>
+                    <span>New base stock units</span>
                     <input type="number" name="new_stock" min="0" step="1" required>
                 </label>
                 <label class="admin-sku-full-span" data-inventory-add-wrap hidden>
-                    <span>Sellable quantity to add</span>
+                    <span>Base stock units to add</span>
                     <input type="number" name="quantity_to_add" min="1" step="1">
                 </label>
                 <label class="admin-sku-full-span" data-inventory-po-wrap hidden>

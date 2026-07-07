@@ -1162,7 +1162,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     inventoryForm.elements.current_stock_display.value = String(row.current_stock ?? row.starting_stock ?? 0);
     if (inventoryAction instanceof HTMLSelectElement) inventoryAction.value = 'set_total';
-    inventoryForm.elements.new_stock.value = String(row.current_stock ?? row.starting_stock ?? 0);
+    inventoryForm.elements.new_stock.value = String(row.base_current_stock ?? row.current_stock ?? row.starting_stock ?? 0);
     inventoryForm.elements.quantity_to_add.value = '';
     inventoryForm.elements.po_number.value = '';
     syncInventoryFields();
