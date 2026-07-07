@@ -29,7 +29,7 @@ function jg_sku_shopee_path_priority(string $path): int
     if (preg_match('/model_(discounted_)?price|discounted_price|current_price|sale_price|selling_price/', $path)) {
         return 100;
     }
-    if (preg_match('/model_original_price|original_price|item_price|list_price|price_before_discount/', $path)) {
+    if (preg_match('/item_price/', $path)) {
         return 85;
     }
     if (preg_match('/(^|\\.)price$/', $path)) {
