@@ -203,6 +203,8 @@ function jg_sku_shopee_observations_for_tag(array $orderRow, string $tagKey): ar
             'priority' => (int) $best['priority'],
             'order_id' => (string) ($root['order_id'] ?? ''),
             'order_create_time' => $timestamp,
+            'quantity' => (float) ($root['quantity'] ?? 0),
+            'gross_revenue' => (float) ($root['gross_revenue'] ?? 0),
         ];
     }
 
@@ -219,6 +221,8 @@ function jg_sku_shopee_observations_for_tag(array $orderRow, string $tagKey): ar
                 'priority' => 45,
                 'order_id' => (string) ($root['order_id'] ?? ''),
                 'order_create_time' => $timestamp,
+                'quantity' => (float) ($root['quantity'] ?? 0),
+                'gross_revenue' => (float) ($root['gross_revenue'] ?? 0),
             ];
         }
     }
@@ -267,6 +271,8 @@ function jg_sku_shopee_observations_by_tag_for_order(array $orderRow, array $tag
                 'priority' => (int) $best['priority'],
                 'order_id' => (string) ($root['order_id'] ?? ''),
                 'order_create_time' => $timestamp,
+                'quantity' => (float) ($root['quantity'] ?? 0),
+                'gross_revenue' => (float) ($root['gross_revenue'] ?? 0),
             ];
         }
     }
@@ -284,6 +290,8 @@ function jg_sku_shopee_observations_by_tag_for_order(array $orderRow, array $tag
                     'priority' => 45,
                     'order_id' => (string) ($root['order_id'] ?? ''),
                     'order_create_time' => $timestamp,
+                    'quantity' => (float) ($root['quantity'] ?? 0),
+                    'gross_revenue' => (float) ($root['gross_revenue'] ?? 0),
                 ];
             }
         }
@@ -376,6 +384,8 @@ function jg_sku_shopee_price_suggestions_from_rows(array $skuRows, array $orderR
             'source_path' => (string) ($best['source_path'] ?? ''),
             'latest_order_at' => (string) ($best['order_create_time'] ?? ''),
             'order_id' => (string) ($best['order_id'] ?? ''),
+            'quantity' => (float) ($best['quantity'] ?? 0),
+            'gross_revenue' => (float) ($best['gross_revenue'] ?? 0),
             'observation_count' => count($observations),
             'price_counts' => $priceCounts,
         ];

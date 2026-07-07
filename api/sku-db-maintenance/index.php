@@ -88,6 +88,9 @@ function jg_sku_maintenance_apply(PDO $skuPdo, PDO $analyticsPdo, int $days, boo
             'confidence' => (string) ($row['confidence'] ?? ''),
             'source_path' => (string) ($row['source_path'] ?? ''),
             'latest_order_at' => (string) ($row['latest_order_at'] ?? ''),
+            'order_id' => (string) ($row['order_id'] ?? ''),
+            'quantity' => (float) ($row['quantity'] ?? 0),
+            'gross_revenue' => (float) ($row['gross_revenue'] ?? 0),
             'observation_count' => (int) ($row['observation_count'] ?? 0),
         ];
     }
