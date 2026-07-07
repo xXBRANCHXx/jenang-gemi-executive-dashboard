@@ -155,6 +155,19 @@ function jg_sku_shopee_best_price(array $node, bool $recursive = true): ?array
     return $candidates[0];
 }
 
+function jg_sku_shopee_unit_price(float $price, string $sourcePath, array $root): array
+{
+    $quantity = (float) ($root['quantity'] ?? 0);
+    if ($quantity > 1 && preg_match('/(^|\\.)order_income\\.items\\.\\d+\\.(discounted_price|item_price|price)$/', $sourcePath)) {
+        return [
+            round($price / $quantity, 2),
+            $sourcePath . ' / quantity',
+        ];
+    }
+
+    return [$price, $sourcePath];
+}
+
 function jg_sku_shopee_order_timestamp(array $row): string
 {
     foreach (['order_create_time', 'timestamp_utc', 'timestamp', 'created_at', 'update_time'] as $key) {
@@ -197,9 +210,10 @@ function jg_sku_shopee_observations_for_tag(array $orderRow, string $tagKey): ar
         if ($contextPath !== '' && $sourcePath !== '') {
             $sourcePath = $contextPath . '.' . $sourcePath;
         }
+        [$unitPrice, $unitSourcePath] = jg_sku_shopee_unit_price((float) $best['price'], $sourcePath, $root);
         $observations[] = [
-            'price' => (float) $best['price'],
-            'source_path' => $sourcePath,
+            'price' => $unitPrice,
+            'source_path' => $unitSourcePath,
             'priority' => (int) $best['priority'],
             'order_id' => (string) ($root['order_id'] ?? ''),
             'order_create_time' => $timestamp,
@@ -263,11 +277,12 @@ function jg_sku_shopee_observations_by_tag_for_order(array $orderRow, array $tag
         if ($contextPath !== '' && $sourcePath !== '') {
             $sourcePath = $contextPath . '.' . $sourcePath;
         }
+        [$unitPrice, $unitSourcePath] = jg_sku_shopee_unit_price((float) $best['price'], $sourcePath, $root);
 
         foreach ($matchedTagKeys as $tagKey) {
             $observations[$tagKey][] = [
-                'price' => (float) $best['price'],
-                'source_path' => $sourcePath,
+                'price' => $unitPrice,
+                'source_path' => $unitSourcePath,
                 'priority' => (int) $best['priority'],
                 'order_id' => (string) ($root['order_id'] ?? ''),
                 'order_create_time' => $timestamp,
