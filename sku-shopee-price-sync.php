@@ -89,6 +89,33 @@ function jg_sku_shopee_tag_present(array $node, string $tagKey): bool
     return false;
 }
 
+function jg_sku_shopee_tag_keys_in_node(array $node, array $tagKeys): array
+{
+    if ($tagKeys === []) {
+        return [];
+    }
+
+    $matches = [];
+    foreach ($node as $key => $value) {
+        if (is_array($value)) {
+            foreach (jg_sku_shopee_tag_keys_in_node($value, $tagKeys) as $matchedKey) {
+                $matches[$matchedKey] = $matchedKey;
+            }
+            continue;
+        }
+
+        if (!preg_match('/sku|tag|model|item|variation|option/i', (string) $key)) {
+            continue;
+        }
+        $normalized = jg_sku_shopee_key((string) $value);
+        if ($normalized !== '' && isset($tagKeys[$normalized])) {
+            $matches[$normalized] = $normalized;
+        }
+    }
+
+    return array_values($matches);
+}
+
 function jg_sku_shopee_child_contexts(array $node): array
 {
     $contexts = [];
@@ -197,6 +224,72 @@ function jg_sku_shopee_observations_for_tag(array $orderRow, string $tagKey): ar
     return $observations;
 }
 
+function jg_sku_shopee_observations_by_tag_for_order(array $orderRow, array $tagKeys): array
+{
+    $decoded = [];
+    if (isset($orderRow['raw_json']) && is_string($orderRow['raw_json']) && trim($orderRow['raw_json']) !== '') {
+        $json = json_decode($orderRow['raw_json'], true);
+        if (is_array($json)) {
+            $decoded = $json;
+        }
+    }
+
+    $root = array_replace_recursive($decoded, $orderRow);
+    $contexts = jg_sku_shopee_child_contexts($root);
+    $timestamp = jg_sku_shopee_order_timestamp($root);
+    $observations = [];
+
+    foreach ($contexts as $context) {
+        $contextNode = $context['node'] ?? null;
+        if (!is_array($contextNode)) {
+            continue;
+        }
+        $matchedTagKeys = jg_sku_shopee_tag_keys_in_node($contextNode, $tagKeys);
+        if ($matchedTagKeys === []) {
+            continue;
+        }
+        $best = jg_sku_shopee_best_price($contextNode, false);
+        if (!is_array($best)) {
+            continue;
+        }
+        $contextPath = (string) ($context['path'] ?? '');
+        $sourcePath = (string) $best['path'];
+        if ($contextPath !== '' && $sourcePath !== '') {
+            $sourcePath = $contextPath . '.' . $sourcePath;
+        }
+
+        foreach ($matchedTagKeys as $tagKey) {
+            $observations[$tagKey][] = [
+                'price' => (float) $best['price'],
+                'source_path' => $sourcePath,
+                'priority' => (int) $best['priority'],
+                'order_id' => (string) ($root['order_id'] ?? ''),
+                'order_create_time' => $timestamp,
+            ];
+        }
+    }
+
+    if (isset($root['gross_revenue'], $root['quantity']) && (float) $root['quantity'] > 0) {
+        $amount = jg_sku_shopee_money((float) $root['gross_revenue'] / (float) $root['quantity']);
+        if ($amount !== null) {
+            foreach (jg_sku_shopee_tag_keys_in_node($root, $tagKeys) as $tagKey) {
+                if (!empty($observations[$tagKey])) {
+                    continue;
+                }
+                $observations[$tagKey][] = [
+                    'price' => $amount,
+                    'source_path' => 'gross_revenue / quantity',
+                    'priority' => 45,
+                    'order_id' => (string) ($root['order_id'] ?? ''),
+                    'order_create_time' => $timestamp,
+                ];
+            }
+        }
+    }
+
+    return $observations;
+}
+
 function jg_sku_shopee_confidence(array $observation): string
 {
     $priority = (int) ($observation['priority'] ?? 0);
@@ -224,6 +317,7 @@ function jg_sku_shopee_pick_observation(array $observations): ?array
 function jg_sku_shopee_price_suggestions_from_rows(array $skuRows, array $orderRows): array
 {
     $suggestions = [];
+    $skuRowsByTagKey = [];
     foreach ($skuRows as $skuRow) {
         if (!is_array($skuRow)) {
             continue;
@@ -233,19 +327,31 @@ function jg_sku_shopee_price_suggestions_from_rows(array $skuRows, array $orderR
         if ($tagKey === '') {
             continue;
         }
+        $skuRowsByTagKey[$tagKey] = $skuRow;
+    }
 
-        $observations = [];
-        foreach ($orderRows as $orderRow) {
-            if (!is_array($orderRow)) {
-                continue;
-            }
-            $observations = array_merge($observations, jg_sku_shopee_observations_for_tag($orderRow, $tagKey));
+    $tagKeys = array_fill_keys(array_keys($skuRowsByTagKey), true);
+    $observationsByTag = [];
+    foreach ($orderRows as $orderRow) {
+        if (!is_array($orderRow)) {
+            continue;
         }
+        foreach (jg_sku_shopee_observations_by_tag_for_order($orderRow, $tagKeys) as $tagKey => $observations) {
+            if (!isset($observationsByTag[$tagKey])) {
+                $observationsByTag[$tagKey] = [];
+            }
+            $observationsByTag[$tagKey] = array_merge($observationsByTag[$tagKey], $observations);
+        }
+    }
+
+    foreach ($skuRowsByTagKey as $tagKey => $skuRow) {
+        $observations = $observationsByTag[$tagKey] ?? [];
         $best = jg_sku_shopee_pick_observation($observations);
         if (!is_array($best)) {
             continue;
         }
 
+        $tag = (string) ($skuRow['tag'] ?? '');
         $priceCounts = [];
         foreach ($observations as $observation) {
             $priceKey = number_format((float) ($observation['price'] ?? 0), 2, '.', '');
