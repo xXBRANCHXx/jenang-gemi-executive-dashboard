@@ -151,5 +151,9 @@ try {
     if (isset($skuPdo) && $skuPdo instanceof PDO && $skuPdo->inTransaction()) {
         $skuPdo->rollBack();
     }
-    jg_sku_maintenance_response(['error' => 'Maintenance apply failed'], 500);
+    jg_sku_maintenance_response([
+        'error' => 'Maintenance apply failed',
+        'type' => get_class($error),
+        'message' => $error->getMessage(),
+    ], 500);
 }
