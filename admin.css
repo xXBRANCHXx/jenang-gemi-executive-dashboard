@@ -23006,6 +23006,7 @@ body:has(.admin-app[data-sku-db])::after {
   :root[data-admin-theme='dark'] {
     --admin-mobile-rail-width: min(82vw, 312px);
     --admin-mobile-edge-space: clamp(16px, 4.4vw, 20px);
+    --admin-mobile-left-safe-space: 36px;
     --admin-mobile-page-bg: #050506;
     --admin-mobile-surface: #0b0b0c;
     --admin-mobile-surface-raised: #111214;
@@ -23032,6 +23033,7 @@ body:has(.admin-app[data-sku-db])::after {
   :root[data-admin-theme='light'] {
     --admin-mobile-rail-width: min(82vw, 312px);
     --admin-mobile-edge-space: clamp(16px, 4.4vw, 20px);
+    --admin-mobile-left-safe-space: 36px;
     --admin-mobile-page-bg: #f5f7fb;
     --admin-mobile-surface: #ffffff;
     --admin-mobile-surface-raised: #ffffff;
@@ -23062,7 +23064,7 @@ body:has(.admin-app[data-sku-db])::after {
   .admin-app,
   .admin-app.admin-app-suite,
   .admin-app[data-sku-db] {
-    padding: 14px var(--admin-mobile-edge-space) 30px;
+    padding: 14px var(--admin-mobile-edge-space) 30px var(--admin-mobile-left-safe-space);
     background: var(--admin-mobile-page-bg) !important;
     color: var(--admin-mobile-text);
   }
@@ -23222,12 +23224,13 @@ body:has(.admin-app[data-sku-db])::after {
   :root[data-admin-theme='dark'],
   :root[data-admin-theme='light'] {
     --admin-mobile-edge-space: 16px;
+    --admin-mobile-left-safe-space: 34px;
   }
 
   .admin-app,
   .admin-app.admin-app-suite,
   .admin-app[data-sku-db] {
     padding-right: var(--admin-mobile-edge-space);
-    padding-left: var(--admin-mobile-edge-space);
+    padding-left: var(--admin-mobile-left-safe-space);
   }
 }
