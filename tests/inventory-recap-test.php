@@ -11,6 +11,14 @@ function inventory_recap_expect(mixed $expected, mixed $actual, string $message)
     }
 }
 
+function inventory_recap_expect_true(bool $actual, string $message): void
+{
+    if (!$actual) {
+        fwrite(STDERR, $message . "\n");
+        exit(1);
+    }
+}
+
 $skuPdo = new PDO('sqlite::memory:');
 $skuPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 $skuPdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
@@ -160,5 +168,50 @@ inventory_recap_expect(70, $stockSuggestion['recommended_order_qty'] ?? 0, 'Reco
 inventory_recap_expect(50, $stockSuggestion['minimum_order_qty'] ?? 0, 'Minimum order should buy 15-sachet stock units to reach 30 days.');
 inventory_recap_expect(20, $stockSuggestion['buffer_order_qty'] ?? 0, 'Buffer should be ten extra days of 15-sachet stock units.');
 inventory_recap_expect(['JGPC0300CHBU'], $stockSuggestion['selling_skus'] ?? [], 'The 15-sachet stock SKU should report the 30-sachet selling SKU as its demand source.');
+
+$skuPdo->exec("INSERT INTO sku_flavors VALUES ('flavor-seasonal', 'Seasonal')");
+$skuPdo->exec("INSERT INTO sku_skus VALUES
+    ('JG-SEASONAL', 'BUBUR_SEASONAL', 'brand-jg', 'unit-pcs', 1, 1, 'flavor-seasonal', 'prod-bubur', 10, 10, 5, 'auto', 0, 1000, 5000)");
+foreach (['2026-06', '2026-07'] as $month) {
+    for ($day = 1; $day <= 7; $day++) {
+        $insert->execute([
+            ':sku' => 'JG-SEASONAL',
+            ':item_key' => 'seasonal-line-' . $month . '-' . $day,
+            ':product_name' => 'Bubur Seasonal',
+            ':marketplace_product_name' => 'Bubur Seasonal',
+            ':base_product_name' => 'Bubur',
+            ':flavor_name' => 'Seasonal',
+            ':quantity' => 8,
+            ':order_create_time' => $month . '-' . str_pad((string) $day, 2, '0', STR_PAD_LEFT) . ' 03:00:00.000000',
+            ':timestamp_utc' => $month . '-' . str_pad((string) $day, 2, '0', STR_PAD_LEFT) . ' 03:00:00.000000',
+            ':platform' => 'shopee',
+            ':account_key' => 'test',
+            ':order_id' => 'SEASONAL-' . $month . '-' . $day,
+            ':status' => 'COMPLETED',
+            ':revenue' => 40000,
+            ':net_revenue' => 40000,
+        ]);
+    }
+}
+
+$seasonalPayload = jg_inventory_recap_payload($skuPdo, $analyticsPdo, [
+    'amount' => 150000,
+    'source' => 'test_accounting',
+    'label' => 'Accounting Cash Available',
+], [
+    'today' => '2026-07-30',
+    'lookback_days' => 60,
+    'forecast_history_days' => 60,
+    'order_days' => 30,
+    'buffer_days' => 10,
+]);
+$seasonalItems = array_values(array_filter($seasonalPayload['items'] ?? [], static fn (array $item): bool => ($item['sku'] ?? '') === 'JG-SEASONAL'));
+$seasonalItem = $seasonalItems[0] ?? [];
+$plainAverageDays = round(10 / (112 / 60), 1);
+
+inventory_recap_expect('calendar_weighted', $seasonalItem['forecast_method'] ?? '', 'Seasonal SKU should use the calendar forecast model.');
+inventory_recap_expect('2026-07-31', $seasonalItem['forecast_next_days'][0]['date'] ?? '', 'Forecast should map demand from the next calendar day.');
+inventory_recap_expect_true(isset($seasonalItem['forecast_months']['2026-08'], $seasonalItem['forecast_months']['2026-09']), 'Forecast should bucket demand across future months.');
+inventory_recap_expect_true((float) ($seasonalItem['current_days_remaining'] ?? 99) < $plainAverageDays, 'First-week demand should shorten days left versus a flat average.');
 
 echo "inventory-recap-test: ok\n";

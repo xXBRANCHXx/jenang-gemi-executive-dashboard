@@ -6729,7 +6729,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	  const inventoryRecapDaysNote = (item) => (
 	    Number.isFinite(Number(item?.current_days_remaining))
-	      ? 'at recent sales speed'
+	      ? `calendar forecast${item?.forecast_confidence && item.forecast_confidence !== 'none' ? ` / ${item.forecast_confidence}` : ''}`
 	      : 'no sales in lookback'
 	  );
 
@@ -6774,7 +6774,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    return `
 	      <div class="admin-inventory-recap-play" style="--inventory-min:${minimumPercent}%; --inventory-buffer:${bufferPercent}%;" aria-label="Green is ${formatRegionalInteger(minimum)} stock units for ${formatRegionalInteger(orderDays)} days; orange is ${formatRegionalInteger(buffer)} buffer">
 	        <div class="admin-inventory-recap-play-track" aria-hidden="true"><i></i><b></b></div>
-	        <small>Green: ${formatRegionalInteger(minimum)} stock units for ${formatRegionalInteger(orderDays)}d; orange: +${formatRegionalInteger(buffer)} buffer</small>
+	        <small>Green: ${formatRegionalInteger(minimum)} forecast stock units for ${formatRegionalInteger(orderDays)}d; orange: +${formatRegionalInteger(buffer)} buffer</small>
 	      </div>
 	    `;
 	  };
@@ -6858,7 +6858,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    }
 	    if (inventoryRecapRefs.suggested) inventoryRecapRefs.suggested.textContent = formatRegionalInteger(summary.suggested_count || 0);
 	    if (inventoryRecapRefs.window) {
-	      inventoryRecapRefs.window.textContent = `${formatRegionalInteger(meta.order_days || 30)}-day minimum + ${formatRegionalInteger(meta.buffer_days || 10)}-day buffer / ${escapeHtml(meta.start_date || '')} to ${escapeHtml(meta.end_date || '')}`;
+	      inventoryRecapRefs.window.textContent = `${formatRegionalInteger(meta.order_days || 30)}-day minimum + ${formatRegionalInteger(meta.buffer_days || 10)}-day buffer / forecast history ${escapeHtml(meta.history_start_date || meta.start_date || '')} to ${escapeHtml(meta.end_date || '')}`;
 	    }
 	    if (inventoryRecapRefs.tableMeta) {
 	      inventoryRecapRefs.tableMeta.textContent = `${formatRegionalInteger(summary.suggested_count || 0)} suggested / ${formatCurrency(summary.total_recommended_cost || 0)}`;
