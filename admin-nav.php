@@ -59,12 +59,13 @@ function render_admin_sidebar(string $activeSection = ''): void
             'aria' => 'Open SKU database',
         ],
         [
-            'key' => 'profit-loss',
-            'href' => '../profit-loss/',
-            'label' => 'P&L',
-            'icon' => 'admin-rail-icon-profit-loss',
-            'icon_text' => 'P&L',
-            'aria' => 'Open profit and loss workspace',
+            'key' => 'accounting',
+            'href' => '../dashboard/?view=accounting',
+            'label' => 'Accounting',
+            'icon' => 'admin-rail-icon-accounting',
+            'icon_text' => 'Rp',
+            'aria' => 'Open accounting and cash control workspace',
+            'view' => 'accounting',
         ],
     ];
 

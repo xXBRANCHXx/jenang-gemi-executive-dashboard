@@ -5,12 +5,14 @@ Private admin dashboard for `admin.jenanggemi.com`.
 ## Routes
 
 - `/dashboard/`
-- `/profit-loss/`
+- `/dashboard/?view=accounting`
+- `/profit-loss/` (compatibility redirect)
 - `/sku-db/`
 - `/sku-db/new/`
 - `/logout/`
 - `/api/analytics/`
-- `/api/profit-loss/`
+- `/api/accounting/`
+- `/api/profit-loss/` (legacy compatibility)
 - `/api/sku-db/`
 - `/api/partner-db-status/`
 
@@ -19,9 +21,8 @@ Private admin dashboard for `admin.jenanggemi.com`.
 - Login code is validated server-side.
 - Dashboard analytics, website settings, and live-state now run locally in this
   repo against MySQL using `JG_DB_*` env vars or `config.local.php`.
-- Profit and Loss combines API Ingest monthly SKU sales with SKU DB COGS. Manual
-  direct-cost overrides, operating entries, and allocation settings are stored
-  in the analytics MySQL database.
+- Accounting is the dashboard cash-control workspace for manual expenses, bills,
+  payments, transfers, manual income, review queue data, and profit context.
 - The repo also checks `/public_html/config.local.php` and
   `/public_html/whatsapp-config.local.php` to match common Hostinger setups.
 - `analytics_base_url` remains available in `config.local.php` only for the

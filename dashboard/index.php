@@ -18,7 +18,15 @@ $isAuthenticated = jg_admin_is_authenticated();
 $adminCssVersion = (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
-$dashboardBuildVersion = 'exec3.49.1';
+$dashboardBuildVersion = 'exec3.50.0';
+$requestedView = strtolower(trim((string) ($_GET['view'] ?? 'overview')));
+$activeSidebarSection = match ($requestedView) {
+    'campaigns', 'home', 'landing', 'landing-pages' => 'campaigns',
+    'website', 'site' => 'website',
+    'accounting', 'cash-control', 'cash_control', 'profit-loss', 'profit_loss' => 'accounting',
+    'settings' => 'settings',
+    default => 'home',
+};
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -83,11 +91,11 @@ $dashboardBuildVersion = 'exec3.49.1';
             <strong class="admin-loader-label" data-admin-loader-label>Initializing...</strong>
         </div>
     </div>
-    <div class="admin-app admin-app-suite" data-admin-dashboard data-analytics-endpoint="../api/analytics/" data-live-endpoint="../api/live/" data-settings-endpoint="../api/settings/" data-sales-endpoint="../api/sales/" data-sku-catalog-endpoint="../api/sales/?action=sku_catalog">
+    <div class="admin-app admin-app-suite" data-admin-dashboard data-analytics-endpoint="../api/analytics/" data-live-endpoint="../api/live/" data-settings-endpoint="../api/settings/" data-sales-endpoint="../api/sales/" data-accounting-endpoint="../api/accounting/" data-sku-catalog-endpoint="../api/sales/?action=sku_catalog">
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
         <div class="admin-shell">
-            <?php render_admin_sidebar('home'); ?>
+            <?php render_admin_sidebar($activeSidebarSection); ?>
 
             <div class="admin-shell-main">
                 <header class="admin-topbar">
@@ -143,6 +151,10 @@ $dashboardBuildVersion = 'exec3.49.1';
                                     <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.4 3.8 5.4 3.8 9S14.5 18.6 12 21c-2.5-2.4-3.8-5.4-3.8-9S9.5 5.4 12 3z"/></svg></span>
                                     <span><strong>Official Website Dashboard</strong><small>Site traffic and conversion analytics</small></span>
                                 </button>
+                                <button type="button" class="admin-menu-item" data-view-switch="accounting">
+                                    <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 3h8l2 3v15H6V6z"/><path d="M9 8h6M9 12h6M9 16h3"/><path d="M17 3v4h4"/></svg></span>
+                                    <span><strong>Accounting</strong><small>Cash, bills, expenses, and manual finance control</small></span>
+                                </button>
                                 <a class="admin-menu-item admin-link-btn" href="../back-dash/">
                                     <span class="admin-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5H5v14h14v-3"/><path d="M11 13 20 4M14 4h6v6"/></svg></span>
                                     <span><strong>API Workspace</strong><small>Ingest and webhook controls</small></span>
@@ -167,6 +179,31 @@ $dashboardBuildVersion = 'exec3.49.1';
                         <span data-overview-last-updated>Waiting for first marketplace sync</span>
                         <span data-overview-endpoint-label>../api/sales/</span>
                     </div>
+                </section>
+
+                <section class="admin-sales-recap" data-sales-recap aria-hidden="true">
+                    <article class="admin-sales-recap-sheet">
+                        <div class="admin-sales-recap-head">
+                            <div>
+                                <span class="admin-panel-kicker">Sales Recap</span>
+                                <h3 data-sales-recap-title>Yearly recap</h3>
+                                <span class="admin-panel-meta" data-sales-recap-meta>Waiting for sales data</span>
+                            </div>
+                            <button type="button" class="admin-sales-recap-close" data-sales-recap-close aria-label="Close Sales Recap">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+                            </button>
+                        </div>
+                        <div class="admin-sales-recap-table-wrap">
+                            <table class="admin-sales-recap-table">
+                                <thead data-sales-recap-head>
+                                    <tr><th>Metric</th><th>Total</th></tr>
+                                </thead>
+                                <tbody data-sales-recap-body>
+                                    <tr><td colspan="2" class="admin-empty">Loading Sales Recap.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </article>
                 </section>
 
                 <section class="admin-main-grid admin-main-grid-compact">
@@ -644,18 +681,18 @@ $dashboardBuildVersion = 'exec3.49.1';
                     <article class="admin-panel admin-panel-wide">
                         <div class="admin-panel-head">
                             <div>
-                                <span class="admin-panel-kicker">Website Pages</span>
+                                <span class="admin-panel-kicker">Website</span>
                                 <h3>Which website do you want to inspect?</h3>
                             </div>
-                            <span class="admin-panel-meta">The old page is Jenang Gemi. The new page is ZERO.</span>
+                            <span class="admin-panel-meta">Dedicated analytics for each public domain.</span>
                         </div>
                         <div class="admin-launchpad-grid">
                             <button type="button" class="admin-launchpad-link" data-website-open="jenang_gemi">
-                                <span>Jenang Gemi</span>
+                                <span>jenanggemi.com</span>
                                 <small>Official Jenang Gemi website analytics</small>
                             </button>
                             <button type="button" class="admin-launchpad-link" data-website-open="zero">
-                                <span>ZERO</span>
+                                <span>zerofoods.id</span>
                                 <small>zerofoods.id website analytics</small>
                             </button>
                         </div>
@@ -663,10 +700,9 @@ $dashboardBuildVersion = 'exec3.49.1';
                 </section>
 
                 <div data-website-detail hidden>
-                <section class="admin-control-strip">
-                    <div class="admin-control-group">
-                        <span class="admin-control-label">Timeframe</span>
-                        <div class="admin-toggle-row" data-website-timeframe-controls>
+                <section class="admin-website-analytics">
+                    <div class="admin-website-toolbar">
+                        <div class="admin-panel-inline-toggles" data-website-timeframe-controls aria-label="Website timeframe">
                             <button type="button" class="admin-toggle-pill" data-website-timeframe="1h">1H</button>
                             <button type="button" class="admin-toggle-pill" data-website-timeframe="24h">24H</button>
                             <button type="button" class="admin-toggle-pill is-active" data-website-timeframe="7d">7D</button>
@@ -674,36 +710,34 @@ $dashboardBuildVersion = 'exec3.49.1';
                             <button type="button" class="admin-toggle-pill" data-website-timeframe="90d">90D</button>
                             <button type="button" class="admin-toggle-pill" data-website-timeframe="all">ALL</button>
                         </div>
-                    </div>
-                    <div class="admin-control-group">
-                        <span class="admin-control-label">Trend Metric</span>
-                        <div class="admin-toggle-row" data-website-metric-controls>
+                        <div class="admin-panel-inline-toggles" data-website-metric-controls aria-label="Website trend metric">
                             <button type="button" class="admin-toggle-pill is-active" data-website-metric="visitors">Visitors</button>
                             <button type="button" class="admin-toggle-pill" data-website-metric="page_views">Page Views</button>
                             <button type="button" class="admin-toggle-pill" data-website-metric="add_to_cart_events">Add To Cart</button>
                             <button type="button" class="admin-toggle-pill" data-website-metric="checkout_clicks">Checkout</button>
                         </div>
+                        <div class="admin-live-status admin-website-live-status">
+                            <strong>Live</strong>
+                            <span data-website-last-updated>Waiting for first sync</span>
+                        </div>
                     </div>
-                    <div class="admin-live-status">
-                        <strong>Live</strong>
-                        <span data-website-last-updated>Waiting for first sync</span>
-                    </div>
-                </section>
 
-                <section class="admin-metric-grid">
-                    <article class="admin-metric-card"><span>Total Visitors</span><strong data-website-summary-total-visitors>0</strong><small>Unique tracked website sessions</small></article>
-                    <article class="admin-metric-card"><span>Page Views</span><strong data-website-summary-page-views>0</strong><small>Browser page loads only</small></article>
-                    <article class="admin-metric-card"><span>Add To Cart</span><strong data-website-summary-add-to-cart>0</strong><small>Tracked product additions</small></article>
-                    <article class="admin-metric-card"><span>Checkout Intent</span><strong data-website-summary-checkout>0</strong><small>WhatsApp checkout clicks</small></article>
-                    <article class="admin-metric-card"><span>Avg. Time Spent</span><strong data-website-summary-time-spent>0s</strong><small>Average per website session</small></article>
-                    <article class="admin-metric-card"><span>Top Region</span><strong data-website-summary-top-region>Unknown</strong><small>Most active region in selected timeframe</small></article>
-                </section>
+                    <section class="admin-website-bento" aria-label="Website analytics summary">
+                        <article class="admin-website-bento-card admin-website-bento-card-hero"><span>Total Visitors</span><strong data-website-summary-total-visitors>0</strong><small>Unique tracked website sessions</small></article>
+                        <article class="admin-website-bento-card"><span>Page Views</span><strong data-website-summary-page-views>0</strong><small>Browser page loads only</small></article>
+                        <article class="admin-website-bento-card"><span>Add to Cart</span><strong data-website-summary-add-to-cart>0</strong><small>Tracked product additions</small></article>
+                        <article class="admin-website-bento-card"><span>Checkout Intent</span><strong data-website-summary-checkout>0</strong><small>WhatsApp checkout clicks</small></article>
+                        <article class="admin-website-bento-card"><span>Avg. Time Spent</span><strong data-website-summary-time-spent>0s</strong><small>Average per website session</small></article>
+                        <article class="admin-website-bento-card admin-website-bento-card-wide"><span>Top Region</span><strong data-website-summary-top-region>Unknown</strong><small>Most active region in selected timeframe</small></article>
+                        <article class="admin-website-bento-card"><span>Paid Orders</span><strong data-website-summary-paid-orders>0</strong><small>Marketplace orders in this window</small></article>
+                        <article class="admin-website-bento-card"><span>Paid QTY</span><strong data-website-summary-paid-qty>0</strong><small>Paid units sold</small></article>
+                        <article class="admin-website-bento-card admin-website-bento-card-revenue"><span>Paid Revenue</span><strong data-website-summary-paid-revenue>Rp0</strong><small data-website-sales-meta>Protected sales feed</small></article>
+                    </section>
 
-                <section class="admin-main-grid">
-                    <article class="admin-panel admin-panel-chart admin-panel-wide">
+                    <article class="admin-panel admin-panel-chart admin-panel-wide admin-website-trend-panel">
                         <div class="admin-panel-head">
                             <div>
-                                <span class="admin-panel-kicker">Trend</span>
+                                <span class="admin-panel-kicker">Analytics</span>
                                 <h3 data-website-trend-title>Website visitors over time</h3>
                             </div>
                             <span class="admin-panel-meta" data-website-trend-meta>Official website only</span>
@@ -712,96 +746,379 @@ $dashboardBuildVersion = 'exec3.49.1';
                             <canvas class="admin-chart-canvas admin-chart-canvas-lg" data-website-trend-chart width="1200" height="360"></canvas>
                         </div>
                     </article>
+                </section>
 
-                    <article class="admin-panel admin-panel-chart">
+                <section class="admin-main-grid admin-website-commerce-grid">
+                    <article class="admin-panel admin-panel-table admin-panel-wide">
                         <div class="admin-panel-head">
                             <div>
-                                <span class="admin-panel-kicker">Regions</span>
-                                <h3>Visitors by region</h3>
+                                <span class="admin-panel-kicker">Products</span>
+                                <h3>Paid product activity</h3>
                             </div>
-                            <span class="admin-panel-meta">Excluded IPs already removed</span>
-                        </div>
-                        <div class="admin-chart-surface">
-                            <canvas class="admin-chart-canvas" data-website-region-chart width="880" height="340"></canvas>
-                        </div>
-                    </article>
-
-                    <article class="admin-panel admin-panel-chart">
-                        <div class="admin-panel-head">
-                            <div>
-                                <span class="admin-panel-kicker">Top Pages</span>
-                                <h3 data-website-page-chart-title>Visitors by page</h3>
-                            </div>
-                            <span class="admin-panel-meta" data-website-page-chart-meta>Selected website only</span>
-                        </div>
-                        <div class="admin-chart-surface">
-                            <canvas class="admin-chart-canvas" data-website-page-chart width="880" height="340"></canvas>
-                        </div>
-                    </article>
-
-                    <article class="admin-panel admin-panel-table">
-                        <div class="admin-panel-head">
-                            <div><span class="admin-panel-kicker">Pages</span><h3 data-website-page-table-title>Official website pages</h3></div>
+                            <span class="admin-panel-meta">Sales feed below analytics</span>
                         </div>
                         <div class="admin-table-wrap">
                             <table class="admin-table">
                                 <thead>
                                     <tr>
-                                        <th>Page</th>
-                                        <th>Visitors</th>
-                                        <th>Page Views</th>
-                                        <th>Avg. Time</th>
+                                        <th>Product</th>
+                                        <th>Orders</th>
+                                        <th>QTY</th>
+                                        <th>Revenue</th>
                                     </tr>
                                 </thead>
-                                <tbody data-website-page-table-body>
-                                    <tr><td colspan="4" class="admin-empty">Belum ada data website.</td></tr>
+                                <tbody data-website-product-table-body>
+                                    <tr><td colspan="4" class="admin-empty">Waiting for paid sales data.</td></tr>
                                 </tbody>
                             </table>
                         </div>
                     </article>
 
-                    <article class="admin-panel admin-panel-table">
+                    <article class="admin-panel admin-panel-feed admin-website-discount-panel">
                         <div class="admin-panel-head">
-                            <div><span class="admin-panel-kicker">Regions</span><h3>Visitor geography</h3></div>
+                            <div>
+                                <span class="admin-panel-kicker">Discounts</span>
+                                <h3>Paid order adjustments</h3>
+                            </div>
+                            <span class="admin-panel-meta" data-website-settings-endpoint>../api/settings/</span>
                         </div>
-                        <div class="admin-table-wrap">
-                            <table class="admin-table">
-                                <thead>
-                                    <tr>
-                                        <th>Region</th>
-                                        <th>Country</th>
-                                        <th>Visitors</th>
-                                        <th>Page Views</th>
-                                    </tr>
-                                </thead>
-                                <tbody data-website-region-table-body>
-                                    <tr><td colspan="4" class="admin-empty">Belum ada data region.</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </article>
-
-                    <article class="admin-panel admin-panel-feed">
-                        <div class="admin-panel-head">
-                            <div><span class="admin-panel-kicker">Recent Visits</span><h3>Latest website visitors</h3></div>
-                        </div>
-                        <div class="admin-event-feed" data-website-recent-events>
-                            <p class="admin-empty">Belum ada kunjungan website.</p>
-                        </div>
-                    </article>
-
-                    <article class="admin-panel admin-panel-feed">
-                        <div class="admin-panel-head">
-                            <div><span class="admin-panel-kicker">Website Notes</span><h3>Filter and scope</h3></div>
-                        </div>
-                        <div class="admin-note-stack">
-                            <div class="admin-note-card"><strong>Scope</strong><span data-website-scope-note>Counts only `traffic_kind=website` browser events from the selected website.</span></div>
-                            <div class="admin-note-card"><strong>Exclusions</strong><span>Your saved IP list is applied at query time, so old visits from your IP disappear from the charts too.</span></div>
-                            <div class="admin-note-card"><strong>Geo source</strong><span>Regions use whatever geolocation headers Hostinger or proxy layers expose to PHP.</span></div>
-                            <div class="admin-note-card"><strong>Settings API</strong><span data-website-settings-endpoint>../api/settings/</span></div>
+                        <div class="admin-website-discount-list" data-website-discount-summary>
+                            <div><span>Total discounts</span><strong>Rp0</strong></div>
+                            <div><span>Average discount</span><strong>Rp0</strong></div>
+                            <div><span>Discounted orders</span><strong>0</strong></div>
                         </div>
                     </article>
                 </section>
+                </div>
+                    </section>
+
+                    <section class="admin-view admin-accounting-view" data-view-panel="accounting" data-accounting-view>
+                <section class="admin-accounting-hero">
+                    <div>
+                        <span class="admin-chip admin-chip-accent">Cash Control</span>
+                        <h2>Accounting</h2>
+                        <p>Cash, bills, expenses, and manual finance control</p>
+                        <span class="admin-panel-meta" data-accounting-status>Accounting data updates live from manual entries, wallet context, and stored order facts.</span>
+                    </div>
+                    <div class="admin-accounting-actions">
+                        <button type="button" class="admin-ghost-btn" data-accounting-refresh>Refresh</button>
+                        <button type="button" class="admin-primary-btn" data-accounting-open-mode="expense_paid">Add Expense</button>
+                        <button type="button" class="admin-primary-btn" data-accounting-open-mode="bill_received">Add Bill</button>
+                        <button type="button" class="admin-soft-btn" data-accounting-open-mode="pay_bill">Pay Bill</button>
+                        <button type="button" class="admin-soft-btn" data-accounting-open-mode="transfer">Transfer Money</button>
+                        <button type="button" class="admin-ghost-btn" data-accounting-export>Export CSV</button>
+                        <button type="button" class="admin-ghost-btn" data-accounting-settings>Settings</button>
+                    </div>
+                </section>
+
+                <section class="admin-accounting-toolbar admin-accounting-panel">
+                    <label>
+                        <span>Month</span>
+                        <input type="month" data-accounting-month-select>
+                    </label>
+                    <div class="admin-panel-inline-toggles" data-accounting-range-controls>
+                        <button type="button" class="admin-toggle-pill is-active" data-accounting-range="this_month">This Month</button>
+                        <button type="button" class="admin-toggle-pill" data-accounting-range="last_month">Last Month</button>
+                        <button type="button" class="admin-toggle-pill" data-accounting-range="ytd">YTD</button>
+                        <button type="button" class="admin-toggle-pill" data-accounting-range="custom">Custom</button>
+                    </div>
+                    <label>
+                        <span>From</span>
+                        <input type="date" data-accounting-date-from>
+                    </label>
+                    <label>
+                        <span>To</span>
+                        <input type="date" data-accounting-date-to>
+                    </label>
+                </section>
+
+                <section class="admin-accounting-kpi-grid">
+                    <article class="admin-accounting-kpi"><span>Real Cash Available</span><strong data-accounting-kpi="real-cash">Rp0</strong><small>Bank + cash only</small></article>
+                    <article class="admin-accounting-kpi"><span>Marketplace Outstanding</span><strong data-accounting-kpi="marketplace-outstanding">Rp0</strong><small>Expected, not cash yet</small></article>
+                    <article class="admin-accounting-kpi"><span>Bills Due Soon</span><strong data-accounting-kpi="bills-due">Rp0</strong><small>Due in 7 days</small></article>
+                    <article class="admin-accounting-kpi"><span>Overdue Bills</span><strong data-accounting-kpi="overdue">Rp0</strong><small>Needs action</small></article>
+                    <article class="admin-accounting-kpi"><span>Expenses This Month</span><strong data-accounting-kpi="expenses">Rp0</strong><small>Paid expenses</small></article>
+                    <article class="admin-accounting-kpi" data-accounting-safe-cash-card><span>Net Safe Cash</span><strong data-accounting-kpi="safe-cash">Rp0</strong><small>Estimated safe-to-spend</small></article>
+                    <article class="admin-accounting-kpi"><span>Pending Manual Review</span><strong data-accounting-kpi="pending-review">0</strong><small>Needs cleanup</small></article>
+                </section>
+
+                <section class="admin-accounting-panel">
+                    <div class="admin-panel-head">
+                        <div><span class="admin-panel-kicker">Command Center</span><h3>What needs attention</h3></div>
+                    </div>
+                    <div class="admin-accounting-alert-grid" data-accounting-alerts>
+                        <div class="admin-accounting-alert"><strong>No urgent alerts</strong><span>Accounting checks will appear after data loads.</span></div>
+                    </div>
+                </section>
+
+                <section class="admin-accounting-panel admin-accounting-quick-entry">
+                    <div class="admin-panel-head">
+                        <div><span class="admin-panel-kicker">Quick Entry</span><h3>Daily finance entry</h3></div>
+                        <span class="admin-panel-meta" data-accounting-form-status>Ready</span>
+                    </div>
+                    <div class="admin-accounting-mode-row">
+                        <button type="button" class="admin-toggle-pill is-active" data-accounting-quick-mode="expense_paid">Expense Paid</button>
+                        <button type="button" class="admin-toggle-pill" data-accounting-quick-mode="bill_received">Bill Received</button>
+                        <button type="button" class="admin-toggle-pill" data-accounting-quick-mode="pay_bill">Pay Existing Bill</button>
+                        <button type="button" class="admin-toggle-pill" data-accounting-quick-mode="transfer">Transfer Money</button>
+                        <button type="button" class="admin-toggle-pill" data-accounting-quick-mode="manual_income">Money In / Manual Income</button>
+                    </div>
+                    <div class="admin-accounting-helper" data-accounting-mode-helper>Use this when money already left the business.</div>
+                    <form class="admin-accounting-form" data-accounting-form>
+                        <input type="hidden" name="mode" data-accounting-mode-field value="expense_paid">
+                        <div class="admin-accounting-warning" data-accounting-marketplace-warning hidden>Do not enter Shopee/TikTok/Tokopedia order revenue here. Marketplace revenue comes from Orders/Wallet.</div>
+                        <label data-accounting-field="transaction_date">
+                            <span>Date</span>
+                            <input type="date" name="transaction_date" data-accounting-date>
+                        </label>
+                        <label data-accounting-field="issue_date" hidden>
+                            <span>Bill Date</span>
+                            <input type="date" name="issue_date" data-accounting-issue-date>
+                        </label>
+                        <label data-accounting-field="due_date" hidden>
+                            <span>Due Date</span>
+                            <input type="date" name="due_date">
+                        </label>
+                        <label data-accounting-field="bill_id" hidden>
+                            <span>Bill</span>
+                            <select name="bill_id" data-accounting-bill-select></select>
+                        </label>
+                        <label>
+                            <span>Amount</span>
+                            <input type="text" inputmode="numeric" name="amount" data-accounting-amount placeholder="Rp0" required>
+                        </label>
+                        <label data-accounting-field="account_id">
+                            <span>Paid From Account</span>
+                            <select name="account_id" data-accounting-account-select required></select>
+                        </label>
+                        <label data-accounting-field="to_account_id" hidden>
+                            <span>To Account</span>
+                            <select name="to_account_id" data-accounting-to-account-select></select>
+                        </label>
+                        <label data-accounting-field="category_id">
+                            <span>Category</span>
+                            <select name="category_id" data-accounting-category-select required></select>
+                        </label>
+                        <label data-accounting-field="counterparty">
+                            <span>Vendor / Payee / Source</span>
+                            <input type="text" name="counterparty_name" data-accounting-counterparty-input list="accounting-counterparties" placeholder="Search or quick-create" required>
+                            <datalist id="accounting-counterparties" data-accounting-counterparty-options></datalist>
+                        </label>
+                        <label data-accounting-field="bill_no" hidden>
+                            <span>Bill / Invoice No.</span>
+                            <input type="text" name="bill_no" maxlength="120">
+                        </label>
+                        <label>
+                            <span>Brand</span>
+                            <select name="brand" data-accounting-brand-select>
+                                <option>General / Shared</option>
+                                <option>ZERO</option>
+                                <option>Jenang Gemi</option>
+                                <option>ZFit</option>
+                                <option>Superfoods</option>
+                                <option>Other</option>
+                            </select>
+                        </label>
+                        <label>
+                            <span>Channel</span>
+                            <select name="channel" data-accounting-channel-select>
+                                <option>Internal</option>
+                                <option>Shopee</option>
+                                <option>TikTok</option>
+                                <option>Tokopedia</option>
+                                <option>Website</option>
+                                <option>WhatsApp</option>
+                                <option>Offline</option>
+                                <option>Partner</option>
+                                <option>Distributor</option>
+                                <option>Reseller</option>
+                                <option>Ads</option>
+                                <option>Production</option>
+                                <option>Fulfillment</option>
+                            </select>
+                        </label>
+                        <label data-accounting-field="income_type" hidden>
+                            <span>Income Type</span>
+                            <select name="income_type" data-accounting-income-type>
+                                <option value="manual_income">Offline customer payment</option>
+                                <option value="manual_income">Website/manual invoice payment</option>
+                                <option value="owner_injection">Owner injection</option>
+                                <option value="manual_income">Loan received</option>
+                                <option value="refund">Refund/reimbursement received</option>
+                                <option value="manual_income">Other income</option>
+                            </select>
+                        </label>
+                        <label>
+                            <span>Payment Method</span>
+                            <select name="payment_method">
+                                <option>Bank Transfer</option>
+                                <option>Cash</option>
+                                <option>QRIS</option>
+                                <option>E-wallet</option>
+                                <option>Marketplace Wallet</option>
+                                <option>Card</option>
+                                <option>Other</option>
+                            </select>
+                        </label>
+                        <label data-accounting-field="transfer_fee_amount" hidden>
+                            <span>Transfer Fee</span>
+                            <input type="text" inputmode="numeric" name="transfer_fee_amount" placeholder="Rp0">
+                        </label>
+                        <label>
+                            <span>Receipt / Attachment URL</span>
+                            <input type="url" name="receipt_url" placeholder="https://...">
+                        </label>
+                        <label>
+                            <span>Receipt Status</span>
+                            <select name="receipt_status">
+                                <option value="missing">Missing</option>
+                                <option value="attached">Attached</option>
+                                <option value="not_required">Not required</option>
+                            </select>
+                        </label>
+                        <label>
+                            <span>Reference No.</span>
+                            <input type="text" name="reference_no" maxlength="160">
+                        </label>
+                        <label>
+                            <span>Related Order / SKU</span>
+                            <input type="text" name="order_no" maxlength="160">
+                        </label>
+                        <label class="admin-accounting-form-wide">
+                            <span>Notes</span>
+                            <textarea name="notes" rows="3"></textarea>
+                        </label>
+                        <p class="admin-form-error" data-accounting-form-error hidden></p>
+                        <div class="admin-accounting-form-actions">
+                            <button type="submit" class="admin-primary-btn" data-accounting-save>Save</button>
+                            <button type="submit" class="admin-soft-btn" data-accounting-save-add value="1">Save &amp; Add Another</button>
+                            <button type="submit" class="admin-ghost-btn" data-accounting-save-draft>Save Draft</button>
+                            <button type="reset" class="admin-ghost-btn">Cancel</button>
+                        </div>
+                    </form>
+                </section>
+
+                <section class="admin-main-grid admin-accounting-main-grid">
+                    <article class="admin-panel admin-accounting-panel admin-panel-wide">
+                        <div class="admin-panel-head">
+                            <div><span class="admin-panel-kicker">Bills Queue</span><h3>Unpaid and upcoming bills</h3></div>
+                            <span class="admin-panel-meta" data-accounting-bills-meta>Open bills</span>
+                        </div>
+                        <div class="admin-table-wrap admin-accounting-table-wrap">
+                            <table class="admin-table admin-accounting-table">
+                                <thead>
+                                    <tr>
+                                        <th>Due Date</th>
+                                        <th>Status</th>
+                                        <th>Vendor</th>
+                                        <th>Bill No.</th>
+                                        <th>Category</th>
+                                        <th>Brand</th>
+                                        <th>Channel</th>
+                                        <th>Total</th>
+                                        <th>Paid</th>
+                                        <th>Outstanding</th>
+                                        <th>Age</th>
+                                        <th>Attachment</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody data-accounting-bills-body>
+                                    <tr><td colspan="13" class="admin-empty">Loading bills.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </article>
+
+                    <article class="admin-panel admin-accounting-panel admin-panel-wide">
+                        <div class="admin-panel-head">
+                            <div><span class="admin-panel-kicker">Transaction Ledger</span><h3>Manual finance history</h3></div>
+                            <span class="admin-panel-meta" data-accounting-ledger-meta>Selected month</span>
+                        </div>
+                        <div class="admin-table-wrap admin-accounting-table-wrap">
+                            <table class="admin-table admin-accounting-table">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Type</th>
+                                        <th>Account</th>
+                                        <th>Direction</th>
+                                        <th>Vendor / Payee</th>
+                                        <th>Category</th>
+                                        <th>Brand</th>
+                                        <th>Channel</th>
+                                        <th>Amount</th>
+                                        <th>Status</th>
+                                        <th>Receipt</th>
+                                        <th>Related Bill</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody data-accounting-transactions-body>
+                                    <tr><td colspan="13" class="admin-empty">Loading transactions.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </article>
+
+                    <article class="admin-panel admin-accounting-panel">
+                        <div class="admin-panel-head">
+                            <div><span class="admin-panel-kicker">Monthly Summary</span><h3>Revenue context and cash movement</h3></div>
+                        </div>
+                        <div class="admin-accounting-summary-list" data-accounting-monthly-summary></div>
+                    </article>
+
+                    <article class="admin-panel admin-accounting-panel">
+                        <div class="admin-panel-head">
+                            <div><span class="admin-panel-kicker">Vendor / Category Insights</span><h3>Spend split</h3></div>
+                        </div>
+                        <div class="admin-accounting-tabs">
+                            <button type="button" class="admin-toggle-pill is-active" data-accounting-insight-tab="category">Category</button>
+                            <button type="button" class="admin-toggle-pill" data-accounting-insight-tab="vendor">Vendor</button>
+                            <button type="button" class="admin-toggle-pill" data-accounting-insight-tab="brand">Brand</button>
+                            <button type="button" class="admin-toggle-pill" data-accounting-insight-tab="channel">Channel</button>
+                        </div>
+                        <div class="admin-accounting-insight-list" data-accounting-insights></div>
+                    </article>
+
+                    <article class="admin-panel admin-accounting-panel admin-panel-wide">
+                        <div class="admin-panel-head">
+                            <div><span class="admin-panel-kicker">Reconciliation / Review Queue</span><h3>Data quality checks</h3></div>
+                            <span class="admin-panel-meta">Missing category, receipt, duplicate, and marketplace-income checks</span>
+                        </div>
+                        <div class="admin-table-wrap admin-accounting-table-wrap">
+                            <table class="admin-table admin-accounting-table">
+                                <thead>
+                                    <tr>
+                                        <th>Issue</th>
+                                        <th>Severity</th>
+                                        <th>Transaction / Bill</th>
+                                        <th>Suggested Fix</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody data-accounting-review-body>
+                                    <tr><td colspan="5" class="admin-empty">Loading review queue.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </article>
+                </section>
+
+                <div class="admin-modal-shell admin-accounting-drawer" data-accounting-drawer hidden>
+                    <button type="button" class="admin-modal-backdrop" data-accounting-drawer-close aria-label="Close accounting details"></button>
+                    <aside class="admin-modal-card admin-accounting-drawer-card" role="dialog" aria-modal="true" aria-labelledby="accounting-drawer-title">
+                        <div class="admin-modal-head">
+                            <div>
+                                <span class="admin-panel-kicker" data-accounting-drawer-kicker>Accounting</span>
+                                <h3 id="accounting-drawer-title" data-accounting-drawer-title>Details</h3>
+                            </div>
+                            <button type="button" class="admin-ghost-btn" data-accounting-drawer-close>Close</button>
+                        </div>
+                        <div class="admin-accounting-drawer-body" data-accounting-drawer-body>
+                            <p class="admin-empty">Select a bill or transaction.</p>
+                        </div>
+                    </aside>
                 </div>
                     </section>
 

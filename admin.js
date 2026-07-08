@@ -95,19 +95,15 @@ const WEBSITE_METRIC_UNITS = {
 
 const WEBSITE_SITE_LABELS = {
   jenang_gemi: {
-    title: 'Jenang Gemi',
+    title: 'jenanggemi.com',
     chip: 'Jenang Gemi Website Dashboard',
-    copy: 'Track real visitors, top regions, and page activity across the main Jenang Gemi website.',
-    pageTitle: 'Jenang Gemi website pages',
-    pageMeta: 'Jenang Gemi website only',
+    copy: 'Minimal traffic and paid-commerce view for jenanggemi.com.',
     scope: 'Counts only `traffic_kind=website` browser events from the Jenang Gemi website.'
   },
   zero: {
-    title: 'ZERO',
+    title: 'zerofoods.id',
     chip: 'ZERO Website Dashboard',
-    copy: 'Track real visitors, top regions, and page activity across zerofoods.id.',
-    pageTitle: 'ZERO website pages',
-    pageMeta: 'zerofoods.id only',
+    copy: 'Minimal traffic and paid-commerce view for zerofoods.id.',
     scope: 'Counts only `traffic_kind=website` browser events from zerofoods.id.'
   }
 };
@@ -276,11 +272,12 @@ const JENANG_GEMI_SEARCH_INDEX = [
     keywords: ['api', 'ingest', 'webhook', 'context', 'workspace']
   },
   {
-    title: 'Profit and Loss Workspace',
+    title: 'Accounting',
     section: 'Admin',
-    description: 'SKU-level profit, syrup costs, margins, and product finance controls.',
-    url: '../profit-loss/',
-    keywords: ['profit', 'loss', 'p&l', 'margin', 'gross profit', 'finance']
+    description: 'Cash, bills, expenses, manual finance entries, and profit cash-control summary.',
+    url: '../dashboard/?view=accounting',
+    view: 'accounting',
+    keywords: ['accounting', 'cash control', 'cash', 'bills', 'expenses', 'payments', 'vendor', 'supplier', 'p&l', 'profit loss', 'finance']
   },
   {
     title: 'Partner Portal',
@@ -297,11 +294,22 @@ const DAILY_ORDER_PAGE_LIMIT = 500;
 const DAILY_CUSTOM_PLATFORMS_STORAGE_KEY = 'jg-dashboard-daily-custom-platforms';
 const ANALYTICS_DEVICE_COOKIE = 'jg_analytics_device_id';
 const ANALYTICS_DEVICE_MAX_AGE = 60 * 60 * 24 * 365 * 2;
+const SALES_RECAP_MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const SALES_RECAP_METRICS = [
+  { key: 'pcs', label: 'Total PCS', format: 'integer' },
+  { key: 'rev', label: 'Total Rev', format: 'money' },
+  { key: 'cogs', label: 'Total COGS', format: 'money' },
+  { key: 'avgCogs', label: 'AVG COGS', format: 'money' },
+  { key: 'gp', label: 'GP', format: 'money' },
+  { key: 'avgGp', label: 'AVG GP', format: 'money' },
+  { key: 'gpPct', label: 'GP%', format: 'percent' }
+];
 const VIEW_CACHE_TTL_MS = {
   overview: 2 * 60 * 1000,
   daily: 5 * 60 * 1000,
   home: 90 * 1000,
   website: 2 * 60 * 1000,
+  accounting: 90 * 1000,
   settings: 5 * 60 * 1000
 };
 const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
@@ -323,6 +331,14 @@ const getMonthKeyForTimezone = (date = new Date(), timezone = DASHBOARD_TIMEZONE
     return result;
   }, {});
   return `${parts.year}-${parts.month}`;
+};
+
+const jgValidMonthKey = (value) => {
+  const match = String(value || '').match(/^(\d{4})-(\d{2})$/);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  return Number.isFinite(year) && year >= 2024 && year <= 2100 && month >= 1 && month <= 12;
 };
 
 const createAnalyticsDeviceId = () => {
@@ -876,9 +892,17 @@ document.addEventListener('DOMContentLoaded', () => {
     ops: 'store-ops',
     'store-ops': 'store-ops',
     store_ops: 'store-ops',
-    fulfillment: 'store-ops'
+    fulfillment: 'store-ops',
+    accounting: 'accounting',
+    accounts: 'accounting',
+    cash: 'accounting',
+    'cash-control': 'accounting',
+    cash_control: 'accounting',
+    'profit-loss': 'accounting',
+    profit_loss: 'accounting',
+    pl: 'accounting'
   };
-  const validViews = new Set(['overview', 'daily', 'home', 'website', 'store-ops', 'settings']);
+  const validViews = new Set(['overview', 'daily', 'home', 'website', 'accounting', 'store-ops', 'settings']);
   const normalizeDashboardView = (value) => {
     const normalized = String(value || '').trim().toLowerCase();
     const aliased = viewAliases[normalized] || normalized;
@@ -899,6 +923,7 @@ document.addEventListener('DOMContentLoaded', () => {
       metric: 'sales',
       volumeMetric: 'orders',
       platformMetric: 'sales',
+      salesRecapOpen: false,
       data: null,
       loadedAt: 0,
       orderMonths: [],
@@ -972,6 +997,23 @@ document.addEventListener('DOMContentLoaded', () => {
       requestToken: 0,
       settingsRequestToken: 0
     },
+    accounting: {
+      month: getMonthKeyForTimezone(new Date(), DASHBOARD_TIMEZONE),
+      range: 'this_month',
+      mode: 'expense_paid',
+      insightTab: 'category',
+      data: null,
+      summary: null,
+      bills: [],
+      transactions: [],
+      reviewQueue: [],
+      accounts: [],
+      categories: [],
+      counterparties: [],
+      loadedAt: 0,
+      requestToken: 0,
+      lookupsLoaded: false
+    },
     liveSequence: -1,
     liveSource: null
   };
@@ -980,6 +1022,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const liveEndpoint = root.dataset.liveEndpoint || './live/';
   const settingsEndpoint = root.dataset.settingsEndpoint || './settings/';
   const salesEndpoint = root.dataset.salesEndpoint || './sales/';
+  const accountingEndpoint = root.dataset.accountingEndpoint || './accounting/';
   const skuCatalogEndpoint = root.dataset.skuCatalogEndpoint || `${salesEndpoint}?action=sku_catalog`;
 
   const loader = document.querySelector('[data-admin-loader]');
@@ -1017,6 +1060,12 @@ document.addEventListener('DOMContentLoaded', () => {
     tableBody: document.querySelector('[data-overview-table-body]'),
     notes: document.querySelector('[data-overview-notes]'),
     yearControls: document.querySelector('[data-overview-year-controls]'),
+    salesRecap: document.querySelector('[data-sales-recap]'),
+    salesRecapTitle: document.querySelector('[data-sales-recap-title]'),
+    salesRecapMeta: document.querySelector('[data-sales-recap-meta]'),
+    salesRecapHead: document.querySelector('[data-sales-recap-head]'),
+    salesRecapBody: document.querySelector('[data-sales-recap-body]'),
+    salesRecapClose: document.querySelector('[data-sales-recap-close]'),
     metricButtons: document.querySelectorAll('[data-overview-metric]'),
     volumeMetricButtons: document.querySelectorAll('[data-overview-volume-metric]'),
     platformMetricButtons: document.querySelectorAll('[data-overview-platform-metric]'),
@@ -1091,20 +1140,18 @@ document.addEventListener('DOMContentLoaded', () => {
     summaryCheckout: document.querySelector('[data-website-summary-checkout]'),
     summaryTime: document.querySelector('[data-website-summary-time-spent]'),
     summaryTopRegion: document.querySelector('[data-website-summary-top-region]'),
+    summaryPaidOrders: document.querySelector('[data-website-summary-paid-orders]'),
+    summaryPaidQty: document.querySelector('[data-website-summary-paid-qty]'),
+    summaryPaidRevenue: document.querySelector('[data-website-summary-paid-revenue]'),
+    salesMeta: document.querySelector('[data-website-sales-meta]'),
     excludedCount: document.querySelector('[data-website-excluded-ip-count]'),
-    pageTableBody: document.querySelector('[data-website-page-table-body]'),
-    regionTableBody: document.querySelector('[data-website-region-table-body]'),
-    recentEvents: document.querySelector('[data-website-recent-events]'),
+    productTableBody: document.querySelector('[data-website-product-table-body]'),
+    discountSummary: document.querySelector('[data-website-discount-summary]'),
     settingsEndpointLabel: document.querySelector('[data-website-settings-endpoint]'),
     trendCanvas: document.querySelector('[data-website-trend-chart]'),
-    regionCanvas: document.querySelector('[data-website-region-chart]'),
-    pageCanvas: document.querySelector('[data-website-page-chart]'),
     lastUpdated: document.querySelector('[data-website-last-updated]'),
     trendTitle: document.querySelector('[data-website-trend-title]'),
     trendMeta: document.querySelector('[data-website-trend-meta]'),
-    pageChartTitle: document.querySelector('[data-website-page-chart-title]'),
-    pageChartMeta: document.querySelector('[data-website-page-chart-meta]'),
-    pageTableTitle: document.querySelector('[data-website-page-table-title]'),
     scopeNote: document.querySelector('[data-website-scope-note]'),
     timeframeButtons: document.querySelectorAll('[data-website-timeframe]'),
     metricButtons: document.querySelectorAll('[data-website-metric]'),
@@ -1114,6 +1161,62 @@ document.addEventListener('DOMContentLoaded', () => {
     deviceExclusionForm: document.querySelector('[data-device-exclusion-form]'),
     deviceExclusionError: document.querySelector('[data-device-exclusion-error]'),
     deviceExclusionList: document.querySelector('[data-device-exclusion-list]')
+  };
+
+  const accountingRefs = {
+    view: document.querySelector('[data-accounting-view]'),
+    status: document.querySelector('[data-accounting-status]'),
+    refresh: document.querySelector('[data-accounting-refresh]'),
+    monthInput: document.querySelector('[data-accounting-month-select]'),
+    dateFrom: document.querySelector('[data-accounting-date-from]'),
+    dateTo: document.querySelector('[data-accounting-date-to]'),
+    rangeButtons: document.querySelectorAll('[data-accounting-range]'),
+    openModeButtons: document.querySelectorAll('[data-accounting-open-mode]'),
+    exportButton: document.querySelector('[data-accounting-export]'),
+    settingsButton: document.querySelector('[data-accounting-settings]'),
+    kpis: {
+      realCash: document.querySelector('[data-accounting-kpi="real-cash"]'),
+      marketplaceOutstanding: document.querySelector('[data-accounting-kpi="marketplace-outstanding"]'),
+      billsDue: document.querySelector('[data-accounting-kpi="bills-due"]'),
+      overdue: document.querySelector('[data-accounting-kpi="overdue"]'),
+      expenses: document.querySelector('[data-accounting-kpi="expenses"]'),
+      safeCash: document.querySelector('[data-accounting-kpi="safe-cash"]'),
+      pendingReview: document.querySelector('[data-accounting-kpi="pending-review"]')
+    },
+    safeCashCard: document.querySelector('[data-accounting-safe-cash-card]'),
+    alerts: document.querySelector('[data-accounting-alerts]'),
+    form: document.querySelector('[data-accounting-form]'),
+    formStatus: document.querySelector('[data-accounting-form-status]'),
+    formError: document.querySelector('[data-accounting-form-error]'),
+    modeButtons: document.querySelectorAll('[data-accounting-quick-mode]'),
+    modeField: document.querySelector('[data-accounting-mode-field]'),
+    modeHelper: document.querySelector('[data-accounting-mode-helper]'),
+    marketplaceWarning: document.querySelector('[data-accounting-marketplace-warning]'),
+    dateInput: document.querySelector('[data-accounting-date]'),
+    issueDateInput: document.querySelector('[data-accounting-issue-date]'),
+    amountInput: document.querySelector('[data-accounting-amount]'),
+    accountSelect: document.querySelector('[data-accounting-account-select]'),
+    toAccountSelect: document.querySelector('[data-accounting-to-account-select]'),
+    categorySelect: document.querySelector('[data-accounting-category-select]'),
+    counterpartyInput: document.querySelector('[data-accounting-counterparty-input]'),
+    counterpartyOptions: document.querySelector('[data-accounting-counterparty-options]'),
+    billSelect: document.querySelector('[data-accounting-bill-select]'),
+    brandSelect: document.querySelector('[data-accounting-brand-select]'),
+    channelSelect: document.querySelector('[data-accounting-channel-select]'),
+    incomeType: document.querySelector('[data-accounting-income-type]'),
+    billsBody: document.querySelector('[data-accounting-bills-body]'),
+    transactionsBody: document.querySelector('[data-accounting-transactions-body]'),
+    reviewBody: document.querySelector('[data-accounting-review-body]'),
+    billsMeta: document.querySelector('[data-accounting-bills-meta]'),
+    ledgerMeta: document.querySelector('[data-accounting-ledger-meta]'),
+    monthlySummary: document.querySelector('[data-accounting-monthly-summary]'),
+    insightTabs: document.querySelectorAll('[data-accounting-insight-tab]'),
+    insights: document.querySelector('[data-accounting-insights]'),
+    drawer: document.querySelector('[data-accounting-drawer]'),
+    drawerCloseButtons: document.querySelectorAll('[data-accounting-drawer-close]'),
+    drawerKicker: document.querySelector('[data-accounting-drawer-kicker]'),
+    drawerTitle: document.querySelector('[data-accounting-drawer-title]'),
+    drawerBody: document.querySelector('[data-accounting-drawer-body]')
   };
 
   const setLoaderState = (progress, label) => {
@@ -1340,11 +1443,19 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const getFeedForView = (view) => {
-    if (view === 'website') return websiteRefs.recentEvents;
     return homeRefs.recentEvents;
   };
 
   const renderViewError = (view, error) => {
+    if (view === 'website') {
+      if (websiteRefs.productTableBody) {
+        websiteRefs.productTableBody.innerHTML = `<tr><td colspan="4" class="admin-empty">${escapeHtml(`Gagal memuat dashboard: ${error?.message || 'Unknown error'}`)}</td></tr>`;
+      }
+      if (websiteRefs.salesMeta) {
+        websiteRefs.salesMeta.textContent = 'Analytics unavailable';
+      }
+      return;
+    }
     const container = getFeedForView(view);
     renderEventFeed(
       container,
@@ -1385,6 +1496,7 @@ document.addEventListener('DOMContentLoaded', () => {
       daily: 'Daily',
       home: 'Campaigns Dashboard',
       website: 'Official Website Dashboard',
+      accounting: 'Accounting',
       'store-ops': 'Ops',
       settings: 'Settings'
     };
@@ -1393,10 +1505,12 @@ document.addEventListener('DOMContentLoaded', () => {
       daily: '',
       home: 'campaigns',
       website: 'website',
+      accounting: 'accounting',
       'store-ops': 'home',
       settings: 'settings'
     };
     if (root) root.dataset.activeView = state.activeView;
+    document.body.dataset.activeView = state.activeView;
     viewPanels.forEach((panel) => {
       panel.classList.toggle('is-active', panel.dataset.viewPanel === state.activeView);
     });
@@ -1716,6 +1830,185 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${settingsEndpoint}?${params.toString()}`;
   };
 
+  const buildAccountingUrl = (action, options = {}) => {
+    const params = new URLSearchParams({
+      action,
+      month: options.month || state.accounting.month
+    });
+    ['date_from', 'date_to', 'status', 'search', 'include_voided'].forEach((key) => {
+      if (options[key]) params.set(key, options[key]);
+    });
+    if (options.cacheBust) params.set('_ts', String(Date.now()));
+    return `${accountingEndpoint}?${params.toString()}`;
+  };
+
+  const accountingMonthRange = (monthKey = state.accounting.month) => {
+    const range = parseDailyMonth(monthKey);
+    return { start: range.start, end: range.end, year: range.year, month: range.month };
+  };
+
+  const accountingLastMonth = () => {
+    const range = parseDailyMonth(state.accounting.month);
+    const date = new Date(Date.UTC(range.year, range.month - 2, 1));
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+  };
+
+  const accountingRangeOptions = () => {
+    const range = accountingMonthRange(state.accounting.month);
+    if (state.accounting.range === 'last_month') {
+      const lastMonth = accountingLastMonth();
+      const last = accountingMonthRange(lastMonth);
+      return { month: lastMonth, date_from: last.start, date_to: last.end };
+    }
+    if (state.accounting.range === 'ytd') {
+      return { month: state.accounting.month, date_from: `${range.year}-01-01`, date_to: range.end };
+    }
+    if (state.accounting.range === 'custom') {
+      return {
+        month: state.accounting.month,
+        date_from: accountingRefs.dateFrom?.value || '',
+        date_to: accountingRefs.dateTo?.value || ''
+      };
+    }
+    return { month: state.accounting.month, date_from: '', date_to: '' };
+  };
+
+  const accountingEndpointOptions = (extra = {}) => ({
+    ...accountingRangeOptions(),
+    ...extra
+  });
+
+  const normalizeAccountingAmountInput = (value) => {
+    const digits = String(value || '').replace(/[^0-9]/g, '');
+    return digits ? formatCurrency(Number(digits)) : '';
+  };
+
+  const accountingRawAmount = (value) => String(value || '').replace(/[^0-9]/g, '');
+
+  const accountingStatusClass = (status) => `admin-accounting-chip admin-accounting-chip-${String(status || 'unknown').toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+
+  const accountingModeConfig = {
+    expense_paid: {
+      helper: 'Use this when money already left the business.',
+      action: 'create_transaction',
+      type: 'expense',
+      direction: 'money_out',
+      shown: ['transaction_date', 'account_id', 'category_id', 'counterparty']
+    },
+    bill_received: {
+      helper: 'Use this when we owe money but have not paid yet.',
+      action: 'create_bill',
+      shown: ['issue_date', 'due_date', 'category_id', 'counterparty', 'bill_no']
+    },
+    pay_bill: {
+      helper: 'Use this when paying a bill already saved below.',
+      action: 'mark_bill_paid',
+      shown: ['transaction_date', 'bill_id', 'account_id']
+    },
+    transfer: {
+      helper: 'Use this for wallet payout, bank transfer, cash deposit, or moving money. This does not count as income or expense.',
+      action: 'create_transaction',
+      type: 'transfer',
+      direction: 'internal_transfer',
+      shown: ['transaction_date', 'account_id', 'to_account_id', 'transfer_fee_amount']
+    },
+    manual_income: {
+      helper: 'Use only for non-marketplace income, owner injection, refund, reimbursement, or offline/manual customer payment.',
+      action: 'create_transaction',
+      type: 'manual_income',
+      direction: 'money_in',
+      shown: ['transaction_date', 'account_id', 'category_id', 'counterparty', 'income_type'],
+      warning: true
+    }
+  };
+
+  const setAccountingFormError = (message = '') => {
+    if (!accountingRefs.formError) return;
+    accountingRefs.formError.hidden = !message;
+    accountingRefs.formError.textContent = message;
+  };
+
+  const setAccountingMode = (mode) => {
+    const nextMode = accountingModeConfig[mode] ? mode : 'expense_paid';
+    state.accounting.mode = nextMode;
+    const config = accountingModeConfig[nextMode];
+    if (accountingRefs.modeField) accountingRefs.modeField.value = nextMode;
+    if (accountingRefs.modeHelper) accountingRefs.modeHelper.textContent = config.helper;
+    if (accountingRefs.marketplaceWarning) accountingRefs.marketplaceWarning.hidden = !config.warning;
+    accountingRefs.modeButtons.forEach((button) => {
+      button.classList.toggle('is-active', button.dataset.accountingQuickMode === nextMode);
+    });
+    accountingRefs.openModeButtons.forEach((button) => {
+      button.classList.toggle('is-active', button.dataset.accountingOpenMode === nextMode);
+    });
+    document.querySelectorAll('[data-accounting-field]').forEach((field) => {
+      const key = field.getAttribute('data-accounting-field') || '';
+      field.hidden = !config.shown.includes(key);
+      field.querySelectorAll('input, select, textarea').forEach((input) => {
+        if (!(input instanceof HTMLInputElement || input instanceof HTMLSelectElement || input instanceof HTMLTextAreaElement)) return;
+        input.required = !field.hidden && ['amount', 'account_id', 'category_id', 'counterparty', 'bill_id', 'issue_date', 'due_date'].includes(key) && !(nextMode === 'transfer' && key === 'category_id');
+      });
+    });
+    if (accountingRefs.accountSelect) {
+      const label = accountingRefs.accountSelect.closest('label')?.querySelector('span');
+      if (label) {
+        label.textContent = nextMode === 'manual_income'
+          ? 'Received Into Account'
+          : (nextMode === 'transfer' ? 'From Account' : 'Paid From Account');
+      }
+    }
+    if (accountingRefs.counterpartyInput) {
+      accountingRefs.counterpartyInput.placeholder = nextMode === 'manual_income' ? 'Source / customer' : 'Search or quick-create';
+    }
+    setAccountingFormError('');
+  };
+
+  const accountingOption = (value, label, selected = false) => (
+    `<option value="${escapeHtml(String(value))}"${selected ? ' selected' : ''}>${escapeHtml(label)}</option>`
+  );
+
+  const renderAccountingLookupOptions = () => {
+    const accounts = state.accounting.accounts;
+    const categories = state.accounting.categories.filter((item) => item.parent_id !== null || item.is_billable);
+    const openBills = state.accounting.bills.filter((bill) => ['unpaid', 'partially_paid', 'overdue'].includes(String(bill.status || '')));
+    const accountOptions = [
+      accountingOption('', 'Choose account'),
+      ...accounts.map((account) => accountingOption(account.id, `${account.name}${account.is_spendable ? '' : ' (not spendable)'}`))
+    ].join('');
+    if (accountingRefs.accountSelect) accountingRefs.accountSelect.innerHTML = accountOptions;
+    if (accountingRefs.toAccountSelect) accountingRefs.toAccountSelect.innerHTML = accountOptions;
+
+    if (accountingRefs.categorySelect) {
+      accountingRefs.categorySelect.innerHTML = [
+        accountingOption('', 'Choose category'),
+        ...categories.map((category) => accountingOption(category.id, category.parent_name ? `${category.parent_name} - ${category.name}` : category.name))
+      ].join('');
+    }
+    if (accountingRefs.billSelect) {
+      accountingRefs.billSelect.innerHTML = [
+        accountingOption('', 'Choose bill'),
+        ...openBills.map((bill) => accountingOption(bill.id, `${bill.vendor_name || 'Vendor'} - ${bill.bill_no || bill.bill_key} - ${formatCurrency(bill.outstanding_amount || 0)}`))
+      ].join('');
+    }
+    if (accountingRefs.counterpartyOptions) {
+      accountingRefs.counterpartyOptions.innerHTML = state.accounting.counterparties
+        .map((item) => `<option value="${escapeHtml(item.name || '')}"></option>`)
+        .join('');
+    }
+  };
+
+  const resetAccountingForm = () => {
+    accountingRefs.form?.reset();
+    const today = getDashboardDateString();
+    if (accountingRefs.dateInput) accountingRefs.dateInput.value = today;
+    if (accountingRefs.issueDateInput) accountingRefs.issueDateInput.value = today;
+    if (accountingRefs.amountInput) accountingRefs.amountInput.value = '';
+    if (accountingRefs.brandSelect) accountingRefs.brandSelect.value = 'General / Shared';
+    if (accountingRefs.channelSelect) accountingRefs.channelSelect.value = 'Internal';
+    renderAccountingLookupOptions();
+    setAccountingMode(state.accounting.mode);
+  };
+
   const beginRequest = (key, settings = false) => {
     state.requestSequence += 1;
     const token = state.requestSequence;
@@ -1747,6 +2040,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (state.website.screen !== 'detail' || !state.website.site) return true;
       return Boolean(state.website.data) && isFresh(state.website.loadedAt, VIEW_CACHE_TTL_MS.website);
     }
+    if (view === 'accounting') return Boolean(state.accounting.summary) && isFresh(state.accounting.loadedAt, VIEW_CACHE_TTL_MS.accounting);
     if (view === 'settings') return isFresh(state.website.settingsLoadedAt, VIEW_CACHE_TTL_MS.settings);
     return true;
   };
@@ -2534,14 +2828,183 @@ document.addEventListener('DOMContentLoaded', () => {
     renderOrders();
   };
 
+  const dashboardYearMonth = () => {
+    const [year, month] = getMonthKeyForTimezone(new Date(), state.timezone).split('-').map((part) => Number(part));
+    return {
+      year: Number.isFinite(year) ? year : new Date().getFullYear(),
+      month: Number.isFinite(month) ? month : new Date().getMonth() + 1
+    };
+  };
+
+  const optionalNumberFrom = (source, keys) => {
+    if (!source || typeof source !== 'object') return null;
+    for (const key of keys) {
+      if (!Object.prototype.hasOwnProperty.call(source, key)) continue;
+      const value = source[key];
+      if (value === null || value === '') continue;
+      const number = Number(value);
+      if (Number.isFinite(number)) return number;
+    }
+    return null;
+  };
+
+  const monthNumberFrom = (row) => {
+    const numericMonth = Number(row?.month ?? row?.month_index ?? row?.monthNumber);
+    if (Number.isFinite(numericMonth) && numericMonth >= 1 && numericMonth <= 12) {
+      return Math.round(numericMonth);
+    }
+
+    const label = String(row?.label || row?.month_label || '').slice(0, 3).toLowerCase();
+    const labelIndex = SALES_RECAP_MONTH_LABELS.findIndex((month) => month.toLowerCase() === label);
+    return labelIndex >= 0 ? labelIndex + 1 : 0;
+  };
+
+  const salesRecapValuesForMonth = (row = {}) => {
+    const pcs = optionalNumberFrom(row, ['item_count', 'total_pcs', 'pcs', 'quantity', 'qty', 'units', 'order_item_count']) ?? 0;
+    const rev = optionalNumberFrom(row, ['net_revenue', 'sales', 'revenue', 'total_revenue', 'grossRevenue', 'gross_revenue']) ?? 0;
+    const cogs = optionalNumberFrom(row, ['cogs', 'total_cogs', 'cost_of_goods_sold']);
+    const directGp = optionalNumberFrom(row, ['gross_profit', 'grossProfit', 'gp', 'profit']);
+    const gp = directGp !== null ? directGp : (cogs !== null ? rev - cogs : null);
+
+    return {
+      pcs,
+      rev,
+      cogs,
+      avgCogs: cogs !== null ? (pcs > 0 ? cogs / pcs : 0) : null,
+      gp,
+      avgGp: gp !== null ? (pcs > 0 ? gp / pcs : 0) : null,
+      gpPct: gp !== null && rev > 0 ? gp / rev : null
+    };
+  };
+
+  const salesRecapTotals = (values) => {
+    const pcs = values.reduce((sum, item) => sum + Number(item.pcs || 0), 0);
+    const rev = values.reduce((sum, item) => sum + Number(item.rev || 0), 0);
+    const hasFullCogs = values.every((item) => item.cogs !== null || (!item.pcs && !item.rev));
+    const hasFullGp = values.every((item) => item.gp !== null || (!item.pcs && !item.rev));
+    const cogs = hasFullCogs ? values.reduce((sum, item) => sum + Number(item.cogs || 0), 0) : null;
+    const gp = hasFullGp
+      ? values.reduce((sum, item) => sum + Number(item.gp || 0), 0)
+      : (cogs !== null ? rev - cogs : null);
+
+    return {
+      pcs,
+      rev,
+      cogs,
+      avgCogs: cogs !== null ? (pcs > 0 ? cogs / pcs : 0) : null,
+      gp,
+      avgGp: gp !== null ? (pcs > 0 ? gp / pcs : 0) : null,
+      gpPct: gp !== null && rev > 0 ? gp / rev : null
+    };
+  };
+
+  const formatSalesRecapValue = (format, value) => {
+    const number = Number(value);
+    if (value === null || value === undefined || !Number.isFinite(number)) return '-';
+    if (format === 'money') return formatCurrency(number);
+    if (format === 'percent') {
+      return `${(number * 100).toLocaleString('id-ID', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 1
+      })}%`;
+    }
+    return Math.round(number).toLocaleString('id-ID');
+  };
+
+  const renderSalesRecapCell = (metric, value, isTotal = false) => {
+    const number = Number(value);
+    const unavailable = value === null || value === undefined || !Number.isFinite(number);
+    const classes = [
+      'admin-sales-recap-cell',
+      `admin-sales-recap-cell-${metric.key}`,
+      isTotal ? 'is-total' : '',
+      !unavailable && number < 0 ? 'is-negative' : '',
+      unavailable ? 'is-empty' : ''
+    ].filter(Boolean).join(' ');
+    return `<td class="${classes}">${escapeHtml(formatSalesRecapValue(metric.format, value))}</td>`;
+  };
+
+  const setSalesRecapOpen = (isOpen) => {
+    state.overview.salesRecapOpen = Boolean(isOpen);
+    root.classList.toggle('is-sales-recap-open', state.overview.salesRecapOpen);
+    if (overviewRefs.salesRecap) {
+      overviewRefs.salesRecap.classList.toggle('is-open', state.overview.salesRecapOpen);
+      overviewRefs.salesRecap.setAttribute('aria-hidden', state.overview.salesRecapOpen ? 'false' : 'true');
+    }
+
+    const trigger = overviewRefs.yearControls?.querySelector('[data-sales-recap-toggle]');
+    if (trigger) {
+      trigger.classList.toggle('is-active', state.overview.salesRecapOpen);
+      trigger.setAttribute('aria-expanded', state.overview.salesRecapOpen ? 'true' : 'false');
+    }
+  };
+
+  const renderSalesRecap = (data) => {
+    if (!overviewRefs.salesRecapHead || !overviewRefs.salesRecapBody) return;
+
+    const months = Array.isArray(data?.months) ? data.months : [];
+    const { year: currentYear, month: currentMonth } = dashboardYearMonth();
+    const selectedYear = Number(data?.year || state.overview.year || currentYear);
+    const monthMap = new Map();
+    months.forEach((row) => {
+      const monthNumber = monthNumberFrom(row);
+      if (monthNumber >= 1 && monthNumber <= 12) {
+        monthMap.set(monthNumber, row);
+      }
+    });
+
+    const availableMonths = Array.from(monthMap.keys()).sort((left, right) => left - right);
+    let maxMonth = selectedYear < currentYear ? 12 : (selectedYear === currentYear ? currentMonth : 0);
+    if (maxMonth <= 0 && availableMonths.length) {
+      maxMonth = Math.max(...availableMonths);
+    }
+
+    const monthNumbers = Array.from({ length: Math.max(0, Math.min(12, maxMonth)) }, (_, index) => index + 1);
+    const columns = monthNumbers.map((month) => ({
+      month,
+      label: SALES_RECAP_MONTH_LABELS[month - 1] || String(month)
+    }));
+    const values = columns.map((column) => salesRecapValuesForMonth(monthMap.get(column.month) || {}));
+    const totals = salesRecapTotals(values);
+    const lastMonthLabel = columns.length ? columns[columns.length - 1].label : '-';
+
+    if (overviewRefs.salesRecapTitle) {
+      overviewRefs.salesRecapTitle.textContent = `Sales Recap ${selectedYear}`;
+    }
+    if (overviewRefs.salesRecapMeta) {
+      overviewRefs.salesRecapMeta.textContent = selectedYear < currentYear
+        ? `${selectedYear} full year`
+        : `${selectedYear} YTD through ${lastMonthLabel}`;
+    }
+
+    overviewRefs.salesRecapHead.innerHTML = `
+      <tr>
+        <th scope="col" class="admin-sales-recap-corner">Metric</th>
+        ${columns.map((column) => `<th scope="col">${escapeHtml(column.label)}</th>`).join('')}
+        <th scope="col" class="is-total">Total</th>
+      </tr>
+    `;
+
+    overviewRefs.salesRecapBody.innerHTML = SALES_RECAP_METRICS.map((metric) => `
+      <tr>
+        <th scope="row">${escapeHtml(metric.label)}</th>
+        ${values.map((item) => renderSalesRecapCell(metric, item[metric.key])).join('')}
+        ${renderSalesRecapCell(metric, totals[metric.key], true)}
+      </tr>
+    `).join('');
+  };
+
   const renderOverviewYearControls = (years) => {
     if (!overviewRefs.yearControls) return;
     const signature = `${(Array.isArray(years) ? years : []).join('\u001f')}\u001e${state.overview.year}`;
     if (state.overview.orderYearControlsSignature === signature) return;
     state.overview.orderYearControlsSignature = signature;
-    overviewRefs.yearControls.innerHTML = years.map((year) => `
+    const safeYears = Array.isArray(years) && years.length ? years : [state.overview.year];
+    overviewRefs.yearControls.innerHTML = `${safeYears.map((year) => `
       <button type="button" class="admin-toggle-pill${Number(year) === Number(state.overview.year) ? ' is-active' : ''}" data-overview-year="${escapeHtml(String(year))}">${escapeHtml(String(year))}</button>
-    `).join('');
+    `).join('')}
+      <button type="button" class="admin-toggle-pill admin-sales-recap-trigger${state.overview.salesRecapOpen ? ' is-active' : ''}" data-sales-recap-toggle aria-expanded="${state.overview.salesRecapOpen ? 'true' : 'false'}">Sales Recap</button>
+    `;
 
     overviewRefs.yearControls.querySelectorAll('[data-overview-year]').forEach((button) => {
       button.addEventListener('click', async () => {
@@ -2550,6 +3013,10 @@ document.addEventListener('DOMContentLoaded', () => {
         state.overview.year = nextYear;
         await loadOverviewSafely({ force: true, preferStale: false });
       });
+    });
+
+    overviewRefs.yearControls.querySelector('[data-sales-recap-toggle]')?.addEventListener('click', () => {
+      setSalesRecapOpen(!state.overview.salesRecapOpen);
     });
   };
 
@@ -2599,6 +3066,7 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
     }
 
+    renderSalesRecap(data);
     drawLineChart(overviewRefs.trendCanvas, monthlyRows, state.overview.metric, OVERVIEW_METRIC_UNITS);
     drawBarChart(overviewRefs.ordersCanvas, monthlyRows, {
       value: (item) => item[state.overview.volumeMetric] || 0,
@@ -2621,6 +3089,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setLastUpdated(overviewRefs.lastUpdated, data.generated_at || data.meta?.generated_at);
     renderOverviewYearControls(years);
+    setSalesRecapOpen(state.overview.salesRecapOpen);
     overviewRefs.metricButtons.forEach((button) => {
       button.classList.toggle('is-active', button.dataset.overviewMetric === state.overview.metric);
     });
@@ -2761,13 +3230,243 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
+  const websiteSalesWindow = () => {
+    const now = Date.now();
+    const today = getDashboardDateString();
+    const year = dashboardYearMonth().year;
+    const rollingDays = {
+      '24h': 1,
+      '7d': 7,
+      '30d': 30,
+      '90d': 90
+    };
+
+    if (state.website.timeframe === '1h') {
+      const cutoffMs = now - (60 * 60 * 1000);
+      return {
+        startDate: getDashboardDateString(new Date(cutoffMs)),
+        endDate: today,
+        cutoffMs,
+        label: 'Last 1H'
+      };
+    }
+
+    if (rollingDays[state.website.timeframe]) {
+      const cutoffMs = now - (rollingDays[state.website.timeframe] * 24 * 60 * 60 * 1000);
+      return {
+        startDate: getDashboardDateString(new Date(cutoffMs)),
+        endDate: today,
+        cutoffMs,
+        label: `Last ${state.website.timeframe.toUpperCase()}`
+      };
+    }
+
+    return {
+      startDate: `${year}-01-01`,
+      endDate: today,
+      cutoffMs: 0,
+      label: `${year} YTD`
+    };
+  };
+
+  const websiteOrderKey = (row) => [
+    row.platform || 'unknown',
+    row.account_key || 'unknown',
+    row.order_id || row.order_row_id || ''
+  ].join('|');
+
+  const websiteOrderTimestamp = (row) => {
+    const parsed = parseSalesOrderDate(row.order_create_time || row.timestamp || row.ordered_at);
+    return parsed ? parsed.getTime() : 0;
+  };
+
+  const websiteOrderIsPaid = (row) => {
+    const status = normalizeFilterValue(row.status || row.order_status || row.payment_status || row.fulfillment_status);
+    if (!status) return true;
+    return !/(cancel|return|refund|unpaid|failed|void|reject)/.test(status);
+  };
+
+  const websiteOrderQuantity = (row) => Math.max(0, optionalNumberFrom(row, [
+    'quantity',
+    'order_item_count',
+    'item_count',
+    'qty',
+    'units'
+  ]) ?? 0);
+
+  const websiteOrderRevenue = (row) => optionalNumberFrom(row, [
+    'net_revenue',
+    'revenue',
+    'sales',
+    'total_revenue',
+    'gross_revenue'
+  ]) ?? 0;
+
+  const websiteOrderDiscount = (row) => [
+    'discount',
+    'discount_amount',
+    'discount_total',
+    'total_discount',
+    'seller_discount',
+    'platform_discount',
+    'voucher_discount',
+    'seller_voucher',
+    'platform_voucher',
+    'voucher_seller',
+    'voucher_platform',
+    'coin_discount'
+  ].reduce((sum, key) => {
+    const value = optionalNumberFrom(row, [key]);
+    return sum + (value === null ? 0 : Math.abs(value));
+  }, 0);
+
+  const websiteProductLabel = (row) => String(
+    row.product_type ||
+    row.product_name ||
+    row.item_name ||
+    row.sku ||
+    'Unknown product'
+  ).trim() || 'Unknown product';
+
+  const aggregateWebsiteSalesRows = (rows, range, partial = false) => {
+    const paidRows = (Array.isArray(rows) ? rows : []).filter((row) => {
+      const timestamp = websiteOrderTimestamp(row);
+      if (range.cutoffMs && timestamp && timestamp < range.cutoffMs) return false;
+      return websiteOrderIsPaid(row);
+    });
+    const orderIds = new Set();
+    const discountedOrderIds = new Set();
+    const productMap = new Map();
+    let paidQty = 0;
+    let paidRevenue = 0;
+    let totalDiscounts = 0;
+
+    paidRows.forEach((row) => {
+      const orderKey = websiteOrderKey(row);
+      const quantity = websiteOrderQuantity(row);
+      const revenue = websiteOrderRevenue(row);
+      const discount = websiteOrderDiscount(row);
+      const productLabel = websiteProductLabel(row);
+
+      if (orderKey.trim() !== 'unknown|unknown|') orderIds.add(orderKey);
+      if (discount > 0 && orderKey.trim() !== 'unknown|unknown|') discountedOrderIds.add(orderKey);
+      paidQty += quantity;
+      paidRevenue += revenue;
+      totalDiscounts += discount;
+
+      if (!productMap.has(productLabel)) {
+        productMap.set(productLabel, {
+          label: productLabel,
+          orders: new Set(),
+          quantity: 0,
+          revenue: 0
+        });
+      }
+
+      const product = productMap.get(productLabel);
+      product.quantity += quantity;
+      product.revenue += revenue;
+      if (orderKey.trim() !== 'unknown|unknown|') product.orders.add(orderKey);
+    });
+
+    const products = Array.from(productMap.values())
+      .map((item) => ({
+        ...item,
+        orders: item.orders.size
+      }))
+      .sort((left, right) => right.revenue - left.revenue || right.quantity - left.quantity || left.label.localeCompare(right.label));
+
+    return {
+      ok: true,
+      range,
+      partial,
+      line_count: paidRows.length,
+      totals: {
+        paid_orders: orderIds.size || paidRows.length,
+        paid_qty: paidQty,
+        paid_revenue: paidRevenue,
+        total_discounts: totalDiscounts,
+        average_discount: discountedOrderIds.size ? totalDiscounts / discountedOrderIds.size : 0,
+        discounted_orders: discountedOrderIds.size
+      },
+      products
+    };
+  };
+
+  const loadWebsiteSalesData = async (options = {}) => {
+    const range = websiteSalesWindow();
+    const rows = [];
+    let offset = 0;
+
+    for (let page = 0; page < 6; page += 1) {
+      const payload = await requestJson(buildSalesOrdersUrl(range.startDate, range.endDate, {
+        cacheBust: options.cacheBust && page === 0,
+        limit: 500,
+        offset,
+        skipSync: true
+      }));
+      rows.push(...(Array.isArray(payload.orders) ? payload.orders : []));
+      const nextOffset = Number(payload.next_offset);
+      if (!payload.has_more || !Number.isFinite(nextOffset) || nextOffset <= offset) {
+        return aggregateWebsiteSalesRows(rows, range, false);
+      }
+      offset = nextOffset;
+    }
+
+    return aggregateWebsiteSalesRows(rows, range, true);
+  };
+
+  const renderWebsiteSales = (sales) => {
+    const totals = sales?.totals || {};
+    const products = Array.isArray(sales?.products) ? sales.products : [];
+    const salesError = sales?.ok === false ? (sales.error || 'sales_unavailable') : '';
+
+    if (websiteRefs.summaryPaidOrders) {
+      websiteRefs.summaryPaidOrders.textContent = salesError ? '-' : Number(totals.paid_orders || 0).toLocaleString('id-ID');
+    }
+    if (websiteRefs.summaryPaidQty) {
+      websiteRefs.summaryPaidQty.textContent = salesError ? '-' : Number(totals.paid_qty || 0).toLocaleString('id-ID');
+    }
+    if (websiteRefs.summaryPaidRevenue) {
+      websiteRefs.summaryPaidRevenue.textContent = salesError ? '-' : formatCurrency(totals.paid_revenue || 0);
+    }
+    if (websiteRefs.salesMeta) {
+      websiteRefs.salesMeta.textContent = salesError
+        ? `Sales unavailable: ${salesError}`
+        : `${sales.range?.label || 'Selected window'} • ${Number(sales.line_count || 0).toLocaleString('id-ID')} lines${sales.partial ? ' • partial' : ''}`;
+    }
+
+    if (websiteRefs.productTableBody) {
+      websiteRefs.productTableBody.innerHTML = salesError
+        ? `<tr><td colspan="4" class="admin-empty">${escapeHtml(`Sales feed unavailable: ${salesError}`)}</td></tr>`
+        : renderRows(products.slice(0, 6), 4, (item) => `
+          <tr>
+            <td><strong>${escapeHtml(item.label || 'Unknown product')}</strong></td>
+            <td>${Number(item.orders || 0).toLocaleString('id-ID')}</td>
+            <td>${Number(item.quantity || 0).toLocaleString('id-ID')}</td>
+            <td>${formatCurrency(item.revenue || 0)}</td>
+          </tr>
+        `, 'No paid product activity in this window.');
+    }
+
+    if (websiteRefs.discountSummary) {
+      if (salesError) {
+        websiteRefs.discountSummary.innerHTML = `<p class="admin-empty">${escapeHtml(`Discount data unavailable: ${salesError}`)}</p>`;
+      } else {
+        websiteRefs.discountSummary.innerHTML = `
+          <div><span>Total discounts</span><strong>${formatCurrency(totals.total_discounts || 0)}</strong></div>
+          <div><span>Average discount</span><strong>${formatCurrency(totals.average_discount || 0)}</strong></div>
+          <div><span>Discounted orders</span><strong>${Number(totals.discounted_orders || 0).toLocaleString('id-ID')}</strong></div>
+        `;
+      }
+    }
+  };
+
   const renderWebsite = (data) => {
     state.website.data = data;
     state.website.screen = 'detail';
     renderWebsiteShell();
     const summary = data.summary || {};
-    const pages = Array.isArray(data.by_page) ? data.by_page : [];
-    const regions = Array.isArray(data.by_region) ? data.by_region : [];
     const timeseries = Array.isArray(data.timeseries) ? data.timeseries : [];
 
     if (websiteRefs.summaryVisitors) websiteRefs.summaryVisitors.textContent = Number(summary.total_visitors || 0).toLocaleString('id-ID');
@@ -2778,57 +3477,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (websiteRefs.summaryTopRegion) websiteRefs.summaryTopRegion.textContent = summary.top_region || 'Unknown';
     if (websiteRefs.excludedCount) websiteRefs.excludedCount.textContent = Number(summary.excluded_ip_count || 0).toLocaleString('id-ID');
     if (websiteRefs.settingsEndpointLabel) websiteRefs.settingsEndpointLabel.textContent = settingsEndpoint;
-
-    if (websiteRefs.pageTableBody) {
-      websiteRefs.pageTableBody.innerHTML = renderRows(pages, 4, (item) => `
-        <tr>
-          <td><strong>${escapeHtml(item.page_path || '/')}</strong></td>
-          <td>${Number(item.visitors || 0).toLocaleString('id-ID')}</td>
-          <td>${Number(item.page_views || 0).toLocaleString('id-ID')}</td>
-          <td>${formatSeconds(Number(item.avg_time_spent_seconds || 0))}</td>
-        </tr>
-      `, 'Belum ada data website.');
-    }
-
-    if (websiteRefs.regionTableBody) {
-      websiteRefs.regionTableBody.innerHTML = renderRows(regions, 4, (item) => `
-        <tr>
-          <td><strong>${escapeHtml(item.region_label || 'Unknown')}</strong></td>
-          <td>${escapeHtml(item.country_code || '-')}</td>
-          <td>${Number(item.visitors || 0).toLocaleString('id-ID')}</td>
-          <td>${Number(item.page_views || 0).toLocaleString('id-ID')}</td>
-        </tr>
-      `, 'Belum ada data region.');
-    }
-
-    renderEventFeed(websiteRefs.recentEvents, Array.isArray(data.recent_events) ? data.recent_events : [], (item) => `
-      <div class="admin-event-item">
-        <strong>${escapeHtml(item.page_path || '/')} • ${escapeHtml(item.region_label || 'Unknown')}</strong>
-        <span>${escapeHtml(item.ip_address_masked || 'Unknown')}</span>
-        ${item.ip_address ? `<button type="button" class="admin-soft-btn" data-ignore-recorded-ip="${escapeHtml(String(item.ip_address))}">Ignore This Recorded IP</button>` : ''}
-        <small>${escapeHtml(item.occurred_at || '')}</small>
-      </div>
-    `, 'Belum ada kunjungan website.');
+    renderWebsiteSales(data.sales || null);
 
     drawLineChart(websiteRefs.trendCanvas, timeseries, state.website.metric, WEBSITE_METRIC_UNITS);
-    drawBarChart(websiteRefs.regionCanvas, regions, {
-      value: (item) => item.visitors || 0,
-      label: (item) => String(item.region_label || 'Unknown').slice(0, 14),
-      color: () => SOURCE_COLORS.google,
-      metric: 'visitors',
-      unitsMap: WEBSITE_METRIC_UNITS,
-      tooltipTitle: (item) => item.region_label || 'Unknown',
-      limit: 6
-    });
-    drawBarChart(websiteRefs.pageCanvas, pages, {
-      value: (item) => item[state.website.metric] || 0,
-      label: (item) => formatPageLabel(item.page_path || '/').slice(0, 14),
-      color: () => SOURCE_COLORS.direct,
-      metric: state.website.metric,
-      unitsMap: WEBSITE_METRIC_UNITS,
-      tooltipTitle: (item) => item.page_path || '/',
-      limit: 6
-    });
 
     setLastUpdated(websiteRefs.lastUpdated, data.meta?.generated_at);
     const siteLabel = WEBSITE_SITE_LABELS[state.website.site]?.title || 'Website';
@@ -2858,16 +3509,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!isDetail || !siteConfig) {
       if (websiteRefs.heroChip) websiteRefs.heroChip.textContent = 'Official Website Dashboard';
       if (websiteRefs.heroTitle) websiteRefs.heroTitle.textContent = 'Select a website dashboard.';
-      if (websiteRefs.heroCopy) websiteRefs.heroCopy.textContent = 'Choose Jenang Gemi or ZERO to open the dedicated website analytics page. Each page uses browser-tagged website visits only.';
+      if (websiteRefs.heroCopy) websiteRefs.heroCopy.textContent = 'Choose jenanggemi.com or zerofoods.id to open the dedicated website analytics page. Each page uses browser-tagged website visits only.';
       return;
     }
 
     if (websiteRefs.heroChip) websiteRefs.heroChip.textContent = siteConfig.chip;
     if (websiteRefs.heroTitle) websiteRefs.heroTitle.textContent = siteConfig.title;
     if (websiteRefs.heroCopy) websiteRefs.heroCopy.textContent = siteConfig.copy;
-    if (websiteRefs.pageChartTitle) websiteRefs.pageChartTitle.textContent = `${siteConfig.title} visitors by page`;
-    if (websiteRefs.pageChartMeta) websiteRefs.pageChartMeta.textContent = siteConfig.pageMeta;
-    if (websiteRefs.pageTableTitle) websiteRefs.pageTableTitle.textContent = siteConfig.pageTitle;
     if (websiteRefs.scopeNote) websiteRefs.scopeNote.textContent = siteConfig.scope;
   };
 
@@ -2875,6 +3523,353 @@ document.addEventListener('DOMContentLoaded', () => {
     state.website.screen = 'select';
     state.website.site = '';
     renderWebsiteShell();
+  };
+
+  const renderAccountingKpis = (summary) => {
+    const kpis = summary?.kpis || {};
+    if (accountingRefs.kpis.realCash) accountingRefs.kpis.realCash.textContent = formatCurrency(kpis.real_cash_available || 0);
+    if (accountingRefs.kpis.marketplaceOutstanding) accountingRefs.kpis.marketplaceOutstanding.textContent = formatCurrency(kpis.marketplace_outstanding || 0);
+    if (accountingRefs.kpis.billsDue) accountingRefs.kpis.billsDue.textContent = formatCurrency(kpis.bills_due_soon || 0);
+    if (accountingRefs.kpis.overdue) accountingRefs.kpis.overdue.textContent = formatCurrency(kpis.overdue_bills || 0);
+    if (accountingRefs.kpis.expenses) accountingRefs.kpis.expenses.textContent = formatCurrency(kpis.expenses_this_month || 0);
+    if (accountingRefs.kpis.safeCash) accountingRefs.kpis.safeCash.textContent = formatCurrency(kpis.net_safe_cash || 0);
+    if (accountingRefs.kpis.pendingReview) accountingRefs.kpis.pendingReview.textContent = Number(kpis.pending_manual_review || 0).toLocaleString('id-ID');
+    accountingRefs.safeCashCard?.classList.toggle('is-danger', Number(kpis.net_safe_cash || 0) < 0);
+  };
+
+  const renderAccountingAlerts = (summary) => {
+    if (!accountingRefs.alerts) return;
+    const alerts = Array.isArray(summary?.alerts) ? summary.alerts : [];
+    if (!alerts.length) {
+      accountingRefs.alerts.innerHTML = '<div class="admin-accounting-alert"><strong>No urgent alerts</strong><span>Accounting checks will appear after data loads.</span></div>';
+      return;
+    }
+    accountingRefs.alerts.innerHTML = alerts.map((alert) => `
+      <button type="button" class="admin-accounting-alert admin-accounting-alert-${escapeHtml(alert.type || 'info')}" data-accounting-alert-action="${escapeHtml(alert.action || '')}">
+        <strong>${escapeHtml(alert.title || 'Alert')}</strong>
+        <span>${Number(alert.amount || 0) > 0 ? formatCurrency(alert.amount) : escapeHtml(alert.action || 'Review')}</span>
+      </button>
+    `).join('');
+  };
+
+  const renderAccountingBills = () => {
+    if (!accountingRefs.billsBody) return;
+    const bills = state.accounting.bills;
+    if (accountingRefs.billsMeta) {
+      accountingRefs.billsMeta.textContent = `${bills.length.toLocaleString('id-ID')} bills loaded`;
+    }
+    if (!bills.length) {
+      accountingRefs.billsBody.innerHTML = '<tr><td colspan="13" class="admin-empty">No unpaid bills. Add a bill when supplier invoices arrive.</td></tr>';
+      renderAccountingLookupOptions();
+      return;
+    }
+    accountingRefs.billsBody.innerHTML = bills.map((bill) => `
+      <tr class="${bill.status === 'overdue' ? 'is-overdue' : ''}" data-accounting-bill-row="${escapeHtml(String(bill.id))}">
+        <td><strong>${escapeHtml(bill.due_date || '-')}</strong><small class="admin-table-note">${escapeHtml(bill.issue_date || '')}</small></td>
+        <td><span class="${accountingStatusClass(bill.status)}">${escapeHtml(bill.status || '-')}</span></td>
+        <td>${escapeHtml(bill.vendor_name || '-')}</td>
+        <td>${escapeHtml(bill.bill_no || bill.bill_key || '-')}</td>
+        <td>${escapeHtml(bill.category_name || '-')}</td>
+        <td>${escapeHtml(bill.brand || 'General / Shared')}</td>
+        <td>${escapeHtml(bill.channel || 'Internal')}</td>
+        <td>${formatCurrency(bill.total_amount || 0)}</td>
+        <td>${formatCurrency(bill.paid_amount || 0)}</td>
+        <td><strong>${formatCurrency(bill.outstanding_amount || 0)}</strong></td>
+        <td>${Number(bill.age_days || 0).toLocaleString('id-ID')}d</td>
+        <td><span class="${accountingStatusClass(bill.receipt_status)}">${escapeHtml(bill.receipt_status || 'missing')}</span></td>
+        <td>
+          <div class="admin-accounting-row-actions">
+            <button type="button" class="admin-soft-btn" data-accounting-pay-bill="${escapeHtml(String(bill.id))}">Pay</button>
+            <button type="button" class="admin-ghost-btn" data-accounting-view-bill="${escapeHtml(String(bill.id))}">View</button>
+            <button type="button" class="admin-danger-btn" data-accounting-void-bill="${escapeHtml(String(bill.id))}">Void</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+    renderAccountingLookupOptions();
+  };
+
+  const renderAccountingTransactions = () => {
+    if (!accountingRefs.transactionsBody) return;
+    const rows = state.accounting.transactions;
+    if (accountingRefs.ledgerMeta) {
+      accountingRefs.ledgerMeta.textContent = `${rows.length.toLocaleString('id-ID')} rows loaded`;
+    }
+    if (!rows.length) {
+      accountingRefs.transactionsBody.innerHTML = '<tr><td colspan="13" class="admin-empty">No manual accounting entries for this month yet.</td></tr>';
+      return;
+    }
+    accountingRefs.transactionsBody.innerHTML = rows.map((row) => `
+      <tr data-accounting-transaction-row="${escapeHtml(String(row.id))}">
+        <td><strong>${escapeHtml(row.transaction_date || '-')}</strong><small class="admin-table-note">${escapeHtml(row.transaction_key || '')}</small></td>
+        <td><span class="${accountingStatusClass(row.type)}">${escapeHtml(String(row.type || '-').replace(/_/g, ' '))}</span></td>
+        <td>${escapeHtml(row.account_name || '-')} ${row.to_account_name ? `<small class="admin-table-note">to ${escapeHtml(row.to_account_name)}</small>` : ''}</td>
+        <td>${escapeHtml(String(row.direction || '-').replace(/_/g, ' '))}</td>
+        <td>${escapeHtml(row.counterparty_name || '-')}</td>
+        <td>${escapeHtml(row.category_name || '-')}</td>
+        <td>${escapeHtml(row.brand || 'General / Shared')}</td>
+        <td>${escapeHtml(row.channel || 'Internal')}</td>
+        <td><strong>${formatCurrency(row.amount || 0)}</strong></td>
+        <td><span class="${accountingStatusClass(row.status)}">${escapeHtml(row.status || '-')}</span></td>
+        <td><span class="${accountingStatusClass(row.receipt_status)}">${escapeHtml(row.receipt_status || 'missing')}</span></td>
+        <td>${escapeHtml(row.bill_no || '-')}</td>
+        <td>
+          <div class="admin-accounting-row-actions">
+            <button type="button" class="admin-ghost-btn" data-accounting-view-transaction="${escapeHtml(String(row.id))}">View</button>
+            <button type="button" class="admin-danger-btn" data-accounting-void-transaction="${escapeHtml(String(row.id))}">Void</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  };
+
+  const renderAccountingSummary = (summary) => {
+    if (!accountingRefs.monthlySummary) return;
+    const monthly = summary?.monthly_summary || {};
+    const rows = [
+      ['Sales Revenue Context', monthly.sales_revenue_context || 0],
+      ['Gross Profit Context', monthly.gross_profit_context || 0],
+      ['Paid Operating Expenses', monthly.paid_operating_expenses || 0],
+      ['Marketing Expenses', monthly.marketing_expenses || 0],
+      ['Production / COGS Support', monthly.production_cogs_support_expenses || 0],
+      ['Payroll / Labor', monthly.payroll_labor || 0],
+      ['Software / Admin', monthly.software_admin || 0],
+      ['Owner Draw', monthly.owner_draw || 0],
+      ['Owner Injection', monthly.owner_injection || 0],
+      ['Manual Income', monthly.manual_income || 0],
+      ['Transfers In', monthly.transfers_in || 0],
+      ['Transfers Out', monthly.transfers_out || 0],
+      ['Bills Created', monthly.bills_created || 0],
+      ['Bills Paid', monthly.bills_paid || 0],
+      ['Bills Still Unpaid', monthly.bills_still_unpaid || 0],
+      ['Estimated Net Cash Movement', monthly.estimated_net_cash_movement || 0]
+    ];
+    accountingRefs.monthlySummary.innerHTML = rows.map(([label, value]) => `
+      <div>
+        <span>${escapeHtml(label)}</span>
+        <strong>${formatCurrency(value)}</strong>
+      </div>
+    `).join('');
+  };
+
+  const renderAccountingInsights = (summary) => {
+    if (!accountingRefs.insights) return;
+    const key = `${state.accounting.insightTab}_summary`;
+    const rows = Array.isArray(summary?.[key]) ? summary[key] : [];
+    accountingRefs.insightTabs.forEach((button) => {
+      button.classList.toggle('is-active', button.dataset.accountingInsightTab === state.accounting.insightTab);
+    });
+    if (!rows.length) {
+      accountingRefs.insights.innerHTML = '<p class="admin-empty">No spend split for this period yet.</p>';
+      return;
+    }
+    const max = Math.max(...rows.map((row) => Number(row.this_month || 0)), 1);
+    accountingRefs.insights.innerHTML = rows.map((row) => {
+      const value = Number(row.this_month || 0);
+      return `
+        <div class="admin-accounting-insight-row">
+          <div><strong>${escapeHtml(row.label || '-')}</strong><span>${row.last_transaction ? escapeHtml(row.last_transaction) : 'Selected period'}</span></div>
+          <div class="admin-accounting-bar"><span style="width:${Math.max(4, Math.round((value / max) * 100))}%"></span></div>
+          <b>${formatCurrency(value)}</b>
+        </div>
+      `;
+    }).join('');
+  };
+
+  const renderAccountingReviewQueue = () => {
+    if (!accountingRefs.reviewBody) return;
+    const rows = state.accounting.reviewQueue;
+    if (!rows.length) {
+      accountingRefs.reviewBody.innerHTML = '<tr><td colspan="5" class="admin-empty">No open review issues.</td></tr>';
+      return;
+    }
+    accountingRefs.reviewBody.innerHTML = rows.map((row) => `
+      <tr>
+        <td><strong>${escapeHtml(row.issue_message || row.issue_key || '-')}</strong><small class="admin-table-note">${escapeHtml(row.issue_key || '')}</small></td>
+        <td><span class="${accountingStatusClass(row.severity)}">${escapeHtml(row.severity || 'warning')}</span></td>
+        <td>${escapeHtml(row.entity_type || '-')} #${Number(row.entity_id || 0).toLocaleString('id-ID')}</td>
+        <td>${escapeHtml(row.suggested_action || '-')}</td>
+        <td><button type="button" class="admin-soft-btn" data-accounting-resolve-review="${escapeHtml(String(row.id))}">Mark reviewed</button></td>
+      </tr>
+    `).join('');
+  };
+
+  const openAccountingDrawer = (kind, id) => {
+    const collection = kind === 'bill' ? state.accounting.bills : state.accounting.transactions;
+    const item = collection.find((row) => Number(row.id) === Number(id));
+    if (!item || !accountingRefs.drawer) return;
+    if (accountingRefs.drawerKicker) accountingRefs.drawerKicker.textContent = kind === 'bill' ? 'Bill' : 'Transaction';
+    if (accountingRefs.drawerTitle) accountingRefs.drawerTitle.textContent = kind === 'bill'
+      ? (item.bill_no || item.bill_key || 'Bill')
+      : (item.transaction_key || 'Transaction');
+    if (accountingRefs.drawerBody) {
+      const entries = Object.entries(item).filter(([, value]) => value !== null && value !== '');
+      accountingRefs.drawerBody.innerHTML = entries.map(([key, value]) => `
+        <div class="admin-accounting-detail-row">
+          <span>${escapeHtml(key.replace(/_/g, ' '))}</span>
+          <strong>${escapeHtml(String(value))}</strong>
+        </div>
+      `).join('');
+    }
+    accountingRefs.drawer.hidden = false;
+  };
+
+  const renderAccounting = () => {
+    const summary = state.accounting.summary;
+    if (accountingRefs.monthInput) accountingRefs.monthInput.value = state.accounting.month;
+    renderAccountingKpis(summary);
+    renderAccountingAlerts(summary);
+    renderAccountingBills();
+    renderAccountingTransactions();
+    renderAccountingSummary(summary);
+    renderAccountingInsights(summary);
+    renderAccountingReviewQueue();
+    renderAccountingLookupOptions();
+    if (accountingRefs.status) {
+      const walletContext = summary?.marketplace_outstanding_context || {};
+      const importedWallet = Number(walletContext.wallet_payouts_imported_amount || 0);
+      const matchedWallet = Number(walletContext.wallet_payouts_matched_count || 0);
+      const walletErrors = Array.isArray(walletContext.errors) ? walletContext.errors.length : 0;
+      const statusParts = ['Accounting data updates live from manual entries, wallet context, and stored order facts.'];
+      if (importedWallet > 0) {
+        statusParts.push(`Imported ${formatCurrency(importedWallet)} wallet payout cash.`);
+      } else if (matchedWallet > 0) {
+        statusParts.push(`${matchedWallet.toLocaleString('id-ID')} wallet payout transfer${matchedWallet === 1 ? '' : 's'} already matched.`);
+      }
+      if (walletErrors > 0) {
+        statusParts.push('Wallet sync partial; retrying on the next refresh.');
+      }
+      statusParts.push(`Updated ${formatDashboardTime(new Date(), state.timezone, { hour: '2-digit', minute: '2-digit' })} WIB.`);
+      accountingRefs.status.textContent = statusParts.join(' ');
+    }
+  };
+
+  const loadAccountingLookups = async (options = {}) => {
+    if (state.accounting.lookupsLoaded && !options.force) {
+      renderAccountingLookupOptions();
+      return;
+    }
+    const [accounts, categories, counterparties] = await Promise.all([
+      requestJson(buildAccountingUrl('accounts', { cacheBust: options.force })),
+      requestJson(buildAccountingUrl('categories', { cacheBust: options.force })),
+      requestJson(buildAccountingUrl('counterparties', { cacheBust: options.force }))
+    ]);
+    state.accounting.accounts = Array.isArray(accounts.data?.accounts) ? accounts.data.accounts : [];
+    state.accounting.categories = Array.isArray(categories.data?.categories) ? categories.data.categories : [];
+    state.accounting.counterparties = Array.isArray(counterparties.data?.counterparties) ? counterparties.data.counterparties : [];
+    state.accounting.lookupsLoaded = true;
+    renderAccountingLookupOptions();
+  };
+
+  const loadAccounting = async (options = {}) => {
+    if (!options.force && state.accounting.summary && isFresh(state.accounting.loadedAt, VIEW_CACHE_TTL_MS.accounting)) {
+      renderAccounting();
+      return;
+    }
+    const requestToken = beginRequest('accounting');
+    if (accountingRefs.status) accountingRefs.status.textContent = 'Loading Accounting data...';
+    const rangeOptions = accountingEndpointOptions({ cacheBust: options.force });
+    const [summary, bills, transactions, review] = await Promise.all([
+      requestJson(buildAccountingUrl('summary', rangeOptions)),
+      requestJson(buildAccountingUrl('bills', { ...rangeOptions, status: 'open' })),
+      requestJson(buildAccountingUrl('transactions', rangeOptions)),
+      requestJson(buildAccountingUrl('review_queue', rangeOptions)),
+      loadAccountingLookups(options)
+    ]);
+    if (!isLatestRequest('accounting', requestToken)) return;
+    state.accounting.summary = summary.data || {};
+    state.accounting.bills = Array.isArray(bills.data?.bills) ? bills.data.bills : [];
+    state.accounting.transactions = Array.isArray(transactions.data?.transactions) ? transactions.data.transactions : [];
+    state.accounting.reviewQueue = Array.isArray(review.data?.review_queue) ? review.data.review_queue : [];
+    state.accounting.loadedAt = Date.now();
+    renderAccounting();
+  };
+
+  const loadAccountingSafely = async (options = {}) => {
+    try {
+      await loadAccounting(options);
+      return true;
+    } catch (error) {
+      if (accountingRefs.status) accountingRefs.status.textContent = `Accounting unavailable: ${error?.message || 'Unknown error'}`;
+      if (accountingRefs.billsBody) accountingRefs.billsBody.innerHTML = `<tr><td colspan="13" class="admin-empty">Unable to load Accounting: ${escapeHtml(error?.message || 'Unknown error')}</td></tr>`;
+      if (accountingRefs.transactionsBody) accountingRefs.transactionsBody.innerHTML = `<tr><td colspan="13" class="admin-empty">Unable to load Accounting: ${escapeHtml(error?.message || 'Unknown error')}</td></tr>`;
+      return false;
+    }
+  };
+
+  const accountingPayloadFromForm = (submitter) => {
+    const form = accountingRefs.form;
+    if (!(form instanceof HTMLFormElement)) return null;
+    const data = new FormData(form);
+    const mode = state.accounting.mode;
+    const config = accountingModeConfig[mode];
+    const amount = accountingRawAmount(data.get('amount'));
+    const payload = {
+      action: config.action,
+      month: state.accounting.month,
+      amount,
+      transaction_date: String(data.get('transaction_date') || ''),
+      issue_date: String(data.get('issue_date') || ''),
+      due_date: String(data.get('due_date') || ''),
+      bill_id: String(data.get('bill_id') || ''),
+      account_id: String(data.get('account_id') || ''),
+      to_account_id: String(data.get('to_account_id') || ''),
+      category_id: String(data.get('category_id') || ''),
+      counterparty_name: String(data.get('counterparty_name') || '').trim(),
+      vendor_name: String(data.get('counterparty_name') || '').trim(),
+      bill_no: String(data.get('bill_no') || '').trim(),
+      brand: String(data.get('brand') || ''),
+      channel: String(data.get('channel') || ''),
+      type: mode === 'manual_income' ? String(data.get('income_type') || 'manual_income') : (config.type || ''),
+      direction: config.direction || '',
+      payment_method: String(data.get('payment_method') || ''),
+      transfer_fee_amount: accountingRawAmount(data.get('transfer_fee_amount')),
+      receipt_url: String(data.get('receipt_url') || '').trim(),
+      attachment_url: String(data.get('receipt_url') || '').trim(),
+      receipt_status: String(data.get('receipt_status') || 'missing'),
+      reference_no: String(data.get('reference_no') || '').trim(),
+      order_no: String(data.get('order_no') || '').trim(),
+      notes: String(data.get('notes') || ''),
+      status: submitter?.dataset?.accountingSaveDraft !== undefined ? 'draft' : 'posted'
+    };
+    if (mode === 'bill_received') {
+      payload.total_amount = amount;
+      payload.action = 'create_bill';
+    }
+    if (mode === 'pay_bill') {
+      payload.action = 'mark_bill_paid';
+      payload.payment_date = payload.transaction_date;
+    }
+    return payload;
+  };
+
+  const submitAccountingForm = async (event) => {
+    event.preventDefault();
+    const submitter = event.submitter instanceof HTMLElement ? event.submitter : null;
+    const payload = accountingPayloadFromForm(submitter);
+    if (!payload) return;
+    setAccountingFormError('');
+    if (accountingRefs.formStatus) accountingRefs.formStatus.textContent = 'Saving...';
+    try {
+      const data = await requestJson(accountingEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (accountingRefs.formStatus) accountingRefs.formStatus.textContent = 'Saved';
+      state.accounting.loadedAt = 0;
+      await loadAccountingSafely({ force: true, preferStale: false });
+      if (!submitter?.dataset?.accountingSaveAdd) {
+        resetAccountingForm();
+      } else if (accountingRefs.amountInput) {
+        accountingRefs.amountInput.value = '';
+      }
+      return data;
+    } catch (error) {
+      const message = error?.message || 'Unable to save Accounting entry.';
+      setAccountingFormError(message);
+      if (accountingRefs.formStatus) accountingRefs.formStatus.textContent = 'Needs attention';
+    }
   };
 
   const openWebsiteSite = async (site) => {
@@ -3035,8 +4030,15 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
     const requestToken = beginRequest('website');
-    const data = await requestJson(buildAnalyticsUrl('website', state.website.timeframe, { cacheBust: options.force }));
+    const [data, sales] = await Promise.all([
+      requestJson(buildAnalyticsUrl('website', state.website.timeframe, { cacheBust: options.force })),
+      loadWebsiteSalesData({ cacheBust: options.force }).catch((error) => ({
+        ok: false,
+        error: error?.message || 'sales_unavailable'
+      }))
+    ]);
     if (!isLatestRequest('website', requestToken)) return;
+    data.sales = sales;
     state.website.loadedAt = Date.now();
     renderWebsite(data);
   };
@@ -3076,6 +4078,10 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         showWebsiteSelector();
       }
+      return;
+    }
+    if (state.activeView === 'accounting') {
+      await loadAccounting(options);
       return;
     }
     if (state.activeView === 'store-ops') {
@@ -3167,6 +4173,9 @@ document.addEventListener('DOMContentLoaded', () => {
       showWebsiteSelector();
       return true;
     }
+    if (state.activeView === 'accounting') {
+      return loadAccountingSafely(options);
+    }
     if (state.activeView === 'store-ops') {
       return true;
     }
@@ -3195,6 +4204,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (view === 'daily') return loadDailySafely(options);
     if (view === 'home') return loadHomeSafely(options);
     if (view === 'website' && state.website.screen === 'detail' && state.website.site) return loadWebsiteSafely(options);
+    if (view === 'accounting') return loadAccountingSafely(options);
     if (view === 'settings') return loadWebsiteSettingsSafely(options);
     return Promise.resolve(false);
   };
@@ -3204,6 +4214,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (state.activeView === 'daily' && state.daily.data) renderDaily(state.daily.data);
     if (state.activeView === 'home' && state.home.data) renderHome(state.home.data);
     if (state.activeView === 'website' && state.website.screen === 'detail' && state.website.data) renderWebsite(state.website.data);
+    if (state.activeView === 'accounting' && state.accounting.summary) renderAccounting();
   };
 
   const scrollToOrdersPanel = () => {
@@ -3357,6 +4368,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (dailyRefs.monthInput) dailyRefs.monthInput.value = state.daily.month;
   renderDailyPlatformList();
+  resetAccountingForm();
 
   applyTheme(window.localStorage.getItem(themeStorageKey) || 'dark');
   syncViewState();
@@ -3403,6 +4415,10 @@ document.addEventListener('DOMContentLoaded', () => {
       state.overview.platformMetric = button.dataset.overviewPlatformMetric || 'sales';
       if (state.overview.data) renderOverview(state.overview.data);
     });
+  });
+
+  overviewRefs.salesRecapClose?.addEventListener('click', () => {
+    setSalesRecapOpen(false);
   });
 
   overviewRefs.ordersFilterOpen?.addEventListener('click', () => {
@@ -3583,6 +4599,137 @@ document.addEventListener('DOMContentLoaded', () => {
   websiteRefs.backButtons.forEach((button) => {
     button.addEventListener('click', () => {
       showWebsiteSelector();
+    });
+  });
+
+  if (accountingRefs.monthInput) {
+    accountingRefs.monthInput.value = state.accounting.month;
+    accountingRefs.monthInput.addEventListener('change', async () => {
+      const nextMonth = accountingRefs.monthInput?.value || state.accounting.month;
+      state.accounting.month = jgValidMonthKey(nextMonth) ? nextMonth : getMonthKeyForTimezone(new Date(), state.timezone);
+      state.accounting.loadedAt = 0;
+      await loadAccountingSafely({ force: true, preferStale: false });
+    });
+  }
+
+  accountingRefs.rangeButtons.forEach((button) => {
+    button.addEventListener('click', async () => {
+      state.accounting.range = button.dataset.accountingRange || 'this_month';
+      accountingRefs.rangeButtons.forEach((item) => item.classList.toggle('is-active', item === button));
+      state.accounting.loadedAt = 0;
+      await loadAccountingSafely({ force: true, preferStale: false });
+    });
+  });
+
+  [accountingRefs.dateFrom, accountingRefs.dateTo].forEach((input) => {
+    input?.addEventListener('change', async () => {
+      if (state.accounting.range !== 'custom') return;
+      state.accounting.loadedAt = 0;
+      await loadAccountingSafely({ force: true, preferStale: false });
+    });
+  });
+
+  accountingRefs.modeButtons.forEach((button) => {
+    button.addEventListener('click', () => setAccountingMode(button.dataset.accountingQuickMode || 'expense_paid'));
+  });
+
+  accountingRefs.openModeButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      setAccountingMode(button.dataset.accountingOpenMode || 'expense_paid');
+      accountingRefs.form?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+
+  accountingRefs.amountInput?.addEventListener('input', () => {
+    accountingRefs.amountInput.value = normalizeAccountingAmountInput(accountingRefs.amountInput.value);
+  });
+
+  accountingRefs.form?.addEventListener('submit', submitAccountingForm);
+
+  accountingRefs.billsBody?.addEventListener('click', async (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const payButton = target.closest('[data-accounting-pay-bill]');
+    if (payButton instanceof HTMLElement) {
+      setAccountingMode('pay_bill');
+      if (accountingRefs.billSelect) accountingRefs.billSelect.value = payButton.dataset.accountingPayBill || '';
+      accountingRefs.form?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    const viewButton = target.closest('[data-accounting-view-bill]');
+    if (viewButton instanceof HTMLElement) {
+      openAccountingDrawer('bill', viewButton.dataset.accountingViewBill || '');
+      return;
+    }
+    const voidButton = target.closest('[data-accounting-void-bill]');
+    if (voidButton instanceof HTMLElement) {
+      const reason = window.prompt('Void reason');
+      if (!reason) return;
+      await requestJson(accountingEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'void_bill', bill_id: voidButton.dataset.accountingVoidBill, void_reason: reason })
+      }).catch((error) => setAccountingFormError(error.message));
+      await loadAccountingSafely({ force: true, preferStale: false });
+    }
+  });
+
+  accountingRefs.transactionsBody?.addEventListener('click', async (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const viewButton = target.closest('[data-accounting-view-transaction]');
+    if (viewButton instanceof HTMLElement) {
+      openAccountingDrawer('transaction', viewButton.dataset.accountingViewTransaction || '');
+      return;
+    }
+    const voidButton = target.closest('[data-accounting-void-transaction]');
+    if (voidButton instanceof HTMLElement) {
+      const reason = window.prompt('Void reason');
+      if (!reason) return;
+      await requestJson(accountingEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'void_transaction', transaction_id: voidButton.dataset.accountingVoidTransaction, void_reason: reason })
+      }).catch((error) => setAccountingFormError(error.message));
+      await loadAccountingSafely({ force: true, preferStale: false });
+    }
+  });
+
+  accountingRefs.reviewBody?.addEventListener('click', async (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const button = target.closest('[data-accounting-resolve-review]');
+    if (!(button instanceof HTMLElement)) return;
+    await requestJson(accountingEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'mark_review_resolved', review_id: button.dataset.accountingResolveReview })
+    }).catch((error) => setAccountingFormError(error.message));
+    await loadAccountingSafely({ force: true, preferStale: false });
+  });
+
+  accountingRefs.insightTabs.forEach((button) => {
+    button.addEventListener('click', () => {
+      state.accounting.insightTab = button.dataset.accountingInsightTab || 'category';
+      renderAccountingInsights(state.accounting.summary);
+    });
+  });
+
+  accountingRefs.refresh?.addEventListener('click', async () => {
+    await loadAccountingSafely({ force: true, preferStale: false });
+  });
+
+  accountingRefs.exportButton?.addEventListener('click', () => {
+    window.location.href = buildAccountingUrl('export_csv', accountingEndpointOptions({ include_voided: '0' }));
+  });
+
+  accountingRefs.settingsButton?.addEventListener('click', () => {
+    setAccountingFormError('Settings are read-only in this version. Accounts and categories are seeded safely by the API.');
+  });
+
+  accountingRefs.drawerCloseButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      if (accountingRefs.drawer) accountingRefs.drawer.hidden = true;
     });
   });
 
