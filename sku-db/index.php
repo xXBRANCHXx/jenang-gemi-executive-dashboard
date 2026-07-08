@@ -462,18 +462,22 @@ $pageBuildVersion = 'sku1.00.00';
                     <h3>Change live COGS</h3>
                 </div>
             </div>
-            <form class="admin-sku-form-grid" data-cogs-form>
+            <form class="admin-sku-form-grid admin-cogs-form-grid" data-cogs-form>
                 <input type="hidden" name="sku">
                 <label>
                     <span>Source SKU</span>
                     <input type="text" name="sku_display" readonly>
                 </label>
                 <label>
-                    <span>Volume group</span>
+                    <span>Product family</span>
+                    <input type="text" name="product_display" readonly>
+                </label>
+                <label>
+                    <span>Volume</span>
                     <input type="text" name="volume_display" readonly>
                 </label>
                 <label>
-                    <span>Source current COGS</span>
+                    <span>Current COGS</span>
                     <input type="text" name="old_price" readonly>
                 </label>
                 <label>
@@ -487,7 +491,13 @@ $pageBuildVersion = 'sku1.00.00';
                 <div class="admin-sku-full-span admin-cogs-batch-panel">
                     <div class="admin-cogs-batch-head">
                         <strong data-cogs-batch-count>0 SKUs selected</strong>
-                        <small>Uncheck SKUs to exclude them from this same-volume COGS update.</small>
+                        <small>Only this product family and volume are included. Uncheck SKUs to exclude them.</small>
+                    </div>
+                    <div class="admin-cogs-batch-header" aria-hidden="true">
+                        <span></span>
+                        <span>SKU</span>
+                        <span>Item</span>
+                        <span>Current COGS</span>
                     </div>
                     <div class="admin-cogs-batch-list" data-cogs-batch-list></div>
                 </div>

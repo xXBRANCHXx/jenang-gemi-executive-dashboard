@@ -1175,7 +1175,7 @@ try {
             jg_sku_fail('Too many SKUs selected.');
         }
 
-        $stmt = $pdo->prepare('SELECT sku, volume FROM sku_skus WHERE sku = :sku LIMIT 1');
+        $stmt = $pdo->prepare('SELECT sku, product_id, volume FROM sku_skus WHERE sku = :sku LIMIT 1');
         $stmt->execute([':sku' => $sku]);
         $sourceRow = $stmt->fetch();
         if (!is_array($sourceRow)) {
@@ -1183,7 +1183,7 @@ try {
         }
 
         $placeholders = implode(',', array_fill(0, count($selectedSkus), '?'));
-        $selectedStmt = $pdo->prepare('SELECT sku, cogs, volume FROM sku_skus WHERE sku IN (' . $placeholders . ') ORDER BY sku');
+        $selectedStmt = $pdo->prepare('SELECT sku, cogs, product_id, volume FROM sku_skus WHERE sku IN (' . $placeholders . ') ORDER BY sku');
         $selectedStmt->execute($selectedSkus);
         $rows = $selectedStmt->fetchAll();
         if (count($rows) !== count($selectedSkus)) {
@@ -1191,9 +1191,13 @@ try {
         }
 
         $sourceVolume = round((float) ($sourceRow['volume'] ?? 0), 1);
+        $sourceProductId = (string) ($sourceRow['product_id'] ?? '');
         foreach ($rows as $row) {
             if (round((float) ($row['volume'] ?? 0), 1) !== $sourceVolume) {
                 jg_sku_fail('COGS batches can only include SKUs with the same volume.');
+            }
+            if ((string) ($row['product_id'] ?? '') !== $sourceProductId) {
+                jg_sku_fail('COGS batches can only include SKUs from the same product family.');
             }
         }
 

@@ -361,12 +361,13 @@ document.addEventListener('DOMContentLoaded', () => {
     return Number.isFinite(number) ? number.toFixed(1) : String(value || '').trim();
   };
 
-  const skuBatchLabel = (row) => [
-    row.sku || '',
-    row.tag || '',
-    row.product_name || row.base_product_name || '',
-    row.flavor_name || ''
-  ].filter(Boolean).join(' | ');
+  const productFamilyLabel = (row) => String(row?.base_product_name || row?.product_name || 'Product').trim();
+
+  const cogsGroupLabel = (row) => {
+    const family = productFamilyLabel(row);
+    const size = `${row?.volume || ''}${row?.unit_name ? ` ${row.unit_name}` : ''}`.trim();
+    return [family, size].filter(Boolean).join(' ');
+  };
 
   const selectedCogsBatchSkus = () => {
     if (!cogsBatchList) return [];
@@ -379,7 +380,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!cogsBatchCount) return;
     const selected = selectedCogsBatchSkus().length;
     const total = cogsBatchList?.querySelectorAll('[data-cogs-batch-sku]').length || 0;
-    cogsBatchCount.textContent = `${selected} of ${total} SKUs selected`;
+    const groupLabel = cogsBatchList?.dataset.cogsBatchGroupLabel || '';
+    cogsBatchCount.textContent = `${selected} of ${total}${groupLabel ? ` ${groupLabel}` : ''} SKUs selected`;
   };
 
   const syncCogsFields = () => {
@@ -776,8 +778,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const renderCogsBatch = (sourceRow) => {
     if (!cogsBatchList) return;
     const key = volumeKey(sourceRow?.volume);
+    const productId = String(sourceRow?.product_id || '');
+    cogsBatchList.dataset.cogsBatchGroupLabel = cogsGroupLabel(sourceRow);
     const rows = state.database.skus
-      .filter((row) => volumeKey(row.volume) === key)
+      .filter((row) => volumeKey(row.volume) === key && String(row.product_id || '') === productId)
       .sort((left, right) => String(left.sku || '').localeCompare(String(right.sku || '')));
 
     cogsBatchList.innerHTML = rows.length
@@ -789,13 +793,12 @@ document.addEventListener('DOMContentLoaded', () => {
               value="${escapeHtml(row.sku || '')}"
               checked
             >
-            <span>
-              <strong>${escapeHtml(skuBatchLabel(row))}</strong>
-              <small>Current COGS ${escapeHtml(row.cogs ?? 0)}${row.sku === sourceRow?.sku ? ' | source row' : ''}</small>
-            </span>
+            <strong>${escapeHtml(row.sku || '')}</strong>
+            <span>${escapeHtml([row.flavor_name || '', row.product_name || row.base_product_name || '', row.tag || ''].filter(Boolean).join(' | '))}${row.sku === sourceRow?.sku ? '<small>Source row</small>' : ''}</span>
+            <em>${escapeHtml(row.cogs ?? 0)}</em>
           </label>
         `).join('')
-      : '<p class="admin-empty">No SKUs match this volume.</p>';
+      : '<p class="admin-empty">No SKUs match this product family and volume.</p>';
     updateCogsBatchCount();
   };
 
@@ -1113,7 +1116,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!cogsModal) return;
     cogsModal.hidden = true;
     cogsForm?.reset();
-    if (cogsBatchList) cogsBatchList.innerHTML = '';
+    if (cogsBatchList) {
+      cogsBatchList.innerHTML = '';
+      delete cogsBatchList.dataset.cogsBatchGroupLabel;
+    }
     updateCogsBatchCount();
     syncCogsFields();
     setError(cogsError, '');
@@ -1156,6 +1162,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     cogsForm.elements.sku.value = row.sku || '';
     cogsForm.elements.sku_display.value = row.sku || '';
+    cogsForm.elements.product_display.value = productFamilyLabel(row);
     cogsForm.elements.volume_display.value = `${row.volume || ''}${row.unit_name ? ` ${row.unit_name}` : ''}`.trim();
     cogsForm.elements.old_price.value = String(row.cogs ?? 0);
     cogsForm.elements.new_price.value = String(row.cogs ?? 0);
