@@ -3,6 +3,9 @@ const root = document.querySelector('[data-accounting-page]');
 if (root) {
   const DASHBOARD_TIMEZONE = 'Asia/Jakarta';
   const endpoint = root.dataset.accountingEndpoint || '../api/accounting/';
+  const ACCOUNTING_CACHE_PREFIX = 'jg-accounting-page-cache-v2';
+  const ACCOUNTING_LOOKUPS_CACHE_KEY = 'jg-accounting-lookups-cache-v1';
+  const ACCOUNTING_CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
   const escapeHtml = (value) => String(value ?? '')
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
@@ -64,6 +67,32 @@ if (root) {
       throw new Error(apiMessage || payload.error || `HTTP ${response.status}`);
     }
     return payload;
+  };
+
+  const readCacheEntry = (key, maxAgeMs = ACCOUNTING_CACHE_MAX_AGE_MS) => {
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) return null;
+      const entry = JSON.parse(raw);
+      const savedAt = Number(entry?.savedAt || 0);
+      if (!entry || !entry.data || !savedAt) return null;
+      if (maxAgeMs > 0 && Date.now() - savedAt > maxAgeMs) return null;
+      return { data: entry.data, savedAt };
+    } catch (_error) {
+      return null;
+    }
+  };
+
+  const writeCacheEntry = (key, data) => {
+    try {
+      window.localStorage.setItem(key, JSON.stringify({ savedAt: Date.now(), data }));
+    } catch (_error) {
+      try {
+        window.localStorage.removeItem(key);
+      } catch (_removeError) {
+        // Storage can be unavailable in private browsing or strict browser modes.
+      }
+    }
   };
 
   const state = {
@@ -187,6 +216,43 @@ if (root) {
       };
     }
     return { month: state.month };
+  };
+
+  const accountingCacheKey = (options = rangeOptions()) => {
+    const params = new URLSearchParams({
+      range: state.range,
+      month: options.month || state.month,
+      date_from: options.date_from || '',
+      date_to: options.date_to || ''
+    });
+    return `${ACCOUNTING_CACHE_PREFIX}:${params.toString()}`;
+  };
+
+  const getLookupPayload = () => ({
+    accounts: state.accounts,
+    categories: state.categories,
+    counterparties: state.counterparties
+  });
+
+  const applyLookupsPayload = (payload, { renderControls = true } = {}) => {
+    if (!payload || !Array.isArray(payload.accounts) || !Array.isArray(payload.categories) || !Array.isArray(payload.counterparties)) {
+      return false;
+    }
+    state.accounts = payload.accounts;
+    state.categories = payload.categories;
+    state.counterparties = payload.counterparties;
+    state.lookupsLoaded = true;
+    if (renderControls) renderLookups();
+    return true;
+  };
+
+  const applyAccountingPayload = (payload, renderOptions = {}) => {
+    state.summary = payload?.summary || {};
+    state.bills = Array.isArray(payload?.bills) ? payload.bills : [];
+    state.transactions = Array.isArray(payload?.transactions) ? payload.transactions : [];
+    state.reviewQueue = Array.isArray(payload?.reviewQueue) ? payload.reviewQueue : [];
+    applyLookupsPayload(payload?.lookups, { renderControls: false });
+    render(renderOptions);
   };
 
   const amountInputToRaw = (value) => String(value || '').replace(/[^0-9]/g, '');
@@ -521,7 +587,7 @@ if (root) {
     refs.drawer.hidden = false;
   };
 
-  const render = () => {
+  const render = ({ savedAt = Date.now(), cached = false } = {}) => {
     if (refs.monthInput) refs.monthInput.value = state.month;
     renderKpis(state.summary);
     renderAlerts(state.summary);
@@ -532,12 +598,13 @@ if (root) {
     renderReviewQueue();
     renderLookups();
     if (refs.status) {
+      const statusDate = new Date(savedAt);
       const time = new Intl.DateTimeFormat('en-GB', {
         timeZone: DASHBOARD_TIMEZONE,
         hour: '2-digit',
         minute: '2-digit'
-      }).format(new Date());
-      refs.status.textContent = `Accounting updated ${time} WIB`;
+      }).format(Number.isNaN(statusDate.getTime()) ? new Date() : statusDate);
+      refs.status.textContent = cached ? `Accounting cached ${time} WIB` : `Accounting updated ${time} WIB`;
     }
   };
 
@@ -546,39 +613,66 @@ if (root) {
       renderLookups();
       return;
     }
+    if (!force) {
+      const cached = readCacheEntry(ACCOUNTING_LOOKUPS_CACHE_KEY);
+      if (cached && applyLookupsPayload(cached.data)) return;
+    }
     const [accounts, categories, counterparties] = await Promise.all([
       requestJson(buildUrl('accounts', { cacheBust: force })),
       requestJson(buildUrl('categories', { cacheBust: force })),
       requestJson(buildUrl('counterparties', { cacheBust: force }))
     ]);
-    state.accounts = Array.isArray(accounts.data?.accounts) ? accounts.data.accounts : [];
-    state.categories = Array.isArray(categories.data?.categories) ? categories.data.categories : [];
-    state.counterparties = Array.isArray(counterparties.data?.counterparties) ? counterparties.data.counterparties : [];
-    state.lookupsLoaded = true;
-    renderLookups();
+    const payload = {
+      accounts: Array.isArray(accounts.data?.accounts) ? accounts.data.accounts : [],
+      categories: Array.isArray(categories.data?.categories) ? categories.data.categories : [],
+      counterparties: Array.isArray(counterparties.data?.counterparties) ? counterparties.data.counterparties : []
+    };
+    applyLookupsPayload(payload);
+    writeCacheEntry(ACCOUNTING_LOOKUPS_CACHE_KEY, payload);
   };
 
   const loadAccounting = async (force = false) => {
     const options = rangeOptions();
-    if (refs.status) refs.status.textContent = 'Loading accounting data';
+    const cacheKey = accountingCacheKey(options);
+    let renderedCache = false;
+    if (!force) {
+      const cached = readCacheEntry(cacheKey);
+      if (cached) {
+        applyAccountingPayload(cached.data, { cached: true, savedAt: cached.savedAt });
+        renderedCache = true;
+      }
+    }
+    if (refs.status) refs.status.textContent = renderedCache ? 'Refreshing accounting data' : 'Loading accounting data';
     const billOptions = {
       ...options,
       due_from: options.date_from || '',
       due_to: options.date_to || '',
       status: 'open'
     };
-    const [summary, bills, transactions, review] = await Promise.all([
-      requestJson(buildUrl('summary', { ...options, cacheBust: force })),
-      requestJson(buildUrl('bills', { ...billOptions, cacheBust: force })),
-      requestJson(buildUrl('transactions', { ...options, cacheBust: force })),
-      requestJson(buildUrl('review_queue', { ...options, cacheBust: force })),
-      loadLookups(force)
-    ]);
-    state.summary = summary.data || {};
-    state.bills = Array.isArray(bills.data?.bills) ? bills.data.bills : [];
-    state.transactions = Array.isArray(transactions.data?.transactions) ? transactions.data.transactions : [];
-    state.reviewQueue = Array.isArray(review.data?.review_queue) ? review.data.review_queue : [];
-    render();
+    try {
+      const [summary, bills, transactions, review] = await Promise.all([
+        requestJson(buildUrl('summary', { ...options, cacheBust: force })),
+        requestJson(buildUrl('bills', { ...billOptions, cacheBust: force })),
+        requestJson(buildUrl('transactions', { ...options, cacheBust: force })),
+        requestJson(buildUrl('review_queue', { ...options, cacheBust: force })),
+        loadLookups(force)
+      ]);
+      const payload = {
+        summary: summary.data || {},
+        bills: Array.isArray(bills.data?.bills) ? bills.data.bills : [],
+        transactions: Array.isArray(transactions.data?.transactions) ? transactions.data.transactions : [],
+        reviewQueue: Array.isArray(review.data?.review_queue) ? review.data.review_queue : [],
+        lookups: getLookupPayload()
+      };
+      applyAccountingPayload(payload);
+      writeCacheEntry(cacheKey, payload);
+    } catch (error) {
+      if (renderedCache) {
+        if (refs.status) refs.status.textContent = 'Accounting cached; refresh failed';
+        return;
+      }
+      throw error;
+    }
   };
 
   const loadSafely = async (force = false) => {
@@ -713,7 +807,7 @@ if (root) {
     refs.monthInput.value = state.month;
     refs.monthInput.addEventListener('change', async () => {
       state.month = validMonthKey(refs.monthInput?.value) ? refs.monthInput.value : getMonthKey();
-      await loadSafely(true);
+      await loadSafely(false);
     });
   }
 
@@ -721,13 +815,13 @@ if (root) {
     button.addEventListener('click', async () => {
       state.range = button.dataset.accountingRange || 'this_month';
       refs.rangeButtons.forEach((item) => item.classList.toggle('is-active', item === button));
-      await loadSafely(true);
+      await loadSafely(false);
     });
   });
 
   [refs.dateFrom, refs.dateTo].forEach((input) => {
     input?.addEventListener('change', async () => {
-      if (state.range === 'custom') await loadSafely(true);
+      if (state.range === 'custom') await loadSafely(false);
     });
   });
 
@@ -839,5 +933,5 @@ if (root) {
   });
 
   resetForm();
-  loadSafely(true);
+  loadSafely(false);
 }

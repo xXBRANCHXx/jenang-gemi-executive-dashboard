@@ -313,7 +313,106 @@ const requestJson = async (url, options = {}) => {
   }
 };
 
+const installAdminDocumentPrefetching = () => {
+  if (window.__jenangAdminDocumentPrefetchInstalled) return;
+  window.__jenangAdminDocumentPrefetchInstalled = true;
+  const prefetchedAdminDocuments = new Set();
+
+  const shouldPrefetchAdminDocuments = () => {
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    return !connection?.saveData;
+  };
+
+  const normalizeAdminDocumentHref = (href) => {
+    if (!href || href.startsWith('#')) return '';
+    try {
+      const url = new URL(href, window.location.href);
+      url.hash = '';
+      if (!['http:', 'https:'].includes(url.protocol)) return '';
+      if (url.origin !== window.location.origin) return '';
+      if (url.pathname.includes('/api/')) return '';
+      if (/\.(?:csv|json|pdf|zip|png|jpe?g|webp|gif|svg|xml)$/i.test(url.pathname)) return '';
+      if (url.pathname === window.location.pathname && url.search === window.location.search) return '';
+      return url.toString();
+    } catch (_error) {
+      return '';
+    }
+  };
+
+  const prefetchAdminDocument = (href, { fetchNow = false } = {}) => {
+    if (!shouldPrefetchAdminDocuments()) return;
+    const url = normalizeAdminDocumentHref(href);
+    if (!url || prefetchedAdminDocuments.has(url)) return;
+    prefetchedAdminDocuments.add(url);
+    const link = document.createElement('link');
+    link.rel = 'prefetch';
+    link.as = 'document';
+    link.href = url;
+    document.head.appendChild(link);
+    if (fetchNow && window.fetch) {
+      fetch(url, {
+        credentials: 'same-origin',
+        cache: 'force-cache',
+        headers: { Accept: 'text/html' }
+      }).catch(() => {});
+    }
+  };
+
+  const scheduleIdleTask = (callback, timeout = 1200) => {
+    if (window.requestIdleCallback) {
+      window.requestIdleCallback(callback, { timeout });
+      return;
+    }
+    window.setTimeout(callback, timeout);
+  };
+
+  const adminDocumentPrefetchUrls = () => {
+    const priorityUrls = [
+      '../dashboard/?view=overview',
+      '../dashboard/?view=orders',
+      '../dashboard/?view=store-ops',
+      '../dashboard/?view=inventory-recap',
+      '../profit-loss/',
+      '../api-health/',
+      '../sku-db/',
+      '../affiliate-program/',
+      '../partner-program/',
+      '../back-dash/'
+    ];
+    const searchUrls = JENANG_GEMI_SEARCH_INDEX.map((entry) => entry.url);
+    const linkUrls = Array.from(document.querySelectorAll('a[href]'), (link) => link.getAttribute('href') || '');
+    return [...priorityUrls, ...searchUrls, ...linkUrls]
+      .map(normalizeAdminDocumentHref)
+      .filter((url, index, urls) => url && urls.indexOf(url) === index)
+      .slice(0, 16);
+  };
+
+  const warmAdminDocuments = () => {
+    adminDocumentPrefetchUrls().forEach((url, index) => {
+      window.setTimeout(() => {
+        prefetchAdminDocument(url, { fetchNow: index < 5 });
+      }, index * 160);
+    });
+  };
+
+  const prefetchHoveredAdminLink = (event) => {
+    const target = event.target instanceof Element ? event.target.closest('a[href]') : null;
+    if (!(target instanceof HTMLAnchorElement)) return;
+    prefetchAdminDocument(target.getAttribute('href') || target.href, { fetchNow: true });
+  };
+
+  document.addEventListener('pointerenter', prefetchHoveredAdminLink, true);
+  document.addEventListener('focusin', prefetchHoveredAdminLink, true);
+  document.addEventListener('touchstart', prefetchHoveredAdminLink, { capture: true, passive: true });
+  if (document.readyState === 'complete') {
+    scheduleIdleTask(warmAdminDocuments);
+  } else {
+    window.addEventListener('load', () => scheduleIdleTask(warmAdminDocuments), { once: true });
+  }
+};
+
 document.addEventListener('DOMContentLoaded', () => {
+  installAdminDocumentPrefetching();
   if (document.querySelector('[data-admin-dashboard]')) return;
 
   const chromeRoot = document.querySelector('[data-admin-chrome]');

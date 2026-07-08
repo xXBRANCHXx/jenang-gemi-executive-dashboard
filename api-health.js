@@ -2,6 +2,8 @@ const root = document.querySelector('[data-api-health]');
 
 if (root) {
   const endpoint = root.dataset.apiHealthEndpoint || '../api/api-health/';
+  const HEALTH_CACHE_KEY = 'jg-api-health-cache-v1';
+  const HEALTH_CACHE_MAX_AGE_MS = 30 * 60 * 1000;
   const refreshButton = document.querySelector('[data-api-health-refresh]');
   const statusNode = document.querySelector('[data-api-health-status]');
   const updatedNode = document.querySelector('[data-api-health-updated]');
@@ -19,6 +21,31 @@ if (root) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#039;');
+
+  const readHealthCache = () => {
+    try {
+      const raw = window.localStorage.getItem(HEALTH_CACHE_KEY);
+      if (!raw) return null;
+      const entry = JSON.parse(raw);
+      const savedAt = Number(entry?.savedAt || 0);
+      if (!entry?.payload || !savedAt || Date.now() - savedAt > HEALTH_CACHE_MAX_AGE_MS) return null;
+      return { payload: entry.payload, savedAt };
+    } catch (_error) {
+      return null;
+    }
+  };
+
+  const writeHealthCache = (payload) => {
+    try {
+      window.localStorage.setItem(HEALTH_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), payload }));
+    } catch (_error) {
+      try {
+        window.localStorage.removeItem(HEALTH_CACHE_KEY);
+      } catch (_removeError) {
+        // Storage can be blocked by browser privacy settings.
+      }
+    }
+  };
 
   const formatTime = (value) => {
     if (!value) return 'None';
@@ -103,8 +130,16 @@ if (root) {
     renderFailures(payload.failures || []);
   };
 
-  const loadHealth = async () => {
+  const loadHealth = async ({ force = false } = {}) => {
     if (refreshButton instanceof HTMLButtonElement) refreshButton.disabled = true;
+    let renderedCache = false;
+    if (!force) {
+      const cached = readHealthCache();
+      if (cached) {
+        render(cached.payload);
+        renderedCache = true;
+      }
+    }
     if (statusNode) statusNode.textContent = 'Checking';
     try {
       const response = await fetch(`${endpoint}?run=1&_ts=${Date.now()}`, {
@@ -117,7 +152,12 @@ if (root) {
         throw new Error(payload.error || 'Unable to run API health checks.');
       }
       render(payload);
+      writeHealthCache(payload);
     } catch (error) {
+      if (renderedCache) {
+        if (statusNode) statusNode.textContent = 'Health refresh failed';
+        return;
+      }
       if (statusNode) statusNode.textContent = 'Health check failed';
       if (checksBody) {
         checksBody.innerHTML = `<tr><td colspan="5" class="admin-empty">${escapeHtml(error instanceof Error ? error.message : 'Unable to run API health checks.')}</td></tr>`;
@@ -133,6 +173,6 @@ if (root) {
     panel.hidden = !panel.hidden;
   });
 
-  refreshButton?.addEventListener('click', loadHealth);
+  refreshButton?.addEventListener('click', () => loadHealth({ force: true }));
   loadHealth();
 }
