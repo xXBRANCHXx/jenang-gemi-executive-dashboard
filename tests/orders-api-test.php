@@ -169,6 +169,23 @@ expect_same(1, $repairRows[0]['funds_released'], 'Mirror read repair must preser
 expect_same('Jawa Barat', jg_orders_location_province_from_text('Kota Bandung, Jawa Barat'), 'Server-side location geocoder must map city and province aliases.');
 expect_same('DKI Jakarta', jg_orders_location_province_from_text('Jakarta Selatan'), 'Server-side location geocoder must map locality aliases from admin.js.');
 
+$dailyDays = [
+    '2026-07-01' => [
+        'date' => '2026-07-01',
+        'qty' => 0,
+        'revenue' => 0,
+        'orders' => 0,
+        'accounts' => [],
+    ],
+];
+$dailyAccounts = [];
+jg_orders_daily_add_summary_row($dailyDays, $dailyAccounts, '2026-07-01', 'zero_website', 'zero_website', 2, 150000.0, 1);
+expect_same(2, $dailyDays['2026-07-01']['qty'], 'Daily summary must add quantity into the selected day.');
+expect_same(150000.0, $dailyDays['2026-07-01']['revenue'], 'Daily summary must add revenue into the selected day.');
+expect_same(1, $dailyDays['2026-07-01']['orders'], 'Daily summary must add order count into the selected day.');
+expect_same(true, isset($dailyAccounts['zero-website:zero-website']), 'Daily summary must create stable platform/account keys.');
+expect_same('ZERO Website', $dailyAccounts['zero-website:zero-website']['label'], 'Daily summary must preserve website platform labels.');
+
 $ordersUrl = jg_orders_remote_url('/sales/orders', [
     'start_date' => '2026-06-01',
     'end_date' => '2026-06-03',

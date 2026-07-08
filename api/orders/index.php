@@ -30,6 +30,7 @@ function jg_orders_handle_request(): void
         $limit = jg_orders_limit($_GET['limit'] ?? null);
         $offset = max(0, (int) ($_GET['offset'] ?? 0));
         $mirroredAfter = jg_orders_optional_utc_datetime($_GET['mirrored_after'] ?? $_GET['mirrored_after_at'] ?? null);
+        $forceRepair = jg_orders_bool($_GET['repair'] ?? $_GET['force_repair'] ?? null);
         if ($method === 'GET' && $action === 'status') {
             $pdo = analyticsDb();
             jg_orders_ensure_mirror_schema($pdo);
@@ -37,6 +38,13 @@ function jg_orders_handle_request(): void
                 'ok' => true,
                 'mirror' => jg_orders_mirror_status($pdo),
             ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            return;
+        }
+        if ($method === 'GET' && in_array($action, ['daily_summary', 'daily'], true)) {
+            $pdo = analyticsDb();
+            jg_orders_ensure_mirror_schema($pdo);
+            $response = jg_orders_daily_summary_payload($pdo, $startDate, $endDate, $forceRepair);
+            echo json_encode($response, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             return;
         }
         if ($method === 'GET' && in_array($action, ['location_summary', 'location_aggregate'], true)) {
@@ -58,7 +66,6 @@ function jg_orders_handle_request(): void
         }
 
         $remoteWarning = '';
-        $forceRepair = jg_orders_bool($_GET['repair'] ?? $_GET['force_repair'] ?? null);
         try {
             $mirrorPdo = analyticsDb();
             jg_orders_ensure_mirror_schema($mirrorPdo);
@@ -823,6 +830,272 @@ function jg_orders_mirror_payload(PDO $pdo, string $startDate, string $endDate, 
     }
 
     return $payload;
+}
+
+function jg_orders_daily_normalize_key(string $value): string
+{
+    $normalized = strtolower(trim($value));
+    $normalized = preg_replace('/[^a-z0-9]+/', '-', $normalized) ?? '';
+    return trim($normalized, '-') ?: 'unknown';
+}
+
+function jg_orders_daily_title(string $value): string
+{
+    $label = trim(str_replace(['_', '-'], ' ', $value));
+    return $label === '' ? 'Unknown' : ucwords(strtolower($label));
+}
+
+function jg_orders_daily_account_key(string $platform, string $accountKey): string
+{
+    $platformKey = jg_orders_daily_normalize_key($platform);
+    $account = trim($accountKey);
+    $accountKeyNormalized = $account !== '' ? jg_orders_daily_normalize_key($account) : $platformKey;
+    return $platformKey . ':' . $accountKeyNormalized;
+}
+
+function jg_orders_daily_account_payload(string $platform, string $accountKey): array
+{
+    $platform = trim($platform) !== '' ? trim($platform) : 'unknown';
+    $accountKey = trim($accountKey);
+    $key = jg_orders_daily_account_key($platform, $accountKey);
+    $platformLabel = defined('JG_WEBSITE_PLATFORMS') && isset(JG_WEBSITE_PLATFORMS[$platform])
+        ? (string) JG_WEBSITE_PLATFORMS[$platform]
+        : jg_orders_daily_title($platform);
+    $accountLabel = $accountKey !== '' && jg_orders_daily_normalize_key($accountKey) !== jg_orders_daily_normalize_key($platform)
+        ? $accountKey
+        : '';
+
+    return [
+        'key' => $key,
+        'platform' => $platform,
+        'platform_label' => $platformLabel,
+        'account_key' => $accountKey,
+        'account' => $accountLabel,
+        'label' => $accountLabel !== '' ? $platformLabel . ' / ' . $accountLabel : $platformLabel,
+        'qty' => 0,
+        'revenue' => 0,
+        'orders' => 0,
+        'days_active' => 0,
+    ];
+}
+
+function jg_orders_daily_add_summary_row(
+    array &$days,
+    array &$accounts,
+    string $date,
+    string $platform,
+    string $accountKey,
+    int $qty,
+    float $revenue,
+    int $orders
+): void {
+    if (!isset($days[$date])) {
+        return;
+    }
+
+    $account = jg_orders_daily_account_payload($platform, $accountKey);
+    $key = (string) $account['key'];
+    if (!isset($accounts[$key])) {
+        $accounts[$key] = $account;
+    }
+    if (!isset($days[$date]['accounts'][$key])) {
+        $days[$date]['accounts'][$key] = $account;
+    }
+
+    $qty = max(0, $qty);
+    $revenue = max(0, $revenue);
+    $orders = max(0, $orders);
+
+    $days[$date]['qty'] += $qty;
+    $days[$date]['revenue'] += $revenue;
+    $days[$date]['orders'] += $orders;
+    $days[$date]['accounts'][$key]['qty'] += $qty;
+    $days[$date]['accounts'][$key]['revenue'] += $revenue;
+    $days[$date]['accounts'][$key]['orders'] += $orders;
+    $accounts[$key]['qty'] += $qty;
+    $accounts[$key]['revenue'] += $revenue;
+    $accounts[$key]['orders'] += $orders;
+    if ($qty > 0 || $revenue > 0 || $orders > 0) {
+        $accounts[$key]['days_active'] += 1;
+    }
+}
+
+function jg_orders_daily_summary_payload(PDO $pdo, string $startDate, string $endDate, bool $forceRepair = false): array
+{
+    $repair = ['attempted' => false, 'fetched' => 0, 'upserted' => 0];
+    if ($forceRepair) {
+        $repair = jg_orders_repair_mirror_range_from_api($pdo, $startDate, $endDate, null);
+    }
+
+    $timezone = new DateTimeZone('Asia/Jakarta');
+    $start = new DateTimeImmutable($startDate . ' 00:00:00', $timezone);
+    $end = new DateTimeImmutable($endDate . ' 00:00:00', $timezone);
+    if ($end < $start) {
+        $end = $start;
+    }
+
+    $days = [];
+    for ($day = $start; $day <= $end; $day = $day->modify('+1 day')) {
+        $dateKey = $day->format('Y-m-d');
+        $days[$dateKey] = [
+            'date' => $dateKey,
+            'qty' => 0,
+            'revenue' => 0,
+            'orders' => 0,
+            'accounts' => [],
+        ];
+    }
+
+    $accounts = [];
+    [$from, $to] = jg_orders_range_bounds($startDate, $endDate);
+    $stmt = $pdo->prepare(
+        'SELECT daily_date, platform, account_key,
+                COUNT(*) AS orders,
+                COALESCE(SUM(order_qty), 0) AS qty,
+                COALESCE(SUM(order_revenue), 0) AS revenue
+         FROM (
+             SELECT COALESCE(NULLIF(CAST(order_create_date AS CHAR), ""), DATE(DATE_ADD(order_create_time, INTERVAL 7 HOUR))) AS daily_date,
+                    platform,
+                    account_key,
+                    CASE WHEN order_id <> "" THEN order_id ELSE order_item_hash END AS daily_order_key,
+                    SUM(quantity) AS order_qty,
+                    CASE
+                        WHEN MAX(order_net_revenue) <> 0 THEN MAX(order_net_revenue)
+                        ELSE SUM(revenue)
+                    END AS order_revenue
+             FROM dashboard_order_mirror
+             WHERE deleted_at IS NULL
+               AND order_create_time >= :from_date
+               AND order_create_time < :to_date
+             GROUP BY daily_date, platform, account_key, daily_order_key
+         ) order_rollup
+         GROUP BY daily_date, platform, account_key
+         ORDER BY daily_date, platform, account_key'
+    );
+    $stmt->execute([
+        ':from_date' => $from,
+        ':to_date' => $to,
+    ]);
+    foreach ($stmt->fetchAll() as $row) {
+        jg_orders_daily_add_summary_row(
+            $days,
+            $accounts,
+            (string) ($row['daily_date'] ?? ''),
+            (string) ($row['platform'] ?? ''),
+            (string) ($row['account_key'] ?? ''),
+            (int) ($row['qty'] ?? 0),
+            (float) ($row['revenue'] ?? 0),
+            (int) ($row['orders'] ?? 0)
+        );
+    }
+
+    $websiteRows = [];
+    try {
+        $websiteRows = jg_orders_lightweight_rows(jg_website_paid_order_rows($pdo, $startDate, $endDate));
+    } catch (Throwable $websiteOrdersError) {
+        error_log('Website paid orders unavailable in daily summary: ' . $websiteOrdersError->getMessage());
+    }
+    foreach ($websiteRows as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $date = jg_orders_local_date_from_utc(jg_orders_order_datetime($row['order_create_time'] ?? $row['timestamp'] ?? null));
+        if ($date === null) {
+            continue;
+        }
+        jg_orders_daily_add_summary_row(
+            $days,
+            $accounts,
+            $date,
+            (string) ($row['platform'] ?? ''),
+            (string) ($row['account_key'] ?? ''),
+            (int) ($row['quantity'] ?? $row['item_count'] ?? 0),
+            (float) ($row['revenue'] ?? $row['net_revenue'] ?? 0),
+            1
+        );
+    }
+
+    uasort($accounts, static function (array $left, array $right): int {
+        return strcmp((string) ($left['platform_label'] ?? $left['platform'] ?? ''), (string) ($right['platform_label'] ?? $right['platform'] ?? ''))
+            ?: strcmp((string) ($left['label'] ?? ''), (string) ($right['label'] ?? ''));
+    });
+
+    $dayCount = max(1, count($days));
+    $accountCount = max(1, count($accounts));
+    $totalQty = 0;
+    $totalRevenue = 0.0;
+    $totalOrders = 0;
+    $activeDayCount = 0;
+    $topDay = null;
+    foreach ($days as &$day) {
+        $day['qty'] = (int) $day['qty'];
+        $day['revenue'] = (int) round((float) $day['revenue']);
+        $day['orders'] = (int) $day['orders'];
+        $day['avg_qty'] = $day['qty'] / $accountCount;
+        $day['avg_revenue'] = $day['revenue'] / $accountCount;
+        $day['accounts'] = array_values(array_map(static function (array $account): array {
+            $account['qty'] = (int) $account['qty'];
+            $account['revenue'] = (int) round((float) $account['revenue']);
+            $account['orders'] = (int) $account['orders'];
+            return $account;
+        }, $day['accounts']));
+        $totalQty += $day['qty'];
+        $totalRevenue += $day['revenue'];
+        $totalOrders += $day['orders'];
+        if ($day['qty'] > 0 || $day['revenue'] > 0 || $day['orders'] > 0) {
+            $activeDayCount += 1;
+        }
+        if ($topDay === null || $day['revenue'] > $topDay['revenue'] || ($day['revenue'] === $topDay['revenue'] && $day['qty'] > $topDay['qty'])) {
+            $topDay = [
+                'date' => (string) $day['date'],
+                'qty' => (int) $day['qty'],
+                'revenue' => (int) $day['revenue'],
+                'orders' => (int) $day['orders'],
+            ];
+        }
+    }
+    unset($day);
+
+    $accountRows = array_values(array_map(static function (array $account) use ($dayCount): array {
+        $account['qty'] = (int) $account['qty'];
+        $account['revenue'] = (int) round((float) $account['revenue']);
+        $account['orders'] = (int) $account['orders'];
+        $account['avg_qty'] = $account['qty'] / $dayCount;
+        $account['avg_revenue'] = $account['revenue'] / $dayCount;
+        return $account;
+    }, $accounts));
+
+    $mirrorSummary = jg_orders_mirror_range_summary_raw($pdo, $startDate, $endDate);
+
+    $response = [
+        'ok' => true,
+        'source' => 'dashboard_order_mirror_daily_summary',
+        'start_date' => $startDate,
+        'end_date' => $endDate,
+        'month' => substr($startDate, 0, 7),
+        'day_count' => $dayCount,
+        'rows_count' => (int) ($mirrorSummary['rows'] ?? 0) + count($websiteRows),
+        'distinct_orders' => (int) ($mirrorSummary['distinct_orders'] ?? 0) + count($websiteRows),
+        'accounts' => $accountRows,
+        'days' => array_values($days),
+        'totals' => [
+            'qty' => $totalQty,
+            'revenue' => (int) round($totalRevenue),
+            'orders' => $totalOrders,
+            'avg_qty' => $totalQty / $dayCount,
+            'avg_revenue' => $totalRevenue / $dayCount,
+            'account_count' => count($accountRows),
+            'active_day_count' => $activeDayCount,
+            'top_day' => $topDay,
+        ],
+        'mirror' => jg_orders_public_mirror_range_summary($mirrorSummary),
+        'generated_at' => gmdate(DATE_ATOM),
+    ];
+    if (!empty($repair['attempted'])) {
+        $response['mirror_repair'] = $repair;
+    }
+
+    return $response;
 }
 
 function jg_orders_location_geocoder_version(): int

@@ -22,7 +22,7 @@ if ($isAuthenticated) {
         exit;
     }
 }
-$dashboardBuildVersion = 'exec3.74.7';
+$dashboardBuildVersion = 'exec3.75.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -524,6 +524,32 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11"/><path d="m7 10 5 5 5-5"/><path d="M5 19h14"/></svg>
                                 <span>Export PDF</span>
                             </button>
+                        </div>
+                    </div>
+
+                    <div class="daily-trend-panel">
+                        <div class="daily-trend-head">
+                            <div>
+                                <span class="admin-panel-kicker">Month-to-date</span>
+                                <h3 data-daily-trend-title>Revenue by day</h3>
+                                <span class="admin-panel-meta" data-daily-trend-meta>Waiting for Daily data</span>
+                            </div>
+                            <div class="admin-panel-inline-toggles admin-sliding-chart-toggle daily-trend-toggle" data-daily-metric-controls data-sliding-chart-toggle role="group" aria-label="Daily chart metric">
+                                <button type="button" class="admin-toggle-pill is-active" data-daily-metric="revenue"><span>Revenue</span></button>
+                                <button type="button" class="admin-toggle-pill" data-daily-metric="qty"><span>Qty</span></button>
+                                <button type="button" class="admin-toggle-pill" data-daily-metric="orders"><span>Orders</span></button>
+                            </div>
+                        </div>
+                        <div class="daily-trend-grid">
+                            <div class="daily-trend-chart-surface">
+                                <canvas class="admin-chart-canvas daily-trend-chart" data-daily-trend-chart width="1200" height="260"></canvas>
+                            </div>
+                            <div class="daily-trend-stats" aria-label="Daily month summary">
+                                <div><span>Revenue</span><strong data-daily-summary-revenue>Rp0</strong></div>
+                                <div><span>Qty</span><strong data-daily-summary-qty>0</strong></div>
+                                <div><span>Orders</span><strong data-daily-summary-orders>0</strong></div>
+                                <div><span>Avg / day</span><strong data-daily-summary-average>Rp0</strong></div>
+                            </div>
                         </div>
                     </div>
 

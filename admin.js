@@ -66,6 +66,18 @@ const OVERVIEW_METRIC_UNITS = {
   quantity: 'qty'
 };
 
+const DAILY_METRIC_LABELS = {
+  revenue: 'Revenue by day',
+  qty: 'Quantity by day',
+  orders: 'Orders by day'
+};
+
+const DAILY_METRIC_UNITS = {
+  revenue: 'idr',
+  qty: 'qty',
+  orders: 'orders'
+};
+
 const OVERVIEW_PLATFORM_COLORS = {
   shopee: '#ff8f1f',
   tiktok: '#22d3ee',
@@ -515,7 +527,6 @@ const TIMEZONE_LABELS = {
   'America/New_York': 'ET',
   'America/Los_Angeles': 'PT'
 };
-const DAILY_ORDER_PAGE_LIMIT = 1000;
 const DAILY_CUSTOM_PLATFORMS_STORAGE_KEY = 'jg-dashboard-daily-custom-platforms';
 const ANALYTICS_DEVICE_COOKIE = 'jg_analytics_device_id';
 const ANALYTICS_DEVICE_MAX_AGE = 60 * 60 * 24 * 365 * 2;
@@ -2392,6 +2403,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	    daily: {
 	      month: getMonthKeyForTimezone(new Date(), regionalDefaults.timezone),
       data: null,
+      summary: null,
+      metric: 'revenue',
       loadedAt: 0,
       rows: [],
       customPlatforms: [],
@@ -2631,6 +2644,14 @@ document.addEventListener('DOMContentLoaded', () => {
     monthInput: document.querySelector('[data-daily-month]'),
     status: document.querySelector('[data-daily-status]'),
     exportButton: document.querySelector('[data-daily-export]'),
+    trendTitle: document.querySelector('[data-daily-trend-title]'),
+    trendMeta: document.querySelector('[data-daily-trend-meta]'),
+    trendCanvas: document.querySelector('[data-daily-trend-chart]'),
+    metricButtons: document.querySelectorAll('[data-daily-metric]'),
+    summaryRevenue: document.querySelector('[data-daily-summary-revenue]'),
+    summaryQty: document.querySelector('[data-daily-summary-qty]'),
+    summaryOrders: document.querySelector('[data-daily-summary-orders]'),
+    summaryAverage: document.querySelector('[data-daily-summary-average]'),
     sheetHead: document.querySelector('[data-daily-sheet-head]'),
     sheetBody: document.querySelector('[data-daily-sheet-body]'),
     sheetFoot: document.querySelector('[data-daily-sheet-foot]'),
@@ -3988,9 +4009,21 @@ document.addEventListener('DOMContentLoaded', () => {
       params.set('offset', String(Math.floor(offset)));
     }
     return `${ordersEndpoint}?${params.toString()}`;
+	  };
+	  const requestOrderFacts = (startDate, endDate, options = {}) => requestJson(buildOrderFactsUrl(startDate, endDate, options));
+  const buildDailySummaryUrl = (monthKey, options = {}) => {
+    const range = parseDailyMonth(monthKey);
+    const params = new URLSearchParams({
+      action: 'daily_summary',
+      start_date: range.start,
+      end_date: range.end
+    });
+    if (options.cacheBust) params.set('_ts', String(Date.now()));
+    if (options.repair) params.set('repair', '1');
+    return `${ordersEndpoint}?${params.toString()}`;
   };
-  const requestOrderFacts = (startDate, endDate, options = {}) => requestJson(buildOrderFactsUrl(startDate, endDate, options));
-  const buildOrderLocationSummaryUrl = (startDate, endDate, options = {}) => {
+  const requestDailySummary = (monthKey, options = {}) => requestJson(buildDailySummaryUrl(monthKey, options));
+	  const buildOrderLocationSummaryUrl = (startDate, endDate, options = {}) => {
     const params = new URLSearchParams({
       action: 'location_summary',
       start_date: startDate,
@@ -5877,6 +5910,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ...account,
         qty: 0,
         revenue: 0,
+        orders: 0,
         daysActive: 0
       });
     });
@@ -5887,6 +5921,7 @@ document.addEventListener('DOMContentLoaded', () => {
           ...account,
           qty: 0,
           revenue: 0,
+          orders: 0,
           daysActive: 0
         });
       }
@@ -5894,11 +5929,9 @@ document.addEventListener('DOMContentLoaded', () => {
     return accountMap;
   };
 
-  const aggregateDailyData = (rows, monthKey) => {
-    const range = parseDailyMonth(monthKey);
+  const createDailyDays = (range) => {
     const dayCount = new Date(Date.UTC(range.year, range.month, 0)).getUTCDate();
-    const accountMap = buildDailyAccountMap(rows);
-    const days = Array.from({ length: dayCount }, (_, index) => {
+    return Array.from({ length: dayCount }, (_, index) => {
       const date = new Date(Date.UTC(range.year, range.month - 1, index + 1));
       const dateKey = date.toISOString().slice(0, 10);
       return {
@@ -5911,12 +5944,151 @@ document.addEventListener('DOMContentLoaded', () => {
         }),
         qty: 0,
         revenue: 0,
-        orders: new Set(),
+        orders: 0,
         accounts: new Map(),
         avgQty: 0,
         avgRevenue: 0
       };
     });
+  };
+
+  const dailyAccountFromSummary = (row) => {
+    const platform = row?.platform || row?.platform_key || String(row?.key || '').split(':')[0] || 'unknown';
+    const accountValue = row?.account || row?.account_key || row?.account_label || '';
+    const account = dailyAccountFromParts(platform, accountValue, Boolean(row?.custom));
+    const platformLabel = row?.platform_label || account.platform;
+    const accountLabel = row?.account || account.account;
+    const label = row?.label || (accountLabel ? `${platformLabel} / ${accountLabel}` : platformLabel);
+    return {
+      ...account,
+      platform: platformLabel,
+      account: accountLabel,
+      label
+    };
+  };
+
+  const dailySummaryAccountEntries = (accounts) => {
+    if (!accounts || typeof accounts !== 'object') return [];
+    return Array.isArray(accounts) ? accounts : Object.values(accounts);
+  };
+
+  const aggregateDailySummaryData = (summary, monthKey) => {
+    if (!summary || typeof summary !== 'object') {
+      return aggregateDailyData([], monthKey);
+    }
+    const range = parseDailyMonth(summary.month || monthKey);
+    const month = `${range.year}-${String(range.month).padStart(2, '0')}`;
+    const days = createDailyDays(range);
+    const dayMap = new Map(days.map((day) => [day.date, day]));
+    const accountMap = new Map();
+    const ensureAccount = (accountLike) => {
+      const account = dailyAccountFromSummary(accountLike);
+      if (!accountMap.has(account.key)) {
+        accountMap.set(account.key, {
+          ...account,
+          qty: 0,
+          revenue: 0,
+          orders: 0,
+          daysActive: 0
+        });
+      }
+      return accountMap.get(account.key);
+    };
+
+    state.daily.customPlatforms.forEach((name) => {
+      const account = dailyAccountFromCustomName(name);
+      ensureAccount({ ...account, custom: true });
+    });
+    dailySummaryAccountEntries(summary.accounts).forEach(ensureAccount);
+
+    (Array.isArray(summary.days) ? summary.days : []).forEach((dayRow) => {
+      const day = dayMap.get(String(dayRow?.date || ''));
+      if (!day) return;
+      dailySummaryAccountEntries(dayRow?.accounts).forEach((accountRow) => {
+        const account = ensureAccount(accountRow);
+        const qty = Math.max(0, Number(accountRow?.qty ?? accountRow?.quantity ?? accountRow?.item_count ?? 0));
+        const revenue = Math.max(0, Number(accountRow?.revenue ?? accountRow?.net_revenue ?? accountRow?.sales ?? 0));
+        const orders = Math.max(0, Number(accountRow?.orders ?? accountRow?.order_count ?? 0));
+        if (!day.accounts.has(account.key)) {
+          day.accounts.set(account.key, {
+            key: account.key,
+            label: account.label,
+            platform: account.platform,
+            account: account.account,
+            qty: 0,
+            revenue: 0,
+            orders: 0
+          });
+        }
+        const accountDay = day.accounts.get(account.key);
+        day.qty += qty;
+        day.revenue += revenue;
+        day.orders += orders;
+        accountDay.qty += qty;
+        accountDay.revenue += revenue;
+        accountDay.orders += orders;
+        account.qty += qty;
+        account.revenue += revenue;
+        account.orders += orders;
+        if (qty > 0 || revenue > 0 || orders > 0) {
+          account.daysActive += 1;
+        }
+      });
+    });
+
+    const accountCount = Math.max(accountMap.size, 1);
+    days.forEach((day) => {
+      day.avgQty = day.qty / accountCount;
+      day.avgRevenue = day.revenue / accountCount;
+    });
+
+    const dayCount = Math.max(days.length, 1);
+    const accounts = Array.from(accountMap.values())
+      .sort((left, right) => left.platform.localeCompare(right.platform) || left.label.localeCompare(right.label))
+      .map((account) => ({
+        ...account,
+        avgQty: account.qty / dayCount,
+        avgRevenue: account.revenue / dayCount
+      }));
+
+    const totalQty = days.reduce((sum, day) => sum + day.qty, 0);
+    const totalRevenue = days.reduce((sum, day) => sum + day.revenue, 0);
+    const totalOrders = days.reduce((sum, day) => sum + day.orders, 0);
+    const topDay = days.reduce((best, day) => (
+      !best || day.revenue > best.revenue || (day.revenue === best.revenue && day.qty > best.qty) ? day : best
+    ), null);
+
+    return {
+      month,
+      label: formatDailyMonthLabel(month),
+      start: range.start,
+      end: range.end,
+      dayCount,
+      rowCount: Number(summary.rows_count || summary.row_count || 0),
+      distinctOrders: Number(summary.distinct_orders || totalOrders || 0),
+      rows: [],
+      days,
+      accounts,
+      source: summary.source || '',
+      generatedAt: summary.generated_at || '',
+      totals: {
+        qty: totalQty,
+        revenue: totalRevenue,
+        orders: totalOrders,
+        avgQty: totalQty / dayCount,
+        avgRevenue: totalRevenue / dayCount,
+        accountCount: accounts.length,
+        activeDayCount: days.filter((day) => day.qty > 0 || day.revenue > 0 || day.orders > 0).length,
+        topDay
+      }
+    };
+  };
+
+  const aggregateDailyData = (rows, monthKey) => {
+    const range = parseDailyMonth(monthKey);
+    const accountMap = buildDailyAccountMap(rows);
+    const days = createDailyDays(range);
+    const dayCount = days.length;
     const dayMap = new Map(days.map((day) => [day.date, day]));
 
     (Array.isArray(rows) ? rows : []).forEach((row) => {
@@ -5939,6 +6111,7 @@ document.addEventListener('DOMContentLoaded', () => {
           ...account,
           qty: 0,
           revenue: 0,
+          orders: 0,
           daysActive: 0
         });
       }
@@ -5962,6 +6135,7 @@ document.addEventListener('DOMContentLoaded', () => {
       accountTotal.qty += quantity;
       accountTotal.revenue += revenue;
       if (orderKey.replace(/\|/g, '').trim() !== '') {
+        if (!(day.orders instanceof Set)) day.orders = new Set();
         day.orders.add(orderKey);
         accountDay.orders.add(orderKey);
       }
@@ -5977,7 +6151,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         accountDay.orders = accountDay.orders.size;
       });
-      day.orders = day.orders.size;
+      day.orders = day.orders instanceof Set ? day.orders.size : Number(day.orders || 0);
       day.avgQty = day.qty / accountCount;
       day.avgRevenue = day.revenue / accountCount;
     });
@@ -5992,6 +6166,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const totalQty = days.reduce((sum, day) => sum + day.qty, 0);
     const totalRevenue = days.reduce((sum, day) => sum + day.revenue, 0);
+    const totalOrders = days.reduce((sum, day) => sum + day.orders, 0);
     const topDay = days.reduce((best, day) => (
       !best || day.revenue > best.revenue || (day.revenue === best.revenue && day.qty > best.qty) ? day : best
     ), null);
@@ -6002,20 +6177,29 @@ document.addEventListener('DOMContentLoaded', () => {
       start: range.start,
       end: range.end,
       dayCount,
+      rowCount: Array.isArray(rows) ? rows.length : 0,
+      distinctOrders: totalOrders,
       rows: Array.isArray(rows) ? rows : [],
       days,
       accounts,
       totals: {
         qty: totalQty,
         revenue: totalRevenue,
+        orders: totalOrders,
         avgQty: totalQty / dayCount,
         avgRevenue: totalRevenue / dayCount,
         accountCount: accounts.length,
-        activeDayCount: days.filter((day) => day.qty > 0 || day.revenue > 0).length,
+        activeDayCount: days.filter((day) => day.qty > 0 || day.revenue > 0 || day.orders > 0).length,
         topDay
       }
     };
   };
+
+  const currentDailyData = () => (
+    state.daily.summary
+      ? aggregateDailySummaryData(state.daily.summary, state.daily.month)
+      : aggregateDailyData(Array.isArray(state.daily.rows) ? state.daily.rows : [], state.daily.month)
+  );
 
   const renderDailyPlatformList = () => {
     if (!dailyRefs.platformList) return;
@@ -6044,6 +6228,73 @@ document.addEventListener('DOMContentLoaded', () => {
   const dailyRpMarkup = (value) => {
     const amount = Number(value || 0);
     return `<span class="${amount > 0 ? 'daily-rp-value' : 'daily-zero'}">${formatCurrency(amount)}</span>`;
+  };
+
+  const dailyMetricColor = (metric) => {
+    if (metric === 'qty') return getOverviewMetricColor('item_count');
+    if (metric === 'orders') return getOverviewMetricColor('orders');
+    return getOverviewMetricColor('revenue');
+  };
+
+  const dailyTrendTooltipLines = (day) => [
+    ['Revenue', formatFullMetricValue('revenue', day.revenue || 0, DAILY_METRIC_UNITS), 'is-primary'],
+    ['Qty', formatFullMetricValue('qty', day.qty || 0, DAILY_METRIC_UNITS), ''],
+    ['Orders', formatFullMetricValue('orders', day.orders || 0, DAILY_METRIC_UNITS), '']
+  ].map(([label, value, className]) => `
+    <div class="admin-chart-tooltip-row ${className}">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+    </div>
+  `).join('');
+
+  const dailyTrendRows = (dailyData) => {
+    const currentMonth = getMonthKeyForTimezone(new Date(), state.timezone);
+    const selectedIsCurrentMonth = dailyData.month === currentMonth;
+    const today = todayDate();
+    return dailyData.days.map((day) => {
+      const future = selectedIsCurrentMonth && day.date > today;
+      return {
+        label: day.date.slice(-2),
+        revenue: future ? 0 : Number(day.revenue || 0),
+        qty: future ? 0 : Number(day.qty || 0),
+        orders: future ? 0 : Number(day.orders || 0),
+        future,
+        tooltipTitle: `${day.label} ${day.date}`,
+        tooltipLinesHtml: dailyTrendTooltipLines(day)
+      };
+    });
+  };
+
+  const renderDailyTrend = (dailyData) => {
+    const metric = DAILY_METRIC_LABELS[state.daily.metric] ? state.daily.metric : 'revenue';
+    state.daily.metric = metric;
+    dailyRefs.metricButtons.forEach((button) => {
+      button.classList.toggle('is-active', button.dataset.dailyMetric === metric);
+    });
+    if (dailyRefs.trendTitle) dailyRefs.trendTitle.textContent = DAILY_METRIC_LABELS[metric];
+    if (dailyRefs.trendMeta) {
+      const topDay = dailyData.totals.topDay;
+      const topText = topDay && Number(topDay.revenue || topDay.qty || topDay.orders || 0) > 0
+        ? `Top day ${topDay.date} / ${formatCurrency(topDay.revenue || 0)}`
+        : 'No selling day yet';
+      dailyRefs.trendMeta.textContent = `${dailyData.label} / ${formatRegionalInteger(dailyData.totals.activeDayCount)} active days / ${topText}`;
+    }
+    if (dailyRefs.summaryRevenue) dailyRefs.summaryRevenue.textContent = formatCurrency(dailyData.totals.revenue || 0);
+    if (dailyRefs.summaryQty) dailyRefs.summaryQty.textContent = formatRegionalInteger(dailyData.totals.qty || 0);
+    if (dailyRefs.summaryOrders) dailyRefs.summaryOrders.textContent = formatRegionalInteger(dailyData.totals.orders || dailyData.distinctOrders || 0);
+    if (dailyRefs.summaryAverage) dailyRefs.summaryAverage.textContent = formatCurrency(dailyData.totals.avgRevenue || 0);
+    drawChartSafely(dailyRefs.trendCanvas, () => drawLineChart(
+      dailyRefs.trendCanvas,
+      dailyTrendRows(dailyData),
+      metric,
+      DAILY_METRIC_UNITS,
+      {
+        lineColor: dailyMetricColor(metric),
+        fillRgb: hexToRgbParts(dailyMetricColor(metric)),
+        maxLabels: 8,
+        padding: { top: 18, right: 18, bottom: 42, left: 82 }
+      }
+    ), 'No Daily trend yet');
   };
 
   const renderDailySheet = (dailyData) => {
@@ -6135,10 +6386,13 @@ document.addEventListener('DOMContentLoaded', () => {
     state.daily.data = dailyData;
     if (dailyRefs.monthInput) dailyRefs.monthInput.value = dailyData.month;
     if (dailyRefs.status) {
-      dailyRefs.status.textContent = `${dailyData.label} • ${formatRegionalInteger(dailyData.days.length)} days • ${formatRegionalInteger(dailyData.totals.accountCount)} account columns • ${formatRegionalInteger(dailyData.rows.length)} order lines`;
+      const orderCount = Number(dailyData.totals.orders || dailyData.distinctOrders || 0);
+      const sourceRows = Number(dailyData.rowCount || dailyData.rows?.length || 0);
+      dailyRefs.status.textContent = `${dailyData.label} / ${formatRegionalInteger(dailyData.days.length)} days / ${formatRegionalInteger(dailyData.totals.accountCount)} account columns / ${formatRegionalInteger(orderCount)} orders${sourceRows ? ` / ${formatRegionalInteger(sourceRows)} source rows` : ''}`;
     }
     if (dailyRefs.exportButton) dailyRefs.exportButton.disabled = false;
     renderDailyPlatformList();
+    renderDailyTrend(dailyData);
     renderDailySheet(dailyData);
   };
 
@@ -7504,7 +7758,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      return;
 	    }
 	    if (state.activeView === 'daily') {
-	      await loadDailySafely({ force: true, preferStale: false, repair: true });
+	      await loadDailySafely({ force: true, preferStale: true, background: true });
 	      return;
 	    }
     preloadOrderMemory({ reset: true, repair: true }).catch(() => {});
@@ -7592,40 +7846,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const requestToken = beginRequest('daily');
     const month = parseDailyMonth(state.daily.month);
     state.daily.month = `${month.year}-${String(month.month).padStart(2, '0')}`;
+    const hasVisibleDaily = Boolean(state.daily.data);
+    const quietRefresh = Boolean(options.background && hasVisibleDaily);
     state.daily.loading = true;
-    if (dailyRefs.status) dailyRefs.status.textContent = `Loading ${formatDailyMonthLabel(state.daily.month)} order lines...`;
-    if (dailyRefs.exportButton) dailyRefs.exportButton.disabled = true;
-
-    let offset = 0;
-    let guard = 0;
-    const rows = [];
-    while (guard < 80) {
-      guard += 1;
-      const payload = await requestOrderFacts(month.start, month.end, {
-        lightweight: true,
-        storedOnly: true,
-        repair: Boolean(options.repair) && offset === 0,
-        limit: DAILY_ORDER_PAGE_LIMIT,
-        offset,
-        cacheBust: Boolean(options.force || options.repair)
-      });
-      if (!isLatestRequest('daily', requestToken)) return;
-      rows.push(...(Array.isArray(payload.orders) ? payload.orders : []));
-      const nextOffset = Number(payload.next_offset);
-      if (!payload.has_more || !Number.isFinite(nextOffset) || nextOffset <= offset) {
-        break;
-      }
-      offset = nextOffset;
-      if (dailyRefs.status) {
-        dailyRefs.status.textContent = `Loading ${formatDailyMonthLabel(state.daily.month)} order lines... ${formatRegionalInteger(rows.length)} loaded`;
-      }
+    if (dailyRefs.status) {
+      dailyRefs.status.textContent = quietRefresh
+        ? `Refreshing ${formatDailyMonthLabel(state.daily.month)} Daily summary...`
+        : `Loading ${formatDailyMonthLabel(state.daily.month)} Daily summary...`;
     }
+    if (dailyRefs.exportButton && !quietRefresh) dailyRefs.exportButton.disabled = true;
 
+    const summary = await requestDailySummary(state.daily.month, {
+      repair: Boolean(options.repair) && !quietRefresh,
+      cacheBust: Boolean(options.force || options.repair)
+    });
     if (!isLatestRequest('daily', requestToken)) return;
-    state.daily.rows = rows;
+    state.daily.summary = summary;
+    state.daily.rows = [];
     state.daily.loading = false;
     state.daily.loadedAt = Date.now();
-    renderDaily(aggregateDailyData(rows, state.daily.month));
+    renderDaily(aggregateDailySummaryData(summary, state.daily.month));
   };
 
   const loadHome = async (options = {}) => {
@@ -8299,9 +8539,17 @@ document.addEventListener('DOMContentLoaded', () => {
       return true;
     } catch (error) {
       state.daily.loading = false;
+      if (options.background && state.daily.data) {
+        renderDaily(state.daily.data);
+        if (dailyRefs.status) {
+          dailyRefs.status.textContent = `${dailyRefs.status.textContent} / refresh failed: ${error?.message || 'Unknown error'}`;
+        }
+        return false;
+      }
       if (dailyRefs.status) {
         dailyRefs.status.textContent = `Daily report unavailable: ${error?.message || 'Unknown error'}`;
       }
+      drawChartMessage(dailyRefs.trendCanvas, 'Daily unavailable');
       if (dailyRefs.sheetBody) {
         dailyRefs.sheetBody.innerHTML = `<tr><td colspan="6" class="admin-empty">Unable to load Daily: ${escapeHtml(error?.message || 'Unknown error')}</td></tr>`;
       }
@@ -8566,9 +8814,9 @@ document.addEventListener('DOMContentLoaded', () => {
     return true;
   };
 
-  const renderCachedCharts = () => {
+	  const renderCachedCharts = () => {
 	    if (state.activeView === 'overview' && state.overview.data) renderOverview(state.overview.data);
-	    if (state.activeView === 'daily' && state.daily.data) renderDaily(aggregateDailyData(Array.isArray(state.daily.rows) ? state.daily.rows : state.daily.data.rows, state.daily.month));
+	    if (state.activeView === 'daily' && state.daily.data) renderDaily(currentDailyData());
 	    if (state.activeView === 'wallet' && state.wallet.data) renderWallet(state.wallet.data);
 	    if (state.activeView === 'inventory-recap' && state.inventoryRecap.data) renderInventoryRecap(state.inventoryRecap.data);
 	    if (state.activeView === 'home' && state.home.data) renderHome(state.home.data);
@@ -8781,12 +9029,14 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const handleLiveChange = (payload = {}) => {
-	    const reason = String(payload.reason || '').toLowerCase();
-	    const orderRelated = reason.includes('order') || reason.includes('marketplace') || reason.includes('sales');
-	    if (orderRelated) {
-	      if (state.activeView === 'orders' || state.activeView === 'daily' || state.activeView === 'overview' || state.activeView === 'wallet' || state.activeView === 'inventory-recap') {
-	        queueActiveViewRefresh({ force: true, forceRefresh: true, repair: true });
-	      }
+		    const reason = String(payload.reason || '').toLowerCase();
+		    const orderRelated = reason.includes('order') || reason.includes('marketplace') || reason.includes('sales');
+		    if (orderRelated) {
+		      if (state.activeView === 'daily') {
+		        queueActiveViewRefresh({ force: true, repair: false, delay: LIVE_REFRESH_DEBOUNCE_MS * 2 });
+		      } else if (state.activeView === 'orders' || state.activeView === 'overview' || state.activeView === 'wallet' || state.activeView === 'inventory-recap') {
+		        queueActiveViewRefresh({ force: true, forceRefresh: true, repair: true });
+		      }
 	      if (state.activeView !== 'wallet') {
 	        queueViewRefresh('wallet').catch(() => {});
 	      }
@@ -8794,7 +9044,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (state.activeView === 'overview') {
         loadOverviewLocationRows({ force: true, incremental: true, repair: true }).catch(() => {});
       }
-      preloadOrderMemory({ reset: true, repair: true }).catch(() => {});
+	      if (state.activeView !== 'daily') {
+	        preloadOrderMemory({ reset: true, repair: true }).catch(() => {});
+	      }
       if (state.activeView !== 'inventory-recap') {
         queueViewRefresh('inventory-recap').catch(() => {});
       }
@@ -8850,13 +9102,15 @@ document.addEventListener('DOMContentLoaded', () => {
         state.activeView !== 'wallet' && !state.wallet.data
           ? loadWalletSafely({ background: true, preferStale: false, skipReleaseSync: true })
           : Promise.resolve(true),
-        state.activeView !== 'inventory-recap' && !state.inventoryRecap.data
-          ? loadInventoryRecapSafely({ background: true, preferStale: false })
-          : Promise.resolve(true),
-        loadOrderCatalog(),
-        loadNotifications(),
-        preloadOrderMemory()
-      ];
+	        state.activeView !== 'inventory-recap' && !state.inventoryRecap.data
+	          ? loadInventoryRecapSafely({ background: true, preferStale: false })
+	          : Promise.resolve(true),
+	        loadOrderCatalog(),
+	        loadNotifications(),
+	        state.activeView !== 'daily'
+	          ? preloadOrderMemory()
+	          : Promise.resolve(true)
+	      ];
       await Promise.allSettled(tasks);
       scheduleWalletBackgroundRefresh({ force: true });
     };
@@ -8915,11 +9169,11 @@ document.addEventListener('DOMContentLoaded', () => {
             })
           : loadActiveViewSafely({ preferStale: false });
 
-  if (state.activeView !== 'orders') {
-    window.setTimeout(() => {
-      preloadOrderMemory({ skipOverviewRefresh: state.activeView === 'overview' }).catch(() => {});
-    }, 0);
-  }
+	  if (state.activeView !== 'orders' && state.activeView !== 'daily') {
+	    window.setTimeout(() => {
+	      preloadOrderMemory({ skipOverviewRefresh: state.activeView === 'overview' }).catch(() => {});
+	    }, 0);
+	  }
 
   initialLoad
     .then(async () => {
@@ -9093,7 +9347,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const nextMonth = String(dailyRefs.monthInput?.value || '').trim();
     if (!nextMonth || nextMonth === state.daily.month) return;
     state.daily.month = nextMonth;
+    state.daily.summary = null;
+    state.daily.data = null;
     await loadDailySafely({ force: true, preferStale: false });
+  });
+
+  dailyRefs.metricButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      state.daily.metric = button.dataset.dailyMetric || 'revenue';
+      dailyRefs.metricButtons.forEach((candidate) => {
+        candidate.classList.toggle('is-active', candidate === button);
+      });
+      button.closest('[data-sliding-chart-toggle]')?.syncSlidingIndicator?.();
+      if (state.daily.data) renderDaily(currentDailyData());
+    });
   });
 
   dailyRefs.exportButton?.addEventListener('click', downloadDailyPdf);
@@ -9108,8 +9375,7 @@ document.addEventListener('DOMContentLoaded', () => {
       persistDailyCustomPlatforms();
     }
     if (dailyRefs.platformName) dailyRefs.platformName.value = '';
-    const rows = Array.isArray(state.daily.rows) ? state.daily.rows : [];
-    renderDaily(aggregateDailyData(rows, state.daily.month));
+    renderDaily(currentDailyData());
   });
 
   dailyRefs.platformList?.addEventListener('click', (event) => {
@@ -9120,8 +9386,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const name = button.getAttribute('data-daily-remove-platform') || '';
     state.daily.customPlatforms = state.daily.customPlatforms.filter((item) => dailyPlatformKey(item) !== dailyPlatformKey(name));
     persistDailyCustomPlatforms();
-    const rows = Array.isArray(state.daily.rows) ? state.daily.rows : [];
-    renderDaily(aggregateDailyData(rows, state.daily.month));
+    renderDaily(currentDailyData());
   });
 
   homeRefs.timeframeButtons.forEach((button) => {
