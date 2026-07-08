@@ -3399,9 +3399,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const renderHardSet = () => {
-    const hardSet = state.hardSet.state || {};
-    const readiness = state.hardSet.readiness || {};
+	  const renderHardSet = () => {
+	    const hardSet = state.hardSet.state || {};
+	    const readiness = state.hardSet.readiness || {};
     const enabled = Boolean(hardSet.enabled);
     const hasBranchAccess = Boolean(state.hardSet.access?.branch);
     const formatHardSetTimestamp = (primaryValue, fallbackValue = '') => {
@@ -3466,19 +3466,24 @@ document.addEventListener('DOMContentLoaded', () => {
     if (hardSetRefs.audit) {
       const audit = state.hardSet.audit || [];
       hardSetRefs.audit.innerHTML = audit.length ? audit.map((event) => `<div class="admin-note-card"><strong>${escapeHtml(event.event_type)}</strong><span>${escapeHtml(formatHardSetTimestamp(event.created_at_iso || event.created_at, event.created_at_wib || ''))}</span><small>${escapeHtml(event.actor || '')}</small></div>`).join('') : '<p class="admin-empty">No activation event. Hard Set is OFF.</p>';
-    }
-  };
+	    }
+	  };
 
-  const loadHardSet = async () => {
-    const data = await requestJson(`${hardSetEndpoint}?_ts=${Date.now()}`);
-    state.hardSet.state = data.state || { enabled: false };
-    state.hardSet.readiness = data.readiness || { ready: false, sources: {} };
-    state.hardSet.access = data.access || { branch: false, username: '' };
-    state.hardSet.audit = Array.isArray(data.audit) ? data.audit : [];
-    state.notifications.hardSet = state.hardSet.state;
-    renderHardSet();
-    renderNotifications();
-  };
+	  const applyHardSetData = (data) => {
+	    state.hardSet.state = data.state || { enabled: false };
+	    state.hardSet.readiness = data.readiness || { ready: false, sources: {} };
+	    state.hardSet.access = data.access || { branch: false, username: '' };
+	    state.hardSet.audit = Array.isArray(data.audit) ? data.audit : [];
+	    state.notifications.hardSet = state.hardSet.state;
+	    if (state.activeView === 'hard-set') renderHardSet();
+	    renderNotifications();
+	  };
+
+	  const loadHardSet = async () => {
+	    const data = await requestJson(`${hardSetEndpoint}?_ts=${Date.now()}`);
+	    writeViewClientCache('hard-set', hardSetClientCacheKey(), data);
+	    applyHardSetData(data);
+	  };
 
   const setJenangGemiStoreError = (message = '') => {
     if (!jenangGemiStoreRefs.error) return;
@@ -3618,9 +3623,9 @@ document.addEventListener('DOMContentLoaded', () => {
     renderContextProgress();
   };
 
-  const renderContextData = (data) => {
-    const records = Array.isArray(data.records) ? data.records : [];
-    state.context.records = records.reduce((map, row) => {
+	  const renderContextData = (data, options = {}) => {
+	    const records = Array.isArray(data.records) ? data.records : [];
+	    state.context.records = records.reduce((map, row) => {
       if (row?.period_key) {
         map[row.period_key] = contextMetricKeys.reduce((record, key) => {
           record[key] = row[key] === null || row[key] === undefined ? null : Number(row[key]);
@@ -3630,18 +3635,20 @@ document.addEventListener('DOMContentLoaded', () => {
       return map;
     }, {});
     state.context.draft = {};
-    state.context.dirty = false;
-    state.context.loaded = true;
-    setContextError('');
-    renderContextEditor();
-  };
+	    state.context.dirty = false;
+	    state.context.loaded = true;
+	    setContextError('');
+	    if (state.activeView === 'context' || options.renderInactive) renderContextEditor();
+	  };
 
-  const loadContext = async () => {
-    const requestToken = beginRequest('context');
-    const data = await requestJson(`${contextEndpoint}?_ts=${Date.now()}`);
-    if (!isLatestRequest('context', requestToken)) return;
-    renderContextData(data);
-  };
+	  const loadContext = async (options = {}) => {
+	    if (options.background && state.context.dirty) return;
+	    const requestToken = beginRequest('context');
+	    const data = await requestJson(`${contextEndpoint}?_ts=${Date.now()}`);
+	    if (!isLatestRequest('context', requestToken)) return;
+	    writeViewClientCache('context', contextClientCacheKey(), data);
+	    renderContextData(data);
+	  };
 
   const saveContext = async () => {
     if (!state.context.dirty) return;
@@ -4514,6 +4521,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	  const dailyClientCacheKey = () => dashboardClientCacheKey('daily', [state.daily.month, state.timezone]);
 	  const ordersClientCacheKey = () => dashboardClientCacheKey('orders', [state.overview.year, activeLocalDate]);
 	  const settingsClientCacheKey = () => dashboardClientCacheKey('settings', [activeLocalDate]);
+	  const hardSetClientCacheKey = () => dashboardClientCacheKey('hard-set', ['state']);
+	  const contextClientCacheKey = () => dashboardClientCacheKey('context', ['open-context']);
 
 	  const applyDefaultOrderDates = () => {};
 
@@ -9165,10 +9174,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (state.activeView === 'store-ops') {
       return;
     }
-    if (state.activeView === 'context') {
-      await loadContext();
-      return;
-    }
+	    if (state.activeView === 'context') {
+	      await loadContext(options);
+	      return;
+	    }
     if (state.activeView === 'home') {
       await loadHome(options);
       return;
@@ -9252,11 +9261,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (state.activeView === 'store-ops') {
       return true;
     }
-    if (state.activeView === 'context') {
-      try {
-        await loadContext();
-        return true;
-      } catch (error) {
+	    if (state.activeView === 'context') {
+	      try {
+	        await loadContext(options);
+	        return true;
+	      } catch (error) {
         setContextError(error.message || 'Unable to load context.');
         return false;
       }
@@ -9588,6 +9597,69 @@ document.addEventListener('DOMContentLoaded', () => {
 	    return { rendered, refreshPromise: Promise.resolve(false) };
 	  };
 
+	  const activateSettingsViewInstantly = () => {
+	    renderDeviceExclusionList();
+	    renderCurrentDeviceId();
+	    const rendered = Boolean(state.website.settingsLoadedAt);
+	    if (!rendered) {
+	      restoreViewClientCache('settings', settingsClientCacheKey(), (data, cache) => {
+	        if (state.activeView !== 'settings') return;
+	        state.website.deviceExclusions = Array.isArray(data.excluded_devices) ? data.excluded_devices : [];
+	        state.website.currentDeviceId = ensureAnalyticsDeviceId();
+	        state.website.settingsLoadedAt = cache.savedAt || Date.now();
+	        renderDeviceExclusionList();
+	        renderCurrentDeviceId();
+	      }).catch(() => false);
+	    }
+	    if (isBrowserOnline()) {
+	      return {
+	        rendered,
+	        refreshPromise: loadWebsiteSettingsSafely({ force: true, preferStale: false, background: true, useCache: true })
+	      };
+	    }
+	    return { rendered, refreshPromise: Promise.resolve(false) };
+	  };
+
+	  const activateHardSetViewInstantly = () => {
+	    renderHardSet();
+	    const rendered = Boolean(state.hardSet.state);
+	    restoreViewClientCache('hard-set', hardSetClientCacheKey(), (data) => {
+	      if (state.activeView !== 'hard-set') return;
+	      applyHardSetData(data);
+	    }).catch(() => false);
+	    if (isBrowserOnline()) {
+	      return {
+	        rendered,
+	        refreshPromise: loadHardSet().catch((error) => {
+	          if (hardSetRefs.switchNote && state.activeView === 'hard-set') hardSetRefs.switchNote.textContent = error.message || 'Unable to load Hard Set.';
+	          return false;
+	        })
+	      };
+	    }
+	    return { rendered, refreshPromise: Promise.resolve(false) };
+	  };
+
+	  const activateContextViewInstantly = () => {
+	    renderContextEditor();
+	    const rendered = Boolean(state.context.loaded);
+	    if (!state.context.loaded && !state.context.dirty) {
+	      restoreViewClientCache('context', contextClientCacheKey(), (data) => {
+	        if (state.activeView !== 'context' || state.context.dirty) return;
+	        renderContextData(data);
+	      }).catch(() => false);
+	    }
+	    if (isBrowserOnline() && !state.context.dirty) {
+	      return {
+	        rendered,
+	        refreshPromise: loadContext({ background: true }).catch((error) => {
+	          setContextError(error.message || 'Unable to load context.');
+	          return false;
+	        })
+	      };
+	    }
+	    return { rendered, refreshPromise: Promise.resolve(false) };
+	  };
+
 	  const switchView = async (nextView) => {
 	    const previousView = state.activeView;
 	    const normalizedNextView = normalizeDashboardView(nextView);
@@ -9631,8 +9703,20 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (state.activeView === 'home') {
 	      activateHomeViewInstantly();
 	      return;
-    }
-    await loadActiveViewSafely();
+	    }
+	    if (state.activeView === 'settings') {
+	      activateSettingsViewInstantly();
+	      return;
+	    }
+	    if (state.activeView === 'hard-set') {
+	      activateHardSetViewInstantly();
+	      return;
+	    }
+	    if (state.activeView === 'context') {
+	      activateContextViewInstantly();
+	      return;
+	    }
+	    await loadActiveViewSafely();
     if (state.activeView === 'store-ops') {
       window.dispatchEvent(new CustomEvent('jg-store-ops-refresh'));
     }
@@ -9854,7 +9938,22 @@ document.addEventListener('DOMContentLoaded', () => {
 	                const activation = activateHomeViewInstantly();
 	                return waitForInitialViewReveal(activation.refreshPromise, activation);
 	              })
-	            : loadActiveViewSafely({ preferStale: false });
+	            : state.activeView === 'settings'
+	              ? Promise.resolve().then(() => {
+	                  const activation = activateSettingsViewInstantly();
+	                  return waitForInitialViewReveal(activation.refreshPromise, activation);
+	                })
+	              : state.activeView === 'hard-set'
+	                ? Promise.resolve().then(() => {
+	                    const activation = activateHardSetViewInstantly();
+	                    return waitForInitialViewReveal(activation.refreshPromise, activation);
+	                  })
+	                : state.activeView === 'context'
+	                  ? Promise.resolve().then(() => {
+	                      const activation = activateContextViewInstantly();
+	                      return waitForInitialViewReveal(activation.refreshPromise, activation);
+	                    })
+	                  : loadActiveViewSafely({ preferStale: false });
 
 		  if (state.activeView !== 'orders' && state.activeView !== 'daily') {
 		    window.setTimeout(() => {
@@ -9864,13 +9963,10 @@ document.addEventListener('DOMContentLoaded', () => {
 		    }, 0);
 		  }
 
-  initialLoad
-    .then(async () => {
-      setLoaderState(76, 'Rendering charts and tables');
-      if (state.activeView === 'settings') {
-        await loadWebsiteSettingsSafely();
-      }
-    })
+	  initialLoad
+	    .then(async () => {
+	      setLoaderState(76, 'Rendering charts and tables');
+	    })
     .finally(() => {
       finishLoader();
       connectLiveStream();
