@@ -993,6 +993,118 @@ function jg_accounting_manual_marketplace_transfer_context(PDO $pdo, array $boun
     ];
 }
 
+function jg_accounting_wallet_key(string $platform, string $accountKey): string
+{
+    $normalize = static fn (string $value): string => trim(strtolower(preg_replace('/[^a-z0-9._-]+/', '-', $value) ?? ''), '.-_');
+    return $normalize($platform) . '|' . $normalize($accountKey);
+}
+
+function jg_accounting_wallet_platform_transaction_text(array $row): string
+{
+    $raw = json_decode((string) ($row['raw_json'] ?? ''), true);
+    $raw = is_array($raw) ? $raw : [];
+    $parts = [
+        $row['transaction_type'] ?? '',
+        $row['money_flow'] ?? '',
+        $row['order_id'] ?? '',
+        $raw['transaction_type'] ?? '',
+        $raw['transaction_description'] ?? '',
+        $raw['description'] ?? '',
+        $raw['reason'] ?? '',
+        $raw['title'] ?? '',
+        $raw['type'] ?? '',
+        $raw['money_flow'] ?? '',
+    ];
+    return strtolower(implode(' ', array_map(static fn (mixed $value): string => (string) $value, $parts)));
+}
+
+function jg_accounting_is_wallet_platform_cash_out(array $row): bool
+{
+    $amount = (int) round((float) ($row['amount'] ?? 0));
+    if ($amount >= 0) {
+        return false;
+    }
+
+    $text = jg_accounting_wallet_platform_transaction_text($row);
+    if (preg_match('/\b(refund|fee|commission|penalt|ads?|advert|voucher|shipping|adjust|correction|reversal|chargeback|claim|compensation)\b/i', $text)) {
+        return false;
+    }
+    if (preg_match('/\b(withdraw|withdrawal|payout|pay[ -]?out|bank|transfer|disburse|disbursement|settlement|settle|cash[ -]?out)\b/i', $text)) {
+        return true;
+    }
+
+    $orderId = trim((string) ($row['order_id'] ?? ''));
+    return $orderId === '' && preg_match('/\b(out|debit|withdraw)\b/i', $text) === 1;
+}
+
+function jg_accounting_wallet_platform_cash_records(PDO $pdo, array $bounds = [], array $releaseOffsetsByAccount = [], int $manualOffsetRemaining = 0): array
+{
+    $where = ['amount < 0'];
+    $params = [];
+    jg_accounting_apply_source_time_filter($where, $params, $bounds, 'transaction_at', 'wallet_tx');
+
+    try {
+        $stmt = $pdo->prepare(
+            'SELECT id, platform, account_key, transaction_id, order_id, transaction_type, money_flow,
+                    amount, current_balance, transaction_at, raw_json
+             FROM dashboard_wallet_platform_transactions
+             WHERE ' . implode(' AND ', $where) . '
+             ORDER BY transaction_at ASC, id ASC'
+        );
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll();
+    } catch (Throwable) {
+        return [];
+    }
+
+    $records = [];
+    foreach ($rows as $row) {
+        if (!jg_accounting_is_wallet_platform_cash_out($row)) {
+            continue;
+        }
+        $gross = abs((int) round((float) ($row['amount'] ?? 0)));
+        if ($gross <= 0) {
+            continue;
+        }
+
+        $platform = (string) ($row['platform'] ?? '');
+        $accountKey = (string) ($row['account_key'] ?? '');
+        $walletKey = jg_accounting_wallet_key($platform, $accountKey);
+        $sameAccountReleaseOffset = min($gross, max(0, (int) ($releaseOffsetsByAccount[$walletKey] ?? 0)));
+        $releaseOffsetsByAccount[$walletKey] = max(0, (int) ($releaseOffsetsByAccount[$walletKey] ?? 0) - $sameAccountReleaseOffset);
+        $manualOffset = min($gross - $sameAccountReleaseOffset, max(0, $manualOffsetRemaining));
+        $manualOffsetRemaining -= $manualOffset;
+        $usable = max(0, $gross - $sameAccountReleaseOffset - $manualOffset);
+        $occurredAt = trim((string) ($row['transaction_at'] ?? ''));
+
+        $records[] = [
+            'source_key' => 'wallet_platform_transaction:' . (int) ($row['id'] ?? 0),
+            'source_type' => 'wallet_withdrawal',
+            'source_table' => 'dashboard_wallet_platform_transactions',
+            'source_id' => (int) ($row['id'] ?? 0),
+            'source_label' => trim($platform . ' ' . $accountKey),
+            'occurred_at' => $occurredAt,
+            'record_date' => jg_accounting_source_local_date($occurredAt),
+            'business_month' => jg_accounting_source_business_month($occurredAt),
+            'platform' => $platform,
+            'account_key' => $accountKey,
+            'order_id' => (string) ($row['order_id'] ?? ''),
+            'counterparty' => $accountKey,
+            'gross_amount' => $gross,
+            'manual_offset_amount' => $manualOffset,
+            'source_offset_amount' => $sameAccountReleaseOffset,
+            'usable_cash_amount' => $usable,
+            'amount' => $usable,
+            'currency' => 'IDR',
+            'record_status' => $usable > 0 ? (($sameAccountReleaseOffset + $manualOffset) > 0 ? 'partially_offset' : 'usable') : 'fully_offset',
+            'cash_basis' => 'platform_wallet_transaction_cash_out',
+            'notes' => trim((string) ($row['transaction_type'] ?? '')),
+        ];
+    }
+
+    return $records;
+}
+
 function jg_accounting_wallet_cash_records(PDO $pdo, array $bounds = []): array
 {
     $releaseWhere = ['undone_at IS NULL'];
@@ -1017,6 +1129,7 @@ function jg_accounting_wallet_cash_records(PDO $pdo, array $bounds = []): array
     $manual = jg_accounting_manual_marketplace_transfer_context($pdo, $bounds);
     $manualOffsetRemaining = (int) $manual['amount'];
     $records = [];
+    $releaseOffsetsByAccount = [];
     foreach ($rows as $row) {
         $gross = max(0, (int) round((float) ($row['amount'] ?? 0)));
         $manualOffset = min($gross, max(0, $manualOffsetRemaining));
@@ -1025,6 +1138,7 @@ function jg_accounting_wallet_cash_records(PDO $pdo, array $bounds = []): array
         $occurredAt = trim((string) ($row['occurred_at'] ?? $row['withdrawn_at'] ?? $row['created_at'] ?? ''));
         $platform = (string) ($row['platform'] ?? '');
         $accountKey = (string) ($row['account_key'] ?? '');
+        $releaseOffsetsByAccount[jg_accounting_wallet_key($platform, $accountKey)] = ($releaseOffsetsByAccount[jg_accounting_wallet_key($platform, $accountKey)] ?? 0) + $gross;
         $records[] = [
             'source_key' => 'wallet_release:' . (int) ($row['id'] ?? 0),
             'source_type' => 'wallet_withdrawal',
@@ -1048,6 +1162,15 @@ function jg_accounting_wallet_cash_records(PDO $pdo, array $bounds = []): array
             'notes' => (string) ($row['release_note'] ?? ''),
         ];
     }
+
+    $records = array_merge(
+        $records,
+        jg_accounting_wallet_platform_cash_records($pdo, $bounds, $releaseOffsetsByAccount, $manualOffsetRemaining)
+    );
+    usort($records, static function (array $left, array $right): int {
+        $time = strcmp((string) ($left['occurred_at'] ?? ''), (string) ($right['occurred_at'] ?? ''));
+        return $time !== 0 ? $time : strcmp((string) ($left['source_key'] ?? ''), (string) ($right['source_key'] ?? ''));
+    });
 
     return $records;
 }
@@ -1182,6 +1305,7 @@ function jg_accounting_automatic_usable_cash_context(PDO $pdo, array $filters = 
     ];
     $gross = 0;
     $manualOffset = 0;
+    $sourceOffset = 0;
     $usableCount = 0;
     foreach ($records as $record) {
         $sourceType = (string) ($record['source_type'] ?? '');
@@ -1189,8 +1313,10 @@ function jg_accounting_automatic_usable_cash_context(PDO $pdo, array $filters = 
         if (isset($totals[$sourceType])) {
             $totals[$sourceType] += $amount;
         }
-        $gross += (int) ($record['gross_amount'] ?? 0);
+        $recordSourceOffset = (int) ($record['source_offset_amount'] ?? 0);
+        $gross += max(0, (int) ($record['gross_amount'] ?? 0) - $recordSourceOffset);
         $manualOffset += (int) ($record['manual_offset_amount'] ?? 0);
+        $sourceOffset += $recordSourceOffset;
         if ($amount > 0) {
             $usableCount++;
         }
@@ -1202,6 +1328,7 @@ function jg_accounting_automatic_usable_cash_context(PDO $pdo, array $filters = 
         'website_payments_to_bank' => $totals['website_payment'],
         'gross_source_total' => $gross,
         'manual_offset_total' => $manualOffset,
+        'source_offset_total' => $sourceOffset,
         'record_count' => count($records),
         'usable_record_count' => $usableCount,
         'source' => 'automatic_cash_source_records',
@@ -1216,7 +1343,7 @@ function jg_accounting_automatic_usable_cash_context(PDO $pdo, array $filters = 
 function jg_accounting_wallet_usable_cash_context(PDO $pdo, ?string $month = null): array
 {
     $records = jg_accounting_wallet_cash_records($pdo, jg_accounting_cash_record_bounds($month !== null ? ['month' => $month] : []));
-    $walletWithdrawn = array_sum(array_map(static fn (array $record): int => (int) ($record['gross_amount'] ?? 0), $records));
+    $walletWithdrawn = array_sum(array_map(static fn (array $record): int => max(0, (int) ($record['gross_amount'] ?? 0) - (int) ($record['source_offset_amount'] ?? 0)), $records));
     $manualTransfers = array_sum(array_map(static fn (array $record): int => (int) ($record['manual_offset_amount'] ?? 0), $records));
     $lastRecord = $records !== [] ? $records[count($records) - 1] : [];
 

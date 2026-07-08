@@ -37,6 +37,19 @@ $pdo->exec('CREATE TABLE dashboard_wallet_releases (
     created_at TEXT,
     undone_at TEXT NULL
 )');
+$pdo->exec('CREATE TABLE dashboard_wallet_platform_transactions (
+    id INTEGER PRIMARY KEY,
+    platform TEXT,
+    account_key TEXT,
+    transaction_id TEXT,
+    order_id TEXT,
+    transaction_type TEXT,
+    money_flow TEXT,
+    amount REAL,
+    current_balance REAL NULL,
+    transaction_at TEXT,
+    raw_json TEXT NULL
+)');
 $pdo->exec('CREATE TABLE accounting_accounts (
     id INTEGER PRIMARY KEY,
     type TEXT,
@@ -77,6 +90,11 @@ $pdo->exec("INSERT INTO dashboard_wallet_releases (platform, account_key, amount
     ('shopee', 'jenang-gemi-shopee', 100000, 'bank cash-out', 'test', '2026-07-03 05:00:00', '2026-07-03 05:00:00', NULL),
     ('shopee', 'jenang-gemi-shopee', 30000, 'june cash-out', 'test', '2026-06-20 05:00:00', '2026-06-20 05:00:00', NULL),
     ('tiktok', 'zero-tiktok', 50000, 'undone cash-out', 'test', '2026-07-05 05:00:00', '2026-07-05 05:00:00', '2026-07-05 06:00:00')");
+$pdo->exec("INSERT INTO dashboard_wallet_platform_transactions
+    (platform, account_key, transaction_id, order_id, transaction_type, money_flow, amount, current_balance, transaction_at, raw_json) VALUES
+    ('shopee', 'jenang-gemi-shopee', 'wallet-duplicate-manual', '', 'Withdrawal', 'OUT', -100000, 0, '2026-07-03 05:00:00', '{}'),
+    ('shopee', 'zero-shopee', 'wallet-platform-cashout', '', 'Bank transfer', 'OUT', -60000, 40000, '2026-07-06 05:00:00', '{}'),
+    ('shopee', 'zero-shopee', 'wallet-refund', 'ORDER-REFUND', 'Refund', 'OUT', -15000, 25000, '2026-07-07 05:00:00', '{}')");
 $pdo->exec("INSERT INTO website_orders (platform, order_id, status, customer_name, gross_revenue, net_revenue, cogs, paid_at, created_at) VALUES
     ('jenang_gemi_website', 'JGWEB-1', 'AWAITING_FULFILLMENT_SETUP', 'Customer One', 220000, 200000, 150000, '2026-07-04 02:00:00', '2026-07-04 01:00:00'),
     ('zero_website', 'ZEROWEB-2', 'PAID_MANUAL_ERA', 'Customer Two', 80000, 80000, 999999, '2026-07-05 02:00:00', '2026-07-05 01:00:00'),
@@ -89,22 +107,22 @@ $pdo->exec("INSERT INTO accounting_transactions (status, type, direction, accoun
     ('posted', 'manual_income', 'money_in', 2, NULL, '2026-07', '2026-07-05', 'ZEROWEB-2', '', '', 50000)");
 
 $july = jg_accounting_wallet_usable_cash_context($pdo, '2026-07');
-accounting_expect(100000, $july['wallet_withdrawn_total'], 'Monthly wallet cash must count active Wallet withdrawals.');
+accounting_expect(160000, $july['wallet_withdrawn_total'], 'Monthly wallet cash must count active manual and platform Wallet withdrawals.');
 accounting_expect(25000, $july['manual_marketplace_transfer_total'], 'Monthly wallet cash must subtract manual marketplace transfers into spendable accounts.');
-accounting_expect(75000, $july['amount'], 'Monthly wallet cash must expose only the automatic usable cash remainder.');
+accounting_expect(135000, $july['amount'], 'Monthly wallet cash must expose manual plus platform cash-out remainders.');
 
 $allTime = jg_accounting_wallet_usable_cash_context($pdo);
-accounting_expect(130000, $allTime['wallet_withdrawn_total'], 'All-time wallet cash must count every active Wallet withdrawal.');
-accounting_expect(105000, $allTime['amount'], 'All-time wallet cash must avoid double-counting manual marketplace transfers.');
+accounting_expect(190000, $allTime['wallet_withdrawn_total'], 'All-time wallet cash must count every active Wallet withdrawal.');
+accounting_expect(165000, $allTime['amount'], 'All-time wallet cash must avoid double-counting manual marketplace transfers and duplicate platform rows.');
 
 $websiteRecords = jg_accounting_website_cash_records($pdo, jg_accounting_cash_record_bounds(['month' => '2026-07']));
 accounting_expect(2, count($websiteRecords), 'Monthly website cash records must include only paid July website orders.');
 $websiteContext = jg_accounting_automatic_usable_cash_context($pdo, ['month' => '2026-07']);
-accounting_expect(75000, $websiteContext['wallet_withdrawals_to_bank'], 'Automatic cash must keep wallet withdrawals separated.');
+accounting_expect(135000, $websiteContext['wallet_withdrawals_to_bank'], 'Automatic cash must keep wallet withdrawals separated.');
 accounting_expect(230000, $websiteContext['website_payments_to_bank'], 'Automatic cash must count confirmed website payments without subtracting COGS.');
-accounting_expect(305000, $websiteContext['amount'], 'Automatic cash must combine wallet withdrawals and website paid orders.');
+accounting_expect(365000, $websiteContext['amount'], 'Automatic cash must combine wallet withdrawals and website paid orders.');
 
 $allCash = jg_accounting_automatic_usable_cash_context($pdo);
-accounting_expect(375000, $allCash['amount'], 'All-time automatic cash must combine all active wallet withdrawals and website paid orders.');
+accounting_expect(435000, $allCash['amount'], 'All-time automatic cash must combine all active wallet withdrawals and website paid orders.');
 
 echo "accounting-wallet-cash-test: ok\n";
