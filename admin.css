@@ -4196,6 +4196,71 @@ button, input {
   flex-wrap: wrap;
 }
 
+.admin-cogs-batch-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--sku-line);
+  border-radius: var(--sku-radius);
+  background: var(--sku-panel);
+}
+
+.admin-cogs-batch-head,
+.admin-cogs-batch-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-cogs-batch-head {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.admin-cogs-batch-head strong {
+  color: var(--sku-ink);
+  font-family: "Space Grotesk", Inter, sans-serif;
+  font-size: 0.9rem;
+}
+
+.admin-cogs-batch-head small,
+.admin-cogs-batch-row small {
+  color: var(--sku-muted);
+}
+
+.admin-cogs-batch-list {
+  display: grid;
+  gap: 8px;
+  max-height: min(320px, 40vh);
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.admin-cogs-batch-row {
+  min-height: 52px;
+  padding: 9px 10px;
+  border: 1px solid var(--sku-line);
+  border-radius: var(--sku-radius);
+  background: color-mix(in srgb, var(--sku-bg) 52%, transparent);
+}
+
+.admin-cogs-batch-row input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--sku-lime);
+}
+
+.admin-cogs-batch-row span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.admin-cogs-batch-row strong,
+.admin-cogs-batch-row small {
+  overflow-wrap: anywhere;
+}
+
 .admin-sku-row-menu {
   position: relative;
   display: inline-flex;

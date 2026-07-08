@@ -465,23 +465,34 @@ $pageBuildVersion = 'sku1.00.00';
             <form class="admin-sku-form-grid" data-cogs-form>
                 <input type="hidden" name="sku">
                 <label>
-                    <span>SKU</span>
+                    <span>Source SKU</span>
                     <input type="text" name="sku_display" readonly>
                 </label>
                 <label>
-                    <span>Old price</span>
+                    <span>Volume group</span>
+                    <input type="text" name="volume_display" readonly>
+                </label>
+                <label>
+                    <span>Source current COGS</span>
                     <input type="text" name="old_price" readonly>
                 </label>
                 <label>
-                    <span>New price</span>
+                    <span>New static average</span>
                     <input type="number" name="new_price" min="0" step="0.01" required>
                 </label>
-                <label>
-                    <span>PO Number</span>
-                    <input type="text" name="po_number" maxlength="80" placeholder="e.g. P01411" required>
+                <label class="admin-sku-full-span">
+                    <span>PO Note Optional</span>
+                    <input type="text" name="po_number" maxlength="80" placeholder="Optional reference only">
                 </label>
+                <div class="admin-sku-full-span admin-cogs-batch-panel">
+                    <div class="admin-cogs-batch-head">
+                        <strong data-cogs-batch-count>0 SKUs selected</strong>
+                        <small>Uncheck SKUs to exclude them from this same-volume COGS update.</small>
+                    </div>
+                    <div class="admin-cogs-batch-list" data-cogs-batch-list></div>
+                </div>
                 <div class="admin-sku-actions">
-                    <button type="submit" class="admin-primary-btn">Save COGS Change</button>
+                    <button type="submit" class="admin-primary-btn">Save COGS Batch</button>
                     <button type="button" class="admin-ghost-btn" data-close-cogs-modal>Cancel</button>
                 </div>
             </form>

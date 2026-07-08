@@ -380,7 +380,7 @@ const JENANG_GEMI_SEARCH_INDEX = [
   {
     title: 'Orders',
     section: 'Admin',
-    description: 'Marketplace order spreadsheet with seller revenue, FIFO COGS, customer, and address fields.',
+    description: 'Marketplace order spreadsheet with seller revenue, static average COGS, customer, and address fields.',
     url: '../dashboard/?view=orders',
     view: 'orders',
     keywords: ['orders', 'marketplace', 'spreadsheet', 'revenue', 'cogs']
@@ -7051,7 +7051,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td>${formatCompactNumber(row.quantity || 0)}</td>
           <td title="${escapeHtml(allocation)}">${escapeHtml(poNumbers)}</td>
 	          <td>${formatCellCurrency(row.revenue || 0)}</td>
-	          <td${row.cogs_estimated ? ' title="Estimated from SKU COGS until FIFO allocation is recorded"' : ''}>${formatCellCurrency(row.cogs || 0)}</td>
+	          <td title="Static average COGS from SKU DB">${formatCellCurrency(row.cogs || 0)}</td>
 	          <td class="admin-order-wallet-cell"><span class="admin-order-wallet-symbol${fundsReleased ? ' is-released' : ' is-pending'}" title="${escapeHtml(releasedTitle)}" aria-label="${escapeHtml(releasedTitle)}">${fundsReleased ? 'Rp' : '-'}</span></td>
 	          <td>${contactButton(row.username, 'username')}</td>
 	          <td>${contactButton(row.address, 'address')}</td>

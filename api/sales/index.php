@@ -702,69 +702,6 @@ function jg_sales_sorted_rollup_rows(array $rows, int $limit = 16): array
 }
 
 /**
- * @return array{monthly: array<string, int>, sku: array<string, int>}
- */
-function jg_sales_fifo_cogs_index(int $year): array
-{
-    try {
-        $pdo = jg_sku_db();
-        $tableStmt = $pdo->prepare(
-            'SELECT COUNT(*)
-             FROM INFORMATION_SCHEMA.TABLES
-             WHERE TABLE_SCHEMA = DATABASE()
-               AND TABLE_NAME = "marketplace_order_inventory_allocations"'
-        );
-        $tableStmt->execute();
-        if ((int) $tableStmt->fetchColumn() === 0) {
-            return ['monthly' => [], 'sku' => []];
-        }
-
-        $timezone = new DateTimeZone('Asia/Jakarta');
-        $from = (new DateTimeImmutable($year . '-01-01 00:00:00', $timezone))->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
-        $to = (new DateTimeImmutable(($year + 1) . '-01-01 00:00:00', $timezone))->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
-        $stmt = $pdo->prepare(
-            'SELECT
-                MONTH(DATE_ADD(consumed_at, INTERVAL 7 HOUR)) AS month,
-                platform,
-                account_key,
-                sku,
-                SUM(total_cogs) AS cogs
-             FROM marketplace_order_inventory_allocations
-             WHERE consumed_at >= :from_date
-               AND consumed_at < :to_date
-             GROUP BY MONTH(DATE_ADD(consumed_at, INTERVAL 7 HOUR)), platform, account_key, sku'
-        );
-        $stmt->execute([
-            ':from_date' => $from,
-            ':to_date' => $to,
-        ]);
-    } catch (Throwable $error) {
-        error_log('Unable to load FIFO COGS allocation index: ' . $error->getMessage());
-        return ['monthly' => [], 'sku' => []];
-    }
-
-    $monthly = [];
-    $skuTotals = [];
-    foreach ($stmt->fetchAll() as $row) {
-        $sku = jg_sales_normalize_sku_key($row['sku'] ?? '');
-        if ($sku === '') {
-            continue;
-        }
-        $cogs = (int) round((float) ($row['cogs'] ?? 0));
-        $key = implode('|', [
-            (int) ($row['month'] ?? 0),
-            (string) ($row['platform'] ?? ''),
-            (string) ($row['account_key'] ?? ''),
-            $sku,
-        ]);
-        $monthly[$key] = $cogs;
-        $skuTotals[$sku] = (int) ($skuTotals[$sku] ?? 0) + $cogs;
-    }
-
-    return ['monthly' => $monthly, 'sku' => $skuTotals];
-}
-
-/**
  * @param array<string, mixed> $row
  */
 function jg_sales_seller_received(array $row, int $fallback = 0): int
@@ -865,7 +802,7 @@ function jg_sales_enrich_totals_with_profit(array &$summary, int $totalCogs, int
  * @param array<string, array{sku:string, tag:string, product_name:string, base_product_name:string, flavor_name:string, cogs:float, is_syrup:bool, is_drops:bool}> $lookup
  * @return array{cogs: array<int, int>, fees: array<int, int>}
  */
-function jg_sales_enrich_monthly_product_cogs(array &$products, array $lookup, array $fifoCogs): array
+function jg_sales_enrich_monthly_product_cogs(array &$products, array $lookup): array
 {
     $rows = is_array($products['by_month'] ?? null) ? $products['by_month'] : [];
     if ($rows === []) {
@@ -891,18 +828,10 @@ function jg_sales_enrich_monthly_product_cogs(array &$products, array $lookup, a
         $fees = max(0, $grossRevenue - $revenue);
         $unitCogs = (float) ($skuRecord['cogs'] ?? 0);
         $displayProductName = trim((string) ($skuRecord['product_name'] ?? ''));
-        $fifoKey = implode('|', [
-            $month,
-            (string) ($row['platform'] ?? ''),
-            (string) ($row['account_key'] ?? ''),
-            $sku,
-        ]);
-        $rowCogs = array_key_exists($fifoKey, $fifoCogs)
-            ? (int) $fifoCogs[$fifoKey]
-            : (int) round($unitCogs * $quantity);
+        $rowCogs = (int) round($unitCogs * $quantity);
         $row['unit_cogs'] = $unitCogs;
         $row['cogs'] = $rowCogs;
-        $row['cogs_source'] = array_key_exists($fifoKey, $fifoCogs) ? 'fifo_po_allocations' : 'sku_current_cogs';
+        $row['cogs_source'] = 'sku_static_average';
         $row['revenue'] = $revenue;
         $row['marketplace_fees'] = $fees;
         $row['gross_profit'] = $revenue - $rowCogs;
@@ -1106,8 +1035,7 @@ function jg_sales_enrich_with_sku_db(array $summary, int $year): array
 
     $products = is_array($summary['products'] ?? null) ? $summary['products'] : [];
     $rows = is_array($products['by_product'] ?? null) ? $products['by_product'] : [];
-    $fifoCogsIndex = jg_sales_fifo_cogs_index($year);
-    $monthlyProductMetrics = jg_sales_enrich_monthly_product_cogs($products, $lookup, $fifoCogsIndex['monthly']);
+    $monthlyProductMetrics = jg_sales_enrich_monthly_product_cogs($products, $lookup);
     $flavorGroups = [
         'syrup' => [],
         'drops' => [],
@@ -1128,12 +1056,10 @@ function jg_sales_enrich_with_sku_db(array $summary, int $year): array
         $net = jg_sales_seller_received($row);
         $unitCogs = (float) ($skuRecord['cogs'] ?? 0);
         $displayProductName = trim((string) ($skuRecord['product_name'] ?? ''));
-        $rowCogs = array_key_exists($sku, $fifoCogsIndex['sku'])
-            ? (int) $fifoCogsIndex['sku'][$sku]
-            : (int) round($unitCogs * $quantity);
+        $rowCogs = (int) round($unitCogs * $quantity);
         $row['unit_cogs'] = $unitCogs;
         $row['cogs'] = $rowCogs;
-        $row['cogs_source'] = array_key_exists($sku, $fifoCogsIndex['sku']) ? 'fifo_po_allocations' : 'sku_current_cogs';
+        $row['cogs_source'] = 'sku_static_average';
         $row['revenue'] = $net;
         $row['gross_profit'] = $net - $rowCogs;
         if ($displayProductName !== '') {
@@ -1327,13 +1253,12 @@ function jg_sales_attach_calculation_audit(array &$summary, int $year): void
             [
                 'name' => 'Dashboard SKU DB enrichment',
                 'method' => 'local SQL',
-                'endpoint' => 'sku_skus + marketplace_order_inventory_allocations',
+                'endpoint' => 'sku_skus',
                 'used_for' => 'COGS and gross profit',
                 'json_paths' => [
                     'sku_skus.sku',
                     'sku_skus.tag',
                     'sku_skus.cogs',
-                    'marketplace_order_inventory_allocations.total_cogs',
                 ],
             ],
         ],
@@ -1351,8 +1276,8 @@ function jg_sales_attach_calculation_audit(array &$summary, int $year): void
                 'dashboard_json_paths' => ['months[].marketplace_fees', 'totals.marketplace_fees'],
             ],
             'cogs' => [
-                'definition' => 'Cost of goods sold from FIFO PO allocations when available, otherwise current SKU DB COGS times item quantity.',
-                'formula' => 'SUM(marketplace_order_inventory_allocations.total_cogs) OR SUM(sku_skus.cogs * products.by_month[].quantity); product gross profit uses item-level net revenue, including raw_json.finance_statement.sku_transactions[].settlement_amount when available.',
+                'definition' => 'Cost of goods sold from the current static average in SKU DB.',
+                'formula' => 'SUM(sku_skus.cogs * products.by_month[].quantity); product gross profit uses item-level net revenue, including raw_json.finance_statement.sku_transactions[].settlement_amount when available.',
                 'dashboard_json_paths' => ['months[].cogs', 'products.by_month[].cogs', 'products.by_product[].cogs'],
             ],
             'gross_profit' => [
@@ -1395,7 +1320,7 @@ function jg_sales_attach_calculation_audit(array &$summary, int $year): void
             ],
             'cogs' => [
                 'value' => $cogs,
-                'formula' => 'SUM(products.by_month[].cogs) or FIFO allocation total',
+                'formula' => 'SUM(products.by_month[].cogs) from SKU DB static average COGS',
                 'components' => [
                     ['path' => 'totals.cogs', 'value' => $cogs],
                 ],

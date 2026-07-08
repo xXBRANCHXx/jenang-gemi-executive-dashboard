@@ -244,8 +244,8 @@ function jg_sku_date_value(mixed $value, string $label): string
 
 function jg_sku_build_takes_place(array $payload): string
 {
-    $poNumber = jg_sku_po_number($payload['po_number'] ?? null, true);
-    return 'PO Number | ' . $poNumber;
+    $poNumber = jg_sku_po_number($payload['po_number'] ?? null, false);
+    return $poNumber !== '' ? 'Static average | PO note ' . $poNumber : 'Static average';
 }
 
 function jg_sku_inventory_ensure_lot_schema(PDO $pdo): void
@@ -343,30 +343,6 @@ function jg_sku_inventory_adjust_lots_to_total(PDO $pdo, string $sku, int $targe
         ]);
         $remainingReduction = round($remainingReduction - $take, 2);
     }
-}
-
-function jg_sku_inventory_reprice_po(PDO $pdo, string $sku, string $poNumber, string $newPrice): void
-{
-    jg_sku_inventory_ensure_lot_schema($pdo);
-    $now = jg_sku_now();
-    $updateLots = $pdo->prepare('UPDATE sku_stock_lots SET cogs_per_astra = :cogs, updated_at = :updated_at WHERE sku = :sku AND po_number = :po_number');
-    $updateLots->execute([
-        ':cogs' => $newPrice,
-        ':updated_at' => $now,
-        ':sku' => $sku,
-        ':po_number' => $poNumber,
-    ]);
-    $updateAllocations = $pdo->prepare(
-        'UPDATE marketplace_order_inventory_allocations
-         SET cogs_per_astra = :cogs,
-             total_cogs = ROUND(qty_astra_consumed * :cogs, 2)
-         WHERE sku = :sku AND po_number = :po_number'
-    );
-    $updateAllocations->execute([
-        ':cogs' => $newPrice,
-        ':sku' => $sku,
-        ':po_number' => $poNumber,
-    ]);
 }
 
 function jg_sku_bump_patch(string $version): string
@@ -1172,42 +1148,78 @@ try {
     }
 
     if ($action === 'change_cogs') {
-        $sku = trim((string) ($request['sku'] ?? ''));
+        $sku = strtoupper(trim((string) ($request['sku'] ?? '')));
         if ($sku === '') {
             jg_sku_fail('SKU is required.');
         }
 
         $newPrice = jg_sku_money($request['new_price'] ?? null, 'New price');
-        $poNumber = jg_sku_po_number($request['po_number'] ?? null, true);
         $takesPlace = jg_sku_build_takes_place($request);
+        $requestedSkus = is_array($request['skus'] ?? null) ? $request['skus'] : [$sku];
+        $selectedSkus = [];
+        foreach ($requestedSkus as $requestedSku) {
+            $selectedSku = strtoupper(trim((string) $requestedSku));
+            if ($selectedSku === '') {
+                continue;
+            }
+            if (!preg_match('/^[A-Z0-9]{12}$/', $selectedSku)) {
+                jg_sku_fail('Selected SKU is invalid.');
+            }
+            $selectedSkus[$selectedSku] = true;
+        }
+        $selectedSkus = array_keys($selectedSkus);
+        if ($selectedSkus === []) {
+            jg_sku_fail('Select at least one SKU to update.');
+        }
+        if (count($selectedSkus) > 500) {
+            jg_sku_fail('Too many SKUs selected.');
+        }
 
-        $stmt = $pdo->prepare('SELECT cogs FROM sku_skus WHERE sku = :sku LIMIT 1');
+        $stmt = $pdo->prepare('SELECT sku, volume FROM sku_skus WHERE sku = :sku LIMIT 1');
         $stmt->execute([':sku' => $sku]);
-        $oldPrice = $stmt->fetchColumn();
-        if ($oldPrice === false) {
+        $sourceRow = $stmt->fetch();
+        if (!is_array($sourceRow)) {
             jg_sku_fail('SKU not found.', 404);
+        }
+
+        $placeholders = implode(',', array_fill(0, count($selectedSkus), '?'));
+        $selectedStmt = $pdo->prepare('SELECT sku, cogs, volume FROM sku_skus WHERE sku IN (' . $placeholders . ') ORDER BY sku');
+        $selectedStmt->execute($selectedSkus);
+        $rows = $selectedStmt->fetchAll();
+        if (count($rows) !== count($selectedSkus)) {
+            jg_sku_fail('One or more selected SKUs are no longer available.');
+        }
+
+        $sourceVolume = round((float) ($sourceRow['volume'] ?? 0), 1);
+        foreach ($rows as $row) {
+            if (round((float) ($row['volume'] ?? 0), 1) !== $sourceVolume) {
+                jg_sku_fail('COGS batches can only include SKUs with the same volume.');
+            }
         }
 
         $pdo->beginTransaction();
         $updateStmt = $pdo->prepare('UPDATE sku_skus SET cogs = :cogs, updated_at = :updated_at WHERE sku = :sku');
-        $updateStmt->execute([
-            ':cogs' => $newPrice,
-            ':updated_at' => jg_sku_now(),
-            ':sku' => $sku,
-        ]);
-
         $historyStmt = $pdo->prepare(
             'INSERT INTO sku_cogs_history (sku, old_price, new_price, takes_place, recorded_at)
              VALUES (:sku, :old_price, :new_price, :takes_place, :recorded_at)'
         );
-        $historyStmt->execute([
-            ':sku' => $sku,
-            ':old_price' => number_format((float) $oldPrice, 2, '.', ''),
-            ':new_price' => $newPrice,
-            ':takes_place' => $takesPlace,
-            ':recorded_at' => jg_sku_now(),
-        ]);
-        jg_sku_inventory_reprice_po($pdo, $sku, $poNumber, $newPrice);
+        $now = jg_sku_now();
+        foreach ($rows as $row) {
+            $rowSku = (string) ($row['sku'] ?? '');
+            $updateStmt->execute([
+                ':cogs' => $newPrice,
+                ':updated_at' => $now,
+                ':sku' => $rowSku,
+            ]);
+
+            $historyStmt->execute([
+                ':sku' => $rowSku,
+                ':old_price' => number_format((float) ($row['cogs'] ?? 0), 2, '.', ''),
+                ':new_price' => $newPrice,
+                ':takes_place' => $takesPlace,
+                ':recorded_at' => $now,
+            ]);
+        }
 
         jg_sku_touch_version($pdo);
         $pdo->commit();

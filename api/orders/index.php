@@ -1909,7 +1909,6 @@ function jg_orders_sku_lookup(PDO $pdo): array
             'stock_ratio' => 1.0,
             'stock_row' => $row,
         ];
-        $stockRow = is_array($stockTarget['stock_row'] ?? null) ? $stockTarget['stock_row'] : $row;
         $baseProductName = (string) ($row['product_name'] ?? $sku);
         $displayFallback = jg_orders_compose_sku_product_name(
             (float) ($row['volume'] ?? 0),
@@ -1922,7 +1921,7 @@ function jg_orders_sku_lookup(PDO $pdo): array
             'tag' => (string) $row['tag'],
             'volume' => (float) ($row['volume'] ?? 0),
             'astra' => (float) ($row['astra'] ?? $row['volume'] ?? 0),
-            'cogs' => (float) ($stockRow['cogs'] ?? $row['cogs'] ?? 0),
+            'cogs' => (float) ($row['cogs'] ?? 0),
             'stock_sku' => (string) ($stockTarget['stock_sku'] ?? $sku),
             'stock_ratio' => (float) ($stockTarget['stock_ratio'] ?? 1.0),
             'product_name' => jg_orders_sku_product_display_name($sku, $displayFallback, $productNameMap),
@@ -2128,17 +2127,8 @@ function jg_orders_enriched_row(
     array $allocations,
     string $allocationError = ''
 ): array {
-    $allocatedQty = array_sum(array_map(
-        static fn (array $allocation): float => (float) ($allocation['qty_astra_consumed'] ?? 0),
-        $allocations
-    ));
-    $totalCogs = array_sum(array_map(
-        static fn (array $allocation): float => (float) ($allocation['total_cogs'] ?? 0),
-        $allocations
-    ));
-    $unallocatedQty = max(0.0, round($astraQty - $allocatedQty, 2));
-    $estimatedCogs = $unallocatedQty * (float) ($sku['cogs'] ?? 0);
-    $totalCogs += $estimatedCogs;
+    $quantity = max(0, (int) ($remoteRow['quantity'] ?? 0));
+    $totalCogs = $sku !== null ? ($quantity * (float) ($sku['cogs'] ?? 0)) : 0.0;
     $revenue = (int) round((float) ($remoteRow['revenue'] ?? $remoteRow['net_revenue'] ?? $remoteRow['sales'] ?? 0));
 
     return [
@@ -2159,7 +2149,7 @@ function jg_orders_enriched_row(
         'item_key' => (string) ($remoteRow['item_key'] ?? ''),
         'sku' => (string) ($sku['sku'] ?? ''),
         'sku_linked' => $sku !== null,
-        'quantity' => (int) ($remoteRow['quantity'] ?? 0),
+        'quantity' => $quantity,
         'astra_quantity' => $astraQty,
         'revenue' => $revenue,
         'net_revenue' => $revenue,
@@ -2170,7 +2160,8 @@ function jg_orders_enriched_row(
         'funds_release_status' => (string) ($remoteRow['funds_release_status'] ?? ''),
         'funds_release_source' => (string) ($remoteRow['funds_release_source'] ?? ''),
         'cogs' => (int) round($totalCogs),
-        'cogs_estimated' => $unallocatedQty > 0,
+        'cogs_estimated' => false,
+        'cogs_source' => $sku !== null ? 'sku_static_average' : 'none',
         'gross_profit' => (int) round($revenue - $totalCogs),
         'username' => (string) ($remoteRow['username'] ?? ''),
         'address' => (string) ($remoteRow['address'] ?? ''),

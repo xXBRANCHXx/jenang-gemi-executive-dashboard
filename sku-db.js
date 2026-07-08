@@ -29,6 +29,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const requestForm = document.querySelector('[data-request-form]');
   const cogsModal = document.querySelector('[data-cogs-modal]');
   const cogsForm = document.querySelector('[data-cogs-form]');
+  const cogsBatchList = document.querySelector('[data-cogs-batch-list]');
+  const cogsBatchCount = document.querySelector('[data-cogs-batch-count]');
   const salePriceModal = document.querySelector('[data-sale-price-modal]');
   const salePriceForm = document.querySelector('[data-sale-price-form]');
   const productNameModal = document.querySelector('[data-product-name-modal]');
@@ -354,9 +356,35 @@ document.addEventListener('DOMContentLoaded', () => {
     if (field && 'required' in field) field.required = required;
   };
 
+  const volumeKey = (value) => {
+    const number = Number(value);
+    return Number.isFinite(number) ? number.toFixed(1) : String(value || '').trim();
+  };
+
+  const skuBatchLabel = (row) => [
+    row.sku || '',
+    row.tag || '',
+    row.product_name || row.base_product_name || '',
+    row.flavor_name || ''
+  ].filter(Boolean).join(' | ');
+
+  const selectedCogsBatchSkus = () => {
+    if (!cogsBatchList) return [];
+    return Array.from(cogsBatchList.querySelectorAll('[data-cogs-batch-sku]:checked'))
+      .map((input) => input instanceof HTMLInputElement ? String(input.value || '') : '')
+      .filter(Boolean);
+  };
+
+  const updateCogsBatchCount = () => {
+    if (!cogsBatchCount) return;
+    const selected = selectedCogsBatchSkus().length;
+    const total = cogsBatchList?.querySelectorAll('[data-cogs-batch-sku]').length || 0;
+    cogsBatchCount.textContent = `${selected} of ${total} SKUs selected`;
+  };
+
   const syncCogsFields = () => {
     if (!(cogsForm instanceof HTMLFormElement)) return;
-    setRequired(cogsForm.elements.po_number, true);
+    setRequired(cogsForm.elements.po_number, false);
   };
 
   const syncInventoryFields = () => {
@@ -745,6 +773,32 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
+  const renderCogsBatch = (sourceRow) => {
+    if (!cogsBatchList) return;
+    const key = volumeKey(sourceRow?.volume);
+    const rows = state.database.skus
+      .filter((row) => volumeKey(row.volume) === key)
+      .sort((left, right) => String(left.sku || '').localeCompare(String(right.sku || '')));
+
+    cogsBatchList.innerHTML = rows.length
+      ? rows.map((row) => `
+          <label class="admin-cogs-batch-row">
+            <input
+              type="checkbox"
+              data-cogs-batch-sku
+              value="${escapeHtml(row.sku || '')}"
+              checked
+            >
+            <span>
+              <strong>${escapeHtml(skuBatchLabel(row))}</strong>
+              <small>Current COGS ${escapeHtml(row.cogs ?? 0)}${row.sku === sourceRow?.sku ? ' | source row' : ''}</small>
+            </span>
+          </label>
+        `).join('')
+      : '<p class="admin-empty">No SKUs match this volume.</p>';
+    updateCogsBatchCount();
+  };
+
   const renderFilters = () => {
     const selectedBrandId = String(filterBrand?.value || '');
     const selectedUnitId = String(filterUnit?.value || '');
@@ -1059,6 +1113,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!cogsModal) return;
     cogsModal.hidden = true;
     cogsForm?.reset();
+    if (cogsBatchList) cogsBatchList.innerHTML = '';
+    updateCogsBatchCount();
     syncCogsFields();
     setError(cogsError, '');
   };
@@ -1100,9 +1156,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     cogsForm.elements.sku.value = row.sku || '';
     cogsForm.elements.sku_display.value = row.sku || '';
+    cogsForm.elements.volume_display.value = `${row.volume || ''}${row.unit_name ? ` ${row.unit_name}` : ''}`.trim();
     cogsForm.elements.old_price.value = String(row.cogs ?? 0);
     cogsForm.elements.new_price.value = String(row.cogs ?? 0);
     cogsForm.elements.po_number.value = '';
+    renderCogsBatch(row);
     syncCogsFields();
     setError(cogsError, '');
     cogsModal.hidden = false;
@@ -1282,6 +1340,7 @@ document.addEventListener('DOMContentLoaded', () => {
     select.addEventListener('change', handleBrandSelectionChange);
   });
   inventoryAction?.addEventListener('change', syncInventoryFields);
+  cogsBatchList?.addEventListener('change', updateCogsBatchCount);
   unitSelect?.addEventListener('change', renderPreview);
   flavorSelect?.addEventListener('change', renderPreview);
   productSelect?.addEventListener('change', renderPreview);
@@ -1605,9 +1664,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       const formData = new window.FormData(cogsForm);
+      const skus = selectedCogsBatchSkus();
+      if (!skus.length) {
+        setError(cogsError, 'Select at least one SKU to update.');
+        return;
+      }
       await postAction({
         action: 'change_cogs',
         sku: formData.get('sku'),
+        skus,
         new_price: formData.get('new_price'),
         po_number: String(formData.get('po_number') || '').toUpperCase()
       });
