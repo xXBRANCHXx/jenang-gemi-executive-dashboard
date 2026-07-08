@@ -1123,7 +1123,7 @@ function jg_accounting_wallet_cash_records(PDO $pdo, array $bounds = []): array
         $releaseStmt->execute($releaseParams);
         $rows = $releaseStmt->fetchAll();
     } catch (Throwable) {
-        return [];
+        $rows = [];
     }
 
     $manual = jg_accounting_manual_marketplace_transfer_context($pdo, $bounds);
