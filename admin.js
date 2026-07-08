@@ -557,6 +557,22 @@ const HOME_CACHE_PREFIX = 'jg-dashboard-home-cache-v1';
 const WALLET_CACHE_STORAGE_KEY = 'jg-dashboard-wallet-cache-v1';
 const WALLET_CACHE_WRITE_MIN_MS = 5 * 1000;
 const WALLET_BACKGROUND_REFRESH_MIN_MS = 60 * 1000;
+const DASHBOARD_CLIENT_CACHE_NAME = 'jg-executive-dashboard-page-cache-v1';
+const DASHBOARD_CLIENT_CACHE_INDEX_KEY = 'jg-executive-dashboard-page-cache-index-v1';
+const DASHBOARD_FALLBACK_CACHE_PREFIX = 'jg-executive-dashboard-page-cache-fallback-v1';
+const DASHBOARD_PAGE_CACHE_LIMIT_BYTES = 300 * 1024 * 1024;
+const DASHBOARD_RAM_LIMIT_BYTES = 700 * 1024 * 1024;
+const DASHBOARD_RAM_RECOVERY_BYTES = 620 * 1024 * 1024;
+const VIEW_PERSISTED_CACHE_TTL_MS = {
+  overview: 15 * 60 * 1000,
+  orders: 30 * 60 * 1000,
+  wallet: 5 * 60 * 1000,
+  'inventory-recap': 10 * 60 * 1000,
+  daily: 20 * 60 * 1000,
+  home: 10 * 60 * 1000,
+  website: 10 * 60 * 1000,
+  settings: 15 * 60 * 1000
+};
 const LIVE_REFRESH_DEBOUNCE_MS = 1200;
 const BACKGROUND_IDLE_TIMEOUT_MS = 800;
 const BACKGROUND_TASK_DELAY_MS = 80;
@@ -2476,13 +2492,18 @@ document.addEventListener('DOMContentLoaded', () => {
       audit: [],
       loading: false
     },
-    marketplaceRefresh: {
-      loading: false,
-      lastAutoAttemptAt: 0
-    },
-    liveSequence: -1,
-    liveSource: null
-  };
+	    marketplaceRefresh: {
+	      loading: false,
+	      lastAutoAttemptAt: 0
+	    },
+	    clientCache: {
+	      estimatedBytes: 0,
+	      activeBackgroundTasks: 0,
+	      lastMemoryPressureAt: 0
+	    },
+	    liveSequence: -1,
+	    liveSource: null
+	  };
 
   const endpoint = root.dataset.analyticsEndpoint || './analytics.php';
   const liveEndpoint = root.dataset.liveEndpoint || './live/';
@@ -3875,18 +3896,87 @@ document.addEventListener('DOMContentLoaded', () => {
     window.localStorage.setItem(viewStorageKey, state.activeView);
   };
 
-  const inactiveViewUnloadTimers = new Map();
+	  const inactiveViewUnloadTimers = new Map();
 
-  const cancelDeferredViewUnload = (view) => {
-    const timer = inactiveViewUnloadTimers.get(view);
-    if (!timer) return;
-    window.clearTimeout(timer);
-    inactiveViewUnloadTimers.delete(view);
-  };
+	  const runWhenIdle = (callback, timeout = BACKGROUND_IDLE_TIMEOUT_MS) => {
+	    if ('requestIdleCallback' in window) {
+	      window.requestIdleCallback(callback, { timeout });
+	      return;
+	    }
+	    window.setTimeout(callback, BACKGROUND_TASK_DELAY_MS);
+	  };
 
-  const clearInactiveCanvas = (canvas, view) => {
-    if (!(canvas instanceof HTMLCanvasElement) || state.activeView === view) return;
-    chartRendererState.delete(canvas);
+	  const cancelDeferredViewUnload = (view) => {
+	    const timer = inactiveViewUnloadTimers.get(view);
+	    if (!timer) return;
+	    window.clearTimeout(timer);
+	    inactiveViewUnloadTimers.delete(view);
+	  };
+
+	  const releaseInactiveViewData = (view) => {
+	    if (!view || state.activeView === view) return;
+	    if (view === 'overview') {
+	      state.overview.data = null;
+	      state.overview.hourlyRows = [];
+	      state.overview.locationAggregate = null;
+	      state.overview.locationRowKeys = new Set();
+	      state.overview.locationSignature = '';
+	      state.overview.locationLoadedAt = 0;
+	      state.overview.locationMapHtmlByTheme = {};
+	      state.overview.locationMapSignatureByTheme = {};
+	      state.overview.provinceGeoJson = null;
+	      return;
+	    }
+	    if (view === 'orders') {
+	      state.orders.data = null;
+	      state.orders.rows = [];
+	      state.orders.rowKeys = new Set();
+	      state.orders.loadedRangeKeys = new Set();
+	      state.orders.rangeOffsets = {};
+	      state.orders.loading = false;
+	      state.orders.loadedAll = false;
+	      state.orders.loadedAt = 0;
+	      state.orders.renderLimit = ORDER_RENDER_BATCH_SIZE;
+	      state.orders.loadGeneration += 1;
+	      state.orders.loadPromise = null;
+	      return;
+	    }
+	    if (view === 'wallet') {
+	      state.wallet.data = null;
+	      state.wallet.loadedAt = 0;
+	      state.wallet.loading = false;
+	      state.wallet.backgroundLoading = false;
+	      state.wallet.usingCache = false;
+	      return;
+	    }
+	    if (view === 'inventory-recap') {
+	      state.inventoryRecap.data = null;
+	      state.inventoryRecap.loadedAt = 0;
+	      state.inventoryRecap.loading = false;
+	      return;
+	    }
+	    if (view === 'daily') {
+	      state.daily.data = null;
+	      state.daily.summary = null;
+	      state.daily.rows = [];
+	      state.daily.loadedAt = 0;
+	      state.daily.loading = false;
+	      return;
+	    }
+	    if (view === 'home') {
+	      state.home.data = null;
+	      state.home.loadedAt = 0;
+	      return;
+	    }
+	    if (view === 'website') {
+	      state.website.data = null;
+	      state.website.loadedAt = 0;
+	    }
+	  };
+
+	  const clearInactiveCanvas = (canvas, view) => {
+	    if (!(canvas instanceof HTMLCanvasElement) || state.activeView === view) return;
+	    chartRendererState.delete(canvas);
     chartHoverState.delete(canvas);
     chartActivePointState.delete(canvas);
     hideChartTooltip(canvas);
@@ -3895,51 +3985,96 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const inactiveViewDomNodes = (view) => {
-    if (view === 'overview') {
-      return [
-        overviewRefs.tableBody,
-        overviewRefs.notes
-      ].filter(Boolean);
-    }
-	    if (view === 'home') {
+	    if (view === 'overview') {
 	      return [
-	        homeRefs.urlTableBody,
-        homeRefs.sourceTableBody,
+	        overviewRefs.tableBody,
+	        overviewRefs.notes,
+	        overviewRefs.locationList
+	      ].filter(Boolean);
+	    }
+	    if (view === 'orders') {
+	      return [
+	        ordersRefs.tableBody,
+	        ordersRefs.activeFilters,
+	        ordersRefs.platforms
+	      ].filter(Boolean);
+	    }
+		    if (view === 'home') {
+		      return [
+		        homeRefs.urlTableBody,
+	        homeRefs.sourceTableBody,
         homeRefs.recentEvents,
         homeRefs.sourceLegend
 	      ].filter(Boolean);
 	    }
 	    if (view === 'wallet') {
+		      return [
+		        walletRefs.tableBody
+		      ].filter(Boolean);
+		    }
+	    if (view === 'inventory-recap') {
 	      return [
-	        walletRefs.tableBody
+	        inventoryRecapRefs.list,
+	        inventoryRecapRefs.draft,
+	        inventoryRecapRefs.tableBody
 	      ].filter(Boolean);
 	    }
-	    return [];
+	    if (view === 'daily') {
+	      return [
+	        dailyRefs.sheetHead,
+	        dailyRefs.sheetBody,
+	        dailyRefs.sheetFoot
+	      ].filter(Boolean);
+	    }
+	    if (view === 'website') {
+	      return [
+	        websiteRefs.deviceExclusionList
+	      ].filter(Boolean);
+	    }
+		    return [];
+		  };
+
+	  const unloadInactiveViewRenderState = (view) => {
+	    inactiveViewUnloadTimers.delete(view);
+	    if (state.activeView === view) return;
+	    const panel = Array.from(viewPanels).find((candidate) => candidate.dataset.viewPanel === view);
+	    const canvases = panel ? Array.from(panel.querySelectorAll('canvas')) : [];
+	    const nodes = inactiveViewDomNodes(view);
+	    const underMemoryPressure = isDashboardMemoryPressure();
+	    if (underMemoryPressure) {
+	      state.clientCache.lastMemoryPressureAt = Date.now();
+	      releaseInactiveViewData(view);
+	    }
+	    runWhenIdle(() => {
+	      if (state.activeView === view) return;
+	      canvases.forEach((canvas) => clearInactiveCanvas(canvas, view));
+	      nodes.forEach((node) => {
+	        if (state.activeView !== view) node.replaceChildren();
+	      });
+	    });
 	  };
 
-  const unloadInactiveViewRenderState = (view) => {
-    inactiveViewUnloadTimers.delete(view);
-    if (state.activeView === view) return;
-    const panel = Array.from(viewPanels).find((candidate) => candidate.dataset.viewPanel === view);
-    const canvases = panel ? Array.from(panel.querySelectorAll('canvas')) : [];
-    canvases.forEach((canvas, index) => {
-      window.setTimeout(() => clearInactiveCanvas(canvas, view), index * INACTIVE_VIEW_UNLOAD_STEP_MS);
-    });
-    inactiveViewDomNodes(view).forEach((node, index) => {
-      window.setTimeout(() => {
-        if (state.activeView !== view) node.replaceChildren();
-      }, (canvases.length + index) * INACTIVE_VIEW_UNLOAD_STEP_MS);
-    });
-  };
+	  const scheduleDeferredViewUnload = (view) => {
+	    if (!['overview', 'orders', 'wallet', 'inventory-recap', 'daily', 'home', 'website'].includes(view) || state.activeView === view) return;
+	    cancelDeferredViewUnload(view);
+	    const delay = isDashboardMemoryPressure() ? 0 : INACTIVE_VIEW_UNLOAD_DELAY_MS;
+	    inactiveViewUnloadTimers.set(view, window.setTimeout(() => {
+	      unloadInactiveViewRenderState(view);
+	    }, delay));
+	  };
 
-  const scheduleDeferredViewUnload = (view) => {
-    if (!['overview', 'home', 'wallet'].includes(view) || state.activeView === view) return;
-    cancelDeferredViewUnload(view);
-    const delay = view === 'wallet' ? BACKGROUND_TASK_DELAY_MS : INACTIVE_VIEW_UNLOAD_DELAY_MS;
-    inactiveViewUnloadTimers.set(view, window.setTimeout(() => {
-      unloadInactiveViewRenderState(view);
-    }, delay));
-  };
+	  const releaseInactiveViewsForMemory = async (keepView) => {
+	    const releasableViews = ['overview', 'orders', 'wallet', 'inventory-recap', 'daily', 'home', 'website'];
+	    releasableViews
+	      .filter((view) => view !== keepView)
+	      .forEach((view) => {
+	        cancelDeferredViewUnload(view);
+	        releaseInactiveViewData(view);
+	        unloadInactiveViewRenderState(view);
+	      });
+	    state.clientCache.estimatedBytes = 0;
+	    await wait(0);
+	  };
 
   const closeMenu = () => {
     if (!menuPanel || !menuTrigger) return;
@@ -4060,20 +4195,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const writeOverviewCache = (year, data) => {
-    try {
-      const cacheKey = overviewCacheKey(year);
-      window.localStorage.setItem(cacheKey, JSON.stringify(data));
+	  const writeOverviewCache = (year, data) => {
+	    try {
+	      const cacheKey = overviewCacheKey(year);
+	      window.localStorage.setItem(cacheKey, JSON.stringify(data));
       for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
         const key = window.localStorage.key(index);
         if (key && key.startsWith(`${OVERVIEW_CACHE_PREFIX}:`) && key !== cacheKey) {
           window.localStorage.removeItem(key);
         }
       }
-    } catch (_error) {
-      // Cache is only a first-paint optimization; live signals and rollover checks fetch fresh data.
-    }
-  };
+	    } catch (_error) {
+	      // Cache is only a first-paint optimization; live signals and rollover checks fetch fresh data.
+	    }
+	    writeViewClientCache('overview', overviewClientCacheKey(year), data);
+	  };
 
   const homeCacheKey = (timeframe = state.home.timeframe, timezone = state.timezone, localDate = activeLocalDate) => (
     `${HOME_CACHE_PREFIX}:${timeframe}:${timezone}:${localDate}`
@@ -4088,10 +4224,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const writeHomeCache = (data) => {
-    if (!data || typeof data !== 'object') return;
-    try {
-      const cacheKey = homeCacheKey();
+	  const writeHomeCache = (data) => {
+	    if (!data || typeof data !== 'object') return;
+	    try {
+	      const cacheKey = homeCacheKey();
       window.localStorage.setItem(cacheKey, JSON.stringify(data));
       for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
         const key = window.localStorage.key(index);
@@ -4099,10 +4235,11 @@ document.addEventListener('DOMContentLoaded', () => {
           window.localStorage.removeItem(key);
         }
       }
-    } catch (_error) {
-      // Home cache is only a first-paint optimization; the analytics API stays authoritative.
-    }
-  };
+	    } catch (_error) {
+	      // Home cache is only a first-paint optimization; the analytics API stays authoritative.
+	    }
+	    writeViewClientCache('home', homeClientCacheKey(), data);
+	  };
 
   const isBrowserOnline = () => !('onLine' in navigator) || navigator.onLine;
 
@@ -4119,22 +4256,266 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const writeWalletCache = (data, options = {}) => {
-    if (!data || typeof data !== 'object' || data.ok === false) return;
-    const now = Date.now();
-    if (!options.force && now - Number(state.wallet.cacheWrittenAt || 0) < WALLET_CACHE_WRITE_MIN_MS) return;
-    try {
+	  const writeWalletCache = (data, options = {}) => {
+	    if (!data || typeof data !== 'object' || data.ok === false) return;
+	    const now = Date.now();
+	    if (!options.force && now - Number(state.wallet.cacheWrittenAt || 0) < WALLET_CACHE_WRITE_MIN_MS) return;
+	    try {
       window.localStorage.setItem(WALLET_CACHE_STORAGE_KEY, JSON.stringify({
         saved_at: now,
         data
       }));
       state.wallet.cacheWrittenAt = now;
-    } catch (_error) {
-      // Wallet cache is only for fast/offline first paint; the API remains the source of truth.
-    }
-  };
+	    } catch (_error) {
+	      // Wallet cache is only for fast/offline first paint; the API remains the source of truth.
+	    }
+	    writeViewClientCache('wallet', walletClientCacheKey(), data);
+	  };
 
-  const applyDefaultOrderDates = () => {};
+	  const encodedJsonBytes = (serialized) => {
+	    if (!serialized) return 0;
+	    try {
+	      if (window.TextEncoder) return new window.TextEncoder().encode(serialized).byteLength;
+	    } catch (_error) {
+	      // Fall through to the conservative UTF-16 estimate.
+	    }
+	    return String(serialized).length * 2;
+	  };
+
+	  const safeJsonStringify = (value) => {
+	    try {
+	      return JSON.stringify(value);
+	    } catch (_error) {
+	      return '';
+	    }
+	  };
+
+	  const estimatePayloadBytes = (value) => encodedJsonBytes(safeJsonStringify(value));
+
+	  const browserHeapUsedBytes = () => {
+	    const memory = window.performance?.memory;
+	    const used = Number(memory?.usedJSHeapSize || 0);
+	    return Number.isFinite(used) && used > 0 ? used : 0;
+	  };
+
+	  const dashboardMemoryUsageBytes = () => Math.max(
+	    browserHeapUsedBytes(),
+	    Number(state.clientCache.estimatedBytes || 0)
+	  );
+
+	  const isDashboardMemoryPressure = () => dashboardMemoryUsageBytes() >= DASHBOARD_RAM_LIMIT_BYTES;
+
+	  const canStartBackgroundPageWork = () => {
+	    if (document.hidden || !isBrowserOnline()) return false;
+	    const usage = dashboardMemoryUsageBytes();
+	    if (usage >= DASHBOARD_RAM_LIMIT_BYTES) {
+	      state.clientCache.lastMemoryPressureAt = Date.now();
+	      return false;
+	    }
+	    if (
+	      state.clientCache.lastMemoryPressureAt &&
+	      Date.now() - state.clientCache.lastMemoryPressureAt < AUTO_REFRESH_INTERVAL_MS &&
+	      usage >= DASHBOARD_RAM_RECOVERY_BYTES
+	    ) {
+	      return false;
+	    }
+	    return true;
+	  };
+
+	  const clientCacheUrl = (cacheKey) => {
+	    const url = new URL(window.location.href);
+	    url.search = '';
+	    url.hash = '';
+	    url.searchParams.set('__jg_dashboard_cache', cacheKey);
+	    return url.toString();
+	  };
+
+	  const readClientCacheIndex = () => {
+	    try {
+	      const entries = JSON.parse(window.localStorage.getItem(DASHBOARD_CLIENT_CACHE_INDEX_KEY) || '[]');
+	      return Array.isArray(entries)
+	        ? entries.filter((entry) => entry && typeof entry === 'object' && entry.key)
+	        : [];
+	    } catch (_error) {
+	      return [];
+	    }
+	  };
+
+	  const writeClientCacheIndex = (entries) => {
+	    try {
+	      window.localStorage.setItem(DASHBOARD_CLIENT_CACHE_INDEX_KEY, JSON.stringify(entries.slice(-240)));
+	    } catch (_error) {
+	      // Cache metadata is only an optimization; entries can still be overwritten by key.
+	    }
+	  };
+
+	  const registerClientCacheEntry = (entry) => {
+	    const entries = readClientCacheIndex().filter((candidate) => candidate.key !== entry.key);
+	    entries.push(entry);
+	    writeClientCacheIndex(entries);
+	    state.clientCache.estimatedBytes = Math.max(
+	      state.clientCache.estimatedBytes,
+	      entries.reduce((sum, candidate) => sum + Math.max(0, Number(candidate.bytes || 0)), 0)
+	    );
+	    return entries;
+	  };
+
+	  const deleteDashboardClientCacheEntry = async (cacheKey) => {
+	    try {
+	      if (window.caches) {
+	        const cache = await window.caches.open(DASHBOARD_CLIENT_CACHE_NAME);
+	        await cache.delete(clientCacheUrl(cacheKey));
+	      }
+	    } catch (_error) {
+	      // Ignore cache-storage failures and fall back to local metadata cleanup.
+	    }
+	    try {
+	      window.localStorage.removeItem(`${DASHBOARD_FALLBACK_CACHE_PREFIX}:${cacheKey}`);
+	    } catch (_error) {
+	      // Ignore localStorage cleanup failures.
+	    }
+	  };
+
+	  const pruneDashboardClientCache = async (view) => {
+	    const entries = readClientCacheIndex();
+	    const scopedEntries = entries
+	      .filter((entry) => entry.view === view)
+	      .sort((left, right) => Number(left.savedAt || 0) - Number(right.savedAt || 0));
+	    let scopedBytes = scopedEntries.reduce((sum, entry) => sum + Math.max(0, Number(entry.bytes || 0)), 0);
+	    if (scopedBytes <= DASHBOARD_PAGE_CACHE_LIMIT_BYTES) return;
+
+	    const deleteKeys = [];
+	    for (const entry of scopedEntries) {
+	      if (scopedBytes <= DASHBOARD_PAGE_CACHE_LIMIT_BYTES * 0.82) break;
+	      deleteKeys.push(entry.key);
+	      scopedBytes -= Math.max(0, Number(entry.bytes || 0));
+	    }
+
+	    await Promise.allSettled(deleteKeys.map(deleteDashboardClientCacheEntry));
+	    const remaining = entries.filter((entry) => !deleteKeys.includes(entry.key));
+	    writeClientCacheIndex(remaining);
+	    state.clientCache.estimatedBytes = remaining.reduce((sum, entry) => sum + Math.max(0, Number(entry.bytes || 0)), 0);
+	  };
+
+	  const dashboardClientCacheKey = (view, parts = []) => [
+	    view,
+	    ...parts.map((part) => String(part ?? '').trim().replace(/[:\s]+/g, '-').slice(0, 96))
+	  ].join(':');
+
+	  const readDashboardClientCache = async (cacheKey, options = {}) => {
+	    const now = Date.now();
+	    const maxAgeMs = Math.max(0, Number(options.maxAgeMs || 0));
+	    const allowStale = options.allowStale !== false;
+	    try {
+	      if (window.caches) {
+	        const cache = await window.caches.open(DASHBOARD_CLIENT_CACHE_NAME);
+	        const response = await cache.match(clientCacheUrl(cacheKey));
+	        if (response) {
+	          const savedAt = Math.max(0, Number(response.headers.get('X-JG-Dashboard-Saved-At') || 0));
+	          const stale = Boolean(maxAgeMs && savedAt && now - savedAt > maxAgeMs);
+	          if (stale && !allowStale) return null;
+	          return {
+	            data: await response.json(),
+	            savedAt,
+	            stale,
+	            bytes: Math.max(0, Number(response.headers.get('X-JG-Dashboard-Bytes') || 0))
+	          };
+	        }
+	      }
+	    } catch (_error) {
+	      // Cache Storage may be unavailable in some embedded browsers; try the tiny fallback next.
+	    }
+
+	    try {
+	      const cached = JSON.parse(window.localStorage.getItem(`${DASHBOARD_FALLBACK_CACHE_PREFIX}:${cacheKey}`) || '{}');
+	      if (!cached || typeof cached !== 'object' || !cached.data) return null;
+	      const savedAt = Math.max(0, Number(cached.saved_at || 0));
+	      const stale = Boolean(maxAgeMs && savedAt && now - savedAt > maxAgeMs);
+	      if (stale && !allowStale) return null;
+	      return {
+	        data: cached.data,
+	        savedAt,
+	        stale,
+	        bytes: Math.max(0, Number(cached.bytes || 0))
+	      };
+	    } catch (_error) {
+	      return null;
+	    }
+	  };
+
+	  const writeDashboardClientCache = async (cacheKey, data, options = {}) => {
+	    if (!cacheKey || !data || typeof data !== 'object' || data.ok === false) return false;
+	    const serialized = safeJsonStringify(data);
+	    if (!serialized) return false;
+	    const now = Date.now();
+	    const view = options.view || String(cacheKey).split(':')[0] || 'unknown';
+	    const bytes = encodedJsonBytes(serialized);
+	    const entry = {
+	      key: cacheKey,
+	      view,
+	      savedAt: now,
+	      bytes
+	    };
+
+	    try {
+	      if (window.caches && window.Response) {
+	        const cache = await window.caches.open(DASHBOARD_CLIENT_CACHE_NAME);
+	        await cache.put(clientCacheUrl(cacheKey), new window.Response(serialized, {
+	          headers: {
+	            'Content-Type': 'application/json',
+	            'X-JG-Dashboard-View': view,
+	            'X-JG-Dashboard-Saved-At': String(now),
+	            'X-JG-Dashboard-Bytes': String(bytes)
+	          }
+	        }));
+	        registerClientCacheEntry(entry);
+	        pruneDashboardClientCache(view).catch(() => {});
+	        return true;
+	      }
+	    } catch (_error) {
+	      // Fall back to localStorage for small payloads only.
+	    }
+
+	    try {
+	      window.localStorage.setItem(`${DASHBOARD_FALLBACK_CACHE_PREFIX}:${cacheKey}`, JSON.stringify({
+	        saved_at: now,
+	        bytes,
+	        data
+	      }));
+	      registerClientCacheEntry(entry);
+	      return true;
+	    } catch (_error) {
+	      return false;
+	    }
+	  };
+
+	  const writeViewClientCache = (view, cacheKey, data) => {
+	    runWhenIdle(() => {
+	      if (view !== state.activeView && !canStartBackgroundPageWork()) return;
+	      writeDashboardClientCache(cacheKey, data, { view }).catch(() => {});
+	    }, 2000);
+	  };
+
+	  const restoreViewClientCache = async (view, cacheKey, applyData, options = {}) => {
+	    const cached = await readDashboardClientCache(cacheKey, {
+	      maxAgeMs: options.maxAgeMs ?? VIEW_PERSISTED_CACHE_TTL_MS[view] ?? 0,
+	      allowStale: options.allowStale !== false
+	    });
+	    if (!cached?.data) return false;
+	    applyData(cached.data, cached);
+	    return true;
+	  };
+
+	  const overviewClientCacheKey = (year = state.overview.year) => dashboardClientCacheKey('overview', [year, activeLocalDate]);
+	  const homeClientCacheKey = () => dashboardClientCacheKey('home', [state.home.timeframe, state.timezone, activeLocalDate]);
+	  const websiteClientCacheKey = () => dashboardClientCacheKey('website', [state.website.site || 'select', state.website.timeframe, state.timezone, activeLocalDate]);
+	  const walletClientCacheKey = () => dashboardClientCacheKey('wallet', [activeLocalDate]);
+	  const inventoryRecapClientCacheKey = () => dashboardClientCacheKey('inventory-recap', [activeLocalDate]);
+	  const dailyClientCacheKey = () => dashboardClientCacheKey('daily', [state.daily.month, state.timezone]);
+	  const ordersClientCacheKey = () => dashboardClientCacheKey('orders', [state.overview.year, activeLocalDate]);
+	  const settingsClientCacheKey = () => dashboardClientCacheKey('settings', [activeLocalDate]);
+
+	  const applyDefaultOrderDates = () => {};
 
   const normalizeOrderFilterValue = (value) => String(value || '').trim().toLowerCase();
 
@@ -7371,23 +7752,31 @@ document.addEventListener('DOMContentLoaded', () => {
     renderWebsiteShell();
   };
 
-  const openWebsiteSite = async (site) => {
-    if (!WEBSITE_SITE_LABELS[site]) return;
-    state.website.site = site;
-    state.website.screen = 'detail';
-    renderWebsiteShell();
-    await loadWebsiteSafely({ force: true, preferStale: false });
-    if (site === 'zero') {
-      await loadZeroStoreSafely();
-    } else if (site === 'jenang_gemi') {
-      try {
-        await loadJenangGemiStore();
-      } catch (error) {
-        setJenangGemiStoreError(error.message);
-      }
-    }
-    await loadNotifications().catch(() => {});
-  };
+	  const openWebsiteSite = async (site) => {
+	    if (!WEBSITE_SITE_LABELS[site]) return;
+	    state.website.site = site;
+	    state.website.screen = 'detail';
+	    renderWebsiteShell();
+	    const hasMatchingSiteData = state.website.data?.meta?.site === site;
+	    if (hasMatchingSiteData) {
+	      renderWebsite(state.website.data);
+	    } else {
+	      state.website.data = null;
+	      restoreViewClientCache('website', websiteClientCacheKey(), (data, cache) => {
+	        if (state.activeView !== 'website' || state.website.site !== site) return;
+	        applyWebsiteData(data, { loadedAt: cache.savedAt || Date.now() });
+	      }).catch(() => false);
+	    }
+	    loadWebsiteSafely({ force: true, preferStale: false, background: true, useCache: true }).catch(() => {});
+	    if (site === 'zero') {
+	      loadZeroStoreSafely().catch(() => {});
+	    } else if (site === 'jenang_gemi') {
+	      loadJenangGemiStore().catch((error) => {
+	        setJenangGemiStoreError(error.message);
+	      });
+	    }
+	    loadNotifications().catch(() => {});
+	  };
 
   const setZeroStoreError = (message = '') => {
     if (!zeroStoreRefs.error) return;
@@ -7665,9 +8054,9 @@ document.addEventListener('DOMContentLoaded', () => {
     ]);
   };
 
-  const refreshOverviewHourlyRows = async (requestToken = null, options = {}) => {
-    const hourlyRequestToken = state.overview.hourlyRequestToken + 1;
-    state.overview.hourlyRequestToken = hourlyRequestToken;
+	  const refreshOverviewHourlyRows = async (requestToken = null, options = {}) => {
+	    const hourlyRequestToken = state.overview.hourlyRequestToken + 1;
+	    state.overview.hourlyRequestToken = hourlyRequestToken;
     const today = todayDate();
     const hourlyData = await requestOrderFacts(today, today, {
       lightweight: true,
@@ -7678,39 +8067,110 @@ document.addEventListener('DOMContentLoaded', () => {
     if (hourlyRequestToken !== state.overview.hourlyRequestToken) return;
     state.overview.hourlyRows = hourlyOrderRows(Array.isArray(hourlyData.orders) ? hourlyData.orders : []);
     state.overview.hourlyDate = today;
-    renderOverviewHourlyPanel();
-  };
+	    renderOverviewHourlyPanel();
+	  };
 
-  const loadOverview = async (options = {}) => {
-    if (!options.forceRefresh && !options.force && state.overview.data) {
-      if (isFresh(state.overview.loadedAt, VIEW_CACHE_TTL_MS.overview)) {
-        renderOverview(state.overview.data);
-        return;
-      }
-      if (options.preferStale !== false) {
-        renderOverview(state.overview.data);
-        if (!options.background) queueViewRefresh('overview');
-        return;
-      }
-    }
-    if (options.useCache) {
-      const cached = readOverviewCache(state.overview.year);
-      if (cached) {
-        renderOverview(cached);
-        if (options.cacheFirst) {
-          state.overview.loadedAt = Date.now();
-          if (!options.skipHourly) {
-            refreshOverviewHourlyRows().catch(() => {});
-          }
-          queueViewRefresh('overview');
-          return;
-        }
-      }
-    }
-    const requestToken = beginRequest('overview');
-    if (!options.skipHourly) {
-      refreshOverviewHourlyRows(requestToken).catch(() => {});
-    }
+	  const applyOverviewData = (data, options = {}) => {
+	    if (!data || typeof data !== 'object') return;
+	    state.overview.loadedAt = options.loadedAt || Date.now();
+	    if (state.activeView === 'overview') {
+	      renderOverview(data);
+	      return;
+	    }
+	    state.overview.data = data;
+	    resetOrderWindowsFromOverview();
+	  };
+
+	  const applyHomeData = (data, options = {}) => {
+	    if (!data || typeof data !== 'object') return;
+	    state.home.loadedAt = options.loadedAt || Date.now();
+	    if (state.activeView === 'home') {
+	      renderHome(data);
+	      return;
+	    }
+	    state.home.data = data;
+	  };
+
+	  const applyWebsiteData = (data, options = {}) => {
+	    if (!data || typeof data !== 'object') return;
+	    state.website.loadedAt = options.loadedAt || Date.now();
+	    if (state.activeView === 'website' && state.website.screen === 'detail') {
+	      renderWebsite(data);
+	      return;
+	    }
+	    state.website.data = data;
+	  };
+
+	  const applyWalletData = (data, options = {}) => {
+	    if (!data || typeof data !== 'object') return;
+	    state.wallet.loadedAt = options.loadedAt || Date.now();
+	    state.wallet.usingCache = Boolean(options.usingCache);
+	    state.wallet.loading = false;
+	    if (state.activeView === 'wallet') {
+	      renderWallet(data);
+	      return;
+	    }
+	    state.wallet.data = data;
+	    if (!state.wallet.usingCache) writeWalletCache(data);
+	  };
+
+	  const applyDailySummary = (summary, options = {}) => {
+	    if (!summary || typeof summary !== 'object') return;
+	    state.daily.summary = summary;
+	    state.daily.rows = [];
+	    state.daily.loading = false;
+	    state.daily.loadedAt = options.loadedAt || Date.now();
+	    const dailyData = aggregateDailySummaryData(summary, state.daily.month);
+	    state.daily.data = dailyData;
+	    if (state.activeView === 'daily') renderDaily(dailyData);
+	  };
+
+	  const applyInventoryRecapData = (data, options = {}) => {
+	    if (!data || typeof data !== 'object') return;
+	    state.inventoryRecap.loadedAt = options.loadedAt || Date.now();
+	    state.inventoryRecap.loading = false;
+	    if (state.activeView === 'inventory-recap') {
+	      renderInventoryRecap(data);
+	      return;
+	    }
+	    state.inventoryRecap.data = data;
+	    syncInventoryRecapAlert();
+	  };
+
+	  const loadOverview = async (options = {}) => {
+	    if (!options.forceRefresh && !options.force && state.overview.data) {
+	      if (isFresh(state.overview.loadedAt, VIEW_CACHE_TTL_MS.overview)) {
+	        applyOverviewData(state.overview.data, { loadedAt: state.overview.loadedAt });
+	        return;
+	      }
+	      if (options.preferStale !== false) {
+	        applyOverviewData(state.overview.data, { loadedAt: state.overview.loadedAt });
+	        if (!options.background) queueViewRefresh('overview');
+	        return;
+	      }
+	    }
+	    if (options.useCache) {
+	      const cached = readOverviewCache(state.overview.year);
+	      if (cached) {
+	        applyOverviewData(cached);
+	        if (options.cacheFirst) {
+	          if (!options.skipHourly) {
+	            refreshOverviewHourlyRows().catch(() => {});
+	          }
+	          queueViewRefresh('overview');
+	          return;
+	        }
+	      }
+	      if (!cached) {
+	        await restoreViewClientCache('overview', overviewClientCacheKey(state.overview.year), (data, cache) => {
+	          applyOverviewData(data, { loadedAt: cache.savedAt || Date.now() });
+	        }).catch(() => false);
+	      }
+	    }
+	    const requestToken = beginRequest('overview');
+	    if (!options.skipHourly) {
+	      refreshOverviewHourlyRows(requestToken).catch(() => {});
+	    }
     const [data, customData] = await Promise.all([
       requestJson(buildSalesUrl(state.overview.year, {
         refresh: Boolean(options.forceRefresh),
@@ -7723,11 +8183,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!isLatestRequest('overview', requestToken)) return;
     if (customData) {
       state.overview.customRange.rows = Array.isArray(customData.orders) ? customData.orders : [];
-    }
-    writeOverviewCache(state.overview.year, data);
-    state.overview.loadedAt = Date.now();
-    renderOverview(data);
-  };
+	    }
+	    writeOverviewCache(state.overview.year, data);
+	    applyOverviewData(data);
+	  };
 
   const readAutoMarketplaceRefreshAt = () => {
     try {
@@ -7752,22 +8211,26 @@ document.addEventListener('DOMContentLoaded', () => {
 	      await loadOrdersSafely({ force: true, preferStale: false, repair: true });
 	      return;
 	    }
-	    if (state.activeView === 'wallet') {
-	      await syncWalletReleases({ skipRemote: true, background: true });
-	      preloadOrderMemory({ reset: true, repair: true }).catch(() => {});
-	      return;
-	    }
+		    if (state.activeView === 'wallet') {
+		      await syncWalletReleases({ skipRemote: true, background: true });
+		      if (canStartBackgroundPageWork()) preloadOrderMemory({ reset: true, repair: true }).catch(() => {});
+		      return;
+		    }
 	    if (state.activeView === 'daily') {
 	      await loadDailySafely({ force: true, preferStale: true, background: true });
 	      return;
 	    }
-    preloadOrderMemory({ reset: true, repair: true }).catch(() => {});
-  };
+	    if (canStartBackgroundPageWork()) preloadOrderMemory({ reset: true, repair: true }).catch(() => {});
+	  };
 
-  const runMarketplaceRefresh = async (options = {}) => {
-    const interactive = Boolean(options.interactive);
-    if (state.marketplaceRefresh.loading) return false;
-    state.marketplaceRefresh.loading = true;
+	  const runMarketplaceRefresh = async (options = {}) => {
+	    const interactive = Boolean(options.interactive);
+	    if (state.marketplaceRefresh.loading) return false;
+	    if (isDashboardMemoryPressure()) {
+	      await releaseInactiveViewsForMemory(state.activeView);
+	      if (isDashboardMemoryPressure() && !interactive) return false;
+	    }
+	    state.marketplaceRefresh.loading = true;
     if (interactive && overviewRefs.refreshButton) {
       overviewRefs.refreshButton.disabled = true;
       overviewRefs.refreshButton.classList.add('is-loading');
@@ -7777,12 +8240,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (interactive && overviewRefs.lastUpdated) overviewRefs.lastUpdated.textContent = 'Refreshing the dashboard view…';
 
     try {
-      const data = await requestJson(buildSalesUrl(state.overview.year, {
-        manualRefresh: true,
-        cacheBust: true
-      }), { method: 'POST', timeoutMs: 90000 });
-      writeOverviewCache(state.overview.year, data);
-      renderOverview(data);
+	      const data = await requestJson(buildSalesUrl(state.overview.year, {
+	        manualRefresh: true,
+	        cacheBust: true
+	      }), { method: 'POST', timeoutMs: 90000 });
+	      writeOverviewCache(state.overview.year, data);
+	      applyOverviewData(data);
       await refreshOverviewHourlyRows(null, { repair: true }).catch(() => {});
       if (state.activeView === 'overview') {
         await loadOverviewLocationRows({ force: true, incremental: true, repair: true }).catch(() => {});
@@ -7831,21 +8294,30 @@ document.addEventListener('DOMContentLoaded', () => {
     return runMarketplaceRefresh({ interactive: false });
   };
 
-  const loadDaily = async (options = {}) => {
-    if (!options.force && state.daily.data) {
-      if (isFresh(state.daily.loadedAt, VIEW_CACHE_TTL_MS.daily)) {
-        renderDaily(state.daily.data);
-        return;
-      }
-      if (options.preferStale !== false) {
-        renderDaily(state.daily.data);
-        if (!options.background) queueViewRefresh('daily');
-        return;
-      }
-    }
-    const requestToken = beginRequest('daily');
-    const month = parseDailyMonth(state.daily.month);
-    state.daily.month = `${month.year}-${String(month.month).padStart(2, '0')}`;
+	  const loadDaily = async (options = {}) => {
+	    if (!options.force && state.daily.data) {
+	      if (isFresh(state.daily.loadedAt, VIEW_CACHE_TTL_MS.daily)) {
+	        if (state.activeView === 'daily') renderDaily(state.daily.data);
+	        return;
+	      }
+	      if (options.preferStale !== false) {
+	        if (state.activeView === 'daily') renderDaily(state.daily.data);
+	        if (!options.background) queueViewRefresh('daily');
+	        return;
+	      }
+	    }
+	    if (!options.force && !state.daily.data && options.useCache !== false) {
+	      const restored = await restoreViewClientCache('daily', dailyClientCacheKey(), (summary, cache) => {
+	        applyDailySummary(summary, { loadedAt: cache.savedAt || Date.now() });
+	      }).catch(() => false);
+	      if (restored && options.preferStale !== false) {
+	        if (!options.background && isBrowserOnline()) queueViewRefresh('daily');
+	        return;
+	      }
+	    }
+	    const requestToken = beginRequest('daily');
+	    const month = parseDailyMonth(state.daily.month);
+	    state.daily.month = `${month.year}-${String(month.month).padStart(2, '0')}`;
     const hasVisibleDaily = Boolean(state.daily.data);
     const quietRefresh = Boolean(options.background && hasVisibleDaily);
     state.daily.loading = true;
@@ -7860,68 +8332,98 @@ document.addEventListener('DOMContentLoaded', () => {
       repair: Boolean(options.repair) && !quietRefresh,
       cacheBust: Boolean(options.force || options.repair)
     });
-    if (!isLatestRequest('daily', requestToken)) return;
-    state.daily.summary = summary;
-    state.daily.rows = [];
-    state.daily.loading = false;
-    state.daily.loadedAt = Date.now();
-    renderDaily(aggregateDailySummaryData(summary, state.daily.month));
-  };
+	    if (!isLatestRequest('daily', requestToken)) return;
+	    writeViewClientCache('daily', dailyClientCacheKey(), summary);
+	    applyDailySummary(summary);
+	  };
 
-  const loadHome = async (options = {}) => {
-    if (!options.force && state.home.data) {
-      if (isFresh(state.home.loadedAt, VIEW_CACHE_TTL_MS.home)) {
-        renderHome(state.home.data);
-        return;
-      }
-      if (options.preferStale !== false) {
-        renderHome(state.home.data);
-        if (!options.background) queueViewRefresh('home');
-        return;
-      }
-    }
-    const requestToken = beginRequest('home');
-    const data = await requestJson(buildAnalyticsUrl('landing', state.home.timeframe, { cacheBust: Boolean(options.force) }));
-    if (!isLatestRequest('home', requestToken)) return;
-    writeHomeCache(data);
-    state.home.loadedAt = Date.now();
-    renderHome(data);
-  };
+	  const loadHome = async (options = {}) => {
+	    if (!options.force && state.home.data) {
+	      if (isFresh(state.home.loadedAt, VIEW_CACHE_TTL_MS.home)) {
+	        applyHomeData(state.home.data, { loadedAt: state.home.loadedAt });
+	        return;
+	      }
+	      if (options.preferStale !== false) {
+	        applyHomeData(state.home.data, { loadedAt: state.home.loadedAt });
+	        if (!options.background) queueViewRefresh('home');
+	        return;
+	      }
+	    }
+	    if (!options.force && !state.home.data && options.useCache !== false) {
+	      const restored = await restoreViewClientCache('home', homeClientCacheKey(), (data, cache) => {
+	        applyHomeData(data, { loadedAt: cache.savedAt || Date.now() });
+	      }).catch(() => false);
+	      if (restored && options.preferStale !== false) {
+	        if (!options.background && isBrowserOnline()) queueViewRefresh('home');
+	        return;
+	      }
+	    }
+	    const requestToken = beginRequest('home');
+	    const data = await requestJson(buildAnalyticsUrl('landing', state.home.timeframe, { cacheBust: Boolean(options.force) }));
+	    if (!isLatestRequest('home', requestToken)) return;
+	    writeHomeCache(data);
+	    applyHomeData(data);
+	  };
 
-  const loadWebsite = async (options = {}) => {
-    if (!options.force && state.website.data) {
-      if (isFresh(state.website.loadedAt, VIEW_CACHE_TTL_MS.website)) {
-        renderWebsite(state.website.data);
-        return;
-      }
-      if (options.preferStale !== false) {
-        renderWebsite(state.website.data);
-        if (!options.background) queueViewRefresh('website');
-        return;
-      }
-    }
-    const requestToken = beginRequest('website');
-    const data = await requestJson(buildAnalyticsUrl('website', state.website.timeframe, { cacheBust: Boolean(options.force) }));
-    if (!isLatestRequest('website', requestToken)) return;
-    state.website.loadedAt = Date.now();
-    renderWebsite(data);
-  };
+	  const loadWebsite = async (options = {}) => {
+	    if (!options.force && state.website.data) {
+	      if (isFresh(state.website.loadedAt, VIEW_CACHE_TTL_MS.website)) {
+	        applyWebsiteData(state.website.data, { loadedAt: state.website.loadedAt });
+	        return;
+	      }
+	      if (options.preferStale !== false) {
+	        applyWebsiteData(state.website.data, { loadedAt: state.website.loadedAt });
+	        if (!options.background) queueViewRefresh('website');
+	        return;
+	      }
+	    }
+	    if (!options.force && !state.website.data && options.useCache !== false) {
+	      const restored = await restoreViewClientCache('website', websiteClientCacheKey(), (data, cache) => {
+	        applyWebsiteData(data, { loadedAt: cache.savedAt || Date.now() });
+	      }).catch(() => false);
+	      if (restored && options.preferStale !== false) {
+	        if (!options.background && isBrowserOnline()) queueViewRefresh('website');
+	        return;
+	      }
+	    }
+	    const requestToken = beginRequest('website');
+	    const data = await requestJson(buildAnalyticsUrl('website', state.website.timeframe, { cacheBust: Boolean(options.force) }));
+	    if (!isLatestRequest('website', requestToken)) return;
+	    writeViewClientCache('website', websiteClientCacheKey(), data);
+	    applyWebsiteData(data);
+	  };
 
-  const loadWebsiteSettings = async (options = {}) => {
-    if (!options.force && isFresh(state.website.settingsLoadedAt, VIEW_CACHE_TTL_MS.settings)) {
-      renderDeviceExclusionList();
-      renderCurrentDeviceId();
-      return;
-    }
-    const requestToken = beginRequest('website', true);
-    const data = await requestJson(buildSettingsUrl('website_settings', { cacheBust: Boolean(options.force) }));
-    if (!isLatestRequest('website', requestToken, true)) return;
-    state.website.deviceExclusions = Array.isArray(data.excluded_devices) ? data.excluded_devices : [];
-    state.website.currentDeviceId = ensureAnalyticsDeviceId();
-    state.website.settingsLoadedAt = Date.now();
-    renderDeviceExclusionList();
-    renderCurrentDeviceId();
-  };
+	  const loadWebsiteSettings = async (options = {}) => {
+	    if (!options.force && isFresh(state.website.settingsLoadedAt, VIEW_CACHE_TTL_MS.settings)) {
+	      renderDeviceExclusionList();
+	      renderCurrentDeviceId();
+	      return;
+	    }
+	    if (!options.force && !state.website.settingsLoadedAt && options.useCache !== false) {
+	      const restored = await restoreViewClientCache('settings', settingsClientCacheKey(), (data, cache) => {
+	        state.website.deviceExclusions = Array.isArray(data.excluded_devices) ? data.excluded_devices : [];
+	        state.website.currentDeviceId = ensureAnalyticsDeviceId();
+	        state.website.settingsLoadedAt = cache.savedAt || Date.now();
+	        if (state.activeView === 'settings' || state.activeView === 'website') {
+	          renderDeviceExclusionList();
+	          renderCurrentDeviceId();
+	        }
+	      }).catch(() => false);
+	      if (restored && options.preferStale !== false) {
+	        if (!options.background && isBrowserOnline()) queueViewRefresh('settings');
+	        return;
+	      }
+	    }
+	    const requestToken = beginRequest('website', true);
+	    const data = await requestJson(buildSettingsUrl('website_settings', { cacheBust: Boolean(options.force) }));
+	    if (!isLatestRequest('website', requestToken, true)) return;
+	    state.website.deviceExclusions = Array.isArray(data.excluded_devices) ? data.excluded_devices : [];
+	    state.website.currentDeviceId = ensureAnalyticsDeviceId();
+	    state.website.settingsLoadedAt = Date.now();
+	    writeViewClientCache('settings', settingsClientCacheKey(), data);
+	    renderDeviceExclusionList();
+	    renderCurrentDeviceId();
+	  };
 
   const mergeLoadedOrderRows = (rows) => {
     if (!(state.orders.rowKeys instanceof Set)) {
@@ -7998,9 +8500,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (state.activeView === 'orders') renderOrders();
   };
 
-  const resetOrderWindowsFromOverview = () => {
-    const data = state.overview.data || {};
-    const years = Array.isArray(data.years) ? data.years : [state.overview.year];
+	  const resetOrderWindowsFromOverview = () => {
+	    const data = state.overview.data || {};
+	    const years = Array.isArray(data.years) ? data.years : [state.overview.year];
     const months = Array.isArray(data.months) ? data.months : [];
     const ranges = deriveOrderMonthRanges(years, months);
     const signature = ranges.map(orderRangeKey).join('|');
@@ -8026,10 +8528,50 @@ document.addEventListener('DOMContentLoaded', () => {
     state.orders.platforms = [];
     state.orders.activeFiltersSignature = '';
     state.orders.platformsRenderSignature = '';
-    renderOrdersIfActive();
-  };
+	    renderOrdersIfActive();
+	  };
 
-  const loadNextOrderWindow = async (options = {}) => {
+	  const writeOrdersClientCache = () => {
+	    if (!state.orders.rows.length) return;
+	    writeViewClientCache('orders', ordersClientCacheKey(), {
+	      rows: state.orders.rows.slice(0, ORDER_BACKGROUND_TARGET_ROWS),
+	      platforms: state.orders.platforms,
+	      monthRanges: state.orders.monthRanges,
+	      monthsSignature: state.orders.monthsSignature,
+	      loadedRangeKeys: Array.from(state.orders.loadedRangeKeys || []),
+	      rangeOffsets: state.orders.rangeOffsets || {},
+	      loadedAll: Boolean(state.orders.loadedAll)
+	    });
+	  };
+
+	  const restoreOrdersFromClientCache = async () => {
+	    const restored = await restoreViewClientCache('orders', ordersClientCacheKey(), (payload, cache) => {
+	      const rows = Array.isArray(payload.rows) ? payload.rows.map(enrichOrderRow) : [];
+	      if (!rows.length) return;
+	      state.orders.rows = rows;
+	      state.orders.rowKeys = new Set(rows.map(uniqueOrderRowKey));
+	      state.orders.platforms = Array.isArray(payload.platforms) ? payload.platforms : [];
+	      state.orders.monthRanges = Array.isArray(payload.monthRanges) && payload.monthRanges.length
+	        ? payload.monthRanges
+	        : state.orders.monthRanges;
+	      state.orders.monthsSignature = payload.monthsSignature || state.orders.monthsSignature;
+	      state.orders.loadedRangeKeys = new Set(Array.isArray(payload.loadedRangeKeys) ? payload.loadedRangeKeys : []);
+	      state.orders.rangeOffsets = payload.rangeOffsets && typeof payload.rangeOffsets === 'object' ? payload.rangeOffsets : {};
+	      state.orders.loadedAll = Boolean(payload.loadedAll);
+	      state.orders.loading = false;
+	      state.orders.loadedAt = cache.savedAt || Date.now();
+	      state.orders.data = {
+	        ok: true,
+	        cached: true,
+	        orders: state.orders.rows
+	      };
+	      syncOrderLoadedAll();
+	      renderOrdersIfActive();
+	    }).catch(() => false);
+	    return restored && state.orders.rows.length > 0;
+	  };
+
+	  const loadNextOrderWindow = async (options = {}) => {
     if (state.orders.loadPromise) return state.orders.loadPromise;
     if (!state.orders.monthRanges.length) resetOrderWindowsFromOverview();
     syncOrderLoadedAll();
@@ -8121,9 +8663,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  let orderMemoryPreloadPromise = null;
-  const preloadOrderMemory = async (options = {}) => {
-    if (orderMemoryPreloadPromise && !options.reset) return orderMemoryPreloadPromise;
+	  let orderMemoryPreloadPromise = null;
+	  const preloadOrderMemory = async (options = {}) => {
+	    if (state.activeView !== 'orders' && !canStartBackgroundPageWork()) {
+	      return {
+	        rows: state.orders.rows.length,
+	        loadedAll: state.orders.loadedAll,
+	        skipped: true
+	      };
+	    }
+	    if (orderMemoryPreloadPromise && !options.reset) return orderMemoryPreloadPromise;
     if (options.reset) {
       state.orders.monthsSignature = '';
       state.orders.loadedAt = 0;
@@ -8155,12 +8704,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (orderLoadProgressSignature() === progressSignature) break;
         windowsLoaded += 1;
         await wait(BACKGROUND_TASK_DELAY_MS);
-      }
-      state.orders.loadedAt = Date.now();
-      return {
-        rows: state.orders.rows.length,
-        loadedAll: state.orders.loadedAll
-      };
+	      }
+	      state.orders.loadedAt = Date.now();
+	      writeOrdersClientCache();
+	      return {
+	        rows: state.orders.rows.length,
+	        loadedAll: state.orders.loadedAll
+	      };
     })();
 
     try {
@@ -8182,16 +8732,25 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
     }
-    if (!state.overview.data) {
-      await loadOverviewSafely({ useCache: true, skipHourly: true });
-    }
-    resetOrderWindowsFromOverview();
-    await ensureEnoughOrderRows({ repair: Boolean(options.repair) });
-    if (state.orders.loadPromise) {
-      await state.orders.loadPromise;
-    }
-    state.orders.loadedAt = Date.now();
-  };
+	    if (!state.overview.data) {
+	      await loadOverviewSafely({ useCache: true, skipHourly: true });
+	    }
+	    if (!options.force && !state.orders.data && options.useCache !== false) {
+	      resetOrderWindowsFromOverview();
+	      const restored = await restoreOrdersFromClientCache();
+	      if (restored && options.preferStale !== false) {
+	        if (!options.background && isBrowserOnline()) queueViewRefresh('orders');
+	        return;
+	      }
+	    }
+	    resetOrderWindowsFromOverview();
+	    await ensureEnoughOrderRows({ repair: Boolean(options.repair) });
+	    if (state.orders.loadPromise) {
+	      await state.orders.loadPromise;
+	    }
+	    state.orders.loadedAt = Date.now();
+	    writeOrdersClientCache();
+	  };
 
   const showOrderLoadError = (error) => {
     state.orders.loading = false;
@@ -8242,28 +8801,29 @@ document.addEventListener('DOMContentLoaded', () => {
 	    return state.wallet.releaseSyncPromise;
 	  };
 
-	  const restoreWalletFromCache = () => {
-	    const cached = readWalletCache();
-	    if (!cached) return false;
-	    state.wallet.loadedAt = cached.savedAt || state.wallet.loadedAt || 0;
-	    state.wallet.usingCache = true;
-	    renderWallet(cached.data);
-	    return true;
-	  };
+		  const restoreWalletFromCache = () => {
+		    const cached = readWalletCache();
+		    if (!cached) return false;
+		    applyWalletData(cached.data, {
+		      loadedAt: cached.savedAt || state.wallet.loadedAt || 0,
+		      usingCache: true
+		    });
+		    return true;
+		  };
 
-	  const loadWallet = async (options = {}) => {
-	    if (!options.force && state.wallet.data) {
-	      if (isFresh(state.wallet.loadedAt, VIEW_CACHE_TTL_MS.wallet)) {
-	        renderWallet(state.wallet.data);
-	        startWalletReleaseSync(options);
-	        return;
-	      }
-	      if (options.preferStale !== false) {
-	        renderWallet(state.wallet.data);
-	        if (!options.background) queueViewRefresh('wallet');
-	        return;
-	      }
-	    }
+		  const loadWallet = async (options = {}) => {
+		    if (!options.force && state.wallet.data) {
+		      if (isFresh(state.wallet.loadedAt, VIEW_CACHE_TTL_MS.wallet)) {
+		        applyWalletData(state.wallet.data, { loadedAt: state.wallet.loadedAt, usingCache: state.wallet.usingCache });
+		        startWalletReleaseSync(options);
+		        return;
+		      }
+		      if (options.preferStale !== false) {
+		        applyWalletData(state.wallet.data, { loadedAt: state.wallet.loadedAt, usingCache: state.wallet.usingCache });
+		        if (!options.background) queueViewRefresh('wallet');
+		        return;
+		      }
+		    }
 	    if (!options.force && !state.wallet.data && options.useCache !== false) {
 	      const restored = restoreWalletFromCache();
 	      if (restored && options.preferStale !== false) {
@@ -8280,19 +8840,16 @@ document.addEventListener('DOMContentLoaded', () => {
 	      }
 	    }
 	    if (options.background && state.wallet.loading) return;
-	    const requestToken = beginRequest('wallet');
-	    const showLoading = !options.background;
-	    if (showLoading) state.wallet.loading = true;
-	    renderWallet(state.wallet.data);
-	    try {
-	      const data = await requestJson(walletActionUrl('summary'), { timeoutMs: 30000 });
-	      if (!isLatestRequest('wallet', requestToken)) return;
-	      state.wallet.loadedAt = Date.now();
-	      state.wallet.usingCache = false;
-	      state.wallet.loading = false;
-	      renderWallet(data);
-	      startWalletReleaseSync(options);
-	    } catch (error) {
+		    const requestToken = beginRequest('wallet');
+		    const showLoading = !options.background;
+		    if (showLoading) state.wallet.loading = true;
+		    if (state.activeView === 'wallet') renderWallet(state.wallet.data);
+		    try {
+		      const data = await requestJson(walletActionUrl('summary'), { timeoutMs: 30000 });
+		      if (!isLatestRequest('wallet', requestToken)) return;
+		      applyWalletData(data, { usingCache: false });
+		      startWalletReleaseSync(options);
+		    } catch (error) {
 	      if (showLoading && isLatestRequest('wallet', requestToken)) {
 	        state.wallet.loading = false;
 	      }
@@ -8313,33 +8870,41 @@ document.addEventListener('DOMContentLoaded', () => {
 	    }
 	  };
 
-	  const loadInventoryRecap = async (options = {}) => {
-	    if (!options.force && state.inventoryRecap.data) {
-	      if (isFresh(state.inventoryRecap.loadedAt, VIEW_CACHE_TTL_MS['inventory-recap'])) {
-	        renderInventoryRecap(state.inventoryRecap.data);
-	        return;
-	      }
-	      if (options.preferStale !== false) {
-	        renderInventoryRecap(state.inventoryRecap.data);
-	        if (!options.background) queueViewRefresh('inventory-recap');
-	        return;
-	      }
-	    }
-	    if (options.background && state.inventoryRecap.loading) return;
-	    const requestToken = beginRequest('inventoryRecap');
-	    const showLoading = !options.background;
-	    if (showLoading) state.inventoryRecap.loading = true;
-	    renderInventoryRecap(state.inventoryRecap.data);
-	    try {
-	      const data = await requestJson(inventoryRecapUrl({ force: Boolean(options.force || options.cacheBust) }), { timeoutMs: 30000 });
-	      if (!isLatestRequest('inventoryRecap', requestToken)) return;
-	      state.inventoryRecap.loadedAt = Date.now();
-	      state.inventoryRecap.loading = false;
-	      renderInventoryRecap(data);
-	    } catch (error) {
-	      if (showLoading && isLatestRequest('inventoryRecap', requestToken)) {
-	        state.inventoryRecap.loading = false;
-	      }
+		  const loadInventoryRecap = async (options = {}) => {
+		    if (!options.force && state.inventoryRecap.data) {
+		      if (isFresh(state.inventoryRecap.loadedAt, VIEW_CACHE_TTL_MS['inventory-recap'])) {
+		        applyInventoryRecapData(state.inventoryRecap.data, { loadedAt: state.inventoryRecap.loadedAt });
+		        return;
+		      }
+		      if (options.preferStale !== false) {
+		        applyInventoryRecapData(state.inventoryRecap.data, { loadedAt: state.inventoryRecap.loadedAt });
+		        if (!options.background) queueViewRefresh('inventory-recap');
+		        return;
+		      }
+		    }
+		    if (!options.force && !state.inventoryRecap.data && options.useCache !== false) {
+		      const restored = await restoreViewClientCache('inventory-recap', inventoryRecapClientCacheKey(), (data, cache) => {
+		        applyInventoryRecapData(data, { loadedAt: cache.savedAt || Date.now() });
+		      }).catch(() => false);
+		      if (restored && options.preferStale !== false) {
+		        if (!options.background && isBrowserOnline()) queueViewRefresh('inventory-recap');
+		        return;
+		      }
+		    }
+		    if (options.background && state.inventoryRecap.loading) return;
+		    const requestToken = beginRequest('inventoryRecap');
+		    const showLoading = !options.background;
+		    if (showLoading) state.inventoryRecap.loading = true;
+		    if (state.activeView === 'inventory-recap') renderInventoryRecap(state.inventoryRecap.data);
+		    try {
+		      const data = await requestJson(inventoryRecapUrl({ force: Boolean(options.force || options.cacheBust) }), { timeoutMs: 30000 });
+		      if (!isLatestRequest('inventoryRecap', requestToken)) return;
+		      writeViewClientCache('inventory-recap', inventoryRecapClientCacheKey(), data);
+		      applyInventoryRecapData(data);
+		    } catch (error) {
+		      if (showLoading && isLatestRequest('inventoryRecap', requestToken)) {
+		        state.inventoryRecap.loading = false;
+		      }
 	      throw error;
 	    }
 	  };
@@ -8371,7 +8936,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    }
 	  };
 
-	  const postWalletAction = async (action, body, actionId, options = {}) => {
+		  const postWalletAction = async (action, body, actionId, options = {}) => {
 	    const interactive = !options.background;
 	    if (interactive) state.wallet.actionId = actionId;
 	    if (interactive && walletRefs.status) {
@@ -8384,11 +8949,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	        headers: { 'Content-Type': 'application/json' },
 	        body: JSON.stringify(body),
 	        timeoutMs: options.timeoutMs || 30000
-	      });
-	      state.wallet.loadedAt = Date.now();
-	      state.wallet.usingCache = false;
-	      renderWallet(data);
-	      return true;
+		      });
+		      applyWalletData(data, { usingCache: false });
+		      return true;
 	    } catch (error) {
 	      if (options.silent || !interactive) {
 	        if (walletRefs.status) walletRefs.status.textContent = error?.message || 'Wallet refresh unavailable';
@@ -8538,13 +9101,13 @@ document.addEventListener('DOMContentLoaded', () => {
       await loadDaily(options);
       return true;
     } catch (error) {
-      state.daily.loading = false;
-      if (options.background && state.daily.data) {
-        renderDaily(state.daily.data);
-        if (dailyRefs.status) {
-          dailyRefs.status.textContent = `${dailyRefs.status.textContent} / refresh failed: ${error?.message || 'Unknown error'}`;
-        }
-        return false;
+	      state.daily.loading = false;
+	      if (options.background && state.daily.data) {
+	        if (state.activeView === 'daily') renderDaily(state.daily.data);
+	        if (state.activeView === 'daily' && dailyRefs.status) {
+	          dailyRefs.status.textContent = `${dailyRefs.status.textContent} / refresh failed: ${error?.message || 'Unknown error'}`;
+	        }
+	        return false;
       }
       if (dailyRefs.status) {
         dailyRefs.status.textContent = `Daily report unavailable: ${error?.message || 'Unknown error'}`;
@@ -8738,8 +9301,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }, options.delay || LIVE_REFRESH_DEBOUNCE_MS);
   };
 
-  const queueViewRefresh = (view) => {
-    const options = { force: true, preferStale: false, background: true };
+	  const queueViewRefresh = (view) => {
+	    if (view !== state.activeView && !canStartBackgroundPageWork()) return Promise.resolve(false);
+	    const options = { force: true, preferStale: false, background: true };
     if (view === 'overview') return loadOverviewSafely({ ...options, forceRefresh: true });
     if (view === 'orders') return loadOrdersSafely(options);
     if (view === 'wallet') return loadWalletSafely(options);
@@ -8764,19 +9328,19 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!options.force && now - Number(state.wallet.backgroundRefreshAt || 0) < WALLET_BACKGROUND_REFRESH_MIN_MS) {
       return false;
     }
-    state.wallet.backgroundRefreshAt = now;
-    state.wallet.backgroundLoading = true;
-    renderWallet(state.wallet.data);
-    state.wallet.backgroundRefreshPromise = loadWalletSafely({
-      force: true,
-      preferStale: false,
-      background: true,
-      skipReleaseSync: Boolean(options.skipReleaseSync)
-    }).finally(() => {
-      state.wallet.backgroundRefreshPromise = null;
-      state.wallet.backgroundLoading = false;
-      renderWallet(state.wallet.data);
-    });
+	    state.wallet.backgroundRefreshAt = now;
+	    state.wallet.backgroundLoading = true;
+	    if (state.activeView === 'wallet') renderWallet(state.wallet.data);
+	    state.wallet.backgroundRefreshPromise = loadWalletSafely({
+	      force: true,
+	      preferStale: false,
+	      background: true,
+	      skipReleaseSync: Boolean(options.skipReleaseSync)
+	    }).finally(() => {
+	      state.wallet.backgroundRefreshPromise = null;
+	      state.wallet.backgroundLoading = false;
+	      if (state.activeView === 'wallet') renderWallet(state.wallet.data);
+	    });
     return state.wallet.backgroundRefreshPromise;
   };
 
@@ -8873,52 +9437,71 @@ document.addEventListener('DOMContentLoaded', () => {
     renderZeroDiscountCalendar();
   };
 
-  const activateOrdersViewInstantly = () => {
-    if (!state.orders.monthRanges.length && !state.orders.loadedAll) {
-      resetOrderWindowsFromOverview();
-    }
-    if (!state.orders.rows.length && !state.orders.loadedAll && !state.orders.loading) {
-      state.orders.loading = true;
-    }
-    renderOrders();
-    ensureEnoughOrderRows()
-      .then(async () => {
-        if (state.orders.loadPromise) await state.orders.loadPromise;
-        state.orders.loadedAt = Date.now();
-        preloadOrderMemory().catch(showOrderLoadError);
-      })
+	  const activateOrdersViewInstantly = () => {
+	    if (!state.orders.monthRanges.length && !state.orders.loadedAll) {
+	      resetOrderWindowsFromOverview();
+	    }
+	    if (!state.orders.rows.length && !state.orders.loadedAll && !state.orders.loading) {
+	      state.orders.loading = true;
+	    }
+	    renderOrders();
+	    const restorePromise = !state.orders.rows.length && !state.orders.loadedAll
+	      ? restoreOrdersFromClientCache()
+	      : Promise.resolve(false);
+	    restorePromise
+	      .catch(() => false)
+	      .then(() => ensureEnoughOrderRows())
+	      .then(async () => {
+	        if (state.orders.loadPromise) await state.orders.loadPromise;
+	        state.orders.loadedAt = Date.now();
+	        preloadOrderMemory().catch(showOrderLoadError);
+	      })
       .catch(showOrderLoadError);
   };
 
-  const activateWalletViewInstantly = () => {
-    const restored = state.wallet.data ? true : restoreWalletFromCache();
-    const online = isBrowserOnline();
-    state.wallet.backgroundLoading = online;
-    renderWallet(state.wallet.data);
-    if (online) {
-      scheduleWalletBackgroundRefresh({ force: true });
-    } else if (!restored && walletRefs.status) {
+	  const activateWalletViewInstantly = () => {
+	    const restored = state.wallet.data ? true : restoreWalletFromCache();
+	    const online = isBrowserOnline();
+	    state.wallet.backgroundLoading = online;
+	    renderWallet(state.wallet.data);
+	    if (!restored) {
+	      restoreViewClientCache('wallet', walletClientCacheKey(), (data, cache) => {
+	        applyWalletData(data, {
+	          loadedAt: cache.savedAt || Date.now(),
+	          usingCache: true
+	        });
+	      }).catch(() => false);
+	    }
+	    if (online) {
+	      scheduleWalletBackgroundRefresh({ force: true });
+	    } else if (!restored && walletRefs.status) {
       walletRefs.status.textContent = 'Offline / waiting for last wallet update';
     }
   };
 
-  const activateOverviewViewInstantly = () => {
-    let rendered = false;
-    if (state.overview.data) {
-      renderOverview(state.overview.data);
-      rendered = true;
+	  const activateOverviewViewInstantly = () => {
+	    let rendered = false;
+	    if (state.overview.data) {
+	      renderOverview(state.overview.data);
+	      rendered = true;
     } else {
       const cached = readOverviewCache(state.overview.year);
       if (cached) {
         state.overview.loadedAt = Date.now();
-        renderOverview(cached);
-        rendered = true;
-      }
-    }
-    if (isBrowserOnline()) {
-      return {
-        rendered,
-        refreshPromise: loadOverviewSafely({ force: true, preferStale: false, background: true, useCache: true })
+	        renderOverview(cached);
+	        rendered = true;
+	      }
+	    }
+	    if (!rendered) {
+	      restoreViewClientCache('overview', overviewClientCacheKey(state.overview.year), (data, cache) => {
+	        if (state.activeView !== 'overview') return;
+	        applyOverviewData(data, { loadedAt: cache.savedAt || Date.now() });
+	      }).catch(() => false);
+	    }
+	    if (isBrowserOnline()) {
+	      return {
+	        rendered,
+	        refreshPromise: loadOverviewSafely({ force: true, preferStale: false, background: true, useCache: true })
       };
     }
     return { rendered, refreshPromise: Promise.resolve(false) };
@@ -8932,33 +9515,93 @@ document.addEventListener('DOMContentLoaded', () => {
     return true;
   };
 
-  const activateHomeViewInstantly = () => {
-    const restored = state.home.data ? true : restoreHomeFromCache();
-    if (state.home.data) renderHome(state.home.data);
-    if (!restored && homeRefs.trendMeta) {
-      homeRefs.trendMeta.textContent = isBrowserOnline()
-        ? 'Loading campaign analytics in background'
-        : 'Offline / waiting for last campaign update';
-    }
+	  const activateHomeViewInstantly = () => {
+	    const restored = state.home.data ? true : restoreHomeFromCache();
+	    if (state.home.data) renderHome(state.home.data);
+	    if (!restored) {
+	      restoreViewClientCache('home', homeClientCacheKey(), (data, cache) => {
+	        if (state.activeView !== 'home') return;
+	        applyHomeData(data, { loadedAt: cache.savedAt || Date.now() });
+	      }).catch(() => false);
+	    }
+	    if (!restored && homeRefs.trendMeta) {
+	      homeRefs.trendMeta.textContent = isBrowserOnline()
+	        ? 'Loading campaign analytics in background'
+	        : 'Offline / waiting for last campaign update';
+	    }
     if (isBrowserOnline()) {
       return {
         rendered: restored,
         refreshPromise: loadHomeSafely({ force: true, preferStale: false, background: true })
       };
-    }
-    return { rendered: restored, refreshPromise: Promise.resolve(false) };
-  };
+	    }
+	    return { rendered: restored, refreshPromise: Promise.resolve(false) };
+	  };
 
-  const switchView = async (nextView) => {
-    const previousView = state.activeView;
-    const normalizedNextView = normalizeDashboardView(nextView);
-    cancelDeferredViewUnload(normalizedNextView);
-    state.activeView = normalizedNextView;
-    if (state.activeView === 'website') {
-      showWebsiteSelector();
-    }
-    syncViewState();
-    scheduleDeferredViewUnload(previousView);
+	  const activateDailyViewInstantly = () => {
+	    let rendered = false;
+	    if (state.daily.data) {
+	      renderDaily(state.daily.data);
+	      rendered = true;
+	    } else {
+	      restoreViewClientCache('daily', dailyClientCacheKey(), (summary, cache) => {
+	        if (state.activeView !== 'daily') return;
+	        applyDailySummary(summary, { loadedAt: cache.savedAt || Date.now() });
+	      }).catch(() => false);
+	      if (dailyRefs.status) {
+	        dailyRefs.status.textContent = isBrowserOnline()
+	          ? 'Loading Daily summary in background'
+	          : 'Offline / waiting for last Daily summary';
+	      }
+	    }
+	    if (isBrowserOnline()) {
+	      return {
+	        rendered,
+	        refreshPromise: loadDailySafely({ force: true, preferStale: false, background: true, useCache: true })
+	      };
+	    }
+	    return { rendered, refreshPromise: Promise.resolve(false) };
+	  };
+
+	  const activateInventoryRecapViewInstantly = () => {
+	    let rendered = false;
+	    if (state.inventoryRecap.data) {
+	      renderInventoryRecap(state.inventoryRecap.data);
+	      rendered = true;
+	    } else {
+	      restoreViewClientCache('inventory-recap', inventoryRecapClientCacheKey(), (data, cache) => {
+	        if (state.activeView !== 'inventory-recap') return;
+	        applyInventoryRecapData(data, { loadedAt: cache.savedAt || Date.now() });
+	      }).catch(() => false);
+	      if (inventoryRecapRefs.status) {
+	        inventoryRecapRefs.status.textContent = isBrowserOnline()
+	          ? 'Loading Inventory Recap in background'
+	          : 'Offline / waiting for last Inventory Recap';
+	      }
+	    }
+	    if (isBrowserOnline()) {
+	      return {
+	        rendered,
+	        refreshPromise: loadInventoryRecapSafely({ force: true, preferStale: false, background: true, useCache: true })
+	      };
+	    }
+	    return { rendered, refreshPromise: Promise.resolve(false) };
+	  };
+
+	  const switchView = async (nextView) => {
+	    const previousView = state.activeView;
+	    const normalizedNextView = normalizeDashboardView(nextView);
+	    cancelDeferredViewUnload(normalizedNextView);
+	    state.activeView = normalizedNextView;
+	    const memoryPressure = isDashboardMemoryPressure();
+	    if (state.activeView === 'website') {
+	      showWebsiteSelector();
+	    }
+	    syncViewState();
+	    if (memoryPressure) {
+	      await releaseInactiveViewsForMemory(state.activeView);
+	    }
+	    scheduleDeferredViewUnload(previousView);
     const viewUrl = new URL(window.location.href);
     viewUrl.searchParams.set('view', state.activeView);
     viewUrl.hash = '';
@@ -8973,13 +9616,21 @@ document.addEventListener('DOMContentLoaded', () => {
 	      activateOrdersViewInstantly();
 	      return;
 	    }
-	    if (state.activeView === 'wallet') {
-	      activateWalletViewInstantly();
+		    if (state.activeView === 'wallet') {
+		      activateWalletViewInstantly();
+		      return;
+		    }
+	    if (state.activeView === 'daily') {
+	      activateDailyViewInstantly();
 	      return;
 	    }
-    if (state.activeView === 'home') {
-      activateHomeViewInstantly();
-      return;
+	    if (state.activeView === 'inventory-recap') {
+	      activateInventoryRecapViewInstantly();
+	      return;
+	    }
+	    if (state.activeView === 'home') {
+	      activateHomeViewInstantly();
+	      return;
     }
     await loadActiveViewSafely();
     if (state.activeView === 'store-ops') {
@@ -9043,10 +9694,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	      refreshOverviewHourlyRows(null, { repair: true }).catch(() => {});
       if (state.activeView === 'overview') {
         loadOverviewLocationRows({ force: true, incremental: true, repair: true }).catch(() => {});
-      }
-	      if (state.activeView !== 'daily') {
-	        preloadOrderMemory({ reset: true, repair: true }).catch(() => {});
-	      }
+		      }
+		      if (state.activeView !== 'daily') {
+		        if (canStartBackgroundPageWork()) preloadOrderMemory({ reset: true, repair: true }).catch(() => {});
+		      }
       if (state.activeView !== 'inventory-recap') {
         queueViewRefresh('inventory-recap').catch(() => {});
       }
@@ -9083,37 +9734,63 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
-  let backgroundLoadsScheduled = false;
-  const scheduleBackgroundLoads = () => {
-    if (backgroundLoadsScheduled) return;
-    backgroundLoadsScheduled = true;
-    const run = async () => {
-      if (document.hidden) return;
-      const tasks = [
-        state.activeView !== 'overview' && !state.overview.data
-          ? loadOverviewSafely({ background: true, preferStale: false, useCache: true, skipHourly: true })
-          : Promise.resolve(true),
-        state.activeView !== 'home' && !state.home.data
-          ? loadHomeSafely({ background: true, preferStale: false })
-          : Promise.resolve(true),
-        !state.website.settingsLoadedAt
-          ? loadWebsiteSettingsSafely({ background: true, preferStale: false })
-          : Promise.resolve(true),
-        state.activeView !== 'wallet' && !state.wallet.data
-          ? loadWalletSafely({ background: true, preferStale: false, skipReleaseSync: true })
-          : Promise.resolve(true),
-	        state.activeView !== 'inventory-recap' && !state.inventoryRecap.data
-	          ? loadInventoryRecapSafely({ background: true, preferStale: false })
-	          : Promise.resolve(true),
-	        loadOrderCatalog(),
-	        loadNotifications(),
-	        state.activeView !== 'daily'
-	          ? preloadOrderMemory()
-	          : Promise.resolve(true)
+	  let backgroundLoadsScheduled = false;
+	  const scheduleBackgroundLoads = () => {
+	    if (backgroundLoadsScheduled) return;
+	    backgroundLoadsScheduled = true;
+	    const run = async () => {
+	      if (!canStartBackgroundPageWork()) return;
+	      const runBackgroundPageTask = (task) => {
+	        if (!canStartBackgroundPageWork()) return Promise.resolve(false);
+	        state.clientCache.activeBackgroundTasks += 1;
+	        return Promise.resolve()
+	          .then(task)
+	          .finally(() => {
+	            state.clientCache.activeBackgroundTasks = Math.max(0, state.clientCache.activeBackgroundTasks - 1);
+	          });
+	      };
+	      const tasks = [
+	        () => (
+	          state.activeView !== 'overview' && !state.overview.data
+	            ? loadOverviewSafely({ background: true, preferStale: false, useCache: true, skipHourly: true })
+	            : Promise.resolve(true)
+	        ),
+	        () => (
+	          state.activeView !== 'home' && !state.home.data
+	            ? loadHomeSafely({ background: true, preferStale: false, useCache: true })
+	            : Promise.resolve(true)
+	        ),
+	        () => (
+	          !state.website.settingsLoadedAt
+	            ? loadWebsiteSettingsSafely({ background: true, preferStale: false, useCache: true })
+	            : Promise.resolve(true)
+	        ),
+	        () => (
+	          state.activeView !== 'wallet' && !state.wallet.data
+	            ? loadWalletSafely({ background: true, preferStale: false, skipReleaseSync: true })
+	            : Promise.resolve(true)
+	        ),
+	        () => (
+	          state.activeView !== 'inventory-recap' && !state.inventoryRecap.data
+	            ? loadInventoryRecapSafely({ background: true, preferStale: false, useCache: true })
+	            : Promise.resolve(true)
+	        ),
+	        () => (
+	          state.activeView !== 'daily' && !state.daily.data
+	            ? loadDailySafely({ background: true, preferStale: false, useCache: true })
+	            : Promise.resolve(true)
+	        ),
+	        () => loadOrderCatalog(),
+	        () => loadNotifications(),
+	        () => (
+	          state.activeView !== 'daily'
+	            ? preloadOrderMemory()
+	            : Promise.resolve(true)
+	        )
 	      ];
-      await Promise.allSettled(tasks);
-      scheduleWalletBackgroundRefresh({ force: true });
-    };
+	      await Promise.allSettled(tasks.map(runBackgroundPageTask));
+	      scheduleWalletBackgroundRefresh({ force: true });
+	    };
 
     if ('requestIdleCallback' in window) {
       window.requestIdleCallback(() => {
@@ -9160,20 +9837,32 @@ document.addEventListener('DOMContentLoaded', () => {
       })
     : state.activeView === 'orders'
       ? Promise.resolve().then(() => activateOrdersViewInstantly())
-      : state.activeView === 'wallet'
-        ? Promise.resolve().then(() => activateWalletViewInstantly())
-        : state.activeView === 'home'
-          ? Promise.resolve().then(() => {
-              const activation = activateHomeViewInstantly();
-              return waitForInitialViewReveal(activation.refreshPromise, activation);
-            })
-          : loadActiveViewSafely({ preferStale: false });
+	    : state.activeView === 'wallet'
+	      ? Promise.resolve().then(() => activateWalletViewInstantly())
+	      : state.activeView === 'daily'
+	        ? Promise.resolve().then(() => {
+	            const activation = activateDailyViewInstantly();
+	            return waitForInitialViewReveal(activation.refreshPromise, activation);
+	          })
+	        : state.activeView === 'inventory-recap'
+	          ? Promise.resolve().then(() => {
+	              const activation = activateInventoryRecapViewInstantly();
+	              return waitForInitialViewReveal(activation.refreshPromise, activation);
+	            })
+	          : state.activeView === 'home'
+	            ? Promise.resolve().then(() => {
+	                const activation = activateHomeViewInstantly();
+	                return waitForInitialViewReveal(activation.refreshPromise, activation);
+	              })
+	            : loadActiveViewSafely({ preferStale: false });
 
-	  if (state.activeView !== 'orders' && state.activeView !== 'daily') {
-	    window.setTimeout(() => {
-	      preloadOrderMemory({ skipOverviewRefresh: state.activeView === 'overview' }).catch(() => {});
-	    }, 0);
-	  }
+		  if (state.activeView !== 'orders' && state.activeView !== 'daily') {
+		    window.setTimeout(() => {
+		      if (canStartBackgroundPageWork()) {
+		        preloadOrderMemory({ skipOverviewRefresh: state.activeView === 'overview' }).catch(() => {});
+		      }
+		    }, 0);
+		  }
 
   initialLoad
     .then(async () => {
@@ -10215,10 +10904,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.hidden) {
       closeLiveStream();
       return;
-    }
-    connectLiveStream();
-    preloadOrderMemory().catch(() => {});
-    scheduleWalletBackgroundRefresh({ force: true });
+	    }
+	    connectLiveStream();
+	    if (canStartBackgroundPageWork()) preloadOrderMemory().catch(() => {});
+	    scheduleWalletBackgroundRefresh({ force: true });
     refreshForLocalDateRollover()
       .then((refreshed) => {
         if (!refreshed && !hasFreshViewData(state.activeView)) return loadActiveViewSafely({ preferStale: true });
@@ -10228,11 +10917,11 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   window.addEventListener('resize', () => renderCachedCharts());
-  window.addEventListener('focus', () => {
-    refreshForLocalDateRollover().catch(() => {});
-    preloadOrderMemory().catch(() => {});
-    runAutomaticMarketplaceRefresh().catch(() => {});
-    scheduleWalletBackgroundRefresh({ force: true });
+	  window.addEventListener('focus', () => {
+	    refreshForLocalDateRollover().catch(() => {});
+	    if (canStartBackgroundPageWork()) preloadOrderMemory().catch(() => {});
+	    runAutomaticMarketplaceRefresh().catch(() => {});
+	    scheduleWalletBackgroundRefresh({ force: true });
     if (state.activeView === 'overview') {
       refreshOverviewHourlyRows(null, { repair: true }).catch(() => {});
     }
