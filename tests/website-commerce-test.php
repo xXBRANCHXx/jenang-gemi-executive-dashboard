@@ -42,5 +42,9 @@ commerce_expect(
     'The deployed Store Ops token fallback must be deterministic.'
 );
 commerce_expect('', jg_website_derive_store_ops_token(''), 'An empty shared seed must not create a bearer token.');
+commerce_expect(false, jg_website_customer_address_has_content(''), 'Empty checkout addresses must still be rejected.');
+commerce_expect(false, jg_website_customer_address_has_content('   --   '), 'Punctuation-only checkout addresses must still be rejected.');
+commerce_expect(true, jg_website_customer_address_has_content('A'), 'A one-letter checkout address must be accepted.');
+commerce_expect(true, jg_website_customer_address_has_content('1'), 'A one-number checkout address must be accepted.');
 
 echo "website-commerce-test: ok\n";

@@ -318,12 +318,16 @@ function jg_website_catalog_item(PDO $skuPdo, string $platform, array $requested
          INNER JOIN {$prefix}_discount_items di ON di.discount_id = d.id
          WHERE di.item_key = :item_key
            AND d.is_active = 1
-           AND d.starts_on <= :today
-           AND d.ends_on >= :today
+           AND d.starts_on <= :starts_on_date
+           AND d.ends_on >= :ends_on_date
          ORDER BY d.id DESC
          LIMIT 1"
     );
-    $discountStmt->execute([':item_key' => (string) $row['item_key'], ':today' => $today]);
+    $discountStmt->execute([
+        ':item_key' => (string) $row['item_key'],
+        ':starts_on_date' => $today,
+        ':ends_on_date' => $today,
+    ]);
     $discount = $discountStmt->fetch();
     $net = $gross;
     if (is_array($discount)) {
@@ -345,6 +349,11 @@ function jg_website_catalog_item(PDO $skuPdo, string $platform, array $requested
     ];
 }
 
+function jg_website_customer_address_has_content(string $address): bool
+{
+    return preg_match('/[\p{L}\p{N}]/u', $address) === 1;
+}
+
 function jg_website_create_order(PDO $pdo, PDO $skuPdo, array $payload): array
 {
     jg_website_ensure_schema($pdo);
@@ -354,7 +363,7 @@ function jg_website_create_order(PDO $pdo, PDO $skuPdo, array $payload): array
     if (mb_strlen($customerName) < 2 || mb_strlen($customerName) > 160) {
         throw new InvalidArgumentException('Customer name is required.');
     }
-    if (mb_strlen($customerAddress) < 6 || mb_strlen($customerAddress) > 1000) {
+    if (!jg_website_customer_address_has_content($customerAddress) || mb_strlen($customerAddress) > 1000) {
         throw new InvalidArgumentException('Customer address is required.');
     }
     $idempotencyKey = trim((string) ($payload['idempotency_key'] ?? ''));
