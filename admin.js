@@ -563,6 +563,17 @@ const DASHBOARD_FALLBACK_CACHE_PREFIX = 'jg-executive-dashboard-page-cache-fallb
 const DASHBOARD_PAGE_CACHE_LIMIT_BYTES = 300 * 1024 * 1024;
 const DASHBOARD_RAM_LIMIT_BYTES = 700 * 1024 * 1024;
 const DASHBOARD_RAM_RECOVERY_BYTES = 620 * 1024 * 1024;
+const DASHBOARD_NAVIGATION_TYPE = (() => {
+  try {
+    const navigation = window.performance?.getEntriesByType?.('navigation')?.[0];
+    if (navigation?.type) return navigation.type;
+    if (window.performance?.navigation?.type === 1) return 'reload';
+  } catch (_error) {
+    return '';
+  }
+  return '';
+})();
+const DASHBOARD_FORCE_FRESH_LOAD = DASHBOARD_NAVIGATION_TYPE === 'reload';
 const VIEW_PERSISTED_CACHE_TTL_MS = {
   overview: 15 * 60 * 1000,
   orders: 30 * 60 * 1000,
@@ -3331,7 +3342,10 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const loadNotifications = async () => {
-    const data = await requestJson(websiteOrderActionUrl('notifications'));
+    const data = await requestJson(websiteOrderActionUrl('notifications'), {
+      cache: 'no-store',
+      timeoutMs: 10000
+    });
     state.notifications.orders = Array.isArray(data.orders) ? data.orders : [];
     state.notifications.metrics = data.metrics || {};
     state.notifications.hardSet = data.hard_set || { enabled: false };
@@ -3357,8 +3371,16 @@ document.addEventListener('DOMContentLoaded', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ order_id: orderId, ...extra }),
-      timeoutMs: action.includes('publish') ? 25000 : 20000
+      cache: 'no-store',
+      timeoutMs: action === 'remove' ? 8000 : action.includes('publish') ? 25000 : 20000
     });
+    if (action === 'remove') {
+      state.notifications.orders = state.notifications.orders.filter((order) => order.order_id !== orderId);
+      state.notifications.selectedOrderId = '';
+      renderNotifications();
+      loadNotifications().catch(() => {});
+      return;
+    }
     await loadNotifications();
   };
 
@@ -9517,6 +9539,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const restoreHomeFromCache = () => {
+    if (DASHBOARD_FORCE_FRESH_LOAD) return false;
     const cached = readHomeCache();
     if (!cached) return false;
     state.home.loadedAt = Date.now();
@@ -9524,28 +9547,33 @@ document.addEventListener('DOMContentLoaded', () => {
     return true;
   };
 
-	  const activateHomeViewInstantly = () => {
-	    const restored = state.home.data ? true : restoreHomeFromCache();
-	    if (state.home.data) renderHome(state.home.data);
-	    if (!restored) {
-	      restoreViewClientCache('home', homeClientCacheKey(), (data, cache) => {
-	        if (state.activeView !== 'home') return;
-	        applyHomeData(data, { loadedAt: cache.savedAt || Date.now() });
-	      }).catch(() => false);
-	    }
-	    if (!restored && homeRefs.trendMeta) {
-	      homeRefs.trendMeta.textContent = isBrowserOnline()
-	        ? 'Loading campaign analytics in background'
-	        : 'Offline / waiting for last campaign update';
-	    }
+  const activateHomeViewInstantly = () => {
+    const restored = !DASHBOARD_FORCE_FRESH_LOAD && state.home.data ? true : restoreHomeFromCache();
+    if (state.home.data) renderHome(state.home.data);
+    if (!DASHBOARD_FORCE_FRESH_LOAD && !restored) {
+      restoreViewClientCache('home', homeClientCacheKey(), (data, cache) => {
+        if (state.activeView !== 'home') return;
+        applyHomeData(data, { loadedAt: cache.savedAt || Date.now() });
+      }).catch(() => false);
+    }
+    if (!restored && homeRefs.trendMeta) {
+      homeRefs.trendMeta.textContent = isBrowserOnline()
+        ? 'Loading campaign analytics in background'
+        : 'Offline / waiting for last campaign update';
+    }
     if (isBrowserOnline()) {
       return {
         rendered: restored,
-        refreshPromise: loadHomeSafely({ force: true, preferStale: false, background: true })
+        refreshPromise: loadHomeSafely({
+          force: true,
+          preferStale: false,
+          background: !DASHBOARD_FORCE_FRESH_LOAD,
+          useCache: !DASHBOARD_FORCE_FRESH_LOAD
+        })
       };
-	    }
-	    return { rendered: restored, refreshPromise: Promise.resolve(false) };
-	  };
+    }
+    return { rendered: restored, refreshPromise: Promise.resolve(false) };
+  };
 
 	  const activateDailyViewInstantly = () => {
 	    let rendered = false;

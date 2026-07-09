@@ -611,9 +611,18 @@ function jg_website_order_mark_paid(PDO $pdo, string $orderId): array
 
 function jg_website_order_remove(PDO $pdo, string $orderId): void
 {
+    if (trim($orderId) === '') {
+        throw new InvalidArgumentException('Website order is required.');
+    }
     $pdo->beginTransaction();
     try {
-        $row = jg_website_order_internal_row($pdo, $orderId, true);
+        $stmt = $pdo->prepare('SELECT * FROM website_orders WHERE order_id = :order_id FOR UPDATE');
+        $stmt->execute([':order_id' => $orderId]);
+        $row = $stmt->fetch();
+        if (!is_array($row)) {
+            $pdo->commit();
+            return;
+        }
         if (($row['status'] ?? '') !== 'PENDING_PAYMENT' || !empty($row['paid_at'])) {
             throw new RuntimeException('Only unpaid orders can be removed.');
         }

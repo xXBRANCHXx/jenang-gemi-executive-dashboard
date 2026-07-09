@@ -735,7 +735,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const loadNotifications = async () => {
     if (!notificationList && !notificationSummary) return;
-    const data = await requestJson(websiteOrderActionUrl('notifications'));
+    const data = await requestJson(websiteOrderActionUrl('notifications'), {
+      cache: 'no-store',
+      timeoutMs: 10000
+    });
     state.notifications.orders = Array.isArray(data.orders) ? data.orders : [];
     state.notifications.metrics = data.metrics || {};
     state.notifications.hardSet = data.hard_set || { enabled: false };
@@ -763,8 +766,16 @@ document.addEventListener('DOMContentLoaded', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ order_id: orderId, ...extra }),
-      timeoutMs: action.includes('publish') ? 25000 : 20000
+      cache: 'no-store',
+      timeoutMs: action === 'remove' ? 8000 : action.includes('publish') ? 25000 : 20000
     });
+    if (action === 'remove') {
+      state.notifications.orders = state.notifications.orders.filter((order) => order.order_id !== orderId);
+      state.notifications.selectedOrderId = '';
+      renderNotifications();
+      loadNotifications().catch(() => {});
+      return;
+    }
     await loadNotifications();
   };
 

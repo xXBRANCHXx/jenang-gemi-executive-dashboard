@@ -4,6 +4,10 @@ declare(strict_types=1);
 require dirname(__DIR__) . '/auth.php';
 require_once dirname(__DIR__) . '/admin-nav.php';
 
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
+
 $hasError = false;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $submittedCode = (string) ($_POST['admin_code'] ?? '');
@@ -22,7 +26,7 @@ if ($isAuthenticated) {
         exit;
     }
 }
-$dashboardBuildVersion = 'exec3.75.3';
+$dashboardBuildVersion = 'exec3.75.4';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
