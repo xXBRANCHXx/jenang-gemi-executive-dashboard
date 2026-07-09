@@ -574,6 +574,7 @@ const DASHBOARD_NAVIGATION_TYPE = (() => {
   return '';
 })();
 const DASHBOARD_FORCE_FRESH_LOAD = DASHBOARD_NAVIGATION_TYPE === 'reload';
+const DASHBOARD_STARTUP_BACKGROUND_DELAY_MS = DASHBOARD_FORCE_FRESH_LOAD ? 8000 : 160;
 const VIEW_PERSISTED_CACHE_TTL_MS = {
   overview: 15 * 60 * 1000,
   orders: 30 * 60 * 1000,
@@ -3056,9 +3057,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const refresh = refreshPromise && typeof refreshPromise.then === 'function'
       ? refreshPromise
       : Promise.resolve(false);
+    const maxDelay = DASHBOARD_FORCE_FRESH_LOAD ? INITIAL_VIEW_LOADER_MIN_MS : INITIAL_VIEW_LOADER_MAX_MS;
     return Promise.race([
       Promise.allSettled([refresh, minimumDelay]),
-      wait(INITIAL_VIEW_LOADER_MAX_MS)
+      wait(maxDelay)
     ]);
   };
 
@@ -9510,29 +9512,34 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-	  const activateOverviewViewInstantly = () => {
-	    let rendered = false;
-	    if (state.overview.data) {
-	      renderOverview(state.overview.data);
-	      rendered = true;
-    } else {
+  const activateOverviewViewInstantly = () => {
+    let rendered = false;
+    if (!DASHBOARD_FORCE_FRESH_LOAD && state.overview.data) {
+      renderOverview(state.overview.data);
+      rendered = true;
+    } else if (!DASHBOARD_FORCE_FRESH_LOAD) {
       const cached = readOverviewCache(state.overview.year);
       if (cached) {
         state.overview.loadedAt = Date.now();
-	        renderOverview(cached);
-	        rendered = true;
-	      }
-	    }
-	    if (!rendered) {
-	      restoreViewClientCache('overview', overviewClientCacheKey(state.overview.year), (data, cache) => {
-	        if (state.activeView !== 'overview') return;
-	        applyOverviewData(data, { loadedAt: cache.savedAt || Date.now() });
-	      }).catch(() => false);
-	    }
-	    if (isBrowserOnline()) {
-	      return {
-	        rendered,
-	        refreshPromise: loadOverviewSafely({ force: true, preferStale: false, background: true, useCache: true })
+        renderOverview(cached);
+        rendered = true;
+      }
+    }
+    if (!DASHBOARD_FORCE_FRESH_LOAD && !rendered) {
+      restoreViewClientCache('overview', overviewClientCacheKey(state.overview.year), (data, cache) => {
+        if (state.activeView !== 'overview') return;
+        applyOverviewData(data, { loadedAt: cache.savedAt || Date.now() });
+      }).catch(() => false);
+    }
+    if (isBrowserOnline()) {
+      return {
+        rendered,
+        refreshPromise: loadOverviewSafely({
+          force: true,
+          preferStale: false,
+          background: !DASHBOARD_FORCE_FRESH_LOAD,
+          useCache: !DASHBOARD_FORCE_FRESH_LOAD
+        })
       };
     }
     return { rendered, refreshPromise: Promise.resolve(false) };
@@ -9894,27 +9901,29 @@ document.addEventListener('DOMContentLoaded', () => {
 	        ),
 	        () => loadOrderCatalog(),
 	        () => loadNotifications(),
-	        () => (
-	          state.activeView !== 'daily'
-	            ? preloadOrderMemory()
-	            : Promise.resolve(true)
-	        )
+	        ...(DASHBOARD_FORCE_FRESH_LOAD ? [] : [
+	          () => (
+	            state.activeView !== 'daily'
+	              ? preloadOrderMemory()
+	              : Promise.resolve(true)
+	          )
+	        ])
 	      ];
 	      await Promise.allSettled(tasks.map(runBackgroundPageTask));
 	      scheduleWalletBackgroundRefresh({ force: true });
 	    };
 
-    if ('requestIdleCallback' in window) {
-      window.requestIdleCallback(() => {
-        run().catch(() => {});
-      }, { timeout: BACKGROUND_IDLE_TIMEOUT_MS });
-      return;
-    }
+	    if (!DASHBOARD_FORCE_FRESH_LOAD && 'requestIdleCallback' in window) {
+	      window.requestIdleCallback(() => {
+	        run().catch(() => {});
+	      }, { timeout: BACKGROUND_IDLE_TIMEOUT_MS });
+	      return;
+	    }
 
-    window.setTimeout(() => {
-      run().catch(() => {});
-    }, 160);
-  };
+	    window.setTimeout(() => {
+	      run().catch(() => {});
+	    }, DASHBOARD_STARTUP_BACKGROUND_DELAY_MS);
+	  };
 
   if (systemThemeQuery) {
     const handleSystemThemeChange = () => {
@@ -9936,7 +9945,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderDailyPlatformList();
   syncViewState();
   renderContextEditor();
-  if (state.activeView === 'overview') {
+  if (state.activeView === 'overview' && !DASHBOARD_FORCE_FRESH_LOAD) {
     window.setTimeout(() => ensureOverviewLocationHeatmap(), 0);
   }
   setLoaderState(20, 'Connecting to analytics');
@@ -9983,13 +9992,13 @@ document.addEventListener('DOMContentLoaded', () => {
 	                    })
 	                  : loadActiveViewSafely({ preferStale: false });
 
-		  if (state.activeView !== 'orders' && state.activeView !== 'daily') {
-		    window.setTimeout(() => {
-		      if (canStartBackgroundPageWork()) {
-		        preloadOrderMemory({ skipOverviewRefresh: state.activeView === 'overview' }).catch(() => {});
-		      }
-		    }, 0);
-		  }
+  if (!DASHBOARD_FORCE_FRESH_LOAD && state.activeView !== 'orders' && state.activeView !== 'daily') {
+    window.setTimeout(() => {
+      if (canStartBackgroundPageWork()) {
+        preloadOrderMemory({ skipOverviewRefresh: state.activeView === 'overview' }).catch(() => {});
+      }
+    }, 0);
+  }
 
 	  initialLoad
 	    .then(async () => {
