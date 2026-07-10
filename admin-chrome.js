@@ -442,7 +442,8 @@ document.addEventListener('DOMContentLoaded', () => {
       metrics: {},
       hardSet: { enabled: false },
       selectedOrderId: '',
-      feedback: null
+      feedback: null,
+      removedOrderIds: new Set()
     }
   };
   let notificationFeedbackTimer = null;
@@ -572,6 +573,23 @@ document.addEventListener('DOMContentLoaded', () => {
     url.searchParams.set('action', action);
     url.searchParams.set('_ts', String(Date.now()));
     return url.toString();
+  };
+
+  const isLocallyRemovedNotification = (order) => (
+    order?.status === 'PENDING_PAYMENT'
+      && state.notifications.removedOrderIds.has(String(order.order_id || ''))
+  );
+
+  const removeNotificationOrderLocally = (orderId) => {
+    const normalizedOrderId = String(orderId || '').trim();
+    if (normalizedOrderId === '') return;
+    state.notifications.removedOrderIds.add(normalizedOrderId);
+    state.notifications.orders = state.notifications.orders
+      .filter((order) => String(order.order_id || '') !== normalizedOrderId);
+    if (state.notifications.selectedOrderId === normalizedOrderId) {
+      state.notifications.selectedOrderId = '';
+    }
+    renderNotifications();
   };
 
   const notificationItemLabel = (item) => [item.product_name, item.option_name, item.size_label]
@@ -739,7 +757,8 @@ document.addEventListener('DOMContentLoaded', () => {
       cache: 'no-store',
       timeoutMs: 10000
     });
-    state.notifications.orders = Array.isArray(data.orders) ? data.orders : [];
+    state.notifications.orders = (Array.isArray(data.orders) ? data.orders : [])
+      .filter((order) => !isLocallyRemovedNotification(order));
     state.notifications.metrics = data.metrics || {};
     state.notifications.hardSet = data.hard_set || { enabled: false };
     renderNotifications();
@@ -762,20 +781,29 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const postWebsiteOrderAction = async (action, orderId, extra = {}) => {
-    await requestJson(websiteOrderActionUrl(action), {
+    const removeRequest = action === 'remove';
+    if (removeRequest) {
+      removeNotificationOrderLocally(orderId);
+    }
+    const request = requestJson(websiteOrderActionUrl(action), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ order_id: orderId, ...extra }),
       cache: 'no-store',
-      timeoutMs: action === 'remove' ? 8000 : action.includes('publish') ? 25000 : 20000
+      timeoutMs: removeRequest ? 3000 : action.includes('publish') ? 25000 : 20000
     });
-    if (action === 'remove') {
-      state.notifications.orders = state.notifications.orders.filter((order) => order.order_id !== orderId);
-      state.notifications.selectedOrderId = '';
-      renderNotifications();
-      loadNotifications().catch(() => {});
+
+    if (removeRequest) {
+      request
+        .then(() => loadNotifications().catch(() => {}))
+        .catch((error) => {
+          if (String(error?.message || '').toLowerCase().includes('timed out')) return;
+          state.notifications.removedOrderIds.delete(String(orderId || '').trim());
+          loadNotifications().catch(() => {});
+        });
       return;
     }
+    await request;
     await loadNotifications();
   };
 

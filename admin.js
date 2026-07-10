@@ -2495,7 +2495,8 @@ document.addEventListener('DOMContentLoaded', () => {
       hardSet: { enabled: false },
       open: false,
       selectedOrderId: '',
-      feedback: null
+      feedback: null,
+      removedOrderIds: new Set()
     },
     hardSet: {
       state: { enabled: false },
@@ -3168,6 +3169,23 @@ document.addEventListener('DOMContentLoaded', () => {
     return url.toString();
   };
 
+  const isLocallyRemovedNotification = (order) => (
+    order?.status === 'PENDING_PAYMENT'
+      && state.notifications.removedOrderIds.has(String(order.order_id || ''))
+  );
+
+  const removeNotificationOrderLocally = (orderId) => {
+    const normalizedOrderId = String(orderId || '').trim();
+    if (normalizedOrderId === '') return;
+    state.notifications.removedOrderIds.add(normalizedOrderId);
+    state.notifications.orders = state.notifications.orders
+      .filter((order) => String(order.order_id || '') !== normalizedOrderId);
+    if (state.notifications.selectedOrderId === normalizedOrderId) {
+      state.notifications.selectedOrderId = '';
+    }
+    renderNotifications();
+  };
+
   const websiteMetricForSelectedSite = () => {
     const platform = state.website.site === 'zero' ? 'zero_website' : 'jenang_gemi_website';
     return state.notifications.metrics?.[platform] || {};
@@ -3348,7 +3366,8 @@ document.addEventListener('DOMContentLoaded', () => {
       cache: 'no-store',
       timeoutMs: 10000
     });
-    state.notifications.orders = Array.isArray(data.orders) ? data.orders : [];
+    state.notifications.orders = (Array.isArray(data.orders) ? data.orders : [])
+      .filter((order) => !isLocallyRemovedNotification(order));
     state.notifications.metrics = data.metrics || {};
     state.notifications.hardSet = data.hard_set || { enabled: false };
     renderNotifications();
@@ -3369,20 +3388,29 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const postWebsiteOrderAction = async (action, orderId, extra = {}) => {
-    await requestJson(websiteOrderActionUrl(action), {
+    const removeRequest = action === 'remove';
+    if (removeRequest) {
+      removeNotificationOrderLocally(orderId);
+    }
+    const request = requestJson(websiteOrderActionUrl(action), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ order_id: orderId, ...extra }),
       cache: 'no-store',
-      timeoutMs: action === 'remove' ? 8000 : action.includes('publish') ? 25000 : 20000
+      timeoutMs: removeRequest ? 3000 : action.includes('publish') ? 25000 : 20000
     });
-    if (action === 'remove') {
-      state.notifications.orders = state.notifications.orders.filter((order) => order.order_id !== orderId);
-      state.notifications.selectedOrderId = '';
-      renderNotifications();
-      loadNotifications().catch(() => {});
+
+    if (removeRequest) {
+      request
+        .then(() => loadNotifications().catch(() => {}))
+        .catch((error) => {
+          if (String(error?.message || '').toLowerCase().includes('timed out')) return;
+          state.notifications.removedOrderIds.delete(String(orderId || '').trim());
+          loadNotifications().catch(() => {});
+        });
       return;
     }
+    await request;
     await loadNotifications();
   };
 
@@ -9514,10 +9542,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const activateOverviewViewInstantly = () => {
     let rendered = false;
-    if (!DASHBOARD_FORCE_FRESH_LOAD && state.overview.data) {
+    if (state.overview.data) {
       renderOverview(state.overview.data);
       rendered = true;
-    } else if (!DASHBOARD_FORCE_FRESH_LOAD) {
+    } else {
       const cached = readOverviewCache(state.overview.year);
       if (cached) {
         state.overview.loadedAt = Date.now();
@@ -9525,7 +9553,7 @@ document.addEventListener('DOMContentLoaded', () => {
         rendered = true;
       }
     }
-    if (!DASHBOARD_FORCE_FRESH_LOAD && !rendered) {
+    if (!rendered) {
       restoreViewClientCache('overview', overviewClientCacheKey(state.overview.year), (data, cache) => {
         if (state.activeView !== 'overview') return;
         applyOverviewData(data, { loadedAt: cache.savedAt || Date.now() });
@@ -9534,19 +9562,20 @@ document.addEventListener('DOMContentLoaded', () => {
     if (isBrowserOnline()) {
       return {
         rendered,
-        refreshPromise: loadOverviewSafely({
-          force: true,
-          preferStale: false,
-          background: !DASHBOARD_FORCE_FRESH_LOAD,
-          useCache: !DASHBOARD_FORCE_FRESH_LOAD
-        })
+        refreshPromise: DASHBOARD_FORCE_FRESH_LOAD
+          ? Promise.resolve(false)
+          : loadOverviewSafely({
+              force: true,
+              preferStale: false,
+              background: true,
+              useCache: true
+            })
       };
     }
     return { rendered, refreshPromise: Promise.resolve(false) };
   };
 
   const restoreHomeFromCache = () => {
-    if (DASHBOARD_FORCE_FRESH_LOAD) return false;
     const cached = readHomeCache();
     if (!cached) return false;
     state.home.loadedAt = Date.now();
@@ -9571,12 +9600,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (isBrowserOnline()) {
       return {
         rendered: restored,
-        refreshPromise: loadHomeSafely({
-          force: true,
-          preferStale: false,
-          background: !DASHBOARD_FORCE_FRESH_LOAD,
-          useCache: !DASHBOARD_FORCE_FRESH_LOAD
-        })
+        refreshPromise: DASHBOARD_FORCE_FRESH_LOAD
+          ? Promise.resolve(false)
+          : loadHomeSafely({
+              force: true,
+              preferStale: false,
+              background: true,
+              useCache: true
+            })
       };
     }
     return { rendered: restored, refreshPromise: Promise.resolve(false) };
@@ -10008,13 +10039,15 @@ document.addEventListener('DOMContentLoaded', () => {
       finishLoader();
       connectLiveStream();
       scheduleBackgroundLoads();
-      scheduleWalletBackgroundRefresh({ force: true });
-      window.setTimeout(() => {
-        const syncStatus = state.overview.data?.sync_status;
-        if (syncStatus?.fresh === false || syncStatus?.status === 'missing') {
-          runAutomaticMarketplaceRefresh({ force: true }).catch(() => {});
-        }
-      }, 2500);
+      if (!DASHBOARD_FORCE_FRESH_LOAD) {
+        scheduleWalletBackgroundRefresh({ force: true });
+        window.setTimeout(() => {
+          const syncStatus = state.overview.data?.sync_status;
+          if (syncStatus?.fresh === false || syncStatus?.status === 'missing') {
+            runAutomaticMarketplaceRefresh({ force: true }).catch(() => {});
+          }
+        }, 2500);
+      }
     });
 
   overviewRefs.metricButtons.forEach((button) => {

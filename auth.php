@@ -44,6 +44,13 @@ function jg_admin_attempt_login(string $code): bool
     return true;
 }
 
+function jg_admin_release_session(): void
+{
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
+    }
+}
+
 function jg_admin_logout(): void
 {
     jg_admin_start_session();
@@ -60,6 +67,7 @@ function jg_admin_logout(): void
 function jg_admin_require_auth_json(): void
 {
     if (jg_admin_is_authenticated()) {
+        jg_admin_release_session();
         return;
     }
 

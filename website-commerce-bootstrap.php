@@ -182,6 +182,14 @@ function jg_website_ensure_schema(PDO $pdo): void
             KEY idx_website_order_items_sku (sku),
             CONSTRAINT fk_website_order_items_order FOREIGN KEY (website_order_id) REFERENCES website_orders(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+        'CREATE TABLE IF NOT EXISTS website_order_dismissals (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            order_id VARCHAR(40) NOT NULL,
+            reason VARCHAR(80) NOT NULL DEFAULT "admin_removed",
+            created_at DATETIME(6) NOT NULL,
+            UNIQUE KEY uniq_website_order_dismissal (order_id),
+            KEY idx_website_order_dismissals_created (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
         'CREATE TABLE IF NOT EXISTS website_metrics_outbox (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
             platform VARCHAR(40) NOT NULL,
@@ -614,25 +622,31 @@ function jg_website_order_remove(PDO $pdo, string $orderId): void
     if (trim($orderId) === '') {
         throw new InvalidArgumentException('Website order is required.');
     }
-    $pdo->beginTransaction();
+    jg_website_ensure_schema($pdo);
+    $stmt = $pdo->prepare('SELECT status, paid_at FROM website_orders WHERE order_id = :order_id LIMIT 1');
+    $stmt->execute([':order_id' => $orderId]);
+    $row = $stmt->fetch();
+    if (is_array($row) && (($row['status'] ?? '') !== 'PENDING_PAYMENT' || !empty($row['paid_at']))) {
+        throw new RuntimeException('Only unpaid orders can be removed.');
+    }
+
+    $now = jg_website_now();
+    $pdo->prepare(
+        'INSERT INTO website_order_dismissals (order_id, reason, created_at)
+         VALUES (:order_id, "admin_removed", :created_at)
+         ON DUPLICATE KEY UPDATE reason = VALUES(reason)'
+    )->execute([':order_id' => $orderId, ':created_at' => $now]);
+
     try {
-        $stmt = $pdo->prepare('SELECT * FROM website_orders WHERE order_id = :order_id FOR UPDATE');
-        $stmt->execute([':order_id' => $orderId]);
-        $row = $stmt->fetch();
-        if (!is_array($row)) {
-            $pdo->commit();
-            return;
-        }
-        if (($row['status'] ?? '') !== 'PENDING_PAYMENT' || !empty($row['paid_at'])) {
-            throw new RuntimeException('Only unpaid orders can be removed.');
-        }
-        $pdo->prepare('DELETE FROM website_orders WHERE id = :id')->execute([':id' => $row['id']]);
-        $pdo->commit();
+        $pdo->exec('SET SESSION innodb_lock_wait_timeout = 1');
+        $pdo->prepare(
+            'DELETE FROM website_orders
+             WHERE order_id = :order_id
+               AND status = "PENDING_PAYMENT"
+               AND paid_at IS NULL'
+        )->execute([':order_id' => $orderId]);
     } catch (Throwable $error) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
-        }
-        throw $error;
+        error_log('Website order delete deferred for ' . $orderId . ': ' . $error->getMessage());
     }
     analyticsTouchLiveState('website_order_removed');
 }
@@ -641,9 +655,11 @@ function jg_website_notifications(PDO $pdo): array
 {
     jg_website_ensure_schema($pdo);
     $rows = $pdo->query(
-        'SELECT * FROM website_orders
-         WHERE status IN ("PENDING_PAYMENT", "AWAITING_FULFILLMENT_SETUP")
-         ORDER BY created_at DESC, id DESC
+        'SELECT o.* FROM website_orders o
+         LEFT JOIN website_order_dismissals d ON d.order_id = o.order_id
+         WHERE o.status = "AWAITING_FULFILLMENT_SETUP"
+            OR (o.status = "PENDING_PAYMENT" AND d.order_id IS NULL)
+         ORDER BY o.created_at DESC, o.id DESC
          LIMIT 200'
     )->fetchAll();
     return array_map(static fn (array $row): array => jg_website_format_order(
