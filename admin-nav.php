@@ -519,7 +519,7 @@ function render_admin_sidebar(string $activeSection = ''): void
     ];
 
     echo '<button type="button" class="admin-mobile-rail-toggle" data-admin-rail-toggle aria-controls="admin-rail-nav" aria-expanded="false" aria-label="Open admin side panel" title="Open navigation">';
-    echo '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>';
+    echo '<svg viewBox="0 0 24 24" aria-hidden="true"><path class="admin-mobile-rail-menu-icon" d="M5 7h14M5 12h14M5 17h14"/><path class="admin-mobile-rail-close-icon" d="M6 6l12 12M18 6 6 18"/></svg>';
     echo '</button>';
     echo '<div class="admin-mobile-rail-backdrop" data-admin-rail-backdrop hidden></div>';
     echo '<aside class="admin-rail" id="admin-rail-nav" data-admin-rail aria-label="Admin navigation">';
