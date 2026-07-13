@@ -26,12 +26,12 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap">
     <link rel="stylesheet" href="../admin.css?v=<?php echo urlencode($adminCssVersion ?: '1'); ?>">
 </head>
-<body class="admin-body is-dashboard is-executive-dashboard is-profit-loss is-accounting">
+<body class="admin-body is-dashboard is-executive-dashboard is-accounting">
 <div class="admin-app admin-app-suite" data-accounting-page data-accounting-endpoint="../api/accounting/">
     <div class="admin-shell">
         <?php render_admin_sidebar('accounting'); ?>
         <div class="admin-shell-main">
-            <header class="admin-topbar profit-loss-topbar admin-accounting-topbar admin-finance-page-head">
+            <header class="admin-topbar admin-accounting-topbar admin-finance-page-head">
                 <div class="admin-topbar-brand">
                     <span class="admin-admin-mark">Finance operations</span>
                     <h1>Accounting</h1>
@@ -40,7 +40,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                 <?php render_admin_topbar_actions('accounting'); ?>
             </header>
 
-            <main class="profit-loss-layout admin-accounting-view" data-accounting-view>
+            <main class="admin-accounting-view" data-accounting-view>
                 <section class="admin-accounting-command" aria-label="Accounting controls">
                     <div class="admin-accounting-command-fields">
                         <button type="button" class="admin-ghost-btn admin-accounting-month-step" data-accounting-previous-month aria-label="Previous month">Previous</button>

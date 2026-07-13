@@ -103,7 +103,7 @@ function admin_quick_menu_definitions(): array
         ],
         'accounting' => [
             'href' => '../profit-loss/',
-            'icon' => 'profit-loss',
+            'icon' => 'accounting',
             'label' => 'Accounting',
             'description' => 'Cash, bills, expenses, and manual finance control',
         ],
@@ -353,6 +353,10 @@ function admin_favicon_assets(): array
             'light' => '/assets/admin-icons/favicon-profit-loss-light.svg',
             'dark' => '/assets/admin-icons/favicon-profit-loss-dark.svg',
         ],
+        'accounting' => [
+            'light' => '/assets/admin-icons/favicon-accounting-light.svg',
+            'dark' => '/assets/admin-icons/favicon-accounting-dark.svg',
+        ],
         'back-dash' => [
             'light' => '/assets/admin-icons/favicon-back-dash-light.svg',
             'dark' => '/assets/admin-icons/favicon-back-dash-dark.svg',
@@ -386,8 +390,8 @@ function admin_normalize_favicon_key(string $key): string
         'partner-profiles' => 'partners',
         'api-health' => 'api',
         'sku' => 'sku-db',
-        'accounting' => 'profit-loss',
-        'cash-control' => 'profit-loss',
+        'accounting' => 'accounting',
+        'cash-control' => 'accounting',
         'p&l' => 'profit-loss',
         'profit-and-loss' => 'profit-loss',
     ];
@@ -416,8 +420,8 @@ function admin_dashboard_view_favicon_key(): string
         'campaigns' => 'campaigns',
         'context' => 'home',
         'website' => 'website',
-        'accounting' => 'profit-loss',
-        'cash-control' => 'profit-loss',
+        'accounting' => 'accounting',
+        'cash-control' => 'accounting',
         'profit-loss' => 'profit-loss',
         'profit_loss' => 'profit-loss',
         'hardset' => 'hard-set',
@@ -483,7 +487,7 @@ function render_admin_sidebar(string $activeSection = ''): void
             'key' => 'accounting',
             'href' => '../profit-loss/',
             'label' => 'Accounting',
-            'icon' => 'admin-rail-icon-profit-loss',
+            'icon' => 'admin-rail-icon-accounting',
             'aria' => 'Open accounting and cash control workspace',
         ],
         [
@@ -782,6 +786,7 @@ function admin_topbar_menu_icon(string $icon): string
         'calendar' => '<svg viewBox="0 0 24 24"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>',
         'orders' => '<svg viewBox="0 0 24 24"><path d="M13 16H8"/><path d="M14 8H8"/><path d="M16 12H8"/><path d="M4 3a1 1 0 0 1 1-1 1.3 1.3 0 0 1 .7.2l.933.6a1.3 1.3 0 0 0 1.4 0l.934-.6a1.3 1.3 0 0 1 1.4 0l.933.6a1.3 1.3 0 0 0 1.4 0l.933-.6a1.3 1.3 0 0 1 1.4 0l.934.6a1.3 1.3 0 0 0 1.4 0l.933-.6A1.3 1.3 0 0 1 19 2a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1 1.3 1.3 0 0 1-.7-.2l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.934.6a1.3 1.3 0 0 1-1.4 0l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-1.4 0l-.934-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-.7.2 1 1 0 0 1-1-1z"/></svg>',
         'wallet' => '<img src="https://cdn.jsdelivr.net/npm/lucide-static@0.468.0/icons/wallet.svg" alt="" width="21" height="21" loading="lazy" referrerpolicy="no-referrer">',
+        'accounting' => '<svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M7 9.5h.01M17 14.5h.01"/></svg>',
         'inventory-recap' => '<svg viewBox="0 0 24 24"><path d="M16 16h6"/><path d="m19 13 3 3-3 3"/><path d="M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l2-1.14"/><path d="m7.5 4.27 9 5.15"/><path d="M3.29 7 12 12l8.71-5"/><path d="M12 22V12"/></svg>',
         'campaigns' => '<svg viewBox="0 0 24 24"><path d="M11 6a13 13 0 0 0 8.4-2.8A1 1 0 0 1 21 4v12a1 1 0 0 1-1.6.8A13 13 0 0 0 11 14H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/><path d="M6 14a12 12 0 0 0 2.4 7.2 2 2 0 0 0 3.2-2.4A8 8 0 0 1 10 14"/><path d="M8 6v8"/></svg>',
         'profit-loss' => '<svg viewBox="0 0 24 24"><path d="M12 16v5"/><path d="M16 14.639V21"/><path d="M20 10.656V21"/><path d="m22 3-8.646 8.646a.5.5 0 0 1-.708 0L9.354 8.354a.5.5 0 0 0-.707 0L2 15"/><path d="M4 18.463V21"/><path d="M8 14.656V21"/></svg>',
