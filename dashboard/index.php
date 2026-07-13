@@ -30,7 +30,7 @@ if ($isAuthenticated) {
         exit;
     }
 }
-$dashboardBuildVersion = 'exec3.76.3';
+$dashboardBuildVersion = 'exec3.77.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -99,7 +99,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
             <strong class="admin-loader-label" data-admin-loader-label>Initializing...</strong>
         </div>
     </div>
-    <div class="admin-app admin-app-suite" data-admin-dashboard data-analytics-endpoint="../api/analytics/" data-live-endpoint="../api/live/" data-settings-endpoint="../api/settings/" data-sales-endpoint="../api/sales/" data-orders-endpoint="../api/orders/" data-wallet-endpoint="../api/wallet/" data-inventory-recap-endpoint="../api/inventory-recap/" data-sku-catalog-endpoint="../api/sales/?action=sku_catalog" data-context-endpoint="../api/context/" data-zero-store-endpoint="../api/zero-store/" data-jenang-gemi-store-endpoint="../api/jenang-gemi-store/" data-website-orders-endpoint="../api/website-orders/" data-hard-set-endpoint="../api/hard-set/" data-province-map-url="../assets/data/indonesia-38-provinces.geojson">
+    <div class="admin-app admin-app-suite" data-admin-dashboard data-analytics-endpoint="../api/analytics/" data-live-endpoint="../api/live/" data-settings-endpoint="../api/settings/" data-sales-endpoint="../api/sales/" data-orders-endpoint="../api/orders/" data-wallet-endpoint="../api/wallet/" data-inventory-recap-endpoint="../api/inventory-recap/" data-ads-endpoint="../api/ads/" data-sku-catalog-endpoint="../api/sales/?action=sku_catalog" data-context-endpoint="../api/context/" data-zero-store-endpoint="../api/zero-store/" data-jenang-gemi-store-endpoint="../api/jenang-gemi-store/" data-website-orders-endpoint="../api/website-orders/" data-hard-set-endpoint="../api/hard-set/" data-province-map-url="../assets/data/indonesia-38-provinces.geojson">
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
         <div class="admin-shell">
@@ -1003,6 +1003,118 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                         </div>
                     </article>
 
+                </section>
+                    </section>
+
+                    <section class="admin-view" data-view-panel="ad-view">
+                <section class="admin-ad-view-hero">
+                    <div>
+                        <span class="admin-chip admin-chip-accent">Ad View</span>
+                        <h2>Shopee advertising, compared in operating context.</h2>
+                        <p>Import campaigns from every connected Shopee account, compare matched periods, and mark the decisions that changed performance.</p>
+                    </div>
+                    <div class="admin-ad-view-hero-actions">
+                        <span class="admin-status-pill"><span class="admin-status-dot"></span><span data-ad-view-status>Waiting for first load</span></span>
+                        <button type="button" class="admin-primary-btn" data-ad-view-sync>Sync Shopee Ads</button>
+                    </div>
+                </section>
+
+                <section class="admin-ad-view-toolbar">
+                    <label><span>Account</span><select data-ad-view-account><option value="all">All Shopee accounts</option><option value="jenang-gemi-shopee">Jenang Gemi</option><option value="zero-shopee">ZERO</option><option value="zfit-shopee">ZFIT</option></select></label>
+                    <label><span>From</span><input type="date" data-ad-view-start-date></label>
+                    <label><span>To</span><input type="date" data-ad-view-end-date></label>
+                    <button type="button" class="admin-soft-btn" data-ad-view-load>Apply range</button>
+                </section>
+
+                <section class="admin-ad-view-kpis">
+                    <article><span>Ad credit</span><strong data-ad-view-kpi="balance">Rp0</strong><small>Paid + free Shopee credit</small></article>
+                    <article><span>Ad cost</span><strong data-ad-view-kpi="expense">Rp0</strong><small>Selected period</small></article>
+                    <article><span>Revenue after ad cost</span><strong data-ad-view-kpi="revenue-after-ads">Rp0</strong><small>Broad GMV minus ad spend</small></article>
+                    <article><span>Broad ROAS</span><strong data-ad-view-kpi="roas">0.00x</strong><small>Attributed revenue ÷ spend</small></article>
+                    <article><span>Internal budget left</span><strong data-ad-view-kpi="budget-left">Not set</strong><small>Monthly plan minus spend</small></article>
+                </section>
+
+                <section class="admin-ad-view-grid">
+                    <article class="admin-panel admin-ad-view-track-panel">
+                        <div class="admin-panel-head"><div><span class="admin-panel-kicker">Campaign Library</span><h3>Track a Shopee campaign ID</h3></div><span class="admin-panel-meta">Import-all happens during sync</span></div>
+                        <form class="admin-ad-view-track-form" data-ad-view-track-form>
+                            <label><span>Owning account</span><select name="account_key" data-ad-view-track-account required><option value="jenang-gemi-shopee">Jenang Gemi</option><option value="zero-shopee">ZERO</option><option value="zfit-shopee">ZFIT</option></select></label>
+                            <label><span>Campaign ID</span><input name="campaign_id" inputmode="numeric" placeholder="Shopee campaign ID" required></label>
+                            <label><span>Your name</span><input name="alias_name" placeholder="Example: Bubur payday scale test"></label>
+                            <button class="admin-primary-btn" type="submit">Track and populate</button>
+                        </form>
+                        <p class="admin-form-error" data-ad-view-form-error hidden></p>
+                    </article>
+
+                    <article class="admin-panel admin-ad-view-budget-panel">
+                        <div class="admin-panel-head"><div><span class="admin-panel-kicker">Planning</span><h3>Internal monthly budget</h3></div></div>
+                        <form class="admin-ad-view-budget-form" data-ad-view-budget-form>
+                            <label><span>Account</span><select name="account_key" data-ad-view-budget-account required><option value="jenang-gemi-shopee">Jenang Gemi</option><option value="zero-shopee">ZERO</option><option value="zfit-shopee">ZFIT</option></select></label>
+                            <label><span>Month</span><input type="month" name="budget_month" required></label>
+                            <label><span>Budget (Rp)</span><input type="number" min="0" step="1000" name="monthly_budget" placeholder="5000000" required></label>
+                            <button class="admin-soft-btn" type="submit">Save budget</button>
+                        </form>
+                    </article>
+                </section>
+
+                <section class="admin-panel admin-ad-view-compare-panel">
+                    <div class="admin-panel-head">
+                        <div><span class="admin-panel-kicker">Matched Comparison</span><h3>Old ad versus new ad</h3></div>
+                        <span class="admin-panel-meta" data-ad-view-compare-meta>Choose two campaigns</span>
+                    </div>
+                    <div class="admin-ad-view-compare-controls">
+                        <label><span>Old / baseline</span><select data-ad-view-compare-a></select></label>
+                        <span class="admin-ad-view-versus">VS</span>
+                        <label><span>New / challenger</span><select data-ad-view-compare-b></select></label>
+                    </div>
+                    <div class="admin-ad-view-scorecard" data-ad-view-scorecard>
+                        <p class="admin-empty">Select two campaigns to compare daily averages.</p>
+                    </div>
+                    <p class="admin-ad-view-disclaimer">“Revenue after ad cost” is a decision proxy: attributed broad GMV minus advertising spend. It is not gross profit because product cost, marketplace fees, discounts, shipping, and other expenses are not included.</p>
+                </section>
+
+                <section class="admin-main-grid">
+                    <article class="admin-panel admin-panel-wide">
+                        <div class="admin-panel-head"><div><span class="admin-panel-kicker">Trend</span><h3 data-ad-view-trend-title>Campaign performance over time</h3></div><span class="admin-panel-meta">Action markers appear on the campaign timeline</span></div>
+                        <div class="admin-panel-inline-toggles" data-ad-view-metric-controls>
+                            <button type="button" class="admin-toggle-pill is-active" data-ad-view-metric="broad_gmv">Revenue</button>
+                            <button type="button" class="admin-toggle-pill" data-ad-view-metric="expense">Ad cost</button>
+                            <button type="button" class="admin-toggle-pill" data-ad-view-metric="broad_orders">Orders</button>
+                            <button type="button" class="admin-toggle-pill" data-ad-view-metric="clicks">Clicks</button>
+                            <button type="button" class="admin-toggle-pill" data-ad-view-metric="broad_roas">ROAS</button>
+                        </div>
+                        <div class="admin-chart-surface"><canvas class="admin-chart-canvas admin-chart-canvas-lg" data-ad-view-chart width="1200" height="360"></canvas></div>
+                    </article>
+
+                    <article class="admin-panel admin-ad-view-action-panel">
+                        <div class="admin-panel-head"><div><span class="admin-panel-kicker">Decision Log</span><h3>Add an action marker</h3></div></div>
+                        <form class="admin-ad-view-action-form" data-ad-view-action-form>
+                            <label><span>Campaign</span><select name="campaign_key" data-ad-view-action-campaign required></select></label>
+                            <label><span>Action</span><select name="event_type"><option value="budget">Budget changed</option><option value="bid">Bid changed</option><option value="roas_target">ROAS target changed</option><option value="keyword">Keyword changed</option><option value="listing">Listing changed</option><option value="price">Price or voucher changed</option><option value="stock">Stock event</option><option value="promotion">Marketplace promotion</option><option value="note">Other note</option></select></label>
+                            <label><span>When</span><input type="datetime-local" name="event_at" required></label>
+                            <label class="admin-ad-view-field-wide"><span>Title</span><input name="title" placeholder="Budget increased for payday test" required></label>
+                            <label><span>Before</span><input name="before_value" placeholder="Rp100,000/day"></label>
+                            <label><span>After</span><input name="after_value" placeholder="Rp175,000/day"></label>
+                            <label class="admin-ad-view-field-wide"><span>Tags</span><input name="tags" placeholder="payday, scale-test, voucher"></label>
+                            <label class="admin-ad-view-field-wide"><span>Notes</span><textarea name="note" rows="3" placeholder="Reason, hypothesis, or external context"></textarea></label>
+                            <button class="admin-primary-btn" type="submit">Add to timeline</button>
+                        </form>
+                    </article>
+
+                    <article class="admin-panel admin-ad-view-events-panel">
+                        <div class="admin-panel-head"><div><span class="admin-panel-kicker">Timeline</span><h3>Actions in this period</h3></div></div>
+                        <div class="admin-event-feed" data-ad-view-events><p class="admin-empty">No actions recorded in this period.</p></div>
+                    </article>
+                </section>
+
+                <section class="admin-panel admin-ad-view-library-panel">
+                    <div class="admin-panel-head"><div><span class="admin-panel-kicker">All Imported Campaigns</span><h3>Names, tags, status, and performance</h3></div><span class="admin-panel-meta" data-ad-view-library-meta>0 campaigns</span></div>
+                    <div class="admin-table-wrap">
+                        <table class="admin-table admin-ad-view-table">
+                            <thead><tr><th>Campaign</th><th>Account</th><th>Status</th><th>Placement</th><th>Spend</th><th>Revenue</th><th>ROAS</th><th>Tags</th></tr></thead>
+                            <tbody data-ad-view-library><tr><td colspan="8" class="admin-empty">Sync Shopee Ads to populate the library.</td></tr></tbody>
+                        </table>
+                    </div>
                 </section>
                     </section>
 

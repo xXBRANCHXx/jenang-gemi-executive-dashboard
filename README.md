@@ -6,6 +6,7 @@ Private admin dashboard for `admin.jenanggemi.com` behind a public Launch Pad.
 
 - `/` public Launch Pad
 - `/dashboard/`
+- `/dashboard/?view=ad-view`
 - `/api-health/`
 - `/profit-loss/` (Accounting workspace)
 - `/profit-and-loss/` (executive P&L report)
@@ -18,6 +19,7 @@ Private admin dashboard for `admin.jenanggemi.com` behind a public Launch Pad.
 - `/api/wallet/` (authenticated marketplace settlement wallet summary, account lookup, and terminal query)
 - `/api/api-health/`
 - `/api/accounting/`
+- `/api/ads/`
 - `/api/profit-loss/`
 - `/api/sku-db/`
 - `/api/partner-db-status/`

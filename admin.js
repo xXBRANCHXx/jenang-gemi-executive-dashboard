@@ -282,6 +282,22 @@ const WEBSITE_METRIC_UNITS = {
   checkout_clicks: 'checkout clicks'
 };
 
+const AD_VIEW_METRIC_UNITS = {
+  broad_gmv: 'idr',
+  expense: 'idr',
+  broad_orders: 'orders',
+  clicks: 'clicks',
+  broad_roas: 'x'
+};
+
+const AD_VIEW_METRIC_LABELS = {
+  broad_gmv: 'Attributed revenue',
+  expense: 'Ad cost',
+  broad_orders: 'Attributed orders',
+  clicks: 'Clicks',
+  broad_roas: 'Broad ROAS'
+};
+
 const WEBSITE_SITE_LABELS = {
   jenang_gemi: {
     title: 'jenanggemi.com',
@@ -415,6 +431,14 @@ const JENANG_GEMI_SEARCH_INDEX = [
     url: '../dashboard/?view=campaigns',
     view: 'home',
     keywords: ['admin', 'dashboard', 'analytics', 'executive', 'landing pages', 'campaign landing', 'campaigns']
+  },
+  {
+    title: 'Ad View',
+    section: 'Admin',
+    description: 'Compare Shopee Ads across accounts and annotate performance-changing actions.',
+    url: '../dashboard/?view=ad-view',
+    view: 'ad-view',
+    keywords: ['shopee ads', 'advertising', 'campaign id', 'roas', 'ad spend', 'ad comparison', 'rocket']
   },
   {
     title: 'Official Website Dashboard',
@@ -681,6 +705,27 @@ const filterElapsedMonthlyRows = (rows, date = new Date()) => {
     const rowKey = String(row?.key || '');
     return /^\d{4}-\d{2}$/.test(rowKey) ? rowKey <= currentMonthKey : true;
   });
+};
+
+const getDateKeyForTimezone = (date = new Date(), timezone = DASHBOARD_TIMEZONE) => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(date).reduce((result, part) => {
+    result[part.type] = part.value;
+    return result;
+  }, {});
+  return `${parts.year}-${parts.month}-${parts.day}`;
+};
+
+const jgValidMonthKey = (value) => {
+  const match = String(value || '').match(/^(\d{4})-(\d{2})$/);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  return Number.isFinite(year) && year >= 2024 && year <= 2100 && month >= 1 && month <= 12;
 };
 
 const createAnalyticsDeviceId = () => {
@@ -2237,6 +2282,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	    'inventory-recap': 'inventory-recap',
 	    daily: 'daily',
 	    day: 'daily',
+    ads: 'ad-view',
+    ad_view: 'ad-view',
+    'shopee-ads': 'ad-view',
     'daily-report': 'daily',
     ops: 'store-ops',
     'store-ops': 'store-ops',
@@ -2247,7 +2295,7 @@ document.addEventListener('DOMContentLoaded', () => {
     hardset: 'hard-set',
     'big-set': 'hard-set'
   };
-	  const validViews = new Set(['overview', 'orders', 'wallet', 'inventory-recap', 'daily', 'store-ops', 'context', 'home', 'website', 'hard-set', 'settings']);
+	  const validViews = new Set(['overview', 'orders', 'wallet', 'inventory-recap', 'daily', 'store-ops', 'context', 'home', 'ad-view', 'website', 'hard-set', 'settings']);
   const quickMenuContextByView = {
 	    overview: 'overview',
 	    daily: 'daily',
@@ -2255,6 +2303,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    wallet: 'wallet',
 	    'inventory-recap': 'inventory-recap',
 	    home: 'campaigns',
+    'ad-view': 'ad-view',
     context: 'context',
     website: 'website',
     'hard-set': 'hard-set',
@@ -2305,6 +2354,10 @@ document.addEventListener('DOMContentLoaded', () => {
     campaigns: {
       light: '/assets/admin-icons/favicon-campaigns-light.svg',
       dark: '/assets/admin-icons/favicon-campaigns-dark.svg'
+    },
+    'ad-view': {
+      light: 'https://api.iconify.design/lucide:rocket.svg?color=%230f172a',
+      dark: 'https://api.iconify.design/lucide:rocket.svg?color=%23ffffff'
     },
     website: {
       light: '/assets/admin-icons/favicon-website-light.svg',
@@ -2466,6 +2519,17 @@ document.addEventListener('DOMContentLoaded', () => {
       loadedAt: 0,
       requestToken: 0
     },
+    adView: {
+      account: 'all',
+      startDate: getDateKeyForTimezone(new Date(Date.now() - (29 * 86400000))),
+      endDate: getDateKeyForTimezone(),
+      metric: 'broad_gmv',
+      compareA: '',
+      compareB: '',
+      data: null,
+      loadedAt: 0,
+      requestToken: 0
+    },
     website: {
       timeframe: '7d',
       metric: 'visitors',
@@ -2529,6 +2593,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const liveEndpoint = root.dataset.liveEndpoint || './live/';
   const settingsEndpoint = root.dataset.settingsEndpoint || './settings/';
   const salesEndpoint = root.dataset.salesEndpoint || './sales/';
+  const adsEndpoint = root.dataset.adsEndpoint || './ads/';
   const skuCatalogEndpoint = root.dataset.skuCatalogEndpoint || `${salesEndpoint}?action=sku_catalog`;
   const contextEndpoint = root.dataset.contextEndpoint || './context/';
   const zeroStoreEndpoint = root.dataset.zeroStoreEndpoint || '../api/zero-store/';
@@ -2735,6 +2800,51 @@ document.addEventListener('DOMContentLoaded', () => {
     metricButtons: document.querySelectorAll('[data-home-metric]'),
     seriesButtons: document.querySelectorAll('[data-home-series]')
   };
+
+  const adViewRefs = {
+    status: document.querySelector('[data-ad-view-status]'),
+    sync: document.querySelector('[data-ad-view-sync]'),
+    load: document.querySelector('[data-ad-view-load]'),
+    account: document.querySelector('[data-ad-view-account]'),
+    startDate: document.querySelector('[data-ad-view-start-date]'),
+    endDate: document.querySelector('[data-ad-view-end-date]'),
+    trackForm: document.querySelector('[data-ad-view-track-form]'),
+    trackAccount: document.querySelector('[data-ad-view-track-account]'),
+    budgetForm: document.querySelector('[data-ad-view-budget-form]'),
+    budgetAccount: document.querySelector('[data-ad-view-budget-account]'),
+    actionForm: document.querySelector('[data-ad-view-action-form]'),
+    actionCampaign: document.querySelector('[data-ad-view-action-campaign]'),
+    formError: document.querySelector('[data-ad-view-form-error]'),
+    compareA: document.querySelector('[data-ad-view-compare-a]'),
+    compareB: document.querySelector('[data-ad-view-compare-b]'),
+    compareMeta: document.querySelector('[data-ad-view-compare-meta]'),
+    scorecard: document.querySelector('[data-ad-view-scorecard]'),
+    chart: document.querySelector('[data-ad-view-chart]'),
+    trendTitle: document.querySelector('[data-ad-view-trend-title]'),
+    metricButtons: document.querySelectorAll('[data-ad-view-metric]'),
+    events: document.querySelector('[data-ad-view-events]'),
+    library: document.querySelector('[data-ad-view-library]'),
+    libraryMeta: document.querySelector('[data-ad-view-library-meta]'),
+    kpis: {
+      balance: document.querySelector('[data-ad-view-kpi="balance"]'),
+      expense: document.querySelector('[data-ad-view-kpi="expense"]'),
+      revenueAfterAds: document.querySelector('[data-ad-view-kpi="revenue-after-ads"]'),
+      roas: document.querySelector('[data-ad-view-kpi="roas"]'),
+      budgetLeft: document.querySelector('[data-ad-view-kpi="budget-left"]')
+    }
+  };
+
+  const adViewBudgetMonthInput = adViewRefs.budgetForm?.querySelector('[name="budget_month"]');
+  if (adViewBudgetMonthInput) adViewBudgetMonthInput.value = getMonthKeyForTimezone();
+  if (adViewRefs.startDate) adViewRefs.startDate.value = state.adView.startDate;
+  if (adViewRefs.endDate) adViewRefs.endDate.value = state.adView.endDate;
+  const setAdViewEventTimeDefault = () => {
+    const input = adViewRefs.actionForm?.querySelector('[name="event_at"]');
+    if (!input || input.value) return;
+    const now = new Date(Date.now() - (new Date().getTimezoneOffset() * 60000));
+    input.value = now.toISOString().slice(0, 16);
+  };
+  setAdViewEventTimeDefault();
 
   const websiteRefs = {
     header: document.querySelector('[data-website-header]'),
@@ -3153,7 +3263,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        const requestError = new Error(payload.error || `HTTP ${response.status}`);
+        const requestError = new Error(payload.message || payload.error || `HTTP ${response.status}`);
         requestError.status = response.status;
         requestError.payload = payload;
         throw requestError;
@@ -3907,6 +4017,7 @@ document.addEventListener('DOMContentLoaded', () => {
       'store-ops': 'Ops',
       context: 'Open Context',
       home: 'Campaigns Dashboard',
+      'ad-view': 'Ad View',
       website: 'Official Website Dashboard',
       'hard-set': 'Hard Set',
       settings: 'Settings'
@@ -3920,6 +4031,7 @@ document.addEventListener('DOMContentLoaded', () => {
       'store-ops': 'orders',
       context: 'home',
       home: 'campaigns',
+      'ad-view': 'ad-view',
       website: 'website',
       'hard-set': 'hard-set',
       settings: 'settings'
@@ -9209,6 +9321,269 @@ document.addEventListener('DOMContentLoaded', () => {
     renderSkuOrderTree();
   };
 
+  const adViewCampaignKey = (accountKey, campaignId) => `${accountKey}:${campaignId}`;
+
+  const getAdViewCampaigns = () => (state.adView.data?.accounts || []).flatMap((account) =>
+    (account.campaigns || []).map((campaign) => ({
+      ...campaign,
+      account_key: account.account_key,
+      company: account.company || account.account_key,
+      campaign_key: adViewCampaignKey(account.account_key, campaign.campaign_id)
+    }))
+  );
+
+  const getAdViewMetrics = () => (state.adView.data?.accounts || []).flatMap((account) =>
+    (account.metrics || []).map((metric) => ({
+      ...metric,
+      account_key: account.account_key,
+      campaign_key: adViewCampaignKey(account.account_key, metric.campaign_id)
+    }))
+  );
+
+  const aggregateAdViewMetrics = (rows) => {
+    const result = {
+      impressions: 0,
+      clicks: 0,
+      expense: 0,
+      broad_orders: 0,
+      broad_items: 0,
+      broad_gmv: 0,
+      direct_orders: 0,
+      direct_items: 0,
+      direct_gmv: 0
+    };
+    rows.forEach((row) => {
+      Object.keys(result).forEach((key) => {
+        result[key] += Number(row[key] || 0);
+      });
+    });
+    result.ctr = result.impressions > 0 ? result.clicks / result.impressions * 100 : 0;
+    result.cost_per_click = result.clicks > 0 ? result.expense / result.clicks : 0;
+    result.cost_per_order = result.broad_orders > 0 ? result.expense / result.broad_orders : 0;
+    result.broad_roas = result.expense > 0 ? result.broad_gmv / result.expense : 0;
+    result.direct_roas = result.expense > 0 ? result.direct_gmv / result.expense : 0;
+    result.revenue_after_ads = result.broad_gmv - result.expense;
+    return result;
+  };
+
+  const getAdViewElapsedDays = () => {
+    const start = new Date(`${state.adView.startDate}T00:00:00+07:00`);
+    const endIsToday = state.adView.endDate === getDateKeyForTimezone();
+    const end = endIsToday ? new Date() : new Date(`${state.adView.endDate}T24:00:00+07:00`);
+    return Math.max(1 / 24, (end.getTime() - start.getTime()) / 86400000);
+  };
+
+  const formatAdViewRate = (value, type, days) => {
+    if (type === 'money') return `${formatCurrency(Number(value) / days)}/day`;
+    if (type === 'roas') return `${Number(value || 0).toFixed(2)}x`;
+    return `${(Number(value) / days).toLocaleString('id-ID', { maximumFractionDigits: 1 })}/day`;
+  };
+
+  const renderAdViewScorecard = () => {
+    if (!adViewRefs.scorecard) return;
+    const campaigns = getAdViewCampaigns();
+    const metrics = getAdViewMetrics();
+    const campaignA = campaigns.find((campaign) => campaign.campaign_key === state.adView.compareA);
+    const campaignB = campaigns.find((campaign) => campaign.campaign_key === state.adView.compareB);
+    if (!campaignA || !campaignB || campaignA.campaign_key === campaignB.campaign_key) {
+      adViewRefs.scorecard.innerHTML = '<p class="admin-empty">Select two different campaigns to compare daily averages.</p>';
+      if (adViewRefs.compareMeta) adViewRefs.compareMeta.textContent = 'Choose two campaigns';
+      return;
+    }
+    const a = aggregateAdViewMetrics(metrics.filter((row) => row.campaign_key === campaignA.campaign_key));
+    const b = aggregateAdViewMetrics(metrics.filter((row) => row.campaign_key === campaignB.campaign_key));
+    const days = getAdViewElapsedDays();
+    const definitions = [
+      { key: 'broad_items', label: 'Units sold', note: 'Products sold after interacting with the ad', type: 'count', higherIsBetter: true },
+      { key: 'broad_orders', label: 'Attributed orders', note: 'Shop orders attributed to the ad', type: 'count', higherIsBetter: true },
+      { key: 'broad_gmv', label: 'Revenue', note: 'Sales attributed to the ad', type: 'money', higherIsBetter: true },
+      { key: 'expense', label: 'Ad cost', note: 'Shown separately so higher spend is not mistaken for efficiency', type: 'money', higherIsBetter: false, cost: true },
+      { key: 'revenue_after_ads', label: 'Revenue after ad cost', note: 'Attributed revenue minus advertising spend', type: 'money', higherIsBetter: true },
+      { key: 'broad_roas', label: 'Broad ROAS', note: 'Attributed revenue divided by advertising spend', type: 'roas', higherIsBetter: true }
+    ];
+    adViewRefs.scorecard.innerHTML = definitions.map((definition) => {
+      const oldValue = Number(a[definition.key] || 0);
+      const newValue = Number(b[definition.key] || 0);
+      const delta = oldValue !== 0 ? ((newValue - oldValue) / Math.abs(oldValue)) * 100 : (newValue > 0 ? 100 : 0);
+      const favorable = definition.higherIsBetter ? delta >= 0 : delta <= 0;
+      const max = Math.max(Math.abs(oldValue), Math.abs(newValue), 1);
+      const oldWidth = Math.max(1, Math.abs(oldValue) / max * 100);
+      const newWidth = Math.max(1, Math.abs(newValue) / max * 100);
+      const deltaText = definition.cost
+        ? `${delta >= 0 ? '+' : ''}${Math.round(delta)}% ${delta >= 0 ? 'higher' : 'lower'}`
+        : `${delta >= 0 ? '+' : ''}${Math.round(delta)}%`;
+      return `
+        <section class="admin-ad-score-row${definition.cost ? ' is-cost' : ''}">
+          <div class="admin-ad-score-head">
+            <div><strong>${escapeHtml(definition.label)}</strong><small>${escapeHtml(definition.note)}</small></div>
+            <span class="admin-ad-score-delta${favorable ? '' : ' is-negative'}${definition.cost ? ' is-cost' : ''}">${escapeHtml(deltaText)}</span>
+          </div>
+          <div class="admin-ad-score-line"><span>Old ad</span><span class="admin-ad-score-track"><i class="admin-ad-score-fill" style="width:${oldWidth}%"></i></span><b>${escapeHtml(formatAdViewRate(oldValue, definition.type, days))}</b></div>
+          <div class="admin-ad-score-line is-new"><span>New ad</span><span class="admin-ad-score-track"><i class="admin-ad-score-fill" style="width:${newWidth}%"></i></span><b>${escapeHtml(formatAdViewRate(newValue, definition.type, days))}</b></div>
+        </section>
+      `;
+    }).join('');
+    if (adViewRefs.compareMeta) {
+      adViewRefs.compareMeta.textContent = `${campaignA.display_name} vs ${campaignB.display_name} • ${days.toFixed(2)} elapsed days`;
+    }
+  };
+
+  const renderAdViewChart = () => {
+    if (!adViewRefs.chart) return;
+    const campaigns = getAdViewCampaigns();
+    const metrics = getAdViewMetrics();
+    const campaignA = campaigns.find((campaign) => campaign.campaign_key === state.adView.compareA);
+    const campaignB = campaigns.find((campaign) => campaign.campaign_key === state.adView.compareB);
+    const eventDates = new Set((state.adView.data?.events || [])
+      .filter((event) => [state.adView.compareA, state.adView.compareB].includes(adViewCampaignKey(event.account_key, event.campaign_id)))
+      .map((event) => String(event.event_at || '').slice(0, 10)));
+    const dates = [...new Set(metrics.map((row) => row.metric_date))].sort();
+    const rows = dates.map((date) => {
+      const a = metrics.find((row) => row.metric_date === date && row.campaign_key === state.adView.compareA) || {};
+      const b = metrics.find((row) => row.metric_date === date && row.campaign_key === state.adView.compareB) || {};
+      return { label: `${date.slice(5)}${eventDates.has(date) ? ' ★' : ''}`, a, b };
+    });
+    drawMultiLineChart(adViewRefs.chart, rows, state.adView.metric, AD_VIEW_METRIC_UNITS, [
+      { key: 'a', label: campaignA?.display_name || 'Old ad', color: '#77766f', visible: Boolean(campaignA) },
+      { key: 'b', label: campaignB?.display_name || 'New ad', color: '#00d389', visible: Boolean(campaignB) }
+    ]);
+    if (adViewRefs.trendTitle) adViewRefs.trendTitle.textContent = `${AD_VIEW_METRIC_LABELS[state.adView.metric] || 'Performance'} over time`;
+  };
+
+  const renderAdViewEvents = () => {
+    if (!adViewRefs.events) return;
+    const campaigns = getAdViewCampaigns();
+    const campaignMap = new Map(campaigns.map((campaign) => [campaign.campaign_key, campaign]));
+    const metricRows = getAdViewMetrics();
+    const events = (state.adView.data?.events || []).filter((event) =>
+      state.adView.account === 'all' || event.account_key === state.adView.account
+    );
+    if (!events.length) {
+      adViewRefs.events.innerHTML = '<p class="admin-empty">No actions recorded in this period.</p>';
+      return;
+    }
+    adViewRefs.events.innerHTML = events.map((event) => {
+      const key = adViewCampaignKey(event.account_key, event.campaign_id);
+      const campaign = campaignMap.get(key);
+      const eventDate = String(event.event_at || '').slice(0, 10);
+      const eventMs = new Date(`${eventDate}T00:00:00+07:00`).getTime();
+      const beforeStart = getDateKeyForTimezone(new Date(eventMs - (3 * 86400000)));
+      const afterEnd = getDateKeyForTimezone(new Date(eventMs + (2 * 86400000)));
+      const campaignRows = metricRows.filter((row) => row.campaign_key === key);
+      const before = aggregateAdViewMetrics(campaignRows.filter((row) => row.metric_date >= beforeStart && row.metric_date < eventDate));
+      const after = aggregateAdViewMetrics(campaignRows.filter((row) => row.metric_date >= eventDate && row.metric_date <= afterEnd));
+      const deltaPercent = (next, previous) => previous !== 0 ? (next - previous) / Math.abs(previous) * 100 : (next > 0 ? 100 : 0);
+      const impact = (before.expense > 0 || after.expense > 0)
+        ? `<p><strong>3-day associated change:</strong> revenue ${deltaPercent(after.broad_gmv, before.broad_gmv) >= 0 ? '+' : ''}${Math.round(deltaPercent(after.broad_gmv, before.broad_gmv))}%, ad cost ${deltaPercent(after.expense, before.expense) >= 0 ? '+' : ''}${Math.round(deltaPercent(after.expense, before.expense))}%, ROAS ${deltaPercent(after.broad_roas, before.broad_roas) >= 0 ? '+' : ''}${Math.round(deltaPercent(after.broad_roas, before.broad_roas))}%.</p>`
+        : '';
+      const beforeAfter = event.before_value || event.after_value
+        ? `<p>${escapeHtml(event.before_value || '—')} → ${escapeHtml(event.after_value || '—')}</p>` : '';
+      return `
+        <article class="admin-ad-view-event">
+          <div class="admin-ad-view-event-head"><div><strong>${escapeHtml(event.title)}</strong><small>${escapeHtml(campaign?.display_name || key)}</small></div><button type="button" class="admin-icon-btn" data-ad-view-delete-event="${event.id}" aria-label="Delete action">×</button></div>
+          <small>${escapeHtml(new Date(`${event.event_at.replace(' ', 'T')}+07:00`).toLocaleString('id-ID', { timeZone: state.timezone }))} • ${escapeHtml(event.event_type)}</small>
+          ${beforeAfter}${event.note ? `<p>${escapeHtml(event.note)}</p>` : ''}${impact}
+          <span class="admin-ad-view-tag">${escapeHtml(event.event_type)}</span>${(event.tags || []).map((tag) => `<span class="admin-ad-view-tag">${escapeHtml(tag)}</span>`).join('')}
+        </article>
+      `;
+    }).join('');
+  };
+
+  const renderAdView = (data) => {
+    state.adView.data = data;
+    const campaigns = getAdViewCampaigns();
+    const metrics = getAdViewMetrics();
+    const accountOptions = data.account_options || [];
+    const accountOptionHtml = accountOptions.map((account) => `<option value="${escapeHtml(account.key)}">${escapeHtml(account.label)}</option>`).join('');
+    if (adViewRefs.account) {
+      adViewRefs.account.innerHTML = `<option value="all">All Shopee accounts</option>${accountOptionHtml}`;
+      adViewRefs.account.value = state.adView.account;
+    }
+    [adViewRefs.trackAccount, adViewRefs.budgetAccount].forEach((select) => {
+      if (!select) return;
+      const previous = select.value;
+      select.innerHTML = accountOptionHtml;
+      select.value = previous && accountOptions.some((account) => account.key === previous) ? previous : (accountOptions[0]?.key || '');
+    });
+    if (adViewRefs.startDate) adViewRefs.startDate.value = state.adView.startDate;
+    if (adViewRefs.endDate) adViewRefs.endDate.value = state.adView.endDate;
+    const optionHtml = campaigns.map((campaign) => `<option value="${escapeHtml(campaign.campaign_key)}">${escapeHtml(campaign.display_name)} — ${escapeHtml(campaign.company)}</option>`).join('');
+    [adViewRefs.compareA, adViewRefs.compareB, adViewRefs.actionCampaign].forEach((select) => {
+      if (!select) return;
+      select.innerHTML = `<option value="">Choose campaign</option>${optionHtml}`;
+    });
+    if (!campaigns.some((campaign) => campaign.campaign_key === state.adView.compareA)) state.adView.compareA = campaigns[0]?.campaign_key || '';
+    if (!campaigns.some((campaign) => campaign.campaign_key === state.adView.compareB) || state.adView.compareB === state.adView.compareA) state.adView.compareB = campaigns[1]?.campaign_key || '';
+    if (adViewRefs.compareA) adViewRefs.compareA.value = state.adView.compareA;
+    if (adViewRefs.compareB) adViewRefs.compareB.value = state.adView.compareB;
+
+    const selectedAccounts = state.adView.account === 'all'
+      ? (data.accounts || [])
+      : (data.accounts || []).filter((account) => account.account_key === state.adView.account);
+    const aggregate = aggregateAdViewMetrics(selectedAccounts.flatMap((account) => account.metrics || []));
+    const balance = selectedAccounts.reduce((sum, account) => sum + Number(account.balance?.total_balance || 0), 0);
+    const monthSpend = selectedAccounts.reduce((sum, account) => sum + Number(account.month_to_date_expense || 0), 0);
+    const internalBudget = selectedAccounts.reduce((sum, account) => sum + Number(account.internal_monthly_budget || 0), 0);
+    if (adViewRefs.kpis.balance) adViewRefs.kpis.balance.textContent = formatCurrency(balance);
+    if (adViewRefs.kpis.expense) adViewRefs.kpis.expense.textContent = formatCurrency(aggregate.expense);
+    if (adViewRefs.kpis.revenueAfterAds) adViewRefs.kpis.revenueAfterAds.textContent = formatCurrency(aggregate.revenue_after_ads);
+    if (adViewRefs.kpis.roas) adViewRefs.kpis.roas.textContent = `${aggregate.broad_roas.toFixed(2)}x`;
+    if (adViewRefs.kpis.budgetLeft) adViewRefs.kpis.budgetLeft.textContent = internalBudget > 0 ? formatCurrency(internalBudget - monthSpend) : 'Not set';
+
+    const byCampaign = new Map(campaigns.map((campaign) => [campaign.campaign_key, aggregateAdViewMetrics(metrics.filter((row) => row.campaign_key === campaign.campaign_key))]));
+    if (adViewRefs.libraryMeta) adViewRefs.libraryMeta.textContent = `${campaigns.length.toLocaleString('id-ID')} campaigns across ${selectedAccounts.length} account${selectedAccounts.length === 1 ? '' : 's'}`;
+    if (adViewRefs.library) {
+      adViewRefs.library.innerHTML = campaigns.length ? campaigns.map((campaign) => {
+        const totals = byCampaign.get(campaign.campaign_key) || aggregateAdViewMetrics([]);
+        const tags = (campaign.tags || []).map((tag) => `<span class="admin-ad-view-tag">${escapeHtml(tag)}</span>`).join('');
+        const statusMuted = campaign.campaign_status !== 'ongoing';
+        return `<tr>
+          <td><div class="admin-ad-view-campaign-name"><strong>${escapeHtml(campaign.display_name)}</strong><small>${escapeHtml(campaign.source_ad_name || 'No Shopee name')} • ID ${escapeHtml(campaign.campaign_id)}</small><button type="button" class="admin-table-action" data-ad-view-edit="${escapeHtml(campaign.campaign_key)}">Edit name & tags</button></div></td>
+          <td>${escapeHtml(campaign.company)}</td><td><span class="admin-ad-view-status-chip${statusMuted ? ' is-muted' : ''}">${escapeHtml(campaign.campaign_status || 'unknown')}</span></td>
+          <td>${escapeHtml(campaign.campaign_placement || '—')}</td><td>${formatCurrency(totals.expense)}</td><td>${formatCurrency(totals.broad_gmv)}</td><td>${totals.broad_roas.toFixed(2)}x</td><td>${tags || '<span class="admin-empty">No tags</span>'}</td>
+        </tr>`;
+      }).join('') : '<tr><td colspan="8" class="admin-empty">Sync Shopee Ads to populate the library.</td></tr>';
+    }
+    if (adViewRefs.status) adViewRefs.status.textContent = `${campaigns.length} campaigns • Updated ${new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`;
+    renderAdViewScorecard();
+    renderAdViewChart();
+    renderAdViewEvents();
+  };
+
+  const buildAdViewUrl = () => {
+    const params = new URLSearchParams({ account: state.adView.account, start_date: state.adView.startDate, end_date: state.adView.endDate });
+    return `${adsEndpoint}?${params.toString()}`;
+  };
+
+  const loadAdView = async (options = {}) => {
+    if (!options.force && state.adView.data && isFresh(state.adView.loadedAt, 90 * 1000)) {
+      renderAdView(state.adView.data);
+      return;
+    }
+    const token = beginRequest('adView');
+    if (adViewRefs.status) adViewRefs.status.textContent = 'Loading stored Shopee Ads data…';
+    const data = await requestJson(buildAdViewUrl(), { cache: options.force ? 'no-store' : 'default' });
+    if (!isLatestRequest('adView', token)) return;
+    state.adView.loadedAt = Date.now();
+    renderAdView(data);
+  };
+
+  const syncAdView = async () => {
+    if (adViewRefs.status) adViewRefs.status.textContent = 'Syncing every connected Shopee account…';
+    if (adViewRefs.sync) adViewRefs.sync.disabled = true;
+    try {
+      const data = await requestJson(adsEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'sync', account_key: state.adView.account, start_date: state.adView.startDate, end_date: state.adView.endDate })
+      });
+      state.adView.loadedAt = Date.now();
+      renderAdView(data);
+    } finally {
+      if (adViewRefs.sync) adViewRefs.sync.disabled = false;
+    }
+  };
+
   const loadActiveView = async (options = {}) => {
 	    if (state.activeView === 'overview') {
 	      await loadOverview(options);
@@ -9239,6 +9614,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	    }
     if (state.activeView === 'home') {
       await loadHome(options);
+      return;
+    }
+    if (state.activeView === 'ad-view') {
+      await loadAdView(options);
       return;
     }
     if (state.activeView === 'website') {
@@ -9274,6 +9653,20 @@ document.addEventListener('DOMContentLoaded', () => {
       return true;
     } catch (error) {
       renderViewError('home', error);
+      return false;
+    }
+  };
+
+  const loadAdViewSafely = async (options = {}) => {
+    try {
+      await loadAdView(options);
+      return true;
+    } catch (error) {
+      if (adViewRefs.status) adViewRefs.status.textContent = `Ad View unavailable: ${error?.message || 'Unknown error'}`;
+      if (adViewRefs.formError) {
+        adViewRefs.formError.hidden = false;
+        adViewRefs.formError.textContent = error?.message || 'Unable to load Shopee Ads.';
+      }
       return false;
     }
   };
@@ -9332,6 +9725,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (state.activeView === 'home') {
       return loadHomeSafely(options);
     }
+    if (state.activeView === 'ad-view') {
+      return loadAdViewSafely(options);
+    }
     if (state.activeView === 'website') {
       if (state.website.screen === 'detail' && state.website.site) {
         return loadWebsiteSafely(options);
@@ -9378,6 +9774,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (view === 'inventory-recap') return loadInventoryRecapSafely(options);
     if (view === 'daily') return loadDailySafely(options);
     if (view === 'home') return loadHomeSafely(options);
+    if (view === 'ad-view') return loadAdViewSafely(options);
     if (view === 'website' && state.website.screen === 'detail' && state.website.site) return loadWebsiteSafely(options);
     if (view === 'settings') return loadWebsiteSettingsSafely(options);
     return Promise.resolve(false);
@@ -9452,6 +9849,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (state.activeView === 'wallet' && state.wallet.data) renderWallet(state.wallet.data);
 	    if (state.activeView === 'inventory-recap' && state.inventoryRecap.data) renderInventoryRecap(state.inventoryRecap.data);
 	    if (state.activeView === 'home' && state.home.data) renderHome(state.home.data);
+    if (state.activeView === 'ad-view' && state.adView.data) renderAdView(state.adView.data);
     if (state.activeView === 'website' && state.website.screen === 'detail' && state.website.data) renderWebsite(state.website.data);
   };
 
@@ -10695,6 +11093,152 @@ document.addEventListener('DOMContentLoaded', () => {
     if (state.activeView !== 'context' || !(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 's') return;
     event.preventDefault();
     saveContext();
+  });
+
+  const showAdViewError = (message = '') => {
+    if (!adViewRefs.formError) return;
+    adViewRefs.formError.hidden = message === '';
+    adViewRefs.formError.textContent = message;
+  };
+
+  adViewRefs.sync?.addEventListener('click', async () => {
+    showAdViewError();
+    try {
+      await syncAdView();
+    } catch (error) {
+      showAdViewError(error?.message || 'Unable to synchronize Shopee Ads.');
+      if (adViewRefs.status) adViewRefs.status.textContent = 'Sync failed';
+    }
+  });
+
+  adViewRefs.load?.addEventListener('click', async () => {
+    state.adView.startDate = adViewRefs.startDate?.value || state.adView.startDate;
+    state.adView.endDate = adViewRefs.endDate?.value || state.adView.endDate;
+    showAdViewError();
+    await loadAdViewSafely({ force: true });
+  });
+
+  adViewRefs.account?.addEventListener('change', async () => {
+    state.adView.account = adViewRefs.account?.value || 'all';
+    state.adView.compareA = '';
+    state.adView.compareB = '';
+    await loadAdViewSafely({ force: true });
+  });
+
+  adViewRefs.compareA?.addEventListener('change', () => {
+    state.adView.compareA = adViewRefs.compareA?.value || '';
+    renderAdViewScorecard();
+    renderAdViewChart();
+  });
+
+  adViewRefs.compareB?.addEventListener('change', () => {
+    state.adView.compareB = adViewRefs.compareB?.value || '';
+    renderAdViewScorecard();
+    renderAdViewChart();
+  });
+
+  adViewRefs.metricButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      state.adView.metric = button.dataset.adViewMetric || 'broad_gmv';
+      adViewRefs.metricButtons.forEach((entry) => entry.classList.toggle('is-active', entry === button));
+      renderAdViewChart();
+    });
+  });
+
+  adViewRefs.trackForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    showAdViewError();
+    const form = new FormData(adViewRefs.trackForm);
+    const submit = adViewRefs.trackForm.querySelector('[type="submit"]');
+    if (submit) submit.disabled = true;
+    try {
+      const data = await requestJson(adsEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'track_campaign',
+          account_key: form.get('account_key'),
+          campaign_id: form.get('campaign_id'),
+          alias_name: form.get('alias_name'),
+          start_date: state.adView.startDate,
+          end_date: state.adView.endDate
+        })
+      });
+      state.adView.account = String(form.get('account_key') || 'all');
+      state.adView.loadedAt = Date.now();
+      renderAdView(data);
+      adViewRefs.trackForm.reset();
+    } catch (error) {
+      showAdViewError(error?.message || 'Campaign ID could not be loaded from Shopee.');
+    } finally {
+      if (submit) submit.disabled = false;
+    }
+  });
+
+  adViewRefs.budgetForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = new FormData(adViewRefs.budgetForm);
+    showAdViewError();
+    try {
+      await requestJson(adsEndpoint, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set_budget', account_key: form.get('account_key'), budget_month: form.get('budget_month'), monthly_budget: form.get('monthly_budget') })
+      });
+      await loadAdViewSafely({ force: true });
+    } catch (error) {
+      showAdViewError(error?.message || 'Unable to save internal budget.');
+    }
+  });
+
+  adViewRefs.actionForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = new FormData(adViewRefs.actionForm);
+    const campaignKey = String(form.get('campaign_key') || '');
+    const separator = campaignKey.lastIndexOf(':');
+    if (separator <= 0) return;
+    const tags = String(form.get('tags') || '').split(',').map((tag) => tag.trim()).filter(Boolean);
+    showAdViewError();
+    try {
+      await requestJson(adsEndpoint, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'add_event', account_key: campaignKey.slice(0, separator), campaign_id: campaignKey.slice(separator + 1),
+          event_type: form.get('event_type'), event_at: form.get('event_at'), title: form.get('title'),
+          before_value: form.get('before_value'), after_value: form.get('after_value'), note: form.get('note'), tags
+        })
+      });
+      adViewRefs.actionForm.reset();
+      setAdViewEventTimeDefault();
+      await loadAdViewSafely({ force: true });
+    } catch (error) {
+      showAdViewError(error?.message || 'Unable to add action marker.');
+    }
+  });
+
+  adViewRefs.events?.addEventListener('click', async (event) => {
+    const button = event.target instanceof Element ? event.target.closest('[data-ad-view-delete-event]') : null;
+    if (!(button instanceof HTMLElement)) return;
+    await requestJson(adsEndpoint, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete_event', event_id: button.dataset.adViewDeleteEvent })
+    }).catch((error) => showAdViewError(error.message));
+    await loadAdViewSafely({ force: true });
+  });
+
+  adViewRefs.library?.addEventListener('click', async (event) => {
+    const button = event.target instanceof Element ? event.target.closest('[data-ad-view-edit]') : null;
+    if (!(button instanceof HTMLElement)) return;
+    const campaign = getAdViewCampaigns().find((entry) => entry.campaign_key === button.dataset.adViewEdit);
+    if (!campaign) return;
+    const aliasName = window.prompt('Dashboard name', campaign.alias_name || campaign.display_name);
+    if (aliasName === null) return;
+    const tagInput = window.prompt('Tags, separated by commas', (campaign.tags || []).join(', '));
+    if (tagInput === null) return;
+    await requestJson(adsEndpoint, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'save_campaign', account_key: campaign.account_key, campaign_id: campaign.campaign_id, alias_name: aliasName, tags: tagInput.split(',').map((tag) => tag.trim()).filter(Boolean) })
+    }).catch((error) => showAdViewError(error.message));
+    await loadAdViewSafely({ force: true });
   });
 
   document.querySelectorAll('[data-view-switch]').forEach((button) => {
