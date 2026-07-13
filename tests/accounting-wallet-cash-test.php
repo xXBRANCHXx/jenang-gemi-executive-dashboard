@@ -52,7 +52,10 @@ $pdo->exec('CREATE TABLE dashboard_wallet_platform_transactions (
 )');
 $pdo->exec('CREATE TABLE accounting_accounts (
     id INTEGER PRIMARY KEY,
+    account_key TEXT,
     type TEXT,
+    platform TEXT,
+    brand TEXT,
     is_spendable INTEGER
 )');
 $pdo->exec('CREATE TABLE accounting_transactions (
@@ -67,7 +70,8 @@ $pdo->exec('CREATE TABLE accounting_transactions (
     order_no TEXT,
     reference_no TEXT,
     invoice_no TEXT,
-    amount REAL
+    amount REAL,
+    transfer_fee_amount REAL DEFAULT 0
 )');
 $pdo->exec('CREATE TABLE website_orders (
     id INTEGER PRIMARY KEY,
@@ -82,10 +86,10 @@ $pdo->exec('CREATE TABLE website_orders (
     created_at TEXT
 )');
 
-$pdo->exec("INSERT INTO accounting_accounts (id, type, is_spendable) VALUES
-    (1, 'marketplace_wallet', 0),
-    (2, 'bank', 1),
-    (3, 'cash', 1)");
+$pdo->exec("INSERT INTO accounting_accounts (id, account_key, type, platform, brand, is_spendable) VALUES
+    (1, 'shopee-jg-wallet', 'marketplace_wallet', 'shopee', 'Jenang Gemi', 0),
+    (2, 'bca-main', 'bank', '', '', 1),
+    (3, 'cash-office', 'cash', '', '', 1)");
 $pdo->exec("INSERT INTO dashboard_wallet_releases (platform, account_key, amount, release_note, released_by, withdrawn_at, created_at, undone_at) VALUES
     ('shopee', 'jenang-gemi-shopee', 100000, 'bank cash-out', 'test', '2026-07-03 05:00:00', '2026-07-03 05:00:00', NULL),
     ('shopee', 'jenang-gemi-shopee', 30000, 'june cash-out', 'test', '2026-06-20 05:00:00', '2026-06-20 05:00:00', NULL),
@@ -124,5 +128,44 @@ accounting_expect(365000, $websiteContext['amount'], 'Automatic cash must combin
 
 $allCash = jg_accounting_automatic_usable_cash_context($pdo);
 accounting_expect(435000, $allCash['amount'], 'All-time automatic cash must combine all active wallet withdrawals and website paid orders.');
+
+$pdo->exec("INSERT INTO dashboard_wallet_platform_transactions
+    (platform, account_key, transaction_id, order_id, transaction_type, money_flow, amount, current_balance, transaction_at, raw_json) VALUES
+    ('shopee', 'jenang-gemi-shopee', 'later-independent-withdrawal', '', 'WITHDRAWAL_CREATED', 'MONEY_OUT', -60000, 0, '2026-07-20 05:00:00', '{}')");
+$laterWithdrawal = jg_accounting_wallet_usable_cash_context($pdo, '2026-07');
+accounting_expect(195000, $laterWithdrawal['amount'], 'A later withdrawal must not be hidden by an unrelated historical release from the same wallet.');
+
+accounting_expect(true, jg_accounting_is_wallet_platform_cash_out([
+    'amount' => -60000,
+    'transaction_type' => 'WITHDRAWAL_CREATED',
+    'money_flow' => 'MONEY_OUT',
+    'order_id' => '',
+]), 'Underscore-delimited platform withdrawal enums must count as cash-outs.');
+accounting_expect(false, jg_accounting_is_wallet_platform_cash_out([
+    'amount' => -60000,
+    'transaction_type' => 'PLATFORM_FEE_ADJUSTMENT',
+    'money_flow' => 'MONEY_FLOW_OUT',
+    'order_id' => '',
+]), 'Platform fees and adjustments must not become available bank cash.');
+
+$outstandingPdo = new PDO('sqlite::memory:');
+$outstandingPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$outstandingPdo->exec('CREATE TABLE dashboard_order_mirror (
+    order_item_hash TEXT, platform TEXT, account_key TEXT, order_id TEXT,
+    order_net_revenue REAL, funds_released INTEGER, funds_released_amount REAL,
+    status TEXT, funds_release_status TEXT, funds_release_source TEXT, deleted_at TEXT NULL
+)');
+$outstandingPdo->exec("INSERT INTO dashboard_order_mirror VALUES
+    ('open', 'shopee', 'jenang-gemi-shopee', 'OPEN-1', 70000, 0, 0, 'COMPLETED', '', '', NULL),
+    ('cancelled', 'shopee', 'jenang-gemi-shopee', 'CANCEL-1', 30000, 0, 0, 'CANCELLED', '', '', NULL),
+    ('released', 'shopee', 'jenang-gemi-shopee', 'PAID-1', 40000, 1, 40000, 'COMPLETED', 'COMPLETED', 'settlement_payload', NULL)");
+$outstanding = jg_accounting_marketplace_outstanding_context($outstandingPdo);
+accounting_expect(true, $outstanding['available'], 'Marketplace outstanding must report when its order mirror is available.');
+accounting_expect(70000, $outstanding['amount'], 'Marketplace outstanding must include only unreleased settling orders.');
+accounting_expect(1, $outstanding['order_count'], 'Marketplace outstanding order count must exclude released and cancelled orders.');
+
+$missingOutstanding = jg_accounting_marketplace_outstanding_context(new PDO('sqlite::memory:'));
+accounting_expect(false, $missingOutstanding['available'], 'A missing Wallet source must be reported as unavailable.');
+accounting_expect(null, $missingOutstanding['amount'], 'Unavailable outstanding cash must not masquerade as a legitimate zero.');
 
 echo "accounting-wallet-cash-test: ok\n";

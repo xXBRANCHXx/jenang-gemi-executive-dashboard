@@ -37,7 +37,11 @@ Private admin dashboard for `admin.jenanggemi.com` behind a public Launch Pad.
 - Accounting replaces the old Profit and Loss workspace at `/profit-loss/`.
   It controls cash, bills, expenses, transfers, manual money-in entries, and
   review queues through `/api/accounting/` without counting marketplace payout
-  transfers as new revenue.
+  transfers as new revenue. Cash Available combines spendable account balances,
+  confirmed website payments, and Wallet cash-outs; duplicate Wallet/manual
+  transfer evidence is reconciled by account, amount, and date. Marketplace
+  Receivable comes from unreleased settling orders and excludes released or
+  non-settling orders.
 - The repo also checks `/public_html/config.local.php` and
   `/public_html/whatsapp-config.local.php` to match common Hostinger setups.
 - Deployment-only secrets can override tracked settings through the ignored

@@ -804,7 +804,7 @@ function jg_accounting_account_balances(PDO $pdo): array
     }
 
     $outStmt = $pdo->query(
-        'SELECT account_id, direction, SUM(amount) AS total_amount
+        'SELECT account_id, direction, SUM(amount) AS total_amount, SUM(transfer_fee_amount) AS total_transfer_fee
          FROM accounting_transactions
          WHERE status = "posted" AND account_id IS NOT NULL
          GROUP BY account_id, direction'
@@ -812,6 +812,7 @@ function jg_accounting_account_balances(PDO $pdo): array
     foreach ($outStmt->fetchAll() as $row) {
         $id = (int) $row['account_id'];
         $amount = (int) round((float) ($row['total_amount'] ?? 0));
+        $transferFee = (int) round((float) ($row['total_transfer_fee'] ?? 0));
         if (!isset($balances[$id])) {
             $balances[$id] = 0;
         }
@@ -820,6 +821,7 @@ function jg_accounting_account_balances(PDO $pdo): array
         } elseif ($row['direction'] === 'money_out' || $row['direction'] === 'internal_transfer') {
             $balances[$id] -= $amount;
         }
+        $balances[$id] -= max(0, $transferFee);
     }
 
     $inStmt = $pdo->query(
@@ -838,12 +840,103 @@ function jg_accounting_account_balances(PDO $pdo): array
     return $balances;
 }
 
-function jg_accounting_marketplace_outstanding_context(): array
+function jg_accounting_marketplace_normalize_status(mixed $status): string
 {
+    return trim(preg_replace('/[^A-Z0-9]+/', '_', strtoupper((string) $status)) ?? '', '_');
+}
+
+function jg_accounting_marketplace_is_non_settling(mixed $status): bool
+{
+    return in_array(jg_accounting_marketplace_normalize_status($status), [
+        'CANCEL', 'CANCELED', 'CANCELLED', 'CANCELLED_BY_BUYER',
+        'CANCELLED_BY_SELLER', 'CANCELLED_BY_SYSTEM', 'REFUND', 'REFUNDED',
+        'RETURN', 'RETURNED', 'REJECTED', 'FAILED', 'EXPIRED', 'UNPAID',
+        'VOID', 'VOIDED',
+    ], true);
+}
+
+function jg_accounting_marketplace_release_is_trusted(array $row): bool
+{
+    if ((int) ($row['funds_released'] ?? 0) <= 0) {
+        return false;
+    }
+
+    $platform = strtolower(trim((string) ($row['platform'] ?? '')));
+    if ($platform !== 'shopee') {
+        return true;
+    }
+
+    $sourceRaw = trim((string) ($row['funds_release_source'] ?? ''));
+    $source = strtolower($sourceRaw);
+    $effectiveStatus = jg_accounting_marketplace_normalize_status($row['funds_release_status'] ?? '')
+        ?: jg_accounting_marketplace_normalize_status($row['order_status'] ?? '');
+    if (preg_match('/^order_status=([^;]+)/i', $sourceRaw, $matches)) {
+        return in_array(jg_accounting_marketplace_normalize_status($matches[1]), ['COMPLETED', 'COMPLETE'], true);
+    }
+    if ($source === 'settlement_payload') {
+        return !in_array($effectiveStatus, [
+            'READY_TO_SHIP', 'PROCESSED', 'SHIPPED', 'TO_CONFIRM_RECEIVE',
+            'IN_CANCEL', 'RETRY_SHIP', 'PAID', 'UNPAID',
+        ], true);
+    }
+    return true;
+}
+
+function jg_accounting_marketplace_outstanding_context(PDO $pdo): array
+{
+    try {
+        $stmt = $pdo->query(
+            'SELECT platform,
+                    account_key,
+                    CASE WHEN order_id = "" THEN order_item_hash ELSE order_id END AS order_key,
+                    MAX(order_net_revenue) AS order_amount,
+                    MAX(funds_released) AS funds_released,
+                    MAX(funds_released_amount) AS funds_released_amount,
+                    MAX(status) AS order_status,
+                    MAX(funds_release_status) AS funds_release_status,
+                    MAX(funds_release_source) AS funds_release_source
+             FROM dashboard_order_mirror
+             WHERE deleted_at IS NULL
+               AND platform IN ("shopee", "tiktok")
+             GROUP BY platform, account_key, order_key'
+        );
+        $rows = $stmt ? $stmt->fetchAll() : [];
+    } catch (Throwable) {
+        return [
+            'amount' => null,
+            'available' => false,
+            'source' => 'wallet_context_unavailable',
+            'label' => 'Wallet source unavailable',
+            'order_count' => null,
+            'non_settling_order_count' => null,
+        ];
+    }
+
+    $amount = 0;
+    $orderCount = 0;
+    $nonSettlingCount = 0;
+    foreach ($rows as $row) {
+        if (jg_accounting_marketplace_release_is_trusted($row)) {
+            continue;
+        }
+        if (
+            jg_accounting_marketplace_is_non_settling($row['funds_release_status'] ?? '')
+            || jg_accounting_marketplace_is_non_settling($row['order_status'] ?? '')
+        ) {
+            $nonSettlingCount++;
+            continue;
+        }
+        $amount += max(0, (int) round((float) ($row['order_amount'] ?? 0)));
+        $orderCount++;
+    }
+
     return [
-        'amount' => 0,
-        'source' => 'wallet_context_unavailable',
-        'label' => 'Expected, not cash yet',
+        'amount' => $amount,
+        'available' => true,
+        'source' => 'dashboard_order_mirror',
+        'label' => 'Unreleased settling marketplace orders',
+        'order_count' => $orderCount,
+        'non_settling_order_count' => $nonSettlingCount,
     ];
 }
 
@@ -959,7 +1052,7 @@ function jg_accounting_apply_transaction_filter(array &$where, array &$params, a
     }
 }
 
-function jg_accounting_manual_marketplace_transfer_context(PDO $pdo, array $bounds = []): array
+function jg_accounting_manual_marketplace_transfer_records(PDO $pdo, array $bounds = []): array
 {
     $manualWhere = [
         't.status = "posted"',
@@ -974,22 +1067,41 @@ function jg_accounting_manual_marketplace_transfer_context(PDO $pdo, array $boun
 
     try {
         $manualStmt = $pdo->prepare(
-            'SELECT COALESCE(SUM(t.amount), 0) AS amount,
-                    COUNT(*) AS count
+            'SELECT t.id, t.transaction_date, t.amount,
+                    src.account_key AS source_account_key,
+                    src.platform,
+                    src.brand
              FROM accounting_transactions t
              INNER JOIN accounting_accounts src ON src.id = t.account_id
              INNER JOIN accounting_accounts dst ON dst.id = t.to_account_id
              WHERE ' . implode(' AND ', $manualWhere)
         );
         $manualStmt->execute($manualParams);
-        $manual = $manualStmt->fetch() ?: [];
+        $rows = $manualStmt->fetchAll();
     } catch (Throwable) {
-        $manual = [];
+        return [];
     }
 
+    return array_map(static function (array $row): array {
+        $platform = trim(strtolower((string) ($row['platform'] ?? '')));
+        $brand = trim(preg_replace('/[^a-z0-9]+/', '-', strtolower((string) ($row['brand'] ?? ''))) ?? '', '-');
+        return [
+            'id' => (int) ($row['id'] ?? 0),
+            'amount' => max(0, (int) round((float) ($row['amount'] ?? 0))),
+            'transaction_date' => (string) ($row['transaction_date'] ?? ''),
+            'platform' => $platform,
+            'account_key' => $brand !== '' && $platform !== '' ? $brand . '-' . $platform : '',
+            'source_account_key' => (string) ($row['source_account_key'] ?? ''),
+        ];
+    }, $rows);
+}
+
+function jg_accounting_manual_marketplace_transfer_context(PDO $pdo, array $bounds = []): array
+{
+    $records = jg_accounting_manual_marketplace_transfer_records($pdo, $bounds);
     return [
-        'amount' => (int) round((float) ($manual['amount'] ?? 0)),
-        'count' => (int) ($manual['count'] ?? 0),
+        'amount' => array_sum(array_column($records, 'amount')),
+        'count' => count($records),
     ];
 }
 
@@ -1015,7 +1127,8 @@ function jg_accounting_wallet_platform_transaction_text(array $row): string
         $raw['type'] ?? '',
         $raw['money_flow'] ?? '',
     ];
-    return strtolower(implode(' ', array_map(static fn (mixed $value): string => (string) $value, $parts)));
+    $text = strtolower(implode(' ', array_map(static fn (mixed $value): string => (string) $value, $parts)));
+    return trim(preg_replace('/[^a-z0-9]+/', ' ', $text) ?? '');
 }
 
 function jg_accounting_is_wallet_platform_cash_out(array $row): bool
@@ -1037,7 +1150,7 @@ function jg_accounting_is_wallet_platform_cash_out(array $row): bool
     return $orderId === '' && preg_match('/\b(out|debit|withdraw)\b/i', $text) === 1;
 }
 
-function jg_accounting_wallet_platform_cash_records(PDO $pdo, array $bounds = [], array $releaseOffsetsByAccount = [], int $manualOffsetRemaining = 0): array
+function jg_accounting_wallet_platform_cash_records(PDO $pdo, array $bounds = []): array
 {
     $where = ['amount < 0'];
     $params = [];
@@ -1069,12 +1182,6 @@ function jg_accounting_wallet_platform_cash_records(PDO $pdo, array $bounds = []
 
         $platform = (string) ($row['platform'] ?? '');
         $accountKey = (string) ($row['account_key'] ?? '');
-        $walletKey = jg_accounting_wallet_key($platform, $accountKey);
-        $sameAccountReleaseOffset = min($gross, max(0, (int) ($releaseOffsetsByAccount[$walletKey] ?? 0)));
-        $releaseOffsetsByAccount[$walletKey] = max(0, (int) ($releaseOffsetsByAccount[$walletKey] ?? 0) - $sameAccountReleaseOffset);
-        $manualOffset = min($gross - $sameAccountReleaseOffset, max(0, $manualOffsetRemaining));
-        $manualOffsetRemaining -= $manualOffset;
-        $usable = max(0, $gross - $sameAccountReleaseOffset - $manualOffset);
         $occurredAt = trim((string) ($row['transaction_at'] ?? ''));
 
         $records[] = [
@@ -1091,17 +1198,137 @@ function jg_accounting_wallet_platform_cash_records(PDO $pdo, array $bounds = []
             'order_id' => (string) ($row['order_id'] ?? ''),
             'counterparty' => $accountKey,
             'gross_amount' => $gross,
-            'manual_offset_amount' => $manualOffset,
-            'source_offset_amount' => $sameAccountReleaseOffset,
-            'usable_cash_amount' => $usable,
-            'amount' => $usable,
+            'manual_offset_amount' => 0,
+            'source_offset_amount' => 0,
+            'usable_cash_amount' => $gross,
+            'amount' => $gross,
             'currency' => 'IDR',
-            'record_status' => $usable > 0 ? (($sameAccountReleaseOffset + $manualOffset) > 0 ? 'partially_offset' : 'usable') : 'fully_offset',
+            'record_status' => 'usable',
             'cash_basis' => 'platform_wallet_transaction_cash_out',
             'notes' => trim((string) ($row['transaction_type'] ?? '')),
         ];
     }
 
+    return $records;
+}
+
+function jg_accounting_cash_record_timestamp(array $record): ?int
+{
+    $occurredAt = trim((string) ($record['occurred_at'] ?? ''));
+    if ($occurredAt === '') {
+        return null;
+    }
+    try {
+        return (new DateTimeImmutable($occurredAt, new DateTimeZone('UTC')))->getTimestamp();
+    } catch (Throwable) {
+        return null;
+    }
+}
+
+function jg_accounting_wallet_record_matches(array $left, array $right, int $windowSeconds): bool
+{
+    if (
+        (int) ($left['gross_amount'] ?? 0) !== (int) ($right['gross_amount'] ?? 0)
+        || jg_accounting_wallet_key((string) ($left['platform'] ?? ''), (string) ($left['account_key'] ?? ''))
+            !== jg_accounting_wallet_key((string) ($right['platform'] ?? ''), (string) ($right['account_key'] ?? ''))
+    ) {
+        return false;
+    }
+    $leftTime = jg_accounting_cash_record_timestamp($left);
+    $rightTime = jg_accounting_cash_record_timestamp($right);
+    return $leftTime !== null && $rightTime !== null && abs($leftTime - $rightTime) <= $windowSeconds;
+}
+
+function jg_accounting_reconcile_wallet_source_duplicates(array $records, int $windowSeconds = 259200): array
+{
+    $matchedReleases = [];
+    foreach ($records as $platformIndex => &$platformRecord) {
+        if ((string) ($platformRecord['source_table'] ?? '') !== 'dashboard_wallet_platform_transactions') {
+            continue;
+        }
+        $bestReleaseIndex = null;
+        $bestDistance = PHP_INT_MAX;
+        foreach ($records as $releaseIndex => $releaseRecord) {
+            if (
+                isset($matchedReleases[$releaseIndex])
+                || (string) ($releaseRecord['source_table'] ?? '') !== 'dashboard_wallet_releases'
+                || !jg_accounting_wallet_record_matches($platformRecord, $releaseRecord, $windowSeconds)
+            ) {
+                continue;
+            }
+            $distance = abs((int) jg_accounting_cash_record_timestamp($platformRecord) - (int) jg_accounting_cash_record_timestamp($releaseRecord));
+            if ($distance < $bestDistance) {
+                $bestDistance = $distance;
+                $bestReleaseIndex = $releaseIndex;
+            }
+        }
+        if ($bestReleaseIndex !== null) {
+            $matchedReleases[$bestReleaseIndex] = true;
+            $gross = (int) ($platformRecord['gross_amount'] ?? 0);
+            $platformRecord['source_offset_amount'] = $gross;
+            $platformRecord['usable_cash_amount'] = 0;
+            $platformRecord['amount'] = 0;
+            $platformRecord['record_status'] = 'fully_offset';
+            $platformRecord['notes'] = trim((string) ($platformRecord['notes'] ?? '') . ' Duplicate of wallet release ' . ($records[$bestReleaseIndex]['source_key'] ?? '') . '.');
+        }
+    }
+    unset($platformRecord);
+    return $records;
+}
+
+function jg_accounting_apply_manual_wallet_transfer_offsets(array $records, array $manualTransfers, int $windowSeconds = 259200): array
+{
+    foreach ($manualTransfers as $transfer) {
+        $transferDate = trim((string) ($transfer['transaction_date'] ?? ''));
+        $transferTime = $transferDate !== '' ? strtotime($transferDate . ' 00:00:00 UTC') : false;
+        $candidates = [];
+        foreach ($records as $index => $record) {
+            $available = max(0,
+                (int) ($record['gross_amount'] ?? 0)
+                - (int) ($record['source_offset_amount'] ?? 0)
+                - (int) ($record['manual_offset_amount'] ?? 0)
+            );
+            if (
+                $available <= 0
+                || ((string) ($transfer['platform'] ?? '') !== '' && strtolower((string) ($record['platform'] ?? '')) !== (string) $transfer['platform'])
+                || ((string) ($transfer['account_key'] ?? '') !== '' && jg_accounting_wallet_key((string) ($record['platform'] ?? ''), (string) ($record['account_key'] ?? '')) !== jg_accounting_wallet_key((string) $transfer['platform'], (string) $transfer['account_key']))
+            ) {
+                continue;
+            }
+            $recordTime = jg_accounting_cash_record_timestamp($record);
+            if ($transferTime === false || $recordTime === null) {
+                continue;
+            }
+            $distance = abs($recordTime - $transferTime);
+            if ($distance <= $windowSeconds) {
+                $candidates[] = ['index' => $index, 'distance' => $distance];
+            }
+        }
+        usort($candidates, static fn (array $left, array $right): int => $left['distance'] <=> $right['distance'] ?: $left['index'] <=> $right['index']);
+        $remaining = max(0, (int) ($transfer['amount'] ?? 0));
+        foreach ($candidates as $candidate) {
+            if ($remaining <= 0) {
+                break;
+            }
+            $index = (int) $candidate['index'];
+            $gross = (int) ($records[$index]['gross_amount'] ?? 0);
+            $sourceOffset = (int) ($records[$index]['source_offset_amount'] ?? 0);
+            $existingManualOffset = (int) ($records[$index]['manual_offset_amount'] ?? 0);
+            $available = max(0, $gross - $sourceOffset - $existingManualOffset);
+            $offset = min($available, $remaining);
+            if ($offset <= 0) {
+                continue;
+            }
+            $remaining -= $offset;
+            $manualOffset = $existingManualOffset + $offset;
+            $usable = max(0, $gross - $sourceOffset - $manualOffset);
+            $records[$index]['manual_offset_amount'] = $manualOffset;
+            $records[$index]['usable_cash_amount'] = $usable;
+            $records[$index]['amount'] = $usable;
+            $records[$index]['record_status'] = $usable > 0 ? 'partially_offset' : 'fully_offset';
+            $records[$index]['notes'] = trim((string) ($records[$index]['notes'] ?? '') . ' Rp' . $offset . ' already represented by Accounting transfer #' . (int) ($transfer['id'] ?? 0) . '.');
+        }
+    }
     return $records;
 }
 
@@ -1126,19 +1353,15 @@ function jg_accounting_wallet_cash_records(PDO $pdo, array $bounds = []): array
         $rows = [];
     }
 
-    $manual = jg_accounting_manual_marketplace_transfer_context($pdo, $bounds);
-    $manualOffsetRemaining = (int) $manual['amount'];
     $records = [];
-    $releaseOffsetsByAccount = [];
     foreach ($rows as $row) {
         $gross = max(0, (int) round((float) ($row['amount'] ?? 0)));
-        $manualOffset = min($gross, max(0, $manualOffsetRemaining));
-        $manualOffsetRemaining -= $manualOffset;
-        $usable = max(0, $gross - $manualOffset);
+        if ($gross <= 0) {
+            continue;
+        }
         $occurredAt = trim((string) ($row['occurred_at'] ?? $row['withdrawn_at'] ?? $row['created_at'] ?? ''));
         $platform = (string) ($row['platform'] ?? '');
         $accountKey = (string) ($row['account_key'] ?? '');
-        $releaseOffsetsByAccount[jg_accounting_wallet_key($platform, $accountKey)] = ($releaseOffsetsByAccount[jg_accounting_wallet_key($platform, $accountKey)] ?? 0) + $gross;
         $records[] = [
             'source_key' => 'wallet_release:' . (int) ($row['id'] ?? 0),
             'source_type' => 'wallet_withdrawal',
@@ -1153,11 +1376,12 @@ function jg_accounting_wallet_cash_records(PDO $pdo, array $bounds = []): array
             'order_id' => '',
             'counterparty' => $accountKey,
             'gross_amount' => $gross,
-            'manual_offset_amount' => $manualOffset,
-            'usable_cash_amount' => $usable,
-            'amount' => $usable,
+            'manual_offset_amount' => 0,
+            'source_offset_amount' => 0,
+            'usable_cash_amount' => $gross,
+            'amount' => $gross,
             'currency' => 'IDR',
-            'record_status' => $usable > 0 ? ($manualOffset > 0 ? 'partially_offset' : 'usable') : 'fully_offset',
+            'record_status' => 'usable',
             'cash_basis' => 'wallet_withdrawal_to_bank',
             'notes' => (string) ($row['release_note'] ?? ''),
         ];
@@ -1165,7 +1389,12 @@ function jg_accounting_wallet_cash_records(PDO $pdo, array $bounds = []): array
 
     $records = array_merge(
         $records,
-        jg_accounting_wallet_platform_cash_records($pdo, $bounds, $releaseOffsetsByAccount, $manualOffsetRemaining)
+        jg_accounting_wallet_platform_cash_records($pdo, $bounds)
+    );
+    $records = jg_accounting_reconcile_wallet_source_duplicates($records);
+    $records = jg_accounting_apply_manual_wallet_transfer_offsets(
+        $records,
+        jg_accounting_manual_marketplace_transfer_records($pdo, $bounds)
     );
     usort($records, static function (array $left, array $right): int {
         $time = strcmp((string) ($left['occurred_at'] ?? ''), (string) ($right['occurred_at'] ?? ''));
@@ -1415,15 +1644,15 @@ function jg_accounting_summary(PDO $pdo, string $month): array
          FROM accounting_review_queue
          WHERE status = "open"'
     )->fetchColumn();
-    $marketplaceOutstanding = jg_accounting_marketplace_outstanding_context();
-    $safeCash = $realCash + (int) $marketplaceOutstanding['amount'] - $billsDueSoon - $overdueBills;
+    $marketplaceOutstanding = jg_accounting_marketplace_outstanding_context($pdo);
+    $safeCash = $realCash - $billsDueSoon - $overdueBills;
 
     $monthly = jg_accounting_monthly_summary($pdo, $month);
 
     return [
         'kpis' => [
             'real_cash_available' => $realCash,
-            'marketplace_outstanding' => (int) $marketplaceOutstanding['amount'],
+            'marketplace_outstanding' => $marketplaceOutstanding['amount'],
             'bills_due_soon' => $billsDueSoon,
             'overdue_bills' => $overdueBills,
             'expenses_this_month' => $expenses,

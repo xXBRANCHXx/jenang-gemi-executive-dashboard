@@ -1,6 +1,6 @@
 # Jenang Gemi Dashboard Versioning
 
-Current dashboard version: `exec3.75.3`
+Current dashboard version: `exec3.76.1`
 
 Versioning rule for future changes:
 - Default behavior: increment the patch digit by `+1`.

@@ -26,7 +26,7 @@ if ($isAuthenticated) {
         exit;
     }
 }
-$dashboardBuildVersion = 'exec3.76.0';
+$dashboardBuildVersion = 'exec3.76.1';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');

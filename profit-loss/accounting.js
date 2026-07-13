@@ -3,7 +3,7 @@ const root = document.querySelector('[data-accounting-page]');
 if (root) {
   const DASHBOARD_TIMEZONE = 'Asia/Jakarta';
   const endpoint = root.dataset.accountingEndpoint || '../api/accounting/';
-  const ACCOUNTING_CACHE_PREFIX = 'jg-accounting-page-cache-v2';
+  const ACCOUNTING_CACHE_PREFIX = 'jg-accounting-page-cache-v3';
   const ACCOUNTING_LOOKUPS_CACHE_KEY = 'jg-accounting-lookups-cache-v1';
   const ACCOUNTING_CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
   const escapeHtml = (value) => String(value ?? '')
@@ -402,7 +402,11 @@ if (root) {
   const renderKpis = (summary) => {
     const kpis = summary?.kpis || {};
     if (refs.kpis.realCash) refs.kpis.realCash.textContent = formatCurrency(kpis.real_cash_available || 0);
-    if (refs.kpis.marketplaceOutstanding) refs.kpis.marketplaceOutstanding.textContent = formatCurrency(kpis.marketplace_outstanding || 0);
+    if (refs.kpis.marketplaceOutstanding) {
+      refs.kpis.marketplaceOutstanding.textContent = summary?.marketplace_outstanding_context?.available === false
+        ? 'Unavailable'
+        : formatCurrency(kpis.marketplace_outstanding || 0);
+    }
     if (refs.kpis.billsDue) refs.kpis.billsDue.textContent = formatCurrency(kpis.bills_due_soon || 0);
     if (refs.kpis.overdue) refs.kpis.overdue.textContent = formatCurrency(kpis.overdue_bills || 0);
     if (refs.kpis.expenses) refs.kpis.expenses.textContent = formatCurrency(kpis.expenses_this_month || 0);
