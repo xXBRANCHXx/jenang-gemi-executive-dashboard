@@ -8,6 +8,7 @@ Private admin dashboard for `admin.jenanggemi.com` behind a public Launch Pad.
 - `/dashboard/`
 - `/api-health/`
 - `/profit-loss/` (Accounting workspace)
+- `/profit-and-loss/` (executive P&L report)
 - `/sku-db/`
 - `/sku-db/new/`
 - `/logout/`
@@ -34,14 +35,19 @@ Private admin dashboard for `admin.jenanggemi.com` behind a public Launch Pad.
 - Login code is validated server-side.
 - Dashboard analytics, website settings, and live-state now run locally in this
   repo against MySQL using `JG_DB_*` env vars or `config.local.php`.
-- Accounting replaces the old Profit and Loss workspace at `/profit-loss/`.
-  It controls cash, bills, expenses, transfers, manual money-in entries, and
+- Accounting remains at `/profit-loss/`; the rebuilt management P&L is at
+  `/profit-and-loss/`. Accounting controls cash, bills, expenses, transfers,
+  refunds, corrections, manual money-in entries, and
   review queues through `/api/accounting/` without counting marketplace payout
   transfers as new revenue. Cash Available combines spendable account balances,
   confirmed website payments, and Wallet cash-outs; duplicate Wallet/manual
   transfer evidence is reconciled by account, amount, and date. Marketplace
   Receivable comes from unreleased settling orders and excludes released or
   non-settling orders.
+- The P&L combines seller-received sales and sale-level SKU COGS with posted
+  cash-basis Accounting expenses. Product-purchase cash entries are disclosed
+  for reconciliation but excluded from profit expense to prevent counting COGS
+  twice.
 - The repo also checks `/public_html/config.local.php` and
   `/public_html/whatsapp-config.local.php` to match common Hostinger setups.
 - Deployment-only secrets can override tracked settings through the ignored

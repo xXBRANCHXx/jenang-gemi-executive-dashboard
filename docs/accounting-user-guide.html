@@ -470,7 +470,7 @@
       <div class="eyebrow">Jenang Gemi Executive Dashboard</div>
       <div class="cover-card">
         <h1>Accounting Workspace Tutorial</h1>
-        <p class="subtitle">An extensive operating guide for recording expenses, bills, bill payments, transfers, manual money in, review items, and month-end accounting checks.</p>
+        <p class="subtitle">An extensive operating guide for recording expenses, bills, bill payments, customer refunds, transfers, other money received, corrections, and month-end accounting checks.</p>
         <div class="cover-meta">
           <div><strong>Audience</strong><span class="muted">Operators, finance assistants, and owners who enter or review daily finance activity.</span></div>
           <div><strong>Screen</strong><span class="muted">Dashboard -> Accounting</span></div>
@@ -552,13 +552,13 @@
 
     <figure class="picture">
       <div class="crop crop-command"><img src="accounting-guide-assets/accounting-desktop-full.png" alt="Accounting command bar and KPI crop"></div>
-      <figcaption>Top area: command bar, period controls, action buttons, status, alerts, and KPI cards.</figcaption>
+      <figcaption>Top area: working-month controls, exports, status, alerts, and KPI cards.</figcaption>
     </figure>
 
     <div class="grid-3">
-      <div class="mode-card"><strong>Command bar</strong><span class="muted">Controls the reporting month, date range, refresh, export, and entry mode shortcuts.</span></div>
+      <div class="mode-card"><strong>Command bar</strong><span class="muted">Controls the working month, refresh, and the two CSV exports.</span></div>
       <div class="mode-card"><strong>KPI cards</strong><span class="muted">Show cash, marketplace receivables, bills due, expenses, safe cash, and review count.</span></div>
-      <div class="mode-card"><strong>Daily entry</strong><span class="muted">The main form for entering expenses, bills, payments, transfers, and manual income.</span></div>
+      <div class="mode-card"><strong>Daily entry</strong><span class="muted">Choose what happened, then enter an expense, bill, payment, customer refund, transfer, or other money received.</span></div>
       <div class="mode-card"><strong>Bills Queue</strong><span class="muted">Open supplier bills, due dates, paid amount, outstanding amount, and bill actions.</span></div>
       <div class="mode-card"><strong>Ledger</strong><span class="muted">Manual transaction history for the selected period.</span></div>
       <div class="mode-card"><strong>Review and insights</strong><span class="muted">Spend splits, monthly summary, and issues that need cleanup.</span></div>
@@ -600,35 +600,30 @@
   <section class="page">
     <div class="eyebrow">4. Command Bar</div>
     <h2>Filtering, refreshing, and starting work</h2>
-    <p>The command bar controls what period you are looking at and gives quick entry shortcuts.</p>
+    <p>The command bar controls the working month and keeps refresh and exports in one place. Entry type is selected once in the Daily entry panel.</p>
     <figure class="picture">
       <div class="crop crop-command"><img src="accounting-guide-assets/accounting-desktop-full.png" alt="Command bar crop"></div>
-      <figcaption>Command bar with month selector, range buttons, date inputs, actions, status, and alerts.</figcaption>
+      <figcaption>Command bar with the working month, refresh, exports, status, and alerts.</figcaption>
     </figure>
 
-    <h3>Month and range controls</h3>
+    <h3>Working month controls</h3>
     <table>
       <thead>
         <tr><th>Control</th><th>Use it when</th><th>What happens</th></tr>
       </thead>
       <tbody>
-        <tr><td>Month</td><td>You want the default monthly accounting view.</td><td>The KPI cards, bills, ledger, and summary load for that month.</td></tr>
-        <tr><td>This Month</td><td>You are entering or reviewing current-period activity.</td><td>Uses the current month.</td></tr>
-        <tr><td>Last Month</td><td>You are checking the previous close.</td><td>Loads the previous calendar month.</td></tr>
-        <tr><td>YTD</td><td>You need year-to-date context.</td><td>Loads data from January 1 through the selected period.</td></tr>
-        <tr><td>Custom</td><td>You need a specific date window.</td><td>Uses the From and To fields.</td></tr>
+        <tr><td>Working month</td><td>You want to enter or review a monthly ledger.</td><td>The ledger, expense KPI, spend split, and cash movement load for that month.</td></tr>
+        <tr><td>Previous</td><td>You are checking the prior close.</td><td>Moves back one calendar month.</td></tr>
+        <tr><td>Current month</td><td>You want to return to today’s accounting period.</td><td>Returns directly to the current month.</td></tr>
       </tbody>
     </table>
 
     <h3>Action buttons</h3>
     <ul>
       <li><strong>Refresh:</strong> reloads the latest Accounting data.</li>
-      <li><strong>Expense:</strong> switches the form to Expense Paid.</li>
-      <li><strong>Bill:</strong> switches the form to Bill Received.</li>
-      <li><strong>Pay Bill:</strong> switches the form to pay an existing open bill.</li>
-      <li><strong>Transfer:</strong> switches the form to internal movement between accounts.</li>
-      <li><strong>Export:</strong> downloads the current period as CSV.</li>
-      <li><strong>Settings:</strong> currently shows read-only seeded configuration information.</li>
+      <li><strong>What happened?:</strong> chooses Expense paid, Bill received, Bill paid, Customer refund paid, Money transferred, or Other money received.</li>
+      <li><strong>Manual ledger CSV:</strong> downloads manual entries for the working month.</li>
+      <li><strong>Automatic cash CSV:</strong> downloads the wallet cash-out and confirmed website-payment evidence.</li>
     </ul>
   </section>
 
@@ -803,7 +798,7 @@
     <h3>Bill row actions</h3>
     <ul>
       <li><strong>Pay:</strong> switches the form into Pay Bill mode and selects that bill.</li>
-      <li><strong>View:</strong> opens a detail drawer with raw bill fields.</li>
+      <li><strong>Fix / view:</strong> opens an editable drawer. Saving a correction updates the record and writes to its audit history.</li>
       <li><strong>Void:</strong> cancels the bill after you enter a reason. Use this only when the bill is invalid or duplicated.</li>
     </ul>
   </section>
@@ -882,7 +877,7 @@
   <section class="page">
     <div class="eyebrow">13. Export and Month-End Close</div>
     <h2>Preparing data for finance review</h2>
-    <p>Use Export when you need a CSV of manual accounting transactions for the selected month or custom range. The export is intended for reconciliation, review, or handoff to the person preparing final accounting records.</p>
+    <p>Use Manual ledger CSV when you need the manual accounting transactions for the working month. Use Automatic cash CSV for wallet cash-outs and confirmed website-payment evidence. Both exports are intended for reconciliation, review, or finance handoff.</p>
 
     <h3>Export steps</h3>
     <div class="step"><div class="step-number">1</div><div>Select the month or custom period.</div></div>

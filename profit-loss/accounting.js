@@ -3,7 +3,7 @@ const root = document.querySelector('[data-accounting-page]');
 if (root) {
   const DASHBOARD_TIMEZONE = 'Asia/Jakarta';
   const endpoint = root.dataset.accountingEndpoint || '../api/accounting/';
-  const ACCOUNTING_CACHE_PREFIX = 'jg-accounting-page-cache-v3';
+  const ACCOUNTING_CACHE_PREFIX = 'jg-accounting-page-cache-v4';
   const ACCOUNTING_LOOKUPS_CACHE_KEY = 'jg-accounting-lookups-cache-v1';
   const ACCOUNTING_CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
   const escapeHtml = (value) => String(value ?? '')
@@ -115,6 +115,8 @@ if (root) {
     status: root.querySelector('[data-accounting-status]'),
     refresh: root.querySelector('[data-accounting-refresh]'),
     monthInput: root.querySelector('[data-accounting-month-select]'),
+    previousMonth: root.querySelector('[data-accounting-previous-month]'),
+    currentMonth: root.querySelector('[data-accounting-current-month]'),
     dateFrom: root.querySelector('[data-accounting-date-from]'),
     dateTo: root.querySelector('[data-accounting-date-to]'),
     rangeButtons: root.querySelectorAll('[data-accounting-range]'),
@@ -137,6 +139,7 @@ if (root) {
     formStatus: root.querySelector('[data-accounting-form-status]'),
     formError: root.querySelector('[data-accounting-form-error]'),
     modeButtons: root.querySelectorAll('[data-accounting-quick-mode]'),
+    modeSelect: root.querySelector('[data-accounting-mode-select]'),
     modeField: root.querySelector('[data-accounting-mode-field]'),
     modeHelper: root.querySelector('[data-accounting-mode-helper]'),
     marketplaceWarning: root.querySelector('[data-accounting-marketplace-warning]'),
@@ -184,7 +187,9 @@ if (root) {
       'include_voided',
       'review_status',
       'brand',
-      'channel'
+      'channel',
+      'transaction_id',
+      'bill_id'
     ].forEach((key) => {
       if (options[key]) params.set(key, options[key]);
     });
@@ -281,6 +286,13 @@ if (root) {
       action: 'mark_bill_paid',
       shown: ['transaction_date', 'bill_id', 'account_id']
     },
+    customer_refund: {
+      helper: 'Money returned to a customer. Add the order number or reference so it can be traced.',
+      action: 'create_transaction',
+      type: 'refund',
+      direction: 'money_out',
+      shown: ['transaction_date', 'account_id', 'category_id', 'counterparty']
+    },
     transfer: {
       helper: 'Internal movement between accounts.',
       action: 'create_transaction',
@@ -356,6 +368,7 @@ if (root) {
     state.mode = nextMode;
     const config = modeConfig[nextMode];
     if (refs.modeField) refs.modeField.value = nextMode;
+    if (refs.modeSelect) refs.modeSelect.value = nextMode;
     if (refs.modeHelper) refs.modeHelper.textContent = config.helper;
     if (refs.marketplaceWarning) refs.marketplaceWarning.hidden = !config.warning;
     refs.modeButtons.forEach((button) => {
@@ -422,12 +435,15 @@ if (root) {
       refs.alerts.innerHTML = '<div class="admin-accounting-alert"><strong>No alerts</strong><span>Checks appear after data loads.</span></div>';
       return;
     }
-    refs.alerts.innerHTML = alerts.map((alert) => `
-      <button type="button" class="admin-accounting-alert admin-accounting-alert-${escapeHtml(alert.type || 'info')}">
+    refs.alerts.innerHTML = alerts.map((alert) => {
+      const target = /overdue|due/i.test(String(alert.title || '')) ? 'accounting-bills' : 'accounting-review';
+      return `
+      <button type="button" class="admin-accounting-alert admin-accounting-alert-${escapeHtml(alert.type || 'info')}" data-accounting-alert-target="${target}">
         <strong>${escapeHtml(alert.title || 'Alert')}</strong>
         <span>${Number(alert.amount || 0) > 0 ? formatCurrency(alert.amount) : escapeHtml(alert.action || 'Review')}</span>
       </button>
-    `).join('');
+    `;
+    }).join('');
   };
 
   const renderBills = () => {
@@ -456,7 +472,7 @@ if (root) {
         <td>
           <div class="admin-accounting-row-actions">
             <button type="button" class="admin-soft-btn" data-accounting-pay-bill="${escapeHtml(String(bill.id))}">Pay</button>
-            <button type="button" class="admin-ghost-btn" data-accounting-view-bill="${escapeHtml(String(bill.id))}">View</button>
+            <button type="button" class="admin-ghost-btn" data-accounting-view-bill="${escapeHtml(String(bill.id))}">Fix / view</button>
             <button type="button" class="admin-danger-btn" data-accounting-void-bill="${escapeHtml(String(bill.id))}">Void</button>
           </div>
         </td>
@@ -489,7 +505,7 @@ if (root) {
         <td>${escapeHtml(row.bill_no || '-')}</td>
         <td>
           <div class="admin-accounting-row-actions">
-            <button type="button" class="admin-ghost-btn" data-accounting-view-transaction="${escapeHtml(String(row.id))}">View</button>
+            <button type="button" class="admin-ghost-btn" data-accounting-view-transaction="${escapeHtml(String(row.id))}">Fix / view</button>
             <button type="button" class="admin-danger-btn" data-accounting-void-transaction="${escapeHtml(String(row.id))}">Void</button>
           </div>
         </td>
@@ -501,21 +517,13 @@ if (root) {
     if (!refs.monthlySummary) return;
     const monthly = summary?.monthly_summary || {};
     const rows = [
-      ['Sales Revenue Context', monthly.sales_revenue_context || 0],
-      ['Gross Profit Context', monthly.gross_profit_context || 0],
       ['Paid Operating Expenses', monthly.paid_operating_expenses || 0],
       ['Marketing Expenses', monthly.marketing_expenses || 0],
-      ['Production / COGS Support', monthly.production_cogs_support_expenses || 0],
+      ['Product Purchases / Production', monthly.production_cogs_support_expenses || 0],
       ['Payroll / Labor', monthly.payroll_labor || 0],
       ['Software / Admin', monthly.software_admin || 0],
-      ['Owner Draw', monthly.owner_draw || 0],
-      ['Owner Injection', monthly.owner_injection || 0],
-      ['Manual Income', monthly.manual_income || 0],
       ['Wallet Withdrawals to Bank', monthly.wallet_withdrawals_to_bank || 0],
       ['Website Paid Orders', monthly.website_payments_to_bank || 0],
-      ['Automatic Usable Cash', monthly.automatic_usable_cash || 0],
-      ['Transfers In', monthly.transfers_in || 0],
-      ['Transfers Out', monthly.transfers_out || 0],
       ['Bills Created', monthly.bills_created || 0],
       ['Bills Paid', monthly.bills_paid || 0],
       ['Bills Still Unpaid', monthly.bills_still_unpaid || 0],
@@ -566,27 +574,65 @@ if (root) {
         <td><span class="${statusClass(row.severity)}">${escapeHtml(row.severity || 'warning')}</span></td>
         <td>${escapeHtml(row.entity_type || '-')} #${Number(row.entity_id || 0).toLocaleString('id-ID')}</td>
         <td>${escapeHtml(row.suggested_action || '-')}</td>
-        <td><button type="button" class="admin-soft-btn" data-accounting-resolve-review="${escapeHtml(String(row.id))}">Mark reviewed</button></td>
+        <td><div class="admin-accounting-row-actions"><button type="button" class="admin-primary-btn" data-accounting-fix-review="${escapeHtml(String(row.id))}" data-accounting-entity-type="${escapeHtml(row.entity_type || '')}" data-accounting-entity-id="${escapeHtml(String(row.entity_id || ''))}">Fix</button><button type="button" class="admin-soft-btn" data-accounting-resolve-review="${escapeHtml(String(row.id))}">Mark reviewed</button></div></td>
       </tr>
     `).join('');
   };
 
-  const openDrawer = (kind, id) => {
+  const openDrawer = async (kind, id) => {
     const collection = kind === 'bill' ? state.bills : state.transactions;
-    const item = collection.find((row) => Number(row.id) === Number(id));
+    let item = collection.find((row) => Number(row.id) === Number(id));
+    if (!item) {
+      try {
+        const payload = await requestJson(buildUrl(kind, { [`${kind}_id`]: id, cacheBust: true }));
+        item = payload.data?.[kind] || null;
+        if (item) collection.push(item);
+      } catch (error) {
+        showToast(error?.message || 'Unable to load accounting record.', true);
+      }
+    }
     if (!item || !refs.drawer) return;
     if (refs.drawerKicker) refs.drawerKicker.textContent = kind === 'bill' ? 'Bill' : 'Transaction';
     if (refs.drawerTitle) refs.drawerTitle.textContent = kind === 'bill'
       ? (item.bill_no || item.bill_key || 'Bill')
       : (item.transaction_key || 'Transaction');
     if (refs.drawerBody) {
-      const entries = Object.entries(item).filter(([, value]) => value !== null && value !== '');
-      refs.drawerBody.innerHTML = entries.map(([key, value]) => `
-        <div class="admin-accounting-detail-row">
-          <span>${escapeHtml(key.replace(/_/g, ' '))}</span>
-          <strong>${escapeHtml(String(value))}</strong>
-        </div>
-      `).join('');
+      const categoryOptions = [option('', 'Choose category'), ...state.categories
+        .filter((category) => category.parent_id !== null || Number(category.is_billable) === 1)
+        .map((category) => option(category.id, category.parent_name ? `${category.parent_name} - ${category.name}` : category.name, Number(category.id) === Number(item.category_id)))].join('');
+      const accountOptions = [option('', 'Choose account'), ...state.accounts
+        .map((account) => option(account.id, account.name, Number(account.id) === Number(item.account_id || item.expected_account_id)))].join('');
+      const receiptOptions = ['missing', 'attached', 'not_required']
+        .map((status) => option(status, status.replace(/_/g, ' '), status === item.receipt_status)).join('');
+      refs.drawerBody.innerHTML = kind === 'bill' ? `
+        <form class="admin-accounting-edit-form" data-accounting-edit-form data-kind="bill" data-id="${escapeHtml(String(item.id))}">
+          <label><span>Bill / invoice no.</span><input name="bill_no" value="${escapeHtml(item.bill_no || '')}"></label>
+          <label><span>Bill date</span><input type="date" name="issue_date" value="${escapeHtml(item.issue_date || '')}" required></label>
+          <label><span>Due date</span><input type="date" name="due_date" value="${escapeHtml(item.due_date || '')}"></label>
+          <label><span>Total</span><input name="total_amount" inputmode="numeric" value="${escapeHtml(String(item.total_amount || ''))}" ${Number(item.paid_amount || 0) > 0 ? 'disabled' : ''} required></label>
+          <label><span>Category</span><select name="category_id" required>${categoryOptions}</select></label>
+          <label><span>Expected account</span><select name="expected_account_id">${accountOptions}</select></label>
+          <label><span>Receipt status</span><select name="receipt_status">${receiptOptions}</select></label>
+          <label><span>Attachment URL</span><input type="url" name="attachment_url" value="${escapeHtml(item.attachment_url || '')}"></label>
+          <label class="admin-accounting-form-wide"><span>Notes</span><textarea name="notes" rows="4">${escapeHtml(item.notes || '')}</textarea></label>
+          <p class="admin-form-error" data-accounting-edit-error hidden></p>
+          <button type="submit" class="admin-primary-btn">Save correction</button>
+        </form>
+      ` : `
+        <form class="admin-accounting-edit-form" data-accounting-edit-form data-kind="transaction" data-id="${escapeHtml(String(item.id))}">
+          <label><span>Date</span><input type="date" name="transaction_date" value="${escapeHtml(item.transaction_date || '')}" required></label>
+          <label><span>Amount</span><input name="amount" inputmode="numeric" value="${escapeHtml(String(item.amount || ''))}" required></label>
+          <label><span>Account</span><select name="account_id" required>${accountOptions}</select></label>
+          <label><span>Category</span><select name="category_id" ${item.type === 'transfer' ? '' : 'required'}>${categoryOptions}</select></label>
+          <label><span>Receipt status</span><select name="receipt_status">${receiptOptions}</select></label>
+          <label><span>Receipt URL</span><input type="url" name="receipt_url" value="${escapeHtml(item.receipt_url || '')}"></label>
+          <label><span>Reference no.</span><input name="reference_no" value="${escapeHtml(item.reference_no || '')}"></label>
+          <label><span>Order / SKU</span><input name="order_no" value="${escapeHtml(item.order_no || '')}"></label>
+          <label class="admin-accounting-form-wide"><span>Notes</span><textarea name="notes" rows="4">${escapeHtml(item.notes || '')}</textarea></label>
+          <p class="admin-form-error" data-accounting-edit-error hidden></p>
+          <button type="submit" class="admin-primary-btn">Save correction</button>
+        </form>
+      `;
     }
     refs.drawer.hidden = false;
   };
@@ -647,12 +693,7 @@ if (root) {
       }
     }
     if (refs.status) refs.status.textContent = renderedCache ? 'Refreshing accounting data' : 'Loading accounting data';
-    const billOptions = {
-      ...options,
-      due_from: options.date_from || '',
-      due_to: options.date_to || '',
-      status: 'open'
-    };
+    const billOptions = { month: options.month, status: 'open' };
     try {
       const [summary, bills, transactions, review] = await Promise.all([
         requestJson(buildUrl('summary', { ...options, cacheBust: force })),
@@ -832,6 +873,7 @@ if (root) {
   refs.modeButtons.forEach((button) => {
     button.addEventListener('click', () => setMode(button.dataset.accountingQuickMode || 'expense_paid'));
   });
+  refs.modeSelect?.addEventListener('change', () => setMode(refs.modeSelect?.value || 'expense_paid'));
   refs.openModeButtons.forEach((button) => {
     button.addEventListener('click', () => {
       setMode(button.dataset.accountingOpenMode || 'expense_paid');
@@ -848,6 +890,18 @@ if (root) {
   refs.form?.addEventListener('submit', submitForm);
   refs.form?.addEventListener('reset', () => {
     window.setTimeout(resetForm, 0);
+  });
+  refs.previousMonth?.addEventListener('click', async () => {
+    state.month = lastMonthKey();
+    await loadSafely(false);
+  });
+  refs.currentMonth?.addEventListener('click', async () => {
+    state.month = getMonthKey();
+    await loadSafely(false);
+  });
+  refs.alerts?.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target.closest('[data-accounting-alert-target]') : null;
+    if (target instanceof HTMLElement) document.getElementById(target.dataset.accountingAlertTarget || '')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
   refs.billsBody?.addEventListener('click', async (event) => {
@@ -904,6 +958,13 @@ if (root) {
   refs.reviewBody?.addEventListener('click', async (event) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
+    const fixButton = target.closest('[data-accounting-fix-review]');
+    if (fixButton instanceof HTMLElement) {
+      const kind = fixButton.dataset.accountingEntityType === 'bill' ? 'bill' : 'transaction';
+      const id = fixButton.dataset.accountingEntityId || '';
+      openDrawer(kind, id);
+      return;
+    }
     const button = target.closest('[data-accounting-resolve-review]');
     if (!(button instanceof HTMLElement)) return;
     await requestJson(endpoint, {
@@ -934,6 +995,44 @@ if (root) {
     button.addEventListener('click', () => {
       if (refs.drawer) refs.drawer.hidden = true;
     });
+  });
+  refs.drawerBody?.addEventListener('submit', async (event) => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement) || !form.matches('[data-accounting-edit-form]')) return;
+    event.preventDefault();
+    const data = new FormData(form);
+    const kind = form.dataset.kind === 'bill' ? 'bill' : 'transaction';
+    const original = (kind === 'bill' ? state.bills : state.transactions).find((row) => Number(row.id) === Number(form.dataset.id));
+    if (!original) return;
+    const payload = Object.fromEntries(data.entries());
+    payload.action = kind === 'bill' ? 'update_bill' : 'update_transaction';
+    payload[`${kind}_id`] = form.dataset.id || '';
+    if (kind === 'transaction') {
+      payload.amount = amountInputToRaw(payload.amount);
+      payload.type = original.type;
+      payload.direction = original.direction;
+      payload.to_account_id = original.to_account_id || '';
+      payload.counterparty_id = original.counterparty_id || '';
+    } else if (payload.total_amount) {
+      payload.total_amount = amountInputToRaw(payload.total_amount);
+      payload.vendor_id = original.vendor_id || '';
+    }
+    const errorNode = form.querySelector('[data-accounting-edit-error]');
+    try {
+      await requestJson(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      showToast('Correction saved and audit history updated.');
+      refs.drawer.hidden = true;
+      await loadSafely(true);
+    } catch (error) {
+      if (errorNode) {
+        errorNode.hidden = false;
+        errorNode.textContent = error?.message || 'Unable to save correction.';
+      }
+    }
   });
 
   resetForm();

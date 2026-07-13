@@ -151,15 +151,27 @@ try {
         if ($action === 'summary') {
             jg_accounting_json(jg_accounting_endpoint_payload(jg_accounting_summary($pdo, $month), $month));
         }
+        if ($action === 'pnl_summary') {
+            $year = max(2025, (int) ($_GET['year'] ?? substr($month, 0, 4)));
+            jg_accounting_json(jg_accounting_endpoint_payload(jg_accounting_pnl_summary($pdo, $year), $month));
+        }
         if ($action === 'transactions') {
             jg_accounting_json(jg_accounting_endpoint_payload([
                 'transactions' => jg_accounting_transactions($pdo, $_GET),
             ], $month));
         }
+        if ($action === 'transaction') {
+            $rows = jg_accounting_transactions($pdo, [...$_GET, 'include_voided' => true]);
+            jg_accounting_json(jg_accounting_endpoint_payload(['transaction' => $rows[0] ?? null], $month));
+        }
         if ($action === 'bills') {
             jg_accounting_json(jg_accounting_endpoint_payload([
                 'bills' => jg_accounting_bills($pdo, $_GET),
             ], $month));
+        }
+        if ($action === 'bill') {
+            $rows = jg_accounting_bills($pdo, $_GET);
+            jg_accounting_json(jg_accounting_endpoint_payload(['bill' => $rows[0] ?? null], $month));
         }
         if ($action === 'accounts') {
             jg_accounting_json(jg_accounting_endpoint_payload([

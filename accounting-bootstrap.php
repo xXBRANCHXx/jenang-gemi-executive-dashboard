@@ -242,7 +242,7 @@ function jg_accounting_ensure_schema(PDO $pdo): void
             transaction_key VARCHAR(100) UNIQUE NOT NULL,
             transaction_date DATE NOT NULL,
             business_month CHAR(7) NOT NULL,
-            type ENUM("expense","bill_payment","transfer","manual_income","owner_draw","owner_injection","refund","adjustment","opening_balance","void") NOT NULL,
+            type ENUM("expense","bill_payment","transfer","manual_income","loan_received","owner_draw","owner_injection","refund","adjustment","opening_balance","void") NOT NULL,
             direction ENUM("money_out","money_in","internal_transfer") NOT NULL,
             status ENUM("draft","posted","pending_review","void") NOT NULL DEFAULT "posted",
             account_id BIGINT UNSIGNED NULL,
@@ -343,6 +343,17 @@ function jg_accounting_ensure_schema(PDO $pdo): void
         if (!analyticsTryExec($pdo, $sql)) {
             throw new RuntimeException('Unable to prepare Accounting storage.');
         }
+    }
+
+    $typeMigration = '2026_07_13_accounting_loan_received_v1';
+    $typeMigrationStmt = $pdo->prepare('SELECT COUNT(*) FROM accounting_migrations WHERE version = :version');
+    $typeMigrationStmt->execute([':version' => $typeMigration]);
+    if ((int) $typeMigrationStmt->fetchColumn() === 0) {
+        if (!analyticsTryExec($pdo, 'ALTER TABLE accounting_transactions MODIFY COLUMN type ENUM("expense","bill_payment","transfer","manual_income","loan_received","owner_draw","owner_injection","refund","adjustment","opening_balance","void") NOT NULL')) {
+            throw new RuntimeException('Unable to update Accounting transaction types.');
+        }
+        $recordTypeMigration = $pdo->prepare('INSERT IGNORE INTO accounting_migrations (version, applied_at) VALUES (:version, UTC_TIMESTAMP())');
+        $recordTypeMigration->execute([':version' => $typeMigration]);
     }
 
     $stmt = $pdo->prepare('INSERT IGNORE INTO accounting_migrations (version, applied_at) VALUES (:version, UTC_TIMESTAMP())');
@@ -1679,7 +1690,7 @@ function jg_accounting_monthly_summary(PDO $pdo, string $month): array
 {
     $stmt = $pdo->prepare(
         'SELECT
-            SUM(CASE WHEN status = "posted" AND direction = "money_out" AND type IN ("expense","bill_payment") THEN amount ELSE 0 END) AS paid_expenses,
+            SUM(CASE WHEN status = "posted" AND direction = "money_out" AND type IN ("expense","bill_payment","refund","adjustment") THEN amount ELSE 0 END) AS paid_expenses,
             SUM(CASE WHEN status = "posted" AND type = "manual_income" THEN amount ELSE 0 END) AS manual_income,
             SUM(CASE WHEN status = "posted" AND type = "owner_injection" THEN amount ELSE 0 END) AS owner_injection,
             SUM(CASE WHEN status = "posted" AND type = "owner_draw" THEN amount ELSE 0 END) AS owner_draw,
@@ -1733,6 +1744,76 @@ function jg_accounting_monthly_summary(PDO $pdo, string $month): array
         'bills_paid' => (int) round((float) ($bill['bills_paid'] ?? 0)),
         'bills_still_unpaid' => (int) round((float) ($bill['bills_unpaid'] ?? 0)),
         'estimated_net_cash_movement' => $manualIncome + $ownerInjection + $automaticCash - $paidExpenses - $ownerDraw - $transferFees,
+    ];
+}
+
+/**
+ * Cash-basis operating inputs for the executive P&L. Product-purchase categories
+ * are reported for reconciliation but deliberately excluded from operating expense;
+ * sale-level SKU COGS is supplied by the sales service instead.
+ */
+function jg_accounting_pnl_summary(PDO $pdo, int $year): array
+{
+    $year = max(2025, min(2100, $year));
+    $stmt = $pdo->prepare(
+        'SELECT t.business_month,
+            SUM(CASE WHEN t.direction = "money_out" AND t.type <> "refund" AND c.category_key IN ("meta-ads","google-ads","shopee-ads","tiktok-ads") THEN t.amount ELSE 0 END) AS ad_cost,
+            SUM(CASE WHEN t.direction = "money_out" AND t.type <> "refund" AND c.type = "marketing" AND c.category_key NOT IN ("meta-ads","google-ads","shopee-ads","tiktok-ads") THEN t.amount ELSE 0 END) AS marketing_other,
+            SUM(CASE WHEN t.direction = "money_out" AND t.type <> "refund" AND c.type = "payroll" THEN t.amount ELSE 0 END) AS payroll,
+            SUM(CASE WHEN t.direction = "money_out" AND t.type <> "refund" AND c.type IN ("operations","tax","other") THEN t.amount ELSE 0 END) AS operations,
+            SUM(CASE WHEN t.direction = "money_out" AND c.type = "cogs_support" THEN t.amount ELSE 0 END) AS product_purchases,
+            SUM(CASE WHEN t.direction = "money_out" AND t.type = "refund" THEN t.amount ELSE 0 END) AS manual_refunds,
+            SUM(CASE WHEN t.direction = "money_in" AND t.type = "manual_income" THEN t.amount ELSE 0 END) AS other_income,
+            SUM(CASE WHEN t.direction = "money_out" AND c.type = "asset" THEN t.amount ELSE 0 END) AS asset_purchases,
+            SUM(t.transfer_fee_amount) AS transfer_fees
+         FROM accounting_transactions t
+         LEFT JOIN accounting_categories c ON c.id = t.category_id
+         WHERE t.status = "posted"
+           AND t.business_month LIKE :year_prefix
+         GROUP BY t.business_month
+         ORDER BY t.business_month'
+    );
+    $stmt->execute([':year_prefix' => $year . '-%']);
+    $indexed = [];
+    foreach ($stmt->fetchAll() as $row) {
+        $indexed[(string) $row['business_month']] = $row;
+    }
+
+    $months = [];
+    for ($month = 1; $month <= 12; $month++) {
+        $key = sprintf('%04d-%02d', $year, $month);
+        $row = $indexed[$key] ?? [];
+        $adCost = (int) round((float) ($row['ad_cost'] ?? 0));
+        $marketingOther = (int) round((float) ($row['marketing_other'] ?? 0));
+        $payroll = (int) round((float) ($row['payroll'] ?? 0));
+        $operations = (int) round((float) ($row['operations'] ?? 0));
+        $transferFees = (int) round((float) ($row['transfer_fees'] ?? 0));
+        $months[] = [
+            'month' => $month,
+            'period_key' => $key,
+            'ad_cost' => $adCost,
+            'marketing_other' => $marketingOther,
+            'marketing' => $adCost + $marketingOther,
+            'payroll' => $payroll,
+            'operations' => $operations,
+            'transfer_fees' => $transferFees,
+            'operating_expenses' => $adCost + $marketingOther + $payroll + $operations + $transferFees,
+            'manual_refunds' => (int) round((float) ($row['manual_refunds'] ?? 0)),
+            'other_income' => (int) round((float) ($row['other_income'] ?? 0)),
+            'product_purchases' => (int) round((float) ($row['product_purchases'] ?? 0)),
+            'asset_purchases' => (int) round((float) ($row['asset_purchases'] ?? 0)),
+        ];
+    }
+
+    return [
+        'year' => $year,
+        'basis' => 'cash_basis_posted_accounting_entries',
+        'months' => $months,
+        'open_review_items' => (int) $pdo->query('SELECT COUNT(*) FROM accounting_review_queue WHERE status = "open"')->fetchColumn(),
+        'notes' => [
+            'Product purchases are excluded from operating expenses because the P&L uses sale-level SKU COGS.',
+            'Owner movements, loans, transfers, and asset purchases are excluded from net profit.',
+        ],
     ];
 }
 
@@ -1848,7 +1929,11 @@ function jg_accounting_transactions(PDO $pdo, array $filters): array
     $where = ['1=1'];
     $params = [];
     $month = jg_accounting_month($filters['month'] ?? null);
-    if (empty($filters['date_from']) && empty($filters['date_to'])) {
+    $transactionId = (int) ($filters['transaction_id'] ?? $filters['id'] ?? 0);
+    if ($transactionId > 0) {
+        $where[] = 't.id = :transaction_id';
+        $params[':transaction_id'] = $transactionId;
+    } elseif (empty($filters['date_from']) && empty($filters['date_to'])) {
         $where[] = 't.business_month = :month';
         $params[':month'] = $month;
     }
@@ -1915,6 +2000,10 @@ function jg_accounting_transactions(PDO $pdo, array $filters): array
         'type' => (string) $row['type'],
         'direction' => (string) $row['direction'],
         'status' => (string) $row['status'],
+        'account_id' => $row['account_id'] === null ? null : (int) $row['account_id'],
+        'to_account_id' => $row['to_account_id'] === null ? null : (int) $row['to_account_id'],
+        'counterparty_id' => $row['counterparty_id'] === null ? null : (int) $row['counterparty_id'],
+        'category_id' => $row['category_id'] === null ? null : (int) $row['category_id'],
         'account_name' => $row['account_name'],
         'to_account_name' => $row['to_account_name'],
         'counterparty_name' => $row['counterparty_name'],
@@ -1944,11 +2033,16 @@ function jg_accounting_bills(PDO $pdo, array $filters): array
     $where = ['1=1'];
     $params = [];
     $month = jg_accounting_month($filters['month'] ?? null);
-    if (empty($filters['due_from']) && empty($filters['due_to'])) {
+    $requestedStatus = jg_accounting_text($filters['status'] ?? '', 40);
+    $billId = (int) ($filters['bill_id'] ?? $filters['id'] ?? 0);
+    if ($billId > 0) {
+        $where[] = 'b.id = :bill_id';
+        $params[':bill_id'] = $billId;
+    } elseif (empty($filters['due_from']) && empty($filters['due_to']) && $requestedStatus !== 'open') {
         $where[] = 'b.business_month = :month';
         $params[':month'] = $month;
     }
-    $status = jg_accounting_text($filters['status'] ?? '', 40);
+    $status = $requestedStatus;
     if ($status !== '') {
         if ($status === 'open') {
             $where[] = 'b.status IN ("unpaid","partially_paid","overdue")';
@@ -2013,11 +2107,14 @@ function jg_accounting_bills(PDO $pdo, array $filters): array
         'id' => (int) $row['id'],
         'bill_key' => (string) $row['bill_key'],
         'bill_no' => $row['bill_no'],
+        'vendor_id' => $row['vendor_id'] === null ? null : (int) $row['vendor_id'],
         'vendor_name' => (string) ($row['vendor_name'] ?? ''),
         'issue_date' => (string) $row['issue_date'],
         'due_date' => $row['due_date'],
         'business_month' => (string) $row['business_month'],
         'category_name' => $row['category_name'],
+        'category_id' => $row['category_id'] === null ? null : (int) $row['category_id'],
+        'expected_account_id' => $row['expected_account_id'] === null ? null : (int) $row['expected_account_id'],
         'brand' => $row['brand'],
         'channel' => $row['channel'],
         'total_amount' => (int) $row['total_amount'],
@@ -2057,14 +2154,14 @@ function jg_accounting_create_transaction(PDO $pdo, array $body): array
 {
     $date = jg_accounting_date($body['transaction_date'] ?? $body['date'] ?? null, 'transaction_date', jg_accounting_now()->format('Y-m-d'));
     $type = jg_accounting_text($body['type'] ?? 'expense', 40);
-    $allowedTypes = ['expense','bill_payment','transfer','manual_income','owner_draw','owner_injection','refund','adjustment','opening_balance'];
+    $allowedTypes = ['expense','bill_payment','transfer','manual_income','loan_received','owner_draw','owner_injection','refund','adjustment','opening_balance'];
     if (!in_array($type, $allowedTypes, true)) {
         jg_accounting_error('Invalid transaction type.', 422, 'type');
     }
     $direction = jg_accounting_text($body['direction'] ?? '', 40);
     if ($direction === '') {
         $direction = match ($type) {
-            'manual_income', 'owner_injection', 'opening_balance' => 'money_in',
+            'manual_income', 'loan_received', 'owner_injection', 'opening_balance' => 'money_in',
             'transfer' => 'internal_transfer',
             default => 'money_out',
         };
@@ -2439,7 +2536,7 @@ function jg_accounting_update_transaction(PDO $pdo, array $body): array
         ? jg_accounting_amount($body['amount'])
         : (int) $old['amount'];
     $type = jg_accounting_text($body['type'] ?? $old['type'], 40);
-    if (!in_array($type, ['expense','bill_payment','transfer','manual_income','owner_draw','owner_injection','refund','adjustment','opening_balance','void'], true)) {
+    if (!in_array($type, ['expense','bill_payment','transfer','manual_income','loan_received','owner_draw','owner_injection','refund','adjustment','opening_balance','void'], true)) {
         jg_accounting_error('Invalid transaction type.', 422, 'type');
     }
     $direction = jg_accounting_text($body['direction'] ?? $old['direction'], 40);

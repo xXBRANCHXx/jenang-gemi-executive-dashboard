@@ -189,7 +189,14 @@ const JENANG_GEMI_SEARCH_INDEX = [
     section: 'Admin',
     description: 'Cash, bills, expenses, transfers, manual income, and finance controls.',
     url: '../profit-loss/',
-    keywords: ['accounting', 'cash control', 'bills', 'expenses', 'transfer', 'manual income', 'finance', 'profit', 'loss', 'p&l']
+    keywords: ['accounting', 'cash control', 'bills', 'expenses', 'transfer', 'manual income', 'finance']
+  },
+  {
+    title: 'Profit & Loss',
+    section: 'Admin',
+    description: 'Revenue, product cost, operating expenses, ad cost, and net profit.',
+    url: '../profit-and-loss/',
+    keywords: ['profit', 'loss', 'p&l', 'revenue', 'cogs', 'net profit', 'ad cost']
   },
   {
     title: 'API Health',

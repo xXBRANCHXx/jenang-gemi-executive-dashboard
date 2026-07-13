@@ -21,12 +21,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $isAuthenticated = jg_admin_is_authenticated();
 if ($isAuthenticated) {
     $requestedView = strtolower(trim((string) ($_GET['view'] ?? 'overview')));
-    if (in_array($requestedView, ['accounting', 'cash-control', 'cash_control', 'profit-loss', 'profit_loss'], true)) {
+    if (in_array($requestedView, ['accounting', 'cash-control', 'cash_control'], true)) {
         header('Location: ../profit-loss/', true, 302);
         exit;
     }
+    if (in_array($requestedView, ['profit-loss', 'profit_loss', 'p&l'], true)) {
+        header('Location: ../profit-and-loss/', true, 302);
+        exit;
+    }
 }
-$dashboardBuildVersion = 'exec3.76.1';
+$dashboardBuildVersion = 'exec3.76.2';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');

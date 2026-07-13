@@ -101,11 +101,17 @@ function admin_quick_menu_definitions(): array
             'label' => 'Hard Set',
             'description' => 'Website order cutover control',
         ],
-        'profit-loss' => [
+        'accounting' => [
             'href' => '../profit-loss/',
             'icon' => 'profit-loss',
             'label' => 'Accounting',
             'description' => 'Cash, bills, expenses, and manual finance control',
+        ],
+        'profit-loss' => [
+            'href' => '../profit-and-loss/',
+            'icon' => 'profit-loss',
+            'label' => 'Profit & Loss',
+            'description' => 'Revenue, COGS, expenses, and net profit',
         ],
         'settings' => [
             'href' => '../dashboard/?view=settings',
@@ -168,7 +174,8 @@ function admin_quick_menu_context_map(): array
         'affiliates' => ['home', 'affiliate-profiles', 'campaigns', 'daily', 'orders', 'settings'],
         'affiliate-profiles' => ['home', 'affiliates', 'campaigns', 'daily', 'orders', 'settings'],
         'hard-set' => ['home', 'settings'],
-        'profit-loss' => ['home', 'daily', 'orders', 'campaigns', 'context', 'settings'],
+        'accounting' => ['home', 'profit-loss', 'orders', 'context', 'settings'],
+        'profit-loss' => ['home', 'accounting', 'orders', 'campaigns', 'context', 'settings'],
         'website' => ['home', 'daily', 'orders', 'campaigns', 'affiliates', 'settings'],
         'partners' => ['home', 'partner-profiles', 'daily', 'orders', 'campaigns', 'settings'],
         'api' => ['home', 'back-dash', 'context', 'hard-set', 'settings'],
@@ -195,8 +202,8 @@ function admin_normalize_quick_menu_context(string $context): string
         'partner-profile' => 'partner-profiles',
         'sku' => 'sku-db',
         'api-health' => 'api',
-        'accounting' => 'profit-loss',
-        'cash-control' => 'profit-loss',
+        'accounting' => 'accounting',
+        'cash-control' => 'accounting',
         'p&l' => 'profit-loss',
         'profit-and-loss' => 'profit-loss',
         'inventory' => 'inventory-recap',
@@ -228,8 +235,8 @@ function admin_dashboard_view_menu_context(): string
         'context' => 'context',
         'open-context' => 'context',
         'website' => 'website',
-        'accounting' => 'profit-loss',
-        'cash-control' => 'profit-loss',
+        'accounting' => 'accounting',
+        'cash-control' => 'accounting',
         'profit-loss' => 'profit-loss',
         'profit_loss' => 'profit-loss',
         'hardset' => 'hard-set',
@@ -273,8 +280,11 @@ function admin_current_menu_context(): string
     if (str_contains($path, '/sku-db/')) {
         return 'sku-db';
     }
-    if (str_contains($path, '/profit-loss/')) {
+    if (str_contains($path, '/profit-and-loss/')) {
         return 'profit-loss';
+    }
+    if (str_contains($path, '/profit-loss/')) {
+        return 'accounting';
     }
 
     return 'overview';
@@ -470,11 +480,18 @@ function render_admin_sidebar(string $activeSection = ''): void
             'view' => 'website',
         ],
         [
-            'key' => 'profit-loss',
+            'key' => 'accounting',
             'href' => '../profit-loss/',
             'label' => 'Accounting',
             'icon' => 'admin-rail-icon-profit-loss',
             'aria' => 'Open accounting and cash control workspace',
+        ],
+        [
+            'key' => 'profit-loss',
+            'href' => '../profit-and-loss/',
+            'label' => 'P&L',
+            'icon' => 'admin-rail-icon-profit-loss',
+            'aria' => 'Open profit and loss report',
         ],
         [
             'key' => 'affiliate',

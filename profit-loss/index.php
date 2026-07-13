@@ -20,7 +20,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
     <title>Accounting | Executive Dashboard</title>
     <meta name="robots" content="noindex,nofollow">
 <?php render_admin_initial_theme_script(); ?>
-<?php render_admin_favicons('profit-loss'); ?>
+<?php render_admin_favicons('accounting'); ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap">
@@ -29,48 +29,36 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
 <body class="admin-body is-dashboard is-executive-dashboard is-profit-loss is-accounting">
 <div class="admin-app admin-app-suite" data-accounting-page data-accounting-endpoint="../api/accounting/">
     <div class="admin-shell">
-        <?php render_admin_sidebar('profit-loss'); ?>
+        <?php render_admin_sidebar('accounting'); ?>
         <div class="admin-shell-main">
-            <header class="admin-topbar profit-loss-topbar admin-accounting-topbar">
+            <header class="admin-topbar profit-loss-topbar admin-accounting-topbar admin-finance-page-head">
                 <div class="admin-topbar-brand">
-                    <span class="admin-admin-mark">Admin Scope</span>
-                    <h1>Executive Dashboard</h1>
-                    <p>Accounting</p>
+                    <span class="admin-admin-mark">Finance operations</span>
+                    <h1>Accounting</h1>
+                    <p>Record exceptions, control cash, and correct the books.</p>
                 </div>
-                <?php render_admin_topbar_actions('profit-loss'); ?>
+                <?php render_admin_topbar_actions('accounting'); ?>
             </header>
 
             <main class="profit-loss-layout admin-accounting-view" data-accounting-view>
                 <section class="admin-accounting-command" aria-label="Accounting controls">
                     <div class="admin-accounting-command-fields">
+                        <button type="button" class="admin-ghost-btn admin-accounting-month-step" data-accounting-previous-month aria-label="Previous month">Previous</button>
                         <label class="admin-accounting-field">
-                            <span>Month</span>
+                            <span>Working month</span>
                             <input type="month" data-accounting-month-select>
                         </label>
-                        <div class="admin-accounting-range" data-accounting-range-controls aria-label="Accounting range">
-                            <button type="button" class="admin-toggle-pill is-active" data-accounting-range="this_month">This Month</button>
-                            <button type="button" class="admin-toggle-pill" data-accounting-range="last_month">Last Month</button>
-                            <button type="button" class="admin-toggle-pill" data-accounting-range="ytd">YTD</button>
-                            <button type="button" class="admin-toggle-pill" data-accounting-range="custom">Custom</button>
-                        </div>
-                        <label class="admin-accounting-field">
-                            <span>From</span>
-                            <input type="date" data-accounting-date-from>
-                        </label>
-                        <label class="admin-accounting-field">
-                            <span>To</span>
-                            <input type="date" data-accounting-date-to>
-                        </label>
+                        <button type="button" class="admin-soft-btn admin-accounting-month-step" data-accounting-current-month>Current month</button>
                     </div>
                     <div class="admin-accounting-command-actions">
                         <button type="button" class="admin-ghost-btn" data-accounting-refresh>Refresh</button>
-                        <button type="button" class="admin-primary-btn" data-accounting-open-mode="expense_paid">Expense</button>
-                        <button type="button" class="admin-primary-btn" data-accounting-open-mode="bill_received">Bill</button>
-                        <button type="button" class="admin-soft-btn" data-accounting-open-mode="pay_bill">Pay Bill</button>
-                        <button type="button" class="admin-soft-btn" data-accounting-open-mode="transfer">Transfer</button>
-                        <button type="button" class="admin-ghost-btn" data-accounting-export>Export</button>
-                        <button type="button" class="admin-ghost-btn" data-accounting-cash-records-export>Cash Records</button>
-                        <button type="button" class="admin-ghost-btn" data-accounting-settings>Settings</button>
+                        <details class="admin-accounting-export-menu">
+                            <summary class="admin-ghost-btn">Export</summary>
+                            <div>
+                                <button type="button" data-accounting-export>Manual ledger CSV</button>
+                                <button type="button" data-accounting-cash-records-export>Automatic cash CSV</button>
+                            </div>
+                        </details>
                     </div>
                     <p class="admin-accounting-status" data-accounting-status>Accounting updated just now</p>
                     <div class="admin-accounting-alert-strip" data-accounting-alerts>
@@ -117,18 +105,22 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                 </section>
 
                 <section class="admin-accounting-workspace">
-                    <article class="admin-accounting-panel admin-accounting-entry">
+                    <article class="admin-accounting-panel admin-accounting-entry" id="accounting-entry">
                         <div class="admin-panel-head">
                             <div><span class="admin-panel-kicker">Accounting</span><h3>Daily entry</h3></div>
                             <span class="admin-panel-meta" data-accounting-form-status>Ready</span>
                         </div>
-                        <div class="admin-accounting-mode-row">
-                            <button type="button" class="admin-toggle-pill is-active" data-accounting-quick-mode="expense_paid">Expense Paid</button>
-                            <button type="button" class="admin-toggle-pill" data-accounting-quick-mode="bill_received">Bill Received</button>
-                            <button type="button" class="admin-toggle-pill" data-accounting-quick-mode="pay_bill">Pay Bill</button>
-                            <button type="button" class="admin-toggle-pill" data-accounting-quick-mode="transfer">Transfer</button>
-                            <button type="button" class="admin-toggle-pill" data-accounting-quick-mode="manual_income">Money In</button>
-                        </div>
+                        <label class="admin-accounting-mode-picker">
+                            <span>What happened?</span>
+                            <select data-accounting-mode-select>
+                                <option value="expense_paid">Expense paid</option>
+                                <option value="bill_received">Bill received</option>
+                                <option value="pay_bill">Bill paid</option>
+                                <option value="customer_refund">Customer refund paid</option>
+                                <option value="transfer">Money transferred</option>
+                                <option value="manual_income">Other money received</option>
+                            </select>
+                        </label>
                         <div class="admin-accounting-helper" data-accounting-mode-helper>Money already paid from the business.</div>
                         <form class="admin-accounting-form" data-accounting-form>
                             <input type="hidden" name="mode" data-accounting-mode-field value="expense_paid">
@@ -210,7 +202,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                                     <option value="manual_income">Offline customer payment</option>
                                     <option value="manual_income">Website/manual invoice payment</option>
                                     <option value="owner_injection">Owner injection</option>
-                                    <option value="manual_income">Loan received</option>
+                                    <option value="loan_received">Loan received</option>
                                     <option value="refund">Refund/reimbursement received</option>
                                     <option value="manual_income">Other income</option>
                                 </select>
@@ -266,7 +258,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                     </article>
                 </section>
 
-                <section class="admin-accounting-panel admin-accounting-panel-wide">
+                <section class="admin-accounting-panel admin-accounting-panel-wide" id="accounting-bills">
                     <div class="admin-panel-head">
                         <div><span class="admin-panel-kicker">Bills</span><h3>Open bills</h3></div>
                         <span class="admin-panel-meta" data-accounting-bills-meta>Open bills</span>
@@ -297,7 +289,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                     </div>
                 </section>
 
-                <section class="admin-accounting-panel admin-accounting-panel-wide">
+                <section class="admin-accounting-panel admin-accounting-panel-wide" id="accounting-ledger">
                     <div class="admin-panel-head">
                         <div><span class="admin-panel-kicker">Ledger</span><h3>Manual entries</h3></div>
                         <span class="admin-panel-meta" data-accounting-ledger-meta>Selected month</span>
@@ -331,7 +323,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                 <section class="admin-accounting-secondary">
                     <article class="admin-accounting-panel">
                         <div class="admin-panel-head">
-                            <div><span class="admin-panel-kicker">Summary</span><h3>Profit and cash</h3></div>
+                            <div><span class="admin-panel-kicker">Month</span><h3>Cash movement</h3></div>
                         </div>
                         <div class="admin-accounting-summary-list" data-accounting-monthly-summary></div>
                     </article>
@@ -349,9 +341,9 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                         <div class="admin-accounting-insight-list" data-accounting-insights></div>
                     </article>
 
-                    <article class="admin-accounting-panel admin-accounting-panel-wide">
+                    <article class="admin-accounting-panel admin-accounting-panel-wide" id="accounting-review">
                         <div class="admin-panel-head">
-                            <div><span class="admin-panel-kicker">Review</span><h3>Data checks</h3></div>
+                            <div><span class="admin-panel-kicker">Review</span><h3>Errors to fix</h3></div>
                             <span class="admin-panel-meta">Category, receipt, duplicate, marketplace income</span>
                         </div>
                         <div class="admin-table-wrap admin-accounting-table-wrap admin-accounting-review-wrap">
