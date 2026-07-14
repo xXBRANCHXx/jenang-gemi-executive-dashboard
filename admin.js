@@ -9534,9 +9534,11 @@ document.addEventListener('DOMContentLoaded', () => {
       ? 'Manual override'
       : (campaign.economics?.unit_cogs_source === 'sku_db_purchased_mix'
         ? `SKU DB • purchased mix (${Number(campaign.economics.purchased_mix_quantity || 0).toLocaleString('id-ID')} items)`
-        : (campaign.economics?.unit_cogs_source === 'sku_db_average'
+        : (campaign.economics?.unit_cogs_source === 'sku_db_product_family'
+          ? `SKU DB • product family (${campaign.economics.matched_skus.length} SKU${campaign.economics.matched_skus.length === 1 ? '' : 's'})`
+          : (campaign.economics?.unit_cogs_source === 'sku_db_average'
           ? `SKU DB • ${campaign.economics.matched_skus.length} matched SKU${campaign.economics.matched_skus.length === 1 ? '' : 's'}`
-          : (campaign.economics?.matched_skus?.length ? 'Matched SKU has no COGS value' : 'No matching SKU in SKU DB')));
+          : (campaign.economics?.matched_skus?.length ? 'Matched SKU has no COGS value' : 'No matching SKU in SKU DB'))));
     const tags = (campaign.tags || []).map((tag) => `<span class="admin-ad-view-tag">${escapeHtml(tag)}</span>`).join('');
     adViewRefs.detail.innerHTML = `
       <div class="admin-ad-view-detail-head">

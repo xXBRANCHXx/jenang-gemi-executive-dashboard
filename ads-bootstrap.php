@@ -147,6 +147,44 @@ function jgAdViewSkuInitials(mixed $value): string
     return implode('', array_map(static fn (string $word): string => substr($word, 0, 1), $words));
 }
 
+/** @return array<int, string> */
+function jgAdViewSellerSkuKeys(mixed $value): array
+{
+    $full = jgAdViewSkuCompactKey($value);
+    if ($full === '') {
+        return [];
+    }
+    $withoutPackSize = preg_replace(
+        '/\d+(?:ML|L|MG|G|GR|GRAM|KG|SACHET|CAPS|PCS|PC|TABLET|TAB|BOTTLE|BOTOL)$/',
+        '',
+        $full
+    ) ?? $full;
+    $withoutTrailingNumber = preg_replace('/\d+$/', '', $full) ?? $full;
+    return array_values(array_unique(array_filter([$full, $withoutPackSize, $withoutTrailingNumber])));
+}
+
+/** @return array<int, array<string, mixed>> */
+function jgAdViewSkuCatalog(PDO $pdo): array
+{
+    static $cache = [];
+    $cacheKey = spl_object_id($pdo);
+    if (isset($cache[$cacheKey])) {
+        return $cache[$cacheKey];
+    }
+    $statement = $pdo->query(
+        'SELECT s.sku, s.tag, s.cogs, s.volume, s.product_id,
+                b.name AS brand_name, u.name AS unit_name,
+                p.name AS product_name, f.name AS flavor_name
+         FROM sku_skus s
+         LEFT JOIN sku_brands b ON b.id = s.brand_id
+         LEFT JOIN sku_units u ON u.id = s.unit_id
+         LEFT JOIN sku_products p ON p.id = s.product_id
+         LEFT JOIN sku_flavors f ON f.id = s.flavor_id'
+    );
+    $cache[$cacheKey] = array_values(array_filter($statement->fetchAll(), 'is_array'));
+    return $cache[$cacheKey];
+}
+
 /** @param array<string, mixed> $row @return array<int, string> */
 function jgAdViewSkuSemanticAliases(array $row): array
 {
@@ -234,19 +272,9 @@ function jgAdViewSkuCostMap(PDO $pdo, array $sellerSkus): array
         return [];
     }
     try {
-        $statement = $pdo->query(
-            'SELECT s.sku, s.tag, s.cogs, s.volume,
-                    b.name AS brand_name, u.name AS unit_name,
-                    p.name AS product_name, f.name AS flavor_name
-             FROM sku_skus s
-             LEFT JOIN sku_brands b ON b.id = s.brand_id
-             LEFT JOIN sku_units u ON u.id = s.unit_id
-             LEFT JOIN sku_products p ON p.id = s.product_id
-             LEFT JOIN sku_flavors f ON f.id = s.flavor_id'
-        );
         $directIndex = [];
         $semanticIndex = [];
-        foreach ($statement->fetchAll() as $row) {
+        foreach (jgAdViewSkuCatalog($pdo) as $row) {
             foreach (['sku', 'tag'] as $field) {
                 $alias = jgAdViewSkuCompactKey($row[$field] ?? '');
                 if ($alias !== '') {
@@ -259,10 +287,15 @@ function jgAdViewSkuCostMap(PDO $pdo, array $sellerSkus): array
         }
         $result = [];
         foreach ($sellerSkus as $sellerSku) {
-            $compactSellerSku = jgAdViewSkuCompactKey($sellerSku);
-            $candidate = jgAdViewUniqueSkuCandidate($directIndex[$compactSellerSku] ?? []);
-            if ($candidate === null) {
-                $candidate = jgAdViewUniqueSkuCandidate($semanticIndex[$compactSellerSku] ?? []);
+            $candidate = null;
+            foreach (jgAdViewSellerSkuKeys($sellerSku) as $sellerKey) {
+                $candidate = jgAdViewUniqueSkuCandidate($directIndex[$sellerKey] ?? []);
+                if ($candidate === null) {
+                    $candidate = jgAdViewUniqueSkuCandidate($semanticIndex[$sellerKey] ?? []);
+                }
+                if ($candidate !== null) {
+                    break;
+                }
             }
             if ($candidate !== null) {
                 $result[$sellerSku] = [
@@ -278,6 +311,76 @@ function jgAdViewSkuCostMap(PDO $pdo, array $sellerSkus): array
         error_log('Ad View SKU economics unavailable: ' . $error->getMessage());
         return [];
     }
+}
+
+/** @param array<string, mixed> $campaign @return array<int, array{sku:string,cogs:float,source_key:string,matched_by:string}> */
+function jgAdViewProductFamilyCosts(PDO $pdo, array $campaign): array
+{
+    try {
+        $catalog = jgAdViewSkuCatalog($pdo);
+    } catch (Throwable $error) {
+        error_log('Ad View SKU product-family fallback unavailable: ' . $error->getMessage());
+        return [];
+    }
+    $campaignText = jgAdViewSkuCompactKey(implode(' ', array_filter([
+        (string) ($campaign['product_name'] ?? ''),
+        (string) ($campaign['source_ad_name'] ?? ''),
+        (string) (($campaign['settings']['common_info']['ad_name'] ?? '')),
+    ])));
+    if ($campaignText === '') {
+        return [];
+    }
+
+    $families = [];
+    foreach ($catalog as $row) {
+        $productId = jgAdViewSkuKey($row['product_id'] ?? '');
+        $productName = trim((string) ($row['product_name'] ?? ''));
+        $productKey = jgAdViewSkuCompactKey($productName);
+        if ($productId === '' || $productKey === '' || (float) ($row['cogs'] ?? 0) <= 0) {
+            continue;
+        }
+        if (!isset($families[$productId])) {
+            $productWords = preg_split('/[^A-Z0-9]+/', jgAdViewSkuKey($productName), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+            $families[$productId] = [
+                'score' => 0,
+                'rows' => [],
+                'product_key' => $productKey,
+                'product_words' => array_values(array_unique(array_filter(array_map(
+                    'jgAdViewSkuCompactKey',
+                    $productWords
+                ), static fn (string $word): bool => strlen($word) >= 4))),
+                'brand_key' => jgAdViewSkuCompactKey($row['brand_name'] ?? ''),
+            ];
+        }
+        $families[$productId]['rows'][] = $row;
+    }
+
+    foreach ($families as &$family) {
+        $score = str_contains($campaignText, (string) $family['product_key']) ? 100 : 0;
+        foreach ($family['product_words'] as $word) {
+            if (str_contains($campaignText, $word)) {
+                $score += 18;
+            }
+        }
+        if ($family['brand_key'] !== '' && str_contains($campaignText, (string) $family['brand_key'])) {
+            $score += 12;
+        }
+        $family['score'] = $score;
+    }
+    unset($family);
+    uasort($families, static fn (array $a, array $b): int => (int) $b['score'] <=> (int) $a['score']);
+    $ranked = array_values($families);
+    $best = $ranked[0] ?? null;
+    $runnerUp = $ranked[1] ?? null;
+    if (!is_array($best) || (int) $best['score'] < 100 || (is_array($runnerUp) && (int) $best['score'] === (int) $runnerUp['score'])) {
+        return [];
+    }
+    return array_values(array_map(static fn (array $row): array => [
+        'sku' => jgAdViewSkuKey($row['sku'] ?? ''),
+        'cogs' => (float) ($row['cogs'] ?? 0),
+        'source_key' => jgAdViewSkuKey($row['sku'] ?? ''),
+        'matched_by' => 'product_family',
+    ], $best['rows']));
 }
 
 /** @param array<int, string> $sellerSkus @return array<string, float> */
@@ -450,6 +553,20 @@ function jgAdViewEnrich(PDO $pdo, array $payload, string $startDate, string $end
                     $matched[] = $skuCostMap[$sellerSku];
                 }
             }
+            if ($skuPdo instanceof PDO && ($matched === [] || count($matched) < count($sellerSkus))) {
+                $familyMatched = jgAdViewProductFamilyCosts($skuPdo, $campaign);
+                $matchedBySku = [];
+                foreach ($matched as $matchedRow) {
+                    $matchedBySku[jgAdViewSkuKey($matchedRow['sku'] ?? '')] = $matchedRow;
+                }
+                foreach ($familyMatched as $matchedRow) {
+                    $canonicalSku = jgAdViewSkuKey($matchedRow['sku'] ?? '');
+                    if ($canonicalSku !== '' && !isset($matchedBySku[$canonicalSku])) {
+                        $matchedBySku[$canonicalSku] = $matchedRow;
+                    }
+                }
+                $matched = array_values($matchedBySku);
+            }
             $override = $local['unit_cogs_override'] ?? null;
             $matchedCogs = array_values(array_filter(array_map(
                 static fn (array $row): float => (float) ($row['cogs'] ?? 0),
@@ -474,16 +591,24 @@ function jgAdViewEnrich(PDO $pdo, array $payload, string $startDate, string $end
                 : ($weightedQuantity > 0
                     ? $weightedCost / $weightedQuantity
                     : ($matchedCogs !== [] ? array_sum($matchedCogs) / count($matchedCogs) : null));
+            $matchedBy = array_values(array_unique(array_map(
+                static fn (array $row): string => (string) ($row['matched_by'] ?? 'sku'),
+                $matched
+            )));
             $campaign['economics'] = [
                 'unit_cogs' => $unitCogs,
                 'unit_cogs_source' => $override !== null
                     ? 'manual_override'
-                    : ($weightedQuantity > 0 ? 'sku_db_purchased_mix' : ($matchedCogs !== [] ? 'sku_db_average' : 'unlinked')),
+                    : ($weightedQuantity > 0
+                        ? 'sku_db_purchased_mix'
+                        : ($matchedCogs !== []
+                            ? (in_array('product_family', $matchedBy, true) ? 'sku_db_product_family' : 'sku_db_average')
+                            : 'unlinked')),
                 'unit_cogs_override' => $override,
                 'matched_skus' => array_values(array_unique(array_map(static fn (array $row): string => (string) $row['sku'], $matched))),
-                'matched_by' => array_values(array_unique(array_map(static fn (array $row): string => (string) ($row['matched_by'] ?? 'sku'), $matched))),
+                'matched_by' => $matchedBy,
                 'seller_skus' => $sellerSkus,
-                'sku_coverage' => $sellerSkus !== [] ? count($matched) / count($sellerSkus) : 0,
+                'sku_coverage' => $sellerSkus !== [] ? min(1, count($matched) / count($sellerSkus)) : 0,
                 'purchased_mix_quantity' => $weightedQuantity,
             ];
         }

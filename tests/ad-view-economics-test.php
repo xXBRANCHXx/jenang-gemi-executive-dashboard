@@ -42,8 +42,9 @@ $pdo->exec("INSERT INTO dashboard_order_mirror VALUES
     ('shopee', 'zero-shopee', 'SKU-B', 9, '2026-07-13', NULL),
     ('shopee', 'jenang-gemi-shopee', 'SKU-A', 8, '2026-07-14', NULL)");
 
-$costs = jgAdViewSkuCostMap($pdo, ['JGBUBUR_ORIGINAL_30SACHET', 'BAGGOSMEDIA_BUBUR_ORIGINAL', 'SKU-B', 'FSUN-250', 'ZDROPS_VANILLA_30ML']);
+$costs = jgAdViewSkuCostMap($pdo, ['JGBUBUR_ORIGINAL_30SACHET', 'JGBUBUR_ORIGINAL_60SACHET', 'BAGGOSMEDIA_BUBUR_ORIGINAL', 'SKU-B', 'FSUN-250', 'ZDROPS_VANILLA_30ML']);
 if (($costs['JGBUBUR_ORIGINAL_30SACHET']['cogs'] ?? null) !== 10000.0
+    || ($costs['JGBUBUR_ORIGINAL_60SACHET']['cogs'] ?? null) !== 10000.0
     || ($costs['BAGGOSMEDIA_BUBUR_ORIGINAL']['cogs'] ?? null) !== 10000.0
     || ($costs['SKU-B']['cogs'] ?? null) !== 30000.0
     || ($costs['FSUN-250']['cogs'] ?? null) !== 40000.0
@@ -56,6 +57,17 @@ if (($costs['JGBUBUR_ORIGINAL_30SACHET']['sku'] ?? null) !== 'SKU-A' || ($costs[
 if (($costs['BAGGOSMEDIA_BUBUR_ORIGINAL']['matched_by'] ?? null) !== 'tag'
     || ($costs['FSUN-250']['matched_by'] ?? null) !== 'attributes') {
     throw new RuntimeException('Direct marketplace tags and abbreviated semantic SKUs must use the correct match source.');
+}
+
+$familyCosts = jgAdViewProductFamilyCosts($pdo, [
+    'product_name' => 'ZFit Fiber Syrup Sugar Free untuk Diet',
+    'source_ad_name' => '',
+    'settings' => [],
+]);
+if (count($familyCosts) !== 1
+    || ($familyCosts[0]['sku'] ?? null) !== 'SKU-C'
+    || ($familyCosts[0]['matched_by'] ?? null) !== 'product_family') {
+    throw new RuntimeException('Unambiguous listing product families must supply COGS when a seller SKU alias is new.');
 }
 
 $quantities = jgAdViewPurchasedSkuQuantities(
