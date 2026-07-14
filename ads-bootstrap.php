@@ -125,39 +125,49 @@ function jgAdViewUpstream(string $path, array $query): array
     return $payload;
 }
 
-/** @param array<int, string> $sellerSkus @return array<string, array{sku:string,cogs:float}> */
+function jgAdViewSkuKey(mixed $value): string
+{
+    return strtoupper(trim((string) $value));
+}
+
+function jgAdViewSkuCompactKey(mixed $value): string
+{
+    return preg_replace('/[^A-Z0-9]+/', '', jgAdViewSkuKey($value)) ?? '';
+}
+
+/** @param array<int, string> $sellerSkus @return array<string, array{sku:string,cogs:float,source_key:string,matched_by:string}> */
 function jgAdViewSkuCostMap(PDO $pdo, array $sellerSkus): array
 {
     $sellerSkus = array_values(array_unique(array_filter(array_map(
-        static fn (mixed $sku): string => strtoupper(trim((string) $sku)),
+        'jgAdViewSkuKey',
         $sellerSkus
     ))));
     if ($sellerSkus === []) {
         return [];
     }
-    $placeholders = [];
-    $params = [];
-    foreach ($sellerSkus as $index => $sku) {
-        $key = ':sku_' . $index;
-        $placeholders[] = $key;
-        $params[$key] = $sku;
-    }
     try {
-        $statement = $pdo->prepare(
-            'SELECT sku, cogs FROM sku_skus
-             WHERE UPPER(TRIM(sku)) IN (' . implode(',', $placeholders) . ')'
-        );
-        $statement->execute($params);
+        $statement = $pdo->query('SELECT sku, tag, cogs FROM sku_skus');
         $result = [];
         foreach ($statement->fetchAll() as $row) {
-            $key = strtoupper(trim((string) ($row['sku'] ?? '')));
-            if ($key === '') {
-                continue;
+            $canonicalSku = jgAdViewSkuKey($row['sku'] ?? '');
+            foreach (['sku', 'tag'] as $field) {
+                $alias = jgAdViewSkuKey($row[$field] ?? '');
+                $compactAlias = jgAdViewSkuCompactKey($alias);
+                if ($alias === '') {
+                    continue;
+                }
+                foreach ($sellerSkus as $sellerSku) {
+                    if ($sellerSku !== $alias && ($compactAlias === '' || $compactAlias !== jgAdViewSkuCompactKey($sellerSku))) {
+                        continue;
+                    }
+                    $result[$sellerSku] = [
+                        'sku' => $canonicalSku,
+                        'cogs' => (float) ($row['cogs'] ?? 0),
+                        'source_key' => $sellerSku,
+                        'matched_by' => $field,
+                    ];
+                }
             }
-            $result[$key] = [
-                'sku' => (string) $row['sku'],
-                'cogs' => (float) ($row['cogs'] ?? 0),
-            ];
         }
         return $result;
     } catch (Throwable $error) {
@@ -176,32 +186,28 @@ function jgAdViewPurchasedSkuQuantities(PDO $pdo, string $accountKey, string $st
     if ($sellerSkus === []) {
         return [];
     }
-    $placeholders = [];
     $params = [
         ':account_key' => $accountKey,
         ':start_date' => $startDate,
         ':end_date' => $endDate,
     ];
-    foreach ($sellerSkus as $index => $sku) {
-        $key = ':sold_sku_' . $index;
-        $placeholders[] = $key;
-        $params[$key] = $sku;
-    }
     try {
         $statement = $pdo->prepare(
             'SELECT UPPER(TRIM(sku)) AS normalized_sku, COALESCE(SUM(quantity), 0) AS quantity
              FROM dashboard_order_mirror
              WHERE platform = "shopee" AND account_key = :account_key AND deleted_at IS NULL
                AND order_create_date BETWEEN :start_date AND :end_date
-               AND UPPER(TRIM(sku)) IN (' . implode(',', $placeholders) . ')
              GROUP BY UPPER(TRIM(sku))'
         );
         $statement->execute($params);
         $result = [];
         foreach ($statement->fetchAll() as $row) {
-            $sku = strtoupper(trim((string) ($row['normalized_sku'] ?? '')));
-            if ($sku !== '') {
-                $result[$sku] = max(0, (float) ($row['quantity'] ?? 0));
+            $purchasedSku = jgAdViewSkuKey($row['normalized_sku'] ?? '');
+            $purchasedCompact = jgAdViewSkuCompactKey($purchasedSku);
+            foreach ($sellerSkus as $sellerSku) {
+                if ($sellerSku === $purchasedSku || ($purchasedCompact !== '' && $purchasedCompact === jgAdViewSkuCompactKey($sellerSku))) {
+                    $result[$sellerSku] = (float) ($result[$sellerSku] ?? 0) + max(0, (float) ($row['quantity'] ?? 0));
+                }
             }
         }
         return $result;
@@ -294,12 +300,19 @@ function jgAdViewEnrich(PDO $pdo, array $payload, string $startDate, string $end
                 is_array($campaign['seller_skus'] ?? null) ? $campaign['seller_skus'] : []
             );
         }
+        $accountQuantitySkus = $accountSellerSkus;
+        foreach ($accountSellerSkus as $sellerSku) {
+            $normalizedSellerSku = jgAdViewSkuKey($sellerSku);
+            if (isset($skuCostMap[$normalizedSellerSku]['sku'])) {
+                $accountQuantitySkus[] = (string) $skuCostMap[$normalizedSellerSku]['sku'];
+            }
+        }
         $accountPurchasedQuantities = jgAdViewPurchasedSkuQuantities(
             $pdo,
             $accountKey,
             $startDate,
             $endDate,
-            $accountSellerSkus
+            $accountQuantitySkus
         );
         foreach ($account['campaigns'] as &$campaign) {
             $local = $campaignLocal[$accountKey . ':' . (string) ($campaign['campaign_id'] ?? '')] ?? [];
@@ -335,8 +348,11 @@ function jgAdViewEnrich(PDO $pdo, array $payload, string $startDate, string $end
             $weightedCost = 0.0;
             $weightedQuantity = 0.0;
             foreach ($matched as $matchedSku) {
-                $normalizedSku = strtoupper(trim((string) ($matchedSku['sku'] ?? '')));
-                $quantity = (float) ($accountPurchasedQuantities[$normalizedSku] ?? 0);
+                $sourceKey = jgAdViewSkuKey($matchedSku['source_key'] ?? $matchedSku['sku'] ?? '');
+                $canonicalKey = jgAdViewSkuKey($matchedSku['sku'] ?? '');
+                $quantity = (float) ($accountPurchasedQuantities[$sourceKey]
+                    ?? $accountPurchasedQuantities[$canonicalKey]
+                    ?? 0);
                 if ($quantity <= 0 || (float) ($matchedSku['cogs'] ?? 0) <= 0) {
                     continue;
                 }
@@ -354,7 +370,8 @@ function jgAdViewEnrich(PDO $pdo, array $payload, string $startDate, string $end
                     ? 'manual_override'
                     : ($weightedQuantity > 0 ? 'sku_db_purchased_mix' : ($matchedCogs !== [] ? 'sku_db_average' : 'unlinked')),
                 'unit_cogs_override' => $override,
-                'matched_skus' => array_values(array_map(static fn (array $row): string => (string) $row['sku'], $matched)),
+                'matched_skus' => array_values(array_unique(array_map(static fn (array $row): string => (string) $row['sku'], $matched))),
+                'matched_by' => array_values(array_unique(array_map(static fn (array $row): string => (string) ($row['matched_by'] ?? 'sku'), $matched))),
                 'seller_skus' => $sellerSkus,
                 'sku_coverage' => $sellerSkus !== [] ? count($matched) / count($sellerSkus) : 0,
                 'purchased_mix_quantity' => $weightedQuantity,

@@ -1022,23 +1022,12 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                         <label><span>To</span><input type="date" data-ad-view-end-date></label>
                         <button type="button" class="admin-soft-btn" data-ad-view-load>Apply</button>
                     </div>
+                    <div class="admin-ad-view-credits" data-ad-view-credits aria-label="Current ad credit by Shopee account"></div>
                     <div class="admin-ad-view-toolbar-actions">
                         <span class="admin-ad-view-sync-status"><span class="admin-status-dot"></span><span data-ad-view-status>Waiting for first load</span></span>
                         <button type="button" class="admin-primary-btn" data-ad-view-sync>Sync ads</button>
                     </div>
                     <p class="admin-form-error" data-ad-view-form-error hidden></p>
-                </section>
-
-                <section class="admin-ad-view-credits" data-ad-view-credits aria-label="Current ad credit by Shopee account"></section>
-
-                <section class="admin-ad-view-kpis">
-                    <button type="button" style="--ad-metric-color:#5b8cff" data-ad-view-summary-metric="impressions" aria-pressed="false"><i></i><span>Impressions</span><strong data-ad-view-kpi="impressions">0</strong><small>Selected timeframe</small></button>
-                    <button type="button" style="--ad-metric-color:#a855f7" data-ad-view-summary-metric="clicks" aria-pressed="false"><i></i><span>Clicks</span><strong data-ad-view-kpi="clicks">0</strong><small>Selected timeframe</small></button>
-                    <button type="button" class="is-selected" style="--ad-metric-color:#ff9f43" data-ad-view-summary-metric="broad_orders" aria-pressed="true"><i></i><span>Orders</span><strong data-ad-view-kpi="broad-orders">0</strong><small>Attributed orders</small></button>
-                    <button type="button" style="--ad-metric-color:#00bcd4" data-ad-view-summary-metric="broad_items" aria-pressed="false"><i></i><span>Items sold</span><strong data-ad-view-kpi="broad-items">0</strong><small>Attributed items</small></button>
-                    <button type="button" class="is-selected" style="--ad-metric-color:#ff5c7a" data-ad-view-summary-metric="expense" aria-pressed="true"><i></i><span>Ad cost</span><strong data-ad-view-kpi="expense">Rp0</strong><small>Selected timeframe</small></button>
-                    <button type="button" class="is-selected" style="--ad-metric-color:#00c987" data-ad-view-summary-metric="broad_gmv" aria-pressed="true"><i></i><span>Attributed sales</span><strong data-ad-view-kpi="attributed-sales">Rp0</strong><small>Broad GMV</small></button>
-                    <button type="button" class="is-selected" style="--ad-metric-color:#f2c94c" data-ad-view-summary-metric="broad_roas" aria-pressed="true"><i></i><span>ROAS</span><strong data-ad-view-kpi="roas">0.00x</strong><small>Attributed sales ÷ cost</small></button>
                 </section>
 
                 <section class="admin-ad-view-workspace">
@@ -1058,17 +1047,26 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                                 <div><span class="admin-panel-kicker">Selected ad over time</span><h3 data-ad-view-trend-title>Select a live ad</h3></div>
                                 <span class="admin-panel-meta" data-ad-view-trend-meta>Select up to four metrics</span>
                             </div>
+                            <section class="admin-ad-view-kpis" aria-label="Select chart metrics">
+                                <button type="button" style="--ad-metric-color:#5b8cff" data-ad-view-summary-metric="impressions" aria-pressed="false"><i></i><span>Impressions</span><strong data-ad-view-kpi="impressions">0</strong></button>
+                                <button type="button" style="--ad-metric-color:#a855f7" data-ad-view-summary-metric="clicks" aria-pressed="false"><i></i><span>Clicks</span><strong data-ad-view-kpi="clicks">0</strong></button>
+                                <button type="button" class="is-selected" style="--ad-metric-color:#ff9f43" data-ad-view-summary-metric="broad_orders" aria-pressed="true"><i></i><span>Orders</span><strong data-ad-view-kpi="broad-orders">0</strong></button>
+                                <button type="button" style="--ad-metric-color:#00bcd4" data-ad-view-summary-metric="broad_items" aria-pressed="false"><i></i><span>Items sold</span><strong data-ad-view-kpi="broad-items">0</strong></button>
+                                <button type="button" class="is-selected" style="--ad-metric-color:#ff5c7a" data-ad-view-summary-metric="expense" aria-pressed="true"><i></i><span>Ad cost</span><strong data-ad-view-kpi="expense">Rp0</strong></button>
+                                <button type="button" class="is-selected" style="--ad-metric-color:#00c987" data-ad-view-summary-metric="broad_gmv" aria-pressed="true"><i></i><span>Attributed sales</span><strong data-ad-view-kpi="attributed-sales">Rp0</strong></button>
+                                <button type="button" class="is-selected" style="--ad-metric-color:#f2c94c" data-ad-view-summary-metric="broad_roas" aria-pressed="true"><i></i><span>ROAS</span><strong data-ad-view-kpi="roas">0.00x</strong></button>
+                            </section>
                             <div class="admin-chart-surface"><canvas class="admin-chart-canvas admin-chart-canvas-lg" data-ad-view-chart width="1200" height="390"></canvas></div>
-                        </article>
-
-                        <article class="admin-panel admin-ad-view-detail-panel" data-ad-view-detail>
-                            <div class="admin-ad-view-detail-empty">
-                                <strong>Select a live ad</strong>
-                                <span>Its Shopee metrics, profitability, settings, and insights will appear here.</span>
-                            </div>
                         </article>
                     </div>
                 </section>
+
+                <article class="admin-panel admin-ad-view-detail-panel" data-ad-view-detail>
+                    <div class="admin-ad-view-detail-empty">
+                        <strong>Select a live ad</strong>
+                        <span>Its profitability, COGS, and insights will appear here.</span>
+                    </div>
+                </article>
 
                 <details class="admin-panel admin-ad-view-compare-panel" data-ad-view-comparison>
                     <summary><span><strong>Compare two live ads</strong><small>Optional matched-period view</small></span><i>Open comparison</i></summary>

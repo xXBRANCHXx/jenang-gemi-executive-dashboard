@@ -25581,7 +25581,7 @@ body:has(.admin-app[data-sku-db])::after {
 
 /* AD VIEW follows the dashboard's minimal, flat chrome. */
 .admin-app[data-admin-dashboard] [data-view-panel='ad-view'] > .admin-ad-view-toolbar {
-  grid-template-columns: minmax(180px, 0.55fr) minmax(360px, 1fr) auto;
+  grid-template-columns: minmax(160px, 0.48fr) minmax(320px, 0.9fr) minmax(330px, 1fr) auto;
   gap: 12px;
   margin-bottom: 16px;
   padding: 0 0 16px;
@@ -25648,15 +25648,17 @@ body:has(.admin-app[data-sku-db])::after {
 }
 
 .admin-ad-view-credits {
-  margin-bottom: 14px;
+  min-width: 0;
+  margin: 0;
 }
 
 .admin-ad-view-credits > article {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
-  padding: 11px 14px;
+  gap: 12px;
+  min-height: 44px;
+  padding: 7px 10px;
   border: 1px solid var(--admin-border);
   border-radius: 13px;
   background: var(--admin-surface-soft);
@@ -25686,29 +25688,88 @@ body:has(.admin-app[data-sku-db])::after {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
 }
 
 .admin-ad-view-credit-breakdown > span {
   display: grid;
   gap: 2px;
-  min-width: 118px;
-  padding-left: 12px;
+  min-width: 92px;
+  padding-left: 9px;
   border-left: 1px solid var(--admin-border);
 }
 
 .admin-ad-view-credit-breakdown strong {
   color: var(--admin-text);
-  font: 700 0.84rem/1.2 'Space Grotesk', sans-serif;
+  font: 700 0.76rem/1.2 'Space Grotesk', sans-serif;
 }
 
 .admin-ad-view-trend-panel {
   margin: 0;
 }
 
+.admin-ad-view-trend-panel .admin-ad-view-kpis {
+  grid-template-columns: repeat(7, minmax(88px, 1fr));
+  gap: 6px;
+  margin: 12px 0 6px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.admin-ad-view-trend-panel .admin-ad-view-kpis > button {
+  gap: 3px;
+  min-height: 66px;
+  padding: 10px;
+  border-radius: 11px;
+}
+
+.admin-ad-view-trend-panel .admin-ad-view-kpis span {
+  font-size: 0.58rem;
+  white-space: nowrap;
+}
+
+.admin-ad-view-trend-panel .admin-ad-view-kpis strong {
+  align-self: end;
+  font-size: clamp(0.78rem, 1vw, 1rem);
+  line-height: 1.1;
+}
+
 .admin-ad-view-trend-panel .admin-chart-surface {
   min-height: 340px;
+}
+
+.admin-ad-view-detail-panel {
+  margin-bottom: 18px;
+}
+
+.admin-ad-view-detail-panel .admin-ad-view-product-image.is-large {
+  width: 58px;
+  height: 58px;
+}
+
+.admin-ad-view-profit-heading {
+  padding-top: 0;
+}
+
+.admin-ad-view-detail-panel .admin-ad-view-profit-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.admin-ad-view-detail-panel .admin-ad-view-profit-grid article {
+  min-height: 112px;
+  padding: 17px;
+  border-radius: 15px;
+}
+
+.admin-ad-view-detail-panel .admin-ad-view-profit-grid strong {
+  align-self: end;
+  font: 700 clamp(1rem, 1.5vw, 1.35rem)/1.1 'Space Grotesk', sans-serif;
+}
+
+.admin-ad-view-detail-panel .admin-ad-view-direct-metrics .admin-ad-view-settings-grid {
+  padding: 0 0 12px;
 }
 
 @media (min-width: 1480px) {
@@ -25751,6 +25812,12 @@ body:has(.admin-app[data-sku-db])::after {
 
 }
 
+@media (max-width: 1100px) {
+  .admin-ad-view-detail-panel .admin-ad-view-profit-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 680px) {
   .admin-app[data-admin-dashboard] [data-view-panel='ad-view'] > .admin-ad-view-toolbar {
     grid-template-columns: 1fr;
@@ -25784,5 +25851,9 @@ body:has(.admin-app[data-sku-db])::after {
     padding: 6px 0 0;
     border-top: 1px solid var(--admin-border);
     border-left: 0;
+  }
+
+  .admin-ad-view-detail-panel .admin-ad-view-profit-grid {
+    grid-template-columns: 1fr;
   }
 }

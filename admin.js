@@ -9524,50 +9524,36 @@ document.addEventListener('DOMContentLoaded', () => {
       ? 'Manual override'
       : (campaign.economics?.unit_cogs_source === 'sku_db_purchased_mix'
         ? `SKU DB • purchased mix (${Number(campaign.economics.purchased_mix_quantity || 0).toLocaleString('id-ID')} items)`
-        : (campaign.economics?.matched_skus?.length ? `SKU DB • ${campaign.economics.matched_skus.length} linked SKU${campaign.economics.matched_skus.length === 1 ? '' : 's'}` : 'Not linked'));
+        : (campaign.economics?.matched_skus?.length
+          ? `SKU DB • ${campaign.economics.matched_skus.length} linked SKU${campaign.economics.matched_skus.length === 1 ? '' : 's'}${campaign.economics.matched_by?.includes('tag') ? ' via marketplace tag' : ''}`
+          : 'Awaiting automatic SKU match'));
     const tags = (campaign.tags || []).map((tag) => `<span class="admin-ad-view-tag">${escapeHtml(tag)}</span>`).join('');
     adViewRefs.detail.innerHTML = `
       <div class="admin-ad-view-detail-head">
         <span class="admin-ad-view-product-image is-large">${image}</span>
         <div><span class="admin-ad-view-live-badge">Live</span><h3>${escapeHtml(campaign.display_name)}</h3><p>${escapeHtml(campaign.source_ad_name || campaign.product_name || 'Shopee campaign')}</p><small>${escapeHtml(campaign.company)} • Campaign ID ${escapeHtml(campaign.campaign_id)}</small><div>${tags}</div></div>
-        <button type="button" class="admin-soft-btn" data-ad-view-open-editor="${escapeHtml(campaign.campaign_key)}">Edit name &amp; COGS</button>
+        <button type="button" class="admin-soft-btn" data-ad-view-open-editor="${escapeHtml(campaign.campaign_key)}">Edit details</button>
       </div>
-      <section class="admin-ad-view-shopee-metrics">
-        <article><span>Impressions</span><strong>${totals.impressions.toLocaleString('id-ID')}</strong></article>
-        <article><span>Clicks</span><strong>${totals.clicks.toLocaleString('id-ID')}</strong><small>${totals.ctr.toFixed(2)}% CTR</small></article>
-        <article><span>Orders</span><strong>${totals.broad_orders.toLocaleString('id-ID')}</strong><small>${totals.conversion_rate.toFixed(2)}% conversion</small></article>
-        <article><span>Items sold</span><strong>${totals.broad_items.toLocaleString('id-ID')}</strong></article>
-        <article><span>Ad cost</span><strong>${formatCurrency(totals.expense)}</strong><small>${formatCurrency(totals.cost_per_click)} CPC</small></article>
-        <article><span>Attributed sales</span><strong>${formatCurrency(totals.broad_gmv)}</strong></article>
-        <article><span>ROAS</span><strong>${totals.broad_roas.toFixed(2)}x</strong><small>${totals.broad_gmv > 0 ? `${(totals.expense / totals.broad_gmv * 100).toFixed(1)}% ACOS` : (targetRoas > 0 ? `${targetRoas.toFixed(2)}x target` : 'No target')}</small></article>
-      </section>
-      <details class="admin-ad-view-direct-metrics">
-        <summary>Show direct-attribution metrics</summary>
-        <section class="admin-ad-view-shopee-metrics">
-          <article><span>Direct orders</span><strong>${totals.direct_orders.toLocaleString('id-ID')}</strong></article>
-          <article><span>Direct items sold</span><strong>${totals.direct_items.toLocaleString('id-ID')}</strong></article>
-          <article><span>Direct sales</span><strong>${formatCurrency(totals.direct_gmv)}</strong></article>
-          <article><span>Direct ROAS</span><strong>${totals.direct_roas.toFixed(2)}x</strong></article>
-        </section>
-      </details>
-      <div class="admin-ad-view-detail-section-head"><div><span class="admin-panel-kicker">Profit Layer</span><h4>What Shopee does not show</h4></div><small>${escapeHtml(cogsSource)}</small></div>
+      <div class="admin-ad-view-detail-section-head admin-ad-view-profit-heading"><div><span class="admin-panel-kicker">Profitability</span><h4>What Shopee does not know</h4></div><small>${escapeHtml(cogsSource)}</small></div>
       <section class="admin-ad-view-profit-grid">
         <article><span>CAC</span><strong>${totals.broad_orders > 0 ? formatCurrency(totals.cac) : '—'}</strong><small>Ad cost ÷ attributed orders</small></article>
-        <article><span>Estimated COGS</span><strong>${economics.hasCogs ? formatCurrency(economics.estimatedCogs) : 'Add COGS'}</strong><small>${economics.hasCogs ? `${formatCurrency(economics.unitCogs)} / attributed item` : 'Needed for profit estimates'}</small></article>
+        <article><span>COGS</span><strong>${economics.hasCogs ? formatCurrency(economics.estimatedCogs) : 'Matching…'}</strong><small>${economics.hasCogs ? `${formatCurrency(economics.unitCogs)} / attributed item` : 'Resolving from SKU DB'}</small></article>
+        <article><span>Marketplace fees</span><strong>${formatCurrency(economics.estimatedFees)}</strong><small>Selected account’s actual fee rate</small></article>
         <article><span>Estimated gross profit</span><strong>${economics.hasCogs ? formatCurrency(economics.grossProfit) : '—'}</strong><small>Attributed sales − COGS</small></article>
         <article><span>Contribution after ads</span><strong class="${economics.contribution < 0 ? 'is-negative' : ''}">${economics.hasCogs ? formatCurrency(economics.contribution) : '—'}</strong><small>GP − estimated fees − ads</small></article>
         <article><span>Contribution margin</span><strong>${economics.hasCogs ? `${economics.contributionMargin.toFixed(1)}%` : '—'}</strong><small>${economics.breakEvenRoas > 0 ? `${economics.breakEvenRoas.toFixed(2)}x break-even ROAS` : (economics.hasCogs ? 'Current unit margin cannot break even' : 'Requires COGS')}</small></article>
       </section>
-      <div class="admin-ad-view-detail-section-head"><div><span class="admin-panel-kicker">Settings</span><h4>Current Shopee setup</h4></div></div>
-      <section class="admin-ad-view-settings-grid">
-        <span><small>Daily budget</small><strong>${formatCurrency(campaign.campaign_budget)}</strong></span>
-        <span><small>Bidding</small><strong>${escapeHtml(campaign.bidding_method || '—')}</strong></span>
-        <span><small>Target ROAS</small><strong>${targetRoas > 0 ? `${targetRoas.toFixed(2)}x` : '—'}</strong></span>
-        <span><small>Placement</small><strong>${escapeHtml(campaign.campaign_placement || 'All')}</strong></span>
-        <span><small>Seller SKU</small><strong>${escapeHtml((campaign.seller_skus || []).join(', ') || 'Not returned yet')}</strong></span>
-      </section>
-      <div class="admin-ad-view-detail-section-head"><div><span class="admin-panel-kicker">Insights</span><h4>What needs attention</h4></div></div>
       <section class="admin-ad-view-insights">${insights.map((insight) => `<article class="is-${insight.tone}"><strong>${escapeHtml(insight.title)}</strong><p>${escapeHtml(insight.body)}</p></article>`).join('') || '<article class="is-neutral"><strong>Not enough data yet</strong><p>Keep this ad selected after it has delivered more impressions, clicks, and orders.</p></article>'}</section>
+      <details class="admin-ad-view-direct-metrics">
+        <summary>Campaign setup and SKU mapping</summary>
+        <section class="admin-ad-view-settings-grid">
+          <span><small>Daily budget</small><strong>${formatCurrency(campaign.campaign_budget)}</strong></span>
+          <span><small>Bidding</small><strong>${escapeHtml(campaign.bidding_method || '—')}</strong></span>
+          <span><small>Target ROAS</small><strong>${targetRoas > 0 ? `${targetRoas.toFixed(2)}x` : '—'}</strong></span>
+          <span><small>Placement</small><strong>${escapeHtml(campaign.campaign_placement || 'All')}</strong></span>
+          <span><small>Seller SKU</small><strong>${escapeHtml((campaign.seller_skus || []).join(', ') || 'Not returned yet')}</strong></span>
+        </section>
+      </details>
     `;
     if (adViewRefs.actionCampaign) adViewRefs.actionCampaign.value = campaign.campaign_key;
   };
