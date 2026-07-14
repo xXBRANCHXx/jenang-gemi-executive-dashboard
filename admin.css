@@ -25176,7 +25176,7 @@ body:has(.admin-app[data-sku-db])::after {
 
 /* Ad View */
 .admin-ad-view-toolbar,
-.admin-ad-view-kpis > article {
+.admin-ad-view-kpis > :is(article, button) {
   border: 1px solid var(--admin-border);
   background: var(--admin-surface);
   box-shadow: var(--admin-shadow);
@@ -25240,7 +25240,7 @@ body:has(.admin-app[data-sku-db])::after {
   margin-bottom: 18px;
 }
 
-.admin-ad-view-kpis > article {
+.admin-ad-view-kpis > :is(article, button) {
   display: grid;
   gap: 8px;
   min-height: 132px;
@@ -25258,6 +25258,37 @@ body:has(.admin-app[data-sku-db])::after {
   align-self: end;
   font: 700 clamp(1.25rem, 2vw, 2rem)/1 'Space Grotesk', sans-serif;
   letter-spacing: -0.04em;
+}
+
+.admin-ad-view-kpis > button {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  color: var(--admin-text);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.admin-ad-view-kpis > button:hover {
+  transform: translateY(-1px);
+}
+
+.admin-ad-view-kpis > button > i {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: var(--ad-metric-color);
+  opacity: 0.28;
+}
+
+.admin-ad-view-kpis > button.is-selected {
+  border-color: var(--ad-metric-color);
+  box-shadow: 0 0 0 1px var(--ad-metric-color), var(--admin-shadow);
+}
+
+.admin-ad-view-kpis > button.is-selected > i {
+  opacity: 1;
 }
 
 .admin-ad-view-grid {
@@ -25543,7 +25574,7 @@ body:has(.admin-app[data-sku-db])::after {
 
 /* AD VIEW follows the dashboard's minimal, flat chrome. */
 .admin-app[data-admin-dashboard] [data-view-panel='ad-view'] > .admin-ad-view-toolbar {
-  grid-template-columns: minmax(150px, 0.8fr) minmax(130px, 0.55fr) minmax(130px, 0.55fr) minmax(220px, 1.2fr) auto auto;
+  grid-template-columns: minmax(180px, 0.55fr) minmax(360px, 1fr) auto;
   gap: 12px;
   margin-bottom: 16px;
   padding: 0 0 16px;
@@ -25552,6 +25583,109 @@ body:has(.admin-app[data-sku-db])::after {
   border-radius: 0;
   background: transparent;
   box-shadow: none;
+}
+
+.admin-ad-view-timeframes {
+  display: grid;
+  gap: 7px;
+}
+
+.admin-ad-view-timeframes > span {
+  color: var(--admin-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-ad-view-timeframes > div {
+  display: flex;
+  min-height: 44px;
+  padding: 3px;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: var(--admin-surface-soft);
+}
+
+.admin-ad-view-timeframes button {
+  flex: 1;
+  min-width: 70px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--admin-muted);
+  font: 800 0.74rem/1 'Plus Jakarta Sans', sans-serif;
+  cursor: pointer;
+}
+
+.admin-ad-view-timeframes button.is-active {
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
+}
+
+.admin-ad-view-custom-range {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(150px, 220px)) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.admin-ad-view-custom-range[hidden] {
+  display: none;
+}
+
+.admin-ad-view-toolbar > .admin-form-error {
+  grid-column: 1 / -1;
+}
+
+.admin-ad-view-credits {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.admin-ad-view-credits > article {
+  display: grid;
+  gap: 5px;
+  padding: 14px 16px;
+  border: 1px solid var(--admin-border);
+  border-radius: 15px;
+  background: var(--admin-surface-soft);
+}
+
+.admin-ad-view-credits span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--admin-muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.admin-ad-view-credits strong {
+  font: 700 1.12rem/1.2 'Space Grotesk', sans-serif;
+}
+
+.admin-ad-view-credits small {
+  color: var(--admin-muted);
+  font-size: 0.62rem;
+}
+
+.admin-ad-view-trend-panel {
+  margin-bottom: 18px;
+}
+
+.admin-ad-view-trend-panel .admin-chart-surface {
+  min-height: 390px;
+}
+
+@media (min-width: 1480px) {
+  .admin-ad-view-kpis {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
 }
 
 .admin-ad-view-toolbar-actions {
@@ -25585,6 +25719,10 @@ body:has(.admin-app[data-sku-db])::after {
   .admin-ad-view-toolbar-actions {
     justify-content: flex-start;
   }
+
+  .admin-ad-view-credits {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 680px) {
@@ -25595,5 +25733,14 @@ body:has(.admin-app[data-sku-db])::after {
   .admin-ad-view-toolbar-actions {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .admin-ad-view-timeframes > div {
+    overflow-x: auto;
+  }
+
+  .admin-ad-view-custom-range,
+  .admin-ad-view-credits {
+    grid-template-columns: 1fr;
   }
 }

@@ -166,6 +166,51 @@ function jgAdViewSkuCostMap(PDO $pdo, array $sellerSkus): array
     }
 }
 
+/** @param array<int, string> $sellerSkus @return array<string, float> */
+function jgAdViewPurchasedSkuQuantities(PDO $pdo, string $accountKey, string $startDate, string $endDate, array $sellerSkus): array
+{
+    $sellerSkus = array_values(array_unique(array_filter(array_map(
+        static fn (mixed $sku): string => strtoupper(trim((string) $sku)),
+        $sellerSkus
+    ))));
+    if ($sellerSkus === []) {
+        return [];
+    }
+    $placeholders = [];
+    $params = [
+        ':account_key' => $accountKey,
+        ':start_date' => $startDate,
+        ':end_date' => $endDate,
+    ];
+    foreach ($sellerSkus as $index => $sku) {
+        $key = ':sold_sku_' . $index;
+        $placeholders[] = $key;
+        $params[$key] = $sku;
+    }
+    try {
+        $statement = $pdo->prepare(
+            'SELECT UPPER(TRIM(sku)) AS normalized_sku, COALESCE(SUM(quantity), 0) AS quantity
+             FROM dashboard_order_mirror
+             WHERE platform = "shopee" AND account_key = :account_key AND deleted_at IS NULL
+               AND order_create_date BETWEEN :start_date AND :end_date
+               AND UPPER(TRIM(sku)) IN (' . implode(',', $placeholders) . ')
+             GROUP BY UPPER(TRIM(sku))'
+        );
+        $statement->execute($params);
+        $result = [];
+        foreach ($statement->fetchAll() as $row) {
+            $sku = strtoupper(trim((string) ($row['normalized_sku'] ?? '')));
+            if ($sku !== '') {
+                $result[$sku] = max(0, (float) ($row['quantity'] ?? 0));
+            }
+        }
+        return $result;
+    } catch (Throwable $error) {
+        error_log('Ad View purchased SKU mix unavailable: ' . $error->getMessage());
+        return [];
+    }
+}
+
 function jgAdViewMarketplaceFeeRate(PDO $pdo, string $accountKey, string $startDate, string $endDate): float
 {
     try {
@@ -242,6 +287,20 @@ function jgAdViewEnrich(PDO $pdo, array $payload, string $startDate, string $end
             is_array($account['metrics'] ?? null) ? $account['metrics'] : [],
             static fn (array $metric): bool => isset($liveCampaignIds[(string) ($metric['campaign_id'] ?? '')])
         ));
+        $accountSellerSkus = [];
+        foreach ($account['campaigns'] as $campaign) {
+            $accountSellerSkus = array_merge(
+                $accountSellerSkus,
+                is_array($campaign['seller_skus'] ?? null) ? $campaign['seller_skus'] : []
+            );
+        }
+        $accountPurchasedQuantities = jgAdViewPurchasedSkuQuantities(
+            $pdo,
+            $accountKey,
+            $startDate,
+            $endDate,
+            $accountSellerSkus
+        );
         foreach ($account['campaigns'] as &$campaign) {
             $local = $campaignLocal[$accountKey . ':' . (string) ($campaign['campaign_id'] ?? '')] ?? [];
             $campaign['alias_name'] = (string) ($local['alias_name'] ?? '');
@@ -273,16 +332,32 @@ function jgAdViewEnrich(PDO $pdo, array $payload, string $startDate, string $end
                 static fn (array $row): float => (float) ($row['cogs'] ?? 0),
                 $matched
             ), static fn (float $value): bool => $value > 0));
+            $weightedCost = 0.0;
+            $weightedQuantity = 0.0;
+            foreach ($matched as $matchedSku) {
+                $normalizedSku = strtoupper(trim((string) ($matchedSku['sku'] ?? '')));
+                $quantity = (float) ($accountPurchasedQuantities[$normalizedSku] ?? 0);
+                if ($quantity <= 0 || (float) ($matchedSku['cogs'] ?? 0) <= 0) {
+                    continue;
+                }
+                $weightedCost += (float) $matchedSku['cogs'] * $quantity;
+                $weightedQuantity += $quantity;
+            }
             $unitCogs = $override !== null
                 ? (float) $override
-                : ($matchedCogs !== [] ? array_sum($matchedCogs) / count($matchedCogs) : null);
+                : ($weightedQuantity > 0
+                    ? $weightedCost / $weightedQuantity
+                    : ($matchedCogs !== [] ? array_sum($matchedCogs) / count($matchedCogs) : null));
             $campaign['economics'] = [
                 'unit_cogs' => $unitCogs,
-                'unit_cogs_source' => $override !== null ? 'manual_override' : ($matchedCogs !== [] ? 'sku_db_average' : 'unlinked'),
+                'unit_cogs_source' => $override !== null
+                    ? 'manual_override'
+                    : ($weightedQuantity > 0 ? 'sku_db_purchased_mix' : ($matchedCogs !== [] ? 'sku_db_average' : 'unlinked')),
                 'unit_cogs_override' => $override,
                 'matched_skus' => array_values(array_map(static fn (array $row): string => (string) $row['sku'], $matched)),
                 'seller_skus' => $sellerSkus,
                 'sku_coverage' => $sellerSkus !== [] ? count($matched) / count($sellerSkus) : 0,
+                'purchased_mix_quantity' => $weightedQuantity,
             ];
         }
         unset($campaign);
@@ -329,7 +404,7 @@ function jgAdViewHandle(): void
                  ON DUPLICATE KEY UPDATE alias_name = VALUES(alias_name), is_tracked = 1, updated_at = UTC_TIMESTAMP()'
             );
             $statement->execute([':account_key' => $account, ':campaign_id' => $campaignId, ':alias_name' => substr($alias, 0, 180)]);
-            $startDate = jgAdViewDate($body['start_date'] ?? '', $today->modify('-29 days')->format('Y-m-d'));
+            $startDate = jgAdViewDate($body['start_date'] ?? '', $today->format('Y-m-d'));
             $endDate = jgAdViewDate($body['end_date'] ?? '', $today->format('Y-m-d'));
             $payload = jgAdViewUpstream('/ads/sync', [
                 'account' => $account,
@@ -417,14 +492,14 @@ function jgAdViewHandle(): void
             analyticsJsonResponse(['ok' => false, 'error' => 'unknown_ad_view_action'], 422);
         }
         $account = jgAdViewAccount($body['account_key'] ?? 'all');
-        $startDate = jgAdViewDate($body['start_date'] ?? '', $today->modify('-29 days')->format('Y-m-d'));
+        $startDate = jgAdViewDate($body['start_date'] ?? '', $today->format('Y-m-d'));
         $endDate = jgAdViewDate($body['end_date'] ?? '', $today->format('Y-m-d'));
         $payload = jgAdViewUpstream('/ads/sync', ['account' => $account, 'start_date' => $startDate, 'end_date' => $endDate]);
         analyticsJsonResponse(jgAdViewEnrich($pdo, $payload, $startDate, $endDate));
     }
 
     $account = jgAdViewAccount($_GET['account'] ?? 'all');
-    $startDate = jgAdViewDate($_GET['start_date'] ?? '', $today->modify('-29 days')->format('Y-m-d'));
+    $startDate = jgAdViewDate($_GET['start_date'] ?? '', $today->format('Y-m-d'));
     $endDate = jgAdViewDate($_GET['end_date'] ?? '', $today->format('Y-m-d'));
     $payload = jgAdViewUpstream('/ads/summary', ['account' => $account, 'start_date' => $startDate, 'end_date' => $endDate]);
     analyticsJsonResponse(jgAdViewEnrich($pdo, $payload, $startDate, $endDate));

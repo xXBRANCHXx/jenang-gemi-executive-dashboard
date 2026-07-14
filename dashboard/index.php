@@ -1008,23 +1008,46 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                     <section class="admin-view" data-view-panel="ad-view">
                 <section class="admin-ad-view-toolbar">
                     <label><span>Account</span><select data-ad-view-account><option value="all">All Shopee accounts</option><option value="jenang-gemi-shopee">Jenang Gemi</option><option value="zero-shopee">ZERO</option><option value="zfit-shopee">ZFIT</option></select></label>
-                    <label><span>From</span><input type="date" data-ad-view-start-date></label>
-                    <label><span>To</span><input type="date" data-ad-view-end-date></label>
-                    <label class="admin-ad-view-search-field"><span>Find a live ad</span><input type="search" data-ad-view-search placeholder="Name, SKU, or campaign ID"></label>
-                    <button type="button" class="admin-soft-btn" data-ad-view-load>Apply range</button>
+                    <div class="admin-ad-view-timeframes" role="group" aria-label="Ad performance timeframe">
+                        <span>Timeframe</span>
+                        <div>
+                            <button type="button" class="is-active" data-ad-view-timeframe="today">Today</button>
+                            <button type="button" data-ad-view-timeframe="7d">7D</button>
+                            <button type="button" data-ad-view-timeframe="30d">30D</button>
+                            <button type="button" data-ad-view-timeframe="custom">Custom</button>
+                        </div>
+                    </div>
+                    <div class="admin-ad-view-custom-range" data-ad-view-custom-range hidden>
+                        <label><span>From</span><input type="date" data-ad-view-start-date></label>
+                        <label><span>To</span><input type="date" data-ad-view-end-date></label>
+                        <button type="button" class="admin-soft-btn" data-ad-view-load>Apply</button>
+                    </div>
                     <div class="admin-ad-view-toolbar-actions">
                         <span class="admin-ad-view-sync-status"><span class="admin-status-dot"></span><span data-ad-view-status>Waiting for first load</span></span>
                         <button type="button" class="admin-primary-btn" data-ad-view-sync>Sync ads</button>
                     </div>
+                    <p class="admin-form-error" data-ad-view-form-error hidden></p>
                 </section>
 
+                <section class="admin-ad-view-credits" data-ad-view-credits aria-label="Current ad credit by Shopee account"></section>
+
                 <section class="admin-ad-view-kpis">
-                    <article><span>Ad credit</span><strong data-ad-view-kpi="balance">Rp0</strong><small>Paid + free Shopee credit</small></article>
-                    <article><span>Live-ad spend</span><strong data-ad-view-kpi="expense">Rp0</strong><small>Selected period</small></article>
-                    <article><span>Attributed sales</span><strong data-ad-view-kpi="revenue-after-ads">Rp0</strong><small>Broad GMV from live ads</small></article>
-                    <article><span>Live-ad ROAS</span><strong data-ad-view-kpi="roas">0.00x</strong><small>Attributed sales ÷ spend</small></article>
-                    <article><span>Internal budget left</span><strong data-ad-view-kpi="budget-left">Not set</strong><small>Monthly plan minus spend</small></article>
+                    <button type="button" style="--ad-metric-color:#5b8cff" data-ad-view-summary-metric="impressions" aria-pressed="false"><i></i><span>Impressions</span><strong data-ad-view-kpi="impressions">0</strong><small>Selected timeframe</small></button>
+                    <button type="button" style="--ad-metric-color:#a855f7" data-ad-view-summary-metric="clicks" aria-pressed="false"><i></i><span>Clicks</span><strong data-ad-view-kpi="clicks">0</strong><small>Selected timeframe</small></button>
+                    <button type="button" class="is-selected" style="--ad-metric-color:#ff9f43" data-ad-view-summary-metric="broad_orders" aria-pressed="true"><i></i><span>Orders</span><strong data-ad-view-kpi="broad-orders">0</strong><small>Attributed orders</small></button>
+                    <button type="button" style="--ad-metric-color:#00bcd4" data-ad-view-summary-metric="broad_items" aria-pressed="false"><i></i><span>Items sold</span><strong data-ad-view-kpi="broad-items">0</strong><small>Attributed items</small></button>
+                    <button type="button" class="is-selected" style="--ad-metric-color:#ff5c7a" data-ad-view-summary-metric="expense" aria-pressed="true"><i></i><span>Ad cost</span><strong data-ad-view-kpi="expense">Rp0</strong><small>Selected timeframe</small></button>
+                    <button type="button" class="is-selected" style="--ad-metric-color:#00c987" data-ad-view-summary-metric="broad_gmv" aria-pressed="true"><i></i><span>Attributed sales</span><strong data-ad-view-kpi="attributed-sales">Rp0</strong><small>Broad GMV</small></button>
+                    <button type="button" class="is-selected" style="--ad-metric-color:#f2c94c" data-ad-view-summary-metric="broad_roas" aria-pressed="true"><i></i><span>ROAS</span><strong data-ad-view-kpi="roas">0.00x</strong><small>Attributed sales ÷ cost</small></button>
                 </section>
+
+                <article class="admin-panel admin-ad-view-trend-panel">
+                    <div class="admin-panel-head">
+                        <div><span class="admin-panel-kicker">Performance over time</span><h3 data-ad-view-trend-title>Today by hour</h3></div>
+                        <span class="admin-panel-meta" data-ad-view-trend-meta>Select up to four metrics</span>
+                    </div>
+                    <div class="admin-chart-surface"><canvas class="admin-chart-canvas admin-chart-canvas-lg" data-ad-view-chart width="1200" height="390"></canvas></div>
+                </article>
 
                 <section class="admin-ad-view-workspace">
                     <article class="admin-panel admin-ad-view-live-panel">
@@ -1044,32 +1067,6 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                         </div>
                     </article>
                 </section>
-
-                <details class="admin-panel admin-ad-view-tools-panel">
-                    <summary><span><strong>Setup tools</strong><small>Add an ID manually or set an internal account budget</small></span><i>Open</i></summary>
-                <section class="admin-ad-view-grid">
-                    <article class="admin-panel admin-ad-view-track-panel">
-                        <div class="admin-panel-head"><div><span class="admin-panel-kicker">Campaign Library</span><h3>Track a Shopee campaign ID</h3></div><span class="admin-panel-meta">Import-all happens during sync</span></div>
-                        <form class="admin-ad-view-track-form" data-ad-view-track-form>
-                            <label><span>Owning account</span><select name="account_key" data-ad-view-track-account required><option value="jenang-gemi-shopee">Jenang Gemi</option><option value="zero-shopee">ZERO</option><option value="zfit-shopee">ZFIT</option></select></label>
-                            <label><span>Campaign ID</span><input name="campaign_id" inputmode="numeric" placeholder="Shopee campaign ID" required></label>
-                            <label><span>Your name</span><input name="alias_name" placeholder="Example: Bubur payday scale test"></label>
-                            <button class="admin-primary-btn" type="submit">Track and populate</button>
-                        </form>
-                        <p class="admin-form-error" data-ad-view-form-error hidden></p>
-                    </article>
-
-                    <article class="admin-panel admin-ad-view-budget-panel">
-                        <div class="admin-panel-head"><div><span class="admin-panel-kicker">Planning</span><h3>Internal monthly budget</h3></div></div>
-                        <form class="admin-ad-view-budget-form" data-ad-view-budget-form>
-                            <label><span>Account</span><select name="account_key" data-ad-view-budget-account required><option value="jenang-gemi-shopee">Jenang Gemi</option><option value="zero-shopee">ZERO</option><option value="zfit-shopee">ZFIT</option></select></label>
-                            <label><span>Month</span><input type="month" name="budget_month" required></label>
-                            <label><span>Budget (Rp)</span><input type="number" min="0" step="1000" name="monthly_budget" placeholder="5000000" required></label>
-                            <button class="admin-soft-btn" type="submit">Save budget</button>
-                        </form>
-                    </article>
-                </section>
-                </details>
 
                 <details class="admin-panel admin-ad-view-compare-panel" data-ad-view-comparison>
                     <summary><span><strong>Compare two live ads</strong><small>Optional matched-period view</small></span><i>Open comparison</i></summary>
@@ -1091,18 +1088,6 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                 </details>
 
                 <section class="admin-main-grid">
-                    <article class="admin-panel admin-panel-wide">
-                        <div class="admin-panel-head"><div><span class="admin-panel-kicker">Selected Ad Trend</span><h3 data-ad-view-trend-title>Choose a live ad</h3></div></div>
-                        <div class="admin-panel-inline-toggles admin-sliding-chart-toggle" data-ad-view-metric-controls data-sliding-chart-toggle role="radiogroup" aria-label="Selected ad trend metric">
-                            <button type="button" class="admin-toggle-pill is-active" data-ad-view-metric="broad_gmv"><span>Revenue</span></button>
-                            <button type="button" class="admin-toggle-pill" data-ad-view-metric="expense"><span>Ad cost</span></button>
-                            <button type="button" class="admin-toggle-pill" data-ad-view-metric="broad_orders"><span>Orders</span></button>
-                            <button type="button" class="admin-toggle-pill" data-ad-view-metric="clicks"><span>Clicks</span></button>
-                            <button type="button" class="admin-toggle-pill" data-ad-view-metric="broad_roas"><span>ROAS</span></button>
-                        </div>
-                        <div class="admin-chart-surface"><canvas class="admin-chart-canvas admin-chart-canvas-lg" data-ad-view-chart width="1200" height="360"></canvas></div>
-                    </article>
-
                     <article class="admin-panel admin-ad-view-action-panel">
                         <div class="admin-panel-head"><div><span class="admin-panel-kicker">Decision Log</span><h3>Add an action marker</h3></div></div>
                         <form class="admin-ad-view-action-form" data-ad-view-action-form>
