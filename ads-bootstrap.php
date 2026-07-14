@@ -51,6 +51,7 @@ function jgAdViewEnsureSchema(PDO $pdo): void
             PRIMARY KEY (account_key, budget_month)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
     );
+    analyticsEnsureTableColumn($pdo, 'ad_view_campaigns', 'unit_cogs_override', 'DECIMAL(18,2) NULL DEFAULT NULL AFTER `tags_json`');
 }
 
 function jgAdViewJsonBody(): array
@@ -124,16 +125,81 @@ function jgAdViewUpstream(string $path, array $query): array
     return $payload;
 }
 
+/** @param array<int, string> $sellerSkus @return array<string, array{sku:string,cogs:float}> */
+function jgAdViewSkuCostMap(PDO $pdo, array $sellerSkus): array
+{
+    $sellerSkus = array_values(array_unique(array_filter(array_map(
+        static fn (mixed $sku): string => strtoupper(trim((string) $sku)),
+        $sellerSkus
+    ))));
+    if ($sellerSkus === []) {
+        return [];
+    }
+    $placeholders = [];
+    $params = [];
+    foreach ($sellerSkus as $index => $sku) {
+        $key = ':sku_' . $index;
+        $placeholders[] = $key;
+        $params[$key] = $sku;
+    }
+    try {
+        $statement = $pdo->prepare(
+            'SELECT sku, cogs FROM sku_skus
+             WHERE UPPER(TRIM(sku)) IN (' . implode(',', $placeholders) . ')'
+        );
+        $statement->execute($params);
+        $result = [];
+        foreach ($statement->fetchAll() as $row) {
+            $key = strtoupper(trim((string) ($row['sku'] ?? '')));
+            if ($key === '') {
+                continue;
+            }
+            $result[$key] = [
+                'sku' => (string) $row['sku'],
+                'cogs' => (float) ($row['cogs'] ?? 0),
+            ];
+        }
+        return $result;
+    } catch (Throwable $error) {
+        error_log('Ad View SKU economics unavailable: ' . $error->getMessage());
+        return [];
+    }
+}
+
+function jgAdViewMarketplaceFeeRate(PDO $pdo, string $accountKey, string $startDate, string $endDate): float
+{
+    try {
+        $statement = $pdo->prepare(
+            'SELECT COALESCE(SUM(marketplace_fees), 0) AS fees, COALESCE(SUM(gross_revenue), 0) AS gross
+             FROM dashboard_order_mirror
+             WHERE platform = "shopee" AND account_key = :account_key AND deleted_at IS NULL
+               AND order_create_date BETWEEN :start_date AND :end_date'
+        );
+        $statement->execute([
+            ':account_key' => $accountKey,
+            ':start_date' => $startDate,
+            ':end_date' => $endDate,
+        ]);
+        $row = $statement->fetch();
+        $gross = (float) ($row['gross'] ?? 0);
+        return $gross > 0 ? max(0, min(0.5, (float) ($row['fees'] ?? 0) / $gross)) : 0;
+    } catch (Throwable $error) {
+        error_log('Ad View marketplace fee rate unavailable: ' . $error->getMessage());
+        return 0;
+    }
+}
+
 /** @param array<string, mixed> $payload @return array<string, mixed> */
 function jgAdViewEnrich(PDO $pdo, array $payload, string $startDate, string $endDate): array
 {
-    $campaignRows = $pdo->query('SELECT account_key, campaign_id, alias_name, tags_json, is_tracked FROM ad_view_campaigns')->fetchAll();
+    $campaignRows = $pdo->query('SELECT account_key, campaign_id, alias_name, tags_json, unit_cogs_override, is_tracked FROM ad_view_campaigns')->fetchAll();
     $campaignLocal = [];
     foreach ($campaignRows as $row) {
         $key = (string) $row['account_key'] . ':' . (string) $row['campaign_id'];
         $campaignLocal[$key] = [
             'alias_name' => (string) $row['alias_name'],
             'tags' => json_decode((string) ($row['tags_json'] ?? '[]'), true) ?: [],
+            'unit_cogs_override' => $row['unit_cogs_override'] === null ? null : (float) $row['unit_cogs_override'],
             'is_tracked' => (bool) $row['is_tracked'],
         ];
     }
@@ -155,17 +221,73 @@ function jgAdViewEnrich(PDO $pdo, array $payload, string $startDate, string $end
     unset($event);
 
     $accounts = is_array($payload['accounts'] ?? null) ? $payload['accounts'] : [];
+    $allSellerSkus = [];
+    foreach ($accounts as $account) {
+        foreach (($account['campaigns'] ?? []) as $campaign) {
+            $allSellerSkus = array_merge($allSellerSkus, is_array($campaign['seller_skus'] ?? null) ? $campaign['seller_skus'] : []);
+        }
+    }
+    $skuCostMap = jgAdViewSkuCostMap($pdo, $allSellerSkus);
     foreach ($accounts as &$account) {
         $accountKey = (string) ($account['account_key'] ?? '');
-        foreach (($account['campaigns'] ?? []) as &$campaign) {
+        $account['campaigns'] = array_values(array_filter(
+            is_array($account['campaigns'] ?? null) ? $account['campaigns'] : [],
+            static fn (array $campaign): bool => strtolower((string) ($campaign['campaign_status'] ?? '')) === 'ongoing'
+        ));
+        $liveCampaignIds = array_fill_keys(array_map(
+            static fn (array $campaign): string => (string) ($campaign['campaign_id'] ?? ''),
+            $account['campaigns']
+        ), true);
+        $account['metrics'] = array_values(array_filter(
+            is_array($account['metrics'] ?? null) ? $account['metrics'] : [],
+            static fn (array $metric): bool => isset($liveCampaignIds[(string) ($metric['campaign_id'] ?? '')])
+        ));
+        foreach ($account['campaigns'] as &$campaign) {
             $local = $campaignLocal[$accountKey . ':' . (string) ($campaign['campaign_id'] ?? '')] ?? [];
             $campaign['alias_name'] = (string) ($local['alias_name'] ?? '');
             $campaign['tags'] = $local['tags'] ?? [];
             $campaign['is_tracked'] = (bool) ($local['is_tracked'] ?? false);
-            $campaign['display_name'] = $campaign['alias_name'] ?: ((string) ($campaign['source_ad_name'] ?? '') ?: 'Campaign ' . (string) ($campaign['campaign_id'] ?? ''));
+            $settings = is_array($campaign['settings'] ?? null) ? $campaign['settings'] : [];
+            $common = is_array($settings['common_info'] ?? null) ? $settings['common_info'] : [];
+            $sourceName = '';
+            foreach ([$campaign['source_ad_name'] ?? '', $campaign['product_name'] ?? '', $common['ad_name'] ?? ''] as $candidate) {
+                if (trim((string) $candidate) !== '') {
+                    $sourceName = trim((string) $candidate);
+                    break;
+                }
+            }
+            $campaign['display_name'] = $campaign['alias_name'] ?: ($sourceName ?: 'Shopee Ad #' . (string) ($campaign['campaign_id'] ?? ''));
+
+            $sellerSkus = array_values(array_unique(array_filter(array_map(
+                static fn (mixed $sku): string => strtoupper(trim((string) $sku)),
+                is_array($campaign['seller_skus'] ?? null) ? $campaign['seller_skus'] : []
+            ))));
+            $matched = [];
+            foreach ($sellerSkus as $sellerSku) {
+                if (isset($skuCostMap[$sellerSku])) {
+                    $matched[] = $skuCostMap[$sellerSku];
+                }
+            }
+            $override = $local['unit_cogs_override'] ?? null;
+            $matchedCogs = array_values(array_filter(array_map(
+                static fn (array $row): float => (float) ($row['cogs'] ?? 0),
+                $matched
+            ), static fn (float $value): bool => $value > 0));
+            $unitCogs = $override !== null
+                ? (float) $override
+                : ($matchedCogs !== [] ? array_sum($matchedCogs) / count($matchedCogs) : null);
+            $campaign['economics'] = [
+                'unit_cogs' => $unitCogs,
+                'unit_cogs_source' => $override !== null ? 'manual_override' : ($matchedCogs !== [] ? 'sku_db_average' : 'unlinked'),
+                'unit_cogs_override' => $override,
+                'matched_skus' => array_values(array_map(static fn (array $row): string => (string) $row['sku'], $matched)),
+                'seller_skus' => $sellerSkus,
+                'sku_coverage' => $sellerSkus !== [] ? count($matched) / count($sellerSkus) : 0,
+            ];
         }
         unset($campaign);
         $account['company'] = JG_AD_VIEW_ACCOUNTS[$accountKey] ?? $accountKey;
+        $account['marketplace_fee_rate'] = jgAdViewMarketplaceFeeRate($pdo, $accountKey, $startDate, $endDate);
         $budgetMonth = substr($endDate, 0, 7);
         $budgetStatement = $pdo->prepare('SELECT monthly_budget FROM ad_view_budgets WHERE account_key = :account_key AND budget_month = :budget_month');
         $budgetStatement->execute([':account_key' => $accountKey, ':budget_month' => $budgetMonth]);
@@ -224,16 +346,20 @@ function jgAdViewHandle(): void
                 analyticsJsonResponse(['ok' => false, 'error' => 'invalid_campaign_id'], 422);
             }
             $tags = array_values(array_unique(array_filter(array_map('strval', is_array($body['tags'] ?? null) ? $body['tags'] : []))));
+            $cogsInput = $body['unit_cogs_override'] ?? null;
+            $unitCogsOverride = $cogsInput === null || $cogsInput === '' ? null : max(0, (float) $cogsInput);
             $statement = $pdo->prepare(
-                'INSERT INTO ad_view_campaigns (account_key, campaign_id, alias_name, tags_json, is_tracked)
-                 VALUES (:account_key, :campaign_id, :alias_name, :tags_json, 1)
-                 ON DUPLICATE KEY UPDATE alias_name = VALUES(alias_name), tags_json = VALUES(tags_json), is_tracked = 1, updated_at = UTC_TIMESTAMP()'
+                'INSERT INTO ad_view_campaigns (account_key, campaign_id, alias_name, tags_json, unit_cogs_override, is_tracked)
+                 VALUES (:account_key, :campaign_id, :alias_name, :tags_json, :unit_cogs_override, 1)
+                 ON DUPLICATE KEY UPDATE alias_name = VALUES(alias_name), tags_json = VALUES(tags_json),
+                    unit_cogs_override = VALUES(unit_cogs_override), is_tracked = 1, updated_at = UTC_TIMESTAMP()'
             );
             $statement->execute([
                 ':account_key' => $account,
                 ':campaign_id' => $campaignId,
                 ':alias_name' => substr(trim((string) ($body['alias_name'] ?? '')), 0, 180),
                 ':tags_json' => json_encode(array_slice($tags, 0, 20), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+                ':unit_cogs_override' => $unitCogsOverride,
             ]);
             analyticsJsonResponse(['ok' => true]);
         }

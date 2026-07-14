@@ -2329,6 +2329,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    'inventory-recap': 'inventory-recap',
 	    'store-ops': 'orders',
     home: 'campaigns',
+    'ad-view': 'ad-view',
     context: 'home',
     website: 'website',
     'hard-set': 'hard-set',
@@ -2356,8 +2357,8 @@ document.addEventListener('DOMContentLoaded', () => {
       dark: '/assets/admin-icons/favicon-campaigns-dark.svg'
     },
     'ad-view': {
-      light: 'https://api.iconify.design/lucide:rocket.svg?color=%230f172a',
-      dark: 'https://api.iconify.design/lucide:rocket.svg?color=%23ffffff'
+      light: '/assets/admin-icons/favicon-ad-view-light.svg',
+      dark: '/assets/admin-icons/favicon-ad-view-dark.svg'
     },
     website: {
       light: '/assets/admin-icons/favicon-website-light.svg',
@@ -2526,6 +2527,8 @@ document.addEventListener('DOMContentLoaded', () => {
       metric: 'broad_gmv',
       compareA: '',
       compareB: '',
+      selectedCampaignKey: '',
+      search: '',
       data: null,
       loadedAt: 0,
       requestToken: 0
@@ -2613,7 +2616,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const quickMenuItems = Array.from(document.querySelectorAll('[data-quick-menu-key]'));
   const quickMenuItemsByKey = new Map(quickMenuItems.map((item) => [item.getAttribute('data-quick-menu-key'), item]));
   const faviconLinks = Array.from(document.querySelectorAll('[data-admin-favicon]'));
-  const viewLabel = document.querySelector('[data-active-view-label]');
+  const dashboardTitle = document.querySelector('[data-dashboard-title]');
   const viewPanels = document.querySelectorAll('[data-view-panel]');
   const viewSwitchButtons = document.querySelectorAll('[data-view-switch]');
   const navLinks = document.querySelectorAll('[data-dashboard-nav-section]');
@@ -2806,6 +2809,7 @@ document.addEventListener('DOMContentLoaded', () => {
     sync: document.querySelector('[data-ad-view-sync]'),
     load: document.querySelector('[data-ad-view-load]'),
     account: document.querySelector('[data-ad-view-account]'),
+    search: document.querySelector('[data-ad-view-search]'),
     startDate: document.querySelector('[data-ad-view-start-date]'),
     endDate: document.querySelector('[data-ad-view-end-date]'),
     trackForm: document.querySelector('[data-ad-view-track-form]'),
@@ -2825,6 +2829,12 @@ document.addEventListener('DOMContentLoaded', () => {
     events: document.querySelector('[data-ad-view-events]'),
     library: document.querySelector('[data-ad-view-library]'),
     libraryMeta: document.querySelector('[data-ad-view-library-meta]'),
+    liveList: document.querySelector('[data-ad-view-live-list]'),
+    liveMeta: document.querySelector('[data-ad-view-live-meta]'),
+    detail: document.querySelector('[data-ad-view-detail]'),
+    editor: document.querySelector('[data-ad-view-editor]'),
+    editorForm: document.querySelector('[data-ad-view-editor-form]'),
+    editorSource: document.querySelector('[data-ad-view-editor-source]'),
     kpis: {
       balance: document.querySelector('[data-ad-view-kpi="balance"]'),
       expense: document.querySelector('[data-ad-view-kpi="expense"]'),
@@ -4008,20 +4018,6 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const syncViewState = () => {
-    const labels = {
-	    overview: 'Home',
-	    orders: 'Orders',
-	    wallet: 'Wallet',
-	    'inventory-recap': 'Inventory Recap',
-	    daily: 'Daily',
-      'store-ops': 'Ops',
-      context: 'Open Context',
-      home: 'Campaigns Dashboard',
-      'ad-view': 'Ad View',
-      website: 'Official Website Dashboard',
-      'hard-set': 'Hard Set',
-      settings: 'Settings'
-    };
     const navSectionByView = {
 	    overview: 'home',
 	    orders: 'orders',
@@ -4059,8 +4055,10 @@ document.addEventListener('DOMContentLoaded', () => {
         link.removeAttribute('aria-current');
       }
     });
-    if (viewLabel) {
-      viewLabel.textContent = labels[state.activeView] || 'Dashboard';
+    if (dashboardTitle) {
+      const isAdView = state.activeView === 'ad-view';
+      dashboardTitle.textContent = isAdView ? 'AD VIEW' : 'Executive Dashboard';
+      document.title = isAdView ? 'AD VIEW' : 'Executive Dashboard';
     }
     syncQuickMenuItems();
     syncFavicons();
@@ -9324,21 +9322,38 @@ document.addEventListener('DOMContentLoaded', () => {
   const adViewCampaignKey = (accountKey, campaignId) => `${accountKey}:${campaignId}`;
 
   const getAdViewCampaigns = () => (state.adView.data?.accounts || []).flatMap((account) =>
-    (account.campaigns || []).map((campaign) => ({
-      ...campaign,
-      account_key: account.account_key,
-      company: account.company || account.account_key,
-      campaign_key: adViewCampaignKey(account.account_key, campaign.campaign_id)
-    }))
+    (account.campaigns || [])
+      .filter((campaign) => String(campaign.campaign_status || '').toLowerCase() === 'ongoing')
+      .map((campaign) => {
+        const sourceName = [
+          campaign.alias_name,
+          campaign.display_name,
+          campaign.source_ad_name,
+          campaign.product_name,
+          campaign.settings?.common_info?.ad_name
+        ].map((value) => String(value || '').trim()).find(Boolean);
+        return {
+          ...campaign,
+          display_name: sourceName || `Shopee Ad #${campaign.campaign_id}`,
+          source_ad_name: String(campaign.source_ad_name || campaign.product_name || campaign.settings?.common_info?.ad_name || '').trim(),
+          account_key: account.account_key,
+          company: account.company || account.account_key,
+          marketplace_fee_rate: Number(account.marketplace_fee_rate || 0),
+          campaign_key: adViewCampaignKey(account.account_key, campaign.campaign_id)
+        };
+      })
   );
 
-  const getAdViewMetrics = () => (state.adView.data?.accounts || []).flatMap((account) =>
-    (account.metrics || []).map((metric) => ({
-      ...metric,
-      account_key: account.account_key,
-      campaign_key: adViewCampaignKey(account.account_key, metric.campaign_id)
-    }))
-  );
+  const getAdViewMetrics = () => {
+    const liveKeys = new Set(getAdViewCampaigns().map((campaign) => campaign.campaign_key));
+    return (state.adView.data?.accounts || []).flatMap((account) =>
+      (account.metrics || []).map((metric) => ({
+        ...metric,
+        account_key: account.account_key,
+        campaign_key: adViewCampaignKey(account.account_key, metric.campaign_id)
+      }))
+    ).filter((metric) => liveKeys.has(metric.campaign_key));
+  };
 
   const aggregateAdViewMetrics = (rows) => {
     const result = {
@@ -9360,6 +9375,8 @@ document.addEventListener('DOMContentLoaded', () => {
     result.ctr = result.impressions > 0 ? result.clicks / result.impressions * 100 : 0;
     result.cost_per_click = result.clicks > 0 ? result.expense / result.clicks : 0;
     result.cost_per_order = result.broad_orders > 0 ? result.expense / result.broad_orders : 0;
+    result.cac = result.cost_per_order;
+    result.conversion_rate = result.clicks > 0 ? result.broad_orders / result.clicks * 100 : 0;
     result.broad_roas = result.expense > 0 ? result.broad_gmv / result.expense : 0;
     result.direct_roas = result.expense > 0 ? result.direct_gmv / result.expense : 0;
     result.revenue_after_ads = result.broad_gmv - result.expense;
@@ -9377,6 +9394,172 @@ document.addEventListener('DOMContentLoaded', () => {
     if (type === 'money') return `${formatCurrency(Number(value) / days)}/day`;
     if (type === 'roas') return `${Number(value || 0).toFixed(2)}x`;
     return `${(Number(value) / days).toLocaleString('id-ID', { maximumFractionDigits: 1 })}/day`;
+  };
+
+  const adViewCampaignTotals = (campaignKey) => aggregateAdViewMetrics(
+    getAdViewMetrics().filter((row) => row.campaign_key === campaignKey)
+  );
+
+  const getAdViewTargetRoas = (campaign) => Number(
+    campaign?.settings?.auto_bidding_info?.roas_target
+    || campaign?.settings?.auto_product_ads_info?.roas_target
+    || campaign?.settings?.manual_bidding_info?.roas_target
+    || 0
+  );
+
+  const getAdViewEconomics = (campaign, totals) => {
+    const rawUnitCogs = campaign?.economics?.unit_cogs;
+    const hasCogs = rawUnitCogs !== null && rawUnitCogs !== undefined && rawUnitCogs !== '' && Number(rawUnitCogs) >= 0;
+    const unitCogs = hasCogs ? Number(rawUnitCogs) : 0;
+    const estimatedCogs = unitCogs * Number(totals.broad_items || 0);
+    const grossProfit = Number(totals.broad_gmv || 0) - estimatedCogs;
+    const estimatedFees = Number(totals.broad_gmv || 0) * Number(campaign?.marketplace_fee_rate || 0);
+    const contribution = grossProfit - estimatedFees - Number(totals.expense || 0);
+    const grossProfitPerOrder = totals.broad_orders > 0 ? grossProfit / totals.broad_orders : 0;
+    const contributionMargin = totals.broad_gmv > 0 ? contribution / totals.broad_gmv * 100 : 0;
+    const preAdContributionRate = totals.broad_gmv > 0 ? (grossProfit - estimatedFees) / totals.broad_gmv : 0;
+    return {
+      hasCogs,
+      unitCogs,
+      estimatedCogs,
+      estimatedFees,
+      grossProfit,
+      grossProfitPerOrder,
+      contribution,
+      contributionMargin,
+      breakEvenRoas: preAdContributionRate > 0 ? 1 / preAdContributionRate : 0
+    };
+  };
+
+  const getAdViewInsights = (campaign, totals, economics) => {
+    const insights = [];
+    const targetRoas = getAdViewTargetRoas(campaign);
+    const dailyBudget = Number(campaign.campaign_budget || 0);
+    const dailySpend = Number(totals.expense || 0) / getAdViewElapsedDays();
+    if (!economics.hasCogs) {
+      insights.push({ tone: 'warning', title: 'COGS is not linked yet', body: 'Add COGS for this ad or align its Shopee seller SKU with SKU DB to unlock reliable gross-profit and contribution estimates.' });
+    }
+    if (totals.expense <= 0) {
+      insights.push({ tone: 'neutral', title: 'No spend in this range', body: 'The ad is live but Shopee has reported no cost in the selected period. Check delivery, target ROAS, stock, and listing eligibility.' });
+      return insights;
+    }
+    if (economics.hasCogs && economics.contribution < 0) {
+      insights.push({ tone: 'danger', title: 'Attributed sales do not cover estimated costs', body: `After COGS, estimated marketplace fees, and ads, this campaign is ${formatCurrency(Math.abs(economics.contribution))} below break-even for the selected range.` });
+    } else if (economics.hasCogs && economics.contribution > 0) {
+      insights.push({ tone: 'positive', title: 'Positive estimated contribution', body: `${formatCurrency(economics.contribution)} remains after estimated COGS, marketplace fees, and ad cost.` });
+    }
+    if (targetRoas > 0 && totals.broad_roas < targetRoas * 0.85) {
+      insights.push({ tone: 'warning', title: 'ROAS is below the Shopee target', body: `Actual ROAS is ${totals.broad_roas.toFixed(2)}x versus a ${targetRoas.toFixed(2)}x target. Review price, conversion, and whether the target is restricting delivery.` });
+    } else if (targetRoas > 0 && totals.broad_roas >= targetRoas) {
+      insights.push({ tone: 'positive', title: 'ROAS is meeting target', body: `Actual ROAS is ${totals.broad_roas.toFixed(2)}x against the ${targetRoas.toFixed(2)}x Shopee target.` });
+    }
+    if (totals.broad_orders > 0 && economics.hasCogs && totals.cac > economics.grossProfitPerOrder) {
+      insights.push({ tone: 'danger', title: 'CAC exceeds gross profit per order', body: `${formatCurrency(totals.cac)} CAC is higher than estimated ${formatCurrency(economics.grossProfitPerOrder)} gross profit per attributed order.` });
+    }
+    if (totals.impressions >= 1000 && totals.ctr < 1) {
+      insights.push({ tone: 'warning', title: 'Low click-through rate', body: `${totals.ctr.toFixed(2)}% CTR suggests the thumbnail, title, offer, or keyword relevance may need work.` });
+    }
+    if (totals.clicks >= 30 && totals.conversion_rate < 2) {
+      insights.push({ tone: 'warning', title: 'Clicks are not converting efficiently', body: `${totals.conversion_rate.toFixed(2)}% click-to-order conversion points to listing, pricing, review, voucher, or stock friction.` });
+    }
+    if (dailyBudget > 0 && dailySpend < dailyBudget * 0.25) {
+      insights.push({ tone: 'neutral', title: 'Budget is mostly unused', body: `Average spend is ${formatCurrency(dailySpend)}/day against a ${formatCurrency(dailyBudget)}/day budget. Delivery may be constrained by targeting or target ROAS.` });
+    }
+    return insights.slice(0, 5);
+  };
+
+  const renderAdViewLiveList = () => {
+    if (!adViewRefs.liveList) return;
+    const query = state.adView.search.trim().toLowerCase();
+    const campaigns = getAdViewCampaigns()
+      .filter((campaign) => state.adView.account === 'all' || campaign.account_key === state.adView.account)
+      .filter((campaign) => {
+        if (!query) return true;
+        return [campaign.display_name, campaign.source_ad_name, campaign.campaign_id, ...(campaign.seller_skus || [])]
+          .join(' ').toLowerCase().includes(query);
+      })
+      .sort((a, b) => adViewCampaignTotals(b.campaign_key).expense - adViewCampaignTotals(a.campaign_key).expense);
+    if (adViewRefs.liveMeta) adViewRefs.liveMeta.textContent = `${campaigns.length} active ad${campaigns.length === 1 ? '' : 's'}`;
+    if (!campaigns.some((campaign) => campaign.campaign_key === state.adView.selectedCampaignKey)) {
+      state.adView.selectedCampaignKey = campaigns[0]?.campaign_key || '';
+    }
+    adViewRefs.liveList.innerHTML = campaigns.length ? campaigns.map((campaign) => {
+      const totals = adViewCampaignTotals(campaign.campaign_key);
+      const image = campaign.primary_image_url
+        ? `<img src="${escapeHtml(campaign.primary_image_url)}" alt="" loading="lazy">`
+        : `<span>${escapeHtml((campaign.display_name || 'A').slice(0, 1).toUpperCase())}</span>`;
+      return `<button type="button" class="admin-ad-view-live-row${campaign.campaign_key === state.adView.selectedCampaignKey ? ' is-selected' : ''}" data-ad-view-select="${escapeHtml(campaign.campaign_key)}">
+        <span class="admin-ad-view-product-image">${image}</span>
+        <span class="admin-ad-view-live-copy"><strong>${escapeHtml(campaign.display_name)}</strong><small>${escapeHtml(campaign.company)} • ID ${escapeHtml(campaign.campaign_id)}</small></span>
+        <span class="admin-ad-view-live-metric"><small>Cost</small><strong>${formatCurrency(totals.expense)}</strong></span>
+        <span class="admin-ad-view-live-metric"><small>Sales</small><strong>${formatCurrency(totals.broad_gmv)}</strong></span>
+        <span class="admin-ad-view-live-roas"><small>ROAS</small><strong>${totals.broad_roas.toFixed(2)}x</strong></span>
+      </button>`;
+    }).join('') : '<div class="admin-ad-view-detail-empty"><strong>No matching live ads</strong><span>Clear the search or sync Shopee Ads.</span></div>';
+  };
+
+  const renderAdViewDetail = () => {
+    if (!adViewRefs.detail) return;
+    const campaign = getAdViewCampaigns().find((entry) => entry.campaign_key === state.adView.selectedCampaignKey);
+    if (!campaign) {
+      adViewRefs.detail.innerHTML = '<div class="admin-ad-view-detail-empty"><strong>Select a live ad</strong><span>Its Shopee metrics and profitability will appear here.</span></div>';
+      return;
+    }
+    const totals = adViewCampaignTotals(campaign.campaign_key);
+    const economics = getAdViewEconomics(campaign, totals);
+    const insights = getAdViewInsights(campaign, totals, economics);
+    const targetRoas = getAdViewTargetRoas(campaign);
+    const image = campaign.primary_image_url
+      ? `<img src="${escapeHtml(campaign.primary_image_url)}" alt="" loading="lazy">`
+      : `<span>${escapeHtml(campaign.display_name.slice(0, 1).toUpperCase())}</span>`;
+    const cogsSource = campaign.economics?.unit_cogs_source === 'manual_override'
+      ? 'Manual override'
+      : (campaign.economics?.matched_skus?.length ? `${campaign.economics.matched_skus.length} linked SKU${campaign.economics.matched_skus.length === 1 ? '' : 's'}` : 'Not linked');
+    const tags = (campaign.tags || []).map((tag) => `<span class="admin-ad-view-tag">${escapeHtml(tag)}</span>`).join('');
+    adViewRefs.detail.innerHTML = `
+      <div class="admin-ad-view-detail-head">
+        <span class="admin-ad-view-product-image is-large">${image}</span>
+        <div><span class="admin-ad-view-live-badge">Live</span><h3>${escapeHtml(campaign.display_name)}</h3><p>${escapeHtml(campaign.source_ad_name || campaign.product_name || 'Shopee campaign')}</p><small>${escapeHtml(campaign.company)} • Campaign ID ${escapeHtml(campaign.campaign_id)}</small><div>${tags}</div></div>
+        <button type="button" class="admin-soft-btn" data-ad-view-open-editor="${escapeHtml(campaign.campaign_key)}">Edit name &amp; COGS</button>
+      </div>
+      <section class="admin-ad-view-shopee-metrics">
+        <article><span>Impressions</span><strong>${totals.impressions.toLocaleString('id-ID')}</strong></article>
+        <article><span>Clicks</span><strong>${totals.clicks.toLocaleString('id-ID')}</strong><small>${totals.ctr.toFixed(2)}% CTR</small></article>
+        <article><span>Orders</span><strong>${totals.broad_orders.toLocaleString('id-ID')}</strong><small>${totals.conversion_rate.toFixed(2)}% conversion</small></article>
+        <article><span>Items sold</span><strong>${totals.broad_items.toLocaleString('id-ID')}</strong></article>
+        <article><span>Ad cost</span><strong>${formatCurrency(totals.expense)}</strong><small>${formatCurrency(totals.cost_per_click)} CPC</small></article>
+        <article><span>Attributed sales</span><strong>${formatCurrency(totals.broad_gmv)}</strong></article>
+        <article><span>ROAS</span><strong>${totals.broad_roas.toFixed(2)}x</strong><small>${totals.broad_gmv > 0 ? `${(totals.expense / totals.broad_gmv * 100).toFixed(1)}% ACOS` : (targetRoas > 0 ? `${targetRoas.toFixed(2)}x target` : 'No target')}</small></article>
+      </section>
+      <details class="admin-ad-view-direct-metrics">
+        <summary>Show direct-attribution metrics</summary>
+        <section class="admin-ad-view-shopee-metrics">
+          <article><span>Direct orders</span><strong>${totals.direct_orders.toLocaleString('id-ID')}</strong></article>
+          <article><span>Direct items sold</span><strong>${totals.direct_items.toLocaleString('id-ID')}</strong></article>
+          <article><span>Direct sales</span><strong>${formatCurrency(totals.direct_gmv)}</strong></article>
+          <article><span>Direct ROAS</span><strong>${totals.direct_roas.toFixed(2)}x</strong></article>
+        </section>
+      </details>
+      <div class="admin-ad-view-detail-section-head"><div><span class="admin-panel-kicker">Profit Layer</span><h4>What Shopee does not show</h4></div><small>${escapeHtml(cogsSource)}</small></div>
+      <section class="admin-ad-view-profit-grid">
+        <article><span>CAC</span><strong>${totals.broad_orders > 0 ? formatCurrency(totals.cac) : '—'}</strong><small>Ad cost ÷ attributed orders</small></article>
+        <article><span>Estimated COGS</span><strong>${economics.hasCogs ? formatCurrency(economics.estimatedCogs) : 'Add COGS'}</strong><small>${economics.hasCogs ? `${formatCurrency(economics.unitCogs)} / attributed item` : 'Needed for profit estimates'}</small></article>
+        <article><span>Estimated gross profit</span><strong>${economics.hasCogs ? formatCurrency(economics.grossProfit) : '—'}</strong><small>Attributed sales − COGS</small></article>
+        <article><span>Contribution after ads</span><strong class="${economics.contribution < 0 ? 'is-negative' : ''}">${economics.hasCogs ? formatCurrency(economics.contribution) : '—'}</strong><small>GP − estimated fees − ads</small></article>
+        <article><span>Contribution margin</span><strong>${economics.hasCogs ? `${economics.contributionMargin.toFixed(1)}%` : '—'}</strong><small>${economics.breakEvenRoas > 0 ? `${economics.breakEvenRoas.toFixed(2)}x break-even ROAS` : (economics.hasCogs ? 'Current unit margin cannot break even' : 'Requires COGS')}</small></article>
+      </section>
+      <div class="admin-ad-view-detail-section-head"><div><span class="admin-panel-kicker">Settings</span><h4>Current Shopee setup</h4></div></div>
+      <section class="admin-ad-view-settings-grid">
+        <span><small>Daily budget</small><strong>${formatCurrency(campaign.campaign_budget)}</strong></span>
+        <span><small>Bidding</small><strong>${escapeHtml(campaign.bidding_method || '—')}</strong></span>
+        <span><small>Target ROAS</small><strong>${targetRoas > 0 ? `${targetRoas.toFixed(2)}x` : '—'}</strong></span>
+        <span><small>Placement</small><strong>${escapeHtml(campaign.campaign_placement || 'All')}</strong></span>
+        <span><small>Seller SKU</small><strong>${escapeHtml((campaign.seller_skus || []).join(', ') || 'Not returned yet')}</strong></span>
+      </section>
+      <div class="admin-ad-view-detail-section-head"><div><span class="admin-panel-kicker">Insights</span><h4>What needs attention</h4></div></div>
+      <section class="admin-ad-view-insights">${insights.map((insight) => `<article class="is-${insight.tone}"><strong>${escapeHtml(insight.title)}</strong><p>${escapeHtml(insight.body)}</p></article>`).join('') || '<article class="is-neutral"><strong>Not enough data yet</strong><p>Keep this ad selected after it has delivered more impressions, clicks, and orders.</p></article>'}</section>
+    `;
+    if (adViewRefs.actionCampaign) adViewRefs.actionCampaign.value = campaign.campaign_key;
   };
 
   const renderAdViewScorecard = () => {
@@ -9432,22 +9615,22 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!adViewRefs.chart) return;
     const campaigns = getAdViewCampaigns();
     const metrics = getAdViewMetrics();
-    const campaignA = campaigns.find((campaign) => campaign.campaign_key === state.adView.compareA);
-    const campaignB = campaigns.find((campaign) => campaign.campaign_key === state.adView.compareB);
+    const selected = campaigns.find((campaign) => campaign.campaign_key === state.adView.selectedCampaignKey);
     const eventDates = new Set((state.adView.data?.events || [])
-      .filter((event) => [state.adView.compareA, state.adView.compareB].includes(adViewCampaignKey(event.account_key, event.campaign_id)))
+      .filter((event) => state.adView.selectedCampaignKey === adViewCampaignKey(event.account_key, event.campaign_id))
       .map((event) => String(event.event_at || '').slice(0, 10)));
-    const dates = [...new Set(metrics.map((row) => row.metric_date))].sort();
+    const selectedRows = metrics.filter((row) => row.campaign_key === state.adView.selectedCampaignKey);
+    const dates = [...new Set(selectedRows.map((row) => row.metric_date))].sort();
     const rows = dates.map((date) => {
-      const a = metrics.find((row) => row.metric_date === date && row.campaign_key === state.adView.compareA) || {};
-      const b = metrics.find((row) => row.metric_date === date && row.campaign_key === state.adView.compareB) || {};
-      return { label: `${date.slice(5)}${eventDates.has(date) ? ' ★' : ''}`, a, b };
+      const selectedMetric = selectedRows.find((row) => row.metric_date === date) || {};
+      return { label: `${date.slice(5)}${eventDates.has(date) ? ' ★' : ''}`, selected: selectedMetric };
     });
     drawMultiLineChart(adViewRefs.chart, rows, state.adView.metric, AD_VIEW_METRIC_UNITS, [
-      { key: 'a', label: campaignA?.display_name || 'Old ad', color: '#77766f', visible: Boolean(campaignA) },
-      { key: 'b', label: campaignB?.display_name || 'New ad', color: '#00d389', visible: Boolean(campaignB) }
+      { key: 'selected', label: selected?.display_name || 'Selected ad', color: '#00d389', visible: Boolean(selected) }
     ]);
-    if (adViewRefs.trendTitle) adViewRefs.trendTitle.textContent = `${AD_VIEW_METRIC_LABELS[state.adView.metric] || 'Performance'} over time`;
+    if (adViewRefs.trendTitle) adViewRefs.trendTitle.textContent = selected
+      ? `${selected.display_name} — ${AD_VIEW_METRIC_LABELS[state.adView.metric] || 'performance'}`
+      : 'Choose a live ad';
   };
 
   const renderAdViewEvents = () => {
@@ -9456,10 +9639,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const campaignMap = new Map(campaigns.map((campaign) => [campaign.campaign_key, campaign]));
     const metricRows = getAdViewMetrics();
     const events = (state.adView.data?.events || []).filter((event) =>
-      state.adView.account === 'all' || event.account_key === state.adView.account
+      adViewCampaignKey(event.account_key, event.campaign_id) === state.adView.selectedCampaignKey
     );
     if (!events.length) {
-      adViewRefs.events.innerHTML = '<p class="admin-empty">No actions recorded in this period.</p>';
+      adViewRefs.events.innerHTML = '<p class="admin-empty">No actions recorded for this ad in the selected period.</p>';
       return;
     }
     adViewRefs.events.innerHTML = events.map((event) => {
@@ -9507,6 +9690,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     if (adViewRefs.startDate) adViewRefs.startDate.value = state.adView.startDate;
     if (adViewRefs.endDate) adViewRefs.endDate.value = state.adView.endDate;
+    if (adViewRefs.search) adViewRefs.search.value = state.adView.search;
+    const visibleCampaigns = campaigns
+      .filter((campaign) => state.adView.account === 'all' || campaign.account_key === state.adView.account)
+      .sort((a, b) => adViewCampaignTotals(b.campaign_key).expense - adViewCampaignTotals(a.campaign_key).expense);
+    if (!visibleCampaigns.some((campaign) => campaign.campaign_key === state.adView.selectedCampaignKey)) {
+      state.adView.selectedCampaignKey = visibleCampaigns[0]?.campaign_key || '';
+    }
     const optionHtml = campaigns.map((campaign) => `<option value="${escapeHtml(campaign.campaign_key)}">${escapeHtml(campaign.display_name)} — ${escapeHtml(campaign.company)}</option>`).join('');
     [adViewRefs.compareA, adViewRefs.compareB, adViewRefs.actionCampaign].forEach((select) => {
       if (!select) return;
@@ -9516,6 +9706,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!campaigns.some((campaign) => campaign.campaign_key === state.adView.compareB) || state.adView.compareB === state.adView.compareA) state.adView.compareB = campaigns[1]?.campaign_key || '';
     if (adViewRefs.compareA) adViewRefs.compareA.value = state.adView.compareA;
     if (adViewRefs.compareB) adViewRefs.compareB.value = state.adView.compareB;
+    if (adViewRefs.actionCampaign) adViewRefs.actionCampaign.value = state.adView.selectedCampaignKey;
 
     const selectedAccounts = state.adView.account === 'all'
       ? (data.accounts || [])
@@ -9526,7 +9717,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const internalBudget = selectedAccounts.reduce((sum, account) => sum + Number(account.internal_monthly_budget || 0), 0);
     if (adViewRefs.kpis.balance) adViewRefs.kpis.balance.textContent = formatCurrency(balance);
     if (adViewRefs.kpis.expense) adViewRefs.kpis.expense.textContent = formatCurrency(aggregate.expense);
-    if (adViewRefs.kpis.revenueAfterAds) adViewRefs.kpis.revenueAfterAds.textContent = formatCurrency(aggregate.revenue_after_ads);
+    if (adViewRefs.kpis.revenueAfterAds) adViewRefs.kpis.revenueAfterAds.textContent = formatCurrency(aggregate.broad_gmv);
     if (adViewRefs.kpis.roas) adViewRefs.kpis.roas.textContent = `${aggregate.broad_roas.toFixed(2)}x`;
     if (adViewRefs.kpis.budgetLeft) adViewRefs.kpis.budgetLeft.textContent = internalBudget > 0 ? formatCurrency(internalBudget - monthSpend) : 'Not set';
 
@@ -9544,7 +9735,9 @@ document.addEventListener('DOMContentLoaded', () => {
         </tr>`;
       }).join('') : '<tr><td colspan="8" class="admin-empty">Sync Shopee Ads to populate the library.</td></tr>';
     }
-    if (adViewRefs.status) adViewRefs.status.textContent = `${campaigns.length} campaigns • Updated ${new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`;
+    if (adViewRefs.status) adViewRefs.status.textContent = `${visibleCampaigns.length} live ads • Updated ${new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`;
+    renderAdViewLiveList();
+    renderAdViewDetail();
     renderAdViewScorecard();
     renderAdViewChart();
     renderAdViewEvents();
@@ -11120,6 +11313,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   adViewRefs.account?.addEventListener('change', async () => {
     state.adView.account = adViewRefs.account?.value || 'all';
+    state.adView.selectedCampaignKey = '';
     state.adView.compareA = '';
     state.adView.compareB = '';
     await loadAdViewSafely({ force: true });
@@ -11128,13 +11322,29 @@ document.addEventListener('DOMContentLoaded', () => {
   adViewRefs.compareA?.addEventListener('change', () => {
     state.adView.compareA = adViewRefs.compareA?.value || '';
     renderAdViewScorecard();
-    renderAdViewChart();
   });
 
   adViewRefs.compareB?.addEventListener('change', () => {
     state.adView.compareB = adViewRefs.compareB?.value || '';
     renderAdViewScorecard();
+  });
+
+  adViewRefs.search?.addEventListener('input', () => {
+    state.adView.search = adViewRefs.search?.value || '';
+    renderAdViewLiveList();
+    renderAdViewDetail();
     renderAdViewChart();
+    renderAdViewEvents();
+  });
+
+  adViewRefs.liveList?.addEventListener('click', (event) => {
+    const button = event.target instanceof Element ? event.target.closest('[data-ad-view-select]') : null;
+    if (!(button instanceof HTMLElement)) return;
+    state.adView.selectedCampaignKey = button.dataset.adViewSelect || '';
+    renderAdViewLiveList();
+    renderAdViewDetail();
+    renderAdViewChart();
+    renderAdViewEvents();
   });
 
   adViewRefs.metricButtons.forEach((button) => {
@@ -11143,6 +11353,62 @@ document.addEventListener('DOMContentLoaded', () => {
       adViewRefs.metricButtons.forEach((entry) => entry.classList.toggle('is-active', entry === button));
       renderAdViewChart();
     });
+  });
+
+  const openAdViewEditor = (campaignKey) => {
+    const campaign = getAdViewCampaigns().find((entry) => entry.campaign_key === campaignKey);
+    if (!campaign || !adViewRefs.editorForm || !adViewRefs.editor) return;
+    adViewRefs.editorForm.elements.campaign_key.value = campaign.campaign_key;
+    adViewRefs.editorForm.elements.alias_name.value = campaign.alias_name || campaign.display_name || '';
+    adViewRefs.editorForm.elements.tags.value = (campaign.tags || []).join(', ');
+    adViewRefs.editorForm.elements.unit_cogs_override.value = campaign.economics?.unit_cogs_override ?? '';
+    if (adViewRefs.editorSource) {
+      const skuText = (campaign.economics?.matched_skus || []).length
+        ? `Linked SKU DB: ${campaign.economics.matched_skus.join(', ')}`
+        : 'No Shopee seller SKU is linked to SKU DB yet.';
+      adViewRefs.editorSource.textContent = `${campaign.source_ad_name || 'Shopee ad'} • ${skuText}`;
+    }
+    if (typeof adViewRefs.editor.showModal === 'function') adViewRefs.editor.showModal();
+    else adViewRefs.editor.setAttribute('open', '');
+  };
+
+  adViewRefs.detail?.addEventListener('click', (event) => {
+    const button = event.target instanceof Element ? event.target.closest('[data-ad-view-open-editor]') : null;
+    if (!(button instanceof HTMLElement)) return;
+    openAdViewEditor(button.dataset.adViewOpenEditor || '');
+  });
+
+  document.querySelectorAll('[data-ad-view-editor-close]').forEach((button) => {
+    button.addEventListener('click', () => adViewRefs.editor?.close());
+  });
+
+  adViewRefs.editorForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = new FormData(adViewRefs.editorForm);
+    const campaignKey = String(form.get('campaign_key') || '');
+    const campaign = getAdViewCampaigns().find((entry) => entry.campaign_key === campaignKey);
+    if (!campaign) return;
+    const submit = adViewRefs.editorForm.querySelector('[type="submit"]');
+    if (submit) submit.disabled = true;
+    try {
+      await requestJson(adsEndpoint, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'save_campaign',
+          account_key: campaign.account_key,
+          campaign_id: campaign.campaign_id,
+          alias_name: form.get('alias_name'),
+          tags: String(form.get('tags') || '').split(',').map((tag) => tag.trim()).filter(Boolean),
+          unit_cogs_override: form.get('unit_cogs_override')
+        })
+      });
+      adViewRefs.editor?.close();
+      await loadAdViewSafely({ force: true });
+    } catch (error) {
+      showAdViewError(error?.message || 'Unable to save ad name and COGS.');
+    } finally {
+      if (submit) submit.disabled = false;
+    }
   });
 
   adViewRefs.trackForm?.addEventListener('submit', async (event) => {
@@ -11165,6 +11431,7 @@ document.addEventListener('DOMContentLoaded', () => {
         })
       });
       state.adView.account = String(form.get('account_key') || 'all');
+      state.adView.selectedCampaignKey = adViewCampaignKey(state.adView.account, form.get('campaign_id'));
       state.adView.loadedAt = Date.now();
       renderAdView(data);
       adViewRefs.trackForm.reset();
@@ -11207,6 +11474,7 @@ document.addEventListener('DOMContentLoaded', () => {
           before_value: form.get('before_value'), after_value: form.get('after_value'), note: form.get('note'), tags
         })
       });
+      state.adView.selectedCampaignKey = campaignKey;
       adViewRefs.actionForm.reset();
       setAdViewEventTimeDefault();
       await loadAdViewSafely({ force: true });
@@ -11228,17 +11496,7 @@ document.addEventListener('DOMContentLoaded', () => {
   adViewRefs.library?.addEventListener('click', async (event) => {
     const button = event.target instanceof Element ? event.target.closest('[data-ad-view-edit]') : null;
     if (!(button instanceof HTMLElement)) return;
-    const campaign = getAdViewCampaigns().find((entry) => entry.campaign_key === button.dataset.adViewEdit);
-    if (!campaign) return;
-    const aliasName = window.prompt('Dashboard name', campaign.alias_name || campaign.display_name);
-    if (aliasName === null) return;
-    const tagInput = window.prompt('Tags, separated by commas', (campaign.tags || []).join(', '));
-    if (tagInput === null) return;
-    await requestJson(adsEndpoint, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'save_campaign', account_key: campaign.account_key, campaign_id: campaign.campaign_id, alias_name: aliasName, tags: tagInput.split(',').map((tag) => tag.trim()).filter(Boolean) })
-    }).catch((error) => showAdViewError(error.message));
-    await loadAdViewSafely({ force: true });
+    openAdViewEditor(button.dataset.adViewEdit || '');
   });
 
   document.querySelectorAll('[data-view-switch]').forEach((button) => {

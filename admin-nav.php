@@ -353,8 +353,8 @@ function admin_favicon_assets(): array
             'dark' => '/assets/admin-icons/favicon-campaigns-dark.svg',
         ],
         'ad-view' => [
-            'light' => 'https://api.iconify.design/lucide:rocket.svg?color=%230f172a',
-            'dark' => 'https://api.iconify.design/lucide:rocket.svg?color=%23ffffff',
+            'light' => '/assets/admin-icons/favicon-ad-view-light.svg',
+            'dark' => '/assets/admin-icons/favicon-ad-view-dark.svg',
         ],
         'orders' => [
             'light' => '/assets/admin-icons/favicon-orders-ops-light.svg',
@@ -823,7 +823,7 @@ function admin_topbar_menu_icon(string $icon): string
         'accounting' => '<svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M7 9.5h.01M17 14.5h.01"/></svg>',
         'inventory-recap' => '<svg viewBox="0 0 24 24"><path d="M16 16h6"/><path d="m19 13 3 3-3 3"/><path d="M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l2-1.14"/><path d="m7.5 4.27 9 5.15"/><path d="M3.29 7 12 12l8.71-5"/><path d="M12 22V12"/></svg>',
         'campaigns' => '<svg viewBox="0 0 24 24"><path d="M11 6a13 13 0 0 0 8.4-2.8A1 1 0 0 1 21 4v12a1 1 0 0 1-1.6.8A13 13 0 0 0 11 14H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/><path d="M6 14a12 12 0 0 0 2.4 7.2 2 2 0 0 0 3.2-2.4A8 8 0 0 1 10 14"/><path d="M8 6v8"/></svg>',
-        'rocket' => '<svg viewBox="0 0 24 24"><path d="M14.5 4.5c2.7-.9 4.8-.7 5-.5.2.2.4 2.3-.5 5l-5.8 5.8-4-4z"/><path d="m8.7 11.3-3.2.8-2 2 5.3.7M12.7 15.3l-.8 3.2-2 2-.7-5.3M6.5 17.5l-2 2M14 8.7h.1"/></svg>',
+        'rocket' => '<svg viewBox="0 0 24 24"><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09"/><path d="M9 12a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.4 22.4 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 .05 5 .05"/></svg>',
         'profit-loss' => '<svg viewBox="0 0 24 24"><path d="M12 16v5"/><path d="M16 14.639V21"/><path d="M20 10.656V21"/><path d="m22 3-8.646 8.646a.5.5 0 0 1-.708 0L9.354 8.354a.5.5 0 0 0-.707 0L2 15"/><path d="M4 18.463V21"/><path d="M8 14.656V21"/></svg>',
         'back-dash' => '<svg viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>',
         'context' => '<svg viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>',

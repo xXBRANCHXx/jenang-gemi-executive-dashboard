@@ -30,6 +30,14 @@ Private admin dashboard for `admin.jenanggemi.com` behind a public Launch Pad.
 - `/api/jenang-gemi-website-orders/`
 - `/api/hard-set/`
 
+Ad View shows ongoing Shopee campaigns only. Select a live ad to inspect its
+Shopee delivery metrics and settings, CAC, SKU-linked COGS, estimated gross
+profit, contribution after ads, action history, and optional comparisons.
+Dashboard names, tags, and manual COGS overrides are stored locally and do not
+change the campaign name or settings inside Shopee Seller Centre. Its rail/menu
+icon and matching favicons use the official [Lucide Rocket](https://lucide.dev/icons/rocket)
+geometry under Lucide's ISC license.
+
 ## Notes
 
 - Launch Pad is public. Executive Dashboard and Store Ops remain protected by

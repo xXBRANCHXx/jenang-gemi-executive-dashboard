@@ -30,7 +30,8 @@ if ($isAuthenticated) {
         exit;
     }
 }
-$dashboardBuildVersion = 'exec3.77.0';
+$isAdView = $isAuthenticated && in_array($requestedView ?? '', ['ad-view', 'ads', 'ad_view', 'shopee-ads'], true);
+$dashboardBuildVersion = 'exec3.79.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -40,7 +41,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
-    <title>Executive Dashboard</title>
+    <title><?php echo $isAdView ? 'AD VIEW' : 'Executive Dashboard'; ?></title>
     <meta name="robots" content="noindex,nofollow">
 <?php render_admin_initial_theme_script(); ?>
 <?php render_admin_favicons(admin_dashboard_view_favicon_key()); ?>
@@ -109,9 +110,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                 <header class="admin-topbar">
                     <div class="admin-topbar-left">
                         <div class="admin-topbar-brand">
-                            <span class="admin-admin-mark">Admin Scope</span>
-                            <h1>Executive <span class="admin-mobile-title-tail">Dashboard</span></h1>
-                            <p data-active-view-label>Home</p>
+                            <h1 data-dashboard-title><?php echo $isAdView ? 'AD VIEW' : 'Executive Dashboard'; ?></h1>
                         </div>
                     </div>
                     <div class="admin-topbar-actions">
@@ -1007,33 +1006,47 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                     </section>
 
                     <section class="admin-view" data-view-panel="ad-view">
-                <section class="admin-ad-view-hero">
-                    <div>
-                        <span class="admin-chip admin-chip-accent">Ad View</span>
-                        <h2>Shopee advertising, compared in operating context.</h2>
-                        <p>Import campaigns from every connected Shopee account, compare matched periods, and mark the decisions that changed performance.</p>
-                    </div>
-                    <div class="admin-ad-view-hero-actions">
-                        <span class="admin-status-pill"><span class="admin-status-dot"></span><span data-ad-view-status>Waiting for first load</span></span>
-                        <button type="button" class="admin-primary-btn" data-ad-view-sync>Sync Shopee Ads</button>
-                    </div>
-                </section>
-
                 <section class="admin-ad-view-toolbar">
                     <label><span>Account</span><select data-ad-view-account><option value="all">All Shopee accounts</option><option value="jenang-gemi-shopee">Jenang Gemi</option><option value="zero-shopee">ZERO</option><option value="zfit-shopee">ZFIT</option></select></label>
                     <label><span>From</span><input type="date" data-ad-view-start-date></label>
                     <label><span>To</span><input type="date" data-ad-view-end-date></label>
+                    <label class="admin-ad-view-search-field"><span>Find a live ad</span><input type="search" data-ad-view-search placeholder="Name, SKU, or campaign ID"></label>
                     <button type="button" class="admin-soft-btn" data-ad-view-load>Apply range</button>
+                    <div class="admin-ad-view-toolbar-actions">
+                        <span class="admin-ad-view-sync-status"><span class="admin-status-dot"></span><span data-ad-view-status>Waiting for first load</span></span>
+                        <button type="button" class="admin-primary-btn" data-ad-view-sync>Sync ads</button>
+                    </div>
                 </section>
 
                 <section class="admin-ad-view-kpis">
                     <article><span>Ad credit</span><strong data-ad-view-kpi="balance">Rp0</strong><small>Paid + free Shopee credit</small></article>
-                    <article><span>Ad cost</span><strong data-ad-view-kpi="expense">Rp0</strong><small>Selected period</small></article>
-                    <article><span>Revenue after ad cost</span><strong data-ad-view-kpi="revenue-after-ads">Rp0</strong><small>Broad GMV minus ad spend</small></article>
-                    <article><span>Broad ROAS</span><strong data-ad-view-kpi="roas">0.00x</strong><small>Attributed revenue ÷ spend</small></article>
+                    <article><span>Live-ad spend</span><strong data-ad-view-kpi="expense">Rp0</strong><small>Selected period</small></article>
+                    <article><span>Attributed sales</span><strong data-ad-view-kpi="revenue-after-ads">Rp0</strong><small>Broad GMV from live ads</small></article>
+                    <article><span>Live-ad ROAS</span><strong data-ad-view-kpi="roas">0.00x</strong><small>Attributed sales ÷ spend</small></article>
                     <article><span>Internal budget left</span><strong data-ad-view-kpi="budget-left">Not set</strong><small>Monthly plan minus spend</small></article>
                 </section>
 
+                <section class="admin-ad-view-workspace">
+                    <article class="admin-panel admin-ad-view-live-panel">
+                        <div class="admin-panel-head">
+                            <div><span class="admin-panel-kicker">Shopee Ads</span><h3>Live ads</h3></div>
+                            <span class="admin-panel-meta" data-ad-view-live-meta>Loading active campaigns</span>
+                        </div>
+                        <div class="admin-ad-view-live-list" data-ad-view-live-list>
+                            <p class="admin-empty">Syncing live Shopee ads.</p>
+                        </div>
+                    </article>
+
+                    <article class="admin-panel admin-ad-view-detail-panel" data-ad-view-detail>
+                        <div class="admin-ad-view-detail-empty">
+                            <strong>Select a live ad</strong>
+                            <span>Its Shopee metrics, profitability, settings, and insights will appear here.</span>
+                        </div>
+                    </article>
+                </section>
+
+                <details class="admin-panel admin-ad-view-tools-panel">
+                    <summary><span><strong>Setup tools</strong><small>Add an ID manually or set an internal account budget</small></span><i>Open</i></summary>
                 <section class="admin-ad-view-grid">
                     <article class="admin-panel admin-ad-view-track-panel">
                         <div class="admin-panel-head"><div><span class="admin-panel-kicker">Campaign Library</span><h3>Track a Shopee campaign ID</h3></div><span class="admin-panel-meta">Import-all happens during sync</span></div>
@@ -1056,8 +1069,11 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                         </form>
                     </article>
                 </section>
+                </details>
 
-                <section class="admin-panel admin-ad-view-compare-panel">
+                <details class="admin-panel admin-ad-view-compare-panel" data-ad-view-comparison>
+                    <summary><span><strong>Compare two live ads</strong><small>Optional matched-period view</small></span><i>Open comparison</i></summary>
+                    <div class="admin-ad-view-compare-content">
                     <div class="admin-panel-head">
                         <div><span class="admin-panel-kicker">Matched Comparison</span><h3>Old ad versus new ad</h3></div>
                         <span class="admin-panel-meta" data-ad-view-compare-meta>Choose two campaigns</span>
@@ -1071,17 +1087,18 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                         <p class="admin-empty">Select two campaigns to compare daily averages.</p>
                     </div>
                     <p class="admin-ad-view-disclaimer">“Revenue after ad cost” is a decision proxy: attributed broad GMV minus advertising spend. It is not gross profit because product cost, marketplace fees, discounts, shipping, and other expenses are not included.</p>
-                </section>
+                    </div>
+                </details>
 
                 <section class="admin-main-grid">
                     <article class="admin-panel admin-panel-wide">
-                        <div class="admin-panel-head"><div><span class="admin-panel-kicker">Trend</span><h3 data-ad-view-trend-title>Campaign performance over time</h3></div><span class="admin-panel-meta">Action markers appear on the campaign timeline</span></div>
-                        <div class="admin-panel-inline-toggles" data-ad-view-metric-controls>
-                            <button type="button" class="admin-toggle-pill is-active" data-ad-view-metric="broad_gmv">Revenue</button>
-                            <button type="button" class="admin-toggle-pill" data-ad-view-metric="expense">Ad cost</button>
-                            <button type="button" class="admin-toggle-pill" data-ad-view-metric="broad_orders">Orders</button>
-                            <button type="button" class="admin-toggle-pill" data-ad-view-metric="clicks">Clicks</button>
-                            <button type="button" class="admin-toggle-pill" data-ad-view-metric="broad_roas">ROAS</button>
+                        <div class="admin-panel-head"><div><span class="admin-panel-kicker">Selected Ad Trend</span><h3 data-ad-view-trend-title>Choose a live ad</h3></div></div>
+                        <div class="admin-panel-inline-toggles admin-sliding-chart-toggle" data-ad-view-metric-controls data-sliding-chart-toggle role="radiogroup" aria-label="Selected ad trend metric">
+                            <button type="button" class="admin-toggle-pill is-active" data-ad-view-metric="broad_gmv"><span>Revenue</span></button>
+                            <button type="button" class="admin-toggle-pill" data-ad-view-metric="expense"><span>Ad cost</span></button>
+                            <button type="button" class="admin-toggle-pill" data-ad-view-metric="broad_orders"><span>Orders</span></button>
+                            <button type="button" class="admin-toggle-pill" data-ad-view-metric="clicks"><span>Clicks</span></button>
+                            <button type="button" class="admin-toggle-pill" data-ad-view-metric="broad_roas"><span>ROAS</span></button>
                         </div>
                         <div class="admin-chart-surface"><canvas class="admin-chart-canvas admin-chart-canvas-lg" data-ad-view-chart width="1200" height="360"></canvas></div>
                     </article>
@@ -1107,7 +1124,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                     </article>
                 </section>
 
-                <section class="admin-panel admin-ad-view-library-panel">
+                <section class="admin-panel admin-ad-view-library-panel" hidden>
                     <div class="admin-panel-head"><div><span class="admin-panel-kicker">All Imported Campaigns</span><h3>Names, tags, status, and performance</h3></div><span class="admin-panel-meta" data-ad-view-library-meta>0 campaigns</span></div>
                     <div class="admin-table-wrap">
                         <table class="admin-table admin-ad-view-table">
@@ -1116,6 +1133,19 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                         </table>
                     </div>
                 </section>
+
+                <dialog class="admin-ad-view-editor" data-ad-view-editor>
+                    <form method="dialog" class="admin-ad-view-editor-card" data-ad-view-editor-form>
+                        <div class="admin-panel-head"><div><span class="admin-panel-kicker">Ad Settings</span><h3>Edit your dashboard name</h3></div><button type="button" class="admin-icon-btn" data-ad-view-editor-close aria-label="Close">×</button></div>
+                        <p data-ad-view-editor-source></p>
+                        <input type="hidden" name="campaign_key">
+                        <label><span>Dashboard name</span><input name="alias_name" maxlength="180" placeholder="Give this ad a clear working name"></label>
+                        <label><span>Tags</span><input name="tags" placeholder="bubur, scale, payday"></label>
+                        <label><span>COGS per attributed item (Rp)</span><input name="unit_cogs_override" type="number" min="0" step="1" placeholder="Leave blank to use linked SKU COGS"></label>
+                        <small>COGS is matched from Shopee seller SKUs when possible. Use this override only when the campaign cannot be linked automatically.</small>
+                        <div class="admin-ad-view-editor-actions"><button type="button" class="admin-ghost-btn" data-ad-view-editor-close>Cancel</button><button type="submit" class="admin-primary-btn">Save changes</button></div>
+                    </form>
+                </dialog>
                     </section>
 
                     <section class="admin-view" data-view-panel="website">
