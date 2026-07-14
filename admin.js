@@ -9720,11 +9720,29 @@ document.addEventListener('DOMContentLoaded', () => {
     chartHoverState.set(canvas, hoverColumns.filter(Boolean));
   };
 
+  const renderAdViewKpis = () => {
+    const selectedRows = getAdViewMetrics().filter((row) => row.campaign_key === state.adView.selectedCampaignKey);
+    const aggregate = aggregateAdViewMetrics(selectedRows);
+    if (adViewRefs.kpis.impressions) adViewRefs.kpis.impressions.textContent = formatRegionalNumber(aggregate.impressions);
+    if (adViewRefs.kpis.clicks) adViewRefs.kpis.clicks.textContent = formatRegionalNumber(aggregate.clicks);
+    if (adViewRefs.kpis.broadOrders) adViewRefs.kpis.broadOrders.textContent = formatRegionalNumber(aggregate.broad_orders);
+    if (adViewRefs.kpis.broadItems) adViewRefs.kpis.broadItems.textContent = formatRegionalNumber(aggregate.broad_items);
+    if (adViewRefs.kpis.expense) adViewRefs.kpis.expense.textContent = formatCurrency(aggregate.expense);
+    if (adViewRefs.kpis.attributedSales) adViewRefs.kpis.attributedSales.textContent = formatCurrency(aggregate.broad_gmv);
+    if (adViewRefs.kpis.roas) adViewRefs.kpis.roas.textContent = `${aggregate.broad_roas.toFixed(2)}x`;
+    adViewRefs.summaryMetricButtons.forEach((button) => {
+      const selected = state.adView.selectedMetrics.includes(button.dataset.adViewSummaryMetric || '');
+      button.classList.toggle('is-selected', selected);
+      button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+    });
+  };
+
   const renderAdViewChart = () => {
     if (!adViewRefs.chart) return;
-    const filteredMetrics = getAdViewMetrics().filter((row) => state.adView.account === 'all' || row.account_key === state.adView.account);
-    const chartAccounts = (state.adView.data?.accounts || []).filter((account) => state.adView.account === 'all' || account.account_key === state.adView.account);
-    const hourly = chartAccounts.length > 0 && chartAccounts.every((account) => account.granularity === 'hourly');
+    const selectedCampaign = getAdViewCampaigns().find((campaign) => campaign.campaign_key === state.adView.selectedCampaignKey);
+    const filteredMetrics = getAdViewMetrics().filter((row) => row.campaign_key === state.adView.selectedCampaignKey);
+    const selectedAccount = (state.adView.data?.accounts || []).find((account) => account.account_key === selectedCampaign?.account_key);
+    const hourly = selectedAccount?.granularity === 'hourly';
     const rowsByBucket = new Map();
     filteredMetrics.forEach((metric) => {
       const hour = hourly && Number.isInteger(Number(metric.metric_hour)) ? Number(metric.metric_hour) : null;
@@ -9732,7 +9750,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!rowsByBucket.has(key)) rowsByBucket.set(key, []);
       rowsByBucket.get(key).push(metric);
     });
-    if (hourly && state.adView.startDate === state.adView.endDate) {
+    if (selectedCampaign && hourly && state.adView.startDate === state.adView.endDate) {
       const today = state.adView.endDate === getDateKeyForTimezone();
       const lastHour = today ? Number(new Intl.DateTimeFormat('en-GB', { timeZone: state.timezone, hour: '2-digit', hourCycle: 'h23' }).format(new Date())) : 23;
       for (let hour = 0; hour <= lastHour; hour += 1) {
@@ -9750,9 +9768,11 @@ document.addEventListener('DOMContentLoaded', () => {
       };
     });
     drawAdViewMetricChart(adViewRefs.chart, chartRows, state.adView.selectedMetrics);
-    if (adViewRefs.trendTitle) adViewRefs.trendTitle.textContent = hourly
-      ? `${state.adView.endDate === getDateKeyForTimezone() ? 'Today' : state.adView.endDate} by hour`
-      : `${state.adView.startDate} — ${state.adView.endDate}`;
+    if (adViewRefs.trendTitle) adViewRefs.trendTitle.textContent = selectedCampaign
+      ? `${selectedCampaign.display_name} • ${hourly
+        ? `${state.adView.endDate === getDateKeyForTimezone() ? 'Today' : state.adView.endDate} by hour`
+        : `${state.adView.startDate} — ${state.adView.endDate}`}`
+      : 'Select a live ad';
     if (adViewRefs.trendMeta) {
       adViewRefs.trendMeta.textContent = state.adView.selectedMetrics.length
         ? `${state.adView.selectedMetrics.map((metric) => AD_VIEW_METRIC_LABELS[metric]).join(' • ')} • each line uses its own scale`
@@ -9837,28 +9857,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const selectedAccounts = state.adView.account === 'all'
       ? (data.accounts || [])
       : (data.accounts || []).filter((account) => account.account_key === state.adView.account);
-    const aggregate = aggregateAdViewMetrics(selectedAccounts.flatMap((account) => account.metrics || []));
     if (adViewRefs.credits) {
-      adViewRefs.credits.innerHTML = selectedAccounts.map((account) => `
+      const balances = selectedAccounts.map((account) => `
+        <span><small>${escapeHtml(account.company || account.account_key)}</small><strong>${formatCurrency(Number(account.balance?.total_balance || 0))}</strong></span>
+      `).join('');
+      adViewRefs.credits.innerHTML = `
         <article>
-          <span><i class="admin-status-dot"></i>${escapeHtml(account.company || account.account_key)} • Shopee</span>
-          <strong>${formatCurrency(Number(account.balance?.total_balance || 0))}</strong>
-          <small>Shopee ad credit • live balance</small>
+          <div><span><i class="admin-status-dot"></i>Ad credit</span><small>Live Shopee balance by account</small></div>
+          <div class="admin-ad-view-credit-breakdown">${balances || '<span><small>No balances available</small><strong>—</strong></span>'}</div>
         </article>
-      `).join('') || '<p class="admin-empty">No Shopee ad-credit balances are available.</p>';
+      `;
     }
-    if (adViewRefs.kpis.impressions) adViewRefs.kpis.impressions.textContent = formatRegionalNumber(aggregate.impressions);
-    if (adViewRefs.kpis.clicks) adViewRefs.kpis.clicks.textContent = formatRegionalNumber(aggregate.clicks);
-    if (adViewRefs.kpis.broadOrders) adViewRefs.kpis.broadOrders.textContent = formatRegionalNumber(aggregate.broad_orders);
-    if (adViewRefs.kpis.broadItems) adViewRefs.kpis.broadItems.textContent = formatRegionalNumber(aggregate.broad_items);
-    if (adViewRefs.kpis.expense) adViewRefs.kpis.expense.textContent = formatCurrency(aggregate.expense);
-    if (adViewRefs.kpis.attributedSales) adViewRefs.kpis.attributedSales.textContent = formatCurrency(aggregate.broad_gmv);
-    if (adViewRefs.kpis.roas) adViewRefs.kpis.roas.textContent = `${aggregate.broad_roas.toFixed(2)}x`;
-    adViewRefs.summaryMetricButtons.forEach((button) => {
-      const selected = state.adView.selectedMetrics.includes(button.dataset.adViewSummaryMetric || '');
-      button.classList.toggle('is-selected', selected);
-      button.setAttribute('aria-pressed', selected ? 'true' : 'false');
-    });
+    renderAdViewKpis();
 
     const byCampaign = new Map(campaigns.map((campaign) => [campaign.campaign_key, aggregateAdViewMetrics(metrics.filter((row) => row.campaign_key === campaign.campaign_key))]));
     if (adViewRefs.libraryMeta) adViewRefs.libraryMeta.textContent = `${campaigns.length.toLocaleString('id-ID')} campaigns across ${selectedAccounts.length} account${selectedAccounts.length === 1 ? '' : 's'}`;
@@ -11509,6 +11519,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!(button instanceof HTMLElement)) return;
     state.adView.selectedCampaignKey = button.dataset.adViewSelect || '';
     renderAdViewLiveList();
+    renderAdViewKpis();
     renderAdViewDetail();
     renderAdViewChart();
     renderAdViewEvents();

@@ -1041,14 +1041,6 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                     <button type="button" class="is-selected" style="--ad-metric-color:#f2c94c" data-ad-view-summary-metric="broad_roas" aria-pressed="true"><i></i><span>ROAS</span><strong data-ad-view-kpi="roas">0.00x</strong><small>Attributed sales ÷ cost</small></button>
                 </section>
 
-                <article class="admin-panel admin-ad-view-trend-panel">
-                    <div class="admin-panel-head">
-                        <div><span class="admin-panel-kicker">Performance over time</span><h3 data-ad-view-trend-title>Today by hour</h3></div>
-                        <span class="admin-panel-meta" data-ad-view-trend-meta>Select up to four metrics</span>
-                    </div>
-                    <div class="admin-chart-surface"><canvas class="admin-chart-canvas admin-chart-canvas-lg" data-ad-view-chart width="1200" height="390"></canvas></div>
-                </article>
-
                 <section class="admin-ad-view-workspace">
                     <article class="admin-panel admin-ad-view-live-panel">
                         <div class="admin-panel-head">
@@ -1060,12 +1052,22 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                         </div>
                     </article>
 
-                    <article class="admin-panel admin-ad-view-detail-panel" data-ad-view-detail>
-                        <div class="admin-ad-view-detail-empty">
-                            <strong>Select a live ad</strong>
-                            <span>Its Shopee metrics, profitability, settings, and insights will appear here.</span>
-                        </div>
-                    </article>
+                    <div class="admin-ad-view-analysis-column">
+                        <article class="admin-panel admin-ad-view-trend-panel">
+                            <div class="admin-panel-head">
+                                <div><span class="admin-panel-kicker">Selected ad over time</span><h3 data-ad-view-trend-title>Select a live ad</h3></div>
+                                <span class="admin-panel-meta" data-ad-view-trend-meta>Select up to four metrics</span>
+                            </div>
+                            <div class="admin-chart-surface"><canvas class="admin-chart-canvas admin-chart-canvas-lg" data-ad-view-chart width="1200" height="390"></canvas></div>
+                        </article>
+
+                        <article class="admin-panel admin-ad-view-detail-panel" data-ad-view-detail>
+                            <div class="admin-ad-view-detail-empty">
+                                <strong>Select a live ad</strong>
+                                <span>Its Shopee metrics, profitability, settings, and insights will appear here.</span>
+                            </div>
+                        </article>
+                    </div>
                 </section>
 
                 <details class="admin-panel admin-ad-view-compare-panel" data-ad-view-comparison>
