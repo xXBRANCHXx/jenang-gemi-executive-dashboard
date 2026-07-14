@@ -25722,17 +25722,23 @@ body:has(.admin-app[data-sku-db])::after {
   min-height: 66px;
   padding: 10px;
   border-radius: 11px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
 .admin-ad-view-trend-panel .admin-ad-view-kpis span {
-  font-size: 0.58rem;
+  color: var(--admin-muted);
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0;
+  line-height: 1.25;
+  text-transform: none;
   white-space: nowrap;
 }
 
 .admin-ad-view-trend-panel .admin-ad-view-kpis strong {
   align-self: end;
-  font-size: clamp(0.78rem, 1vw, 1rem);
-  line-height: 1.1;
+  font: 700 clamp(0.88rem, 1vw, 1.05rem)/1.2 'Plus Jakarta Sans', sans-serif;
+  letter-spacing: -0.01em;
 }
 
 .admin-ad-view-trend-panel .admin-chart-surface {
@@ -25761,11 +25767,13 @@ body:has(.admin-app[data-sku-db])::after {
   min-height: 112px;
   padding: 17px;
   border-radius: 15px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
 .admin-ad-view-detail-panel .admin-ad-view-profit-grid strong {
   align-self: end;
-  font: 700 clamp(1rem, 1.5vw, 1.35rem)/1.1 'Space Grotesk', sans-serif;
+  font: 700 clamp(1rem, 1.35vw, 1.28rem)/1.2 'Plus Jakarta Sans', sans-serif;
+  letter-spacing: -0.01em;
 }
 
 .admin-ad-view-detail-panel .admin-ad-view-direct-metrics .admin-ad-view-settings-grid {

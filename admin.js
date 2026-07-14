@@ -9451,7 +9451,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const dailyBudget = Number(campaign.campaign_budget || 0);
     const dailySpend = Number(totals.expense || 0) / getAdViewElapsedDays();
     if (!economics.hasCogs) {
-      insights.push({ tone: 'warning', title: 'COGS is not linked yet', body: 'Add COGS for this ad or align its Shopee seller SKU with SKU DB to unlock reliable gross-profit and contribution estimates.' });
+      const matchedSku = campaign?.economics?.matched_skus?.length > 0;
+      insights.push({
+        tone: 'warning',
+        title: matchedSku ? 'Matched SKU has no COGS value' : 'No SKU DB match',
+        body: matchedSku
+          ? 'The product was matched, but its SKU DB COGS is empty or zero. Add the cost in SKU DB to unlock profit estimates.'
+          : 'Shopee’s seller SKU did not map unambiguously to SKU DB. Review the returned SKU under Campaign setup or use the manual override.'
+      });
     }
     if (totals.expense <= 0) {
       insights.push({ tone: 'neutral', title: 'No spend in this range', body: 'The ad is live but Shopee has reported no cost in the selected period. Check delivery, target ROAS, stock, and listing eligibility.' });
@@ -9524,9 +9531,9 @@ document.addEventListener('DOMContentLoaded', () => {
       ? 'Manual override'
       : (campaign.economics?.unit_cogs_source === 'sku_db_purchased_mix'
         ? `SKU DB • purchased mix (${Number(campaign.economics.purchased_mix_quantity || 0).toLocaleString('id-ID')} items)`
-        : (campaign.economics?.matched_skus?.length
-          ? `SKU DB • ${campaign.economics.matched_skus.length} linked SKU${campaign.economics.matched_skus.length === 1 ? '' : 's'}${campaign.economics.matched_by?.includes('tag') ? ' via marketplace tag' : ''}`
-          : 'Awaiting automatic SKU match'));
+        : (campaign.economics?.unit_cogs_source === 'sku_db_average'
+          ? `SKU DB • ${campaign.economics.matched_skus.length} matched SKU${campaign.economics.matched_skus.length === 1 ? '' : 's'}`
+          : (campaign.economics?.matched_skus?.length ? 'Matched SKU has no COGS value' : 'No matching SKU in SKU DB')));
     const tags = (campaign.tags || []).map((tag) => `<span class="admin-ad-view-tag">${escapeHtml(tag)}</span>`).join('');
     adViewRefs.detail.innerHTML = `
       <div class="admin-ad-view-detail-head">
@@ -9537,7 +9544,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="admin-ad-view-detail-section-head admin-ad-view-profit-heading"><div><span class="admin-panel-kicker">Profitability</span><h4>What Shopee does not know</h4></div><small>${escapeHtml(cogsSource)}</small></div>
       <section class="admin-ad-view-profit-grid">
         <article><span>CAC</span><strong>${totals.broad_orders > 0 ? formatCurrency(totals.cac) : '—'}</strong><small>Ad cost ÷ attributed orders</small></article>
-        <article><span>COGS</span><strong>${economics.hasCogs ? formatCurrency(economics.estimatedCogs) : 'Matching…'}</strong><small>${economics.hasCogs ? `${formatCurrency(economics.unitCogs)} / attributed item` : 'Resolving from SKU DB'}</small></article>
+        <article><span>COGS</span><strong>${economics.hasCogs ? formatCurrency(economics.estimatedCogs) : (campaign.economics?.matched_skus?.length ? 'Missing in DB' : 'Not matched')}</strong><small>${economics.hasCogs ? `${formatCurrency(economics.unitCogs)} / attributed item` : 'Open details to review or override'}</small></article>
         <article><span>Marketplace fees</span><strong>${formatCurrency(economics.estimatedFees)}</strong><small>Selected account’s actual fee rate</small></article>
         <article><span>Estimated gross profit</span><strong>${economics.hasCogs ? formatCurrency(economics.grossProfit) : '—'}</strong><small>Attributed sales − COGS</small></article>
         <article><span>Contribution after ads</span><strong class="${economics.contribution < 0 ? 'is-negative' : ''}">${economics.hasCogs ? formatCurrency(economics.contribution) : '—'}</strong><small>GP − estimated fees − ads</small></article>

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/analytics-bootstrap.php';
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/sku-db-bootstrap.php';
 
 const JG_AD_VIEW_ACCOUNTS = [
     'jenang-gemi-shopee' => 'Jenang Gemi',
@@ -132,7 +133,94 @@ function jgAdViewSkuKey(mixed $value): string
 
 function jgAdViewSkuCompactKey(mixed $value): string
 {
-    return preg_replace('/[^A-Z0-9]+/', '', jgAdViewSkuKey($value)) ?? '';
+    $key = preg_replace('/[^A-Z0-9]+/', '', jgAdViewSkuKey($value)) ?? '';
+    return str_replace(
+        ['SALTEDCARAMEL', 'SACHETS', 'CAPSULES', 'CAPSULE'],
+        ['SALTCARAMEL', 'SACHET', 'CAPS', 'CAPS'],
+        $key
+    );
+}
+
+function jgAdViewSkuInitials(mixed $value): string
+{
+    $words = preg_split('/[^A-Z0-9]+/', jgAdViewSkuKey($value), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+    return implode('', array_map(static fn (string $word): string => substr($word, 0, 1), $words));
+}
+
+/** @param array<string, mixed> $row @return array<int, string> */
+function jgAdViewSkuSemanticAliases(array $row): array
+{
+    $brand = jgAdViewSkuCompactKey($row['brand_name'] ?? '');
+    $brandInitials = jgAdViewSkuCompactKey(jgAdViewSkuInitials($row['brand_name'] ?? ''));
+    $product = jgAdViewSkuCompactKey($row['product_name'] ?? '');
+    $productInitials = jgAdViewSkuCompactKey(jgAdViewSkuInitials($row['product_name'] ?? ''));
+    $productWords = array_map(
+        'jgAdViewSkuCompactKey',
+        preg_split('/[^A-Z0-9]+/', jgAdViewSkuKey($row['product_name'] ?? ''), -1, PREG_SPLIT_NO_EMPTY) ?: []
+    );
+    $flavor = jgAdViewSkuCompactKey($row['flavor_name'] ?? '');
+    $flavorInitials = jgAdViewSkuCompactKey(jgAdViewSkuInitials($row['flavor_name'] ?? ''));
+    $flavorWords = array_map(
+        'jgAdViewSkuCompactKey',
+        preg_split('/[^A-Z0-9]+/', jgAdViewSkuKey($row['flavor_name'] ?? ''), -1, PREG_SPLIT_NO_EMPTY) ?: []
+    );
+    $unit = jgAdViewSkuCompactKey($row['unit_name'] ?? '');
+    $volume = (float) ($row['volume'] ?? 0);
+    $volumeText = $volume > 0 ? rtrim(rtrim(number_format($volume, 2, '.', ''), '0'), '.') : '';
+
+    $brands = array_values(array_unique(array_filter([
+        $brand,
+        $brandInitials,
+        $brandInitials !== '' ? substr($brandInitials, 0, 1) : '',
+        '',
+    ], static fn (string $value): bool => $value !== '' || $value === '')));
+    $products = array_values(array_unique(array_filter(array_merge([
+        $product,
+        $productInitials,
+        strlen($product) >= 3 ? substr($product, 0, 3) : '',
+        strlen($product) >= 4 ? substr($product, 0, 4) : '',
+    ], $productWords))));
+    $flavors = array_values(array_unique(array_filter(array_merge([
+        $flavor,
+        $flavorInitials,
+        strlen($flavor) >= 2 ? substr($flavor, 0, 2) : '',
+        strlen($flavor) >= 3 ? substr($flavor, 0, 3) : '',
+        strlen($flavor) >= 4 ? substr($flavor, 0, 4) : '',
+        '',
+    ], $flavorWords), static fn (string $value): bool => $value !== '' || $value === '')));
+    $sizes = array_values(array_unique(array_filter([
+        $volumeText !== '' ? jgAdViewSkuCompactKey($volumeText . $unit) : '',
+        $volumeText,
+        '',
+    ], static fn (string $value): bool => $value !== '' || $value === '')));
+
+    $aliases = [];
+    foreach ($brands as $brandKey) {
+        foreach ($products as $productKey) {
+            foreach ($flavors as $flavorKey) {
+                foreach ($sizes as $sizeKey) {
+                    $aliases[] = $brandKey . $productKey . $flavorKey . $sizeKey;
+                    if ($flavorKey !== '' && $sizeKey !== '') {
+                        $aliases[] = $brandKey . $productKey . $sizeKey . $flavorKey;
+                    }
+                }
+            }
+        }
+    }
+    return array_values(array_unique(array_filter($aliases, static fn (string $alias): bool => strlen($alias) >= 5)));
+}
+
+/** @param array<int, array<string, mixed>> $candidates @return array<string, mixed>|null */
+function jgAdViewUniqueSkuCandidate(array $candidates): ?array
+{
+    $bySku = [];
+    foreach ($candidates as $candidate) {
+        $sku = jgAdViewSkuKey($candidate['sku'] ?? '');
+        if ($sku !== '') {
+            $bySku[$sku] = $candidate;
+        }
+    }
+    return count($bySku) === 1 ? array_values($bySku)[0] : null;
 }
 
 /** @param array<int, string> $sellerSkus @return array<string, array{sku:string,cogs:float,source_key:string,matched_by:string}> */
@@ -146,27 +234,43 @@ function jgAdViewSkuCostMap(PDO $pdo, array $sellerSkus): array
         return [];
     }
     try {
-        $statement = $pdo->query('SELECT sku, tag, cogs FROM sku_skus');
-        $result = [];
+        $statement = $pdo->query(
+            'SELECT s.sku, s.tag, s.cogs, s.volume,
+                    b.name AS brand_name, u.name AS unit_name,
+                    p.name AS product_name, f.name AS flavor_name
+             FROM sku_skus s
+             LEFT JOIN sku_brands b ON b.id = s.brand_id
+             LEFT JOIN sku_units u ON u.id = s.unit_id
+             LEFT JOIN sku_products p ON p.id = s.product_id
+             LEFT JOIN sku_flavors f ON f.id = s.flavor_id'
+        );
+        $directIndex = [];
+        $semanticIndex = [];
         foreach ($statement->fetchAll() as $row) {
-            $canonicalSku = jgAdViewSkuKey($row['sku'] ?? '');
             foreach (['sku', 'tag'] as $field) {
-                $alias = jgAdViewSkuKey($row[$field] ?? '');
-                $compactAlias = jgAdViewSkuCompactKey($alias);
-                if ($alias === '') {
-                    continue;
+                $alias = jgAdViewSkuCompactKey($row[$field] ?? '');
+                if ($alias !== '') {
+                    $directIndex[$alias][] = $row + ['matched_by' => $field];
                 }
-                foreach ($sellerSkus as $sellerSku) {
-                    if ($sellerSku !== $alias && ($compactAlias === '' || $compactAlias !== jgAdViewSkuCompactKey($sellerSku))) {
-                        continue;
-                    }
-                    $result[$sellerSku] = [
-                        'sku' => $canonicalSku,
-                        'cogs' => (float) ($row['cogs'] ?? 0),
-                        'source_key' => $sellerSku,
-                        'matched_by' => $field,
-                    ];
-                }
+            }
+            foreach (jgAdViewSkuSemanticAliases($row) as $alias) {
+                $semanticIndex[$alias][] = $row + ['matched_by' => 'attributes'];
+            }
+        }
+        $result = [];
+        foreach ($sellerSkus as $sellerSku) {
+            $compactSellerSku = jgAdViewSkuCompactKey($sellerSku);
+            $candidate = jgAdViewUniqueSkuCandidate($directIndex[$compactSellerSku] ?? []);
+            if ($candidate === null) {
+                $candidate = jgAdViewUniqueSkuCandidate($semanticIndex[$compactSellerSku] ?? []);
+            }
+            if ($candidate !== null) {
+                $result[$sellerSku] = [
+                    'sku' => jgAdViewSkuKey($candidate['sku'] ?? ''),
+                    'cogs' => (float) ($candidate['cogs'] ?? 0),
+                    'source_key' => $sellerSku,
+                    'matched_by' => (string) ($candidate['matched_by'] ?? 'attributes'),
+                ];
             }
         }
         return $result;
@@ -278,7 +382,13 @@ function jgAdViewEnrich(PDO $pdo, array $payload, string $startDate, string $end
             $allSellerSkus = array_merge($allSellerSkus, is_array($campaign['seller_skus'] ?? null) ? $campaign['seller_skus'] : []);
         }
     }
-    $skuCostMap = jgAdViewSkuCostMap($pdo, $allSellerSkus);
+    $skuPdo = null;
+    try {
+        $skuPdo = jg_sku_db();
+    } catch (Throwable $error) {
+        error_log('Ad View could not connect to SKU DB: ' . $error->getMessage());
+    }
+    $skuCostMap = $skuPdo instanceof PDO ? jgAdViewSkuCostMap($skuPdo, $allSellerSkus) : [];
     foreach ($accounts as &$account) {
         $accountKey = (string) ($account['account_key'] ?? '');
         $account['campaigns'] = array_values(array_filter(
