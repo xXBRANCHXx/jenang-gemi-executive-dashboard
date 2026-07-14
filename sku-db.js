@@ -52,6 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const branchTierKeyInput = document.querySelector('[data-branch-tier-key]');
   const requestList = document.querySelector('[data-request-list]');
   const tableBody = document.querySelector('[data-sku-table-body]');
+  const tableWrap = tableBody?.closest('.admin-sku-table-wrap');
   const approvedLivePdfButton = document.querySelector('[data-download-approved-live-pdf]');
   const brandList = document.querySelector('[data-brand-list]');
   const unitList = document.querySelector('[data-unit-list]');
@@ -407,6 +408,22 @@ document.addEventListener('DOMContentLoaded', () => {
     state.activeBarcodeSku = '';
   };
 
+  const clearSkuRowMenuSpace = () => {
+    if (tableWrap instanceof HTMLElement) {
+      tableWrap.style.removeProperty('--sku-row-menu-space');
+    }
+  };
+
+  const reserveSkuRowMenuSpace = (panel) => {
+    if (!(tableWrap instanceof HTMLElement) || !(panel instanceof HTMLElement)) return;
+
+    clearSkuRowMenuSpace();
+    const overflow = Math.ceil(panel.getBoundingClientRect().bottom - tableWrap.getBoundingClientRect().bottom);
+    if (overflow > 0) {
+      tableWrap.style.setProperty('--sku-row-menu-space', `${overflow + 8}px`);
+    }
+  };
+
   const closeSkuRowMenus = () => {
     document.querySelectorAll('[data-sku-row-menu]').forEach((menu) => {
       const trigger = menu.querySelector('[data-sku-row-menu-trigger]');
@@ -418,6 +435,7 @@ document.addEventListener('DOMContentLoaded', () => {
         panel.hidden = true;
       }
     });
+    clearSkuRowMenuSpace();
   };
 
   const closeMasterRemoveTokens = (exceptToken = null) => {
@@ -946,6 +964,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const renderTable = () => {
     if (!tableBody) return;
+    closeSkuRowMenus();
     const rows = filteredSkus();
     if (visibleCountNode) visibleCountNode.textContent = String(rows.length);
 
@@ -1591,6 +1610,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (panel instanceof HTMLElement && willOpen) {
         panel.hidden = false;
         rowMenuTrigger.setAttribute('aria-expanded', 'true');
+        reserveSkuRowMenuSpace(panel);
       }
       return;
     }
