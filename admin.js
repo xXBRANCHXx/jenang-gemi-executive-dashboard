@@ -7285,7 +7285,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	  const walletActionStatus = (actionId = '') => {
 	    if (actionId === 'backtrack') return walletBacktrackStatus(state.wallet.data?.backtrack, { includeComplete: true }) || 'Backtracking from May 20, 2026';
 	    if (actionId === 'backtrack_cancel') return 'Cancelling backtrack';
-	    if (actionId.startsWith('sync_releases')) return 'Checking marketplace releases';
+	    if (actionId.startsWith('sync_releases')) return 'Hard refreshing marketplace wallets';
 	    if (actionId.startsWith('balance:')) return 'Setting wallet balance';
 	    if (actionId.startsWith('release:')) return 'Releasing wallet';
 	    return '';
@@ -7425,7 +7425,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      ],
 	      source: {
 	        order_source: 'dashboard_order_mirror',
-	        released_metric_basis: 'current Asia/Jakarta calendar month by funds_released_at',
+	        released_metric_basis: 'Shopee ESCROW_VERIFIED_ADD wallet credits; other platforms by funds_released_at; current Asia/Jakarta calendar month',
 	        outstanding_basis: 'unreleased settling orders only; cancelled and other non-settling orders are excluded'
 	      }
 	    }
@@ -7473,8 +7473,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	        : walletStatusSummary(wallets, totals));
 	    }
 	    if (walletRefs.refresh) {
+	      const hardRefreshing = activeAction.startsWith('sync_releases');
 	      walletRefs.refresh.disabled = state.wallet.loading || Boolean(activeAction);
-	      walletRefs.refresh.classList.toggle('is-loading', state.wallet.loading || activeAction.startsWith('sync_releases'));
+	      walletRefs.refresh.classList.toggle('is-loading', hardRefreshing);
+	      walletRefs.refresh.textContent = hardRefreshing ? 'Hard Refreshing' : 'Hard Refresh';
 	    }
 	    if (walletRefs.backtrack) {
 	      const backtracking = activeAction === 'backtrack' || Boolean(backtrack.active);
@@ -8406,10 +8408,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	      await loadOrdersSafely({ force: true, preferStale: false, repair: true });
 	      return;
 	    }
-		    if (state.activeView === 'wallet') {
-		      await syncWalletReleases({ skipRemote: true, background: true });
-		      if (canStartBackgroundPageWork()) preloadOrderMemory({ reset: true, repair: true }).catch(() => {});
-		      return;
+	    if (state.activeView === 'wallet') {
+	      await loadWalletSafely({ force: true, preferStale: false, background: true });
+	      if (canStartBackgroundPageWork()) preloadOrderMemory({ reset: true, repair: true }).catch(() => {});
+	      return;
 		    }
 	    if (state.activeView === 'daily') {
 	      await loadDailySafely({ force: true, preferStale: true, background: true });
@@ -8971,31 +8973,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-	  const shouldAutoSyncWalletReleases = (options = {}) => {
-	    if (options.skipReleaseSync) return false;
-	    if (!isBrowserOnline()) return false;
-	    if (state.wallet.releaseSyncPromise || state.wallet.backtrackRunning) return false;
-	    if (state.wallet.actionId && !String(state.wallet.actionId).startsWith('sync_releases')) return false;
-	    const lastStarted = Number(state.wallet.releaseSyncedAt || 0);
-	    if (!lastStarted) return true;
-	    if (options.force) return Date.now() - lastStarted > 30000;
-	    return Date.now() - lastStarted >= AUTO_REFRESH_INTERVAL_MS;
-	  };
-
-	  const startWalletReleaseSync = (options = {}) => {
-	    if (!shouldAutoSyncWalletReleases(options)) return state.wallet.releaseSyncPromise || null;
-	    state.wallet.releaseSyncedAt = Date.now();
-	    state.wallet.releaseSyncPromise = syncWalletReleases({
-	      background: true,
-	      fallback: false,
-	      silent: true,
-	      skipRemote: Boolean(options.skipRemote)
-	    }).finally(() => {
-	      state.wallet.releaseSyncPromise = null;
-	    });
-	    return state.wallet.releaseSyncPromise;
-	  };
-
 		  const restoreWalletFromCache = () => {
 		    const cached = readWalletCache();
 		    if (!cached) return false;
@@ -9010,7 +8987,6 @@ document.addEventListener('DOMContentLoaded', () => {
 		    if (!options.force && state.wallet.data) {
 		      if (isFresh(state.wallet.loadedAt, VIEW_CACHE_TTL_MS.wallet)) {
 		        applyWalletData(state.wallet.data, { loadedAt: state.wallet.loadedAt, usingCache: state.wallet.usingCache });
-		        startWalletReleaseSync(options);
 		        return;
 		      }
 		      if (options.preferStale !== false) {
@@ -9043,7 +9019,6 @@ document.addEventListener('DOMContentLoaded', () => {
 		      const data = await requestJson(walletActionUrl('summary'), { timeoutMs: 30000 });
 		      if (!isLatestRequest('wallet', requestToken)) return;
 		      applyWalletData(data, { usingCache: false });
-		      startWalletReleaseSync(options);
 		    } catch (error) {
 	      if (showLoading && isLatestRequest('wallet', requestToken)) {
 	        state.wallet.loading = false;
@@ -9167,7 +9142,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      'sync_releases',
 	      { skip_remote: Boolean(options.skipRemote) },
 	      options.background ? 'sync_releases:background' : 'sync_releases',
-	      { timeoutMs: 95000, silent: Boolean(options.silent), background: Boolean(options.background) }
+	      { timeoutMs: 180000, silent: Boolean(options.silent), background: Boolean(options.background) }
 	    );
 	    if (ok) state.wallet.releaseSyncedAt = Date.now();
 	    if (!ok && options.fallback !== false) {

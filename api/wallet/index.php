@@ -15,7 +15,7 @@ const JG_WALLET_BACKTRACK_CHUNK_DAYS = 1;
 const JG_WALLET_BACKTRACK_IMPORT_ROWS_PER_STEP = 500;
 const JG_WALLET_BACKTRACK_REMOTE_TIMEOUT_SECONDS = 75;
 const JG_WALLET_RELEASE_SYNC_DAYS = 45;
-const JG_WALLET_RELEASE_SYNC_IMPORT_ROWS = 1000;
+const JG_WALLET_RELEASE_SYNC_IMPORT_ROWS = 10000;
 const JG_WALLET_RELEASE_SYNC_REMOTE_TIMEOUT_SECONDS = 35;
 const JG_WALLET_RELEASE_SYNC_IMPORT_TIMEOUT_SECONDS = 18;
 const JG_WALLET_PLATFORM_TRANSACTION_TIMEOUT_SECONDS = 45;
@@ -334,6 +334,30 @@ function jg_wallet_summary(PDO $pdo): array
             ? (int) round((float) $row['current_balance'])
             : null;
         $accounts[$key]['last_wallet_transaction_at'] = jg_orders_atom_datetime((string) ($row['last_transaction_at'] ?? ''));
+    }
+
+    // Shopee's wallet ledger is the authoritative record of money received. Order
+    // settlement flags can lag behind the ESCROW_VERIFIED_ADD wallet transactions.
+    foreach ($accounts as &$account) {
+        if ((string) ($account['platform'] ?? '') === 'shopee') {
+            $account['released_month_total'] = 0;
+            $account['released_month_orders'] = 0;
+        }
+    }
+    unset($account);
+
+    foreach (jg_wallet_platform_released_month_totals($pdo, $releasedMonthWindow) as $row) {
+        $key = jg_wallet_account_key((string) ($row['platform'] ?? ''), (string) ($row['account_key'] ?? ''));
+        if (!isset($accounts[$key])) {
+            $accounts[$key] = [
+                'platform' => (string) ($row['platform'] ?? ''),
+                'account_key' => (string) ($row['account_key'] ?? ''),
+                'company' => '',
+                'label' => jg_wallet_account_label('', (string) ($row['platform'] ?? ''), (string) ($row['account_key'] ?? '')),
+            ] + jg_wallet_empty_amounts();
+        }
+        $accounts[$key]['released_month_total'] = (int) ($row['amount'] ?? 0);
+        $accounts[$key]['released_month_orders'] = (int) ($row['count'] ?? 0);
     }
 
     foreach ($accounts as &$account) {
@@ -676,7 +700,7 @@ function jg_wallet_api_sample_response(): array
             ],
             'source' => [
                 'order_source' => 'dashboard_order_mirror',
-                'released_metric_basis' => 'current Asia/Jakarta calendar month by funds_released_at',
+                'released_metric_basis' => 'Shopee ESCROW_VERIFIED_ADD wallet credits; other platforms by funds_released_at; current Asia/Jakarta calendar month',
                 'outstanding_basis' => 'unreleased settling orders only; cancelled and other non-settling orders are excluded',
             ],
         ],
@@ -872,7 +896,7 @@ function jg_wallet_source_metadata(array $wallets): array
         'order_source' => 'dashboard_order_mirror',
         'settlement_source' => 'marketplace_order_finance',
         'wallet_balance_basis' => 'manual wallet balance anchor plus marketplace releases after the anchor time minus withdrawals after the anchor time',
-        'released_metric_basis' => 'current Asia/Jakarta calendar month by funds_released_at',
+        'released_metric_basis' => 'Shopee ESCROW_VERIFIED_ADD wallet credits; other platforms by funds_released_at; current Asia/Jakarta calendar month',
         'outstanding_basis' => 'unreleased settling orders only; cancelled and other non-settling orders are excluded',
         'cash_out_source' => 'manual_withdrawal_log',
         'live_refresh' => 'no-store API responses, dashboard live events, and a short client cache',
@@ -985,10 +1009,10 @@ function jg_wallet_sync_releases(PDO $pdo, array $payload): array
         'default_days' => JG_WALLET_RELEASE_SYNC_DAYS,
         'max_days' => 120,
         'default_import_rows' => JG_WALLET_RELEASE_SYNC_IMPORT_ROWS,
-        'max_import_rows' => 2000,
+        'max_import_rows' => 20000,
         'remote_timeout' => JG_WALLET_RELEASE_SYNC_REMOTE_TIMEOUT_SECONDS,
         'import_timeout' => JG_WALLET_RELEASE_SYNC_IMPORT_TIMEOUT_SECONDS,
-        'time_limit' => 90,
+        'time_limit' => 180,
     ]);
 }
 
@@ -1127,7 +1151,10 @@ function jg_wallet_run_release_refresh(PDO $pdo, array $payload, array $options)
 
         $summary = jg_wallet_summary_with_backtrack($pdo, jg_wallet_backtrack_latest($pdo));
         $after = jg_wallet_summary_snapshot($summary);
-        $ok = !empty($sync['ok']) || !empty($import['upserted']) || !empty($import['fetched']);
+        $ok = !empty($sync['ok'])
+            || !empty($import['upserted'])
+            || !empty($import['fetched'])
+            || !empty($walletTransactions['ok']);
         $summary[$responseKey] = [
             'ok' => $ok,
             'run_key' => $runKey,
@@ -1171,20 +1198,9 @@ function jg_wallet_run_release_refresh(PDO $pdo, array $payload, array $options)
  */
 function jg_wallet_import_platform_transactions_from_api(PDO $pdo, string $startDate, string $endDate, int $timeout = 20): array
 {
-    $activeBalanceAnchors = jg_wallet_active_balance_anchors($pdo);
     $accounts = array_values(array_filter(
         jg_wallet_known_accounts(),
-        static function (array $account) use ($activeBalanceAnchors): bool {
-            $platform = (string) ($account['platform'] ?? '');
-            $accountKey = (string) ($account['account_key'] ?? '');
-            if ($platform !== 'shopee') {
-                return false;
-            }
-            if ($activeBalanceAnchors === []) {
-                return true;
-            }
-            return isset($activeBalanceAnchors[jg_wallet_account_key($platform, $accountKey)]);
-        }
+        static fn (array $account): bool => (string) ($account['platform'] ?? '') === 'shopee'
     ));
     $fetched = 0;
     $upserted = 0;
@@ -1690,6 +1706,14 @@ function jg_wallet_released_in_window(array $order, array $window): bool
     return is_string($releasedAt) && $releasedAt >= $startAt && $releasedAt < $endAt;
 }
 
+function jg_wallet_is_shopee_release_credit(array $transaction): bool
+{
+    return jg_wallet_normalize_key($transaction['platform'] ?? '') === 'shopee'
+        && jg_wallet_normalize_status($transaction['transaction_type'] ?? '') === 'ESCROW_VERIFIED_ADD'
+        && jg_wallet_normalize_status($transaction['money_flow'] ?? '') === 'MONEY_IN'
+        && (float) ($transaction['amount'] ?? 0) > 0;
+}
+
 function jg_wallet_order_bucket(array $order): string
 {
     if (
@@ -2040,6 +2064,59 @@ function jg_wallet_platform_transaction_totals(PDO $pdo, array $activeBalanceAnc
             $totals[$key]['since_anchor_amount'] += $amount;
             $totals[$key]['since_anchor_count'] = (int) ($totals[$key]['since_anchor_count'] ?? 0) + 1;
         }
+    }
+
+    return array_values($totals);
+}
+
+/**
+ * @return array<int, array{platform:string,account_key:string,amount:int,count:int}>
+ */
+function jg_wallet_platform_released_month_totals(PDO $pdo, array $window): array
+{
+    $startAt = trim((string) ($window['start_at'] ?? ''));
+    $endAt = trim((string) ($window['end_at'] ?? ''));
+    if ($startAt === '' || $endAt === '') {
+        return [];
+    }
+
+    try {
+        $stmt = $pdo->prepare(
+            'SELECT platform, account_key, transaction_type, money_flow, amount
+             FROM dashboard_wallet_platform_transactions
+             WHERE platform = "shopee"
+               AND transaction_at >= :start_at
+               AND transaction_at < :end_at
+             ORDER BY account_key ASC, transaction_at ASC, id ASC'
+        );
+        $stmt->execute([
+            ':start_at' => $startAt,
+            ':end_at' => $endAt,
+        ]);
+        $rows = $stmt->fetchAll();
+    } catch (Throwable) {
+        return [];
+    }
+
+    $totals = [];
+    foreach ($rows as $row) {
+        if (!is_array($row) || !jg_wallet_is_shopee_release_credit($row)) {
+            continue;
+        }
+        $key = jg_wallet_account_key((string) ($row['platform'] ?? ''), (string) ($row['account_key'] ?? ''));
+        if ($key === '|') {
+            continue;
+        }
+        if (!isset($totals[$key])) {
+            $totals[$key] = [
+                'platform' => (string) ($row['platform'] ?? ''),
+                'account_key' => (string) ($row['account_key'] ?? ''),
+                'amount' => 0,
+                'count' => 0,
+            ];
+        }
+        $totals[$key]['amount'] += max(0, (int) round((float) ($row['amount'] ?? 0)));
+        $totals[$key]['count'] += 1;
     }
 
     return array_values($totals);

@@ -110,6 +110,36 @@ wallet_expect(true, jg_wallet_released_in_window([
 wallet_expect(false, jg_wallet_released_in_window([
     'funds_released_at' => '2026-07-31 17:00:00.000000',
 ], $julyWindow), 'First UTC instant of next WIB month must not count as released this month.');
+wallet_expect(true, jg_wallet_is_shopee_release_credit([
+    'platform' => 'Shopee',
+    'transaction_type' => 'ESCROW_VERIFIED_ADD',
+    'money_flow' => 'MONEY_IN',
+    'amount' => 45000,
+]), 'Shopee escrow wallet credits must count as released money received.');
+wallet_expect(false, jg_wallet_is_shopee_release_credit([
+    'platform' => 'shopee',
+    'transaction_type' => 'WITHDRAWAL_CREATED',
+    'money_flow' => 'MONEY_OUT',
+    'amount' => -45000,
+]), 'Shopee withdrawals must not count as released money received.');
+$walletTransactionPdo = new PDO('sqlite::memory:');
+$walletTransactionPdo->exec('CREATE TABLE dashboard_wallet_platform_transactions (
+    id INTEGER PRIMARY KEY,
+    platform TEXT,
+    account_key TEXT,
+    transaction_type TEXT,
+    money_flow TEXT,
+    amount REAL,
+    transaction_at TEXT
+)');
+$walletTransactionPdo->exec("INSERT INTO dashboard_wallet_platform_transactions VALUES
+    (1, 'shopee', 'jenang-gemi-shopee', 'ESCROW_VERIFIED_ADD', 'MONEY_IN', 45000, '2026-06-30 17:00:00.000000'),
+    (2, 'shopee', 'jenang-gemi-shopee', 'ESCROW_VERIFIED_ADD', 'MONEY_IN', 55000, '2026-07-15 03:00:00.000000'),
+    (3, 'shopee', 'jenang-gemi-shopee', 'WITHDRAWAL_CREATED', 'MONEY_OUT', -25000, '2026-07-16 03:00:00.000000'),
+    (4, 'shopee', 'jenang-gemi-shopee', 'ESCROW_VERIFIED_ADD', 'MONEY_IN', 65000, '2026-07-31 17:00:00.000000')");
+$walletMonthlyCredits = jg_wallet_platform_released_month_totals($walletTransactionPdo, $julyWindow);
+wallet_expect(100000, $walletMonthlyCredits[0]['amount'] ?? 0, 'Released this month must sum Shopee wallet credits inside the WIB month.');
+wallet_expect(2, $walletMonthlyCredits[0]['count'] ?? 0, 'Released this month must count only qualifying Shopee wallet credits.');
 wallet_expect(0, jg_wallet_balance_value('0'), 'Wallet balance anchors must allow a zero balance after withdrawal.');
 wallet_expect(45000, jg_wallet_balance_value('Rp45.000'), 'Wallet balance anchors must accept formatted Rupiah input.');
 wallet_expect('2026-07-03 03:30:00.000000', jg_wallet_observed_at('2026-07-03T10:30'), 'Manual wallet observed times must be stored as UTC.');
