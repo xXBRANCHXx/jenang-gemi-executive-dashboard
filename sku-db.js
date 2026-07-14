@@ -68,6 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const unitSelect = document.querySelector('[data-unit-select]');
   const flavorSelect = document.querySelector('[data-flavor-select]');
   const productSelect = document.querySelector('[data-product-select]');
+  const barcodeApi = window.JGSkuBarcode;
 
   const state = {
     database: {
@@ -329,6 +330,25 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!copied) {
       throw new Error('Clipboard copy failed.');
     }
+  };
+
+  const downloadBarcode = (sku) => {
+    if (!barcodeApi || typeof barcodeApi.buildSvg !== 'function') {
+      throw new Error('Barcode generator is unavailable. Refresh the page and try again.');
+    }
+
+    const barcode = barcodeApi.buildSvg(sku);
+    const blob = new Blob([barcode.svg], { type: 'image/svg+xml;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${barcode.sku}-EAN13-barcode.svg`;
+    link.style.display = 'none';
+    root.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+    return barcode.ean13;
   };
 
   const closeSkuRowMenus = () => {
@@ -950,6 +970,10 @@ document.addEventListener('DOMContentLoaded', () => {
               aria-label="Open SKU action menu"
             >Actions</button>
             <div class="admin-sku-row-menu-panel" data-sku-row-menu-panel hidden>
+              <button type="button" class="admin-menu-item admin-sku-barcode-download" data-download-barcode="${escapeHtml(row.sku || '')}">
+                <span>Download Barcode</span>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 21h14a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2"/></svg>
+              </button>
               <button type="button" class="admin-menu-item" data-change-product-name="${escapeHtml(row.sku || '')}">Product Name</button>
               ${role === 'branch' ? `<button type="button" class="admin-menu-item" data-change-astra="${escapeHtml(row.sku || '')}">ASTRA</button>` : ''}
               <button type="button" class="admin-menu-item" data-change-inventory="${escapeHtml(row.sku || '')}">Inventory</button>
@@ -1511,6 +1535,19 @@ document.addEventListener('DOMContentLoaded', () => {
       if (panel instanceof HTMLElement && willOpen) {
         panel.hidden = false;
         rowMenuTrigger.setAttribute('aria-expanded', 'true');
+      }
+      return;
+    }
+
+    const barcodeButton = target.closest('[data-download-barcode]');
+    if (barcodeButton instanceof HTMLButtonElement) {
+      closeSkuRowMenus();
+      const sku = barcodeButton.dataset.downloadBarcode || '';
+      try {
+        const ean13 = downloadBarcode(sku);
+        showCopyMessage(`EAN-13 ${ean13} downloaded for SKU ${sku}.`, false, 'center');
+      } catch (error) {
+        showCopyMessage(error instanceof Error ? error.message : 'Unable to download barcode.', true, 'center');
       }
       return;
     }

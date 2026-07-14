@@ -4834,6 +4834,22 @@ button, input {
   display: none;
 }
 
+.admin-app[data-sku-db] .admin-sku-barcode-download {
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.admin-app[data-sku-db] .admin-sku-barcode-download svg {
+  width: 17px;
+  height: 17px;
+  margin-left: auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .admin-sku-tag-copy {
   display: inline-flex;
   align-items: center;

@@ -33,6 +33,7 @@ $isAuthenticated = jg_sku_is_authenticated();
 $isBranch = jg_sku_is_branch();
 $adminCssVersion = (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $skuJsVersion = (string) @filemtime(dirname(__DIR__) . '/sku-db.js');
+$skuBarcodeJsVersion = (string) @filemtime(dirname(__DIR__) . '/sku-barcode.js');
 $pageBuildVersion = 'sku1.00.00';
 ?>
 <!DOCTYPE html>
@@ -752,6 +753,7 @@ $pageBuildVersion = 'sku1.00.00';
 
     <?php render_admin_notification_drawer(); ?>
     <?php render_admin_chrome_script(); ?>
+    <script src="../sku-barcode.js?v=<?php echo urlencode($skuBarcodeJsVersion ?: '1'); ?>" defer></script>
     <script src="../sku-db.js?v=<?php echo urlencode($skuJsVersion ?: '1'); ?>" defer></script>
 <?php endif; ?>
 </body>
