@@ -60,6 +60,24 @@ test('offers selectable proportions without changing the encoded SKU', () => {
   });
 });
 
+test('builds a readable product filename for barcode downloads', () => {
+  assert.equal(barcode.buildFilename({
+    sku: '010103002802',
+    volume: '30.0',
+    unit_name: 'ml',
+    flavor_name: 'CINNABON',
+    product_name: 'Drops'
+  }), '30ml_Cinnabon_Drops_BARCODE.SVG');
+
+  assert.equal(barcode.buildFilename({
+    sku: '010100552802',
+    volume: '5.5',
+    unit_name: 'ML',
+    flavor_name: 'Salted Caramel',
+    product_name: 'Drops / Special'
+  }), '5.5ml_Salted_Caramel_Drops_Special_BARCODE.SVG');
+});
+
 test('rejects values that cannot preserve an exact 12-digit SKU', () => {
   ['123', 'ABCDEFGHIJKL', '1234567890123', ' 12345678901 '].forEach((value) => {
     assert.throws(() => barcode.toEan13(value), /exact 12-digit numeric SKU/);

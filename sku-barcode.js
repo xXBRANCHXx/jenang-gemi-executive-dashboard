@@ -58,6 +58,26 @@
 
   const resolveStyle = (value) => styles.find((style) => style.id === value) || styles[0];
 
+  const filenameWords = (value) => String(value ?? '')
+    .trim()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean)
+    .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1).toLowerCase()}`)
+    .join('_');
+
+  const buildFilename = (row = {}) => {
+    const rawVolume = String(row.volume ?? '').trim();
+    const numericVolume = Number(rawVolume);
+    const volume = rawVolume && Number.isFinite(numericVolume) ? String(numericVolume) : filenameWords(rawVolume);
+    const unit = filenameWords(row.unit_name).toLowerCase();
+    const size = `${volume}${unit}`;
+    const flavor = filenameWords(row.flavor_name);
+    const product = filenameWords(row.product_name || row.base_product_name);
+    const fallback = filenameWords(row.sku) || 'SKU';
+    const name = [size, flavor, product].filter(Boolean).join('_') || fallback;
+    return `${name}_BARCODE.SVG`;
+  };
+
   const buildSvg = (value, options = {}) => {
     const sku = normalizeSku(value);
     const ean13 = toEan13(sku);
@@ -101,7 +121,7 @@
     return { sku, ean13, modules, svg, width, height, style };
   };
 
-  const api = Object.freeze({ styles, normalizeSku, checkDigit, toEan13, encodeModules, buildSvg });
+  const api = Object.freeze({ styles, normalizeSku, checkDigit, toEan13, encodeModules, buildSvg, buildFilename });
   globalScope.JGSkuBarcode = api;
 
   if (typeof module !== 'undefined' && module.exports) {

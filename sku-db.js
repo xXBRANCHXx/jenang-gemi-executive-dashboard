@@ -348,8 +348,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const blob = new Blob([barcode.svg], { type: 'image/svg+xml;charset=utf-8' });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
+    const row = state.database.skus.find((item) => String(item.sku || '') === barcode.sku);
     link.href = url;
-    link.download = `${barcode.sku}-EAN13-${barcode.style.id}.svg`;
+    link.download = typeof barcodeApi.buildFilename === 'function'
+      ? barcodeApi.buildFilename(row || { sku: barcode.sku })
+      : `${barcode.sku}_BARCODE.SVG`;
     link.style.display = 'none';
     root.append(link);
     link.click();
