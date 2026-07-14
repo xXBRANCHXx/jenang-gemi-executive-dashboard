@@ -15266,6 +15266,7 @@ body:has(.admin-app[data-sku-db]) .admin-build-badge {
 }
 
 .admin-sku-table-wrap {
+  min-height: min(500px, calc(100svh - 188px));
   max-height: calc(100svh - 188px);
   border: 0;
   border-radius: 0;
