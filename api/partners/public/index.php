@@ -345,16 +345,17 @@ function jg_public_partner_enrich(array $partner, array $catalog): array
 }
 
 $database = jg_public_partner_read_database();
-$catalog = ['skus' => []];
-
-try {
-    $catalog = jg_public_partner_sku_catalog(jg_sku_db());
-} catch (Throwable) {
-    $catalog = ['skus' => []];
-}
-
 $partners = array_map(
-    static fn (array $partner): array => jg_public_partner_enrich($partner, $catalog),
+    static function (array $partner): array {
+        $slug = trim((string) ($partner['partner_slug'] ?? ''), '/');
+        return [
+            'code' => (string) ($partner['code'] ?? ''),
+            'name' => (string) ($partner['name'] ?? ''),
+            'partner_slug' => $slug,
+            'store_path' => $slug !== '' ? '/' . $slug . '/' : '',
+            'updated_at' => (string) ($partner['updated_at'] ?? ''),
+        ];
+    },
     $database['partners']
 );
 
