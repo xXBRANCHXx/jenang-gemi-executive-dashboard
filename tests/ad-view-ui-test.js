@@ -27,5 +27,9 @@ assert(js.includes("selectedMetrics.length >= 4"), 'The chart must enforce its f
 assert(js.includes("row.campaign_key === state.adView.selectedCampaignKey"), 'KPIs and chart data must follow the selected campaign.');
 assert(js.includes('admin-ad-view-credit-breakdown'), 'Ad balances must share one compact breakdown card.');
 assert(!js.includes('<section class="admin-ad-view-shopee-metrics">'), 'Selected-ad details must not repeat the seven Shopee metrics.');
+assert(js.includes('AD_VIEW_AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000'), 'Ad View must automatically sync every five minutes.');
+assert(js.includes('scheduleAdViewAutoSync();'), 'Loading Ad View must schedule a background Shopee sync.');
+assert(js.includes("result.cac = result.broad_items > 0 ? result.expense / result.broad_items : 0"), 'CAC must use attributed units sold.');
+assert(js.includes('Ad cost ÷ attributed units sold'), 'The CAC card must explain its unit-based calculation.');
 
 console.log('Ad View UI tests passed.');

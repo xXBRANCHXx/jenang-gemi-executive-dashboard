@@ -34,9 +34,10 @@ Ad View shows ongoing Shopee campaigns only. It opens on today's hourly
 performance, keeps every summary metric inside the selected timeframe, and
 lets up to four KPI cards drive the selected campaign's trend chart beside the
 live-ad list. Ad credit stays in one compact card split by Shopee account.
-Select a live ad to inspect its delivery metrics and settings,
-CAC, SKU DB COGS weighted by the purchased product mix, estimated gross profit,
-contribution after ads, action history, and optional comparisons.
+Ad View syncs Shopee automatically when opened and every five minutes while
+visible. Select a live ad to inspect its delivery metrics and settings,
+unit-based CAC, SKU DB COGS weighted by the purchased product mix, estimated
+gross profit, contribution after ads, action history, and optional comparisons.
 Dashboard names, tags, and manual COGS overrides are stored locally and do not
 change the campaign name or settings inside Shopee Seller Centre. Its rail/menu
 icon and matching favicons use the official [Lucide Rocket](https://lucide.dev/icons/rocket)

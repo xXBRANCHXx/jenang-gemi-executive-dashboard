@@ -596,6 +596,7 @@ const VIEW_CACHE_TTL_MS = {
   settings: 5 * 60 * 1000
 };
 const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+const AD_VIEW_AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000;
 const AUTO_MARKETPLACE_REFRESH_MIN_MS = 5 * 60 * 1000;
 const AUTO_MARKETPLACE_REFRESH_STORAGE_KEY = 'jg-dashboard-auto-marketplace-refresh-at-v1';
 const HOME_CACHE_PREFIX = 'jg-dashboard-home-cache-v1';
@@ -2546,6 +2547,8 @@ document.addEventListener('DOMContentLoaded', () => {
       search: '',
       data: null,
       loadedAt: 0,
+      lastSyncAt: 0,
+      syncPromise: null,
       requestToken: 0
     },
     website: {
@@ -9389,11 +9392,11 @@ document.addEventListener('DOMContentLoaded', () => {
     result.ctr = result.impressions > 0 ? result.clicks / result.impressions * 100 : 0;
     result.cost_per_click = result.clicks > 0 ? result.expense / result.clicks : 0;
     result.cost_per_order = result.broad_orders > 0 ? result.expense / result.broad_orders : 0;
-    result.cac = result.cost_per_order;
     result.conversion_rate = result.clicks > 0 ? result.broad_orders / result.clicks * 100 : 0;
     result.broad_roas = result.expense > 0 ? result.broad_gmv / result.expense : 0;
     result.direct_roas = result.expense > 0 ? result.direct_gmv / result.expense : 0;
     result.revenue_after_ads = result.broad_gmv - result.expense;
+    result.cac = result.broad_items > 0 ? result.expense / result.broad_items : 0;
     return result;
   };
 
@@ -9429,7 +9432,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const grossProfit = Number(totals.broad_gmv || 0) - estimatedCogs;
     const estimatedFees = Number(totals.broad_gmv || 0) * Number(campaign?.marketplace_fee_rate || 0);
     const contribution = grossProfit - estimatedFees - Number(totals.expense || 0);
-    const grossProfitPerOrder = totals.broad_orders > 0 ? grossProfit / totals.broad_orders : 0;
+    const grossProfitPerUnit = totals.broad_items > 0 ? grossProfit / totals.broad_items : 0;
     const contributionMargin = totals.broad_gmv > 0 ? contribution / totals.broad_gmv * 100 : 0;
     const preAdContributionRate = totals.broad_gmv > 0 ? (grossProfit - estimatedFees) / totals.broad_gmv : 0;
     return {
@@ -9438,7 +9441,7 @@ document.addEventListener('DOMContentLoaded', () => {
       estimatedCogs,
       estimatedFees,
       grossProfit,
-      grossProfitPerOrder,
+      grossProfitPerUnit,
       contribution,
       contributionMargin,
       breakEvenRoas: preAdContributionRate > 0 ? 1 / preAdContributionRate : 0
@@ -9474,8 +9477,8 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (targetRoas > 0 && totals.broad_roas >= targetRoas) {
       insights.push({ tone: 'positive', title: 'ROAS is meeting target', body: `Actual ROAS is ${totals.broad_roas.toFixed(2)}x against the ${targetRoas.toFixed(2)}x Shopee target.` });
     }
-    if (totals.broad_orders > 0 && economics.hasCogs && totals.cac > economics.grossProfitPerOrder) {
-      insights.push({ tone: 'danger', title: 'CAC exceeds gross profit per order', body: `${formatCurrency(totals.cac)} CAC is higher than estimated ${formatCurrency(economics.grossProfitPerOrder)} gross profit per attributed order.` });
+    if (totals.broad_items > 0 && economics.hasCogs && totals.cac > economics.grossProfitPerUnit) {
+      insights.push({ tone: 'danger', title: 'CAC exceeds gross profit per unit', body: `${formatCurrency(totals.cac)} CAC per unit is higher than estimated ${formatCurrency(economics.grossProfitPerUnit)} gross profit per attributed unit.` });
     }
     if (totals.impressions >= 1000 && totals.ctr < 1) {
       insights.push({ tone: 'warning', title: 'Low click-through rate', body: `${totals.ctr.toFixed(2)}% CTR suggests the thumbnail, title, offer, or keyword relevance may need work.` });
@@ -9543,7 +9546,7 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
       <div class="admin-ad-view-detail-section-head admin-ad-view-profit-heading"><div><span class="admin-panel-kicker">Profitability</span><h4>What Shopee does not know</h4></div><small>${escapeHtml(cogsSource)}</small></div>
       <section class="admin-ad-view-profit-grid">
-        <article><span>CAC</span><strong>${totals.broad_orders > 0 ? formatCurrency(totals.cac) : '—'}</strong><small>Ad cost ÷ attributed orders</small></article>
+        <article><span>CAC / unit</span><strong>${totals.broad_items > 0 ? formatCurrency(totals.cac) : '—'}</strong><small>Ad cost ÷ attributed units sold</small></article>
         <article><span>COGS</span><strong>${economics.hasCogs ? formatCurrency(economics.estimatedCogs) : (campaign.economics?.matched_skus?.length ? 'Missing in DB' : 'Not matched')}</strong><small>${economics.hasCogs ? `${formatCurrency(economics.unitCogs)} / attributed item` : 'Open details to review or override'}</small></article>
         <article><span>Marketplace fees</span><strong>${formatCurrency(economics.estimatedFees)}</strong><small>Selected account’s actual fee rate</small></article>
         <article><span>Estimated gross profit</span><strong>${economics.hasCogs ? formatCurrency(economics.grossProfit) : '—'}</strong><small>Attributed sales − COGS</small></article>
@@ -9904,6 +9907,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (!options.force && state.adView.data && isFresh(state.adView.loadedAt, 90 * 1000)) {
       renderAdView(state.adView.data);
+      if (!options.skipAutoSync) scheduleAdViewAutoSync();
       return;
     }
     const token = beginRequest('adView');
@@ -9912,22 +9916,62 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!isLatestRequest('adView', token)) return;
     state.adView.loadedAt = Date.now();
     renderAdView(data);
+    if (!options.skipAutoSync) scheduleAdViewAutoSync();
   };
 
-  const syncAdView = async () => {
-    if (adViewRefs.status) adViewRefs.status.textContent = 'Syncing every connected Shopee account…';
-    if (adViewRefs.sync) adViewRefs.sync.disabled = true;
-    try {
+  const syncAdView = async (options = {}) => {
+    const background = Boolean(options.background);
+    if (background && (document.hidden || state.activeView !== 'ad-view' || !isBrowserOnline())) return false;
+    if (state.adView.syncPromise) return state.adView.syncPromise;
+    const now = Date.now();
+    if (background && !options.force && now - Number(state.adView.lastSyncAt || 0) < AD_VIEW_AUTO_SYNC_INTERVAL_MS) return false;
+
+    const syncPromise = (async () => {
+      if (!background && adViewRefs.status) adViewRefs.status.textContent = 'Syncing every connected Shopee account…';
+      if (adViewRefs.sync) adViewRefs.sync.disabled = true;
+      const today = getDateKeyForTimezone();
+      const syncStartDate = background ? today : state.adView.startDate;
+      const syncEndDate = background ? today : state.adView.endDate;
       const data = await requestJson(adsEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'sync', account_key: state.adView.account, start_date: state.adView.startDate, end_date: state.adView.endDate })
+        timeoutMs: 120000,
+        body: JSON.stringify({
+          action: 'sync',
+          account_key: state.adView.account,
+          start_date: syncStartDate,
+          end_date: syncEndDate
+        })
       });
+      state.adView.lastSyncAt = Date.now();
       state.adView.loadedAt = Date.now();
-      renderAdView(data);
+      if (syncStartDate === state.adView.startDate && syncEndDate === state.adView.endDate) {
+        renderAdView(data);
+      } else {
+        await loadAdView({ force: true, skipAutoSync: true });
+      }
+      return true;
+    })();
+
+    state.adView.syncPromise = syncPromise;
+    try {
+      return await syncPromise;
     } finally {
+      if (state.adView.syncPromise === syncPromise) state.adView.syncPromise = null;
       if (adViewRefs.sync) adViewRefs.sync.disabled = false;
     }
+  };
+
+  let adViewAutoSyncTimer = null;
+  const scheduleAdViewAutoSync = (options = {}) => {
+    if (adViewAutoSyncTimer) window.clearTimeout(adViewAutoSyncTimer);
+    if (state.activeView !== 'ad-view') return;
+    adViewAutoSyncTimer = window.setTimeout(() => {
+      adViewAutoSyncTimer = null;
+      syncAdView({ background: true, force: Boolean(options.force) }).catch((error) => {
+        console.warn('Automatic Ad View sync failed', error);
+      });
+    }, Number(options.delay ?? 800));
   };
 
   const loadActiveView = async (options = {}) => {
@@ -12027,6 +12071,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    connectLiveStream();
 	    if (canStartBackgroundPageWork()) preloadOrderMemory().catch(() => {});
 	    scheduleWalletBackgroundRefresh({ force: true });
+    if (state.activeView === 'ad-view') scheduleAdViewAutoSync({ delay: 250 });
     refreshForLocalDateRollover()
       .then((refreshed) => {
         if (!refreshed && !hasFreshViewData(state.activeView)) return loadActiveViewSafely({ preferStale: true });
@@ -12041,6 +12086,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (canStartBackgroundPageWork()) preloadOrderMemory().catch(() => {});
 	    runAutomaticMarketplaceRefresh().catch(() => {});
 	    scheduleWalletBackgroundRefresh({ force: true });
+    if (state.activeView === 'ad-view') scheduleAdViewAutoSync({ delay: 250 });
     if (state.activeView === 'overview') {
       refreshOverviewHourlyRows(null, { repair: true }).catch(() => {});
     }
@@ -12055,9 +12101,11 @@ document.addEventListener('DOMContentLoaded', () => {
       scheduleWalletBackgroundRefresh();
 	      if (state.activeView === 'overview') {
 	        refreshOverviewHourlyRows(null, { repair: true }).catch(() => {});
-	      }
+      }
       if (state.activeView === 'ad-view') {
-        loadAdViewSafely({ force: true }).catch(() => {});
+        syncAdView({ background: true }).catch((error) => {
+          console.warn('Automatic Ad View sync failed', error);
+        });
       }
     }
   }, AUTO_REFRESH_INTERVAL_MS);
