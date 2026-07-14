@@ -22,6 +22,43 @@ function jg_partner_auth_request(): array
     return is_array($decoded) ? $decoded : [];
 }
 
+function jg_partner_auth_rate_limit_path(string $code): string
+{
+    $ip = trim((string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+    return rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR
+        . 'jg-partner-login-' . hash('sha256', $ip . "\n" . strtoupper(trim($code))) . '.json';
+}
+
+function jg_partner_auth_recent_failures(string $code): array
+{
+    $path = jg_partner_auth_rate_limit_path($code);
+    $decoded = is_file($path) ? json_decode((string) @file_get_contents($path), true) : [];
+    $cutoff = time() - 900;
+    return array_values(array_filter(
+        is_array($decoded) ? $decoded : [],
+        static fn (mixed $timestamp): bool => is_int($timestamp) && $timestamp >= $cutoff
+    ));
+}
+
+function jg_partner_auth_record_failure(string $code): void
+{
+    $failures = jg_partner_auth_recent_failures($code);
+    $failures[] = time();
+    @file_put_contents(
+        jg_partner_auth_rate_limit_path($code),
+        json_encode($failures, JSON_UNESCAPED_SLASHES),
+        LOCK_EX
+    );
+}
+
+function jg_partner_auth_clear_failures(string $code): void
+{
+    $path = jg_partner_auth_rate_limit_path($code);
+    if (is_file($path)) {
+        @unlink($path);
+    }
+}
+
 function jg_partner_auth_store_path(): string
 {
     $runtimePath = dirname(__DIR__, 3) . '/data/partners.runtime.json';
@@ -93,11 +130,7 @@ function jg_partner_auth_find(array $database, string $code): ?array
 function jg_partner_auth_verify(array $partner, string $password): bool
 {
     $hash = (string) ($partner['password_hash'] ?? '');
-    if ($hash !== '') {
-        return password_verify($password, $hash);
-    }
-
-    return hash_equals((string) ($partner['code'] ?? ''), $password);
+    return $hash !== '' && password_verify($password, $hash);
 }
 
 function jg_partner_auth_reset_key_valid(array $partner, string $password): bool
@@ -224,7 +257,17 @@ if ($code === '' || $password === '') {
 
 $partner = jg_partner_auth_find(jg_partner_auth_read_database(), $code);
 if (!is_array($partner)) {
+    if (count(jg_partner_auth_recent_failures('__unknown__')) >= 8) {
+        header('Retry-After: 900');
+        jg_partner_auth_response(['error' => 'Too many login attempts. Try again later.'], 429);
+    }
+    jg_partner_auth_record_failure('__unknown__');
     jg_partner_auth_response(['error' => 'Invalid partner credentials.'], 401);
+}
+
+if (count(jg_partner_auth_recent_failures($code)) >= 8) {
+    header('Retry-After: 900');
+    jg_partner_auth_response(['error' => 'Too many login attempts. Try again later.'], 429);
 }
 
 $resetKeyLogin = false;
@@ -239,8 +282,11 @@ if (jg_partner_auth_verify($partner, $password)) {
         jg_partner_auth_response(['error' => 'Unable to start password reset.'], 500);
     }
 } else {
+    jg_partner_auth_record_failure($code);
     jg_partner_auth_response(['error' => 'Invalid partner credentials.'], 401);
 }
+
+jg_partner_auth_clear_failures($code);
 
 $response = [
     'ok' => true,

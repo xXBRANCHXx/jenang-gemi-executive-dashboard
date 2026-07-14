@@ -19,6 +19,39 @@ function jg_partner_password_request(): array
     return is_array($decoded) ? $decoded : [];
 }
 
+function jg_partner_password_rate_limit_path(string $code): string
+{
+    $ip = trim((string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+    return rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR
+        . 'jg-partner-password-' . hash('sha256', $ip . "\n" . strtoupper(trim($code))) . '.json';
+}
+
+function jg_partner_password_recent_failures(string $code): array
+{
+    $path = jg_partner_password_rate_limit_path($code);
+    $decoded = is_file($path) ? json_decode((string) @file_get_contents($path), true) : [];
+    $cutoff = time() - 900;
+    return array_values(array_filter(
+        is_array($decoded) ? $decoded : [],
+        static fn (mixed $timestamp): bool => is_int($timestamp) && $timestamp >= $cutoff
+    ));
+}
+
+function jg_partner_password_record_failure(string $code): void
+{
+    $failures = jg_partner_password_recent_failures($code);
+    $failures[] = time();
+    @file_put_contents(jg_partner_password_rate_limit_path($code), json_encode($failures), LOCK_EX);
+}
+
+function jg_partner_password_clear_failures(string $code): void
+{
+    $path = jg_partner_password_rate_limit_path($code);
+    if (is_file($path)) {
+        @unlink($path);
+    }
+}
+
 function jg_partner_password_store_path(): string
 {
     $runtimePath = dirname(__DIR__, 3) . '/data/partners.runtime.json';
@@ -41,11 +74,7 @@ function jg_partner_password_validate(string $password): string
 function jg_partner_password_verify(array $partner, string $password): bool
 {
     $hash = (string) ($partner['password_hash'] ?? '');
-    if ($hash !== '') {
-        return password_verify($password, $hash);
-    }
-
-    return hash_equals((string) ($partner['code'] ?? ''), $password);
+    return $hash !== '' && password_verify($password, $hash);
 }
 
 function jg_partner_password_verify_reset_token(array $partner, string $resetToken): bool
@@ -88,6 +117,7 @@ function jg_partner_password_change_mysql(string $code, string $currentPassword,
     $stmt->execute([':code' => $code]);
     $partner = $stmt->fetch();
     if (!is_array($partner) || !jg_partner_password_authorized($partner, $currentPassword, $resetToken)) {
+        jg_partner_password_record_failure($code);
         jg_partner_password_response(['error' => 'Current password is incorrect.'], 401);
     }
 
@@ -127,6 +157,7 @@ function jg_partner_password_change_file(string $code, string $currentPassword, 
             continue;
         }
         if (!jg_partner_password_authorized($partner, $currentPassword, $resetToken)) {
+            jg_partner_password_record_failure($code);
             jg_partner_password_response(['error' => 'Current password is incorrect.'], 401);
         }
 
@@ -143,6 +174,7 @@ function jg_partner_password_change_file(string $code, string $currentPassword, 
     unset($partner);
 
     if (!$matched) {
+        jg_partner_password_record_failure('__unknown__');
         jg_partner_password_response(['error' => 'Partner not found.'], 404);
     }
 
@@ -168,6 +200,11 @@ if ($code === '' || ($currentPassword === '' && $resetToken === '')) {
     jg_partner_password_response(['error' => 'Partner code and current password are required.'], 422);
 }
 
+if (count(jg_partner_password_recent_failures($code)) >= 8) {
+    header('Retry-After: 900');
+    jg_partner_password_response(['error' => 'Too many password attempts. Try again later.'], 429);
+}
+
 try {
     if (jg_partner_db() instanceof PDO) {
         jg_partner_password_change_mysql($code, $currentPassword, $newPassword, $resetToken);
@@ -178,4 +215,5 @@ try {
     jg_partner_password_response(['error' => 'Unable to update password.'], 500);
 }
 
+jg_partner_password_clear_failures($code);
 jg_partner_password_response(['ok' => true]);
