@@ -45,6 +45,21 @@ test('builds a self-contained SVG labeled with the full EAN-13 value', () => {
   assert.match(output.svg, />333931<\/text>/);
 });
 
+test('offers selectable proportions without changing the encoded SKU', () => {
+  assert.deepEqual(barcode.styles.map(({ id, ratio }) => ({ id, ratio })), [
+    { id: 'standard', ratio: '2:1' },
+    { id: 'compact', ratio: '3:1' },
+    { id: 'slim', ratio: '4:1' }
+  ]);
+
+  const outputs = barcode.styles.map((style) => barcode.buildSvg('010105000101', { style: style.id }));
+  assert.deepEqual(outputs.map((output) => output.height), [234, 156, 117]);
+  outputs.forEach((output) => {
+    assert.equal(output.ean13.slice(0, 12), '010105000101');
+    assert.equal(output.modules, outputs[0].modules);
+  });
+});
+
 test('rejects values that cannot preserve an exact 12-digit SKU', () => {
   ['123', 'ABCDEFGHIJKL', '1234567890123', ' 12345678901 '].forEach((value) => {
     assert.throws(() => barcode.toEan13(value), /exact 12-digit numeric SKU/);

@@ -18,6 +18,11 @@
     'LGGLLG', 'LGGGLL', 'LGLGLG', 'LGLGGL', 'LGGLGL'
   ];
   const GUARD_MODULES = new Set([0, 2, 46, 48, 92, 94]);
+  const styles = Object.freeze([
+    Object.freeze({ id: 'standard', label: 'Standard', ratio: '2:1', height: 234, barTop: 22, fontSize: 28, description: 'Full height for the easiest scanning.' }),
+    Object.freeze({ id: 'compact', label: 'Compact', ratio: '3:1', height: 156, barTop: 16, fontSize: 23, description: 'Shorter and balanced for most labels.' }),
+    Object.freeze({ id: 'slim', label: 'Slim', ratio: '4:1', height: 117, barTop: 12, fontSize: 18, description: 'Low profile when vertical space is tight.' })
+  ]);
 
   const normalizeSku = (value) => {
     const sku = String(value ?? '').trim();
@@ -51,19 +56,23 @@
     return `101${left}01010${right}101`;
   };
 
+  const resolveStyle = (value) => styles.find((style) => style.id === value) || styles[0];
+
   const buildSvg = (value, options = {}) => {
     const sku = normalizeSku(value);
     const ean13 = toEan13(sku);
     const modules = encodeModules(sku);
+    const style = resolveStyle(String(options.style || 'standard'));
     const moduleWidth = Math.max(2, Number(options.moduleWidth) || 4);
     const quietModules = 11;
     const width = (modules.length + quietModules * 2) * moduleWidth;
-    const height = Math.max(180, Number(options.height) || 228);
+    const height = Math.max(117, Number(options.height) || style.height);
     const barcodeX = quietModules * moduleWidth;
-    const barTop = 22;
-    const barHeight = height - 72;
-    const guardHeight = barHeight + 14;
-    const textY = height - 20;
+    const barTop = Math.min(style.barTop, Math.max(10, Math.round(height * 0.1)));
+    const fontSize = Math.min(style.fontSize, Math.max(18, Math.round(height * 0.15)));
+    const textY = height - Math.max(13, Math.round(height * 0.1));
+    const barHeight = Math.max(54, textY - fontSize - barTop - 8);
+    const guardHeight = barHeight + Math.min(14, Math.max(8, Math.round(height * 0.06)));
     const bars = [];
 
     [...modules].forEach((module, index) => {
@@ -76,7 +85,6 @@
     const firstDigitX = barcodeX - moduleWidth * 3;
     const leftDigitsX = barcodeX + moduleWidth * 24;
     const rightDigitsX = barcodeX + moduleWidth * 71;
-    const fontSize = Math.round(moduleWidth * 7);
     const svg = [
       '<?xml version="1.0" encoding="UTF-8"?>',
       `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="EAN-13 barcode ${ean13}">`,
@@ -90,10 +98,10 @@
       '</svg>'
     ].join('');
 
-    return { sku, ean13, modules, svg, width, height };
+    return { sku, ean13, modules, svg, width, height, style };
   };
 
-  const api = Object.freeze({ normalizeSku, checkDigit, toEan13, encodeModules, buildSvg });
+  const api = Object.freeze({ styles, normalizeSku, checkDigit, toEan13, encodeModules, buildSvg });
   globalScope.JGSkuBarcode = api;
 
   if (typeof module !== 'undefined' && module.exports) {

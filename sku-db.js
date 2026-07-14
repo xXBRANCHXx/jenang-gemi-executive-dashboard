@@ -69,6 +69,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const flavorSelect = document.querySelector('[data-flavor-select]');
   const productSelect = document.querySelector('[data-product-select]');
   const barcodeApi = window.JGSkuBarcode;
+  const barcodeModal = document.querySelector('[data-barcode-modal]');
+  const barcodeModalSummary = document.querySelector('[data-barcode-modal-summary]');
+  const barcodeStyleList = document.querySelector('[data-barcode-style-list]');
+  const barcodeDownloadButton = document.querySelector('[data-download-selected-barcode]');
 
   const state = {
     database: {
@@ -79,7 +83,9 @@ document.addEventListener('DOMContentLoaded', () => {
     },
     requests: [],
     activeApprovalRequestId: null,
-    pendingDelete: null
+    pendingDelete: null,
+    activeBarcodeSku: '',
+    selectedBarcodeStyle: 'standard'
   };
 
   const escapeHtml = (value) => String(value)
@@ -332,23 +338,73 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const downloadBarcode = (sku) => {
+  const downloadBarcode = (sku, style = 'standard') => {
     if (!barcodeApi || typeof barcodeApi.buildSvg !== 'function') {
       throw new Error('Barcode generator is unavailable. Refresh the page and try again.');
     }
 
-    const barcode = barcodeApi.buildSvg(sku);
+    const barcode = barcodeApi.buildSvg(sku, { style });
     const blob = new Blob([barcode.svg], { type: 'image/svg+xml;charset=utf-8' });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${barcode.sku}-EAN13-barcode.svg`;
+    link.download = `${barcode.sku}-EAN13-${barcode.style.id}.svg`;
     link.style.display = 'none';
     root.append(link);
     link.click();
     link.remove();
     window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
     return barcode.ean13;
+  };
+
+  const selectBarcodeStyle = (styleId) => {
+    const styles = Array.isArray(barcodeApi?.styles) ? barcodeApi.styles : [];
+    const nextStyle = styles.some((style) => style.id === styleId) ? styleId : (styles[0]?.id || 'standard');
+    state.selectedBarcodeStyle = nextStyle;
+    barcodeStyleList?.querySelectorAll('[data-barcode-style]').forEach((button) => {
+      const selected = button.dataset.barcodeStyle === nextStyle;
+      button.classList.toggle('is-selected', selected);
+      button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+    });
+  };
+
+  const renderBarcodeStylePicker = () => {
+    if (!barcodeStyleList || !state.activeBarcodeSku || !barcodeApi) return;
+    const styles = Array.isArray(barcodeApi.styles) ? barcodeApi.styles : [];
+    barcodeStyleList.innerHTML = styles.map((style) => {
+      const barcode = barcodeApi.buildSvg(state.activeBarcodeSku, { style: style.id });
+      const previewUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(barcode.svg)}`;
+      return `
+        <button type="button" class="admin-barcode-style-card" data-barcode-style="${escapeHtml(style.id)}" aria-pressed="false">
+          <span class="admin-barcode-style-preview"><img src="${previewUrl}" alt="${escapeHtml(style.label)} EAN-13 barcode preview"></span>
+          <span class="admin-barcode-style-copy">
+            <strong>${escapeHtml(style.label)}</strong>
+            <small>${escapeHtml(style.description)}</small>
+          </span>
+          <em>${escapeHtml(style.ratio)}</em>
+        </button>
+      `;
+    }).join('');
+    selectBarcodeStyle(state.selectedBarcodeStyle);
+  };
+
+  const openBarcodeModal = (sku) => {
+    if (!barcodeModal || !barcodeApi) {
+      throw new Error('Barcode style picker is unavailable. Refresh the page and try again.');
+    }
+    const barcode = barcodeApi.buildSvg(sku);
+    state.activeBarcodeSku = barcode.sku;
+    if (barcodeModalSummary) {
+      barcodeModalSummary.textContent = `SKU ${barcode.sku} · EAN-13 ${barcode.ean13}`;
+    }
+    renderBarcodeStylePicker();
+    barcodeModal.hidden = false;
+  };
+
+  const closeBarcodeModal = () => {
+    if (!barcodeModal) return;
+    barcodeModal.hidden = true;
+    state.activeBarcodeSku = '';
   };
 
   const closeSkuRowMenus = () => {
@@ -970,8 +1026,8 @@ document.addEventListener('DOMContentLoaded', () => {
               aria-label="Open SKU action menu"
             >Actions</button>
             <div class="admin-sku-row-menu-panel" data-sku-row-menu-panel hidden>
-              <button type="button" class="admin-menu-item admin-sku-barcode-download" data-download-barcode="${escapeHtml(row.sku || '')}">
-                <span>Download Barcode</span>
+              <button type="button" class="admin-menu-item admin-sku-barcode-download" data-open-barcode="${escapeHtml(row.sku || '')}">
+                <span>Barcode</span>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 21h14a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2"/></svg>
               </button>
               <button type="button" class="admin-menu-item" data-change-product-name="${escapeHtml(row.sku || '')}">Product Name</button>
@@ -1539,15 +1595,14 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const barcodeButton = target.closest('[data-download-barcode]');
+    const barcodeButton = target.closest('[data-open-barcode]');
     if (barcodeButton instanceof HTMLButtonElement) {
       closeSkuRowMenus();
-      const sku = barcodeButton.dataset.downloadBarcode || '';
+      const sku = barcodeButton.dataset.openBarcode || '';
       try {
-        const ean13 = downloadBarcode(sku);
-        showCopyMessage(`EAN-13 ${ean13} downloaded for SKU ${sku}.`, false, 'center');
+        openBarcodeModal(sku);
       } catch (error) {
-        showCopyMessage(error instanceof Error ? error.message : 'Unable to download barcode.', true, 'center');
+        showCopyMessage(error instanceof Error ? error.message : 'Unable to open barcode styles.', true, 'center');
       }
       return;
     }
@@ -1870,6 +1925,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.querySelectorAll('[data-close-delete-modal]').forEach((button) => {
     button.addEventListener('click', closeDeleteModal);
+  });
+
+  barcodeStyleList?.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target.closest('[data-barcode-style]') : null;
+    if (!(target instanceof HTMLButtonElement)) return;
+    selectBarcodeStyle(target.dataset.barcodeStyle || 'standard');
+  });
+
+  barcodeDownloadButton?.addEventListener('click', () => {
+    const sku = state.activeBarcodeSku;
+    if (!sku) return;
+    try {
+      const ean13 = downloadBarcode(sku, state.selectedBarcodeStyle);
+      closeBarcodeModal();
+      showCopyMessage(`EAN-13 ${ean13} downloaded for SKU ${sku}.`, false, 'center');
+    } catch (error) {
+      showCopyMessage(error instanceof Error ? error.message : 'Unable to download barcode.', true, 'center');
+    }
+  });
+
+  document.querySelectorAll('[data-close-barcode-modal]').forEach((button) => {
+    button.addEventListener('click', closeBarcodeModal);
   });
 
   document.querySelector('[data-branch-tier-open]')?.addEventListener('click', openBranchTierModal);

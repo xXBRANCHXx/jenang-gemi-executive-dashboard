@@ -454,6 +454,27 @@ $pageBuildVersion = 'sku1.00.00';
         </div>
     <?php endif; ?>
 
+    <div class="admin-modal-shell" data-barcode-modal hidden>
+        <div class="admin-modal-backdrop" data-close-barcode-modal></div>
+        <div class="admin-modal-card admin-barcode-modal-card">
+            <div class="admin-panel-head admin-modal-head admin-barcode-modal-head">
+                <div>
+                    <span class="admin-panel-kicker">EAN-13 Barcode</span>
+                    <h3>Choose a proportion</h3>
+                    <p data-barcode-modal-summary>Select a live SKU to preview its barcode.</p>
+                </div>
+            </div>
+            <div class="admin-barcode-style-grid" data-barcode-style-list></div>
+            <div class="admin-sku-actions admin-barcode-modal-actions">
+                <button type="button" class="admin-primary-btn admin-barcode-download-button" data-download-selected-barcode>
+                    <span>Download Barcode</span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 21h14a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2"/></svg>
+                </button>
+                <button type="button" class="admin-ghost-btn" data-close-barcode-modal>Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <div class="admin-modal-shell" data-cogs-modal hidden>
         <div class="admin-modal-backdrop" data-close-cogs-modal></div>
         <div class="admin-modal-card">
