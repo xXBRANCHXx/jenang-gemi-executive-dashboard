@@ -477,78 +477,115 @@ $pageBuildVersion = 'sku1.00.00';
 
     <div class="admin-modal-shell" data-cogs-modal hidden>
         <div class="admin-modal-backdrop" data-close-cogs-modal></div>
-        <div class="admin-modal-card">
-            <div class="admin-panel-head admin-modal-head">
+        <div class="admin-modal-card admin-cogs-editor" role="dialog" aria-modal="true" aria-labelledby="cogs-editor-title">
+            <div class="admin-cogs-editor-head">
                 <div>
-                    <span class="admin-panel-kicker">COGS Update</span>
-                    <h3>Set quarterly COGS</h3>
+                    <span class="admin-panel-kicker">SKU cost control</span>
+                    <h3 id="cogs-editor-title">Set COGS</h3>
+                    <p>Choose the cost, timing, and exact SKUs this update should cover.</p>
                 </div>
+                <button type="button" class="admin-cogs-close" data-close-cogs-modal aria-label="Close COGS editor">&times;</button>
             </div>
-            <form class="admin-sku-form-grid admin-cogs-form-grid" data-cogs-form>
+            <form class="admin-cogs-editor-form" data-cogs-form>
                 <input type="hidden" name="sku">
-                <label>
-                    <span>Source SKU</span>
-                    <input type="text" name="sku_display" readonly>
-                </label>
-                <label>
-                    <span>Product family</span>
-                    <input type="text" name="product_display" readonly>
-                </label>
-                <label>
-                    <span>Volume</span>
-                    <input type="text" name="volume_display" readonly>
-                </label>
-                <label>
-                    <span>Current COGS</span>
-                    <input type="text" name="old_price" readonly>
-                </label>
-                <label>
-                    <span>New COGS</span>
-                    <input type="number" name="new_price" min="0" step="0.01" required>
-                </label>
-                <label class="admin-sku-full-span">
-                    <span>PO Note Optional</span>
-                    <input type="text" name="po_number" maxlength="80" placeholder="Optional reference only">
-                </label>
-                <fieldset class="admin-sku-full-span admin-cogs-mode-panel">
-                    <legend>When should this COGS apply?</legend>
-                    <label class="admin-cogs-mode-option">
-                        <input type="radio" name="change_mode" value="quarterly" checked>
-                        <span>
-                            <strong>Next quarter</strong>
-                            <small data-cogs-quarter-copy>Starts automatically at the beginning of the next calendar quarter.</small>
-                        </span>
-                    </label>
-                    <?php if ($isBranch): ?>
-                        <label class="admin-cogs-mode-option admin-cogs-mode-option-danger">
-                            <input type="radio" name="change_mode" value="retroactive">
-                            <span>
-                                <strong>Hard set — fully retroactive</strong>
-                                <small>Branch only. Recalculates every selected SKU from the beginning and supersedes its earlier scheduled COGS periods.</small>
-                            </span>
-                        </label>
-                    <?php endif; ?>
-                </fieldset>
-                <p class="admin-sku-full-span admin-cogs-impact" data-cogs-impact></p>
-                <div class="admin-sku-full-span admin-cogs-batch-panel">
-                    <div class="admin-cogs-batch-head">
-                        <strong data-cogs-batch-count>0 SKUs selected</strong>
-                        <small>Only this product family and volume are included. Uncheck SKUs to exclude them.</small>
-                    </div>
-                    <div class="admin-cogs-batch-header" aria-hidden="true">
-                        <span></span>
-                        <span>SKU</span>
-                        <span>Item</span>
-                        <span>Current COGS</span>
-                    </div>
-                    <div class="admin-cogs-batch-list" data-cogs-batch-list></div>
+                <input type="hidden" name="old_price">
+
+                <div class="admin-cogs-context" aria-label="Selected SKU group">
+                    <div><span>Source SKU</span><strong data-cogs-source-sku>—</strong></div>
+                    <div><span>Product family</span><strong data-cogs-product>—</strong></div>
+                    <div><span>Volume</span><strong data-cogs-volume>—</strong></div>
                 </div>
-                <div class="admin-sku-actions">
-                    <button type="submit" class="admin-primary-btn" data-cogs-submit>Schedule COGS Batch</button>
-                    <button type="button" class="admin-ghost-btn" data-close-cogs-modal>Cancel</button>
+
+                <div class="admin-cogs-workspace">
+                    <div class="admin-cogs-main-column">
+                        <section class="admin-cogs-step-card">
+                            <div class="admin-cogs-step-head">
+                                <span class="admin-cogs-step-number">1</span>
+                                <div><strong>Set the new unit cost</strong><small>Indonesian rupiah per SKU unit</small></div>
+                            </div>
+                            <div class="admin-cogs-price-flow">
+                                <div class="admin-cogs-current-price">
+                                    <span>Current COGS</span>
+                                    <strong data-cogs-current-price>Rp0</strong>
+                                </div>
+                                <span class="admin-cogs-price-arrow" aria-hidden="true">→</span>
+                                <label class="admin-cogs-new-price">
+                                    <span>New COGS</span>
+                                    <span class="admin-cogs-money-input"><b>Rp</b><input type="number" name="new_price" min="0" step="0.01" inputmode="decimal" required></span>
+                                </label>
+                                <span class="admin-cogs-delta" data-cogs-delta>No change</span>
+                            </div>
+                            <label class="admin-cogs-po-field">
+                                <span>PO reference <small>Optional</small></span>
+                                <input type="text" name="po_number" maxlength="80" placeholder="Example: PO-2026-Q4-018">
+                            </label>
+                        </section>
+
+                        <section class="admin-cogs-step-card admin-cogs-batch-panel">
+                            <div class="admin-cogs-step-head admin-cogs-batch-head">
+                                <span class="admin-cogs-step-number">2</span>
+                                <div><strong>Choose affected SKUs</strong><small data-cogs-batch-count>0 SKUs selected</small></div>
+                                <div class="admin-cogs-batch-tools">
+                                    <button type="button" data-cogs-select-all>Select all</button>
+                                    <button type="button" data-cogs-clear-all>Clear</button>
+                                </div>
+                            </div>
+                            <div class="admin-cogs-batch-header" aria-hidden="true">
+                                <span></span><span>SKU</span><span>Item</span><span>Current</span>
+                            </div>
+                            <div class="admin-cogs-batch-list" data-cogs-batch-list></div>
+                        </section>
+                    </div>
+
+                    <aside class="admin-cogs-side-column">
+                        <section class="admin-cogs-step-card admin-cogs-timing-card">
+                            <div class="admin-cogs-step-head">
+                                <span class="admin-cogs-step-number">3</span>
+                                <div><strong>Choose when it applies</strong><small>Calendar-quarter controls</small></div>
+                            </div>
+                            <fieldset class="admin-cogs-mode-panel">
+                                <legend class="admin-sr-only">COGS effective period</legend>
+                                <label class="admin-cogs-mode-option">
+                                    <input type="radio" name="change_mode" value="quarterly" checked>
+                                    <span class="admin-cogs-mode-check" aria-hidden="true">✓</span>
+                                    <span><strong>Next quarter</strong><small data-cogs-quarter-copy>Begins at the next quarter boundary.</small></span>
+                                </label>
+                                <?php if ($isBranch): ?>
+                                    <label class="admin-cogs-mode-option admin-cogs-mode-option-danger">
+                                        <input type="radio" name="change_mode" value="retroactive">
+                                        <span class="admin-cogs-mode-check" aria-hidden="true">!</span>
+                                        <span><strong>Fully retroactive</strong><small>Branch only. Recalculates from the beginning.</small></span>
+                                    </label>
+                                <?php endif; ?>
+                            </fieldset>
+                        </section>
+
+                        <section class="admin-cogs-review" aria-live="polite">
+                            <div class="admin-cogs-review-head"><span>Review change</span><strong data-cogs-review-mode>Next quarter</strong></div>
+                            <dl>
+                                <div><dt>New COGS</dt><dd data-cogs-review-price>Rp0</dd></div>
+                                <div><dt>Affected SKUs</dt><dd data-cogs-review-selection>0 selected</dd></div>
+                                <div><dt>Effective</dt><dd data-cogs-review-effective>—</dd></div>
+                            </dl>
+                            <p class="admin-cogs-impact" data-cogs-impact></p>
+                            <?php if ($isBranch): ?>
+                                <label class="admin-cogs-retro-confirm" data-cogs-retro-confirm-wrap hidden>
+                                    <input type="checkbox" data-cogs-retro-confirm>
+                                    <span>I understand this rewrites historical COGS for every selected SKU.</span>
+                                </label>
+                            <?php endif; ?>
+                        </section>
+                    </aside>
+                </div>
+
+                <div class="admin-cogs-footer">
+                    <p class="admin-form-error" data-cogs-error hidden></p>
+                    <div class="admin-cogs-footer-actions">
+                        <button type="button" class="admin-ghost-btn" data-close-cogs-modal>Cancel</button>
+                        <button type="submit" class="admin-primary-btn" data-cogs-submit>Schedule for next quarter</button>
+                    </div>
                 </div>
             </form>
-            <p class="admin-form-error" data-cogs-error hidden></p>
         </div>
     </div>
 

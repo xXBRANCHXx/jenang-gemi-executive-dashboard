@@ -473,39 +473,88 @@ document.addEventListener('DOMContentLoaded', () => {
       .filter(Boolean);
   };
 
+  const formatCogsMoney = (value) => {
+    const amount = Number(value);
+    return `Rp${Number.isFinite(amount) ? Math.round(amount).toLocaleString('id-ID') : '0'}`;
+  };
+
+  const updateCogsReview = () => {
+    if (!(cogsForm instanceof HTMLFormElement)) return;
+    const mode = String(new window.FormData(cogsForm).get('change_mode') || 'quarterly');
+    const selected = selectedCogsBatchSkus().length;
+    const currentPrice = Number(cogsForm.elements.old_price?.value || 0);
+    const newPriceRaw = String(cogsForm.elements.new_price?.value || '').trim();
+    const newPrice = Number(newPriceRaw);
+    const hasValidPrice = newPriceRaw !== '' && Number.isFinite(newPrice) && newPrice >= 0;
+    const delta = hasValidPrice ? newPrice - currentPrice : 0;
+    const nextQuarterLabel = String(state.database.meta?.next_quarter_label || 'Next quarter');
+    const nextQuarterStart = String(state.database.meta?.next_quarter_start || '').slice(0, 10);
+    const retroConfirmWrap = cogsForm.querySelector('[data-cogs-retro-confirm-wrap]');
+    const retroConfirm = cogsForm.querySelector('[data-cogs-retro-confirm]');
+    const submit = cogsForm.querySelector('[data-cogs-submit]');
+
+    const setText = (selector, value) => {
+      const node = cogsForm.querySelector(selector);
+      if (node) node.textContent = value;
+    };
+    setText('[data-cogs-current-price]', formatCogsMoney(currentPrice));
+    setText('[data-cogs-review-price]', hasValidPrice ? formatCogsMoney(newPrice) : 'Enter a cost');
+    setText('[data-cogs-review-selection]', `${selected} selected`);
+    setText('[data-cogs-review-mode]', mode === 'retroactive' ? 'Branch hard set' : nextQuarterLabel);
+    setText('[data-cogs-review-effective]', mode === 'retroactive'
+      ? 'All historical periods'
+      : (nextQuarterStart ? `${nextQuarterLabel} · ${nextQuarterStart}` : nextQuarterLabel));
+
+    const deltaNode = cogsForm.querySelector('[data-cogs-delta]');
+    if (deltaNode) {
+      deltaNode.textContent = !hasValidPrice || Math.abs(delta) < 0.005
+        ? 'No price change'
+        : `${delta > 0 ? '+' : '−'}${formatCogsMoney(Math.abs(delta))} per unit`;
+      deltaNode.classList.toggle('is-up', delta > 0.005);
+      deltaNode.classList.toggle('is-down', delta < -0.005);
+    }
+
+    const impact = cogsForm.querySelector('[data-cogs-impact]');
+    if (impact) {
+      impact.textContent = mode === 'retroactive'
+        ? `This will replace historical COGS for ${selected || 'no'} selected SKU${selected === 1 ? '' : 's'} and supersede earlier schedules.`
+        : `The current quarter stays unchanged. This cost starts in ${nextQuarterLabel} and remains until another quarter begins.`;
+      impact.classList.toggle('is-danger', mode === 'retroactive');
+    }
+
+    if (retroConfirmWrap instanceof HTMLElement) retroConfirmWrap.hidden = mode !== 'retroactive';
+    const retroConfirmed = mode !== 'retroactive' || (retroConfirm instanceof HTMLInputElement && retroConfirm.checked);
+    if (submit instanceof HTMLButtonElement) {
+      submit.textContent = mode === 'retroactive'
+        ? `Hard set ${selected || 0} SKU${selected === 1 ? '' : 's'}`
+        : `Schedule ${selected || 0} SKU${selected === 1 ? '' : 's'} for ${nextQuarterLabel}`;
+      submit.classList.toggle('admin-danger-btn', mode === 'retroactive');
+      submit.classList.toggle('admin-primary-btn', mode !== 'retroactive');
+      submit.disabled = selected < 1 || !hasValidPrice || !retroConfirmed;
+    }
+  };
+
   const updateCogsBatchCount = () => {
     if (!cogsBatchCount) return;
     const selected = selectedCogsBatchSkus().length;
     const total = cogsBatchList?.querySelectorAll('[data-cogs-batch-sku]').length || 0;
     const groupLabel = cogsBatchList?.dataset.cogsBatchGroupLabel || '';
-    cogsBatchCount.textContent = `${selected} of ${total}${groupLabel ? ` ${groupLabel}` : ''} SKUs selected`;
+    cogsBatchCount.textContent = `${selected} of ${total} selected${groupLabel ? ` · ${groupLabel}` : ''}`;
+    updateCogsReview();
   };
 
   const syncCogsFields = () => {
     if (!(cogsForm instanceof HTMLFormElement)) return;
     setRequired(cogsForm.elements.po_number, false);
-    const selectedMode = String(new window.FormData(cogsForm).get('change_mode') || 'quarterly');
     const nextQuarterLabel = String(state.database.meta?.next_quarter_label || 'the next quarter');
     const nextQuarterStart = String(state.database.meta?.next_quarter_start || '').slice(0, 10);
     const quarterCopy = cogsForm.querySelector('[data-cogs-quarter-copy]');
-    const impact = cogsForm.querySelector('[data-cogs-impact]');
-    const submit = cogsForm.querySelector('[data-cogs-submit]');
     if (quarterCopy) {
       quarterCopy.textContent = nextQuarterStart
-        ? `${nextQuarterLabel} begins ${nextQuarterStart}. The current quarter will not change.`
-        : 'Starts automatically at the beginning of the next calendar quarter.';
+        ? `${nextQuarterLabel} · starts ${nextQuarterStart}`
+        : 'Starts at the next calendar-quarter boundary.';
     }
-    if (impact) {
-      impact.textContent = selectedMode === 'retroactive'
-        ? 'Branch hard set: all selected SKUs and their historical reports will be recalculated from the beginning.'
-        : `Scheduled for ${nextQuarterLabel}. It remains active until a later quarterly COGS change takes effect.`;
-      impact.classList.toggle('is-danger', selectedMode === 'retroactive');
-    }
-    if (submit instanceof HTMLButtonElement) {
-      submit.textContent = selectedMode === 'retroactive' ? 'Apply Retroactive Hard Set' : 'Schedule COGS Batch';
-      submit.classList.toggle('admin-danger-btn', selectedMode === 'retroactive');
-      submit.classList.toggle('admin-primary-btn', selectedMode !== 'retroactive');
-    }
+    updateCogsReview();
   };
 
   const syncInventoryFields = () => {
@@ -913,8 +962,8 @@ document.addEventListener('DOMContentLoaded', () => {
               checked
             >
             <strong>${escapeHtml(row.sku || '')}</strong>
-            <span>${escapeHtml([row.flavor_name || '', row.product_name || row.base_product_name || '', row.tag || ''].filter(Boolean).join(' | '))}${row.sku === sourceRow?.sku ? '<small>Source row</small>' : ''}</span>
-            <em>${escapeHtml(row.cogs ?? 0)}</em>
+            <span>${escapeHtml([row.flavor_name || '', row.tag || ''].filter(Boolean).join(' · '))}${row.sku === sourceRow?.sku ? '<small>Opened from this SKU</small>' : ''}</span>
+            <em>${escapeHtml(formatCogsMoney(row.cogs ?? 0))}</em>
           </label>
         `).join('')
       : '<p class="admin-empty">No SKUs match this product family and volume.</p>';
@@ -1262,6 +1311,8 @@ document.addEventListener('DOMContentLoaded', () => {
       cogsBatchList.innerHTML = '';
       delete cogsBatchList.dataset.cogsBatchGroupLabel;
     }
+    const retroConfirm = cogsForm?.querySelector('[data-cogs-retro-confirm]');
+    if (retroConfirm instanceof HTMLInputElement) retroConfirm.checked = false;
     updateCogsBatchCount();
     syncCogsFields();
     setError(cogsError, '');
@@ -1303,18 +1354,31 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!row) return;
 
     cogsForm.elements.sku.value = row.sku || '';
-    cogsForm.elements.sku_display.value = row.sku || '';
-    cogsForm.elements.product_display.value = productFamilyLabel(row);
-    cogsForm.elements.volume_display.value = `${row.volume || ''}${row.unit_name ? ` ${row.unit_name}` : ''}`.trim();
     cogsForm.elements.old_price.value = String(row.cogs ?? 0);
     cogsForm.elements.new_price.value = String(row.cogs ?? 0);
     cogsForm.elements.po_number.value = '';
     const quarterlyMode = cogsForm.querySelector('[name="change_mode"][value="quarterly"]');
     if (quarterlyMode instanceof HTMLInputElement) quarterlyMode.checked = true;
+    const retroConfirm = cogsForm.querySelector('[data-cogs-retro-confirm]');
+    if (retroConfirm instanceof HTMLInputElement) retroConfirm.checked = false;
+    const setContext = (selector, value) => {
+      const node = cogsForm.querySelector(selector);
+      if (node) node.textContent = value || '—';
+    };
+    setContext('[data-cogs-source-sku]', row.sku || '');
+    setContext('[data-cogs-product]', productFamilyLabel(row));
+    setContext('[data-cogs-volume]', `${row.volume || ''}${row.unit_name ? ` ${row.unit_name}` : ''}`.trim());
     renderCogsBatch(row);
     syncCogsFields();
     setError(cogsError, '');
     cogsModal.hidden = false;
+    window.requestAnimationFrame(() => {
+      const newPrice = cogsForm.elements.new_price;
+      if (newPrice instanceof HTMLInputElement) {
+        newPrice.focus();
+        newPrice.select();
+      }
+    });
   };
 
   const openSalePriceModal = (sku) => {
@@ -1492,6 +1556,20 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   inventoryAction?.addEventListener('change', syncInventoryFields);
   cogsBatchList?.addEventListener('change', updateCogsBatchCount);
+  cogsForm?.elements.new_price?.addEventListener('input', updateCogsReview);
+  cogsForm?.querySelector('[data-cogs-retro-confirm]')?.addEventListener('change', updateCogsReview);
+  cogsForm?.querySelector('[data-cogs-select-all]')?.addEventListener('click', () => {
+    cogsBatchList?.querySelectorAll('[data-cogs-batch-sku]').forEach((input) => {
+      if (input instanceof HTMLInputElement) input.checked = true;
+    });
+    updateCogsBatchCount();
+  });
+  cogsForm?.querySelector('[data-cogs-clear-all]')?.addEventListener('click', () => {
+    cogsBatchList?.querySelectorAll('[data-cogs-batch-sku]').forEach((input) => {
+      if (input instanceof HTMLInputElement) input.checked = false;
+    });
+    updateCogsBatchCount();
+  });
   unitSelect?.addEventListener('change', renderPreview);
   flavorSelect?.addEventListener('change', renderPreview);
   productSelect?.addEventListener('change', renderPreview);
@@ -1834,8 +1912,16 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       const changeMode = String(formData.get('change_mode') || 'quarterly');
-      if (changeMode === 'retroactive' && !window.confirm('Apply this COGS to all historical periods for every selected SKU? This supersedes their earlier scheduled COGS changes.')) {
+      const retroConfirm = cogsForm.querySelector('[data-cogs-retro-confirm]');
+      if (changeMode === 'retroactive' && (!(retroConfirm instanceof HTMLInputElement) || !retroConfirm.checked)) {
+        setError(cogsError, 'Confirm that you understand the historical impact before applying a hard set.');
         return;
+      }
+      const submit = cogsForm.querySelector('[data-cogs-submit]');
+      if (submit instanceof HTMLButtonElement) {
+        submit.disabled = true;
+        submit.dataset.saving = '1';
+        submit.textContent = changeMode === 'retroactive' ? 'Applying hard set…' : 'Scheduling COGS…';
       }
       await postAction({
         action: 'change_cogs',
@@ -1855,6 +1941,9 @@ document.addEventListener('DOMContentLoaded', () => {
       );
     } catch (error) {
       setError(cogsError, error instanceof Error ? error.message : 'Unable to change COGS.');
+      const submit = cogsForm.querySelector('[data-cogs-submit]');
+      if (submit instanceof HTMLButtonElement) delete submit.dataset.saving;
+      updateCogsReview();
     }
   });
 
@@ -1981,7 +2070,11 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   cogsForm?.querySelectorAll('[name="change_mode"]').forEach((input) => {
-    input.addEventListener('change', syncCogsFields);
+    input.addEventListener('change', () => {
+      const retroConfirm = cogsForm.querySelector('[data-cogs-retro-confirm]');
+      if (retroConfirm instanceof HTMLInputElement) retroConfirm.checked = false;
+      syncCogsFields();
+    });
   });
 
   document.querySelectorAll('[data-close-sale-price-modal]').forEach((button) => {
@@ -2062,6 +2155,12 @@ document.addEventListener('DOMContentLoaded', () => {
     node?.addEventListener('change', renderTable);
   });
   approvedLivePdfButton?.addEventListener('click', downloadApprovedLivePdf);
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && cogsModal instanceof HTMLElement && !cogsModal.hidden) {
+      closeCogsModal();
+    }
+  });
 
   syncCogsFields();
   syncInventoryFields();
