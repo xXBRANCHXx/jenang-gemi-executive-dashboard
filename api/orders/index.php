@@ -1925,6 +1925,9 @@ function jg_orders_sku_lookup(PDO $pdo): array
             'stock_ratio' => 1.0,
             'stock_row' => $row,
         ];
+        $stockRow = is_array($stockTarget['stock_row'] ?? null) ? $stockTarget['stock_row'] : $row;
+        $baseSku = (string) ($stockTarget['stock_sku'] ?? $sku);
+        $cogsMultiplier = (float) ($stockTarget['stock_ratio'] ?? 1.0);
         $baseProductName = (string) ($row['product_name'] ?? $sku);
         $displayFallback = jg_orders_compose_sku_product_name(
             (float) ($row['volume'] ?? 0),
@@ -1938,9 +1941,10 @@ function jg_orders_sku_lookup(PDO $pdo): array
             'volume' => (float) ($row['volume'] ?? 0),
             'astra' => (float) ($row['astra'] ?? $row['volume'] ?? 0),
             'cogs' => (float) ($row['cogs'] ?? 0),
-            'cogs_history' => $historyBySku[$sku] ?? [],
-            'stock_sku' => (string) ($stockTarget['stock_sku'] ?? $sku),
-            'stock_ratio' => (float) ($stockTarget['stock_ratio'] ?? 1.0),
+            'base_cogs' => (float) ($stockRow['cogs'] ?? $row['cogs'] ?? 0),
+            'cogs_history' => jg_astra_cogs_scale_history($historyBySku[$baseSku] ?? [], $cogsMultiplier),
+            'stock_sku' => $baseSku,
+            'stock_ratio' => $cogsMultiplier,
             'product_name' => jg_orders_sku_product_display_name($sku, $displayFallback, $productNameMap),
             'brand_name' => (string) ($row['brand_name'] ?? ''),
             'unit_name' => (string) ($row['unit_name'] ?? ''),
@@ -2299,7 +2303,7 @@ function jg_orders_allocate_fifo(PDO $pdo, array $remoteRow, array $sku, float $
         }
 
         if ($remaining > 0) {
-            $cogs = (float) ($sku['cogs'] ?? 0);
+            $cogs = (float) ($sku['base_cogs'] ?? $sku['cogs'] ?? 0);
             $totalCogs = round($remaining * $cogs, 2);
             $insert->execute([
                 ':order_item_key' => $orderItemKey,

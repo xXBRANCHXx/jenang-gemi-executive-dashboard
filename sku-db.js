@@ -478,6 +478,35 @@ document.addEventListener('DOMContentLoaded', () => {
     return `Rp${Number.isFinite(amount) ? Math.round(amount).toLocaleString('id-ID') : '0'}`;
   };
 
+  const cogsMultiplier = (row) => {
+    const volume = Number(row?.volume || 0);
+    const astra = Number(row?.astra || volume);
+    return volume > 0 && astra > 0 ? Math.max(1, volume / astra) : 1;
+  };
+
+  const cogsLinkKey = (row) => [
+    row?.brand_id || '',
+    row?.unit_id || '',
+    row?.product_id || '',
+    row?.flavor_id || '',
+    Number(row?.astra || row?.volume || 0).toFixed(2)
+  ].join('|');
+
+  const plannedCogsChanges = (sellingUnitCogs) => {
+    const plan = new Map();
+    selectedCogsBatchSkus().forEach((selectedSku) => {
+      const selectedRow = state.database.skus.find((row) => String(row.sku || '') === selectedSku);
+      if (!selectedRow) return;
+      const baseCogs = sellingUnitCogs / cogsMultiplier(selectedRow);
+      const linkKey = cogsLinkKey(selectedRow);
+      state.database.skus.forEach((row) => {
+        if (cogsLinkKey(row) !== linkKey) return;
+        plan.set(String(row.sku || ''), Math.round(baseCogs * cogsMultiplier(row) * 100) / 100);
+      });
+    });
+    return plan;
+  };
+
   const updateCogsReview = () => {
     if (!(cogsForm instanceof HTMLFormElement)) return;
     const mode = String(new window.FormData(cogsForm).get('change_mode') || 'quarterly');
@@ -487,6 +516,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const newPrice = Number(newPriceRaw);
     const hasValidPrice = newPriceRaw !== '' && Number.isFinite(newPrice) && newPrice >= 0;
     const delta = hasValidPrice ? newPrice - currentPrice : 0;
+    const sourceSku = String(cogsForm.elements.sku?.value || '');
+    const sourceRow = state.database.skus.find((row) => String(row.sku || '') === sourceSku);
+    const sourceMultiplier = cogsMultiplier(sourceRow);
+    const baseCogs = hasValidPrice ? newPrice / sourceMultiplier : 0;
+    const plannedChanges = hasValidPrice ? plannedCogsChanges(newPrice) : new Map();
+    const affected = plannedChanges.size;
+    const linked = Math.max(0, affected - selected);
     const nextQuarterLabel = String(state.database.meta?.next_quarter_label || 'Next quarter');
     const nextQuarterStart = String(state.database.meta?.next_quarter_start || '').slice(0, 10);
     const retroConfirmWrap = cogsForm.querySelector('[data-cogs-retro-confirm-wrap]');
@@ -499,7 +535,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     setText('[data-cogs-current-price]', formatCogsMoney(currentPrice));
     setText('[data-cogs-review-price]', hasValidPrice ? formatCogsMoney(newPrice) : 'Enter a cost');
-    setText('[data-cogs-review-selection]', `${selected} selected`);
+    setText('[data-cogs-review-base]', hasValidPrice ? formatCogsMoney(baseCogs) : '—');
+    setText('[data-cogs-review-selection]', `${affected || selected} affected${linked ? ` · ${linked} linked` : ''}`);
     setText('[data-cogs-review-mode]', mode === 'retroactive' ? 'Branch hard set' : nextQuarterLabel);
     setText('[data-cogs-review-effective]', mode === 'retroactive'
       ? 'All historical periods'
@@ -517,8 +554,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const impact = cogsForm.querySelector('[data-cogs-impact]');
     if (impact) {
       impact.textContent = mode === 'retroactive'
-        ? `This will replace historical COGS for ${selected || 'no'} selected SKU${selected === 1 ? '' : 's'} and supersede earlier schedules.`
-        : `The current quarter stays unchanged. This cost starts in ${nextQuarterLabel} and remains until another quarter begins.`;
+        ? `This will replace historical COGS for ${affected || 'no'} SKU${affected === 1 ? '' : 's'}, including ASTRA-linked sizes, and supersede earlier schedules.`
+        : `The current quarter stays unchanged. ${affected || 'No'} SKU${affected === 1 ? '' : 's'} will update in ${nextQuarterLabel}; linked sizes use Volume ÷ ASTRA.`;
       impact.classList.toggle('is-danger', mode === 'retroactive');
     }
 
@@ -526,11 +563,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const retroConfirmed = mode !== 'retroactive' || (retroConfirm instanceof HTMLInputElement && retroConfirm.checked);
     if (submit instanceof HTMLButtonElement) {
       submit.textContent = mode === 'retroactive'
-        ? `Hard set ${selected || 0} SKU${selected === 1 ? '' : 's'}`
-        : `Schedule ${selected || 0} SKU${selected === 1 ? '' : 's'} for ${nextQuarterLabel}`;
+        ? `Hard set ${affected || 0} SKU${affected === 1 ? '' : 's'}`
+        : `Schedule ${affected || 0} SKU${affected === 1 ? '' : 's'} for ${nextQuarterLabel}`;
       submit.classList.toggle('admin-danger-btn', mode === 'retroactive');
       submit.classList.toggle('admin-primary-btn', mode !== 'retroactive');
-      submit.disabled = selected < 1 || !hasValidPrice || !retroConfirmed;
+      submit.disabled = selected < 1 || affected < 1 || !hasValidPrice || !retroConfirmed;
     }
   };
 
@@ -1365,7 +1402,9 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     setContext('[data-cogs-source-sku]', row.sku || '');
     setContext('[data-cogs-product]', productFamilyLabel(row));
-    setContext('[data-cogs-volume]', `${row.volume || ''}${row.unit_name ? ` ${row.unit_name}` : ''}`.trim());
+    const multiplier = cogsMultiplier(row);
+    const volumeLabel = `${row.volume || ''}${row.unit_name ? ` ${row.unit_name}` : ''}`.trim();
+    setContext('[data-cogs-volume]', `${volumeLabel}${multiplier > 1 ? ` · ${multiplier.toLocaleString('id-ID', { maximumFractionDigits: 2 })}× ASTRA` : ' · Base unit'}`);
     renderCogsBatch(row);
     syncCogsFields();
     setError(cogsError, '');

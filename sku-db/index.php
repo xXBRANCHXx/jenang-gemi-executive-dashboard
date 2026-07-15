@@ -497,7 +497,7 @@ $pageBuildVersion = 'sku1.00.00';
                         <section class="admin-cogs-step-card">
                             <div class="admin-cogs-step-head">
                                 <span class="admin-cogs-step-number">1</span>
-                                <div><strong>Set the new unit cost</strong><small>Indonesian rupiah per SKU unit</small></div>
+                                <div><strong>Set the new unit cost</strong><small>For this selling size; linked ASTRA sizes scale automatically</small></div>
                             </div>
                             <div class="admin-cogs-price-flow">
                                 <div class="admin-cogs-current-price">
@@ -516,7 +516,7 @@ $pageBuildVersion = 'sku1.00.00';
                         <section class="admin-cogs-step-card admin-cogs-batch-panel">
                             <div class="admin-cogs-step-head admin-cogs-batch-head">
                                 <span class="admin-cogs-step-number">2</span>
-                                <div><strong>Choose affected SKUs</strong><small data-cogs-batch-count>0 SKUs selected</small></div>
+                                <div><strong>Choose matching variants</strong><small data-cogs-batch-count>0 SKUs selected</small></div>
                                 <div class="admin-cogs-batch-tools">
                                     <button type="button" data-cogs-select-all>Select all</button>
                                     <button type="button" data-cogs-clear-all>Clear</button>
@@ -526,6 +526,7 @@ $pageBuildVersion = 'sku1.00.00';
                                 <span></span><span>SKU</span><span>Item</span><span>Current</span>
                             </div>
                             <div class="admin-cogs-batch-list" data-cogs-batch-list></div>
+                            <p class="admin-cogs-linked-note">Every selected variant also updates its linked sizes using Volume ÷ ASTRA.</p>
                         </section>
                     </div>
 
@@ -556,6 +557,7 @@ $pageBuildVersion = 'sku1.00.00';
                             <div class="admin-cogs-review-head"><span>Review change</span><strong data-cogs-review-mode>Next quarter</strong></div>
                             <dl>
                                 <div><dt>New COGS</dt><dd data-cogs-review-price>Rp0</dd></div>
+                                <div><dt>ASTRA base cost</dt><dd data-cogs-review-base>Rp0</dd></div>
                                 <div><dt>Affected SKUs</dt><dd data-cogs-review-selection>0 selected</dd></div>
                                 <div><dt>Effective</dt><dd data-cogs-review-effective>—</dd></div>
                             </dl>

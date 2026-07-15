@@ -491,7 +491,13 @@ function jg_sales_sku_lookup(): array
             'SELECT
                 s.sku,
                 s.tag,
+                s.brand_id,
+                s.unit_id,
+                s.product_id,
+                s.flavor_id,
                 s.volume,
+                s.astra,
+                s.current_stock,
                 s.cogs,
                 p.name AS product_name,
                 f.name AS flavor_name,
@@ -505,6 +511,7 @@ function jg_sales_sku_lookup(): array
         if ($stmt === false) {
             return [];
         }
+        $skuRows = array_values(array_filter($stmt->fetchAll(), 'is_array'));
         $historyStmt = $pdo->query(
             'SELECT id, sku, old_price, new_price, change_mode, effective_at, recorded_at
              FROM sku_cogs_history ORDER BY sku, recorded_at, id'
@@ -529,8 +536,15 @@ function jg_sales_sku_lookup(): array
     }
 
     $lookup = [];
-    foreach ($stmt->fetchAll() as $row) {
+    $stockMap = jg_astra_stock_map($skuRows ?? []);
+    foreach ($skuRows ?? [] as $row) {
         $sku = (string) ($row['sku'] ?? '');
+        $stockTarget = $stockMap[$sku] ?? [
+            'stock_sku' => $sku,
+            'stock_ratio' => 1.0,
+        ];
+        $baseSku = (string) ($stockTarget['stock_sku'] ?? $sku);
+        $cogsMultiplier = (float) ($stockTarget['stock_ratio'] ?? 1.0);
         $productName = (string) ($row['product_name'] ?? '');
         $displayProductName = jg_sales_sku_product_display_name($sku, $productName, $productNameMap);
         $productKindName = strtolower($productName . ' ' . $displayProductName);
@@ -550,7 +564,10 @@ function jg_sales_sku_lookup(): array
             'unit_name' => $unitName,
             'unit_code' => $unitCode,
             'cogs' => (float) ($row['cogs'] ?? 0),
-            'cogs_history' => $historyBySku[jg_sales_normalize_sku_key($sku)] ?? [],
+            'cogs_history' => jg_astra_cogs_scale_history(
+                $historyBySku[jg_sales_normalize_sku_key($baseSku)] ?? [],
+                $cogsMultiplier
+            ),
             'is_syrup' => str_contains($productKindName, 'syrup') || str_contains($productKindName, 'sirup'),
             'is_drops' => str_contains($productKindName, 'drop'),
             'is_bubur' => str_contains($productKindName, 'bubur'),

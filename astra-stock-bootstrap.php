@@ -36,6 +36,77 @@ function jg_astra_stock_ratio(array $sellingRow, ?array $stockRow = null): float
     return max(1.0, $volume / $astra);
 }
 
+function jg_astra_cogs_multiplier(array $row): float
+{
+    return jg_astra_stock_ratio($row);
+}
+
+/**
+ * Expand a selling-unit COGS change across every SKU linked to the selected
+ * rows by their ASTRA base unit.
+ *
+ * @param array<int, array<string, mixed>> $rows
+ * @param array<int, string> $selectedSkus
+ * @return array<string, array{sku: string, new_price: float, multiplier: float, selected_sku: string}>
+ */
+function jg_astra_cogs_plan(array $rows, array $selectedSkus, float $sellingUnitCogs): array
+{
+    $bySku = [];
+    $groups = [];
+    foreach ($rows as $row) {
+        $sku = (string) ($row['sku'] ?? '');
+        if ($sku === '') {
+            continue;
+        }
+        $bySku[$sku] = $row;
+        $groups[jg_astra_stock_group_key($row)][] = $row;
+    }
+
+    $plan = [];
+    foreach (array_values(array_unique($selectedSkus)) as $selectedSku) {
+        $selectedRow = $bySku[$selectedSku] ?? null;
+        if (!is_array($selectedRow)) {
+            continue;
+        }
+        $selectedMultiplier = jg_astra_cogs_multiplier($selectedRow);
+        $baseUnitCogs = max(0.0, $sellingUnitCogs) / $selectedMultiplier;
+        foreach ($groups[jg_astra_stock_group_key($selectedRow)] ?? [$selectedRow] as $linkedRow) {
+            $linkedSku = (string) ($linkedRow['sku'] ?? '');
+            if ($linkedSku === '') {
+                continue;
+            }
+            $multiplier = jg_astra_cogs_multiplier($linkedRow);
+            $plan[$linkedSku] = [
+                'sku' => $linkedSku,
+                'new_price' => round($baseUnitCogs * $multiplier, 2),
+                'multiplier' => $multiplier,
+                'selected_sku' => $selectedSku,
+            ];
+        }
+    }
+
+    ksort($plan);
+    return $plan;
+}
+
+/**
+ * @param array<int, array<string, mixed>> $history
+ * @return array<int, array<string, mixed>>
+ */
+function jg_astra_cogs_scale_history(array $history, float $multiplier): array
+{
+    $factor = max(1.0, $multiplier);
+    return array_map(static function (array $change) use ($factor): array {
+        if (array_key_exists('old_price', $change) && $change['old_price'] !== null) {
+            $change['old_price'] = round((float) $change['old_price'] * $factor, 2);
+        }
+        if (array_key_exists('new_price', $change)) {
+            $change['new_price'] = round((float) $change['new_price'] * $factor, 2);
+        }
+        return $change;
+    }, $history);
+}
+
 function jg_astra_stock_to_base_units(int|float $quantity, float $ratio): int
 {
     $value = max(0.0, (float) $quantity) * max(1.0, $ratio);

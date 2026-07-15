@@ -606,6 +606,7 @@ function jg_sku_fetch_requests(PDO $pdo, string $forRole, string $username): arr
 
 function jg_sku_fetch_database(PDO $pdo): array
 {
+    jg_sku_sync_current_cogs($pdo);
     jg_astra_stock_sync($pdo);
 
     $version = jg_sku_meta_version($pdo);
@@ -713,19 +714,21 @@ function jg_sku_fetch_database(PDO $pdo): array
             'has_base_stock_sku' => false,
         ];
         $stockRow = is_array($stockTarget['stock_row'] ?? null) ? $stockTarget['stock_row'] : $row;
+        $baseSku = (string) ($stockTarget['stock_sku'] ?? $sku);
+        $cogsMultiplier = (float) ($stockTarget['stock_ratio'] ?? 1.0);
         $historyStmt = $pdo->prepare(
             'SELECT id, old_price, new_price, takes_place, change_mode, effective_at, recorded_at
              FROM sku_cogs_history
              WHERE sku = :sku
              ORDER BY recorded_at DESC, id DESC'
         );
-        $historyStmt->execute([':sku' => $sku]);
+        $historyStmt->execute([':sku' => $baseSku]);
         $history = [];
         foreach ($historyStmt->fetchAll() as $historyRow) {
             $history[] = [
                 'id' => (int) ($historyRow['id'] ?? 0),
-                'old_price' => $historyRow['old_price'] === null ? null : number_format((float) $historyRow['old_price'], 2, '.', ''),
-                'new_price' => number_format((float) $historyRow['new_price'], 2, '.', ''),
+                'old_price' => $historyRow['old_price'] === null ? null : number_format((float) $historyRow['old_price'] * $cogsMultiplier, 2, '.', ''),
+                'new_price' => number_format((float) $historyRow['new_price'] * $cogsMultiplier, 2, '.', ''),
                 'takes_place' => (string) ($historyRow['takes_place'] ?? ''),
                 'change_mode' => (string) ($historyRow['change_mode'] ?? 'legacy'),
                 'effective_at' => $historyRow['effective_at'] === null ? null : (string) $historyRow['effective_at'],
@@ -749,14 +752,14 @@ function jg_sku_fetch_database(PDO $pdo): array
             'product_name' => jg_sku_product_display_name($sku, $baseProductName),
             'starting_stock' => (int) ($row['starting_stock'] ?? 0),
             'current_stock' => (int) ($row['current_stock'] ?? 0),
-            'base_stock_sku' => (string) ($stockTarget['stock_sku'] ?? $sku),
+            'base_stock_sku' => $baseSku,
             'base_current_stock' => (int) ($stockRow['current_stock'] ?? $row['current_stock'] ?? 0),
-            'stock_ratio' => number_format((float) ($stockTarget['stock_ratio'] ?? 1.0), 4, '.', ''),
-            'is_base_stock_sku' => (string) ($stockTarget['stock_sku'] ?? $sku) === $sku,
+            'stock_ratio' => number_format($cogsMultiplier, 4, '.', ''),
+            'is_base_stock_sku' => $baseSku === $sku,
             'stock_trigger' => (int) ($row['stock_trigger'] ?? 0),
             'inventory_mode' => (string) ($row['inventory_mode'] ?? 'auto'),
             'skip_scan' => (int) ($row['skip_scan'] ?? 0) === 1,
-            'cogs' => number_format((float) $row['cogs'], 2, '.', ''),
+            'cogs' => number_format((float) ($stockRow['cogs'] ?? $row['cogs'] ?? 0) * $cogsMultiplier, 2, '.', ''),
             'sale_price' => number_format((float) ($row['sale_price'] ?? 0), 2, '.', ''),
             'cogs_history' => $history,
             'created_at' => (string) ($row['created_at'] ?? ''),
@@ -1192,30 +1195,37 @@ try {
             jg_sku_fail('Too many SKUs selected.');
         }
 
-        $stmt = $pdo->prepare('SELECT sku, product_id, volume FROM sku_skus WHERE sku = :sku LIMIT 1');
-        $stmt->execute([':sku' => $sku]);
-        $sourceRow = $stmt->fetch();
+        $allRows = jg_astra_stock_rows($pdo);
+        $rowsBySku = [];
+        foreach ($allRows as $row) {
+            $rowSku = (string) ($row['sku'] ?? '');
+            if ($rowSku !== '') {
+                $rowsBySku[$rowSku] = $row;
+            }
+        }
+        $sourceRow = $rowsBySku[$sku] ?? null;
         if (!is_array($sourceRow)) {
             jg_sku_fail('SKU not found.', 404);
         }
 
-        $placeholders = implode(',', array_fill(0, count($selectedSkus), '?'));
-        $selectedStmt = $pdo->prepare('SELECT sku, cogs, product_id, volume FROM sku_skus WHERE sku IN (' . $placeholders . ') ORDER BY sku');
-        $selectedStmt->execute($selectedSkus);
-        $rows = $selectedStmt->fetchAll();
-        if (count($rows) !== count($selectedSkus)) {
-            jg_sku_fail('One or more selected SKUs are no longer available.');
-        }
-
         $sourceVolume = round((float) ($sourceRow['volume'] ?? 0), 1);
         $sourceProductId = (string) ($sourceRow['product_id'] ?? '');
-        foreach ($rows as $row) {
+        foreach ($selectedSkus as $selectedSku) {
+            $row = $rowsBySku[$selectedSku] ?? null;
+            if (!is_array($row)) {
+                jg_sku_fail('One or more selected SKUs are no longer available.');
+            }
             if (round((float) ($row['volume'] ?? 0), 1) !== $sourceVolume) {
                 jg_sku_fail('COGS batches can only include SKUs with the same volume.');
             }
             if ((string) ($row['product_id'] ?? '') !== $sourceProductId) {
                 jg_sku_fail('COGS batches can only include SKUs from the same product family.');
             }
+        }
+
+        $cogsPlan = jg_astra_cogs_plan($allRows, $selectedSkus, (float) $newPrice);
+        if ($cogsPlan === []) {
+            jg_sku_fail('No ASTRA-linked SKUs are available to update.');
         }
 
         $pdo->beginTransaction();
@@ -1228,11 +1238,16 @@ try {
              )'
         );
         $now = jg_sku_now();
-        foreach ($rows as $row) {
-            $rowSku = (string) ($row['sku'] ?? '');
+        foreach ($cogsPlan as $plannedChange) {
+            $rowSku = (string) ($plannedChange['sku'] ?? '');
+            $row = $rowsBySku[$rowSku] ?? null;
+            if (!is_array($row)) {
+                continue;
+            }
+            $derivedPrice = number_format((float) ($plannedChange['new_price'] ?? 0), 2, '.', '');
             if ($changeMode === 'retroactive') {
                 $updateStmt->execute([
-                    ':cogs' => $newPrice,
+                    ':cogs' => $derivedPrice,
                     ':updated_at' => $now,
                     ':sku' => $rowSku,
                 ]);
@@ -1241,7 +1256,7 @@ try {
             $historyStmt->execute([
                 ':sku' => $rowSku,
                 ':old_price' => number_format((float) ($row['cogs'] ?? 0), 2, '.', ''),
-                ':new_price' => $newPrice,
+                ':new_price' => $derivedPrice,
                 ':takes_place' => $takesPlace,
                 ':change_mode' => $changeMode,
                 ':effective_at' => $effectiveAt,

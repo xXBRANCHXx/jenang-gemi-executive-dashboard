@@ -234,7 +234,8 @@ try {
                 $productNames = is_array($decodedNames) ? $decodedNames : [];
             }
             $catalogStmt = $skuPdo->query(
-                'SELECT s.sku, s.tag, s.cogs, s.brand_id, b.name AS brand_name,
+                'SELECT s.sku, s.tag, s.cogs, s.brand_id, s.unit_id, s.product_id, s.flavor_id,
+                        s.astra, s.current_stock, b.name AS brand_name,
                         p.name AS product_name, f.name AS flavor_name,
                         u.name AS unit_name, s.volume
                  FROM sku_skus s
@@ -261,12 +262,20 @@ try {
                     'recorded_at' => (string) ($historyRow['recorded_at'] ?? ''),
                 ];
             }
-            foreach ($catalogStmt->fetchAll() as $row) {
+            $catalogRows = array_values(array_filter($catalogStmt->fetchAll(), 'is_array'));
+            $stockMap = jg_astra_stock_map($catalogRows);
+            foreach ($catalogRows as $row) {
                 $sku = (string) ($row['sku'] ?? '');
+                $stockTarget = $stockMap[$sku] ?? [
+                    'stock_sku' => $sku,
+                    'stock_ratio' => 1.0,
+                ];
+                $baseSku = (string) ($stockTarget['stock_sku'] ?? $sku);
+                $cogsMultiplier = (float) ($stockTarget['stock_ratio'] ?? 1.0);
                 $row['product_name'] = trim((string) ($productNames[$sku] ?? '')) ?: (string) ($row['product_name'] ?? '');
                 $row['cogs'] = (float) ($row['cogs'] ?? 0);
                 $row['volume'] = (float) ($row['volume'] ?? 0);
-                $row['cogs_history'] = $historyBySku[$sku] ?? [];
+                $row['cogs_history'] = jg_astra_cogs_scale_history($historyBySku[$baseSku] ?? [], $cogsMultiplier);
                 $skus[] = $row;
             }
         } catch (Throwable $error) {

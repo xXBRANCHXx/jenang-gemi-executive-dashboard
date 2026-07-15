@@ -5091,6 +5091,13 @@ button, input {
   padding-right: 4px;
 }
 
+.admin-cogs-linked-note {
+  margin: 9px 2px 0;
+  color: var(--sku-muted);
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
 .admin-cogs-batch-row {
   min-height: 48px;
   padding: 8px 9px;

@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/sku-auth.php';
+require_once __DIR__ . '/astra-stock-bootstrap.php';
 
 function jg_sku_db_config(): array
 {
@@ -303,7 +304,10 @@ function jg_sku_cogs_at(array $history, string $targetAt, float $fallback = 0.0)
 
 function jg_sku_sync_current_cogs(PDO $pdo): void
 {
-    $skuRows = $pdo->query('SELECT sku, cogs FROM sku_skus')->fetchAll();
+    $skuRows = $pdo->query(
+        'SELECT sku, brand_id, unit_id, product_id, flavor_id, volume, astra, current_stock, cogs
+         FROM sku_skus'
+    )->fetchAll();
     if ($skuRows === []) {
         return;
     }
@@ -315,12 +319,29 @@ function jg_sku_sync_current_cogs(PDO $pdo): void
     foreach ($historyRows as $row) {
         $historyBySku[(string) ($row['sku'] ?? '')][] = $row;
     }
+    $rowsBySku = [];
+    foreach ($skuRows as $row) {
+        $rowSku = (string) ($row['sku'] ?? '');
+        if ($rowSku !== '') {
+            $rowsBySku[$rowSku] = $row;
+        }
+    }
+    $stockMap = jg_astra_stock_map(array_values(array_filter($skuRows, 'is_array')));
     $targetAt = (new DateTimeImmutable('now', jg_sku_business_timezone()))->format('Y-m-d H:i:s');
     $update = $pdo->prepare('UPDATE sku_skus SET cogs = :cogs, updated_at = :updated_at WHERE sku = :sku');
     foreach ($skuRows as $row) {
         $sku = (string) ($row['sku'] ?? '');
         $stored = (float) ($row['cogs'] ?? 0);
-        $resolved = jg_sku_cogs_at($historyBySku[$sku] ?? [], $targetAt, $stored);
+        $stockTarget = $stockMap[$sku] ?? [
+            'stock_sku' => $sku,
+            'stock_ratio' => 1.0,
+            'stock_row' => $row,
+        ];
+        $baseSku = (string) ($stockTarget['stock_sku'] ?? $sku);
+        $baseRow = $rowsBySku[$baseSku] ?? $row;
+        $baseStored = (float) ($baseRow['cogs'] ?? $stored);
+        $baseResolved = jg_sku_cogs_at($historyBySku[$baseSku] ?? [], $targetAt, $baseStored);
+        $resolved = round($baseResolved * (float) ($stockTarget['stock_ratio'] ?? 1.0), 2);
         if (abs($resolved - $stored) < 0.005) {
             continue;
         }
