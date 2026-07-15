@@ -32,6 +32,11 @@ function wallet_expect_exception(string $expectedMessage, callable $callback, st
 
 $accounts = jg_wallet_known_accounts();
 wallet_expect(6, count($accounts), 'Wallet page must seed Shopee and TikTok wallets for each account.');
+wallet_expect(2, JG_WALLET_RELEASE_SYNC_DAYS, 'Routine order-release repair must use the rolling two-day window.');
+wallet_expect(true, JG_WALLET_RELEASE_SYNC_IMPORT_ROWS <= 5000, 'Routine order-release repair must keep mirror imports bounded.');
+wallet_expect(3, count(jg_wallet_transaction_accounts()), 'Wallet-ledger refresh must identify all Shopee accounts for concurrent work.');
+wallet_expect('zero-shopee', jg_wallet_known_account('Shopee', 'ZERO Shopee')['account_key'] ?? '', 'Account-bounded wallet refresh must normalize and validate known accounts.');
+wallet_expect(null, jg_wallet_known_account('tiktok', 'not-a-wallet'), 'Account-bounded wallet refresh must reject unknown accounts.');
 wallet_expect('shopee|jenang-gemi-shopee', jg_wallet_account_key('Shopee', 'Jenang Gemi Shopee'), 'Wallet account keys must normalize labels safely.');
 wallet_expect('ZERO TikTok', jg_wallet_account_label('ZERO', 'tiktok', 'zero-tiktok'), 'Wallet account labels must use platform names.');
 wallet_expect('Jenang Gemi Shopee', jg_wallet_account_label('', 'shopee', 'jenang-gemi-shopee'), 'Wallet labels must avoid duplicate platform suffixes.');

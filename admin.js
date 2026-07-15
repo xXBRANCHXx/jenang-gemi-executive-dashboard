@@ -7311,6 +7311,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	    const date = parseOrderTimestamp(value || '');
 	    if (!date) return '';
 	    return formatDashboardTime(date, state.timezone, {
+	      day: '2-digit',
+	      month: '2-digit',
 	      hour: '2-digit',
 	      minute: '2-digit',
 	      hour12: false
@@ -7468,13 +7470,15 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (walletRefs.status) {
 	      walletRefs.status.textContent = walletActionStatus(activeAction) || walletBacktrackStatus(backtrack) || (state.wallet.loading
 	        ? 'Loading wallets'
-	        : state.wallet.backgroundLoading
+	        : state.wallet.releaseSyncPromise
+	          ? 'Checking released funds in background'
+	          : state.wallet.backgroundLoading
 	          ? 'Updating wallets in background'
-	        : walletStatusSummary(wallets, totals));
+	          : walletStatusSummary(wallets, totals));
 	    }
 	    if (walletRefs.refresh) {
 	      const hardRefreshing = activeAction.startsWith('sync_releases');
-	      walletRefs.refresh.disabled = state.wallet.loading || Boolean(activeAction);
+	      walletRefs.refresh.disabled = state.wallet.loading || Boolean(activeAction) || Boolean(state.wallet.releaseSyncPromise);
 	      walletRefs.refresh.classList.toggle('is-loading', hardRefreshing);
 	      walletRefs.refresh.textContent = hardRefreshing ? 'Hard Refreshing' : 'Hard Refresh';
 	    }
@@ -9121,7 +9125,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	        timeoutMs: options.timeoutMs || 30000
 		      });
 		      applyWalletData(data, { usingCache: false });
-		      return true;
+		      return data?.release_sync?.ok !== false;
 	    } catch (error) {
 	      if (options.silent || !interactive) {
 	        if (walletRefs.status) walletRefs.status.textContent = error?.message || 'Wallet refresh unavailable';
@@ -9138,17 +9142,81 @@ document.addEventListener('DOMContentLoaded', () => {
 	  };
 
 	  const syncWalletReleases = async (options = {}) => {
-	    const ok = await postWalletAction(
-	      'sync_releases',
-	      { skip_remote: Boolean(options.skipRemote) },
-	      options.background ? 'sync_releases:background' : 'sync_releases',
-	      { timeoutMs: 180000, silent: Boolean(options.silent), background: Boolean(options.background) }
-	    );
-	    if (ok) state.wallet.releaseSyncedAt = Date.now();
-	    if (!ok && options.fallback !== false) {
-	      return loadWalletSafely({ force: true, preferStale: false });
+	    const interactive = Boolean(options.interactive);
+	    if (interactive) {
+	      state.wallet.actionId = 'sync_releases';
+	      renderWallet(state.wallet.data);
 	    }
-	    return ok;
+
+	    try {
+	      // Fetch the cheap stored summary first so a hard refresh repaints at once.
+	      await loadWalletSafely({ force: true, preferStale: false, background: true });
+	      if (interactive) {
+	        state.wallet.actionId = '';
+	        renderWallet(state.wallet.data);
+	      }
+	      const shopeeWallets = (state.wallet.data?.wallets || []).filter((wallet) =>
+	        String(wallet?.platform || '').toLowerCase() === 'shopee' && String(wallet?.account_key || '').trim()
+	      );
+	      const tasks = shopeeWallets.map((wallet) => postWalletAction(
+	        'sync_releases',
+	        {
+	          phase: 'wallet_account',
+	          platform: wallet.platform,
+	          account_key: wallet.account_key,
+	          // Routine checks only need recent wallet activity; an explicit Hard
+	          // Refresh keeps the wider repair window.
+	          days: interactive || !options.skipRemote ? 45 : 7
+	        },
+	        'sync_releases:background',
+	        { timeoutMs: 45000, silent: true, background: true }
+	      ));
+
+	      // Order finance and each Shopee wallet ledger now run concurrently. The
+	      // old implementation serialized every remote call into one >60s request.
+	      if (!options.skipRemote) {
+	        tasks.push(postWalletAction(
+	          'sync_releases',
+	          { phase: 'orders', days: 2 },
+	          'sync_releases:background',
+	          { timeoutMs: 65000, silent: true, background: true }
+	        ));
+	      }
+
+	      const results = await Promise.allSettled(tasks);
+	      const refreshed = results.some((result) => result.status === 'fulfilled' && result.value === true);
+	      await loadWalletSafely({ force: true, preferStale: false, background: true });
+	      if (refreshed) state.wallet.releaseSyncedAt = Date.now();
+	      return refreshed;
+	    } finally {
+	      if (interactive) state.wallet.actionId = '';
+	      renderWallet(state.wallet.data);
+	    }
+	  };
+
+	  const shouldAutoSyncWalletReleases = (options = {}) => {
+	    if (!isBrowserOnline() || document.hidden || state.wallet.backtrackRunning) return false;
+	    if (state.wallet.releaseSyncPromise) return false;
+	    if (options.force) return true;
+	    return Date.now() - Number(state.wallet.releaseSyncedAt || 0) >= AUTO_REFRESH_INTERVAL_MS;
+	  };
+
+	  const startWalletReleaseSync = (options = {}) => {
+	    if (!shouldAutoSyncWalletReleases(options)) return state.wallet.releaseSyncPromise || null;
+	    // Throttle from start time as well as completion time so a failed remote
+	    // account cannot create a request storm. Focus/online/live events can force
+	    // the next bounded retry.
+	    state.wallet.releaseSyncedAt = Date.now();
+	    state.wallet.releaseSyncPromise = syncWalletReleases({
+	      background: true,
+	      interactive: Boolean(options.interactive),
+	      skipRemote: Boolean(options.skipRemote)
+	    }).finally(() => {
+	      state.wallet.releaseSyncPromise = null;
+	      if (state.activeView === 'wallet') renderWallet(state.wallet.data);
+	    });
+	    if (state.activeView === 'wallet') renderWallet(state.wallet.data);
+	    return state.wallet.releaseSyncPromise;
 	  };
 
 	  const runWalletTerminal = async () => {
@@ -10168,6 +10236,11 @@ document.addEventListener('DOMContentLoaded', () => {
 	      preferStale: false,
 	      background: true,
 	      skipReleaseSync: Boolean(options.skipReleaseSync)
+	    }).then((loaded) => {
+	      if (loaded && !options.skipReleaseSync) {
+	        startWalletReleaseSync({ skipRemote: true });
+	      }
+	      return loaded;
 	    }).finally(() => {
 	      state.wallet.backgroundRefreshPromise = null;
 	      state.wallet.backgroundLoading = false;
@@ -10610,9 +10683,10 @@ document.addEventListener('DOMContentLoaded', () => {
 		      } else if (state.activeView === 'orders' || state.activeView === 'overview' || state.activeView === 'wallet' || state.activeView === 'inventory-recap') {
 		        queueActiveViewRefresh({ force: true, forceRefresh: true, repair: true });
 		      }
-	      if (state.activeView !== 'wallet') {
-	        queueViewRefresh('wallet').catch(() => {});
-	      }
+		      if (state.activeView !== 'wallet') {
+		        queueViewRefresh('wallet').catch(() => {});
+		      }
+		      startWalletReleaseSync({ force: true, skipRemote: true });
 	      refreshOverviewHourlyRows(null, { repair: true }).catch(() => {});
       if (state.activeView === 'overview') {
         loadOverviewLocationRows({ force: true, incremental: true, repair: true }).catch(() => {});
@@ -11223,7 +11297,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	  });
 
 	  walletRefs.refresh?.addEventListener('click', () => {
-	    syncWalletReleases().catch(() => {
+	    startWalletReleaseSync({ force: true, interactive: true })?.catch(() => {
 	      loadWalletSafely({ force: true, preferStale: false }).catch(() => {});
 	    });
 	  });

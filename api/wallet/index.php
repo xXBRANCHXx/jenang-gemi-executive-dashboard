@@ -14,11 +14,11 @@ const JG_WALLET_BACKTRACK_START_DATE = '2026-05-20';
 const JG_WALLET_BACKTRACK_CHUNK_DAYS = 1;
 const JG_WALLET_BACKTRACK_IMPORT_ROWS_PER_STEP = 500;
 const JG_WALLET_BACKTRACK_REMOTE_TIMEOUT_SECONDS = 75;
-const JG_WALLET_RELEASE_SYNC_DAYS = 45;
-const JG_WALLET_RELEASE_SYNC_IMPORT_ROWS = 10000;
+const JG_WALLET_RELEASE_SYNC_DAYS = 2;
+const JG_WALLET_RELEASE_SYNC_IMPORT_ROWS = 1500;
 const JG_WALLET_RELEASE_SYNC_REMOTE_TIMEOUT_SECONDS = 35;
-const JG_WALLET_RELEASE_SYNC_IMPORT_TIMEOUT_SECONDS = 18;
-const JG_WALLET_PLATFORM_TRANSACTION_TIMEOUT_SECONDS = 45;
+const JG_WALLET_RELEASE_SYNC_IMPORT_TIMEOUT_SECONDS = 12;
+const JG_WALLET_PLATFORM_TRANSACTION_TIMEOUT_SECONDS = 30;
 const JG_WALLET_RELEASE_BACKFILL_DAYS = 120;
 const JG_WALLET_RELEASE_BACKFILL_IMPORT_ROWS = 1500;
 const JG_WALLET_RELEASE_BACKFILL_REMOTE_TIMEOUT_SECONDS = 70;
@@ -278,6 +278,27 @@ function jg_wallet_known_accounts(): array
         ['platform' => 'tiktok', 'account_key' => 'zero-tiktok', 'company' => 'ZERO', 'label' => 'ZERO TikTok'],
         ['platform' => 'tiktok', 'account_key' => 'zfit-tiktok', 'company' => 'ZFIT', 'label' => 'ZFIT TikTok'],
     ];
+}
+
+function jg_wallet_known_account(string $platform, string $accountKey): ?array
+{
+    $platform = jg_wallet_normalize_key($platform);
+    $accountKey = jg_wallet_normalize_key($accountKey);
+    foreach (jg_wallet_known_accounts() as $account) {
+        if ((string) ($account['platform'] ?? '') === $platform && (string) ($account['account_key'] ?? '') === $accountKey) {
+            return $account;
+        }
+    }
+    return null;
+}
+
+/** @return array<int, array<string, mixed>> */
+function jg_wallet_transaction_accounts(?array $accounts = null): array
+{
+    return array_values(array_filter(
+        $accounts ?? jg_wallet_known_accounts(),
+        static fn (array $account): bool => (string) ($account['platform'] ?? '') === 'shopee'
+    ));
 }
 
 function jg_wallet_summary(PDO $pdo): array
@@ -1001,6 +1022,11 @@ function jg_wallet_release(PDO $pdo, array $payload): array
 
 function jg_wallet_sync_releases(PDO $pdo, array $payload): array
 {
+    $phase = jg_wallet_normalize_key($payload['phase'] ?? 'orders');
+    if (in_array($phase, ['wallet_account', 'wallet_transactions', 'transactions'], true)) {
+        return jg_wallet_sync_account_transactions($pdo, $payload);
+    }
+
     return jg_wallet_run_release_refresh($pdo, $payload, [
         'action' => 'sync',
         'response_key' => 'release_sync',
@@ -1009,11 +1035,68 @@ function jg_wallet_sync_releases(PDO $pdo, array $payload): array
         'default_days' => JG_WALLET_RELEASE_SYNC_DAYS,
         'max_days' => 120,
         'default_import_rows' => JG_WALLET_RELEASE_SYNC_IMPORT_ROWS,
-        'max_import_rows' => 20000,
+        'max_import_rows' => 5000,
         'remote_timeout' => JG_WALLET_RELEASE_SYNC_REMOTE_TIMEOUT_SECONDS,
         'import_timeout' => JG_WALLET_RELEASE_SYNC_IMPORT_TIMEOUT_SECONDS,
-        'time_limit' => 180,
+        // Wallet-ledger accounts are refreshed by separate concurrent browser
+        // requests. Keeping this request focused on orders removes the previous
+        // multi-account, minute-long critical path.
+        'skip_wallet_transactions' => true,
+        'time_limit' => 60,
     ]);
+}
+
+/**
+ * Refresh one Shopee wallet ledger. The client runs these account-bounded calls
+ * concurrently so one slow marketplace account cannot hold every wallet stale.
+ *
+ * @return array<string, mixed>
+ */
+function jg_wallet_sync_account_transactions(PDO $pdo, array $payload): array
+{
+    if (function_exists('set_time_limit')) {
+        @set_time_limit(45);
+    }
+
+    $platform = jg_wallet_normalize_key($payload['platform'] ?? '');
+    $accountKey = jg_wallet_normalize_key($payload['account_key'] ?? $payload['account'] ?? '');
+    $account = jg_wallet_known_account($platform, $accountKey);
+    if (!is_array($account) || $platform !== 'shopee') {
+        throw new InvalidArgumentException('wallet_transaction_account_invalid');
+    }
+
+    $days = jg_wallet_positive_int($payload['days'] ?? 45, 1, 120);
+    $endDate = jg_wallet_date((string) ($payload['end_date'] ?? ''), jg_wallet_today());
+    $startDate = jg_wallet_date((string) ($payload['start_date'] ?? ''), jg_wallet_add_days($endDate, -($days - 1)));
+    if ($startDate > $endDate) {
+        throw new InvalidArgumentException('wallet_release_sync_range_invalid');
+    }
+
+    $result = jg_wallet_import_platform_transactions_from_api(
+        $pdo,
+        $startDate,
+        $endDate,
+        JG_WALLET_PLATFORM_TRANSACTION_TIMEOUT_SECONDS,
+        [$account]
+    );
+    analyticsTouchLiveState('wallet_transaction_sync');
+
+    $summary = jg_wallet_summary_with_backtrack($pdo, jg_wallet_backtrack_latest($pdo));
+    $summary['release_sync'] = [
+        'ok' => !empty($result['ok']),
+        'phase' => 'wallet_account',
+        'range' => [
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'days' => $days,
+        ],
+        'account' => [
+            'platform' => $platform,
+            'account_key' => $accountKey,
+        ],
+        'wallet_transaction_import' => $result,
+    ];
+    return $summary;
 }
 
 function jg_wallet_backfill_releases(PDO $pdo, array $payload): array
@@ -1053,6 +1136,7 @@ function jg_wallet_run_release_refresh(PDO $pdo, array $payload, array $options)
     $maxImportRows = (int) ($options['max_import_rows'] ?? 2000);
     $remoteTimeout = (int) ($options['remote_timeout'] ?? JG_WALLET_RELEASE_SYNC_REMOTE_TIMEOUT_SECONDS);
     $importTimeout = (int) ($options['import_timeout'] ?? JG_WALLET_RELEASE_SYNC_IMPORT_TIMEOUT_SECONDS);
+    $skipWalletTransactions = !empty($options['skip_wallet_transactions']);
 
     $days = jg_wallet_positive_int($payload['days'] ?? $defaultDays, 1, $maxDays);
     $endDate = jg_wallet_date((string) ($payload['end_date'] ?? ''), jg_wallet_today());
@@ -1131,30 +1215,37 @@ function jg_wallet_run_release_refresh(PDO $pdo, array $payload, array $options)
             error_log('Wallet release mirror import failed: ' . $error->getMessage());
         }
 
-        try {
-            $walletTransactions = jg_wallet_import_platform_transactions_from_api(
-                $pdo,
-                $startDate,
-                $endDate,
-                max($importTimeout, JG_WALLET_PLATFORM_TRANSACTION_TIMEOUT_SECONDS)
-            );
-        } catch (Throwable $error) {
-            $walletTransactions = [
-                'attempted' => true,
-                'ok' => false,
-                'error' => $error->getMessage(),
-            ];
-            error_log('Wallet platform transaction import failed: ' . $error->getMessage());
+        $walletTransactions = [
+            'attempted' => !$skipWalletTransactions,
+            'ok' => $skipWalletTransactions,
+            'skipped' => $skipWalletTransactions,
+        ];
+        if (!$skipWalletTransactions) {
+            try {
+                $walletTransactions = jg_wallet_import_platform_transactions_from_api(
+                    $pdo,
+                    $startDate,
+                    $endDate,
+                    max($importTimeout, JG_WALLET_PLATFORM_TRANSACTION_TIMEOUT_SECONDS)
+                );
+            } catch (Throwable $error) {
+                $walletTransactions = [
+                    'attempted' => true,
+                    'ok' => false,
+                    'error' => $error->getMessage(),
+                ];
+                error_log('Wallet platform transaction import failed: ' . $error->getMessage());
+            }
         }
 
         analyticsTouchLiveState($action === 'backfill' ? 'wallet_release_backfill' : 'wallet_release_sync');
 
         $summary = jg_wallet_summary_with_backtrack($pdo, jg_wallet_backtrack_latest($pdo));
         $after = jg_wallet_summary_snapshot($summary);
-        $ok = !empty($sync['ok'])
+        $ok = (empty($sync['skipped']) && !empty($sync['ok']))
             || !empty($import['upserted'])
             || !empty($import['fetched'])
-            || !empty($walletTransactions['ok']);
+            || (empty($walletTransactions['skipped']) && !empty($walletTransactions['ok']));
         $summary[$responseKey] = [
             'ok' => $ok,
             'run_key' => $runKey,
@@ -1196,12 +1287,9 @@ function jg_wallet_run_release_refresh(PDO $pdo, array $payload, array $options)
 /**
  * @return array<string, mixed>
  */
-function jg_wallet_import_platform_transactions_from_api(PDO $pdo, string $startDate, string $endDate, int $timeout = 20): array
+function jg_wallet_import_platform_transactions_from_api(PDO $pdo, string $startDate, string $endDate, int $timeout = 20, ?array $accounts = null): array
 {
-    $accounts = array_values(array_filter(
-        jg_wallet_known_accounts(),
-        static fn (array $account): bool => (string) ($account['platform'] ?? '') === 'shopee'
-    ));
+    $accounts = jg_wallet_transaction_accounts($accounts);
     $fetched = 0;
     $upserted = 0;
     $accountResults = [];
