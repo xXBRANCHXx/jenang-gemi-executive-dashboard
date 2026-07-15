@@ -483,6 +483,7 @@ function jg_sales_run_manual_refresh(string $setupToken, int $year, bool $includ
  */
 function jg_sales_sku_lookup(): array
 {
+    $historyBySku = [];
     try {
         $pdo = jg_sku_db();
         $productNameMap = jg_sales_product_name_map();
@@ -503,6 +504,24 @@ function jg_sales_sku_lookup(): array
         );
         if ($stmt === false) {
             return [];
+        }
+        $historyStmt = $pdo->query(
+            'SELECT id, sku, old_price, new_price, change_mode, effective_at, recorded_at
+             FROM sku_cogs_history ORDER BY sku, recorded_at, id'
+        );
+        foreach (($historyStmt !== false ? $historyStmt->fetchAll() : []) as $historyRow) {
+            $historySku = jg_sales_normalize_sku_key($historyRow['sku'] ?? '');
+            if ($historySku === '') {
+                continue;
+            }
+            $historyBySku[$historySku][] = [
+                'id' => (int) ($historyRow['id'] ?? 0),
+                'old_price' => $historyRow['old_price'] === null ? null : (float) $historyRow['old_price'],
+                'new_price' => (float) ($historyRow['new_price'] ?? 0),
+                'change_mode' => (string) ($historyRow['change_mode'] ?? 'legacy'),
+                'effective_at' => $historyRow['effective_at'] === null ? null : (string) $historyRow['effective_at'],
+                'recorded_at' => (string) ($historyRow['recorded_at'] ?? ''),
+            ];
         }
     } catch (Throwable $error) {
         error_log('Unable to load SKU DB for sales enrichment: ' . $error->getMessage());
@@ -531,6 +550,7 @@ function jg_sales_sku_lookup(): array
             'unit_name' => $unitName,
             'unit_code' => $unitCode,
             'cogs' => (float) ($row['cogs'] ?? 0),
+            'cogs_history' => $historyBySku[jg_sales_normalize_sku_key($sku)] ?? [],
             'is_syrup' => str_contains($productKindName, 'syrup') || str_contains($productKindName, 'sirup'),
             'is_drops' => str_contains($productKindName, 'drop'),
             'is_bubur' => str_contains($productKindName, 'bubur'),
@@ -545,6 +565,20 @@ function jg_sales_sku_lookup(): array
     }
 
     return $lookup;
+}
+
+/** @param array<string, mixed> $skuRecord */
+function jg_sales_sku_cogs_for_month(array $skuRecord, int $year, int $month): float
+{
+    $history = is_array($skuRecord['cogs_history'] ?? null) ? $skuRecord['cogs_history'] : [];
+    if ($history === [] || $month < 1 || $month > 12) {
+        return (float) ($skuRecord['cogs'] ?? 0);
+    }
+    $monthEnd = (new DateTimeImmutable(
+        sprintf('%04d-%02d-01 00:00:00', $year, $month),
+        jg_sku_business_timezone()
+    ))->modify('last day of this month')->setTime(23, 59, 59);
+    return jg_sku_cogs_at($history, $monthEnd->format('Y-m-d H:i:s'), (float) ($skuRecord['cogs'] ?? 0));
 }
 
 function jg_sales_product_name_map(): array
@@ -800,17 +834,18 @@ function jg_sales_enrich_totals_with_profit(array &$summary, int $totalCogs, int
 /**
  * @param array<string, mixed> $products
  * @param array<string, array{sku:string, tag:string, product_name:string, base_product_name:string, flavor_name:string, cogs:float, is_syrup:bool, is_drops:bool}> $lookup
- * @return array{cogs: array<int, int>, fees: array<int, int>}
+ * @return array{cogs: array<int, int>, fees: array<int, int>, sku_cogs: array<string, int>}
  */
-function jg_sales_enrich_monthly_product_cogs(array &$products, array $lookup): array
+function jg_sales_enrich_monthly_product_cogs(array &$products, array $lookup, int $year): array
 {
     $rows = is_array($products['by_month'] ?? null) ? $products['by_month'] : [];
     if ($rows === []) {
-        return ['cogs' => [], 'fees' => []];
+        return ['cogs' => [], 'fees' => [], 'sku_cogs' => []];
     }
 
     $monthlyCogs = [];
     $monthlyFees = [];
+    $skuCogs = [];
     $enrichedRows = [];
     foreach ($rows as $row) {
         if (!is_array($row)) {
@@ -826,12 +861,14 @@ function jg_sales_enrich_monthly_product_cogs(array &$products, array $lookup): 
         $revenue = jg_sales_seller_received($row);
         $grossRevenue = (int) round((float) ($row['gross_revenue'] ?? $revenue));
         $fees = max(0, $grossRevenue - $revenue);
-        $unitCogs = (float) ($skuRecord['cogs'] ?? 0);
+        $unitCogs = is_array($skuRecord) ? jg_sales_sku_cogs_for_month($skuRecord, $year, $month) : 0.0;
         $displayProductName = trim((string) ($skuRecord['product_name'] ?? ''));
         $rowCogs = (int) round($unitCogs * $quantity);
         $row['unit_cogs'] = $unitCogs;
         $row['cogs'] = $rowCogs;
-        $row['cogs_source'] = 'sku_static_average';
+        $row['cogs_source'] = is_array($skuRecord)
+            ? ((is_array($skuRecord['cogs_history'] ?? null) && $skuRecord['cogs_history'] !== []) ? 'sku_quarter_history' : 'sku_static_average')
+            : 'none';
         $row['revenue'] = $revenue;
         $row['marketplace_fees'] = $fees;
         $row['gross_profit'] = $revenue - $rowCogs;
@@ -843,11 +880,12 @@ function jg_sales_enrich_monthly_product_cogs(array &$products, array $lookup): 
         }
         $monthlyCogs[$month] = (int) ($monthlyCogs[$month] ?? 0) + $rowCogs;
         $monthlyFees[$month] = (int) ($monthlyFees[$month] ?? 0) + $fees;
+        $skuCogs[$sku] = (int) ($skuCogs[$sku] ?? 0) + $rowCogs;
         $enrichedRows[] = $row;
     }
 
     $products['by_month'] = $enrichedRows;
-    return ['cogs' => $monthlyCogs, 'fees' => $monthlyFees];
+    return ['cogs' => $monthlyCogs, 'fees' => $monthlyFees, 'sku_cogs' => $skuCogs];
 }
 
 /**
@@ -1035,7 +1073,7 @@ function jg_sales_enrich_with_sku_db(array $summary, int $year): array
 
     $products = is_array($summary['products'] ?? null) ? $summary['products'] : [];
     $rows = is_array($products['by_product'] ?? null) ? $products['by_product'] : [];
-    $monthlyProductMetrics = jg_sales_enrich_monthly_product_cogs($products, $lookup);
+    $monthlyProductMetrics = jg_sales_enrich_monthly_product_cogs($products, $lookup, $year);
     $flavorGroups = [
         'syrup' => [],
         'drops' => [],
@@ -1054,12 +1092,16 @@ function jg_sales_enrich_with_sku_db(array $summary, int $year): array
         $skuRecord = $lookup[$sku] ?? null;
         $quantity = (int) ($row['quantity'] ?? 0);
         $net = jg_sales_seller_received($row);
-        $unitCogs = (float) ($skuRecord['cogs'] ?? 0);
+        $rowCogs = array_key_exists($sku, $monthlyProductMetrics['sku_cogs'])
+            ? (int) $monthlyProductMetrics['sku_cogs'][$sku]
+            : (int) round((float) ($skuRecord['cogs'] ?? 0) * $quantity);
+        $unitCogs = $quantity > 0 ? $rowCogs / $quantity : (float) ($skuRecord['cogs'] ?? 0);
         $displayProductName = trim((string) ($skuRecord['product_name'] ?? ''));
-        $rowCogs = (int) round($unitCogs * $quantity);
         $row['unit_cogs'] = $unitCogs;
         $row['cogs'] = $rowCogs;
-        $row['cogs_source'] = 'sku_static_average';
+        $row['cogs_source'] = is_array($skuRecord)
+            ? ((is_array($skuRecord['cogs_history'] ?? null) && $skuRecord['cogs_history'] !== []) ? 'sku_quarter_history' : 'sku_static_average')
+            : 'none';
         $row['revenue'] = $net;
         $row['gross_profit'] = $net - $rowCogs;
         if ($displayProductName !== '') {
@@ -1320,7 +1362,7 @@ function jg_sales_attach_calculation_audit(array &$summary, int $year): void
             ],
             'cogs' => [
                 'value' => $cogs,
-                'formula' => 'SUM(products.by_month[].cogs) from SKU DB static average COGS',
+                'formula' => 'SUM(products.by_month[].cogs) from effective quarterly SKU DB COGS',
                 'components' => [
                     ['path' => 'totals.cogs', 'value' => $cogs],
                 ],

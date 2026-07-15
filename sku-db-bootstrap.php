@@ -48,6 +48,7 @@ function jg_sku_db(): PDO
     );
 
     jg_sku_ensure_schema($pdo);
+    jg_sku_sync_current_cogs($pdo);
 
     return $pdo;
 }
@@ -156,6 +157,8 @@ function jg_sku_ensure_schema(PDO $pdo): void
             old_price DECIMAL(12,2) NULL DEFAULT NULL,
             new_price DECIMAL(12,2) NOT NULL,
             takes_place VARCHAR(120) NOT NULL,
+            change_mode VARCHAR(24) NOT NULL DEFAULT "legacy",
+            effective_at DATETIME NULL DEFAULT NULL,
             recorded_at DATETIME NOT NULL,
             KEY idx_sku_cogs_history_sku (sku, recorded_at),
             CONSTRAINT fk_sku_cogs_history_sku FOREIGN KEY (sku) REFERENCES sku_skus(sku) ON DELETE CASCADE
@@ -170,8 +173,11 @@ function jg_sku_ensure_schema(PDO $pdo): void
     jg_sku_ensure_column($pdo, 'sku_skus', 'astra', 'DECIMAL(6,2) NOT NULL DEFAULT 0.00 AFTER volume');
     jg_sku_ensure_column($pdo, 'sku_skus', 'skip_scan', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER inventory_mode');
     jg_sku_ensure_column($pdo, 'sku_skus', 'sale_price', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER cogs');
+    jg_sku_ensure_column($pdo, 'sku_cogs_history', 'change_mode', 'VARCHAR(24) NOT NULL DEFAULT "legacy" AFTER takes_place');
+    jg_sku_ensure_column($pdo, 'sku_cogs_history', 'effective_at', 'DATETIME NULL DEFAULT NULL AFTER change_mode');
     $pdo->exec('UPDATE sku_requests SET astra = volume WHERE astra <= 0');
     $pdo->exec('UPDATE sku_skus SET astra = volume WHERE astra <= 0');
+    $pdo->exec('UPDATE sku_cogs_history SET effective_at = recorded_at WHERE effective_at IS NULL AND change_mode = "legacy"');
 
     $now = gmdate('Y-m-d H:i:s');
     $stmt = $pdo->prepare(
@@ -204,4 +210,120 @@ function jg_sku_ensure_column(PDO $pdo, string $tableName, string $columnName, s
 function jg_sku_now(): string
 {
     return gmdate('Y-m-d H:i:s');
+}
+
+function jg_sku_business_timezone(): DateTimeZone
+{
+    static $timezone = null;
+    if (!$timezone instanceof DateTimeZone) {
+        $timezone = new DateTimeZone('Asia/Jakarta');
+    }
+    return $timezone;
+}
+
+function jg_sku_next_quarter_start(?DateTimeImmutable $now = null): string
+{
+    $localNow = ($now ?? new DateTimeImmutable('now', jg_sku_business_timezone()))
+        ->setTimezone(jg_sku_business_timezone());
+    $month = (int) $localNow->format('n');
+    $nextMonth = ((int) floor(($month - 1) / 3) + 1) * 3 + 1;
+    $year = (int) $localNow->format('Y');
+    if ($nextMonth > 12) {
+        $nextMonth = 1;
+        $year++;
+    }
+    return sprintf('%04d-%02d-01 00:00:00', $year, $nextMonth);
+}
+
+function jg_sku_quarter_label(string $dateTime): string
+{
+    $timestamp = DateTimeImmutable::createFromFormat('!Y-m-d H:i:s', $dateTime, jg_sku_business_timezone());
+    if (!$timestamp) {
+        return '';
+    }
+    $quarter = (int) floor(((int) $timestamp->format('n') - 1) / 3) + 1;
+    return sprintf('Q%d %s', $quarter, $timestamp->format('Y'));
+}
+
+function jg_sku_cogs_change_mode_allowed(string $changeMode, string $role): bool
+{
+    $mode = strtolower(trim($changeMode));
+    if ($mode === 'quarterly') {
+        return in_array($role, ['requester', 'branch'], true);
+    }
+    return $mode === 'retroactive' && $role === 'branch';
+}
+
+/** @param array<int, array<string, mixed>> $history */
+function jg_sku_cogs_at(array $history, string $targetAt, float $fallback = 0.0): float
+{
+    usort($history, static function (array $left, array $right): int {
+        $recordedCompare = strcmp((string) ($left['recorded_at'] ?? ''), (string) ($right['recorded_at'] ?? ''));
+        return $recordedCompare !== 0 ? $recordedCompare : (int) ($left['id'] ?? 0) <=> (int) ($right['id'] ?? 0);
+    });
+    $baseline = null;
+    $datedChanges = [];
+    foreach ($history as $change) {
+        $mode = strtolower(trim((string) ($change['change_mode'] ?? 'legacy')));
+        $newPrice = max(0.0, (float) ($change['new_price'] ?? 0));
+        if ($mode === 'audit') {
+            continue;
+        }
+        if ($mode === 'retroactive') {
+            $baseline = $newPrice;
+            $datedChanges = [];
+            continue;
+        }
+        if ($mode === 'opening') {
+            if ($baseline === null) {
+                $baseline = $newPrice;
+            }
+            continue;
+        }
+        if ($baseline === null && array_key_exists('old_price', $change) && $change['old_price'] !== null) {
+            $baseline = max(0.0, (float) $change['old_price']);
+        }
+        $effectiveAt = trim((string) ($change['effective_at'] ?? '')) ?: trim((string) ($change['recorded_at'] ?? ''));
+        if ($effectiveAt !== '') {
+            $datedChanges[] = ['effective_at' => $effectiveAt, 'new_price' => $newPrice, 'id' => (int) ($change['id'] ?? 0)];
+        }
+    }
+    $resolved = $baseline ?? max(0.0, $fallback);
+    usort($datedChanges, static function (array $left, array $right): int {
+        $effectiveCompare = strcmp((string) $left['effective_at'], (string) $right['effective_at']);
+        return $effectiveCompare !== 0 ? $effectiveCompare : (int) $left['id'] <=> (int) $right['id'];
+    });
+    foreach ($datedChanges as $change) {
+        if (strcmp((string) $change['effective_at'], $targetAt) <= 0) {
+            $resolved = (float) $change['new_price'];
+        }
+    }
+    return round($resolved, 2);
+}
+
+function jg_sku_sync_current_cogs(PDO $pdo): void
+{
+    $skuRows = $pdo->query('SELECT sku, cogs FROM sku_skus')->fetchAll();
+    if ($skuRows === []) {
+        return;
+    }
+    $historyBySku = [];
+    $historyRows = $pdo->query(
+        'SELECT id, sku, old_price, new_price, change_mode, effective_at, recorded_at
+         FROM sku_cogs_history ORDER BY recorded_at, id'
+    )->fetchAll();
+    foreach ($historyRows as $row) {
+        $historyBySku[(string) ($row['sku'] ?? '')][] = $row;
+    }
+    $targetAt = (new DateTimeImmutable('now', jg_sku_business_timezone()))->format('Y-m-d H:i:s');
+    $update = $pdo->prepare('UPDATE sku_skus SET cogs = :cogs, updated_at = :updated_at WHERE sku = :sku');
+    foreach ($skuRows as $row) {
+        $sku = (string) ($row['sku'] ?? '');
+        $stored = (float) ($row['cogs'] ?? 0);
+        $resolved = jg_sku_cogs_at($historyBySku[$sku] ?? [], $targetAt, $stored);
+        if (abs($resolved - $stored) < 0.005) {
+            continue;
+        }
+        $update->execute([':cogs' => number_format($resolved, 2, '.', ''), ':updated_at' => jg_sku_now(), ':sku' => $sku]);
+    }
 }

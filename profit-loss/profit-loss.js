@@ -788,17 +788,37 @@ if (root) {
   const catalogCogsForMonth = (catalogRow, month) => {
     const history = Array.isArray(catalogRow?.cogs_history) ? catalogRow.cogs_history : [];
     if (!history.length || !month) return number(catalogRow?.cogs);
-    const monthEnd = new Date(Date.UTC(state.year, month, 1));
-    let effective = null;
-    for (const change of history) {
-      const recordedAt = new Date(String(change.recorded_at || '').replace(' ', 'T') + 'Z');
-      if (!Number.isNaN(recordedAt.getTime()) && recordedAt < monthEnd) effective = number(change.new_price);
+    const monthEnd = `${state.year}-${String(month).padStart(2, '0')}-31 23:59:59`;
+    const ordered = [...history].sort((left, right) => {
+      const recordedCompare = String(left.recorded_at || '').localeCompare(String(right.recorded_at || ''));
+      return recordedCompare || number(left.id) - number(right.id);
+    });
+    let baseline = null;
+    let datedChanges = [];
+    for (const change of ordered) {
+      const mode = String(change.change_mode || 'legacy').toLowerCase();
+      if (mode === 'audit') continue;
+      if (mode === 'retroactive') {
+        baseline = number(change.new_price);
+        datedChanges = [];
+        continue;
+      }
+      if (mode === 'opening') {
+        if (baseline === null) baseline = number(change.new_price);
+        continue;
+      }
+      if (baseline === null && change.old_price !== null && change.old_price !== '' && change.old_price !== undefined) {
+        baseline = number(change.old_price);
+      }
+      const effectiveAt = String(change.effective_at || change.recorded_at || '');
+      if (effectiveAt) datedChanges.push({ effectiveAt, price: number(change.new_price), id: number(change.id) });
     }
-    if (effective !== null) return effective;
-    const firstOldPrice = history[0]?.old_price;
-    return firstOldPrice !== null && firstOldPrice !== '' && firstOldPrice !== undefined
-      ? number(firstOldPrice)
-      : number(history[0]?.new_price || catalogRow?.cogs);
+    datedChanges.sort((left, right) => left.effectiveAt.localeCompare(right.effectiveAt) || left.id - right.id);
+    let resolved = baseline ?? number(catalogRow?.cogs);
+    for (const change of datedChanges) {
+      if (change.effectiveAt <= monthEnd) resolved = change.price;
+    }
+    return resolved;
   };
 
   const calculateProducts = (month, options = {}) => {

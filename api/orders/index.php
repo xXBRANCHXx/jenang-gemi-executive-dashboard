@@ -1901,6 +1901,22 @@ function jg_orders_sku_lookup(PDO $pdo): array
     );
     $lookup = [];
     $skuRows = array_values(array_filter($stmt->fetchAll(), 'is_array'));
+    $historyBySku = [];
+    $historyStmt = $pdo->query(
+        'SELECT id, sku, old_price, new_price, change_mode, effective_at, recorded_at
+         FROM sku_cogs_history ORDER BY sku, recorded_at, id'
+    );
+    foreach (($historyStmt !== false ? $historyStmt->fetchAll() : []) as $historyRow) {
+        $historySku = (string) ($historyRow['sku'] ?? '');
+        $historyBySku[$historySku][] = [
+            'id' => (int) ($historyRow['id'] ?? 0),
+            'old_price' => $historyRow['old_price'] === null ? null : (float) $historyRow['old_price'],
+            'new_price' => (float) ($historyRow['new_price'] ?? 0),
+            'change_mode' => (string) ($historyRow['change_mode'] ?? 'legacy'),
+            'effective_at' => $historyRow['effective_at'] === null ? null : (string) $historyRow['effective_at'],
+            'recorded_at' => (string) ($historyRow['recorded_at'] ?? ''),
+        ];
+    }
     $stockMap = jg_astra_stock_map($skuRows);
     foreach ($skuRows as $row) {
         $sku = (string) $row['sku'];
@@ -1922,6 +1938,7 @@ function jg_orders_sku_lookup(PDO $pdo): array
             'volume' => (float) ($row['volume'] ?? 0),
             'astra' => (float) ($row['astra'] ?? $row['volume'] ?? 0),
             'cogs' => (float) ($row['cogs'] ?? 0),
+            'cogs_history' => $historyBySku[$sku] ?? [],
             'stock_sku' => (string) ($stockTarget['stock_sku'] ?? $sku),
             'stock_ratio' => (float) ($stockTarget['stock_ratio'] ?? 1.0),
             'product_name' => jg_orders_sku_product_display_name($sku, $displayFallback, $productNameMap),
@@ -2128,7 +2145,21 @@ function jg_orders_enriched_row(
     string $allocationError = ''
 ): array {
     $quantity = max(0, (int) ($remoteRow['quantity'] ?? 0));
-    $totalCogs = $sku !== null ? ($quantity * (float) ($sku['cogs'] ?? 0)) : 0.0;
+    $unitCogs = 0.0;
+    $hasCogsHistory = $sku !== null && is_array($sku['cogs_history'] ?? null) && $sku['cogs_history'] !== [];
+    if ($sku !== null) {
+        $unitCogs = (float) ($sku['cogs'] ?? 0);
+        if ($hasCogsHistory) {
+            $orderDate = jg_orders_order_datetime(
+                $remoteRow['order_create_time'] ?? $remoteRow['timestamp'] ?? $remoteRow['created_at'] ?? null
+            );
+            $targetAt = $orderDate instanceof DateTimeImmutable
+                ? $orderDate->setTimezone(jg_sku_business_timezone())->format('Y-m-d H:i:s')
+                : (new DateTimeImmutable('now', jg_sku_business_timezone()))->format('Y-m-d H:i:s');
+            $unitCogs = jg_sku_cogs_at($sku['cogs_history'], $targetAt, $unitCogs);
+        }
+    }
+    $totalCogs = $quantity * $unitCogs;
     $revenue = (int) round((float) ($remoteRow['revenue'] ?? $remoteRow['net_revenue'] ?? $remoteRow['sales'] ?? 0));
 
     return [
@@ -2161,7 +2192,7 @@ function jg_orders_enriched_row(
         'funds_release_source' => (string) ($remoteRow['funds_release_source'] ?? ''),
         'cogs' => (int) round($totalCogs),
         'cogs_estimated' => false,
-        'cogs_source' => $sku !== null ? 'sku_static_average' : 'none',
+        'cogs_source' => $sku !== null ? ($hasCogsHistory ? 'sku_quarter_history' : 'sku_static_average') : 'none',
         'gross_profit' => (int) round($revenue - $totalCogs),
         'username' => (string) ($remoteRow['username'] ?? ''),
         'address' => (string) ($remoteRow['address'] ?? ''),

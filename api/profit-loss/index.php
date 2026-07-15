@@ -245,16 +245,19 @@ try {
                  ORDER BY b.name, p.name, f.name, s.volume'
             );
             $historyStmt = $skuPdo->query(
-                'SELECT sku, old_price, new_price, takes_place, recorded_at
+                'SELECT id, sku, old_price, new_price, takes_place, change_mode, effective_at, recorded_at
                  FROM sku_cogs_history
                  ORDER BY sku, recorded_at, id'
             );
             $historyBySku = [];
             foreach ($historyStmt->fetchAll() as $historyRow) {
                 $historyBySku[(string) ($historyRow['sku'] ?? '')][] = [
+                    'id' => (int) ($historyRow['id'] ?? 0),
                     'old_price' => $historyRow['old_price'] === null ? null : (float) $historyRow['old_price'],
                     'new_price' => (float) ($historyRow['new_price'] ?? 0),
                     'takes_place' => (string) ($historyRow['takes_place'] ?? ''),
+                    'change_mode' => (string) ($historyRow['change_mode'] ?? 'legacy'),
+                    'effective_at' => $historyRow['effective_at'] === null ? null : (string) $historyRow['effective_at'],
                     'recorded_at' => (string) ($historyRow['recorded_at'] ?? ''),
                 ];
             }

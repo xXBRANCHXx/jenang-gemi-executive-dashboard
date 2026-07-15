@@ -242,10 +242,14 @@ function jg_sku_date_value(mixed $value, string $label): string
     return $date;
 }
 
-function jg_sku_build_takes_place(array $payload): string
+function jg_sku_build_takes_place(array $payload, string $changeMode, ?string $effectiveAt): string
 {
     $poNumber = jg_sku_po_number($payload['po_number'] ?? null, false);
-    return $poNumber !== '' ? 'Static average | PO note ' . $poNumber : 'Static average';
+    $poNote = $poNumber !== '' ? ' | PO note ' . $poNumber : '';
+    if ($changeMode === 'retroactive') {
+        return 'Branch hard set | Fully retroactive' . $poNote;
+    }
+    return sprintf('Next quarter | %s%s', jg_sku_quarter_label((string) $effectiveAt), $poNote);
 }
 
 function jg_sku_inventory_ensure_lot_schema(PDO $pdo): void
@@ -712,7 +716,7 @@ function jg_sku_fetch_database(PDO $pdo): array
         ];
         $stockRow = is_array($stockTarget['stock_row'] ?? null) ? $stockTarget['stock_row'] : $row;
         $historyStmt = $pdo->prepare(
-            'SELECT old_price, new_price, takes_place, recorded_at
+            'SELECT id, old_price, new_price, takes_place, change_mode, effective_at, recorded_at
              FROM sku_cogs_history
              WHERE sku = :sku
              ORDER BY recorded_at DESC, id DESC'
@@ -721,9 +725,12 @@ function jg_sku_fetch_database(PDO $pdo): array
         $history = [];
         foreach ($historyStmt->fetchAll() as $historyRow) {
             $history[] = [
+                'id' => (int) ($historyRow['id'] ?? 0),
                 'old_price' => $historyRow['old_price'] === null ? null : number_format((float) $historyRow['old_price'], 2, '.', ''),
                 'new_price' => number_format((float) $historyRow['new_price'], 2, '.', ''),
                 'takes_place' => (string) ($historyRow['takes_place'] ?? ''),
+                'change_mode' => (string) ($historyRow['change_mode'] ?? 'legacy'),
+                'effective_at' => $historyRow['effective_at'] === null ? null : (string) $historyRow['effective_at'],
                 'recorded_at' => (string) ($historyRow['recorded_at'] ?? ''),
             ];
         }
@@ -763,6 +770,8 @@ function jg_sku_fetch_database(PDO $pdo): array
         'meta' => [
             'version' => $version,
             'updated_at' => $metaUpdated,
+            'next_quarter_start' => jg_sku_next_quarter_start(),
+            'next_quarter_label' => jg_sku_quarter_label(jg_sku_next_quarter_start()),
         ],
         'brands' => array_values($brands),
         'units' => $units,
@@ -836,13 +845,17 @@ function jg_sku_create_sku(PDO $pdo, array $payload, ?int $approvalRequestId = n
     ]);
 
     $historyStmt = $pdo->prepare(
-        'INSERT INTO sku_cogs_history (sku, old_price, new_price, takes_place, recorded_at)
-         VALUES (:sku, NULL, :new_price, :takes_place, :recorded_at)'
+        'INSERT INTO sku_cogs_history (
+            sku, old_price, new_price, takes_place, change_mode, effective_at, recorded_at
+         ) VALUES (
+            :sku, NULL, :new_price, :takes_place, "opening", :effective_at, :recorded_at
+         )'
     );
     $historyStmt->execute([
         ':sku' => $parts['sku'],
         ':new_price' => $cogs,
         ':takes_place' => $poNumber !== '' ? ('Opening stock | PO ' . $poNumber) : 'Opening stock',
+        ':effective_at' => $now,
         ':recorded_at' => $now,
     ]);
 }
@@ -1154,7 +1167,15 @@ try {
         }
 
         $newPrice = jg_sku_money($request['new_price'] ?? null, 'New price');
-        $takesPlace = jg_sku_build_takes_place($request);
+        $changeMode = strtolower(trim((string) ($request['change_mode'] ?? 'quarterly')));
+        if (!in_array($changeMode, ['quarterly', 'retroactive'], true)) {
+            jg_sku_fail('COGS change type is invalid.');
+        }
+        if (!jg_sku_cogs_change_mode_allowed($changeMode, jg_sku_session_role())) {
+            jg_sku_require_branch_json();
+        }
+        $effectiveAt = $changeMode === 'quarterly' ? jg_sku_next_quarter_start() : null;
+        $takesPlace = jg_sku_build_takes_place($request, $changeMode, $effectiveAt);
         $requestedSkus = is_array($request['skus'] ?? null) ? $request['skus'] : [$sku];
         $selectedSkus = [];
         foreach ($requestedSkus as $requestedSku) {
@@ -1204,23 +1225,30 @@ try {
         $pdo->beginTransaction();
         $updateStmt = $pdo->prepare('UPDATE sku_skus SET cogs = :cogs, updated_at = :updated_at WHERE sku = :sku');
         $historyStmt = $pdo->prepare(
-            'INSERT INTO sku_cogs_history (sku, old_price, new_price, takes_place, recorded_at)
-             VALUES (:sku, :old_price, :new_price, :takes_place, :recorded_at)'
+            'INSERT INTO sku_cogs_history (
+                sku, old_price, new_price, takes_place, change_mode, effective_at, recorded_at
+             ) VALUES (
+                :sku, :old_price, :new_price, :takes_place, :change_mode, :effective_at, :recorded_at
+             )'
         );
         $now = jg_sku_now();
         foreach ($rows as $row) {
             $rowSku = (string) ($row['sku'] ?? '');
-            $updateStmt->execute([
-                ':cogs' => $newPrice,
-                ':updated_at' => $now,
-                ':sku' => $rowSku,
-            ]);
+            if ($changeMode === 'retroactive') {
+                $updateStmt->execute([
+                    ':cogs' => $newPrice,
+                    ':updated_at' => $now,
+                    ':sku' => $rowSku,
+                ]);
+            }
 
             $historyStmt->execute([
                 ':sku' => $rowSku,
                 ':old_price' => number_format((float) ($row['cogs'] ?? 0), 2, '.', ''),
                 ':new_price' => $newPrice,
                 ':takes_place' => $takesPlace,
+                ':change_mode' => $changeMode,
+                ':effective_at' => $effectiveAt,
                 ':recorded_at' => $now,
             ]);
         }
@@ -1365,8 +1393,11 @@ try {
             ]);
 
             $historyStmt = $pdo->prepare(
-                'INSERT INTO sku_cogs_history (sku, old_price, new_price, takes_place, recorded_at)
-                 VALUES (:sku, NULL, :new_price, :takes_place, :recorded_at)'
+                'INSERT INTO sku_cogs_history (
+                    sku, old_price, new_price, takes_place, change_mode, effective_at, recorded_at
+                 ) VALUES (
+                    :sku, NULL, :new_price, :takes_place, "audit", NULL, :recorded_at
+                 )'
             );
             $historyStmt->execute([
                 ':sku' => $stockSku,

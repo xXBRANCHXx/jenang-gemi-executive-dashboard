@@ -48,6 +48,32 @@ expect_same(false, $enriched['cogs_estimated'], 'Static average COGS rows must n
 expect_same('sku_static_average', $enriched['cogs_source'], 'Read-only enrichment must mark static SKU average COGS.');
 expect_same('SKU product', $enriched['product_name'], 'SKU product names must override marketplace names.');
 
+$datedSku = array_merge($sku, [
+    'cogs_history' => [
+        [
+            'id' => 1,
+            'old_price' => null,
+            'new_price' => 100,
+            'change_mode' => 'opening',
+            'effective_at' => '2026-01-01 00:00:00',
+            'recorded_at' => '2026-01-01 00:00:00',
+        ],
+        [
+            'id' => 2,
+            'old_price' => 100,
+            'new_price' => 120,
+            'change_mode' => 'quarterly',
+            'effective_at' => '2026-04-01 00:00:00',
+            'recorded_at' => '2026-02-15 00:00:00',
+        ],
+    ],
+]);
+$q1Order = jg_orders_enriched_row(array_merge($remoteRow, ['timestamp' => '2026-03-31T10:00:00Z']), $datedSku, 3.0, []);
+$q2Order = jg_orders_enriched_row(array_merge($remoteRow, ['timestamp' => '2026-04-01T10:00:00Z']), $datedSku, 3.0, []);
+expect_same(300, $q1Order['cogs'], 'Orders before quarter cutover must retain the previous COGS.');
+expect_same(360, $q2Order['cogs'], 'Orders after quarter cutover must use the scheduled COGS.');
+expect_same('sku_quarter_history', $q2Order['cogs_source'], 'Effective-dated order COGS must identify quarter history as its source.');
+
 $fallback = jg_orders_enrich_without_inventory([$remoteRow]);
 expect_same(1, count($fallback), 'Inventory fallback must retain order rows.');
 expect_same('Marketplace product', $fallback[0]['product_name'], 'Inventory fallback must retain marketplace product names.');

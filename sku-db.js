@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const state = {
     database: {
-      meta: { version: '1.00.00' },
+      meta: { version: '1.00.00', next_quarter_start: '', next_quarter_label: '' },
       brands: [],
       units: [],
       skus: []
@@ -484,6 +484,28 @@ document.addEventListener('DOMContentLoaded', () => {
   const syncCogsFields = () => {
     if (!(cogsForm instanceof HTMLFormElement)) return;
     setRequired(cogsForm.elements.po_number, false);
+    const selectedMode = String(new window.FormData(cogsForm).get('change_mode') || 'quarterly');
+    const nextQuarterLabel = String(state.database.meta?.next_quarter_label || 'the next quarter');
+    const nextQuarterStart = String(state.database.meta?.next_quarter_start || '').slice(0, 10);
+    const quarterCopy = cogsForm.querySelector('[data-cogs-quarter-copy]');
+    const impact = cogsForm.querySelector('[data-cogs-impact]');
+    const submit = cogsForm.querySelector('[data-cogs-submit]');
+    if (quarterCopy) {
+      quarterCopy.textContent = nextQuarterStart
+        ? `${nextQuarterLabel} begins ${nextQuarterStart}. The current quarter will not change.`
+        : 'Starts automatically at the beginning of the next calendar quarter.';
+    }
+    if (impact) {
+      impact.textContent = selectedMode === 'retroactive'
+        ? 'Branch hard set: all selected SKUs and their historical reports will be recalculated from the beginning.'
+        : `Scheduled for ${nextQuarterLabel}. It remains active until a later quarterly COGS change takes effect.`;
+      impact.classList.toggle('is-danger', selectedMode === 'retroactive');
+    }
+    if (submit instanceof HTMLButtonElement) {
+      submit.textContent = selectedMode === 'retroactive' ? 'Apply Retroactive Hard Set' : 'Schedule COGS Batch';
+      submit.classList.toggle('admin-danger-btn', selectedMode === 'retroactive');
+      submit.classList.toggle('admin-primary-btn', selectedMode !== 'retroactive');
+    }
   };
 
   const syncInventoryFields = () => {
@@ -981,6 +1003,24 @@ document.addEventListener('DOMContentLoaded', () => {
       const trigger = row.stock_trigger ?? 0;
       const stockState = skuStockState(row);
       const skipScan = !!row.skip_scan;
+      const history = Array.isArray(row.cogs_history) ? [...row.cogs_history] : [];
+      history.sort((left, right) => {
+        const recordedCompare = String(left.recorded_at || '').localeCompare(String(right.recorded_at || ''));
+        return recordedCompare || Number(left.id || 0) - Number(right.id || 0);
+      });
+      const lastRetroactiveIndex = history.reduce(
+        (found, change, index) => String(change.change_mode || '').toLowerCase() === 'retroactive' ? index : found,
+        -1
+      );
+      const nextQuarterStart = String(state.database.meta?.next_quarter_start || '');
+      const queuedChanges = history
+        .slice(lastRetroactiveIndex + 1)
+        .filter((change) => String(change.change_mode || '').toLowerCase() === 'quarterly'
+          && String(change.effective_at || '') === nextQuarterStart);
+      const queuedChange = queuedChanges.length ? queuedChanges[queuedChanges.length - 1] : null;
+      const queuedCogs = queuedChange
+        ? `<small class="admin-table-note">${escapeHtml(state.database.meta?.next_quarter_label || 'Next quarter')}: ${escapeHtml(queuedChange.new_price ?? 0)}</small>`
+        : '';
 
       return `
       <tr class="admin-sku-row ${stockState}">
@@ -1025,7 +1065,7 @@ document.addEventListener('DOMContentLoaded', () => {
           </span>
         </td>
         <td data-col="Trigger">${escapeHtml(trigger)}</td>
-        <td data-col="COGS">${escapeHtml(row.cogs ?? 0)}</td>
+        <td data-col="COGS"><strong>${escapeHtml(row.cogs ?? 0)}</strong>${queuedCogs}</td>
         <td data-col="Sale">
           <input
             type="number"
@@ -1269,6 +1309,8 @@ document.addEventListener('DOMContentLoaded', () => {
     cogsForm.elements.old_price.value = String(row.cogs ?? 0);
     cogsForm.elements.new_price.value = String(row.cogs ?? 0);
     cogsForm.elements.po_number.value = '';
+    const quarterlyMode = cogsForm.querySelector('[name="change_mode"][value="quarterly"]');
+    if (quarterlyMode instanceof HTMLInputElement) quarterlyMode.checked = true;
     renderCogsBatch(row);
     syncCogsFields();
     setError(cogsError, '');
@@ -1791,14 +1833,26 @@ document.addEventListener('DOMContentLoaded', () => {
         setError(cogsError, 'Select at least one SKU to update.');
         return;
       }
+      const changeMode = String(formData.get('change_mode') || 'quarterly');
+      if (changeMode === 'retroactive' && !window.confirm('Apply this COGS to all historical periods for every selected SKU? This supersedes their earlier scheduled COGS changes.')) {
+        return;
+      }
       await postAction({
         action: 'change_cogs',
         sku: formData.get('sku'),
         skus,
         new_price: formData.get('new_price'),
-        po_number: String(formData.get('po_number') || '').toUpperCase()
+        po_number: String(formData.get('po_number') || '').toUpperCase(),
+        change_mode: changeMode
       });
       closeCogsModal();
+      showCopyMessage(
+        changeMode === 'retroactive'
+          ? 'Retroactive Branch hard set applied.'
+          : `COGS scheduled for ${state.database.meta?.next_quarter_label || 'the next quarter'}.`,
+        false,
+        'center'
+      );
     } catch (error) {
       setError(cogsError, error instanceof Error ? error.message : 'Unable to change COGS.');
     }
@@ -1924,6 +1978,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.querySelectorAll('[data-close-cogs-modal]').forEach((button) => {
     button.addEventListener('click', closeCogsModal);
+  });
+
+  cogsForm?.querySelectorAll('[name="change_mode"]').forEach((input) => {
+    input.addEventListener('change', syncCogsFields);
   });
 
   document.querySelectorAll('[data-close-sale-price-modal]').forEach((button) => {

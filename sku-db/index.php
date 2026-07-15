@@ -481,7 +481,7 @@ $pageBuildVersion = 'sku1.00.00';
             <div class="admin-panel-head admin-modal-head">
                 <div>
                     <span class="admin-panel-kicker">COGS Update</span>
-                    <h3>Change live COGS</h3>
+                    <h3>Set quarterly COGS</h3>
                 </div>
             </div>
             <form class="admin-sku-form-grid admin-cogs-form-grid" data-cogs-form>
@@ -503,13 +503,33 @@ $pageBuildVersion = 'sku1.00.00';
                     <input type="text" name="old_price" readonly>
                 </label>
                 <label>
-                    <span>New static average</span>
+                    <span>New COGS</span>
                     <input type="number" name="new_price" min="0" step="0.01" required>
                 </label>
                 <label class="admin-sku-full-span">
                     <span>PO Note Optional</span>
                     <input type="text" name="po_number" maxlength="80" placeholder="Optional reference only">
                 </label>
+                <fieldset class="admin-sku-full-span admin-cogs-mode-panel">
+                    <legend>When should this COGS apply?</legend>
+                    <label class="admin-cogs-mode-option">
+                        <input type="radio" name="change_mode" value="quarterly" checked>
+                        <span>
+                            <strong>Next quarter</strong>
+                            <small data-cogs-quarter-copy>Starts automatically at the beginning of the next calendar quarter.</small>
+                        </span>
+                    </label>
+                    <?php if ($isBranch): ?>
+                        <label class="admin-cogs-mode-option admin-cogs-mode-option-danger">
+                            <input type="radio" name="change_mode" value="retroactive">
+                            <span>
+                                <strong>Hard set — fully retroactive</strong>
+                                <small>Branch only. Recalculates every selected SKU from the beginning and supersedes its earlier scheduled COGS periods.</small>
+                            </span>
+                        </label>
+                    <?php endif; ?>
+                </fieldset>
+                <p class="admin-sku-full-span admin-cogs-impact" data-cogs-impact></p>
                 <div class="admin-sku-full-span admin-cogs-batch-panel">
                     <div class="admin-cogs-batch-head">
                         <strong data-cogs-batch-count>0 SKUs selected</strong>
@@ -524,7 +544,7 @@ $pageBuildVersion = 'sku1.00.00';
                     <div class="admin-cogs-batch-list" data-cogs-batch-list></div>
                 </div>
                 <div class="admin-sku-actions">
-                    <button type="submit" class="admin-primary-btn">Save COGS Batch</button>
+                    <button type="submit" class="admin-primary-btn" data-cogs-submit>Schedule COGS Batch</button>
                     <button type="button" class="admin-ghost-btn" data-close-cogs-modal>Cancel</button>
                 </div>
             </form>
