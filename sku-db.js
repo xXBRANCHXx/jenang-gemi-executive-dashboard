@@ -478,6 +478,13 @@ document.addEventListener('DOMContentLoaded', () => {
     return `Rp${Number.isFinite(amount) ? Math.round(amount).toLocaleString('id-ID') : '0'}`;
   };
 
+  const formatRupiahInput = (value) => {
+    const amount = Number(value);
+    return Number.isFinite(amount)
+      ? amount.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
+      : '0';
+  };
+
   const cogsMultiplier = (row) => {
     const volume = Number(row?.volume || 0);
     const astra = Number(row?.astra || volume);
@@ -1104,7 +1111,7 @@ document.addEventListener('DOMContentLoaded', () => {
           && String(change.effective_at || '') === nextQuarterStart);
       const queuedChange = queuedChanges.length ? queuedChanges[queuedChanges.length - 1] : null;
       const queuedCogs = queuedChange
-        ? `<small class="admin-table-note">${escapeHtml(state.database.meta?.next_quarter_label || 'Next quarter')}: ${escapeHtml(queuedChange.new_price ?? 0)}</small>`
+        ? `<small class="admin-table-note">${escapeHtml(state.database.meta?.next_quarter_label || 'Next quarter')}: ${escapeHtml(formatCogsMoney(queuedChange.new_price ?? 0))}</small>`
         : '';
 
       return `
@@ -1150,18 +1157,20 @@ document.addEventListener('DOMContentLoaded', () => {
           </span>
         </td>
         <td data-col="Trigger">${escapeHtml(trigger)}</td>
-        <td data-col="COGS"><strong>${escapeHtml(row.cogs ?? 0)}</strong>${queuedCogs}</td>
+        <td data-col="COGS"><strong>${escapeHtml(formatCogsMoney(row.cogs ?? 0))}</strong>${queuedCogs}</td>
         <td data-col="Sale">
-          <input
-            type="number"
-            class="admin-sku-cell-input admin-sku-sale-price-input"
-            data-inline-sale-price="${escapeHtml(row.sku || '')}"
-            data-current-sale-price="${escapeHtml(row.sale_price ?? 0)}"
-            min="0"
-            step="0.01"
-            value="${escapeHtml(row.sale_price ?? 0)}"
-            aria-label="Sale price for SKU ${escapeHtml(row.sku || '')}"
-          >
+          <span class="admin-sku-rupiah-input">
+            <span aria-hidden="true">Rp</span>
+            <input
+              type="text"
+              class="admin-sku-cell-input admin-sku-sale-price-input"
+              data-inline-sale-price="${escapeHtml(row.sku || '')}"
+              data-current-sale-price="${escapeHtml(row.sale_price ?? 0)}"
+              inputmode="decimal"
+              value="${escapeHtml(formatRupiahInput(row.sale_price ?? 0))}"
+              aria-label="Sale price in rupiah for SKU ${escapeHtml(row.sku || '')}"
+            >
+          </span>
         </td>
         <td data-col="Action">
           <div class="admin-sku-row-menu" data-sku-row-menu>
@@ -1279,7 +1288,17 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const normalizeSalePriceInput = (value) => {
-    const amount = Number(String(value ?? '').trim());
+    const raw = String(value ?? '')
+      .trim()
+      .replace(/^rp\s*/i, '')
+      .replace(/\s+/g, '');
+    let normalized = raw;
+    if (/^\d{1,3}(\.\d{3})+(,\d{1,2})?$/.test(raw)) {
+      normalized = raw.replace(/\./g, '').replace(',', '.');
+    } else if (raw.includes(',')) {
+      normalized = raw.replace(/\./g, '').replace(',', '.');
+    }
+    const amount = Number(normalized);
     if (!Number.isFinite(amount) || amount < 0) return null;
     return amount.toFixed(2);
   };
@@ -1291,12 +1310,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const previousValue = input.dataset.currentSalePrice || '0.00';
     const nextValue = normalizeSalePriceInput(input.value);
     if (nextValue === null) {
-      input.value = previousValue;
+      input.value = formatRupiahInput(previousValue);
       showCopyMessage('Sale price must be zero or higher.', true, 'center');
       return;
     }
 
-    input.value = nextValue;
+    input.value = formatRupiahInput(nextValue);
     if (nextValue === normalizeSalePriceInput(previousValue)) return;
 
     input.dataset.salePriceSaving = '1';
@@ -1310,7 +1329,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       showCopyMessage(`Sale price saved for ${sku}.`, false, 'center');
     } catch (error) {
-      input.value = previousValue;
+      input.value = formatRupiahInput(previousValue);
       showCopyMessage(error instanceof Error ? error.message : 'Unable to change sale price.', true, 'center');
     } finally {
       input.disabled = false;
@@ -1885,7 +1904,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (event.key === 'Escape') {
       event.preventDefault();
-      salePriceInput.value = salePriceInput.dataset.currentSalePrice || '0.00';
+      salePriceInput.value = formatRupiahInput(salePriceInput.dataset.currentSalePrice || '0.00');
       salePriceInput.blur();
     }
   });

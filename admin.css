@@ -15996,9 +15996,35 @@ body:has(.admin-app[data-sku-db]) .admin-build-badge {
   font-weight: 900;
 }
 
-.admin-sku-sale-price-input {
-  width: 108px;
-  min-width: 108px;
+.admin-sku-rupiah-input {
+  display: inline-flex;
+  align-items: center;
+  width: 124px;
+  overflow: hidden;
+  border: 1px solid var(--sku-line);
+  border-radius: var(--sku-radius);
+  background: var(--sku-panel);
+}
+
+.admin-sku-rupiah-input:focus-within {
+  border-color: var(--sku-lime);
+}
+
+.admin-sku-rupiah-input > span {
+  padding-left: 9px;
+  color: var(--sku-muted);
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.admin-app[data-sku-db] .admin-sku-rupiah-input .admin-sku-sale-price-input {
+  width: 88px;
+  min-width: 0;
+  padding: 8px 8px 8px 4px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .admin-sku-row-menu-panel {
