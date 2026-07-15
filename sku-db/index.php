@@ -261,10 +261,6 @@ $pageBuildVersion = 'sku1.00.00';
                                             <span>Sale</span>
                                             <input type="number" name="sale_price" min="0" step="0.01" placeholder="0">
                                         </label>
-                                        <label>
-                                            <span>PO</span>
-                                            <input type="text" name="po_number" maxlength="80" placeholder="P01411">
-                                        </label>
                                         <div class="admin-sku-actions">
                                             <button type="submit" class="admin-primary-btn admin-sku-action-btn">
                                                 <span>Push</span>
@@ -515,10 +511,6 @@ $pageBuildVersion = 'sku1.00.00';
                                 </label>
                                 <span class="admin-cogs-delta" data-cogs-delta>No change</span>
                             </div>
-                            <label class="admin-cogs-po-field">
-                                <span>PO reference <small>Optional</small></span>
-                                <input type="text" name="po_number" maxlength="80" placeholder="Example: PO-2026-Q4-018">
-                            </label>
                         </section>
 
                         <section class="admin-cogs-step-card admin-cogs-batch-panel">
@@ -810,10 +802,6 @@ $pageBuildVersion = 'sku1.00.00';
                     <label>
                         <span>Sale Price (Optional)</span>
                         <input type="number" name="sale_price" min="0" step="0.01" placeholder="Add later">
-                    </label>
-                    <label>
-                        <span>Opening PO Number (Optional)</span>
-                        <input type="text" name="po_number" maxlength="80" placeholder="Add later from invoice import">
                     </label>
                     <label class="admin-sku-full-span">
                         <span>Decision note</span>

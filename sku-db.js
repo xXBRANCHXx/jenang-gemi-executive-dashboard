@@ -545,7 +545,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const syncCogsFields = () => {
     if (!(cogsForm instanceof HTMLFormElement)) return;
-    setRequired(cogsForm.elements.po_number, false);
     const nextQuarterLabel = String(state.database.meta?.next_quarter_label || 'the next quarter');
     const nextQuarterStart = String(state.database.meta?.next_quarter_start || '').slice(0, 10);
     const quarterCopy = cogsForm.querySelector('[data-cogs-quarter-copy]');
@@ -1356,7 +1355,6 @@ document.addEventListener('DOMContentLoaded', () => {
     cogsForm.elements.sku.value = row.sku || '';
     cogsForm.elements.old_price.value = String(row.cogs ?? 0);
     cogsForm.elements.new_price.value = String(row.cogs ?? 0);
-    cogsForm.elements.po_number.value = '';
     const quarterlyMode = cogsForm.querySelector('[name="change_mode"][value="quarterly"]');
     if (quarterlyMode instanceof HTMLInputElement) quarterlyMode.checked = true;
     const retroConfirm = cogsForm.querySelector('[data-cogs-retro-confirm]');
@@ -1499,7 +1497,6 @@ document.addEventListener('DOMContentLoaded', () => {
     approvalForm.elements.astra.value = request.astra || request.volume || '';
     approvalForm.elements.cogs.value = '';
     approvalForm.elements.sale_price.value = '';
-    approvalForm.elements.po_number.value = '';
     approvalForm.elements.decision_notes.value = '';
 
     if (approvalSummary) {
@@ -1621,8 +1618,7 @@ document.addEventListener('DOMContentLoaded', () => {
         starting_stock: applyData.get('starting_stock'),
         stock_trigger: applyData.get('stock_trigger'),
         cogs: applyData.get('cogs'),
-        sale_price: applyData.get('sale_price'),
-        po_number: String(applyData.get('po_number') || '').toUpperCase()
+        sale_price: applyData.get('sale_price')
       });
 
       applyForm.reset();
@@ -1928,7 +1924,6 @@ document.addEventListener('DOMContentLoaded', () => {
         sku: formData.get('sku'),
         skus,
         new_price: formData.get('new_price'),
-        po_number: String(formData.get('po_number') || '').toUpperCase(),
         change_mode: changeMode
       });
       closeCogsModal();
@@ -2056,7 +2051,6 @@ document.addEventListener('DOMContentLoaded', () => {
         astra: formData.get('astra'),
         cogs: formData.get('cogs'),
         sale_price: formData.get('sale_price'),
-        po_number: String(formData.get('po_number') || '').toUpperCase(),
         decision_notes: formData.get('decision_notes')
       });
       closeApprovalModal();

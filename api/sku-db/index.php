@@ -242,14 +242,12 @@ function jg_sku_date_value(mixed $value, string $label): string
     return $date;
 }
 
-function jg_sku_build_takes_place(array $payload, string $changeMode, ?string $effectiveAt): string
+function jg_sku_build_takes_place(string $changeMode, ?string $effectiveAt): string
 {
-    $poNumber = jg_sku_po_number($payload['po_number'] ?? null, false);
-    $poNote = $poNumber !== '' ? ' | PO note ' . $poNumber : '';
     if ($changeMode === 'retroactive') {
-        return 'Branch hard set | Fully retroactive' . $poNote;
+        return 'Branch hard set | Fully retroactive';
     }
-    return sprintf('Next quarter | %s%s', jg_sku_quarter_label((string) $effectiveAt), $poNote);
+    return sprintf('Next quarter | %s', jg_sku_quarter_label((string) $effectiveAt));
 }
 
 function jg_sku_inventory_ensure_lot_schema(PDO $pdo): void
@@ -807,7 +805,6 @@ function jg_sku_create_sku(PDO $pdo, array $payload, ?int $approvalRequestId = n
     $stockTrigger = jg_sku_integer($payload['stock_trigger'] ?? null, 'Stock trigger');
     $cogs = jg_sku_optional_money($payload['cogs'] ?? null);
     $salePrice = jg_sku_optional_money($payload['sale_price'] ?? null, 'Sale price');
-    $poNumber = jg_sku_po_number($payload['po_number'] ?? null, false);
 
     $parts = jg_sku_compose_code($pdo, $brandId, $unitId, $volumeInput, $flavorId, $productId);
     $astra = jg_sku_astra_decimal($payload['astra'] ?? null, $parts['volume']);
@@ -854,7 +851,7 @@ function jg_sku_create_sku(PDO $pdo, array $payload, ?int $approvalRequestId = n
     $historyStmt->execute([
         ':sku' => $parts['sku'],
         ':new_price' => $cogs,
-        ':takes_place' => $poNumber !== '' ? ('Opening stock | PO ' . $poNumber) : 'Opening stock',
+        ':takes_place' => 'Opening stock',
         ':effective_at' => $now,
         ':recorded_at' => $now,
     ]);
@@ -1111,7 +1108,6 @@ try {
             'stock_trigger' => $request['stock_trigger'] ?? null,
             'cogs' => $request['cogs'] ?? null,
             'sale_price' => $request['sale_price'] ?? null,
-            'po_number' => $request['po_number'] ?? null,
         ], $requestId);
 
         $approvedSku = (string) ($requestRow['proposed_sku'] ?? '');
@@ -1175,7 +1171,7 @@ try {
             jg_sku_require_branch_json();
         }
         $effectiveAt = $changeMode === 'quarterly' ? jg_sku_next_quarter_start() : null;
-        $takesPlace = jg_sku_build_takes_place($request, $changeMode, $effectiveAt);
+        $takesPlace = jg_sku_build_takes_place($changeMode, $effectiveAt);
         $requestedSkus = is_array($request['skus'] ?? null) ? $request['skus'] : [$sku];
         $selectedSkus = [];
         foreach ($requestedSkus as $requestedSku) {

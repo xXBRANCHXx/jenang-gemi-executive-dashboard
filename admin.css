@@ -4669,21 +4669,25 @@ button, input {
 }
 
 [data-cogs-modal] {
-  --sku-bg: #090a09;
-  --sku-ink: #f6f7f2;
-  --sku-muted: #929991;
-  --sku-line: rgba(246, 247, 242, 0.12);
-  --sku-panel: #111311;
-  --sku-lime: #b7ff35;
+  --sku-bg: #090909;
+  --sku-ink: #f5f5f5;
+  --sku-muted: #969696;
+  --sku-line: rgba(255, 255, 255, 0.13);
+  --sku-panel: #121212;
+  --cogs-accent: #f5f5f5;
+  --cogs-accent-ink: #090909;
+  --cogs-warning: #f2c94c;
   --sku-radius: 8px;
 }
 
 :root[data-admin-theme='light'] [data-cogs-modal] {
-  --sku-bg: #f7f8f5;
-  --sku-ink: #111511;
-  --sku-muted: #667064;
-  --sku-line: rgba(17, 21, 17, 0.13);
+  --sku-bg: #f5f5f5;
+  --sku-ink: #111111;
+  --sku-muted: #686868;
+  --sku-line: rgba(0, 0, 0, 0.14);
   --sku-panel: #ffffff;
+  --cogs-accent: #111111;
+  --cogs-accent-ink: #ffffff;
 }
 
 [data-cogs-modal] .admin-modal-card {
@@ -4694,9 +4698,13 @@ button, input {
   max-height: 900px;
   padding: 0;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--sku-line) 82%, var(--sku-lime));
+  border: 1px solid color-mix(in srgb, var(--sku-line) 82%, var(--cogs-accent));
   border-radius: 20px;
   background: var(--sku-bg);
+}
+
+[data-cogs-modal] .admin-modal-backdrop {
+  background: rgba(0, 0, 0, 0.78);
 }
 
 .admin-cogs-editor-head {
@@ -4740,7 +4748,7 @@ button, input {
 
 .admin-cogs-close:hover,
 .admin-cogs-close:focus-visible {
-  border-color: var(--sku-lime);
+  border-color: var(--cogs-accent);
   color: var(--sku-ink);
   outline: none;
 }
@@ -4774,8 +4782,7 @@ button, input {
 
 .admin-cogs-context span,
 .admin-cogs-current-price span,
-.admin-cogs-new-price > span,
-.admin-cogs-po-field > span {
+.admin-cogs-new-price > span {
   color: var(--sku-muted);
   font-size: 0.64rem;
   font-weight: 850;
@@ -4854,10 +4861,10 @@ button, input {
   place-items: center;
   width: 28px;
   height: 28px;
-  border: 1px solid color-mix(in srgb, var(--sku-lime) 48%, var(--sku-line));
+  border: 1px solid color-mix(in srgb, var(--cogs-accent) 48%, var(--sku-line));
   border-radius: 50%;
-  background: color-mix(in srgb, var(--sku-lime) 8%, transparent);
-  color: var(--sku-lime);
+  background: color-mix(in srgb, var(--cogs-accent) 8%, transparent);
+  color: var(--cogs-accent);
   font: 850 0.72rem/1 "Space Grotesk", Inter, sans-serif;
 }
 
@@ -4897,15 +4904,15 @@ button, input {
   align-items: center;
   min-height: 54px;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--sku-lime) 50%, var(--sku-line));
+  border: 1px solid color-mix(in srgb, var(--cogs-accent) 50%, var(--sku-line));
   border-radius: 11px;
   background: var(--sku-bg);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sku-lime) 5%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--cogs-accent) 5%, transparent);
 }
 
 .admin-cogs-money-input:focus-within {
-  border-color: var(--sku-lime);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sku-lime) 12%, transparent);
+  border-color: var(--cogs-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--cogs-accent) 12%, transparent);
 }
 
 .admin-cogs-money-input b {
@@ -4934,32 +4941,8 @@ button, input {
   font-weight: 750;
 }
 
-.admin-cogs-delta.is-up { color: #ff9e82; }
-.admin-cogs-delta.is-down { color: var(--sku-lime); }
-
-.admin-cogs-po-field {
-  display: grid;
-  gap: 6px;
-  margin-top: 14px;
-}
-
-.admin-cogs-po-field > span small {
-  color: var(--sku-muted);
-  font-size: inherit;
-  letter-spacing: 0;
-  text-transform: none;
-}
-
-.admin-cogs-po-field input {
-  width: 100%;
-  min-height: 42px;
-  padding: 9px 12px;
-  border: 1px solid var(--sku-line);
-  border-radius: 10px;
-  background: var(--sku-bg);
-  color: var(--sku-ink);
-  outline: none;
-}
+.admin-cogs-delta.is-up,
+.admin-cogs-delta.is-down { color: var(--sku-ink); }
 
 .admin-cogs-mode-panel {
   display: grid;
@@ -4984,13 +4967,14 @@ button, input {
 }
 
 .admin-cogs-mode-option:has(input:checked) {
-  border-color: color-mix(in srgb, var(--sku-lime) 52%, var(--sku-line));
-  background: color-mix(in srgb, var(--sku-lime) 7%, transparent);
+  border-color: color-mix(in srgb, var(--cogs-accent) 52%, var(--sku-line));
+  background: color-mix(in srgb, var(--cogs-accent) 7%, transparent);
 }
 
 .admin-cogs-mode-option-danger:has(input:checked) {
-  border-color: rgba(255, 90, 90, 0.54);
-  background: rgba(255, 90, 90, 0.08);
+  border-style: dashed;
+  border-color: var(--cogs-accent);
+  background: color-mix(in srgb, var(--cogs-accent) 7%, transparent);
 }
 
 .admin-cogs-mode-option input {
@@ -5023,15 +5007,15 @@ button, input {
 }
 
 .admin-cogs-mode-option:has(input:checked) .admin-cogs-mode-check {
-  border-color: var(--sku-lime);
-  background: var(--sku-lime);
-  color: #081004;
+  border-color: var(--cogs-accent);
+  background: var(--cogs-accent);
+  color: var(--cogs-accent-ink);
 }
 
 .admin-cogs-mode-option-danger:has(input:checked) .admin-cogs-mode-check {
-  border-color: #ff7676;
-  background: #ff7676;
-  color: #210707;
+  border-color: var(--cogs-accent);
+  background: var(--cogs-accent);
+  color: var(--cogs-accent-ink);
 }
 
 .admin-cogs-mode-option small {
@@ -5047,8 +5031,9 @@ button, input {
   line-height: 1.55;
 }
 
-.admin-cogs-impact.is-danger {
-  color: #ffb0b0;
+[data-cogs-modal] .admin-cogs-impact.is-danger {
+  color: var(--cogs-warning);
+  font-weight: 700;
 }
 
 .admin-cogs-batch-panel {
@@ -5076,7 +5061,7 @@ button, input {
 }
 
 .admin-cogs-batch-tools button:hover {
-  border-color: var(--sku-lime);
+  border-color: var(--cogs-accent);
   color: var(--sku-ink);
 }
 
@@ -5115,15 +5100,15 @@ button, input {
 }
 
 .admin-cogs-batch-row:has(input:checked) {
-  border-color: color-mix(in srgb, var(--sku-lime) 24%, var(--sku-line));
-  background: color-mix(in srgb, var(--sku-lime) 4%, var(--sku-bg));
+  border-color: color-mix(in srgb, var(--cogs-accent) 30%, var(--sku-line));
+  background: color-mix(in srgb, var(--cogs-accent) 4%, var(--sku-bg));
 }
 
 .admin-cogs-batch-row input {
   width: 18px;
   height: 18px;
   margin: 0;
-  accent-color: var(--sku-lime);
+  accent-color: var(--cogs-accent);
 }
 
 .admin-cogs-batch-row strong,
@@ -5152,7 +5137,7 @@ button, input {
 }
 
 .admin-cogs-review {
-  background: color-mix(in srgb, var(--sku-panel) 88%, var(--sku-lime));
+  background: color-mix(in srgb, var(--sku-panel) 94%, var(--cogs-accent));
 }
 
 .admin-cogs-review-head {
@@ -5175,8 +5160,8 @@ button, input {
 .admin-cogs-review-head strong {
   padding: 5px 8px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--sku-lime) 10%, transparent);
-  color: var(--sku-lime);
+  background: color-mix(in srgb, var(--cogs-accent) 10%, transparent);
+  color: var(--cogs-accent);
   font-size: 0.66rem;
 }
 
@@ -5214,10 +5199,10 @@ button, input {
   gap: 9px;
   margin-top: 12px;
   padding: 10px;
-  border: 1px solid rgba(255, 118, 118, 0.4);
+  border: 1px solid color-mix(in srgb, var(--cogs-warning) 70%, var(--sku-line));
   border-radius: 9px;
-  background: rgba(255, 90, 90, 0.07);
-  color: #ffb8b8;
+  background: color-mix(in srgb, var(--cogs-warning) 10%, transparent);
+  color: var(--cogs-warning);
   font-size: 0.7rem;
   line-height: 1.45;
   cursor: pointer;
@@ -5225,11 +5210,15 @@ button, input {
 
 .admin-cogs-retro-confirm[hidden] { display: none; }
 
+[data-cogs-modal] .admin-cogs-retro-confirm span {
+  color: var(--cogs-warning);
+}
+
 .admin-cogs-retro-confirm input {
   width: 16px;
   height: 16px;
   margin: 1px 0 0;
-  accent-color: #ff7676;
+  accent-color: var(--cogs-warning);
 }
 
 .admin-cogs-footer {
@@ -5247,6 +5236,7 @@ button, input {
 .admin-cogs-footer .admin-form-error {
   flex: 1;
   margin: 0;
+  color: var(--sku-ink);
 }
 
 .admin-cogs-footer-actions {
@@ -5263,16 +5253,28 @@ button, input {
   min-width: 230px;
 }
 
+[data-cogs-modal] .admin-cogs-footer-actions .admin-ghost-btn,
+[data-cogs-modal] .admin-cogs-footer-actions .admin-ghost-btn:hover {
+  border-color: var(--sku-line);
+  background: transparent;
+  color: var(--sku-ink);
+}
+
+[data-cogs-modal] .admin-cogs-footer-actions .admin-ghost-btn:hover {
+  border-color: var(--cogs-accent);
+  background: color-mix(in srgb, var(--cogs-accent) 8%, transparent);
+}
+
 .admin-cogs-footer-actions [data-cogs-submit].admin-primary-btn:not(:disabled) {
-  border-color: var(--sku-lime);
-  background: var(--sku-lime);
-  color: #081004;
+  border-color: var(--cogs-accent);
+  background: var(--cogs-accent);
+  color: var(--cogs-accent-ink);
 }
 
 .admin-cogs-footer-actions [data-cogs-submit].admin-danger-btn:not(:disabled) {
-  border-color: #ff7676;
-  background: #ff7676;
-  color: #210707;
+  border-color: var(--cogs-accent);
+  background: var(--cogs-accent);
+  color: var(--cogs-accent-ink);
 }
 
 @media (max-width: 800px) {
