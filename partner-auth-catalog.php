@@ -34,7 +34,7 @@ function jg_partner_auth_catalog_record(array $row, array $pricing, array $produ
     $unitCount = $volume > 0 && $astraValue > 0
         ? max(1.0, round($volume / $astraValue, 4))
         : 1.0;
-    $partnerUnitPrice = max(0.0, (float) ($pricing[$sku] ?? 0));
+    $partnerSkuPrice = max(0.0, (float) ($pricing[$sku] ?? 0));
     $sizeLabel = $volume > 0
         ? number_format($volume, 1, '.', '') . ' ' . trim((string) ($row['unit_name'] ?? ''))
         : trim((string) ($row['unit_name'] ?? ''));
@@ -65,8 +65,8 @@ function jg_partner_auth_catalog_record(array $row, array $pricing, array $produ
         'size_label' => $sizeLabel,
         'label' => implode(' · ', array_filter($labelParts, static fn (string $value): bool => $value !== '')),
         'current_stock' => (int) ($row['current_stock'] ?? 0),
-        'partner_unit_price' => $partnerUnitPrice,
-        'partner_price' => round($partnerUnitPrice * $unitCount, 2),
+        'partner_unit_price' => $partnerSkuPrice,
+        'partner_price' => $partnerSkuPrice,
     ];
 }
 

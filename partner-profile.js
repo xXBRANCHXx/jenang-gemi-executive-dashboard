@@ -370,7 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <span>${escapeHtml(sku.flavor_name || 'Default')}</span>
           <span>${escapeHtml(skuUnitLabel(sku))}</span>
           <label class="partner-profile-price">
-            <input type="number" min="0" step="100" inputmode="decimal" value="${escapeHtml(price)}" data-partner-sku-price="${escapeHtml(sku.sku || '')}" aria-label="Partner unit price for ${escapeHtml(sku.label || sku.sku || 'SKU')}">
+            <input type="number" min="0" step="100" inputmode="decimal" value="${escapeHtml(price)}" data-partner-sku-price="${escapeHtml(sku.sku || '')}" aria-label="Partner SKU price for ${escapeHtml(sku.label || sku.sku || 'SKU')}">
           </label>
         </div>
       `;
@@ -386,8 +386,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     selectedSkuList.innerHTML = rows.map((sku) => {
-      const unitPrice = Math.max(0, Number(state.pricing[sku.sku] || 0));
-      const skuPrice = unitPrice * skuUnitCount(sku);
+      const skuPrice = Math.max(0, Number(state.pricing[sku.sku] || 0));
       return `
         <article class="partner-profile-selected-card">
           <div class="partner-profile-selected-icon">SKU</div>

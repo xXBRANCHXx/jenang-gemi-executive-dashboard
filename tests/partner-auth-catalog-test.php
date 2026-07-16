@@ -32,7 +32,8 @@ $record = jg_partner_auth_catalog_record([
 
 partner_auth_catalog_expect('JG-001', $record['sku'], 'Approved SKU code should be preserved.');
 partner_auth_catalog_expect(2.0, $record['unit_count'], 'Approved SKU ASTRA unit count should be calculated.');
-partner_auth_catalog_expect(30000.0, $record['partner_price'], 'Approved SKU partner price should include ASTRA units.');
+partner_auth_catalog_expect(15000.0, $record['partner_price'], 'Approved SKU partner price should remain the configured SKU-level price.');
+partner_auth_catalog_expect(15000.0, $record['partner_unit_price'], 'Approved SKU unit price should remain the configured SKU-level price.');
 partner_auth_catalog_expect('Jenang · Original · 200.0 g', $record['label'], 'Approved SKU label should contain product details.');
 partner_auth_catalog_expect(12, $record['current_stock'], 'Approved SKU stock should be preserved.');
 

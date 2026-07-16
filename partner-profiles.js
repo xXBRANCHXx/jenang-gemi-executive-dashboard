@@ -378,8 +378,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     pricingList.innerHTML = skuRecords.map((sku) => {
-      const unitPrice = Number(state.pricing[sku.sku] || 0);
-      const skuPrice = unitPrice * skuUnitCount(sku);
+      const skuPrice = Number(state.pricing[sku.sku] || 0);
       return `
       <label class="partner-pricing-row">
         <span>
@@ -387,7 +386,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <small>${escapeHtml(sku.sku || '')} · ${escapeHtml(skuUnitFormula(sku))}</small>
         </span>
         <span class="partner-pricing-control">
-          <input type="number" min="0" step="100" inputmode="decimal" value="${escapeHtml(unitPrice)}" data-partner-sku-price="${escapeHtml(sku.sku || '')}" aria-label="Partner unit price for ${escapeHtml(sku.label || sku.sku || '')}">
+          <input type="number" min="0" step="100" inputmode="decimal" value="${escapeHtml(skuPrice)}" data-partner-sku-price="${escapeHtml(sku.sku || '')}" aria-label="Partner SKU price for ${escapeHtml(sku.label || sku.sku || '')}">
           <small class="partner-pricing-derived">SKU price ${escapeHtml(formatCurrency(skuPrice))}</small>
         </span>
       </label>
@@ -398,12 +397,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const syncPriceInput = (input) => {
     const skuCode = input.getAttribute('data-partner-sku-price');
     if (!skuCode) return false;
-    const unitPrice = Math.max(0, Number(input.value || 0));
-    const sku = catalogSkus().find((row) => row.sku === skuCode) || {};
-    state.pricing[skuCode] = unitPrice;
+    const skuPrice = Math.max(0, Number(input.value || 0));
+    state.pricing[skuCode] = skuPrice;
     const derived = input.closest('.partner-pricing-control')?.querySelector('.partner-pricing-derived');
     if (derived instanceof HTMLElement) {
-      derived.textContent = `SKU price ${formatCurrency(unitPrice * skuUnitCount(sku))}`;
+      derived.textContent = `SKU price ${formatCurrency(skuPrice)}`;
     }
     return true;
   };

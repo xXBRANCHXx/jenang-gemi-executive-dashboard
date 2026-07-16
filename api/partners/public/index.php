@@ -269,10 +269,9 @@ function jg_public_partner_enrich(array $partner, array $catalog): array
         }
 
         $sku = $skuIndex[$skuCode];
-        $partnerUnitPrice = max(0.0, (float) ($pricing[$skuCode] ?? 0));
-        $unitCount = max(1.0, (float) ($sku['unit_count'] ?? 1));
-        $sku['partner_unit_price'] = $partnerUnitPrice;
-        $sku['partner_price'] = round($partnerUnitPrice * $unitCount, 2);
+        $partnerSkuPrice = max(0.0, (float) ($pricing[$skuCode] ?? 0));
+        $sku['partner_unit_price'] = $partnerSkuPrice;
+        $sku['partner_price'] = $partnerSkuPrice;
         $selectedSkus[] = $sku;
 
         $brandId = (string) ($sku['brand_id'] ?? '');
