@@ -43,20 +43,21 @@ try {
     $pdo = analyticsDb();
     $skuPdo = jg_sku_db();
     jg_website_ensure_schema($pdo);
-    $readiness = jg_hard_set_readiness($pdo, $skuPdo);
     $access = [
         'branch' => jg_sku_is_branch(),
         'username' => jg_sku_is_branch() ? jg_sku_session_username() : '',
     ];
 
     if ($method === 'GET') {
-        jg_hard_set_deliver_outbox($pdo);
+        $delivery = jg_hard_set_deliver_outbox($pdo);
+        $readiness = jg_hard_set_readiness($pdo, $skuPdo);
         jg_hard_set_json([
             'ok' => true,
             'state' => jg_hard_set_state($pdo),
             'readiness' => $readiness,
             'audit' => jg_hard_set_audit($pdo),
             'access' => $access,
+            'delivery' => $delivery,
         ]);
     }
 
@@ -70,12 +71,19 @@ try {
     if (!hash_equals('ACTIVATE BIG SET', trim((string) ($body['confirmation'] ?? '')))) {
         jg_hard_set_json(['ok' => false, 'error' => 'Type ACTIVATE BIG SET exactly.'], 422);
     }
-    if (empty($readiness['ready'])) {
+    $readiness = jg_hard_set_readiness($pdo, $skuPdo);
+    $currentState = jg_hard_set_state($pdo);
+    if (jg_hard_set_activation_requires_readiness($currentState) && empty($readiness['ready'])) {
         jg_hard_set_json(['ok' => false, 'error' => 'All readiness checks must pass before activation.', 'readiness' => $readiness], 409);
     }
     $actor = 'Branch tier: ' . jg_sku_session_username();
-    $result = jg_hard_set_activate($pdo, $actor);
-    jg_hard_set_deliver_outbox($pdo);
+    $result = jg_hard_set_activate(
+        $pdo,
+        $actor,
+        is_array($readiness['automatic_sources'] ?? null) ? $readiness['automatic_sources'] : []
+    );
+    $delivery = jg_hard_set_deliver_outbox($pdo);
+    $readiness = jg_hard_set_readiness($pdo, $skuPdo);
     jg_hard_set_json([
         'ok' => true,
         'activated' => $result['activated'],
@@ -83,7 +91,9 @@ try {
         'readiness' => $readiness,
         'audit' => jg_hard_set_audit($pdo),
         'access' => $access,
-    ]);
+        'delivery' => $delivery,
+        'warning' => $delivery['delivered'] ? '' : 'Big Set is locked ON, but downstream synchronization is still pending. Do not treat automation as live yet.',
+    ], $delivery['delivered'] ? 200 : 202);
 } catch (Throwable $error) {
     error_log('Hard Set API failed: ' . $error->getMessage());
     jg_hard_set_json(['ok' => false, 'error' => 'Hard Set service is unavailable.'], 500);

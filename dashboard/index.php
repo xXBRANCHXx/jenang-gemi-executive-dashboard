@@ -1373,7 +1373,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                         <span class="admin-chip admin-chip-accent">Hard Set</span>
                         <h2>Hard Set</h2>
                         <p class="admin-hard-set-subtitle">Big Set</p>
-                        <p data-hard-set-explanation>Website orders notify and count in metrics now. Store Ops remains isolated until this switch is permanently activated.</p>
+                        <p data-hard-set-explanation>Website metrics are live, but website ingestion and automatic marketplace shipment arrangement remain OFF until this switch is permanently activated.</p>
                     </div>
                     <div class="admin-hard-set-state"><span>Current state</span><strong data-hard-set-state>Loading</strong><small data-hard-set-activation></small></div>
                 </section>
@@ -1565,7 +1565,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
         <form method="dialog" data-hard-set-form>
             <span class="admin-panel-kicker">Irreversible cutover</span>
             <h2 id="hard-set-confirm-title">Activate Big Set?</h2>
-            <p>Only orders created after the server records activation can enter Store Ops. Pre-activation orders remain manual-era forever.</p>
+            <p>This permanently enables Store Ops website ingestion and authorizes API Ingest to arrange Shopee/TikTok shipments for the frozen automatic accounts. Marketplace orders at or before the server cutover remain manual; post-cutover orders are hidden from Store Ops until shipment is arranged and a valid label is stored.</p>
             <label><span>Type <strong>ACTIVATE BIG SET</strong></span><input name="confirmation" autocomplete="off" required></label>
             <p class="admin-form-error" data-hard-set-error hidden></p>
             <div class="admin-modal-actions"><button type="button" class="admin-ghost-btn" data-hard-set-cancel>Cancel</button><button type="submit" class="admin-danger-btn">Activate Permanently</button></div>

@@ -238,9 +238,9 @@ function jg_website_ensure_schema(PDO $pdo): void
     $stmt->execute([':created_at' => $now, ':updated_at' => $now]);
 }
 
-function jg_hard_set_state(PDO $pdo, bool $forUpdate = false): array
+function jg_hard_set_state(PDO $pdo, bool $forUpdate = false, bool $ensureSchema = true): array
 {
-    if (!$pdo->inTransaction()) {
+    if ($ensureSchema && !$pdo->inTransaction()) {
         jg_website_ensure_schema($pdo);
     }
     $sql = 'SELECT enabled, activated_at, activated_by, created_at, updated_at FROM hard_set_state WHERE id = 1';
@@ -256,6 +256,11 @@ function jg_hard_set_state(PDO $pdo, bool $forUpdate = false): array
         'activated_by' => (string) ($row['activated_by'] ?? ''),
         'updated_at' => (string) ($row['updated_at'] ?? ''),
     ];
+}
+
+function jg_hard_set_activation_requires_readiness(array $state): bool
+{
+    return empty($state['enabled']);
 }
 
 function jg_website_order_prefix(string $platform): string
@@ -1207,18 +1212,93 @@ function jg_website_update_status(PDO $pdo, string $orderId, string $status): ar
     return jg_website_format_order($saved, jg_website_order_items($pdo, (int) $saved['id']));
 }
 
-function jg_website_activation_payload(array $state): array
+function jg_website_activation_payload(array $state, array $automaticSources): array
 {
+    $automaticSources = jg_hard_set_remote_marketplace_sources(['sources' => $automaticSources]);
+    if ($automaticSources === []) {
+        throw new RuntimeException('A verified automatic-shipment source scope is required before activation.');
+    }
     return [
         'event' => 'hard_set_activated',
         'enabled' => true,
         'activated_at' => $state['activated_at_iso'] ?? jg_website_atom((string) ($state['activated_at'] ?? '')),
         'activated_by' => (string) ($state['activated_by'] ?? ''),
         'sources' => array_merge(array_keys(JG_WEBSITE_PLATFORMS), ['shopee', 'tiktok']),
+        'automatic_sources' => $automaticSources,
     ];
 }
 
-function jg_hard_set_activate(PDO $pdo, string $actor): array
+/**
+ * Confirm that API Ingest froze the same account-level source scope already
+ * acknowledged by Store Ops. The generic `sources` field above describes
+ * product areas; it must never authorize marketplace account automation.
+ */
+function jg_hard_set_delivery_payload_with_api_scope(array $payload, array $apiActivation): array
+{
+    jg_hard_set_projection_ack_state($payload, $apiActivation, 'API Ingest', 'sources');
+    return $payload;
+}
+
+/** @return array<string,mixed> */
+function jg_hard_set_projection_ack_state(
+    array $payload,
+    array $acknowledgement,
+    string $service,
+    string $sourceField
+): array {
+    $state = is_array($acknowledgement['state'] ?? null) ? $acknowledgement['state'] : [];
+    $expectedTimestamp = $payload['activated_at'] ?? $payload['activated_at_iso'] ?? '';
+    $stateAlignment = jg_hard_set_downstream_state_alignment(
+        ['enabled' => true, 'activated_at' => $expectedTimestamp],
+        $state
+    );
+    if (empty($stateAlignment['ready'])) {
+        throw new RuntimeException($service . ' did not acknowledge the exact permanent cutover state and timestamp.');
+    }
+
+    $automaticSources = jg_hard_set_remote_marketplace_sources([
+        'sources' => is_array($state[$sourceField] ?? null) ? $state[$sourceField] : [],
+    ]);
+    $expectedSources = jg_hard_set_remote_marketplace_sources([
+        'sources' => is_array($payload['automatic_sources'] ?? null) ? $payload['automatic_sources'] : [],
+    ]);
+    if ($automaticSources === [] || $expectedSources === []) {
+        throw new RuntimeException($service . ' did not acknowledge a frozen automatic-shipment source scope.');
+    }
+    if ($automaticSources !== $expectedSources) {
+        throw new RuntimeException($service . ' acknowledged a different automatic-shipment source scope.');
+    }
+    return $state;
+}
+
+/**
+ * Project the irreversible cutover in the only safe order: Store Ops first,
+ * then API Ingest. API Ingest is the component that can mutate marketplace
+ * shipments, so its callback must never run when Store Ops rejects the scope.
+ */
+function jg_hard_set_project_activation(
+    array $payload,
+    callable $deliverStoreOps,
+    callable $deliverApiIngest
+): array {
+    $storeOpsActivation = $deliverStoreOps($payload);
+    if (!is_array($storeOpsActivation)) {
+        throw new RuntimeException('Store Ops activation did not return a valid acknowledgement.');
+    }
+    jg_hard_set_projection_ack_state(
+        $payload,
+        $storeOpsActivation,
+        'Store Ops',
+        'automatic_sources'
+    );
+    $apiActivation = $deliverApiIngest($payload);
+    if (!is_array($apiActivation)) {
+        throw new RuntimeException('API Ingest activation did not return a valid acknowledgement.');
+    }
+    return jg_hard_set_delivery_payload_with_api_scope($payload, $apiActivation);
+}
+
+function jg_hard_set_activate(PDO $pdo, string $actor, array $automaticSources): array
 {
     $actor = mb_substr(trim($actor), 0, 160);
     if ($actor === '') {
@@ -1246,7 +1326,7 @@ function jg_hard_set_activate(PDO $pdo, string $actor): array
             'activated_by' => $actor,
             'updated_at' => $now,
         ];
-        $payload = jg_website_activation_payload($state);
+        $payload = jg_website_activation_payload($state, $automaticSources);
         $pdo->prepare(
             'INSERT INTO hard_set_audit (event_type, actor, payload_json, created_at)
              VALUES ("ACTIVATED", :actor, :payload_json, :created_at)'
@@ -1274,25 +1354,108 @@ function jg_hard_set_activate(PDO $pdo, string $actor): array
     return ['state' => $state, 'activated' => true];
 }
 
-function jg_hard_set_deliver_outbox(PDO $pdo): void
+/** @return array{required:bool,delivered:bool,status:string,attempts:int,last_error:string,delivered_at:?string} */
+function jg_hard_set_delivery_state(PDO $pdo): array
+{
+    $row = $pdo->query(
+        'SELECT status, attempts, last_error, delivered_at FROM hard_set_outbox ORDER BY id DESC LIMIT 1'
+    )->fetch();
+    if (!is_array($row)) {
+        return ['required' => false, 'delivered' => true, 'status' => 'not_required', 'attempts' => 0, 'last_error' => '', 'delivered_at' => null];
+    }
+    return [
+        'required' => true,
+        'delivered' => (string) ($row['status'] ?? '') === 'delivered',
+        'status' => (string) ($row['status'] ?? 'pending'),
+        'attempts' => (int) ($row['attempts'] ?? 0),
+        'last_error' => (string) ($row['last_error'] ?? ''),
+        'delivered_at' => !empty($row['delivered_at']) ? jg_website_atom((string) $row['delivered_at']) : null,
+    ];
+}
+
+/**
+ * Classify a read-only deployment preflight without mutating the Hard Set or
+ * retrying its outbox.
+ *
+ * @return array{ok:bool,status:string,detail:string,failed_checks:array<int,array<string,mixed>>}
+ */
+function jg_hard_set_preflight_result(array $state, array $readiness, array $delivery): array
+{
+    $enabled = !empty($state['enabled']);
+    $ready = !empty($readiness['ready']);
+    $deliveryComplete = empty($delivery['required']) || !empty($delivery['delivered']);
+    $failedChecks = array_values(array_filter(
+        is_array($readiness['checks'] ?? null) ? $readiness['checks'] : [],
+        static fn (mixed $check): bool => is_array($check) && empty($check['ready'])
+    ));
+
+    if (!$enabled) {
+        return [
+            'ok' => $ready && $deliveryComplete,
+            'status' => $ready && $deliveryComplete ? 'ready_for_activation' : 'not_ready',
+            'detail' => $ready && $deliveryComplete
+                ? 'Hard Set is OFF and every activation readiness check passes.'
+                : 'Hard Set must remain OFF until every readiness check passes.',
+            'failed_checks' => $failedChecks,
+        ];
+    }
+    if (!$deliveryComplete) {
+        return [
+            'ok' => false,
+            'status' => 'synchronization_pending',
+            'detail' => 'Hard Set is permanently ON, but downstream services have not acknowledged the cutover.',
+            'failed_checks' => $failedChecks,
+        ];
+    }
+    return [
+        'ok' => $ready,
+        'status' => $ready ? 'active_healthy' : 'active_degraded',
+        'detail' => $ready
+            ? 'Hard Set is permanently ON, synchronized, and operationally healthy.'
+            : 'Hard Set is permanently ON and synchronized, but one or more operational checks need attention.',
+        'failed_checks' => $failedChecks,
+    ];
+}
+
+/** @return array{required:bool,delivered:bool,status:string,attempts:int,last_error:string,delivered_at:?string} */
+function jg_hard_set_deliver_outbox(PDO $pdo): array
 {
     $row = $pdo->query(
         'SELECT id, payload_json FROM hard_set_outbox WHERE status = "pending" ORDER BY id LIMIT 1'
     )->fetch();
     if (!is_array($row)) {
-        return;
+        return jg_hard_set_delivery_state($pdo);
     }
     $base = rtrim(jg_website_config('JG_STORE_OPS_BASE_URL', 'store_ops_base_url'), '/');
     $marketplaceBase = jg_dashboard_marketplace_api_base_url();
     $token = jg_website_store_ops_token();
     if ($base === '' || $marketplaceBase === '' || $token === '') {
-        return;
+        $pdo->prepare(
+            'UPDATE hard_set_outbox SET last_error = :last_error WHERE id = :id'
+        )->execute([
+            ':last_error' => 'Downstream Store Ops, API Ingest, or activation token configuration is missing.',
+            ':id' => $row['id'],
+        ]);
+        return jg_hard_set_delivery_state($pdo);
     }
     try {
         $payload = json_decode((string) $row['payload_json'], true);
         $payload = is_array($payload) ? $payload : [];
-        jg_website_http_json('POST', $base . '/api/website-orders/?action=activate', $payload, $token);
-        jg_website_http_json('POST', $marketplaceBase . '/hard-set/activate', $payload, $token);
+        jg_hard_set_project_activation(
+            $payload,
+            static fn (array $activationPayload): array => jg_website_http_json(
+                'POST',
+                $base . '/api/website-orders/?action=activate',
+                $activationPayload,
+                $token
+            ),
+            static fn (array $activationPayload): array => jg_website_http_json(
+                'POST',
+                $marketplaceBase . '/hard-set/activate',
+                $activationPayload,
+                $token
+            )
+        );
         $pdo->prepare(
             'UPDATE hard_set_outbox SET status = "delivered", attempts = attempts + 1, last_error = "", delivered_at = :delivered_at WHERE id = :id'
         )->execute([':delivered_at' => jg_website_now(), ':id' => $row['id']]);
@@ -1301,6 +1464,7 @@ function jg_hard_set_deliver_outbox(PDO $pdo): void
             'UPDATE hard_set_outbox SET attempts = attempts + 1, last_error = :last_error WHERE id = :id'
         )->execute([':last_error' => mb_substr($error->getMessage(), 0, 500), ':id' => $row['id']]);
     }
+    return jg_hard_set_delivery_state($pdo);
 }
 
 function jg_hard_set_audit(PDO $pdo): array
@@ -1317,9 +1481,171 @@ function jg_hard_set_audit(PDO $pdo): array
     )->fetchAll());
 }
 
-function jg_hard_set_readiness(PDO $analyticsPdo, PDO $skuPdo): array
+/** @return array<int,string> */
+function jg_hard_set_remote_marketplace_sources(array $readiness): array
 {
-    jg_website_ensure_schema($analyticsPdo);
+    $sources = [];
+    foreach (is_array($readiness['sources'] ?? null) ? $readiness['sources'] : [] as $source) {
+        $parts = array_map(
+            static fn (string $value): string => trim(strtolower((string) preg_replace('/[^a-z0-9._-]+/i', '-', $value)), '.-_'),
+            explode(':', (string) $source, 2)
+        );
+        if (in_array($parts[0] ?? '', ['shopee', 'tiktok'], true) && ($parts[1] ?? '') !== '') {
+            $normalized = ($parts[0] ?? '') . ':' . ($parts[1] ?? '');
+            $sources[$normalized] = $normalized;
+        }
+    }
+    $sources = array_values($sources);
+    sort($sources);
+    return $sources;
+}
+
+/** @return array{ready:bool,detail:string,sources:array<int,string>} */
+function jg_hard_set_remote_readiness_response(array $decoded, string $service, string $successDetail): array
+{
+    $remoteReadiness = is_array($decoded['readiness'] ?? null) ? $decoded['readiness'] : [];
+    $sources = jg_hard_set_remote_marketplace_sources($remoteReadiness);
+    $ready = !empty($decoded['ok']) && !empty($remoteReadiness['ready']);
+    if ($ready) {
+        return [
+            'ready' => true,
+            'detail' => $successDetail,
+            'sources' => $sources,
+        ];
+    }
+    if (!empty($decoded['ok']) && $remoteReadiness === []) {
+        return ['ready' => false, 'detail' => $service . ' is missing the required Big Set readiness contract', 'sources' => []];
+    }
+    if ($remoteReadiness !== []) {
+        $failed = array_values(array_filter(
+            is_array($remoteReadiness['checks'] ?? null) ? $remoteReadiness['checks'] : [],
+            static fn (mixed $check): bool => is_array($check) && empty($check['ready'])
+        ));
+        return [
+            'ready' => false,
+            'detail' => $failed !== []
+                ? implode('; ', array_map(static fn (array $check): string => (string) ($check['label'] ?? $check['key'] ?? 'Check') . ': ' . (string) ($check['detail'] ?? 'not ready'), $failed))
+                : $service . ' is not ready',
+            'sources' => $sources,
+        ];
+    }
+    return ['ready' => false, 'detail' => $service . ' endpoint did not authenticate or respond', 'sources' => []];
+}
+
+/** @return array{ready:bool,detail:string,sources:array<int,string>} */
+function jg_hard_set_marketplace_readiness_response(array $decoded): array
+{
+    return jg_hard_set_remote_readiness_response(
+        $decoded,
+        'API Ingest',
+        'API Ingest cron, credentials, source scope, handover mode, and label storage are ready'
+    );
+}
+
+/** @return array{ready:bool,detail:string,sources:array<int,string>} */
+function jg_hard_set_store_ops_readiness_response(array $decoded): array
+{
+    return jg_hard_set_remote_readiness_response(
+        $decoded,
+        'Store Ops',
+        'Store Ops fulfillment database, callback access, and explicit marketplace source scope are ready'
+    );
+}
+
+/** @return array{ready:bool,detail:string} */
+function jg_hard_set_marketplace_source_alignment(array $storeOpsSources, array $apiIngestSources): array
+{
+    $storeOpsSources = jg_hard_set_remote_marketplace_sources(['sources' => $storeOpsSources]);
+    $apiIngestSources = jg_hard_set_remote_marketplace_sources(['sources' => $apiIngestSources]);
+    $missingFromStoreOps = array_values(array_diff($apiIngestSources, $storeOpsSources));
+    $ready = $apiIngestSources !== [] && $missingFromStoreOps === [];
+    return [
+        'ready' => $ready,
+        'detail' => $ready
+            ? 'Every automatic source is visible in Store Ops: ' . implode(', ', $apiIngestSources)
+            : 'Store Ops is missing automatic API Ingest sources: ' . implode(', ', $missingFromStoreOps),
+    ];
+}
+
+/** @return array{ready:bool,detail:string} */
+function jg_hard_set_downstream_state_alignment(array $apiIngestState, array $storeOpsState): array
+{
+    if (!array_key_exists('enabled', $apiIngestState) || !array_key_exists('enabled', $storeOpsState)) {
+        return ['ready' => false, 'detail' => 'A downstream service is missing the required irreversible state contract.'];
+    }
+    $apiEnabled = !empty($apiIngestState['enabled']);
+    $storeEnabled = !empty($storeOpsState['enabled']);
+    if ($apiEnabled !== $storeEnabled) {
+        return ['ready' => false, 'detail' => 'API Ingest and Store Ops disagree on whether Big Set is active.'];
+    }
+    if (!$apiEnabled) {
+        return ['ready' => true, 'detail' => 'API Ingest and Store Ops both report Big Set OFF.'];
+    }
+
+    $normalize = static function (mixed $value): string {
+        $value = trim((string) $value);
+        if (
+            $value === ''
+            || preg_match('/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})?$/', $value) !== 1
+        ) {
+            return '';
+        }
+        try {
+            $date = new DateTimeImmutable($value, new DateTimeZone('UTC'));
+            $errors = DateTimeImmutable::getLastErrors();
+            if (is_array($errors) && ((int) $errors['warning_count'] > 0 || (int) $errors['error_count'] > 0)) {
+                return '';
+            }
+            return $date->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s.u');
+        } catch (Throwable) {
+            return '';
+        }
+    };
+    $apiActivatedAt = $normalize($apiIngestState['activated_at_iso'] ?? $apiIngestState['activated_at'] ?? '');
+    $storeActivatedAt = $normalize($storeOpsState['activated_at_iso'] ?? $storeOpsState['activated_at'] ?? '');
+    $ready = $apiActivatedAt !== '' && hash_equals($apiActivatedAt, $storeActivatedAt);
+    return [
+        'ready' => $ready,
+        'detail' => $ready
+            ? 'API Ingest and Store Ops acknowledge the same permanent cutover timestamp.'
+            : 'API Ingest and Store Ops do not acknowledge the same permanent cutover timestamp.',
+    ];
+}
+
+/** @return array{ready:bool,detail:string} */
+function jg_hard_set_projection_state_alignment(
+    array $executiveState,
+    array $apiIngestState,
+    array $storeOpsState
+): array {
+    $executiveToApi = jg_hard_set_downstream_state_alignment($executiveState, $apiIngestState);
+    if (empty($executiveToApi['ready'])) {
+        return [
+            'ready' => false,
+            'detail' => 'Executive Dashboard and API Ingest do not report the same irreversible state and cutover timestamp.',
+        ];
+    }
+    $apiToStoreOps = jg_hard_set_downstream_state_alignment($apiIngestState, $storeOpsState);
+    if (empty($apiToStoreOps['ready'])) {
+        return [
+            'ready' => false,
+            'detail' => 'API Ingest and Store Ops do not report the same irreversible state and cutover timestamp.',
+        ];
+    }
+    return [
+        'ready' => true,
+        'detail' => empty($executiveState['enabled'])
+            ? 'Executive Dashboard, API Ingest, and Store Ops all report Big Set OFF.'
+            : 'Executive Dashboard, API Ingest, and Store Ops acknowledge the same permanent cutover timestamp.',
+    ];
+}
+
+function jg_hard_set_readiness(PDO $analyticsPdo, PDO $skuPdo, bool $ensureSchema = true): array
+{
+    if ($ensureSchema) {
+        jg_website_ensure_schema($analyticsPdo);
+    }
+    $executiveState = jg_hard_set_state($analyticsPdo, false, false);
     $checks = [];
     $add = static function (string $key, string $label, bool $ready, string $detail) use (&$checks): void {
         $checks[] = compact('key', 'label', 'ready', 'detail');
@@ -1359,22 +1685,29 @@ function jg_hard_set_readiness(PDO $analyticsPdo, PDO $skuPdo): array
     $storeOpsToken = jg_website_store_ops_token();
     $storeOpsReady = false;
     $storeOpsDetail = 'Store Ops endpoint or token missing';
+    $storeOpsSources = [];
+    $storeOpsState = [];
     if ($storeOpsBase !== '' && $storeOpsToken !== '') {
         $context = stream_context_create(['http' => [
             'method' => 'GET',
             'header' => "Accept: application/json\r\nAuthorization: Bearer {$storeOpsToken}\r\n",
-            'timeout' => 4,
+            'timeout' => 8,
             'ignore_errors' => true,
         ]]);
         $raw = @file_get_contents($storeOpsBase . '/api/website-orders/?action=state', false, $context);
         $decoded = is_string($raw) ? json_decode($raw, true) : null;
-        $storeOpsReady = is_array($decoded) && !empty($decoded['ok']);
-        $storeOpsDetail = $storeOpsReady ? 'Authenticated Store Ops endpoint responded' : 'Store Ops endpoint did not authenticate or respond';
+        $storeOpsResponse = jg_hard_set_store_ops_readiness_response(is_array($decoded) ? $decoded : []);
+        $storeOpsReady = $storeOpsResponse['ready'];
+        $storeOpsDetail = $storeOpsResponse['detail'];
+        $storeOpsSources = $storeOpsResponse['sources'];
+        $storeOpsState = is_array($decoded['state'] ?? null) ? $decoded['state'] : [];
     }
     $add('store_ops', 'Store Ops connectivity', $storeOpsReady, $storeOpsDetail);
     $marketplaceBase = jg_dashboard_marketplace_api_base_url();
     $marketplaceReady = false;
     $marketplaceDetail = 'API Ingest endpoint or token missing';
+    $marketplaceSources = [];
+    $marketplaceState = [];
     if ($marketplaceBase !== '' && $storeOpsToken !== '') {
         $context = stream_context_create(['http' => [
             'method' => 'GET',
@@ -1384,19 +1717,24 @@ function jg_hard_set_readiness(PDO $analyticsPdo, PDO $skuPdo): array
         ]]);
         $raw = @file_get_contents($marketplaceBase . '/hard-set/state', false, $context);
         $decoded = is_string($raw) ? json_decode($raw, true) : null;
-        $marketplaceReady = is_array($decoded) && !empty($decoded['ok']);
-        $marketplaceDetail = $marketplaceReady
-            ? 'Authenticated API Ingest Hard Set endpoint responded'
-            : 'API Ingest Hard Set endpoint did not authenticate or respond';
+        $marketplaceResponse = jg_hard_set_marketplace_readiness_response(is_array($decoded) ? $decoded : []);
+        $marketplaceReady = $marketplaceResponse['ready'];
+        $marketplaceDetail = $marketplaceResponse['detail'];
+        $marketplaceSources = $marketplaceResponse['sources'];
+        $marketplaceState = is_array($decoded['state'] ?? null) ? $decoded['state'] : [];
     }
     $add('marketplace_fulfillment', 'Marketplace fulfillment connectivity', $marketplaceReady, $marketplaceDetail);
+    $sourceAlignment = jg_hard_set_marketplace_source_alignment($storeOpsSources, $marketplaceSources);
+    $add('marketplace_source_alignment', 'Cross-service automatic source coverage', $sourceAlignment['ready'], $sourceAlignment['detail']);
+    $stateAlignment = jg_hard_set_projection_state_alignment($executiveState, $marketplaceState, $storeOpsState);
+    $add('projection_state_alignment', 'Cross-service irreversible state', $stateAlignment['ready'], $stateAlignment['detail']);
     $labelDir = jg_website_label_directory();
     $labelParent = jg_website_nearest_existing_directory($labelDir);
     $add('label_storage', 'Label storage', is_dir($labelParent) && is_writable($labelParent), 'Private path: ' . $labelDir);
 
     $grouped = [];
     foreach (JG_WEBSITE_PLATFORMS as $platform => $label) {
-        $keys = [$platform . '_webhook', $platform . '_catalog', 'stock_access', 'metrics_sync', 'store_ops', 'marketplace_fulfillment', 'label_storage'];
+        $keys = [$platform . '_webhook', $platform . '_catalog', 'stock_access', 'metrics_sync', 'store_ops', 'marketplace_fulfillment', 'marketplace_source_alignment', 'projection_state_alignment', 'label_storage'];
         $sourceChecks = array_values(array_filter($checks, static fn (array $check): bool => in_array($check['key'], $keys, true)));
         $grouped[$platform] = [
             'label' => $label,
@@ -1408,5 +1746,6 @@ function jg_hard_set_readiness(PDO $analyticsPdo, PDO $skuPdo): array
         'ready' => !in_array(false, array_column($checks, 'ready'), true),
         'checks' => $checks,
         'sources' => $grouped,
+        'automatic_sources' => $marketplaceSources,
     ];
 }

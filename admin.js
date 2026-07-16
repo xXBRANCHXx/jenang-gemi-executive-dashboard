@@ -2595,6 +2595,7 @@ document.addEventListener('DOMContentLoaded', () => {
       readiness: { ready: false, sources: {} },
       access: { branch: false, username: '' },
       audit: [],
+      delivery: { required: false, delivered: true },
       loading: false
     },
 	    marketplaceRefresh: {
@@ -3627,8 +3628,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (hardSetRefs.switchButton) hardSetRefs.switchButton.disabled = enabled || !readiness.ready || !hasBranchAccess || state.hardSet.loading;
     if (hardSetRefs.switchLabel) hardSetRefs.switchLabel.textContent = enabled ? 'ON · LOCKED' : 'OFF';
     if (hardSetRefs.switchNote) {
+      const delivery = state.hardSet.delivery || {};
       hardSetRefs.switchNote.textContent = enabled
-        ? 'The cutover is permanent. There is no disable operation in the UI or API.'
+        ? (delivery.required && !delivery.delivered
+          ? `CUTOVER IS ON, BUT AUTOMATION SYNC IS PENDING${delivery.last_error ? `: ${delivery.last_error}` : '.'}`
+          : 'The cutover is permanent and downstream automation synchronization is confirmed.')
         : !hasBranchAccess
           ? 'Branch-tier credentials are required before the physical switch can be used.'
           : readiness.ready ? 'Ready. Activation permanently establishes the server cutover timestamp.' : 'All readiness checks must pass. Activation cannot be undone.';
@@ -3646,8 +3650,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (hardSetRefs.explanation) {
       hardSetRefs.explanation.textContent = enabled
-        ? 'Only website orders created after the recorded activation timestamp can enter Store Ops. Earlier orders remain manual-era permanently.'
-        : 'Website order notifications and paid metrics are live. Store Ops remains isolated until this switch is permanently activated.';
+        ? 'Store Ops website ingestion and the frozen automatic marketplace shipment accounts use this permanent cutover. Earlier orders remain manual-era.'
+        : 'Website metrics are live, but website ingestion and automatic marketplace shipment arrangement remain OFF until this switch is permanently activated.';
     }
     if (hardSetRefs.readiness) {
       const sources = readiness.sources || {};
@@ -3665,12 +3669,33 @@ document.addEventListener('DOMContentLoaded', () => {
 	    }
 	  };
 
+	  let hardSetDeliveryRetryTimer = null;
+	  const scheduleHardSetDeliveryRetry = () => {
+	    const delivery = state.hardSet.delivery || {};
+	    if (!state.hardSet.state?.enabled || !delivery.required || delivery.delivered) {
+	      if (hardSetDeliveryRetryTimer) window.clearTimeout(hardSetDeliveryRetryTimer);
+	      hardSetDeliveryRetryTimer = null;
+	      return;
+	    }
+	    if (hardSetDeliveryRetryTimer) return;
+	    hardSetDeliveryRetryTimer = window.setTimeout(async () => {
+	      hardSetDeliveryRetryTimer = null;
+	      try {
+	        await loadHardSet();
+	      } catch (_error) {
+	        scheduleHardSetDeliveryRetry();
+	      }
+	    }, 5000);
+	  };
+
 	  const applyHardSetData = (data) => {
 	    state.hardSet.state = data.state || { enabled: false };
 	    state.hardSet.readiness = data.readiness || { ready: false, sources: {} };
 	    state.hardSet.access = data.access || { branch: false, username: '' };
 	    state.hardSet.audit = Array.isArray(data.audit) ? data.audit : [];
+	    state.hardSet.delivery = data.delivery || { required: false, delivered: true };
 	    state.notifications.hardSet = state.hardSet.state;
+	    scheduleHardSetDeliveryRetry();
 	    if (state.activeView === 'hard-set') renderHardSet();
 	    renderNotifications();
 	  };
@@ -11914,12 +11939,14 @@ document.addEventListener('DOMContentLoaded', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ confirmation }),
-        timeoutMs: 30000
+        timeoutMs: 70000
       });
       state.hardSet.state = data.state || state.hardSet.state;
       state.hardSet.readiness = data.readiness || state.hardSet.readiness;
       state.hardSet.access = data.access || state.hardSet.access;
       state.hardSet.audit = Array.isArray(data.audit) ? data.audit : state.hardSet.audit;
+      state.hardSet.delivery = data.delivery || state.hardSet.delivery;
+      scheduleHardSetDeliveryRetry();
       hardSetRefs.dialog?.close();
       hardSetRefs.switchButton?.classList.add('is-activating');
       window.setTimeout(() => hardSetRefs.switchButton?.classList.remove('is-activating'), 1000);
