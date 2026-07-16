@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__, 3) . '/partner-db-bootstrap.php';
+require_once dirname(__DIR__, 3) . '/partner-auth-catalog.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -287,6 +288,12 @@ if (jg_partner_auth_verify($partner, $password)) {
 }
 
 jg_partner_auth_clear_failures($code);
+
+try {
+    $partner['selected_sku_records'] = jg_partner_auth_selected_sku_records($partner);
+} catch (Throwable) {
+    jg_partner_auth_response(['error' => 'Unable to load approved SKUs. Try again later.'], 503);
+}
 
 $response = [
     'ok' => true,
