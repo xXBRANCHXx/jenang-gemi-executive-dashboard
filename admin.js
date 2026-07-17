@@ -2567,6 +2567,7 @@ document.addEventListener('DOMContentLoaded', () => {
     zeroStore: {
       items: [],
       discounts: [],
+      voucher: null,
       activeDiscountId: '',
       productFilter: '',
       discountSearch: '',
@@ -2924,6 +2925,9 @@ document.addEventListener('DOMContentLoaded', () => {
     discountForm: document.querySelector('[data-zero-discount-form]'),
     discountList: document.querySelector('[data-zero-discount-list]'),
     discountSearch: document.querySelector('[data-zero-discount-search]'),
+    voucherForm: document.querySelector('[data-zero-voucher-form]'),
+    voucherCodeHint: document.querySelector('[data-zero-voucher-code-hint]'),
+    voucherStatus: document.querySelector('[data-zero-voucher-status]'),
     skuPicker: document.querySelector('[data-zero-discount-sku-picker]'),
     error: document.querySelector('[data-zero-store-error]'),
     resetDiscount: document.querySelector('[data-zero-discount-reset]'),
@@ -8037,6 +8041,49 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${amount} | ${discount.starts_on || '-'} to ${discount.ends_on || '-'}`;
   };
 
+  const formatVoucherWindow = (value) => {
+    if (!value) return '-';
+    const parsed = new Date(`${value}:00+07:00`);
+    return Number.isNaN(parsed.getTime()) ? value : new Intl.DateTimeFormat(getRegionalDateLocale(), {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone: 'Asia/Jakarta'
+    }).format(parsed);
+  };
+
+  const renderZeroVoucher = () => {
+    const voucher = state.zeroStore.voucher;
+    const form = zeroStoreRefs.voucherForm;
+    if (form && voucher) {
+      form.elements.code.value = '';
+      form.elements.discount_percent.value = Number(voucher.discount_percent || 15);
+      form.elements.starts_at.value = voucher.starts_at || '';
+      form.elements.ends_at.value = voucher.ends_at || '';
+      form.elements.stacking_mode.value = voucher.stacking_mode || 'compound';
+      form.elements.is_enabled.checked = Boolean(voucher.is_enabled);
+    }
+    if (zeroStoreRefs.voucherCodeHint) {
+      zeroStoreRefs.voucherCodeHint.textContent = voucher?.configured
+        ? `Saved code: ${voucher.code_hint || '••••'} — leave blank to keep it, or type a replacement.`
+        : 'No voucher code saved yet.';
+    }
+    if (zeroStoreRefs.voucherStatus) {
+      if (!voucher?.configured) {
+        zeroStoreRefs.voucherStatus.innerHTML = '<strong>Not configured</strong><span>Save a code and schedule to make the event voucher available.</span>';
+        zeroStoreRefs.voucherStatus.dataset.status = 'inactive';
+        return;
+      }
+      const now = Date.now();
+      const startsAt = new Date(`${voucher.starts_at}:00+07:00`).getTime();
+      const endsAt = new Date(`${voucher.ends_at}:00+07:00`).getTime();
+      const isLive = voucher.is_enabled && now >= startsAt && now <= endsAt;
+      const stateLabel = !voucher.is_enabled ? 'Disabled' : isLive ? 'Live now' : now < startsAt ? 'Scheduled' : 'Ended';
+      const behavior = voucher.stacking_mode === 'override' ? 'replaces active product discounts' : 'compounds on active product discounts';
+      zeroStoreRefs.voucherStatus.innerHTML = `<strong>${escapeHtml(stateLabel)} · ${escapeHtml(formatRegionalNumber(voucher.discount_percent || 0))}% off</strong><span>${escapeHtml(formatVoucherWindow(voucher.starts_at))} to ${escapeHtml(formatVoucherWindow(voucher.ends_at))} WIB · ${escapeHtml(behavior)}.</span>`;
+      zeroStoreRefs.voucherStatus.dataset.status = isLive ? 'live' : 'inactive';
+    }
+  };
+
   const zeroItemLabel = (item) => [
     item.product_name || '',
     item.option_name || item.variant_name || item.flavor_name || '',
@@ -8140,6 +8187,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       `).join('') : `<p class="admin-empty">${discountQuery ? 'No discount groups match this search.' : 'No discounts yet.'}</p>`;
     }
+    renderZeroVoucher();
     syncZeroDiscountRangeFields();
   };
 
@@ -8147,6 +8195,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const data = await requestJson(zeroStoreActionUrl('list'));
     state.zeroStore.items = Array.isArray(data.items) ? data.items : [];
     state.zeroStore.discounts = Array.isArray(data.discounts) ? data.discounts : [];
+    state.zeroStore.voucher = data.voucher || null;
     renderZeroStore();
   };
 
@@ -11172,6 +11221,28 @@ document.addEventListener('DOMContentLoaded', () => {
     button.addEventListener('click', () => {
       showWebsiteSelector();
     });
+  });
+
+  zeroStoreRefs.voucherForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = new FormData(zeroStoreRefs.voucherForm);
+    try {
+      const data = await postZeroStore('save_voucher', {
+        code: form.get('code'),
+        discount_percent: form.get('discount_percent'),
+        starts_at: form.get('starts_at'),
+        ends_at: form.get('ends_at'),
+        stacking_mode: form.get('stacking_mode'),
+        is_enabled: zeroStoreRefs.voucherForm.elements.is_enabled.checked
+      });
+      state.zeroStore.items = Array.isArray(data.items) ? data.items : state.zeroStore.items;
+      state.zeroStore.discounts = Array.isArray(data.discounts) ? data.discounts : state.zeroStore.discounts;
+      state.zeroStore.voucher = data.voucher || null;
+      renderZeroStore();
+      setZeroStoreError('');
+    } catch (error) {
+      setZeroStoreError(error.message);
+    }
   });
 
   zeroStoreRefs.itemForm?.addEventListener('submit', async (event) => {

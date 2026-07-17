@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once dirname(__DIR__, 2) . '/auth.php';
 require_once dirname(__DIR__, 2) . '/sku-db-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/astra-stock-bootstrap.php';
+require_once dirname(__DIR__, 2) . '/zero-voucher-bootstrap.php';
 
 header('Content-Type: application/json; charset=utf-8');
 $origin = (string) ($_SERVER['HTTP_ORIGIN'] ?? '');
@@ -690,12 +691,91 @@ function zero_store_catalog(PDO $pdo): array
     return ['data' => $rows, 'meta' => ['generated_at' => gmdate(DATE_ATOM)]];
 }
 
+function zero_store_validate_voucher(PDO $pdo, array $body): array
+{
+    $voucher = zero_voucher_match_active($pdo, $body['code'] ?? '');
+    if (!$voucher) {
+        throw new InvalidArgumentException('Voucher code is invalid or is not active right now.');
+    }
+    $requestedItems = is_array($body['items'] ?? null) ? $body['items'] : [];
+    if ($requestedItems === [] || count($requestedItems) > 50) {
+        throw new InvalidArgumentException('Add at least one cart item before applying a voucher.');
+    }
+
+    $catalog = zero_store_catalog($pdo);
+    $catalogByKey = [];
+    foreach ($catalog['data'] as $item) {
+        $catalogByKey[(string) ($item['item_key'] ?? '')] = $item;
+    }
+
+    $subtotal = 0.0;
+    $total = 0.0;
+    $items = [];
+    foreach ($requestedItems as $requested) {
+        if (!is_array($requested)) {
+            continue;
+        }
+        $itemKey = strtolower(trim((string) ($requested['item_key'] ?? '')));
+        $quantity = max(1, min(100, (int) ($requested['quantity'] ?? 1)));
+        $item = $catalogByKey[$itemKey] ?? null;
+        if (!is_array($item) || empty($item['available'])) {
+            throw new InvalidArgumentException('A cart item is unavailable or no longer for sale.');
+        }
+        $currentUnitPrice = (float) ($item['sale_price'] ?? $item['price'] ?? 0);
+        $voucherUnitPrice = zero_voucher_unit_price(
+            (float) ($item['price'] ?? 0),
+            $currentUnitPrice,
+            $voucher
+        );
+        $subtotal += $currentUnitPrice * $quantity;
+        $total += $voucherUnitPrice * $quantity;
+        $items[] = [
+            'item_key' => $itemKey,
+            'quantity' => $quantity,
+            'unit_price_before_voucher' => round($currentUnitPrice, 2),
+            'unit_price_after_voucher' => $voucherUnitPrice,
+        ];
+    }
+    if ($items === []) {
+        throw new InvalidArgumentException('No valid cart items were supplied.');
+    }
+
+    return [
+        'ok' => true,
+        'voucher' => [
+            'applied' => true,
+            'discount_percent' => (float) $voucher['discount_percent'],
+            'stacking_mode' => (string) $voucher['stacking_mode'],
+            'starts_at' => (string) $voucher['starts_at'],
+            'ends_at' => (string) $voucher['ends_at'],
+        ],
+        'pricing' => [
+            'subtotal' => round($subtotal, 2),
+            'discount' => round(max(0, $subtotal - $total), 2),
+            'total' => round($total, 2),
+            'items' => $items,
+        ],
+    ];
+}
+
 try {
     $pdo = jg_sku_db();
     zero_store_ensure_schema($pdo);
+    zero_voucher_ensure_schema($pdo);
     $action = strtolower(trim((string) ($_GET['action'] ?? 'list')));
     if ($action === 'catalog') {
         zero_store_json(zero_store_catalog($pdo));
+    }
+
+    if ($action === 'validate_voucher') {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            zero_store_json(['error' => 'Voucher validation requires POST.'], 405);
+        }
+        try {
+            zero_store_json(zero_store_validate_voucher($pdo, zero_store_body()));
+        } catch (InvalidArgumentException $error) {
+            zero_store_json(['error' => $error->getMessage()], 422);
+        }
     }
 
     jg_admin_require_auth_json();
@@ -705,7 +785,20 @@ try {
     zero_store_seed_items($pdo);
 
     if ($action === 'list') {
-        zero_store_json(zero_store_load($pdo));
+        $data = zero_store_load($pdo);
+        $data['voucher'] = zero_voucher_load($pdo);
+        zero_store_json($data);
+    }
+
+    if ($action === 'save_voucher') {
+        try {
+            $voucher = zero_voucher_save($pdo, $body);
+        } catch (InvalidArgumentException $error) {
+            zero_store_json(['error' => $error->getMessage()], 422);
+        }
+        $data = zero_store_load($pdo);
+        $data['voucher'] = $voucher;
+        zero_store_json($data);
     }
 
     if ($action === 'save_item') {

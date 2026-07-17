@@ -2801,6 +2801,69 @@ button, input {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.admin-zero-voucher-form {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.admin-zero-voucher-form label > small {
+  color: var(--admin-muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.admin-input-suffix {
+  position: relative;
+}
+
+.admin-input-suffix > input {
+  padding-right: 38px;
+}
+
+.admin-input-suffix > span {
+  position: absolute;
+  top: 50%;
+  right: 13px;
+  color: var(--admin-muted);
+  font-weight: 800;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.admin-zero-voucher-status {
+  display: grid;
+  gap: 5px;
+  padding: 12px 14px;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.admin-zero-voucher-status strong {
+  color: var(--admin-text);
+}
+
+.admin-zero-voucher-status span {
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+
+.admin-zero-voucher-status[data-status='live'] {
+  border-color: rgba(157, 255, 0, 0.34);
+  background: rgba(157, 255, 0, 0.08);
+}
+
+@media (max-width: 980px) {
+  .admin-zero-voucher-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-zero-voucher-form {
+    grid-template-columns: 1fr;
+  }
+}
+
 .admin-store-date-range,
 .admin-store-sku-picker {
   position: relative;

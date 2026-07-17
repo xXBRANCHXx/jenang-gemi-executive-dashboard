@@ -5,6 +5,7 @@ require_once __DIR__ . '/analytics-bootstrap.php';
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/sku-db-bootstrap.php';
 require_once __DIR__ . '/astra-stock-bootstrap.php';
+require_once __DIR__ . '/zero-voucher-bootstrap.php';
 
 const JG_WEBSITE_PLATFORMS = [
     'zero_website' => 'ZERO Website',
@@ -151,6 +152,9 @@ function jg_website_ensure_schema(PDO $pdo): void
             net_revenue DECIMAL(16,2) NOT NULL DEFAULT 0,
             marketplace_fees DECIMAL(16,2) NOT NULL DEFAULT 0,
             cogs DECIMAL(16,2) NOT NULL DEFAULT 0,
+            voucher_applied TINYINT(1) NOT NULL DEFAULT 0,
+            voucher_discount_percent DECIMAL(5,2) NOT NULL DEFAULT 0,
+            voucher_mode VARCHAR(20) NOT NULL DEFAULT "",
             deadline_hours TINYINT UNSIGNED NULL DEFAULT NULL,
             deadline_at DATETIME(6) NULL DEFAULT NULL,
             label_storage_key VARCHAR(255) NOT NULL DEFAULT "",
@@ -233,6 +237,9 @@ function jg_website_ensure_schema(PDO $pdo): void
         $pdo->exec($statement);
     }
     analyticsEnsureTableColumn($pdo, 'website_orders', 'deadline_at', 'DATETIME(6) NULL DEFAULT NULL AFTER `deadline_hours`');
+    analyticsEnsureTableColumn($pdo, 'website_orders', 'voucher_applied', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER `cogs`');
+    analyticsEnsureTableColumn($pdo, 'website_orders', 'voucher_discount_percent', 'DECIMAL(5,2) NOT NULL DEFAULT 0 AFTER `voucher_applied`');
+    analyticsEnsureTableColumn($pdo, 'website_orders', 'voucher_mode', 'VARCHAR(20) NOT NULL DEFAULT "" AFTER `voucher_discount_percent`');
     analyticsEnsureTableColumn($pdo, 'hard_set_state', 'automatic_sources_json', 'LONGTEXT NULL DEFAULT NULL AFTER `activated_by`');
     analyticsEnsureTableColumn($pdo, 'hard_set_state', 'automation_paused', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER `automatic_sources_json`');
     analyticsEnsureTableColumn($pdo, 'hard_set_state', 'automation_paused_at', 'DATETIME(6) NULL DEFAULT NULL AFTER `automation_paused`');
@@ -306,7 +313,7 @@ function jg_website_catalog_table_prefix(string $platform): string
     return $platform === 'zero_website' ? 'zero_store' : 'jenang_gemi_store';
 }
 
-function jg_website_catalog_item(PDO $skuPdo, string $platform, array $requested): array
+function jg_website_catalog_item(PDO $skuPdo, string $platform, array $requested, ?array $voucher = null): array
 {
     jg_astra_stock_sync($skuPdo);
 
@@ -367,6 +374,9 @@ function jg_website_catalog_item(PDO $skuPdo, string $platform, array $requested
             ? $gross - ($gross * min(100, $amount) / 100)
             : $gross - $amount;
     }
+    if ($platform === 'zero_website' && is_array($voucher)) {
+        $net = zero_voucher_unit_price($gross, max(0, $net), $voucher);
+    }
     return [
         'item_key' => (string) $row['item_key'],
         'sku' => (string) $row['sku'],
@@ -401,23 +411,33 @@ function jg_website_create_order(PDO $pdo, PDO $skuPdo, array $payload): array
     if ($idempotencyKey === '' || mb_strlen($idempotencyKey) > 120) {
         throw new InvalidArgumentException('A checkout idempotency key is required.');
     }
-    $requestedItems = is_array($payload['items'] ?? null) ? $payload['items'] : [];
-    if ($requestedItems === [] || count($requestedItems) > 50) {
-        throw new InvalidArgumentException('An order must contain between 1 and 50 items.');
-    }
-    $items = array_map(
-        static fn (array $item): array => jg_website_catalog_item($skuPdo, $platform, $item),
-        array_values(array_filter($requestedItems, 'is_array'))
-    );
-    if ($items === []) {
-        throw new InvalidArgumentException('No valid items were supplied.');
-    }
-
     $existing = $pdo->prepare('SELECT id FROM website_orders WHERE platform = :platform AND idempotency_key = :idempotency_key LIMIT 1');
     $existing->execute([':platform' => $platform, ':idempotency_key' => $idempotencyKey]);
     $existingId = (int) $existing->fetchColumn();
     if ($existingId > 0) {
         return jg_website_order_by_id($pdo, $existingId);
+    }
+    $requestedItems = is_array($payload['items'] ?? null) ? $payload['items'] : [];
+    if ($requestedItems === [] || count($requestedItems) > 50) {
+        throw new InvalidArgumentException('An order must contain between 1 and 50 items.');
+    }
+    $voucher = null;
+    $voucherCode = zero_voucher_normalize_code($payload['voucher_code'] ?? '');
+    if ($voucherCode !== '') {
+        if ($platform !== 'zero_website') {
+            throw new InvalidArgumentException('Vouchers are only supported for ZERO website orders.');
+        }
+        $voucher = zero_voucher_match_active($skuPdo, $voucherCode);
+        if (!$voucher) {
+            throw new InvalidArgumentException('Voucher code is invalid or is not active right now.');
+        }
+    }
+    $items = array_map(
+        static fn (array $item): array => jg_website_catalog_item($skuPdo, $platform, $item, $voucher),
+        array_values(array_filter($requestedItems, 'is_array'))
+    );
+    if ($items === []) {
+        throw new InvalidArgumentException('No valid items were supplied.');
     }
 
     $pdo->beginTransaction();
@@ -437,10 +457,12 @@ function jg_website_create_order(PDO $pdo, PDO $skuPdo, array $payload): array
         $stmt = $pdo->prepare(
             'INSERT INTO website_orders
                 (platform, order_id, idempotency_key, status, era, customer_name, customer_address,
-                 customer_phone, gross_revenue, net_revenue, marketplace_fees, cogs, created_at, updated_at)
+                 customer_phone, gross_revenue, net_revenue, marketplace_fees, cogs,
+                 voucher_applied, voucher_discount_percent, voucher_mode, created_at, updated_at)
              VALUES
                 (:platform, :order_id, :idempotency_key, "PENDING_PAYMENT", :era, :customer_name, :customer_address,
-                 :customer_phone, :gross_revenue, :net_revenue, 0, :cogs, :created_at, :updated_at)'
+                 :customer_phone, :gross_revenue, :net_revenue, 0, :cogs,
+                 :voucher_applied, :voucher_discount_percent, :voucher_mode, :created_at, :updated_at)'
         );
         $stmt->execute([
             ':platform' => $platform,
@@ -453,6 +475,9 @@ function jg_website_create_order(PDO $pdo, PDO $skuPdo, array $payload): array
             ':gross_revenue' => number_format($gross, 2, '.', ''),
             ':net_revenue' => number_format($net, 2, '.', ''),
             ':cogs' => number_format($cogs, 2, '.', ''),
+            ':voucher_applied' => is_array($voucher) ? 1 : 0,
+            ':voucher_discount_percent' => is_array($voucher) ? number_format((float) $voucher['discount_percent'], 2, '.', '') : '0.00',
+            ':voucher_mode' => is_array($voucher) ? (string) $voucher['stacking_mode'] : '',
             ':created_at' => $createdAt,
             ':updated_at' => $createdAt,
         ]);
@@ -537,6 +562,11 @@ function jg_website_format_order(array $row, array $items = []): array
         'net_revenue' => (float) ($row['net_revenue'] ?? 0),
         'marketplace_fees' => 0.0,
         'cogs' => (float) ($row['cogs'] ?? 0),
+        'voucher' => [
+            'applied' => (int) ($row['voucher_applied'] ?? 0) === 1,
+            'discount_percent' => (float) ($row['voucher_discount_percent'] ?? 0),
+            'stacking_mode' => (string) ($row['voucher_mode'] ?? ''),
+        ],
         'deadline_hours' => isset($row['deadline_hours']) ? (int) $row['deadline_hours'] : null,
         'deadline_at' => !empty($row['deadline_at']) ? jg_website_atom((string) $row['deadline_at']) : null,
         'has_label' => trim((string) ($row['label_storage_key'] ?? '')) !== '',

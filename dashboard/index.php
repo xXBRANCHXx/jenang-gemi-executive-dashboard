@@ -1240,6 +1240,39 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                 </section>
 
                 <section class="admin-main-grid" data-zero-store-panel hidden>
+                    <article class="admin-panel admin-panel-wide admin-zero-voucher-panel">
+                        <div class="admin-panel-head">
+                            <div>
+                                <span class="admin-panel-kicker">Event Voucher</span>
+                                <h3>ZERO Website Voucher</h3>
+                            </div>
+                            <span class="admin-panel-meta">The code is stored as a one-way hash and is never included in the public website source or catalog feed.</span>
+                        </div>
+                        <form class="admin-store-form admin-zero-voucher-form" data-zero-voucher-form>
+                            <label>
+                                <span>Voucher code</span>
+                                <input name="code" type="password" minlength="4" maxlength="64" autocomplete="new-password" placeholder="Enter a new code">
+                                <small data-zero-voucher-code-hint>No voucher code saved yet.</small>
+                            </label>
+                            <label><span>Discount</span><div class="admin-input-suffix"><input name="discount_percent" type="number" min="0.01" max="100" step="0.01" value="15" required><span>%</span></div></label>
+                            <label><span>Starts (WIB)</span><input name="starts_at" type="datetime-local" required></label>
+                            <label><span>Ends (WIB)</span><input name="ends_at" type="datetime-local" required></label>
+                            <label>
+                                <span>Other discounts</span>
+                                <select name="stacking_mode" class="admin-select">
+                                    <option value="compound">Compound — apply voucher on top</option>
+                                    <option value="override">Override — voucher replaces other discounts</option>
+                                </select>
+                            </label>
+                            <label class="admin-checkbox-line"><input name="is_enabled" type="checkbox" checked><span>Voucher enabled</span></label>
+                            <button type="submit" class="admin-primary-btn">Save Event Voucher</button>
+                        </form>
+                        <div class="admin-zero-voucher-status" data-zero-voucher-status>
+                            <strong>Not configured</strong>
+                            <span>Save a code and schedule to make the event voucher available.</span>
+                        </div>
+                    </article>
+
                     <article class="admin-panel admin-panel-wide">
                         <div class="admin-panel-head">
                             <div>
