@@ -98,8 +98,8 @@ function zero_voucher_save(PDO $pdo, array $input): array
 {
     $current = zero_voucher_load($pdo);
     $code = zero_voucher_normalize_code($input['code'] ?? '');
-    if ($code !== '' && (!preg_match('/^[A-Z0-9_-]{4,64}$/', $code))) {
-        throw new InvalidArgumentException('Voucher code must be 4 to 64 letters, numbers, dashes, or underscores.');
+    if ($code !== '' && (mb_strlen($code) < 4 || mb_strlen($code) > 64 || preg_match('/[\x00-\x1F\x7F]/u', $code))) {
+        throw new InvalidArgumentException('Voucher code must be 4 to 64 printable characters.');
     }
     if ($code === '' && empty($current['configured'])) {
         throw new InvalidArgumentException('Voucher code is required the first time this campaign is saved.');
@@ -122,36 +122,52 @@ function zero_voucher_save(PDO $pdo, array $input): array
     $now = gmdate('Y-m-d H:i:s');
     $codeHash = $code !== '' ? zero_voucher_code_hash($code) : '';
     $codeHint = $code !== '' ? zero_voucher_code_hint($code) : '';
-    $stmt = $pdo->prepare(
-        'INSERT INTO zero_store_voucher
-            (id, code_hash, code_hint, discount_percent, starts_at_utc, ends_at_utc, stacking_mode, is_enabled, created_at, updated_at)
-         VALUES
-            (1, :code_hash, :code_hint, :discount_percent, :starts_at_utc, :ends_at_utc, :stacking_mode, :is_enabled, :created_at, :updated_at)
-         ON DUPLICATE KEY UPDATE
-            code_hash = IF(:new_code_hash_check = "", code_hash, :new_code_hash_value),
-            code_hint = IF(:new_code_hint_check = "", code_hint, :new_code_hint_value),
-            discount_percent = VALUES(discount_percent),
-            starts_at_utc = VALUES(starts_at_utc),
-            ends_at_utc = VALUES(ends_at_utc),
-            stacking_mode = VALUES(stacking_mode),
-            is_enabled = VALUES(is_enabled),
-            updated_at = VALUES(updated_at)'
-    );
-    $stmt->execute([
-        ':code_hash' => $codeHash,
-        ':code_hint' => $codeHint,
-        ':new_code_hash_check' => $codeHash,
-        ':new_code_hash_value' => $codeHash,
-        ':new_code_hint_check' => $codeHint,
-        ':new_code_hint_value' => $codeHint,
+    $values = [
         ':discount_percent' => number_format($percent, 2, '.', ''),
         ':starts_at_utc' => zero_voucher_utc_sql($startsAt),
         ':ends_at_utc' => zero_voucher_utc_sql($endsAt),
         ':stacking_mode' => $mode,
         ':is_enabled' => !empty($input['is_enabled']) ? 1 : 0,
-        ':created_at' => $now,
         ':updated_at' => $now,
-    ]);
+    ];
+    if ($current) {
+        $codeAssignments = '';
+        if ($codeHash !== '') {
+            $codeAssignments = 'code_hash = :code_hash, code_hint = :code_hint,';
+            $values[':code_hash'] = $codeHash;
+            $values[':code_hint'] = $codeHint;
+        }
+        $stmt = $pdo->prepare(
+            'UPDATE zero_store_voucher SET
+                ' . $codeAssignments . '
+                discount_percent = :discount_percent,
+                starts_at_utc = :starts_at_utc,
+                ends_at_utc = :ends_at_utc,
+                stacking_mode = :stacking_mode,
+                is_enabled = :is_enabled,
+                updated_at = :updated_at
+             WHERE id = 1'
+        );
+        $stmt->execute($values);
+    } else {
+        $stmt = $pdo->prepare(
+            'INSERT INTO zero_store_voucher
+                (id, code_hash, code_hint, discount_percent, starts_at_utc, ends_at_utc, stacking_mode, is_enabled, created_at, updated_at)
+             VALUES
+                (1, :code_hash, :code_hint, :discount_percent, :starts_at_utc, :ends_at_utc, :stacking_mode, :is_enabled, :created_at, :updated_at)'
+        );
+        $stmt->execute([
+            ':code_hash' => $codeHash,
+            ':code_hint' => $codeHint,
+            ':discount_percent' => $values[':discount_percent'],
+            ':starts_at_utc' => $values[':starts_at_utc'],
+            ':ends_at_utc' => $values[':ends_at_utc'],
+            ':stacking_mode' => $values[':stacking_mode'],
+            ':is_enabled' => $values[':is_enabled'],
+            ':created_at' => $now,
+            ':updated_at' => $now,
+        ]);
+    }
     return zero_voucher_load($pdo) ?? [];
 }
 

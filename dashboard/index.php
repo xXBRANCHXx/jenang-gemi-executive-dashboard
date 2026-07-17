@@ -1267,6 +1267,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                             <label class="admin-checkbox-line"><input name="is_enabled" type="checkbox" checked><span>Voucher enabled</span></label>
                             <button type="submit" class="admin-primary-btn">Save Event Voucher</button>
                         </form>
+                        <p class="admin-form-error admin-zero-voucher-error" data-zero-voucher-error hidden></p>
                         <div class="admin-zero-voucher-status" data-zero-voucher-status>
                             <strong>Not configured</strong>
                             <span>Save a code and schedule to make the event voucher available.</span>

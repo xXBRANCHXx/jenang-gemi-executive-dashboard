@@ -2928,6 +2928,7 @@ document.addEventListener('DOMContentLoaded', () => {
     voucherForm: document.querySelector('[data-zero-voucher-form]'),
     voucherCodeHint: document.querySelector('[data-zero-voucher-code-hint]'),
     voucherStatus: document.querySelector('[data-zero-voucher-status]'),
+    voucherError: document.querySelector('[data-zero-voucher-error]'),
     skuPicker: document.querySelector('[data-zero-discount-sku-picker]'),
     error: document.querySelector('[data-zero-store-error]'),
     resetDiscount: document.querySelector('[data-zero-discount-reset]'),
@@ -8084,6 +8085,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const setZeroVoucherError = (message = '') => {
+    if (!zeroStoreRefs.voucherError) return;
+    zeroStoreRefs.voucherError.hidden = !message;
+    zeroStoreRefs.voucherError.textContent = message;
+  };
+
   const zeroItemLabel = (item) => [
     item.product_name || '',
     item.option_name || item.variant_name || item.flavor_name || '',
@@ -11226,6 +11233,12 @@ document.addEventListener('DOMContentLoaded', () => {
   zeroStoreRefs.voucherForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
     const form = new FormData(zeroStoreRefs.voucherForm);
+    const submitButton = zeroStoreRefs.voucherForm.querySelector('button[type="submit"]');
+    setZeroVoucherError('');
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.textContent = 'Saving Voucher...';
+    }
     try {
       const data = await postZeroStore('save_voucher', {
         code: form.get('code'),
@@ -11239,9 +11252,15 @@ document.addEventListener('DOMContentLoaded', () => {
       state.zeroStore.discounts = Array.isArray(data.discounts) ? data.discounts : state.zeroStore.discounts;
       state.zeroStore.voucher = data.voucher || null;
       renderZeroStore();
+      setZeroVoucherError('');
       setZeroStoreError('');
     } catch (error) {
-      setZeroStoreError(error.message);
+      setZeroVoucherError(error.message);
+    } finally {
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.textContent = 'Save Event Voucher';
+      }
     }
   });
 

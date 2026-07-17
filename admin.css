@@ -2838,6 +2838,10 @@ button, input {
   background: rgba(255, 255, 255, 0.04);
 }
 
+.admin-zero-voucher-error {
+  margin: -6px 0 12px;
+}
+
 .admin-zero-voucher-status strong {
   color: var(--admin-text);
 }
