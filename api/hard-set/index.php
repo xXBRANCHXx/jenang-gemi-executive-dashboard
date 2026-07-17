@@ -61,6 +61,39 @@ try {
         ]);
     }
 
+    if ($method === 'POST' && in_array($action, ['pause', 'resume'], true)) {
+        if (!jg_sku_is_branch()) {
+            jg_hard_set_json(['ok' => false, 'error' => 'Unlock Hard Set with Branch-tier credentials first.'], 403);
+        }
+        $paused = $action === 'pause';
+        $expectedConfirmation = $paused ? 'PAUSE AUTOMATION' : 'RESUME AUTOMATION';
+        if (!hash_equals($expectedConfirmation, trim((string) ($body['confirmation'] ?? '')))) {
+            jg_hard_set_json(['ok' => false, 'error' => 'Invalid automation control confirmation.'], 422);
+        }
+        $currentState = jg_hard_set_state($pdo);
+        if (empty($currentState['enabled'])) {
+            jg_hard_set_json(['ok' => false, 'error' => 'Big Set has not been activated yet.'], 409);
+        }
+        $readiness = jg_hard_set_readiness($pdo, $skuPdo);
+        if (!$paused && empty($readiness['ready'])) {
+            jg_hard_set_json(['ok' => false, 'error' => 'All operational checks must pass before automatic shipment arrangement is resumed.', 'readiness' => $readiness], 409);
+        }
+        $actor = 'Branch tier: ' . jg_sku_session_username();
+        $result = jg_hard_set_set_automation_paused($pdo, $paused, $actor);
+        $delivery = jg_hard_set_deliver_outbox($pdo);
+        $readiness = jg_hard_set_readiness($pdo, $skuPdo);
+        jg_hard_set_json([
+            'ok' => true,
+            'automation_changed' => $result['changed'],
+            'state' => $result['state'],
+            'readiness' => $readiness,
+            'audit' => jg_hard_set_audit($pdo),
+            'access' => $access,
+            'delivery' => $delivery,
+            'warning' => $delivery['delivered'] ? '' : 'The automation change is saved, but downstream synchronization is still pending.',
+        ], $delivery['delivered'] ? 200 : 202);
+    }
+
     if ($method !== 'POST' || $action !== 'activate') {
         jg_hard_set_json(['ok' => false, 'error' => 'Method not allowed.'], 405);
     }

@@ -3598,9 +3598,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	  const renderHardSet = () => {
 	    const hardSet = state.hardSet.state || {};
-	    const readiness = state.hardSet.readiness || {};
+    const readiness = state.hardSet.readiness || {};
     const enabled = Boolean(hardSet.enabled);
+    const automationPaused = enabled && Boolean(hardSet.automation_paused);
     const hasBranchAccess = Boolean(state.hardSet.access?.branch);
+    const delivery = state.hardSet.delivery || {};
     const formatHardSetTimestamp = (primaryValue, fallbackValue = '') => {
       const raw = String(primaryValue || '').trim();
       if (!raw) return fallbackValue;
@@ -3617,40 +3619,48 @@ document.addEventListener('DOMContentLoaded', () => {
         hour12: false
       })} ${getTimezoneLabel(state.timezone)}`;
     };
-    if (hardSetRefs.state) hardSetRefs.state.textContent = enabled ? 'ON · LOCKED' : 'OFF';
+    if (hardSetRefs.state) hardSetRefs.state.textContent = automationPaused ? 'ON · AUTOMATION PAUSED' : (enabled ? 'ON · ACTIVE' : 'OFF');
     if (hardSetRefs.activation) {
       hardSetRefs.activation.textContent = enabled
         ? `${formatHardSetTimestamp(hardSet.activated_at_iso || hardSet.activated_at, hardSet.activated_at_wib || '')} · ${hardSet.activated_by || 'Unknown actor'}`
         : 'No cutover timestamp has been recorded.';
     }
-    hardSetRefs.switchButton?.classList.toggle('is-on', enabled);
-    hardSetRefs.switchButton?.setAttribute('aria-pressed', enabled ? 'true' : 'false');
-    if (hardSetRefs.switchButton) hardSetRefs.switchButton.disabled = enabled || !readiness.ready || !hasBranchAccess || state.hardSet.loading;
-    if (hardSetRefs.switchLabel) hardSetRefs.switchLabel.textContent = enabled ? 'ON · LOCKED' : 'OFF';
+    hardSetRefs.switchButton?.classList.toggle('is-on', enabled && !automationPaused);
+    hardSetRefs.switchButton?.classList.toggle('is-paused', automationPaused);
+    hardSetRefs.switchButton?.setAttribute('aria-pressed', enabled && !automationPaused ? 'true' : 'false');
+    hardSetRefs.switchButton?.setAttribute('aria-label', !enabled ? 'Activate Big Set' : (automationPaused ? 'Resume automatic shipment arrangement' : 'Pause automatic shipment arrangement'));
+    if (hardSetRefs.switchButton) {
+      const resumeBlocked = automationPaused && !readiness.ready;
+      hardSetRefs.switchButton.disabled = !hasBranchAccess || state.hardSet.loading || (!enabled && !readiness.ready) || resumeBlocked;
+    }
+    if (hardSetRefs.switchLabel) hardSetRefs.switchLabel.textContent = automationPaused ? 'PAUSED' : (enabled ? 'ON' : 'OFF');
     if (hardSetRefs.switchNote) {
-      const delivery = state.hardSet.delivery || {};
       hardSetRefs.switchNote.textContent = enabled
         ? (delivery.required && !delivery.delivered
-          ? `CUTOVER IS ON, BUT AUTOMATION SYNC IS PENDING${delivery.last_error ? `: ${delivery.last_error}` : '.'}`
-          : 'The cutover is permanent and downstream automation synchronization is confirmed.')
+          ? `THE LATEST AUTOMATION STATE IS SAVED, BUT SYNC IS PENDING${delivery.last_error ? `: ${delivery.last_error}` : '.'}`
+          : (automationPaused
+            ? 'Future automatic shipment arrangement is paused. Existing arrangements are unchanged; label recovery and manual Instant actions continue.'
+            : 'Automatic shipment arrangement is active. Use this control to pause future automatic arrangements without undoing existing ones.'))
         : !hasBranchAccess
           ? 'Branch-tier credentials are required before the physical switch can be used.'
-          : readiness.ready ? 'Ready. Activation permanently establishes the server cutover timestamp.' : 'All readiness checks must pass. Activation cannot be undone.';
+          : readiness.ready ? 'Ready. Activation permanently establishes the server cutover timestamp and frozen account scope.' : 'All readiness checks must pass before activation.';
     }
     if (hardSetRefs.access) {
-      hardSetRefs.access.hidden = enabled;
+      hardSetRefs.access.hidden = false;
       hardSetRefs.access.classList.toggle('is-unlocked', hasBranchAccess);
     }
-    if (hardSetRefs.accessForm) hardSetRefs.accessForm.hidden = enabled || hasBranchAccess;
-    if (hardSetRefs.accessTitle) hardSetRefs.accessTitle.textContent = hasBranchAccess ? 'Branch tier unlocked' : 'Unlock activation controls';
+    if (hardSetRefs.accessForm) hardSetRefs.accessForm.hidden = hasBranchAccess;
+    if (hardSetRefs.accessTitle) hardSetRefs.accessTitle.textContent = hasBranchAccess ? 'Branch tier unlocked' : (enabled ? 'Unlock automation controls' : 'Unlock activation controls');
     if (hardSetRefs.accessNote) {
       hardSetRefs.accessNote.textContent = hasBranchAccess
-        ? `${state.hardSet.access.username || 'Branch'} is authorized to operate the permanent switch.`
+        ? `${state.hardSet.access.username || 'Branch'} is authorized to operate Big Set controls.`
         : 'Use the same Branch username and password as the SKU Database.';
     }
     if (hardSetRefs.explanation) {
       hardSetRefs.explanation.textContent = enabled
-        ? 'Store Ops website ingestion and the frozen automatic marketplace shipment accounts use this permanent cutover. Earlier orders remain manual-era.'
+        ? (automationPaused
+          ? 'The permanent cutover remains active, but future automatic marketplace shipment arrangement is paused. Partner orders and existing arranged orders are unaffected.'
+          : 'Store Ops website ingestion and the frozen automatic marketplace shipment accounts use this permanent cutover. Earlier orders remain manual-era.')
         : 'Website metrics are live, but website ingestion and automatic marketplace shipment arrangement remain OFF until this switch is permanently activated.';
     }
     if (hardSetRefs.readiness) {
@@ -11917,11 +11927,41 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  hardSetRefs.switchButton?.addEventListener('click', () => {
-    if (hardSetRefs.switchButton?.disabled || state.hardSet.state?.enabled) return;
+  hardSetRefs.switchButton?.addEventListener('click', async () => {
+    if (hardSetRefs.switchButton?.disabled) return;
     if (hardSetRefs.error) {
       hardSetRefs.error.hidden = true;
       hardSetRefs.error.textContent = '';
+    }
+    if (state.hardSet.state?.enabled) {
+      const paused = Boolean(state.hardSet.state?.automation_paused);
+      const action = paused ? 'resume' : 'pause';
+      const accepted = window.confirm(paused
+        ? 'Resume future automatic Shopee/TikTok shipment arrangement? Orders held during the pause may then be arranged automatically.'
+        : 'Pause future automatic Shopee/TikTok shipment arrangement? Already arranged shipments will not be changed, and Partner orders will keep working.');
+      if (!accepted) return;
+      state.hardSet.loading = true;
+      renderHardSet();
+      try {
+        const data = await requestJson(`${hardSetEndpoint}?action=${action}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ confirmation: paused ? 'RESUME AUTOMATION' : 'PAUSE AUTOMATION' }),
+          timeoutMs: 70000
+        });
+        state.hardSet.state = data.state || state.hardSet.state;
+        state.hardSet.readiness = data.readiness || state.hardSet.readiness;
+        state.hardSet.access = data.access || state.hardSet.access;
+        state.hardSet.audit = Array.isArray(data.audit) ? data.audit : state.hardSet.audit;
+        state.hardSet.delivery = data.delivery || state.hardSet.delivery;
+        scheduleHardSetDeliveryRetry();
+      } catch (error) {
+        window.alert(error.message || 'Unable to change automatic shipment arrangement.');
+      } finally {
+        state.hardSet.loading = false;
+        renderHardSet();
+      }
+      return;
     }
     hardSetRefs.form?.reset();
     hardSetRefs.dialog?.showModal();

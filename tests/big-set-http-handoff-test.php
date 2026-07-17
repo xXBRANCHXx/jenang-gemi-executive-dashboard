@@ -95,6 +95,7 @@ function big_set_http_database(array $payload): PDO
     $pdo->exec(
         'CREATE TABLE hard_set_outbox (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_type TEXT NOT NULL DEFAULT "ACTIVATED",
             payload_json TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT "pending",
             attempts INTEGER NOT NULL DEFAULT 0,

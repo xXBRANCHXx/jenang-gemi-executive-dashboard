@@ -1373,7 +1373,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                         <span class="admin-chip admin-chip-accent">Hard Set</span>
                         <h2>Hard Set</h2>
                         <p class="admin-hard-set-subtitle">Big Set</p>
-                        <p data-hard-set-explanation>Website metrics are live, but website ingestion and automatic marketplace shipment arrangement remain OFF until this switch is permanently activated.</p>
+                        <p data-hard-set-explanation>Website metrics are live, but website ingestion and automatic marketplace shipment arrangement remain OFF until this switch is activated.</p>
                     </div>
                     <div class="admin-hard-set-state"><span>Current state</span><strong data-hard-set-state>Loading</strong><small data-hard-set-activation></small></div>
                 </section>
@@ -1383,7 +1383,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                     </div>
                     <div class="admin-hard-set-access-copy">
                         <span class="admin-panel-kicker">Branch-tier lock</span>
-                        <h3 data-hard-set-access-title>Unlock activation controls</h3>
+                        <h3 data-hard-set-access-title>Unlock Big Set controls</h3>
                         <p data-hard-set-access-note>Use the same Branch username and password as the SKU Database.</p>
                     </div>
                     <form class="admin-hard-set-access-form" data-hard-set-unlock-form>
@@ -1398,7 +1398,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                         <span class="admin-hard-set-track"><span class="admin-hard-set-knob"></span></span>
                         <strong data-hard-set-switch-label>OFF</strong>
                     </button>
-                    <p data-hard-set-switch-note>All readiness checks must pass. Activation cannot be undone.</p>
+                    <p data-hard-set-switch-note>The cutover timestamp is permanent. Future automatic shipment arrangement can be paused and resumed.</p>
                 </section>
                 <section class="admin-hard-set-readiness" data-hard-set-readiness>
                     <article class="admin-panel"><p class="admin-empty">Loading ZERO Website readiness...</p></article>
@@ -1565,7 +1565,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
         <form method="dialog" data-hard-set-form>
             <span class="admin-panel-kicker">Irreversible cutover</span>
             <h2 id="hard-set-confirm-title">Activate Big Set?</h2>
-            <p>This permanently enables Store Ops website ingestion and authorizes API Ingest to arrange Shopee/TikTok shipments for the frozen automatic accounts. Marketplace orders at or before the server cutover remain manual; post-cutover orders are hidden from Store Ops until shipment is arranged and a valid label is stored.</p>
+            <p>This permanently establishes the Store Ops cutover timestamp and authorizes automatic shipment arrangement for the frozen marketplace accounts. The timestamp and account scope cannot be changed, but future automatic arrangements can be paused and resumed later. Pausing never reverses a shipment already arranged.</p>
             <label><span>Type <strong>ACTIVATE BIG SET</strong></span><input name="confirmation" autocomplete="off" required></label>
             <p class="admin-form-error" data-hard-set-error hidden></p>
             <div class="admin-modal-actions"><button type="button" class="admin-ghost-btn" data-hard-set-cancel>Cancel</button><button type="submit" class="admin-danger-btn">Activate Permanently</button></div>

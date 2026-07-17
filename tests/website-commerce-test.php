@@ -90,6 +90,79 @@ commerce_expect(
     'Activation must be delivered to Store Ops before API Ingest can enable marketplace mutations.'
 );
 
+$pausedPayload = jg_hard_set_automation_payload([
+    'enabled' => true,
+    'activated_at' => '2026-06-23 01:02:03.500000',
+    'activated_at_iso' => '2026-06-23T01:02:03.500000Z',
+    'activated_by' => 'test',
+    'automatic_sources' => $activationPayload['automatic_sources'],
+    'automation_paused_at_iso' => '2026-07-17T05:00:00.000000Z',
+    'automation_paused_by' => 'pause test',
+], true);
+$pauseDeliveryOrder = [];
+jg_hard_set_project_automation(
+    $pausedPayload,
+    static function (array $payload) use (&$pauseDeliveryOrder): array {
+        $pauseDeliveryOrder[] = 'store_ops';
+        return ['state' => [
+            'enabled' => true,
+            'activated_at' => $payload['activated_at'],
+            'automatic_sources' => $payload['automatic_sources'],
+            'automation_paused' => $payload['automation_paused'],
+        ]];
+    },
+    static function (array $payload) use (&$pauseDeliveryOrder): array {
+        $pauseDeliveryOrder[] = 'api_ingest';
+        return ['state' => [
+            'enabled' => true,
+            'activated_at' => $payload['activated_at'],
+            'sources' => $payload['automatic_sources'],
+            'automation_paused' => $payload['automation_paused'],
+        ]];
+    }
+);
+commerce_expect(['api_ingest', 'store_ops'], $pauseDeliveryOrder, 'Pause must stop API Ingest mutations before Store Ops exposes unarranged rows.');
+
+$resumePayload = $pausedPayload;
+$resumePayload['event'] = 'hard_set_automation_resumed';
+$resumePayload['automation_paused'] = false;
+$resumeDeliveryOrder = [];
+jg_hard_set_project_automation(
+    $resumePayload,
+    static function (array $payload) use (&$resumeDeliveryOrder): array {
+        $resumeDeliveryOrder[] = 'store_ops';
+        return ['state' => [
+            'enabled' => true,
+            'activated_at' => $payload['activated_at'],
+            'automatic_sources' => $payload['automatic_sources'],
+            'automation_paused' => false,
+        ]];
+    },
+    static function (array $payload) use (&$resumeDeliveryOrder): array {
+        $resumeDeliveryOrder[] = 'api_ingest';
+        return ['state' => [
+            'enabled' => true,
+            'activated_at' => $payload['activated_at'],
+            'sources' => $payload['automatic_sources'],
+            'automation_paused' => false,
+        ]];
+    }
+);
+commerce_expect(['store_ops', 'api_ingest'], $resumeDeliveryOrder, 'Resume must make Store Ops fail closed before API Ingest mutations restart.');
+
+$pauseMismatchRejected = false;
+try {
+    jg_hard_set_projection_ack_state($pausedPayload, ['state' => [
+        'enabled' => true,
+        'activated_at' => $pausedPayload['activated_at'],
+        'sources' => $pausedPayload['automatic_sources'],
+        'automation_paused' => false,
+    ]], 'API Ingest', 'sources');
+} catch (RuntimeException) {
+    $pauseMismatchRejected = true;
+}
+commerce_expect(true, $pauseMismatchRejected, 'A downstream acknowledgement with the wrong pause state must fail closed.');
+
 $apiDeliveryAttempted = false;
 $storeOpsRejectionPropagated = false;
 try {
@@ -209,6 +282,11 @@ $downstreamActive = jg_hard_set_downstream_state_alignment(
     ['enabled' => true, 'activated_at' => '2026-06-23 01:02:03.500000']
 );
 commerce_expect(true, $downstreamActive['ready'], 'Equivalent active UTC cutover timestamps must pass state alignment.');
+$downstreamPauseMismatch = jg_hard_set_downstream_state_alignment(
+    ['enabled' => true, 'activated_at' => '2026-06-23T01:02:03.500000Z', 'automation_paused' => true],
+    ['enabled' => true, 'activated_at' => '2026-06-23T01:02:03.500000Z', 'automation_paused' => false]
+);
+commerce_expect(false, $downstreamPauseMismatch['ready'], 'Active projections must agree on whether future automatic arrangement is paused.');
 $downstreamMismatch = jg_hard_set_downstream_state_alignment(
     ['enabled' => true, 'activated_at' => '2026-06-23T01:02:03.500000Z'],
     ['enabled' => true, 'activated_at' => '2026-06-23T01:02:03.500001Z']
