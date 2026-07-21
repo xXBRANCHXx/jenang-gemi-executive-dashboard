@@ -435,16 +435,18 @@ function jg_orders_is_free_gift(array $row): bool
 
     $type = strtoupper(trim((string) jg_orders_pick($row, ['item_type', 'line_item_type', 'sku_type', 'promotion_type'], '')));
     $type = trim((string) preg_replace('/[^A-Z0-9]+/', '_', $type), '_');
-    if (in_array($type, ['GIFT', 'FREE_GIFT', 'FREEBIE', 'COMPLIMENTARY_GIFT', 'GIFT_WITH_PURCHASE'], true)) {
+    if (in_array($type, [
+        'GIFT',
+        'FREE_GIFT',
+        'FREEBIE',
+        'COMPLIMENTARY_GIFT',
+        'GIFT_WITH_PURCHASE',
+        'ADD_ON_FREE_GIFT_SUB',
+    ], true)) {
         return true;
     }
 
-    $label = implode(' ', [
-        (string) jg_orders_pick($row, ['sku', 'seller_sku', 'item_sku'], ''),
-        (string) jg_orders_pick($row, ['product_name', 'item_name', 'name', 'title'], ''),
-        (string) jg_orders_pick($row, ['marketplace_product_name'], ''),
-    ]);
-    return preg_match('/(?:^|[^a-z0-9])(?:free[ _-]*gift|freebie|hadiah[ _-]*gratis|gratis[ _-]*gift)(?:$|[^a-z0-9])/i', $label) === 1;
+    return false;
 }
 
 function jg_orders_stock_quantity(array $row): int
@@ -476,9 +478,7 @@ function jg_orders_interpret_sales_row(array $row): array
 
 function jg_orders_free_gift_sql(string $alias): string
 {
-    return '(' . $alias . '.is_free_gift = 1'
-        . ' OR LOWER(CONCAT_WS(\' \', COALESCE(' . $alias . '.sku, \'\'), COALESCE(' . $alias . '.product_name, \'\'), COALESCE(' . $alias . '.marketplace_product_name, \'\')))'
-        . ' REGEXP \'(^|[^a-z0-9])(free[ _-]*gift|freebie|hadiah[ _-]*gratis|gratis[ _-]*gift)($|[^a-z0-9])\')';
+    return $alias . '.is_free_gift = 1';
 }
 
 function jg_orders_order_datetime(mixed $value): ?DateTimeImmutable

@@ -174,13 +174,24 @@ $legacyGift = jg_orders_mirror_response_row([
     'funds_released' => 1,
     'funds_released_amount' => 1200,
 ]);
-expect_same(true, $legacyGift['is_free_gift'], 'Historical mirror rows must infer free gifts from stored names.');
-expect_same(0, $legacyGift['quantity'], 'Historical free gifts must contribute zero interpreted sales quantity.');
-expect_same(1, $legacyGift['cogs_quantity'], 'Historical free gifts must retain their original physical quantity.');
-expect_same(0, $legacyGift['revenue'], 'Historical free gifts must contribute zero interpreted item revenue.');
-expect_same(1200, $legacyGift['order_net_revenue'], 'Historical gift interpretation must preserve confirmed order revenue.');
-expect_same(1200, $legacyGift['funds_released_amount'], 'Historical gift interpretation must preserve released wallet funds.');
-expect_same(true, str_contains(jg_orders_free_gift_sql('dashboard_order_mirror'), 'product_name'), 'Daily summaries must interpret historical gift names in SQL.');
+expect_same(false, $legacyGift['is_free_gift'], 'A gift-like stored name must not replace marketplace evidence.');
+expect_same(1, $legacyGift['quantity'], 'Name-only rows must remain sales unless the marketplace marks them complimentary.');
+expect_same(1, $legacyGift['cogs_quantity'], 'Name-only rows must retain their physical quantity.');
+expect_same(500, $legacyGift['revenue'], 'Name-only rows must retain their item revenue.');
+expect_same(1200, $legacyGift['order_net_revenue'], 'Name interpretation must not alter confirmed order revenue.');
+expect_same(1200, $legacyGift['funds_released_amount'], 'Name interpretation must not alter released wallet funds.');
+expect_same(false, str_contains(jg_orders_free_gift_sql('dashboard_order_mirror'), 'product_name'), 'Daily summaries must not classify gifts by product name.');
+
+$promotionGift = jg_orders_interpret_sales_row([
+    'promotion_type' => 'add_on_free_gift_sub',
+    'product_name' => 'Sticker',
+    'quantity' => 1,
+    'revenue' => 500,
+]);
+expect_same(true, $promotionGift['is_free_gift'], 'Shopee free-gift sub-lines must be identified from marketplace promotion evidence.');
+expect_same(0, $promotionGift['quantity'], 'Marketplace-marked gift lines must contribute zero sales quantity.');
+expect_same(1, $promotionGift['cogs_quantity'], 'Marketplace-marked gift lines must retain their physical COGS quantity.');
+expect_same(0, $promotionGift['revenue'], 'Marketplace-marked gift lines must contribute zero item revenue.');
 
 $releasedWithoutTimeRows = jg_orders_webhook_rows([
     'event' => 'marketplace_orders_upserted',
