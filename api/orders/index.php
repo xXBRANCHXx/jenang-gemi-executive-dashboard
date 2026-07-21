@@ -442,6 +442,7 @@ function jg_orders_is_free_gift(array $row): bool
     $label = implode(' ', [
         (string) jg_orders_pick($row, ['sku', 'seller_sku', 'item_sku'], ''),
         (string) jg_orders_pick($row, ['product_name', 'item_name', 'name', 'title'], ''),
+        (string) jg_orders_pick($row, ['marketplace_product_name'], ''),
     ]);
     return preg_match('/(?:^|[^a-z0-9])(?:free[ _-]*gift|freebie|hadiah[ _-]*gratis|gratis[ _-]*gift)(?:$|[^a-z0-9])/i', $label) === 1;
 }
@@ -450,6 +451,34 @@ function jg_orders_stock_quantity(array $row): int
 {
     $physical = jg_orders_int(jg_orders_pick($row, ['cogs_quantity', 'stock_quantity', 'physical_quantity'], 0));
     return $physical > 0 ? $physical : jg_orders_int(jg_orders_pick($row, ['quantity'], 0));
+}
+
+function jg_orders_interpret_sales_row(array $row): array
+{
+    $physicalQuantity = jg_orders_stock_quantity($row);
+    $isFreeGift = jg_orders_is_free_gift($row);
+    $row['cogs_quantity'] = $physicalQuantity;
+    $row['is_free_gift'] = $isFreeGift;
+    if (!$isFreeGift) {
+        return $row;
+    }
+
+    $cogs = jg_orders_float(jg_orders_pick($row, ['cogs', 'total_cogs'], 0));
+    $row['quantity'] = 0;
+    $row['item_count'] = 0;
+    $row['revenue'] = 0;
+    $row['net_revenue'] = 0;
+    $row['gross_revenue'] = 0;
+    $row['marketplace_fees'] = 0;
+    $row['gross_profit'] = -$cogs;
+    return $row;
+}
+
+function jg_orders_free_gift_sql(string $alias): string
+{
+    return '(' . $alias . '.is_free_gift = 1'
+        . ' OR LOWER(CONCAT_WS(\' \', COALESCE(' . $alias . '.sku, \'\'), COALESCE(' . $alias . '.product_name, \'\'), COALESCE(' . $alias . '.marketplace_product_name, \'\')))'
+        . ' REGEXP \'(^|[^a-z0-9])(free[ _-]*gift|freebie|hadiah[ _-]*gratis|gratis[ _-]*gift)($|[^a-z0-9])\')';
 }
 
 function jg_orders_order_datetime(mixed $value): ?DateTimeImmutable
@@ -994,6 +1023,7 @@ function jg_orders_daily_summary_payload(PDO $pdo, string $startDate, string $en
 
     $accounts = [];
     [$from, $to] = jg_orders_range_bounds($startDate, $endDate);
+    $freeGiftSql = jg_orders_free_gift_sql('dashboard_order_mirror');
     $stmt = $pdo->prepare(
         'SELECT daily_date, platform, account_key,
                 COUNT(*) AS orders,
@@ -1004,7 +1034,7 @@ function jg_orders_daily_summary_payload(PDO $pdo, string $startDate, string $en
                     platform,
                     account_key,
                     CASE WHEN order_id <> "" THEN order_id ELSE order_item_hash END AS daily_order_key,
-                    SUM(quantity) AS order_qty,
+                    SUM(CASE WHEN ' . $freeGiftSql . ' THEN 0 ELSE quantity END) AS order_qty,
                     CASE
                         WHEN MAX(order_net_revenue) <> 0 THEN MAX(order_net_revenue)
                         ELSE SUM(revenue)
@@ -1629,6 +1659,7 @@ function jg_orders_repair_mirror_range_from_api(PDO $pdo, string $startDate, str
 
 function jg_orders_mirror_response_row(array $row): array
 {
+    $row = jg_orders_interpret_sales_row($row);
     $timestamp = jg_orders_atom_datetime((string) ($row['timestamp_utc'] ?? $row['order_create_time'] ?? ''));
     return [
         'timestamp' => $timestamp,
@@ -2198,6 +2229,7 @@ function jg_orders_enriched_row(
     array $allocations,
     string $allocationError = ''
 ): array {
+    $remoteRow = jg_orders_interpret_sales_row($remoteRow);
     $saleQuantity = max(0, (int) ($remoteRow['quantity'] ?? 0));
     $physicalQuantity = jg_orders_stock_quantity($remoteRow);
     $isFreeGift = jg_orders_is_free_gift($remoteRow);

@@ -158,6 +158,30 @@ expect_same(1, $enrichedGift['cogs_quantity'], 'Inventory enrichment must retain
 expect_same(100, $enrichedGift['cogs'], 'Free gifts must still incur SKU COGS.');
 expect_same(-100, $enrichedGift['gross_profit'], 'Order-based item profit must include free-gift COGS with no gift revenue.');
 
+$legacyGift = jg_orders_mirror_response_row([
+    'order_id' => 'ORDER-HISTORICAL-GIFT',
+    'platform' => 'shopee',
+    'account_key' => 'main',
+    'sku' => 'JG0101',
+    'product_name' => 'Free Gift Classic Jenang',
+    'quantity' => 1,
+    'cogs_quantity' => 0,
+    'is_free_gift' => 0,
+    'revenue' => 500,
+    'gross_revenue' => 600,
+    'marketplace_fees' => 100,
+    'order_net_revenue' => 1200,
+    'funds_released' => 1,
+    'funds_released_amount' => 1200,
+]);
+expect_same(true, $legacyGift['is_free_gift'], 'Historical mirror rows must infer free gifts from stored names.');
+expect_same(0, $legacyGift['quantity'], 'Historical free gifts must contribute zero interpreted sales quantity.');
+expect_same(1, $legacyGift['cogs_quantity'], 'Historical free gifts must retain their original physical quantity.');
+expect_same(0, $legacyGift['revenue'], 'Historical free gifts must contribute zero interpreted item revenue.');
+expect_same(1200, $legacyGift['order_net_revenue'], 'Historical gift interpretation must preserve confirmed order revenue.');
+expect_same(1200, $legacyGift['funds_released_amount'], 'Historical gift interpretation must preserve released wallet funds.');
+expect_same(true, str_contains(jg_orders_free_gift_sql('dashboard_order_mirror'), 'product_name'), 'Daily summaries must interpret historical gift names in SQL.');
+
 $releasedWithoutTimeRows = jg_orders_webhook_rows([
     'event' => 'marketplace_orders_upserted',
     'rows' => [[
