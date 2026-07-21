@@ -21850,12 +21850,15 @@ body:has(.admin-app[data-sku-db])::after {
 }
 
 .partner-program-landing {
-  width: min(100%, 620px);
+  justify-self: center;
+  width: min(100%, 760px);
   padding: clamp(32px, 7vw, 72px);
+  text-align: center;
 }
 
 .partner-program-intro {
   display: grid;
+  justify-items: center;
   gap: 16px;
 }
 
@@ -21879,6 +21882,7 @@ body:has(.admin-app[data-sku-db])::after {
 
 .partner-program-actions {
   display: flex;
+  justify-content: center;
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 8px;
