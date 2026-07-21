@@ -893,7 +893,7 @@ const formatPageLabel = (pagePath = '') => {
 const normalizeSourceKey = (value) => String(value || '').trim().toLowerCase();
 
 const HIDDEN_HOME_SOURCES = new Set(['internal', 'direct']);
-const OVERVIEW_DATA_CACHE_VERSION = 14;
+const OVERVIEW_DATA_CACHE_VERSION = 15;
 const OVERVIEW_CACHE_PREFIX = `jg-overview-summary-v${OVERVIEW_DATA_CACHE_VERSION}`;
 const ORDER_RENDER_BATCH_SIZE = 120;
 const ORDER_LOAD_WINDOW_DAYS = 14;
