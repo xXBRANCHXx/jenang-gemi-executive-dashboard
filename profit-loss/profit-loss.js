@@ -871,6 +871,7 @@ if (root) {
         months: new Set()
       };
       const quantity = number(firstValue(row.quantity, row.item_count, row.items_qty, row.units));
+      const cogsQuantity = number(firstValue(row.cogs_quantity, row.stock_quantity, row.physical_quantity, quantity));
       const rowMonth = number(row.month);
       const input = inputs.get(`${sku}|${rowMonth}`) || inputs.get(`${rawSku}|${rowMonth}`) || {};
       const catalogCogs = catalogCogsForMonth(catalogRow, rowMonth);
@@ -883,7 +884,7 @@ if (root) {
       const rowFees = number(row.marketplace_fees);
       const rowGrossRevenue = number(firstValue(row.gross_revenue, row.grossRevenue, row.gross_sales, row.customer_paid, row.buyer_paid, rowFees ? rowNetRevenue + rowFees : '', rowNetRevenue));
       const fallbackCogs = number(firstValue(row.cogs, row.total_cogs, row.cost_of_goods_sold));
-      const rowCogs = baseCogs > 0 || extraUnitCost > 0 ? quantity * unitCost : fallbackCogs;
+      const rowCogs = baseCogs > 0 || extraUnitCost > 0 ? cogsQuantity * unitCost : fallbackCogs;
       item.units += quantity;
       item.netRevenue += rowNetRevenue;
       item.grossRevenue += rowGrossRevenue;

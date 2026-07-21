@@ -875,12 +875,14 @@ function jg_sales_enrich_monthly_product_cogs(array &$products, array $lookup, i
         $sku = jg_sales_normalize_sku_key($row['sku'] ?? '');
         $skuRecord = $lookup[$sku] ?? null;
         $quantity = (int) ($row['quantity'] ?? 0);
+        $cogsQuantity = (int) ($row['cogs_quantity'] ?? $quantity);
         $revenue = jg_sales_seller_received($row);
         $grossRevenue = (int) round((float) ($row['gross_revenue'] ?? $revenue));
         $fees = max(0, $grossRevenue - $revenue);
         $unitCogs = is_array($skuRecord) ? jg_sales_sku_cogs_for_month($skuRecord, $year, $month) : 0.0;
         $displayProductName = trim((string) ($skuRecord['product_name'] ?? ''));
-        $rowCogs = (int) round($unitCogs * $quantity);
+        $rowCogs = (int) round($unitCogs * $cogsQuantity);
+        $row['cogs_quantity'] = $cogsQuantity;
         $row['unit_cogs'] = $unitCogs;
         $row['cogs'] = $rowCogs;
         $row['cogs_source'] = is_array($skuRecord)
@@ -1108,12 +1110,14 @@ function jg_sales_enrich_with_sku_db(array $summary, int $year): array
         $sku = jg_sales_normalize_sku_key($row['sku'] ?? '');
         $skuRecord = $lookup[$sku] ?? null;
         $quantity = (int) ($row['quantity'] ?? 0);
+        $cogsQuantity = (int) ($row['cogs_quantity'] ?? $quantity);
         $net = jg_sales_seller_received($row);
         $rowCogs = array_key_exists($sku, $monthlyProductMetrics['sku_cogs'])
             ? (int) $monthlyProductMetrics['sku_cogs'][$sku]
-            : (int) round((float) ($skuRecord['cogs'] ?? 0) * $quantity);
+            : (int) round((float) ($skuRecord['cogs'] ?? 0) * $cogsQuantity);
         $unitCogs = $quantity > 0 ? $rowCogs / $quantity : (float) ($skuRecord['cogs'] ?? 0);
         $displayProductName = trim((string) ($skuRecord['product_name'] ?? ''));
+        $row['cogs_quantity'] = $cogsQuantity;
         $row['unit_cogs'] = $unitCogs;
         $row['cogs'] = $rowCogs;
         $row['cogs_source'] = is_array($skuRecord)
@@ -1137,8 +1141,10 @@ function jg_sales_enrich_with_sku_db(array $summary, int $year): array
                 continue;
             }
             $platformQuantity = (int) ($platformRow['quantity'] ?? 0);
+            $platformCogsQuantity = (int) ($platformRow['cogs_quantity'] ?? $platformQuantity);
             $platformRevenue = jg_sales_seller_received($platformRow);
-            $platformCogs = (int) round($unitCogs * $platformQuantity);
+            $platformCogs = (int) round($unitCogs * $platformCogsQuantity);
+            $platformRow['cogs_quantity'] = $platformCogsQuantity;
             $platformRow['unit_cogs'] = $unitCogs;
             $platformRow['cogs'] = $platformCogs;
             $platformRow['revenue'] = $platformRevenue;
@@ -1336,7 +1342,7 @@ function jg_sales_attach_calculation_audit(array &$summary, int $year): void
             ],
             'cogs' => [
                 'definition' => 'Cost of goods sold from the current static average in SKU DB.',
-                'formula' => 'SUM(sku_skus.cogs * products.by_month[].quantity); product gross profit uses item-level net revenue, including raw_json.finance_statement.sku_transactions[].settlement_amount when available.',
+                'formula' => 'SUM(sku_skus.cogs * products.by_month[].cogs_quantity); free-gift physical quantity affects COGS while sales quantity and item revenue remain zero.',
                 'dashboard_json_paths' => ['months[].cogs', 'products.by_month[].cogs', 'products.by_product[].cogs'],
             ],
             'gross_profit' => [

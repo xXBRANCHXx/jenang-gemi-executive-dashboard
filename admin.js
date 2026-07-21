@@ -5643,6 +5643,12 @@ document.addEventListener('DOMContentLoaded', () => {
     hour12: false
   }).format(date));
 
+  const isFreeGiftOrderRow = (order) => {
+    const value = order?.is_free_gift;
+    if (value === true || value === 1) return true;
+    return typeof value === 'string' && ['1', 'true', 'yes'].includes(value.trim().toLowerCase());
+  };
+
   const orderMetricRow = (order) => {
     const revenue = Number(order?.revenue || 0);
     const cogs = Number(order?.cogs || 0);
@@ -5656,6 +5662,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const addOrderMetrics = (target, order) => {
     const metrics = orderMetricRow(order);
+    const cogs = Number(order?.cogs || 0);
+    if (isFreeGiftOrderRow(order)) {
+      target.gross_profit -= cogs;
+      return;
+    }
     const orderId = String(order?.order_id || '').trim();
     const orderKey = [
       String(order?.platform || '').trim(),
@@ -5669,8 +5680,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const revenueContribution = hasOrderRevenue
       ? (isFirstOrderRow ? orderRevenue : 0)
       : metrics.revenue;
-    const cogs = Number(order?.cogs || 0);
-
     target.revenue += revenueContribution;
     target.gross_profit += revenueContribution - cogs;
     if (isFirstOrderRow) {
@@ -6711,6 +6720,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const date = dailyOrderDateString(row);
       const day = dayMap.get(date);
       if (!day) return;
+      if (isFreeGiftOrderRow(row)) return;
       const account = dailyAccountFromRow(row);
       const quantity = Math.max(0, Number(row?.quantity || row?.item_count || 0));
       const revenue = Number(row?.revenue || row?.net_revenue || row?.sales || row?.gross_revenue || 0);

@@ -124,6 +124,40 @@ expect_same(1, $webhookRows[0]['funds_released'], 'Webhook rows must preserve re
 expect_same(1200.0, $webhookRows[0]['funds_released_amount'], 'Webhook rows must preserve released wallet amounts.');
 expect_same('Buyer One', $webhookRows[0]['username'], 'Webhook rows must map customer names.');
 
+$freeGiftRows = jg_orders_webhook_rows([
+    'event' => 'marketplace_orders_upserted',
+    'rows' => [[
+        'platform' => 'shopee',
+        'account_key' => 'main',
+        'order_id' => 'ORDER-FREE-GIFT',
+        'item_key' => 'GIFT-ITEM-1',
+        'sku' => 'JG0101',
+        'product_name' => 'Free Gift Classic Jenang',
+        'quantity' => 0,
+        'cogs_quantity' => 1,
+        'is_free_gift' => true,
+        'revenue' => 0,
+        'order_net_revenue' => 1200,
+        'funds_released' => true,
+        'funds_released_amount' => 1200,
+        'funds_release_status' => 'SETTLED',
+        'funds_release_source' => 'finance_statement.status=SETTLED',
+    ]],
+]);
+expect_same(0, $freeGiftRows[0]['quantity'], 'Free gifts must contribute zero sales quantity.');
+expect_same(1, $freeGiftRows[0]['cogs_quantity'], 'Free gifts must retain physical quantity for stock and COGS.');
+expect_same(1, $freeGiftRows[0]['is_free_gift'], 'Free-gift classification must survive mirror normalization.');
+expect_same(0.0, $freeGiftRows[0]['revenue'], 'Free gifts must contribute zero order-based item revenue.');
+expect_same(1200.0, $freeGiftRows[0]['order_net_revenue'], 'Free gifts must not alter confirmed order revenue used by wallet/accounting context.');
+expect_same(1200.0, $freeGiftRows[0]['funds_released_amount'], 'Free gifts must not alter released wallet funds.');
+expect_same(1, jg_orders_stock_quantity($freeGiftRows[0]), 'Inventory must consume the free gift physical quantity.');
+
+$enrichedGift = jg_orders_enriched_row($freeGiftRows[0], $sku, 1.0, []);
+expect_same(0, $enrichedGift['quantity'], 'Inventory enrichment must retain zero sales quantity for gifts.');
+expect_same(1, $enrichedGift['cogs_quantity'], 'Inventory enrichment must retain gift stock quantity.');
+expect_same(100, $enrichedGift['cogs'], 'Free gifts must still incur SKU COGS.');
+expect_same(-100, $enrichedGift['gross_profit'], 'Order-based item profit must include free-gift COGS with no gift revenue.');
+
 $releasedWithoutTimeRows = jg_orders_webhook_rows([
     'event' => 'marketplace_orders_upserted',
     'rows' => [[

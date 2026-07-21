@@ -339,6 +339,8 @@ function jg_orders_ensure_mirror_schema(PDO $pdo): void
             product_type VARCHAR(160) NOT NULL DEFAULT "",
             flavor VARCHAR(160) NOT NULL DEFAULT "",
             quantity INT NOT NULL DEFAULT 0,
+            cogs_quantity INT NOT NULL DEFAULT 0,
+            is_free_gift TINYINT(1) NOT NULL DEFAULT 0,
             revenue DECIMAL(16,2) NOT NULL DEFAULT 0,
             order_net_revenue DECIMAL(16,2) NOT NULL DEFAULT 0,
             gross_revenue DECIMAL(16,2) NOT NULL DEFAULT 0,
@@ -366,6 +368,8 @@ function jg_orders_ensure_mirror_schema(PDO $pdo): void
     );
 
     analyticsEnsureTableColumn($pdo, 'dashboard_order_mirror', 'gross_revenue', 'DECIMAL(16,2) NOT NULL DEFAULT 0 AFTER `order_net_revenue`');
+    analyticsEnsureTableColumn($pdo, 'dashboard_order_mirror', 'cogs_quantity', 'INT NOT NULL DEFAULT 0 AFTER `quantity`');
+    analyticsEnsureTableColumn($pdo, 'dashboard_order_mirror', 'is_free_gift', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER `cogs_quantity`');
     analyticsEnsureTableColumn($pdo, 'dashboard_order_mirror', 'funds_released', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER `marketplace_fees`');
     analyticsEnsureTableColumn($pdo, 'dashboard_order_mirror', 'funds_released_at', 'DATETIME(6) NULL DEFAULT NULL AFTER `funds_released`');
     analyticsEnsureTableColumn($pdo, 'dashboard_order_mirror', 'funds_released_amount', 'DECIMAL(16,2) NOT NULL DEFAULT 0 AFTER `funds_released_at`');
@@ -421,6 +425,31 @@ function jg_orders_float(mixed $value): float
 function jg_orders_int(mixed $value): int
 {
     return max(0, (int) round(jg_orders_float($value)));
+}
+
+function jg_orders_is_free_gift(array $row): bool
+{
+    if (jg_orders_bool(jg_orders_pick($row, ['is_free_gift', 'free_gift', 'is_gift', 'is_complimentary'], false))) {
+        return true;
+    }
+
+    $type = strtoupper(trim((string) jg_orders_pick($row, ['item_type', 'line_item_type', 'sku_type', 'promotion_type'], '')));
+    $type = trim((string) preg_replace('/[^A-Z0-9]+/', '_', $type), '_');
+    if (in_array($type, ['GIFT', 'FREE_GIFT', 'FREEBIE', 'COMPLIMENTARY_GIFT', 'GIFT_WITH_PURCHASE'], true)) {
+        return true;
+    }
+
+    $label = implode(' ', [
+        (string) jg_orders_pick($row, ['sku', 'seller_sku', 'item_sku'], ''),
+        (string) jg_orders_pick($row, ['product_name', 'item_name', 'name', 'title'], ''),
+    ]);
+    return preg_match('/(?:^|[^a-z0-9])(?:free[ _-]*gift|freebie|hadiah[ _-]*gratis|gratis[ _-]*gift)(?:$|[^a-z0-9])/i', $label) === 1;
+}
+
+function jg_orders_stock_quantity(array $row): int
+{
+    $physical = jg_orders_int(jg_orders_pick($row, ['cogs_quantity', 'stock_quantity', 'physical_quantity'], 0));
+    return $physical > 0 ? $physical : jg_orders_int(jg_orders_pick($row, ['quantity'], 0));
 }
 
 function jg_orders_order_datetime(mixed $value): ?DateTimeImmutable
@@ -544,7 +573,8 @@ function jg_orders_flatten_webhook_order(array $order, array $payload): array
     $totalQuantity = 0;
     foreach ($items as $item) {
         if (is_array($item)) {
-            $totalQuantity += max(0, jg_orders_int(jg_orders_pick($item, ['quantity', 'qty', 'model_quantity', 'amount'], 0)));
+            $physicalQuantity = max(0, jg_orders_int(jg_orders_pick($item, ['cogs_quantity', 'stock_quantity', 'physical_quantity', 'quantity', 'qty', 'model_quantity', 'amount'], 0)));
+            $totalQuantity += jg_orders_is_free_gift($item) ? 0 : $physicalQuantity;
         }
     }
     $orderNetRevenue = jg_orders_float(jg_orders_pick(
@@ -557,8 +587,13 @@ function jg_orders_flatten_webhook_order(array $order, array $payload): array
         if (!is_array($item)) {
             continue;
         }
-        $quantity = max(0, jg_orders_int(jg_orders_pick($item, ['quantity', 'qty', 'model_quantity', 'amount'], 0)));
+        $physicalQuantity = max(0, jg_orders_int(jg_orders_pick($item, ['cogs_quantity', 'stock_quantity', 'physical_quantity', 'quantity', 'qty', 'model_quantity', 'amount'], 0)));
+        $isFreeGift = jg_orders_is_free_gift($item);
+        $quantity = $isFreeGift ? 0 : max(0, jg_orders_int(jg_orders_pick($item, ['quantity', 'qty', 'model_quantity', 'amount'], 0)));
         $itemRevenue = jg_orders_pick($item, ['revenue', 'net_revenue', 'seller_revenue', 'settlement_amount'], null);
+        if ($isFreeGift) {
+            $itemRevenue = 0;
+        }
         if (($itemRevenue === null || $itemRevenue === '') && $orderNetRevenue > 0 && $totalQuantity > 0) {
             $itemRevenue = $orderNetRevenue * ($quantity / $totalQuantity);
         }
@@ -566,6 +601,8 @@ function jg_orders_flatten_webhook_order(array $order, array $payload): array
             'item_key' => jg_orders_pick($item, ['item_key', 'order_item_key', 'line_item_id', 'model_id', 'id', 'sku_id'], $index),
             'sku' => jg_orders_pick($item, ['sku', 'seller_sku', 'model_sku', 'item_sku', 'sku_code'], jg_orders_pick($order, ['sku'], '')),
             'quantity' => $quantity,
+            'cogs_quantity' => $physicalQuantity,
+            'is_free_gift' => $isFreeGift,
             'revenue' => $itemRevenue,
             'product_name' => jg_orders_pick($item, ['product_name', 'item_name', 'name', 'title'], jg_orders_pick($order, ['product_name', 'item_name', 'name'], '')),
             'flavor' => jg_orders_pick($item, ['flavor', 'flavor_name', 'variant_name', 'option_name'], jg_orders_pick($order, ['flavor'], '')),
@@ -615,7 +652,10 @@ function jg_orders_normalize_mirror_row(array $row, array $payload): ?array
             : new DateTimeImmutable('now', new DateTimeZone('UTC'));
     }
 
-    $netRevenue = jg_orders_float(jg_orders_pick($row, ['revenue', 'net_revenue', 'sales', 'seller_revenue', 'settlement_amount'], jg_orders_pick($financials, ['netRevenue', 'net_revenue'], 0)));
+    $isFreeGift = jg_orders_is_free_gift($row);
+    $physicalQuantity = jg_orders_stock_quantity($row);
+    $saleQuantity = $isFreeGift ? 0 : jg_orders_int(jg_orders_pick($row, ['quantity', 'item_count', 'qty'], 0));
+    $netRevenue = $isFreeGift ? 0.0 : jg_orders_float(jg_orders_pick($row, ['revenue', 'net_revenue', 'sales', 'seller_revenue', 'settlement_amount'], jg_orders_pick($financials, ['netRevenue', 'net_revenue'], 0)));
     $orderNetRevenue = jg_orders_float(jg_orders_pick($row, ['order_net_revenue', 'net_revenue', 'revenue'], jg_orders_pick($financials, ['netRevenue', 'net_revenue'], $netRevenue)));
     $grossRevenue = jg_orders_float(jg_orders_pick($row, ['gross_revenue', 'order_gross_revenue', 'customer_paid'], jg_orders_pick($financials, ['grossRevenue', 'totalAmount'], $orderNetRevenue)));
     $marketplaceFees = jg_orders_float(jg_orders_pick($row, ['order_marketplace_fees', 'marketplace_fees', 'fees'], jg_orders_pick($financials, ['marketplaceFees', 'fees'], max(0, $grossRevenue - $orderNetRevenue))));
@@ -634,7 +674,9 @@ function jg_orders_normalize_mirror_row(array $row, array $payload): ?array
         $fundsReleasedAt = $sourceUpdatedAt instanceof DateTimeImmutable ? $sourceUpdatedAt : $timestamp;
     }
     $cogs = jg_orders_float(jg_orders_pick($row, ['cogs', 'total_cogs'], 0));
-    $grossProfit = jg_orders_float(jg_orders_pick($row, ['gross_profit'], $netRevenue - $cogs));
+    $grossProfit = $isFreeGift
+        ? -$cogs
+        : jg_orders_float(jg_orders_pick($row, ['gross_profit'], $netRevenue - $cogs));
     $sourceEvent = substr(trim((string) ($payload['event'] ?? $payload['event_type'] ?? $payload['type'] ?? 'webhook')), 0, 80);
     $deleted = jg_orders_bool($row['deleted'] ?? $row['_deleted'] ?? false)
         || in_array($status, ['DELETED', 'REMOVED'], true)
@@ -660,11 +702,13 @@ function jg_orders_normalize_mirror_row(array $row, array $payload): ?array
         'flavor_name' => substr((string) jg_orders_pick($row, ['flavor_name'], ''), 0, 160),
         'product_type' => substr((string) jg_orders_pick($row, ['product_type', 'category'], ''), 0, 160),
         'flavor' => substr((string) jg_orders_pick($row, ['flavor', 'variant_name', 'option_name'], ''), 0, 160),
-        'quantity' => jg_orders_int(jg_orders_pick($row, ['quantity', 'item_count', 'qty'], 0)),
+        'quantity' => $saleQuantity,
+        'cogs_quantity' => $physicalQuantity,
+        'is_free_gift' => $isFreeGift ? 1 : 0,
         'revenue' => $netRevenue,
         'order_net_revenue' => $orderNetRevenue,
-        'gross_revenue' => $grossRevenue,
-        'marketplace_fees' => $marketplaceFees,
+        'gross_revenue' => $isFreeGift ? 0 : $grossRevenue,
+        'marketplace_fees' => $isFreeGift ? 0 : $marketplaceFees,
         'funds_released' => $fundsReleased ? 1 : 0,
         'funds_released_at' => jg_orders_sql_datetime($fundsReleasedAt),
         'funds_released_amount' => $fundsReleased ? $fundsReleasedAmount : 0,
@@ -690,7 +734,7 @@ function jg_orders_upsert_mirror_rows(PDO $pdo, array $rows, array $payload): ar
             (order_item_hash, platform, account_key, order_id, item_key, sku, status,
              order_create_time, order_create_date, timestamp_utc, company, brand_name,
              product_name, marketplace_product_name, base_product_name, flavor_name,
-             product_type, flavor, quantity, revenue, order_net_revenue, gross_revenue,
+             product_type, flavor, quantity, cogs_quantity, is_free_gift, revenue, order_net_revenue, gross_revenue,
              marketplace_fees, funds_released, funds_released_at, funds_released_amount,
              funds_release_status, funds_release_source, cogs, gross_profit, username, address, phone,
              source_event, source_updated_at, raw_json, mirrored_at, deleted_at)
@@ -698,7 +742,7 @@ function jg_orders_upsert_mirror_rows(PDO $pdo, array $rows, array $payload): ar
             (:order_item_hash, :platform, :account_key, :order_id, :item_key, :sku, :status,
              :order_create_time, :order_create_date, :timestamp_utc, :company, :brand_name,
              :product_name, :marketplace_product_name, :base_product_name, :flavor_name,
-             :product_type, :flavor, :quantity, :revenue, :order_net_revenue, :gross_revenue,
+             :product_type, :flavor, :quantity, :cogs_quantity, :is_free_gift, :revenue, :order_net_revenue, :gross_revenue,
              :marketplace_fees, :funds_released, :funds_released_at, :funds_released_amount,
              :funds_release_status, :funds_release_source, :cogs, :gross_profit, :username, :address, :phone,
              :source_event, :source_updated_at, :raw_json, :mirrored_at, :deleted_at)
@@ -721,6 +765,8 @@ function jg_orders_upsert_mirror_rows(PDO $pdo, array $rows, array $payload): ar
              product_type = VALUES(product_type),
              flavor = VALUES(flavor),
              quantity = VALUES(quantity),
+             cogs_quantity = VALUES(cogs_quantity),
+             is_free_gift = VALUES(is_free_gift),
              revenue = VALUES(revenue),
              order_net_revenue = VALUES(order_net_revenue),
              gross_revenue = VALUES(gross_revenue),
@@ -1604,6 +1650,10 @@ function jg_orders_mirror_response_row(array $row): array
         'status' => (string) ($row['status'] ?? ''),
         'quantity' => (int) ($row['quantity'] ?? 0),
         'item_count' => (int) ($row['quantity'] ?? 0),
+        'cogs_quantity' => (int) ($row['cogs_quantity'] ?? 0) > 0
+            ? (int) $row['cogs_quantity']
+            : (int) ($row['quantity'] ?? 0),
+        'is_free_gift' => (int) ($row['is_free_gift'] ?? 0) === 1,
         'revenue' => (int) round((float) ($row['revenue'] ?? 0)),
         'net_revenue' => (int) round((float) ($row['revenue'] ?? 0)),
         'order_net_revenue' => (int) round((float) ($row['order_net_revenue'] ?? 0)),
@@ -2037,7 +2087,7 @@ function jg_orders_enrich_and_allocate(PDO $pdo, array $remoteRows, array $skuLo
         $allocations = [];
         $allocationError = '';
         if ($sku) {
-            $quantity = max(0, (int) ($remoteRow['quantity'] ?? 0));
+            $quantity = jg_orders_stock_quantity($remoteRow);
             $volume = (float) ($sku['volume'] ?? 0);
             $astra = (float) ($sku['astra'] ?? $volume);
             $multiplier = $volume > 0 && $astra > 0 ? max(1.0, $volume / $astra) : 1.0;
@@ -2079,7 +2129,7 @@ function jg_orders_enrich_for_read(PDO $pdo, array $remoteRows, array $skuLookup
     foreach ($preparedRows as $preparedRow) {
         $remoteRow = $preparedRow['remote'];
         $sku = $preparedRow['sku'];
-        $quantity = max(0, (int) ($remoteRow['quantity'] ?? 0));
+        $quantity = jg_orders_stock_quantity($remoteRow);
         $volume = (float) ($sku['volume'] ?? 0);
         $astra = (float) ($sku['astra'] ?? $volume);
         $multiplier = $volume > 0 && $astra > 0 ? max(1.0, $volume / $astra) : 1.0;
@@ -2148,7 +2198,9 @@ function jg_orders_enriched_row(
     array $allocations,
     string $allocationError = ''
 ): array {
-    $quantity = max(0, (int) ($remoteRow['quantity'] ?? 0));
+    $saleQuantity = max(0, (int) ($remoteRow['quantity'] ?? 0));
+    $physicalQuantity = jg_orders_stock_quantity($remoteRow);
+    $isFreeGift = jg_orders_is_free_gift($remoteRow);
     $unitCogs = 0.0;
     $hasCogsHistory = $sku !== null && is_array($sku['cogs_history'] ?? null) && $sku['cogs_history'] !== [];
     if ($sku !== null) {
@@ -2163,7 +2215,7 @@ function jg_orders_enriched_row(
             $unitCogs = jg_sku_cogs_at($sku['cogs_history'], $targetAt, $unitCogs);
         }
     }
-    $totalCogs = $quantity * $unitCogs;
+    $totalCogs = $physicalQuantity * $unitCogs;
     $revenue = (int) round((float) ($remoteRow['revenue'] ?? $remoteRow['net_revenue'] ?? $remoteRow['sales'] ?? 0));
 
     return [
@@ -2184,7 +2236,9 @@ function jg_orders_enriched_row(
         'item_key' => (string) ($remoteRow['item_key'] ?? ''),
         'sku' => (string) ($sku['sku'] ?? ''),
         'sku_linked' => $sku !== null,
-        'quantity' => $quantity,
+        'quantity' => $saleQuantity,
+        'cogs_quantity' => $physicalQuantity,
+        'is_free_gift' => $isFreeGift,
         'astra_quantity' => $astraQty,
         'revenue' => $revenue,
         'net_revenue' => $revenue,
@@ -2358,6 +2412,16 @@ function jg_orders_order_item_key(array $remoteRow): string
 
 function jg_orders_restore_replaced_allocations(PDO $pdo, array $remoteRow, string $currentOrderItemKey, string $sku): void
 {
+    $legacyOrderItemKey = implode('|', [
+        (string) ($remoteRow['platform'] ?? ''),
+        (string) ($remoteRow['account_key'] ?? ''),
+        (string) ($remoteRow['order_id'] ?? ''),
+        trim((string) ($remoteRow['sku'] ?? $sku)),
+    ]);
+    if ($legacyOrderItemKey === $currentOrderItemKey) {
+        return;
+    }
+
     $stmt = $pdo->prepare(
         'SELECT id, stock_lot_id, qty_astra_consumed
          FROM marketplace_order_inventory_allocations
@@ -2365,14 +2429,14 @@ function jg_orders_restore_replaced_allocations(PDO $pdo, array $remoteRow, stri
            AND platform = :platform
            AND account_key = :account_key
            AND sku = :sku
-           AND order_item_key <> :order_item_key'
+           AND order_item_key = :legacy_order_item_key'
     );
     $stmt->execute([
         ':order_id' => (string) ($remoteRow['order_id'] ?? ''),
         ':platform' => (string) ($remoteRow['platform'] ?? ''),
         ':account_key' => (string) ($remoteRow['account_key'] ?? ''),
         ':sku' => $sku,
-        ':order_item_key' => $currentOrderItemKey,
+        ':legacy_order_item_key' => $legacyOrderItemKey,
     ]);
     $restore = $pdo->prepare('UPDATE sku_stock_lots SET remaining_qty_astra = remaining_qty_astra + :qty, updated_at = :updated_at WHERE id = :id');
     $delete = $pdo->prepare('DELETE FROM marketplace_order_inventory_allocations WHERE id = :id');
