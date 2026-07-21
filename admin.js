@@ -893,7 +893,8 @@ const formatPageLabel = (pagePath = '') => {
 const normalizeSourceKey = (value) => String(value || '').trim().toLowerCase();
 
 const HIDDEN_HOME_SOURCES = new Set(['internal', 'direct']);
-const OVERVIEW_CACHE_PREFIX = 'jg-overview-summary-v11';
+const OVERVIEW_DATA_CACHE_VERSION = 12;
+const OVERVIEW_CACHE_PREFIX = `jg-overview-summary-v${OVERVIEW_DATA_CACHE_VERSION}`;
 const ORDER_RENDER_BATCH_SIZE = 120;
 const ORDER_LOAD_WINDOW_DAYS = 14;
 const ORDER_LOAD_PAGE_SIZE = 1000;
@@ -4739,7 +4740,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    return true;
 	  };
 
-	  const overviewClientCacheKey = (year = state.overview.year) => dashboardClientCacheKey('overview', [year, activeLocalDate]);
+	  const overviewClientCacheKey = (year = state.overview.year) => dashboardClientCacheKey('overview', [`v${OVERVIEW_DATA_CACHE_VERSION}`, year, activeLocalDate]);
 	  const homeClientCacheKey = () => dashboardClientCacheKey('home', [state.home.timeframe, state.timezone, activeLocalDate]);
 	  const websiteClientCacheKey = () => dashboardClientCacheKey('website', [state.website.site || 'select', state.website.timeframe, state.timezone, activeLocalDate]);
 	  const walletClientCacheKey = () => dashboardClientCacheKey('wallet', [activeLocalDate]);
