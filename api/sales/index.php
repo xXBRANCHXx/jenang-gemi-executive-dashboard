@@ -122,7 +122,7 @@ if ($setupToken === '') {
 }
 
 $includeAudit = in_array(strtolower(trim((string) ($_GET['audit'] ?? $_GET['include_audit'] ?? ''))), ['1', 'true', 'yes', 'on'], true);
-$cacheKey = 'sales-summary-base-v6-marketplace-gift-evidence-' . $year . ($includeAudit ? '-audit' : '-core');
+$cacheKey = 'sales-summary-base-v7-marketplace-gift-evidence-' . $year . ($includeAudit ? '-audit' : '-core');
 
 if ($action === 'refresh') {
     if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
