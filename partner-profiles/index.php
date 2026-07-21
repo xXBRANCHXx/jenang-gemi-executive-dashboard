@@ -39,7 +39,6 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
             <div class="admin-shell-main">
                 <header class="admin-topbar">
                     <div class="admin-topbar-brand">
-                        <span class="admin-chip">Partner Profiles</span>
                         <h1>Partner Profiles</h1>
                     </div>
                     <?php render_admin_topbar_actions(); ?>
@@ -56,22 +55,14 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                         </label>
                         <div class="partner-directory-actions">
                             <a class="admin-ghost-btn admin-link-btn" href="../partner-program/">Partner Program</a>
-                            <button type="button" class="admin-primary-btn" data-open-partner-modal>Add Partner</button>
-                        </div>
-                    </section>
-
-                    <section class="partner-directory-metrics">
-                        <div>
-                            <strong data-partner-brand-total>0</strong>
-                            <span>Brands</span>
-                        </div>
-                        <div>
-                            <strong data-partner-product-total>0</strong>
-                            <span>Products</span>
-                        </div>
-                        <div>
-                            <strong data-partner-sku-total>0</strong>
-                            <span>SKU links</span>
+                            <button type="button" class="admin-primary-btn partner-add-button" data-open-partner-modal>
+                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M2 21a8 8 0 0 1 13.3-6"></path>
+                                    <circle cx="10" cy="8" r="5"></circle>
+                                    <path d="M19 16v6M22 19h-6"></path>
+                                </svg>
+                                <span>Add Partner</span>
+                            </button>
                         </div>
                     </section>
 

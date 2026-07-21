@@ -6,13 +6,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const partnerList = document.querySelector('[data-partner-list]');
   const partnerSearch = document.querySelector('[data-partner-search]');
   const partnerCount = document.querySelector('[data-partner-count]');
-  const partnerBrandTotal = document.querySelector('[data-partner-brand-total]');
-  const partnerProductTotal = document.querySelector('[data-partner-product-total]');
-  const partnerSkuTotal = document.querySelector('[data-partner-sku-total]');
   const partnerModal = document.querySelector('[data-partner-modal]');
   const partnerForm = document.querySelector('[data-partner-form]');
   const partnerFormError = document.querySelector('[data-partner-form-error]');
   const partnerSiteOrigin = 'https://partner.jenanggemi.com';
+  const partnerFaviconEndpoint = `${partnerSiteOrigin}/api/partners/favicon/`;
   const partnerNameInput = document.querySelector('[data-partner-name-input]');
   const partnerSlugInput = document.querySelector('[data-partner-slug-input]');
   const partnerPasswordInput = document.querySelector('[data-partner-password-input]');
@@ -434,20 +432,26 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const renderDirectoryTotals = (partners) => {
-    const brandNames = new Set();
-    const productNames = new Set();
-    let skuTotal = 0;
-
-    partners.forEach((partner) => {
-      partnerBrands(partner).forEach((brand) => brandNames.add(brand));
-      partnerProductEntries(partner).forEach((entry) => productNames.add(`${entry.brand}:${entry.product}`));
-      skuTotal += partnerSkuRecords(partner).length;
-    });
-
     if (partnerCount) partnerCount.textContent = String(partners.length);
-    if (partnerBrandTotal) partnerBrandTotal.textContent = String(brandNames.size);
-    if (partnerProductTotal) partnerProductTotal.textContent = String(productNames.size);
-    if (partnerSkuTotal) partnerSkuTotal.textContent = String(skuTotal);
+  };
+
+  const partnerFaviconUrl = (partner, theme) => {
+    const params = new URLSearchParams({
+      partner_code: String(partner.code || ''),
+      theme
+    });
+    return `${partnerFaviconEndpoint}?${params.toString()}`;
+  };
+
+  const initializePartnerFavicons = () => {
+    partnerList?.querySelectorAll('[data-partner-favicon-image]').forEach((image) => {
+      const updateLoadState = () => {
+        image.classList.toggle('is-loaded', image.complete && image.naturalWidth > 0);
+      };
+      image.addEventListener('load', updateLoadState, { once: true });
+      image.addEventListener('error', updateLoadState, { once: true });
+      if (image.complete) updateLoadState();
+    });
   };
 
   const renderPartners = (partners = state.partners) => {
@@ -466,11 +470,19 @@ document.addEventListener('DOMContentLoaded', () => {
       const skus = partnerSkuRecords(partner);
       const brandPreview = brands.slice(0, 3);
       const extraBrands = Math.max(0, brands.length - brandPreview.length);
+      const partnerInitial = String(partner.name || 'P').trim().charAt(0).toUpperCase() || 'P';
       return `
         <article class="partner-directory-row">
           <div class="partner-directory-partner">
-            <strong>${escapeHtml(partner.name || 'Partner')}</strong>
-            <span>${escapeHtml(partner.code || '')}</span>
+            <span class="partner-directory-favicon" aria-hidden="true">
+              <span>${escapeHtml(partnerInitial)}</span>
+              <img data-partner-favicon-image data-favicon-theme="light" src="${escapeHtml(partnerFaviconUrl(partner, 'light'))}" alt="" loading="lazy" referrerpolicy="no-referrer">
+              <img data-partner-favicon-image data-favicon-theme="dark" src="${escapeHtml(partnerFaviconUrl(partner, 'dark'))}" alt="" loading="lazy" referrerpolicy="no-referrer">
+            </span>
+            <span class="partner-directory-identity">
+              <strong>${escapeHtml(partner.name || 'Partner')}</strong>
+              <span>${escapeHtml(partner.code || '')}</span>
+            </span>
           </div>
           <div class="partner-directory-row-stats">
             <span><strong>${products.length}</strong><small>Products</small></span>
@@ -481,13 +493,23 @@ document.addEventListener('DOMContentLoaded', () => {
             ${extraBrands ? `<span>+${extraBrands}</span>` : ''}
           </div>
           <div class="partner-directory-row-actions">
-            <a class="admin-primary-btn admin-link-btn" href="../partner-profile/?code=${encodeURIComponent(partner.code || '')}">Edit</a>
             <a class="admin-ghost-btn admin-link-btn" href="${escapeHtml(`${partnerSiteOrigin}${partner.store_path || '/'}`)}" target="_blank" rel="noopener">Open</a>
-            <button type="button" class="admin-danger-btn" data-delete-partner="${escapeHtml(partner.code || '')}" data-delete-name="${escapeHtml(partner.name || 'Partner')}">Delete</button>
+            <a class="admin-primary-btn admin-link-btn partner-directory-icon-btn partner-edit-button" href="../partner-profile/?code=${encodeURIComponent(partner.code || '')}" aria-label="Edit ${escapeHtml(partner.name || 'partner')}" title="Edit partner">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12.2 2h-.4a2 2 0 0 0-2 2v.2a2 2 0 0 1-1 1.7l-.4.2a2 2 0 0 1-2 0l-.1-.1a2 2 0 0 0-2.7.7l-.2.4a2 2 0 0 0 .7 2.7l.2.1a2 2 0 0 1 1 1.7v.5a2 2 0 0 1-1 1.7l-.2.1a2 2 0 0 0-.7 2.7l.2.4a2 2 0 0 0 2.7.7l.1-.1a2 2 0 0 1 2 0l.4.2a2 2 0 0 1 1 1.7v.2a2 2 0 0 0 2 2h.4a2 2 0 0 0 2-2v-.2a2 2 0 0 1 1-1.7l.4-.2a2 2 0 0 1 2 0l.1.1a2 2 0 0 0 2.7-.7l.2-.4a2 2 0 0 0-.7-2.7l-.2-.1a2 2 0 0 1-1-1.7v-.5a2 2 0 0 1 1-1.7l.2-.1a2 2 0 0 0 .7-2.7l-.2-.4a2 2 0 0 0-2.7-.7l-.1.1a2 2 0 0 1-2 0l-.4-.2a2 2 0 0 1-1-1.7V4a2 2 0 0 0-2-2Z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </a>
+            <button type="button" class="admin-danger-btn partner-directory-icon-btn partner-delete-button" data-delete-partner="${escapeHtml(partner.code || '')}" data-delete-name="${escapeHtml(partner.name || 'Partner')}" aria-label="Delete ${escapeHtml(partner.name || 'partner')}" title="Delete partner">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v5M14 11v5"></path>
+              </svg>
+            </button>
           </div>
         </article>
       `;
     }).join('');
+    initializePartnerFavicons();
   };
 
   partnerSearch?.addEventListener('input', () => {
