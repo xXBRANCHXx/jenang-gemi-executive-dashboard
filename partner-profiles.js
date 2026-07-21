@@ -470,12 +470,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const skus = partnerSkuRecords(partner);
       const brandPreview = brands.slice(0, 3);
       const extraBrands = Math.max(0, brands.length - brandPreview.length);
-      const partnerInitial = String(partner.name || 'P').trim().charAt(0).toUpperCase() || 'P';
       return `
         <article class="partner-directory-row">
           <div class="partner-directory-partner">
             <span class="partner-directory-favicon" aria-hidden="true">
-              <span>${escapeHtml(partnerInitial)}</span>
+              <svg class="partner-directory-favicon-fallback" viewBox="0 0 24 24">
+                <circle cx="12" cy="8" r="4"></circle>
+                <path d="M4.5 21a7.5 7.5 0 0 1 15 0"></path>
+              </svg>
               <img data-partner-favicon-image data-favicon-theme="light" src="${escapeHtml(partnerFaviconUrl(partner, 'light'))}" alt="" loading="lazy" referrerpolicy="no-referrer">
               <img data-partner-favicon-image data-favicon-theme="dark" src="${escapeHtml(partnerFaviconUrl(partner, 'dark'))}" alt="" loading="lazy" referrerpolicy="no-referrer">
             </span>
@@ -494,13 +496,13 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
           <div class="partner-directory-row-actions">
             <a class="admin-ghost-btn admin-link-btn" href="${escapeHtml(`${partnerSiteOrigin}${partner.store_path || '/'}`)}" target="_blank" rel="noopener">Open</a>
-            <a class="admin-primary-btn admin-link-btn partner-directory-icon-btn partner-edit-button" href="../partner-profile/?code=${encodeURIComponent(partner.code || '')}" aria-label="Edit ${escapeHtml(partner.name || 'partner')}" title="Edit partner">
+            <a class="admin-link-btn partner-directory-icon-btn partner-edit-button" href="../partner-profile/?code=${encodeURIComponent(partner.code || '')}" aria-label="Edit ${escapeHtml(partner.name || 'partner')}" title="Edit partner">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M12.2 2h-.4a2 2 0 0 0-2 2v.2a2 2 0 0 1-1 1.7l-.4.2a2 2 0 0 1-2 0l-.1-.1a2 2 0 0 0-2.7.7l-.2.4a2 2 0 0 0 .7 2.7l.2.1a2 2 0 0 1 1 1.7v.5a2 2 0 0 1-1 1.7l-.2.1a2 2 0 0 0-.7 2.7l.2.4a2 2 0 0 0 2.7.7l.1-.1a2 2 0 0 1 2 0l.4.2a2 2 0 0 1 1 1.7v.2a2 2 0 0 0 2 2h.4a2 2 0 0 0 2-2v-.2a2 2 0 0 1 1-1.7l.4-.2a2 2 0 0 1 2 0l.1.1a2 2 0 0 0 2.7-.7l.2-.4a2 2 0 0 0-.7-2.7l-.2-.1a2 2 0 0 1-1-1.7v-.5a2 2 0 0 1 1-1.7l.2-.1a2 2 0 0 0 .7-2.7l-.2-.4a2 2 0 0 0-2.7-.7l-.1.1a2 2 0 0 1-2 0l-.4-.2a2 2 0 0 1-1-1.7V4a2 2 0 0 0-2-2Z"></path>
                 <circle cx="12" cy="12" r="3"></circle>
               </svg>
             </a>
-            <button type="button" class="admin-danger-btn partner-directory-icon-btn partner-delete-button" data-delete-partner="${escapeHtml(partner.code || '')}" data-delete-name="${escapeHtml(partner.name || 'Partner')}" aria-label="Delete ${escapeHtml(partner.name || 'partner')}" title="Delete partner">
+            <button type="button" class="partner-directory-icon-btn partner-delete-button" data-delete-partner="${escapeHtml(partner.code || '')}" data-delete-name="${escapeHtml(partner.name || 'Partner')}" aria-label="Delete ${escapeHtml(partner.name || 'partner')}" title="Delete partner">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v5M14 11v5"></path>
               </svg>

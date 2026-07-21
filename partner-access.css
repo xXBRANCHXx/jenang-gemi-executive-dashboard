@@ -2727,7 +2727,7 @@
 }
 
 .partner-directory-partner {
-  grid-template-columns: 42px minmax(0, 1fr);
+  grid-template-columns: 34px minmax(0, 1fr);
   align-items: center;
   gap: 11px;
 }
@@ -2736,15 +2736,23 @@
   position: relative;
   display: grid;
   place-items: center;
-  width: 42px;
-  height: 42px;
+  width: 34px;
+  height: 34px;
   overflow: hidden;
-  border: 1px solid var(--partner-border);
-  border-radius: 12px;
-  background: var(--partner-panel-soft);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--partner-muted);
-  font-size: 15px;
-  font-weight: 800;
+}
+
+.partner-directory-favicon-fallback {
+  width: 25px;
+  height: 25px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.65;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .partner-directory-favicon img {
@@ -2753,7 +2761,7 @@
   display: none;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 :root[data-admin-theme='light'] .partner-directory-favicon img[data-favicon-theme='light'].is-loaded,
@@ -2761,8 +2769,8 @@
   display: block;
 }
 
-:root[data-admin-theme='light'] .partner-directory-favicon:has(img[data-favicon-theme='light'].is-loaded) > span,
-:root[data-admin-theme='dark'] .partner-directory-favicon:has(img[data-favicon-theme='dark'].is-loaded) > span {
+:root[data-admin-theme='light'] .partner-directory-favicon:has(img[data-favicon-theme='light'].is-loaded) .partner-directory-favicon-fallback,
+:root[data-admin-theme='dark'] .partner-directory-favicon:has(img[data-favicon-theme='dark'].is-loaded) .partner-directory-favicon-fallback {
   display: none;
 }
 
@@ -2775,42 +2783,65 @@
 .partner-profiles-page .partner-directory-icon-btn {
   display: inline-grid;
   place-items: center;
-  flex: 0 0 44px;
-  width: 44px;
-  min-width: 44px;
-  min-height: 44px;
+  flex: 0 0 36px;
+  width: 36px;
+  min-width: 36px;
+  min-height: 36px;
   padding: 0;
-  border-radius: 50%;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+  transition: color 0.16s ease, opacity 0.16s ease;
 }
 
 :root[data-admin-theme] .partner-profiles-page :is(
   .partner-directory-title strong,
   .partner-add-button,
-  .partner-add-button *,
-  .partner-edit-button,
-  .partner-edit-button *
+  .partner-add-button *
 ) {
   color: var(--partner-primary-text);
 }
 
+:root[data-admin-theme] .partner-profiles-page .partner-edit-button {
+  border: 0;
+  background: transparent;
+  color: var(--partner-text);
+}
+
 :root[data-admin-theme] .partner-profiles-page .partner-delete-button {
+  border: 0;
+  background: transparent;
+  color: var(--partner-muted);
+}
+
+:root[data-admin-theme] .partner-profiles-page .partner-edit-button:hover,
+:root[data-admin-theme] .partner-profiles-page .partner-edit-button:focus-visible {
+  border: 0;
+  background: transparent;
   color: var(--partner-muted);
 }
 
 :root[data-admin-theme] .partner-profiles-page .partner-delete-button:hover,
 :root[data-admin-theme] .partner-profiles-page .partner-delete-button:focus-visible {
-  border-color: color-mix(in srgb, #ef4444 48%, var(--partner-border));
-  background: color-mix(in srgb, #ef4444 12%, var(--partner-panel-soft));
+  border: 0;
+  background: transparent;
   color: #ef4444;
+}
+
+.partner-profiles-page .partner-directory-icon-btn:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
 }
 
 @media (max-width: 820px) {
   .partner-directory-favicon {
-    width: 38px;
-    height: 38px;
+    width: 32px;
+    height: 32px;
   }
 
   .partner-directory-partner {
-    grid-template-columns: 38px minmax(0, 1fr);
+    grid-template-columns: 32px minmax(0, 1fr);
   }
 }
