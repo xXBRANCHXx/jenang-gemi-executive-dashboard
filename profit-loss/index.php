@@ -409,6 +409,15 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                                 </select>
                             </label>
                             <label>
+                                <span>Account</span>
+                                <select data-accounting-cash-history-account aria-label="Filter cash history by account">
+                                    <option value="all">All accounts</option>
+                                    <option value="jenang-gemi">Jenang Gemi</option>
+                                    <option value="zero">ZERO</option>
+                                    <option value="zfit">ZFIT</option>
+                                </select>
+                            </label>
+                            <label>
                                 <span>Movement</span>
                                 <select data-accounting-cash-history-direction>
                                     <option value="all">All movements</option>

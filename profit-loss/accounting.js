@@ -143,6 +143,7 @@ if (root) {
     cashHistoryCloseButtons: root.querySelectorAll('[data-accounting-cash-history-close]'),
     cashHistoryBody: root.querySelector('[data-accounting-cash-history-body]'),
     cashHistoryPlatform: root.querySelector('[data-accounting-cash-history-platform]'),
+    cashHistoryAccount: root.querySelector('[data-accounting-cash-history-account]'),
     cashHistoryDirection: root.querySelector('[data-accounting-cash-history-direction]'),
     cashHistoryCount: root.querySelector('[data-accounting-cash-history-count]'),
     cashHistoryCurrentLabel: root.querySelector('[data-accounting-cash-history-current-label]'),
@@ -489,38 +490,59 @@ if (root) {
   const renderCashHistory = () => {
     if (!refs.cashHistoryBody) return;
     const selectedPlatform = refs.cashHistoryPlatform?.value || 'all';
+    const selectedAccount = refs.cashHistoryAccount?.value || 'all';
     const direction = refs.cashHistoryDirection?.value || 'all';
-    const platformRows = state.cashHistory.filter((row) =>
-      selectedPlatform === 'all' || String(row.platform || '') === selectedPlatform
-    );
-    const rows = platformRows.filter((row) => {
+    const scopedRows = state.cashHistory.filter((row) => {
+      if (selectedPlatform !== 'all' && String(row.platform || '') !== selectedPlatform) return false;
+      if (selectedAccount !== 'all' && String(row.cash_account || '') !== selectedAccount) return false;
+      return true;
+    });
+    const rows = scopedRows.filter((row) => {
       if (direction === 'added' && Number(row.amount_added || 0) <= 0) return false;
       if (direction === 'subtracted' && Number(row.amount_subtracted || 0) <= 0) return false;
       return true;
     });
-    const platformSummary = platformRows.reduce((summary, row) => {
+    const filteredSummary = scopedRows.reduce((summary, row) => {
       summary.total_added += Number(row.amount_added || 0);
       summary.total_subtracted += Number(row.amount_subtracted || 0);
       return summary;
     }, { total_added: 0, total_subtracted: 0 });
-    platformSummary.current_cash = platformSummary.total_added - platformSummary.total_subtracted;
-    const summary = selectedPlatform === 'all' ? (state.cashHistorySummary || {}) : platformSummary;
-    const platformRunningBalances = new Map();
-    if (selectedPlatform !== 'all') {
+    filteredSummary.current_cash = filteredSummary.total_added - filteredSummary.total_subtracted;
+    const hasSourceFilter = selectedPlatform !== 'all' || selectedAccount !== 'all';
+    const summary = hasSourceFilter ? filteredSummary : (state.cashHistorySummary || {});
+    const filteredRunningBalances = new Map();
+    if (hasSourceFilter) {
       let runningBalance = 0;
-      [...platformRows].reverse().forEach((row) => {
+      [...scopedRows].reverse().forEach((row) => {
         runningBalance += Number(row.amount_added || 0) - Number(row.amount_subtracted || 0);
-        platformRunningBalances.set(String(row.id || ''), runningBalance);
+        filteredRunningBalances.set(String(row.id || ''), runningBalance);
       });
     }
     if (refs.cashHistoryCurrent) refs.cashHistoryCurrent.textContent = formatCurrency(summary.current_cash || 0);
     if (refs.cashHistoryCurrentLabel) {
-      refs.cashHistoryCurrentLabel.textContent = selectedPlatform === 'all' ? 'Current cash' : 'Net platform cash';
+      refs.cashHistoryCurrentLabel.textContent = hasSourceFilter ? 'Net filtered cash' : 'Current cash';
     }
     if (refs.cashHistoryAdded) refs.cashHistoryAdded.textContent = formatCurrency(summary.total_added || 0);
     if (refs.cashHistorySubtracted) refs.cashHistorySubtracted.textContent = formatCurrency(summary.total_subtracted || 0);
     if (refs.cashHistoryCount) {
-      refs.cashHistoryCount.textContent = `${rows.length.toLocaleString('id-ID')} of ${platformRows.length.toLocaleString('id-ID')} entries`;
+      refs.cashHistoryCount.textContent = `${rows.length.toLocaleString('id-ID')} of ${scopedRows.length.toLocaleString('id-ID')} entries`;
+    }
+    if (refs.cashHistoryNote) {
+      if (hasSourceFilter) {
+        const platformLabel = selectedPlatform === 'all'
+          ? 'all platforms'
+          : (refs.cashHistoryPlatform?.selectedOptions?.[0]?.textContent || 'selected platform');
+        const accountLabel = selectedAccount === 'all'
+          ? 'all accounts'
+          : (refs.cashHistoryAccount?.selectedOptions?.[0]?.textContent || 'selected account');
+        refs.cashHistoryNote.textContent = `Showing bank cash movements for ${platformLabel} and ${accountLabel}. Totals and running balances use only this selection.`;
+      } else {
+        const cardCash = Number(state.summary?.kpis?.real_cash_available || 0);
+        const historyCash = Number(state.cashHistorySummary?.current_cash || 0);
+        refs.cashHistoryNote.textContent = cardCash === historyCash
+          ? 'The running balance reconciles to Cash Available. It includes spendable account balances, posted manual entries, Wallet withdrawals, and confirmed website payments.'
+          : 'Cash history includes spendable account balances, posted manual entries, Wallet withdrawals, and confirmed website payments.';
+      }
     }
     if (!rows.length) {
       refs.cashHistoryBody.innerHTML = `<tr><td colspan="5" class="admin-empty">${state.cashHistory.length ? 'No cash movements match these filters.' : 'No additions or subtractions have been recorded yet.'}</td></tr>`;
@@ -531,9 +553,9 @@ if (root) {
       const subtracted = Number(row.amount_subtracted || 0);
       const isAddition = added > 0;
       const movementAmount = isAddition ? added : subtracted;
-      const runningBalance = selectedPlatform === 'all'
+      const runningBalance = !hasSourceFilter
         ? Number(row.running_balance || 0)
-        : Number(platformRunningBalances.get(String(row.id || '')) || 0);
+        : Number(filteredRunningBalances.get(String(row.id || '')) || 0);
       return `
         <tr>
           <td><strong>${escapeHtml(formatHistoryDate(row.date))}</strong></td>
@@ -544,18 +566,6 @@ if (root) {
         </tr>
       `;
     }).join('');
-    if (refs.cashHistoryNote) {
-      if (selectedPlatform !== 'all') {
-        const selectedLabel = refs.cashHistoryPlatform?.selectedOptions?.[0]?.textContent || 'Selected platform';
-        refs.cashHistoryNote.textContent = `Showing bank cash movements attributed to ${selectedLabel}. Totals and running balances use only this platform.`;
-      } else {
-        const cardCash = Number(state.summary?.kpis?.real_cash_available || 0);
-        const historyCash = Number(state.cashHistorySummary?.current_cash || 0);
-        refs.cashHistoryNote.textContent = cardCash === historyCash
-          ? 'The running balance reconciles to Cash Available. It includes spendable account balances, posted manual entries, Wallet withdrawals, and confirmed website payments.'
-          : 'Cash history includes spendable account balances, posted manual entries, Wallet withdrawals, and confirmed website payments.';
-      }
-    }
   };
 
   const closeCashHistory = () => {
@@ -1143,6 +1153,7 @@ if (root) {
   refs.cashHistoryOpen?.addEventListener('click', openCashHistory);
   refs.cashHistoryCloseButtons.forEach((button) => button.addEventListener('click', closeCashHistory));
   refs.cashHistoryPlatform?.addEventListener('change', renderCashHistory);
+  refs.cashHistoryAccount?.addEventListener('change', renderCashHistory);
   refs.cashHistoryDirection?.addEventListener('change', renderCashHistory);
   refs.exportButton?.addEventListener('click', () => {
     window.location.href = buildUrl('export_csv', { ...rangeOptions(), include_voided: '0' });

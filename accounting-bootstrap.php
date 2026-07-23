@@ -857,7 +857,7 @@ function jg_accounting_cash_history(PDO $pdo): array
     $spendableTypes = ['bank', 'cash', 'ewallet'];
 
     $accountStmt = $pdo->query(
-        'SELECT id, name, type, opening_balance, current_balance_manual, created_at
+        'SELECT id, name, type, platform, brand, opening_balance, current_balance_manual, created_at
          FROM accounting_accounts
          WHERE is_active = 1 AND is_spendable = 1
          ORDER BY sort_order ASC, id ASC'
@@ -873,6 +873,8 @@ function jg_accounting_cash_history(PDO $pdo): array
             continue;
         }
         $createdAt = trim((string) ($account['created_at'] ?? ''));
+        $platform = jg_accounting_cash_platform((string) ($account['platform'] ?? ''));
+        $cashAccount = jg_accounting_cash_account((string) ($account['brand'] ?? ''));
         $rows[] = [
             'id' => 'account:' . (int) $account['id'],
             'date' => $createdAt !== '' ? jg_accounting_source_local_date($createdAt) : '',
@@ -881,15 +883,17 @@ function jg_accounting_cash_history(PDO $pdo): array
             'source' => (string) ($account['name'] ?? 'Cash account'),
             'reference' => '',
             'kind' => 'account_balance',
-            'platform' => '',
-            'platform_label' => '',
+            'platform' => $platform['key'],
+            'platform_label' => $platform['label'],
+            'cash_account' => $cashAccount['key'],
+            'cash_account_label' => $cashAccount['label'],
             'signed_amount' => $amount,
         ];
     }
 
     $transactionStmt = $pdo->query(
         'SELECT t.id, t.transaction_key, t.transaction_date, t.type, t.direction, t.amount,
-                t.transfer_fee_amount, t.reference_no, t.order_no, t.notes, t.channel,
+                t.transfer_fee_amount, t.reference_no, t.order_no, t.notes, t.channel, t.brand,
                 src.name AS account_name, src.type AS account_type, src.is_spendable AS account_is_spendable, src.is_active AS account_is_active,
                 dst.name AS to_account_name, dst.type AS to_account_type, dst.is_spendable AS to_account_is_spendable, dst.is_active AS to_account_is_active,
                 cp.name AS counterparty_name, c.name AS category_name
@@ -960,6 +964,7 @@ function jg_accounting_cash_history(PDO $pdo): array
         }
         $date = (string) ($transaction['transaction_date'] ?? '');
         $platform = jg_accounting_cash_platform((string) ($transaction['channel'] ?? ''));
+        $cashAccount = jg_accounting_cash_account((string) ($transaction['brand'] ?? ''));
         $rows[] = [
             'id' => 'transaction:' . (int) $transaction['id'],
             'date' => $date,
@@ -970,6 +975,8 @@ function jg_accounting_cash_history(PDO $pdo): array
             'kind' => 'manual_transaction',
             'platform' => $platform['key'],
             'platform_label' => $platform['label'],
+            'cash_account' => $cashAccount['key'],
+            'cash_account_label' => $cashAccount['label'],
             'signed_amount' => $signedAmount,
         ];
     }
@@ -996,6 +1003,10 @@ function jg_accounting_cash_history(PDO $pdo): array
             trim((string) ($record['account_key'] ?? '')),
         ])));
         $platform = jg_accounting_cash_platform((string) ($record['platform'] ?? ''));
+        $cashAccount = jg_accounting_cash_account(implode(' ', [
+            (string) ($record['account_key'] ?? ''),
+            (string) ($record['platform'] ?? ''),
+        ]));
         $rows[] = [
             'id' => (string) ($record['source_key'] ?? ''),
             'date' => (string) ($record['record_date'] ?? ''),
@@ -1006,6 +1017,8 @@ function jg_accounting_cash_history(PDO $pdo): array
             'kind' => 'automatic_cash',
             'platform' => $platform['key'],
             'platform_label' => $platform['label'],
+            'cash_account' => $cashAccount['key'],
+            'cash_account_label' => $cashAccount['label'],
             'signed_amount' => $amount,
         ];
     }
@@ -1048,7 +1061,7 @@ function jg_accounting_cash_history(PDO $pdo): array
 /** @return array{key:string,label:string} */
 function jg_accounting_cash_platform(string $value): array
 {
-    $normalized = trim(strtolower(preg_replace('/[^a-z0-9]+/', '-', $value) ?? ''), '-');
+    $normalized = trim(preg_replace('/[^a-z0-9]+/', '-', strtolower($value)) ?? '', '-');
     if ($normalized === '') {
         return ['key' => '', 'label' => ''];
     }
@@ -1076,6 +1089,26 @@ function jg_accounting_cash_platform(string $value): array
     }
     if (str_contains($normalized, 'whatsapp')) {
         return ['key' => 'whatsapp', 'label' => 'WhatsApp'];
+    }
+
+    return ['key' => '', 'label' => ''];
+}
+
+/** @return array{key:string,label:string} */
+function jg_accounting_cash_account(string $value): array
+{
+    $normalized = trim(preg_replace('/[^a-z0-9]+/', '-', strtolower($value)) ?? '', '-');
+    if ($normalized === '') {
+        return ['key' => '', 'label' => ''];
+    }
+    if (preg_match('/(^|-)zero($|-)/', $normalized) === 1) {
+        return ['key' => 'zero', 'label' => 'ZERO'];
+    }
+    if (preg_match('/(^|-)(zfit|z-fit)($|-)/', $normalized) === 1) {
+        return ['key' => 'zfit', 'label' => 'ZFIT'];
+    }
+    if (str_contains($normalized, 'jenang') || preg_match('/(^|-)jg($|-)/', $normalized) === 1) {
+        return ['key' => 'jenang-gemi', 'label' => 'Jenang Gemi'];
     }
 
     return ['key' => '', 'label' => ''];
