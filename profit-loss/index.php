@@ -390,7 +390,11 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                                 <h3 id="accounting-cash-history-title">Cash Available history</h3>
                                 <p>Every addition and subtraction that makes up the current cash balance.</p>
                             </div>
-                            <button type="button" class="admin-ghost-btn" data-accounting-cash-history-close>Close</button>
+                            <button type="button" class="admin-accounting-cash-history-close" data-accounting-cash-history-close aria-label="Close cash history" title="Close">
+                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M6 6l12 12M18 6 6 18"></path>
+                                </svg>
+                            </button>
                         </div>
                         <div class="admin-accounting-cash-history-summary" aria-label="Cash history totals">
                             <div><span>Current cash</span><strong data-accounting-cash-history-current>Rp0</strong></div>

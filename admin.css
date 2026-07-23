@@ -24228,6 +24228,42 @@ button.admin-accounting-metric {
   align-items: flex-start;
 }
 
+.admin-accounting-cash-history-close {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  margin: -5px -5px 0 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--accounting-muted);
+  cursor: pointer;
+  appearance: none;
+}
+
+.admin-accounting-cash-history-close svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.admin-accounting-cash-history-close:hover {
+  color: var(--accounting-text);
+}
+
+.admin-accounting-cash-history-close:focus-visible {
+  color: var(--accounting-text);
+  outline: 2px solid color-mix(in srgb, var(--accounting-text) 58%, transparent);
+  outline-offset: 2px;
+}
+
 .admin-accounting-cash-history-head p {
   max-width: 680px;
   margin: 6px 0 0;

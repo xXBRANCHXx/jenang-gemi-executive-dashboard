@@ -12,6 +12,8 @@ const expect = (condition, message) => {
 
 expect(html.includes('data-accounting-cash-history-open'), 'Cash Available must expose a history trigger.');
 expect(html.includes('data-accounting-cash-history-body'), 'Cash history must include the spreadsheet body.');
+expect(html.includes('class="admin-accounting-cash-history-close"'), 'Cash history must use a standalone icon close control.');
+expect(!html.includes('class="admin-ghost-btn" data-accounting-cash-history-close'), 'Cash history close control must not use the pill button style.');
 expect(html.includes('<th>Date</th>') && html.includes('<th>Reason</th>'), 'Cash history must label date and reason columns.');
 expect(html.includes('>Amount</th>'), 'Cash history must use one signed amount column.');
 expect(!html.includes('>Added</th>') && !html.includes('>Subtracted</th>'), 'Cash history must not split movements across two columns.');
