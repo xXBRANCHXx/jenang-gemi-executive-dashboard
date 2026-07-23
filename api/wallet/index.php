@@ -30,12 +30,15 @@ if (!defined('JG_WALLET_API_NO_DISPATCH')) {
 
 function jg_wallet_handle_request(): void
 {
-    jg_admin_require_auth();
-    header('Content-Type: application/json; charset=utf-8');
-    header('Cache-Control: no-store');
-
     $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
     $action = strtolower(trim((string) ($_GET['action'] ?? 'summary')));
+    $isTikTokWithdrawalSync = $method === 'POST'
+        && in_array($action, ['sync_tiktok_withdrawals', 'refresh_tiktok_withdrawals'], true);
+    if (!$isTikTokWithdrawalSync || !jg_wallet_has_service_auth()) {
+        jg_admin_require_auth();
+    }
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
 
     try {
         $pdo = analyticsDb();
@@ -135,6 +138,22 @@ function jg_wallet_handle_request(): void
         error_log('Wallet API failed: ' . $error->getMessage());
         jg_wallet_json(['ok' => false, 'error' => 'wallet_api_failed', 'message' => $error->getMessage()], 500);
     }
+}
+
+function jg_wallet_has_service_auth(): bool
+{
+    $expectedToken = jg_dashboard_marketplace_api_setup_token();
+    if ($expectedToken === '') {
+        return false;
+    }
+
+    $authorization = trim((string) ($_SERVER['HTTP_AUTHORIZATION'] ?? ''));
+    if (!preg_match('/^Bearer\s+(.+)$/i', $authorization, $matches)) {
+        return false;
+    }
+
+    $providedToken = trim((string) ($matches[1] ?? ''));
+    return $providedToken !== '' && hash_equals($expectedToken, $providedToken);
 }
 
 function jg_wallet_json(array $payload, int $status = 200): void

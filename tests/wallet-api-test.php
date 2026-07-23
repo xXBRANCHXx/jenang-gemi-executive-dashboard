@@ -40,6 +40,20 @@ wallet_expect('zero-tiktok', jg_wallet_tiktok_withdrawal_accounts([jg_wallet_kno
 wallet_expect('zero-shopee', jg_wallet_known_account('Shopee', 'ZERO Shopee')['account_key'] ?? '', 'Account-bounded wallet refresh must normalize and validate known accounts.');
 wallet_expect(null, jg_wallet_known_account('tiktok', 'not-a-wallet'), 'Account-bounded wallet refresh must reject unknown accounts.');
 wallet_expect('shopee|jenang-gemi-shopee', jg_wallet_account_key('Shopee', 'Jenang Gemi Shopee'), 'Wallet account keys must normalize labels safely.');
+
+$walletServiceToken = jg_dashboard_marketplace_api_setup_token();
+$originalAuthorization = $_SERVER['HTTP_AUTHORIZATION'] ?? null;
+$_SERVER['HTTP_AUTHORIZATION'] = 'Bearer invalid-wallet-service-token';
+wallet_expect(false, jg_wallet_has_service_auth(), 'Wallet service auth must reject an invalid bearer token.');
+if ($walletServiceToken !== '') {
+    $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer ' . $walletServiceToken;
+    wallet_expect(true, jg_wallet_has_service_auth(), 'Wallet service auth must accept the configured ingest bearer token.');
+}
+if ($originalAuthorization === null) {
+    unset($_SERVER['HTTP_AUTHORIZATION']);
+} else {
+    $_SERVER['HTTP_AUTHORIZATION'] = $originalAuthorization;
+}
 wallet_expect('ZERO TikTok', jg_wallet_account_label('ZERO', 'tiktok', 'zero-tiktok'), 'Wallet account labels must use platform names.');
 wallet_expect('Jenang Gemi Shopee', jg_wallet_account_label('', 'shopee', 'jenang-gemi-shopee'), 'Wallet labels must avoid duplicate platform suffixes.');
 wallet_expect(100000, jg_wallet_release_amount('', 100000), 'Blank release amount must default to the current wallet balance.');

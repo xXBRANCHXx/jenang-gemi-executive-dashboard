@@ -98,7 +98,11 @@ geometry under Lucide's ISC license.
   `balance`, and optional `observed_at`. Use `POST /api/wallet/?action=withdraw`
   with `platform`, `account_key`, `amount`, and optional `withdrawn_at` to record
   marketplace cash-out or bank withdrawals without manually overwriting the
-  current wallet value. The Wallet refresh button runs the quick release sync.
+  current wallet value. The isolated
+  `POST /api/wallet/?action=sync_tiktok_withdrawals` action also accepts the
+  configured marketplace API setup token as a Bearer credential for scheduled
+  or one-time account-bounded finance syncs; all other wallet actions remain
+  admin-session protected. The Wallet refresh button runs the quick release sync.
   The Backtrack button starts the chunked backtrack repair so releases after a
   balance anchor can be recovered without one long request. Use
   `POST /api/wallet/?action=backfill_releases` to run a larger marketplace
