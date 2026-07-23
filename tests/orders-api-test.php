@@ -74,6 +74,58 @@ expect_same(300, $q1Order['cogs'], 'Orders before quarter cutover must retain th
 expect_same(360, $q2Order['cogs'], 'Orders after quarter cutover must use the scheduled COGS.');
 expect_same('sku_quarter_history', $q2Order['cogs_source'], 'Effective-dated order COGS must identify quarter history as its source.');
 
+$metricRows = jg_orders_enrich_for_metrics([
+    array_merge($remoteRow, [
+        'timestamp' => '2026-04-01T10:00:00Z',
+        'order_net_revenue' => 900,
+    ]),
+], [jg_orders_sku_key('JG0101') => $datedSku]);
+$lightweightMetrics = jg_orders_lightweight_rows($metricRows);
+expect_same(360, $lightweightMetrics[0]['cogs'], 'Lightweight C4 metrics must apply effective-date SKU COGS.');
+expect_same(540, $lightweightMetrics[0]['gross_profit'], 'Lightweight C4 gross profit must subtract enriched COGS.');
+expect_same(3, $lightweightMetrics[0]['cogs_covered_items'], 'Lightweight C4 metrics must report mapped COGS coverage.');
+expect_same(0, $lightweightMetrics[0]['cogs_missing_items'], 'Mapped C4 metrics must not report missing COGS.');
+
+$multiLineMetrics = jg_orders_lightweight_rows(jg_orders_enrich_for_metrics([
+    array_merge($remoteRow, [
+        'item_key' => 'LINE-1',
+        'quantity' => 1,
+        'revenue' => 400,
+        'order_net_revenue' => 900,
+    ]),
+    array_merge($remoteRow, [
+        'item_key' => 'LINE-2',
+        'quantity' => 2,
+        'revenue' => 500,
+        'order_net_revenue' => 900,
+    ]),
+], [jg_orders_sku_key('JG0101') => $sku]));
+expect_same(900, $multiLineMetrics[0]['revenue'], 'Lightweight C4 metrics must retain order-level net revenue across item rows.');
+expect_same(300, $multiLineMetrics[0]['cogs'], 'Lightweight C4 metrics must sum item-level COGS once.');
+expect_same(600, $multiLineMetrics[0]['gross_profit'], 'Lightweight C4 metrics must reconcile order revenue minus all item COGS.');
+
+$zeroProfitMetrics = jg_orders_lightweight_rows(jg_orders_enrich_for_metrics([
+    array_merge($remoteRow, [
+        'quantity' => 1,
+        'revenue' => 100,
+        'order_net_revenue' => 100,
+    ]),
+], [jg_orders_sku_key('JG0101') => $sku]));
+expect_same(0, $zeroProfitMetrics[0]['gross_profit'], 'A legitimate zero gross profit must remain zero.');
+
+$missingCogsMetrics = jg_orders_lightweight_rows(jg_orders_enrich_for_metrics([
+    array_merge($remoteRow, [
+        'sku' => 'UNKNOWN-SKU',
+        'item_key' => 'UNKNOWN-ITEM',
+        'quantity' => 2,
+        'revenue' => 500,
+        'order_net_revenue' => 500,
+        'cogs' => 0,
+    ]),
+], []));
+expect_same(null, $missingCogsMetrics[0]['gross_profit'], 'Missing COGS must not masquerade as revenue-equivalent gross profit.');
+expect_same(2, $missingCogsMetrics[0]['cogs_missing_items'], 'Missing SKU mappings must be exposed in COGS coverage.');
+
 $fallback = jg_orders_enrich_without_inventory([$remoteRow]);
 expect_same(1, count($fallback), 'Inventory fallback must retain order rows.');
 expect_same('Marketplace product', $fallback[0]['product_name'], 'Inventory fallback must retain marketplace product names.');

@@ -85,7 +85,21 @@ function jg_orders_handle_request(): void
         }
         $lightweight = jg_orders_bool($_GET['lightweight'] ?? $_GET['summary'] ?? null);
         if ($lightweight) {
-            $rows = jg_orders_lightweight_rows($remoteRows);
+            $inventoryWarning = $remoteWarning;
+            try {
+                // C4 needs current SKU COGS, but not the heavier FIFO allocation lookup
+                // used by the full Orders table. Keep this path bounded to the SKU
+                // catalog/history queries plus one in-memory pass over today's rows.
+                $skuLookup = jg_orders_sku_lookup(jg_sku_db());
+                $metricRows = jg_orders_enrich_for_metrics($remoteRows, $skuLookup);
+            } catch (Throwable $inventoryError) {
+                error_log('Lightweight order COGS enrichment unavailable: ' . $inventoryError->getMessage());
+                $metricRows = jg_orders_enrich_for_metrics($remoteRows, []);
+                $inventoryWarning = 'inventory_enrichment_unavailable';
+            }
+            $rows = jg_orders_lightweight_rows($metricRows);
+            $coveredItems = array_sum(array_map(static fn (array $row): int => (int) ($row['cogs_covered_items'] ?? 0), $rows));
+            $missingItems = array_sum(array_map(static fn (array $row): int => (int) ($row['cogs_missing_items'] ?? 0), $rows));
             $response = [
                 'ok' => true,
                 'start_date' => $startDate,
@@ -96,7 +110,13 @@ function jg_orders_handle_request(): void
                 'has_more' => !empty($remotePayload['has_more']),
                 'next_offset' => $remotePayload['next_offset'] ?? null,
                 'orders' => $rows,
-                'warning' => $remoteWarning,
+                'allocation_mode' => 'metric_only',
+                'cogs_coverage' => [
+                    'covered_items' => $coveredItems,
+                    'missing_items' => $missingItems,
+                    'complete' => $missingItems === 0,
+                ],
+                'warning' => $inventoryWarning,
             ];
             if (isset($remotePayload['mirror_repair'])) {
                 $response['mirror_repair'] = $remotePayload['mirror_repair'];
@@ -1783,6 +1803,8 @@ function jg_orders_lightweight_rows(array $remoteRows): array
         $orderNetRevenue = (int) round((float) ($remoteRow['order_net_revenue'] ?? $netRevenue));
         $marketplaceFees = (int) round((float) ($remoteRow['order_marketplace_fees'] ?? $remoteRow['marketplace_fees'] ?? 0));
         $cogs = (int) round((float) ($remoteRow['cogs'] ?? 0));
+        $cogsCoveredItems = max(0, (int) ($remoteRow['cogs_covered_items'] ?? 0));
+        $cogsMissingItems = max(0, (int) ($remoteRow['cogs_missing_items'] ?? 0));
         $key = implode('|', [
             (string) ($remoteRow['platform'] ?? ''),
             (string) ($remoteRow['account_key'] ?? ''),
@@ -1810,6 +1832,8 @@ function jg_orders_lightweight_rows(array $remoteRows): array
                 'funds_release_source' => '',
                 'cogs' => 0,
                 'gross_profit' => $orderNetRevenue,
+                'cogs_covered_items' => 0,
+                'cogs_missing_items' => 0,
             ];
         }
         $rows[$key]['quantity'] += $quantity;
@@ -1830,10 +1854,71 @@ function jg_orders_lightweight_rows(array $remoteRows): array
             $rows[$key]['funds_release_source'] = (string) $remoteRow['funds_release_source'];
         }
         $rows[$key]['cogs'] += $cogs;
-        $rows[$key]['gross_profit'] = (int) ($rows[$key]['net_revenue'] ?? $orderNetRevenue) - (int) ($rows[$key]['cogs'] ?? 0);
+        $rows[$key]['cogs_covered_items'] += $cogsCoveredItems;
+        $rows[$key]['cogs_missing_items'] += $cogsMissingItems;
+        $rows[$key]['gross_profit'] = $rows[$key]['cogs_missing_items'] > 0
+            ? null
+            : (int) ($rows[$key]['net_revenue'] ?? $orderNetRevenue) - (int) ($rows[$key]['cogs'] ?? 0);
     }
 
     return array_values($rows);
+}
+
+/**
+ * Add effective-date SKU COGS for chart/summary metrics without reading or
+ * writing FIFO allocation rows.
+ *
+ * @param array<int, array<string, mixed>> $remoteRows
+ * @param array<string, array<string, mixed>> $skuLookup
+ * @return array<int, array<string, mixed>>
+ */
+function jg_orders_enrich_for_metrics(array $remoteRows, array $skuLookup): array
+{
+    $rows = [];
+    foreach ($remoteRows as $remoteRow) {
+        if (!is_array($remoteRow)) {
+            continue;
+        }
+
+        $sku = jg_orders_match_sku($remoteRow, $skuLookup);
+        $physicalQuantity = jg_orders_stock_quantity($remoteRow);
+        if ($sku !== null) {
+            $volume = (float) ($sku['volume'] ?? 0);
+            $astra = (float) ($sku['astra'] ?? $volume);
+            $multiplier = $volume > 0 && $astra > 0 ? max(1.0, $volume / $astra) : 1.0;
+            $row = jg_orders_enriched_row(
+                $remoteRow,
+                $sku,
+                round($physicalQuantity * $multiplier, 2),
+                []
+            );
+            $row['order_net_revenue'] = (int) round((float) ($remoteRow['order_net_revenue'] ?? $row['revenue'] ?? 0));
+            $row['order_marketplace_fees'] = (int) round((float) ($remoteRow['order_marketplace_fees'] ?? $remoteRow['marketplace_fees'] ?? 0));
+            $row['cogs_covered_items'] = $physicalQuantity;
+            $row['cogs_missing_items'] = 0;
+            $rows[] = $row;
+            continue;
+        }
+
+        $row = jg_orders_interpret_sales_row($remoteRow);
+        $source = strtolower(trim((string) ($row['source'] ?? '')));
+        $cogs = (int) round((float) ($row['cogs'] ?? 0));
+        $hasTrustedEmbeddedCogs = $physicalQuantity === 0
+            || $cogs > 0
+            || $source === 'website_paid_order'
+            || in_array((string) ($row['cogs_source'] ?? ''), ['sku_quarter_history', 'sku_static_average'], true);
+        $revenue = (int) round((float) ($row['revenue'] ?? $row['net_revenue'] ?? $row['sales'] ?? 0));
+        $row['cogs'] = $cogs;
+        $row['gross_profit'] = $hasTrustedEmbeddedCogs ? $revenue - $cogs : null;
+        $row['order_net_revenue'] = (int) round((float) ($remoteRow['order_net_revenue'] ?? $revenue));
+        $row['order_marketplace_fees'] = (int) round((float) ($remoteRow['order_marketplace_fees'] ?? $remoteRow['marketplace_fees'] ?? 0));
+        $row['sku_linked'] = false;
+        $row['cogs_covered_items'] = $hasTrustedEmbeddedCogs ? $physicalQuantity : 0;
+        $row['cogs_missing_items'] = $hasTrustedEmbeddedCogs ? 0 : $physicalQuantity;
+        $rows[] = $row;
+    }
+
+    return $rows;
 }
 
 function jg_orders_remote_url(string $path, array $params): string

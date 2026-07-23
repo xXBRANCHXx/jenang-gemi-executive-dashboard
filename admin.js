@@ -1454,7 +1454,12 @@ const drawLineChart = (canvas, items, metric, unitsMap, options = {}) => {
   const padding = { top: 20, right: 18, bottom: 48, left: 92, ...(options.padding || {}) };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
-  const chartValue = (item) => (item?.future ? null : Number(item?.[metric] || 0));
+  const chartValue = (item) => {
+    if (item?.future) return null;
+    const value = item?.[metric];
+    if (value === null || value === undefined) return null;
+    return Number(value || 0);
+  };
   const projectionValue = (item) => {
     const value = Number(item?.projection?.[metric]);
     return Number.isFinite(value) ? value : null;
@@ -1630,7 +1635,9 @@ const buildOverviewTooltipLines = (item, focusMetric = 'sales') => {
   const net = Number(item.net_revenue || item.sales || 0);
   const revenue = Number(item.revenue || net);
   const cogs = Number(item.cogs || 0);
-  const grossProfit = Number(item.gross_profit || revenue - cogs);
+  const grossProfit = item.gross_profit === null
+    ? null
+    : Number(item.gross_profit ?? (revenue - cogs));
   const orders = Number(item.orders || 0);
   const items = Number(item.item_count || 0);
   const fees = Number(item.marketplace_fees || 0);
@@ -1651,10 +1658,13 @@ const buildOverviewTooltipLines = (item, focusMetric = 'sales') => {
         : focusMetric === 'average_order_value'
           ? 'AOV'
           : 'Revenue';
+  const displayMetricValue = (metric, value) => (
+    value === null ? 'COGS unavailable' : formatFullMetricValue(metric, value, OVERVIEW_METRIC_UNITS)
+  );
   const rows = [
-    [focusLabel, formatFullMetricValue(focusMetric, focusValue, OVERVIEW_METRIC_UNITS), 'is-primary'],
+    [focusLabel, displayMetricValue(focusMetric, focusValue), 'is-primary'],
     ['Revenue', formatFullMetricValue('revenue', revenue, OVERVIEW_METRIC_UNITS), ''],
-    ['Gross profit', formatFullMetricValue('gross_profit', grossProfit, OVERVIEW_METRIC_UNITS), ''],
+    ['Gross profit', displayMetricValue('gross_profit', grossProfit), ''],
     ['Order QTY', formatFullMetricValue('orders', orders, OVERVIEW_METRIC_UNITS), ''],
     ['Items QTY', formatFullMetricValue('item_count', items, OVERVIEW_METRIC_UNITS), ''],
     ['Marketplace fees', formatFullMetricValue('marketplace_fees', fees, OVERVIEW_METRIC_UNITS), ''],
@@ -5664,6 +5674,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const addOrderMetrics = (target, order) => {
     const metrics = orderMetricRow(order);
     const cogs = Number(order?.cogs || 0);
+    const coveredItems = Number(order?.cogs_covered_items || 0);
+    const missingItems = Number(order?.cogs_missing_items || 0);
+    target.cogs = Number(target.cogs || 0) + cogs;
+    target.cogs_covered_items = Number(target.cogs_covered_items || 0) + coveredItems;
+    target.cogs_missing_items = Number(target.cogs_missing_items || 0) + missingItems;
+    if (missingItems > 0) target._grossProfitComplete = false;
     if (isFreeGiftOrderRow(order)) {
       target.gross_profit -= cogs;
       return;
@@ -5698,7 +5714,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const buckets = new Map();
     const ensureBucket = (key, label) => {
       if (!buckets.has(key)) {
-        buckets.set(key, { key, label, revenue: 0, gross_profit: 0, orders: 0, item_count: 0 });
+        buckets.set(key, { key, label, revenue: 0, cogs: 0, gross_profit: 0, orders: 0, item_count: 0, cogs_covered_items: 0, cogs_missing_items: 0, _grossProfitComplete: true });
       }
       return buckets.get(key);
     };
@@ -5739,12 +5755,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     return {
       mode,
-      rows: Array.from(buckets.values()).map((row) => ({
-        ...row,
-        _orderIds: undefined,
-        average_order_value: row.orders > 0 ? row.revenue / row.orders : 0,
-        tooltipLinesHtml: buildOverviewTooltipLines(row, state.overview.metric)
-      }))
+      rows: Array.from(buckets.values()).map((row) => {
+        const normalized = {
+          ...row,
+          gross_profit: row._grossProfitComplete === false ? null : row.gross_profit,
+          _orderIds: undefined,
+          _grossProfitComplete: undefined,
+          average_order_value: row.orders > 0 ? row.revenue / row.orders : 0
+        };
+        return {
+          ...normalized,
+          tooltipLinesHtml: buildOverviewTooltipLines(normalized, state.overview.metric)
+        };
+      })
     };
   };
 
@@ -5760,9 +5783,13 @@ document.addEventListener('DOMContentLoaded', () => {
         label: String(hour),
         future: hour > currentHour,
         revenue: 0,
+        cogs: 0,
         gross_profit: 0,
         orders: 0,
-        item_count: 0
+        item_count: 0,
+        cogs_covered_items: 0,
+        cogs_missing_items: 0,
+        _grossProfitComplete: true
       });
     }
 
@@ -5777,11 +5804,18 @@ document.addEventListener('DOMContentLoaded', () => {
       if (row) addOrderMetrics(row, order);
     });
 
-    return rows.map((row) => ({
-      ...row,
-      _orderIds: undefined,
-      tooltipLinesHtml: buildOverviewTooltipLines(row, state.overview.hourlyMetric)
-    }));
+    return rows.map((row) => {
+      const normalized = {
+        ...row,
+        gross_profit: row._grossProfitComplete === false ? null : row.gross_profit,
+        _orderIds: undefined,
+        _grossProfitComplete: undefined
+      };
+      return {
+        ...normalized,
+        tooltipLinesHtml: buildOverviewTooltipLines(normalized, state.overview.hourlyMetric)
+      };
+    });
   };
 
   const overviewHourlyLineColor = (metric) => {
@@ -5802,12 +5836,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (overviewRefs.hourlyMeta) {
       const hourlyTotal = state.overview.hourlyRows.reduce((sum, row) => sum + Number(row[state.overview.hourlyMetric] || 0), 0);
+      const missingCogsItems = state.overview.hourlyRows.reduce((sum, row) => sum + Number(row.cogs_missing_items || 0), 0);
       const syncStatus = state.overview.data?.sync_status;
       const syncFinishedAt = syncStatus?.finished_at ? new Date(syncStatus.finished_at) : null;
       const staleLabel = syncStatus?.fresh === false
         ? `Data stale${syncFinishedAt && !Number.isNaN(syncFinishedAt.getTime()) ? ` since ${formatDashboardTime(syncFinishedAt, state.timezone, { hour: '2-digit', minute: '2-digit', hour12: false })} ${getTimezoneLabel(state.timezone)}` : ''}`
         : 'Live today, 0-23';
-      overviewRefs.hourlyMeta.textContent = `${staleLabel} • ${formatFullMetricValue(state.overview.hourlyMetric, hourlyTotal, OVERVIEW_METRIC_UNITS)}`;
+      const metricValue = state.overview.hourlyMetric === 'gross_profit' && missingCogsItems > 0
+        ? `Partial ${formatFullMetricValue(state.overview.hourlyMetric, hourlyTotal, OVERVIEW_METRIC_UNITS)}`
+        : formatFullMetricValue(state.overview.hourlyMetric, hourlyTotal, OVERVIEW_METRIC_UNITS);
+      const coverageLabel = missingCogsItems > 0
+        ? ` • COGS missing for ${missingCogsItems.toLocaleString('id-ID')} item${missingCogsItems === 1 ? '' : 's'}`
+        : '';
+      overviewRefs.hourlyMeta.textContent = `${staleLabel} • ${metricValue}${coverageLabel}`;
     }
     overviewRefs.hourlyMetricButtons.forEach((button) => {
       button.classList.toggle('is-active', button.dataset.overviewHourlyMetric === state.overview.hourlyMetric);
