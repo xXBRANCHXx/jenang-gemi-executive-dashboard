@@ -18,7 +18,13 @@ expect(html.includes('<th>Date</th>') && html.includes('<th>Reason</th>'), 'Cash
 expect(html.includes('>Amount</th>'), 'Cash history must use one signed amount column.');
 expect(!html.includes('>Added</th>') && !html.includes('>Subtracted</th>'), 'Cash history must not split movements across two columns.');
 expect(script.includes("buildUrl('cash_history'"), 'Cash history must load the reconciled API endpoint.');
-expect(script.includes('data-accounting-cash-history-search'), 'Cash history must support searching.');
+expect(html.includes('data-accounting-cash-history-platform'), 'Cash history must expose a platform dropdown.');
+expect(!html.includes('data-accounting-cash-history-search'), 'Cash history must replace free-text search with the platform dropdown.');
+expect(script.includes('populateCashHistoryPlatforms'), 'Cash history must populate filters from available platform data.');
+expect(script.includes("['shopee', 'Shopee']") && script.includes("['tiktok', 'TikTok']"), 'Cash history must always offer the core marketplace platforms.');
+expect(script.includes('platformSummary.current_cash'), 'Cash history must recalculate platform-specific summary totals.');
+expect(script.includes("'Net platform cash'"), 'Cash history must label a filtered net without presenting it as the full bank balance.');
+expect(script.includes('platformRunningBalances'), 'Cash history must recalculate running balances for the selected platform.');
 expect(script.includes("direction === 'added'") && script.includes("direction === 'subtracted'"), 'Cash history must support movement filters.');
 expect(script.includes("isAddition ? '+' : '−'"), 'Cash movements must show an explicit signed amount.');
 expect(styles.includes('td.is-added') && styles.includes('rgb(0, 250, 0)'), 'Dark-mode additions must be fully saturated green.');

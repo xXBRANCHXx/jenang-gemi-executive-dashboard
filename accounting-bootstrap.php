@@ -881,13 +881,15 @@ function jg_accounting_cash_history(PDO $pdo): array
             'source' => (string) ($account['name'] ?? 'Cash account'),
             'reference' => '',
             'kind' => 'account_balance',
+            'platform' => '',
+            'platform_label' => '',
             'signed_amount' => $amount,
         ];
     }
 
     $transactionStmt = $pdo->query(
         'SELECT t.id, t.transaction_key, t.transaction_date, t.type, t.direction, t.amount,
-                t.transfer_fee_amount, t.reference_no, t.order_no, t.notes,
+                t.transfer_fee_amount, t.reference_no, t.order_no, t.notes, t.channel,
                 src.name AS account_name, src.type AS account_type, src.is_spendable AS account_is_spendable, src.is_active AS account_is_active,
                 dst.name AS to_account_name, dst.type AS to_account_type, dst.is_spendable AS to_account_is_spendable, dst.is_active AS to_account_is_active,
                 cp.name AS counterparty_name, c.name AS category_name
@@ -957,6 +959,7 @@ function jg_accounting_cash_history(PDO $pdo): array
             $reference = (string) ($transaction['transaction_key'] ?? '');
         }
         $date = (string) ($transaction['transaction_date'] ?? '');
+        $platform = jg_accounting_cash_platform((string) ($transaction['channel'] ?? ''));
         $rows[] = [
             'id' => 'transaction:' . (int) $transaction['id'],
             'date' => $date,
@@ -965,6 +968,8 @@ function jg_accounting_cash_history(PDO $pdo): array
             'source' => ($typeLabels[$type] ?? ucwords(str_replace('_', ' ', $type))) . ($accountRoute !== '' ? ' • ' . $accountRoute : ''),
             'reference' => $reference,
             'kind' => 'manual_transaction',
+            'platform' => $platform['key'],
+            'platform_label' => $platform['label'],
             'signed_amount' => $signedAmount,
         ];
     }
@@ -990,6 +995,7 @@ function jg_accounting_cash_history(PDO $pdo): array
             trim((string) ($record['platform'] ?? '')),
             trim((string) ($record['account_key'] ?? '')),
         ])));
+        $platform = jg_accounting_cash_platform((string) ($record['platform'] ?? ''));
         $rows[] = [
             'id' => (string) ($record['source_key'] ?? ''),
             'date' => (string) ($record['record_date'] ?? ''),
@@ -998,6 +1004,8 @@ function jg_accounting_cash_history(PDO $pdo): array
             'source' => $source,
             'reference' => $orderId !== '' ? $orderId : (string) ($record['source_key'] ?? ''),
             'kind' => 'automatic_cash',
+            'platform' => $platform['key'],
+            'platform_label' => $platform['label'],
             'signed_amount' => $amount,
         ];
     }
@@ -1035,6 +1043,42 @@ function jg_accounting_cash_history(PDO $pdo): array
             'entry_count' => count($rows),
         ],
     ];
+}
+
+/** @return array{key:string,label:string} */
+function jg_accounting_cash_platform(string $value): array
+{
+    $normalized = trim(strtolower(preg_replace('/[^a-z0-9]+/', '-', $value) ?? ''), '-');
+    if ($normalized === '') {
+        return ['key' => '', 'label' => ''];
+    }
+
+    if (str_contains($normalized, 'shopee')) {
+        return ['key' => 'shopee', 'label' => 'Shopee'];
+    }
+    if (str_contains($normalized, 'tiktok') || str_contains($normalized, 'tik-tok')) {
+        return ['key' => 'tiktok', 'label' => 'TikTok'];
+    }
+    if (str_contains($normalized, 'tokopedia')) {
+        return ['key' => 'tokopedia', 'label' => 'Tokopedia'];
+    }
+    if (str_contains($normalized, 'jenang') && str_contains($normalized, 'website')) {
+        return ['key' => 'jenang-gemi-website', 'label' => 'Jenang Gemi Website'];
+    }
+    if (str_contains($normalized, 'zero') && str_contains($normalized, 'website')) {
+        return ['key' => 'zero-website', 'label' => 'ZERO Website'];
+    }
+    if (str_contains($normalized, 'zfit') && str_contains($normalized, 'website')) {
+        return ['key' => 'zfit-website', 'label' => 'ZFIT Website'];
+    }
+    if ($normalized === 'website' || str_contains($normalized, 'web-store')) {
+        return ['key' => 'website', 'label' => 'Website'];
+    }
+    if (str_contains($normalized, 'whatsapp')) {
+        return ['key' => 'whatsapp', 'label' => 'WhatsApp'];
+    }
+
+    return ['key' => '', 'label' => ''];
 }
 
 function jg_accounting_marketplace_normalize_status(mixed $status): string

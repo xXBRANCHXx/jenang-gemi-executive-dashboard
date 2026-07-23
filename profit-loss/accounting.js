@@ -142,9 +142,10 @@ if (root) {
     cashHistoryCard: root.querySelector('.admin-accounting-cash-history-card'),
     cashHistoryCloseButtons: root.querySelectorAll('[data-accounting-cash-history-close]'),
     cashHistoryBody: root.querySelector('[data-accounting-cash-history-body]'),
-    cashHistorySearch: root.querySelector('[data-accounting-cash-history-search]'),
+    cashHistoryPlatform: root.querySelector('[data-accounting-cash-history-platform]'),
     cashHistoryDirection: root.querySelector('[data-accounting-cash-history-direction]'),
     cashHistoryCount: root.querySelector('[data-accounting-cash-history-count]'),
+    cashHistoryCurrentLabel: root.querySelector('[data-accounting-cash-history-current-label]'),
     cashHistoryCurrent: root.querySelector('[data-accounting-cash-history-current]'),
     cashHistoryAdded: root.querySelector('[data-accounting-cash-history-added]'),
     cashHistorySubtracted: root.querySelector('[data-accounting-cash-history-subtracted]'),
@@ -455,23 +456,71 @@ if (root) {
     }).format(date);
   };
 
+  const populateCashHistoryPlatforms = () => {
+    if (!refs.cashHistoryPlatform) return;
+    const selected = refs.cashHistoryPlatform.value || 'all';
+    const platforms = new Map([
+      ['shopee', 'Shopee'],
+      ['tiktok', 'TikTok'],
+      ['tokopedia', 'Tokopedia'],
+      ['jenang-gemi-website', 'Jenang Gemi Website'],
+      ['zero-website', 'ZERO Website']
+    ]);
+    state.cashHistory.forEach((row) => {
+      const key = String(row.platform || '').trim();
+      if (key) platforms.set(key, String(row.platform_label || key));
+    });
+    const preferredOrder = ['shopee', 'tiktok', 'tokopedia', 'jenang-gemi-website', 'zero-website', 'zfit-website', 'website', 'whatsapp'];
+    const entries = [...platforms.entries()].sort(([leftKey, leftLabel], [rightKey, rightLabel]) => {
+      const leftIndex = preferredOrder.indexOf(leftKey);
+      const rightIndex = preferredOrder.indexOf(rightKey);
+      if (leftIndex !== rightIndex) {
+        return (leftIndex < 0 ? preferredOrder.length : leftIndex) - (rightIndex < 0 ? preferredOrder.length : rightIndex);
+      }
+      return leftLabel.localeCompare(rightLabel);
+    });
+    refs.cashHistoryPlatform.innerHTML = [
+      '<option value="all">All platforms</option>',
+      ...entries.map(([key, label]) => `<option value="${escapeHtml(key)}">${escapeHtml(label)}</option>`)
+    ].join('');
+    refs.cashHistoryPlatform.value = platforms.has(selected) ? selected : 'all';
+  };
+
   const renderCashHistory = () => {
     if (!refs.cashHistoryBody) return;
-    const query = String(refs.cashHistorySearch?.value || '').trim().toLowerCase();
+    const selectedPlatform = refs.cashHistoryPlatform?.value || 'all';
     const direction = refs.cashHistoryDirection?.value || 'all';
-    const rows = state.cashHistory.filter((row) => {
+    const platformRows = state.cashHistory.filter((row) =>
+      selectedPlatform === 'all' || String(row.platform || '') === selectedPlatform
+    );
+    const rows = platformRows.filter((row) => {
       if (direction === 'added' && Number(row.amount_added || 0) <= 0) return false;
       if (direction === 'subtracted' && Number(row.amount_subtracted || 0) <= 0) return false;
-      if (!query) return true;
-      return [row.date, row.reason, row.source, row.reference]
-        .some((value) => String(value || '').toLowerCase().includes(query));
+      return true;
     });
-    const summary = state.cashHistorySummary || {};
+    const platformSummary = platformRows.reduce((summary, row) => {
+      summary.total_added += Number(row.amount_added || 0);
+      summary.total_subtracted += Number(row.amount_subtracted || 0);
+      return summary;
+    }, { total_added: 0, total_subtracted: 0 });
+    platformSummary.current_cash = platformSummary.total_added - platformSummary.total_subtracted;
+    const summary = selectedPlatform === 'all' ? (state.cashHistorySummary || {}) : platformSummary;
+    const platformRunningBalances = new Map();
+    if (selectedPlatform !== 'all') {
+      let runningBalance = 0;
+      [...platformRows].reverse().forEach((row) => {
+        runningBalance += Number(row.amount_added || 0) - Number(row.amount_subtracted || 0);
+        platformRunningBalances.set(String(row.id || ''), runningBalance);
+      });
+    }
     if (refs.cashHistoryCurrent) refs.cashHistoryCurrent.textContent = formatCurrency(summary.current_cash || 0);
+    if (refs.cashHistoryCurrentLabel) {
+      refs.cashHistoryCurrentLabel.textContent = selectedPlatform === 'all' ? 'Current cash' : 'Net platform cash';
+    }
     if (refs.cashHistoryAdded) refs.cashHistoryAdded.textContent = formatCurrency(summary.total_added || 0);
     if (refs.cashHistorySubtracted) refs.cashHistorySubtracted.textContent = formatCurrency(summary.total_subtracted || 0);
     if (refs.cashHistoryCount) {
-      refs.cashHistoryCount.textContent = `${rows.length.toLocaleString('id-ID')} of ${state.cashHistory.length.toLocaleString('id-ID')} entries`;
+      refs.cashHistoryCount.textContent = `${rows.length.toLocaleString('id-ID')} of ${platformRows.length.toLocaleString('id-ID')} entries`;
     }
     if (!rows.length) {
       refs.cashHistoryBody.innerHTML = `<tr><td colspan="5" class="admin-empty">${state.cashHistory.length ? 'No cash movements match these filters.' : 'No additions or subtractions have been recorded yet.'}</td></tr>`;
@@ -482,16 +531,31 @@ if (root) {
       const subtracted = Number(row.amount_subtracted || 0);
       const isAddition = added > 0;
       const movementAmount = isAddition ? added : subtracted;
+      const runningBalance = selectedPlatform === 'all'
+        ? Number(row.running_balance || 0)
+        : Number(platformRunningBalances.get(String(row.id || '')) || 0);
       return `
         <tr>
           <td><strong>${escapeHtml(formatHistoryDate(row.date))}</strong></td>
           <td><strong>${escapeHtml(row.reason || 'Cash movement')}</strong></td>
           <td><span>${escapeHtml(row.source || '-')}</span>${row.reference ? `<small class="admin-table-note">${escapeHtml(row.reference)}</small>` : ''}</td>
           <td class="is-numeric cash-movement-amount ${isAddition ? 'is-added' : 'is-subtracted'}">${isAddition ? '+' : '−'}${formatCurrency(movementAmount)}</td>
-          <td class="is-numeric"><strong>${formatCurrency(row.running_balance || 0)}</strong></td>
+          <td class="is-numeric"><strong>${formatCurrency(runningBalance)}</strong></td>
         </tr>
       `;
     }).join('');
+    if (refs.cashHistoryNote) {
+      if (selectedPlatform !== 'all') {
+        const selectedLabel = refs.cashHistoryPlatform?.selectedOptions?.[0]?.textContent || 'Selected platform';
+        refs.cashHistoryNote.textContent = `Showing bank cash movements attributed to ${selectedLabel}. Totals and running balances use only this platform.`;
+      } else {
+        const cardCash = Number(state.summary?.kpis?.real_cash_available || 0);
+        const historyCash = Number(state.cashHistorySummary?.current_cash || 0);
+        refs.cashHistoryNote.textContent = cardCash === historyCash
+          ? 'The running balance reconciles to Cash Available. It includes spendable account balances, posted manual entries, Wallet withdrawals, and confirmed website payments.'
+          : 'Cash history includes spendable account balances, posted manual entries, Wallet withdrawals, and confirmed website payments.';
+      }
+    }
   };
 
   const closeCashHistory = () => {
@@ -514,14 +578,8 @@ if (root) {
       state.cashHistory = Array.isArray(payload.data?.rows) ? payload.data.rows : [];
       state.cashHistorySummary = payload.data?.summary || {};
       state.cashHistoryLoaded = true;
+      populateCashHistoryPlatforms();
       renderCashHistory();
-      if (refs.cashHistoryNote) {
-        const cardCash = Number(state.summary?.kpis?.real_cash_available || 0);
-        const historyCash = Number(state.cashHistorySummary?.current_cash || 0);
-        refs.cashHistoryNote.textContent = cardCash === historyCash
-          ? 'The running balance reconciles to Cash Available. It includes spendable account balances, posted manual entries, Wallet withdrawals, and confirmed website payments.'
-          : 'Cash history includes spendable account balances, posted manual entries, Wallet withdrawals, and confirmed website payments.';
-      }
     } catch (error) {
       if (refs.cashHistoryCount) refs.cashHistoryCount.textContent = 'History unavailable';
       if (refs.cashHistoryBody) refs.cashHistoryBody.innerHTML = `<tr><td colspan="5" class="admin-empty">${escapeHtml(error?.message || 'Unable to load cash history.')}</td></tr>`;
@@ -1084,7 +1142,7 @@ if (root) {
   refs.refresh?.addEventListener('click', async () => loadSafely(true));
   refs.cashHistoryOpen?.addEventListener('click', openCashHistory);
   refs.cashHistoryCloseButtons.forEach((button) => button.addEventListener('click', closeCashHistory));
-  refs.cashHistorySearch?.addEventListener('input', renderCashHistory);
+  refs.cashHistoryPlatform?.addEventListener('change', renderCashHistory);
   refs.cashHistoryDirection?.addEventListener('change', renderCashHistory);
   refs.exportButton?.addEventListener('click', () => {
     window.location.href = buildUrl('export_csv', { ...rangeOptions(), include_voided: '0' });

@@ -397,14 +397,16 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                             </button>
                         </div>
                         <div class="admin-accounting-cash-history-summary" aria-label="Cash history totals">
-                            <div><span>Current cash</span><strong data-accounting-cash-history-current>Rp0</strong></div>
+                            <div><span data-accounting-cash-history-current-label>Current cash</span><strong data-accounting-cash-history-current>Rp0</strong></div>
                             <div><span>Total added</span><strong class="is-added" data-accounting-cash-history-added>Rp0</strong></div>
                             <div><span>Total subtracted</span><strong class="is-subtracted" data-accounting-cash-history-subtracted>Rp0</strong></div>
                         </div>
                         <div class="admin-accounting-cash-history-tools">
                             <label>
-                                <span>Search history</span>
-                                <input type="search" data-accounting-cash-history-search placeholder="Reason, source, or reference">
+                                <span>Platform</span>
+                                <select data-accounting-cash-history-platform aria-label="Filter cash history by platform">
+                                    <option value="all">All platforms</option>
+                                </select>
                             </label>
                             <label>
                                 <span>Movement</span>
