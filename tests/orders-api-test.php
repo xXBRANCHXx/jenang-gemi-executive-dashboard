@@ -334,6 +334,56 @@ expect_same(1, $dailyDays['2026-07-01']['orders'], 'Daily summary must add order
 expect_same(true, isset($dailyAccounts['zero-website:zero-website']), 'Daily summary must create stable platform/account keys.');
 expect_same('ZERO Website', $dailyAccounts['zero-website:zero-website']['label'], 'Daily summary must preserve website platform labels.');
 
+$breakdownLookup = [
+    jg_orders_sku_key('SYRUP-50-ORIGINAL') => [
+        'sku' => 'SYRUP-50-ORIGINAL',
+        'base_product_name' => 'Syrup',
+        'flavor_name' => 'Original',
+        'volume' => 50.0,
+        'unit_name' => 'ml',
+    ],
+    jg_orders_sku_key('SYRUP-250-ORIGINAL') => [
+        'sku' => 'SYRUP-250-ORIGINAL',
+        'base_product_name' => 'Syrup',
+        'flavor_name' => 'Original',
+        'volume' => 250.0,
+        'unit_name' => 'ml',
+    ],
+    jg_orders_sku_key('DROPS-10-LEMON') => [
+        'sku' => 'DROPS-10-LEMON',
+        'base_product_name' => 'Drops',
+        'flavor_name' => 'Lemon',
+        'volume' => 10.0,
+        'unit_name' => 'ml',
+    ],
+];
+$breakdown = jg_orders_aggregate_product_flavor_rows([
+    [
+        'sku' => 'SYRUP-50-ORIGINAL',
+        'order_create_time' => '2026-07-01T18:30:00Z',
+        'quantity' => 2,
+        'revenue' => 40000,
+    ],
+    [
+        'sku' => 'SYRUP-250-ORIGINAL',
+        'order_create_time' => '2026-07-08T01:00:00Z',
+        'quantity' => 3,
+        'revenue' => 150000,
+    ],
+    [
+        'sku' => 'DROPS-10-LEMON',
+        'order_create_time' => '2026-07-08T01:00:00Z',
+        'quantity' => 9,
+        'revenue' => 90000,
+    ],
+], $breakdownLookup, 'syrup', 'week', '2026-07-01', '2026-07-31');
+expect_same(5, $breakdown['totals']['quantity'], 'Flavor breakdown must include only the requested product.');
+expect_same(190000, $breakdown['totals']['revenue'], 'Flavor breakdown must total seller-received revenue.');
+expect_same(2, count($breakdown['periods']), 'Flavor breakdown must group sales into local calendar weeks.');
+expect_same('2026-07-06', $breakdown['periods'][0]['key'], 'Flavor breakdown periods must be newest first.');
+expect_same(2, count($breakdown['volumes']), 'Flavor breakdown must expose every catalog volume for the product.');
+expect_same('Original', $breakdown['flavors'][0]['label'], 'Flavor breakdown must expose the SKU flavor catalog.');
+
 $ordersUrl = jg_orders_remote_url('/sales/orders', [
     'start_date' => '2026-06-01',
     'end_date' => '2026-06-03',

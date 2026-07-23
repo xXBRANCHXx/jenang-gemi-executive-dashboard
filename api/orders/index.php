@@ -56,6 +56,15 @@ function jg_orders_handle_request(): void
             echo json_encode($response, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             return;
         }
+        if ($method === 'GET' && in_array($action, ['product_flavor_breakdown', 'flavor_breakdown'], true)) {
+            $pdo = analyticsDb();
+            jg_orders_ensure_mirror_schema($pdo);
+            $product = jg_orders_breakdown_product($_GET['product'] ?? '');
+            $grain = jg_orders_breakdown_grain($_GET['grain'] ?? 'month');
+            $response = jg_orders_product_flavor_breakdown_payload($pdo, $startDate, $endDate, $product, $grain);
+            echo json_encode($response, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            return;
+        }
 
         $payload = [];
         if ($method === 'POST') {
@@ -925,6 +934,239 @@ function jg_orders_mirror_payload(PDO $pdo, string $startDate, string $endDate, 
     }
 
     return $payload;
+}
+
+function jg_orders_breakdown_product(mixed $value): string
+{
+    $product = strtolower(trim((string) $value));
+    if (!in_array($product, ['syrup', 'drops', 'bubur'], true)) {
+        throw new InvalidArgumentException('Product must be syrup, drops, or bubur.');
+    }
+    return $product;
+}
+
+function jg_orders_breakdown_grain(mixed $value): string
+{
+    $grain = strtolower(trim((string) $value));
+    if (!in_array($grain, ['day', 'week', 'month'], true)) {
+        throw new InvalidArgumentException('Grain must be day, week, or month.');
+    }
+    return $grain;
+}
+
+/**
+ * @param array<string, mixed> $sku
+ */
+function jg_orders_breakdown_sku_matches_product(array $sku, string $product): bool
+{
+    $productKey = jg_orders_sku_key((string) ($sku['base_product_name'] ?? ''));
+    $requestedKey = jg_orders_sku_key($product);
+    return $productKey === $requestedKey
+        || ($requestedKey !== '' && str_contains($productKey, $requestedKey));
+}
+
+function jg_orders_breakdown_period(DateTimeImmutable $date, string $grain): array
+{
+    $local = $date->setTimezone(new DateTimeZone('Asia/Jakarta'));
+    if ($grain === 'day') {
+        return [
+            'key' => $local->format('Y-m-d'),
+            'label' => $local->format('D, j M Y'),
+            'start_date' => $local->format('Y-m-d'),
+        ];
+    }
+    if ($grain === 'week') {
+        $start = $local->modify('monday this week');
+        $end = $start->modify('+6 days');
+        $label = $start->format('Y-m') === $end->format('Y-m')
+            ? $start->format('j') . '–' . $end->format('j M Y')
+            : $start->format('j M') . '–' . $end->format('j M Y');
+        return [
+            'key' => $start->format('Y-m-d'),
+            'label' => $label,
+            'start_date' => $start->format('Y-m-d'),
+        ];
+    }
+    $start = $local->modify('first day of this month');
+    return [
+        'key' => $start->format('Y-m'),
+        'label' => $start->format('M Y'),
+        'start_date' => $start->format('Y-m-d'),
+    ];
+}
+
+/**
+ * @param array<int, array<string, mixed>> $rows
+ * @param array<string, array<string, mixed>> $skuLookup
+ * @return array<string, mixed>
+ */
+function jg_orders_aggregate_product_flavor_rows(
+    array $rows,
+    array $skuLookup,
+    string $product,
+    string $grain,
+    string $startDate,
+    string $endDate
+): array {
+    $periods = [];
+    $flavors = [];
+    $volumes = [];
+    $catalogSkus = [];
+
+    foreach ($skuLookup as $sku) {
+        if (!is_array($sku) || !jg_orders_breakdown_sku_matches_product($sku, $product)) {
+            continue;
+        }
+        $skuCode = trim((string) ($sku['sku'] ?? ''));
+        if ($skuCode === '' || isset($catalogSkus[$skuCode])) {
+            continue;
+        }
+        $catalogSkus[$skuCode] = true;
+        $flavorLabel = trim((string) ($sku['flavor_name'] ?? '')) ?: 'Unspecified';
+        $flavorKey = strtolower(trim((string) preg_replace('/[^a-z0-9]+/i', '-', $flavorLabel), '-')) ?: 'unspecified';
+        $volume = (float) ($sku['volume'] ?? 0);
+        $unit = trim((string) ($sku['unit_name'] ?? 'ml')) ?: 'ml';
+        $volumeKey = rtrim(rtrim(number_format($volume, 1, '.', ''), '0'), '.') . '-' . strtolower($unit);
+        $flavors[$flavorKey] = ['key' => $flavorKey, 'label' => $flavorLabel];
+        $volumes[$volumeKey] = [
+            'key' => $volumeKey,
+            'label' => rtrim(rtrim(number_format($volume, 1, '.', ''), '0'), '.') . ' ' . $unit,
+            'volume' => $volume,
+            'unit' => $unit,
+        ];
+    }
+
+    $totals = ['quantity' => 0, 'revenue' => 0, 'matched_rows' => 0];
+    foreach ($rows as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $sku = jg_orders_match_sku($row, $skuLookup);
+        if (!is_array($sku) || !jg_orders_breakdown_sku_matches_product($sku, $product)) {
+            continue;
+        }
+        $date = jg_orders_order_datetime($row['order_create_time'] ?? $row['timestamp'] ?? null);
+        if (!$date) {
+            continue;
+        }
+        $row = jg_orders_interpret_sales_row($row);
+        $quantity = max(0, (int) ($row['quantity'] ?? 0));
+        $revenue = (int) round((float) ($row['revenue'] ?? $row['net_revenue'] ?? 0));
+        if ($quantity === 0 && $revenue === 0) {
+            continue;
+        }
+
+        $period = jg_orders_breakdown_period($date, $grain);
+        $periodKey = (string) $period['key'];
+        $flavorLabel = trim((string) ($sku['flavor_name'] ?? '')) ?: 'Unspecified';
+        $flavorKey = strtolower(trim((string) preg_replace('/[^a-z0-9]+/i', '-', $flavorLabel), '-')) ?: 'unspecified';
+        $volume = (float) ($sku['volume'] ?? 0);
+        $unit = trim((string) ($sku['unit_name'] ?? 'ml')) ?: 'ml';
+        $volumeKey = rtrim(rtrim(number_format($volume, 1, '.', ''), '0'), '.') . '-' . strtolower($unit);
+
+        $periods[$periodKey] ??= [
+            ...$period,
+            'quantity' => 0,
+            'revenue' => 0,
+            'flavors' => [],
+        ];
+        $periods[$periodKey]['flavors'][$flavorKey] ??= [
+            'key' => $flavorKey,
+            'label' => $flavorLabel,
+            'quantity' => 0,
+            'revenue' => 0,
+            'volumes' => [],
+        ];
+        $periods[$periodKey]['flavors'][$flavorKey]['volumes'][$volumeKey] ??= [
+            'quantity' => 0,
+            'revenue' => 0,
+        ];
+
+        $periods[$periodKey]['quantity'] += $quantity;
+        $periods[$periodKey]['revenue'] += $revenue;
+        $periods[$periodKey]['flavors'][$flavorKey]['quantity'] += $quantity;
+        $periods[$periodKey]['flavors'][$flavorKey]['revenue'] += $revenue;
+        $periods[$periodKey]['flavors'][$flavorKey]['volumes'][$volumeKey]['quantity'] += $quantity;
+        $periods[$periodKey]['flavors'][$flavorKey]['volumes'][$volumeKey]['revenue'] += $revenue;
+        $totals['quantity'] += $quantity;
+        $totals['revenue'] += $revenue;
+        $totals['matched_rows']++;
+    }
+
+    uasort($periods, static fn (array $left, array $right): int => strcmp((string) $right['key'], (string) $left['key']));
+    uasort($flavors, static fn (array $left, array $right): int => strcasecmp((string) $left['label'], (string) $right['label']));
+    uasort($volumes, static function (array $left, array $right): int {
+        $unitSort = strcasecmp((string) ($left['unit'] ?? ''), (string) ($right['unit'] ?? ''));
+        return $unitSort !== 0 ? $unitSort : ((float) ($left['volume'] ?? 0) <=> (float) ($right['volume'] ?? 0));
+    });
+
+    foreach ($periods as &$period) {
+        uasort($period['flavors'], static fn (array $left, array $right): int => strcasecmp((string) $left['label'], (string) $right['label']));
+        $period['flavors'] = array_values($period['flavors']);
+    }
+    unset($period);
+
+    return [
+        'ok' => true,
+        'product' => [
+            'key' => $product,
+            'label' => ucfirst($product),
+        ],
+        'grain' => $grain,
+        'start_date' => $startDate,
+        'end_date' => $endDate,
+        'timezone' => 'Asia/Jakarta',
+        'totals' => $totals,
+        'flavors' => array_values($flavors),
+        'volumes' => array_values($volumes),
+        'periods' => array_values($periods),
+        'generated_at' => gmdate(DATE_ATOM),
+    ];
+}
+
+function jg_orders_product_flavor_breakdown_payload(
+    PDO $pdo,
+    string $startDate,
+    string $endDate,
+    string $product,
+    string $grain
+): array {
+    [$from, $to] = jg_orders_range_bounds($startDate, $endDate);
+    $localDate = 'DATE(DATE_ADD(order_create_time, INTERVAL 7 HOUR))';
+    $periodExpression = match ($grain) {
+        'day' => $localDate,
+        'week' => 'DATE_SUB(' . $localDate . ', INTERVAL WEEKDAY(' . $localDate . ') DAY)',
+        default => 'DATE_FORMAT(' . $localDate . ', "%Y-%m-01")',
+    };
+    $stmt = $pdo->prepare(
+        'SELECT CASE WHEN sku <> "" THEN sku ELSE item_key END AS sku,
+                "" AS item_key,
+                MIN(order_create_time) AS order_create_time,
+                SUM(CASE WHEN is_free_gift = 1 THEN 0 ELSE quantity END) AS quantity,
+                SUM(CASE WHEN is_free_gift = 1 THEN 0 ELSE revenue END) AS revenue,
+                SUM(CASE WHEN is_free_gift = 1 THEN 0 ELSE cogs_quantity END) AS cogs_quantity,
+                0 AS is_free_gift
+         FROM dashboard_order_mirror
+         WHERE deleted_at IS NULL
+           AND order_create_time >= :from_date
+           AND order_create_time < :to_date
+         GROUP BY CASE WHEN sku <> "" THEN sku ELSE item_key END, ' . $periodExpression . '
+         ORDER BY order_create_time DESC'
+    );
+    $stmt->execute([
+        ':from_date' => $from,
+        ':to_date' => $to,
+    ]);
+    $rows = array_values(array_filter($stmt->fetchAll(), 'is_array'));
+    $skuLookup = jg_orders_sku_lookup(jg_sku_db());
+    return jg_orders_aggregate_product_flavor_rows(
+        $rows,
+        $skuLookup,
+        $product,
+        $grain,
+        $startDate,
+        $endDate
+    );
 }
 
 function jg_orders_daily_normalize_key(string $value): string

@@ -31,7 +31,7 @@ if ($isAuthenticated) {
     }
 }
 $isAdView = $isAuthenticated && in_array($requestedView ?? '', ['ad-view', 'ads', 'ad_view', 'shopee-ads'], true);
-$dashboardBuildVersion = 'exec3.79.1';
+$dashboardBuildVersion = 'exec3.79.2';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -323,7 +323,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                         </div>
                     </article>
 
-                    <div class="admin-flavor-chart-grid">
+                    <div class="admin-flavor-chart-grid" id="flavor-share">
                     <article class="admin-panel admin-panel-chart admin-flavor-chart-card" data-chart-id="C6">
                         <div class="admin-panel-head">
                             <div>
@@ -338,9 +338,10 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                                 <button type="button" class="admin-toggle-pill" data-overview-flavor-metric="net_revenue"><span>Rp</span></button>
                             </div>
                         </div>
-                        <div class="admin-chart-surface">
+                        <a class="admin-chart-surface admin-flavor-chart-link" href="./product-flavors/?product=syrup" aria-label="Open Syrup flavor and volume breakdown">
                             <canvas class="admin-chart-canvas admin-chart-canvas-lg" data-overview-syrup-flavor-chart width="720" height="440"></canvas>
-                        </div>
+                            <span class="admin-chart-detail-cue">Open breakdown <i aria-hidden="true">↗</i></span>
+                        </a>
                     </article>
 
                     <article class="admin-panel admin-panel-chart admin-flavor-chart-card" data-chart-id="C7">
@@ -357,9 +358,10 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                                 <button type="button" class="admin-toggle-pill" data-overview-flavor-metric="net_revenue"><span>Rp</span></button>
                             </div>
                         </div>
-                        <div class="admin-chart-surface">
+                        <a class="admin-chart-surface admin-flavor-chart-link" href="./product-flavors/?product=drops" aria-label="Open Drops flavor and volume breakdown">
                             <canvas class="admin-chart-canvas admin-chart-canvas-lg" data-overview-drops-flavor-chart width="720" height="440"></canvas>
-                        </div>
+                            <span class="admin-chart-detail-cue">Open breakdown <i aria-hidden="true">↗</i></span>
+                        </a>
                     </article>
 
                     <article class="admin-panel admin-panel-chart admin-flavor-chart-card" data-chart-id="C8">
@@ -376,9 +378,10 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                                 <button type="button" class="admin-toggle-pill" data-overview-flavor-metric="net_revenue"><span>Rp</span></button>
                             </div>
                         </div>
-                        <div class="admin-chart-surface">
+                        <a class="admin-chart-surface admin-flavor-chart-link" href="./product-flavors/?product=bubur" aria-label="Open Bubur flavor and volume breakdown">
                             <canvas class="admin-chart-canvas admin-chart-canvas-lg" data-overview-bubur-flavor-chart width="720" height="440"></canvas>
-                        </div>
+                            <span class="admin-chart-detail-cue">Open breakdown <i aria-hidden="true">↗</i></span>
+                        </a>
                     </article>
                     </div>
 
