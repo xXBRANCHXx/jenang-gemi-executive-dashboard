@@ -67,11 +67,11 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                 </section>
 
                 <section class="admin-accounting-metrics" aria-label="Accounting metrics">
-                    <article class="admin-accounting-metric">
+                    <button type="button" class="admin-accounting-metric admin-accounting-cash-card" data-accounting-cash-history-open aria-haspopup="dialog" aria-controls="accounting-cash-history" aria-label="View Cash Available history">
                         <span>Cash Available</span>
                         <strong data-accounting-kpi="real-cash">Rp0</strong>
-                        <small>Bank + paid sources</small>
-                    </article>
+                        <small>View additions &amp; subtractions <b aria-hidden="true">→</b></small>
+                    </button>
                     <article class="admin-accounting-metric">
                         <span>Marketplace</span>
                         <strong data-accounting-kpi="marketplace-outstanding">Rp0</strong>
@@ -379,6 +379,58 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                             <p class="admin-empty">Select a bill or transaction.</p>
                         </div>
                     </aside>
+                </div>
+
+                <div class="admin-modal-shell admin-accounting-cash-history" id="accounting-cash-history" data-accounting-cash-history hidden>
+                    <button type="button" class="admin-modal-backdrop" data-accounting-cash-history-close aria-label="Close cash history"></button>
+                    <section class="admin-modal-card admin-accounting-cash-history-card" role="dialog" aria-modal="true" aria-labelledby="accounting-cash-history-title" tabindex="-1">
+                        <div class="admin-modal-head admin-accounting-cash-history-head">
+                            <div>
+                                <span class="admin-panel-kicker">All-time cash ledger</span>
+                                <h3 id="accounting-cash-history-title">Cash Available history</h3>
+                                <p>Every addition and subtraction that makes up the current cash balance.</p>
+                            </div>
+                            <button type="button" class="admin-ghost-btn" data-accounting-cash-history-close>Close</button>
+                        </div>
+                        <div class="admin-accounting-cash-history-summary" aria-label="Cash history totals">
+                            <div><span>Current cash</span><strong data-accounting-cash-history-current>Rp0</strong></div>
+                            <div><span>Total added</span><strong class="is-added" data-accounting-cash-history-added>Rp0</strong></div>
+                            <div><span>Total subtracted</span><strong class="is-subtracted" data-accounting-cash-history-subtracted>Rp0</strong></div>
+                        </div>
+                        <div class="admin-accounting-cash-history-tools">
+                            <label>
+                                <span>Search history</span>
+                                <input type="search" data-accounting-cash-history-search placeholder="Reason, source, or reference">
+                            </label>
+                            <label>
+                                <span>Movement</span>
+                                <select data-accounting-cash-history-direction>
+                                    <option value="all">All movements</option>
+                                    <option value="added">Additions only</option>
+                                    <option value="subtracted">Subtractions only</option>
+                                </select>
+                            </label>
+                            <p data-accounting-cash-history-count>Loading history…</p>
+                        </div>
+                        <div class="admin-table-wrap admin-accounting-cash-history-table-wrap">
+                            <table class="admin-table admin-accounting-cash-history-table">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Reason</th>
+                                        <th>Source</th>
+                                        <th class="is-numeric">Added</th>
+                                        <th class="is-numeric">Subtracted</th>
+                                        <th class="is-numeric">Balance</th>
+                                    </tr>
+                                </thead>
+                                <tbody data-accounting-cash-history-body>
+                                    <tr><td colspan="6" class="admin-empty">Loading cash history.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <p class="admin-accounting-cash-history-note" data-accounting-cash-history-note>Cash history includes spendable account balances, posted manual entries, Wallet withdrawals, and confirmed website payments.</p>
+                    </section>
                 </div>
             </main>
         </div>

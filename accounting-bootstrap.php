@@ -851,6 +851,192 @@ function jg_accounting_account_balances(PDO $pdo): array
     return $balances;
 }
 
+function jg_accounting_cash_history(PDO $pdo): array
+{
+    $rows = [];
+    $spendableTypes = ['bank', 'cash', 'ewallet'];
+
+    $accountStmt = $pdo->query(
+        'SELECT id, name, type, opening_balance, current_balance_manual, created_at
+         FROM accounting_accounts
+         WHERE is_active = 1 AND is_spendable = 1
+         ORDER BY sort_order ASC, id ASC'
+    );
+    foreach ($accountStmt->fetchAll() as $account) {
+        if (!in_array((string) ($account['type'] ?? ''), $spendableTypes, true)) {
+            continue;
+        }
+        $amount = $account['current_balance_manual'] !== null
+            ? (int) ($account['current_balance_manual'] ?? 0)
+            : (int) ($account['opening_balance'] ?? 0);
+        if ($amount === 0) {
+            continue;
+        }
+        $createdAt = trim((string) ($account['created_at'] ?? ''));
+        $rows[] = [
+            'id' => 'account:' . (int) $account['id'],
+            'date' => $createdAt !== '' ? jg_accounting_source_local_date($createdAt) : '',
+            'sort_at' => $createdAt !== '' ? $createdAt : '0000-00-00 00:00:00',
+            'reason' => $account['current_balance_manual'] !== null ? 'Recorded account balance' : 'Opening balance',
+            'source' => (string) ($account['name'] ?? 'Cash account'),
+            'reference' => '',
+            'kind' => 'account_balance',
+            'signed_amount' => $amount,
+        ];
+    }
+
+    $transactionStmt = $pdo->query(
+        'SELECT t.id, t.transaction_key, t.transaction_date, t.type, t.direction, t.amount,
+                t.transfer_fee_amount, t.reference_no, t.order_no, t.notes,
+                src.name AS account_name, src.type AS account_type, src.is_spendable AS account_is_spendable, src.is_active AS account_is_active,
+                dst.name AS to_account_name, dst.type AS to_account_type, dst.is_spendable AS to_account_is_spendable, dst.is_active AS to_account_is_active,
+                cp.name AS counterparty_name, c.name AS category_name
+         FROM accounting_transactions t
+         LEFT JOIN accounting_accounts src ON src.id = t.account_id
+         LEFT JOIN accounting_accounts dst ON dst.id = t.to_account_id
+         LEFT JOIN accounting_counterparties cp ON cp.id = t.counterparty_id
+         LEFT JOIN accounting_categories c ON c.id = t.category_id
+         WHERE t.status = "posted"
+         ORDER BY t.transaction_date ASC, t.id ASC'
+    );
+    $typeLabels = [
+        'expense' => 'Expense paid',
+        'bill_payment' => 'Bill paid',
+        'transfer' => 'Account transfer',
+        'manual_income' => 'Money received',
+        'loan_received' => 'Loan received',
+        'owner_draw' => 'Owner draw',
+        'owner_injection' => 'Owner injection',
+        'refund' => 'Customer refund',
+        'adjustment' => 'Cash adjustment',
+        'opening_balance' => 'Opening balance',
+    ];
+    foreach ($transactionStmt->fetchAll() as $transaction) {
+        $amount = (int) round((float) ($transaction['amount'] ?? 0));
+        $fee = max(0, (int) round((float) ($transaction['transfer_fee_amount'] ?? 0)));
+        $sourceSpendable = (int) ($transaction['account_is_active'] ?? 0) === 1
+            && (int) ($transaction['account_is_spendable'] ?? 0) === 1
+            && in_array((string) ($transaction['account_type'] ?? ''), $spendableTypes, true);
+        $destinationSpendable = (int) ($transaction['to_account_is_active'] ?? 0) === 1
+            && (int) ($transaction['to_account_is_spendable'] ?? 0) === 1
+            && in_array((string) ($transaction['to_account_type'] ?? ''), $spendableTypes, true);
+        $direction = (string) ($transaction['direction'] ?? '');
+        $signedAmount = 0;
+        if ($sourceSpendable && $direction === 'money_in') {
+            $signedAmount += $amount;
+        } elseif ($sourceSpendable && in_array($direction, ['money_out', 'internal_transfer'], true)) {
+            $signedAmount -= $amount;
+        }
+        if ($destinationSpendable && $direction === 'internal_transfer') {
+            $signedAmount += $amount;
+        }
+        if ($sourceSpendable) {
+            $signedAmount -= $fee;
+        }
+        if ($signedAmount === 0) {
+            continue;
+        }
+
+        $type = (string) ($transaction['type'] ?? '');
+        $notes = trim((string) ($transaction['notes'] ?? ''));
+        $counterparty = trim((string) ($transaction['counterparty_name'] ?? ''));
+        $category = trim((string) ($transaction['category_name'] ?? ''));
+        $reason = $notes !== '' ? $notes : ($counterparty !== '' ? $counterparty : ($category !== '' ? $category : ($typeLabels[$type] ?? 'Cash entry')));
+        if ($fee > 0 && abs($signedAmount) === $fee && $direction === 'internal_transfer') {
+            $reason = 'Transfer fee';
+        }
+        $accountRoute = trim((string) ($transaction['account_name'] ?? ''));
+        if (trim((string) ($transaction['to_account_name'] ?? '')) !== '') {
+            $accountRoute .= ($accountRoute !== '' ? ' → ' : '') . trim((string) $transaction['to_account_name']);
+        }
+        $reference = trim((string) ($transaction['reference_no'] ?? ''));
+        if ($reference === '') {
+            $reference = trim((string) ($transaction['order_no'] ?? ''));
+        }
+        if ($reference === '') {
+            $reference = (string) ($transaction['transaction_key'] ?? '');
+        }
+        $date = (string) ($transaction['transaction_date'] ?? '');
+        $rows[] = [
+            'id' => 'transaction:' . (int) $transaction['id'],
+            'date' => $date,
+            'sort_at' => $date . ' 12:00:00',
+            'reason' => $reason,
+            'source' => ($typeLabels[$type] ?? ucwords(str_replace('_', ' ', $type))) . ($accountRoute !== '' ? ' • ' . $accountRoute : ''),
+            'reference' => $reference,
+            'kind' => 'manual_transaction',
+            'signed_amount' => $signedAmount,
+        ];
+    }
+
+    foreach (jg_accounting_automatic_cash_records($pdo) as $record) {
+        $amount = (int) ($record['usable_cash_amount'] ?? 0);
+        if ($amount <= 0) {
+            continue;
+        }
+        $sourceType = (string) ($record['source_type'] ?? '');
+        $counterparty = trim((string) ($record['counterparty'] ?? ''));
+        $notes = trim((string) ($record['notes'] ?? ''));
+        $orderId = trim((string) ($record['order_id'] ?? ''));
+        $reason = $sourceType === 'website_payment' ? 'Confirmed website payment' : 'Wallet withdrawal to bank';
+        if ($counterparty !== '') {
+            $reason .= ' • ' . $counterparty;
+        }
+        if ($notes !== '' && $sourceType !== 'website_payment') {
+            $reason .= ' • ' . $notes;
+        }
+        $source = trim(implode(' • ', array_filter([
+            $sourceType === 'website_payment' ? 'Website' : 'Marketplace Wallet',
+            trim((string) ($record['platform'] ?? '')),
+            trim((string) ($record['account_key'] ?? '')),
+        ])));
+        $rows[] = [
+            'id' => (string) ($record['source_key'] ?? ''),
+            'date' => (string) ($record['record_date'] ?? ''),
+            'sort_at' => (string) ($record['occurred_at'] ?? (($record['record_date'] ?? '') . ' 12:00:00')),
+            'reason' => $reason,
+            'source' => $source,
+            'reference' => $orderId !== '' ? $orderId : (string) ($record['source_key'] ?? ''),
+            'kind' => 'automatic_cash',
+            'signed_amount' => $amount,
+        ];
+    }
+
+    usort($rows, static function (array $left, array $right): int {
+        $time = strcmp((string) ($left['sort_at'] ?? ''), (string) ($right['sort_at'] ?? ''));
+        return $time !== 0 ? $time : strcmp((string) ($left['id'] ?? ''), (string) ($right['id'] ?? ''));
+    });
+
+    $runningBalance = 0;
+    $totalAdded = 0;
+    $totalSubtracted = 0;
+    foreach ($rows as &$row) {
+        $signedAmount = (int) ($row['signed_amount'] ?? 0);
+        $runningBalance += $signedAmount;
+        if ($signedAmount > 0) {
+            $totalAdded += $signedAmount;
+        } else {
+            $totalSubtracted += abs($signedAmount);
+        }
+        $row['amount_added'] = max(0, $signedAmount);
+        $row['amount_subtracted'] = max(0, -$signedAmount);
+        $row['running_balance'] = $runningBalance;
+        unset($row['sort_at'], $row['signed_amount']);
+    }
+    unset($row);
+    $rows = array_reverse($rows);
+
+    return [
+        'rows' => $rows,
+        'summary' => [
+            'current_cash' => $runningBalance,
+            'total_added' => $totalAdded,
+            'total_subtracted' => $totalSubtracted,
+            'entry_count' => count($rows),
+        ],
+    ];
+}
+
 function jg_accounting_marketplace_normalize_status(mixed $status): string
 {
     return trim(preg_replace('/[^A-Z0-9]+/', '_', strtoupper((string) $status)) ?? '', '_');

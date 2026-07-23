@@ -23900,6 +23900,43 @@ body:has(.admin-app[data-sku-db])::after {
   padding: 18px;
 }
 
+button.admin-accounting-metric {
+  width: 100%;
+  border: 1px solid var(--accounting-border);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.admin-accounting-cash-card {
+  position: relative;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.admin-accounting-cash-card:hover {
+  border-color: color-mix(in srgb, var(--accounting-text) 34%, var(--accounting-border));
+  background: color-mix(in srgb, var(--accounting-text) 4%, var(--accounting-surface));
+  transform: translateY(-1px);
+}
+
+.admin-accounting-cash-card:focus-visible {
+  outline: 2px solid var(--accounting-text);
+  outline-offset: 3px;
+}
+
+.admin-accounting-cash-card small {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.admin-accounting-cash-card small b {
+  color: var(--accounting-text);
+  font-size: 1rem;
+}
+
 .admin-accounting-metric strong {
   min-width: 0;
   overflow: hidden;
@@ -24174,6 +24211,183 @@ body:has(.admin-app[data-sku-db])::after {
   color: var(--accounting-text);
 }
 
+.admin-accounting-cash-history-card {
+  display: grid;
+  grid-template-rows: auto auto auto minmax(220px, 1fr) auto;
+  gap: 18px;
+  width: min(1080px, calc(100vw - 32px));
+  height: min(780px, calc(100svh - 32px));
+  max-height: calc(100svh - 32px);
+  overflow: hidden;
+  border-radius: var(--admin-card-radius);
+  background: var(--accounting-surface);
+  color: var(--accounting-text);
+}
+
+.admin-accounting-cash-history-head {
+  align-items: flex-start;
+}
+
+.admin-accounting-cash-history-head p {
+  max-width: 680px;
+  margin: 6px 0 0;
+  color: var(--accounting-muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.admin-accounting-cash-history-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid var(--accounting-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.admin-accounting-cash-history-summary > div {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 14px 16px;
+  border-right: 1px solid var(--accounting-border);
+}
+
+.admin-accounting-cash-history-summary > div:last-child {
+  border-right: 0;
+}
+
+.admin-accounting-cash-history-summary span,
+.admin-accounting-cash-history-tools label span {
+  color: var(--accounting-muted);
+  font-size: 0.68rem;
+  font-weight: 850;
+}
+
+.admin-accounting-cash-history-summary strong {
+  overflow: hidden;
+  font: 800 clamp(1rem, 2vw, 1.35rem)/1.1 "Space Grotesk", sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-accounting-cash-history .is-added {
+  color: #77d99c;
+}
+
+.admin-accounting-cash-history .is-subtracted {
+  color: #ff9c9c;
+}
+
+.admin-accounting-cash-history-tools {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(170px, 220px) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.admin-accounting-cash-history-tools label {
+  display: grid;
+  gap: 6px;
+}
+
+.admin-accounting-cash-history-tools :is(input, select) {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--accounting-border);
+  border-radius: 8px;
+  outline: none;
+  background: var(--accounting-surface);
+  color: var(--accounting-text);
+  font: 750 0.78rem/1 "Space Grotesk", sans-serif;
+}
+
+.admin-accounting-cash-history-tools :is(input, select):focus {
+  border-color: color-mix(in srgb, var(--accounting-text) 40%, var(--accounting-border));
+}
+
+.admin-accounting-cash-history-tools p {
+  margin: 0 0 12px;
+  color: var(--accounting-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.admin-accounting-cash-history-table-wrap {
+  min-height: 0;
+  max-height: none;
+  overflow: auto;
+  border: 1px solid var(--accounting-border);
+  border-radius: 10px;
+}
+
+.admin-accounting-cash-history-table {
+  min-width: 860px;
+}
+
+.admin-accounting-cash-history-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 11px 12px;
+  background: var(--accounting-surface);
+  box-shadow: 0 1px 0 var(--accounting-border);
+  font-size: 0.66rem;
+  letter-spacing: 0.09em;
+}
+
+.admin-accounting-cash-history-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--accounting-border);
+  font-size: 0.76rem;
+  line-height: 1.35;
+  vertical-align: middle;
+}
+
+.admin-accounting-cash-history-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.admin-accounting-cash-history-table th:nth-child(1),
+.admin-accounting-cash-history-table td:nth-child(1) {
+  width: 124px;
+  white-space: nowrap;
+}
+
+.admin-accounting-cash-history-table th:nth-child(2),
+.admin-accounting-cash-history-table td:nth-child(2) {
+  width: 28%;
+  white-space: normal;
+}
+
+.admin-accounting-cash-history-table th:nth-child(3),
+.admin-accounting-cash-history-table td:nth-child(3) {
+  width: 27%;
+  white-space: normal;
+}
+
+.admin-accounting-cash-history-table .is-numeric {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.admin-accounting-cash-history-note {
+  margin: 0;
+  color: var(--accounting-muted);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+:root[data-admin-theme='light'] .admin-accounting-cash-history .is-added {
+  color: #16794a;
+}
+
+:root[data-admin-theme='light'] .admin-accounting-cash-history .is-subtracted {
+  color: #b42318;
+}
+
 .admin-accounting-detail-row {
   grid-template-columns: minmax(110px, 0.5fr) minmax(0, 1fr);
 }
@@ -24235,6 +24449,44 @@ body:has(.admin-app[data-sku-db])::after {
 @media (max-width: 640px) {
   .admin-accounting-view {
     gap: 12px;
+  }
+
+  .admin-accounting-cash-history {
+    padding: 8px;
+  }
+
+  .admin-accounting-cash-history-card {
+    grid-template-rows: auto auto auto minmax(180px, 1fr) auto;
+    gap: 12px;
+    width: calc(100vw - 16px);
+    height: calc(100svh - 16px);
+    max-height: calc(100svh - 16px);
+    padding: 16px;
+  }
+
+  .admin-accounting-cash-history-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-accounting-cash-history-summary > div {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    padding: 10px 12px;
+    border-right: 0;
+    border-bottom: 1px solid var(--accounting-border);
+  }
+
+  .admin-accounting-cash-history-summary > div:last-child {
+    border-bottom: 0;
+  }
+
+  .admin-accounting-cash-history-tools {
+    grid-template-columns: 1fr 136px;
+  }
+
+  .admin-accounting-cash-history-tools p {
+    grid-column: 1 / -1;
+    margin: 0;
   }
 
   .admin-accounting-topbar {

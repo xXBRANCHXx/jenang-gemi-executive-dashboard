@@ -203,6 +203,9 @@ try {
                 'cash_context' => jg_accounting_automatic_usable_cash_context($pdo, $cashFilters),
             ], $month));
         }
+        if ($action === 'cash_history') {
+            jg_accounting_json(jg_accounting_endpoint_payload(jg_accounting_cash_history($pdo), $month));
+        }
         if ($action === 'export_csv') {
             jg_accounting_export_csv($pdo);
         }

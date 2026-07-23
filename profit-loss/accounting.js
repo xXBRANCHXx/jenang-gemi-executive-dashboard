@@ -107,7 +107,10 @@ if (root) {
     accounts: [],
     categories: [],
     counterparties: [],
-    lookupsLoaded: false
+    lookupsLoaded: false,
+    cashHistory: [],
+    cashHistorySummary: {},
+    cashHistoryLoaded: false
   };
 
   const refs = {
@@ -134,6 +137,18 @@ if (root) {
       pendingReview: root.querySelector('[data-accounting-kpi="pending-review"]')
     },
     safeCashCard: root.querySelector('[data-accounting-safe-cash-card]'),
+    cashHistoryOpen: root.querySelector('[data-accounting-cash-history-open]'),
+    cashHistory: root.querySelector('[data-accounting-cash-history]'),
+    cashHistoryCard: root.querySelector('.admin-accounting-cash-history-card'),
+    cashHistoryCloseButtons: root.querySelectorAll('[data-accounting-cash-history-close]'),
+    cashHistoryBody: root.querySelector('[data-accounting-cash-history-body]'),
+    cashHistorySearch: root.querySelector('[data-accounting-cash-history-search]'),
+    cashHistoryDirection: root.querySelector('[data-accounting-cash-history-direction]'),
+    cashHistoryCount: root.querySelector('[data-accounting-cash-history-count]'),
+    cashHistoryCurrent: root.querySelector('[data-accounting-cash-history-current]'),
+    cashHistoryAdded: root.querySelector('[data-accounting-cash-history-added]'),
+    cashHistorySubtracted: root.querySelector('[data-accounting-cash-history-subtracted]'),
+    cashHistoryNote: root.querySelector('[data-accounting-cash-history-note]'),
     alerts: root.querySelector('[data-accounting-alerts]'),
     form: root.querySelector('[data-accounting-form]'),
     formStatus: root.querySelector('[data-accounting-form-status]'),
@@ -426,6 +441,90 @@ if (root) {
     if (refs.kpis.safeCash) refs.kpis.safeCash.textContent = formatCurrency(kpis.net_safe_cash || 0);
     if (refs.kpis.pendingReview) refs.kpis.pendingReview.textContent = Number(kpis.pending_manual_review || 0).toLocaleString('id-ID');
     refs.safeCashCard?.classList.toggle('is-danger', Number(kpis.net_safe_cash || 0) < 0);
+  };
+
+  const formatHistoryDate = (value) => {
+    const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return 'Opening';
+    const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+    return new Intl.DateTimeFormat('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      timeZone: 'UTC'
+    }).format(date);
+  };
+
+  const renderCashHistory = () => {
+    if (!refs.cashHistoryBody) return;
+    const query = String(refs.cashHistorySearch?.value || '').trim().toLowerCase();
+    const direction = refs.cashHistoryDirection?.value || 'all';
+    const rows = state.cashHistory.filter((row) => {
+      if (direction === 'added' && Number(row.amount_added || 0) <= 0) return false;
+      if (direction === 'subtracted' && Number(row.amount_subtracted || 0) <= 0) return false;
+      if (!query) return true;
+      return [row.date, row.reason, row.source, row.reference]
+        .some((value) => String(value || '').toLowerCase().includes(query));
+    });
+    const summary = state.cashHistorySummary || {};
+    if (refs.cashHistoryCurrent) refs.cashHistoryCurrent.textContent = formatCurrency(summary.current_cash || 0);
+    if (refs.cashHistoryAdded) refs.cashHistoryAdded.textContent = formatCurrency(summary.total_added || 0);
+    if (refs.cashHistorySubtracted) refs.cashHistorySubtracted.textContent = formatCurrency(summary.total_subtracted || 0);
+    if (refs.cashHistoryCount) {
+      refs.cashHistoryCount.textContent = `${rows.length.toLocaleString('id-ID')} of ${state.cashHistory.length.toLocaleString('id-ID')} entries`;
+    }
+    if (!rows.length) {
+      refs.cashHistoryBody.innerHTML = `<tr><td colspan="6" class="admin-empty">${state.cashHistory.length ? 'No cash movements match these filters.' : 'No additions or subtractions have been recorded yet.'}</td></tr>`;
+      return;
+    }
+    refs.cashHistoryBody.innerHTML = rows.map((row) => {
+      const added = Number(row.amount_added || 0);
+      const subtracted = Number(row.amount_subtracted || 0);
+      return `
+        <tr>
+          <td><strong>${escapeHtml(formatHistoryDate(row.date))}</strong></td>
+          <td><strong>${escapeHtml(row.reason || 'Cash movement')}</strong></td>
+          <td><span>${escapeHtml(row.source || '-')}</span>${row.reference ? `<small class="admin-table-note">${escapeHtml(row.reference)}</small>` : ''}</td>
+          <td class="is-numeric is-added">${added > 0 ? `+${formatCurrency(added)}` : '—'}</td>
+          <td class="is-numeric is-subtracted">${subtracted > 0 ? `−${formatCurrency(subtracted)}` : '—'}</td>
+          <td class="is-numeric"><strong>${formatCurrency(row.running_balance || 0)}</strong></td>
+        </tr>
+      `;
+    }).join('');
+  };
+
+  const closeCashHistory = () => {
+    if (!refs.cashHistory || refs.cashHistory.hidden) return;
+    refs.cashHistory.hidden = true;
+    refs.cashHistoryOpen?.focus();
+  };
+
+  const openCashHistory = async () => {
+    if (!refs.cashHistory) return;
+    refs.cashHistory.hidden = false;
+    refs.cashHistoryCard?.focus();
+    if (state.cashHistoryLoaded) renderCashHistory();
+    if (refs.cashHistoryCount) refs.cashHistoryCount.textContent = state.cashHistoryLoaded ? 'Refreshing history…' : 'Loading history…';
+    if (!state.cashHistoryLoaded && refs.cashHistoryBody) {
+      refs.cashHistoryBody.innerHTML = '<tr><td colspan="6" class="admin-empty">Loading cash history.</td></tr>';
+    }
+    try {
+      const payload = await requestJson(buildUrl('cash_history', { cacheBust: true }));
+      state.cashHistory = Array.isArray(payload.data?.rows) ? payload.data.rows : [];
+      state.cashHistorySummary = payload.data?.summary || {};
+      state.cashHistoryLoaded = true;
+      renderCashHistory();
+      if (refs.cashHistoryNote) {
+        const cardCash = Number(state.summary?.kpis?.real_cash_available || 0);
+        const historyCash = Number(state.cashHistorySummary?.current_cash || 0);
+        refs.cashHistoryNote.textContent = cardCash === historyCash
+          ? 'The running balance reconciles to Cash Available. It includes spendable account balances, posted manual entries, Wallet withdrawals, and confirmed website payments.'
+          : 'Cash history includes spendable account balances, posted manual entries, Wallet withdrawals, and confirmed website payments.';
+      }
+    } catch (error) {
+      if (refs.cashHistoryCount) refs.cashHistoryCount.textContent = 'History unavailable';
+      if (refs.cashHistoryBody) refs.cashHistoryBody.innerHTML = `<tr><td colspan="6" class="admin-empty">${escapeHtml(error?.message || 'Unable to load cash history.')}</td></tr>`;
+    }
   };
 
   const renderAlerts = (summary) => {
@@ -982,6 +1081,10 @@ if (root) {
     });
   });
   refs.refresh?.addEventListener('click', async () => loadSafely(true));
+  refs.cashHistoryOpen?.addEventListener('click', openCashHistory);
+  refs.cashHistoryCloseButtons.forEach((button) => button.addEventListener('click', closeCashHistory));
+  refs.cashHistorySearch?.addEventListener('input', renderCashHistory);
+  refs.cashHistoryDirection?.addEventListener('change', renderCashHistory);
   refs.exportButton?.addEventListener('click', () => {
     window.location.href = buildUrl('export_csv', { ...rangeOptions(), include_voided: '0' });
   });
@@ -995,6 +1098,9 @@ if (root) {
     button.addEventListener('click', () => {
       if (refs.drawer) refs.drawer.hidden = true;
     });
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeCashHistory();
   });
   refs.drawerBody?.addEventListener('submit', async (event) => {
     const form = event.target;
