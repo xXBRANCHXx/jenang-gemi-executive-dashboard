@@ -24270,12 +24270,16 @@ button.admin-accounting-metric {
   white-space: nowrap;
 }
 
-.admin-accounting-cash-history .is-added {
-  color: #77d99c;
+:root[data-admin-theme] .admin-accounting-cash-history-table td.is-added,
+:root[data-admin-theme] .admin-accounting-cash-history-summary strong.is-added {
+  color: #56d98b;
+  font-weight: 850;
 }
 
-.admin-accounting-cash-history .is-subtracted {
-  color: #ff9c9c;
+:root[data-admin-theme] .admin-accounting-cash-history-table td.is-subtracted,
+:root[data-admin-theme] .admin-accounting-cash-history-summary strong.is-subtracted {
+  color: #ff7474;
+  font-weight: 850;
 }
 
 .admin-accounting-cash-history-tools {
@@ -24380,12 +24384,14 @@ button.admin-accounting-metric {
   line-height: 1.45;
 }
 
-:root[data-admin-theme='light'] .admin-accounting-cash-history .is-added {
-  color: #16794a;
+:root[data-admin-theme='light'] .admin-accounting-cash-history-table td.is-added,
+:root[data-admin-theme='light'] .admin-accounting-cash-history-summary strong.is-added {
+  color: #087443;
 }
 
-:root[data-admin-theme='light'] .admin-accounting-cash-history .is-subtracted {
-  color: #b42318;
+:root[data-admin-theme='light'] .admin-accounting-cash-history-table td.is-subtracted,
+:root[data-admin-theme='light'] .admin-accounting-cash-history-summary strong.is-subtracted {
+  color: #c21f2f;
 }
 
 .admin-accounting-detail-row {
