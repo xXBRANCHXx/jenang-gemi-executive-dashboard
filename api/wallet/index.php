@@ -113,6 +113,11 @@ function jg_wallet_handle_request(): void
             return;
         }
 
+        if ($method === 'POST' && in_array($action, ['sync_tiktok_withdrawals', 'refresh_tiktok_withdrawals'], true)) {
+            echo json_encode(jg_wallet_sync_tiktok_withdrawals($pdo, $payload), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
         if ($method === 'POST' && in_array($action, ['backfill_releases', 'release_backfill'], true)) {
             echo json_encode(jg_wallet_backfill_releases($pdo, $payload), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             return;
@@ -298,6 +303,15 @@ function jg_wallet_transaction_accounts(?array $accounts = null): array
     return array_values(array_filter(
         $accounts ?? jg_wallet_known_accounts(),
         static fn (array $account): bool => (string) ($account['platform'] ?? '') === 'shopee'
+    ));
+}
+
+/** @return array<int, array<string, mixed>> */
+function jg_wallet_tiktok_withdrawal_accounts(?array $accounts = null): array
+{
+    return array_values(array_filter(
+        $accounts ?? jg_wallet_known_accounts(),
+        static fn (array $account): bool => (string) ($account['platform'] ?? '') === 'tiktok'
     ));
 }
 
@@ -1099,6 +1113,60 @@ function jg_wallet_sync_account_transactions(PDO $pdo, array $payload): array
     return $summary;
 }
 
+/**
+ * Refresh one TikTok withdrawal ledger without sharing the Shopee or order-sync
+ * request lifecycle. A missing finance scope or marketplace error is contained
+ * to this account-bounded response.
+ *
+ * @return array<string, mixed>
+ */
+function jg_wallet_sync_tiktok_withdrawals(PDO $pdo, array $payload): array
+{
+    if (function_exists('set_time_limit')) {
+        @set_time_limit(45);
+    }
+
+    $platform = jg_wallet_normalize_key($payload['platform'] ?? 'tiktok');
+    $accountKey = jg_wallet_normalize_key($payload['account_key'] ?? $payload['account'] ?? '');
+    $account = jg_wallet_known_account($platform, $accountKey);
+    if (!is_array($account) || $platform !== 'tiktok') {
+        throw new InvalidArgumentException('tiktok_withdrawal_account_invalid');
+    }
+
+    $days = jg_wallet_positive_int($payload['days'] ?? 30, 1, 365);
+    $endDate = jg_wallet_date((string) ($payload['end_date'] ?? ''), jg_wallet_today());
+    $startDate = jg_wallet_date((string) ($payload['start_date'] ?? ''), jg_wallet_add_days($endDate, -($days - 1)));
+    if ($startDate > $endDate) {
+        throw new InvalidArgumentException('tiktok_withdrawal_sync_range_invalid');
+    }
+
+    $result = jg_wallet_import_tiktok_withdrawals_from_api(
+        $pdo,
+        $startDate,
+        $endDate,
+        JG_WALLET_PLATFORM_TRANSACTION_TIMEOUT_SECONDS,
+        [$account]
+    );
+    analyticsTouchLiveState('tiktok_withdrawal_sync');
+
+    $summary = jg_wallet_summary_with_backtrack($pdo, jg_wallet_backtrack_latest($pdo));
+    $summary['tiktok_withdrawal_sync'] = [
+        'ok' => !empty($result['ok']),
+        'phase' => 'tiktok_withdrawal_account',
+        'range' => [
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'days' => $days,
+        ],
+        'account' => [
+            'platform' => $platform,
+            'account_key' => $accountKey,
+        ],
+        'withdrawal_import' => $result,
+    ];
+    return $summary;
+}
+
 function jg_wallet_backfill_releases(PDO $pdo, array $payload): array
 {
     return jg_wallet_run_release_refresh($pdo, $payload, [
@@ -1287,9 +1355,18 @@ function jg_wallet_run_release_refresh(PDO $pdo, array $payload, array $options)
 /**
  * @return array<string, mixed>
  */
-function jg_wallet_import_platform_transactions_from_api(PDO $pdo, string $startDate, string $endDate, int $timeout = 20, ?array $accounts = null): array
+function jg_wallet_import_platform_transactions_from_api(
+    PDO $pdo,
+    string $startDate,
+    string $endDate,
+    int $timeout = 20,
+    ?array $accounts = null,
+    string $pipeline = 'shopee_wallet_transactions'
+): array
 {
-    $accounts = jg_wallet_transaction_accounts($accounts);
+    $accounts = $pipeline === 'tiktok_withdrawals'
+        ? jg_wallet_tiktok_withdrawal_accounts($accounts)
+        : jg_wallet_transaction_accounts($accounts);
     $fetched = 0;
     $upserted = 0;
     $accountResults = [];
@@ -1345,7 +1422,28 @@ function jg_wallet_import_platform_transactions_from_api(PDO $pdo, string $start
         'fetched' => $fetched,
         'upserted' => $upserted,
         'accounts' => $accountResults,
+        'pipeline' => $pipeline,
     ];
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function jg_wallet_import_tiktok_withdrawals_from_api(
+    PDO $pdo,
+    string $startDate,
+    string $endDate,
+    int $timeout = 20,
+    ?array $accounts = null
+): array {
+    return jg_wallet_import_platform_transactions_from_api(
+        $pdo,
+        $startDate,
+        $endDate,
+        $timeout,
+        $accounts,
+        'tiktok_withdrawals'
+    );
 }
 
 /**

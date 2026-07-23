@@ -9268,9 +9268,13 @@ document.addEventListener('DOMContentLoaded', () => {
 	        timeoutMs: options.timeoutMs || 30000
 		      });
 		      applyWalletData(data, { usingCache: false });
-		      return data?.release_sync?.ok !== false;
+		      const responseKey = options.responseKey || 'release_sync';
+		      return data?.[responseKey]?.ok !== false;
 	    } catch (error) {
-	      if (options.silent || !interactive) {
+	      if (options.silent) {
+	        return false;
+	      }
+	      if (!interactive) {
 	        if (walletRefs.status) walletRefs.status.textContent = error?.message || 'Wallet refresh unavailable';
 	      } else {
 	        renderViewError('wallet', error);
@@ -9301,6 +9305,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	      const shopeeWallets = (state.wallet.data?.wallets || []).filter((wallet) =>
 	        String(wallet?.platform || '').toLowerCase() === 'shopee' && String(wallet?.account_key || '').trim()
 	      );
+	      const tiktokWallets = (state.wallet.data?.wallets || []).filter((wallet) =>
+	        String(wallet?.platform || '').toLowerCase() === 'tiktok' && String(wallet?.account_key || '').trim()
+	      );
 	      const tasks = shopeeWallets.map((wallet) => postWalletAction(
 	        'sync_releases',
 	        {
@@ -9314,9 +9321,26 @@ document.addEventListener('DOMContentLoaded', () => {
 	        'sync_releases:background',
 	        { timeoutMs: 45000, silent: true, background: true }
 	      ));
+	      const tiktokWithdrawalTasks = tiktokWallets.map((wallet) => postWalletAction(
+	        'sync_tiktok_withdrawals',
+	        {
+	          platform: wallet.platform,
+	          account_key: wallet.account_key,
+	          days: interactive || !options.skipRemote ? 120 : 30
+	        },
+	        'sync_tiktok_withdrawals:background',
+	        {
+	          timeoutMs: 45000,
+	          silent: true,
+	          background: true,
+	          responseKey: 'tiktok_withdrawal_sync'
+	        }
+	      ));
+	      tasks.push(...tiktokWithdrawalTasks);
 
-	      // Order finance and each Shopee wallet ledger now run concurrently. The
-	      // old implementation serialized every remote call into one >60s request.
+	      // Order finance, Shopee ledgers, and TikTok withdrawals run as separate
+	      // concurrent requests. A TikTok finance error cannot fail the other
+	      // sources or prevent the stored wallet summary from repainting.
 	      if (!options.skipRemote) {
 	        tasks.push(postWalletAction(
 	          'sync_releases',

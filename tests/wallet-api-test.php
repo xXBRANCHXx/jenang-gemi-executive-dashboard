@@ -35,6 +35,8 @@ wallet_expect(6, count($accounts), 'Wallet page must seed Shopee and TikTok wall
 wallet_expect(2, JG_WALLET_RELEASE_SYNC_DAYS, 'Routine order-release repair must use the rolling two-day window.');
 wallet_expect(true, JG_WALLET_RELEASE_SYNC_IMPORT_ROWS <= 5000, 'Routine order-release repair must keep mirror imports bounded.');
 wallet_expect(3, count(jg_wallet_transaction_accounts()), 'Wallet-ledger refresh must identify all Shopee accounts for concurrent work.');
+wallet_expect(3, count(jg_wallet_tiktok_withdrawal_accounts()), 'TikTok withdrawal refresh must identify every TikTok shop in its own pipeline.');
+wallet_expect('zero-tiktok', jg_wallet_tiktok_withdrawal_accounts([jg_wallet_known_account('tiktok', 'zero-tiktok')])[0]['account_key'] ?? '', 'TikTok withdrawal pipeline must preserve an explicitly bounded account.');
 wallet_expect('zero-shopee', jg_wallet_known_account('Shopee', 'ZERO Shopee')['account_key'] ?? '', 'Account-bounded wallet refresh must normalize and validate known accounts.');
 wallet_expect(null, jg_wallet_known_account('tiktok', 'not-a-wallet'), 'Account-bounded wallet refresh must reject unknown accounts.');
 wallet_expect('shopee|jenang-gemi-shopee', jg_wallet_account_key('Shopee', 'Jenang Gemi Shopee'), 'Wallet account keys must normalize labels safely.');

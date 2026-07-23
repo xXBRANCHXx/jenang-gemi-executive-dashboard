@@ -16,6 +16,8 @@ expect(
   'Hard Refresh must start the bounded background wallet synchronization.'
 );
 expect(adminSource.includes("phase: 'wallet_account'"), 'Wallet ledgers must refresh through account-bounded requests.');
+expect(adminSource.includes("'sync_tiktok_withdrawals'"), 'TikTok withdrawals must refresh through a separate action.');
+expect(adminSource.includes("responseKey: 'tiktok_withdrawal_sync'"), 'TikTok withdrawal responses must remain separate from Shopee wallet sync.');
 expect(adminSource.includes("phase: 'orders'"), 'Hard Refresh must still repair released order finance.');
 expect(adminSource.includes('Promise.allSettled(tasks)'), 'Order and account wallet refreshes must run concurrently.');
 expect(
