@@ -24278,7 +24278,7 @@ button.admin-accounting-metric {
 
 :root[data-admin-theme] .admin-accounting-cash-history-table td.is-subtracted,
 :root[data-admin-theme] .admin-accounting-cash-history-summary strong.is-subtracted {
-  color: #ff1744;
+  color: rgb(250, 0, 0);
   font-weight: 500;
 }
 

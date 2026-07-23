@@ -20,7 +20,7 @@ expect(script.includes('data-accounting-cash-history-search'), 'Cash history mus
 expect(script.includes("direction === 'added'") && script.includes("direction === 'subtracted'"), 'Cash history must support movement filters.');
 expect(script.includes("isAddition ? '+' : '−'"), 'Cash movements must show an explicit signed amount.');
 expect(styles.includes('td.is-added') && styles.includes('rgb(0, 250, 0)'), 'Dark-mode additions must be fully saturated green.');
-expect(styles.includes('td.is-subtracted') && styles.includes('#ff1744'), 'Subtracted amounts must be neon red.');
+expect(styles.includes('td.is-subtracted') && styles.includes('rgb(250, 0, 0)'), 'Dark-mode subtractions must be fully saturated red.');
 expect(styles.includes('#16794a') && styles.includes('#b42318'), 'Light-mode movements must use restrained dark green and red.');
 expect(styles.includes('font-weight: 400'), 'Colored movement amounts must use regular font weight.');
 
