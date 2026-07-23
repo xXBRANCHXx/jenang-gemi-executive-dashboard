@@ -24272,7 +24272,7 @@ button.admin-accounting-metric {
 
 :root[data-admin-theme] .admin-accounting-cash-history-table td.is-added,
 :root[data-admin-theme] .admin-accounting-cash-history-summary strong.is-added {
-  color: #baff29;
+  color: rgb(0, 250, 0);
   font-weight: 500;
 }
 
