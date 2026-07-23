@@ -24272,7 +24272,7 @@ button.admin-accounting-metric {
 
 :root[data-admin-theme] .admin-accounting-cash-history-table td.is-added,
 :root[data-admin-theme] .admin-accounting-cash-history-summary strong.is-added {
-  color: #00ff66;
+  color: #baff29;
   font-weight: 500;
 }
 
@@ -24386,12 +24386,12 @@ button.admin-accounting-metric {
 
 :root[data-admin-theme='light'] .admin-accounting-cash-history-table td.is-added,
 :root[data-admin-theme='light'] .admin-accounting-cash-history-summary strong.is-added {
-  color: #00c853;
+  color: #16794a;
 }
 
 :root[data-admin-theme='light'] .admin-accounting-cash-history-table td.is-subtracted,
 :root[data-admin-theme='light'] .admin-accounting-cash-history-summary strong.is-subtracted {
-  color: #ff003c;
+  color: #b42318;
 }
 
 .admin-accounting-detail-row {

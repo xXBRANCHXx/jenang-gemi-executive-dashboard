@@ -19,8 +19,9 @@ expect(script.includes("buildUrl('cash_history'"), 'Cash history must load the r
 expect(script.includes('data-accounting-cash-history-search'), 'Cash history must support searching.');
 expect(script.includes("direction === 'added'") && script.includes("direction === 'subtracted'"), 'Cash history must support movement filters.');
 expect(script.includes("isAddition ? '+' : '−'"), 'Cash movements must show an explicit signed amount.');
-expect(styles.includes('td.is-added') && styles.includes('#00ff66'), 'Added amounts must be neon green.');
+expect(styles.includes('td.is-added') && styles.includes('#baff29'), 'Dark-mode additions must be lime green.');
 expect(styles.includes('td.is-subtracted') && styles.includes('#ff1744'), 'Subtracted amounts must be neon red.');
+expect(styles.includes('#16794a') && styles.includes('#b42318'), 'Light-mode movements must use restrained dark green and red.');
 expect(styles.includes('font-weight: 400'), 'Colored movement amounts must use regular font weight.');
 
 console.log('accounting-cash-history-ui-test: ok');
