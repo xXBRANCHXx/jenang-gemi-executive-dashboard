@@ -15,11 +15,6 @@
     startDate: root.querySelector('[data-start-date]'),
     endDate: root.querySelector('[data-end-date]'),
     export: root.querySelector('[data-export-csv]'),
-    summaryRange: root.querySelector('[data-summary-range]'),
-    summaryQuantity: root.querySelector('[data-summary-quantity]'),
-    summaryRevenue: root.querySelector('[data-summary-revenue]'),
-    summaryFlavors: root.querySelector('[data-summary-flavors]'),
-    summaryVolumes: root.querySelector('[data-summary-volumes]'),
     eyebrow: root.querySelector('[data-sheet-eyebrow]'),
     scroll: root.querySelector('[data-sheet-scroll]'),
     head: root.querySelector('[data-sheet-head]'),
@@ -75,11 +70,6 @@
       ? value
       : new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Jakarta' }).format(date);
   };
-  const scopeLabel = () => {
-    if (state.scope === 'all') return 'All time';
-    if (state.scope === 'custom') return `${dateLabel(state.startDate)} – ${dateLabel(state.endDate)}`;
-    return currentYear;
-  };
   const grainLabel = () => ({ day: 'day', week: 'week', month: 'month' }[state.grain] || state.grain);
 
   const setStatus = (message, mode = '') => {
@@ -109,14 +99,10 @@
     return totals;
   };
 
-  const renderSummary = () => {
-    const data = state.data;
-    refs.summaryRange.textContent = scopeLabel();
-    refs.summaryQuantity.textContent = formatInteger(data?.totals?.quantity || 0);
-    refs.summaryRevenue.textContent = formatCurrency(data?.totals?.revenue || 0);
-    refs.summaryFlavors.textContent = formatInteger((data?.flavors || []).length);
-    refs.summaryVolumes.textContent = (data?.volumes || []).map((volume) => volume.label).join(' · ') || '—';
-    refs.eyebrow.textContent = `${scopeLabel()} · by ${grainLabel()}`;
+  const renderRangeContext = () => {
+    const start = state.data?.start_date || state.startDate;
+    const end = state.data?.end_date || state.endDate;
+    refs.eyebrow.textContent = `Showing ${dateLabel(start)} – ${dateLabel(end)} · grouped by ${grainLabel()}`;
   };
 
   const renderSheet = () => {
@@ -124,7 +110,7 @@
     const periods = Array.isArray(data?.periods) ? data.periods : [];
     const volumes = Array.isArray(data?.volumes) ? data.volumes : [];
     const metric = state.metric;
-    renderSummary();
+    renderRangeContext();
     refs.empty.hidden = periods.length > 0;
     refs.scroll.hidden = periods.length === 0;
     if (!periods.length) {
@@ -149,7 +135,7 @@
     `;
 
     const rows = [];
-    periods.forEach((period) => {
+    periods.forEach((period, periodIndex) => {
       const flavors = Array.isArray(period.flavors) ? period.flavors : [];
       flavors.forEach((flavor, index) => {
         rows.push(`
@@ -158,8 +144,27 @@
             <th class="is-flavor" scope="row">${escapeHtml(flavor.label || 'Unspecified')}</th>
             ${volumes.map((volume) => {
               const value = Number(flavor.volumes?.[volume.key]?.[metric] || 0);
-              const fill = Math.max(0, Math.min(100, (value / maximumCell) * 100));
-              return `<td class="is-value${value === 0 ? ' is-zero' : ''}" style="--cell-fill:${fill.toFixed(1)}%" title="${escapeHtml(`${flavor.label} · ${volume.label} · ${formatMetric(value)}`)}">${value === 0 ? '—' : escapeHtml(formatMetric(value))}</td>`;
+              const previousPeriod = periods[periodIndex + 1];
+              const previousFlavor = (previousPeriod?.flavors || []).find((item) => (
+                item.key === flavor.key || item.label === flavor.label
+              ));
+              const previousValue = previousPeriod
+                ? Number(previousFlavor?.volumes?.[volume.key]?.[metric] || 0)
+                : null;
+              const trend = previousValue === null
+                ? 'flat'
+                : value > previousValue
+                  ? 'up'
+                  : value < previousValue
+                    ? 'down'
+                    : 'flat';
+              const fillValue = value === 0 && previousValue > 0 ? 4 : (value / maximumCell) * 100;
+              const fill = Math.max(0, Math.min(100, fillValue));
+              const comparison = previousValue === null
+                ? 'No previous period available'
+                : `${trend === 'up' ? 'Increase' : trend === 'down' ? 'Decrease' : 'No change'} from ${formatMetric(previousValue)}`;
+              const title = `${flavor.label} · ${volume.label} · ${formatMetric(value)} · ${comparison}`;
+              return `<td class="is-value is-${trend}${value === 0 ? ' is-zero' : ''}" style="--cell-fill:${fill.toFixed(1)}%" title="${escapeHtml(title)}">${value === 0 ? '—' : escapeHtml(formatMetric(value))}</td>`;
             }).join('')}
             <td class="is-total">${escapeHtml(formatMetric(flavor[metric] || 0))}</td>
             <td class="is-revenue">${escapeHtml(metric === 'revenue' ? formatInteger(flavor.quantity || 0) : formatCurrency(flavor.revenue || 0))}</td>

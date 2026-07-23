@@ -19,7 +19,7 @@ if (!isset($products[$productKey])) {
     $productKey = 'syrup';
 }
 $productLabel = $products[$productKey];
-$buildVersion = 'flavor-detail-1.0.0';
+$buildVersion = 'flavor-detail-1.1.0';
 $cssVersion = $buildVersion . '-' . (string) @filemtime(__DIR__ . '/product-flavors.css');
 $jsVersion = $buildVersion . '-' . (string) @filemtime(__DIR__ . '/product-flavors.js');
 ?>
@@ -34,7 +34,7 @@ $jsVersion = $buildVersion . '-' . (string) @filemtime(__DIR__ . '/product-flavo
 <?php render_admin_favicons('home'); ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
     <link rel="stylesheet" href="../../admin.css">
     <link rel="stylesheet" href="./product-flavors.css?v=<?php echo urlencode($cssVersion); ?>">
 </head>
@@ -97,21 +97,20 @@ $jsVersion = $buildVersion . '-' . (string) @filemtime(__DIR__ . '/product-flavo
             </button>
         </section>
 
-        <section class="product-flavor-summary" aria-label="Sales totals">
-            <div><span>Range</span><strong data-summary-range>—</strong></div>
-            <div><span>Units sold</span><strong data-summary-quantity>—</strong></div>
-            <div><span>Seller revenue</span><strong data-summary-revenue>—</strong></div>
-            <div><span>Flavors</span><strong data-summary-flavors>—</strong></div>
-            <div><span>Volumes</span><strong data-summary-volumes>—</strong></div>
-        </section>
-
         <section class="product-flavor-sheet" aria-labelledby="product-flavor-sheet-title">
             <div class="product-flavor-sheet-heading">
                 <div>
-                    <span data-sheet-eyebrow>This year · by month</span>
+                    <span data-sheet-eyebrow>Showing this year · grouped by month</span>
                     <h2 id="product-flavor-sheet-title">Flavor × volume</h2>
                 </div>
-                <p>Scroll sideways to compare every volume. Period and flavor columns stay pinned.</p>
+                <div class="product-flavor-performance-guide">
+                    <div aria-label="Performance bar legend">
+                        <span class="is-up"><i aria-hidden="true"></i> Increase</span>
+                        <span class="is-down"><i aria-hidden="true"></i> Decrease</span>
+                        <span class="is-flat"><i aria-hidden="true"></i> No comparison</span>
+                    </div>
+                    <p>Bar color compares each cell with the previous period.</p>
+                </div>
             </div>
             <div class="product-flavor-sheet-scroll" data-sheet-scroll>
                 <table class="product-flavor-table">
