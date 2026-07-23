@@ -419,13 +419,12 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                                         <th>Date</th>
                                         <th>Reason</th>
                                         <th>Source</th>
-                                        <th class="is-numeric">Added</th>
-                                        <th class="is-numeric">Subtracted</th>
+                                        <th class="is-numeric">Amount</th>
                                         <th class="is-numeric">Balance</th>
                                     </tr>
                                 </thead>
                                 <tbody data-accounting-cash-history-body>
-                                    <tr><td colspan="6" class="admin-empty">Loading cash history.</td></tr>
+                                    <tr><td colspan="5" class="admin-empty">Loading cash history.</td></tr>
                                 </tbody>
                             </table>
                         </div>

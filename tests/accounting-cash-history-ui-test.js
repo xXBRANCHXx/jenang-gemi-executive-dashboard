@@ -13,11 +13,14 @@ const expect = (condition, message) => {
 expect(html.includes('data-accounting-cash-history-open'), 'Cash Available must expose a history trigger.');
 expect(html.includes('data-accounting-cash-history-body'), 'Cash history must include the spreadsheet body.');
 expect(html.includes('<th>Date</th>') && html.includes('<th>Reason</th>'), 'Cash history must label date and reason columns.');
-expect(html.includes('>Added</th>') && html.includes('>Subtracted</th>'), 'Cash history must separate additions and subtractions.');
+expect(html.includes('>Amount</th>'), 'Cash history must use one signed amount column.');
+expect(!html.includes('>Added</th>') && !html.includes('>Subtracted</th>'), 'Cash history must not split movements across two columns.');
 expect(script.includes("buildUrl('cash_history'"), 'Cash history must load the reconciled API endpoint.');
 expect(script.includes('data-accounting-cash-history-search'), 'Cash history must support searching.');
 expect(script.includes("direction === 'added'") && script.includes("direction === 'subtracted'"), 'Cash history must support movement filters.');
-expect(styles.includes('td.is-added') && styles.includes('#56d98b'), 'Added amounts must be high-contrast green.');
-expect(styles.includes('td.is-subtracted') && styles.includes('#ff7474'), 'Subtracted amounts must be high-contrast red.');
+expect(script.includes("isAddition ? '+' : '−'"), 'Cash movements must show an explicit signed amount.');
+expect(styles.includes('td.is-added') && styles.includes('#00ff66'), 'Added amounts must be neon green.');
+expect(styles.includes('td.is-subtracted') && styles.includes('#ff1744'), 'Subtracted amounts must be neon red.');
+expect(styles.includes('font-weight: 400'), 'Colored movement amounts must use regular font weight.');
 
 console.log('accounting-cash-history-ui-test: ok');

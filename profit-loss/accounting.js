@@ -474,19 +474,20 @@ if (root) {
       refs.cashHistoryCount.textContent = `${rows.length.toLocaleString('id-ID')} of ${state.cashHistory.length.toLocaleString('id-ID')} entries`;
     }
     if (!rows.length) {
-      refs.cashHistoryBody.innerHTML = `<tr><td colspan="6" class="admin-empty">${state.cashHistory.length ? 'No cash movements match these filters.' : 'No additions or subtractions have been recorded yet.'}</td></tr>`;
+      refs.cashHistoryBody.innerHTML = `<tr><td colspan="5" class="admin-empty">${state.cashHistory.length ? 'No cash movements match these filters.' : 'No additions or subtractions have been recorded yet.'}</td></tr>`;
       return;
     }
     refs.cashHistoryBody.innerHTML = rows.map((row) => {
       const added = Number(row.amount_added || 0);
       const subtracted = Number(row.amount_subtracted || 0);
+      const isAddition = added > 0;
+      const movementAmount = isAddition ? added : subtracted;
       return `
         <tr>
           <td><strong>${escapeHtml(formatHistoryDate(row.date))}</strong></td>
           <td><strong>${escapeHtml(row.reason || 'Cash movement')}</strong></td>
           <td><span>${escapeHtml(row.source || '-')}</span>${row.reference ? `<small class="admin-table-note">${escapeHtml(row.reference)}</small>` : ''}</td>
-          <td class="is-numeric is-added">${added > 0 ? `+${formatCurrency(added)}` : '—'}</td>
-          <td class="is-numeric is-subtracted">${subtracted > 0 ? `−${formatCurrency(subtracted)}` : '—'}</td>
+          <td class="is-numeric cash-movement-amount ${isAddition ? 'is-added' : 'is-subtracted'}">${isAddition ? '+' : '−'}${formatCurrency(movementAmount)}</td>
           <td class="is-numeric"><strong>${formatCurrency(row.running_balance || 0)}</strong></td>
         </tr>
       `;
@@ -506,7 +507,7 @@ if (root) {
     if (state.cashHistoryLoaded) renderCashHistory();
     if (refs.cashHistoryCount) refs.cashHistoryCount.textContent = state.cashHistoryLoaded ? 'Refreshing history…' : 'Loading history…';
     if (!state.cashHistoryLoaded && refs.cashHistoryBody) {
-      refs.cashHistoryBody.innerHTML = '<tr><td colspan="6" class="admin-empty">Loading cash history.</td></tr>';
+      refs.cashHistoryBody.innerHTML = '<tr><td colspan="5" class="admin-empty">Loading cash history.</td></tr>';
     }
     try {
       const payload = await requestJson(buildUrl('cash_history', { cacheBust: true }));
@@ -523,7 +524,7 @@ if (root) {
       }
     } catch (error) {
       if (refs.cashHistoryCount) refs.cashHistoryCount.textContent = 'History unavailable';
-      if (refs.cashHistoryBody) refs.cashHistoryBody.innerHTML = `<tr><td colspan="6" class="admin-empty">${escapeHtml(error?.message || 'Unable to load cash history.')}</td></tr>`;
+      if (refs.cashHistoryBody) refs.cashHistoryBody.innerHTML = `<tr><td colspan="5" class="admin-empty">${escapeHtml(error?.message || 'Unable to load cash history.')}</td></tr>`;
     }
   };
 
