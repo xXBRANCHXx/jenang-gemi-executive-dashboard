@@ -2480,11 +2480,13 @@ document.addEventListener('DOMContentLoaded', () => {
       ensurePending: false,
       activeDateField: 'start',
       calendarMonth: new Date().toISOString().slice(0, 7),
+      catalogSearch: '',
       filters: {
         companies: [],
         products: [],
         flavors: [],
         platforms: [],
+        accounts: [],
         startDate: '',
         endDate: ''
 	      },
@@ -2735,13 +2737,19 @@ document.addEventListener('DOMContentLoaded', () => {
     loadMore: document.querySelector('[data-orders-load-more]'),
     exportButton: document.querySelector('[data-orders-export]'),
     filterOpen: document.querySelector('[data-orders-filter-open]'),
+    filterOpenLabel: document.querySelector('[data-orders-filter-open-label]'),
     filterReset: document.querySelector('[data-orders-filter-reset]'),
     activeFilters: document.querySelector('[data-orders-active-filters]'),
     filterModal: document.querySelector('[data-orders-filter-modal]'),
     filterCloseButtons: document.querySelectorAll('[data-orders-filter-close]'),
     filterClear: document.querySelector('[data-orders-filter-clear]'),
+    filterCount: document.querySelector('[data-orders-filter-count]'),
+    filterResult: document.querySelector('[data-orders-filter-result]'),
+    filterDone: document.querySelector('[data-orders-filter-done]'),
     companyTree: document.querySelector('[data-orders-company-tree]'),
+    catalogSearch: document.querySelector('[data-orders-catalog-search]'),
     platforms: document.querySelector('[data-orders-platforms]'),
+    quickRanges: document.querySelectorAll('[data-orders-quick-range]'),
     startLabel: document.querySelector('[data-orders-start-label]'),
     endLabel: document.querySelector('[data-orders-end-label]'),
     dateToggleButtons: document.querySelectorAll('[data-orders-date-toggle]'),
@@ -4778,6 +4786,7 @@ document.addEventListener('DOMContentLoaded', () => {
       filters.products.join('\u001f'),
       filters.flavors.join('\u001f'),
       filters.platforms.join('\u001f'),
+      filters.accounts.join('\u001f'),
       filters.startDate || '',
       filters.endDate || ''
     ].join('\u001e');
@@ -4795,6 +4804,7 @@ document.addEventListener('DOMContentLoaded', () => {
       products: createOrderFilterMatchList(filters.products),
       flavors: createOrderFilterMatchList(filters.flavors),
       platforms: new Set(filters.platforms.map(normalizeOrderFilterValue).filter(Boolean)),
+      accounts: new Set(filters.accounts.map(normalizeOrderFilterValue).filter(Boolean)),
       startDate: filters.startDate || '',
       endDate: filters.endDate || ''
     };
@@ -4880,6 +4890,30 @@ document.addEventListener('DOMContentLoaded', () => {
     row?.product_name || ''
   ].join('|');
 
+  const orderAccountFilterKey = (row) => {
+    const platform = normalizeOrderFilterValue(row?.platform || '');
+    const account = normalizeOrderFilterValue(row?.account_key || row?.account || '');
+    return platform && account ? `${platform}|${account}` : '';
+  };
+
+  const orderAccountLabel = (platformValue, accountValue, companyValue = '') => {
+    const platform = normalizeOrderFilterValue(platformValue);
+    const platformName = platformLabel(platform || 'marketplace');
+    const company = String(companyValue || '').trim();
+    const account = String(accountValue || '').trim();
+    const withoutPlatform = account.replace(new RegExp(`[-_\\s]*${escapeRegExp(platform)}$`, 'i'), '');
+    const base = company || withoutPlatform || account || 'Account';
+    return normalizeOrderFilterValue(base).includes(platform)
+      ? platformLabel(base)
+      : `${platformLabel(base)} ${platformName}`;
+  };
+
+  const orderAccountLabelFromKey = (key) => {
+    const [platform = '', account = ''] = String(key || '').split('|');
+    const matchingRow = state.orders.rows.find((row) => orderAccountFilterKey(row) === key);
+    return orderAccountLabel(platform, account, matchingRow?.company || matchingRow?.brand_name || '');
+  };
+
   const enrichOrderRow = (row) => {
     const date = parseOrderTimestamp(row?.order_create_time || row?.timestamp);
     return {
@@ -4888,7 +4922,8 @@ document.addEventListener('DOMContentLoaded', () => {
       _orderTimestamp: date?.getTime() || 0,
       _orderLocalDate: date ? dashboardDateKey(date) : '',
       _orderLocalTimezone: state.timezone,
-      _platformKey: normalizeOrderFilterValue(row?.platform || '')
+      _platformKey: normalizeOrderFilterValue(row?.platform || ''),
+      _accountFilterKey: orderAccountFilterKey(row)
     };
   };
 
@@ -5518,7 +5553,8 @@ document.addEventListener('DOMContentLoaded', () => {
       orderFilterMatchesAny(filters.companies, orderCompanyValues(row)) &&
       orderFilterMatchesAny(filters.products, orderProductValues(row)) &&
       orderFilterMatchesAny(filters.flavors, orderFlavorValues(row)) &&
-      (!filters.platforms.size || filters.platforms.has(row._platformKey || normalizeOrderFilterValue(row.platform || '')))
+      (!filters.platforms.size || filters.platforms.has(row._platformKey || normalizeOrderFilterValue(row.platform || ''))) &&
+      (!filters.accounts.size || filters.accounts.has(row._accountFilterKey || orderAccountFilterKey(row)))
     );
   };
 
@@ -5530,7 +5566,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const hasOrderFilters = () => {
     const filters = state.orders.filters;
-    return Boolean(filters.companies.length || filters.products.length || filters.flavors.length || filters.platforms.length || filters.startDate || filters.endDate);
+    return Boolean(filters.companies.length || filters.products.length || filters.flavors.length || filters.platforms.length || filters.accounts.length || filters.startDate || filters.endDate);
   };
 
   const resetOrderRenderWindow = () => {
@@ -5568,9 +5604,13 @@ document.addEventListener('DOMContentLoaded', () => {
       products: [],
       flavors: [],
       platforms: [],
+      accounts: [],
       startDate: '',
       endDate: ''
     };
+    state.orders.catalogSearch = '';
+    state.orders.skuTreeSignature = '';
+    if (ordersRefs.catalogSearch) ordersRefs.catalogSearch.value = '';
     resetOrderRenderWindow();
     syncOrderLoadedAll();
     syncOrderFilterControls();
@@ -7181,6 +7221,7 @@ document.addEventListener('DOMContentLoaded', () => {
     filters.products.forEach((value) => addChip('products', `Product: ${value}`, value));
     filters.flavors.forEach((value) => addChip('flavors', `Flavor: ${value}`, value));
     filters.platforms.forEach((value) => addChip('platforms', `Platform: ${platformLabel(value)}`, value));
+    filters.accounts.forEach((value) => addChip('accounts', `Account: ${orderAccountLabelFromKey(value)}`, value));
     if (filters.startDate) addChip('startDate', `From: ${filters.startDate}`, filters.startDate);
     if (filters.endDate) addChip('endDate', `To: ${filters.endDate}`, filters.endDate);
     ordersRefs.activeFilters.hidden = !chips.length;
@@ -7190,26 +7231,115 @@ document.addEventListener('DOMContentLoaded', () => {
   const renderOrderPlatforms = () => {
     if (!ordersRefs.platforms) return;
     const platforms = Array.from(new Set(state.orders.platforms.filter(Boolean))).sort();
-    const signature = `${platforms.join('\u001f')}\u001e${state.orders.filters.platforms.join('\u001f')}`;
+    const accountsByKey = new Map();
+    state.orders.rows.forEach((row) => {
+      const key = row._accountFilterKey || orderAccountFilterKey(row);
+      if (!key) return;
+      if (!accountsByKey.has(key)) {
+        accountsByKey.set(key, {
+          key,
+          platform: normalizeOrderFilterValue(row.platform || ''),
+          account: String(row.account_key || row.account || '').trim(),
+          company: String(row.company || row.brand_name || '').trim(),
+          orderIds: new Set()
+        });
+      }
+      const account = accountsByKey.get(key);
+      account.orderIds.add(String(row.order_id || row._orderRowKey || ''));
+    });
+    const accounts = Array.from(accountsByKey.values())
+      .map((account) => ({
+        ...account,
+        count: account.orderIds.size,
+        label: orderAccountLabel(account.platform, account.account, account.company)
+      }))
+      .sort((left, right) => left.label.localeCompare(right.label));
+    const signature = [
+      platforms.join('\u001f'),
+      accounts.map((account) => `${account.key}:${account.count}`).join('\u001f'),
+      state.orders.filters.platforms.join('\u001f'),
+      state.orders.filters.accounts.join('\u001f')
+    ].join('\u001e');
     if (state.orders.platformsRenderSignature === signature) return;
     state.orders.platformsRenderSignature = signature;
     if (!platforms.length) {
-      ordersRefs.platforms.innerHTML = '<p class="admin-empty">Platforms appear after orders load.</p>';
+      ordersRefs.platforms.innerHTML = '<p class="admin-empty">Marketplace accounts appear after orders load.</p>';
       return;
     }
-    ordersRefs.platforms.innerHTML = platforms.map((platform) => {
-      const selected = state.orders.filters.platforms.some((item) => normalizeOrderFilterValue(item) === normalizeOrderFilterValue(platform));
-      return `
-        <button type="button" class="admin-orders-platform-choice${selected ? ' is-selected' : ''}" data-toggle-order-platform="${escapeHtml(platform)}">
-          ${escapeHtml(platformLabel(platform))}
-        </button>
-      `;
-    }).join('');
+    const noSourceFilter = !state.orders.filters.platforms.length && !state.orders.filters.accounts.length;
+    ordersRefs.platforms.innerHTML = `
+      <button type="button" class="admin-orders-source-all${noSourceFilter ? ' is-selected' : ''}" data-clear-order-source aria-pressed="${noSourceFilter ? 'true' : 'false'}">
+        <span class="admin-orders-source-mark">ALL</span>
+        <span><strong>All marketplace accounts</strong><small>Show every loaded sales channel</small></span>
+        <span class="admin-orders-source-count">${formatRegionalInteger(accounts.reduce((total, account) => total + account.count, 0))}</span>
+      </button>
+      <div class="admin-orders-source-group">
+        <span class="admin-orders-source-group-label">Marketplaces</span>
+        <div class="admin-orders-source-platforms">
+          ${platforms.map((platform) => {
+            const selected = state.orders.filters.platforms.some((item) => normalizeOrderFilterValue(item) === normalizeOrderFilterValue(platform));
+            return `
+              <button type="button" class="admin-orders-platform-choice${selected ? ' is-selected' : ''}" data-toggle-order-platform="${escapeHtml(platform)}" aria-pressed="${selected ? 'true' : 'false'}">
+                ${escapeHtml(platformLabel(platform))}
+              </button>
+            `;
+          }).join('')}
+        </div>
+      </div>
+      <div class="admin-orders-source-group">
+        <span class="admin-orders-source-group-label">Specific accounts</span>
+        <div class="admin-orders-account-grid">
+          ${accounts.map((account) => {
+            const selected = state.orders.filters.accounts.some((item) => normalizeOrderFilterValue(item) === normalizeOrderFilterValue(account.key));
+            const initials = account.label.split(/\s+/).slice(0, 2).map((part) => part.charAt(0)).join('').toUpperCase();
+            return `
+              <button type="button" class="admin-orders-account-choice${selected ? ' is-selected' : ''}" data-toggle-order-account="${escapeHtml(account.key)}" aria-pressed="${selected ? 'true' : 'false'}">
+                <span class="admin-orders-source-mark">${escapeHtml(initials || 'AC')}</span>
+                <span><strong>${escapeHtml(account.label)}</strong><small>${escapeHtml(platformLabel(account.platform))} · ${escapeHtml(account.account)}</small></span>
+                <span class="admin-orders-source-count">${formatRegionalInteger(account.count)}</span>
+              </button>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
   };
 
   const renderSkuOrderTree = () => {
     if (!ordersRefs.companyTree) return;
-    const catalog = Array.isArray(state.orders.catalog) ? state.orders.catalog : [];
+    const catalogSource = Array.isArray(state.orders.catalog) ? state.orders.catalog : [];
+    const search = normalizeOrderFilterValue(state.orders.catalogSearch);
+    const catalog = search
+      ? catalogSource.map((company) => {
+        const products = Array.isArray(company.products) ? company.products : [];
+        const companyMatches = normalizeOrderFilterValue([company.name, company.id].filter(Boolean).join(' ')).includes(search);
+        const matchingProducts = products.map((product) => {
+          const flavors = Array.isArray(product.flavors) ? product.flavors : [];
+          const productMatches = normalizeOrderFilterValue([
+            product.name,
+            product.id,
+            product.sku,
+            product.code
+          ].filter(Boolean).join(' ')).includes(search);
+          const matchingFlavors = flavors.filter((flavor) => normalizeOrderFilterValue([
+            flavor.name,
+            flavor.id,
+            flavor.sku,
+            flavor.code
+          ].filter(Boolean).join(' ')).includes(search));
+          if (!companyMatches && !productMatches && !matchingFlavors.length) return null;
+          return {
+            ...product,
+            flavors: companyMatches || productMatches ? flavors : matchingFlavors
+          };
+        }).filter(Boolean);
+        if (!companyMatches && !matchingProducts.length) return null;
+        return {
+          ...company,
+          products: companyMatches ? products : matchingProducts
+        };
+      }).filter(Boolean)
+      : catalogSource;
     const catalogSignature = catalog.map((company) => {
       const products = Array.isArray(company.products) ? company.products : [];
       return `${company.id || company.name}:${products.map((product) => {
@@ -7217,18 +7347,20 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${product.id || product.name}:${flavors.map((flavor) => flavor.id || flavor.name).join(',')}`;
       }).join(';')}`;
     }).join('|');
-    const signature = `${catalogSignature}\u001e${orderFiltersSignature()}`;
+    const signature = `${search}\u001e${catalogSignature}\u001e${orderFiltersSignature()}`;
     if (state.orders.skuTreeSignature === signature) return;
     state.orders.skuTreeSignature = signature;
     if (!catalog.length) {
-      ordersRefs.companyTree.innerHTML = '<p class="admin-empty">No SKU companies are available yet.</p>';
+      ordersRefs.companyTree.innerHTML = search
+        ? `<p class="admin-empty">No catalog matches for “${escapeHtml(state.orders.catalogSearch)}”.</p>`
+        : '<p class="admin-empty">No SKU companies are available yet.</p>';
       return;
     }
     ordersRefs.companyTree.innerHTML = catalog.map((company) => {
       const companySelected = state.orders.filters.companies.some((item) => normalizeOrderFilterValue(item) === normalizeOrderFilterValue(company.name));
       const products = Array.isArray(company.products) ? company.products : [];
       return `
-        <details class="admin-orders-nested">
+        <details class="admin-orders-nested"${search ? ' open' : ''}>
           <summary>
             <button type="button" class="admin-orders-filter-row${companySelected ? ' is-selected' : ''}" data-add-order-filter="companies" data-filter-value="${escapeHtml(company.name || '')}">
               <span>${escapeHtml(company.name || 'Unnamed company')}</span>
@@ -7240,7 +7372,7 @@ document.addEventListener('DOMContentLoaded', () => {
               const productSelected = state.orders.filters.products.some((item) => normalizeOrderFilterValue(item) === normalizeOrderFilterValue(product.name));
               const flavors = Array.isArray(product.flavors) ? product.flavors : [];
               return `
-                <details class="admin-orders-nested admin-orders-nested-product">
+                <details class="admin-orders-nested admin-orders-nested-product"${search ? ' open' : ''}>
                   <summary>
                     <button type="button" class="admin-orders-filter-row${productSelected ? ' is-selected' : ''}" data-add-order-filter="products" data-filter-value="${escapeHtml(product.name || '')}">
                       <span>${escapeHtml(product.name || 'Unnamed product')}</span>
@@ -7266,10 +7398,54 @@ document.addEventListener('DOMContentLoaded', () => {
     }).join('');
   };
 
+  const orderQuickRangeDates = (range) => {
+    const today = todayDate();
+    if (range === 'today') return { startDate: today, endDate: today };
+    if (range === '7-days') return { startDate: offsetDate(today, -6), endDate: today };
+    if (range === '30-days') return { startDate: offsetDate(today, -29), endDate: today };
+    if (range === 'month') return { startDate: `${today.slice(0, 7)}-01`, endDate: today };
+    return { startDate: '', endDate: '' };
+  };
+
+  const activeOrderFilterCount = () => {
+    const filters = state.orders.filters;
+    return filters.companies.length
+      + filters.products.length
+      + filters.flavors.length
+      + filters.platforms.length
+      + filters.accounts.length
+      + (filters.startDate || filters.endDate ? 1 : 0);
+  };
+
   const syncOrderFilterControls = () => {
     if (ordersRefs.filterReset) ordersRefs.filterReset.hidden = !hasOrderFilters();
     if (ordersRefs.startLabel) ordersRefs.startLabel.textContent = state.orders.filters.startDate || 'Any start date';
     if (ordersRefs.endLabel) ordersRefs.endLabel.textContent = state.orders.filters.endDate || 'Any end date';
+    const filterCount = activeOrderFilterCount();
+    const matchingCount = filteredOrderRows().length;
+    if (ordersRefs.filterOpen) ordersRefs.filterOpen.classList.toggle('is-active', filterCount > 0);
+    if (ordersRefs.filterOpenLabel) ordersRefs.filterOpenLabel.textContent = filterCount ? `Filters (${formatRegionalInteger(filterCount)})` : 'Filters';
+    if (ordersRefs.filterCount) {
+      ordersRefs.filterCount.textContent = filterCount ? `${formatRegionalInteger(filterCount)} active filter${filterCount === 1 ? '' : 's'}` : 'No filters selected';
+      ordersRefs.filterCount.classList.toggle('is-active', filterCount > 0);
+    }
+    if (ordersRefs.filterResult) {
+      ordersRefs.filterResult.textContent = filterCount
+        ? `${formatRegionalInteger(matchingCount)} matching loaded order line${matchingCount === 1 ? '' : 's'}`
+        : `${formatRegionalInteger(state.orders.rows.length)} loaded order line${state.orders.rows.length === 1 ? '' : 's'}`;
+    }
+    if (ordersRefs.filterDone) {
+      ordersRefs.filterDone.textContent = filterCount
+        ? `Show ${formatCompactNumber(matchingCount)} match${matchingCount === 1 ? '' : 'es'}`
+        : 'Show all orders';
+    }
+    ordersRefs.quickRanges.forEach((button) => {
+      const range = button.getAttribute('data-orders-quick-range') || 'all';
+      const dates = orderQuickRangeDates(range);
+      const selected = state.orders.filters.startDate === dates.startDate && state.orders.filters.endDate === dates.endDate;
+      button.classList.toggle('is-selected', selected);
+      button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+    });
     if (ordersRefs.exportButton) {
       const hasCustomRange = Boolean(state.orders.filters.startDate && state.orders.filters.endDate);
       ordersRefs.exportButton.disabled = state.orders.exporting || !hasCustomRange;
@@ -11729,6 +11905,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderSkuOrderTree();
     closeOrdersDatePopover();
     ordersRefs.filterModal.hidden = false;
+    window.setTimeout(() => ordersRefs.platforms?.querySelector('button')?.focus(), 0);
   });
 
   ordersRefs.filterCloseButtons.forEach((button) => {
@@ -11752,7 +11929,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!button) return;
     event.preventDefault();
     event.stopPropagation();
-    addOrderFilter(button.getAttribute('data-add-order-filter') || '', button.getAttribute('data-filter-value') || '');
+    const kind = button.getAttribute('data-add-order-filter') || '';
+    const value = button.getAttribute('data-filter-value') || '';
+    const selected = Array.isArray(state.orders.filters[kind])
+      && state.orders.filters[kind].some((item) => normalizeOrderFilterValue(item) === normalizeOrderFilterValue(value));
+    if (selected) {
+      state.orders.filters[kind] = state.orders.filters[kind].filter((item) => normalizeOrderFilterValue(item) !== normalizeOrderFilterValue(value));
+      resetOrderRenderWindow();
+      syncOrderLoadedAll();
+    } else {
+      addOrderFilter(kind, value);
+    }
     syncOrderFilterControls();
     renderSkuOrderTree();
     renderOrders();
@@ -11764,15 +11951,36 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   ordersRefs.platforms?.addEventListener('click', async (event) => {
+    const clearButton = event.target.closest('[data-clear-order-source]');
+    const accountButton = event.target.closest('[data-toggle-order-account]');
     const button = event.target.closest('[data-toggle-order-platform]');
-    if (!button) return;
-    const platform = button.getAttribute('data-toggle-order-platform') || '';
-    if (state.orders.filters.platforms.some((item) => normalizeOrderFilterValue(item) === normalizeOrderFilterValue(platform))) {
-      state.orders.filters.platforms = state.orders.filters.platforms.filter((item) => normalizeOrderFilterValue(item) !== normalizeOrderFilterValue(platform));
+    if (clearButton) {
+      state.orders.filters.platforms = [];
+      state.orders.filters.accounts = [];
       resetOrderRenderWindow();
       syncOrderLoadedAll();
-    } else {
-      addOrderFilter('platforms', platform);
+    } else if (accountButton) {
+      const account = accountButton.getAttribute('data-toggle-order-account') || '';
+      state.orders.filters.platforms = [];
+      if (state.orders.filters.accounts.some((item) => normalizeOrderFilterValue(item) === normalizeOrderFilterValue(account))) {
+        state.orders.filters.accounts = state.orders.filters.accounts.filter((item) => normalizeOrderFilterValue(item) !== normalizeOrderFilterValue(account));
+        resetOrderRenderWindow();
+        syncOrderLoadedAll();
+      } else {
+        addOrderFilter('accounts', account);
+      }
+    }
+    if (!button && !accountButton && !clearButton) return;
+    if (button) {
+      const platform = button.getAttribute('data-toggle-order-platform') || '';
+      state.orders.filters.accounts = [];
+      if (state.orders.filters.platforms.some((item) => normalizeOrderFilterValue(item) === normalizeOrderFilterValue(platform))) {
+        state.orders.filters.platforms = state.orders.filters.platforms.filter((item) => normalizeOrderFilterValue(item) !== normalizeOrderFilterValue(platform));
+        resetOrderRenderWindow();
+        syncOrderLoadedAll();
+      } else {
+        addOrderFilter('platforms', platform);
+      }
     }
     syncOrderFilterControls();
     renderOrders();
@@ -11781,6 +11989,41 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (error) {
       showOrderLoadError(error);
     }
+  });
+
+  ordersRefs.quickRanges.forEach((button) => {
+    button.addEventListener('click', async () => {
+      const dates = orderQuickRangeDates(button.getAttribute('data-orders-quick-range') || 'all');
+      state.orders.filters.startDate = dates.startDate;
+      state.orders.filters.endDate = dates.endDate;
+      resetOrderRenderWindow();
+      syncOrderLoadedAll();
+      syncOrderFilterControls();
+      renderOrdersDateCalendar();
+      renderOrders();
+      closeOrdersDatePopover();
+      try {
+        await ensureEnoughOrderRows();
+      } catch (error) {
+        showOrderLoadError(error);
+      }
+    });
+  });
+
+  ordersRefs.catalogSearch?.addEventListener('input', () => {
+    state.orders.catalogSearch = ordersRefs.catalogSearch?.value || '';
+    state.orders.skuTreeSignature = '';
+    renderSkuOrderTree();
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || !ordersRefs.filterModal || ordersRefs.filterModal.hidden) return;
+    if (ordersRefs.datePopover && !ordersRefs.datePopover.hidden) {
+      closeOrdersDatePopover();
+      return;
+    }
+    ordersRefs.filterModal.hidden = true;
+    ordersRefs.filterOpen?.focus();
   });
 
   ordersRefs.dateToggleButtons.forEach((button) => {

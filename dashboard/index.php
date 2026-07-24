@@ -606,8 +606,9 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                                 <button type="button" class="admin-primary-btn admin-orders-ops-btn" data-view-switch="store-ops">Ops</button>
                                 <button type="button" class="admin-orders-export-btn" data-orders-export disabled title="Choose both a start and end date in Filters">Export CSV</button>
                                 <button type="button" class="admin-orders-load-btn" data-orders-load-more hidden>Load older</button>
-                                <button type="button" class="admin-orders-icon-btn" data-orders-filter-open aria-label="Open order filters">
+                                <button type="button" class="admin-orders-icon-btn admin-orders-filter-open-btn" data-orders-filter-open aria-label="Open order filters">
                                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-6.2 7.1v5.2l-3.6 1.8v-7z"/></svg>
+                                    <span data-orders-filter-open-label>Filters</span>
                                 </button>
                                 <button type="button" class="admin-orders-reset-btn" data-orders-filter-reset aria-label="Reset order filters" hidden>
                                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
@@ -1612,64 +1613,98 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
     <div class="admin-modal-shell admin-orders-filter-modal" data-orders-filter-modal hidden>
         <button type="button" class="admin-modal-backdrop" data-orders-filter-close aria-label="Close order filters"></button>
         <section class="admin-modal-card admin-orders-filter-card" role="dialog" aria-modal="true" aria-labelledby="orders-filter-title">
-            <div class="admin-modal-head">
-                <div>
+            <div class="admin-modal-head admin-orders-filter-head">
+                <div class="admin-orders-filter-heading">
                     <span class="admin-panel-kicker">Order Filters</span>
-                    <h3 id="orders-filter-title">Filter marketplace orders</h3>
+                    <h3 id="orders-filter-title">Find the exact orders you need</h3>
+                    <p>Choose a marketplace account, date range, company, product, or flavor. Selections update the table immediately.</p>
                 </div>
+                <span class="admin-orders-filter-count" data-orders-filter-count>No filters selected</span>
                 <button type="button" class="admin-orders-icon-btn" data-orders-filter-close aria-label="Close order filters">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
                 </button>
             </div>
             <div class="admin-orders-filter-body">
-                <details class="admin-orders-accordion">
-                    <summary>Companies</summary>
-                    <div class="admin-orders-accordion-content" data-orders-company-tree>
-                        <p class="admin-empty">Loading SKU database.</p>
-                    </div>
-                </details>
-                <details class="admin-orders-accordion">
-                    <summary>Start and End Dates</summary>
-                    <div class="admin-orders-date-range">
-                        <div class="admin-orders-date-field">
-                            <span>Start Date</span>
-                            <button type="button" class="admin-orders-date-button" data-orders-date-toggle="start">
-                                <span data-orders-start-label>Any start date</span>
-                                <i class="admin-chart-icon-calendar" aria-hidden="true"></i>
-                            </button>
-                        </div>
-                        <div class="admin-orders-date-field">
-                            <span>End Date</span>
-                            <button type="button" class="admin-orders-date-button" data-orders-date-toggle="end">
-                                <span data-orders-end-label>Any end date</span>
-                                <i class="admin-chart-icon-calendar" aria-hidden="true"></i>
-                            </button>
-                        </div>
-                        <div class="admin-orders-date-popover admin-chart-range-popover" data-orders-date-popover hidden>
-                            <div class="admin-range-calendar">
-                                <div class="admin-range-calendar-head">
-                                    <button type="button" class="admin-range-nav" aria-label="Previous month" data-orders-date-prev></button>
-                                    <strong data-orders-date-month></strong>
-                                    <button type="button" class="admin-range-nav admin-range-nav-next" aria-label="Next month" data-orders-date-next></button>
-                                </div>
-                                <div class="admin-range-weekdays" aria-hidden="true">
-                                    <span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span>
-                                </div>
-                                <div class="admin-range-grid" data-orders-date-grid></div>
+                <div class="admin-orders-filter-primary">
+                    <section class="admin-orders-filter-section admin-orders-source-section">
+                        <div class="admin-orders-filter-section-head">
+                            <div>
+                                <span class="admin-orders-filter-step">1</span>
+                                <div><h4>Marketplace account</h4><p>Filter broadly by marketplace or choose a specific shop.</p></div>
                             </div>
                         </div>
+                        <div class="admin-orders-source-list" data-orders-platforms>
+                            <p class="admin-empty">Accounts appear after orders load.</p>
+                        </div>
+                    </section>
+                    <section class="admin-orders-filter-section admin-orders-date-section">
+                        <div class="admin-orders-filter-section-head">
+                            <div>
+                                <span class="admin-orders-filter-step">2</span>
+                                <div><h4>Date range</h4><p>Use a shortcut or select exact start and end dates.</p></div>
+                            </div>
+                        </div>
+                        <div class="admin-orders-quick-ranges" aria-label="Quick date ranges">
+                            <button type="button" data-orders-quick-range="all">All time</button>
+                            <button type="button" data-orders-quick-range="today">Today</button>
+                            <button type="button" data-orders-quick-range="7-days">Last 7 days</button>
+                            <button type="button" data-orders-quick-range="30-days">Last 30 days</button>
+                            <button type="button" data-orders-quick-range="month">This month</button>
+                        </div>
+                        <div class="admin-orders-date-range">
+                            <div class="admin-orders-date-field">
+                                <span>From</span>
+                                <button type="button" class="admin-orders-date-button" data-orders-date-toggle="start">
+                                    <span data-orders-start-label>Any start date</span>
+                                    <i class="admin-chart-icon-calendar" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <div class="admin-orders-date-field">
+                                <span>To</span>
+                                <button type="button" class="admin-orders-date-button" data-orders-date-toggle="end">
+                                    <span data-orders-end-label>Any end date</span>
+                                    <i class="admin-chart-icon-calendar" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <div class="admin-orders-date-popover admin-chart-range-popover" data-orders-date-popover hidden>
+                                <div class="admin-range-calendar">
+                                    <div class="admin-range-calendar-head">
+                                        <button type="button" class="admin-range-nav" aria-label="Previous month" data-orders-date-prev></button>
+                                        <strong data-orders-date-month></strong>
+                                        <button type="button" class="admin-range-nav admin-range-nav-next" aria-label="Next month" data-orders-date-next></button>
+                                    </div>
+                                    <div class="admin-range-weekdays" aria-hidden="true">
+                                        <span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span>
+                                    </div>
+                                    <div class="admin-range-grid" data-orders-date-grid></div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+                <section class="admin-orders-filter-section admin-orders-catalog-section">
+                    <div class="admin-orders-filter-section-head">
+                        <div>
+                            <span class="admin-orders-filter-step">3</span>
+                            <div><h4>Products and flavors</h4><p>Narrow the result further using your SKU catalog.</p></div>
+                        </div>
                     </div>
-                </details>
-                <details class="admin-orders-accordion">
-                    <summary>Platforms</summary>
-                    <div class="admin-orders-platform-grid" data-orders-platforms>
-                        <p class="admin-empty">Platforms appear after orders load.</p>
+                    <label class="admin-orders-filter-search">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+                        <input type="search" data-orders-catalog-search placeholder="Search company, product, flavor, or SKU" autocomplete="off">
+                    </label>
+                    <div class="admin-orders-catalog-browser" data-orders-company-tree>
+                        <p class="admin-empty">Loading SKU database.</p>
                     </div>
-                </details>
+                </section>
             </div>
-            <div class="admin-modal-actions">
-                <button type="button" class="admin-danger-btn" data-orders-filter-clear>Clear Filters</button>
-                <button type="button" class="admin-primary-btn" data-orders-filter-close>Done</button>
+            <div class="admin-modal-actions admin-orders-filter-actions">
+                <div class="admin-orders-filter-result">
+                    <strong data-orders-filter-result>All loaded order lines</strong>
+                    <span>Filters apply immediately to the table and CSV export.</span>
+                </div>
+                <button type="button" class="admin-ghost-btn" data-orders-filter-clear>Clear all</button>
+                <button type="button" class="admin-primary-btn" data-orders-filter-close data-orders-filter-done>Show all orders</button>
             </div>
         </section>
     </div>
