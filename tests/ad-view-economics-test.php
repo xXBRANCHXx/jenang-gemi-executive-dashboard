@@ -24,6 +24,9 @@ $pdo->exec('CREATE TABLE dashboard_order_mirror (
     account_key TEXT NOT NULL,
     sku TEXT NOT NULL,
     quantity INTEGER NOT NULL,
+    revenue REAL NOT NULL,
+    gross_revenue REAL NOT NULL,
+    is_free_gift INTEGER NOT NULL DEFAULT 0,
     order_create_date TEXT NOT NULL,
     deleted_at TEXT NULL
 )');
@@ -37,10 +40,11 @@ $pdo->exec("INSERT INTO sku_skus VALUES
     ('SKU-C', 'FIBER_SYRUP_UNFLAVORED', 'zfit', 'ml', 'fiber-syrup', 'unflavored', 250, 40000),
     ('SKU-D', 'BAGGOSMEDIA_ZERO_DROPS_VANILLA', 'zero', 'ml', 'zero-drops', 'vanilla', 30, 12000)");
 $pdo->exec("INSERT INTO dashboard_order_mirror VALUES
-    ('shopee', 'zero-shopee', 'sku-a', 3, '2026-07-14', NULL),
-    ('shopee', 'zero-shopee', 'SKU-B', 1, '2026-07-14', NULL),
-    ('shopee', 'zero-shopee', 'SKU-B', 9, '2026-07-13', NULL),
-    ('shopee', 'jenang-gemi-shopee', 'SKU-A', 8, '2026-07-14', NULL)");
+    ('shopee', 'zero-shopee', 'sku-a', 3, 270000, 300000, 0, '2026-07-14', NULL),
+    ('shopee', 'zero-shopee', 'SKU-B', 1, 80000, 100000, 0, '2026-07-14', NULL),
+    ('shopee', 'zero-shopee', 'SKU-B', 2, 0, 40000, 1, '2026-07-14', NULL),
+    ('shopee', 'zero-shopee', 'SKU-B', 9, 720000, 900000, 0, '2026-07-13', NULL),
+    ('shopee', 'jenang-gemi-shopee', 'SKU-A', 8, 720000, 800000, 0, '2026-07-14', NULL)");
 
 $costs = jgAdViewSkuCostMap($pdo, ['JGBUBUR_ORIGINAL_30SACHET', 'JGBUBUR_ORIGINAL_60SACHET', 'BAGGOSMEDIA_BUBUR_ORIGINAL', 'SKU-B', 'FSUN-250', 'ZDROPS_VANILLA_30ML']);
 if (($costs['JGBUBUR_ORIGINAL_30SACHET']['cogs'] ?? null) !== 10000.0
@@ -79,6 +83,24 @@ $quantities = jgAdViewPurchasedSkuQuantities(
 );
 if (($quantities['SKU-A'] ?? null) !== 3.0 || ($quantities['SKU-B'] ?? null) !== 1.0) {
     throw new RuntimeException('Purchased SKU mix must follow the selected account and timeframe.');
+}
+
+$purchasedEconomics = jgAdViewPurchasedSkuEconomics(
+    $pdo,
+    'zero-shopee',
+    '2026-07-14',
+    '2026-07-14',
+    ['SKU-A', 'SKU-B']
+);
+if (($purchasedEconomics['SKU-A']['net_revenue'] ?? null) !== 270000.0
+    || ($purchasedEconomics['SKU-B']['net_revenue'] ?? null) !== 80000.0
+    || ($purchasedEconomics['SKU-B']['gross_revenue'] ?? null) !== 100000.0) {
+    throw new RuntimeException('Ad View must use seller-received SKU revenue and exclude free gifts.');
+}
+if (jgAdViewEstimateNetRevenue(100000, 2, 0.8, 35000) !== 80000.0
+    || jgAdViewEstimateNetRevenue(0, 2, null, 35000) !== 70000.0
+    || jgAdViewEstimateNetRevenue(100000, 2, null, null) !== null) {
+    throw new RuntimeException('Ad View net revenue must prefer the actual SKU net-to-gross ratio and never fall back to Shopee gross value.');
 }
 
 $tagMatchedQuantity = $quantities[$costs['JGBUBUR_ORIGINAL_30SACHET']['source_key']] ?? $quantities[$costs['JGBUBUR_ORIGINAL_30SACHET']['sku']] ?? 0;

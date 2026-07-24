@@ -287,9 +287,9 @@ const AD_VIEW_METRIC_UNITS = {
   clicks: 'clicks',
   broad_orders: 'orders',
   broad_items: 'items',
-  broad_gmv: 'idr',
+  net_revenue: 'idr',
   expense: 'idr',
-  broad_roas: 'x'
+  net_roas: 'x'
 };
 
 const AD_VIEW_METRIC_LABELS = {
@@ -297,9 +297,9 @@ const AD_VIEW_METRIC_LABELS = {
   clicks: 'Clicks',
   broad_orders: 'Orders',
   broad_items: 'Items sold',
-  broad_gmv: 'Attributed sales',
+  net_revenue: 'Net revenue received',
   expense: 'Ad cost',
-  broad_roas: 'ROAS'
+  net_roas: 'Net ROAS'
 };
 
 const AD_VIEW_METRIC_COLORS = {
@@ -308,8 +308,8 @@ const AD_VIEW_METRIC_COLORS = {
   broad_orders: '#ff9f43',
   broad_items: '#00bcd4',
   expense: '#ff5c7a',
-  broad_gmv: '#00c987',
-  broad_roas: '#f2c94c'
+  net_revenue: '#00c987',
+  net_roas: '#f2c94c'
 };
 
 const WEBSITE_SITE_LABELS = {
@@ -2552,7 +2552,7 @@ document.addEventListener('DOMContentLoaded', () => {
       timeframe: 'today',
       startDate: getDateKeyForTimezone(),
       endDate: getDateKeyForTimezone(),
-      selectedMetrics: ['broad_orders', 'expense', 'broad_gmv', 'broad_roas'],
+      selectedMetrics: ['broad_orders', 'expense', 'net_revenue', 'net_roas'],
       compareA: '',
       compareB: '',
       selectedCampaignKey: '',
@@ -2872,8 +2872,8 @@ document.addEventListener('DOMContentLoaded', () => {
       broadOrders: document.querySelector('[data-ad-view-kpi="broad-orders"]'),
       broadItems: document.querySelector('[data-ad-view-kpi="broad-items"]'),
       expense: document.querySelector('[data-ad-view-kpi="expense"]'),
-      attributedSales: document.querySelector('[data-ad-view-kpi="attributed-sales"]'),
-      roas: document.querySelector('[data-ad-view-kpi="roas"]')
+      netRevenue: document.querySelector('[data-ad-view-kpi="net-revenue"]'),
+      netRoas: document.querySelector('[data-ad-view-kpi="net-roas"]')
     }
   };
 
@@ -9571,7 +9571,6 @@ document.addEventListener('DOMContentLoaded', () => {
           source_ad_name: String(campaign.source_ad_name || campaign.product_name || campaign.settings?.common_info?.ad_name || '').trim(),
           account_key: account.account_key,
           company: account.company || account.account_key,
-          marketplace_fee_rate: Number(account.marketplace_fee_rate || 0),
           campaign_key: adViewCampaignKey(account.account_key, campaign.campaign_id)
         };
       })
@@ -9596,6 +9595,7 @@ document.addEventListener('DOMContentLoaded', () => {
       broad_orders: 0,
       broad_items: 0,
       broad_gmv: 0,
+      net_revenue: 0,
       direct_orders: 0,
       direct_items: 0,
       direct_gmv: 0
@@ -9610,8 +9610,10 @@ document.addEventListener('DOMContentLoaded', () => {
     result.cost_per_order = result.broad_orders > 0 ? result.expense / result.broad_orders : 0;
     result.conversion_rate = result.clicks > 0 ? result.broad_orders / result.clicks * 100 : 0;
     result.broad_roas = result.expense > 0 ? result.broad_gmv / result.expense : 0;
+    result.net_revenue_available = rows.length > 0 && rows.every((row) => row.net_revenue !== null && row.net_revenue !== undefined);
+    result.net_roas = result.net_revenue_available && result.expense > 0 ? result.net_revenue / result.expense : 0;
     result.direct_roas = result.expense > 0 ? result.direct_gmv / result.expense : 0;
-    result.revenue_after_ads = result.broad_gmv - result.expense;
+    result.net_revenue_after_ads = result.net_revenue_available ? result.net_revenue - result.expense : 0;
     result.cac = result.broad_items > 0 ? result.expense / result.broad_items : 0;
     return result;
   };
@@ -9644,18 +9646,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const rawUnitCogs = campaign?.economics?.unit_cogs;
     const hasCogs = rawUnitCogs !== null && rawUnitCogs !== undefined && rawUnitCogs !== '' && Number(rawUnitCogs) >= 0;
     const unitCogs = hasCogs ? Number(rawUnitCogs) : 0;
+    const hasNetRevenue = totals.net_revenue_available;
     const estimatedCogs = unitCogs * Number(totals.broad_items || 0);
-    const grossProfit = Number(totals.broad_gmv || 0) - estimatedCogs;
-    const estimatedFees = Number(totals.broad_gmv || 0) * Number(campaign?.marketplace_fee_rate || 0);
-    const contribution = grossProfit - estimatedFees - Number(totals.expense || 0);
+    const grossProfit = Number(totals.net_revenue || 0) - estimatedCogs;
+    const contribution = grossProfit - Number(totals.expense || 0);
     const grossProfitPerUnit = totals.broad_items > 0 ? grossProfit / totals.broad_items : 0;
-    const contributionMargin = totals.broad_gmv > 0 ? contribution / totals.broad_gmv * 100 : 0;
-    const preAdContributionRate = totals.broad_gmv > 0 ? (grossProfit - estimatedFees) / totals.broad_gmv : 0;
+    const contributionMargin = totals.net_revenue > 0 ? contribution / totals.net_revenue * 100 : 0;
+    const preAdContributionRate = totals.net_revenue > 0 ? grossProfit / totals.net_revenue : 0;
     return {
       hasCogs,
+      hasNetRevenue,
+      hasProfitInputs: hasCogs && hasNetRevenue,
       unitCogs,
       estimatedCogs,
-      estimatedFees,
       grossProfit,
       grossProfitPerUnit,
       contribution,
@@ -9669,6 +9672,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const targetRoas = getAdViewTargetRoas(campaign);
     const dailyBudget = Number(campaign.campaign_budget || 0);
     const dailySpend = Number(totals.expense || 0) / getAdViewElapsedDays();
+    if (!economics.hasNetRevenue) {
+      insights.push({
+        tone: 'warning',
+        title: 'Seller net revenue is unavailable',
+        body: 'No matching seller-received order revenue was found for this campaign’s SKU in the selected range. Profit and Net ROAS stay unavailable instead of falling back to Shopee sale value.'
+      });
+    }
     if (!economics.hasCogs) {
       const matchedSku = campaign?.economics?.matched_skus?.length > 0;
       insights.push({
@@ -9683,18 +9693,18 @@ document.addEventListener('DOMContentLoaded', () => {
       insights.push({ tone: 'neutral', title: 'No spend in this range', body: 'The ad is live but Shopee has reported no cost in the selected period. Check delivery, target ROAS, stock, and listing eligibility.' });
       return insights;
     }
-    if (economics.hasCogs && economics.contribution < 0) {
-      insights.push({ tone: 'danger', title: 'Attributed sales do not cover estimated costs', body: `After COGS, estimated marketplace fees, and ads, this campaign is ${formatCurrency(Math.abs(economics.contribution))} below break-even for the selected range.` });
-    } else if (economics.hasCogs && economics.contribution > 0) {
-      insights.push({ tone: 'positive', title: 'Positive estimated contribution', body: `${formatCurrency(economics.contribution)} remains after estimated COGS, marketplace fees, and ad cost.` });
+    if (economics.hasProfitInputs && economics.contribution < 0) {
+      insights.push({ tone: 'danger', title: 'Seller net revenue does not cover costs', body: `After COGS and ads, this campaign is ${formatCurrency(Math.abs(economics.contribution))} below break-even for the selected range.` });
+    } else if (economics.hasProfitInputs && economics.contribution > 0) {
+      insights.push({ tone: 'positive', title: 'Positive estimated contribution', body: `${formatCurrency(economics.contribution)} remains from seller net revenue after COGS and ad cost.` });
     }
     if (targetRoas > 0 && totals.broad_roas < targetRoas * 0.85) {
       insights.push({ tone: 'warning', title: 'ROAS is below the Shopee target', body: `Actual ROAS is ${totals.broad_roas.toFixed(2)}x versus a ${targetRoas.toFixed(2)}x target. Review price, conversion, and whether the target is restricting delivery.` });
     } else if (targetRoas > 0 && totals.broad_roas >= targetRoas) {
       insights.push({ tone: 'positive', title: 'ROAS is meeting target', body: `Actual ROAS is ${totals.broad_roas.toFixed(2)}x against the ${targetRoas.toFixed(2)}x Shopee target.` });
     }
-    if (totals.broad_items > 0 && economics.hasCogs && totals.cac > economics.grossProfitPerUnit) {
-      insights.push({ tone: 'danger', title: 'CAC exceeds gross profit per unit', body: `${formatCurrency(totals.cac)} CAC per unit is higher than estimated ${formatCurrency(economics.grossProfitPerUnit)} gross profit per attributed unit.` });
+    if (totals.broad_items > 0 && economics.hasProfitInputs && totals.cac > economics.grossProfitPerUnit) {
+      insights.push({ tone: 'danger', title: 'CAC exceeds net margin per unit', body: `${formatCurrency(totals.cac)} CAC per unit is higher than estimated ${formatCurrency(economics.grossProfitPerUnit)} seller net revenue after COGS per attributed unit.` });
     }
     if (totals.impressions >= 1000 && totals.ctr < 1) {
       insights.push({ tone: 'warning', title: 'Low click-through rate', body: `${totals.ctr.toFixed(2)}% CTR suggests the thumbnail, title, offer, or keyword relevance may need work.` });
@@ -9726,8 +9736,8 @@ document.addEventListener('DOMContentLoaded', () => {
         <span class="admin-ad-view-product-image">${image}</span>
         <span class="admin-ad-view-live-copy"><strong>${escapeHtml(campaign.display_name)}</strong><small>${escapeHtml(campaign.company)} • ID ${escapeHtml(campaign.campaign_id)}</small></span>
         <span class="admin-ad-view-live-metric"><small>Cost</small><strong>${formatCurrency(totals.expense)}</strong></span>
-        <span class="admin-ad-view-live-metric"><small>Sales</small><strong>${formatCurrency(totals.broad_gmv)}</strong></span>
-        <span class="admin-ad-view-live-roas"><small>ROAS</small><strong>${totals.broad_roas.toFixed(2)}x</strong></span>
+        <span class="admin-ad-view-live-metric"><small>Net revenue</small><strong>${totals.net_revenue_available ? formatCurrency(totals.net_revenue) : '—'}</strong></span>
+        <span class="admin-ad-view-live-roas"><small>Net ROAS</small><strong>${totals.net_revenue_available ? `${totals.net_roas.toFixed(2)}x` : '—'}</strong></span>
       </button>`;
     }).join('') : '<div class="admin-ad-view-detail-empty"><strong>No live ads</strong><span>Sync Shopee Ads to refresh the campaign list.</span></div>';
   };
@@ -9766,10 +9776,10 @@ document.addEventListener('DOMContentLoaded', () => {
       <section class="admin-ad-view-profit-grid">
         <article><span>CAC / unit</span><strong>${totals.broad_items > 0 ? formatCurrency(totals.cac) : '—'}</strong><small>Ad cost ÷ attributed units sold</small></article>
         <article><span>COGS</span><strong>${economics.hasCogs ? formatCurrency(economics.estimatedCogs) : (campaign.economics?.matched_skus?.length ? 'Missing in DB' : 'Not matched')}</strong><small>${economics.hasCogs ? `${formatCurrency(economics.unitCogs)} / attributed item` : 'Open details to review or override'}</small></article>
-        <article><span>Marketplace fees</span><strong>${formatCurrency(economics.estimatedFees)}</strong><small>Selected account’s actual fee rate</small></article>
-        <article><span>Estimated gross profit</span><strong>${economics.hasCogs ? formatCurrency(economics.grossProfit) : '—'}</strong><small>Attributed sales − COGS</small></article>
-        <article><span>Contribution after ads</span><strong class="${economics.contribution < 0 ? 'is-negative' : ''}">${economics.hasCogs ? formatCurrency(economics.contribution) : '—'}</strong><small>GP − estimated fees − ads</small></article>
-        <article><span>Contribution margin</span><strong>${economics.hasCogs ? `${economics.contributionMargin.toFixed(1)}%` : '—'}</strong><small>${economics.breakEvenRoas > 0 ? `${economics.breakEvenRoas.toFixed(2)}x break-even ROAS` : (economics.hasCogs ? 'Current unit margin cannot break even' : 'Requires COGS')}</small></article>
+        <article><span>Net revenue / item</span><strong>${campaign.economics?.net_revenue_per_item != null ? formatCurrency(campaign.economics.net_revenue_per_item) : '—'}</strong><small>Actual seller-received SKU average</small></article>
+        <article><span>Net after COGS</span><strong>${economics.hasProfitInputs ? formatCurrency(economics.grossProfit) : '—'}</strong><small>Seller net revenue − COGS</small></article>
+        <article><span>Contribution after ads</span><strong class="${economics.contribution < 0 ? 'is-negative' : ''}">${economics.hasProfitInputs ? formatCurrency(economics.contribution) : '—'}</strong><small>Seller net revenue − COGS − ads</small></article>
+        <article><span>Contribution margin</span><strong>${economics.hasProfitInputs ? `${economics.contributionMargin.toFixed(1)}%` : '—'}</strong><small>${economics.breakEvenRoas > 0 ? `${economics.breakEvenRoas.toFixed(2)}x break-even Net ROAS` : (economics.hasProfitInputs ? 'Current unit margin cannot break even' : 'Requires net revenue and COGS')}</small></article>
       </section>
       <section class="admin-ad-view-insights">${insights.map((insight) => `<article class="is-${insight.tone}"><strong>${escapeHtml(insight.title)}</strong><p>${escapeHtml(insight.body)}</p></article>`).join('') || '<article class="is-neutral"><strong>Not enough data yet</strong><p>Keep this ad selected after it has delivered more impressions, clicks, and orders.</p></article>'}</section>
       <details class="admin-ad-view-direct-metrics">
@@ -9803,10 +9813,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const definitions = [
       { key: 'broad_items', label: 'Units sold', note: 'Products sold after interacting with the ad', type: 'count', higherIsBetter: true },
       { key: 'broad_orders', label: 'Attributed orders', note: 'Shop orders attributed to the ad', type: 'count', higherIsBetter: true },
-      { key: 'broad_gmv', label: 'Attributed sales', note: 'Shopee sales attributed to the ad', type: 'money', higherIsBetter: true },
+      { key: 'net_revenue', label: 'Net revenue received', note: 'Attributed units valued at actual seller-received revenue per matching SKU', type: 'money', higherIsBetter: true },
       { key: 'expense', label: 'Ad cost', note: 'Shown separately so higher spend is not mistaken for efficiency', type: 'money', higherIsBetter: false, cost: true },
-      { key: 'revenue_after_ads', label: 'Attributed sales after ad cost', note: 'Attributed sales minus advertising spend', type: 'money', higherIsBetter: true },
-      { key: 'broad_roas', label: 'Broad ROAS', note: 'Attributed sales divided by advertising spend', type: 'roas', higherIsBetter: true }
+      { key: 'net_revenue_after_ads', label: 'Net revenue after ad cost', note: 'Seller-received net revenue minus advertising spend', type: 'money', higherIsBetter: true },
+      { key: 'net_roas', label: 'Net ROAS', note: 'Seller-received net revenue divided by advertising spend', type: 'roas', higherIsBetter: true }
     ];
     adViewRefs.scorecard.innerHTML = definitions.map((definition) => {
       const oldValue = Number(a[definition.key] || 0);
@@ -9836,7 +9846,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const formatAdViewMetricValue = (metric, value, compact = false) => {
-    if (metric === 'broad_roas') return `${Number(value || 0).toFixed(2)}x`;
+    if (AD_VIEW_METRIC_UNITS[metric] === 'x') return `${Number(value || 0).toFixed(2)}x`;
     if (AD_VIEW_METRIC_UNITS[metric] === 'idr') return formatCurrency(value, compact ? { compact: true } : {});
     return compact ? formatCompactNumber(value) : formatRegionalNumber(Math.round(Number(value) || 0));
   };
@@ -9942,8 +9952,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (adViewRefs.kpis.broadOrders) adViewRefs.kpis.broadOrders.textContent = formatRegionalNumber(aggregate.broad_orders);
     if (adViewRefs.kpis.broadItems) adViewRefs.kpis.broadItems.textContent = formatRegionalNumber(aggregate.broad_items);
     if (adViewRefs.kpis.expense) adViewRefs.kpis.expense.textContent = formatCurrency(aggregate.expense);
-    if (adViewRefs.kpis.attributedSales) adViewRefs.kpis.attributedSales.textContent = formatCurrency(aggregate.broad_gmv);
-    if (adViewRefs.kpis.roas) adViewRefs.kpis.roas.textContent = `${aggregate.broad_roas.toFixed(2)}x`;
+    if (adViewRefs.kpis.netRevenue) adViewRefs.kpis.netRevenue.textContent = aggregate.net_revenue_available ? formatCurrency(aggregate.net_revenue) : '—';
+    if (adViewRefs.kpis.netRoas) adViewRefs.kpis.netRoas.textContent = aggregate.net_revenue_available ? `${aggregate.net_roas.toFixed(2)}x` : '—';
     adViewRefs.summaryMetricButtons.forEach((button) => {
       const selected = state.adView.selectedMetrics.includes(button.dataset.adViewSummaryMetric || '');
       button.classList.toggle('is-selected', selected);
@@ -10018,7 +10028,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const after = aggregateAdViewMetrics(campaignRows.filter((row) => row.metric_date >= eventDate && row.metric_date <= afterEnd));
       const deltaPercent = (next, previous) => previous !== 0 ? (next - previous) / Math.abs(previous) * 100 : (next > 0 ? 100 : 0);
       const impact = (before.expense > 0 || after.expense > 0)
-        ? `<p><strong>3-day associated change:</strong> attributed sales ${deltaPercent(after.broad_gmv, before.broad_gmv) >= 0 ? '+' : ''}${Math.round(deltaPercent(after.broad_gmv, before.broad_gmv))}%, ad cost ${deltaPercent(after.expense, before.expense) >= 0 ? '+' : ''}${Math.round(deltaPercent(after.expense, before.expense))}%, ROAS ${deltaPercent(after.broad_roas, before.broad_roas) >= 0 ? '+' : ''}${Math.round(deltaPercent(after.broad_roas, before.broad_roas))}%.</p>`
+        ? `<p><strong>3-day associated change:</strong> net revenue ${deltaPercent(after.net_revenue, before.net_revenue) >= 0 ? '+' : ''}${Math.round(deltaPercent(after.net_revenue, before.net_revenue))}%, ad cost ${deltaPercent(after.expense, before.expense) >= 0 ? '+' : ''}${Math.round(deltaPercent(after.expense, before.expense))}%, Net ROAS ${deltaPercent(after.net_roas, before.net_roas) >= 0 ? '+' : ''}${Math.round(deltaPercent(after.net_roas, before.net_roas))}%.</p>`
         : '';
       const beforeAfter = event.before_value || event.after_value
         ? `<p>${escapeHtml(event.before_value || '—')} → ${escapeHtml(event.after_value || '—')}</p>` : '';
@@ -10094,7 +10104,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return `<tr>
           <td><div class="admin-ad-view-campaign-name"><strong>${escapeHtml(campaign.display_name)}</strong><small>${escapeHtml(campaign.source_ad_name || 'No Shopee name')} • ID ${escapeHtml(campaign.campaign_id)}</small><button type="button" class="admin-table-action" data-ad-view-edit="${escapeHtml(campaign.campaign_key)}">Edit name & tags</button></div></td>
           <td>${escapeHtml(campaign.company)}</td><td><span class="admin-ad-view-status-chip${statusMuted ? ' is-muted' : ''}">${escapeHtml(campaign.campaign_status || 'unknown')}</span></td>
-          <td>${escapeHtml(campaign.campaign_placement || '—')}</td><td>${formatCurrency(totals.expense)}</td><td>${formatCurrency(totals.broad_gmv)}</td><td>${totals.broad_roas.toFixed(2)}x</td><td>${tags || '<span class="admin-empty">No tags</span>'}</td>
+          <td>${escapeHtml(campaign.campaign_placement || '—')}</td><td>${formatCurrency(totals.expense)}</td><td>${totals.net_revenue_available ? formatCurrency(totals.net_revenue) : '—'}</td><td>${totals.net_revenue_available ? `${totals.net_roas.toFixed(2)}x` : '—'}</td><td>${tags || '<span class="admin-empty">No tags</span>'}</td>
         </tr>`;
       }).join('') : '<tr><td colspan="8" class="admin-empty">Sync Shopee Ads to populate the library.</td></tr>';
     }

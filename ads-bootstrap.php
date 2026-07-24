@@ -383,8 +383,11 @@ function jgAdViewProductFamilyCosts(PDO $pdo, array $campaign): array
     ], $best['rows']));
 }
 
-/** @param array<int, string> $sellerSkus @return array<string, float> */
-function jgAdViewPurchasedSkuQuantities(PDO $pdo, string $accountKey, string $startDate, string $endDate, array $sellerSkus): array
+/**
+ * @param array<int, string> $sellerSkus
+ * @return array<string, array{quantity:float,net_revenue:float,gross_revenue:float,matched_skus:array<int,string>}>
+ */
+function jgAdViewPurchasedSkuEconomics(PDO $pdo, string $accountKey, string $startDate, string $endDate, array $sellerSkus): array
 {
     $sellerSkus = array_values(array_unique(array_filter(array_map(
         static fn (mixed $sku): string => strtoupper(trim((string) $sku)),
@@ -400,7 +403,10 @@ function jgAdViewPurchasedSkuQuantities(PDO $pdo, string $accountKey, string $st
     ];
     try {
         $statement = $pdo->prepare(
-            'SELECT UPPER(TRIM(sku)) AS normalized_sku, COALESCE(SUM(quantity), 0) AS quantity
+            'SELECT UPPER(TRIM(sku)) AS normalized_sku,
+                    COALESCE(SUM(CASE WHEN is_free_gift = 1 THEN 0 ELSE quantity END), 0) AS quantity,
+                    COALESCE(SUM(CASE WHEN is_free_gift = 1 THEN 0 ELSE revenue END), 0) AS net_revenue,
+                    COALESCE(SUM(CASE WHEN is_free_gift = 1 THEN 0 ELSE gross_revenue END), 0) AS gross_revenue
              FROM dashboard_order_mirror
              WHERE platform = "shopee" AND account_key = :account_key AND deleted_at IS NULL
                AND order_create_date BETWEEN :start_date AND :end_date
@@ -413,10 +419,20 @@ function jgAdViewPurchasedSkuQuantities(PDO $pdo, string $accountKey, string $st
             $purchasedCompact = jgAdViewSkuCompactKey($purchasedSku);
             foreach ($sellerSkus as $sellerSku) {
                 if ($sellerSku === $purchasedSku || ($purchasedCompact !== '' && $purchasedCompact === jgAdViewSkuCompactKey($sellerSku))) {
-                    $result[$sellerSku] = (float) ($result[$sellerSku] ?? 0) + max(0, (float) ($row['quantity'] ?? 0));
+                    if (!isset($result[$sellerSku])) {
+                        $result[$sellerSku] = ['quantity' => 0.0, 'net_revenue' => 0.0, 'gross_revenue' => 0.0, 'matched_skus' => []];
+                    }
+                    $result[$sellerSku]['quantity'] += max(0, (float) ($row['quantity'] ?? 0));
+                    $result[$sellerSku]['net_revenue'] += max(0, (float) ($row['net_revenue'] ?? 0));
+                    $result[$sellerSku]['gross_revenue'] += max(0, (float) ($row['gross_revenue'] ?? 0));
+                    $result[$sellerSku]['matched_skus'][] = $purchasedSku;
                 }
             }
         }
+        foreach ($result as &$economics) {
+            $economics['matched_skus'] = array_values(array_unique($economics['matched_skus']));
+        }
+        unset($economics);
         return $result;
     } catch (Throwable $error) {
         error_log('Ad View purchased SKU mix unavailable: ' . $error->getMessage());
@@ -424,27 +440,28 @@ function jgAdViewPurchasedSkuQuantities(PDO $pdo, string $accountKey, string $st
     }
 }
 
-function jgAdViewMarketplaceFeeRate(PDO $pdo, string $accountKey, string $startDate, string $endDate): float
+/** @param array<int, string> $sellerSkus @return array<string, float> */
+function jgAdViewPurchasedSkuQuantities(PDO $pdo, string $accountKey, string $startDate, string $endDate, array $sellerSkus): array
 {
-    try {
-        $statement = $pdo->prepare(
-            'SELECT COALESCE(SUM(marketplace_fees), 0) AS fees, COALESCE(SUM(gross_revenue), 0) AS gross
-             FROM dashboard_order_mirror
-             WHERE platform = "shopee" AND account_key = :account_key AND deleted_at IS NULL
-               AND order_create_date BETWEEN :start_date AND :end_date'
-        );
-        $statement->execute([
-            ':account_key' => $accountKey,
-            ':start_date' => $startDate,
-            ':end_date' => $endDate,
-        ]);
-        $row = $statement->fetch();
-        $gross = (float) ($row['gross'] ?? 0);
-        return $gross > 0 ? max(0, min(0.5, (float) ($row['fees'] ?? 0) / $gross)) : 0;
-    } catch (Throwable $error) {
-        error_log('Ad View marketplace fee rate unavailable: ' . $error->getMessage());
-        return 0;
+    return array_map(
+        static fn (array $economics): float => (float) ($economics['quantity'] ?? 0),
+        jgAdViewPurchasedSkuEconomics($pdo, $accountKey, $startDate, $endDate, $sellerSkus)
+    );
+}
+
+function jgAdViewEstimateNetRevenue(
+    float $attributedGmv,
+    float $attributedItems,
+    ?float $netToGrossRatio,
+    ?float $netRevenuePerItem
+): ?float {
+    if ($netToGrossRatio !== null) {
+        return round(max(0, $attributedGmv) * max(0, min(1, $netToGrossRatio)), 2);
     }
+    if ($netRevenuePerItem !== null) {
+        return round(max(0, $attributedItems) * max(0, $netRevenuePerItem), 2);
+    }
+    return $attributedItems <= 0 && $attributedGmv <= 0 ? 0.0 : null;
 }
 
 /** @param array<string, mixed> $payload @return array<string, mixed> */
@@ -520,13 +537,18 @@ function jgAdViewEnrich(PDO $pdo, array $payload, string $startDate, string $end
                 $accountQuantitySkus[] = (string) $skuCostMap[$normalizedSellerSku]['sku'];
             }
         }
-        $accountPurchasedQuantities = jgAdViewPurchasedSkuQuantities(
+        $accountPurchasedEconomics = jgAdViewPurchasedSkuEconomics(
             $pdo,
             $accountKey,
             $startDate,
             $endDate,
             $accountQuantitySkus
         );
+        $accountPurchasedQuantities = array_map(
+            static fn (array $economics): float => (float) ($economics['quantity'] ?? 0),
+            $accountPurchasedEconomics
+        );
+        $campaignNetRevenueModels = [];
         foreach ($account['campaigns'] as &$campaign) {
             $local = $campaignLocal[$accountKey . ':' . (string) ($campaign['campaign_id'] ?? '')] ?? [];
             $campaign['alias_name'] = (string) ($local['alias_name'] ?? '');
@@ -611,10 +633,82 @@ function jgAdViewEnrich(PDO $pdo, array $payload, string $startDate, string $end
                 'sku_coverage' => $sellerSkus !== [] ? min(1, count($matched) / count($sellerSkus)) : 0,
                 'purchased_mix_quantity' => $weightedQuantity,
             ];
+
+            $revenueCandidates = $matched !== []
+                ? $matched
+                : array_map(
+                    static fn (string $sku): array => ['sku' => $sku, 'source_key' => $sku],
+                    $sellerSkus
+                );
+            $netRevenueSample = 0.0;
+            $grossRevenueSample = 0.0;
+            $netRevenueQuantity = 0.0;
+            $seenRevenueSamples = [];
+            foreach ($revenueCandidates as $candidate) {
+                $sourceKey = jgAdViewSkuKey($candidate['source_key'] ?? '');
+                $canonicalKey = jgAdViewSkuKey($candidate['sku'] ?? '');
+                $sample = $accountPurchasedEconomics[$sourceKey]
+                    ?? $accountPurchasedEconomics[$canonicalKey]
+                    ?? null;
+                if (!is_array($sample)) {
+                    continue;
+                }
+                $sampleSkus = array_values(array_unique(array_map(
+                    'jgAdViewSkuKey',
+                    is_array($sample['matched_skus'] ?? null) ? $sample['matched_skus'] : []
+                )));
+                sort($sampleSkus);
+                $sampleKey = implode('|', $sampleSkus) ?: ($sourceKey ?: $canonicalKey);
+                if ($sampleKey === '' || isset($seenRevenueSamples[$sampleKey])) {
+                    continue;
+                }
+                $seenRevenueSamples[$sampleKey] = true;
+                $netRevenueQuantity += max(0, (float) ($sample['quantity'] ?? 0));
+                $netRevenueSample += max(0, (float) ($sample['net_revenue'] ?? 0));
+                $grossRevenueSample += max(0, (float) ($sample['gross_revenue'] ?? 0));
+            }
+            $netRevenuePerItem = $netRevenueQuantity > 0 && $netRevenueSample > 0
+                ? $netRevenueSample / $netRevenueQuantity
+                : null;
+            $netToGrossRatio = $grossRevenueSample > 0 && $netRevenueSample > 0
+                ? min(1.0, $netRevenueSample / $grossRevenueSample)
+                : null;
+            $campaignId = (string) ($campaign['campaign_id'] ?? '');
+            $campaignNetRevenueModels[$campaignId] = [
+                'net_revenue_per_item' => $netRevenuePerItem,
+                'net_to_gross_ratio' => $netToGrossRatio,
+            ];
+            $campaign['economics']['net_revenue_per_item'] = $netRevenuePerItem;
+            $campaign['economics']['net_to_gross_ratio'] = $netToGrossRatio;
+            $campaign['economics']['net_revenue_sample_quantity'] = $netRevenueQuantity;
+            $campaign['economics']['net_revenue_sample_total'] = $netRevenueSample;
+            $campaign['economics']['gross_revenue_sample_total'] = $grossRevenueSample;
+            $campaign['economics']['net_revenue_source'] = $netToGrossRatio !== null
+                ? 'shopee_attributed_gmv_x_order_mirror_sku_net_ratio'
+                : ($netRevenuePerItem !== null
+                    ? 'shopee_attributed_items_x_order_mirror_sku_average'
+                    : 'unavailable');
         }
         unset($campaign);
+        foreach ($account['metrics'] as &$metric) {
+            $campaignId = (string) ($metric['campaign_id'] ?? '');
+            $attributedItems = max(0, (float) ($metric['broad_items'] ?? 0));
+            $attributedGmv = max(0, (float) ($metric['broad_gmv'] ?? 0));
+            $netRevenueModel = $campaignNetRevenueModels[$campaignId] ?? [];
+            $netToGrossRatio = $netRevenueModel['net_to_gross_ratio'] ?? null;
+            $netRevenuePerItem = $netRevenueModel['net_revenue_per_item'] ?? null;
+            $netRevenue = jgAdViewEstimateNetRevenue(
+                $attributedGmv,
+                $attributedItems,
+                is_numeric($netToGrossRatio) ? (float) $netToGrossRatio : null,
+                is_numeric($netRevenuePerItem) ? (float) $netRevenuePerItem : null
+            );
+            $expense = max(0, (float) ($metric['expense'] ?? 0));
+            $metric['net_revenue'] = $netRevenue;
+            $metric['net_roas'] = $netRevenue !== null && $expense > 0 ? $netRevenue / $expense : 0;
+        }
+        unset($metric);
         $account['company'] = JG_AD_VIEW_ACCOUNTS[$accountKey] ?? $accountKey;
-        $account['marketplace_fee_rate'] = jgAdViewMarketplaceFeeRate($pdo, $accountKey, $startDate, $endDate);
         $budgetMonth = substr($endDate, 0, 7);
         $budgetStatement = $pdo->prepare('SELECT monthly_budget FROM ad_view_budgets WHERE account_key = :account_key AND budget_month = :budget_month');
         $budgetStatement->execute([':account_key' => $accountKey, ':budget_month' => $budgetMonth]);

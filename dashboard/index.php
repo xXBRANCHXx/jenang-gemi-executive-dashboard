@@ -1054,8 +1054,8 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                                 <button type="button" class="is-selected" style="--ad-metric-color:#ff9f43" data-ad-view-summary-metric="broad_orders" aria-pressed="true"><i></i><span>Orders</span><strong data-ad-view-kpi="broad-orders">0</strong></button>
                                 <button type="button" style="--ad-metric-color:#00bcd4" data-ad-view-summary-metric="broad_items" aria-pressed="false"><i></i><span>Items sold</span><strong data-ad-view-kpi="broad-items">0</strong></button>
                                 <button type="button" class="is-selected" style="--ad-metric-color:#ff5c7a" data-ad-view-summary-metric="expense" aria-pressed="true"><i></i><span>Ad cost</span><strong data-ad-view-kpi="expense">Rp0</strong></button>
-                                <button type="button" class="is-selected" style="--ad-metric-color:#00c987" data-ad-view-summary-metric="broad_gmv" aria-pressed="true"><i></i><span>Attributed sales</span><strong data-ad-view-kpi="attributed-sales">Rp0</strong></button>
-                                <button type="button" class="is-selected" style="--ad-metric-color:#f2c94c" data-ad-view-summary-metric="broad_roas" aria-pressed="true"><i></i><span>ROAS</span><strong data-ad-view-kpi="roas">0.00x</strong></button>
+                                <button type="button" class="is-selected" style="--ad-metric-color:#00c987" data-ad-view-summary-metric="net_revenue" aria-pressed="true"><i></i><span>Net revenue</span><strong data-ad-view-kpi="net-revenue">Rp0</strong></button>
+                                <button type="button" class="is-selected" style="--ad-metric-color:#f2c94c" data-ad-view-summary-metric="net_roas" aria-pressed="true"><i></i><span>Net ROAS</span><strong data-ad-view-kpi="net-roas">0.00x</strong></button>
                             </section>
                             <div class="admin-chart-surface"><canvas class="admin-chart-canvas admin-chart-canvas-lg" data-ad-view-chart width="1200" height="390"></canvas></div>
                         </article>
@@ -1084,7 +1084,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                     <div class="admin-ad-view-scorecard" data-ad-view-scorecard>
                         <p class="admin-empty">Select two campaigns to compare daily averages.</p>
                     </div>
-                    <p class="admin-ad-view-disclaimer">“Attributed sales after ad cost” is a decision proxy: Shopee-attributed sales minus advertising spend. It is not accounting revenue or gross profit because marketplace fees, discounts, shipping, product cost, and other expenses are not included.</p>
+                    <p class="admin-ad-view-disclaimer">Estimated net revenue is order-backed: Shopee-attributed sales × the actual seller net-to-gross ratio for matching SKU orders. It is an estimate because Shopee order payloads do not expose the Ads campaign ID; profitability never treats customer-paid sale value as money received.</p>
                     </div>
                 </details>
 
@@ -1114,7 +1114,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                     <div class="admin-panel-head"><div><span class="admin-panel-kicker">All Imported Campaigns</span><h3>Names, tags, status, and performance</h3></div><span class="admin-panel-meta" data-ad-view-library-meta>0 campaigns</span></div>
                     <div class="admin-table-wrap">
                         <table class="admin-table admin-ad-view-table">
-                            <thead><tr><th>Campaign</th><th>Account</th><th>Status</th><th>Placement</th><th>Spend</th><th>Attributed sales</th><th>ROAS</th><th>Tags</th></tr></thead>
+                            <thead><tr><th>Campaign</th><th>Account</th><th>Status</th><th>Placement</th><th>Spend</th><th>Net revenue</th><th>Net ROAS</th><th>Tags</th></tr></thead>
                             <tbody data-ad-view-library><tr><td colspan="8" class="admin-empty">Sync Shopee Ads to populate the library.</td></tr></tbody>
                         </table>
                     </div>

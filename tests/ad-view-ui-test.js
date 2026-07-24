@@ -16,7 +16,7 @@ assert(liveAdsIndex > workspaceIndex && chartIndex > liveAdsIndex, 'The selected
 assert(kpiIndex > chartIndex && chartSurfaceIndex > kpiIndex, 'The seven KPI controls must sit inside and on top of the chart.');
 assert(detailIndex > chartSurfaceIndex, 'Profitability must follow the Live Ads and chart workspace.');
 
-for (const metric of ['impressions', 'clicks', 'broad_orders', 'broad_items', 'expense', 'broad_gmv', 'broad_roas']) {
+for (const metric of ['impressions', 'clicks', 'broad_orders', 'broad_items', 'expense', 'net_revenue', 'net_roas']) {
   assert(html.includes(`data-ad-view-summary-metric="${metric}"`), `Missing selectable ${metric} KPI card.`);
 }
 assert(!html.includes('Find a live ad'), 'The obsolete live-ad search must stay removed.');
@@ -34,7 +34,9 @@ assert(!js.includes('const syncStartDate = background ? today : state.adView.sta
 assert(js.includes('scheduleAdViewAutoSync();'), 'Loading Ad View must schedule a background Shopee sync.');
 assert(js.includes("result.cac = result.broad_items > 0 ? result.expense / result.broad_items : 0"), 'CAC must use attributed units sold.');
 assert(js.includes('Ad cost ÷ attributed units sold'), 'The CAC card must explain its unit-based calculation.');
-assert(js.includes("broad_gmv: 'Attributed sales'"), 'Shopee broad GMV must be labeled as attributed sales, not revenue.');
-assert(html.includes('It is not accounting revenue or gross profit'), 'Ad View must explain that attributed sales are not accounting revenue.');
+assert(js.includes("net_revenue: 'Net revenue received'"), 'Ad View must use seller-received net revenue.');
+assert(js.includes('result.net_roas = result.net_revenue_available'), 'Ad View ROAS must use seller-received net revenue.');
+assert(!html.includes('data-ad-view-summary-metric="broad_gmv"'), 'Shopee sale value must not be a headline Ad View metric.');
+assert(html.includes('Shopee-attributed sales × the actual seller net-to-gross ratio'), 'Ad View must explain its order-backed net revenue estimate.');
 
 console.log('Ad View UI tests passed.');
