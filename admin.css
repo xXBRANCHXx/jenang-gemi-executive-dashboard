@@ -28378,7 +28378,7 @@ button.admin-accounting-metric {
 }
 
 .admin-arrangement-status-strip .admin-arrangement-status-guide {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
   margin-top: 8px;
 }
@@ -28428,6 +28428,10 @@ button.admin-accounting-metric {
   color: #60a5fa;
 }
 
+.admin-arrangement-status-guide .is-confirmed {
+  color: #34d399;
+}
+
 .admin-arrangement-status-guide .is-upcoming {
   color: #fbbf24;
 }
@@ -28441,6 +28445,63 @@ button.admin-accounting-metric {
   border: 1px solid var(--admin-border);
   border-radius: 12px;
   background: color-mix(in srgb, var(--admin-surface) 90%, transparent);
+}
+
+.admin-arrangement-rescheduler {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, .8fr);
+  align-items: end;
+  gap: 24px;
+  margin: 0 0 14px;
+  padding: 16px 18px;
+  border: 1px solid color-mix(in srgb, #60a5fa 35%, var(--admin-border));
+  border-radius: 10px;
+  background: color-mix(in srgb, #60a5fa 6%, var(--admin-bg));
+}
+
+.admin-arrangement-rescheduler[hidden] {
+  display: none;
+}
+
+.admin-arrangement-rescheduler h3 {
+  margin: 4px 0;
+  font-size: .9rem;
+}
+
+.admin-arrangement-rescheduler p,
+.admin-arrangement-rescheduler small {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: .62rem;
+  line-height: 1.5;
+}
+
+.admin-arrangement-rescheduler p strong {
+  color: var(--admin-text);
+}
+
+.admin-arrangement-rescheduler form,
+.admin-arrangement-rescheduler form label {
+  display: grid;
+  gap: 7px;
+}
+
+.admin-arrangement-rescheduler form label > span {
+  color: var(--admin-muted);
+  font-size: .56rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.admin-arrangement-rescheduler form select {
+  width: 100%;
+}
+
+.admin-arrangement-rescheduler form > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .admin-arrangement-deadline-scroll {
@@ -28525,6 +28586,52 @@ button.admin-accounting-metric {
   pointer-events: none;
 }
 
+.admin-arrangement-pickup-markers {
+  position: absolute;
+  z-index: 4;
+  inset: 0 12px;
+  pointer-events: none;
+}
+
+.admin-arrangement-pickup-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--pickup-position);
+  width: 1px;
+  padding: 0;
+  border: 0;
+  border-left: 2px dotted #34d399;
+  border-radius: 0;
+  color: #34d399;
+  background: transparent;
+  cursor: help;
+  pointer-events: auto;
+}
+
+.admin-arrangement-pickup-marker span,
+.admin-arrangement-pickup-marker strong {
+  position: absolute;
+  left: 5px;
+  display: block;
+  width: max-content;
+  max-width: 110px;
+  color: #34d399;
+  font-size: .48rem;
+  line-height: 1.2;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.admin-arrangement-pickup-marker span {
+  top: 5px;
+}
+
+.admin-arrangement-pickup-marker strong {
+  top: 17px;
+  font-weight: 850;
+}
+
 .admin-arrangement-deadline-events {
   position: relative;
   z-index: 2;
@@ -28534,6 +28641,7 @@ button.admin-accounting-metric {
   grid-auto-rows: 84px;
   gap: 5px 3px;
   min-height: 278px;
+  padding-top: 32px;
 }
 
 .admin-arrangement-deadline-event {
@@ -28628,6 +28736,39 @@ button.admin-accounting-metric {
   font-style: normal;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.admin-arrangement-deadline-event footer button {
+  margin: 1px 0 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  border-radius: 0;
+  color: #60a5fa;
+  background: transparent;
+  font: inherit;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  .admin-arrangement-rescheduler {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-arrangement-status-strip .admin-arrangement-status-guide {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .admin-arrangement-rescheduler {
+    padding: 14px;
+  }
+
+  .admin-arrangement-status-strip .admin-arrangement-status-guide {
+    grid-template-columns: 1fr;
+  }
 }
 
 .admin-arrangement-agenda-end {

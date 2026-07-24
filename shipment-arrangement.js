@@ -15,12 +15,14 @@ document.addEventListener('DOMContentLoaded', () => {
     tab: 'schedule',
     advancedPlatform: 'shopee',
     workingPolicy: null,
+    reschedule: null,
     loading: false
   };
   const refs = {
     live: root.querySelector('[data-arrangement-live]'),
     refresh: root.querySelector('[data-arrangement-refresh]'),
     map: root.querySelector('[data-arrangement-map]'),
+    rescheduler: root.querySelector('[data-arrangement-rescheduler]'),
     windowLabel: root.querySelector('[data-arrangement-window-label]'),
     unlock: root.querySelector('[data-arrangement-unlock]'),
     unlockForm: root.querySelector('[data-arrangement-unlock-form]'),
@@ -122,6 +124,23 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
+  const pickupConfirmationGroups = () => {
+    const orders = Array.isArray(state.data?.orders) ? state.data.orders : [];
+    const start = windowStart();
+    const groups = new Map();
+    orders.forEach((order) => {
+      if (!pickupConfirmed(order)) return;
+      const confirmedAt = parseUtc(order.pickup_confirmed_at || order.picked_up_at);
+      if (!confirmedAt || confirmedAt < start || confirmedAt > state.windowNow) return;
+      const bucket = Math.floor(confirmedAt.getTime() / (5 * 60 * 1000));
+      if (!groups.has(bucket)) groups.set(bucket, { confirmedAt, orders: [] });
+      const group = groups.get(bucket);
+      if (confirmedAt < group.confirmedAt) group.confirmedAt = confirmedAt;
+      group.orders.push(order);
+    });
+    return Array.from(groups.values()).sort((left, right) => left.confirmedAt - right.confirmedAt);
+  };
+
   const orderTimelineStatus = (deadline) => {
     if (deadline < state.windowNow) return ['Past ship-by deadline', 'is-overdue'];
     if (deadline.getTime() - state.windowNow.getTime() <= 4 * HOUR) return ['Ship by soon', 'is-due-soon'];
@@ -145,11 +164,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const orders = selectedOrders().sort((left, right) =>
       orderDeadline(left).getTime() - orderDeadline(right).getTime()
     );
+    const pickupGroups = pickupConfirmationGroups();
     if (refs.windowLabel) {
       refs.windowLabel.textContent = `${formatDate(start, { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} – ${formatDate(end, { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`;
     }
 
-    if (!orders.length) {
+    if (!orders.length && !pickupGroups.length) {
       refs.map.innerHTML = '<div class="admin-arrangement-agenda-empty"><strong>No unpicked orders in this window</strong><p>Picked-up orders disappear. No remaining orders have a ship-by deadline between 8 hours ago and 24 hours from now.</p></div>';
       return;
     }
@@ -172,6 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const [status, statusClass] = orderTimelineStatus(deadline);
       const platform = String(order.platform || '').toLowerCase();
       const platformLabel = platform === 'shopee' ? 'Shopee' : platform === 'tiktok' ? 'TikTok Shop' : platform || 'Marketplace';
+      const canReschedule = platform === 'shopee' && String(order.handover_method || '').toUpperCase() === 'PICKUP';
       return `
         <article class="admin-arrangement-deadline-event is-${escapeHtml(platform)} ${escapeHtml(statusClass)}" style="--event-column:${column}">
           <header>
@@ -183,8 +204,27 @@ document.addEventListener('DOMContentLoaded', () => {
           <footer>
             <span>${escapeHtml(status)}</span>
             <em>${escapeHtml(pickupWindowLabel(order))}</em>
+            ${canReschedule ? `<button type="button" data-change-pickup
+              data-platform="${escapeHtml(platform)}"
+              data-account-key="${escapeHtml(order.account_key || '')}"
+              data-order-id="${escapeHtml(order.order_id || '')}"
+              data-package-id="${escapeHtml(order.package_id || '')}">Change pickup</button>` : ''}
           </footer>
         </article>`;
+    }).join('');
+    const pickupMarkers = pickupGroups.map((group) => {
+      const elapsed = group.confirmedAt.getTime() - start.getTime();
+      const position = Math.max(0, Math.min(100, (elapsed / (WINDOW_HOURS * HOUR)) * 100));
+      const orderIds = group.orders.map((order) => String(order.order_id || '')).filter(Boolean);
+      const count = orderIds.length;
+      const time = formatDate(group.confirmedAt, { hour: '2-digit', minute: '2-digit' });
+      return `
+        <span class="admin-arrangement-pickup-marker" style="--pickup-position:${position}%" tabindex="0"
+          title="Shopee pickup confirmed at ${escapeHtml(time)}: ${escapeHtml(orderIds.join(', '))}"
+          aria-label="Shopee pickup confirmed at ${escapeHtml(time)} for ${count} order${count === 1 ? '' : 's'}">
+          <span>${escapeHtml(time)}</span>
+          <strong>${count} picked up</strong>
+        </span>`;
     }).join('');
 
     refs.map.innerHTML = `
@@ -194,11 +234,80 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="admin-arrangement-deadline-plot">
             <div class="admin-arrangement-deadline-grid" aria-hidden="true">${gridLines}</div>
             <div class="admin-arrangement-now-line" aria-label="Current time: ${escapeHtml(formatDate(state.windowNow, { hour: '2-digit', minute: '2-digit' }))}"></div>
+            <div class="admin-arrangement-pickup-markers">${pickupMarkers}</div>
             <div class="admin-arrangement-deadline-events">${events}</div>
           </div>
         </div>
       </div>
-      <p class="admin-arrangement-agenda-end">${orders.length} unpicked order${orders.length === 1 ? '' : 's'} shown at the final ship-by deadline. A booked pickup window is shown inside each card. Shopee-confirmed pickups disappear.</p>`;
+      <p class="admin-arrangement-agenda-end">${orders.length} unpicked order${orders.length === 1 ? '' : 's'} shown at the final ship-by deadline. Dotted green lines are API-observed Shopee pickup confirmations; those orders no longer appear as cards.</p>`;
+  };
+
+  const renderRescheduler = () => {
+    if (!refs.rescheduler) return;
+    const reschedule = state.reschedule;
+    refs.rescheduler.hidden = !reschedule;
+    if (!reschedule) {
+      refs.rescheduler.innerHTML = '';
+      return;
+    }
+    const order = reschedule.order || {};
+    if (reschedule.loading) {
+      refs.rescheduler.innerHTML = `<div><span class="admin-panel-kicker">Change one booked pickup</span><h3>${escapeHtml(order.order_id)}</h3><p>Asking Shopee for replacement windows…</p></div>`;
+      return;
+    }
+    if (reschedule.error) {
+      refs.rescheduler.innerHTML = `
+        <div><span class="admin-panel-kicker">Change one booked pickup</span><h3>${escapeHtml(order.order_id)}</h3><p class="admin-form-error">${escapeHtml(reschedule.error)}</p></div>
+        <button type="button" class="admin-arrangement-secondary-button" data-close-rescheduler>Close</button>`;
+      return;
+    }
+    const payload = reschedule.payload || {};
+    const options = Array.isArray(payload.options) ? payload.options : [];
+    refs.rescheduler.innerHTML = `
+      <div class="admin-arrangement-rescheduler-copy">
+        <span class="admin-panel-kicker">Change one booked pickup</span>
+        <h3>${escapeHtml(order.order_id)}</h3>
+        <p>Current: <strong>${escapeHtml(payload.current?.label || pickupWindowLabel(order))}</strong></p>
+        <small>These replacement windows come directly from Shopee. This changes only this order; weekly rules apply to future arrangements.</small>
+      </div>
+      <form data-reschedule-form>
+        <label><span>New Shopee pickup window</span>
+          <select name="pickup-option" required>
+            ${options.map((option, index) => `<option value="${index}">${escapeHtml(option.label || 'Shopee pickup window')}</option>`).join('')}
+          </select>
+        </label>
+        <div>
+          <button type="button" class="admin-arrangement-secondary-button" data-close-rescheduler>Cancel</button>
+          <button type="submit" class="admin-primary-btn">Update pickup</button>
+        </div>
+      </form>`;
+  };
+
+  const openRescheduler = async (order) => {
+    if (!state.data?.access?.branch) {
+      state.reschedule = {
+        order,
+        error: 'Unlock Pickup rules with Branch-tier credentials first, then return to Schedule.'
+      };
+      renderRescheduler();
+      return;
+    }
+    state.reschedule = { order, loading: true };
+    renderRescheduler();
+    const query = new URLSearchParams({
+      action: 'pickup-options',
+      platform: order.platform || '',
+      account_key: order.account_key || '',
+      order_id: order.order_id || '',
+      package_id: order.package_id || ''
+    });
+    try {
+      const payload = await requestJson(`${endpoint}?${query.toString()}`);
+      state.reschedule = { order, payload };
+    } catch (error) {
+      state.reschedule = { order, error: error.message };
+    }
+    renderRescheduler();
   };
 
   const renderStatus = () => {
@@ -391,6 +500,62 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   refs.refresh?.addEventListener('click', load);
+  refs.map?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-change-pickup]');
+    if (!button) return;
+    openRescheduler({
+      platform: button.dataset.platform || '',
+      account_key: button.dataset.accountKey || '',
+      order_id: button.dataset.orderId || '',
+      package_id: button.dataset.packageId || '',
+      ...((state.data?.orders || []).find((order) =>
+        String(order.platform || '') === String(button.dataset.platform || '')
+        && String(order.account_key || '') === String(button.dataset.accountKey || '')
+        && String(order.order_id || '') === String(button.dataset.orderId || '')
+        && String(order.package_id || '') === String(button.dataset.packageId || '')
+      ) || {})
+    });
+  });
+  refs.rescheduler?.addEventListener('click', (event) => {
+    if (!event.target.closest('[data-close-rescheduler]')) return;
+    state.reschedule = null;
+    renderRescheduler();
+  });
+  refs.rescheduler?.addEventListener('submit', async (event) => {
+    const form = event.target.closest('[data-reschedule-form]');
+    if (!form) return;
+    event.preventDefault();
+    const payload = state.reschedule?.payload;
+    const order = state.reschedule?.order;
+    const selected = payload?.options?.[Number(new FormData(form).get('pickup-option'))];
+    if (!selected || !order) return;
+    const submit = form.querySelector('[type="submit"]');
+    submit?.setAttribute('disabled', '');
+    try {
+      const result = await requestJson(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'pickup-reschedule',
+          platform: order.platform,
+          account_key: order.account_key,
+          order_id: order.order_id,
+          package_id: order.package_id,
+          address_id: selected.address_id,
+          pickup_time_id: selected.pickup_time_id
+        })
+      });
+      state.data = { ...state.data, orders: Array.isArray(result.orders) ? result.orders : state.data.orders };
+      state.reschedule = null;
+      renderRescheduler();
+      renderAll();
+    } catch (error) {
+      state.reschedule = { ...state.reschedule, error: error.message };
+      renderRescheduler();
+    } finally {
+      submit?.removeAttribute('disabled');
+    }
+  });
   root.querySelectorAll('[data-arrangement-tab]').forEach((button) => button.addEventListener('click', () => {
     setTab(button.dataset.arrangementTab);
   }));

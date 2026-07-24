@@ -31,7 +31,7 @@ if ($isAuthenticated) {
     }
 }
 $isAdView = $isAuthenticated && in_array($requestedView ?? '', ['ad-view', 'ads', 'ad_view', 'shopee-ads'], true);
-$dashboardBuildVersion = 'exec3.87.0';
+$dashboardBuildVersion = 'exec3.88.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -810,6 +810,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                                             <span>Its position is the final ship-by deadline—not the courier visit.</span>
                                         </div>
                                     </header>
+                                    <section class="admin-arrangement-rescheduler" data-arrangement-rescheduler hidden></section>
                                     <div class="admin-arrangement-agenda" data-arrangement-map>
                                         <p class="admin-empty">Loading ship-by deadlines.</p>
                                     </div>
@@ -820,6 +821,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                                         <h3>How to read this</h3>
                                         <dl class="admin-arrangement-status-guide">
                                             <div><dt class="is-booked">Pickup booked</dt><dd>The courier window currently returned by Shopee. It appears inside the card.</dd></div>
+                                            <div><dt class="is-confirmed">Courier pickup</dt><dd>A dotted green line marks when our API observed Shopee confirm one or more pickups.</dd></div>
                                             <div><dt class="is-upcoming">Ship by</dt><dd>The final handover deadline. It controls the card’s horizontal position.</dd></div>
                                             <div><dt class="is-overdue">Past due</dt><dd>The ship-by deadline passed and Shopee has not confirmed pickup.</dd></div>
                                         </dl>

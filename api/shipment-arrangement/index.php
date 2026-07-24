@@ -57,6 +57,25 @@ try {
     ];
 
     if ($method === 'GET') {
+        $action = trim((string) ($_GET['action'] ?? ''));
+        if ($action === 'pickup-options') {
+            if (!jg_sku_is_branch()) {
+                jg_shipment_arrangement_json([
+                    'ok' => false,
+                    'error' => 'Branch-tier credentials are required to change a booked pickup.',
+                    'access' => $access,
+                ], 403);
+            }
+            $query = http_build_query([
+                'platform' => (string) ($_GET['platform'] ?? ''),
+                'account_key' => (string) ($_GET['account_key'] ?? ''),
+                'order_id' => (string) ($_GET['order_id'] ?? ''),
+                'package_id' => (string) ($_GET['package_id'] ?? ''),
+            ], '', '&', PHP_QUERY_RFC3986);
+            $result = jg_shipment_arrangement_request('GET', '/fulfillment/pickup-options?' . $query);
+            $result['access'] = $access;
+            jg_shipment_arrangement_json($result);
+        }
         $limit = max(25, min(500, (int) ($_GET['limit'] ?? 300)));
         $result = jg_shipment_arrangement_request('GET', '/fulfillment/arrangement-map?limit=' . $limit);
         $result['access'] = $access;
@@ -73,6 +92,19 @@ try {
         }
         $body = json_decode((string) file_get_contents('php://input'), true);
         $body = is_array($body) ? $body : [];
+        if ((string) ($body['action'] ?? '') === 'pickup-reschedule') {
+            $result = jg_shipment_arrangement_request('POST', '/fulfillment/pickup-reschedule', [
+                'platform' => (string) ($body['platform'] ?? ''),
+                'account_key' => (string) ($body['account_key'] ?? ''),
+                'order_id' => (string) ($body['order_id'] ?? ''),
+                'package_id' => (string) ($body['package_id'] ?? ''),
+                'address_id' => (string) ($body['address_id'] ?? ''),
+                'pickup_time_id' => (string) ($body['pickup_time_id'] ?? ''),
+                'updated_by' => 'Branch tier: ' . jg_sku_session_username(),
+            ]);
+            $result['access'] = $access;
+            jg_shipment_arrangement_json($result);
+        }
         $result = jg_shipment_arrangement_request('POST', '/fulfillment/arrangement-policy', [
             'policy' => is_array($body['policy'] ?? null) ? $body['policy'] : [],
             'expected_revision' => (int) ($body['expected_revision'] ?? 0),

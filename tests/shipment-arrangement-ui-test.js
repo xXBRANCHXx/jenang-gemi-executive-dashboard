@@ -41,6 +41,10 @@ assert(
     && script.includes('pickupConfirmed(order)')
     && script.includes('return !pickupConfirmed(order) && deadline')
     && script.includes('order.pickup_confirmed')
+    && script.includes('pickupConfirmationGroups')
+    && script.includes('admin-arrangement-pickup-marker')
+    && script.includes('data-change-pickup')
+    && script.includes("'pickup-reschedule'")
     && script.includes('order.marketplace_status')
     && script.includes("'SHIPPED'")
     && !script.includes('shipment_arranged || order.pickup_start_at')
@@ -52,6 +56,8 @@ assert(
 assert(
   dashboard.includes('Branch-tier credentials')
     && endpoint.includes('jg_sku_is_branch()')
+    && endpoint.includes('/fulfillment/pickup-options')
+    && endpoint.includes('/fulfillment/pickup-reschedule')
     && endpoint.includes("'updated_by' => 'Branch tier: '"),
   'Only a Branch-tier session may save live worker rules.'
 );
@@ -64,6 +70,9 @@ assert(
 assert(
   styles.includes('.admin-arrangement-deadline-chart')
     && styles.includes('.admin-arrangement-now-line')
+    && styles.includes('.admin-arrangement-pickup-marker')
+    && styles.includes('border-left: 2px dotted #34d399')
+    && styles.includes('.admin-arrangement-rescheduler')
     && styles.includes('.admin-arrangement-deadline-event')
     && styles.includes('grid-column: var(--event-column) / span 3')
     && styles.includes('.admin-arrangement-status-guide .is-booked')
