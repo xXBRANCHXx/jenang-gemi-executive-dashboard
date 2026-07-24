@@ -14,6 +14,17 @@ const JG_WEBSITE_PLATFORMS = [
 
 const JG_WEBSITE_ORDER_MANUAL_ERA = 'MANUAL_ERA';
 const JG_WEBSITE_ORDER_STORE_OPS_ELIGIBLE = 'STORE_OPS_ELIGIBLE';
+const JG_HARD_SET_ZERO_SCOPE_CUTOVER = '2026-07-24 05:15:24.846138';
+const JG_HARD_SET_ZERO_SCOPE_BEFORE = [
+    'shopee:jenang-gemi-shopee',
+    'tiktok:jenang-gemi-tiktok',
+];
+const JG_HARD_SET_ZERO_SCOPE_AFTER = [
+    'shopee:jenang-gemi-shopee',
+    'shopee:zero-shopee',
+    'tiktok:jenang-gemi-tiktok',
+    'tiktok:zero-tiktok',
+];
 
 function jg_website_config(string $envKey, string $configKey, string $default = ''): string
 {
@@ -100,6 +111,32 @@ function jg_website_order_is_store_ops_eligible(array $order, array $hardSet): b
         true,
         (string) $hardSet['activated_at']
     ) === JG_WEBSITE_ORDER_STORE_OPS_ELIGIBLE;
+}
+
+/**
+ * Expand only the user-authorized production cutover. The cutover timestamp
+ * is deliberately preserved so historical ZERO orders remain manual-era.
+ *
+ * @return array<int,string>
+ */
+function jg_hard_set_zero_scope_expansion(mixed $activatedAt, mixed $currentSources): array
+{
+    $currentSources = jg_hard_set_remote_marketplace_sources([
+        'sources' => is_array($currentSources) ? $currentSources : [],
+    ]);
+    if ($currentSources !== JG_HARD_SET_ZERO_SCOPE_BEFORE) {
+        return $currentSources;
+    }
+    try {
+        $timestamp = (new DateTimeImmutable(trim((string) $activatedAt), new DateTimeZone('UTC')))
+            ->setTimezone(new DateTimeZone('UTC'))
+            ->format('Y-m-d H:i:s.u');
+    } catch (Throwable) {
+        return $currentSources;
+    }
+    return $timestamp === JG_HARD_SET_ZERO_SCOPE_CUTOVER
+        ? JG_HARD_SET_ZERO_SCOPE_AFTER
+        : $currentSources;
 }
 
 function jg_website_ensure_schema(PDO $pdo): void
@@ -251,6 +288,42 @@ function jg_website_ensure_schema(PDO $pdo): void
          ON DUPLICATE KEY UPDATE id = id'
     );
     $stmt->execute([':created_at' => $now, ':updated_at' => $now]);
+
+    $row = $pdo->query(
+        'SELECT enabled, activated_at, automatic_sources_json FROM hard_set_state WHERE id = 1'
+    )->fetch();
+    if ((bool) (int) ($row['enabled'] ?? 0)) {
+        $storedSources = json_decode((string) ($row['automatic_sources_json'] ?? ''), true);
+        $storedSources = jg_hard_set_remote_marketplace_sources([
+            'sources' => is_array($storedSources) ? $storedSources : [],
+        ]);
+        $expandedSources = jg_hard_set_zero_scope_expansion($row['activated_at'] ?? '', $storedSources);
+        if ($expandedSources !== $storedSources) {
+            $encoded = json_encode($expandedSources, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            if (!is_string($encoded)) {
+                throw new RuntimeException('Unable to encode the authorized ZERO automatic source expansion.');
+            }
+            $pdo->prepare(
+                'UPDATE hard_set_state
+                 SET automatic_sources_json = :automatic_sources_json, updated_at = :updated_at
+                 WHERE id = 1 AND enabled = 1'
+            )->execute([
+                ':automatic_sources_json' => $encoded,
+                ':updated_at' => $now,
+            ]);
+            $pdo->prepare(
+                'INSERT INTO hard_set_audit (event_type, actor, payload_json, created_at)
+                 VALUES ("SOURCES_EXPANDED", "ZERO automatic source authorization", :payload_json, :created_at)'
+            )->execute([
+                ':payload_json' => json_encode([
+                    'event' => 'hard_set_sources_expanded',
+                    'activated_at' => jg_website_atom((string) $row['activated_at']),
+                    'automatic_sources' => $expandedSources,
+                ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+                ':created_at' => $now,
+            ]);
+        }
+    }
 }
 
 function jg_hard_set_state(PDO $pdo, bool $forUpdate = false, bool $ensureSchema = true): array

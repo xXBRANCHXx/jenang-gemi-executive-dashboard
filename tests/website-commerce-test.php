@@ -34,6 +34,38 @@ commerce_expect(true, jg_website_order_is_store_ops_eligible([
 ], $hardSet), 'A consistent post-cutover order must be eligible.');
 commerce_expect(true, jg_hard_set_activation_requires_readiness(['enabled' => false]), 'The first Executive activation must require readiness.');
 commerce_expect(false, jg_hard_set_activation_requires_readiness(['enabled' => true]), 'An idempotent Executive activation retry must not reopen the readiness gate.');
+commerce_expect(
+    JG_HARD_SET_ZERO_SCOPE_AFTER,
+    jg_hard_set_zero_scope_expansion(
+        '2026-07-24T05:15:24.846138Z',
+        JG_HARD_SET_ZERO_SCOPE_BEFORE
+    ),
+    'The exact live cutover must add both ZERO platforms to the Executive automatic scope.'
+);
+commerce_expect(
+    JG_HARD_SET_ZERO_SCOPE_BEFORE,
+    jg_hard_set_zero_scope_expansion(
+        '2026-07-24T05:15:24.846139Z',
+        JG_HARD_SET_ZERO_SCOPE_BEFORE
+    ),
+    'A different cutover timestamp must not widen the Executive automatic scope.'
+);
+commerce_expect(
+    [
+        'shopee:jenang-gemi-shopee',
+        'tiktok:jenang-gemi-tiktok',
+        'tiktok:zfit-tiktok',
+    ],
+    jg_hard_set_zero_scope_expansion(
+        '2026-07-24T05:15:24.846138Z',
+        [
+            'shopee:jenang-gemi-shopee',
+            'tiktok:jenang-gemi-tiktok',
+            'tiktok:zfit-tiktok',
+        ]
+    ),
+    'The ZERO expansion must never admit or modify ZFIT.'
+);
 $activationPayload = jg_website_activation_payload(
     ['enabled' => true, 'activated_at_iso' => '2026-06-23T01:02:03.500000Z', 'activated_by' => 'test'],
     ['tiktok:jenang-gemi-tiktok', 'shopee:jenang-gemi-shopee']
