@@ -31,7 +31,7 @@ if ($isAuthenticated) {
     }
 }
 $isAdView = $isAuthenticated && in_array($requestedView ?? '', ['ad-view', 'ads', 'ad_view', 'shopee-ads'], true);
-$dashboardBuildVersion = 'exec3.81.0';
+$dashboardBuildVersion = 'exec3.82.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -775,111 +775,129 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                         <section class="admin-arrangement-hero">
                             <div>
                                 <span class="admin-panel-kicker">Orders · Ops</span>
-                                <h2>Shipment Arrangement</h2>
-                                <p>Choose which pickup day the marketplace should use when an order is arranged.</p>
+                                <h2>Shipment arrangement</h2>
+                                <p>Choose when orders arranged on each day should be picked up.</p>
                             </div>
                             <div class="admin-arrangement-hero-actions">
                                 <span class="admin-arrangement-live" data-arrangement-live><i></i> Connecting</span>
-                                <button type="button" class="admin-icon-action" data-arrangement-refresh aria-label="Refresh shipment arrangement" title="Refresh">↻</button>
-                                <button type="button" class="admin-primary-btn" data-arrangement-edit>Edit pickup rules</button>
+                                <button type="button" class="admin-arrangement-text-button" data-arrangement-refresh>Refresh</button>
                             </div>
                         </section>
 
-                        <section class="admin-arrangement-statusline" aria-label="Shipment arrangement status">
-                            <span><strong data-arrangement-metric="awaiting">0</strong> waiting</span>
-                            <span><strong data-arrangement-metric="pickups">0</strong> pickups this week</span>
-                            <span class="is-exception"><strong data-arrangement-metric="exceptions">0</strong> need attention</span>
-                        </section>
+                        <nav class="admin-arrangement-tabs" aria-label="Shipment arrangement sections">
+                            <button type="button" class="is-active" data-arrangement-tab="schedule" aria-selected="true">Schedule</button>
+                            <button type="button" data-arrangement-tab="rules" aria-selected="false">Pickup rules</button>
+                        </nav>
 
-                        <section class="admin-panel admin-arrangement-rules-panel">
-                            <div class="admin-arrangement-section-head">
-                                <div>
-                                    <span class="admin-panel-kicker">Live pickup rule</span>
-                                    <h3>Arranged on → pickup on</h3>
-                                    <p>The worker chooses the earliest marketplace time on your selected pickup day.</p>
-                                </div>
-                                <div class="admin-arrangement-segment" role="group" aria-label="Platform filter">
-                                    <button type="button" class="is-active" data-arrangement-platform="all">All</button>
-                                    <button type="button" data-arrangement-platform="shopee">Shopee</button>
-                                    <button type="button" data-arrangement-platform="tiktok">TikTok Shop</button>
-                                </div>
-                            </div>
-                            <div class="admin-arrangement-rule-summary" data-arrangement-rule-summary>
-                                <p class="admin-empty">Loading pickup rules.</p>
-                            </div>
-                            <div class="admin-arrangement-guardrail">
-                                <span>Instant</span>
-                                <strong>Manual arrangement only</strong>
-                                <small>When manually arranged, it uses the pickup-day rule for that day.</small>
-                            </div>
-                        </section>
-
-                        <section class="admin-panel admin-arrangement-map-panel">
-                            <div class="admin-arrangement-toolbar">
-                                <div>
-                                    <span class="admin-panel-kicker">Actual marketplace schedule</span>
-                                    <h3>This week</h3>
-                                </div>
-                                <div class="admin-arrangement-week-nav">
-                                    <button type="button" class="admin-ghost-btn" data-arrangement-week="-1" aria-label="Previous week">←</button>
-                                    <button type="button" class="admin-ghost-btn" data-arrangement-today>Today</button>
-                                    <strong data-arrangement-week-label>Loading week</strong>
-                                    <button type="button" class="admin-ghost-btn" data-arrangement-week="1" aria-label="Next week">→</button>
-                                </div>
-                            </div>
-                            <div class="admin-arrangement-legend">
-                                <span><i class="is-shopee"></i> Shopee pickup</span>
-                                <span><i class="is-tiktok"></i> TikTok pickup</span>
-                                <span><i class="is-deadline"></i> Ship-by</span>
-                            </div>
-                            <div class="admin-arrangement-map" data-arrangement-map>
-                                <p class="admin-empty">Loading pickup schedule.</p>
-                            </div>
-                        </section>
-
-                        <details class="admin-panel admin-arrangement-order-panel">
-                            <summary><span>Order details</span><small data-arrangement-order-meta>Loading orders</small></summary>
-                            <div class="admin-arrangement-order-list" data-arrangement-orders></div>
-                        </details>
-
-                        <div class="admin-modal-shell admin-arrangement-editor" data-arrangement-editor hidden>
-                            <div class="admin-modal-backdrop" data-arrangement-editor-close></div>
-                            <aside class="admin-modal-card admin-arrangement-editor-card" role="dialog" aria-modal="true" aria-labelledby="arrangement-editor-title">
-                                <div class="admin-modal-head">
-                                    <div>
-                                        <span class="admin-panel-kicker">Branch control</span>
-                                        <h3 id="arrangement-editor-title">Pickup day rules</h3>
+                        <section data-arrangement-page="schedule">
+                            <div class="admin-arrangement-workspace">
+                                <main class="admin-arrangement-primary">
+                                    <header class="admin-arrangement-schedule-head">
+                                        <div>
+                                            <span class="admin-panel-kicker">Upcoming pickups</span>
+                                            <div class="admin-arrangement-week-title">
+                                                <h3>This week</h3>
+                                                <strong data-arrangement-week-label>Loading week</strong>
+                                            </div>
+                                            <p class="admin-arrangement-summary" aria-label="Shipment arrangement status">
+                                                <span><strong data-arrangement-metric="awaiting">0</strong> waiting</span>
+                                                <span><strong data-arrangement-metric="pickups">0</strong> pickups</span>
+                                                <span class="is-exception"><strong data-arrangement-metric="exceptions">0</strong> need attention</span>
+                                            </p>
+                                        </div>
+                                        <div class="admin-arrangement-week-nav">
+                                            <button type="button" data-arrangement-week="-1">Previous</button>
+                                            <button type="button" data-arrangement-today>Today</button>
+                                            <button type="button" data-arrangement-week="1">Next</button>
+                                        </div>
+                                    </header>
+                                    <div class="admin-arrangement-agenda" data-arrangement-map>
+                                        <p class="admin-empty">Loading pickup schedule.</p>
                                     </div>
-                                    <button type="button" class="admin-icon-action" data-arrangement-editor-close aria-label="Close">×</button>
-                                </div>
-                                <div data-arrangement-unlock>
-                                    <p>Branch-tier credentials are required because these rules directly control the Hostinger arrangement worker.</p>
-                                    <form class="admin-arrangement-unlock-form" data-arrangement-unlock-form>
-                                        <label><span>Username</span><input name="username" autocomplete="username" required></label>
-                                        <label><span>Password</span><input name="password" type="password" autocomplete="current-password" required></label>
-                                        <button type="submit" class="admin-primary-btn">Unlock editor</button>
-                                    </form>
-                                </div>
-                                <form data-arrangement-policy-form hidden>
-                                    <div class="admin-arrangement-safety">
-                                        <strong>Orders arranged on → pickup on</strong>
-                                        <p>If the selected day is unavailable, the worker stops safely. It will not substitute a different day.</p>
-                                    </div>
-                                    <div data-arrangement-rule-grid></div>
-                                    <details class="admin-arrangement-advanced">
-                                        <summary>Advanced arrangement settings</summary>
-                                        <p>Automatic arrangement hours and carrier handover exceptions.</p>
-                                        <div data-arrangement-advanced-grid></div>
+                                    <details class="admin-arrangement-order-panel" data-arrangement-order-panel>
+                                        <summary><span>Order details</span><small data-arrangement-order-meta>Loading orders</small></summary>
+                                        <div class="admin-arrangement-order-list" data-arrangement-orders></div>
                                     </details>
-                                    <p class="admin-form-error" data-arrangement-error hidden></p>
-                                    <div class="admin-modal-actions">
-                                        <span class="admin-panel-meta" data-arrangement-policy-meta></span>
-                                        <button type="button" class="admin-ghost-btn" data-arrangement-editor-close>Cancel</button>
-                                        <button type="submit" class="admin-primary-btn" data-arrangement-save>Save pickup rules</button>
+                                </main>
+
+                                <aside class="admin-arrangement-guide">
+                                    <section>
+                                        <h3>What the statuses mean</h3>
+                                        <dl class="admin-arrangement-status-guide">
+                                            <div><dt class="is-scheduled">Scheduled</dt><dd>The marketplace confirmed a pickup time.</dd></div>
+                                            <div><dt class="is-waiting">Waiting</dt><dd>Orders are ready, but no pickup time is available yet.</dd></div>
+                                            <div><dt class="is-attention">Needs attention</dt><dd>The rule could not be applied.</dd></div>
+                                        </dl>
+                                    </section>
+                                    <section class="admin-arrangement-attention">
+                                        <h3>Needs attention</h3>
+                                        <p data-arrangement-attention-copy>Checking orders.</p>
+                                        <button type="button" class="admin-arrangement-secondary-button" data-arrangement-review>Review orders</button>
+                                    </section>
+                                </aside>
+                            </div>
+                        </section>
+
+                        <section data-arrangement-page="rules" hidden>
+                            <div class="admin-arrangement-workspace">
+                                <main class="admin-arrangement-primary admin-arrangement-rules">
+                                    <div class="admin-arrangement-rules-head">
+                                        <div>
+                                            <span class="admin-panel-kicker">Weekly rules</span>
+                                            <h3>Order day → pickup day</h3>
+                                            <p>Set the pickup day used for each marketplace.</p>
+                                        </div>
+                                        <button type="button" class="admin-arrangement-text-button" data-arrangement-apply-monday hidden>Apply Monday to all days</button>
                                     </div>
-                                </form>
-                            </aside>
-                        </div>
+
+                                    <div class="admin-arrangement-access" data-arrangement-unlock>
+                                        <h3>Unlock pickup rules</h3>
+                                        <p>Branch-tier credentials are required because these rules directly control the Hostinger arrangement worker.</p>
+                                        <form class="admin-arrangement-unlock-form" data-arrangement-unlock-form>
+                                            <label><span>Username</span><input name="username" autocomplete="username" required></label>
+                                            <label><span>Password</span><input name="password" type="password" autocomplete="current-password" required></label>
+                                            <button type="submit" class="admin-primary-btn">Unlock editor</button>
+                                        </form>
+                                    </div>
+
+                                    <form data-arrangement-policy-form hidden>
+                                        <div data-arrangement-rule-grid></div>
+                                        <details class="admin-arrangement-advanced">
+                                            <summary>
+                                                <span>Advanced settings</span>
+                                                <small>Arrangement hours and handover exceptions</small>
+                                            </summary>
+                                            <div data-arrangement-advanced-grid></div>
+                                        </details>
+                                        <p class="admin-form-error" data-arrangement-error hidden></p>
+                                        <div class="admin-arrangement-savebar">
+                                            <span class="admin-panel-meta" data-arrangement-policy-meta></span>
+                                            <div>
+                                                <button type="button" class="admin-arrangement-secondary-button" data-arrangement-cancel>Cancel</button>
+                                                <button type="submit" class="admin-primary-btn" data-arrangement-save>Save changes</button>
+                                            </div>
+                                        </div>
+                                    </form>
+                                </main>
+
+                                <aside class="admin-arrangement-guide">
+                                    <section>
+                                        <h3>How this works</h3>
+                                        <ol>
+                                            <li>An order is arranged.</li>
+                                            <li>We use the rule for that day.</li>
+                                            <li>The earliest available marketplace pickup is selected.</li>
+                                        </ol>
+                                    </section>
+                                    <section class="admin-arrangement-example">
+                                        <span>Example</span>
+                                        <strong>Arranged Friday → pickup Monday</strong>
+                                    </section>
+                                    <p>If the selected day is unavailable, the order waits. We never switch to another day automatically.</p>
+                                    <p class="admin-arrangement-instant-note"><strong>Instant orders are manual only.</strong> When arranged manually, they use the rule for that day.</p>
+                                </aside>
+                            </div>
+                        </section>
                     </section>
 
 	                    <section class="admin-view admin-store-ops-layout" data-view-panel="store-ops" data-store-ops-dashboard data-store-ops-endpoint="../api/store-ops/">

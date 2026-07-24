@@ -12,20 +12,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const state = {
     data: null,
     weekStart: startOfWeek(new Date()),
-    platform: 'all',
+    tab: 'schedule',
+    orderFilter: null,
     workingPolicy: null,
     loading: false
   };
   const refs = {
     live: root.querySelector('[data-arrangement-live]'),
     refresh: root.querySelector('[data-arrangement-refresh]'),
-    edit: root.querySelector('[data-arrangement-edit]'),
-    ruleSummary: root.querySelector('[data-arrangement-rule-summary]'),
     map: root.querySelector('[data-arrangement-map]'),
     orders: root.querySelector('[data-arrangement-orders]'),
     orderMeta: root.querySelector('[data-arrangement-order-meta]'),
+    orderPanel: root.querySelector('[data-arrangement-order-panel]'),
     weekLabel: root.querySelector('[data-arrangement-week-label]'),
-    editor: root.querySelector('[data-arrangement-editor]'),
     unlock: root.querySelector('[data-arrangement-unlock]'),
     unlockForm: root.querySelector('[data-arrangement-unlock-form]'),
     policyForm: root.querySelector('[data-arrangement-policy-form]'),
@@ -33,7 +32,10 @@ document.addEventListener('DOMContentLoaded', () => {
     advancedGrid: root.querySelector('[data-arrangement-advanced-grid]'),
     policyMeta: root.querySelector('[data-arrangement-policy-meta]'),
     error: root.querySelector('[data-arrangement-error]'),
-    save: root.querySelector('[data-arrangement-save]')
+    save: root.querySelector('[data-arrangement-save]'),
+    applyMonday: root.querySelector('[data-arrangement-apply-monday]'),
+    attentionCopy: root.querySelector('[data-arrangement-attention-copy]'),
+    review: root.querySelector('[data-arrangement-review]')
   };
 
   function jakartaParts(value, includeTime = false) {
@@ -63,10 +65,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const addDays = (date, days) => new Date(new Date(date).getTime() + (days * 86400000));
   const weekEnd = () => addDays(state.weekStart, 7);
   const dateKey = (date) => jakartaParts(date).date;
-  const todayDayNumber = () => {
-    const key = dateKey(new Date());
-    return (new Date(`${key}T12:00:00Z`).getUTCDay() || 7);
-  };
 
   const escapeHtml = (value) => String(value ?? '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -84,104 +82,106 @@ document.addEventListener('DOMContentLoaded', () => {
     ...options
   }).format(date);
 
-  const platformPolicy = (platform) => state.data?.policy?.policy?.platforms?.[platform]?.regular || {};
   const pickupRule = (platform, dayNumber, policy = state.data?.policy?.policy) =>
     String(policy?.platforms?.[platform]?.regular?.pickup_days?.[String(dayNumber)] || 'EARLIEST_WEEKDAY');
 
-  const pickupRuleLabel = (rule, compact = false) => {
-    if (rule === 'EARLIEST_WEEKDAY') return compact ? 'Next weekday' : 'Earliest available weekday';
+  const pickupRuleLabel = (rule) => {
+    if (rule === 'EARLIEST_WEEKDAY') return 'Next available weekday';
     const index = Math.max(1, Math.min(7, Number(rule))) - 1;
-    return compact ? DAYS[index].slice(0, 3) : DAYS[index];
+    return DAYS[index];
   };
 
   const selectedOrders = () => {
     const orders = Array.isArray(state.data?.orders) ? state.data.orders : [];
     return orders.filter((order) => {
-      if (state.platform !== 'all' && String(order.platform).toLowerCase() !== state.platform) return false;
       const dates = [parseUtc(order.pickup_start_at), parseUtc(order.ship_by_at), parseUtc(order.updated_at)].filter(Boolean);
       return dates.some((date) => date >= state.weekStart && date < weekEnd());
     });
   };
 
-  const renderRuleSummary = () => {
-    if (!refs.ruleSummary || !state.data) return;
-    const activePlatforms = state.platform === 'all' ? ['shopee', 'tiktok'] : [state.platform];
-    const today = todayDayNumber();
-    refs.ruleSummary.innerHTML = DAYS.map((day, index) => {
-      const dayNumber = index + 1;
-      const routes = activePlatforms.map((platform) => {
-        const rule = pickupRule(platform, dayNumber);
-        return `
-          <div class="admin-arrangement-rule-route is-${platform}">
-            <span>${platform === 'shopee' ? 'Shopee' : 'TikTok'}</span>
-            <strong>${escapeHtml(pickupRuleLabel(rule, true))}</strong>
-          </div>`;
-      }).join('');
-      return `
-        <article class="admin-arrangement-rule-card ${dayNumber === today ? 'is-today' : ''}">
-          <div class="admin-arrangement-rule-day">
-            <span>Arrange</span>
-            <strong>${day.slice(0, 3)}</strong>
-            ${dayNumber === today ? '<small>Today</small>' : ''}
-          </div>
-          <span class="admin-arrangement-rule-arrow" aria-hidden="true">→</span>
-          <div class="admin-arrangement-rule-routes">${routes}</div>
-        </article>`;
-    }).join('');
+  const orderGroupKey = (order) => {
+    const pickup = parseUtc(order.pickup_start_at);
+    const displayDate = pickup || parseUtc(order.ship_by_at) || parseUtc(order.updated_at) || state.weekStart;
+    const [status] = statusLabel(order);
+    const platform = String(order.platform || '').toLowerCase();
+    const time = pickup ? formatDate(pickup, { hour: '2-digit', minute: '2-digit' }) : '—';
+    return [dateKey(displayDate), platform, time, status].join('|');
   };
 
   const renderSchedule = () => {
     if (!refs.map || !state.data) return;
-    const orders = selectedOrders();
+    const orders = selectedOrders().sort((left, right) => {
+      const a = parseUtc(left.pickup_start_at)?.getTime() || parseUtc(left.ship_by_at)?.getTime() || parseUtc(left.updated_at)?.getTime() || 0;
+      const b = parseUtc(right.pickup_start_at)?.getTime() || parseUtc(right.ship_by_at)?.getTime() || parseUtc(right.updated_at)?.getTime() || 0;
+      return a - b;
+    });
     if (refs.weekLabel) {
       refs.weekLabel.textContent = `${formatDate(state.weekStart, { day: 'numeric', month: 'short' })} – ${formatDate(addDays(state.weekStart, 6), { day: 'numeric', month: 'short', year: 'numeric' })}`;
     }
-    refs.map.innerHTML = DAYS.map((day, index) => {
-      const date = addDays(state.weekStart, index);
-      const key = dateKey(date);
-      const pickups = orders.filter((order) => dateKey(parseUtc(order.pickup_start_at) || 0) === key);
-      const pickupIds = new Set(pickups.map((order) => `${order.platform}:${order.account_key}:${order.order_id}`));
-      const deadlines = orders.filter((order) => {
-        const deadline = parseUtc(order.ship_by_at);
-        const identity = `${order.platform}:${order.account_key}:${order.order_id}`;
-        return deadline && dateKey(deadline) === key && !pickupIds.has(identity);
-      });
-      const cards = pickups.map((order) => {
-        const pickup = parseUtc(order.pickup_start_at);
-        const deadline = parseUtc(order.ship_by_at);
-        return `
-          <article class="admin-arrangement-pickup-card is-${escapeHtml(order.platform)}">
-            <div><span>${order.platform === 'shopee' ? 'Shopee' : 'TikTok'}</span><strong>${pickup ? escapeHtml(formatDate(pickup, { hour: '2-digit', minute: '2-digit' })) : ''}</strong></div>
-            <b>${escapeHtml(order.order_id)}</b>
-            <small>${escapeHtml(order.account_key || '')}</small>
-            ${deadline ? `<em>Ship by ${escapeHtml(formatDate(deadline, { weekday: 'short', hour: '2-digit', minute: '2-digit' }))}</em>` : ''}
-          </article>`;
-      }).join('');
-      const deadlineCards = deadlines.map((order) => {
-        const deadline = parseUtc(order.ship_by_at);
-        return `<div class="admin-arrangement-deadline-card"><i></i><span>Ship by ${deadline ? escapeHtml(formatDate(deadline, { hour: '2-digit', minute: '2-digit' })) : ''}</span><strong>${escapeHtml(order.order_id)}</strong></div>`;
-      }).join('');
+
+    const groups = new Map();
+    orders.forEach((order) => {
+      const pickup = parseUtc(order.pickup_start_at);
+      const fallbackDate = parseUtc(order.ship_by_at) || parseUtc(order.updated_at) || state.weekStart;
+      const displayDate = pickup || fallbackDate;
+      const [status, statusClass] = statusLabel(order);
+      const platform = String(order.platform || '').toLowerCase();
+      const time = pickup ? formatDate(pickup, { hour: '2-digit', minute: '2-digit' }) : '—';
+      const key = orderGroupKey(order);
+      if (!groups.has(key)) {
+        groups.set(key, { key, date: displayDate, platform, time, status, statusClass, orders: [] });
+      }
+      groups.get(key).orders.push(order);
+    });
+
+    if (!groups.size) {
+      refs.map.innerHTML = '<div class="admin-arrangement-agenda-empty"><strong>No pickups this week</strong><p>There are no scheduled or waiting marketplace orders in this date range.</p></div>';
+      return;
+    }
+
+    const rows = [...groups.values()].map((group) => {
+      const count = group.orders.length;
+      const platformLabel = group.platform === 'shopee' ? 'Shopee' : group.platform === 'tiktok' ? 'TikTok Shop' : group.platform || 'Marketplace';
       return `
-        <section class="admin-arrangement-schedule-day ${key === dateKey(new Date()) ? 'is-today' : ''}">
-          <header><strong>${day.slice(0, 3)}</strong><span>${formatDate(date, { day: '2-digit', month: 'short' })}</span></header>
-          <div>${cards || deadlineCards ? cards + deadlineCards : '<p>No pickups</p>'}</div>
-        </section>`;
+        <tr>
+          <td><strong>${escapeHtml(formatDate(group.date, { weekday: 'short', day: '2-digit', month: 'short' }))}</strong></td>
+          <td><span class="admin-arrangement-marketplace is-${escapeHtml(group.platform)}">${escapeHtml(platformLabel)}</span></td>
+          <td>${escapeHtml(group.time)}</td>
+          <td>
+            <strong>${count} order${count === 1 ? '' : 's'}</strong>
+            <button type="button" data-arrangement-order-group="${escapeHtml(group.key)}">View orders</button>
+          </td>
+          <td><span class="admin-arrangement-row-status ${escapeHtml(group.statusClass)}">${escapeHtml(group.status)}</span></td>
+        </tr>`;
     }).join('');
+
+    refs.map.innerHTML = `
+      <div class="admin-arrangement-agenda-scroll">
+        <table>
+          <thead><tr><th>Date</th><th>Marketplace</th><th>Pickup time</th><th>Orders</th><th>Status</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <p class="admin-arrangement-agenda-end">No other pickups this week.</p>`;
   };
 
   const statusLabel = (order) => {
-    if (order.exception_status || order.last_error) return ['Needs attention', 'is-danger'];
-    if (order.order_type === 'instant' && !order.shipment_arranged) return ['Manual', 'is-warning'];
-    if (order.shipment_arranged) return [order.handover_method || 'Arranged', 'is-success'];
-    return ['Waiting', ''];
+    if (order.exception_status || order.last_error) return ['Needs attention', 'is-attention'];
+    if (order.shipment_arranged || order.pickup_start_at) return ['Scheduled', 'is-scheduled'];
+    return ['Waiting', 'is-waiting'];
   };
 
   const renderOrders = () => {
-    const orders = selectedOrders().sort((left, right) => {
+    let orders = selectedOrders().sort((left, right) => {
       const a = parseUtc(left.pickup_start_at)?.getTime() || parseUtc(left.ship_by_at)?.getTime() || 0;
       const b = parseUtc(right.pickup_start_at)?.getTime() || parseUtc(right.ship_by_at)?.getTime() || 0;
       return a - b;
     });
+    if (state.orderFilter === 'attention') {
+      orders = orders.filter((order) => order.exception_status || order.last_error);
+    } else if (state.orderFilter) {
+      orders = orders.filter((order) => orderGroupKey(order) === state.orderFilter);
+    }
     if (refs.orderMeta) refs.orderMeta.textContent = `${orders.length} order${orders.length === 1 ? '' : 's'}`;
     if (!refs.orders) return;
     refs.orders.innerHTML = orders.length ? orders.map((order) => {
@@ -202,6 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const renderStatus = () => {
     const orders = Array.isArray(state.data?.orders) ? state.data.orders : [];
     const visible = selectedOrders();
+    const exceptions = orders.filter((order) => order.exception_status || order.last_error);
     const paused = Boolean(state.data?.hard_set?.automation_paused);
     const enabled = Boolean(state.data?.hard_set?.enabled);
     root.querySelector('[data-arrangement-metric="awaiting"]').textContent =
@@ -209,7 +210,13 @@ document.addEventListener('DOMContentLoaded', () => {
     root.querySelector('[data-arrangement-metric="pickups"]').textContent =
       String(visible.filter((order) => parseUtc(order.pickup_start_at)).length);
     root.querySelector('[data-arrangement-metric="exceptions"]').textContent =
-      String(orders.filter((order) => order.exception_status || order.last_error).length);
+      String(exceptions.length);
+    if (refs.attentionCopy) {
+      refs.attentionCopy.textContent = exceptions.length
+        ? `${exceptions.length} order${exceptions.length === 1 ? '' : 's'} could not be assigned to the selected pickup day.`
+        : 'No orders need attention right now.';
+    }
+    if (refs.review) refs.review.hidden = exceptions.length === 0;
     if (refs.live) {
       refs.live.classList.toggle('is-paused', paused || !enabled);
       refs.live.innerHTML = `<i></i>${paused ? ' Paused' : !enabled ? ' Not active' : ' Live · 2 min'}`;
@@ -218,7 +225,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const renderAll = () => {
     renderStatus();
-    renderRuleSummary();
     renderSchedule();
     renderOrders();
   };
@@ -242,6 +248,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       state.data = await requestJson(`${endpoint}?limit=500`);
       renderAll();
+      if (state.tab === 'rules') showEditorAccess();
     } catch (error) {
       if (refs.live) refs.live.innerHTML = '<i></i> Unavailable';
       if (refs.map) refs.map.innerHTML = `<p class="admin-empty">${escapeHtml(error.message)}</p>`;
@@ -252,7 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const dayOptions = (selected) => [
-    ['EARLIEST_WEEKDAY', 'Earliest weekday'],
+    ['EARLIEST_WEEKDAY', 'Next available weekday'],
     ...DAYS.map((day, index) => [String(index + 1), day])
   ].map(([value, label]) => `<option value="${value}" ${String(selected) === value ? 'selected' : ''}>${label}</option>`).join('');
 
@@ -264,7 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!state.workingPolicy || !refs.ruleGrid) return;
     refs.ruleGrid.className = 'admin-arrangement-pickup-editor';
     refs.ruleGrid.innerHTML = `
-      <div class="admin-arrangement-editor-head"><span>Arrange day</span><span>Shopee pickup</span><span>TikTok pickup</span></div>
+      <div class="admin-arrangement-editor-head"><span>Order arranged</span><span>Shopee pickup</span><span>TikTok pickup</span></div>
       ${DAYS.map((day, index) => {
         const key = String(index + 1);
         return `
@@ -333,6 +340,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const branch = Boolean(state.data?.access?.branch);
     if (refs.unlock) refs.unlock.hidden = branch;
     if (refs.policyForm) refs.policyForm.hidden = !branch;
+    if (refs.applyMonday) refs.applyMonday.hidden = !branch;
     if (!branch) return;
     state.workingPolicy = structuredClone(state.data?.policy?.policy || {});
     renderEditor();
@@ -341,27 +349,65 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const setTab = (tab) => {
+    state.tab = tab === 'rules' ? 'rules' : 'schedule';
+    root.querySelectorAll('[data-arrangement-tab]').forEach((button) => {
+      const active = button.dataset.arrangementTab === state.tab;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    root.querySelectorAll('[data-arrangement-page]').forEach((page) => {
+      page.hidden = page.dataset.arrangementPage !== state.tab;
+    });
+    if (state.tab === 'rules') showEditorAccess();
+  };
+
   refs.refresh?.addEventListener('click', load);
-  root.querySelectorAll('[data-arrangement-platform]').forEach((button) => button.addEventListener('click', () => {
-    state.platform = button.dataset.arrangementPlatform || 'all';
-    root.querySelectorAll('[data-arrangement-platform]').forEach((item) => item.classList.toggle('is-active', item === button));
-    renderAll();
+  root.querySelectorAll('[data-arrangement-tab]').forEach((button) => button.addEventListener('click', () => {
+    setTab(button.dataset.arrangementTab);
   }));
   root.querySelectorAll('[data-arrangement-week]').forEach((button) => button.addEventListener('click', () => {
     state.weekStart = addDays(state.weekStart, Number(button.dataset.arrangementWeek || 0) * 7);
+    state.orderFilter = null;
     renderAll();
   }));
   root.querySelector('[data-arrangement-today]')?.addEventListener('click', () => {
     state.weekStart = startOfWeek(new Date());
+    state.orderFilter = null;
     renderAll();
   });
-  refs.edit?.addEventListener('click', () => {
-    if (refs.editor) refs.editor.hidden = false;
-    showEditorAccess();
+  refs.applyMonday?.addEventListener('click', () => {
+    const monday = refs.ruleGrid?.querySelector('[data-pickup-rule-day="1"]');
+    if (!monday) return;
+    ['shopee', 'tiktok'].forEach((platform) => {
+      const value = monday.querySelector(`[name="${platform}-pickup-1"]`)?.value;
+      refs.ruleGrid.querySelectorAll(`[name^="${platform}-pickup-"]`).forEach((select) => {
+        select.value = value;
+      });
+    });
   });
-  root.querySelectorAll('[data-arrangement-editor-close]').forEach((button) => button.addEventListener('click', () => {
-    if (refs.editor) refs.editor.hidden = true;
-  }));
+  root.querySelector('[data-arrangement-cancel]')?.addEventListener('click', () => {
+    state.workingPolicy = null;
+    setTab('schedule');
+  });
+  refs.review?.addEventListener('click', () => {
+    state.orderFilter = 'attention';
+    renderOrders();
+    if (refs.orderPanel) {
+      refs.orderPanel.open = true;
+      refs.orderPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
+  refs.map?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-arrangement-order-group]');
+    if (!button) return;
+    state.orderFilter = button.dataset.arrangementOrderGroup || null;
+    renderOrders();
+    if (refs.orderPanel) {
+      refs.orderPanel.open = true;
+      refs.orderPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
   refs.unlockForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
     const form = new FormData(refs.unlockForm);
@@ -372,7 +418,6 @@ document.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify({ username: form.get('username'), password: form.get('password') })
       });
       await load();
-      showEditorAccess();
     } catch (error) {
       const existing = refs.unlock.querySelector('.admin-form-error');
       if (existing) existing.remove();
@@ -394,7 +439,8 @@ document.addEventListener('DOMContentLoaded', () => {
         })
       });
       renderAll();
-      if (refs.editor) refs.editor.hidden = true;
+      state.workingPolicy = null;
+      setTab('schedule');
     } catch (error) {
       if (refs.error) {
         refs.error.textContent = error.message;

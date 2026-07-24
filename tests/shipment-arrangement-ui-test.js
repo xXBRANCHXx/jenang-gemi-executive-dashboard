@@ -9,6 +9,10 @@ const script = fs.readFileSync(path.join(root, 'shipment-arrangement.js'), 'utf8
 const styles = fs.readFileSync(path.join(root, 'admin.css'), 'utf8');
 const endpoint = fs.readFileSync(path.join(root, 'api', 'shipment-arrangement', 'index.php'), 'utf8');
 const shipmentStyles = styles.slice(styles.indexOf('/* Shipment arrangement */'));
+const shipmentMarkup = dashboard.slice(
+  dashboard.indexOf('<section class="admin-view admin-shipment-arrangement"'),
+  dashboard.indexOf('<section class="admin-view admin-store-ops-layout"')
+);
 
 assert(
   dashboard.includes('data-view-switch="shipment-arrangement"')
@@ -21,16 +25,17 @@ assert(
   'The dashboard router must activate and refresh Shipment Arrangement.'
 );
 assert(
-  dashboard.includes('Arranged on → pickup on')
-    && script.includes('admin-arrangement-rule-card')
-    && script.includes('admin-arrangement-pickup-card')
-    && script.includes('admin-arrangement-deadline-card'),
-  'The primary view must show arranged-day to pickup-day rules and the actual marketplace schedule.'
+  dashboard.includes('data-arrangement-tab="schedule"')
+    && dashboard.includes('data-arrangement-tab="rules"')
+    && script.includes('admin-arrangement-agenda-scroll')
+    && script.includes('data-arrangement-order-group'),
+  'Schedule and Pickup rules must be separate, readable full-page workflows.'
 );
 assert(
-  script.includes("state.platform = button.dataset.arrangementPlatform")
-    && script.includes('state.weekStart = addDays'),
-  'The visual planner must support platform and week navigation.'
+  script.includes('setTab(button.dataset.arrangementTab)')
+    && script.includes('state.weekStart = addDays')
+    && dashboard.includes('Apply Monday to all days'),
+  'The planner must support tab, week, and bulk rule navigation.'
 );
 assert(
   dashboard.includes('Branch-tier credentials')
@@ -39,17 +44,28 @@ assert(
   'Only a Branch-tier session may save live worker rules.'
 );
 assert(
-  dashboard.includes('If the selected day is unavailable, the worker stops safely')
-    && dashboard.includes('Manual arrangement only')
+  dashboard.includes('If the selected day is unavailable, the order waits')
+    && dashboard.includes('Instant orders are manual only')
     && script.includes('pickup_days[key]'),
   'The editor must expose the pickup-day mapping and explain its fail-closed behavior.'
 );
 assert(
-  styles.includes('.admin-arrangement-rule-summary')
-    && styles.includes('.admin-arrangement-schedule-day')
+  styles.includes('.admin-arrangement-agenda')
     && styles.includes('.admin-arrangement-pickup-editor')
+    && styles.includes('.admin-arrangement-workspace')
     && styles.includes('@media (max-width: 680px)'),
-  'The minimal rule planner, weekly schedule, and editor must have responsive visual styling.'
+  'The agenda, rules table, and explanation panel must have responsive visual styling.'
+);
+assert(
+  styles.includes('.admin-shipment-arrangement {\n  --arrangement-shopee: #ff8a3d;\n  --arrangement-tiktok: #42d7c5;\n  display: none;')
+    && styles.includes('.admin-shipment-arrangement.is-active {\n  display: grid;'),
+  'Shipment Arrangement must remain hidden unless its Orders · Ops route is active.'
+);
+assert(
+  !shipmentMarkup.includes('admin-modal-shell')
+    && !shipmentMarkup.includes('admin-icon-action')
+    && shipmentMarkup.includes('data-arrangement-refresh>Refresh</button>'),
+  'Shipment Arrangement must not use a scrolling modal or icon-only pill controls.'
 );
 assert(
   !shipmentStyles.includes('gradient('),
