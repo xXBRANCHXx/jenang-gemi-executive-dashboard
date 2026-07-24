@@ -7315,6 +7315,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	      const poNumbers = Array.isArray(row.allocations) && row.allocations.length
 	        ? [...new Set(row.allocations.map((item) => item.po_number).filter(Boolean))].join(', ')
 	        : '-';
+	      const grossRevenue = Number(row.gross_revenue);
+	      const displayedGrossRevenue = Number.isFinite(grossRevenue) && grossRevenue > 0
+	        ? grossRevenue
+	        : Number(row.revenue || 0);
 	      const fundsReleased = row.funds_released === true || row.funds_released === 1 || String(row.funds_released || '').toLowerCase() === 'true';
 	      const releasedAmount = Number(row.funds_released_amount || row.order_net_revenue || row.revenue || 0);
 	      const releasedTitle = fundsReleased
@@ -7328,7 +7332,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td class="admin-order-product" title="${escapeHtml(productLabel)}"><strong>${escapeHtml(productLabel)}</strong></td>
           <td>${formatCompactNumber(row.quantity || 0)}</td>
           <td title="${escapeHtml(allocation)}">${escapeHtml(poNumbers)}</td>
-	          <td>${formatCellCurrency(row.revenue || 0)}</td>
+	          <td title="Customer-paid gross revenue allocated to this order line">${formatCellCurrency(displayedGrossRevenue)}</td>
 	          <td title="Static average COGS from SKU DB">${formatCellCurrency(row.cogs || 0)}</td>
 	          <td class="admin-order-wallet-cell"><span class="admin-order-wallet-symbol${fundsReleased ? ' is-released' : ' is-pending'}" title="${escapeHtml(releasedTitle)}" aria-label="${escapeHtml(releasedTitle)}">${fundsReleased ? 'Rp' : '-'}</span></td>
 	          <td>${contactButton(row.username, 'username')}</td>
@@ -9009,7 +9013,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	  let orderMemoryPreloadPromise = null;
 	  const preloadOrderMemory = async (options = {}) => {
-	    if (state.activeView !== 'orders' && !canStartBackgroundPageWork()) {
+	    if (state.activeView === 'orders' || !canStartBackgroundPageWork()) {
 	      return {
 	        rows: state.orders.rows.length,
 	        loadedAll: state.orders.loadedAll,
@@ -9038,7 +9042,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       let windowsLoaded = 0;
       while (
-        !document.hidden &&
+        state.activeView !== 'orders' &&
+        canStartBackgroundPageWork() &&
         !state.orders.loadedAll &&
         state.orders.rows.length < ORDER_BACKGROUND_TARGET_ROWS &&
         windowsLoaded < ORDER_BACKGROUND_MAX_WINDOWS
@@ -10527,7 +10532,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      .then(async () => {
 	        if (state.orders.loadPromise) await state.orders.loadPromise;
 	        state.orders.loadedAt = Date.now();
-	        preloadOrderMemory().catch(showOrderLoadError);
+	        writeOrdersClientCache();
 	      })
       .catch(showOrderLoadError);
   };
@@ -10947,7 +10952,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	        () => loadNotifications(),
 	        ...(DASHBOARD_FORCE_FRESH_LOAD ? [] : [
 	          () => (
-	            state.activeView !== 'daily'
+	            state.activeView !== 'daily' && state.activeView !== 'orders'
 	              ? preloadOrderMemory()
 	              : Promise.resolve(true)
 	          )

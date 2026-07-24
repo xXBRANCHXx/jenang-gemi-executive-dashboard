@@ -230,6 +230,7 @@ expect_same(false, $legacyGift['is_free_gift'], 'A gift-like stored name must no
 expect_same(1, $legacyGift['quantity'], 'Name-only rows must remain sales unless the marketplace marks them complimentary.');
 expect_same(1, $legacyGift['cogs_quantity'], 'Name-only rows must retain their physical quantity.');
 expect_same(500, $legacyGift['revenue'], 'Name-only rows must retain their item revenue.');
+expect_same(600, $legacyGift['gross_revenue'], 'Mirror reads must expose customer-paid gross revenue per item row.');
 expect_same(1200, $legacyGift['order_net_revenue'], 'Name interpretation must not alter confirmed order revenue.');
 expect_same(1200, $legacyGift['funds_released_amount'], 'Name interpretation must not alter released wallet funds.');
 expect_same(false, str_contains(jg_orders_free_gift_sql('dashboard_order_mirror'), 'product_name'), 'Daily summaries must not classify gifts by product name.');
