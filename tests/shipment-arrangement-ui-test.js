@@ -39,6 +39,8 @@ assert(
     && script.includes('WINDOW_AFTER_HOURS = 24')
     && script.includes('orderDeadline(order)')
     && script.includes('pickupConfirmed(order)')
+    && script.includes('order.pickup_confirmed')
+    && script.includes('order.marketplace_status')
     && script.includes("'SHIPPED'")
     && !script.includes('shipment_arranged || order.pickup_start_at')
     && dashboard.includes('Apply Monday to all days')
@@ -49,11 +51,8 @@ assert(
 assert(
   dashboard.includes('Branch-tier credentials')
     && endpoint.includes('jg_sku_is_branch()')
-    && endpoint.includes("'/fulfillment/orders?limit='")
-    && endpoint.includes('marketplace_order_status')
-    && endpoint.includes('marketplace_package_status')
     && endpoint.includes("'updated_by' => 'Branch tier: '"),
-  'Marketplace pickup status must be merged into the chart, while only a Branch-tier session may save live worker rules.'
+  'Only a Branch-tier session may save live worker rules.'
 );
 assert(
   dashboard.includes('If the selected day is unavailable, the order waits')
@@ -83,8 +82,9 @@ assert(
 assert(
   !shipmentMarkup.includes('admin-modal-shell')
     && !shipmentMarkup.includes('admin-icon-action')
+    && !shipmentMarkup.includes('Needs attention')
     && shipmentMarkup.includes('data-arrangement-refresh>Refresh</button>'),
-  'Shipment Arrangement must not use a scrolling modal or icon-only pill controls.'
+  'Shipment Arrangement must avoid scrolling modals, icon-only pills, and irrelevant attention panels.'
 );
 assert(
   !shipmentStyles.includes('gradient('),

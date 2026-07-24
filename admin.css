@@ -28370,7 +28370,7 @@ button.admin-accounting-metric {
 
 .admin-arrangement-workspace.is-schedule .admin-arrangement-status-strip {
   order: -1;
-  grid-template-columns: minmax(0, 2fr) minmax(250px, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 28px;
   padding: 14px 4px;
   border-bottom: 1px solid var(--admin-border);

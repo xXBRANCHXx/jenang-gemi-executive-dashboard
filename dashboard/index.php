@@ -31,7 +31,7 @@ if ($isAuthenticated) {
     }
 }
 $isAdView = $isAuthenticated && in_array($requestedView ?? '', ['ad-view', 'ads', 'ad_view', 'shopee-ads'], true);
-$dashboardBuildVersion = 'exec3.85.0';
+$dashboardBuildVersion = 'exec3.86.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -819,15 +819,10 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                                     <section>
                                         <h3>Timeline key</h3>
                                         <dl class="admin-arrangement-status-guide">
-                                            <div><dt class="is-confirmed">Picked up</dt><dd>Green only after the marketplace confirms pickup.</dd></div>
+                                            <div><dt class="is-confirmed">Picked up</dt><dd>Green only after Shopee’s API reports the courier pickup.</dd></div>
                                             <div><dt class="is-upcoming">Upcoming</dt><dd>The card sits at the order's pickup-by deadline.</dd></div>
                                             <div><dt class="is-overdue">Past due</dt><dd>The deadline passed without pickup confirmation.</dd></div>
                                         </dl>
-                                    </section>
-                                    <section class="admin-arrangement-attention">
-                                        <h3>Needs attention</h3>
-                                        <p data-arrangement-attention-copy>Checking orders.</p>
-                                        <small>“Shipment arranged” does not count as picked up.</small>
                                     </section>
                                 </aside>
                             </div>

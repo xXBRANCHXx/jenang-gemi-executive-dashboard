@@ -30,8 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
     policyMeta: root.querySelector('[data-arrangement-policy-meta]'),
     error: root.querySelector('[data-arrangement-error]'),
     save: root.querySelector('[data-arrangement-save]'),
-    applyMonday: root.querySelector('[data-arrangement-apply-monday]'),
-    attentionCopy: root.querySelector('[data-arrangement-attention-copy]')
+    applyMonday: root.querySelector('[data-arrangement-apply-monday]')
   };
 
   function jakartaParts(value, includeTime = false) {
@@ -102,6 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
     order.marketplace_package_status
       || order.package_status
       || order.marketplace_order_status
+      || order.marketplace_status
       || order.order_status
       || order.status
   );
@@ -114,6 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
       normalizedStatus(order.marketplace_package_status),
       normalizedStatus(order.package_status),
       normalizedStatus(order.marketplace_order_status),
+      normalizedStatus(order.marketplace_status),
       normalizedStatus(order.order_status),
       normalizedStatus(order.status)
     ].filter(Boolean);
@@ -135,7 +136,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (pickupConfirmed(order)) return ['Picked up', 'is-confirmed'];
     if (deadline < state.windowNow) return ['Past pickup deadline', 'is-overdue'];
     if (deadline.getTime() - state.windowNow.getTime() <= 4 * HOUR) return ['Due soon', 'is-due-soon'];
-    if (order.exception_status || order.last_error) return ['Needs attention', 'is-attention'];
     return ['Upcoming', 'is-upcoming'];
   };
 
@@ -206,26 +206,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const renderStatus = () => {
     const orders = Array.isArray(state.data?.orders) ? state.data.orders : [];
     const visible = selectedOrders();
-    const exceptions = orders.filter((order) => order.exception_status || order.last_error);
     const overdue = visible.filter((order) => !pickupConfirmed(order) && orderDeadline(order) < state.windowNow);
     const upcoming = visible.filter((order) => {
       const deadline = orderDeadline(order);
       return !pickupConfirmed(order) && deadline >= state.windowNow;
     });
     const confirmed = visible.filter(pickupConfirmed);
-    const paused = Boolean(state.data?.hard_set?.automation_paused);
     const enabled = Boolean(state.data?.hard_set?.enabled);
     root.querySelector('[data-arrangement-metric="overdue"]').textContent = String(overdue.length);
     root.querySelector('[data-arrangement-metric="due"]').textContent = String(upcoming.length);
     root.querySelector('[data-arrangement-metric="confirmed"]').textContent = String(confirmed.length);
-    if (refs.attentionCopy) {
-      refs.attentionCopy.textContent = exceptions.length
-        ? `${exceptions.length} order${exceptions.length === 1 ? '' : 's'} could not be assigned to the selected pickup day.`
-        : 'No orders need attention right now.';
-    }
     if (refs.live) {
-      refs.live.classList.toggle('is-paused', paused || !enabled);
-      refs.live.innerHTML = `<i></i>${paused ? ' Paused' : !enabled ? ' Not active' : ' Live · 2 min'}`;
+      refs.live.classList.toggle('is-paused', !enabled);
+      refs.live.innerHTML = `<i></i>${!enabled ? ' Not active' : ' Shopee API · 2 min'}`;
     }
   };
 
