@@ -84,10 +84,9 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const orderDeadline = (order) => [
-    order.pickup_by_at,
+    order.ship_by_at,
     order.collection_due_at,
     order.pickup_cutoff_at,
-    order.ship_by_at,
     order.deadline_at
   ].map(parseUtc).find(Boolean) || null;
 
@@ -96,15 +95,6 @@ document.addEventListener('DOMContentLoaded', () => {
     .toUpperCase()
     .replace(/[^A-Z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '');
-
-  const marketplaceStatus = (order) => normalizedStatus(
-    order.marketplace_package_status
-      || order.package_status
-      || order.marketplace_order_status
-      || order.marketplace_status
-      || order.order_status
-      || order.status
-  );
 
   const pickupConfirmed = (order) => {
     if (order.pickup_confirmed === true || order.pickup_confirmed === 1 || order.pickup_confirmed === '1') return true;
@@ -128,15 +118,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const orders = Array.isArray(state.data?.orders) ? state.data.orders : [];
     return orders.filter((order) => {
       const deadline = orderDeadline(order);
-      return deadline && deadline >= windowStart() && deadline <= windowEnd();
+      return !pickupConfirmed(order) && deadline && deadline >= windowStart() && deadline <= windowEnd();
     });
   };
 
-  const orderTimelineStatus = (order, deadline) => {
-    if (pickupConfirmed(order)) return ['Picked up', 'is-confirmed'];
-    if (deadline < state.windowNow) return ['Past pickup deadline', 'is-overdue'];
-    if (deadline.getTime() - state.windowNow.getTime() <= 4 * HOUR) return ['Due soon', 'is-due-soon'];
-    return ['Upcoming', 'is-upcoming'];
+  const orderTimelineStatus = (deadline) => {
+    if (deadline < state.windowNow) return ['Past ship-by deadline', 'is-overdue'];
+    if (deadline.getTime() - state.windowNow.getTime() <= 4 * HOUR) return ['Ship by soon', 'is-due-soon'];
+    return ['Before ship-by', 'is-upcoming'];
+  };
+
+  const pickupWindowLabel = (order) => {
+    const start = parseUtc(order.pickup_start_at);
+    const end = parseUtc(order.pickup_end_at);
+    if (!start) return 'No pickup window returned';
+    const day = formatDate(start, { weekday: 'short' });
+    const startTime = formatDate(start, { hour: '2-digit', minute: '2-digit' });
+    const endTime = end ? `–${formatDate(end, { hour: '2-digit', minute: '2-digit' })}` : '';
+    return `Pickup booked ${day} ${startTime}${endTime}`;
   };
 
   const renderSchedule = () => {
@@ -151,7 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (!orders.length) {
-      refs.map.innerHTML = '<div class="admin-arrangement-agenda-empty"><strong>No pickup deadlines in this window</strong><p>No orders are due between 8 hours ago and 24 hours from now.</p></div>';
+      refs.map.innerHTML = '<div class="admin-arrangement-agenda-empty"><strong>No unpicked orders in this window</strong><p>Picked-up orders disappear. No remaining orders have a ship-by deadline between 8 hours ago and 24 hours from now.</p></div>';
       return;
     }
 
@@ -170,21 +169,20 @@ document.addEventListener('DOMContentLoaded', () => {
       const deadline = orderDeadline(order);
       const offset = Math.max(0, Math.min(WINDOW_HOURS - 1, (deadline.getTime() - start.getTime()) / HOUR));
       const column = Math.min(WINDOW_HOURS - 2, Math.floor(offset) + 1);
-      const [status, statusClass] = orderTimelineStatus(order, deadline);
+      const [status, statusClass] = orderTimelineStatus(deadline);
       const platform = String(order.platform || '').toLowerCase();
       const platformLabel = platform === 'shopee' ? 'Shopee' : platform === 'tiktok' ? 'TikTok Shop' : platform || 'Marketplace';
-      const confirmedStatus = marketplaceStatus(order);
       return `
         <article class="admin-arrangement-deadline-event is-${escapeHtml(platform)} ${escapeHtml(statusClass)}" style="--event-column:${column}">
           <header>
             <span>${escapeHtml(platformLabel)}</span>
-            <strong>${escapeHtml(formatDate(deadline, { hour: '2-digit', minute: '2-digit' }))}</strong>
+            <strong>Ship by ${escapeHtml(formatDate(deadline, { hour: '2-digit', minute: '2-digit' }))}</strong>
           </header>
           <b>${escapeHtml(order.order_id)}</b>
           <small>${escapeHtml(order.account_key || '')}</small>
           <footer>
             <span>${escapeHtml(status)}</span>
-            ${pickupConfirmed(order) && confirmedStatus ? `<em>${escapeHtml(confirmedStatus.replaceAll('_', ' '))}</em>` : ''}
+            <em>${escapeHtml(pickupWindowLabel(order))}</em>
           </footer>
         </article>`;
     }).join('');
@@ -200,22 +198,22 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
         </div>
       </div>
-      <p class="admin-arrangement-agenda-end">${orders.length} order${orders.length === 1 ? '' : 's'} shown at their pickup-by deadline. Green means the marketplace has confirmed pickup—not merely that shipment was arranged.</p>`;
+      <p class="admin-arrangement-agenda-end">${orders.length} unpicked order${orders.length === 1 ? '' : 's'} shown at the final ship-by deadline. A booked pickup window is shown inside each card. Shopee-confirmed pickups disappear.</p>`;
   };
 
   const renderStatus = () => {
     const orders = Array.isArray(state.data?.orders) ? state.data.orders : [];
     const visible = selectedOrders();
-    const overdue = visible.filter((order) => !pickupConfirmed(order) && orderDeadline(order) < state.windowNow);
+    const overdue = visible.filter((order) => orderDeadline(order) < state.windowNow);
     const upcoming = visible.filter((order) => {
       const deadline = orderDeadline(order);
-      return !pickupConfirmed(order) && deadline >= state.windowNow;
+      return deadline >= state.windowNow;
     });
-    const confirmed = visible.filter(pickupConfirmed);
+    const booked = visible.filter((order) => parseUtc(order.pickup_start_at));
     const enabled = Boolean(state.data?.hard_set?.enabled);
     root.querySelector('[data-arrangement-metric="overdue"]').textContent = String(overdue.length);
     root.querySelector('[data-arrangement-metric="due"]').textContent = String(upcoming.length);
-    root.querySelector('[data-arrangement-metric="confirmed"]').textContent = String(confirmed.length);
+    root.querySelector('[data-arrangement-metric="booked"]').textContent = String(booked.length);
     if (refs.live) {
       refs.live.classList.toggle('is-paused', !enabled);
       refs.live.innerHTML = `<i></i>${!enabled ? ' Not active' : ' Shopee API · 2 min'}`;

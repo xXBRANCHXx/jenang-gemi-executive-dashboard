@@ -39,6 +39,7 @@ assert(
     && script.includes('WINDOW_AFTER_HOURS = 24')
     && script.includes('orderDeadline(order)')
     && script.includes('pickupConfirmed(order)')
+    && script.includes('return !pickupConfirmed(order) && deadline')
     && script.includes('order.pickup_confirmed')
     && script.includes('order.marketplace_status')
     && script.includes("'SHIPPED'")
@@ -46,7 +47,7 @@ assert(
     && dashboard.includes('Apply Monday to all days')
     && script.includes('admin-arrangement-rule-editor-card')
     && script.includes('data-advanced-platform-tab'),
-  'The planner must use a rolling pickup-by window, confirmation status, visual rule cards, and focused advanced settings.'
+  'The planner must use a rolling ship-by window, remove confirmed pickups, and retain visual rule cards and focused advanced settings.'
 );
 assert(
   dashboard.includes('Branch-tier credentials')
@@ -65,7 +66,7 @@ assert(
     && styles.includes('.admin-arrangement-now-line')
     && styles.includes('.admin-arrangement-deadline-event')
     && styles.includes('grid-column: var(--event-column) / span 3')
-    && styles.includes('.admin-arrangement-deadline-event.is-confirmed')
+    && styles.includes('.admin-arrangement-status-guide .is-booked')
     && styles.includes('.admin-arrangement-rule-card-grid')
     && styles.includes('.admin-arrangement-advanced-tabs')
     && styles.includes(".admin-arrangement-day-toggle input[type='checkbox']")

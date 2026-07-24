@@ -31,7 +31,7 @@ if ($isAuthenticated) {
     }
 }
 $isAdView = $isAuthenticated && in_array($requestedView ?? '', ['ad-view', 'ads', 'ad_view', 'shopee-ads'], true);
-$dashboardBuildVersion = 'exec3.86.0';
+$dashboardBuildVersion = 'exec3.87.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -776,7 +776,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                             <div>
                                 <span class="admin-panel-kicker">Orders · Ops</span>
                                 <h2>Shipment arrangement</h2>
-                                <p>Choose when orders arranged on each day should be picked up.</p>
+                                <p>Track each booked courier window against the final marketplace ship-by deadline.</p>
                             </div>
                             <div class="admin-arrangement-hero-actions">
                                 <span class="admin-arrangement-live" data-arrangement-live><i></i> Connecting</span>
@@ -794,7 +794,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                                 <main class="admin-arrangement-primary">
                                     <header class="admin-arrangement-schedule-head">
                                         <div>
-                                            <span class="admin-panel-kicker">Pickup deadline timeline</span>
+                                            <span class="admin-panel-kicker">Ship-by deadline timeline</span>
                                             <div class="admin-arrangement-week-title">
                                                 <h3>Last 8 hours · next 24 hours</h3>
                                                 <strong data-arrangement-window-label>Loading time window</strong>
@@ -802,26 +802,26 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                                             <p class="admin-arrangement-summary" aria-label="Shipment arrangement status">
                                                 <span class="is-exception"><strong data-arrangement-metric="overdue">0</strong> past due</span>
                                                 <span><strong data-arrangement-metric="due">0</strong> due next</span>
-                                                <span class="is-confirmed"><strong data-arrangement-metric="confirmed">0</strong> picked up</span>
+                                                <span class="is-booked"><strong data-arrangement-metric="booked">0</strong> pickup booked</span>
                                             </p>
                                         </div>
                                         <div class="admin-arrangement-window-explainer">
-                                            <strong>Every card is an order</strong>
-                                            <span>Its horizontal position is when it must be picked up by.</span>
+                                            <strong>Every card is an unpicked order</strong>
+                                            <span>Its position is the final ship-by deadline—not the courier visit.</span>
                                         </div>
                                     </header>
                                     <div class="admin-arrangement-agenda" data-arrangement-map>
-                                        <p class="admin-empty">Loading pickup deadlines.</p>
+                                        <p class="admin-empty">Loading ship-by deadlines.</p>
                                     </div>
                                 </main>
 
                                 <aside class="admin-arrangement-guide admin-arrangement-status-strip">
                                     <section>
-                                        <h3>Timeline key</h3>
+                                        <h3>How to read this</h3>
                                         <dl class="admin-arrangement-status-guide">
-                                            <div><dt class="is-confirmed">Picked up</dt><dd>Green only after Shopee’s API reports the courier pickup.</dd></div>
-                                            <div><dt class="is-upcoming">Upcoming</dt><dd>The card sits at the order's pickup-by deadline.</dd></div>
-                                            <div><dt class="is-overdue">Past due</dt><dd>The deadline passed without pickup confirmation.</dd></div>
+                                            <div><dt class="is-booked">Pickup booked</dt><dd>The courier window currently returned by Shopee. It appears inside the card.</dd></div>
+                                            <div><dt class="is-upcoming">Ship by</dt><dd>The final handover deadline. It controls the card’s horizontal position.</dd></div>
+                                            <div><dt class="is-overdue">Past due</dt><dd>The ship-by deadline passed and Shopee has not confirmed pickup.</dd></div>
                                         </dl>
                                     </section>
                                 </aside>
