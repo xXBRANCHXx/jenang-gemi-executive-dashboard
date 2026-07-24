@@ -31,7 +31,7 @@ if ($isAuthenticated) {
     }
 }
 $isAdView = $isAuthenticated && in_array($requestedView ?? '', ['ad-view', 'ads', 'ad_view', 'shopee-ads'], true);
-$dashboardBuildVersion = 'exec3.84.0';
+$dashboardBuildVersion = 'exec3.85.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -794,25 +794,24 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                                 <main class="admin-arrangement-primary">
                                     <header class="admin-arrangement-schedule-head">
                                         <div>
-                                            <span class="admin-panel-kicker">Marketplace timeline</span>
+                                            <span class="admin-panel-kicker">Pickup deadline timeline</span>
                                             <div class="admin-arrangement-week-title">
-                                                <h3>This week</h3>
-                                                <strong data-arrangement-week-label>Loading week</strong>
+                                                <h3>Last 8 hours · next 24 hours</h3>
+                                                <strong data-arrangement-window-label>Loading time window</strong>
                                             </div>
                                             <p class="admin-arrangement-summary" aria-label="Shipment arrangement status">
-                                                <span><strong data-arrangement-metric="awaiting">0</strong> waiting</span>
-                                                <span><strong data-arrangement-metric="pickups">0</strong> pickups</span>
-                                                <span class="is-exception"><strong data-arrangement-metric="exceptions">0</strong> need attention</span>
+                                                <span class="is-exception"><strong data-arrangement-metric="overdue">0</strong> past due</span>
+                                                <span><strong data-arrangement-metric="due">0</strong> due next</span>
+                                                <span class="is-confirmed"><strong data-arrangement-metric="confirmed">0</strong> picked up</span>
                                             </p>
                                         </div>
-                                        <div class="admin-arrangement-week-nav">
-                                            <button type="button" data-arrangement-week="-1">Previous</button>
-                                            <button type="button" data-arrangement-today>Today</button>
-                                            <button type="button" data-arrangement-week="1">Next</button>
+                                        <div class="admin-arrangement-window-explainer">
+                                            <strong>Every card is an order</strong>
+                                            <span>Its horizontal position is when it must be picked up by.</span>
                                         </div>
                                     </header>
                                     <div class="admin-arrangement-agenda" data-arrangement-map>
-                                        <p class="admin-empty">Loading pickup schedule.</p>
+                                        <p class="admin-empty">Loading pickup deadlines.</p>
                                     </div>
                                 </main>
 
@@ -820,15 +819,15 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                                     <section>
                                         <h3>Timeline key</h3>
                                         <dl class="admin-arrangement-status-guide">
-                                            <div><dt class="is-scheduled">Scheduled</dt><dd>The marketplace confirmed a pickup time.</dd></div>
-                                            <div><dt class="is-waiting">Waiting</dt><dd>Orders are ready, but no pickup time is available yet.</dd></div>
-                                            <div><dt class="is-attention">Needs attention</dt><dd>The rule could not be applied.</dd></div>
+                                            <div><dt class="is-confirmed">Picked up</dt><dd>Green only after the marketplace confirms pickup.</dd></div>
+                                            <div><dt class="is-upcoming">Upcoming</dt><dd>The card sits at the order's pickup-by deadline.</dd></div>
+                                            <div><dt class="is-overdue">Past due</dt><dd>The deadline passed without pickup confirmation.</dd></div>
                                         </dl>
                                     </section>
                                     <section class="admin-arrangement-attention">
                                         <h3>Needs attention</h3>
                                         <p data-arrangement-attention-copy>Checking orders.</p>
-                                        <small>Every affected order appears directly in the timeline.</small>
+                                        <small>“Shipment arranged” does not count as picked up.</small>
                                     </section>
                                 </aside>
                             </div>

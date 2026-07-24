@@ -27,25 +27,33 @@ assert(
 assert(
   dashboard.includes('data-arrangement-tab="schedule"')
     && dashboard.includes('data-arrangement-tab="rules"')
-    && script.includes('admin-arrangement-timeline-event')
+    && script.includes('admin-arrangement-deadline-event')
     && script.includes('order.order_id')
     && script.includes('order.account_key')
     && !script.includes('View orders'),
-  'Schedule must show every order directly on a visual timeline without a drill-down.'
+  'Schedule must show every order directly on the pickup-deadline timeline without a drill-down.'
 );
 assert(
   script.includes('setTab(button.dataset.arrangementTab)')
-    && script.includes('state.weekStart = addDays')
+    && script.includes('WINDOW_BEFORE_HOURS = 8')
+    && script.includes('WINDOW_AFTER_HOURS = 24')
+    && script.includes('orderDeadline(order)')
+    && script.includes('pickupConfirmed(order)')
+    && script.includes("'SHIPPED'")
+    && !script.includes('shipment_arranged || order.pickup_start_at')
     && dashboard.includes('Apply Monday to all days')
     && script.includes('admin-arrangement-rule-editor-card')
     && script.includes('data-advanced-platform-tab'),
-  'The planner must support week navigation, visual rule cards, and focused marketplace advanced settings.'
+  'The planner must use a rolling pickup-by window, confirmation status, visual rule cards, and focused advanced settings.'
 );
 assert(
   dashboard.includes('Branch-tier credentials')
     && endpoint.includes('jg_sku_is_branch()')
+    && endpoint.includes("'/fulfillment/orders?limit='")
+    && endpoint.includes('marketplace_order_status')
+    && endpoint.includes('marketplace_package_status')
     && endpoint.includes("'updated_by' => 'Branch tier: '"),
-  'Only a Branch-tier session may save live worker rules.'
+  'Marketplace pickup status must be merged into the chart, while only a Branch-tier session may save live worker rules.'
 );
 assert(
   dashboard.includes('If the selected day is unavailable, the order waits')
@@ -54,16 +62,18 @@ assert(
   'The editor must expose the pickup-day mapping and explain its fail-closed behavior.'
 );
 assert(
-  styles.includes('.admin-arrangement-timeline-track')
-    && styles.includes('.admin-arrangement-timeline-event')
-    && styles.includes('grid-column: var(--event-start) / span 3')
+  styles.includes('.admin-arrangement-deadline-chart')
+    && styles.includes('.admin-arrangement-now-line')
+    && styles.includes('.admin-arrangement-deadline-event')
+    && styles.includes('grid-column: var(--event-column) / span 3')
+    && styles.includes('.admin-arrangement-deadline-event.is-confirmed')
     && styles.includes('.admin-arrangement-rule-card-grid')
     && styles.includes('.admin-arrangement-advanced-tabs')
     && styles.includes(".admin-arrangement-day-toggle input[type='checkbox']")
     && styles.includes('width: 12px')
     && styles.includes('.admin-arrangement-workspace')
     && styles.includes('@media (max-width: 680px)'),
-  'The visual timeline, rule cards, and advanced marketplace tabs must have responsive styling.'
+  'The 32-hour deadline chart, rule cards, and advanced marketplace tabs must have responsive styling.'
 );
 assert(
   styles.includes('.admin-shipment-arrangement {\n  --arrangement-shopee: #ff8a3d;\n  --arrangement-tiktok: #42d7c5;\n  display: none;')

@@ -49,6 +49,51 @@ function jg_shipment_arrangement_request(string $method, string $path, ?array $p
     return $response;
 }
 
+function jg_shipment_arrangement_status_key(array $order, bool $includePackage = true): string
+{
+    return implode('|', [
+        strtolower(trim((string) ($order['platform'] ?? ''))),
+        strtolower(trim((string) ($order['account_key'] ?? ''))),
+        trim((string) ($order['order_id'] ?? '')),
+        $includePackage ? trim((string) ($order['package_id'] ?? '')) : '',
+    ]);
+}
+
+function jg_shipment_arrangement_merge_marketplace_statuses(array $result, array $statusResult): array
+{
+    $statusRows = is_array($statusResult['orders'] ?? null) ? $statusResult['orders'] : [];
+    $byPackage = [];
+    $byOrder = [];
+    foreach ($statusRows as $statusRow) {
+        if (!is_array($statusRow)) {
+            continue;
+        }
+        $byPackage[jg_shipment_arrangement_status_key($statusRow)] = $statusRow;
+        $byOrder[jg_shipment_arrangement_status_key($statusRow, false)] = $statusRow;
+    }
+
+    $orders = is_array($result['orders'] ?? null) ? $result['orders'] : [];
+    foreach ($orders as &$order) {
+        if (!is_array($order)) {
+            continue;
+        }
+        $statusRow = $byPackage[jg_shipment_arrangement_status_key($order)]
+            ?? $byOrder[jg_shipment_arrangement_status_key($order, false)]
+            ?? null;
+        if (!is_array($statusRow)) {
+            continue;
+        }
+        foreach (['marketplace_order_status', 'marketplace_package_status'] as $field) {
+            if (array_key_exists($field, $statusRow)) {
+                $order[$field] = $statusRow[$field];
+            }
+        }
+    }
+    unset($order);
+    $result['orders'] = $orders;
+    return $result;
+}
+
 try {
     $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
     $access = [
@@ -59,6 +104,12 @@ try {
     if ($method === 'GET') {
         $limit = max(25, min(500, (int) ($_GET['limit'] ?? 300)));
         $result = jg_shipment_arrangement_request('GET', '/fulfillment/arrangement-map?limit=' . $limit);
+        try {
+            $statusResult = jg_shipment_arrangement_request('GET', '/fulfillment/orders?limit=' . $limit);
+            $result = jg_shipment_arrangement_merge_marketplace_statuses($result, $statusResult);
+        } catch (Throwable) {
+            // The arrangement map remains usable while the status audit endpoint recovers.
+        }
         $result['access'] = $access;
         jg_shipment_arrangement_json($result);
     }
