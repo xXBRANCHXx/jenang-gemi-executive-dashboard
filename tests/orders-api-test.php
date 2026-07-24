@@ -47,6 +47,12 @@ expect_same(300, $enriched['cogs'], 'Read-only enrichment must use static SKU av
 expect_same(false, $enriched['cogs_estimated'], 'Static average COGS rows must not depend on allocation estimates.');
 expect_same('sku_static_average', $enriched['cogs_source'], 'Read-only enrichment must mark static SKU average COGS.');
 expect_same('SKU product', $enriched['product_name'], 'SKU product names must override marketplace names.');
+$grossEnriched = jg_orders_enriched_row(array_merge($remoteRow, [
+    'gross_revenue' => 840,
+    'order_net_revenue' => 760,
+]), $sku, 3.0, $allocations);
+expect_same(840, $grossEnriched['gross_revenue'], 'Inventory enrichment must preserve item-level gross revenue for Orders and CSV exports.');
+expect_same(760, $grossEnriched['order_net_revenue'], 'Inventory enrichment must preserve order-level net revenue context.');
 
 $datedSku = array_merge($sku, [
     'cogs_history' => [

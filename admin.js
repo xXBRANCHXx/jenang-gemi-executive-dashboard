@@ -903,6 +903,7 @@ const ORDER_BOOTSTRAP_MIN_ROWS = 320;
 const ORDER_BOOTSTRAP_MAX_WINDOWS = 2;
 const ORDER_BACKGROUND_TARGET_ROWS = 24000;
 const ORDER_BACKGROUND_MAX_WINDOWS = 72;
+const ORDER_CLIENT_CACHE_VERSION = 2;
 const OVERVIEW_LOCATION_PAGE_SIZE = 2000;
 const OVERVIEW_LOCATION_MAX_PAGES = 25;
 const OVERVIEW_LOCATION_CACHE_VERSION = 5;
@@ -2472,6 +2473,7 @@ document.addEventListener('DOMContentLoaded', () => {
       loadPromise: null,
       loadGeneration: 0,
       loadedAll: false,
+      exporting: false,
       renderLimit: ORDER_RENDER_BATCH_SIZE,
       scrollPending: false,
       ensureRunning: false,
@@ -2731,6 +2733,7 @@ document.addEventListener('DOMContentLoaded', () => {
     scroll: document.querySelector('[data-orders-scroll]'),
     status: document.querySelector('[data-orders-status]'),
     loadMore: document.querySelector('[data-orders-load-more]'),
+    exportButton: document.querySelector('[data-orders-export]'),
     filterOpen: document.querySelector('[data-orders-filter-open]'),
     filterReset: document.querySelector('[data-orders-filter-reset]'),
     activeFilters: document.querySelector('[data-orders-active-filters]'),
@@ -4757,7 +4760,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	  const walletClientCacheKey = () => dashboardClientCacheKey('wallet', [activeLocalDate]);
 	  const inventoryRecapClientCacheKey = () => dashboardClientCacheKey('inventory-recap', [activeLocalDate]);
 	  const dailyClientCacheKey = () => dashboardClientCacheKey('daily', [state.daily.month, state.timezone]);
-	  const ordersClientCacheKey = () => dashboardClientCacheKey('orders', [state.overview.year, activeLocalDate]);
+	  const ordersClientCacheKey = () => dashboardClientCacheKey('orders', [`v${ORDER_CLIENT_CACHE_VERSION}`, state.overview.year, activeLocalDate]);
 	  const settingsClientCacheKey = () => dashboardClientCacheKey('settings', [activeLocalDate]);
 	  const hardSetClientCacheKey = () => dashboardClientCacheKey('hard-set', ['state']);
 	  const contextClientCacheKey = () => dashboardClientCacheKey('context', ['open-context']);
@@ -7267,8 +7270,23 @@ document.addEventListener('DOMContentLoaded', () => {
     if (ordersRefs.filterReset) ordersRefs.filterReset.hidden = !hasOrderFilters();
     if (ordersRefs.startLabel) ordersRefs.startLabel.textContent = state.orders.filters.startDate || 'Any start date';
     if (ordersRefs.endLabel) ordersRefs.endLabel.textContent = state.orders.filters.endDate || 'Any end date';
+    if (ordersRefs.exportButton) {
+      const hasCustomRange = Boolean(state.orders.filters.startDate && state.orders.filters.endDate);
+      ordersRefs.exportButton.disabled = state.orders.exporting || !hasCustomRange;
+      ordersRefs.exportButton.textContent = state.orders.exporting ? 'Exporting...' : 'Export CSV';
+      ordersRefs.exportButton.title = hasCustomRange
+        ? `Export ${state.orders.filters.startDate} to ${state.orders.filters.endDate}`
+        : 'Choose both a start and end date in Filters';
+    }
     renderActiveOrderFilters();
     renderOrderPlatforms();
+  };
+
+  const orderDisplayedRevenue = (row) => {
+    const recalculatedRevenue = Number(row?.revenue ?? row?.net_revenue);
+    return Number.isFinite(recalculatedRevenue) && recalculatedRevenue >= 0
+      ? recalculatedRevenue
+      : Number(row?.gross_revenue || 0);
   };
 
 	  const renderOrders = (data = state.orders.data) => {
@@ -7316,10 +7334,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	      const poNumbers = Array.isArray(row.allocations) && row.allocations.length
 	        ? [...new Set(row.allocations.map((item) => item.po_number).filter(Boolean))].join(', ')
 	        : '-';
-	      const grossRevenue = Number(row.gross_revenue);
-	      const displayedGrossRevenue = Number.isFinite(grossRevenue) && grossRevenue > 0
-	        ? grossRevenue
-	        : Number(row.revenue || 0);
 	      const fundsReleased = row.funds_released === true || row.funds_released === 1 || String(row.funds_released || '').toLowerCase() === 'true';
 	      const releasedAmount = Number(row.funds_released_amount || row.order_net_revenue || row.revenue || 0);
 	      const releasedTitle = fundsReleased
@@ -7333,7 +7347,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td class="admin-order-product" title="${escapeHtml(productLabel)}"><strong>${escapeHtml(productLabel)}</strong></td>
           <td>${formatCompactNumber(row.quantity || 0)}</td>
           <td title="${escapeHtml(allocation)}">${escapeHtml(poNumbers)}</td>
-	          <td title="Customer-paid gross revenue allocated to this order line">${formatCellCurrency(displayedGrossRevenue)}</td>
+	          <td title="Recalculated order proceeds allocated to this order line">${formatCellCurrency(orderDisplayedRevenue(row))}</td>
 	          <td title="Static average COGS from SKU DB">${formatCellCurrency(row.cogs || 0)}</td>
 	          <td class="admin-order-wallet-cell"><span class="admin-order-wallet-symbol${fundsReleased ? ' is-released' : ' is-pending'}" title="${escapeHtml(releasedTitle)}" aria-label="${escapeHtml(releasedTitle)}">${fundsReleased ? 'Rp' : '-'}</span></td>
 	          <td>${contactButton(row.username, 'username')}</td>
@@ -7343,6 +7357,108 @@ document.addEventListener('DOMContentLoaded', () => {
 	      `;
 	    }, 'No loaded orders match the current filters yet.');
 	  };
+
+  const orderCsvText = (value) => {
+    const text = String(value ?? '').replace(/\r?\n/g, ' ').trim();
+    return /^[=+\-@]/.test(text) ? `'${text}` : text;
+  };
+
+  const orderCsvRows = (rows) => {
+    const header = [
+      'Timestamp',
+      'Order ID',
+      'Platform',
+      'Account',
+      'Product Name',
+      'QTY',
+      'PO',
+      'Gross Revenue',
+      'COGS',
+      'Wallet Status',
+      'Username',
+      'Address',
+      'Phone'
+    ];
+    return [
+      header,
+      ...rows.map((row) => {
+        const poNumbers = Array.isArray(row.allocations) && row.allocations.length
+          ? [...new Set(row.allocations.map((item) => item.po_number).filter(Boolean))].join(', ')
+          : '';
+        const fundsReleased = row.funds_released === true
+          || row.funds_released === 1
+          || String(row.funds_released || '').toLowerCase() === 'true';
+        return [
+          orderCsvText(row.order_create_time || row.timestamp || ''),
+          orderCsvText(row.order_id),
+          orderCsvText(row.platform),
+          orderCsvText(row.account_key),
+          orderCsvText(row.product_name || row.marketplace_product_name),
+          Number(row.quantity || 0),
+          orderCsvText(poNumbers),
+          orderDisplayedRevenue(row),
+          Number(row.cogs || 0),
+          fundsReleased ? 'Released' : 'Pending',
+          orderCsvText(row.username),
+          orderCsvText(row.address),
+          orderCsvText(row.phone)
+        ];
+      })
+    ];
+  };
+
+  const downloadOrdersCsv = async () => {
+    const filters = createOrderFilterSnapshot();
+    if (!filters.startDate || !filters.endDate || state.orders.exporting) return;
+    state.orders.exporting = true;
+    syncOrderFilterControls();
+    try {
+      const rows = [];
+      let offset = 0;
+      let complete = false;
+      for (let page = 0; page < 200; page += 1) {
+        const data = await requestJson(buildOrderFactsUrl(filters.startDate, filters.endDate, {
+          limit: 2000,
+          offset,
+          storedOnly: true,
+          cacheBust: true
+        }), { timeoutMs: 60000 });
+        const pageRows = Array.isArray(data.orders) ? data.orders.map(enrichOrderRow) : [];
+        rows.push(...pageRows.filter((row) => orderMatchesFilters(row, filters)));
+        if (!data.has_more) {
+          complete = true;
+          break;
+        }
+        const nextOffset = Number(data.next_offset);
+        if (!Number.isFinite(nextOffset) || nextOffset <= offset) {
+          throw new Error('Order export pagination did not advance.');
+        }
+        offset = nextOffset;
+      }
+      if (!complete) {
+        throw new Error('Order export exceeded the safe pagination limit.');
+      }
+
+      const csv = `\uFEFF${salesRecapRowsToCsv(orderCsvRows(rows))}`;
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `jenang-gemi-orders-${filters.startDate}-to-${filters.endDate}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      window.setTimeout(() => {
+        URL.revokeObjectURL(link.href);
+        link.remove();
+      }, 0);
+    } catch (error) {
+      if (ordersRefs.status) {
+        ordersRefs.status.textContent = `CSV export failed: ${error?.message || 'Unknown error'}`;
+      }
+    } finally {
+      state.orders.exporting = false;
+      syncOrderFilterControls();
+    }
+  };
 
 	  const walletActionUrl = (action = 'summary', params = {}) => {
 	    const url = new URL(walletEndpoint, window.location.href);
@@ -11603,6 +11719,10 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (error) {
       showOrderLoadError(error);
     }
+  });
+
+  ordersRefs.exportButton?.addEventListener('click', () => {
+    downloadOrdersCsv().catch(() => {});
   });
 
   ordersRefs.filterOpen?.addEventListener('click', () => {

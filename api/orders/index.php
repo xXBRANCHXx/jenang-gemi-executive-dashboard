@@ -2576,6 +2576,7 @@ function jg_orders_enriched_row(
     }
     $totalCogs = $physicalQuantity * $unitCogs;
     $revenue = (int) round((float) ($remoteRow['revenue'] ?? $remoteRow['net_revenue'] ?? $remoteRow['sales'] ?? 0));
+    $grossRevenue = (int) round((float) ($remoteRow['gross_revenue'] ?? $revenue));
 
     return [
         'timestamp' => (string) ($remoteRow['timestamp'] ?? ''),
@@ -2601,6 +2602,8 @@ function jg_orders_enriched_row(
         'astra_quantity' => $astraQty,
         'revenue' => $revenue,
         'net_revenue' => $revenue,
+        'order_net_revenue' => (int) round((float) ($remoteRow['order_net_revenue'] ?? $revenue)),
+        'gross_revenue' => $grossRevenue,
         'marketplace_fees' => (int) round((float) ($remoteRow['order_marketplace_fees'] ?? $remoteRow['marketplace_fees'] ?? 0)),
         'funds_released' => !empty($remoteRow['funds_released']),
         'funds_released_at' => (string) ($remoteRow['funds_released_at'] ?? ''),
