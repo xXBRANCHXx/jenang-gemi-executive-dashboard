@@ -151,6 +151,7 @@ function jg_website_ensure_schema(PDO $pdo): void
             automation_paused TINYINT(1) NOT NULL DEFAULT 0,
             automation_paused_at DATETIME(6) NULL DEFAULT NULL,
             automation_paused_by VARCHAR(160) NOT NULL DEFAULT "",
+            zero_scope_automation_enabled_at DATETIME(6) NULL DEFAULT NULL,
             created_at DATETIME(6) NOT NULL,
             updated_at DATETIME(6) NOT NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
@@ -281,6 +282,7 @@ function jg_website_ensure_schema(PDO $pdo): void
     analyticsEnsureTableColumn($pdo, 'hard_set_state', 'automation_paused', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER `automatic_sources_json`');
     analyticsEnsureTableColumn($pdo, 'hard_set_state', 'automation_paused_at', 'DATETIME(6) NULL DEFAULT NULL AFTER `automation_paused`');
     analyticsEnsureTableColumn($pdo, 'hard_set_state', 'automation_paused_by', 'VARCHAR(160) NOT NULL DEFAULT "" AFTER `automation_paused_at`');
+    analyticsEnsureTableColumn($pdo, 'hard_set_state', 'zero_scope_automation_enabled_at', 'DATETIME(6) NULL DEFAULT NULL AFTER `automation_paused_by`');
     $now = jg_website_now();
     $stmt = $pdo->prepare(
         'INSERT INTO hard_set_state (id, enabled, activated_at, activated_by, created_at, updated_at)
@@ -290,7 +292,9 @@ function jg_website_ensure_schema(PDO $pdo): void
     $stmt->execute([':created_at' => $now, ':updated_at' => $now]);
 
     $row = $pdo->query(
-        'SELECT enabled, activated_at, automatic_sources_json FROM hard_set_state WHERE id = 1'
+        'SELECT enabled, activated_at, activated_by, automatic_sources_json,
+                automation_paused, zero_scope_automation_enabled_at
+         FROM hard_set_state WHERE id = 1'
     )->fetch();
     if ((bool) (int) ($row['enabled'] ?? 0)) {
         $storedSources = json_decode((string) ($row['automatic_sources_json'] ?? ''), true);
@@ -322,6 +326,69 @@ function jg_website_ensure_schema(PDO $pdo): void
                 ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
                 ':created_at' => $now,
             ]);
+            $storedSources = $expandedSources;
+        }
+
+        $authorizedLiveScope = $storedSources === JG_HARD_SET_ZERO_SCOPE_AFTER
+            && jg_hard_set_zero_scope_expansion(
+                $row['activated_at'] ?? '',
+                JG_HARD_SET_ZERO_SCOPE_BEFORE
+            ) === JG_HARD_SET_ZERO_SCOPE_AFTER;
+        if ($authorizedLiveScope && empty($row['zero_scope_automation_enabled_at'])) {
+            $actor = 'ZERO automatic source authorization';
+            if (!empty($row['automation_paused'])) {
+                $pdo->prepare(
+                    'UPDATE hard_set_state
+                     SET automation_paused = 0, automation_paused_at = NULL,
+                         automation_paused_by = :automation_paused_by,
+                         zero_scope_automation_enabled_at = :zero_scope_automation_enabled_at,
+                         updated_at = :updated_at
+                     WHERE id = 1 AND enabled = 1 AND zero_scope_automation_enabled_at IS NULL'
+                )->execute([
+                    ':automation_paused_by' => $actor,
+                    ':zero_scope_automation_enabled_at' => $now,
+                    ':updated_at' => $now,
+                ]);
+                $payload = [
+                    'event' => 'hard_set_automation_resumed',
+                    'enabled' => true,
+                    'activated_at' => jg_website_atom((string) $row['activated_at']),
+                    'activated_by' => (string) ($row['activated_by'] ?? ''),
+                    'automatic_sources' => JG_HARD_SET_ZERO_SCOPE_AFTER,
+                    'automation_paused' => false,
+                    'automation_paused_at' => null,
+                    'automation_changed_by' => $actor,
+                ];
+                $payloadJson = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                if (!is_string($payloadJson)) {
+                    throw new RuntimeException('Unable to encode the authorized ZERO automation resume.');
+                }
+                $pdo->prepare(
+                    'INSERT INTO hard_set_audit (event_type, actor, payload_json, created_at)
+                     VALUES ("AUTOMATION_RESUMED", :actor, :payload_json, :created_at)'
+                )->execute([
+                    ':actor' => $actor,
+                    ':payload_json' => $payloadJson,
+                    ':created_at' => $now,
+                ]);
+                $pdo->prepare(
+                    'INSERT INTO hard_set_outbox
+                        (event_type, idempotency_key, payload_json, status, attempts, created_at)
+                     VALUES
+                        ("AUTOMATION_RESUMED", :idempotency_key, :payload_json, "pending", 0, :created_at)
+                     ON DUPLICATE KEY UPDATE id = id'
+                )->execute([
+                    ':idempotency_key' => 'hard-set-zero-scope-resumed:' . jg_website_atom((string) $row['activated_at']),
+                    ':payload_json' => $payloadJson,
+                    ':created_at' => $now,
+                ]);
+            } else {
+                $pdo->prepare(
+                    'UPDATE hard_set_state
+                     SET zero_scope_automation_enabled_at = :zero_scope_automation_enabled_at
+                     WHERE id = 1 AND enabled = 1 AND zero_scope_automation_enabled_at IS NULL'
+                )->execute([':zero_scope_automation_enabled_at' => $now]);
+            }
         }
     }
 }

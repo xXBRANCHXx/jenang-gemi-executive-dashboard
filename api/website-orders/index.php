@@ -86,6 +86,7 @@ try {
 
     if ($method === 'GET' && $action === 'feed') {
         jg_website_orders_require_token();
+        jg_hard_set_deliver_outbox($pdo);
         $hardSet = jg_hard_set_state($pdo);
         jg_website_orders_json([
             'ok' => true,
