@@ -141,6 +141,34 @@ document.addEventListener('DOMContentLoaded', () => {
     return Array.from(groups.values()).sort((left, right) => left.confirmedAt - right.confirmedAt);
   };
 
+  const pickupWindowGroups = () => {
+    const orders = Array.isArray(state.data?.orders) ? state.data.orders : [];
+    const start = windowStart();
+    const end = windowEnd();
+    const grouped = new Map();
+    orders.forEach((order) => {
+      if (pickupConfirmed(order)) return;
+      const pickupStart = parseUtc(order.pickup_start_at);
+      const pickupEnd = parseUtc(order.pickup_end_at) || (pickupStart ? new Date(pickupStart.getTime() + HOUR) : null);
+      if (!pickupStart || !pickupEnd || pickupEnd <= start || pickupStart >= end) return;
+      const platform = String(order.platform || '').toLowerCase();
+      const key = `${platform}|${pickupStart.toISOString()}|${pickupEnd.toISOString()}`;
+      if (!grouped.has(key)) grouped.set(key, { platform, start: pickupStart, end: pickupEnd, orders: [] });
+      grouped.get(key).orders.push(order);
+    });
+    const groups = Array.from(grouped.values()).sort((left, right) =>
+      left.start - right.start || left.end - right.end
+    );
+    const laneEnds = [];
+    groups.forEach((group) => {
+      let lane = laneEnds.findIndex((laneEnd) => group.start >= laneEnd);
+      if (lane < 0) lane = laneEnds.length;
+      laneEnds[lane] = group.end;
+      group.lane = lane;
+    });
+    return { groups, laneCount: laneEnds.length };
+  };
+
   const orderTimelineStatus = (deadline) => {
     if (deadline < state.windowNow) return ['Past ship-by deadline', 'is-overdue'];
     if (deadline.getTime() - state.windowNow.getTime() <= 4 * HOUR) return ['Ship by soon', 'is-due-soon'];
@@ -165,11 +193,12 @@ document.addEventListener('DOMContentLoaded', () => {
       orderDeadline(left).getTime() - orderDeadline(right).getTime()
     );
     const pickupGroups = pickupConfirmationGroups();
+    const pickupWindows = pickupWindowGroups();
     if (refs.windowLabel) {
       refs.windowLabel.textContent = `${formatDate(start, { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} – ${formatDate(end, { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`;
     }
 
-    if (!orders.length && !pickupGroups.length) {
+    if (!orders.length && !pickupGroups.length && !pickupWindows.groups.length) {
       refs.map.innerHTML = '<div class="admin-arrangement-agenda-empty"><strong>No unpicked orders in this window</strong><p>Picked-up orders disappear. No remaining orders have a ship-by deadline between 8 hours ago and 24 hours from now.</p></div>';
       return;
     }
@@ -227,20 +256,43 @@ document.addEventListener('DOMContentLoaded', () => {
           <strong>${count} picked up</strong>
         </span>`;
     }).join('');
+    const pickupWindowBlocks = pickupWindows.groups.map((group) => {
+      const visibleStart = new Date(Math.max(group.start.getTime(), start.getTime()));
+      const visibleEnd = new Date(Math.min(group.end.getTime(), end.getTime()));
+      const left = Math.max(0, ((visibleStart.getTime() - start.getTime()) / (WINDOW_HOURS * HOUR)) * 100);
+      const width = Math.max(.5, ((visibleEnd.getTime() - visibleStart.getTime()) / (WINDOW_HOURS * HOUR)) * 100);
+      const passed = group.end < state.windowNow;
+      const active = group.start <= state.windowNow && group.end >= state.windowNow;
+      const count = group.orders.length;
+      const orderIds = group.orders.map((order) => String(order.order_id || '')).filter(Boolean);
+      const startLabel = formatDate(group.start, { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+      const endLabel = formatDate(group.end, { hour: '2-digit', minute: '2-digit' });
+      const stateLabel = passed ? 'Window passed · no Shopee scan' : active ? 'Courier window now' : `${count} booked pickup${count === 1 ? '' : 's'}`;
+      return `
+        <span class="admin-arrangement-pickup-window ${passed ? 'is-passed' : active ? 'is-active' : ''}"
+          style="--pickup-window-left:${left}%;--pickup-window-width:${width}%;--pickup-window-lane:${group.lane}"
+          tabindex="0"
+          title="${escapeHtml(startLabel)}–${escapeHtml(endLabel)}: ${escapeHtml(orderIds.join(', '))}"
+          aria-label="${escapeHtml(stateLabel)}, ${escapeHtml(startLabel)} to ${escapeHtml(endLabel)}, ${count} order${count === 1 ? '' : 's'}">
+          <strong>${escapeHtml(stateLabel)}</strong>
+          <small>${escapeHtml(startLabel)}–${escapeHtml(endLabel)}</small>
+        </span>`;
+    }).join('');
 
     refs.map.innerHTML = `
       <div class="admin-arrangement-deadline-scroll">
         <div class="admin-arrangement-deadline-chart">
           <div class="admin-arrangement-deadline-axis" aria-hidden="true">${ticks}</div>
-          <div class="admin-arrangement-deadline-plot">
+          <div class="admin-arrangement-deadline-plot" style="--pickup-lanes:${pickupWindows.laneCount}">
             <div class="admin-arrangement-deadline-grid" aria-hidden="true">${gridLines}</div>
             <div class="admin-arrangement-now-line" aria-label="Current time: ${escapeHtml(formatDate(state.windowNow, { hour: '2-digit', minute: '2-digit' }))}"></div>
+            <div class="admin-arrangement-pickup-windows">${pickupWindowBlocks}</div>
             <div class="admin-arrangement-pickup-markers">${pickupMarkers}</div>
             <div class="admin-arrangement-deadline-events">${events}</div>
           </div>
         </div>
       </div>
-      <p class="admin-arrangement-agenda-end">${orders.length} unpicked order${orders.length === 1 ? '' : 's'} shown at the final ship-by deadline. Dotted green lines are API-observed Shopee pickup confirmations; those orders no longer appear as cards.</p>`;
+      <p class="admin-arrangement-agenda-end">${orders.length} unpicked order${orders.length === 1 ? '' : 's'} shown at the final ship-by deadline. Blue blocks are booked courier windows; dotted green lines are API-observed Shopee pickup confirmations.</p>`;
   };
 
   const renderRescheduler = () => {
@@ -319,11 +371,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const deadline = orderDeadline(order);
       return deadline >= state.windowNow;
     });
-    const booked = visible.filter((order) => parseUtc(order.pickup_start_at));
+    const booked = pickupWindowGroups().groups.reduce((count, group) => count + group.orders.length, 0);
     const enabled = Boolean(state.data?.hard_set?.enabled);
     root.querySelector('[data-arrangement-metric="overdue"]').textContent = String(overdue.length);
     root.querySelector('[data-arrangement-metric="due"]').textContent = String(upcoming.length);
-    root.querySelector('[data-arrangement-metric="booked"]').textContent = String(booked.length);
+    root.querySelector('[data-arrangement-metric="booked"]').textContent = String(booked);
     if (refs.live) {
       refs.live.classList.toggle('is-paused', !enabled);
       refs.live.innerHTML = `<i></i>${!enabled ? ' Not active' : ' Shopee API · 2 min'}`;

@@ -28554,7 +28554,7 @@ button.admin-accounting-metric {
 
 .admin-arrangement-deadline-plot {
   position: relative;
-  min-height: 300px;
+  min-height: calc(300px + (var(--pickup-lanes, 0) * 34px));
   padding: 11px 12px;
 }
 
@@ -28593,6 +28593,63 @@ button.admin-accounting-metric {
   pointer-events: none;
 }
 
+.admin-arrangement-pickup-windows {
+  position: absolute;
+  z-index: 4;
+  inset: 0 12px auto;
+  height: calc(40px + (var(--pickup-lanes, 0) * 34px));
+  pointer-events: none;
+}
+
+.admin-arrangement-pickup-window {
+  position: absolute;
+  top: calc(6px + (var(--pickup-window-lane) * 34px));
+  left: var(--pickup-window-left);
+  width: var(--pickup-window-width);
+  min-width: 58px;
+  height: 29px;
+  overflow: hidden;
+  padding: 4px 6px;
+  border: 1px solid color-mix(in srgb, #60a5fa 64%, var(--admin-border));
+  border-radius: 4px;
+  color: #bfdbfe;
+  background: color-mix(in srgb, #60a5fa 20%, var(--admin-bg));
+  cursor: help;
+  pointer-events: auto;
+}
+
+.admin-arrangement-pickup-window.is-active {
+  border-color: #60a5fa;
+  color: #dbeafe;
+  background: color-mix(in srgb, #60a5fa 32%, var(--admin-bg));
+}
+
+.admin-arrangement-pickup-window.is-passed {
+  border-color: color-mix(in srgb, #fb7185 62%, var(--admin-border));
+  color: #fecdd3;
+  background: color-mix(in srgb, #fb7185 18%, var(--admin-bg));
+}
+
+.admin-arrangement-pickup-window strong,
+.admin-arrangement-pickup-window small {
+  display: block;
+  overflow: hidden;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-arrangement-pickup-window strong {
+  font-size: .48rem;
+}
+
+.admin-arrangement-pickup-window small {
+  margin-top: 2px;
+  color: currentColor;
+  font-size: .43rem;
+  opacity: .8;
+}
+
 .admin-arrangement-pickup-marker {
   position: absolute;
   top: 0;
@@ -28624,11 +28681,11 @@ button.admin-accounting-metric {
 }
 
 .admin-arrangement-pickup-marker span {
-  top: 5px;
+  top: calc(5px + (var(--pickup-lanes, 0) * 34px));
 }
 
 .admin-arrangement-pickup-marker strong {
-  top: 17px;
+  top: calc(17px + (var(--pickup-lanes, 0) * 34px));
   font-weight: 850;
 }
 
@@ -28641,7 +28698,7 @@ button.admin-accounting-metric {
   grid-auto-rows: 84px;
   gap: 5px 3px;
   min-height: 278px;
-  padding-top: 32px;
+  padding-top: calc(32px + (var(--pickup-lanes, 0) * 34px));
 }
 
 .admin-arrangement-deadline-event {
