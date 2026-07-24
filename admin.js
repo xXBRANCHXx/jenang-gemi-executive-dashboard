@@ -7282,11 +7282,9 @@ document.addEventListener('DOMContentLoaded', () => {
     renderOrderPlatforms();
   };
 
-  const orderDisplayedRevenue = (row) => {
+  const orderNetRevenue = (row) => {
     const recalculatedRevenue = Number(row?.revenue ?? row?.net_revenue);
-    return Number.isFinite(recalculatedRevenue) && recalculatedRevenue >= 0
-      ? recalculatedRevenue
-      : Number(row?.gross_revenue || 0);
+    return Number.isFinite(recalculatedRevenue) && recalculatedRevenue >= 0 ? recalculatedRevenue : 0;
   };
 
 	  const renderOrders = (data = state.orders.data) => {
@@ -7347,7 +7345,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td class="admin-order-product" title="${escapeHtml(productLabel)}"><strong>${escapeHtml(productLabel)}</strong></td>
           <td>${formatCompactNumber(row.quantity || 0)}</td>
           <td title="${escapeHtml(allocation)}">${escapeHtml(poNumbers)}</td>
-	          <td title="Recalculated order proceeds allocated to this order line">${formatCellCurrency(orderDisplayedRevenue(row))}</td>
+	          <td title="Recalculated net revenue allocated to this order line">${formatCellCurrency(orderNetRevenue(row))}</td>
 	          <td title="Static average COGS from SKU DB">${formatCellCurrency(row.cogs || 0)}</td>
 	          <td class="admin-order-wallet-cell"><span class="admin-order-wallet-symbol${fundsReleased ? ' is-released' : ' is-pending'}" title="${escapeHtml(releasedTitle)}" aria-label="${escapeHtml(releasedTitle)}">${fundsReleased ? 'Rp' : '-'}</span></td>
 	          <td>${contactButton(row.username, 'username')}</td>
@@ -7372,7 +7370,7 @@ document.addEventListener('DOMContentLoaded', () => {
       'Product Name',
       'QTY',
       'PO',
-      'Gross Revenue',
+      'Net Revenue',
       'COGS',
       'Wallet Status',
       'Username',
@@ -7396,7 +7394,7 @@ document.addEventListener('DOMContentLoaded', () => {
           orderCsvText(row.product_name || row.marketplace_product_name),
           Number(row.quantity || 0),
           orderCsvText(poNumbers),
-          orderDisplayedRevenue(row),
+          orderNetRevenue(row),
           Number(row.cogs || 0),
           fundsReleased ? 'Released' : 'Pending',
           orderCsvText(row.username),

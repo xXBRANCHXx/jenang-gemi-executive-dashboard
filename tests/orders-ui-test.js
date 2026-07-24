@@ -12,16 +12,17 @@ const ordersActivation = admin.slice(
 );
 
 assert(
-  admin.includes('formatCellCurrency(orderDisplayedRevenue(row))'),
+  admin.includes('formatCellCurrency(orderNetRevenue(row))'),
   'The Orders table must display the recalculated item-level revenue.'
 );
 assert(
-  /const orderDisplayedRevenue = \(row\) => \{[\s\S]*?Number\(row\?\.revenue \?\? row\?\.net_revenue\)[\s\S]*?Number\(row\?\.gross_revenue \|\| 0\);/.test(admin),
-  'Orders must prefer recalculated proceeds and only fall back to gross revenue when necessary.'
+  /const orderNetRevenue = \(row\) => \{[\s\S]*?Number\(row\?\.revenue \?\? row\?\.net_revenue\)[\s\S]*?: 0;/.test(admin)
+    && !admin.includes('Number(row?.gross_revenue || 0)'),
+  'Orders must use recalculated net proceeds without falling back to gross revenue.'
 );
 assert(
-  dashboard.includes('<th>Gross Revenue</th>'),
-  'The Orders revenue column must identify the displayed amount as gross revenue.'
+  dashboard.includes('<th>Net Revenue</th>'),
+  'The Orders revenue column must identify the displayed amount as net revenue.'
 );
 assert(
   /const preloadOrderMemory = async[\s\S]*?state\.activeView === 'orders' \|\| !canStartBackgroundPageWork\(\)/.test(admin),
@@ -45,11 +46,11 @@ assert(
   'CSV export must page through the complete custom range instead of exporting only visible rows.'
 );
 assert(
-  admin.includes("'Gross Revenue'") && admin.includes('orderDisplayedRevenue(row)'),
+  admin.includes("'Net Revenue'") && admin.includes('orderNetRevenue(row)'),
   'CSV exports must include the recalculated item-level revenue.'
 );
 assert(
   /\.admin-orders-table th:nth-child\(7\),[\s\S]*?width: 132px;[\s\S]*?padding-right: 24px;[\s\S]*?nth-child\(8\)[\s\S]*?padding-left: 18px;/.test(styles),
-  'Gross Revenue and COGS columns must have independent width and spacing.'
+  'Net Revenue and COGS columns must have independent width and spacing.'
 );
 console.log('orders-ui-test: ok');

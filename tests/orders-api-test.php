@@ -51,7 +51,7 @@ $grossEnriched = jg_orders_enriched_row(array_merge($remoteRow, [
     'gross_revenue' => 840,
     'order_net_revenue' => 760,
 ]), $sku, 3.0, $allocations);
-expect_same(840, $grossEnriched['gross_revenue'], 'Inventory enrichment must preserve item-level gross revenue for Orders and CSV exports.');
+expect_same(840, $grossEnriched['gross_revenue'], 'Inventory enrichment must preserve item-level gross revenue context.');
 expect_same(760, $grossEnriched['order_net_revenue'], 'Inventory enrichment must preserve order-level net revenue context.');
 
 $datedSku = array_merge($sku, [
