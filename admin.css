@@ -28371,16 +28371,16 @@ button.admin-accounting-metric {
 .admin-arrangement-workspace.is-schedule .admin-arrangement-status-strip {
   order: -1;
   grid-template-columns: minmax(0, 2fr) minmax(250px, 1fr);
-  gap: 40px;
-  padding: 22px 4px;
+  gap: 28px;
+  padding: 14px 4px;
   border-bottom: 1px solid var(--admin-border);
   border-left: 0;
 }
 
 .admin-arrangement-status-strip .admin-arrangement-status-guide {
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 20px;
-  margin-top: 12px;
+  gap: 14px;
+  margin-top: 8px;
 }
 
 .admin-arrangement-status-strip .admin-arrangement-attention {
@@ -28398,7 +28398,11 @@ button.admin-accounting-metric {
 }
 
 .admin-arrangement-workspace.is-schedule .admin-arrangement-primary {
-  padding: 27px 4px 38px;
+  padding: 18px 4px 28px;
+}
+
+.admin-arrangement-workspace.is-schedule .admin-arrangement-schedule-head {
+  margin-bottom: 16px;
 }
 
 .admin-arrangement-agenda {
@@ -28421,7 +28425,7 @@ button.admin-accounting-metric {
   grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
   gap: 0;
   margin-left: 118px;
-  padding: 10px 14px 9px;
+  padding: 7px 10px 6px;
   border-bottom: 1px solid var(--admin-border);
   color: var(--admin-muted);
   font-size: .55rem;
@@ -28442,8 +28446,8 @@ button.admin-accounting-metric {
   display: grid;
   align-content: center;
   gap: 4px;
-  min-height: 112px;
-  padding: 16px;
+  min-height: 82px;
+  padding: 10px 13px;
   border-right: 1px solid var(--admin-border);
   background: color-mix(in srgb, var(--admin-text) 2.5%, transparent);
 }
@@ -28465,11 +28469,11 @@ button.admin-accounting-metric {
 .admin-arrangement-timeline-track {
   display: grid;
   grid-template-columns: repeat(24, minmax(34px, 1fr));
-  grid-auto-rows: minmax(112px, auto);
-  gap: 8px 4px;
+  grid-auto-rows: minmax(82px, auto);
+  gap: 5px 3px;
   align-items: stretch;
-  min-height: 112px;
-  padding: 10px 12px;
+  min-height: 82px;
+  padding: 6px 8px;
 }
 
 .admin-arrangement-timeline-track > p {
@@ -28482,11 +28486,11 @@ button.admin-accounting-metric {
 }
 
 .admin-arrangement-timeline-event {
-  grid-column: var(--event-start) / span 4;
+  grid-column: var(--event-start) / span 3;
   display: grid;
   align-content: start;
   min-width: 0;
-  padding: 11px 12px;
+  padding: 7px 9px;
   border: 1px solid color-mix(in srgb, var(--arrangement-tiktok) 40%, var(--admin-border));
   border-top: 3px solid var(--arrangement-tiktok);
   border-radius: 9px;
@@ -28537,8 +28541,8 @@ button.admin-accounting-metric {
 
 .admin-arrangement-timeline-event b {
   overflow: hidden;
-  margin-top: 8px;
-  font-size: .68rem;
+  margin-top: 5px;
+  font-size: .64rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -28555,9 +28559,9 @@ button.admin-accounting-metric {
 .admin-arrangement-timeline-event footer {
   align-items: flex-start;
   flex-direction: column;
-  gap: 3px;
-  margin-top: 9px;
-  padding-top: 7px;
+  gap: 2px;
+  margin-top: 5px;
+  padding-top: 4px;
   border-top: 1px solid var(--admin-border);
   color: var(--admin-muted);
   font-size: .51rem;
@@ -28570,7 +28574,7 @@ button.admin-accounting-metric {
 
 .admin-arrangement-timeline-event em {
   overflow: hidden;
-  margin-top: 6px;
+  margin-top: 4px;
   color: #fb7185;
   font-size: .51rem;
   font-style: normal;
@@ -28814,6 +28818,15 @@ button.admin-accounting-metric {
 .admin-arrangement-advanced-row select {
   width: 100%;
   min-height: 36px;
+}
+
+.admin-arrangement-advanced-row .admin-arrangement-day-toggle input[type='checkbox'] {
+  flex: 0 0 12px;
+  width: 12px;
+  height: 12px;
+  min-height: 12px;
+  margin: 0;
+  padding: 0;
 }
 
 @media (max-width: 900px) {

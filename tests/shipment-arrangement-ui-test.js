@@ -56,8 +56,11 @@ assert(
 assert(
   styles.includes('.admin-arrangement-timeline-track')
     && styles.includes('.admin-arrangement-timeline-event')
+    && styles.includes('grid-column: var(--event-start) / span 3')
     && styles.includes('.admin-arrangement-rule-card-grid')
     && styles.includes('.admin-arrangement-advanced-tabs')
+    && styles.includes(".admin-arrangement-day-toggle input[type='checkbox']")
+    && styles.includes('width: 12px')
     && styles.includes('.admin-arrangement-workspace')
     && styles.includes('@media (max-width: 680px)'),
   'The visual timeline, rule cards, and advanced marketplace tabs must have responsive styling.'

@@ -143,7 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
               const deadline = parseUtc(order.ship_by_at);
               const moment = orderDisplayDate(order);
               const parts = jakartaParts(moment, true);
-              const start = Math.min(21, Math.max(1, parts.hour + 1));
+              const start = Math.min(22, Math.max(1, parts.hour + 1));
               const [status, statusClass] = statusLabel(order);
               const platform = String(order.platform || '').toLowerCase();
               const platformLabel = platform === 'shopee' ? 'Shopee' : platform === 'tiktok' ? 'TikTok Shop' : platform || 'Marketplace';

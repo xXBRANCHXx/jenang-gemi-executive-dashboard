@@ -31,7 +31,7 @@ if ($isAuthenticated) {
     }
 }
 $isAdView = $isAuthenticated && in_array($requestedView ?? '', ['ad-view', 'ads', 'ad_view', 'shopee-ads'], true);
-$dashboardBuildVersion = 'exec3.83.0';
+$dashboardBuildVersion = 'exec3.84.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
