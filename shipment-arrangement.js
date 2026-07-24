@@ -43,6 +43,9 @@ document.addEventListener('DOMContentLoaded', () => {
     save: root.querySelector('[data-arrangement-save]'),
     applyMonday: root.querySelector('[data-arrangement-apply-monday]')
   };
+  if (refs.eventOverlay && refs.eventOverlay.parentElement !== document.body) {
+    document.body.append(refs.eventOverlay);
+  }
 
   function jakartaParts(value, includeTime = false) {
     const options = {

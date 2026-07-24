@@ -905,7 +905,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                                     </button>
                                 </header>
                                 <div class="admin-arrangement-event-layout">
-                                    <aside aria-label="Orders in this pickup" data-arrangement-event-orders></aside>
+                                    <nav aria-label="Orders in this pickup" data-arrangement-event-orders></nav>
                                     <main aria-live="polite" data-arrangement-order-detail></main>
                                 </div>
                             </section>
