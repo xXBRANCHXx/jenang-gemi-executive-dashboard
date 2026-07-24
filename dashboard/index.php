@@ -31,7 +31,7 @@ if ($isAuthenticated) {
     }
 }
 $isAdView = $isAuthenticated && in_array($requestedView ?? '', ['ad-view', 'ads', 'ad_view', 'shopee-ads'], true);
-$dashboardBuildVersion = 'exec3.80.0';
+$dashboardBuildVersion = 'exec3.81.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -776,33 +776,49 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                             <div>
                                 <span class="admin-panel-kicker">Orders · Ops</span>
                                 <h2>Shipment Arrangement</h2>
-                                <p>See ship-by deadlines against marketplace pickup windows, hour by hour.</p>
+                                <p>Choose which pickup day the marketplace should use when an order is arranged.</p>
                             </div>
                             <div class="admin-arrangement-hero-actions">
                                 <span class="admin-arrangement-live" data-arrangement-live><i></i> Connecting</span>
-                                <button type="button" class="admin-ghost-btn" data-arrangement-refresh>Refresh</button>
-                                <button type="button" class="admin-primary-btn" data-arrangement-edit>Edit rules</button>
+                                <button type="button" class="admin-icon-action" data-arrangement-refresh aria-label="Refresh shipment arrangement" title="Refresh">↻</button>
+                                <button type="button" class="admin-primary-btn" data-arrangement-edit>Edit pickup rules</button>
                             </div>
                         </section>
 
-                        <section class="admin-arrangement-metrics" aria-label="Shipment arrangement status">
-                            <article><span>Automation</span><strong data-arrangement-metric="automation">Checking</strong><small data-arrangement-automation-note>Hostinger worker status</small></article>
-                            <article><span>Awaiting arrangement</span><strong data-arrangement-metric="awaiting">0</strong><small>Regular marketplace orders</small></article>
-                            <article><span>Pickup slots</span><strong data-arrangement-metric="pickups">0</strong><small>This visible week</small></article>
-                            <article><span>Exceptions</span><strong data-arrangement-metric="exceptions">0</strong><small>Need attention</small></article>
+                        <section class="admin-arrangement-statusline" aria-label="Shipment arrangement status">
+                            <span><strong data-arrangement-metric="awaiting">0</strong> waiting</span>
+                            <span><strong data-arrangement-metric="pickups">0</strong> pickups this week</span>
+                            <span class="is-exception"><strong data-arrangement-metric="exceptions">0</strong> need attention</span>
                         </section>
 
-                        <section class="admin-panel admin-arrangement-map-panel">
-                            <div class="admin-arrangement-toolbar">
+                        <section class="admin-panel admin-arrangement-rules-panel">
+                            <div class="admin-arrangement-section-head">
+                                <div>
+                                    <span class="admin-panel-kicker">Live pickup rule</span>
+                                    <h3>Arranged on → pickup on</h3>
+                                    <p>The worker chooses the earliest marketplace time on your selected pickup day.</p>
+                                </div>
                                 <div class="admin-arrangement-segment" role="group" aria-label="Platform filter">
                                     <button type="button" class="is-active" data-arrangement-platform="all">All</button>
                                     <button type="button" data-arrangement-platform="shopee">Shopee</button>
                                     <button type="button" data-arrangement-platform="tiktok">TikTok Shop</button>
                                 </div>
-                                <div class="admin-arrangement-segment" role="group" aria-label="Order type filter">
-                                    <button type="button" class="is-active" data-arrangement-type="all">All orders</button>
-                                    <button type="button" data-arrangement-type="regular">Regular</button>
-                                    <button type="button" data-arrangement-type="instant">Instant</button>
+                            </div>
+                            <div class="admin-arrangement-rule-summary" data-arrangement-rule-summary>
+                                <p class="admin-empty">Loading pickup rules.</p>
+                            </div>
+                            <div class="admin-arrangement-guardrail">
+                                <span>Instant</span>
+                                <strong>Manual arrangement only</strong>
+                                <small>When manually arranged, it uses the pickup-day rule for that day.</small>
+                            </div>
+                        </section>
+
+                        <section class="admin-panel admin-arrangement-map-panel">
+                            <div class="admin-arrangement-toolbar">
+                                <div>
+                                    <span class="admin-panel-kicker">Actual marketplace schedule</span>
+                                    <h3>This week</h3>
                                 </div>
                                 <div class="admin-arrangement-week-nav">
                                     <button type="button" class="admin-ghost-btn" data-arrangement-week="-1" aria-label="Previous week">←</button>
@@ -812,28 +828,19 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                                 </div>
                             </div>
                             <div class="admin-arrangement-legend">
-                                <span><i class="is-deadline"></i> Ship-by deadline</span>
-                                <span><i class="is-pickup"></i> Pickup slot</span>
-                                <span><i class="is-policy"></i> Auto-arrangement window</span>
-                                <span><i class="is-instant"></i> Instant · manual only</span>
+                                <span><i class="is-shopee"></i> Shopee pickup</span>
+                                <span><i class="is-tiktok"></i> TikTok pickup</span>
+                                <span><i class="is-deadline"></i> Ship-by</span>
                             </div>
                             <div class="admin-arrangement-map" data-arrangement-map>
-                                <p class="admin-empty">Loading shipment timeline.</p>
+                                <p class="admin-empty">Loading pickup schedule.</p>
                             </div>
                         </section>
 
-                        <section class="admin-panel admin-panel-wide admin-arrangement-order-panel">
-                            <div class="admin-panel-head">
-                                <div>
-                                    <span class="admin-panel-kicker">Visible week</span>
-                                    <h3>Order schedule</h3>
-                                    <span class="admin-panel-meta" data-arrangement-order-meta>Loading orders</span>
-                                </div>
-                            </div>
-                            <div class="admin-arrangement-order-list" data-arrangement-orders>
-                                <p class="admin-empty">Loading order schedule.</p>
-                            </div>
-                        </section>
+                        <details class="admin-panel admin-arrangement-order-panel">
+                            <summary><span>Order details</span><small data-arrangement-order-meta>Loading orders</small></summary>
+                            <div class="admin-arrangement-order-list" data-arrangement-orders></div>
+                        </details>
 
                         <div class="admin-modal-shell admin-arrangement-editor" data-arrangement-editor hidden>
                             <div class="admin-modal-backdrop" data-arrangement-editor-close></div>
@@ -841,12 +848,12 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                                 <div class="admin-modal-head">
                                     <div>
                                         <span class="admin-panel-kicker">Branch control</span>
-                                        <h3 id="arrangement-editor-title">Automatic arrangement rules</h3>
+                                        <h3 id="arrangement-editor-title">Pickup day rules</h3>
                                     </div>
-                                    <button type="button" class="admin-ghost-btn" data-arrangement-editor-close>Close</button>
+                                    <button type="button" class="admin-icon-action" data-arrangement-editor-close aria-label="Close">×</button>
                                 </div>
                                 <div data-arrangement-unlock>
-                                    <p>Use Branch-tier credentials to edit the rules read by the Hostinger two-minute worker.</p>
+                                    <p>Branch-tier credentials are required because these rules directly control the Hostinger arrangement worker.</p>
                                     <form class="admin-arrangement-unlock-form" data-arrangement-unlock-form>
                                         <label><span>Username</span><input name="username" autocomplete="username" required></label>
                                         <label><span>Password</span><input name="password" type="password" autocomplete="current-password" required></label>
@@ -855,19 +862,20 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                                 </div>
                                 <form data-arrangement-policy-form hidden>
                                     <div class="admin-arrangement-safety">
-                                        <strong>Asia/Jakarta · live worker rules</strong>
-                                        <p>Regular orders are queued outside enabled hours. Instant orders always remain manual. Marketplace availability determines the final pickup slot.</p>
-                                    </div>
-                                    <div class="admin-arrangement-rule-tabs" role="tablist">
-                                        <button type="button" class="is-active" data-arrangement-rule-tab="shopee">Shopee</button>
-                                        <button type="button" data-arrangement-rule-tab="tiktok">TikTok Shop</button>
+                                        <strong>Orders arranged on → pickup on</strong>
+                                        <p>If the selected day is unavailable, the worker stops safely. It will not substitute a different day.</p>
                                     </div>
                                     <div data-arrangement-rule-grid></div>
+                                    <details class="admin-arrangement-advanced">
+                                        <summary>Advanced arrangement settings</summary>
+                                        <p>Automatic arrangement hours and carrier handover exceptions.</p>
+                                        <div data-arrangement-advanced-grid></div>
+                                    </details>
                                     <p class="admin-form-error" data-arrangement-error hidden></p>
                                     <div class="admin-modal-actions">
                                         <span class="admin-panel-meta" data-arrangement-policy-meta></span>
                                         <button type="button" class="admin-ghost-btn" data-arrangement-editor-close>Cancel</button>
-                                        <button type="submit" class="admin-primary-btn" data-arrangement-save>Save live rules</button>
+                                        <button type="submit" class="admin-primary-btn" data-arrangement-save>Save pickup rules</button>
                                     </div>
                                 </form>
                             </aside>

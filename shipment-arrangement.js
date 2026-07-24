@@ -3,9 +3,9 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!root) return;
 
   const endpoint = root.dataset.shipmentArrangementEndpoint || '../api/shipment-arrangement/';
-  const DAY_LABELS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const CARRIERS = [
-    ['pos_indonesia', 'POS Indonesia'],
+    ['pos_indonesia', 'POS'],
     ['jnt_express', 'J&T Express'],
     ['jnt_cargo', 'J&T Cargo']
   ];
@@ -13,8 +13,6 @@ document.addEventListener('DOMContentLoaded', () => {
     data: null,
     weekStart: startOfWeek(new Date()),
     platform: 'all',
-    type: 'all',
-    ruleTab: 'shopee',
     workingPolicy: null,
     loading: false
   };
@@ -22,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
     live: root.querySelector('[data-arrangement-live]'),
     refresh: root.querySelector('[data-arrangement-refresh]'),
     edit: root.querySelector('[data-arrangement-edit]'),
+    ruleSummary: root.querySelector('[data-arrangement-rule-summary]'),
     map: root.querySelector('[data-arrangement-map]'),
     orders: root.querySelector('[data-arrangement-orders]'),
     orderMeta: root.querySelector('[data-arrangement-order-meta]'),
@@ -31,19 +30,43 @@ document.addEventListener('DOMContentLoaded', () => {
     unlockForm: root.querySelector('[data-arrangement-unlock-form]'),
     policyForm: root.querySelector('[data-arrangement-policy-form]'),
     ruleGrid: root.querySelector('[data-arrangement-rule-grid]'),
+    advancedGrid: root.querySelector('[data-arrangement-advanced-grid]'),
     policyMeta: root.querySelector('[data-arrangement-policy-meta]'),
     error: root.querySelector('[data-arrangement-error]'),
     save: root.querySelector('[data-arrangement-save]')
   };
 
+  function jakartaParts(value, includeTime = false) {
+    const options = {
+      timeZone: 'Asia/Jakarta',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      ...(includeTime ? { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' } : {})
+    };
+    const parts = new Intl.DateTimeFormat('en-CA', options)
+      .formatToParts(new Date(value))
+      .reduce((result, part) => ({ ...result, [part.type]: part.value }), {});
+    return {
+      date: `${parts.year}-${parts.month}-${parts.day}`,
+      hour: Number(parts.hour || 0),
+      minute: Number(parts.minute || 0)
+    };
+  }
+
   function startOfWeek(value) {
-    const parts = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit'
-    }).formatToParts(new Date(value)).reduce((result, part) => ({ ...result, [part.type]: part.value }), {});
-    const dateKey = `${parts.year}-${parts.month}-${parts.day}`;
+    const dateKey = jakartaParts(value).date;
     const calendarDay = new Date(`${dateKey}T12:00:00Z`).getUTCDay() || 7;
     return new Date(new Date(`${dateKey}T00:00:00+07:00`).getTime() - ((calendarDay - 1) * 86400000));
   }
+
+  const addDays = (date, days) => new Date(new Date(date).getTime() + (days * 86400000));
+  const weekEnd = () => addDays(state.weekStart, 7);
+  const dateKey = (date) => jakartaParts(date).date;
+  const todayDayNumber = () => {
+    const key = dateKey(new Date());
+    return (new Date(`${key}T12:00:00Z`).getUTCDay() || 7);
+  };
 
   const escapeHtml = (value) => String(value ?? '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -61,166 +84,149 @@ document.addEventListener('DOMContentLoaded', () => {
     ...options
   }).format(date);
 
-  const localParts = (date) => {
-    if (!(date instanceof Date)) return null;
-    const parts = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
-    }).formatToParts(date).reduce((result, part) => ({ ...result, [part.type]: part.value }), {});
-    return {
-      date: `${parts.year}-${parts.month}-${parts.day}`,
-      minute: Number(parts.hour) * 60 + Number(parts.minute)
-    };
+  const platformPolicy = (platform) => state.data?.policy?.policy?.platforms?.[platform]?.regular || {};
+  const pickupRule = (platform, dayNumber, policy = state.data?.policy?.policy) =>
+    String(policy?.platforms?.[platform]?.regular?.pickup_days?.[String(dayNumber)] || 'EARLIEST_WEEKDAY');
+
+  const pickupRuleLabel = (rule, compact = false) => {
+    if (rule === 'EARLIEST_WEEKDAY') return compact ? 'Next weekday' : 'Earliest available weekday';
+    const index = Math.max(1, Math.min(7, Number(rule))) - 1;
+    return compact ? DAYS[index].slice(0, 3) : DAYS[index];
   };
-
-  const localDateKey = (date) => formatDate(date, { year: 'numeric', month: '2-digit', day: '2-digit' })
-    .split('/').reverse().join('-');
-
-  const addDays = (date, days) => {
-    return new Date(new Date(date).getTime() + (days * 86400000));
-  };
-
-  const weekEnd = () => addDays(state.weekStart, 7);
 
   const selectedOrders = () => {
     const orders = Array.isArray(state.data?.orders) ? state.data.orders : [];
     return orders.filter((order) => {
       if (state.platform !== 'all' && String(order.platform).toLowerCase() !== state.platform) return false;
-      if (state.type !== 'all' && String(order.order_type).toLowerCase() !== state.type) return false;
       const dates = [parseUtc(order.pickup_start_at), parseUtc(order.ship_by_at), parseUtc(order.updated_at)].filter(Boolean);
       return dates.some((date) => date >= state.weekStart && date < weekEnd());
     });
   };
 
-  const xPercent = (minutes) => Math.max(0, Math.min(100, (minutes / 1440) * 100));
-  const durationPercent = (start, end) => Math.max(0.75, xPercent(Math.max(15, end - start)));
-
-  const policyWindow = (platform, dayNumber) =>
-    state.data?.policy?.policy?.platforms?.[platform]?.regular?.windows?.[String(dayNumber)] || null;
-
-  const renderMap = () => {
-    if (!refs.map || !state.data) return;
-    const orders = selectedOrders();
-    const startLabel = formatDate(state.weekStart, { day: 'numeric', month: 'short' });
-    const endLabel = formatDate(addDays(state.weekStart, 6), { day: 'numeric', month: 'short', year: 'numeric' });
-    if (refs.weekLabel) refs.weekLabel.textContent = `${startLabel} – ${endLabel}`;
-    const hourTicks = [0, 4, 8, 12, 16, 20, 24]
-      .map((hour) => `<span style="left:${(hour / 24) * 100}%">${String(hour).padStart(2, '0')}:00</span>`).join('');
-    const rows = DAY_LABELS.map((label, index) => {
-      const date = addDays(state.weekStart, index);
-      const dateKey = localDateKey(date);
-      const platforms = state.platform === 'all' ? ['shopee', 'tiktok'] : [state.platform];
-      const policyBlocks = platforms.map((platform, platformIndex) => {
-        const windowRule = policyWindow(platform, index + 1);
-        if (!windowRule?.enabled) return '';
-        const [startHour, startMinute] = String(windowRule.start).split(':').map(Number);
-        const [endHour, endMinute] = String(windowRule.end).split(':').map(Number);
-        const start = startHour * 60 + startMinute;
-        const end = endHour * 60 + endMinute;
-        return `<span class="admin-arrangement-policy-block is-${platform}" style="left:${xPercent(start)}%;width:${durationPercent(start, end)}%;top:${5 + platformIndex * 14}px" title="${escapeHtml(platform)} automatic arrangement ${escapeHtml(windowRule.start)}–${escapeHtml(windowRule.end)}"></span>`;
-      }).join('');
-      const dayOrders = orders.filter((order) => {
-        const pickup = localParts(parseUtc(order.pickup_start_at));
-        const deadline = localParts(parseUtc(order.ship_by_at));
-        return pickup?.date === dateKey || deadline?.date === dateKey;
-      });
-      const events = dayOrders.map((order, orderIndex) => {
-        const pickupDate = parseUtc(order.pickup_start_at);
-        const pickupEndDate = parseUtc(order.pickup_end_at);
-        const deadlineDate = parseUtc(order.ship_by_at);
-        const pickup = localParts(pickupDate);
-        const pickupEnd = localParts(pickupEndDate);
-        const deadline = localParts(deadlineDate);
-        const lane = 39 + (orderIndex % 3) * 18;
-        const title = [
-          order.platform, order.account_key, order.order_id,
-          order.order_type === 'instant' ? 'Instant · manual only' : 'Regular',
-          order.pickup_slot_label || order.handover_method
-        ].filter(Boolean).join(' · ');
-        const deadlineMarker = deadline?.date === dateKey
-          ? `<button type="button" class="admin-arrangement-deadline" style="left:${xPercent(deadline.minute)}%;top:${lane}px" title="${escapeHtml(title)} · ship by ${escapeHtml(formatDate(deadlineDate, { hour: '2-digit', minute: '2-digit' }))}" aria-label="${escapeHtml(title)} ship-by deadline"></button>`
-          : '';
-        const pickupBlock = pickup?.date === dateKey
-          ? `<button type="button" class="admin-arrangement-pickup is-${escapeHtml(order.platform)} ${order.order_type === 'instant' ? 'is-instant' : ''}" style="left:${xPercent(pickup.minute)}%;width:${durationPercent(pickup.minute, pickupEnd?.minute || pickup.minute + 60)}%;top:${lane}px" title="${escapeHtml(title)} · pickup ${escapeHtml(order.pickup_slot_label || formatDate(pickupDate, { hour: '2-digit', minute: '2-digit' }))}" aria-label="${escapeHtml(title)} pickup slot"><span>${escapeHtml(order.order_id)}</span></button>`
-          : '';
-        return deadlineMarker + pickupBlock;
+  const renderRuleSummary = () => {
+    if (!refs.ruleSummary || !state.data) return;
+    const activePlatforms = state.platform === 'all' ? ['shopee', 'tiktok'] : [state.platform];
+    const today = todayDayNumber();
+    refs.ruleSummary.innerHTML = DAYS.map((day, index) => {
+      const dayNumber = index + 1;
+      const routes = activePlatforms.map((platform) => {
+        const rule = pickupRule(platform, dayNumber);
+        return `
+          <div class="admin-arrangement-rule-route is-${platform}">
+            <span>${platform === 'shopee' ? 'Shopee' : 'TikTok'}</span>
+            <strong>${escapeHtml(pickupRuleLabel(rule, true))}</strong>
+          </div>`;
       }).join('');
       return `
-        <div class="admin-arrangement-day ${dateKey === localDateKey(new Date()) ? 'is-today' : ''}">
-          <div class="admin-arrangement-day-label"><strong>${label.slice(0, 3)}</strong><span>${formatDate(date, { day: '2-digit', month: 'short' })}</span></div>
-          <div class="admin-arrangement-day-track">
-            <div class="admin-arrangement-hour-grid">${hourTicks}</div>
-            ${policyBlocks}${events}
+        <article class="admin-arrangement-rule-card ${dayNumber === today ? 'is-today' : ''}">
+          <div class="admin-arrangement-rule-day">
+            <span>Arrange</span>
+            <strong>${day.slice(0, 3)}</strong>
+            ${dayNumber === today ? '<small>Today</small>' : ''}
           </div>
-        </div>`;
+          <span class="admin-arrangement-rule-arrow" aria-hidden="true">→</span>
+          <div class="admin-arrangement-rule-routes">${routes}</div>
+        </article>`;
     }).join('');
-    refs.map.innerHTML = `<div class="admin-arrangement-map-head"><div></div><div>${hourTicks}</div></div>${rows}`;
+  };
+
+  const renderSchedule = () => {
+    if (!refs.map || !state.data) return;
+    const orders = selectedOrders();
+    if (refs.weekLabel) {
+      refs.weekLabel.textContent = `${formatDate(state.weekStart, { day: 'numeric', month: 'short' })} – ${formatDate(addDays(state.weekStart, 6), { day: 'numeric', month: 'short', year: 'numeric' })}`;
+    }
+    refs.map.innerHTML = DAYS.map((day, index) => {
+      const date = addDays(state.weekStart, index);
+      const key = dateKey(date);
+      const pickups = orders.filter((order) => dateKey(parseUtc(order.pickup_start_at) || 0) === key);
+      const pickupIds = new Set(pickups.map((order) => `${order.platform}:${order.account_key}:${order.order_id}`));
+      const deadlines = orders.filter((order) => {
+        const deadline = parseUtc(order.ship_by_at);
+        const identity = `${order.platform}:${order.account_key}:${order.order_id}`;
+        return deadline && dateKey(deadline) === key && !pickupIds.has(identity);
+      });
+      const cards = pickups.map((order) => {
+        const pickup = parseUtc(order.pickup_start_at);
+        const deadline = parseUtc(order.ship_by_at);
+        return `
+          <article class="admin-arrangement-pickup-card is-${escapeHtml(order.platform)}">
+            <div><span>${order.platform === 'shopee' ? 'Shopee' : 'TikTok'}</span><strong>${pickup ? escapeHtml(formatDate(pickup, { hour: '2-digit', minute: '2-digit' })) : ''}</strong></div>
+            <b>${escapeHtml(order.order_id)}</b>
+            <small>${escapeHtml(order.account_key || '')}</small>
+            ${deadline ? `<em>Ship by ${escapeHtml(formatDate(deadline, { weekday: 'short', hour: '2-digit', minute: '2-digit' }))}</em>` : ''}
+          </article>`;
+      }).join('');
+      const deadlineCards = deadlines.map((order) => {
+        const deadline = parseUtc(order.ship_by_at);
+        return `<div class="admin-arrangement-deadline-card"><i></i><span>Ship by ${deadline ? escapeHtml(formatDate(deadline, { hour: '2-digit', minute: '2-digit' })) : ''}</span><strong>${escapeHtml(order.order_id)}</strong></div>`;
+      }).join('');
+      return `
+        <section class="admin-arrangement-schedule-day ${key === dateKey(new Date()) ? 'is-today' : ''}">
+          <header><strong>${day.slice(0, 3)}</strong><span>${formatDate(date, { day: '2-digit', month: 'short' })}</span></header>
+          <div>${cards || deadlineCards ? cards + deadlineCards : '<p>No pickups</p>'}</div>
+        </section>`;
+    }).join('');
   };
 
   const statusLabel = (order) => {
-    if (order.exception_status || order.last_error) return ['Exception', 'is-danger'];
-    if (order.order_type === 'instant' && !order.shipment_arranged) return ['Manual action', 'is-warning'];
+    if (order.exception_status || order.last_error) return ['Needs attention', 'is-danger'];
+    if (order.order_type === 'instant' && !order.shipment_arranged) return ['Manual', 'is-warning'];
     if (order.shipment_arranged) return [order.handover_method || 'Arranged', 'is-success'];
-    return ['Awaiting', ''];
+    return ['Waiting', ''];
   };
 
   const renderOrders = () => {
-    const orders = selectedOrders().sort((a, b) => {
-      const aTime = parseUtc(a.pickup_start_at)?.getTime() || parseUtc(a.ship_by_at)?.getTime() || 0;
-      const bTime = parseUtc(b.pickup_start_at)?.getTime() || parseUtc(b.ship_by_at)?.getTime() || 0;
-      return aTime - bTime;
+    const orders = selectedOrders().sort((left, right) => {
+      const a = parseUtc(left.pickup_start_at)?.getTime() || parseUtc(left.ship_by_at)?.getTime() || 0;
+      const b = parseUtc(right.pickup_start_at)?.getTime() || parseUtc(right.ship_by_at)?.getTime() || 0;
+      return a - b;
     });
-    if (refs.orderMeta) refs.orderMeta.textContent = `${orders.length} order${orders.length === 1 ? '' : 's'} in this view`;
+    if (refs.orderMeta) refs.orderMeta.textContent = `${orders.length} order${orders.length === 1 ? '' : 's'}`;
     if (!refs.orders) return;
-    if (!orders.length) {
-      refs.orders.innerHTML = '<p class="admin-empty">No matching ship-by deadlines or pickup slots fall in this week.</p>';
-      return;
-    }
-    refs.orders.innerHTML = orders.map((order) => {
+    refs.orders.innerHTML = orders.length ? orders.map((order) => {
       const [label, className] = statusLabel(order);
       const pickup = parseUtc(order.pickup_start_at);
       const deadline = parseUtc(order.ship_by_at);
       return `
         <article class="admin-arrangement-order">
-          <div class="admin-arrangement-order-platform is-${escapeHtml(order.platform)}">${escapeHtml(String(order.platform).toUpperCase())}</div>
-          <div><strong>${escapeHtml(order.order_id)}</strong><small>${escapeHtml(order.account_key || 'Default account')} · ${escapeHtml(order.order_type || 'regular')}</small></div>
-          <div><span>Ship by</span><strong>${deadline ? escapeHtml(formatDate(deadline, { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })) : 'Not provided'}</strong></div>
-          <div><span>Pickup / handover</span><strong>${pickup ? escapeHtml(formatDate(pickup, { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })) : escapeHtml(order.handover_method || 'Not arranged')}</strong><small>${escapeHtml(order.pickup_slot_label || order.shipping_provider_name || '')}</small></div>
+          <span class="admin-arrangement-order-platform is-${escapeHtml(order.platform)}">${escapeHtml(order.platform)}</span>
+          <div><strong>${escapeHtml(order.order_id)}</strong><small>${escapeHtml(order.account_key || '')} · ${escapeHtml(order.order_type || 'regular')}</small></div>
+          <div><span>Ship by</span><strong>${deadline ? escapeHtml(formatDate(deadline, { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })) : '—'}</strong></div>
+          <div><span>Pickup</span><strong>${pickup ? escapeHtml(formatDate(pickup, { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })) : 'Not arranged'}</strong></div>
           <span class="admin-status-badge ${className}">${escapeHtml(label)}</span>
         </article>`;
-    }).join('');
+    }).join('') : '<p class="admin-empty">No matching orders in this week.</p>';
   };
 
-  const renderMetrics = () => {
+  const renderStatus = () => {
     const orders = Array.isArray(state.data?.orders) ? state.data.orders : [];
     const visible = selectedOrders();
     const paused = Boolean(state.data?.hard_set?.automation_paused);
     const enabled = Boolean(state.data?.hard_set?.enabled);
-    const automation = !enabled ? 'Not activated' : paused ? 'Paused' : 'Live';
-    root.querySelector('[data-arrangement-metric="automation"]').textContent = automation;
     root.querySelector('[data-arrangement-metric="awaiting"]').textContent =
       String(orders.filter((order) => order.order_type !== 'instant' && !order.shipment_arranged && !order.is_processed).length);
     root.querySelector('[data-arrangement-metric="pickups"]').textContent =
       String(visible.filter((order) => parseUtc(order.pickup_start_at)).length);
     root.querySelector('[data-arrangement-metric="exceptions"]').textContent =
       String(orders.filter((order) => order.exception_status || order.last_error).length);
-    const note = root.querySelector('[data-arrangement-automation-note]');
-    if (note) note.textContent = paused ? 'No regular orders are being arranged' : 'Checked by the two-minute worker';
     if (refs.live) {
       refs.live.classList.toggle('is-paused', paused || !enabled);
-      refs.live.innerHTML = `<i></i>${paused ? ' Automation paused' : !enabled ? ' Not activated' : ' Live · 2 min worker'}`;
+      refs.live.innerHTML = `<i></i>${paused ? ' Paused' : !enabled ? ' Not active' : ' Live · 2 min'}`;
     }
   };
 
   const renderAll = () => {
-    renderMetrics();
-    renderMap();
+    renderStatus();
+    renderRuleSummary();
+    renderSchedule();
     renderOrders();
   };
 
   const requestJson = async (url, options = {}) => {
     const response = await fetch(url, {
-      cache: 'no-store', credentials: 'same-origin',
+      cache: 'no-store',
+      credentials: 'same-origin',
       headers: { Accept: 'application/json', ...(options.headers || {}) },
       ...options
     });
@@ -233,7 +239,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (state.loading) return;
     state.loading = true;
     refs.refresh?.setAttribute('disabled', '');
-    if (refs.live) refs.live.innerHTML = '<i></i> Refreshing';
     try {
       state.data = await requestJson(`${endpoint}?limit=500`);
       renderAll();
@@ -246,81 +251,100 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const showEditorAccess = () => {
-    const branch = Boolean(state.data?.access?.branch);
-    if (refs.unlock) refs.unlock.hidden = branch;
-    if (refs.policyForm) refs.policyForm.hidden = !branch;
-    if (branch) {
-      state.workingPolicy = structuredClone(state.data?.policy?.policy || {});
-      renderRuleGrid();
-      if (refs.policyMeta) {
-        const revision = Number(state.data?.policy?.revision || 0);
-        refs.policyMeta.textContent = `Revision ${revision} · ${state.data?.policy?.updated_by || 'environment defaults'}`;
-      }
-    }
+  const dayOptions = (selected) => [
+    ['EARLIEST_WEEKDAY', 'Earliest weekday'],
+    ...DAYS.map((day, index) => [String(index + 1), day])
+  ].map(([value, label]) => `<option value="${value}" ${String(selected) === value ? 'selected' : ''}>${label}</option>`).join('');
+
+  const methodOptions = (selected) => ['PICKUP', 'DROP_OFF', 'HOLD']
+    .map((value) => `<option value="${value}" ${selected === value ? 'selected' : ''}>${value === 'DROP_OFF' ? 'Drop-off' : value.charAt(0) + value.slice(1).toLowerCase()}</option>`)
+    .join('');
+
+  const renderEditor = () => {
+    if (!state.workingPolicy || !refs.ruleGrid) return;
+    refs.ruleGrid.className = 'admin-arrangement-pickup-editor';
+    refs.ruleGrid.innerHTML = `
+      <div class="admin-arrangement-editor-head"><span>Arrange day</span><span>Shopee pickup</span><span>TikTok pickup</span></div>
+      ${DAYS.map((day, index) => {
+        const key = String(index + 1);
+        return `
+          <div class="admin-arrangement-editor-row" data-pickup-rule-day="${key}">
+            <strong>${day}</strong>
+            <label><span>Shopee</span><select name="shopee-pickup-${key}">${dayOptions(pickupRule('shopee', key, state.workingPolicy))}</select></label>
+            <label><span>TikTok</span><select name="tiktok-pickup-${key}">${dayOptions(pickupRule('tiktok', key, state.workingPolicy))}</select></label>
+          </div>`;
+      }).join('')}`;
+    renderAdvancedEditor();
   };
 
-  const methodSelect = (name, value) => `
-    <select name="${escapeHtml(name)}">
-      ${['PICKUP', 'DROP_OFF', 'HOLD'].map((method) =>
-        `<option value="${method}" ${method === value ? 'selected' : ''}>${method === 'DROP_OFF' ? 'Drop-off' : method.charAt(0) + method.slice(1).toLowerCase()}</option>`
-      ).join('')}
-    </select>`;
-
-  function renderRuleGrid() {
-    if (!refs.ruleGrid || !state.workingPolicy) return;
-    const tab = state.ruleTab;
-    const windows = state.workingPolicy.platforms?.[tab]?.regular?.windows || {};
-    const header = tab === 'shopee'
-      ? '<span>Day</span><span>Automatic hours</span><span>Handover</span>'
-      : '<span>Day</span><span>Automatic hours</span><span>POS</span><span>J&T Express</span><span>J&T Cargo</span>';
-    const rows = DAY_LABELS.map((day, index) => {
-      const key = String(index + 1);
-      const windowRule = windows[key] || { enabled: true, start: '00:00', end: '23:59' };
-      const methods = tab === 'shopee'
-        ? methodSelect(`method-${key}`, state.workingPolicy.platforms.shopee.regular.methods[key])
-        : CARRIERS.map(([carrier]) => methodSelect(`${carrier}-${key}`,
-          state.workingPolicy.platforms.tiktok.regular.carriers[carrier].methods[key])).join('');
+  const renderAdvancedEditor = () => {
+    if (!refs.advancedGrid || !state.workingPolicy) return;
+    const platformSection = (platform) => {
+      const regular = state.workingPolicy.platforms[platform].regular;
       return `
-        <div class="admin-arrangement-rule-row" data-rule-day="${key}">
-          <label class="admin-arrangement-day-toggle"><input type="checkbox" name="enabled-${key}" ${windowRule.enabled ? 'checked' : ''}><span>${day}</span></label>
-          <div class="admin-arrangement-time-range"><input type="time" name="start-${key}" value="${escapeHtml(windowRule.start)}"><span>to</span><input type="time" name="end-${key}" value="${escapeHtml(windowRule.end)}"></div>
-          ${methods}
-        </div>`;
-    }).join('');
-    refs.ruleGrid.className = `admin-arrangement-rule-grid is-${tab}`;
-    refs.ruleGrid.innerHTML = `<div class="admin-arrangement-rule-head">${header}</div>${rows}`;
-  }
+        <section class="admin-arrangement-advanced-platform">
+          <h4>${platform === 'shopee' ? 'Shopee' : 'TikTok Shop'}</h4>
+          ${DAYS.map((day, index) => {
+            const key = String(index + 1);
+            const windowRule = regular.windows[key];
+            const methodFields = platform === 'shopee'
+              ? `<select name="shopee-method-${key}">${methodOptions(regular.methods[key])}</select>`
+              : CARRIERS.map(([carrier, label]) => `<label><span>${label}</span><select name="${carrier}-${key}">${methodOptions(regular.carriers[carrier].methods[key])}</select></label>`).join('');
+            return `
+              <div class="admin-arrangement-advanced-row" data-advanced-platform="${platform}" data-advanced-day="${key}">
+                <label class="admin-arrangement-day-toggle"><input type="checkbox" name="${platform}-enabled-${key}" ${windowRule.enabled ? 'checked' : ''}><span>${day.slice(0, 3)}</span></label>
+                <div class="admin-arrangement-time-range"><input type="time" name="${platform}-start-${key}" value="${escapeHtml(windowRule.start)}"><span>–</span><input type="time" name="${platform}-end-${key}" value="${escapeHtml(windowRule.end)}"></div>
+                <div class="admin-arrangement-method-fields">${methodFields}</div>
+              </div>`;
+          }).join('')}
+        </section>`;
+    };
+    refs.advancedGrid.innerHTML = platformSection('shopee') + platformSection('tiktok');
+  };
 
-  const collectRuleGrid = () => {
-    const tab = state.ruleTab;
-    refs.ruleGrid?.querySelectorAll('[data-rule-day]').forEach((row) => {
-      const key = row.dataset.ruleDay;
-      const regular = state.workingPolicy.platforms[tab].regular;
+  const collectEditor = () => {
+    refs.ruleGrid?.querySelectorAll('[data-pickup-rule-day]').forEach((row) => {
+      const key = row.dataset.pickupRuleDay;
+      ['shopee', 'tiktok'].forEach((platform) => {
+        state.workingPolicy.platforms[platform].regular.pickup_days[key] =
+          row.querySelector(`[name="${platform}-pickup-${key}"]`)?.value || 'EARLIEST_WEEKDAY';
+      });
+    });
+    refs.advancedGrid?.querySelectorAll('[data-advanced-platform]').forEach((row) => {
+      const platform = row.dataset.advancedPlatform;
+      const key = row.dataset.advancedDay;
+      const regular = state.workingPolicy.platforms[platform].regular;
       regular.windows[key] = {
-        enabled: Boolean(row.querySelector(`[name="enabled-${key}"]`)?.checked),
-        start: row.querySelector(`[name="start-${key}"]`)?.value || '00:00',
-        end: row.querySelector(`[name="end-${key}"]`)?.value || '23:59'
+        enabled: Boolean(row.querySelector(`[name="${platform}-enabled-${key}"]`)?.checked),
+        start: row.querySelector(`[name="${platform}-start-${key}"]`)?.value || '00:00',
+        end: row.querySelector(`[name="${platform}-end-${key}"]`)?.value || '23:59'
       };
-      if (tab === 'shopee') {
-        regular.methods[key] = row.querySelector(`[name="method-${key}"]`)?.value || 'HOLD';
+      if (platform === 'shopee') {
+        regular.methods[key] = row.querySelector(`[name="shopee-method-${key}"]`)?.value || 'PICKUP';
       } else {
         CARRIERS.forEach(([carrier]) => {
-          regular.carriers[carrier].methods[key] = row.querySelector(`[name="${carrier}-${key}"]`)?.value || 'HOLD';
+          regular.carriers[carrier].methods[key] = row.querySelector(`[name="${carrier}-${key}"]`)?.value || 'PICKUP';
         });
       }
     });
   };
 
-  refs.refresh?.addEventListener('click', () => load());
+  const showEditorAccess = () => {
+    const branch = Boolean(state.data?.access?.branch);
+    if (refs.unlock) refs.unlock.hidden = branch;
+    if (refs.policyForm) refs.policyForm.hidden = !branch;
+    if (!branch) return;
+    state.workingPolicy = structuredClone(state.data?.policy?.policy || {});
+    renderEditor();
+    if (refs.policyMeta) {
+      refs.policyMeta.textContent = `Revision ${Number(state.data?.policy?.revision || 0)} · ${state.data?.policy?.updated_by || 'defaults'}`;
+    }
+  };
+
+  refs.refresh?.addEventListener('click', load);
   root.querySelectorAll('[data-arrangement-platform]').forEach((button) => button.addEventListener('click', () => {
     state.platform = button.dataset.arrangementPlatform || 'all';
     root.querySelectorAll('[data-arrangement-platform]').forEach((item) => item.classList.toggle('is-active', item === button));
-    renderAll();
-  }));
-  root.querySelectorAll('[data-arrangement-type]').forEach((button) => button.addEventListener('click', () => {
-    state.type = button.dataset.arrangementType || 'all';
-    root.querySelectorAll('[data-arrangement-type]').forEach((item) => item.classList.toggle('is-active', item === button));
     renderAll();
   }));
   root.querySelectorAll('[data-arrangement-week]').forEach((button) => button.addEventListener('click', () => {
@@ -343,29 +367,27 @@ document.addEventListener('DOMContentLoaded', () => {
     const form = new FormData(refs.unlockForm);
     try {
       await requestJson('../api/hard-set/?action=unlock', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: form.get('username'), password: form.get('password') })
       });
       await load();
       showEditorAccess();
     } catch (error) {
-      if (refs.unlock) refs.unlock.insertAdjacentHTML('beforeend', `<p class="admin-form-error">${escapeHtml(error.message)}</p>`);
+      const existing = refs.unlock.querySelector('.admin-form-error');
+      if (existing) existing.remove();
+      refs.unlock.insertAdjacentHTML('beforeend', `<p class="admin-form-error">${escapeHtml(error.message)}</p>`);
     }
   });
-  root.querySelectorAll('[data-arrangement-rule-tab]').forEach((button) => button.addEventListener('click', () => {
-    collectRuleGrid();
-    state.ruleTab = button.dataset.arrangementRuleTab || 'shopee';
-    root.querySelectorAll('[data-arrangement-rule-tab]').forEach((item) => item.classList.toggle('is-active', item === button));
-    renderRuleGrid();
-  }));
   refs.policyForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
-    collectRuleGrid();
+    collectEditor();
     if (refs.error) refs.error.hidden = true;
     refs.save?.setAttribute('disabled', '');
     try {
       state.data = await requestJson(endpoint, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           policy: state.workingPolicy,
           expected_revision: Number(state.data?.policy?.revision || 0)
@@ -383,7 +405,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  window.addEventListener('jg-shipment-arrangement-refresh', () => load());
+  window.addEventListener('jg-shipment-arrangement-refresh', load);
   window.setInterval(() => {
     if (!document.hidden && root.classList.contains('is-active')) load();
   }, 60000);
