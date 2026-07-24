@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     advancedPlatform: 'shopee',
     workingPolicy: null,
     reschedule: null,
+    pickupEvent: null,
     loading: false
   };
   const refs = {
@@ -23,6 +24,11 @@ document.addEventListener('DOMContentLoaded', () => {
     refresh: root.querySelector('[data-arrangement-refresh]'),
     map: root.querySelector('[data-arrangement-map]'),
     rescheduler: root.querySelector('[data-arrangement-rescheduler]'),
+    eventOverlay: root.querySelector('[data-arrangement-event-overlay]'),
+    eventTitle: root.querySelector('[data-arrangement-event-title]'),
+    eventSubtitle: root.querySelector('[data-arrangement-event-subtitle]'),
+    eventOrders: root.querySelector('[data-arrangement-event-orders]'),
+    orderDetail: root.querySelector('[data-arrangement-order-detail]'),
     windowLabel: root.querySelector('[data-arrangement-window-label]'),
     unlock: root.querySelector('[data-arrangement-unlock]'),
     unlockForm: root.querySelector('[data-arrangement-unlock-form]'),
@@ -75,6 +81,19 @@ document.addEventListener('DOMContentLoaded', () => {
     timeZone: 'Asia/Jakarta',
     ...options
   }).format(date);
+
+  const formatMoney = (value, currency = 'IDR') => new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: currency || 'IDR',
+    maximumFractionDigits: 0
+  }).format(Number(value || 0));
+
+  const formatEventTime = (value) => {
+    const date = parseUtc(value);
+    return date
+      ? formatDate(date, { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+      : 'Time unavailable';
+  };
 
   const pickupRule = (platform, dayNumber, policy = state.data?.policy?.policy) =>
     String(policy?.platforms?.[platform]?.regular?.pickup_days?.[String(dayNumber)] || 'EARLIEST_WEEKDAY');
@@ -242,19 +261,28 @@ document.addEventListener('DOMContentLoaded', () => {
           </footer>
         </article>`;
     }).join('');
-    const pickupMarkers = pickupGroups.map((group) => {
+    const pickupMarkers = pickupGroups.map((group, groupIndex) => {
       const elapsed = group.confirmedAt.getTime() - start.getTime();
       const position = Math.max(0, Math.min(100, (elapsed / (WINDOW_HOURS * HOUR)) * 100));
       const orderIds = group.orders.map((order) => String(order.order_id || '')).filter(Boolean);
       const count = orderIds.length;
       const time = formatDate(group.confirmedAt, { hour: '2-digit', minute: '2-digit' });
+      const quickIds = orderIds.slice(0, 3);
       return `
-        <span class="admin-arrangement-pickup-marker" style="--pickup-position:${position}%" tabindex="0"
+        <button type="button" class="admin-arrangement-pickup-marker" style="--pickup-position:${position}%"
+          data-pickup-event-index="${groupIndex}"
           title="Shopee pickup confirmed at ${escapeHtml(time)}: ${escapeHtml(orderIds.join(', '))}"
           aria-label="Shopee pickup confirmed at ${escapeHtml(time)} for ${count} order${count === 1 ? '' : 's'}">
           <span>${escapeHtml(time)}</span>
           <strong>${count} picked up</strong>
-        </span>`;
+          <div class="admin-arrangement-pickup-preview" aria-hidden="true">
+            <small>Shopee confirmed · ${escapeHtml(time)}</small>
+            <b>${count} picked-up order${count === 1 ? '' : 's'}</b>
+            <ul>${quickIds.map((orderId) => `<li>${escapeHtml(orderId)}</li>`).join('')}</ul>
+            ${count > 3 ? `<em>+${count - 3} more</em>` : ''}
+            <i>Click to inspect this pickup</i>
+          </div>
+        </button>`;
     }).join('');
     const pickupWindowBlocks = pickupWindows.groups.map((group) => {
       const visibleStart = new Date(Math.max(group.start.getTime(), start.getTime()));
@@ -334,6 +362,194 @@ document.addEventListener('DOMContentLoaded', () => {
           <button type="submit" class="admin-primary-btn">Update pickup</button>
         </div>
       </form>`;
+  };
+
+  const orderDetailLoading = (orderId) => `
+    <div class="admin-arrangement-order-detail-empty">
+      <span class="admin-panel-kicker">Order breakdown</span>
+      <h3>${escapeHtml(orderId)}</h3>
+      <p>Loading products, money, and fulfillment history…</p>
+    </div>`;
+
+  const renderOrderBreakdown = (detail) => {
+    const order = detail?.order || {};
+    const financials = detail?.financials || {};
+    const currency = order.currency || 'IDR';
+    const gross = Number(financials.gross_revenue || 0);
+    const fees = Number(financials.marketplace_fees || 0);
+    const net = Number(financials.net_revenue || 0);
+    const feeRate = gross > 0 ? `${((fees / gross) * 100).toFixed(1)}% of gross` : 'Gross sale unavailable';
+    const sources = financials.sources || {};
+    const netSource = String(sources.net_revenue?.source || 'missing');
+    const financeQuality = !financials.available
+      ? ['Financial data unavailable', 'Shopee has not supplied stored financial facts for this order yet.', 'is-unavailable']
+      : netSource === 'gross_revenue_fallback' || netSource === 'missing'
+        ? ['Financials are provisional', 'Net revenue is not yet settlement-backed; values may change when Shopee releases the order income.', 'is-provisional']
+        : ['Shopee financials stored', 'Gross, deductions, and seller net come from the stored marketplace order record.', 'is-ready'];
+    const items = Array.isArray(detail?.items) ? detail.items : [];
+    const timeline = Array.isArray(detail?.timeline) ? detail.timeline : [];
+    return `
+      <article class="admin-arrangement-order-breakdown">
+        <header class="admin-arrangement-order-breakdown-head">
+          <div>
+            <span class="admin-panel-kicker">${escapeHtml(order.platform || 'Marketplace')} · ${escapeHtml(order.account_key || '')}</span>
+            <h3>${escapeHtml(order.order_id || '')}</h3>
+            <p>${escapeHtml(order.marketplace_status || 'Status unavailable')} · ${escapeHtml(order.shipping_provider || 'Carrier unavailable')}</p>
+          </div>
+          <span class="admin-arrangement-detail-state">${escapeHtml(order.workflow_status || '')}</span>
+        </header>
+
+        <section class="admin-arrangement-finance-grid">
+          <article><span>Customer paid</span><strong>${financials.available ? formatMoney(gross, currency) : '—'}</strong><small>Gross order value</small></article>
+          <article><span>Shopee deductions</span><strong>${financials.available ? formatMoney(fees, currency) : '—'}</strong><small>${escapeHtml(feeRate)} · gross minus seller net</small></article>
+          <article class="is-net"><span>Seller net revenue</span><strong>${financials.available ? formatMoney(net, currency) : '—'}</strong><small>${financials.funds_released ? `Released ${formatMoney(financials.funds_released_amount || net, currency)}` : 'Funds not released yet'}</small></article>
+        </section>
+
+        <section class="admin-arrangement-finance-quality ${financeQuality[2]}">
+          <strong>${escapeHtml(financeQuality[0])}</strong>
+          <span>${escapeHtml(financeQuality[1])}</span>
+        </section>
+
+        <div class="admin-arrangement-detail-columns">
+          <section class="admin-arrangement-detail-section">
+            <header><span class="admin-panel-kicker">Lifecycle</span><h4>Order timeline</h4></header>
+            <ol class="admin-arrangement-order-timeline">
+              ${timeline.length ? timeline.map((event) => `
+                <li class="is-${escapeHtml(event.kind || 'event')}">
+                  <time>${escapeHtml(formatEventTime(event.at))}</time>
+                  <strong>${escapeHtml(event.label || 'Order event')}</strong>
+                  ${event.end_at ? `<span>Until ${escapeHtml(formatEventTime(event.end_at))}</span>` : ''}
+                  ${event.note ? `<small>${escapeHtml(event.note)}</small>` : ''}
+                </li>`).join('') : '<li><strong>No timeline facts stored</strong><small>The marketplace has not supplied lifecycle timestamps for this order.</small></li>'}
+            </ol>
+          </section>
+
+          <section class="admin-arrangement-detail-section">
+            <header><span class="admin-panel-kicker">Contents</span><h4>Products sold</h4></header>
+            <div class="admin-arrangement-product-list">
+              ${items.length ? items.map((item) => `
+                <article>
+                  <div>
+                    <strong>${escapeHtml(item.name || 'Unnamed marketplace item')}</strong>
+                    <span>${escapeHtml([item.sku, item.flavor].filter(Boolean).join(' · ') || 'SKU unavailable')}</span>
+                  </div>
+                  <b>×${Number(item.quantity || 0)}</b>
+                  <dl>
+                    <div><dt>Gross</dt><dd>${formatMoney(item.gross_revenue || 0, currency)}</dd></div>
+                    <div><dt>Shopee deductions</dt><dd>${formatMoney(item.marketplace_fees || 0, currency)}</dd></div>
+                    <div><dt>Seller net</dt><dd>${formatMoney(item.net_revenue || 0, currency)}</dd></div>
+                  </dl>
+                  ${item.is_free_gift ? '<small>Free gift · excluded from seller revenue</small>' : ''}
+                </article>`).join('') : '<p class="admin-empty">No product lines are stored for this order yet.</p>'}
+            </div>
+          </section>
+        </div>
+
+        <section class="admin-arrangement-detail-facts">
+          <div><span>Package</span><strong>${escapeHtml(order.package_id || 'Not supplied')}</strong></div>
+          <div><span>Pickup booking</span><strong>${escapeHtml(order.pickup_slot_label || 'Not supplied')}</strong></div>
+          <div><span>Ship by</span><strong>${escapeHtml(order.ship_by_label || 'Not supplied')}</strong></div>
+          <div><span>Shipping label</span><strong>${order.label_ready ? 'Ready' : 'Not ready'}</strong></div>
+          <div><span>Last API update</span><strong>${escapeHtml(formatEventTime(order.updated_at))}</strong></div>
+          <div><span>Finance source</span><strong>${escapeHtml(netSource.replaceAll('_', ' '))}</strong></div>
+        </section>
+      </article>`;
+  };
+
+  const renderPickupEvent = () => {
+    if (!refs.eventOverlay || !state.pickupEvent) return;
+    const eventState = state.pickupEvent;
+    const group = eventState.group;
+    const orders = Array.isArray(group?.orders) ? group.orders : [];
+    const confirmationTime = group?.confirmedAt
+      ? formatDate(group.confirmedAt, { weekday: 'long', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+      : 'Time unavailable';
+    refs.eventOverlay.hidden = false;
+    if (refs.eventTitle) refs.eventTitle.textContent = `${orders.length} order${orders.length === 1 ? '' : 's'} picked up`;
+    if (refs.eventSubtitle) refs.eventSubtitle.textContent = `${confirmationTime} · first observed by the Shopee API worker`;
+    if (refs.eventOrders) {
+      refs.eventOrders.innerHTML = `
+        <div class="admin-arrangement-event-summary">
+          <strong>${orders.length}</strong>
+          <span>Shopee-confirmed orders in this pickup event</span>
+          <small>The hover preview shows the first three. This list always shows all of them.</small>
+        </div>
+        <div class="admin-arrangement-event-order-list">
+          ${orders.map((order, index) => {
+            const selected = eventState.selectedIndex === index;
+            return `
+              <button type="button" class="${selected ? 'is-selected' : ''}" data-pickup-event-order="${index}">
+                <strong>${escapeHtml(order.order_id || '')}</strong>
+                <span>${escapeHtml(order.account_key || '')}</span>
+                <small>${escapeHtml(pickupWindowLabel(order))}</small>
+              </button>`;
+          }).join('')}
+        </div>`;
+    }
+    if (!refs.orderDetail) return;
+    if (eventState.loading) {
+      refs.orderDetail.innerHTML = orderDetailLoading(orders[eventState.selectedIndex]?.order_id || '');
+    } else if (eventState.error) {
+      refs.orderDetail.innerHTML = `
+        <div class="admin-arrangement-order-detail-empty">
+          <span class="admin-panel-kicker">Order breakdown</span>
+          <h3>Could not load this order</h3>
+          <p class="admin-form-error">${escapeHtml(eventState.error)}</p>
+        </div>`;
+    } else if (eventState.detail) {
+      refs.orderDetail.innerHTML = renderOrderBreakdown(eventState.detail);
+    } else {
+      refs.orderDetail.innerHTML = `
+        <div class="admin-arrangement-event-intro">
+          <span class="admin-panel-kicker">Pickup event</span>
+          <h3>Select an order</h3>
+          <p>Choose any order from the complete pickup list to inspect its products, Shopee deductions, seller net revenue, and fulfillment timeline.</p>
+          <dl>
+            <div><dt>Confirmation</dt><dd>${escapeHtml(confirmationTime)}</dd></div>
+            <div><dt>Source</dt><dd>Shopee API status</dd></div>
+            <div><dt>Orders</dt><dd>${orders.length}</dd></div>
+          </dl>
+        </div>`;
+    }
+  };
+
+  const closePickupEvent = () => {
+    state.pickupEvent = null;
+    if (refs.eventOverlay) refs.eventOverlay.hidden = true;
+    document.documentElement.classList.remove('has-arrangement-dialog');
+  };
+
+  const openPickupEvent = (groupIndex) => {
+    const group = pickupConfirmationGroups()[Number(groupIndex)];
+    if (!group) return;
+    state.pickupEvent = { group, selectedIndex: null, detail: null, loading: false, error: '' };
+    document.documentElement.classList.add('has-arrangement-dialog');
+    renderPickupEvent();
+    refs.eventOverlay?.querySelector('[data-arrangement-event-close]')?.focus();
+  };
+
+  const loadPickupEventOrder = async (index) => {
+    const eventState = state.pickupEvent;
+    const order = eventState?.group?.orders?.[index];
+    if (!eventState || !order) return;
+    state.pickupEvent = { ...eventState, selectedIndex: index, detail: null, loading: true, error: '' };
+    renderPickupEvent();
+    const query = new URLSearchParams({
+      action: 'order-detail',
+      platform: order.platform || '',
+      account_key: order.account_key || '',
+      order_id: order.order_id || '',
+      package_id: order.package_id || ''
+    });
+    try {
+      const detail = await requestJson(`${endpoint}?${query.toString()}`);
+      if (!state.pickupEvent || state.pickupEvent.selectedIndex !== index) return;
+      state.pickupEvent = { ...state.pickupEvent, detail, loading: false, error: '' };
+    } catch (error) {
+      if (!state.pickupEvent || state.pickupEvent.selectedIndex !== index) return;
+      state.pickupEvent = { ...state.pickupEvent, detail: null, loading: false, error: error.message };
+    }
+    renderPickupEvent();
   };
 
   const openRescheduler = async (order) => {
@@ -554,6 +770,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   refs.refresh?.addEventListener('click', load);
   refs.map?.addEventListener('click', (event) => {
+    const pickupMarker = event.target.closest('[data-pickup-event-index]');
+    if (pickupMarker) {
+      openPickupEvent(pickupMarker.dataset.pickupEventIndex);
+      return;
+    }
     const button = event.target.closest('[data-change-pickup]');
     if (!button) return;
     openRescheduler({
@@ -568,6 +789,17 @@ document.addEventListener('DOMContentLoaded', () => {
         && String(order.package_id || '') === String(button.dataset.packageId || '')
       ) || {})
     });
+  });
+  refs.eventOverlay?.addEventListener('click', (event) => {
+    if (event.target === refs.eventOverlay || event.target.closest('[data-arrangement-event-close]')) {
+      closePickupEvent();
+      return;
+    }
+    const orderButton = event.target.closest('[data-pickup-event-order]');
+    if (orderButton) loadPickupEventOrder(Number(orderButton.dataset.pickupEventOrder));
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && state.pickupEvent) closePickupEvent();
   });
   refs.rescheduler?.addEventListener('click', (event) => {
     if (!event.target.closest('[data-close-rescheduler]')) return;

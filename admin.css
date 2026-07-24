@@ -28655,7 +28655,7 @@ button.admin-accounting-metric {
   top: 0;
   bottom: 0;
   left: var(--pickup-position);
-  width: 1px;
+  width: 12px;
   padding: 0;
   border: 0;
   border-left: 2px dotted #34d399;
@@ -28666,8 +28666,8 @@ button.admin-accounting-metric {
   pointer-events: auto;
 }
 
-.admin-arrangement-pickup-marker span,
-.admin-arrangement-pickup-marker strong {
+.admin-arrangement-pickup-marker > span,
+.admin-arrangement-pickup-marker > strong {
   position: absolute;
   left: 5px;
   display: block;
@@ -28680,13 +28680,594 @@ button.admin-accounting-metric {
   white-space: nowrap;
 }
 
-.admin-arrangement-pickup-marker span {
+.admin-arrangement-pickup-marker > span {
   top: calc(5px + (var(--pickup-lanes, 0) * 34px));
 }
 
-.admin-arrangement-pickup-marker strong {
+.admin-arrangement-pickup-marker > strong {
   top: calc(17px + (var(--pickup-lanes, 0) * 34px));
   font-weight: 850;
+}
+
+.admin-arrangement-pickup-preview {
+  position: absolute;
+  z-index: 10;
+  top: calc(38px + (var(--pickup-lanes, 0) * 34px));
+  left: 8px;
+  display: grid;
+  gap: 5px;
+  width: 232px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, #34d399 48%, var(--admin-border));
+  border-radius: 7px;
+  color: var(--admin-text);
+  background: color-mix(in srgb, var(--admin-surface) 96%, #34d399);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, .45);
+  text-align: left;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition: opacity .14s ease, transform .14s ease, visibility .14s ease;
+}
+
+.admin-arrangement-pickup-marker:hover .admin-arrangement-pickup-preview,
+.admin-arrangement-pickup-marker:focus-visible .admin-arrangement-pickup-preview {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.admin-arrangement-pickup-preview small {
+  color: #34d399;
+  font-size: .5rem;
+  font-weight: 800;
+}
+
+.admin-arrangement-pickup-preview b {
+  font-size: .68rem;
+}
+
+.admin-arrangement-pickup-preview ul {
+  display: grid;
+  gap: 3px;
+  margin: 2px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-arrangement-pickup-preview li {
+  overflow: hidden;
+  padding: 5px 7px;
+  border: 1px solid var(--admin-border);
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .55rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-arrangement-pickup-preview em,
+.admin-arrangement-pickup-preview i {
+  color: var(--admin-muted);
+  font-size: .49rem;
+  font-style: normal;
+}
+
+.admin-arrangement-pickup-preview i {
+  padding-top: 5px;
+  border-top: 1px solid var(--admin-border);
+}
+
+.has-arrangement-dialog {
+  overflow: hidden;
+}
+
+.admin-arrangement-event-overlay {
+  position: fixed;
+  z-index: 120;
+  inset: 0;
+  display: grid;
+  justify-items: end;
+  background: rgba(0, 0, 0, .66);
+  backdrop-filter: blur(5px);
+}
+
+.admin-arrangement-event-overlay[hidden] {
+  display: none;
+}
+
+.admin-arrangement-event-dialog {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(1120px, calc(100vw - 72px));
+  height: 100vh;
+  border-left: 1px solid var(--admin-border);
+  background: var(--admin-bg);
+  box-shadow: -28px 0 70px rgba(0, 0, 0, .52);
+}
+
+.admin-arrangement-event-dialog > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 26px;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.admin-arrangement-event-dialog > header h3 {
+  margin: 5px 0 3px;
+  font-size: 1.08rem;
+}
+
+.admin-arrangement-event-dialog > header p {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: .64rem;
+}
+
+.admin-arrangement-event-layout {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  min-height: 0;
+}
+
+.admin-arrangement-event-layout > aside {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px;
+  border-right: 1px solid var(--admin-border);
+  background: color-mix(in srgb, var(--admin-surface) 52%, transparent);
+}
+
+.admin-arrangement-event-layout > main {
+  min-width: 0;
+  overflow-y: auto;
+  padding: 24px 26px 48px;
+}
+
+.admin-arrangement-event-summary {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, #34d399 38%, var(--admin-border));
+  border-radius: 7px;
+  background: color-mix(in srgb, #34d399 7%, var(--admin-bg));
+}
+
+.admin-arrangement-event-summary > strong {
+  color: #34d399;
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.admin-arrangement-event-summary > span {
+  font-size: .63rem;
+  font-weight: 800;
+}
+
+.admin-arrangement-event-summary > small {
+  color: var(--admin-muted);
+  font-size: .53rem;
+  line-height: 1.45;
+}
+
+.admin-arrangement-event-order-list {
+  display: grid;
+  gap: 6px;
+}
+
+.admin-arrangement-event-order-list button {
+  display: grid;
+  justify-items: start;
+  gap: 3px;
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 6px;
+  color: var(--admin-text);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.admin-arrangement-event-order-list button:hover,
+.admin-arrangement-event-order-list button.is-selected {
+  border-color: color-mix(in srgb, #34d399 52%, var(--admin-border));
+  background: color-mix(in srgb, #34d399 7%, var(--admin-bg));
+}
+
+.admin-arrangement-event-order-list button strong {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .62rem;
+}
+
+.admin-arrangement-event-order-list button span,
+.admin-arrangement-event-order-list button small {
+  overflow: hidden;
+  width: 100%;
+  color: var(--admin-muted);
+  font-size: .5rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-arrangement-event-intro,
+.admin-arrangement-order-detail-empty {
+  display: grid;
+  align-content: center;
+  min-height: 70vh;
+  max-width: 620px;
+  margin: auto;
+}
+
+.admin-arrangement-event-intro h3,
+.admin-arrangement-order-detail-empty h3 {
+  margin: 7px 0;
+  font-size: 1.35rem;
+}
+
+.admin-arrangement-event-intro > p,
+.admin-arrangement-order-detail-empty > p {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: .7rem;
+  line-height: 1.6;
+}
+
+.admin-arrangement-event-intro dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 22px 0 0;
+}
+
+.admin-arrangement-event-intro dl div {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 6px;
+}
+
+.admin-arrangement-event-intro dt {
+  color: var(--admin-muted);
+  font-size: .5rem;
+  text-transform: uppercase;
+}
+
+.admin-arrangement-event-intro dd {
+  margin: 0;
+  font-size: .65rem;
+  font-weight: 800;
+}
+
+.admin-arrangement-order-breakdown {
+  display: grid;
+  gap: 18px;
+}
+
+.admin-arrangement-order-breakdown-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.admin-arrangement-order-breakdown-head h3 {
+  margin: 5px 0 3px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1.02rem;
+}
+
+.admin-arrangement-order-breakdown-head p {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: .62rem;
+}
+
+.admin-arrangement-detail-state {
+  max-width: 230px;
+  color: #34d399;
+  font-size: .56rem;
+  font-weight: 850;
+  text-align: right;
+}
+
+.admin-arrangement-finance-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+}
+
+.admin-arrangement-finance-grid article {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 15px;
+  border-right: 1px solid var(--admin-border);
+}
+
+.admin-arrangement-finance-grid article:last-child {
+  border-right: 0;
+}
+
+.admin-arrangement-finance-grid span,
+.admin-arrangement-finance-grid small {
+  color: var(--admin-muted);
+  font-size: .52rem;
+}
+
+.admin-arrangement-finance-grid strong {
+  overflow: hidden;
+  font-size: .9rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-arrangement-finance-grid .is-net strong {
+  color: #34d399;
+}
+
+.admin-arrangement-finance-quality {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 14px;
+  padding: 11px 13px;
+  border-left: 2px solid #34d399;
+  background: color-mix(in srgb, #34d399 6%, transparent);
+}
+
+.admin-arrangement-finance-quality.is-provisional {
+  border-left-color: #fbbf24;
+  background: color-mix(in srgb, #fbbf24 6%, transparent);
+}
+
+.admin-arrangement-finance-quality.is-unavailable {
+  border-left-color: var(--admin-muted);
+  background: color-mix(in srgb, var(--admin-text) 4%, transparent);
+}
+
+.admin-arrangement-finance-quality strong {
+  font-size: .6rem;
+}
+
+.admin-arrangement-finance-quality span {
+  color: var(--admin-muted);
+  font-size: .56rem;
+  line-height: 1.45;
+}
+
+.admin-arrangement-detail-columns {
+  display: grid;
+  grid-template-columns: minmax(250px, .78fr) minmax(320px, 1.22fr);
+  gap: 16px;
+}
+
+.admin-arrangement-detail-section {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+}
+
+.admin-arrangement-detail-section > header h4 {
+  margin: 4px 0 14px;
+  font-size: .78rem;
+}
+
+.admin-arrangement-order-timeline {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-arrangement-order-timeline li {
+  position: relative;
+  display: grid;
+  gap: 3px;
+  padding: 0 0 18px 20px;
+  border-left: 1px solid var(--admin-border);
+}
+
+.admin-arrangement-order-timeline li:last-child {
+  padding-bottom: 0;
+  border-left-color: transparent;
+}
+
+.admin-arrangement-order-timeline li::before {
+  position: absolute;
+  top: 2px;
+  left: -4px;
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--admin-bg);
+  border-radius: 50%;
+  background: var(--admin-muted);
+  content: '';
+}
+
+.admin-arrangement-order-timeline li.is-pickup_confirmed::before {
+  background: #34d399;
+}
+
+.admin-arrangement-order-timeline li.is-pickup_window::before {
+  background: #60a5fa;
+}
+
+.admin-arrangement-order-timeline li.is-deadline::before {
+  background: #fbbf24;
+}
+
+.admin-arrangement-order-timeline time {
+  color: var(--admin-muted);
+  font-size: .48rem;
+}
+
+.admin-arrangement-order-timeline strong {
+  font-size: .61rem;
+}
+
+.admin-arrangement-order-timeline span,
+.admin-arrangement-order-timeline small {
+  color: var(--admin-muted);
+  font-size: .51rem;
+  line-height: 1.35;
+}
+
+.admin-arrangement-product-list {
+  display: grid;
+  gap: 7px;
+}
+
+.admin-arrangement-product-list article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  padding: 11px 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 6px;
+}
+
+.admin-arrangement-product-list article > div {
+  min-width: 0;
+}
+
+.admin-arrangement-product-list article > div strong,
+.admin-arrangement-product-list article > div span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-arrangement-product-list article > div strong {
+  font-size: .61rem;
+}
+
+.admin-arrangement-product-list article > div span,
+.admin-arrangement-product-list article > small {
+  margin-top: 4px;
+  color: var(--admin-muted);
+  font-size: .49rem;
+}
+
+.admin-arrangement-product-list article > b {
+  font-size: .64rem;
+}
+
+.admin-arrangement-product-list dl {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: 1px 0 0;
+}
+
+.admin-arrangement-product-list dl div {
+  display: grid;
+  gap: 3px;
+  padding-top: 7px;
+  border-top: 1px solid var(--admin-border);
+}
+
+.admin-arrangement-product-list dt {
+  color: var(--admin-muted);
+  font-size: .45rem;
+}
+
+.admin-arrangement-product-list dd {
+  margin: 0;
+  font-size: .54rem;
+  font-weight: 800;
+}
+
+.admin-arrangement-detail-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--admin-border);
+  border-left: 1px solid var(--admin-border);
+}
+
+.admin-arrangement-detail-facts div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 11px;
+  border-right: 1px solid var(--admin-border);
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.admin-arrangement-detail-facts span {
+  color: var(--admin-muted);
+  font-size: .48rem;
+  text-transform: uppercase;
+}
+
+.admin-arrangement-detail-facts strong {
+  overflow: hidden;
+  font-size: .58rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .admin-arrangement-event-dialog {
+    width: calc(100vw - 24px);
+  }
+
+  .admin-arrangement-event-layout {
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
+
+  .admin-arrangement-detail-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .admin-arrangement-event-dialog {
+    width: 100vw;
+  }
+
+  .admin-arrangement-event-layout {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+
+  .admin-arrangement-event-layout > aside,
+  .admin-arrangement-event-layout > main {
+    overflow: visible;
+  }
+
+  .admin-arrangement-event-layout > aside {
+    max-height: 310px;
+    border-right: 0;
+    border-bottom: 1px solid var(--admin-border);
+  }
+
+  .admin-arrangement-finance-grid,
+  .admin-arrangement-detail-facts,
+  .admin-arrangement-event-intro dl {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-arrangement-finance-grid article {
+    border-right: 0;
+    border-bottom: 1px solid var(--admin-border);
+  }
+
+  .admin-arrangement-finance-grid article:last-child {
+    border-bottom: 0;
+  }
+
+  .admin-arrangement-finance-quality {
+    grid-template-columns: 1fr;
+  }
 }
 
 .admin-arrangement-deadline-events {

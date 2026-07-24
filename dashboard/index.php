@@ -31,7 +31,7 @@ if ($isAuthenticated) {
     }
 }
 $isAdView = $isAuthenticated && in_array($requestedView ?? '', ['ad-view', 'ads', 'ad_view', 'shopee-ads'], true);
-$dashboardBuildVersion = 'exec3.89.0';
+$dashboardBuildVersion = 'exec3.90.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -890,6 +890,23 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                                 </aside>
                             </div>
                         </section>
+
+                        <div class="admin-arrangement-event-overlay" data-arrangement-event-overlay hidden>
+                            <section class="admin-arrangement-event-dialog" role="dialog" aria-modal="true" aria-labelledby="arrangement-event-title">
+                                <header>
+                                    <div>
+                                        <span class="admin-panel-kicker">Shopee courier confirmation</span>
+                                        <h3 id="arrangement-event-title" data-arrangement-event-title>Pickup event</h3>
+                                        <p data-arrangement-event-subtitle></p>
+                                    </div>
+                                    <button type="button" class="admin-arrangement-text-button" data-arrangement-event-close>Close</button>
+                                </header>
+                                <div class="admin-arrangement-event-layout">
+                                    <aside data-arrangement-event-orders></aside>
+                                    <main data-arrangement-order-detail></main>
+                                </div>
+                            </section>
+                        </div>
                     </section>
 
 	                    <section class="admin-view admin-store-ops-layout" data-view-panel="store-ops" data-store-ops-dashboard data-store-ops-endpoint="../api/store-ops/">

@@ -65,6 +65,20 @@ assert(
   'Only a Branch-tier session may save live worker rules.'
 );
 assert(
+  shipmentMarkup.includes('data-arrangement-event-overlay')
+    && shipmentMarkup.includes('data-arrangement-event-orders')
+    && shipmentMarkup.includes('data-arrangement-order-detail')
+    && script.includes('admin-arrangement-pickup-preview')
+    && script.includes('data-pickup-event-index')
+    && script.includes('orderIds.slice(0, 3)')
+    && script.includes('loadPickupEventOrder')
+    && script.includes("action: 'order-detail'")
+    && script.includes('renderOrderBreakdown')
+    && script.includes('Shopee deductions')
+    && endpoint.includes('/fulfillment/order-detail'),
+  'Pickup confirmation markers must preview three IDs, open every order, and load the safe order breakdown endpoint.'
+);
+assert(
   dashboard.includes('If the selected day is unavailable, the order waits')
     && dashboard.includes('Instant orders are manual only')
     && script.includes('pickup_days[key]'),
@@ -74,6 +88,10 @@ assert(
   styles.includes('.admin-arrangement-deadline-chart')
     && styles.includes('.admin-arrangement-now-line')
     && styles.includes('.admin-arrangement-pickup-marker')
+    && styles.includes('.admin-arrangement-pickup-preview')
+    && styles.includes('.admin-arrangement-event-dialog')
+    && styles.includes('.admin-arrangement-order-timeline')
+    && styles.includes('.admin-arrangement-finance-grid')
     && styles.includes('.admin-arrangement-pickup-window')
     && styles.includes('--pickup-window-width')
     && styles.includes('border-left: 2px dotted #34d399')

@@ -76,6 +76,17 @@ try {
             $result['access'] = $access;
             jg_shipment_arrangement_json($result);
         }
+        if ($action === 'order-detail') {
+            $query = http_build_query([
+                'platform' => (string) ($_GET['platform'] ?? ''),
+                'account_key' => (string) ($_GET['account_key'] ?? ''),
+                'order_id' => (string) ($_GET['order_id'] ?? ''),
+                'package_id' => (string) ($_GET['package_id'] ?? ''),
+            ], '', '&', PHP_QUERY_RFC3986);
+            $result = jg_shipment_arrangement_request('GET', '/fulfillment/order-detail?' . $query);
+            $result['access'] = $access;
+            jg_shipment_arrangement_json($result);
+        }
         $limit = max(25, min(500, (int) ($_GET['limit'] ?? 300)));
         $result = jg_shipment_arrangement_request('GET', '/fulfillment/arrangement-map?limit=' . $limit);
         $result['access'] = $access;
