@@ -192,7 +192,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const [status, statusClass] = orderTimelineStatus(deadline);
       const platform = String(order.platform || '').toLowerCase();
       const platformLabel = platform === 'shopee' ? 'Shopee' : platform === 'tiktok' ? 'TikTok Shop' : platform || 'Marketplace';
-      const canReschedule = platform === 'shopee' && String(order.handover_method || '').toUpperCase() === 'PICKUP';
+      const canReschedule = platform === 'shopee'
+        && (String(order.handover_method || '').toUpperCase() === 'PICKUP' || Boolean(parseUtc(order.pickup_start_at)));
       return `
         <article class="admin-arrangement-deadline-event is-${escapeHtml(platform)} ${escapeHtml(statusClass)}" style="--event-column:${column}">
           <header>
