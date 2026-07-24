@@ -27305,3 +27305,384 @@ button.admin-accounting-metric {
     grid-template-columns: 1fr;
   }
 }
+
+/* Shipment arrangement */
+.admin-shipment-arrangement {
+  --arrangement-shopee: #ff6b35;
+  --arrangement-tiktok: #2dd4bf;
+  --arrangement-policy: #818cf8;
+  gap: 18px;
+}
+
+.admin-arrangement-hero,
+.admin-arrangement-hero-actions,
+.admin-arrangement-toolbar,
+.admin-arrangement-week-nav,
+.admin-arrangement-legend,
+.admin-arrangement-order,
+.admin-arrangement-time-range {
+  display: flex;
+  align-items: center;
+}
+
+.admin-arrangement-hero {
+  justify-content: space-between;
+  gap: 24px;
+  padding: 25px 28px;
+  border: 1px solid var(--admin-border);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 88% 0%, rgba(129, 140, 248, .17), transparent 36%),
+    var(--admin-surface);
+}
+
+.admin-arrangement-hero h2 {
+  margin: 4px 0 7px;
+  font: 700 clamp(1.65rem, 2.8vw, 2.65rem)/1 'Space Grotesk', sans-serif;
+  letter-spacing: -.045em;
+}
+
+.admin-arrangement-hero p,
+.admin-arrangement-safety p,
+[data-arrangement-unlock] > p {
+  margin: 0;
+  color: var(--admin-muted);
+}
+
+.admin-arrangement-hero-actions { gap: 10px; }
+
+.admin-arrangement-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 13px;
+  border: 1px solid rgba(52, 211, 153, .25);
+  border-radius: 999px;
+  background: rgba(52, 211, 153, .08);
+  color: #34d399;
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .02em;
+}
+
+.admin-arrangement-live i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 4px rgba(52, 211, 153, .12);
+}
+
+.admin-arrangement-live.is-paused {
+  border-color: rgba(251, 191, 36, .25);
+  background: rgba(251, 191, 36, .08);
+  color: #fbbf24;
+}
+
+.admin-arrangement-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-arrangement-metrics article {
+  min-height: 118px;
+  padding: 18px 20px;
+  border: 1px solid var(--admin-border);
+  border-radius: 18px;
+  background: var(--admin-surface);
+}
+
+.admin-arrangement-metrics span,
+.admin-arrangement-order div > span {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--admin-muted);
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.admin-arrangement-metrics strong {
+  display: block;
+  margin-bottom: 7px;
+  font: 700 1.35rem/1.1 'Space Grotesk', sans-serif;
+}
+
+.admin-arrangement-metrics small,
+.admin-arrangement-order small { color: var(--admin-muted); }
+
+.admin-arrangement-map-panel { overflow: hidden; padding: 0; }
+
+.admin-arrangement-toolbar {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 17px 20px;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.admin-arrangement-segment,
+.admin-arrangement-rule-tabs {
+  display: inline-flex;
+  gap: 3px;
+  padding: 4px;
+  border: 1px solid var(--admin-border);
+  border-radius: 13px;
+  background: var(--admin-bg);
+}
+
+.admin-arrangement-segment button,
+.admin-arrangement-rule-tabs button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--admin-muted);
+  font: inherit;
+  font-size: .72rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.admin-arrangement-segment button.is-active,
+.admin-arrangement-rule-tabs button.is-active {
+  background: var(--admin-text);
+  color: var(--admin-bg);
+}
+
+.admin-arrangement-week-nav { gap: 8px; }
+.admin-arrangement-week-nav strong { min-width: 155px; text-align: center; font-size: .78rem; }
+
+.admin-arrangement-legend {
+  flex-wrap: wrap;
+  gap: 18px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--admin-border);
+  color: var(--admin-muted);
+  font-size: .66rem;
+  font-weight: 700;
+}
+
+.admin-arrangement-legend i {
+  display: inline-block;
+  width: 22px;
+  height: 7px;
+  margin-right: 6px;
+  border-radius: 3px;
+  vertical-align: middle;
+}
+.admin-arrangement-legend .is-deadline { height: 10px; border-left: 2px dashed #fb7185; border-radius: 0; }
+.admin-arrangement-legend .is-pickup { background: var(--arrangement-tiktok); }
+.admin-arrangement-legend .is-policy { background: rgba(129, 140, 248, .25); border: 1px solid rgba(129, 140, 248, .55); }
+.admin-arrangement-legend .is-instant { background: repeating-linear-gradient(135deg, #fbbf24 0 3px, transparent 3px 6px); }
+
+.admin-arrangement-map {
+  min-width: 820px;
+  padding: 8px 20px 18px;
+}
+
+.admin-arrangement-map-panel { overflow-x: auto; }
+
+.admin-arrangement-map-head,
+.admin-arrangement-day {
+  display: grid;
+  grid-template-columns: 78px minmax(700px, 1fr);
+}
+
+.admin-arrangement-map-head > div,
+.admin-arrangement-hour-grid {
+  position: relative;
+  height: 27px;
+  color: var(--admin-muted);
+  font-size: .6rem;
+}
+
+.admin-arrangement-map-head span,
+.admin-arrangement-hour-grid span {
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+.admin-arrangement-map-head span:last-child,
+.admin-arrangement-hour-grid span:last-child { transform: translateX(-100%); }
+
+.admin-arrangement-day {
+  min-height: 104px;
+  border-top: 1px solid var(--admin-border);
+}
+
+.admin-arrangement-day.is-today {
+  border-radius: 12px;
+  background: rgba(129, 140, 248, .055);
+  box-shadow: inset 3px 0 0 var(--arrangement-policy);
+}
+
+.admin-arrangement-day-label {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-left: 12px;
+}
+.admin-arrangement-day-label strong { font-size: .8rem; }
+.admin-arrangement-day-label span { margin-top: 3px; color: var(--admin-muted); font-size: .64rem; }
+
+.admin-arrangement-day-track {
+  position: relative;
+  min-height: 104px;
+  background: repeating-linear-gradient(to right, transparent 0 calc(16.666% - 1px), var(--admin-border) calc(16.666% - 1px) 16.666%);
+}
+
+.admin-arrangement-hour-grid {
+  position: absolute;
+  inset: 0 0 auto;
+}
+
+.admin-arrangement-policy-block {
+  position: absolute;
+  height: 9px;
+  border: 1px solid rgba(129, 140, 248, .45);
+  border-radius: 5px;
+  background: rgba(129, 140, 248, .16);
+}
+.admin-arrangement-policy-block.is-shopee { border-color: rgba(255, 107, 53, .42); background: rgba(255, 107, 53, .12); }
+.admin-arrangement-policy-block.is-tiktok { border-color: rgba(45, 212, 191, .42); background: rgba(45, 212, 191, .12); }
+
+.admin-arrangement-deadline,
+.admin-arrangement-pickup {
+  position: absolute;
+  z-index: 2;
+  height: 15px;
+  min-width: 4px;
+  border: 0;
+  cursor: help;
+}
+.admin-arrangement-deadline {
+  width: 2px;
+  border-left: 2px dashed #fb7185;
+  background: transparent;
+}
+.admin-arrangement-deadline::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: -4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fb7185;
+}
+.admin-arrangement-pickup {
+  overflow: hidden;
+  border-radius: 5px;
+  background: var(--arrangement-tiktok);
+  color: #05110f;
+  font-size: .53rem;
+  font-weight: 900;
+  text-align: left;
+}
+.admin-arrangement-pickup.is-shopee { background: var(--arrangement-shopee); color: #180702; }
+.admin-arrangement-pickup.is-instant { background: repeating-linear-gradient(135deg, #fbbf24 0 4px, #d97706 4px 8px); }
+.admin-arrangement-pickup span { display: block; overflow: hidden; padding: 1px 4px; text-overflow: ellipsis; white-space: nowrap; }
+
+.admin-arrangement-order-list { display: grid; gap: 8px; }
+.admin-arrangement-order {
+  display: grid;
+  grid-template-columns: 92px minmax(170px, 1fr) minmax(180px, .9fr) minmax(210px, 1fr) auto;
+  gap: 16px;
+  padding: 15px 17px;
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--admin-surface) 92%, transparent);
+}
+.admin-arrangement-order > div:not(.admin-arrangement-order-platform) { min-width: 0; }
+.admin-arrangement-order strong { display: block; overflow: hidden; font-size: .76rem; text-overflow: ellipsis; white-space: nowrap; }
+.admin-arrangement-order small { display: block; margin-top: 5px; font-size: .64rem; }
+.admin-arrangement-order-platform {
+  align-self: center;
+  padding: 7px 8px;
+  border-radius: 8px;
+  background: rgba(45, 212, 191, .12);
+  color: var(--arrangement-tiktok);
+  font-size: .62rem;
+  font-weight: 900;
+  text-align: center;
+}
+.admin-arrangement-order-platform.is-shopee { background: rgba(255, 107, 53, .12); color: var(--arrangement-shopee); }
+.admin-status-badge.is-success { color: #34d399; }
+.admin-status-badge.is-warning { color: #fbbf24; }
+.admin-status-badge.is-danger { color: #fb7185; }
+
+.admin-arrangement-editor-card { width: min(1040px, calc(100vw - 32px)); max-height: min(880px, calc(100vh - 32px)); overflow: auto; }
+.admin-arrangement-unlock-form { display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; margin-top: 20px; align-items: end; }
+.admin-arrangement-unlock-form label { display: grid; gap: 7px; color: var(--admin-muted); font-size: .7rem; font-weight: 800; }
+.admin-arrangement-unlock-form input,
+.admin-arrangement-rule-row input,
+.admin-arrangement-rule-row select {
+  min-height: 40px;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  background: var(--admin-bg);
+  color: var(--admin-text);
+  font: inherit;
+  padding: 0 10px;
+}
+.admin-arrangement-safety {
+  margin-bottom: 16px;
+  padding: 15px 17px;
+  border: 1px solid rgba(251, 191, 36, .26);
+  border-radius: 13px;
+  background: rgba(251, 191, 36, .06);
+}
+.admin-arrangement-safety strong { display: block; margin-bottom: 6px; color: #fbbf24; font-size: .76rem; }
+.admin-arrangement-rule-tabs { margin-bottom: 12px; }
+.admin-arrangement-rule-grid { display: grid; gap: 6px; }
+.admin-arrangement-rule-head,
+.admin-arrangement-rule-row { display: grid; align-items: center; gap: 9px; }
+.admin-arrangement-rule-grid.is-shopee .admin-arrangement-rule-head,
+.admin-arrangement-rule-grid.is-shopee .admin-arrangement-rule-row { grid-template-columns: 125px minmax(240px, 1fr) minmax(135px, .55fr); }
+.admin-arrangement-rule-grid.is-tiktok .admin-arrangement-rule-head,
+.admin-arrangement-rule-grid.is-tiktok .admin-arrangement-rule-row { grid-template-columns: 125px minmax(220px, 1fr) repeat(3, minmax(120px, .58fr)); }
+.admin-arrangement-rule-head {
+  padding: 7px 10px;
+  color: var(--admin-muted);
+  font-size: .62rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.admin-arrangement-rule-row {
+  padding: 9px 10px;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+}
+.admin-arrangement-day-toggle { display: flex; align-items: center; gap: 8px; font-size: .73rem; font-weight: 800; }
+.admin-arrangement-time-range { gap: 7px; }
+.admin-arrangement-time-range input { min-width: 0; width: 100%; }
+.admin-arrangement-time-range span { color: var(--admin-muted); font-size: .65rem; }
+.admin-arrangement-editor .admin-modal-actions { justify-content: flex-end; margin-top: 17px; }
+.admin-arrangement-editor .admin-modal-actions [data-arrangement-policy-meta] { margin-right: auto; }
+
+@media (max-width: 1000px) {
+  .admin-arrangement-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-arrangement-order { grid-template-columns: 82px 1fr 1fr; }
+  .admin-arrangement-order > :nth-child(4) { grid-column: 2 / 4; }
+  .admin-arrangement-rule-grid { overflow-x: auto; }
+  .admin-arrangement-rule-head,
+  .admin-arrangement-rule-row { min-width: 860px; }
+}
+
+@media (max-width: 680px) {
+  .admin-arrangement-hero { align-items: flex-start; flex-direction: column; padding: 21px; }
+  .admin-arrangement-hero-actions { flex-wrap: wrap; }
+  .admin-arrangement-metrics { grid-template-columns: 1fr; }
+  .admin-arrangement-toolbar { align-items: flex-start; flex-direction: column; }
+  .admin-arrangement-week-nav { width: 100%; justify-content: space-between; }
+  .admin-arrangement-order { grid-template-columns: 1fr; align-items: start; }
+  .admin-arrangement-order > :nth-child(4) { grid-column: auto; }
+  .admin-arrangement-order-platform { justify-self: start; }
+  .admin-arrangement-unlock-form { grid-template-columns: 1fr; }
+}

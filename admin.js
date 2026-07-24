@@ -2318,16 +2318,20 @@ document.addEventListener('DOMContentLoaded', () => {
     'store-ops': 'store-ops',
     store_ops: 'store-ops',
     fulfillment: 'store-ops',
+    arrangement: 'shipment-arrangement',
+    shipment_arrangement: 'shipment-arrangement',
+    'shipment-arrangement': 'shipment-arrangement',
     context: 'context',
     'open-context': 'context',
     hardset: 'hard-set',
     'big-set': 'hard-set'
   };
-	  const validViews = new Set(['overview', 'orders', 'wallet', 'inventory-recap', 'daily', 'store-ops', 'context', 'home', 'ad-view', 'website', 'hard-set', 'settings']);
+	  const validViews = new Set(['overview', 'orders', 'wallet', 'inventory-recap', 'daily', 'store-ops', 'shipment-arrangement', 'context', 'home', 'ad-view', 'website', 'hard-set', 'settings']);
   const quickMenuContextByView = {
 	    overview: 'overview',
 	    daily: 'daily',
 	    orders: 'orders',
+	    'shipment-arrangement': 'orders',
 	    wallet: 'wallet',
 	    'inventory-recap': 'inventory-recap',
 	    home: 'campaigns',
@@ -2356,6 +2360,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    wallet: 'wallet',
 	    'inventory-recap': 'inventory-recap',
 	    'store-ops': 'orders',
+	    'shipment-arrangement': 'orders',
     home: 'campaigns',
     'ad-view': 'ad-view',
     context: 'home',
@@ -4105,6 +4110,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    'inventory-recap': '',
 	    daily: '',
       'store-ops': 'orders',
+      'shipment-arrangement': 'orders',
       context: 'home',
       home: 'campaigns',
       'ad-view': 'ad-view',
@@ -10520,7 +10526,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      await loadDaily(options);
 	      return;
 	    }
-    if (state.activeView === 'store-ops') {
+    if (state.activeView === 'store-ops' || state.activeView === 'shipment-arrangement') {
       return;
     }
 	    if (state.activeView === 'context') {
@@ -10625,7 +10631,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (state.activeView === 'daily') {
 	      return loadDailySafely(options);
 	    }
-    if (state.activeView === 'store-ops') {
+    if (state.activeView === 'store-ops' || state.activeView === 'shipment-arrangement') {
       return true;
     }
 	    if (state.activeView === 'context') {
@@ -11110,6 +11116,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	    await loadActiveViewSafely();
     if (state.activeView === 'store-ops') {
       window.dispatchEvent(new CustomEvent('jg-store-ops-refresh'));
+    }
+    if (state.activeView === 'shipment-arrangement') {
+      window.dispatchEvent(new CustomEvent('jg-shipment-arrangement-refresh'));
     }
   };
 
