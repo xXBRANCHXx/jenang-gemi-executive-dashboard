@@ -1084,7 +1084,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                     <div class="admin-ad-view-scorecard" data-ad-view-scorecard>
                         <p class="admin-empty">Select two campaigns to compare daily averages.</p>
                     </div>
-                    <p class="admin-ad-view-disclaimer">“Revenue after ad cost” is a decision proxy: attributed broad GMV minus advertising spend. It is not gross profit because product cost, marketplace fees, discounts, shipping, and other expenses are not included.</p>
+                    <p class="admin-ad-view-disclaimer">“Attributed sales after ad cost” is a decision proxy: Shopee-attributed sales minus advertising spend. It is not accounting revenue or gross profit because marketplace fees, discounts, shipping, product cost, and other expenses are not included.</p>
                     </div>
                 </details>
 
@@ -1114,7 +1114,7 @@ $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(
                     <div class="admin-panel-head"><div><span class="admin-panel-kicker">All Imported Campaigns</span><h3>Names, tags, status, and performance</h3></div><span class="admin-panel-meta" data-ad-view-library-meta>0 campaigns</span></div>
                     <div class="admin-table-wrap">
                         <table class="admin-table admin-ad-view-table">
-                            <thead><tr><th>Campaign</th><th>Account</th><th>Status</th><th>Placement</th><th>Spend</th><th>Revenue</th><th>ROAS</th><th>Tags</th></tr></thead>
+                            <thead><tr><th>Campaign</th><th>Account</th><th>Status</th><th>Placement</th><th>Spend</th><th>Attributed sales</th><th>ROAS</th><th>Tags</th></tr></thead>
                             <tbody data-ad-view-library><tr><td colspan="8" class="admin-empty">Sync Shopee Ads to populate the library.</td></tr></tbody>
                         </table>
                     </div>

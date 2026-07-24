@@ -28,8 +28,13 @@ assert(js.includes("row.campaign_key === state.adView.selectedCampaignKey"), 'KP
 assert(js.includes('admin-ad-view-credit-breakdown'), 'Ad balances must share one compact breakdown card.');
 assert(!js.includes('<section class="admin-ad-view-shopee-metrics">'), 'Selected-ad details must not repeat the seven Shopee metrics.');
 assert(js.includes('AD_VIEW_AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000'), 'Ad View must automatically sync every five minutes.');
+assert(js.includes('AD_VIEW_ATTRIBUTION_REFRESH_DAYS = 8'), 'Ad View must refresh Shopee’s trailing attribution window.');
+assert(js.includes('state.adView.startDate < trailingAttributionStart'), 'Background sync must include visible prior days that Shopee can re-attribute.');
+assert(!js.includes('const syncStartDate = background ? today : state.adView.startDate'), 'Background sync must not refresh only today.');
 assert(js.includes('scheduleAdViewAutoSync();'), 'Loading Ad View must schedule a background Shopee sync.');
 assert(js.includes("result.cac = result.broad_items > 0 ? result.expense / result.broad_items : 0"), 'CAC must use attributed units sold.');
 assert(js.includes('Ad cost ÷ attributed units sold'), 'The CAC card must explain its unit-based calculation.');
+assert(js.includes("broad_gmv: 'Attributed sales'"), 'Shopee broad GMV must be labeled as attributed sales, not revenue.');
+assert(html.includes('It is not accounting revenue or gross profit'), 'Ad View must explain that attributed sales are not accounting revenue.');
 
 console.log('Ad View UI tests passed.');

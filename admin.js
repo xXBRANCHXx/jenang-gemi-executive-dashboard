@@ -297,7 +297,7 @@ const AD_VIEW_METRIC_LABELS = {
   clicks: 'Clicks',
   broad_orders: 'Orders',
   broad_items: 'Items sold',
-  broad_gmv: 'Attributed revenue',
+  broad_gmv: 'Attributed sales',
   expense: 'Ad cost',
   broad_roas: 'ROAS'
 };
@@ -597,6 +597,7 @@ const VIEW_CACHE_TTL_MS = {
 };
 const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const AD_VIEW_AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000;
+const AD_VIEW_ATTRIBUTION_REFRESH_DAYS = 8;
 const AUTO_MARKETPLACE_REFRESH_MIN_MS = 5 * 60 * 1000;
 const AUTO_MARKETPLACE_REFRESH_STORAGE_KEY = 'jg-dashboard-auto-marketplace-refresh-at-v1';
 const HOME_CACHE_PREFIX = 'jg-dashboard-home-cache-v1';
@@ -9802,10 +9803,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const definitions = [
       { key: 'broad_items', label: 'Units sold', note: 'Products sold after interacting with the ad', type: 'count', higherIsBetter: true },
       { key: 'broad_orders', label: 'Attributed orders', note: 'Shop orders attributed to the ad', type: 'count', higherIsBetter: true },
-      { key: 'broad_gmv', label: 'Revenue', note: 'Sales attributed to the ad', type: 'money', higherIsBetter: true },
+      { key: 'broad_gmv', label: 'Attributed sales', note: 'Shopee sales attributed to the ad', type: 'money', higherIsBetter: true },
       { key: 'expense', label: 'Ad cost', note: 'Shown separately so higher spend is not mistaken for efficiency', type: 'money', higherIsBetter: false, cost: true },
-      { key: 'revenue_after_ads', label: 'Revenue after ad cost', note: 'Attributed revenue minus advertising spend', type: 'money', higherIsBetter: true },
-      { key: 'broad_roas', label: 'Broad ROAS', note: 'Attributed revenue divided by advertising spend', type: 'roas', higherIsBetter: true }
+      { key: 'revenue_after_ads', label: 'Attributed sales after ad cost', note: 'Attributed sales minus advertising spend', type: 'money', higherIsBetter: true },
+      { key: 'broad_roas', label: 'Broad ROAS', note: 'Attributed sales divided by advertising spend', type: 'roas', higherIsBetter: true }
     ];
     adViewRefs.scorecard.innerHTML = definitions.map((definition) => {
       const oldValue = Number(a[definition.key] || 0);
@@ -10017,7 +10018,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const after = aggregateAdViewMetrics(campaignRows.filter((row) => row.metric_date >= eventDate && row.metric_date <= afterEnd));
       const deltaPercent = (next, previous) => previous !== 0 ? (next - previous) / Math.abs(previous) * 100 : (next > 0 ? 100 : 0);
       const impact = (before.expense > 0 || after.expense > 0)
-        ? `<p><strong>3-day associated change:</strong> revenue ${deltaPercent(after.broad_gmv, before.broad_gmv) >= 0 ? '+' : ''}${Math.round(deltaPercent(after.broad_gmv, before.broad_gmv))}%, ad cost ${deltaPercent(after.expense, before.expense) >= 0 ? '+' : ''}${Math.round(deltaPercent(after.expense, before.expense))}%, ROAS ${deltaPercent(after.broad_roas, before.broad_roas) >= 0 ? '+' : ''}${Math.round(deltaPercent(after.broad_roas, before.broad_roas))}%.</p>`
+        ? `<p><strong>3-day associated change:</strong> attributed sales ${deltaPercent(after.broad_gmv, before.broad_gmv) >= 0 ? '+' : ''}${Math.round(deltaPercent(after.broad_gmv, before.broad_gmv))}%, ad cost ${deltaPercent(after.expense, before.expense) >= 0 ? '+' : ''}${Math.round(deltaPercent(after.expense, before.expense))}%, ROAS ${deltaPercent(after.broad_roas, before.broad_roas) >= 0 ? '+' : ''}${Math.round(deltaPercent(after.broad_roas, before.broad_roas))}%.</p>`
         : '';
       const beforeAfter = event.before_value || event.after_value
         ? `<p>${escapeHtml(event.before_value || '—')} → ${escapeHtml(event.after_value || '—')}</p>` : '';
@@ -10142,12 +10143,19 @@ document.addEventListener('DOMContentLoaded', () => {
     if (state.adView.syncPromise) return state.adView.syncPromise;
     const now = Date.now();
     if (background && !options.force && now - Number(state.adView.lastSyncAt || 0) < AD_VIEW_AUTO_SYNC_INTERVAL_MS) return false;
+    const today = getDateKeyForTimezone();
+    const selectedRangeIncludesToday = state.adView.startDate <= today && state.adView.endDate >= today;
+    if (background && !selectedRangeIncludesToday) return false;
+    const trailingAttributionStart = getDateKeyForTimezone(new Date(
+      Date.now() - ((AD_VIEW_ATTRIBUTION_REFRESH_DAYS - 1) * 86400000)
+    ));
 
     const syncPromise = (async () => {
       if (!background && adViewRefs.status) adViewRefs.status.textContent = 'Syncing every connected Shopee account…';
       if (adViewRefs.sync) adViewRefs.sync.disabled = true;
-      const today = getDateKeyForTimezone();
-      const syncStartDate = background ? today : state.adView.startDate;
+      const syncStartDate = background && state.adView.startDate < trailingAttributionStart
+        ? trailingAttributionStart
+        : state.adView.startDate;
       const syncEndDate = background ? today : state.adView.endDate;
       const data = await requestJson(adsEndpoint, {
         method: 'POST',
