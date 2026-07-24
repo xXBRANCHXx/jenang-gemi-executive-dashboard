@@ -1567,6 +1567,7 @@ button, input {
   }
 }
 
+
 /* Final sidebar behavior: full-height icon rail that expands on hover/focus. */
 @media (min-width: 821px) {
   :root,
@@ -29696,5 +29697,738 @@ button.admin-accounting-metric {
   .admin-arrangement-advanced-platform > header {
     align-items: flex-start;
     flex-direction: column;
+  }
+}
+/* Shipment arrangement v5 — layered timeline and shared pickup inspector */
+.admin-arrangement-deadline-plot {
+  min-height: calc(360px + (var(--pickup-label-lanes, 1) * 32px) + (var(--pickup-lanes, 0) * 34px));
+  padding: 0 12px 18px;
+}
+
+.admin-arrangement-pickup-windows {
+  z-index: 1;
+  inset: 0 12px;
+  height: auto;
+}
+
+.admin-arrangement-pickup-window {
+  top: 0;
+  bottom: 0;
+  height: auto;
+  min-width: 24px;
+  overflow: visible;
+  padding: 0;
+  border: 0;
+  border-right: 1px solid color-mix(in srgb, #60a5fa 38%, transparent);
+  border-left: 1px solid color-mix(in srgb, #60a5fa 48%, transparent);
+  border-radius: 0;
+  color: #bfdbfe;
+  background: color-mix(in srgb, #60a5fa 9%, transparent);
+  cursor: pointer;
+}
+
+.admin-arrangement-pickup-window::after {
+  position: absolute;
+  inset: 0;
+  border-top: 3px solid color-mix(in srgb, #60a5fa 70%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, #60a5fa 24%, transparent);
+  pointer-events: none;
+  content: '';
+}
+
+.admin-arrangement-pickup-window:hover,
+.admin-arrangement-pickup-window:focus-visible {
+  z-index: 2;
+  outline: 0;
+  background: color-mix(in srgb, #60a5fa 15%, transparent);
+}
+
+.admin-arrangement-pickup-window.is-active {
+  color: #dbeafe;
+  background: color-mix(in srgb, #60a5fa 17%, transparent);
+}
+
+.admin-arrangement-pickup-window.is-passed {
+  color: #fecdd3;
+  background: color-mix(in srgb, #fb7185 8%, transparent);
+}
+
+.admin-arrangement-pickup-window.is-passed::after {
+  border-top-color: color-mix(in srgb, #fb7185 70%, transparent);
+}
+
+.admin-arrangement-pickup-window.is-complete {
+  color: #a7f3d0;
+  background: color-mix(in srgb, #34d399 8%, transparent);
+}
+
+.admin-arrangement-pickup-window.is-complete::after {
+  border-top-color: color-mix(in srgb, #34d399 72%, transparent);
+}
+
+.admin-arrangement-pickup-window.is-mixed {
+  color: #dbeafe;
+  background: color-mix(in srgb, #60a5fa 12%, transparent);
+}
+
+.admin-arrangement-pickup-window-label {
+  position: absolute;
+  top: calc(14px + (var(--pickup-label-lanes, 1) * 32px) + (var(--pickup-window-lane, 0) * 34px));
+  left: 6px;
+  display: grid;
+  gap: 2px;
+  width: max-content;
+  min-width: 118px;
+  max-width: 178px;
+  padding: 7px 9px;
+  border: 1px solid color-mix(in srgb, currentColor 42%, var(--admin-border));
+  border-radius: 7px;
+  color: currentColor;
+  background: color-mix(in srgb, var(--admin-bg) 92%, #60a5fa);
+  box-shadow: 0 7px 18px rgba(0, 0, 0, .2);
+  text-align: left;
+}
+
+.admin-arrangement-pickup-window-label strong,
+.admin-arrangement-pickup-window-label small,
+.admin-arrangement-pickup-window-label em {
+  display: block;
+  overflow: hidden;
+  color: currentColor;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-arrangement-pickup-window-label strong {
+  font-size: .55rem;
+}
+
+.admin-arrangement-pickup-window-label small {
+  margin: 0;
+  font-size: .47rem;
+  opacity: .78;
+}
+
+.admin-arrangement-pickup-window-label em {
+  margin-top: 3px;
+  font-size: .46rem;
+  font-style: normal;
+  font-weight: 850;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.admin-arrangement-pickup-markers {
+  z-index: 5;
+}
+
+.admin-arrangement-pickup-marker {
+  width: 14px;
+  border-left-width: 2px;
+  cursor: pointer;
+}
+
+.admin-arrangement-pickup-marker-label {
+  position: absolute;
+  top: calc(8px + (var(--pickup-label-lane, 0) * 32px));
+  left: 7px;
+  display: grid;
+  gap: 1px;
+  width: max-content;
+  max-width: 116px;
+  padding: 4px 6px;
+  border: 1px solid color-mix(in srgb, #34d399 34%, var(--admin-border));
+  border-radius: 5px;
+  color: #6ee7b7;
+  background: color-mix(in srgb, var(--admin-bg) 94%, #34d399);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .18);
+  text-align: left;
+}
+
+.admin-arrangement-pickup-marker.is-flipped .admin-arrangement-pickup-marker-label {
+  right: 8px;
+  left: auto;
+}
+
+.admin-arrangement-pickup-marker-label > span,
+.admin-arrangement-pickup-marker-label > strong {
+  position: static;
+  display: block;
+  overflow: hidden;
+  width: auto;
+  max-width: 100%;
+  color: currentColor;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-arrangement-pickup-marker-label > span {
+  font-size: .47rem;
+  font-weight: 750;
+  opacity: .78;
+}
+
+.admin-arrangement-pickup-marker-label > strong {
+  font-size: .52rem;
+  font-weight: 900;
+}
+
+.admin-arrangement-pickup-preview {
+  top: calc(42px + (var(--pickup-label-lane, 0) * 32px));
+}
+
+.admin-arrangement-pickup-marker.is-flipped .admin-arrangement-pickup-preview {
+  right: 8px;
+  left: auto;
+}
+
+.admin-arrangement-deadline-events {
+  z-index: 3;
+  grid-auto-rows: minmax(92px, auto);
+  gap: 9px 5px;
+  min-height: 320px;
+  padding-top: calc(78px + (var(--pickup-label-lanes, 1) * 32px) + (var(--pickup-lanes, 0) * 34px));
+}
+
+.admin-arrangement-deadline-event {
+  position: relative;
+  z-index: 1;
+  min-height: 92px;
+  box-shadow: 0 5px 14px rgba(0, 0, 0, .14);
+}
+
+.admin-arrangement-deadline-event:hover {
+  z-index: 3;
+  border-color: color-mix(in srgb, #fbbf24 70%, var(--admin-border));
+}
+
+.admin-arrangement-now-line {
+  z-index: 4;
+}
+
+.admin-arrangement-event-overlay {
+  z-index: 300;
+  place-items: center;
+  padding: 24px;
+  background: rgba(2, 6, 23, .76);
+  backdrop-filter: blur(9px);
+}
+
+.admin-arrangement-event-dialog {
+  overflow: hidden;
+  width: min(1240px, calc(100vw - 48px));
+  height: min(860px, calc(100dvh - 48px));
+  border: 1px solid color-mix(in srgb, var(--admin-border) 82%, #34d399);
+  border-radius: 18px;
+  background: var(--admin-bg);
+  box-shadow: 0 32px 100px rgba(0, 0, 0, .62);
+}
+
+.admin-arrangement-event-dialog:focus {
+  outline: 0;
+}
+
+.admin-arrangement-event-dialog > .admin-arrangement-event-dialog-head {
+  align-items: center;
+  min-height: 94px;
+  padding: 20px 24px;
+  background: color-mix(in srgb, var(--admin-surface) 70%, var(--admin-bg));
+}
+
+.admin-arrangement-event-heading {
+  min-width: 0;
+}
+
+.admin-arrangement-event-dialog > header h3 {
+  margin: 4px 0;
+  font-size: 1.18rem;
+}
+
+.admin-arrangement-event-dialog > header p {
+  overflow: hidden;
+  max-width: 760px;
+  font-size: .68rem;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-arrangement-event-close {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 12px 0 9px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  color: var(--admin-text);
+  background: transparent;
+  cursor: pointer;
+}
+
+.admin-arrangement-event-close:hover,
+.admin-arrangement-event-close:focus-visible {
+  border-color: color-mix(in srgb, var(--admin-text) 45%, var(--admin-border));
+  background: color-mix(in srgb, var(--admin-text) 5%, transparent);
+}
+
+.admin-arrangement-event-close > span {
+  font: 300 1.2rem/1 sans-serif;
+}
+
+.admin-arrangement-event-close > strong {
+  font-size: .62rem;
+}
+
+.admin-arrangement-event-layout {
+  grid-template-columns: 350px minmax(0, 1fr);
+}
+
+.admin-arrangement-event-layout > aside {
+  padding: 18px;
+  background: color-mix(in srgb, var(--admin-surface) 78%, var(--admin-bg));
+}
+
+.admin-arrangement-event-layout > main {
+  padding: 24px 28px 48px;
+  background: var(--admin-bg);
+}
+
+.admin-arrangement-event-summary {
+  gap: 6px;
+  margin-bottom: 18px;
+  padding: 16px;
+  border-radius: 10px;
+}
+
+.admin-arrangement-event-summary > span {
+  color: var(--admin-muted);
+  font-size: .54rem;
+  font-weight: 850;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.admin-arrangement-event-summary > strong {
+  margin: 2px 0;
+  font-size: 1.75rem;
+}
+
+.admin-arrangement-event-summary > small {
+  font-size: .58rem;
+}
+
+.admin-arrangement-event-progress {
+  position: relative;
+  height: 5px;
+  margin-top: 5px;
+  overflow: hidden;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--admin-text) 9%, transparent);
+}
+
+.admin-arrangement-event-progress i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--pickup-progress);
+  border-radius: inherit;
+  background: #34d399;
+}
+
+.admin-arrangement-event-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 2px 9px;
+}
+
+.admin-arrangement-event-list-head strong {
+  font-size: .66rem;
+}
+
+.admin-arrangement-event-list-head span {
+  color: var(--admin-muted);
+  font-size: .54rem;
+}
+
+.admin-arrangement-event-order-list {
+  gap: 8px;
+}
+
+.admin-arrangement-event-order-list button {
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+  align-items: center;
+  justify-items: stretch;
+  gap: 4px 9px;
+  padding: 11px;
+  border-radius: 9px;
+}
+
+.admin-arrangement-event-order-list button:hover,
+.admin-arrangement-event-order-list button:focus-visible,
+.admin-arrangement-event-order-list button.is-selected {
+  outline: 0;
+  border-color: color-mix(in srgb, #34d399 64%, var(--admin-border));
+  background: color-mix(in srgb, #34d399 8%, var(--admin-bg));
+}
+
+.admin-arrangement-event-order-list button.is-selected {
+  box-shadow: inset 3px 0 0 #34d399;
+}
+
+.admin-arrangement-event-order-number {
+  grid-row: 1 / span 2;
+  color: var(--admin-muted);
+  font: 700 .52rem/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.admin-arrangement-event-order-copy {
+  min-width: 0;
+}
+
+.admin-arrangement-event-order-copy strong,
+.admin-arrangement-event-order-copy small {
+  display: block;
+  overflow: hidden;
+  width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-arrangement-event-order-copy strong {
+  font: 800 .62rem/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.admin-arrangement-event-order-copy small {
+  margin-top: 3px;
+  color: var(--admin-muted);
+  font-size: .49rem;
+}
+
+.admin-arrangement-event-order-list button > em {
+  grid-column: 2 / -1;
+  overflow: hidden;
+  color: var(--admin-muted);
+  font-size: .49rem;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-arrangement-order-state {
+  display: inline-flex;
+  align-items: center;
+  width: max-content;
+  max-width: 180px;
+  min-height: 22px;
+  padding: 0 8px;
+  border: 1px solid color-mix(in srgb, #60a5fa 35%, var(--admin-border));
+  border-radius: 30px;
+  color: #93c5fd;
+  background: color-mix(in srgb, #60a5fa 8%, transparent);
+  font-size: .48rem;
+  font-weight: 900;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.admin-arrangement-order-state.is-picked-up {
+  border-color: color-mix(in srgb, #34d399 45%, var(--admin-border));
+  color: #6ee7b7;
+  background: color-mix(in srgb, #34d399 8%, transparent);
+}
+
+.admin-arrangement-order-state.is-window-open {
+  border-color: color-mix(in srgb, #fbbf24 48%, var(--admin-border));
+  color: #fde68a;
+  background: color-mix(in srgb, #fbbf24 8%, transparent);
+}
+
+.admin-arrangement-order-state.is-awaiting-confirmation {
+  border-color: color-mix(in srgb, #fb7185 44%, var(--admin-border));
+  color: #fda4af;
+  background: color-mix(in srgb, #fb7185 8%, transparent);
+}
+
+.admin-arrangement-order-loading,
+.admin-arrangement-order-error {
+  display: grid;
+  align-content: center;
+  min-height: 100%;
+  max-width: 720px;
+  margin: auto;
+}
+
+.admin-arrangement-order-loading-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.admin-arrangement-order-loading h3,
+.admin-arrangement-order-error h3 {
+  margin: 6px 0;
+  font: 750 1.2rem/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.admin-arrangement-order-loading p,
+.admin-arrangement-order-error p,
+.admin-arrangement-order-error small {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: .68rem;
+  line-height: 1.55;
+}
+
+.admin-arrangement-loading-bars {
+  display: grid;
+  gap: 12px;
+  margin-top: 30px;
+}
+
+.admin-arrangement-loading-bars i {
+  height: 48px;
+  border: 1px solid var(--admin-border);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--admin-text) 4%, transparent);
+}
+
+.admin-arrangement-loading-bars i:nth-child(2) {
+  width: 78%;
+}
+
+.admin-arrangement-loading-bars i:nth-child(3) {
+  width: 90%;
+}
+
+.admin-arrangement-loading-bars i:nth-child(4) {
+  width: 62%;
+}
+
+.admin-arrangement-order-error {
+  justify-items: start;
+}
+
+.admin-arrangement-order-error > .admin-arrangement-order-state {
+  margin-bottom: 18px;
+}
+
+.admin-arrangement-order-error > small {
+  max-width: 560px;
+  margin-top: 8px;
+}
+
+.admin-arrangement-order-error > button {
+  margin-top: 20px;
+}
+
+.admin-arrangement-order-breakdown {
+  gap: 20px;
+}
+
+.admin-arrangement-order-breakdown-head {
+  align-items: center;
+}
+
+.admin-arrangement-order-breakdown-head h3 {
+  font-size: 1.12rem;
+}
+
+.admin-arrangement-pickup-health {
+  display: grid;
+  grid-template-columns: minmax(180px, .65fr) minmax(0, 1.35fr);
+  gap: 20px;
+  padding: 16px 18px;
+  border: 1px solid color-mix(in srgb, #60a5fa 32%, var(--admin-border));
+  border-left: 4px solid #60a5fa;
+  border-radius: 10px;
+  background: color-mix(in srgb, #60a5fa 6%, transparent);
+}
+
+.admin-arrangement-pickup-health.is-picked-up {
+  border-color: color-mix(in srgb, #34d399 30%, var(--admin-border));
+  border-left-color: #34d399;
+  background: color-mix(in srgb, #34d399 6%, transparent);
+}
+
+.admin-arrangement-pickup-health.is-window-open {
+  border-color: color-mix(in srgb, #fbbf24 30%, var(--admin-border));
+  border-left-color: #fbbf24;
+  background: color-mix(in srgb, #fbbf24 6%, transparent);
+}
+
+.admin-arrangement-pickup-health.is-awaiting-confirmation {
+  border-color: color-mix(in srgb, #fb7185 30%, var(--admin-border));
+  border-left-color: #fb7185;
+  background: color-mix(in srgb, #fb7185 6%, transparent);
+}
+
+.admin-arrangement-pickup-health > div {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+}
+
+.admin-arrangement-pickup-health > div span,
+.admin-arrangement-pickup-health dt {
+  color: var(--admin-muted);
+  font-size: .49rem;
+  font-weight: 800;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.admin-arrangement-pickup-health > div strong {
+  font-size: .78rem;
+}
+
+.admin-arrangement-pickup-health > div small {
+  color: var(--admin-muted);
+  font-size: .53rem;
+}
+
+.admin-arrangement-pickup-health dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.admin-arrangement-pickup-health dl div {
+  min-width: 0;
+  padding-left: 10px;
+  border-left: 1px solid var(--admin-border);
+}
+
+.admin-arrangement-pickup-health dd {
+  overflow: hidden;
+  margin: 5px 0 0;
+  font-size: .57rem;
+  font-weight: 800;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+}
+
+.admin-arrangement-finance-grid strong {
+  font-size: .98rem;
+}
+
+.admin-arrangement-finance-grid span,
+.admin-arrangement-finance-grid small,
+.admin-arrangement-finance-quality span,
+.admin-arrangement-product-list article > div span,
+.admin-arrangement-product-list article > small {
+  font-size: .56rem;
+}
+
+.admin-arrangement-detail-section > header h4 {
+  font-size: .84rem;
+}
+
+.admin-arrangement-order-timeline strong,
+.admin-arrangement-product-list article > div strong {
+  font-size: .64rem;
+}
+
+@media (max-width: 980px) {
+  .admin-arrangement-event-overlay {
+    padding: 12px;
+  }
+
+  .admin-arrangement-event-dialog {
+    width: calc(100vw - 24px);
+    height: calc(100dvh - 24px);
+  }
+
+  .admin-arrangement-event-layout {
+    grid-template-columns: 300px minmax(0, 1fr);
+  }
+
+  .admin-arrangement-pickup-health,
+  .admin-arrangement-detail-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .admin-arrangement-event-overlay {
+    padding: 0;
+  }
+
+  .admin-arrangement-event-dialog {
+    width: 100vw;
+    height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .admin-arrangement-event-dialog > .admin-arrangement-event-dialog-head {
+    min-height: 82px;
+    padding: 15px 16px;
+  }
+
+  .admin-arrangement-event-dialog > header p {
+    max-width: calc(100vw - 110px);
+  }
+
+  .admin-arrangement-event-close {
+    width: 38px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .admin-arrangement-event-close > strong {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .admin-arrangement-event-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(190px, 38vh) minmax(0, 1fr);
+    overflow: hidden;
+  }
+
+  .admin-arrangement-event-layout > aside,
+  .admin-arrangement-event-layout > main {
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .admin-arrangement-event-layout > aside {
+    padding: 12px;
+    border-right: 0;
+    border-bottom: 1px solid var(--admin-border);
+  }
+
+  .admin-arrangement-event-layout > main {
+    padding: 18px 16px 40px;
+  }
+
+  .admin-arrangement-event-summary {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    margin-bottom: 12px;
+    padding: 12px;
+  }
+
+  .admin-arrangement-event-summary > small,
+  .admin-arrangement-event-progress {
+    grid-column: 1 / -1;
+  }
+
+  .admin-arrangement-event-order-list {
+    grid-template-columns: repeat(auto-fit, minmax(245px, 1fr));
+  }
+
+  .admin-arrangement-pickup-health dl,
+  .admin-arrangement-finance-grid,
+  .admin-arrangement-detail-facts {
+    grid-template-columns: 1fr;
   }
 }

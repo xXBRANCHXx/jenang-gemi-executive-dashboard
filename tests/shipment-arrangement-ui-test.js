@@ -29,9 +29,8 @@ assert(
     && dashboard.includes('data-arrangement-tab="rules"')
     && script.includes('admin-arrangement-deadline-event')
     && script.includes('order.order_id')
-    && script.includes('order.account_key')
-    && !script.includes('View orders'),
-  'Schedule must show every order directly on the pickup-deadline timeline without a drill-down.'
+    && script.includes('order.account_key'),
+  'Schedule must show every unpicked order directly on the pickup-deadline timeline.'
 );
 assert(
   script.includes('setTab(button.dataset.arrangementTab)')
@@ -44,7 +43,7 @@ assert(
     && script.includes('pickupConfirmationGroups')
     && script.includes('pickupWindowGroups')
     && script.includes('admin-arrangement-pickup-window')
-    && script.includes('Window passed · no Shopee scan')
+    && script.includes('Window passed · ${counts.awaiting} awaiting')
     && script.includes('admin-arrangement-pickup-marker')
     && script.includes('data-change-pickup')
     && script.includes("'pickup-reschedule'")
@@ -70,13 +69,19 @@ assert(
     && shipmentMarkup.includes('data-arrangement-order-detail')
     && script.includes('admin-arrangement-pickup-preview')
     && script.includes('data-pickup-event-index')
+    && script.includes('data-pickup-window-index')
     && script.includes('orderIds.slice(0, 3)')
+    && script.includes("openPickupInspector('window'")
+    && script.includes('loadPickupEventOrder(0)')
     && script.includes('loadPickupEventOrder')
+    && script.includes('state.orderDetailCache')
+    && script.includes('data-retry-pickup-order')
+    && script.includes('pickupOrderState')
     && script.includes("action: 'order-detail'")
     && script.includes('renderOrderBreakdown')
     && script.includes('Shopee deductions')
     && endpoint.includes('/fulfillment/order-detail'),
-  'Pickup confirmation markers must preview three IDs, open every order, and load the safe order breakdown endpoint.'
+  'Pickup markers and booked windows must open every order, auto-load details, show pickup status, and support retry.'
 );
 assert(
   dashboard.includes('If the selected day is unavailable, the order waits')
@@ -94,6 +99,11 @@ assert(
     && styles.includes('.admin-arrangement-finance-grid')
     && styles.includes('.admin-arrangement-pickup-window')
     && styles.includes('--pickup-window-width')
+    && styles.includes('--pickup-label-lane')
+    && styles.includes('bottom: 0')
+    && styles.includes('.admin-arrangement-pickup-window-label')
+    && styles.includes('.admin-arrangement-order-state.is-picked-up')
+    && styles.includes('.admin-arrangement-event-progress')
     && styles.includes('border-left: 2px dotted #34d399')
     && styles.includes('.admin-arrangement-rescheduler')
     && styles.includes('.admin-arrangement-deadline-event')

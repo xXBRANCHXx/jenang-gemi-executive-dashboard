@@ -807,7 +807,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                                         </div>
                                         <div class="admin-arrangement-window-explainer">
                                             <strong>Every card is an unpicked order</strong>
-                                            <span>Cards mark ship-by deadlines. Blue blocks mark booked courier windows.</span>
+                                            <span>Cards mark ship-by deadlines. Full-height blue bands mark booked courier windows.</span>
                                         </div>
                                     </header>
                                     <section class="admin-arrangement-rescheduler" data-arrangement-rescheduler hidden></section>
@@ -820,8 +820,8 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                                     <section>
                                         <h3>How to read this</h3>
                                         <dl class="admin-arrangement-status-guide">
-                                            <div><dt class="is-booked">Pickup window</dt><dd>A blue block spans the booked start and end time. Select the order’s Change pickup action if the store is closed then.</dd></div>
-                                            <div><dt class="is-confirmed">Courier pickup</dt><dd>A dotted green line marks when our API observed Shopee confirm one or more pickups.</dd></div>
+                                            <div><dt class="is-booked">Pickup window</dt><dd>A full-height blue band spans the booked start and end time. Select it to see every scheduled order and its pickup status.</dd></div>
+                                            <div><dt class="is-confirmed">Courier pickup</dt><dd>A dotted green line marks when our API observed Shopee confirm one or more pickups. Select it to inspect the confirmed orders.</dd></div>
                                             <div><dt class="is-upcoming">Ship by</dt><dd>The final handover deadline. It controls the card’s horizontal position.</dd></div>
                                             <div><dt class="is-overdue">Past due</dt><dd>The ship-by deadline passed and Shopee has not confirmed pickup.</dd></div>
                                         </dl>
@@ -891,19 +891,22 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                             </div>
                         </section>
 
-                        <div class="admin-arrangement-event-overlay" data-arrangement-event-overlay hidden>
-                            <section class="admin-arrangement-event-dialog" role="dialog" aria-modal="true" aria-labelledby="arrangement-event-title">
-                                <header>
-                                    <div>
-                                        <span class="admin-panel-kicker">Shopee courier confirmation</span>
+                        <div class="admin-arrangement-event-overlay" data-arrangement-event-overlay aria-hidden="true" hidden>
+                            <section class="admin-arrangement-event-dialog" role="dialog" aria-modal="true" aria-labelledby="arrangement-event-title" aria-describedby="arrangement-event-subtitle" tabindex="-1">
+                                <header class="admin-arrangement-event-dialog-head">
+                                    <div class="admin-arrangement-event-heading">
+                                        <span class="admin-panel-kicker" data-arrangement-event-kicker>Pickup inspector</span>
                                         <h3 id="arrangement-event-title" data-arrangement-event-title>Pickup event</h3>
-                                        <p data-arrangement-event-subtitle></p>
+                                        <p id="arrangement-event-subtitle" data-arrangement-event-subtitle></p>
                                     </div>
-                                    <button type="button" class="admin-arrangement-text-button" data-arrangement-event-close>Close</button>
+                                    <button type="button" class="admin-arrangement-event-close" data-arrangement-event-close>
+                                        <span aria-hidden="true">×</span>
+                                        <strong>Close</strong>
+                                    </button>
                                 </header>
                                 <div class="admin-arrangement-event-layout">
-                                    <aside data-arrangement-event-orders></aside>
-                                    <main data-arrangement-order-detail></main>
+                                    <aside aria-label="Orders in this pickup" data-arrangement-event-orders></aside>
+                                    <main aria-live="polite" data-arrangement-order-detail></main>
                                 </div>
                             </section>
                         </div>

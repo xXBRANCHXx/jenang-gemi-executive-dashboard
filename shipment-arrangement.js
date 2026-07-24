@@ -17,6 +17,8 @@ document.addEventListener('DOMContentLoaded', () => {
     workingPolicy: null,
     reschedule: null,
     pickupEvent: null,
+    pickupEventSequence: 0,
+    orderDetailCache: new Map(),
     loading: false
   };
   const refs = {
@@ -25,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
     map: root.querySelector('[data-arrangement-map]'),
     rescheduler: root.querySelector('[data-arrangement-rescheduler]'),
     eventOverlay: root.querySelector('[data-arrangement-event-overlay]'),
+    eventKicker: root.querySelector('[data-arrangement-event-kicker]'),
     eventTitle: root.querySelector('[data-arrangement-event-title]'),
     eventSubtitle: root.querySelector('[data-arrangement-event-subtitle]'),
     eventOrders: root.querySelector('[data-arrangement-event-orders]'),
@@ -89,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }).format(Number(value || 0));
 
   const formatEventTime = (value) => {
-    const date = parseUtc(value);
+    const date = value instanceof Date ? value : parseUtc(value);
     return date
       ? formatDate(date, { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
       : 'Time unavailable';
@@ -166,7 +169,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const end = windowEnd();
     const grouped = new Map();
     orders.forEach((order) => {
-      if (pickupConfirmed(order)) return;
       const pickupStart = parseUtc(order.pickup_start_at);
       const pickupEnd = parseUtc(order.pickup_end_at) || (pickupStart ? new Date(pickupStart.getTime() + HOUR) : null);
       if (!pickupStart || !pickupEnd || pickupEnd <= start || pickupStart >= end) return;
@@ -186,6 +188,51 @@ document.addEventListener('DOMContentLoaded', () => {
       group.lane = lane;
     });
     return { groups, laneCount: laneEnds.length };
+  };
+
+  const pickupMarkerLayout = (groups, start) => {
+    const laneEnds = [];
+    const laidOut = groups.map((group) => {
+      const elapsed = group.confirmedAt.getTime() - start.getTime();
+      const position = Math.max(0, Math.min(100, (elapsed / (WINDOW_HOURS * HOUR)) * 100));
+      const flip = position > 84;
+      const labelStart = Math.max(0, position - (flip ? 10 : 0));
+      const labelEnd = Math.min(100, position + (flip ? 0 : 10));
+      let labelLane = laneEnds.findIndex((laneEnd) => labelStart >= laneEnd + 1);
+      if (labelLane < 0) labelLane = laneEnds.length;
+      laneEnds[labelLane] = labelEnd;
+      return { ...group, position, labelLane, flip };
+    });
+    return { groups: laidOut, laneCount: Math.max(1, laneEnds.length) };
+  };
+
+  const pickupOrderState = (order, group = null) => {
+    if (pickupConfirmed(order)) {
+      const confirmedAt = parseUtc(order.pickup_confirmed_at || order.picked_up_at);
+      return {
+        key: 'picked-up',
+        label: 'Picked up',
+        detail: confirmedAt ? `Confirmed ${formatEventTime(confirmedAt)}` : 'Confirmed by marketplace'
+      };
+    }
+    const start = parseUtc(order.pickup_start_at) || group?.start || null;
+    const end = parseUtc(order.pickup_end_at) || group?.end || null;
+    if (start && state.windowNow < start) {
+      return { key: 'scheduled', label: 'Scheduled', detail: `Starts ${formatEventTime(start)}` };
+    }
+    if (start && end && state.windowNow >= start && state.windowNow <= end) {
+      return { key: 'window-open', label: 'Pickup window open', detail: `Ends ${formatEventTime(end)}` };
+    }
+    if (end && state.windowNow > end) {
+      return { key: 'awaiting-confirmation', label: 'Awaiting confirmation', detail: `Window ended ${formatEventTime(end)}` };
+    }
+    return { key: 'scheduled', label: 'Scheduled', detail: pickupWindowLabel(order) };
+  };
+
+  const pickupGroupCounts = (group) => {
+    const orders = Array.isArray(group?.orders) ? group.orders : [];
+    const pickedUp = orders.filter(pickupConfirmed).length;
+    return { total: orders.length, pickedUp, awaiting: orders.length - pickedUp };
   };
 
   const orderTimelineStatus = (deadline) => {
@@ -212,6 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
       orderDeadline(left).getTime() - orderDeadline(right).getTime()
     );
     const pickupGroups = pickupConfirmationGroups();
+    const pickupMarkersLayout = pickupMarkerLayout(pickupGroups, start);
     const pickupWindows = pickupWindowGroups();
     if (refs.windowLabel) {
       refs.windowLabel.textContent = `${formatDate(start, { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} – ${formatDate(end, { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`;
@@ -261,20 +309,21 @@ document.addEventListener('DOMContentLoaded', () => {
           </footer>
         </article>`;
     }).join('');
-    const pickupMarkers = pickupGroups.map((group, groupIndex) => {
-      const elapsed = group.confirmedAt.getTime() - start.getTime();
-      const position = Math.max(0, Math.min(100, (elapsed / (WINDOW_HOURS * HOUR)) * 100));
+    const pickupMarkers = pickupMarkersLayout.groups.map((group, groupIndex) => {
       const orderIds = group.orders.map((order) => String(order.order_id || '')).filter(Boolean);
       const count = orderIds.length;
       const time = formatDate(group.confirmedAt, { hour: '2-digit', minute: '2-digit' });
       const quickIds = orderIds.slice(0, 3);
       return `
-        <button type="button" class="admin-arrangement-pickup-marker" style="--pickup-position:${position}%"
+        <button type="button" class="admin-arrangement-pickup-marker ${group.flip ? 'is-flipped' : ''}"
+          style="--pickup-position:${group.position}%;--pickup-label-lane:${group.labelLane}"
           data-pickup-event-index="${groupIndex}"
           title="Shopee pickup confirmed at ${escapeHtml(time)}: ${escapeHtml(orderIds.join(', '))}"
           aria-label="Shopee pickup confirmed at ${escapeHtml(time)} for ${count} order${count === 1 ? '' : 's'}">
-          <span>${escapeHtml(time)}</span>
-          <strong>${count} picked up</strong>
+          <span class="admin-arrangement-pickup-marker-label">
+            <span>${escapeHtml(time)}</span>
+            <strong>${count} picked up</strong>
+          </span>
           <div class="admin-arrangement-pickup-preview" aria-hidden="true">
             <small>Shopee confirmed · ${escapeHtml(time)}</small>
             <b>${count} picked-up order${count === 1 ? '' : 's'}</b>
@@ -284,34 +333,45 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
         </button>`;
     }).join('');
-    const pickupWindowBlocks = pickupWindows.groups.map((group) => {
+    const pickupWindowBlocks = pickupWindows.groups.map((group, groupIndex) => {
       const visibleStart = new Date(Math.max(group.start.getTime(), start.getTime()));
       const visibleEnd = new Date(Math.min(group.end.getTime(), end.getTime()));
       const left = Math.max(0, ((visibleStart.getTime() - start.getTime()) / (WINDOW_HOURS * HOUR)) * 100);
       const width = Math.max(.5, ((visibleEnd.getTime() - visibleStart.getTime()) / (WINDOW_HOURS * HOUR)) * 100);
       const passed = group.end < state.windowNow;
       const active = group.start <= state.windowNow && group.end >= state.windowNow;
-      const count = group.orders.length;
+      const counts = pickupGroupCounts(group);
       const orderIds = group.orders.map((order) => String(order.order_id || '')).filter(Boolean);
       const startLabel = formatDate(group.start, { weekday: 'short', hour: '2-digit', minute: '2-digit' });
       const endLabel = formatDate(group.end, { hour: '2-digit', minute: '2-digit' });
-      const stateLabel = passed ? 'Window passed · no Shopee scan' : active ? 'Courier window now' : `${count} booked pickup${count === 1 ? '' : 's'}`;
+      const stateLabel = counts.awaiting === 0
+        ? `All ${counts.total} picked up`
+        : counts.pickedUp > 0
+          ? `${counts.pickedUp} of ${counts.total} picked up`
+          : passed
+            ? `Window passed · ${counts.awaiting} awaiting`
+            : active
+              ? `Window open · ${counts.awaiting} awaiting`
+              : `${counts.total} scheduled pickup${counts.total === 1 ? '' : 's'}`;
       return `
-        <span class="admin-arrangement-pickup-window ${passed ? 'is-passed' : active ? 'is-active' : ''}"
+        <button type="button" class="admin-arrangement-pickup-window ${passed ? 'is-passed' : active ? 'is-active' : ''} ${counts.awaiting === 0 ? 'is-complete' : counts.pickedUp > 0 ? 'is-mixed' : ''}"
           style="--pickup-window-left:${left}%;--pickup-window-width:${width}%;--pickup-window-lane:${group.lane}"
-          tabindex="0"
+          data-pickup-window-index="${groupIndex}"
           title="${escapeHtml(startLabel)}–${escapeHtml(endLabel)}: ${escapeHtml(orderIds.join(', '))}"
-          aria-label="${escapeHtml(stateLabel)}, ${escapeHtml(startLabel)} to ${escapeHtml(endLabel)}, ${count} order${count === 1 ? '' : 's'}">
-          <strong>${escapeHtml(stateLabel)}</strong>
-          <small>${escapeHtml(startLabel)}–${escapeHtml(endLabel)}</small>
-        </span>`;
+          aria-label="${escapeHtml(stateLabel)}, ${escapeHtml(startLabel)} to ${escapeHtml(endLabel)}, ${counts.total} order${counts.total === 1 ? '' : 's'}. Open scheduled orders.">
+          <span class="admin-arrangement-pickup-window-label">
+            <strong>${escapeHtml(stateLabel)}</strong>
+            <small>${escapeHtml(startLabel)}–${escapeHtml(endLabel)}</small>
+            <em>View orders</em>
+          </span>
+        </button>`;
     }).join('');
 
     refs.map.innerHTML = `
       <div class="admin-arrangement-deadline-scroll">
         <div class="admin-arrangement-deadline-chart">
           <div class="admin-arrangement-deadline-axis" aria-hidden="true">${ticks}</div>
-          <div class="admin-arrangement-deadline-plot" style="--pickup-lanes:${pickupWindows.laneCount}">
+          <div class="admin-arrangement-deadline-plot" style="--pickup-lanes:${pickupWindows.laneCount};--pickup-label-lanes:${pickupMarkersLayout.laneCount}">
             <div class="admin-arrangement-deadline-grid" aria-hidden="true">${gridLines}</div>
             <div class="admin-arrangement-now-line" aria-label="Current time: ${escapeHtml(formatDate(state.windowNow, { hour: '2-digit', minute: '2-digit' }))}"></div>
             <div class="admin-arrangement-pickup-windows">${pickupWindowBlocks}</div>
@@ -320,7 +380,7 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
         </div>
       </div>
-      <p class="admin-arrangement-agenda-end">${orders.length} unpicked order${orders.length === 1 ? '' : 's'} shown at the final ship-by deadline. Blue blocks are booked courier windows; dotted green lines are API-observed Shopee pickup confirmations.</p>`;
+      <p class="admin-arrangement-agenda-end">${orders.length} unpicked order${orders.length === 1 ? '' : 's'} shown at the final ship-by deadline. Select a full-height pickup band or dotted confirmation line to inspect its orders.</p>`;
   };
 
   const renderRescheduler = () => {
@@ -364,16 +424,41 @@ document.addEventListener('DOMContentLoaded', () => {
       </form>`;
   };
 
-  const orderDetailLoading = (orderId) => `
-    <div class="admin-arrangement-order-detail-empty">
-      <span class="admin-panel-kicker">Order breakdown</span>
-      <h3>${escapeHtml(orderId)}</h3>
-      <p>Loading products, money, and fulfillment history…</p>
-    </div>`;
+  const orderIdentity = (order) => [
+    order?.platform || '',
+    order?.account_key || '',
+    order?.order_id || '',
+    order?.package_id || ''
+  ].join('|');
 
-  const renderOrderBreakdown = (detail) => {
+  const readableStatus = (value, fallback = 'Status unavailable') => {
+    const normalized = String(value || '').trim();
+    if (!normalized) return fallback;
+    return normalized.toLowerCase().replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+  };
+
+  const orderDetailLoading = (order) => {
+    const pickupState = pickupOrderState(order, state.pickupEvent?.group);
+    return `
+      <div class="admin-arrangement-order-loading">
+        <div class="admin-arrangement-order-loading-head">
+          <div>
+            <span class="admin-panel-kicker">Loading order</span>
+            <h3>${escapeHtml(order?.order_id || '')}</h3>
+            <p>Retrieving products, marketplace money, and fulfillment history.</p>
+          </div>
+          <span class="admin-arrangement-order-state is-${pickupState.key}">${escapeHtml(pickupState.label)}</span>
+        </div>
+        <div class="admin-arrangement-loading-bars" aria-hidden="true">
+          <i></i><i></i><i></i><i></i>
+        </div>
+      </div>`;
+  };
+
+  const renderOrderBreakdown = (detail, scheduledOrder = {}) => {
     const order = detail?.order || {};
     const financials = detail?.financials || {};
+    const pickupState = pickupOrderState({ ...scheduledOrder, ...order }, state.pickupEvent?.group);
     const currency = order.currency || 'IDR';
     const gross = Number(financials.gross_revenue || 0);
     const fees = Number(financials.marketplace_fees || 0);
@@ -394,10 +479,23 @@ document.addEventListener('DOMContentLoaded', () => {
           <div>
             <span class="admin-panel-kicker">${escapeHtml(order.platform || 'Marketplace')} · ${escapeHtml(order.account_key || '')}</span>
             <h3>${escapeHtml(order.order_id || '')}</h3>
-            <p>${escapeHtml(order.marketplace_status || 'Status unavailable')} · ${escapeHtml(order.shipping_provider || 'Carrier unavailable')}</p>
+            <p>${escapeHtml(readableStatus(order.marketplace_status))} · ${escapeHtml(order.shipping_provider || 'Carrier unavailable')}</p>
           </div>
-          <span class="admin-arrangement-detail-state">${escapeHtml(order.workflow_status || '')}</span>
+          <span class="admin-arrangement-order-state is-${pickupState.key}">${escapeHtml(pickupState.label)}</span>
         </header>
+
+        <section class="admin-arrangement-pickup-health is-${pickupState.key}">
+          <div>
+            <span>Pickup status</span>
+            <strong>${escapeHtml(pickupState.label)}</strong>
+            <small>${escapeHtml(pickupState.detail)}</small>
+          </div>
+          <dl>
+            <div><dt>Booked window</dt><dd>${escapeHtml(order.pickup_slot_label || pickupWindowLabel(scheduledOrder))}</dd></div>
+            <div><dt>Ship-by deadline</dt><dd>${escapeHtml(order.ship_by_label || scheduledOrder.ship_by_label || 'Not supplied')}</dd></div>
+            <div><dt>Workflow</dt><dd>${escapeHtml(readableStatus(order.workflow_status, 'Not supplied'))}</dd></div>
+          </dl>
+        </section>
 
         <section class="admin-arrangement-finance-grid">
           <article><span>Customer paid</span><strong>${financials.available ? formatMoney(gross, currency) : '—'}</strong><small>Gross order value</small></article>
@@ -461,79 +559,146 @@ document.addEventListener('DOMContentLoaded', () => {
     const eventState = state.pickupEvent;
     const group = eventState.group;
     const orders = Array.isArray(group?.orders) ? group.orders : [];
+    const counts = pickupGroupCounts(group);
+    const isWindow = eventState.kind === 'window';
     const confirmationTime = group?.confirmedAt
       ? formatDate(group.confirmedAt, { weekday: 'long', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
       : 'Time unavailable';
+    const windowStartLabel = group?.start
+      ? formatDate(group.start, { weekday: 'long', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+      : 'Time unavailable';
+    const windowEndLabel = group?.end
+      ? formatDate(group.end, { hour: '2-digit', minute: '2-digit' })
+      : 'Time unavailable';
     refs.eventOverlay.hidden = false;
-    if (refs.eventTitle) refs.eventTitle.textContent = `${orders.length} order${orders.length === 1 ? '' : 's'} picked up`;
-    if (refs.eventSubtitle) refs.eventSubtitle.textContent = `${confirmationTime} · first observed by the Shopee API worker`;
+    refs.eventOverlay.setAttribute('aria-hidden', 'false');
+    if (refs.eventKicker) refs.eventKicker.textContent = isWindow ? 'Booked courier window' : 'Courier pickup confirmation';
+    if (refs.eventTitle) {
+      refs.eventTitle.textContent = isWindow
+        ? `${formatDate(group.start, { weekday: 'short' })} ${formatDate(group.start, { hour: '2-digit', minute: '2-digit' })}–${windowEndLabel}`
+        : `${orders.length} order${orders.length === 1 ? '' : 's'} picked up`;
+    }
+    if (refs.eventSubtitle) {
+      refs.eventSubtitle.textContent = isWindow
+        ? `${windowStartLabel} to ${windowEndLabel} · ${counts.total} scheduled order${counts.total === 1 ? '' : 's'}`
+        : `${confirmationTime} · first observed by the Shopee API worker`;
+    }
     if (refs.eventOrders) {
       refs.eventOrders.innerHTML = `
         <div class="admin-arrangement-event-summary">
-          <strong>${orders.length}</strong>
-          <span>Shopee-confirmed orders in this pickup event</span>
-          <small>The hover preview shows the first three. This list always shows all of them.</small>
+          <span>${isWindow ? 'Window progress' : 'Confirmed pickup event'}</span>
+          <strong>${isWindow ? `${counts.pickedUp}/${counts.total}` : counts.total}</strong>
+          <small>${isWindow
+            ? `${counts.pickedUp} picked up · ${counts.awaiting} still awaiting marketplace confirmation`
+            : `Every order below was confirmed picked up at ${confirmationTime}`}</small>
+          <div class="admin-arrangement-event-progress" aria-label="${counts.pickedUp} of ${counts.total} picked up">
+            <i style="--pickup-progress:${counts.total ? (counts.pickedUp / counts.total) * 100 : 0}%"></i>
+          </div>
+        </div>
+        <div class="admin-arrangement-event-list-head">
+          <strong>Orders</strong>
+          <span>${counts.total} total</span>
         </div>
         <div class="admin-arrangement-event-order-list">
           ${orders.map((order, index) => {
             const selected = eventState.selectedIndex === index;
+            const orderState = pickupOrderState(order, group);
             return `
-              <button type="button" class="${selected ? 'is-selected' : ''}" data-pickup-event-order="${index}">
-                <strong>${escapeHtml(order.order_id || '')}</strong>
-                <span>${escapeHtml(order.account_key || '')}</span>
-                <small>${escapeHtml(pickupWindowLabel(order))}</small>
+              <button type="button" class="${selected ? 'is-selected' : ''}" data-pickup-event-order="${index}"
+                aria-current="${selected ? 'true' : 'false'}">
+                <span class="admin-arrangement-event-order-number">${String(index + 1).padStart(2, '0')}</span>
+                <span class="admin-arrangement-event-order-copy">
+                  <strong>${escapeHtml(order.order_id || '')}</strong>
+                  <small>${escapeHtml(order.account_key || '')}${order.package_id ? ` · ${escapeHtml(order.package_id)}` : ''}</small>
+                </span>
+                <span class="admin-arrangement-order-state is-${orderState.key}">${escapeHtml(orderState.label)}</span>
+                <em>${escapeHtml(orderState.detail)}</em>
               </button>`;
           }).join('')}
         </div>`;
     }
     if (!refs.orderDetail) return;
+    const selectedOrder = orders[eventState.selectedIndex];
     if (eventState.loading) {
-      refs.orderDetail.innerHTML = orderDetailLoading(orders[eventState.selectedIndex]?.order_id || '');
+      refs.orderDetail.innerHTML = orderDetailLoading(selectedOrder);
     } else if (eventState.error) {
+      const pickupState = pickupOrderState(selectedOrder || {}, group);
       refs.orderDetail.innerHTML = `
-        <div class="admin-arrangement-order-detail-empty">
-          <span class="admin-panel-kicker">Order breakdown</span>
-          <h3>Could not load this order</h3>
-          <p class="admin-form-error">${escapeHtml(eventState.error)}</p>
+        <div class="admin-arrangement-order-error">
+          <span class="admin-arrangement-order-state is-${pickupState.key}">${escapeHtml(pickupState.label)}</span>
+          <span class="admin-panel-kicker">Order ${escapeHtml(selectedOrder?.order_id || '')}</span>
+          <h3>The full order details did not load</h3>
+          <p>${escapeHtml(eventState.error)}</p>
+          <small>The pickup status above comes from the live arrangement map and is still available. Retry to load products, financials, and lifecycle history.</small>
+          <button type="button" class="admin-primary-btn" data-retry-pickup-order>Retry order details</button>
         </div>`;
     } else if (eventState.detail) {
-      refs.orderDetail.innerHTML = renderOrderBreakdown(eventState.detail);
-    } else {
+      refs.orderDetail.innerHTML = renderOrderBreakdown(eventState.detail, selectedOrder);
+    } else if (!orders.length) {
       refs.orderDetail.innerHTML = `
-        <div class="admin-arrangement-event-intro">
-          <span class="admin-panel-kicker">Pickup event</span>
-          <h3>Select an order</h3>
-          <p>Choose any order from the complete pickup list to inspect its products, Shopee deductions, seller net revenue, and fulfillment timeline.</p>
-          <dl>
-            <div><dt>Confirmation</dt><dd>${escapeHtml(confirmationTime)}</dd></div>
-            <div><dt>Source</dt><dd>Shopee API status</dd></div>
-            <div><dt>Orders</dt><dd>${orders.length}</dd></div>
-          </dl>
+        <div class="admin-arrangement-order-detail-empty">
+          <span class="admin-panel-kicker">Pickup inspector</span>
+          <h3>No orders in this pickup</h3>
+          <p>The marketplace did not return any order records for this timeline item.</p>
         </div>`;
+    } else {
+      refs.orderDetail.innerHTML = orderDetailLoading(selectedOrder || orders[0]);
     }
   };
 
   const closePickupEvent = () => {
+    const returnFocus = state.pickupEvent?.returnFocus;
     state.pickupEvent = null;
-    if (refs.eventOverlay) refs.eventOverlay.hidden = true;
+    if (refs.eventOverlay) {
+      refs.eventOverlay.hidden = true;
+      refs.eventOverlay.setAttribute('aria-hidden', 'true');
+    }
     document.documentElement.classList.remove('has-arrangement-dialog');
+    if (returnFocus instanceof HTMLElement && document.contains(returnFocus)) {
+      queueMicrotask(() => returnFocus.focus());
+    }
   };
 
-  const openPickupEvent = (groupIndex) => {
-    const group = pickupConfirmationGroups()[Number(groupIndex)];
+  const openPickupInspector = (kind, groupIndex, returnFocus = null) => {
+    const group = kind === 'window'
+      ? pickupWindowGroups().groups[Number(groupIndex)]
+      : pickupConfirmationGroups()[Number(groupIndex)];
     if (!group) return;
-    state.pickupEvent = { group, selectedIndex: null, detail: null, loading: false, error: '' };
+    const id = ++state.pickupEventSequence;
+    state.pickupEvent = {
+      id,
+      kind: kind === 'window' ? 'window' : 'confirmation',
+      group,
+      selectedIndex: group.orders.length ? 0 : null,
+      selectedOrderKey: group.orders.length ? orderIdentity(group.orders[0]) : '',
+      detail: null,
+      loading: group.orders.length > 0,
+      error: '',
+      returnFocus
+    };
     document.documentElement.classList.add('has-arrangement-dialog');
     renderPickupEvent();
-    refs.eventOverlay?.querySelector('[data-arrangement-event-close]')?.focus();
+    refs.eventOverlay?.querySelector('.admin-arrangement-event-dialog')?.focus();
+    if (group.orders.length) loadPickupEventOrder(0);
   };
 
   const loadPickupEventOrder = async (index) => {
     const eventState = state.pickupEvent;
     const order = eventState?.group?.orders?.[index];
     if (!eventState || !order) return;
-    state.pickupEvent = { ...eventState, selectedIndex: index, detail: null, loading: true, error: '' };
+    const eventId = eventState.id;
+    const orderKey = orderIdentity(order);
+    const cached = state.orderDetailCache.get(orderKey);
+    state.pickupEvent = {
+      ...eventState,
+      selectedIndex: index,
+      selectedOrderKey: orderKey,
+      detail: cached || null,
+      loading: !cached,
+      error: ''
+    };
     renderPickupEvent();
+    if (cached) return;
     const query = new URLSearchParams({
       action: 'order-detail',
       platform: order.platform || '',
@@ -543,10 +708,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     try {
       const detail = await requestJson(`${endpoint}?${query.toString()}`);
-      if (!state.pickupEvent || state.pickupEvent.selectedIndex !== index) return;
+      if (!state.pickupEvent || state.pickupEvent.id !== eventId || state.pickupEvent.selectedOrderKey !== orderKey) return;
+      state.orderDetailCache.set(orderKey, detail);
       state.pickupEvent = { ...state.pickupEvent, detail, loading: false, error: '' };
     } catch (error) {
-      if (!state.pickupEvent || state.pickupEvent.selectedIndex !== index) return;
+      if (!state.pickupEvent || state.pickupEvent.id !== eventId || state.pickupEvent.selectedOrderKey !== orderKey) return;
       state.pickupEvent = { ...state.pickupEvent, detail: null, loading: false, error: error.message };
     }
     renderPickupEvent();
@@ -622,6 +788,7 @@ document.addEventListener('DOMContentLoaded', () => {
     refs.refresh?.setAttribute('disabled', '');
     try {
       state.data = await requestJson(`${endpoint}?limit=500`);
+      state.orderDetailCache.clear();
       renderAll();
       if (state.tab === 'rules') showEditorAccess();
     } catch (error) {
@@ -772,7 +939,12 @@ document.addEventListener('DOMContentLoaded', () => {
   refs.map?.addEventListener('click', (event) => {
     const pickupMarker = event.target.closest('[data-pickup-event-index]');
     if (pickupMarker) {
-      openPickupEvent(pickupMarker.dataset.pickupEventIndex);
+      openPickupInspector('confirmation', pickupMarker.dataset.pickupEventIndex, pickupMarker);
+      return;
+    }
+    const pickupWindow = event.target.closest('[data-pickup-window-index]');
+    if (pickupWindow) {
+      openPickupInspector('window', pickupWindow.dataset.pickupWindowIndex, pickupWindow);
       return;
     }
     const button = event.target.closest('[data-change-pickup]');
@@ -796,10 +968,47 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     const orderButton = event.target.closest('[data-pickup-event-order]');
-    if (orderButton) loadPickupEventOrder(Number(orderButton.dataset.pickupEventOrder));
+    if (orderButton) {
+      loadPickupEventOrder(Number(orderButton.dataset.pickupEventOrder));
+      return;
+    }
+    if (event.target.closest('[data-retry-pickup-order]')) {
+      const index = state.pickupEvent?.selectedIndex;
+      if (Number.isInteger(index)) loadPickupEventOrder(index);
+    }
   });
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && state.pickupEvent) closePickupEvent();
+    if (!state.pickupEvent || !refs.eventOverlay) return;
+    if (event.key === 'Escape') {
+      closePickupEvent();
+      return;
+    }
+    const orderButton = event.target.closest?.('[data-pickup-event-order]');
+    if (orderButton && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+      event.preventDefault();
+      const buttons = Array.from(refs.eventOverlay.querySelectorAll('[data-pickup-event-order]'));
+      const current = buttons.indexOf(orderButton);
+      const next = event.key === 'ArrowDown'
+        ? Math.min(buttons.length - 1, current + 1)
+        : Math.max(0, current - 1);
+      buttons[next]?.focus();
+      loadPickupEventOrder(Number(buttons[next]?.dataset.pickupEventOrder));
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const focusable = Array.from(refs.eventOverlay.querySelectorAll(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )).filter((element) => element instanceof HTMLElement && element.offsetParent !== null);
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   });
   refs.rescheduler?.addEventListener('click', (event) => {
     if (!event.target.closest('[data-close-rescheduler]')) return;
@@ -831,6 +1040,7 @@ document.addEventListener('DOMContentLoaded', () => {
         })
       });
       state.data = { ...state.data, orders: Array.isArray(result.orders) ? result.orders : state.data.orders };
+      state.orderDetailCache.clear();
       state.reschedule = null;
       renderRescheduler();
       renderAll();
