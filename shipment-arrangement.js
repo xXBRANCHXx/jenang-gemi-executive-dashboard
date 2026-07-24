@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     data: null,
     weekStart: startOfWeek(new Date()),
     tab: 'schedule',
-    orderFilter: null,
+    advancedPlatform: 'shopee',
     workingPolicy: null,
     loading: false
   };
@@ -21,9 +21,6 @@ document.addEventListener('DOMContentLoaded', () => {
     live: root.querySelector('[data-arrangement-live]'),
     refresh: root.querySelector('[data-arrangement-refresh]'),
     map: root.querySelector('[data-arrangement-map]'),
-    orders: root.querySelector('[data-arrangement-orders]'),
-    orderMeta: root.querySelector('[data-arrangement-order-meta]'),
-    orderPanel: root.querySelector('[data-arrangement-order-panel]'),
     weekLabel: root.querySelector('[data-arrangement-week-label]'),
     unlock: root.querySelector('[data-arrangement-unlock]'),
     unlockForm: root.querySelector('[data-arrangement-unlock-form]'),
@@ -34,8 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
     error: root.querySelector('[data-arrangement-error]'),
     save: root.querySelector('[data-arrangement-save]'),
     applyMonday: root.querySelector('[data-arrangement-apply-monday]'),
-    attentionCopy: root.querySelector('[data-arrangement-attention-copy]'),
-    review: root.querySelector('[data-arrangement-review]')
+    attentionCopy: root.querySelector('[data-arrangement-attention-copy]')
   };
 
   function jakartaParts(value, includeTime = false) {
@@ -99,13 +95,21 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
-  const orderGroupKey = (order) => {
+  const statusLabel = (order) => {
+    if (order.exception_status || order.last_error) return ['Needs attention', 'is-attention'];
+    if (order.shipment_arranged || order.pickup_start_at) return ['Scheduled', 'is-scheduled'];
+    return ['Waiting', 'is-waiting'];
+  };
+
+  const orderDisplayDate = (order) => {
     const pickup = parseUtc(order.pickup_start_at);
-    const displayDate = pickup || parseUtc(order.ship_by_at) || parseUtc(order.updated_at) || state.weekStart;
-    const [status] = statusLabel(order);
-    const platform = String(order.platform || '').toLowerCase();
-    const time = pickup ? formatDate(pickup, { hour: '2-digit', minute: '2-digit' }) : '—';
-    return [dateKey(displayDate), platform, time, status].join('|');
+    const deadline = parseUtc(order.ship_by_at);
+    const updated = parseUtc(order.updated_at);
+    return [pickup, deadline, updated].find((date) => date && date >= state.weekStart && date < weekEnd())
+      || pickup
+      || deadline
+      || updated
+      || state.weekStart;
   };
 
   const renderSchedule = () => {
@@ -119,84 +123,65 @@ document.addEventListener('DOMContentLoaded', () => {
       refs.weekLabel.textContent = `${formatDate(state.weekStart, { day: 'numeric', month: 'short' })} – ${formatDate(addDays(state.weekStart, 6), { day: 'numeric', month: 'short', year: 'numeric' })}`;
     }
 
-    const groups = new Map();
-    orders.forEach((order) => {
-      const pickup = parseUtc(order.pickup_start_at);
-      const fallbackDate = parseUtc(order.ship_by_at) || parseUtc(order.updated_at) || state.weekStart;
-      const displayDate = pickup || fallbackDate;
-      const [status, statusClass] = statusLabel(order);
-      const platform = String(order.platform || '').toLowerCase();
-      const time = pickup ? formatDate(pickup, { hour: '2-digit', minute: '2-digit' }) : '—';
-      const key = orderGroupKey(order);
-      if (!groups.has(key)) {
-        groups.set(key, { key, date: displayDate, platform, time, status, statusClass, orders: [] });
-      }
-      groups.get(key).orders.push(order);
-    });
-
-    if (!groups.size) {
+    if (!orders.length) {
       refs.map.innerHTML = '<div class="admin-arrangement-agenda-empty"><strong>No pickups this week</strong><p>There are no scheduled or waiting marketplace orders in this date range.</p></div>';
       return;
     }
 
-    const rows = [...groups.values()].map((group) => {
-      const count = group.orders.length;
-      const platformLabel = group.platform === 'shopee' ? 'Shopee' : group.platform === 'tiktok' ? 'TikTok Shop' : group.platform || 'Marketplace';
-      return `
-        <tr>
-          <td><strong>${escapeHtml(formatDate(group.date, { weekday: 'short', day: '2-digit', month: 'short' }))}</strong></td>
-          <td><span class="admin-arrangement-marketplace is-${escapeHtml(group.platform)}">${escapeHtml(platformLabel)}</span></td>
-          <td>${escapeHtml(group.time)}</td>
-          <td>
-            <strong>${count} order${count === 1 ? '' : 's'}</strong>
-            <button type="button" data-arrangement-order-group="${escapeHtml(group.key)}">View orders</button>
-          </td>
-          <td><span class="admin-arrangement-row-status ${escapeHtml(group.statusClass)}">${escapeHtml(group.status)}</span></td>
-        </tr>`;
-    }).join('');
-
     refs.map.innerHTML = `
-      <div class="admin-arrangement-agenda-scroll">
-        <table>
-          <thead><tr><th>Date</th><th>Marketplace</th><th>Pickup time</th><th>Orders</th><th>Status</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
+      <div class="admin-arrangement-timeline-scroll">
+        <div class="admin-arrangement-timeline">
+          <div class="admin-arrangement-time-axis" aria-hidden="true">
+            <span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span>
+          </div>
+          ${DAYS.map((day, index) => {
+            const date = addDays(state.weekStart, index);
+            const key = dateKey(date);
+            const dayOrders = orders.filter((order) => dateKey(orderDisplayDate(order)) === key);
+            const events = dayOrders.map((order) => {
+              const pickup = parseUtc(order.pickup_start_at);
+              const deadline = parseUtc(order.ship_by_at);
+              const moment = orderDisplayDate(order);
+              const parts = jakartaParts(moment, true);
+              const start = Math.min(21, Math.max(1, parts.hour + 1));
+              const [status, statusClass] = statusLabel(order);
+              const platform = String(order.platform || '').toLowerCase();
+              const platformLabel = platform === 'shopee' ? 'Shopee' : platform === 'tiktok' ? 'TikTok Shop' : platform || 'Marketplace';
+              const time = pickup
+                ? formatDate(pickup, { hour: '2-digit', minute: '2-digit' })
+                : deadline
+                  ? `Ship by ${formatDate(deadline, { hour: '2-digit', minute: '2-digit' })}`
+                  : formatDate(moment, { hour: '2-digit', minute: '2-digit' });
+              return `
+                <article class="admin-arrangement-timeline-event is-${escapeHtml(platform)} ${escapeHtml(statusClass)}" style="--event-start:${start}">
+                  <header>
+                    <span>${escapeHtml(platformLabel)}</span>
+                    <strong>${escapeHtml(time)}</strong>
+                  </header>
+                  <b>${escapeHtml(order.order_id)}</b>
+                  <small>${escapeHtml(order.account_key || '')} · ${escapeHtml(order.order_type || 'regular')}</small>
+                  <footer>
+                    <span>${escapeHtml(status)}</span>
+                    <span>${deadline ? `Ship by ${escapeHtml(formatDate(deadline, { weekday: 'short', hour: '2-digit', minute: '2-digit' }))}` : 'No ship-by time'}</span>
+                  </footer>
+                  ${(order.last_error || order.exception_status) ? `<em>${escapeHtml(order.last_error || order.exception_status)}</em>` : ''}
+                </article>`;
+            }).join('');
+            return `
+              <section class="admin-arrangement-timeline-day ${key === dateKey(new Date()) ? 'is-today' : ''}">
+                <header>
+                  <strong>${day.slice(0, 3)}</strong>
+                  <span>${formatDate(date, { day: '2-digit', month: 'short' })}</span>
+                  <small>${dayOrders.length} order${dayOrders.length === 1 ? '' : 's'}</small>
+                </header>
+                <div class="admin-arrangement-timeline-track">
+                  ${events || '<p>No marketplace activity</p>'}
+                </div>
+              </section>`;
+          }).join('')}
+        </div>
       </div>
-      <p class="admin-arrangement-agenda-end">No other pickups this week.</p>`;
-  };
-
-  const statusLabel = (order) => {
-    if (order.exception_status || order.last_error) return ['Needs attention', 'is-attention'];
-    if (order.shipment_arranged || order.pickup_start_at) return ['Scheduled', 'is-scheduled'];
-    return ['Waiting', 'is-waiting'];
-  };
-
-  const renderOrders = () => {
-    let orders = selectedOrders().sort((left, right) => {
-      const a = parseUtc(left.pickup_start_at)?.getTime() || parseUtc(left.ship_by_at)?.getTime() || 0;
-      const b = parseUtc(right.pickup_start_at)?.getTime() || parseUtc(right.ship_by_at)?.getTime() || 0;
-      return a - b;
-    });
-    if (state.orderFilter === 'attention') {
-      orders = orders.filter((order) => order.exception_status || order.last_error);
-    } else if (state.orderFilter) {
-      orders = orders.filter((order) => orderGroupKey(order) === state.orderFilter);
-    }
-    if (refs.orderMeta) refs.orderMeta.textContent = `${orders.length} order${orders.length === 1 ? '' : 's'}`;
-    if (!refs.orders) return;
-    refs.orders.innerHTML = orders.length ? orders.map((order) => {
-      const [label, className] = statusLabel(order);
-      const pickup = parseUtc(order.pickup_start_at);
-      const deadline = parseUtc(order.ship_by_at);
-      return `
-        <article class="admin-arrangement-order">
-          <span class="admin-arrangement-order-platform is-${escapeHtml(order.platform)}">${escapeHtml(order.platform)}</span>
-          <div><strong>${escapeHtml(order.order_id)}</strong><small>${escapeHtml(order.account_key || '')} · ${escapeHtml(order.order_type || 'regular')}</small></div>
-          <div><span>Ship by</span><strong>${deadline ? escapeHtml(formatDate(deadline, { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })) : '—'}</strong></div>
-          <div><span>Pickup</span><strong>${pickup ? escapeHtml(formatDate(pickup, { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })) : 'Not arranged'}</strong></div>
-          <span class="admin-status-badge ${className}">${escapeHtml(label)}</span>
-        </article>`;
-    }).join('') : '<p class="admin-empty">No matching orders in this week.</p>';
+      <p class="admin-arrangement-agenda-end">All orders in this week are shown directly on the timeline.</p>`;
   };
 
   const renderStatus = () => {
@@ -216,7 +201,6 @@ document.addEventListener('DOMContentLoaded', () => {
         ? `${exceptions.length} order${exceptions.length === 1 ? '' : 's'} could not be assigned to the selected pickup day.`
         : 'No orders need attention right now.';
     }
-    if (refs.review) refs.review.hidden = exceptions.length === 0;
     if (refs.live) {
       refs.live.classList.toggle('is-paused', paused || !enabled);
       refs.live.innerHTML = `<i></i>${paused ? ' Paused' : !enabled ? ' Not active' : ' Live · 2 min'}`;
@@ -226,7 +210,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const renderAll = () => {
     renderStatus();
     renderSchedule();
-    renderOrders();
   };
 
   const requestJson = async (url, options = {}) => {
@@ -271,16 +254,25 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!state.workingPolicy || !refs.ruleGrid) return;
     refs.ruleGrid.className = 'admin-arrangement-pickup-editor';
     refs.ruleGrid.innerHTML = `
-      <div class="admin-arrangement-editor-head"><span>Order arranged</span><span>Shopee pickup</span><span>TikTok pickup</span></div>
-      ${DAYS.map((day, index) => {
-        const key = String(index + 1);
-        return `
-          <div class="admin-arrangement-editor-row" data-pickup-rule-day="${key}">
-            <strong>${day}</strong>
-            <label><span>Shopee</span><select name="shopee-pickup-${key}">${dayOptions(pickupRule('shopee', key, state.workingPolicy))}</select></label>
-            <label><span>TikTok</span><select name="tiktok-pickup-${key}">${dayOptions(pickupRule('tiktok', key, state.workingPolicy))}</select></label>
-          </div>`;
-      }).join('')}`;
+      <div class="admin-arrangement-rule-card-grid">
+        ${DAYS.map((day, index) => {
+          const key = String(index + 1);
+          return `
+            <article class="admin-arrangement-rule-editor-card" data-pickup-rule-day="${key}">
+              <header><span>Orders arranged</span><strong>${day}</strong></header>
+              <label class="is-shopee">
+                <span>Shopee</span>
+                <small>Pickup on</small>
+                <select name="shopee-pickup-${key}">${dayOptions(pickupRule('shopee', key, state.workingPolicy))}</select>
+              </label>
+              <label class="is-tiktok">
+                <span>TikTok Shop</span>
+                <small>Pickup on</small>
+                <select name="tiktok-pickup-${key}">${dayOptions(pickupRule('tiktok', key, state.workingPolicy))}</select>
+              </label>
+            </article>`;
+        }).join('')}
+      </div>`;
     renderAdvancedEditor();
   };
 
@@ -288,25 +280,47 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!refs.advancedGrid || !state.workingPolicy) return;
     const platformSection = (platform) => {
       const regular = state.workingPolicy.platforms[platform].regular;
+      const active = state.advancedPlatform === platform;
       return `
-        <section class="admin-arrangement-advanced-platform">
-          <h4>${platform === 'shopee' ? 'Shopee' : 'TikTok Shop'}</h4>
-          ${DAYS.map((day, index) => {
-            const key = String(index + 1);
-            const windowRule = regular.windows[key];
-            const methodFields = platform === 'shopee'
-              ? `<select name="shopee-method-${key}">${methodOptions(regular.methods[key])}</select>`
-              : CARRIERS.map(([carrier, label]) => `<label><span>${label}</span><select name="${carrier}-${key}">${methodOptions(regular.carriers[carrier].methods[key])}</select></label>`).join('');
-            return `
-              <div class="admin-arrangement-advanced-row" data-advanced-platform="${platform}" data-advanced-day="${key}">
-                <label class="admin-arrangement-day-toggle"><input type="checkbox" name="${platform}-enabled-${key}" ${windowRule.enabled ? 'checked' : ''}><span>${day.slice(0, 3)}</span></label>
-                <div class="admin-arrangement-time-range"><input type="time" name="${platform}-start-${key}" value="${escapeHtml(windowRule.start)}"><span>–</span><input type="time" name="${platform}-end-${key}" value="${escapeHtml(windowRule.end)}"></div>
-                <div class="admin-arrangement-method-fields">${methodFields}</div>
-              </div>`;
-          }).join('')}
+        <section class="admin-arrangement-advanced-platform is-${platform}" data-advanced-platform-panel="${platform}" ${active ? '' : 'hidden'}>
+          <header>
+            <div><h4>${platform === 'shopee' ? 'Shopee' : 'TikTok Shop'}</h4><p>Automatic arrangement window and handover method by day.</p></div>
+            <button type="button" class="admin-arrangement-text-button" data-arrangement-copy-advanced="${platform}">Apply Monday settings to all days</button>
+          </header>
+          <div class="admin-arrangement-advanced-table">
+            <div class="admin-arrangement-advanced-head is-${platform}">
+              <span>Day</span><span>Automatic hours</span>
+              ${platform === 'shopee'
+                ? '<span>Handover</span>'
+                : '<span>POS</span><span>J&amp;T Express</span><span>J&amp;T Cargo</span>'}
+            </div>
+            ${DAYS.map((day, index) => {
+              const key = String(index + 1);
+              const windowRule = regular.windows[key];
+              const methodFields = platform === 'shopee'
+                ? `<label><span>Handover</span><select name="shopee-method-${key}">${methodOptions(regular.methods[key])}</select></label>`
+                : CARRIERS.map(([carrier, label]) => `<label><span>${label}</span><select name="${carrier}-${key}">${methodOptions(regular.carriers[carrier].methods[key])}</select></label>`).join('');
+              return `
+                <div class="admin-arrangement-advanced-row is-${platform}" data-advanced-platform="${platform}" data-advanced-day="${key}">
+                  <label class="admin-arrangement-day-toggle"><input type="checkbox" name="${platform}-enabled-${key}" ${windowRule.enabled ? 'checked' : ''}><span>${day}</span></label>
+                  <div class="admin-arrangement-time-range">
+                    <label><span>Start</span><input type="time" name="${platform}-start-${key}" value="${escapeHtml(windowRule.start)}"></label>
+                    <span>to</span>
+                    <label><span>End</span><input type="time" name="${platform}-end-${key}" value="${escapeHtml(windowRule.end)}"></label>
+                  </div>
+                  <div class="admin-arrangement-method-fields">${methodFields}</div>
+                </div>`;
+            }).join('')}
+          </div>
         </section>`;
     };
-    refs.advancedGrid.innerHTML = platformSection('shopee') + platformSection('tiktok');
+    refs.advancedGrid.innerHTML = `
+      <div class="admin-arrangement-advanced-tabs" role="tablist" aria-label="Marketplace advanced settings">
+        <button type="button" class="${state.advancedPlatform === 'shopee' ? 'is-active' : ''}" data-advanced-platform-tab="shopee">Shopee</button>
+        <button type="button" class="${state.advancedPlatform === 'tiktok' ? 'is-active' : ''}" data-advanced-platform-tab="tiktok">TikTok Shop</button>
+      </div>
+      ${platformSection('shopee')}
+      ${platformSection('tiktok')}`;
   };
 
   const collectEditor = () => {
@@ -368,12 +382,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }));
   root.querySelectorAll('[data-arrangement-week]').forEach((button) => button.addEventListener('click', () => {
     state.weekStart = addDays(state.weekStart, Number(button.dataset.arrangementWeek || 0) * 7);
-    state.orderFilter = null;
     renderAll();
   }));
   root.querySelector('[data-arrangement-today]')?.addEventListener('click', () => {
     state.weekStart = startOfWeek(new Date());
-    state.orderFilter = null;
     renderAll();
   });
   refs.applyMonday?.addEventListener('click', () => {
@@ -386,27 +398,48 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
   });
+  refs.advancedGrid?.addEventListener('click', (event) => {
+    const platformTab = event.target.closest('[data-advanced-platform-tab]');
+    if (platformTab) {
+      collectEditor();
+      state.advancedPlatform = platformTab.dataset.advancedPlatformTab === 'tiktok' ? 'tiktok' : 'shopee';
+      renderAdvancedEditor();
+      return;
+    }
+
+    const copyButton = event.target.closest('[data-arrangement-copy-advanced]');
+    if (!copyButton) return;
+    const platform = copyButton.dataset.arrangementCopyAdvanced;
+    const monday = refs.advancedGrid.querySelector(`[data-advanced-platform="${platform}"][data-advanced-day="1"]`);
+    if (!monday) return;
+    refs.advancedGrid.querySelectorAll(`[data-advanced-platform="${platform}"]`).forEach((row) => {
+      if (row === monday) return;
+      const enabled = monday.querySelector(`[name="${platform}-enabled-1"]`)?.checked;
+      const start = monday.querySelector(`[name="${platform}-start-1"]`)?.value;
+      const end = monday.querySelector(`[name="${platform}-end-1"]`)?.value;
+      const key = row.dataset.advancedDay;
+      const enabledInput = row.querySelector(`[name="${platform}-enabled-${key}"]`);
+      if (enabledInput) enabledInput.checked = enabled;
+      const startInput = row.querySelector(`[name="${platform}-start-${key}"]`);
+      if (startInput) startInput.value = start;
+      const endInput = row.querySelector(`[name="${platform}-end-${key}"]`);
+      if (endInput) endInput.value = end;
+      if (platform === 'shopee') {
+        const mondayMethod = monday.querySelector('[name="shopee-method-1"]')?.value;
+        const method = row.querySelector(`[name="shopee-method-${key}"]`);
+        if (method) method.value = mondayMethod;
+      } else {
+        CARRIERS.forEach(([carrier]) => {
+          const mondayMethod = monday.querySelector(`[name="${carrier}-1"]`)?.value;
+          const method = row.querySelector(`[name="${carrier}-${key}"]`);
+          if (method) method.value = mondayMethod;
+        });
+      }
+    });
+  });
   root.querySelector('[data-arrangement-cancel]')?.addEventListener('click', () => {
     state.workingPolicy = null;
     setTab('schedule');
-  });
-  refs.review?.addEventListener('click', () => {
-    state.orderFilter = 'attention';
-    renderOrders();
-    if (refs.orderPanel) {
-      refs.orderPanel.open = true;
-      refs.orderPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  });
-  refs.map?.addEventListener('click', (event) => {
-    const button = event.target.closest('[data-arrangement-order-group]');
-    if (!button) return;
-    state.orderFilter = button.dataset.arrangementOrderGroup || null;
-    renderOrders();
-    if (refs.orderPanel) {
-      refs.orderPanel.open = true;
-      refs.orderPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
   });
   refs.unlockForm?.addEventListener('submit', async (event) => {
     event.preventDefault();

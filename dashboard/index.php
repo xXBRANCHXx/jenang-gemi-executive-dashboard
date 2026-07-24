@@ -31,7 +31,7 @@ if ($isAuthenticated) {
     }
 }
 $isAdView = $isAuthenticated && in_array($requestedView ?? '', ['ad-view', 'ads', 'ad_view', 'shopee-ads'], true);
-$dashboardBuildVersion = 'exec3.82.0';
+$dashboardBuildVersion = 'exec3.83.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -790,11 +790,11 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                         </nav>
 
                         <section data-arrangement-page="schedule">
-                            <div class="admin-arrangement-workspace">
+                            <div class="admin-arrangement-workspace is-schedule">
                                 <main class="admin-arrangement-primary">
                                     <header class="admin-arrangement-schedule-head">
                                         <div>
-                                            <span class="admin-panel-kicker">Upcoming pickups</span>
+                                            <span class="admin-panel-kicker">Marketplace timeline</span>
                                             <div class="admin-arrangement-week-title">
                                                 <h3>This week</h3>
                                                 <strong data-arrangement-week-label>Loading week</strong>
@@ -814,15 +814,11 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                                     <div class="admin-arrangement-agenda" data-arrangement-map>
                                         <p class="admin-empty">Loading pickup schedule.</p>
                                     </div>
-                                    <details class="admin-arrangement-order-panel" data-arrangement-order-panel>
-                                        <summary><span>Order details</span><small data-arrangement-order-meta>Loading orders</small></summary>
-                                        <div class="admin-arrangement-order-list" data-arrangement-orders></div>
-                                    </details>
                                 </main>
 
-                                <aside class="admin-arrangement-guide">
+                                <aside class="admin-arrangement-guide admin-arrangement-status-strip">
                                     <section>
-                                        <h3>What the statuses mean</h3>
+                                        <h3>Timeline key</h3>
                                         <dl class="admin-arrangement-status-guide">
                                             <div><dt class="is-scheduled">Scheduled</dt><dd>The marketplace confirmed a pickup time.</dd></div>
                                             <div><dt class="is-waiting">Waiting</dt><dd>Orders are ready, but no pickup time is available yet.</dd></div>
@@ -832,14 +828,14 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                                     <section class="admin-arrangement-attention">
                                         <h3>Needs attention</h3>
                                         <p data-arrangement-attention-copy>Checking orders.</p>
-                                        <button type="button" class="admin-arrangement-secondary-button" data-arrangement-review>Review orders</button>
+                                        <small>Every affected order appears directly in the timeline.</small>
                                     </section>
                                 </aside>
                             </div>
                         </section>
 
                         <section data-arrangement-page="rules" hidden>
-                            <div class="admin-arrangement-workspace">
+                            <div class="admin-arrangement-workspace is-rules">
                                 <main class="admin-arrangement-primary admin-arrangement-rules">
                                     <div class="admin-arrangement-rules-head">
                                         <div>

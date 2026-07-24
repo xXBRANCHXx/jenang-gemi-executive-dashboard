@@ -27,15 +27,19 @@ assert(
 assert(
   dashboard.includes('data-arrangement-tab="schedule"')
     && dashboard.includes('data-arrangement-tab="rules"')
-    && script.includes('admin-arrangement-agenda-scroll')
-    && script.includes('data-arrangement-order-group'),
-  'Schedule and Pickup rules must be separate, readable full-page workflows.'
+    && script.includes('admin-arrangement-timeline-event')
+    && script.includes('order.order_id')
+    && script.includes('order.account_key')
+    && !script.includes('View orders'),
+  'Schedule must show every order directly on a visual timeline without a drill-down.'
 );
 assert(
   script.includes('setTab(button.dataset.arrangementTab)')
     && script.includes('state.weekStart = addDays')
-    && dashboard.includes('Apply Monday to all days'),
-  'The planner must support tab, week, and bulk rule navigation.'
+    && dashboard.includes('Apply Monday to all days')
+    && script.includes('admin-arrangement-rule-editor-card')
+    && script.includes('data-advanced-platform-tab'),
+  'The planner must support week navigation, visual rule cards, and focused marketplace advanced settings.'
 );
 assert(
   dashboard.includes('Branch-tier credentials')
@@ -50,11 +54,13 @@ assert(
   'The editor must expose the pickup-day mapping and explain its fail-closed behavior.'
 );
 assert(
-  styles.includes('.admin-arrangement-agenda')
-    && styles.includes('.admin-arrangement-pickup-editor')
+  styles.includes('.admin-arrangement-timeline-track')
+    && styles.includes('.admin-arrangement-timeline-event')
+    && styles.includes('.admin-arrangement-rule-card-grid')
+    && styles.includes('.admin-arrangement-advanced-tabs')
     && styles.includes('.admin-arrangement-workspace')
     && styles.includes('@media (max-width: 680px)'),
-  'The agenda, rules table, and explanation panel must have responsive visual styling.'
+  'The visual timeline, rule cards, and advanced marketplace tabs must have responsive styling.'
 );
 assert(
   styles.includes('.admin-shipment-arrangement {\n  --arrangement-shopee: #ff8a3d;\n  --arrangement-tiktok: #42d7c5;\n  display: none;')
