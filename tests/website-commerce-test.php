@@ -75,12 +75,14 @@ commerce_expect(
     $activationPayload['automatic_sources'],
     'The durable activation payload must preserve the verified account-level source scope.'
 );
+commerce_expect(true, $activationPayload['automation_paused'], 'Activation must begin under the permanent automation pause lock.');
 $scopedDeliveryPayload = jg_hard_set_delivery_payload_with_api_scope(
     $activationPayload,
     ['state' => [
         'enabled' => true,
         'activated_at' => '2026-06-23T01:02:03.500000Z',
         'sources' => ['tiktok:jenang-gemi-tiktok', 'shopee:jenang-gemi-shopee'],
+        'automation_paused' => true,
     ]]
 );
 commerce_expect(
@@ -105,6 +107,7 @@ jg_hard_set_project_activation(
             'enabled' => true,
             'activated_at' => $payload['activated_at'],
             'automatic_sources' => $payload['automatic_sources'],
+            'automation_paused' => true,
         ]];
     },
     static function (array $payload) use (&$deliveryOrder): array {
@@ -113,6 +116,7 @@ jg_hard_set_project_activation(
             'enabled' => true,
             'activated_at' => $payload['activated_at'],
             'sources' => $payload['automatic_sources'],
+            'automation_paused' => true,
         ]];
     }
 );
@@ -159,28 +163,24 @@ $resumePayload = $pausedPayload;
 $resumePayload['event'] = 'hard_set_automation_resumed';
 $resumePayload['automation_paused'] = false;
 $resumeDeliveryOrder = [];
-jg_hard_set_project_automation(
-    $resumePayload,
-    static function (array $payload) use (&$resumeDeliveryOrder): array {
-        $resumeDeliveryOrder[] = 'store_ops';
-        return ['state' => [
-            'enabled' => true,
-            'activated_at' => $payload['activated_at'],
-            'automatic_sources' => $payload['automatic_sources'],
-            'automation_paused' => false,
-        ]];
-    },
-    static function (array $payload) use (&$resumeDeliveryOrder): array {
-        $resumeDeliveryOrder[] = 'api_ingest';
-        return ['state' => [
-            'enabled' => true,
-            'activated_at' => $payload['activated_at'],
-            'sources' => $payload['automatic_sources'],
-            'automation_paused' => false,
-        ]];
-    }
-);
-commerce_expect(['store_ops', 'api_ingest'], $resumeDeliveryOrder, 'Resume must make Store Ops fail closed before API Ingest mutations restart.');
+$resumeRejected = false;
+try {
+    jg_hard_set_project_automation(
+        $resumePayload,
+        static function (array $payload) use (&$resumeDeliveryOrder): array {
+            $resumeDeliveryOrder[] = 'store_ops';
+            return [];
+        },
+        static function (array $payload) use (&$resumeDeliveryOrder): array {
+            $resumeDeliveryOrder[] = 'api_ingest';
+            return [];
+        }
+    );
+} catch (RuntimeException $error) {
+    $resumeRejected = str_contains($error->getMessage(), 'permanently paused');
+}
+commerce_expect(true, $resumeRejected, 'The permanent pause lock must reject every resume payload.');
+commerce_expect([], $resumeDeliveryOrder, 'A rejected resume must never reach Store Ops or API Ingest.');
 
 $pauseMismatchRejected = false;
 try {

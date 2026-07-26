@@ -1581,7 +1581,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                         <span class="admin-hard-set-track"><span class="admin-hard-set-knob"></span></span>
                         <strong data-hard-set-switch-label>OFF</strong>
                     </button>
-                    <p data-hard-set-switch-note>The cutover timestamp is permanent. Future automatic shipment arrangement can be paused and resumed.</p>
+                    <p data-hard-set-switch-note>The cutover timestamp is permanent. Automatic shipment arrangement is permanently pause-locked.</p>
                 </section>
                 <section class="admin-hard-set-readiness" data-hard-set-readiness>
                     <article class="admin-panel"><p class="admin-empty">Loading ZERO Website readiness...</p></article>
@@ -1748,7 +1748,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
         <form method="dialog" data-hard-set-form>
             <span class="admin-panel-kicker">Irreversible cutover</span>
             <h2 id="hard-set-confirm-title">Activate Big Set?</h2>
-            <p>This permanently establishes the Store Ops cutover timestamp and authorizes automatic shipment arrangement for the frozen marketplace accounts. The timestamp and account scope cannot be changed, but future automatic arrangements can be paused and resumed later. Pausing never reverses a shipment already arranged.</p>
+            <p>This permanently establishes the Store Ops cutover timestamp and frozen marketplace account scope. Automatic shipment arrangement remains permanently paused; activation never restarts it and never reverses a shipment already arranged.</p>
             <label><span>Type <strong>ACTIVATE BIG SET</strong></span><input name="confirmation" autocomplete="off" required></label>
             <p class="admin-form-error" data-hard-set-error hidden></p>
             <div class="admin-modal-actions"><button type="button" class="admin-ghost-btn" data-hard-set-cancel>Cancel</button><button type="submit" class="admin-danger-btn">Activate Permanently</button></div>
