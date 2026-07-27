@@ -59,6 +59,12 @@ function admin_quick_menu_definitions(): array
             'label' => 'Orders',
             'description' => 'Order detail and fulfillment facts',
         ],
+        'whatsapp-orders' => [
+            'href' => '../whatsapp-orders/',
+            'icon' => 'whatsapp',
+            'label' => 'WhatsApp Orders',
+            'description' => 'Construct and list direct orders',
+        ],
         'wallet' => [
             'href' => '../dashboard/?view=wallet',
             'view' => 'wallet',
@@ -169,7 +175,7 @@ function admin_quick_menu_definitions(): array
 function admin_quick_menu_context_map(): array
 {
     return [
-        'overview' => ['inventory-recap', 'daily', 'orders', 'campaigns', 'ad-view', 'back-dash', 'context', 'settings'],
+        'overview' => ['whatsapp-orders', 'inventory-recap', 'daily', 'orders', 'campaigns', 'ad-view', 'back-dash', 'context', 'settings'],
         'daily' => ['home', 'orders', 'campaigns', 'back-dash', 'context', 'settings'],
         'orders' => ['home', 'daily', 'campaigns', 'back-dash', 'context', 'settings'],
         'wallet' => ['home', 'orders', 'daily', 'back-dash', 'settings'],
@@ -189,6 +195,7 @@ function admin_quick_menu_context_map(): array
         'api' => ['home', 'back-dash', 'context', 'hard-set', 'settings'],
         'sku-db' => ['home', 'daily', 'orders', 'back-dash', 'settings'],
         'partner-profiles' => ['home', 'partners', 'daily', 'orders', 'campaigns', 'settings'],
+        'whatsapp-orders' => ['home', 'orders', 'daily', 'sku-db', 'settings'],
     ];
 }
 
@@ -220,6 +227,8 @@ function admin_normalize_quick_menu_context(string $context): string
         'inventory' => 'inventory-recap',
         'inventory_recap' => 'inventory-recap',
         'inventory-recap' => 'inventory-recap',
+        'whatsapp' => 'whatsapp-orders',
+        'whatsapp-orders' => 'whatsapp-orders',
     ];
     $context = $aliases[$normalized] ?? $normalized;
 
@@ -285,6 +294,9 @@ function admin_current_menu_context(): string
     }
     if (str_contains($path, '/partner-program/')) {
         return 'partners';
+    }
+    if (str_contains($path, '/whatsapp-orders/')) {
+        return 'whatsapp-orders';
     }
     if (str_contains($path, '/back-dash/')) {
         return 'back-dash';
@@ -819,6 +831,7 @@ function admin_topbar_menu_icon(string $icon): string
         'home' => '<svg viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
         'calendar' => '<svg viewBox="0 0 24 24"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>',
         'orders' => '<svg viewBox="0 0 24 24"><path d="M13 16H8"/><path d="M14 8H8"/><path d="M16 12H8"/><path d="M4 3a1 1 0 0 1 1-1 1.3 1.3 0 0 1 .7.2l.933.6a1.3 1.3 0 0 0 1.4 0l.934-.6a1.3 1.3 0 0 1 1.4 0l.933.6a1.3 1.3 0 0 0 1.4 0l.933-.6a1.3 1.3 0 0 1 1.4 0l.934.6a1.3 1.3 0 0 0 1.4 0l.933-.6A1.3 1.3 0 0 1 19 2a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1 1.3 1.3 0 0 1-.7-.2l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.934.6a1.3 1.3 0 0 1-1.4 0l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-1.4 0l-.934-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-.7.2 1 1 0 0 1-1-1z"/></svg>',
+        'whatsapp' => '<svg viewBox="0 0 24 24"><path d="M21 11.5a8.5 8.5 0 0 1-12.6 7.45L3 20.5l1.55-5.25A8.5 8.5 0 1 1 21 11.5z"/><path d="M8.2 7.8c.3 3.7 2.3 5.7 6 6l1-1.4-2.1-1-1 1c-1.5-.7-2.3-1.5-3-3l1-1-1-2.1z"/></svg>',
         'wallet' => '<img src="https://cdn.jsdelivr.net/npm/lucide-static@0.468.0/icons/wallet.svg" alt="" width="21" height="21" loading="lazy" referrerpolicy="no-referrer">',
         'accounting' => '<svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M7 9.5h.01M17 14.5h.01"/></svg>',
         'inventory-recap' => '<svg viewBox="0 0 24 24"><path d="M16 16h6"/><path d="m19 13 3 3-3 3"/><path d="M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l2-1.14"/><path d="m7.5 4.27 9 5.15"/><path d="M3.29 7 12 12l8.71-5"/><path d="M12 22V12"/></svg>',

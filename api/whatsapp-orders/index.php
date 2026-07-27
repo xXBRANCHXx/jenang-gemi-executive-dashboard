@@ -1,0 +1,124 @@
+<?php
+declare(strict_types=1);
+
+require_once dirname(__DIR__, 2) . '/auth.php';
+require_once dirname(__DIR__, 2) . '/whatsapp-orders-bootstrap.php';
+
+header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store');
+
+function jg_whatsapp_api_json(array $payload, int $status = 200): never
+{
+    http_response_code($status);
+    echo json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+function jg_whatsapp_api_body(): array
+{
+    $raw = file_get_contents('php://input');
+    $decoded = is_string($raw) ? json_decode($raw, true) : null;
+    return is_array($decoded) ? $decoded : [];
+}
+
+function jg_whatsapp_api_require_store_ops(): void
+{
+    if (jg_website_token_matches(jg_website_store_ops_token())) return;
+    jg_whatsapp_api_json(['ok' => false, 'error' => 'Unauthorized'], 401);
+}
+
+function jg_whatsapp_api_emit_label(PDO $pdo, string $orderId, bool $storeOps): never
+{
+    if ($storeOps) {
+        jg_whatsapp_api_require_store_ops();
+    } else {
+        jg_admin_require_auth_json();
+    }
+    $row = jg_whatsapp_internal_order($pdo, $orderId);
+    $storageKey = basename((string) ($row['label_storage_key'] ?? ''));
+    $path = jg_whatsapp_label_directory() . '/' . $storageKey;
+    if ($storageKey === '' || !is_file($path)) {
+        jg_whatsapp_api_json(['ok' => false, 'error' => 'Shipping label not found.'], 404);
+    }
+    header_remove('Content-Type');
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: inline; filename="' . addcslashes((string) ($row['label_original_name'] ?: 'shipping-label.pdf'), "\\\"") . '"');
+    header('Content-Length: ' . (string) filesize($path));
+    header('Cache-Control: private, no-store');
+    readfile($path);
+    exit;
+}
+
+try {
+    $pdo = analyticsDb();
+    jg_whatsapp_ensure_schema($pdo);
+    $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+    $action = strtolower(trim((string) ($_GET['action'] ?? 'list')));
+
+    if ($method === 'GET' && $action === 'feed') {
+        jg_whatsapp_api_require_store_ops();
+        jg_whatsapp_api_json(['ok' => true, 'orders' => jg_whatsapp_feed_orders($pdo)]);
+    }
+    if ($method === 'GET' && in_array($action, ['label', 'store_ops_label'], true)) {
+        jg_whatsapp_api_emit_label($pdo, trim((string) ($_GET['order'] ?? '')), $action === 'store_ops_label');
+    }
+    if ($method === 'POST' && $action === 'status_callback') {
+        jg_whatsapp_api_require_store_ops();
+        $body = jg_whatsapp_api_body();
+        jg_whatsapp_api_json(['ok' => true, 'order' => jg_whatsapp_update_status(
+            $pdo,
+            trim((string) ($body['order_id'] ?? $body['order'] ?? '')),
+            (string) ($body['status'] ?? '')
+        )]);
+    }
+
+    jg_admin_require_auth_json();
+    if ($method === 'GET' && $action === 'catalog') {
+        jg_whatsapp_api_json(['ok' => true, 'skus' => jg_whatsapp_catalog()]);
+    }
+    if ($method === 'GET' && $action === 'list') {
+        jg_whatsapp_api_json(['ok' => true, 'orders' => jg_whatsapp_list_orders($pdo)]);
+    }
+    if ($method !== 'POST') {
+        jg_whatsapp_api_json(['ok' => false, 'error' => 'Unknown action.'], 404);
+    }
+
+    if ($action === 'create') {
+        $payloadRaw = trim((string) ($_POST['payload'] ?? ''));
+        $payload = json_decode($payloadRaw, true);
+        if (!is_array($payload)) {
+            throw new InvalidArgumentException('Order payload is invalid.');
+        }
+        $upload = $_FILES['label'] ?? null;
+        if (!is_array($upload)) {
+            throw new InvalidArgumentException('Upload a PDF shipping label.');
+        }
+        $order = jg_whatsapp_create_order($pdo, jg_sku_db(), $payload, $upload);
+        try {
+            $order = jg_whatsapp_publish_order($pdo, (string) $order['order_id']);
+        } catch (Throwable $publishError) {
+            jg_whatsapp_api_json([
+                'ok' => false,
+                'saved' => true,
+                'order' => jg_whatsapp_format_order($pdo, jg_whatsapp_internal_order($pdo, (string) $order['order_id'])),
+                'error' => $publishError->getMessage(),
+            ], 409);
+        }
+        jg_whatsapp_api_json(['ok' => true, 'order' => $order], 201);
+    }
+    if ($action === 'retry') {
+        $body = jg_whatsapp_api_body();
+        jg_whatsapp_api_json(['ok' => true, 'order' => jg_whatsapp_publish_order(
+            $pdo,
+            trim((string) ($body['order_id'] ?? ''))
+        )]);
+    }
+    jg_whatsapp_api_json(['ok' => false, 'error' => 'Unknown action.'], 404);
+} catch (InvalidArgumentException $error) {
+    jg_whatsapp_api_json(['ok' => false, 'error' => $error->getMessage()], 422);
+} catch (RuntimeException $error) {
+    jg_whatsapp_api_json(['ok' => false, 'error' => $error->getMessage()], 409);
+} catch (Throwable $error) {
+    error_log('WhatsApp order API failed: ' . $error->getMessage());
+    jg_whatsapp_api_json(['ok' => false, 'error' => 'WhatsApp order service is unavailable.'], 500);
+}
