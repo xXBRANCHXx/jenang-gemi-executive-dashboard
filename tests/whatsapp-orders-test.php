@@ -25,4 +25,39 @@ try {
 }
 whatsapp_expect(true, $negativeRejected, 'Negative shipping cost must be rejected.');
 
+$metricSummary = jg_whatsapp_apply_sales_aggregates(
+    ['ok' => true, 'year' => 2026, 'months' => [], 'totals' => [], 'platforms' => [], 'accounts' => [], 'products' => []],
+    [[
+        'month' => 7,
+        'orders' => 1,
+        'item_count' => 2,
+        'net_revenue' => 50000,
+        'shipping_cost' => 5000,
+        'cogs' => 15000,
+    ]],
+    [[
+        'month' => 7,
+        'sku' => '010101000001',
+        'product_name' => 'Jenang Gemi · Bubur · Original',
+        'brand_name' => 'Jenang Gemi',
+        'base_product_name' => 'Bubur',
+        'flavor_name' => 'Original',
+        'quantity' => 2,
+        'net_revenue' => 50000,
+        'cogs' => 15000,
+        'orders' => 1,
+    ]],
+    2026
+);
+whatsapp_expect(50000.0, $metricSummary['totals']['revenue'], 'WhatsApp merchandise must contribute to Executive revenue.');
+whatsapp_expect(5000.0, $metricSummary['totals']['shipping_cost'], 'WhatsApp shipping must remain a separate Executive metric.');
+whatsapp_expect(55000.0, $metricSummary['totals']['customer_total'], 'Customer total must reconcile merchandise and shipping.');
+whatsapp_expect(35000.0, $metricSummary['totals']['gross_profit'], 'WhatsApp gross profit must use snapshotted SKU COGS without counting shipping as merchandise.');
+whatsapp_expect(2.0, $metricSummary['totals']['item_count'], 'WhatsApp item quantity must contribute to dashboard volume.');
+whatsapp_expect('whatsapp_listed_order', $metricSummary['products']['by_month'][0]['source'], 'WhatsApp product rollups must retain their source.');
+$metricSummaryAgain = jg_whatsapp_apply_sales_aggregates($metricSummary, [[
+    'month' => 7, 'orders' => 1, 'item_count' => 2, 'net_revenue' => 50000, 'shipping_cost' => 5000, 'cogs' => 15000,
+]], [], 2026);
+whatsapp_expect(50000.0, $metricSummaryAgain['totals']['revenue'], 'WhatsApp metrics merge must be idempotent.');
+
 echo "whatsapp-orders-test: ok\n";

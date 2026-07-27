@@ -7,6 +7,7 @@ require_once dirname(__DIR__, 2) . '/analytics-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/sku-db-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/astra-stock-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/website-commerce-bootstrap.php';
+require_once dirname(__DIR__, 2) . '/whatsapp-orders-bootstrap.php';
 
 if (!defined('JG_ORDERS_API_NO_DISPATCH')) {
     jg_orders_handle_request();
@@ -90,6 +91,11 @@ function jg_orders_handle_request(): void
                 $remoteRows = array_merge($remoteRows, jg_website_paid_order_rows(analyticsDb(), $startDate, $endDate));
             } catch (Throwable $websiteOrdersError) {
                 error_log('Website paid orders unavailable in central order view: ' . $websiteOrdersError->getMessage());
+            }
+            try {
+                $remoteRows = array_merge($remoteRows, jg_whatsapp_metric_order_rows(analyticsDb(), $startDate, $endDate));
+            } catch (Throwable $whatsappOrdersError) {
+                error_log('WhatsApp orders unavailable in central order view: ' . $whatsappOrdersError->getMessage());
             }
         }
         $lightweight = jg_orders_bool($_GET['lightweight'] ?? $_GET['summary'] ?? null);

@@ -7,6 +7,7 @@ require_once dirname(__DIR__, 2) . '/sku-db-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/analytics-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/executive-context.php';
 require_once dirname(__DIR__, 2) . '/website-commerce-bootstrap.php';
+require_once dirname(__DIR__, 2) . '/whatsapp-orders-bootstrap.php';
 
 jg_admin_require_auth();
 
@@ -284,6 +285,11 @@ function jg_sales_prepare_cached_response(string $baseResponse, int $year, bool 
         error_log('Unable to merge website paid sales: ' . $websiteSalesError->getMessage());
     }
     $decoded = jg_sales_apply_executive_context($decoded, $year);
+    try {
+        $decoded = jg_whatsapp_merge_sales_summary(analyticsDb(), $decoded, $year);
+    } catch (Throwable $whatsappSalesError) {
+        error_log('Unable to merge WhatsApp sales: ' . $whatsappSalesError->getMessage());
+    }
     if ($includeAudit) {
         jg_sales_attach_calculation_audit($decoded, $year);
     }
@@ -362,10 +368,16 @@ function jg_sales_context_only_summary(int $year): ?array
     } catch (Throwable $websiteSalesError) {
         error_log('Unable to merge website paid sales into context summary: ' . $websiteSalesError->getMessage());
     }
+    $summary = jg_executive_context_apply_summary($summary, $context);
+    try {
+        $summary = jg_whatsapp_merge_sales_summary(analyticsDb(), $summary, $year);
+    } catch (Throwable $whatsappSalesError) {
+        error_log('Unable to merge WhatsApp sales into context summary: ' . $whatsappSalesError->getMessage());
+    }
     if ($context === [] && (int) ($summary['totals']['orders'] ?? 0) === 0) {
         return null;
     }
-    return jg_executive_context_apply_summary($summary, $context);
+    return $summary;
 }
 
 function jg_sales_cache_dir(): string

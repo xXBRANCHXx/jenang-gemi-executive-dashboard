@@ -117,9 +117,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     skuList.innerHTML = rows.length ? rows.map((sku) => {
       const selected = state.cart.get(sku.sku);
+      const available = Math.max(0, Number(sku.current_stock || 0));
       return `<article class="whatsapp-sku-card${selected ? ' is-selected' : ''}">
         <div><span>${escapeHtml(sku.sku)} · ${escapeHtml(sku.tag || 'No tag')}</span><strong>${escapeHtml(sku.product_name || sku.sku)}</strong><small>Stock ${escapeHtml(sku.current_stock)} · ${escapeHtml(money(sku.sale_price))}</small></div>
-        <button type="button" data-add-sku="${escapeHtml(sku.sku)}" aria-label="Add ${escapeHtml(sku.product_name || sku.sku)}">+${selected ? ` <span>${escapeHtml(selected.quantity)}</span>` : ''}</button>
+        <button type="button" class="whatsapp-sku-add" data-add-sku="${escapeHtml(sku.sku)}" aria-label="Add ${escapeHtml(sku.product_name || sku.sku)}"${available < 1 || Number(selected?.quantity || 0) >= available ? ' disabled' : ''}><span aria-hidden="true">+</span> Add${selected ? ` (${escapeHtml(selected.quantity)})` : ''}</button>
       </article>`;
     }).join('') : '<p class="admin-empty">No SKU matches this search.</p>';
   };
@@ -131,9 +132,9 @@ document.addEventListener('DOMContentLoaded', () => {
     cartList.innerHTML = items.length ? items.map((item) => `<article class="whatsapp-cart-row" data-cart-row="${escapeHtml(item.sku)}">
       <div class="whatsapp-cart-row-title"><span>${escapeHtml(item.sku)}</span><strong>${escapeHtml(item.product_name)}</strong></div>
       <div class="whatsapp-cart-row-controls">
-        <label class="whatsapp-quantity-field"><span>Qty</span><div><button type="button" data-cart-delta="-1" data-cart-sku="${escapeHtml(item.sku)}">−</button><input type="number" min="1" max="9999" step="1" value="${escapeHtml(item.quantity)}" data-cart-quantity="${escapeHtml(item.sku)}"><button type="button" data-cart-delta="1" data-cart-sku="${escapeHtml(item.sku)}">+</button></div></label>
-        <label><span>Unit price</span><div><b>Rp</b><input type="number" min="0" max="99999999999999" step="1" value="${escapeHtml(item.unit_price)}" data-cart-price="${escapeHtml(item.sku)}"></div></label>
-        <button type="button" data-remove-sku="${escapeHtml(item.sku)}" aria-label="Remove ${escapeHtml(item.sku)}">×</button>
+        <label class="whatsapp-quantity-field"><span>Qty</span><div><button type="button" data-cart-delta="-1" data-cart-sku="${escapeHtml(item.sku)}">−</button><input type="number" min="1" max="${escapeHtml(Math.max(1, Number(item.current_stock || 1)))}" step="1" value="${escapeHtml(item.quantity)}" data-cart-quantity="${escapeHtml(item.sku)}"><button type="button" data-cart-delta="1" data-cart-sku="${escapeHtml(item.sku)}"${Number(item.quantity || 0) >= Number(item.current_stock || 0) ? ' disabled' : ''}>+</button></div></label>
+        <label class="whatsapp-price-field"><span>Unit price</span><div><b>Rp</b><input type="number" min="0" max="99999999999999" step="1" value="${escapeHtml(item.unit_price)}" data-cart-price="${escapeHtml(item.sku)}"></div></label>
+        <button type="button" class="whatsapp-remove-sku" data-remove-sku="${escapeHtml(item.sku)}" aria-label="Remove ${escapeHtml(item.sku)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14M10 10v6m4-6v6"/></svg></button>
       </div>
       <small>${escapeHtml(money(Number(item.quantity) * Number(item.unit_price)))}</small>
     </article>`).join('') : '<p class="admin-empty">Select at least one SKU.</p>';
@@ -194,8 +195,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const sku = state.skus.find((row) => row.sku === button.dataset.addSku);
     if (!sku) return;
     const existing = state.cart.get(sku.sku);
+    const available = Math.max(0, Number(sku.current_stock || 0));
+    if (available < 1 || Number(existing?.quantity || 0) >= available) return;
     state.cart.set(sku.sku, existing
-      ? { ...existing, quantity: Math.min(9999, Number(existing.quantity || 0) + 1) }
+      ? { ...existing, quantity: Math.min(available, Number(existing.quantity || 0) + 1) }
       : { ...sku, quantity: 1, unit_price: Math.max(0, Number(sku.sale_price || 0)) });
     renderCatalog();
     renderCart();
@@ -209,7 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!item) return;
       const nextQuantity = Number(item.quantity || 1) + Number(deltaButton.dataset.cartDelta || 0);
       if (nextQuantity < 1) state.cart.delete(sku);
-      else state.cart.set(sku, { ...item, quantity: Math.min(9999, nextQuantity) });
+      else state.cart.set(sku, { ...item, quantity: Math.min(Math.max(1, Number(item.current_stock || 1)), nextQuantity) });
       renderCatalog();
       renderCart();
       return;
@@ -226,7 +229,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const sku = input.dataset.cartQuantity || input.dataset.cartPrice;
     if (!sku || !state.cart.has(sku)) return;
     const item = state.cart.get(sku);
-    if (input.dataset.cartQuantity) item.quantity = Math.max(1, Math.min(9999, Number(input.value || 1)));
+    if (input.dataset.cartQuantity) item.quantity = Math.max(1, Math.min(Math.max(1, Number(item.current_stock || 1)), Number(input.value || 1)));
     if (input.dataset.cartPrice) item.unit_price = Math.max(0, Number(input.value || 0));
     state.cart.set(sku, item);
     renderCart();

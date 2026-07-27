@@ -31048,7 +31048,7 @@ button.admin-accounting-metric {
   color: var(--admin-muted);
 }
 
-.whatsapp-sku-card button,
+.whatsapp-sku-card button:not(.whatsapp-sku-add),
 .whatsapp-cart-row-controls > button {
   border: 1px solid var(--admin-border);
   border-radius: 8px;
@@ -31059,10 +31059,42 @@ button.admin-accounting-metric {
   cursor: pointer;
 }
 
-.whatsapp-sku-card button:hover,
+.whatsapp-sku-card button:not(.whatsapp-sku-add):hover,
 .whatsapp-cart-row-controls > button:hover {
   background: var(--admin-text);
   color: var(--admin-bg);
+}
+
+.whatsapp-sku-card .whatsapp-sku-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  padding: 5px 0;
+  border: 0;
+  border-radius: 0;
+  color: var(--admin-muted);
+  background: transparent;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.whatsapp-sku-card .whatsapp-sku-add span {
+  color: inherit;
+  font: inherit;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.whatsapp-sku-card .whatsapp-sku-add:hover {
+  color: #2563eb;
+  background: transparent;
+}
+
+.whatsapp-sku-card .whatsapp-sku-add:disabled {
+  color: var(--admin-muted);
+  opacity: .45;
+  cursor: default;
 }
 
 .whatsapp-order-cart-head {
@@ -31114,21 +31146,39 @@ button.admin-accounting-metric {
 
 .whatsapp-quantity-field > div button {
   border: 0;
-  background: transparent;
-  color: var(--admin-text);
+  background: #fff;
+  color: #111;
   font-size: 17px;
   cursor: pointer;
 }
 
 .whatsapp-quantity-field > div button:hover {
-  background: color-mix(in srgb, var(--admin-text) 7%, transparent);
+  background: #fff;
+  color: #111;
 }
 
 .whatsapp-quantity-field input {
   width: 54px;
-  border-block: 0;
+  border: 0;
   border-radius: 0;
+  color: #111;
+  background: #fff;
+  color-scheme: light;
   text-align: center;
+  text-align-last: center;
+}
+
+.is-whatsapp-orders-page .whatsapp-quantity-field > div,
+.is-whatsapp-orders-page .whatsapp-quantity-field > div > button,
+.is-whatsapp-orders-page .whatsapp-quantity-field > div > input,
+.is-whatsapp-orders-page .whatsapp-price-field > div,
+.is-whatsapp-orders-page .whatsapp-price-field > div > b,
+.is-whatsapp-orders-page .whatsapp-price-field > div > input {
+  border-color: #d8d8d8;
+  color: #111 !important;
+  background: #fff !important;
+  background-image: none !important;
+  -webkit-text-fill-color: #111;
 }
 
 .whatsapp-cart-row-controls label > div,
@@ -31148,6 +31198,34 @@ button.admin-accounting-metric {
 .whatsapp-cart-row > small {
   width: 100%;
   text-align: right;
+}
+
+.whatsapp-cart-row-controls > .whatsapp-remove-sku {
+  display: grid;
+  place-items: center;
+  align-self: end;
+  width: 28px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: var(--admin-muted);
+  background: transparent;
+}
+
+.whatsapp-cart-row-controls > .whatsapp-remove-sku:hover {
+  color: #dc2626;
+  background: transparent;
+}
+
+.whatsapp-remove-sku svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .whatsapp-fulfillment-grid {
