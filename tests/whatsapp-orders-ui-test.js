@@ -21,6 +21,7 @@ assert.match(script, /class="whatsapp-sku-add"[\s\S]*?\+<\/span> Add/, 'SKU acti
 assert.match(script, /class="whatsapp-remove-sku"[\s\S]*?class="whatsapp-trash-icon"/, 'Cart removal must use the real Lucide trash icon asset.');
 assert.match(page, /render_admin_favicons\('whatsapp'\)/, 'The page must use the WhatsApp favicon rather than the generic orders icon.');
 assert.match(nav, /'whatsapp' => \[[\s\S]*?favicon-whatsapp-light\.svg[\s\S]*?favicon-whatsapp-dark\.svg/, 'The favicon registry must include theme-aware WhatsApp assets.');
+assert.match(nav, /'whatsapp' => '<span class="admin-whatsapp-icon"/, 'The hamburger menu must use the real WhatsApp glyph.');
 
 const styles = fs.readFileSync(path.join(root, 'admin.css'), 'utf8');
 const whatsappStyles = styles.slice(styles.indexOf('/* WhatsApp order builder */'));
@@ -32,6 +33,9 @@ assert.match(whatsappStyles, /\.is-whatsapp-orders-page \.whatsapp-money-field >
 assert.match(whatsappStyles, /\.whatsapp-sku-card \.whatsapp-sku-add:hover[\s\S]*?color: #2563eb;/, 'The inline Add action must turn blue on hover.');
 assert.match(whatsappStyles, /\.whatsapp-cart-row-controls > \.whatsapp-remove-sku:hover[\s\S]*?color: #dc2626;/, 'The bare trash action must turn red on hover.');
 assert.match(whatsappStyles, /\.whatsapp-trash-icon[\s\S]*?assets\/admin-icons\/trash-2\.svg/, 'The removal action must render the Lucide trash-2 asset.');
+
+assert.match(styles, /\.admin-whatsapp-icon[\s\S]*?favicon-whatsapp-light\.svg/, 'The hamburger WhatsApp glyph must reuse the real page icon silhouette.');
+assert.ok(!fs.readFileSync(path.join(root, 'assets', 'admin-icons', 'favicon-whatsapp-light.svg'), 'utf8').includes('#25D366'), 'The WhatsApp favicon must not be green.');
 
 const payloadStart = bootstrap.indexOf('function jg_whatsapp_store_ops_payload');
 const payloadEnd = bootstrap.indexOf('function jg_whatsapp_publish_order', payloadStart);
