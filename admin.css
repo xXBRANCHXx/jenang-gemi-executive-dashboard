@@ -31206,11 +31206,11 @@ button.admin-accounting-metric {
 
 .whatsapp-range-field,
 .whatsapp-money-field {
-  align-content: center;
-  padding: 16px;
-  border: 1px solid var(--admin-border);
-  border-radius: 12px;
-  background: var(--admin-surface-soft);
+  align-content: start;
+  padding: 8px 2px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .whatsapp-range-field > span,

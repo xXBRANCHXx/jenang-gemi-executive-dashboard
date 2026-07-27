@@ -23,6 +23,7 @@ const whatsappStyles = styles.slice(styles.indexOf('/* WhatsApp order builder */
 assert.ok(!whatsappStyles.includes('gradient'), 'The WhatsApp order builder must not use gradients.');
 assert.match(whatsappStyles, /\.whatsapp-order-hero[\s\S]*?background: var\(--admin-surface\)/, 'The builder hero must use the active dashboard theme surface.');
 assert.match(whatsappStyles, /\.whatsapp-order-field-grid input[\s\S]*?background: var\(--admin-surface-soft\)/, 'Form fields must follow the active light or dark theme.');
+assert.match(whatsappStyles, /\.whatsapp-range-field,[\s\S]*?border: 0;[\s\S]*?background: transparent;/, 'Deadline and shipping cost controls must not be nested in cards.');
 
 const payloadStart = bootstrap.indexOf('function jg_whatsapp_store_ops_payload');
 const payloadEnd = bootstrap.indexOf('function jg_whatsapp_publish_order', payloadStart);
