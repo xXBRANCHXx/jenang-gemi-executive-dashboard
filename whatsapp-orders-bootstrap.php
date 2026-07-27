@@ -106,6 +106,7 @@ function jg_whatsapp_catalog(): array
             'sku' => (string) ($row['sku'] ?? ''),
             'tag' => (string) ($row['tag'] ?? ''),
             'product_name' => implode(' · ', $parts),
+            'base_product_name' => (string) ($row['product_name'] ?? ''),
             'brand_name' => (string) ($row['brand_name'] ?? ''),
             'flavor_name' => (string) ($row['flavor_name'] ?? ''),
             'current_stock' => (int) ($row['current_stock'] ?? 0),

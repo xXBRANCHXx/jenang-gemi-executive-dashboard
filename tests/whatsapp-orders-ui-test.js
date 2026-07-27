@@ -13,7 +13,15 @@ assert.match(nav, /'overview' => \['whatsapp-orders'/, 'The homepage hamburger m
 assert.match(dashboardScript, /overview: \['whatsapp-orders'/, 'The dashboard client must preserve WhatsApp Orders when rebuilding the hamburger menu.');
 assert.match(page, /name="shipping_cost"[\s\S]*?Saved for Executive metrics only/, 'The builder must capture shipping cost with its metric-only scope.');
 assert.match(page, /name="label"[\s\S]*?deadline_hours/, 'The order must follow the Partner label and deadline flow.');
+assert.match(page, /data-product-filter[\s\S]*?data-flavor-filter[\s\S]*?Order preview/, 'Product entry must mirror the Partner product and flavor filtering flow.');
 assert.match(script, /items: \[\.\.\.state\.cart\.values\(\)\][\s\S]*?action=create/, 'The builder must submit constructed SKU lines.');
+assert.match(script, /data-cart-delta[\s\S]*?renderFilters/, 'The order preview must provide quantity steppers and filtered SKU entry.');
+
+const styles = fs.readFileSync(path.join(root, 'admin.css'), 'utf8');
+const whatsappStyles = styles.slice(styles.indexOf('/* WhatsApp order builder */'));
+assert.ok(!whatsappStyles.includes('gradient'), 'The WhatsApp order builder must not use gradients.');
+assert.match(whatsappStyles, /\.whatsapp-order-hero[\s\S]*?background: var\(--admin-surface\)/, 'The builder hero must use the active dashboard theme surface.');
+assert.match(whatsappStyles, /\.whatsapp-order-field-grid input[\s\S]*?background: var\(--admin-surface-soft\)/, 'Form fields must follow the active light or dark theme.');
 
 const payloadStart = bootstrap.indexOf('function jg_whatsapp_store_ops_payload');
 const payloadEnd = bootstrap.indexOf('function jg_whatsapp_publish_order', payloadStart);

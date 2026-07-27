@@ -6,6 +6,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const form = root.querySelector('[data-order-form]');
   const skuList = root.querySelector('[data-sku-list]');
   const skuSearch = root.querySelector('[data-sku-search]');
+  const productFilter = root.querySelector('[data-product-filter]');
+  const flavorFilter = root.querySelector('[data-flavor-filter]');
   const cartList = root.querySelector('[data-cart-list]');
   const cartCount = root.querySelector('[data-cart-count]');
   const labelInput = root.querySelector('[data-label-input]');
@@ -22,7 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const shippingInput = form?.elements.namedItem('shipping_cost');
   const customerNameInput = form?.elements.namedItem('customer_name');
 
-  const state = { skus: [], cart: new Map(), submitting: false };
+  const state = { skus: [], cart: new Map(), product: '', flavor: '', submitting: false };
   const currency = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 });
   const dateTime = new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Jakarta' });
   const escapeHtml = (value) => String(value ?? '')
@@ -68,16 +70,38 @@ document.addEventListener('DOMContentLoaded', () => {
     updateSubmitState();
   };
 
+  const uniqueLabels = (values) => [...new Set(values.map((value) => String(value || '').trim()).filter(Boolean))]
+    .sort((left, right) => left.localeCompare(right));
+
+  const renderFilters = () => {
+    const products = uniqueLabels(state.skus.map((sku) => sku.base_product_name));
+    const flavorSource = state.product
+      ? state.skus.filter((sku) => sku.base_product_name === state.product)
+      : state.skus;
+    const flavors = uniqueLabels(flavorSource.map((sku) => sku.flavor_name));
+    if (state.flavor && !flavors.includes(state.flavor)) state.flavor = '';
+    if (productFilter) {
+      productFilter.innerHTML = ['', ...products].map((value) => `<button type="button" class="${state.product === value ? 'is-active' : ''}" data-product-value="${escapeHtml(value)}">${escapeHtml(value || 'All')}</button>`).join('');
+    }
+    if (flavorFilter) {
+      flavorFilter.innerHTML = ['', ...flavors].map((value) => `<button type="button" class="${state.flavor === value ? 'is-active' : ''}" data-flavor-value="${escapeHtml(value)}">${escapeHtml(value || 'All')}</button>`).join('');
+    }
+  };
+
   const renderCatalog = () => {
     if (!skuList) return;
     const query = String(skuSearch?.value || '').trim().toLowerCase();
-    const rows = state.skus.filter((sku) => !query || [sku.sku, sku.tag, sku.product_name, sku.brand_name, sku.flavor_name]
-      .some((value) => String(value || '').toLowerCase().includes(query)));
+    const rows = state.skus.filter((sku) => {
+      if (state.product && sku.base_product_name !== state.product) return false;
+      if (state.flavor && sku.flavor_name !== state.flavor) return false;
+      return !query || [sku.sku, sku.tag, sku.product_name, sku.brand_name, sku.flavor_name]
+        .some((value) => String(value || '').toLowerCase().includes(query));
+    });
     skuList.innerHTML = rows.length ? rows.map((sku) => {
-      const selected = state.cart.has(sku.sku);
+      const selected = state.cart.get(sku.sku);
       return `<article class="whatsapp-sku-card${selected ? ' is-selected' : ''}">
         <div><span>${escapeHtml(sku.sku)} · ${escapeHtml(sku.tag || 'No tag')}</span><strong>${escapeHtml(sku.product_name || sku.sku)}</strong><small>Stock ${escapeHtml(sku.current_stock)} · ${escapeHtml(money(sku.sale_price))}</small></div>
-        <button type="button" data-add-sku="${escapeHtml(sku.sku)}" ${selected ? 'disabled' : ''}>${selected ? 'Added' : 'Add'}</button>
+        <button type="button" data-add-sku="${escapeHtml(sku.sku)}" aria-label="Add ${escapeHtml(sku.product_name || sku.sku)}">+${selected ? ` <span>${escapeHtml(selected.quantity)}</span>` : ''}</button>
       </article>`;
     }).join('') : '<p class="admin-empty">No SKU matches this search.</p>';
   };
@@ -89,7 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
     cartList.innerHTML = items.length ? items.map((item) => `<article class="whatsapp-cart-row" data-cart-row="${escapeHtml(item.sku)}">
       <div class="whatsapp-cart-row-title"><span>${escapeHtml(item.sku)}</span><strong>${escapeHtml(item.product_name)}</strong></div>
       <div class="whatsapp-cart-row-controls">
-        <label><span>Qty</span><input type="number" min="1" max="9999" step="1" value="${escapeHtml(item.quantity)}" data-cart-quantity="${escapeHtml(item.sku)}"></label>
+        <label class="whatsapp-quantity-field"><span>Qty</span><div><button type="button" data-cart-delta="-1" data-cart-sku="${escapeHtml(item.sku)}">−</button><input type="number" min="1" max="9999" step="1" value="${escapeHtml(item.quantity)}" data-cart-quantity="${escapeHtml(item.sku)}"><button type="button" data-cart-delta="1" data-cart-sku="${escapeHtml(item.sku)}">+</button></div></label>
         <label><span>Unit price</span><div><b>Rp</b><input type="number" min="0" max="99999999999999" step="1" value="${escapeHtml(item.unit_price)}" data-cart-price="${escapeHtml(item.sku)}"></div></label>
         <button type="button" data-remove-sku="${escapeHtml(item.sku)}" aria-label="Remove ${escapeHtml(item.sku)}">×</button>
       </div>
@@ -127,6 +151,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const data = await request(`${endpoint}?action=catalog`);
       state.skus = Array.isArray(data.skus) ? data.skus : [];
+      renderFilters();
       renderCatalog();
     } catch (error) {
       if (skuList) skuList.innerHTML = `<p class="admin-form-error">${escapeHtml(error.message)}</p>`;
@@ -149,13 +174,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const button = event.target.closest('[data-add-sku]');
     if (!button) return;
     const sku = state.skus.find((row) => row.sku === button.dataset.addSku);
-    if (!sku || state.cart.has(sku.sku)) return;
-    state.cart.set(sku.sku, { ...sku, quantity: 1, unit_price: Math.max(0, Number(sku.sale_price || 0)) });
+    if (!sku) return;
+    const existing = state.cart.get(sku.sku);
+    state.cart.set(sku.sku, existing
+      ? { ...existing, quantity: Math.min(9999, Number(existing.quantity || 0) + 1) }
+      : { ...sku, quantity: 1, unit_price: Math.max(0, Number(sku.sale_price || 0)) });
     renderCatalog();
     renderCart();
   });
 
   cartList?.addEventListener('click', (event) => {
+    const deltaButton = event.target.closest('[data-cart-delta]');
+    if (deltaButton) {
+      const sku = deltaButton.dataset.cartSku || '';
+      const item = state.cart.get(sku);
+      if (!item) return;
+      const nextQuantity = Number(item.quantity || 1) + Number(deltaButton.dataset.cartDelta || 0);
+      if (nextQuantity < 1) state.cart.delete(sku);
+      else state.cart.set(sku, { ...item, quantity: Math.min(9999, nextQuantity) });
+      renderCatalog();
+      renderCart();
+      return;
+    }
     const button = event.target.closest('[data-remove-sku]');
     if (!button) return;
     state.cart.delete(button.dataset.removeSku);
@@ -175,6 +215,20 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   skuSearch?.addEventListener('input', renderCatalog);
+  productFilter?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-product-value]');
+    if (!button) return;
+    state.product = button.dataset.productValue || '';
+    renderFilters();
+    renderCatalog();
+  });
+  flavorFilter?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-flavor-value]');
+    if (!button) return;
+    state.flavor = button.dataset.flavorValue || '';
+    renderFilters();
+    renderCatalog();
+  });
   customerNameInput?.addEventListener('input', updateSubmitState);
   shippingInput?.addEventListener('input', renderTotals);
   deadlineInput?.addEventListener('input', () => {

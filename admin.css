@@ -30701,7 +30701,7 @@ button.admin-accounting-metric {
 }
 /* WhatsApp order builder */
 .is-whatsapp-orders-page .admin-backdrop {
-  opacity: .52;
+  opacity: 0;
 }
 
 .whatsapp-orders-page {
@@ -30715,9 +30715,8 @@ button.admin-accounting-metric {
   top: 0;
   z-index: 30;
   padding-inline: clamp(22px, 3vw, 46px);
-  border-bottom: 1px solid rgba(148, 163, 184, .14);
-  background: color-mix(in srgb, var(--admin-bg, #08101d) 88%, transparent);
-  backdrop-filter: blur(22px);
+  border-bottom: 1px solid var(--admin-border);
+  background: var(--admin-bg);
 }
 
 .whatsapp-orders-topbar .admin-topbar-brand {
@@ -30745,27 +30744,25 @@ button.admin-accounting-metric {
   align-items: flex-end;
   justify-content: space-between;
   gap: 32px;
-  padding: clamp(24px, 4vw, 48px);
-  border: 1px solid rgba(34, 197, 94, .22);
-  border-radius: 30px;
-  background:
-    radial-gradient(circle at 82% 20%, rgba(34, 197, 94, .18), transparent 36%),
-    linear-gradient(135deg, rgba(15, 23, 42, .94), rgba(7, 29, 23, .9));
-  box-shadow: 0 28px 70px rgba(0, 0, 0, .22);
+  padding: clamp(22px, 3vw, 34px);
+  border: 1px solid var(--admin-border);
+  border-radius: 20px;
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow);
 }
 
 .whatsapp-order-hero h2 {
   max-width: 760px;
-  margin: 16px 0 10px;
-  font: 700 clamp(28px, 4vw, 50px)/1.02 "Space Grotesk", sans-serif;
-  letter-spacing: -.04em;
-  color: #f8fafc;
+  margin: 8px 0 8px;
+  font: 700 clamp(27px, 3vw, 38px)/1.08 "Space Grotesk", sans-serif;
+  letter-spacing: -.035em;
+  color: var(--admin-text);
 }
 
 .whatsapp-order-hero p {
   max-width: 760px;
   margin: 0;
-  color: #aebdce;
+  color: var(--admin-muted);
   line-height: 1.65;
 }
 
@@ -30777,9 +30774,9 @@ button.admin-accounting-metric {
 
 .whatsapp-order-flow span {
   padding: 10px 14px;
-  border: 1px solid rgba(148, 163, 184, .16);
+  border: 1px solid var(--admin-border);
   border-radius: 999px;
-  color: #8ca0b8;
+  color: var(--admin-muted);
   font-size: 12px;
   font-weight: 800;
   letter-spacing: .08em;
@@ -30787,9 +30784,9 @@ button.admin-accounting-metric {
 }
 
 .whatsapp-order-flow span.is-active {
-  border-color: rgba(34, 197, 94, .5);
-  color: #86efac;
-  background: rgba(34, 197, 94, .1);
+  border-color: color-mix(in srgb, var(--admin-text) 24%, var(--admin-border));
+  color: var(--admin-text);
+  background: var(--admin-surface-soft);
 }
 
 .whatsapp-order-form {
@@ -30801,10 +30798,10 @@ button.admin-accounting-metric {
 .whatsapp-order-submit-panel,
 .whatsapp-order-history {
   padding: clamp(20px, 3vw, 32px);
-  border: 1px solid rgba(148, 163, 184, .14);
-  border-radius: 24px;
-  background: color-mix(in srgb, var(--admin-panel, #101a2b) 92%, transparent);
-  box-shadow: 0 18px 48px rgba(0, 0, 0, .14);
+  border: 1px solid var(--admin-border);
+  border-radius: 18px;
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow);
 }
 
 .whatsapp-order-panel-head,
@@ -30820,7 +30817,7 @@ button.admin-accounting-metric {
 .whatsapp-order-history-head span {
   display: block;
   margin-bottom: 4px;
-  color: #22c55e;
+  color: var(--admin-muted);
   font-size: 11px;
   font-weight: 800;
   letter-spacing: .12em;
@@ -30830,11 +30827,11 @@ button.admin-accounting-metric {
 .whatsapp-order-panel-head h3,
 .whatsapp-order-history-head h2 {
   margin: 0;
-  color: var(--admin-text, #f8fafc);
+  color: var(--admin-text);
 }
 
 .whatsapp-order-panel-head > small {
-  color: var(--admin-muted, #94a3b8);
+  color: var(--admin-muted);
 }
 
 .whatsapp-order-field-grid {
@@ -30857,7 +30854,7 @@ button.admin-accounting-metric {
 .whatsapp-range-field > span,
 .whatsapp-money-field > span,
 .whatsapp-cart-row-controls label > span {
-  color: var(--admin-muted, #94a3b8);
+  color: var(--admin-muted);
   font-size: 12px;
   font-weight: 700;
 }
@@ -30873,10 +30870,10 @@ button.admin-accounting-metric {
 .whatsapp-cart-row-controls input,
 .whatsapp-cart-row-controls label > div {
   width: 100%;
-  border: 1px solid rgba(148, 163, 184, .18);
-  border-radius: 13px;
-  color: var(--admin-text, #f8fafc);
-  background: rgba(2, 8, 23, .34);
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  color: var(--admin-text);
+  background: var(--admin-surface-soft);
 }
 
 .whatsapp-order-field-grid input,
@@ -30891,8 +30888,8 @@ button.admin-accounting-metric {
 .whatsapp-order-field-grid textarea:focus,
 .whatsapp-sku-search input:focus,
 .whatsapp-cart-row-controls input:focus {
-  border-color: rgba(34, 197, 94, .72);
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, .1);
+  border-color: color-mix(in srgb, var(--admin-text) 44%, var(--admin-border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-text) 8%, transparent);
 }
 
 .whatsapp-order-product-grid {
@@ -30906,14 +30903,57 @@ button.admin-accounting-metric {
   width: min(360px, 44vw);
 }
 
+.whatsapp-product-browser {
+  display: grid;
+  min-width: 0;
+  gap: 14px;
+}
+
+.whatsapp-filter-block {
+  display: grid;
+  gap: 8px;
+}
+
+.whatsapp-filter-block > span {
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.whatsapp-filter-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.whatsapp-filter-pills button {
+  min-height: 34px;
+  padding: 7px 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  background: var(--admin-surface-soft);
+  color: var(--admin-muted);
+  font: 750 12px/1 "Plus Jakarta Sans", sans-serif;
+  cursor: pointer;
+}
+
+.whatsapp-filter-pills button:hover,
+.whatsapp-filter-pills button.is-active {
+  border-color: color-mix(in srgb, var(--admin-text) 28%, var(--admin-border));
+  background: var(--admin-text);
+  color: var(--admin-bg);
+}
+
 .whatsapp-sku-list,
 .whatsapp-order-cart {
   max-height: 520px;
   overflow: auto;
   padding: 12px;
-  border: 1px solid rgba(148, 163, 184, .13);
-  border-radius: 18px;
-  background: rgba(2, 8, 23, .18);
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  background: var(--admin-surface-soft);
 }
 
 .whatsapp-sku-card,
@@ -30924,9 +30964,9 @@ button.admin-accounting-metric {
   justify-content: space-between;
   gap: 16px;
   padding: 16px;
-  border: 1px solid rgba(148, 163, 184, .12);
-  border-radius: 15px;
-  background: rgba(15, 23, 42, .46);
+  border: 1px solid var(--admin-border);
+  border-radius: 11px;
+  background: var(--admin-surface);
 }
 
 .whatsapp-sku-card + .whatsapp-sku-card,
@@ -30936,8 +30976,8 @@ button.admin-accounting-metric {
 }
 
 .whatsapp-sku-card.is-selected {
-  border-color: rgba(34, 197, 94, .34);
-  background: rgba(34, 197, 94, .07);
+  border-color: color-mix(in srgb, var(--admin-text) 24%, var(--admin-border));
+  background: color-mix(in srgb, var(--admin-text) 4%, var(--admin-surface));
 }
 
 .whatsapp-sku-card > div,
@@ -30952,7 +30992,7 @@ button.admin-accounting-metric {
 .whatsapp-sku-card span,
 .whatsapp-cart-row-title span,
 .whatsapp-history-id span {
-  color: #22c55e;
+  color: var(--admin-muted);
   font: 800 11px/1.2 "Space Grotesk", sans-serif;
   letter-spacing: .08em;
   text-transform: uppercase;
@@ -30962,7 +31002,7 @@ button.admin-accounting-metric {
 .whatsapp-cart-row-title strong,
 .whatsapp-history-id strong {
   overflow: hidden;
-  color: var(--admin-text, #f8fafc);
+  color: var(--admin-text);
   text-overflow: ellipsis;
 }
 
@@ -30970,30 +31010,31 @@ button.admin-accounting-metric {
 .whatsapp-cart-row small,
 .whatsapp-history-meta,
 .whatsapp-history-card > p {
-  color: var(--admin-muted, #94a3b8);
+  color: var(--admin-muted);
 }
 
 .whatsapp-sku-card button,
 .whatsapp-cart-row-controls > button {
-  border: 1px solid rgba(34, 197, 94, .35);
-  border-radius: 10px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
   padding: 9px 13px;
-  color: #86efac;
-  background: rgba(34, 197, 94, .1);
+  color: var(--admin-text);
+  background: var(--admin-surface-soft);
   font-weight: 800;
   cursor: pointer;
 }
 
-.whatsapp-sku-card button:disabled {
-  opacity: .58;
-  cursor: default;
+.whatsapp-sku-card button:hover,
+.whatsapp-cart-row-controls > button:hover {
+  background: var(--admin-text);
+  color: var(--admin-bg);
 }
 
 .whatsapp-order-cart-head {
   display: flex;
   justify-content: space-between;
   padding: 6px 4px 14px;
-  color: var(--admin-muted, #94a3b8);
+  color: var(--admin-muted);
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
@@ -31030,6 +31071,31 @@ button.admin-accounting-metric {
   background: transparent;
 }
 
+.whatsapp-quantity-field > div {
+  display: grid !important;
+  grid-template-columns: 30px 54px 30px;
+  overflow: hidden;
+}
+
+.whatsapp-quantity-field > div button {
+  border: 0;
+  background: transparent;
+  color: var(--admin-text);
+  font-size: 17px;
+  cursor: pointer;
+}
+
+.whatsapp-quantity-field > div button:hover {
+  background: color-mix(in srgb, var(--admin-text) 7%, transparent);
+}
+
+.whatsapp-quantity-field input {
+  width: 54px;
+  border-block: 0;
+  border-radius: 0;
+  text-align: center;
+}
+
 .whatsapp-cart-row-controls label > div,
 .whatsapp-money-field > div {
   display: flex;
@@ -31040,7 +31106,7 @@ button.admin-accounting-metric {
 .whatsapp-cart-row-controls b,
 .whatsapp-money-field b {
   padding-left: 11px;
-  color: #64748b;
+  color: var(--admin-muted);
   font-size: 12px;
 }
 
@@ -31064,9 +31130,9 @@ button.admin-accounting-metric {
   align-items: center;
   min-height: 118px;
   padding: 18px;
-  border: 1px dashed rgba(34, 197, 94, .48);
-  border-radius: 17px;
-  background: rgba(34, 197, 94, .06);
+  border: 1px dashed color-mix(in srgb, var(--admin-text) 30%, var(--admin-border));
+  border-radius: 12px;
+  background: var(--admin-surface-soft);
   cursor: pointer;
 }
 
@@ -31084,15 +31150,15 @@ button.admin-accounting-metric {
   place-items: center;
   width: 50px;
   height: 58px;
-  border-radius: 12px;
-  color: #052e16;
-  background: #4ade80;
+  border-radius: 9px;
+  color: var(--admin-bg);
+  background: var(--admin-text);
   font: 800 11px/1 "Space Grotesk", sans-serif;
 }
 
 .whatsapp-label-drop strong {
   overflow: hidden;
-  color: var(--admin-text, #f8fafc);
+  color: var(--admin-text);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -31100,15 +31166,16 @@ button.admin-accounting-metric {
 .whatsapp-label-drop small,
 .whatsapp-range-field small,
 .whatsapp-money-field small {
-  color: var(--admin-muted, #94a3b8);
+  color: var(--admin-muted);
 }
 
 .whatsapp-range-field,
 .whatsapp-money-field {
   align-content: center;
   padding: 16px;
-  border: 1px solid rgba(148, 163, 184, .13);
-  border-radius: 17px;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: var(--admin-surface-soft);
 }
 
 .whatsapp-range-field > span,
@@ -31118,7 +31185,7 @@ button.admin-accounting-metric {
 }
 
 .whatsapp-range-field > span strong {
-  color: #4ade80;
+  color: var(--admin-text);
 }
 
 .whatsapp-range-field small {
@@ -31131,7 +31198,7 @@ button.admin-accounting-metric {
 .whatsapp-range-field small i {
   flex: 1;
   height: 1px;
-  background: rgba(148, 163, 184, .18);
+  background: var(--admin-border);
 }
 
 .whatsapp-money-field > div input {
@@ -31139,7 +31206,7 @@ button.admin-accounting-metric {
   padding: 12px;
   border: 0;
   outline: 0;
-  color: var(--admin-text, #f8fafc);
+  color: var(--admin-text);
   background: transparent;
 }
 
@@ -31147,8 +31214,7 @@ button.admin-accounting-metric {
   position: sticky;
   bottom: 14px;
   z-index: 20;
-  background: color-mix(in srgb, var(--admin-panel, #101a2b) 94%, transparent);
-  backdrop-filter: blur(20px);
+  background: var(--admin-surface);
 }
 
 .whatsapp-order-totals {
@@ -31160,18 +31226,18 @@ button.admin-accounting-metric {
 .whatsapp-order-totals span {
   display: grid;
   gap: 3px;
-  color: var(--admin-muted, #94a3b8);
+  color: var(--admin-muted);
   font-size: 11px;
   text-transform: uppercase;
 }
 
 .whatsapp-order-totals strong {
-  color: var(--admin-text, #f8fafc);
+  color: var(--admin-text);
   font-size: 15px;
 }
 
 .whatsapp-order-totals .is-total strong {
-  color: #4ade80;
+  color: var(--admin-text);
   font-size: 19px;
 }
 
@@ -31199,7 +31265,7 @@ button.admin-accounting-metric {
 }
 
 .whatsapp-history-card.has-error {
-  border-color: rgba(248, 113, 113, .32);
+  border-color: color-mix(in srgb, var(--admin-accent-tertiary) 42%, var(--admin-border));
 }
 
 .whatsapp-history-meta {
@@ -31217,39 +31283,26 @@ button.admin-accounting-metric {
 
 .whatsapp-status {
   padding: 7px 10px;
-  border: 1px solid rgba(34, 197, 94, .26);
+  border: 1px solid var(--admin-border);
   border-radius: 999px;
-  color: #86efac;
-  background: rgba(34, 197, 94, .08);
+  color: var(--admin-text);
+  background: var(--admin-surface-soft);
   font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
 }
 
 .whatsapp-status.is-publish-failed {
-  border-color: rgba(248, 113, 113, .32);
-  color: #fca5a5;
-  background: rgba(248, 113, 113, .08);
+  border-color: color-mix(in srgb, var(--admin-accent-tertiary) 42%, var(--admin-border));
+  color: var(--admin-accent-tertiary);
+  background: color-mix(in srgb, var(--admin-accent-tertiary) 7%, var(--admin-surface));
 }
 
 .whatsapp-history-card > p {
   grid-column: 1 / -1;
   margin: 8px 0 0;
-  color: #fca5a5;
+  color: var(--admin-accent-tertiary);
   font-size: 12px;
-}
-
-html[data-admin-theme="light"] .whatsapp-order-hero {
-  background: radial-gradient(circle at 82% 20%, rgba(34, 197, 94, .16), transparent 36%), linear-gradient(135deg, #f8fafc, #edfdf4);
-}
-
-html[data-admin-theme="light"] .whatsapp-order-hero h2,
-html[data-admin-theme="light"] .whatsapp-label-icon {
-  color: #0f172a;
-}
-
-html[data-admin-theme="light"] .whatsapp-order-hero p {
-  color: #526277;
 }
 
 @media (max-width: 980px) {

@@ -27,7 +27,7 @@ $pageJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-orders.js');
     <link rel="stylesheet" href="../admin.css?v=<?php echo urlencode($adminCssVersion ?: '1'); ?>">
 </head>
 <body class="admin-body is-dashboard is-whatsapp-orders-page">
-    <div class="admin-build-badge" aria-label="Dashboard build version">Build exec3.91.2</div>
+    <div class="admin-build-badge" aria-label="Dashboard build version">Build exec3.91.3</div>
     <div class="admin-app admin-app-suite" data-whatsapp-orders data-endpoint="../api/whatsapp-orders/">
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
@@ -49,9 +49,9 @@ $pageJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-orders.js');
                     <section class="whatsapp-order-builder" aria-labelledby="whatsapp-builder-title">
                         <div class="whatsapp-order-hero">
                             <div>
-                                <span class="admin-chip">Direct order</span>
-                                <h2 id="whatsapp-builder-title">Build it here. Send it to Store Ops.</h2>
-                                <p>The saved order keeps its sale and shipping amounts for Executive metrics. Store Ops receives the fulfillment list, deadline, customer, and label—with no shipping cost.</p>
+                                <span class="admin-panel-kicker">Direct order</span>
+                                <h2 id="whatsapp-builder-title">Create WhatsApp order</h2>
+                                <p>Enter the customer, choose products, and upload the shipping label. Shipping cost stays in Executive metrics and is not sent to Store Ops.</p>
                             </div>
                             <div class="whatsapp-order-flow" aria-label="Order workflow">
                                 <span class="is-active">1 · Construct</span>
@@ -80,9 +80,19 @@ $pageJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-orders.js');
                                     <label class="whatsapp-sku-search"><span>Search</span><input type="search" data-sku-search placeholder="SKU, product, flavor, tag"></label>
                                 </div>
                                 <div class="whatsapp-order-product-grid">
-                                    <div class="whatsapp-sku-list" data-sku-list><p class="admin-empty">Loading SKU catalog…</p></div>
+                                    <div class="whatsapp-product-browser">
+                                        <div class="whatsapp-filter-block">
+                                            <span>Product</span>
+                                            <div class="whatsapp-filter-pills" data-product-filter><button type="button" class="is-active" data-product-value="">All</button></div>
+                                        </div>
+                                        <div class="whatsapp-filter-block">
+                                            <span>Flavor</span>
+                                            <div class="whatsapp-filter-pills" data-flavor-filter><button type="button" class="is-active" data-flavor-value="">All</button></div>
+                                        </div>
+                                        <div class="whatsapp-sku-list" data-sku-list><p class="admin-empty">Loading SKU catalog…</p></div>
+                                    </div>
                                     <aside class="whatsapp-order-cart">
-                                        <div class="whatsapp-order-cart-head"><span>Order list</span><strong data-cart-count>0 SKU</strong></div>
+                                        <div class="whatsapp-order-cart-head"><span>Order preview</span><strong data-cart-count>0 SKU</strong></div>
                                         <div data-cart-list><p class="admin-empty">Select at least one SKU.</p></div>
                                     </aside>
                                 </div>
