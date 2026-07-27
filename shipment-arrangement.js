@@ -110,6 +110,23 @@ document.addEventListener('DOMContentLoaded', () => {
     return DAYS[index];
   };
 
+  const zeroRulesFor = (policy = state.workingPolicy) => {
+    const zero = policy?.account_overrides?.shopee?.['zero-shopee'] || {};
+    const weekend = zero.weekend_dependent || {};
+    const guards = policy?.guards || {};
+    return {
+      selectionPriority: String(zero.selection_priority || 'PICKUP_FIRST'),
+      weekdayPickupOnly: zero.weekday_pickup_only !== false,
+      deadlineDropoffFallback: zero.deadline_dropoff_fallback !== false,
+      weekdayRetryDays: Math.max(1, Number(guards.weekday_retry_days || 1)),
+      packageRetryMinutes: Math.max(1, Number(guards.package_not_ready_retry_minutes || 10)),
+      weekendEnabled: weekend.enabled !== false,
+      weekendAutomatic: weekend.automatic_arrangement !== false,
+      weekendCutoff: String(weekend.cutoff || '11:30'),
+      weekendPickupFallback: weekend.pickup_fallback !== false
+    };
+  };
+
   const orderDeadline = (order) => [
     order.ship_by_at,
     order.collection_due_at,
@@ -812,10 +829,76 @@ document.addEventListener('DOMContentLoaded', () => {
     .map((value) => `<option value="${value}" ${selected === value ? 'selected' : ''}>${value === 'DROP_OFF' ? 'Drop-off' : value.charAt(0) + value.slice(1).toLowerCase()}</option>`)
     .join('');
 
+  const zeroEditorValues = () => {
+    const current = zeroRulesFor();
+    if (!refs.ruleGrid) return current;
+    return {
+      selectionPriority: refs.ruleGrid.querySelector('[name="zero-selection-priority"]')?.value || current.selectionPriority,
+      weekdayPickupOnly: Boolean(refs.ruleGrid.querySelector('[name="zero-weekday-only"]')?.checked),
+      deadlineDropoffFallback: Boolean(refs.ruleGrid.querySelector('[name="zero-deadline-dropoff"]')?.checked),
+      weekdayRetryDays: Math.max(1, Number(refs.ruleGrid.querySelector('[name="weekday-retry-days"]')?.value || current.weekdayRetryDays)),
+      packageRetryMinutes: Math.max(1, Number(refs.ruleGrid.querySelector('[name="package-retry-minutes"]')?.value || current.packageRetryMinutes)),
+      weekendEnabled: Boolean(refs.ruleGrid.querySelector('[name="zero-weekend-enabled"]')?.checked),
+      weekendAutomatic: Boolean(refs.ruleGrid.querySelector('[name="zero-weekend-automatic"]')?.checked),
+      weekendCutoff: refs.ruleGrid.querySelector('[name="zero-weekend-cutoff"]')?.value || current.weekendCutoff,
+      weekendPickupFallback: Boolean(refs.ruleGrid.querySelector('[name="zero-weekend-pickup"]')?.checked)
+    };
+  };
+
+  const renderZeroDecisionPreview = () => {
+    const preview = refs.ruleGrid?.querySelector('[data-zero-decision-preview]');
+    if (!preview) return;
+    const rules = zeroEditorValues();
+    const preference = rules.selectionPriority === 'DROP_OFF_FIRST' ? 'Drop-off first' : 'Pickup first';
+    const pickupScope = rules.weekdayPickupOnly ? 'Monday–Friday pickup only' : 'Earliest pickup on any day';
+    const retry = rules.weekdayPickupOnly
+      ? `Retry in ${rules.weekdayRetryDays} day${rules.weekdayRetryDays === 1 ? '' : 's'} while a weekday can still beat the deadline`
+      : 'No weekday wait; the earliest marketplace slot can be used';
+    const deadline = rules.deadlineDropoffFallback
+      ? 'If waiting reaches the deadline, use drop-off when Shopee offers it'
+      : 'Do not switch to drop-off at the deadline';
+    const weekend = !rules.weekendEnabled
+      ? 'Weekend Dependent handling is off'
+      : rules.weekendAutomatic
+        ? `Saturday due Sunday: use Saturday pickup before ${rules.weekendCutoff} when drop-off is unavailable`
+        : `Saturday due Sunday: flag for manual handling; no automatic weekend arrangement`;
+    preview.innerHTML = [
+      ['1', 'Start', preference, 'is-start'],
+      ['2', 'Pickup filter', pickupScope, rules.weekdayPickupOnly ? 'is-pickup' : 'is-neutral'],
+      ['3', 'No usable pickup', retry, rules.weekdayPickupOnly ? 'is-wait' : 'is-neutral'],
+      ['4', 'Deadline guard', deadline, rules.deadlineDropoffFallback ? 'is-dropoff' : 'is-hold'],
+      ['5', 'No usable drop-off', weekend, rules.weekendEnabled ? 'is-weekend' : 'is-hold']
+    ].map(([number, label, detail, className], index) => `
+      ${index ? '<span class="admin-arrangement-decision-arrow" aria-hidden="true">→</span>' : ''}
+      <article class="admin-arrangement-decision-step ${className}">
+        <i>${number}</i><span>${label}</span><strong>${escapeHtml(detail)}</strong>
+      </article>`).join('');
+  };
+
   const renderEditor = () => {
     if (!state.workingPolicy || !refs.ruleGrid) return;
+    const zero = zeroRulesFor();
     refs.ruleGrid.className = 'admin-arrangement-pickup-editor';
     refs.ruleGrid.innerHTML = `
+      <section class="admin-arrangement-smart-policy">
+        <header class="admin-arrangement-smart-head">
+          <div><span class="admin-panel-kicker">ZERO Shopee</span><h3>Smart handover decision</h3><p>Change the exact order in which pickup, retry, drop-off, and the weekend exception are evaluated.</p></div>
+          <span class="admin-arrangement-pause-lock">Hard Set remains paused</span>
+        </header>
+        <div class="admin-arrangement-decision-flow" data-zero-decision-preview aria-label="Current ZERO Shopee decision flow"></div>
+        <div class="admin-arrangement-smart-controls">
+          <label><span>First choice</span><select name="zero-selection-priority"><option value="PICKUP_FIRST" ${zero.selectionPriority === 'PICKUP_FIRST' ? 'selected' : ''}>Pickup first</option><option value="DROP_OFF_FIRST" ${zero.selectionPriority === 'DROP_OFF_FIRST' ? 'selected' : ''}>Drop-off first</option></select><small>Which offered method is checked first.</small></label>
+          <label class="admin-arrangement-switch-control"><span>Weekday pickup only</span><input type="checkbox" name="zero-weekday-only" ${zero.weekdayPickupOnly ? 'checked' : ''}><small>Reject ordinary Saturday and Sunday pickup slots.</small></label>
+          <label><span>No-weekday retry <em>All shops</em></span><div class="admin-arrangement-unit-input"><input type="number" name="weekday-retry-days" min="1" max="7" value="${zero.weekdayRetryDays}"><b>days</b></div><small>Shared timing; continue only while the next run is before ship-by.</small></label>
+          <label><span>Package not ready <em>All shops</em></span><div class="admin-arrangement-unit-input"><input type="number" name="package-retry-minutes" min="1" max="1440" value="${zero.packageRetryMinutes}"><b>minutes</b></div><small>Shared delay before asking a marketplace for shipping options again.</small></label>
+          <label class="admin-arrangement-switch-control"><span>Deadline drop-off</span><input type="checkbox" name="zero-deadline-dropoff" ${zero.deadlineDropoffFallback ? 'checked' : ''}><small>Use offered drop-off when another pickup retry would miss ship-by.</small></label>
+          <label class="admin-arrangement-switch-control"><span>Weekend Dependent</span><input type="checkbox" name="zero-weekend-enabled" ${zero.weekendEnabled ? 'checked' : ''}><small>Recognize Saturday orders due Sunday as urgent.</small></label>
+          <label class="admin-arrangement-switch-control"><span>Automatic Saturday exception</span><input type="checkbox" name="zero-weekend-automatic" ${zero.weekendAutomatic ? 'checked' : ''}><small>The only automatic path allowed while Hard Set is paused.</small></label>
+          <label><span>Saturday cutoff</span><input type="time" name="zero-weekend-cutoff" value="${escapeHtml(zero.weekendCutoff)}"><small>At this exact time, automatic handling closes.</small></label>
+          <label class="admin-arrangement-switch-control"><span>Saturday pickup fallback</span><input type="checkbox" name="zero-weekend-pickup" ${zero.weekendPickupFallback ? 'checked' : ''}><small>Use Saturday pickup when drop-off is unavailable.</small></label>
+        </div>
+      </section>
+      <div class="admin-arrangement-weekly-heading"><span class="admin-panel-kicker">All marketplaces</span><h3>Order day → pickup day</h3><p>These mappings remain available for fixed-day workflows.</p></div>
       <div class="admin-arrangement-rule-card-grid">
         ${DAYS.map((day, index) => {
           const key = String(index + 1);
@@ -835,6 +918,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </article>`;
         }).join('')}
       </div>`;
+    renderZeroDecisionPreview();
     renderAdvancedEditor();
   };
 
@@ -886,6 +970,24 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const collectEditor = () => {
+    const zeroValues = zeroEditorValues();
+    state.workingPolicy.account_overrides ||= {};
+    state.workingPolicy.account_overrides.shopee ||= {};
+    state.workingPolicy.account_overrides.shopee['zero-shopee'] = {
+      method: 'MARKETPLACE_AVAILABLE',
+      selection_priority: zeroValues.selectionPriority,
+      weekday_pickup_only: zeroValues.weekdayPickupOnly,
+      deadline_dropoff_fallback: zeroValues.deadlineDropoffFallback,
+      weekend_dependent: {
+        enabled: zeroValues.weekendEnabled,
+        automatic_arrangement: zeroValues.weekendAutomatic,
+        cutoff: zeroValues.weekendCutoff,
+        pickup_fallback: zeroValues.weekendPickupFallback
+      }
+    };
+    state.workingPolicy.guards ||= {};
+    state.workingPolicy.guards.weekday_retry_days = zeroValues.weekdayRetryDays;
+    state.workingPolicy.guards.package_not_ready_retry_minutes = zeroValues.packageRetryMinutes;
     refs.ruleGrid?.querySelectorAll('[data-pickup-rule-day]').forEach((row) => {
       const key = row.dataset.pickupRuleDay;
       ['shopee', 'tiktok'].forEach((platform) => {
@@ -915,13 +1017,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const showEditorAccess = () => {
     const branch = Boolean(state.data?.access?.branch);
     if (refs.unlock) refs.unlock.hidden = branch;
-    if (refs.policyForm) refs.policyForm.hidden = !branch;
+    if (refs.policyForm) refs.policyForm.hidden = false;
     if (refs.applyMonday) refs.applyMonday.hidden = !branch;
-    if (!branch) return;
     state.workingPolicy = structuredClone(state.data?.policy?.policy || {});
     renderEditor();
+    refs.policyForm?.classList.toggle('is-read-only', !branch);
+    refs.policyForm?.querySelectorAll('input, select, button').forEach((control) => {
+      control.disabled = !branch;
+    });
     if (refs.policyMeta) {
-      refs.policyMeta.textContent = `Revision ${Number(state.data?.policy?.revision || 0)} · ${state.data?.policy?.updated_by || 'defaults'}`;
+      refs.policyMeta.textContent = `${branch ? 'Editable' : 'Read-only'} · Revision ${Number(state.data?.policy?.revision || 0)} · ${state.data?.policy?.updated_by || 'defaults'}`;
     }
   };
 
@@ -1057,6 +1162,8 @@ document.addEventListener('DOMContentLoaded', () => {
   root.querySelectorAll('[data-arrangement-tab]').forEach((button) => button.addEventListener('click', () => {
     setTab(button.dataset.arrangementTab);
   }));
+  refs.ruleGrid?.addEventListener('input', renderZeroDecisionPreview);
+  refs.ruleGrid?.addEventListener('change', renderZeroDecisionPreview);
   refs.applyMonday?.addEventListener('click', () => {
     const monday = refs.ruleGrid?.querySelector('[data-pickup-rule-day="1"]');
     if (!monday) return;

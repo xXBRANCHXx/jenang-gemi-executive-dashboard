@@ -31,7 +31,7 @@ if ($isAuthenticated) {
     }
 }
 $isAdView = $isAuthenticated && in_array($requestedView ?? '', ['ad-view', 'ads', 'ad_view', 'shopee-ads'], true);
-$dashboardBuildVersion = 'exec3.90.0';
+$dashboardBuildVersion = 'exec3.91.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -835,9 +835,9 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                                 <main class="admin-arrangement-primary admin-arrangement-rules">
                                     <div class="admin-arrangement-rules-head">
                                         <div>
-                                            <span class="admin-panel-kicker">Weekly rules</span>
-                                            <h3>Order day → pickup day</h3>
-                                            <p>Set the pickup day used for each marketplace.</p>
+                                            <span class="admin-panel-kicker">Live worker policy</span>
+                                            <h3>Pickup and handover rules</h3>
+                                            <p>See the complete decision path, then change retry, deadline, drop-off, and weekend behavior.</p>
                                         </div>
                                         <button type="button" class="admin-arrangement-text-button" data-arrangement-apply-monday hidden>Apply Monday to all days</button>
                                     </div>
@@ -874,19 +874,20 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 
                                 <aside class="admin-arrangement-guide">
                                     <section>
-                                        <h3>How this works</h3>
+                                        <h3>ZERO Shopee default</h3>
                                         <ol>
-                                            <li>An order is arranged.</li>
-                                            <li>We use the rule for that day.</li>
-                                            <li>The earliest available marketplace pickup is selected.</li>
+                                            <li>Choose a usable weekday pickup first.</li>
+                                            <li>Retry while another weekday still falls before ship-by.</li>
+                                            <li>Use drop-off only when waiting would miss ship-by.</li>
+                                            <li>If Saturday is the final chance, use the Weekend Dependent rule.</li>
                                         </ol>
                                     </section>
                                     <section class="admin-arrangement-example">
-                                        <span>Example</span>
-                                        <strong>Arranged Friday → pickup Monday</strong>
+                                        <span>Permanent safety boundary</span>
+                                        <strong>Editing these rules never un-pauses Hard Set</strong>
                                     </section>
-                                    <p>If the selected day is unavailable, the order waits. We never switch to another day automatically.</p>
-                                    <p class="admin-arrangement-instant-note"><strong>Instant orders are manual only.</strong> When arranged manually, they use the rule for that day.</p>
+                                    <p>The highlighted decision map updates before you save, so you can review the effect of every control.</p>
+                                    <p class="admin-arrangement-instant-note"><strong>Instant orders remain manual only.</strong> Pickup-rule edits do not change their approval requirement.</p>
                                 </aside>
                             </div>
                         </section>

@@ -87,10 +87,26 @@ assert(
   'Pickup markers and booked windows must open every order, auto-load details, show pickup status, and support retry.'
 );
 assert(
-  dashboard.includes('If the selected day is unavailable, the order waits')
-    && dashboard.includes('Instant orders are manual only')
+  dashboard.includes('See the complete decision path')
+    && dashboard.includes('Editing these rules never un-pauses Hard Set')
+    && dashboard.includes('Instant orders remain manual only')
     && script.includes('pickup_days[key]'),
-  'The editor must expose the pickup-day mapping and explain its fail-closed behavior.'
+  'The editor must expose the pickup-day mapping and explain its permanent safety boundary.'
+);
+assert(
+  script.includes('data-zero-decision-preview')
+    && script.includes('renderZeroDecisionPreview')
+    && script.includes('zero-selection-priority')
+    && script.includes('zero-weekday-only')
+    && script.includes('weekday-retry-days')
+    && script.includes('package-retry-minutes')
+    && script.includes('zero-deadline-dropoff')
+    && script.includes('zero-weekend-automatic')
+    && script.includes('zero-weekend-cutoff')
+    && script.includes('zero-weekend-pickup')
+    && script.includes("classList.toggle('is-read-only', !branch)")
+    && endpoint.includes("'expected_revision' => (int)"),
+  'ZERO Shopee retry, deadline, drop-off, and Weekend Dependent behavior must be visual, interactive, revisioned, and visible before unlock.'
 );
 assert(
   styles.includes('.admin-arrangement-deadline-chart')
@@ -116,6 +132,10 @@ assert(
     && styles.includes('.admin-arrangement-status-guide .is-booked')
     && styles.includes('.admin-arrangement-rule-card-grid')
     && styles.includes('.admin-arrangement-advanced-tabs')
+    && styles.includes('.admin-arrangement-smart-policy')
+    && styles.includes('.admin-arrangement-decision-flow')
+    && styles.includes('.admin-arrangement-smart-controls')
+    && styles.includes('.admin-arrangement-switch-control')
     && styles.includes(".admin-arrangement-day-toggle input[type='checkbox']")
     && styles.includes('width: 12px')
     && styles.includes('.admin-arrangement-workspace')

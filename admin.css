@@ -28364,6 +28364,227 @@ button.admin-accounting-metric {
 }
 
 /* Shipment arrangement v4 — visual timeline and card-based rule editor */
+.admin-arrangement-smart-policy {
+  display: grid;
+  gap: 20px;
+  margin-bottom: 30px;
+  padding: 22px;
+  border: 1px solid color-mix(in srgb, var(--arrangement-shopee) 42%, var(--admin-border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--arrangement-shopee) 5%, var(--admin-surface));
+}
+
+.admin-arrangement-smart-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.admin-arrangement-smart-head h3,
+.admin-arrangement-weekly-heading h3 {
+  margin: 4px 0 5px;
+  font-size: 1rem;
+}
+
+.admin-arrangement-smart-head p,
+.admin-arrangement-weekly-heading p {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: .65rem;
+  line-height: 1.5;
+}
+
+.admin-arrangement-pause-lock {
+  flex: 0 0 auto;
+  padding: 7px 9px;
+  border: 1px solid color-mix(in srgb, #fbbf24 42%, var(--admin-border));
+  border-radius: 999px;
+  color: #fbbf24;
+  background: color-mix(in srgb, #fbbf24 8%, var(--admin-bg));
+  font-size: .56rem;
+  font-weight: 850;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.admin-arrangement-decision-flow {
+  display: grid;
+  grid-template-columns: minmax(145px, 1fr) 18px minmax(145px, 1fr) 18px minmax(175px, 1.15fr) 18px minmax(185px, 1.2fr) 18px minmax(190px, 1.25fr);
+  align-items: stretch;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.admin-arrangement-decision-step {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-height: 126px;
+  padding: 13px;
+  border: 1px solid var(--admin-border);
+  border-top: 3px solid var(--admin-muted);
+  border-radius: 8px;
+  background: var(--admin-bg);
+}
+
+.admin-arrangement-decision-step.is-pickup { border-top-color: #60a5fa; }
+.admin-arrangement-decision-step.is-wait { border-top-color: #a78bfa; }
+.admin-arrangement-decision-step.is-dropoff { border-top-color: #fbbf24; }
+.admin-arrangement-decision-step.is-weekend { border-top-color: #f59e0b; }
+.admin-arrangement-decision-step.is-hold { border-top-color: #fb7185; }
+.admin-arrangement-decision-step.is-start { border-top-color: var(--arrangement-shopee); }
+
+.admin-arrangement-decision-step i {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  color: var(--admin-bg);
+  background: var(--admin-text);
+  font-size: .54rem;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.admin-arrangement-decision-step span {
+  color: var(--admin-muted);
+  font-size: .52rem;
+  font-weight: 850;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.admin-arrangement-decision-step strong {
+  font-size: .62rem;
+  line-height: 1.48;
+}
+
+.admin-arrangement-decision-arrow {
+  display: grid;
+  place-items: center;
+  color: var(--admin-muted);
+  font-size: .8rem;
+}
+
+.admin-arrangement-smart-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.admin-arrangement-smart-controls > label {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 12px;
+  min-height: 102px;
+  padding: 13px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--admin-text) 2.5%, transparent);
+}
+
+.admin-arrangement-smart-controls label > span {
+  font-size: .63rem;
+  font-weight: 850;
+}
+
+.admin-arrangement-smart-controls label > span em {
+  margin-left: 4px;
+  color: #a78bfa;
+  font-size: .45rem;
+  font-style: normal;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.admin-arrangement-smart-controls label > small {
+  grid-column: 1 / -1;
+  align-self: start;
+  color: var(--admin-muted);
+  font-size: .52rem;
+  line-height: 1.45;
+}
+
+.admin-arrangement-smart-controls select,
+.admin-arrangement-smart-controls input[type='time'],
+.admin-arrangement-smart-controls input[type='number'] {
+  min-height: 36px;
+  border: 1px solid var(--admin-border);
+  border-radius: 7px;
+  color: var(--admin-text);
+  background: var(--admin-bg);
+  font: 750 .62rem/1 'Plus Jakarta Sans', sans-serif;
+}
+
+.admin-arrangement-smart-controls select,
+.admin-arrangement-smart-controls input[type='time'] {
+  width: 132px;
+  padding: 0 8px;
+}
+
+.admin-arrangement-switch-control input[type='checkbox'] {
+  appearance: none;
+  position: relative;
+  width: 38px;
+  height: 22px;
+  margin: 0;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  background: var(--admin-bg);
+  cursor: pointer;
+}
+
+.admin-arrangement-switch-control input[type='checkbox']::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--admin-muted);
+  transition: transform .16s ease, background .16s ease;
+}
+
+.admin-arrangement-switch-control input[type='checkbox']:checked {
+  border-color: color-mix(in srgb, #34d399 55%, var(--admin-border));
+  background: color-mix(in srgb, #34d399 18%, var(--admin-bg));
+}
+
+.admin-arrangement-switch-control input[type='checkbox']:checked::after {
+  background: #34d399;
+  transform: translateX(16px);
+}
+
+.admin-arrangement-unit-input {
+  display: grid;
+  grid-template-columns: 58px auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-arrangement-unit-input input { width: 58px; padding: 0 7px; }
+.admin-arrangement-unit-input b { color: var(--admin-muted); font-size: .52rem; }
+
+.admin-arrangement-weekly-heading {
+  margin: 0 0 14px;
+  padding-top: 2px;
+}
+
+[data-arrangement-policy-form].is-read-only .admin-arrangement-smart-controls,
+[data-arrangement-policy-form].is-read-only .admin-arrangement-rule-card-grid,
+[data-arrangement-policy-form].is-read-only .admin-arrangement-advanced {
+  opacity: .66;
+}
+
+[data-arrangement-policy-form].is-read-only .admin-arrangement-savebar > div {
+  display: none;
+}
+
 .admin-arrangement-workspace.is-schedule,
 .admin-arrangement-workspace.is-rules {
   grid-template-columns: minmax(0, 1fr);
@@ -29231,6 +29452,23 @@ button.admin-accounting-metric {
 }
 
 @media (max-width: 680px) {
+  .admin-arrangement-smart-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .admin-arrangement-smart-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-arrangement-decision-flow {
+    grid-template-columns: repeat(9, auto);
+  }
+
+  .admin-arrangement-decision-step {
+    width: 190px;
+  }
+
   .admin-arrangement-event-dialog {
     width: 100vw;
   }
