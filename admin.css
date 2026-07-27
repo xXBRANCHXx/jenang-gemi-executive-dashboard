@@ -31237,12 +31237,33 @@ button.admin-accounting-metric {
 }
 
 .whatsapp-money-field > div input {
+  flex: 1 1 auto;
+  align-self: stretch;
   min-width: 0;
   padding: 12px;
   border: 0;
   outline: 0;
-  color: var(--admin-text);
-  background: transparent;
+  color-scheme: light;
+}
+
+.is-whatsapp-orders-page .whatsapp-money-field > div,
+.is-whatsapp-orders-page .whatsapp-money-field > div > input,
+.is-whatsapp-orders-page .whatsapp-money-field > div > b {
+  color: #111 !important;
+  background: #fff !important;
+  background-image: none !important;
+  -webkit-text-fill-color: #111;
+}
+
+.is-whatsapp-orders-page .whatsapp-money-field > div {
+  border-color: #d8d8d8;
+}
+
+.whatsapp-money-field b {
+  display: flex;
+  align-self: stretch;
+  align-items: center;
+  color: #111;
 }
 
 .whatsapp-order-submit-panel {
