@@ -134,7 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="whatsapp-cart-row-controls">
         <label class="whatsapp-quantity-field"><span>Qty</span><div><button type="button" data-cart-delta="-1" data-cart-sku="${escapeHtml(item.sku)}">−</button><input type="number" min="1" max="${escapeHtml(Math.max(1, Number(item.current_stock || 1)))}" step="1" value="${escapeHtml(item.quantity)}" data-cart-quantity="${escapeHtml(item.sku)}"><button type="button" data-cart-delta="1" data-cart-sku="${escapeHtml(item.sku)}"${Number(item.quantity || 0) >= Number(item.current_stock || 0) ? ' disabled' : ''}>+</button></div></label>
         <label class="whatsapp-price-field"><span>Unit price</span><div><b>Rp</b><input type="number" min="0" max="99999999999999" step="1" value="${escapeHtml(item.unit_price)}" data-cart-price="${escapeHtml(item.sku)}"></div></label>
-        <button type="button" class="whatsapp-remove-sku" data-remove-sku="${escapeHtml(item.sku)}" aria-label="Remove ${escapeHtml(item.sku)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14M10 10v6m4-6v6"/></svg></button>
+        <button type="button" class="whatsapp-remove-sku" data-remove-sku="${escapeHtml(item.sku)}" aria-label="Remove ${escapeHtml(item.sku)}"><span class="whatsapp-trash-icon" aria-hidden="true"></span></button>
       </div>
       <small>${escapeHtml(money(Number(item.quantity) * Number(item.unit_price)))}</small>
     </article>`).join('') : '<p class="admin-empty">Select at least one SKU.</p>';

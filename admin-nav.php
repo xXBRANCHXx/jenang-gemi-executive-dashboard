@@ -372,6 +372,10 @@ function admin_favicon_assets(): array
             'light' => '/assets/admin-icons/favicon-orders-ops-light.svg',
             'dark' => '/assets/admin-icons/favicon-orders-ops-dark.svg',
         ],
+        'whatsapp' => [
+            'light' => '/assets/admin-icons/favicon-whatsapp-light.svg',
+            'dark' => '/assets/admin-icons/favicon-whatsapp-dark.svg',
+        ],
         'wallet' => [
             'light' => 'https://api.iconify.design/lucide:wallet.svg?color=%230f172a',
             'dark' => 'https://api.iconify.design/lucide:wallet.svg?color=%23ffffff',

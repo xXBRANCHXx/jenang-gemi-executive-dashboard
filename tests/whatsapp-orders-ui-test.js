@@ -18,7 +18,9 @@ assert.match(script, /items: \[\.\.\.state\.cart\.values\(\)\][\s\S]*?action=cre
 assert.match(script, /data-cart-delta[\s\S]*?renderFilters/, 'The order preview must provide quantity steppers and filtered SKU entry.');
 assert.match(script, /sku\.brand_name === company[\s\S]*?whatsapp-product-company-group/, 'Product options must be grouped by company.');
 assert.match(script, /class="whatsapp-sku-add"[\s\S]*?\+<\/span> Add/, 'SKU actions must use an inline + Add control.');
-assert.match(script, /class="whatsapp-remove-sku"[\s\S]*?<svg/, 'Cart removal must use a bare trash icon.');
+assert.match(script, /class="whatsapp-remove-sku"[\s\S]*?class="whatsapp-trash-icon"/, 'Cart removal must use the real Lucide trash icon asset.');
+assert.match(page, /render_admin_favicons\('whatsapp'\)/, 'The page must use the WhatsApp favicon rather than the generic orders icon.');
+assert.match(nav, /'whatsapp' => \[[\s\S]*?favicon-whatsapp-light\.svg[\s\S]*?favicon-whatsapp-dark\.svg/, 'The favicon registry must include theme-aware WhatsApp assets.');
 
 const styles = fs.readFileSync(path.join(root, 'admin.css'), 'utf8');
 const whatsappStyles = styles.slice(styles.indexOf('/* WhatsApp order builder */'));
@@ -29,6 +31,7 @@ assert.match(whatsappStyles, /\.whatsapp-range-field,[\s\S]*?border: 0;[\s\S]*?b
 assert.match(whatsappStyles, /\.is-whatsapp-orders-page \.whatsapp-money-field > div,[\s\S]*?background: #fff !important;/, 'The entire shipping cost input must use one solid white surface.');
 assert.match(whatsappStyles, /\.whatsapp-sku-card \.whatsapp-sku-add:hover[\s\S]*?color: #2563eb;/, 'The inline Add action must turn blue on hover.');
 assert.match(whatsappStyles, /\.whatsapp-cart-row-controls > \.whatsapp-remove-sku:hover[\s\S]*?color: #dc2626;/, 'The bare trash action must turn red on hover.');
+assert.match(whatsappStyles, /\.whatsapp-trash-icon[\s\S]*?assets\/admin-icons\/trash-2\.svg/, 'The removal action must render the Lucide trash-2 asset.');
 
 const payloadStart = bootstrap.indexOf('function jg_whatsapp_store_ops_payload');
 const payloadEnd = bootstrap.indexOf('function jg_whatsapp_publish_order', payloadStart);

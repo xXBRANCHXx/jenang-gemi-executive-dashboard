@@ -20,14 +20,14 @@ $pageJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-orders.js');
     <title>WhatsApp Orders | Jenang Gemi Executive Dashboard</title>
     <meta name="robots" content="noindex,nofollow">
 <?php render_admin_initial_theme_script(); ?>
-<?php render_admin_favicons('orders'); ?>
+<?php render_admin_favicons('whatsapp'); ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap">
     <link rel="stylesheet" href="../admin.css?v=<?php echo urlencode($adminCssVersion ?: '1'); ?>">
 </head>
 <body class="admin-body is-dashboard is-whatsapp-orders-page">
-    <div class="admin-build-badge" aria-label="Dashboard build version">Build exec3.92.0</div>
+    <div class="admin-build-badge" aria-label="Dashboard build version">Build exec3.92.1</div>
     <div class="admin-app admin-app-suite" data-whatsapp-orders data-endpoint="../api/whatsapp-orders/">
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>

@@ -31218,14 +31218,13 @@ button.admin-accounting-metric {
   background: transparent;
 }
 
-.whatsapp-remove-sku svg {
+.whatsapp-trash-icon {
+  display: block;
   width: 18px;
   height: 18px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  background: currentColor;
+  -webkit-mask: url("assets/admin-icons/trash-2.svg") center / contain no-repeat;
+  mask: url("assets/admin-icons/trash-2.svg") center / contain no-repeat;
 }
 
 .whatsapp-fulfillment-grid {
