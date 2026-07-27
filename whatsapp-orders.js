@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const form = root.querySelector('[data-order-form]');
   const skuList = root.querySelector('[data-sku-list]');
   const skuSearch = root.querySelector('[data-sku-search]');
+  const companyFilter = root.querySelector('[data-company-filter]');
   const productFilter = root.querySelector('[data-product-filter]');
   const flavorFilter = root.querySelector('[data-flavor-filter]');
   const cartList = root.querySelector('[data-cart-list]');
@@ -24,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const shippingInput = form?.elements.namedItem('shipping_cost');
   const customerNameInput = form?.elements.namedItem('customer_name');
 
-  const state = { skus: [], cart: new Map(), product: '', flavor: '', submitting: false };
+  const state = { skus: [], cart: new Map(), company: '', product: '', flavor: '', submitting: false };
   const currency = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 });
   const dateTime = new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Jakarta' });
   const escapeHtml = (value) => String(value ?? '')
@@ -74,14 +75,30 @@ document.addEventListener('DOMContentLoaded', () => {
     .sort((left, right) => left.localeCompare(right));
 
   const renderFilters = () => {
-    const products = uniqueLabels(state.skus.map((sku) => sku.base_product_name));
-    const flavorSource = state.product
-      ? state.skus.filter((sku) => sku.base_product_name === state.product)
+    const companies = uniqueLabels(state.skus.map((sku) => sku.brand_name));
+    const companySource = state.company
+      ? state.skus.filter((sku) => sku.brand_name === state.company)
       : state.skus;
+    const products = uniqueLabels(companySource.map((sku) => sku.base_product_name));
+    if (state.product && !products.includes(state.product)) state.product = '';
+    const flavorSource = state.product
+      ? companySource.filter((sku) => sku.base_product_name === state.product)
+      : companySource;
     const flavors = uniqueLabels(flavorSource.map((sku) => sku.flavor_name));
     if (state.flavor && !flavors.includes(state.flavor)) state.flavor = '';
+    if (companyFilter) {
+      companyFilter.innerHTML = ['', ...companies].map((value) => `<button type="button" class="${state.company === value ? 'is-active' : ''}" data-company-value="${escapeHtml(value)}">${escapeHtml(value || 'All companies')}</button>`).join('');
+    }
     if (productFilter) {
-      productFilter.innerHTML = ['', ...products].map((value) => `<button type="button" class="${state.product === value ? 'is-active' : ''}" data-product-value="${escapeHtml(value)}">${escapeHtml(value || 'All')}</button>`).join('');
+      const visibleCompanies = state.company ? [state.company] : companies;
+      const groups = visibleCompanies.map((company) => {
+        const companyProducts = uniqueLabels(state.skus
+          .filter((sku) => sku.brand_name === company)
+          .map((sku) => sku.base_product_name));
+        const buttons = companyProducts.map((product) => `<button type="button" class="${state.company === company && state.product === product ? 'is-active' : ''}" data-product-company="${escapeHtml(company)}" data-product-value="${escapeHtml(product)}">${escapeHtml(product)}</button>`).join('');
+        return `<div class="whatsapp-product-company-group"><span>${escapeHtml(company)}</span><div>${buttons}</div></div>`;
+      }).join('');
+      productFilter.innerHTML = `<button type="button" class="${state.product === '' ? 'is-active' : ''}" data-product-company="${escapeHtml(state.company)}" data-product-value="">All products</button><div class="whatsapp-product-company-groups">${groups}</div>`;
     }
     if (flavorFilter) {
       flavorFilter.innerHTML = ['', ...flavors].map((value) => `<button type="button" class="${state.flavor === value ? 'is-active' : ''}" data-flavor-value="${escapeHtml(value)}">${escapeHtml(value || 'All')}</button>`).join('');
@@ -92,6 +109,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!skuList) return;
     const query = String(skuSearch?.value || '').trim().toLowerCase();
     const rows = state.skus.filter((sku) => {
+      if (state.company && sku.brand_name !== state.company) return false;
       if (state.product && sku.base_product_name !== state.product) return false;
       if (state.flavor && sku.flavor_name !== state.flavor) return false;
       return !query || [sku.sku, sku.tag, sku.product_name, sku.brand_name, sku.flavor_name]
@@ -215,10 +233,21 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   skuSearch?.addEventListener('input', renderCatalog);
+  companyFilter?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-company-value]');
+    if (!button) return;
+    state.company = button.dataset.companyValue || '';
+    state.product = '';
+    state.flavor = '';
+    renderFilters();
+    renderCatalog();
+  });
   productFilter?.addEventListener('click', (event) => {
     const button = event.target.closest('[data-product-value]');
     if (!button) return;
+    state.company = button.dataset.productCompany || state.company;
     state.product = button.dataset.productValue || '';
+    state.flavor = '';
     renderFilters();
     renderCatalog();
   });

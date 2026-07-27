@@ -30946,6 +30946,41 @@ button.admin-accounting-metric {
   color: var(--admin-bg);
 }
 
+.whatsapp-product-filter {
+  display: grid;
+  justify-items: start;
+}
+
+.whatsapp-product-company-groups {
+  display: grid;
+  width: 100%;
+  gap: 9px;
+}
+
+.whatsapp-product-company-group {
+  display: grid;
+  grid-template-columns: minmax(110px, 150px) minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--admin-border);
+  border-radius: 11px;
+  background: var(--admin-surface-soft);
+}
+
+.whatsapp-product-company-group > span {
+  padding: 8px 2px;
+  color: var(--admin-text);
+  font: 800 12px/1.25 "Space Grotesk", sans-serif;
+}
+
+.whatsapp-product-company-group > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
 .whatsapp-sku-list,
 .whatsapp-order-cart {
   max-height: 520px;
@@ -31350,6 +31385,13 @@ button.admin-accounting-metric {
   }
   .whatsapp-sku-search {
     width: 100%;
+  }
+  .whatsapp-product-company-group {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+  .whatsapp-product-company-group > span {
+    padding-bottom: 2px;
   }
   .whatsapp-order-totals {
     display: grid;

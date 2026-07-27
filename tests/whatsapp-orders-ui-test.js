@@ -13,9 +13,10 @@ assert.match(nav, /'overview' => \['whatsapp-orders'/, 'The homepage hamburger m
 assert.match(dashboardScript, /overview: \['whatsapp-orders'/, 'The dashboard client must preserve WhatsApp Orders when rebuilding the hamburger menu.');
 assert.match(page, /name="shipping_cost"[\s\S]*?Saved for Executive metrics only/, 'The builder must capture shipping cost with its metric-only scope.');
 assert.match(page, /name="label"[\s\S]*?deadline_hours/, 'The order must follow the Partner label and deadline flow.');
-assert.match(page, /data-product-filter[\s\S]*?data-flavor-filter[\s\S]*?Order preview/, 'Product entry must mirror the Partner product and flavor filtering flow.');
+assert.match(page, /data-company-filter[\s\S]*?data-product-filter[\s\S]*?data-flavor-filter[\s\S]*?Order preview/, 'Product entry must separate products by company before flavor filtering.');
 assert.match(script, /items: \[\.\.\.state\.cart\.values\(\)\][\s\S]*?action=create/, 'The builder must submit constructed SKU lines.');
 assert.match(script, /data-cart-delta[\s\S]*?renderFilters/, 'The order preview must provide quantity steppers and filtered SKU entry.');
+assert.match(script, /sku\.brand_name === company[\s\S]*?whatsapp-product-company-group/, 'Product options must be grouped by company.');
 
 const styles = fs.readFileSync(path.join(root, 'admin.css'), 'utf8');
 const whatsappStyles = styles.slice(styles.indexOf('/* WhatsApp order builder */'));
