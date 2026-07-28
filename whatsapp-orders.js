@@ -201,6 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
         <div class="whatsapp-history-card-state">
           <span class="whatsapp-status is-${escapeHtml(String(order.status || '').toLowerCase().replaceAll('_', '-'))}">${escapeHtml(statusLabel(order.status))}</span>
+          <a class="admin-ghost-btn" href="../whatsapp-order/?order=${encodeURIComponent(order.order_id)}">View details</a>
           ${failed ? `<button type="button" class="admin-ghost-btn" data-retry-order="${escapeHtml(order.order_id)}">Retry Store Ops</button>` : ''}
         </div>
         ${order.publication_error ? `<p>${escapeHtml(order.publication_error)}</p>` : ''}

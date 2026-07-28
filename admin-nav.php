@@ -65,6 +65,12 @@ function admin_quick_menu_definitions(): array
             'label' => 'WhatsApp Orders',
             'description' => 'Construct and list direct orders',
         ],
+        'whatsapp-history' => [
+            'href' => '../whatsapp-order-history/',
+            'icon' => 'orders',
+            'label' => 'WhatsApp History',
+            'description' => 'Full direct-order ledger and details',
+        ],
         'wallet' => [
             'href' => '../dashboard/?view=wallet',
             'view' => 'wallet',
@@ -175,7 +181,7 @@ function admin_quick_menu_definitions(): array
 function admin_quick_menu_context_map(): array
 {
     return [
-        'overview' => ['whatsapp-orders', 'inventory-recap', 'daily', 'orders', 'campaigns', 'ad-view', 'back-dash', 'context', 'settings'],
+        'overview' => ['whatsapp-orders', 'whatsapp-history', 'inventory-recap', 'daily', 'orders', 'campaigns', 'ad-view', 'back-dash', 'context', 'settings'],
         'daily' => ['home', 'orders', 'campaigns', 'back-dash', 'context', 'settings'],
         'orders' => ['home', 'daily', 'campaigns', 'back-dash', 'context', 'settings'],
         'wallet' => ['home', 'orders', 'daily', 'back-dash', 'settings'],
@@ -195,7 +201,8 @@ function admin_quick_menu_context_map(): array
         'api' => ['home', 'back-dash', 'context', 'hard-set', 'settings'],
         'sku-db' => ['home', 'daily', 'orders', 'back-dash', 'settings'],
         'partner-profiles' => ['home', 'partners', 'daily', 'orders', 'campaigns', 'settings'],
-        'whatsapp-orders' => ['home', 'orders', 'daily', 'sku-db', 'settings'],
+        'whatsapp-orders' => ['whatsapp-history', 'home', 'orders', 'daily', 'sku-db', 'settings'],
+        'whatsapp-history' => ['whatsapp-orders', 'home', 'orders', 'daily', 'settings'],
     ];
 }
 
@@ -230,6 +237,8 @@ function admin_normalize_quick_menu_context(string $context): string
         'inventory-recap' => 'inventory-recap',
         'whatsapp' => 'whatsapp-orders',
         'whatsapp-orders' => 'whatsapp-orders',
+        'whatsapp-history' => 'whatsapp-history',
+        'whatsapp-order-history' => 'whatsapp-history',
     ];
     $context = $aliases[$normalized] ?? $normalized;
 
@@ -298,6 +307,9 @@ function admin_current_menu_context(): string
     }
     if (str_contains($path, '/partner-program/')) {
         return 'partners';
+    }
+    if (str_contains($path, '/whatsapp-order-history/') || str_contains($path, '/whatsapp-order/')) {
+        return 'whatsapp-history';
     }
     if (str_contains($path, '/whatsapp-orders/')) {
         return 'whatsapp-orders';

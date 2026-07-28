@@ -366,8 +366,9 @@ function jg_whatsapp_order_items(PDO $pdo, int $id): array
     ], $stmt->fetchAll());
 }
 
-function jg_whatsapp_format_order(PDO $pdo, array $row): array
+function jg_whatsapp_format_order(PDO $pdo, array $row, bool $includeItems = true): array
 {
+    $items = $includeItems ? jg_whatsapp_order_items($pdo, (int) $row['id']) : [];
     return [
         'order_id' => (string) $row['order_id'],
         'status' => (string) $row['status'],
@@ -390,8 +391,13 @@ function jg_whatsapp_format_order(PDO $pdo, array $row): array
         'publication_attempts' => (int) $row['publication_attempts'],
         'publication_error' => (string) $row['publication_error'],
         'created_at' => jg_website_atom((string) $row['created_at']),
+        'updated_at' => jg_website_atom((string) ($row['updated_at'] ?? $row['created_at'])),
         'listed_at' => !empty($row['listed_at']) ? jg_website_atom((string) $row['listed_at']) : null,
-        'items' => jg_whatsapp_order_items($pdo, (int) $row['id']),
+        'fulfilled_at' => !empty($row['fulfilled_at']) ? jg_website_atom((string) $row['fulfilled_at']) : null,
+        'item_count' => isset($row['item_count'])
+            ? (int) $row['item_count']
+            : array_reduce($items, static fn (int $sum, array $item): int => $sum + (int) ($item['quantity'] ?? 0), 0),
+        'items' => $items,
     ];
 }
 
@@ -585,6 +591,97 @@ function jg_whatsapp_list_orders(PDO $pdo, int $limit = 100): array
     $limit = max(1, min(250, $limit));
     $stmt = $pdo->query('SELECT * FROM whatsapp_orders ORDER BY created_at DESC, id DESC LIMIT ' . $limit);
     return array_map(static fn (array $row): array => jg_whatsapp_format_order($pdo, $row), $stmt->fetchAll());
+}
+
+/** @return array{orders:array<int,array<string,mixed>>,summary:array<string,float|int>,pagination:array<string,int>,filters:array<string,string>} */
+function jg_whatsapp_order_history(PDO $pdo, int $page = 1, int $perPage = 50, string $query = '', string $status = ''): array
+{
+    jg_whatsapp_ensure_schema($pdo);
+    $page = max(1, $page);
+    $perPage = max(10, min(100, $perPage));
+    $query = trim($query);
+    $status = strtoupper(trim($status));
+    $allowedStatuses = ['', 'PENDING_PUBLISH', 'PUBLISH_FAILED', 'IS_LISTED', 'IS_BEING_FULFILLED', 'FULFILLED'];
+    if (!in_array($status, $allowedStatuses, true)) {
+        throw new InvalidArgumentException('Choose a valid WhatsApp order status.');
+    }
+
+    $where = [];
+    $params = [];
+    if ($query !== '') {
+        $where[] = '(o.order_id LIKE :query_order OR o.customer_name LIKE :query_customer
+            OR o.customer_phone LIKE :query_phone OR o.customer_address LIKE :query_address
+            OR EXISTS (
+                SELECT 1 FROM whatsapp_order_items search_item
+                WHERE search_item.whatsapp_order_id = o.id
+                  AND (search_item.sku LIKE :query_sku OR search_item.product_name LIKE :query_product)
+            ))';
+        $needle = '%' . mb_substr($query, 0, 160) . '%';
+        $params = [
+            ':query_order' => $needle,
+            ':query_customer' => $needle,
+            ':query_phone' => $needle,
+            ':query_address' => $needle,
+            ':query_sku' => $needle,
+            ':query_product' => $needle,
+        ];
+    }
+    if ($status !== '') {
+        $where[] = 'o.status = :status';
+        $params[':status'] = $status;
+    }
+    $whereSql = $where ? ' WHERE ' . implode(' AND ', $where) : '';
+
+    $countStmt = $pdo->prepare('SELECT COUNT(*) FROM whatsapp_orders o' . $whereSql);
+    $countStmt->execute($params);
+    $total = (int) $countStmt->fetchColumn();
+    $totalPages = max(1, (int) ceil($total / $perPage));
+    $page = min($page, $totalPages);
+    $offset = ($page - 1) * $perPage;
+
+    $summaryStmt = $pdo->prepare(
+        'SELECT COALESCE(SUM(o.merchandise_total + o.shipping_cost), 0) AS customer_total,
+                COALESCE(SUM(o.merchandise_total), 0) AS merchandise_total,
+                COALESCE(SUM(o.discount_total), 0) AS discount_total,
+                COALESCE(SUM(o.shipping_cost), 0) AS shipping_total
+         FROM whatsapp_orders o' . $whereSql
+    );
+    $summaryStmt->execute($params);
+    $summaryRow = $summaryStmt->fetch() ?: [];
+
+    $itemsStmt = $pdo->prepare(
+        'SELECT COALESCE(SUM(i.quantity), 0)
+         FROM whatsapp_order_items i
+         INNER JOIN whatsapp_orders o ON o.id = i.whatsapp_order_id' . $whereSql
+    );
+    $itemsStmt->execute($params);
+
+    $ordersStmt = $pdo->prepare(
+        'SELECT o.*,
+                COALESCE((SELECT SUM(item_count.quantity) FROM whatsapp_order_items item_count WHERE item_count.whatsapp_order_id = o.id), 0) AS item_count
+         FROM whatsapp_orders o' . $whereSql .
+        ' ORDER BY o.created_at DESC, o.id DESC LIMIT ' . $perPage . ' OFFSET ' . $offset
+    );
+    $ordersStmt->execute($params);
+
+    return [
+        'orders' => array_map(static fn (array $row): array => jg_whatsapp_format_order($pdo, $row, false), $ordersStmt->fetchAll()),
+        'summary' => [
+            'orders' => $total,
+            'item_count' => (int) $itemsStmt->fetchColumn(),
+            'customer_total' => (float) ($summaryRow['customer_total'] ?? 0),
+            'merchandise_total' => (float) ($summaryRow['merchandise_total'] ?? 0),
+            'discount_total' => (float) ($summaryRow['discount_total'] ?? 0),
+            'shipping_total' => (float) ($summaryRow['shipping_total'] ?? 0),
+        ],
+        'pagination' => [
+            'page' => $page,
+            'per_page' => $perPage,
+            'total' => $total,
+            'total_pages' => $totalPages,
+        ],
+        'filters' => ['query' => $query, 'status' => $status],
+    ];
 }
 
 function jg_whatsapp_metric_order_rows(PDO $pdo, string $startDate, string $endDate): array

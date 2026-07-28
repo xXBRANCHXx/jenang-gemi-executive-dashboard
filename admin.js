@@ -2342,7 +2342,7 @@ document.addEventListener('DOMContentLoaded', () => {
     settings: 'settings'
   };
   const quickMenuByContext = {
-	    overview: ['whatsapp-orders', 'inventory-recap', 'daily', 'orders', 'campaigns', 'back-dash', 'context', 'settings'],
+	    overview: ['whatsapp-orders', 'whatsapp-history', 'inventory-recap', 'daily', 'orders', 'campaigns', 'back-dash', 'context', 'settings'],
 	    daily: ['home', 'orders', 'campaigns', 'back-dash', 'context', 'settings'],
 	    orders: ['home', 'daily', 'campaigns', 'back-dash', 'context', 'settings'],
 	    wallet: ['home', 'orders', 'daily', 'back-dash', 'settings'],

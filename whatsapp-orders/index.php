@@ -27,7 +27,7 @@ $pageJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-orders.js');
     <link rel="stylesheet" href="../admin.css?v=<?php echo urlencode($adminCssVersion ?: '1'); ?>">
 </head>
 <body class="admin-body is-dashboard is-whatsapp-orders-page">
-    <div class="admin-build-badge" aria-label="Dashboard build version">Build exec3.92.4</div>
+    <div class="admin-build-badge" aria-label="Dashboard build version">Build exec3.92.5</div>
     <div class="admin-app admin-app-suite" data-whatsapp-orders data-endpoint="../api/whatsapp-orders/">
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
@@ -156,7 +156,10 @@ $pageJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-orders.js');
                     <section class="whatsapp-order-history" aria-labelledby="whatsapp-history-title">
                         <div class="whatsapp-order-history-head">
                             <div><span>Live lifecycle</span><h2 id="whatsapp-history-title">Recent WhatsApp orders</h2></div>
-                            <button type="button" class="admin-ghost-btn" data-refresh-orders>Refresh</button>
+                            <div class="whatsapp-order-history-actions">
+                                <a class="admin-ghost-btn" href="../whatsapp-order-history/">View all history</a>
+                                <button type="button" class="admin-ghost-btn" data-refresh-orders>Refresh</button>
+                            </div>
                         </div>
                         <div class="whatsapp-order-history-list" data-order-list><p class="admin-empty">Loading orders…</p></div>
                     </section>

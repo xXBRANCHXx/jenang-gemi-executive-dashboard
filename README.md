@@ -10,6 +10,9 @@ Private admin dashboard for `admin.jenanggemi.com` behind a public Launch Pad.
 - `/api-health/`
 - `/profit-loss/` (Accounting workspace)
 - `/profit-and-loss/` (executive P&L report)
+- `/whatsapp-orders/` (direct-order builder)
+- `/whatsapp-order-history/` (searchable WhatsApp order ledger)
+- `/whatsapp-order/?order=WAEXEC-...` (read-only WhatsApp order breakdown)
 - `/sku-db/`
 - `/sku-db/new/`
 - `/logout/`
@@ -26,6 +29,7 @@ Private admin dashboard for `admin.jenanggemi.com` behind a public Launch Pad.
 - `/api/zero-store/`
 - `/api/jenang-gemi-store/`
 - `/api/website-orders/`
+- `/api/whatsapp-orders/`
 - `/api/zero-website-orders/`
 - `/api/jenang-gemi-website-orders/`
 - `/api/hard-set/`
@@ -117,4 +121,4 @@ geometry under Lucide's ISC license.
 - Private website PDF labels use `JG_WEBSITE_LABEL_STORAGE_PATH` / `website_label_storage_path`; WhatsApp order labels use `JG_WHATSAPP_LABEL_STORAGE_PATH` / `whatsapp_label_storage_path`. Both defaults are outside this dashboard's document root.
 - Listed WhatsApp orders contribute merchandise revenue, order quantity, item quantity, snapshotted SKU COGS, gross profit, and product rollups to Executive sales metrics. Shipping is tracked separately at `months[].shipping_cost` and `totals.shipping_cost`; it is treated as a pass-through amount rather than merchandise revenue.
 - WhatsApp quantities are validated against live SKU stock when submitted. Store Ops rechecks and deducts that stock exactly once when the order is fulfilled.
-- WhatsApp Orders in the homepage quick menu constructs paid direct orders in Executive, stores merchandise and shipping amounts for future metrics, and sends only customer, SKU, deadline, notes, and label data to Store Ops as `IS_LISTED`.
+- WhatsApp Orders in the homepage quick menu constructs paid direct orders in Executive, stores merchandise and shipping amounts for future metrics, and sends only customer, SKU, deadline, notes, and label data to Store Ops as `IS_LISTED`. WhatsApp History provides a paginated ledger across all saved direct orders; each row opens a read-only breakdown with customer, product, price, discount, shipping, COGS, margin, and lifecycle details.

@@ -31574,6 +31574,20 @@ button.admin-accounting-metric {
   margin-top: 28px;
 }
 
+.whatsapp-order-history-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.whatsapp-order-history-actions a,
+.whatsapp-history-card-state a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
 .whatsapp-order-history-list {
   display: grid;
   gap: 10px;
@@ -31653,6 +31667,12 @@ button.admin-accounting-metric {
   .whatsapp-order-history-head {
     align-items: stretch;
     flex-direction: column;
+  }
+  .whatsapp-order-history-actions {
+    width: 100%;
+  }
+  .whatsapp-order-history-actions > * {
+    flex: 1 1 0;
   }
   .whatsapp-order-flow {
     grid-template-columns: repeat(3, 1fr);

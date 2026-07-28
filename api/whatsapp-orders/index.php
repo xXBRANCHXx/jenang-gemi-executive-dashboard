@@ -79,6 +79,23 @@ try {
     if ($method === 'GET' && $action === 'list') {
         jg_whatsapp_api_json(['ok' => true, 'orders' => jg_whatsapp_list_orders($pdo)]);
     }
+    if ($method === 'GET' && $action === 'history') {
+        jg_whatsapp_api_json(['ok' => true] + jg_whatsapp_order_history(
+            $pdo,
+            (int) ($_GET['page'] ?? 1),
+            (int) ($_GET['per_page'] ?? 50),
+            (string) ($_GET['query'] ?? ''),
+            (string) ($_GET['status'] ?? '')
+        ));
+    }
+    if ($method === 'GET' && $action === 'order') {
+        $orderId = trim((string) ($_GET['order'] ?? $_GET['order_id'] ?? ''));
+        if ($orderId === '') throw new InvalidArgumentException('Choose a WhatsApp order.');
+        jg_whatsapp_api_json([
+            'ok' => true,
+            'order' => jg_whatsapp_format_order($pdo, jg_whatsapp_internal_order($pdo, $orderId)),
+        ]);
+    }
     if ($method !== 'POST') {
         jg_whatsapp_api_json(['ok' => false, 'error' => 'Unknown action.'], 404);
     }
