@@ -121,6 +121,25 @@ function jg_whatsapp_item_discount(mixed $value, float $grossTotal): array
     return ['rate' => $rate, 'total' => $total, 'net' => round($grossTotal - $total, 2)];
 }
 
+/** @return array{rate:float,total:float,net:float} */
+function jg_whatsapp_item_sale_price_discount(mixed $value, float $unitPrice, int $quantity): array
+{
+    $unitPrice = round(max(0, $unitPrice), 2);
+    $quantity = max(1, $quantity);
+    $salePrice = jg_whatsapp_money($value, 'Item sale price');
+    if ($salePrice > $unitPrice) {
+        throw new InvalidArgumentException('Item sale price cannot be more than its catalog price.');
+    }
+    $grossTotal = round($unitPrice * $quantity, 2);
+    $net = round($salePrice * $quantity, 2);
+    $total = round($grossTotal - $net, 2);
+    return [
+        'rate' => $grossTotal > 0 ? round($total / $grossTotal * 100, 4) : 0.0,
+        'total' => $total,
+        'net' => $net,
+    ];
+}
+
 /**
  * @return array{type:string,value:float,total:float,net:float}
  */
@@ -268,14 +287,23 @@ function jg_whatsapp_normalize_items(PDO $skuPdo, mixed $value): array
                 $available === 1 ? '' : 's'
             ));
         }
-        $unitPrice = jg_whatsapp_money($item['unit_price'] ?? $row['sale_price'] ?? 0, 'Unit price');
+        $unitPrice = jg_whatsapp_money($row['sale_price'] ?? 0, 'Catalog unit price');
         $name = implode(' · ', array_values(array_filter([
             trim((string) ($row['brand_name'] ?? '')),
             trim((string) ($row['product_name'] ?? '')),
             trim((string) ($row['flavor_name'] ?? '')),
         ])));
         $grossLineTotal = round($quantity * $unitPrice, 2);
-        $itemDiscount = jg_whatsapp_item_discount($item['discount_rate'] ?? $item['discountRate'] ?? 0, $grossLineTotal);
+        $hasExactSalePrice = array_key_exists('sale_price', $item);
+        $legacyUnitPrice = array_key_exists('unit_price', $item)
+            ? jg_whatsapp_money($item['unit_price'], 'Item sale price')
+            : $unitPrice;
+        if (!$hasExactSalePrice && abs($legacyUnitPrice - $unitPrice) > 0.009) {
+            $hasExactSalePrice = true;
+        }
+        $itemDiscount = $hasExactSalePrice
+            ? jg_whatsapp_item_sale_price_discount($item['sale_price'] ?? $legacyUnitPrice, $unitPrice, $quantity)
+            : jg_whatsapp_item_discount($item['discount_rate'] ?? $item['discountRate'] ?? 0, $grossLineTotal);
         $items[] = [
             'sku' => $sku,
             'product_name' => $name !== '' ? $name : $sku,

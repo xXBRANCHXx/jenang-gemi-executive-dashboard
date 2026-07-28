@@ -20,6 +20,8 @@ assert.match(script, /items: \[\.\.\.state\.cart\.values\(\)\][\s\S]*?action=cre
 assert.match(script, /discount: values\.discount\.type[\s\S]*?value: values\.discount\.value/, 'The builder must persist the selected order discount.');
 assert.match(script, /data-cart-discount-toggle[\s\S]*?data-cart-discount-label[\s\S]*?data-cart-discount/, 'Each order-preview line must expose a compact percentage discount editor.');
 assert.match(script, /discount_rate: itemDiscountRate\(item\)/, 'The builder must submit each item percentage to the server.');
+assert.match(script, /unit_price: itemListPrice\(item\), sale_price: itemSalePrice\(item\)/, 'The builder must submit catalog gross price separately from the edited item sale price.');
+assert.match(script, /data-cart-price[\s\S]*?setItemSalePrice/, 'Editing an item sale price must synchronize its discount.');
 assert.match(script, /data-cart-delta[\s\S]*?renderFilters/, 'The order preview must provide quantity steppers and filtered SKU entry.');
 assert.match(script, /sku\.brand_name === company[\s\S]*?whatsapp-product-company-group/, 'Product options must be grouped by company.');
 assert.match(script, /class="whatsapp-sku-add"[\s\S]*?\+<\/span> Add/, 'SKU actions must use an inline + Add control.');
@@ -52,6 +54,7 @@ assert.ok(!outboundPayload.includes("'shipping_cost'"), 'Shipping cost must neve
 assert.ok(!outboundPayload.includes("'unit_price'"), 'Executive sale prices must stay out of the Store Ops fulfillment payload.');
 assert.match(bootstrap, /current_stock[\s\S]*?only has %d unit/, 'Submission must reject quantities above current SKU stock.');
 assert.match(bootstrap, /jg_whatsapp_item_discount[\s\S]*?discount_rate[\s\S]*?discountableSubtotal/, 'The server must apply item discounts before the order discount.');
+assert.match(bootstrap, /jg_whatsapp_item_sale_price_discount[\s\S]*?Catalog unit price/, 'The server must retain catalog price as gross and convert edited sale price to an exact discount.');
 assert.match(bootstrap, /function jg_whatsapp_merge_sales_summary[\s\S]*?whatsapp_orders_merged/, 'Listed WhatsApp orders must merge into Executive metrics.');
 
 const salesApi = fs.readFileSync(path.join(root, 'api', 'sales', 'index.php'), 'utf8');

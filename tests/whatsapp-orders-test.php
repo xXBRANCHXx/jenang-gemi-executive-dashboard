@@ -24,6 +24,10 @@ whatsapp_expect(25000.0, $salePriceDiscount['total'], 'Sale price must represent
 $itemDiscount = jg_whatsapp_item_discount(15, 100000);
 whatsapp_expect(15000.0, $itemDiscount['total'], 'Item percentage discounts must reduce only their own gross line total.');
 whatsapp_expect(85000.0, $itemDiscount['net'], 'Item percentage discounts must preserve the discounted line total.');
+$exactItemSale = jg_whatsapp_item_sale_price_discount(10000, 11900, 2);
+whatsapp_expect(23800.0, $exactItemSale['net'] + $exactItemSale['total'], 'Edited item sale prices must preserve catalog gross revenue.');
+whatsapp_expect(3800.0, $exactItemSale['total'], 'Edited item sale prices must become an exact item discount.');
+whatsapp_expect(20000.0, $exactItemSale['net'], 'Edited item sale prices must become exact net line revenue.');
 $allocated = jg_whatsapp_allocate_discount([
     ['line_total' => 60000],
     ['line_total' => 40000],
@@ -55,6 +59,14 @@ try {
     $invalidItemDiscountRejected = true;
 }
 whatsapp_expect(true, $invalidItemDiscountRejected, 'Item discounts above 100% must be rejected.');
+
+$itemMarkupRejected = false;
+try {
+    jg_whatsapp_item_sale_price_discount(12000, 11900, 1);
+} catch (InvalidArgumentException) {
+    $itemMarkupRejected = true;
+}
+whatsapp_expect(true, $itemMarkupRejected, 'An edited item sale price cannot exceed its catalog price.');
 
 $metricSummary = jg_whatsapp_apply_sales_aggregates(
     ['ok' => true, 'year' => 2026, 'months' => [], 'totals' => [], 'platforms' => [], 'accounts' => [], 'products' => []],

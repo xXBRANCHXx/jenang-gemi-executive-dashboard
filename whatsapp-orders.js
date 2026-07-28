@@ -40,13 +40,29 @@ document.addEventListener('DOMContentLoaded', () => {
     .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;').replaceAll("'", '&#039;');
   const money = (value) => currency.format(Number(value || 0));
-  const itemDiscountRate = (item) => Math.min(100, Math.max(0, Number(item?.discount_rate || 0)));
   const percent = (value) => Number(value || 0).toLocaleString('id-ID', { maximumFractionDigits: 2 });
+  const roundMoney = (value) => Math.round(Math.max(0, Number(value || 0)) * 100) / 100;
+  const itemListPrice = (item) => roundMoney(item?.list_price ?? item?.catalog_sale_price ?? item?.unit_price ?? 0);
+  const itemSalePrice = (item) => Math.min(itemListPrice(item), roundMoney(item?.sale_price ?? itemListPrice(item)));
   const itemAmounts = (item) => {
-    const gross = Math.max(1, Number(item.quantity || 1)) * Math.max(0, Number(item.unit_price || 0));
-    const rate = itemDiscountRate(item);
-    const discountTotal = Math.round(gross * rate) / 100;
-    return { gross, rate, discountTotal, net: Math.max(0, gross - discountTotal) };
+    const quantity = Math.max(1, Number(item.quantity || 1));
+    const listPrice = itemListPrice(item);
+    const salePrice = itemSalePrice(item);
+    const gross = roundMoney(quantity * listPrice);
+    const net = roundMoney(quantity * salePrice);
+    const discountTotal = roundMoney(gross - net);
+    const rate = gross > 0 ? Math.round((discountTotal / gross * 100) * 10000) / 10000 : 0;
+    return { listPrice, salePrice, gross, rate, discountTotal, net };
+  };
+  const itemDiscountRate = (item) => itemAmounts(item).rate;
+  const setItemSalePrice = (item, value) => {
+    item.sale_price = Math.min(itemListPrice(item), roundMoney(value));
+    item.discount_rate = itemDiscountRate(item);
+  };
+  const setItemDiscountRate = (item, value) => {
+    const rate = Math.min(100, Math.max(0, Number(value || 0)));
+    item.discount_rate = rate;
+    item.sale_price = roundMoney(itemListPrice(item) * (1 - rate / 100));
   };
 
   const request = async (url, options = {}) => {
@@ -170,7 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="whatsapp-cart-row-title"><span>${escapeHtml(item.sku)}</span><strong>${escapeHtml(item.product_name)}</strong></div>
         <div class="whatsapp-cart-row-controls">
           <label class="whatsapp-quantity-field"><span>Qty</span><div><button type="button" data-cart-delta="-1" data-cart-sku="${escapeHtml(item.sku)}">−</button><input type="number" min="1" max="${escapeHtml(Math.max(1, Number(item.current_stock || 1)))}" step="1" value="${escapeHtml(item.quantity)}" data-cart-quantity="${escapeHtml(item.sku)}"><button type="button" data-cart-delta="1" data-cart-sku="${escapeHtml(item.sku)}"${Number(item.quantity || 0) >= Number(item.current_stock || 0) ? ' disabled' : ''}>+</button></div></label>
-          <label class="whatsapp-price-field"><span>Unit price</span><div><b>Rp</b><input type="number" min="0" max="99999999999999" step="1" value="${escapeHtml(item.unit_price)}" data-cart-price="${escapeHtml(item.sku)}"></div></label>
+          <label class="whatsapp-price-field"><span>Sale price</span><div><b>Rp</b><input type="number" min="0" max="${escapeHtml(amounts.listPrice)}" step="1" value="${escapeHtml(amounts.salePrice)}" data-cart-price="${escapeHtml(item.sku)}"></div></label>
           <div class="whatsapp-item-discount${isEditingDiscount ? ' is-editing' : ''}">
             <button type="button" class="whatsapp-item-discount-toggle${amounts.rate > 0 ? ' is-active' : ''}" data-cart-discount-toggle="${escapeHtml(item.sku)}" aria-label="Set item discount for ${escapeHtml(item.product_name)}" aria-expanded="${isEditingDiscount ? 'true' : 'false'}"><span aria-hidden="true">%</span><strong data-cart-discount-label="${escapeHtml(item.sku)}"${amounts.rate > 0 ? '' : ' hidden'}>${escapeHtml(percent(amounts.rate))}</strong></button>
             ${isEditingDiscount ? `<div class="whatsapp-item-discount-editor"><input type="number" min="0" max="100" step="0.01" inputmode="decimal" value="${escapeHtml(amounts.rate)}" data-cart-discount="${escapeHtml(item.sku)}" aria-label="Item discount percentage for ${escapeHtml(item.product_name)}"><button type="button" data-cart-discount-done="${escapeHtml(item.sku)}" aria-label="Finish editing item discount">✓</button></div>` : ''}
@@ -242,7 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (available < 1 || Number(existing?.quantity || 0) >= available) return;
     state.cart.set(sku.sku, existing
       ? { ...existing, quantity: Math.min(available, Number(existing.quantity || 0) + 1) }
-      : { ...sku, quantity: 1, unit_price: Math.max(0, Number(sku.sale_price || 0)), discount_rate: 0 });
+      : { ...sku, quantity: 1, list_price: roundMoney(sku.sale_price), unit_price: roundMoney(sku.sale_price), sale_price: roundMoney(sku.sale_price), discount_rate: 0 });
     renderCatalog();
     renderCart();
   });
@@ -284,15 +300,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   cartList?.addEventListener('input', (event) => {
     const input = event.target;
-    const sku = input.dataset.cartDiscount;
+    const sku = input.dataset.cartDiscount || input.dataset.cartPrice;
     if (!sku || !state.cart.has(sku)) return;
     const item = state.cart.get(sku);
-    item.discount_rate = Math.min(100, Math.max(0, Number(input.value || 0)));
+    if (input.dataset.cartPrice) setItemSalePrice(item, input.value);
+    if (input.dataset.cartDiscount) setItemDiscountRate(item, input.value);
     state.cart.set(sku, item);
     const label = cartList.querySelector(`[data-cart-discount-label="${CSS.escape(sku)}"]`);
     if (label) {
-      label.textContent = percent(item.discount_rate);
-      label.hidden = item.discount_rate <= 0;
+      const rate = itemDiscountRate(item);
+      label.textContent = percent(rate);
+      label.hidden = rate <= 0;
     }
     renderTotals();
   });
@@ -303,8 +321,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!sku || !state.cart.has(sku)) return;
     const item = state.cart.get(sku);
     if (input.dataset.cartQuantity) item.quantity = Math.max(1, Math.min(Math.max(1, Number(item.current_stock || 1)), Number(input.value || 1)));
-    if (input.dataset.cartPrice) item.unit_price = Math.max(0, Number(input.value || 0));
-    if (input.dataset.cartDiscount) item.discount_rate = Math.min(100, Math.max(0, Number(input.value || 0)));
+    if (input.dataset.cartPrice) setItemSalePrice(item, input.value);
+    if (input.dataset.cartDiscount) setItemDiscountRate(item, input.value);
     state.cart.set(sku, item);
     renderCart();
   });
@@ -392,7 +410,7 @@ document.addEventListener('DOMContentLoaded', () => {
       deadline_hours: Number(fields.get('deadline_hours') || 24),
       discount: values.discount.type ? { type: values.discount.type, value: values.discount.value } : null,
       items: [...state.cart.values()].map((item) => ({
-        sku: item.sku, quantity: item.quantity, unit_price: item.unit_price,
+        sku: item.sku, quantity: item.quantity, unit_price: itemListPrice(item), sale_price: itemSalePrice(item),
         discount_rate: itemDiscountRate(item)
       }))
     };
