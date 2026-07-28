@@ -15,7 +15,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const labelName = root.querySelector('[data-label-name]');
   const deadlineInput = root.querySelector('[data-deadline-input]');
   const deadlineValue = root.querySelector('[data-deadline-value]');
+  const merchandiseSubtotal = root.querySelector('[data-merchandise-subtotal]');
   const merchandiseTotal = root.querySelector('[data-merchandise-total]');
+  const discountTotal = root.querySelector('[data-discount-total]');
+  const discountValue = root.querySelector('[data-discount-value]');
+  const discountPrefix = root.querySelector('[data-discount-prefix]');
+  const discountHelp = root.querySelector('[data-discount-help]');
   const shippingTotal = root.querySelector('[data-shipping-total]');
   const customerTotal = root.querySelector('[data-customer-total]');
   const submitButton = root.querySelector('[data-submit-order]');
@@ -25,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const shippingInput = form?.elements.namedItem('shipping_cost');
   const customerNameInput = form?.elements.namedItem('customer_name');
 
-  const state = { skus: [], cart: new Map(), company: '', product: '', flavor: '', submitting: false };
+  const state = { skus: [], cart: new Map(), company: '', product: '', flavor: '', submitting: false, discountMode: 'percentage' };
   const currency = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 });
   const dateTime = new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Jakarta' });
   const escapeHtml = (value) => String(value ?? '')
@@ -46,17 +51,32 @@ document.addEventListener('DOMContentLoaded', () => {
     formError.hidden = !message;
   };
 
+  const discount = (subtotal) => {
+    const raw = String(discountValue?.value || '').trim();
+    if (raw === '') return { type: '', value: 0, total: 0, valid: true, message: '' };
+    const value = Number(raw);
+    if (!Number.isFinite(value) || value < 0) return { type: state.discountMode, value: 0, total: 0, valid: false, message: 'Enter a valid non-negative discount value.' };
+    if (state.discountMode === 'percentage') {
+      if (value > 100) return { type: state.discountMode, value, total: 0, valid: false, message: 'Discount percentage cannot be more than 100%.' };
+      return { type: state.discountMode, value, total: Math.round(subtotal * value) / 100, valid: true, message: '' };
+    }
+    if (value > subtotal) return { type: state.discountMode, value, total: 0, valid: false, message: 'Sale price cannot be more than the merchandise subtotal.' };
+    return { type: state.discountMode, value, total: Math.max(0, subtotal - value), valid: true, message: '' };
+  };
+
   const totals = () => {
-    const merchandise = [...state.cart.values()].reduce(
+    const subtotal = [...state.cart.values()].reduce(
       (sum, item) => sum + Math.max(1, Number(item.quantity || 1)) * Math.max(0, Number(item.unit_price || 0)),
       0
     );
+    const orderDiscount = discount(subtotal);
+    const merchandise = subtotal - (orderDiscount.valid ? orderDiscount.total : 0);
     const shipping = Math.max(0, Number(shippingInput?.value || 0));
-    return { merchandise, shipping, customer: merchandise + shipping };
+    return { subtotal, discount: orderDiscount, merchandise, shipping, customer: merchandise + shipping };
   };
 
   const updateSubmitState = () => {
-    const ready = state.cart.size > 0 && Boolean(labelInput?.files?.[0]) && Boolean(customerNameInput?.value.trim());
+    const ready = state.cart.size > 0 && Boolean(labelInput?.files?.[0]) && Boolean(customerNameInput?.value.trim()) && totals().discount.valid;
     if (submitButton) {
       submitButton.disabled = state.submitting || !ready;
       submitButton.textContent = state.submitting ? 'Sending to Store Ops…' : 'Send listed order to Store Ops';
@@ -65,6 +85,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const renderTotals = () => {
     const values = totals();
+    if (merchandiseSubtotal) merchandiseSubtotal.textContent = money(values.subtotal);
+    if (discountTotal) discountTotal.textContent = money(values.discount.total);
     if (merchandiseTotal) merchandiseTotal.textContent = money(values.merchandise);
     if (shippingTotal) shippingTotal.textContent = money(values.shipping);
     if (customerTotal) customerTotal.textContent = money(values.customer);
@@ -155,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return `<article class="whatsapp-history-card${failed ? ' has-error' : ''}">
         <div class="whatsapp-history-card-main">
           <div class="whatsapp-history-id"><span>${escapeHtml(order.order_id)}</span><strong>${escapeHtml(order.customer?.name || 'Customer')}</strong></div>
-          <div class="whatsapp-history-meta"><span>${escapeHtml(quantity)} item${quantity === 1 ? '' : 's'}</span><span>${escapeHtml(money(order.merchandise_total))} + ${escapeHtml(money(order.shipping_cost))} shipping</span><span>${escapeHtml(dateTime.format(new Date(order.created_at)))}</span></div>
+          <div class="whatsapp-history-meta"><span>${escapeHtml(quantity)} item${quantity === 1 ? '' : 's'}</span><span>${escapeHtml(money(order.merchandise_total))}${Number(order.discount_total || 0) > 0 ? ` after ${escapeHtml(money(order.discount_total))} discount` : ''} + ${escapeHtml(money(order.shipping_cost))} shipping</span><span>${escapeHtml(dateTime.format(new Date(order.created_at)))}</span></div>
         </div>
         <div class="whatsapp-history-card-state">
           <span class="whatsapp-status is-${escapeHtml(String(order.status || '').toLowerCase().replaceAll('_', '-'))}">${escapeHtml(statusLabel(order.status))}</span>
@@ -263,6 +285,25 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   customerNameInput?.addEventListener('input', updateSubmitState);
   shippingInput?.addEventListener('input', renderTotals);
+  root.querySelectorAll('[data-discount-mode]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const nextMode = button.dataset.discountMode === 'sale_price' ? 'sale_price' : 'percentage';
+      if (nextMode !== state.discountMode && discountValue instanceof HTMLInputElement) discountValue.value = '';
+      state.discountMode = nextMode;
+      root.querySelectorAll('[data-discount-mode]').forEach((item) => item.classList.toggle('is-active', item === button));
+      if (discountPrefix) discountPrefix.textContent = state.discountMode === 'sale_price' ? 'Rp' : '%';
+      if (discountHelp) discountHelp.textContent = state.discountMode === 'sale_price'
+        ? 'Final merchandise price after discount.'
+        : 'Percentage off the merchandise total.';
+      if (discountValue instanceof HTMLInputElement) discountValue.max = state.discountMode === 'percentage' ? '100' : '99999999999999';
+      setError();
+      renderTotals();
+    });
+  });
+  discountValue?.addEventListener('input', () => {
+    setError();
+    renderTotals();
+  });
   deadlineInput?.addEventListener('input', () => {
     if (deadlineValue) deadlineValue.textContent = `${deadlineInput.value}h`;
   });
@@ -276,6 +317,11 @@ document.addEventListener('DOMContentLoaded', () => {
     event.preventDefault();
     setError();
     if (!form.reportValidity() || !state.cart.size || !labelInput?.files?.[0]) return;
+    const values = totals();
+    if (!values.discount.valid) {
+      setError(values.discount.message);
+      return;
+    }
     state.submitting = true;
     updateSubmitState();
     const fields = new FormData(form);
@@ -285,6 +331,7 @@ document.addEventListener('DOMContentLoaded', () => {
       customer_address: fields.get('customer_address'), notes: fields.get('notes'),
       shipping_cost: Number(fields.get('shipping_cost') || 0),
       deadline_hours: Number(fields.get('deadline_hours') || 24),
+      discount: values.discount.type ? { type: values.discount.type, value: values.discount.value } : null,
       items: [...state.cart.values()].map((item) => ({ sku: item.sku, quantity: item.quantity, unit_price: item.unit_price }))
     };
     const body = new FormData();
@@ -294,6 +341,10 @@ document.addEventListener('DOMContentLoaded', () => {
       await request(`${endpoint}?action=create`, { method: 'POST', body });
       form.reset();
       state.cart.clear();
+      state.discountMode = 'percentage';
+      root.querySelectorAll('[data-discount-mode]').forEach((button) => button.classList.toggle('is-active', button.dataset.discountMode === 'percentage'));
+      if (discountPrefix) discountPrefix.textContent = '%';
+      if (discountHelp) discountHelp.textContent = 'Percentage off the merchandise total.';
       if (deadlineValue) deadlineValue.textContent = '24h';
       if (labelName) labelName.textContent = 'Choose shipping label';
       renderCatalog();

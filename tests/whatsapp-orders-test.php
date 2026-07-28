@@ -16,6 +16,17 @@ whatsapp_expect(0.0, jg_whatsapp_money(0, 'Shipping cost'), 'Zero shipping must 
 whatsapp_expect(25000.0, jg_whatsapp_money('25000', 'Shipping cost'), 'Shipping cost must normalize as money.');
 whatsapp_expect('Customer One', jg_whatsapp_text(" Customer\nOne ", 'Customer name', 160, true), 'Customer text must normalize whitespace.');
 whatsapp_expect(true, str_starts_with(jg_whatsapp_generate_order_id(), 'WAEXEC-'), 'Executive WhatsApp orders need a distinct Store Ops prefix.');
+$percentageDiscount = jg_whatsapp_order_discount(['discount' => ['type' => 'percentage', 'value' => 10]], 100000);
+whatsapp_expect(10000.0, $percentageDiscount['total'], 'Percentage discounts must reduce merchandise revenue.');
+whatsapp_expect(90000.0, $percentageDiscount['net'], 'Percentage discounts must preserve the net merchandise total.');
+$salePriceDiscount = jg_whatsapp_order_discount(['discount' => ['type' => 'sale_price', 'value' => 75000]], 100000);
+whatsapp_expect(25000.0, $salePriceDiscount['total'], 'Sale price must represent the final merchandise price.');
+$allocated = jg_whatsapp_allocate_discount([
+    ['line_total' => 60000],
+    ['line_total' => 40000],
+], 25000, 100000);
+whatsapp_expect(75000.0, array_sum(array_column($allocated, 'line_total')), 'Allocated item revenue must reconcile to net order revenue.');
+whatsapp_expect(25000.0, array_sum(array_column($allocated, 'discount_total')), 'Allocated item discounts must reconcile to the order discount.');
 
 $negativeRejected = false;
 try {

@@ -31238,7 +31238,7 @@ button.admin-accounting-metric {
 
 .whatsapp-fulfillment-grid {
   display: grid;
-  grid-template-columns: 1.2fr .9fr .9fr;
+  grid-template-columns: 1.2fr .9fr .9fr 1fr;
   gap: 18px;
   margin-top: 24px;
 }
@@ -31288,6 +31288,74 @@ button.admin-accounting-metric {
 .whatsapp-range-field small,
 .whatsapp-money-field small {
   color: var(--admin-muted);
+}
+
+.whatsapp-discount-field {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--admin-border);
+  border-radius: 18px;
+  background: var(--admin-surface-soft);
+}
+
+.whatsapp-discount-field > span,
+.whatsapp-discount-field > small {
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.whatsapp-discount-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.whatsapp-discount-modes button {
+  min-height: 38px;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: var(--admin-surface);
+  color: var(--admin-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.whatsapp-discount-modes button.is-active {
+  border-color: var(--admin-text);
+  background: var(--admin-text);
+  color: var(--admin-bg);
+}
+
+.whatsapp-discount-field > label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  min-height: 46px;
+  padding: 0 14px;
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  background: var(--admin-surface);
+}
+
+.whatsapp-discount-field > label b {
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+
+.whatsapp-discount-field > label input {
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--admin-text);
+  font: inherit;
+  font-weight: 900;
+  outline: none;
+  text-align: right;
 }
 
 .whatsapp-range-field,

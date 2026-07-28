@@ -124,12 +124,26 @@ $pageJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-orders.js');
                                         <div><b>Rp</b><input type="number" name="shipping_cost" min="0" max="99999999999999" step="1" value="0" inputmode="numeric" required></div>
                                         <small>Saved for Executive metrics only</small>
                                     </label>
+                                    <div class="whatsapp-discount-field">
+                                        <span>Order discount</span>
+                                        <div class="whatsapp-discount-modes" role="group" aria-label="Discount type">
+                                            <button type="button" data-discount-mode="sale_price">Sale price</button>
+                                            <button type="button" class="is-active" data-discount-mode="percentage">Percentage</button>
+                                        </div>
+                                        <label>
+                                            <b data-discount-prefix>%</b>
+                                            <input type="number" min="0" max="100" step="0.01" inputmode="decimal" placeholder="0" data-discount-value>
+                                        </label>
+                                        <small data-discount-help>Percentage off the merchandise total.</small>
+                                    </div>
                                 </div>
                             </section>
 
                             <section class="whatsapp-order-submit-panel">
                                 <div class="whatsapp-order-totals">
-                                    <span>Merchandise <strong data-merchandise-total>Rp0</strong></span>
+                                    <span>Merchandise subtotal <strong data-merchandise-subtotal>Rp0</strong></span>
+                                    <span>Discount <strong data-discount-total>Rp0</strong></span>
+                                    <span>Merchandise total <strong data-merchandise-total>Rp0</strong></span>
                                     <span>Shipping <strong data-shipping-total>Rp0</strong></span>
                                     <span class="is-total">Customer total <strong data-customer-total>Rp0</strong></span>
                                 </div>

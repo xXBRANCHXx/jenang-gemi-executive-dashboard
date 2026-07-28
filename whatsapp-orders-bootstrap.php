@@ -24,7 +24,11 @@ function jg_whatsapp_ensure_schema(PDO $pdo): void
             customer_name VARCHAR(160) NOT NULL,
             customer_address VARCHAR(1000) NOT NULL DEFAULT "",
             customer_phone VARCHAR(50) NOT NULL DEFAULT "",
+            merchandise_subtotal DECIMAL(16,2) NOT NULL DEFAULT 0,
             merchandise_total DECIMAL(16,2) NOT NULL DEFAULT 0,
+            discount_type VARCHAR(24) NOT NULL DEFAULT "",
+            discount_value DECIMAL(16,2) NOT NULL DEFAULT 0,
+            discount_total DECIMAL(16,2) NOT NULL DEFAULT 0,
             shipping_cost DECIMAL(16,2) NOT NULL DEFAULT 0,
             deadline_hours TINYINT UNSIGNED NOT NULL DEFAULT 24,
             deadline_at DATETIME(6) NULL DEFAULT NULL,
@@ -54,6 +58,8 @@ function jg_whatsapp_ensure_schema(PDO $pdo): void
             quantity INT UNSIGNED NOT NULL,
             unit_price DECIMAL(16,2) NOT NULL DEFAULT 0,
             unit_cogs DECIMAL(16,2) NOT NULL DEFAULT 0,
+            discount_rate DECIMAL(7,4) NOT NULL DEFAULT 0,
+            discount_total DECIMAL(16,2) NOT NULL DEFAULT 0,
             line_total DECIMAL(16,2) NOT NULL DEFAULT 0,
             created_at DATETIME(6) NOT NULL,
             KEY idx_whatsapp_order_items_order (whatsapp_order_id),
@@ -65,6 +71,12 @@ function jg_whatsapp_ensure_schema(PDO $pdo): void
     jg_whatsapp_ensure_column($pdo, 'whatsapp_order_items', 'base_product_name', 'VARCHAR(120) NOT NULL DEFAULT "" AFTER brand_name');
     jg_whatsapp_ensure_column($pdo, 'whatsapp_order_items', 'flavor_name', 'VARCHAR(120) NOT NULL DEFAULT "" AFTER base_product_name');
     jg_whatsapp_ensure_column($pdo, 'whatsapp_order_items', 'unit_cogs', 'DECIMAL(16,2) NOT NULL DEFAULT 0 AFTER unit_price');
+    jg_whatsapp_ensure_column($pdo, 'whatsapp_orders', 'merchandise_subtotal', 'DECIMAL(16,2) NOT NULL DEFAULT 0 AFTER customer_phone');
+    jg_whatsapp_ensure_column($pdo, 'whatsapp_orders', 'discount_type', 'VARCHAR(24) NOT NULL DEFAULT "" AFTER merchandise_total');
+    jg_whatsapp_ensure_column($pdo, 'whatsapp_orders', 'discount_value', 'DECIMAL(16,2) NOT NULL DEFAULT 0 AFTER discount_type');
+    jg_whatsapp_ensure_column($pdo, 'whatsapp_orders', 'discount_total', 'DECIMAL(16,2) NOT NULL DEFAULT 0 AFTER discount_value');
+    jg_whatsapp_ensure_column($pdo, 'whatsapp_order_items', 'discount_rate', 'DECIMAL(7,4) NOT NULL DEFAULT 0 AFTER unit_cogs');
+    jg_whatsapp_ensure_column($pdo, 'whatsapp_order_items', 'discount_total', 'DECIMAL(16,2) NOT NULL DEFAULT 0 AFTER discount_rate');
 }
 
 function jg_whatsapp_ensure_column(PDO $pdo, string $tableName, string $columnName, string $definition): void
@@ -89,6 +101,51 @@ function jg_whatsapp_money(mixed $value, string $label): float
         throw new InvalidArgumentException($label . ' is outside the allowed range.');
     }
     return $amount;
+}
+
+/**
+ * @return array{type:string,value:float,total:float,net:float}
+ */
+function jg_whatsapp_order_discount(array $payload, float $subtotal): array
+{
+    $discount = is_array($payload['discount'] ?? null) ? $payload['discount'] : [];
+    $type = strtolower(trim((string) ($discount['type'] ?? '')));
+    $rawValue = $discount['value'] ?? null;
+    $subtotal = round(max(0, $subtotal), 2);
+    if ($type === '' || $rawValue === '' || $rawValue === null) {
+        return ['type' => '', 'value' => 0.0, 'total' => 0.0, 'net' => $subtotal];
+    }
+    if (!in_array($type, ['sale_price', 'percentage'], true) || !is_numeric($rawValue)) {
+        throw new InvalidArgumentException('Choose a valid sale price or percentage discount.');
+    }
+    $value = round((float) $rawValue, 2);
+    if ($value < 0) throw new InvalidArgumentException('Discount value cannot be negative.');
+    if ($type === 'percentage') {
+        if ($value > 100) throw new InvalidArgumentException('Discount percentage cannot be more than 100%.');
+        $total = round($subtotal * $value / 100, 2);
+        return ['type' => $type, 'value' => $value, 'total' => $total, 'net' => round($subtotal - $total, 2)];
+    }
+    if ($value > $subtotal) throw new InvalidArgumentException('Sale price cannot be more than the merchandise subtotal.');
+    return ['type' => $type, 'value' => $value, 'total' => round($subtotal - $value, 2), 'net' => $value];
+}
+
+/** @return array<int,array<string,mixed>> */
+function jg_whatsapp_allocate_discount(array $items, float $discountTotal, float $subtotal): array
+{
+    $remaining = round(max(0, $discountTotal), 2);
+    $lastIndex = array_key_last($items);
+    foreach ($items as $index => &$item) {
+        $gross = round((float) ($item['line_total'] ?? 0), 2);
+        $allocated = $index === $lastIndex
+            ? $remaining
+            : min($remaining, round($discountTotal * ($gross / max(0.01, $subtotal)), 2));
+        $remaining = round(max(0, $remaining - $allocated), 2);
+        $item['discount_total'] = $allocated;
+        $item['discount_rate'] = $gross > 0 ? round($allocated / $gross * 100, 4) : 0.0;
+        $item['line_total'] = round(max(0, $gross - $allocated), 2);
+    }
+    unset($item);
+    return $items;
 }
 
 function jg_whatsapp_text(mixed $value, string $label, int $maxLength, bool $required = false): string
@@ -265,7 +322,7 @@ function jg_whatsapp_order_items(PDO $pdo, int $id): array
 {
     $stmt = $pdo->prepare(
         'SELECT sku, product_name, brand_name, base_product_name, flavor_name,
-                quantity, unit_price, unit_cogs, line_total
+                quantity, unit_price, unit_cogs, discount_rate, discount_total, line_total
          FROM whatsapp_order_items WHERE whatsapp_order_id = :id ORDER BY id'
     );
     $stmt->execute([':id' => $id]);
@@ -278,6 +335,8 @@ function jg_whatsapp_order_items(PDO $pdo, int $id): array
         'quantity' => (int) $row['quantity'],
         'unit_price' => (float) $row['unit_price'],
         'unit_cogs' => (float) ($row['unit_cogs'] ?? 0),
+        'discount_rate' => (float) ($row['discount_rate'] ?? 0),
+        'discount_total' => (float) ($row['discount_total'] ?? 0),
         'line_total' => (float) $row['line_total'],
     ], $stmt->fetchAll());
 }
@@ -292,7 +351,11 @@ function jg_whatsapp_format_order(PDO $pdo, array $row): array
             'address' => (string) $row['customer_address'],
             'phone' => (string) $row['customer_phone'],
         ],
+        'merchandise_subtotal' => (float) (($row['merchandise_subtotal'] ?? 0) ?: $row['merchandise_total']),
         'merchandise_total' => (float) $row['merchandise_total'],
+        'discount_type' => (string) ($row['discount_type'] ?? ''),
+        'discount_value' => (float) ($row['discount_value'] ?? 0),
+        'discount_total' => (float) ($row['discount_total'] ?? 0),
         'shipping_cost' => (float) $row['shipping_cost'],
         'deadline_hours' => (int) $row['deadline_hours'],
         'deadline_at' => !empty($row['deadline_at']) ? jg_website_atom((string) $row['deadline_at']) : null,
@@ -329,19 +392,24 @@ function jg_whatsapp_create_order(PDO $pdo, PDO $skuPdo, array $payload, array $
     if ($deadlineHours < 12 || $deadlineHours > 48) {
         throw new InvalidArgumentException('Deadline must be between 12 and 48 hours.');
     }
+    $merchandiseSubtotal = round(array_reduce($items, static fn (float $sum, array $item): float => $sum + $item['line_total'], 0.0), 2);
+    $orderDiscount = jg_whatsapp_order_discount($payload, $merchandiseSubtotal);
+    $items = jg_whatsapp_allocate_discount($items, $orderDiscount['total'], $merchandiseSubtotal);
     $orderId = jg_whatsapp_generate_order_id();
     $label = jg_whatsapp_prepare_label($upload, $orderId);
-    $merchandiseTotal = array_reduce($items, static fn (float $sum, array $item): float => $sum + $item['line_total'], 0.0);
+    $merchandiseTotal = $orderDiscount['net'];
     $now = jg_whatsapp_now();
 
     try {
         $pdo->beginTransaction();
         $stmt = $pdo->prepare(
             'INSERT INTO whatsapp_orders
-                (order_id, status, customer_name, customer_address, customer_phone, merchandise_total, shipping_cost,
+                (order_id, status, customer_name, customer_address, customer_phone, merchandise_subtotal, merchandise_total,
+                 discount_type, discount_value, discount_total, shipping_cost,
                  deadline_hours, label_storage_key, label_original_name, label_size_bytes, notes, created_at, updated_at)
              VALUES
-                (:order_id, "PENDING_PUBLISH", :customer_name, :customer_address, :customer_phone, :merchandise_total, :shipping_cost,
+                (:order_id, "PENDING_PUBLISH", :customer_name, :customer_address, :customer_phone, :merchandise_subtotal, :merchandise_total,
+                 :discount_type, :discount_value, :discount_total, :shipping_cost,
                  :deadline_hours, :label_storage_key, :label_original_name, :label_size_bytes, :notes, :created_at, :updated_at)'
         );
         $stmt->execute([
@@ -349,7 +417,11 @@ function jg_whatsapp_create_order(PDO $pdo, PDO $skuPdo, array $payload, array $
             ':customer_name' => $customerName,
             ':customer_address' => $customerAddress,
             ':customer_phone' => $customerPhone,
+            ':merchandise_subtotal' => number_format($merchandiseSubtotal, 2, '.', ''),
             ':merchandise_total' => number_format($merchandiseTotal, 2, '.', ''),
+            ':discount_type' => $orderDiscount['type'],
+            ':discount_value' => number_format($orderDiscount['value'], 2, '.', ''),
+            ':discount_total' => number_format($orderDiscount['total'], 2, '.', ''),
             ':shipping_cost' => number_format($shippingCost, 2, '.', ''),
             ':deadline_hours' => $deadlineHours,
             ':label_storage_key' => $label['storage_key'],
@@ -363,9 +435,9 @@ function jg_whatsapp_create_order(PDO $pdo, PDO $skuPdo, array $payload, array $
         $itemStmt = $pdo->prepare(
             'INSERT INTO whatsapp_order_items
                 (whatsapp_order_id, sku, product_name, brand_name, base_product_name, flavor_name,
-                 quantity, unit_price, unit_cogs, line_total, created_at)
+                 quantity, unit_price, unit_cogs, discount_rate, discount_total, line_total, created_at)
              VALUES (:order_id, :sku, :product_name, :brand_name, :base_product_name, :flavor_name,
-                     :quantity, :unit_price, :unit_cogs, :line_total, :created_at)'
+                     :quantity, :unit_price, :unit_cogs, :discount_rate, :discount_total, :line_total, :created_at)'
         );
         foreach ($items as $item) {
             $itemStmt->execute([
@@ -378,6 +450,8 @@ function jg_whatsapp_create_order(PDO $pdo, PDO $skuPdo, array $payload, array $
                 ':quantity' => $item['quantity'],
                 ':unit_price' => number_format($item['unit_price'], 2, '.', ''),
                 ':unit_cogs' => number_format($item['unit_cogs'], 2, '.', ''),
+                ':discount_rate' => number_format($item['discount_rate'], 4, '.', ''),
+                ':discount_total' => number_format($item['discount_total'], 2, '.', ''),
                 ':line_total' => number_format($item['line_total'], 2, '.', ''),
                 ':created_at' => $now,
             ]);
