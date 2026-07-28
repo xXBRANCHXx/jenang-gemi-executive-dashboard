@@ -30,13 +30,24 @@ document.addEventListener('DOMContentLoaded', () => {
   const shippingInput = form?.elements.namedItem('shipping_cost');
   const customerNameInput = form?.elements.namedItem('customer_name');
 
-  const state = { skus: [], cart: new Map(), company: '', product: '', flavor: '', submitting: false, discountMode: 'percentage' };
+  const state = {
+    skus: [], cart: new Map(), company: '', product: '', flavor: '', submitting: false,
+    discountMode: 'percentage', editingDiscountSku: ''
+  };
   const currency = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 });
   const dateTime = new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Jakarta' });
   const escapeHtml = (value) => String(value ?? '')
     .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;').replaceAll("'", '&#039;');
   const money = (value) => currency.format(Number(value || 0));
+  const itemDiscountRate = (item) => Math.min(100, Math.max(0, Number(item?.discount_rate || 0)));
+  const percent = (value) => Number(value || 0).toLocaleString('id-ID', { maximumFractionDigits: 2 });
+  const itemAmounts = (item) => {
+    const gross = Math.max(1, Number(item.quantity || 1)) * Math.max(0, Number(item.unit_price || 0));
+    const rate = itemDiscountRate(item);
+    const discountTotal = Math.round(gross * rate) / 100;
+    return { gross, rate, discountTotal, net: Math.max(0, gross - discountTotal) };
+  };
 
   const request = async (url, options = {}) => {
     const response = await fetch(url, { credentials: 'same-origin', ...options });
@@ -65,14 +76,15 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const totals = () => {
-    const subtotal = [...state.cart.values()].reduce(
-      (sum, item) => sum + Math.max(1, Number(item.quantity || 1)) * Math.max(0, Number(item.unit_price || 0)),
-      0
-    );
-    const orderDiscount = discount(subtotal);
-    const merchandise = subtotal - (orderDiscount.valid ? orderDiscount.total : 0);
+    const lines = [...state.cart.values()].map(itemAmounts);
+    const subtotal = lines.reduce((sum, item) => sum + item.gross, 0);
+    const itemDiscount = lines.reduce((sum, item) => sum + item.discountTotal, 0);
+    const afterItemDiscount = subtotal - itemDiscount;
+    const orderDiscount = discount(afterItemDiscount);
+    const totalDiscount = itemDiscount + (orderDiscount.valid ? orderDiscount.total : 0);
+    const merchandise = subtotal - totalDiscount;
     const shipping = Math.max(0, Number(shippingInput?.value || 0));
-    return { subtotal, discount: orderDiscount, merchandise, shipping, customer: merchandise + shipping };
+    return { subtotal, itemDiscount, discount: orderDiscount, totalDiscount, merchandise, shipping, customer: merchandise + shipping };
   };
 
   const updateSubmitState = () => {
@@ -86,7 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const renderTotals = () => {
     const values = totals();
     if (merchandiseSubtotal) merchandiseSubtotal.textContent = money(values.subtotal);
-    if (discountTotal) discountTotal.textContent = money(values.discount.total);
+    if (discountTotal) discountTotal.textContent = money(values.totalDiscount);
     if (merchandiseTotal) merchandiseTotal.textContent = money(values.merchandise);
     if (shippingTotal) shippingTotal.textContent = money(values.shipping);
     if (customerTotal) customerTotal.textContent = money(values.customer);
@@ -151,15 +163,23 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!cartList) return;
     const items = [...state.cart.values()];
     if (cartCount) cartCount.textContent = `${items.length} SKU${items.length === 1 ? '' : 's'}`;
-    cartList.innerHTML = items.length ? items.map((item) => `<article class="whatsapp-cart-row" data-cart-row="${escapeHtml(item.sku)}">
-      <div class="whatsapp-cart-row-title"><span>${escapeHtml(item.sku)}</span><strong>${escapeHtml(item.product_name)}</strong></div>
-      <div class="whatsapp-cart-row-controls">
-        <label class="whatsapp-quantity-field"><span>Qty</span><div><button type="button" data-cart-delta="-1" data-cart-sku="${escapeHtml(item.sku)}">−</button><input type="number" min="1" max="${escapeHtml(Math.max(1, Number(item.current_stock || 1)))}" step="1" value="${escapeHtml(item.quantity)}" data-cart-quantity="${escapeHtml(item.sku)}"><button type="button" data-cart-delta="1" data-cart-sku="${escapeHtml(item.sku)}"${Number(item.quantity || 0) >= Number(item.current_stock || 0) ? ' disabled' : ''}>+</button></div></label>
-        <label class="whatsapp-price-field"><span>Unit price</span><div><b>Rp</b><input type="number" min="0" max="99999999999999" step="1" value="${escapeHtml(item.unit_price)}" data-cart-price="${escapeHtml(item.sku)}"></div></label>
-        <button type="button" class="whatsapp-remove-sku" data-remove-sku="${escapeHtml(item.sku)}" aria-label="Remove ${escapeHtml(item.sku)}"><span class="whatsapp-trash-icon" aria-hidden="true"></span></button>
-      </div>
-      <small>${escapeHtml(money(Number(item.quantity) * Number(item.unit_price)))}</small>
-    </article>`).join('') : '<p class="admin-empty">Select at least one SKU.</p>';
+    cartList.innerHTML = items.length ? items.map((item) => {
+      const amounts = itemAmounts(item);
+      const isEditingDiscount = state.editingDiscountSku === item.sku;
+      return `<article class="whatsapp-cart-row" data-cart-row="${escapeHtml(item.sku)}">
+        <div class="whatsapp-cart-row-title"><span>${escapeHtml(item.sku)}</span><strong>${escapeHtml(item.product_name)}</strong></div>
+        <div class="whatsapp-cart-row-controls">
+          <label class="whatsapp-quantity-field"><span>Qty</span><div><button type="button" data-cart-delta="-1" data-cart-sku="${escapeHtml(item.sku)}">−</button><input type="number" min="1" max="${escapeHtml(Math.max(1, Number(item.current_stock || 1)))}" step="1" value="${escapeHtml(item.quantity)}" data-cart-quantity="${escapeHtml(item.sku)}"><button type="button" data-cart-delta="1" data-cart-sku="${escapeHtml(item.sku)}"${Number(item.quantity || 0) >= Number(item.current_stock || 0) ? ' disabled' : ''}>+</button></div></label>
+          <label class="whatsapp-price-field"><span>Unit price</span><div><b>Rp</b><input type="number" min="0" max="99999999999999" step="1" value="${escapeHtml(item.unit_price)}" data-cart-price="${escapeHtml(item.sku)}"></div></label>
+          <div class="whatsapp-item-discount${isEditingDiscount ? ' is-editing' : ''}">
+            <button type="button" class="whatsapp-item-discount-toggle${amounts.rate > 0 ? ' is-active' : ''}" data-cart-discount-toggle="${escapeHtml(item.sku)}" aria-label="Set item discount for ${escapeHtml(item.product_name)}" aria-expanded="${isEditingDiscount ? 'true' : 'false'}"><span aria-hidden="true">%</span><strong data-cart-discount-label="${escapeHtml(item.sku)}"${amounts.rate > 0 ? '' : ' hidden'}>${escapeHtml(percent(amounts.rate))}</strong></button>
+            ${isEditingDiscount ? `<div class="whatsapp-item-discount-editor"><input type="number" min="0" max="100" step="0.01" inputmode="decimal" value="${escapeHtml(amounts.rate)}" data-cart-discount="${escapeHtml(item.sku)}" aria-label="Item discount percentage for ${escapeHtml(item.product_name)}"><span>%</span><button type="button" data-cart-discount-done="${escapeHtml(item.sku)}" aria-label="Finish editing item discount">✓</button></div>` : ''}
+          </div>
+          <button type="button" class="whatsapp-remove-sku" data-remove-sku="${escapeHtml(item.sku)}" aria-label="Remove ${escapeHtml(item.sku)}"><span class="whatsapp-trash-icon" aria-hidden="true"></span></button>
+        </div>
+        <small>${amounts.rate > 0 ? `<s>${escapeHtml(money(amounts.gross))}</s> ` : ''}${escapeHtml(money(amounts.net))}</small>
+      </article>`;
+    }).join('') : '<p class="admin-empty">Select at least one SKU.</p>';
     renderTotals();
   };
 
@@ -221,12 +241,26 @@ document.addEventListener('DOMContentLoaded', () => {
     if (available < 1 || Number(existing?.quantity || 0) >= available) return;
     state.cart.set(sku.sku, existing
       ? { ...existing, quantity: Math.min(available, Number(existing.quantity || 0) + 1) }
-      : { ...sku, quantity: 1, unit_price: Math.max(0, Number(sku.sale_price || 0)) });
+      : { ...sku, quantity: 1, unit_price: Math.max(0, Number(sku.sale_price || 0)), discount_rate: 0 });
     renderCatalog();
     renderCart();
   });
 
   cartList?.addEventListener('click', (event) => {
+    const discountToggle = event.target.closest('[data-cart-discount-toggle]');
+    if (discountToggle) {
+      const sku = discountToggle.dataset.cartDiscountToggle || '';
+      state.editingDiscountSku = state.editingDiscountSku === sku ? '' : sku;
+      renderCart();
+      if (state.editingDiscountSku) cartList.querySelector(`[data-cart-discount="${CSS.escape(sku)}"]`)?.focus();
+      return;
+    }
+    const discountDone = event.target.closest('[data-cart-discount-done]');
+    if (discountDone) {
+      state.editingDiscountSku = '';
+      renderCart();
+      return;
+    }
     const deltaButton = event.target.closest('[data-cart-delta]');
     if (deltaButton) {
       const sku = deltaButton.dataset.cartSku || '';
@@ -241,19 +275,43 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const button = event.target.closest('[data-remove-sku]');
     if (!button) return;
+    if (state.editingDiscountSku === button.dataset.removeSku) state.editingDiscountSku = '';
     state.cart.delete(button.dataset.removeSku);
     renderCatalog();
     renderCart();
   });
 
+  cartList?.addEventListener('input', (event) => {
+    const input = event.target;
+    const sku = input.dataset.cartDiscount;
+    if (!sku || !state.cart.has(sku)) return;
+    const item = state.cart.get(sku);
+    item.discount_rate = Math.min(100, Math.max(0, Number(input.value || 0)));
+    state.cart.set(sku, item);
+    const label = cartList.querySelector(`[data-cart-discount-label="${CSS.escape(sku)}"]`);
+    if (label) {
+      label.textContent = percent(item.discount_rate);
+      label.hidden = item.discount_rate <= 0;
+    }
+    renderTotals();
+  });
+
   cartList?.addEventListener('change', (event) => {
     const input = event.target;
-    const sku = input.dataset.cartQuantity || input.dataset.cartPrice;
+    const sku = input.dataset.cartQuantity || input.dataset.cartPrice || input.dataset.cartDiscount;
     if (!sku || !state.cart.has(sku)) return;
     const item = state.cart.get(sku);
     if (input.dataset.cartQuantity) item.quantity = Math.max(1, Math.min(Math.max(1, Number(item.current_stock || 1)), Number(input.value || 1)));
     if (input.dataset.cartPrice) item.unit_price = Math.max(0, Number(input.value || 0));
+    if (input.dataset.cartDiscount) item.discount_rate = Math.min(100, Math.max(0, Number(input.value || 0)));
     state.cart.set(sku, item);
+    renderCart();
+  });
+
+  cartList?.addEventListener('keydown', (event) => {
+    if (!event.target.matches('[data-cart-discount]') || !['Enter', 'Escape'].includes(event.key)) return;
+    event.preventDefault();
+    state.editingDiscountSku = '';
     renderCart();
   });
 
@@ -293,8 +351,8 @@ document.addEventListener('DOMContentLoaded', () => {
       root.querySelectorAll('[data-discount-mode]').forEach((item) => item.classList.toggle('is-active', item === button));
       if (discountPrefix) discountPrefix.textContent = state.discountMode === 'sale_price' ? 'Rp' : '%';
       if (discountHelp) discountHelp.textContent = state.discountMode === 'sale_price'
-        ? 'Final merchandise price after discount.'
-        : 'Percentage off the merchandise total.';
+        ? 'Final merchandise price after item discounts.'
+        : 'Percentage off the merchandise total after item discounts.';
       if (discountValue instanceof HTMLInputElement) discountValue.max = state.discountMode === 'percentage' ? '100' : '99999999999999';
       setError();
       renderTotals();
@@ -332,7 +390,10 @@ document.addEventListener('DOMContentLoaded', () => {
       shipping_cost: Number(fields.get('shipping_cost') || 0),
       deadline_hours: Number(fields.get('deadline_hours') || 24),
       discount: values.discount.type ? { type: values.discount.type, value: values.discount.value } : null,
-      items: [...state.cart.values()].map((item) => ({ sku: item.sku, quantity: item.quantity, unit_price: item.unit_price }))
+      items: [...state.cart.values()].map((item) => ({
+        sku: item.sku, quantity: item.quantity, unit_price: item.unit_price,
+        discount_rate: itemDiscountRate(item)
+      }))
     };
     const body = new FormData();
     body.append('payload', JSON.stringify(payload));
@@ -341,10 +402,11 @@ document.addEventListener('DOMContentLoaded', () => {
       await request(`${endpoint}?action=create`, { method: 'POST', body });
       form.reset();
       state.cart.clear();
+      state.editingDiscountSku = '';
       state.discountMode = 'percentage';
       root.querySelectorAll('[data-discount-mode]').forEach((button) => button.classList.toggle('is-active', button.dataset.discountMode === 'percentage'));
       if (discountPrefix) discountPrefix.textContent = '%';
-      if (discountHelp) discountHelp.textContent = 'Percentage off the merchandise total.';
+      if (discountHelp) discountHelp.textContent = 'Percentage off the merchandise total after item discounts.';
       if (deadlineValue) deadlineValue.textContent = '24h';
       if (labelName) labelName.textContent = 'Choose shipping label';
       renderCatalog();

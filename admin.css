@@ -31128,6 +31128,8 @@ button.admin-accounting-metric {
 .whatsapp-cart-row-controls {
   display: flex;
   align-items: flex-end;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 8px;
 }
 
@@ -31225,6 +31227,93 @@ button.admin-accounting-metric {
 .whatsapp-cart-row-controls > .whatsapp-remove-sku:hover {
   color: #dc2626;
   background: transparent;
+}
+
+.whatsapp-item-discount {
+  display: flex;
+  align-items: center;
+  align-self: end;
+  gap: 6px;
+  min-height: 36px;
+}
+
+.whatsapp-cart-row-controls .whatsapp-item-discount-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 28px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  color: var(--admin-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.whatsapp-cart-row-controls .whatsapp-item-discount-toggle:hover,
+.whatsapp-cart-row-controls .whatsapp-item-discount-toggle.is-active,
+.whatsapp-item-discount.is-editing .whatsapp-item-discount-toggle {
+  color: #2563eb;
+  background: transparent;
+}
+
+.whatsapp-item-discount-toggle > span {
+  font: 900 17px/1 "Space Grotesk", sans-serif;
+}
+
+.whatsapp-item-discount-toggle > strong {
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.whatsapp-item-discount-editor {
+  display: flex !important;
+  align-items: center;
+  gap: 0 !important;
+  height: 36px;
+  overflow: hidden;
+  border: 1px solid #d8d8d8;
+  border-radius: 9px;
+  background: #fff;
+}
+
+.whatsapp-cart-row-controls .whatsapp-item-discount-editor input {
+  width: 54px;
+  height: 34px;
+  padding: 7px 4px 7px 9px;
+  border: 0;
+  border-radius: 0;
+  color: #111;
+  background: #fff;
+  color-scheme: light;
+  font-weight: 800;
+  outline: 0;
+  text-align: right;
+}
+
+.whatsapp-item-discount-editor > span {
+  padding-right: 7px;
+  color: #555;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.whatsapp-item-discount-editor > button {
+  align-self: stretch;
+  width: 30px;
+  padding: 0;
+  border: 0;
+  border-left: 1px solid #d8d8d8;
+  color: #111;
+  background: #fff;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.whatsapp-cart-row > small s {
+  margin-right: 4px;
+  opacity: .65;
 }
 
 .whatsapp-trash-icon {

@@ -21,12 +21,24 @@ whatsapp_expect(10000.0, $percentageDiscount['total'], 'Percentage discounts mus
 whatsapp_expect(90000.0, $percentageDiscount['net'], 'Percentage discounts must preserve the net merchandise total.');
 $salePriceDiscount = jg_whatsapp_order_discount(['discount' => ['type' => 'sale_price', 'value' => 75000]], 100000);
 whatsapp_expect(25000.0, $salePriceDiscount['total'], 'Sale price must represent the final merchandise price.');
+$itemDiscount = jg_whatsapp_item_discount(15, 100000);
+whatsapp_expect(15000.0, $itemDiscount['total'], 'Item percentage discounts must reduce only their own gross line total.');
+whatsapp_expect(85000.0, $itemDiscount['net'], 'Item percentage discounts must preserve the discounted line total.');
 $allocated = jg_whatsapp_allocate_discount([
     ['line_total' => 60000],
     ['line_total' => 40000],
 ], 25000, 100000);
 whatsapp_expect(75000.0, array_sum(array_column($allocated, 'line_total')), 'Allocated item revenue must reconcile to net order revenue.');
 whatsapp_expect(25000.0, array_sum(array_column($allocated, 'discount_total')), 'Allocated item discounts must reconcile to the order discount.');
+$layered = jg_whatsapp_allocate_discount([[
+    'gross_line_total' => 100000,
+    'line_total' => 90000,
+    'discount_rate' => 10,
+    'discount_total' => 10000,
+]], 9000, 90000);
+whatsapp_expect(81000.0, $layered[0]['line_total'], 'Order discounts must apply after the item-layer discount.');
+whatsapp_expect(19000.0, $layered[0]['discount_total'], 'Stored line discounts must include item and order layers.');
+whatsapp_expect(19.0, $layered[0]['discount_rate'], 'Stored effective line rate must reconcile both discount layers.');
 
 $negativeRejected = false;
 try {
@@ -35,6 +47,14 @@ try {
     $negativeRejected = true;
 }
 whatsapp_expect(true, $negativeRejected, 'Negative shipping cost must be rejected.');
+
+$invalidItemDiscountRejected = false;
+try {
+    jg_whatsapp_item_discount(101, 100000);
+} catch (InvalidArgumentException) {
+    $invalidItemDiscountRejected = true;
+}
+whatsapp_expect(true, $invalidItemDiscountRejected, 'Item discounts above 100% must be rejected.');
 
 $metricSummary = jg_whatsapp_apply_sales_aggregates(
     ['ok' => true, 'year' => 2026, 'months' => [], 'totals' => [], 'platforms' => [], 'accounts' => [], 'products' => []],

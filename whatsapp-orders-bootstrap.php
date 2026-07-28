@@ -103,6 +103,24 @@ function jg_whatsapp_money(mixed $value, string $label): float
     return $amount;
 }
 
+/** @return array{rate:float,total:float,net:float} */
+function jg_whatsapp_item_discount(mixed $value, float $grossTotal): array
+{
+    $grossTotal = round(max(0, $grossTotal), 2);
+    if ($value === '' || $value === null) {
+        return ['rate' => 0.0, 'total' => 0.0, 'net' => $grossTotal];
+    }
+    if (!is_numeric($value)) {
+        throw new InvalidArgumentException('Item discount must be a valid percentage.');
+    }
+    $rate = round((float) $value, 2);
+    if ($rate < 0 || $rate > 100) {
+        throw new InvalidArgumentException('Item discount percentage must be between 0% and 100%.');
+    }
+    $total = round($grossTotal * $rate / 100, 2);
+    return ['rate' => $rate, 'total' => $total, 'net' => round($grossTotal - $total, 2)];
+}
+
 /**
  * @return array{type:string,value:float,total:float,net:float}
  */
@@ -135,14 +153,16 @@ function jg_whatsapp_allocate_discount(array $items, float $discountTotal, float
     $remaining = round(max(0, $discountTotal), 2);
     $lastIndex = array_key_last($items);
     foreach ($items as $index => &$item) {
-        $gross = round((float) ($item['line_total'] ?? 0), 2);
+        $netBeforeOrderDiscount = round((float) ($item['line_total'] ?? 0), 2);
+        $existingDiscount = round((float) ($item['discount_total'] ?? 0), 2);
+        $gross = round((float) ($item['gross_line_total'] ?? ($netBeforeOrderDiscount + $existingDiscount)), 2);
         $allocated = $index === $lastIndex
-            ? $remaining
-            : min($remaining, round($discountTotal * ($gross / max(0.01, $subtotal)), 2));
+            ? min($remaining, $netBeforeOrderDiscount)
+            : min($remaining, round($discountTotal * ($netBeforeOrderDiscount / max(0.01, $subtotal)), 2));
         $remaining = round(max(0, $remaining - $allocated), 2);
-        $item['discount_total'] = $allocated;
-        $item['discount_rate'] = $gross > 0 ? round($allocated / $gross * 100, 4) : 0.0;
-        $item['line_total'] = round(max(0, $gross - $allocated), 2);
+        $item['discount_total'] = round($existingDiscount + $allocated, 2);
+        $item['discount_rate'] = $gross > 0 ? round($item['discount_total'] / $gross * 100, 4) : 0.0;
+        $item['line_total'] = round(max(0, $netBeforeOrderDiscount - $allocated), 2);
     }
     unset($item);
     return $items;
@@ -254,6 +274,8 @@ function jg_whatsapp_normalize_items(PDO $skuPdo, mixed $value): array
             trim((string) ($row['product_name'] ?? '')),
             trim((string) ($row['flavor_name'] ?? '')),
         ])));
+        $grossLineTotal = round($quantity * $unitPrice, 2);
+        $itemDiscount = jg_whatsapp_item_discount($item['discount_rate'] ?? $item['discountRate'] ?? 0, $grossLineTotal);
         $items[] = [
             'sku' => $sku,
             'product_name' => $name !== '' ? $name : $sku,
@@ -263,7 +285,10 @@ function jg_whatsapp_normalize_items(PDO $skuPdo, mixed $value): array
             'quantity' => $quantity,
             'unit_price' => $unitPrice,
             'unit_cogs' => max(0.0, (float) ($row['cogs'] ?? 0)),
-            'line_total' => round($quantity * $unitPrice, 2),
+            'gross_line_total' => $grossLineTotal,
+            'discount_rate' => $itemDiscount['rate'],
+            'discount_total' => $itemDiscount['total'],
+            'line_total' => $itemDiscount['net'],
             'skip_scan' => (int) ($row['skip_scan'] ?? 0) === 1,
         ];
     }
@@ -392,12 +417,15 @@ function jg_whatsapp_create_order(PDO $pdo, PDO $skuPdo, array $payload, array $
     if ($deadlineHours < 12 || $deadlineHours > 48) {
         throw new InvalidArgumentException('Deadline must be between 12 and 48 hours.');
     }
-    $merchandiseSubtotal = round(array_reduce($items, static fn (float $sum, array $item): float => $sum + $item['line_total'], 0.0), 2);
-    $orderDiscount = jg_whatsapp_order_discount($payload, $merchandiseSubtotal);
-    $items = jg_whatsapp_allocate_discount($items, $orderDiscount['total'], $merchandiseSubtotal);
+    $merchandiseSubtotal = round(array_reduce($items, static fn (float $sum, array $item): float => $sum + $item['gross_line_total'], 0.0), 2);
+    $itemDiscountTotal = round(array_reduce($items, static fn (float $sum, array $item): float => $sum + $item['discount_total'], 0.0), 2);
+    $discountableSubtotal = round($merchandiseSubtotal - $itemDiscountTotal, 2);
+    $orderDiscount = jg_whatsapp_order_discount($payload, $discountableSubtotal);
+    $items = jg_whatsapp_allocate_discount($items, $orderDiscount['total'], $discountableSubtotal);
     $orderId = jg_whatsapp_generate_order_id();
     $label = jg_whatsapp_prepare_label($upload, $orderId);
-    $merchandiseTotal = $orderDiscount['net'];
+    $discountTotal = round($itemDiscountTotal + $orderDiscount['total'], 2);
+    $merchandiseTotal = round($merchandiseSubtotal - $discountTotal, 2);
     $now = jg_whatsapp_now();
 
     try {
@@ -421,7 +449,7 @@ function jg_whatsapp_create_order(PDO $pdo, PDO $skuPdo, array $payload, array $
             ':merchandise_total' => number_format($merchandiseTotal, 2, '.', ''),
             ':discount_type' => $orderDiscount['type'],
             ':discount_value' => number_format($orderDiscount['value'], 2, '.', ''),
-            ':discount_total' => number_format($orderDiscount['total'], 2, '.', ''),
+            ':discount_total' => number_format($discountTotal, 2, '.', ''),
             ':shipping_cost' => number_format($shippingCost, 2, '.', ''),
             ':deadline_hours' => $deadlineHours,
             ':label_storage_key' => $label['storage_key'],

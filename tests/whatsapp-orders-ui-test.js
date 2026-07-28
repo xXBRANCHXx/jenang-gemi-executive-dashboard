@@ -18,6 +18,8 @@ assert.match(page, /name="label"[\s\S]*?deadline_hours/, 'The order must follow 
 assert.match(page, /data-company-filter[\s\S]*?data-product-filter[\s\S]*?data-flavor-filter[\s\S]*?Order preview/, 'Product entry must separate products by company before flavor filtering.');
 assert.match(script, /items: \[\.\.\.state\.cart\.values\(\)\][\s\S]*?action=create/, 'The builder must submit constructed SKU lines.');
 assert.match(script, /discount: values\.discount\.type[\s\S]*?value: values\.discount\.value/, 'The builder must persist the selected order discount.');
+assert.match(script, /data-cart-discount-toggle[\s\S]*?data-cart-discount-label[\s\S]*?data-cart-discount/, 'Each order-preview line must expose a compact percentage discount editor.');
+assert.match(script, /discount_rate: itemDiscountRate\(item\)/, 'The builder must submit each item percentage to the server.');
 assert.match(script, /data-cart-delta[\s\S]*?renderFilters/, 'The order preview must provide quantity steppers and filtered SKU entry.');
 assert.match(script, /sku\.brand_name === company[\s\S]*?whatsapp-product-company-group/, 'Product options must be grouped by company.');
 assert.match(script, /class="whatsapp-sku-add"[\s\S]*?\+<\/span> Add/, 'SKU actions must use an inline + Add control.');
@@ -35,6 +37,7 @@ assert.match(whatsappStyles, /\.whatsapp-range-field,[\s\S]*?border: 0;[\s\S]*?b
 assert.match(whatsappStyles, /\.is-whatsapp-orders-page \.whatsapp-money-field > div,[\s\S]*?background: #fff !important;/, 'The entire shipping cost input must use one solid white surface.');
 assert.match(whatsappStyles, /\.whatsapp-sku-card \.whatsapp-sku-add:hover[\s\S]*?color: #2563eb;/, 'The inline Add action must turn blue on hover.');
 assert.match(whatsappStyles, /\.whatsapp-cart-row-controls > \.whatsapp-remove-sku:hover[\s\S]*?color: #dc2626;/, 'The bare trash action must turn red on hover.');
+assert.match(whatsappStyles, /\.whatsapp-item-discount-toggle[\s\S]*?color: #2563eb;/, 'The compact item discount icon must reveal its active state.');
 assert.match(whatsappStyles, /\.whatsapp-trash-icon[\s\S]*?assets\/admin-icons\/trash-2\.svg/, 'The removal action must render the Lucide trash-2 asset.');
 
 assert.match(styles, /\.admin-whatsapp-icon[\s\S]*?favicon-whatsapp-light\.svg/, 'The hamburger WhatsApp glyph must reuse the real page icon silhouette.');
@@ -47,6 +50,7 @@ assert.ok(outboundPayload.includes("'status' => 'IS_LISTED'"), 'Store Ops must r
 assert.ok(!outboundPayload.includes("'shipping_cost'"), 'Shipping cost must never be included in the Store Ops payload.');
 assert.ok(!outboundPayload.includes("'unit_price'"), 'Executive sale prices must stay out of the Store Ops fulfillment payload.');
 assert.match(bootstrap, /current_stock[\s\S]*?only has %d unit/, 'Submission must reject quantities above current SKU stock.');
+assert.match(bootstrap, /jg_whatsapp_item_discount[\s\S]*?discount_rate[\s\S]*?discountableSubtotal/, 'The server must apply item discounts before the order discount.');
 assert.match(bootstrap, /function jg_whatsapp_merge_sales_summary[\s\S]*?whatsapp_orders_merged/, 'Listed WhatsApp orders must merge into Executive metrics.');
 
 const salesApi = fs.readFileSync(path.join(root, 'api', 'sales', 'index.php'), 'utf8');

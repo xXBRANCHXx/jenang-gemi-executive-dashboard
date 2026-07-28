@@ -27,7 +27,7 @@ $pageJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-orders.js');
     <link rel="stylesheet" href="../admin.css?v=<?php echo urlencode($adminCssVersion ?: '1'); ?>">
 </head>
 <body class="admin-body is-dashboard is-whatsapp-orders-page">
-    <div class="admin-build-badge" aria-label="Dashboard build version">Build exec3.92.2</div>
+    <div class="admin-build-badge" aria-label="Dashboard build version">Build exec3.92.3</div>
     <div class="admin-app admin-app-suite" data-whatsapp-orders data-endpoint="../api/whatsapp-orders/">
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
@@ -134,7 +134,7 @@ $pageJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-orders.js');
                                             <b data-discount-prefix>%</b>
                                             <input type="number" min="0" max="100" step="0.01" inputmode="decimal" placeholder="0" data-discount-value>
                                         </label>
-                                        <small data-discount-help>Percentage off the merchandise total.</small>
+                                        <small data-discount-help>Percentage off the merchandise total after item discounts.</small>
                                     </div>
                                 </div>
                             </section>
