@@ -31157,24 +31157,24 @@ button.admin-accounting-metric {
 
 .whatsapp-quantity-field > div button {
   border: 0;
-  background: #fff;
-  color: #111;
+  background: transparent;
+  color: var(--admin-muted);
   font-size: 17px;
   cursor: pointer;
+  transition: color 160ms ease, background 160ms ease;
 }
 
 .whatsapp-quantity-field > div button:hover {
-  background: #fff;
-  color: #111;
+  background: color-mix(in srgb, var(--admin-text) 7%, transparent);
+  color: var(--admin-text);
 }
 
 .whatsapp-quantity-field input {
   width: 54px;
   border: 0;
   border-radius: 0;
-  color: #111;
-  background: #fff;
-  color-scheme: light;
+  color: var(--admin-text);
+  background: transparent;
   text-align: center;
   text-align-last: center;
 }
@@ -31185,11 +31185,29 @@ button.admin-accounting-metric {
 .is-whatsapp-orders-page .whatsapp-price-field > div,
 .is-whatsapp-orders-page .whatsapp-price-field > div > b,
 .is-whatsapp-orders-page .whatsapp-price-field > div > input {
-  border-color: #d8d8d8;
-  color: #111 !important;
-  background: #fff !important;
+  border-color: color-mix(in srgb, var(--admin-text) 14%, var(--admin-border));
+  color: var(--admin-text) !important;
+  background: color-mix(in srgb, var(--admin-text) 4%, var(--admin-surface)) !important;
   background-image: none !important;
-  -webkit-text-fill-color: #111;
+  -webkit-text-fill-color: var(--admin-text);
+}
+
+.is-whatsapp-orders-page .whatsapp-quantity-field > div,
+.is-whatsapp-orders-page .whatsapp-price-field > div {
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--admin-text) 5%, transparent);
+}
+
+.is-whatsapp-orders-page .whatsapp-quantity-field > div > button,
+.is-whatsapp-orders-page .whatsapp-quantity-field > div > input,
+.is-whatsapp-orders-page .whatsapp-price-field > div > b,
+.is-whatsapp-orders-page .whatsapp-price-field > div > input {
+  background: transparent !important;
+}
+
+:root:is([data-admin-theme='light'], [data-admin-theme='minimal-white'], [data-admin-theme='classic-white']) .is-whatsapp-orders-page .whatsapp-quantity-field > div,
+:root:is([data-admin-theme='light'], [data-admin-theme='minimal-white'], [data-admin-theme='classic-white']) .is-whatsapp-orders-page .whatsapp-price-field > div {
+  border-color: #d8d8d8;
+  background: #fff !important;
 }
 
 .whatsapp-cart-row-controls label > div,
@@ -31242,20 +31260,24 @@ button.admin-accounting-metric {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  min-width: 28px;
+  min-width: 36px;
   height: 36px;
-  padding: 0;
-  border: 0;
+  padding: 0 9px;
+  border: 1px solid color-mix(in srgb, var(--admin-text) 14%, var(--admin-border));
+  border-radius: 9px;
   color: var(--admin-muted);
-  background: transparent;
+  background: color-mix(in srgb, var(--admin-text) 4%, var(--admin-surface));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--admin-text) 5%, transparent);
   cursor: pointer;
+  transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
 }
 
 .whatsapp-cart-row-controls .whatsapp-item-discount-toggle:hover,
 .whatsapp-cart-row-controls .whatsapp-item-discount-toggle.is-active,
 .whatsapp-item-discount.is-editing .whatsapp-item-discount-toggle {
-  color: #2563eb;
-  background: transparent;
+  border-color: color-mix(in srgb, #60a5fa 58%, var(--admin-border));
+  color: #60a5fa;
+  background: color-mix(in srgb, #3b82f6 12%, var(--admin-surface));
 }
 
 .whatsapp-item-discount-toggle > span {
@@ -31273,30 +31295,23 @@ button.admin-accounting-metric {
   gap: 0 !important;
   height: 36px;
   overflow: hidden;
-  border: 1px solid #d8d8d8;
+  border: 1px solid color-mix(in srgb, #60a5fa 40%, var(--admin-border));
   border-radius: 9px;
-  background: #fff;
+  background: color-mix(in srgb, var(--admin-text) 4%, var(--admin-surface));
+  box-shadow: 0 0 0 2px color-mix(in srgb, #3b82f6 8%, transparent);
 }
 
 .whatsapp-cart-row-controls .whatsapp-item-discount-editor input {
-  width: 54px;
+  width: 58px;
   height: 34px;
-  padding: 7px 4px 7px 9px;
+  padding: 7px 9px;
   border: 0;
   border-radius: 0;
-  color: #111;
-  background: #fff;
-  color-scheme: light;
+  color: var(--admin-text);
+  background: transparent;
   font-weight: 800;
   outline: 0;
-  text-align: right;
-}
-
-.whatsapp-item-discount-editor > span {
-  padding-right: 7px;
-  color: #555;
-  font-size: 11px;
-  font-weight: 800;
+  text-align: center;
 }
 
 .whatsapp-item-discount-editor > button {
@@ -31304,11 +31319,17 @@ button.admin-accounting-metric {
   width: 30px;
   padding: 0;
   border: 0;
-  border-left: 1px solid #d8d8d8;
-  color: #111;
-  background: #fff;
+  border-left: 1px solid color-mix(in srgb, var(--admin-text) 12%, var(--admin-border));
+  color: #60a5fa;
+  background: transparent;
   font-weight: 900;
   cursor: pointer;
+  transition: color 160ms ease, background 160ms ease;
+}
+
+.whatsapp-item-discount-editor > button:hover {
+  color: #dbeafe;
+  background: color-mix(in srgb, #3b82f6 18%, transparent);
 }
 
 .whatsapp-cart-row > small s {

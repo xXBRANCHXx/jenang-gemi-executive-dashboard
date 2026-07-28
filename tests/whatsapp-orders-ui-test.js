@@ -37,7 +37,8 @@ assert.match(whatsappStyles, /\.whatsapp-range-field,[\s\S]*?border: 0;[\s\S]*?b
 assert.match(whatsappStyles, /\.is-whatsapp-orders-page \.whatsapp-money-field > div,[\s\S]*?background: #fff !important;/, 'The entire shipping cost input must use one solid white surface.');
 assert.match(whatsappStyles, /\.whatsapp-sku-card \.whatsapp-sku-add:hover[\s\S]*?color: #2563eb;/, 'The inline Add action must turn blue on hover.');
 assert.match(whatsappStyles, /\.whatsapp-cart-row-controls > \.whatsapp-remove-sku:hover[\s\S]*?color: #dc2626;/, 'The bare trash action must turn red on hover.');
-assert.match(whatsappStyles, /\.whatsapp-item-discount-toggle[\s\S]*?color: #2563eb;/, 'The compact item discount icon must reveal its active state.');
+assert.match(whatsappStyles, /\.whatsapp-item-discount-toggle[\s\S]*?color: #60a5fa;/, 'The compact item discount icon must reveal its active state.');
+assert.match(whatsappStyles, /\.whatsapp-price-field > div[\s\S]*?background: color-mix[\s\S]*?var\(--admin-surface\)/, 'Order-preview controls must use a theme-aware surface in dark mode.');
 assert.match(whatsappStyles, /\.whatsapp-trash-icon[\s\S]*?assets\/admin-icons\/trash-2\.svg/, 'The removal action must render the Lucide trash-2 asset.');
 
 assert.match(styles, /\.admin-whatsapp-icon[\s\S]*?favicon-whatsapp-light\.svg/, 'The hamburger WhatsApp glyph must reuse the real page icon silhouette.');
