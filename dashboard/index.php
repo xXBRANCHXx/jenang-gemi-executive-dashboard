@@ -1749,7 +1749,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
         <form method="dialog" data-hard-set-form>
             <span class="admin-panel-kicker">Irreversible cutover</span>
             <h2 id="hard-set-confirm-title">Activate Big Set?</h2>
-            <p>This permanently establishes the Store Ops cutover timestamp and frozen marketplace account scope. Automatic shipment arrangement remains permanently paused; activation never restarts it and never reverses a shipment already arranged.</p>
+            <p>This permanently establishes the Store Ops cutover timestamp and frozen marketplace account scope. Automatic shipment arrangement starts paused and can be resumed separately with Branch-tier access.</p>
             <label><span>Type <strong>ACTIVATE BIG SET</strong></span><input name="confirmation" autocomplete="off" required></label>
             <p class="admin-form-error" data-hard-set-error hidden></p>
             <div class="admin-modal-actions"><button type="button" class="admin-ghost-btn" data-hard-set-cancel>Cancel</button><button type="submit" class="admin-danger-btn">Activate Permanently</button></div>

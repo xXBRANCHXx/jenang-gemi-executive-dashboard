@@ -342,55 +342,7 @@ function jg_website_ensure_schema(PDO $pdo): void
             )->execute([':zero_scope_automation_enabled_at' => $now]);
         }
 
-        if (empty($row['automation_paused'])) {
-            $actor = 'Permanent automation safety lock';
-            $pdo->prepare(
-                'UPDATE hard_set_state
-                 SET automation_paused = 1, automation_paused_at = :automation_paused_at,
-                     automation_paused_by = :automation_paused_by, updated_at = :updated_at
-                 WHERE id = 1 AND enabled = 1'
-            )->execute([
-                ':automation_paused_at' => $now,
-                ':automation_paused_by' => $actor,
-                ':updated_at' => $now,
-            ]);
-            $payload = [
-                'event' => 'hard_set_automation_paused',
-                'enabled' => true,
-                'activated_at' => jg_website_atom((string) $row['activated_at']),
-                'activated_by' => (string) ($row['activated_by'] ?? ''),
-                'automatic_sources' => $storedSources,
-                'automation_paused' => true,
-                'automation_paused_at' => jg_website_atom($now),
-                'automation_changed_by' => $actor,
-            ];
-            $payloadJson = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-            if (!is_string($payloadJson)) {
-                throw new RuntimeException('Unable to encode the permanent automation pause.');
-            }
-            $pdo->prepare(
-                'INSERT INTO hard_set_audit (event_type, actor, payload_json, created_at)
-                 VALUES ("AUTOMATION_PAUSED", :actor, :payload_json, :created_at)'
-            )->execute([':actor' => $actor, ':payload_json' => $payloadJson, ':created_at' => $now]);
-            $pdo->prepare(
-                'INSERT INTO hard_set_outbox
-                    (event_type, idempotency_key, payload_json, status, attempts, created_at)
-                 VALUES
-                    ("AUTOMATION_PAUSED", :idempotency_key, :payload_json, "pending", 0, :created_at)
-                 ON DUPLICATE KEY UPDATE id = id'
-            )->execute([
-                ':idempotency_key' => 'hard-set-permanent-pause:' . jg_website_atom((string) $row['activated_at']),
-                ':payload_json' => $payloadJson,
-                ':created_at' => $now,
-            ]);
-        }
     }
-
-    $pdo->exec(
-        'UPDATE hard_set_outbox
-         SET status = "superseded", last_error = "Permanent automation pause lock"
-         WHERE event_type = "AUTOMATION_RESUMED" AND status = "pending"'
-    );
 }
 
 function jg_hard_set_state(PDO $pdo, bool $forUpdate = false, bool $ensureSchema = true): array
@@ -1497,32 +1449,46 @@ function jg_hard_set_project_activation(
     return jg_hard_set_delivery_payload_with_api_scope($payload, $apiActivation);
 }
 
-/** Pause reaches API Ingest first so mutations stop before Store Ops exposes unarranged rows. */
+/**
+ * Pause reaches API Ingest first so mutations stop before Store Ops exposes
+ * unarranged rows. Resume reaches Store Ops first so those rows are hidden
+ * before API Ingest is allowed to arrange again.
+ */
 function jg_hard_set_project_automation(
     array $payload,
     callable $deliverStoreOps,
     callable $deliverApiIngest
 ): array {
     $paused = !empty($payload['automation_paused']);
-    if (!$paused) {
-        throw new RuntimeException('Automatic shipment arrangement is permanently paused and cannot be resumed.');
-    }
     $acknowledgeStoreOps = static function (array $ack) use ($payload): void {
         jg_hard_set_projection_ack_state($payload, $ack, 'Store Ops', 'automatic_sources');
     };
     $acknowledgeApi = static function (array $ack) use ($payload): void {
         jg_hard_set_projection_ack_state($payload, $ack, 'API Ingest', 'sources');
     };
-    $apiAcknowledgement = $deliverApiIngest($payload);
-    if (!is_array($apiAcknowledgement)) {
-        throw new RuntimeException('API Ingest automation update did not return a valid acknowledgement.');
+    if ($paused) {
+        $apiAcknowledgement = $deliverApiIngest($payload);
+        if (!is_array($apiAcknowledgement)) {
+            throw new RuntimeException('API Ingest automation update did not return a valid acknowledgement.');
+        }
+        $acknowledgeApi($apiAcknowledgement);
+        $storeAcknowledgement = $deliverStoreOps($payload);
+        if (!is_array($storeAcknowledgement)) {
+            throw new RuntimeException('Store Ops automation update did not return a valid acknowledgement.');
+        }
+        $acknowledgeStoreOps($storeAcknowledgement);
+    } else {
+        $storeAcknowledgement = $deliverStoreOps($payload);
+        if (!is_array($storeAcknowledgement)) {
+            throw new RuntimeException('Store Ops automation update did not return a valid acknowledgement.');
+        }
+        $acknowledgeStoreOps($storeAcknowledgement);
+        $apiAcknowledgement = $deliverApiIngest($payload);
+        if (!is_array($apiAcknowledgement)) {
+            throw new RuntimeException('API Ingest automation update did not return a valid acknowledgement.');
+        }
+        $acknowledgeApi($apiAcknowledgement);
     }
-    $acknowledgeApi($apiAcknowledgement);
-    $storeAcknowledgement = $deliverStoreOps($payload);
-    if (!is_array($storeAcknowledgement)) {
-        throw new RuntimeException('Store Ops automation update did not return a valid acknowledgement.');
-    }
-    $acknowledgeStoreOps($storeAcknowledgement);
     return $payload;
 }
 
@@ -1562,7 +1528,7 @@ function jg_hard_set_activate(PDO $pdo, string $actor, array $automaticSources):
             ':activated_by' => $actor,
             ':automatic_sources_json' => $automaticSourcesJson,
             ':automation_paused_at' => $now,
-            ':automation_paused_by' => 'Permanent automation safety lock',
+            ':automation_paused_by' => 'Paused on activation',
             ':updated_at' => $now,
         ]);
         $state = [
@@ -1575,7 +1541,7 @@ function jg_hard_set_activate(PDO $pdo, string $actor, array $automaticSources):
             'automation_paused' => true,
             'automation_paused_at' => $now,
             'automation_paused_at_iso' => jg_website_atom($now),
-            'automation_paused_by' => 'Permanent automation safety lock',
+            'automation_paused_by' => 'Paused on activation',
             'updated_at' => $now,
         ];
         $payload = jg_website_activation_payload($state, $automaticSources);
@@ -1608,9 +1574,6 @@ function jg_hard_set_activate(PDO $pdo, string $actor, array $automaticSources):
 
 function jg_hard_set_automation_payload(array $state, bool $paused): array
 {
-    if (!$paused) {
-        throw new RuntimeException('Automatic shipment arrangement is permanently paused and cannot be resumed.');
-    }
     $automaticSources = jg_hard_set_remote_marketplace_sources([
         'sources' => is_array($state['automatic_sources'] ?? null) ? $state['automatic_sources'] : [],
     ]);
@@ -1618,7 +1581,7 @@ function jg_hard_set_automation_payload(array $state, bool $paused): array
         throw new RuntimeException('The permanent Big Set cutover and frozen automatic source scope are required.');
     }
     return [
-        'event' => 'hard_set_automation_paused',
+        'event' => $paused ? 'hard_set_automation_paused' : 'hard_set_automation_resumed',
         'enabled' => true,
         'activated_at' => $state['activated_at_iso'] ?? jg_website_atom((string) $state['activated_at']),
         'activated_by' => (string) ($state['activated_by'] ?? ''),
@@ -1631,9 +1594,6 @@ function jg_hard_set_automation_payload(array $state, bool $paused): array
 
 function jg_hard_set_set_automation_paused(PDO $pdo, bool $paused, string $actor): array
 {
-    if (!$paused) {
-        throw new RuntimeException('Automatic shipment arrangement is permanently paused and cannot be resumed.');
-    }
     $actor = mb_substr(trim($actor), 0, 160);
     if ($actor === '') {
         throw new InvalidArgumentException('Automation change actor is required.');
@@ -1643,7 +1603,7 @@ function jg_hard_set_set_automation_paused(PDO $pdo, bool $paused, string $actor
     try {
         $state = jg_hard_set_state($pdo, true);
         if (empty($state['enabled'])) {
-            throw new RuntimeException('Big Set must be activated before automatic shipment arrangement can be paused.');
+            throw new RuntimeException('Big Set must be activated before automatic shipment arrangement can be paused or resumed.');
         }
         if ((bool) ($state['automation_paused'] ?? false) === $paused) {
             $pdo->commit();
@@ -1665,7 +1625,7 @@ function jg_hard_set_set_automation_paused(PDO $pdo, bool $paused, string $actor
         ]);
         $state = jg_hard_set_state($pdo, false, false);
         $payload = jg_hard_set_automation_payload($state, $paused);
-        $eventType = 'AUTOMATION_PAUSED';
+        $eventType = $paused ? 'AUTOMATION_PAUSED' : 'AUTOMATION_RESUMED';
         $payloadJson = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         if (!is_string($payloadJson)) {
             throw new RuntimeException('Unable to encode the automation state change.');
@@ -1684,7 +1644,7 @@ function jg_hard_set_set_automation_paused(PDO $pdo, bool $paused, string $actor
              VALUES (:event_type, :idempotency_key, :payload_json, "pending", 0, :created_at)'
         )->execute([
             ':event_type' => $eventType,
-            ':idempotency_key' => 'hard-set-automation-paused:' . jg_website_atom($now),
+            ':idempotency_key' => 'hard-set-automation-' . ($paused ? 'paused:' : 'resumed:') . jg_website_atom($now),
             ':payload_json' => $payloadJson,
             ':created_at' => $now,
         ]);
@@ -1695,7 +1655,7 @@ function jg_hard_set_set_automation_paused(PDO $pdo, bool $paused, string $actor
         }
         throw $error;
     }
-    analyticsTouchLiveState('hard_set_automation_paused');
+    analyticsTouchLiveState($paused ? 'hard_set_automation_paused' : 'hard_set_automation_resumed');
     return ['state' => $state, 'changed' => true];
 }
 
@@ -1787,15 +1747,7 @@ function jg_hard_set_deliver_outbox(PDO $pdo): array
         $payload = json_decode((string) $row['payload_json'], true);
         $payload = is_array($payload) ? $payload : [];
         $eventType = strtoupper(trim((string) ($row['event_type'] ?? 'ACTIVATED')));
-        if ($eventType === 'AUTOMATION_RESUMED') {
-            $pdo->prepare(
-                'UPDATE hard_set_outbox
-                 SET status = "superseded", last_error = "Permanent automation pause lock"
-                 WHERE id = :id'
-            )->execute([':id' => $row['id']]);
-            return jg_hard_set_delivery_state($pdo);
-        }
-        if ($eventType === 'AUTOMATION_PAUSED') {
+        if (in_array($eventType, ['AUTOMATION_PAUSED', 'AUTOMATION_RESUMED'], true)) {
             jg_hard_set_project_automation(
                 $payload,
                 static fn (array $automationPayload): array => jg_website_http_json(

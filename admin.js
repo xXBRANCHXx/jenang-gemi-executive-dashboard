@@ -3661,9 +3661,9 @@ document.addEventListener('DOMContentLoaded', () => {
     hardSetRefs.switchButton?.classList.toggle('is-on', enabled && !automationPaused);
     hardSetRefs.switchButton?.classList.toggle('is-paused', automationPaused);
     hardSetRefs.switchButton?.setAttribute('aria-pressed', enabled && !automationPaused ? 'true' : 'false');
-    hardSetRefs.switchButton?.setAttribute('aria-label', !enabled ? 'Activate Big Set' : 'Automatic shipment arrangement permanently paused');
+    hardSetRefs.switchButton?.setAttribute('aria-label', !enabled ? 'Activate Big Set' : (automationPaused ? 'Resume automatic shipment arrangement' : 'Pause automatic shipment arrangement'));
     if (hardSetRefs.switchButton) {
-      hardSetRefs.switchButton.disabled = enabled || !hasBranchAccess || state.hardSet.loading || !readiness.ready;
+      hardSetRefs.switchButton.disabled = !hasBranchAccess || state.hardSet.loading || (!enabled && !readiness.ready);
     }
     if (hardSetRefs.switchLabel) hardSetRefs.switchLabel.textContent = automationPaused ? 'PAUSED' : (enabled ? 'ON' : 'OFF');
     if (hardSetRefs.switchNote) {
@@ -3671,8 +3671,8 @@ document.addEventListener('DOMContentLoaded', () => {
         ? (delivery.required && !delivery.delivered
           ? `THE LATEST AUTOMATION STATE IS SAVED, BUT SYNC IS PENDING${delivery.last_error ? `: ${delivery.last_error}` : '.'}`
           : (automationPaused
-            ? 'Automatic shipment arrangement is permanently paused. Existing arrangements are unchanged; label recovery and manual Instant actions continue.'
-            : 'Automatic shipment arrangement is blocked by the permanent pause safety lock.'))
+            ? 'Automatic shipment arrangement is paused. Existing arrangements are unchanged; label recovery and manual Instant actions continue.'
+            : 'Automatic shipment arrangement is active for the frozen marketplace account scope.'))
         : !hasBranchAccess
           ? 'Branch-tier credentials are required before the physical switch can be used.'
           : readiness.ready ? 'Ready. Activation permanently establishes the server cutover timestamp and frozen account scope.' : 'All readiness checks must pass before activation.';
@@ -3691,7 +3691,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (hardSetRefs.explanation) {
       hardSetRefs.explanation.textContent = enabled
         ? (automationPaused
-          ? 'The permanent cutover remains active, but automatic marketplace shipment arrangement is permanently paused. Partner orders and existing arranged orders are unaffected.'
+          ? 'The permanent cutover remains active, but automatic marketplace shipment arrangement is paused. Partner orders and existing arranged orders are unaffected.'
           : 'Store Ops website ingestion and the frozen automatic marketplace shipment accounts use this permanent cutover. Earlier orders remain manual-era.')
         : 'Website metrics are live, but website ingestion and automatic marketplace shipment arrangement remain OFF until this switch is permanently activated.';
     }
@@ -12492,6 +12492,28 @@ document.addEventListener('DOMContentLoaded', () => {
       hardSetRefs.error.textContent = '';
     }
     if (state.hardSet.state?.enabled) {
+      const paused = Boolean(state.hardSet.state?.automation_paused);
+      const action = paused ? 'resume' : 'pause';
+      const accepted = window.confirm(paused
+        ? 'Resume future automatic Shopee/TikTok shipment arrangement? Orders held during the pause may then be arranged automatically.'
+        : 'Pause future automatic Shopee/TikTok shipment arrangement? Already arranged shipments will not be changed, and Partner orders will keep working.');
+      if (!accepted) return;
+      state.hardSet.loading = true;
+      renderHardSet();
+      try {
+        const data = await requestJson(`${hardSetEndpoint}?action=${action}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ confirmation: paused ? 'RESUME AUTOMATION' : 'PAUSE AUTOMATION' }),
+          timeoutMs: 70000
+        });
+        applyHardSetData(data);
+      } catch (error) {
+        window.alert(error.message || 'Unable to change automatic shipment arrangement.');
+      } finally {
+        state.hardSet.loading = false;
+        renderHardSet();
+      }
       return;
     }
     hardSetRefs.form?.reset();

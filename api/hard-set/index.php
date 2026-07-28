@@ -61,16 +61,13 @@ try {
         ]);
     }
 
-    if ($method === 'POST' && $action === 'resume') {
-        jg_hard_set_json(['ok' => false, 'error' => 'Automatic shipment arrangement is permanently paused and cannot be resumed.'], 409);
-    }
-
-    if ($method === 'POST' && $action === 'pause') {
+    if ($method === 'POST' && in_array($action, ['pause', 'resume'], true)) {
         if (!jg_sku_is_branch()) {
             jg_hard_set_json(['ok' => false, 'error' => 'Unlock Hard Set with Branch-tier credentials first.'], 403);
         }
-        $paused = true;
-        if (!hash_equals('PAUSE AUTOMATION', trim((string) ($body['confirmation'] ?? '')))) {
+        $paused = $action === 'pause';
+        $expectedConfirmation = $paused ? 'PAUSE AUTOMATION' : 'RESUME AUTOMATION';
+        if (!hash_equals($expectedConfirmation, trim((string) ($body['confirmation'] ?? '')))) {
             jg_hard_set_json(['ok' => false, 'error' => 'Invalid automation control confirmation.'], 422);
         }
         $currentState = jg_hard_set_state($pdo);

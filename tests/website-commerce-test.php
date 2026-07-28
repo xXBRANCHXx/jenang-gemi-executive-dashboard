@@ -75,7 +75,7 @@ commerce_expect(
     $activationPayload['automatic_sources'],
     'The durable activation payload must preserve the verified account-level source scope.'
 );
-commerce_expect(true, $activationPayload['automation_paused'], 'Activation must begin under the permanent automation pause lock.');
+commerce_expect(true, $activationPayload['automation_paused'], 'Activation must begin paused until a Branch-tier operator resumes it.');
 $scopedDeliveryPayload = jg_hard_set_delivery_payload_with_api_scope(
     $activationPayload,
     ['state' => [
@@ -163,24 +163,28 @@ $resumePayload = $pausedPayload;
 $resumePayload['event'] = 'hard_set_automation_resumed';
 $resumePayload['automation_paused'] = false;
 $resumeDeliveryOrder = [];
-$resumeRejected = false;
-try {
-    jg_hard_set_project_automation(
-        $resumePayload,
-        static function (array $payload) use (&$resumeDeliveryOrder): array {
-            $resumeDeliveryOrder[] = 'store_ops';
-            return [];
-        },
-        static function (array $payload) use (&$resumeDeliveryOrder): array {
-            $resumeDeliveryOrder[] = 'api_ingest';
-            return [];
-        }
-    );
-} catch (RuntimeException $error) {
-    $resumeRejected = str_contains($error->getMessage(), 'permanently paused');
-}
-commerce_expect(true, $resumeRejected, 'The permanent pause lock must reject every resume payload.');
-commerce_expect([], $resumeDeliveryOrder, 'A rejected resume must never reach Store Ops or API Ingest.');
+jg_hard_set_project_automation(
+    $resumePayload,
+    static function (array $payload) use (&$resumeDeliveryOrder): array {
+        $resumeDeliveryOrder[] = 'store_ops';
+        return ['state' => [
+            'enabled' => true,
+            'activated_at' => $payload['activated_at'],
+            'automatic_sources' => $payload['automatic_sources'],
+            'automation_paused' => false,
+        ]];
+    },
+    static function (array $payload) use (&$resumeDeliveryOrder): array {
+        $resumeDeliveryOrder[] = 'api_ingest';
+        return ['state' => [
+            'enabled' => true,
+            'activated_at' => $payload['activated_at'],
+            'sources' => $payload['automatic_sources'],
+            'automation_paused' => false,
+        ]];
+    }
+);
+commerce_expect(['store_ops', 'api_ingest'], $resumeDeliveryOrder, 'Resume must hide paused rows in Store Ops before API Ingest restarts mutations.');
 
 $pauseMismatchRejected = false;
 try {
