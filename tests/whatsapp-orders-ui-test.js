@@ -11,7 +11,7 @@ const nav = fs.readFileSync(path.join(root, 'admin-nav.php'), 'utf8');
 
 assert.match(nav, /'overview' => \['whatsapp-orders'/, 'The homepage hamburger menu must lead with WhatsApp Orders.');
 assert.match(dashboardScript, /overview: \['whatsapp-orders'/, 'The dashboard client must preserve WhatsApp Orders when rebuilding the hamburger menu.');
-assert.match(page, /name="shipping_cost"[\s\S]*?Saved for Executive metrics only/, 'The builder must capture shipping cost with its metric-only scope.');
+assert.match(page, /name="shipping_cost"[\s\S]*?Saved for metrics and the customer invoice total/, 'The builder must capture shipping cost for metrics and customer invoices.');
 assert.match(page, /data-discount-mode="sale_price"[\s\S]*?data-discount-mode="percentage"/, 'The builder must offer sale-price and percentage discounts.');
 assert.match(page, /data-merchandise-subtotal[\s\S]*?data-discount-total[\s\S]*?data-merchandise-total/, 'The totals must show subtotal, discount, and net merchandise.');
 assert.match(page, /name="label"[\s\S]*?deadline_hours/, 'The order must follow the Partner label and deadline flow.');
@@ -50,8 +50,9 @@ const payloadStart = bootstrap.indexOf('function jg_whatsapp_store_ops_payload')
 const payloadEnd = bootstrap.indexOf('function jg_whatsapp_publish_order', payloadStart);
 const outboundPayload = bootstrap.slice(payloadStart, payloadEnd);
 assert.ok(outboundPayload.includes("'status' => 'IS_LISTED'"), 'Store Ops must receive a listed order.');
-assert.ok(!outboundPayload.includes("'shipping_cost'"), 'Shipping cost must never be included in the Store Ops payload.');
-assert.ok(!outboundPayload.includes("'unit_price'"), 'Executive sale prices must stay out of the Store Ops fulfillment payload.');
+assert.ok(outboundPayload.includes("'shipping_cost'"), 'Store Ops must receive shipping cost for the customer invoice total.');
+assert.ok(bootstrap.includes("'unit_price' => (float) ($item['unit_price']"), 'Store Ops must receive saved unit prices for invoice lines.');
+assert.ok(outboundPayload.includes("'discount_total'"), 'Store Ops must receive saved discounts for invoice reconciliation.');
 assert.match(bootstrap, /current_stock[\s\S]*?only has %d unit/, 'Submission must reject quantities above current SKU stock.');
 assert.match(bootstrap, /jg_whatsapp_item_discount[\s\S]*?discount_rate[\s\S]*?discountableSubtotal/, 'The server must apply item discounts before the order discount.');
 assert.match(bootstrap, /jg_whatsapp_item_sale_price_discount[\s\S]*?Catalog unit price/, 'The server must retain catalog price as gross and convert edited sale price to an exact discount.');

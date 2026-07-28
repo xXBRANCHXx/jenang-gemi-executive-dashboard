@@ -16,6 +16,24 @@ whatsapp_expect(0.0, jg_whatsapp_money(0, 'Shipping cost'), 'Zero shipping must 
 whatsapp_expect(25000.0, jg_whatsapp_money('25000', 'Shipping cost'), 'Shipping cost must normalize as money.');
 whatsapp_expect('Customer One', jg_whatsapp_text(" Customer\nOne ", 'Customer name', 160, true), 'Customer text must normalize whitespace.');
 whatsapp_expect(true, str_starts_with(jg_whatsapp_generate_order_id(), 'WAEXEC-'), 'Executive WhatsApp orders need a distinct Store Ops prefix.');
+$storeOpsFinancials = jg_whatsapp_store_ops_financials([
+    'merchandise_subtotal' => 457000,
+    'merchandise_total' => 381500,
+    'discount_total' => 75500,
+    'shipping_cost' => 17000,
+]);
+whatsapp_expect(398500.0, $storeOpsFinancials['customer_total'], 'Store Ops must receive the final customer total including shipping.');
+$storeOpsItem = jg_whatsapp_store_ops_item([
+    'sku' => '010155002701',
+    'quantity' => 1,
+    'product_name' => 'ZERO · Syrup · Pistachio',
+    'unit_price' => 77000,
+    'discount_rate' => 10,
+    'discount_total' => 7700,
+    'line_total' => 69300,
+]);
+whatsapp_expect(77000.0, $storeOpsItem['unit_price'], 'Store Ops invoice lines must retain unit prices.');
+whatsapp_expect(69300.0, $storeOpsItem['line_total'], 'Store Ops invoice lines must retain discounted totals.');
 $percentageDiscount = jg_whatsapp_order_discount(['discount' => ['type' => 'percentage', 'value' => 10]], 100000);
 whatsapp_expect(10000.0, $percentageDiscount['total'], 'Percentage discounts must reduce merchandise revenue.');
 whatsapp_expect(90000.0, $percentageDiscount['net'], 'Percentage discounts must preserve the net merchandise total.');

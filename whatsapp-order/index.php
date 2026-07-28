@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/auth.php';
 require_once dirname(__DIR__) . '/admin-nav.php';
+require_once dirname(__DIR__) . '/config.php';
 
 if (!jg_admin_is_authenticated()) {
     header('Location: ../dashboard/?view=overview');
@@ -12,6 +13,11 @@ if (!jg_admin_is_authenticated()) {
 $adminCssVersion = (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $historyCssVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-order-history.css');
 $detailJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-order-detail.js');
+$storeOpsBaseUrl = rtrim(
+    jg_dashboard_env_value('JG_STORE_OPS_BASE_URL')
+        ?: (string) (jg_dashboard_load_local_config()['store_ops_base_url'] ?? 'https://store.jenanggemi.com'),
+    '/'
+);
 ?>
 <!DOCTYPE html>
 <html lang="id" data-admin-theme="dark">
@@ -29,8 +35,8 @@ $detailJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-order-detai
     <link rel="stylesheet" href="../whatsapp-order-history.css?v=<?php echo urlencode($historyCssVersion ?: '1'); ?>">
 </head>
 <body class="admin-body is-dashboard is-whatsapp-history-page">
-    <div class="admin-build-badge" aria-label="Dashboard build version">Build exec3.92.6</div>
-    <div class="admin-app admin-app-suite" data-whatsapp-order-detail data-endpoint="../api/whatsapp-orders/">
+    <div class="admin-build-badge" aria-label="Dashboard build version">Build exec3.92.7</div>
+    <div class="admin-app admin-app-suite" data-whatsapp-order-detail data-endpoint="../api/whatsapp-orders/" data-invoice-printer-url="<?php echo htmlspecialchars($storeOpsBaseUrl . '/invoice-printer/', ENT_QUOTES, 'UTF-8'); ?>">
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
         <div class="admin-shell">
@@ -64,6 +70,7 @@ $detailJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-order-detai
                             </div>
                             <div class="whatsapp-detail-hero-actions">
                                 <span class="whatsapp-history-status" data-detail-status>Status</span>
+                                <a class="admin-primary-btn" data-detail-invoice-link target="_blank" rel="noopener" hidden>Print invoice</a>
                                 <a class="admin-ghost-btn" data-detail-label-link target="_blank" rel="noopener">Open shipping label</a>
                             </div>
                         </section>

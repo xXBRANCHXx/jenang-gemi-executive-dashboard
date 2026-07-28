@@ -27,7 +27,7 @@ $pageJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-orders.js');
     <link rel="stylesheet" href="../admin.css?v=<?php echo urlencode($adminCssVersion ?: '1'); ?>">
 </head>
 <body class="admin-body is-dashboard is-whatsapp-orders-page">
-    <div class="admin-build-badge" aria-label="Dashboard build version">Build exec3.92.6</div>
+    <div class="admin-build-badge" aria-label="Dashboard build version">Build exec3.92.7</div>
     <div class="admin-app admin-app-suite" data-whatsapp-orders data-endpoint="../api/whatsapp-orders/">
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
@@ -51,7 +51,7 @@ $pageJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-orders.js');
                             <div>
                                 <span class="admin-panel-kicker">Direct order</span>
                                 <h2 id="whatsapp-builder-title">Create WhatsApp order</h2>
-                                <p>Enter the customer, choose products, and upload the shipping label. Shipping cost stays in Executive metrics and is not sent to Store Ops.</p>
+                                <p>Enter the customer, choose products, and upload the shipping label. Saved prices sync to Store Ops for customer invoice printing.</p>
                             </div>
                             <div class="whatsapp-order-flow" aria-label="Order workflow">
                                 <span class="is-active">1 · Construct</span>
@@ -122,7 +122,7 @@ $pageJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-orders.js');
                                     <label class="whatsapp-money-field">
                                         <span>Shipping cost</span>
                                         <div><b>Rp</b><input type="number" name="shipping_cost" min="0" max="99999999999999" step="1" value="0" inputmode="numeric" required></div>
-                                        <small>Saved for Executive metrics only</small>
+                                        <small>Saved for metrics and the customer invoice total</small>
                                     </label>
                                     <div class="whatsapp-discount-field">
                                         <span>Order discount</span>

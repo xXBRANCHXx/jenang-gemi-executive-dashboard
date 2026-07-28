@@ -3,13 +3,15 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!root) return;
 
   const endpoint = root.dataset.endpoint || '../api/whatsapp-orders/';
+  const invoicePrinterUrl = root.dataset.invoicePrinterUrl || 'https://store.jenanggemi.com/invoice-printer/';
   const orderId = new URLSearchParams(window.location.search).get('order')?.trim() || '';
   const refs = {
     loading: root.querySelector('[data-detail-loading]'),
     content: root.querySelector('[data-detail-content]'),
     error: root.querySelector('[data-detail-error]'),
     items: root.querySelector('[data-detail-items]'),
-    label: root.querySelector('[data-detail-label-link]')
+    label: root.querySelector('[data-detail-label-link]'),
+    invoice: root.querySelector('[data-detail-invoice-link]')
   };
   const currency = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 });
   const integer = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 });
@@ -85,6 +87,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (refs.label) {
       refs.label.href = `${endpoint}?${new URLSearchParams({ action: 'label', order: order.order_id })}`;
       refs.label.hidden = !order.has_label;
+    }
+    if (refs.invoice) {
+      const invoiceUrl = new URL(invoicePrinterUrl, window.location.href);
+      invoiceUrl.searchParams.set('order_id', order.order_id);
+      invoiceUrl.searchParams.set('print', '1');
+      refs.invoice.href = invoiceUrl.toString();
+      refs.invoice.hidden = false;
     }
     if (refs.items) {
       refs.items.innerHTML = items.length ? items.map((item) => {

@@ -527,9 +527,41 @@ function jg_whatsapp_create_order(PDO $pdo, PDO $skuPdo, array $payload, array $
     return jg_whatsapp_format_order($pdo, jg_whatsapp_internal_order($pdo, $orderId));
 }
 
+function jg_whatsapp_store_ops_item(array $item): array
+{
+    return [
+        'sku' => (string) ($item['sku'] ?? ''),
+        'quantity' => (int) ($item['quantity'] ?? 0),
+        'product_name' => (string) ($item['product_name'] ?? ''),
+        'unit_price' => (float) ($item['unit_price'] ?? 0),
+        'discount_rate' => (float) ($item['discount_rate'] ?? 0),
+        'discount_total' => (float) ($item['discount_total'] ?? 0),
+        'line_total' => (float) ($item['line_total'] ?? 0),
+        'skip_scan' => false,
+    ];
+}
+
+function jg_whatsapp_store_ops_financials(array $row): array
+{
+    $subtotal = (float) (($row['merchandise_subtotal'] ?? 0) ?: ($row['merchandise_total'] ?? 0));
+    $merchandise = (float) ($row['merchandise_total'] ?? 0);
+    $discount = (float) ($row['discount_total'] ?? max(0, $subtotal - $merchandise));
+    $shipping = (float) ($row['shipping_cost'] ?? 0);
+
+    return [
+        'currency' => 'IDR',
+        'merchandise_subtotal' => $subtotal,
+        'merchandise_total' => $merchandise,
+        'discount_total' => $discount,
+        'shipping_cost' => $shipping,
+        'customer_total' => $merchandise + $shipping,
+    ];
+}
+
 function jg_whatsapp_store_ops_payload(PDO $pdo, array $row): array
 {
     $items = jg_whatsapp_order_items($pdo, (int) $row['id']);
+    $financials = jg_whatsapp_store_ops_financials($row);
     return [
         'platform' => 'whatsapp',
         'platform_label' => 'WhatsApp',
@@ -537,6 +569,20 @@ function jg_whatsapp_store_ops_payload(PDO $pdo, array $row): array
         'order_id' => (string) $row['order_id'],
         'id' => (string) $row['order_id'],
         'status' => 'IS_LISTED',
+        'currency' => $financials['currency'],
+        'merchandise_subtotal' => $financials['merchandise_subtotal'],
+        'merchandise_total' => $financials['merchandise_total'],
+        'discount_total' => $financials['discount_total'],
+        'shipping_cost' => $financials['shipping_cost'],
+        'revenueTotal' => $financials['customer_total'],
+        'financials' => [
+            'currency' => $financials['currency'],
+            'merchandiseSubtotal' => $financials['merchandise_subtotal'],
+            'merchandiseTotal' => $financials['merchandise_total'],
+            'discountTotal' => $financials['discount_total'],
+            'shippingCost' => $financials['shipping_cost'],
+            'customerTotal' => $financials['customer_total'],
+        ],
         'deadline_hours' => (int) $row['deadline_hours'],
         'deadlineAt' => !empty($row['deadline_at'])
             ? (int) ((new DateTimeImmutable((string) $row['deadline_at'], new DateTimeZone('UTC')))->format('Uv'))
@@ -550,12 +596,7 @@ function jg_whatsapp_store_ops_payload(PDO $pdo, array $row): array
         'notes' => (string) $row['notes'],
         'label_url' => rtrim(jg_website_config('JG_EXECUTIVE_DASHBOARD_URL', 'executive_dashboard_url', 'https://admin.jenanggemi.com'), '/')
             . '/api/whatsapp-orders/?action=store_ops_label&order=' . rawurlencode((string) $row['order_id']),
-        'items' => array_map(static fn (array $item): array => [
-            'sku' => $item['sku'],
-            'quantity' => $item['quantity'],
-            'product_name' => $item['product_name'],
-            'skip_scan' => false,
-        ], $items),
+        'items' => array_map('jg_whatsapp_store_ops_item', $items),
     ];
 }
 

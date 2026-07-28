@@ -20,6 +20,8 @@ assert.match(historyScript, /action: 'history'/, 'History rows must load the pag
 assert.match(historyScript, /whatsapp-order\/\?order=[\s\S]*?data-order-url/, 'History rows must open dedicated detail pages.');
 assert.match(detailPage, /Ordered items[\s\S]*?Unit price[\s\S]*?Gross[\s\S]*?Discount[\s\S]*?Net/, 'Detail page must show the complete item price breakdown.');
 assert.match(detailPage, /Delivery details[\s\S]*?Cost and margin[\s\S]*?Order timing/, 'Detail page must include customer, economics, and lifecycle context.');
+assert.match(detailPage, /data-detail-invoice-link[^>]*>Print invoice/, 'Detail page must provide the Store Ops invoice action.');
+assert.match(detailScript, /invoicePrinterUrl[\s\S]*?order_id[\s\S]*?print[\s\S]*?refs\.invoice\.href/, 'Invoice action must pass the order ID into the auto-print route.');
 assert.match(detailScript, /unit_cogs[\s\S]*?discount_total[\s\S]*?line_total[\s\S]*?action: 'order'/, 'Detail client must calculate from saved line economics.');
 assert.match(api, /action === 'history'[\s\S]*?jg_whatsapp_order_history[\s\S]*?action === 'order'/, 'WhatsApp API must expose history and single-order reads.');
 assert.match(bootstrap, /function jg_whatsapp_order_history[\s\S]*?COUNT\(\*\)[\s\S]*?LIMIT/, 'History backend must paginate over all matching orders.');
