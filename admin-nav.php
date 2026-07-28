@@ -218,6 +218,7 @@ function admin_normalize_quick_menu_context(string $context): string
         'partner' => 'partners',
         'partner-program' => 'partners',
         'partner-profile' => 'partner-profiles',
+        'partner-sales' => 'partner-profiles',
         'sku' => 'sku-db',
         'api-health' => 'api',
         'accounting' => 'accounting',
@@ -287,6 +288,9 @@ function admin_current_menu_context(): string
         return 'affiliates';
     }
     if (str_contains($path, '/partner-profile/')) {
+        return 'partner-profiles';
+    }
+    if (str_contains($path, '/partner-sales/')) {
         return 'partner-profiles';
     }
     if (str_contains($path, '/partner-profiles/')) {
@@ -425,6 +429,7 @@ function admin_normalize_favicon_key(string $key): string
         'partner' => 'partners',
         'partner-program' => 'partners',
         'partner-profile' => 'partners',
+        'partner-sales' => 'partners',
         'partner-profiles' => 'partners',
         'api-health' => 'api',
         'sku' => 'sku-db',

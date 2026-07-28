@@ -15,6 +15,7 @@ assert.match(script, /partnerFaviconEndpoint/, 'Partner rows should load partner
 assert.match(script, /data-favicon-theme="light"[\s\S]*data-favicon-theme="dark"/, 'Both favicon theme variants should be rendered.');
 assert.match(script, /partner-directory-favicon-fallback[\s\S]*<circle[\s\S]*<path/, 'Missing favicons should use a generic profile icon.');
 assert.match(script, /Open<\/a>[\s\S]*partner-edit-button[\s\S]*partner-delete-button/, 'Open should precede the edit and delete icon actions.');
+assert.match(script, /data-partner-sales-url="\.\.\/partner-sales\/\?code=/, 'Partner rows should open their sales breakdown.');
 
 assert.match(styles, /data-admin-theme='light'[\s\S]*data-favicon-theme='light'/, 'Light mode should select the light favicon.');
 assert.match(styles, /data-admin-theme='dark'[\s\S]*data-favicon-theme='dark'/, 'Dark mode should select the dark favicon.');

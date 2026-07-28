@@ -471,7 +471,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const brandPreview = brands.slice(0, 3);
       const extraBrands = Math.max(0, brands.length - brandPreview.length);
       return `
-        <article class="partner-directory-row">
+        <article class="partner-directory-row" data-partner-sales-url="../partner-sales/?code=${encodeURIComponent(partner.code || '')}" tabindex="0" role="link" aria-label="View sales breakdown for ${escapeHtml(partner.name || 'partner')}">
           <div class="partner-directory-partner">
             <span class="partner-directory-favicon" aria-hidden="true">
               <svg class="partner-directory-favicon-fallback" viewBox="0 0 24 24">
@@ -517,6 +517,22 @@ document.addEventListener('DOMContentLoaded', () => {
   partnerSearch?.addEventListener('input', () => {
     state.search.partners = partnerSearch.value || '';
     renderPartners();
+  });
+
+  const openPartnerSalesFromRow = (event) => {
+    const row = event.target.closest('[data-partner-sales-url]');
+    if (!row || event.target.closest('a, button, input, select, textarea, label')) return;
+    const url = row.getAttribute('data-partner-sales-url');
+    if (url) window.location.href = url;
+  };
+
+  partnerList?.addEventListener('click', openPartnerSalesFromRow);
+  partnerList?.addEventListener('keydown', (event) => {
+    if (!['Enter', ' '].includes(event.key)) return;
+    const row = event.target.closest('[data-partner-sales-url]');
+    if (!row || event.target !== row) return;
+    event.preventDefault();
+    openPartnerSalesFromRow(event);
   });
 
   const loadPartners = async () => {
