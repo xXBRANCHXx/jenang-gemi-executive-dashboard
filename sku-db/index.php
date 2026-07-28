@@ -34,7 +34,7 @@ $isBranch = jg_sku_is_branch();
 $adminCssVersion = (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $skuJsVersion = (string) @filemtime(dirname(__DIR__) . '/sku-db.js');
 $skuBarcodeJsVersion = (string) @filemtime(dirname(__DIR__) . '/sku-barcode.js');
-$pageBuildVersion = 'sku1.00.00';
+$pageBuildVersion = 'sku1.00.01';
 ?>
 <!DOCTYPE html>
 <html lang="id" data-admin-theme="dark">
@@ -62,7 +62,7 @@ $pageBuildVersion = 'sku1.00.00';
             <div class="admin-login-brand">
                 <span class="admin-chip">SKU Access</span>
                 <h1>Jenang Gemi SKU Database</h1>
-                <p>Branch receives full SKU administration and approvals. Any other username that signs in with the executive admin code receives the restricted SKU request sheet.</p>
+                <p>Admin users can build and push validated SKUs directly. New mappings require Branch approval.</p>
             </div>
             <form method="post" class="admin-login-form" autocomplete="off">
                 <label for="sku_username">Username</label>
@@ -111,8 +111,7 @@ $pageBuildVersion = 'sku1.00.00';
                 </div>
 
                 <main class="admin-layout admin-sku-layout">
-                    <?php if ($isBranch): ?>
-                        <section class="admin-sku-workbench" aria-label="SKU creation workspace">
+                    <section class="admin-sku-workbench" aria-label="SKU creation workspace">
                             <article class="admin-sku-composer admin-sku-collapsible">
                                 <details class="admin-sku-collapse">
                                     <summary class="admin-sku-collapse-toggle">
@@ -170,11 +169,11 @@ $pageBuildVersion = 'sku1.00.00';
                                     <details class="admin-sku-collapse">
                                         <summary class="admin-sku-collapse-toggle">
                                             <span class="admin-sku-collapse-arrow" aria-hidden="true"></span>
-                                            <strong>Approvals</strong>
+                                            <strong><?php echo $isBranch ? 'Approvals' : 'Mapping Requests'; ?></strong>
                                         </summary>
                                         <div class="admin-sku-collapse-body">
                                             <div class="admin-request-stack" data-request-list>
-                                                <p class="admin-empty">No requests yet.</p>
+                                                <p class="admin-empty"><?php echo $isBranch ? 'No requests yet.' : 'You have not submitted any mapping requests yet.'; ?></p>
                                             </div>
                                             <p class="admin-form-error" data-request-error hidden></p>
                                         </div>
@@ -188,20 +187,23 @@ $pageBuildVersion = 'sku1.00.00';
                                             <strong>Mappings</strong>
                                         </summary>
                                         <div class="admin-sku-collapse-body">
+                                            <?php if (!$isBranch): ?>
+                                                <p class="admin-muted-copy">Request any missing mapping here. Branch approval is required before it becomes available in the SKU builder.</p>
+                                            <?php endif; ?>
                                             <div class="admin-sku-form-grid admin-sku-master-create-grid">
                                                 <form class="admin-sku-mini-form" data-add-brand-form>
                                                     <label>
                                                         <span>New brand</span>
                                                         <input type="text" name="name" maxlength="120" placeholder="Jenang Gemi" required>
                                                     </label>
-                                                    <button type="submit" class="admin-primary-btn admin-sku-add-btn">Add</button>
+                                                    <button type="submit" class="admin-primary-btn admin-sku-add-btn"><?php echo $isBranch ? 'Add' : 'Request'; ?></button>
                                                 </form>
                                                 <form class="admin-sku-mini-form" data-add-unit-form>
                                                     <label>
                                                         <span>New unit</span>
                                                         <input type="text" name="name" maxlength="120" placeholder="sachet or ml" required>
                                                     </label>
-                                                    <button type="submit" class="admin-primary-btn admin-sku-add-btn">Add</button>
+                                                    <button type="submit" class="admin-primary-btn admin-sku-add-btn"><?php echo $isBranch ? 'Add' : 'Request'; ?></button>
                                                 </form>
                                                 <form class="admin-sku-mini-form" data-add-flavor-form>
                                                     <label>
@@ -212,7 +214,7 @@ $pageBuildVersion = 'sku1.00.00';
                                                         <span>Flavor</span>
                                                         <input type="text" name="name" maxlength="120" placeholder="Pandan" required>
                                                     </label>
-                                                    <button type="submit" class="admin-primary-btn admin-sku-add-btn">Add</button>
+                                                    <button type="submit" class="admin-primary-btn admin-sku-add-btn"><?php echo $isBranch ? 'Add' : 'Request'; ?></button>
                                                 </form>
                                                 <form class="admin-sku-mini-form" data-add-product-form>
                                                     <label>
@@ -223,7 +225,7 @@ $pageBuildVersion = 'sku1.00.00';
                                                         <span>Product</span>
                                                         <input type="text" name="name" maxlength="120" placeholder="Bubur" required>
                                                     </label>
-                                                    <button type="submit" class="admin-primary-btn admin-sku-add-btn">Add</button>
+                                                    <button type="submit" class="admin-primary-btn admin-sku-add-btn"><?php echo $isBranch ? 'Add' : 'Request'; ?></button>
                                                 </form>
                                             </div>
                                             <p class="admin-form-error" data-master-form-error hidden></p>
@@ -273,75 +275,7 @@ $pageBuildVersion = 'sku1.00.00';
                                     <p class="admin-form-error" data-apply-error hidden></p>
                                 </div>
                             </details>
-                        </section>
-
-                    <?php else: ?>
-                        <section class="admin-sku-workbench admin-sku-workbench-request" aria-label="SKU request workspace">
-                            <article class="admin-sku-composer admin-sku-collapsible">
-                                <details class="admin-sku-collapse">
-                                    <summary class="admin-sku-collapse-toggle">
-                                        <span class="admin-sku-collapse-arrow" aria-hidden="true"></span>
-                                        <strong>Builder</strong>
-                                    </summary>
-                                    <div class="admin-sku-collapse-body">
-                                        <div class="admin-sku-preview-surface">
-                                            <span class="admin-control-label">Proposed SKU</span>
-                                            <strong data-sku-preview>------------</strong>
-                                        </div>
-
-                                        <form class="admin-sku-builder admin-sku-builder-compact" data-request-form>
-                                            <label>
-                                                <span>Brand</span>
-                                                <select class="admin-select" name="brand_id" data-sku-brand-select required></select>
-                                            </label>
-                                            <label>
-                                                <span>Unit</span>
-                                                <select class="admin-select" name="unit_id" data-unit-select required></select>
-                                            </label>
-                                            <label>
-                                                <span>Volume</span>
-                                                <input type="text" name="volume" inputmode="decimal" placeholder="15 or 15.2" required>
-                                            </label>
-                                            <label>
-                                                <span>ASTRA</span>
-                                                <input type="number" name="astra" min="0.01" step="0.01" placeholder="15" required>
-                                            </label>
-                                            <label>
-                                                <span>Flavor</span>
-                                                <select class="admin-select" name="flavor_id" data-flavor-select required></select>
-                                            </label>
-                                            <label>
-                                                <span>Product</span>
-                                                <select class="admin-select" name="product_id" data-product-select required></select>
-                                            </label>
-                                            <div class="admin-sku-actions admin-sku-builder-actions">
-                                                <button type="submit" class="admin-primary-btn admin-sku-action-btn">
-                                                    <span>Submit</span>
-                                                </button>
-                                            </div>
-                                        </form>
-                                        <p class="admin-form-error" data-request-submit-error hidden></p>
-                                    </div>
-                                </details>
-                            </article>
-
-                            <aside class="admin-sku-side-stack" aria-label="Request status">
-                                <article class="admin-sku-dock admin-sku-request-dock admin-sku-collapsible">
-                                    <details class="admin-sku-collapse">
-                                        <summary class="admin-sku-collapse-toggle">
-                                            <span class="admin-sku-collapse-arrow" aria-hidden="true"></span>
-                                            <strong>Requests</strong>
-                                        </summary>
-                                        <div class="admin-sku-collapse-body">
-                                            <div class="admin-request-stack" data-request-list>
-                                                <p class="admin-empty">You have not submitted any requests yet.</p>
-                                            </div>
-                                        </div>
-                                    </details>
-                                </article>
-                            </aside>
-                        </section>
-                    <?php endif; ?>
+                    </section>
 
                     <section class="admin-sku-table-shell" aria-label="Approved live SKU database">
                         <div class="admin-sku-table-toolbar">

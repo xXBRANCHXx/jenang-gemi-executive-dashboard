@@ -122,6 +122,23 @@ function jg_sku_ensure_schema(PDO $pdo): void
             CONSTRAINT fk_sku_requests_flavor FOREIGN KEY (flavor_id) REFERENCES sku_flavors(id) ON DELETE RESTRICT,
             CONSTRAINT fk_sku_requests_product FOREIGN KEY (product_id) REFERENCES sku_products(id) ON DELETE RESTRICT
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+        'CREATE TABLE IF NOT EXISTS sku_mapping_requests (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            requester_username VARCHAR(160) NOT NULL,
+            requester_role VARCHAR(32) NOT NULL,
+            mapping_type VARCHAR(24) NOT NULL,
+            brand_id VARCHAR(140) NULL DEFAULT NULL,
+            proposed_name VARCHAR(120) NOT NULL,
+            status VARCHAR(16) NOT NULL DEFAULT "pending",
+            decision_notes VARCHAR(500) NOT NULL DEFAULT "",
+            decided_by VARCHAR(160) NOT NULL DEFAULT "",
+            created_at DATETIME NOT NULL,
+            decided_at DATETIME NULL DEFAULT NULL,
+            KEY idx_sku_mapping_requests_status_created (status, created_at),
+            KEY idx_sku_mapping_requests_requester (requester_username, created_at),
+            KEY idx_sku_mapping_requests_duplicate (mapping_type, brand_id, proposed_name, status),
+            CONSTRAINT fk_sku_mapping_requests_brand FOREIGN KEY (brand_id) REFERENCES sku_brands(id) ON DELETE RESTRICT
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
         'CREATE TABLE IF NOT EXISTS sku_skus (
             sku VARCHAR(12) NOT NULL PRIMARY KEY,
             tag VARCHAR(50) NOT NULL,

@@ -76,6 +76,9 @@ geometry under Lucide's ISC license.
 - This repo is intended to be deployed as the root of the `admin.jenanggemi.com` site in Hostinger Git deployment.
 - SKU login is separate from the main executive dashboard login. `sku_branch_password_hash`
   should be configured through `config.local.php` or `JG_SKU_BRANCH_PASSWORD_HASH`.
+- SKU Admin sessions can create validated live SKUs directly. Brand, unit, flavor,
+  and product mapping additions are submitted to Branch for approval; Branch can
+  continue to create mappings directly and process any legacy SKU requests.
 - Partner profiles now use the partner MySQL database when `partner_db_*` is configured.
 - API Health runs authenticated server-side checks for Shopee ingest, Store Ops deployment, and dashboard databases, then stores recent failures in `data/api-health-log.json`.
 - Marketplace order detail is mirrored into this dashboard's MySQL database through

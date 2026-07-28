@@ -506,6 +506,116 @@ function jg_sku_assert_unique_brand_child(PDO $pdo, string $tableName, string $b
     }
 }
 
+function jg_sku_mapping_type(mixed $value): string
+{
+    $type = strtolower(trim((string) $value));
+    if (!in_array($type, ['brand', 'unit', 'flavor', 'product'], true)) {
+        jg_sku_fail('Mapping type is not valid.');
+    }
+
+    return $type;
+}
+
+function jg_sku_mapping_name(string $type, mixed $value): string
+{
+    $name = jg_sku_normalize_name((string) $value);
+    return $type === 'flavor' ? strtoupper($name) : $name;
+}
+
+function jg_sku_assert_mapping_available(PDO $pdo, string $type, ?string $brandId, string $name): void
+{
+    if ($type === 'brand') {
+        jg_sku_assert_unique_brand($pdo, $name);
+        return;
+    }
+
+    if ($type === 'unit') {
+        jg_sku_assert_unique_unit($pdo, $name);
+        return;
+    }
+
+    if ($brandId === null || $brandId === '') {
+        jg_sku_fail('Brand is required for this mapping.');
+    }
+
+    jg_sku_get_brand($pdo, $brandId);
+    $tableName = $type === 'flavor' ? 'sku_flavors' : 'sku_products';
+    $label = $type === 'flavor' ? 'Flavor' : 'Product';
+    jg_sku_assert_unique_brand_child($pdo, $tableName, $brandId, $name, $label . ' already exists for this brand.');
+}
+
+function jg_sku_assert_mapping_request_unique(PDO $pdo, string $type, ?string $brandId, string $name, int $excludeId = 0): void
+{
+    $sql = 'SELECT COUNT(*) FROM sku_mapping_requests
+            WHERE mapping_type = :mapping_type
+              AND proposed_name = :proposed_name
+              AND status = "pending"
+              AND ((brand_id IS NULL AND :brand_id_null IS NULL) OR brand_id = :brand_id_match)';
+    $params = [
+        ':mapping_type' => $type,
+        ':proposed_name' => $name,
+        ':brand_id_null' => $brandId,
+        ':brand_id_match' => $brandId,
+    ];
+    if ($excludeId > 0) {
+        $sql .= ' AND id <> :exclude_id';
+        $params[':exclude_id'] = $excludeId;
+    }
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    if ((int) $stmt->fetchColumn() > 0) {
+        jg_sku_fail('That mapping is already waiting for approval.');
+    }
+}
+
+function jg_sku_create_mapping(PDO $pdo, string $type, ?string $brandId, string $name): void
+{
+    jg_sku_assert_mapping_available($pdo, $type, $brandId, $name);
+    $now = jg_sku_now();
+
+    if ($type === 'brand') {
+        $newBrandId = 'brand-' . jg_sku_slug($name) . '-' . substr(sha1($name . microtime(true)), 0, 6);
+        $stmt = $pdo->prepare('INSERT INTO sku_brands (id, name, code, created_at) VALUES (:id, :name, :code, :created_at)');
+        $stmt->execute([
+            ':id' => $newBrandId,
+            ':name' => $name,
+            ':code' => jg_sku_next_code($pdo, 'sku_brands'),
+            ':created_at' => $now,
+        ]);
+        $flavorStmt = $pdo->prepare('INSERT INTO sku_flavors (id, brand_id, name, code, created_at) VALUES (:id, :brand_id, "UNFLAVORED", "00", :created_at)');
+        $flavorStmt->execute([
+            ':id' => $newBrandId . '-flavor-unflavored',
+            ':brand_id' => $newBrandId,
+            ':created_at' => $now,
+        ]);
+        return;
+    }
+
+    if ($type === 'unit') {
+        $stmt = $pdo->prepare('INSERT INTO sku_units (id, name, code, created_at) VALUES (:id, :name, :code, :created_at)');
+        $stmt->execute([
+            ':id' => 'unit-' . jg_sku_slug($name) . '-' . substr(sha1($name . microtime(true)), 0, 6),
+            ':name' => $name,
+            ':code' => jg_sku_next_code($pdo, 'sku_units'),
+            ':created_at' => $now,
+        ]);
+        return;
+    }
+
+    $resolvedBrandId = (string) $brandId;
+    $tableName = $type === 'flavor' ? 'sku_flavors' : 'sku_products';
+    $id = $resolvedBrandId . '-' . $type . '-' . jg_sku_slug($name) . '-' . substr(sha1($name . microtime(true)), 0, 6);
+    $stmt = $pdo->prepare('INSERT INTO ' . $tableName . ' (id, brand_id, name, code, created_at) VALUES (:id, :brand_id, :name, :code, :created_at)');
+    $stmt->execute([
+        ':id' => $id,
+        ':brand_id' => $resolvedBrandId,
+        ':name' => $name,
+        ':code' => jg_sku_next_code($pdo, $tableName, 'brand_id', $resolvedBrandId),
+        ':created_at' => $now,
+    ]);
+}
+
 function jg_sku_assert_unique_sku_and_tag(PDO $pdo, string $sku, string $tag): void
 {
     $stmt = $pdo->prepare('SELECT sku, tag FROM sku_skus WHERE sku = :sku OR tag = :tag LIMIT 1');
@@ -602,6 +712,52 @@ function jg_sku_fetch_requests(PDO $pdo, string $forRole, string $username): arr
     }
 
     return $requests;
+}
+
+function jg_sku_fetch_mapping_requests(PDO $pdo, string $forRole, string $username): array
+{
+    $sql = '
+        SELECT
+            r.id,
+            r.requester_username,
+            r.requester_role,
+            r.mapping_type,
+            r.brand_id,
+            r.proposed_name,
+            r.status,
+            r.decision_notes,
+            r.decided_by,
+            r.created_at,
+            r.decided_at,
+            b.name AS brand_name
+        FROM sku_mapping_requests r
+        LEFT JOIN sku_brands b ON b.id = r.brand_id
+    ';
+    $params = [];
+    if ($forRole !== 'branch') {
+        $sql .= ' WHERE r.requester_username = :requester_username';
+        $params[':requester_username'] = $username;
+    }
+    $sql .= ' ORDER BY CASE WHEN r.status = "pending" THEN 0 ELSE 1 END, r.created_at DESC LIMIT 50';
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    return array_map(static function (array $row): array {
+        return [
+            'id' => (int) ($row['id'] ?? 0),
+            'requester_username' => (string) ($row['requester_username'] ?? ''),
+            'requester_role' => (string) ($row['requester_role'] ?? ''),
+            'mapping_type' => (string) ($row['mapping_type'] ?? ''),
+            'brand_id' => (string) ($row['brand_id'] ?? ''),
+            'brand_name' => (string) ($row['brand_name'] ?? ''),
+            'proposed_name' => (string) ($row['proposed_name'] ?? ''),
+            'status' => (string) ($row['status'] ?? 'pending'),
+            'decision_notes' => (string) ($row['decision_notes'] ?? ''),
+            'decided_by' => (string) ($row['decided_by'] ?? ''),
+            'created_at' => (string) ($row['created_at'] ?? ''),
+            'decided_at' => (string) ($row['decided_at'] ?? ''),
+        ];
+    }, $stmt->fetchAll());
 }
 
 function jg_sku_fetch_database(PDO $pdo): array
@@ -792,6 +948,7 @@ function jg_sku_response(PDO $pdo): void
             'is_branch' => $role === 'branch',
         ],
         'requests' => jg_sku_fetch_requests($pdo, $role, $username),
+        'mapping_requests' => jg_sku_fetch_mapping_requests($pdo, $role, $username),
     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
     exit;
 }
@@ -928,94 +1085,16 @@ $request = jg_sku_request_body();
 $action = (string) ($request['action'] ?? '');
 
 try {
-    if ($action === 'add_brand') {
+    if (in_array($action, ['add_brand', 'add_unit', 'add_flavor', 'add_product'], true)) {
         jg_sku_require_branch_json();
-
-        $name = jg_sku_normalize_name((string) ($request['name'] ?? ''));
-        jg_sku_assert_unique_brand($pdo, $name);
+        $type = jg_sku_mapping_type(substr($action, 4));
+        $name = jg_sku_mapping_name($type, $request['name'] ?? '');
+        $brandId = in_array($type, ['flavor', 'product'], true) ? (string) ($request['brand_id'] ?? '') : null;
 
         $pdo->beginTransaction();
-        $brandId = 'brand-' . jg_sku_slug($name) . '-' . substr(sha1($name . microtime(true)), 0, 6);
-        $brandCode = jg_sku_next_code($pdo, 'sku_brands');
-        $now = jg_sku_now();
-
-        $stmt = $pdo->prepare('INSERT INTO sku_brands (id, name, code, created_at) VALUES (:id, :name, :code, :created_at)');
-        $stmt->execute([
-            ':id' => $brandId,
-            ':name' => $name,
-            ':code' => $brandCode,
-            ':created_at' => $now,
-        ]);
-
-        $flavorStmt = $pdo->prepare('INSERT INTO sku_flavors (id, brand_id, name, code, created_at) VALUES (:id, :brand_id, "UNFLAVORED", "00", :created_at)');
-        $flavorStmt->execute([
-            ':id' => $brandId . '-flavor-unflavored',
-            ':brand_id' => $brandId,
-            ':created_at' => $now,
-        ]);
-
+        jg_sku_create_mapping($pdo, $type, $brandId, $name);
         jg_sku_touch_version($pdo);
         $pdo->commit();
-        jg_sku_response($pdo);
-    }
-
-    if ($action === 'add_unit') {
-        jg_sku_require_branch_json();
-
-        $name = jg_sku_normalize_name((string) ($request['name'] ?? ''));
-        jg_sku_assert_unique_unit($pdo, $name);
-
-        $stmt = $pdo->prepare('INSERT INTO sku_units (id, name, code, created_at) VALUES (:id, :name, :code, :created_at)');
-        $stmt->execute([
-            ':id' => 'unit-' . jg_sku_slug($name) . '-' . substr(sha1($name . microtime(true)), 0, 6),
-            ':name' => $name,
-            ':code' => jg_sku_next_code($pdo, 'sku_units'),
-            ':created_at' => jg_sku_now(),
-        ]);
-
-        jg_sku_touch_version($pdo);
-        jg_sku_response($pdo);
-    }
-
-    if ($action === 'add_flavor') {
-        jg_sku_require_branch_json();
-
-        $brandId = (string) ($request['brand_id'] ?? '');
-        $name = strtoupper(jg_sku_normalize_name((string) ($request['name'] ?? '')));
-        jg_sku_get_brand($pdo, $brandId);
-        jg_sku_assert_unique_brand_child($pdo, 'sku_flavors', $brandId, $name, 'Flavor already exists for this brand.');
-
-        $stmt = $pdo->prepare('INSERT INTO sku_flavors (id, brand_id, name, code, created_at) VALUES (:id, :brand_id, :name, :code, :created_at)');
-        $stmt->execute([
-            ':id' => $brandId . '-flavor-' . jg_sku_slug($name) . '-' . substr(sha1($name . microtime(true)), 0, 6),
-            ':brand_id' => $brandId,
-            ':name' => $name,
-            ':code' => jg_sku_next_code($pdo, 'sku_flavors', 'brand_id', $brandId),
-            ':created_at' => jg_sku_now(),
-        ]);
-
-        jg_sku_touch_version($pdo);
-        jg_sku_response($pdo);
-    }
-
-    if ($action === 'add_product') {
-        jg_sku_require_branch_json();
-
-        $brandId = (string) ($request['brand_id'] ?? '');
-        $name = jg_sku_normalize_name((string) ($request['name'] ?? ''));
-        jg_sku_get_brand($pdo, $brandId);
-        jg_sku_assert_unique_brand_child($pdo, 'sku_products', $brandId, $name, 'Product already exists for this brand.');
-
-        $stmt = $pdo->prepare('INSERT INTO sku_products (id, brand_id, name, code, created_at) VALUES (:id, :brand_id, :name, :code, :created_at)');
-        $stmt->execute([
-            ':id' => $brandId . '-product-' . jg_sku_slug($name) . '-' . substr(sha1($name . microtime(true)), 0, 6),
-            ':brand_id' => $brandId,
-            ':name' => $name,
-            ':code' => jg_sku_next_code($pdo, 'sku_products', 'brand_id', $brandId),
-            ':created_at' => jg_sku_now(),
-        ]);
-
-        jg_sku_touch_version($pdo);
         jg_sku_response($pdo);
     }
 
@@ -1028,55 +1107,112 @@ try {
     }
 
     if ($action === 'create_sku') {
-        jg_sku_require_branch_json();
-
+        $approvalRequestId = jg_sku_is_branch() && isset($request['approval_request_id'])
+            ? (int) $request['approval_request_id']
+            : null;
         $pdo->beginTransaction();
-        jg_sku_create_sku($pdo, $request, isset($request['approval_request_id']) ? (int) $request['approval_request_id'] : null);
+        jg_sku_create_sku($pdo, $request, $approvalRequestId);
         jg_sku_touch_version($pdo);
         $pdo->commit();
         jg_sku_response($pdo);
     }
 
-    if ($action === 'submit_request') {
-        $brandId = (string) ($request['brand_id'] ?? '');
-        $unitId = (string) ($request['unit_id'] ?? '');
-        $volumeInput = (string) ($request['volume'] ?? '');
-        $astra = jg_sku_astra_decimal($request['astra'] ?? null, jg_sku_volume_decimal($volumeInput));
-        $flavorId = (string) ($request['flavor_id'] ?? '');
-        $productId = (string) ($request['product_id'] ?? '');
+    if ($action === 'submit_mapping_request') {
+        $type = jg_sku_mapping_type($request['mapping_type'] ?? '');
+        $name = jg_sku_mapping_name($type, $request['name'] ?? '');
+        $brandId = in_array($type, ['flavor', 'product'], true) ? (string) ($request['brand_id'] ?? '') : null;
 
-        $parts = jg_sku_compose_code($pdo, $brandId, $unitId, $volumeInput, $flavorId, $productId);
-        $stmt = $pdo->prepare('SELECT COUNT(*) FROM sku_skus WHERE sku = :sku');
-        $stmt->execute([':sku' => $parts['sku']]);
-        if ((int) $stmt->fetchColumn() > 0) {
-            jg_sku_fail('That SKU already exists in the database.');
-        }
+        jg_sku_assert_mapping_available($pdo, $type, $brandId, $name);
+        jg_sku_assert_mapping_request_unique($pdo, $type, $brandId, $name);
 
-        jg_sku_assert_request_is_unique($pdo, $parts['sku']);
-
-        $insertStmt = $pdo->prepare(
-            'INSERT INTO sku_requests (
-                requester_username, requester_role, brand_id, unit_id, volume, astra,
-                flavor_id, product_id, proposed_sku, status, created_at
-            ) VALUES (
-                :requester_username, :requester_role, :brand_id, :unit_id, :volume, :astra,
-                :flavor_id, :product_id, :proposed_sku, "pending", :created_at
-            )'
+        $stmt = $pdo->prepare(
+            'INSERT INTO sku_mapping_requests (
+                requester_username, requester_role, mapping_type, brand_id,
+                proposed_name, status, created_at
+             ) VALUES (
+                :requester_username, :requester_role, :mapping_type, :brand_id,
+                :proposed_name, "pending", :created_at
+             )'
         );
-        $insertStmt->execute([
+        $stmt->execute([
             ':requester_username' => jg_sku_session_username(),
             ':requester_role' => jg_sku_session_role(),
+            ':mapping_type' => $type,
             ':brand_id' => $brandId,
-            ':unit_id' => $unitId,
-            ':volume' => $parts['volume'],
-            ':astra' => $astra,
-            ':flavor_id' => $flavorId,
-            ':product_id' => $productId,
-            ':proposed_sku' => $parts['sku'],
+            ':proposed_name' => $name,
             ':created_at' => jg_sku_now(),
         ]);
-
         jg_sku_response($pdo);
+    }
+
+    if ($action === 'approve_mapping_request') {
+        jg_sku_require_branch_json();
+        $requestId = (int) ($request['request_id'] ?? 0);
+        if ($requestId < 1) {
+            jg_sku_fail('Mapping request not found.', 404);
+        }
+
+        $stmt = $pdo->prepare('SELECT * FROM sku_mapping_requests WHERE id = :id LIMIT 1');
+        $stmt->execute([':id' => $requestId]);
+        $requestRow = $stmt->fetch();
+        if (!is_array($requestRow)) {
+            jg_sku_fail('Mapping request not found.', 404);
+        }
+        if ((string) ($requestRow['status'] ?? '') !== 'pending') {
+            jg_sku_fail('Only pending mapping requests can be approved.');
+        }
+
+        $type = jg_sku_mapping_type($requestRow['mapping_type'] ?? '');
+        $name = jg_sku_mapping_name($type, $requestRow['proposed_name'] ?? '');
+        $brandId = in_array($type, ['flavor', 'product'], true) ? (string) ($requestRow['brand_id'] ?? '') : null;
+        jg_sku_assert_mapping_request_unique($pdo, $type, $brandId, $name, $requestId);
+
+        $pdo->beginTransaction();
+        jg_sku_create_mapping($pdo, $type, $brandId, $name);
+        $updateStmt = $pdo->prepare(
+            'UPDATE sku_mapping_requests
+             SET status = "approved", decision_notes = :decision_notes,
+                 decided_by = :decided_by, decided_at = :decided_at
+             WHERE id = :id AND status = "pending"'
+        );
+        $updateStmt->execute([
+            ':decision_notes' => trim((string) ($request['decision_notes'] ?? '')),
+            ':decided_by' => jg_sku_session_username(),
+            ':decided_at' => jg_sku_now(),
+            ':id' => $requestId,
+        ]);
+        jg_sku_touch_version($pdo);
+        $pdo->commit();
+        jg_sku_response($pdo);
+    }
+
+    if ($action === 'deny_mapping_request') {
+        jg_sku_require_branch_json();
+        $requestId = (int) ($request['request_id'] ?? 0);
+        if ($requestId < 1) {
+            jg_sku_fail('Mapping request not found.', 404);
+        }
+
+        $stmt = $pdo->prepare(
+            'UPDATE sku_mapping_requests
+             SET status = "denied", decision_notes = :decision_notes,
+                 decided_by = :decided_by, decided_at = :decided_at
+             WHERE id = :id AND status = "pending"'
+        );
+        $stmt->execute([
+            ':decision_notes' => trim((string) ($request['decision_notes'] ?? '')),
+            ':decided_by' => jg_sku_session_username(),
+            ':decided_at' => jg_sku_now(),
+            ':id' => $requestId,
+        ]);
+        if ($stmt->rowCount() < 1) {
+            jg_sku_fail('Only pending mapping requests can be denied.');
+        }
+        jg_sku_response($pdo);
+    }
+
+    if ($action === 'submit_request') {
+        jg_sku_fail('SKU approval requests are no longer required. Build and push the SKU directly.', 410);
     }
 
     if ($action === 'approve_request') {

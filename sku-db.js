@@ -11,7 +11,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const masterError = document.querySelector('[data-master-form-error]');
   const requestError = document.querySelector('[data-request-error]');
-  const requestSubmitError = document.querySelector('[data-request-submit-error]');
   const setupError = document.querySelector('[data-setup-error]');
   const applyError = document.querySelector('[data-apply-error]');
   const cogsError = document.querySelector('[data-cogs-error]');
@@ -26,7 +25,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const applyPanel = document.querySelector('[data-apply-panel]');
   const setupForm = document.querySelector('[data-setup-form]');
   const applyForm = document.querySelector('[data-apply-form]');
-  const requestForm = document.querySelector('[data-request-form]');
   const cogsModal = document.querySelector('[data-cogs-modal]');
   const cogsForm = document.querySelector('[data-cogs-form]');
   const cogsBatchList = document.querySelector('[data-cogs-batch-list]');
@@ -83,6 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
       skus: []
     },
     requests: [],
+    mappingRequests: [],
     activeApprovalRequestId: null,
     pendingDelete: null,
     activeBarcodeSku: '',
@@ -738,7 +737,7 @@ document.addEventListener('DOMContentLoaded', () => {
     storeBrandId(normalizedBrandId);
   };
 
-  const activePrimaryForm = () => requestForm || setupForm;
+  const activePrimaryForm = () => setupForm;
 
   const getPrimarySelections = () => {
     const form = activePrimaryForm();
@@ -1206,19 +1205,55 @@ document.addEventListener('DOMContentLoaded', () => {
     return 'Pending';
   };
 
+  const mappingTypeLabel = (type) => ({
+    brand: 'Brand',
+    unit: 'Unit',
+    flavor: 'Flavor',
+    product: 'Product'
+  }[type] || 'Mapping');
+
   const renderRequests = () => {
     if (!requestList) return;
 
-    if (!state.requests.length) {
-      requestList.innerHTML = `<p class="admin-empty">${role === 'branch' ? 'No requests yet.' : 'You have not submitted any requests yet.'}</p>`;
+    if (!state.mappingRequests.length && !state.requests.length) {
+      requestList.innerHTML = `<p class="admin-empty">${role === 'branch' ? 'No requests yet.' : 'You have not submitted any mapping requests yet.'}</p>`;
       return;
     }
 
-    requestList.innerHTML = state.requests.map((request) => `
+    const mappingCards = state.mappingRequests.map((request) => `
       <article class="admin-request-card">
         <div class="admin-request-head">
           <div>
             <span class="admin-chip">${escapeHtml(requestStatusLabel(request))}</span>
+            <h4>${escapeHtml(mappingTypeLabel(request.mapping_type))}: ${escapeHtml(request.proposed_name || '')}</h4>
+          </div>
+          <div class="admin-request-meta">
+            <strong>Mapping request</strong>
+            <small>${request.brand_name ? `Brand: ${escapeHtml(request.brand_name)}` : 'Global mapping'}</small>
+          </div>
+        </div>
+        <div class="admin-request-foot">
+          <p>Submitted by <strong>${escapeHtml(request.requester_username || username)}</strong> on ${escapeHtml(request.created_at || '')}</p>
+          ${request.decision_notes ? `<p class="admin-muted-copy">${escapeHtml(request.decision_notes)}</p>` : ''}
+          <div class="admin-sku-actions">
+            ${role === 'branch' && request.status === 'pending'
+              ? `
+                <button type="button" class="admin-primary-btn admin-sku-action-btn" data-approve-mapping-request="${request.id}"><span>Approve</span></button>
+                <button type="button" class="admin-ghost-btn admin-sku-action-btn" data-deny-mapping-request="${request.id}"><span>Deny</span></button>
+              `
+              : ''}
+            ${request.status === 'approved' ? '<span class="admin-request-result">Mapping is live</span>' : ''}
+            ${request.status === 'denied' ? '<span class="admin-request-result">Request denied</span>' : ''}
+          </div>
+        </div>
+      </article>
+    `).join('');
+
+    const legacySkuCards = state.requests.map((request) => `
+      <article class="admin-request-card">
+        <div class="admin-request-head">
+          <div>
+            <span class="admin-chip">${escapeHtml(requestStatusLabel(request))} · Legacy SKU request</span>
             <h4>${escapeHtml(request.proposed_sku || '')}</h4>
           </div>
           <div class="admin-request-meta">
@@ -1255,6 +1290,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       </article>
     `).join('');
+
+    requestList.innerHTML = mappingCards + legacySkuCards;
   };
 
   const renderAll = () => {
@@ -1273,6 +1310,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const payload = await requestJson();
     state.database = payload.database || state.database;
     state.requests = payload.requests || [];
+    state.mappingRequests = payload.mapping_requests || [];
     renderAll();
   };
 
@@ -1283,6 +1321,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     state.database = payload.database || state.database;
     state.requests = payload.requests || state.requests;
+    state.mappingRequests = payload.mapping_requests || state.mappingRequests;
     renderAll();
     return payload;
   };
@@ -1575,27 +1614,20 @@ document.addEventListener('DOMContentLoaded', () => {
     return String(setupForm.elements.tag?.value || '').trim() !== '';
   };
 
-  bindMasterForm('[data-add-brand-form]', (formData) => ({
-    action: 'add_brand',
-    name: formData.get('name')
-  }));
-
-  bindMasterForm('[data-add-unit-form]', (formData) => ({
-    action: 'add_unit',
-    name: formData.get('name')
-  }));
-
-  bindMasterForm('[data-add-flavor-form]', (formData) => ({
-    action: 'add_flavor',
+  const mappingMutation = (type, formData) => ({
+    action: role === 'branch' ? `add_${type}` : 'submit_mapping_request',
+    mapping_type: type,
     brand_id: formData.get('brand_id'),
     name: formData.get('name')
-  }));
+  });
 
-  bindMasterForm('[data-add-product-form]', (formData) => ({
-    action: 'add_product',
-    brand_id: formData.get('brand_id'),
-    name: formData.get('name')
-  }));
+  bindMasterForm('[data-add-brand-form]', (formData) => mappingMutation('brand', formData));
+
+  bindMasterForm('[data-add-unit-form]', (formData) => mappingMutation('unit', formData));
+
+  bindMasterForm('[data-add-flavor-form]', (formData) => mappingMutation('flavor', formData));
+
+  bindMasterForm('[data-add-product-form]', (formData) => mappingMutation('product', formData));
 
   activePrimaryForm()?.addEventListener('input', renderPreview);
   const handleBrandSelectionChange = (event) => {
@@ -1689,39 +1721,39 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  requestForm?.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    setError(requestSubmitError, '');
-
-    if (!(requestForm instanceof HTMLFormElement)) return;
-    if (!isPrimarySelectionComplete()) {
-      setError(requestSubmitError, 'Complete brand, unit, volume, ASTRA, flavor, and product before submitting.');
-      return;
-    }
-
-    try {
-      const formData = new window.FormData(requestForm);
-      await postAction({
-        action: 'submit_request',
-        brand_id: formData.get('brand_id'),
-        unit_id: formData.get('unit_id'),
-        volume: formData.get('volume'),
-        astra: formData.get('astra'),
-        flavor_id: formData.get('flavor_id'),
-        product_id: formData.get('product_id')
-      });
-      requestForm.reset();
-      applySharedBrandSelection(resolveSelectedBrandId());
-      refreshBrandBoundSelects();
-      renderPreview();
-    } catch (error) {
-      setError(requestSubmitError, error instanceof Error ? error.message : 'Unable to submit request.');
-    }
-  });
-
   requestList?.addEventListener('click', async (event) => {
     const target = event.target instanceof Element ? event.target : null;
     if (!target) return;
+
+    const approveMappingButton = target.closest('[data-approve-mapping-request]');
+    if (approveMappingButton instanceof HTMLButtonElement) {
+      setError(requestError, '');
+      try {
+        await postAction({
+          action: 'approve_mapping_request',
+          request_id: approveMappingButton.dataset.approveMappingRequest,
+          decision_notes: 'Approved by Branch'
+        });
+      } catch (error) {
+        setError(requestError, error instanceof Error ? error.message : 'Unable to approve mapping request.');
+      }
+      return;
+    }
+
+    const denyMappingButton = target.closest('[data-deny-mapping-request]');
+    if (denyMappingButton instanceof HTMLButtonElement) {
+      setError(requestError, '');
+      try {
+        await postAction({
+          action: 'deny_mapping_request',
+          request_id: denyMappingButton.dataset.denyMappingRequest,
+          decision_notes: 'Denied by Branch'
+        });
+      } catch (error) {
+        setError(requestError, error instanceof Error ? error.message : 'Unable to deny mapping request.');
+      }
+      return;
+    }
 
     const approveButton = target.closest('[data-approve-request]');
     if (approveButton instanceof HTMLButtonElement) {
@@ -2222,7 +2254,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const message = error instanceof Error ? error.message : 'Unable to load the SKU database.';
     setError(setupError, message);
     setError(applyError, message);
-    setError(requestSubmitError, message);
     setError(requestError, message);
   });
 });
