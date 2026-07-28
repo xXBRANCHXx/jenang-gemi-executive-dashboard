@@ -17,6 +17,9 @@ assert.match(page, /data-sales-status-filter[\s\S]*Partially paid/, 'The order l
 assert.match(script, /record_payment[\s\S]*payment_method[\s\S]*reference_no/, 'Admins should be able to record auditable order payments.');
 assert.match(script, /renderChart[\s\S]*renderBreakdowns[\s\S]*renderPayments[\s\S]*renderOrders/, 'The sales page should render all analytical sections.');
 assert.match(api, /partner_order_payments[\s\S]*outstanding_amount/, 'The API should reconcile order values against settlement records.');
+assert.match(api, /jg_partner_sales_profile\(\?PDO[\s\S]*partners\.runtime\.json/, 'Partner profiles should retain the production JSON fallback.');
+assert.match(api, /jg_partner_sales_store_ops_orders[\s\S]*Authorization: Bearer/, 'Partner orders should use the secure Store Ops service connection when no Partner DB is configured.');
+assert.match(api, /\$paymentPdo = analyticsDb\(\)[\s\S]*jg_partner_sales_ensure_schema\(\$paymentPdo\)/, 'Settlements should use the dashboard database that is already configured in production.');
 assert.match(styles, /\.partner-sales-back,[\s\S]*border: 0;[\s\S]*background: transparent;/, 'Sales icon controls should be bare, without icon pills.');
 assert.match(styles, /\.partner-sales-stat-grid[\s\S]*grid-template-columns: repeat\(5/, 'The desktop summary should use a dense metric grid.');
 
