@@ -654,6 +654,56 @@ function jg_whatsapp_publish_order(PDO $pdo, string $orderId): array
     return jg_whatsapp_format_order($pdo, jg_whatsapp_internal_order($pdo, $orderId));
 }
 
+function jg_whatsapp_cancel_order(PDO $pdo, string $orderId): array
+{
+    $orderId = trim($orderId);
+    if ($orderId === '') {
+        throw new InvalidArgumentException('Choose a WhatsApp order to cancel.');
+    }
+
+    $row = jg_whatsapp_internal_order($pdo, $orderId);
+    $status = strtoupper(trim((string) ($row['status'] ?? '')));
+    if ($status === 'CANCELLED') {
+        return jg_whatsapp_format_order($pdo, $row);
+    }
+    if ($status !== 'IS_LISTED') {
+        throw new RuntimeException('Only a listed WhatsApp order can be cancelled before fulfillment begins.');
+    }
+
+    $base = rtrim(jg_website_config('JG_STORE_OPS_BASE_URL', 'store_ops_base_url'), '/');
+    $token = jg_website_store_ops_token();
+    if ($base === '' || $token === '') {
+        throw new RuntimeException('Store Ops order integration is not configured.');
+    }
+    jg_website_http_json('POST', $base . '/api/website-orders/?action=cancel', [
+        'platform' => 'whatsapp',
+        'order_id' => $orderId,
+    ], $token);
+
+    $pdo->beginTransaction();
+    try {
+        $row = jg_whatsapp_internal_order($pdo, $orderId, true);
+        $status = strtoupper(trim((string) ($row['status'] ?? '')));
+        if ($status !== 'CANCELLED') {
+            if ($status !== 'IS_LISTED') {
+                throw new RuntimeException('This WhatsApp order started fulfillment while cancellation was being confirmed.');
+            }
+            $pdo->prepare(
+                'UPDATE whatsapp_orders
+                 SET status = "CANCELLED", updated_at = :updated_at
+                 WHERE id = :id'
+            )->execute([':updated_at' => jg_whatsapp_now(), ':id' => $row['id']]);
+        }
+        $pdo->commit();
+    } catch (Throwable $error) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $error;
+    }
+    return jg_whatsapp_format_order($pdo, jg_whatsapp_internal_order($pdo, $orderId));
+}
+
 function jg_whatsapp_list_orders(PDO $pdo, int $limit = 100): array
 {
     jg_whatsapp_ensure_schema($pdo);

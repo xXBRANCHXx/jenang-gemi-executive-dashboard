@@ -16,6 +16,8 @@ whatsapp_expect(0.0, jg_whatsapp_money(0, 'Shipping cost'), 'Zero shipping must 
 whatsapp_expect(25000.0, jg_whatsapp_money('25000', 'Shipping cost'), 'Shipping cost must normalize as money.');
 whatsapp_expect('Customer One', jg_whatsapp_text(" Customer\nOne ", 'Customer name', 160, true), 'Customer text must normalize whitespace.');
 whatsapp_expect(true, str_starts_with(jg_whatsapp_generate_order_id(), 'WAEXEC-'), 'Executive WhatsApp orders need a distinct Store Ops prefix.');
+whatsapp_expect(false, in_array('CANCELLED', JG_WHATSAPP_ORDER_OPEN_STATUSES, true), 'Cancelled WhatsApp orders must leave the Store Ops feed.');
+whatsapp_expect(false, in_array('CANCELLED', JG_WHATSAPP_ORDER_METRIC_STATUSES, true), 'Cancelled WhatsApp orders must not count as completed sales.');
 $storeOpsFinancials = jg_whatsapp_store_ops_financials([
     'merchandise_subtotal' => 457000,
     'merchandise_total' => 381500,

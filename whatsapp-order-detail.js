@@ -11,7 +11,8 @@ document.addEventListener('DOMContentLoaded', () => {
     error: root.querySelector('[data-detail-error]'),
     items: root.querySelector('[data-detail-items]'),
     label: root.querySelector('[data-detail-label-link]'),
-    invoice: root.querySelector('[data-detail-invoice-link]')
+    invoice: root.querySelector('[data-detail-invoice-link]'),
+    cancel: root.querySelector('[data-detail-cancel]')
   };
   const currency = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 });
   const integer = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 });
@@ -29,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   const statusLabel = (status) => ({
     PENDING_PUBLISH: 'Sending', PUBLISH_FAILED: 'Needs retry', IS_LISTED: 'Listed',
-    IS_BEING_FULFILLED: 'Being fulfilled', FULFILLED: 'Fulfilled'
+    IS_BEING_FULFILLED: 'Being fulfilled', FULFILLED: 'Fulfilled', CANCELLED: 'Cancelled'
   }[status] || String(status || 'Unknown').replaceAll('_', ' '));
   const statusClass = (status) => String(status || 'unknown').toLowerCase().replaceAll('_', '-');
   const setText = (selector, value) => {
@@ -95,6 +96,11 @@ document.addEventListener('DOMContentLoaded', () => {
       refs.invoice.href = invoiceUrl.toString();
       refs.invoice.hidden = false;
     }
+    if (refs.cancel) {
+      refs.cancel.hidden = order.status !== 'IS_LISTED';
+      refs.cancel.disabled = false;
+      refs.cancel.textContent = 'Cancel order';
+    }
     if (refs.items) {
       refs.items.innerHTML = items.length ? items.map((item) => {
         const quantity = Number(item.quantity || 0);
@@ -125,6 +131,40 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!response.ok || !payload.ok) throw new Error(payload.error || 'Unable to load this WhatsApp order.');
     renderOrder(payload.order || {});
   };
+
+  const cancelOrder = async () => {
+    if (!orderId || !refs.cancel || refs.cancel.disabled) return;
+    if (!window.confirm(`Cancel ${orderId}? This is allowed only before Store Ops claims the order.`)) return;
+    refs.cancel.disabled = true;
+    refs.cancel.textContent = 'Cancelling…';
+    if (refs.error) {
+      refs.error.hidden = true;
+      refs.error.textContent = '';
+    }
+    try {
+      const response = await fetch(`${endpoint}?action=cancel`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: orderId })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.error || 'Unable to cancel this WhatsApp order.');
+      }
+      renderOrder(payload.order || {});
+    } catch (error) {
+      refs.cancel.disabled = false;
+      refs.cancel.textContent = 'Cancel order';
+      if (refs.error) {
+        refs.error.textContent = error instanceof Error ? error.message : 'Unable to cancel this WhatsApp order.';
+        refs.error.hidden = false;
+      }
+    }
+  };
+
+  refs.cancel?.addEventListener('click', cancelOrder);
 
   loadOrder().catch((error) => {
     if (refs.loading) refs.loading.hidden = true;

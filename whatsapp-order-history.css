@@ -308,6 +308,12 @@
   background: color-mix(in srgb, #fb7185 8%, var(--admin-surface));
 }
 
+.whatsapp-history-status.cancelled {
+  border-color: color-mix(in srgb, #fb7185 42%, var(--admin-border));
+  color: #fb7185;
+  background: color-mix(in srgb, #fb7185 8%, var(--admin-surface));
+}
+
 .whatsapp-history-open {
   display: grid;
   place-items: center;
@@ -369,6 +375,14 @@
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.whatsapp-detail-hero .admin-danger-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-height: 44px;
 }
 
 .whatsapp-detail-grid {
@@ -481,7 +495,8 @@
     flex-direction: column;
   }
   .whatsapp-history-hero .admin-primary-btn,
-  .whatsapp-detail-hero .admin-ghost-btn {
+  .whatsapp-detail-hero .admin-ghost-btn,
+  .whatsapp-detail-hero .admin-danger-btn {
     width: 100%;
   }
   .whatsapp-history-metrics,

@@ -70,6 +70,7 @@ $storeOpsBaseUrl = rtrim(
                             </div>
                             <div class="whatsapp-detail-hero-actions">
                                 <span class="whatsapp-history-status" data-detail-status>Status</span>
+                                <button type="button" class="admin-danger-btn" data-detail-cancel hidden>Cancel order</button>
                                 <a class="admin-primary-btn" data-detail-invoice-link target="_blank" rel="noopener" hidden>Print invoice</a>
                                 <a class="admin-ghost-btn" data-detail-label-link target="_blank" rel="noopener">Open shipping label</a>
                             </div>

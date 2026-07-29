@@ -100,6 +100,13 @@ try {
         jg_whatsapp_api_json(['ok' => false, 'error' => 'Unknown action.'], 404);
     }
 
+    if ($action === 'cancel') {
+        $body = jg_whatsapp_api_body();
+        jg_whatsapp_api_json(['ok' => true, 'order' => jg_whatsapp_cancel_order(
+            $pdo,
+            trim((string) ($body['order_id'] ?? $body['order'] ?? ''))
+        )]);
+    }
     if ($action === 'create') {
         $payloadRaw = trim((string) ($_POST['payload'] ?? ''));
         $payload = json_decode($payloadRaw, true);
