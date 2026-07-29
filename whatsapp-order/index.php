@@ -70,9 +70,18 @@ $storeOpsBaseUrl = rtrim(
                             </div>
                             <div class="whatsapp-detail-hero-actions">
                                 <span class="whatsapp-history-status" data-detail-status>Status</span>
-                                <button type="button" class="admin-danger-btn" data-detail-cancel hidden>Cancel order</button>
-                                <a class="admin-primary-btn" data-detail-invoice-link target="_blank" rel="noopener" hidden>Print invoice</a>
-                                <a class="admin-ghost-btn" data-detail-label-link target="_blank" rel="noopener">Open shipping label</a>
+                                <button type="button" class="whatsapp-detail-icon-action is-cancel" data-detail-cancel aria-label="Cancel order" title="Cancel order" hidden>
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6M15 9l-6 6"/></svg>
+                                    <span class="admin-sr-only">Cancel order</span>
+                                </button>
+                                <a class="whatsapp-detail-icon-action" data-detail-invoice-link target="_blank" rel="noopener" aria-label="Print invoice" title="Print invoice" hidden>
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7" rx="1"/><path d="M18 12h.01"/></svg>
+                                    <span class="admin-sr-only">Print invoice</span>
+                                </a>
+                                <a class="whatsapp-detail-icon-action" data-detail-label-link target="_blank" rel="noopener" aria-label="Open shipping label" title="Open shipping label">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.6 13.6 11 23.2a2 2 0 0 1-2.8 0L.8 15.8a2 2 0 0 1 0-2.8L10.4 3.4A2 2 0 0 1 11.8 3H20a1 1 0 0 1 1 1v8.2a2 2 0 0 1-.4 1.4Z"/><circle cx="16" cy="8" r="1"/></svg>
+                                    <span class="admin-sr-only">Open shipping label</span>
+                                </a>
                             </div>
                         </section>
 

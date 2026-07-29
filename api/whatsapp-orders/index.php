@@ -93,7 +93,7 @@ try {
         if ($orderId === '') throw new InvalidArgumentException('Choose a WhatsApp order.');
         jg_whatsapp_api_json([
             'ok' => true,
-            'order' => jg_whatsapp_format_order($pdo, jg_whatsapp_internal_order($pdo, $orderId)),
+            'order' => jg_whatsapp_order_detail($pdo, $orderId),
         ]);
     }
     if ($method !== 'POST') {

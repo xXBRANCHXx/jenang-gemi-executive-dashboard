@@ -55,10 +55,11 @@ document.addEventListener('DOMContentLoaded', () => {
     setText('[data-detail-customer-name]', order.customer?.name || 'WhatsApp customer');
     setText('[data-detail-created]', `Created ${formatDate(order.created_at)}`);
     setText('[data-detail-item-count]', `${integer.format(itemCount)} item${itemCount === 1 ? '' : 's'} · ${integer.format(items.length)} SKU${items.length === 1 ? '' : 's'}`);
+    const lifecycleStatus = String(order.lifecycle_status || order.status || '');
     const status = root.querySelector('[data-detail-status]');
     if (status) {
-      status.textContent = statusLabel(order.status);
-      status.className = `whatsapp-history-status ${statusClass(order.status)}`;
+      status.textContent = statusLabel(lifecycleStatus);
+      status.className = `whatsapp-history-status ${statusClass(lifecycleStatus)}`;
     }
 
     setText('[data-detail-metric="subtotal"]', money(subtotal));
@@ -97,9 +98,9 @@ document.addEventListener('DOMContentLoaded', () => {
       refs.invoice.hidden = false;
     }
     if (refs.cancel) {
-      refs.cancel.hidden = order.status !== 'IS_LISTED';
+      refs.cancel.hidden = order.can_cancel !== true;
       refs.cancel.disabled = false;
-      refs.cancel.textContent = 'Cancel order';
+      refs.cancel.classList.remove('is-loading');
     }
     if (refs.items) {
       refs.items.innerHTML = items.length ? items.map((item) => {
@@ -136,7 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!orderId || !refs.cancel || refs.cancel.disabled) return;
     if (!window.confirm(`Cancel ${orderId}? This is allowed only before Store Ops claims the order.`)) return;
     refs.cancel.disabled = true;
-    refs.cancel.textContent = 'Cancelling…';
+    refs.cancel.classList.add('is-loading');
     if (refs.error) {
       refs.error.hidden = true;
       refs.error.textContent = '';
@@ -156,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
       renderOrder(payload.order || {});
     } catch (error) {
       refs.cancel.disabled = false;
-      refs.cancel.textContent = 'Cancel order';
+      refs.cancel.classList.remove('is-loading');
       if (refs.error) {
         refs.error.textContent = error instanceof Error ? error.message : 'Unable to cancel this WhatsApp order.';
         refs.error.hidden = false;
