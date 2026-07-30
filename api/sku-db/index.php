@@ -291,7 +291,6 @@ function jg_sku_inventory_ensure_lot_schema(PDO $pdo): void
 
 function jg_sku_inventory_adjust_lots_to_total(PDO $pdo, string $sku, int $targetStock, float $cogs): void
 {
-    jg_sku_inventory_ensure_lot_schema($pdo);
     $sumStmt = $pdo->prepare('SELECT COALESCE(SUM(remaining_qty_astra), 0) FROM sku_stock_lots WHERE sku = :sku');
     $sumStmt->execute([':sku' => $sku]);
     $currentLots = (float) $sumStmt->fetchColumn();
@@ -1522,16 +1521,23 @@ try {
         $stockSku = (string) ($stockTarget['stock_sku'] ?? $sku);
         $stockRow = is_array($stockTarget['stock_row'] ?? null) ? $stockTarget['stock_row'] : ($stockTarget['row'] ?? []);
 
-        $pdo->beginTransaction();
         if ($inventoryAction === 'add_stock') {
             $quantityToAdd = jg_sku_integer($request['quantity_to_add'] ?? null, 'Quantity to add');
             if ($quantityToAdd < 1) {
                 jg_sku_fail('Quantity to add must be at least 1.');
             }
             $baseQuantityToAdd = $quantityToAdd;
-
             $poNumber = jg_sku_po_number($request['po_number'] ?? null, true);
-            jg_sku_inventory_ensure_lot_schema($pdo);
+        } else {
+            $newStock = jg_sku_integer($request['new_stock'] ?? null, 'New stock');
+            $baseNewStock = $newStock;
+        }
+
+        // MySQL DDL implicitly commits an active transaction. Ensure the FIFO
+        // tables exist before beginning the atomic inventory update.
+        jg_sku_inventory_ensure_lot_schema($pdo);
+        $pdo->beginTransaction();
+        if ($inventoryAction === 'add_stock') {
             $updateStmt = $pdo->prepare('UPDATE sku_skus SET current_stock = current_stock + :quantity_to_add, updated_at = :updated_at WHERE sku = :sku');
             $updateStmt->execute([
                 ':quantity_to_add' => $baseQuantityToAdd,
@@ -1570,8 +1576,6 @@ try {
                 ':updated_at' => jg_sku_now(),
             ]);
         } else {
-            $newStock = jg_sku_integer($request['new_stock'] ?? null, 'New stock');
-            $baseNewStock = $newStock;
             jg_sku_inventory_adjust_lots_to_total($pdo, $stockSku, $baseNewStock, (float) ($stockRow['cogs'] ?? 0));
             $updateStmt = $pdo->prepare('UPDATE sku_skus SET current_stock = :current_stock, updated_at = :updated_at WHERE sku = :sku');
             $updateStmt->execute([
