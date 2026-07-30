@@ -37,4 +37,17 @@ partner_auth_catalog_expect(15000.0, $record['partner_unit_price'], 'Approved SK
 partner_auth_catalog_expect('Jenang · Original · 200.0 g', $record['label'], 'Approved SKU label should contain product details.');
 partner_auth_catalog_expect(12, $record['current_stock'], 'Approved SKU stock should be preserved.');
 
+$discountedRecord = jg_partner_auth_catalog_record([
+    'sku' => 'JG-001',
+    'product_name' => 'Jenang',
+    'sale_price' => 20000,
+], [
+    'JG-001' => 17000,
+], [], [
+    'discount_enabled' => true,
+    'discount_percent' => 25,
+]);
+
+partner_auth_catalog_expect(15000.0, $discountedRecord['partner_price'], 'A global partner discount should take precedence over the custom SKU price.');
+
 echo "partner-auth-catalog-test: ok\n";

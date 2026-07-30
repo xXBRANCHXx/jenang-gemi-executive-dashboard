@@ -71,7 +71,7 @@ function jg_partner_auth_read_database(): array
     $pdo = jg_partner_db();
     if ($pdo instanceof PDO) {
         $stmt = $pdo->query(
-            'SELECT code, name, partner_slug, notes, selected_skus_json, pricing_json, password_hash, password_updated_at,
+            'SELECT code, name, partner_slug, notes, selected_skus_json, pricing_json, discount_enabled, discount_percent, password_hash, password_updated_at,
                     password_reset_key_hash, password_reset_key_created_at, password_reset_token_hash, password_reset_token_expires_at,
                     created_at, updated_at
              FROM partner_profiles
@@ -89,6 +89,8 @@ function jg_partner_auth_read_database(): array
                 'notes' => (string) ($row['notes'] ?? ''),
                 'selected_skus' => is_array($selectedSkus) ? array_values(array_filter(array_map('strval', $selectedSkus))) : [],
                 'pricing' => is_array($pricing) ? $pricing : [],
+                'discount_enabled' => (bool) ($row['discount_enabled'] ?? false),
+                'discount_percent' => max(0.0, min(100.0, (float) ($row['discount_percent'] ?? 0))),
                 'password_hash' => (string) ($row['password_hash'] ?? ''),
                 'password_updated_at' => (string) ($row['password_updated_at'] ?? ''),
                 'password_reset_key_hash' => (string) ($row['password_reset_key_hash'] ?? ''),

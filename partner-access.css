@@ -1650,6 +1650,186 @@
   line-height: 1.45;
 }
 
+.partner-profile-discount-card {
+  display: grid;
+  gap: 14px;
+  margin: 0 14px 14px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.025);
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.partner-profile-discount-card.is-enabled {
+  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.055);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.035);
+}
+
+.partner-profile-discount-heading,
+.partner-profile-switch,
+.partner-profile-percent-field,
+.partner-profile-bulk-toolbar,
+.partner-profile-bulk-actions {
+  display: flex;
+  align-items: center;
+}
+
+.partner-profile-discount-heading {
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.partner-profile-discount-heading > div,
+.partner-profile-discount-input,
+.partner-profile-bulk-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.partner-profile-discount-heading strong,
+.partner-profile-bulk-copy strong {
+  color: #fff;
+  font-size: 13px;
+}
+
+.partner-profile-discount-heading span,
+.partner-profile-discount-card > small,
+.partner-profile-bulk-copy span {
+  color: rgba(255, 255, 255, 0.46);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.partner-profile-switch {
+  flex: 0 0 auto;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 9px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.25);
+  color: rgba(255, 255, 255, 0.58);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.partner-profile-switch-track {
+  position: relative;
+  width: 30px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  transition: background 160ms ease;
+}
+
+.partner-profile-switch-track span {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 7px rgba(0, 0, 0, 0.4);
+  transition: transform 160ms ease;
+}
+
+.partner-profile-switch[aria-checked='true'] {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #fff;
+}
+
+.partner-profile-switch[aria-checked='true'] .partner-profile-switch-track {
+  background: #fff;
+}
+
+.partner-profile-switch[aria-checked='true'] .partner-profile-switch-track span {
+  background: #000;
+  transform: translateX(12px);
+}
+
+.partner-profile-discount-input > span:first-child,
+.partner-profile-bulk-price > span {
+  color: rgba(255, 255, 255, 0.54);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.partner-profile-percent-field {
+  position: relative;
+}
+
+.partner-profile-percent-field input {
+  width: 100%;
+  min-height: 40px;
+  padding-right: 38px;
+  font-weight: 800;
+}
+
+.partner-profile-percent-field strong {
+  position: absolute;
+  right: 13px;
+  color: rgba(255, 255, 255, 0.52);
+  pointer-events: none;
+}
+
+.partner-profile-bulk-toolbar {
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 14px 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.partner-profile-bulk-copy {
+  min-width: 190px;
+}
+
+.partner-profile-bulk-actions {
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.partner-profile-bulk-actions .admin-ghost-btn,
+.partner-profile-bulk-actions .admin-primary-btn {
+  min-height: 40px;
+  white-space: nowrap;
+}
+
+.partner-profile-toggle-all.is-active {
+  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.partner-profile-bulk-price {
+  display: grid;
+  gap: 3px;
+  min-width: 150px;
+}
+
+.partner-profile-bulk-price input {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 10px;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.partner-profile-bulk-price input:disabled,
+.partner-profile-sku-row.has-global-discount .partner-profile-price input {
+  opacity: 0.62;
+  cursor: not-allowed;
+}
+
 .partner-profile-filter-choice {
   display: flex;
   align-items: center;
@@ -2073,6 +2253,15 @@
     width: 100%;
   }
 
+  .partner-profile-bulk-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .partner-profile-bulk-actions {
+    justify-content: stretch;
+  }
+
   .partner-profile-stat-grid,
   .partner-profile-workspace,
   .partner-profile-sku-layout {
@@ -2095,6 +2284,11 @@
 
   .partner-profile-actions {
     display: grid;
+  }
+
+  .partner-profile-bulk-actions {
+    display: grid;
+    grid-template-columns: 1fr;
   }
 
   .partner-profile-sku-table-shell {
@@ -2454,6 +2648,57 @@
 :root[data-admin-theme] .partner-branch-tier-form input:focus {
   border-color: var(--partner-border-strong);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--partner-text) 10%, transparent);
+}
+
+:root[data-admin-theme] .partner-profile-page :is(.partner-profile-discount-card, .partner-profile-bulk-toolbar) {
+  border-color: var(--partner-border);
+  background: var(--partner-panel-soft);
+  color: var(--partner-text);
+}
+
+:root[data-admin-theme] .partner-profile-page .partner-profile-discount-card.is-enabled {
+  border-color: var(--partner-border-strong);
+  background: var(--partner-panel-raised);
+}
+
+:root[data-admin-theme] .partner-profile-page :is(.partner-profile-discount-heading strong, .partner-profile-bulk-copy strong) {
+  color: var(--partner-text);
+}
+
+:root[data-admin-theme] .partner-profile-page :is(
+  .partner-profile-discount-heading span,
+  .partner-profile-discount-card > small,
+  .partner-profile-bulk-copy span,
+  .partner-profile-discount-input > span:first-child,
+  .partner-profile-bulk-price > span,
+  .partner-profile-percent-field strong
+) {
+  color: var(--partner-muted);
+}
+
+:root[data-admin-theme] .partner-profile-page :is(.partner-profile-percent-field input, .partner-profile-bulk-price input) {
+  border-color: var(--partner-border);
+  background: var(--partner-input);
+  color: var(--partner-text);
+}
+
+:root[data-admin-theme] .partner-profile-page .partner-profile-switch {
+  border-color: var(--partner-border);
+  background: var(--partner-panel);
+  color: var(--partner-muted);
+}
+
+:root[data-admin-theme] .partner-profile-page .partner-profile-switch[aria-checked='true'] {
+  border-color: var(--partner-border-strong);
+  color: var(--partner-text);
+}
+
+:root[data-admin-theme] .partner-profile-page .partner-profile-switch[aria-checked='true'] .partner-profile-switch-track {
+  background: var(--partner-primary-bg);
+}
+
+:root[data-admin-theme] .partner-profile-page .partner-profile-switch[aria-checked='true'] .partner-profile-switch-track span {
+  background: var(--partner-primary-text);
 }
 
 /* Final partner access contrast and protected-control pass. */

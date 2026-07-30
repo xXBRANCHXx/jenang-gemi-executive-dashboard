@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/sku-db-bootstrap.php';
+require_once __DIR__ . '/partner-pricing.php';
 
 function jg_partner_auth_product_name_map(): array
 {
@@ -23,7 +24,7 @@ function jg_partner_auth_decimal_string(mixed $value): string
     return rtrim(rtrim(number_format((float) $value, 4, '.', ''), '0'), '.');
 }
 
-function jg_partner_auth_catalog_record(array $row, array $pricing, array $productNameMap = []): array
+function jg_partner_auth_catalog_record(array $row, array $pricing, array $productNameMap = [], array $partner = []): array
 {
     $sku = trim((string) ($row['sku'] ?? ''));
     $baseProductName = trim((string) ($row['product_name'] ?? ''));
@@ -34,7 +35,7 @@ function jg_partner_auth_catalog_record(array $row, array $pricing, array $produ
     $unitCount = $volume > 0 && $astraValue > 0
         ? max(1.0, round($volume / $astraValue, 4))
         : 1.0;
-    $partnerSkuPrice = max(0.0, (float) ($pricing[$sku] ?? 0));
+    $partnerSkuPrice = jg_partner_effective_sku_price($partner, $row, $pricing);
     $sizeLabel = $volume > 0
         ? number_format($volume, 1, '.', '') . ' ' . trim((string) ($row['unit_name'] ?? ''))
         : trim((string) ($row['unit_name'] ?? ''));
@@ -65,6 +66,7 @@ function jg_partner_auth_catalog_record(array $row, array $pricing, array $produ
         'size_label' => $sizeLabel,
         'label' => implode(' · ', array_filter($labelParts, static fn (string $value): bool => $value !== '')),
         'current_stock' => (int) ($row['current_stock'] ?? 0),
+        'sale_price' => max(0.0, (float) ($row['sale_price'] ?? 0)),
         'partner_unit_price' => $partnerSkuPrice,
         'partner_price' => $partnerSkuPrice,
     ];
@@ -96,6 +98,7 @@ function jg_partner_auth_selected_sku_records(array $partner, ?PDO $pdo = null):
             f.name AS flavor_name,
             u.name AS unit_name,
             s.volume,
+            s.sale_price,
             s.astra AS astra_value,
             s.current_stock
          FROM sku_skus s
@@ -114,7 +117,7 @@ function jg_partner_auth_selected_sku_records(array $partner, ?PDO $pdo = null):
         if (!is_array($row)) {
             continue;
         }
-        $record = jg_partner_auth_catalog_record($row, $pricing, $productNameMap);
+        $record = jg_partner_auth_catalog_record($row, $pricing, $productNameMap, $partner);
         if ($record['sku'] !== '') {
             $recordIndex[$record['sku']] = $record;
         }

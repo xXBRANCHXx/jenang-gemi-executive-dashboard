@@ -31,6 +31,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const skuSearch = document.querySelector('[data-sku-search]');
   const skuList = document.querySelector('[data-sku-list]');
   const selectedSkuList = document.querySelector('[data-partner-selected-skus]');
+  const discountCard = document.querySelector('[data-partner-discount-card]');
+  const discountToggle = document.querySelector('[data-partner-discount-toggle]');
+  const discountPercentInput = document.querySelector('[data-partner-discount-percent]');
+  const discountStatus = document.querySelector('[data-partner-discount-status]');
+  const bulkSummary = document.querySelector('[data-partner-bulk-summary]');
+  const bulkPriceInput = document.querySelector('[data-partner-bulk-price]');
+  const applyBulkPriceButton = document.querySelector('[data-apply-bulk-price]');
+  const toggleAllVisibleButton = document.querySelector('[data-toggle-all-visible]');
 
   const accessCount = document.querySelector('[data-partner-access-count]');
   const productCount = document.querySelector('[data-partner-product-count]');
@@ -53,6 +61,10 @@ document.addEventListener('DOMContentLoaded', () => {
       skus: []
     },
     pricing: {},
+    discount: {
+      enabled: false,
+      percent: 0
+    },
     activeBrandId: 'all',
     activeProductId: 'all',
     skuSearch: '',
@@ -112,6 +124,20 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const skuUnitCount = (sku = {}) => Math.max(1, Number(sku.unit_count || 1));
+
+  const normalizedDiscountPercent = (value) => {
+    const number = Number(value || 0);
+    return Number.isFinite(number) ? Math.min(100, Math.max(0, number)) : 0;
+  };
+
+  const normalizedBoolean = (value) => value === true || value === 1 || value === '1' || value === 'true';
+
+  const effectiveSkuPrice = (sku = {}) => {
+    const customPrice = Math.max(0, Number(state.pricing[sku.sku] || 0));
+    if (!state.discount.enabled) return customPrice;
+    const listPrice = Math.max(0, Number(sku.sale_price || 0));
+    return Math.max(0, Math.round(listPrice * (1 - (state.discount.percent / 100)) * 100) / 100);
+  };
 
   const skuUnitLabel = (sku = {}) => {
     const volume = formatNumber(sku.volume || 0);
@@ -174,8 +200,12 @@ document.addEventListener('DOMContentLoaded', () => {
     setBranchError('');
   };
 
-  const showToast = () => {
+  const showToast = (title = 'Profile saved', message = 'Partner access and pricing updated.') => {
     if (!toastNode) return;
+    const titleNode = toastNode.querySelector('strong');
+    const messageNode = toastNode.querySelector('span');
+    if (titleNode) titleNode.textContent = title;
+    if (messageNode) messageNode.textContent = message;
     toastNode.hidden = false;
     window.clearTimeout(showToast.timer);
     showToast.timer = window.setTimeout(() => {
@@ -257,6 +287,51 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const selectedBrandCount = () => state.selections.brands.length;
   const selectedProductCount = () => state.selections.products.length;
+
+  const renderDiscountControls = () => {
+    const enabled = state.discount.enabled;
+    discountCard?.classList.toggle('is-enabled', enabled);
+    if (discountToggle instanceof HTMLButtonElement) {
+      discountToggle.setAttribute('aria-checked', String(enabled));
+      const label = discountToggle.querySelector('.partner-profile-switch-label');
+      if (label) label.textContent = enabled ? 'On' : 'Off';
+    }
+    if (discountPercentInput instanceof HTMLInputElement) {
+      discountPercentInput.disabled = !enabled;
+      discountPercentInput.value = String(state.discount.percent);
+    }
+    if (discountStatus) {
+      discountStatus.textContent = enabled
+        ? `${formatNumber(state.discount.percent)}% off every approved SKU`
+        : 'Custom SKU pricing';
+    }
+  };
+
+  const renderBulkControls = () => {
+    const selectedCountValue = state.selections.skus.length;
+    const rows = visibleSkus();
+    const selected = selectedSkuSet();
+    const selectedInView = rows.filter((sku) => selected.has(sku.sku)).length;
+    const allInViewSelected = rows.length > 0 && selectedInView === rows.length;
+
+    if (bulkSummary) {
+      bulkSummary.textContent = state.discount.enabled
+        ? `${formatNumber(state.discount.percent)}% discount controls all ${selectedCountValue.toLocaleString('id-ID')} selected prices.`
+        : `${selectedCountValue.toLocaleString('id-ID')} selected · ${selectedInView.toLocaleString('id-ID')} of ${rows.length.toLocaleString('id-ID')} in this view.`;
+    }
+    if (toggleAllVisibleButton instanceof HTMLButtonElement) {
+      toggleAllVisibleButton.disabled = rows.length === 0;
+      toggleAllVisibleButton.classList.toggle('is-active', allInViewSelected);
+      toggleAllVisibleButton.title = allInViewSelected ? 'Clear every SKU in the current view' : 'Select every SKU in the current view';
+    }
+    if (bulkPriceInput instanceof HTMLInputElement) {
+      bulkPriceInput.disabled = state.discount.enabled || selectedCountValue === 0;
+      bulkPriceInput.placeholder = state.discount.enabled ? 'Discount active' : 'Rp 0';
+    }
+    if (applyBulkPriceButton instanceof HTMLButtonElement) {
+      applyBulkPriceButton.disabled = state.discount.enabled || selectedCountValue === 0 || !(bulkPriceInput instanceof HTMLInputElement) || bulkPriceInput.value === '';
+    }
+  };
 
   const brandSkuStats = (brandId) => {
     const skus = brandId === 'all'
@@ -359,9 +434,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     skuList.innerHTML = rows.map((sku) => {
       const isSelected = selected.has(sku.sku);
-      const price = Math.max(0, Number(state.pricing[sku.sku] || 0));
+      const price = effectiveSkuPrice(sku);
+      const discountTitle = state.discount.enabled
+        ? `${formatNumber(state.discount.percent)}% off ${formatCurrency(sku.sale_price || 0)}`
+        : `Custom partner price for ${sku.label || sku.sku || 'SKU'}`;
       return `
-        <div class="partner-profile-sku-row${isSelected ? ' is-selected' : ''}">
+        <div class="partner-profile-sku-row${isSelected ? ' is-selected' : ''}${state.discount.enabled ? ' has-global-discount' : ''}">
           <button type="button" class="partner-profile-check-btn${isSelected ? ' is-selected' : ''}" data-toggle-sku="${escapeHtml(sku.sku || '')}" aria-label="Toggle ${escapeHtml(sku.label || sku.sku || 'SKU')}">${isSelected ? '&#10003;' : ''}</button>
           <div class="partner-profile-sku-main">
             <strong>${escapeHtml(sku.label || sku.product_name || sku.sku || '')}</strong>
@@ -370,7 +448,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <span>${escapeHtml(sku.flavor_name || 'Default')}</span>
           <span>${escapeHtml(skuUnitLabel(sku))}</span>
           <label class="partner-profile-price">
-            <input type="number" min="0" step="100" inputmode="decimal" value="${escapeHtml(price)}" data-partner-sku-price="${escapeHtml(sku.sku || '')}" aria-label="Partner SKU price for ${escapeHtml(sku.label || sku.sku || 'SKU')}">
+            <input type="number" min="0" step="100" inputmode="decimal" value="${escapeHtml(price)}" data-partner-sku-price="${escapeHtml(sku.sku || '')}" aria-label="Partner SKU price for ${escapeHtml(sku.label || sku.sku || 'SKU')}" title="${escapeHtml(discountTitle)}"${state.discount.enabled ? ' disabled' : ''}>
           </label>
         </div>
       `;
@@ -386,14 +464,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     selectedSkuList.innerHTML = rows.map((sku) => {
-      const skuPrice = Math.max(0, Number(state.pricing[sku.sku] || 0));
+      const skuPrice = effectiveSkuPrice(sku);
       return `
         <article class="partner-profile-selected-card">
           <div class="partner-profile-selected-icon">SKU</div>
           <div>
             <strong>${escapeHtml(sku.label || sku.product_name || sku.sku || '')}</strong>
             <small>${escapeHtml(sku.sku || '')}</small>
-            <span>SKU price ${escapeHtml(formatCurrency(skuPrice))}</span>
+            <span>${state.discount.enabled ? `${escapeHtml(formatNumber(state.discount.percent))}% discount · ` : ''}SKU price ${escapeHtml(formatCurrency(skuPrice))}</span>
           </div>
           <button type="button" class="partner-profile-remove-btn" data-toggle-sku="${escapeHtml(sku.sku || '')}" aria-label="Remove ${escapeHtml(sku.label || sku.sku || 'SKU')}">Remove</button>
         </article>
@@ -404,6 +482,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const renderAll = () => {
     hydrateSelections();
     renderStats();
+    renderDiscountControls();
+    renderBulkControls();
     renderBrandFilters();
     renderProductFilters();
     renderSkuList();
@@ -437,6 +517,31 @@ document.addEventListener('DOMContentLoaded', () => {
     renderAll();
   };
 
+  const toggleAllVisible = () => {
+    const rows = visibleSkus();
+    if (!rows.length) return;
+    const selected = selectedSkuSet();
+    const allSelected = rows.every((sku) => selected.has(sku.sku));
+    rows.forEach((sku) => {
+      if (allSelected) selected.delete(sku.sku);
+      else selected.add(sku.sku);
+    });
+    state.selections.skus = [...selected];
+    renderAll();
+  };
+
+  const applyBulkPrice = () => {
+    if (!(bulkPriceInput instanceof HTMLInputElement) || state.discount.enabled) return;
+    const price = Math.max(0, Number(bulkPriceInput.value || 0));
+    state.selections.skus.forEach((skuCode) => {
+      state.pricing[skuCode] = price;
+    });
+    renderSkuList();
+    renderSelectedSkus();
+    renderBulkControls();
+    showToast('Bulk price applied', `${state.selections.skus.length.toLocaleString('id-ID')} selected SKUs updated.`);
+  };
+
   const fillForm = (partner) => {
     if (!(form instanceof HTMLFormElement)) return;
     state.partner = partner;
@@ -451,6 +556,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     state.selections.skus = [...new Set(partner.selected_skus || [])];
     state.pricing = { ...(partner.pricing || {}) };
+    state.discount.enabled = normalizedBoolean(partner.discount_enabled);
+    state.discount.percent = normalizedDiscountPercent(partner.discount_percent);
 
     const title = partner.name || partner.code || 'Partner';
     if (partnerName) partnerName.textContent = `Edit ${title}`;
@@ -525,6 +632,23 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    if (target.closest('[data-partner-discount-toggle]')) {
+      state.discount.enabled = !state.discount.enabled;
+      renderAll();
+      discountPercentInput?.focus();
+      return;
+    }
+
+    if (target.closest('[data-toggle-all-visible]')) {
+      toggleAllVisible();
+      return;
+    }
+
+    if (target.closest('[data-apply-bulk-price]')) {
+      applyBulkPrice();
+      return;
+    }
+
     const skuToggle = target.closest('[data-toggle-sku]');
     if (skuToggle) {
       toggleSku(skuToggle.getAttribute('data-toggle-sku') || '');
@@ -540,11 +664,24 @@ document.addEventListener('DOMContentLoaded', () => {
   skuSearch?.addEventListener('input', () => {
     state.skuSearch = skuSearch.value || '';
     renderSkuList();
+    renderBulkControls();
   });
 
   root.addEventListener('input', (event) => {
     const target = event.target;
     if (!(target instanceof HTMLInputElement)) return;
+    if (target.matches('[data-partner-discount-percent]')) {
+      state.discount.percent = normalizedDiscountPercent(target.value);
+      if (discountStatus) discountStatus.textContent = `${formatNumber(state.discount.percent)}% off every approved SKU`;
+      renderBulkControls();
+      renderSkuList();
+      renderSelectedSkus();
+      return;
+    }
+    if (target.matches('[data-partner-bulk-price]')) {
+      renderBulkControls();
+      return;
+    }
     const skuCode = target.getAttribute('data-partner-sku-price');
     if (!skuCode) return;
     state.pricing[skuCode] = Math.max(0, Number(target.value || 0));
@@ -693,6 +830,8 @@ document.addEventListener('DOMContentLoaded', () => {
           partner_password_unlock_token: savedPortalPassword ? state.branchUnlockToken : '',
           selected_skus: [...new Set(state.selections.skus)],
           pricing: state.pricing,
+          discount_enabled: state.discount.enabled,
+          discount_percent: state.discount.percent,
           notes: formData.get('notes')
         }
       });

@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once dirname(__DIR__, 3) . '/sku-db-bootstrap.php';
 require_once dirname(__DIR__, 3) . '/astra-stock-bootstrap.php';
 require_once dirname(__DIR__, 3) . '/partner-db-bootstrap.php';
+require_once dirname(__DIR__, 3) . '/partner-pricing.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -107,7 +108,7 @@ function jg_public_partner_read_database(): array
     $pdo = jg_partner_db();
     if ($pdo instanceof PDO) {
         $stmt = $pdo->query(
-            'SELECT code, name, partner_slug, notes, selected_skus_json, pricing_json, created_at, updated_at
+            'SELECT code, name, partner_slug, notes, selected_skus_json, pricing_json, discount_enabled, discount_percent, created_at, updated_at
              FROM partner_profiles
              ORDER BY updated_at DESC, code ASC'
         );
@@ -125,6 +126,8 @@ function jg_public_partner_read_database(): array
                 'notes' => (string) ($row['notes'] ?? ''),
                 'selected_skus' => is_array($selectedSkus) ? array_values(array_filter(array_map('strval', $selectedSkus))) : [],
                 'pricing' => is_array($pricing) ? $pricing : [],
+                'discount_enabled' => (bool) ($row['discount_enabled'] ?? false),
+                'discount_percent' => jg_partner_discount_percent($row),
                 'created_at' => (string) ($row['created_at'] ?? ''),
                 'updated_at' => (string) ($row['updated_at'] ?? ''),
             ];
@@ -185,6 +188,7 @@ function jg_public_partner_sku_catalog(PDO $pdo): array
             f.name AS flavor_name,
             u.name AS unit_name,
             s.volume,
+            s.sale_price,
             ' . $astraSelect . ',
             s.current_stock
          FROM sku_skus s
@@ -230,6 +234,7 @@ function jg_public_partner_sku_catalog(PDO $pdo): array
             'flavor_name' => $flavorName,
             'unit_name' => (string) ($row['unit_name'] ?? ''),
             'volume' => number_format($volume, 1, '.', ''),
+            'sale_price' => max(0.0, (float) ($row['sale_price'] ?? 0)),
             'astra_value' => jg_public_partner_decimal_string($astraValue),
             'unit_count' => $unitCount,
             'size_label' => $sizeLabel,
@@ -269,7 +274,7 @@ function jg_public_partner_enrich(array $partner, array $catalog): array
         }
 
         $sku = $skuIndex[$skuCode];
-        $partnerSkuPrice = max(0.0, (float) ($pricing[$skuCode] ?? 0));
+        $partnerSkuPrice = jg_partner_effective_sku_price($partner, $sku, $pricing);
         $sku['partner_unit_price'] = $partnerSkuPrice;
         $sku['partner_price'] = $partnerSkuPrice;
         $selectedSkus[] = $sku;

@@ -5,6 +5,7 @@ require dirname(__DIR__, 2) . '/auth.php';
 require_once dirname(__DIR__, 2) . '/sku-db-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/astra-stock-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/partner-db-bootstrap.php';
+require_once dirname(__DIR__, 2) . '/partner-pricing.php';
 
 jg_admin_require_auth_json();
 
@@ -68,7 +69,7 @@ function jg_partner_read_database(): array
     $pdo = jg_partner_db();
     if ($pdo instanceof PDO) {
         $stmt = $pdo->query(
-            'SELECT code, name, partner_slug, notes, selected_skus_json, pricing_json, password_hash, password_updated_at,
+            'SELECT code, name, partner_slug, notes, selected_skus_json, pricing_json, discount_enabled, discount_percent, password_hash, password_updated_at,
                     password_reset_key_hash, password_reset_key_created_at, password_reset_token_hash, password_reset_token_expires_at,
                     created_at, updated_at
              FROM partner_profiles
@@ -89,6 +90,8 @@ function jg_partner_read_database(): array
                 'notes' => (string) ($row['notes'] ?? ''),
                 'selected_skus' => is_array($selectedSkus) ? array_values(array_filter(array_map('strval', $selectedSkus))) : [],
                 'pricing' => is_array($pricing) ? $pricing : [],
+                'discount_enabled' => (bool) ($row['discount_enabled'] ?? false),
+                'discount_percent' => jg_partner_discount_percent($row),
                 'password_hash' => (string) ($row['password_hash'] ?? ''),
                 'password_updated_at' => (string) ($row['password_updated_at'] ?? ''),
                 'password_reset_key_hash' => (string) ($row['password_reset_key_hash'] ?? ''),
@@ -153,11 +156,11 @@ function jg_partner_write_database(array $database): void
             $pdo->exec('DELETE FROM partner_profiles');
             $stmt = $pdo->prepare(
                 'INSERT INTO partner_profiles
-                    (code, name, partner_slug, notes, selected_skus_json, pricing_json, password_hash, password_updated_at,
+                    (code, name, partner_slug, notes, selected_skus_json, pricing_json, discount_enabled, discount_percent, password_hash, password_updated_at,
                      password_reset_key_hash, password_reset_key_created_at, password_reset_token_hash, password_reset_token_expires_at,
                      created_at, updated_at)
                  VALUES
-                    (:code, :name, :partner_slug, :notes, :selected_skus_json, :pricing_json, :password_hash, :password_updated_at,
+                    (:code, :name, :partner_slug, :notes, :selected_skus_json, :pricing_json, :discount_enabled, :discount_percent, :password_hash, :password_updated_at,
                      :password_reset_key_hash, :password_reset_key_created_at, :password_reset_token_hash, :password_reset_token_expires_at,
                      :created_at, :updated_at)'
             );
@@ -173,6 +176,8 @@ function jg_partner_write_database(array $database): void
                     ':notes' => (string) ($partner['notes'] ?? ''),
                     ':selected_skus_json' => json_encode(array_values(array_filter((array) ($partner['selected_skus'] ?? []), 'is_string')), JSON_UNESCAPED_SLASHES),
                     ':pricing_json' => json_encode((array) ($partner['pricing'] ?? []), JSON_UNESCAPED_SLASHES),
+                    ':discount_enabled' => jg_partner_discount_enabled($partner) ? 1 : 0,
+                    ':discount_percent' => jg_partner_discount_percent($partner),
                     ':password_hash' => (string) ($partner['password_hash'] ?? ''),
                     ':password_updated_at' => trim((string) ($partner['password_updated_at'] ?? '')) !== '' ? gmdate('Y-m-d H:i:s', strtotime((string) ($partner['password_updated_at'] ?? jg_partner_now()))) : null,
                     ':password_reset_key_hash' => (string) ($partner['password_reset_key_hash'] ?? ''),
@@ -448,6 +453,7 @@ function jg_partner_sku_catalog(PDO $pdo): array
             f.name AS flavor_name,
             u.name AS unit_name,
             s.volume,
+            s.sale_price,
             ' . $astraSelect . ',
             s.current_stock
          FROM sku_skus s
@@ -494,6 +500,7 @@ function jg_partner_sku_catalog(PDO $pdo): array
             'flavor_name' => $flavorName,
             'unit_name' => (string) ($row['unit_name'] ?? ''),
             'volume' => number_format($volume, 1, '.', ''),
+            'sale_price' => max(0.0, (float) ($row['sale_price'] ?? 0)),
             'astra_value' => jg_partner_decimal_string($astraValue),
             'unit_count' => $unitCount,
             'size_label' => $sizeLabel,
@@ -580,7 +587,7 @@ function jg_partner_enrich_record(array $partner, array $catalog): array
         }
 
         $sku = $skuIndex[$skuCode];
-        $partnerSkuPrice = max(0.0, (float) ($pricing[$skuCode] ?? 0));
+        $partnerSkuPrice = jg_partner_effective_sku_price($partner, $sku, $pricing);
         $sku['partner_unit_price'] = $partnerSkuPrice;
         $sku['partner_price'] = $partnerSkuPrice;
         $selectedSkus[] = $sku;
@@ -713,6 +720,33 @@ function jg_partner_normalize_pricing(mixed $value, array $selectedSkuRecords, a
     return $pricing;
 }
 
+function jg_partner_normalize_discount_settings(array $payload, ?array $existing = null): array
+{
+    $enabledSource = array_key_exists('discount_enabled', $payload)
+        ? $payload['discount_enabled']
+        : ($existing['discount_enabled'] ?? false);
+    $percentSource = array_key_exists('discount_percent', $payload)
+        ? $payload['discount_percent']
+        : ($existing['discount_percent'] ?? 0);
+
+    if (is_string($percentSource)) {
+        $percentSource = preg_replace('/[^0-9.\-]/', '', $percentSource) ?? '0';
+    }
+    if (!is_numeric($percentSource)) {
+        jg_partner_fail('Partner discount must be numeric.');
+    }
+
+    $percent = round((float) $percentSource, 2);
+    if ($percent < 0 || $percent > 100) {
+        jg_partner_fail('Partner discount must be between 0 and 100 percent.');
+    }
+
+    return [
+        'discount_enabled' => filter_var($enabledSource, FILTER_VALIDATE_BOOLEAN),
+        'discount_percent' => $percent,
+    ];
+}
+
 function jg_partner_build_record(array $payload, array $database, array $catalog, ?array $existing = null): array
 {
     $name = jg_partner_normalize_text($payload['name'] ?? null, 'Partner name');
@@ -765,6 +799,7 @@ function jg_partner_build_record(array $payload, array $database, array $catalog
     $selectedSkuCodes = array_map(static fn (array $row): string => (string) ($row['sku'] ?? ''), $selectedSkuRecords);
     $existingPricing = is_array($existing['pricing'] ?? null) ? $existing['pricing'] : [];
     $pricing = jg_partner_normalize_pricing($payload['pricing'] ?? $existingPricing, $selectedSkuRecords, $existingPricing);
+    $discountSettings = jg_partner_normalize_discount_settings($payload, $existing);
 
     return [
         'code' => $code,
@@ -774,6 +809,8 @@ function jg_partner_build_record(array $payload, array $database, array $catalog
         'notes' => $notes,
         'selected_skus' => $selectedSkuCodes,
         'pricing' => $pricing,
+        'discount_enabled' => $discountSettings['discount_enabled'],
+        'discount_percent' => $discountSettings['discount_percent'],
         'password_hash' => $passwordHash,
         'password_updated_at' => $passwordUpdatedAt,
         'password_reset_key_hash' => $resetKeyHash,

@@ -123,6 +123,32 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
 
                                 <section class="partner-profile-section">
                                     <div class="partner-profile-panel-head">
+                                        <span>Pricing strategy</span>
+                                    </div>
+                                    <div class="partner-profile-discount-card" data-partner-discount-card>
+                                        <div class="partner-profile-discount-heading">
+                                            <div>
+                                                <strong>Partner discount</strong>
+                                                <span data-partner-discount-status>Custom SKU pricing</span>
+                                            </div>
+                                            <button type="button" class="partner-profile-switch" role="switch" aria-checked="false" data-partner-discount-toggle>
+                                                <span class="partner-profile-switch-track" aria-hidden="true"><span></span></span>
+                                                <span class="partner-profile-switch-label">Off</span>
+                                            </button>
+                                        </div>
+                                        <label class="partner-profile-discount-input">
+                                            <span>Discount percentage</span>
+                                            <span class="partner-profile-percent-field">
+                                                <input type="number" name="discount_percent" min="0" max="100" step="0.01" inputmode="decimal" value="0" disabled data-partner-discount-percent>
+                                                <strong>%</strong>
+                                            </span>
+                                        </label>
+                                        <small>When enabled, every approved SKU uses this discount against its current sale price. Custom prices are kept for later.</small>
+                                    </div>
+                                </section>
+
+                                <section class="partner-profile-section">
+                                    <div class="partner-profile-panel-head">
                                         <span>Brand filter</span>
                                     </div>
                                     <div class="partner-profile-filter-list" data-brand-filter-list>
@@ -141,6 +167,21 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                                         <span>Search SKU access</span>
                                         <input type="search" placeholder="Search SKU, product, flavor" data-sku-search>
                                     </label>
+                                </div>
+
+                                <div class="partner-profile-bulk-toolbar" data-partner-bulk-toolbar>
+                                    <div class="partner-profile-bulk-copy">
+                                        <strong>Bulk price editor</strong>
+                                        <span data-partner-bulk-summary>Select SKUs to edit their prices together.</span>
+                                    </div>
+                                    <div class="partner-profile-bulk-actions">
+                                        <button type="button" class="admin-ghost-btn partner-profile-toggle-all" data-toggle-all-visible>Toggle All</button>
+                                        <label class="partner-profile-bulk-price">
+                                            <span>Set selected price</span>
+                                            <input type="number" min="0" step="100" inputmode="decimal" placeholder="Rp 0" data-partner-bulk-price>
+                                        </label>
+                                        <button type="button" class="admin-primary-btn" data-apply-bulk-price disabled>Apply price</button>
+                                    </div>
                                 </div>
 
                                 <div class="partner-profile-sku-layout">

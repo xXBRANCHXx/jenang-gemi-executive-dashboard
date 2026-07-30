@@ -69,6 +69,8 @@ function jg_partner_db_ensure_schema(PDO $pdo): void
             notes VARCHAR(300) NOT NULL DEFAULT "",
             selected_skus_json LONGTEXT NULL DEFAULT NULL,
             pricing_json LONGTEXT NULL DEFAULT NULL,
+            discount_enabled TINYINT(1) NOT NULL DEFAULT 0,
+            discount_percent DECIMAL(5,2) NOT NULL DEFAULT 0.00,
             password_hash VARCHAR(255) NOT NULL DEFAULT "",
             password_updated_at DATETIME NULL DEFAULT NULL,
             password_reset_key_hash VARCHAR(255) NOT NULL DEFAULT "",
@@ -90,6 +92,12 @@ function jg_partner_db_ensure_schema(PDO $pdo): void
 
     if (!isset($columns['password_hash'])) {
         $pdo->exec('ALTER TABLE partner_profiles ADD COLUMN password_hash VARCHAR(255) NOT NULL DEFAULT "" AFTER pricing_json');
+    }
+    if (!isset($columns['discount_enabled'])) {
+        $pdo->exec('ALTER TABLE partner_profiles ADD COLUMN discount_enabled TINYINT(1) NOT NULL DEFAULT 0 AFTER pricing_json');
+    }
+    if (!isset($columns['discount_percent'])) {
+        $pdo->exec('ALTER TABLE partner_profiles ADD COLUMN discount_percent DECIMAL(5,2) NOT NULL DEFAULT 0.00 AFTER discount_enabled');
     }
     if (!isset($columns['password_updated_at'])) {
         $pdo->exec('ALTER TABLE partner_profiles ADD COLUMN password_updated_at DATETIME NULL DEFAULT NULL AFTER password_hash');
