@@ -3825,6 +3825,14 @@ button, input {
 }
 
 .admin-orders-table .admin-order-id {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  padding: 0 7px;
+  border: 1px solid rgba(var(--admin-order-id-rgb, 255, 255, 255), 0.6);
+  border-left: 4px solid var(--admin-order-id-color, var(--admin-text));
+  border-radius: 6px;
+  background: rgba(var(--admin-order-id-rgb, 255, 255, 255), 0.16);
   color: var(--admin-order-id-color, var(--admin-text));
   font-weight: 800;
   letter-spacing: 0.015em;

@@ -28,8 +28,9 @@ assert(
   /const orderIdAccent = \(value\) => \{[\s\S]*?Math\.imul\(hash, 16777619\)[\s\S]*?getOverviewAccountColor\(hash >>> 0\)/.test(admin)
     && admin.includes('class="admin-order-id"')
     && admin.includes('const orderAccent = orderIdAccent(orderId);')
+    && admin.includes('--admin-order-id-rgb: ${hexToRgbParts(orderAccent)}')
     && styles.includes('.admin-orders-table .admin-order-id'),
-  'Each order ID must receive a stable visible accent so every line from the same order is easy to identify.'
+  'Each order ID must receive a stable, high-visibility accent badge so every line from the same order is easy to identify.'
 );
 assert(
   /const preloadOrderMemory = async[\s\S]*?state\.activeView === 'orders' \|\| !canStartBackgroundPageWork\(\)/.test(admin),

@@ -7537,7 +7537,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      return `
 	        <tr>
 	          <td>${escapeHtml(formatOrderTimestamp(row.order_create_time || row.timestamp))}</td>
-	          <td><strong class="admin-order-id"${orderAccent ? ` style="--admin-order-id-color: ${orderAccent}"` : ''}>${escapeHtml(orderId)}</strong></td>
+	          <td><strong class="admin-order-id"${orderAccent ? ` style="--admin-order-id-color: ${orderAccent}; --admin-order-id-rgb: ${hexToRgbParts(orderAccent)}"` : ''}>${escapeHtml(orderId)}</strong></td>
 	          <td>${escapeHtml(platform)}</td>
           <td class="admin-order-product" title="${escapeHtml(productLabel)}"><strong>${escapeHtml(productLabel)}</strong></td>
           <td>${formatCompactNumber(row.quantity || 0)}</td>
