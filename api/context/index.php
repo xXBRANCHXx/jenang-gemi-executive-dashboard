@@ -53,9 +53,11 @@ $pdo = analyticsDb();
 jg_context_ensure_schema($pdo);
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    $rows = jg_context_rows($pdo);
+    jg_executive_context_cache_write($rows);
     analyticsJsonResponse([
         'ok' => true,
-        'records' => jg_context_rows($pdo),
+        'records' => $rows,
         'updated_at' => gmdate(DATE_ATOM),
     ]);
 }
@@ -127,8 +129,10 @@ try {
     analyticsJsonResponse(['error' => $error->getMessage()], 422);
 }
 
+$rows = jg_context_rows($pdo);
+jg_executive_context_cache_write($rows);
 analyticsJsonResponse([
     'ok' => true,
-    'records' => jg_context_rows($pdo),
+    'records' => $rows,
     'updated_at' => gmdate(DATE_ATOM),
 ]);

@@ -104,6 +104,60 @@ function jg_executive_context_granularity(string $periodKey): string
     return strlen($periodKey) === 10 ? 'day' : 'month';
 }
 
+function jg_executive_context_cache_path(): string
+{
+    $override = getenv('JG_EXECUTIVE_CONTEXT_CACHE_PATH');
+    if (is_string($override) && trim($override) !== '') {
+        return trim($override);
+    }
+
+    return sys_get_temp_dir() . '/jg-dashboard-executive-context.json';
+}
+
+/**
+ * @param array<int, array<string, mixed>> $rows
+ */
+function jg_executive_context_cache_write(array $rows): void
+{
+    $path = jg_executive_context_cache_path();
+    $encoded = json_encode([
+        'saved_at' => gmdate(DATE_ATOM),
+        'rows' => array_values($rows),
+    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if (!is_string($encoded)) {
+        return;
+    }
+
+    $directory = dirname($path);
+    if (!is_dir($directory)) {
+        @mkdir($directory, 0775, true);
+    }
+    $temporary = @tempnam($directory, '.context-');
+    if (!is_string($temporary)) {
+        return;
+    }
+    if (@file_put_contents($temporary, $encoded, LOCK_EX) === false || !@rename($temporary, $path)) {
+        @unlink($temporary);
+    }
+}
+
+/**
+ * @return array<int, array<string, mixed>>|null
+ */
+function jg_executive_context_cache_read(): ?array
+{
+    $raw = @file_get_contents(jg_executive_context_cache_path());
+    $decoded = is_string($raw) ? json_decode($raw, true) : null;
+    if (!is_array($decoded) || !is_array($decoded['rows'] ?? null)) {
+        return null;
+    }
+
+    return array_values(array_filter(
+        $decoded['rows'],
+        static fn (mixed $row): bool => is_array($row)
+    ));
+}
+
 /**
  * @param array<int, array<string, mixed>> $rows
  * @return array<int, array<string, int|string>>

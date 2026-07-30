@@ -6,6 +6,7 @@ require_once dirname(__DIR__, 2) . '/auth.php';
 require_once dirname(__DIR__, 2) . '/sku-db-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/analytics-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/executive-context.php';
+require_once dirname(__DIR__, 2) . '/sales-summary-stability.php';
 require_once dirname(__DIR__, 2) . '/website-commerce-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/whatsapp-orders-bootstrap.php';
 
@@ -124,6 +125,7 @@ if ($setupToken === '') {
 
 $includeAudit = in_array(strtolower(trim((string) ($_GET['audit'] ?? $_GET['include_audit'] ?? ''))), ['1', 'true', 'yes', 'on'], true);
 $cacheKey = 'sales-summary-base-v8-marketplace-gift-evidence-' . $year . ($includeAudit ? '-audit' : '-core');
+$lastKnownResponse = jg_sales_cache_read($cacheKey, 0);
 
 if ($action === 'refresh') {
     if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
@@ -161,6 +163,14 @@ if ($action === 'refresh') {
         exit;
     }
 
+    $regressedMonths = jg_sales_regressed_cached_months($decoded, $lastKnownResponse);
+    if ($regressedMonths !== [] && is_string($lastKnownResponse)) {
+        error_log('Protected marketplace sales cache from empty month regression: ' . implode(',', $regressedMonths));
+        header('X-JG-Cache: STALE-REGRESSION');
+        echo jg_sales_prepare_cached_response($lastKnownResponse, $year, $includeAudit);
+        exit;
+    }
+
     jg_sales_cache_write($cacheKey, $baseEncoded);
     $prepared = json_decode(jg_sales_prepare_cached_response($baseEncoded, $year, $includeAudit), true);
     if (!is_array($prepared)) {
@@ -189,7 +199,7 @@ if ($includeAudit) {
 $url = jg_dashboard_marketplace_api_base_url() . '/sales/summary?' . http_build_query($urlParams);
 
 $forceRefresh = (string) ($_GET['refresh'] ?? '') === '1';
-$cachedResponse = $forceRefresh ? null : jg_sales_cache_read($cacheKey, 0);
+$cachedResponse = $forceRefresh ? null : $lastKnownResponse;
 if (is_string($cachedResponse)) {
     header('X-JG-Cache: STALE-FAST');
     echo jg_sales_prepare_cached_response($cachedResponse, $year, $includeAudit);
@@ -242,6 +252,13 @@ if (is_array($decoded) && ($status < 400 || $status === 200)) {
     jg_sales_remove_customer_paid_fields($decoded);
     $baseEncoded = json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     if (is_string($baseEncoded)) {
+        $regressedMonths = jg_sales_regressed_cached_months($decoded, $lastKnownResponse);
+        if ($regressedMonths !== [] && is_string($lastKnownResponse)) {
+            error_log('Protected marketplace sales cache from empty month regression: ' . implode(',', $regressedMonths));
+            header('X-JG-Cache: STALE-REGRESSION');
+            echo jg_sales_prepare_cached_response($lastKnownResponse, $year, $includeAudit);
+            exit;
+        }
         jg_sales_cache_write($cacheKey, $baseEncoded);
         header('X-JG-Cache: MISS');
         echo jg_sales_prepare_cached_response($baseEncoded, $year, $includeAudit);
@@ -321,19 +338,32 @@ function jg_sales_context_by_month(int $year): array
                 updated_at DATETIME(6) NOT NULL
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
         );
-        $stmt = $pdo->prepare(
+        $stmt = $pdo->query(
             'SELECT period_key, revenue, gross_profit, orders_qty, items_qty
              FROM executive_chart_context
-             WHERE period_key LIKE :year_prefix
              ORDER BY period_key'
         );
-        $stmt->execute([':year_prefix' => $year . '-%']);
+        $allRows = $stmt ? $stmt->fetchAll() : [];
+        $cachedRows = jg_executive_context_cache_read();
+        if ($allRows === [] && is_array($cachedRows) && $cachedRows !== []) {
+            $allRows = $cachedRows;
+            error_log('Protected executive chart context from an unexpected empty database read.');
+        } else {
+            jg_executive_context_cache_write($allRows);
+        }
+        $rows = array_values(array_filter(
+            $allRows,
+            static fn (array $row): bool => str_starts_with((string) ($row['period_key'] ?? ''), $year . '-')
+        ));
     } catch (Throwable $error) {
         error_log('Unable to load executive chart context: ' . $error->getMessage());
-        return [];
+        $rows = array_values(array_filter(
+            jg_executive_context_cache_read() ?? [],
+            static fn (array $row): bool => str_starts_with((string) ($row['period_key'] ?? ''), $year . '-')
+        ));
     }
 
-    return jg_executive_context_group_by_month($stmt->fetchAll());
+    return jg_executive_context_group_by_month($rows);
 }
 
 /**
@@ -409,7 +439,30 @@ function jg_sales_cache_read(string $key, int $ttlSeconds): ?string
 
 function jg_sales_cache_write(string $key, string $payload): void
 {
-    @file_put_contents(jg_sales_cache_path($key), $payload, LOCK_EX);
+    $path = jg_sales_cache_path($key);
+    $temporary = @tempnam(dirname($path), '.sales-');
+    if (!is_string($temporary)) {
+        return;
+    }
+    if (@file_put_contents($temporary, $payload, LOCK_EX) === false || !@rename($temporary, $path)) {
+        @unlink($temporary);
+    }
+}
+
+/**
+ * @param array<string, mixed> $candidate
+ * @return array<int, int>
+ */
+function jg_sales_regressed_cached_months(array $candidate, ?string $previousResponse): array
+{
+    if (!is_string($previousResponse) || $previousResponse === '') {
+        return [];
+    }
+    $previous = json_decode($previousResponse, true);
+    if (!is_array($previous)) {
+        return [];
+    }
+    return jg_sales_summary_regressed_months($candidate, $previous);
 }
 
 /**
