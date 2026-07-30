@@ -3824,6 +3824,12 @@ button, input {
   line-height: inherit;
 }
 
+.admin-orders-table .admin-order-id {
+  color: var(--admin-order-id-color, var(--admin-text));
+  font-weight: 800;
+  letter-spacing: 0.015em;
+}
+
 .admin-orders-actions {
   display: flex;
   align-items: center;

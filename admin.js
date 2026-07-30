@@ -7469,6 +7469,19 @@ document.addEventListener('DOMContentLoaded', () => {
     return Number.isFinite(recalculatedRevenue) && recalculatedRevenue >= 0 ? recalculatedRevenue : 0;
   };
 
+  // Keep every line from the same marketplace order visually connected, even
+  // when its items are separated by other rows in the table.
+  const orderIdAccent = (value) => {
+    const orderId = String(value || '').trim();
+    if (!orderId) return '';
+    let hash = 2166136261;
+    for (let index = 0; index < orderId.length; index += 1) {
+      hash ^= orderId.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return getOverviewAccountColor(hash >>> 0);
+  };
+
 	  const renderOrders = (data = state.orders.data) => {
     if (data) state.orders.data = data;
     const rows = filteredOrderRows();
@@ -7507,6 +7520,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	    }
 	    ordersRefs.tableBody.innerHTML = renderRows(visibleRows, 12, (row) => {
 	      const platform = `${row.platform || '-'}${row.account_key ? ` / ${row.account_key}` : ''}`;
+	      const orderId = String(row.order_id || '').trim();
+	      const orderAccent = orderIdAccent(orderId);
 	      const productLabel = row.product_name || 'Unlinked SKU';
       const allocation = Array.isArray(row.allocations) && row.allocations.length
         ? row.allocations.map((item) => `${item.po_number}: ${formatCompactNumber(item.qty_astra_consumed || 0)}`).join(', ')
@@ -7522,7 +7537,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      return `
 	        <tr>
 	          <td>${escapeHtml(formatOrderTimestamp(row.order_create_time || row.timestamp))}</td>
-	          <td><strong>${escapeHtml(row.order_id || '')}</strong></td>
+	          <td><strong class="admin-order-id"${orderAccent ? ` style="--admin-order-id-color: ${orderAccent}"` : ''}>${escapeHtml(orderId)}</strong></td>
 	          <td>${escapeHtml(platform)}</td>
           <td class="admin-order-product" title="${escapeHtml(productLabel)}"><strong>${escapeHtml(productLabel)}</strong></td>
           <td>${formatCompactNumber(row.quantity || 0)}</td>

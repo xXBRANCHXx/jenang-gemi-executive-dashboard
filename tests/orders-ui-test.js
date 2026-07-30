@@ -25,6 +25,13 @@ assert(
   'The Orders revenue column must identify the displayed amount as net revenue.'
 );
 assert(
+  /const orderIdAccent = \(value\) => \{[\s\S]*?Math\.imul\(hash, 16777619\)[\s\S]*?getOverviewAccountColor\(hash >>> 0\)/.test(admin)
+    && admin.includes('class="admin-order-id"')
+    && admin.includes('const orderAccent = orderIdAccent(orderId);')
+    && styles.includes('.admin-orders-table .admin-order-id'),
+  'Each order ID must receive a stable visible accent so every line from the same order is easy to identify.'
+);
+assert(
   /const preloadOrderMemory = async[\s\S]*?state\.activeView === 'orders' \|\| !canStartBackgroundPageWork\(\)/.test(admin),
   'The active Orders view must not start the large background order preload.'
 );
