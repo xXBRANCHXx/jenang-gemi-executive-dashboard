@@ -24,6 +24,125 @@ function jg_partner_db_host_candidates(string $host): array
     return array_values(array_unique(array_filter($hosts)));
 }
 
+function jg_partner_db_legacy_registry(): array
+{
+    foreach ([__DIR__ . '/data/partners.runtime.json', __DIR__ . '/data/partners.json'] as $path) {
+        if (!is_file($path)) {
+            continue;
+        }
+
+        $decoded = json_decode((string) @file_get_contents($path), true);
+        $partners = array_values(array_filter((array) ($decoded['partners'] ?? []), 'is_array'));
+        if ($partners !== []) {
+            return $partners;
+        }
+    }
+
+    return [];
+}
+
+function jg_partner_db_legacy_datetime(mixed $value, bool $required = false): ?string
+{
+    $timestamp = strtotime(trim((string) $value));
+    if ($timestamp === false) {
+        return $required ? gmdate('Y-m-d H:i:s') : null;
+    }
+
+    return gmdate('Y-m-d H:i:s', $timestamp);
+}
+
+function jg_partner_db_migrate_legacy_registry(PDO $pdo): int
+{
+    $migrationKey = 'legacy-partners-runtime-json-v1';
+    $legacyPartners = jg_partner_db_legacy_registry();
+    $existingCount = (int) $pdo->query('SELECT COUNT(*) FROM partner_profiles')->fetchColumn();
+    if ($existingCount === 0 && $legacyPartners === []) {
+        return 0;
+    }
+
+    $pdo->beginTransaction();
+    try {
+        $claim = $pdo->prepare(
+            'INSERT IGNORE INTO partner_registry_migrations (migration_key, imported_count, applied_at)
+             VALUES (:migration_key, 0, :applied_at)'
+        );
+        $claim->execute([
+            ':migration_key' => $migrationKey,
+            ':applied_at' => gmdate('Y-m-d H:i:s'),
+        ]);
+
+        if ($claim->rowCount() === 0) {
+            $stmt = $pdo->prepare('SELECT imported_count FROM partner_registry_migrations WHERE migration_key = :migration_key');
+            $stmt->execute([':migration_key' => $migrationKey]);
+            $importedCount = (int) $stmt->fetchColumn();
+            $pdo->commit();
+            return $importedCount;
+        }
+
+        $importedCount = 0;
+        $existingCount = (int) $pdo->query('SELECT COUNT(*) FROM partner_profiles')->fetchColumn();
+        if ($existingCount === 0) {
+            $insert = $pdo->prepare(
+                'INSERT IGNORE INTO partner_profiles
+                    (code, name, partner_slug, notes, selected_skus_json, pricing_json, discount_enabled, discount_percent,
+                     password_hash, password_updated_at, password_reset_key_hash, password_reset_key_created_at,
+                     password_reset_token_hash, password_reset_token_expires_at, created_at, updated_at)
+                 VALUES
+                    (:code, :name, :partner_slug, :notes, :selected_skus_json, :pricing_json, :discount_enabled, :discount_percent,
+                     :password_hash, :password_updated_at, :password_reset_key_hash, :password_reset_key_created_at,
+                     :password_reset_token_hash, :password_reset_token_expires_at, :created_at, :updated_at)'
+            );
+
+            foreach ($legacyPartners as $partner) {
+                $code = trim((string) ($partner['code'] ?? ''));
+                $name = trim((string) ($partner['name'] ?? ''));
+                $slug = trim((string) ($partner['partner_slug'] ?? ''), '/');
+                if ($code === '' || $name === '' || $slug === '') {
+                    continue;
+                }
+
+                $discount = is_numeric($partner['discount_percent'] ?? null)
+                    ? max(0.0, min(100.0, (float) $partner['discount_percent']))
+                    : 0.0;
+                $insert->execute([
+                    ':code' => substr($code, 0, 64),
+                    ':name' => substr($name, 0, 160),
+                    ':partner_slug' => substr($slug, 0, 160),
+                    ':notes' => substr((string) ($partner['notes'] ?? ''), 0, 300),
+                    ':selected_skus_json' => json_encode(array_values(array_filter((array) ($partner['selected_skus'] ?? []), 'is_string')), JSON_UNESCAPED_SLASHES),
+                    ':pricing_json' => json_encode((array) ($partner['pricing'] ?? []), JSON_UNESCAPED_SLASHES),
+                    ':discount_enabled' => filter_var($partner['discount_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0,
+                    ':discount_percent' => $discount,
+                    ':password_hash' => (string) ($partner['password_hash'] ?? ''),
+                    ':password_updated_at' => jg_partner_db_legacy_datetime($partner['password_updated_at'] ?? null),
+                    ':password_reset_key_hash' => (string) ($partner['password_reset_key_hash'] ?? ''),
+                    ':password_reset_key_created_at' => jg_partner_db_legacy_datetime($partner['password_reset_key_created_at'] ?? null),
+                    ':password_reset_token_hash' => (string) ($partner['password_reset_token_hash'] ?? ''),
+                    ':password_reset_token_expires_at' => jg_partner_db_legacy_datetime($partner['password_reset_token_expires_at'] ?? null),
+                    ':created_at' => jg_partner_db_legacy_datetime($partner['created_at'] ?? null, true),
+                    ':updated_at' => jg_partner_db_legacy_datetime($partner['updated_at'] ?? null, true),
+                ]);
+                $importedCount += $insert->rowCount();
+            }
+        }
+
+        $update = $pdo->prepare(
+            'UPDATE partner_registry_migrations SET imported_count = :imported_count WHERE migration_key = :migration_key'
+        );
+        $update->execute([
+            ':imported_count' => $importedCount,
+            ':migration_key' => $migrationKey,
+        ]);
+        $pdo->commit();
+        return $importedCount;
+    } catch (Throwable $exception) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $exception;
+    }
+}
+
 function jg_partner_db(): ?PDO
 {
     static $pdo = false;
@@ -62,6 +181,7 @@ function jg_partner_db(): ?PDO
                 ]
             );
             jg_partner_db_ensure_schema($pdo);
+            jg_partner_db_migrate_legacy_registry($pdo);
             break;
         } catch (Throwable) {
             $pdo = null;
@@ -93,6 +213,13 @@ function jg_partner_db_ensure_schema(PDO $pdo): void
             updated_at DATETIME NOT NULL,
             UNIQUE KEY uniq_partner_profiles_slug (partner_slug),
             KEY idx_partner_profiles_updated (updated_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+    );
+    $pdo->exec(
+        'CREATE TABLE IF NOT EXISTS partner_registry_migrations (
+            migration_key VARCHAR(100) NOT NULL PRIMARY KEY,
+            imported_count INT UNSIGNED NOT NULL DEFAULT 0,
+            applied_at DATETIME NOT NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
     );
 
