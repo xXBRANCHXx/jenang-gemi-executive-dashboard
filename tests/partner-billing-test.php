@@ -25,5 +25,6 @@ admin_partner_billing_expect(true, str_contains($source, 'accounting_partner_bil
 admin_partner_billing_expect(true, str_contains($source, 'billing_status = "dispute_accepted"'), 'Accepted disputes must mark claimed orders paid in storage.');
 admin_partner_billing_expect(true, str_contains($source, 'billing_status = "bill_paid"'), 'Confirmed bills must mark included orders paid in storage.');
 admin_partner_billing_expect(true, str_contains($statusSource, 'jg_partner_db_status_setup_token_matches') && str_contains($statusSource, 'hash_equals'), 'Deployment checks should support the existing server setup token without weakening comparison.');
+admin_partner_billing_expect(true, str_contains($statusSource, 'jg_admin_partner_billing_sync') && str_contains($statusSource, 'billing_ready'), 'Deployment checks should exercise the production billing synchronization path.');
 
 echo "admin-partner-billing-test: ok\n";

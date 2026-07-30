@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/auth.php';
 require_once dirname(__DIR__, 2) . '/partner-db-bootstrap.php';
+require_once dirname(__DIR__, 2) . '/partner-billing-bootstrap.php';
 
 function jg_partner_db_status_setup_token_matches(): bool
 {
@@ -24,6 +25,8 @@ $pdo = jg_partner_db();
 $config = jg_partner_db_config();
 $tableExists = false;
 $rowCount = 0;
+$billingReady = false;
+$pendingBillingReviews = 0;
 
 if ($pdo instanceof PDO) {
     $stmt = $pdo->prepare(
@@ -36,6 +39,15 @@ if ($pdo instanceof PDO) {
     if ($tableExists) {
         $rowCount = (int) $pdo->query('SELECT COUNT(*) FROM partner_profiles')->fetchColumn();
     }
+
+    try {
+        jg_admin_partner_billing_ensure_schema($pdo);
+        jg_admin_partner_billing_sync($pdo);
+        $pendingBillingReviews = count(jg_admin_partner_billing_notifications('/api/partner-billing/'));
+        $billingReady = true;
+    } catch (Throwable) {
+        $billingReady = false;
+    }
 }
 
 echo json_encode([
@@ -47,4 +59,6 @@ echo json_encode([
     'password_configured' => $config['pass'] !== '',
     'table_exists' => $tableExists,
     'partner_count' => $rowCount,
+    'billing_ready' => $billingReady,
+    'pending_billing_reviews' => $pendingBillingReviews,
 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
