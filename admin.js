@@ -2454,6 +2454,10 @@ document.addEventListener('DOMContentLoaded', () => {
       locationMapSignatureByTheme: {},
       provinceGeoJson: null,
       provinceMapError: '',
+      customerLifecycleData: null,
+      customerLifecycleLoadedAt: 0,
+      customerLifecycleLoading: false,
+      customerLifecyclePromise: null,
       data: null,
       loadedAt: 0,
       yearControlsSignature: '',
@@ -2700,6 +2704,10 @@ document.addEventListener('DOMContentLoaded', () => {
     locationMap: document.querySelector('[data-overview-location-map]'),
     locationStatus: document.querySelector('[data-overview-location-status]'),
     locationList: document.querySelector('[data-overview-location-list]'),
+    customerLifecycle: document.querySelector('[data-customer-lifecycle]'),
+    customerLifecycleChart: document.querySelector('[data-customer-lifecycle-chart]'),
+    customerLifecycleTotal: document.querySelector('[data-customer-lifecycle-total]'),
+    customerLifecycleStatus: document.querySelector('[data-customer-lifecycle-status]'),
     trendTitle: document.querySelector('[data-overview-trend-title]'),
     trendMeta: document.querySelector('[data-overview-trend-meta]'),
     hourlyTitle: document.querySelector('[data-overview-hourly-title]'),
@@ -2734,6 +2742,7 @@ document.addEventListener('DOMContentLoaded', () => {
     productMetricButtons: document.querySelectorAll('[data-overview-product-metric]'),
     flavorMetricButtons: document.querySelectorAll('[data-overview-flavor-metric]')
   };
+	  const customerProfilesEndpoint = root.dataset.customerProfilesEndpoint || '../api/customer-profiles/?summary=1';
 	  const ordersEndpoint = root.dataset.ordersEndpoint || '../api/orders/';
 	  const ordersRefs = {
     tableBody: document.querySelector('[data-orders-table-body]'),
@@ -6542,6 +6551,62 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const customerLifecycleRows = (data) => {
+    if (Array.isArray(data?.lifecycle_chart)) return data.lifecycle_chart;
+    const segments = data?.segments || {};
+    const definitions = data?.definitions?.segments || {};
+    return [
+      ['new', 'New'],
+      ['returning', 'Returning'],
+      ['loyal', 'Loyal'],
+      ['champion', 'Champion']
+    ].map(([key, label]) => ({
+      key,
+      label,
+      order_band: definitions[key] || '',
+      customers: Number(segments[key] || 0),
+      orders: 0
+    }));
+  };
+
+  const renderCustomerLifecycle = (data) => {
+    if (!overviewRefs.customerLifecycleChart) return;
+    const rows = customerLifecycleRows(data);
+    const summary = data?.summary || {};
+    const totalCustomers = Math.max(0, Number(summary.customers || rows.reduce((sum, row) => sum + Number(row.customers || 0), 0)));
+    const totalOrders = Math.max(0, Number(summary.profiled_orders || rows.reduce((sum, row) => sum + Number(row.orders || 0), 0)));
+    if (overviewRefs.customerLifecycleTotal) {
+      overviewRefs.customerLifecycleTotal.textContent = formatRegionalNumber(totalCustomers);
+    }
+    overviewRefs.customerLifecycleChart.innerHTML = rows.length
+      ? rows.map((row) => {
+        const customers = Math.max(0, Number(row.customers || 0));
+        const orders = Math.max(0, Number(row.orders || 0));
+        const share = Number.isFinite(Number(row.customer_share))
+          ? Math.max(0, Math.min(100, Number(row.customer_share)))
+          : (totalCustomers > 0 ? customers / totalCustomers * 100 : 0);
+        const shareLabel = `${share.toLocaleString('id-ID', { maximumFractionDigits: 1 })}%`;
+        return `<div class="admin-customer-lifecycle-row is-${escapeHtml(row.key || '')}">
+          <div class="admin-customer-lifecycle-label"><strong>${escapeHtml(row.label || toTitleCase(row.key))}</strong><span>${escapeHtml(row.order_band || '')} per customer</span></div>
+          <div class="admin-customer-lifecycle-track" aria-hidden="true"><i style="--lifecycle-share:${share.toFixed(1)}%"></i></div>
+          <div class="admin-customer-lifecycle-value"><strong>${escapeHtml(formatRegionalNumber(customers))}</strong><span>${escapeHtml(shareLabel)} · ${escapeHtml(formatRegionalNumber(orders))} orders</span></div>
+        </div>`;
+      }).join('')
+      : '<p class="admin-empty">No profiled customer orders yet.</p>';
+    if (overviewRefs.customerLifecycleStatus) {
+      overviewRefs.customerLifecycleStatus.textContent = `${formatRegionalNumber(totalOrders)} distinct orders across ${formatRegionalNumber(totalCustomers)} customers · item rows are collapsed first`;
+    }
+  };
+
+  const renderCustomerLifecycleError = (error) => {
+    if (overviewRefs.customerLifecycleChart) {
+      overviewRefs.customerLifecycleChart.innerHTML = `<p class="admin-empty">${escapeHtml(error?.message || 'Customer lifecycle is unavailable.')}</p>`;
+    }
+    if (overviewRefs.customerLifecycleStatus) {
+      overviewRefs.customerLifecycleStatus.textContent = 'Open Customer Profiles for the full customer directory';
+    }
+  };
+
   const platformLabel = (value) => toTitleCase(String(value || 'unknown').replace(/[-_]/g, ' '));
 
   const dailyPlatformKey = (value) => normalizePlatformKey(value || 'unknown');
@@ -8797,6 +8862,34 @@ document.addEventListener('DOMContentLoaded', () => {
 	    syncInventoryRecapAlert();
 	  };
 
+    const loadCustomerLifecycle = async (options = {}) => {
+      const cacheAge = Date.now() - Number(state.overview.customerLifecycleLoadedAt || 0);
+      if (!options.force && !options.forceRefresh && state.overview.customerLifecycleData && cacheAge < 300000) {
+        renderCustomerLifecycle(state.overview.customerLifecycleData);
+        return state.overview.customerLifecycleData;
+      }
+      if (state.overview.customerLifecyclePromise) return state.overview.customerLifecyclePromise;
+      state.overview.customerLifecycleLoading = true;
+      const request = requestJson(customerProfilesEndpoint, { cache: 'no-store', timeoutMs: 30000 })
+        .then((data) => {
+          if (!data?.ok) throw new Error(data?.message || 'Customer lifecycle is unavailable.');
+          state.overview.customerLifecycleData = data;
+          state.overview.customerLifecycleLoadedAt = Date.now();
+          renderCustomerLifecycle(data);
+          return data;
+        })
+        .catch((error) => {
+          renderCustomerLifecycleError(error);
+          throw error;
+        })
+        .finally(() => {
+          state.overview.customerLifecycleLoading = false;
+          state.overview.customerLifecyclePromise = null;
+        });
+      state.overview.customerLifecyclePromise = request;
+      return request;
+    };
+
 	  const loadOverview = async (options = {}) => {
 	    if (!options.forceRefresh && !options.force && state.overview.data) {
 	      if (isFresh(state.overview.loadedAt, VIEW_CACHE_TTL_MS.overview)) {
@@ -10574,8 +10667,10 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const loadOverviewSafely = async (options = {}) => {
+    const lifecycleRequest = loadCustomerLifecycle(options).catch(() => null);
     try {
       await loadOverview(options);
+      await lifecycleRequest;
       return true;
     } catch (error) {
       renderViewError('overview', error);

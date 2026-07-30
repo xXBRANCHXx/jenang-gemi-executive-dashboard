@@ -542,13 +542,6 @@ function render_admin_sidebar(string $activeSection = ''): void
             'view' => 'orders',
         ],
         [
-            'key' => 'customers',
-            'href' => '../customer-profiles/',
-            'label' => 'Customers',
-            'icon' => 'admin-rail-icon-affiliate',
-            'aria' => 'Open repeat customer profiles',
-        ],
-        [
             'key' => 'wallet',
             'href' => '../dashboard/?view=wallet',
             'label' => 'Wallet',

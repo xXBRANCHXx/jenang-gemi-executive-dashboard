@@ -31,7 +31,7 @@ if ($isAuthenticated) {
     }
 }
 $isAdView = $isAuthenticated && in_array($requestedView ?? '', ['ad-view', 'ads', 'ad_view', 'shopee-ads'], true);
-$dashboardBuildVersion = 'exec3.93.0';
+$dashboardBuildVersion = 'exec3.93.2';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -101,7 +101,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
             <strong class="admin-loader-label" data-admin-loader-label>Initializing...</strong>
         </div>
     </div>
-    <div class="admin-app admin-app-suite" data-admin-dashboard data-analytics-endpoint="../api/analytics/" data-live-endpoint="../api/live/" data-settings-endpoint="../api/settings/" data-sales-endpoint="../api/sales/" data-orders-endpoint="../api/orders/" data-wallet-endpoint="../api/wallet/" data-inventory-recap-endpoint="../api/inventory-recap/" data-ads-endpoint="../api/ads/" data-sku-catalog-endpoint="../api/sales/?action=sku_catalog" data-context-endpoint="../api/context/" data-zero-store-endpoint="../api/zero-store/" data-jenang-gemi-store-endpoint="../api/jenang-gemi-store/" data-website-orders-endpoint="../api/website-orders/" data-hard-set-endpoint="../api/hard-set/" data-province-map-url="../assets/data/indonesia-38-provinces.geojson">
+    <div class="admin-app admin-app-suite" data-admin-dashboard data-analytics-endpoint="../api/analytics/" data-live-endpoint="../api/live/" data-settings-endpoint="../api/settings/" data-sales-endpoint="../api/sales/" data-orders-endpoint="../api/orders/" data-customer-profiles-endpoint="../api/customer-profiles/?summary=1" data-wallet-endpoint="../api/wallet/" data-inventory-recap-endpoint="../api/inventory-recap/" data-ads-endpoint="../api/ads/" data-sku-catalog-endpoint="../api/sales/?action=sku_catalog" data-context-endpoint="../api/context/" data-zero-store-endpoint="../api/zero-store/" data-jenang-gemi-store-endpoint="../api/jenang-gemi-store/" data-website-orders-endpoint="../api/website-orders/" data-hard-set-endpoint="../api/hard-set/" data-province-map-url="../assets/data/indonesia-38-provinces.geojson">
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
         <div class="admin-shell">
@@ -308,6 +308,26 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                         </div>
                     </article>
                     </div>
+
+                    <a class="admin-panel admin-panel-chart admin-panel-wide admin-customer-lifecycle-card" data-chart-id="CL" data-customer-lifecycle href="../customer-profiles/" aria-label="Open Customer Profiles and the full customer lifecycle analysis">
+                        <div class="admin-panel-head">
+                            <div>
+                                <div class="admin-chart-title-row">
+                                    <h3>Customer lifecycle</h3>
+                                    <span class="admin-customer-lifecycle-open" aria-hidden="true">Open profiles ↗</span>
+                                </div>
+                                <span class="admin-panel-meta">Customers grouped by their distinct order count · all recorded history</span>
+                            </div>
+                            <div class="admin-customer-lifecycle-summary">
+                                <strong data-customer-lifecycle-total>—</strong>
+                                <span>profiled customers</span>
+                            </div>
+                        </div>
+                        <div class="admin-customer-lifecycle-chart" data-customer-lifecycle-chart aria-live="polite">
+                            <p class="admin-empty">Loading customer lifecycle…</p>
+                        </div>
+                        <small class="admin-customer-lifecycle-status" data-customer-lifecycle-status>Based on one count per order, not item rows</small>
+                    </a>
 
                     <article class="admin-panel admin-panel-chart admin-panel-wide" data-chart-id="C5">
                         <div class="admin-panel-head">

@@ -103,12 +103,14 @@ function jg_customer_profiles_collapse_orders(array $rows): array
         if (!is_array($row)) continue;
         $channel = jg_customer_profiles_channel($row['channel'] ?? $row['platform'] ?? 'other');
         $orderId = trim((string) ($row['order_id'] ?? ''));
-        $key = $channel . '|' . ($orderId !== '' ? $orderId : 'row-' . $index);
+        $account = trim((string) ($row['account'] ?? $row['account_key'] ?? ''));
+        $orderNamespace = $channel . '|' . strtolower($account);
+        $key = $orderNamespace . '|' . ($orderId !== '' ? $orderId : 'row-' . $index);
         if (!isset($orders[$key])) {
             $orders[$key] = [
                 'order_id' => $orderId,
                 'channel' => $channel,
-                'account' => trim((string) ($row['account'] ?? $row['account_key'] ?? '')),
+                'account' => $account,
                 'occurred_at' => (string) ($row['occurred_at'] ?? $row['order_create_time'] ?? $row['timestamp'] ?? ''),
                 'customer_name' => trim((string) ($row['customer_name'] ?? $row['username'] ?? '')),
                 'username' => trim((string) ($row['username'] ?? '')),
@@ -186,6 +188,7 @@ function jg_customer_profiles_build(array $sourceRows, ?DateTimeImmutable $now =
     }
 
     $segmentCounts = ['new' => 0, 'returning' => 0, 'loyal' => 0, 'champion' => 0];
+    $segmentOrderTotals = ['new' => 0, 'returning' => 0, 'loyal' => 0, 'champion' => 0];
     $lifecycleCounts = ['active' => 0, 'warm' => 0, 'at_risk' => 0];
     $channelStats = [];
     $repeatCustomers = 0;
@@ -198,6 +201,7 @@ function jg_customer_profiles_build(array $sourceRows, ?DateTimeImmutable $now =
         $segment = jg_customer_profiles_segment($ordersCount);
         $lifecycle = jg_customer_profiles_lifecycle($daysSinceLast);
         $segmentCounts[$segment]++;
+        $segmentOrderTotals[$segment] += $ordersCount;
         $lifecycleCounts[$lifecycle]++;
         if ($ordersCount >= 2) {
             $repeatCustomers++;
@@ -233,6 +237,25 @@ function jg_customer_profiles_build(array $sourceRows, ?DateTimeImmutable $now =
     usort($profiles, static fn (array $a, array $b): int => [$b['orders'], $b['revenue'], $b['last_order_at']] <=> [$a['orders'], $a['revenue'], $a['last_order_at']]);
     uasort($channelStats, static fn (array $a, array $b): int => $b['orders'] <=> $a['orders']);
     $customerCount = count($profiles);
+    $segmentDefinitions = [
+        'new' => ['label' => 'New', 'order_band' => '1 order', 'minimum_orders' => 1, 'maximum_orders' => 1],
+        'returning' => ['label' => 'Returning', 'order_band' => '2–3 orders', 'minimum_orders' => 2, 'maximum_orders' => 3],
+        'loyal' => ['label' => 'Loyal', 'order_band' => '4–7 orders', 'minimum_orders' => 4, 'maximum_orders' => 7],
+        'champion' => ['label' => 'Champion', 'order_band' => '8+ orders', 'minimum_orders' => 8, 'maximum_orders' => null],
+    ];
+    $lifecycleChart = [];
+    foreach ($segmentDefinitions as $key => $definition) {
+        $lifecycleChart[] = [
+            'key' => $key,
+            'label' => $definition['label'],
+            'order_band' => $definition['order_band'],
+            'minimum_orders' => $definition['minimum_orders'],
+            'maximum_orders' => $definition['maximum_orders'],
+            'customers' => $segmentCounts[$key],
+            'customer_share' => $customerCount > 0 ? round($segmentCounts[$key] / $customerCount * 100, 1) : 0.0,
+            'orders' => $segmentOrderTotals[$key],
+        ];
+    }
     return [
         'summary' => [
             'customers' => $customerCount,
@@ -244,13 +267,15 @@ function jg_customer_profiles_build(array $sourceRows, ?DateTimeImmutable $now =
             'unattributed_orders' => $unattributed,
         ],
         'segments' => $segmentCounts,
+        'lifecycle_chart' => $lifecycleChart,
         'lifecycle' => $lifecycleCounts,
         'channels' => array_values($channelStats),
         'profiles' => $profiles,
         'definitions' => [
             'repeat_customer' => 'A profiled customer with at least 2 recorded orders in the selected history.',
             'identity' => 'Phone number links customers across channels; without a phone, name/username only links within one channel.',
-            'segments' => ['new' => '1 order', 'returning' => '2–3 orders', 'loyal' => '4–7 orders', 'champion' => '8+ orders'],
+            'order_grain' => 'Distinct orders per customer. Order-item rows are collapsed by channel, account, and order ID before lifecycle assignment.',
+            'segments' => array_map(static fn (array $definition): string => $definition['order_band'], $segmentDefinitions),
         ],
     ];
 }

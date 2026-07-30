@@ -11,6 +11,9 @@ header('Cache-Control: private, no-store');
 
 try {
     $payload = jg_customer_profiles_build(jg_customer_profiles_source_rows(analyticsDb()));
+    if (filter_var($_GET['summary'] ?? false, FILTER_VALIDATE_BOOL)) {
+        unset($payload['profiles']);
+    }
     echo json_encode([
         'ok' => true,
         'generated_at' => gmdate(DATE_ATOM),
