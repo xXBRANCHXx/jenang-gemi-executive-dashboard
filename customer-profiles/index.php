@@ -29,7 +29,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/customer-profiles.js');
     <link rel="stylesheet" href="./customer-profiles.css?v=<?php echo urlencode($pageCssVersion ?: '1'); ?>">
 </head>
 <body class="admin-body is-dashboard is-customer-profiles-page">
-    <div class="admin-build-badge" aria-label="Dashboard build version">Build exec3.93.0</div>
+    <div class="admin-build-badge" aria-label="Dashboard build version">Build exec3.93.1</div>
     <div class="admin-app admin-app-suite" data-customer-profiles data-endpoint="../api/customer-profiles/">
         <div class="admin-shell">
             <?php render_admin_sidebar('customers'); ?>
@@ -42,12 +42,8 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/customer-profiles.js');
                 </header>
 
                 <main class="customer-profiles-layout">
-                    <section class="customer-profiles-hero">
-                        <div>
-                            <span class="admin-panel-kicker">Unified customer profiling</span>
-                            <h2>Know who returns—and where they buy.</h2>
-                            <p>Profiles combine Shopee, TikTok, website, WhatsApp, and walk-in orders. Phone numbers link the same person across channels; name-only matches stay within one channel.</p>
-                        </div>
+                    <section class="customer-profiles-toolbar" aria-label="Customer profile data status">
+                        <p><strong>All recorded order history</strong><span>Shopee, TikTok, website, WhatsApp, and walk-in</span></p>
                         <div class="customer-profiles-freshness"><span class="customer-live-dot"></span><strong data-profile-freshness>Loading live order history…</strong><button type="button" data-profile-refresh>Refresh</button></div>
                     </section>
 

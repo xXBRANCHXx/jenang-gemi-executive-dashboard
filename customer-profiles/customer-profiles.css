@@ -25,7 +25,6 @@
   padding: clamp(26px, 4vw, 48px) 0 80px;
 }
 
-.customer-profiles-hero,
 .customer-profile-panel,
 .customer-definition-note {
   border: 1px solid var(--admin-border);
@@ -34,31 +33,29 @@
   box-shadow: var(--admin-shadow);
 }
 
-.customer-profiles-hero {
+.customer-profiles-toolbar {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
-  gap: 30px;
-  padding: clamp(24px, 3vw, 38px);
-  overflow: hidden;
-  background:
-    radial-gradient(circle at 86% 0%, color-mix(in srgb, var(--admin-accent-primary) 16%, transparent), transparent 32%),
-    var(--admin-surface);
+  gap: 18px;
+  min-height: 42px;
 }
 
-.customer-profiles-hero h2 {
-  max-width: 800px;
-  margin: 8px 0;
-  font: 700 clamp(30px, 4vw, 50px)/1.02 "Space Grotesk", sans-serif;
-  letter-spacing: -.045em;
-  color: var(--admin-text);
-}
-
-.customer-profiles-hero p {
-  max-width: 850px;
+.customer-profiles-toolbar > p {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
   margin: 0;
+}
+
+.customer-profiles-toolbar > p strong {
+  color: var(--admin-text);
+  font-size: 13px;
+}
+
+.customer-profiles-toolbar > p span {
   color: var(--admin-muted);
-  line-height: 1.65;
+  font-size: 11px;
 }
 
 .customer-profiles-freshness {
@@ -66,11 +63,8 @@
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 4px 10px;
-  min-width: 230px;
-  padding: 15px;
-  border: 1px solid var(--admin-border);
-  border-radius: 15px;
-  background: var(--admin-surface-soft);
+  min-width: 210px;
+  padding: 0;
 }
 
 .customer-profiles-freshness strong { color: var(--admin-text); font-size: 12px; }
@@ -228,7 +222,8 @@
 
 @media (max-width: 760px) {
   .customer-profiles-layout { width: min(100% - 22px, 1540px); padding-top: 14px; }
-  .customer-profiles-hero { align-items: stretch; flex-direction: column; }
+  .customer-profiles-toolbar { align-items: flex-start; flex-direction: column; }
+  .customer-profiles-toolbar > p { align-items: flex-start; flex-direction: column; gap: 3px; }
   .customer-profiles-freshness { min-width: 0; }
   .customer-kpi-grid { grid-template-columns: 1fr 1fr; }
   .customer-kpi-grid article { min-height: 118px; }

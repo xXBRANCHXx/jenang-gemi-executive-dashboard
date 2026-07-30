@@ -10,6 +10,7 @@ const ordersPage = fs.readFileSync(path.join(root, 'dashboard/index.php'), 'utf8
 const expect = (condition, message) => { if (!condition) throw new Error(message); };
 
 expect(page.includes('data-profile-kpi="repeat_rate"') && page.includes('data-profile-kpi="repeat_revenue_share"'), 'Customer Profiles must expose repeat rate and repeat revenue share.');
+expect(!page.includes('customer-profiles-hero') && page.includes('customer-profiles-toolbar'), 'Customer Profiles must open as a compact internal tool without a marketing hero card.');
 expect(page.includes('data-profile-search') && page.includes('data-profile-segment-filter') && page.includes('data-profile-channel-filter'), 'Customer directory must be searchable and filterable.');
 expect(script.includes('filteredProfiles') && script.includes('repeatOnly'), 'Customer profile filters must drive the directory.');
 expect(directPage.includes('name="sales_channel"') && directPage.includes('value="walk_in"'), 'Direct Orders must expose WhatsApp and walk-in channel selection.');
