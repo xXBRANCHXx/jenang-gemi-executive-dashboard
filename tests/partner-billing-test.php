@@ -17,6 +17,7 @@ admin_partner_billing_expect('2026-07-01', $period['start'], 'Admin and partner 
 admin_partner_billing_expect('2026-07-07', $period['end'], 'Admin period must contain exactly seven days.');
 admin_partner_billing_expect('2026-07-10', $period['due'], 'Admin period due date must match the partner portal.');
 admin_partner_billing_expect('July 1–7, 2026', jg_admin_partner_billing_period_label('2026-07-01', '2026-07-07'), 'Notification copy should use the requested human-readable period.');
+admin_partner_billing_expect(['local.server', 'localhost'], jg_partner_db_host_candidates('local.server'), 'Hostinger partner DB connections should fall back to localhost.');
 
 $source = file_get_contents(dirname(__DIR__) . '/partner-billing-bootstrap.php');
 $statusSource = file_get_contents(dirname(__DIR__) . '/api/partner-db-status/index.php');

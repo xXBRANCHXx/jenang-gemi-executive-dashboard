@@ -15,6 +15,15 @@ function jg_partner_db_config(): array
     ];
 }
 
+function jg_partner_db_host_candidates(string $host): array
+{
+    $hosts = [$host];
+    if ($host === 'local.server') {
+        $hosts[] = 'localhost';
+    }
+    return array_values(array_unique(array_filter($hosts)));
+}
+
 function jg_partner_db(): ?PDO
 {
     static $pdo = false;
@@ -32,28 +41,31 @@ function jg_partner_db(): ?PDO
         return null;
     }
 
-    $dsn = sprintf(
-        'mysql:host=%s;port=%s;dbname=%s;charset=%s',
-        $config['host'],
-        $config['port'],
-        $config['name'],
-        $config['charset']
-    );
-
-    try {
-        $pdo = new PDO(
-            $dsn,
-            $config['user'],
-            $config['pass'],
-            [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES => false,
-            ]
+    foreach (jg_partner_db_host_candidates($config['host']) as $host) {
+        $dsn = sprintf(
+            'mysql:host=%s;port=%s;dbname=%s;charset=%s',
+            $host,
+            $config['port'],
+            $config['name'],
+            $config['charset']
         );
-        jg_partner_db_ensure_schema($pdo);
-    } catch (Throwable) {
-        $pdo = null;
+
+        try {
+            $pdo = new PDO(
+                $dsn,
+                $config['user'],
+                $config['pass'],
+                [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                    PDO::ATTR_EMULATE_PREPARES => false,
+                ]
+            );
+            jg_partner_db_ensure_schema($pdo);
+            break;
+        } catch (Throwable) {
+            $pdo = null;
+        }
     }
 
     return $pdo instanceof PDO ? $pdo : null;
