@@ -759,6 +759,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const loadNotifications = async () => {
+    if (!notificationToggle) return;
     if (!notificationList && !notificationSummary) return;
     const data = await requestJson(websiteOrderActionUrl('notifications'), {
       cache: 'no-store',

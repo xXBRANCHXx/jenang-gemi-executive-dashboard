@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/analytics-bootstrap.php';
+require_once __DIR__ . '/partner-billing-bootstrap.php';
 
 function jg_accounting_now(): DateTimeImmutable
 {
@@ -298,6 +299,18 @@ function jg_accounting_ensure_schema(PDO $pdo): void
             KEY idx_accounting_bill_payments_bill (bill_id),
             KEY idx_accounting_bill_payments_transaction (transaction_id),
             KEY idx_accounting_bill_payments_date (payment_date)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+        'CREATE TABLE IF NOT EXISTS accounting_partner_bill_receipts (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            partner_bill_id VARCHAR(120) NOT NULL,
+            partner_code VARCHAR(64) NOT NULL,
+            partner_name VARCHAR(200) NOT NULL,
+            amount BIGINT NOT NULL,
+            transaction_id BIGINT UNSIGNED NOT NULL,
+            confirmed_at DATETIME NOT NULL,
+            UNIQUE KEY uniq_accounting_partner_bill (partner_bill_id),
+            KEY idx_accounting_partner_receipt_transaction (transaction_id),
+            KEY idx_accounting_partner_receipt_partner (partner_code, confirmed_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
         'CREATE TABLE IF NOT EXISTS accounting_attachments (
             id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -1885,7 +1898,7 @@ function jg_accounting_summary(PDO $pdo, string $month): array
         return (int) round((float) ($stmt->fetchColumn() ?: 0));
     };
 
-    $billsDueSoon = $sumBill(
+    $accountingBillsDueSoon = $sumBill(
         $pdo,
         'SELECT COALESCE(SUM(outstanding_amount), 0)
          FROM accounting_bills
@@ -1894,6 +1907,10 @@ function jg_accounting_summary(PDO $pdo, string $month): array
            AND due_date BETWEEN :today AND :soon',
         [':today' => $today, ':soon' => $soon]
     );
+    $partnerBillsDue = (string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql'
+        ? jg_admin_partner_billing_due_total()
+        : 0;
+    $billsDueSoon = $accountingBillsDueSoon + $partnerBillsDue;
     $overdueBills = $sumBill(
         $pdo,
         'SELECT COALESCE(SUM(outstanding_amount), 0)
@@ -1919,7 +1936,9 @@ function jg_accounting_summary(PDO $pdo, string $month): array
          WHERE status = "open"'
     )->fetchColumn();
     $marketplaceOutstanding = jg_accounting_marketplace_outstanding_context($pdo);
-    $safeCash = $realCash - $billsDueSoon - $overdueBills;
+    // Partner bills are receivables shown in Bills Due, not liabilities that
+    // should be subtracted from spendable cash before they are collected.
+    $safeCash = $realCash - $accountingBillsDueSoon - $overdueBills;
 
     $monthly = jg_accounting_monthly_summary($pdo, $month);
 
@@ -1928,6 +1947,7 @@ function jg_accounting_summary(PDO $pdo, string $month): array
             'real_cash_available' => $realCash,
             'marketplace_outstanding' => $marketplaceOutstanding['amount'],
             'bills_due_soon' => $billsDueSoon,
+            'partner_bills_due' => $partnerBillsDue,
             'overdue_bills' => $overdueBills,
             'expenses_this_month' => $expenses,
             'net_safe_cash' => $safeCash,

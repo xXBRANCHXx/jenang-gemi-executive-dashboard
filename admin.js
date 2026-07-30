@@ -3540,6 +3540,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const loadNotifications = async () => {
+    if (!notificationToggle) return;
     const data = await requestJson(websiteOrderActionUrl('notifications'), {
       cache: 'no-store',
       timeoutMs: 10000

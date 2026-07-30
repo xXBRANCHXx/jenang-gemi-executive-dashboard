@@ -22,6 +22,7 @@ Private admin dashboard for `admin.jenanggemi.com` behind a public Launch Pad.
 - `/api/wallet/` (authenticated marketplace settlement wallet summary, account lookup, and terminal query)
 - `/api/api-health/`
 - `/api/accounting/`
+- `/api/partner-billing/` (payment-proof and dispute review)
 - `/api/ads/`
 - `/api/profit-loss/`
 - `/api/sku-db/`
@@ -65,6 +66,8 @@ geometry under Lucide's ISC license.
   transfer evidence is reconciled by account, amount, and date. Marketplace
   Receivable comes from unreleased settling orders and excludes released or
   non-settling orders.
+- The notification drawer is the finance review queue for weekly partner bills. It previews private payment proofs, confirms each bill into Accounting exactly once, and provides accept/investigate/reject resolution for order-level disputes. Confirming a proof posts partner bill collection income to a spendable account and refreshes Cash Available; outstanding closed partner bills are included in Bills Due.
+- Partner billing uses the shared partner MySQL database configured by `partner_db_*`. Deploy the Partner Portal billing schema first; this dashboard also performs the same idempotent table checks when the notification feed opens. Accounting creates `accounting_partner_bill_receipts` automatically to prevent a retried confirmation from posting cash twice.
 - The P&L combines seller-received sales and sale-level SKU COGS with posted
   cash-basis Accounting expenses. Product-purchase cash entries are disclosed
   for reconciliation but excluded from profit expense to prevent counting COGS

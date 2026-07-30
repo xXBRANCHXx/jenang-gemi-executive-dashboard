@@ -31713,3 +31713,391 @@ button.admin-accounting-metric {
     justify-content: space-between;
   }
 }
+
+/* Partner billing notification remodel */
+.admin-partner-billing-drawer {
+  width: min(470px, calc(100vw - 24px));
+  max-height: min(760px, calc(100vh - 90px));
+  padding: 20px;
+  border-radius: 28px;
+}
+
+.admin-partner-billing-drawer .admin-notification-head {
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.admin-partner-billing-drawer .admin-notification-store-icon svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.admin-partner-billing-list {
+  display: grid;
+  gap: 9px;
+  padding-top: 14px;
+  overflow: auto;
+}
+
+.admin-billing-notification-row {
+  overflow: hidden;
+  border: 1px solid var(--admin-border);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--admin-surface-strong) 92%, transparent);
+  animation: admin-billing-row-in .3s ease both;
+  animation-delay: calc(var(--billing-row-index, 0) * 32ms);
+}
+
+.admin-billing-notification-main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  padding: 14px;
+  border: 0;
+  background: transparent;
+  color: var(--admin-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.admin-billing-notification-main:hover {
+  background: color-mix(in srgb, var(--admin-text) 4%, transparent);
+}
+
+.admin-billing-avatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  overflow: hidden;
+  border: 1px solid var(--admin-border);
+  border-radius: 15px;
+  background: #fff;
+  color: #0b0b0c;
+}
+
+.admin-billing-avatar > img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.admin-billing-avatar > span {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+.admin-billing-avatar svg {
+  width: 23px;
+  height: 23px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.admin-billing-notification-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.admin-billing-notification-copy strong {
+  overflow: hidden;
+  color: var(--admin-text);
+  font: 650 12px/1.35 "Plus Jakarta Sans", sans-serif;
+  text-overflow: ellipsis;
+}
+
+.admin-billing-notification-copy small,
+.admin-billing-notification-copy em {
+  color: var(--admin-muted);
+  font-size: 9px;
+  font-style: normal;
+}
+
+.admin-billing-notification-copy em { opacity: .78; }
+
+.admin-billing-row-arrow {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: var(--admin-muted);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.admin-billing-quick-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 0 12px 12px 68px;
+}
+
+.admin-billing-quick-actions button,
+.admin-billing-investigate-actions button,
+.admin-billing-evidence-picker button,
+.admin-billing-feedback button {
+  min-height: 34px;
+  padding: 8px 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 11px;
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  font: 700 9px/1 "Plus Jakarta Sans", sans-serif;
+  cursor: pointer;
+}
+
+.admin-billing-quick-actions button:first-child {
+  border-color: var(--admin-text);
+  background: var(--admin-text);
+  color: var(--admin-bg);
+}
+
+.admin-billing-detail {
+  display: grid;
+  gap: 14px;
+  animation: admin-billing-detail-in .25s ease both;
+}
+
+.admin-billing-proof-head,
+.admin-billing-proof-head > div,
+.admin-billing-dispute-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-billing-proof-head {
+  justify-content: space-between;
+}
+
+.admin-billing-proof-head > div > span,
+.admin-billing-dispute-head > div {
+  display: grid;
+  gap: 3px;
+}
+
+.admin-billing-proof-head small,
+.admin-billing-dispute-head small,
+.admin-billing-dispute-reason > span,
+.admin-billing-investigate-orders > div > span,
+.admin-billing-reject-form label > span {
+  color: var(--admin-muted);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.admin-billing-proof-head strong,
+.admin-billing-dispute-head strong {
+  color: var(--admin-text);
+  font-size: 13px;
+}
+
+.admin-billing-proof-head em,
+.admin-billing-dispute-head span {
+  color: var(--admin-muted);
+  font-size: 9px;
+  font-style: normal;
+}
+
+.admin-billing-proof-close {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--admin-muted);
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.admin-billing-proof-close:hover { color: var(--admin-text); }
+.admin-billing-proof-close:focus-visible { outline: 2px solid var(--admin-text); outline-offset: 2px; }
+.admin-billing-proof-close svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+
+.admin-billing-proof-frame {
+  display: grid;
+  place-items: center;
+  min-height: 360px;
+  max-height: 470px;
+  overflow: hidden;
+  border: 1px solid var(--admin-border);
+  border-radius: 19px;
+  background: var(--admin-surface);
+}
+
+.admin-billing-proof-frame img {
+  width: 100%;
+  height: 100%;
+  max-height: 470px;
+  object-fit: contain;
+}
+
+.admin-billing-proof-frame object { width: 100%; height: 430px; border: 0; }
+.admin-billing-proof-frame object a { color: var(--admin-text); font-size: 11px; }
+
+.admin-billing-proof-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 2px 3px;
+}
+
+.admin-billing-proof-meta > span { display: grid; gap: 3px; min-width: 0; }
+.admin-billing-proof-meta > span strong { overflow: hidden; color: var(--admin-text); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.admin-billing-proof-meta small { color: var(--admin-muted); font-size: 9px; }
+.admin-billing-proof-meta > strong { color: var(--admin-text); font: 700 17px/1 "Space Grotesk", sans-serif; white-space: nowrap; }
+
+.admin-billing-confirm-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  border: 1px solid var(--admin-text);
+  border-radius: 14px;
+  background: var(--admin-text);
+  color: var(--admin-bg);
+  font: 800 10px/1 "Plus Jakarta Sans", sans-serif;
+  cursor: pointer;
+}
+.admin-billing-confirm-button:disabled { opacity: .45; cursor: wait; }
+.admin-billing-confirm-button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; }
+
+.admin-billing-dispute-head {
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.admin-billing-dispute-reason {
+  display: grid;
+  gap: 7px;
+  padding: 15px;
+  border: 1px solid rgba(245, 158, 11, .25);
+  border-radius: 15px;
+  background: rgba(245, 158, 11, .07);
+}
+.admin-billing-dispute-reason p { margin: 0; color: var(--admin-text); font-size: 10px; line-height: 1.55; }
+
+.admin-billing-investigate-orders {
+  overflow: hidden;
+  border: 1px solid var(--admin-border);
+  border-radius: 17px;
+}
+.admin-billing-investigate-orders > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 14px;
+  background: var(--admin-surface-soft);
+}
+.admin-billing-investigate-orders > div > strong { display: grid; place-items: center; width: 23px; height: 23px; border-radius: 8px; background: var(--admin-surface); color: var(--admin-text); font-size: 9px; }
+.admin-billing-investigate-orders article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 13px;
+  padding: 13px 14px;
+  border-top: 1px solid var(--admin-border);
+}
+.admin-billing-investigate-orders article > span { display: grid; gap: 3px; min-width: 0; }
+.admin-billing-investigate-orders article strong { color: var(--admin-text); font-size: 10px; }
+.admin-billing-investigate-orders article small { overflow: hidden; color: var(--admin-muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.admin-billing-investigate-orders article em { color: var(--admin-muted); font-size: 8px; font-style: normal; }
+.admin-billing-investigate-orders article > strong { flex: 0 0 auto; }
+
+.admin-billing-reject-form { display: grid; gap: 12px; }
+.admin-billing-reject-form > label:first-child { display: grid; gap: 7px; }
+.admin-billing-reject-form textarea {
+  width: 100%;
+  min-height: 86px;
+  resize: vertical;
+  padding: 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 13px;
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  font: 500 10px/1.55 "Plus Jakarta Sans", sans-serif;
+}
+.admin-billing-reject-form textarea:focus { outline: 2px solid color-mix(in srgb, var(--admin-text) 35%, transparent); outline-offset: 1px; }
+
+.admin-billing-evidence-picker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.admin-billing-evidence-picker button { display: inline-flex; align-items: center; gap: 7px; flex: 0 0 auto; }
+.admin-billing-evidence-picker button svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.admin-billing-evidence-picker > span { overflow: hidden; color: var(--admin-muted); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+
+.admin-billing-investigate-actions { display: grid; grid-template-columns: 1fr 1.25fr; gap: 9px; }
+.admin-billing-investigate-actions .is-reject { border-color: rgba(239, 68, 68, .35); color: #ef4444; }
+.admin-billing-investigate-actions .is-accept { border-color: var(--admin-text); background: var(--admin-text); color: var(--admin-bg); }
+.admin-billing-investigate-actions button:disabled { opacity: .45; cursor: wait; }
+
+.admin-billing-detail-error {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(239, 68, 68, .28);
+  border-radius: 11px;
+  background: rgba(239, 68, 68, .08);
+  color: #ef4444;
+  font-size: 9px;
+}
+
+.admin-billing-loading,
+.admin-billing-feedback {
+  display: grid;
+  place-items: center;
+  grid-template-columns: repeat(3, 7px);
+  gap: 6px;
+  min-height: 250px;
+  text-align: center;
+}
+.admin-billing-loading > span { width: 7px; height: 7px; border-radius: 50%; background: var(--admin-text); animation: admin-billing-pulse 1s ease-in-out infinite; }
+.admin-billing-loading > span:nth-child(2) { animation-delay: .12s; }
+.admin-billing-loading > span:nth-child(3) { animation-delay: .24s; }
+.admin-billing-loading p { grid-column: 1 / -1; color: var(--admin-muted); font-size: 9px; }
+.admin-billing-feedback { grid-template-columns: 1fr; align-content: center; }
+.admin-billing-feedback > span { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 17px; background: rgba(34, 197, 94, .12); color: #22c55e; font-size: 18px; font-weight: 800; }
+.admin-billing-feedback strong { color: var(--admin-text); font-size: 15px; }
+.admin-billing-feedback p { max-width: 300px; margin: 0; color: var(--admin-muted); font-size: 10px; line-height: 1.5; }
+.admin-billing-feedback.is-error button { margin-top: 8px; }
+
+@keyframes admin-billing-row-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes admin-billing-detail-in { from { opacity: 0; transform: translateX(7px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes admin-billing-pulse { 0%, 100% { opacity: .25; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-3px); } }
+
+@media (max-width: 560px) {
+  .admin-partner-billing-drawer { inset: auto 8px 8px; width: auto; max-height: min(82svh, 700px); padding: 16px; border-radius: 21px; }
+  .admin-billing-notification-main { padding: 12px; }
+  .admin-billing-quick-actions { padding: 0 10px 10px 10px; }
+  .admin-billing-proof-frame { min-height: 300px; }
+  .admin-billing-proof-frame object { height: 360px; }
+  .admin-billing-investigate-actions { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-billing-notification-row,
+  .admin-billing-detail,
+  .admin-billing-loading > span { animation: none; }
+}

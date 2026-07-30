@@ -1172,6 +1172,9 @@ if (root) {
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') closeCashHistory();
   });
+  window.addEventListener('partner-billing:confirmed', () => {
+    loadSafely(true);
+  });
   refs.drawerBody?.addEventListener('submit', async (event) => {
     const form = event.target;
     if (!(form instanceof HTMLFormElement) || !form.matches('[data-accounting-edit-form]')) return;

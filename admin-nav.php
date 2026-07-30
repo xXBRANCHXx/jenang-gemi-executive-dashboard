@@ -743,12 +743,12 @@ function render_admin_topbar_action_buttons(string $menuContext = ''): void
     echo '<div class="admin-search-results" data-dashboard-search-results hidden></div>';
     echo '</div>';
 
-    echo '<button type="button" class="admin-notification-button" data-notification-toggle aria-label="Open website order notifications" aria-expanded="false">';
+    echo '<button type="button" class="admin-notification-button" data-billing-notification-toggle data-billing-endpoint="/api/partner-billing/" aria-label="Open partner billing notifications" aria-expanded="false">';
     echo '<span class="admin-notification-button-icon">';
     echo '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>';
-    echo '<span data-notification-count hidden>0</span>';
+    echo '<span data-billing-notification-count hidden>0</span>';
     echo '</span>';
-    echo '<span class="admin-notification-button-copy"><strong>Order verification</strong><small data-notification-summary>No website orders pending</small></span>';
+    echo '<span class="admin-notification-button-copy"><strong>Partner billing</strong><small data-billing-notification-summary>No billing reviews pending</small></span>';
     echo '</button>';
 
     echo '<div class="admin-menu-shell" data-menu-shell>';
@@ -878,22 +878,22 @@ function admin_topbar_menu_icon(string $icon): string
 
 function render_admin_notification_drawer(): void
 {
-    echo '<aside class="admin-notification-drawer" data-notification-drawer role="dialog" aria-label="Website order verification" aria-hidden="true">';
+    echo '<aside class="admin-notification-drawer admin-partner-billing-drawer" data-billing-notification-drawer role="dialog" aria-label="Partner billing review" aria-hidden="true">';
     echo '<div class="admin-notification-head">';
     echo '<div class="admin-notification-head-main">';
-    echo '<button type="button" class="admin-notification-round-btn admin-notification-back" data-notification-back aria-label="Back to website orders" hidden>';
+    echo '<button type="button" class="admin-notification-round-btn admin-notification-back" data-billing-notification-back aria-label="Back to billing notifications" hidden>';
     echo '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>';
     echo '</button>';
     echo '<span class="admin-notification-store-icon" aria-hidden="true">';
-    echo '<svg viewBox="0 0 24 24"><path d="M4 9h16l-1.5-5h-13zM5 9v11h14V9M9 20v-6h6v6"/><path d="M4 9c0 2 3 2 4 0 1 2 3 2 4 0 1 2 3 2 4 0 1 2 4 2 4 0"/></svg>';
+    echo '<svg viewBox="0 0 24 24"><path d="M6 3h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>';
     echo '</span>';
-    echo '<div><h2>Website orders</h2><p class="admin-notification-mode" data-notification-mode>Loading Hard Set state...</p></div>';
+    echo '<div><h2>Partner billing</h2><p class="admin-notification-mode" data-billing-notification-mode>Payment confirmations and disputes</p></div>';
     echo '</div>';
-    echo '<button type="button" class="admin-orders-icon-btn" data-notification-close aria-label="Close notifications"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>';
+    echo '<button type="button" class="admin-orders-icon-btn" data-billing-notification-close aria-label="Close notifications"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>';
     echo '</div>';
-    echo '<div class="admin-notification-list" data-notification-list aria-live="polite"><p class="admin-empty">Loading website orders...</p></div>';
+    echo '<div class="admin-notification-list admin-partner-billing-list" data-billing-notification-list aria-live="polite"><p class="admin-empty">Loading billing reviews...</p></div>';
     echo '</aside>';
-    echo '<div class="admin-notification-backdrop" data-notification-backdrop hidden></div>';
+    echo '<div class="admin-notification-backdrop" data-billing-notification-backdrop hidden></div>';
 }
 
 function render_admin_chrome_script(string $prefix = '../'): void
@@ -901,4 +901,7 @@ function render_admin_chrome_script(string $prefix = '../'): void
     $version = (string) @filemtime(__DIR__ . '/admin-chrome.js');
     $src = $prefix . 'admin-chrome.js?v=' . rawurlencode($version ?: '1');
     echo '<script type="module" src="' . htmlspecialchars($src, ENT_QUOTES, 'UTF-8') . '"></script>';
+    $billingVersion = (string) @filemtime(__DIR__ . '/partner-billing-notifications.js');
+    $billingSrc = $prefix . 'partner-billing-notifications.js?v=' . rawurlencode($billingVersion ?: '1');
+    echo '<script type="module" src="' . htmlspecialchars($billingSrc, ENT_QUOTES, 'UTF-8') . '"></script>';
 }
