@@ -91,8 +91,8 @@ assert(
   'Selected catalog filters must be removable from the same control.'
 );
 assert(
-  /\.admin-orders-filter-card \{[\s\S]*?width: min\(1120px,[\s\S]*?height: min\(880px,[\s\S]*?grid-template-columns: minmax\(360px, 0\.92fr\) minmax\(420px, 1\.08fr\)/.test(styles)
+  /\.admin-modal-card\.admin-orders-filter-card \{[\s\S]*?width: min\(1520px,[\s\S]*?height: min\(960px,[\s\S]*?backdrop-filter: none;[\s\S]*?\.admin-orders-filter-head \{[\s\S]*?background: #0b0b0b;[\s\S]*?grid-template-columns: minmax\(480px, 0\.9fr\) minmax\(600px, 1\.1fr\)[\s\S]*?overflow: hidden;/.test(styles)
     && /@media \(max-width: 720px\)[\s\S]*?width: 100vw;[\s\S]*?height: 100svh;/.test(styles),
-  'The filter workspace must be substantially larger on desktop and full-screen on mobile.'
+  'The filter workspace must be large, flat, monochrome, and full-screen on mobile without a whole-dialog scroll.'
 );
 console.log('orders-ui-test: ok');
