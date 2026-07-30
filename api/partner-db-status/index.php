@@ -4,7 +4,19 @@ declare(strict_types=1);
 require dirname(__DIR__, 2) . '/auth.php';
 require_once dirname(__DIR__, 2) . '/partner-db-bootstrap.php';
 
-jg_admin_require_auth_json();
+function jg_partner_db_status_setup_token_matches(): bool
+{
+    $expected = jg_dashboard_marketplace_api_setup_token();
+    $authorization = trim((string) ($_SERVER['HTTP_AUTHORIZATION'] ?? ''));
+    if ($expected === '' || !preg_match('/^Bearer\s+(.+)$/i', $authorization, $matches)) {
+        return false;
+    }
+    return hash_equals($expected, trim((string) ($matches[1] ?? '')));
+}
+
+if (!jg_partner_db_status_setup_token_matches()) {
+    jg_admin_require_auth_json();
+}
 
 header('Content-Type: application/json; charset=utf-8');
 
