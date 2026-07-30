@@ -893,7 +893,7 @@ function jg_website_paid_order_rows(PDO $pdo, string $startDate, string $endDate
     $start = (new DateTimeImmutable($startDate . ' 00:00:00', $timezone))->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s.u');
     $end = (new DateTimeImmutable($endDate . ' 00:00:00', $timezone))->modify('+1 day')->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s.u');
     $stmt = $pdo->prepare(
-        'SELECT o.platform, o.order_id, o.created_at, o.paid_at, o.customer_name, o.customer_address,
+        'SELECT o.platform, o.order_id, o.created_at, o.paid_at, o.customer_name, o.customer_address, o.customer_phone,
                 o.gross_revenue, o.net_revenue, o.cogs AS order_cogs,
                 i.id AS item_id, i.item_key, i.sku, i.product_name, i.option_name, i.size_label,
                 i.quantity, i.unit_gross_price, i.unit_net_price, i.unit_cogs
@@ -928,6 +928,7 @@ function jg_website_paid_order_rows(PDO $pdo, string $startDate, string $endDate
         'order_cogs' => (float) $row['order_cogs'],
         'customer_name' => (string) $row['customer_name'],
         'shipping_address' => (string) $row['customer_address'],
+        'customer_phone' => (string) $row['customer_phone'],
         'source' => 'website_paid_order',
     ], $stmt->fetchAll());
 }

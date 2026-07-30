@@ -113,11 +113,15 @@ try {
         if (!is_array($payload)) {
             throw new InvalidArgumentException('Order payload is invalid.');
         }
-        $upload = $_FILES['label'] ?? null;
-        if (!is_array($upload)) {
+        $salesChannel = jg_whatsapp_sales_channel($payload['sales_channel'] ?? 'whatsapp');
+        $upload = $_FILES['label'] ?? [];
+        if ($salesChannel === 'whatsapp' && !is_array($upload)) {
             throw new InvalidArgumentException('Upload a PDF shipping label.');
         }
-        $order = jg_whatsapp_create_order($pdo, jg_sku_db(), $payload, $upload);
+        $order = jg_whatsapp_create_order($pdo, jg_sku_db(), $payload, is_array($upload) ? $upload : []);
+        if ($salesChannel === 'walk_in') {
+            jg_whatsapp_api_json(['ok' => true, 'order' => $order], 201);
+        }
         try {
             $order = jg_whatsapp_publish_order($pdo, (string) $order['order_id']);
         } catch (Throwable $publishError) {

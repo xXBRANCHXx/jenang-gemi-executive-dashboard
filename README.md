@@ -10,15 +10,17 @@ Private admin dashboard for `admin.jenanggemi.com` behind a public Launch Pad.
 - `/api-health/`
 - `/profit-loss/` (Accounting workspace)
 - `/profit-and-loss/` (executive P&L report)
-- `/whatsapp-orders/` (direct-order builder)
+- `/whatsapp-orders/` (unified WhatsApp and walk-in direct-order builder)
 - `/whatsapp-order-history/` (searchable WhatsApp order ledger)
 - `/whatsapp-order/?order=WAEXEC-...` (read-only WhatsApp order breakdown)
+- `/customer-profiles/` (repeat-customer profiles across marketplace, website, WhatsApp, and walk-in sales)
 - `/sku-db/`
 - `/sku-db/new/`
 - `/logout/`
 - `/api/analytics/`
 - `/api/sales/` (authenticated summary; refreshes dashboard cache only)
 - `/api/orders/` (authenticated local order mirror reads; `POST ?action=webhook` updates the mirror)
+- `/api/customer-profiles/` (authenticated cross-channel customer profiling and repeat-rate metrics)
 - `/api/wallet/` (authenticated marketplace settlement wallet summary, account lookup, and terminal query)
 - `/api/api-health/`
 - `/api/accounting/`
@@ -122,6 +124,7 @@ geometry under Lucide's ISC license.
 - Orders → Ops → Shipment Arrangement provides separate Schedule and Pickup rules workspaces. Schedule is a full-width rolling ship-by chart spanning the last 8 hours and next 24 hours, with a current-time line and every unpicked order positioned at its final marketplace handover deadline. Each card separately shows the courier pickup window currently booked through Shopee/TikTok. Once API Ingest’s two-minute order-detail poll receives Shopee `SHIPPED` (or a later delivered status), the order disappears from this operational screen; shipment arrangement alone never removes it. Pickup rules uses seven visual weekday cards; advanced hours and handover settings expose one marketplace at a time in a compact weekday table, so editing never becomes a nested scrolling modal or an unstructured wall of controls. The workspace is scoped to its Orders · Ops route and remains hidden on Ad View, Website, and other dashboard pages. Ordinary Executive sessions are read-only; Branch-tier credentials unlock the Shopee and TikTok mapping that API Ingest reads on its two-minute Hostinger worker. The marketplace supplies the available slots, but the worker accepts only the configured pickup weekday and chooses the earliest time on that day; it never silently substitutes another day. Instant stays manual-only and uses the selected weekday mapping when explicitly arranged.
 - On the deployed dashboard host, run `php bin/big-set-preflight.php` immediately before activation and again after synchronization. It performs the same local/database and downstream readiness checks, reports `ready_for_activation`, `synchronization_pending`, `active_healthy`, or a failing state as JSON, exits nonzero for every no-go state, and never activates or retries the outbox. From a machine that cannot reach the dashboard databases, `php bin/big-set-preflight.php --contracts-only` still verifies both authenticated downstream readiness contracts, automatic-source coverage, and cutover-state agreement.
 - Private website PDF labels use `JG_WEBSITE_LABEL_STORAGE_PATH` / `website_label_storage_path`; WhatsApp order labels use `JG_WHATSAPP_LABEL_STORAGE_PATH` / `whatsapp_label_storage_path`. Both defaults are outside this dashboard's document root.
-- Listed WhatsApp orders contribute merchandise revenue, order quantity, item quantity, snapshotted SKU COGS, gross profit, and product rollups to Executive sales metrics. Shipping is tracked separately at `months[].shipping_cost` and `totals.shipping_cost`; it is treated as a pass-through amount rather than merchandise revenue.
+- Listed WhatsApp orders and completed walk-in sales contribute merchandise revenue, order quantity, item quantity, snapshotted SKU COGS, gross profit, and product rollups to Executive sales metrics. Shipping is tracked separately at `months[].shipping_cost` and `totals.shipping_cost`; it is treated as a pass-through amount rather than merchandise revenue. Both channels also appear in the central Orders table.
 - WhatsApp quantities are validated against live SKU stock when submitted. Store Ops rechecks and deducts that stock exactly once when the order is fulfilled.
-- WhatsApp Orders in the homepage quick menu constructs paid direct orders in Executive, stores merchandise and shipping amounts for future metrics, and sends only customer, SKU, deadline, notes, and label data to Store Ops as `IS_LISTED`. WhatsApp History provides a paginated ledger across all saved direct orders; each row opens a read-only breakdown with customer, product, price, discount, shipping, COGS, margin, and lifecycle details.
+- Direct Orders in the homepage quick menu creates either WhatsApp delivery orders or walk-in counter sales. WhatsApp keeps the label/deadline workflow and sends fulfillment details to Store Ops as `IS_LISTED`; walk-ins complete immediately without a label or Store Ops handoff. WhatsApp History provides a paginated ledger across saved direct orders; each row opens a read-only breakdown with customer, product, price, discount, shipping, COGS, margin, and lifecycle details.
+- Repeat Customers profiles use normalized phone numbers as the only cross-channel identity link. When phone is unavailable, normalized name/username matching is deliberately scoped to a single channel to reduce false merges. Segments are New (1 order), Returning (2–3), Loyal (4–7), and Champion (8+).

@@ -31,7 +31,7 @@ if ($isAuthenticated) {
     }
 }
 $isAdView = $isAuthenticated && in_array($requestedView ?? '', ['ad-view', 'ads', 'ad_view', 'shopee-ads'], true);
-$dashboardBuildVersion = 'exec3.92.8';
+$dashboardBuildVersion = 'exec3.93.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -600,8 +600,8 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                         <div class="admin-panel-head">
                             <div>
                                 <span class="admin-panel-kicker">Orders</span>
-                                <h3>Marketplace order facts</h3>
-                                <span class="admin-panel-meta" data-orders-status>Loading stored orders from newest to oldest</span>
+                                <h3>All-channel order facts</h3>
+                                <span class="admin-panel-meta" data-orders-status>Loading marketplace, WhatsApp, website, and walk-in orders</span>
                             </div>
                             <div class="admin-orders-actions">
                                 <button type="button" class="admin-primary-btn admin-orders-ops-btn" data-view-switch="store-ops">Ops</button>
@@ -1762,7 +1762,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                 <div class="admin-orders-filter-heading">
                     <span class="admin-panel-kicker">Order Filters</span>
                     <h3 id="orders-filter-title">Find the exact orders you need</h3>
-                    <p>Choose a marketplace account, date range, company, product, or flavor. Selections update the table immediately.</p>
+                    <p>Choose a sales channel or account, date range, company, product, or flavor. Selections update the table immediately.</p>
                 </div>
                 <span class="admin-orders-filter-count" data-orders-filter-count>No filters selected</span>
                 <button type="button" class="admin-orders-icon-btn" data-orders-filter-close aria-label="Close order filters">
@@ -1775,7 +1775,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                         <div class="admin-orders-filter-section-head">
                             <div>
                                 <span class="admin-orders-filter-step">1</span>
-                                <div><h4>Marketplace account</h4><p>Filter broadly by marketplace or choose a specific shop.</p></div>
+                                <div><h4>Sales channel / account</h4><p>Filter by marketplace, website, WhatsApp, walk-in, or a specific shop.</p></div>
                             </div>
                         </div>
                         <div class="admin-orders-source-list" data-orders-platforms>

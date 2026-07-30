@@ -59,11 +59,17 @@ function admin_quick_menu_definitions(): array
             'label' => 'Orders',
             'description' => 'Order detail and fulfillment facts',
         ],
+        'customers' => [
+            'href' => '../customer-profiles/',
+            'icon' => 'users',
+            'label' => 'Repeat Customers',
+            'description' => 'Cross-channel customer profiles and loyalty',
+        ],
         'whatsapp-orders' => [
             'href' => '../whatsapp-orders/',
             'icon' => 'whatsapp',
-            'label' => 'WhatsApp Orders',
-            'description' => 'Construct and list direct orders',
+            'label' => 'Direct Orders',
+            'description' => 'Create WhatsApp and walk-in sales',
         ],
         'whatsapp-history' => [
             'href' => '../whatsapp-order-history/',
@@ -181,9 +187,10 @@ function admin_quick_menu_definitions(): array
 function admin_quick_menu_context_map(): array
 {
     return [
-        'overview' => ['whatsapp-orders', 'whatsapp-history', 'inventory-recap', 'daily', 'orders', 'campaigns', 'ad-view', 'back-dash', 'context', 'settings'],
+        'overview' => ['whatsapp-orders', 'customers', 'whatsapp-history', 'inventory-recap', 'daily', 'orders', 'campaigns', 'ad-view', 'back-dash', 'context', 'settings'],
         'daily' => ['home', 'orders', 'campaigns', 'back-dash', 'context', 'settings'],
-        'orders' => ['home', 'daily', 'campaigns', 'back-dash', 'context', 'settings'],
+        'orders' => ['customers', 'whatsapp-orders', 'home', 'daily', 'campaigns', 'back-dash', 'context', 'settings'],
+        'customers' => ['orders', 'whatsapp-orders', 'whatsapp-history', 'home', 'daily', 'settings'],
         'wallet' => ['home', 'orders', 'daily', 'back-dash', 'settings'],
         'inventory-recap' => ['home', 'wallet', 'orders', 'sku-db', 'settings'],
         'campaigns' => ['home', 'orders', 'ad-view', 'affiliates', 'back-dash', 'context', 'settings'],
@@ -239,6 +246,9 @@ function admin_normalize_quick_menu_context(string $context): string
         'whatsapp-orders' => 'whatsapp-orders',
         'whatsapp-history' => 'whatsapp-history',
         'whatsapp-order-history' => 'whatsapp-history',
+        'customers' => 'customers',
+        'customer-profiles' => 'customers',
+        'repeat-customers' => 'customers',
     ];
     $context = $aliases[$normalized] ?? $normalized;
 
@@ -313,6 +323,9 @@ function admin_current_menu_context(): string
     }
     if (str_contains($path, '/whatsapp-orders/')) {
         return 'whatsapp-orders';
+    }
+    if (str_contains($path, '/customer-profiles/')) {
+        return 'customers';
     }
     if (str_contains($path, '/back-dash/')) {
         return 'back-dash';
@@ -449,6 +462,8 @@ function admin_normalize_favicon_key(string $key): string
         'cash-control' => 'accounting',
         'p&l' => 'profit-loss',
         'profit-and-loss' => 'profit-loss',
+        'customers' => 'affiliates',
+        'customer-profiles' => 'affiliates',
     ];
     $key = $aliases[$normalized] ?? $normalized;
 
@@ -523,8 +538,15 @@ function render_admin_sidebar(string $activeSection = ''): void
             'href' => '../dashboard/?view=orders',
             'label' => 'Orders',
             'icon' => 'admin-rail-icon-orders',
-            'aria' => 'Open marketplace orders',
+            'aria' => 'Open all-channel orders',
             'view' => 'orders',
+        ],
+        [
+            'key' => 'customers',
+            'href' => '../customer-profiles/',
+            'label' => 'Customers',
+            'icon' => 'admin-rail-icon-affiliate',
+            'aria' => 'Open repeat customer profiles',
         ],
         [
             'key' => 'wallet',

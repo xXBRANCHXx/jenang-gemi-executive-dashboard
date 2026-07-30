@@ -17,7 +17,7 @@ $pageJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-orders.js');
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
-    <title>WhatsApp Orders | Jenang Gemi Executive Dashboard</title>
+    <title>Direct Orders | Jenang Gemi Executive Dashboard</title>
     <meta name="robots" content="noindex,nofollow">
 <?php render_admin_initial_theme_script(); ?>
 <?php render_admin_favicons('whatsapp'); ?>
@@ -27,7 +27,7 @@ $pageJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-orders.js');
     <link rel="stylesheet" href="../admin.css?v=<?php echo urlencode($adminCssVersion ?: '1'); ?>">
 </head>
 <body class="admin-body is-dashboard is-whatsapp-orders-page">
-    <div class="admin-build-badge" aria-label="Dashboard build version">Build exec3.92.7</div>
+    <div class="admin-build-badge" aria-label="Dashboard build version">Build exec3.93.0</div>
     <div class="admin-app admin-app-suite" data-whatsapp-orders data-endpoint="../api/whatsapp-orders/">
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
@@ -39,7 +39,7 @@ $pageJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-orders.js');
                     <div class="admin-topbar-left">
                         <div class="admin-topbar-brand">
                             <span class="admin-panel-kicker">Executive order entry</span>
-                            <h1>WhatsApp Orders</h1>
+                            <h1>Direct Orders</h1>
                         </div>
                     </div>
                     <?php render_admin_topbar_actions('whatsapp-orders'); ?>
@@ -49,9 +49,9 @@ $pageJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-orders.js');
                     <section class="whatsapp-order-builder" aria-labelledby="whatsapp-builder-title">
                         <div class="whatsapp-order-hero">
                             <div>
-                                <span class="admin-panel-kicker">Direct order</span>
-                                <h2 id="whatsapp-builder-title">Create WhatsApp order</h2>
-                                <p>Enter the customer, choose products, and upload the shipping label. Saved prices sync to Store Ops for customer invoice printing.</p>
+                                <span class="admin-panel-kicker">Unified order entry</span>
+                                <h2 id="whatsapp-builder-title" data-builder-title>Create WhatsApp order</h2>
+                                <p data-builder-description>Enter the customer, choose products, and upload the shipping label. Saved prices sync to Store Ops for customer invoice printing.</p>
                             </div>
                             <div class="whatsapp-order-flow" aria-label="Order workflow">
                                 <span class="is-active">1 · Construct</span>
@@ -61,10 +61,22 @@ $pageJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-orders.js');
                         </div>
 
                         <form class="whatsapp-order-form" data-order-form>
+                            <section class="whatsapp-order-channel" aria-label="Sales channel">
+                                <label class="is-active" data-channel-option="whatsapp">
+                                    <input type="radio" name="sales_channel" value="whatsapp" checked>
+                                    <span>WhatsApp</span>
+                                    <small>Delivery order sent to Store Ops</small>
+                                </label>
+                                <label data-channel-option="walk_in">
+                                    <input type="radio" name="sales_channel" value="walk_in">
+                                    <span>Walk-in</span>
+                                    <small>Completed counter sale, no shipping label</small>
+                                </label>
+                            </section>
                             <section class="whatsapp-order-panel">
                                 <div class="whatsapp-order-panel-head">
-                                    <div><span>Customer</span><h3>Delivery details</h3></div>
-                                    <small>Only fulfillment details go to Store Ops</small>
+                                    <div><span>Customer</span><h3 data-customer-section-title>Delivery details</h3></div>
+                                    <small data-customer-section-note>Only fulfillment details go to Store Ops</small>
                                 </div>
                                 <div class="whatsapp-order-field-grid">
                                     <label><span>Customer name</span><input name="customer_name" type="text" maxlength="160" autocomplete="name" required></label>
@@ -74,7 +86,7 @@ $pageJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-orders.js');
                                 </div>
                             </section>
 
-                            <section class="whatsapp-order-panel">
+                            <section class="whatsapp-order-panel" data-fulfillment-panel>
                                 <div class="whatsapp-order-panel-head">
                                     <div><span>Products</span><h3>Choose SKU quantities</h3></div>
                                     <label class="whatsapp-sku-search"><span>Search</span><input type="search" data-sku-search placeholder="SKU, product, flavor, tag"></label>
@@ -148,7 +160,7 @@ $pageJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-orders.js');
                                     <span class="is-total">Customer total <strong data-customer-total>Rp0</strong></span>
                                 </div>
                                 <p class="admin-form-error" data-form-error hidden></p>
-                                <button type="submit" class="admin-primary-btn" data-submit-order disabled>Send listed order to Store Ops</button>
+                                        <button type="submit" class="admin-primary-btn" data-submit-order disabled>Send listed order to Store Ops</button>
                             </section>
                         </form>
                     </section>

@@ -21,6 +21,7 @@ function jg_whatsapp_ensure_schema(PDO $pdo): void
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
             order_id VARCHAR(40) NOT NULL,
             status VARCHAR(48) NOT NULL DEFAULT "PENDING_PUBLISH",
+            sales_channel VARCHAR(24) NOT NULL DEFAULT "whatsapp",
             customer_name VARCHAR(160) NOT NULL,
             customer_address VARCHAR(1000) NOT NULL DEFAULT "",
             customer_phone VARCHAR(50) NOT NULL DEFAULT "",
@@ -46,6 +47,7 @@ function jg_whatsapp_ensure_schema(PDO $pdo): void
             KEY idx_whatsapp_orders_status_created (status, created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
     );
+    jg_whatsapp_ensure_column($pdo, 'whatsapp_orders', 'sales_channel', 'VARCHAR(24) NOT NULL DEFAULT "whatsapp" AFTER status');
     $pdo->exec(
         'CREATE TABLE IF NOT EXISTS whatsapp_order_items (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -366,9 +368,18 @@ function jg_whatsapp_prepare_label(array $upload, string $orderId): array
     ];
 }
 
-function jg_whatsapp_generate_order_id(): string
+function jg_whatsapp_sales_channel(mixed $value): string
 {
-    return 'WAEXEC-' . gmdate('ymd') . '-' . strtoupper(substr(bin2hex(random_bytes(8)), 0, 10));
+    $channel = strtolower(trim((string) $value));
+    if ($channel === '' || $channel === 'whatsapp') return 'whatsapp';
+    if (in_array($channel, ['walk-in', 'walk_in', 'walkin', 'store'], true)) return 'walk_in';
+    throw new InvalidArgumentException('Choose WhatsApp or Walk-in as the sales channel.');
+}
+
+function jg_whatsapp_generate_order_id(string $salesChannel = 'whatsapp'): string
+{
+    $prefix = jg_whatsapp_sales_channel($salesChannel) === 'walk_in' ? 'WALKIN' : 'WAEXEC';
+    return $prefix . '-' . gmdate('ymd') . '-' . strtoupper(substr(bin2hex(random_bytes(8)), 0, 10));
 }
 
 function jg_whatsapp_order_items(PDO $pdo, int $id): array
@@ -400,6 +411,7 @@ function jg_whatsapp_format_order(PDO $pdo, array $row, bool $includeItems = tru
     return [
         'order_id' => (string) $row['order_id'],
         'status' => (string) $row['status'],
+        'sales_channel' => jg_whatsapp_sales_channel($row['sales_channel'] ?? 'whatsapp'),
         'customer' => [
             'name' => (string) $row['customer_name'],
             'address' => (string) $row['customer_address'],
@@ -441,14 +453,16 @@ function jg_whatsapp_internal_order(PDO $pdo, string $orderId, bool $forUpdate =
 function jg_whatsapp_create_order(PDO $pdo, PDO $skuPdo, array $payload, array $upload): array
 {
     jg_whatsapp_ensure_schema($pdo);
+    $salesChannel = jg_whatsapp_sales_channel($payload['sales_channel'] ?? 'whatsapp');
+    $isWalkIn = $salesChannel === 'walk_in';
     $items = jg_whatsapp_normalize_items($skuPdo, $payload['items'] ?? []);
     $customerName = jg_whatsapp_text($payload['customer_name'] ?? '', 'Customer name', 160, true);
     $customerAddress = jg_whatsapp_text($payload['customer_address'] ?? '', 'Customer address', 1000);
     $customerPhone = jg_whatsapp_text($payload['customer_phone'] ?? '', 'Customer phone', 50);
     $notes = jg_whatsapp_text($payload['notes'] ?? '', 'Notes', 500);
-    $shippingCost = jg_whatsapp_money($payload['shipping_cost'] ?? null, 'Shipping cost');
-    $deadlineHours = (int) ($payload['deadline_hours'] ?? 24);
-    if ($deadlineHours < 12 || $deadlineHours > 48) {
+    $shippingCost = $isWalkIn ? 0.0 : jg_whatsapp_money($payload['shipping_cost'] ?? null, 'Shipping cost');
+    $deadlineHours = $isWalkIn ? 0 : (int) ($payload['deadline_hours'] ?? 24);
+    if (!$isWalkIn && ($deadlineHours < 12 || $deadlineHours > 48)) {
         throw new InvalidArgumentException('Deadline must be between 12 and 48 hours.');
     }
     $merchandiseSubtotal = round(array_reduce($items, static fn (float $sum, array $item): float => $sum + $item['gross_line_total'], 0.0), 2);
@@ -456,26 +470,31 @@ function jg_whatsapp_create_order(PDO $pdo, PDO $skuPdo, array $payload, array $
     $discountableSubtotal = round($merchandiseSubtotal - $itemDiscountTotal, 2);
     $orderDiscount = jg_whatsapp_order_discount($payload, $discountableSubtotal);
     $items = jg_whatsapp_allocate_discount($items, $orderDiscount['total'], $discountableSubtotal);
-    $orderId = jg_whatsapp_generate_order_id();
-    $label = jg_whatsapp_prepare_label($upload, $orderId);
+    $orderId = jg_whatsapp_generate_order_id($salesChannel);
+    $label = $isWalkIn
+        ? ['storage_key' => '', 'original_name' => '', 'size_bytes' => 0, 'path' => '']
+        : jg_whatsapp_prepare_label($upload, $orderId);
     $discountTotal = round($itemDiscountTotal + $orderDiscount['total'], 2);
     $merchandiseTotal = round($merchandiseSubtotal - $discountTotal, 2);
     $now = jg_whatsapp_now();
 
     try {
         $pdo->beginTransaction();
+        $initialStatus = $isWalkIn ? 'FULFILLED' : 'PENDING_PUBLISH';
         $stmt = $pdo->prepare(
             'INSERT INTO whatsapp_orders
-                (order_id, status, customer_name, customer_address, customer_phone, merchandise_subtotal, merchandise_total,
+                (order_id, status, sales_channel, customer_name, customer_address, customer_phone, merchandise_subtotal, merchandise_total,
                  discount_type, discount_value, discount_total, shipping_cost,
-                 deadline_hours, label_storage_key, label_original_name, label_size_bytes, notes, created_at, updated_at)
+                 deadline_hours, label_storage_key, label_original_name, label_size_bytes, notes, listed_at, fulfilled_at, created_at, updated_at)
              VALUES
-                (:order_id, "PENDING_PUBLISH", :customer_name, :customer_address, :customer_phone, :merchandise_subtotal, :merchandise_total,
+                (:order_id, :status, :sales_channel, :customer_name, :customer_address, :customer_phone, :merchandise_subtotal, :merchandise_total,
                  :discount_type, :discount_value, :discount_total, :shipping_cost,
-                 :deadline_hours, :label_storage_key, :label_original_name, :label_size_bytes, :notes, :created_at, :updated_at)'
+                 :deadline_hours, :label_storage_key, :label_original_name, :label_size_bytes, :notes, :listed_at, :fulfilled_at, :created_at, :updated_at)'
         );
         $stmt->execute([
             ':order_id' => $orderId,
+            ':status' => $initialStatus,
+            ':sales_channel' => $salesChannel,
             ':customer_name' => $customerName,
             ':customer_address' => $customerAddress,
             ':customer_phone' => $customerPhone,
@@ -490,6 +509,8 @@ function jg_whatsapp_create_order(PDO $pdo, PDO $skuPdo, array $payload, array $
             ':label_original_name' => $label['original_name'],
             ':label_size_bytes' => $label['size_bytes'],
             ':notes' => $notes,
+            ':listed_at' => $isWalkIn ? $now : null,
+            ':fulfilled_at' => $isWalkIn ? $now : null,
             ':created_at' => $now,
             ':updated_at' => $now,
         ]);
@@ -521,7 +542,7 @@ function jg_whatsapp_create_order(PDO $pdo, PDO $skuPdo, array $payload, array $
         $pdo->commit();
     } catch (Throwable $error) {
         if ($pdo->inTransaction()) $pdo->rollBack();
-        @unlink($label['path']);
+        if ($label['path'] !== '') @unlink($label['path']);
         throw $error;
     }
     return jg_whatsapp_format_order($pdo, jg_whatsapp_internal_order($pdo, $orderId));
@@ -606,6 +627,9 @@ function jg_whatsapp_publish_order(PDO $pdo, string $orderId): array
     $pdo->beginTransaction();
     try {
         $row = jg_whatsapp_internal_order($pdo, $orderId, true);
+        if (jg_whatsapp_sales_channel($row['sales_channel'] ?? 'whatsapp') !== 'whatsapp') {
+            throw new RuntimeException('Walk-in orders are completed at the counter and are not sent to Store Ops.');
+        }
         if (($row['status'] ?? '') === 'IS_LISTED') {
             $pdo->commit();
             return jg_whatsapp_format_order($pdo, $row);
@@ -856,7 +880,7 @@ function jg_whatsapp_metric_order_rows(PDO $pdo, string $startDate, string $endD
         ->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s.u');
     $statusSql = implode(',', array_fill(0, count(JG_WHATSAPP_ORDER_METRIC_STATUSES), '?'));
     $stmt = $pdo->prepare(
-        'SELECT o.order_id, o.status, o.customer_name, o.customer_address, o.created_at, o.listed_at,
+        'SELECT o.order_id, o.status, o.sales_channel, o.customer_name, o.customer_address, o.customer_phone, o.created_at, o.listed_at,
                 o.merchandise_total, o.shipping_cost,
                 i.id AS item_id, i.sku, i.product_name, i.brand_name, i.base_product_name, i.flavor_name,
                 i.quantity, i.unit_price, i.unit_cogs, i.line_total
@@ -870,14 +894,16 @@ function jg_whatsapp_metric_order_rows(PDO $pdo, string $startDate, string $endD
     $stmt->execute([...JG_WHATSAPP_ORDER_METRIC_STATUSES, $start, $end]);
     return array_map(static function (array $row): array {
         $timestamp = jg_website_atom((string) ($row['listed_at'] ?: $row['created_at']));
+        $salesChannel = jg_whatsapp_sales_channel($row['sales_channel'] ?? 'whatsapp');
+        $platform = $salesChannel === 'walk_in' ? 'walk-in' : 'whatsapp';
         $quantity = (int) $row['quantity'];
         $lineRevenue = (float) $row['line_total'];
         return [
             'timestamp' => $timestamp,
             'timestamp_utc' => $timestamp,
             'order_create_time' => $timestamp,
-            'platform' => 'whatsapp',
-            'account_key' => 'whatsapp',
+            'platform' => $platform,
+            'account_key' => $salesChannel === 'walk_in' ? 'counter' : 'direct',
             'order_id' => (string) $row['order_id'],
             'item_key' => 'whatsapp-item-' . (string) $row['item_id'],
             'sku' => (string) $row['sku'],
@@ -897,8 +923,9 @@ function jg_whatsapp_metric_order_rows(PDO $pdo, string $startDate, string $endD
             'cogs' => (float) $row['unit_cogs'] * $quantity,
             'customer_name' => (string) $row['customer_name'],
             'shipping_address' => (string) $row['customer_address'],
+            'customer_phone' => (string) $row['customer_phone'],
             'status' => (string) $row['status'],
-            'source' => 'whatsapp_listed_order',
+            'source' => $salesChannel === 'whatsapp' ? 'whatsapp_listed_order' : 'walk_in_direct_order',
         ];
     }, $stmt->fetchAll());
 }
@@ -918,6 +945,9 @@ function jg_whatsapp_apply_sales_aggregates(array $summary, array $aggregates, a
     $summary['totals'] = is_array($summary['totals'] ?? null) ? $summary['totals'] : [];
     $platformTotals = [];
     foreach ($aggregates as $row) {
+        $salesChannel = jg_whatsapp_sales_channel($row['sales_channel'] ?? 'whatsapp');
+        $platformKey = $salesChannel === 'walk_in' ? 'walk-in' : 'whatsapp';
+        $platformLabel = $salesChannel === 'walk_in' ? 'Walk-in' : 'WhatsApp';
         $monthIndex = max(0, min(11, (int) ($row['month'] ?? 1) - 1));
         $revenue = (float) ($row['net_revenue'] ?? 0);
         $shipping = (float) ($row['shipping_cost'] ?? 0);
@@ -938,18 +968,18 @@ function jg_whatsapp_apply_sales_aggregates(array $summary, array $aggregates, a
         foreach ($values as $key => $value) {
             $summary['months'][$monthIndex][$key] = (float) ($summary['months'][$monthIndex][$key] ?? 0) + $value;
             $summary['totals'][$key] = (float) ($summary['totals'][$key] ?? 0) + $value;
-            $platformTotals[$key] = (float) ($platformTotals[$key] ?? 0) + $value;
+            $platformTotals[$platformKey][$key] = (float) ($platformTotals[$platformKey][$key] ?? 0) + $value;
         }
         $summary['months'][$monthIndex]['platforms'] = is_array($summary['months'][$monthIndex]['platforms'] ?? null)
             ? $summary['months'][$monthIndex]['platforms'] : [];
-        $summary['months'][$monthIndex]['platforms']['whatsapp'] = array_merge(
-            ['key' => 'whatsapp', 'label' => 'WhatsApp'],
+        $summary['months'][$monthIndex]['platforms'][$platformKey] = array_merge(
+            ['key' => $platformKey, 'label' => $platformLabel],
             $values
         );
         $summary['months'][$monthIndex]['accounts'] = is_array($summary['months'][$monthIndex]['accounts'] ?? null)
             ? $summary['months'][$monthIndex]['accounts'] : [];
-        $summary['months'][$monthIndex]['accounts']['whatsapp'] = array_merge(
-            ['key' => 'whatsapp', 'label' => 'WhatsApp', 'platform' => 'whatsapp'],
+        $summary['months'][$monthIndex]['accounts'][$platformKey] = array_merge(
+            ['key' => $platformKey, 'label' => $platformLabel, 'platform' => $platformKey],
             $values
         );
     }
@@ -962,16 +992,17 @@ function jg_whatsapp_apply_sales_aggregates(array $summary, array $aggregates, a
     foreach ((array) ($summary['accounts'] ?? []) as $row) {
         if (is_array($row)) $accountRows[(string) ($row['key'] ?? $row['account_key'] ?? '')] = $row;
     }
-    if ($platformTotals !== []) {
-        $platformRows['whatsapp'] = array_merge(
-            $platformRows['whatsapp'] ?? [],
-            ['key' => 'whatsapp', 'platform' => 'whatsapp', 'label' => 'WhatsApp'],
-            $platformTotals
+    foreach ($platformTotals as $platformKey => $totals) {
+        $platformLabel = $platformKey === 'walk-in' ? 'Walk-in' : 'WhatsApp';
+        $platformRows[$platformKey] = array_merge(
+            $platformRows[$platformKey] ?? [],
+            ['key' => $platformKey, 'platform' => $platformKey, 'label' => $platformLabel],
+            $totals
         );
-        $accountRows['whatsapp'] = array_merge(
-            $accountRows['whatsapp'] ?? [],
-            ['key' => 'whatsapp', 'account_key' => 'whatsapp', 'platform' => 'whatsapp', 'label' => 'WhatsApp'],
-            $platformTotals
+        $accountRows[$platformKey] = array_merge(
+            $accountRows[$platformKey] ?? [],
+            ['key' => $platformKey, 'account_key' => $platformKey, 'platform' => $platformKey, 'label' => $platformLabel],
+            $totals
         );
     }
     $summary['platforms'] = array_values($platformRows);
@@ -984,15 +1015,18 @@ function jg_whatsapp_apply_sales_aggregates(array $summary, array $aggregates, a
     $summary['products']['by_month'] = is_array($summary['products']['by_month'] ?? null)
         ? $summary['products']['by_month'] : [];
     foreach ($productRows as $row) {
+        $salesChannel = jg_whatsapp_sales_channel($row['sales_channel'] ?? 'whatsapp');
+        $platformKey = $salesChannel === 'walk_in' ? 'walk-in' : 'whatsapp';
+        $platformLabel = $salesChannel === 'walk_in' ? 'Walk-in' : 'WhatsApp';
         $summary['products']['by_month'][] = [
             'month' => (int) $row['month'],
-            'platform' => 'whatsapp',
-            'account_key' => 'whatsapp',
+            'platform' => $platformKey,
+            'account_key' => $platformKey,
             'sku' => (string) $row['sku'],
             'tag' => (string) $row['sku'],
             'product_name' => (string) $row['product_name'],
             'base_product_name' => (string) (($row['base_product_name'] ?? '') ?: $row['product_name']),
-            'brand_name' => (string) (($row['brand_name'] ?? '') ?: 'WhatsApp'),
+            'brand_name' => (string) (($row['brand_name'] ?? '') ?: $platformLabel),
             'flavor_name' => (string) ($row['flavor_name'] ?? ''),
             'quantity' => (int) $row['quantity'],
             'item_count' => (int) $row['quantity'],
@@ -1003,17 +1037,17 @@ function jg_whatsapp_apply_sales_aggregates(array $summary, array $aggregates, a
             'marketplace_fees' => 0.0,
             'cogs' => (float) $row['cogs'],
             'gross_profit' => (float) $row['net_revenue'] - (float) $row['cogs'],
-            'source' => 'whatsapp_listed_order',
+            'source' => $salesChannel === 'whatsapp' ? 'whatsapp_listed_order' : 'walk_in_direct_order',
         ];
     }
     $summary['meta'] = is_array($summary['meta'] ?? null) ? $summary['meta'] : [];
     $summary['meta']['whatsapp_orders_merged'] = true;
     $summary['meta']['whatsapp_metrics'] = [
-        'source' => 'whatsapp_orders + whatsapp_order_items',
+        'source' => 'whatsapp_orders + whatsapp_order_items (WhatsApp and walk-in channels)',
         'included_statuses' => JG_WHATSAPP_ORDER_METRIC_STATUSES,
         'revenue' => 'Merchandise total; shipping is tracked separately as a pass-through amount.',
         'shipping_cost_path' => 'months[].shipping_cost and totals.shipping_cost',
-        'cogs' => 'SKU COGS snapshotted when the WhatsApp order is created.',
+        'cogs' => 'SKU COGS snapshotted when the direct order is created.',
     ];
     return $summary;
 }
@@ -1024,7 +1058,7 @@ function jg_whatsapp_merge_sales_summary(PDO $pdo, array $summary, int $year): a
     jg_whatsapp_ensure_schema($pdo);
     $statusSql = implode(',', array_fill(0, count(JG_WHATSAPP_ORDER_METRIC_STATUSES), '?'));
     $aggregateStmt = $pdo->prepare(
-        'SELECT MONTH(DATE_ADD(COALESCE(o.listed_at, o.created_at), INTERVAL 7 HOUR)) AS month,
+        'SELECT o.sales_channel, MONTH(DATE_ADD(COALESCE(o.listed_at, o.created_at), INTERVAL 7 HOUR)) AS month,
                 COUNT(*) AS orders,
                 COALESCE(SUM(o.merchandise_total), 0) AS net_revenue,
                 COALESCE(SUM(o.shipping_cost), 0) AS shipping_cost,
@@ -1037,11 +1071,11 @@ function jg_whatsapp_merge_sales_summary(PDO $pdo, array $summary, int $year): a
          ) items ON items.whatsapp_order_id = o.id
          WHERE o.status IN (' . $statusSql . ')
            AND YEAR(DATE_ADD(COALESCE(o.listed_at, o.created_at), INTERVAL 7 HOUR)) = ?
-         GROUP BY MONTH(DATE_ADD(COALESCE(o.listed_at, o.created_at), INTERVAL 7 HOUR))'
+         GROUP BY o.sales_channel, MONTH(DATE_ADD(COALESCE(o.listed_at, o.created_at), INTERVAL 7 HOUR))'
     );
     $aggregateStmt->execute([...JG_WHATSAPP_ORDER_METRIC_STATUSES, $year]);
     $productStmt = $pdo->prepare(
-        'SELECT MONTH(DATE_ADD(COALESCE(o.listed_at, o.created_at), INTERVAL 7 HOUR)) AS month,
+        'SELECT o.sales_channel, MONTH(DATE_ADD(COALESCE(o.listed_at, o.created_at), INTERVAL 7 HOUR)) AS month,
                 i.sku, i.product_name, i.brand_name, i.base_product_name, i.flavor_name,
                 SUM(i.quantity) AS quantity, SUM(i.line_total) AS net_revenue,
                 SUM(i.unit_cogs * i.quantity) AS cogs, COUNT(DISTINCT o.id) AS orders
@@ -1049,7 +1083,7 @@ function jg_whatsapp_merge_sales_summary(PDO $pdo, array $summary, int $year): a
          INNER JOIN whatsapp_order_items i ON i.whatsapp_order_id = o.id
          WHERE o.status IN (' . $statusSql . ')
            AND YEAR(DATE_ADD(COALESCE(o.listed_at, o.created_at), INTERVAL 7 HOUR)) = ?
-         GROUP BY MONTH(DATE_ADD(COALESCE(o.listed_at, o.created_at), INTERVAL 7 HOUR)),
+         GROUP BY o.sales_channel, MONTH(DATE_ADD(COALESCE(o.listed_at, o.created_at), INTERVAL 7 HOUR)),
                   i.sku, i.product_name, i.brand_name, i.base_product_name, i.flavor_name'
     );
     $productStmt->execute([...JG_WHATSAPP_ORDER_METRIC_STATUSES, $year]);

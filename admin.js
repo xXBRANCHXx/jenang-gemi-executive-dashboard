@@ -2342,9 +2342,9 @@ document.addEventListener('DOMContentLoaded', () => {
     settings: 'settings'
   };
   const quickMenuByContext = {
-	    overview: ['whatsapp-orders', 'whatsapp-history', 'inventory-recap', 'daily', 'orders', 'campaigns', 'back-dash', 'context', 'settings'],
+	    overview: ['whatsapp-orders', 'customers', 'whatsapp-history', 'inventory-recap', 'daily', 'orders', 'campaigns', 'back-dash', 'context', 'settings'],
 	    daily: ['home', 'orders', 'campaigns', 'back-dash', 'context', 'settings'],
-	    orders: ['home', 'daily', 'campaigns', 'back-dash', 'context', 'settings'],
+	    orders: ['customers', 'whatsapp-orders', 'home', 'daily', 'campaigns', 'back-dash', 'context', 'settings'],
 	    wallet: ['home', 'orders', 'daily', 'back-dash', 'settings'],
 	    'inventory-recap': ['home', 'wallet', 'orders', 'sku-db', 'settings'],
 	    campaigns: ['home', 'orders', 'affiliates', 'back-dash', 'context', 'settings'],
@@ -7269,7 +7269,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (state.orders.platformsRenderSignature === signature) return;
     state.orders.platformsRenderSignature = signature;
     if (!platforms.length) {
-      ordersRefs.platforms.innerHTML = '<p class="admin-empty">Marketplace accounts appear after orders load.</p>';
+      ordersRefs.platforms.innerHTML = '<p class="admin-empty">Sales channels and accounts appear after orders load.</p>';
       return;
     }
     const noSourceFilter = !state.orders.filters.platforms.length && !state.orders.filters.accounts.length;

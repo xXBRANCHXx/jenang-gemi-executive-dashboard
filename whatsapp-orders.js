@@ -29,10 +29,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const refreshButton = root.querySelector('[data-refresh-orders]');
   const shippingInput = form?.elements.namedItem('shipping_cost');
   const customerNameInput = form?.elements.namedItem('customer_name');
+  const channelInputs = root.querySelectorAll('input[name="sales_channel"]');
+  const builderTitle = root.querySelector('[data-builder-title]');
+  const builderDescription = root.querySelector('[data-builder-description]');
+  const customerSectionTitle = root.querySelector('[data-customer-section-title]');
+  const customerSectionNote = root.querySelector('[data-customer-section-note]');
 
   const state = {
     skus: [], cart: new Map(), company: '', product: '', flavor: '', submitting: false,
-    discountMode: 'percentage', editingDiscountSku: ''
+    discountMode: 'percentage', editingDiscountSku: '', salesChannel: 'whatsapp'
   };
   const currency = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 });
   const dateTime = new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Jakarta' });
@@ -99,16 +104,34 @@ document.addEventListener('DOMContentLoaded', () => {
     const orderDiscount = discount(afterItemDiscount);
     const totalDiscount = itemDiscount + (orderDiscount.valid ? orderDiscount.total : 0);
     const merchandise = subtotal - totalDiscount;
-    const shipping = Math.max(0, Number(shippingInput?.value || 0));
+    const shipping = state.salesChannel === 'walk_in' ? 0 : Math.max(0, Number(shippingInput?.value || 0));
     return { subtotal, itemDiscount, discount: orderDiscount, totalDiscount, merchandise, shipping, customer: merchandise + shipping };
   };
 
   const updateSubmitState = () => {
-    const ready = state.cart.size > 0 && Boolean(labelInput?.files?.[0]) && Boolean(customerNameInput?.value.trim()) && totals().discount.valid;
+    const needsLabel = state.salesChannel === 'whatsapp';
+    const ready = state.cart.size > 0 && (!needsLabel || Boolean(labelInput?.files?.[0])) && Boolean(customerNameInput?.value.trim()) && totals().discount.valid;
     if (submitButton) {
       submitButton.disabled = state.submitting || !ready;
-      submitButton.textContent = state.submitting ? 'Sending to Store Ops…' : 'Send listed order to Store Ops';
+      submitButton.textContent = state.submitting
+        ? (needsLabel ? 'Sending to Store Ops…' : 'Recording walk-in sale…')
+        : (needsLabel ? 'Send listed order to Store Ops' : 'Complete walk-in sale');
     }
+  };
+
+  const syncSalesChannel = () => {
+    state.salesChannel = form?.elements.namedItem('sales_channel')?.value === 'walk_in' ? 'walk_in' : 'whatsapp';
+    const isWalkIn = state.salesChannel === 'walk_in';
+    form?.classList.toggle('is-walk-in', isWalkIn);
+    channelInputs.forEach((input) => input.closest('[data-channel-option]')?.classList.toggle('is-active', input.checked));
+    if (labelInput) labelInput.required = !isWalkIn;
+    if (builderTitle) builderTitle.textContent = isWalkIn ? 'Record walk-in order' : 'Create WhatsApp order';
+    if (builderDescription) builderDescription.textContent = isWalkIn
+      ? 'Record the customer and products at the counter. The sale is completed immediately and appears in Orders and Customer Profiles.'
+      : 'Enter the customer, choose products, and upload the shipping label. Saved prices sync to Store Ops for customer invoice printing.';
+    if (customerSectionTitle) customerSectionTitle.textContent = isWalkIn ? 'Customer profile' : 'Delivery details';
+    if (customerSectionNote) customerSectionNote.textContent = isWalkIn ? 'Phone number links repeat visits across channels' : 'Only fulfillment details go to Store Ops';
+    renderTotals();
   };
 
   const renderTotals = () => {
@@ -389,11 +412,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (labelName) labelName.textContent = file ? file.name : 'Choose shipping label';
     updateSubmitState();
   });
+  channelInputs.forEach((input) => input.addEventListener('change', syncSalesChannel));
 
   form?.addEventListener('submit', async (event) => {
     event.preventDefault();
     setError();
-    if (!form.reportValidity() || !state.cart.size || !labelInput?.files?.[0]) return;
+    const needsLabel = state.salesChannel === 'whatsapp';
+    if (!form.reportValidity() || !state.cart.size || (needsLabel && !labelInput?.files?.[0])) return;
     const values = totals();
     if (!values.discount.valid) {
       setError(values.discount.message);
@@ -402,8 +427,9 @@ document.addEventListener('DOMContentLoaded', () => {
     state.submitting = true;
     updateSubmitState();
     const fields = new FormData(form);
-    const label = labelInput.files[0];
+    const label = labelInput?.files?.[0];
     const payload = {
+      sales_channel: state.salesChannel,
       customer_name: fields.get('customer_name'), customer_phone: fields.get('customer_phone'),
       customer_address: fields.get('customer_address'), notes: fields.get('notes'),
       shipping_cost: Number(fields.get('shipping_cost') || 0),
@@ -416,10 +442,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const body = new FormData();
     body.append('payload', JSON.stringify(payload));
-    body.append('label', label, label.name);
+    if (label) body.append('label', label, label.name);
     try {
       await request(`${endpoint}?action=create`, { method: 'POST', body });
       form.reset();
+      state.salesChannel = 'whatsapp';
       state.cart.clear();
       state.editingDiscountSku = '';
       state.discountMode = 'percentage';
@@ -428,6 +455,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (discountHelp) discountHelp.textContent = 'Percentage off the merchandise total after item discounts.';
       if (deadlineValue) deadlineValue.textContent = '24h';
       if (labelName) labelName.textContent = 'Choose shipping label';
+      syncSalesChannel();
       renderCatalog();
       renderCart();
       await loadOrders();
@@ -458,6 +486,7 @@ document.addEventListener('DOMContentLoaded', () => {
   refreshButton?.addEventListener('click', loadOrders);
 
   renderCart();
+  syncSalesChannel();
   loadCatalog();
   loadOrders();
 });

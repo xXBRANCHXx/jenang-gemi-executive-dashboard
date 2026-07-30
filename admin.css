@@ -30860,6 +30860,55 @@ button.admin-accounting-metric {
   gap: 18px;
 }
 
+.whatsapp-order-channel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.whatsapp-order-channel label {
+  position: relative;
+  display: grid;
+  gap: 5px;
+  min-height: 86px;
+  padding: 18px 20px;
+  overflow: hidden;
+  border: 1px solid var(--admin-border);
+  border-radius: 16px;
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  cursor: pointer;
+  transition: border-color .18s ease, background .18s ease, transform .18s ease;
+}
+
+.whatsapp-order-channel label:hover {
+  transform: translateY(-1px);
+}
+
+.whatsapp-order-channel label.is-active {
+  border-color: color-mix(in srgb, var(--admin-accent-primary) 68%, var(--admin-border));
+  background: color-mix(in srgb, var(--admin-accent-primary) 10%, var(--admin-surface));
+}
+
+.whatsapp-order-channel input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.whatsapp-order-channel span {
+  font: 700 18px/1.2 "Space Grotesk", sans-serif;
+}
+
+.whatsapp-order-channel small {
+  color: var(--admin-muted);
+  line-height: 1.45;
+}
+
+.whatsapp-order-form.is-walk-in [data-fulfillment-panel] {
+  display: none;
+}
+
 .whatsapp-order-panel,
 .whatsapp-order-submit-panel,
 .whatsapp-order-history {
@@ -31740,6 +31789,9 @@ button.admin-accounting-metric {
     text-align: center;
   }
   .whatsapp-order-field-grid {
+    grid-template-columns: 1fr;
+  }
+  .whatsapp-order-channel {
     grid-template-columns: 1fr;
   }
   .whatsapp-order-field-grid label.is-wide {
