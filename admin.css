@@ -25357,7 +25357,7 @@ body:has(.admin-app[data-sku-db])::after {
 
 .admin-inventory-trigger-settings {
   display: grid;
-  grid-template-columns: minmax(115px, 1.2fr) minmax(86px, 0.8fr) minmax(65px, 0.55fr) auto;
+  grid-template-columns: minmax(105px, 1.1fr) minmax(80px, 0.75fr) minmax(75px, 0.65fr) minmax(60px, 0.5fr) auto;
   gap: 8px;
   align-items: end;
   min-width: 0;

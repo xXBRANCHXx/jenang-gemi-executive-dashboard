@@ -8107,6 +8107,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	      const message = String(state.inventoryRecap.settingsMessage[sku] || '');
 	      const stock = Math.max(0, Number(item.current_stock || 0));
 	      const trigger = Math.max(0, Number(item.trigger_qty || 0));
+	      const purchaseDays = Math.max(1, Number(item.purchase_days || 22.5));
+	      const purchaseDaysLabel = formatRegionalNumber(purchaseDays, { maximumFractionDigits: 1 });
 	      const stockPercent = Math.max(0, Math.min(100, trigger > 0 ? (stock / trigger) * 100 : 100));
 	      return `
 	      <article class="admin-inventory-trigger-row ${inventoryRecapRiskClass(item.risk)}">
@@ -8120,17 +8122,17 @@ document.addEventListener('DOMContentLoaded', () => {
 	          <div><span>Trigger at</span><strong>${formatRegionalInteger(trigger)}</strong></div>
 	          <div class="admin-inventory-trigger-meter"><i style="width:${stockPercent}%"></i><mark style="left:100%"></mark></div>
 	          <small>${item.restock_needed
-	            ? `${formatRegionalInteger(item.trigger_shortfall_qty || 0)} below trigger · order ${formatRegionalInteger(item.raw_purchase_qty || 0)} · buy ${formatRegionalInteger(item.recommended_order_qty || 0)}`
+	            ? `${formatRegionalInteger(item.trigger_shortfall_qty || 0)} below trigger · ${purchaseDaysLabel}-day order ${formatRegionalInteger(item.raw_purchase_qty || 0)} · buy ${formatRegionalInteger(item.recommended_order_qty || 0)}`
 	            : trigger > 0 ? `${formatRegionalInteger(Math.max(0, stock - trigger))} above trigger` : 'No demand trigger yet'}</small>
 	        </div>
 	        <div class="admin-inventory-trigger-signal">
 	          <div class="admin-inventory-bucket-chart" aria-label="Nine ten-day demand blocks">${inventoryBucketBars(item)}</div>
 	          <div class="admin-inventory-signal-metrics">
-	            <span><b>${formatRegionalNumber(item.average_30_day_demand || 0, { maximumFractionDigits: 1 })}</b> 30-day flattened</span>
-	            <span><b>${inventoryTrendText(item.trend_adjustment)}</b> trend</span>
-	            <span><b>+${formatRegionalNumber(item.applied_buffer || 0, { maximumFractionDigits: 1 })}</b> buffer</span>
+	            <span><b>${formatRegionalNumber(item.total_90_day_demand || 0, { maximumFractionDigits: 1 })}</b> 90-day total</span>
+	            <span><b>${formatRegionalNumber(item.average_30_day_demand || 0, { maximumFractionDigits: 1 })}</b> monthly average</span>
+	            <span><b>${formatRegionalInteger(item.automatic_trigger || 0)}</b> 25% trigger</span>
 	          </div>
-	          <small>10-day change ${inventoryTrendText(item.average_10_day_change)} · overall ${inventoryTrendText(item.overall_90_day_change)}</small>
+	          <small>Trigger and purchase quantities use the flat average only · no trend or buffer</small>
 	        </div>
 	        <form class="admin-inventory-trigger-settings" data-inventory-settings="${escapeHtml(sku)}">
 	          <label class="admin-inventory-auto-switch">
@@ -8141,6 +8143,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	          <label>
 	            <span>Manual trigger</span>
 	            <input type="number" min="0" step="1" value="${Math.max(0, Math.round(Number(item.manual_trigger || 0)))}" data-inventory-manual-trigger ${automatic ? 'disabled' : ''}>
+	          </label>
+	          <label>
+	            <span>Order days</span>
+	            <input type="number" min="1" max="90" step="0.5" value="${purchaseDays}" data-inventory-purchase-days>
 	          </label>
 	          <label>
 	            <span>MOQ</span>
@@ -8205,13 +8211,15 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (!allRows.length) {
 	      purchasePlanRefs.list.innerHTML = '<p class="admin-empty">Nothing is below its trigger. The purchase plan is clear.</p>';
 	    } else {
-	      purchasePlanRefs.list.innerHTML = allRows.map((item, index) => `
+	      purchasePlanRefs.list.innerHTML = allRows.map((item, index) => {
+	        const purchaseDaysLabel = formatRegionalNumber(item.purchase_days || 22.5, { maximumFractionDigits: 1 });
+	        return `
 	        <article class="admin-purchase-row ${inventoryRecapRiskClass(item.risk)}">
 	          <span class="admin-purchase-index">${String(index + 1).padStart(2, '0')}</span>
 	          <div class="admin-purchase-product">
 	            <strong>${escapeHtml(item.product_name || item.sku || '-')}</strong>
 	            <span>${escapeHtml(item.sku || '')} · stock ${formatRegionalInteger(item.current_stock || 0)} / trigger ${formatRegionalInteger(item.trigger_qty || 0)}</span>
-	            <small>Trigger gap ${formatRegionalInteger(item.trigger_shortfall_qty || 0)} · 10.5-day order ${formatRegionalInteger(item.raw_purchase_qty || 0)} · MOQ ${formatRegionalInteger(item.moq)} · rounded +${formatRegionalInteger(item.moq_rounding_qty || 0)}</small>
+	            <small>Trigger gap ${formatRegionalInteger(item.trigger_shortfall_qty || 0)} · ${purchaseDaysLabel}-day order ${formatRegionalInteger(item.raw_purchase_qty || 0)} · MOQ ${formatRegionalInteger(item.moq)} · rounded +${formatRegionalInteger(item.moq_rounding_qty || 0)}</small>
 	          </div>
 	          <label class="admin-purchase-quantity">
 	            <span>Buy quantity</span>
@@ -8227,7 +8235,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	            <input type="text" value="${escapeHtml(item.note)}" data-purchase-plan-line-note="${escapeHtml(item.sku || '')}" placeholder="Optional instruction">
 	          </label>
 	        </article>
-	      `).join('');
+	      `;
+	      }).join('');
 	    }
 	    if (purchasePlanRefs.status) {
 	      purchasePlanRefs.status.textContent = `${formatRegionalInteger(lines)} products · every quantity is a full MOQ multiple`;
@@ -8257,13 +8266,13 @@ document.addEventListener('DOMContentLoaded', () => {
 	    const date = state.inventoryRecap.data?.meta?.end_date || activeLocalDate;
 	    const lines = rows.map((item, index) => {
 	      const note = item.note ? ` | Note: ${item.note}` : '';
-	      return `${index + 1}. ${item.product_name || item.sku} (${item.sku}) | Stock ${formatRegionalInteger(item.current_stock)} | Trigger ${formatRegionalInteger(item.trigger_qty)} | 10.5-day order ${formatRegionalInteger(item.raw_purchase_qty)} | MOQ ${formatRegionalInteger(item.moq)} | Buy ${formatRegionalInteger(item.quantity)} | ${formatCurrency(item.subtotal)}${note}`;
+	      return `${index + 1}. ${item.product_name || item.sku} (${item.sku}) | Stock ${formatRegionalInteger(item.current_stock)} | Trigger ${formatRegionalInteger(item.trigger_qty)} | ${formatRegionalNumber(item.purchase_days || 22.5, { maximumFractionDigits: 1 })}-day order ${formatRegionalInteger(item.raw_purchase_qty)} | MOQ ${formatRegionalInteger(item.moq)} | Buy ${formatRegionalInteger(item.quantity)} | ${formatCurrency(item.subtotal)}${note}`;
 	    });
 	    return [
 	      'JENANG GEMI - RECOMMENDED STOCK PURCHASE',
 	      `Demand through: ${date}`,
-	      'Trigger model: 25% of adjusted 30-day demand (about 7.5 days of stock)',
-	      'Purchase rule: when triggered, order another 10.5 days and round up to MOQ',
+	      'Trigger model: 25% of the flat monthly average (90-day demand divided by 3)',
+	      'Purchase rule: per-product order days (default 22.5), then round up to MOQ',
 	      '',
 	      ...lines,
 	      '',
@@ -8298,9 +8307,13 @@ document.addEventListener('DOMContentLoaded', () => {
 	    const automaticInput = form.querySelector('[data-inventory-automatic]');
 	    const triggerInput = form.querySelector('[data-inventory-manual-trigger]');
 	    const moqInput = form.querySelector('[data-inventory-moq]');
+	    const purchaseDaysInput = form.querySelector('[data-inventory-purchase-days]');
 	    const automatic = automaticInput instanceof HTMLInputElement ? automaticInput.checked : true;
 	    const manualTrigger = triggerInput instanceof HTMLInputElement ? Math.max(0, Math.round(Number(triggerInput.value || 0))) : 0;
 	    const purchaseMoq = moqInput instanceof HTMLInputElement ? Math.max(1, Math.round(Number(moqInput.value || 1))) : 1;
+	    const purchaseDays = purchaseDaysInput instanceof HTMLInputElement
+	      ? Math.max(1, Math.min(90, Math.round(Number(purchaseDaysInput.value || 22.5) * 2) / 2))
+	      : 22.5;
 	    state.inventoryRecap.settingsSaving = sku;
 	    state.inventoryRecap.settingsMessage[sku] = '';
 	    renderInventoryRecap(state.inventoryRecap.data);
@@ -8313,7 +8326,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	          sku,
 	          automatic,
 	          manual_trigger: manualTrigger,
-	          purchase_moq: purchaseMoq
+	          purchase_moq: purchaseMoq,
+	          purchase_days: purchaseDays
 	        }),
 	        cache: 'no-store',
 	        timeoutMs: 30000
@@ -9816,13 +9830,13 @@ document.addEventListener('DOMContentLoaded', () => {
 	    const date = state.inventoryRecap.data?.meta?.end_date || activeLocalDate;
 	    const lines = [
 	      `Demand through: ${date}`,
-	      'Trigger: 25% of adjusted 30-day demand (about 7.5 days of stock)',
-	      'Purchase: another 10.5 days of demand, rounded up to MOQ',
+	      'Trigger: 25% of the flat monthly average; no trend or buffer',
+	      'Purchase: customizable order days per product, rounded up to MOQ',
 	      '',
 	      ...rows.flatMap((item, index) => [
 	        `${index + 1}. ${item.product_name || item.sku}`,
 	        `   SKU: ${item.sku} | Stock: ${formatRegionalInteger(item.current_stock)} | Trigger: ${formatRegionalInteger(item.trigger_qty)}`,
-	        `   Trigger gap: ${formatRegionalInteger(item.trigger_shortfall_qty)} | 10.5-day order: ${formatRegionalInteger(item.raw_purchase_qty)}`,
+	        `   Trigger gap: ${formatRegionalInteger(item.trigger_shortfall_qty)} | ${formatRegionalNumber(item.purchase_days || 22.5, { maximumFractionDigits: 1 })}-day order: ${formatRegionalInteger(item.raw_purchase_qty)}`,
 	        `   MOQ: ${formatRegionalInteger(item.moq)} | Buy: ${formatRegionalInteger(item.quantity)} ${inventoryRecapStockUnitText(item)}`,
 	        `   Unit cost: ${formatCurrency(item.unitCost)} | Subtotal: ${formatCurrency(item.subtotal)}`,
 	        item.note ? `   Note: ${item.note}` : ''

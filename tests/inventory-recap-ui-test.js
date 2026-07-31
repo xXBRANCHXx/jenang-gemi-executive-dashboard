@@ -12,20 +12,22 @@ const api = fs.readFileSync(path.join(root, 'api/inventory-recap/index.php'), 'u
 assert.match(dashboard, /data-view-panel="inventory-recap"[\s\S]*Reorder triggers[\s\S]*data-inventory-filter="triggered"[\s\S]*Needs purchase/);
 assert.match(dashboard, /Automatic triggers learn from 90 days of demand/);
 assert.match(dashboard, /data-inventory-recap-manual/);
-assert.match(dashboard, /10\.5-day order 19 ÷ MOQ 11 → buy 22/);
+assert.match(dashboard, /75% order 19 ÷ MOQ 11 → buy 22/);
 assert.match(dashboard, /data-view-panel="purchase-order"[\s\S]*MOQ-ready purchase plan[\s\S]*data-purchase-plan-download/);
 
 assert.match(script, /data-inventory-automatic/);
 assert.match(script, /data-inventory-manual-trigger/);
 assert.match(script, /data-inventory-moq/);
+assert.match(script, /data-inventory-purchase-days/);
 assert.match(script, /Math\.ceil\(entered \/ moq\) \* moq/);
 assert.match(script, /saveInventorySettings/);
-assert.match(script, /Trigger model: 25% of adjusted 30-day demand/);
+assert.match(script, /Trigger model: 25% of the flat monthly average/);
 assert.match(script, /buildSimplePdf\('Jenang Gemi - Recommended Stock Purchase'/);
 assert.doesNotMatch(script, /inventoryRecapDays|current_days_remaining/);
 
 assert.match(api, /update_settings/);
 assert.match(api, /purchase_moq = :purchase_moq/);
+assert.match(api, /purchase_days = :purchase_days/);
 
 assert.match(navigation, /'purchase-order'\s*=>\s*\[[\s\S]*'label'\s*=>\s*'Purchase Plan'/);
 

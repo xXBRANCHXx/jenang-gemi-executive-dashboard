@@ -740,7 +740,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                                <button type="button" data-inventory-filter="healthy">Above trigger</button>
 	                                <button type="button" data-inventory-filter="manual">Manual</button>
 	                            </div>
-	                            <p>Auto trigger = 25% of flattened 30-day demand after trend and buffer · about 7.5 days of stock</p>
+	                            <p>Monthly average = 90-day demand ÷ 3 · trigger at 25% · no trend or buffer added</p>
 	                        </div>
 	                        <div class="admin-inventory-visual-list" data-inventory-recap-list>
 	                            <p class="admin-empty">Calculating product triggers.</p>
@@ -772,8 +772,8 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                        </div>
 	                        <div class="admin-purchase-rule">
 	                            <strong>How quantities are chosen</strong>
-	                            <span>At the 7.5-day trigger, order another 10.5 days of adjusted demand. Then round up to a full MOQ multiple.</span>
-	                            <code>10.5-day order 19 ÷ MOQ 11 → buy 22</code>
+	                            <span>Trigger at 25% of the monthly average. Order days are editable per product (default 22.5), then the quantity rounds up to MOQ.</span>
+	                            <code>75% order 19 ÷ MOQ 11 → buy 22</code>
 	                        </div>
 	                        <div class="admin-purchase-list" data-purchase-plan-list>
 	                            <p class="admin-empty">Loading recommended products.</p>

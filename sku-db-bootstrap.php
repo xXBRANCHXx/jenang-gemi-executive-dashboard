@@ -153,6 +153,7 @@ function jg_sku_ensure_schema(PDO $pdo): void
             stock_trigger INT UNSIGNED NOT NULL,
             inventory_mode VARCHAR(32) NOT NULL DEFAULT "auto",
             purchase_moq INT UNSIGNED NOT NULL DEFAULT 1,
+            purchase_days DECIMAL(5,1) NOT NULL DEFAULT 22.5,
             skip_scan TINYINT(1) NOT NULL DEFAULT 0,
             cogs DECIMAL(12,2) NOT NULL,
             sale_price DECIMAL(12,2) NOT NULL DEFAULT 0.00,
@@ -191,6 +192,7 @@ function jg_sku_ensure_schema(PDO $pdo): void
     jg_sku_ensure_column($pdo, 'sku_requests', 'astra', 'DECIMAL(6,2) NOT NULL DEFAULT 0.00 AFTER volume');
     jg_sku_ensure_column($pdo, 'sku_skus', 'astra', 'DECIMAL(6,2) NOT NULL DEFAULT 0.00 AFTER volume');
     jg_sku_ensure_column($pdo, 'sku_skus', 'purchase_moq', 'INT UNSIGNED NOT NULL DEFAULT 1 AFTER inventory_mode');
+    jg_sku_ensure_column($pdo, 'sku_skus', 'purchase_days', 'DECIMAL(5,1) NOT NULL DEFAULT 22.5 AFTER purchase_moq');
     jg_sku_ensure_column($pdo, 'sku_skus', 'skip_scan', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER inventory_mode');
     jg_sku_ensure_column($pdo, 'sku_skus', 'sale_price', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER cogs');
     jg_sku_ensure_column($pdo, 'sku_cogs_history', 'change_mode', 'VARCHAR(24) NOT NULL DEFAULT "legacy" AFTER takes_place');

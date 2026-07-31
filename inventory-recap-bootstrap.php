@@ -35,8 +35,8 @@ function jg_inventory_recap_options(array $input = []): array
         'bucket_count' => 9,
         'reorder_fraction' => 0.25,
         'reorder_days_equivalent' => 7.5,
-        'purchase_fraction' => 0.35,
-        'purchase_days_equivalent' => 10.5,
+        'purchase_fraction' => 0.75,
+        'purchase_days_equivalent' => 22.5,
         'today' => $today->format('Y-m-d'),
         'start_date' => $start->format('Y-m-d'),
         'end_date' => $today->format('Y-m-d'),
@@ -152,7 +152,7 @@ function jg_inventory_recap_empty_trigger_model(array $options): array
         'applied_buffer' => 0.0,
         'adjusted_30_day_demand' => 0.0,
         'reorder_fraction' => (float) ($options['reorder_fraction'] ?? 0.25),
-        'purchase_fraction' => (float) ($options['purchase_fraction'] ?? 0.35),
+        'purchase_fraction' => (float) ($options['purchase_fraction'] ?? 0.75),
         'purchase_target_qty' => 0,
         'automatic_trigger' => 0,
         'forecast_confidence' => 'none',
@@ -206,10 +206,13 @@ function jg_inventory_recap_trigger_model(array $dailyHistory, array $options): 
     $trendAdjustment = max(-$trendLimit, min($trendLimit, $uncappedTrend));
     $fluctuationBuffer = jg_inventory_recap_standard_deviation($buckets) * sqrt(3);
     $largeOrderBuffer = max($dailyQuantities ?: [0.0]);
-    $appliedBuffer = max($fluctuationBuffer, $largeOrderBuffer);
-    $adjusted30 = max(0.0, $baseline30 + $trendAdjustment + $appliedBuffer);
+    // Trend and volatility remain visible as context, but neither changes the
+    // automatic trigger or purchase quantity. Those use the flattened monthly
+    // average only: 25% to trigger and the remaining 75% to purchase.
+    $appliedBuffer = 0.0;
+    $adjusted30 = max(0.0, $baseline30);
     $reorderFraction = max(0.01, min(1.0, (float) ($options['reorder_fraction'] ?? 0.25)));
-    $purchaseFraction = max(0.01, min(1.0, (float) ($options['purchase_fraction'] ?? 0.35)));
+    $purchaseFraction = max(0.01, min(1.0, 1.0 - $reorderFraction));
 
     return [
         'has_demand' => true,
@@ -281,6 +284,7 @@ function jg_inventory_recap_sku_rows(PDO $pdo): array
             s.stock_trigger,
             s.inventory_mode,
             s.purchase_moq,
+            s.purchase_days,
             s.skip_scan,
             s.cogs,
             s.sale_price,
@@ -324,6 +328,7 @@ function jg_inventory_recap_sku_rows(PDO $pdo): array
             'stock_trigger' => max(0.0, jg_inventory_recap_number($row['stock_trigger'] ?? 0)),
             'inventory_mode' => $inventoryMode !== '' ? $inventoryMode : 'auto',
             'purchase_moq' => max(1, (int) ($row['purchase_moq'] ?? 1)),
+            'purchase_days' => max(1.0, min(90.0, (float) ($row['purchase_days'] ?? 22.5))),
             'skip_scan' => (int) ($row['skip_scan'] ?? 0) === 1,
             'cogs' => max(0.0, jg_inventory_recap_number($row['cogs'] ?? 0)),
             'sale_price' => max(0.0, jg_inventory_recap_number($row['sale_price'] ?? 0)),
@@ -520,12 +525,13 @@ function jg_inventory_recap_order_draft(array $suggestions, array $summary, arra
     $lines = [];
     foreach ($suggestions as $item) {
         $lines[] = sprintf(
-            '- %s / %s: stock %d, trigger %d, trigger gap %d, 10.5-day order %d, MOQ %d, buy %d, est. %s',
+            '- %s / %s: stock %d, trigger %d, trigger gap %d, %s-day order %d, MOQ %d, buy %d, est. %s',
             (string) ($item['sku'] ?? ''),
             (string) ($item['product_name'] ?? ''),
             (int) ($item['current_stock'] ?? 0),
             (int) ($item['trigger_qty'] ?? 0),
             (int) ($item['trigger_shortfall_qty'] ?? 0),
+            rtrim(rtrim(number_format((float) ($item['purchase_days'] ?? 22.5), 1, '.', ''), '0'), '.'),
             (int) ($item['raw_purchase_qty'] ?? 0),
             (int) ($item['purchase_moq'] ?? 1),
             (int) ($item['recommended_order_qty'] ?? 0),
@@ -543,7 +549,7 @@ function jg_inventory_recap_order_draft(array $suggestions, array $summary, arra
         'Inventory Recap production draft',
         'Generated: ' . gmdate(DATE_ATOM),
         sprintf('Demand basis: %d days in nine 10-day blocks through %s', (int) $options['lookback_days'], (string) ($options['end_date'] ?? '')),
-        'Decision rule: below 7.5-day trigger; order another 10.5 days (or the larger manual-trigger gap), then round up to MOQ.',
+        'Decision rule: monthly average is 90-day demand divided by 3; trigger at 25%, purchase the product-specific order days (default 22.5), then round up to MOQ.',
         'Estimated production cost: ' . jg_inventory_recap_format_idr((float) ($summary['total_recommended_cost'] ?? 0)),
         'Accounting Cash Available: ' . jg_inventory_recap_format_idr((float) ($summary['cash_available'] ?? 0)),
         'Funding: ' . $funding,
@@ -627,8 +633,9 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
         $triggerMode = strtolower((string) ($sku['inventory_mode'] ?? 'auto')) === 'manual' ? 'manual' : 'auto';
         $triggerQty = $triggerMode === 'manual' ? $manualTrigger : $automaticTrigger;
         $purchaseMoq = max(1, (int) ($sku['purchase_moq'] ?? 1));
+        $purchaseDays = max(1.0, min(90.0, (float) ($sku['purchase_days'] ?? 22.5)));
         $triggerShortfallQty = max(0, (int) ceil($triggerQty - $currentStock));
-        $purchaseTargetQty = max(0, (int) ($model['purchase_target_qty'] ?? 0));
+        $purchaseTargetQty = max(0, (int) ceil((float) ($model['average_30_day_demand'] ?? 0) * ($purchaseDays / 30)));
         $rawPurchaseQty = $triggerShortfallQty > 0
             ? max($triggerShortfallQty, $purchaseTargetQty)
             : 0;
@@ -661,7 +668,8 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
             'applied_buffer' => (float) ($model['applied_buffer'] ?? 0),
             'adjusted_30_day_demand' => (float) ($model['adjusted_30_day_demand'] ?? 0),
             'reorder_fraction' => (float) ($model['reorder_fraction'] ?? 0.25),
-            'purchase_fraction' => (float) ($model['purchase_fraction'] ?? 0.35),
+            'purchase_fraction' => round($purchaseDays / 30, 4),
+            'purchase_days' => $purchaseDays,
             'purchase_target_qty' => $purchaseTargetQty,
             'automatic_trigger' => $automaticTrigger,
             'manual_trigger' => $manualTrigger,

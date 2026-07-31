@@ -28,15 +28,18 @@ try {
         $mode = !empty($body['automatic']) ? 'auto' : 'manual';
         $manualTrigger = filter_var($body['manual_trigger'] ?? null, FILTER_VALIDATE_INT);
         $purchaseMoq = filter_var($body['purchase_moq'] ?? null, FILTER_VALIDATE_INT);
-        if ($sku === '' || $manualTrigger === false || $manualTrigger < 0 || $purchaseMoq === false || $purchaseMoq < 1) {
+        $purchaseDays = filter_var($body['purchase_days'] ?? null, FILTER_VALIDATE_FLOAT);
+        if ($sku === '' || $manualTrigger === false || $manualTrigger < 0 || $purchaseMoq === false || $purchaseMoq < 1
+            || $purchaseDays === false || $purchaseDays < 1 || $purchaseDays > 90) {
             http_response_code(422);
-            throw new InvalidArgumentException('SKU, trigger, and MOQ values are required.');
+            throw new InvalidArgumentException('SKU, trigger, MOQ, and order days values are required.');
         }
         $stmt = $skuPdo->prepare(
             'UPDATE sku_skus
              SET inventory_mode = :inventory_mode,
                  stock_trigger = :stock_trigger,
                  purchase_moq = :purchase_moq,
+                 purchase_days = :purchase_days,
                  updated_at = :updated_at
              WHERE sku = :sku'
         );
@@ -44,6 +47,7 @@ try {
             ':inventory_mode' => $mode,
             ':stock_trigger' => min(1000000, $manualTrigger),
             ':purchase_moq' => min(100000, $purchaseMoq),
+            ':purchase_days' => round($purchaseDays, 1),
             ':updated_at' => gmdate('Y-m-d H:i:s'),
             ':sku' => $sku,
         ]);
