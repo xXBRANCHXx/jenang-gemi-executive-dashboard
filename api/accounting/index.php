@@ -242,6 +242,7 @@ try {
             ];
         })(),
         'create_category' => jg_accounting_create_category($pdo, $body),
+        'save_account' => jg_accounting_save_account($pdo, $body),
         'mark_review_resolved' => jg_accounting_mark_review_resolved($pdo, $body),
         'reconcile_cash' => jg_accounting_create_cash_reconciliation($pdo, $body),
         default => null,

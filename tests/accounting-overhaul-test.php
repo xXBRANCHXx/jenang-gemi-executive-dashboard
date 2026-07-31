@@ -19,6 +19,7 @@ $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 $pdo->exec('CREATE TABLE accounting_accounts (
     id INTEGER PRIMARY KEY, account_key TEXT, name TEXT, type TEXT, platform TEXT, brand TEXT,
     opening_balance REAL, current_balance_manual REAL NULL, is_spendable INTEGER, is_active INTEGER,
+    balance_class TEXT, can_pay INTEGER, can_receive INTEGER, receives_automatic INTEGER,
     sort_order INTEGER, created_at TEXT
 )');
 $pdo->exec('CREATE TABLE accounting_transactions (
@@ -38,7 +39,7 @@ $pdo->exec('CREATE TABLE accounting_bills (
     attachment_url TEXT, receipt_status TEXT, notes TEXT, created_at TEXT
 )');
 $pdo->exec('CREATE TABLE accounting_cash_reconciliations (
-    id INTEGER PRIMARY KEY, reconciliation_key TEXT, available_cash_amount REAL,
+    id INTEGER PRIMARY KEY, reconciliation_key TEXT, account_id INTEGER NULL, available_cash_amount REAL,
     cutoff_transaction_id INTEGER, note TEXT, reconciled_at TEXT, created_at TEXT
 )');
 $pdo->exec('CREATE TABLE dashboard_wallet_releases (
@@ -60,7 +61,7 @@ $pdo->exec('CREATE TABLE whatsapp_orders (
 )');
 
 $pdo->exec("INSERT INTO accounting_accounts VALUES
-    (1, 'bca-main', 'BCA Main', 'bank', '', 'Jenang Gemi', 500000, NULL, 1, 1, 10, '2026-01-01 00:00:00')");
+    (1, 'bca-main', 'BCA Main', 'bank', '', 'Jenang Gemi', 500000, NULL, 1, 1, 'bank', 1, 1, 1, 10, '2026-01-01 00:00:00')");
 $pdo->exec("INSERT INTO accounting_transactions
     (id, transaction_key, status, type, direction, account_id, to_account_id, counterparty_id, category_id,
      business_month, transaction_date, amount, transfer_fee_amount, reference_no, order_no, invoice_no, notes, channel, brand,
@@ -69,7 +70,7 @@ $pdo->exec("INSERT INTO accounting_transactions
     (1, 'PRE-RECON', 'posted', 'manual_income', 'money_in', 1, NULL, NULL, NULL, '2026-07', '2026-07-01', 20000, 0, '', '', '', '', 'Offline', 'Jenang Gemi', 'Cash', 'not_required', '', 'clean', '', NULL, '2026-07-01 00:00:00'),
     (2, 'POST-RECON', 'posted', 'expense', 'money_out', 1, NULL, NULL, NULL, '2026-07', '2026-07-11', 10000, 0, '', '', '', 'Supplies', 'Offline', 'Jenang Gemi', 'Cash', 'not_required', '', 'clean', '', NULL, '2026-07-11 00:00:00')");
 $pdo->exec("INSERT INTO accounting_cash_reconciliations VALUES
-    (1, 'recon-test', 100000, 1, 'Verified close count', '2026-07-10 00:00:00', '2026-07-10 00:00:00')");
+    (1, 'recon-test', 1, 100000, 1, 'Verified bank close', '2026-07-10 00:00:00', '2026-07-10 00:00:00')");
 $pdo->exec("INSERT INTO website_orders VALUES
     (1, 'jenang_gemi_website', 'WEB-BEFORE', 'PAID', 'Earlier customer', 80000, 80000, '2026-07-09 02:00:00', '2026-07-09 01:00:00')");
 $pdo->exec("INSERT INTO whatsapp_orders VALUES
@@ -81,9 +82,12 @@ overhaul_expect(50000, $direct[0]['usable_cash_amount'], 'Direct-order cash must
 
 $history = jg_accounting_cash_history($pdo);
 overhaul_expect(140000, $history['summary']['current_cash'], 'Reconciled cash must use the baseline plus only later manual and automatic movements.');
-overhaul_expect('cash_reconciliation', $history['rows'][2]['kind'] ?? '', 'The reconciliation baseline must remain visible in cash history.');
+overhaul_expect(140000, $history['summary']['bank_balance'], 'A bank reconciliation must establish only the bank baseline.');
+overhaul_expect(0, $history['summary']['cash_available'], 'A bank reconciliation must not create physical cash.');
+$reconciliationRows = array_values(array_filter($history['rows'], static fn (array $row): bool => ($row['kind'] ?? '') === 'cash_reconciliation'));
+overhaul_expect(1, count($reconciliationRows), 'The reconciliation baseline must remain visible in balance history.');
 $ids = array_column($history['rows'], 'id');
-overhaul_expect(false, in_array('transaction:1', $ids, true), 'Entries included in the reconciliation cutoff must not be counted again.');
+overhaul_expect(false, in_array('transaction:1:source', $ids, true), 'Entries included in the reconciliation cutoff must not be counted again.');
 overhaul_expect(false, in_array('website_order:jenang_gemi_website:WEB-BEFORE', $ids, true), 'Automatic cash received before reconciliation must not be counted again.');
 
 $ledger = jg_accounting_activity_ledger($pdo, ['month' => '2026-07']);

@@ -19,12 +19,20 @@ expect(html.includes('data-accounting-bills-open="overdue"'), 'Overdue must be a
 expect(html.includes('data-accounting-wallet-breakdown'), 'Accounting must show a compact wallet balance strip.');
 expect(html.includes('data-accounting-ledger-body'), 'Accounting must expose the unified activity ledger.');
 expect(html.includes('class="admin-accounting-more'), 'Secondary entry details must stay collapsed by default.');
+expect(html.includes('data-accounting-kpi="bank-balance"'), 'Accounting must show bank balance separately.');
+expect(html.includes('data-accounting-kpi="cash-available"'), 'Accounting must show physical available cash separately.');
+expect(html.includes('data-accounting-account-settings'), 'Accounting must allow future payment and receipt accounts to be configured.');
+expect(html.includes('data-accounting-category-search'), 'The primary category selector must have live search.');
 
 expect(script.includes('let resettingForm = false'), 'Form reset must be guarded against recursive dropdown clearing.');
 expect(script.includes('if (resettingForm) return;'), 'The reset event must ignore programmatic resets.');
 expect(script.includes('restorePendingEntry()'), 'Refreshes must preserve an entry already being typed.');
 expect(script.includes("buildUrl('activity_ledger'"), 'The UI must load manual and automatic ledger rows together.');
 expect(script.includes("action: 'reconcile_cash'"), 'The reconciliation UI must post an auditable baseline.');
+expect(script.includes('accountOptionsForRole'), 'Paid-from and received-into options must be filtered by account role.');
+expect(script.includes("String(account.type || '') !== 'marketplace_wallet'"), 'Marketplace wallets must never appear as entry accounts.');
+expect(script.includes("action: 'save_account'"), 'Account role settings must persist through the Accounting API.');
+expect(script.includes("addEventListener('input', () => renderCategoryOptions"), 'Category results must filter live as the user types.');
 
 expect(css.includes('.admin-accounting-pulse'), 'The cash-first visual hierarchy must be styled.');
 expect(css.includes('.admin-accounting-wallet-strip'), 'Compact wallet balances must be styled.');

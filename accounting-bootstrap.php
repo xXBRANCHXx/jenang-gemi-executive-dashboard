@@ -151,6 +151,17 @@ function jg_accounting_status_from_bill(string $dueDate, int $outstanding, bool 
     return 'unpaid';
 }
 
+function jg_accounting_has_column(PDO $pdo, string $table, string $column): bool
+{
+    $stmt = $pdo->prepare(
+        'SELECT COUNT(*)
+         FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table_name AND COLUMN_NAME = :column_name'
+    );
+    $stmt->execute([':table_name' => $table, ':column_name' => $column]);
+    return (int) $stmt->fetchColumn() > 0;
+}
+
 function jg_accounting_ensure_schema(PDO $pdo): void
 {
     $statements = [
@@ -169,6 +180,10 @@ function jg_accounting_ensure_schema(PDO $pdo): void
             opening_balance BIGINT NOT NULL DEFAULT 0,
             current_balance_manual BIGINT NULL,
             is_spendable TINYINT(1) NOT NULL DEFAULT 1,
+            balance_class ENUM("bank","cash","wallet","other") NOT NULL DEFAULT "other",
+            can_pay TINYINT(1) NOT NULL DEFAULT 0,
+            can_receive TINYINT(1) NOT NULL DEFAULT 0,
+            receives_automatic TINYINT(1) NOT NULL DEFAULT 0,
             is_active TINYINT(1) NOT NULL DEFAULT 1,
             sort_order INT NOT NULL DEFAULT 100,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -353,6 +368,7 @@ function jg_accounting_ensure_schema(PDO $pdo): void
         'CREATE TABLE IF NOT EXISTS accounting_cash_reconciliations (
             id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
             reconciliation_key VARCHAR(100) UNIQUE NOT NULL,
+            account_id BIGINT UNSIGNED NULL,
             available_cash_amount BIGINT NOT NULL,
             cutoff_transaction_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
             note VARCHAR(500) NULL,
@@ -361,11 +377,36 @@ function jg_accounting_ensure_schema(PDO $pdo): void
             created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
             KEY idx_accounting_cash_reconciled_at (reconciled_at, id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+        'CREATE TABLE IF NOT EXISTS accounting_automatic_deposit_routes (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            account_id BIGINT UNSIGNED NOT NULL,
+            effective_at DATETIME(6) NOT NULL,
+            created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+            KEY idx_accounting_auto_route_effective (effective_at, id),
+            KEY idx_accounting_auto_route_account (account_id, effective_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
     ];
 
     foreach ($statements as $sql) {
         if (!analyticsTryExec($pdo, $sql)) {
             throw new RuntimeException('Unable to prepare Accounting storage.');
+        }
+    }
+
+    $accountRoleColumns = [
+        'balance_class' => 'ALTER TABLE accounting_accounts ADD COLUMN balance_class ENUM("bank","cash","wallet","other") NOT NULL DEFAULT "other" AFTER is_spendable',
+        'can_pay' => 'ALTER TABLE accounting_accounts ADD COLUMN can_pay TINYINT(1) NOT NULL DEFAULT 0 AFTER balance_class',
+        'can_receive' => 'ALTER TABLE accounting_accounts ADD COLUMN can_receive TINYINT(1) NOT NULL DEFAULT 0 AFTER can_pay',
+        'receives_automatic' => 'ALTER TABLE accounting_accounts ADD COLUMN receives_automatic TINYINT(1) NOT NULL DEFAULT 0 AFTER can_receive',
+    ];
+    foreach ($accountRoleColumns as $column => $sql) {
+        if (!jg_accounting_has_column($pdo, 'accounting_accounts', $column) && !analyticsTryExec($pdo, $sql)) {
+            throw new RuntimeException('Unable to update Accounting account roles.');
+        }
+    }
+    if (!jg_accounting_has_column($pdo, 'accounting_cash_reconciliations', 'account_id')) {
+        if (!analyticsTryExec($pdo, 'ALTER TABLE accounting_cash_reconciliations ADD COLUMN account_id BIGINT UNSIGNED NULL AFTER reconciliation_key')) {
+            throw new RuntimeException('Unable to assign Accounting reconciliations to accounts.');
         }
     }
 
@@ -384,6 +425,38 @@ function jg_accounting_ensure_schema(PDO $pdo): void
     $stmt->execute([':version' => '2026_07_06_accounting_workspace_v1']);
 
     jg_accounting_seed_accounts($pdo);
+    $roleMigration = '2026_07_31_account_roles_v1';
+    $roleMigrationStmt = $pdo->prepare('SELECT COUNT(*) FROM accounting_migrations WHERE version = :version');
+    $roleMigrationStmt->execute([':version' => $roleMigration]);
+    if ((int) $roleMigrationStmt->fetchColumn() === 0) {
+        $pdo->exec(
+            'UPDATE accounting_accounts
+             SET balance_class = CASE
+                    WHEN type = "bank" THEN "bank"
+                    WHEN type = "cash" THEN "cash"
+                    WHEN type = "marketplace_wallet" THEN "wallet"
+                    ELSE "other"
+                 END,
+                 can_pay = CASE WHEN type IN ("bank", "cash") AND is_spendable = 1 THEN 1 ELSE 0 END,
+                 can_receive = CASE WHEN type IN ("bank", "cash") AND is_spendable = 1 THEN 1 ELSE 0 END,
+                 receives_automatic = CASE WHEN account_key = "bca-main" THEN 1 ELSE 0 END'
+        );
+        $recordRoleMigration = $pdo->prepare('INSERT INTO accounting_migrations (version, applied_at) VALUES (:version, UTC_TIMESTAMP())');
+        $recordRoleMigration->execute([':version' => $roleMigration]);
+    }
+    $pdo->exec(
+        'UPDATE accounting_cash_reconciliations
+         SET account_id = (SELECT id FROM accounting_accounts WHERE account_key = "bca-main" LIMIT 1)
+         WHERE account_id IS NULL'
+    );
+    $pdo->exec(
+        'INSERT INTO accounting_automatic_deposit_routes (account_id, effective_at, created_at)
+         SELECT id, "1970-01-01 00:00:00.000000", UTC_TIMESTAMP(6)
+         FROM accounting_accounts
+         WHERE account_key = "bca-main"
+           AND NOT EXISTS (SELECT 1 FROM accounting_automatic_deposit_routes)
+         LIMIT 1'
+    );
     jg_accounting_seed_categories($pdo);
     jg_accounting_seed_counterparties($pdo);
 }
@@ -391,31 +464,27 @@ function jg_accounting_ensure_schema(PDO $pdo): void
 function jg_accounting_seed_accounts(PDO $pdo): void
 {
     $rows = [
-        ['bca-main', 'BCA Main', 'bank', null, null, 1, 10],
-        ['cash-office', 'Cash Office', 'cash', null, null, 1, 20],
-        ['shopee-jg-wallet', 'Shopee Wallet - Jenang Gemi', 'marketplace_wallet', 'shopee', 'Jenang Gemi', 0, 30],
-        ['shopee-zero-wallet', 'Shopee Wallet - ZERO', 'marketplace_wallet', 'shopee', 'ZERO', 0, 40],
-        ['tiktok-jg-wallet', 'TikTok Wallet - Jenang Gemi', 'marketplace_wallet', 'tiktok', 'Jenang Gemi', 0, 50],
-        ['tiktok-zero-wallet', 'TikTok Wallet - ZERO', 'marketplace_wallet', 'tiktok', 'ZERO', 0, 60],
-        ['tokopedia-wallet', 'Tokopedia Wallet', 'marketplace_wallet', 'tokopedia', null, 0, 70],
-        ['accounts-payable', 'Accounts Payable', 'payable', null, null, 0, 90],
-        ['owner-equity', 'Owner Equity', 'owner_equity', null, null, 0, 100],
+        ['bca-main', 'BCA Main', 'bank', null, null, 1, 'bank', 1, 1, 1, 10],
+        ['cash-office', 'Cash Office', 'cash', null, null, 1, 'cash', 1, 1, 0, 20],
+        ['shopee-jg-wallet', 'Shopee Wallet - Jenang Gemi', 'marketplace_wallet', 'shopee', 'Jenang Gemi', 0, 'wallet', 0, 0, 0, 30],
+        ['shopee-zero-wallet', 'Shopee Wallet - ZERO', 'marketplace_wallet', 'shopee', 'ZERO', 0, 'wallet', 0, 0, 0, 40],
+        ['tiktok-jg-wallet', 'TikTok Wallet - Jenang Gemi', 'marketplace_wallet', 'tiktok', 'Jenang Gemi', 0, 'wallet', 0, 0, 0, 50],
+        ['tiktok-zero-wallet', 'TikTok Wallet - ZERO', 'marketplace_wallet', 'tiktok', 'ZERO', 0, 'wallet', 0, 0, 0, 60],
+        ['tokopedia-wallet', 'Tokopedia Wallet', 'marketplace_wallet', 'tokopedia', null, 0, 'wallet', 0, 0, 0, 70],
+        ['accounts-payable', 'Accounts Payable', 'payable', null, null, 0, 'other', 0, 0, 0, 90],
+        ['owner-equity', 'Owner Equity', 'owner_equity', null, null, 0, 'other', 0, 0, 0, 100],
     ];
 
     $stmt = $pdo->prepare(
         'INSERT INTO accounting_accounts
-            (account_key, name, type, platform, brand, is_spendable, is_active, sort_order, created_at)
+            (account_key, name, type, platform, brand, is_spendable, balance_class, can_pay, can_receive,
+             receives_automatic, is_active, sort_order, created_at)
          VALUES
-            (:account_key, :name, :type, :platform, :brand, :is_spendable, 1, :sort_order, UTC_TIMESTAMP())
-         ON DUPLICATE KEY UPDATE
-            name = VALUES(name),
-            type = VALUES(type),
-            platform = VALUES(platform),
-            brand = VALUES(brand),
-            is_spendable = VALUES(is_spendable),
-            sort_order = VALUES(sort_order)'
+            (:account_key, :name, :type, :platform, :brand, :is_spendable, :balance_class, :can_pay, :can_receive,
+             :receives_automatic, 1, :sort_order, UTC_TIMESTAMP())
+         ON DUPLICATE KEY UPDATE account_key = VALUES(account_key)'
     );
-    foreach ($rows as [$key, $name, $type, $platform, $brand, $spendable, $sort]) {
+    foreach ($rows as [$key, $name, $type, $platform, $brand, $spendable, $balanceClass, $canPay, $canReceive, $automatic, $sort]) {
         $stmt->execute([
             ':account_key' => $key,
             ':name' => $name,
@@ -423,6 +492,10 @@ function jg_accounting_seed_accounts(PDO $pdo): void
             ':platform' => $platform,
             ':brand' => $brand,
             ':is_spendable' => $spendable,
+            ':balance_class' => $balanceClass,
+            ':can_pay' => $canPay,
+            ':can_receive' => $canReceive,
+            ':receives_automatic' => $automatic,
             ':sort_order' => $sort,
         ]);
     }
@@ -777,7 +850,179 @@ function jg_accounting_accounts(PDO $pdo): array
         'platform' => $row['platform'],
         'brand' => $row['brand'],
         'is_spendable' => (int) $row['is_spendable'],
+        'balance_class' => (string) ($row['balance_class'] ?? 'other'),
+        'can_pay' => (int) ($row['can_pay'] ?? 0),
+        'can_receive' => (int) ($row['can_receive'] ?? 0),
+        'receives_automatic' => (int) ($row['receives_automatic'] ?? 0),
     ], $rows);
+}
+
+function jg_accounting_account_for_role(PDO $pdo, int $accountId, string $role): array
+{
+    $stmt = $pdo->prepare(
+        'SELECT id, account_key, name, type, balance_class, can_pay, can_receive, receives_automatic, is_active
+         FROM accounting_accounts
+         WHERE id = :id
+         LIMIT 1'
+    );
+    $stmt->execute([':id' => $accountId]);
+    $account = $stmt->fetch();
+    if (!is_array($account) || (int) ($account['is_active'] ?? 0) !== 1) {
+        jg_accounting_error('Choose an active account.', 422, $role === 'pay' ? 'account_id' : 'to_account_id');
+    }
+    $allowed = $role === 'pay'
+        ? (int) ($account['can_pay'] ?? 0) === 1
+        : (int) ($account['can_receive'] ?? 0) === 1;
+    if (!$allowed || (string) ($account['type'] ?? '') === 'marketplace_wallet') {
+        $message = $role === 'pay'
+            ? 'This account cannot be used to pay. Choose a payment account.'
+            : 'This account cannot receive money. Choose a receiving account.';
+        jg_accounting_error($message, 422, $role === 'pay' ? 'account_id' : 'to_account_id');
+    }
+    return $account;
+}
+
+function jg_accounting_save_account(PDO $pdo, array $body): array
+{
+    $id = (int) ($body['account_id'] ?? $body['id'] ?? 0);
+    $name = jg_accounting_text($body['name'] ?? '', 160);
+    if ($name === '') {
+        jg_accounting_error('Account name is required.', 422, 'name');
+    }
+    $balanceClass = jg_accounting_text($body['balance_class'] ?? 'bank', 20);
+    if (!in_array($balanceClass, ['bank', 'cash'], true)) {
+        jg_accounting_error('Choose how this account balance should be classified.', 422, 'balance_class');
+    }
+    $canPay = jg_accounting_bool($body['can_pay'] ?? false) ? 1 : 0;
+    $canReceive = jg_accounting_bool($body['can_receive'] ?? false) ? 1 : 0;
+    $receivesAutomatic = jg_accounting_bool($body['receives_automatic'] ?? false) ? 1 : 0;
+    if ($receivesAutomatic && !$canReceive) {
+        jg_accounting_error('An automatic deposit account must also allow receipts.', 422, 'can_receive');
+    }
+    if ($receivesAutomatic && $balanceClass !== 'bank') {
+        jg_accounting_error('Automatic online deposits must land in a bank account.', 422, 'balance_class');
+    }
+    $type = match ($balanceClass) {
+        'bank' => 'bank',
+        'cash' => 'cash',
+        default => 'cash',
+    };
+    $old = null;
+    if ($id > 0) {
+        $oldStmt = $pdo->prepare('SELECT * FROM accounting_accounts WHERE id = :id LIMIT 1');
+        $oldStmt->execute([':id' => $id]);
+        $old = $oldStmt->fetch();
+        if (!is_array($old)) {
+            jg_accounting_error('Account not found.', 404, 'account_id');
+        }
+        if ((string) ($old['type'] ?? '') === 'marketplace_wallet') {
+            jg_accounting_error('Marketplace wallets are managed automatically and cannot become payment accounts.', 422, 'account_id');
+        }
+        if ((string) ($old['balance_class'] ?? '') !== $balanceClass) {
+            $activity = $pdo->prepare(
+                'SELECT
+                    (SELECT COUNT(*) FROM accounting_transactions WHERE account_id = :source_id OR to_account_id = :destination_id)
+                    + (SELECT COUNT(*) FROM accounting_cash_reconciliations WHERE account_id = :reconciliation_id)'
+            );
+            $activity->execute([
+                ':source_id' => $id,
+                ':destination_id' => $id,
+                ':reconciliation_id' => $id,
+            ]);
+            if ((int) $activity->fetchColumn() > 0) {
+                jg_accounting_error('This account already has ledger activity. Add a new account instead of changing its balance group.', 422, 'balance_class');
+            }
+        }
+        if ((int) ($old['receives_automatic'] ?? 0) === 1 && !$receivesAutomatic) {
+            $otherRoute = $pdo->prepare(
+                'SELECT COUNT(*) FROM accounting_accounts
+                 WHERE id <> :id AND is_active = 1 AND receives_automatic = 1'
+            );
+            $otherRoute->execute([':id' => $id]);
+            if ((int) $otherRoute->fetchColumn() === 0) {
+                jg_accounting_error('Choose another automatic deposit account before turning this route off.', 422, 'receives_automatic');
+            }
+        }
+    }
+
+    $pdo->beginTransaction();
+    try {
+        if ($receivesAutomatic) {
+            $pdo->exec('UPDATE accounting_accounts SET receives_automatic = 0 WHERE receives_automatic = 1');
+        }
+        if ($id > 0) {
+            $stmt = $pdo->prepare(
+                'UPDATE accounting_accounts
+                 SET name = :name, type = :type, balance_class = :balance_class,
+                     can_pay = :can_pay, can_receive = :can_receive, receives_automatic = :receives_automatic,
+                     is_spendable = :is_spendable
+                 WHERE id = :id'
+            );
+            $stmt->execute([
+                ':name' => $name,
+                ':type' => $type,
+                ':balance_class' => $balanceClass,
+                ':can_pay' => $canPay,
+                ':can_receive' => $canReceive,
+                ':receives_automatic' => $receivesAutomatic,
+                ':is_spendable' => ($canPay || $canReceive) ? 1 : 0,
+                ':id' => $id,
+            ]);
+        } else {
+            $baseKey = strtolower(trim(preg_replace('/[^a-z0-9]+/i', '-', $name) ?? '', '-'));
+            $accountKey = mb_substr($baseKey !== '' ? $baseKey : jg_accounting_key('account'), 0, 68);
+            $exists = $pdo->prepare('SELECT COUNT(*) FROM accounting_accounts WHERE account_key = :account_key');
+            $exists->execute([':account_key' => $accountKey]);
+            if ((int) $exists->fetchColumn() > 0) {
+                $accountKey = mb_substr($accountKey, 0, 58) . '-' . bin2hex(random_bytes(4));
+            }
+            $sortOrder = (int) ($pdo->query('SELECT COALESCE(MAX(sort_order), 0) + 10 FROM accounting_accounts')->fetchColumn() ?: 100);
+            $stmt = $pdo->prepare(
+                'INSERT INTO accounting_accounts
+                    (account_key, name, type, currency, opening_balance, is_spendable, balance_class,
+                     can_pay, can_receive, receives_automatic, is_active, sort_order, created_at)
+                 VALUES
+                    (:account_key, :name, :type, "IDR", 0, :is_spendable, :balance_class,
+                     :can_pay, :can_receive, :receives_automatic, 1, :sort_order, UTC_TIMESTAMP())'
+            );
+            $stmt->execute([
+                ':account_key' => $accountKey,
+                ':name' => $name,
+                ':type' => $type,
+                ':is_spendable' => ($canPay || $canReceive) ? 1 : 0,
+                ':balance_class' => $balanceClass,
+                ':can_pay' => $canPay,
+                ':can_receive' => $canReceive,
+                ':receives_automatic' => $receivesAutomatic,
+                ':sort_order' => $sortOrder,
+            ]);
+            $id = (int) $pdo->lastInsertId();
+        }
+        if ($receivesAutomatic && (!is_array($old) || (int) ($old['receives_automatic'] ?? 0) !== 1)) {
+            $route = $pdo->prepare(
+                'INSERT INTO accounting_automatic_deposit_routes (account_id, effective_at, created_at)
+                 VALUES (:account_id, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))'
+            );
+            $route->execute([':account_id' => $id]);
+        }
+        jg_accounting_insert_audit($pdo, 'account', $id, $old ? 'update' : 'create', is_array($old) ? $old : null, [
+            'name' => $name,
+            'balance_class' => $balanceClass,
+            'can_pay' => $canPay,
+            'can_receive' => $canReceive,
+            'receives_automatic' => $receivesAutomatic,
+        ]);
+        $pdo->commit();
+    } catch (Throwable $error) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $error;
+    }
+    return ['account' => array_values(array_filter(
+        jg_accounting_accounts($pdo),
+        static fn (array $account): bool => (int) $account['id'] === $id
+    ))[0] ?? null];
 }
 
 function jg_accounting_categories(PDO $pdo): array
@@ -875,15 +1120,72 @@ function jg_accounting_account_balances(PDO $pdo): array
     return $balances;
 }
 
-function jg_accounting_latest_cash_reconciliation(PDO $pdo): ?array
+function jg_accounting_default_account_id(PDO $pdo, string $purpose = 'automatic'): int
+{
+    $where = match ($purpose) {
+        'cash' => 'balance_class = "cash"',
+        'bank' => 'balance_class = "bank"',
+        default => 'receives_automatic = 1 AND can_receive = 1',
+    };
+    $stmt = $pdo->query(
+        'SELECT id
+         FROM accounting_accounts
+         WHERE is_active = 1 AND type <> "marketplace_wallet" AND ' . $where . '
+         ORDER BY sort_order ASC, id ASC
+         LIMIT 1'
+    );
+    $id = (int) ($stmt->fetchColumn() ?: 0);
+    if ($id > 0 || $purpose === 'bank') {
+        return $id;
+    }
+    return jg_accounting_default_account_id($pdo, 'bank');
+}
+
+function jg_accounting_automatic_deposit_routes(PDO $pdo): array
 {
     try {
-        $row = $pdo->query(
-            'SELECT id, reconciliation_key, available_cash_amount, cutoff_transaction_id, note, reconciled_at, created_at
+        $rows = $pdo->query(
+            'SELECT account_id, effective_at
+             FROM accounting_automatic_deposit_routes
+             ORDER BY effective_at DESC, id DESC'
+        )->fetchAll();
+    } catch (Throwable) {
+        return [];
+    }
+    return array_map(static fn (array $row): array => [
+        'account_id' => (int) ($row['account_id'] ?? 0),
+        'effective_at' => (string) ($row['effective_at'] ?? ''),
+    ], $rows);
+}
+
+function jg_accounting_automatic_account_at(PDO $pdo, string $occurredAt, array $routes = []): int
+{
+    foreach ($routes ?: jg_accounting_automatic_deposit_routes($pdo) as $route) {
+        if ((string) ($route['effective_at'] ?? '') <= $occurredAt) {
+            return (int) ($route['account_id'] ?? 0);
+        }
+    }
+    return jg_accounting_default_account_id($pdo, 'automatic');
+}
+
+function jg_accounting_latest_cash_reconciliation(PDO $pdo, ?int $accountId = null): ?array
+{
+    try {
+        $sql =
+            'SELECT id, reconciliation_key, account_id, available_cash_amount, cutoff_transaction_id, note, reconciled_at, created_at
              FROM accounting_cash_reconciliations
+             WHERE 1 = 1';
+        $params = [];
+        if ($accountId !== null && $accountId > 0) {
+            $sql .= ' AND account_id = :account_id';
+            $params[':account_id'] = $accountId;
+        }
+        $sql .= '
              ORDER BY reconciled_at DESC, id DESC
-             LIMIT 1'
-        )->fetch();
+             LIMIT 1';
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $row = $stmt->fetch();
     } catch (Throwable) {
         return null;
     }
@@ -892,6 +1194,7 @@ function jg_accounting_latest_cash_reconciliation(PDO $pdo): ?array
     }
     return [
         'id' => (int) $row['id'],
+        'account_id' => (int) ($row['account_id'] ?? 0),
         'reconciliation_key' => (string) $row['reconciliation_key'],
         'available_cash_amount' => (int) $row['available_cash_amount'],
         'cutoff_transaction_id' => (int) $row['cutoff_transaction_id'],
@@ -911,6 +1214,25 @@ function jg_accounting_create_cash_reconciliation(PDO $pdo, array $body): array
     if ($amount < 0 || $amount > 9000000000000000) {
         jg_accounting_error('Available cash must be zero or more.', 422, 'available_cash_amount');
     }
+    $accountId = (int) ($body['account_id'] ?? 0);
+    if ($accountId <= 0) {
+        $accountId = jg_accounting_default_account_id($pdo, 'cash');
+    }
+    $accountStmt = $pdo->prepare(
+        'SELECT id, name, balance_class, is_active
+         FROM accounting_accounts
+         WHERE id = :id
+         LIMIT 1'
+    );
+    $accountStmt->execute([':id' => $accountId]);
+    $account = $accountStmt->fetch();
+    if (
+        !is_array($account)
+        || (int) ($account['is_active'] ?? 0) !== 1
+        || !in_array((string) ($account['balance_class'] ?? ''), ['bank', 'cash'], true)
+    ) {
+        jg_accounting_error('Only a bank or cash account can be reconciled here.', 422, 'account_id');
+    }
     $cutoffTransactionId = 0;
     try {
         $cutoffTransactionId = (int) ($pdo->query('SELECT COALESCE(MAX(id), 0) FROM accounting_transactions')->fetchColumn() ?: 0);
@@ -920,6 +1242,7 @@ function jg_accounting_create_cash_reconciliation(PDO $pdo, array $body): array
     $reconciledAt = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('Y-m-d H:i:s.u');
     $payload = [
         ':reconciliation_key' => jg_accounting_key('recon'),
+        ':account_id' => $accountId,
         ':available_cash_amount' => $amount,
         ':cutoff_transaction_id' => $cutoffTransactionId,
         ':note' => jg_accounting_text($body['note'] ?? '', 500),
@@ -927,15 +1250,16 @@ function jg_accounting_create_cash_reconciliation(PDO $pdo, array $body): array
     ];
     $stmt = $pdo->prepare(
         'INSERT INTO accounting_cash_reconciliations
-            (reconciliation_key, available_cash_amount, cutoff_transaction_id, note, reconciled_at, created_by, created_at)
+            (reconciliation_key, account_id, available_cash_amount, cutoff_transaction_id, note, reconciled_at, created_by, created_at)
          VALUES
-            (:reconciliation_key, :available_cash_amount, :cutoff_transaction_id, :note, :reconciled_at, NULL, UTC_TIMESTAMP(6))'
+            (:reconciliation_key, :account_id, :available_cash_amount, :cutoff_transaction_id, :note, :reconciled_at, NULL, UTC_TIMESTAMP(6))'
     );
     $stmt->execute($payload);
     $id = (int) $pdo->lastInsertId();
     jg_accounting_insert_audit($pdo, 'cash_reconciliation', $id, 'create', null, $payload);
     return [
         'id' => $id,
+        'account_id' => $accountId,
         'reconciliation_key' => $payload[':reconciliation_key'],
         'available_cash_amount' => $amount,
         'cutoff_transaction_id' => $cutoffTransactionId,
@@ -946,18 +1270,17 @@ function jg_accounting_create_cash_reconciliation(PDO $pdo, array $body): array
 function jg_accounting_cash_history(PDO $pdo): array
 {
     $rows = [];
-    $spendableTypes = ['bank', 'cash', 'ewallet'];
-
+    $accounts = [];
     $accountStmt = $pdo->query(
-        'SELECT id, name, type, platform, brand, opening_balance, current_balance_manual, created_at
+        'SELECT id, account_key, name, type, platform, brand, opening_balance, current_balance_manual,
+                balance_class, can_pay, can_receive, created_at
          FROM accounting_accounts
-         WHERE is_active = 1 AND is_spendable = 1
+         WHERE is_active = 1 AND balance_class IN ("bank", "cash")
          ORDER BY sort_order ASC, id ASC'
     );
     foreach ($accountStmt->fetchAll() as $account) {
-        if (!in_array((string) ($account['type'] ?? ''), $spendableTypes, true)) {
-            continue;
-        }
+        $accountId = (int) $account['id'];
+        $accounts[$accountId] = $account;
         $amount = $account['current_balance_manual'] !== null
             ? (int) ($account['current_balance_manual'] ?? 0)
             : (int) ($account['opening_balance'] ?? 0);
@@ -965,29 +1288,32 @@ function jg_accounting_cash_history(PDO $pdo): array
             continue;
         }
         $createdAt = trim((string) ($account['created_at'] ?? ''));
-        $platform = jg_accounting_cash_platform((string) ($account['platform'] ?? ''));
-        $cashAccount = jg_accounting_cash_account((string) ($account['brand'] ?? ''));
+        $balanceClass = (string) ($account['balance_class'] ?? 'other');
         $rows[] = [
-            'id' => 'account:' . (int) $account['id'],
+            'id' => 'account:' . $accountId,
+            'account_id' => $accountId,
+            'account_key' => (string) $account['account_key'],
+            'account_name' => (string) $account['name'],
+            'balance_class' => $balanceClass,
             'date' => $createdAt !== '' ? jg_accounting_source_local_date($createdAt) : '',
             'sort_at' => $createdAt !== '' ? $createdAt : '0000-00-00 00:00:00',
             'reason' => $account['current_balance_manual'] !== null ? 'Recorded account balance' : 'Opening balance',
             'source' => (string) ($account['name'] ?? 'Cash account'),
             'reference' => '',
             'kind' => 'account_balance',
-            'platform' => $platform['key'],
-            'platform_label' => $platform['label'],
-            'cash_account' => $cashAccount['key'],
-            'cash_account_label' => $cashAccount['label'],
+            'platform' => $balanceClass,
+            'platform_label' => $balanceClass === 'cash' ? 'Physical cash' : 'Bank',
+            'cash_account' => (string) $account['account_key'],
+            'cash_account_label' => (string) $account['name'],
             'signed_amount' => $amount,
         ];
     }
 
     $transactionStmt = $pdo->query(
-        'SELECT t.id, t.transaction_key, t.transaction_date, t.type, t.direction, t.amount,
+        'SELECT t.id, t.transaction_key, t.transaction_date, t.type, t.direction, t.account_id, t.to_account_id, t.amount,
                 t.transfer_fee_amount, t.reference_no, t.order_no, t.notes, t.channel, t.brand,
-                src.name AS account_name, src.type AS account_type, src.is_spendable AS account_is_spendable, src.is_active AS account_is_active,
-                dst.name AS to_account_name, dst.type AS to_account_type, dst.is_spendable AS to_account_is_spendable, dst.is_active AS to_account_is_active,
+                src.name AS account_name, src.account_key, src.balance_class,
+                dst.name AS to_account_name, dst.account_key AS to_account_key, dst.balance_class AS to_balance_class,
                 cp.name AS counterparty_name, c.name AS category_name
          FROM accounting_transactions t
          LEFT JOIN accounting_accounts src ON src.id = t.account_id
@@ -1012,37 +1338,14 @@ function jg_accounting_cash_history(PDO $pdo): array
     foreach ($transactionStmt->fetchAll() as $transaction) {
         $amount = (int) round((float) ($transaction['amount'] ?? 0));
         $fee = max(0, (int) round((float) ($transaction['transfer_fee_amount'] ?? 0)));
-        $sourceSpendable = (int) ($transaction['account_is_active'] ?? 0) === 1
-            && (int) ($transaction['account_is_spendable'] ?? 0) === 1
-            && in_array((string) ($transaction['account_type'] ?? ''), $spendableTypes, true);
-        $destinationSpendable = (int) ($transaction['to_account_is_active'] ?? 0) === 1
-            && (int) ($transaction['to_account_is_spendable'] ?? 0) === 1
-            && in_array((string) ($transaction['to_account_type'] ?? ''), $spendableTypes, true);
+        $sourceAccountId = (int) ($transaction['account_id'] ?? 0);
+        $destinationAccountId = (int) ($transaction['to_account_id'] ?? 0);
         $direction = (string) ($transaction['direction'] ?? '');
-        $signedAmount = 0;
-        if ($sourceSpendable && $direction === 'money_in') {
-            $signedAmount += $amount;
-        } elseif ($sourceSpendable && in_array($direction, ['money_out', 'internal_transfer'], true)) {
-            $signedAmount -= $amount;
-        }
-        if ($destinationSpendable && $direction === 'internal_transfer') {
-            $signedAmount += $amount;
-        }
-        if ($sourceSpendable) {
-            $signedAmount -= $fee;
-        }
-        if ($signedAmount === 0) {
-            continue;
-        }
-
         $type = (string) ($transaction['type'] ?? '');
         $notes = trim((string) ($transaction['notes'] ?? ''));
         $counterparty = trim((string) ($transaction['counterparty_name'] ?? ''));
         $category = trim((string) ($transaction['category_name'] ?? ''));
         $reason = $notes !== '' ? $notes : ($counterparty !== '' ? $counterparty : ($category !== '' ? $category : ($typeLabels[$type] ?? 'Cash entry')));
-        if ($fee > 0 && abs($signedAmount) === $fee && $direction === 'internal_transfer') {
-            $reason = 'Transfer fee';
-        }
         $accountRoute = trim((string) ($transaction['account_name'] ?? ''));
         if (trim((string) ($transaction['to_account_name'] ?? '')) !== '') {
             $accountRoute .= ($accountRoute !== '' ? ' → ' : '') . trim((string) $transaction['to_account_name']);
@@ -1055,30 +1358,61 @@ function jg_accounting_cash_history(PDO $pdo): array
             $reference = (string) ($transaction['transaction_key'] ?? '');
         }
         $date = (string) ($transaction['transaction_date'] ?? '');
-        $platform = jg_accounting_cash_platform((string) ($transaction['channel'] ?? ''));
-        $cashAccount = jg_accounting_cash_account((string) ($transaction['brand'] ?? ''));
-        $rows[] = [
-            'id' => 'transaction:' . (int) $transaction['id'],
-            'transaction_id' => (int) $transaction['id'],
-            'date' => $date,
-            'sort_at' => $date . ' 12:00:00',
-            'reason' => $reason,
-            'source' => ($typeLabels[$type] ?? ucwords(str_replace('_', ' ', $type))) . ($accountRoute !== '' ? ' • ' . $accountRoute : ''),
-            'reference' => $reference,
-            'kind' => 'manual_transaction',
-            'platform' => $platform['key'],
-            'platform_label' => $platform['label'],
-            'cash_account' => $cashAccount['key'],
-            'cash_account_label' => $cashAccount['label'],
-            'signed_amount' => $signedAmount,
-        ];
+        $appendMovement = static function (int $accountId, int $signedAmount, string $side) use (
+            &$rows,
+            $accounts,
+            $transaction,
+            $date,
+            $reason,
+            $type,
+            $typeLabels,
+            $accountRoute,
+            $reference
+        ): void {
+            if ($signedAmount === 0 || !isset($accounts[$accountId])) {
+                return;
+            }
+            $account = $accounts[$accountId];
+            $balanceClass = (string) ($account['balance_class'] ?? 'other');
+            $rows[] = [
+                'id' => 'transaction:' . (int) $transaction['id'] . ':' . $side,
+                'transaction_id' => (int) $transaction['id'],
+                'account_id' => $accountId,
+                'account_key' => (string) $account['account_key'],
+                'account_name' => (string) $account['name'],
+                'balance_class' => $balanceClass,
+                'date' => $date,
+                'sort_at' => $date . ($side === 'destination' ? ' 12:00:01' : ' 12:00:00'),
+                'reason' => $reason,
+                'source' => ($typeLabels[$type] ?? ucwords(str_replace('_', ' ', $type))) . ($accountRoute !== '' ? ' • ' . $accountRoute : ''),
+                'reference' => $reference,
+                'kind' => 'manual_transaction',
+                'platform' => $balanceClass,
+                'platform_label' => $balanceClass === 'cash' ? 'Physical cash' : 'Bank',
+                'cash_account' => (string) $account['account_key'],
+                'cash_account_label' => (string) $account['name'],
+                'signed_amount' => $signedAmount,
+            ];
+        };
+        if ($direction === 'money_in') {
+            $appendMovement($sourceAccountId, $amount - $fee, 'source');
+        } elseif (in_array($direction, ['money_out', 'internal_transfer'], true)) {
+            $appendMovement($sourceAccountId, -($amount + $fee), 'source');
+        }
+        if ($direction === 'internal_transfer') {
+            $appendMovement($destinationAccountId, $amount, 'destination');
+        }
     }
 
+    $automaticRoutes = jg_accounting_automatic_deposit_routes($pdo);
     foreach (jg_accounting_automatic_cash_records($pdo) as $record) {
         $amount = (int) ($record['usable_cash_amount'] ?? 0);
-        if ($amount <= 0) {
+        $occurredAt = (string) ($record['occurred_at'] ?? (($record['record_date'] ?? '') . ' 12:00:00'));
+        $automaticAccountId = jg_accounting_automatic_account_at($pdo, $occurredAt, $automaticRoutes);
+        if ($amount <= 0 || !isset($accounts[$automaticAccountId])) {
             continue;
         }
+        $account = $accounts[$automaticAccountId];
         $sourceType = (string) ($record['source_type'] ?? '');
         $counterparty = trim((string) ($record['counterparty'] ?? ''));
         $notes = trim((string) ($record['notes'] ?? ''));
@@ -1103,32 +1437,55 @@ function jg_accounting_cash_history(PDO $pdo): array
             trim((string) ($record['platform'] ?? '')),
             trim((string) ($record['account_key'] ?? '')),
         ])));
-        $platform = jg_accounting_cash_platform((string) ($record['platform'] ?? ''));
-        $cashAccount = jg_accounting_cash_account(implode(' ', [
-            (string) ($record['account_key'] ?? ''),
-            (string) ($record['platform'] ?? ''),
-        ]));
+        $sourcePlatform = jg_accounting_cash_platform((string) ($record['platform'] ?? 'automatic'));
         $rows[] = [
             'id' => (string) ($record['source_key'] ?? ''),
+            'account_id' => $automaticAccountId,
+            'account_key' => (string) $account['account_key'],
+            'account_name' => (string) $account['name'],
+            'balance_class' => (string) $account['balance_class'],
             'date' => (string) ($record['record_date'] ?? ''),
-            'sort_at' => (string) ($record['occurred_at'] ?? (($record['record_date'] ?? '') . ' 12:00:00')),
+            'sort_at' => $occurredAt,
             'reason' => $reason,
             'source' => $source,
             'reference' => $orderId !== '' ? $orderId : (string) ($record['source_key'] ?? ''),
             'kind' => 'automatic_cash',
-            'platform' => $platform['key'],
-            'platform_label' => $platform['label'],
-            'cash_account' => $cashAccount['key'],
-            'cash_account_label' => $cashAccount['label'],
+            'platform' => $sourcePlatform['key'],
+            'platform_label' => $sourcePlatform['label'],
+            'cash_account' => (string) $account['account_key'],
+            'cash_account_label' => (string) $account['name'],
             'signed_amount' => $amount,
         ];
     }
 
-    $reconciliation = jg_accounting_latest_cash_reconciliation($pdo);
-    if ($reconciliation !== null) {
-        $cutoffId = (int) $reconciliation['cutoff_transaction_id'];
-        $reconciledAt = (string) $reconciliation['reconciled_at'];
-        $rows = array_values(array_filter($rows, static function (array $row) use ($cutoffId, $reconciledAt): bool {
+    $reconciliations = [];
+    try {
+        $reconciliationRows = $pdo->query(
+            'SELECT id, reconciliation_key, account_id, available_cash_amount, cutoff_transaction_id, note, reconciled_at, created_at
+             FROM accounting_cash_reconciliations
+             ORDER BY reconciled_at DESC, id DESC'
+        )->fetchAll();
+        foreach ($reconciliationRows as $reconciliationRow) {
+            $accountId = (int) ($reconciliationRow['account_id'] ?? 0);
+            if ($accountId <= 0) {
+                $accountId = jg_accounting_default_account_id($pdo, 'bank');
+            }
+            if (!isset($reconciliations[$accountId]) && isset($accounts[$accountId])) {
+                $reconciliationRow['account_id'] = $accountId;
+                $reconciliations[$accountId] = $reconciliationRow;
+            }
+        }
+    } catch (Throwable) {
+        $reconciliations = [];
+    }
+
+    foreach ($reconciliations as $accountId => $reconciliation) {
+        $cutoffId = (int) ($reconciliation['cutoff_transaction_id'] ?? 0);
+        $reconciledAt = (string) ($reconciliation['reconciled_at'] ?? '');
+        $rows = array_values(array_filter($rows, static function (array $row) use ($accountId, $cutoffId, $reconciledAt): bool {
+            if ((int) ($row['account_id'] ?? 0) !== $accountId) {
+                return true;
+            }
             $kind = (string) ($row['kind'] ?? '');
             if ($kind === 'account_balance') {
                 return false;
@@ -1141,21 +1498,27 @@ function jg_accounting_cash_history(PDO $pdo): array
             }
             return true;
         }));
+        $account = $accounts[$accountId];
+        $balanceClass = (string) ($account['balance_class'] ?? 'other');
         $localDate = jg_accounting_source_local_date($reconciledAt);
         $rows[] = [
             'id' => 'reconciliation:' . (int) $reconciliation['id'],
+            'account_id' => $accountId,
+            'account_key' => (string) $account['account_key'],
+            'account_name' => (string) $account['name'],
+            'balance_class' => $balanceClass,
             'date' => $localDate,
             'sort_at' => $reconciledAt,
             'reason' => (string) $reconciliation['note'] !== ''
                 ? (string) $reconciliation['note']
-                : 'Cash counted and reconciled',
-            'source' => 'Cash reconciliation baseline',
+                : 'Balance verified and reconciled',
+            'source' => (string) $account['name'] . ' reconciliation',
             'reference' => (string) $reconciliation['reconciliation_key'],
             'kind' => 'cash_reconciliation',
-            'platform' => 'reconciliation',
-            'platform_label' => 'Reconciliation',
-            'cash_account' => 'all',
-            'cash_account_label' => 'All cash',
+            'platform' => $balanceClass,
+            'platform_label' => $balanceClass === 'cash' ? 'Physical cash' : 'Bank',
+            'cash_account' => (string) $account['account_key'],
+            'cash_account_label' => (string) $account['name'],
             'signed_amount' => (int) $reconciliation['available_cash_amount'],
         ];
     }
@@ -1166,11 +1529,16 @@ function jg_accounting_cash_history(PDO $pdo): array
     });
 
     $runningBalance = 0;
+    $accountBalances = array_fill_keys(array_keys($accounts), 0);
     $totalAdded = 0;
     $totalSubtracted = 0;
     foreach ($rows as &$row) {
         $signedAmount = (int) ($row['signed_amount'] ?? 0);
         $runningBalance += $signedAmount;
+        $accountId = (int) ($row['account_id'] ?? 0);
+        if (isset($accountBalances[$accountId])) {
+            $accountBalances[$accountId] += $signedAmount;
+        }
         if ($signedAmount > 0) {
             $totalAdded += $signedAmount;
         } else {
@@ -1179,19 +1547,33 @@ function jg_accounting_cash_history(PDO $pdo): array
         $row['amount_added'] = max(0, $signedAmount);
         $row['amount_subtracted'] = max(0, -$signedAmount);
         $row['running_balance'] = $runningBalance;
+        $row['account_running_balance'] = (int) ($accountBalances[$accountId] ?? 0);
         unset($row['sort_at'], $row['signed_amount'], $row['transaction_id']);
     }
     unset($row);
     $rows = array_reverse($rows);
+    $bankBalance = 0;
+    $cashAvailable = 0;
+    foreach ($accounts as $accountId => $account) {
+        if ((string) ($account['balance_class'] ?? '') === 'bank') {
+            $bankBalance += (int) ($accountBalances[$accountId] ?? 0);
+        } elseif ((string) ($account['balance_class'] ?? '') === 'cash') {
+            $cashAvailable += (int) ($accountBalances[$accountId] ?? 0);
+        }
+    }
 
     return [
         'rows' => $rows,
         'summary' => [
             'current_cash' => $runningBalance,
+            'bank_balance' => $bankBalance,
+            'cash_available' => $cashAvailable,
+            'operating_funds' => $bankBalance + $cashAvailable,
             'total_added' => $totalAdded,
             'total_subtracted' => $totalSubtracted,
             'entry_count' => count($rows),
-            'reconciliation' => $reconciliation,
+            'reconciliation' => jg_accounting_latest_cash_reconciliation($pdo),
+            'reconciliations' => array_values($reconciliations),
         ],
     ];
 }
@@ -2160,21 +2542,10 @@ function jg_accounting_summary(PDO $pdo, string $month): array
     $soon = jg_accounting_now()->modify('+7 days')->format('Y-m-d');
     $automaticUsableCash = jg_accounting_automatic_usable_cash_context($pdo);
     $cashReconciliation = jg_accounting_latest_cash_reconciliation($pdo);
-    $cashHistory = null;
-    if ($cashReconciliation !== null) {
-        $cashHistory = jg_accounting_cash_history($pdo);
-        $realCash = (int) ($cashHistory['summary']['current_cash'] ?? 0);
-    } else {
-        $balances = jg_accounting_account_balances($pdo);
-        $accounts = $pdo->query('SELECT id, type, is_spendable FROM accounting_accounts WHERE is_active = 1')->fetchAll();
-        $realCash = 0;
-        foreach ($accounts as $account) {
-            if ((int) $account['is_spendable'] === 1 && in_array((string) $account['type'], ['bank', 'cash', 'ewallet'], true)) {
-                $realCash += (int) ($balances[(int) $account['id']] ?? 0);
-            }
-        }
-        $realCash += (int) $automaticUsableCash['amount'];
-    }
+    $cashHistory = jg_accounting_cash_history($pdo);
+    $bankBalance = (int) ($cashHistory['summary']['bank_balance'] ?? 0);
+    $cashAvailable = (int) ($cashHistory['summary']['cash_available'] ?? 0);
+    $operatingFunds = $bankBalance + $cashAvailable;
 
     $sumBill = static function (PDO $pdo, string $sql, array $params): int {
         $stmt = $pdo->prepare($sql);
@@ -2220,13 +2591,17 @@ function jg_accounting_summary(PDO $pdo, string $month): array
          WHERE status = "open"'
     )->fetchColumn();
     $marketplaceOutstanding = jg_accounting_marketplace_outstanding_context($pdo);
+    $realCash = $operatingFunds;
     $safeCash = $realCash - $accountingBillsDueSoon - $overdueBills;
 
     $monthly = jg_accounting_monthly_summary($pdo, $month);
 
     return [
         'kpis' => [
-            'real_cash_available' => $realCash,
+            'real_cash_available' => $bankBalance,
+            'bank_balance' => $bankBalance,
+            'cash_available' => $cashAvailable,
+            'operating_funds' => $operatingFunds,
             'marketplace_outstanding' => $marketplaceOutstanding['amount'],
             'bills_due_soon' => $billsDueSoon,
             'partner_bills_due' => $partnerBillsDue,
@@ -2238,6 +2613,7 @@ function jg_accounting_summary(PDO $pdo, string $month): array
         'marketplace_outstanding_context' => $marketplaceOutstanding,
         'wallet_breakdown' => jg_accounting_wallet_breakdown($pdo, $marketplaceOutstanding),
         'cash_reconciliation' => $cashReconciliation,
+        'balance_reconciliations' => (array) ($cashHistory['summary']['reconciliations'] ?? []),
         'automatic_usable_cash_context' => $automaticUsableCash,
         'wallet_usable_cash_context' => [
             'amount' => (int) $automaticUsableCash['wallet_withdrawals_to_bank'],
@@ -2749,6 +3125,15 @@ function jg_accounting_activity_ledger(PDO $pdo, array $filters): array
         ];
     }
 
+    $automaticRoutes = jg_accounting_automatic_deposit_routes($pdo);
+    $automaticAccountNames = [];
+    try {
+        foreach ($pdo->query('SELECT id, name FROM accounting_accounts')->fetchAll() as $account) {
+            $automaticAccountNames[(int) $account['id']] = (string) $account['name'];
+        }
+    } catch (Throwable) {
+        $automaticAccountNames = [];
+    }
     foreach (jg_accounting_automatic_cash_records($pdo, ['month' => $month]) as $record) {
         $amount = (int) ($record['usable_cash_amount'] ?? 0);
         if ($amount <= 0) {
@@ -2760,6 +3145,11 @@ function jg_accounting_activity_ledger(PDO $pdo, array $filters): array
             'direct_order_payment' => 'Direct order payment',
             default => 'Wallet payout',
         };
+        $automaticAccountId = jg_accounting_automatic_account_at(
+            $pdo,
+            (string) ($record['occurred_at'] ?? ''),
+            $automaticRoutes
+        );
         $rows[] = [
             'id' => 'automatic:' . (string) ($record['source_key'] ?? ''),
             'kind' => 'automatic',
@@ -2768,7 +3158,7 @@ function jg_accounting_activity_ledger(PDO $pdo, array $filters): array
             'sort_at' => (string) ($record['occurred_at'] ?? ''),
             'title' => $title,
             'subtitle' => trim((string) ($record['counterparty'] ?? '')) ?: (string) ($record['source_label'] ?? ''),
-            'account' => trim(ucwords(str_replace(['_', '-'], ' ', (string) ($record['platform'] ?? 'Automatic')))),
+            'account' => (string) ($automaticAccountNames[$automaticAccountId] ?? 'Automatic deposit account'),
             'amount' => $amount,
             'signed_amount' => $amount,
             'impact' => 'cash_in',
@@ -2780,10 +3170,12 @@ function jg_accounting_activity_ledger(PDO $pdo, array $filters): array
     try {
         $range = jg_accounting_month_utc_bounds($month);
         $stmt = $pdo->prepare(
-            'SELECT id, reconciliation_key, available_cash_amount, note, reconciled_at
-             FROM accounting_cash_reconciliations
-             WHERE reconciled_at >= :start_at AND reconciled_at < :end_at
-             ORDER BY reconciled_at DESC, id DESC'
+            'SELECT r.id, r.reconciliation_key, r.account_id, r.available_cash_amount, r.note, r.reconciled_at,
+                    a.name AS account_name
+             FROM accounting_cash_reconciliations r
+             LEFT JOIN accounting_accounts a ON a.id = r.account_id
+             WHERE r.reconciled_at >= :start_at AND r.reconciled_at < :end_at
+             ORDER BY r.reconciled_at DESC, r.id DESC'
         );
         $stmt->execute([':start_at' => $range['start_at'], ':end_at' => $range['end_at']]);
         foreach ($stmt->fetchAll() as $reconciliation) {
@@ -2793,9 +3185,9 @@ function jg_accounting_activity_ledger(PDO $pdo, array $filters): array
                 'source_id' => (int) $reconciliation['id'],
                 'date' => jg_accounting_source_local_date((string) $reconciliation['reconciled_at']),
                 'sort_at' => (string) $reconciliation['reconciled_at'],
-                'title' => 'Cash reconciled',
-                'subtitle' => (string) ($reconciliation['note'] ?? '') ?: 'New available-cash baseline',
-                'account' => 'All cash',
+                'title' => 'Balance reconciled',
+                'subtitle' => (string) ($reconciliation['note'] ?? '') ?: 'New account balance baseline',
+                'account' => (string) ($reconciliation['account_name'] ?? 'Balance account'),
                 'amount' => (int) $reconciliation['available_cash_amount'],
                 'signed_amount' => (int) $reconciliation['available_cash_amount'],
                 'impact' => 'baseline',
@@ -2859,13 +3251,13 @@ function jg_accounting_create_transaction(PDO $pdo, array $body): array
     if (!in_array($direction, ['money_out','money_in','internal_transfer'], true)) {
         jg_accounting_error('Invalid direction.', 422, 'direction');
     }
-
     $amount = jg_accounting_amount($body['amount'] ?? null);
     $accountId = (int) ($body['account_id'] ?? $body['paid_from_account_id'] ?? 0);
     $toAccountId = (int) ($body['to_account_id'] ?? 0);
     if ($accountId <= 0) {
         jg_accounting_error('Choose which account paid this.', 422, 'account_id');
     }
+    jg_accounting_account_for_role($pdo, $accountId, $direction === 'money_in' ? 'receive' : 'pay');
     if ($type === 'transfer') {
         if ($toAccountId <= 0) {
             jg_accounting_error('Choose the destination account.', 422, 'to_account_id');
@@ -2873,6 +3265,7 @@ function jg_accounting_create_transaction(PDO $pdo, array $body): array
         if ($toAccountId === $accountId) {
             jg_accounting_error('From account and To account cannot be same.', 422, 'to_account_id');
         }
+        jg_accounting_account_for_role($pdo, $toAccountId, 'receive');
     }
 
     $categoryId = (int) ($body['category_id'] ?? 0);
@@ -3233,6 +3626,18 @@ function jg_accounting_update_transaction(PDO $pdo, array $body): array
     if (!in_array($direction, ['money_out','money_in','internal_transfer'], true)) {
         jg_accounting_error('Invalid direction.', 422, 'direction');
     }
+    $accountId = (int) ($body['account_id'] ?? $old['account_id']);
+    $toAccountId = (int) ($body['to_account_id'] ?? $old['to_account_id']);
+    if ($accountId <= 0) {
+        jg_accounting_error('Choose an account.', 422, 'account_id');
+    }
+    jg_accounting_account_for_role($pdo, $accountId, $direction === 'money_in' ? 'receive' : 'pay');
+    if ($direction === 'internal_transfer') {
+        if ($toAccountId <= 0 || $toAccountId === $accountId) {
+            jg_accounting_error('Choose a different receiving account.', 422, 'to_account_id');
+        }
+        jg_accounting_account_for_role($pdo, $toAccountId, 'receive');
+    }
     $counterpartyId = jg_accounting_get_counterparty(
         $pdo,
         $body['counterparty_id'] ?? $old['counterparty_id'],
@@ -3245,8 +3650,8 @@ function jg_accounting_update_transaction(PDO $pdo, array $body): array
         ':business_month' => jg_accounting_business_month($date),
         ':type' => $type,
         ':direction' => $direction,
-        ':account_id' => (int) ($body['account_id'] ?? $old['account_id']) ?: null,
-        ':to_account_id' => (int) ($body['to_account_id'] ?? $old['to_account_id']) ?: null,
+        ':account_id' => $accountId,
+        ':to_account_id' => $toAccountId ?: null,
         ':counterparty_id' => $counterpartyId,
         ':category_id' => (int) ($body['category_id'] ?? $old['category_id']) ?: null,
         ':brand' => jg_accounting_text($body['brand'] ?? $old['brand'], 80),

@@ -17,14 +17,16 @@ function summary_expect(mixed $expected, mixed $actual, string $message): void
 $pdo = new PDO('sqlite::memory:');
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 $pdo->exec('CREATE TABLE accounting_accounts (
-    id INTEGER PRIMARY KEY, account_key TEXT, type TEXT, platform TEXT, brand TEXT,
-    opening_balance REAL, current_balance_manual REAL NULL, is_spendable INTEGER, is_active INTEGER
+    id INTEGER PRIMARY KEY, account_key TEXT, name TEXT, type TEXT, platform TEXT, brand TEXT,
+    opening_balance REAL, current_balance_manual REAL NULL, is_spendable INTEGER, is_active INTEGER,
+    balance_class TEXT, can_pay INTEGER, can_receive INTEGER, receives_automatic INTEGER,
+    sort_order INTEGER, created_at TEXT
 )');
 $pdo->exec('CREATE TABLE accounting_transactions (
-    id INTEGER PRIMARY KEY, status TEXT, type TEXT, direction TEXT, account_id INTEGER,
+    id INTEGER PRIMARY KEY, transaction_key TEXT, status TEXT, type TEXT, direction TEXT, account_id INTEGER,
     to_account_id INTEGER, business_month TEXT, transaction_date TEXT, amount REAL,
     transfer_fee_amount REAL, category_id INTEGER NULL, counterparty_id INTEGER NULL,
-    brand TEXT, channel TEXT, receipt_status TEXT, order_no TEXT, reference_no TEXT, invoice_no TEXT
+    brand TEXT, channel TEXT, receipt_status TEXT, order_no TEXT, reference_no TEXT, invoice_no TEXT, notes TEXT
 )');
 $pdo->exec('CREATE TABLE accounting_bills (
     id INTEGER PRIMARY KEY, status TEXT, outstanding_amount REAL, due_date TEXT,
@@ -55,10 +57,10 @@ $pdo->exec('CREATE TABLE dashboard_order_mirror (
 )');
 
 $pdo->exec("INSERT INTO accounting_accounts VALUES
-    (1, 'bca-main', 'bank', '', '', 0, NULL, 1, 1),
-    (2, 'shopee-jg-wallet', 'marketplace_wallet', 'shopee', 'Jenang Gemi', 0, NULL, 0, 1)");
+    (1, 'bca-main', 'BCA Main', 'bank', '', '', 0, NULL, 1, 1, 'bank', 1, 1, 1, 10, '2026-01-01 00:00:00'),
+    (2, 'shopee-jg-wallet', 'Shopee Wallet', 'marketplace_wallet', 'shopee', 'Jenang Gemi', 0, NULL, 0, 1, 'wallet', 0, 0, 0, 20, '2026-01-01 00:00:00')");
 $pdo->exec("INSERT INTO accounting_transactions VALUES
-    (1, 'posted', 'manual_income', 'money_in', 1, NULL, '2026-07', '2026-07-02', 50000, 0, NULL, NULL, 'Jenang Gemi', 'Offline', 'not_required', '', '', '')");
+    (1, 'TX-1', 'posted', 'manual_income', 'money_in', 1, NULL, '2026-07', '2026-07-02', 50000, 0, NULL, NULL, 'Jenang Gemi', 'Offline', 'not_required', '', '', '', '')");
 $pdo->exec("INSERT INTO dashboard_wallet_releases VALUES
     (1, 'shopee', 'jenang-gemi-shopee', 60000, 'bank withdrawal', 'test', '2026-07-03 05:00:00', '2026-07-03 05:00:00', NULL)");
 $pdo->exec("INSERT INTO website_orders VALUES
@@ -76,7 +78,9 @@ $pdo->prepare('INSERT INTO accounting_bills VALUES (2, "unpaid", 10000, :due, "2
     ->execute([':due' => $overdue]);
 
 $summary = jg_accounting_summary($pdo, '2026-07');
-summary_expect(190000, $summary['kpis']['real_cash_available'], 'Available cash must add manual money-in, confirmed website payments, and Wallet withdrawals exactly once.');
+summary_expect(190000, $summary['kpis']['bank_balance'], 'Bank balance must add manual money-in, confirmed website payments, and Wallet withdrawals exactly once.');
+summary_expect(0, $summary['kpis']['cash_available'], 'Available cash must exclude bank deposits until money is transferred to a cash account.');
+summary_expect(190000, $summary['kpis']['real_cash_available'], 'The legacy KPI alias must now mean bank balance.');
 summary_expect(70000, $summary['kpis']['marketplace_outstanding'], 'Outstanding cash must equal unreleased settling marketplace orders.');
 summary_expect(20000, $summary['kpis']['bills_due_soon'], 'Bills due soon must include only open bills due in the next seven days.');
 summary_expect(10000, $summary['kpis']['overdue_bills'], 'Overdue bills must remain separate from due-soon bills.');

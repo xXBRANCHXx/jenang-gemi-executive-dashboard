@@ -52,6 +52,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                     </div>
                     <div class="admin-accounting-command-actions">
                         <button type="button" class="admin-ghost-btn" data-accounting-refresh>Refresh</button>
+                        <button type="button" class="admin-ghost-btn" data-accounting-settings>Accounts</button>
                         <details class="admin-accounting-export-menu">
                             <summary class="admin-ghost-btn">Export</summary>
                             <div>
@@ -68,12 +69,20 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
 
                 <section class="admin-accounting-pulse" aria-label="Cash position">
                     <div class="admin-accounting-pulse-main">
-                        <span class="admin-panel-kicker">Available now</span>
-                        <strong data-accounting-pulse-cash>Rp0</strong>
-                        <p data-accounting-reconciliation-copy>Built from opening balances and every confirmed movement.</p>
+                        <span class="admin-panel-kicker">Bank balance</span>
+                        <strong data-accounting-pulse-bank>Rp0</strong>
+                        <p data-accounting-reconciliation-copy>Money already deposited and available in business bank accounts.</p>
                         <div>
-                            <button type="button" class="admin-primary-btn" data-accounting-reconcile-open>Reconcile cash</button>
-                            <button type="button" class="admin-ghost-btn" data-accounting-cash-history-open>View cash ledger</button>
+                            <button type="button" class="admin-primary-btn" data-accounting-reconcile-open="bank">Reconcile bank</button>
+                            <button type="button" class="admin-ghost-btn" data-accounting-cash-history-open="bank">View bank ledger</button>
+                        </div>
+                        <div class="admin-accounting-cash-pocket">
+                            <span>Available cash · Cash Office</span>
+                            <strong data-accounting-pulse-cash>Rp0</strong>
+                            <div>
+                                <button type="button" data-accounting-reconcile-open="cash">Reconcile cash</button>
+                                <button type="button" data-accounting-cash-history-open="cash">View cash ledger</button>
+                            </div>
                         </div>
                     </div>
                     <div class="admin-accounting-wallets">
@@ -88,10 +97,15 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                 </section>
 
                 <section class="admin-accounting-metrics" aria-label="Accounting metrics">
-                    <button type="button" class="admin-accounting-metric admin-accounting-cash-card" data-accounting-cash-history-open aria-haspopup="dialog" aria-controls="accounting-cash-history" aria-label="View Cash Available history">
-                        <span>Cash Available</span>
-                        <strong data-accounting-kpi="real-cash">Rp0</strong>
-                        <small>View additions &amp; subtractions <b aria-hidden="true">→</b></small>
+                    <button type="button" class="admin-accounting-metric admin-accounting-cash-card" data-accounting-cash-history-open="bank" aria-haspopup="dialog" aria-controls="accounting-cash-history" aria-label="View Bank Balance history">
+                        <span>Bank Balance</span>
+                        <strong data-accounting-kpi="bank-balance">Rp0</strong>
+                        <small>Deposited funds <b aria-hidden="true">→</b></small>
+                    </button>
+                    <button type="button" class="admin-accounting-metric admin-accounting-cash-card" data-accounting-cash-history-open="cash" aria-haspopup="dialog" aria-controls="accounting-cash-history" aria-label="View Available Cash history">
+                        <span>Available Cash</span>
+                        <strong data-accounting-kpi="cash-available">Rp0</strong>
+                        <small>Physical cash on hand <b aria-hidden="true">→</b></small>
                     </button>
                     <button type="button" class="admin-accounting-metric admin-accounting-cash-card" data-accounting-marketplace-open aria-haspopup="dialog">
                         <span>Marketplace</span>
@@ -130,7 +144,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                         <div class="admin-accounting-helper" data-accounting-mode-helper>Money already paid from the business.</div>
                         <form class="admin-accounting-form" data-accounting-form>
                             <input type="hidden" name="mode" data-accounting-mode-field value="expense_paid">
-                            <div class="admin-accounting-warning" data-accounting-marketplace-warning hidden>Marketplace sales are already counted from Orders/Wallet. Use Transfer for payouts.</div>
+                            <div class="admin-accounting-warning" data-accounting-marketplace-warning hidden>Marketplace payouts are added automatically when they reach the bank. Do not enter them again.</div>
                             <label data-accounting-field="transaction_date">
                                 <span>Date</span>
                                 <input type="date" name="transaction_date" data-accounting-date>
@@ -161,6 +175,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                             </label>
                             <label data-accounting-field="category_id">
                                 <span>Category</span>
+                                <input type="search" data-accounting-category-search placeholder="Type to filter categories…" autocomplete="off">
                                 <select name="category_id" data-accounting-category-select required></select>
                             </label>
                             <label data-accounting-field="counterparty">
@@ -227,7 +242,6 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                                             <option>Cash</option>
                                             <option>QRIS</option>
                                             <option>E-wallet</option>
-                                            <option>Marketplace Wallet</option>
                                             <option>Card</option>
                                             <option>Other</option>
                                         </select>
@@ -341,8 +355,8 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                         <div class="admin-modal-head">
                             <div>
                                 <span class="admin-panel-kicker">Cash count</span>
-                                <h3 id="accounting-reconcile-title">Set available cash</h3>
-                                <p>Use the amount you can verify now. This becomes the new baseline; every future entry and automatic payment moves from it.</p>
+                                <h3 id="accounting-reconcile-title" data-accounting-reconcile-title>Reconcile balance</h3>
+                                <p data-accounting-reconcile-copy>Use the amount you can verify now. Future entries move from this account baseline.</p>
                             </div>
                             <button type="button" class="admin-accounting-cash-history-close" data-accounting-reconcile-close aria-label="Close reconciliation">
                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
@@ -350,12 +364,16 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                         </div>
                         <form data-accounting-reconcile-form>
                             <label>
-                                <span>Verified available cash</span>
+                                <span>Account</span>
+                                <select name="account_id" data-accounting-reconcile-account required></select>
+                            </label>
+                            <label>
+                                <span>Verified balance</span>
                                 <input type="text" inputmode="numeric" name="available_cash_amount" data-accounting-reconcile-amount placeholder="Rp0" required>
                             </label>
                             <label>
                                 <span>Count note</span>
-                                <input type="text" name="note" maxlength="500" placeholder="e.g. Bank and cash counted at close">
+                                <input type="text" name="note" maxlength="500" placeholder="e.g. Counted at close">
                             </label>
                             <p>Reconciliation is permanent and appears in the ledger. It does not delete earlier records.</p>
                             <p class="admin-form-error" data-accounting-reconcile-error hidden></p>
@@ -367,14 +385,52 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                     </section>
                 </div>
 
+                <div class="admin-modal-shell admin-accounting-account-settings" data-accounting-account-settings hidden>
+                    <button type="button" class="admin-modal-backdrop" data-accounting-account-settings-close aria-label="Close account settings"></button>
+                    <section class="admin-modal-card admin-accounting-account-settings-card" role="dialog" aria-modal="true" aria-labelledby="accounting-account-settings-title" tabindex="-1">
+                        <div class="admin-modal-head">
+                            <div>
+                                <span class="admin-panel-kicker">Payment controls</span>
+                                <h3 id="accounting-account-settings-title">Accounts</h3>
+                                <p>Choose which real accounts can pay, receive, and collect automatic online deposits. Marketplace wallets always remain read-only.</p>
+                            </div>
+                            <button type="button" class="admin-accounting-cash-history-close" data-accounting-account-settings-close aria-label="Close account settings">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+                            </button>
+                        </div>
+                        <div class="admin-accounting-account-settings-grid">
+                            <div data-accounting-account-list></div>
+                            <form data-accounting-account-form>
+                                <input type="hidden" name="account_id" value="">
+                                <label><span>Account name</span><input type="text" name="name" maxlength="160" placeholder="e.g. BRI Operations" required></label>
+                                <label>
+                                    <span>Balance group</span>
+                                    <select name="balance_class" required>
+                                        <option value="bank">Bank balance</option>
+                                        <option value="cash">Available cash</option>
+                                    </select>
+                                </label>
+                                <label class="admin-accounting-account-toggle"><input type="checkbox" name="can_pay" value="1"><span>Show in Paid From</span></label>
+                                <label class="admin-accounting-account-toggle"><input type="checkbox" name="can_receive" value="1"><span>Show in Received Into / transfers</span></label>
+                                <label class="admin-accounting-account-toggle"><input type="checkbox" name="receives_automatic" value="1"><span>Automatic online deposits land here</span></label>
+                                <p class="admin-form-error" data-accounting-account-error hidden></p>
+                                <div>
+                                    <button type="button" class="admin-ghost-btn" data-accounting-account-new>New account</button>
+                                    <button type="submit" class="admin-primary-btn">Save account</button>
+                                </div>
+                            </form>
+                        </div>
+                    </section>
+                </div>
+
                 <div class="admin-modal-shell admin-accounting-cash-history" id="accounting-cash-history" data-accounting-cash-history hidden>
                     <button type="button" class="admin-modal-backdrop" data-accounting-cash-history-close aria-label="Close cash history"></button>
                     <section class="admin-modal-card admin-accounting-cash-history-card" role="dialog" aria-modal="true" aria-labelledby="accounting-cash-history-title" tabindex="-1">
                         <div class="admin-modal-head admin-accounting-cash-history-head">
                             <div>
-                                <span class="admin-panel-kicker">All-time cash ledger</span>
-                                <h3 id="accounting-cash-history-title">Cash Available history</h3>
-                                <p>Every addition and subtraction that makes up the current cash balance.</p>
+                                <span class="admin-panel-kicker">All-time balance ledger</span>
+                                <h3 id="accounting-cash-history-title" data-accounting-cash-history-title>Balance history</h3>
+                                <p data-accounting-cash-history-copy>Every addition and subtraction for the selected balance.</p>
                             </div>
                             <button type="button" class="admin-accounting-cash-history-close" data-accounting-cash-history-close aria-label="Close cash history" title="Close">
                                 <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -389,18 +445,17 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                         </div>
                         <div class="admin-accounting-cash-history-tools">
                             <label>
-                                <span>Platform</span>
-                                <select data-accounting-cash-history-platform aria-label="Filter cash history by platform">
-                                    <option value="all">All platforms</option>
+                                <span>Balance type</span>
+                                <select data-accounting-cash-history-balance-class aria-label="Filter balance history by type">
+                                    <option value="all">Bank + cash</option>
+                                    <option value="bank">Bank balance</option>
+                                    <option value="cash">Available cash</option>
                                 </select>
                             </label>
                             <label>
                                 <span>Account</span>
                                 <select data-accounting-cash-history-account aria-label="Filter cash history by account">
                                     <option value="all">All accounts</option>
-                                    <option value="jenang-gemi">Jenang Gemi</option>
-                                    <option value="zero">ZERO</option>
-                                    <option value="zfit">ZFIT</option>
                                 </select>
                             </label>
                             <label>

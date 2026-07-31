@@ -3,8 +3,8 @@ const root = document.querySelector('[data-accounting-page]');
 if (root) {
   const DASHBOARD_TIMEZONE = 'Asia/Jakarta';
   const endpoint = root.dataset.accountingEndpoint || '../api/accounting/';
-  const ACCOUNTING_CACHE_PREFIX = 'jg-accounting-page-cache-v5';
-  const ACCOUNTING_LOOKUPS_CACHE_KEY = 'jg-accounting-lookups-cache-v1';
+  const ACCOUNTING_CACHE_PREFIX = 'jg-accounting-page-cache-v6';
+  const ACCOUNTING_LOOKUPS_CACHE_KEY = 'jg-accounting-lookups-cache-v2';
   const ACCOUNTING_CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
   const escapeHtml = (value) => String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -111,7 +111,8 @@ if (root) {
     lookupsLoaded: false,
     cashHistory: [],
     cashHistorySummary: {},
-    cashHistoryLoaded: false
+    cashHistoryLoaded: false,
+    cashHistoryScope: 'all'
   };
 
   const refs = {
@@ -129,7 +130,8 @@ if (root) {
     cashRecordsExportButton: root.querySelector('[data-accounting-cash-records-export]'),
     settingsButton: root.querySelector('[data-accounting-settings]'),
     kpis: {
-      realCash: root.querySelector('[data-accounting-kpi="real-cash"]'),
+      bankBalance: root.querySelector('[data-accounting-kpi="bank-balance"]'),
+      cashAvailable: root.querySelector('[data-accounting-kpi="cash-available"]'),
       marketplaceOutstanding: root.querySelector('[data-accounting-kpi="marketplace-outstanding"]'),
       billsDue: root.querySelector('[data-accounting-kpi="bills-due"]'),
       overdue: root.querySelector('[data-accounting-kpi="overdue"]'),
@@ -143,7 +145,7 @@ if (root) {
     cashHistoryCard: root.querySelector('.admin-accounting-cash-history-card'),
     cashHistoryCloseButtons: root.querySelectorAll('[data-accounting-cash-history-close]'),
     cashHistoryBody: root.querySelector('[data-accounting-cash-history-body]'),
-    cashHistoryPlatform: root.querySelector('[data-accounting-cash-history-platform]'),
+    cashHistoryBalanceClass: root.querySelector('[data-accounting-cash-history-balance-class]'),
     cashHistoryAccount: root.querySelector('[data-accounting-cash-history-account]'),
     cashHistoryDirection: root.querySelector('[data-accounting-cash-history-direction]'),
     cashHistoryCount: root.querySelector('[data-accounting-cash-history-count]'),
@@ -152,6 +154,9 @@ if (root) {
     cashHistoryAdded: root.querySelector('[data-accounting-cash-history-added]'),
     cashHistorySubtracted: root.querySelector('[data-accounting-cash-history-subtracted]'),
     cashHistoryNote: root.querySelector('[data-accounting-cash-history-note]'),
+    cashHistoryTitle: root.querySelector('[data-accounting-cash-history-title]'),
+    cashHistoryCopy: root.querySelector('[data-accounting-cash-history-copy]'),
+    pulseBank: root.querySelector('[data-accounting-pulse-bank]'),
     pulseCash: root.querySelector('[data-accounting-pulse-cash]'),
     reconciliationCopy: root.querySelector('[data-accounting-reconciliation-copy]'),
     walletBreakdown: root.querySelector('[data-accounting-wallet-breakdown]'),
@@ -167,11 +172,21 @@ if (root) {
     breakdownBody: root.querySelector('[data-accounting-breakdown-body]'),
     reconcile: root.querySelector('[data-accounting-reconcile]'),
     reconcileCard: root.querySelector('.admin-accounting-reconcile-card'),
-    reconcileOpen: root.querySelector('[data-accounting-reconcile-open]'),
+    reconcileOpenButtons: root.querySelectorAll('[data-accounting-reconcile-open]'),
     reconcileCloseButtons: root.querySelectorAll('[data-accounting-reconcile-close]'),
     reconcileForm: root.querySelector('[data-accounting-reconcile-form]'),
+    reconcileAccount: root.querySelector('[data-accounting-reconcile-account]'),
     reconcileAmount: root.querySelector('[data-accounting-reconcile-amount]'),
     reconcileError: root.querySelector('[data-accounting-reconcile-error]'),
+    reconcileTitle: root.querySelector('[data-accounting-reconcile-title]'),
+    reconcileCopy: root.querySelector('[data-accounting-reconcile-copy]'),
+    accountSettings: root.querySelector('[data-accounting-account-settings]'),
+    accountSettingsCard: root.querySelector('.admin-accounting-account-settings-card'),
+    accountSettingsCloseButtons: root.querySelectorAll('[data-accounting-account-settings-close]'),
+    accountList: root.querySelector('[data-accounting-account-list]'),
+    accountForm: root.querySelector('[data-accounting-account-form]'),
+    accountNew: root.querySelector('[data-accounting-account-new]'),
+    accountError: root.querySelector('[data-accounting-account-error]'),
     alerts: root.querySelector('[data-accounting-alerts]'),
     form: root.querySelector('[data-accounting-form]'),
     formStatus: root.querySelector('[data-accounting-form-status]'),
@@ -188,6 +203,7 @@ if (root) {
     accountSelect: root.querySelector('[data-accounting-account-select]'),
     toAccountSelect: root.querySelector('[data-accounting-to-account-select]'),
     categorySelect: root.querySelector('[data-accounting-category-select]'),
+    categorySearch: root.querySelector('[data-accounting-category-search]'),
     counterpartyInput: root.querySelector('[data-accounting-counterparty-input]'),
     counterpartyOptions: root.querySelector('[data-accounting-counterparty-options]'),
     billSelect: root.querySelector('[data-accounting-bill-select]'),
@@ -375,33 +391,58 @@ if (root) {
     if (message) showToast(message, true);
   };
 
-  const renderLookups = () => {
-    const accounts = state.accounts;
-    const categories = state.categories.filter((item) => item.parent_id !== null || Number(item.is_billable) === 1);
-    const openBills = state.bills.filter((bill) => ['unpaid', 'partially_paid', 'overdue'].includes(String(bill.status || '')));
+  const accountOptionsForRole = (role) => state.accounts.filter((account) => (
+    String(account.type || '') !== 'marketplace_wallet'
+    && Number(role === 'pay' ? account.can_pay : account.can_receive) === 1
+  ));
+
+  const renderAccountOptions = () => {
+    const sourceRole = state.mode === 'manual_income' ? 'receive' : 'pay';
+    const sourceAccounts = accountOptionsForRole(sourceRole);
+    const destinationAccounts = accountOptionsForRole('receive');
     const selectedAccount = refs.accountSelect?.value || '';
     const selectedToAccount = refs.toAccountSelect?.value || '';
-    const selectedCategory = refs.categorySelect?.value || '';
-    const selectedBill = refs.billSelect?.value || '';
-    const accountOptions = [
-      option('', 'Choose account'),
-      ...accounts.map((account) => option(account.id, `${account.name}${Number(account.is_spendable) ? '' : ' (not spendable)'}`))
-    ].join('');
     if (refs.accountSelect) {
-      refs.accountSelect.innerHTML = accountOptions;
-      refs.accountSelect.value = accounts.some((account) => String(account.id) === selectedAccount) ? selectedAccount : '';
+      refs.accountSelect.innerHTML = [
+        option('', sourceRole === 'pay' ? 'Choose payment account' : 'Choose receiving account'),
+        ...sourceAccounts.map((account) => option(account.id, account.name))
+      ].join('');
+      refs.accountSelect.value = sourceAccounts.some((account) => String(account.id) === selectedAccount) ? selectedAccount : '';
     }
     if (refs.toAccountSelect) {
-      refs.toAccountSelect.innerHTML = accountOptions;
-      refs.toAccountSelect.value = accounts.some((account) => String(account.id) === selectedToAccount) ? selectedToAccount : '';
-    }
-    if (refs.categorySelect) {
-      refs.categorySelect.innerHTML = [
-        option('', 'Choose category'),
-        ...categories.map((category) => option(category.id, category.parent_name ? `${category.parent_name} - ${category.name}` : category.name))
+      refs.toAccountSelect.innerHTML = [
+        option('', 'Choose receiving account'),
+        ...destinationAccounts.map((account) => option(account.id, account.name))
       ].join('');
-      refs.categorySelect.value = categories.some((category) => String(category.id) === selectedCategory) ? selectedCategory : '';
+      refs.toAccountSelect.value = destinationAccounts.some((account) => String(account.id) === selectedToAccount) ? selectedToAccount : '';
     }
+  };
+
+  const renderCategoryOptions = ({ clearSelection = false } = {}) => {
+    const categories = state.categories.filter((item) => item.parent_id !== null || Number(item.is_billable) === 1);
+    const selectedCategory = clearSelection ? '' : (refs.categorySelect?.value || '');
+    const search = String(refs.categorySearch?.value || '').trim().toLocaleLowerCase('id-ID');
+    const visible = search
+      ? categories.filter((category) => `${category.parent_name || ''} ${category.name || ''}`.toLocaleLowerCase('id-ID').includes(search))
+      : categories;
+    if (!refs.categorySelect) return;
+    refs.categorySelect.innerHTML = [
+      option('', visible.length ? 'Choose category' : 'No matching categories'),
+      ...visible.map((category) => option(category.id, category.parent_name ? `${category.parent_name} - ${category.name}` : category.name))
+    ].join('');
+    refs.categorySelect.value = visible.some((category) => String(category.id) === selectedCategory) ? selectedCategory : '';
+    if (search) {
+      refs.categorySelect.setAttribute('size', String(Math.min(6, Math.max(2, visible.length + 1))));
+    } else {
+      refs.categorySelect.removeAttribute('size');
+    }
+  };
+
+  const renderLookups = () => {
+    const openBills = state.bills.filter((bill) => ['unpaid', 'partially_paid', 'overdue'].includes(String(bill.status || '')));
+    const selectedBill = refs.billSelect?.value || '';
+    renderAccountOptions();
+    renderCategoryOptions();
     if (refs.billSelect) {
       refs.billSelect.innerHTML = [
         option('', 'Choose bill'),
@@ -414,6 +455,7 @@ if (root) {
         .map((item) => `<option value="${escapeHtml(item.name || '')}"></option>`)
         .join('');
     }
+    renderAccountSettings();
   };
 
   const setMode = (mode) => {
@@ -435,7 +477,9 @@ if (root) {
       field.hidden = !config.shown.includes(key);
       field.querySelectorAll('input, select, textarea').forEach((input) => {
         if (!(input instanceof HTMLInputElement || input instanceof HTMLSelectElement || input instanceof HTMLTextAreaElement)) return;
-        input.required = !field.hidden && ['account_id', 'category_id', 'counterparty', 'bill_id', 'issue_date', 'due_date'].includes(key);
+        input.required = input.hasAttribute('name')
+          && !field.hidden
+          && ['account_id', 'category_id', 'counterparty', 'bill_id', 'issue_date', 'due_date'].includes(key);
       });
     });
     if (refs.accountSelect) {
@@ -449,6 +493,7 @@ if (root) {
     if (refs.counterpartyInput) {
       refs.counterpartyInput.placeholder = nextMode === 'manual_income' ? 'Source / customer' : 'Search or quick-create';
     }
+    renderAccountOptions();
     setFormError('');
   };
 
@@ -474,8 +519,10 @@ if (root) {
 
   const renderKpis = (summary) => {
     const kpis = summary?.kpis || {};
-    if (refs.kpis.realCash) refs.kpis.realCash.textContent = formatCurrency(kpis.real_cash_available || 0);
-    if (refs.pulseCash) refs.pulseCash.textContent = formatCurrency(kpis.real_cash_available || 0);
+    if (refs.kpis.bankBalance) refs.kpis.bankBalance.textContent = formatCurrency(kpis.bank_balance || 0);
+    if (refs.kpis.cashAvailable) refs.kpis.cashAvailable.textContent = formatCurrency(kpis.cash_available || 0);
+    if (refs.pulseBank) refs.pulseBank.textContent = formatCurrency(kpis.bank_balance || 0);
+    if (refs.pulseCash) refs.pulseCash.textContent = formatCurrency(kpis.cash_available || 0);
     if (refs.kpis.marketplaceOutstanding) {
       refs.kpis.marketplaceOutstanding.textContent = summary?.marketplace_outstanding_context?.available === false
         ? 'Unavailable'
@@ -487,11 +534,15 @@ if (root) {
     if (refs.kpis.safeCash) refs.kpis.safeCash.textContent = formatCurrency(kpis.net_safe_cash || 0);
     if (refs.kpis.pendingReview) refs.kpis.pendingReview.textContent = Number(kpis.pending_manual_review || 0).toLocaleString('id-ID');
     refs.safeCashCard?.classList.toggle('is-danger', Number(kpis.net_safe_cash || 0) < 0);
-    const reconciliation = summary?.cash_reconciliation;
+    const reconciliations = Array.isArray(summary?.balance_reconciliations) ? summary.balance_reconciliations : [];
     if (refs.reconciliationCopy) {
-      refs.reconciliationCopy.textContent = reconciliation
-        ? `Baseline set ${formatHistoryDate(String(reconciliation.reconciled_at || '').slice(0, 10))}; later entries move from that count.`
-        : 'Built from opening balances and every confirmed movement. Reconcile after your next cash count.';
+      const bankReconciliation = reconciliations.find((item) => {
+        const account = state.accounts.find((candidate) => Number(candidate.id) === Number(item.account_id));
+        return account?.balance_class === 'bank';
+      });
+      refs.reconciliationCopy.textContent = bankReconciliation
+        ? `Bank baseline set ${formatHistoryDate(String(bankReconciliation.reconciled_at || '').slice(0, 10))}; later deposits and payments move from it.`
+        : 'Deposits, payments, and transfers determine the bank balance. Reconcile it against your statement when needed.';
     }
     renderWalletBreakdown(summary);
   };
@@ -529,44 +580,31 @@ if (root) {
     }).format(date);
   };
 
-  const populateCashHistoryPlatforms = () => {
-    if (!refs.cashHistoryPlatform) return;
-    const selected = refs.cashHistoryPlatform.value || 'all';
-    const platforms = new Map([
-      ['shopee', 'Shopee'],
-      ['tiktok', 'TikTok'],
-      ['tokopedia', 'Tokopedia'],
-      ['jenang-gemi-website', 'Jenang Gemi Website'],
-      ['zero-website', 'ZERO Website']
-    ]);
+  const populateCashHistoryAccounts = () => {
+    if (!refs.cashHistoryAccount) return;
+    const selected = refs.cashHistoryAccount.value || 'all';
+    const accounts = new Map();
     state.cashHistory.forEach((row) => {
-      const key = String(row.platform || '').trim();
-      if (key) platforms.set(key, String(row.platform_label || key));
+      const key = String(row.account_key || row.cash_account || '').trim();
+      if (key) accounts.set(key, String(row.account_name || row.cash_account_label || key));
     });
-    const preferredOrder = ['shopee', 'tiktok', 'tokopedia', 'jenang-gemi-website', 'zero-website', 'zfit-website', 'website', 'whatsapp'];
-    const entries = [...platforms.entries()].sort(([leftKey, leftLabel], [rightKey, rightLabel]) => {
-      const leftIndex = preferredOrder.indexOf(leftKey);
-      const rightIndex = preferredOrder.indexOf(rightKey);
-      if (leftIndex !== rightIndex) {
-        return (leftIndex < 0 ? preferredOrder.length : leftIndex) - (rightIndex < 0 ? preferredOrder.length : rightIndex);
-      }
-      return leftLabel.localeCompare(rightLabel);
-    });
-    refs.cashHistoryPlatform.innerHTML = [
-      '<option value="all">All platforms</option>',
-      ...entries.map(([key, label]) => `<option value="${escapeHtml(key)}">${escapeHtml(label)}</option>`)
+    refs.cashHistoryAccount.innerHTML = [
+      '<option value="all">All accounts</option>',
+      ...[...accounts.entries()]
+        .sort((left, right) => left[1].localeCompare(right[1]))
+        .map(([key, label]) => `<option value="${escapeHtml(key)}">${escapeHtml(label)}</option>`)
     ].join('');
-    refs.cashHistoryPlatform.value = platforms.has(selected) ? selected : 'all';
+    refs.cashHistoryAccount.value = accounts.has(selected) ? selected : 'all';
   };
 
   const renderCashHistory = () => {
     if (!refs.cashHistoryBody) return;
-    const selectedPlatform = refs.cashHistoryPlatform?.value || 'all';
+    const selectedBalanceClass = refs.cashHistoryBalanceClass?.value || 'all';
     const selectedAccount = refs.cashHistoryAccount?.value || 'all';
     const direction = refs.cashHistoryDirection?.value || 'all';
     const scopedRows = state.cashHistory.filter((row) => {
-      if (selectedPlatform !== 'all' && String(row.platform || '') !== selectedPlatform) return false;
-      if (selectedAccount !== 'all' && String(row.cash_account || '') !== selectedAccount) return false;
+      if (selectedBalanceClass !== 'all' && String(row.balance_class || '') !== selectedBalanceClass) return false;
+      if (selectedAccount !== 'all' && String(row.account_key || row.cash_account || '') !== selectedAccount) return false;
       return true;
     });
     const rows = scopedRows.filter((row) => {
@@ -580,7 +618,7 @@ if (root) {
       return summary;
     }, { total_added: 0, total_subtracted: 0 });
     filteredSummary.current_cash = filteredSummary.total_added - filteredSummary.total_subtracted;
-    const hasSourceFilter = selectedPlatform !== 'all' || selectedAccount !== 'all';
+    const hasSourceFilter = selectedBalanceClass !== 'all' || selectedAccount !== 'all';
     const summary = hasSourceFilter ? filteredSummary : (state.cashHistorySummary || {});
     const filteredRunningBalances = new Map();
     if (hasSourceFilter) {
@@ -592,7 +630,9 @@ if (root) {
     }
     if (refs.cashHistoryCurrent) refs.cashHistoryCurrent.textContent = formatCurrency(summary.current_cash || 0);
     if (refs.cashHistoryCurrentLabel) {
-      refs.cashHistoryCurrentLabel.textContent = hasSourceFilter ? 'Net filtered cash' : 'Current cash';
+      refs.cashHistoryCurrentLabel.textContent = selectedBalanceClass === 'bank'
+        ? 'Bank balance'
+        : (selectedBalanceClass === 'cash' ? 'Available cash' : (hasSourceFilter ? 'Selected balance' : 'Bank + cash'));
     }
     if (refs.cashHistoryAdded) refs.cashHistoryAdded.textContent = formatCurrency(summary.total_added || 0);
     if (refs.cashHistorySubtracted) refs.cashHistorySubtracted.textContent = formatCurrency(summary.total_subtracted || 0);
@@ -601,19 +641,15 @@ if (root) {
     }
     if (refs.cashHistoryNote) {
       if (hasSourceFilter) {
-        const platformLabel = selectedPlatform === 'all'
-          ? 'all platforms'
-          : (refs.cashHistoryPlatform?.selectedOptions?.[0]?.textContent || 'selected platform');
+        const balanceLabel = selectedBalanceClass === 'all'
+          ? 'bank and cash'
+          : (refs.cashHistoryBalanceClass?.selectedOptions?.[0]?.textContent || 'selected balance');
         const accountLabel = selectedAccount === 'all'
           ? 'all accounts'
           : (refs.cashHistoryAccount?.selectedOptions?.[0]?.textContent || 'selected account');
-        refs.cashHistoryNote.textContent = `Showing bank cash movements for ${platformLabel} and ${accountLabel}. Totals and running balances use only this selection.`;
+        refs.cashHistoryNote.textContent = `Showing ${balanceLabel} movements for ${accountLabel}. Transfers appear once on each affected account so both balances stay accurate.`;
       } else {
-        const cardCash = Number(state.summary?.kpis?.real_cash_available || 0);
-        const historyCash = Number(state.cashHistorySummary?.current_cash || 0);
-        refs.cashHistoryNote.textContent = cardCash === historyCash
-          ? 'The running balance reconciles to Cash Available, including the latest cash count, entries, wallet payouts, website payments, and completed direct orders.'
-          : 'Cash history includes the latest cash count and every later manual or automatic movement.';
+        refs.cashHistoryNote.textContent = 'This combined ledger includes bank and physical cash. Wallet balances stay outside it until a payout reaches the automatic deposit account.';
       }
     }
     if (!rows.length) {
@@ -632,7 +668,7 @@ if (root) {
         <tr>
           <td><strong>${escapeHtml(formatHistoryDate(row.date))}</strong></td>
           <td><strong>${escapeHtml(row.reason || 'Cash movement')}</strong></td>
-          <td><span>${escapeHtml(row.source || '-')}</span>${row.reference ? `<small class="admin-table-note">${escapeHtml(row.reference)}</small>` : ''}</td>
+          <td><span>${escapeHtml(row.account_name || row.source || '-')}</span><small class="admin-table-note">${escapeHtml(row.source || '')}${row.reference ? ` · ${escapeHtml(row.reference)}` : ''}</small></td>
           <td class="is-numeric cash-movement-amount ${isAddition ? 'is-added' : 'is-subtracted'}">${isAddition ? '+' : '−'}${formatCurrency(movementAmount)}</td>
           <td class="is-numeric"><strong>${formatCurrency(runningBalance)}</strong></td>
         </tr>
@@ -646,8 +682,23 @@ if (root) {
     refs.cashHistoryOpenButtons[0]?.focus();
   };
 
-  const openCashHistory = async () => {
+  const openCashHistory = async (scope = 'all') => {
     if (!refs.cashHistory) return;
+    state.cashHistoryScope = ['bank', 'cash'].includes(scope) ? scope : 'all';
+    if (refs.cashHistoryBalanceClass) refs.cashHistoryBalanceClass.value = state.cashHistoryScope;
+    if (refs.cashHistoryAccount) refs.cashHistoryAccount.value = 'all';
+    if (refs.cashHistoryTitle) {
+      refs.cashHistoryTitle.textContent = state.cashHistoryScope === 'bank'
+        ? 'Bank Balance history'
+        : (state.cashHistoryScope === 'cash' ? 'Available Cash history' : 'Bank + Cash history');
+    }
+    if (refs.cashHistoryCopy) {
+      refs.cashHistoryCopy.textContent = state.cashHistoryScope === 'bank'
+        ? 'Deposits, payments, and transfers affecting business bank accounts.'
+        : (state.cashHistoryScope === 'cash'
+          ? 'Physical cash counts, receipts, payments, and transfers into Cash Office.'
+          : 'Every movement across operational bank and physical cash accounts.');
+    }
     refs.cashHistory.hidden = false;
     refs.cashHistoryCard?.focus();
     if (state.cashHistoryLoaded) renderCashHistory();
@@ -660,7 +711,7 @@ if (root) {
       state.cashHistory = Array.isArray(payload.data?.rows) ? payload.data.rows : [];
       state.cashHistorySummary = payload.data?.summary || {};
       state.cashHistoryLoaded = true;
-      populateCashHistoryPlatforms();
+      populateCashHistoryAccounts();
       renderCashHistory();
     } catch (error) {
       if (refs.cashHistoryCount) refs.cashHistoryCount.textContent = 'History unavailable';
@@ -743,16 +794,120 @@ if (root) {
     });
   };
 
+  const editableAccounts = () => state.accounts.filter((account) => String(account.type || '') !== 'marketplace_wallet');
+
+  const renderAccountSettings = () => {
+    if (!refs.accountList) return;
+    const accounts = editableAccounts();
+    refs.accountList.innerHTML = accounts.length
+      ? accounts.map((account) => {
+        const roles = [
+          Number(account.can_pay) ? 'Pays' : '',
+          Number(account.can_receive) ? 'Receives' : '',
+          Number(account.receives_automatic) ? 'Automatic deposits' : ''
+        ].filter(Boolean);
+        const group = account.balance_class === 'cash' ? 'Available cash' : (account.balance_class === 'bank' ? 'Bank balance' : 'Other');
+        return `
+          <button type="button" data-accounting-account-edit="${escapeHtml(String(account.id))}">
+            <span><strong>${escapeHtml(account.name || 'Account')}</strong><small>${escapeHtml(group)}</small></span>
+            <span>${escapeHtml(roles.join(' · ') || 'Ledger only')}</span>
+          </button>
+        `;
+      }).join('')
+      : '<p class="admin-empty">No operational accounts yet.</p>';
+  };
+
+  const fillAccountForm = (account = null) => {
+    if (!(refs.accountForm instanceof HTMLFormElement)) return;
+    refs.accountForm.reset();
+    refs.accountForm.elements.account_id.value = account ? String(account.id) : '';
+    refs.accountForm.elements.name.value = account?.name || '';
+    refs.accountForm.elements.balance_class.value = account?.balance_class || 'bank';
+    refs.accountForm.elements.can_pay.checked = Boolean(Number(account?.can_pay || 0));
+    refs.accountForm.elements.can_receive.checked = Boolean(Number(account?.can_receive || 0));
+    refs.accountForm.elements.receives_automatic.checked = Boolean(Number(account?.receives_automatic || 0));
+    if (refs.accountError) refs.accountError.hidden = true;
+  };
+
+  const openAccountSettings = () => {
+    if (!refs.accountSettings) return;
+    renderAccountSettings();
+    fillAccountForm(editableAccounts()[0] || null);
+    refs.accountSettings.hidden = false;
+    refs.accountSettingsCard?.focus();
+  };
+
+  const closeAccountSettings = () => {
+    if (!refs.accountSettings) return;
+    refs.accountSettings.hidden = true;
+  };
+
+  const submitAccount = async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (!(form instanceof HTMLFormElement)) return;
+    const data = new FormData(form);
+    const payload = {
+      action: 'save_account',
+      account_id: String(data.get('account_id') || ''),
+      name: String(data.get('name') || '').trim(),
+      balance_class: String(data.get('balance_class') || 'bank'),
+      can_pay: data.has('can_pay') ? '1' : '0',
+      can_receive: data.has('can_receive') ? '1' : '0',
+      receives_automatic: data.has('receives_automatic') ? '1' : '0'
+    };
+    if (!payload.name) {
+      if (refs.accountError) {
+        refs.accountError.hidden = false;
+        refs.accountError.textContent = 'Enter an account name.';
+      }
+      return;
+    }
+    try {
+      await requestJson(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      showToast('Account options saved.');
+      await loadAccounting(true);
+      renderAccountSettings();
+      const saved = state.accounts.find((account) => account.name === payload.name);
+      fillAccountForm(saved || null);
+    } catch (error) {
+      if (refs.accountError) {
+        refs.accountError.hidden = false;
+        refs.accountError.textContent = error?.message || 'Unable to save account.';
+      }
+    }
+  };
+
   const closeReconcile = () => {
     if (!refs.reconcile) return;
     refs.reconcile.hidden = true;
     if (refs.reconcileError) refs.reconcileError.hidden = true;
   };
 
-  const openReconcile = () => {
+  const openReconcile = (scope = 'cash') => {
     if (!refs.reconcile) return;
+    const balanceClass = scope === 'bank' ? 'bank' : 'cash';
+    const accounts = state.accounts.filter((account) => (
+      String(account.type || '') !== 'marketplace_wallet' && account.balance_class === balanceClass
+    ));
+    if (refs.reconcileAccount) {
+      refs.reconcileAccount.innerHTML = accounts.map((account) => option(account.id, account.name)).join('');
+    }
     if (refs.reconcileAmount) {
-      refs.reconcileAmount.value = normalizeAmountInput(String(state.summary?.kpis?.real_cash_available || 0));
+      const amount = balanceClass === 'bank'
+        ? state.summary?.kpis?.bank_balance
+        : state.summary?.kpis?.cash_available;
+      refs.reconcileAmount.value = normalizeAmountInput(String(amount || 0));
+    }
+    if (refs.reconcileTitle) refs.reconcileTitle.textContent = balanceClass === 'bank' ? 'Reconcile bank balance' : 'Reconcile available cash';
+    if (refs.reconcileCopy) {
+      refs.reconcileCopy.textContent = balanceClass === 'bank'
+        ? 'Use the verified statement balance. Later deposits, payments, and transfers move from this bank baseline.'
+        : 'Use the physical amount counted now. Later cash receipts, payments, and transfers move from this baseline.';
     }
     refs.reconcile.hidden = false;
     refs.reconcileCard?.focus();
@@ -768,7 +923,7 @@ if (root) {
     if (amount === '') {
       if (refs.reconcileError) {
         refs.reconcileError.hidden = false;
-        refs.reconcileError.textContent = 'Enter the cash amount you verified.';
+        refs.reconcileError.textContent = 'Enter the balance you verified.';
       }
       return;
     }
@@ -778,18 +933,19 @@ if (root) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'reconcile_cash',
+          account_id: String(data.get('account_id') || ''),
           available_cash_amount: amount,
           note: String(data.get('note') || '').trim()
         })
       });
       closeReconcile();
       state.cashHistoryLoaded = false;
-      showToast('Cash baseline reconciled.');
+      showToast('Account balance reconciled.');
       await loadAccounting(true);
     } catch (error) {
       if (refs.reconcileError) {
         refs.reconcileError.hidden = false;
-        refs.reconcileError.textContent = error?.message || 'Unable to reconcile cash.';
+        refs.reconcileError.textContent = error?.message || 'Unable to reconcile this balance.';
       }
     }
   };
@@ -997,7 +1153,8 @@ if (root) {
       const categoryOptions = [option('', 'Choose category'), ...state.categories
         .filter((category) => category.parent_id !== null || Number(category.is_billable) === 1)
         .map((category) => option(category.id, category.parent_name ? `${category.parent_name} - ${category.name}` : category.name, Number(category.id) === Number(item.category_id)))].join('');
-      const accountOptions = [option('', 'Choose account'), ...state.accounts
+      const drawerAccountRole = kind === 'bill' || item.direction !== 'money_in' ? 'pay' : 'receive';
+      const accountOptions = [option('', 'Choose account'), ...accountOptionsForRole(drawerAccountRole)
         .map((account) => option(account.id, account.name, Number(account.id) === Number(item.account_id || item.expected_account_id)))].join('');
       const receiptOptions = ['missing', 'attached', 'not_required']
         .map((status) => option(status, status.replace(/_/g, ' '), status === item.receipt_status)).join('');
@@ -1007,7 +1164,7 @@ if (root) {
           <label><span>Bill date</span><input type="date" name="issue_date" value="${escapeHtml(item.issue_date || '')}" required></label>
           <label><span>Due date</span><input type="date" name="due_date" value="${escapeHtml(item.due_date || '')}"></label>
           <label><span>Total</span><input name="total_amount" inputmode="numeric" value="${escapeHtml(String(item.total_amount || ''))}" ${Number(item.paid_amount || 0) > 0 ? 'disabled' : ''} required></label>
-          <label><span>Category</span><select name="category_id" required>${categoryOptions}</select></label>
+          <label><span>Category</span><input type="search" data-accounting-edit-category-search placeholder="Type to filter categories…" autocomplete="off"><select name="category_id" data-accounting-edit-category-select required>${categoryOptions}</select></label>
           <label><span>Expected account</span><select name="expected_account_id">${accountOptions}</select></label>
           <label><span>Receipt status</span><select name="receipt_status">${receiptOptions}</select></label>
           <label><span>Attachment URL</span><input type="url" name="attachment_url" value="${escapeHtml(item.attachment_url || '')}"></label>
@@ -1020,7 +1177,7 @@ if (root) {
           <label><span>Date</span><input type="date" name="transaction_date" value="${escapeHtml(item.transaction_date || '')}" required></label>
           <label><span>Amount</span><input name="amount" inputmode="numeric" value="${escapeHtml(String(item.amount || ''))}" required></label>
           <label><span>Account</span><select name="account_id" required>${accountOptions}</select></label>
-          <label><span>Category</span><select name="category_id" ${item.type === 'transfer' ? '' : 'required'}>${categoryOptions}</select></label>
+          <label><span>Category</span><input type="search" data-accounting-edit-category-search placeholder="Type to filter categories…" autocomplete="off"><select name="category_id" data-accounting-edit-category-select ${item.type === 'transfer' ? '' : 'required'}>${categoryOptions}</select></label>
           <label><span>Receipt status</span><select name="receipt_status">${receiptOptions}</select></label>
           <label><span>Receipt URL</span><input type="url" name="receipt_url" value="${escapeHtml(item.receipt_url || '')}"></label>
           <label><span>Reference no.</span><input name="reference_no" value="${escapeHtml(item.reference_no || '')}"></label>
@@ -1228,7 +1385,7 @@ if (root) {
       if (!payload.counterparty_name) return 'Choose a vendor/payee.';
     }
     if (marketplaceManualIncomeAttempt(payload)) {
-      return 'This looks like marketplace revenue. Use Transfer Money if this is a payout.';
+      return 'This looks like marketplace revenue. Payouts are added automatically when they reach the bank.';
     }
     return '';
   };
@@ -1303,6 +1460,7 @@ if (root) {
   refs.transferFeeInput?.addEventListener('input', () => {
     refs.transferFeeInput.value = normalizeAmountInput(refs.transferFeeInput.value);
   });
+  refs.categorySearch?.addEventListener('input', () => renderCategoryOptions({ clearSelection: true }));
   refs.billSelect?.addEventListener('change', fillPayBillAmount);
   refs.form?.addEventListener('submit', submitForm);
   refs.form?.addEventListener('reset', () => {
@@ -1412,9 +1570,14 @@ if (root) {
     });
   });
   refs.refresh?.addEventListener('click', async () => loadSafely(true));
-  refs.cashHistoryOpenButtons.forEach((button) => button.addEventListener('click', openCashHistory));
+  refs.cashHistoryOpenButtons.forEach((button) => {
+    button.addEventListener('click', () => openCashHistory(button.dataset.accountingCashHistoryOpen || 'all'));
+  });
   refs.cashHistoryCloseButtons.forEach((button) => button.addEventListener('click', closeCashHistory));
-  refs.cashHistoryPlatform?.addEventListener('change', renderCashHistory);
+  refs.cashHistoryBalanceClass?.addEventListener('change', () => {
+    if (refs.cashHistoryAccount) refs.cashHistoryAccount.value = 'all';
+    renderCashHistory();
+  });
   refs.cashHistoryAccount?.addEventListener('change', renderCashHistory);
   refs.cashHistoryDirection?.addEventListener('change', renderCashHistory);
   refs.marketplaceOpen?.addEventListener('click', openMarketplaceBreakdown);
@@ -1428,7 +1591,9 @@ if (root) {
     closeBreakdown();
     openDrawer('bill', target.dataset.accountingBreakdownBill || '');
   });
-  refs.reconcileOpen?.addEventListener('click', openReconcile);
+  refs.reconcileOpenButtons.forEach((button) => {
+    button.addEventListener('click', () => openReconcile(button.dataset.accountingReconcileOpen || 'cash'));
+  });
   refs.reconcileCloseButtons.forEach((button) => button.addEventListener('click', closeReconcile));
   refs.reconcileAmount?.addEventListener('input', () => {
     refs.reconcileAmount.value = normalizeAmountInput(refs.reconcileAmount.value);
@@ -1440,8 +1605,20 @@ if (root) {
   refs.cashRecordsExportButton?.addEventListener('click', () => {
     window.location.href = buildUrl('export_cash_records_csv', { ...rangeOptions() });
   });
-  refs.settingsButton?.addEventListener('click', () => {
-    setFormError('Settings are read-only in this version. Accounts and categories are seeded safely by the API.');
+  refs.settingsButton?.addEventListener('click', openAccountSettings);
+  refs.accountSettingsCloseButtons.forEach((button) => button.addEventListener('click', closeAccountSettings));
+  refs.accountNew?.addEventListener('click', () => fillAccountForm());
+  refs.accountList?.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target.closest('[data-accounting-account-edit]') : null;
+    if (!(target instanceof HTMLElement)) return;
+    const account = state.accounts.find((item) => Number(item.id) === Number(target.dataset.accountingAccountEdit));
+    if (account) fillAccountForm(account);
+  });
+  refs.accountForm?.addEventListener('submit', submitAccount);
+  refs.accountForm?.elements.receives_automatic?.addEventListener('change', () => {
+    if (refs.accountForm.elements.receives_automatic.checked) {
+      refs.accountForm.elements.can_receive.checked = true;
+    }
   });
   refs.drawerCloseButtons.forEach((button) => {
     button.addEventListener('click', () => {
@@ -1453,10 +1630,27 @@ if (root) {
       closeCashHistory();
       closeBreakdown();
       closeReconcile();
+      closeAccountSettings();
     }
   });
   window.addEventListener('partner-billing:confirmed', () => {
     loadSafely(true);
+  });
+  refs.drawerBody?.addEventListener('input', (event) => {
+    const searchInput = event.target;
+    if (!(searchInput instanceof HTMLInputElement) || !searchInput.matches('[data-accounting-edit-category-search]')) return;
+    const select = searchInput.parentElement?.querySelector('[data-accounting-edit-category-select]');
+    if (!(select instanceof HTMLSelectElement)) return;
+    const search = searchInput.value.trim().toLocaleLowerCase('id-ID');
+    const categories = state.categories
+      .filter((category) => category.parent_id !== null || Number(category.is_billable) === 1)
+      .filter((category) => !search || `${category.parent_name || ''} ${category.name || ''}`.toLocaleLowerCase('id-ID').includes(search));
+    select.innerHTML = [
+      option('', categories.length ? 'Choose category' : 'No matching categories'),
+      ...categories.map((category) => option(category.id, category.parent_name ? `${category.parent_name} - ${category.name}` : category.name))
+    ].join('');
+    if (search) select.setAttribute('size', String(Math.min(6, Math.max(2, categories.length + 1))));
+    else select.removeAttribute('size');
   });
   refs.drawerBody?.addEventListener('submit', async (event) => {
     const form = event.target;
