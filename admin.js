@@ -516,10 +516,18 @@ const JENANG_GEMI_SEARCH_INDEX = [
   {
     title: 'Inventory Recap',
     section: 'Admin',
-    description: 'Smart restock suggestions, production draft, and Accounting cash fit.',
+    description: 'Visual stock coverage with exact days-left thresholds.',
     url: '../dashboard/?view=inventory-recap',
     view: 'inventory-recap',
-    keywords: ['inventory', 'recap', 'restock', 'production order', 'cash available', 'stock risk', 'purchase']
+    keywords: ['inventory', 'recap', 'restock', 'days left', 'stock risk']
+  },
+  {
+    title: 'Purchase Plan',
+    section: 'Admin',
+    description: 'Edit recommended stock quantities and download the finished PDF.',
+    url: '../dashboard/?view=purchase-order',
+    view: 'purchase-order',
+    keywords: ['purchase', 'production order', 'recommended stock', 'pdf', 'supplier']
   },
   {
     title: 'Accounting Workspace',
@@ -2308,6 +2316,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	    inventory: 'inventory-recap',
 	    inventory_recap: 'inventory-recap',
 	    'inventory-recap': 'inventory-recap',
+	    purchase: 'purchase-order',
+	    purchase_order: 'purchase-order',
+	    'purchase-order': 'purchase-order',
 	    daily: 'daily',
 	    day: 'daily',
     ads: 'ad-view',
@@ -2326,7 +2337,7 @@ document.addEventListener('DOMContentLoaded', () => {
     hardset: 'hard-set',
     'big-set': 'hard-set'
   };
-	  const validViews = new Set(['overview', 'orders', 'wallet', 'inventory-recap', 'daily', 'store-ops', 'shipment-arrangement', 'context', 'home', 'ad-view', 'website', 'hard-set', 'settings']);
+	  const validViews = new Set(['overview', 'orders', 'wallet', 'inventory-recap', 'purchase-order', 'daily', 'store-ops', 'shipment-arrangement', 'context', 'home', 'ad-view', 'website', 'hard-set', 'settings']);
   const quickMenuContextByView = {
 	    overview: 'overview',
 	    daily: 'daily',
@@ -2334,6 +2345,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    'shipment-arrangement': 'orders',
 	    wallet: 'wallet',
 	    'inventory-recap': 'inventory-recap',
+	    'purchase-order': 'purchase-order',
 	    home: 'campaigns',
     'ad-view': 'ad-view',
     context: 'context',
@@ -2346,7 +2358,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	    daily: ['home', 'orders', 'campaigns', 'back-dash', 'context', 'settings'],
 	    orders: ['customers', 'whatsapp-orders', 'home', 'daily', 'campaigns', 'back-dash', 'context', 'settings'],
 	    wallet: ['home', 'orders', 'daily', 'back-dash', 'settings'],
-	    'inventory-recap': ['home', 'wallet', 'orders', 'sku-db', 'settings'],
+	    'inventory-recap': ['purchase-order', 'home', 'wallet', 'orders', 'sku-db', 'settings'],
+	    'purchase-order': ['inventory-recap', 'home', 'wallet', 'sku-db', 'settings'],
 	    campaigns: ['home', 'orders', 'affiliates', 'back-dash', 'context', 'settings'],
 	    context: ['home', 'api', 'back-dash', 'settings'],
 	    settings: ['home', 'daily', 'orders', 'campaigns', 'context'],
@@ -2359,6 +2372,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    orders: 'orders',
 	    wallet: 'wallet',
 	    'inventory-recap': 'inventory-recap',
+	    'purchase-order': 'purchase-order',
 	    'store-ops': 'orders',
 	    'shipment-arrangement': 'orders',
     home: 'campaigns',
@@ -2384,6 +2398,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	    'inventory-recap': {
 	      light: 'https://api.iconify.design/lucide:package-check.svg?color=%230f172a',
 	      dark: 'https://api.iconify.design/lucide:package-check.svg?color=%23ffffff'
+	    },
+	    'purchase-order': {
+	      light: 'https://api.iconify.design/lucide:clipboard-list.svg?color=%230f172a',
+	      dark: 'https://api.iconify.design/lucide:clipboard-list.svg?color=%23ffffff'
 	    },
     campaigns: {
       light: '/assets/admin-icons/favicon-campaigns-light.svg',
@@ -2411,6 +2429,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const aliased = viewAliases[normalized] || normalized;
     return validViews.has(aliased) ? aliased : 'overview';
   };
+  const isInventoryView = (view) => view === 'inventory-recap' || view === 'purchase-order';
   const resolveInitialView = () => {
     const params = new URLSearchParams(window.location.search);
     const requestedView = params.get('view') || window.location.hash.replace(/^#/, '');
@@ -2527,6 +2546,11 @@ document.addEventListener('DOMContentLoaded', () => {
 	      loadedAt: 0,
 	      loading: false,
 	      copied: false,
+	      filter: 'all',
+	      planQuantities: {},
+	      planEdited: {},
+	      planNotes: {},
+	      planNote: '',
 	      requestToken: 0
 	    },
 	    daily: {
@@ -2792,19 +2816,23 @@ document.addEventListener('DOMContentLoaded', () => {
 	  };
 	  const inventoryRecapRefs = {
 	    status: document.querySelector('[data-inventory-recap-status]'),
-	    refresh: document.querySelector('[data-inventory-recap-refresh]'),
 	    cash: document.querySelector('[data-inventory-recap-cash]'),
 	    cost: document.querySelector('[data-inventory-recap-cost]'),
 	    funding: document.querySelector('[data-inventory-recap-funding]'),
 	    critical: document.querySelector('[data-inventory-recap-critical]'),
-	    criticalMeta: document.querySelector('[data-inventory-recap-critical-meta]'),
 	    suggested: document.querySelector('[data-inventory-recap-suggested]'),
 	    window: document.querySelector('[data-inventory-recap-window]'),
 	    list: document.querySelector('[data-inventory-recap-list]'),
-	    draft: document.querySelector('[data-inventory-recap-draft]'),
-	    copy: document.querySelector('[data-inventory-recap-copy]'),
-	    tableMeta: document.querySelector('[data-inventory-recap-table-meta]'),
-	    tableBody: document.querySelector('[data-inventory-recap-table-body]')
+	    filters: document.querySelectorAll('[data-inventory-filter]')
+	  };
+	  const purchasePlanRefs = {
+	    status: document.querySelector('[data-purchase-plan-status]'),
+	    list: document.querySelector('[data-purchase-plan-list]'),
+	    copy: document.querySelector('[data-purchase-plan-copy]'),
+	    download: document.querySelector('[data-purchase-plan-download]'),
+	    note: document.querySelector('[data-purchase-plan-note]'),
+	    lines: document.querySelector('[data-purchase-plan-lines]'),
+	    total: document.querySelector('[data-purchase-plan-total]')
 	  };
 	  const dailyRefs = {
     monthInput: document.querySelector('[data-daily-month]'),
@@ -3979,12 +4007,12 @@ document.addEventListener('DOMContentLoaded', () => {
 	      if (walletRefs.apiOutput) walletRefs.apiOutput.textContent = JSON.stringify({ ok: false, error: message }, null, 2);
 	      return;
 	    }
-	    if (view === 'inventory-recap') {
+	    if (isInventoryView(view)) {
 	      const message = error?.message || 'Unable to load Inventory Recap.';
 	      if (inventoryRecapRefs.status) inventoryRecapRefs.status.textContent = message;
 	      if (inventoryRecapRefs.list) inventoryRecapRefs.list.innerHTML = `<p class="admin-empty">${escapeHtml(message)}</p>`;
-	      if (inventoryRecapRefs.tableBody) inventoryRecapRefs.tableBody.innerHTML = `<tr><td colspan="8" class="admin-empty">${escapeHtml(message)}</td></tr>`;
-	      if (inventoryRecapRefs.draft) inventoryRecapRefs.draft.textContent = message;
+	      if (purchasePlanRefs.status) purchasePlanRefs.status.textContent = message;
+	      if (purchasePlanRefs.list) purchasePlanRefs.list.innerHTML = `<p class="admin-empty">${escapeHtml(message)}</p>`;
 	      return;
 	    }
 	    const container = getFeedForView(view);
@@ -4117,6 +4145,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    orders: 'orders',
 	    wallet: 'wallet',
 	    'inventory-recap': '',
+	    'purchase-order': '',
 	    daily: '',
       'store-ops': 'orders',
       'shipment-arrangement': 'orders',
@@ -4220,7 +4249,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	      state.wallet.usingCache = false;
 	      return;
 	    }
-	    if (view === 'inventory-recap') {
+	    if (isInventoryView(view)) {
+	      if (isInventoryView(state.activeView)) return;
 	      state.inventoryRecap.data = null;
 	      state.inventoryRecap.loadedAt = 0;
 	      state.inventoryRecap.loading = false;
@@ -4283,11 +4313,10 @@ document.addEventListener('DOMContentLoaded', () => {
 		        walletRefs.tableBody
 		      ].filter(Boolean);
 		    }
-	    if (view === 'inventory-recap') {
+	    if (isInventoryView(view)) {
 	      return [
 	        inventoryRecapRefs.list,
-	        inventoryRecapRefs.draft,
-	        inventoryRecapRefs.tableBody
+	        purchasePlanRefs.list
 	      ].filter(Boolean);
 	    }
 	    if (view === 'daily') {
@@ -4781,7 +4810,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	  const homeClientCacheKey = () => dashboardClientCacheKey('home', [state.home.timeframe, state.timezone, activeLocalDate]);
 	  const websiteClientCacheKey = () => dashboardClientCacheKey('website', [state.website.site || 'select', state.website.timeframe, state.timezone, activeLocalDate]);
 	  const walletClientCacheKey = () => dashboardClientCacheKey('wallet', [activeLocalDate]);
-	  const inventoryRecapClientCacheKey = () => dashboardClientCacheKey('inventory-recap', [activeLocalDate]);
+	  const inventoryRecapClientCacheKey = () => dashboardClientCacheKey('inventory-recap', ['coverage-v2', activeLocalDate]);
 	  const dailyClientCacheKey = () => dashboardClientCacheKey('daily', [state.daily.month, state.timezone]);
 	  const ordersClientCacheKey = () => dashboardClientCacheKey('orders', [`v${ORDER_CLIENT_CACHE_VERSION}`, state.overview.year, activeLocalDate]);
 	  const settingsClientCacheKey = () => dashboardClientCacheKey('settings', [activeLocalDate]);
@@ -5667,7 +5696,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (view === 'overview') return Boolean(state.overview.data) && isFresh(state.overview.loadedAt, VIEW_CACHE_TTL_MS.overview);
 	    if (view === 'orders') return Boolean(state.orders.data) && isFresh(state.orders.loadedAt, VIEW_CACHE_TTL_MS.orders);
 	    if (view === 'wallet') return Boolean(state.wallet.data) && isFresh(state.wallet.loadedAt, VIEW_CACHE_TTL_MS.wallet);
-	    if (view === 'inventory-recap') return Boolean(state.inventoryRecap.data) && isFresh(state.inventoryRecap.loadedAt, VIEW_CACHE_TTL_MS['inventory-recap']);
+	    if (isInventoryView(view)) return Boolean(state.inventoryRecap.data) && isFresh(state.inventoryRecap.loadedAt, VIEW_CACHE_TTL_MS['inventory-recap']);
 	    if (view === 'daily') return Boolean(state.daily.data) && isFresh(state.daily.loadedAt, VIEW_CACHE_TTL_MS.daily);
     if (view === 'home') return Boolean(state.home.data) && isFresh(state.home.loadedAt, VIEW_CACHE_TTL_MS.home);
     if (view === 'website') {
@@ -7180,6 +7209,9 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const pdfEscape = (value) => String(value)
+    .normalize('NFKD')
+    .replace(/[\u2010-\u2015]/g, '-')
+    .replace(/[^\x20-\x7E]/g, '?')
     .replace(/\\/g, '\\\\')
     .replace(/\(/g, '\\(')
     .replace(/\)/g, '\\)');
@@ -8017,30 +8049,12 @@ document.addEventListener('DOMContentLoaded', () => {
 	  };
 
 	  const inventoryRecapDays = (value) => {
-	    if (value === null || value === undefined || value === '') return 'No recent sales';
+	    if (value === null || value === undefined || value === '') return 'No sales data';
 	    const days = Number(value);
-	    if (!Number.isFinite(days)) return 'No recent sales';
+	    if (!Number.isFinite(days)) return 'No sales data';
 	    const unit = Math.abs(days - 1) < 0.05 ? 'day' : 'days';
-	    return `${formatRegionalNumber(days, { maximumFractionDigits: 1 })} ${unit} left`;
+	    return `${formatRegionalNumber(days, { maximumFractionDigits: 1 })} ${unit}`;
 	  };
-
-	  const inventoryRecapTargetDays = () => {
-	    const meta = state.inventoryRecap.data?.meta || {};
-	    const targetDays = Number(meta.target_days || 0);
-	    if (Number.isFinite(targetDays) && targetDays > 0) return targetDays;
-	    const orderDays = Number(meta.order_days || 30);
-	    const bufferDays = Number(meta.buffer_days || 10);
-	    const fallback = orderDays + bufferDays;
-	    return Number.isFinite(fallback) && fallback > 0 ? fallback : 40;
-	  };
-
-	  const inventoryRecapOrderDaysText = () => `${formatRegionalInteger(inventoryRecapTargetDays())} days`;
-
-	  const inventoryRecapDaysNote = (item) => (
-	    Number.isFinite(Number(item?.current_days_remaining))
-	      ? `calendar forecast${item?.forecast_confidence && item.forecast_confidence !== 'none' ? ` / ${item.forecast_confidence}` : ''}`
-	      : 'no sales in lookback'
-	  );
 
 	  const inventoryRecapStockUnitText = (item) => {
 	    const volume = Number(item?.volume || item?.astra || 0);
@@ -8048,139 +8062,203 @@ document.addEventListener('DOMContentLoaded', () => {
 	    const size = Number.isFinite(volume) && volume > 0
 	      ? `${formatRegionalNumber(volume, { maximumFractionDigits: 1 })}${unitName ? ` ${unitName}` : ''}`
 	      : '';
-	    return size ? `${size} stock units` : 'ASTRA stock units';
-	  };
-
-	  const inventoryRecapStockText = (item) => `${formatRegionalInteger(item?.current_stock || 0)} ${inventoryRecapStockUnitText(item)}`;
-
-	  const inventoryRecapStatusNote = (item) => {
-	    const risk = String(item?.risk || '').toLowerCase();
-	    if (risk === 'critical') return 'red means urgent';
-	    if (risk === 'high') return 'orange means restock soon';
-	    if (risk === 'medium') return 'orange means under 30 days';
-	    if (risk === 'watch') return 'orange means below trigger';
-	    if (risk === 'low') return 'green means month covered, buffer tight';
-	    if (risk === 'covered') return `green means ${inventoryRecapOrderDaysText()} covered`;
-	    return 'no recent sales speed';
+	    return size ? `x ${size}` : 'stock units';
 	  };
 
 	  const inventoryRecapRiskClass = (risk) => {
 	    const normalized = String(risk || '').toLowerCase();
-	    return ['critical', 'high', 'medium', 'low', 'covered', 'watch', 'quiet'].includes(normalized)
+	    return ['critical', 'high', 'covered', 'quiet'].includes(normalized)
 	      ? `is-${normalized}`
 	      : 'is-quiet';
 	  };
 
-	  const inventoryRecapPlayBar = (item) => {
-	    const meta = state.inventoryRecap.data?.meta || {};
-	    const orderDaysValue = Number(meta.order_days || 30);
-	    const orderDays = Number.isFinite(orderDaysValue) && orderDaysValue > 0 ? orderDaysValue : 30;
-	    const recommended = Math.max(0, Number(item.recommended_order_qty || 0));
-	    const minimum = Math.max(0, Number(item.minimum_order_qty || 0));
-	    const buffer = Math.max(0, Number(item.buffer_order_qty || 0));
-	    const minimumPercent = recommended > 0 ? Math.max(0, Math.min(100, (minimum / recommended) * 100)) : 0;
-	    const bufferPercent = recommended > 0 ? Math.max(0, Math.min(100, (buffer / recommended) * 100)) : 0;
-	    return `
-	      <div class="admin-inventory-recap-play" style="--inventory-min:${minimumPercent}%; --inventory-buffer:${bufferPercent}%;" aria-label="Green is ${formatRegionalInteger(minimum)} stock units for ${formatRegionalInteger(orderDays)} days; orange is ${formatRegionalInteger(buffer)} buffer">
-	        <div class="admin-inventory-recap-play-track" aria-hidden="true"><i></i><b></b></div>
-	        <small>Green: ${formatRegionalInteger(minimum)} forecast stock units for ${formatRegionalInteger(orderDays)}d; orange: +${formatRegionalInteger(buffer)} buffer</small>
-	      </div>
-	    `;
-	  };
-
-	  const renderInventoryRecapRows = (rows) => {
-	    if (!rows.length) {
-	      return '<tr><td colspan="8" class="admin-empty">No restock suggestions from current velocity.</td></tr>';
-	    }
-	    const targetDays = inventoryRecapOrderDaysText();
-	    return rows.map((item) => `
-	      <tr class="${inventoryRecapRiskClass(item.risk)}">
-	        <td><strong>${escapeHtml(item.sku || '-')}</strong><small class="admin-table-note">${escapeHtml(item.tag || '')}</small></td>
-	        <td>${escapeHtml(item.product_name || '-')}<small class="admin-table-note">${escapeHtml([item.brand_name, item.flavor_name].filter(Boolean).join(' / '))}</small></td>
-	        <td><strong>${formatRegionalInteger(item.current_stock || 0)}</strong><small class="admin-table-note">${escapeHtml(inventoryRecapStockUnitText(item))} now</small></td>
-	        <td><strong>${escapeHtml(inventoryRecapDays(item.current_days_remaining))}</strong><small class="admin-table-note">${escapeHtml(inventoryRecapDaysNote(item))}</small></td>
-	        <td><strong>${formatRegionalInteger(item.recommended_order_qty || 0)}</strong><small class="admin-table-note">stock units to reach ${escapeHtml(targetDays)}</small></td>
-	        <td>${inventoryRecapPlayBar(item)}</td>
-	        <td>${formatCurrency(item.estimated_cost || 0)}</td>
-	        <td><span class="admin-inventory-recap-risk ${inventoryRecapRiskClass(item.risk)}">${escapeHtml(item.risk_label || item.risk || '-')}</span><small class="admin-table-note">${escapeHtml(inventoryRecapStatusNote(item))}</small></td>
-	      </tr>
-	    `).join('');
+	  const inventoryCoveragePosition = (value) => {
+	    const days = Number(value);
+	    if (!Number.isFinite(days)) return 100;
+	    return Math.max(0, Math.min(100, (days / 30) * 100));
 	  };
 
 	  const renderInventoryRecapList = (rows) => {
 	    if (!inventoryRecapRefs.list) return;
-	    if (!rows.length) {
-	      inventoryRecapRefs.list.innerHTML = '<p class="admin-empty">No SKU needs a production order for the month-plus-buffer target.</p>';
+	    if (state.inventoryRecap.loading && !state.inventoryRecap.data) {
+	      inventoryRecapRefs.list.innerHTML = '<p class="admin-empty">Calculating stock coverage from the last 30 days.</p>';
 	      return;
 	    }
-	    inventoryRecapRefs.list.innerHTML = rows.slice(0, 5).map((item) => `
-	      <article class="admin-inventory-recap-risk-card ${inventoryRecapRiskClass(item.risk)}">
-	        <div>
+	    const filter = state.inventoryRecap.filter || 'all';
+	    const visibleRows = filter === 'all'
+	      ? rows
+	      : rows.filter((item) => String(item.risk || '') === filter);
+	    inventoryRecapRefs.filters.forEach((button) => {
+	      button.classList.toggle('is-active', button.getAttribute('data-inventory-filter') === filter);
+	    });
+	    if (!visibleRows.length) {
+	      inventoryRecapRefs.list.innerHTML = '<p class="admin-empty">No products match this stock range.</p>';
+	      return;
+	    }
+	    inventoryRecapRefs.list.innerHTML = visibleRows.map((item) => {
+	      const days = Number(item.current_days_remaining);
+	      const hasDays = Number.isFinite(days);
+	      const position = inventoryCoveragePosition(item.current_days_remaining);
+	      const velocity = Number(item.daily_velocity || 0);
+	      return `
+	      <article class="admin-inventory-coverage-row ${inventoryRecapRiskClass(item.risk)}">
+	        <div class="admin-inventory-product">
 	          <strong>${escapeHtml(item.product_name || item.sku || '-')}</strong>
-	          <small>Stock now: ${escapeHtml(inventoryRecapStockText(item))}</small>
-	          <small>${escapeHtml(item.sku || '')} / ${escapeHtml(item.risk_label || '')}</small>
+	          <span>${escapeHtml(item.sku || '')}</span>
 	        </div>
-	        <span>${escapeHtml(inventoryRecapDays(item.current_days_remaining))}<small>${escapeHtml(inventoryRecapStatusNote(item))}</small></span>
-	        ${inventoryRecapPlayBar(item)}
+	        <div class="admin-inventory-stock-now">
+	          <strong>${formatRegionalInteger(item.current_stock || 0)}</strong>
+	          <span>${escapeHtml(inventoryRecapStockUnitText(item))} in stock</span>
+	        </div>
+	        <div class="admin-inventory-days">
+	          <strong>${escapeHtml(inventoryRecapDays(item.current_days_remaining))}</strong>
+	          <span>${hasDays ? `${formatRegionalNumber(velocity, { maximumFractionDigits: 2 })} used per day` : 'No demand in the last 30 days'}</span>
+	        </div>
+	        <div class="admin-inventory-coverage-rail" style="--coverage-position:${position}%;" aria-label="${escapeHtml(inventoryRecapDays(item.current_days_remaining))} of stock remaining">
+	          <div aria-hidden="true"><i></i><b></b><em></em><mark></mark></div>
+	          <span><small>0</small><small>5</small><small>10</small><small>30+ days</small></span>
+	        </div>
+	        <div class="admin-inventory-action">
+	          <strong>${escapeHtml(item.risk_label || 'No sales data')}</strong>
+	          <span>${item.restock_needed ? `Buy ${formatRegionalInteger(item.recommended_order_qty || 0)} to reach 30 days` : 'No purchase needed'}</span>
+	        </div>
 	      </article>
-	    `).join('');
+	    `;
+	    }).join('');
+	  };
+
+	  const initializePurchasePlan = () => {
+	    const suggestions = Array.isArray(state.inventoryRecap.data?.suggestions) ? state.inventoryRecap.data.suggestions : [];
+	    suggestions.forEach((item) => {
+	      const sku = String(item.sku || '');
+	      if (!sku) return;
+	      if (!Object.prototype.hasOwnProperty.call(state.inventoryRecap.planQuantities, sku) || !state.inventoryRecap.planEdited[sku]) {
+	        state.inventoryRecap.planQuantities[sku] = Math.max(0, Math.round(Number(item.recommended_order_qty || 0)));
+	      }
+	      if (!Object.prototype.hasOwnProperty.call(state.inventoryRecap.planNotes, sku)) {
+	        state.inventoryRecap.planNotes[sku] = '';
+	      }
+	    });
+	  };
+
+	  const purchasePlanRows = () => {
+	    const suggestions = Array.isArray(state.inventoryRecap.data?.suggestions) ? state.inventoryRecap.data.suggestions : [];
+	    return suggestions.map((item) => {
+	      const sku = String(item.sku || '');
+	      const quantity = Math.max(0, Math.round(Number(state.inventoryRecap.planQuantities[sku] ?? item.recommended_order_qty ?? 0)));
+	      const unitCost = Math.max(0, Number(item.cogs || 0));
+	      return { ...item, quantity, unitCost, subtotal: quantity * unitCost, note: String(state.inventoryRecap.planNotes[sku] || '') };
+	    });
+	  };
+
+	  const purchasePlanSummary = () => {
+	    const rows = purchasePlanRows().filter((item) => item.quantity > 0);
+	    return {
+	      rows,
+	      lines: rows.length,
+	      total: rows.reduce((sum, item) => sum + item.subtotal, 0)
+	    };
+	  };
+
+	  const renderPurchasePlan = () => {
+	    if (!purchasePlanRefs.list) return;
+	    if (state.inventoryRecap.loading && !state.inventoryRecap.data) {
+	      purchasePlanRefs.list.innerHTML = '<p class="admin-empty">Calculating recommended purchase quantities.</p>';
+	      if (purchasePlanRefs.copy) purchasePlanRefs.copy.disabled = true;
+	      if (purchasePlanRefs.download) purchasePlanRefs.download.disabled = true;
+	      return;
+	    }
+	    initializePurchasePlan();
+	    const allRows = purchasePlanRows();
+	    const { rows, lines, total } = purchasePlanSummary();
+	    const cash = Number(state.inventoryRecap.data?.summary?.cash_available || state.inventoryRecap.data?.cash?.available || 0);
+	    const shortfall = Math.max(0, total - cash);
+	    if (!allRows.length) {
+	      purchasePlanRefs.list.innerHTML = '<p class="admin-empty">Nothing needs restocking. Every product with recent demand has more than 10 days left.</p>';
+	    } else {
+	      purchasePlanRefs.list.innerHTML = allRows.map((item, index) => `
+	        <article class="admin-purchase-row ${inventoryRecapRiskClass(item.risk)}">
+	          <span class="admin-purchase-index">${String(index + 1).padStart(2, '0')}</span>
+	          <div class="admin-purchase-product">
+	            <strong>${escapeHtml(item.product_name || item.sku || '-')}</strong>
+	            <span>${escapeHtml(item.sku || '')} · ${escapeHtml(inventoryRecapDays(item.current_days_remaining))} left · ${escapeHtml(item.risk_label || '')}</span>
+	          </div>
+	          <label class="admin-purchase-quantity">
+	            <span>Purchase quantity</span>
+	            <input type="number" min="0" step="1" value="${item.quantity}" data-purchase-plan-qty="${escapeHtml(item.sku || '')}" aria-label="Purchase quantity for ${escapeHtml(item.product_name || item.sku || '')}">
+	            <small>${escapeHtml(inventoryRecapStockUnitText(item))}</small>
+	          </label>
+	          <div class="admin-purchase-cost">
+	            <span>${formatCurrency(item.unitCost)} each</span>
+	            <strong>${formatCurrency(item.subtotal)}</strong>
+	          </div>
+	          <label class="admin-purchase-line-note">
+	            <span>Line note</span>
+	            <input type="text" value="${escapeHtml(item.note)}" data-purchase-plan-line-note="${escapeHtml(item.sku || '')}" placeholder="Optional instruction">
+	          </label>
+	        </article>
+	      `).join('');
+	    }
+	    if (purchasePlanRefs.status) {
+	      purchasePlanRefs.status.textContent = `${formatRegionalInteger(lines)} products · quantities remain editable`;
+	    }
+	    if (purchasePlanRefs.lines) purchasePlanRefs.lines.textContent = formatRegionalInteger(lines);
+	    if (purchasePlanRefs.total) purchasePlanRefs.total.textContent = formatCurrency(total);
+	    if (inventoryRecapRefs.cash) inventoryRecapRefs.cash.textContent = formatCurrency(cash);
+	    if (inventoryRecapRefs.cost) inventoryRecapRefs.cost.textContent = formatCurrency(total);
+	    if (inventoryRecapRefs.funding) {
+	      inventoryRecapRefs.funding.textContent = shortfall > 0
+	        ? `${formatCurrency(shortfall)} above available cash`
+	        : `${formatCurrency(cash - total)} cash remains`;
+	      inventoryRecapRefs.funding.classList.toggle('is-short', shortfall > 0);
+	    }
+	    if (purchasePlanRefs.note instanceof HTMLTextAreaElement && purchasePlanRefs.note.value !== state.inventoryRecap.planNote) {
+	      purchasePlanRefs.note.value = state.inventoryRecap.planNote;
+	    }
+	    if (purchasePlanRefs.copy) {
+	      purchasePlanRefs.copy.disabled = state.inventoryRecap.loading || !rows.length;
+	      purchasePlanRefs.copy.lastChild.textContent = state.inventoryRecap.copied ? ' Copied' : ' Copy text';
+	    }
+	    if (purchasePlanRefs.download) purchasePlanRefs.download.disabled = state.inventoryRecap.loading || !rows.length;
+	  };
+
+	  const purchasePlanText = () => {
+	    const { rows, total } = purchasePlanSummary();
+	    const date = state.inventoryRecap.data?.meta?.end_date || activeLocalDate;
+	    const lines = rows.map((item, index) => {
+	      const note = item.note ? ` | Note: ${item.note}` : '';
+	      return `${index + 1}. ${item.product_name || item.sku} (${item.sku}) | Buy ${formatRegionalInteger(item.quantity)} ${inventoryRecapStockUnitText(item)} | ${formatCurrency(item.subtotal)}${note}`;
+	    });
+	    return [
+	      'JENANG GEMI - RECOMMENDED STOCK PURCHASE',
+	      `Demand through: ${date}`,
+	      'Coverage target: 30 days',
+	      'Restock rule: urgent under 5 days; restock soon at 5-10 days',
+	      '',
+	      ...lines,
+	      '',
+	      `TOTAL: ${formatCurrency(total)}`,
+	      state.inventoryRecap.planNote ? `PURCHASE NOTE: ${state.inventoryRecap.planNote}` : ''
+	    ].filter((line, index, all) => line !== '' || all[index - 1] !== '').join('\n');
 	  };
 
 	  const renderInventoryRecap = (data = state.inventoryRecap.data) => {
 	    if (data) state.inventoryRecap.data = data;
 	    syncInventoryRecapAlert();
-	    if (state.activeView !== 'inventory-recap') return;
+	    if (!isInventoryView(state.activeView)) return;
 	    const summary = state.inventoryRecap.data?.summary || {};
 	    const meta = state.inventoryRecap.data?.meta || {};
-	    const cash = state.inventoryRecap.data?.cash || {};
-	    const suggestions = Array.isArray(state.inventoryRecap.data?.suggestions) ? state.inventoryRecap.data.suggestions : [];
-	    const rows = suggestions.length
-	      ? suggestions
-	      : (Array.isArray(state.inventoryRecap.data?.items) ? state.inventoryRecap.data.items.slice(0, 12) : []);
-	    const critical = Boolean(summary.is_critical);
-
+	    const rows = Array.isArray(state.inventoryRecap.data?.items) ? state.inventoryRecap.data.items : [];
 	    if (inventoryRecapRefs.status) {
 	      inventoryRecapRefs.status.textContent = state.inventoryRecap.loading
-	        ? 'Refreshing Inventory Recap'
-	        : critical
-	          ? 'Critical restock report'
-	          : suggestions.length
-	            ? 'Restock suggestions ready'
-	            : 'Inventory coverage looks clear';
-	    }
-	    if (inventoryRecapRefs.refresh) {
-	      inventoryRecapRefs.refresh.disabled = state.inventoryRecap.loading;
-	      inventoryRecapRefs.refresh.classList.toggle('is-loading', state.inventoryRecap.loading);
-	    }
-	    if (inventoryRecapRefs.cash) inventoryRecapRefs.cash.textContent = formatCurrency(summary.cash_available ?? cash.available ?? 0);
-	    if (inventoryRecapRefs.cost) inventoryRecapRefs.cost.textContent = formatCurrency(summary.total_recommended_cost || 0);
-	    if (inventoryRecapRefs.funding) {
-	      inventoryRecapRefs.funding.textContent = summary.can_fund_recommended
-	        ? 'Cash can fund draft'
-	        : `Short ${formatCurrency(summary.funding_gap || 0)}`;
+	        ? 'Updating 30-day sales rate'
+	        : `${formatRegionalInteger(summary.total_skus || rows.length)} products · demand through ${meta.end_date || activeLocalDate}`;
 	    }
 	    if (inventoryRecapRefs.critical) inventoryRecapRefs.critical.textContent = formatRegionalInteger(summary.critical_count || 0);
-	    if (inventoryRecapRefs.criticalMeta) {
-	      inventoryRecapRefs.criticalMeta.textContent = critical
-	        ? `${formatRegionalInteger(summary.watch_count || 0)} watch items / ${formatRegionalInteger(summary.matched_order_rows || 0)} demand rows`
-	        : 'No critical SKU flags';
-	    }
 	    if (inventoryRecapRefs.suggested) inventoryRecapRefs.suggested.textContent = formatRegionalInteger(summary.suggested_count || 0);
-	    if (inventoryRecapRefs.window) {
-	      inventoryRecapRefs.window.textContent = `${formatRegionalInteger(meta.order_days || 30)}-day minimum + ${formatRegionalInteger(meta.buffer_days || 10)}-day buffer / forecast history ${escapeHtml(meta.history_start_date || meta.start_date || '')} to ${escapeHtml(meta.end_date || '')}`;
-	    }
-	    if (inventoryRecapRefs.tableMeta) {
-	      inventoryRecapRefs.tableMeta.textContent = `${formatRegionalInteger(summary.suggested_count || 0)} suggested / ${formatCurrency(summary.total_recommended_cost || 0)}`;
-	    }
+	    if (inventoryRecapRefs.window) inventoryRecapRefs.window.textContent = `Last ${formatRegionalInteger(meta.lookback_days || 30)} days of sales · target 30 days`;
 	    renderInventoryRecapList(rows);
-	    if (inventoryRecapRefs.tableBody) inventoryRecapRefs.tableBody.innerHTML = renderInventoryRecapRows(rows);
-	    if (inventoryRecapRefs.draft) {
-	      inventoryRecapRefs.draft.textContent = state.inventoryRecap.data?.production_order_draft?.text || 'No production draft available.';
-	    }
-	    if (inventoryRecapRefs.copy) {
-	      inventoryRecapRefs.copy.textContent = state.inventoryRecap.copied ? 'Copied' : 'Copy';
-	      inventoryRecapRefs.copy.disabled = state.inventoryRecap.loading || !state.inventoryRecap.data;
-	    }
+	    renderPurchasePlan();
 	  };
 
   const closeOrdersDatePopover = () => {
@@ -8854,7 +8932,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (!data || typeof data !== 'object') return;
 	    state.inventoryRecap.loadedAt = options.loadedAt || Date.now();
 	    state.inventoryRecap.loading = false;
-	    if (state.activeView === 'inventory-recap') {
+	    if (isInventoryView(state.activeView)) {
 	      renderInventoryRecap(data);
 	      return;
 	    }
@@ -9622,7 +9700,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		    const requestToken = beginRequest('inventoryRecap');
 		    const showLoading = !options.background;
 		    if (showLoading) state.inventoryRecap.loading = true;
-		    if (state.activeView === 'inventory-recap') renderInventoryRecap(state.inventoryRecap.data);
+		    if (isInventoryView(state.activeView)) renderInventoryRecap(state.inventoryRecap.data);
 		    try {
 		      const data = await requestJson(inventoryRecapUrl({ force: Boolean(options.force || options.cacheBust) }), { timeoutMs: 30000 });
 		      if (!isLatestRequest('inventoryRecap', requestToken)) return;
@@ -9648,7 +9726,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	  };
 
 	  const copyInventoryRecapDraft = async () => {
-	    const text = state.inventoryRecap.data?.production_order_draft?.text || inventoryRecapRefs.draft?.textContent || '';
+	    const text = purchasePlanText();
 	    if (!text) return;
 	    try {
 	      await navigator.clipboard.writeText(text);
@@ -9659,8 +9737,41 @@ document.addEventListener('DOMContentLoaded', () => {
 	        renderInventoryRecap(state.inventoryRecap.data);
 	      }, 1200);
 	    } catch (_error) {
-	      if (inventoryRecapRefs.status) inventoryRecapRefs.status.textContent = 'Copy unavailable';
+	      if (purchasePlanRefs.status) purchasePlanRefs.status.textContent = 'Copy is unavailable in this browser';
 	    }
+	  };
+
+	  const downloadInventoryPurchasePdf = () => {
+	    const { rows, total } = purchasePlanSummary();
+	    if (!rows.length) return;
+	    const date = state.inventoryRecap.data?.meta?.end_date || activeLocalDate;
+	    const lines = [
+	      `Demand through: ${date}`,
+	      'Coverage target: 30 days',
+	      'Urgent: under 5 days | Restock soon: 5-10 days',
+	      '',
+	      ...rows.flatMap((item, index) => [
+	        `${index + 1}. ${item.product_name || item.sku}`,
+	        `   SKU: ${item.sku} | Buy: ${formatRegionalInteger(item.quantity)} ${inventoryRecapStockUnitText(item)}`,
+	        `   Unit cost: ${formatCurrency(item.unitCost)} | Subtotal: ${formatCurrency(item.subtotal)}`,
+	        item.note ? `   Note: ${item.note}` : ''
+	      ]),
+	      '',
+	      `TOTAL PURCHASE: ${formatCurrency(total)}`,
+	      `ACCOUNTING CASH: ${formatCurrency(state.inventoryRecap.data?.summary?.cash_available || 0)}`,
+	      state.inventoryRecap.planNote ? `PURCHASE NOTE: ${state.inventoryRecap.planNote}` : ''
+	    ].filter(Boolean);
+	    const pdf = buildSimplePdf('Jenang Gemi - Recommended Stock Purchase', lines);
+	    const blob = new Blob([pdf], { type: 'application/pdf' });
+	    const link = document.createElement('a');
+	    link.href = URL.createObjectURL(blob);
+	    link.download = `jenang-gemi-stock-purchase-${date}.pdf`;
+	    document.body.appendChild(link);
+	    link.click();
+	    window.setTimeout(() => {
+	      URL.revokeObjectURL(link.href);
+	      link.remove();
+	    }, 0);
 	  };
 
 		  const postWalletAction = async (action, body, actionId, options = {}) => {
@@ -10626,7 +10737,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      await loadWallet(options);
 	      return;
 	    }
-	    if (state.activeView === 'inventory-recap') {
+	    if (isInventoryView(state.activeView)) {
 	      await loadInventoryRecap(options);
 	      return;
 	    }
@@ -10735,7 +10846,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (state.activeView === 'wallet') {
 	      return loadWalletSafely(options);
 	    }
-	    if (state.activeView === 'inventory-recap') {
+	    if (isInventoryView(state.activeView)) {
 	      return loadInventoryRecapSafely(options);
 	    }
 	    if (state.activeView === 'daily') {
@@ -10802,7 +10913,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (view === 'overview') return loadOverviewSafely({ ...options, forceRefresh: true });
     if (view === 'orders') return loadOrdersSafely(options);
     if (view === 'wallet') return loadWalletSafely(options);
-    if (view === 'inventory-recap') return loadInventoryRecapSafely(options);
+    if (isInventoryView(view)) return loadInventoryRecapSafely(options);
     if (view === 'daily') return loadDailySafely(options);
     if (view === 'home') return loadHomeSafely(options);
     if (view === 'ad-view') return loadAdViewSafely(options);
@@ -10873,7 +10984,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      loadOverviewSafely({ force: true, preferStale: false }),
 	      state.activeView === 'orders' ? loadOrdersSafely({ force: true, preferStale: false }) : Promise.resolve(true),
 	      state.activeView === 'wallet' ? loadWalletSafely({ force: true, preferStale: false }) : Promise.resolve(true),
-	      state.activeView === 'inventory-recap' ? loadInventoryRecapSafely({ force: true, preferStale: false }) : Promise.resolve(true),
+	      isInventoryView(state.activeView) ? loadInventoryRecapSafely({ force: true, preferStale: false }) : Promise.resolve(true),
 	      state.activeView === 'daily' ? loadDailySafely({ force: true, preferStale: false }) : Promise.resolve(true)
 	    ]);
     return true;
@@ -10883,7 +10994,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (state.activeView === 'overview' && state.overview.data) renderOverview(state.overview.data);
 	    if (state.activeView === 'daily' && state.daily.data) renderDaily(currentDailyData());
 	    if (state.activeView === 'wallet' && state.wallet.data) renderWallet(state.wallet.data);
-	    if (state.activeView === 'inventory-recap' && state.inventoryRecap.data) renderInventoryRecap(state.inventoryRecap.data);
+	    if (isInventoryView(state.activeView) && state.inventoryRecap.data) renderInventoryRecap(state.inventoryRecap.data);
 	    if (state.activeView === 'home' && state.home.data) renderHome(state.home.data);
     if (state.activeView === 'ad-view' && state.adView.data) renderAdView(state.adView.data);
     if (state.activeView === 'website' && state.website.screen === 'detail' && state.website.data) renderWebsite(state.website.data);
@@ -10926,7 +11037,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (state.activeView === 'wallet') {
 	      renderWallet();
 	    }
-	    if (state.activeView === 'inventory-recap') {
+	    if (isInventoryView(state.activeView)) {
 	      renderInventoryRecap();
 	    }
     if (state.activeView === 'overview') {
@@ -11086,7 +11197,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      rendered = true;
 	    } else {
 	      restoreViewClientCache('inventory-recap', inventoryRecapClientCacheKey(), (data, cache) => {
-	        if (state.activeView !== 'inventory-recap') return;
+	        if (!isInventoryView(state.activeView)) return;
 	        applyInventoryRecapData(data, { loadedAt: cache.savedAt || Date.now() });
 	      }).catch(() => false);
 	      if (inventoryRecapRefs.status) {
@@ -11203,7 +11314,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      activateDailyViewInstantly();
 	      return;
 	    }
-	    if (state.activeView === 'inventory-recap') {
+	    if (isInventoryView(state.activeView)) {
 	      activateInventoryRecapViewInstantly();
 	      return;
 	    }
@@ -11279,7 +11390,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		    if (orderRelated) {
 		      if (state.activeView === 'daily') {
 		        queueActiveViewRefresh({ force: true, repair: false, delay: LIVE_REFRESH_DEBOUNCE_MS * 2 });
-		      } else if (state.activeView === 'orders' || state.activeView === 'overview' || state.activeView === 'wallet' || state.activeView === 'inventory-recap') {
+		      } else if (state.activeView === 'orders' || state.activeView === 'overview' || state.activeView === 'wallet' || isInventoryView(state.activeView)) {
 		        queueActiveViewRefresh({ force: true, forceRefresh: true, repair: true });
 		      }
 		      if (state.activeView !== 'wallet') {
@@ -11293,7 +11404,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		      if (state.activeView !== 'daily') {
 		        if (canStartBackgroundPageWork()) preloadOrderMemory({ reset: true, repair: true }).catch(() => {});
 		      }
-      if (state.activeView !== 'inventory-recap') {
+      if (!isInventoryView(state.activeView)) {
         queueViewRefresh('inventory-recap').catch(() => {});
       }
     } else {
@@ -11366,7 +11477,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	            : Promise.resolve(true)
 	        ),
 	        () => (
-	          state.activeView !== 'inventory-recap' && !state.inventoryRecap.data
+	          !isInventoryView(state.activeView) && !state.inventoryRecap.data
 	            ? loadInventoryRecapSafely({ background: true, preferStale: false, useCache: true })
 	            : Promise.resolve(true)
 	        ),
@@ -11441,7 +11552,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	            const activation = activateDailyViewInstantly();
 	            return waitForInitialViewReveal(activation.refreshPromise, activation);
 	          })
-	        : state.activeView === 'inventory-recap'
+	        : isInventoryView(state.activeView)
 	          ? Promise.resolve().then(() => {
 	              const activation = activateInventoryRecapViewInstantly();
 	              return waitForInitialViewReveal(activation.refreshPromise, activation);
@@ -11966,13 +12077,41 @@ document.addEventListener('DOMContentLoaded', () => {
 	    copyWalletApiResult().catch(() => {});
 	  });
 
-	  inventoryRecapRefs.refresh?.addEventListener('click', () => {
-	    loadInventoryRecapSafely({ force: true, preferStale: false, cacheBust: true }).catch(() => {});
+	  inventoryRecapRefs.filters.forEach((button) => {
+	    button.addEventListener('click', () => {
+	      state.inventoryRecap.filter = button.getAttribute('data-inventory-filter') || 'all';
+	      renderInventoryRecap(state.inventoryRecap.data);
+	    });
 	  });
 
-	  inventoryRecapRefs.copy?.addEventListener('click', () => {
+	  purchasePlanRefs.list?.addEventListener('change', (event) => {
+	    const input = event.target;
+	    if (!(input instanceof HTMLInputElement)) return;
+	    const sku = input.getAttribute('data-purchase-plan-qty');
+	    if (!sku) return;
+	    state.inventoryRecap.planQuantities[sku] = Math.max(0, Math.round(Number(input.value || 0)));
+	    state.inventoryRecap.planEdited[sku] = true;
+	    renderPurchasePlan();
+	  });
+
+	  purchasePlanRefs.list?.addEventListener('input', (event) => {
+	    const input = event.target;
+	    if (!(input instanceof HTMLInputElement)) return;
+	    const sku = input.getAttribute('data-purchase-plan-line-note');
+	    if (sku) state.inventoryRecap.planNotes[sku] = input.value;
+	  });
+
+	  purchasePlanRefs.note?.addEventListener('input', () => {
+	    if (purchasePlanRefs.note instanceof HTMLTextAreaElement) {
+	      state.inventoryRecap.planNote = purchasePlanRefs.note.value;
+	    }
+	  });
+
+	  purchasePlanRefs.copy?.addEventListener('click', () => {
 	    copyInventoryRecapDraft().catch(() => {});
 	  });
+
+	  purchasePlanRefs.download?.addEventListener('click', downloadInventoryPurchasePdf);
 
 	  walletRefs.tableBody?.addEventListener('click', (event) => {
 	    const toggle = event.target.closest('[data-wallet-balance-toggle]');

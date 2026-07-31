@@ -19,6 +19,12 @@ function inventory_recap_expect_true(bool $actual, string $message): void
     }
 }
 
+$defaultOptions = jg_inventory_recap_options(['today' => '2026-07-30']);
+inventory_recap_expect(30, $defaultOptions['lookback_days'], 'Default stock velocity should use 30 calendar days.');
+inventory_recap_expect(30, $defaultOptions['order_days'], 'Default purchase target should be one month.');
+inventory_recap_expect(0, $defaultOptions['buffer_days'], 'The default purchase target must not add a hidden buffer.');
+inventory_recap_expect(30, $defaultOptions['target_days'], 'One month of stock should be the full target.');
+
 $skuPdo = new PDO('sqlite::memory:');
 $skuPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 $skuPdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
@@ -48,7 +54,7 @@ $skuPdo->exec("INSERT INTO sku_units VALUES ('unit-pcs', 'pcs')");
 $skuPdo->exec("INSERT INTO sku_products VALUES ('prod-bubur', 'Bubur')");
 $skuPdo->exec("INSERT INTO sku_flavors VALUES ('flavor-original', 'Original')");
 $skuPdo->exec("INSERT INTO sku_skus VALUES
-    ('JG-BUBUR-ORIG', 'BUBUR_ORIG', 'brand-jg', 'unit-pcs', 1, 1, 'flavor-original', 'prod-bubur', 5, 5, 10, 'auto', 0, 1000, 5000),
+    ('JG-BUBUR-ORIG', 'BUBUR_ORIG', 'brand-jg', 'unit-pcs', 1, 1, 'flavor-original', 'prod-bubur', 4, 4, 10, 'auto', 0, 1000, 5000),
     ('JG-BUBUR-SAFE', 'BUBUR_SAFE', 'brand-jg', 'unit-pcs', 1, 1, 'flavor-original', 'prod-bubur', 100, 100, 10, 'auto', 0, 2000, 7000)");
 
 $analyticsPdo = new PDO('sqlite::memory:');
@@ -103,21 +109,27 @@ $payload = jg_inventory_recap_payload($skuPdo, $analyticsPdo, [
     'today' => '2026-07-30',
     'lookback_days' => 30,
     'order_days' => 30,
-    'buffer_days' => 10,
+    'buffer_days' => 0,
 ]);
 
 inventory_recap_expect(true, $payload['ok'], 'Inventory Recap payload must be successful.');
 inventory_recap_expect(1, $payload['summary']['suggested_count'], 'Only the short SKU should be suggested.');
 inventory_recap_expect(1, $payload['summary']['critical_count'], 'The short SKU should be critical.');
 inventory_recap_expect(true, $payload['summary']['can_fund_recommended'], 'Cash Available should cover the draft.');
-inventory_recap_expect(35000, $payload['summary']['total_recommended_cost'], 'Recommended cost should order 35 units at Rp1.000.');
+inventory_recap_expect(26000, $payload['summary']['total_recommended_cost'], 'Recommended cost should order 26 units at Rp1.000.');
 
 $suggestion = $payload['suggestions'][0] ?? [];
 inventory_recap_expect('JG-BUBUR-ORIG', $suggestion['sku'] ?? '', 'Suggestion must keep exact SKU.');
-inventory_recap_expect(35, $suggestion['recommended_order_qty'] ?? 0, 'Recommended order should cover 40 days less 5 stock.');
-inventory_recap_expect(25, $suggestion['minimum_order_qty'] ?? 0, 'Minimum order should cover the base month less 5 stock.');
-inventory_recap_expect(10, $suggestion['buffer_order_qty'] ?? 0, 'Buffer order should expose the margin of play.');
-inventory_recap_expect('critical', $suggestion['risk'] ?? '', 'Five days remaining should be critical.');
+inventory_recap_expect(26, $suggestion['recommended_order_qty'] ?? 0, 'Recommended order should cover 30 days less 4 stock.');
+inventory_recap_expect(26, $suggestion['minimum_order_qty'] ?? 0, 'Minimum order should match the 30-day target.');
+inventory_recap_expect(0, $suggestion['buffer_order_qty'] ?? 0, 'The operational model should not add an unrequested buffer.');
+inventory_recap_expect('critical', $suggestion['risk'] ?? '', 'Four days remaining should be urgent.');
+
+inventory_recap_expect('critical', jg_inventory_recap_risk(4.9, 1, 0, 30, true)['key'], 'Anything below five days should be urgent.');
+inventory_recap_expect('high', jg_inventory_recap_risk(5.0, 1, 0, 30, true)['key'], 'Five days should be restock soon, not urgent.');
+inventory_recap_expect('high', jg_inventory_recap_risk(10.0, 1, 0, 30, true)['key'], 'Ten days should be restock soon.');
+inventory_recap_expect('covered', jg_inventory_recap_risk(10.1, 1, 0, 30, true)['key'], 'Anything over ten days should not need restocking.');
+inventory_recap_expect('covered', jg_inventory_recap_risk(30.0, 1, 0, 30, true)['key'], 'One month of stock must not be urgent.');
 
 $skuPdo->exec("INSERT INTO sku_flavors VALUES ('flavor-chocolate', 'Chocolate')");
 $skuPdo->exec("INSERT INTO sku_skus VALUES
@@ -151,7 +163,7 @@ $rollupPayload = jg_inventory_recap_payload($skuPdo, $analyticsPdo, [
     'today' => '2026-07-30',
     'lookback_days' => 30,
     'order_days' => 30,
-    'buffer_days' => 10,
+    'buffer_days' => 0,
 ]);
 $rollupSuggestions = $rollupPayload['suggestions'] ?? [];
 $stockSuggestions = array_values(array_filter($rollupSuggestions, static fn (array $item): bool => ($item['sku'] ?? '') === 'JGPC0150CHBU'));
@@ -164,9 +176,10 @@ inventory_recap_expect(0, count($bundleSuggestions), 'The 30-sachet selling SKU 
 inventory_recap_expect(60.0, $stockSuggestion['sold_qty_astra'] ?? 0, 'Thirty 30-sachet sales should consume sixty 15-sachet stock units.');
 inventory_recap_expect(2.0, $stockSuggestion['daily_velocity'] ?? 0, 'The chocolate stock SKU should consume two 15-sachet boxes per day.');
 inventory_recap_expect(5.0, $stockSuggestion['current_days_remaining'] ?? 0, 'Ten 15-sachet boxes at two per day should last five days.');
-inventory_recap_expect(70, $stockSuggestion['recommended_order_qty'] ?? 0, 'Recommended order should buy 15-sachet stock units to reach 40 days.');
+inventory_recap_expect(50, $stockSuggestion['recommended_order_qty'] ?? 0, 'Recommended order should buy 15-sachet stock units to reach 30 days.');
 inventory_recap_expect(50, $stockSuggestion['minimum_order_qty'] ?? 0, 'Minimum order should buy 15-sachet stock units to reach 30 days.');
-inventory_recap_expect(20, $stockSuggestion['buffer_order_qty'] ?? 0, 'Buffer should be ten extra days of 15-sachet stock units.');
+inventory_recap_expect(0, $stockSuggestion['buffer_order_qty'] ?? 0, 'No extra buffer should be added.');
+inventory_recap_expect('high', $stockSuggestion['risk'] ?? '', 'Exactly five days of stock should be restock soon.');
 inventory_recap_expect(['JGPC0300CHBU'], $stockSuggestion['selling_skus'] ?? [], 'The 15-sachet stock SKU should report the 30-sachet selling SKU as its demand source.');
 
 $skuPdo->exec("INSERT INTO sku_flavors VALUES ('flavor-seasonal', 'Seasonal')");
@@ -200,18 +213,18 @@ $seasonalPayload = jg_inventory_recap_payload($skuPdo, $analyticsPdo, [
     'label' => 'Accounting Cash Available',
 ], [
     'today' => '2026-07-30',
-    'lookback_days' => 60,
+    'lookback_days' => 30,
     'forecast_history_days' => 60,
     'order_days' => 30,
-    'buffer_days' => 10,
+    'buffer_days' => 0,
 ]);
 $seasonalItems = array_values(array_filter($seasonalPayload['items'] ?? [], static fn (array $item): bool => ($item['sku'] ?? '') === 'JG-SEASONAL'));
 $seasonalItem = $seasonalItems[0] ?? [];
 $plainAverageDays = round(10 / (112 / 60), 1);
 
-inventory_recap_expect('calendar_weighted', $seasonalItem['forecast_method'] ?? '', 'Seasonal SKU should use the calendar forecast model.');
+inventory_recap_expect('30_day_run_rate', $seasonalItem['forecast_method'] ?? '', 'Coverage should use the auditable 30-day run rate.');
 inventory_recap_expect('2026-07-31', $seasonalItem['forecast_next_days'][0]['date'] ?? '', 'Forecast should map demand from the next calendar day.');
-inventory_recap_expect_true(isset($seasonalItem['forecast_months']['2026-08'], $seasonalItem['forecast_months']['2026-09']), 'Forecast should bucket demand across future months.');
-inventory_recap_expect_true((float) ($seasonalItem['current_days_remaining'] ?? 99) < $plainAverageDays, 'First-week demand should shorten days left versus a flat average.');
+inventory_recap_expect_true(isset($seasonalItem['forecast_months']['2026-08']), 'The 30-day purchase target should bucket demand into the next month.');
+inventory_recap_expect($plainAverageDays, $seasonalItem['current_days_remaining'] ?? 0, 'Days left should equal stock divided by the observed 30-day run rate.');
 
 echo "inventory-recap-test: ok\n";

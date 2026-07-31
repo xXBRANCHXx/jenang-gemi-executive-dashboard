@@ -23828,6 +23828,589 @@ body:has(.admin-app[data-sku-db])::after {
   color: #15803d;
 }
 
+/* Inventory coverage and editable purchase plan */
+.admin-inventory-recap-view,
+.admin-purchase-order-view {
+  --inventory-red: #ef4444;
+  --inventory-amber: #d97706;
+  --inventory-green: #22a55b;
+  --inventory-line: color-mix(in srgb, var(--admin-text) 13%, transparent);
+  gap: 0;
+  padding-bottom: 36px;
+}
+
+.admin-inventory-recap-controls,
+.admin-purchase-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 0 0 18px;
+  border-bottom: 1px solid var(--inventory-line);
+}
+
+.admin-inventory-filters {
+  display: flex;
+  min-width: 0;
+  overflow-x: auto;
+  border: 1px solid var(--inventory-line);
+  border-radius: 7px;
+}
+
+.admin-inventory-filters button {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 0;
+  border-right: 1px solid var(--inventory-line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--admin-muted);
+  font: 760 0.72rem/1.2 "Plus Jakarta Sans", sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.admin-inventory-filters button:last-child {
+  border-right: 0;
+}
+
+.admin-inventory-filters button.is-active {
+  background: var(--admin-text);
+  color: var(--admin-bg);
+}
+
+.admin-inventory-recap-brief,
+.admin-purchase-ledger-meta {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+  color: var(--admin-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.admin-inventory-recap-brief > span:first-child {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-inventory-recap-brief strong,
+.admin-purchase-ledger-meta strong {
+  color: var(--admin-text);
+  font: 800 0.88rem/1 "Space Grotesk", sans-serif;
+}
+
+.admin-inventory-recap-brief button,
+.admin-purchase-actions button {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--admin-text);
+  border-radius: 7px;
+  background: var(--admin-text);
+  color: var(--admin-bg);
+  font: 760 0.74rem/1 "Plus Jakarta Sans", sans-serif;
+  cursor: pointer;
+}
+
+.admin-inventory-coverage-key {
+  display: grid;
+  grid-template-columns: auto auto auto 1fr;
+  gap: 0;
+  align-items: center;
+  padding: 16px 0 10px;
+  color: var(--admin-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.admin-inventory-coverage-key > span {
+  padding: 0 14px;
+  border-right: 1px solid var(--inventory-line);
+}
+
+.admin-inventory-coverage-key > span:first-child {
+  padding-left: 0;
+}
+
+.admin-inventory-coverage-key b {
+  margin-left: 4px;
+  color: var(--admin-text);
+}
+
+.admin-inventory-coverage-key .is-critical::before,
+.admin-inventory-coverage-key .is-high::before,
+.admin-inventory-coverage-key .is-covered::before {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--inventory-red);
+  content: "";
+}
+
+.admin-inventory-coverage-key .is-high::before {
+  background: var(--inventory-amber);
+}
+
+.admin-inventory-coverage-key .is-covered::before {
+  background: var(--inventory-green);
+}
+
+.admin-inventory-coverage-key small {
+  justify-self: end;
+  color: var(--admin-muted);
+  font: inherit;
+}
+
+.admin-inventory-visual-list,
+.admin-purchase-list {
+  display: grid;
+  border-top: 1px solid var(--inventory-line);
+}
+
+.admin-inventory-coverage-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.2fr) minmax(105px, 0.45fr) minmax(130px, 0.55fr) minmax(260px, 1.35fr) minmax(165px, 0.75fr);
+  gap: 20px;
+  align-items: center;
+  min-height: 92px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--inventory-line);
+}
+
+.admin-inventory-product,
+.admin-inventory-stock-now,
+.admin-inventory-days,
+.admin-inventory-action {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.admin-inventory-product strong,
+.admin-inventory-action strong {
+  overflow: hidden;
+  color: var(--admin-text);
+  font: 750 0.84rem/1.25 "Plus Jakarta Sans", sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-inventory-product span,
+.admin-inventory-stock-now span,
+.admin-inventory-days span,
+.admin-inventory-action span {
+  overflow: hidden;
+  color: var(--admin-muted);
+  font-size: 0.67rem;
+  font-weight: 680;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-inventory-stock-now strong,
+.admin-inventory-days strong {
+  color: var(--admin-text);
+  font: 800 1.08rem/1 "Space Grotesk", sans-serif;
+}
+
+.admin-inventory-coverage-row.is-critical .admin-inventory-days strong,
+.admin-inventory-coverage-row.is-critical .admin-inventory-action strong {
+  color: #f87171;
+}
+
+.admin-inventory-coverage-row.is-high .admin-inventory-days strong,
+.admin-inventory-coverage-row.is-high .admin-inventory-action strong {
+  color: #f3a93b;
+}
+
+.admin-inventory-coverage-row.is-covered .admin-inventory-action strong {
+  color: #4ade80;
+}
+
+.admin-inventory-coverage-rail {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.admin-inventory-coverage-rail > div {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr 4fr;
+  gap: 3px;
+  height: 10px;
+}
+
+.admin-inventory-coverage-rail i,
+.admin-inventory-coverage-rail b,
+.admin-inventory-coverage-rail em {
+  display: block;
+  min-width: 0;
+  background: color-mix(in srgb, var(--inventory-red) 72%, var(--admin-bg));
+}
+
+.admin-inventory-coverage-rail b {
+  background: color-mix(in srgb, var(--inventory-amber) 72%, var(--admin-bg));
+}
+
+.admin-inventory-coverage-rail em {
+  background: color-mix(in srgb, var(--inventory-green) 62%, var(--admin-bg));
+}
+
+.admin-inventory-coverage-rail mark {
+  position: absolute;
+  top: -5px;
+  bottom: -5px;
+  left: var(--coverage-position);
+  width: 2px;
+  border: 0;
+  background: var(--admin-text);
+  transform: translateX(-1px);
+}
+
+.admin-inventory-coverage-rail mark::after {
+  position: absolute;
+  top: -2px;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  border: 2px solid var(--admin-bg);
+  border-radius: 50%;
+  background: var(--admin-text);
+  content: "";
+  transform: translate(-50%, -50%);
+}
+
+.admin-inventory-coverage-rail > span {
+  display: grid;
+  grid-template-columns: 1fr 1fr 2fr 2fr;
+  color: var(--admin-muted);
+}
+
+.admin-inventory-coverage-rail small {
+  font-size: 0.6rem;
+  font-weight: 700;
+}
+
+.admin-inventory-coverage-rail small:last-child {
+  text-align: right;
+}
+
+.admin-purchase-toolbar > div:first-child {
+  display: grid;
+  gap: 5px;
+}
+
+.admin-purchase-toolbar > div:first-child strong {
+  color: var(--admin-text);
+  font: 800 1.25rem/1.15 "Space Grotesk", sans-serif;
+}
+
+.admin-purchase-toolbar > div:first-child span {
+  color: var(--admin-muted);
+  font-size: 0.72rem;
+  font-weight: 680;
+}
+
+.admin-purchase-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.admin-purchase-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-purchase-actions button:first-child {
+  border-color: var(--inventory-line);
+  background: transparent;
+  color: var(--admin-text);
+}
+
+.admin-purchase-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.admin-purchase-actions svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.admin-purchase-ledger-meta {
+  justify-content: flex-end;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--inventory-line);
+}
+
+.admin-purchase-ledger-meta span {
+  padding-left: 18px;
+  border-left: 1px solid var(--inventory-line);
+}
+
+.admin-purchase-ledger-meta .is-short {
+  color: #f87171;
+}
+
+.admin-purchase-row {
+  display: grid;
+  grid-template-columns: 36px minmax(220px, 1.4fr) minmax(150px, 0.6fr) minmax(130px, 0.5fr) minmax(170px, 0.7fr);
+  gap: 18px;
+  align-items: center;
+  min-height: 104px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--inventory-line);
+}
+
+.admin-purchase-index {
+  color: var(--admin-muted);
+  font: 750 0.7rem/1 "Space Grotesk", sans-serif;
+}
+
+.admin-purchase-product,
+.admin-purchase-cost {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.admin-purchase-product strong,
+.admin-purchase-cost strong {
+  overflow: hidden;
+  color: var(--admin-text);
+  font: 760 0.84rem/1.25 "Plus Jakarta Sans", sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-purchase-product span,
+.admin-purchase-cost span {
+  overflow: hidden;
+  color: var(--admin-muted);
+  font-size: 0.67rem;
+  font-weight: 680;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-purchase-row.is-critical .admin-purchase-product span {
+  color: #f87171;
+}
+
+.admin-purchase-row.is-high .admin-purchase-product span {
+  color: #f3a93b;
+}
+
+.admin-purchase-quantity,
+.admin-purchase-line-note,
+.admin-purchase-order-note {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  color: var(--admin-muted);
+  font-size: 0.64rem;
+  font-weight: 720;
+}
+
+.admin-purchase-quantity {
+  grid-template-columns: minmax(70px, 100px) 1fr;
+}
+
+.admin-purchase-quantity > span {
+  grid-column: 1 / -1;
+}
+
+.admin-purchase-quantity input,
+.admin-purchase-line-note input,
+.admin-purchase-order-note textarea {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 11px;
+  border: 1px solid var(--inventory-line);
+  border-radius: 6px;
+  outline: 0;
+  background: transparent;
+  color: var(--admin-text);
+  font: 720 0.78rem/1.2 "Plus Jakarta Sans", sans-serif;
+}
+
+.admin-purchase-quantity input:focus,
+.admin-purchase-line-note input:focus,
+.admin-purchase-order-note textarea:focus {
+  border-color: var(--admin-text);
+}
+
+.admin-purchase-quantity small {
+  align-self: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-purchase-order-note {
+  margin-top: 18px;
+}
+
+.admin-purchase-order-note textarea {
+  min-height: 84px;
+  padding: 11px;
+  resize: vertical;
+}
+
+.admin-purchase-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 24px;
+  padding-top: 20px;
+  color: var(--admin-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.admin-purchase-total strong {
+  color: var(--admin-text);
+  font: 800 clamp(1.45rem, 2.8vw, 2.2rem)/1 "Space Grotesk", sans-serif;
+}
+
+:root[data-admin-theme='light'] .admin-inventory-recap-view,
+:root[data-admin-theme='light'] .admin-purchase-order-view {
+  --inventory-red: #dc2626;
+  --inventory-amber: #b45309;
+  --inventory-green: #15803d;
+}
+
+:root[data-admin-theme='light'] .admin-inventory-coverage-row.is-critical .admin-inventory-days strong,
+:root[data-admin-theme='light'] .admin-inventory-coverage-row.is-critical .admin-inventory-action strong,
+:root[data-admin-theme='light'] .admin-purchase-row.is-critical .admin-purchase-product span {
+  color: #b91c1c;
+}
+
+:root[data-admin-theme='light'] .admin-inventory-coverage-row.is-high .admin-inventory-days strong,
+:root[data-admin-theme='light'] .admin-inventory-coverage-row.is-high .admin-inventory-action strong,
+:root[data-admin-theme='light'] .admin-purchase-row.is-high .admin-purchase-product span {
+  color: #a16207;
+}
+
+:root[data-admin-theme='light'] .admin-inventory-coverage-row.is-covered .admin-inventory-action strong {
+  color: #15803d;
+}
+
+@media (max-width: 1180px) {
+  .admin-inventory-recap-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-inventory-recap-brief {
+    justify-content: space-between;
+  }
+
+  .admin-inventory-coverage-row {
+    grid-template-columns: minmax(210px, 1fr) 110px 130px minmax(230px, 1.2fr);
+  }
+
+  .admin-inventory-action {
+    grid-column: 1 / -1;
+    grid-template-columns: auto 1fr;
+  }
+
+  .admin-purchase-row {
+    grid-template-columns: 32px minmax(210px, 1fr) minmax(140px, 0.6fr) minmax(130px, 0.5fr);
+  }
+
+  .admin-purchase-line-note {
+    grid-column: 2 / -1;
+  }
+}
+
+@media (max-width: 760px) {
+  .admin-inventory-recap-brief {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .admin-inventory-recap-brief > span:first-child {
+    flex-basis: 100%;
+    max-width: none;
+  }
+
+  .admin-inventory-coverage-key {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .admin-inventory-coverage-key > span {
+    padding: 0;
+    border: 0;
+  }
+
+  .admin-inventory-coverage-key small {
+    justify-self: start;
+  }
+
+  .admin-inventory-coverage-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    padding: 18px 0;
+  }
+
+  .admin-inventory-product,
+  .admin-inventory-coverage-rail,
+  .admin-inventory-action {
+    grid-column: 1 / -1;
+  }
+
+  .admin-purchase-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-purchase-actions button {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .admin-purchase-ledger-meta {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .admin-purchase-ledger-meta span {
+    padding: 0;
+    border: 0;
+  }
+
+  .admin-purchase-row {
+    grid-template-columns: 28px 1fr;
+    gap: 12px;
+  }
+
+  .admin-purchase-quantity,
+  .admin-purchase-cost,
+  .admin-purchase-line-note {
+    grid-column: 2;
+  }
+
+  .admin-purchase-total {
+    justify-content: space-between;
+  }
+}
+
 :root[data-admin-theme='light'] .admin-wallet-command,
 :root[data-admin-theme='light'] .admin-wallet-stat {
   border-color: rgba(15, 23, 42, 0.1);

@@ -31,7 +31,7 @@ if ($isAuthenticated) {
     }
 }
 $isAdView = $isAuthenticated && in_array($requestedView ?? '', ['ad-view', 'ads', 'ad_view', 'shopee-ads'], true);
-$dashboardBuildVersion = 'exec3.93.2';
+$dashboardBuildVersion = 'exec3.94.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -718,77 +718,64 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 		                    </section>
 
 	                    <section class="admin-view admin-inventory-recap-view" data-view-panel="inventory-recap">
-	                <section class="admin-inventory-recap-command">
-	                    <div>
-	                        <span class="admin-panel-kicker">Inventory Recap</span>
-	                        <strong data-inventory-recap-status>Loading smart restock draft</strong>
-	                    </div>
-	                    <button type="button" class="admin-orders-icon-btn admin-inventory-recap-refresh" data-inventory-recap-refresh aria-label="Refresh Inventory Recap">
-	                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 0 1-15.2 6.5L3 16"/><path d="M3 21v-5h5"/><path d="M3 12a9 9 0 0 1 15.2-6.5L21 8"/><path d="M21 3v5h-5"/></svg>
-	                    </button>
-	                </section>
-
-	                <section class="admin-inventory-recap-summary" aria-label="Inventory Recap totals">
-	                    <article class="admin-inventory-recap-stat"><span>Cash Available</span><strong data-inventory-recap-cash>Rp0</strong><small>From Accounting</small></article>
-	                    <article class="admin-inventory-recap-stat"><span>Draft Cost</span><strong data-inventory-recap-cost>Rp0</strong><small data-inventory-recap-funding>Waiting for recap</small></article>
-	                    <article class="admin-inventory-recap-stat"><span>Urgent SKUs</span><strong data-inventory-recap-critical>0</strong><small data-inventory-recap-critical-meta>No flagged SKUs</small></article>
-	                    <article class="admin-inventory-recap-stat"><span>Order Lines</span><strong data-inventory-recap-suggested>0</strong><small>Production suggestions</small></article>
-	                </section>
-
-	                <section class="admin-inventory-recap-grid">
-	                    <article class="admin-panel admin-inventory-recap-panel">
-	                        <div class="admin-panel-head">
-	                            <div>
-	                                <span class="admin-panel-kicker">Stock Status</span>
-	                                <h3>Stock now and days left</h3>
+	                        <div class="admin-inventory-recap-controls">
+	                            <div class="admin-inventory-filters" role="group" aria-label="Filter inventory by stock coverage">
+	                                <button type="button" class="is-active" data-inventory-filter="all">All stock</button>
+	                                <button type="button" data-inventory-filter="critical">Urgent · under 5 days</button>
+	                                <button type="button" data-inventory-filter="high">Restock soon · 5–10 days</button>
+	                                <button type="button" data-inventory-filter="covered">Stocked · over 10 days</button>
 	                            </div>
-	                            <span class="admin-panel-meta" data-inventory-recap-window>30-day minimum + 10-day buffer</span>
-	                        </div>
-	                        <div class="admin-inventory-recap-risk-list" data-inventory-recap-list>
-	                            <p class="admin-empty">Loading Inventory Recap.</p>
-	                        </div>
-	                    </article>
-
-	                    <article class="admin-panel admin-inventory-recap-panel">
-	                        <div class="admin-panel-head">
-	                            <div>
-	                                <span class="admin-panel-kicker">Draft</span>
-	                                <h3>Order to production</h3>
+	                            <div class="admin-inventory-recap-brief" aria-live="polite">
+	                                <span data-inventory-recap-status>Reading 30-day sales rate</span>
+	                                <span><strong data-inventory-recap-critical>0</strong> urgent</span>
+	                                <span><strong data-inventory-recap-suggested>0</strong> to buy</span>
+	                                <button type="button" data-view-switch="purchase-order">Review purchase plan</button>
 	                            </div>
-	                            <button type="button" class="admin-ghost-btn" data-inventory-recap-copy>Copy</button>
 	                        </div>
-	                        <pre class="admin-inventory-recap-draft" data-inventory-recap-draft>Loading production draft.</pre>
-	                    </article>
-	                </section>
+	                        <div class="admin-inventory-coverage-key" aria-label="Coverage scale">
+	                            <span class="is-critical">Urgent <b>0–4.9 days</b></span>
+	                            <span class="is-high">Restock soon <b>5–10 days</b></span>
+	                            <span class="is-covered">No restock <b>over 10 days</b></span>
+	                            <small data-inventory-recap-window>Based on the last 30 days of sales</small>
+	                        </div>
+	                        <div class="admin-inventory-visual-list" data-inventory-recap-list>
+	                            <p class="admin-empty">Loading inventory coverage.</p>
+	                        </div>
+	                    </section>
 
-	                <section class="admin-panel admin-panel-table admin-panel-wide admin-inventory-recap-table-panel">
-	                    <div class="admin-panel-head">
-	                        <div>
-	                            <span class="admin-panel-kicker">Products</span>
-	                            <h3>Stock now and restock suggestion</h3>
+	                    <section class="admin-view admin-purchase-order-view" data-view-panel="purchase-order">
+	                        <div class="admin-purchase-toolbar">
+	                            <div>
+	                                <strong>Recommended stock purchase</strong>
+	                                <span data-purchase-plan-status>Loading current recommendations</span>
+	                            </div>
+	                            <div class="admin-purchase-actions">
+	                                <button type="button" data-purchase-plan-copy disabled>
+	                                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+	                                    Copy text
+	                                </button>
+	                                <button type="button" data-purchase-plan-download disabled>
+	                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+	                                    Download PDF
+	                                </button>
+	                            </div>
 	                        </div>
-	                        <span class="admin-panel-meta" data-inventory-recap-table-meta>SKU-level formula</span>
-	                    </div>
-	                    <div class="admin-table-wrap admin-inventory-recap-table-wrap">
-	                        <table class="admin-table admin-inventory-recap-table">
-	                            <thead>
-	                                <tr>
-	                                    <th>SKU</th>
-	                                    <th>Product</th>
-	                                    <th>Stock now</th>
-	                                    <th>Current stock lasts</th>
-	                                    <th>Order for 40 days</th>
-	                                    <th>Can order less</th>
-	                                    <th>Cost</th>
-	                                    <th>Status</th>
-	                                </tr>
-	                            </thead>
-	                            <tbody data-inventory-recap-table-body>
-	                                <tr><td colspan="8" class="admin-empty">Loading Inventory Recap.</td></tr>
-	                            </tbody>
-	                        </table>
-	                    </div>
-	                </section>
+	                        <div class="admin-purchase-ledger-meta">
+	                            <span>Accounting cash <strong data-inventory-recap-cash>Rp0</strong></span>
+	                            <span>Edited purchase <strong data-inventory-recap-cost>Rp0</strong></span>
+	                            <span data-inventory-recap-funding>Waiting for inventory</span>
+	                        </div>
+	                        <div class="admin-purchase-list" data-purchase-plan-list>
+	                            <p class="admin-empty">Loading recommended products.</p>
+	                        </div>
+	                        <label class="admin-purchase-order-note">
+	                            <span>Purchase note</span>
+	                            <textarea rows="3" data-purchase-plan-note placeholder="Add a supplier, delivery date, or production instruction"></textarea>
+	                        </label>
+	                        <div class="admin-purchase-total">
+	                            <span><b data-purchase-plan-lines>0</b> products</span>
+	                            <strong data-purchase-plan-total>Rp0</strong>
+	                        </div>
 	                    </section>
 
                     <section class="admin-view admin-shipment-arrangement" data-view-panel="shipment-arrangement" data-shipment-arrangement data-shipment-arrangement-endpoint="../api/shipment-arrangement/">

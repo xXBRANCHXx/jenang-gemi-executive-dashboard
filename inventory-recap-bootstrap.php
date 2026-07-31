@@ -23,9 +23,9 @@ function jg_inventory_recap_today(array $input = []): DateTimeImmutable
 
 function jg_inventory_recap_options(array $input = []): array
 {
-    $lookbackDays = jg_inventory_recap_int_option($input, 'lookback_days', 45, 14, 120);
+    $lookbackDays = jg_inventory_recap_int_option($input, 'lookback_days', 30, 14, 120);
     $orderDays = jg_inventory_recap_int_option($input, 'order_days', 30, 7, 90);
-    $bufferDays = jg_inventory_recap_int_option($input, 'buffer_days', 10, 0, 45);
+    $bufferDays = jg_inventory_recap_int_option($input, 'buffer_days', 0, 0, 45);
     $historyDays = jg_inventory_recap_int_option($input, 'forecast_history_days', 365, max(45, $lookbackDays), 730);
     $today = jg_inventory_recap_today($input);
     $start = $today->modify('-' . max(0, $lookbackDays - 1) . ' days');
@@ -45,7 +45,7 @@ function jg_inventory_recap_options(array $input = []): array
         'start_at_utc' => $start->setTime(0, 0)->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s.u'),
         'history_start_at_utc' => $historyStart->setTime(0, 0)->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s.u'),
         'end_at_utc' => $endExclusive->setTime(0, 0)->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s.u'),
-        'forecast_model' => 'calendar_weighted',
+        'forecast_model' => '30_day_run_rate',
     ];
 }
 
@@ -118,77 +118,6 @@ function jg_inventory_recap_date_in_range(string $date, string $startDate, strin
     return $date !== '' && strcmp($date, $startDate) >= 0 && strcmp($date, $endDate) <= 0;
 }
 
-function jg_inventory_recap_week_of_month(DateTimeImmutable $date): int
-{
-    return min(5, max(1, intdiv(((int) $date->format('j')) - 1, 7) + 1));
-}
-
-function jg_inventory_recap_add_forecast_stat(array &$stats, int $key, float $quantity): void
-{
-    if (!isset($stats[$key])) {
-        $stats[$key] = ['total' => 0.0, 'days' => 0];
-    }
-    $stats[$key]['total'] += $quantity;
-    $stats[$key]['days'] += 1;
-}
-
-function jg_inventory_recap_smoothed_average(array $stats, int $key, float $baseline, float $smoothDays): float
-{
-    $stat = $stats[$key] ?? null;
-    if (!is_array($stat)) {
-        return $baseline;
-    }
-
-    $days = max(0, (int) ($stat['days'] ?? 0));
-    if ($days <= 0) {
-        return $baseline;
-    }
-
-    return max(0.0, ((float) ($stat['total'] ?? 0) + ($baseline * $smoothDays)) / ($days + $smoothDays));
-}
-
-function jg_inventory_recap_forecast_quantity_for_date(DateTimeImmutable $date, array $model): float
-{
-    $baseline = max(0.0, (float) ($model['baseline_daily'] ?? 0));
-    if ($baseline <= 0) {
-        return 0.0;
-    }
-
-    $trendAvg = max(0.0, (float) ($model['trend_daily'] ?? $baseline));
-    $weekdayAvg = jg_inventory_recap_smoothed_average((array) ($model['weekday_stats'] ?? []), (int) $date->format('N'), $baseline, 2.0);
-    $weekAvg = jg_inventory_recap_smoothed_average((array) ($model['week_stats'] ?? []), jg_inventory_recap_week_of_month($date), $baseline, 7.0);
-    $monthAvg = jg_inventory_recap_smoothed_average((array) ($model['month_stats'] ?? []), (int) $date->format('n'), $baseline, 30.0);
-
-    $quantity = ($trendAvg * 0.4) + ($weekdayAvg * 0.3) + ($weekAvg * 0.2) + ($monthAvg * 0.1);
-    $cap = max($baseline, $trendAvg) * 4.0;
-    return round(max(0.0, min($cap, $quantity)), 4);
-}
-
-function jg_inventory_recap_days_until_stockout(float $stock, array $forecastDays, float $fallbackDaily): ?float
-{
-    $fallbackDaily = max(0.0, $fallbackDaily);
-    if ($fallbackDaily <= 0) {
-        return null;
-    }
-
-    $remaining = max(0.0, $stock);
-    $elapsed = 0.0;
-    foreach ($forecastDays as $day) {
-        $quantity = max(0.0, (float) ($day['qty'] ?? 0));
-        if ($quantity <= 0) {
-            $elapsed += 1.0;
-            continue;
-        }
-        if ($remaining <= $quantity) {
-            return round($elapsed + ($remaining / $quantity), 1);
-        }
-        $remaining -= $quantity;
-        $elapsed += 1.0;
-    }
-
-    return round($elapsed + ($remaining / $fallbackDaily), 1);
-}
-
 function jg_inventory_recap_forecast_confidence(int $historyDays, int $soldDays): string
 {
     if ($historyDays >= 180 && $soldDays >= 20) {
@@ -237,7 +166,7 @@ function jg_inventory_recap_empty_forecast(array $options): array
         'forecast_months' => [],
         'forecast_weeks' => [],
         'forecast_confidence' => 'none',
-        'forecast_method' => (string) ($options['forecast_model'] ?? 'calendar_weighted'),
+        'forecast_method' => (string) ($options['forecast_model'] ?? '30_day_run_rate'),
         'forecast_history_days_used' => 0,
         'forecast_sold_days' => 0,
     ];
@@ -257,9 +186,6 @@ function jg_inventory_recap_forecast(array $dailyHistory, array $options, float 
         return jg_inventory_recap_empty_forecast($options);
     }
 
-    $weekdayStats = [];
-    $weekStats = [];
-    $monthStats = [];
     $historyDays = 0;
     $soldDays = 0;
     $historyTotal = 0.0;
@@ -272,9 +198,6 @@ function jg_inventory_recap_forecast(array $dailyHistory, array $options, float 
         if ($quantity > 0) {
             $soldDays++;
         }
-        jg_inventory_recap_add_forecast_stat($weekdayStats, (int) $cursor->format('N'), $quantity);
-        jg_inventory_recap_add_forecast_stat($weekStats, jg_inventory_recap_week_of_month($cursor), $quantity);
-        jg_inventory_recap_add_forecast_stat($monthStats, (int) $cursor->format('n'), $quantity);
         $cursor = $cursor->modify('+1 day');
     }
 
@@ -285,9 +208,6 @@ function jg_inventory_recap_forecast(array $dailyHistory, array $options, float 
     $baselineDaily = $historyTotal / $historyDays;
     $lookbackDays = max(1, (int) ($options['lookback_days'] ?? 45));
     $recentStart = $today->modify('-' . max(0, $lookbackDays - 1) . ' days');
-    if ($recentStart < $historyStart) {
-        $recentStart = $historyStart;
-    }
 
     $recentDays = 0;
     $recentTotal = 0.0;
@@ -298,15 +218,9 @@ function jg_inventory_recap_forecast(array $dailyHistory, array $options, float 
         $cursor = $cursor->modify('+1 day');
     }
 
-    $recentDaily = $recentDays > 0 ? $recentTotal / $recentDays : $baselineDaily;
-    $trendDaily = ($recentTotal + ($baselineDaily * 14.0)) / max(1.0, $recentDays + 14.0);
-    $model = [
-        'baseline_daily' => $baselineDaily,
-        'trend_daily' => $trendDaily,
-        'weekday_stats' => $weekdayStats,
-        'week_stats' => $weekStats,
-        'month_stats' => $monthStats,
-    ];
+    // Coverage stays auditable: current stock divided by the observed daily
+    // run rate. Zero-sale days are included in the selected lookback window.
+    $runRateDaily = $recentDays > 0 ? $recentTotal / $recentDays : $baselineDaily;
 
     $orderDays = max(1, (int) ($options['order_days'] ?? 30));
     $targetDays = max(1, (int) ($options['target_days'] ?? ($orderDays + (int) ($options['buffer_days'] ?? 10))));
@@ -316,25 +230,24 @@ function jg_inventory_recap_forecast(array $dailyHistory, array $options, float 
         $date = $today->modify('+' . $offset . ' day');
         $forecastDays[] = [
             'date' => $date->format('Y-m-d'),
-            'qty' => jg_inventory_recap_forecast_quantity_for_date($date, $model),
+            'qty' => round($runRateDaily, 4),
         ];
     }
 
     $targetForecastDays = array_slice($forecastDays, 0, $targetDays);
     $orderForecastDays = array_slice($forecastDays, 0, $orderDays);
-    $targetNeed = array_sum(array_map(static fn (array $day): float => (float) ($day['qty'] ?? 0), $targetForecastDays));
-    $orderNeed = array_sum(array_map(static fn (array $day): float => (float) ($day['qty'] ?? 0), $orderForecastDays));
+    $targetNeed = $runRateDaily * $targetDays;
+    $orderNeed = $runRateDaily * $orderDays;
     $targetQty = (int) ceil($targetNeed);
     $monthTargetQty = (int) ceil($orderNeed);
-    $forecastDaily = $targetDays > 0 ? $targetNeed / $targetDays : 0.0;
-    $fallbackDaily = $forecastDaily > 0 ? $forecastDaily : $baselineDaily;
+    $forecastDaily = $runRateDaily;
     $buckets = jg_inventory_recap_bucket_forecast_days($targetForecastDays);
 
     return [
         'has_demand' => true,
         'daily_velocity' => round($forecastDaily, 3),
-        'recent_daily_velocity' => round($recentDaily, 3),
-        'current_days_remaining' => jg_inventory_recap_days_until_stockout($currentStock, $forecastDays, $fallbackDaily),
+        'recent_daily_velocity' => round($runRateDaily, 3),
+        'current_days_remaining' => $runRateDaily > 0 ? round(max(0.0, $currentStock) / $runRateDaily, 1) : null,
         'month_target_qty' => $monthTargetQty,
         'target_qty' => $targetQty,
         'post_order_days' => null,
@@ -607,24 +520,15 @@ function jg_inventory_recap_match_sku_index(array $orderRow, array $lookup): ?in
 function jg_inventory_recap_risk(float $daysRemaining, float $currentStock, float $stockTrigger, int $targetDays, bool $hasDemand): array
 {
     if (!$hasDemand) {
-        if ($stockTrigger > 0 && $currentStock <= $stockTrigger) {
-            return ['key' => 'watch', 'label' => 'Orange - below trigger', 'color' => '#d97706', 'score' => 2];
-        }
-        return ['key' => 'quiet', 'label' => 'No recent sales', 'color' => '#64748b', 'score' => 0];
+        return ['key' => 'quiet', 'label' => 'No sales data', 'color' => '#64748b', 'score' => 0];
     }
-    if ($daysRemaining <= 10 || ($stockTrigger > 0 && $currentStock <= $stockTrigger && $daysRemaining <= $targetDays)) {
-        return ['key' => 'critical', 'label' => 'Red - urgent', 'color' => '#dc2626', 'score' => 5];
+    if ($daysRemaining < 5) {
+        return ['key' => 'critical', 'label' => 'Urgent', 'color' => '#dc2626', 'score' => 3];
     }
-    if ($daysRemaining <= 20) {
-        return ['key' => 'high', 'label' => 'Orange - restock soon', 'color' => '#ea580c', 'score' => 4];
+    if ($daysRemaining <= 10) {
+        return ['key' => 'high', 'label' => 'Restock soon', 'color' => '#d97706', 'score' => 2];
     }
-    if ($daysRemaining <= 30) {
-        return ['key' => 'medium', 'label' => 'Orange - under 30 days', 'color' => '#d97706', 'score' => 3];
-    }
-    if ($daysRemaining <= $targetDays) {
-        return ['key' => 'low', 'label' => 'Green - buffer tight', 'color' => '#65a30d', 'score' => 1];
-    }
-    return ['key' => 'covered', 'label' => 'Green - covered', 'color' => '#16a34a', 'score' => 0];
+    return ['key' => 'covered', 'label' => 'Stocked', 'color' => '#16a34a', 'score' => 0];
 }
 
 function jg_inventory_recap_format_idr(float|int $amount): string
@@ -640,10 +544,7 @@ function jg_inventory_recap_order_draft(array $suggestions, array $summary, arra
         $daysLabel = is_numeric($daysRemaining)
             ? rtrim(rtrim(number_format((float) $daysRemaining, 1, '.', ''), '0'), '.') . ' days left'
             : 'no recent sales';
-        $forecastLabel = trim((string) ($item['forecast_confidence'] ?? ''));
-        $forecastLabel = $forecastLabel !== '' && $forecastLabel !== 'none'
-            ? 'calendar forecast, ' . $forecastLabel . ' confidence'
-            : 'calendar forecast';
+        $forecastLabel = '30-day sales run rate';
         $stockUnitVolume = jg_inventory_recap_number($item['volume'] ?? $item['astra'] ?? 0);
         $stockUnitName = trim((string) ($item['unit_name'] ?? ''));
         $stockUnitSize = $stockUnitVolume > 0
@@ -683,8 +584,8 @@ function jg_inventory_recap_order_draft(array $suggestions, array $summary, arra
     $text = implode("\n", array_merge([
         'Inventory Recap production draft',
         'Generated: ' . gmdate(DATE_ATOM),
-        sprintf('Coverage target: %d days + %d day buffer (%d days total)', (int) $options['order_days'], (int) $options['buffer_days'], (int) $options['target_days']),
-        sprintf('Forecast basis: calendar-weighted ASTRA demand from %s to %s', (string) ($options['history_start_date'] ?? $options['start_date']), (string) ($options['end_date'] ?? '')),
+        sprintf('Coverage target: %d days', (int) $options['order_days']),
+        sprintf('Demand basis: %d-day sales run rate through %s', (int) $options['lookback_days'], (string) ($options['end_date'] ?? '')),
         'Estimated production cost: ' . jg_inventory_recap_format_idr((float) ($summary['total_recommended_cost'] ?? 0)),
         'Accounting Cash Available: ' . jg_inventory_recap_format_idr((float) ($summary['cash_available'] ?? 0)),
         'Funding: ' . $funding,
@@ -775,13 +676,16 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
         $recommendedOrderQty = max(0, (int) ceil($targetQty - $currentStock));
         $bufferOrderQty = max(0, $recommendedOrderQty - $minimumOrderQty);
         $postOrderStock = $currentStock + $recommendedOrderQty;
-        $postOrderDays = $hasDemand ? jg_inventory_recap_days_until_stockout($postOrderStock, $forecastDays, $dailyVelocity) : null;
+        $postOrderDays = $hasDemand && $dailyVelocity > 0 ? round($postOrderStock / $dailyVelocity, 1) : null;
         $risk = jg_inventory_recap_risk($daysRemaining ?? 9999.0, $currentStock, $stockTrigger, (int) $options['target_days'], $hasDemand);
         $estimatedCost = (int) round($recommendedOrderQty * (float) ($sku['cogs'] ?? 0));
         $minimumCost = (int) round($minimumOrderQty * (float) ($sku['cogs'] ?? 0));
         $playPercent = $recommendedOrderQty > 0 ? round(($bufferOrderQty / $recommendedOrderQty) * 100, 1) : 0.0;
         $sellingSkus = array_keys($demand[$index]['selling_skus'] ?? []);
         sort($sellingSkus);
+
+        $restockNeeded = in_array((string) ($risk['key'] ?? ''), ['critical', 'high'], true)
+            && $recommendedOrderQty > 0;
 
         $items[] = [
             ...$sku,
@@ -811,7 +715,7 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
             'minimum_cost' => $minimumCost,
             'buffer_cost' => max(0, $estimatedCost - $minimumCost),
             'margin_play_percent' => $playPercent,
-            'restock_needed' => $recommendedOrderQty > 0,
+            'restock_needed' => $restockNeeded,
             'risk' => $risk['key'],
             'risk_label' => $risk['label'],
             'risk_color' => $risk['color'],
@@ -827,14 +731,14 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
             ?: strcmp((string) ($left['product_name'] ?? ''), (string) ($right['product_name'] ?? ''));
     });
 
-    $suggestions = array_values(array_filter($items, static fn (array $item): bool => (int) ($item['recommended_order_qty'] ?? 0) > 0));
+    $suggestions = array_values(array_filter($items, static fn (array $item): bool => !empty($item['restock_needed'])));
     $totalRecommendedCost = array_sum(array_map(static fn (array $item): int => (int) ($item['estimated_cost'] ?? 0), $suggestions));
     $totalMinimumCost = array_sum(array_map(static fn (array $item): int => (int) ($item['minimum_cost'] ?? 0), $suggestions));
     $cashAvailable = max(0, (int) round(jg_inventory_recap_number($cashContext['amount'] ?? $cashContext['cash_available'] ?? 0)));
     $fundingGap = max(0, $totalRecommendedCost - $cashAvailable);
     $criticalCount = count(array_filter($items, static fn (array $item): bool => ($item['risk'] ?? '') === 'critical'));
-    $highCount = count(array_filter($items, static fn (array $item): bool => in_array((string) ($item['risk'] ?? ''), ['high', 'medium'], true)));
-    $reportCritical = $criticalCount > 0 || $fundingGap > 0;
+    $highCount = count(array_filter($items, static fn (array $item): bool => ($item['risk'] ?? '') === 'high'));
+    $reportCritical = $criticalCount > 0;
 
     $summary = [
         'total_skus' => count($items),
