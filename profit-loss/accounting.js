@@ -3,7 +3,7 @@ const root = document.querySelector('[data-accounting-page]');
 if (root) {
   const DASHBOARD_TIMEZONE = 'Asia/Jakarta';
   const endpoint = root.dataset.accountingEndpoint || '../api/accounting/';
-  const ACCOUNTING_CACHE_PREFIX = 'jg-accounting-page-cache-v4';
+  const ACCOUNTING_CACHE_PREFIX = 'jg-accounting-page-cache-v5';
   const ACCOUNTING_LOOKUPS_CACHE_KEY = 'jg-accounting-lookups-cache-v1';
   const ACCOUNTING_CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
   const escapeHtml = (value) => String(value ?? '')
@@ -103,6 +103,7 @@ if (root) {
     summary: null,
     bills: [],
     transactions: [],
+    ledger: [],
     reviewQueue: [],
     accounts: [],
     categories: [],
@@ -137,7 +138,7 @@ if (root) {
       pendingReview: root.querySelector('[data-accounting-kpi="pending-review"]')
     },
     safeCashCard: root.querySelector('[data-accounting-safe-cash-card]'),
-    cashHistoryOpen: root.querySelector('[data-accounting-cash-history-open]'),
+    cashHistoryOpenButtons: root.querySelectorAll('[data-accounting-cash-history-open]'),
     cashHistory: root.querySelector('[data-accounting-cash-history]'),
     cashHistoryCard: root.querySelector('.admin-accounting-cash-history-card'),
     cashHistoryCloseButtons: root.querySelectorAll('[data-accounting-cash-history-close]'),
@@ -151,6 +152,26 @@ if (root) {
     cashHistoryAdded: root.querySelector('[data-accounting-cash-history-added]'),
     cashHistorySubtracted: root.querySelector('[data-accounting-cash-history-subtracted]'),
     cashHistoryNote: root.querySelector('[data-accounting-cash-history-note]'),
+    pulseCash: root.querySelector('[data-accounting-pulse-cash]'),
+    reconciliationCopy: root.querySelector('[data-accounting-reconciliation-copy]'),
+    walletBreakdown: root.querySelector('[data-accounting-wallet-breakdown]'),
+    walletsMeta: root.querySelector('[data-accounting-wallets-meta]'),
+    marketplaceOpen: root.querySelector('[data-accounting-marketplace-open]'),
+    billsOpenButtons: root.querySelectorAll('[data-accounting-bills-open]'),
+    breakdown: root.querySelector('[data-accounting-breakdown]'),
+    breakdownCard: root.querySelector('.admin-accounting-breakdown-card'),
+    breakdownCloseButtons: root.querySelectorAll('[data-accounting-breakdown-close]'),
+    breakdownKicker: root.querySelector('[data-accounting-breakdown-kicker]'),
+    breakdownTitle: root.querySelector('[data-accounting-breakdown-title]'),
+    breakdownCopy: root.querySelector('[data-accounting-breakdown-copy]'),
+    breakdownBody: root.querySelector('[data-accounting-breakdown-body]'),
+    reconcile: root.querySelector('[data-accounting-reconcile]'),
+    reconcileCard: root.querySelector('.admin-accounting-reconcile-card'),
+    reconcileOpen: root.querySelector('[data-accounting-reconcile-open]'),
+    reconcileCloseButtons: root.querySelectorAll('[data-accounting-reconcile-close]'),
+    reconcileForm: root.querySelector('[data-accounting-reconcile-form]'),
+    reconcileAmount: root.querySelector('[data-accounting-reconcile-amount]'),
+    reconcileError: root.querySelector('[data-accounting-reconcile-error]'),
     alerts: root.querySelector('[data-accounting-alerts]'),
     form: root.querySelector('[data-accounting-form]'),
     formStatus: root.querySelector('[data-accounting-form-status]'),
@@ -175,9 +196,11 @@ if (root) {
     incomeType: root.querySelector('[data-accounting-income-type]'),
     billsBody: root.querySelector('[data-accounting-bills-body]'),
     transactionsBody: root.querySelector('[data-accounting-transactions-body]'),
+    ledgerBody: root.querySelector('[data-accounting-ledger-body]'),
     reviewBody: root.querySelector('[data-accounting-review-body]'),
     billsMeta: root.querySelector('[data-accounting-bills-meta]'),
     ledgerMeta: root.querySelector('[data-accounting-ledger-meta]'),
+    reviewCount: root.querySelector('[data-accounting-review-count]'),
     monthlySummary: root.querySelector('[data-accounting-monthly-summary]'),
     insightTabs: root.querySelectorAll('[data-accounting-insight-tab]'),
     insights: root.querySelector('[data-accounting-insights]'),
@@ -272,6 +295,7 @@ if (root) {
     state.summary = payload?.summary || {};
     state.bills = Array.isArray(payload?.bills) ? payload.bills : [];
     state.transactions = Array.isArray(payload?.transactions) ? payload.transactions : [];
+    state.ledger = Array.isArray(payload?.ledger) ? payload.ledger : [];
     state.reviewQueue = Array.isArray(payload?.reviewQueue) ? payload.reviewQueue : [];
     applyLookupsPayload(payload?.lookups, { renderControls: false });
     render(renderOptions);
@@ -355,23 +379,35 @@ if (root) {
     const accounts = state.accounts;
     const categories = state.categories.filter((item) => item.parent_id !== null || Number(item.is_billable) === 1);
     const openBills = state.bills.filter((bill) => ['unpaid', 'partially_paid', 'overdue'].includes(String(bill.status || '')));
+    const selectedAccount = refs.accountSelect?.value || '';
+    const selectedToAccount = refs.toAccountSelect?.value || '';
+    const selectedCategory = refs.categorySelect?.value || '';
+    const selectedBill = refs.billSelect?.value || '';
     const accountOptions = [
       option('', 'Choose account'),
       ...accounts.map((account) => option(account.id, `${account.name}${Number(account.is_spendable) ? '' : ' (not spendable)'}`))
     ].join('');
-    if (refs.accountSelect) refs.accountSelect.innerHTML = accountOptions;
-    if (refs.toAccountSelect) refs.toAccountSelect.innerHTML = accountOptions;
+    if (refs.accountSelect) {
+      refs.accountSelect.innerHTML = accountOptions;
+      refs.accountSelect.value = accounts.some((account) => String(account.id) === selectedAccount) ? selectedAccount : '';
+    }
+    if (refs.toAccountSelect) {
+      refs.toAccountSelect.innerHTML = accountOptions;
+      refs.toAccountSelect.value = accounts.some((account) => String(account.id) === selectedToAccount) ? selectedToAccount : '';
+    }
     if (refs.categorySelect) {
       refs.categorySelect.innerHTML = [
         option('', 'Choose category'),
         ...categories.map((category) => option(category.id, category.parent_name ? `${category.parent_name} - ${category.name}` : category.name))
       ].join('');
+      refs.categorySelect.value = categories.some((category) => String(category.id) === selectedCategory) ? selectedCategory : '';
     }
     if (refs.billSelect) {
       refs.billSelect.innerHTML = [
         option('', 'Choose bill'),
         ...openBills.map((bill) => option(bill.id, `${bill.vendor_name || 'Vendor'} - ${bill.bill_no || bill.bill_key} - ${formatCurrency(bill.outstanding_amount || 0)}`))
       ].join('');
+      refs.billSelect.value = openBills.some((bill) => String(bill.id) === selectedBill) ? selectedBill : '';
     }
     if (refs.counterpartyOptions) {
       refs.counterpartyOptions.innerHTML = state.counterparties
@@ -416,22 +452,30 @@ if (root) {
     setFormError('');
   };
 
+  let resettingForm = false;
   const resetForm = () => {
-    refs.form?.reset();
-    const today = getDateString();
-    if (refs.dateInput) refs.dateInput.value = today;
-    if (refs.issueDateInput) refs.issueDateInput.value = today;
-    if (refs.amountInput) refs.amountInput.value = '';
-    if (refs.transferFeeInput) refs.transferFeeInput.value = '';
-    if (refs.brandSelect) refs.brandSelect.value = 'General / Shared';
-    if (refs.channelSelect) refs.channelSelect.value = 'Internal';
-    renderLookups();
-    setMode(state.mode);
+    if (resettingForm) return;
+    resettingForm = true;
+    try {
+      refs.form?.reset();
+      const today = getDateString();
+      if (refs.dateInput) refs.dateInput.value = today;
+      if (refs.issueDateInput) refs.issueDateInput.value = today;
+      if (refs.amountInput) refs.amountInput.value = '';
+      if (refs.transferFeeInput) refs.transferFeeInput.value = '';
+      if (refs.brandSelect) refs.brandSelect.value = 'General / Shared';
+      if (refs.channelSelect) refs.channelSelect.value = 'Internal';
+      renderLookups();
+      setMode(state.mode);
+    } finally {
+      resettingForm = false;
+    }
   };
 
   const renderKpis = (summary) => {
     const kpis = summary?.kpis || {};
     if (refs.kpis.realCash) refs.kpis.realCash.textContent = formatCurrency(kpis.real_cash_available || 0);
+    if (refs.pulseCash) refs.pulseCash.textContent = formatCurrency(kpis.real_cash_available || 0);
     if (refs.kpis.marketplaceOutstanding) {
       refs.kpis.marketplaceOutstanding.textContent = summary?.marketplace_outstanding_context?.available === false
         ? 'Unavailable'
@@ -443,6 +487,34 @@ if (root) {
     if (refs.kpis.safeCash) refs.kpis.safeCash.textContent = formatCurrency(kpis.net_safe_cash || 0);
     if (refs.kpis.pendingReview) refs.kpis.pendingReview.textContent = Number(kpis.pending_manual_review || 0).toLocaleString('id-ID');
     refs.safeCashCard?.classList.toggle('is-danger', Number(kpis.net_safe_cash || 0) < 0);
+    const reconciliation = summary?.cash_reconciliation;
+    if (refs.reconciliationCopy) {
+      refs.reconciliationCopy.textContent = reconciliation
+        ? `Baseline set ${formatHistoryDate(String(reconciliation.reconciled_at || '').slice(0, 10))}; later entries move from that count.`
+        : 'Built from opening balances and every confirmed movement. Reconcile after your next cash count.';
+    }
+    renderWalletBreakdown(summary);
+  };
+
+  const renderWalletBreakdown = (summary) => {
+    if (!refs.walletBreakdown) return;
+    const wallets = Array.isArray(summary?.wallet_breakdown) ? summary.wallet_breakdown : [];
+    if (refs.walletsMeta) {
+      refs.walletsMeta.textContent = wallets.length
+        ? `${wallets.length.toLocaleString('id-ID')} connected`
+        : 'No live balance yet';
+    }
+    if (!wallets.length) {
+      refs.walletBreakdown.innerHTML = '<p class="admin-empty">Wallet balances appear after the first Wallet sync.</p>';
+      return;
+    }
+    refs.walletBreakdown.innerHTML = wallets.map((wallet) => `
+      <div class="admin-accounting-wallet">
+        <span>${escapeHtml(wallet.label || wallet.account_key || 'Wallet')}</span>
+        <strong>${wallet.current_balance === null ? '—' : formatCurrency(wallet.current_balance || 0)}</strong>
+        <small>${Number(wallet.outstanding_amount || 0) > 0 ? `${formatCurrency(wallet.outstanding_amount)} outstanding` : 'No outstanding orders'}</small>
+      </div>
+    `).join('');
   };
 
   const formatHistoryDate = (value) => {
@@ -540,8 +612,8 @@ if (root) {
         const cardCash = Number(state.summary?.kpis?.real_cash_available || 0);
         const historyCash = Number(state.cashHistorySummary?.current_cash || 0);
         refs.cashHistoryNote.textContent = cardCash === historyCash
-          ? 'The running balance reconciles to Cash Available. It includes spendable account balances, posted manual entries, Wallet withdrawals, and confirmed website payments.'
-          : 'Cash history includes spendable account balances, posted manual entries, Wallet withdrawals, and confirmed website payments.';
+          ? 'The running balance reconciles to Cash Available, including the latest cash count, entries, wallet payouts, website payments, and completed direct orders.'
+          : 'Cash history includes the latest cash count and every later manual or automatic movement.';
       }
     }
     if (!rows.length) {
@@ -571,7 +643,7 @@ if (root) {
   const closeCashHistory = () => {
     if (!refs.cashHistory || refs.cashHistory.hidden) return;
     refs.cashHistory.hidden = true;
-    refs.cashHistoryOpen?.focus();
+    refs.cashHistoryOpenButtons[0]?.focus();
   };
 
   const openCashHistory = async () => {
@@ -596,6 +668,132 @@ if (root) {
     }
   };
 
+  const closeBreakdown = () => {
+    if (!refs.breakdown) return;
+    refs.breakdown.hidden = true;
+  };
+
+  const openBreakdown = ({ kicker, title, copy, rows, empty }) => {
+    if (!refs.breakdown || !refs.breakdownBody) return;
+    if (refs.breakdownKicker) refs.breakdownKicker.textContent = kicker;
+    if (refs.breakdownTitle) refs.breakdownTitle.textContent = title;
+    if (refs.breakdownCopy) refs.breakdownCopy.textContent = copy;
+    refs.breakdownBody.innerHTML = rows.length ? rows.join('') : `<p class="admin-empty">${escapeHtml(empty)}</p>`;
+    refs.breakdown.hidden = false;
+    refs.breakdownCard?.focus();
+  };
+
+  const openMarketplaceBreakdown = () => {
+    const wallets = Array.isArray(state.summary?.wallet_breakdown) ? state.summary.wallet_breakdown : [];
+    openBreakdown({
+      kicker: 'Marketplace receivable',
+      title: 'Outstanding by wallet',
+      copy: 'Orders stay here until their funds are released. A wallet payout moves into available cash automatically.',
+      empty: 'No outstanding marketplace orders or wallet balances are available.',
+      rows: wallets.map((wallet) => `
+        <div class="admin-accounting-breakdown-row">
+          <span><strong>${escapeHtml(wallet.label || wallet.account_key || 'Wallet')}</strong><small>${Number(wallet.order_count || 0).toLocaleString('id-ID')} unreleased orders</small></span>
+          <span><small>Wallet now</small><strong>${wallet.current_balance === null ? '—' : formatCurrency(wallet.current_balance || 0)}</strong></span>
+          <span><small>Outstanding</small><strong>${formatCurrency(wallet.outstanding_amount || 0)}</strong></span>
+        </div>
+      `)
+    });
+  };
+
+  const addDays = (dateString, days) => {
+    const [year, month, day] = String(dateString).split('-').map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day + days));
+    return date.toISOString().slice(0, 10);
+  };
+
+  const openBillsBreakdown = (kind) => {
+    const today = getDateString();
+    const soon = addDays(today, 7);
+    const bills = state.bills.filter((bill) => {
+      const due = String(bill.due_date || '');
+      if (!due) return false;
+      return kind === 'overdue' ? due < today : due >= today && due <= soon;
+    });
+    const title = kind === 'overdue' ? 'Overdue bills' : 'Bills due in 7 days';
+    const rows = bills.map((bill) => `
+      <button type="button" class="admin-accounting-breakdown-row" data-accounting-breakdown-bill="${escapeHtml(String(bill.id))}">
+        <span><strong>${escapeHtml(bill.vendor_name || 'Supplier')}</strong><small>${escapeHtml(bill.bill_no || bill.bill_key || 'No reference')}</small></span>
+        <span><small>Due</small><strong>${escapeHtml(formatHistoryDate(bill.due_date || ''))}</strong></span>
+        <span><small>Outstanding</small><strong>${formatCurrency(bill.outstanding_amount || 0)}</strong></span>
+      </button>
+    `);
+    const partnerDue = Number(state.summary?.kpis?.partner_bills_due || 0);
+    if (kind === 'due' && partnerDue > 0) {
+      rows.push(`
+        <div class="admin-accounting-breakdown-row">
+          <span><strong>Partner weekly bills</strong><small>Receivable from partners · managed in notifications</small></span>
+          <span><small>Type</small><strong>Money in</strong></span>
+          <span><small>Outstanding</small><strong>${formatCurrency(partnerDue)}</strong></span>
+        </div>
+      `);
+    }
+    openBreakdown({
+      kicker: 'Cash commitments',
+      title,
+      copy: kind === 'overdue'
+        ? 'These bills need action now. Open one to pay it or correct its details.'
+        : 'These are the supplier bills that affect your next seven days.',
+      empty: kind === 'overdue' ? 'No overdue bills.' : 'No bills are due in the next seven days.',
+      rows
+    });
+  };
+
+  const closeReconcile = () => {
+    if (!refs.reconcile) return;
+    refs.reconcile.hidden = true;
+    if (refs.reconcileError) refs.reconcileError.hidden = true;
+  };
+
+  const openReconcile = () => {
+    if (!refs.reconcile) return;
+    if (refs.reconcileAmount) {
+      refs.reconcileAmount.value = normalizeAmountInput(String(state.summary?.kpis?.real_cash_available || 0));
+    }
+    refs.reconcile.hidden = false;
+    refs.reconcileCard?.focus();
+    refs.reconcileAmount?.focus();
+  };
+
+  const submitReconciliation = async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (!(form instanceof HTMLFormElement)) return;
+    const data = new FormData(form);
+    const amount = amountInputToRaw(data.get('available_cash_amount'));
+    if (amount === '') {
+      if (refs.reconcileError) {
+        refs.reconcileError.hidden = false;
+        refs.reconcileError.textContent = 'Enter the cash amount you verified.';
+      }
+      return;
+    }
+    try {
+      await requestJson(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'reconcile_cash',
+          available_cash_amount: amount,
+          note: String(data.get('note') || '').trim()
+        })
+      });
+      closeReconcile();
+      state.cashHistoryLoaded = false;
+      showToast('Cash baseline reconciled.');
+      await loadAccounting(true);
+    } catch (error) {
+      if (refs.reconcileError) {
+        refs.reconcileError.hidden = false;
+        refs.reconcileError.textContent = error?.message || 'Unable to reconcile cash.';
+      }
+    }
+  };
+
   const renderAlerts = (summary) => {
     if (!refs.alerts) return;
     const alerts = Array.isArray(summary?.alerts) ? summary.alerts : [];
@@ -604,9 +802,10 @@ if (root) {
       return;
     }
     refs.alerts.innerHTML = alerts.map((alert) => {
-      const target = /overdue|due/i.test(String(alert.title || '')) ? 'accounting-bills' : 'accounting-review';
+      const title = String(alert.title || '');
+      const billKind = /overdue/i.test(title) ? 'overdue' : (/due/i.test(title) ? 'due' : '');
       return `
-      <button type="button" class="admin-accounting-alert admin-accounting-alert-${escapeHtml(alert.type || 'info')}" data-accounting-alert-target="${target}">
+      <button type="button" class="admin-accounting-alert admin-accounting-alert-${escapeHtml(alert.type || 'info')}" ${billKind ? `data-accounting-alert-bills="${billKind}"` : 'data-accounting-alert-target="accounting-review"'}>
         <strong>${escapeHtml(alert.title || 'Alert')}</strong>
         <span>${Number(alert.amount || 0) > 0 ? formatCurrency(alert.amount) : escapeHtml(alert.action || 'Review')}</span>
       </button>
@@ -681,6 +880,35 @@ if (root) {
     `).join('');
   };
 
+  const renderLedger = () => {
+    if (!refs.ledgerBody) return;
+    const rows = state.ledger;
+    if (refs.ledgerMeta) refs.ledgerMeta.textContent = `${rows.length.toLocaleString('id-ID')} entries · manual + automatic`;
+    if (!rows.length) {
+      refs.ledgerBody.innerHTML = '<p class="admin-empty">No entries for this month yet.</p>';
+      return;
+    }
+    refs.ledgerBody.innerHTML = rows.map((row) => {
+      const amountClass = ['cash_in', 'baseline'].includes(String(row.impact || ''))
+        ? 'is-added'
+        : (row.impact === 'cash_out' ? 'is-subtracted' : '');
+      const prefix = row.impact === 'cash_in' ? '+' : (row.impact === 'cash_out' ? '−' : '');
+      const canOpen = ['transaction', 'bill'].includes(String(row.kind || ''));
+      return `
+        <${canOpen ? 'button' : 'div'} class="admin-accounting-ledger-row" ${canOpen ? `type="button" data-accounting-ledger-open="${escapeHtml(row.kind)}:${escapeHtml(String(row.source_id || ''))}"` : ''}>
+          <time>${escapeHtml(formatHistoryDate(row.date || ''))}</time>
+          <span class="admin-accounting-ledger-mark is-${escapeHtml(row.impact || 'entry')}" aria-hidden="true"></span>
+          <span class="admin-accounting-ledger-copy">
+            <strong>${escapeHtml(row.title || 'Accounting entry')}</strong>
+            <small>${escapeHtml([row.subtitle, row.account].filter(Boolean).join(' · '))}</small>
+          </span>
+          <span class="admin-accounting-ledger-state">${escapeHtml(String(row.status || '').replace(/_/g, ' '))}</span>
+          <strong class="admin-accounting-ledger-amount ${amountClass}">${prefix}${formatCurrency(row.amount || 0)}</strong>
+        </${canOpen ? 'button' : 'div'}>
+      `;
+    }).join('');
+  };
+
   const renderSummary = (summary) => {
     if (!refs.monthlySummary) return;
     const monthly = summary?.monthly_summary || {};
@@ -732,6 +960,7 @@ if (root) {
   const renderReviewQueue = () => {
     if (!refs.reviewBody) return;
     const rows = state.reviewQueue;
+    if (refs.reviewCount) refs.reviewCount.textContent = rows.length.toLocaleString('id-ID');
     if (!rows.length) {
       refs.reviewBody.innerHTML = '<tr><td colspan="5" class="admin-empty">No review issues. Accounting data looks clean.</td></tr>';
       return;
@@ -811,6 +1040,7 @@ if (root) {
     renderAlerts(state.summary);
     renderBills();
     renderTransactions();
+    renderLedger();
     renderSummary(state.summary);
     renderInsights(state.summary);
     renderReviewQueue();
@@ -852,6 +1082,21 @@ if (root) {
   const loadAccounting = async (force = false) => {
     const options = rangeOptions();
     const cacheKey = accountingCacheKey(options);
+    const pendingEntry = refs.form instanceof HTMLFormElement
+      ? [...refs.form.querySelectorAll('input[name], select[name], textarea[name]')].reduce((values, field) => {
+          values[field.name] = field.value;
+          return values;
+        }, {})
+      : {};
+    const restorePendingEntry = () => {
+      if (!(refs.form instanceof HTMLFormElement)) return;
+      Object.entries(pendingEntry).forEach(([name, value]) => {
+        const field = [...refs.form.elements].find((element) => element.name === name);
+        if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement) {
+          field.value = value;
+        }
+      });
+    };
     let renderedCache = false;
     if (!force) {
       const cached = readCacheEntry(cacheKey);
@@ -863,10 +1108,11 @@ if (root) {
     if (refs.status) refs.status.textContent = renderedCache ? 'Refreshing accounting data' : 'Loading accounting data';
     const billOptions = { month: options.month, status: 'open' };
     try {
-      const [summary, bills, transactions, review] = await Promise.all([
+      const [summary, bills, transactions, ledger, review] = await Promise.all([
         requestJson(buildUrl('summary', { ...options, cacheBust: force })),
         requestJson(buildUrl('bills', { ...billOptions, cacheBust: force })),
         requestJson(buildUrl('transactions', { ...options, cacheBust: force })),
+        requestJson(buildUrl('activity_ledger', { ...options, cacheBust: force })),
         requestJson(buildUrl('review_queue', { ...options, cacheBust: force })),
         loadLookups(force)
       ]);
@@ -874,10 +1120,12 @@ if (root) {
         summary: summary.data || {},
         bills: Array.isArray(bills.data?.bills) ? bills.data.bills : [],
         transactions: Array.isArray(transactions.data?.transactions) ? transactions.data.transactions : [],
+        ledger: Array.isArray(ledger.data?.ledger) ? ledger.data.ledger : [],
         reviewQueue: Array.isArray(review.data?.review_queue) ? review.data.review_queue : [],
         lookups: getLookupPayload()
       };
       applyAccountingPayload(payload);
+      restorePendingEntry();
       writeCacheEntry(cacheKey, payload);
     } catch (error) {
       if (renderedCache) {
@@ -896,6 +1144,7 @@ if (root) {
       if (refs.status) refs.status.textContent = message;
       if (refs.billsBody) refs.billsBody.innerHTML = `<tr><td colspan="13" class="admin-empty">${escapeHtml(message)}</td></tr>`;
       if (refs.transactionsBody) refs.transactionsBody.innerHTML = `<tr><td colspan="13" class="admin-empty">${escapeHtml(message)}</td></tr>`;
+      if (refs.ledgerBody) refs.ledgerBody.innerHTML = `<p class="admin-empty">${escapeHtml(message)}</p>`;
       showToast(message, true);
     }
   };
@@ -1057,6 +1306,7 @@ if (root) {
   refs.billSelect?.addEventListener('change', fillPayBillAmount);
   refs.form?.addEventListener('submit', submitForm);
   refs.form?.addEventListener('reset', () => {
+    if (resettingForm) return;
     window.setTimeout(resetForm, 0);
   });
   refs.previousMonth?.addEventListener('click', async () => {
@@ -1068,6 +1318,11 @@ if (root) {
     await loadSafely(false);
   });
   refs.alerts?.addEventListener('click', (event) => {
+    const billTarget = event.target instanceof Element ? event.target.closest('[data-accounting-alert-bills]') : null;
+    if (billTarget instanceof HTMLElement) {
+      openBillsBreakdown(billTarget.dataset.accountingAlertBills || 'due');
+      return;
+    }
     const target = event.target instanceof Element ? event.target.closest('[data-accounting-alert-target]') : null;
     if (target instanceof HTMLElement) document.getElementById(target.dataset.accountingAlertTarget || '')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
@@ -1123,6 +1378,13 @@ if (root) {
     }
   });
 
+  refs.ledgerBody?.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target.closest('[data-accounting-ledger-open]') : null;
+    if (!(target instanceof HTMLElement)) return;
+    const [kind, id] = String(target.dataset.accountingLedgerOpen || '').split(':');
+    if (kind && id) openDrawer(kind, id);
+  });
+
   refs.reviewBody?.addEventListener('click', async (event) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
@@ -1150,11 +1412,28 @@ if (root) {
     });
   });
   refs.refresh?.addEventListener('click', async () => loadSafely(true));
-  refs.cashHistoryOpen?.addEventListener('click', openCashHistory);
+  refs.cashHistoryOpenButtons.forEach((button) => button.addEventListener('click', openCashHistory));
   refs.cashHistoryCloseButtons.forEach((button) => button.addEventListener('click', closeCashHistory));
   refs.cashHistoryPlatform?.addEventListener('change', renderCashHistory);
   refs.cashHistoryAccount?.addEventListener('change', renderCashHistory);
   refs.cashHistoryDirection?.addEventListener('change', renderCashHistory);
+  refs.marketplaceOpen?.addEventListener('click', openMarketplaceBreakdown);
+  refs.billsOpenButtons.forEach((button) => {
+    button.addEventListener('click', () => openBillsBreakdown(button.dataset.accountingBillsOpen || 'due'));
+  });
+  refs.breakdownCloseButtons.forEach((button) => button.addEventListener('click', closeBreakdown));
+  refs.breakdownBody?.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target.closest('[data-accounting-breakdown-bill]') : null;
+    if (!(target instanceof HTMLElement)) return;
+    closeBreakdown();
+    openDrawer('bill', target.dataset.accountingBreakdownBill || '');
+  });
+  refs.reconcileOpen?.addEventListener('click', openReconcile);
+  refs.reconcileCloseButtons.forEach((button) => button.addEventListener('click', closeReconcile));
+  refs.reconcileAmount?.addEventListener('input', () => {
+    refs.reconcileAmount.value = normalizeAmountInput(refs.reconcileAmount.value);
+  });
+  refs.reconcileForm?.addEventListener('submit', submitReconciliation);
   refs.exportButton?.addEventListener('click', () => {
     window.location.href = buildUrl('export_csv', { ...rangeOptions(), include_voided: '0' });
   });
@@ -1170,7 +1449,11 @@ if (root) {
     });
   });
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') closeCashHistory();
+    if (event.key === 'Escape') {
+      closeCashHistory();
+      closeBreakdown();
+      closeReconcile();
+    }
   });
   window.addEventListener('partner-billing:confirmed', () => {
     loadSafely(true);

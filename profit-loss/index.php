@@ -66,42 +66,48 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                     </div>
                 </section>
 
+                <section class="admin-accounting-pulse" aria-label="Cash position">
+                    <div class="admin-accounting-pulse-main">
+                        <span class="admin-panel-kicker">Available now</span>
+                        <strong data-accounting-pulse-cash>Rp0</strong>
+                        <p data-accounting-reconciliation-copy>Built from opening balances and every confirmed movement.</p>
+                        <div>
+                            <button type="button" class="admin-primary-btn" data-accounting-reconcile-open>Reconcile cash</button>
+                            <button type="button" class="admin-ghost-btn" data-accounting-cash-history-open>View cash ledger</button>
+                        </div>
+                    </div>
+                    <div class="admin-accounting-wallets">
+                        <div class="admin-accounting-wallets-head">
+                            <div><span class="admin-panel-kicker">Wallets</span><h2>Current balances</h2></div>
+                            <span data-accounting-wallets-meta>Live wallet feed</span>
+                        </div>
+                        <div class="admin-accounting-wallet-strip" data-accounting-wallet-breakdown>
+                            <div class="admin-accounting-wallet"><span>Loading wallets</span><strong>—</strong></div>
+                        </div>
+                    </div>
+                </section>
+
                 <section class="admin-accounting-metrics" aria-label="Accounting metrics">
                     <button type="button" class="admin-accounting-metric admin-accounting-cash-card" data-accounting-cash-history-open aria-haspopup="dialog" aria-controls="accounting-cash-history" aria-label="View Cash Available history">
                         <span>Cash Available</span>
                         <strong data-accounting-kpi="real-cash">Rp0</strong>
                         <small>View additions &amp; subtractions <b aria-hidden="true">→</b></small>
                     </button>
-                    <article class="admin-accounting-metric">
+                    <button type="button" class="admin-accounting-metric admin-accounting-cash-card" data-accounting-marketplace-open aria-haspopup="dialog">
                         <span>Marketplace</span>
                         <strong data-accounting-kpi="marketplace-outstanding">Rp0</strong>
-                        <small>Receivable</small>
-                    </article>
-                    <article class="admin-accounting-metric">
+                        <small>See outstanding by wallet <b aria-hidden="true">→</b></small>
+                    </button>
+                    <button type="button" class="admin-accounting-metric admin-accounting-cash-card" data-accounting-bills-open="due" aria-haspopup="dialog">
                         <span>Bills Due</span>
                         <strong data-accounting-kpi="bills-due">Rp0</strong>
-                        <small>Next 7 days</small>
-                    </article>
-                    <article class="admin-accounting-metric">
+                        <small>See the next 7 days <b aria-hidden="true">→</b></small>
+                    </button>
+                    <button type="button" class="admin-accounting-metric admin-accounting-cash-card" data-accounting-bills-open="overdue" aria-haspopup="dialog">
                         <span>Overdue</span>
                         <strong data-accounting-kpi="overdue">Rp0</strong>
-                        <small>Open bills</small>
-                    </article>
-                    <article class="admin-accounting-metric">
-                        <span>Expenses</span>
-                        <strong data-accounting-kpi="expenses">Rp0</strong>
-                        <small>This month</small>
-                    </article>
-                    <article class="admin-accounting-metric" data-accounting-safe-cash-card>
-                        <span>Safe Cash</span>
-                        <strong data-accounting-kpi="safe-cash">Rp0</strong>
-                        <small>Net estimate</small>
-                    </article>
-                    <article class="admin-accounting-metric">
-                        <span>Review</span>
-                        <strong data-accounting-kpi="pending-review">0</strong>
-                        <small>Open items</small>
-                    </article>
+                        <small>See bills needing action <b aria-hidden="true">→</b></small>
+                    </button>
                 </section>
 
                 <section class="admin-accounting-workspace">
@@ -166,36 +172,6 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                                 <span>Bill / Invoice No.</span>
                                 <input type="text" name="bill_no" maxlength="120">
                             </label>
-                            <label>
-                                <span>Brand</span>
-                                <select name="brand" data-accounting-brand-select>
-                                    <option>General / Shared</option>
-                                    <option>ZERO</option>
-                                    <option>Jenang Gemi</option>
-                                    <option>ZFit</option>
-                                    <option>Superfoods</option>
-                                    <option>Other</option>
-                                </select>
-                            </label>
-                            <label>
-                                <span>Channel</span>
-                                <select name="channel" data-accounting-channel-select>
-                                    <option>Internal</option>
-                                    <option>Shopee</option>
-                                    <option>TikTok</option>
-                                    <option>Tokopedia</option>
-                                    <option>Website</option>
-                                    <option>WhatsApp</option>
-                                    <option>Offline</option>
-                                    <option>Partner</option>
-                                    <option>Distributor</option>
-                                    <option>Reseller</option>
-                                    <option>Dropship</option>
-                                    <option>Ads</option>
-                                    <option>Production</option>
-                                    <option>Fulfillment</option>
-                                </select>
-                            </label>
                             <label data-accounting-field="income_type" hidden>
                                 <span>Income Type</span>
                                 <select name="income_type" data-accounting-income-type>
@@ -207,145 +183,106 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                                     <option value="manual_income">Other income</option>
                                 </select>
                             </label>
-                            <label>
-                                <span>Payment Method</span>
-                                <select name="payment_method">
-                                    <option>Bank Transfer</option>
-                                    <option>Cash</option>
-                                    <option>QRIS</option>
-                                    <option>E-wallet</option>
-                                    <option>Marketplace Wallet</option>
-                                    <option>Card</option>
-                                    <option>Other</option>
-                                </select>
-                            </label>
                             <label data-accounting-field="transfer_fee_amount" hidden>
                                 <span>Transfer Fee</span>
                                 <input type="text" inputmode="numeric" name="transfer_fee_amount" placeholder="Rp0">
                             </label>
-                            <label>
-                                <span>Receipt URL</span>
-                                <input type="url" name="receipt_url" placeholder="https://...">
-                            </label>
-                            <label>
-                                <span>Receipt Status</span>
-                                <select name="receipt_status">
-                                    <option value="missing">Missing</option>
-                                    <option value="attached">Attached</option>
-                                    <option value="not_required">Not required</option>
-                                </select>
-                            </label>
-                            <label>
-                                <span>Reference No.</span>
-                                <input type="text" name="reference_no" maxlength="160">
-                            </label>
-                            <label>
-                                <span>Order / SKU</span>
-                                <input type="text" name="order_no" maxlength="160">
-                            </label>
-                            <label class="admin-accounting-form-wide">
-                                <span>Notes</span>
-                                <textarea name="notes" rows="3"></textarea>
-                            </label>
+                            <details class="admin-accounting-more admin-accounting-form-wide">
+                                <summary>More details <span>Brand, channel, receipt, reference, notes</span></summary>
+                                <div>
+                                    <label>
+                                        <span>Brand</span>
+                                        <select name="brand" data-accounting-brand-select>
+                                            <option>General / Shared</option>
+                                            <option>ZERO</option>
+                                            <option>Jenang Gemi</option>
+                                            <option>ZFit</option>
+                                            <option>Superfoods</option>
+                                            <option>Other</option>
+                                        </select>
+                                    </label>
+                                    <label>
+                                        <span>Channel</span>
+                                        <select name="channel" data-accounting-channel-select>
+                                            <option>Internal</option>
+                                            <option>Shopee</option>
+                                            <option>TikTok</option>
+                                            <option>Tokopedia</option>
+                                            <option>Website</option>
+                                            <option>WhatsApp</option>
+                                            <option>Offline</option>
+                                            <option>Partner</option>
+                                            <option>Distributor</option>
+                                            <option>Reseller</option>
+                                            <option>Dropship</option>
+                                            <option>Ads</option>
+                                            <option>Production</option>
+                                            <option>Fulfillment</option>
+                                        </select>
+                                    </label>
+                                    <label>
+                                        <span>Payment Method</span>
+                                        <select name="payment_method">
+                                            <option>Bank Transfer</option>
+                                            <option>Cash</option>
+                                            <option>QRIS</option>
+                                            <option>E-wallet</option>
+                                            <option>Marketplace Wallet</option>
+                                            <option>Card</option>
+                                            <option>Other</option>
+                                        </select>
+                                    </label>
+                                    <label>
+                                        <span>Receipt URL</span>
+                                        <input type="url" name="receipt_url" placeholder="https://...">
+                                    </label>
+                                    <label>
+                                        <span>Receipt Status</span>
+                                        <select name="receipt_status">
+                                            <option value="missing">Missing</option>
+                                            <option value="attached">Attached</option>
+                                            <option value="not_required">Not required</option>
+                                        </select>
+                                    </label>
+                                    <label>
+                                        <span>Reference No.</span>
+                                        <input type="text" name="reference_no" maxlength="160">
+                                    </label>
+                                    <label>
+                                        <span>Order / SKU</span>
+                                        <input type="text" name="order_no" maxlength="160">
+                                    </label>
+                                    <label>
+                                        <span>Notes</span>
+                                        <textarea name="notes" rows="3"></textarea>
+                                    </label>
+                                </div>
+                            </details>
                             <p class="admin-form-error" data-accounting-form-error hidden></p>
                             <div class="admin-accounting-form-actions">
-                                <button type="submit" class="admin-primary-btn" data-accounting-save>Save</button>
-                                <button type="submit" class="admin-soft-btn" data-accounting-save-add value="1">Save &amp; Add</button>
-                                <button type="submit" class="admin-ghost-btn" data-accounting-save-draft>Draft</button>
-                                <button type="reset" class="admin-ghost-btn">Cancel</button>
+                                <button type="reset" class="admin-ghost-btn">Clear</button>
+                                <button type="submit" class="admin-primary-btn" data-accounting-save>Save entry</button>
                             </div>
                         </form>
                     </article>
                 </section>
 
-                <section class="admin-accounting-panel admin-accounting-panel-wide" id="accounting-bills">
+                <section class="admin-accounting-panel admin-accounting-panel-wide admin-accounting-ledger" id="accounting-ledger">
                     <div class="admin-panel-head">
-                        <div><span class="admin-panel-kicker">Bills</span><h3>Open bills</h3></div>
-                        <span class="admin-panel-meta" data-accounting-bills-meta>Open bills</span>
-                    </div>
-                    <div class="admin-table-wrap admin-accounting-table-wrap">
-                        <table class="admin-table admin-accounting-table">
-                            <thead>
-                                <tr>
-                                    <th>Due Date</th>
-                                    <th>Status</th>
-                                    <th>Vendor</th>
-                                    <th>Bill No.</th>
-                                    <th>Category</th>
-                                    <th>Brand</th>
-                                    <th>Channel</th>
-                                    <th>Total</th>
-                                    <th>Paid</th>
-                                    <th>Outstanding</th>
-                                    <th>Age</th>
-                                    <th>Attachment</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody data-accounting-bills-body>
-                                <tr><td colspan="13" class="admin-empty">Loading bills.</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
-
-                <section class="admin-accounting-panel admin-accounting-panel-wide" id="accounting-ledger">
-                    <div class="admin-panel-head">
-                        <div><span class="admin-panel-kicker">Ledger</span><h3>Manual entries</h3></div>
+                        <div><span class="admin-panel-kicker">One source of truth</span><h3>Activity ledger</h3></div>
                         <span class="admin-panel-meta" data-accounting-ledger-meta>Selected month</span>
                     </div>
-                    <div class="admin-table-wrap admin-accounting-table-wrap">
-                        <table class="admin-table admin-accounting-table">
-                            <thead>
-                                <tr>
-                                    <th>Date</th>
-                                    <th>Type</th>
-                                    <th>Account</th>
-                                    <th>Direction</th>
-                                    <th>Vendor / Payee</th>
-                                    <th>Category</th>
-                                    <th>Brand</th>
-                                    <th>Channel</th>
-                                    <th>Amount</th>
-                                    <th>Status</th>
-                                    <th>Receipt</th>
-                                    <th>Related Bill</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody data-accounting-transactions-body>
-                                <tr><td colspan="13" class="admin-empty">Loading transactions.</td></tr>
-                            </tbody>
-                        </table>
+                    <div class="admin-accounting-ledger-list" data-accounting-ledger-body>
+                        <p class="admin-empty">Loading ledger.</p>
                     </div>
                 </section>
 
-                <section class="admin-accounting-secondary">
-                    <article class="admin-accounting-panel">
-                        <div class="admin-panel-head">
-                            <div><span class="admin-panel-kicker">Month</span><h3>Cash movement</h3></div>
-                        </div>
-                        <div class="admin-accounting-summary-list" data-accounting-monthly-summary></div>
-                    </article>
-
-                    <article class="admin-accounting-panel">
-                        <div class="admin-panel-head">
-                            <div><span class="admin-panel-kicker">Insights</span><h3>Spend split</h3></div>
-                        </div>
-                        <div class="admin-accounting-tabs">
-                            <button type="button" class="admin-toggle-pill is-active" data-accounting-insight-tab="category">Category</button>
-                            <button type="button" class="admin-toggle-pill" data-accounting-insight-tab="vendor">Vendor</button>
-                            <button type="button" class="admin-toggle-pill" data-accounting-insight-tab="brand">Brand</button>
-                            <button type="button" class="admin-toggle-pill" data-accounting-insight-tab="channel">Channel</button>
-                        </div>
-                        <div class="admin-accounting-insight-list" data-accounting-insights></div>
-                    </article>
-
-                    <article class="admin-accounting-panel admin-accounting-panel-wide" id="accounting-review">
-                        <div class="admin-panel-head">
-                            <div><span class="admin-panel-kicker">Review</span><h3>Errors to fix</h3></div>
-                            <span class="admin-panel-meta">Category, receipt, duplicate, marketplace income</span>
-                        </div>
+                <details class="admin-accounting-review admin-accounting-panel" id="accounting-review">
+                    <summary>
+                        <span><b data-accounting-review-count>0</b> items need review</span>
+                        <small>Missing receipts, categories, or possible duplicates</small>
+                    </summary>
+                    <div>
                         <div class="admin-table-wrap admin-accounting-table-wrap admin-accounting-review-wrap">
                             <table class="admin-table admin-accounting-table">
                                 <thead>
@@ -362,8 +299,8 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                                 </tbody>
                             </table>
                         </div>
-                    </article>
-                </section>
+                    </div>
+                </details>
 
                 <div class="admin-modal-shell admin-accounting-drawer" data-accounting-drawer hidden>
                     <button type="button" class="admin-modal-backdrop" data-accounting-drawer-close aria-label="Close accounting details"></button>
@@ -379,6 +316,55 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                             <p class="admin-empty">Select a bill or transaction.</p>
                         </div>
                     </aside>
+                </div>
+
+                <div class="admin-modal-shell admin-accounting-breakdown" data-accounting-breakdown hidden>
+                    <button type="button" class="admin-modal-backdrop" data-accounting-breakdown-close aria-label="Close breakdown"></button>
+                    <section class="admin-modal-card admin-accounting-breakdown-card" role="dialog" aria-modal="true" aria-labelledby="accounting-breakdown-title" tabindex="-1">
+                        <div class="admin-modal-head">
+                            <div>
+                                <span class="admin-panel-kicker" data-accounting-breakdown-kicker>Accounting</span>
+                                <h3 id="accounting-breakdown-title" data-accounting-breakdown-title>Breakdown</h3>
+                                <p data-accounting-breakdown-copy></p>
+                            </div>
+                            <button type="button" class="admin-accounting-cash-history-close" data-accounting-breakdown-close aria-label="Close breakdown">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+                            </button>
+                        </div>
+                        <div class="admin-accounting-breakdown-body" data-accounting-breakdown-body></div>
+                    </section>
+                </div>
+
+                <div class="admin-modal-shell admin-accounting-reconcile" data-accounting-reconcile hidden>
+                    <button type="button" class="admin-modal-backdrop" data-accounting-reconcile-close aria-label="Close reconciliation"></button>
+                    <section class="admin-modal-card admin-accounting-reconcile-card" role="dialog" aria-modal="true" aria-labelledby="accounting-reconcile-title" tabindex="-1">
+                        <div class="admin-modal-head">
+                            <div>
+                                <span class="admin-panel-kicker">Cash count</span>
+                                <h3 id="accounting-reconcile-title">Set available cash</h3>
+                                <p>Use the amount you can verify now. This becomes the new baseline; every future entry and automatic payment moves from it.</p>
+                            </div>
+                            <button type="button" class="admin-accounting-cash-history-close" data-accounting-reconcile-close aria-label="Close reconciliation">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+                            </button>
+                        </div>
+                        <form data-accounting-reconcile-form>
+                            <label>
+                                <span>Verified available cash</span>
+                                <input type="text" inputmode="numeric" name="available_cash_amount" data-accounting-reconcile-amount placeholder="Rp0" required>
+                            </label>
+                            <label>
+                                <span>Count note</span>
+                                <input type="text" name="note" maxlength="500" placeholder="e.g. Bank and cash counted at close">
+                            </label>
+                            <p>Reconciliation is permanent and appears in the ledger. It does not delete earlier records.</p>
+                            <p class="admin-form-error" data-accounting-reconcile-error hidden></p>
+                            <div>
+                                <button type="button" class="admin-ghost-btn" data-accounting-reconcile-close>Cancel</button>
+                                <button type="submit" class="admin-primary-btn">Set new baseline</button>
+                            </div>
+                        </form>
+                    </section>
                 </div>
 
                 <div class="admin-modal-shell admin-accounting-cash-history" id="accounting-cash-history" data-accounting-cash-history hidden>
@@ -443,7 +429,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                                 </tbody>
                             </table>
                         </div>
-                        <p class="admin-accounting-cash-history-note" data-accounting-cash-history-note>Cash history includes spendable account balances, posted manual entries, Wallet withdrawals, and confirmed website payments.</p>
+                        <p class="admin-accounting-cash-history-note" data-accounting-cash-history-note>Cash history includes the latest reconciliation, posted entries, wallet withdrawals, confirmed website payments, and completed direct orders.</p>
                     </section>
                 </div>
             </main>

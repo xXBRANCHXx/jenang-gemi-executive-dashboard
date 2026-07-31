@@ -206,6 +206,11 @@ try {
         if ($action === 'cash_history') {
             jg_accounting_json(jg_accounting_endpoint_payload(jg_accounting_cash_history($pdo), $month));
         }
+        if ($action === 'activity_ledger') {
+            jg_accounting_json(jg_accounting_endpoint_payload([
+                'ledger' => jg_accounting_activity_ledger($pdo, $_GET),
+            ], $month));
+        }
         if ($action === 'export_csv') {
             jg_accounting_export_csv($pdo);
         }
@@ -238,6 +243,7 @@ try {
         })(),
         'create_category' => jg_accounting_create_category($pdo, $body),
         'mark_review_resolved' => jg_accounting_mark_review_resolved($pdo, $body),
+        'reconcile_cash' => jg_accounting_create_cash_reconciliation($pdo, $body),
         default => null,
     };
 

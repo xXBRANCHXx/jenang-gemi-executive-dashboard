@@ -581,6 +581,511 @@
   .admin-overview-refresh.is-loading svg { transition: none; animation: none; }
 }
 
+/* Accounting v2: calm cash-first workspace. */
+.admin-accounting-pulse {
+  display: grid;
+  grid-template-columns: minmax(280px, .72fr) minmax(0, 1.28fr);
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--accounting-border);
+  border-radius: 20px;
+  background: var(--accounting-surface);
+  box-shadow: var(--admin-shadow);
+}
+
+.admin-accounting-pulse-main {
+  display: grid;
+  align-content: center;
+  gap: 10px;
+  min-height: 190px;
+  padding: 28px;
+  border-right: 1px solid var(--accounting-border);
+  background:
+    radial-gradient(circle at 0 0, color-mix(in srgb, var(--admin-accent) 13%, transparent), transparent 52%),
+    var(--accounting-surface);
+}
+
+.admin-accounting-pulse-main > strong {
+  color: var(--accounting-text);
+  font: 800 clamp(2rem, 4vw, 3.5rem)/1 "Space Grotesk", sans-serif;
+  letter-spacing: -.045em;
+}
+
+.admin-accounting-pulse-main > p {
+  max-width: 520px;
+  margin: 0;
+  color: var(--accounting-muted);
+  font-size: .78rem;
+  line-height: 1.55;
+}
+
+.admin-accounting-pulse-main > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.admin-accounting-wallets {
+  min-width: 0;
+  padding: 24px;
+}
+
+.admin-accounting-wallets-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.admin-accounting-wallets-head h2 {
+  margin: 3px 0 0;
+  font-size: 1.05rem;
+}
+
+.admin-accounting-wallets-head > span {
+  color: var(--accounting-muted);
+  font-size: .68rem;
+  font-weight: 800;
+}
+
+.admin-accounting-wallet-strip {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  max-height: 144px;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+
+.admin-accounting-wallet {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  min-width: 0;
+  padding: 12px 13px;
+  border: 1px solid var(--accounting-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accounting-text) 2.5%, transparent);
+}
+
+.admin-accounting-wallet span,
+.admin-accounting-wallet small {
+  overflow: hidden;
+  color: var(--accounting-muted);
+  font-size: .67rem;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-accounting-wallet strong {
+  color: var(--accounting-text);
+  font: 750 .82rem/1.2 "Space Grotesk", sans-serif;
+  white-space: nowrap;
+}
+
+.admin-accounting-wallet small {
+  grid-column: 1 / -1;
+  font-size: .61rem;
+}
+
+.admin-accounting-metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.admin-accounting-metric {
+  min-height: 108px;
+}
+
+.admin-accounting-entry {
+  padding-bottom: 18px;
+}
+
+.admin-accounting-more {
+  border-top: 1px solid var(--accounting-border);
+}
+
+.admin-accounting-more > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px 2px;
+  color: var(--accounting-text);
+  font-size: .75rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.admin-accounting-more > summary span {
+  color: var(--accounting-muted);
+  font-size: .66rem;
+  font-weight: 700;
+}
+
+.admin-accounting-more > div {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding: 4px 0 12px;
+}
+
+.admin-accounting-more textarea {
+  min-height: 42px;
+}
+
+.admin-accounting-ledger {
+  padding-bottom: 12px;
+}
+
+.admin-accounting-ledger-list {
+  display: grid;
+  max-height: 560px;
+  overflow: auto;
+  border-top: 1px solid var(--accounting-border);
+  scrollbar-width: thin;
+}
+
+.admin-accounting-ledger-row {
+  display: grid;
+  grid-template-columns: 96px 10px minmax(180px, 1fr) auto minmax(120px, auto);
+  gap: 14px;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  padding: 13px 4px;
+  border: 0;
+  border-bottom: 1px solid var(--accounting-border);
+  background: transparent;
+  color: var(--accounting-text);
+  font: inherit;
+  text-align: left;
+}
+
+button.admin-accounting-ledger-row {
+  cursor: pointer;
+}
+
+button.admin-accounting-ledger-row:hover {
+  background: color-mix(in srgb, var(--accounting-text) 4%, transparent);
+}
+
+.admin-accounting-ledger-row time,
+.admin-accounting-ledger-copy small,
+.admin-accounting-ledger-state {
+  color: var(--accounting-muted);
+  font-size: .68rem;
+  font-weight: 750;
+}
+
+.admin-accounting-ledger-mark {
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--accounting-muted);
+  border-radius: 50%;
+}
+
+.admin-accounting-ledger-mark.is-cash_in,
+.admin-accounting-ledger-mark.is-baseline {
+  border-color: #38d996;
+  background: #38d996;
+}
+
+.admin-accounting-ledger-mark.is-cash_out,
+.admin-accounting-ledger-mark.is-obligation {
+  border-color: #ff6b6b;
+}
+
+.admin-accounting-ledger-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.admin-accounting-ledger-copy strong,
+.admin-accounting-ledger-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-accounting-ledger-copy strong {
+  font-size: .78rem;
+}
+
+.admin-accounting-ledger-state {
+  padding: 5px 8px;
+  border: 1px solid var(--accounting-border);
+  border-radius: 999px;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.admin-accounting-ledger-amount {
+  font: 800 .82rem/1.2 "Space Grotesk", sans-serif;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.admin-accounting-ledger-amount.is-added {
+  color: #38d996;
+}
+
+.admin-accounting-ledger-amount.is-subtracted {
+  color: #ff6b6b;
+}
+
+.admin-accounting-review {
+  padding: 0;
+}
+
+.admin-accounting-review > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  cursor: pointer;
+}
+
+.admin-accounting-review > summary span {
+  color: var(--accounting-text);
+  font-size: .78rem;
+  font-weight: 800;
+}
+
+.admin-accounting-review > summary b {
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  margin-right: 7px;
+  border-radius: 999px;
+  background: var(--accounting-text);
+  color: var(--admin-bg);
+}
+
+.admin-accounting-review > summary small {
+  color: var(--accounting-muted);
+  font-size: .68rem;
+}
+
+.admin-accounting-review > div {
+  padding: 0 20px 20px;
+}
+
+.admin-accounting-breakdown-card,
+.admin-accounting-reconcile-card {
+  width: min(720px, calc(100vw - 28px));
+  max-height: calc(100svh - 28px);
+  overflow: auto;
+  border-radius: 20px;
+  background: var(--accounting-surface);
+  color: var(--accounting-text);
+}
+
+.admin-accounting-breakdown-card .admin-modal-head p,
+.admin-accounting-reconcile-card .admin-modal-head p {
+  max-width: 560px;
+  margin: 6px 0 0;
+  color: var(--accounting-muted);
+  font-size: .76rem;
+  line-height: 1.5;
+}
+
+.admin-accounting-breakdown-body {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-accounting-breakdown-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(105px, auto) minmax(120px, auto);
+  gap: 18px;
+  align-items: center;
+  width: 100%;
+  padding: 14px;
+  border: 1px solid var(--accounting-border);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--accounting-text);
+  font: inherit;
+  text-align: left;
+}
+
+button.admin-accounting-breakdown-row {
+  cursor: pointer;
+}
+
+button.admin-accounting-breakdown-row:hover {
+  background: color-mix(in srgb, var(--accounting-text) 4%, transparent);
+}
+
+.admin-accounting-breakdown-row > span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.admin-accounting-breakdown-row > span:not(:first-child) {
+  text-align: right;
+}
+
+.admin-accounting-breakdown-row strong,
+.admin-accounting-breakdown-row small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-accounting-breakdown-row strong {
+  font-size: .78rem;
+}
+
+.admin-accounting-breakdown-row small {
+  color: var(--accounting-muted);
+  font-size: .65rem;
+}
+
+.admin-accounting-reconcile-card > form {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-accounting-reconcile-card > form label {
+  display: grid;
+  gap: 7px;
+}
+
+.admin-accounting-reconcile-card > form label span {
+  color: var(--accounting-muted);
+  font-size: .7rem;
+  font-weight: 800;
+}
+
+.admin-accounting-reconcile-card > form input {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 13px;
+  border: 1px solid var(--accounting-border);
+  border-radius: 10px;
+  outline: 0;
+  background: var(--accounting-surface);
+  color: var(--accounting-text);
+  font: 800 .86rem/1 "Space Grotesk", sans-serif;
+}
+
+.admin-accounting-reconcile-card > form > p {
+  margin: 0;
+  color: var(--accounting-muted);
+  font-size: .68rem;
+  line-height: 1.5;
+}
+
+.admin-accounting-reconcile-card > form > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.admin-accounting-view select,
+.admin-accounting-view select option {
+  color-scheme: dark;
+}
+
+:root[data-admin-theme='light'] .admin-accounting-view select,
+:root[data-admin-theme='light'] .admin-accounting-view select option {
+  color-scheme: light;
+}
+
+.admin-accounting-view select {
+  appearance: auto;
+  text-overflow: ellipsis;
+}
+
+.admin-accounting-view select option {
+  background: var(--admin-bg);
+  color: var(--admin-text);
+}
+
+@media (max-width: 980px) {
+  .admin-accounting-pulse {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-accounting-pulse-main {
+    min-height: 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--accounting-border);
+  }
+
+  .admin-accounting-more > div {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .admin-accounting-pulse-main,
+  .admin-accounting-wallets {
+    padding: 18px;
+  }
+
+  .admin-accounting-pulse-main > strong {
+    font-size: clamp(1.8rem, 10vw, 2.65rem);
+  }
+
+  .admin-accounting-wallet-strip,
+  .admin-accounting-more > div {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-accounting-wallet-strip {
+    max-height: 190px;
+  }
+
+  .admin-accounting-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-accounting-ledger-row {
+    grid-template-columns: 8px minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 12px 2px;
+  }
+
+  .admin-accounting-ledger-row time {
+    display: none;
+  }
+
+  .admin-accounting-ledger-state {
+    display: none;
+  }
+
+  .admin-accounting-ledger-amount {
+    font-size: .74rem;
+  }
+
+  .admin-accounting-breakdown-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+  }
+
+  .admin-accounting-breakdown-row > span:nth-child(2) {
+    display: none;
+  }
+
+  .admin-accounting-review > summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .admin-accounting-more > summary span {
+    display: none;
+  }
+}
+
 @media (max-width: 1180px) {
   .admin-notification-button { width: 44px; min-height: 44px; padding: 1px; justify-content: center; }
   .admin-notification-button-icon { width: 40px; height: 40px; }
@@ -32912,4 +33417,60 @@ button.admin-accounting-metric {
   .admin-billing-notification-row,
   .admin-billing-detail,
   .admin-billing-loading > span { animation: none; }
+}
+
+/* Keep the cash-first accounting layout authoritative over legacy page rules. */
+.admin-accounting-view .admin-accounting-metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.admin-accounting-view .admin-accounting-more > div {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.admin-accounting-view select {
+  appearance: auto;
+  color-scheme: dark;
+  text-overflow: ellipsis;
+}
+
+:root[data-admin-theme='light'] .admin-accounting-view select {
+  color-scheme: light;
+}
+
+@media (max-width: 980px) {
+  .admin-accounting-view .admin-accounting-more > div {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .admin-accounting-view .admin-accounting-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-accounting-view .admin-accounting-more > div {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-accounting-view .admin-accounting-metric strong {
+    font-size: .86rem;
+  }
+
+  .admin-accounting-view .admin-accounting-form-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  .admin-accounting-view .admin-accounting-form-actions > * {
+    flex: 0 0 auto;
+    width: auto;
+    min-height: 42px;
+  }
+
+  .admin-accounting-view .admin-accounting-form-actions > .admin-primary-btn {
+    flex: 1 1 auto;
+  }
 }
