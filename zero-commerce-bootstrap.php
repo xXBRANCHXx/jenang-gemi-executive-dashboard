@@ -107,9 +107,6 @@ function jg_zero_commerce_require_enabled(): void
     if (!jg_zero_commerce_enabled()) {
         throw new RuntimeException('ZERO commerce testing is not enabled.');
     }
-    jg_zero_commerce_secret();
-    jg_zero_biteship_token();
-    jg_zero_duitku_credentials();
 }
 
 function jg_zero_commerce_ensure_schema(PDO $pdo): void

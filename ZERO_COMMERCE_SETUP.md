@@ -83,6 +83,9 @@ value sent in that header. Set the same header name and secret in
 `config.runtime.php`. Use separate secrets for sandbox and production.
 The endpoint returns HTTP 200 for Biteship's empty JSON installation probe;
 non-empty shipment events still require the configured secret header.
+Biteship webhook installation and shipment-status events do not require Duitku
+credentials, so they can be tested while Duitku merchant verification is
+pending.
 
 Build the Official ZERO website with:
 
