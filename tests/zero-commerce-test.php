@@ -61,6 +61,9 @@ zero_commerce_expect(true, jg_zero_biteship_webhook_authorized([
 zero_commerce_expect(false, jg_zero_biteship_webhook_authorized([
     'HTTP_X_ZERO_WEBHOOK_SECRET' => 'wrong',
 ]), 'Incorrect Biteship webhook secret must be rejected.');
+zero_commerce_expect(true, jg_zero_biteship_installation_probe(''), 'Empty webhook installation request must be accepted.');
+zero_commerce_expect(true, jg_zero_biteship_installation_probe('{}'), 'Empty JSON object installation request must be accepted.');
+zero_commerce_expect(false, jg_zero_biteship_installation_probe('{"event":"order.status"}'), 'Real webhook payload must not bypass authentication.');
 
 $quote = [
     'version' => 1,

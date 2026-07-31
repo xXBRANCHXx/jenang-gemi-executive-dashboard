@@ -93,6 +93,15 @@ function jg_zero_biteship_webhook_authorized(array $server): bool
         && hash_equals($expectedSecret, $receivedSecret);
 }
 
+function jg_zero_biteship_installation_probe(string $raw): bool
+{
+    if (trim($raw) === '') {
+        return true;
+    }
+    $decoded = json_decode($raw, true);
+    return is_array($decoded) && $decoded === [];
+}
+
 function jg_zero_commerce_require_enabled(): void
 {
     if (!jg_zero_commerce_enabled()) {

@@ -30,9 +30,20 @@ function jg_zero_commerce_json(array $payload, int $status = 200): never
     exit;
 }
 
+function jg_zero_commerce_raw_body(): string
+{
+    static $raw = null;
+    if (is_string($raw)) {
+        return $raw;
+    }
+    $value = file_get_contents('php://input');
+    $raw = is_string($value) ? $value : '';
+    return $raw;
+}
+
 function jg_zero_commerce_body(): array
 {
-    $raw = file_get_contents('php://input');
+    $raw = jg_zero_commerce_raw_body();
     $decoded = is_string($raw) ? json_decode($raw, true) : null;
     return is_array($decoded) ? $decoded : [];
 }
@@ -45,11 +56,20 @@ function jg_zero_commerce_check_origin(string $origin, array $allowedOrigins): v
 }
 
 try {
+    $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+    $action = strtolower(trim((string) ($_GET['action'] ?? 'status')));
+
+    if (
+        $method === 'POST'
+        && $action === 'biteship_webhook'
+        && jg_zero_biteship_installation_probe(jg_zero_commerce_raw_body())
+    ) {
+        jg_zero_commerce_json(['ok' => true, 'validation' => true]);
+    }
+
     jg_zero_commerce_require_enabled();
     $pdo = analyticsDb();
     jg_zero_commerce_ensure_schema($pdo);
-    $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
-    $action = strtolower(trim((string) ($_GET['action'] ?? 'status')));
 
     if ($method === 'POST' && $action === 'duitku_callback') {
         if (!jg_zero_duitku_callback_ip_allowed((string) ($_SERVER['REMOTE_ADDR'] ?? ''))) {

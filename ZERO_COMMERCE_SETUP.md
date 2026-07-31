@@ -81,6 +81,8 @@ Headers Signature Secret: the random value in biteship_webhook_secret
 The Biteship "Key" field is the HTTP header name; its "Secret" field is the
 value sent in that header. Set the same header name and secret in
 `config.runtime.php`. Use separate secrets for sandbox and production.
+The endpoint returns HTTP 200 for Biteship's empty JSON installation probe;
+non-empty shipment events still require the configured secret header.
 
 Build the Official ZERO website with:
 
