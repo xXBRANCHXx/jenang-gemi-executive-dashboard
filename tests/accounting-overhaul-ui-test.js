@@ -23,6 +23,8 @@ expect(html.includes('data-accounting-kpi="bank-balance"'), 'Accounting must sho
 expect(html.includes('data-accounting-kpi="cash-available"'), 'Accounting must show physical available cash separately.');
 expect(html.includes('data-accounting-account-settings'), 'Accounting must allow future payment and receipt accounts to be configured.');
 expect(html.includes('data-accounting-category-search'), 'The primary category selector must have live search.');
+expect(html.indexOf('data-accounting-category-menu') < html.indexOf('data-accounting-category-search'), 'Category search must live inside the dropdown menu.');
+expect(!html.includes('data-accounting-category-select'), 'Category selection must not use an expanded native select.');
 
 expect(script.includes('let resettingForm = false'), 'Form reset must be guarded against recursive dropdown clearing.');
 expect(script.includes('if (resettingForm) return;'), 'The reset event must ignore programmatic resets.');
@@ -32,10 +34,12 @@ expect(script.includes("action: 'reconcile_cash'"), 'The reconciliation UI must 
 expect(script.includes('accountOptionsForRole'), 'Paid-from and received-into options must be filtered by account role.');
 expect(script.includes("String(account.type || '') !== 'marketplace_wallet'"), 'Marketplace wallets must never appear as entry accounts.');
 expect(script.includes("action: 'save_account'"), 'Account role settings must persist through the Accounting API.');
-expect(script.includes("addEventListener('input', () => renderCategoryOptions"), 'Category results must filter live as the user types.');
+expect(script.includes("searchInput.matches('[data-accounting-category-search]')"), 'Category results must filter live as the user types.');
+expect(script.includes('categoryComboboxMarkup(item.category_id)'), 'Correction forms must use the same searchable category dropdown.');
 
 expect(css.includes('.admin-accounting-pulse'), 'The cash-first visual hierarchy must be styled.');
 expect(css.includes('.admin-accounting-wallet-strip'), 'Compact wallet balances must be styled.');
 expect(css.includes('.admin-accounting-ledger-row'), 'Visual ledger rows must be styled.');
+expect(css.includes('.admin-accounting-category-menu'), 'The in-dropdown category search menu must be styled.');
 
 process.stdout.write('accounting-overhaul-ui-test: ok\n');

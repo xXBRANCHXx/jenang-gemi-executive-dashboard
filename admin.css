@@ -1135,19 +1135,6 @@ button.admin-accounting-breakdown-row:hover {
   border-left: 1px solid var(--accounting-border);
 }
 
-.admin-accounting-form [data-accounting-category-search],
-.admin-accounting-edit-form [data-accounting-edit-category-search] {
-  min-height: 36px;
-  border-style: dashed;
-  font-size: .72rem;
-}
-
-.admin-accounting-form [data-accounting-category-select][size],
-.admin-accounting-edit-form [data-accounting-edit-category-select][size] {
-  min-height: 74px;
-  padding-block: 5px;
-}
-
 .admin-accounting-reconcile-card > form select {
   width: 100%;
   min-height: 46px;
@@ -28111,6 +28098,164 @@ button.admin-accounting-metric {
 
 .admin-accounting-edit-form > :is(button, .admin-form-error) {
   grid-column: 1 / -1;
+}
+
+.admin-accounting-category-combobox {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+
+.admin-accounting-category-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--accounting-border);
+  border-radius: 8px;
+  outline: none;
+  background: var(--accounting-surface);
+  color: var(--accounting-text);
+  font: 800 0.82rem/1 "Space Grotesk", sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+
+.admin-accounting-category-trigger:focus-visible,
+.admin-accounting-category-trigger[aria-expanded='true'] {
+  border-color: color-mix(in srgb, var(--admin-accent) 58%, var(--accounting-border));
+}
+
+.admin-accounting-category-trigger > span {
+  overflow: hidden;
+  color: var(--accounting-text) !important;
+  font: inherit !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-accounting-category-trigger > b {
+  flex: 0 0 auto;
+  color: var(--accounting-muted);
+  font-size: 0.9rem;
+  transition: transform 140ms ease;
+}
+
+.admin-accounting-category-trigger[aria-expanded='true'] > b {
+  transform: rotate(180deg);
+}
+
+.admin-accounting-category-menu {
+  position: absolute;
+  z-index: 80;
+  top: calc(100% + 6px);
+  right: 0;
+  width: min(380px, calc(100vw - 32px));
+  min-width: 100%;
+  padding: 8px;
+  border: 1px solid var(--accounting-border);
+  border-radius: 11px;
+  background: var(--accounting-surface);
+  box-shadow: 0 18px 48px rgb(0 0 0 / 26%);
+}
+
+.admin-accounting-category-menu[hidden] {
+  display: none !important;
+}
+
+.admin-accounting-category-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 7px;
+  padding: 0 10px;
+  border: 1px solid var(--accounting-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accounting-text) 4%, transparent);
+}
+
+.admin-accounting-category-search > span {
+  flex: 0 0 auto;
+  color: var(--accounting-muted) !important;
+  font: 800 0.9rem/1 "Space Grotesk", sans-serif !important;
+}
+
+.admin-accounting-category-search input[data-accounting-category-search] {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--accounting-text);
+  box-shadow: none;
+  font: 750 0.78rem/1 "Space Grotesk", sans-serif;
+}
+
+.admin-accounting-category-results {
+  display: grid;
+  gap: 2px;
+  max-height: 250px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.admin-accounting-category-results > button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 3px 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--accounting-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.admin-accounting-category-results > button:hover,
+.admin-accounting-category-results > button:focus-visible,
+.admin-accounting-category-results > button[aria-selected='true'] {
+  outline: none;
+  background: color-mix(in srgb, var(--accounting-text) 7%, transparent);
+}
+
+.admin-accounting-category-results > button > span {
+  overflow: hidden;
+  color: var(--accounting-text) !important;
+  font: 800 0.77rem/1.25 "Space Grotesk", sans-serif !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-accounting-category-results > button > small {
+  grid-column: 1;
+  overflow: hidden;
+  color: var(--accounting-muted);
+  font: 700 0.65rem/1.2 "Plus Jakarta Sans", sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-accounting-category-results > button > b {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  align-self: center;
+  color: var(--accounting-text);
+  font-size: 0.75rem;
+}
+
+.admin-accounting-category-empty {
+  margin: 0;
+  padding: 18px 10px;
+  color: var(--accounting-muted);
+  font-size: 0.72rem;
+  text-align: center;
 }
 
 .pnl-layout {

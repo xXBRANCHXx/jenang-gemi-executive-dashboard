@@ -202,8 +202,8 @@ if (root) {
     transferFeeInput: root.querySelector('[name="transfer_fee_amount"]'),
     accountSelect: root.querySelector('[data-accounting-account-select]'),
     toAccountSelect: root.querySelector('[data-accounting-to-account-select]'),
-    categorySelect: root.querySelector('[data-accounting-category-select]'),
-    categorySearch: root.querySelector('[data-accounting-category-search]'),
+    categoryCombobox: root.querySelector('[data-accounting-category-combobox]'),
+    categoryValue: root.querySelector('[data-accounting-category-value]'),
     counterpartyInput: root.querySelector('[data-accounting-counterparty-input]'),
     counterpartyOptions: root.querySelector('[data-accounting-counterparty-options]'),
     billSelect: root.querySelector('[data-accounting-bill-select]'),
@@ -418,24 +418,93 @@ if (root) {
     }
   };
 
-  const renderCategoryOptions = ({ clearSelection = false } = {}) => {
-    const categories = state.categories.filter((item) => item.parent_id !== null || Number(item.is_billable) === 1);
-    const selectedCategory = clearSelection ? '' : (refs.categorySelect?.value || '');
-    const search = String(refs.categorySearch?.value || '').trim().toLocaleLowerCase('id-ID');
-    const visible = search
-      ? categories.filter((category) => `${category.parent_name || ''} ${category.name || ''}`.toLocaleLowerCase('id-ID').includes(search))
-      : categories;
-    if (!refs.categorySelect) return;
-    refs.categorySelect.innerHTML = [
-      option('', visible.length ? 'Choose category' : 'No matching categories'),
-      ...visible.map((category) => option(category.id, category.parent_name ? `${category.parent_name} - ${category.name}` : category.name))
-    ].join('');
-    refs.categorySelect.value = visible.some((category) => String(category.id) === selectedCategory) ? selectedCategory : '';
-    if (search) {
-      refs.categorySelect.setAttribute('size', String(Math.min(6, Math.max(2, visible.length + 1))));
-    } else {
-      refs.categorySelect.removeAttribute('size');
-    }
+  const billableCategories = () => state.categories.filter((item) => (
+    item.parent_id !== null || Number(item.is_billable) === 1
+  ));
+
+  const categoryLabel = (category) => (
+    category?.parent_name ? `${category.parent_name} - ${category.name}` : String(category?.name || '')
+  );
+
+  const categoryComboboxMarkup = (selectedCategoryId = '') => `
+    <div class="admin-accounting-category-combobox" data-accounting-category-combobox>
+      <input type="hidden" name="category_id" value="${escapeHtml(String(selectedCategoryId || ''))}" data-accounting-category-value>
+      <button type="button" class="admin-accounting-category-trigger" data-accounting-category-trigger aria-haspopup="listbox" aria-expanded="false">
+        <span data-accounting-category-label>Choose category</span>
+        <b aria-hidden="true">⌄</b>
+      </button>
+      <div class="admin-accounting-category-menu" data-accounting-category-menu hidden>
+        <div class="admin-accounting-category-search">
+          <span aria-hidden="true">⌕</span>
+          <input type="search" data-accounting-category-search placeholder="Search categories…" autocomplete="off" aria-label="Search categories">
+        </div>
+        <div class="admin-accounting-category-results" data-accounting-category-results role="listbox"></div>
+      </div>
+    </div>
+  `;
+
+  const renderCategoryCombobox = (combobox) => {
+    if (!(combobox instanceof HTMLElement)) return;
+    const valueInput = combobox.querySelector('[data-accounting-category-value]');
+    const label = combobox.querySelector('[data-accounting-category-label]');
+    const searchInput = combobox.querySelector('[data-accounting-category-search]');
+    const results = combobox.querySelector('[data-accounting-category-results]');
+    if (!(valueInput instanceof HTMLInputElement) || !(results instanceof HTMLElement)) return;
+    const selectedValue = valueInput.value;
+    const selectedCategory = billableCategories().find((category) => String(category.id) === selectedValue);
+    if (label instanceof HTMLElement) label.textContent = selectedCategory ? categoryLabel(selectedCategory) : 'Choose category';
+    const search = String(searchInput?.value || '').trim().toLocaleLowerCase('id-ID');
+    const visible = billableCategories().filter((category) => (
+      !search || `${category.parent_name || ''} ${category.name || ''}`.toLocaleLowerCase('id-ID').includes(search)
+    ));
+    results.innerHTML = visible.length
+      ? visible.map((category) => {
+        const selected = String(category.id) === selectedValue;
+        return `
+          <button type="button" role="option" data-accounting-category-option="${escapeHtml(String(category.id))}" aria-selected="${selected ? 'true' : 'false'}">
+            <span>${escapeHtml(category.name || '')}</span>
+            <small>${escapeHtml(category.parent_name || 'General')}</small>
+            <b aria-hidden="true">${selected ? '✓' : ''}</b>
+          </button>
+        `;
+      }).join('')
+      : '<p class="admin-accounting-category-empty">No matching categories</p>';
+  };
+
+  const renderCategoryOptions = () => {
+    renderCategoryCombobox(refs.categoryCombobox);
+  };
+
+  const closeCategoryCombobox = (combobox) => {
+    if (!(combobox instanceof HTMLElement)) return;
+    const menu = combobox.querySelector('[data-accounting-category-menu]');
+    const trigger = combobox.querySelector('[data-accounting-category-trigger]');
+    if (menu instanceof HTMLElement) menu.hidden = true;
+    if (trigger instanceof HTMLButtonElement) trigger.setAttribute('aria-expanded', 'false');
+  };
+
+  const closeCategoryComboboxes = (except = null) => {
+    root.querySelectorAll('[data-accounting-category-combobox]').forEach((combobox) => {
+      if (combobox !== except) closeCategoryCombobox(combobox);
+    });
+  };
+
+  const openCategoryCombobox = (combobox) => {
+    if (!(combobox instanceof HTMLElement)) return;
+    closeCategoryComboboxes(combobox);
+    const menu = combobox.querySelector('[data-accounting-category-menu]');
+    const trigger = combobox.querySelector('[data-accounting-category-trigger]');
+    const searchInput = combobox.querySelector('[data-accounting-category-search]');
+    if (!(menu instanceof HTMLElement)) return;
+    menu.hidden = false;
+    if (trigger instanceof HTMLButtonElement) trigger.setAttribute('aria-expanded', 'true');
+    if (searchInput instanceof HTMLInputElement) searchInput.value = '';
+    renderCategoryCombobox(combobox);
+    window.requestAnimationFrame(() => {
+      if (searchInput instanceof HTMLInputElement) searchInput.focus();
+      const selected = combobox.querySelector('[data-accounting-category-option][aria-selected="true"]');
+      selected?.scrollIntoView({ block: 'nearest' });
+    });
   };
 
   const renderLookups = () => {
@@ -1150,9 +1219,6 @@ if (root) {
       ? (item.bill_no || item.bill_key || 'Bill')
       : (item.transaction_key || 'Transaction');
     if (refs.drawerBody) {
-      const categoryOptions = [option('', 'Choose category'), ...state.categories
-        .filter((category) => category.parent_id !== null || Number(category.is_billable) === 1)
-        .map((category) => option(category.id, category.parent_name ? `${category.parent_name} - ${category.name}` : category.name, Number(category.id) === Number(item.category_id)))].join('');
       const drawerAccountRole = kind === 'bill' || item.direction !== 'money_in' ? 'pay' : 'receive';
       const accountOptions = [option('', 'Choose account'), ...accountOptionsForRole(drawerAccountRole)
         .map((account) => option(account.id, account.name, Number(account.id) === Number(item.account_id || item.expected_account_id)))].join('');
@@ -1164,7 +1230,7 @@ if (root) {
           <label><span>Bill date</span><input type="date" name="issue_date" value="${escapeHtml(item.issue_date || '')}" required></label>
           <label><span>Due date</span><input type="date" name="due_date" value="${escapeHtml(item.due_date || '')}"></label>
           <label><span>Total</span><input name="total_amount" inputmode="numeric" value="${escapeHtml(String(item.total_amount || ''))}" ${Number(item.paid_amount || 0) > 0 ? 'disabled' : ''} required></label>
-          <label><span>Category</span><input type="search" data-accounting-edit-category-search placeholder="Type to filter categories…" autocomplete="off"><select name="category_id" data-accounting-edit-category-select required>${categoryOptions}</select></label>
+          <label><span>Category</span>${categoryComboboxMarkup(item.category_id)}</label>
           <label><span>Expected account</span><select name="expected_account_id">${accountOptions}</select></label>
           <label><span>Receipt status</span><select name="receipt_status">${receiptOptions}</select></label>
           <label><span>Attachment URL</span><input type="url" name="attachment_url" value="${escapeHtml(item.attachment_url || '')}"></label>
@@ -1177,7 +1243,7 @@ if (root) {
           <label><span>Date</span><input type="date" name="transaction_date" value="${escapeHtml(item.transaction_date || '')}" required></label>
           <label><span>Amount</span><input name="amount" inputmode="numeric" value="${escapeHtml(String(item.amount || ''))}" required></label>
           <label><span>Account</span><select name="account_id" required>${accountOptions}</select></label>
-          <label><span>Category</span><input type="search" data-accounting-edit-category-search placeholder="Type to filter categories…" autocomplete="off"><select name="category_id" data-accounting-edit-category-select ${item.type === 'transfer' ? '' : 'required'}>${categoryOptions}</select></label>
+          <label><span>Category</span>${categoryComboboxMarkup(item.category_id)}</label>
           <label><span>Receipt status</span><select name="receipt_status">${receiptOptions}</select></label>
           <label><span>Receipt URL</span><input type="url" name="receipt_url" value="${escapeHtml(item.receipt_url || '')}"></label>
           <label><span>Reference no.</span><input name="reference_no" value="${escapeHtml(item.reference_no || '')}"></label>
@@ -1187,6 +1253,7 @@ if (root) {
           <button type="submit" class="admin-primary-btn">Save correction</button>
         </form>
       `;
+      refs.drawerBody.querySelectorAll('[data-accounting-category-combobox]').forEach(renderCategoryCombobox);
     }
     refs.drawer.hidden = false;
   };
@@ -1460,7 +1527,42 @@ if (root) {
   refs.transferFeeInput?.addEventListener('input', () => {
     refs.transferFeeInput.value = normalizeAmountInput(refs.transferFeeInput.value);
   });
-  refs.categorySearch?.addEventListener('input', () => renderCategoryOptions({ clearSelection: true }));
+  root.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    const trigger = target?.closest('[data-accounting-category-trigger]');
+    if (trigger instanceof HTMLButtonElement) {
+      const combobox = trigger.closest('[data-accounting-category-combobox]');
+      const isOpen = trigger.getAttribute('aria-expanded') === 'true';
+      if (isOpen) {
+        closeCategoryCombobox(combobox);
+      } else {
+        openCategoryCombobox(combobox);
+      }
+      return;
+    }
+    const optionButton = target?.closest('[data-accounting-category-option]');
+    if (optionButton instanceof HTMLButtonElement) {
+      const combobox = optionButton.closest('[data-accounting-category-combobox]');
+      const valueInput = combobox?.querySelector('[data-accounting-category-value]');
+      const comboboxTrigger = combobox?.querySelector('[data-accounting-category-trigger]');
+      if (valueInput instanceof HTMLInputElement) {
+        valueInput.value = optionButton.dataset.accountingCategoryOption || '';
+        valueInput.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      renderCategoryCombobox(combobox);
+      closeCategoryCombobox(combobox);
+      if (comboboxTrigger instanceof HTMLButtonElement) comboboxTrigger.focus();
+    }
+  });
+  root.addEventListener('input', (event) => {
+    const searchInput = event.target;
+    if (!(searchInput instanceof HTMLInputElement) || !searchInput.matches('[data-accounting-category-search]')) return;
+    renderCategoryCombobox(searchInput.closest('[data-accounting-category-combobox]'));
+  });
+  document.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target?.closest('[data-accounting-category-combobox]')) closeCategoryComboboxes();
+  });
   refs.billSelect?.addEventListener('change', fillPayBillAmount);
   refs.form?.addEventListener('submit', submitForm);
   refs.form?.addEventListener('reset', () => {
@@ -1627,6 +1729,10 @@ if (root) {
   });
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
+      const openCombobox = root.querySelector('[data-accounting-category-trigger][aria-expanded="true"]')?.closest('[data-accounting-category-combobox]');
+      const categoryTrigger = openCombobox?.querySelector('[data-accounting-category-trigger]');
+      closeCategoryComboboxes();
+      if (categoryTrigger instanceof HTMLButtonElement) categoryTrigger.focus();
       closeCashHistory();
       closeBreakdown();
       closeReconcile();
@@ -1635,22 +1741,6 @@ if (root) {
   });
   window.addEventListener('partner-billing:confirmed', () => {
     loadSafely(true);
-  });
-  refs.drawerBody?.addEventListener('input', (event) => {
-    const searchInput = event.target;
-    if (!(searchInput instanceof HTMLInputElement) || !searchInput.matches('[data-accounting-edit-category-search]')) return;
-    const select = searchInput.parentElement?.querySelector('[data-accounting-edit-category-select]');
-    if (!(select instanceof HTMLSelectElement)) return;
-    const search = searchInput.value.trim().toLocaleLowerCase('id-ID');
-    const categories = state.categories
-      .filter((category) => category.parent_id !== null || Number(category.is_billable) === 1)
-      .filter((category) => !search || `${category.parent_name || ''} ${category.name || ''}`.toLocaleLowerCase('id-ID').includes(search));
-    select.innerHTML = [
-      option('', categories.length ? 'Choose category' : 'No matching categories'),
-      ...categories.map((category) => option(category.id, category.parent_name ? `${category.parent_name} - ${category.name}` : category.name))
-    ].join('');
-    if (search) select.setAttribute('size', String(Math.min(6, Math.max(2, categories.length + 1))));
-    else select.removeAttribute('size');
   });
   refs.drawerBody?.addEventListener('submit', async (event) => {
     const form = event.target;

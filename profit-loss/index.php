@@ -175,8 +175,20 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                             </label>
                             <label data-accounting-field="category_id">
                                 <span>Category</span>
-                                <input type="search" data-accounting-category-search placeholder="Type to filter categories…" autocomplete="off">
-                                <select name="category_id" data-accounting-category-select required></select>
+                                <div class="admin-accounting-category-combobox" data-accounting-category-combobox>
+                                    <input type="hidden" name="category_id" data-accounting-category-value>
+                                    <button type="button" class="admin-accounting-category-trigger" data-accounting-category-trigger aria-haspopup="listbox" aria-expanded="false">
+                                        <span data-accounting-category-label>Choose category</span>
+                                        <b aria-hidden="true">⌄</b>
+                                    </button>
+                                    <div class="admin-accounting-category-menu" data-accounting-category-menu hidden>
+                                        <div class="admin-accounting-category-search">
+                                            <span aria-hidden="true">⌕</span>
+                                            <input type="search" data-accounting-category-search placeholder="Search categories…" autocomplete="off" aria-label="Search categories">
+                                        </div>
+                                        <div class="admin-accounting-category-results" data-accounting-category-results role="listbox"></div>
+                                    </div>
+                                </div>
                             </label>
                             <label data-accounting-field="counterparty">
                                 <span>Vendor / Source</span>
