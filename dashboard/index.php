@@ -740,7 +740,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                                <button type="button" data-inventory-filter="healthy">Above trigger</button>
 	                                <button type="button" data-inventory-filter="manual">Manual</button>
 	                            </div>
-	                            <p>Auto trigger = 90-day average + trend + fluctuation / large-order buffer</p>
+	                            <p>Auto trigger = 25% of flattened 30-day demand after trend and buffer · about 7.5 days of stock</p>
 	                        </div>
 	                        <div class="admin-inventory-visual-list" data-inventory-recap-list>
 	                            <p class="admin-empty">Calculating product triggers.</p>

@@ -8126,7 +8126,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	        <div class="admin-inventory-trigger-signal">
 	          <div class="admin-inventory-bucket-chart" aria-label="Nine ten-day demand blocks">${inventoryBucketBars(item)}</div>
 	          <div class="admin-inventory-signal-metrics">
-	            <span><b>${formatRegionalNumber(item.average_30_day_demand || 0, { maximumFractionDigits: 1 })}</b> 90-day average</span>
+	            <span><b>${formatRegionalNumber(item.average_30_day_demand || 0, { maximumFractionDigits: 1 })}</b> 30-day flattened</span>
 	            <span><b>${inventoryTrendText(item.trend_adjustment)}</b> trend</span>
 	            <span><b>+${formatRegionalNumber(item.applied_buffer || 0, { maximumFractionDigits: 1 })}</b> buffer</span>
 	          </div>
@@ -8262,7 +8262,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    return [
 	      'JENANG GEMI - RECOMMENDED STOCK PURCHASE',
 	      `Demand through: ${date}`,
-	      'Trigger model: 90-day average + 10-day/overall trend + fluctuation or large-order buffer',
+	      'Trigger model: 25% of adjusted 30-day demand (about 7.5 days of stock)',
 	      'Purchase rule: trigger shortfall rounded up to a full MOQ multiple',
 	      '',
 	      ...lines,
@@ -9816,7 +9816,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    const date = state.inventoryRecap.data?.meta?.end_date || activeLocalDate;
 	    const lines = [
 	      `Demand through: ${date}`,
-	      'Trigger: 90-day average + trend + fluctuation / large-order buffer',
+	      'Trigger: 25% of adjusted 30-day demand (about 7.5 days of stock)',
 	      'Purchase: trigger shortfall rounded up to MOQ',
 	      '',
 	      ...rows.flatMap((item, index) => [

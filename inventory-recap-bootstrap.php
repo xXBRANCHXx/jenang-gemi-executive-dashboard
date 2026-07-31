@@ -33,6 +33,8 @@ function jg_inventory_recap_options(array $input = []): array
         'forecast_history_days' => $lookbackDays,
         'bucket_days' => 10,
         'bucket_count' => 9,
+        'reorder_fraction' => 0.25,
+        'reorder_days_equivalent' => 7.5,
         'today' => $today->format('Y-m-d'),
         'start_date' => $start->format('Y-m-d'),
         'end_date' => $today->format('Y-m-d'),
@@ -146,6 +148,8 @@ function jg_inventory_recap_empty_trigger_model(array $options): array
         'fluctuation_buffer' => 0.0,
         'large_order_buffer' => 0.0,
         'applied_buffer' => 0.0,
+        'adjusted_30_day_demand' => 0.0,
+        'reorder_fraction' => (float) ($options['reorder_fraction'] ?? 0.25),
         'automatic_trigger' => 0,
         'forecast_confidence' => 'none',
         'forecast_method' => (string) ($options['forecast_model'] ?? '90_day_trigger'),
@@ -199,6 +203,8 @@ function jg_inventory_recap_trigger_model(array $dailyHistory, array $options): 
     $fluctuationBuffer = jg_inventory_recap_standard_deviation($buckets) * sqrt(3);
     $largeOrderBuffer = max($dailyQuantities ?: [0.0]);
     $appliedBuffer = max($fluctuationBuffer, $largeOrderBuffer);
+    $adjusted30 = max(0.0, $baseline30 + $trendAdjustment + $appliedBuffer);
+    $reorderFraction = max(0.01, min(1.0, (float) ($options['reorder_fraction'] ?? 0.25)));
 
     return [
         'has_demand' => true,
@@ -212,7 +218,9 @@ function jg_inventory_recap_trigger_model(array $dailyHistory, array $options): 
         'fluctuation_buffer' => round($fluctuationBuffer, 2),
         'large_order_buffer' => round($largeOrderBuffer, 2),
         'applied_buffer' => round($appliedBuffer, 2),
-        'automatic_trigger' => (int) ceil(max(0.0, $baseline30 + $trendAdjustment + $appliedBuffer)),
+        'adjusted_30_day_demand' => round($adjusted30, 2),
+        'reorder_fraction' => $reorderFraction,
+        'automatic_trigger' => (int) ceil($adjusted30 * $reorderFraction),
         'forecast_confidence' => jg_inventory_recap_forecast_confidence($soldDays, $total),
         'forecast_method' => (string) ($options['forecast_model'] ?? '90_day_trigger'),
     ];
@@ -639,6 +647,8 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
             'fluctuation_buffer' => (float) ($model['fluctuation_buffer'] ?? 0),
             'large_order_buffer' => (float) ($model['large_order_buffer'] ?? 0),
             'applied_buffer' => (float) ($model['applied_buffer'] ?? 0),
+            'adjusted_30_day_demand' => (float) ($model['adjusted_30_day_demand'] ?? 0),
+            'reorder_fraction' => (float) ($model['reorder_fraction'] ?? 0.25),
             'automatic_trigger' => $automaticTrigger,
             'manual_trigger' => $manualTrigger,
             'trigger_mode' => $triggerMode,

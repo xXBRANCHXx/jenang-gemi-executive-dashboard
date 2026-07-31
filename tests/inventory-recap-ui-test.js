@@ -20,7 +20,7 @@ assert.match(script, /data-inventory-manual-trigger/);
 assert.match(script, /data-inventory-moq/);
 assert.match(script, /Math\.ceil\(entered \/ moq\) \* moq/);
 assert.match(script, /saveInventorySettings/);
-assert.match(script, /Trigger model: 90-day average/);
+assert.match(script, /Trigger model: 25% of adjusted 30-day demand/);
 assert.match(script, /buildSimplePdf\('Jenang Gemi - Recommended Stock Purchase'/);
 assert.doesNotMatch(script, /inventoryRecapDays|current_days_remaining/);
 
