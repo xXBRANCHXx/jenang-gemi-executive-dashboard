@@ -35,6 +35,8 @@ function jg_inventory_recap_options(array $input = []): array
         'bucket_count' => 9,
         'reorder_fraction' => 0.25,
         'reorder_days_equivalent' => 7.5,
+        'purchase_fraction' => 0.35,
+        'purchase_days_equivalent' => 10.5,
         'today' => $today->format('Y-m-d'),
         'start_date' => $start->format('Y-m-d'),
         'end_date' => $today->format('Y-m-d'),
@@ -150,6 +152,8 @@ function jg_inventory_recap_empty_trigger_model(array $options): array
         'applied_buffer' => 0.0,
         'adjusted_30_day_demand' => 0.0,
         'reorder_fraction' => (float) ($options['reorder_fraction'] ?? 0.25),
+        'purchase_fraction' => (float) ($options['purchase_fraction'] ?? 0.35),
+        'purchase_target_qty' => 0,
         'automatic_trigger' => 0,
         'forecast_confidence' => 'none',
         'forecast_method' => (string) ($options['forecast_model'] ?? '90_day_trigger'),
@@ -205,6 +209,7 @@ function jg_inventory_recap_trigger_model(array $dailyHistory, array $options): 
     $appliedBuffer = max($fluctuationBuffer, $largeOrderBuffer);
     $adjusted30 = max(0.0, $baseline30 + $trendAdjustment + $appliedBuffer);
     $reorderFraction = max(0.01, min(1.0, (float) ($options['reorder_fraction'] ?? 0.25)));
+    $purchaseFraction = max(0.01, min(1.0, (float) ($options['purchase_fraction'] ?? 0.35)));
 
     return [
         'has_demand' => true,
@@ -220,6 +225,8 @@ function jg_inventory_recap_trigger_model(array $dailyHistory, array $options): 
         'applied_buffer' => round($appliedBuffer, 2),
         'adjusted_30_day_demand' => round($adjusted30, 2),
         'reorder_fraction' => $reorderFraction,
+        'purchase_fraction' => $purchaseFraction,
+        'purchase_target_qty' => (int) ceil($adjusted30 * $purchaseFraction),
         'automatic_trigger' => (int) ceil($adjusted30 * $reorderFraction),
         'forecast_confidence' => jg_inventory_recap_forecast_confidence($soldDays, $total),
         'forecast_method' => (string) ($options['forecast_model'] ?? '90_day_trigger'),
@@ -513,11 +520,12 @@ function jg_inventory_recap_order_draft(array $suggestions, array $summary, arra
     $lines = [];
     foreach ($suggestions as $item) {
         $lines[] = sprintf(
-            '- %s / %s: stock %d, trigger %d, need %d, MOQ %d, buy %d, est. %s',
+            '- %s / %s: stock %d, trigger %d, trigger gap %d, 10.5-day order %d, MOQ %d, buy %d, est. %s',
             (string) ($item['sku'] ?? ''),
             (string) ($item['product_name'] ?? ''),
             (int) ($item['current_stock'] ?? 0),
             (int) ($item['trigger_qty'] ?? 0),
+            (int) ($item['trigger_shortfall_qty'] ?? 0),
             (int) ($item['raw_purchase_qty'] ?? 0),
             (int) ($item['purchase_moq'] ?? 1),
             (int) ($item['recommended_order_qty'] ?? 0),
@@ -535,7 +543,7 @@ function jg_inventory_recap_order_draft(array $suggestions, array $summary, arra
         'Inventory Recap production draft',
         'Generated: ' . gmdate(DATE_ATOM),
         sprintf('Demand basis: %d days in nine 10-day blocks through %s', (int) $options['lookback_days'], (string) ($options['end_date'] ?? '')),
-        'Decision rule: current stock below trigger; purchase shortfall rounded up to MOQ.',
+        'Decision rule: below 7.5-day trigger; order another 10.5 days (or the larger manual-trigger gap), then round up to MOQ.',
         'Estimated production cost: ' . jg_inventory_recap_format_idr((float) ($summary['total_recommended_cost'] ?? 0)),
         'Accounting Cash Available: ' . jg_inventory_recap_format_idr((float) ($summary['cash_available'] ?? 0)),
         'Funding: ' . $funding,
@@ -619,7 +627,11 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
         $triggerMode = strtolower((string) ($sku['inventory_mode'] ?? 'auto')) === 'manual' ? 'manual' : 'auto';
         $triggerQty = $triggerMode === 'manual' ? $manualTrigger : $automaticTrigger;
         $purchaseMoq = max(1, (int) ($sku['purchase_moq'] ?? 1));
-        $rawPurchaseQty = max(0, (int) ceil($triggerQty - $currentStock));
+        $triggerShortfallQty = max(0, (int) ceil($triggerQty - $currentStock));
+        $purchaseTargetQty = max(0, (int) ($model['purchase_target_qty'] ?? 0));
+        $rawPurchaseQty = $triggerShortfallQty > 0
+            ? max($triggerShortfallQty, $purchaseTargetQty)
+            : 0;
         $recommendedOrderQty = jg_inventory_recap_round_to_moq($rawPurchaseQty, $purchaseMoq);
         $moqRoundingQty = max(0, $recommendedOrderQty - $rawPurchaseQty);
         $postOrderStock = $currentStock + $recommendedOrderQty;
@@ -649,11 +661,14 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
             'applied_buffer' => (float) ($model['applied_buffer'] ?? 0),
             'adjusted_30_day_demand' => (float) ($model['adjusted_30_day_demand'] ?? 0),
             'reorder_fraction' => (float) ($model['reorder_fraction'] ?? 0.25),
+            'purchase_fraction' => (float) ($model['purchase_fraction'] ?? 0.35),
+            'purchase_target_qty' => $purchaseTargetQty,
             'automatic_trigger' => $automaticTrigger,
             'manual_trigger' => $manualTrigger,
             'trigger_mode' => $triggerMode,
             'trigger_qty' => $triggerQty,
             'trigger_gap' => (int) floor($currentStock - $triggerQty),
+            'trigger_shortfall_qty' => $triggerShortfallQty,
             'raw_purchase_qty' => $rawPurchaseQty,
             'minimum_order_qty' => $rawPurchaseQty,
             'recommended_order_qty' => $recommendedOrderQty,

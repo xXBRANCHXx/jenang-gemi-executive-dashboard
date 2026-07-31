@@ -772,8 +772,8 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                        </div>
 	                        <div class="admin-purchase-rule">
 	                            <strong>How quantities are chosen</strong>
-	                            <span>Needed = trigger − stock. Buy quantity rounds up to a full MOQ multiple.</span>
-	                            <code>19 needed ÷ MOQ 11 → buy 22</code>
+	                            <span>At the 7.5-day trigger, order another 10.5 days of adjusted demand. Then round up to a full MOQ multiple.</span>
+	                            <code>10.5-day order 19 ÷ MOQ 11 → buy 22</code>
 	                        </div>
 	                        <div class="admin-purchase-list" data-purchase-plan-list>
 	                            <p class="admin-empty">Loading recommended products.</p>

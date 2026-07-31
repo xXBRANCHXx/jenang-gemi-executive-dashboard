@@ -12,7 +12,7 @@ const api = fs.readFileSync(path.join(root, 'api/inventory-recap/index.php'), 'u
 assert.match(dashboard, /data-view-panel="inventory-recap"[\s\S]*Reorder triggers[\s\S]*data-inventory-filter="triggered"[\s\S]*Needs purchase/);
 assert.match(dashboard, /Automatic triggers learn from 90 days of demand/);
 assert.match(dashboard, /data-inventory-recap-manual/);
-assert.match(dashboard, /19 needed ÷ MOQ 11 → buy 22/);
+assert.match(dashboard, /10\.5-day order 19 ÷ MOQ 11 → buy 22/);
 assert.match(dashboard, /data-view-panel="purchase-order"[\s\S]*MOQ-ready purchase plan[\s\S]*data-purchase-plan-download/);
 
 assert.match(script, /data-inventory-automatic/);

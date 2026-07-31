@@ -8120,7 +8120,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	          <div><span>Trigger at</span><strong>${formatRegionalInteger(trigger)}</strong></div>
 	          <div class="admin-inventory-trigger-meter"><i style="width:${stockPercent}%"></i><mark style="left:100%"></mark></div>
 	          <small>${item.restock_needed
-	            ? `${formatRegionalInteger(item.raw_purchase_qty || 0)} short · buy ${formatRegionalInteger(item.recommended_order_qty || 0)}`
+	            ? `${formatRegionalInteger(item.trigger_shortfall_qty || 0)} below trigger · order ${formatRegionalInteger(item.raw_purchase_qty || 0)} · buy ${formatRegionalInteger(item.recommended_order_qty || 0)}`
 	            : trigger > 0 ? `${formatRegionalInteger(Math.max(0, stock - trigger))} above trigger` : 'No demand trigger yet'}</small>
 	        </div>
 	        <div class="admin-inventory-trigger-signal">
@@ -8211,7 +8211,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	          <div class="admin-purchase-product">
 	            <strong>${escapeHtml(item.product_name || item.sku || '-')}</strong>
 	            <span>${escapeHtml(item.sku || '')} · stock ${formatRegionalInteger(item.current_stock || 0)} / trigger ${formatRegionalInteger(item.trigger_qty || 0)}</span>
-	            <small>Need ${formatRegionalInteger(item.raw_purchase_qty || 0)} · MOQ ${formatRegionalInteger(item.moq)} · rounded +${formatRegionalInteger(item.moq_rounding_qty || 0)}</small>
+	            <small>Trigger gap ${formatRegionalInteger(item.trigger_shortfall_qty || 0)} · 10.5-day order ${formatRegionalInteger(item.raw_purchase_qty || 0)} · MOQ ${formatRegionalInteger(item.moq)} · rounded +${formatRegionalInteger(item.moq_rounding_qty || 0)}</small>
 	          </div>
 	          <label class="admin-purchase-quantity">
 	            <span>Buy quantity</span>
@@ -8257,13 +8257,13 @@ document.addEventListener('DOMContentLoaded', () => {
 	    const date = state.inventoryRecap.data?.meta?.end_date || activeLocalDate;
 	    const lines = rows.map((item, index) => {
 	      const note = item.note ? ` | Note: ${item.note}` : '';
-	      return `${index + 1}. ${item.product_name || item.sku} (${item.sku}) | Stock ${formatRegionalInteger(item.current_stock)} | Trigger ${formatRegionalInteger(item.trigger_qty)} | Need ${formatRegionalInteger(item.raw_purchase_qty)} | MOQ ${formatRegionalInteger(item.moq)} | Buy ${formatRegionalInteger(item.quantity)} | ${formatCurrency(item.subtotal)}${note}`;
+	      return `${index + 1}. ${item.product_name || item.sku} (${item.sku}) | Stock ${formatRegionalInteger(item.current_stock)} | Trigger ${formatRegionalInteger(item.trigger_qty)} | 10.5-day order ${formatRegionalInteger(item.raw_purchase_qty)} | MOQ ${formatRegionalInteger(item.moq)} | Buy ${formatRegionalInteger(item.quantity)} | ${formatCurrency(item.subtotal)}${note}`;
 	    });
 	    return [
 	      'JENANG GEMI - RECOMMENDED STOCK PURCHASE',
 	      `Demand through: ${date}`,
 	      'Trigger model: 25% of adjusted 30-day demand (about 7.5 days of stock)',
-	      'Purchase rule: trigger shortfall rounded up to a full MOQ multiple',
+	      'Purchase rule: when triggered, order another 10.5 days and round up to MOQ',
 	      '',
 	      ...lines,
 	      '',
@@ -9817,12 +9817,13 @@ document.addEventListener('DOMContentLoaded', () => {
 	    const lines = [
 	      `Demand through: ${date}`,
 	      'Trigger: 25% of adjusted 30-day demand (about 7.5 days of stock)',
-	      'Purchase: trigger shortfall rounded up to MOQ',
+	      'Purchase: another 10.5 days of demand, rounded up to MOQ',
 	      '',
 	      ...rows.flatMap((item, index) => [
 	        `${index + 1}. ${item.product_name || item.sku}`,
 	        `   SKU: ${item.sku} | Stock: ${formatRegionalInteger(item.current_stock)} | Trigger: ${formatRegionalInteger(item.trigger_qty)}`,
-	        `   Need: ${formatRegionalInteger(item.raw_purchase_qty)} | MOQ: ${formatRegionalInteger(item.moq)} | Buy: ${formatRegionalInteger(item.quantity)} ${inventoryRecapStockUnitText(item)}`,
+	        `   Trigger gap: ${formatRegionalInteger(item.trigger_shortfall_qty)} | 10.5-day order: ${formatRegionalInteger(item.raw_purchase_qty)}`,
+	        `   MOQ: ${formatRegionalInteger(item.moq)} | Buy: ${formatRegionalInteger(item.quantity)} ${inventoryRecapStockUnitText(item)}`,
 	        `   Unit cost: ${formatCurrency(item.unitCost)} | Subtotal: ${formatCurrency(item.subtotal)}`,
 	        item.note ? `   Note: ${item.note}` : ''
 	      ]),

@@ -25,6 +25,8 @@ inventory_recap_expect(9, $options['bucket_count'], 'The model must use nine dem
 inventory_recap_expect(10, $options['bucket_days'], 'Each demand block must contain ten days.');
 inventory_recap_expect(0.25, $options['reorder_fraction'], 'The automatic trigger must use one quarter of adjusted monthly demand.');
 inventory_recap_expect(7.5, $options['reorder_days_equivalent'], 'One quarter of a 30-day demand value is about 7.5 days.');
+inventory_recap_expect(0.35, $options['purchase_fraction'], 'A triggered purchase must add 35% of adjusted monthly demand.');
+inventory_recap_expect(10.5, $options['purchase_days_equivalent'], 'The purchase must add about a week and a half of stock.');
 inventory_recap_expect('90_day_trigger', $options['forecast_model'], 'The quantity trigger model must identify itself.');
 
 inventory_recap_expect(22, jg_inventory_recap_round_to_moq(19, 11), 'A need of 19 with MOQ 11 must round to 22.');
@@ -42,6 +44,7 @@ inventory_recap_expect(30.0, $flatModel['average_30_day_demand'], 'The 90-day to
 inventory_recap_expect(array_fill(0, 9, 10.0), $flatModel['ten_day_buckets'], 'Flat sales must produce nine equal blocks.');
 inventory_recap_expect(31.0, $flatModel['adjusted_30_day_demand'], 'Flat demand must add the largest-order buffer before trigger scaling.');
 inventory_recap_expect(8, $flatModel['automatic_trigger'], 'The automatic trigger must be 25% of the adjusted monthly demand.');
+inventory_recap_expect(11, $flatModel['purchase_target_qty'], 'A triggered order must add 35% of adjusted monthly demand.');
 
 $risingHistory = [];
 for ($block = 0; $block < 9; $block++) {
@@ -55,6 +58,7 @@ inventory_recap_expect(10.0, $risingModel['average_10_day_change'], 'The average
 inventory_recap_expect(80.0, $risingModel['overall_90_day_change'], 'The first-to-last block increase must be retained.');
 inventory_recap_expect(30.0, $risingModel['trend_adjustment'], 'Ten-day and overall movement must normalize to one 30-day trend adjustment.');
 inventory_recap_expect(57, $risingModel['automatic_trigger'], 'Rising demand must be adjusted and then scaled to a one-week trigger.');
+inventory_recap_expect(79, $risingModel['purchase_target_qty'], 'Rising demand must produce a separate 10.5-day purchase quantity.');
 
 $skuPdo = new PDO('sqlite::memory:');
 $skuPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -134,9 +138,10 @@ foreach ($payload['items'] as $item) {
 }
 $flat = $bySku['SKU-FLAT'] ?? [];
 inventory_recap_expect(8, $flat['automatic_trigger'] ?? 0, 'The payload must expose the one-week automatic trigger.');
-inventory_recap_expect(4, $flat['raw_purchase_qty'] ?? 0, 'Raw need must equal trigger minus stock.');
-inventory_recap_expect(11, $flat['recommended_order_qty'] ?? 0, 'Raw need must round up to MOQ 11.');
-inventory_recap_expect(7, $flat['moq_rounding_qty'] ?? 0, 'The MOQ uplift must remain auditable.');
+inventory_recap_expect(4, $flat['trigger_shortfall_qty'] ?? 0, 'The trigger shortfall must remain visible.');
+inventory_recap_expect(11, $flat['raw_purchase_qty'] ?? 0, 'The raw purchase must add another 10.5 days, not only fill the trigger gap.');
+inventory_recap_expect(11, $flat['recommended_order_qty'] ?? 0, 'The 10.5-day order must round up to MOQ 11.');
+inventory_recap_expect(0, $flat['moq_rounding_qty'] ?? 0, 'An exact MOQ multiple needs no uplift.');
 
 $manual = $bySku['SKU-MANUAL'] ?? [];
 inventory_recap_expect('manual', $manual['trigger_mode'] ?? '', 'Manual mode must override the automatic model.');
