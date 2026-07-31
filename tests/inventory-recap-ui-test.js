@@ -18,7 +18,8 @@ assert.match(dashboard, /data-view-panel="purchase-order"[\s\S]*MOQ-ready purcha
 assert.match(script, /data-inventory-automatic/);
 assert.match(script, /data-inventory-manual-trigger/);
 assert.match(script, /data-inventory-moq/);
-assert.match(script, /data-inventory-purchase-days/);
+assert.match(dashboard, /data-inventory-global-days-form[\s\S]*Order days · all products/);
+assert.match(script, /data-inventory-global-days/);
 assert.match(script, /Math\.ceil\(entered \/ moq\) \* moq/);
 assert.match(script, /saveInventorySettings/);
 assert.match(script, /Trigger model: 25% of the flat monthly average/);
@@ -27,7 +28,8 @@ assert.doesNotMatch(script, /inventoryRecapDays|current_days_remaining/);
 
 assert.match(api, /update_settings/);
 assert.match(api, /purchase_moq = :purchase_moq/);
-assert.match(api, /purchase_days = :purchase_days/);
+assert.match(api, /update_purchase_days/);
+assert.doesNotMatch(api, /sku_skus[\s\S]{0,300}purchase_days\s*=/);
 
 assert.match(navigation, /'purchase-order'\s*=>\s*\[[\s\S]*'label'\s*=>\s*'Purchase Plan'/);
 

@@ -2553,6 +2553,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	      planNote: '',
 	      settingsSaving: '',
 	      settingsMessage: {},
+	      globalSettingsSaving: false,
+	      globalSettingsMessage: '',
 	      requestToken: 0
 	    },
 	    daily: {
@@ -2826,7 +2828,11 @@ document.addEventListener('DOMContentLoaded', () => {
 	    manual: document.querySelector('[data-inventory-recap-manual]'),
 	    window: document.querySelector('[data-inventory-recap-window]'),
 	    list: document.querySelector('[data-inventory-recap-list]'),
-	    filters: document.querySelectorAll('[data-inventory-filter]')
+	    filters: document.querySelectorAll('[data-inventory-filter]'),
+	    globalDaysForm: document.querySelector('[data-inventory-global-days-form]'),
+	    globalDays: document.querySelector('[data-inventory-global-days]'),
+	    globalDaysSave: document.querySelector('[data-inventory-global-days-save]'),
+	    globalDaysMessage: document.querySelector('[data-inventory-global-days-message]')
 	  };
 	  const purchasePlanRefs = {
 	    status: document.querySelector('[data-purchase-plan-status]'),
@@ -8145,10 +8151,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	            <input type="number" min="0" step="1" value="${Math.max(0, Math.round(Number(item.manual_trigger || 0)))}" data-inventory-manual-trigger ${automatic ? 'disabled' : ''}>
 	          </label>
 	          <label>
-	            <span>Order days</span>
-	            <input type="number" min="1" max="90" step="0.5" value="${purchaseDays}" data-inventory-purchase-days>
-	          </label>
-	          <label>
 	            <span>MOQ</span>
 	            <input type="number" min="1" step="1" value="${Math.max(1, Number(item.purchase_moq || 1))}" data-inventory-moq>
 	          </label>
@@ -8272,7 +8274,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      'JENANG GEMI - RECOMMENDED STOCK PURCHASE',
 	      `Demand through: ${date}`,
 	      'Trigger model: 25% of the flat monthly average (90-day demand divided by 3)',
-	      'Purchase rule: per-product order days (default 22.5), then round up to MOQ',
+	      'Purchase rule: one shared order-days setting for every product, then round up to MOQ',
 	      '',
 	      ...lines,
 	      '',
@@ -8297,6 +8299,17 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (inventoryRecapRefs.suggested) inventoryRecapRefs.suggested.textContent = formatRegionalInteger(summary.total_recommended_qty || 0);
 	    if (inventoryRecapRefs.manual) inventoryRecapRefs.manual.textContent = formatRegionalInteger(summary.manual_count || 0);
 	    if (inventoryRecapRefs.window) inventoryRecapRefs.window.textContent = `${formatRegionalInteger(meta.lookback_days || 90)} days · nine 10-day blocks`;
+	    if (inventoryRecapRefs.globalDays instanceof HTMLInputElement && document.activeElement !== inventoryRecapRefs.globalDays) {
+	      inventoryRecapRefs.globalDays.value = String(Math.max(1, Number(meta.purchase_days_equivalent || 22.5)));
+	    }
+	    if (inventoryRecapRefs.globalDaysSave instanceof HTMLButtonElement) {
+	      inventoryRecapRefs.globalDaysSave.disabled = state.inventoryRecap.globalSettingsSaving;
+	      inventoryRecapRefs.globalDaysSave.textContent = state.inventoryRecap.globalSettingsSaving ? 'Saving' : 'Save';
+	    }
+	    if (inventoryRecapRefs.globalDaysMessage) {
+	      inventoryRecapRefs.globalDaysMessage.textContent = state.inventoryRecap.globalSettingsMessage || 'One setting for the full report';
+	      inventoryRecapRefs.globalDaysMessage.classList.toggle('is-error', state.inventoryRecap.globalSettingsMessage.startsWith('Could'));
+	    }
 	    renderInventoryRecapList(rows);
 	    renderPurchasePlan();
 	  };
@@ -8307,13 +8320,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	    const automaticInput = form.querySelector('[data-inventory-automatic]');
 	    const triggerInput = form.querySelector('[data-inventory-manual-trigger]');
 	    const moqInput = form.querySelector('[data-inventory-moq]');
-	    const purchaseDaysInput = form.querySelector('[data-inventory-purchase-days]');
 	    const automatic = automaticInput instanceof HTMLInputElement ? automaticInput.checked : true;
 	    const manualTrigger = triggerInput instanceof HTMLInputElement ? Math.max(0, Math.round(Number(triggerInput.value || 0))) : 0;
 	    const purchaseMoq = moqInput instanceof HTMLInputElement ? Math.max(1, Math.round(Number(moqInput.value || 1))) : 1;
-	    const purchaseDays = purchaseDaysInput instanceof HTMLInputElement
-	      ? Math.max(1, Math.min(90, Math.round(Number(purchaseDaysInput.value || 22.5) * 2) / 2))
-	      : 22.5;
 	    state.inventoryRecap.settingsSaving = sku;
 	    state.inventoryRecap.settingsMessage[sku] = '';
 	    renderInventoryRecap(state.inventoryRecap.data);
@@ -8326,8 +8335,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	          sku,
 	          automatic,
 	          manual_trigger: manualTrigger,
-	          purchase_moq: purchaseMoq,
-	          purchase_days: purchaseDays
+	          purchase_moq: purchaseMoq
 	        }),
 	        cache: 'no-store',
 	        timeoutMs: 30000
@@ -8340,6 +8348,35 @@ document.addEventListener('DOMContentLoaded', () => {
 	    } catch (error) {
 	      state.inventoryRecap.settingsSaving = '';
 	      state.inventoryRecap.settingsMessage[sku] = `Could not save: ${error.message || 'request failed'}`;
+	      renderInventoryRecap(state.inventoryRecap.data);
+	    }
+	  };
+
+	  const saveGlobalInventoryDays = async () => {
+	    if (!(inventoryRecapRefs.globalDays instanceof HTMLInputElement) || state.inventoryRecap.globalSettingsSaving) return;
+	    const purchaseDays = Math.max(1, Math.min(90, Math.round(Number(inventoryRecapRefs.globalDays.value || 22.5) * 2) / 2));
+	    state.inventoryRecap.globalSettingsSaving = true;
+	    state.inventoryRecap.globalSettingsMessage = '';
+	    renderInventoryRecap(state.inventoryRecap.data);
+	    try {
+	      const data = await requestJson(inventoryRecapUrl({ force: true }), {
+	        method: 'POST',
+	        headers: { 'Content-Type': 'application/json' },
+	        body: JSON.stringify({
+	          action: 'update_purchase_days',
+	          purchase_days: purchaseDays
+	        }),
+	        cache: 'no-store',
+	        timeoutMs: 30000
+	      });
+	      state.inventoryRecap.globalSettingsSaving = false;
+	      state.inventoryRecap.globalSettingsMessage = `Saved ${formatRegionalNumber(purchaseDays, { maximumFractionDigits: 1 })} days for all products`;
+	      state.inventoryRecap.planEdited = {};
+	      writeViewClientCache('inventory-recap', inventoryRecapClientCacheKey(), data);
+	      applyInventoryRecapData(data);
+	    } catch (error) {
+	      state.inventoryRecap.globalSettingsSaving = false;
+	      state.inventoryRecap.globalSettingsMessage = `Could not save: ${error.message || 'request failed'}`;
 	      renderInventoryRecap(state.inventoryRecap.data);
 	    }
 	  };
@@ -9831,7 +9868,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    const lines = [
 	      `Demand through: ${date}`,
 	      'Trigger: 25% of the flat monthly average; no trend or buffer',
-	      'Purchase: customizable order days per product, rounded up to MOQ',
+	      'Purchase: one customizable order-days setting for all products, rounded up to MOQ',
 	      '',
 	      ...rows.flatMap((item, index) => [
 	        `${index + 1}. ${item.product_name || item.sku}`,
@@ -12167,6 +12204,11 @@ document.addEventListener('DOMContentLoaded', () => {
 	      state.inventoryRecap.filter = button.getAttribute('data-inventory-filter') || 'all';
 	      renderInventoryRecap(state.inventoryRecap.data);
 	    });
+	  });
+
+	  inventoryRecapRefs.globalDaysForm?.addEventListener('submit', (event) => {
+	    event.preventDefault();
+	    saveGlobalInventoryDays().catch(() => {});
 	  });
 
 	  inventoryRecapRefs.list?.addEventListener('change', (event) => {

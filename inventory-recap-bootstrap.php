@@ -24,6 +24,7 @@ function jg_inventory_recap_today(array $input = []): DateTimeImmutable
 function jg_inventory_recap_options(array $input = []): array
 {
     $lookbackDays = 90;
+    $purchaseDays = max(1.0, min(90.0, jg_inventory_recap_number($input['purchase_days'] ?? 22.5)));
     $today = jg_inventory_recap_today($input);
     $start = $today->modify('-' . max(0, $lookbackDays - 1) . ' days');
     $endExclusive = $today->modify('+1 day');
@@ -35,8 +36,8 @@ function jg_inventory_recap_options(array $input = []): array
         'bucket_count' => 9,
         'reorder_fraction' => 0.25,
         'reorder_days_equivalent' => 7.5,
-        'purchase_fraction' => 0.75,
-        'purchase_days_equivalent' => 22.5,
+        'purchase_fraction' => round($purchaseDays / 30, 4),
+        'purchase_days_equivalent' => $purchaseDays,
         'today' => $today->format('Y-m-d'),
         'start_date' => $start->format('Y-m-d'),
         'end_date' => $today->format('Y-m-d'),
@@ -212,7 +213,7 @@ function jg_inventory_recap_trigger_model(array $dailyHistory, array $options): 
     $appliedBuffer = 0.0;
     $adjusted30 = max(0.0, $baseline30);
     $reorderFraction = max(0.01, min(1.0, (float) ($options['reorder_fraction'] ?? 0.25)));
-    $purchaseFraction = max(0.01, min(1.0, 1.0 - $reorderFraction));
+    $purchaseFraction = max(1 / 30, min(3.0, (float) ($options['purchase_fraction'] ?? 0.75)));
 
     return [
         'has_demand' => true,
@@ -284,7 +285,6 @@ function jg_inventory_recap_sku_rows(PDO $pdo): array
             s.stock_trigger,
             s.inventory_mode,
             s.purchase_moq,
-            s.purchase_days,
             s.skip_scan,
             s.cogs,
             s.sale_price,
@@ -328,7 +328,6 @@ function jg_inventory_recap_sku_rows(PDO $pdo): array
             'stock_trigger' => max(0.0, jg_inventory_recap_number($row['stock_trigger'] ?? 0)),
             'inventory_mode' => $inventoryMode !== '' ? $inventoryMode : 'auto',
             'purchase_moq' => max(1, (int) ($row['purchase_moq'] ?? 1)),
-            'purchase_days' => max(1.0, min(90.0, (float) ($row['purchase_days'] ?? 22.5))),
             'skip_scan' => (int) ($row['skip_scan'] ?? 0) === 1,
             'cogs' => max(0.0, jg_inventory_recap_number($row['cogs'] ?? 0)),
             'sale_price' => max(0.0, jg_inventory_recap_number($row['sale_price'] ?? 0)),
@@ -549,7 +548,7 @@ function jg_inventory_recap_order_draft(array $suggestions, array $summary, arra
         'Inventory Recap production draft',
         'Generated: ' . gmdate(DATE_ATOM),
         sprintf('Demand basis: %d days in nine 10-day blocks through %s', (int) $options['lookback_days'], (string) ($options['end_date'] ?? '')),
-        'Decision rule: monthly average is 90-day demand divided by 3; trigger at 25%, purchase the product-specific order days (default 22.5), then round up to MOQ.',
+        'Decision rule: monthly average is 90-day demand divided by 3; trigger at 25%, use the shared order-days setting for every product, then round up to MOQ.',
         'Estimated production cost: ' . jg_inventory_recap_format_idr((float) ($summary['total_recommended_cost'] ?? 0)),
         'Accounting Cash Available: ' . jg_inventory_recap_format_idr((float) ($summary['cash_available'] ?? 0)),
         'Funding: ' . $funding,
@@ -569,8 +568,54 @@ function jg_inventory_recap_order_draft(array $suggestions, array $summary, arra
     ];
 }
 
+function jg_inventory_recap_global_purchase_days(PDO $pdo, float $fallback = 22.5): float
+{
+    try {
+        $stmt = $pdo->prepare('SELECT meta_value FROM sku_meta WHERE meta_key = :meta_key');
+        $stmt->execute([':meta_key' => 'inventory_purchase_days']);
+        $stored = $stmt->fetchColumn();
+        if ($stored !== false && is_numeric($stored)) {
+            return max(1.0, min(90.0, (float) $stored));
+        }
+    } catch (Throwable) {
+        // Older test/backup schemas may not have sku_meta yet.
+    }
+    return max(1.0, min(90.0, $fallback));
+}
+
+function jg_inventory_recap_set_global_purchase_days(PDO $pdo, float $purchaseDays): float
+{
+    $purchaseDays = max(1.0, min(90.0, round($purchaseDays, 1)));
+    $now = gmdate('Y-m-d H:i:s');
+    $update = $pdo->prepare(
+        'UPDATE sku_meta SET meta_value = :meta_value, updated_at = :updated_at WHERE meta_key = :meta_key'
+    );
+    $update->execute([
+        ':meta_value' => (string) $purchaseDays,
+        ':updated_at' => $now,
+        ':meta_key' => 'inventory_purchase_days',
+    ]);
+    if ($update->rowCount() === 0) {
+        $exists = $pdo->prepare('SELECT COUNT(*) FROM sku_meta WHERE meta_key = :meta_key');
+        $exists->execute([':meta_key' => 'inventory_purchase_days']);
+        if ((int) $exists->fetchColumn() === 0) {
+            $insert = $pdo->prepare(
+                'INSERT INTO sku_meta (meta_key, meta_value, updated_at) VALUES (:meta_key, :meta_value, :updated_at)'
+            );
+            $insert->execute([
+                ':meta_key' => 'inventory_purchase_days',
+                ':meta_value' => (string) $purchaseDays,
+                ':updated_at' => $now,
+            ]);
+        }
+    }
+    return $purchaseDays;
+}
+
 function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashContext = [], array $input = []): array
 {
+    $fallbackPurchaseDays = jg_inventory_recap_number($input['purchase_days'] ?? 22.5);
+    $input['purchase_days'] = jg_inventory_recap_global_purchase_days($skuPdo, $fallbackPurchaseDays);
     $options = jg_inventory_recap_options($input);
     $skus = jg_inventory_recap_sku_rows($skuPdo);
     $lookup = jg_inventory_recap_sku_lookup($skus);
@@ -633,7 +678,7 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
         $triggerMode = strtolower((string) ($sku['inventory_mode'] ?? 'auto')) === 'manual' ? 'manual' : 'auto';
         $triggerQty = $triggerMode === 'manual' ? $manualTrigger : $automaticTrigger;
         $purchaseMoq = max(1, (int) ($sku['purchase_moq'] ?? 1));
-        $purchaseDays = max(1.0, min(90.0, (float) ($sku['purchase_days'] ?? 22.5)));
+        $purchaseDays = max(1.0, min(90.0, (float) ($options['purchase_days_equivalent'] ?? 22.5)));
         $triggerShortfallQty = max(0, (int) ceil($triggerQty - $currentStock));
         $purchaseTargetQty = max(0, (int) ceil((float) ($model['average_30_day_demand'] ?? 0) * ($purchaseDays / 30)));
         $rawPurchaseQty = $triggerShortfallQty > 0

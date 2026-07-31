@@ -25098,7 +25098,7 @@ body:has(.admin-app[data-sku-db])::after {
   border-bottom: 1px solid var(--inventory-line);
 }
 
-.admin-inventory-trigger-hero > div {
+.admin-inventory-trigger-hero > div:first-child {
   max-width: 760px;
 }
 
@@ -25128,6 +25128,55 @@ body:has(.admin-app[data-sku-db])::after {
   font: 760 0.74rem/1 "Plus Jakarta Sans", sans-serif;
   white-space: nowrap;
   cursor: pointer;
+}
+
+.admin-inventory-global-actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.admin-inventory-global-days {
+  display: grid;
+  grid-template-columns: minmax(125px, 150px) auto;
+  gap: 5px 7px;
+  align-items: end;
+}
+
+.admin-inventory-global-days label {
+  display: grid;
+  gap: 5px;
+}
+
+.admin-inventory-global-days label > span,
+.admin-inventory-global-days small {
+  color: var(--admin-muted);
+  font-size: 0.59rem;
+  font-weight: 720;
+}
+
+.admin-inventory-global-days input {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 10px;
+  border: 1px solid var(--inventory-line);
+  border-radius: 7px;
+  outline: 0;
+  background: var(--admin-bg);
+  color: var(--admin-text);
+  font: 740 0.76rem/1 "Plus Jakarta Sans", sans-serif;
+}
+
+.admin-inventory-global-days input:focus {
+  border-color: var(--admin-text);
+}
+
+.admin-inventory-global-days small {
+  grid-column: 1 / -1;
+}
+
+.admin-inventory-global-days small.is-error {
+  color: #f87171;
 }
 
 .admin-inventory-trigger-summary {
@@ -25344,7 +25393,7 @@ body:has(.admin-app[data-sku-db])::after {
 
 .admin-inventory-trigger-settings {
   display: grid;
-  grid-template-columns: minmax(105px, 1.1fr) minmax(80px, 0.75fr) minmax(75px, 0.65fr) minmax(60px, 0.5fr) auto;
+  grid-template-columns: minmax(115px, 1.2fr) minmax(86px, 0.8fr) minmax(65px, 0.55fr) auto;
   gap: 8px;
   align-items: end;
   min-width: 0;
@@ -25512,6 +25561,16 @@ body:has(.admin-app[data-sku-db])::after {
   .admin-inventory-trigger-hero {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .admin-inventory-global-actions {
+    align-items: stretch;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .admin-inventory-global-days {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .admin-inventory-trigger-summary {

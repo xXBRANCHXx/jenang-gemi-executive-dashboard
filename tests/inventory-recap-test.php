@@ -68,6 +68,7 @@ $skuPdo->exec('CREATE TABLE sku_brands (id TEXT PRIMARY KEY, name TEXT)');
 $skuPdo->exec('CREATE TABLE sku_units (id TEXT PRIMARY KEY, name TEXT)');
 $skuPdo->exec('CREATE TABLE sku_products (id TEXT PRIMARY KEY, name TEXT)');
 $skuPdo->exec('CREATE TABLE sku_flavors (id TEXT PRIMARY KEY, name TEXT)');
+$skuPdo->exec('CREATE TABLE sku_meta (meta_key TEXT PRIMARY KEY, meta_value TEXT, updated_at TEXT)');
 $skuPdo->exec('CREATE TABLE sku_skus (
     sku TEXT PRIMARY KEY,
     tag TEXT,
@@ -82,7 +83,6 @@ $skuPdo->exec('CREATE TABLE sku_skus (
     stock_trigger REAL,
     inventory_mode TEXT,
     purchase_moq INTEGER,
-    purchase_days REAL,
     skip_scan INTEGER,
     cogs REAL,
     sale_price REAL
@@ -91,10 +91,11 @@ $skuPdo->exec("INSERT INTO sku_brands VALUES ('brand-test', 'Test')");
 $skuPdo->exec("INSERT INTO sku_units VALUES ('unit-pcs', 'pcs')");
 $skuPdo->exec("INSERT INTO sku_products VALUES ('product-test', 'Product')");
 $skuPdo->exec("INSERT INTO sku_flavors VALUES ('flat', 'Flat'), ('manual', 'Manual'), ('safe', 'Safe')");
+$skuPdo->exec("INSERT INTO sku_meta VALUES ('inventory_purchase_days', '15', '2026-07-30 00:00:00')");
 $skuPdo->exec("INSERT INTO sku_skus VALUES
-    ('SKU-FLAT', 'FLAT', 'brand-test', 'unit-pcs', 1, 1, 'flat', 'product-test', 4, 4, 0, 'auto', 11, 15, 0, 1000, 5000),
-    ('SKU-MANUAL', 'MANUAL', 'brand-test', 'unit-pcs', 1, 1, 'manual', 'product-test', 3, 3, 22, 'manual', 11, 22.5, 0, 1000, 5000),
-    ('SKU-SAFE', 'SAFE', 'brand-test', 'unit-pcs', 1, 1, 'safe', 'product-test', 100, 100, 0, 'auto', 1, 22.5, 0, 1000, 5000)");
+    ('SKU-FLAT', 'FLAT', 'brand-test', 'unit-pcs', 1, 1, 'flat', 'product-test', 4, 4, 0, 'auto', 11, 0, 1000, 5000),
+    ('SKU-MANUAL', 'MANUAL', 'brand-test', 'unit-pcs', 1, 1, 'manual', 'product-test', 3, 3, 22, 'manual', 11, 0, 1000, 5000),
+    ('SKU-SAFE', 'SAFE', 'brand-test', 'unit-pcs', 1, 1, 'safe', 'product-test', 100, 100, 0, 'auto', 1, 0, 1000, 5000)");
 
 $analyticsPdo = new PDO('sqlite::memory:');
 $analyticsPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -139,19 +140,23 @@ foreach ($payload['items'] as $item) {
     $bySku[(string) $item['sku']] = $item;
 }
 $flat = $bySku['SKU-FLAT'] ?? [];
+$manual = $bySku['SKU-MANUAL'] ?? [];
 inventory_recap_expect(8, $flat['automatic_trigger'] ?? 0, 'The payload must expose the one-week automatic trigger.');
 inventory_recap_expect(4, $flat['trigger_shortfall_qty'] ?? 0, 'The trigger shortfall must remain visible.');
-inventory_recap_expect(15.0, $flat['purchase_days'] ?? 0, 'Order days must be editable per product.');
-inventory_recap_expect(15, $flat['raw_purchase_qty'] ?? 0, 'The raw purchase must use the product-specific order days.');
+inventory_recap_expect(15.0, $flat['purchase_days'] ?? 0, 'The global order-days setting must be exposed on every product.');
+inventory_recap_expect(15.0, $manual['purchase_days'] ?? 0, 'Every product must use the same global order-days setting.');
+inventory_recap_expect(15, $flat['raw_purchase_qty'] ?? 0, 'The raw purchase must use the shared order days.');
 inventory_recap_expect(22, $flat['recommended_order_qty'] ?? 0, 'The customized order must round up to MOQ 11.');
 inventory_recap_expect(7, $flat['moq_rounding_qty'] ?? 0, 'The MOQ uplift must remain auditable.');
 
-$manual = $bySku['SKU-MANUAL'] ?? [];
 inventory_recap_expect('manual', $manual['trigger_mode'] ?? '', 'Manual mode must override the automatic model.');
 inventory_recap_expect(22, $manual['trigger_qty'] ?? 0, 'The stored manual trigger must become effective.');
 inventory_recap_expect(19, $manual['raw_purchase_qty'] ?? 0, 'The manual shortfall must be exact.');
 inventory_recap_expect(22, $manual['recommended_order_qty'] ?? 0, 'The 19-unit shortfall at MOQ 11 must recommend 22.');
 
 inventory_recap_expect('quiet', $bySku['SKU-SAFE']['risk'] ?? '', 'An automatic product without demand history must stay out of the report.');
+
+inventory_recap_expect(12.5, jg_inventory_recap_set_global_purchase_days($skuPdo, 12.5), 'The shared setting must be editable.');
+inventory_recap_expect(12.5, jg_inventory_recap_global_purchase_days($skuPdo), 'The shared setting must persist once for the report.');
 
 echo "inventory-recap-test: ok\n";

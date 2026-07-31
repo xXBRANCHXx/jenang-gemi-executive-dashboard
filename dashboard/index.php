@@ -724,7 +724,17 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                                <h2>Reorder triggers</h2>
 	                                <p>Make the buying decision from stock quantities, not a countdown. Automatic triggers learn from 90 days of demand; every trigger and MOQ stays editable.</p>
 	                            </div>
-	                            <button type="button" data-view-switch="purchase-order">Open purchase plan <span aria-hidden="true">→</span></button>
+	                            <div class="admin-inventory-global-actions">
+	                                <form class="admin-inventory-global-days" data-inventory-global-days-form>
+	                                    <label>
+	                                        <span>Order days · all products</span>
+	                                        <input type="number" min="1" max="90" step="0.5" value="22.5" data-inventory-global-days>
+	                                    </label>
+	                                    <button type="submit" data-inventory-global-days-save>Save</button>
+	                                    <small data-inventory-global-days-message>One setting for the full report</small>
+	                                </form>
+	                                <button type="button" data-view-switch="purchase-order">Open purchase plan <span aria-hidden="true">→</span></button>
+	                            </div>
 	                        </header>
 	                        <div class="admin-inventory-trigger-summary" aria-live="polite">
 	                            <div><span>Products triggered</span><strong data-inventory-recap-triggered>0</strong><small>Below their trigger</small></div>
@@ -772,7 +782,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                        </div>
 	                        <div class="admin-purchase-rule">
 	                            <strong>How quantities are chosen</strong>
-	                            <span>Trigger at 25% of the monthly average. Order days are editable per product (default 22.5), then the quantity rounds up to MOQ.</span>
+	                            <span>Trigger at 25% of the monthly average. One shared Order Days setting controls every product, then each quantity rounds up to its MOQ.</span>
 	                            <code>75% order 19 ÷ MOQ 11 → buy 22</code>
 	                        </div>
 	                        <div class="admin-purchase-list" data-purchase-plan-list>
