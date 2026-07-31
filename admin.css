@@ -24916,6 +24916,487 @@ body:has(.admin-app[data-sku-db])::after {
   }
 }
 
+/* Quantity-trigger inventory model */
+.admin-inventory-trigger-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 28px;
+  padding: 4px 0 24px;
+  border-bottom: 1px solid var(--inventory-line);
+}
+
+.admin-inventory-trigger-hero > div {
+  max-width: 760px;
+}
+
+.admin-inventory-trigger-hero h2 {
+  margin: 7px 0 8px;
+  color: var(--admin-text);
+  font: 800 clamp(1.65rem, 3vw, 2.5rem)/1 "Space Grotesk", sans-serif;
+  letter-spacing: -0.04em;
+}
+
+.admin-inventory-trigger-hero p,
+.admin-inventory-recap-controls > p {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 0.76rem;
+  font-weight: 650;
+  line-height: 1.55;
+}
+
+.admin-inventory-trigger-hero button {
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid var(--admin-text);
+  border-radius: 7px;
+  background: var(--admin-text);
+  color: var(--admin-bg);
+  font: 760 0.74rem/1 "Plus Jakarta Sans", sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.admin-inventory-trigger-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(130px, 0.65fr)) minmax(240px, 1.4fr);
+  border-bottom: 1px solid var(--inventory-line);
+}
+
+.admin-inventory-trigger-summary > div {
+  display: grid;
+  gap: 6px;
+  min-height: 118px;
+  padding: 22px 20px;
+  border-right: 1px solid var(--inventory-line);
+}
+
+.admin-inventory-trigger-summary > div:first-child {
+  padding-left: 0;
+}
+
+.admin-inventory-trigger-summary > div:last-child {
+  padding-right: 0;
+  border-right: 0;
+}
+
+.admin-inventory-trigger-summary span,
+.admin-inventory-trigger-summary small {
+  color: var(--admin-muted);
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.admin-inventory-trigger-summary strong {
+  color: var(--admin-text);
+  font: 800 1.65rem/1 "Space Grotesk", sans-serif;
+}
+
+.admin-inventory-trigger-summary .admin-inventory-trigger-status strong {
+  overflow: hidden;
+  font-size: 0.9rem;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-inventory-recap-controls {
+  padding: 18px 0;
+}
+
+.admin-inventory-recap-controls > p {
+  max-width: 460px;
+  text-align: right;
+}
+
+.admin-inventory-trigger-row {
+  display: grid;
+  grid-template-columns: minmax(210px, 0.9fr) minmax(180px, 0.7fr) minmax(260px, 1.15fr) minmax(285px, 1.2fr);
+  gap: 22px;
+  align-items: center;
+  min-height: 170px;
+  padding: 20px 0 20px 15px;
+  border-bottom: 1px solid var(--inventory-line);
+  border-left: 3px solid transparent;
+}
+
+.admin-inventory-trigger-row.is-triggered {
+  border-left-color: var(--inventory-red);
+}
+
+.admin-inventory-trigger-row.is-near {
+  border-left-color: var(--inventory-amber);
+}
+
+.admin-inventory-trigger-row.is-healthy {
+  border-left-color: var(--inventory-green);
+}
+
+.admin-inventory-trigger-product,
+.admin-inventory-trigger-balance,
+.admin-inventory-trigger-signal {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.admin-inventory-trigger-product strong {
+  overflow: hidden;
+  color: var(--admin-text);
+  font: 760 0.88rem/1.3 "Plus Jakarta Sans", sans-serif;
+  text-overflow: ellipsis;
+}
+
+.admin-inventory-trigger-product small,
+.admin-inventory-trigger-balance small,
+.admin-inventory-trigger-signal small,
+.admin-inventory-trigger-settings > small,
+.admin-purchase-product small {
+  color: var(--admin-muted);
+  font-size: 0.63rem;
+  font-weight: 680;
+  line-height: 1.4;
+}
+
+.admin-inventory-trigger-state {
+  width: max-content;
+  padding: 4px 7px;
+  border: 1px solid var(--inventory-line);
+  border-radius: 999px;
+  color: var(--admin-muted);
+  font-size: 0.59rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.is-triggered .admin-inventory-trigger-state {
+  border-color: color-mix(in srgb, var(--inventory-red) 45%, transparent);
+  color: #f87171;
+}
+
+.is-near .admin-inventory-trigger-state {
+  border-color: color-mix(in srgb, var(--inventory-amber) 45%, transparent);
+  color: #f3a93b;
+}
+
+.admin-inventory-trigger-balance {
+  grid-template-columns: 1fr 1fr;
+}
+
+.admin-inventory-trigger-balance > div:not(.admin-inventory-trigger-meter) {
+  display: grid;
+  gap: 5px;
+}
+
+.admin-inventory-trigger-balance span {
+  color: var(--admin-muted);
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+
+.admin-inventory-trigger-balance strong {
+  color: var(--admin-text);
+  font: 800 1.35rem/1 "Space Grotesk", sans-serif;
+}
+
+.admin-inventory-trigger-meter {
+  position: relative;
+  grid-column: 1 / -1;
+  height: 7px;
+  margin-top: 5px;
+  background: color-mix(in srgb, var(--admin-text) 10%, transparent);
+}
+
+.admin-inventory-trigger-meter i {
+  display: block;
+  height: 100%;
+  background: var(--inventory-green);
+}
+
+.is-triggered .admin-inventory-trigger-meter i {
+  background: var(--inventory-red);
+}
+
+.is-near .admin-inventory-trigger-meter i {
+  background: var(--inventory-amber);
+}
+
+.admin-inventory-trigger-meter mark {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  border: 0;
+  background: var(--admin-text);
+  transform: translateX(-2px);
+}
+
+.admin-inventory-bucket-chart {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 3px;
+  align-items: end;
+  height: 45px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--inventory-line);
+}
+
+.admin-inventory-bucket-chart i {
+  display: block;
+  height: var(--bucket-height);
+  min-height: 3px;
+  background: color-mix(in srgb, var(--admin-text) 55%, transparent);
+}
+
+.admin-inventory-bucket-chart i:nth-last-child(-n+3) {
+  background: var(--admin-text);
+}
+
+.admin-inventory-signal-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 13px;
+}
+
+.admin-inventory-signal-metrics span {
+  color: var(--admin-muted);
+  font-size: 0.61rem;
+  font-weight: 680;
+}
+
+.admin-inventory-signal-metrics b {
+  color: var(--admin-text);
+}
+
+.admin-inventory-trigger-settings {
+  display: grid;
+  grid-template-columns: minmax(115px, 1.2fr) minmax(86px, 0.8fr) minmax(65px, 0.55fr) auto;
+  gap: 8px;
+  align-items: end;
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid var(--inventory-line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--admin-text) 3%, transparent);
+}
+
+.admin-inventory-trigger-settings label:not(.admin-inventory-auto-switch) {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.admin-inventory-trigger-settings label > span,
+.admin-inventory-auto-switch b {
+  color: var(--admin-muted);
+  font-size: 0.59rem;
+  font-weight: 750;
+}
+
+.admin-inventory-trigger-settings input[type="number"] {
+  width: 100%;
+  min-height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--inventory-line);
+  border-radius: 5px;
+  outline: 0;
+  background: var(--admin-bg);
+  color: var(--admin-text);
+  font: 740 0.72rem/1 "Plus Jakarta Sans", sans-serif;
+}
+
+.admin-inventory-trigger-settings input:focus {
+  border-color: var(--admin-text);
+}
+
+.admin-inventory-trigger-settings input:disabled {
+  opacity: 0.4;
+}
+
+.admin-inventory-trigger-settings button {
+  min-height: 36px;
+  padding: 0 11px;
+  border: 1px solid var(--admin-text);
+  border-radius: 5px;
+  background: var(--admin-text);
+  color: var(--admin-bg);
+  font: 760 0.65rem/1 "Plus Jakarta Sans", sans-serif;
+  cursor: pointer;
+}
+
+.admin-inventory-trigger-settings button:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+
+.admin-inventory-trigger-settings > small {
+  grid-column: 1 / -1;
+}
+
+.admin-inventory-trigger-settings > small.is-error {
+  color: #f87171;
+}
+
+.admin-inventory-auto-switch {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: 4px 8px;
+  align-items: center;
+  align-self: center;
+  cursor: pointer;
+}
+
+.admin-inventory-auto-switch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.admin-inventory-auto-switch > span {
+  position: relative;
+  width: 32px;
+  height: 18px;
+  border: 1px solid var(--inventory-line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--admin-text) 10%, transparent);
+}
+
+.admin-inventory-auto-switch > span::after {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--admin-muted);
+  content: "";
+  transition: transform 140ms ease;
+}
+
+.admin-inventory-auto-switch input:checked + span {
+  border-color: var(--inventory-green);
+  background: color-mix(in srgb, var(--inventory-green) 22%, transparent);
+}
+
+.admin-inventory-auto-switch input:checked + span::after {
+  background: #4ade80;
+  transform: translateX(14px);
+}
+
+.admin-purchase-rule {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 16px;
+  align-items: center;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--inventory-line);
+  color: var(--admin-muted);
+  font-size: 0.68rem;
+  font-weight: 680;
+}
+
+.admin-purchase-rule strong {
+  color: var(--admin-text);
+}
+
+.admin-purchase-rule code {
+  padding: 6px 8px;
+  border: 1px solid var(--inventory-line);
+  border-radius: 5px;
+  color: var(--admin-text);
+  font: 700 0.66rem/1.2 "Space Grotesk", monospace;
+}
+
+.admin-purchase-product small {
+  display: block;
+}
+
+.admin-purchase-row.is-triggered .admin-purchase-product span {
+  color: #f87171;
+}
+
+:root[data-admin-theme='light'] .admin-inventory-trigger-settings {
+  background: #f8fafc;
+}
+
+:root[data-admin-theme='light'] .is-triggered .admin-inventory-trigger-state,
+:root[data-admin-theme='light'] .admin-purchase-row.is-triggered .admin-purchase-product span {
+  color: #b91c1c;
+}
+
+@media (max-width: 1240px) {
+  .admin-inventory-trigger-row {
+    grid-template-columns: minmax(210px, 0.8fr) minmax(180px, 0.7fr) minmax(250px, 1fr);
+  }
+
+  .admin-inventory-trigger-settings {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 820px) {
+  .admin-inventory-trigger-hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .admin-inventory-trigger-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-inventory-trigger-summary > div,
+  .admin-inventory-trigger-summary > div:first-child,
+  .admin-inventory-trigger-summary > div:last-child {
+    min-height: 100px;
+    padding: 16px 12px;
+    border-right: 1px solid var(--inventory-line);
+  }
+
+  .admin-inventory-trigger-summary > div:nth-child(even) {
+    border-right: 0;
+  }
+
+  .admin-inventory-trigger-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .admin-inventory-trigger-signal,
+  .admin-inventory-trigger-settings {
+    grid-column: 1 / -1;
+  }
+
+  .admin-purchase-rule {
+    grid-template-columns: 1fr;
+    gap: 7px;
+  }
+}
+
+@media (max-width: 560px) {
+  .admin-inventory-trigger-summary,
+  .admin-inventory-trigger-row {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-inventory-trigger-summary > div {
+    border-right: 0;
+  }
+
+  .admin-inventory-trigger-signal,
+  .admin-inventory-trigger-settings {
+    grid-column: auto;
+  }
+
+  .admin-inventory-trigger-settings {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .admin-inventory-trigger-settings button {
+    grid-column: 1 / -1;
+  }
+}
+
 :root[data-admin-theme='light'] .admin-wallet-command,
 :root[data-admin-theme='light'] .admin-wallet-stat {
   border-color: rgba(15, 23, 42, 0.1);

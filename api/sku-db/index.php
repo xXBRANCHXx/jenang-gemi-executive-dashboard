@@ -845,6 +845,7 @@ function jg_sku_fetch_database(PDO $pdo): array
             s.current_stock,
             s.stock_trigger,
             s.inventory_mode,
+            s.purchase_moq,
             s.skip_scan,
             s.cogs,
             s.sale_price,
@@ -913,6 +914,7 @@ function jg_sku_fetch_database(PDO $pdo): array
             'is_base_stock_sku' => $baseSku === $sku,
             'stock_trigger' => (int) ($row['stock_trigger'] ?? 0),
             'inventory_mode' => (string) ($row['inventory_mode'] ?? 'auto'),
+            'purchase_moq' => max(1, (int) ($row['purchase_moq'] ?? 1)),
             'skip_scan' => (int) ($row['skip_scan'] ?? 0) === 1,
             'cogs' => number_format((float) ($stockRow['cogs'] ?? $row['cogs'] ?? 0) * $cogsMultiplier, 2, '.', ''),
             'sale_price' => number_format((float) ($row['sale_price'] ?? 0), 2, '.', ''),
@@ -967,17 +969,24 @@ function jg_sku_create_sku(PDO $pdo, array $payload, ?int $approvalRequestId = n
 
     $parts = jg_sku_compose_code($pdo, $brandId, $unitId, $volumeInput, $flavorId, $productId);
     $astra = jg_sku_astra_decimal($payload['astra'] ?? null, $parts['volume']);
+    $brand = jg_sku_get_brand($pdo, $brandId);
+    $product = jg_sku_get_product($pdo, $brandId, $productId);
+    $purchaseMoq = jg_sku_default_purchase_moq(
+        (string) ($brand['name'] ?? ''),
+        (string) ($product['name'] ?? ''),
+        (float) $parts['volume']
+    );
     jg_sku_assert_unique_sku_and_tag($pdo, $parts['sku'], $tag);
 
     $now = jg_sku_now();
     $stmt = $pdo->prepare(
         'INSERT INTO sku_skus (
             sku, tag, brand_id, unit_id, volume, astra, flavor_id, product_id,
-            starting_stock, current_stock, stock_trigger, inventory_mode, skip_scan, cogs, sale_price,
+            starting_stock, current_stock, stock_trigger, inventory_mode, purchase_moq, skip_scan, cogs, sale_price,
             approval_request_id, created_at, updated_at
         ) VALUES (
             :sku, :tag, :brand_id, :unit_id, :volume, :astra, :flavor_id, :product_id,
-            :starting_stock, :current_stock, :stock_trigger, "auto", 0, :cogs, :sale_price,
+            :starting_stock, :current_stock, :stock_trigger, "auto", :purchase_moq, 0, :cogs, :sale_price,
             :approval_request_id, :created_at, :updated_at
         )'
     );
@@ -993,6 +1002,7 @@ function jg_sku_create_sku(PDO $pdo, array $payload, ?int $approvalRequestId = n
         ':starting_stock' => $startingStock,
         ':current_stock' => $startingStock,
         ':stock_trigger' => $stockTrigger,
+        ':purchase_moq' => $purchaseMoq,
         ':cogs' => $cogs,
         ':sale_price' => $salePrice,
         ':approval_request_id' => $approvalRequestId,

@@ -718,35 +718,40 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 		                    </section>
 
 	                    <section class="admin-view admin-inventory-recap-view" data-view-panel="inventory-recap">
-	                        <div class="admin-inventory-recap-controls">
-	                            <div class="admin-inventory-filters" role="group" aria-label="Filter inventory by stock coverage">
-	                                <button type="button" class="is-active" data-inventory-filter="all">All stock</button>
-	                                <button type="button" data-inventory-filter="critical">Urgent · under 5 days</button>
-	                                <button type="button" data-inventory-filter="high">Restock soon · 5–10 days</button>
-	                                <button type="button" data-inventory-filter="covered">Stocked · over 10 days</button>
+	                        <header class="admin-inventory-trigger-hero">
+	                            <div>
+	                                <span class="admin-panel-kicker">Inventory · purchasing</span>
+	                                <h2>Reorder triggers</h2>
+	                                <p>Make the buying decision from stock quantities, not a countdown. Automatic triggers learn from 90 days of demand; every trigger and MOQ stays editable.</p>
 	                            </div>
-	                            <div class="admin-inventory-recap-brief" aria-live="polite">
-	                                <span data-inventory-recap-status>Reading 30-day sales rate</span>
-	                                <span><strong data-inventory-recap-critical>0</strong> urgent</span>
-	                                <span><strong data-inventory-recap-suggested>0</strong> to buy</span>
-	                                <button type="button" data-view-switch="purchase-order">Review purchase plan</button>
-	                            </div>
+	                            <button type="button" data-view-switch="purchase-order">Open purchase plan <span aria-hidden="true">→</span></button>
+	                        </header>
+	                        <div class="admin-inventory-trigger-summary" aria-live="polite">
+	                            <div><span>Products triggered</span><strong data-inventory-recap-triggered>0</strong><small>Below their trigger</small></div>
+	                            <div><span>Units to buy</span><strong data-inventory-recap-suggested>0</strong><small>After MOQ rounding</small></div>
+	                            <div><span>Manual triggers</span><strong data-inventory-recap-manual>0</strong><small>Automatic model off</small></div>
+	                            <div class="admin-inventory-trigger-status"><span>Demand data</span><strong data-inventory-recap-status>Reading 90 days</strong><small data-inventory-recap-window>Nine 10-day blocks</small></div>
 	                        </div>
-	                        <div class="admin-inventory-coverage-key" aria-label="Coverage scale">
-	                            <span class="is-critical">Urgent <b>0–4.9 days</b></span>
-	                            <span class="is-high">Restock soon <b>5–10 days</b></span>
-	                            <span class="is-covered">No restock <b>over 10 days</b></span>
-	                            <small data-inventory-recap-window>Based on the last 30 days of sales</small>
+	                        <div class="admin-inventory-recap-controls">
+	                            <div class="admin-inventory-filters" role="group" aria-label="Filter products by trigger status">
+	                                <button type="button" class="is-active" data-inventory-filter="all">All products</button>
+	                                <button type="button" data-inventory-filter="triggered">Needs purchase</button>
+	                                <button type="button" data-inventory-filter="near">Near trigger</button>
+	                                <button type="button" data-inventory-filter="healthy">Above trigger</button>
+	                                <button type="button" data-inventory-filter="manual">Manual</button>
+	                            </div>
+	                            <p>Auto trigger = 90-day average + trend + fluctuation / large-order buffer</p>
 	                        </div>
 	                        <div class="admin-inventory-visual-list" data-inventory-recap-list>
-	                            <p class="admin-empty">Loading inventory coverage.</p>
+	                            <p class="admin-empty">Calculating product triggers.</p>
 	                        </div>
 	                    </section>
 
 	                    <section class="admin-view admin-purchase-order-view" data-view-panel="purchase-order">
 	                        <div class="admin-purchase-toolbar">
 	                            <div>
-	                                <strong>Recommended stock purchase</strong>
+	                                <span class="admin-panel-kicker">Triggered products only</span>
+	                                <strong>MOQ-ready purchase plan</strong>
 	                                <span data-purchase-plan-status>Loading current recommendations</span>
 	                            </div>
 	                            <div class="admin-purchase-actions">
@@ -762,8 +767,13 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                        </div>
 	                        <div class="admin-purchase-ledger-meta">
 	                            <span>Accounting cash <strong data-inventory-recap-cash>Rp0</strong></span>
-	                            <span>Edited purchase <strong data-inventory-recap-cost>Rp0</strong></span>
+	                            <span>Purchase total <strong data-inventory-recap-cost>Rp0</strong></span>
 	                            <span data-inventory-recap-funding>Waiting for inventory</span>
+	                        </div>
+	                        <div class="admin-purchase-rule">
+	                            <strong>How quantities are chosen</strong>
+	                            <span>Needed = trigger − stock. Buy quantity rounds up to a full MOQ multiple.</span>
+	                            <code>19 needed ÷ MOQ 11 → buy 22</code>
 	                        </div>
 	                        <div class="admin-purchase-list" data-purchase-plan-list>
 	                            <p class="admin-empty">Loading recommended products.</p>

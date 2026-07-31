@@ -7,26 +7,36 @@ const dashboard = fs.readFileSync(path.join(root, 'dashboard/index.php'), 'utf8'
 const script = fs.readFileSync(path.join(root, 'admin.js'), 'utf8');
 const styles = fs.readFileSync(path.join(root, 'admin.css'), 'utf8');
 const navigation = fs.readFileSync(path.join(root, 'admin-nav.php'), 'utf8');
+const api = fs.readFileSync(path.join(root, 'api/inventory-recap/index.php'), 'utf8');
 
-assert.match(dashboard, /data-view-panel="inventory-recap"[\s\S]*data-inventory-filter="critical"[\s\S]*Urgent · under 5 days/);
-assert.match(dashboard, /data-view-panel="purchase-order"[\s\S]*Recommended stock purchase[\s\S]*data-purchase-plan-download/);
-assert.doesNotMatch(dashboard, /data-inventory-recap-refresh|data-inventory-recap-draft/);
+assert.match(dashboard, /data-view-panel="inventory-recap"[\s\S]*Reorder triggers[\s\S]*data-inventory-filter="triggered"[\s\S]*Needs purchase/);
+assert.match(dashboard, /Automatic triggers learn from 90 days of demand/);
+assert.match(dashboard, /data-inventory-recap-manual/);
+assert.match(dashboard, /19 needed ÷ MOQ 11 → buy 22/);
+assert.match(dashboard, /data-view-panel="purchase-order"[\s\S]*MOQ-ready purchase plan[\s\S]*data-purchase-plan-download/);
 
-assert.match(script, /Urgent: under 5 days \| Restock soon: 5-10 days/);
-assert.match(script, /data-purchase-plan-qty/);
+assert.match(script, /data-inventory-automatic/);
+assert.match(script, /data-inventory-manual-trigger/);
+assert.match(script, /data-inventory-moq/);
+assert.match(script, /Math\.ceil\(entered \/ moq\) \* moq/);
+assert.match(script, /saveInventorySettings/);
+assert.match(script, /Trigger model: 90-day average/);
 assert.match(script, /buildSimplePdf\('Jenang Gemi - Recommended Stock Purchase'/);
-assert.match(script, /isInventoryView = \(view\) => view === 'inventory-recap' \|\| view === 'purchase-order'/);
+assert.doesNotMatch(script, /inventoryRecapDays|current_days_remaining/);
+
+assert.match(api, /update_settings/);
+assert.match(api, /purchase_moq = :purchase_moq/);
 
 assert.match(navigation, /'purchase-order'\s*=>\s*\[[\s\S]*'label'\s*=>\s*'Purchase Plan'/);
-assert.match(navigation, /'icon'\s*=>\s*'purchase-order'/);
 
 const inventoryStyles = styles.slice(
   styles.indexOf('/* Inventory coverage and editable purchase plan */'),
-  styles.indexOf(':root[data-admin-theme=\'light\'] .admin-wallet-command')
+  styles.indexOf(":root[data-admin-theme='light'] .admin-wallet-command")
 );
 assert.ok(inventoryStyles.length > 1000, 'Inventory overhaul styles should exist.');
 assert.doesNotMatch(inventoryStyles, /gradient\s*\(/i);
-assert.match(inventoryStyles, /:root\[data-admin-theme='light'\] \.admin-inventory-recap-view/);
-assert.match(inventoryStyles, /@media \(max-width: 760px\)/);
+assert.match(inventoryStyles, /\.admin-inventory-trigger-row/);
+assert.match(inventoryStyles, /\.admin-inventory-auto-switch/);
+assert.match(inventoryStyles, /@media \(max-width: 560px\)/);
 
 console.log('inventory-recap-ui-test: ok');

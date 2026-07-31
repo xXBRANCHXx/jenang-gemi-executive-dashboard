@@ -152,6 +152,7 @@ function jg_sku_ensure_schema(PDO $pdo): void
             current_stock INT UNSIGNED NOT NULL,
             stock_trigger INT UNSIGNED NOT NULL,
             inventory_mode VARCHAR(32) NOT NULL DEFAULT "auto",
+            purchase_moq INT UNSIGNED NOT NULL DEFAULT 1,
             skip_scan TINYINT(1) NOT NULL DEFAULT 0,
             cogs DECIMAL(12,2) NOT NULL,
             sale_price DECIMAL(12,2) NOT NULL DEFAULT 0.00,
@@ -189,6 +190,7 @@ function jg_sku_ensure_schema(PDO $pdo): void
 
     jg_sku_ensure_column($pdo, 'sku_requests', 'astra', 'DECIMAL(6,2) NOT NULL DEFAULT 0.00 AFTER volume');
     jg_sku_ensure_column($pdo, 'sku_skus', 'astra', 'DECIMAL(6,2) NOT NULL DEFAULT 0.00 AFTER volume');
+    jg_sku_ensure_column($pdo, 'sku_skus', 'purchase_moq', 'INT UNSIGNED NOT NULL DEFAULT 1 AFTER inventory_mode');
     jg_sku_ensure_column($pdo, 'sku_skus', 'skip_scan', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER inventory_mode');
     jg_sku_ensure_column($pdo, 'sku_skus', 'sale_price', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER cogs');
     jg_sku_ensure_column($pdo, 'sku_cogs_history', 'change_mode', 'VARCHAR(24) NOT NULL DEFAULT "legacy" AFTER takes_place');
@@ -204,6 +206,64 @@ function jg_sku_ensure_schema(PDO $pdo): void
          ON DUPLICATE KEY UPDATE meta_key = meta_key'
     );
     $stmt->execute([':updated_at' => $now]);
+    jg_sku_seed_purchase_moq_defaults($pdo);
+}
+
+function jg_sku_default_purchase_moq(string $brandName, string $productName, float $volume): int
+{
+    $identity = strtoupper(preg_replace('/[^A-Z0-9]+/i', ' ', trim($brandName . ' ' . $productName)) ?? '');
+    $isZero = str_contains($identity, 'ZERO');
+    $isSyrup = str_contains($identity, 'SYRUP');
+    $isDrops = str_contains($identity, 'DROP');
+    $isAcvs = str_contains($identity, 'ACVS');
+    $isZfitFiber = str_contains($identity, 'ZFIT') && str_contains($identity, 'FIBER') && $isSyrup;
+
+    if ($isZero && $isSyrup) {
+        if (abs($volume - 550.0) < 0.01) return 9;
+        if (abs($volume - 250.0) < 0.01) return 11;
+        if (abs($volume - 50.0) < 0.01) return 20;
+    }
+    if ($isZero && $isDrops) {
+        if (abs($volume - 30.0) < 0.01) return 10;
+        if (abs($volume - 10.0) < 0.01 || abs($volume - 5.0) < 0.01) return 20;
+    }
+    if (($isZfitFiber || $isAcvs) && abs($volume - 250.0) < 0.01) return 7;
+    if ($isAcvs && abs($volume - 100.0) < 0.01) return 9;
+    if (str_contains($identity, 'PEDRO')) return 2;
+    return 1;
+}
+
+function jg_sku_seed_purchase_moq_defaults(PDO $pdo): void
+{
+    $seeded = $pdo->query('SELECT meta_value FROM sku_meta WHERE meta_key = "inventory_purchase_moq_v1"')->fetchColumn();
+    if ($seeded !== false) {
+        return;
+    }
+
+    $rows = $pdo->query(
+        'SELECT s.sku, s.volume, b.name AS brand_name, p.name AS product_name
+         FROM sku_skus s
+         INNER JOIN sku_brands b ON b.id = s.brand_id
+         INNER JOIN sku_products p ON p.id = s.product_id'
+    )->fetchAll();
+    $update = $pdo->prepare('UPDATE sku_skus SET purchase_moq = :purchase_moq WHERE sku = :sku');
+    foreach ($rows as $row) {
+        $update->execute([
+            ':purchase_moq' => jg_sku_default_purchase_moq(
+                (string) ($row['brand_name'] ?? ''),
+                (string) ($row['product_name'] ?? ''),
+                (float) ($row['volume'] ?? 0)
+            ),
+            ':sku' => (string) ($row['sku'] ?? ''),
+        ]);
+    }
+
+    $stmt = $pdo->prepare(
+        'INSERT INTO sku_meta (meta_key, meta_value, updated_at)
+         VALUES ("inventory_purchase_moq_v1", "seeded", :updated_at)
+         ON DUPLICATE KEY UPDATE meta_value = VALUES(meta_value), updated_at = VALUES(updated_at)'
+    );
+    $stmt->execute([':updated_at' => gmdate('Y-m-d H:i:s')]);
 }
 
 function jg_sku_ensure_column(PDO $pdo, string $tableName, string $columnName, string $definition): void

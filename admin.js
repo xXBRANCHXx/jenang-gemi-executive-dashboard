@@ -516,10 +516,10 @@ const JENANG_GEMI_SEARCH_INDEX = [
   {
     title: 'Inventory Recap',
     section: 'Admin',
-    description: 'Visual stock coverage with exact days-left thresholds.',
+    description: 'Quantity-based reorder triggers with 90-day demand signals and editable MOQs.',
     url: '../dashboard/?view=inventory-recap',
     view: 'inventory-recap',
-    keywords: ['inventory', 'recap', 'restock', 'days left', 'stock risk']
+    keywords: ['inventory', 'recap', 'reorder', 'trigger', 'moq', 'purchase']
   },
   {
     title: 'Purchase Plan',
@@ -2551,6 +2551,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	      planEdited: {},
 	      planNotes: {},
 	      planNote: '',
+	      settingsSaving: '',
+	      settingsMessage: {},
 	      requestToken: 0
 	    },
 	    daily: {
@@ -2819,8 +2821,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	    cash: document.querySelector('[data-inventory-recap-cash]'),
 	    cost: document.querySelector('[data-inventory-recap-cost]'),
 	    funding: document.querySelector('[data-inventory-recap-funding]'),
-	    critical: document.querySelector('[data-inventory-recap-critical]'),
+	    triggered: document.querySelector('[data-inventory-recap-triggered]'),
 	    suggested: document.querySelector('[data-inventory-recap-suggested]'),
+	    manual: document.querySelector('[data-inventory-recap-manual]'),
 	    window: document.querySelector('[data-inventory-recap-window]'),
 	    list: document.querySelector('[data-inventory-recap-list]'),
 	    filters: document.querySelectorAll('[data-inventory-filter]')
@@ -4810,7 +4813,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	  const homeClientCacheKey = () => dashboardClientCacheKey('home', [state.home.timeframe, state.timezone, activeLocalDate]);
 	  const websiteClientCacheKey = () => dashboardClientCacheKey('website', [state.website.site || 'select', state.website.timeframe, state.timezone, activeLocalDate]);
 	  const walletClientCacheKey = () => dashboardClientCacheKey('wallet', [activeLocalDate]);
-	  const inventoryRecapClientCacheKey = () => dashboardClientCacheKey('inventory-recap', ['coverage-v2', activeLocalDate]);
+	  const inventoryRecapClientCacheKey = () => dashboardClientCacheKey('inventory-recap', ['trigger-v3', activeLocalDate]);
 	  const dailyClientCacheKey = () => dashboardClientCacheKey('daily', [state.daily.month, state.timezone]);
 	  const ordersClientCacheKey = () => dashboardClientCacheKey('orders', [`v${ORDER_CLIENT_CACHE_VERSION}`, state.overview.year, activeLocalDate]);
 	  const settingsClientCacheKey = () => dashboardClientCacheKey('settings', [activeLocalDate]);
@@ -8048,14 +8051,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	    return url.toString();
 	  };
 
-	  const inventoryRecapDays = (value) => {
-	    if (value === null || value === undefined || value === '') return 'No sales data';
-	    const days = Number(value);
-	    if (!Number.isFinite(days)) return 'No sales data';
-	    const unit = Math.abs(days - 1) < 0.05 ? 'day' : 'days';
-	    return `${formatRegionalNumber(days, { maximumFractionDigits: 1 })} ${unit}`;
-	  };
-
 	  const inventoryRecapStockUnitText = (item) => {
 	    const volume = Number(item?.volume || item?.astra || 0);
 	    const unitName = String(item?.unit_name || '').trim();
@@ -8067,61 +8062,93 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	  const inventoryRecapRiskClass = (risk) => {
 	    const normalized = String(risk || '').toLowerCase();
-	    return ['critical', 'high', 'covered', 'quiet'].includes(normalized)
+	    return ['triggered', 'near', 'healthy', 'quiet'].includes(normalized)
 	      ? `is-${normalized}`
 	      : 'is-quiet';
 	  };
 
-	  const inventoryCoveragePosition = (value) => {
-	    const days = Number(value);
-	    if (!Number.isFinite(days)) return 100;
-	    return Math.max(0, Math.min(100, (days / 30) * 100));
+	  const inventoryTrendText = (value) => {
+	    const amount = Number(value || 0);
+	    if (Math.abs(amount) < 0.005) return 'Flat';
+	    return `${amount > 0 ? '+' : '−'}${formatRegionalNumber(Math.abs(amount), { maximumFractionDigits: 1 })}`;
+	  };
+
+	  const inventoryBucketBars = (item) => {
+	    const values = Array.isArray(item.ten_day_buckets) ? item.ten_day_buckets.map(Number) : [];
+	    const maximum = Math.max(1, ...values);
+	    return values.map((value, index) => (
+	      `<i style="--bucket-height:${Math.max(8, Math.round((Math.max(0, value) / maximum) * 100))}%" title="Block ${index + 1}: ${formatRegionalNumber(value, { maximumFractionDigits: 1 })}"></i>`
+	    )).join('');
 	  };
 
 	  const renderInventoryRecapList = (rows) => {
 	    if (!inventoryRecapRefs.list) return;
 	    if (state.inventoryRecap.loading && !state.inventoryRecap.data) {
-	      inventoryRecapRefs.list.innerHTML = '<p class="admin-empty">Calculating stock coverage from the last 30 days.</p>';
+	      inventoryRecapRefs.list.innerHTML = '<p class="admin-empty">Building 90-day product triggers.</p>';
 	      return;
 	    }
 	    const filter = state.inventoryRecap.filter || 'all';
 	    const visibleRows = filter === 'all'
 	      ? rows
-	      : rows.filter((item) => String(item.risk || '') === filter);
+	      : rows.filter((item) => filter === 'manual'
+	        ? String(item.trigger_mode || '') === 'manual'
+	        : String(item.risk || '') === filter);
 	    inventoryRecapRefs.filters.forEach((button) => {
 	      button.classList.toggle('is-active', button.getAttribute('data-inventory-filter') === filter);
 	    });
 	    if (!visibleRows.length) {
-	      inventoryRecapRefs.list.innerHTML = '<p class="admin-empty">No products match this stock range.</p>';
+	      inventoryRecapRefs.list.innerHTML = '<p class="admin-empty">No products match this trigger view.</p>';
 	      return;
 	    }
 	    inventoryRecapRefs.list.innerHTML = visibleRows.map((item) => {
-	      const days = Number(item.current_days_remaining);
-	      const hasDays = Number.isFinite(days);
-	      const position = inventoryCoveragePosition(item.current_days_remaining);
-	      const velocity = Number(item.daily_velocity || 0);
+	      const sku = String(item.sku || '');
+	      const automatic = String(item.trigger_mode || 'auto') !== 'manual';
+	      const saving = state.inventoryRecap.settingsSaving === sku;
+	      const message = String(state.inventoryRecap.settingsMessage[sku] || '');
+	      const stock = Math.max(0, Number(item.current_stock || 0));
+	      const trigger = Math.max(0, Number(item.trigger_qty || 0));
+	      const stockPercent = Math.max(0, Math.min(100, trigger > 0 ? (stock / trigger) * 100 : 100));
 	      return `
-	      <article class="admin-inventory-coverage-row ${inventoryRecapRiskClass(item.risk)}">
-	        <div class="admin-inventory-product">
-	          <strong>${escapeHtml(item.product_name || item.sku || '-')}</strong>
-	          <span>${escapeHtml(item.sku || '')}</span>
+	      <article class="admin-inventory-trigger-row ${inventoryRecapRiskClass(item.risk)}">
+	        <div class="admin-inventory-trigger-product">
+	          <span class="admin-inventory-trigger-state">${escapeHtml(item.risk_label || 'Trigger status')}</span>
+	          <strong>${escapeHtml(item.product_name || sku || '-')}</strong>
+	          <small>${escapeHtml(sku)} · ${escapeHtml(inventoryRecapStockUnitText(item))}</small>
 	        </div>
-	        <div class="admin-inventory-stock-now">
-	          <strong>${formatRegionalInteger(item.current_stock || 0)}</strong>
-	          <span>${escapeHtml(inventoryRecapStockUnitText(item))} in stock</span>
+	        <div class="admin-inventory-trigger-balance">
+	          <div><span>Stock now</span><strong>${formatRegionalInteger(stock)}</strong></div>
+	          <div><span>Trigger at</span><strong>${formatRegionalInteger(trigger)}</strong></div>
+	          <div class="admin-inventory-trigger-meter"><i style="width:${stockPercent}%"></i><mark style="left:100%"></mark></div>
+	          <small>${item.restock_needed
+	            ? `${formatRegionalInteger(item.raw_purchase_qty || 0)} short · buy ${formatRegionalInteger(item.recommended_order_qty || 0)}`
+	            : trigger > 0 ? `${formatRegionalInteger(Math.max(0, stock - trigger))} above trigger` : 'No demand trigger yet'}</small>
 	        </div>
-	        <div class="admin-inventory-days">
-	          <strong>${escapeHtml(inventoryRecapDays(item.current_days_remaining))}</strong>
-	          <span>${hasDays ? `${formatRegionalNumber(velocity, { maximumFractionDigits: 2 })} used per day` : 'No demand in the last 30 days'}</span>
+	        <div class="admin-inventory-trigger-signal">
+	          <div class="admin-inventory-bucket-chart" aria-label="Nine ten-day demand blocks">${inventoryBucketBars(item)}</div>
+	          <div class="admin-inventory-signal-metrics">
+	            <span><b>${formatRegionalNumber(item.average_30_day_demand || 0, { maximumFractionDigits: 1 })}</b> 90-day average</span>
+	            <span><b>${inventoryTrendText(item.trend_adjustment)}</b> trend</span>
+	            <span><b>+${formatRegionalNumber(item.applied_buffer || 0, { maximumFractionDigits: 1 })}</b> buffer</span>
+	          </div>
+	          <small>10-day change ${inventoryTrendText(item.average_10_day_change)} · overall ${inventoryTrendText(item.overall_90_day_change)}</small>
 	        </div>
-	        <div class="admin-inventory-coverage-rail" style="--coverage-position:${position}%;" aria-label="${escapeHtml(inventoryRecapDays(item.current_days_remaining))} of stock remaining">
-	          <div aria-hidden="true"><i></i><b></b><em></em><mark></mark></div>
-	          <span><small>0</small><small>5</small><small>10</small><small>30+ days</small></span>
-	        </div>
-	        <div class="admin-inventory-action">
-	          <strong>${escapeHtml(item.risk_label || 'No sales data')}</strong>
-	          <span>${item.restock_needed ? `Buy ${formatRegionalInteger(item.recommended_order_qty || 0)} to reach 30 days` : 'No purchase needed'}</span>
-	        </div>
+	        <form class="admin-inventory-trigger-settings" data-inventory-settings="${escapeHtml(sku)}">
+	          <label class="admin-inventory-auto-switch">
+	            <input type="checkbox" data-inventory-automatic ${automatic ? 'checked' : ''}>
+	            <span aria-hidden="true"></span>
+	            <b>Automatic</b>
+	          </label>
+	          <label>
+	            <span>Manual trigger</span>
+	            <input type="number" min="0" step="1" value="${Math.max(0, Math.round(Number(item.manual_trigger || 0)))}" data-inventory-manual-trigger ${automatic ? 'disabled' : ''}>
+	          </label>
+	          <label>
+	            <span>MOQ</span>
+	            <input type="number" min="1" step="1" value="${Math.max(1, Number(item.purchase_moq || 1))}" data-inventory-moq>
+	          </label>
+	          <button type="submit" ${saving ? 'disabled' : ''}>${saving ? 'Saving' : 'Save'}</button>
+	          <small class="${message.startsWith('Could') ? 'is-error' : ''}" data-inventory-setting-message>${escapeHtml(message || (automatic ? `Auto value ${formatRegionalInteger(item.automatic_trigger || 0)}` : 'Manual value active'))}</small>
+	        </form>
 	      </article>
 	    `;
 	    }).join('');
@@ -8145,9 +8172,11 @@ document.addEventListener('DOMContentLoaded', () => {
 	    const suggestions = Array.isArray(state.inventoryRecap.data?.suggestions) ? state.inventoryRecap.data.suggestions : [];
 	    return suggestions.map((item) => {
 	      const sku = String(item.sku || '');
-	      const quantity = Math.max(0, Math.round(Number(state.inventoryRecap.planQuantities[sku] ?? item.recommended_order_qty ?? 0)));
+	      const moq = Math.max(1, Math.round(Number(item.purchase_moq || 1)));
+	      const entered = Math.max(0, Math.round(Number(state.inventoryRecap.planQuantities[sku] ?? item.recommended_order_qty ?? 0)));
+	      const quantity = entered > 0 ? Math.ceil(entered / moq) * moq : 0;
 	      const unitCost = Math.max(0, Number(item.cogs || 0));
-	      return { ...item, quantity, unitCost, subtotal: quantity * unitCost, note: String(state.inventoryRecap.planNotes[sku] || '') };
+	      return { ...item, quantity, moq, unitCost, subtotal: quantity * unitCost, note: String(state.inventoryRecap.planNotes[sku] || '') };
 	    });
 	  };
 
@@ -8174,19 +8203,20 @@ document.addEventListener('DOMContentLoaded', () => {
 	    const cash = Number(state.inventoryRecap.data?.summary?.cash_available || state.inventoryRecap.data?.cash?.available || 0);
 	    const shortfall = Math.max(0, total - cash);
 	    if (!allRows.length) {
-	      purchasePlanRefs.list.innerHTML = '<p class="admin-empty">Nothing needs restocking. Every product with recent demand has more than 10 days left.</p>';
+	      purchasePlanRefs.list.innerHTML = '<p class="admin-empty">Nothing is below its trigger. The purchase plan is clear.</p>';
 	    } else {
 	      purchasePlanRefs.list.innerHTML = allRows.map((item, index) => `
 	        <article class="admin-purchase-row ${inventoryRecapRiskClass(item.risk)}">
 	          <span class="admin-purchase-index">${String(index + 1).padStart(2, '0')}</span>
 	          <div class="admin-purchase-product">
 	            <strong>${escapeHtml(item.product_name || item.sku || '-')}</strong>
-	            <span>${escapeHtml(item.sku || '')} · ${escapeHtml(inventoryRecapDays(item.current_days_remaining))} left · ${escapeHtml(item.risk_label || '')}</span>
+	            <span>${escapeHtml(item.sku || '')} · stock ${formatRegionalInteger(item.current_stock || 0)} / trigger ${formatRegionalInteger(item.trigger_qty || 0)}</span>
+	            <small>Need ${formatRegionalInteger(item.raw_purchase_qty || 0)} · MOQ ${formatRegionalInteger(item.moq)} · rounded +${formatRegionalInteger(item.moq_rounding_qty || 0)}</small>
 	          </div>
 	          <label class="admin-purchase-quantity">
-	            <span>Purchase quantity</span>
-	            <input type="number" min="0" step="1" value="${item.quantity}" data-purchase-plan-qty="${escapeHtml(item.sku || '')}" aria-label="Purchase quantity for ${escapeHtml(item.product_name || item.sku || '')}">
-	            <small>${escapeHtml(inventoryRecapStockUnitText(item))}</small>
+	            <span>Buy quantity</span>
+	            <input type="number" min="0" step="${item.moq}" value="${item.quantity}" data-purchase-plan-qty="${escapeHtml(item.sku || '')}" aria-label="Purchase quantity for ${escapeHtml(item.product_name || item.sku || '')}">
+	            <small>Multiples of ${formatRegionalInteger(item.moq)}</small>
 	          </label>
 	          <div class="admin-purchase-cost">
 	            <span>${formatCurrency(item.unitCost)} each</span>
@@ -8200,7 +8230,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      `).join('');
 	    }
 	    if (purchasePlanRefs.status) {
-	      purchasePlanRefs.status.textContent = `${formatRegionalInteger(lines)} products · quantities remain editable`;
+	      purchasePlanRefs.status.textContent = `${formatRegionalInteger(lines)} products · every quantity is a full MOQ multiple`;
 	    }
 	    if (purchasePlanRefs.lines) purchasePlanRefs.lines.textContent = formatRegionalInteger(lines);
 	    if (purchasePlanRefs.total) purchasePlanRefs.total.textContent = formatCurrency(total);
@@ -8227,13 +8257,13 @@ document.addEventListener('DOMContentLoaded', () => {
 	    const date = state.inventoryRecap.data?.meta?.end_date || activeLocalDate;
 	    const lines = rows.map((item, index) => {
 	      const note = item.note ? ` | Note: ${item.note}` : '';
-	      return `${index + 1}. ${item.product_name || item.sku} (${item.sku}) | Buy ${formatRegionalInteger(item.quantity)} ${inventoryRecapStockUnitText(item)} | ${formatCurrency(item.subtotal)}${note}`;
+	      return `${index + 1}. ${item.product_name || item.sku} (${item.sku}) | Stock ${formatRegionalInteger(item.current_stock)} | Trigger ${formatRegionalInteger(item.trigger_qty)} | Need ${formatRegionalInteger(item.raw_purchase_qty)} | MOQ ${formatRegionalInteger(item.moq)} | Buy ${formatRegionalInteger(item.quantity)} | ${formatCurrency(item.subtotal)}${note}`;
 	    });
 	    return [
 	      'JENANG GEMI - RECOMMENDED STOCK PURCHASE',
 	      `Demand through: ${date}`,
-	      'Coverage target: 30 days',
-	      'Restock rule: urgent under 5 days; restock soon at 5-10 days',
+	      'Trigger model: 90-day average + 10-day/overall trend + fluctuation or large-order buffer',
+	      'Purchase rule: trigger shortfall rounded up to a full MOQ multiple',
 	      '',
 	      ...lines,
 	      '',
@@ -8251,14 +8281,53 @@ document.addEventListener('DOMContentLoaded', () => {
 	    const rows = Array.isArray(state.inventoryRecap.data?.items) ? state.inventoryRecap.data.items : [];
 	    if (inventoryRecapRefs.status) {
 	      inventoryRecapRefs.status.textContent = state.inventoryRecap.loading
-	        ? 'Updating 30-day sales rate'
-	        : `${formatRegionalInteger(summary.total_skus || rows.length)} products · demand through ${meta.end_date || activeLocalDate}`;
+	        ? 'Updating 90-day model'
+	        : `${formatRegionalInteger(summary.total_skus || rows.length)} products through ${meta.end_date || activeLocalDate}`;
 	    }
-	    if (inventoryRecapRefs.critical) inventoryRecapRefs.critical.textContent = formatRegionalInteger(summary.critical_count || 0);
-	    if (inventoryRecapRefs.suggested) inventoryRecapRefs.suggested.textContent = formatRegionalInteger(summary.suggested_count || 0);
-	    if (inventoryRecapRefs.window) inventoryRecapRefs.window.textContent = `Last ${formatRegionalInteger(meta.lookback_days || 30)} days of sales · target 30 days`;
+	    if (inventoryRecapRefs.triggered) inventoryRecapRefs.triggered.textContent = formatRegionalInteger(summary.triggered_count || 0);
+	    if (inventoryRecapRefs.suggested) inventoryRecapRefs.suggested.textContent = formatRegionalInteger(summary.total_recommended_qty || 0);
+	    if (inventoryRecapRefs.manual) inventoryRecapRefs.manual.textContent = formatRegionalInteger(summary.manual_count || 0);
+	    if (inventoryRecapRefs.window) inventoryRecapRefs.window.textContent = `${formatRegionalInteger(meta.lookback_days || 90)} days · nine 10-day blocks`;
 	    renderInventoryRecapList(rows);
 	    renderPurchasePlan();
+	  };
+
+	  const saveInventorySettings = async (form) => {
+	    const sku = String(form?.getAttribute('data-inventory-settings') || '');
+	    if (!sku || state.inventoryRecap.settingsSaving) return;
+	    const automaticInput = form.querySelector('[data-inventory-automatic]');
+	    const triggerInput = form.querySelector('[data-inventory-manual-trigger]');
+	    const moqInput = form.querySelector('[data-inventory-moq]');
+	    const automatic = automaticInput instanceof HTMLInputElement ? automaticInput.checked : true;
+	    const manualTrigger = triggerInput instanceof HTMLInputElement ? Math.max(0, Math.round(Number(triggerInput.value || 0))) : 0;
+	    const purchaseMoq = moqInput instanceof HTMLInputElement ? Math.max(1, Math.round(Number(moqInput.value || 1))) : 1;
+	    state.inventoryRecap.settingsSaving = sku;
+	    state.inventoryRecap.settingsMessage[sku] = '';
+	    renderInventoryRecap(state.inventoryRecap.data);
+	    try {
+	      const data = await requestJson(inventoryRecapUrl({ force: true }), {
+	        method: 'POST',
+	        headers: { 'Content-Type': 'application/json' },
+	        body: JSON.stringify({
+	          action: 'update_settings',
+	          sku,
+	          automatic,
+	          manual_trigger: manualTrigger,
+	          purchase_moq: purchaseMoq
+	        }),
+	        cache: 'no-store',
+	        timeoutMs: 30000
+	      });
+	      state.inventoryRecap.settingsSaving = '';
+	      state.inventoryRecap.settingsMessage[sku] = 'Saved';
+	      state.inventoryRecap.planEdited = {};
+	      writeViewClientCache('inventory-recap', inventoryRecapClientCacheKey(), data);
+	      applyInventoryRecapData(data);
+	    } catch (error) {
+	      state.inventoryRecap.settingsSaving = '';
+	      state.inventoryRecap.settingsMessage[sku] = `Could not save: ${error.message || 'request failed'}`;
+	      renderInventoryRecap(state.inventoryRecap.data);
+	    }
 	  };
 
   const closeOrdersDatePopover = () => {
@@ -9747,12 +9816,13 @@ document.addEventListener('DOMContentLoaded', () => {
 	    const date = state.inventoryRecap.data?.meta?.end_date || activeLocalDate;
 	    const lines = [
 	      `Demand through: ${date}`,
-	      'Coverage target: 30 days',
-	      'Urgent: under 5 days | Restock soon: 5-10 days',
+	      'Trigger: 90-day average + trend + fluctuation / large-order buffer',
+	      'Purchase: trigger shortfall rounded up to MOQ',
 	      '',
 	      ...rows.flatMap((item, index) => [
 	        `${index + 1}. ${item.product_name || item.sku}`,
-	        `   SKU: ${item.sku} | Buy: ${formatRegionalInteger(item.quantity)} ${inventoryRecapStockUnitText(item)}`,
+	        `   SKU: ${item.sku} | Stock: ${formatRegionalInteger(item.current_stock)} | Trigger: ${formatRegionalInteger(item.trigger_qty)}`,
+	        `   Need: ${formatRegionalInteger(item.raw_purchase_qty)} | MOQ: ${formatRegionalInteger(item.moq)} | Buy: ${formatRegionalInteger(item.quantity)} ${inventoryRecapStockUnitText(item)}`,
 	        `   Unit cost: ${formatCurrency(item.unitCost)} | Subtotal: ${formatCurrency(item.subtotal)}`,
 	        item.note ? `   Note: ${item.note}` : ''
 	      ]),
@@ -12084,12 +12154,33 @@ document.addEventListener('DOMContentLoaded', () => {
 	    });
 	  });
 
+	  inventoryRecapRefs.list?.addEventListener('change', (event) => {
+	    const toggle = event.target.closest('[data-inventory-automatic]');
+	    if (!(toggle instanceof HTMLInputElement)) return;
+	    const form = toggle.closest('[data-inventory-settings]');
+	    const manualInput = form?.querySelector('[data-inventory-manual-trigger]');
+	    if (manualInput instanceof HTMLInputElement) {
+	      manualInput.disabled = toggle.checked;
+	      if (!toggle.checked) manualInput.focus();
+	    }
+	  });
+
+	  inventoryRecapRefs.list?.addEventListener('submit', (event) => {
+	    const form = event.target.closest('[data-inventory-settings]');
+	    if (!(form instanceof HTMLFormElement)) return;
+	    event.preventDefault();
+	    saveInventorySettings(form).catch(() => {});
+	  });
+
 	  purchasePlanRefs.list?.addEventListener('change', (event) => {
 	    const input = event.target;
 	    if (!(input instanceof HTMLInputElement)) return;
 	    const sku = input.getAttribute('data-purchase-plan-qty');
 	    if (!sku) return;
-	    state.inventoryRecap.planQuantities[sku] = Math.max(0, Math.round(Number(input.value || 0)));
+	    const item = (state.inventoryRecap.data?.suggestions || []).find((row) => String(row.sku || '') === sku);
+	    const moq = Math.max(1, Math.round(Number(item?.purchase_moq || 1)));
+	    const entered = Math.max(0, Math.round(Number(input.value || 0)));
+	    state.inventoryRecap.planQuantities[sku] = entered > 0 ? Math.ceil(entered / moq) * moq : 0;
 	    state.inventoryRecap.planEdited[sku] = true;
 	    renderPurchasePlan();
 	  });
