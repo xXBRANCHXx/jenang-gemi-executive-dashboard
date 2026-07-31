@@ -736,6 +736,18 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                                <button type="button" data-view-switch="purchase-order">Open purchase plan <span aria-hidden="true">→</span></button>
 	                            </div>
 	                        </header>
+	                        <section class="admin-inventory-po-board" aria-label="Purchase orders">
+	                            <div class="admin-inventory-po-board-head">
+	                                <div>
+	                                    <span class="admin-panel-kicker">Purchase orders</span>
+	                                    <h3>Stock already on the way</h3>
+	                                </div>
+	                                <span data-inventory-po-summary>Loading purchase orders</span>
+	                            </div>
+	                            <div class="admin-inventory-po-list" data-inventory-po-list>
+	                                <p class="admin-empty">Loading purchase orders.</p>
+	                            </div>
+	                        </section>
 	                        <div class="admin-inventory-trigger-summary" aria-live="polite">
 	                            <div><span>Products triggered</span><strong data-inventory-recap-triggered>0</strong><small>Below their trigger</small></div>
 	                            <div><span>Units to buy</span><strong data-inventory-recap-suggested>0</strong><small>After MOQ rounding</small></div>
@@ -769,6 +781,10 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
 	                                    Copy text
 	                                </button>
+	                                <button type="button" class="is-primary" data-purchase-plan-place disabled>
+	                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M7 3v4m10-4v4M6 11h12v9H6z"/><path d="m9 15 2 2 4-4"/></svg>
+	                                    Place Order
+	                                </button>
 	                                <button type="button" data-purchase-plan-download disabled>
 	                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
 	                                    Download PDF
@@ -795,6 +811,23 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                        <div class="admin-purchase-total">
 	                            <span><b data-purchase-plan-lines>0</b> products</span>
 	                            <strong data-purchase-plan-total>Rp0</strong>
+	                        </div>
+	                        <div class="admin-purchase-success-modal" data-purchase-order-modal hidden>
+	                            <div class="admin-purchase-success-backdrop" aria-hidden="true"></div>
+	                            <section role="dialog" aria-modal="true" aria-labelledby="purchase-order-success-title">
+	                                <span class="admin-purchase-success-icon" aria-hidden="true">✓</span>
+	                                <span class="admin-panel-kicker">Sent to Store Ops</span>
+	                                <h3 id="purchase-order-success-title">Order placed successfully</h3>
+	                                <p><strong data-purchase-order-modal-number>Purchase order</strong> is now pending in Store Ops. Download the PDF before closing this popup.</p>
+	                                <div class="admin-purchase-success-progress">
+	                                    <span>Waiting for Store Ops to confirm delivery</span>
+	                                    <i></i>
+	                                </div>
+	                                <div class="admin-purchase-success-actions">
+	                                    <button type="button" class="is-primary" data-purchase-order-modal-download>Download PDF</button>
+	                                    <button type="button" data-purchase-order-modal-close>Close</button>
+	                                </div>
+	                            </section>
 	                        </div>
 	                    </section>
 

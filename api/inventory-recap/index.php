@@ -19,6 +19,7 @@ try {
     $skuPdo = jg_sku_db();
     $month = function_exists('jg_accounting_month') ? jg_accounting_month($_GET['month'] ?? null) : gmdate('Y-m');
     $cashContext = jg_inventory_recap_accounting_cash_context($analyticsPdo, $month);
+    $placedOrder = null;
     if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) === 'POST') {
         $body = json_decode((string) file_get_contents('php://input'), true);
         $action = is_array($body) ? (string) ($body['action'] ?? '') : '';
@@ -61,6 +62,15 @@ try {
                     throw new RuntimeException('Product was not found.');
                 }
             }
+        } elseif ($action === 'place_order') {
+            $items = is_array($body['items'] ?? null) ? $body['items'] : [];
+            $placedOrder = jg_purchase_orders_place(
+                $skuPdo,
+                $items,
+                (string) ($body['note'] ?? ''),
+                (string) ($body['request_key'] ?? ''),
+                'Executive'
+            );
         } else {
             throw new InvalidArgumentException('Invalid inventory settings request.');
         }
@@ -69,7 +79,18 @@ try {
     if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) === 'POST') {
         $payload['settings_updated'] = true;
     }
+    if (is_array($placedOrder)) {
+        $payload['placed_order'] = $placedOrder;
+        $payload['message'] = sprintf('%s was sent to Store Ops.', (string) ($placedOrder['po_number'] ?? 'Purchase order'));
+    }
     echo json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+} catch (InvalidArgumentException $error) {
+    http_response_code(422);
+    echo json_encode([
+        'ok' => false,
+        'error' => 'inventory_recap_invalid_request',
+        'message' => $error->getMessage(),
+    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 } catch (Throwable $error) {
     if (http_response_code() < 400) {
         http_response_code(500);

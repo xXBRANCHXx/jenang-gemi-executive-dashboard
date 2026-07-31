@@ -129,3 +129,7 @@ geometry under Lucide's ISC license.
 - WhatsApp quantities are validated against live SKU stock when submitted. Store Ops rechecks and deducts that stock exactly once when the order is fulfilled.
 - Direct Orders in the homepage quick menu creates either WhatsApp delivery orders or walk-in counter sales. WhatsApp keeps the label/deadline workflow and sends fulfillment details to Store Ops as `IS_LISTED`; walk-ins complete immediately without a label or Store Ops handoff. WhatsApp History provides a paginated ledger across saved direct orders; each row opens a read-only breakdown with customer, product, price, discount, shipping, COGS, margin, and lifecycle details.
 - Repeat Customers profiles use normalized phone numbers as the only cross-channel identity link. When phone is unavailable, normalized name/username matching is deliberately scoped to a single channel to reduce false merges. Segments are New (1 order), Returning (2–3), Loyal (4–7), and Champion (8+).
+- Inventory Recap and Store Ops share `purchase_orders`, `purchase_order_items`, and
+  `purchase_order_receipts` in the SKU database. Placing a plan snapshots
+  server-validated MOQ quantities, marks them as incoming in the recap, and keeps
+  the PO pending until Store Ops confirms full or partial delivery.

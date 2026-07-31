@@ -25628,6 +25628,244 @@ body:has(.admin-app[data-sku-db])::after {
   }
 }
 
+.admin-inventory-po-board {
+  display: grid;
+  gap: 14px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--inventory-line);
+}
+
+.admin-inventory-po-board-head,
+.admin-inventory-po-card-head,
+.admin-inventory-po-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.admin-inventory-po-board-head h3 {
+  margin: 5px 0 0;
+  color: var(--admin-text);
+  font: 800 1.05rem/1.2 "Space Grotesk", sans-serif;
+}
+
+.admin-inventory-po-board-head > span {
+  color: var(--admin-muted);
+  font-size: 0.68rem;
+  font-weight: 750;
+}
+
+.admin-inventory-po-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.admin-inventory-po-card {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--inventory-line);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--admin-text) 3%, transparent);
+}
+
+.admin-inventory-po-card-head > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.admin-inventory-po-card-head strong {
+  color: var(--admin-text);
+  font: 800 0.76rem/1.2 "Space Grotesk", sans-serif;
+}
+
+.admin-inventory-po-card-head span,
+.admin-inventory-po-card-meta,
+.admin-inventory-po-card > small {
+  overflow: hidden;
+  color: var(--admin-muted);
+  font-size: 0.59rem;
+  font-weight: 690;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-inventory-po-card-head > b {
+  color: var(--admin-text);
+  font: 800 1rem/1 "Space Grotesk", sans-serif;
+}
+
+.admin-inventory-po-progress {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--admin-text) 10%, transparent);
+}
+
+.admin-inventory-po-progress i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #3b82f6;
+}
+
+.admin-inventory-po-card.is-received .admin-inventory-po-progress i {
+  background: var(--inventory-green);
+}
+
+.admin-inventory-po-card-meta {
+  align-items: flex-start;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.admin-inventory-po-card-meta b {
+  color: var(--admin-text);
+}
+
+.admin-inventory-trigger-row.is-incoming {
+  border-left-color: #3b82f6;
+}
+
+.is-incoming .admin-inventory-trigger-state {
+  border-color: color-mix(in srgb, #3b82f6 48%, transparent);
+  color: #60a5fa;
+}
+
+.is-incoming .admin-inventory-trigger-meter i {
+  background: #3b82f6;
+}
+
+.admin-purchase-actions button.is-primary {
+  border-color: #9dff00;
+  background: #9dff00;
+  color: #0b0d0f;
+}
+
+.admin-purchase-success-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+}
+
+.admin-purchase-success-modal[hidden] {
+  display: none;
+}
+
+.admin-purchase-success-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(10px);
+}
+
+.admin-purchase-success-modal > section {
+  position: relative;
+  display: grid;
+  gap: 13px;
+  width: min(480px, 100%);
+  padding: 30px;
+  border: 1px solid color-mix(in srgb, #9dff00 34%, var(--inventory-line));
+  border-radius: 16px;
+  background: var(--admin-bg);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.45);
+}
+
+.admin-purchase-success-icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: #9dff00;
+  color: #0b0d0f;
+  font: 900 1.2rem/1 "Space Grotesk", sans-serif;
+}
+
+.admin-purchase-success-modal h3,
+.admin-purchase-success-modal p {
+  margin: 0;
+}
+
+.admin-purchase-success-modal h3 {
+  color: var(--admin-text);
+  font: 800 1.65rem/1.1 "Space Grotesk", sans-serif;
+}
+
+.admin-purchase-success-modal p,
+.admin-purchase-success-progress {
+  color: var(--admin-muted);
+  font-size: 0.76rem;
+  font-weight: 650;
+  line-height: 1.55;
+}
+
+.admin-purchase-success-modal p strong {
+  color: var(--admin-text);
+}
+
+.admin-purchase-success-progress {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--inventory-line);
+  border-radius: 8px;
+}
+
+.admin-purchase-success-progress i {
+  display: block;
+  width: 35%;
+  height: 5px;
+  border-radius: 999px;
+  background: #3b82f6;
+}
+
+.admin-purchase-success-actions {
+  display: flex;
+  gap: 9px;
+  justify-content: flex-end;
+}
+
+.admin-purchase-success-actions button {
+  min-height: 42px;
+  padding: 0 15px;
+  border: 1px solid var(--inventory-line);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--admin-text);
+  font: 760 0.72rem/1 "Plus Jakarta Sans", sans-serif;
+  cursor: pointer;
+}
+
+.admin-purchase-success-actions button.is-primary {
+  border-color: #9dff00;
+  background: #9dff00;
+  color: #0b0d0f;
+}
+
+@media (max-width: 980px) {
+  .admin-inventory-po-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .admin-inventory-po-list {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-purchase-actions {
+    flex-wrap: wrap;
+  }
+}
+
 :root[data-admin-theme='light'] .admin-wallet-command,
 :root[data-admin-theme='light'] .admin-wallet-stat {
   border-color: rgba(15, 23, 42, 0.1);

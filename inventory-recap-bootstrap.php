@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/purchase-orders-bootstrap.php';
+
 function jg_inventory_recap_int_option(array $input, string $key, int $default, int $min, int $max): int
 {
     $value = (int) ($input[$key] ?? $default);
@@ -620,6 +622,8 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
     $skus = jg_inventory_recap_sku_rows($skuPdo);
     $lookup = jg_inventory_recap_sku_lookup($skus);
     $stockIndexBySkuIndex = jg_inventory_recap_stock_index_map($skus);
+    $purchaseOrders = jg_purchase_orders_fetch($skuPdo, 20);
+    $incomingBySku = jg_purchase_orders_incoming_by_sku($skuPdo);
     $demand = array_fill(0, count($skus), [
         'sold_qty' => 0.0,
         'sold_units' => 0,
@@ -679,15 +683,27 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
         $triggerQty = $triggerMode === 'manual' ? $manualTrigger : $automaticTrigger;
         $purchaseMoq = max(1, (int) ($sku['purchase_moq'] ?? 1));
         $purchaseDays = max(1.0, min(90.0, (float) ($options['purchase_days_equivalent'] ?? 22.5)));
-        $triggerShortfallQty = max(0, (int) ceil($triggerQty - $currentStock));
+        $incomingQty = max(0, (int) ($incomingBySku[strtoupper((string) ($sku['sku'] ?? ''))] ?? 0));
+        $projectedStock = $currentStock + $incomingQty;
+        $physicalTriggerShortfallQty = max(0, (int) ceil($triggerQty - $currentStock));
+        $triggerShortfallQty = max(0, (int) ceil($triggerQty - $projectedStock));
         $purchaseTargetQty = max(0, (int) ceil((float) ($model['average_30_day_demand'] ?? 0) * ($purchaseDays / 30)));
-        $rawPurchaseQty = $triggerShortfallQty > 0
-            ? max($triggerShortfallQty, $purchaseTargetQty)
+        $physicalRawPurchaseQty = $physicalTriggerShortfallQty > 0
+            ? max($physicalTriggerShortfallQty, $purchaseTargetQty)
             : 0;
+        $rawPurchaseQty = max(0, $physicalRawPurchaseQty - $incomingQty);
         $recommendedOrderQty = jg_inventory_recap_round_to_moq($rawPurchaseQty, $purchaseMoq);
         $moqRoundingQty = max(0, $recommendedOrderQty - $rawPurchaseQty);
-        $postOrderStock = $currentStock + $recommendedOrderQty;
+        $postOrderStock = $projectedStock + $recommendedOrderQty;
         $risk = jg_inventory_recap_status($currentStock, $triggerQty, $hasDemand, $triggerMode);
+        if ($incomingQty > 0 && (string) ($risk['key'] ?? '') === 'triggered' && $recommendedOrderQty === 0) {
+            $risk = [
+                'key' => 'incoming',
+                'label' => 'Covered by PO',
+                'color' => '#3b82f6',
+                'score' => 15,
+            ];
+        }
         $estimatedCost = (int) round($recommendedOrderQty * (float) ($sku['cogs'] ?? 0));
         $rawCost = (int) round($rawPurchaseQty * (float) ($sku['cogs'] ?? 0));
         $sellingSkus = array_keys($demand[$index]['selling_skus'] ?? []);
@@ -722,6 +738,9 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
             'trigger_qty' => $triggerQty,
             'trigger_gap' => (int) floor($currentStock - $triggerQty),
             'trigger_shortfall_qty' => $triggerShortfallQty,
+            'physical_trigger_shortfall_qty' => $physicalTriggerShortfallQty,
+            'incoming_qty' => $incomingQty,
+            'projected_stock' => $projectedStock,
             'raw_purchase_qty' => $rawPurchaseQty,
             'minimum_order_qty' => $rawPurchaseQty,
             'recommended_order_qty' => $recommendedOrderQty,
@@ -755,6 +774,12 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
     $criticalCount = count(array_filter($items, static fn (array $item): bool => ($item['risk'] ?? '') === 'triggered'));
     $highCount = count(array_filter($items, static fn (array $item): bool => ($item['risk'] ?? '') === 'near'));
     $manualCount = count(array_filter($items, static fn (array $item): bool => ($item['trigger_mode'] ?? '') === 'manual'));
+    $incomingCount = count(array_filter($items, static fn (array $item): bool => (int) ($item['incoming_qty'] ?? 0) > 0));
+    $incomingQty = array_sum(array_map(static fn (array $item): int => (int) ($item['incoming_qty'] ?? 0), $items));
+    $openPurchaseOrders = count(array_filter(
+        $purchaseOrders,
+        static fn (array $order): bool => in_array((string) ($order['status'] ?? ''), ['pending', 'partially_received'], true)
+    ));
     $reportCritical = $criticalCount > 0;
 
     $summary = [
@@ -764,6 +789,9 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
         'triggered_count' => $criticalCount,
         'watch_count' => $highCount,
         'manual_count' => $manualCount,
+        'incoming_count' => $incomingCount,
+        'incoming_qty' => $incomingQty,
+        'open_purchase_orders' => $openPurchaseOrders,
         'total_recommended_qty' => array_sum(array_map(static fn (array $item): int => (int) ($item['recommended_order_qty'] ?? 0), $suggestions)),
         'total_minimum_qty' => array_sum(array_map(static fn (array $item): int => (int) ($item['minimum_order_qty'] ?? 0), $suggestions)),
         'total_buffer_qty' => array_sum(array_map(static fn (array $item): int => (int) ($item['buffer_order_qty'] ?? 0), $suggestions)),
@@ -796,6 +824,7 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
         ],
         'suggestions' => $suggestions,
         'items' => $items,
+        'purchase_orders' => $purchaseOrders,
         'production_order_draft' => jg_inventory_recap_order_draft($suggestions, $summary, $options),
     ];
 }

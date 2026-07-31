@@ -2551,6 +2551,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	      planEdited: {},
 	      planNotes: {},
 	      planNote: '',
+	      placingOrder: false,
+	      placeRequestKey: '',
+	      placedOrder: null,
 	      settingsSaving: '',
 	      settingsMessage: {},
 	      globalSettingsSaving: false,
@@ -2832,16 +2835,23 @@ document.addEventListener('DOMContentLoaded', () => {
 	    globalDaysForm: document.querySelector('[data-inventory-global-days-form]'),
 	    globalDays: document.querySelector('[data-inventory-global-days]'),
 	    globalDaysSave: document.querySelector('[data-inventory-global-days-save]'),
-	    globalDaysMessage: document.querySelector('[data-inventory-global-days-message]')
+	    globalDaysMessage: document.querySelector('[data-inventory-global-days-message]'),
+	    poList: document.querySelector('[data-inventory-po-list]'),
+	    poSummary: document.querySelector('[data-inventory-po-summary]')
 	  };
 	  const purchasePlanRefs = {
 	    status: document.querySelector('[data-purchase-plan-status]'),
 	    list: document.querySelector('[data-purchase-plan-list]'),
 	    copy: document.querySelector('[data-purchase-plan-copy]'),
+	    place: document.querySelector('[data-purchase-plan-place]'),
 	    download: document.querySelector('[data-purchase-plan-download]'),
 	    note: document.querySelector('[data-purchase-plan-note]'),
 	    lines: document.querySelector('[data-purchase-plan-lines]'),
-	    total: document.querySelector('[data-purchase-plan-total]')
+	    total: document.querySelector('[data-purchase-plan-total]'),
+	    modal: document.querySelector('[data-purchase-order-modal]'),
+	    modalNumber: document.querySelector('[data-purchase-order-modal-number]'),
+	    modalDownload: document.querySelector('[data-purchase-order-modal-download]'),
+	    modalClose: document.querySelector('[data-purchase-order-modal-close]')
 	  };
 	  const dailyRefs = {
     monthInput: document.querySelector('[data-daily-month]'),
@@ -8068,9 +8078,60 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	  const inventoryRecapRiskClass = (risk) => {
 	    const normalized = String(risk || '').toLowerCase();
-	    return ['triggered', 'near', 'healthy', 'quiet'].includes(normalized)
+	    return ['triggered', 'near', 'healthy', 'quiet', 'incoming'].includes(normalized)
 	      ? `is-${normalized}`
 	      : 'is-quiet';
+	  };
+
+	  const purchaseOrderStatusLabel = (status) => ({
+	    pending: 'Waiting for delivery',
+	    partially_received: 'Partially received',
+	    received: 'Received in full'
+	  }[String(status || '')] || 'Pending');
+
+	  const renderInventoryPurchaseOrders = () => {
+	    if (!inventoryRecapRefs.poList) return;
+	    const orders = Array.isArray(state.inventoryRecap.data?.purchase_orders)
+	      ? state.inventoryRecap.data.purchase_orders
+	      : [];
+	    const openOrders = orders.filter((order) => ['pending', 'partially_received'].includes(String(order.status || '')));
+	    if (inventoryRecapRefs.poSummary) {
+	      const incoming = Number(state.inventoryRecap.data?.summary?.incoming_qty || 0);
+	      inventoryRecapRefs.poSummary.textContent = openOrders.length
+	        ? `${formatRegionalInteger(openOrders.length)} open · ${formatRegionalInteger(incoming)} units incoming`
+	        : 'No stock currently in transit';
+	    }
+	    if (!orders.length) {
+	      inventoryRecapRefs.poList.innerHTML = '<p class="admin-empty">Your first placed PO will appear here with live receiving progress.</p>';
+	      return;
+	    }
+	    inventoryRecapRefs.poList.innerHTML = orders.slice(0, 8).map((order) => {
+	      const ordered = Math.max(0, Number(order.ordered_qty || 0));
+	      const received = Math.max(0, Number(order.received_qty || 0));
+	      const progress = Math.max(0, Math.min(100, Number(order.progress_percent || (ordered > 0 ? (received / ordered) * 100 : 0))));
+	      const itemPreview = (Array.isArray(order.items) ? order.items : [])
+	        .slice(0, 3)
+	        .map((item) => `${item.sku} ${formatRegionalInteger(item.received_qty || 0)}/${formatRegionalInteger(item.ordered_qty || 0)}`)
+	        .join(' · ');
+	      return `
+	        <article class="admin-inventory-po-card is-${escapeHtml(order.status || 'pending')}">
+	          <div class="admin-inventory-po-card-head">
+	            <div>
+	              <strong>${escapeHtml(order.po_number || 'Purchase order')}</strong>
+	              <span>${escapeHtml(purchaseOrderStatusLabel(order.status))}</span>
+	            </div>
+	            <b>${formatRegionalInteger(progress)}%</b>
+	          </div>
+	          <div class="admin-inventory-po-progress"><i style="width:${progress}%"></i></div>
+	          <div class="admin-inventory-po-card-meta">
+	            <span><b>${formatRegionalInteger(received)}</b> added to stock</span>
+	            <span><b>${formatRegionalInteger(Math.max(0, ordered - received))}</b> still incoming</span>
+	            <span>${escapeHtml(String(order.placed_at || '').slice(0, 10))}</span>
+	          </div>
+	          <small>${escapeHtml(itemPreview || 'No item lines')}</small>
+	        </article>
+	      `;
+	    }).join('');
 	  };
 
 	  const inventoryTrendText = (value) => {
@@ -8127,7 +8188,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	          <div><span>Stock now</span><strong>${formatRegionalInteger(stock)}</strong></div>
 	          <div><span>Trigger at</span><strong>${formatRegionalInteger(trigger)}</strong></div>
 	          <div class="admin-inventory-trigger-meter"><i style="width:${stockPercent}%"></i><mark style="left:100%"></mark></div>
-	          <small>${item.restock_needed
+	          <small>${Number(item.incoming_qty || 0) > 0
+	            ? `${formatRegionalInteger(item.current_stock || 0)} on hand + ${formatRegionalInteger(item.incoming_qty || 0)} incoming = ${formatRegionalInteger(item.projected_stock || 0)} projected`
+	            : item.restock_needed
 	            ? `${formatRegionalInteger(item.trigger_shortfall_qty || 0)} below trigger · ${purchaseDaysLabel}-day order ${formatRegionalInteger(item.raw_purchase_qty || 0)} · buy ${formatRegionalInteger(item.recommended_order_qty || 0)}`
 	            : trigger > 0 ? `${formatRegionalInteger(Math.max(0, stock - trigger))} above trigger` : 'No demand trigger yet'}</small>
 	        </div>
@@ -8202,6 +8265,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (state.inventoryRecap.loading && !state.inventoryRecap.data) {
 	      purchasePlanRefs.list.innerHTML = '<p class="admin-empty">Calculating recommended purchase quantities.</p>';
 	      if (purchasePlanRefs.copy) purchasePlanRefs.copy.disabled = true;
+	      if (purchasePlanRefs.place) purchasePlanRefs.place.disabled = true;
 	      if (purchasePlanRefs.download) purchasePlanRefs.download.disabled = true;
 	      return;
 	    }
@@ -8260,6 +8324,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	      purchasePlanRefs.copy.disabled = state.inventoryRecap.loading || !rows.length;
 	      purchasePlanRefs.copy.lastChild.textContent = state.inventoryRecap.copied ? ' Copied' : ' Copy text';
 	    }
+	    if (purchasePlanRefs.place) {
+	      purchasePlanRefs.place.disabled = state.inventoryRecap.loading || state.inventoryRecap.placingOrder || !rows.length;
+	      purchasePlanRefs.place.lastChild.textContent = state.inventoryRecap.placingOrder ? ' Placing…' : ' Place Order';
+	    }
 	    if (purchasePlanRefs.download) purchasePlanRefs.download.disabled = state.inventoryRecap.loading || !rows.length;
 	  };
 
@@ -8311,6 +8379,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      inventoryRecapRefs.globalDaysMessage.classList.toggle('is-error', state.inventoryRecap.globalSettingsMessage.startsWith('Could'));
 	    }
 	    renderInventoryRecapList(rows);
+	    renderInventoryPurchaseOrders();
 	    renderPurchasePlan();
 	  };
 
@@ -9861,39 +9930,190 @@ document.addEventListener('DOMContentLoaded', () => {
 	    }
 	  };
 
-	  const downloadInventoryPurchasePdf = () => {
-	    const { rows, total } = purchasePlanSummary();
+	  const purchasePdfText = (value, maximum = 80) => String(value ?? '')
+	    .normalize('NFKD')
+	    .replace(/[\u2010-\u2015]/g, '-')
+	    .replace(/[^\x20-\x7E]/g, '')
+	    .slice(0, maximum);
+
+	  const buildPurchaseOrderPdf = ({ rows, total, date, poNumber, note }) => {
+	    const pageWidth = 842;
+	    const pageHeight = 595;
+	    const margin = 34;
+	    const commands = [];
+	    let page = [];
+	    let cursorY = 454;
+	    let pageNumber = 1;
+
+	    const color = (hex) => {
+	      const value = hex.replace('#', '');
+	      return [0, 2, 4].map((offset) => (parseInt(value.slice(offset, offset + 2), 16) / 255).toFixed(3)).join(' ');
+	    };
+	    const textCommand = (text, x, y, size = 8, bold = false, fill = '#111827') => (
+	      `${color(fill)} rg BT /${bold ? 'F2' : 'F1'} ${size} Tf ${x} ${y} Td (${pdfEscape(purchasePdfText(text, 120))}) Tj ET`
+	    );
+	    const rect = (x, y, width, height, fill, stroke = '') => (
+	      `${color(fill)} rg${stroke ? ` ${color(stroke)} RG` : ''} ${x} ${y} ${width} ${height} re ${stroke ? 'B' : 'f'}`
+	    );
+	    const line = (x1, y1, x2, y2, stroke = '#d1d5db') => (
+	      `${color(stroke)} RG 0.6 w ${x1} ${y1} m ${x2} ${y2} l S`
+	    );
+	    const addHeader = () => {
+	      page.push(rect(0, pageHeight - 104, pageWidth, 104, '#101419'));
+	      page.push(rect(margin, pageHeight - 43, 44, 4, '#9dff00'));
+	      page.push(textCommand('JENANG GEMI', margin, pageHeight - 65, 10, true, '#9dff00'));
+	      page.push(textCommand('PURCHASE ORDER', margin, pageHeight - 88, 22, true, '#ffffff'));
+	      page.push(textCommand(poNumber || 'DRAFT PURCHASE PLAN', 548, pageHeight - 60, 13, true, '#ffffff'));
+	      page.push(textCommand(`Issued ${date}`, 548, pageHeight - 80, 8, false, '#cbd5e1'));
+	      page.push(textCommand(`Page ${pageNumber}`, 770, 22, 7, false, '#6b7280'));
+	      page.push(textCommand('Generated by Executive Dashboard - Receiving tracked in Store Ops', margin, 22, 7, false, '#6b7280'));
+	      page.push(rect(margin, 468, pageWidth - (margin * 2), 28, '#eef1f4'));
+	      page.push(textCommand('#', 43, 478, 7, true));
+	      page.push(textCommand('PRODUCT', 67, 478, 7, true));
+	      page.push(textCommand('SKU', 324, 478, 7, true));
+	      page.push(textCommand('MOQ', 425, 478, 7, true));
+	      page.push(textCommand('BUY QTY', 474, 478, 7, true));
+	      page.push(textCommand('UNIT COST', 548, 478, 7, true));
+	      page.push(textCommand('SUBTOTAL', 666, 478, 7, true));
+	      cursorY = 454;
+	    };
+	    const finishPage = () => {
+	      commands.push(page.join('\n'));
+	      page = [];
+	      pageNumber += 1;
+	      addHeader();
+	    };
+
+	    addHeader();
+	    rows.forEach((item, index) => {
+	      const rowHeight = item.note ? 41 : 31;
+	      if (cursorY - rowHeight < 76) finishPage();
+	      if (index % 2 === 0) page.push(rect(margin, cursorY - rowHeight + 5, pageWidth - (margin * 2), rowHeight, '#fafafa'));
+	      page.push(textCommand(String(index + 1).padStart(2, '0'), 43, cursorY - 8, 7, true, '#6b7280'));
+	      page.push(textCommand(item.product_name || item.sku, 67, cursorY - 6, 8.5, true));
+	      page.push(textCommand(item.sku, 324, cursorY - 6, 7.5, true, '#d6294f'));
+	      page.push(textCommand(formatRegionalInteger(item.moq), 425, cursorY - 6, 8));
+	      page.push(textCommand(formatRegionalInteger(item.quantity), 474, cursorY - 6, 9, true));
+	      page.push(textCommand(formatCurrency(item.unitCost), 548, cursorY - 6, 8));
+	      page.push(textCommand(formatCurrency(item.subtotal), 666, cursorY - 6, 9, true));
+	      if (item.note) {
+	        page.push(textCommand(`Note: ${item.note}`, 67, cursorY - 22, 6.5, false, '#6b7280'));
+	      }
+	      cursorY -= rowHeight;
+	      page.push(line(margin, cursorY + 5, pageWidth - margin, cursorY + 5));
+	    });
+
+	    if (cursorY < 132) finishPage();
+	    page.push(rect(510, cursorY - 62, 298, 56, '#101419'));
+	    page.push(textCommand('ORDER TOTAL', 530, cursorY - 30, 8, true, '#9dff00'));
+	    page.push(textCommand(formatCurrency(total), 648, cursorY - 33, 16, true, '#ffffff'));
+	    page.push(textCommand(`${rows.length} product line${rows.length === 1 ? '' : 's'} - quantities rounded up to MOQ`, margin, cursorY - 24, 8, true));
+	    if (note) page.push(textCommand(`Order note: ${note}`, margin, cursorY - 43, 7, false, '#4b5563'));
+	    commands.push(page.join('\n'));
+
+	    const objects = [];
+	    const addObject = (body) => {
+	      objects.push(body);
+	      return objects.length;
+	    };
+	    const catalogId = addObject('<< /Type /Catalog /Pages 2 0 R >>');
+	    const pagesId = addObject('');
+	    const fontId = addObject('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
+	    const boldFontId = addObject('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>');
+	    const pageIds = commands.map((content) => {
+	      const contentId = addObject(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
+	      return addObject(`<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 ${fontId} 0 R /F2 ${boldFontId} 0 R >> >> /Contents ${contentId} 0 R >>`);
+	    });
+	    objects[pagesId - 1] = `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(' ')}] /Count ${pageIds.length} >>`;
+	    let pdf = '%PDF-1.4\n';
+	    const offsets = [0];
+	    objects.forEach((body, index) => {
+	      offsets.push(pdf.length);
+	      pdf += `${index + 1} 0 obj\n${body}\nendobj\n`;
+	    });
+	    const xrefOffset = pdf.length;
+	    pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+	    offsets.slice(1).forEach((offset) => {
+	      pdf += `${String(offset).padStart(10, '0')} 00000 n \n`;
+	    });
+	    pdf += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogId} 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+	    return pdf;
+	  };
+
+	  const downloadInventoryPurchasePdf = (placedOrder = null) => {
+	    const isPlacedOrder = Boolean(placedOrder && typeof placedOrder === 'object' && placedOrder.po_number);
+	    const current = purchasePlanSummary();
+	    const rows = isPlacedOrder
+	      ? (placedOrder.items || []).map((item) => ({
+	          product_name: item.product_name || item.sku,
+	          sku: item.sku,
+	          moq: Number(item.moq || 1),
+	          quantity: Number(item.ordered_qty || 0),
+	          unitCost: Number(item.unit_cost || 0),
+	          subtotal: Number(item.ordered_qty || 0) * Number(item.unit_cost || 0),
+	          note: item.line_note || ''
+	        }))
+	      : current.rows;
 	    if (!rows.length) return;
-	    const date = state.inventoryRecap.data?.meta?.end_date || activeLocalDate;
-	    const lines = [
-	      `Demand through: ${date}`,
-	      'Trigger: 25% of the flat monthly average; no trend or buffer',
-	      'Purchase: one customizable order-days setting for all products, rounded up to MOQ',
-	      '',
-	      ...rows.flatMap((item, index) => [
-	        `${index + 1}. ${item.product_name || item.sku}`,
-	        `   SKU: ${item.sku} | Stock: ${formatRegionalInteger(item.current_stock)} | Trigger: ${formatRegionalInteger(item.trigger_qty)}`,
-	        `   Trigger gap: ${formatRegionalInteger(item.trigger_shortfall_qty)} | ${formatRegionalNumber(item.purchase_days || 22.5, { maximumFractionDigits: 1 })}-day order: ${formatRegionalInteger(item.raw_purchase_qty)}`,
-	        `   MOQ: ${formatRegionalInteger(item.moq)} | Buy: ${formatRegionalInteger(item.quantity)} ${inventoryRecapStockUnitText(item)}`,
-	        `   Unit cost: ${formatCurrency(item.unitCost)} | Subtotal: ${formatCurrency(item.subtotal)}`,
-	        item.note ? `   Note: ${item.note}` : ''
-	      ]),
-	      '',
-	      `TOTAL PURCHASE: ${formatCurrency(total)}`,
-	      `ACCOUNTING CASH: ${formatCurrency(state.inventoryRecap.data?.summary?.cash_available || 0)}`,
-	      state.inventoryRecap.planNote ? `PURCHASE NOTE: ${state.inventoryRecap.planNote}` : ''
-	    ].filter(Boolean);
-	    const pdf = buildSimplePdf('Jenang Gemi - Recommended Stock Purchase', lines);
+	    const date = String(
+	      (isPlacedOrder ? placedOrder.placed_at : state.inventoryRecap.data?.meta?.end_date) || activeLocalDate
+	    ).slice(0, 10);
+	    const total = isPlacedOrder ? Number(placedOrder.estimated_total || 0) : current.total;
+	    const poNumber = isPlacedOrder ? String(placedOrder.po_number || '') : '';
+	    const note = isPlacedOrder ? String(placedOrder.note || '') : state.inventoryRecap.planNote;
+	    const pdf = buildPurchaseOrderPdf({ rows, total, date, poNumber, note });
 	    const blob = new Blob([pdf], { type: 'application/pdf' });
 	    const link = document.createElement('a');
 	    link.href = URL.createObjectURL(blob);
-	    link.download = `jenang-gemi-stock-purchase-${date}.pdf`;
+	    link.download = `${poNumber || 'jenang-gemi-purchase-plan'}-${date}.pdf`;
 	    document.body.appendChild(link);
 	    link.click();
 	    window.setTimeout(() => {
 	      URL.revokeObjectURL(link.href);
 	      link.remove();
 	    }, 0);
+	  };
+
+	  const placeInventoryPurchaseOrder = async () => {
+	    const { rows } = purchasePlanSummary();
+	    if (!rows.length || state.inventoryRecap.placingOrder) return;
+	    if (!state.inventoryRecap.placeRequestKey) {
+	      state.inventoryRecap.placeRequestKey = window.crypto?.randomUUID?.()
+	        || `po-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+	    }
+	    state.inventoryRecap.placingOrder = true;
+	    renderPurchasePlan();
+	    try {
+	      const data = await requestJson(inventoryRecapUrl({ force: true }), {
+	        method: 'POST',
+	        headers: { 'Content-Type': 'application/json' },
+	        body: JSON.stringify({
+	          action: 'place_order',
+	          request_key: state.inventoryRecap.placeRequestKey,
+	          note: state.inventoryRecap.planNote,
+	          items: rows.map((item) => ({
+	            sku: item.sku,
+	            quantity: item.quantity,
+	            line_note: item.note
+	          }))
+	        }),
+	        timeoutMs: 30000
+	      });
+	      state.inventoryRecap.placedOrder = data.placed_order || null;
+	      state.inventoryRecap.placeRequestKey = '';
+	      state.inventoryRecap.planEdited = {};
+	      state.inventoryRecap.planQuantities = {};
+	      applyInventoryRecapData(data);
+	      if (purchasePlanRefs.modalNumber) {
+	        purchasePlanRefs.modalNumber.textContent = state.inventoryRecap.placedOrder?.po_number || 'Purchase order';
+	      }
+	      if (purchasePlanRefs.modal) purchasePlanRefs.modal.hidden = false;
+	    } catch (error) {
+	      if (purchasePlanRefs.status) purchasePlanRefs.status.textContent = error?.message || 'Unable to place the order';
+	    } finally {
+	      state.inventoryRecap.placingOrder = false;
+	      renderPurchasePlan();
+	    }
 	  };
 
 		  const postWalletAction = async (action, body, actionId, options = {}) => {
@@ -12259,7 +12479,17 @@ document.addEventListener('DOMContentLoaded', () => {
 	    copyInventoryRecapDraft().catch(() => {});
 	  });
 
-	  purchasePlanRefs.download?.addEventListener('click', downloadInventoryPurchasePdf);
+	  purchasePlanRefs.place?.addEventListener('click', () => {
+	    placeInventoryPurchaseOrder().catch(() => {});
+	  });
+
+	  purchasePlanRefs.download?.addEventListener('click', () => downloadInventoryPurchasePdf());
+	  purchasePlanRefs.modalDownload?.addEventListener('click', () => {
+	    downloadInventoryPurchasePdf(state.inventoryRecap.placedOrder);
+	  });
+	  purchasePlanRefs.modalClose?.addEventListener('click', () => {
+	    if (purchasePlanRefs.modal) purchasePlanRefs.modal.hidden = true;
+	  });
 
 	  walletRefs.tableBody?.addEventListener('click', (event) => {
 	    const toggle = event.target.closest('[data-wallet-balance-toggle]');

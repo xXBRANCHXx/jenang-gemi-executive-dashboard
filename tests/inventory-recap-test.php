@@ -159,4 +159,29 @@ inventory_recap_expect('quiet', $bySku['SKU-SAFE']['risk'] ?? '', 'An automatic 
 inventory_recap_expect(12.5, jg_inventory_recap_set_global_purchase_days($skuPdo, 12.5), 'The shared setting must be editable.');
 inventory_recap_expect(12.5, jg_inventory_recap_global_purchase_days($skuPdo), 'The shared setting must persist once for the report.');
 
+$placedOrder = jg_purchase_orders_place($skuPdo, [
+    ['sku' => 'SKU-FLAT', 'quantity' => 19, 'line_note' => 'Production batch A'],
+    ['sku' => 'SKU-MANUAL', 'quantity' => 5],
+], 'Test PO', 'inventory-recap-test-request', 'Executive test');
+inventory_recap_expect('pending', $placedOrder['status'] ?? '', 'A placed order must remain pending until Store Ops receives it.');
+inventory_recap_expect(33, $placedOrder['ordered_qty'] ?? 0, 'Every server-side PO quantity must round up to the live MOQ.');
+inventory_recap_expect(22, $placedOrder['items'][0]['ordered_qty'] ?? 0, 'The flat SKU quantity must round from 19 to MOQ 22.');
+inventory_recap_expect(
+    (int) ($placedOrder['id'] ?? 0),
+    (int) (jg_purchase_orders_place($skuPdo, [
+        ['sku' => 'SKU-FLAT', 'quantity' => 19],
+    ], '', 'inventory-recap-test-request')['id'] ?? 0),
+    'Retrying the same request key must return the original PO instead of creating a duplicate.'
+);
+
+$withIncoming = jg_inventory_recap_payload($skuPdo, $analyticsPdo, ['amount' => 100000], ['today' => '2026-07-30']);
+$incomingBySku = [];
+foreach ($withIncoming['items'] as $item) {
+    $incomingBySku[(string) $item['sku']] = $item;
+}
+inventory_recap_expect(33, $withIncoming['summary']['incoming_qty'] ?? 0, 'The recap must total all unreceived PO units.');
+inventory_recap_expect(22, $incomingBySku['SKU-FLAT']['incoming_qty'] ?? 0, 'Incoming PO stock must be attached to its SKU.');
+inventory_recap_expect('incoming', $incomingBySku['SKU-FLAT']['risk'] ?? '', 'A fully covered shortage must no longer render as critical.');
+inventory_recap_expect(0, $incomingBySku['SKU-FLAT']['recommended_order_qty'] ?? -1, 'Incoming stock must prevent a duplicate purchase recommendation.');
+
 echo "inventory-recap-test: ok\n";

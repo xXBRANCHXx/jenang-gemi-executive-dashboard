@@ -13,7 +13,9 @@ assert.match(dashboard, /data-view-panel="inventory-recap"[\s\S]*Reorder trigger
 assert.match(dashboard, /Automatic triggers learn from 90 days of demand/);
 assert.match(dashboard, /data-inventory-recap-manual/);
 assert.match(dashboard, /75% order 19 ÷ MOQ 11 → buy 22/);
-assert.match(dashboard, /data-view-panel="purchase-order"[\s\S]*MOQ-ready purchase plan[\s\S]*data-purchase-plan-download/);
+assert.match(dashboard, /data-view-panel="purchase-order"[\s\S]*MOQ-ready purchase plan[\s\S]*data-purchase-plan-place[\s\S]*data-purchase-plan-download/);
+assert.match(dashboard, /Sent to Store Ops[\s\S]*Download the PDF before closing this popup/);
+assert.match(dashboard, /Stock already on the way[\s\S]*data-inventory-po-list/);
 
 assert.match(script, /data-inventory-automatic/);
 assert.match(script, /data-inventory-manual-trigger/);
@@ -23,12 +25,16 @@ assert.match(script, /data-inventory-global-days/);
 assert.match(script, /Math\.ceil\(entered \/ moq\) \* moq/);
 assert.match(script, /saveInventorySettings/);
 assert.match(script, /Trigger model: 25% of the flat monthly average/);
-assert.match(script, /buildSimplePdf\('Jenang Gemi - Recommended Stock Purchase'/);
+assert.match(script, /buildPurchaseOrderPdf/);
+assert.match(script, /PURCHASE ORDER/);
+assert.match(script, /action: 'place_order'/);
+assert.match(script, /downloadInventoryPurchasePdf\(state\.inventoryRecap\.placedOrder\)/);
 assert.doesNotMatch(script, /inventoryRecapDays|current_days_remaining/);
 
 assert.match(api, /update_settings/);
 assert.match(api, /purchase_moq = :purchase_moq/);
 assert.match(api, /update_purchase_days/);
+assert.match(api, /jg_purchase_orders_place/);
 assert.doesNotMatch(api, /sku_skus[\s\S]{0,300}purchase_days\s*=/);
 
 assert.match(navigation, /'purchase-order'\s*=>\s*\[[\s\S]*'label'\s*=>\s*'Purchase Plan'/);
