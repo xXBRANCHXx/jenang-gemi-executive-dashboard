@@ -27,6 +27,12 @@ assert.match(script, /saveInventorySettings/);
 assert.match(script, /Trigger model: 25% of the flat monthly average/);
 assert.match(script, /buildPurchaseOrderPdf/);
 assert.match(script, /PURCHASE ORDER/);
+const purchasePdfSource = script.slice(
+  script.indexOf('const buildPurchaseOrderPdf'),
+  script.indexOf('const downloadInventoryPurchasePdf')
+);
+assert.match(purchasePdfSource, /const pageWidth = 595;[\s\S]*const pageHeight = 842;/);
+assert.doesNotMatch(purchasePdfSource, /#9dff00|#d6294f|#101419|#ffffff/i);
 assert.match(script, /action: 'place_order'/);
 assert.match(script, /downloadInventoryPurchasePdf\(state\.inventoryRecap\.placedOrder\)/);
 assert.doesNotMatch(script, /inventoryRecapDays|current_days_remaining/);
