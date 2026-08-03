@@ -146,6 +146,10 @@ function jg_sku_ensure_schema(PDO $pdo): void
             unit_id VARCHAR(140) NOT NULL,
             volume DECIMAL(4,1) NOT NULL,
             astra DECIMAL(6,2) NOT NULL,
+            astra_weight_grams INT UNSIGNED NOT NULL DEFAULT 0,
+            package_length_cm DECIMAL(8,2) NOT NULL DEFAULT 0.00,
+            package_width_cm DECIMAL(8,2) NOT NULL DEFAULT 0.00,
+            package_height_cm DECIMAL(8,2) NOT NULL DEFAULT 0.00,
             flavor_id VARCHAR(180) NOT NULL,
             product_id VARCHAR(180) NOT NULL,
             starting_stock INT UNSIGNED NOT NULL,
@@ -190,6 +194,10 @@ function jg_sku_ensure_schema(PDO $pdo): void
 
     jg_sku_ensure_column($pdo, 'sku_requests', 'astra', 'DECIMAL(6,2) NOT NULL DEFAULT 0.00 AFTER volume');
     jg_sku_ensure_column($pdo, 'sku_skus', 'astra', 'DECIMAL(6,2) NOT NULL DEFAULT 0.00 AFTER volume');
+    jg_sku_ensure_column($pdo, 'sku_skus', 'astra_weight_grams', 'INT UNSIGNED NOT NULL DEFAULT 0 AFTER astra');
+    jg_sku_ensure_column($pdo, 'sku_skus', 'package_length_cm', 'DECIMAL(8,2) NOT NULL DEFAULT 0.00 AFTER astra_weight_grams');
+    jg_sku_ensure_column($pdo, 'sku_skus', 'package_width_cm', 'DECIMAL(8,2) NOT NULL DEFAULT 0.00 AFTER package_length_cm');
+    jg_sku_ensure_column($pdo, 'sku_skus', 'package_height_cm', 'DECIMAL(8,2) NOT NULL DEFAULT 0.00 AFTER package_width_cm');
     jg_sku_ensure_column($pdo, 'sku_skus', 'purchase_moq', 'INT UNSIGNED NOT NULL DEFAULT 1 AFTER inventory_mode');
     jg_sku_ensure_column($pdo, 'sku_skus', 'skip_scan', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER inventory_mode');
     jg_sku_ensure_column($pdo, 'sku_skus', 'sale_price', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER cogs');
@@ -207,6 +215,48 @@ function jg_sku_ensure_schema(PDO $pdo): void
     );
     $stmt->execute([':updated_at' => $now]);
     jg_sku_seed_purchase_moq_defaults($pdo);
+}
+
+/**
+ * Return the packed shipping weight for one sellable SKU unit.
+ *
+ * ASTRA is the base stock quantity represented by astra_weight_grams. A
+ * 30-sachet SKU with ASTRA 15 therefore weighs exactly twice the configured
+ * packed ASTRA weight. Rounding up avoids under-declaring fractional grams.
+ */
+function jg_sku_product_weight_grams(
+    float $volume,
+    float $astra,
+    int $astraWeightGrams
+): int {
+    if ($volume <= 0 || $astra <= 0 || $astraWeightGrams <= 0) {
+        return 0;
+    }
+
+    return (int) ceil(($volume / $astra) * $astraWeightGrams);
+}
+
+function jg_sku_shipping_profile(array $sku): array
+{
+    $length = max(0.0, (float) ($sku['package_length_cm'] ?? 0));
+    $width = max(0.0, (float) ($sku['package_width_cm'] ?? 0));
+    $height = max(0.0, (float) ($sku['package_height_cm'] ?? 0));
+    $hasAnyDimension = $length > 0 || $width > 0 || $height > 0;
+    $hasDimensions = $length > 0 && $width > 0 && $height > 0;
+
+    return [
+        'astra_weight_grams' => max(0, (int) ($sku['astra_weight_grams'] ?? 0)),
+        'unit_weight_grams' => jg_sku_product_weight_grams(
+            (float) ($sku['volume'] ?? 0),
+            (float) ($sku['astra'] ?? 0),
+            max(0, (int) ($sku['astra_weight_grams'] ?? 0))
+        ),
+        'package_length_cm' => $length,
+        'package_width_cm' => $width,
+        'package_height_cm' => $height,
+        'has_dimensions' => $hasDimensions,
+        'dimensions_incomplete' => $hasAnyDimension && !$hasDimensions,
+    ];
 }
 
 function jg_sku_default_purchase_moq(string $brandName, string $productName, float $volume): int

@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const salePriceError = document.querySelector('[data-sale-price-error]');
   const productNameError = document.querySelector('[data-product-name-error]');
   const astraError = document.querySelector('[data-astra-error]');
+  const shippingError = document.querySelector('[data-shipping-error]');
   const inventoryError = document.querySelector('[data-inventory-error]');
   const approvalError = document.querySelector('[data-approval-error]');
   const skuPreview = document.querySelector('[data-sku-preview]');
@@ -35,6 +36,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const productNameForm = document.querySelector('[data-product-name-form]');
   const astraModal = document.querySelector('[data-astra-modal]');
   const astraForm = document.querySelector('[data-astra-form]');
+  const shippingModal = document.querySelector('[data-shipping-modal]');
+  const shippingForm = document.querySelector('[data-shipping-form]');
   const inventoryModal = document.querySelector('[data-inventory-modal]');
   const inventoryForm = document.querySelector('[data-inventory-form]');
   const inventoryAction = inventoryForm?.querySelector('[data-inventory-action]');
@@ -1085,7 +1088,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (visibleCountNode) visibleCountNode.textContent = String(rows.length);
 
     if (!rows.length) {
-      tableBody.innerHTML = `<tr><td colspan="14" class="admin-empty">${state.database.skus.length ? 'No SKUs match the current filters.' : 'No approved SKUs yet.'}</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="15" class="admin-empty">${state.database.skus.length ? 'No SKUs match the current filters.' : 'No approved SKUs yet.'}</td></tr>`;
       return;
     }
 
@@ -1094,6 +1097,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const trigger = row.stock_trigger ?? 0;
       const stockState = skuStockState(row);
       const skipScan = !!row.skip_scan;
+      const shippingDimensions = row.has_package_dimensions
+        ? `${Number(row.package_length_cm || 0)}×${Number(row.package_width_cm || 0)}×${Number(row.package_height_cm || 0)} cm`
+        : 'Dimensions pending';
+      const shippingProfile = row.shipping_profile_complete
+        ? `<strong>${escapeHtml(row.unit_weight_grams || 0)} g</strong><small class="admin-table-note">${escapeHtml(shippingDimensions)}</small>`
+        : '<strong>Incomplete</strong><small class="admin-table-note">Add packed weight</small>';
       const history = Array.isArray(row.cogs_history) ? [...row.cogs_history] : [];
       history.sort((left, right) => {
         const recordedCompare = String(left.recorded_at || '').localeCompare(String(right.recorded_at || ''));
@@ -1137,6 +1146,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <td data-col="Unit">${escapeHtml(row.unit_name || '')}</td>
         <td data-col="Vol">${escapeHtml(row.volume || '')}</td>
         <td data-col="ASTRA">${escapeHtml(row.astra || '')}</td>
+        <td data-col="Shipping">${shippingProfile}</td>
         <td data-col="Skip">
           <label class="admin-sku-switch" title="Skip Scan">
             <input
@@ -1187,6 +1197,7 @@ document.addEventListener('DOMContentLoaded', () => {
               </button>
               <button type="button" class="admin-menu-item" data-change-product-name="${escapeHtml(row.sku || '')}">Product Name</button>
               ${role === 'branch' ? `<button type="button" class="admin-menu-item" data-change-astra="${escapeHtml(row.sku || '')}">ASTRA</button>` : ''}
+              ${role === 'branch' ? `<button type="button" class="admin-menu-item" data-change-shipping="${escapeHtml(row.sku || '')}">Shipping Profile</button>` : ''}
               <button type="button" class="admin-menu-item" data-change-inventory="${escapeHtml(row.sku || '')}">Inventory</button>
               <button type="button" class="admin-menu-item" data-change-cogs="${escapeHtml(row.sku || '')}">COGS</button>
               <button type="button" class="admin-menu-item" data-change-sale-price="${escapeHtml(row.sku || '')}">Sale Price</button>
@@ -1433,6 +1444,13 @@ document.addEventListener('DOMContentLoaded', () => {
     setError(astraError, '');
   };
 
+  const closeShippingModal = () => {
+    if (!shippingModal) return;
+    shippingModal.hidden = true;
+    shippingForm?.reset();
+    setError(shippingError, '');
+  };
+
   const closeInventoryModal = () => {
     if (!inventoryModal) return;
     inventoryModal.hidden = true;
@@ -1515,6 +1533,46 @@ document.addEventListener('DOMContentLoaded', () => {
     astraModal.hidden = false;
   };
 
+  const openShippingModal = (sku) => {
+    if (!(shippingForm instanceof HTMLFormElement) || !shippingModal) return;
+    const row = state.database.skus.find((item) => item.sku === sku);
+    if (!row) return;
+
+    shippingForm.elements.sku.value = row.sku || '';
+    shippingForm.elements.sku_display.value = row.sku || '';
+    const baseRow = state.database.skus.find((item) => (
+      item.brand_id === row.brand_id
+      && item.product_id === row.product_id
+      && item.unit_id === row.unit_id
+      && Number(item.astra || 0) === Number(row.astra || 0)
+      && Number(item.volume || 0) === Number(item.astra || 0)
+    ));
+    shippingForm.elements.base_sku_display.value = baseRow?.sku || 'Base SKU not created';
+    shippingForm.elements.volume_display.value = String(row.volume || '');
+    shippingForm.elements.astra_display.value = String(row.astra || '');
+    shippingForm.elements.unit_weight_display.value = row.unit_weight_grams > 0
+      ? `${row.unit_weight_grams} g (${row.volume} ÷ ${row.astra} ASTRA)`
+      : 'Incomplete';
+    shippingForm.elements.astra_weight_grams.value = row.astra_weight_grams > 0 ? String(row.astra_weight_grams) : '';
+    shippingForm.elements.package_length_cm.value = Number(row.package_length_cm || 0) > 0 ? String(Number(row.package_length_cm)) : '';
+    shippingForm.elements.package_width_cm.value = Number(row.package_width_cm || 0) > 0 ? String(Number(row.package_width_cm)) : '';
+    shippingForm.elements.package_height_cm.value = Number(row.package_height_cm || 0) > 0 ? String(Number(row.package_height_cm)) : '';
+    setError(shippingError, '');
+    shippingModal.hidden = false;
+  };
+
+  const syncShippingWeightPreview = () => {
+    if (!(shippingForm instanceof HTMLFormElement)) return;
+    const volume = Number(shippingForm.elements.volume_display?.value || 0);
+    const astra = Number(shippingForm.elements.astra_display?.value || 0);
+    const baseWeight = Number(shippingForm.elements.astra_weight_grams?.value || 0);
+    if (volume <= 0 || astra <= 0 || baseWeight <= 0) {
+      shippingForm.elements.unit_weight_display.value = 'Incomplete';
+      return;
+    }
+    shippingForm.elements.unit_weight_display.value = `${Math.ceil((volume / astra) * baseWeight)} g (${volume} ÷ ${astra} ASTRA)`;
+  };
+
   const openInventoryModal = (sku) => {
     if (!(inventoryForm instanceof HTMLFormElement) || !inventoryModal) return;
     const row = state.database.skus.find((item) => item.sku === sku);
@@ -1592,6 +1650,10 @@ document.addEventListener('DOMContentLoaded', () => {
     approvalForm.elements.starting_stock.value = '0';
     approvalForm.elements.stock_trigger.value = '0';
     approvalForm.elements.astra.value = request.astra || request.volume || '';
+    approvalForm.elements.astra_weight_grams.value = '';
+    approvalForm.elements.package_length_cm.value = '';
+    approvalForm.elements.package_width_cm.value = '';
+    approvalForm.elements.package_height_cm.value = '';
     approvalForm.elements.cogs.value = '';
     approvalForm.elements.sale_price.value = '';
     approvalForm.elements.decision_notes.value = '';
@@ -1611,6 +1673,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!isPrimarySelectionComplete()) return false;
     if (!(setupForm instanceof HTMLFormElement)) return false;
     if (String(setupForm.elements.astra?.value || '').trim() === '') return false;
+    const dimensions = ['package_length_cm', 'package_width_cm', 'package_height_cm']
+      .map((name) => Number(setupForm.elements[name]?.value || 0));
+    if (dimensions.some((value) => value > 0) && !dimensions.every((value) => value > 0)) return false;
     return String(setupForm.elements.tag?.value || '').trim() !== '';
   };
 
@@ -1664,7 +1729,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelector('[data-continue-apply]')?.addEventListener('click', () => {
     setError(setupError, '');
     if (!setupIsComplete()) {
-      setError(setupError, 'Complete brand, unit, volume, ASTRA, flavor, product, and TAG before continuing.');
+      setError(setupError, 'Complete the SKU fields. Enter all three dimensions if you use package dimensions.');
       return;
     }
 
@@ -1702,6 +1767,10 @@ document.addEventListener('DOMContentLoaded', () => {
         unit_id: setupData.get('unit_id'),
         volume: setupData.get('volume'),
         astra: setupData.get('astra'),
+        astra_weight_grams: setupData.get('astra_weight_grams'),
+        package_length_cm: setupData.get('package_length_cm'),
+        package_width_cm: setupData.get('package_width_cm'),
+        package_height_cm: setupData.get('package_height_cm'),
         flavor_id: setupData.get('flavor_id'),
         product_id: setupData.get('product_id'),
         tag: String(setupData.get('tag') || '').toUpperCase().replace(/\s+/g, '_'),
@@ -1847,6 +1916,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (astraButton instanceof HTMLButtonElement) {
       closeSkuRowMenus();
       openAstraModal(astraButton.dataset.changeAstra || '');
+      return;
+    }
+
+    const shippingButton = target.closest('[data-change-shipping]');
+    if (shippingButton instanceof HTMLButtonElement) {
+      closeSkuRowMenus();
+      openShippingModal(shippingButton.dataset.changeShipping || '');
       return;
     }
 
@@ -2086,6 +2162,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  shippingForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!(shippingForm instanceof HTMLFormElement)) return;
+    setError(shippingError, '');
+
+    try {
+      const formData = new window.FormData(shippingForm);
+      await postAction({
+        action: 'change_shipping_profile',
+        sku: formData.get('sku'),
+        astra_weight_grams: formData.get('astra_weight_grams'),
+        package_length_cm: formData.get('package_length_cm'),
+        package_width_cm: formData.get('package_width_cm'),
+        package_height_cm: formData.get('package_height_cm')
+      });
+      closeShippingModal();
+    } catch (error) {
+      setError(shippingError, error instanceof Error ? error.message : 'Unable to change shipping profile.');
+    }
+  });
+  shippingForm?.elements.astra_weight_grams?.addEventListener('input', syncShippingWeightPreview);
+
   inventoryForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (!(inventoryForm instanceof HTMLFormElement)) return;
@@ -2139,6 +2237,10 @@ document.addEventListener('DOMContentLoaded', () => {
         starting_stock: formData.get('starting_stock'),
         stock_trigger: formData.get('stock_trigger'),
         astra: formData.get('astra'),
+        astra_weight_grams: formData.get('astra_weight_grams'),
+        package_length_cm: formData.get('package_length_cm'),
+        package_width_cm: formData.get('package_width_cm'),
+        package_height_cm: formData.get('package_height_cm'),
         cogs: formData.get('cogs'),
         sale_price: formData.get('sale_price'),
         decision_notes: formData.get('decision_notes')
@@ -2171,6 +2273,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.querySelectorAll('[data-close-astra-modal]').forEach((button) => {
     button.addEventListener('click', closeAstraModal);
+  });
+
+  document.querySelectorAll('[data-close-shipping-modal]').forEach((button) => {
+    button.addEventListener('click', closeShippingModal);
   });
 
   document.querySelectorAll('[data-close-inventory-modal]').forEach((button) => {

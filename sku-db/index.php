@@ -142,6 +142,22 @@ $pageBuildVersion = 'sku1.00.01';
                                                 <input type="number" name="astra" min="0.01" step="0.01" placeholder="15" required>
                                             </label>
                                             <label>
+                                                <span>ASTRA packed weight (g)</span>
+                                                <input type="number" name="astra_weight_grams" min="1" step="1" placeholder="Enter for the base SKU; otherwise inherited">
+                                            </label>
+                                            <label>
+                                                <span>Package length (cm, optional)</span>
+                                                <input type="number" name="package_length_cm" min="0.01" step="0.01" placeholder="e.g. 24">
+                                            </label>
+                                            <label>
+                                                <span>Package width (cm, optional)</span>
+                                                <input type="number" name="package_width_cm" min="0.01" step="0.01" placeholder="e.g. 16">
+                                            </label>
+                                            <label>
+                                                <span>Package height (cm, optional)</span>
+                                                <input type="number" name="package_height_cm" min="0.01" step="0.01" placeholder="e.g. 8">
+                                            </label>
+                                            <label>
                                                 <span>Flavor</span>
                                                 <select class="admin-select" name="flavor_id" data-flavor-select required></select>
                                             </label>
@@ -316,6 +332,7 @@ $pageBuildVersion = 'sku1.00.01';
                                     <th>Unit</th>
                                     <th>Vol</th>
                                     <th>ASTRA</th>
+                                    <th>Shipping</th>
                                     <th>Skip</th>
                                     <th>Stock</th>
                                     <th>Trigger</th>
@@ -325,7 +342,7 @@ $pageBuildVersion = 'sku1.00.01';
                                 </tr>
                                 </thead>
                                 <tbody data-sku-table-body>
-                                <tr><td colspan="14" class="admin-empty">No SKUs yet.</td></tr>
+                                <tr><td colspan="15" class="admin-empty">No SKUs yet.</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -613,6 +630,64 @@ $pageBuildVersion = 'sku1.00.01';
                 <p class="admin-form-error" data-astra-error hidden></p>
             </div>
         </div>
+
+        <div class="admin-modal-shell" data-shipping-modal hidden>
+            <div class="admin-modal-backdrop" data-close-shipping-modal></div>
+            <div class="admin-modal-card">
+                <div class="admin-panel-head admin-modal-head">
+                    <div>
+                        <span class="admin-panel-kicker">Shipping Profile</span>
+                        <h3>Set packed weight and dimensions</h3>
+                        <p>Enter the packed weight once for the base SKU where volume equals ASTRA. Related sizes inherit it automatically.</p>
+                    </div>
+                </div>
+                <form class="admin-sku-form-grid" data-shipping-form>
+                    <input type="hidden" name="sku">
+                    <label>
+                        <span>SKU</span>
+                        <input type="text" name="sku_display" readonly>
+                    </label>
+                    <label>
+                        <span>Base SKU</span>
+                        <input type="text" name="base_sku_display" readonly>
+                    </label>
+                    <label>
+                        <span>SKU volume</span>
+                        <input type="text" name="volume_display" readonly>
+                    </label>
+                    <label>
+                        <span>ASTRA base volume</span>
+                        <input type="text" name="astra_display" readonly>
+                    </label>
+                    <label class="admin-sku-full-span">
+                        <span>Calculated weight for this SKU</span>
+                        <input type="text" name="unit_weight_display" readonly>
+                    </label>
+                    <label class="admin-sku-full-span">
+                        <span>Base SKU packed weight (grams)</span>
+                        <input type="number" name="astra_weight_grams" min="1" step="1" required>
+                    </label>
+                    <label>
+                        <span>Length (cm, optional)</span>
+                        <input type="number" name="package_length_cm" min="0.01" step="0.01">
+                    </label>
+                    <label>
+                        <span>Width (cm, optional)</span>
+                        <input type="number" name="package_width_cm" min="0.01" step="0.01">
+                    </label>
+                    <label>
+                        <span>Height (cm, optional)</span>
+                        <input type="number" name="package_height_cm" min="0.01" step="0.01">
+                    </label>
+                    <p class="admin-muted-copy admin-sku-full-span">The base weight is shared by related SKUs with the same product, unit, and ASTRA. Dimensions apply only to the matching package volume. If you use dimensions, enter all three.</p>
+                    <div class="admin-sku-actions">
+                        <button type="submit" class="admin-primary-btn">Save Shipping Profile</button>
+                        <button type="button" class="admin-ghost-btn" data-close-shipping-modal>Cancel</button>
+                    </div>
+                </form>
+                <p class="admin-form-error" data-shipping-error hidden></p>
+            </div>
+        </div>
     <?php endif; ?>
 
     <div class="admin-modal-shell" data-inventory-modal hidden>
@@ -730,6 +805,22 @@ $pageBuildVersion = 'sku1.00.01';
                     <label>
                         <span>ASTRA</span>
                         <input type="number" name="astra" min="0.01" step="0.01" required>
+                    </label>
+                    <label>
+                        <span>ASTRA packed weight (g)</span>
+                        <input type="number" name="astra_weight_grams" min="1" step="1" required>
+                    </label>
+                    <label>
+                        <span>Package length (cm, optional)</span>
+                        <input type="number" name="package_length_cm" min="0.01" step="0.01">
+                    </label>
+                    <label>
+                        <span>Package width (cm, optional)</span>
+                        <input type="number" name="package_width_cm" min="0.01" step="0.01">
+                    </label>
+                    <label>
+                        <span>Package height (cm, optional)</span>
+                        <input type="number" name="package_height_cm" min="0.01" step="0.01">
                     </label>
                     <label>
                         <span>Opening COGS (Optional)</span>

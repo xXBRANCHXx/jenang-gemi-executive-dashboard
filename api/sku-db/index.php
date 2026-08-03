@@ -182,6 +182,47 @@ function jg_sku_integer(mixed $value, string $label): int
     return $number;
 }
 
+function jg_sku_shipping_profile_input(array $payload, int $fallbackAstraWeightGrams = 0): array
+{
+    $rawAstraWeight = $payload['astra_weight_grams'] ?? null;
+    $astraWeightGrams = ($rawAstraWeight === '' || $rawAstraWeight === null) && $fallbackAstraWeightGrams > 0
+        ? $fallbackAstraWeightGrams
+        : jg_sku_integer($rawAstraWeight, 'ASTRA weight');
+    if ($astraWeightGrams < 1) {
+        jg_sku_fail('ASTRA weight must be at least 1 gram.');
+    }
+
+    $dimensions = [];
+    foreach (['length', 'width', 'height'] as $axis) {
+        $key = 'package_' . $axis . '_cm';
+        $raw = $payload[$key] ?? '';
+        if ($raw === '' || $raw === null) {
+            $dimensions[$key] = 0.0;
+            continue;
+        }
+        if (!is_numeric($raw)) {
+            jg_sku_fail(ucfirst($axis) . ' must be numeric.');
+        }
+        $value = round((float) $raw, 2);
+        if ($value <= 0 || $value > 9999.99) {
+            jg_sku_fail(ucfirst($axis) . ' must be greater than zero and no more than 9999.99 cm.');
+        }
+        $dimensions[$key] = $value;
+    }
+
+    $positiveDimensionCount = count(array_filter($dimensions, static fn (float $value): bool => $value > 0));
+    if ($positiveDimensionCount !== 0 && $positiveDimensionCount !== 3) {
+        jg_sku_fail('Enter all three package dimensions, or leave all three blank.');
+    }
+
+    return [
+        'astra_weight_grams' => $astraWeightGrams,
+        'package_length_cm' => number_format($dimensions['package_length_cm'], 2, '.', ''),
+        'package_width_cm' => number_format($dimensions['package_width_cm'], 2, '.', ''),
+        'package_height_cm' => number_format($dimensions['package_height_cm'], 2, '.', ''),
+    ];
+}
+
 function jg_sku_money(mixed $value, string $label = 'COGS'): string
 {
     if ($value === '' || $value === null || !is_numeric($value)) {
@@ -837,6 +878,10 @@ function jg_sku_fetch_database(PDO $pdo): array
             u.name AS unit_name,
             s.volume,
             s.astra,
+            s.astra_weight_grams,
+            s.package_length_cm,
+            s.package_width_cm,
+            s.package_height_cm,
             s.flavor_id,
             f.name AS flavor_name,
             s.product_id,
@@ -892,6 +937,7 @@ function jg_sku_fetch_database(PDO $pdo): array
             ];
         }
 
+        $shipping = jg_sku_shipping_profile($row);
         $skus[] = [
             'sku' => $sku,
             'tag' => (string) $row['tag'],
@@ -901,6 +947,13 @@ function jg_sku_fetch_database(PDO $pdo): array
             'unit_name' => (string) $row['unit_name'],
             'volume' => number_format((float) $row['volume'], 1, '.', ''),
             'astra' => number_format((float) ($row['astra'] ?? $row['volume'] ?? 0), 2, '.', ''),
+            'astra_weight_grams' => $shipping['astra_weight_grams'],
+            'unit_weight_grams' => $shipping['unit_weight_grams'],
+            'package_length_cm' => number_format((float) $shipping['package_length_cm'], 2, '.', ''),
+            'package_width_cm' => number_format((float) $shipping['package_width_cm'], 2, '.', ''),
+            'package_height_cm' => number_format((float) $shipping['package_height_cm'], 2, '.', ''),
+            'has_package_dimensions' => $shipping['has_dimensions'],
+            'shipping_profile_complete' => $shipping['unit_weight_grams'] > 0 && !$shipping['dimensions_incomplete'],
             'flavor_id' => (string) $row['flavor_id'],
             'flavor_name' => (string) $row['flavor_name'],
             'product_id' => (string) $row['product_id'],
@@ -966,9 +1019,23 @@ function jg_sku_create_sku(PDO $pdo, array $payload, ?int $approvalRequestId = n
     $stockTrigger = jg_sku_integer($payload['stock_trigger'] ?? null, 'Stock trigger');
     $cogs = jg_sku_optional_money($payload['cogs'] ?? null);
     $salePrice = jg_sku_optional_money($payload['sale_price'] ?? null, 'Sale price');
-
     $parts = jg_sku_compose_code($pdo, $brandId, $unitId, $volumeInput, $flavorId, $productId);
     $astra = jg_sku_astra_decimal($payload['astra'] ?? null, $parts['volume']);
+    $familyWeightStmt = $pdo->prepare(
+        'SELECT astra_weight_grams
+         FROM sku_skus
+         WHERE brand_id = :brand_id AND unit_id = :unit_id AND product_id = :product_id
+           AND astra = :astra AND astra_weight_grams > 0
+         ORDER BY (volume = astra) DESC, created_at ASC
+         LIMIT 1'
+    );
+    $familyWeightStmt->execute([
+        ':brand_id' => $brandId,
+        ':unit_id' => $unitId,
+        ':product_id' => $productId,
+        ':astra' => $astra,
+    ]);
+    $shipping = jg_sku_shipping_profile_input($payload, (int) ($familyWeightStmt->fetchColumn() ?: 0));
     $brand = jg_sku_get_brand($pdo, $brandId);
     $product = jg_sku_get_product($pdo, $brandId, $productId);
     $purchaseMoq = jg_sku_default_purchase_moq(
@@ -981,11 +1048,13 @@ function jg_sku_create_sku(PDO $pdo, array $payload, ?int $approvalRequestId = n
     $now = jg_sku_now();
     $stmt = $pdo->prepare(
         'INSERT INTO sku_skus (
-            sku, tag, brand_id, unit_id, volume, astra, flavor_id, product_id,
+            sku, tag, brand_id, unit_id, volume, astra, astra_weight_grams,
+            package_length_cm, package_width_cm, package_height_cm, flavor_id, product_id,
             starting_stock, current_stock, stock_trigger, inventory_mode, purchase_moq, skip_scan, cogs, sale_price,
             approval_request_id, created_at, updated_at
         ) VALUES (
-            :sku, :tag, :brand_id, :unit_id, :volume, :astra, :flavor_id, :product_id,
+            :sku, :tag, :brand_id, :unit_id, :volume, :astra, :astra_weight_grams,
+            :package_length_cm, :package_width_cm, :package_height_cm, :flavor_id, :product_id,
             :starting_stock, :current_stock, :stock_trigger, "auto", :purchase_moq, 0, :cogs, :sale_price,
             :approval_request_id, :created_at, :updated_at
         )'
@@ -997,6 +1066,10 @@ function jg_sku_create_sku(PDO $pdo, array $payload, ?int $approvalRequestId = n
         ':unit_id' => $unitId,
         ':volume' => $parts['volume'],
         ':astra' => $astra,
+        ':astra_weight_grams' => $shipping['astra_weight_grams'],
+        ':package_length_cm' => $shipping['package_length_cm'],
+        ':package_width_cm' => $shipping['package_width_cm'],
+        ':package_height_cm' => $shipping['package_height_cm'],
         ':flavor_id' => $flavorId,
         ':product_id' => $productId,
         ':starting_stock' => $startingStock,
@@ -1249,6 +1322,10 @@ try {
             'unit_id' => (string) ($requestRow['unit_id'] ?? ''),
             'volume' => (string) ($requestRow['volume'] ?? ''),
             'astra' => (string) ($requestRow['astra'] ?? $requestRow['volume'] ?? ''),
+            'astra_weight_grams' => $request['astra_weight_grams'] ?? null,
+            'package_length_cm' => $request['package_length_cm'] ?? null,
+            'package_width_cm' => $request['package_width_cm'] ?? null,
+            'package_height_cm' => $request['package_height_cm'] ?? null,
             'flavor_id' => (string) ($requestRow['flavor_id'] ?? ''),
             'product_id' => (string) ($requestRow['product_id'] ?? ''),
             'tag' => (string) ($request['tag'] ?? ''),
@@ -1484,6 +1561,65 @@ try {
         ]);
 
         jg_sku_touch_version($pdo);
+        jg_sku_response($pdo);
+    }
+
+    if ($action === 'change_shipping_profile') {
+        jg_sku_require_branch_json();
+
+        $sku = trim((string) ($request['sku'] ?? ''));
+        if ($sku === '') {
+            jg_sku_fail('SKU is required.');
+        }
+        $stmt = $pdo->prepare(
+            'SELECT sku, brand_id, unit_id, volume, astra, product_id
+             FROM sku_skus WHERE sku = :sku LIMIT 1'
+        );
+        $stmt->execute([':sku' => $sku]);
+        $skuRow = $stmt->fetch();
+        if (!is_array($skuRow)) {
+            jg_sku_fail('SKU not found.', 404);
+        }
+
+        $shipping = jg_sku_shipping_profile_input($request);
+        $familyParameters = [
+            ':brand_id' => (string) $skuRow['brand_id'],
+            ':unit_id' => (string) $skuRow['unit_id'],
+            ':astra' => (string) $skuRow['astra'],
+            ':product_id' => (string) $skuRow['product_id'],
+            ':updated_at' => jg_sku_now(),
+        ];
+
+        $pdo->beginTransaction();
+        $weightStmt = $pdo->prepare(
+            'UPDATE sku_skus
+             SET astra_weight_grams = :astra_weight_grams,
+                 updated_at = :updated_at
+             WHERE brand_id = :brand_id AND unit_id = :unit_id
+               AND astra = :astra AND product_id = :product_id'
+        );
+        $weightStmt->execute($familyParameters + [
+            ':astra_weight_grams' => $shipping['astra_weight_grams'],
+        ]);
+
+        $dimensionStmt = $pdo->prepare(
+            'UPDATE sku_skus
+             SET package_length_cm = :package_length_cm,
+                 package_width_cm = :package_width_cm,
+                 package_height_cm = :package_height_cm,
+                 updated_at = :updated_at
+             WHERE brand_id = :brand_id AND unit_id = :unit_id
+               AND volume = :volume AND astra = :astra AND product_id = :product_id'
+        );
+        $dimensionStmt->execute($familyParameters + [
+            ':volume' => (string) $skuRow['volume'],
+            ':package_length_cm' => $shipping['package_length_cm'],
+            ':package_width_cm' => $shipping['package_width_cm'],
+            ':package_height_cm' => $shipping['package_height_cm'],
+        ]);
+
+        jg_sku_touch_version($pdo);
+        $pdo->commit();
         jg_sku_response($pdo);
     }
 
