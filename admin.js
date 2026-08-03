@@ -604,6 +604,7 @@ const VIEW_CACHE_TTL_MS = {
   settings: 5 * 60 * 1000
 };
 const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+const OVERVIEW_SNAPSHOT_REFRESH_INTERVAL_MS = 60 * 1000;
 const AD_VIEW_AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000;
 const AD_VIEW_ATTRIBUTION_REFRESH_DAYS = 8;
 const AUTO_MARKETPLACE_REFRESH_MIN_MS = 5 * 60 * 1000;
@@ -9300,6 +9301,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const refreshMarketplaceData = () => runMarketplaceRefresh({ interactive: true });
 
+  const refreshOverviewSnapshot = () => {
+    if (document.hidden || state.activeView !== 'overview' || state.marketplaceRefresh.loading) {
+      return Promise.resolve(false);
+    }
+    return loadOverviewSafely({
+      force: true,
+      forceRefresh: true,
+      preferStale: false,
+      background: true,
+      skipHourly: true
+    });
+  };
+
   const runAutomaticMarketplaceRefresh = async (options = {}) => {
     if (document.hidden || state.marketplaceRefresh.loading) return false;
     const now = Date.now();
@@ -13370,6 +13384,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    connectLiveStream();
 	    if (canStartBackgroundPageWork()) preloadOrderMemory().catch(() => {});
 	    scheduleWalletBackgroundRefresh({ force: true });
+    refreshOverviewSnapshot().catch(() => {});
     if (state.activeView === 'ad-view') scheduleAdViewAutoSync({ delay: 250 });
     refreshForLocalDateRollover()
       .then((refreshed) => {
@@ -13384,6 +13399,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    refreshForLocalDateRollover().catch(() => {});
 	    if (canStartBackgroundPageWork()) preloadOrderMemory().catch(() => {});
 	    runAutomaticMarketplaceRefresh().catch(() => {});
+	    refreshOverviewSnapshot().catch(() => {});
 	    scheduleWalletBackgroundRefresh({ force: true });
     if (state.activeView === 'ad-view') scheduleAdViewAutoSync({ delay: 250 });
     if (state.activeView === 'overview') {
@@ -13408,6 +13424,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   }, AUTO_REFRESH_INTERVAL_MS);
+  window.setInterval(() => {
+    refreshOverviewSnapshot().catch(() => {});
+  }, OVERVIEW_SNAPSHOT_REFRESH_INTERVAL_MS);
   window.addEventListener('beforeunload', (event) => {
     closeLiveStream();
     if (!state.context.dirty) return;

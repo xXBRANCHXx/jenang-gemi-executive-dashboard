@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+const JG_SALES_SUMMARY_CACHE_FRESH_SECONDS = 60;
+
 /**
  * @param array<string, mixed> $month
  */

@@ -14,6 +14,17 @@ function sales_stability_expect(bool $condition, string $message): void
     }
 }
 
+sales_stability_expect(
+    JG_SALES_SUMMARY_CACHE_FRESH_SECONDS === 60,
+    'The normal sales summary cache must expire after one minute.'
+);
+$salesApiSource = file_get_contents(dirname(__DIR__) . '/api/sales/index.php');
+sales_stability_expect(
+    is_string($salesApiSource)
+        && str_contains($salesApiSource, 'jg_sales_cache_read($cacheKey, JG_SALES_SUMMARY_CACHE_FRESH_SECONDS)'),
+    'Normal sales summary requests must enforce the bounded cache lifetime.'
+);
+
 $previous = [
     'months' => [
         ['month' => 6, 'revenue' => 112000000, 'orders' => 1300, 'item_count' => 2500],

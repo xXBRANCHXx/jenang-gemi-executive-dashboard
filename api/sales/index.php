@@ -199,9 +199,11 @@ if ($includeAudit) {
 $url = jg_dashboard_marketplace_api_base_url() . '/sales/summary?' . http_build_query($urlParams);
 
 $forceRefresh = (string) ($_GET['refresh'] ?? '') === '1';
-$cachedResponse = $forceRefresh ? null : $lastKnownResponse;
+$cachedResponse = $forceRefresh
+    ? null
+    : jg_sales_cache_read($cacheKey, JG_SALES_SUMMARY_CACHE_FRESH_SECONDS);
 if (is_string($cachedResponse)) {
-    header('X-JG-Cache: STALE-FAST');
+    header('X-JG-Cache: FRESH');
     echo jg_sales_prepare_cached_response($cachedResponse, $year, $includeAudit);
     exit;
 }
