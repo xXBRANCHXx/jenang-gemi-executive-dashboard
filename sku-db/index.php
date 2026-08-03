@@ -630,8 +630,9 @@ $pageBuildVersion = 'sku1.00.01';
                 <p class="admin-form-error" data-astra-error hidden></p>
             </div>
         </div>
+    <?php endif; ?>
 
-        <div class="admin-modal-shell" data-shipping-modal hidden>
+    <div class="admin-modal-shell" data-shipping-modal hidden>
             <div class="admin-modal-backdrop" data-close-shipping-modal></div>
             <div class="admin-modal-card">
                 <div class="admin-panel-head admin-modal-head">
@@ -687,8 +688,7 @@ $pageBuildVersion = 'sku1.00.01';
                 </form>
                 <p class="admin-form-error" data-shipping-error hidden></p>
             </div>
-        </div>
-    <?php endif; ?>
+    </div>
 
     <div class="admin-modal-shell" data-inventory-modal hidden>
         <div class="admin-modal-backdrop" data-close-inventory-modal></div>

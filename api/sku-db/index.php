@@ -1565,8 +1565,6 @@ try {
     }
 
     if ($action === 'change_shipping_profile') {
-        jg_sku_require_branch_json();
-
         $sku = trim((string) ($request['sku'] ?? ''));
         if ($sku === '') {
             jg_sku_fail('SKU is required.');

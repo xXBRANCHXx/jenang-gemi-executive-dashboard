@@ -1100,9 +1100,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const shippingDimensions = row.has_package_dimensions
         ? `${Number(row.package_length_cm || 0)}×${Number(row.package_width_cm || 0)}×${Number(row.package_height_cm || 0)} cm`
         : 'Dimensions pending';
-      const shippingProfile = row.shipping_profile_complete
-        ? `<strong>${escapeHtml(row.unit_weight_grams || 0)} g</strong><small class="admin-table-note">${escapeHtml(shippingDimensions)}</small>`
-        : '<strong>Incomplete</strong><small class="admin-table-note">Add packed weight</small>';
+      const shippingButtonLabel = row.shipping_profile_complete
+        ? `Edit · ${row.unit_weight_grams || 0} g`
+        : 'Add weight + volume';
       const history = Array.isArray(row.cogs_history) ? [...row.cogs_history] : [];
       history.sort((left, right) => {
         const recordedCompare = String(left.recorded_at || '').localeCompare(String(right.recorded_at || ''));
@@ -1147,9 +1147,10 @@ document.addEventListener('DOMContentLoaded', () => {
         <td data-col="Vol">${escapeHtml(row.volume || '')}</td>
         <td data-col="ASTRA">${escapeHtml(row.astra || '')}</td>
         <td data-col="Shipping">
-          ${role === 'branch'
-            ? `<button type="button" class="admin-sku-tag-copy" data-change-shipping="${escapeHtml(row.sku || '')}" aria-label="Edit shipping profile for SKU ${escapeHtml(row.sku || '')}">${shippingProfile}</button>`
-            : shippingProfile}
+          <button type="button" class="admin-ghost-btn admin-sku-action-btn" data-change-shipping="${escapeHtml(row.sku || '')}" aria-label="Edit shipping profile for SKU ${escapeHtml(row.sku || '')}">
+            <span>${escapeHtml(shippingButtonLabel)}</span>
+          </button>
+          <small class="admin-table-note">${escapeHtml(shippingDimensions)}</small>
         </td>
         <td data-col="Skip">
           <label class="admin-sku-switch" title="Skip Scan">
@@ -1201,7 +1202,7 @@ document.addEventListener('DOMContentLoaded', () => {
               </button>
               <button type="button" class="admin-menu-item" data-change-product-name="${escapeHtml(row.sku || '')}">Product Name</button>
               ${role === 'branch' ? `<button type="button" class="admin-menu-item" data-change-astra="${escapeHtml(row.sku || '')}">ASTRA</button>` : ''}
-              ${role === 'branch' ? `<button type="button" class="admin-menu-item" data-change-shipping="${escapeHtml(row.sku || '')}">Shipping Profile</button>` : ''}
+              <button type="button" class="admin-menu-item" data-change-shipping="${escapeHtml(row.sku || '')}">Shipping Profile</button>
               <button type="button" class="admin-menu-item" data-change-inventory="${escapeHtml(row.sku || '')}">Inventory</button>
               <button type="button" class="admin-menu-item" data-change-cogs="${escapeHtml(row.sku || '')}">COGS</button>
               <button type="button" class="admin-menu-item" data-change-sale-price="${escapeHtml(row.sku || '')}">Sale Price</button>

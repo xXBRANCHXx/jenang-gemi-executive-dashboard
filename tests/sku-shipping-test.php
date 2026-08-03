@@ -70,8 +70,14 @@ sku_shipping_expect(
 sku_shipping_expect(
     true,
     str_contains($script, 'aria-label="Edit shipping profile for SKU')
-        && str_contains($script, 'data-change-shipping="${escapeHtml(row.sku || \'\')}"'),
+        && str_contains($script, "'Add weight + volume'")
+        && !str_contains($script, "role === 'branch'\n            ? `<button type=\"button\" class=\"admin-sku-tag-copy\" data-change-shipping"),
     'The Shipping table cell must open the editable shipping profile directly.'
+);
+sku_shipping_expect(
+    true,
+    !str_contains($api, "if (\$action === 'change_shipping_profile') {\n        jg_sku_require_branch_json();"),
+    'Every authenticated SKU Database user must be able to save shipping data.'
 );
 
 echo "SKU shipping tests passed\n";
