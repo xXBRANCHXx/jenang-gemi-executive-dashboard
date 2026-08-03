@@ -34595,3 +34595,16 @@ button.admin-accounting-metric {
   line-height: 1;
   white-space: nowrap;
 }
+
+.admin-app[data-sku-db] .admin-ghost-btn.admin-sku-shipping-settings-btn.is-complete {
+  border-color: #15803d;
+  background: #15803d;
+  color: #fff;
+}
+
+.admin-app[data-sku-db] .admin-ghost-btn.admin-sku-shipping-settings-btn.is-complete:hover,
+.admin-app[data-sku-db] .admin-ghost-btn.admin-sku-shipping-settings-btn.is-complete:focus-visible {
+  border-color: #166534;
+  background: #166534;
+  color: #fff;
+}

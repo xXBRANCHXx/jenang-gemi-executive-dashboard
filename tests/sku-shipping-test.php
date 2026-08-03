@@ -73,7 +73,9 @@ sku_shipping_expect(
     str_contains($script, 'aria-label="Open shipment settings for SKU')
         && str_contains($script, '<span>Settings</span>')
         && str_contains($script, 'admin-ghost-btn admin-sku-shipping-settings-btn')
+        && str_contains($script, "row.shipping_profile_complete ? ' is-complete' : ''")
         && str_contains($css, '.admin-app[data-sku-db] .admin-ghost-btn.admin-sku-shipping-settings-btn')
+        && str_contains($css, '.admin-ghost-btn.admin-sku-shipping-settings-btn.is-complete')
         && str_contains($css, 'min-height: 30px;')
         && !str_contains($script, "role === 'branch'\n            ? `<button type=\"button\" class=\"admin-sku-tag-copy\" data-change-shipping"),
     'The Shipping table cell must use a compact button to open the editable shipping profile directly.'
