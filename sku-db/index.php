@@ -639,7 +639,7 @@ $pageBuildVersion = 'sku1.00.01';
                     <div>
                         <span class="admin-panel-kicker">Shipping Profile</span>
                         <h3>Set packed weight and dimensions</h3>
-                        <p>Enter the base SKU volume and packed weight once. Related sizes inherit them automatically.</p>
+                        <p>Enter the packed weight represented by this SKU's existing ASTRA value. Shipping settings never change ASTRA.</p>
                     </div>
                 </div>
                 <form class="admin-sku-form-grid" data-shipping-form>
@@ -657,8 +657,8 @@ $pageBuildVersion = 'sku1.00.01';
                         <input type="text" name="volume_display" readonly>
                     </label>
                     <label>
-                        <span>Base volume (ASTRA)</span>
-                        <input type="number" name="astra" min="0.01" step="0.01" required>
+                        <span>ASTRA</span>
+                        <input type="text" name="astra_display" readonly>
                     </label>
                     <label class="admin-sku-full-span">
                         <span>Calculated weight for this SKU</span>
@@ -680,7 +680,7 @@ $pageBuildVersion = 'sku1.00.01';
                         <span>Height (cm, optional)</span>
                         <input type="number" name="package_height_cm" min="0.01" step="0.01">
                     </label>
-                    <p class="admin-muted-copy admin-sku-full-span">Base volume and weight apply to related SKUs with the same brand, product, and unit. The base volume must equal an existing SKU volume. Dimensions apply only to the matching package volume. If you use dimensions, enter all three.</p>
+                    <p class="admin-muted-copy admin-sku-full-span">Packed weight is shared only with related SKUs that already have the same ASTRA. For example, a 30-sachet SKU with ASTRA 15 weighs twice the configured 15-sachet packed weight. Dimensions apply only to the matching package volume. If you use dimensions, enter all three.</p>
                     <div class="admin-sku-actions">
                         <button type="submit" class="admin-primary-btn">Save Shipping Profile</button>
                         <button type="button" class="admin-ghost-btn" data-close-shipping-modal>Cancel</button>

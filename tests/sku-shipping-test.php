@@ -58,15 +58,43 @@ $css = (string) file_get_contents(dirname(__DIR__) . '/admin.css');
 $api = (string) file_get_contents(dirname(__DIR__) . '/api/sku-db/index.php');
 sku_shipping_expect(
     true,
-    str_contains($markup, '<span>Base volume (ASTRA)</span>')
-        && str_contains($markup, 'name="astra" min="0.01" step="0.01" required'),
-    'Shipping Profile must let the operator enter the ASTRA base volume.'
+    str_contains($markup, '<input type="text" name="astra_display" readonly>')
+        && str_contains($markup, 'Shipping settings never change ASTRA.')
+        && str_contains($script, 'shippingForm.elements.astra_display.value = String(row.astra')
+        && !str_contains($script, "shippingForm?.elements.astra?.addEventListener"),
+    'Shipping Profile must display the existing ASTRA value without editing it.'
+);
+$shippingActionStart = strpos($api, "if (\$action === 'change_shipping_profile') {");
+$repairActionStart = strpos($api, "if (\$action === 'repair_astra_shipping_regression_20260803') {");
+$shippingAction = $shippingActionStart !== false && $repairActionStart !== false
+    ? substr($api, $shippingActionStart, $repairActionStart - $shippingActionStart)
+    : '';
+sku_shipping_expect(
+    true,
+    $shippingAction !== ''
+        && !str_contains($shippingAction, 'SET astra = :astra')
+        && str_contains($shippingAction, 'AND astra = :astra AND product_id = :product_id'),
+    'Saving shipping data must never write ASTRA and may only share weight within an existing ASTRA group.'
 );
 sku_shipping_expect(
     true,
-    str_contains($script, "astra: formData.get('astra')")
-        && str_contains($api, 'SET astra = :astra,'),
-    'The entered base volume must be submitted and persisted across the SKU family.'
+    str_contains($api, 'repair_astra_shipping_regression_20260803')
+        && str_contains($api, 'SET astra = volume,')
+        && str_contains($api, 'SUM(remaining_qty_astra)')
+        && str_contains($api, 's.updated_at = "2026-08-03 06:59:30"'),
+    'The one-time repair must be narrowly scoped and restore stock from the unaffected FIFO lots.'
+);
+sku_shipping_expect(
+    true,
+    str_contains($script, ": '–';")
+        && !str_contains($script, 'Dimensions pending'),
+    'Missing dimensions must display as a dash.'
+);
+sku_shipping_expect(
+    true,
+    str_contains($script, '<button type="button" class="admin-menu-item" data-change-astra=')
+        && !str_contains($api, "if (\$action === 'change_astra') {\n        jg_sku_require_branch_json();"),
+    'Every authenticated SKU Database user must be able to open and save the dedicated ASTRA editor.'
 );
 sku_shipping_expect(
     true,

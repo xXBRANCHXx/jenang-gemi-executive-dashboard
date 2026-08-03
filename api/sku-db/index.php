@@ -1538,8 +1538,6 @@ try {
     }
 
     if ($action === 'change_astra') {
-        jg_sku_require_branch_json();
-
         $sku = trim((string) ($request['sku'] ?? ''));
         if ($sku === '') {
             jg_sku_fail('SKU is required.');
@@ -1579,37 +1577,11 @@ try {
             jg_sku_fail('SKU not found.', 404);
         }
 
-        $familyStmt = $pdo->prepare(
-            'SELECT sku, volume
-             FROM sku_skus
-             WHERE brand_id = :brand_id AND unit_id = :unit_id AND product_id = :product_id'
-        );
-        $familyStmt->execute([
-            ':brand_id' => (string) $skuRow['brand_id'],
-            ':unit_id' => (string) $skuRow['unit_id'],
-            ':product_id' => (string) $skuRow['product_id'],
-        ]);
-        $familyRows = array_values(array_filter($familyStmt->fetchAll(), 'is_array'));
-        if ($familyRows === []) {
-            jg_sku_fail('Related SKU family was not found.', 404);
-        }
-        $minimumVolume = min(array_map(
-            static fn (array $row): float => (float) ($row['volume'] ?? 0),
-            $familyRows
-        ));
-        $astra = jg_sku_astra_decimal($request['astra'] ?? null, number_format($minimumVolume, 1, '.', ''));
-        $hasBaseSku = count(array_filter(
-            $familyRows,
-            static fn (array $row): bool => abs((float) ($row['volume'] ?? 0) - (float) $astra) < 0.001
-        )) > 0;
-        if (!$hasBaseSku) {
-            jg_sku_fail('Base volume must match the volume of an existing SKU in this product family.');
-        }
-
         $shipping = jg_sku_shipping_profile_input($request);
         $familyParameters = [
             ':brand_id' => (string) $skuRow['brand_id'],
             ':unit_id' => (string) $skuRow['unit_id'],
+            ':astra' => (string) $skuRow['astra'],
             ':product_id' => (string) $skuRow['product_id'],
             ':updated_at' => jg_sku_now(),
         ];
@@ -1617,14 +1589,12 @@ try {
         $pdo->beginTransaction();
         $weightStmt = $pdo->prepare(
             'UPDATE sku_skus
-             SET astra = :astra,
-                 astra_weight_grams = :astra_weight_grams,
+             SET astra_weight_grams = :astra_weight_grams,
                  updated_at = :updated_at
              WHERE brand_id = :brand_id AND unit_id = :unit_id
-               AND product_id = :product_id'
+               AND astra = :astra AND product_id = :product_id'
         );
         $weightStmt->execute($familyParameters + [
-            ':astra' => $astra,
             ':astra_weight_grams' => $shipping['astra_weight_grams'],
         ]);
 
@@ -1635,7 +1605,7 @@ try {
                  package_height_cm = :package_height_cm,
                  updated_at = :updated_at
              WHERE brand_id = :brand_id AND unit_id = :unit_id
-               AND volume = :volume AND product_id = :product_id'
+               AND volume = :volume AND astra = :astra AND product_id = :product_id'
         );
         $dimensionStmt->execute($familyParameters + [
             ':volume' => (string) $skuRow['volume'],
@@ -1647,6 +1617,77 @@ try {
         jg_sku_touch_version($pdo);
         $pdo->commit();
         jg_sku_response($pdo);
+    }
+
+    if ($action === 'repair_astra_shipping_regression_20260803') {
+        jg_sku_inventory_ensure_lot_schema($pdo);
+
+        $targetStmt = $pdo->query(
+            'SELECT s.sku, s.volume, s.astra, s.current_stock, s.cogs, s.astra_weight_grams
+             FROM sku_skus s
+             INNER JOIN sku_brands b ON b.id = s.brand_id
+             INNER JOIN sku_units u ON u.id = s.unit_id
+             INNER JOIN sku_products p ON p.id = s.product_id
+             WHERE UPPER(TRIM(b.name)) = "ZERO"
+               AND LOWER(TRIM(u.name)) = "ml"
+               AND UPPER(TRIM(p.name)) = "DROPS"
+               AND s.astra = 5.00
+               AND s.volume <> s.astra
+               AND s.astra_weight_grams = 10
+               AND s.updated_at = "2026-08-03 06:59:30"
+             ORDER BY s.sku'
+        );
+        $targets = array_values(array_filter($targetStmt->fetchAll(), 'is_array'));
+        $lotStmt = $pdo->prepare(
+            'SELECT COUNT(*) AS lot_count, COALESCE(SUM(remaining_qty_astra), 0) AS remaining_stock
+             FROM sku_stock_lots WHERE sku = :sku'
+        );
+        $repairStmt = $pdo->prepare(
+            'UPDATE sku_skus
+             SET astra = volume,
+                 astra_weight_grams = 0,
+                 current_stock = :current_stock,
+                 updated_at = :updated_at
+             WHERE sku = :sku AND astra = 5.00 AND volume <> astra'
+        );
+        $repaired = [];
+        $pdo->beginTransaction();
+        foreach ($targets as $target) {
+            $sku = (string) ($target['sku'] ?? '');
+            $lotStmt->execute([':sku' => $sku]);
+            $lots = $lotStmt->fetch();
+            $lotCount = (int) ($lots['lot_count'] ?? 0);
+            $restoredStock = $lotCount > 0
+                ? max(0, (int) floor((float) ($lots['remaining_stock'] ?? 0)))
+                : (int) ($target['current_stock'] ?? 0);
+            $repairStmt->execute([
+                ':current_stock' => $restoredStock,
+                ':updated_at' => jg_sku_now(),
+                ':sku' => $sku,
+            ]);
+            $repaired[] = [
+                'sku' => $sku,
+                'astra_before' => number_format((float) ($target['astra'] ?? 0), 2, '.', ''),
+                'astra_after' => number_format((float) ($target['volume'] ?? 0), 2, '.', ''),
+                'stock_before' => (int) ($target['current_stock'] ?? 0),
+                'stock_after' => $restoredStock,
+                'stock_restored_from_lots' => $lotCount > 0,
+                'cogs_before' => number_format((float) ($target['cogs'] ?? 0), 2, '.', ''),
+            ];
+        }
+        if ($repaired !== []) {
+            jg_sku_sync_current_cogs($pdo);
+            $cogsStmt = $pdo->prepare('SELECT cogs FROM sku_skus WHERE sku = :sku');
+            foreach ($repaired as &$repair) {
+                $cogsStmt->execute([':sku' => $repair['sku']]);
+                $repair['cogs_after'] = number_format((float) ($cogsStmt->fetchColumn() ?: 0), 2, '.', '');
+            }
+            unset($repair);
+            jg_sku_touch_version($pdo);
+        }
+        $pdo->commit();
+        echo json_encode(['ok' => true, 'repaired' => $repaired], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        exit;
     }
 
     if ($action === 'change_skip_scan') {

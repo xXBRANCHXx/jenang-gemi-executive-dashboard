@@ -1099,7 +1099,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const skipScan = !!row.skip_scan;
       const shippingDimensions = row.has_package_dimensions
         ? `${Number(row.package_length_cm || 0)}×${Number(row.package_width_cm || 0)}×${Number(row.package_height_cm || 0)} cm`
-        : 'Dimensions pending';
+        : '–';
       const shippingSummary = row.shipping_profile_complete
         ? `${row.unit_weight_grams || 0} g · ${shippingDimensions}`
         : 'Not configured';
@@ -1201,7 +1201,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 21h14a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2"/></svg>
               </button>
               <button type="button" class="admin-menu-item" data-change-product-name="${escapeHtml(row.sku || '')}">Product Name</button>
-              ${role === 'branch' ? `<button type="button" class="admin-menu-item" data-change-astra="${escapeHtml(row.sku || '')}">ASTRA</button>` : ''}
+              <button type="button" class="admin-menu-item" data-change-astra="${escapeHtml(row.sku || '')}">ASTRA</button>
               <button type="button" class="admin-menu-item" data-change-shipping="${escapeHtml(row.sku || '')}">Shipping Profile</button>
               <button type="button" class="admin-menu-item" data-change-inventory="${escapeHtml(row.sku || '')}">Inventory</button>
               <button type="button" class="admin-menu-item" data-change-cogs="${escapeHtml(row.sku || '')}">COGS</button>
@@ -1554,7 +1554,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ));
     shippingForm.elements.base_sku_display.value = baseRow?.sku || 'Base SKU not created';
     shippingForm.elements.volume_display.value = String(row.volume || '');
-    shippingForm.elements.astra.value = String(row.astra || '');
+    shippingForm.elements.astra_display.value = String(row.astra || '');
     shippingForm.elements.unit_weight_display.value = row.unit_weight_grams > 0
       ? `${row.unit_weight_grams} g (${row.volume} ÷ ${row.astra} ASTRA)`
       : 'Incomplete';
@@ -1569,7 +1569,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const syncShippingWeightPreview = () => {
     if (!(shippingForm instanceof HTMLFormElement)) return;
     const volume = Number(shippingForm.elements.volume_display?.value || 0);
-    const astra = Number(shippingForm.elements.astra?.value || 0);
+    const astra = Number(shippingForm.elements.astra_display?.value || 0);
     const baseWeight = Number(shippingForm.elements.astra_weight_grams?.value || 0);
     if (volume <= 0 || astra <= 0 || baseWeight <= 0) {
       shippingForm.elements.unit_weight_display.value = 'Incomplete';
@@ -2177,7 +2177,6 @@ document.addEventListener('DOMContentLoaded', () => {
       await postAction({
         action: 'change_shipping_profile',
         sku: formData.get('sku'),
-        astra: formData.get('astra'),
         astra_weight_grams: formData.get('astra_weight_grams'),
         package_length_cm: formData.get('package_length_cm'),
         package_width_cm: formData.get('package_width_cm'),
@@ -2188,7 +2187,6 @@ document.addEventListener('DOMContentLoaded', () => {
       setError(shippingError, error instanceof Error ? error.message : 'Unable to change shipping profile.');
     }
   });
-  shippingForm?.elements.astra?.addEventListener('input', syncShippingWeightPreview);
   shippingForm?.elements.astra_weight_grams?.addEventListener('input', syncShippingWeightPreview);
 
   inventoryForm?.addEventListener('submit', async (event) => {
