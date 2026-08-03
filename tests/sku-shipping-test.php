@@ -69,8 +69,8 @@ sku_shipping_expect(
 );
 sku_shipping_expect(
     true,
-    str_contains($script, 'aria-label="Edit shipping profile for SKU')
-        && str_contains($script, "'Add weight + volume'")
+    str_contains($script, 'aria-label="Open shipment settings for SKU')
+        && str_contains($script, '<span>Settings</span>')
         && !str_contains($script, "role === 'branch'\n            ? `<button type=\"button\" class=\"admin-sku-tag-copy\" data-change-shipping"),
     'The Shipping table cell must open the editable shipping profile directly.'
 );
