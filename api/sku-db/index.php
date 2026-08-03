@@ -1690,6 +1690,60 @@ try {
         exit;
     }
 
+    if ($action === 'audit_astra_shipping_regression_20260803') {
+        $targetStmt = $pdo->query(
+            'SELECT s.sku, s.volume, s.current_stock
+             FROM sku_skus s
+             INNER JOIN sku_brands b ON b.id = s.brand_id
+             INNER JOIN sku_units u ON u.id = s.unit_id
+             INNER JOIN sku_products p ON p.id = s.product_id
+             WHERE UPPER(TRIM(b.name)) = "ZERO"
+               AND LOWER(TRIM(u.name)) = "ml"
+               AND UPPER(TRIM(p.name)) = "DROPS"
+               AND s.volume > 5.00
+               AND s.astra = s.volume
+             ORDER BY s.sku'
+        );
+        $lotStmt = $pdo->prepare(
+            'SELECT COUNT(*) AS row_count,
+                    COALESCE(SUM(remaining_qty_astra), 0) AS quantity,
+                    MIN(created_at) AS first_at,
+                    MAX(updated_at) AS last_at
+             FROM sku_stock_lots WHERE sku = :sku'
+        );
+        $walkInStmt = $pdo->prepare(
+            'SELECT COUNT(*) AS row_count,
+                    COALESCE(SUM(quantity), 0) AS quantity,
+                    MIN(created_at) AS first_at,
+                    MAX(created_at) AS last_at
+             FROM store_ops_walkin_invoice_items WHERE sku = :sku'
+        );
+        $importStmt = $pdo->prepare(
+            'SELECT COUNT(*) AS row_count,
+                    COALESCE(SUM(quantity), 0) AS quantity,
+                    MIN(created_at) AS first_at,
+                    MAX(created_at) AS last_at
+             FROM Transaction_Table WHERE sku = :sku'
+        );
+        $audit = [];
+        foreach (array_values(array_filter($targetStmt->fetchAll(), 'is_array')) as $target) {
+            $sku = (string) ($target['sku'] ?? '');
+            $lotStmt->execute([':sku' => $sku]);
+            $walkInStmt->execute([':sku' => $sku]);
+            $importStmt->execute([':sku' => $sku]);
+            $audit[] = [
+                'sku' => $sku,
+                'volume' => number_format((float) ($target['volume'] ?? 0), 2, '.', ''),
+                'current_stock' => (int) ($target['current_stock'] ?? 0),
+                'lots' => $lotStmt->fetch(),
+                'walk_ins' => $walkInStmt->fetch(),
+                'imports' => $importStmt->fetch(),
+            ];
+        }
+        echo json_encode(['ok' => true, 'audit' => $audit], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        exit;
+    }
+
     if ($action === 'change_skip_scan') {
         jg_sku_require_branch_json();
 
