@@ -54,6 +54,7 @@ sku_shipping_expect(true, $partial['dimensions_incomplete'], 'Partial package di
 
 $markup = (string) file_get_contents(dirname(__DIR__) . '/sku-db/index.php');
 $script = (string) file_get_contents(dirname(__DIR__) . '/sku-db.js');
+$css = (string) file_get_contents(dirname(__DIR__) . '/admin.css');
 $api = (string) file_get_contents(dirname(__DIR__) . '/api/sku-db/index.php');
 sku_shipping_expect(
     true,
@@ -71,8 +72,11 @@ sku_shipping_expect(
     true,
     str_contains($script, 'aria-label="Open shipment settings for SKU')
         && str_contains($script, '<span>Settings</span>')
+        && str_contains($script, 'admin-ghost-btn admin-sku-shipping-settings-btn')
+        && str_contains($css, '.admin-app[data-sku-db] .admin-ghost-btn.admin-sku-shipping-settings-btn')
+        && str_contains($css, 'min-height: 30px;')
         && !str_contains($script, "role === 'branch'\n            ? `<button type=\"button\" class=\"admin-sku-tag-copy\" data-change-shipping"),
-    'The Shipping table cell must open the editable shipping profile directly.'
+    'The Shipping table cell must use a compact button to open the editable shipping profile directly.'
 );
 sku_shipping_expect(
     true,

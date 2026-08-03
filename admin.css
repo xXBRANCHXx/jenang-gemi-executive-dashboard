@@ -34586,3 +34586,12 @@ button.admin-accounting-metric {
     flex: 1 1 auto;
   }
 }
+
+.admin-app[data-sku-db] .admin-ghost-btn.admin-sku-shipping-settings-btn {
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: .72rem;
+  line-height: 1;
+  white-space: nowrap;
+}

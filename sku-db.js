@@ -1147,7 +1147,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <td data-col="Vol">${escapeHtml(row.volume || '')}</td>
         <td data-col="ASTRA">${escapeHtml(row.astra || '')}</td>
         <td data-col="Shipping">
-          <button type="button" class="admin-ghost-btn admin-sku-action-btn" data-change-shipping="${escapeHtml(row.sku || '')}" aria-label="Open shipment settings for SKU ${escapeHtml(row.sku || '')}">
+          <button type="button" class="admin-ghost-btn admin-sku-shipping-settings-btn" data-change-shipping="${escapeHtml(row.sku || '')}" aria-label="Open shipment settings for SKU ${escapeHtml(row.sku || '')}">
             <span>Settings</span>
           </button>
           <small class="admin-table-note">${escapeHtml(shippingSummary)}</small>
