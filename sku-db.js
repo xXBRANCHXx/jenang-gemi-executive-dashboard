@@ -1146,7 +1146,11 @@ document.addEventListener('DOMContentLoaded', () => {
         <td data-col="Unit">${escapeHtml(row.unit_name || '')}</td>
         <td data-col="Vol">${escapeHtml(row.volume || '')}</td>
         <td data-col="ASTRA">${escapeHtml(row.astra || '')}</td>
-        <td data-col="Shipping">${shippingProfile}</td>
+        <td data-col="Shipping">
+          ${role === 'branch'
+            ? `<button type="button" class="admin-sku-tag-copy" data-change-shipping="${escapeHtml(row.sku || '')}" aria-label="Edit shipping profile for SKU ${escapeHtml(row.sku || '')}">${shippingProfile}</button>`
+            : shippingProfile}
+        </td>
         <td data-col="Skip">
           <label class="admin-sku-switch" title="Skip Scan">
             <input

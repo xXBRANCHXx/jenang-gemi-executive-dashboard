@@ -67,5 +67,11 @@ sku_shipping_expect(
         && str_contains($api, 'SET astra = :astra,'),
     'The entered base volume must be submitted and persisted across the SKU family.'
 );
+sku_shipping_expect(
+    true,
+    str_contains($script, 'aria-label="Edit shipping profile for SKU')
+        && str_contains($script, 'data-change-shipping="${escapeHtml(row.sku || \'\')}"'),
+    'The Shipping table cell must open the editable shipping profile directly.'
+);
 
 echo "SKU shipping tests passed\n";
