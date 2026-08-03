@@ -65,9 +65,9 @@ sku_shipping_expect(
     'Shipping Profile must display the existing ASTRA value without editing it.'
 );
 $shippingActionStart = strpos($api, "if (\$action === 'change_shipping_profile') {");
-$repairActionStart = strpos($api, "if (\$action === 'repair_astra_shipping_regression_20260803') {");
-$shippingAction = $shippingActionStart !== false && $repairActionStart !== false
-    ? substr($api, $shippingActionStart, $repairActionStart - $shippingActionStart)
+$nextActionStart = strpos($api, "if (\$action === 'change_skip_scan') {");
+$shippingAction = $shippingActionStart !== false && $nextActionStart !== false
+    ? substr($api, $shippingActionStart, $nextActionStart - $shippingActionStart)
     : '';
 sku_shipping_expect(
     true,
@@ -78,11 +78,9 @@ sku_shipping_expect(
 );
 sku_shipping_expect(
     true,
-    str_contains($api, 'repair_astra_shipping_regression_20260803')
-        && str_contains($api, 'SET astra = volume,')
-        && str_contains($api, 'SUM(remaining_qty_astra)')
-        && str_contains($api, 's.updated_at = "2026-08-03 06:59:30"'),
-    'The one-time repair must be narrowly scoped and restore stock from the unaffected FIFO lots.'
+    !str_contains($api, 'repair_astra_shipping_regression_20260803')
+        && !str_contains($api, 'audit_astra_shipping_regression_20260803'),
+    'Temporary production repair actions must be removed after the data repair runs.'
 );
 sku_shipping_expect(
     true,
