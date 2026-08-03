@@ -52,4 +52,20 @@ $partial = jg_sku_shipping_profile([
 ]);
 sku_shipping_expect(true, $partial['dimensions_incomplete'], 'Partial package dimensions must be rejected by checkout readiness.');
 
+$markup = (string) file_get_contents(dirname(__DIR__) . '/sku-db/index.php');
+$script = (string) file_get_contents(dirname(__DIR__) . '/sku-db.js');
+$api = (string) file_get_contents(dirname(__DIR__) . '/api/sku-db/index.php');
+sku_shipping_expect(
+    true,
+    str_contains($markup, '<span>Base volume (ASTRA)</span>')
+        && str_contains($markup, 'name="astra" min="0.01" step="0.01" required'),
+    'Shipping Profile must let the operator enter the ASTRA base volume.'
+);
+sku_shipping_expect(
+    true,
+    str_contains($script, "astra: formData.get('astra')")
+        && str_contains($api, 'SET astra = :astra,'),
+    'The entered base volume must be submitted and persisted across the SKU family.'
+);
+
 echo "SKU shipping tests passed\n";

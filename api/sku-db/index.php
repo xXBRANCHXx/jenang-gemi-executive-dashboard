@@ -1581,11 +1581,37 @@ try {
             jg_sku_fail('SKU not found.', 404);
         }
 
+        $familyStmt = $pdo->prepare(
+            'SELECT sku, volume
+             FROM sku_skus
+             WHERE brand_id = :brand_id AND unit_id = :unit_id AND product_id = :product_id'
+        );
+        $familyStmt->execute([
+            ':brand_id' => (string) $skuRow['brand_id'],
+            ':unit_id' => (string) $skuRow['unit_id'],
+            ':product_id' => (string) $skuRow['product_id'],
+        ]);
+        $familyRows = array_values(array_filter($familyStmt->fetchAll(), 'is_array'));
+        if ($familyRows === []) {
+            jg_sku_fail('Related SKU family was not found.', 404);
+        }
+        $minimumVolume = min(array_map(
+            static fn (array $row): float => (float) ($row['volume'] ?? 0),
+            $familyRows
+        ));
+        $astra = jg_sku_astra_decimal($request['astra'] ?? null, number_format($minimumVolume, 1, '.', ''));
+        $hasBaseSku = count(array_filter(
+            $familyRows,
+            static fn (array $row): bool => abs((float) ($row['volume'] ?? 0) - (float) $astra) < 0.001
+        )) > 0;
+        if (!$hasBaseSku) {
+            jg_sku_fail('Base volume must match the volume of an existing SKU in this product family.');
+        }
+
         $shipping = jg_sku_shipping_profile_input($request);
         $familyParameters = [
             ':brand_id' => (string) $skuRow['brand_id'],
             ':unit_id' => (string) $skuRow['unit_id'],
-            ':astra' => (string) $skuRow['astra'],
             ':product_id' => (string) $skuRow['product_id'],
             ':updated_at' => jg_sku_now(),
         ];
@@ -1593,12 +1619,14 @@ try {
         $pdo->beginTransaction();
         $weightStmt = $pdo->prepare(
             'UPDATE sku_skus
-             SET astra_weight_grams = :astra_weight_grams,
+             SET astra = :astra,
+                 astra_weight_grams = :astra_weight_grams,
                  updated_at = :updated_at
              WHERE brand_id = :brand_id AND unit_id = :unit_id
-               AND astra = :astra AND product_id = :product_id'
+               AND product_id = :product_id'
         );
         $weightStmt->execute($familyParameters + [
+            ':astra' => $astra,
             ':astra_weight_grams' => $shipping['astra_weight_grams'],
         ]);
 
@@ -1609,7 +1637,7 @@ try {
                  package_height_cm = :package_height_cm,
                  updated_at = :updated_at
              WHERE brand_id = :brand_id AND unit_id = :unit_id
-               AND volume = :volume AND astra = :astra AND product_id = :product_id'
+               AND volume = :volume AND product_id = :product_id'
         );
         $dimensionStmt->execute($familyParameters + [
             ':volume' => (string) $skuRow['volume'],

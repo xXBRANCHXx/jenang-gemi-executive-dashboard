@@ -1549,7 +1549,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ));
     shippingForm.elements.base_sku_display.value = baseRow?.sku || 'Base SKU not created';
     shippingForm.elements.volume_display.value = String(row.volume || '');
-    shippingForm.elements.astra_display.value = String(row.astra || '');
+    shippingForm.elements.astra.value = String(row.astra || '');
     shippingForm.elements.unit_weight_display.value = row.unit_weight_grams > 0
       ? `${row.unit_weight_grams} g (${row.volume} ÷ ${row.astra} ASTRA)`
       : 'Incomplete';
@@ -1564,7 +1564,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const syncShippingWeightPreview = () => {
     if (!(shippingForm instanceof HTMLFormElement)) return;
     const volume = Number(shippingForm.elements.volume_display?.value || 0);
-    const astra = Number(shippingForm.elements.astra_display?.value || 0);
+    const astra = Number(shippingForm.elements.astra?.value || 0);
     const baseWeight = Number(shippingForm.elements.astra_weight_grams?.value || 0);
     if (volume <= 0 || astra <= 0 || baseWeight <= 0) {
       shippingForm.elements.unit_weight_display.value = 'Incomplete';
@@ -2172,6 +2172,7 @@ document.addEventListener('DOMContentLoaded', () => {
       await postAction({
         action: 'change_shipping_profile',
         sku: formData.get('sku'),
+        astra: formData.get('astra'),
         astra_weight_grams: formData.get('astra_weight_grams'),
         package_length_cm: formData.get('package_length_cm'),
         package_width_cm: formData.get('package_width_cm'),
@@ -2182,6 +2183,7 @@ document.addEventListener('DOMContentLoaded', () => {
       setError(shippingError, error instanceof Error ? error.message : 'Unable to change shipping profile.');
     }
   });
+  shippingForm?.elements.astra?.addEventListener('input', syncShippingWeightPreview);
   shippingForm?.elements.astra_weight_grams?.addEventListener('input', syncShippingWeightPreview);
 
   inventoryForm?.addEventListener('submit', async (event) => {
