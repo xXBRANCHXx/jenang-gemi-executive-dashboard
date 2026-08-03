@@ -239,11 +239,22 @@ function jg_executive_context_apply_summary(array $summary, array $context): arr
             $month['net_revenue'] = $revenue;
             $month['sales'] = $revenue;
         }
-        if (array_key_exists('gross_profit', $values)) {
-            $month['gross_profit'] = ($isAdditive
-                ? max(0, (int) ($month['gross_profit'] ?? 0) - (int) ($overlap['gross_profit'] ?? 0))
-                : 0)
-                + (int) $values['gross_profit'];
+        if (array_key_exists('revenue', $values) && array_key_exists('gross_profit', $values)) {
+            $contextCogs = max(0, (int) $values['revenue'] - (int) $values['gross_profit']);
+            $overlapCogs = max(
+                0,
+                (int) ($overlap['revenue'] ?? 0) - (int) ($overlap['gross_profit'] ?? 0)
+            );
+            $baseCogs = $isAdditive
+                ? max(0, (int) ($month['cogs'] ?? 0) - $overlapCogs)
+                : 0;
+            $month['cogs'] = $baseCogs + $contextCogs;
+            $month['gross_profit'] = (int) ($month['revenue'] ?? 0) - (int) $month['cogs'];
+            $month['cogs_source'] = $isAdditive
+                ? 'live_plus_context_derived'
+                : 'context_derived_from_revenue_and_gross_profit';
+        } elseif (array_key_exists('gross_profit', $values)) {
+            $month['gross_profit'] = (int) $values['gross_profit'];
         }
         if (array_key_exists('orders_qty', $values)) {
             $month['orders'] = ($isAdditive
@@ -268,6 +279,7 @@ function jg_executive_context_apply_summary(array $summary, array $context): arr
         'revenue' => 'revenue',
         'net_revenue' => 'revenue',
         'sales' => 'revenue',
+        'cogs' => 'cogs',
         'gross_profit' => 'gross_profit',
         'orders' => 'orders',
         'item_count' => 'item_count',

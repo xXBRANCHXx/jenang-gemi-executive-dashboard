@@ -16,5 +16,10 @@ assert(
   /window\.setInterval\(\(\) => \{\s*refreshOverviewSnapshot\(\)[\s\S]*?OVERVIEW_SNAPSHOT_REFRESH_INTERVAL_MS/.test(source),
   'The visible Overview must repaint from the authoritative summary every minute.'
 );
+assert(
+  source.includes('const gp = cogs !== null ? rev - cogs : directGp;')
+    && /const grossProfitFromSummaryRow[\s\S]*?revenue - cogs/.test(source),
+  'Gross Profit must be derived from Net Revenue minus COGS in every Overview presentation.'
+);
 
 console.log('sales-freshness-ui-test: ok');

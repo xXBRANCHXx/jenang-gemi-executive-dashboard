@@ -6150,7 +6150,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const rev = optionalNumberFrom(row, ['revenue', 'net_revenue', 'sales', 'total_revenue', 'grossRevenue', 'gross_revenue']) ?? 0;
     const cogs = optionalNumberFrom(row, ['cogs', 'total_cogs', 'cost_of_goods_sold']);
     const directGp = optionalNumberFrom(row, ['gross_profit', 'grossProfit', 'gp', 'profit']);
-    const gp = directGp !== null ? directGp : (cogs !== null ? rev - cogs : null);
+    const gp = cogs !== null ? rev - cogs : directGp;
 
     return {
       pcs,
@@ -6161,6 +6161,14 @@ document.addEventListener('DOMContentLoaded', () => {
       avgGp: gp !== null ? (pcs > 0 ? gp / pcs : 0) : null,
       gpPct: gp !== null && rev > 0 ? gp / rev : null
     };
+  };
+
+  const grossProfitFromSummaryRow = (row = {}) => {
+    const revenue = optionalNumberFrom(row, ['revenue', 'net_revenue', 'sales']) ?? 0;
+    const cogs = optionalNumberFrom(row, ['cogs']);
+    return cogs !== null
+      ? revenue - cogs
+      : (optionalNumberFrom(row, ['gross_profit', 'grossProfit', 'gp', 'profit']) ?? 0);
   };
 
   const salesRecapTotals = (values) => {
@@ -6399,6 +6407,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const buburFlavorRows = Array.isArray(products.bubur_flavors) ? products.bubur_flavors : [];
     const years = Array.isArray(data.years) ? data.years : [state.overview.year];
     const bestMonth = totals.best_month || {};
+    const totalRevenue = Number(totals.revenue || totals.net_revenue || totals.sales || 0);
+    const totalGrossProfit = grossProfitFromSummaryRow(totals);
     const monthlyRows = months.map((month, index) => ({
       key: `${state.overview.year}-${String(index + 1).padStart(2, '0')}`,
       label: month.label || '-',
@@ -6407,7 +6417,7 @@ document.addEventListener('DOMContentLoaded', () => {
       revenue: Number(month.revenue || month.net_revenue || month.sales || 0),
       marketplace_fees: Number(month.marketplace_fees || 0),
       cogs: Number(month.cogs || 0),
-      gross_profit: Number(month.gross_profit || 0),
+      gross_profit: grossProfitFromSummaryRow(month),
       orders: Number(month.orders || 0),
       item_count: Number(month.item_count || 0),
       average_order_value: Number(month.orders || 0) > 0 ? Number(month.revenue || month.net_revenue || month.sales || 0) / Number(month.orders || 0) : 0,
@@ -6417,7 +6427,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ...month,
         revenue: Number(month.revenue || month.net_revenue || month.sales || 0),
         cogs: Number(month.cogs || 0),
-        gross_profit: Number(month.gross_profit || 0),
+        gross_profit: grossProfitFromSummaryRow(month),
         average_order_value: Number(month.orders || 0) > 0 ? Number(month.revenue || month.net_revenue || month.sales || 0) / Number(month.orders || 0) : 0
       }, state.overview.metric)
     }));
@@ -6447,9 +6457,9 @@ document.addEventListener('DOMContentLoaded', () => {
       ? `${customRange.startDate} to ${customRange.endDate}`
       : `${state.overview.year}`;
 
-    if (overviewRefs.summarySales) overviewRefs.summarySales.textContent = formatCellCurrency(totals.revenue || totals.net_revenue || totals.sales || 0);
+    if (overviewRefs.summarySales) overviewRefs.summarySales.textContent = formatCellCurrency(totalRevenue);
     if (overviewRefs.summaryOrders) overviewRefs.summaryOrders.textContent = formatCellCurrency(totals.marketplace_fees || 0);
-    if (overviewRefs.summaryAov) overviewRefs.summaryAov.textContent = formatCellCurrency(totals.gross_profit || 0);
+    if (overviewRefs.summaryAov) overviewRefs.summaryAov.textContent = formatCellCurrency(totalGrossProfit);
     if (overviewRefs.summaryBestMonth) overviewRefs.summaryBestMonth.textContent = formatCompactNumber(totals.orders || 0);
     if (overviewRefs.summaryBestMonthMeta) {
       overviewRefs.summaryBestMonthMeta.textContent = `${formatCompactNumber(totals.item_count || 0)} items`;
@@ -6464,7 +6474,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (overviewRefs.trendMeta) {
       overviewRefs.trendMeta.textContent = customTrend
         ? `${trendLabel} • ${formatCompactNumber(trendRows.reduce((sum, row) => sum + Number(row.orders || 0), 0))} orders`
-        : `${state.overview.year} • Revenue ${formatCellCurrency(totals.revenue || totals.net_revenue || totals.sales || 0)} • Gross profit ${formatCellCurrency(totals.gross_profit || 0)}`;
+        : `${state.overview.year} • Revenue ${formatCellCurrency(totalRevenue)} • Gross profit ${formatCellCurrency(totalGrossProfit)}`;
     }
     if (overviewRefs.rangeToggle) {
       overviewRefs.rangeToggle.classList.toggle('is-active', Boolean(customTrend));

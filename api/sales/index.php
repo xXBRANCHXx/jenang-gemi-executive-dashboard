@@ -309,6 +309,7 @@ function jg_sales_prepare_cached_response(string $baseResponse, int $year, bool 
     } catch (Throwable $whatsappSalesError) {
         error_log('Unable to merge WhatsApp sales: ' . $whatsappSalesError->getMessage());
     }
+    $decoded = jg_sales_summary_enforce_profit_formula($decoded);
     if ($includeAudit) {
         jg_sales_attach_calculation_audit($decoded, $year);
     }
@@ -406,6 +407,7 @@ function jg_sales_context_only_summary(int $year): ?array
     } catch (Throwable $whatsappSalesError) {
         error_log('Unable to merge WhatsApp sales into context summary: ' . $whatsappSalesError->getMessage());
     }
+    $summary = jg_sales_summary_enforce_profit_formula($summary);
     if ($context === [] && (int) ($summary['totals']['orders'] ?? 0) === 0) {
         return null;
     }
@@ -599,7 +601,7 @@ function jg_sales_sku_lookup(): array
         }
     } catch (Throwable $error) {
         error_log('Unable to load SKU DB for sales enrichment: ' . $error->getMessage());
-        return [];
+        return jg_sales_sku_lookup_cache_read();
     }
 
     $lookup = [];
@@ -648,7 +650,11 @@ function jg_sales_sku_lookup(): array
         }
     }
 
-    return $lookup;
+    if ($lookup !== []) {
+        jg_sales_sku_lookup_cache_write($lookup);
+        return $lookup;
+    }
+    return jg_sales_sku_lookup_cache_read();
 }
 
 /** @param array<string, mixed> $skuRecord */
@@ -1408,8 +1414,8 @@ function jg_sales_attach_calculation_audit(array &$summary, int $year): void
                 'dashboard_json_paths' => ['months[].marketplace_fees', 'totals.marketplace_fees'],
             ],
             'cogs' => [
-                'definition' => 'Cost of goods sold from the current static average in SKU DB.',
-                'formula' => 'SUM(sku_skus.cogs * products.by_month[].cogs_quantity); free-gift physical quantity affects COGS while sales quantity and item revenue remain zero.',
+                'definition' => 'Cost of goods sold from effective SKU DB costs plus historical Executive Context costs.',
+                'formula' => 'Live COGS is SUM(effective sku_skus.cogs * products.by_month[].cogs_quantity); historical context COGS is context revenue - context gross profit. Free-gift physical quantity affects COGS while sales quantity and item revenue remain zero.',
                 'dashboard_json_paths' => ['months[].cogs', 'products.by_month[].cogs', 'products.by_product[].cogs'],
             ],
             'gross_profit' => [
@@ -1452,7 +1458,7 @@ function jg_sales_attach_calculation_audit(array &$summary, int $year): void
             ],
             'cogs' => [
                 'value' => $cogs,
-                'formula' => 'SUM(products.by_month[].cogs) from effective quarterly SKU DB COGS',
+                'formula' => 'SUM(months[].cogs), including effective quarterly SKU DB COGS and context-derived historical COGS',
                 'components' => [
                     ['path' => 'totals.cogs', 'value' => $cogs],
                 ],
