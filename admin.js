@@ -78,17 +78,6 @@ const DAILY_METRIC_UNITS = {
   orders: 'orders'
 };
 
-const DAILY_PLATFORM_LABELS = {
-  shopee: 'Shopee',
-  tiktok: 'TikTok',
-  whatsapp: 'WhatsApp',
-  baggos: 'Baggos',
-  jenang_gemi_website: 'Jenang Gemi Website',
-  zero_website: 'ZERO Website',
-  partner: 'Partner',
-  'walk-in': 'Walk-in'
-};
-
 const OVERVIEW_PLATFORM_COLORS = {
   shopee: '#ff8f1f',
   tiktok: '#22d3ee',
@@ -2939,6 +2928,8 @@ document.addEventListener('DOMContentLoaded', () => {
     sheetFoot: document.querySelector('[data-daily-sheet-foot]'),
     platformForm: document.querySelector('[data-daily-platform-form]'),
     platformName: document.querySelector('[data-daily-platform-name]'),
+    platformOptions: document.querySelector('[data-daily-platform-options]'),
+    platformAdd: document.querySelector('[data-daily-platform-add]'),
     platformList: document.querySelector('[data-daily-platform-list]'),
     platformFeedback: document.querySelector('[data-daily-platform-feedback]'),
     removeDialog: document.querySelector('[data-daily-column-remove-dialog]'),
@@ -2947,7 +2938,13 @@ document.addEventListener('DOMContentLoaded', () => {
     removePin: document.querySelector('[data-daily-column-remove-pin]'),
     removeError: document.querySelector('[data-daily-column-remove-error]'),
     removeCancel: document.querySelector('[data-daily-column-remove-cancel]'),
-    removeSubmit: document.querySelector('[data-daily-column-remove-submit]')
+    removeSubmit: document.querySelector('[data-daily-column-remove-submit]'),
+    editDialog: document.querySelector('[data-daily-column-edit-dialog]'),
+    editForm: document.querySelector('[data-daily-column-edit-form]'),
+    editPlatform: document.querySelector('[data-daily-column-edit-platform]'),
+    editName: document.querySelector('[data-daily-column-edit-name]'),
+    editError: document.querySelector('[data-daily-column-edit-error]'),
+    editCancel: document.querySelector('[data-daily-column-edit-cancel]')
   };
   const contextRefs = {
     groupButtons: document.querySelectorAll('[data-context-group]'),
@@ -6744,10 +6741,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const platformLabel = (value) => {
-    const key = normalizePlatformKey(value || 'unknown');
-    return DAILY_PLATFORM_LABELS[key] || toTitleCase(String(value || 'unknown').replace(/[-_]/g, ' '));
-  };
+  const platformLabel = (value) => toTitleCase(String(value || 'unknown').replace(/[-_]/g, ' '));
 
   const dailyPlatformKey = (value) => normalizePlatformKey(value || 'unknown');
 
@@ -6804,6 +6798,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     return dailyAccountFromParts(name, '', true);
   };
+
+  const dailyCustomPlatformValue = (name) => String(name || '').split('/')[0].trim();
 
   const readDailyCustomPlatforms = () => {
     try {
@@ -7129,6 +7125,38 @@ document.addEventListener('DOMContentLoaded', () => {
       : aggregateDailyData(Array.isArray(state.daily.rows) ? state.daily.rows : [], state.daily.month)
   );
 
+  const dailyPlatformOptionsFromData = (dailyData) => {
+    const platforms = new Map();
+    (Array.isArray(dailyData?.accounts) ? dailyData.accounts : []).forEach((account) => {
+      const key = String(account?.key || '').split(':')[0].trim();
+      const label = String(account?.platform || '').trim();
+      if (!key || !label || key === 'unknown' || platforms.has(key)) return;
+      platforms.set(key, { key, label });
+    });
+    return Array.from(platforms.values())
+      .sort((left, right) => left.label.localeCompare(right.label));
+  };
+
+  const renderDailyPlatformOptions = (dailyData) => {
+    if (!dailyRefs.platformOptions) return;
+    const selected = new Set(Array.from(
+      dailyRefs.platformOptions.querySelectorAll('input[name="platforms[]"]:checked')
+    ).map((input) => input.value));
+    const platforms = dailyPlatformOptionsFromData(dailyData);
+    if (!platforms.length) {
+      dailyRefs.platformOptions.innerHTML = '<p class="admin-empty">No existing platforms are available for this month.</p>';
+      if (dailyRefs.platformAdd instanceof HTMLButtonElement) dailyRefs.platformAdd.disabled = true;
+      return;
+    }
+    dailyRefs.platformOptions.innerHTML = platforms.map((platform) => `
+      <label>
+        <input type="checkbox" name="platforms[]" value="${escapeHtml(platform.key)}"${selected.has(platform.key) ? ' checked' : ''}>
+        <span>${escapeHtml(platform.label)}</span>
+      </label>
+    `).join('');
+    if (dailyRefs.platformAdd instanceof HTMLButtonElement) dailyRefs.platformAdd.disabled = false;
+  };
+
   const renderDailyPlatformList = () => {
     if (!dailyRefs.platformList) return;
     const custom = state.daily.customPlatforms;
@@ -7139,10 +7167,17 @@ document.addEventListener('DOMContentLoaded', () => {
     dailyRefs.platformList.innerHTML = custom.map((name) => {
       const account = dailyAccountFromCustomName(name);
       return `
-      <button type="button" class="daily-platform-chip" data-daily-remove-platform="${escapeHtml(name)}" aria-label="Remove ${escapeHtml(account.label)}">
-        <span>${escapeHtml(account.label)}</span>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
-      </button>
+      <div class="daily-platform-chip">
+        <span class="daily-platform-chip-label">${escapeHtml(account.label)}</span>
+        <span class="daily-platform-chip-actions">
+          <button type="button" data-daily-edit-platform="${escapeHtml(name)}" aria-label="Edit ${escapeHtml(account.label)}">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l11-11-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></svg>
+          </button>
+          <button type="button" data-daily-remove-platform="${escapeHtml(name)}" aria-label="Remove ${escapeHtml(account.label)}">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
+        </span>
+      </div>
     `;
     }).join('');
   };
@@ -7322,6 +7357,7 @@ document.addEventListener('DOMContentLoaded', () => {
       dailyRefs.status.textContent = `${dailyData.label} / ${formatRegionalInteger(dailyData.days.length)} days / ${formatRegionalInteger(dailyData.totals.accountCount)} account columns / ${formatRegionalInteger(orderCount)} orders${sourceRows ? ` / ${formatRegionalInteger(sourceRows)} source rows` : ''}`;
     }
     if (dailyRefs.exportButton) dailyRefs.exportButton.disabled = false;
+    renderDailyPlatformOptions(dailyData);
     renderDailyPlatformList();
     renderDailyTrend(dailyData);
     renderDailySheet(dailyData);
@@ -12553,13 +12589,35 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   let pendingDailyColumnRemoval = '';
+  let pendingDailyColumnEdit = '';
 
   dailyRefs.platformList?.addEventListener('click', (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
-    const button = target.closest('[data-daily-remove-platform]');
-    if (!(button instanceof HTMLElement)) return;
-    const name = button.getAttribute('data-daily-remove-platform') || '';
+    const editButton = target.closest('[data-daily-edit-platform]');
+    if (editButton instanceof HTMLElement) {
+      const name = editButton.getAttribute('data-daily-edit-platform') || '';
+      if (!name || !dailyRefs.editDialog) return;
+      const account = dailyAccountFromCustomName(name);
+      pendingDailyColumnEdit = name;
+      dailyRefs.editForm?.reset();
+      if (dailyRefs.editPlatform) dailyRefs.editPlatform.textContent = account.platform;
+      if (dailyRefs.editName instanceof HTMLInputElement) dailyRefs.editName.value = account.account || account.label;
+      if (dailyRefs.editError) {
+        dailyRefs.editError.hidden = true;
+        dailyRefs.editError.textContent = '';
+      }
+      dailyRefs.editDialog.showModal();
+      window.setTimeout(() => {
+        dailyRefs.editName?.focus();
+        dailyRefs.editName?.select();
+      }, 0);
+      return;
+    }
+
+    const removeButton = target.closest('[data-daily-remove-platform]');
+    if (!(removeButton instanceof HTMLElement)) return;
+    const name = removeButton.getAttribute('data-daily-remove-platform') || '';
     if (!name || !dailyRefs.removeDialog) return;
     pendingDailyColumnRemoval = name;
     dailyRefs.removeForm?.reset();
@@ -12570,6 +12628,50 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     dailyRefs.removeDialog.showModal();
     window.setTimeout(() => dailyRefs.removePin?.focus(), 0);
+  });
+
+  dailyRefs.editCancel?.addEventListener('click', () => dailyRefs.editDialog?.close());
+  dailyRefs.editDialog?.addEventListener('close', () => {
+    pendingDailyColumnEdit = '';
+    dailyRefs.editForm?.reset();
+  });
+  dailyRefs.editForm?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (!(form instanceof HTMLFormElement) || !pendingDailyColumnEdit) return;
+    const nextName = String(new FormData(form).get('column_name') || '').trim();
+    if (!nextName) {
+      if (dailyRefs.editError) {
+        dailyRefs.editError.hidden = false;
+        dailyRefs.editError.textContent = 'Enter a column name.';
+      }
+      return;
+    }
+
+    const previousName = pendingDailyColumnEdit;
+    const previousKey = dailyAccountFromCustomName(previousName).key;
+    const platform = dailyCustomPlatformValue(previousName);
+    const candidate = `${platform} / ${nextName}`;
+    const candidateKey = dailyAccountFromCustomName(candidate).key;
+    const duplicate = state.daily.customPlatforms.some((item) => {
+      const itemKey = dailyAccountFromCustomName(item).key;
+      return itemKey === candidateKey && itemKey !== previousKey;
+    });
+    if (duplicate) {
+      if (dailyRefs.editError) {
+        dailyRefs.editError.hidden = false;
+        dailyRefs.editError.textContent = 'A column with that name already exists for this platform.';
+      }
+      return;
+    }
+
+    state.daily.customPlatforms = state.daily.customPlatforms.map((item) => (
+      dailyAccountFromCustomName(item).key === previousKey ? candidate : item
+    ));
+    persistDailyCustomPlatforms();
+    dailyRefs.editDialog?.close();
+    setDailyPlatformFeedback(`Renamed column to ${dailyAccountFromCustomName(candidate).label}.`);
+    renderDaily(currentDailyData());
   });
 
   dailyRefs.removeCancel?.addEventListener('click', () => dailyRefs.removeDialog?.close());

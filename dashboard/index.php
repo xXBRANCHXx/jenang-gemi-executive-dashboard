@@ -604,21 +604,14 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                             <fieldset class="daily-platform-picker">
                                 <legend>Select one or more platforms</legend>
                                 <div class="daily-platform-options" data-daily-platform-options>
-                                    <label><input type="checkbox" name="platforms[]" value="shopee"><span>Shopee</span></label>
-                                    <label><input type="checkbox" name="platforms[]" value="tiktok"><span>TikTok</span></label>
-                                    <label><input type="checkbox" name="platforms[]" value="whatsapp"><span>WhatsApp</span></label>
-                                    <label><input type="checkbox" name="platforms[]" value="baggos"><span>Baggos</span></label>
-                                    <label><input type="checkbox" name="platforms[]" value="jenang_gemi_website"><span>Jenang Gemi Website</span></label>
-                                    <label><input type="checkbox" name="platforms[]" value="zero_website"><span>ZERO Website</span></label>
-                                    <label><input type="checkbox" name="platforms[]" value="partner"><span>Partner</span></label>
-                                    <label><input type="checkbox" name="platforms[]" value="walk_in"><span>Walk-in</span></label>
+                                    <p class="admin-empty">Loading existing platforms.</p>
                                 </div>
                             </fieldset>
                             <label class="daily-column-name-field">
                                 <span>Column name <span class="admin-info-dot" title="The name is added under every selected platform." aria-label="The name is added under every selected platform.">i</span></span>
                                 <input type="text" data-daily-platform-name name="column_name" placeholder="Example: Wholesale" maxlength="48" required>
                             </label>
-                            <button type="submit" class="admin-soft-btn daily-add-platform-btn">
+                            <button type="submit" class="admin-soft-btn daily-add-platform-btn" data-daily-platform-add disabled>
                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
                                 <span>Add columns</span>
                             </button>
@@ -1908,6 +1901,16 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
             <label><span>Dashboard PIN</span><input type="password" name="pin" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" placeholder="Enter 6-digit PIN" data-daily-column-remove-pin required></label>
             <p class="admin-form-error" data-daily-column-remove-error hidden></p>
             <div class="admin-modal-actions"><button type="button" class="admin-ghost-btn" data-daily-column-remove-cancel>Keep column</button><button type="submit" class="admin-danger-btn" data-daily-column-remove-submit>Verify PIN &amp; remove</button></div>
+        </form>
+    </dialog>
+    <dialog class="admin-hard-set-dialog daily-column-edit-dialog" data-daily-column-edit-dialog aria-labelledby="daily-column-edit-title">
+        <form method="dialog" data-daily-column-edit-form>
+            <span class="admin-panel-kicker">Manual column</span>
+            <h2 id="daily-column-edit-title">Edit column name</h2>
+            <p>Platform: <strong data-daily-column-edit-platform>-</strong></p>
+            <label><span>Column name</span><input type="text" name="column_name" maxlength="48" autocomplete="off" data-daily-column-edit-name required></label>
+            <p class="admin-form-error" data-daily-column-edit-error hidden></p>
+            <div class="admin-modal-actions"><button type="button" class="admin-ghost-btn" data-daily-column-edit-cancel>Cancel</button><button type="submit" class="admin-primary-btn">Save name</button></div>
         </form>
     </dialog>
     <div class="admin-modal-shell admin-orders-filter-modal" data-orders-filter-modal hidden>
