@@ -706,6 +706,7 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
         }
         $estimatedCost = (int) round($recommendedOrderQty * (float) ($sku['cogs'] ?? 0));
         $rawCost = (int) round($rawPurchaseQty * (float) ($sku['cogs'] ?? 0));
+        $currentStockValue = (int) round($currentStock * (float) ($sku['cogs'] ?? 0));
         $sellingSkus = array_keys($demand[$index]['selling_skus'] ?? []);
         sort($sellingSkus);
 
@@ -748,6 +749,7 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
             'buffer_order_qty' => $moqRoundingQty,
             'post_order_stock' => $postOrderStock,
             'estimated_cost' => $estimatedCost,
+            'current_stock_value' => $currentStockValue,
             'minimum_cost' => $rawCost,
             'buffer_cost' => max(0, $estimatedCost - $rawCost),
             'restock_needed' => $restockNeeded,
@@ -776,6 +778,7 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
     $manualCount = count(array_filter($items, static fn (array $item): bool => ($item['trigger_mode'] ?? '') === 'manual'));
     $incomingCount = count(array_filter($items, static fn (array $item): bool => (int) ($item['incoming_qty'] ?? 0) > 0));
     $incomingQty = array_sum(array_map(static fn (array $item): int => (int) ($item['incoming_qty'] ?? 0), $items));
+    $totalCurrentStockValue = array_sum(array_map(static fn (array $item): int => (int) ($item['current_stock_value'] ?? 0), $items));
     $openPurchaseOrders = count(array_filter(
         $purchaseOrders,
         static fn (array $order): bool => in_array((string) ($order['status'] ?? ''), ['pending', 'partially_received'], true)
@@ -791,6 +794,7 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
         'manual_count' => $manualCount,
         'incoming_count' => $incomingCount,
         'incoming_qty' => $incomingQty,
+        'total_current_stock_value' => $totalCurrentStockValue,
         'open_purchase_orders' => $openPurchaseOrders,
         'total_recommended_qty' => array_sum(array_map(static fn (array $item): int => (int) ($item['recommended_order_qty'] ?? 0), $suggestions)),
         'total_minimum_qty' => array_sum(array_map(static fn (array $item): int => (int) ($item['minimum_order_qty'] ?? 0), $suggestions)),

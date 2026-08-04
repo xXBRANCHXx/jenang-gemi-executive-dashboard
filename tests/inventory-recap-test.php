@@ -133,6 +133,7 @@ inventory_recap_expect(2, $payload['summary']['triggered_count'], 'Automatic and
 inventory_recap_expect(2, $payload['summary']['suggested_count'], 'Only below-trigger products belong in the purchase plan.');
 inventory_recap_expect(44, $payload['summary']['total_recommended_qty'], 'The summary must total MOQ-rounded quantities.');
 inventory_recap_expect(44000, $payload['summary']['total_recommended_cost'], 'The purchase cost must use MOQ-rounded quantities.');
+inventory_recap_expect(107000, $payload['summary']['total_current_stock_value'], 'Current stock value must total on-hand quantity multiplied by COGS.');
 inventory_recap_expect(1, $payload['summary']['manual_count'], 'Manual trigger mode must be counted.');
 
 $bySku = [];
@@ -142,6 +143,7 @@ foreach ($payload['items'] as $item) {
 $flat = $bySku['SKU-FLAT'] ?? [];
 $manual = $bySku['SKU-MANUAL'] ?? [];
 inventory_recap_expect(8, $flat['automatic_trigger'] ?? 0, 'The payload must expose the one-week automatic trigger.');
+inventory_recap_expect(4000, $flat['current_stock_value'] ?? 0, 'Each item must expose its on-hand value at COGS.');
 inventory_recap_expect(4, $flat['trigger_shortfall_qty'] ?? 0, 'The trigger shortfall must remain visible.');
 inventory_recap_expect(15.0, $flat['purchase_days'] ?? 0, 'The global order-days setting must be exposed on every product.');
 inventory_recap_expect(15.0, $manual['purchase_days'] ?? 0, 'Every product must use the same global order-days setting.');

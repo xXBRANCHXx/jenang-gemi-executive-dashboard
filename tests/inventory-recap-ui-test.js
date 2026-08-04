@@ -12,8 +12,10 @@ const api = fs.readFileSync(path.join(root, 'api/inventory-recap/index.php'), 'u
 assert.match(dashboard, /data-view-panel="inventory-recap"[\s\S]*Reorder triggers[\s\S]*data-inventory-filter="triggered"[\s\S]*Needs purchase/);
 assert.match(dashboard, /Automatic triggers learn from 90 days of demand/);
 assert.match(dashboard, /data-inventory-recap-manual/);
+assert.match(dashboard, /data-inventory-recap-stock-value>Rp0<[\s\S]*On-hand units × COGS/);
 assert.match(dashboard, /75% order 19 ÷ MOQ 11 → buy 22/);
 assert.match(dashboard, /data-view-panel="purchase-order"[\s\S]*MOQ-ready purchase plan[\s\S]*data-purchase-plan-place[\s\S]*data-purchase-plan-download/);
+assert.match(dashboard, /data-view-switch="inventory-recap"[\s\S]*Back to Inventory Recap/);
 assert.match(dashboard, /Sent to Store Ops[\s\S]*Download the PDF before closing this popup/);
 assert.match(dashboard, /Stock already on the way[\s\S]*data-inventory-po-list/);
 
@@ -35,6 +37,10 @@ assert.match(purchasePdfSource, /const pageWidth = 595;[\s\S]*const pageHeight =
 assert.doesNotMatch(purchasePdfSource, /#9dff00|#d6294f|#101419|#ffffff/i);
 assert.match(script, /action: 'place_order'/);
 assert.match(script, /downloadInventoryPurchasePdf\(state\.inventoryRecap\.placedOrder\)/);
+assert.match(script, /inventoryUrgencyCompare[\s\S]*\.sort\(inventoryUrgencyCompare\)/);
+assert.match(script, /data-purchase-plan-remove[\s\S]*planExcluded\[sku\] = true/);
+assert.match(script, /quantitySku[\s\S]*planEdited\[quantitySku\] = true/);
+assert.match(script, /state\.activeView === 'purchase-order' \? 'inventory-recap'/);
 assert.doesNotMatch(script, /inventoryRecapDays|current_days_remaining/);
 
 assert.match(api, /update_settings/);
@@ -44,6 +50,9 @@ assert.match(api, /jg_purchase_orders_place/);
 assert.doesNotMatch(api, /sku_skus[\s\S]{0,300}purchase_days\s*=/);
 
 assert.match(navigation, /'purchase-order'\s*=>\s*\[[\s\S]*'label'\s*=>\s*'Purchase Plan'/);
+assert.match(navigation, /'key'\s*=>\s*'inventory-recap'[\s\S]*'label'\s*=>\s*'Inventory Recap'[\s\S]*'icon'\s*=>\s*'admin-rail-icon-inventory'/);
+assert.match(styles, /\.admin-rail-icon-inventory/);
+assert.match(styles, /\.admin-purchase-remove\s*\{[\s\S]*border:\s*0;[\s\S]*background:\s*transparent;/);
 
 const inventoryStyles = styles.slice(
   styles.indexOf('/* Inventory coverage and editable purchase plan */'),

@@ -31,7 +31,10 @@ if ($isAuthenticated) {
     }
 }
 $isAdView = $isAuthenticated && in_array($requestedView ?? '', ['ad-view', 'ads', 'ad_view', 'shopee-ads'], true);
-$dashboardBuildVersion = 'exec3.94.0';
+$sidebarSection = in_array($requestedView ?? '', ['inventory', 'inventory_recap', 'inventory-recap', 'purchase', 'purchase_order', 'purchase-order'], true)
+    ? 'inventory-recap'
+    : 'home';
+$dashboardBuildVersion = 'exec3.95.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -105,7 +108,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
         <div class="admin-shell">
-            <?php render_admin_sidebar('home'); ?>
+	            <?php render_admin_sidebar($sidebarSection); ?>
 
             <div class="admin-shell-main">
                 <header class="admin-topbar">
@@ -752,6 +755,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                            <div><span>Products triggered</span><strong data-inventory-recap-triggered>0</strong><small>Below their trigger</small></div>
 	                            <div><span>Units to buy</span><strong data-inventory-recap-suggested>0</strong><small>After MOQ rounding</small></div>
 	                            <div><span>Manual triggers</span><strong data-inventory-recap-manual>0</strong><small>Automatic model off</small></div>
+	                            <div><span>Current stock value</span><strong data-inventory-recap-stock-value>Rp0</strong><small>On-hand units × COGS</small></div>
 	                            <div class="admin-inventory-trigger-status"><span>Demand data</span><strong data-inventory-recap-status>Reading 90 days</strong><small data-inventory-recap-window>Nine 10-day blocks</small></div>
 	                        </div>
 	                        <div class="admin-inventory-recap-controls">
@@ -771,7 +775,11 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 
 	                    <section class="admin-view admin-purchase-order-view" data-view-panel="purchase-order">
 	                        <div class="admin-purchase-toolbar">
-	                            <div>
+	                            <div class="admin-purchase-heading">
+	                                <button type="button" class="admin-purchase-back" data-view-switch="inventory-recap">
+	                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/><path d="M9 12h10"/></svg>
+	                                    Back to Inventory Recap
+	                                </button>
 	                                <span class="admin-panel-kicker">Triggered products only</span>
 	                                <strong>MOQ-ready purchase plan</strong>
 	                                <span data-purchase-plan-status>Loading current recommendations</span>

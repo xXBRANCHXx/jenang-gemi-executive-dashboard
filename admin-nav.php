@@ -571,6 +571,14 @@ function render_admin_sidebar(string $activeSection = ''): void
             'view' => 'wallet',
         ],
         [
+            'key' => 'inventory-recap',
+            'href' => '../dashboard/?view=inventory-recap',
+            'label' => 'Inventory Recap',
+            'icon' => 'admin-rail-icon-inventory',
+            'aria' => 'Open inventory recap and purchase planning',
+            'view' => 'inventory-recap',
+        ],
+        [
             'key' => 'ad-view',
             'href' => '../dashboard/?view=ad-view',
             'label' => 'Ad View',

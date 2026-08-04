@@ -2551,6 +2551,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      planQuantities: {},
 	      planEdited: {},
 	      planNotes: {},
+	      planExcluded: {},
 	      planNote: '',
 	      placingOrder: false,
 	      placeRequestKey: '',
@@ -2830,6 +2831,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    triggered: document.querySelector('[data-inventory-recap-triggered]'),
 	    suggested: document.querySelector('[data-inventory-recap-suggested]'),
 	    manual: document.querySelector('[data-inventory-recap-manual]'),
+	    stockValue: document.querySelector('[data-inventory-recap-stock-value]'),
 	    window: document.querySelector('[data-inventory-recap-window]'),
 	    list: document.querySelector('[data-inventory-recap-list]'),
 	    filters: document.querySelectorAll('[data-inventory-filter]'),
@@ -4164,8 +4166,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	    overview: 'home',
 	    orders: 'orders',
 	    wallet: 'wallet',
-	    'inventory-recap': '',
-	    'purchase-order': '',
+	    'inventory-recap': 'inventory-recap',
+	    'purchase-order': 'inventory-recap',
 	    daily: '',
       'store-ops': 'orders',
       'shipment-arrangement': 'orders',
@@ -4213,7 +4215,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
     });
-    window.localStorage.setItem(viewStorageKey, state.activeView);
+	    window.localStorage.setItem(viewStorageKey, state.activeView === 'purchase-order' ? 'inventory-recap' : state.activeView);
   };
 
 	  const inactiveViewUnloadTimers = new Map();
@@ -4830,7 +4832,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	  const homeClientCacheKey = () => dashboardClientCacheKey('home', [state.home.timeframe, state.timezone, activeLocalDate]);
 	  const websiteClientCacheKey = () => dashboardClientCacheKey('website', [state.website.site || 'select', state.website.timeframe, state.timezone, activeLocalDate]);
 	  const walletClientCacheKey = () => dashboardClientCacheKey('wallet', [activeLocalDate]);
-	  const inventoryRecapClientCacheKey = () => dashboardClientCacheKey('inventory-recap', ['trigger-v3', activeLocalDate]);
+	  const inventoryRecapClientCacheKey = () => dashboardClientCacheKey('inventory-recap', ['trigger-v4', activeLocalDate]);
 	  const dailyClientCacheKey = () => dashboardClientCacheKey('daily', [state.daily.month, state.timezone]);
 	  const ordersClientCacheKey = () => dashboardClientCacheKey('orders', [`v${ORDER_CLIENT_CACHE_VERSION}`, state.overview.year, activeLocalDate]);
 	  const settingsClientCacheKey = () => dashboardClientCacheKey('settings', [activeLocalDate]);
@@ -8159,6 +8161,22 @@ document.addEventListener('DOMContentLoaded', () => {
 	    )).join('');
 	  };
 
+	  const inventoryUrgencyCompare = (left, right) => {
+	    const priority = { triggered: 5, near: 4, incoming: 3, healthy: 2, quiet: 1 };
+	    const riskDifference = (priority[String(right.risk || '')] || 0) - (priority[String(left.risk || '')] || 0);
+	    if (riskDifference) return riskDifference;
+	    const coverage = (item) => {
+	      const trigger = Math.max(0, Number(item.trigger_qty || 0));
+	      return trigger > 0 ? Math.max(0, Number(item.current_stock || 0)) / trigger : Number.POSITIVE_INFINITY;
+	    };
+	    const leftCoverage = coverage(left);
+	    const rightCoverage = coverage(right);
+	    if (leftCoverage !== rightCoverage) return leftCoverage - rightCoverage;
+	    const shortageDifference = Number(right.trigger_shortfall_qty || 0) - Number(left.trigger_shortfall_qty || 0);
+	    if (shortageDifference) return shortageDifference;
+	    return String(left.product_name || left.sku || '').localeCompare(String(right.product_name || right.sku || ''));
+	  };
+
 	  const renderInventoryRecapList = (rows) => {
 	    if (!inventoryRecapRefs.list) return;
 	    if (state.inventoryRecap.loading && !state.inventoryRecap.data) {
@@ -8167,7 +8185,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    }
 	    const filter = state.inventoryRecap.filter || 'all';
 	    const visibleRows = filter === 'all'
-	      ? rows
+	      ? [...rows].sort(inventoryUrgencyCompare)
 	      : rows.filter((item) => filter === 'manual'
 	        ? String(item.trigger_mode || '') === 'manual'
 	        : String(item.risk || '') === filter);
@@ -8240,7 +8258,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    const suggestions = Array.isArray(state.inventoryRecap.data?.suggestions) ? state.inventoryRecap.data.suggestions : [];
 	    suggestions.forEach((item) => {
 	      const sku = String(item.sku || '');
-	      if (!sku) return;
+	      if (!sku || state.inventoryRecap.planExcluded[sku]) return;
 	      if (!Object.prototype.hasOwnProperty.call(state.inventoryRecap.planQuantities, sku) || !state.inventoryRecap.planEdited[sku]) {
 	        state.inventoryRecap.planQuantities[sku] = Math.max(0, Math.round(Number(item.recommended_order_qty || 0)));
 	      }
@@ -8252,7 +8270,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	  const purchasePlanRows = () => {
 	    const suggestions = Array.isArray(state.inventoryRecap.data?.suggestions) ? state.inventoryRecap.data.suggestions : [];
-	    return suggestions.map((item) => {
+	    return suggestions.filter((item) => !state.inventoryRecap.planExcluded[String(item.sku || '')]).map((item) => {
 	      const sku = String(item.sku || '');
 	      const moq = Math.max(1, Math.round(Number(item.purchase_moq || 1)));
 	      const entered = Math.max(0, Math.round(Number(state.inventoryRecap.planQuantities[sku] ?? item.recommended_order_qty ?? 0)));
@@ -8286,7 +8304,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	    const cash = Number(state.inventoryRecap.data?.summary?.cash_available || state.inventoryRecap.data?.cash?.available || 0);
 	    const shortfall = Math.max(0, total - cash);
 	    if (!allRows.length) {
-	      purchasePlanRefs.list.innerHTML = '<p class="admin-empty">Nothing is below its trigger. The purchase plan is clear.</p>';
+	      const hasSuggestions = Array.isArray(state.inventoryRecap.data?.suggestions) && state.inventoryRecap.data.suggestions.length > 0;
+	      purchasePlanRefs.list.innerHTML = `<p class="admin-empty">${hasSuggestions ? 'All products have been removed from this order.' : 'Nothing is below its trigger. The purchase plan is clear.'}</p>`;
 	    } else {
 	      purchasePlanRefs.list.innerHTML = allRows.map((item, index) => {
 	        const purchaseDaysLabel = formatRegionalNumber(item.purchase_days || 22.5, { maximumFractionDigits: 1 });
@@ -8311,6 +8330,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	            <span>Line note</span>
 	            <input type="text" value="${escapeHtml(item.note)}" data-purchase-plan-line-note="${escapeHtml(item.sku || '')}" placeholder="Optional instruction">
 	          </label>
+	          <button type="button" class="admin-purchase-remove" data-purchase-plan-remove="${escapeHtml(item.sku || '')}" aria-label="Remove ${escapeHtml(item.product_name || item.sku || '')} from this order" title="Remove from order">
+	            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v5M14 11v5"/></svg>
+	          </button>
 	        </article>
 	      `;
 	      }).join('');
@@ -8377,6 +8399,12 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (inventoryRecapRefs.triggered) inventoryRecapRefs.triggered.textContent = formatRegionalInteger(summary.triggered_count || 0);
 	    if (inventoryRecapRefs.suggested) inventoryRecapRefs.suggested.textContent = formatRegionalInteger(summary.total_recommended_qty || 0);
 	    if (inventoryRecapRefs.manual) inventoryRecapRefs.manual.textContent = formatRegionalInteger(summary.manual_count || 0);
+	    if (inventoryRecapRefs.stockValue) {
+	      const stockValue = Number(summary.total_current_stock_value ?? rows.reduce((total, item) => (
+	        total + (Math.max(0, Number(item.current_stock || 0)) * Math.max(0, Number(item.cogs || 0)))
+	      ), 0));
+	      inventoryRecapRefs.stockValue.textContent = formatCurrency(stockValue);
+	    }
 	    if (inventoryRecapRefs.window) inventoryRecapRefs.window.textContent = `${formatRegionalInteger(meta.lookback_days || 90)} days · nine 10-day blocks`;
 	    if (inventoryRecapRefs.globalDays instanceof HTMLInputElement && document.activeElement !== inventoryRecapRefs.globalDays) {
 	      inventoryRecapRefs.globalDays.value = String(Math.max(1, Number(meta.purchase_days_equivalent || 22.5)));
@@ -10127,6 +10155,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      state.inventoryRecap.placeRequestKey = '';
 	      state.inventoryRecap.planEdited = {};
 	      state.inventoryRecap.planQuantities = {};
+	      state.inventoryRecap.planExcluded = {};
 	      applyInventoryRecapData(data);
 	      if (purchasePlanRefs.modalNumber) {
 	        purchasePlanRefs.modalNumber.textContent = state.inventoryRecap.placedOrder?.po_number || 'Purchase order';
@@ -11659,10 +11688,11 @@ document.addEventListener('DOMContentLoaded', () => {
 	    }
 	    scheduleDeferredViewUnload(previousView);
     const viewUrl = new URL(window.location.href);
-    viewUrl.searchParams.set('view', state.activeView);
-    viewUrl.hash = '';
-    window.history.replaceState(null, '', `${viewUrl.pathname}${viewUrl.search}`);
-    closeMenu();
+	    viewUrl.searchParams.set('view', state.activeView);
+	    viewUrl.hash = '';
+	    window.history.replaceState(null, '', `${viewUrl.pathname}${viewUrl.search}`);
+	    if (previousView !== state.activeView) window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+	    closeMenu();
 	    renderJenangGemiSearchResults(searchInput?.value || '');
 	    if (state.activeView === 'overview') {
 	      activateOverviewViewInstantly();
@@ -12486,11 +12516,29 @@ document.addEventListener('DOMContentLoaded', () => {
 	    renderPurchasePlan();
 	  });
 
+	  purchasePlanRefs.list?.addEventListener('click', (event) => {
+	    const button = event.target instanceof Element ? event.target.closest('[data-purchase-plan-remove]') : null;
+	    if (!(button instanceof HTMLButtonElement)) return;
+	    const sku = String(button.getAttribute('data-purchase-plan-remove') || '');
+	    if (!sku) return;
+	    state.inventoryRecap.planExcluded[sku] = true;
+	    delete state.inventoryRecap.planQuantities[sku];
+	    delete state.inventoryRecap.planEdited[sku];
+	    delete state.inventoryRecap.planNotes[sku];
+	    renderPurchasePlan();
+	  });
+
 	  purchasePlanRefs.list?.addEventListener('input', (event) => {
 	    const input = event.target;
 	    if (!(input instanceof HTMLInputElement)) return;
-	    const sku = input.getAttribute('data-purchase-plan-line-note');
-	    if (sku) state.inventoryRecap.planNotes[sku] = input.value;
+	    const quantitySku = input.getAttribute('data-purchase-plan-qty');
+	    if (quantitySku) {
+	      state.inventoryRecap.planQuantities[quantitySku] = Math.max(0, Math.round(Number(input.value || 0)));
+	      state.inventoryRecap.planEdited[quantitySku] = true;
+	      return;
+	    }
+	    const noteSku = input.getAttribute('data-purchase-plan-line-note');
+	    if (noteSku) state.inventoryRecap.planNotes[noteSku] = input.value;
 	  });
 
 	  purchasePlanRefs.note?.addEventListener('input', () => {
