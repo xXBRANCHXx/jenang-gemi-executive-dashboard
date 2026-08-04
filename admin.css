@@ -880,10 +880,23 @@ button.admin-accounting-ledger-row:hover {
 .admin-accounting-reconcile-card {
   width: min(720px, calc(100vw - 28px));
   max-height: calc(100svh - 28px);
-  overflow: auto;
   border-radius: 20px;
   background: var(--accounting-surface);
   color: var(--accounting-text);
+}
+
+.admin-accounting-breakdown-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.admin-accounting-breakdown-card > .admin-modal-head {
+  flex: 0 0 auto;
+}
+
+.admin-accounting-reconcile-card {
+  overflow: auto;
 }
 
 .admin-accounting-breakdown-card .admin-modal-head p,
@@ -897,7 +910,14 @@ button.admin-accounting-ledger-row:hover {
 
 .admin-accounting-breakdown-body {
   display: grid;
+  flex: 1 1 auto;
   gap: 8px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+  scrollbar-gutter: stable;
+  touch-action: pan-y;
 }
 
 .admin-accounting-breakdown-row {

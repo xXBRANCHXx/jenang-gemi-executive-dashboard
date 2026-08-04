@@ -2574,9 +2574,11 @@ function jg_accounting_summary(PDO $pdo, string $month): array
            AND due_date BETWEEN :today AND :soon',
         [':today' => $today, ':soon' => $soon]
     );
-    $partnerBillsDue = (string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql'
-        ? jg_admin_partner_billing_due_total()
-        : 0;
+    $partnerBillTotals = (string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql'
+        ? jg_admin_partner_billing_totals()
+        : ['due_amount' => 0, 'in_progress_amount' => 0];
+    $partnerBillsDue = (int) ($partnerBillTotals['due_amount'] ?? 0);
+    $partnerBillsInProgress = (int) ($partnerBillTotals['in_progress_amount'] ?? 0);
     $billsDueSoon = $accountingBillsDueSoon + $partnerBillsDue;
     $overdueBills = $sumBill(
         $pdo,
@@ -2617,6 +2619,7 @@ function jg_accounting_summary(PDO $pdo, string $month): array
             'marketplace_outstanding' => $marketplaceOutstanding['amount'],
             'bills_due_soon' => $billsDueSoon,
             'partner_bills_due' => $partnerBillsDue,
+            'partner_bills_in_progress' => $partnerBillsInProgress,
             'overdue_bills' => $overdueBills,
             'expenses_this_month' => $expenses,
             'net_safe_cash' => $safeCash,

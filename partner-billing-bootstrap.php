@@ -1183,20 +1183,32 @@ function jg_admin_partner_billing_confirm_payment(PDO $partnerPdo, PDO $accounti
     return ['ok' => true, 'payment_id' => $paymentId, 'transaction_id' => $transactionId, 'status' => 'confirmed'];
 }
 
-function jg_admin_partner_billing_due_total(): int
+function jg_admin_partner_billing_totals(): array
 {
     try {
         $pdo = jg_admin_partner_billing_db();
         jg_admin_partner_billing_sync($pdo);
         $stmt = $pdo->query(
-            'SELECT COALESCE(SUM(total_amount), 0) FROM partner_weekly_bills
-             WHERE status IN ("unpaid", "payment_submitted", "disputed") AND total_amount > 0'
+            'SELECT
+                COALESCE(SUM(CASE WHEN status IN ("unpaid", "payment_submitted", "disputed") THEN total_amount ELSE 0 END), 0) AS due_amount,
+                COALESCE(SUM(CASE WHEN status = "accruing" THEN total_amount ELSE 0 END), 0) AS in_progress_amount
+             FROM partner_weekly_bills
+             WHERE total_amount > 0'
         );
-        return (int) round((float) ($stmt->fetchColumn() ?: 0));
+        $row = $stmt->fetch() ?: [];
+        return [
+            'due_amount' => (int) round((float) ($row['due_amount'] ?? 0)),
+            'in_progress_amount' => (int) round((float) ($row['in_progress_amount'] ?? 0)),
+        ];
     } catch (Throwable $error) {
-        error_log('Partner bills due unavailable: ' . $error->getMessage());
-        return 0;
+        error_log('Partner bill totals unavailable: ' . $error->getMessage());
+        return ['due_amount' => 0, 'in_progress_amount' => 0];
     }
+}
+
+function jg_admin_partner_billing_due_total(): int
+{
+    return (int) jg_admin_partner_billing_totals()['due_amount'];
 }
 
 function jg_admin_partner_billing_breakdown(): array

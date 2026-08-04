@@ -112,15 +112,15 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                         <strong data-accounting-kpi="marketplace-outstanding">Rp0</strong>
                         <small>See outstanding by wallet <b aria-hidden="true">→</b></small>
                     </button>
-                    <button type="button" class="admin-accounting-metric admin-accounting-cash-card" data-accounting-partner-bills-open aria-haspopup="dialog" aria-controls="accounting-breakdown">
-                        <span>Partner Bills</span>
-                        <strong data-accounting-kpi="partner-bills">Rp0</strong>
-                        <small>See weekly bill details <b aria-hidden="true">→</b></small>
+                    <button type="button" class="admin-accounting-metric admin-accounting-cash-card" data-accounting-partner-bills-open="in_progress" aria-haspopup="dialog" aria-controls="accounting-breakdown">
+                        <span>Partner Bills In Progress</span>
+                        <strong data-accounting-kpi="partner-bills-in-progress">Rp0</strong>
+                        <small>Current billing periods <b aria-hidden="true">→</b></small>
                     </button>
-                    <button type="button" class="admin-accounting-metric admin-accounting-cash-card" data-accounting-bills-open="overdue" aria-haspopup="dialog">
-                        <span>Overdue</span>
-                        <strong data-accounting-kpi="overdue">Rp0</strong>
-                        <small>See bills needing action <b aria-hidden="true">→</b></small>
+                    <button type="button" class="admin-accounting-metric admin-accounting-cash-card" data-accounting-partner-bills-open="due" aria-haspopup="dialog" aria-controls="accounting-breakdown">
+                        <span>Partner Bills Due</span>
+                        <strong data-accounting-kpi="partner-bills-due">Rp0</strong>
+                        <small>Awaiting partner payment <b aria-hidden="true">→</b></small>
                     </button>
                 </section>
 
@@ -357,7 +357,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
                             </button>
                         </div>
-                        <div class="admin-accounting-breakdown-body" data-accounting-breakdown-body></div>
+                        <div class="admin-accounting-breakdown-body" data-accounting-breakdown-body tabindex="0"></div>
                     </section>
                 </div>
 

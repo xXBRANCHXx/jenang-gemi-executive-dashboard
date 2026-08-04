@@ -83,6 +83,8 @@ summary_expect(0, $summary['kpis']['cash_available'], 'Available cash must exclu
 summary_expect(190000, $summary['kpis']['real_cash_available'], 'The legacy KPI alias must now mean bank balance.');
 summary_expect(70000, $summary['kpis']['marketplace_outstanding'], 'Outstanding cash must equal unreleased settling marketplace orders.');
 summary_expect(20000, $summary['kpis']['bills_due_soon'], 'Bills due soon must include only open bills due in the next seven days.');
+summary_expect(0, $summary['kpis']['partner_bills_due'], 'Partner Bills Due must stay separate when the partner database is unavailable.');
+summary_expect(0, $summary['kpis']['partner_bills_in_progress'], 'Partner Bills In Progress must stay separate when the partner database is unavailable.');
 summary_expect(10000, $summary['kpis']['overdue_bills'], 'Overdue bills must remain separate from due-soon bills.');
 summary_expect(160000, $summary['kpis']['net_safe_cash'], 'Safe cash must subtract obligations from available cash without treating receivables as cash.');
 summary_expect(60000, $summary['monthly_summary']['wallet_withdrawals_to_bank'], 'Monthly Wallet withdrawals must be reported independently.');

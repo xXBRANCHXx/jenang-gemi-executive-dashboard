@@ -114,7 +114,8 @@ if (root) {
     cashHistoryLoaded: false,
     cashHistoryScope: 'all',
     partnerBills: null,
-    partnerBillsRequest: 0
+    partnerBillsRequest: 0,
+    partnerBillsScope: 'due'
   };
 
   const refs = {
@@ -135,7 +136,8 @@ if (root) {
       bankBalance: root.querySelector('[data-accounting-kpi="bank-balance"]'),
       cashAvailable: root.querySelector('[data-accounting-kpi="cash-available"]'),
       marketplaceOutstanding: root.querySelector('[data-accounting-kpi="marketplace-outstanding"]'),
-      partnerBills: root.querySelector('[data-accounting-kpi="partner-bills"]'),
+      partnerBillsInProgress: root.querySelector('[data-accounting-kpi="partner-bills-in-progress"]'),
+      partnerBillsDue: root.querySelector('[data-accounting-kpi="partner-bills-due"]'),
       overdue: root.querySelector('[data-accounting-kpi="overdue"]'),
       expenses: root.querySelector('[data-accounting-kpi="expenses"]'),
       safeCash: root.querySelector('[data-accounting-kpi="safe-cash"]'),
@@ -164,7 +166,7 @@ if (root) {
     walletBreakdown: root.querySelector('[data-accounting-wallet-breakdown]'),
     walletsMeta: root.querySelector('[data-accounting-wallets-meta]'),
     marketplaceOpen: root.querySelector('[data-accounting-marketplace-open]'),
-    partnerBillsOpen: root.querySelector('[data-accounting-partner-bills-open]'),
+    partnerBillsOpenButtons: root.querySelectorAll('[data-accounting-partner-bills-open]'),
     billsOpenButtons: root.querySelectorAll('[data-accounting-bills-open]'),
     breakdown: root.querySelector('[data-accounting-breakdown]'),
     breakdownCard: root.querySelector('.admin-accounting-breakdown-card'),
@@ -600,7 +602,8 @@ if (root) {
         ? 'Unavailable'
         : formatCurrency(kpis.marketplace_outstanding || 0);
     }
-    if (refs.kpis.partnerBills) refs.kpis.partnerBills.textContent = formatCurrency(kpis.partner_bills_due || 0);
+    if (refs.kpis.partnerBillsInProgress) refs.kpis.partnerBillsInProgress.textContent = formatCurrency(kpis.partner_bills_in_progress || 0);
+    if (refs.kpis.partnerBillsDue) refs.kpis.partnerBillsDue.textContent = formatCurrency(kpis.partner_bills_due || 0);
     if (refs.kpis.overdue) refs.kpis.overdue.textContent = formatCurrency(kpis.overdue_bills || 0);
     if (refs.kpis.expenses) refs.kpis.expenses.textContent = formatCurrency(kpis.expenses_this_month || 0);
     if (refs.kpis.safeCash) refs.kpis.safeCash.textContent = formatCurrency(kpis.net_safe_cash || 0);
@@ -803,8 +806,9 @@ if (root) {
     if (refs.breakdownTitle) refs.breakdownTitle.textContent = title;
     if (refs.breakdownCopy) refs.breakdownCopy.textContent = copy;
     refs.breakdownBody.innerHTML = rows.length ? rows.join('') : `<p class="admin-empty">${escapeHtml(empty)}</p>`;
+    refs.breakdownBody.scrollTop = 0;
     refs.breakdown.hidden = false;
-    refs.breakdownCard?.focus();
+    refs.breakdownBody.focus({ preventScroll: true });
   };
 
   const openMarketplaceBreakdown = () => {
@@ -834,12 +838,23 @@ if (root) {
   }[String(status || '')] || String(status || 'Unknown').replace(/_/g, ' '));
 
   const renderPartnerBillsList = () => {
-    const bills = Array.isArray(state.partnerBills?.bills) ? state.partnerBills.bills : [];
+    const scope = state.partnerBillsScope;
+    const allBills = Array.isArray(state.partnerBills?.bills) ? state.partnerBills.bills : [];
+    const bills = allBills.filter((bill) => (
+      scope === 'in_progress'
+        ? String(bill.status || '') === 'accruing'
+        : ['unpaid', 'payment_submitted', 'disputed'].includes(String(bill.status || ''))
+    ));
+    const inProgress = scope === 'in_progress';
     openBreakdown({
       kicker: 'Partner receivables',
-      title: 'Partner Bills',
-      copy: 'Weekly partner bills across every billing period. Select a bill to see its totals and order-by-order breakdown.',
-      empty: state.partnerBills?.available === false ? 'Partner billing is temporarily unavailable.' : 'No partner bills have been created yet.',
+      title: inProgress ? 'Partner Bills In Progress' : 'Partner Bills Due',
+      copy: inProgress
+        ? 'Current weekly periods still accumulating partner orders. Select a bill to see its live order breakdown.'
+        : 'Closed weekly periods awaiting payment or review. Select a bill to see its totals and order-by-order breakdown.',
+      empty: state.partnerBills?.available === false
+        ? 'Partner billing is temporarily unavailable.'
+        : (inProgress ? 'No partner billing periods are in progress.' : 'No partner bills are currently due.'),
       rows: bills.map((bill) => `
         <button type="button" class="admin-accounting-breakdown-row" data-accounting-partner-bill="${escapeHtml(bill.id || '')}">
           <span><strong>${escapeHtml(bill.partner_name || bill.partner_code || 'Partner')}</strong><small>${escapeHtml(bill.period_label || 'Weekly bill')} · ${Number(bill.order_count || 0).toLocaleString('id-ID')} orders</small></span>
@@ -850,11 +865,13 @@ if (root) {
     });
   };
 
-  const openPartnerBillsBreakdown = async () => {
+  const openPartnerBillsBreakdown = async (scope = 'due') => {
+    state.partnerBillsScope = scope === 'in_progress' ? 'in_progress' : 'due';
+    const inProgress = state.partnerBillsScope === 'in_progress';
     const requestId = ++state.partnerBillsRequest;
     openBreakdown({
       kicker: 'Partner receivables',
-      title: 'Partner Bills',
+      title: inProgress ? 'Partner Bills In Progress' : 'Partner Bills Due',
       copy: 'Loading weekly bills and their order details.',
       empty: 'Loading partner bills…',
       rows: []
@@ -911,6 +928,8 @@ if (root) {
         }).join('') : '<p class="admin-empty">No order lines are attached to this bill.</p>'}
       </div>
     `;
+    refs.breakdownBody.scrollTop = 0;
+    refs.breakdownBody.focus({ preventScroll: true });
   };
 
   const addDays = (dateString, days) => {
@@ -1777,7 +1796,9 @@ if (root) {
   refs.cashHistoryAccount?.addEventListener('change', renderCashHistory);
   refs.cashHistoryDirection?.addEventListener('change', renderCashHistory);
   refs.marketplaceOpen?.addEventListener('click', openMarketplaceBreakdown);
-  refs.partnerBillsOpen?.addEventListener('click', openPartnerBillsBreakdown);
+  refs.partnerBillsOpenButtons.forEach((button) => {
+    button.addEventListener('click', () => openPartnerBillsBreakdown(button.dataset.accountingPartnerBillsOpen || 'due'));
+  });
   refs.billsOpenButtons.forEach((button) => {
     button.addEventListener('click', () => openBillsBreakdown(button.dataset.accountingBillsOpen || 'due'));
   });

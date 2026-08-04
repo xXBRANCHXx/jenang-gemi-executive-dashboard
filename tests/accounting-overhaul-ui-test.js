@@ -14,8 +14,8 @@ const expect = (condition, message) => {
 
 expect(html.includes('data-accounting-reconcile-form'), 'Accounting must expose the cash reconciliation form.');
 expect(html.includes('data-accounting-marketplace-open'), 'Marketplace outstanding must open a visual breakdown.');
-expect(html.includes('data-accounting-partner-bills-open'), 'Partner Bills must be an interactive drill-down.');
-expect(html.includes('data-accounting-bills-open="overdue"'), 'Overdue must be an interactive drill-down.');
+expect(html.includes('data-accounting-partner-bills-open="in_progress"'), 'Partner Bills In Progress must be an interactive drill-down.');
+expect(html.includes('data-accounting-partner-bills-open="due"'), 'Partner Bills Due must be an interactive drill-down.');
 expect(html.includes('data-accounting-wallet-breakdown'), 'Accounting must show a compact wallet balance strip.');
 expect(html.includes('data-accounting-ledger-body'), 'Accounting must expose the unified activity ledger.');
 expect(html.includes('class="admin-accounting-more'), 'Secondary entry details must stay collapsed by default.');
@@ -41,5 +41,6 @@ expect(css.includes('.admin-accounting-pulse'), 'The cash-first visual hierarchy
 expect(css.includes('.admin-accounting-wallet-strip'), 'Compact wallet balances must be styled.');
 expect(css.includes('.admin-accounting-ledger-row'), 'Visual ledger rows must be styled.');
 expect(css.includes('.admin-accounting-category-menu'), 'The in-dropdown category search menu must be styled.');
+expect(/\.admin-accounting-breakdown-body\s*\{[^}]*overflow-y:\s*auto/.test(css), 'Long Accounting breakdowns must scroll inside the modal.');
 
 process.stdout.write('accounting-overhaul-ui-test: ok\n');
