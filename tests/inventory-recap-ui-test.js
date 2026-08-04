@@ -24,7 +24,7 @@ assert.match(dashboard, /Stock already on the way[\s\S]*data-inventory-po-list/)
 assert.match(script, /data-inventory-automatic/);
 assert.match(script, /data-inventory-manual-trigger/);
 assert.match(script, /data-inventory-moq/);
-assert.match(dashboard, /admin-inventory-order-action[\s\S]*>Order[\s\S]*admin-inventory-secondary-actions[\s\S]*>See History<[\s\S]*data-inventory-global-days-form[\s\S]*Order days/);
+assert.match(dashboard, /admin-inventory-order-action[\s\S]*<svg[\s\S]*Order[\s\S]*<\/header>[\s\S]*admin-inventory-utility-bar[\s\S]*>See History<[\s\S]*data-inventory-global-days-form[\s\S]*Order days/);
 assert.match(script, /data-inventory-global-days/);
 assert.match(script, /Math\.ceil\(entered \/ moq\) \* moq/);
 assert.match(script, /saveInventorySettings/);

@@ -25351,17 +25351,39 @@ body:has(.admin-app[data-sku-db])::after {
 .admin-inventory-global-actions {
   display: flex;
   align-items: flex-end;
-  flex-direction: column;
-  gap: 8px;
 }
 
-.admin-inventory-secondary-actions {
+.admin-inventory-trigger-hero .admin-inventory-order-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 54px;
+  padding: 0 24px;
+  border-radius: 9px;
+  font-size: 0.9rem;
+}
+
+.admin-inventory-trigger-hero .admin-inventory-order-action svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.admin-inventory-utility-bar {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 14px;
+  min-height: 58px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--inventory-line);
 }
 
-.admin-inventory-secondary-actions > a {
+.admin-inventory-utility-bar > a {
   color: var(--admin-muted);
   font: 760 0.65rem/1 "Plus Jakarta Sans", sans-serif;
   text-decoration: underline;
@@ -25370,8 +25392,8 @@ body:has(.admin-app[data-sku-db])::after {
   white-space: nowrap;
 }
 
-.admin-inventory-secondary-actions > a:hover,
-.admin-inventory-secondary-actions > a:focus-visible {
+.admin-inventory-utility-bar > a:hover,
+.admin-inventory-utility-bar > a:focus-visible {
   color: var(--admin-text);
   text-decoration-color: currentColor;
 }
@@ -25825,7 +25847,7 @@ body:has(.admin-app[data-sku-db])::after {
     width: 100%;
   }
 
-  .admin-inventory-secondary-actions {
+  .admin-inventory-utility-bar {
     justify-content: space-between;
   }
 
