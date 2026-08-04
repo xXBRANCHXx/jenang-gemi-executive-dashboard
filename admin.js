@@ -8450,6 +8450,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	    const order = selectedPurchaseOrder();
 	    if (!order || !poRefs.paymentFields) return;
 	    const mode = state.inventoryRecap.paymentMode;
+	    const paymentModeToggle = document.querySelector('.admin-po-payment-modes');
+	    if (paymentModeToggle instanceof HTMLElement) paymentModeToggle.dataset.activeMode = mode;
 	    document.querySelectorAll('[data-po-payment-mode]').forEach((button) => button.classList.toggle('is-active', button.getAttribute('data-po-payment-mode') === mode));
 	    if (poRefs.paymentSummary) poRefs.paymentSummary.textContent = `${order.po_number} · ${formatCurrency(order.paid_total || 0)} paid · ${formatCurrency(order.amount_due || 0)} left`;
 	    if (mode === 'amount') poRefs.paymentFields.innerHTML = `<label><span>Amount to pay now</span><input type="number" min="1" max="${Number(order.amount_due || 0)}" step="1" data-po-payment-amount placeholder="0"></label>`;

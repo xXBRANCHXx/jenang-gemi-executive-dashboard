@@ -35017,6 +35017,11 @@ button.admin-accounting-metric {
 .admin-po-pay-action > span, .admin-po-resume-action > span { display:grid; gap:3px; }
 .admin-po-pay-action strong, .admin-po-resume-action > span { font:800 .8rem/1 "Plus Jakarta Sans",sans-serif; }
 .admin-po-pay-action small, .admin-po-resume-action b { color:inherit; font:650 .61rem/1.2 "Plus Jakarta Sans",sans-serif; opacity:.68; }
+.admin-po-pay-action:not(.is-paid),
+.admin-po-pay-action:not(.is-paid) strong,
+.admin-po-pay-action:not(.is-paid) small,
+.admin-po-pay-action:not(.is-paid) span { color:#090909 !important; }
+.admin-po-pay-action:not(.is-paid) small { opacity:.62; }
 .admin-po-pay-action:hover, .admin-po-pay-action:focus-visible, .admin-po-resume-action:hover, .admin-po-resume-action:focus-visible { transform:translateY(-1px); box-shadow:0 9px 24px rgba(0,0,0,.22); }
 .admin-po-pay-action.is-paid { border-color:#292929; background:#181818; color:#747474; cursor:not-allowed; transform:none; box-shadow:none; }
 .admin-po-detail-content { padding:32px 0 80px; }
@@ -35049,7 +35054,15 @@ button.admin-accounting-metric {
 .admin-po-modal-close { position:absolute; right:14px; top:12px; width:32px; height:32px; border:1px solid #2d2d2d; border-radius:50%; background:#121212; color:#aaa; font-size:20px; cursor:pointer; }
 .admin-po-modal-close:hover { border-color:#555; color:#fff; }
 .admin-app.admin-app-suite .admin-po-payment-modes { display:flex; width:100%; margin:0; }
-.admin-app.admin-app-suite .admin-po-payment-modes > .admin-toggle-pill { flex:1 0 auto; min-height:38px; padding:8px 13px; }
+.admin-app.admin-app-suite .admin-po-payment-modes > .admin-toggle-pill { flex:1 1 25% !important; min-width:0; min-height:38px; padding:8px 8px; }
+.admin-app.admin-app-suite .admin-po-payment-modes > .admin-sliding-toggle-indicator {
+  left:var(--sliding-toggle-pad);
+  width:calc((100% - (var(--sliding-toggle-pad) * 2)) / 4) !important;
+  transform:translate3d(0,0,0) !important;
+}
+.admin-app.admin-app-suite .admin-po-payment-modes[data-active-mode="amount"] > .admin-sliding-toggle-indicator { transform:translate3d(100%,0,0) !important; }
+.admin-app.admin-app-suite .admin-po-payment-modes[data-active-mode="percentage"] > .admin-sliding-toggle-indicator { transform:translate3d(200%,0,0) !important; }
+.admin-app.admin-app-suite .admin-po-payment-modes[data-active-mode="products"] > .admin-sliding-toggle-indicator { transform:translate3d(300%,0,0) !important; }
 [data-po-payment-fields] > label, .admin-po-payment-account { display:grid; gap:7px; }
 .admin-po-payment-products { display:grid; gap:8px; margin-top:10px; }
 .admin-po-payment-products label { display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:12px; padding:12px; border:1px solid #282828; border-radius:9px; }
@@ -35062,6 +35075,7 @@ button.admin-accounting-metric {
 .admin-po-payment-total strong, .admin-po-payment-full strong { font-size:20px; }
 .admin-po-payment-confirm { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:46px; border:1px solid var(--admin-text); border-radius:9px; background:var(--admin-text); color:var(--admin-bg); font:800 .78rem/1 "Plus Jakarta Sans",sans-serif; cursor:pointer; }
 .admin-po-payment-confirm svg { width:17px; height:17px; fill:none; stroke:currentColor; stroke-width:2.5; stroke-linecap:round; stroke-linejoin:round; }
+.admin-po-payment-confirm, .admin-po-payment-confirm span { color:#090909 !important; }
 .admin-po-payment-confirm:hover, .admin-po-payment-confirm:focus-visible { transform:translateY(-1px); box-shadow:0 10px 28px rgba(0,0,0,.28); }
 .admin-inventory-po-card-meta .admin-po-card-tag {
   display: flex;

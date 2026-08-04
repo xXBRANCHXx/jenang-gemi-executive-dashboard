@@ -28,6 +28,9 @@ assert.match(dashboard, /admin-inventory-order-action[\s\S]*<svg[\s\S]*Order[\s\
 assert.match(dashboard, /admin-inventory-po-board-head[\s\S]*admin-inventory-po-board-tools[\s\S]*admin-inventory-utility-bar/);
 assert.match(dashboard, /admin-po-payment-modes admin-sliding-chart-toggle[\s\S]*admin-toggle-pill is-active[\s\S]*data-po-payment-mode="products"/);
 assert.match(script, /admin-po-pay-action[\s\S]*Pay PO[\s\S]*admin-po-payment-modes[\s\S]*syncSlidingIndicator/);
+assert.match(script, /paymentModeToggle\.dataset\.activeMode = mode/);
+assert.match(styles, /admin-po-pay-action:not\(\.is-paid\)[\s\S]*color:#090909 !important/);
+assert.match(styles, /admin-po-payment-modes\[data-active-mode="products"\][\s\S]*translate3d\(300%/);
 assert.match(script, /data-inventory-global-days/);
 assert.match(script, /Math\.ceil\(entered \/ moq\) \* moq/);
 assert.match(script, /saveInventorySettings/);
