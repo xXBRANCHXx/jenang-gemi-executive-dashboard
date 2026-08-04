@@ -8,6 +8,8 @@ const dashboard = fs.readFileSync(path.join(root, 'dashboard/index.php'), 'utf8'
 const notifications = fs.readFileSync(path.join(root, 'partner-billing-notifications.js'), 'utf8');
 const billingApi = fs.readFileSync(path.join(root, 'api', 'partner-billing', 'index.php'), 'utf8');
 const accounting = fs.readFileSync(path.join(root, 'accounting-bootstrap.php'), 'utf8');
+const accountingPage = fs.readFileSync(path.join(root, 'profit-loss', 'index.php'), 'utf8');
+const accountingUi = fs.readFileSync(path.join(root, 'profit-loss', 'accounting.js'), 'utf8');
 const styles = fs.readFileSync(path.join(root, 'admin.css'), 'utf8');
 
 for (const source of [nav, dashboard]) {
@@ -26,6 +28,11 @@ assert.match(billingApi, /dispute_history[\s\S]*jg_admin_partner_billing_dispute
 assert.match(accounting, /billsDueSoon = \$accountingBillsDueSoon \+ \$partnerBillsDue/, 'Unpaid partner bills should count toward Bills Due.');
 assert.match(accounting, /safeCash = \$realCash - \$accountingBillsDueSoon - \$overdueBills/, 'Partner receivables should not be subtracted from Safe Cash as liabilities.');
 assert.match(accounting, /accounting_partner_bill_receipts/, 'Confirmed partner cash should be idempotently mapped to Accounting.');
+assert.match(accountingPage, /data-accounting-partner-bills-open[\s\S]*Partner Bills/, 'Accounting should name the partner receivable card Partner Bills.');
+assert.match(accountingUi, /kpis\.partner_bills_due/, 'The Partner Bills card should show only outstanding partner receivables.');
+assert.match(accountingUi, /action[^\n]*partner_bills|buildUrl\('partner_bills'/, 'Opening Partner Bills should request the weekly bill records.');
+assert.match(accountingUi, /data-accounting-partner-bill[\s\S]*data-accounting-partner-order/, 'A weekly partner bill should drill down to its order-level breakdown.');
+assert.match(styles, /\.admin-accounting-partner-bill-summary[\s\S]*\.admin-accounting-partner-order/, 'Partner bill totals and order rows should have dedicated responsive styling.');
 assert.match(styles, /\.admin-billing-proof-close\s*\{[\s\S]*border:\s*0[\s\S]*background:\s*transparent/, 'Proof preview close should be a real icon without a pill.');
 assert.match(styles, /\.admin-billing-avatar[\s\S]*\.admin-billing-avatar > img/, 'Partner favicons should have a styled notification slot and fallback.');
 

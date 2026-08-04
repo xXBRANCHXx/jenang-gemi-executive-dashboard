@@ -112,7 +112,9 @@ if (root) {
     cashHistory: [],
     cashHistorySummary: {},
     cashHistoryLoaded: false,
-    cashHistoryScope: 'all'
+    cashHistoryScope: 'all',
+    partnerBills: null,
+    partnerBillsRequest: 0
   };
 
   const refs = {
@@ -133,7 +135,7 @@ if (root) {
       bankBalance: root.querySelector('[data-accounting-kpi="bank-balance"]'),
       cashAvailable: root.querySelector('[data-accounting-kpi="cash-available"]'),
       marketplaceOutstanding: root.querySelector('[data-accounting-kpi="marketplace-outstanding"]'),
-      billsDue: root.querySelector('[data-accounting-kpi="bills-due"]'),
+      partnerBills: root.querySelector('[data-accounting-kpi="partner-bills"]'),
       overdue: root.querySelector('[data-accounting-kpi="overdue"]'),
       expenses: root.querySelector('[data-accounting-kpi="expenses"]'),
       safeCash: root.querySelector('[data-accounting-kpi="safe-cash"]'),
@@ -162,6 +164,7 @@ if (root) {
     walletBreakdown: root.querySelector('[data-accounting-wallet-breakdown]'),
     walletsMeta: root.querySelector('[data-accounting-wallets-meta]'),
     marketplaceOpen: root.querySelector('[data-accounting-marketplace-open]'),
+    partnerBillsOpen: root.querySelector('[data-accounting-partner-bills-open]'),
     billsOpenButtons: root.querySelectorAll('[data-accounting-bills-open]'),
     breakdown: root.querySelector('[data-accounting-breakdown]'),
     breakdownCard: root.querySelector('.admin-accounting-breakdown-card'),
@@ -597,7 +600,7 @@ if (root) {
         ? 'Unavailable'
         : formatCurrency(kpis.marketplace_outstanding || 0);
     }
-    if (refs.kpis.billsDue) refs.kpis.billsDue.textContent = formatCurrency(kpis.bills_due_soon || 0);
+    if (refs.kpis.partnerBills) refs.kpis.partnerBills.textContent = formatCurrency(kpis.partner_bills_due || 0);
     if (refs.kpis.overdue) refs.kpis.overdue.textContent = formatCurrency(kpis.overdue_bills || 0);
     if (refs.kpis.expenses) refs.kpis.expenses.textContent = formatCurrency(kpis.expenses_this_month || 0);
     if (refs.kpis.safeCash) refs.kpis.safeCash.textContent = formatCurrency(kpis.net_safe_cash || 0);
@@ -790,6 +793,7 @@ if (root) {
 
   const closeBreakdown = () => {
     if (!refs.breakdown) return;
+    state.partnerBillsRequest += 1;
     refs.breakdown.hidden = true;
   };
 
@@ -804,6 +808,7 @@ if (root) {
   };
 
   const openMarketplaceBreakdown = () => {
+    state.partnerBillsRequest += 1;
     const wallets = Array.isArray(state.summary?.wallet_breakdown) ? state.summary.wallet_breakdown : [];
     openBreakdown({
       kicker: 'Marketplace receivable',
@@ -820,6 +825,94 @@ if (root) {
     });
   };
 
+  const partnerBillStatusLabel = (status) => ({
+    accruing: 'In progress',
+    unpaid: 'Awaiting payment',
+    payment_submitted: 'Payment review',
+    disputed: 'Disputed',
+    paid: 'Paid'
+  }[String(status || '')] || String(status || 'Unknown').replace(/_/g, ' '));
+
+  const renderPartnerBillsList = () => {
+    const bills = Array.isArray(state.partnerBills?.bills) ? state.partnerBills.bills : [];
+    openBreakdown({
+      kicker: 'Partner receivables',
+      title: 'Partner Bills',
+      copy: 'Weekly partner bills across every billing period. Select a bill to see its totals and order-by-order breakdown.',
+      empty: state.partnerBills?.available === false ? 'Partner billing is temporarily unavailable.' : 'No partner bills have been created yet.',
+      rows: bills.map((bill) => `
+        <button type="button" class="admin-accounting-breakdown-row" data-accounting-partner-bill="${escapeHtml(bill.id || '')}">
+          <span><strong>${escapeHtml(bill.partner_name || bill.partner_code || 'Partner')}</strong><small>${escapeHtml(bill.period_label || 'Weekly bill')} · ${Number(bill.order_count || 0).toLocaleString('id-ID')} orders</small></span>
+          <span><small>Status</small><strong>${escapeHtml(partnerBillStatusLabel(bill.status))}</strong></span>
+          <span><small>${bill.status === 'paid' ? 'Paid total' : 'Bill total'}</small><strong>${formatCurrency(bill.total_amount || 0)}</strong></span>
+        </button>
+      `)
+    });
+  };
+
+  const openPartnerBillsBreakdown = async () => {
+    const requestId = ++state.partnerBillsRequest;
+    openBreakdown({
+      kicker: 'Partner receivables',
+      title: 'Partner Bills',
+      copy: 'Loading weekly bills and their order details.',
+      empty: 'Loading partner bills…',
+      rows: []
+    });
+    try {
+      const payload = await requestJson(buildUrl('partner_bills', { cacheBust: true }));
+      if (requestId !== state.partnerBillsRequest) return;
+      state.partnerBills = payload.data || { available: true, bills: [] };
+      renderPartnerBillsList();
+    } catch (error) {
+      if (requestId !== state.partnerBillsRequest) return;
+      state.partnerBills = { available: false, bills: [] };
+      openBreakdown({
+        kicker: 'Partner receivables',
+        title: 'Partner Bills',
+        copy: 'Weekly bill details could not be loaded.',
+        empty: error?.message || 'Partner billing is temporarily unavailable.',
+        rows: []
+      });
+    }
+  };
+
+  const openPartnerBillDetail = (billId) => {
+    const bills = Array.isArray(state.partnerBills?.bills) ? state.partnerBills.bills : [];
+    const bill = bills.find((candidate) => String(candidate.id || '') === String(billId || ''));
+    if (!bill || !refs.breakdownBody) return;
+    const items = Array.isArray(bill.items) ? bill.items : [];
+    if (refs.breakdownKicker) refs.breakdownKicker.textContent = bill.partner_name || bill.partner_code || 'Partner bill';
+    if (refs.breakdownTitle) refs.breakdownTitle.textContent = bill.period_label || 'Weekly bill';
+    if (refs.breakdownCopy) refs.breakdownCopy.textContent = `${Number(bill.order_count || 0).toLocaleString('id-ID')} orders · ${Number(bill.unit_count || 0).toLocaleString('id-ID')} units`;
+    refs.breakdownBody.innerHTML = `
+      <div class="admin-accounting-partner-bill-toolbar">
+        <button type="button" class="admin-ghost-btn" data-accounting-partner-bills-back>← All partner bills</button>
+        <span class="${statusClass(bill.status)}">${escapeHtml(partnerBillStatusLabel(bill.status))}</span>
+      </div>
+      <div class="admin-accounting-partner-bill-summary">
+        <div><span>${bill.status === 'paid' ? 'Paid total' : (bill.status === 'accruing' ? 'Current total' : 'Amount due')}</span><strong>${formatCurrency(bill.total_amount || 0)}</strong></div>
+        <div><span>Subtotal</span><strong>${formatCurrency(bill.subtotal_amount || 0)}</strong></div>
+        <div><span>Adjustments</span><strong>${Number(bill.adjustment_amount || 0) > 0 ? `−${formatCurrency(bill.adjustment_amount)}` : formatCurrency(0)}</strong></div>
+        <div><span>Due date</span><strong>${escapeHtml(formatHistoryDate(bill.due_date || ''))}</strong></div>
+      </div>
+      <div class="admin-accounting-partner-orders">
+        <div class="admin-accounting-partner-orders-head"><strong>Order breakdown</strong><span>${Number(bill.unit_count || 0).toLocaleString('id-ID')} units</span></div>
+        ${items.length ? items.map((item) => {
+          const removed = String(item.status || '') === 'removed';
+          const orderDate = String(item.order_date || '').slice(0, 10);
+          const context = [orderDate ? formatHistoryDate(orderDate) : '', item.platform || '', item.customer_name || ''].filter(Boolean).join(' · ');
+          return `
+            <div class="admin-accounting-partner-order${removed ? ' is-removed' : ''}" data-accounting-partner-order="${escapeHtml(item.order_id || '')}">
+              <span><strong>${escapeHtml(item.order_id || 'Order')}</strong><small>${escapeHtml(item.description || 'No product description')}</small><small>${escapeHtml(context)}</small></span>
+              <span><strong>${removed ? 'Removed' : formatCurrency(item.amount || 0)}</strong><small>${Number(item.units || 0).toLocaleString('id-ID')} units${removed && item.removed_reason ? ` · ${escapeHtml(item.removed_reason)}` : ''}</small></span>
+            </div>
+          `;
+        }).join('') : '<p class="admin-empty">No order lines are attached to this bill.</p>'}
+      </div>
+    `;
+  };
+
   const addDays = (dateString, days) => {
     const [year, month, day] = String(dateString).split('-').map(Number);
     const date = new Date(Date.UTC(year, month - 1, day + days));
@@ -827,6 +920,7 @@ if (root) {
   };
 
   const openBillsBreakdown = (kind) => {
+    state.partnerBillsRequest += 1;
     const today = getDateString();
     const soon = addDays(today, 7);
     const bills = state.bills.filter((bill) => {
@@ -1683,11 +1777,22 @@ if (root) {
   refs.cashHistoryAccount?.addEventListener('change', renderCashHistory);
   refs.cashHistoryDirection?.addEventListener('change', renderCashHistory);
   refs.marketplaceOpen?.addEventListener('click', openMarketplaceBreakdown);
+  refs.partnerBillsOpen?.addEventListener('click', openPartnerBillsBreakdown);
   refs.billsOpenButtons.forEach((button) => {
     button.addEventListener('click', () => openBillsBreakdown(button.dataset.accountingBillsOpen || 'due'));
   });
   refs.breakdownCloseButtons.forEach((button) => button.addEventListener('click', closeBreakdown));
   refs.breakdownBody?.addEventListener('click', (event) => {
+    const partnerBill = event.target instanceof Element ? event.target.closest('[data-accounting-partner-bill]') : null;
+    if (partnerBill instanceof HTMLElement) {
+      openPartnerBillDetail(partnerBill.dataset.accountingPartnerBill || '');
+      return;
+    }
+    const partnerBillsBack = event.target instanceof Element ? event.target.closest('[data-accounting-partner-bills-back]') : null;
+    if (partnerBillsBack instanceof HTMLElement) {
+      renderPartnerBillsList();
+      return;
+    }
     const target = event.target instanceof Element ? event.target.closest('[data-accounting-breakdown-bill]') : null;
     if (!(target instanceof HTMLElement)) return;
     closeBreakdown();

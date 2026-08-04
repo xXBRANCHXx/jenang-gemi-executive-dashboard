@@ -112,10 +112,10 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                         <strong data-accounting-kpi="marketplace-outstanding">Rp0</strong>
                         <small>See outstanding by wallet <b aria-hidden="true">→</b></small>
                     </button>
-                    <button type="button" class="admin-accounting-metric admin-accounting-cash-card" data-accounting-bills-open="due" aria-haspopup="dialog">
-                        <span>Bills Due</span>
-                        <strong data-accounting-kpi="bills-due">Rp0</strong>
-                        <small>See the next 7 days <b aria-hidden="true">→</b></small>
+                    <button type="button" class="admin-accounting-metric admin-accounting-cash-card" data-accounting-partner-bills-open aria-haspopup="dialog" aria-controls="accounting-breakdown">
+                        <span>Partner Bills</span>
+                        <strong data-accounting-kpi="partner-bills">Rp0</strong>
+                        <small>See weekly bill details <b aria-hidden="true">→</b></small>
                     </button>
                     <button type="button" class="admin-accounting-metric admin-accounting-cash-card" data-accounting-bills-open="overdue" aria-haspopup="dialog">
                         <span>Overdue</span>
@@ -344,7 +344,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                     </aside>
                 </div>
 
-                <div class="admin-modal-shell admin-accounting-breakdown" data-accounting-breakdown hidden>
+                <div class="admin-modal-shell admin-accounting-breakdown" id="accounting-breakdown" data-accounting-breakdown hidden>
                     <button type="button" class="admin-modal-backdrop" data-accounting-breakdown-close aria-label="Close breakdown"></button>
                     <section class="admin-modal-card admin-accounting-breakdown-card" role="dialog" aria-modal="true" aria-labelledby="accounting-breakdown-title" tabindex="-1">
                         <div class="admin-modal-head">

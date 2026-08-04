@@ -14,7 +14,7 @@ const expect = (condition, message) => {
 
 expect(html.includes('data-accounting-reconcile-form'), 'Accounting must expose the cash reconciliation form.');
 expect(html.includes('data-accounting-marketplace-open'), 'Marketplace outstanding must open a visual breakdown.');
-expect(html.includes('data-accounting-bills-open="due"'), 'Bills Due must be an interactive drill-down.');
+expect(html.includes('data-accounting-partner-bills-open'), 'Partner Bills must be an interactive drill-down.');
 expect(html.includes('data-accounting-bills-open="overdue"'), 'Overdue must be an interactive drill-down.');
 expect(html.includes('data-accounting-wallet-breakdown'), 'Accounting must show a compact wallet balance strip.');
 expect(html.includes('data-accounting-ledger-body'), 'Accounting must expose the unified activity ledger.');

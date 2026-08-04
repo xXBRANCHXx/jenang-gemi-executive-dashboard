@@ -1198,3 +1198,65 @@ function jg_admin_partner_billing_due_total(): int
         return 0;
     }
 }
+
+function jg_admin_partner_billing_breakdown(): array
+{
+    try {
+        $pdo = jg_admin_partner_billing_db();
+        jg_admin_partner_billing_sync($pdo);
+        $stmt = $pdo->query(
+            'SELECT b.bill_id, b.partner_code, b.period_start, b.period_end, b.due_date, b.status,
+                    b.subtotal_amount, b.adjustment_amount, b.total_amount, b.payment_submitted_at, b.paid_at,
+                    COALESCE(NULLIF(pr.name, ""), b.partner_code) AS partner_name
+             FROM partner_weekly_bills b
+             LEFT JOIN partner_profiles pr ON pr.code = b.partner_code
+             ORDER BY b.period_start DESC, partner_name ASC
+             LIMIT 104'
+        );
+        $bills = [];
+        $outstanding = 0;
+        foreach ($stmt->fetchAll() as $row) {
+            $status = (string) ($row['status'] ?? '');
+            $amount = (int) round((float) ($row['total_amount'] ?? 0));
+            if (in_array($status, ['unpaid', 'payment_submitted', 'disputed'], true)) {
+                $outstanding += $amount;
+            }
+            $items = jg_admin_partner_billing_items($pdo, (string) $row['bill_id']);
+            $bills[] = [
+                'id' => (string) $row['bill_id'],
+                'partner_code' => (string) $row['partner_code'],
+                'partner_name' => (string) $row['partner_name'],
+                'period_start' => (string) $row['period_start'],
+                'period_end' => (string) $row['period_end'],
+                'period_label' => jg_admin_partner_billing_period_label((string) $row['period_start'], (string) $row['period_end']),
+                'due_date' => (string) $row['due_date'],
+                'status' => $status,
+                'subtotal_amount' => (int) round((float) ($row['subtotal_amount'] ?? 0)),
+                'adjustment_amount' => (int) round((float) ($row['adjustment_amount'] ?? 0)),
+                'total_amount' => $amount,
+                'payment_submitted_at' => (string) ($row['payment_submitted_at'] ?? ''),
+                'paid_at' => (string) ($row['paid_at'] ?? ''),
+                'order_count' => count(array_filter($items, static fn (array $item): bool => (string) ($item['status'] ?? '') !== 'removed')),
+                'unit_count' => array_sum(array_map(
+                    static fn (array $item): int => (string) ($item['status'] ?? '') === 'removed' ? 0 : (int) ($item['units'] ?? 0),
+                    $items
+                )),
+                'items' => $items,
+            ];
+        }
+        return [
+            'available' => true,
+            'outstanding_amount' => $outstanding,
+            'bill_count' => count($bills),
+            'bills' => $bills,
+        ];
+    } catch (Throwable $error) {
+        error_log('Partner bill breakdown unavailable: ' . $error->getMessage());
+        return [
+            'available' => false,
+            'outstanding_amount' => 0,
+            'bill_count' => 0,
+            'bills' => [],
+        ];
+    }
+}

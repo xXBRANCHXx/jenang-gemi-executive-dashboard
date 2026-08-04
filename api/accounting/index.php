@@ -169,6 +169,9 @@ try {
                 'bills' => jg_accounting_bills($pdo, $_GET),
             ], $month));
         }
+        if ($action === 'partner_bills') {
+            jg_accounting_json(jg_accounting_endpoint_payload(jg_admin_partner_billing_breakdown(), $month));
+        }
         if ($action === 'bill') {
             $rows = jg_accounting_bills($pdo, $_GET);
             jg_accounting_json(jg_accounting_endpoint_payload(['bill' => $rows[0] ?? null], $month));
