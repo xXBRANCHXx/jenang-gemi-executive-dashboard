@@ -745,6 +745,23 @@ const getDateKeyForTimezone = (date = new Date(), timezone = DASHBOARD_TIMEZONE)
   return `${parts.year}-${parts.month}-${parts.day}`;
 };
 
+const getElapsedDayCountForMonth = (monthKey, date = new Date(), timezone = DASHBOARD_TIMEZONE) => {
+  const match = String(monthKey || '').match(/^(\d{4})-(\d{2})$/);
+  if (!match) return 0;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) return 0;
+
+  const selectedMonth = `${year}-${String(month).padStart(2, '0')}`;
+  const currentDate = getDateKeyForTimezone(date, timezone);
+  const currentMonth = currentDate.slice(0, 7);
+  const calendarDayCount = new Date(Date.UTC(year, month, 0)).getUTCDate();
+
+  if (selectedMonth < currentMonth) return calendarDayCount;
+  if (selectedMonth > currentMonth) return 0;
+  return Math.min(calendarDayCount, Math.max(1, Number(currentDate.slice(8, 10)) || 1));
+};
+
 const jgValidMonthKey = (value) => {
   const match = String(value || '').match(/^(\d{4})-(\d{2})$/);
   if (!match) return false;
@@ -6925,12 +6942,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const dayCount = Math.max(days.length, 1);
+    const averageDayCount = getElapsedDayCountForMonth(month, new Date(), state.timezone);
     const accounts = Array.from(accountMap.values())
       .sort((left, right) => left.platform.localeCompare(right.platform) || left.label.localeCompare(right.label))
       .map((account) => ({
         ...account,
-        avgQty: account.qty / dayCount,
-        avgRevenue: account.revenue / dayCount
+        avgQty: averageDayCount > 0 ? account.qty / averageDayCount : 0,
+        avgRevenue: averageDayCount > 0 ? account.revenue / averageDayCount : 0
       }));
 
     const totalQty = days.reduce((sum, day) => sum + day.qty, 0);
@@ -6946,6 +6964,7 @@ document.addEventListener('DOMContentLoaded', () => {
       start: range.start,
       end: range.end,
       dayCount,
+      averageDayCount,
       rowCount: Number(summary.rows_count || summary.row_count || 0),
       distinctOrders: Number(summary.distinct_orders || totalOrders || 0),
       rows: [],
@@ -6957,8 +6976,8 @@ document.addEventListener('DOMContentLoaded', () => {
         qty: totalQty,
         revenue: totalRevenue,
         orders: totalOrders,
-        avgQty: totalQty / dayCount,
-        avgRevenue: totalRevenue / dayCount,
+        avgQty: averageDayCount > 0 ? totalQty / averageDayCount : 0,
+        avgRevenue: averageDayCount > 0 ? totalRevenue / averageDayCount : 0,
         accountCount: accounts.length,
         activeDayCount: days.filter((day) => day.qty > 0 || day.revenue > 0 || day.orders > 0).length,
         topDay
@@ -6971,6 +6990,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const accountMap = buildDailyAccountMap(rows);
     const days = createDailyDays(range);
     const dayCount = days.length;
+    const month = `${range.year}-${String(range.month).padStart(2, '0')}`;
+    const averageDayCount = getElapsedDayCountForMonth(month, new Date(), state.timezone);
     const dayMap = new Map(days.map((day) => [day.date, day]));
 
     (Array.isArray(rows) ? rows : []).forEach((row) => {
@@ -7043,8 +7064,8 @@ document.addEventListener('DOMContentLoaded', () => {
       .sort((left, right) => left.platform.localeCompare(right.platform) || left.label.localeCompare(right.label))
       .map((account) => ({
         ...account,
-        avgQty: account.qty / dayCount,
-        avgRevenue: account.revenue / dayCount
+        avgQty: averageDayCount > 0 ? account.qty / averageDayCount : 0,
+        avgRevenue: averageDayCount > 0 ? account.revenue / averageDayCount : 0
       }));
 
     const totalQty = days.reduce((sum, day) => sum + day.qty, 0);
@@ -7055,11 +7076,12 @@ document.addEventListener('DOMContentLoaded', () => {
     ), null);
 
     return {
-      month: `${range.year}-${String(range.month).padStart(2, '0')}`,
-      label: formatDailyMonthLabel(`${range.year}-${String(range.month).padStart(2, '0')}`),
+      month,
+      label: formatDailyMonthLabel(month),
       start: range.start,
       end: range.end,
       dayCount,
+      averageDayCount,
       rowCount: Array.isArray(rows) ? rows.length : 0,
       distinctOrders: totalOrders,
       rows: Array.isArray(rows) ? rows : [],
@@ -7069,8 +7091,8 @@ document.addEventListener('DOMContentLoaded', () => {
         qty: totalQty,
         revenue: totalRevenue,
         orders: totalOrders,
-        avgQty: totalQty / dayCount,
-        avgRevenue: totalRevenue / dayCount,
+        avgQty: averageDayCount > 0 ? totalQty / averageDayCount : 0,
+        avgRevenue: averageDayCount > 0 ? totalRevenue / averageDayCount : 0,
         accountCount: accounts.length,
         activeDayCount: days.filter((day) => day.qty > 0 || day.revenue > 0 || day.orders > 0).length,
         topDay
@@ -7255,7 +7277,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <td class="daily-number-cell daily-total-cell daily-rp-cell">${dailyRpMarkup(dailyData.totals.avgRevenue)}</td>
       </tr>
       <tr>
-        <th scope="row" class="daily-day-cell"><strong>Avg / day</strong><small>${formatRegionalInteger(dailyData.dayCount)} days</small></th>
+        <th scope="row" class="daily-day-cell"><strong>Avg / day</strong><small>${formatRegionalInteger(dailyData.averageDayCount)} days</small></th>
         ${averageAccountCells}
         <td class="daily-number-cell daily-total-cell daily-qty-cell">${dailyQtyMarkup(dailyData.totals.avgQty, { average: true })}</td>
         <td class="daily-number-cell daily-total-cell daily-rp-cell">${dailyRpMarkup(dailyData.totals.avgRevenue)}</td>
