@@ -298,9 +298,9 @@ function jg_wallet_known_accounts(): array
         ['platform' => 'shopee', 'account_key' => 'jenang-gemi-shopee', 'company' => 'Jenang Gemi', 'label' => 'Jenang Gemi Shopee'],
         ['platform' => 'shopee', 'account_key' => 'zero-shopee', 'company' => 'ZERO', 'label' => 'ZERO Shopee'],
         ['platform' => 'shopee', 'account_key' => 'zfit-shopee', 'company' => 'ZFIT', 'label' => 'ZFIT Shopee'],
-        ['platform' => 'tiktok', 'account_key' => 'jenang-gemi-tiktok', 'company' => 'Jenang Gemi', 'label' => 'Jenang Gemi TikTok'],
-        ['platform' => 'tiktok', 'account_key' => 'zero-tiktok', 'company' => 'ZERO', 'label' => 'ZERO TikTok'],
-        ['platform' => 'tiktok', 'account_key' => 'zfit-tiktok', 'company' => 'ZFIT', 'label' => 'ZFIT TikTok'],
+        ['platform' => 'tiktok', 'account_key' => 'jenang-gemi-tiktok', 'company' => 'Jenang Gemi', 'label' => 'Jenang Gemi TikTok / Tokopedia'],
+        ['platform' => 'tiktok', 'account_key' => 'zero-tiktok', 'company' => 'ZERO', 'label' => 'ZERO TikTok / Tokopedia'],
+        ['platform' => 'tiktok', 'account_key' => 'zfit-tiktok', 'company' => 'ZFIT', 'label' => 'ZFIT TikTok / Tokopedia'],
     ];
 }
 
@@ -1497,6 +1497,9 @@ function jg_wallet_upsert_platform_transactions(PDO $pdo, string $platform, stri
         if (!is_array($transaction)) {
             continue;
         }
+        if (jg_wallet_normalize_key($platform) === 'tiktok' && !jg_wallet_is_confirmed_tiktok_withdrawal($transaction)) {
+            continue;
+        }
         $createdAt = jg_orders_order_datetime($transaction['created_at'] ?? null);
         if (!$createdAt instanceof DateTimeImmutable && (int) ($transaction['create_time'] ?? 0) > 0) {
             $createdAt = new DateTimeImmutable('@' . (int) $transaction['create_time']);
@@ -1530,6 +1533,27 @@ function jg_wallet_upsert_platform_transactions(PDO $pdo, string $platform, stri
     }
 
     return $upserted;
+}
+
+/** @return array<string, mixed> */
+function jg_wallet_platform_transaction_raw(array $row): array
+{
+    if (isset($row['raw']) && is_array($row['raw'])) {
+        return $row['raw'];
+    }
+
+    $raw = json_decode((string) ($row['raw_json'] ?? ''), true);
+    return is_array($raw) ? $raw : [];
+}
+
+function jg_wallet_is_confirmed_tiktok_withdrawal(array $row): bool
+{
+    $raw = jg_wallet_platform_transaction_raw($row);
+    $type = strtoupper(trim((string) ($raw['type'] ?? $raw['withdrawal_type'] ?? '')));
+    $status = strtoupper(trim((string) ($raw['status'] ?? '')));
+
+    return $type === 'WITHDRAW'
+        && in_array($status, ['SUCCESS', 'SUCCEEDED', 'COMPLETED', 'COMPLETE', 'PAID', 'SETTLED'], true);
 }
 
 function jg_wallet_start_backtrack(PDO $pdo, array $payload): array
@@ -2048,12 +2072,27 @@ function jg_wallet_apply_balance_anchor(array &$account, ?array $anchor): void
     $account['manual_anchor_created_by'] = (string) ($anchor['created_by'] ?? '');
     $account['last_wallet_cleared_at'] = $account['manual_anchor_observed_at'];
     $account['clearance_source'] = 'manual_balance_anchor';
-    if ($walletTransactionSinceAnchorCount > 0) {
+    $platform = jg_wallet_normalize_key($account['platform'] ?? '');
+    if ($walletTransactionSinceAnchorCount > 0 && $platform === 'shopee') {
         $account['wallet_balance_basis'] = 'manual_anchor_plus_platform_wallet_transactions_after_anchor';
         $account['wallet_balance'] = max(0, $anchorBalance + $walletTransactionSinceAnchor);
         $account['wallet_activity_since_anchor_total'] = $walletTransactionSinceAnchor;
         $account['wallet_activity_since_anchor_count'] = $walletTransactionSinceAnchorCount;
         $account['wallet_activity_source'] = 'platform_wallet_transactions';
+        $account['cash_out_source'] = 'platform_wallet_transactions';
+        return;
+    }
+
+    if ($walletTransactionSinceAnchorCount > 0 && $platform === 'tiktok') {
+        // TikTok Shop's unified Indonesia feed also covers Tokopedia, but its
+        // finance endpoint exposes payouts rather than a complete credit/debit
+        // wallet ledger. Preserve settled-order credits and use imported payouts
+        // in place of potentially duplicated manual withdrawal entries.
+        $account['wallet_balance_basis'] = 'manual_anchor_plus_order_releases_plus_tiktok_tokopedia_payouts';
+        $account['wallet_balance'] = max(0, $anchorBalance + $releasedSinceAnchor + $walletTransactionSinceAnchor);
+        $account['wallet_activity_since_anchor_total'] = $releasedSinceAnchor + $walletTransactionSinceAnchor;
+        $account['wallet_activity_since_anchor_count'] = (int) ($account['released_since_anchor_orders'] ?? 0) + $walletTransactionSinceAnchorCount;
+        $account['wallet_activity_source'] = 'marketplace_order_releases_plus_platform_payouts';
         $account['cash_out_source'] = 'platform_wallet_transactions';
         return;
     }
@@ -2226,7 +2265,7 @@ function jg_wallet_platform_transaction_totals(PDO $pdo, array $activeBalanceAnc
 {
     try {
         $stmt = $pdo->query(
-            'SELECT platform, account_key, transaction_id, amount, current_balance, transaction_at
+            'SELECT platform, account_key, transaction_id, amount, current_balance, transaction_at, raw_json
              FROM dashboard_wallet_platform_transactions
              ORDER BY platform ASC, account_key ASC, transaction_at ASC, id ASC'
         );
@@ -2237,6 +2276,10 @@ function jg_wallet_platform_transaction_totals(PDO $pdo, array $activeBalanceAnc
 
     $totals = [];
     foreach ($rows as $row) {
+        $platform = jg_wallet_normalize_key((string) ($row['platform'] ?? ''));
+        if ($platform === 'tiktok' && !jg_wallet_is_confirmed_tiktok_withdrawal($row)) {
+            continue;
+        }
         $key = jg_wallet_account_key((string) ($row['platform'] ?? ''), (string) ($row['account_key'] ?? ''));
         if ($key === '|') {
             continue;
@@ -2900,7 +2943,7 @@ function jg_wallet_account_label(string $company, string $platform, string $acco
     $platformKey = jg_wallet_normalize_key($platform);
     $platformLabel = match ($platformKey) {
         'shopee' => 'Shopee',
-        'tiktok' => 'TikTok',
+        'tiktok' => 'TikTok / Tokopedia',
         default => ucfirst($platformKey),
     };
     if ($company === '') {

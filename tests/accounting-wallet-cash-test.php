@@ -18,6 +18,7 @@ function accounting_expect(mixed $expected, mixed $actual, string $message): voi
 $bounds = jg_accounting_month_utc_bounds('2026-07');
 accounting_expect('2026-06-30 17:00:00', $bounds['start_at'], 'Accounting wallet cash month must start at midnight WIB.');
 accounting_expect('2026-07-31 17:00:00', $bounds['end_at'], 'Accounting wallet cash month must end at the next midnight WIB.');
+accounting_expect('TikTok / Tokopedia · Jenang Gemi', jg_accounting_wallet_label('tiktok', 'jenang-gemi-tiktok'), 'Accounting must name the unified TikTok / Tokopedia channel.');
 
 $missing = new PDO('sqlite::memory:');
 $missingContext = jg_accounting_automatic_usable_cash_context($missing, ['month' => '2026-07']);
@@ -98,7 +99,10 @@ $pdo->exec("INSERT INTO dashboard_wallet_platform_transactions
     (platform, account_key, transaction_id, order_id, transaction_type, money_flow, amount, current_balance, transaction_at, raw_json) VALUES
     ('shopee', 'jenang-gemi-shopee', 'wallet-duplicate-manual', '', 'Withdrawal', 'OUT', -100000, 0, '2026-07-03 05:00:00', '{}'),
     ('shopee', 'zero-shopee', 'wallet-platform-cashout', '', 'Bank transfer', 'OUT', -60000, 40000, '2026-07-06 05:00:00', '{}'),
-    ('shopee', 'zero-shopee', 'wallet-refund', 'ORDER-REFUND', 'Refund', 'OUT', -15000, 25000, '2026-07-07 05:00:00', '{}')");
+    ('shopee', 'zero-shopee', 'wallet-refund', 'ORDER-REFUND', 'Refund', 'OUT', -15000, 25000, '2026-07-07 05:00:00', '{}'),
+    ('tiktok', 'jenang-gemi-tiktok', 'tiktok-settlement', '', 'TIKTOK_WITHDRAWAL_SUCCESS', 'WITHDRAWAL_OUT', -90000, NULL, '2026-07-08 05:00:00', '{\"type\":\"SETTLE\",\"status\":\"SUCCESS\"}'),
+    ('tiktok', 'jenang-gemi-tiktok', 'tiktok-withdrawal', '', 'TIKTOK_WITHDRAWAL_SUCCESS', 'WITHDRAWAL_OUT', -70000, NULL, '2026-07-09 05:00:00', '{\"type\":\"WITHDRAW\",\"status\":\"SUCCESS\"}'),
+    ('tiktok', 'jenang-gemi-tiktok', 'tiktok-pending', '', 'TIKTOK_WITHDRAWAL_PROCESSING', 'WITHDRAWAL_PENDING', -80000, NULL, '2026-07-10 05:00:00', '{\"type\":\"WITHDRAW\",\"status\":\"PROCESSING\"}')");
 $pdo->exec("INSERT INTO website_orders (platform, order_id, status, customer_name, gross_revenue, net_revenue, cogs, paid_at, created_at) VALUES
     ('jenang_gemi_website', 'JGWEB-1', 'AWAITING_FULFILLMENT_SETUP', 'Customer One', 220000, 200000, 150000, '2026-07-04 02:00:00', '2026-07-04 01:00:00'),
     ('zero_website', 'ZEROWEB-2', 'PAID_MANUAL_ERA', 'Customer Two', 80000, 80000, 999999, '2026-07-05 02:00:00', '2026-07-05 01:00:00'),
@@ -111,29 +115,29 @@ $pdo->exec("INSERT INTO accounting_transactions (status, type, direction, accoun
     ('posted', 'manual_income', 'money_in', 2, NULL, '2026-07', '2026-07-05', 'ZEROWEB-2', '', '', 50000)");
 
 $july = jg_accounting_wallet_usable_cash_context($pdo, '2026-07');
-accounting_expect(160000, $july['wallet_withdrawn_total'], 'Monthly wallet cash must count active manual and platform Wallet withdrawals.');
+accounting_expect(230000, $july['wallet_withdrawn_total'], 'Monthly wallet cash must count active manual and confirmed platform Wallet withdrawals.');
 accounting_expect(25000, $july['manual_marketplace_transfer_total'], 'Monthly wallet cash must subtract manual marketplace transfers into spendable accounts.');
-accounting_expect(135000, $july['amount'], 'Monthly wallet cash must expose manual plus platform cash-out remainders.');
+accounting_expect(205000, $july['amount'], 'Monthly wallet cash must expose manual plus confirmed platform cash-out remainders.');
 
 $allTime = jg_accounting_wallet_usable_cash_context($pdo);
-accounting_expect(190000, $allTime['wallet_withdrawn_total'], 'All-time wallet cash must count every active Wallet withdrawal.');
-accounting_expect(165000, $allTime['amount'], 'All-time wallet cash must avoid double-counting manual marketplace transfers and duplicate platform rows.');
+accounting_expect(260000, $allTime['wallet_withdrawn_total'], 'All-time wallet cash must count every active confirmed Wallet withdrawal.');
+accounting_expect(235000, $allTime['amount'], 'All-time wallet cash must avoid false TikTok settlements and double-counted platform rows.');
 
 $websiteRecords = jg_accounting_website_cash_records($pdo, jg_accounting_cash_record_bounds(['month' => '2026-07']));
 accounting_expect(2, count($websiteRecords), 'Monthly website cash records must include only paid July website orders.');
 $websiteContext = jg_accounting_automatic_usable_cash_context($pdo, ['month' => '2026-07']);
-accounting_expect(135000, $websiteContext['wallet_withdrawals_to_bank'], 'Automatic cash must keep wallet withdrawals separated.');
+accounting_expect(205000, $websiteContext['wallet_withdrawals_to_bank'], 'Automatic cash must keep confirmed wallet withdrawals separated.');
 accounting_expect(230000, $websiteContext['website_payments_to_bank'], 'Automatic cash must count confirmed website payments without subtracting COGS.');
-accounting_expect(365000, $websiteContext['amount'], 'Automatic cash must combine wallet withdrawals and website paid orders.');
+accounting_expect(435000, $websiteContext['amount'], 'Automatic cash must combine wallet withdrawals and website paid orders.');
 
 $allCash = jg_accounting_automatic_usable_cash_context($pdo);
-accounting_expect(435000, $allCash['amount'], 'All-time automatic cash must combine all active wallet withdrawals and website paid orders.');
+accounting_expect(505000, $allCash['amount'], 'All-time automatic cash must combine all active wallet withdrawals and website paid orders.');
 
 $pdo->exec("INSERT INTO dashboard_wallet_platform_transactions
     (platform, account_key, transaction_id, order_id, transaction_type, money_flow, amount, current_balance, transaction_at, raw_json) VALUES
     ('shopee', 'jenang-gemi-shopee', 'later-independent-withdrawal', '', 'WITHDRAWAL_CREATED', 'MONEY_OUT', -60000, 0, '2026-07-20 05:00:00', '{}')");
 $laterWithdrawal = jg_accounting_wallet_usable_cash_context($pdo, '2026-07');
-accounting_expect(195000, $laterWithdrawal['amount'], 'A later withdrawal must not be hidden by an unrelated historical release from the same wallet.');
+accounting_expect(265000, $laterWithdrawal['amount'], 'A later withdrawal must not be hidden by an unrelated historical release from the same wallet.');
 
 accounting_expect(true, jg_accounting_is_wallet_platform_cash_out([
     'amount' => -60000,
@@ -147,6 +151,27 @@ accounting_expect(false, jg_accounting_is_wallet_platform_cash_out([
     'money_flow' => 'MONEY_FLOW_OUT',
     'order_id' => '',
 ]), 'Platform fees and adjustments must not become available bank cash.');
+accounting_expect(false, jg_accounting_is_wallet_platform_cash_out([
+    'platform' => 'tiktok',
+    'amount' => -90000,
+    'transaction_type' => 'TIKTOK_WITHDRAWAL_SUCCESS',
+    'money_flow' => 'WITHDRAWAL_OUT',
+    'raw_json' => '{"type":"SETTLE","status":"SUCCESS"}',
+]), 'TikTok settlement rows must not become available bank cash.');
+accounting_expect(true, jg_accounting_is_wallet_platform_cash_out([
+    'platform' => 'tiktok',
+    'amount' => -70000,
+    'transaction_type' => 'TIKTOK_WITHDRAWAL_SUCCESS',
+    'money_flow' => 'WITHDRAWAL_OUT',
+    'raw_json' => '{"type":"WITHDRAW","status":"SUCCESS"}',
+]), 'Completed explicit TikTok withdrawals must become available bank cash.');
+accounting_expect(false, jg_accounting_is_wallet_platform_cash_out([
+    'platform' => 'tiktok',
+    'amount' => -80000,
+    'transaction_type' => 'TIKTOK_WITHDRAWAL_PROCESSING',
+    'money_flow' => 'WITHDRAWAL_PENDING',
+    'raw_json' => '{"type":"WITHDRAW","status":"PROCESSING"}',
+]), 'Pending TikTok withdrawals must not become available bank cash.');
 
 $outstandingPdo = new PDO('sqlite::memory:');
 $outstandingPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);

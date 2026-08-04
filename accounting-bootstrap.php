@@ -1772,7 +1772,7 @@ function jg_accounting_wallet_label(string $platform, string $accountKey): strin
         : (str_contains($haystack, 'zfit') ? 'ZFIT' : 'Jenang Gemi');
     $platformLabel = match (strtolower($platform)) {
         'shopee' => 'Shopee',
-        'tiktok' => 'TikTok',
+        'tiktok' => 'TikTok / Tokopedia',
         'tokopedia' => 'Tokopedia',
         default => ucwords(str_replace(['_', '-'], ' ', $platform)),
     };
@@ -2029,6 +2029,16 @@ function jg_accounting_is_wallet_platform_cash_out(array $row): bool
     $amount = (int) round((float) ($row['amount'] ?? 0));
     if ($amount >= 0) {
         return false;
+    }
+
+    if (strtolower(trim((string) ($row['platform'] ?? ''))) === 'tiktok') {
+        $raw = json_decode((string) ($row['raw_json'] ?? ''), true);
+        $raw = is_array($raw) ? $raw : [];
+        $type = strtoupper(trim((string) ($raw['type'] ?? $raw['withdrawal_type'] ?? '')));
+        $status = strtoupper(trim((string) ($raw['status'] ?? '')));
+
+        return $type === 'WITHDRAW'
+            && in_array($status, ['SUCCESS', 'SUCCEEDED', 'COMPLETED', 'COMPLETE', 'PAID', 'SETTLED'], true);
     }
 
     $text = jg_accounting_wallet_platform_transaction_text($row);

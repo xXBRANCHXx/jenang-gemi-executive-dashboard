@@ -8050,6 +8050,12 @@ document.addEventListener('DOMContentLoaded', () => {
 	    return formatRegionalInteger(wallet.outstanding_orders || 0);
 	  };
 
+	  const walletPlatformLabel = (platform) => {
+	    const key = String(platform || '').trim().toLowerCase();
+	    if (key === 'tiktok') return 'TikTok / Tokopedia';
+	    return key ? key.charAt(0).toUpperCase() + key.slice(1) : '-';
+	  };
+
 	  const walletTotalBalanceKnown = (totals = {}) => Number(totals.manual_anchor_count || 0) > 0;
 
 	  const renderWalletTotalRow = (totals = {}, wallets = []) => {
@@ -8215,7 +8221,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	                  <strong>${escapeHtml(wallet.label || wallet.account_key || '-')}</strong>
 	                  <button type="button" class="admin-wallet-set-link" data-wallet-balance-toggle data-wallet-key="${escapeHtml(walletKey)}" ${disabled ? 'disabled' : ''}>${editorOpen ? 'Close' : 'Set'}</button>
 	                </span>
-	                <small>${escapeHtml(wallet.platform || '-')} / ${escapeHtml(wallet.account_key || '-')}</small>
+	                <small>${escapeHtml(walletPlatformLabel(wallet.platform))} / ${escapeHtml(wallet.account_key || '-')}</small>
 	                ${editorOpen ? `
 	                  <div class="admin-wallet-balance-control">
 	                    <input class="admin-wallet-balance-amount" type="number" min="0" step="1" inputmode="numeric" value="${balanceKnown ? balance : ''}" data-wallet-balance-amount aria-label="Wallet balance for ${escapeHtml(wallet.label || wallet.account_key || 'wallet')}" ${disabled ? 'disabled' : ''}>

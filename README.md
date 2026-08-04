@@ -101,6 +101,10 @@ geometry under Lucide's ISC license.
   anchor as the source-of-truth for current wallet cash. The displayed Wallet
   balance is the latest manually entered wallet balance plus marketplace releases
   after that anchor time minus withdrawals recorded after that anchor time.
+  TikTok / Tokopedia uses settled-order credits plus confirmed, completed
+  `WITHDRAW` events from its imported payout feed. Finance `SETTLE` events remain
+  audit data and never become bank payouts;
+  Shopee uses its complete wallet transaction ledger when available.
   Cancelled and other non-settling orders are excluded from outstanding balances.
   Supported calls include `GET /api/wallet/?action=summary`,
   `GET /api/wallet/?action=account&platform=shopee&account_key=jenang-gemi-shopee`,

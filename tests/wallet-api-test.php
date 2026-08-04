@@ -54,7 +54,7 @@ if ($originalAuthorization === null) {
 } else {
     $_SERVER['HTTP_AUTHORIZATION'] = $originalAuthorization;
 }
-wallet_expect('ZERO TikTok', jg_wallet_account_label('ZERO', 'tiktok', 'zero-tiktok'), 'Wallet account labels must use platform names.');
+wallet_expect('ZERO TikTok / Tokopedia', jg_wallet_account_label('ZERO', 'tiktok', 'zero-tiktok'), 'Unified TikTok Shop accounts must also name Tokopedia.');
 wallet_expect('Jenang Gemi Shopee', jg_wallet_account_label('', 'shopee', 'jenang-gemi-shopee'), 'Wallet labels must avoid duplicate platform suffixes.');
 wallet_expect(100000, jg_wallet_release_amount('', 100000), 'Blank release amount must default to the current wallet balance.');
 wallet_expect(25000, jg_wallet_release_amount('25000', 100000), 'Release amount must allow partial wallet releases.');
@@ -148,19 +148,41 @@ $walletTransactionPdo->exec('CREATE TABLE dashboard_wallet_platform_transactions
     id INTEGER PRIMARY KEY,
     platform TEXT,
     account_key TEXT,
+    transaction_id TEXT,
     transaction_type TEXT,
     money_flow TEXT,
     amount REAL,
-    transaction_at TEXT
+    current_balance REAL NULL,
+    transaction_at TEXT,
+    raw_json TEXT NULL
 )');
 $walletTransactionPdo->exec("INSERT INTO dashboard_wallet_platform_transactions VALUES
-    (1, 'shopee', 'jenang-gemi-shopee', 'ESCROW_VERIFIED_ADD', 'MONEY_IN', 45000, '2026-06-30 17:00:00.000000'),
-    (2, 'shopee', 'jenang-gemi-shopee', 'ESCROW_VERIFIED_ADD', 'MONEY_IN', 55000, '2026-07-15 03:00:00.000000'),
-    (3, 'shopee', 'jenang-gemi-shopee', 'WITHDRAWAL_CREATED', 'MONEY_OUT', -25000, '2026-07-16 03:00:00.000000'),
-    (4, 'shopee', 'jenang-gemi-shopee', 'ESCROW_VERIFIED_ADD', 'MONEY_IN', 65000, '2026-07-31 17:00:00.000000')");
+    (1, 'shopee', 'jenang-gemi-shopee', 'shopee-1', 'ESCROW_VERIFIED_ADD', 'MONEY_IN', 45000, NULL, '2026-06-30 17:00:00.000000', '{}'),
+    (2, 'shopee', 'jenang-gemi-shopee', 'shopee-2', 'ESCROW_VERIFIED_ADD', 'MONEY_IN', 55000, NULL, '2026-07-15 03:00:00.000000', '{}'),
+    (3, 'shopee', 'jenang-gemi-shopee', 'shopee-3', 'WITHDRAWAL_CREATED', 'MONEY_OUT', -25000, NULL, '2026-07-16 03:00:00.000000', '{}'),
+    (4, 'shopee', 'jenang-gemi-shopee', 'shopee-4', 'ESCROW_VERIFIED_ADD', 'MONEY_IN', 65000, NULL, '2026-07-31 17:00:00.000000', '{}'),
+    (5, 'tiktok', 'jenang-gemi-tiktok', 'tiktok-settle', 'TIKTOK_WITHDRAWAL_SUCCESS', 'WITHDRAWAL_OUT', -90000, NULL, '2026-07-12 03:00:00.000000', '{\"type\":\"SETTLE\",\"status\":\"SUCCESS\"}'),
+    (6, 'tiktok', 'jenang-gemi-tiktok', 'tiktok-withdraw', 'TIKTOK_WITHDRAWAL_SUCCESS', 'WITHDRAWAL_OUT', -70000, NULL, '2026-07-13 03:00:00.000000', '{\"type\":\"WITHDRAW\",\"status\":\"SUCCESS\"}'),
+    (7, 'tiktok', 'jenang-gemi-tiktok', 'tiktok-processing', 'TIKTOK_WITHDRAWAL_PROCESSING', 'WITHDRAWAL_PENDING', 0, NULL, '2026-07-14 03:00:00.000000', '{\"type\":\"WITHDRAW\",\"status\":\"PROCESSING\"}')");
 $walletMonthlyCredits = jg_wallet_platform_released_month_totals($walletTransactionPdo, $julyWindow);
 wallet_expect(100000, $walletMonthlyCredits[0]['amount'] ?? 0, 'Released this month must sum Shopee wallet credits inside the WIB month.');
 wallet_expect(2, $walletMonthlyCredits[0]['count'] ?? 0, 'Released this month must count only qualifying Shopee wallet credits.');
+wallet_expect(true, jg_wallet_is_confirmed_tiktok_withdrawal([
+    'raw' => ['type' => 'WITHDRAW', 'status' => 'SUCCESS'],
+]), 'A completed explicit TikTok withdrawal must count as a payout.');
+wallet_expect(false, jg_wallet_is_confirmed_tiktok_withdrawal([
+    'raw' => ['type' => 'SETTLE', 'status' => 'SUCCESS'],
+]), 'TikTok settlement events must not masquerade as bank payouts.');
+wallet_expect(false, jg_wallet_is_confirmed_tiktok_withdrawal([
+    'raw' => ['type' => 'WITHDRAW', 'status' => 'PROCESSING'],
+]), 'Pending TikTok withdrawals must not count as bank payouts.');
+$walletPlatformTotals = jg_wallet_platform_transaction_totals($walletTransactionPdo);
+$tiktokPlatformTotal = array_values(array_filter(
+    $walletPlatformTotals,
+    static fn (array $row): bool => ($row['platform'] ?? '') === 'tiktok'
+))[0] ?? [];
+wallet_expect(-70000, $tiktokPlatformTotal['amount'] ?? 0, 'TikTok wallet totals must include only confirmed withdrawals.');
+wallet_expect(1, $tiktokPlatformTotal['count'] ?? 0, 'TikTok settlement and pending rows must stay out of wallet totals.');
 wallet_expect(0, jg_wallet_balance_value('0'), 'Wallet balance anchors must allow a zero balance after withdrawal.');
 wallet_expect(45000, jg_wallet_balance_value('Rp45.000'), 'Wallet balance anchors must accept formatted Rupiah input.');
 wallet_expect('2026-07-03 03:30:00.000000', jg_wallet_observed_at('2026-07-03T10:30'), 'Manual wallet observed times must be stored as UTC.');
@@ -232,6 +254,31 @@ jg_wallet_apply_balance_anchor($anchoredWallet, [
 ]);
 wallet_expect(110000, $anchoredWallet['wallet_balance'], 'Wallet balance must subtract withdrawals after the manual anchor.');
 wallet_expect(true, $anchoredWallet['wallet_balance_known'], 'Anchored wallets must report known balances.');
+
+$tiktokWallet = jg_wallet_empty_amounts();
+$tiktokWallet['platform'] = 'tiktok';
+$tiktokWallet['released_since_anchor_total'] = 120000;
+$tiktokWallet['withdrawn_since_anchor_total'] = 10000;
+$tiktokWallet['wallet_transaction_since_anchor_total'] = -50000;
+$tiktokWallet['wallet_transaction_since_anchor_count'] = 1;
+jg_wallet_apply_balance_anchor($tiktokWallet, [
+    'id' => 8,
+    'balance_amount' => 0,
+    'observed_at_sql' => '2026-07-03 03:30:00.000000',
+]);
+wallet_expect(70000, $tiktokWallet['wallet_balance'], 'TikTok / Tokopedia balances must keep released-order credits while using imported payouts instead of duplicate manual withdrawals.');
+
+$shopeeWallet = jg_wallet_empty_amounts();
+$shopeeWallet['platform'] = 'shopee';
+$shopeeWallet['released_since_anchor_total'] = 120000;
+$shopeeWallet['wallet_transaction_since_anchor_total'] = 70000;
+$shopeeWallet['wallet_transaction_since_anchor_count'] = 2;
+jg_wallet_apply_balance_anchor($shopeeWallet, [
+    'id' => 9,
+    'balance_amount' => 10000,
+    'observed_at_sql' => '2026-07-03 03:30:00.000000',
+]);
+wallet_expect(80000, $shopeeWallet['wallet_balance'], 'Shopee must continue using its complete wallet transaction ledger without double-counting order releases.');
 
 $unanchoredWallet = jg_wallet_empty_amounts();
 $unanchoredWallet['released_total'] = 1000000;
