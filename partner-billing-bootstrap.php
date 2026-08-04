@@ -374,6 +374,7 @@ function jg_admin_partner_billing_sync(PDO $pdo): void
         $billIds[(string) $billId] = true;
     }
     foreach (array_keys($billIds) as $billId) jg_admin_partner_billing_recalculate($pdo, $billId);
+    jg_admin_partner_billing_repair_misclassified_price_disputes($pdo);
 }
 
 function jg_admin_partner_billing_period_label(string $start, string $end): string
@@ -392,7 +393,7 @@ function jg_admin_partner_billing_items(PDO $pdo, string $billId, ?int $disputeI
     if ($disputeId !== null) {
         $stmt = $pdo->prepare(
             'SELECT i.id, i.order_id, i.order_date, i.platform, i.customer_name, i.description, i.units,
-                    i.amount, i.status, i.snapshot_json, di.original_amount, di.proposed_amount,
+                    i.amount, i.status, i.removed_reason, i.snapshot_json, di.original_amount, di.proposed_amount,
                     di.proposal_json, di.resolved_amount, di.resolution_json
              FROM partner_weekly_bill_dispute_items di
              JOIN partner_weekly_bill_items i ON i.id = di.bill_item_id
@@ -401,7 +402,7 @@ function jg_admin_partner_billing_items(PDO $pdo, string $billId, ?int $disputeI
         $stmt->execute([':dispute_id' => $disputeId]);
     } else {
         $stmt = $pdo->prepare(
-            'SELECT id, order_id, order_date, platform, customer_name, description, units, amount, status, snapshot_json
+            'SELECT id, order_id, order_date, platform, customer_name, description, units, amount, status, removed_reason, snapshot_json
              FROM partner_weekly_bill_items WHERE bill_id = :bill_id ORDER BY order_date ASC, id ASC'
         );
         $stmt->execute([':bill_id' => $billId]);
@@ -439,6 +440,7 @@ function jg_admin_partner_billing_items(PDO $pdo, string $billId, ?int $disputeI
             'order_date' => (string) $item['order_date'], 'platform' => (string) $item['platform'],
             'customer_name' => (string) $item['customer_name'], 'description' => (string) $item['description'],
             'units' => (int) $item['units'], 'amount' => (int) $item['amount'], 'status' => (string) $item['status'],
+            'removed_reason' => (string) ($item['removed_reason'] ?? ''),
             'snapshot' => is_array($snapshot) ? $snapshot : [],
             'original_amount' => isset($item['original_amount']) ? (int) $item['original_amount'] : (int) $item['amount'],
             'proposed_amount' => isset($item['proposed_amount']) ? (int) $item['proposed_amount'] : (int) $item['amount'],
@@ -768,7 +770,35 @@ function jg_admin_partner_billing_price_resolution(array $item, mixed $adjustmen
     return ['amount' => $amount, 'snapshot' => $snapshot, 'items' => $hasStoredItems ? $resolvedItems : [], 'resolution' => $resolution];
 }
 
-function jg_admin_partner_billing_resolve_price(PDO $pdo, int $disputeId, ?array $adjustments = null): array
+/**
+ * Detect price intent from the preserved per-product proposal. Comparing the
+ * lines is essential because two edits can offset one another in the total.
+ */
+function jg_admin_partner_billing_price_proposal_changed(array $item): bool
+{
+    foreach ((array) ($item['price_lines'] ?? []) as $line) {
+        if (!is_array($line)) continue;
+        if ((int) ($line['proposed_unit_price'] ?? 0) !== (int) ($line['original_unit_price'] ?? 0)) {
+            return true;
+        }
+    }
+    return (int) ($item['proposed_amount'] ?? 0) !== (int) ($item['original_amount'] ?? 0);
+}
+
+function jg_admin_partner_billing_dispute_has_price_proposal(PDO $pdo, int $disputeId): bool
+{
+    $stmt = $pdo->prepare('SELECT bill_id, dispute_type FROM partner_weekly_bill_disputes WHERE id = :id LIMIT 1');
+    $stmt->execute([':id' => $disputeId]);
+    $dispute = $stmt->fetch();
+    if (!is_array($dispute)) return false;
+    if ((string) ($dispute['dispute_type'] ?? '') === 'price') return true;
+    foreach (jg_admin_partner_billing_items($pdo, (string) $dispute['bill_id'], $disputeId) as $item) {
+        if (jg_admin_partner_billing_price_proposal_changed($item)) return true;
+    }
+    return false;
+}
+
+function jg_admin_partner_billing_resolve_price(PDO $pdo, int $disputeId, ?array $adjustments = null, bool $repairAccepted = false): array
 {
     $pdo->beginTransaction();
     try {
@@ -776,10 +806,23 @@ function jg_admin_partner_billing_resolve_price(PDO $pdo, int $disputeId, ?array
         $stmt->execute([':id' => $disputeId]);
         $dispute = $stmt->fetch();
         if (!is_array($dispute)) throw new InvalidArgumentException('Dispute not found.');
-        if ((string) $dispute['status'] !== 'pending') throw new InvalidArgumentException('This dispute has already been resolved.');
+        $isRepair = $repairAccepted && (string) $dispute['status'] === 'accepted' && (string) ($dispute['dispute_type'] ?? 'paid') === 'paid';
+        if ((string) $dispute['status'] !== 'pending' && !$isRepair) {
+            throw new InvalidArgumentException('This dispute has already been resolved.');
+        }
 
         $items = jg_admin_partner_billing_items($pdo, (string) $dispute['bill_id'], $disputeId);
         if ($items === []) throw new RuntimeException('This dispute no longer has editable orders.');
+        if ($isRepair) {
+            $hasChangedPrice = false;
+            foreach ($items as $item) {
+                $hasChangedPrice = $hasChangedPrice || jg_admin_partner_billing_price_proposal_changed($item);
+                if ((string) $item['status'] !== 'removed' || (string) $item['removed_reason'] !== 'Accepted already-paid dispute') {
+                    throw new RuntimeException('The affected order is no longer in the removable dispute state.');
+                }
+            }
+            if (!$hasChangedPrice) throw new RuntimeException('The accepted dispute has no changed product price to restore.');
+        }
         $adjustmentByOrder = [];
         foreach ((array) $adjustments as $adjustment) {
             if (!is_array($adjustment)) continue;
@@ -790,7 +833,7 @@ function jg_admin_partner_billing_resolve_price(PDO $pdo, int $disputeId, ?array
         $updateItem = $pdo->prepare(
             'UPDATE partner_weekly_bill_items SET amount = :amount, status = "included",
                     removed_reason = "Price adjusted by finance", snapshot_json = :snapshot_json,
-                    updated_at = UTC_TIMESTAMP() WHERE id = :id'
+                    paid_at = NULL, updated_at = UTC_TIMESTAMP() WHERE id = :id'
         );
         $updateLink = $pdo->prepare(
             'UPDATE partner_weekly_bill_dispute_items SET resolved_amount = :resolved_amount,
@@ -799,6 +842,7 @@ function jg_admin_partner_billing_resolve_price(PDO $pdo, int $disputeId, ?array
         $updateOrder = $pdo->prepare(
             'UPDATE partner_orders SET revenue_total = :amount,
                     items_json = CASE WHEN :replace_items = 1 THEN :items_json ELSE items_json END,
+                    billing_status = "unbilled", billing_reference = :bill_id, billing_paid_at = NULL,
                     updated_at = UTC_TIMESTAMP() WHERE id = :order_id AND partner_code = :partner_code'
         );
         $resolvedTotal = 0;
@@ -825,17 +869,20 @@ function jg_admin_partner_billing_resolve_price(PDO $pdo, int $disputeId, ?array
             $updateOrder->execute([
                 ':amount' => $resolved['amount'], ':replace_items' => $resolved['items'] !== [] ? 1 : 0,
                 ':items_json' => json_encode($resolved['items'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+                ':bill_id' => (string) $dispute['bill_id'],
                 ':order_id' => $orderId, ':partner_code' => (string) $dispute['partner_code'],
             ]);
         }
 
-        $resolutionReason = $adjustments === null ? 'Partner proposed prices accepted by finance.' : 'Prices adjusted by finance after investigation.';
+        $resolutionReason = $isRepair
+            ? 'Partner proposed prices restored after correcting dispute classification.'
+            : ($adjustments === null ? 'Partner proposed prices accepted by finance.' : 'Prices adjusted by finance after investigation.');
         $resolve = $pdo->prepare(
             'UPDATE partner_weekly_bill_disputes SET status = "accepted", dispute_type = "price",
                     resolution_reason = :reason, resolved_at = UTC_TIMESTAMP(), updated_at = UTC_TIMESTAMP() WHERE id = :id'
         );
         $resolve->execute([':reason' => $resolutionReason, ':id' => $disputeId]);
-        $bill = $pdo->prepare('UPDATE partner_weekly_bills SET status = "unpaid", updated_at = UTC_TIMESTAMP() WHERE bill_id = :bill_id');
+        $bill = $pdo->prepare('UPDATE partner_weekly_bills SET status = "unpaid", paid_at = NULL, updated_at = UTC_TIMESTAMP() WHERE bill_id = :bill_id');
         $bill->execute([':bill_id' => (string) $dispute['bill_id']]);
         $pdo->commit();
         jg_admin_partner_billing_recalculate($pdo, (string) $dispute['bill_id']);
@@ -846,6 +893,37 @@ function jg_admin_partner_billing_resolve_price(PDO $pdo, int $disputeId, ?array
     }
 }
 
+/**
+ * Repair only the legacy acceptance signature that removed an item despite a
+ * preserved changed-price proposal. The operation is idempotent: repaired
+ * disputes are reclassified as price disputes and no longer match this query.
+ */
+function jg_admin_partner_billing_repair_misclassified_price_disputes(PDO $pdo): int
+{
+    $ids = $pdo->query(
+        'SELECT DISTINCT d.id
+         FROM partner_weekly_bill_disputes d
+         JOIN partner_weekly_bill_dispute_items di ON di.dispute_id = d.id
+         JOIN partner_weekly_bill_items i ON i.id = di.bill_item_id
+         WHERE d.status = "accepted" AND d.dispute_type = "paid"
+           AND i.status = "removed" AND i.removed_reason = "Accepted already-paid dispute"
+           AND di.proposal_json IS NOT NULL
+         ORDER BY d.id ASC LIMIT 50'
+    )->fetchAll(PDO::FETCH_COLUMN);
+    $repaired = 0;
+    foreach ($ids as $id) {
+        $disputeId = (int) $id;
+        try {
+            if (!jg_admin_partner_billing_dispute_has_price_proposal($pdo, $disputeId)) continue;
+            jg_admin_partner_billing_resolve_price($pdo, $disputeId, null, true);
+            $repaired++;
+        } catch (Throwable $error) {
+            error_log('Misclassified partner price dispute ' . $disputeId . ' could not be repaired: ' . $error->getMessage());
+        }
+    }
+    return $repaired;
+}
+
 function jg_admin_partner_billing_adjust_dispute(PDO $pdo, int $disputeId, array $adjustments): array
 {
     if ($adjustments === []) throw new InvalidArgumentException('Submit at least one adjusted order price.');
@@ -854,10 +932,9 @@ function jg_admin_partner_billing_adjust_dispute(PDO $pdo, int $disputeId, array
 
 function jg_admin_partner_billing_accept_dispute(PDO $pdo, int $disputeId): array
 {
-    $typeStmt = $pdo->prepare('SELECT dispute_type FROM partner_weekly_bill_disputes WHERE id = :id LIMIT 1');
-    $typeStmt->execute([':id' => $disputeId]);
-    $disputeType = (string) ($typeStmt->fetchColumn() ?: 'paid');
-    if ($disputeType === 'price') return jg_admin_partner_billing_resolve_price($pdo, $disputeId);
+    if (jg_admin_partner_billing_dispute_has_price_proposal($pdo, $disputeId)) {
+        return jg_admin_partner_billing_resolve_price($pdo, $disputeId);
+    }
 
     $pdo->beginTransaction();
     try {

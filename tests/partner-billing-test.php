@@ -49,4 +49,20 @@ admin_partner_billing_expect(34000, $resolution['amount'], 'Admin product edits 
 admin_partner_billing_expect(12500, $resolution['items'][0]['unit_revenue'], 'The edited product price must update the order snapshot.');
 admin_partner_billing_expect(25000, $resolution['items'][0]['line_revenue'], 'The edited product line total must remain consistent.');
 
+admin_partner_billing_expect(true, jg_admin_partner_billing_price_proposal_changed([
+    'original_amount' => 20000,
+    'proposed_amount' => 20000,
+    'price_lines' => [
+        ['original_unit_price' => 8000, 'proposed_unit_price' => 9000],
+        ['original_unit_price' => 12000, 'proposed_unit_price' => 11000],
+    ],
+]), 'Product edits must remain price disputes even when their order totals offset.');
+admin_partner_billing_expect(false, jg_admin_partner_billing_price_proposal_changed([
+    'original_amount' => 20000,
+    'proposed_amount' => 20000,
+    'price_lines' => [['original_unit_price' => 20000, 'proposed_unit_price' => 20000]],
+]), 'An unchanged proposal must preserve the already-paid dispute path.');
+
+admin_partner_billing_expect(true, str_contains($source, 'jg_admin_partner_billing_repair_misclassified_price_disputes'), 'Billing sync must repair already accepted price proposals that were mistakenly removed.');
+
 echo "admin-partner-billing-test: ok\n";
