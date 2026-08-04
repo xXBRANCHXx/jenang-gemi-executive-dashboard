@@ -2320,6 +2320,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	    purchase: 'purchase-order',
 	    purchase_order: 'purchase-order',
 	    'purchase-order': 'purchase-order',
+	    po_history: 'po-history',
+	    'po-history': 'po-history',
+	    po_detail: 'po-detail',
+	    'po-detail': 'po-detail',
 	    daily: 'daily',
 	    day: 'daily',
     ads: 'ad-view',
@@ -2338,7 +2342,7 @@ document.addEventListener('DOMContentLoaded', () => {
     hardset: 'hard-set',
     'big-set': 'hard-set'
   };
-	  const validViews = new Set(['overview', 'orders', 'wallet', 'inventory-recap', 'purchase-order', 'daily', 'store-ops', 'shipment-arrangement', 'context', 'home', 'ad-view', 'website', 'hard-set', 'settings']);
+	  const validViews = new Set(['overview', 'orders', 'wallet', 'inventory-recap', 'purchase-order', 'po-history', 'po-detail', 'daily', 'store-ops', 'shipment-arrangement', 'context', 'home', 'ad-view', 'website', 'hard-set', 'settings']);
   const quickMenuContextByView = {
 	    overview: 'overview',
 	    daily: 'daily',
@@ -2347,6 +2351,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	    wallet: 'wallet',
 	    'inventory-recap': 'inventory-recap',
 	    'purchase-order': 'purchase-order',
+	    'po-history': 'inventory-recap',
+	    'po-detail': 'inventory-recap',
 	    home: 'campaigns',
     'ad-view': 'ad-view',
     context: 'context',
@@ -2361,6 +2367,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	    wallet: ['home', 'orders', 'daily', 'back-dash', 'settings'],
 	    'inventory-recap': ['purchase-order', 'home', 'wallet', 'orders', 'sku-db', 'settings'],
 	    'purchase-order': ['inventory-recap', 'home', 'wallet', 'sku-db', 'settings'],
+	    'po-history': ['inventory-recap', 'purchase-order', 'home', 'wallet', 'settings'],
+	    'po-detail': ['inventory-recap', 'purchase-order', 'home', 'wallet', 'settings'],
 	    campaigns: ['home', 'orders', 'affiliates', 'back-dash', 'context', 'settings'],
 	    context: ['home', 'api', 'back-dash', 'settings'],
 	    settings: ['home', 'daily', 'orders', 'campaigns', 'context'],
@@ -2374,6 +2382,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	    wallet: 'wallet',
 	    'inventory-recap': 'inventory-recap',
 	    'purchase-order': 'purchase-order',
+	    'po-history': 'inventory-recap',
+	    'po-detail': 'purchase-order',
 	    'store-ops': 'orders',
 	    'shipment-arrangement': 'orders',
     home: 'campaigns',
@@ -2430,7 +2440,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const aliased = viewAliases[normalized] || normalized;
     return validViews.has(aliased) ? aliased : 'overview';
   };
-  const isInventoryView = (view) => view === 'inventory-recap' || view === 'purchase-order';
+  const isInventoryView = (view) => ['inventory-recap', 'purchase-order', 'po-history', 'po-detail'].includes(view);
   const resolveInitialView = () => {
     const params = new URLSearchParams(window.location.search);
     const requestedView = params.get('view') || window.location.hash.replace(/^#/, '');
@@ -2552,7 +2562,15 @@ document.addEventListener('DOMContentLoaded', () => {
 	      planEdited: {},
 	      planNotes: {},
 	      planSelected: {},
+	      planSearch: '',
 	      planNote: '',
+	      activeDraftOrderId: 0,
+	      resumedDraftItems: [],
+	      selectedOrderId: Number(new URLSearchParams(window.location.search).get('po') || 0),
+	      historySearch: '',
+	      paymentMode: 'full',
+	      paymentItemIds: {},
+	      paymentBusy: false,
 	      placingOrder: false,
 	      placeRequestKey: '',
 	      placedOrder: null,
@@ -2847,6 +2865,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    status: document.querySelector('[data-purchase-plan-status]'),
 	    list: document.querySelector('[data-purchase-plan-list]'),
 	    toggleAll: document.querySelector('[data-purchase-plan-toggle-all]'),
+	    search: document.querySelector('[data-purchase-plan-search]'),
 	    copy: document.querySelector('[data-purchase-plan-copy]'),
 	    place: document.querySelector('[data-purchase-plan-place]'),
 	    download: document.querySelector('[data-purchase-plan-download]'),
@@ -2857,6 +2876,22 @@ document.addEventListener('DOMContentLoaded', () => {
 	    modalNumber: document.querySelector('[data-purchase-order-modal-number]'),
 	    modalDownload: document.querySelector('[data-purchase-order-modal-download]'),
 	    modalClose: document.querySelector('[data-purchase-order-modal-close]')
+	  };
+	  const poRefs = {
+	    historySearch: document.querySelector('[data-po-history-search]'),
+	    historyList: document.querySelector('[data-po-history-list]'),
+	    detailNumber: document.querySelector('[data-po-detail-number]'),
+	    detailStatus: document.querySelector('[data-po-detail-status]'),
+	    detailActions: document.querySelector('[data-po-detail-actions]'),
+	    detailContent: document.querySelector('[data-po-detail-content]'),
+	    paymentModal: document.querySelector('[data-po-payment-modal]'),
+	    paymentForm: document.querySelector('[data-po-payment-form]'),
+	    paymentSummary: document.querySelector('[data-po-payment-summary]'),
+	    paymentFields: document.querySelector('[data-po-payment-fields]'),
+	    paymentAccount: document.querySelector('[data-po-payment-account]'),
+	    paymentTotal: document.querySelector('[data-po-payment-total]'),
+	    paymentMessage: document.querySelector('[data-po-payment-message]'),
+	    contextMenu: document.querySelector('[data-po-context-menu]')
 	  };
 	  const dailyRefs = {
     monthInput: document.querySelector('[data-daily-month]'),
@@ -4170,6 +4205,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	    wallet: 'wallet',
 	    'inventory-recap': 'inventory-recap',
 	    'purchase-order': 'inventory-recap',
+	    'po-history': 'inventory-recap',
+	    'po-detail': 'inventory-recap',
 	    daily: '',
       'store-ops': 'orders',
       'shipment-arrangement': 'orders',
@@ -8099,10 +8136,77 @@ document.addEventListener('DOMContentLoaded', () => {
 	  };
 
 	  const purchaseOrderStatusLabel = (status) => ({
+	    draft: 'Draft · resume to confirm',
 	    pending: 'Waiting for delivery',
 	    partially_received: 'Partially received',
-	    received: 'Received in full'
+	    received: 'Received in full',
+	    cancelled: 'Cancelled'
 	  }[String(status || '')] || 'Pending');
+
+	  const purchaseOrders = () => Array.isArray(state.inventoryRecap.data?.purchase_orders)
+	    ? state.inventoryRecap.data.purchase_orders : [];
+	  const selectedPurchaseOrder = () => purchaseOrders().find((order) => Number(order.id || 0) === Number(state.inventoryRecap.selectedOrderId || 0));
+
+	  const orderSearchText = (order) => [
+	    order.po_number, order.tag, order.note, order.status,
+	    ...(Array.isArray(order.items) ? order.items.flatMap((item) => [item.sku, item.product_name, item.line_note]) : [])
+	  ].join(' ').toLowerCase();
+
+	  const renderPoHistory = () => {
+	    if (!poRefs.historyList) return;
+	    const query = String(state.inventoryRecap.historySearch || '').trim().toLowerCase();
+	    const orders = purchaseOrders().filter((order) => !query || orderSearchText(order).includes(query));
+	    if (!orders.length) {
+	      poRefs.historyList.innerHTML = `<p class="admin-empty">${query ? 'No purchase orders match this search.' : 'No purchase orders yet.'}</p>`;
+	      return;
+	    }
+	    poRefs.historyList.innerHTML = orders.map((order) => {
+	      const draft = String(order.status || '') === 'draft';
+	      return `<article class="admin-po-history-card is-${escapeHtml(order.status || 'pending')}" data-po-open="${Number(order.id || 0)}" ${draft ? `data-po-draft-context="${Number(order.id || 0)}"` : ''} tabindex="0" role="button">
+	        <div><span class="admin-po-status">${escapeHtml(purchaseOrderStatusLabel(order.status))}</span><strong>${escapeHtml(order.po_number || 'Purchase order')}</strong><small>${escapeHtml(String(order.placed_at || '').slice(0, 10))} · ${formatRegionalInteger(order.line_count || 0)} products · ${formatRegionalInteger(order.ordered_qty || 0)} units</small></div>
+	        <div class="admin-po-history-card-money"><strong>${formatCurrency(order.estimated_total || 0)}</strong><span>${Number(order.amount_due || 0) > 0 ? `${formatCurrency(order.amount_due)} due` : 'Paid'}</span></div>
+	        <label class="admin-po-tag" onclick="event.stopPropagation()"><span>Tag</span><input type="text" maxlength="120" value="${escapeHtml(order.tag || '')}" data-po-tag="${Number(order.id || 0)}" placeholder="Add tag"></label>
+	        <button type="button" ${draft ? `data-po-resume="${Number(order.id || 0)}"` : `data-po-open="${Number(order.id || 0)}"`}>${draft ? 'Resume' : 'View breakdown'} →</button>
+	      </article>`;
+	    }).join('');
+	  };
+
+	  const renderPoDetail = () => {
+	    if (!poRefs.detailContent) return;
+	    const order = selectedPurchaseOrder();
+	    if (!order) {
+	      poRefs.detailContent.innerHTML = '<p class="admin-empty">Choose a purchase order from PO History.</p>';
+	      if (poRefs.detailActions) poRefs.detailActions.innerHTML = '';
+	      return;
+	    }
+	    if (poRefs.detailNumber) poRefs.detailNumber.textContent = order.po_number || 'PO breakdown';
+	    if (poRefs.detailStatus) poRefs.detailStatus.textContent = `${purchaseOrderStatusLabel(order.status)} · created ${String(order.placed_at || '').slice(0, 10)}`;
+	    const paid = Math.max(0, Number(order.paid_total || 0));
+	    const due = Math.max(0, Number(order.amount_due || 0));
+	    const draft = String(order.status || '') === 'draft';
+	    if (poRefs.detailActions) poRefs.detailActions.innerHTML = `
+	      <label class="admin-po-tag"><span>Tag</span><input type="text" maxlength="120" value="${escapeHtml(order.tag || '')}" data-po-tag="${Number(order.id || 0)}" placeholder="Add tag"></label>
+	      ${draft ? `<button type="button" class="is-primary" data-po-resume="${Number(order.id || 0)}">Resume draft</button>` : `<button type="button" class="${due <= 0 ? 'is-paid' : 'is-primary'}" data-po-pay="${Number(order.id || 0)}" ${due <= 0 ? 'disabled' : ''}>${due <= 0 ? 'Paid' : `Pay · ${formatCurrency(paid)} paid · ${formatCurrency(due)} left`}</button>`}
+	    `;
+	    const items = Array.isArray(order.items) ? order.items : [];
+	    poRefs.detailContent.innerHTML = `
+	      <div class="admin-po-detail-summary">
+	        <div><span>Order total</span><strong>${formatCurrency(order.estimated_total || 0)}</strong><small>Ordered quantity × COGS</small></div>
+	        <div><span>Paid so far</span><strong>${formatCurrency(paid)}</strong><small>${formatRegionalInteger(order.payment_percent || 0)}% recorded in Accounting</small></div>
+	        <div><span>Left to pay</span><strong>${formatCurrency(due)}</strong><small>${draft ? 'Available after confirmation' : 'Current balance due'}</small></div>
+	        <div><span>Stock progress</span><strong>${formatRegionalInteger(order.received_qty || 0)} / ${formatRegionalInteger(order.ordered_qty || 0)}</strong><small>${formatRegionalInteger(order.progress_percent || 0)}% added to stock</small></div>
+	      </div>
+	      <section class="admin-po-detail-section"><div class="admin-po-section-head"><div><span class="admin-panel-kicker">Ordered items</span><h3>Products and receiving</h3></div></div>
+	        <div class="admin-po-item-list">${items.map((item) => {
+	          const subtotal = Number(item.ordered_qty || 0) * Number(item.unit_cost || 0);
+	          const complete = Number(item.remaining_qty || 0) <= 0;
+	          return `<article><div><span class="admin-po-received ${complete ? 'is-complete' : ''}">${complete ? 'Added to stock' : `${formatRegionalInteger(item.remaining_qty || 0)} awaiting stock`}</span><strong>${escapeHtml(item.product_name || item.sku || '')}</strong><small>${escapeHtml(item.sku || '')}${item.line_note ? ` · ${escapeHtml(item.line_note)}` : ''}</small></div><div><span>${formatRegionalInteger(item.received_qty || 0)} / ${formatRegionalInteger(item.ordered_qty || 0)} received</span><strong>${formatCurrency(subtotal)}</strong><small>${formatRegionalInteger(item.ordered_qty || 0)} × ${formatCurrency(item.unit_cost || 0)}</small></div></article>`;
+	        }).join('')}</div>
+	      </section>
+	      <section class="admin-po-detail-section"><div class="admin-po-section-head"><div><span class="admin-panel-kicker">Payment activity</span><h3>Accounting ledger links</h3></div></div>
+	        <div class="admin-po-payment-list">${(order.payments || []).length ? order.payments.map((payment) => `<article><div><strong>${formatCurrency(payment.amount || 0)}</strong><span>${escapeHtml(payment.account_name || 'Payment account')}</span></div><small>${escapeHtml(String(payment.paid_at || '').replace('T', ' '))} · Accounting transaction #${Number(payment.accounting_transaction_id || 0)}</small></article>`).join('') : '<p class="admin-empty">No payments recorded yet.</p>'}</div>
+	      </section>`;
+	  };
 
 	  const renderInventoryPurchaseOrders = () => {
 	    if (!inventoryRecapRefs.poList) return;
@@ -8129,9 +8233,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	        .map((item) => `${item.sku} ${formatRegionalInteger(item.received_qty || 0)}/${formatRegionalInteger(item.ordered_qty || 0)}`)
 	        .join(' · ');
 	      const isOpen = ['pending', 'partially_received'].includes(String(order.status || ''));
+	      const isDraft = String(order.status || '') === 'draft';
 	      const cancelling = state.inventoryRecap.cancellingOrderId === Number(order.id || 0);
 	      return `
-	        <article class="admin-inventory-po-card is-${escapeHtml(order.status || 'pending')}">
+	        <article class="admin-inventory-po-card is-${escapeHtml(order.status || 'pending')}" data-po-open="${Number(order.id || 0)}" ${isDraft ? `data-po-draft-context="${Number(order.id || 0)}"` : ''} tabindex="0" role="button">
 	          <div class="admin-inventory-po-card-head">
 	            <div>
 	              <strong>${escapeHtml(order.po_number || 'Purchase order')}</strong>
@@ -8139,6 +8244,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	            </div>
 	            <div class="admin-inventory-po-card-actions">
 	              <b>${formatRegionalInteger(progress)}%</b>
+	              ${isDraft ? `<button type="button" data-po-resume="${Number(order.id || 0)}">Resume</button>` : ''}
 	              ${isOpen ? `<button type="button" data-inventory-po-cancel="${Number(order.id || 0)}" data-inventory-po-number="${escapeHtml(order.po_number || '')}" ${cancelling ? 'disabled' : ''}>${cancelling ? 'Cancelling…' : 'Cancel PO'}</button>` : ''}
 	            </div>
 	          </div>
@@ -8148,6 +8254,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	            <span><b>${formatRegionalInteger(Math.max(0, ordered - received))}</b> still incoming</span>
 	            <span>${escapeHtml(String(order.placed_at || '').slice(0, 10))}</span>
 	          </div>
+	          <label class="admin-po-tag" onclick="event.stopPropagation()"><span>Tag</span><input type="text" maxlength="120" value="${escapeHtml(order.tag || '')}" data-po-tag="${Number(order.id || 0)}" placeholder="Add tag"></label>
 	          <small>${escapeHtml(itemPreview || 'No item lines')}</small>
 	        </article>
 	      `;
@@ -8175,6 +8282,106 @@ document.addEventListener('DOMContentLoaded', () => {
 	      renderInventoryPurchaseOrders();
 	      if (inventoryRecapRefs.poSummary) inventoryRecapRefs.poSummary.textContent = error?.message || 'Unable to cancel purchase order.';
 	    }
+	  };
+
+	  const postPoAction = async (body) => requestJson(inventoryRecapUrl({ force: true }), {
+	    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), cache: 'no-store', timeoutMs: 30000
+	  });
+
+	  const openPoDetail = async (orderId) => {
+	    state.inventoryRecap.selectedOrderId = Number(orderId || 0);
+	    const url = new URL(window.location.href);
+	    url.searchParams.set('po', String(state.inventoryRecap.selectedOrderId));
+	    window.history.replaceState(null, '', `${url.pathname}${url.search}`);
+	    renderPoDetail();
+	    await switchView('po-detail');
+	  };
+
+	  const savePoTag = async (orderId, tag) => {
+	    try {
+	      const data = await postPoAction({ action: 'update_order_tag', order_id: orderId, tag });
+	      applyInventoryRecapData(data);
+	    } catch (error) {
+	      if (inventoryRecapRefs.poSummary) inventoryRecapRefs.poSummary.textContent = error?.message || 'Could not save tag.';
+	    }
+	  };
+
+	  const resumePoDraft = async (orderId) => {
+	    const order = purchaseOrders().find((candidate) => Number(candidate.id || 0) === Number(orderId || 0));
+	    if (!order || String(order.status || '') !== 'draft') return;
+	    state.inventoryRecap.activeDraftOrderId = Number(order.id || 0);
+	    state.inventoryRecap.resumedDraftItems = Array.isArray(order.items) ? order.items : [];
+	    state.inventoryRecap.planSelected = {};
+	    state.inventoryRecap.planQuantities = {};
+	    state.inventoryRecap.planNotes = {};
+	    (order.items || []).forEach((item) => {
+	      state.inventoryRecap.planSelected[String(item.sku || '')] = true;
+	      state.inventoryRecap.planQuantities[String(item.sku || '')] = Number(item.ordered_qty || 0);
+	      state.inventoryRecap.planEdited[String(item.sku || '')] = true;
+	      state.inventoryRecap.planNotes[String(item.sku || '')] = String(item.line_note || '');
+	    });
+	    state.inventoryRecap.planNote = String(order.note || '');
+	    await switchView('purchase-order');
+	    renderPurchasePlan();
+	  };
+
+	  const removePoDraft = async (orderId) => {
+	    const order = purchaseOrders().find((candidate) => Number(candidate.id || 0) === Number(orderId || 0));
+	    if (!order || !window.confirm(`Remove draft ${order.po_number || ''}? This cannot be undone.`)) return;
+	    try {
+	      const data = await postPoAction({ action: 'remove_draft', order_id: orderId });
+	      if (state.inventoryRecap.activeDraftOrderId === Number(orderId)) {
+	        state.inventoryRecap.activeDraftOrderId = 0;
+	        state.inventoryRecap.resumedDraftItems = [];
+	      }
+	      applyInventoryRecapData(data);
+	    } catch (error) {
+	      if (inventoryRecapRefs.poSummary) inventoryRecapRefs.poSummary.textContent = error?.message || 'Could not remove draft.';
+	    }
+	  };
+
+	  const openPoContextMenu = (event, orderId) => {
+	    if (!(poRefs.contextMenu instanceof HTMLElement)) return;
+	    poRefs.contextMenu.dataset.orderId = String(orderId || 0);
+	    poRefs.contextMenu.style.left = `${Math.min(window.innerWidth - 180, Math.max(8, event.clientX))}px`;
+	    poRefs.contextMenu.style.top = `${Math.min(window.innerHeight - 60, Math.max(8, event.clientY))}px`;
+	    poRefs.contextMenu.hidden = false;
+	  };
+
+	  const paymentAmount = (order) => {
+	    const due = Math.max(0, Number(order?.amount_due || 0));
+	    if (state.inventoryRecap.paymentMode === 'full') return due;
+	    if (state.inventoryRecap.paymentMode === 'percentage') {
+	      const input = poRefs.paymentFields?.querySelector('[data-po-payment-percentage]');
+	      return Math.min(due, Math.round(due * (Math.max(0, Math.min(100, Number(input?.value || 0))) / 100)));
+	    }
+	    if (state.inventoryRecap.paymentMode === 'products') return Math.min(due, (order?.items || []).reduce((sum, item) => (
+	      state.inventoryRecap.paymentItemIds[Number(item.id || 0)] ? sum + (Number(item.ordered_qty || 0) * Number(item.unit_cost || 0)) : sum
+	    ), 0));
+	    const input = poRefs.paymentFields?.querySelector('[data-po-payment-amount]');
+	    return Math.min(due, Math.max(0, Number(input?.value || 0)));
+	  };
+
+	  const renderPoPayment = () => {
+	    const order = selectedPurchaseOrder();
+	    if (!order || !poRefs.paymentFields) return;
+	    const mode = state.inventoryRecap.paymentMode;
+	    document.querySelectorAll('[data-po-payment-mode]').forEach((button) => button.classList.toggle('is-active', button.getAttribute('data-po-payment-mode') === mode));
+	    if (poRefs.paymentSummary) poRefs.paymentSummary.textContent = `${order.po_number} · ${formatCurrency(order.paid_total || 0)} paid · ${formatCurrency(order.amount_due || 0)} left`;
+	    if (mode === 'amount') poRefs.paymentFields.innerHTML = `<label><span>Amount to pay now</span><input type="number" min="1" max="${Number(order.amount_due || 0)}" step="1" data-po-payment-amount placeholder="0"></label>`;
+	    else if (mode === 'percentage') poRefs.paymentFields.innerHTML = `<label><span>Percentage of balance due</span><input type="number" min="1" max="100" step="1" value="50" data-po-payment-percentage><b>%</b></label>`;
+	    else if (mode === 'products') poRefs.paymentFields.innerHTML = `<div class="admin-po-payment-select-head"><button type="button" data-po-payment-select-all>Select all</button><button type="button" data-po-payment-clear-all>Clear all</button></div><div class="admin-po-payment-products">${(order.items || []).map((item) => `<label><input type="checkbox" data-po-payment-item="${Number(item.id || 0)}" ${state.inventoryRecap.paymentItemIds[Number(item.id || 0)] ? 'checked' : ''}><span><strong>${escapeHtml(item.product_name || item.sku || '')}</strong><small>${formatRegionalInteger(item.ordered_qty || 0)} × ${formatCurrency(item.unit_cost || 0)}</small></span><b>${formatCurrency(Number(item.ordered_qty || 0) * Number(item.unit_cost || 0))}</b></label>`).join('')}</div>`;
+	    else poRefs.paymentFields.innerHTML = `<div class="admin-po-payment-full"><span>Full remaining balance</span><strong>${formatCurrency(order.amount_due || 0)}</strong></div>`;
+	    if (poRefs.paymentAccount instanceof HTMLSelectElement) poRefs.paymentAccount.innerHTML = (state.inventoryRecap.data?.payment_accounts || []).map((account) => `<option value="${Number(account.id || 0)}">${escapeHtml(account.name || '')} · ${formatCurrency(account.balance || 0)} available</option>`).join('');
+	    if (poRefs.paymentTotal) poRefs.paymentTotal.textContent = formatCurrency(paymentAmount(order));
+	  };
+
+	  const openPoPayment = (orderId) => {
+	    state.inventoryRecap.selectedOrderId = Number(orderId || 0);
+	    state.inventoryRecap.paymentMode = 'full';
+	    state.inventoryRecap.paymentItemIds = {};
+	    if (poRefs.paymentModal) poRefs.paymentModal.hidden = false;
+	    renderPoPayment();
 	  };
 
 	  const inventoryTrendText = (value) => {
@@ -8300,7 +8507,18 @@ document.addEventListener('DOMContentLoaded', () => {
 	  };
 
 	  const purchasePlanRows = () => {
-	    const suggestions = Array.isArray(state.inventoryRecap.data?.suggestions) ? state.inventoryRecap.data.suggestions : [];
+	    const suggestions = Array.isArray(state.inventoryRecap.data?.suggestions) ? [...state.inventoryRecap.data.suggestions] : [];
+	    const knownSkus = new Set(suggestions.map((item) => String(item.sku || '')));
+	    (state.inventoryRecap.resumedDraftItems || []).forEach((item) => {
+	      const sku = String(item.sku || '');
+	      if (!sku || knownSkus.has(sku)) return;
+	      suggestions.push({
+	        sku, product_name: item.product_name || sku, purchase_moq: item.moq || 1,
+	        cogs: item.unit_cost || 0, current_stock: 0, trigger_qty: 0, trigger_shortfall_qty: 0,
+	        raw_purchase_qty: item.ordered_qty || 0, recommended_order_qty: item.ordered_qty || 0,
+	        moq_rounding_qty: 0, risk: 'quiet', purchase_days: state.inventoryRecap.data?.meta?.purchase_days_equivalent || 22.5
+	      });
+	    });
 	    return suggestions.map((item) => {
 	      const sku = String(item.sku || '');
 	      const moq = Math.max(1, Math.round(Number(item.purchase_moq || 1)));
@@ -8331,19 +8549,24 @@ document.addEventListener('DOMContentLoaded', () => {
 	      return;
 	    }
 	    initializePurchasePlan();
+	    const draftLocked = Boolean(state.inventoryRecap.activeDraftOrderId);
 	    const allRows = purchasePlanRows();
+	    const search = String(state.inventoryRecap.planSearch || '').trim().toLowerCase();
+	    const visibleRows = allRows.filter((item) => !search || `${item.product_name || ''} ${item.sku || ''}`.toLowerCase().includes(search));
 	    const { rows, lines, total } = purchasePlanSummary();
 	    const cash = Number(state.inventoryRecap.data?.summary?.cash_available || state.inventoryRecap.data?.cash?.available || 0);
 	    const shortfall = Math.max(0, total - cash);
 	    if (!allRows.length) {
 	      purchasePlanRefs.list.innerHTML = '<p class="admin-empty">Nothing is below its trigger. The purchase plan is clear.</p>';
+	    } else if (!visibleRows.length) {
+	      purchasePlanRefs.list.innerHTML = '<p class="admin-empty">No purchase recommendations match this search.</p>';
 	    } else {
-	      purchasePlanRefs.list.innerHTML = allRows.map((item, index) => {
+	      purchasePlanRefs.list.innerHTML = visibleRows.map((item, index) => {
 	        const purchaseDaysLabel = formatRegionalNumber(item.purchase_days || 22.5, { maximumFractionDigits: 1 });
 	        return `
 	        <article class="admin-purchase-row ${inventoryRecapRiskClass(item.risk)}${item.selected ? ' is-selected' : ''}">
 	          <label class="admin-purchase-select">
-	            <input type="checkbox" data-purchase-plan-select="${escapeHtml(item.sku || '')}" ${item.selected ? 'checked' : ''} aria-label="Include ${escapeHtml(item.product_name || item.sku || '')} in this purchase order">
+	            <input type="checkbox" data-purchase-plan-select="${escapeHtml(item.sku || '')}" ${item.selected ? 'checked' : ''} ${draftLocked ? 'disabled' : ''} aria-label="Include ${escapeHtml(item.product_name || item.sku || '')} in this purchase order">
 	            <span aria-hidden="true"></span>
 	          </label>
 	          <div class="admin-purchase-product">
@@ -8353,7 +8576,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	          </div>
 	          <label class="admin-purchase-quantity">
 	            <span>Buy quantity</span>
-	            <input type="number" min="0" step="${item.moq}" value="${item.quantity}" data-purchase-plan-qty="${escapeHtml(item.sku || '')}" aria-label="Purchase quantity for ${escapeHtml(item.product_name || item.sku || '')}">
+	            <input type="number" min="0" step="${item.moq}" value="${item.quantity}" data-purchase-plan-qty="${escapeHtml(item.sku || '')}" ${draftLocked ? 'disabled' : ''} aria-label="Purchase quantity for ${escapeHtml(item.product_name || item.sku || '')}">
 	            <small>Multiples of ${formatRegionalInteger(item.moq)}</small>
 	          </label>
 	          <div class="admin-purchase-cost">
@@ -8362,18 +8585,20 @@ document.addEventListener('DOMContentLoaded', () => {
 	          </div>
 	          <label class="admin-purchase-line-note">
 	            <span>Line note</span>
-	            <input type="text" value="${escapeHtml(item.note)}" data-purchase-plan-line-note="${escapeHtml(item.sku || '')}" placeholder="Optional instruction">
+	            <input type="text" value="${escapeHtml(item.note)}" data-purchase-plan-line-note="${escapeHtml(item.sku || '')}" ${draftLocked ? 'disabled' : ''} placeholder="Optional instruction">
 	          </label>
 	        </article>
 	      `;
 	      }).join('');
 	    }
 	    if (purchasePlanRefs.status) {
-	      purchasePlanRefs.status.textContent = `${formatRegionalInteger(lines)} selected of ${formatRegionalInteger(allRows.length)} products · quantities stay in full MOQ multiples`;
+	      purchasePlanRefs.status.textContent = draftLocked
+	        ? `${formatRegionalInteger(lines)} products locked to the draft PDF · confirm after production accepts it`
+	        : `${formatRegionalInteger(lines)} selected of ${formatRegionalInteger(allRows.length)} products · quantities stay in full MOQ multiples`;
 	    }
 	    if (purchasePlanRefs.toggleAll) {
-	      const allSelected = allRows.length > 0 && allRows.every((item) => item.selected);
-	      purchasePlanRefs.toggleAll.disabled = state.inventoryRecap.loading || !allRows.length;
+	      const allSelected = visibleRows.length > 0 && visibleRows.every((item) => item.selected);
+	      purchasePlanRefs.toggleAll.disabled = state.inventoryRecap.loading || !visibleRows.length || draftLocked;
 	      purchasePlanRefs.toggleAll.textContent = allSelected ? 'Clear all' : 'Select all';
 	      purchasePlanRefs.toggleAll.setAttribute('aria-pressed', allSelected ? 'true' : 'false');
 	    }
@@ -8390,15 +8615,20 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (purchasePlanRefs.note instanceof HTMLTextAreaElement && purchasePlanRefs.note.value !== state.inventoryRecap.planNote) {
 	      purchasePlanRefs.note.value = state.inventoryRecap.planNote;
 	    }
+	    if (purchasePlanRefs.note instanceof HTMLTextAreaElement) purchasePlanRefs.note.disabled = draftLocked;
+	    if (purchasePlanRefs.search instanceof HTMLInputElement && document.activeElement !== purchasePlanRefs.search) purchasePlanRefs.search.value = state.inventoryRecap.planSearch;
 	    if (purchasePlanRefs.copy) {
 	      purchasePlanRefs.copy.disabled = state.inventoryRecap.loading || !rows.length;
 	      purchasePlanRefs.copy.lastChild.textContent = state.inventoryRecap.copied ? ' Copied' : ' Copy text';
 	    }
 	    if (purchasePlanRefs.place) {
-	      purchasePlanRefs.place.disabled = state.inventoryRecap.loading || state.inventoryRecap.placingOrder || !rows.length;
-	      purchasePlanRefs.place.lastChild.textContent = state.inventoryRecap.placingOrder ? ' Placing…' : ' Place Order';
+	      purchasePlanRefs.place.disabled = state.inventoryRecap.loading || state.inventoryRecap.placingOrder || !rows.length || !state.inventoryRecap.activeDraftOrderId;
+	      purchasePlanRefs.place.lastChild.textContent = state.inventoryRecap.placingOrder ? ' Confirming…' : ' Confirm Order';
 	    }
-	    if (purchasePlanRefs.download) purchasePlanRefs.download.disabled = state.inventoryRecap.loading || !rows.length;
+	    if (purchasePlanRefs.download) {
+	      purchasePlanRefs.download.disabled = state.inventoryRecap.loading || state.inventoryRecap.placingOrder || !rows.length;
+	      purchasePlanRefs.download.lastChild.textContent = state.inventoryRecap.activeDraftOrderId ? ' Download Draft PDF' : ' Save Draft PDF';
+	    }
 	  };
 
 	  const purchasePlanText = () => {
@@ -8457,6 +8687,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	    renderInventoryRecapList(rows);
 	    renderInventoryPurchaseOrders();
 	    renderPurchasePlan();
+	    renderPoHistory();
+	    renderPoDetail();
 	  };
 
 	  const saveInventorySettings = async (form) => {
@@ -10163,33 +10395,47 @@ document.addEventListener('DOMContentLoaded', () => {
 	    }, 0);
 	  };
 
-	  const placeInventoryPurchaseOrder = async () => {
-	    const { rows } = purchasePlanSummary();
-	    if (!rows.length || state.inventoryRecap.placingOrder) return;
-	    if (!state.inventoryRecap.placeRequestKey) {
-	      state.inventoryRecap.placeRequestKey = window.crypto?.randomUUID?.()
-	        || `po-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+	  const saveDraftAndDownloadPurchasePdf = async () => {
+	    if (state.inventoryRecap.placingOrder) return;
+	    const existing = purchaseOrders().find((order) => Number(order.id || 0) === Number(state.inventoryRecap.activeDraftOrderId || 0) && String(order.status || '') === 'draft');
+	    if (existing) {
+	      downloadInventoryPurchasePdf(existing);
+	      return;
 	    }
+	    const { rows } = purchasePlanSummary();
+	    if (!rows.length) return;
 	    state.inventoryRecap.placingOrder = true;
 	    renderPurchasePlan();
 	    try {
-	      const data = await requestJson(inventoryRecapUrl({ force: true }), {
-	        method: 'POST',
-	        headers: { 'Content-Type': 'application/json' },
-	        body: JSON.stringify({
-	          action: 'place_order',
-	          request_key: state.inventoryRecap.placeRequestKey,
-	          note: state.inventoryRecap.planNote,
-	          items: rows.map((item) => ({
-	            sku: item.sku,
-	            quantity: item.quantity,
-	            line_note: item.note
-	          }))
-	        }),
-	        timeoutMs: 30000
+	      const requestKey = window.crypto?.randomUUID?.() || `draft-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+	      const data = await postPoAction({
+	        action: 'create_draft', request_key: requestKey, note: state.inventoryRecap.planNote,
+	        items: rows.map((item) => ({ sku: item.sku, quantity: item.quantity, line_note: item.note }))
 	      });
-	      state.inventoryRecap.placedOrder = data.placed_order || null;
+	      const draft = data.draft_order;
+	      state.inventoryRecap.activeDraftOrderId = Number(draft?.id || 0);
+	      applyInventoryRecapData(data);
+	      downloadInventoryPurchasePdf(draft);
+	      if (purchasePlanRefs.status) purchasePlanRefs.status.textContent = `${draft?.po_number || 'PO'} saved as a draft. Confirm it only after production accepts it.`;
+	    } catch (error) {
+	      if (purchasePlanRefs.status) purchasePlanRefs.status.textContent = error?.message || 'Unable to save draft PDF';
+	    } finally {
+	      state.inventoryRecap.placingOrder = false;
+	      renderPurchasePlan();
+	    }
+	  };
+
+	  const placeInventoryPurchaseOrder = async () => {
+	    const { rows } = purchasePlanSummary();
+	    if (!rows.length || state.inventoryRecap.placingOrder || !state.inventoryRecap.activeDraftOrderId) return;
+	    state.inventoryRecap.placingOrder = true;
+	    renderPurchasePlan();
+	    try {
+	      const data = await postPoAction({ action: 'confirm_order', order_id: state.inventoryRecap.activeDraftOrderId });
+	      state.inventoryRecap.placedOrder = data.updated_order || null;
 	      state.inventoryRecap.placeRequestKey = '';
+	      state.inventoryRecap.activeDraftOrderId = 0;
+	      state.inventoryRecap.resumedDraftItems = [];
 	      state.inventoryRecap.planEdited = {};
 	      state.inventoryRecap.planQuantities = {};
 	      state.inventoryRecap.planSelected = {};
@@ -12523,12 +12769,27 @@ document.addEventListener('DOMContentLoaded', () => {
 	  });
 
 	  inventoryRecapRefs.poList?.addEventListener('click', (event) => {
-	    const button = event.target instanceof Element ? event.target.closest('[data-inventory-po-cancel]') : null;
-	    if (!(button instanceof HTMLButtonElement)) return;
-	    cancelInventoryPurchaseOrder(
-	      Number(button.getAttribute('data-inventory-po-cancel') || 0),
-	      String(button.getAttribute('data-inventory-po-number') || '')
-	    ).catch(() => {});
+	    const target = event.target instanceof Element ? event.target : null;
+	    const cancel = target?.closest('[data-inventory-po-cancel]');
+	    if (cancel instanceof HTMLButtonElement) {
+	      cancelInventoryPurchaseOrder(Number(cancel.getAttribute('data-inventory-po-cancel') || 0), String(cancel.getAttribute('data-inventory-po-number') || '')).catch(() => {});
+	      return;
+	    }
+	    const resume = target?.closest('[data-po-resume]');
+	    if (resume) { resumePoDraft(Number(resume.getAttribute('data-po-resume') || 0)).catch(() => {}); return; }
+	    const open = target?.closest('[data-po-open]');
+	    if (open && !target?.closest('[data-po-tag]')) openPoDetail(Number(open.getAttribute('data-po-open') || 0)).catch(() => {});
+	  });
+
+	  inventoryRecapRefs.poList?.addEventListener('change', (event) => {
+	    const input = event.target instanceof HTMLInputElement ? event.target.closest('[data-po-tag]') : null;
+	    if (input instanceof HTMLInputElement) savePoTag(Number(input.getAttribute('data-po-tag') || 0), input.value).catch(() => {});
+	  });
+	  inventoryRecapRefs.poList?.addEventListener('contextmenu', (event) => {
+	    const card = event.target instanceof Element ? event.target.closest('[data-po-draft-context]') : null;
+	    if (!card) return;
+	    event.preventDefault();
+	    openPoContextMenu(event, Number(card.getAttribute('data-po-draft-context') || 0));
 	  });
 
 	  inventoryRecapRefs.list?.addEventListener('change', (event) => {
@@ -12592,7 +12853,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	  });
 
 	  purchasePlanRefs.toggleAll?.addEventListener('click', () => {
-	    const rows = purchasePlanRows();
+	    const search = String(state.inventoryRecap.planSearch || '').trim().toLowerCase();
+	    const rows = purchasePlanRows().filter((item) => !search || `${item.product_name || ''} ${item.sku || ''}`.toLowerCase().includes(search));
 	    const shouldSelect = !rows.length || !rows.every((item) => item.selected);
 	    rows.forEach((item) => {
 	      const sku = String(item.sku || '');
@@ -12600,17 +12862,98 @@ document.addEventListener('DOMContentLoaded', () => {
 	    });
 	    renderPurchasePlan();
 	  });
+	  purchasePlanRefs.search?.addEventListener('input', () => {
+	    state.inventoryRecap.planSearch = purchasePlanRefs.search instanceof HTMLInputElement ? purchasePlanRefs.search.value : '';
+	    renderPurchasePlan();
+	  });
 
 	  purchasePlanRefs.place?.addEventListener('click', () => {
 	    placeInventoryPurchaseOrder().catch(() => {});
 	  });
 
-	  purchasePlanRefs.download?.addEventListener('click', () => downloadInventoryPurchasePdf());
+	  purchasePlanRefs.download?.addEventListener('click', () => saveDraftAndDownloadPurchasePdf().catch(() => {}));
 	  purchasePlanRefs.modalDownload?.addEventListener('click', () => {
 	    downloadInventoryPurchasePdf(state.inventoryRecap.placedOrder);
 	  });
 	  purchasePlanRefs.modalClose?.addEventListener('click', () => {
 	    if (purchasePlanRefs.modal) purchasePlanRefs.modal.hidden = true;
+	  });
+
+	  poRefs.historySearch?.addEventListener('input', () => {
+	    state.inventoryRecap.historySearch = poRefs.historySearch instanceof HTMLInputElement ? poRefs.historySearch.value : '';
+	    renderPoHistory();
+	  });
+	  poRefs.historyList?.addEventListener('click', (event) => {
+	    const target = event.target instanceof Element ? event.target : null;
+	    const resume = target?.closest('[data-po-resume]');
+	    if (resume) { resumePoDraft(Number(resume.getAttribute('data-po-resume') || 0)).catch(() => {}); return; }
+	    const open = target?.closest('[data-po-open]');
+	    if (open && !target?.closest('[data-po-tag]')) openPoDetail(Number(open.getAttribute('data-po-open') || 0)).catch(() => {});
+	  });
+	  poRefs.historyList?.addEventListener('change', (event) => {
+	    const input = event.target instanceof HTMLInputElement ? event.target.closest('[data-po-tag]') : null;
+	    if (input instanceof HTMLInputElement) savePoTag(Number(input.getAttribute('data-po-tag') || 0), input.value).catch(() => {});
+	  });
+	  poRefs.historyList?.addEventListener('contextmenu', (event) => {
+	    const card = event.target instanceof Element ? event.target.closest('[data-po-draft-context]') : null;
+	    if (!card) return;
+	    event.preventDefault();
+	    openPoContextMenu(event, Number(card.getAttribute('data-po-draft-context') || 0));
+	  });
+	  poRefs.contextMenu?.addEventListener('click', (event) => {
+	    const remove = event.target instanceof Element ? event.target.closest('[data-po-context-remove]') : null;
+	    if (!remove) return;
+	    const orderId = Number(poRefs.contextMenu?.dataset.orderId || 0);
+	    if (poRefs.contextMenu) poRefs.contextMenu.hidden = true;
+	    removePoDraft(orderId).catch(() => {});
+	  });
+	  document.addEventListener('click', (event) => {
+	    if (poRefs.contextMenu && !poRefs.contextMenu.contains(event.target)) poRefs.contextMenu.hidden = true;
+	  });
+	  poRefs.detailActions?.addEventListener('click', (event) => {
+	    const target = event.target instanceof Element ? event.target : null;
+	    const resume = target?.closest('[data-po-resume]');
+	    if (resume) { resumePoDraft(Number(resume.getAttribute('data-po-resume') || 0)).catch(() => {}); return; }
+	    const pay = target?.closest('[data-po-pay]');
+	    if (pay) openPoPayment(Number(pay.getAttribute('data-po-pay') || 0));
+	  });
+	  poRefs.detailActions?.addEventListener('change', (event) => {
+	    const input = event.target instanceof HTMLInputElement ? event.target.closest('[data-po-tag]') : null;
+	    if (input instanceof HTMLInputElement) savePoTag(Number(input.getAttribute('data-po-tag') || 0), input.value).catch(() => {});
+	  });
+	  document.querySelectorAll('[data-po-payment-close]').forEach((button) => button.addEventListener('click', () => { if (poRefs.paymentModal) poRefs.paymentModal.hidden = true; }));
+	  document.querySelectorAll('[data-po-payment-mode]').forEach((button) => button.addEventListener('click', () => {
+	    state.inventoryRecap.paymentMode = button.getAttribute('data-po-payment-mode') || 'full';
+	    renderPoPayment();
+	  }));
+	  poRefs.paymentFields?.addEventListener('input', (event) => {
+	    const input = event.target;
+	    if (input instanceof HTMLInputElement && input.hasAttribute('data-po-payment-item')) state.inventoryRecap.paymentItemIds[Number(input.getAttribute('data-po-payment-item') || 0)] = input.checked;
+	    const order = selectedPurchaseOrder();
+	    if (poRefs.paymentTotal) poRefs.paymentTotal.textContent = formatCurrency(paymentAmount(order));
+	  });
+	  poRefs.paymentFields?.addEventListener('click', (event) => {
+	    const target = event.target instanceof Element ? event.target : null;
+	    const order = selectedPurchaseOrder();
+	    if (target?.closest('[data-po-payment-select-all]')) (order?.items || []).forEach((item) => { state.inventoryRecap.paymentItemIds[Number(item.id || 0)] = true; });
+	    else if (target?.closest('[data-po-payment-clear-all]')) state.inventoryRecap.paymentItemIds = {};
+	    else return;
+	    renderPoPayment();
+	  });
+	  poRefs.paymentForm?.addEventListener('submit', async (event) => {
+	    event.preventDefault();
+	    const order = selectedPurchaseOrder();
+	    if (!order || state.inventoryRecap.paymentBusy) return;
+	    const amount = paymentAmount(order);
+	    if (amount < 1) { if (poRefs.paymentMessage) poRefs.paymentMessage.textContent = 'Choose an amount greater than Rp0.'; return; }
+	    state.inventoryRecap.paymentBusy = true;
+	    if (poRefs.paymentMessage) poRefs.paymentMessage.textContent = 'Recording payment in Accounting…';
+	    try {
+	      const data = await postPoAction({ action: 'pay_order', order_id: order.id, request_key: window.crypto?.randomUUID?.() || `pay-${Date.now()}`, payment_mode: state.inventoryRecap.paymentMode, amount, percentage: Number(poRefs.paymentFields?.querySelector('[data-po-payment-percentage]')?.value || 0), item_ids: Object.keys(state.inventoryRecap.paymentItemIds).filter((id) => state.inventoryRecap.paymentItemIds[id]).map(Number), account_id: Number(poRefs.paymentAccount?.value || 0) });
+	      applyInventoryRecapData(data);
+	      if (poRefs.paymentModal) poRefs.paymentModal.hidden = true;
+	    } catch (error) { if (poRefs.paymentMessage) poRefs.paymentMessage.textContent = error?.message || 'Payment could not be recorded.'; }
+	    finally { state.inventoryRecap.paymentBusy = false; }
 	  });
 
 	  walletRefs.tableBody?.addEventListener('click', (event) => {

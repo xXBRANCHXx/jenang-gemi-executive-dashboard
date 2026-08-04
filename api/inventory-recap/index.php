@@ -20,6 +20,8 @@ try {
     $month = function_exists('jg_accounting_month') ? jg_accounting_month($_GET['month'] ?? null) : gmdate('Y-m');
     $cashContext = jg_inventory_recap_accounting_cash_context($analyticsPdo, $month);
     $placedOrder = null;
+    $draftOrder = null;
+    $updatedOrder = null;
     $cancelledOrder = null;
     if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) === 'POST') {
         $body = json_decode((string) file_get_contents('php://input'), true);
@@ -72,6 +74,103 @@ try {
                 (string) ($body['request_key'] ?? ''),
                 'Executive'
             );
+        } elseif ($action === 'create_draft') {
+            $draftOrder = jg_purchase_orders_create_draft(
+                $skuPdo,
+                is_array($body['items'] ?? null) ? $body['items'] : [],
+                (string) ($body['note'] ?? ''),
+                (string) ($body['request_key'] ?? '')
+            );
+        } elseif ($action === 'confirm_order') {
+            $updatedOrder = jg_purchase_orders_confirm($skuPdo, (int) ($body['order_id'] ?? 0));
+        } elseif ($action === 'remove_draft') {
+            jg_purchase_orders_remove_draft($skuPdo, (int) ($body['order_id'] ?? 0));
+        } elseif ($action === 'update_order_tag') {
+            $updatedOrder = jg_purchase_orders_update_tag(
+                $skuPdo,
+                (int) ($body['order_id'] ?? 0),
+                (string) ($body['tag'] ?? '')
+            );
+        } elseif ($action === 'pay_order') {
+            jg_accounting_ensure_schema($analyticsPdo);
+            $orderId = (int) ($body['order_id'] ?? 0);
+            $order = jg_purchase_orders_find($skuPdo, $orderId);
+            if (in_array((string) ($order['status'] ?? ''), ['draft', 'cancelled'], true)) {
+                throw new InvalidArgumentException('Confirm the purchase order before recording a payment.');
+            }
+            $due = max(0.0, (float) ($order['amount_due'] ?? 0));
+            if ($due < 0.01) throw new InvalidArgumentException('This purchase order is already paid.');
+            $mode = strtolower(trim((string) ($body['payment_mode'] ?? 'full')));
+            $itemIds = is_array($body['item_ids'] ?? null) ? array_values(array_unique(array_map('intval', $body['item_ids']))) : [];
+            if ($mode === 'full') {
+                $amount = $due;
+            } elseif ($mode === 'percentage') {
+                $percentage = max(0, min(100, (float) ($body['percentage'] ?? 0)));
+                $amount = round($due * ($percentage / 100));
+            } elseif ($mode === 'products') {
+                $amount = 0.0;
+                foreach ((array) ($order['items'] ?? []) as $item) {
+                    if (in_array((int) ($item['id'] ?? 0), $itemIds, true)) {
+                        $amount += (float) ($item['ordered_qty'] ?? 0) * (float) ($item['unit_cost'] ?? 0);
+                    }
+                }
+                $amount = min($due, $amount);
+            } else {
+                $mode = 'amount';
+                $amount = (float) ($body['amount'] ?? 0);
+            }
+            $amount = round(min($due, max(0, $amount)));
+            if ($amount < 1) throw new InvalidArgumentException('Enter a payment amount greater than Rp0.');
+            $accountId = (int) ($body['account_id'] ?? 0);
+            $account = jg_accounting_account_for_role($analyticsPdo, $accountId, 'pay');
+            $accountBalances = jg_accounting_account_balances($analyticsPdo);
+            if ($amount > (float) ($accountBalances[$accountId] ?? 0)) {
+                throw new InvalidArgumentException(sprintf('%s does not have enough available balance for this payment.', (string) ($account['name'] ?? 'That account')));
+            }
+            $categoryStmt = $analyticsPdo->prepare('SELECT id FROM accounting_categories WHERE category_key = "finished-goods-purchase" LIMIT 1');
+            $categoryStmt->execute();
+            $categoryId = (int) ($categoryStmt->fetchColumn() ?: 0);
+            if ($categoryId < 1) throw new RuntimeException('The Finished Goods Purchase accounting category is unavailable.');
+            $requestKey = trim((string) ($body['request_key'] ?? ''));
+            if ($requestKey === '') throw new InvalidArgumentException('A payment request key is required.');
+            $paymentExists = $skuPdo->prepare('SELECT accounting_transaction_id FROM purchase_order_payments WHERE request_key = :request_key LIMIT 1');
+            $paymentExists->execute([':request_key' => $requestKey]);
+            $transactionId = (int) ($paymentExists->fetchColumn() ?: 0);
+            $accountingRequestNote = 'PO payment request: ' . mb_substr($requestKey, 0, 100);
+            if ($transactionId < 1) {
+                $accountingExists = $analyticsPdo->prepare(
+                    'SELECT id FROM accounting_transactions
+                     WHERE order_no = :order_no AND notes = :notes AND status <> "void"
+                     ORDER BY id DESC LIMIT 1'
+                );
+                $accountingExists->execute([
+                    ':order_no' => (string) ($order['po_number'] ?? ''),
+                    ':notes' => $accountingRequestNote,
+                ]);
+                $transactionId = (int) ($accountingExists->fetchColumn() ?: 0);
+            }
+            if ($transactionId < 1) {
+                $transaction = jg_accounting_create_transaction($analyticsPdo, [
+                    'transaction_date' => gmdate('Y-m-d'),
+                    'type' => 'expense',
+                    'direction' => 'money_out',
+                    'amount' => $amount,
+                    'account_id' => $accountId,
+                    'category_id' => $categoryId,
+                    'counterparty_name' => 'Production supplier',
+                    'payment_method' => (string) ($account['name'] ?? ''),
+                    'reference_no' => (string) ($order['po_number'] ?? ''),
+                    'order_no' => (string) ($order['po_number'] ?? ''),
+                    'receipt_status' => 'not_required',
+                    'description' => 'Purchase order payment — ' . (string) ($order['po_number'] ?? ''),
+                    'notes' => $accountingRequestNote,
+                ]);
+                $transactionId = (int) ($transaction['id'] ?? 0);
+            }
+            $updatedOrder = jg_purchase_orders_record_payment(
+                $skuPdo, $orderId, $requestKey, $transactionId, $accountId,
+                (string) ($account['name'] ?? ''), $amount, $mode, $itemIds
+            );
         } elseif ($action === 'cancel_order') {
             $orderId = filter_var($body['order_id'] ?? null, FILTER_VALIDATE_INT);
             if ($orderId === false || $orderId < 1) {
@@ -83,12 +182,31 @@ try {
         }
     }
     $payload = jg_inventory_recap_payload($skuPdo, $analyticsPdo, $cashContext, $_GET);
+    jg_accounting_ensure_schema($analyticsPdo);
+    $balances = jg_accounting_account_balances($analyticsPdo);
+    $payload['payment_accounts'] = array_values(array_map(
+        static fn (array $account): array => [
+            'id' => (int) $account['id'],
+            'name' => (string) $account['name'],
+            'account_key' => (string) $account['account_key'],
+            'balance' => (int) ($balances[(int) $account['id']] ?? 0),
+        ],
+        array_filter(jg_accounting_accounts($analyticsPdo), static fn (array $account): bool => (int) ($account['can_pay'] ?? 0) === 1)
+    ));
     if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) === 'POST') {
         $payload['settings_updated'] = true;
     }
     if (is_array($placedOrder)) {
         $payload['placed_order'] = $placedOrder;
         $payload['message'] = sprintf('%s was sent to Store Ops.', (string) ($placedOrder['po_number'] ?? 'Purchase order'));
+    }
+    if (is_array($draftOrder)) {
+        $payload['draft_order'] = $draftOrder;
+        $payload['message'] = sprintf('%s was saved as a draft. It is not in Store Ops yet.', (string) ($draftOrder['po_number'] ?? 'Purchase order'));
+    }
+    if (is_array($updatedOrder)) {
+        $payload['updated_order'] = $updatedOrder;
+        $payload['message'] = 'Purchase order updated.';
     }
     if (is_array($cancelledOrder)) {
         $payload['cancelled_order'] = $cancelledOrder;

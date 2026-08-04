@@ -18,7 +18,7 @@ assert.match(dashboard, /data-view-panel="purchase-order"[\s\S]*MOQ-ready purcha
 assert.match(dashboard, /data-view-switch="inventory-recap"[\s\S]*Back to Inventory Recap/);
 assert.match(dashboard, /data-purchase-plan-toggle-all[^>]*disabled[^>]*>Select all</);
 assert.match(dashboard, /admin-purchase-rule[\s\S]*admin-purchase-selection-bar[\s\S]*data-purchase-plan-toggle-all[\s\S]*data-purchase-plan-list/);
-assert.match(dashboard, /Sent to Store Ops[\s\S]*Download the PDF before closing this popup/);
+assert.match(dashboard, /Sent to Store Ops[\s\S]*confirmed and pending in Store Ops/);
 assert.match(dashboard, /Stock already on the way[\s\S]*data-inventory-po-list/);
 
 assert.match(script, /data-inventory-automatic/);
@@ -37,7 +37,14 @@ const purchasePdfSource = script.slice(
 );
 assert.match(purchasePdfSource, /const pageWidth = 595;[\s\S]*const pageHeight = 842;/);
 assert.doesNotMatch(purchasePdfSource, /#9dff00|#d6294f|#101419|#ffffff/i);
-assert.match(script, /action: 'place_order'/);
+assert.match(script, /action: 'create_draft'/);
+assert.match(script, /action: 'confirm_order'/);
+assert.match(script, /action: 'pay_order'/);
+assert.match(script, /data-purchase-plan-search/);
+assert.match(dashboard, /data-view-panel="po-history"[\s\S]*PO History/);
+assert.match(dashboard, /data-view-panel="po-detail"[\s\S]*PO breakdown/);
+assert.match(dashboard, /data-po-payment-mode="full"[\s\S]*data-po-payment-mode="products"/);
+assert.match(script, /data-po-tag/);
 assert.match(script, /downloadInventoryPurchasePdf\(state\.inventoryRecap\.placedOrder\)/);
 assert.match(script, /inventoryUrgencyCompare[\s\S]*\.sort\(inventoryUrgencyCompare\)/);
 assert.match(script, /const purchasePlanRows[\s\S]*suggestions\.map[\s\S]*\.sort\(inventoryUrgencyCompare\)/);
@@ -56,12 +63,15 @@ assert.match(api, /update_settings/);
 assert.match(api, /purchase_moq = :purchase_moq/);
 assert.match(api, /update_purchase_days/);
 assert.match(api, /jg_purchase_orders_place/);
+assert.match(api, /jg_purchase_orders_create_draft/);
+assert.match(api, /jg_accounting_create_transaction/);
 assert.match(api, /jg_purchase_orders_cancel/);
 assert.doesNotMatch(api, /sku_skus[\s\S]{0,300}purchase_days\s*=/);
 
 assert.match(navigation, /'purchase-order'\s*=>\s*\[[\s\S]*'label'\s*=>\s*'Purchase Plan'/);
 assert.match(navigation, /'key'\s*=>\s*'inventory-recap'[\s\S]*'label'\s*=>\s*'Inventory Recap'[\s\S]*'icon'\s*=>\s*'admin-rail-icon-inventory'/);
 assert.match(styles, /\.admin-rail-icon-inventory/);
+assert.match(styles, /admin-rail-icon-inventory[\s\S]{0,700}M9 3v3h6V3/);
 assert.match(styles, /\.admin-purchase-select\s*\{[\s\S]*\.admin-purchase-select input:checked \+ span/);
 assert.match(styles, /\.admin-inventory-incoming-qty\s*\{[\s\S]*color:\s*#60a5fa/);
 assert.doesNotMatch(styles, /\.admin-purchase-remove/);

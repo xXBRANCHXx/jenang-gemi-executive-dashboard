@@ -31,10 +31,10 @@ if ($isAuthenticated) {
     }
 }
 $isAdView = $isAuthenticated && in_array($requestedView ?? '', ['ad-view', 'ads', 'ad_view', 'shopee-ads'], true);
-$sidebarSection = in_array($requestedView ?? '', ['inventory', 'inventory_recap', 'inventory-recap', 'purchase', 'purchase_order', 'purchase-order'], true)
+$sidebarSection = in_array($requestedView ?? '', ['inventory', 'inventory_recap', 'inventory-recap', 'purchase', 'purchase_order', 'purchase-order', 'po-history', 'po-detail'], true)
     ? 'inventory-recap'
     : 'home';
-$dashboardBuildVersion = 'exec3.96.3';
+$dashboardBuildVersion = 'exec3.97.0';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -728,6 +728,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                                <p>Make the buying decision from stock quantities, not a countdown. Automatic triggers learn from 90 days of demand; every trigger and MOQ stays editable.</p>
 	                            </div>
 	                            <div class="admin-inventory-global-actions">
+	                                <button type="button" data-view-switch="po-history">History</button>
 	                                <form class="admin-inventory-global-days" data-inventory-global-days-form>
 	                                    <label>
 	                                        <span>Order days · all products</span>
@@ -791,11 +792,11 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                                </button>
 	                                <button type="button" class="is-primary" data-purchase-plan-place disabled>
 	                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M7 3v4m10-4v4M6 11h12v9H6z"/><path d="m9 15 2 2 4-4"/></svg>
-	                                    Place Order
+	                                    Confirm Order
 	                                </button>
 	                                <button type="button" data-purchase-plan-download disabled>
 	                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
-	                                    Download PDF
+	                                    Save Draft PDF
 	                                </button>
 	                            </div>
 	                        </div>
@@ -810,8 +811,11 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                            <code>75% order 19 ÷ MOQ 11 → buy 22</code>
 	                        </div>
 	                        <div class="admin-purchase-selection-bar">
-	                            <button type="button" data-purchase-plan-toggle-all disabled aria-pressed="false">Select all</button>
-	                            <span>Choose the products to include in this purchase order</span>
+	                            <div>
+	                                <button type="button" data-purchase-plan-toggle-all disabled aria-pressed="false">Select all</button>
+	                                <span>Choose the products to include in this purchase order</span>
+	                            </div>
+	                            <label class="admin-purchase-search"><span>Search products</span><input type="search" data-purchase-plan-search placeholder="Search name or SKU" autocomplete="off"></label>
 	                        </div>
 	                        <div class="admin-purchase-list" data-purchase-plan-list>
 	                            <p class="admin-empty">Loading recommended products.</p>
@@ -830,7 +834,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                                <span class="admin-purchase-success-icon" aria-hidden="true">✓</span>
 	                                <span class="admin-panel-kicker">Sent to Store Ops</span>
 	                                <h3 id="purchase-order-success-title">Order placed successfully</h3>
-	                                <p><strong data-purchase-order-modal-number>Purchase order</strong> is now pending in Store Ops. Download the PDF before closing this popup.</p>
+	                                <p><strong data-purchase-order-modal-number>Purchase order</strong> is now confirmed and pending in Store Ops. You can download the confirmed copy here.</p>
 	                                <div class="admin-purchase-success-progress">
 	                                    <span>Waiting for Store Ops to confirm delivery</span>
 	                                    <i></i>
@@ -842,6 +846,56 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                            </section>
 	                        </div>
 	                    </section>
+
+	                    <section class="admin-view admin-po-history-view" data-view-panel="po-history">
+	                        <header class="admin-po-page-head">
+	                            <div>
+	                                <button type="button" class="admin-purchase-back" data-view-switch="inventory-recap">← Back to Inventory Recap</button>
+	                                <span class="admin-panel-kicker">Purchasing · archive</span>
+	                                <h2>PO History</h2>
+	                                <p>Search every draft, active, received, and cancelled purchase order by number, tag, or product.</p>
+	                            </div>
+	                            <label class="admin-po-history-search"><span>Search PO history</span><input type="search" data-po-history-search placeholder="PO number, tag, product, or SKU"></label>
+	                        </header>
+	                        <div class="admin-po-history-list" data-po-history-list><p class="admin-empty">Loading purchase orders.</p></div>
+	                    </section>
+
+	                    <section class="admin-view admin-po-detail-view" data-view-panel="po-detail">
+	                        <header class="admin-po-page-head">
+	                            <div>
+	                                <button type="button" class="admin-purchase-back" data-view-switch="po-history">← Back to PO History</button>
+	                                <span class="admin-panel-kicker">Purchase order</span>
+	                                <h2 data-po-detail-number>PO breakdown</h2>
+	                                <p data-po-detail-status>Loading order details.</p>
+	                            </div>
+	                            <div class="admin-po-detail-actions" data-po-detail-actions></div>
+	                        </header>
+	                        <div class="admin-po-detail-content" data-po-detail-content><p class="admin-empty">Loading purchase order.</p></div>
+	                    </section>
+
+	                    <div class="admin-po-payment-modal" data-po-payment-modal hidden>
+	                        <div class="admin-purchase-success-backdrop" data-po-payment-close></div>
+	                        <form role="dialog" aria-modal="true" aria-labelledby="po-payment-title" data-po-payment-form>
+	                            <button type="button" class="admin-po-modal-close" data-po-payment-close aria-label="Close">×</button>
+	                            <span class="admin-panel-kicker">Accounting · money out</span>
+	                            <h3 id="po-payment-title">Pay purchase order</h3>
+	                            <p data-po-payment-summary></p>
+	                            <div class="admin-po-payment-modes" role="group" aria-label="Payment method">
+	                                <button type="button" class="is-active" data-po-payment-mode="full">In full</button>
+	                                <button type="button" data-po-payment-mode="amount">Enter amount</button>
+	                                <button type="button" data-po-payment-mode="percentage">Percentage</button>
+	                                <button type="button" data-po-payment-mode="products">Select products</button>
+	                            </div>
+	                            <div data-po-payment-fields></div>
+	                            <label class="admin-po-payment-account"><span>Pay from balance</span><select required data-po-payment-account></select></label>
+	                            <div class="admin-po-payment-total"><span>Payment now</span><strong data-po-payment-total>Rp0</strong></div>
+	                            <button type="submit" class="is-primary" data-po-payment-confirm>Confirm payment</button>
+	                            <small data-po-payment-message></small>
+	                        </form>
+	                    </div>
+	                    <div class="admin-po-context-menu" data-po-context-menu hidden>
+	                        <button type="button" data-po-context-remove>Remove draft</button>
+	                    </div>
 
                     <section class="admin-view admin-shipment-arrangement" data-view-panel="shipment-arrangement" data-shipment-arrangement data-shipment-arrangement-endpoint="../api/shipment-arrangement/">
                         <section class="admin-arrangement-hero">

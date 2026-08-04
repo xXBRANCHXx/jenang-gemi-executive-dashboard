@@ -161,6 +161,18 @@ inventory_recap_expect('quiet', $bySku['SKU-SAFE']['risk'] ?? '', 'An automatic 
 inventory_recap_expect(12.5, jg_inventory_recap_set_global_purchase_days($skuPdo, 12.5), 'The shared setting must be editable.');
 inventory_recap_expect(12.5, jg_inventory_recap_global_purchase_days($skuPdo), 'The shared setting must persist once for the report.');
 
+$draftOrder = jg_purchase_orders_create_draft($skuPdo, [
+    ['sku' => 'SKU-FLAT', 'quantity' => 19, 'line_note' => 'Send for confirmation'],
+], 'Draft PO', 'inventory-recap-draft-request');
+inventory_recap_expect('draft', $draftOrder['status'] ?? '', 'Downloading a PDF must create a resumable draft.');
+inventory_recap_expect(0, array_sum(jg_purchase_orders_incoming_by_sku($skuPdo)), 'A draft must not count as incoming stock.');
+$taggedDraft = jg_purchase_orders_update_tag($skuPdo, (int) $draftOrder['id'], 'Supplier Alpha');
+inventory_recap_expect('Supplier Alpha', $taggedDraft['tag'] ?? '', 'PO tags must persist for history searching.');
+$confirmedDraft = jg_purchase_orders_confirm($skuPdo, (int) $draftOrder['id']);
+inventory_recap_expect('pending', $confirmedDraft['status'] ?? '', 'A confirmed draft must become visible to Store Ops.');
+inventory_recap_expect(22, jg_purchase_orders_incoming_by_sku($skuPdo)['SKU-FLAT'] ?? 0, 'Only confirmation may add the draft quantity to incoming stock.');
+jg_purchase_orders_cancel($skuPdo, (int) $draftOrder['id']);
+
 $placedOrder = jg_purchase_orders_place($skuPdo, [
     ['sku' => 'SKU-FLAT', 'quantity' => 19, 'line_note' => 'Production batch A'],
     ['sku' => 'SKU-MANUAL', 'quantity' => 5],
@@ -187,6 +199,16 @@ inventory_recap_expect('incoming', $incomingBySku['SKU-FLAT']['risk'] ?? '', 'A 
 inventory_recap_expect(0, $incomingBySku['SKU-FLAT']['recommended_order_qty'] ?? -1, 'Incoming stock must prevent a duplicate purchase recommendation.');
 inventory_recap_expect(11, $incomingBySku['SKU-MANUAL']['incoming_qty'] ?? 0, 'An open PO must expose its still-unreceived quantity.');
 inventory_recap_expect(11, $incomingBySku['SKU-MANUAL']['recommended_order_qty'] ?? 0, 'A partial open PO must reduce, not erase, the remaining MOQ-rounded recommendation.');
+
+$partPaidOrder = jg_purchase_orders_record_payment(
+    $skuPdo, (int) $placedOrder['id'], 'payment-test-request', 1234, 8, 'BCA Main', 10000, 'amount', []
+);
+inventory_recap_expect(10000.0, $partPaidOrder['paid_total'] ?? 0, 'PO payments must accumulate against the COGS-based order total.');
+inventory_recap_expect(23000.0, $partPaidOrder['amount_due'] ?? 0, 'A partial payment must leave the correct COGS-based balance due.');
+$samePaymentOrder = jg_purchase_orders_record_payment(
+    $skuPdo, (int) $placedOrder['id'], 'payment-test-request', 1234, 8, 'BCA Main', 10000, 'amount', []
+);
+inventory_recap_expect(10000.0, $samePaymentOrder['paid_total'] ?? 0, 'Retrying one payment request must not charge the PO twice.');
 
 $cancelledOrder = jg_purchase_orders_cancel($skuPdo, (int) ($placedOrder['id'] ?? 0));
 inventory_recap_expect('cancelled', $cancelledOrder['status'] ?? '', 'Cancelling a PO must close it at the shared source of truth.');

@@ -622,7 +622,7 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
     $skus = jg_inventory_recap_sku_rows($skuPdo);
     $lookup = jg_inventory_recap_sku_lookup($skus);
     $stockIndexBySkuIndex = jg_inventory_recap_stock_index_map($skus);
-    $purchaseOrders = jg_purchase_orders_fetch($skuPdo, 20);
+    $purchaseOrders = jg_purchase_orders_fetch($skuPdo, 1000);
     $incomingBySku = jg_purchase_orders_incoming_by_sku($skuPdo);
     $demand = array_fill(0, count($skus), [
         'sold_qty' => 0.0,

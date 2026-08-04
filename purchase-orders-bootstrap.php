@@ -61,6 +61,25 @@ function jg_purchase_orders_ensure_schema(PDO $pdo): void
                 FOREIGN KEY (purchase_order_item_id) REFERENCES purchase_order_items(id)
             )'
         );
+        $columns = array_map(static fn (array $row): string => (string) ($row['name'] ?? ''), $pdo->query('PRAGMA table_info(purchase_orders)')->fetchAll());
+        if (!in_array('tag', $columns, true)) $pdo->exec('ALTER TABLE purchase_orders ADD COLUMN tag TEXT NOT NULL DEFAULT ""');
+        if (!in_array('confirmed_at', $columns, true)) $pdo->exec('ALTER TABLE purchase_orders ADD COLUMN confirmed_at TEXT NULL');
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS purchase_order_payments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                purchase_order_id INTEGER NOT NULL,
+                request_key TEXT NOT NULL UNIQUE,
+                accounting_transaction_id INTEGER NOT NULL,
+                account_id INTEGER NOT NULL,
+                account_name TEXT NOT NULL,
+                amount NUMERIC NOT NULL,
+                payment_mode TEXT NOT NULL DEFAULT "amount",
+                item_ids_json TEXT NOT NULL DEFAULT "[]",
+                paid_by TEXT NOT NULL DEFAULT "Executive",
+                paid_at TEXT NOT NULL,
+                FOREIGN KEY (purchase_order_id) REFERENCES purchase_orders(id)
+            )'
+        );
         return;
     }
 
@@ -119,6 +138,36 @@ function jg_purchase_orders_ensure_schema(PDO $pdo): void
                 FOREIGN KEY (purchase_order_item_id) REFERENCES purchase_order_items(id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
     );
+    $columnStmt = $pdo->prepare(
+        'SELECT COUNT(*) FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = "purchase_orders" AND COLUMN_NAME = :column_name'
+    );
+    foreach ([
+        'tag' => 'ALTER TABLE purchase_orders ADD COLUMN tag VARCHAR(120) NOT NULL DEFAULT "" AFTER status',
+        'confirmed_at' => 'ALTER TABLE purchase_orders ADD COLUMN confirmed_at DATETIME NULL AFTER placed_at',
+    ] as $column => $sql) {
+        $columnStmt->execute([':column_name' => $column]);
+        if ((int) $columnStmt->fetchColumn() === 0) $pdo->exec($sql);
+    }
+    $pdo->exec(
+        'CREATE TABLE IF NOT EXISTS purchase_order_payments (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            purchase_order_id BIGINT UNSIGNED NOT NULL,
+            request_key VARCHAR(100) NOT NULL,
+            accounting_transaction_id BIGINT UNSIGNED NOT NULL,
+            account_id BIGINT UNSIGNED NOT NULL,
+            account_name VARCHAR(160) NOT NULL,
+            amount DECIMAL(14,2) NOT NULL,
+            payment_mode VARCHAR(24) NOT NULL DEFAULT "amount",
+            item_ids_json TEXT NOT NULL,
+            paid_by VARCHAR(80) NOT NULL DEFAULT "Executive",
+            paid_at DATETIME NOT NULL,
+            UNIQUE KEY uq_purchase_order_payment_request (request_key),
+            KEY idx_purchase_order_payments_order (purchase_order_id, paid_at),
+            CONSTRAINT fk_purchase_order_payments_order
+                FOREIGN KEY (purchase_order_id) REFERENCES purchase_orders(id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+    );
 }
 
 function jg_purchase_orders_lock_suffix(PDO $pdo): string
@@ -134,10 +183,10 @@ function jg_purchase_orders_number(): string
 function jg_purchase_orders_fetch(PDO $pdo, int $limit = 20): array
 {
     jg_purchase_orders_ensure_schema($pdo);
-    $limit = max(1, min(100, $limit));
+    $limit = max(1, min(1000, $limit));
     $orders = $pdo->query(
-        'SELECT id, po_number, status, note, line_count, ordered_qty, received_qty,
-                estimated_total, placed_by, placed_at, updated_at, completed_at
+        'SELECT id, po_number, status, tag, note, line_count, ordered_qty, received_qty,
+                estimated_total, placed_by, placed_at, confirmed_at, updated_at, completed_at
          FROM purchase_orders
          ORDER BY placed_at DESC, id DESC
          LIMIT ' . $limit
@@ -153,8 +202,15 @@ function jg_purchase_orders_fetch(PDO $pdo, int $limit = 20): array
          WHERE purchase_order_id = :purchase_order_id
          ORDER BY id'
     );
+    $paymentsStmt = $pdo->prepare(
+        'SELECT id, accounting_transaction_id, account_id, account_name, amount,
+                payment_mode, item_ids_json, paid_by, paid_at
+         FROM purchase_order_payments
+         WHERE purchase_order_id = :purchase_order_id
+         ORDER BY paid_at ASC, id ASC'
+    );
 
-    return array_map(static function (array $order) use ($itemsStmt): array {
+    return array_map(static function (array $order) use ($itemsStmt, $paymentsStmt): array {
         $itemsStmt->execute([':purchase_order_id' => (int) $order['id']]);
         $items = array_map(static function (array $item): array {
             $ordered = max(0, (int) ($item['ordered_qty'] ?? 0));
@@ -174,22 +230,45 @@ function jg_purchase_orders_fetch(PDO $pdo, int $limit = 20): array
         }, $itemsStmt->fetchAll());
         $ordered = max(0, (int) ($order['ordered_qty'] ?? 0));
         $received = max(0, min($ordered, (int) ($order['received_qty'] ?? 0)));
+        $paymentsStmt->execute([':purchase_order_id' => (int) $order['id']]);
+        $payments = array_map(static function (array $payment): array {
+            $itemIds = json_decode((string) ($payment['item_ids_json'] ?? '[]'), true);
+            return [
+                'id' => (int) ($payment['id'] ?? 0),
+                'accounting_transaction_id' => (int) ($payment['accounting_transaction_id'] ?? 0),
+                'account_id' => (int) ($payment['account_id'] ?? 0),
+                'account_name' => (string) ($payment['account_name'] ?? ''),
+                'amount' => (float) ($payment['amount'] ?? 0),
+                'payment_mode' => (string) ($payment['payment_mode'] ?? 'amount'),
+                'item_ids' => is_array($itemIds) ? array_values(array_map('intval', $itemIds)) : [],
+                'paid_by' => (string) ($payment['paid_by'] ?? ''),
+                'paid_at' => (string) ($payment['paid_at'] ?? ''),
+            ];
+        }, $paymentsStmt->fetchAll());
+        $paidTotal = array_sum(array_map(static fn (array $payment): float => (float) $payment['amount'], $payments));
+        $estimatedTotal = max(0.0, (float) ($order['estimated_total'] ?? 0));
         return [
             'id' => (int) ($order['id'] ?? 0),
             'po_number' => (string) ($order['po_number'] ?? ''),
             'status' => (string) ($order['status'] ?? 'pending'),
+            'tag' => (string) ($order['tag'] ?? ''),
             'note' => (string) ($order['note'] ?? ''),
             'line_count' => (int) ($order['line_count'] ?? count($items)),
             'ordered_qty' => $ordered,
             'received_qty' => $received,
             'remaining_qty' => max(0, $ordered - $received),
             'progress_percent' => $ordered > 0 ? (int) round(($received / $ordered) * 100) : 0,
-            'estimated_total' => (float) ($order['estimated_total'] ?? 0),
+            'estimated_total' => $estimatedTotal,
+            'paid_total' => min($estimatedTotal, $paidTotal),
+            'amount_due' => max(0, $estimatedTotal - $paidTotal),
+            'payment_percent' => $estimatedTotal > 0 ? min(100, (int) round(($paidTotal / $estimatedTotal) * 100)) : 100,
             'placed_by' => (string) ($order['placed_by'] ?? ''),
             'placed_at' => (string) ($order['placed_at'] ?? ''),
+            'confirmed_at' => (string) ($order['confirmed_at'] ?? ''),
             'updated_at' => (string) ($order['updated_at'] ?? ''),
             'completed_at' => (string) ($order['completed_at'] ?? ''),
             'items' => $items,
+            'payments' => $payments,
         ];
     }, $orders);
 }
@@ -262,7 +341,8 @@ function jg_purchase_orders_place(
     array $inputItems,
     string $note,
     string $requestKey,
-    string $placedBy = 'Executive'
+    string $placedBy = 'Executive',
+    string $initialStatus = 'pending'
 ): array {
     jg_purchase_orders_ensure_schema($pdo);
     $requestKey = trim($requestKey);
@@ -274,11 +354,14 @@ function jg_purchase_orders_place(
     $existing->execute([':request_key' => $requestKey]);
     $existingId = (int) ($existing->fetchColumn() ?: 0);
     if ($existingId > 0) {
-        foreach (jg_purchase_orders_fetch($pdo, 100) as $order) {
+        foreach (jg_purchase_orders_fetch($pdo, 1000) as $order) {
             if ((int) $order['id'] === $existingId) return $order;
         }
     }
 
+    if (!in_array($initialStatus, ['draft', 'pending'], true)) {
+        throw new InvalidArgumentException('Invalid purchase order status.');
+    }
     $requested = [];
     foreach ($inputItems as $item) {
         if (!is_array($item)) continue;
@@ -325,10 +408,10 @@ function jg_purchase_orders_place(
         $insertOrder = $pdo->prepare(
             'INSERT INTO purchase_orders (
                 po_number, request_key, status, note, line_count, ordered_qty,
-                received_qty, estimated_total, placed_by, placed_at, updated_at
+                received_qty, estimated_total, placed_by, placed_at, confirmed_at, updated_at
              ) VALUES (
-                :po_number, :request_key, "pending", :note, :line_count, :ordered_qty,
-                0, :estimated_total, :placed_by, :placed_at, :updated_at
+                :po_number, :request_key, :status, :note, :line_count, :ordered_qty,
+                0, :estimated_total, :placed_by, :placed_at, :confirmed_at, :updated_at
              )'
         );
         $poNumber = '';
@@ -338,12 +421,14 @@ function jg_purchase_orders_place(
                 $insertOrder->execute([
                     ':po_number' => $poNumber,
                     ':request_key' => $requestKey,
+                    ':status' => $initialStatus,
                     ':note' => mb_substr(trim($note), 0, 5000),
                     ':line_count' => count($lines),
                     ':ordered_qty' => $orderedQty,
                     ':estimated_total' => number_format($estimatedTotal, 2, '.', ''),
                     ':placed_by' => mb_substr(trim($placedBy) ?: 'Executive', 0, 80),
                     ':placed_at' => $now,
+                    ':confirmed_at' => $initialStatus === 'pending' ? $now : null,
                     ':updated_at' => $now,
                 ]);
                 break;
@@ -384,10 +469,95 @@ function jg_purchase_orders_place(
         throw $error;
     }
 
-    foreach (jg_purchase_orders_fetch($pdo, 100) as $order) {
+    foreach (jg_purchase_orders_fetch($pdo, 1000) as $order) {
         if ((int) $order['id'] === $orderId) return $order;
     }
     throw new RuntimeException('The purchase order was saved but could not be reloaded.');
+}
+
+function jg_purchase_orders_create_draft(PDO $pdo, array $items, string $note, string $requestKey): array
+{
+    return jg_purchase_orders_place($pdo, $items, $note, $requestKey, 'Executive', 'draft');
+}
+
+function jg_purchase_orders_find(PDO $pdo, int $orderId): array
+{
+    foreach (jg_purchase_orders_fetch($pdo, 1000) as $order) {
+        if ((int) ($order['id'] ?? 0) === $orderId) return $order;
+    }
+    throw new RuntimeException('Purchase order not found.');
+}
+
+function jg_purchase_orders_confirm(PDO $pdo, int $orderId): array
+{
+    jg_purchase_orders_ensure_schema($pdo);
+    $now = jg_purchase_orders_now();
+    $stmt = $pdo->prepare(
+        'UPDATE purchase_orders SET status = "pending", confirmed_at = :now, updated_at = :now
+         WHERE id = :id AND status = "draft"'
+    );
+    $stmt->execute([':now' => $now, ':id' => $orderId]);
+    if ($stmt->rowCount() !== 1) {
+        $order = jg_purchase_orders_find($pdo, $orderId);
+        if ((string) ($order['status'] ?? '') !== 'pending') {
+            throw new RuntimeException('Only a draft purchase order can be confirmed.');
+        }
+    }
+    return jg_purchase_orders_find($pdo, $orderId);
+}
+
+function jg_purchase_orders_remove_draft(PDO $pdo, int $orderId): void
+{
+    jg_purchase_orders_ensure_schema($pdo);
+    $stmt = $pdo->prepare('DELETE FROM purchase_orders WHERE id = :id AND status = "draft"');
+    $stmt->execute([':id' => $orderId]);
+    if ($stmt->rowCount() !== 1) throw new RuntimeException('Only a draft purchase order can be removed.');
+}
+
+function jg_purchase_orders_update_tag(PDO $pdo, int $orderId, string $tag): array
+{
+    jg_purchase_orders_ensure_schema($pdo);
+    $tag = mb_substr(trim($tag), 0, 120);
+    $stmt = $pdo->prepare('UPDATE purchase_orders SET tag = :tag, updated_at = :now WHERE id = :id');
+    $stmt->execute([':tag' => $tag, ':now' => jg_purchase_orders_now(), ':id' => $orderId]);
+    if ($stmt->rowCount() === 0) jg_purchase_orders_find($pdo, $orderId);
+    return jg_purchase_orders_find($pdo, $orderId);
+}
+
+function jg_purchase_orders_record_payment(
+    PDO $pdo,
+    int $orderId,
+    string $requestKey,
+    int $accountingTransactionId,
+    int $accountId,
+    string $accountName,
+    float $amount,
+    string $mode,
+    array $itemIds
+): array {
+    jg_purchase_orders_ensure_schema($pdo);
+    $existing = $pdo->prepare('SELECT purchase_order_id FROM purchase_order_payments WHERE request_key = :request_key LIMIT 1');
+    $existing->execute([':request_key' => $requestKey]);
+    if ((int) ($existing->fetchColumn() ?: 0) > 0) return jg_purchase_orders_find($pdo, $orderId);
+    $stmt = $pdo->prepare(
+        'INSERT INTO purchase_order_payments
+            (purchase_order_id, request_key, accounting_transaction_id, account_id, account_name,
+             amount, payment_mode, item_ids_json, paid_by, paid_at)
+         VALUES (:purchase_order_id, :request_key, :transaction_id, :account_id, :account_name,
+             :amount, :payment_mode, :item_ids_json, "Executive", :paid_at)'
+    );
+    $stmt->execute([
+        ':purchase_order_id' => $orderId,
+        ':request_key' => mb_substr(trim($requestKey), 0, 100),
+        ':transaction_id' => $accountingTransactionId,
+        ':account_id' => $accountId,
+        ':account_name' => mb_substr(trim($accountName), 0, 160),
+        ':amount' => number_format($amount, 2, '.', ''),
+        ':payment_mode' => mb_substr(trim($mode), 0, 24),
+        ':item_ids_json' => json_encode(array_values(array_unique(array_map('intval', $itemIds)))),
+        ':paid_at' => jg_purchase_orders_now(),
+    ]);
+    return jg_purchase_orders_find($pdo, $orderId);
 }
 
 function jg_purchase_orders_cancel(PDO $pdo, int $orderId): array
