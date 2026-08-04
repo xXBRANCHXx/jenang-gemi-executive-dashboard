@@ -2551,7 +2551,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      planQuantities: {},
 	      planEdited: {},
 	      planNotes: {},
-	      planExcluded: {},
+	      planSelected: {},
 	      planNote: '',
 	      placingOrder: false,
 	      placeRequestKey: '',
@@ -2846,6 +2846,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	  const purchasePlanRefs = {
 	    status: document.querySelector('[data-purchase-plan-status]'),
 	    list: document.querySelector('[data-purchase-plan-list]'),
+	    toggleAll: document.querySelector('[data-purchase-plan-toggle-all]'),
 	    copy: document.querySelector('[data-purchase-plan-copy]'),
 	    place: document.querySelector('[data-purchase-plan-place]'),
 	    download: document.querySelector('[data-purchase-plan-download]'),
@@ -8287,7 +8288,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    const suggestions = Array.isArray(state.inventoryRecap.data?.suggestions) ? state.inventoryRecap.data.suggestions : [];
 	    suggestions.forEach((item) => {
 	      const sku = String(item.sku || '');
-	      if (!sku || state.inventoryRecap.planExcluded[sku]) return;
+	      if (!sku) return;
 	      if (!Object.prototype.hasOwnProperty.call(state.inventoryRecap.planQuantities, sku) || !state.inventoryRecap.planEdited[sku]) {
 	        state.inventoryRecap.planQuantities[sku] = Math.max(0, Math.round(Number(item.recommended_order_qty || 0)));
 	      }
@@ -8299,18 +8300,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	  const purchasePlanRows = () => {
 	    const suggestions = Array.isArray(state.inventoryRecap.data?.suggestions) ? state.inventoryRecap.data.suggestions : [];
-	    return suggestions.filter((item) => !state.inventoryRecap.planExcluded[String(item.sku || '')]).map((item) => {
+	    return suggestions.map((item) => {
 	      const sku = String(item.sku || '');
 	      const moq = Math.max(1, Math.round(Number(item.purchase_moq || 1)));
 	      const entered = Math.max(0, Math.round(Number(state.inventoryRecap.planQuantities[sku] ?? item.recommended_order_qty ?? 0)));
 	      const quantity = entered > 0 ? Math.ceil(entered / moq) * moq : 0;
 	      const unitCost = Math.max(0, Number(item.cogs || 0));
-	      return { ...item, quantity, moq, unitCost, subtotal: quantity * unitCost, note: String(state.inventoryRecap.planNotes[sku] || '') };
+	      return { ...item, selected: Boolean(state.inventoryRecap.planSelected[sku]), quantity, moq, unitCost, subtotal: quantity * unitCost, note: String(state.inventoryRecap.planNotes[sku] || '') };
 	    });
 	  };
 
 	  const purchasePlanSummary = () => {
-	    const rows = purchasePlanRows().filter((item) => item.quantity > 0);
+	    const rows = purchasePlanRows().filter((item) => item.selected && item.quantity > 0);
 	    return {
 	      rows,
 	      lines: rows.length,
@@ -8325,6 +8326,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      if (purchasePlanRefs.copy) purchasePlanRefs.copy.disabled = true;
 	      if (purchasePlanRefs.place) purchasePlanRefs.place.disabled = true;
 	      if (purchasePlanRefs.download) purchasePlanRefs.download.disabled = true;
+	      if (purchasePlanRefs.toggleAll) purchasePlanRefs.toggleAll.disabled = true;
 	      return;
 	    }
 	    initializePurchasePlan();
@@ -8333,14 +8335,16 @@ document.addEventListener('DOMContentLoaded', () => {
 	    const cash = Number(state.inventoryRecap.data?.summary?.cash_available || state.inventoryRecap.data?.cash?.available || 0);
 	    const shortfall = Math.max(0, total - cash);
 	    if (!allRows.length) {
-	      const hasSuggestions = Array.isArray(state.inventoryRecap.data?.suggestions) && state.inventoryRecap.data.suggestions.length > 0;
-	      purchasePlanRefs.list.innerHTML = `<p class="admin-empty">${hasSuggestions ? 'All products have been removed from this order.' : 'Nothing is below its trigger. The purchase plan is clear.'}</p>`;
+	      purchasePlanRefs.list.innerHTML = '<p class="admin-empty">Nothing is below its trigger. The purchase plan is clear.</p>';
 	    } else {
 	      purchasePlanRefs.list.innerHTML = allRows.map((item, index) => {
 	        const purchaseDaysLabel = formatRegionalNumber(item.purchase_days || 22.5, { maximumFractionDigits: 1 });
 	        return `
-	        <article class="admin-purchase-row ${inventoryRecapRiskClass(item.risk)}">
-	          <span class="admin-purchase-index">${String(index + 1).padStart(2, '0')}</span>
+	        <article class="admin-purchase-row ${inventoryRecapRiskClass(item.risk)}${item.selected ? ' is-selected' : ''}">
+	          <label class="admin-purchase-select">
+	            <input type="checkbox" data-purchase-plan-select="${escapeHtml(item.sku || '')}" ${item.selected ? 'checked' : ''} aria-label="Include ${escapeHtml(item.product_name || item.sku || '')} in this purchase order">
+	            <span aria-hidden="true"></span>
+	          </label>
 	          <div class="admin-purchase-product">
 	            <strong>${escapeHtml(item.product_name || item.sku || '-')}</strong>
 	            <span>${escapeHtml(item.sku || '')} · stock ${formatRegionalInteger(item.current_stock || 0)} / trigger ${formatRegionalInteger(item.trigger_qty || 0)}</span>
@@ -8359,15 +8363,18 @@ document.addEventListener('DOMContentLoaded', () => {
 	            <span>Line note</span>
 	            <input type="text" value="${escapeHtml(item.note)}" data-purchase-plan-line-note="${escapeHtml(item.sku || '')}" placeholder="Optional instruction">
 	          </label>
-	          <button type="button" class="admin-purchase-remove" data-purchase-plan-remove="${escapeHtml(item.sku || '')}" aria-label="Remove ${escapeHtml(item.product_name || item.sku || '')} from this order" title="Remove from order">
-	            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v5M14 11v5"/></svg>
-	          </button>
 	        </article>
 	      `;
 	      }).join('');
 	    }
 	    if (purchasePlanRefs.status) {
-	      purchasePlanRefs.status.textContent = `${formatRegionalInteger(lines)} products · every quantity is a full MOQ multiple`;
+	      purchasePlanRefs.status.textContent = `${formatRegionalInteger(lines)} selected of ${formatRegionalInteger(allRows.length)} products · quantities stay in full MOQ multiples`;
+	    }
+	    if (purchasePlanRefs.toggleAll) {
+	      const allSelected = allRows.length > 0 && allRows.every((item) => item.selected);
+	      purchasePlanRefs.toggleAll.disabled = state.inventoryRecap.loading || !allRows.length;
+	      purchasePlanRefs.toggleAll.textContent = allSelected ? 'Clear all' : 'Select all';
+	      purchasePlanRefs.toggleAll.setAttribute('aria-pressed', allSelected ? 'true' : 'false');
 	    }
 	    if (purchasePlanRefs.lines) purchasePlanRefs.lines.textContent = formatRegionalInteger(lines);
 	    if (purchasePlanRefs.total) purchasePlanRefs.total.textContent = formatCurrency(total);
@@ -10184,7 +10191,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      state.inventoryRecap.placeRequestKey = '';
 	      state.inventoryRecap.planEdited = {};
 	      state.inventoryRecap.planQuantities = {};
-	      state.inventoryRecap.planExcluded = {};
+	      state.inventoryRecap.planSelected = {};
 	      applyInventoryRecapData(data);
 	      if (purchasePlanRefs.modalNumber) {
 	        purchasePlanRefs.modalNumber.textContent = state.inventoryRecap.placedOrder?.po_number || 'Purchase order';
@@ -12544,6 +12551,12 @@ document.addEventListener('DOMContentLoaded', () => {
 	  purchasePlanRefs.list?.addEventListener('change', (event) => {
 	    const input = event.target;
 	    if (!(input instanceof HTMLInputElement)) return;
+	    const selectionSku = input.getAttribute('data-purchase-plan-select');
+	    if (selectionSku) {
+	      state.inventoryRecap.planSelected[selectionSku] = input.checked;
+	      renderPurchasePlan();
+	      return;
+	    }
 	    const sku = input.getAttribute('data-purchase-plan-qty');
 	    if (!sku) return;
 	    const item = (state.inventoryRecap.data?.suggestions || []).find((row) => String(row.sku || '') === sku);
@@ -12551,18 +12564,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	    const entered = Math.max(0, Math.round(Number(input.value || 0)));
 	    state.inventoryRecap.planQuantities[sku] = entered > 0 ? Math.ceil(entered / moq) * moq : 0;
 	    state.inventoryRecap.planEdited[sku] = true;
-	    renderPurchasePlan();
-	  });
-
-	  purchasePlanRefs.list?.addEventListener('click', (event) => {
-	    const button = event.target instanceof Element ? event.target.closest('[data-purchase-plan-remove]') : null;
-	    if (!(button instanceof HTMLButtonElement)) return;
-	    const sku = String(button.getAttribute('data-purchase-plan-remove') || '');
-	    if (!sku) return;
-	    state.inventoryRecap.planExcluded[sku] = true;
-	    delete state.inventoryRecap.planQuantities[sku];
-	    delete state.inventoryRecap.planEdited[sku];
-	    delete state.inventoryRecap.planNotes[sku];
 	    renderPurchasePlan();
 	  });
 
@@ -12587,6 +12588,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	  purchasePlanRefs.copy?.addEventListener('click', () => {
 	    copyInventoryRecapDraft().catch(() => {});
+	  });
+
+	  purchasePlanRefs.toggleAll?.addEventListener('click', () => {
+	    const rows = purchasePlanRows();
+	    const shouldSelect = !rows.length || !rows.every((item) => item.selected);
+	    rows.forEach((item) => {
+	      const sku = String(item.sku || '');
+	      if (sku) state.inventoryRecap.planSelected[sku] = shouldSelect;
+	    });
+	    renderPurchasePlan();
 	  });
 
 	  purchasePlanRefs.place?.addEventListener('click', () => {

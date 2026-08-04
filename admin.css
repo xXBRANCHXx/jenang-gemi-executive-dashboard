@@ -24841,7 +24841,8 @@ body:has(.admin-app[data-sku-db])::after {
   gap: 8px;
 }
 
-.admin-purchase-actions button:first-child {
+.admin-purchase-actions [data-purchase-plan-toggle-all],
+.admin-purchase-actions [data-purchase-plan-copy] {
   border-color: var(--inventory-line);
   background: transparent;
   color: var(--admin-text);
@@ -24879,12 +24880,16 @@ body:has(.admin-app[data-sku-db])::after {
 
 .admin-purchase-row {
   display: grid;
-  grid-template-columns: 36px minmax(220px, 1.4fr) minmax(150px, 0.6fr) minmax(130px, 0.5fr) minmax(170px, 0.7fr) 40px;
+  grid-template-columns: 36px minmax(220px, 1.4fr) minmax(150px, 0.6fr) minmax(130px, 0.5fr) minmax(170px, 0.7fr);
   gap: 18px;
   align-items: center;
   min-height: 104px;
   padding: 16px 0;
   border-bottom: 1px solid var(--inventory-line);
+}
+
+.admin-purchase-row.is-selected {
+  background: color-mix(in srgb, var(--admin-text) 3%, transparent);
 }
 
 .admin-purchase-index {
@@ -24972,33 +24977,52 @@ body:has(.admin-app[data-sku-db])::after {
   white-space: nowrap;
 }
 
-.admin-purchase-remove {
+.admin-purchase-select {
+  position: relative;
   display: inline-grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--admin-muted);
+  width: 28px;
+  height: 40px;
   cursor: pointer;
 }
 
-.admin-purchase-remove:hover,
-.admin-purchase-remove:focus-visible {
-  color: #ef4444;
-  outline: 0;
+.admin-purchase-select input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
 }
 
-.admin-purchase-remove svg {
-  width: 17px;
-  height: 17px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+.admin-purchase-select span {
+  position: relative;
+  display: block;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--inventory-line);
+  border-radius: 4px;
+  background: transparent;
+}
+
+.admin-purchase-select input:checked + span {
+  border-color: var(--admin-text);
+  background: var(--admin-text);
+}
+
+.admin-purchase-select input:checked + span::after {
+  position: absolute;
+  top: 3px;
+  left: 6px;
+  width: 5px;
+  height: 9px;
+  border: solid var(--admin-bg);
+  border-width: 0 2px 2px 0;
+  content: '';
+  transform: rotate(45deg);
+}
+
+.admin-purchase-select input:focus-visible + span {
+  outline: 2px solid var(--admin-text);
+  outline-offset: 3px;
 }
 
 .admin-purchase-order-note {
@@ -25070,11 +25094,11 @@ body:has(.admin-app[data-sku-db])::after {
   }
 
   .admin-purchase-row {
-    grid-template-columns: 32px minmax(210px, 1fr) minmax(140px, 0.6fr) minmax(130px, 0.5fr) 40px;
+    grid-template-columns: 32px minmax(210px, 1fr) minmax(140px, 0.6fr) minmax(130px, 0.5fr);
   }
 
   .admin-purchase-line-note {
-    grid-column: 2 / -2;
+    grid-column: 2 / -1;
   }
 }
 
@@ -25145,11 +25169,6 @@ body:has(.admin-app[data-sku-db])::after {
   .admin-purchase-cost,
   .admin-purchase-line-note {
     grid-column: 2;
-  }
-
-  .admin-purchase-remove {
-    grid-column: 2;
-    justify-self: end;
   }
 
   .admin-purchase-total {
