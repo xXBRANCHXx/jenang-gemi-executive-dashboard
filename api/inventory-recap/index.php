@@ -123,7 +123,7 @@ try {
             if ($amount < 1) throw new InvalidArgumentException('Enter a payment amount greater than Rp0.');
             $accountId = (int) ($body['account_id'] ?? 0);
             $account = jg_accounting_account_for_role($analyticsPdo, $accountId, 'pay');
-            $accountBalances = jg_accounting_account_balances($analyticsPdo);
+            $accountBalances = jg_accounting_cash_account_balances($analyticsPdo);
             if ($amount > (float) ($accountBalances[$accountId] ?? 0)) {
                 throw new InvalidArgumentException(sprintf('%s does not have enough available balance for this payment.', (string) ($account['name'] ?? 'That account')));
             }
@@ -183,7 +183,7 @@ try {
     }
     $payload = jg_inventory_recap_payload($skuPdo, $analyticsPdo, $cashContext, $_GET);
     jg_accounting_ensure_schema($analyticsPdo);
-    $balances = jg_accounting_account_balances($analyticsPdo);
+    $balances = jg_accounting_cash_account_balances($analyticsPdo);
     $payload['payment_accounts'] = array_values(array_map(
         static fn (array $account): array => [
             'id' => (int) $account['id'],

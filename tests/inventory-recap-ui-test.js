@@ -72,6 +72,8 @@ assert.match(api, /update_purchase_days/);
 assert.match(api, /jg_purchase_orders_place/);
 assert.match(api, /jg_purchase_orders_create_draft/);
 assert.match(api, /jg_accounting_create_transaction/);
+assert.match(api, /jg_accounting_cash_account_balances/);
+assert.doesNotMatch(api, /jg_accounting_account_balances/);
 assert.match(api, /jg_purchase_orders_cancel/);
 assert.doesNotMatch(api, /sku_skus[\s\S]{0,300}purchase_days\s*=/);
 

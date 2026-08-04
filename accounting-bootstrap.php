@@ -1564,6 +1564,7 @@ function jg_accounting_cash_history(PDO $pdo): array
 
     return [
         'rows' => $rows,
+        'account_balances' => array_map(static fn (mixed $balance): int => (int) $balance, $accountBalances),
         'summary' => [
             'current_cash' => $runningBalance,
             'bank_balance' => $bankBalance,
@@ -1576,6 +1577,17 @@ function jg_accounting_cash_history(PDO $pdo): array
             'reconciliations' => array_values($reconciliations),
         ],
     ];
+}
+
+/** @return array<int,int> */
+function jg_accounting_cash_account_balances(PDO $pdo): array
+{
+    $history = jg_accounting_cash_history($pdo);
+    $balances = [];
+    foreach ((array) ($history['account_balances'] ?? []) as $accountId => $balance) {
+        $balances[(int) $accountId] = (int) $balance;
+    }
+    return $balances;
 }
 
 /** @return array{key:string,label:string} */
