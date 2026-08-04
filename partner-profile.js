@@ -332,11 +332,11 @@ document.addEventListener('DOMContentLoaded', () => {
       toggleAllVisibleButton.title = allInViewSelected ? 'Clear every SKU in the current view' : 'Select every SKU in the current view';
     }
     if (bulkPriceInput instanceof HTMLInputElement) {
-      bulkPriceInput.disabled = state.discount.enabled || selectedCountValue === 0;
+      bulkPriceInput.disabled = state.discount.enabled || selectedInView === 0;
       bulkPriceInput.placeholder = state.discount.enabled ? 'Discount active' : 'Rp 0';
     }
     if (applyBulkPriceButton instanceof HTMLButtonElement) {
-      applyBulkPriceButton.disabled = state.discount.enabled || selectedCountValue === 0 || !(bulkPriceInput instanceof HTMLInputElement) || bulkPriceInput.value === '';
+      applyBulkPriceButton.disabled = state.discount.enabled || selectedInView === 0 || !(bulkPriceInput instanceof HTMLInputElement) || bulkPriceInput.value === '';
     }
   };
 
@@ -540,13 +540,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const applyBulkPrice = () => {
     if (!(bulkPriceInput instanceof HTMLInputElement) || state.discount.enabled) return;
     const price = Math.max(0, Number(bulkPriceInput.value || 0));
-    state.selections.skus.forEach((skuCode) => {
+    const selected = selectedSkuSet();
+    const skuCodes = displayedSkuCodes().filter((skuCode) => selected.has(skuCode));
+    skuCodes.forEach((skuCode) => {
       state.pricing[skuCode] = price;
     });
     renderSkuList();
     renderSelectedSkus();
     renderBulkControls();
-    showToast('Bulk price applied', `${state.selections.skus.length.toLocaleString('id-ID')} selected SKUs updated.`);
+    showToast('Bulk price applied', `${skuCodes.length.toLocaleString('id-ID')} displayed SKUs updated.`);
   };
 
   const fillForm = (partner) => {
