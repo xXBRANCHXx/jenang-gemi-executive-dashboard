@@ -24,7 +24,7 @@ assert.match(dashboard, /Stock already on the way[\s\S]*data-inventory-po-list/)
 assert.match(script, /data-inventory-automatic/);
 assert.match(script, /data-inventory-manual-trigger/);
 assert.match(script, /data-inventory-moq/);
-assert.match(dashboard, /data-inventory-global-days-form[\s\S]*Order days · all products/);
+assert.match(dashboard, /admin-inventory-order-action[\s\S]*>Order[\s\S]*admin-inventory-secondary-actions[\s\S]*>See History<[\s\S]*data-inventory-global-days-form[\s\S]*Order days/);
 assert.match(script, /data-inventory-global-days/);
 assert.match(script, /Math\.ceil\(entered \/ moq\) \* moq/);
 assert.match(script, /saveInventorySettings/);
@@ -45,6 +45,7 @@ assert.match(dashboard, /data-view-panel="po-history"[\s\S]*PO History/);
 assert.match(dashboard, /data-view-panel="po-detail"[\s\S]*PO breakdown/);
 assert.match(dashboard, /data-po-payment-mode="full"[\s\S]*data-po-payment-mode="products"/);
 assert.match(script, /data-po-tag/);
+assert.match(script, /admin-inventory-po-card-meta[\s\S]{0,700}admin-po-card-tag/);
 assert.match(script, /downloadInventoryPurchasePdf\(state\.inventoryRecap\.placedOrder\)/);
 assert.match(script, /inventoryUrgencyCompare[\s\S]*\.sort\(inventoryUrgencyCompare\)/);
 assert.match(script, /const purchasePlanRows[\s\S]*suggestions\.map[\s\S]*\.sort\(inventoryUrgencyCompare\)/);

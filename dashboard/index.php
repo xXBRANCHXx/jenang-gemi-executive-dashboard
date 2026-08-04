@@ -34,7 +34,7 @@ $isAdView = $isAuthenticated && in_array($requestedView ?? '', ['ad-view', 'ads'
 $sidebarSection = in_array($requestedView ?? '', ['inventory', 'inventory_recap', 'inventory-recap', 'purchase', 'purchase_order', 'purchase-order', 'po-history', 'po-detail'], true)
     ? 'inventory-recap'
     : 'home';
-$dashboardBuildVersion = 'exec3.97.0';
+$dashboardBuildVersion = 'exec3.97.1';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -728,16 +728,18 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                                <p>Make the buying decision from stock quantities, not a countdown. Automatic triggers learn from 90 days of demand; every trigger and MOQ stays editable.</p>
 	                            </div>
 	                            <div class="admin-inventory-global-actions">
-	                                <button type="button" data-view-switch="po-history">History</button>
-	                                <form class="admin-inventory-global-days" data-inventory-global-days-form>
-	                                    <label>
-	                                        <span>Order days · all products</span>
-	                                        <input type="number" min="1" max="90" step="0.5" value="22.5" data-inventory-global-days>
-	                                    </label>
-	                                    <button type="submit" data-inventory-global-days-save>Save</button>
-	                                    <small data-inventory-global-days-message>One setting for the full report</small>
-	                                </form>
-	                                <button type="button" data-view-switch="purchase-order">Open purchase plan <span aria-hidden="true">→</span></button>
+	                                <button type="button" class="admin-inventory-order-action" data-view-switch="purchase-order">Order <span aria-hidden="true">→</span></button>
+	                                <div class="admin-inventory-secondary-actions">
+	                                    <a href="../dashboard/?view=po-history" data-view-switch="po-history">See History</a>
+	                                    <form class="admin-inventory-global-days" data-inventory-global-days-form>
+	                                        <label>
+	                                            <span>Order days</span>
+	                                            <input type="number" min="1" max="90" step="0.5" value="22.5" data-inventory-global-days>
+	                                        </label>
+	                                        <button type="submit" data-inventory-global-days-save>Save</button>
+	                                        <small data-inventory-global-days-message>Applies to all products</small>
+	                                    </form>
+	                                </div>
 	                            </div>
 	                        </header>
 	                        <section class="admin-inventory-po-board" aria-label="Purchase orders">

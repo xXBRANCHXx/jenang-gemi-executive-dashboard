@@ -8275,8 +8275,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	            <span><b>${formatRegionalInteger(received)}</b> added to stock</span>
 	            <span><b>${formatRegionalInteger(Math.max(0, ordered - received))}</b> still incoming</span>
 	            <span>${escapeHtml(String(order.placed_at || '').slice(0, 10))}</span>
+	            <label class="admin-po-card-tag" onclick="event.stopPropagation()"><span>Tag</span><input type="text" maxlength="120" value="${escapeHtml(order.tag || '')}" data-po-tag="${Number(order.id || 0)}" placeholder="Add tag"></label>
 	          </div>
-	          <label class="admin-po-tag" onclick="event.stopPropagation()"><span>Tag</span><input type="text" maxlength="120" value="${escapeHtml(order.tag || '')}" data-po-tag="${Number(order.id || 0)}" placeholder="Add tag"></label>
 	          <small>${escapeHtml(itemPreview || 'No item lines')}</small>
 	        </article>
 	      `;
@@ -8703,7 +8703,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      inventoryRecapRefs.globalDaysSave.textContent = state.inventoryRecap.globalSettingsSaving ? 'Saving' : 'Save';
 	    }
 	    if (inventoryRecapRefs.globalDaysMessage) {
-	      inventoryRecapRefs.globalDaysMessage.textContent = state.inventoryRecap.globalSettingsMessage || 'One setting for the full report';
+	      inventoryRecapRefs.globalDaysMessage.textContent = state.inventoryRecap.globalSettingsMessage || 'Applies to all products';
 	      inventoryRecapRefs.globalDaysMessage.classList.toggle('is-error', state.inventoryRecap.globalSettingsMessage.startsWith('Could'));
 	    }
 	    renderInventoryRecapList(rows);
@@ -13443,7 +13443,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.querySelectorAll('[data-view-switch]').forEach((button) => {
-    button.addEventListener('click', async () => {
+    button.addEventListener('click', async (event) => {
+      event.preventDefault();
       await switchView(button.dataset.viewSwitch || 'home');
     });
   });

@@ -25250,13 +25250,35 @@ body:has(.admin-app[data-sku-db])::after {
 .admin-inventory-global-actions {
   display: flex;
   align-items: flex-end;
-  gap: 10px;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-inventory-secondary-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.admin-inventory-secondary-actions > a {
+  color: var(--admin-muted);
+  font: 760 0.65rem/1 "Plus Jakarta Sans", sans-serif;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--admin-muted) 45%, transparent);
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+
+.admin-inventory-secondary-actions > a:hover,
+.admin-inventory-secondary-actions > a:focus-visible {
+  color: var(--admin-text);
+  text-decoration-color: currentColor;
 }
 
 .admin-inventory-global-days {
   display: grid;
-  grid-template-columns: minmax(125px, 150px) auto;
-  gap: 5px 7px;
+  grid-template-columns: 88px auto;
+  gap: 3px 5px;
   align-items: end;
 }
 
@@ -25274,14 +25296,20 @@ body:has(.admin-app[data-sku-db])::after {
 
 .admin-inventory-global-days input {
   width: 100%;
-  min-height: 42px;
-  padding: 0 10px;
+  min-height: 30px;
+  padding: 0 8px;
   border: 1px solid var(--inventory-line);
   border-radius: 7px;
   outline: 0;
   background: var(--admin-bg);
   color: var(--admin-text);
   font: 740 0.76rem/1 "Plus Jakarta Sans", sans-serif;
+}
+
+.admin-inventory-trigger-hero .admin-inventory-global-days button {
+  min-height: 30px;
+  padding: 0 9px;
+  font-size: 0.62rem;
 }
 
 .admin-inventory-global-days input:focus {
@@ -25693,8 +25721,11 @@ body:has(.admin-app[data-sku-db])::after {
 
   .admin-inventory-global-actions {
     align-items: stretch;
-    flex-direction: column;
     width: 100%;
+  }
+
+  .admin-inventory-secondary-actions {
+    justify-content: space-between;
   }
 
   .admin-inventory-global-days {
@@ -34827,7 +34858,29 @@ button.admin-accounting-metric {
 .admin-po-payment-select-head { display:flex; gap:8px; }
 .admin-po-payment-total, .admin-po-payment-full { display:flex; justify-content:space-between; align-items:center; padding:15px; background:#121212; border-radius:9px; }
 .admin-po-payment-total strong, .admin-po-payment-full strong { font-size:20px; }
-.admin-inventory-po-card .admin-po-tag { margin-top:10px; }
+.admin-inventory-po-card-meta .admin-po-card-tag {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  color: var(--admin-muted);
+  font-size: 0.56rem;
+  white-space: nowrap;
+}
+.admin-inventory-po-card-meta .admin-po-card-tag input {
+  width: 108px;
+  min-height: 26px;
+  padding: 0 7px;
+  border: 1px solid color-mix(in srgb, var(--admin-text) 15%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--admin-text) 4%, transparent);
+  color: var(--admin-text);
+  font: 650 0.62rem/1 "Plus Jakarta Sans", sans-serif;
+}
+.admin-inventory-po-card-meta .admin-po-card-tag input:focus {
+  border-color: color-mix(in srgb, #3b82f6 65%, var(--inventory-line));
+  outline: none;
+}
 .admin-po-context-menu[hidden] { display:none; }
 .admin-po-context-menu { position:fixed; z-index:250; min-width:160px; padding:6px; border:1px solid #333; border-radius:9px; background:#111; box-shadow:0 14px 40px rgba(0,0,0,.45); }
 .admin-po-context-menu button { width:100%; color:#ff6b7f; background:transparent; border:0; text-align:left; padding:10px 12px; }
