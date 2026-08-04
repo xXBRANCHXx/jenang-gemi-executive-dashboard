@@ -239,6 +239,13 @@ document.addEventListener('DOMContentLoaded', () => {
     return catalogSkus().filter((sku) => selected.has(sku.sku));
   };
 
+  const displayedSkuCodes = () => {
+    if (!skuList) return [];
+    return [...skuList.querySelectorAll('[data-toggle-sku]')]
+      .map((button) => button.getAttribute('data-toggle-sku') || '')
+      .filter(Boolean);
+  };
+
   const deriveSelectionsFromSkus = () => {
     const selectedRecords = selectedSkuRecords();
     state.selections.brands = [...new Set(selectedRecords.map((sku) => sku.brand_id).filter(Boolean))];
@@ -309,9 +316,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const renderBulkControls = () => {
     const selectedCountValue = state.selections.skus.length;
-    const rows = visibleSkus();
+    const rows = displayedSkuCodes();
     const selected = selectedSkuSet();
-    const selectedInView = rows.filter((sku) => selected.has(sku.sku)).length;
+    const selectedInView = rows.filter((skuCode) => selected.has(skuCode)).length;
     const allInViewSelected = rows.length > 0 && selectedInView === rows.length;
 
     if (bulkSummary) {
@@ -483,10 +490,10 @@ document.addEventListener('DOMContentLoaded', () => {
     hydrateSelections();
     renderStats();
     renderDiscountControls();
-    renderBulkControls();
     renderBrandFilters();
     renderProductFilters();
     renderSkuList();
+    renderBulkControls();
     renderSelectedSkus();
   };
 
@@ -518,13 +525,13 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const toggleAllVisible = () => {
-    const rows = visibleSkus();
-    if (!rows.length) return;
+    const skuCodes = displayedSkuCodes();
+    if (!skuCodes.length) return;
     const selected = selectedSkuSet();
-    const allSelected = rows.every((sku) => selected.has(sku.sku));
-    rows.forEach((sku) => {
-      if (allSelected) selected.delete(sku.sku);
-      else selected.add(sku.sku);
+    const allSelected = skuCodes.every((skuCode) => selected.has(skuCode));
+    skuCodes.forEach((skuCode) => {
+      if (allSelected) selected.delete(skuCode);
+      else selected.add(skuCode);
     });
     state.selections.skus = [...selected];
     renderAll();
