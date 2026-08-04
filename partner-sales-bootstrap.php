@@ -115,7 +115,8 @@ function jg_partner_sales_update_order_prices(PDO $pdo, string $partnerCode, str
         $billItem = null;
         if ($hasBillItems) {
             $billStmt = $pdo->prepare(
-                'SELECT i.id, i.bill_id, i.status AS item_status, i.snapshot_json, b.status AS bill_status
+                'SELECT i.id, i.bill_id, i.status AS item_status, i.removed_reason, i.dispute_id,
+                        i.snapshot_json, b.status AS bill_status
                  FROM partner_weekly_bill_items i
                  JOIN partner_weekly_bills b ON b.bill_id = i.bill_id
                  WHERE i.order_id = :order_id AND i.partner_code = :partner_code LIMIT 1 FOR UPDATE'
@@ -124,21 +125,34 @@ function jg_partner_sales_update_order_prices(PDO $pdo, string $partnerCode, str
             $billItem = $billStmt->fetch();
             if (is_array($billItem)) {
                 $billId = (string) $billItem['bill_id'];
-                if (in_array((string) $billItem['item_status'], ['paid', 'removed', 'disputed'], true)
+                $canRestoreAcceptedPrice = (string) $billItem['item_status'] === 'removed'
+                    && (string) ($billItem['removed_reason'] ?? '') === 'Accepted already-paid dispute'
+                    && (int) ($billItem['dispute_id'] ?? 0) > 0;
+                if ((in_array((string) $billItem['item_status'], ['paid', 'disputed'], true)
+                        || ((string) $billItem['item_status'] === 'removed' && !$canRestoreAcceptedPrice))
                     || in_array((string) $billItem['bill_status'], ['paid', 'payment_submitted', 'disputed'], true)) {
                     throw new InvalidArgumentException('Resolve the current payment or dispute before changing this order price.');
                 }
+                $billItem['restore_accepted_price'] = $canRestoreAcceptedPrice;
             }
         }
 
+        $restoreAcceptedPrice = is_array($billItem) && (bool) ($billItem['restore_accepted_price'] ?? false);
         $updateOrder = $pdo->prepare(
             'UPDATE partner_orders SET revenue_total = :revenue_total, items_json = :items_json,
+                    billing_status = CASE WHEN :restore_status = 1 THEN "unbilled" ELSE billing_status END,
+                    billing_reference = CASE WHEN :restore_reference = 1 THEN :bill_id ELSE billing_reference END,
+                    billing_paid_at = CASE WHEN :restore_paid = 1 THEN NULL ELSE billing_paid_at END,
                     updated_at = UTC_TIMESTAMP() WHERE id = :order_id AND partner_code = :partner_code'
         );
         $encodedItems = json_encode($updated['items'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
         $updateOrder->execute([
             ':revenue_total' => number_format($updated['total'], 2, '.', ''),
             ':items_json' => $encodedItems,
+            ':restore_status' => $restoreAcceptedPrice ? 1 : 0,
+            ':restore_reference' => $restoreAcceptedPrice ? 1 : 0,
+            ':restore_paid' => $restoreAcceptedPrice ? 1 : 0,
+            ':bill_id' => $billId,
             ':order_id' => $orderId,
             ':partner_code' => $partnerCode,
         ]);
@@ -149,14 +163,62 @@ function jg_partner_sales_update_order_prices(PDO $pdo, string $partnerCode, str
             $snapshot['items'] = $updated['items'];
             $snapshot['price_adjusted_at'] = gmdate(DATE_ATOM);
             $updateBillItem = $pdo->prepare(
-                'UPDATE partner_weekly_bill_items SET amount = :amount, snapshot_json = :snapshot_json,
+                'UPDATE partner_weekly_bill_items SET amount = :amount,
+                        status = CASE WHEN :restore_status = 1 THEN "included" ELSE status END,
+                        removed_reason = CASE WHEN :restore_reason = 1 THEN "Price adjusted by finance" ELSE removed_reason END,
+                        paid_at = CASE WHEN :restore_paid = 1 THEN NULL ELSE paid_at END,
+                        snapshot_json = :snapshot_json,
                         updated_at = UTC_TIMESTAMP() WHERE id = :id'
             );
             $updateBillItem->execute([
                 ':amount' => (int) round($updated['total']),
+                ':restore_status' => $restoreAcceptedPrice ? 1 : 0,
+                ':restore_reason' => $restoreAcceptedPrice ? 1 : 0,
+                ':restore_paid' => $restoreAcceptedPrice ? 1 : 0,
                 ':snapshot_json' => json_encode($snapshot, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
                 ':id' => (int) $billItem['id'],
             ]);
+            if ($restoreAcceptedPrice) {
+                $disputeId = (int) $billItem['dispute_id'];
+                $resolutionLines = [];
+                foreach ($updated['items'] as $index => $item) {
+                    $quantity = max(1, (int) ($item['quantity'] ?? 1));
+                    $unitPrice = (int) round((float) ($item['unit_revenue'] ?? 0));
+                    $resolutionLines[] = [
+                        'line_index' => $index,
+                        'sku_code' => (string) ($item['sku_code'] ?? ''),
+                        'label' => trim((string) ($item['sku_label'] ?? $item['product'] ?? $item['sku_code'] ?? '')) ?: 'Product ' . ($index + 1),
+                        'quantity' => $quantity,
+                        'unit_price' => $unitPrice,
+                        'line_amount' => $unitPrice * $quantity,
+                    ];
+                }
+                $resolution = json_encode([
+                    'order_id' => $orderId,
+                    'amount' => (int) round($updated['total']),
+                    'lines' => $resolutionLines,
+                ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+                $resolveItem = $pdo->prepare(
+                    'UPDATE partner_weekly_bill_dispute_items SET resolved_amount = :amount, resolution_json = :resolution
+                     WHERE dispute_id = :dispute_id AND bill_item_id = :bill_item_id'
+                );
+                $resolveItem->execute([
+                    ':amount' => (int) round($updated['total']), ':resolution' => $resolution,
+                    ':dispute_id' => $disputeId, ':bill_item_id' => (int) $billItem['id'],
+                ]);
+                $resolveDispute = $pdo->prepare(
+                    'UPDATE partner_weekly_bill_disputes SET dispute_type = "price", status = "accepted",
+                            resolution_reason = "Price corrected by finance after investigation.",
+                            resolved_at = COALESCE(resolved_at, UTC_TIMESTAMP()), updated_at = UTC_TIMESTAMP()
+                     WHERE id = :dispute_id'
+                );
+                $resolveDispute->execute([':dispute_id' => $disputeId]);
+                $restoreBill = $pdo->prepare(
+                    'UPDATE partner_weekly_bills SET status = "unpaid", paid_at = NULL, updated_at = UTC_TIMESTAMP()
+                     WHERE bill_id = :bill_id'
+                );
+                $restoreBill->execute([':bill_id' => $billId]);
+            }
         }
         $pdo->commit();
     } catch (Throwable $error) {

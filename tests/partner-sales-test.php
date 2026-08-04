@@ -74,4 +74,11 @@ try {
 }
 partner_sales_expect(true, $incompletePricesRejected, 'Every product must have a valid admin-entered price.');
 
+$source = file_get_contents(dirname(__DIR__) . '/partner-sales-bootstrap.php');
+partner_sales_expect(
+    true,
+    str_contains($source, 'restore_accepted_price') && str_contains($source, 'Price corrected by finance after investigation.'),
+    'Admin price edits must restore an order mistakenly removed by an accepted price dispute.'
+);
+
 echo "partner-sales-test: ok\n";
