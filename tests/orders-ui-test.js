@@ -69,12 +69,25 @@ assert(
   'The Orders filter must expose a discoverable, searchable workspace with quick date ranges.'
 );
 assert(
+  dashboard.includes('Loading marketplace, partner, WhatsApp, website, and walk-in orders')
+    && dashboard.includes('Filter by marketplace, partner, website, WhatsApp, walk-in, or a specific shop.'),
+  'The Orders view must state that partner orders are part of its all-channel scope.'
+);
+assert(
   admin.includes('accounts: []')
     && admin.includes('accounts: new Set(filters.accounts')
     && admin.includes('data-toggle-order-account')
     && admin.includes('orderAccountLabel(account.platform, account.account, account.company)')
     && admin.includes('filters.accounts.has(row._accountFilterKey'),
   'Orders must support friendly account-level filters in addition to marketplace filters.'
+);
+assert(
+  admin.includes('accountSources: []')
+    && admin.includes('mergeOrderSources(data.order_sources)')
+    && admin.includes('state.orders.accountSources.forEach((source)')
+    && admin.includes('account.label || orderAccountLabel')
+    && admin.includes('<strong>All sales accounts</strong>'),
+  'Orders must keep every configured source, including Partner DB accounts with zero loaded orders, visible in the source filter.'
 );
 assert(
   admin.includes('state.orders.filters.platforms = [];')

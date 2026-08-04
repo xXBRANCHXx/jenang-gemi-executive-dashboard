@@ -8,6 +8,7 @@ require_once dirname(__DIR__, 2) . '/sku-db-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/astra-stock-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/website-commerce-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/whatsapp-orders-bootstrap.php';
+require_once dirname(__DIR__, 2) . '/partner-db-bootstrap.php';
 
 if (!defined('JG_ORDERS_API_NO_DISPATCH')) {
     jg_orders_handle_request();
@@ -86,6 +87,15 @@ function jg_orders_handle_request(): void
             error_log('Dashboard order mirror unavailable; serving independent website sales: ' . $mirrorOrdersError->getMessage());
         }
         $remoteRows = is_array($remotePayload['orders'] ?? null) ? $remotePayload['orders'] : [];
+        $partnerProfiles = [];
+        $partnerPdo = null;
+        try {
+            $partnerPdo = jg_partner_db();
+            $partnerProfiles = jg_orders_partner_profiles($partnerPdo);
+        } catch (Throwable $partnerProfileError) {
+            error_log('Partner accounts unavailable in central order view: ' . $partnerProfileError->getMessage());
+            $partnerProfiles = jg_orders_partner_profiles(null);
+        }
         if ($offset === 0) {
             try {
                 $remoteRows = array_merge($remoteRows, jg_website_paid_order_rows(analyticsDb(), $startDate, $endDate));
@@ -97,7 +107,14 @@ function jg_orders_handle_request(): void
             } catch (Throwable $whatsappOrdersError) {
                 error_log('WhatsApp orders unavailable in central order view: ' . $whatsappOrdersError->getMessage());
             }
+            try {
+                $remoteRows = array_merge($remoteRows, jg_orders_partner_order_rows($partnerPdo, $startDate, $endDate, $partnerProfiles));
+            } catch (Throwable $partnerOrdersError) {
+                error_log('Partner orders unavailable in central order view: ' . $partnerOrdersError->getMessage());
+                $remoteWarning = $remoteWarning !== '' ? $remoteWarning : 'partner_orders_unavailable';
+            }
         }
+        $orderSources = jg_orders_partner_sources($partnerProfiles);
         $lightweight = jg_orders_bool($_GET['lightweight'] ?? $_GET['summary'] ?? null);
         if ($lightweight) {
             $inventoryWarning = $remoteWarning;
@@ -125,6 +142,7 @@ function jg_orders_handle_request(): void
                 'has_more' => !empty($remotePayload['has_more']),
                 'next_offset' => $remotePayload['next_offset'] ?? null,
                 'orders' => $rows,
+                'order_sources' => $orderSources,
                 'allocation_mode' => 'metric_only',
                 'cogs_coverage' => [
                     'covered_items' => $coveredItems,
@@ -175,6 +193,7 @@ function jg_orders_handle_request(): void
             'next_offset' => $remotePayload['next_offset'] ?? null,
             'allocation_mode' => $allocationMode,
             'orders' => $rows,
+            'order_sources' => $orderSources,
         ];
         if ($inventoryWarning !== '') {
             $response['warning'] = $inventoryWarning;
@@ -199,6 +218,181 @@ function jg_orders_json(array $payload, int $status = 200): void
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store');
     echo json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+}
+
+function jg_orders_partner_account_key(string $partnerCode): string
+{
+    $key = strtolower(trim($partnerCode));
+    $key = trim((string) preg_replace('/[^a-z0-9]+/', '-', $key), '-');
+    return 'partner-' . ($key !== '' ? $key : 'unknown');
+}
+
+function jg_orders_partner_profiles(?PDO $pdo): array
+{
+    $profiles = [];
+    if ($pdo instanceof PDO) {
+        try {
+            foreach ($pdo->query('SELECT code, name FROM partner_profiles ORDER BY name, code')->fetchAll() as $row) {
+                if (is_array($row)) {
+                    $profiles[] = $row;
+                }
+            }
+        } catch (Throwable $error) {
+            error_log('Unable to read partner profiles for Orders: ' . $error->getMessage());
+        }
+    }
+
+    if ($profiles === []) {
+        $profiles = jg_partner_db_legacy_registry();
+    }
+
+    $byCode = [];
+    foreach ($profiles as $profile) {
+        if (!is_array($profile)) {
+            continue;
+        }
+        $code = strtoupper(trim((string) ($profile['code'] ?? '')));
+        if ($code === '') {
+            continue;
+        }
+        $byCode[$code] = [
+            'code' => $code,
+            'name' => trim((string) ($profile['name'] ?? '')),
+        ];
+    }
+
+    uasort($byCode, static fn (array $left, array $right): int => strcasecmp(
+        (string) ($left['name'] ?: $left['code']),
+        (string) ($right['name'] ?: $right['code'])
+    ));
+    return $byCode;
+}
+
+function jg_orders_partner_sources(array $profiles): array
+{
+    return array_values(array_map(static fn (array $profile): array => [
+        'platform' => 'partner',
+        'account_key' => jg_orders_partner_account_key((string) ($profile['code'] ?? '')),
+        'label' => (string) (($profile['name'] ?? '') ?: ($profile['code'] ?? 'Partner')),
+        'partner_code' => (string) ($profile['code'] ?? ''),
+        'source_type' => 'partner',
+    ], array_values(array_filter($profiles, 'is_array'))));
+}
+
+function jg_orders_partner_table_exists(PDO $pdo): bool
+{
+    $stmt = $pdo->prepare(
+        'SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = "partner_orders"'
+    );
+    $stmt->execute();
+    return (int) $stmt->fetchColumn() > 0;
+}
+
+function jg_orders_partner_decode_items(mixed $value): array
+{
+    $items = is_array($value) ? $value : json_decode((string) $value, true);
+    return is_array($items) ? array_values(array_filter($items, 'is_array')) : [];
+}
+
+function jg_orders_partner_rows_from_records(array $orders, array $profiles): array
+{
+    $rows = [];
+    foreach ($orders as $order) {
+        if (!is_array($order)) {
+            continue;
+        }
+        $orderId = trim((string) ($order['id'] ?? ''));
+        $partnerCode = strtoupper(trim((string) ($order['partner_code'] ?? '')));
+        if ($orderId === '' || $partnerCode === '') {
+            continue;
+        }
+
+        $items = jg_orders_partner_decode_items($order['items_json'] ?? $order['items'] ?? []);
+        if ($items === []) {
+            $items[] = [
+                'sku_code' => (string) ($order['sku_code'] ?? ''),
+                'sku_label' => (string) ($order['sku_label'] ?? ''),
+                'brand' => (string) ($order['brand_name'] ?? ''),
+                'product' => (string) ($order['product_name'] ?? ''),
+                'quantity' => max(0, (int) ($order['quantity'] ?? 0)),
+                'line_revenue' => max(0.0, (float) ($order['revenue_total'] ?? 0)),
+            ];
+        }
+
+        $orderRevenue = max(0.0, (float) ($order['revenue_total'] ?? 0));
+        $quantityTotal = array_sum(array_map(
+            static fn (array $item): int => max(0, (int) ($item['quantity'] ?? 0)),
+            $items
+        ));
+        $profile = $profiles[$partnerCode] ?? [];
+        $partnerName = trim((string) ($profile['name'] ?? $partnerCode));
+        $timestamp = trim((string) ($order['order_timestamp'] ?? $order['created_at'] ?? ''));
+
+        foreach ($items as $index => $item) {
+            $quantity = max(0, (int) ($item['quantity'] ?? 0));
+            $lineRevenue = max(0.0, (float) ($item['line_revenue'] ?? 0));
+            if ($lineRevenue <= 0) {
+                $unitRevenue = max(0.0, (float) ($item['unit_revenue'] ?? $item['partner_price'] ?? $item['partner_unit_price'] ?? 0));
+                $lineRevenue = $unitRevenue * $quantity;
+            }
+            if ($lineRevenue <= 0 && $orderRevenue > 0) {
+                $lineRevenue = $quantityTotal > 0 ? $orderRevenue * ($quantity / $quantityTotal) : $orderRevenue / max(1, count($items));
+            }
+
+            $sku = trim((string) ($item['sku_code'] ?? $item['sku'] ?? $order['sku_code'] ?? ''));
+            $product = trim((string) ($item['product'] ?? $item['product_name'] ?? $item['sku_label'] ?? $order['product_name'] ?? $order['sku_label'] ?? ''));
+            $brand = trim((string) ($item['brand'] ?? $item['brand_name'] ?? $order['brand_name'] ?? ''));
+            $rows[] = [
+                'timestamp' => $timestamp,
+                'order_create_time' => $timestamp,
+                'order_id' => $orderId,
+                'platform' => 'partner',
+                'account_key' => jg_orders_partner_account_key($partnerCode),
+                'account_label' => $partnerName,
+                'company' => $brand,
+                'product_name' => $product,
+                'sku' => $sku,
+                'item_key' => 'partner:' . $orderId . ':' . $index . ':' . $sku,
+                'quantity' => $quantity,
+                'revenue' => round($lineRevenue, 2),
+                'net_revenue' => round($lineRevenue, 2),
+                'order_net_revenue' => round($orderRevenue > 0 ? $orderRevenue : $lineRevenue, 2),
+                'gross_revenue' => round($lineRevenue, 2),
+                'marketplace_fees' => 0,
+                'username' => (string) ($order['customer_name'] ?? ''),
+                'address' => '',
+                'phone' => '',
+                'status' => (string) ($order['status'] ?? ''),
+                'partner_code' => $partnerCode,
+                'partner_name' => $partnerName,
+                'source_type' => 'partner',
+            ];
+        }
+    }
+
+    return $rows;
+}
+
+function jg_orders_partner_order_rows(?PDO $pdo, string $startDate, string $endDate, array $profiles): array
+{
+    if (!$pdo instanceof PDO || !jg_orders_partner_table_exists($pdo)) {
+        return [];
+    }
+
+    $stmt = $pdo->prepare(
+        'SELECT id, partner_code, customer_name, brand_name, product_name, sku_code, sku_label, quantity,
+                status, order_timestamp, revenue_total, items_json, created_at
+         FROM partner_orders
+         WHERE COALESCE(order_timestamp, created_at) >= :from_date
+           AND COALESCE(order_timestamp, created_at) < DATE_ADD(:to_date, INTERVAL 1 DAY)
+         ORDER BY COALESCE(order_timestamp, created_at) DESC, id DESC'
+    );
+    $stmt->execute([
+        ':from_date' => $startDate . ' 00:00:00',
+        ':to_date' => $endDate . ' 00:00:00',
+    ]);
+    return jg_orders_partner_rows_from_records($stmt->fetchAll(), $profiles);
 }
 
 function jg_orders_handle_webhook(): void
@@ -2590,6 +2784,7 @@ function jg_orders_enriched_row(
         'order_id' => (string) ($remoteRow['order_id'] ?? ''),
         'platform' => (string) ($remoteRow['platform'] ?? ''),
         'account_key' => (string) ($remoteRow['account_key'] ?? ''),
+        'account_label' => (string) ($remoteRow['account_label'] ?? ''),
         'company' => (string) ($remoteRow['company'] ?? ''),
         'brand_name' => (string) ($sku['brand_name'] ?? ''),
         'product_name' => (string) ($sku['product_name'] ?? ($remoteRow['product_name'] ?? '')),

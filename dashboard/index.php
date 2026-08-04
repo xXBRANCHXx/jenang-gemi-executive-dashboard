@@ -631,7 +631,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                             <div>
                                 <span class="admin-panel-kicker">Orders</span>
                                 <h3>All-channel order facts</h3>
-                                <span class="admin-panel-meta" data-orders-status>Loading marketplace, WhatsApp, website, and walk-in orders</span>
+                                <span class="admin-panel-meta" data-orders-status>Loading marketplace, partner, WhatsApp, website, and walk-in orders</span>
                             </div>
                             <div class="admin-orders-actions">
                                 <button type="button" class="admin-primary-btn admin-orders-ops-btn" data-view-switch="store-ops">Ops</button>
@@ -1941,7 +1941,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                         <div class="admin-orders-filter-section-head">
                             <div>
                                 <span class="admin-orders-filter-step">1</span>
-                                <div><h4>Sales channel / account</h4><p>Filter by marketplace, website, WhatsApp, walk-in, or a specific shop.</p></div>
+                                <div><h4>Sales channel / account</h4><p>Filter by marketplace, partner, website, WhatsApp, walk-in, or a specific shop.</p></div>
                             </div>
                         </div>
                         <div class="admin-orders-source-list" data-orders-platforms>

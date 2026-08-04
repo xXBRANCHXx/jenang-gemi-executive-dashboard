@@ -2518,6 +2518,7 @@ document.addEventListener('DOMContentLoaded', () => {
       catalog: [],
       skuCatalogByCode: {},
       platforms: [],
+      accountSources: [],
       monthRanges: [],
       monthsSignature: '',
       activeFiltersSignature: '',
@@ -5035,6 +5036,28 @@ document.addEventListener('DOMContentLoaded', () => {
     return platform && account ? `${platform}|${account}` : '';
   };
 
+  const mergeOrderSources = (sources) => {
+    const byKey = new Map((Array.isArray(state.orders.accountSources) ? state.orders.accountSources : [])
+      .map((source) => [orderAccountFilterKey(source), source])
+      .filter(([key]) => key));
+    (Array.isArray(sources) ? sources : []).forEach((source) => {
+      if (!source || typeof source !== 'object') return;
+      const platform = String(source.platform || '').trim();
+      const accountKey = String(source.account_key || source.account || '').trim();
+      const key = orderAccountFilterKey({ platform, account_key: accountKey });
+      if (!key) return;
+      byKey.set(key, {
+        platform,
+        account_key: accountKey,
+        label: String(source.label || source.name || accountKey).trim(),
+        partner_code: String(source.partner_code || '').trim(),
+        source_type: String(source.source_type || '').trim()
+      });
+    });
+    state.orders.accountSources = Array.from(byKey.values());
+    state.orders.platformsRenderSignature = '';
+  };
+
   const orderAccountLabel = (platformValue, accountValue, companyValue = '') => {
     const platform = normalizeOrderFilterValue(platformValue);
     const platformName = platformLabel(platform || 'marketplace');
@@ -5049,7 +5072,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const orderAccountLabelFromKey = (key) => {
     const [platform = '', account = ''] = String(key || '').split('|');
+    const matchingSource = state.orders.accountSources.find((source) => orderAccountFilterKey(source) === key);
+    if (matchingSource?.label) return matchingSource.label;
     const matchingRow = state.orders.rows.find((row) => orderAccountFilterKey(row) === key);
+    if (matchingRow?.account_label) return matchingRow.account_label;
     return orderAccountLabel(platform, account, matchingRow?.company || matchingRow?.brand_name || '');
   };
 
@@ -7488,8 +7514,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const renderOrderPlatforms = () => {
     if (!ordersRefs.platforms) return;
-    const platforms = Array.from(new Set(state.orders.platforms.filter(Boolean))).sort();
+    const platforms = Array.from(new Set([
+      ...state.orders.platforms,
+      ...state.orders.accountSources.map((source) => String(source.platform || '').trim())
+    ].filter(Boolean))).sort();
     const accountsByKey = new Map();
+    state.orders.accountSources.forEach((source) => {
+      const key = orderAccountFilterKey(source);
+      if (!key) return;
+      accountsByKey.set(key, {
+        key,
+        platform: normalizeOrderFilterValue(source.platform || ''),
+        account: String(source.account_key || source.account || '').trim(),
+        company: '',
+        label: String(source.label || source.name || '').trim(),
+        sourceType: String(source.source_type || '').trim(),
+        orderIds: new Set()
+      });
+    });
     state.orders.rows.forEach((row) => {
       const key = row._accountFilterKey || orderAccountFilterKey(row);
       if (!key) return;
@@ -7499,6 +7541,8 @@ document.addEventListener('DOMContentLoaded', () => {
           platform: normalizeOrderFilterValue(row.platform || ''),
           account: String(row.account_key || row.account || '').trim(),
           company: String(row.company || row.brand_name || '').trim(),
+          label: String(row.account_label || '').trim(),
+          sourceType: String(row.source_type || '').trim(),
           orderIds: new Set()
         });
       }
@@ -7509,12 +7553,12 @@ document.addEventListener('DOMContentLoaded', () => {
       .map((account) => ({
         ...account,
         count: account.orderIds.size,
-        label: orderAccountLabel(account.platform, account.account, account.company)
+        label: account.label || orderAccountLabel(account.platform, account.account, account.company)
       }))
       .sort((left, right) => left.label.localeCompare(right.label));
     const signature = [
       platforms.join('\u001f'),
-      accounts.map((account) => `${account.key}:${account.count}`).join('\u001f'),
+      accounts.map((account) => `${account.key}:${account.label}:${account.count}`).join('\u001f'),
       state.orders.filters.platforms.join('\u001f'),
       state.orders.filters.accounts.join('\u001f')
     ].join('\u001e');
@@ -7528,11 +7572,11 @@ document.addEventListener('DOMContentLoaded', () => {
     ordersRefs.platforms.innerHTML = `
       <button type="button" class="admin-orders-source-all${noSourceFilter ? ' is-selected' : ''}" data-clear-order-source aria-pressed="${noSourceFilter ? 'true' : 'false'}">
         <span class="admin-orders-source-mark">ALL</span>
-        <span><strong>All marketplace accounts</strong><small>Show every loaded sales channel</small></span>
+        <span><strong>All sales accounts</strong><small>Show every Store Ops sales channel</small></span>
         <span class="admin-orders-source-count">${formatRegionalInteger(accounts.reduce((total, account) => total + account.count, 0))}</span>
       </button>
       <div class="admin-orders-source-group">
-        <span class="admin-orders-source-group-label">Marketplaces</span>
+        <span class="admin-orders-source-group-label">Sales channels</span>
         <div class="admin-orders-source-platforms">
           ${platforms.map((platform) => {
             const selected = state.orders.filters.platforms.some((item) => normalizeOrderFilterValue(item) === normalizeOrderFilterValue(platform));
@@ -9955,6 +9999,7 @@ document.addEventListener('DOMContentLoaded', () => {
     state.orders.rows = [];
     state.orders.rowKeys = new Set();
     state.orders.platforms = [];
+    state.orders.accountSources = [];
     state.orders.activeFiltersSignature = '';
     state.orders.platformsRenderSignature = '';
 	    renderOrdersIfActive();
@@ -9965,6 +10010,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    writeViewClientCache('orders', ordersClientCacheKey(), {
 	      rows: state.orders.rows.slice(0, ORDER_BACKGROUND_TARGET_ROWS),
 	      platforms: state.orders.platforms,
+	      accountSources: state.orders.accountSources,
 	      monthRanges: state.orders.monthRanges,
 	      monthsSignature: state.orders.monthsSignature,
 	      loadedRangeKeys: Array.from(state.orders.loadedRangeKeys || []),
@@ -9980,6 +10026,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      state.orders.rows = rows;
 	      state.orders.rowKeys = new Set(rows.map(uniqueOrderRowKey));
 	      state.orders.platforms = Array.isArray(payload.platforms) ? payload.platforms : [];
+	      state.orders.accountSources = Array.isArray(payload.accountSources) ? payload.accountSources : [];
 	      state.orders.monthRanges = Array.isArray(payload.monthRanges) && payload.monthRanges.length
 	        ? payload.monthRanges
 	        : state.orders.monthRanges;
@@ -10028,6 +10075,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (!isLatestRequest('orders', requestToken) || generation !== state.orders.loadGeneration) return;
         const rows = Array.isArray(data.orders) ? data.orders : [];
+        mergeOrderSources(data.order_sources);
         mergeLoadedOrderRows(rows);
         const nextOffset = Number(data.next_offset);
         if (data.has_more && Number.isFinite(nextOffset) && nextOffset > requestOffset) {

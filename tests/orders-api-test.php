@@ -16,6 +16,35 @@ function expect_same(mixed $expected, mixed $actual, string $message): void
     exit(1);
 }
 
+$partnerProfiles = [
+    'PARTNER-ONE' => ['code' => 'PARTNER-ONE', 'name' => 'Partner One'],
+    'PARTNER-TWO' => ['code' => 'PARTNER-TWO', 'name' => 'Partner Two'],
+];
+$partnerSources = jg_orders_partner_sources($partnerProfiles);
+expect_same(2, count($partnerSources), 'Every Partner DB profile must be exposed as an Orders account source.');
+expect_same('partner-partner-one', $partnerSources[0]['account_key'], 'Partner account keys must match Store Ops source keys.');
+expect_same('Partner One', $partnerSources[0]['label'], 'Partner account sources must use the Partner DB display name.');
+
+$partnerRows = jg_orders_partner_rows_from_records([[
+    'id' => 'PARTNER-ORDER-1',
+    'partner_code' => 'PARTNER-ONE',
+    'customer_name' => 'Partner Buyer',
+    'status' => 'IS_LISTED',
+    'order_timestamp' => '2026-08-04 07:00:00',
+    'revenue_total' => 75000,
+    'items_json' => json_encode([
+        ['sku_code' => 'JG0101', 'product' => 'Syrup A', 'brand' => 'Jenang Gemi', 'quantity' => 2, 'line_revenue' => 50000],
+        ['sku_code' => 'JG0102', 'product' => 'Syrup B', 'brand' => 'Jenang Gemi', 'quantity' => 1, 'line_revenue' => 25000],
+    ]),
+]], $partnerProfiles);
+expect_same(2, count($partnerRows), 'Partner orders must be flattened into the same item-level facts used by Orders.');
+expect_same('partner', $partnerRows[0]['platform'], 'Partner order facts must use the Partner sales channel.');
+expect_same('partner-partner-one', $partnerRows[0]['account_key'], 'Partner order facts must retain their specific partner account.');
+expect_same('Partner Buyer', $partnerRows[0]['username'], 'Partner customer names must flow into the Orders customer field.');
+expect_same(50000.0, $partnerRows[0]['revenue'], 'Partner item revenue must remain item-level in Orders.');
+$enrichedPartnerRow = jg_orders_enrich_without_inventory([$partnerRows[0]])[0];
+expect_same('Partner One', $enrichedPartnerRow['account_label'], 'Partner display names must survive Orders inventory enrichment.');
+
 $remoteRow = [
     'platform' => 'shopee',
     'account_key' => 'main',
