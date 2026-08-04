@@ -689,14 +689,14 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                </section>
 
 	                <section class="admin-wallet-summary" aria-label="Wallet totals">
-		                    <article class="admin-wallet-stat"><span>Wallet</span><strong data-wallet-total-balance>Rp0</strong></article>
+		                    <article class="admin-wallet-stat"><span>Ready to Withdraw</span><strong data-wallet-total-balance>Rp0</strong></article>
 		                    <article class="admin-wallet-stat"><span>Outstanding</span><strong data-wallet-total-outstanding>Rp0</strong></article>
 		                    <article class="admin-wallet-stat"><span>Released This Month</span><strong data-wallet-total-released>Rp0</strong></article>
 		                </section>
 
 	                <section class="admin-panel admin-panel-table admin-panel-wide admin-wallet-panel">
 	                    <div class="admin-panel-head">
-	                        <div><span class="admin-panel-kicker">Wallet</span><h3>Marketplace balances</h3></div>
+	                        <div><span class="admin-panel-kicker">Wallet</span><h3>Marketplace withdrawable balances</h3></div>
 	                        <span class="admin-panel-meta" data-wallet-table-meta>Per account</span>
 	                    </div>
 	                    <div class="admin-table-wrap admin-wallet-table-wrap" data-wallet-wallet-panel>
@@ -705,7 +705,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                                <tr>
 	                                    <th>Account</th>
 	                                    <th>Released This Month</th>
-	                                    <th>Wallet</th>
+	                                    <th>Ready to Withdraw</th>
 	                                    <th>Outstanding</th>
 	                                    <th>Orders Outstanding</th>
 	                                    <th>Updated</th>

@@ -631,13 +631,13 @@ if (root) {
         : 'No live balance yet';
     }
     if (!wallets.length) {
-      refs.walletBreakdown.innerHTML = '<p class="admin-empty">Wallet balances appear after the first Wallet sync.</p>';
+      refs.walletBreakdown.innerHTML = '<p class="admin-empty">Ready-to-withdraw balances appear after the first Wallet sync.</p>';
       return;
     }
     refs.walletBreakdown.innerHTML = wallets.map((wallet) => `
       <div class="admin-accounting-wallet">
         <span>${escapeHtml(wallet.label || wallet.account_key || 'Wallet')}</span>
-        <strong>${wallet.current_balance === null ? '—' : formatCurrency(wallet.current_balance || 0)}</strong>
+        <strong>${wallet.current_balance === null ? 'Unavailable' : formatCurrency(wallet.current_balance || 0)}</strong>
         <small>${Number(wallet.outstanding_amount || 0) > 0 ? `${formatCurrency(wallet.outstanding_amount)} outstanding` : 'No outstanding orders'}</small>
       </div>
     `).join('');
@@ -816,13 +816,13 @@ if (root) {
     const wallets = Array.isArray(state.summary?.wallet_breakdown) ? state.summary.wallet_breakdown : [];
     openBreakdown({
       kicker: 'Marketplace receivable',
-      title: 'Outstanding by wallet',
-      copy: 'Orders stay here until their funds are released. A wallet payout moves into available cash automatically.',
-      empty: 'No outstanding marketplace orders or wallet balances are available.',
+      title: 'Outstanding and withdrawable by wallet',
+      copy: 'Outstanding orders are not withdrawable yet. Ready to withdraw comes from each marketplace finance feed; a completed withdrawal moves into bank cash.',
+      empty: 'No outstanding orders or ready-to-withdraw wallet balances are available.',
       rows: wallets.map((wallet) => `
         <div class="admin-accounting-breakdown-row">
           <span><strong>${escapeHtml(wallet.label || wallet.account_key || 'Wallet')}</strong><small>${Number(wallet.order_count || 0).toLocaleString('id-ID')} unreleased orders</small></span>
-          <span><small>Wallet now</small><strong>${wallet.current_balance === null ? '—' : formatCurrency(wallet.current_balance || 0)}</strong></span>
+          <span><small>Ready to withdraw</small><strong>${wallet.current_balance === null ? 'Unavailable' : formatCurrency(wallet.current_balance || 0)}</strong></span>
           <span><small>Outstanding</small><strong>${formatCurrency(wallet.outstanding_amount || 0)}</strong></span>
         </div>
       `)

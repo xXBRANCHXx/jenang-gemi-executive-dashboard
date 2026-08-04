@@ -7969,7 +7969,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	  };
 
 	  const walletStatusSummary = (wallets = [], totals = {}) => {
-	    return `${formatRegionalInteger(wallets.length)} wallets / ${walletMarketplaceMeta(totals)} / ${formatRegionalInteger(totals.manual_required_count || 0)} need set`;
+	    return `${formatRegionalInteger(totals.known_balance_count || 0)} of ${formatRegionalInteger(wallets.length)} live balances / ${walletMarketplaceMeta(totals)}`;
 	  };
 
 	  const walletBacktrackStatus = (backtrack = state.wallet.data?.backtrack, options = {}) => {
@@ -8056,7 +8056,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    return key ? key.charAt(0).toUpperCase() + key.slice(1) : '-';
 	  };
 
-	  const walletTotalBalanceKnown = (totals = {}) => Number(totals.manual_anchor_count || 0) > 0;
+	  const walletTotalBalanceKnown = (totals = {}) => Number(totals.known_balance_count || 0) > 0;
 
 	  const renderWalletTotalRow = (totals = {}, wallets = []) => {
 	    const balanceKnown = walletTotalBalanceKnown(totals);
@@ -8066,10 +8066,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	          <span class="admin-wallet-account-title">
 	            <strong>All marketplaces</strong>
 	          </span>
-	          <small>${formatRegionalInteger(wallets.length)} accounts</small>
+	          <small>${formatRegionalInteger(totals.known_balance_count || 0)} of ${formatRegionalInteger(wallets.length)} live balances</small>
 	        </td>
 	        <td>${formatCurrency(totals.released_month_total || 0)}</td>
-	        <td><strong>${balanceKnown ? formatCurrency(totals.wallet_balance || 0) : 'Set balance'}</strong></td>
+	        <td><strong>${balanceKnown ? formatCurrency(totals.wallet_balance || 0) : 'Unavailable'}</strong></td>
 	        <td>${formatCurrency(totals.outstanding_total || 0)}</td>
 	        <td class="admin-wallet-orders-cell" title="Total outstanding orders">${formatRegionalInteger(totals.outstanding_orders || 0)}</td>
 	        <td class="admin-wallet-action-cell">
@@ -8112,12 +8112,13 @@ document.addEventListener('DOMContentLoaded', () => {
 	      sample: true,
 	      command: 'wallet.summary',
 	      generated_at: '2026-07-06T03:31:00+00:00',
-	      answer: 'Wallet summary: Rp145.000 known wallet balance, Rp3.500.000 outstanding, 1 account needs manual balance, 2 non-settling orders excluded.',
+	      answer: 'Wallet summary: Rp145.000 ready to withdraw from 1 live account feed, Rp3.500.000 outstanding, 1 account feed unavailable, 2 non-settling orders excluded.',
 	      totals: {
 	        wallet_balance: 145000,
 	        released_month_total: 1200000,
 	        outstanding_total: 3500000,
 	        outstanding_orders: 42,
+	        known_balance_count: 1,
 	        manual_required_count: 1,
 	        non_settling_orders: 2
 	      },
@@ -8173,7 +8174,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    setWalletMode(state.wallet.mode);
 	    renderWalletApiOutput();
 	    if (walletRefs.balance) {
-	      walletRefs.balance.textContent = walletTotalBalanceKnown(totals) ? formatCurrency(totals.wallet_balance || 0) : 'Set balance';
+	      walletRefs.balance.textContent = walletTotalBalanceKnown(totals) ? formatCurrency(totals.wallet_balance || 0) : 'Unavailable';
 	    }
 	    if (walletRefs.outstanding) walletRefs.outstanding.textContent = formatCurrency(totals.outstanding_total || 0);
 	    if (walletRefs.released) walletRefs.released.textContent = formatCurrency(totals.released_month_total || 0);
@@ -8231,7 +8232,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	                ` : ''}
 	              </td>
 	              <td>${formatCurrency(wallet.released_month_total || 0)}</td>
-	              <td><strong>${balanceKnown ? formatCurrency(balance) : 'Set balance'}</strong></td>
+	              <td><strong>${balanceKnown ? formatCurrency(balance) : 'Unavailable'}</strong></td>
 	              <td>${formatCurrency(wallet.outstanding_total || 0)}</td>
 	              <td class="admin-wallet-orders-cell" title="Outstanding orders">${walletOrderCounts(wallet)}</td>
 	              <td class="admin-wallet-action-cell">

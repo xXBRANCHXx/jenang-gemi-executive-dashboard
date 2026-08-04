@@ -30,5 +30,7 @@ expect(
   'Periodic wallet refreshes must also update marketplace wallet ledgers.'
 );
 expect(dashboardSource.includes('data-wallet-refresh>Hard Refresh</button>'), 'Wallet must expose a visible Hard Refresh button.');
+expect(dashboardSource.includes('Ready to Withdraw'), 'Wallet must label platform cash as ready to withdraw.');
+expect(adminSource.includes("totals.known_balance_count"), 'Wallet totals must be based on live platform balances rather than manual anchors.');
 
 console.log('wallet-hard-refresh-ui-test: ok');

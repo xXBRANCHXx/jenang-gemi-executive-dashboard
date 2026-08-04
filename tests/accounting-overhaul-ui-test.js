@@ -17,6 +17,7 @@ expect(html.includes('data-accounting-marketplace-open'), 'Marketplace outstandi
 expect(html.includes('data-accounting-partner-bills-open="in_progress"'), 'Partner Bills In Progress must be an interactive drill-down.');
 expect(html.includes('data-accounting-partner-bills-open="due"'), 'Partner Bills Due must be an interactive drill-down.');
 expect(html.includes('data-accounting-wallet-breakdown'), 'Accounting must show a compact wallet balance strip.');
+expect(html.includes('<h2>Ready to withdraw</h2>'), 'Accounting must identify marketplace cash that is currently withdrawable.');
 expect(html.includes('data-accounting-ledger-body'), 'Accounting must expose the unified activity ledger.');
 expect(html.includes('class="admin-accounting-more'), 'Secondary entry details must stay collapsed by default.');
 expect(html.includes('data-accounting-kpi="bank-balance"'), 'Accounting must show bank balance separately.');
@@ -34,6 +35,7 @@ expect(script.includes("action: 'reconcile_cash'"), 'The reconciliation UI must 
 expect(script.includes('accountOptionsForRole'), 'Paid-from and received-into options must be filtered by account role.');
 expect(script.includes("String(account.type || '') !== 'marketplace_wallet'"), 'Marketplace wallets must never appear as entry accounts.');
 expect(script.includes("action: 'save_account'"), 'Account role settings must persist through the Accounting API.');
+expect(script.includes('<small>Ready to withdraw</small>'), 'Accounting wallet breakdowns must distinguish withdrawable cash from outstanding orders.');
 expect(script.includes("searchInput.matches('[data-accounting-category-search]')"), 'Category results must filter live as the user types.');
 expect(script.includes('categoryComboboxMarkup(item.category_id)'), 'Correction forms must use the same searchable category dropdown.');
 

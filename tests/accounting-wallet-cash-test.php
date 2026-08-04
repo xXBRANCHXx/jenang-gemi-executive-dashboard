@@ -133,6 +133,18 @@ accounting_expect(435000, $websiteContext['amount'], 'Automatic cash must combin
 $allCash = jg_accounting_automatic_usable_cash_context($pdo);
 accounting_expect(505000, $allCash['amount'], 'All-time automatic cash must combine all active wallet withdrawals and website paid orders.');
 
+$walletBreakdown = jg_accounting_wallet_breakdown($pdo, ['wallets' => [
+    ['platform' => 'shopee', 'account_key' => 'zero-shopee', 'label' => 'Shopee · ZERO', 'outstanding_amount' => 0, 'order_count' => 0],
+    ['platform' => 'tiktok', 'account_key' => 'jenang-gemi-tiktok', 'label' => 'TikTok / Tokopedia · Jenang Gemi', 'outstanding_amount' => 0, 'order_count' => 0],
+]]);
+$walletBreakdownByKey = [];
+foreach ($walletBreakdown as $walletRow) {
+    $walletBreakdownByKey[(string) ($walletRow['account_key'] ?? '')] = $walletRow;
+}
+accounting_expect(25000, $walletBreakdownByKey['zero-shopee']['current_balance'] ?? null, 'Accounting must show Shopee marketplace-reported ready-to-withdraw cash.');
+accounting_expect(20000, $walletBreakdownByKey['jenang-gemi-tiktok']['current_balance'] ?? null, 'Accounting must show TikTok / Tokopedia settlements minus withdrawals as ready to withdraw.');
+accounting_expect('tiktok_tokopedia_settlements_minus_withdrawals', $walletBreakdownByKey['jenang-gemi-tiktok']['balance_source'] ?? '', 'Accounting must disclose the TikTok / Tokopedia balance source.');
+
 $pdo->exec("INSERT INTO dashboard_wallet_platform_transactions
     (platform, account_key, transaction_id, order_id, transaction_type, money_flow, amount, current_balance, transaction_at, raw_json) VALUES
     ('shopee', 'jenang-gemi-shopee', 'later-independent-withdrawal', '', 'WITHDRAWAL_CREATED', 'MONEY_OUT', -60000, 0, '2026-07-20 05:00:00', '{}')");

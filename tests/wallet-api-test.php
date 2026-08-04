@@ -176,13 +176,25 @@ wallet_expect(false, jg_wallet_is_confirmed_tiktok_withdrawal([
 wallet_expect(false, jg_wallet_is_confirmed_tiktok_withdrawal([
     'raw' => ['type' => 'WITHDRAW', 'status' => 'PROCESSING'],
 ]), 'Pending TikTok withdrawals must not count as bank payouts.');
+wallet_expect(90000, jg_wallet_tiktok_transaction_effective_amount([
+    'amount' => -90000,
+    'raw' => ['type' => 'SETTLE', 'status' => 'SUCCESS'],
+]), 'Completed TikTok / Tokopedia settlements must credit the withdrawable wallet.');
+wallet_expect(-70000, jg_wallet_tiktok_transaction_effective_amount([
+    'amount' => -70000,
+    'raw' => ['type' => 'WITHDRAW', 'status' => 'SUCCESS'],
+]), 'Completed TikTok / Tokopedia withdrawals must debit the withdrawable wallet.');
+wallet_expect(null, jg_wallet_tiktok_transaction_effective_amount([
+    'amount' => -80000,
+    'raw' => ['type' => 'WITHDRAW', 'status' => 'PROCESSING'],
+]), 'Processing withdrawals must not change the withdrawable wallet.');
 $walletPlatformTotals = jg_wallet_platform_transaction_totals($walletTransactionPdo);
 $tiktokPlatformTotal = array_values(array_filter(
     $walletPlatformTotals,
     static fn (array $row): bool => ($row['platform'] ?? '') === 'tiktok'
 ))[0] ?? [];
-wallet_expect(-70000, $tiktokPlatformTotal['amount'] ?? 0, 'TikTok wallet totals must include only confirmed withdrawals.');
-wallet_expect(1, $tiktokPlatformTotal['count'] ?? 0, 'TikTok settlement and pending rows must stay out of wallet totals.');
+wallet_expect(20000, $tiktokPlatformTotal['amount'] ?? 0, 'TikTok / Tokopedia wallet totals must net completed settlements against completed withdrawals.');
+wallet_expect(2, $tiktokPlatformTotal['count'] ?? 0, 'TikTok / Tokopedia wallet totals must include completed credits and debits only.');
 wallet_expect(0, jg_wallet_balance_value('0'), 'Wallet balance anchors must allow a zero balance after withdrawal.');
 wallet_expect(45000, jg_wallet_balance_value('Rp45.000'), 'Wallet balance anchors must accept formatted Rupiah input.');
 wallet_expect('2026-07-03 03:30:00.000000', jg_wallet_observed_at('2026-07-03T10:30'), 'Manual wallet observed times must be stored as UTC.');
@@ -257,28 +269,18 @@ wallet_expect(true, $anchoredWallet['wallet_balance_known'], 'Anchored wallets m
 
 $tiktokWallet = jg_wallet_empty_amounts();
 $tiktokWallet['platform'] = 'tiktok';
-$tiktokWallet['released_since_anchor_total'] = 120000;
-$tiktokWallet['withdrawn_since_anchor_total'] = 10000;
-$tiktokWallet['wallet_transaction_since_anchor_total'] = -50000;
-$tiktokWallet['wallet_transaction_since_anchor_count'] = 1;
-jg_wallet_apply_balance_anchor($tiktokWallet, [
-    'id' => 8,
-    'balance_amount' => 0,
-    'observed_at_sql' => '2026-07-03 03:30:00.000000',
-]);
-wallet_expect(70000, $tiktokWallet['wallet_balance'], 'TikTok / Tokopedia balances must keep released-order credits while using imported payouts instead of duplicate manual withdrawals.');
+$tiktokWallet['wallet_transaction_total'] = 20000;
+$tiktokWallet['wallet_transaction_count'] = 2;
+jg_wallet_apply_balance_anchor($tiktokWallet, null);
+wallet_expect(20000, $tiktokWallet['wallet_balance'], 'TikTok / Tokopedia ready-to-withdraw balances must use completed settlements minus completed withdrawals.');
+wallet_expect('platform_tiktok_tokopedia_settlements_minus_withdrawals', $tiktokWallet['wallet_balance_basis'], 'TikTok / Tokopedia must identify the platform finance ledger as its balance source.');
 
 $shopeeWallet = jg_wallet_empty_amounts();
 $shopeeWallet['platform'] = 'shopee';
-$shopeeWallet['released_since_anchor_total'] = 120000;
-$shopeeWallet['wallet_transaction_since_anchor_total'] = 70000;
-$shopeeWallet['wallet_transaction_since_anchor_count'] = 2;
-jg_wallet_apply_balance_anchor($shopeeWallet, [
-    'id' => 9,
-    'balance_amount' => 10000,
-    'observed_at_sql' => '2026-07-03 03:30:00.000000',
-]);
-wallet_expect(80000, $shopeeWallet['wallet_balance'], 'Shopee must continue using its complete wallet transaction ledger without double-counting order releases.');
+$shopeeWallet['wallet_transaction_current_balance'] = 80000;
+jg_wallet_apply_balance_anchor($shopeeWallet, null);
+wallet_expect(80000, $shopeeWallet['wallet_balance'], 'Shopee ready-to-withdraw balance must use the marketplace-reported current balance.');
+wallet_expect('platform_reported_ready_to_withdraw', $shopeeWallet['wallet_balance_basis'], 'Shopee must identify its marketplace-reported balance source.');
 
 $unanchoredWallet = jg_wallet_empty_amounts();
 $unanchoredWallet['released_total'] = 1000000;

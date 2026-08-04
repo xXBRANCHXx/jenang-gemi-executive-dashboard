@@ -468,8 +468,8 @@ function jg_accounting_seed_accounts(PDO $pdo): void
         ['cash-office', 'Cash Office', 'cash', null, null, 1, 'cash', 1, 1, 0, 20],
         ['shopee-jg-wallet', 'Shopee Wallet - Jenang Gemi', 'marketplace_wallet', 'shopee', 'Jenang Gemi', 0, 'wallet', 0, 0, 0, 30],
         ['shopee-zero-wallet', 'Shopee Wallet - ZERO', 'marketplace_wallet', 'shopee', 'ZERO', 0, 'wallet', 0, 0, 0, 40],
-        ['tiktok-jg-wallet', 'TikTok Wallet - Jenang Gemi', 'marketplace_wallet', 'tiktok', 'Jenang Gemi', 0, 'wallet', 0, 0, 0, 50],
-        ['tiktok-zero-wallet', 'TikTok Wallet - ZERO', 'marketplace_wallet', 'tiktok', 'ZERO', 0, 'wallet', 0, 0, 0, 60],
+        ['tiktok-jg-wallet', 'TikTok / Tokopedia Wallet - Jenang Gemi', 'marketplace_wallet', 'tiktok', 'Jenang Gemi', 0, 'wallet', 0, 0, 0, 50],
+        ['tiktok-zero-wallet', 'TikTok / Tokopedia Wallet - ZERO', 'marketplace_wallet', 'tiktok', 'ZERO', 0, 'wallet', 0, 0, 0, 60],
         ['tokopedia-wallet', 'Tokopedia Wallet', 'marketplace_wallet', 'tokopedia', null, 0, 'wallet', 0, 0, 0, 70],
         ['accounts-payable', 'Accounts Payable', 'payable', null, null, 0, 'other', 0, 0, 0, 90],
         ['owner-equity', 'Owner Equity', 'owner_equity', null, null, 0, 'other', 0, 0, 0, 100],
@@ -1779,6 +1779,29 @@ function jg_accounting_wallet_label(string $platform, string $accountKey): strin
     return trim($platformLabel . ' · ' . $brand, ' ·');
 }
 
+function jg_accounting_tiktok_wallet_effective_amount(array $row): ?int
+{
+    $raw = json_decode((string) ($row['raw_json'] ?? ''), true);
+    $raw = is_array($raw) ? $raw : [];
+    $type = strtoupper(trim((string) ($raw['type'] ?? $raw['withdrawal_type'] ?? '')));
+    $status = strtoupper(trim((string) ($raw['status'] ?? '')));
+    if (!in_array($status, ['SUCCESS', 'SUCCEEDED', 'COMPLETED', 'COMPLETE', 'PAID', 'SETTLED'], true)) {
+        return null;
+    }
+
+    $rawAmount = $raw['amount'] ?? $row['amount'] ?? 0;
+    if (is_array($rawAmount)) {
+        $rawAmount = $rawAmount['value'] ?? $rawAmount['amount'] ?? 0;
+    }
+    $amount = (int) round((float) $rawAmount);
+
+    return match ($type) {
+        'SETTLE' => abs($amount),
+        'WITHDRAW' => -abs($amount),
+        default => null,
+    };
+}
+
 function jg_accounting_wallet_breakdown(PDO $pdo, array $marketplaceContext): array
 {
     $wallets = [];
@@ -1788,23 +1811,20 @@ function jg_accounting_wallet_breakdown(PDO $pdo, array $marketplaceContext): ar
             ...$wallet,
             'current_balance' => null,
             'last_updated_at' => '',
+            'balance_source' => '',
         ];
     }
 
     try {
         $rows = $pdo->query(
-            'SELECT platform, account_key, current_balance, transaction_at, id
+            'SELECT platform, account_key, amount, current_balance, transaction_at, raw_json, id
              FROM dashboard_wallet_platform_transactions
-             WHERE current_balance IS NOT NULL
-             ORDER BY transaction_at DESC, id DESC'
+             ORDER BY platform ASC, account_key ASC, transaction_at ASC, id ASC'
         )->fetchAll();
         foreach ($rows as $row) {
             $platform = strtolower(trim((string) ($row['platform'] ?? '')));
             $accountKey = trim((string) ($row['account_key'] ?? ''));
             $key = $platform . ':' . $accountKey;
-            if (isset($wallets[$key]) && $wallets[$key]['current_balance'] !== null) {
-                continue;
-            }
             if (!isset($wallets[$key])) {
                 $wallets[$key] = [
                     'platform' => $platform,
@@ -1814,16 +1834,37 @@ function jg_accounting_wallet_breakdown(PDO $pdo, array $marketplaceContext): ar
                     'order_count' => 0,
                     'current_balance' => null,
                     'last_updated_at' => '',
+                    'balance_source' => '',
                 ];
             }
-            if ($wallets[$key]['current_balance'] === null) {
+
+            if ($platform === 'tiktok') {
+                $effectiveAmount = jg_accounting_tiktok_wallet_effective_amount($row);
+                if ($effectiveAmount === null) {
+                    continue;
+                }
+                $wallets[$key]['current_balance'] = (int) ($wallets[$key]['current_balance'] ?? 0) + $effectiveAmount;
+                $wallets[$key]['last_updated_at'] = (string) ($row['transaction_at'] ?? '');
+                $wallets[$key]['balance_source'] = 'tiktok_tokopedia_settlements_minus_withdrawals';
+                continue;
+            }
+
+            if ($row['current_balance'] !== null) {
                 $wallets[$key]['current_balance'] = (int) round((float) ($row['current_balance'] ?? 0));
                 $wallets[$key]['last_updated_at'] = (string) ($row['transaction_at'] ?? '');
+                $wallets[$key]['balance_source'] = 'platform_reported_current_balance';
             }
         }
     } catch (Throwable) {
         // Marketplace balance ingestion is optional; outstanding orders remain useful.
     }
+
+    foreach ($wallets as &$wallet) {
+        if ((string) ($wallet['balance_source'] ?? '') === 'tiktok_tokopedia_settlements_minus_withdrawals') {
+            $wallet['current_balance'] = max(0, (int) ($wallet['current_balance'] ?? 0));
+        }
+    }
+    unset($wallet);
 
     $rows = array_values($wallets);
     usort($rows, static fn (array $left, array $right): int => strcmp(

@@ -87,7 +87,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                     </div>
                     <div class="admin-accounting-wallets">
                         <div class="admin-accounting-wallets-head">
-                            <div><span class="admin-panel-kicker">Wallets</span><h2>Current balances</h2></div>
+                            <div><span class="admin-panel-kicker">Wallets</span><h2>Ready to withdraw</h2></div>
                             <span data-accounting-wallets-meta>Live wallet feed</span>
                         </div>
                         <div class="admin-accounting-wallet-strip" data-accounting-wallet-breakdown>

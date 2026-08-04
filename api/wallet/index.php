@@ -387,6 +387,7 @@ function jg_wallet_summary(PDO $pdo): array
         $accounts[$key]['wallet_transaction_current_balance'] = $row['current_balance'] !== null
             ? (int) round((float) $row['current_balance'])
             : null;
+        $accounts[$key]['first_wallet_transaction_at'] = jg_orders_atom_datetime((string) ($row['first_transaction_at'] ?? ''));
         $accounts[$key]['last_wallet_transaction_at'] = jg_orders_atom_datetime((string) ($row['last_transaction_at'] ?? ''));
     }
 
@@ -436,6 +437,7 @@ function jg_wallet_summary(PDO $pdo): array
         $account['wallet_transaction_since_anchor_count'] = (int) ($account['wallet_transaction_since_anchor_count'] ?? 0);
         $account['wallet_transaction_total'] = (int) round((float) ($account['wallet_transaction_total'] ?? 0));
         $account['wallet_transaction_count'] = (int) ($account['wallet_transaction_count'] ?? 0);
+        $account['first_wallet_transaction_at'] = jg_orders_atom_datetime((string) ($account['first_wallet_transaction_at'] ?? ''));
         $account['last_wallet_transaction_at'] = jg_orders_atom_datetime((string) ($account['last_wallet_transaction_at'] ?? ''));
         $account['orders'] = (int) ($account['orders'] ?? 0);
         $account['last_released_at'] = jg_orders_atom_datetime((string) ($account['last_released_at'] ?? ''));
@@ -486,7 +488,10 @@ function jg_wallet_summary(PDO $pdo): array
             'non_settling_orders' => array_sum(array_column($wallets, 'non_settling_orders')),
             'released_since_anchor_orders' => array_sum(array_column($wallets, 'released_since_anchor_orders')),
             'withdrawn_since_anchor_count' => array_sum(array_column($wallets, 'withdrawn_since_anchor_count')),
-            'manual_anchor_count' => count(array_filter($wallets, static fn (array $wallet): bool => !empty($wallet['wallet_balance_known']))),
+            'wallet_count' => count($wallets),
+            'known_balance_count' => count(array_filter($wallets, static fn (array $wallet): bool => !empty($wallet['wallet_balance_known']))),
+            'platform_balance_count' => count(array_filter($wallets, static fn (array $wallet): bool => str_starts_with((string) ($wallet['wallet_balance_basis'] ?? ''), 'platform_'))),
+            'manual_anchor_count' => count(array_filter($wallets, static fn (array $wallet): bool => (int) ($wallet['manual_anchor_id'] ?? 0) > 0)),
             'manual_required_count' => count(array_filter($wallets, static fn (array $wallet): bool => empty($wallet['wallet_balance_known']))),
         ],
     ];
@@ -729,12 +734,13 @@ function jg_wallet_api_sample_response(): array
             'sample' => true,
             'command' => 'wallet.summary',
             'generated_at' => '2026-07-06T03:31:00+00:00',
-            'answer' => 'Wallet summary: Rp145.000 known wallet balance, Rp3.500.000 outstanding, 1 account needs manual balance, 2 non-settling orders excluded.',
+            'answer' => 'Wallet summary: Rp145.000 ready to withdraw from 1 live account feed, Rp3.500.000 outstanding, 1 account feed unavailable, 2 non-settling orders excluded.',
             'totals' => [
                 'wallet_balance' => 145000,
                 'released_month_total' => 1200000,
                 'outstanding_total' => 3500000,
                 'outstanding_orders' => 42,
+                'known_balance_count' => 1,
                 'manual_required_count' => 1,
                 'non_settling_orders' => 2,
             ],
@@ -904,7 +910,7 @@ function jg_wallet_terminal_answer(array $wallet): string
     $nonSettlingOrders = (int) ($wallet['non_settling_orders'] ?? 0);
     if (empty($wallet['wallet_balance_known'])) {
         return sprintf(
-            '%s: wallet balance needs a manual set. Outstanding is %s across %d settling orders; %d non-settling orders excluded.',
+            '%s: ready-to-withdraw balance is unavailable from the platform feed. Outstanding is %s across %d settling orders; %d non-settling orders excluded.',
             $label,
             $open,
             $openOrders,
@@ -912,23 +918,19 @@ function jg_wallet_terminal_answer(array $wallet): string
         );
     }
 
-    $anchorBalance = (int) ($wallet['manual_anchor_balance'] ?? 0);
-    $releasedSince = (int) ($wallet['released_since_anchor_total'] ?? 0);
-    $observedAt = (string) ($wallet['manual_anchor_observed_at'] ?? '');
-    $suffix = $observedAt !== '' ? ' Manual set time: ' . $observedAt . '.' : '';
-
-    $withdrawnSince = (int) ($wallet['withdrawn_since_anchor_total'] ?? 0);
+    $basis = match ((string) ($wallet['wallet_balance_basis'] ?? '')) {
+        'platform_reported_ready_to_withdraw' => 'the marketplace-reported current balance',
+        'platform_tiktok_tokopedia_settlements_minus_withdrawals' => 'completed TikTok / Tokopedia settlements minus completed withdrawals',
+        default => 'the latest available wallet evidence',
+    };
     return sprintf(
-        '%s: wallet is %s from %s manual set plus %s released after it minus %s withdrawn after it; %s outstanding across %d settling orders; %d non-settling orders excluded.%s',
+        '%s: %s is ready to withdraw, based on %s; %s remains outstanding across %d settling orders; %d non-settling orders excluded.',
         $label,
         jg_wallet_rupiah($walletBalance),
-        jg_wallet_rupiah($anchorBalance),
-        jg_wallet_rupiah($releasedSince),
-        jg_wallet_rupiah($withdrawnSince),
+        $basis,
         $open,
         $openOrders,
-        $nonSettlingOrders,
-        $suffix
+        $nonSettlingOrders
     );
 }
 
@@ -936,8 +938,9 @@ function jg_wallet_terminal_summary_answer(array $summary): string
 {
     $totals = is_array($summary['totals'] ?? null) ? $summary['totals'] : [];
     return sprintf(
-        'Wallet summary: %s known wallet balance, %s outstanding, %d accounts need manual balance, %d non-settling orders excluded.',
+        'Wallet summary: %s ready to withdraw from %d live account feeds, %s outstanding, %d account feeds unavailable, %d non-settling orders excluded.',
         jg_wallet_rupiah((int) ($totals['wallet_balance'] ?? 0)),
+        (int) ($totals['known_balance_count'] ?? 0),
         jg_wallet_rupiah((int) ($totals['outstanding_total'] ?? 0)),
         (int) ($totals['manual_required_count'] ?? 0),
         (int) ($totals['non_settling_orders'] ?? 0)
@@ -949,10 +952,10 @@ function jg_wallet_source_metadata(array $wallets): array
     return [
         'order_source' => 'dashboard_order_mirror',
         'settlement_source' => 'marketplace_order_finance',
-        'wallet_balance_basis' => 'manual wallet balance anchor plus marketplace releases after the anchor time minus withdrawals after the anchor time',
+        'wallet_balance_basis' => 'Shopee marketplace-reported current balance; TikTok / Tokopedia completed SETTLE credits minus completed WITHDRAW debits; manual balance only when a platform feed is unavailable',
         'released_metric_basis' => 'Shopee ESCROW_VERIFIED_ADD wallet credits; other platforms by funds_released_at; current Asia/Jakarta calendar month',
         'outstanding_basis' => 'unreleased settling orders only; cancelled and other non-settling orders are excluded',
-        'cash_out_source' => 'manual_withdrawal_log',
+        'cash_out_source' => 'confirmed platform withdrawals, with manual withdrawal logs only as a fallback',
         'live_refresh' => 'no-store API responses, dashboard live events, and a short client cache',
         'last_mirrored_at' => jg_wallet_latest_wallet_datetime($wallets, 'last_mirrored_at'),
         'last_source_updated_at' => jg_wallet_latest_wallet_datetime($wallets, 'last_source_updated_at'),
@@ -1497,8 +1500,13 @@ function jg_wallet_upsert_platform_transactions(PDO $pdo, string $platform, stri
         if (!is_array($transaction)) {
             continue;
         }
-        if (jg_wallet_normalize_key($platform) === 'tiktok' && !jg_wallet_is_confirmed_tiktok_withdrawal($transaction)) {
-            continue;
+        $normalizedPlatform = jg_wallet_normalize_key($platform);
+        $tiktokAmount = null;
+        if ($normalizedPlatform === 'tiktok') {
+            $tiktokAmount = jg_wallet_tiktok_transaction_effective_amount($transaction);
+            if ($tiktokAmount === null) {
+                continue;
+            }
         }
         $createdAt = jg_orders_order_datetime($transaction['created_at'] ?? null);
         if (!$createdAt instanceof DateTimeImmutable && (int) ($transaction['create_time'] ?? 0) > 0) {
@@ -1515,14 +1523,29 @@ function jg_wallet_upsert_platform_transactions(PDO $pdo, string $platform, stri
         }
 
         $currentBalance = $transaction['current_balance'] ?? null;
+        $transactionType = (string) ($transaction['transaction_type'] ?? '');
+        $moneyFlow = (string) ($transaction['money_flow'] ?? '');
+        $amount = (float) ($transaction['amount'] ?? 0);
+        if ($normalizedPlatform === 'tiktok') {
+            $raw = jg_wallet_platform_transaction_raw($transaction);
+            $rawType = strtoupper(trim((string) ($raw['type'] ?? $raw['withdrawal_type'] ?? '')));
+            $rawStatus = strtoupper(trim((string) ($raw['status'] ?? '')));
+            $transactionType = implode('_', array_filter([
+                'TIKTOK',
+                $rawType === 'SETTLE' ? 'SETTLEMENT' : ($rawType === 'WITHDRAW' ? 'WITHDRAWAL' : $rawType),
+                $rawStatus,
+            ]));
+            $moneyFlow = $tiktokAmount >= 0 ? 'MONEY_IN' : 'MONEY_OUT';
+            $amount = $tiktokAmount;
+        }
         $stmt->execute([
-            ':platform' => jg_wallet_normalize_key($platform),
+            ':platform' => $normalizedPlatform,
             ':account_key' => jg_wallet_normalize_key($accountKey),
             ':transaction_id' => substr($transactionId, 0, 180),
             ':order_id' => substr((string) ($transaction['order_id'] ?? ''), 0, 160),
-            ':transaction_type' => substr((string) ($transaction['transaction_type'] ?? ''), 0, 120),
-            ':money_flow' => substr((string) ($transaction['money_flow'] ?? ''), 0, 80),
-            ':amount' => number_format((float) ($transaction['amount'] ?? 0), 2, '.', ''),
+            ':transaction_type' => substr($transactionType, 0, 120),
+            ':money_flow' => substr($moneyFlow, 0, 80),
+            ':amount' => number_format($amount, 2, '.', ''),
             ':current_balance' => $currentBalance !== null && $currentBalance !== ''
                 ? number_format((float) $currentBalance, 2, '.', '')
                 : null,
@@ -1554,6 +1577,28 @@ function jg_wallet_is_confirmed_tiktok_withdrawal(array $row): bool
 
     return $type === 'WITHDRAW'
         && in_array($status, ['SUCCESS', 'SUCCEEDED', 'COMPLETED', 'COMPLETE', 'PAID', 'SETTLED'], true);
+}
+
+function jg_wallet_tiktok_transaction_effective_amount(array $row): ?int
+{
+    $raw = jg_wallet_platform_transaction_raw($row);
+    $type = strtoupper(trim((string) ($raw['type'] ?? $raw['withdrawal_type'] ?? '')));
+    $status = strtoupper(trim((string) ($raw['status'] ?? '')));
+    if (!in_array($status, ['SUCCESS', 'SUCCEEDED', 'COMPLETED', 'COMPLETE', 'PAID', 'SETTLED'], true)) {
+        return null;
+    }
+
+    $rawAmount = $raw['amount'] ?? $row['amount'] ?? 0;
+    if (is_array($rawAmount)) {
+        $rawAmount = $rawAmount['value'] ?? $rawAmount['amount'] ?? 0;
+    }
+    $amount = (int) round((float) $rawAmount);
+
+    return match ($type) {
+        'SETTLE' => abs($amount),
+        'WITHDRAW' => -abs($amount),
+        default => null,
+    };
 }
 
 function jg_wallet_start_backtrack(PDO $pdo, array $payload): array
@@ -2058,6 +2103,30 @@ function jg_wallet_apply_balance_anchor(array &$account, ?array $anchor): void
     $account['clearance_source'] = 'manual_required';
     $account['cash_out_source'] = 'manual';
 
+    $platform = jg_wallet_normalize_key($account['platform'] ?? '');
+    $reportedBalance = $account['wallet_transaction_current_balance'] ?? null;
+    if ($platform === 'shopee' && $reportedBalance !== null) {
+        $account['wallet_balance_known'] = true;
+        $account['wallet_balance_basis'] = 'platform_reported_ready_to_withdraw';
+        $account['wallet_balance'] = max(0, (int) round((float) $reportedBalance));
+        $account['source_wallet_balance'] = $account['wallet_balance'];
+        $account['clearance_source'] = 'platform_wallet_current_balance';
+        $account['wallet_activity_source'] = 'platform_wallet_transactions';
+        $account['cash_out_source'] = 'platform_wallet_transactions';
+        return;
+    }
+
+    if ($platform === 'tiktok' && (int) ($account['wallet_transaction_count'] ?? 0) > 0) {
+        $account['wallet_balance_known'] = true;
+        $account['wallet_balance_basis'] = 'platform_tiktok_tokopedia_settlements_minus_withdrawals';
+        $account['wallet_balance'] = max(0, (int) round((float) ($account['wallet_transaction_total'] ?? 0)));
+        $account['source_wallet_balance'] = $account['wallet_balance'];
+        $account['clearance_source'] = 'platform_finance_ledger';
+        $account['wallet_activity_source'] = 'platform_settlements_and_withdrawals';
+        $account['cash_out_source'] = 'platform_wallet_transactions';
+        return;
+    }
+
     if (!is_array($anchor)) {
         return;
     }
@@ -2072,27 +2141,12 @@ function jg_wallet_apply_balance_anchor(array &$account, ?array $anchor): void
     $account['manual_anchor_created_by'] = (string) ($anchor['created_by'] ?? '');
     $account['last_wallet_cleared_at'] = $account['manual_anchor_observed_at'];
     $account['clearance_source'] = 'manual_balance_anchor';
-    $platform = jg_wallet_normalize_key($account['platform'] ?? '');
     if ($walletTransactionSinceAnchorCount > 0 && $platform === 'shopee') {
         $account['wallet_balance_basis'] = 'manual_anchor_plus_platform_wallet_transactions_after_anchor';
         $account['wallet_balance'] = max(0, $anchorBalance + $walletTransactionSinceAnchor);
         $account['wallet_activity_since_anchor_total'] = $walletTransactionSinceAnchor;
         $account['wallet_activity_since_anchor_count'] = $walletTransactionSinceAnchorCount;
         $account['wallet_activity_source'] = 'platform_wallet_transactions';
-        $account['cash_out_source'] = 'platform_wallet_transactions';
-        return;
-    }
-
-    if ($walletTransactionSinceAnchorCount > 0 && $platform === 'tiktok') {
-        // TikTok Shop's unified Indonesia feed also covers Tokopedia, but its
-        // finance endpoint exposes payouts rather than a complete credit/debit
-        // wallet ledger. Preserve settled-order credits and use imported payouts
-        // in place of potentially duplicated manual withdrawal entries.
-        $account['wallet_balance_basis'] = 'manual_anchor_plus_order_releases_plus_tiktok_tokopedia_payouts';
-        $account['wallet_balance'] = max(0, $anchorBalance + $releasedSinceAnchor + $walletTransactionSinceAnchor);
-        $account['wallet_activity_since_anchor_total'] = $releasedSinceAnchor + $walletTransactionSinceAnchor;
-        $account['wallet_activity_since_anchor_count'] = (int) ($account['released_since_anchor_orders'] ?? 0) + $walletTransactionSinceAnchorCount;
-        $account['wallet_activity_source'] = 'marketplace_order_releases_plus_platform_payouts';
         $account['cash_out_source'] = 'platform_wallet_transactions';
         return;
     }
@@ -2277,8 +2331,13 @@ function jg_wallet_platform_transaction_totals(PDO $pdo, array $activeBalanceAnc
     $totals = [];
     foreach ($rows as $row) {
         $platform = jg_wallet_normalize_key((string) ($row['platform'] ?? ''));
-        if ($platform === 'tiktok' && !jg_wallet_is_confirmed_tiktok_withdrawal($row)) {
-            continue;
+        $amount = (int) round((float) ($row['amount'] ?? 0));
+        if ($platform === 'tiktok') {
+            $effectiveAmount = jg_wallet_tiktok_transaction_effective_amount($row);
+            if ($effectiveAmount === null) {
+                continue;
+            }
+            $amount = $effectiveAmount;
         }
         $key = jg_wallet_account_key((string) ($row['platform'] ?? ''), (string) ($row['account_key'] ?? ''));
         if ($key === '|') {
@@ -2293,17 +2352,25 @@ function jg_wallet_platform_transaction_totals(PDO $pdo, array $activeBalanceAnc
                 'since_anchor_amount' => 0,
                 'since_anchor_count' => 0,
                 'current_balance' => null,
+                'current_balance_at' => '',
+                'first_transaction_at' => '',
                 'last_transaction_at' => '',
             ];
         }
 
-        $amount = (int) round((float) ($row['amount'] ?? 0));
         $transactionAt = trim((string) ($row['transaction_at'] ?? ''));
         $totals[$key]['amount'] += $amount;
         $totals[$key]['count'] = (int) ($totals[$key]['count'] ?? 0) + 1;
+        if ((string) ($totals[$key]['first_transaction_at'] ?? '') === '' || strcmp($transactionAt, (string) $totals[$key]['first_transaction_at']) < 0) {
+            $totals[$key]['first_transaction_at'] = $transactionAt;
+        }
         $totals[$key]['last_transaction_at'] = jg_wallet_max_datetime((string) ($totals[$key]['last_transaction_at'] ?? ''), $transactionAt);
-        if ($row['current_balance'] !== null && $transactionAt === (string) ($totals[$key]['last_transaction_at'] ?? '')) {
+        if ($row['current_balance'] !== null && (
+            (string) ($totals[$key]['current_balance_at'] ?? '') === ''
+            || strcmp($transactionAt, (string) ($totals[$key]['current_balance_at'] ?? '')) >= 0
+        )) {
             $totals[$key]['current_balance'] = (int) round((float) $row['current_balance']);
+            $totals[$key]['current_balance_at'] = $transactionAt;
         }
 
         $anchor = $activeBalanceAnchors[$key] ?? null;
@@ -2755,6 +2822,7 @@ function jg_wallet_empty_amounts(): array
         'wallet_transaction_total' => 0,
         'wallet_transaction_count' => 0,
         'wallet_transaction_current_balance' => null,
+        'first_wallet_transaction_at' => '',
         'wallet_activity_since_anchor_total' => 0,
         'wallet_activity_since_anchor_count' => 0,
         'wallet_activity_source' => '',

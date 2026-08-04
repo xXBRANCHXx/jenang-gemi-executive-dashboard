@@ -97,14 +97,12 @@ geometry under Lucide's ISC license.
   view reloads read cached/local data. Visible dashboard sessions automatically
   run a throttled rolling marketplace sync/repair for yesterday and today; the
   Overview `Refresh view` button runs the same path immediately.
-- Wallet reads the local marketplace order mirror and uses a manual balance
-  anchor as the source-of-truth for current wallet cash. The displayed Wallet
-  balance is the latest manually entered wallet balance plus marketplace releases
-  after that anchor time minus withdrawals recorded after that anchor time.
-  TikTok / Tokopedia uses settled-order credits plus confirmed, completed
-  `WITHDRAW` events from its imported payout feed. Finance `SETTLE` events remain
-  audit data and never become bank payouts;
-  Shopee uses its complete wallet transaction ledger when available.
+- Wallet reads the local marketplace order mirror and platform finance ledgers.
+  The displayed Wallet balance is the amount currently ready to withdraw. Shopee uses the latest
+  marketplace-reported `current_balance`. TikTok / Tokopedia uses completed
+  finance `SETTLE` events as wallet credits and completed `WITHDRAW` events as
+  wallet debits; only the latter becomes a bank payout. Manual balance anchors
+  remain a fallback when a platform does not provide usable finance data.
   Cancelled and other non-settling orders are excluded from outstanding balances.
   Supported calls include `GET /api/wallet/?action=summary`,
   `GET /api/wallet/?action=account&platform=shopee&account_key=jenang-gemi-shopee`,
