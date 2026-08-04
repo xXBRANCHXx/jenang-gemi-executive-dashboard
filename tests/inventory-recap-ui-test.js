@@ -41,6 +41,7 @@ assert.match(script, /action: 'place_order'/);
 assert.match(script, /downloadInventoryPurchasePdf\(state\.inventoryRecap\.placedOrder\)/);
 assert.match(script, /inventoryUrgencyCompare[\s\S]*\.sort\(inventoryUrgencyCompare\)/);
 assert.match(script, /const purchasePlanRows[\s\S]*suggestions\.map[\s\S]*\.sort\(inventoryUrgencyCompare\)/);
+assert.match(script, /admin-inventory-incoming-qty[\s\S]*units in process[\s\S]*buy \$\{formatRegionalInteger\(item\.recommended_order_qty/);
 assert.match(script, /planSelected:\s*\{\}/);
 assert.match(script, /data-purchase-plan-select[\s\S]*planSelected\[selectionSku\] = input\.checked/);
 assert.match(script, /purchasePlanRefs\.toggleAll[\s\S]*every\(\(item\) => item\.selected\)/);
@@ -62,6 +63,7 @@ assert.match(navigation, /'purchase-order'\s*=>\s*\[[\s\S]*'label'\s*=>\s*'Purch
 assert.match(navigation, /'key'\s*=>\s*'inventory-recap'[\s\S]*'label'\s*=>\s*'Inventory Recap'[\s\S]*'icon'\s*=>\s*'admin-rail-icon-inventory'/);
 assert.match(styles, /\.admin-rail-icon-inventory/);
 assert.match(styles, /\.admin-purchase-select\s*\{[\s\S]*\.admin-purchase-select input:checked \+ span/);
+assert.match(styles, /\.admin-inventory-incoming-qty\s*\{[\s\S]*color:\s*#60a5fa/);
 assert.doesNotMatch(styles, /\.admin-purchase-remove/);
 
 const inventoryStyles = styles.slice(

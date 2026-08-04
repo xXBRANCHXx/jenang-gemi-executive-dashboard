@@ -8247,8 +8247,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	          <div><span>Stock now</span><strong>${formatRegionalInteger(stock)}</strong></div>
 	          <div><span>Trigger at</span><strong>${formatRegionalInteger(trigger)}</strong></div>
 	          <div class="admin-inventory-trigger-meter"><i style="width:${stockPercent}%"></i><mark style="left:100%"></mark></div>
+	          ${Number(item.incoming_qty || 0) > 0 ? `<span class="admin-inventory-incoming-qty">${formatRegionalInteger(item.incoming_qty || 0)} units in process</span>` : ''}
 	          <small>${Number(item.incoming_qty || 0) > 0
-	            ? `${formatRegionalInteger(item.current_stock || 0)} on hand + ${formatRegionalInteger(item.incoming_qty || 0)} incoming = ${formatRegionalInteger(item.projected_stock || 0)} projected`
+	            ? `${formatRegionalInteger(item.current_stock || 0)} on hand + ${formatRegionalInteger(item.incoming_qty || 0)} in process = ${formatRegionalInteger(item.projected_stock || 0)} projected · buy ${formatRegionalInteger(item.recommended_order_qty || 0)} more`
 	            : item.restock_needed
 	            ? `${formatRegionalInteger(item.trigger_shortfall_qty || 0)} below trigger · ${purchaseDaysLabel}-day order ${formatRegionalInteger(item.raw_purchase_qty || 0)} · buy ${formatRegionalInteger(item.recommended_order_qty || 0)}`
 	            : trigger > 0 ? `${formatRegionalInteger(Math.max(0, stock - trigger))} above trigger` : 'No demand trigger yet'}</small>
@@ -8348,7 +8349,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	          <div class="admin-purchase-product">
 	            <strong>${escapeHtml(item.product_name || item.sku || '-')}</strong>
 	            <span>${escapeHtml(item.sku || '')} · stock ${formatRegionalInteger(item.current_stock || 0)} / trigger ${formatRegionalInteger(item.trigger_qty || 0)}</span>
-	            <small>Trigger gap ${formatRegionalInteger(item.trigger_shortfall_qty || 0)} · ${purchaseDaysLabel}-day order ${formatRegionalInteger(item.raw_purchase_qty || 0)} · MOQ ${formatRegionalInteger(item.moq)} · rounded +${formatRegionalInteger(item.moq_rounding_qty || 0)}</small>
+	            <small>Trigger gap ${formatRegionalInteger(item.trigger_shortfall_qty || 0)} · ${purchaseDaysLabel}-day order ${formatRegionalInteger(item.raw_purchase_qty || 0)} · MOQ ${formatRegionalInteger(item.moq)} · rounded +${formatRegionalInteger(item.moq_rounding_qty || 0)}${Number(item.incoming_qty || 0) > 0 ? ` · <b class="admin-inventory-incoming-qty">${formatRegionalInteger(item.incoming_qty || 0)} units in process</b>` : ''}</small>
 	          </div>
 	          <label class="admin-purchase-quantity">
 	            <span>Buy quantity</span>

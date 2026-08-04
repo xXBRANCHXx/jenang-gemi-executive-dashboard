@@ -25397,6 +25397,17 @@ body:has(.admin-app[data-sku-db])::after {
   line-height: 1.4;
 }
 
+.admin-inventory-incoming-qty {
+  width: max-content;
+  color: #60a5fa;
+  font-size: 0.63rem;
+  font-weight: 800;
+}
+
+:root[data-admin-theme='light'] .admin-inventory-incoming-qty {
+  color: #2563eb;
+}
+
 .admin-inventory-trigger-state {
   width: max-content;
   padding: 4px 7px;
