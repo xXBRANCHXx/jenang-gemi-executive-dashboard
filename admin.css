@@ -24841,11 +24841,40 @@ body:has(.admin-app[data-sku-db])::after {
   gap: 8px;
 }
 
-.admin-purchase-actions [data-purchase-plan-toggle-all],
 .admin-purchase-actions [data-purchase-plan-copy] {
   border-color: var(--inventory-line);
   background: transparent;
   color: var(--admin-text);
+}
+
+.admin-purchase-selection-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 0 10px;
+  border-bottom: 1px solid var(--inventory-line);
+}
+
+.admin-purchase-selection-bar button {
+  min-height: 36px;
+  padding: 0 13px;
+  border: 1px solid var(--admin-text);
+  border-radius: 6px;
+  background: var(--admin-text);
+  color: var(--admin-bg);
+  font: 760 0.7rem/1 "Plus Jakarta Sans", sans-serif;
+  cursor: pointer;
+}
+
+.admin-purchase-selection-bar button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.admin-purchase-selection-bar span {
+  color: var(--admin-muted);
+  font-size: 0.66rem;
+  font-weight: 680;
 }
 
 .admin-purchase-actions button:disabled {

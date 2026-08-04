@@ -34,7 +34,7 @@ $isAdView = $isAuthenticated && in_array($requestedView ?? '', ['ad-view', 'ads'
 $sidebarSection = in_array($requestedView ?? '', ['inventory', 'inventory_recap', 'inventory-recap', 'purchase', 'purchase_order', 'purchase-order'], true)
     ? 'inventory-recap'
     : 'home';
-$dashboardBuildVersion = 'exec3.96.0';
+$dashboardBuildVersion = 'exec3.96.1';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -785,7 +785,6 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                                <span data-purchase-plan-status>Loading current recommendations</span>
 	                            </div>
 	                            <div class="admin-purchase-actions">
-	                                <button type="button" data-purchase-plan-toggle-all disabled aria-pressed="false">Select all</button>
 	                                <button type="button" data-purchase-plan-copy disabled>
 	                                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
 	                                    Copy text
@@ -809,6 +808,10 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                            <strong>How quantities are chosen</strong>
 	                            <span>Trigger at 25% of the monthly average. One shared Order Days setting controls every product, then each quantity rounds up to its MOQ.</span>
 	                            <code>75% order 19 ÷ MOQ 11 → buy 22</code>
+	                        </div>
+	                        <div class="admin-purchase-selection-bar">
+	                            <button type="button" data-purchase-plan-toggle-all disabled aria-pressed="false">Select all</button>
+	                            <span>Choose the products to include in this purchase order</span>
 	                        </div>
 	                        <div class="admin-purchase-list" data-purchase-plan-list>
 	                            <p class="admin-empty">Loading recommended products.</p>

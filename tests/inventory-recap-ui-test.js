@@ -17,6 +17,7 @@ assert.match(dashboard, /75% order 19 ÷ MOQ 11 → buy 22/);
 assert.match(dashboard, /data-view-panel="purchase-order"[\s\S]*MOQ-ready purchase plan[\s\S]*data-purchase-plan-place[\s\S]*data-purchase-plan-download/);
 assert.match(dashboard, /data-view-switch="inventory-recap"[\s\S]*Back to Inventory Recap/);
 assert.match(dashboard, /data-purchase-plan-toggle-all[^>]*disabled[^>]*>Select all</);
+assert.match(dashboard, /admin-purchase-rule[\s\S]*admin-purchase-selection-bar[\s\S]*data-purchase-plan-toggle-all[\s\S]*data-purchase-plan-list/);
 assert.match(dashboard, /Sent to Store Ops[\s\S]*Download the PDF before closing this popup/);
 assert.match(dashboard, /Stock already on the way[\s\S]*data-inventory-po-list/);
 
