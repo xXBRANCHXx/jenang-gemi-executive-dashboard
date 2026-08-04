@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/auth.php';
 require_once dirname(__DIR__, 2) . '/partner-sales-bootstrap.php';
+require_once dirname(__DIR__, 2) . '/partner-billing-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/website-commerce-bootstrap.php';
 
 jg_admin_require_auth_json();
@@ -223,7 +224,16 @@ try {
 
     if ($method === 'POST') {
         $action = strtolower(jg_partner_sales_text($body['action'] ?? '', 40));
-        if ($action === 'record_payment') {
+        if ($action === 'update_order_prices') {
+            if (!$partnerPdo instanceof PDO || !jg_partner_sales_table_exists($partnerPdo, 'partner_orders')) {
+                jg_partner_sales_response(['error' => 'Order prices can only be edited while the Partner database is available.'], 503);
+            }
+            $orderId = jg_partner_sales_text($body['order_id'] ?? '', 64);
+            $adjustments = is_array($body['prices'] ?? null) ? $body['prices'] : [];
+            jg_partner_sales_update_order_prices($partnerPdo, $code, $orderId, $adjustments);
+            $source = jg_partner_sales_order_rows($partnerPdo, $code, $from, $to);
+            $rows = $source['orders'];
+        } elseif ($action === 'record_payment') {
             $orderId = jg_partner_sales_text($body['order_id'] ?? '', 64);
             $order = current(array_values(array_filter($rows, static fn (array $row): bool => (string) ($row['id'] ?? '') === $orderId)));
             if (!is_array($order)) jg_partner_sales_response(['error' => 'Order not found for this partner.'], 404);
@@ -287,6 +297,8 @@ try {
             'settlements' => 'analytics.partner_order_payments',
         ],
     ]);
+} catch (InvalidArgumentException $error) {
+    jg_partner_sales_response(['error' => $error->getMessage()], 422);
 } catch (Throwable $error) {
     error_log('Partner sales API failed: ' . $error->getMessage());
     jg_partner_sales_response(['error' => $error->getMessage() ?: 'Unable to load the partner sales breakdown.'], 503);

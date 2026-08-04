@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     disputesButton: $('[data-open-disputes]'), disputesModal: $('[data-disputes-modal]'), disputesPicker: $('[data-disputes-picker]'), disputesHistory: $('[data-disputes-history]'), disputesForm: $('[data-disputes-window-form]'), disputesWeek: $('[data-disputes-week]'), disputesSubmit: $('[data-view-disputes]'), disputesError: $('[data-disputes-error]'), disputesWindowLabel: $('[data-disputes-window-label]'), disputesSummary: $('[data-disputes-summary]'), disputesList: $('[data-disputes-list]')
   };
 
-  const state = { payload: null, search: '', status: 'all', expanded: new Set(), activeOrder: null, disputePayload: null, disputeLoading: false };
+  const state = { payload: null, search: '', status: 'all', expanded: new Set(), activeOrder: null, editingOrderId: '', disputePayload: null, disputeLoading: false };
   const escapeHtml = (value) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const currency = (value) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(value || 0));
   const number = (value) => new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 }).format(Number(value || 0));
@@ -155,10 +155,21 @@ document.addEventListener('DOMContentLoaded', () => {
     refs.payments.innerHTML = payments.length ? payments.map((payment) => `<div class="partner-sales-payment-row"><div><strong>${currency(payment.amount)}</strong><small>${escapeHtml(payment.order_id)} · ${escapeHtml(payment.payment_method || 'Payment')}</small></div><span>${escapeHtml(dateLabel(payment.payment_date))}</span><button type="button" data-void-payment="${Number(payment.id)}" aria-label="Void payment for ${escapeHtml(payment.order_id)}" title="Void payment">Remove</button></div>`).join('') : '<p class="partner-sales-empty">No payments recorded yet.</p>';
   };
 
-  const itemRows = (order) => (order.items || []).map((item) => {
+  const itemUnitPrice = (order, item) => {
+    const quantity = Math.max(1, Number(item.quantity || 1));
+    const direct = item.unit_revenue ?? item.partner_price ?? item.partner_unit_price;
+    if (direct !== undefined && direct !== null && Number.isFinite(Number(direct))) return Math.max(0, Number(direct));
+    if (Number.isFinite(Number(item.line_revenue))) return Math.max(0, Number(item.line_revenue) / quantity);
+    return Math.max(0, Number(order.order_total || 0) / Math.max(1, Number(order.units || quantity)));
+  };
+
+  const itemRows = (order, editing = false) => (order.items || []).map((item, lineIndex) => {
     const quantity = Number(item.quantity || 0);
-    const line = Number(item.line_revenue || (Number(item.unit_revenue || item.partner_price || 0) * quantity));
-    return `<div class="partner-sales-item-row"><div><strong>${escapeHtml(item.product || item.sku_label || item.sku_code || 'Product')}</strong><small>${escapeHtml([item.sku_code, item.flavor, item.size].filter(Boolean).join(' · '))}</small></div><span>${number(quantity)} units</span><span>${currency(line)}</span></div>`;
+    const unitPrice = itemUnitPrice(order, item);
+    const line = Number(item.line_revenue ?? (unitPrice * quantity));
+    return `<div class="partner-sales-item-row ${editing ? 'is-editing' : ''}"><div><strong>${escapeHtml(item.product || item.sku_label || item.sku_code || 'Product')}</strong><small>${escapeHtml([item.sku_code, item.flavor, item.size].filter(Boolean).join(' · '))}</small></div><span>${number(quantity)} units</span>${editing
+      ? `<label class="partner-sales-price-editor"><small>Unit price</small><span><i>Rp</i><input type="number" min="0" max="1000000000000" step="1" value="${Math.round(unitPrice)}" data-order-price-input data-line-index="${lineIndex}" required></span></label>`
+      : `<span>${currency(line)}</span>`}</div>`;
   }).join('');
 
   const paymentRows = (order) => order.payments?.length ? order.payments.map((payment) => `<div class="partner-sales-order-payment"><span>${escapeHtml(dateLabel(payment.payment_date))}</span><strong>${currency(payment.amount)}</strong><small>${escapeHtml([payment.payment_method, payment.reference_no].filter(Boolean).join(' · ') || 'Payment')}</small></div>`).join('') : '<p class="partner-sales-empty">No settlements recorded for this order.</p>';
@@ -173,6 +184,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     refs.orders.innerHTML = orders.map((order) => {
       const expanded = state.expanded.has(order.id);
+      const editing = state.editingOrderId === order.id;
       const canPay = !['paid', 'cancelled'].includes(order.payment_status) && Number(order.outstanding_amount || 0) > 0;
       const cancelled = order.payment_status === 'cancelled';
       return `<article class="partner-sales-order ${expanded ? 'is-expanded' : ''} ${cancelled ? 'is-cancelled' : ''}" data-order-id="${escapeHtml(order.id)}">
@@ -185,7 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <button type="button" class="partner-sales-order-toggle" data-toggle-order="${escapeHtml(order.id)}" aria-label="${expanded ? 'Collapse' : 'Expand'} ${escapeHtml(order.id)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></button>
         </div>
         <div class="partner-sales-order-detail" ${expanded ? '' : 'hidden'}>
-          <section><header><span>Line items</span><strong>${currency(order.order_total)}</strong></header>${itemRows(order)}</section>
+          <section class="partner-sales-line-items"><header><span>Line items</span><div class="partner-sales-price-actions"><strong>${currency(order.order_total)}</strong>${!cancelled ? (editing ? `<button type="button" data-cancel-order-prices="${escapeHtml(order.id)}">Cancel</button><button type="button" class="is-save" data-save-order-prices="${escapeHtml(order.id)}">Save prices</button>` : `<button type="button" data-edit-order-prices="${escapeHtml(order.id)}">Edit prices</button>`) : ''}</div></header>${itemRows(order, editing)}${editing ? '<p class="admin-form-error partner-sales-price-error" data-order-price-error hidden></p>' : ''}</section>
           <section><header><span>Payment activity</span><strong>${currency(order.paid_amount)} paid</strong></header>${paymentRows(order)}</section>
           <aside><dl><div><dt>Order status</dt><dd>${escapeHtml(orderStatusLabel(order.status))}</dd></div><div><dt>Outstanding</dt><dd>${currency(order.outstanding_amount)}</dd></div><div><dt>Last updated</dt><dd>${escapeHtml(dateLabel(order.updated_at, true))}</dd></div></dl>${order.notes ? `<p>${escapeHtml(order.notes)}</p>` : ''}${canPay ? `<button type="button" class="admin-primary-btn" data-record-payment="${escapeHtml(order.id)}">Record payment</button>` : '<small>No payment action needed.</small>'}</aside>
         </div>
@@ -396,7 +408,15 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const closePaymentModal = () => { if (refs.paymentModal) refs.paymentModal.hidden = true; state.activeOrder = null; };
-  const showToast = () => { if (!refs.toast) return; refs.toast.hidden = false; window.setTimeout(() => { refs.toast.hidden = true; }, 3200); };
+  const showToast = (title = 'Payment recorded', message = 'The order balance is up to date.') => {
+    if (!refs.toast) return;
+    const heading = refs.toast.querySelector('strong');
+    const copy = refs.toast.querySelector('span');
+    if (heading) heading.textContent = title;
+    if (copy) copy.textContent = message;
+    refs.toast.hidden = false;
+    window.setTimeout(() => { refs.toast.hidden = true; }, 3200);
+  };
 
   document.querySelectorAll('[data-sales-period]').forEach((button) => button.addEventListener('click', () => setPeriod(button.dataset.salesPeriod || 'all')));
   $('[data-sales-apply]')?.addEventListener('click', () => { document.querySelectorAll('[data-sales-period]').forEach((button) => button.classList.remove('is-active')); load(); });
@@ -406,6 +426,31 @@ document.addEventListener('DOMContentLoaded', () => {
   refs.orders?.addEventListener('click', (event) => {
     const paymentButton = event.target.closest('[data-record-payment]');
     if (paymentButton) { openPaymentModal(paymentButton.dataset.recordPayment); return; }
+    const editPrices = event.target.closest('[data-edit-order-prices]');
+    if (editPrices) { state.editingOrderId = editPrices.dataset.editOrderPrices || ''; renderOrders(); return; }
+    const cancelPrices = event.target.closest('[data-cancel-order-prices]');
+    if (cancelPrices) { state.editingOrderId = ''; renderOrders(); return; }
+    const savePrices = event.target.closest('[data-save-order-prices]');
+    if (savePrices) {
+      const orderId = savePrices.dataset.saveOrderPrices || '';
+      const orderNode = savePrices.closest('[data-order-id]');
+      const errorNode = orderNode?.querySelector('[data-order-price-error]');
+      const priceInputs = Array.from(orderNode?.querySelectorAll('[data-order-price-input]') || []);
+      const invalidInput = priceInputs.find((input) => !(input instanceof HTMLInputElement) || !input.checkValidity() || input.value.trim() === '');
+      if (invalidInput instanceof HTMLInputElement) { invalidInput.reportValidity(); invalidInput.focus(); return; }
+      const prices = priceInputs.map((input) => ({
+        line_index: Number(input.dataset.lineIndex || 0), unit_price: Number(input.value)
+      }));
+      savePrices.disabled = true;
+      if (errorNode) errorNode.hidden = true;
+      requestJson(endpoint, { method: 'POST', body: { action: 'update_order_prices', partner_code: partnerCode, order_id: orderId, prices } })
+        .then(async () => { state.editingOrderId = ''; await load(); showToast('Prices updated', 'The order value and weekly bill now use the saved product prices.'); })
+        .catch((error) => {
+          savePrices.disabled = false;
+          if (errorNode) { errorNode.textContent = error.message || 'Unable to update prices.'; errorNode.hidden = false; }
+        });
+      return;
+    }
     const toggle = event.target.closest('[data-toggle-order]');
     if (!toggle) return;
     const id = toggle.dataset.toggleOrder;
