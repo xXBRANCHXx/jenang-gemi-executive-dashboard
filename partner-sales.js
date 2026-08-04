@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!root) return;
 
   const endpoint = root.dataset.salesEndpoint || '../api/partner-sales/';
+  const disputesEndpoint = root.dataset.disputesEndpoint || '../api/partner-billing/';
   const partnerCode = String(root.dataset.partnerCode || '').trim();
   const $ = (selector) => document.querySelector(selector);
   const refs = {
@@ -14,10 +15,11 @@ document.addEventListener('DOMContentLoaded', () => {
     chart: $('[data-sales-chart]'), trendCaption: $('[data-sales-trend-caption]'), progress: $('[data-sales-progress]'), rateLarge: $('[data-sales-rate]'), statuses: $('[data-sales-status-list]'),
     channels: $('[data-sales-channels]'), products: $('[data-sales-products]'), payments: $('[data-sales-payments]'), orders: $('[data-sales-orders]'),
     search: $('[data-sales-search]'), statusFilter: $('[data-sales-status-filter]'), ledgerCount: $('[data-sales-ledger-count]'), limitNote: $('[data-sales-limit-note]'),
-    paymentModal: $('[data-payment-modal]'), paymentForm: $('[data-payment-form]'), paymentError: $('[data-payment-error]'), paymentBalance: $('[data-payment-balance]'), paymentTitle: $('[data-payment-order-title]'), toast: $('[data-sales-toast]')
+    paymentModal: $('[data-payment-modal]'), paymentForm: $('[data-payment-form]'), paymentError: $('[data-payment-error]'), paymentBalance: $('[data-payment-balance]'), paymentTitle: $('[data-payment-order-title]'), toast: $('[data-sales-toast]'),
+    disputesButton: $('[data-open-disputes]'), disputesModal: $('[data-disputes-modal]'), disputesPicker: $('[data-disputes-picker]'), disputesHistory: $('[data-disputes-history]'), disputesForm: $('[data-disputes-window-form]'), disputesWeek: $('[data-disputes-week]'), disputesSubmit: $('[data-view-disputes]'), disputesError: $('[data-disputes-error]'), disputesWindowLabel: $('[data-disputes-window-label]'), disputesSummary: $('[data-disputes-summary]'), disputesList: $('[data-disputes-list]')
   };
 
-  const state = { payload: null, search: '', status: 'all', expanded: new Set(), activeOrder: null };
+  const state = { payload: null, search: '', status: 'all', expanded: new Set(), activeOrder: null, disputePayload: null, disputeLoading: false };
   const escapeHtml = (value) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const currency = (value) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(value || 0));
   const number = (value) => new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 }).format(Number(value || 0));
@@ -172,7 +174,8 @@ document.addEventListener('DOMContentLoaded', () => {
     refs.orders.innerHTML = orders.map((order) => {
       const expanded = state.expanded.has(order.id);
       const canPay = !['paid', 'cancelled'].includes(order.payment_status) && Number(order.outstanding_amount || 0) > 0;
-      return `<article class="partner-sales-order ${expanded ? 'is-expanded' : ''}" data-order-id="${escapeHtml(order.id)}">
+      const cancelled = order.payment_status === 'cancelled';
+      return `<article class="partner-sales-order ${expanded ? 'is-expanded' : ''} ${cancelled ? 'is-cancelled' : ''}" data-order-id="${escapeHtml(order.id)}">
         <div class="partner-sales-order-main" data-toggle-order="${escapeHtml(order.id)}" tabindex="0" role="button" aria-expanded="${expanded}">
           <div><strong>${escapeHtml(order.id)}</strong><small>${escapeHtml(dateLabel(order.order_timestamp, true))}</small></div>
           <div><strong>${escapeHtml(order.marketplace_platform || 'Unassigned')}</strong><small>${escapeHtml(order.customer_name || 'Customer not recorded')}</small></div>
@@ -188,6 +191,136 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       </article>`;
     }).join('');
+  };
+
+  const disputeUrl = (periodStart = '') => {
+    const url = new URL(disputesEndpoint, window.location.href);
+    url.searchParams.set('action', 'dispute_history');
+    url.searchParams.set('partner_code', partnerCode);
+    if (periodStart) url.searchParams.set('period_start', periodStart);
+    url.searchParams.set('_ts', String(Date.now()));
+    return url.toString();
+  };
+
+  const disputeStatusLabel = (status) => ({ pending: 'Under review', accepted: 'Accepted', rejected: 'Rejected' }[status] || 'Resolved');
+
+  const renderDisputeWindows = (history) => {
+    const windows = Array.isArray(history?.windows) ? history.windows : [];
+    const selectedStart = history?.window?.period_start || windows[0]?.period_start || '';
+    if (refs.disputesWeek) {
+      refs.disputesWeek.innerHTML = windows.length ? windows.map((window) => {
+        const count = Number(window.dispute_count || 0);
+        const detail = `${count} ${count === 1 ? 'dispute' : 'disputes'}${Number(window.pending_count || 0) ? ` · ${number(window.pending_count)} open` : ''}`;
+        return `<option value="${escapeHtml(window.period_start)}" ${window.period_start === selectedStart ? 'selected' : ''}>${escapeHtml(window.period_label)} — ${escapeHtml(detail)}</option>`;
+      }).join('') : '<option value="">No billing weeks available</option>';
+      refs.disputesWeek.disabled = !windows.length;
+    }
+    if (refs.disputesSubmit) refs.disputesSubmit.disabled = !windows.length;
+  };
+
+  const disputeIcon = (status) => status === 'accepted'
+    ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"></path></svg>'
+    : status === 'rejected'
+      ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"></path></svg>'
+      : '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>';
+
+  const disputeItemMarkup = (item) => `<article class="partner-disputes-order-card">
+    <div><strong>${escapeHtml(item.order_id || 'Order')}</strong><small>${escapeHtml(item.description || 'Order items')}</small><span>${escapeHtml([item.platform || 'Other', `${number(item.units || 0)} units`, item.customer_name].filter(Boolean).join(' · '))}</span></div>
+    <strong>${currency(item.amount)}</strong>
+  </article>`;
+
+  const disputeMessageMarkup = (message) => {
+    const side = message.side === 'finance' ? 'finance' : 'partner';
+    return `<article class="partner-disputes-message is-${side}">
+      <div><strong>${escapeHtml(message.author || (side === 'finance' ? 'Jenang Gemi Finance' : 'Partner'))}</strong><span>${escapeHtml(message.label || 'Message')}</span></div>
+      <p>${escapeHtml(message.body || 'No message supplied.')}</p>
+      <time>${escapeHtml(dateLabel(message.created_at, true))}</time>
+    </article>`;
+  };
+
+  const disputeCardMarkup = (dispute) => {
+    const status = ['pending', 'accepted', 'rejected'].includes(dispute.status) ? dispute.status : 'pending';
+    const items = Array.isArray(dispute.items) ? dispute.items : [];
+    const messages = Array.isArray(dispute.messages) ? dispute.messages : [];
+    const evidence = dispute.evidence && typeof dispute.evidence === 'object' ? dispute.evidence : null;
+    return `<article class="partner-disputes-card is-${status}">
+      <header>
+        <div class="partner-disputes-status-icon">${disputeIcon(status)}</div>
+        <div><span>${escapeHtml(dispute.dispute_key || `Dispute #${dispute.id || ''}`)}</span><h4>${escapeHtml(disputeStatusLabel(status))}</h4><small>Opened ${escapeHtml(dateLabel(dispute.created_at, true))}${dispute.resolved_at ? ` · resolved ${escapeHtml(dateLabel(dispute.resolved_at, true))}` : ''}</small></div>
+        <strong>${currency(dispute.amount)}</strong>
+      </header>
+      <div class="partner-disputes-card-grid">
+        <section class="partner-disputes-orders"><div class="partner-disputes-section-title"><span>Affected orders</span><strong>${number(items.length)}</strong></div>${items.length ? items.map(disputeItemMarkup).join('') : '<p class="partner-sales-empty">No affected orders were retained.</p>'}</section>
+        <section class="partner-disputes-conversation"><div class="partner-disputes-section-title"><span>Conversation</span><strong>${number(messages.length)} messages</strong></div><div class="partner-disputes-thread">${messages.map(disputeMessageMarkup).join('')}</div></section>
+        <aside class="partner-disputes-evidence"><div class="partner-disputes-section-title"><span>Screenshot evidence</span><strong>${evidence ? '1 file' : 'None'}</strong></div>${evidence
+          ? `<a href="${escapeHtml(evidence.url)}" target="_blank" rel="noopener" class="partner-disputes-evidence-link"><img src="${escapeHtml(evidence.url)}" alt="Finance evidence for ${escapeHtml(dispute.dispute_key || 'dispute')}" loading="lazy"><span><strong>${escapeHtml(evidence.name || 'Finance evidence')}</strong><small>Open full screenshot</small></span></a>`
+          : '<div class="partner-disputes-no-evidence"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17 9 12l4 4 3-3 4 4"></path><rect x="3" y="4" width="18" height="16" rx="2"></rect></svg><strong>No screenshot attached</strong><span>This dispute was resolved without image evidence.</span></div>'}</aside>
+      </div>
+    </article>`;
+  };
+
+  const renderDisputeHistory = (history) => {
+    const summary = history?.summary || {};
+    const statuses = summary.statuses || {};
+    const disputes = Array.isArray(history?.disputes) ? history.disputes : [];
+    if (refs.disputesWindowLabel) refs.disputesWindowLabel.textContent = history?.window?.period_label || 'Weekly window';
+    if (refs.disputesSummary) refs.disputesSummary.innerHTML = `
+      <article><span>Disputes</span><strong>${number(summary.count || 0)}</strong><small>in this billing week</small></article>
+      <article><span>Disputed value</span><strong>${currency(summary.amount || 0)}</strong><small>across affected orders</small></article>
+      <article><span>Outcomes</span><strong>${number(statuses.accepted || 0)} / ${number(statuses.rejected || 0)}</strong><small>accepted / rejected · ${number(statuses.pending || 0)} open</small></article>`;
+    if (refs.disputesList) refs.disputesList.innerHTML = disputes.length
+      ? disputes.map(disputeCardMarkup).join('')
+      : '<div class="partner-disputes-empty"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"></path></svg><strong>No disputes in this window</strong><p>This weekly bill has a clean history. Choose another week to continue reviewing the archive.</p></div>';
+    if (refs.disputesPicker) refs.disputesPicker.hidden = true;
+    if (refs.disputesHistory) refs.disputesHistory.hidden = false;
+  };
+
+  const showDisputePicker = () => {
+    if (refs.disputesPicker) refs.disputesPicker.hidden = false;
+    if (refs.disputesHistory) refs.disputesHistory.hidden = true;
+    if (refs.disputesError) refs.disputesError.hidden = true;
+  };
+
+  const loadDisputes = async (periodStart = '') => {
+    if (state.disputeLoading) return null;
+    state.disputeLoading = true;
+    if (refs.disputesSubmit) refs.disputesSubmit.disabled = true;
+    if (refs.disputesError) refs.disputesError.hidden = true;
+    try {
+      const payload = await requestJson(disputeUrl(periodStart));
+      state.disputePayload = payload.history || {};
+      renderDisputeWindows(state.disputePayload);
+      return state.disputePayload;
+    } catch (error) {
+      if (refs.disputesError) {
+        refs.disputesError.textContent = error.message || 'Unable to load dispute history.';
+        refs.disputesError.hidden = false;
+      }
+      return null;
+    } finally {
+      state.disputeLoading = false;
+      if (refs.disputesSubmit) refs.disputesSubmit.disabled = !(state.disputePayload?.windows?.length);
+    }
+  };
+
+  const openDisputes = async () => {
+    if (!refs.disputesModal) return;
+    refs.disputesModal.hidden = false;
+    document.body.classList.add('partner-disputes-open');
+    showDisputePicker();
+    if (refs.disputesWeek) {
+      refs.disputesWeek.disabled = true;
+      refs.disputesWeek.innerHTML = '<option value="">Loading weekly windows…</option>';
+    }
+    state.disputePayload = null;
+    await loadDisputes();
+    refs.disputesWeek?.focus();
+  };
+
+  const closeDisputes = () => {
+    if (refs.disputesModal) refs.disputesModal.hidden = true;
+    document.body.classList.remove('partner-disputes-open');
+    refs.disputesButton?.focus();
   };
 
   const render = () => {
@@ -274,6 +407,16 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.querySelectorAll('[data-close-payment-modal]').forEach((button) => button.addEventListener('click', closePaymentModal));
+  refs.disputesButton?.addEventListener('click', openDisputes);
+  document.querySelectorAll('[data-close-disputes]').forEach((button) => button.addEventListener('click', closeDisputes));
+  $('[data-change-dispute-week]')?.addEventListener('click', showDisputePicker);
+  refs.disputesForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const periodStart = refs.disputesWeek?.value || '';
+    if (!periodStart) return;
+    const history = await loadDisputes(periodStart);
+    if (history) renderDisputeHistory(history);
+  });
   refs.paymentForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
     const formData = new FormData(refs.paymentForm);
@@ -296,6 +439,10 @@ document.addEventListener('DOMContentLoaded', () => {
       await requestJson(endpoint, { method: 'POST', body: { action: 'void_payment', partner_code: partnerCode, payment_id: Number(button.dataset.voidPayment) } });
       await load();
     } catch (error) { setError(error.message || 'Unable to remove payment.'); }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && refs.disputesModal && !refs.disputesModal.hidden) closeDisputes();
   });
 
   if (!partnerCode) {

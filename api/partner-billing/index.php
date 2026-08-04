@@ -46,6 +46,15 @@ try {
             'generated_at' => gmdate(DATE_ATOM),
         ]);
     }
+    if ($method === 'GET' && $action === 'dispute_history') {
+        $partnerCode = strtoupper(mb_substr(trim((string) ($_GET['partner_code'] ?? '')), 0, 64));
+        $periodStart = trim((string) ($_GET['period_start'] ?? '')) ?: null;
+        jg_admin_partner_billing_json([
+            'ok' => true,
+            'history' => jg_admin_partner_billing_dispute_history($partnerPdo, $partnerCode, $endpoint, $periodStart),
+            'generated_at' => gmdate(DATE_ATOM),
+        ]);
+    }
     if ($method !== 'POST') {
         jg_admin_partner_billing_json(['ok' => false, 'error' => 'Method not allowed.'], 405);
     }

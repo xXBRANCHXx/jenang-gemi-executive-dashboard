@@ -26,6 +26,8 @@ $statusSource = file_get_contents(dirname(__DIR__) . '/api/partner-db-status/ind
 admin_partner_billing_expect(true, str_contains($source, 'accounting_partner_bill_receipts'), 'Accounting confirmation must have an idempotency ledger.');
 admin_partner_billing_expect(true, str_contains($source, 'billing_status = "dispute_accepted"'), 'Accepted disputes must mark claimed orders paid in storage.');
 admin_partner_billing_expect(true, str_contains($source, 'billing_status = "bill_paid"'), 'Confirmed bills must mark included orders paid in storage.');
+admin_partner_billing_expect(true, str_contains($source, 'function jg_admin_partner_billing_dispute_history'), 'Admin billing should expose historical disputes by weekly window.');
+admin_partner_billing_expect(true, str_contains($source, "'messages' => \$messages") && str_contains($source, "'evidence' => \$evidenceId"), 'Dispute history must preserve the partner and finance messages plus screenshot evidence.');
 admin_partner_billing_expect(true, str_contains($statusSource, 'jg_partner_db_status_setup_token_matches') && str_contains($statusSource, 'hash_equals'), 'Deployment checks should support the existing server setup token without weakening comparison.');
 admin_partner_billing_expect(true, str_contains($statusSource, 'jg_admin_partner_billing_sync') && str_contains($statusSource, 'billing_ready'), 'Deployment checks should exercise the production billing synchronization path.');
 admin_partner_billing_expect(true, is_file(dirname(__DIR__) . '/data/.htaccess') && str_contains((string) file_get_contents(dirname(__DIR__) . '/data/.htaccess'), 'Require all denied'), 'Runtime partner credentials must not be web-accessible.');

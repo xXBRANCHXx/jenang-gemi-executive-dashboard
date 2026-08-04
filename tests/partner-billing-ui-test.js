@@ -6,6 +6,7 @@ const root = path.resolve(__dirname, '..');
 const nav = fs.readFileSync(path.join(root, 'admin-nav.php'), 'utf8');
 const dashboard = fs.readFileSync(path.join(root, 'dashboard/index.php'), 'utf8');
 const notifications = fs.readFileSync(path.join(root, 'partner-billing-notifications.js'), 'utf8');
+const billingApi = fs.readFileSync(path.join(root, 'api', 'partner-billing', 'index.php'), 'utf8');
 const accounting = fs.readFileSync(path.join(root, 'accounting-bootstrap.php'), 'utf8');
 const styles = fs.readFileSync(path.join(root, 'admin.css'), 'utf8');
 
@@ -19,6 +20,7 @@ assert.match(notifications, /accept_dispute[\s\S]*Investigate/, 'Dispute notific
 assert.match(notifications, /Reject dispute[\s\S]*Accept and remove orders/, 'Investigation should support both resolutions.');
 assert.match(notifications, /application\/pdf[\s\S]*<object/, 'PDF payment proof should render in an inline preview.');
 assert.match(notifications, /partner-billing:confirmed/, 'Accounting should be notified immediately after confirmation.');
+assert.match(billingApi, /dispute_history[\s\S]*jg_admin_partner_billing_dispute_history/, 'The billing API should expose authenticated dispute history to Partner Sales.');
 assert.match(accounting, /billsDueSoon = \$accountingBillsDueSoon \+ \$partnerBillsDue/, 'Unpaid partner bills should count toward Bills Due.');
 assert.match(accounting, /safeCash = \$realCash - \$accountingBillsDueSoon - \$overdueBills/, 'Partner receivables should not be subtracted from Safe Cash as liabilities.');
 assert.match(accounting, /accounting_partner_bill_receipts/, 'Confirmed partner cash should be idempotently mapped to Accounting.');

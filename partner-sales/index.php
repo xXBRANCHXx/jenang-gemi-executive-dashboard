@@ -31,7 +31,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
     <link rel="stylesheet" href="../partner-access.css?v=<?php echo urlencode($partnerAccessCssVersion ?: '1'); ?>">
 </head>
 <body class="admin-body is-dashboard">
-    <div class="admin-app admin-app-suite" data-partner-sales data-sales-endpoint="../api/partner-sales/" data-partner-code="<?php echo htmlspecialchars($partnerCode, ENT_QUOTES); ?>">
+    <div class="admin-app admin-app-suite" data-partner-sales data-sales-endpoint="../api/partner-sales/" data-disputes-endpoint="../api/partner-billing/" data-partner-code="<?php echo htmlspecialchars($partnerCode, ENT_QUOTES); ?>">
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
         <div class="admin-shell">
@@ -132,6 +132,10 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                             <header class="partner-sales-ledger-head">
                                 <div><span>Order ledger</span><h3>Sales, items and settlement status</h3></div>
                                 <div class="partner-sales-ledger-controls">
+                                    <button type="button" class="admin-ghost-btn partner-sales-disputes-button" data-open-disputes>
+                                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h16v11H8l-4 3v-14Z"></path><path d="M8 9h8M8 13h5"></path></svg>
+                                        See disputes
+                                    </button>
                                     <label class="partner-sales-search"><span>Search</span><input type="search" placeholder="Order, customer, channel, SKU" data-sales-search></label>
                                     <label class="partner-sales-filter"><span>Status</span><select data-sales-status-filter><option value="all">All payments</option><option value="unpaid">Unpaid</option><option value="partial">Partially paid</option><option value="paid">Paid</option><option value="cancelled">Cancelled</option></select></label>
                                 </div>
@@ -173,6 +177,50 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                     <button type="submit" class="admin-primary-btn">Record payment</button>
                 </footer>
             </form>
+        </div>
+    </div>
+
+    <div class="admin-modal-shell partner-disputes-modal-shell" data-disputes-modal hidden>
+        <div class="admin-modal-backdrop" data-close-disputes></div>
+        <div class="admin-modal-card partner-disputes-modal" role="dialog" aria-modal="true" aria-labelledby="disputes-modal-title">
+            <header class="partner-disputes-modal-head">
+                <div>
+                    <span>Partner billing archive</span>
+                    <h3 id="disputes-modal-title">Dispute history</h3>
+                    <p>Messages, affected orders, outcomes, and finance evidence in one place.</p>
+                </div>
+                <button type="button" class="partner-sales-modal-close" data-close-disputes aria-label="Close dispute history">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"></path></svg>
+                </button>
+            </header>
+
+            <div class="partner-disputes-body">
+                <section class="partner-disputes-picker" data-disputes-picker>
+                    <div class="partner-disputes-picker-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M16 3v4M8 3v4M3 10h18M8 14h3M8 17h6"></path></svg>
+                    </div>
+                    <span>Weekly review</span>
+                    <h4>Choose a weekly window</h4>
+                    <p>Select one billing week to see every dispute conversation and screenshot from that period.</p>
+                    <form data-disputes-window-form>
+                        <label><span>Billing week</span><select data-disputes-week required disabled><option value="">Loading weekly windows…</option></select></label>
+                        <button type="submit" class="admin-primary-btn" data-view-disputes disabled>View dispute history</button>
+                    </form>
+                    <p class="admin-form-error partner-disputes-error" data-disputes-error hidden></p>
+                </section>
+
+                <section class="partner-disputes-history" data-disputes-history hidden>
+                    <div class="partner-disputes-history-toolbar">
+                        <button type="button" class="partner-disputes-change-week" data-change-dispute-week>
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg>
+                            Change week
+                        </button>
+                        <span data-disputes-window-label>Weekly window</span>
+                    </div>
+                    <div class="partner-disputes-summary" data-disputes-summary></div>
+                    <div class="partner-disputes-list" data-disputes-list></div>
+                </section>
+            </div>
         </div>
     </div>
 

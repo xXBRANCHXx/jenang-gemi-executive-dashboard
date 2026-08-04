@@ -478,6 +478,123 @@ function jg_admin_partner_billing_notifications(string $endpoint): array
     return $events;
 }
 
+function jg_admin_partner_billing_dispute_history(PDO $pdo, string $partnerCode, string $endpoint, ?string $periodStart = null): array
+{
+    $partnerCode = strtoupper(trim($partnerCode));
+    if ($partnerCode === '') throw new InvalidArgumentException('Partner code is required.');
+
+    jg_admin_partner_billing_sync($pdo);
+    $windowStmt = $pdo->prepare(
+        'SELECT b.period_start, b.period_end, b.status AS bill_status,
+                COUNT(d.id) AS dispute_count,
+                COALESCE(SUM(CASE WHEN d.status = "pending" THEN 1 ELSE 0 END), 0) AS pending_count
+         FROM partner_weekly_bills b
+         LEFT JOIN partner_weekly_bill_disputes d ON d.bill_id = b.bill_id
+         WHERE b.partner_code = :partner_code
+         GROUP BY b.bill_id, b.period_start, b.period_end, b.status
+         ORDER BY b.period_start DESC
+         LIMIT 104'
+    );
+    $windowStmt->execute([':partner_code' => $partnerCode]);
+    $windows = array_map(static fn (array $row): array => [
+        'period_start' => (string) $row['period_start'],
+        'period_end' => (string) $row['period_end'],
+        'period_label' => jg_admin_partner_billing_period_label((string) $row['period_start'], (string) $row['period_end']),
+        'bill_status' => (string) $row['bill_status'],
+        'dispute_count' => (int) $row['dispute_count'],
+        'pending_count' => (int) $row['pending_count'],
+    ], $windowStmt->fetchAll());
+
+    if ($periodStart !== null && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $periodStart)) {
+        throw new InvalidArgumentException('Weekly window is invalid.');
+    }
+    if ($periodStart === null && $windows !== []) {
+        $disputedWindow = current(array_values(array_filter($windows, static fn (array $window): bool => $window['dispute_count'] > 0)));
+        $periodStart = is_array($disputedWindow) ? (string) $disputedWindow['period_start'] : (string) $windows[0]['period_start'];
+    }
+
+    $selectedWindow = null;
+    foreach ($windows as $window) {
+        if ($window['period_start'] === $periodStart) {
+            $selectedWindow = $window;
+            break;
+        }
+    }
+    if ($periodStart !== null && $selectedWindow === null) {
+        throw new InvalidArgumentException('Weekly window was not found for this partner.');
+    }
+
+    $disputes = [];
+    if ($selectedWindow !== null) {
+        $stmt = $pdo->prepare(
+            'SELECT d.id, d.dispute_key, d.bill_id, d.partner_code, d.reason, d.status,
+                    d.resolution_reason, d.evidence_file_id, d.created_at, d.resolved_at, d.updated_at,
+                    f.original_name AS evidence_name, f.mime_type AS evidence_mime, f.size_bytes AS evidence_size,
+                    COALESCE(NULLIF(pr.name, ""), d.partner_code) AS partner_name
+             FROM partner_weekly_bill_disputes d
+             JOIN partner_weekly_bills b ON b.bill_id = d.bill_id
+             LEFT JOIN partner_weekly_bill_files f ON f.id = d.evidence_file_id
+             LEFT JOIN partner_profiles pr ON pr.code = d.partner_code
+             WHERE d.partner_code = :partner_code AND b.period_start = :period_start
+             ORDER BY d.created_at DESC, d.id DESC'
+        );
+        $stmt->execute([':partner_code' => $partnerCode, ':period_start' => $selectedWindow['period_start']]);
+        foreach ($stmt->fetchAll() as $row) {
+            $items = jg_admin_partner_billing_items($pdo, (string) $row['bill_id'], (int) $row['id']);
+            $messages = [[
+                'side' => 'partner',
+                'author' => (string) $row['partner_name'],
+                'label' => 'Partner message',
+                'body' => (string) $row['reason'],
+                'created_at' => (string) $row['created_at'],
+            ]];
+            if ((string) ($row['resolved_at'] ?? '') !== '') {
+                $messages[] = [
+                    'side' => 'finance',
+                    'author' => 'Jenang Gemi Finance',
+                    'label' => (string) $row['status'] === 'accepted' ? 'Dispute accepted' : 'Finance response',
+                    'body' => trim((string) ($row['resolution_reason'] ?? '')) ?: 'The dispute was resolved by finance.',
+                    'created_at' => (string) $row['resolved_at'],
+                ];
+            }
+            $evidenceId = (int) ($row['evidence_file_id'] ?? 0);
+            $disputes[] = [
+                'id' => (int) $row['id'],
+                'dispute_key' => (string) $row['dispute_key'],
+                'bill_id' => (string) $row['bill_id'],
+                'status' => (string) $row['status'],
+                'amount' => array_sum(array_map(static fn (array $item): int => (int) $item['amount'], $items)),
+                'items' => $items,
+                'messages' => $messages,
+                'created_at' => (string) $row['created_at'],
+                'resolved_at' => (string) ($row['resolved_at'] ?? ''),
+                'evidence' => $evidenceId > 0 ? [
+                    'url' => $endpoint . '?' . http_build_query(['action' => 'file', 'id' => $evidenceId]),
+                    'name' => (string) ($row['evidence_name'] ?? 'Finance evidence'),
+                    'mime_type' => (string) ($row['evidence_mime'] ?? ''),
+                    'size_bytes' => (int) ($row['evidence_size'] ?? 0),
+                ] : null,
+            ];
+        }
+    }
+
+    $statuses = ['pending' => 0, 'accepted' => 0, 'rejected' => 0];
+    foreach ($disputes as $dispute) {
+        if (array_key_exists($dispute['status'], $statuses)) $statuses[$dispute['status']]++;
+    }
+    return [
+        'partner_code' => $partnerCode,
+        'windows' => $windows,
+        'window' => $selectedWindow,
+        'disputes' => $disputes,
+        'summary' => [
+            'count' => count($disputes),
+            'amount' => array_sum(array_column($disputes, 'amount')),
+            'statuses' => $statuses,
+        ],
+    ];
+}
+
 function jg_admin_partner_billing_stream_file(PDO $pdo, int $fileId): never
 {
     $stmt = $pdo->prepare('SELECT original_name, mime_type, size_bytes, file_data FROM partner_weekly_bill_files WHERE id = :id LIMIT 1');
