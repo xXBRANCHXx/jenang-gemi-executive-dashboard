@@ -78,6 +78,17 @@ const DAILY_METRIC_UNITS = {
   orders: 'orders'
 };
 
+const DAILY_PLATFORM_LABELS = {
+  shopee: 'Shopee',
+  tiktok: 'TikTok',
+  whatsapp: 'WhatsApp',
+  baggos: 'Baggos',
+  jenang_gemi_website: 'Jenang Gemi Website',
+  zero_website: 'ZERO Website',
+  partner: 'Partner',
+  'walk-in': 'Walk-in'
+};
+
 const OVERVIEW_PLATFORM_COLORS = {
   shopee: '#ff8f1f',
   tiktok: '#22d3ee',
@@ -2717,6 +2728,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const jenangGemiStoreEndpoint = root.dataset.jenangGemiStoreEndpoint || '../api/jenang-gemi-store/';
 	  const websiteOrdersEndpoint = root.dataset.websiteOrdersEndpoint || '../api/website-orders/';
 	  const hardSetEndpoint = root.dataset.hardSetEndpoint || '../api/hard-set/';
+	  const dailyColumnsEndpoint = root.dataset.dailyColumnsEndpoint || '../api/daily-columns/';
 	  const walletEndpoint = root.dataset.walletEndpoint || '../api/wallet/';
 	  const inventoryRecapEndpoint = root.dataset.inventoryRecapEndpoint || '../api/inventory-recap/';
 	  const provinceMapUrl = root.dataset.provinceMapUrl || '../assets/data/indonesia-38-provinces.geojson';
@@ -2927,7 +2939,15 @@ document.addEventListener('DOMContentLoaded', () => {
     sheetFoot: document.querySelector('[data-daily-sheet-foot]'),
     platformForm: document.querySelector('[data-daily-platform-form]'),
     platformName: document.querySelector('[data-daily-platform-name]'),
-    platformList: document.querySelector('[data-daily-platform-list]')
+    platformList: document.querySelector('[data-daily-platform-list]'),
+    platformFeedback: document.querySelector('[data-daily-platform-feedback]'),
+    removeDialog: document.querySelector('[data-daily-column-remove-dialog]'),
+    removeForm: document.querySelector('[data-daily-column-remove-form]'),
+    removeName: document.querySelector('[data-daily-column-remove-name]'),
+    removePin: document.querySelector('[data-daily-column-remove-pin]'),
+    removeError: document.querySelector('[data-daily-column-remove-error]'),
+    removeCancel: document.querySelector('[data-daily-column-remove-cancel]'),
+    removeSubmit: document.querySelector('[data-daily-column-remove-submit]')
   };
   const contextRefs = {
     groupButtons: document.querySelectorAll('[data-context-group]'),
@@ -6724,7 +6744,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const platformLabel = (value) => toTitleCase(String(value || 'unknown').replace(/[-_]/g, ' '));
+  const platformLabel = (value) => {
+    const key = normalizePlatformKey(value || 'unknown');
+    return DAILY_PLATFORM_LABELS[key] || toTitleCase(String(value || 'unknown').replace(/[-_]/g, ' '));
+  };
 
   const dailyPlatformKey = (value) => normalizePlatformKey(value || 'unknown');
 
@@ -7113,12 +7136,15 @@ document.addEventListener('DOMContentLoaded', () => {
       dailyRefs.platformList.innerHTML = '<p class="admin-empty">No manual account columns.</p>';
       return;
     }
-    dailyRefs.platformList.innerHTML = custom.map((name) => `
-      <button type="button" class="daily-platform-chip" data-daily-remove-platform="${escapeHtml(name)}">
-        <span>${escapeHtml(dailyAccountFromCustomName(name).label)}</span>
+    dailyRefs.platformList.innerHTML = custom.map((name) => {
+      const account = dailyAccountFromCustomName(name);
+      return `
+      <button type="button" class="daily-platform-chip" data-daily-remove-platform="${escapeHtml(name)}" aria-label="Remove ${escapeHtml(account.label)}">
+        <span>${escapeHtml(account.label)}</span>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
       </button>
-    `).join('');
+    `;
+    }).join('');
   };
 
   const formatDailyQty = (value, options = {}) => formatRegionalNumber(value, {
@@ -12477,18 +12503,56 @@ document.addEventListener('DOMContentLoaded', () => {
 
   dailyRefs.exportButton?.addEventListener('click', downloadDailyPdf);
 
+  const setDailyPlatformFeedback = (message = '', error = false) => {
+    if (!dailyRefs.platformFeedback) return;
+    dailyRefs.platformFeedback.textContent = message;
+    dailyRefs.platformFeedback.hidden = !message;
+    dailyRefs.platformFeedback.classList.toggle('is-error', Boolean(error));
+  };
+
   dailyRefs.platformForm?.addEventListener('submit', (event) => {
     event.preventDefault();
+    const form = event.currentTarget;
+    if (!(form instanceof HTMLFormElement)) return;
     const name = String(dailyRefs.platformName?.value || '').trim();
-    if (!name) return;
-    const key = dailyPlatformKey(name);
-    if (!state.daily.customPlatforms.some((item) => dailyPlatformKey(item) === key)) {
-      state.daily.customPlatforms.push(name);
-      persistDailyCustomPlatforms();
+    const platforms = Array.from(new Set(
+      new FormData(form).getAll('platforms[]').map((platform) => String(platform || '').trim()).filter(Boolean)
+    ));
+    if (!platforms.length) {
+      setDailyPlatformFeedback('Select at least one platform.', true);
+      return;
     }
-    if (dailyRefs.platformName) dailyRefs.platformName.value = '';
+    if (!name) {
+      setDailyPlatformFeedback('Enter a name for the new column.', true);
+      dailyRefs.platformName?.focus();
+      return;
+    }
+
+    let added = 0;
+    platforms.forEach((platform) => {
+      if (state.daily.customPlatforms.length >= 24) return;
+      const candidate = `${platform} / ${name}`;
+      const candidateKey = dailyAccountFromCustomName(candidate).key;
+      if (state.daily.customPlatforms.some((item) => dailyAccountFromCustomName(item).key === candidateKey)) return;
+      state.daily.customPlatforms.push(candidate);
+      added += 1;
+    });
+
+    if (!added) {
+      setDailyPlatformFeedback(
+        state.daily.customPlatforms.length >= 24 ? 'The 24-column limit has been reached.' : 'Those columns already exist.',
+        true
+      );
+      return;
+    }
+
+    persistDailyCustomPlatforms();
+    form.reset();
+    setDailyPlatformFeedback(`Added ${formatRegionalInteger(added)} ${added === 1 ? 'column' : 'columns'}.`);
     renderDaily(currentDailyData());
   });
+
+  let pendingDailyColumnRemoval = '';
 
   dailyRefs.platformList?.addEventListener('click', (event) => {
     const target = event.target;
@@ -12496,9 +12560,64 @@ document.addEventListener('DOMContentLoaded', () => {
     const button = target.closest('[data-daily-remove-platform]');
     if (!(button instanceof HTMLElement)) return;
     const name = button.getAttribute('data-daily-remove-platform') || '';
-    state.daily.customPlatforms = state.daily.customPlatforms.filter((item) => dailyPlatformKey(item) !== dailyPlatformKey(name));
-    persistDailyCustomPlatforms();
-    renderDaily(currentDailyData());
+    if (!name || !dailyRefs.removeDialog) return;
+    pendingDailyColumnRemoval = name;
+    dailyRefs.removeForm?.reset();
+    if (dailyRefs.removeName) dailyRefs.removeName.textContent = dailyAccountFromCustomName(name).label;
+    if (dailyRefs.removeError) {
+      dailyRefs.removeError.hidden = true;
+      dailyRefs.removeError.textContent = '';
+    }
+    dailyRefs.removeDialog.showModal();
+    window.setTimeout(() => dailyRefs.removePin?.focus(), 0);
+  });
+
+  dailyRefs.removeCancel?.addEventListener('click', () => dailyRefs.removeDialog?.close());
+  dailyRefs.removeDialog?.addEventListener('close', () => {
+    pendingDailyColumnRemoval = '';
+    dailyRefs.removeForm?.reset();
+  });
+  dailyRefs.removeForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (!(form instanceof HTMLFormElement) || !pendingDailyColumnRemoval) return;
+    const pin = String(new FormData(form).get('pin') || '').trim();
+    if (!pin) {
+      if (dailyRefs.removeError) {
+        dailyRefs.removeError.hidden = false;
+        dailyRefs.removeError.textContent = 'Enter the Dashboard PIN.';
+      }
+      return;
+    }
+
+    const name = pendingDailyColumnRemoval;
+    if (dailyRefs.removeSubmit instanceof HTMLButtonElement) dailyRefs.removeSubmit.disabled = true;
+    if (dailyRefs.removeError) {
+      dailyRefs.removeError.hidden = true;
+      dailyRefs.removeError.textContent = '';
+    }
+    try {
+      await requestJson(dailyColumnsEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verify_remove', pin }),
+        timeoutMs: 15000
+      });
+      const removalKey = dailyAccountFromCustomName(name).key;
+      state.daily.customPlatforms = state.daily.customPlatforms.filter((item) => dailyAccountFromCustomName(item).key !== removalKey);
+      persistDailyCustomPlatforms();
+      dailyRefs.removeDialog?.close();
+      setDailyPlatformFeedback(`Removed ${dailyAccountFromCustomName(name).label}.`);
+      renderDaily(currentDailyData());
+    } catch (error) {
+      if (dailyRefs.removeError) {
+        dailyRefs.removeError.hidden = false;
+        dailyRefs.removeError.textContent = error?.message || 'Unable to verify the Dashboard PIN.';
+      }
+      dailyRefs.removePin?.select();
+    } finally {
+      if (dailyRefs.removeSubmit instanceof HTMLButtonElement) dailyRefs.removeSubmit.disabled = false;
+    }
   });
 
   homeRefs.timeframeButtons.forEach((button) => {

@@ -104,7 +104,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
             <strong class="admin-loader-label" data-admin-loader-label>Initializing...</strong>
         </div>
     </div>
-    <div class="admin-app admin-app-suite" data-admin-dashboard data-analytics-endpoint="../api/analytics/" data-live-endpoint="../api/live/" data-settings-endpoint="../api/settings/" data-sales-endpoint="../api/sales/" data-orders-endpoint="../api/orders/" data-customer-profiles-endpoint="../api/customer-profiles/?summary=1" data-wallet-endpoint="../api/wallet/" data-inventory-recap-endpoint="../api/inventory-recap/" data-ads-endpoint="../api/ads/" data-sku-catalog-endpoint="../api/sales/?action=sku_catalog" data-context-endpoint="../api/context/" data-zero-store-endpoint="../api/zero-store/" data-jenang-gemi-store-endpoint="../api/jenang-gemi-store/" data-website-orders-endpoint="../api/website-orders/" data-hard-set-endpoint="../api/hard-set/" data-province-map-url="../assets/data/indonesia-38-provinces.geojson">
+    <div class="admin-app admin-app-suite" data-admin-dashboard data-analytics-endpoint="../api/analytics/" data-live-endpoint="../api/live/" data-settings-endpoint="../api/settings/" data-sales-endpoint="../api/sales/" data-orders-endpoint="../api/orders/" data-customer-profiles-endpoint="../api/customer-profiles/?summary=1" data-wallet-endpoint="../api/wallet/" data-inventory-recap-endpoint="../api/inventory-recap/" data-ads-endpoint="../api/ads/" data-sku-catalog-endpoint="../api/sales/?action=sku_catalog" data-context-endpoint="../api/context/" data-zero-store-endpoint="../api/zero-store/" data-jenang-gemi-store-endpoint="../api/jenang-gemi-store/" data-website-orders-endpoint="../api/website-orders/" data-hard-set-endpoint="../api/hard-set/" data-daily-columns-endpoint="../api/daily-columns/" data-province-map-url="../assets/data/indonesia-38-provinces.geojson">
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
         <div class="admin-shell">
@@ -601,14 +601,28 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 
                     <div class="daily-sheet-footbar">
                         <form class="daily-platform-form" data-daily-platform-form>
-                            <label>
-                                <span>Add account column <span class="admin-info-dot" title="Adds a zero-value platform or platform/account column until that account appears in order data." aria-label="Adds a zero-value platform or platform/account column until that account appears in order data.">i</span></span>
-                                <input type="text" data-daily-platform-name placeholder="Example: Partner Web / Wholesale" maxlength="64">
+                            <fieldset class="daily-platform-picker">
+                                <legend>Select one or more platforms</legend>
+                                <div class="daily-platform-options" data-daily-platform-options>
+                                    <label><input type="checkbox" name="platforms[]" value="shopee"><span>Shopee</span></label>
+                                    <label><input type="checkbox" name="platforms[]" value="tiktok"><span>TikTok</span></label>
+                                    <label><input type="checkbox" name="platforms[]" value="whatsapp"><span>WhatsApp</span></label>
+                                    <label><input type="checkbox" name="platforms[]" value="baggos"><span>Baggos</span></label>
+                                    <label><input type="checkbox" name="platforms[]" value="jenang_gemi_website"><span>Jenang Gemi Website</span></label>
+                                    <label><input type="checkbox" name="platforms[]" value="zero_website"><span>ZERO Website</span></label>
+                                    <label><input type="checkbox" name="platforms[]" value="partner"><span>Partner</span></label>
+                                    <label><input type="checkbox" name="platforms[]" value="walk_in"><span>Walk-in</span></label>
+                                </div>
+                            </fieldset>
+                            <label class="daily-column-name-field">
+                                <span>Column name <span class="admin-info-dot" title="The name is added under every selected platform." aria-label="The name is added under every selected platform.">i</span></span>
+                                <input type="text" data-daily-platform-name name="column_name" placeholder="Example: Wholesale" maxlength="48" required>
                             </label>
                             <button type="submit" class="admin-soft-btn daily-add-platform-btn">
                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-                                <span>Add</span>
+                                <span>Add columns</span>
                             </button>
+                            <p class="daily-platform-feedback" data-daily-platform-feedback hidden aria-live="polite"></p>
                         </form>
                         <div class="daily-platform-list" data-daily-platform-list>
                             <p class="admin-empty">No manual account columns.</p>
@@ -1881,6 +1895,16 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
             <label><span>Type <strong>ACTIVATE BIG SET</strong></span><input name="confirmation" autocomplete="off" required></label>
             <p class="admin-form-error" data-hard-set-error hidden></p>
             <div class="admin-modal-actions"><button type="button" class="admin-ghost-btn" data-hard-set-cancel>Cancel</button><button type="submit" class="admin-danger-btn">Activate Permanently</button></div>
+        </form>
+    </dialog>
+    <dialog class="admin-hard-set-dialog daily-column-remove-dialog" data-daily-column-remove-dialog aria-labelledby="daily-column-remove-title">
+        <form method="dialog" data-daily-column-remove-form>
+            <span class="admin-panel-kicker">Protected change</span>
+            <h2 id="daily-column-remove-title">Are you sure?</h2>
+            <p>Remove <strong data-daily-column-remove-name>this manual column</strong> from the Daily sheet? Enter the Executive Dashboard PIN to confirm.</p>
+            <label><span>Dashboard PIN</span><input type="password" name="pin" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" placeholder="Enter 6-digit PIN" data-daily-column-remove-pin required></label>
+            <p class="admin-form-error" data-daily-column-remove-error hidden></p>
+            <div class="admin-modal-actions"><button type="button" class="admin-ghost-btn" data-daily-column-remove-cancel>Keep column</button><button type="submit" class="admin-danger-btn" data-daily-column-remove-submit>Verify PIN &amp; remove</button></div>
         </form>
     </dialog>
     <div class="admin-modal-shell admin-orders-filter-modal" data-orders-filter-modal hidden>

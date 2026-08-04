@@ -27,13 +27,16 @@ function jg_admin_is_authenticated(): bool
     return !empty($_SESSION['jg_admin_authenticated']);
 }
 
+function jg_admin_code_matches(string $code): bool
+{
+    return hash_equals(JG_ADMIN_CODE_HASH, hash('sha256', trim($code)));
+}
+
 function jg_admin_attempt_login(string $code): bool
 {
     jg_admin_start_session();
-    $normalized = trim($code);
-    $candidateHash = hash('sha256', $normalized);
 
-    if (!hash_equals(JG_ADMIN_CODE_HASH, $candidateHash)) {
+    if (!jg_admin_code_matches($code)) {
         $_SESSION['jg_admin_authenticated'] = false;
         return false;
     }
