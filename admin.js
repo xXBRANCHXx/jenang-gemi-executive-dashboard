@@ -8307,7 +8307,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      const quantity = entered > 0 ? Math.ceil(entered / moq) * moq : 0;
 	      const unitCost = Math.max(0, Number(item.cogs || 0));
 	      return { ...item, selected: Boolean(state.inventoryRecap.planSelected[sku]), quantity, moq, unitCost, subtotal: quantity * unitCost, note: String(state.inventoryRecap.planNotes[sku] || '') };
-	    });
+	    }).sort(inventoryUrgencyCompare);
 	  };
 
 	  const purchasePlanSummary = () => {
