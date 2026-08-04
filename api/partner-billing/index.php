@@ -78,6 +78,19 @@ try {
             'notifications' => jg_admin_partner_billing_notifications($endpoint),
         ]);
     }
+    if ($action === 'adjust_dispute') {
+        $adjustments = $request['adjustments'] ?? [];
+        $result = jg_admin_partner_billing_adjust_dispute(
+            $partnerPdo,
+            (int) ($request['dispute_id'] ?? 0),
+            is_array($adjustments) ? $adjustments : []
+        );
+        jg_admin_partner_billing_json([
+            'ok' => true,
+            'result' => $result,
+            'notifications' => jg_admin_partner_billing_notifications($endpoint),
+        ]);
+    }
     if ($action === 'reject_dispute') {
         $file = isset($_FILES['evidence']) && is_array($_FILES['evidence']) ? $_FILES['evidence'] : null;
         $result = jg_admin_partner_billing_reject_dispute(

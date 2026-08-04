@@ -33,4 +33,20 @@ admin_partner_billing_expect(true, str_contains($statusSource, 'jg_partner_db_st
 admin_partner_billing_expect(true, str_contains($statusSource, 'jg_admin_partner_billing_sync') && str_contains($statusSource, 'billing_ready'), 'Deployment checks should exercise the production billing synchronization path.');
 admin_partner_billing_expect(true, is_file(dirname(__DIR__) . '/data/.htaccess') && str_contains((string) file_get_contents(dirname(__DIR__) . '/data/.htaccess'), 'Require all denied'), 'Runtime partner credentials must not be web-accessible.');
 
+$resolution = jg_admin_partner_billing_price_resolution([
+    'order_id' => 'PO-PRICE-1',
+    'amount' => 35000,
+    'units' => 3,
+    'snapshot' => ['items' => [
+        ['sku_code' => 'SKU-A', 'sku_label' => 'Product A', 'quantity' => 2, 'unit_revenue' => 10000],
+        ['sku_code' => 'SKU-B', 'sku_label' => 'Product B', 'quantity' => 1, 'unit_revenue' => 15000],
+    ]],
+], ['lines' => [
+    ['line_index' => 0, 'unit_price' => 12500],
+    ['line_index' => 1, 'unit_price' => 9000],
+]]);
+admin_partner_billing_expect(34000, $resolution['amount'], 'Admin product edits must recalculate the order value by quantity.');
+admin_partner_billing_expect(12500, $resolution['items'][0]['unit_revenue'], 'The edited product price must update the order snapshot.');
+admin_partner_billing_expect(25000, $resolution['items'][0]['line_revenue'], 'The edited product line total must remain consistent.');
+
 echo "admin-partner-billing-test: ok\n";

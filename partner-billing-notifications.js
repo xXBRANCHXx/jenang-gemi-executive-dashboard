@@ -54,7 +54,9 @@ document.addEventListener('DOMContentLoaded', () => {
     </span>`;
 
   const paymentTitle = (event) => `${event.partner_name} paid their weekly bill ${event.period_label}`;
-  const disputeTitle = (event) => `${event.partner_name} disputed ${event.items?.length || 0} orders on ${event.period_label}`;
+  const disputeTitle = (event) => event.dispute_type === 'price'
+    ? `${event.partner_name} proposed new prices for ${event.items?.length || 0} orders`
+    : `${event.partner_name} disputed ${event.items?.length || 0} orders on ${event.period_label}`;
 
   const listMarkup = () => {
     if (!state.events.length) {
@@ -66,12 +68,12 @@ document.addEventListener('DOMContentLoaded', () => {
           ${avatarMarkup(event)}
           <span class="admin-billing-notification-copy">
             <strong>${escapeHtml(event.type === 'payment' ? paymentTitle(event) : disputeTitle(event))}</strong>
-            <small>${escapeHtml(event.type === 'payment' ? 'Check proof of payment' : 'Review the claimed paid orders')}</small>
-            <em>${escapeHtml(money(event.amount))} · ${escapeHtml(relativeTime(event.created_at))}</em>
+            <small>${escapeHtml(event.type === 'payment' ? 'Check proof of payment' : (event.dispute_type === 'price' ? 'Review the proposed product prices' : 'Review the claimed paid orders'))}</small>
+            <em>${escapeHtml(event.type === 'dispute' && event.dispute_type === 'price' ? `${money(event.amount)} → ${money((event.items || []).reduce((sum, item) => sum + Number(item.proposed_amount || 0), 0))}` : money(event.amount))} · ${escapeHtml(relativeTime(event.created_at))}</em>
           </span>
           <svg class="admin-billing-row-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
         </button>
-        ${event.type === 'dispute' ? `<div class="admin-billing-quick-actions"><button type="button" data-billing-action="accept_dispute" data-record-id="${Number(event.record_id)}">Accept</button><button type="button" data-billing-select="${escapeHtml(event.id)}">Investigate</button></div>` : ''}
+        ${event.type === 'dispute' ? `<div class="admin-billing-quick-actions"><button type="button" data-billing-action="accept_dispute" data-record-id="${Number(event.record_id)}">${event.dispute_type === 'price' ? 'Accept proposed prices' : 'Accept'}</button><button type="button" data-billing-select="${escapeHtml(event.id)}">Investigate</button></div>` : ''}
       </article>`).join('');
   };
 
@@ -100,17 +102,29 @@ document.addEventListener('DOMContentLoaded', () => {
       </article>`;
   };
 
-  const disputeDetail = (event) => `
+  const disputeProductMarkup = (item, line) => `
+    <label class="admin-billing-price-line">
+      <span><strong>${escapeHtml(line.label || line.sku_code || 'Product')}</strong><small>${Number(line.quantity || 1)} units${line.sku_code ? ` · ${escapeHtml(line.sku_code)}` : ''}</small></span>
+      <span class="admin-billing-price-comparison"><del>${escapeHtml(money(line.original_unit_price || 0))}</del><i>→</i><span class="admin-billing-price-input"><em>Rp</em><input type="number" min="0" max="1000000000000" step="1" value="${Math.max(0, Math.round(Number(line.proposed_unit_price ?? line.original_unit_price ?? 0)))}" data-billing-adjust-price data-order-id="${escapeHtml(item.order_id)}" data-line-index="${Number(line.line_index || 0)}" required></span></span>
+    </label>`;
+
+  const disputeDetail = (event) => {
+    const proposedTotal = (event.items || []).reduce((sum, item) => sum + Number(item.proposed_amount || 0), 0);
+    const priceSummary = event.dispute_type === 'price' ? `${money(event.amount)} → ${money(proposedTotal)}` : `${money(event.amount)} disputed`;
+    return `
     <article class="admin-billing-detail admin-billing-dispute-detail" data-billing-record="${Number(event.record_id)}">
       <header class="admin-billing-dispute-head">
         ${avatarMarkup(event)}
-        <div><small>Dispute investigation</small><strong>${escapeHtml(event.partner_name)}</strong><span>${escapeHtml(event.period_label)} · ${escapeHtml(money(event.amount))} disputed</span></div>
+        <div><small>${event.dispute_type === 'price' ? 'Price review' : 'Dispute investigation'}</small><strong>${escapeHtml(event.partner_name)}</strong><span>${escapeHtml(event.period_label)} · ${escapeHtml(priceSummary)}</span></div>
       </header>
       <section class="admin-billing-dispute-reason"><span>Partner's explanation</span><p>${escapeHtml(event.reason || 'No explanation supplied.')}</p></section>
-      <section class="admin-billing-investigate-orders">
-        <div><span>Orders to check</span><strong>${event.items?.length || 0}</strong></div>
-        ${(event.items || []).map((item) => `<article><span><strong>${escapeHtml(item.order_id)}</strong><small>${escapeHtml(item.description || 'Order items')}</small><em>${escapeHtml(item.platform || 'Other')} · ${Number(item.units || 0)} units${item.customer_name ? ` · ${escapeHtml(item.customer_name)}` : ''}</em></span><strong>${escapeHtml(money(item.amount))}</strong></article>`).join('')}
-      </section>
+      <form class="admin-billing-adjust-form" data-billing-adjust-form>
+        <section class="admin-billing-investigate-orders">
+          <div><span>Orders and editable product prices</span><strong>${event.items?.length || 0}</strong></div>
+          ${(event.items || []).map((item) => `<article class="admin-billing-price-order"><header><span><strong>${escapeHtml(item.order_id)}</strong><small>${escapeHtml(item.description || 'Order items')}</small><em>${escapeHtml(item.platform || 'Other')} · ${Number(item.units || 0)} units${item.customer_name ? ` · ${escapeHtml(item.customer_name)}` : ''}</em></span><strong>${escapeHtml(money(item.amount))}${event.dispute_type === 'price' ? ` → ${escapeHtml(money(item.proposed_amount))}` : ''}</strong></header><div>${(item.price_lines || []).map((line) => disputeProductMarkup(item, line)).join('')}</div></article>`).join('')}
+        </section>
+        <div class="admin-billing-investigate-actions"><button type="submit">Apply adjusted prices</button><button type="button" class="is-accept" data-billing-action="accept_dispute" data-record-id="${Number(event.record_id)}">${event.dispute_type === 'price' ? 'Accept proposed prices' : 'Accept and remove orders'}</button></div>
+      </form>
       <form class="admin-billing-reject-form" data-billing-reject-form>
         <label><span>Reason if rejected</span><textarea name="reason" maxlength="4000" placeholder="Explain what finance found so the partner can reconcile it…" required></textarea></label>
         <label class="admin-billing-evidence-picker">
@@ -119,9 +133,10 @@ document.addEventListener('DOMContentLoaded', () => {
           <span data-billing-evidence-name>Optional · PNG, JPG, or WebP</span>
         </label>
         <p class="admin-billing-detail-error" data-billing-detail-error hidden></p>
-        <div class="admin-billing-investigate-actions"><button type="submit" class="is-reject">Reject dispute</button><button type="button" class="is-accept" data-billing-action="accept_dispute" data-record-id="${Number(event.record_id)}">Accept and remove orders</button></div>
+        <div class="admin-billing-investigate-actions"><button type="submit" class="is-reject">Reject dispute</button></div>
       </form>
     </article>`;
+  };
 
   const feedbackMarkup = () => `<div class="admin-billing-feedback"><span>✓</span><strong>${escapeHtml(state.feedback?.title || 'Review complete')}</strong><p>${escapeHtml(state.feedback?.message || 'The billing record was updated.')}</p></div>`;
 
@@ -191,6 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const performJsonAction = async (action, recordId, button) => {
     if (button instanceof HTMLButtonElement) button.disabled = true;
+    const reviewedEvent = state.events.find((event) => Number(event.record_id) === Number(recordId) && event.type === 'dispute');
     try {
       const idKey = action === 'confirm_payment' ? 'payment_id' : 'dispute_id';
       const payload = await request({
@@ -203,7 +219,7 @@ document.addEventListener('DOMContentLoaded', () => {
       state.selectedId = '';
       state.feedback = action === 'confirm_payment'
         ? { title: 'Payment confirmed', message: 'Available cash and the partner bill are updated.' }
-        : { title: 'Dispute accepted', message: 'The claimed orders were removed and marked paid.' };
+        : { title: 'Dispute accepted', message: reviewedEvent?.dispute_type === 'price' ? 'The proposed prices now update the orders and partner bill.' : 'The claimed orders were removed and marked paid.' };
       render();
       if (action === 'confirm_payment') window.dispatchEvent(new CustomEvent('partner-billing:confirmed'));
       window.setTimeout(() => { state.feedback = null; render(); }, 1500);
@@ -245,20 +261,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
   list.addEventListener('submit', async (event) => {
     const form = event.target;
-    if (!(form instanceof HTMLFormElement) || !form.matches('[data-billing-reject-form]')) return;
+    if (!(form instanceof HTMLFormElement) || !form.matches('[data-billing-reject-form], [data-billing-adjust-form]')) return;
     event.preventDefault();
     const selected = state.events.find((item) => item.id === state.selectedId);
     if (!selected || selected.type !== 'dispute') return;
-    const formData = new FormData(form);
-    formData.append('action', 'reject_dispute');
-    formData.append('dispute_id', String(selected.record_id));
     const buttons = Array.from(form.querySelectorAll('button'));
     buttons.forEach((button) => { button.disabled = true; });
     try {
-      const payload = await request({ url: endpoint, method: 'POST', body: formData });
+      let payload;
+      if (form.matches('[data-billing-adjust-form]')) {
+        const adjustments = Array.from(form.querySelectorAll('[data-billing-adjust-price]')).reduce((orders, input) => {
+          if (!(input instanceof HTMLInputElement)) return orders;
+          const orderId = input.dataset.orderId || '';
+          let order = orders.find((entry) => entry.order_id === orderId);
+          if (!order) { order = { order_id: orderId, lines: [] }; orders.push(order); }
+          order.lines.push({ line_index: Number(input.dataset.lineIndex || 0), unit_price: Number(input.value) });
+          return orders;
+        }, []);
+        payload = await request({
+          url: endpoint,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'adjust_dispute', dispute_id: selected.record_id, adjustments })
+        });
+      } else {
+        const formData = new FormData(form);
+        formData.append('action', 'reject_dispute');
+        formData.append('dispute_id', String(selected.record_id));
+        payload = await request({ url: endpoint, method: 'POST', body: formData });
+      }
       state.events = Array.isArray(payload.notifications) ? payload.notifications : [];
       state.selectedId = '';
-      state.feedback = { title: 'Dispute rejected', message: 'The partner can now see your reason and screenshot.' };
+      state.feedback = form.matches('[data-billing-adjust-form]')
+        ? { title: 'Prices updated', message: 'The order values and partner bill now reflect the reviewed product prices.' }
+        : { title: 'Dispute rejected', message: 'The partner can now see your reason and screenshot.' };
       render();
       window.setTimeout(() => { state.feedback = null; render(); }, 1600);
     } catch (error) {

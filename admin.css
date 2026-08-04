@@ -34820,6 +34820,24 @@ button.admin-accounting-metric {
 .admin-billing-investigate-orders article em { color: var(--admin-muted); font-size: 8px; font-style: normal; }
 .admin-billing-investigate-orders article > strong { flex: 0 0 auto; }
 
+.admin-billing-adjust-form { display: grid; gap: 12px; }
+.admin-billing-investigate-orders .admin-billing-price-order { display: grid; gap: 0; padding: 0; }
+.admin-billing-price-order > header { display: flex; align-items: center; justify-content: space-between; gap: 13px; padding: 13px 14px; background: color-mix(in srgb, var(--admin-surface-soft) 64%, transparent); }
+.admin-billing-price-order > header > span { display: grid; gap: 3px; min-width: 0; }
+.admin-billing-price-order > header > strong { flex: 0 0 auto; color: var(--admin-text); font-size: 10px; }
+.admin-billing-price-order > div { display: grid; padding: 4px 14px 8px; }
+.admin-billing-price-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 0; border-top: 1px solid var(--admin-border); }
+.admin-billing-price-line:first-child { border-top: 0; }
+.admin-billing-price-line > span:first-child { display: grid; gap: 3px; min-width: 0; }
+.admin-billing-price-line strong { overflow: hidden; color: var(--admin-text); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.admin-billing-price-line small { color: var(--admin-muted); font-size: 8px; }
+.admin-billing-price-comparison { display: flex; align-items: center; gap: 7px; flex: 0 0 auto; }
+.admin-billing-price-comparison del,
+.admin-billing-price-comparison > i { color: var(--admin-muted); font-size: 8px; font-style: normal; }
+.admin-billing-price-input { display: flex; align-items: center; width: 145px; overflow: hidden; border: 1px solid var(--admin-border); border-radius: 9px; background: var(--admin-surface); }
+.admin-billing-price-input em { padding-left: 9px; color: var(--admin-muted); font-size: 8px; font-style: normal; }
+.admin-billing-price-input input { width: 100%; min-width: 0; height: 33px; padding: 0 8px 0 4px; border: 0; outline: 0; background: transparent; color: var(--admin-text); font: 750 9px/1 "Plus Jakarta Sans", sans-serif; text-align: right; }
+
 .admin-billing-reject-form { display: grid; gap: 12px; }
 .admin-billing-reject-form > label:first-child { display: grid; gap: 7px; }
 .admin-billing-reject-form textarea {
@@ -34847,6 +34865,7 @@ button.admin-accounting-metric {
 .admin-billing-investigate-actions { display: grid; grid-template-columns: 1fr 1.25fr; gap: 9px; }
 .admin-billing-investigate-actions .is-reject { border-color: rgba(239, 68, 68, .35); color: #ef4444; }
 .admin-billing-investigate-actions .is-accept { border-color: var(--admin-text); background: var(--admin-text); color: var(--admin-bg); }
+.admin-billing-reject-form .admin-billing-investigate-actions { grid-template-columns: 1fr; }
 .admin-billing-investigate-actions button:disabled { opacity: .45; cursor: wait; }
 
 .admin-billing-detail-error {

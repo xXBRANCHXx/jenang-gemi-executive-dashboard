@@ -17,7 +17,9 @@ for (const source of [nav, dashboard]) {
 assert.match(notifications, /paid their weekly bill/, 'Payment notifications should name the partner and weekly period.');
 assert.match(notifications, /Check proof of payment/, 'Payment notification helper copy should be explicit.');
 assert.match(notifications, /accept_dispute[\s\S]*Investigate/, 'Dispute notifications should offer Accept and Investigate.');
-assert.match(notifications, /Reject dispute[\s\S]*Accept and remove orders/, 'Investigation should support both resolutions.');
+assert.match(notifications, /data-billing-adjust-price[\s\S]*Apply adjusted prices/, 'Investigation should expose every product price as an editable value.');
+assert.match(notifications, /Accept proposed prices[\s\S]*Reject dispute/, 'Price disputes should support accepting the proposal or rejecting it after investigation.');
+assert.match(billingApi, /adjust_dispute[\s\S]*jg_admin_partner_billing_adjust_dispute/, 'Admin price adjustments should flow through the authenticated billing API.');
 assert.match(notifications, /application\/pdf[\s\S]*<object/, 'PDF payment proof should render in an inline preview.');
 assert.match(notifications, /partner-billing:confirmed/, 'Accounting should be notified immediately after confirmation.');
 assert.match(billingApi, /dispute_history[\s\S]*jg_admin_partner_billing_dispute_history/, 'The billing API should expose authenticated dispute history to Partner Sales.');
