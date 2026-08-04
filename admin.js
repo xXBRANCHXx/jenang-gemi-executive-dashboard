@@ -8270,7 +8270,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    const draft = String(order.status || '') === 'draft';
 	    if (poRefs.detailActions) poRefs.detailActions.innerHTML = `
 	      <label class="admin-po-tag"><span>Tag</span><input type="text" maxlength="120" value="${escapeHtml(order.tag || '')}" data-po-tag="${Number(order.id || 0)}" placeholder="Add tag"></label>
-	      ${draft ? `<button type="button" class="is-primary" data-po-resume="${Number(order.id || 0)}">Resume draft</button>` : `<button type="button" class="${due <= 0 ? 'is-paid' : 'is-primary'}" data-po-pay="${Number(order.id || 0)}" ${due <= 0 ? 'disabled' : ''}>${due <= 0 ? 'Paid' : `Pay · ${formatCurrency(paid)} paid · ${formatCurrency(due)} left`}</button>`}
+	      ${draft ? `<button type="button" class="admin-po-resume-action" data-po-resume="${Number(order.id || 0)}"><span>Resume draft</span><b>Continue this purchase order</b></button>` : `<button type="button" class="admin-po-pay-action${due <= 0 ? ' is-paid' : ''}" data-po-pay="${Number(order.id || 0)}" ${due <= 0 ? 'disabled' : ''}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg><span><strong>${due <= 0 ? 'Paid' : 'Pay PO'}</strong><small>${due <= 0 ? 'Payment complete' : `${formatCurrency(paid)} paid · ${formatCurrency(due)} left`}</small></span></button>`}
 	    `;
 	    const items = Array.isArray(order.items) ? order.items : [];
 	    poRefs.detailContent.innerHTML = `
@@ -8458,6 +8458,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    else poRefs.paymentFields.innerHTML = `<div class="admin-po-payment-full"><span>Full remaining balance</span><strong>${formatCurrency(order.amount_due || 0)}</strong></div>`;
 	    if (poRefs.paymentAccount instanceof HTMLSelectElement) poRefs.paymentAccount.innerHTML = (state.inventoryRecap.data?.payment_accounts || []).map((account) => `<option value="${Number(account.id || 0)}">${escapeHtml(account.name || '')} · ${formatCurrency(account.balance || 0)} available</option>`).join('');
 	    if (poRefs.paymentTotal) poRefs.paymentTotal.textContent = formatCurrency(paymentAmount(order));
+	    window.requestAnimationFrame(() => document.querySelector('.admin-po-payment-modes')?.syncSlidingIndicator?.({ immediate: true }));
 	  };
 
 	  const openPoPayment = (orderId) => {
@@ -8762,7 +8763,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	    }
 	    if (inventoryRecapRefs.globalDaysSave instanceof HTMLButtonElement) {
 	      inventoryRecapRefs.globalDaysSave.disabled = state.inventoryRecap.globalSettingsSaving;
-	      inventoryRecapRefs.globalDaysSave.textContent = state.inventoryRecap.globalSettingsSaving ? 'Saving' : 'Save';
+	      const saveLabel = inventoryRecapRefs.globalDaysSave.querySelector('[data-inventory-global-days-save-label]');
+	      if (saveLabel) saveLabel.textContent = state.inventoryRecap.globalSettingsSaving ? 'Applying' : 'Apply';
 	    }
 	    if (inventoryRecapRefs.globalDaysMessage) {
 	      inventoryRecapRefs.globalDaysMessage.textContent = state.inventoryRecap.globalSettingsMessage || 'Applies to all products';

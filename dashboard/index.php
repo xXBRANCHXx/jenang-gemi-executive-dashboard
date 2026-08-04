@@ -34,7 +34,7 @@ $isAdView = $isAuthenticated && in_array($requestedView ?? '', ['ad-view', 'ads'
 $sidebarSection = in_array($requestedView ?? '', ['inventory', 'inventory_recap', 'inventory-recap', 'purchase', 'purchase_order', 'purchase-order', 'po-history', 'po-detail'], true)
     ? 'inventory-recap'
     : 'home';
-$dashboardBuildVersion = 'exec3.97.2';
+$dashboardBuildVersion = 'exec3.97.3';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -741,24 +741,29 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                                </button>
 	                            </div>
 	                        </header>
-	                        <div class="admin-inventory-utility-bar">
-	                            <a href="../dashboard/?view=po-history" data-view-switch="po-history">See History</a>
-	                            <form class="admin-inventory-global-days" data-inventory-global-days-form>
-	                                <label>
-	                                    <span>Order days</span>
-	                                    <input type="number" min="1" max="90" step="0.5" value="22.5" data-inventory-global-days>
-	                                </label>
-	                                <button type="submit" data-inventory-global-days-save>Save</button>
-	                                <small data-inventory-global-days-message>Applies to all products</small>
-	                            </form>
-	                        </div>
 	                        <section class="admin-inventory-po-board" aria-label="Purchase orders">
 	                            <div class="admin-inventory-po-board-head">
 	                                <div>
 	                                    <span class="admin-panel-kicker">Purchase orders</span>
 	                                    <h3>Stock already on the way</h3>
 	                                </div>
-	                                <span data-inventory-po-summary>Loading purchase orders</span>
+	                                <div class="admin-inventory-po-board-tools">
+	                                    <span data-inventory-po-summary>Loading purchase orders</span>
+	                                    <div class="admin-inventory-utility-bar">
+	                                        <a href="../dashboard/?view=po-history" data-view-switch="po-history">See History</a>
+	                                        <form class="admin-inventory-global-days" data-inventory-global-days-form>
+	                                            <label>
+	                                                <span>Order days</span>
+	                                                <input type="number" min="1" max="90" step="0.5" value="22.5" data-inventory-global-days>
+	                                            </label>
+	                                            <button type="submit" data-inventory-global-days-save title="Apply order days">
+	                                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>
+	                                                <span data-inventory-global-days-save-label>Apply</span>
+	                                            </button>
+	                                            <small data-inventory-global-days-message>Applies to all products</small>
+	                                        </form>
+	                                    </div>
+	                                </div>
 	                            </div>
 	                            <div class="admin-inventory-po-list" data-inventory-po-list>
 	                                <p class="admin-empty">Loading purchase orders.</p>
@@ -892,16 +897,19 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                            <span class="admin-panel-kicker">Accounting · money out</span>
 	                            <h3 id="po-payment-title">Pay purchase order</h3>
 	                            <p data-po-payment-summary></p>
-	                            <div class="admin-po-payment-modes" role="group" aria-label="Payment method">
-	                                <button type="button" class="is-active" data-po-payment-mode="full">In full</button>
-	                                <button type="button" data-po-payment-mode="amount">Enter amount</button>
-	                                <button type="button" data-po-payment-mode="percentage">Percentage</button>
-	                                <button type="button" data-po-payment-mode="products">Select products</button>
+	                            <div class="admin-po-payment-modes admin-sliding-chart-toggle" data-sliding-chart-toggle role="group" aria-label="Payment method">
+	                                <button type="button" class="admin-toggle-pill is-active" data-po-payment-mode="full"><span>In full</span></button>
+	                                <button type="button" class="admin-toggle-pill" data-po-payment-mode="amount"><span>Amount</span></button>
+	                                <button type="button" class="admin-toggle-pill" data-po-payment-mode="percentage"><span>Percentage</span></button>
+	                                <button type="button" class="admin-toggle-pill" data-po-payment-mode="products"><span>Products</span></button>
 	                            </div>
 	                            <div data-po-payment-fields></div>
 	                            <label class="admin-po-payment-account"><span>Pay from balance</span><select required data-po-payment-account></select></label>
 	                            <div class="admin-po-payment-total"><span>Payment now</span><strong data-po-payment-total>Rp0</strong></div>
-	                            <button type="submit" class="is-primary" data-po-payment-confirm>Confirm payment</button>
+	                            <button type="submit" class="admin-po-payment-confirm" data-po-payment-confirm>
+	                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+	                                <span>Confirm payment</span>
+	                            </button>
 	                            <small data-po-payment-message></small>
 	                        </form>
 	                    </div>
