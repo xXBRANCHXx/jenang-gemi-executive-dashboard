@@ -389,3 +389,62 @@ function jg_purchase_orders_place(
     }
     throw new RuntimeException('The purchase order was saved but could not be reloaded.');
 }
+
+function jg_purchase_orders_cancel(PDO $pdo, int $orderId): array
+{
+    jg_purchase_orders_ensure_schema($pdo);
+    if ($orderId < 1) {
+        throw new InvalidArgumentException('Choose a purchase order to cancel.');
+    }
+
+    $now = jg_purchase_orders_now();
+    $pdo->beginTransaction();
+    try {
+        $stmt = $pdo->prepare(
+            'SELECT id, po_number, status, received_qty
+             FROM purchase_orders
+             WHERE id = :id
+             LIMIT 1' . jg_purchase_orders_lock_suffix($pdo)
+        );
+        $stmt->execute([':id' => $orderId]);
+        $order = $stmt->fetch();
+        if (!is_array($order)) {
+            throw new RuntimeException('Purchase order not found.');
+        }
+
+        $status = (string) ($order['status'] ?? '');
+        if ($status === 'cancelled') {
+            $pdo->commit();
+            return [
+                'id' => (int) ($order['id'] ?? 0),
+                'po_number' => (string) ($order['po_number'] ?? ''),
+                'status' => 'cancelled',
+                'received_qty' => max(0, (int) ($order['received_qty'] ?? 0)),
+            ];
+        }
+        if (!in_array($status, ['pending', 'partially_received'], true)) {
+            throw new RuntimeException('Only an open purchase order can be cancelled.');
+        }
+
+        $update = $pdo->prepare(
+            'UPDATE purchase_orders
+             SET status = "cancelled", updated_at = :updated_at
+             WHERE id = :id AND status IN ("pending", "partially_received")'
+        );
+        $update->execute([':updated_at' => $now, ':id' => $orderId]);
+        if ($update->rowCount() !== 1) {
+            throw new RuntimeException('The purchase order changed before it could be cancelled.');
+        }
+        $pdo->commit();
+    } catch (Throwable $error) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $error;
+    }
+
+    return [
+        'id' => $orderId,
+        'po_number' => (string) ($order['po_number'] ?? ''),
+        'status' => 'cancelled',
+        'received_qty' => max(0, (int) ($order['received_qty'] ?? 0)),
+    ];
+}

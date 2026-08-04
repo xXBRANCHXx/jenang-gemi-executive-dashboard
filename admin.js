@@ -2556,6 +2556,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      placingOrder: false,
 	      placeRequestKey: '',
 	      placedOrder: null,
+	      cancellingOrderId: 0,
 	      settingsSaving: '',
 	      settingsMessage: {},
 	      globalSettingsSaving: false,
@@ -8104,9 +8105,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	  const renderInventoryPurchaseOrders = () => {
 	    if (!inventoryRecapRefs.poList) return;
-	    const orders = Array.isArray(state.inventoryRecap.data?.purchase_orders)
+	    const orders = (Array.isArray(state.inventoryRecap.data?.purchase_orders)
 	      ? state.inventoryRecap.data.purchase_orders
-	      : [];
+	      : []).filter((order) => String(order.status || '') !== 'cancelled');
 	    const openOrders = orders.filter((order) => ['pending', 'partially_received'].includes(String(order.status || '')));
 	    if (inventoryRecapRefs.poSummary) {
 	      const incoming = Number(state.inventoryRecap.data?.summary?.incoming_qty || 0);
@@ -8126,6 +8127,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	        .slice(0, 3)
 	        .map((item) => `${item.sku} ${formatRegionalInteger(item.received_qty || 0)}/${formatRegionalInteger(item.ordered_qty || 0)}`)
 	        .join(' · ');
+	      const isOpen = ['pending', 'partially_received'].includes(String(order.status || ''));
+	      const cancelling = state.inventoryRecap.cancellingOrderId === Number(order.id || 0);
 	      return `
 	        <article class="admin-inventory-po-card is-${escapeHtml(order.status || 'pending')}">
 	          <div class="admin-inventory-po-card-head">
@@ -8133,7 +8136,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	              <strong>${escapeHtml(order.po_number || 'Purchase order')}</strong>
 	              <span>${escapeHtml(purchaseOrderStatusLabel(order.status))}</span>
 	            </div>
-	            <b>${formatRegionalInteger(progress)}%</b>
+	            <div class="admin-inventory-po-card-actions">
+	              <b>${formatRegionalInteger(progress)}%</b>
+	              ${isOpen ? `<button type="button" data-inventory-po-cancel="${Number(order.id || 0)}" data-inventory-po-number="${escapeHtml(order.po_number || '')}" ${cancelling ? 'disabled' : ''}>${cancelling ? 'Cancelling…' : 'Cancel PO'}</button>` : ''}
+	            </div>
 	          </div>
 	          <div class="admin-inventory-po-progress"><i style="width:${progress}%"></i></div>
 	          <div class="admin-inventory-po-card-meta">
@@ -8145,6 +8151,29 @@ document.addEventListener('DOMContentLoaded', () => {
 	        </article>
 	      `;
 	    }).join('');
+	  };
+
+	  const cancelInventoryPurchaseOrder = async (orderId, poNumber) => {
+	    if (orderId < 1 || state.inventoryRecap.cancellingOrderId) return;
+	    if (!window.confirm(`Cancel ${poNumber || 'this purchase order'}? It will also be removed from Store Ops.`)) return;
+	    state.inventoryRecap.cancellingOrderId = orderId;
+	    renderInventoryPurchaseOrders();
+	    try {
+	      const data = await requestJson(inventoryRecapUrl({ force: true }), {
+	        method: 'POST',
+	        headers: { 'Content-Type': 'application/json' },
+	        body: JSON.stringify({ action: 'cancel_order', order_id: orderId }),
+	        cache: 'no-store',
+	        timeoutMs: 30000
+	      });
+	      state.inventoryRecap.cancellingOrderId = 0;
+	      writeViewClientCache('inventory-recap', inventoryRecapClientCacheKey(), data);
+	      applyInventoryRecapData(data);
+	    } catch (error) {
+	      state.inventoryRecap.cancellingOrderId = 0;
+	      renderInventoryPurchaseOrders();
+	      if (inventoryRecapRefs.poSummary) inventoryRecapRefs.poSummary.textContent = error?.message || 'Unable to cancel purchase order.';
+	    }
 	  };
 
 	  const inventoryTrendText = (value) => {
@@ -12483,6 +12512,15 @@ document.addEventListener('DOMContentLoaded', () => {
 	  inventoryRecapRefs.globalDaysForm?.addEventListener('submit', (event) => {
 	    event.preventDefault();
 	    saveGlobalInventoryDays().catch(() => {});
+	  });
+
+	  inventoryRecapRefs.poList?.addEventListener('click', (event) => {
+	    const button = event.target instanceof Element ? event.target.closest('[data-inventory-po-cancel]') : null;
+	    if (!(button instanceof HTMLButtonElement)) return;
+	    cancelInventoryPurchaseOrder(
+	      Number(button.getAttribute('data-inventory-po-cancel') || 0),
+	      String(button.getAttribute('data-inventory-po-number') || '')
+	    ).catch(() => {});
 	  });
 
 	  inventoryRecapRefs.list?.addEventListener('change', (event) => {

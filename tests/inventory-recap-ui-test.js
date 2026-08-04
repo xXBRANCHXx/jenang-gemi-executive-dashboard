@@ -40,6 +40,8 @@ assert.match(script, /downloadInventoryPurchasePdf\(state\.inventoryRecap\.place
 assert.match(script, /inventoryUrgencyCompare[\s\S]*\.sort\(inventoryUrgencyCompare\)/);
 assert.match(script, /data-purchase-plan-remove[\s\S]*planExcluded\[sku\] = true/);
 assert.match(script, /quantitySku[\s\S]*planEdited\[quantitySku\] = true/);
+assert.match(script, /data-inventory-po-cancel[\s\S]*action: 'cancel_order'/);
+assert.match(script, /removed from Store Ops/);
 assert.match(script, /state\.activeView === 'purchase-order' \? 'inventory-recap'/);
 assert.doesNotMatch(script, /inventoryRecapDays|current_days_remaining/);
 
@@ -47,6 +49,7 @@ assert.match(api, /update_settings/);
 assert.match(api, /purchase_moq = :purchase_moq/);
 assert.match(api, /update_purchase_days/);
 assert.match(api, /jg_purchase_orders_place/);
+assert.match(api, /jg_purchase_orders_cancel/);
 assert.doesNotMatch(api, /sku_skus[\s\S]{0,300}purchase_days\s*=/);
 
 assert.match(navigation, /'purchase-order'\s*=>\s*\[[\s\S]*'label'\s*=>\s*'Purchase Plan'/);

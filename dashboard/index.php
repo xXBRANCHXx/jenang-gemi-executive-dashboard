@@ -34,7 +34,7 @@ $isAdView = $isAuthenticated && in_array($requestedView ?? '', ['ad-view', 'ads'
 $sidebarSection = in_array($requestedView ?? '', ['inventory', 'inventory_recap', 'inventory-recap', 'purchase', 'purchase_order', 'purchase-order'], true)
     ? 'inventory-recap'
     : 'home';
-$dashboardBuildVersion = 'exec3.95.0';
+$dashboardBuildVersion = 'exec3.95.1';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');

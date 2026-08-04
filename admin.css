@@ -25768,6 +25768,39 @@ body:has(.admin-app[data-sku-db])::after {
   font: 800 1rem/1 "Space Grotesk", sans-serif;
 }
 
+.admin-inventory-po-card-head > .admin-inventory-po-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.admin-inventory-po-card-actions > b {
+  color: var(--admin-text);
+  font: 800 1rem/1 "Space Grotesk", sans-serif;
+}
+
+.admin-inventory-po-card-actions button {
+  min-height: 30px;
+  padding: 0 9px;
+  border: 1px solid color-mix(in srgb, #ef4444 50%, var(--inventory-line));
+  border-radius: 6px;
+  background: transparent;
+  color: #f87171;
+  font: 750 0.6rem/1 "Plus Jakarta Sans", sans-serif;
+  cursor: pointer;
+}
+
+.admin-inventory-po-card-actions button:hover,
+.admin-inventory-po-card-actions button:focus-visible {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.admin-inventory-po-card-actions button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
 .admin-inventory-po-progress {
   height: 6px;
   overflow: hidden;

@@ -20,6 +20,7 @@ try {
     $month = function_exists('jg_accounting_month') ? jg_accounting_month($_GET['month'] ?? null) : gmdate('Y-m');
     $cashContext = jg_inventory_recap_accounting_cash_context($analyticsPdo, $month);
     $placedOrder = null;
+    $cancelledOrder = null;
     if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) === 'POST') {
         $body = json_decode((string) file_get_contents('php://input'), true);
         $action = is_array($body) ? (string) ($body['action'] ?? '') : '';
@@ -71,6 +72,12 @@ try {
                 (string) ($body['request_key'] ?? ''),
                 'Executive'
             );
+        } elseif ($action === 'cancel_order') {
+            $orderId = filter_var($body['order_id'] ?? null, FILTER_VALIDATE_INT);
+            if ($orderId === false || $orderId < 1) {
+                throw new InvalidArgumentException('Choose a purchase order to cancel.');
+            }
+            $cancelledOrder = jg_purchase_orders_cancel($skuPdo, $orderId);
         } else {
             throw new InvalidArgumentException('Invalid inventory settings request.');
         }
@@ -82,6 +89,10 @@ try {
     if (is_array($placedOrder)) {
         $payload['placed_order'] = $placedOrder;
         $payload['message'] = sprintf('%s was sent to Store Ops.', (string) ($placedOrder['po_number'] ?? 'Purchase order'));
+    }
+    if (is_array($cancelledOrder)) {
+        $payload['cancelled_order'] = $cancelledOrder;
+        $payload['message'] = sprintf('%s was cancelled and removed from Store Ops.', (string) ($cancelledOrder['po_number'] ?? 'Purchase order'));
     }
     echo json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 } catch (InvalidArgumentException $error) {

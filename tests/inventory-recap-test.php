@@ -186,4 +186,10 @@ inventory_recap_expect(22, $incomingBySku['SKU-FLAT']['incoming_qty'] ?? 0, 'Inc
 inventory_recap_expect('incoming', $incomingBySku['SKU-FLAT']['risk'] ?? '', 'A fully covered shortage must no longer render as critical.');
 inventory_recap_expect(0, $incomingBySku['SKU-FLAT']['recommended_order_qty'] ?? -1, 'Incoming stock must prevent a duplicate purchase recommendation.');
 
+$cancelledOrder = jg_purchase_orders_cancel($skuPdo, (int) ($placedOrder['id'] ?? 0));
+inventory_recap_expect('cancelled', $cancelledOrder['status'] ?? '', 'Cancelling a PO must close it at the shared source of truth.');
+$afterCancellation = jg_inventory_recap_payload($skuPdo, $analyticsPdo, ['amount' => 100000], ['today' => '2026-07-30']);
+inventory_recap_expect(0, $afterCancellation['summary']['incoming_qty'] ?? -1, 'A cancelled PO must stop contributing incoming stock.');
+inventory_recap_expect(0, $afterCancellation['summary']['open_purchase_orders'] ?? -1, 'A cancelled PO must disappear from open Store Ops work.');
+
 echo "inventory-recap-test: ok\n";
