@@ -18,7 +18,7 @@ assert.match(page, /data-open-disputes[\s\S]*See disputes/, 'The order ledger sh
 assert.match(page, /Choose a weekly window[\s\S]*data-disputes-window-form[\s\S]*data-disputes-list/, 'Dispute history should ask for a weekly window before showing the archive.');
 assert.match(script, /record_payment[\s\S]*payment_method[\s\S]*reference_no/, 'Admins should be able to record auditable order payments.');
 assert.match(script, /renderChart[\s\S]*renderBreakdowns[\s\S]*renderPayments[\s\S]*renderOrders/, 'The sales page should render all analytical sections.');
-assert.match(script, /dispute_history[\s\S]*Screenshot evidence[\s\S]*renderDisputeHistory/, 'The sales page should render weekly dispute messages and screenshots.');
+assert.match(script, /dispute_history[\s\S]*disputeAttachmentMarkup[\s\S]*Attachments[\s\S]*renderDisputeHistory/, 'The sales page should render weekly dispute messages and every attached screenshot.');
 assert.match(api, /partner_order_payments[\s\S]*outstanding_amount/, 'The API should reconcile order values against settlement records.');
 assert.match(api, /jg_partner_sales_profile\(\?PDO[\s\S]*partners\.runtime\.json/, 'Partner profiles should retain the production JSON fallback.');
 assert.match(api, /jg_partner_sales_store_ops_orders[\s\S]*Authorization: Bearer/, 'Partner orders should use the secure Store Ops service connection when no Partner DB is configured.');

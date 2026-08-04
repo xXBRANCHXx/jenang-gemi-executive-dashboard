@@ -526,6 +526,29 @@ function jg_admin_partner_billing_dispute_history(PDO $pdo, string $partnerCode,
 
     $disputes = [];
     if ($selectedWindow !== null) {
+        $fileStmt = $pdo->prepare(
+            'SELECT f.id, f.bill_id, f.file_kind, f.original_name, f.mime_type, f.size_bytes, f.created_at
+             FROM partner_weekly_bill_files f
+             JOIN partner_weekly_bills b ON b.bill_id = f.bill_id
+             WHERE f.partner_code = :partner_code AND b.period_start = :period_start
+             ORDER BY f.created_at ASC, f.id ASC'
+        );
+        $fileStmt->execute([':partner_code' => $partnerCode, ':period_start' => $selectedWindow['period_start']]);
+        $attachmentsByBill = [];
+        foreach ($fileStmt->fetchAll() as $file) {
+            $fileId = (int) $file['id'];
+            $kind = (string) $file['file_kind'];
+            $attachmentsByBill[(string) $file['bill_id']][] = [
+                'id' => $fileId,
+                'kind' => $kind,
+                'label' => $kind === 'payment_proof' ? 'Partner payment proof' : ($kind === 'rejection_evidence' ? 'Finance evidence' : 'Billing attachment'),
+                'url' => $endpoint . '?' . http_build_query(['action' => 'file', 'id' => $fileId]),
+                'name' => (string) $file['original_name'],
+                'mime_type' => (string) $file['mime_type'],
+                'size_bytes' => (int) $file['size_bytes'],
+                'created_at' => (string) $file['created_at'],
+            ];
+        }
         $stmt = $pdo->prepare(
             'SELECT d.id, d.dispute_key, d.bill_id, d.partner_code, d.reason, d.status,
                     d.resolution_reason, d.evidence_file_id, d.created_at, d.resolved_at, d.updated_at,
@@ -566,6 +589,7 @@ function jg_admin_partner_billing_dispute_history(PDO $pdo, string $partnerCode,
                 'amount' => array_sum(array_map(static fn (array $item): int => (int) $item['amount'], $items)),
                 'items' => $items,
                 'messages' => $messages,
+                'attachments' => $attachmentsByBill[(string) $row['bill_id']] ?? [],
                 'created_at' => (string) $row['created_at'],
                 'resolved_at' => (string) ($row['resolved_at'] ?? ''),
                 'evidence' => $evidenceId > 0 ? [

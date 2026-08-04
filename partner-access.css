@@ -4396,6 +4396,11 @@ body.partner-disputes-open {
   text-decoration: none;
 }
 
+.partner-disputes-attachment-list {
+  display: grid;
+  gap: 14px;
+}
+
 .partner-disputes-evidence-link img {
   width: 100%;
   max-height: 230px;
@@ -4415,6 +4420,41 @@ body.partner-disputes-open {
 .partner-disputes-evidence-link > span {
   display: grid;
   gap: 3px;
+}
+
+.partner-disputes-evidence-link em {
+  color: var(--partner-muted);
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.partner-disputes-file-preview {
+  place-items: center;
+  min-height: 130px;
+  align-content: center;
+  border: 1px solid var(--partner-border);
+  border-radius: 11px;
+  background: var(--partner-panel);
+  color: var(--partner-muted);
+}
+
+.partner-disputes-file-preview svg {
+  width: 32px;
+  height: 32px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.partner-disputes-file-preview strong {
+  color: var(--partner-muted);
+  font-size: 9px;
+  letter-spacing: 0.12em;
 }
 
 .partner-disputes-evidence-link strong,

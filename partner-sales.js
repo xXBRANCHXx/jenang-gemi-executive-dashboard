@@ -238,11 +238,24 @@ document.addEventListener('DOMContentLoaded', () => {
     </article>`;
   };
 
+  const disputeAttachmentMarkup = (attachment, dispute) => {
+    const isImage = String(attachment.mime_type || '').startsWith('image/');
+    return `<a href="${escapeHtml(attachment.url)}" target="_blank" rel="noopener" class="partner-disputes-evidence-link ${isImage ? 'is-image' : 'is-document'}">
+      ${isImage
+        ? `<img src="${escapeHtml(attachment.url)}" alt="${escapeHtml(attachment.label || 'Dispute attachment')} for ${escapeHtml(dispute.dispute_key || 'dispute')}" loading="lazy">`
+        : '<span class="partner-disputes-file-preview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H7z"></path><path d="M14 3v5h5M9.5 13h5M9.5 16h5"></path></svg><strong>PDF</strong></span>'}
+      <span><em>${escapeHtml(attachment.label || 'Billing attachment')}</em><strong>${escapeHtml(attachment.name || 'Attachment')}</strong><small>Open full ${isImage ? 'screenshot' : 'document'} · ${escapeHtml(dateLabel(attachment.created_at, true))}</small></span>
+    </a>`;
+  };
+
   const disputeCardMarkup = (dispute) => {
     const status = ['pending', 'accepted', 'rejected'].includes(dispute.status) ? dispute.status : 'pending';
     const items = Array.isArray(dispute.items) ? dispute.items : [];
     const messages = Array.isArray(dispute.messages) ? dispute.messages : [];
     const evidence = dispute.evidence && typeof dispute.evidence === 'object' ? dispute.evidence : null;
+    const attachments = Array.isArray(dispute.attachments) && dispute.attachments.length
+      ? dispute.attachments
+      : (evidence ? [{ ...evidence, label: 'Finance evidence', created_at: dispute.resolved_at }] : []);
     return `<article class="partner-disputes-card is-${status}">
       <header>
         <div class="partner-disputes-status-icon">${disputeIcon(status)}</div>
@@ -252,9 +265,9 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="partner-disputes-card-grid">
         <section class="partner-disputes-orders"><div class="partner-disputes-section-title"><span>Affected orders</span><strong>${number(items.length)}</strong></div>${items.length ? items.map(disputeItemMarkup).join('') : '<p class="partner-sales-empty">No affected orders were retained.</p>'}</section>
         <section class="partner-disputes-conversation"><div class="partner-disputes-section-title"><span>Conversation</span><strong>${number(messages.length)} messages</strong></div><div class="partner-disputes-thread">${messages.map(disputeMessageMarkup).join('')}</div></section>
-        <aside class="partner-disputes-evidence"><div class="partner-disputes-section-title"><span>Screenshot evidence</span><strong>${evidence ? '1 file' : 'None'}</strong></div>${evidence
-          ? `<a href="${escapeHtml(evidence.url)}" target="_blank" rel="noopener" class="partner-disputes-evidence-link"><img src="${escapeHtml(evidence.url)}" alt="Finance evidence for ${escapeHtml(dispute.dispute_key || 'dispute')}" loading="lazy"><span><strong>${escapeHtml(evidence.name || 'Finance evidence')}</strong><small>Open full screenshot</small></span></a>`
-          : '<div class="partner-disputes-no-evidence"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17 9 12l4 4 3-3 4 4"></path><rect x="3" y="4" width="18" height="16" rx="2"></rect></svg><strong>No screenshot attached</strong><span>This dispute was resolved without image evidence.</span></div>'}</aside>
+        <aside class="partner-disputes-evidence"><div class="partner-disputes-section-title"><span>Attachments</span><strong>${attachments.length ? `${number(attachments.length)} ${attachments.length === 1 ? 'file' : 'files'}` : 'None'}</strong></div>${attachments.length
+          ? `<div class="partner-disputes-attachment-list">${attachments.map((attachment) => disputeAttachmentMarkup(attachment, dispute)).join('')}</div>`
+          : '<div class="partner-disputes-no-evidence"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17 9 12l4 4 3-3 4 4"></path><rect x="3" y="4" width="18" height="16" rx="2"></rect></svg><strong>No attachments</strong><span>No screenshot or payment proof was stored for this billing week.</span></div>'}</aside>
       </div>
     </article>`;
   };
