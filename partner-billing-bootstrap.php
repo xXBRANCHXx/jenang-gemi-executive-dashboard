@@ -260,9 +260,15 @@ function jg_admin_partner_billing_order_summary(array $order): array
 function jg_admin_partner_billing_recalculate(PDO $pdo, string $billId): void
 {
     $totalsStmt = $pdo->prepare(
-        'SELECT COALESCE(SUM(amount), 0) AS subtotal,
-                COALESCE(SUM(CASE WHEN status <> "removed" THEN amount ELSE 0 END), 0) AS total
-         FROM partner_weekly_bill_items WHERE bill_id = :bill_id'
+        'SELECT COALESCE(SUM(COALESCE((
+                    SELECT di.original_amount
+                    FROM partner_weekly_bill_dispute_items di
+                    JOIN partner_weekly_bill_disputes d ON d.id = di.dispute_id
+                    WHERE di.bill_item_id = i.id AND d.status = "accepted" AND d.dispute_type = "price"
+                    ORDER BY COALESCE(d.resolved_at, d.updated_at) DESC, d.id DESC LIMIT 1
+                ), i.amount)), 0) AS subtotal,
+                COALESCE(SUM(CASE WHEN i.status <> "removed" THEN i.amount ELSE 0 END), 0) AS total
+         FROM partner_weekly_bill_items i WHERE i.bill_id = :bill_id'
     );
     $totalsStmt->execute([':bill_id' => $billId]);
     $totals = $totalsStmt->fetch() ?: [];
@@ -806,7 +812,9 @@ function jg_admin_partner_billing_resolve_price(PDO $pdo, int $disputeId, ?array
         $stmt->execute([':id' => $disputeId]);
         $dispute = $stmt->fetch();
         if (!is_array($dispute)) throw new InvalidArgumentException('Dispute not found.');
-        $isRepair = $repairAccepted && (string) $dispute['status'] === 'accepted' && (string) ($dispute['dispute_type'] ?? 'paid') === 'paid';
+        $isRepair = $repairAccepted
+            && (string) $dispute['status'] === 'accepted'
+            && in_array((string) ($dispute['dispute_type'] ?? 'paid'), ['paid', 'price'], true);
         if ((string) $dispute['status'] !== 'pending' && !$isRepair) {
             throw new InvalidArgumentException('This dispute has already been resolved.');
         }
@@ -905,7 +913,7 @@ function jg_admin_partner_billing_repair_misclassified_price_disputes(PDO $pdo):
          FROM partner_weekly_bill_disputes d
          JOIN partner_weekly_bill_dispute_items di ON di.dispute_id = d.id
          JOIN partner_weekly_bill_items i ON i.id = di.bill_item_id
-         WHERE d.status = "accepted" AND d.dispute_type = "paid"
+         WHERE d.status = "accepted" AND d.dispute_type IN ("paid", "price")
            AND i.status = "removed" AND i.removed_reason = "Accepted already-paid dispute"
            AND di.proposal_json IS NOT NULL
          ORDER BY d.id ASC LIMIT 50'

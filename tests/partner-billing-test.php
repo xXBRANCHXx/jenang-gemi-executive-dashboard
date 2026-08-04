@@ -62,6 +62,11 @@ admin_partner_billing_expect(false, jg_admin_partner_billing_price_proposal_chan
     'proposed_amount' => 20000,
     'price_lines' => [['original_unit_price' => 20000, 'proposed_unit_price' => 20000]],
 ]), 'An unchanged proposal must preserve the already-paid dispute path.');
+admin_partner_billing_expect(true, jg_admin_partner_billing_price_proposal_changed([
+    'original_amount' => 59000,
+    'proposed_amount' => 32000,
+    'price_lines' => [['original_unit_price' => 32000, 'proposed_unit_price' => 32000]],
+]), 'A changed bill total must remain a price proposal when its stored product snapshot already has the proposed price.');
 
 admin_partner_billing_expect(true, str_contains($source, 'jg_admin_partner_billing_repair_misclassified_price_disputes'), 'Billing sync must repair already accepted price proposals that were mistakenly removed.');
 
