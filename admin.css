@@ -35667,6 +35667,107 @@ a.admin-accounting-breakdown-row:focus-visible { background: color-mix(in srgb, 
 .admin-po-context-menu { position:fixed; z-index:250; min-width:160px; padding:6px; border:1px solid #333; border-radius:9px; background:#111; box-shadow:0 14px 40px rgba(0,0,0,.45); }
 .admin-po-context-menu button { width:100%; color:#ff6b7f; background:transparent; border:0; text-align:left; padding:10px 12px; }
 .admin-po-context-menu button:hover { background:#251217; }
+
+/* Purchase orders were introduced with dark-only colors. Keep the light theme
+   intentionally bright and give its primary actions a readable inverse label. */
+:root[data-admin-theme='light'] .admin-purchase-search input,
+:root[data-admin-theme='light'] .admin-po-history-search input,
+:root[data-admin-theme='light'] .admin-po-tag input,
+:root[data-admin-theme='light'] .admin-po-payment-modal input,
+:root[data-admin-theme='light'] .admin-po-payment-modal select {
+  border-color: rgba(15, 23, 42, .14);
+  background: #f8fafc;
+  color: #0f172a;
+  color-scheme: light;
+}
+:root[data-admin-theme='light'] .admin-po-history-card {
+  border-color: #d8dee8;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .04);
+}
+:root[data-admin-theme='light'] .admin-po-history-card:hover,
+:root[data-admin-theme='light'] .admin-po-history-card:focus {
+  border-color: #94a3b8;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, .08);
+}
+:root[data-admin-theme='light'] .admin-po-pay-action:not(.is-paid),
+:root[data-admin-theme='light'] .admin-po-pay-action:not(.is-paid) strong,
+:root[data-admin-theme='light'] .admin-po-pay-action:not(.is-paid) small,
+:root[data-admin-theme='light'] .admin-po-pay-action:not(.is-paid) span {
+  color: #fff !important;
+}
+:root[data-admin-theme='light'] .admin-po-pay-action:not(.is-paid),
+:root[data-admin-theme='light'] .admin-po-resume-action {
+  border-color: #172033;
+  background: #172033;
+}
+:root[data-admin-theme='light'] .admin-po-pay-action.is-paid {
+  border-color: #d8dee8;
+  background: #eef2f6;
+  color: #64748b;
+}
+:root[data-admin-theme='light'] .admin-po-detail-summary,
+:root[data-admin-theme='light'] .admin-po-detail-summary > div,
+:root[data-admin-theme='light'] .admin-po-detail-section,
+:root[data-admin-theme='light'] .admin-po-section-head,
+:root[data-admin-theme='light'] .admin-po-item-list article,
+:root[data-admin-theme='light'] .admin-po-payment-list article,
+:root[data-admin-theme='light'] .admin-po-payment-products label {
+  border-color: #d8dee8;
+}
+:root[data-admin-theme='light'] .admin-po-detail-section {
+  background: rgba(255, 255, 255, .72);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .03);
+}
+:root[data-admin-theme='light'] .admin-po-status,
+:root[data-admin-theme='light'] .admin-po-received {
+  color: #087990 !important;
+}
+:root[data-admin-theme='light'] .admin-po-received.is-complete {
+  color: #15803d !important;
+}
+:root[data-admin-theme='light'] .admin-po-payment-modal .admin-purchase-success-backdrop {
+  background: rgba(15, 23, 42, .58);
+  backdrop-filter: blur(7px);
+}
+:root[data-admin-theme='light'] .admin-po-payment-modal form {
+  border-color: rgba(15, 23, 42, .12);
+  background: #fff;
+  color: #0f172a;
+  box-shadow: 0 28px 80px rgba(15, 23, 42, .24);
+}
+:root[data-admin-theme='light'] .admin-po-modal-close {
+  border-color: #d8dee8;
+  background: #f8fafc;
+  color: #64748b;
+}
+:root[data-admin-theme='light'] .admin-po-modal-close:hover {
+  border-color: #94a3b8;
+  background: #eef2f6;
+  color: #0f172a;
+}
+:root[data-admin-theme='light'] .admin-po-payment-total,
+:root[data-admin-theme='light'] .admin-po-payment-full {
+  border: 1px solid #e2e8f0;
+  background: #f6f8fb;
+}
+:root[data-admin-theme='light'] .admin-po-payment-products label {
+  background: #f8fafc;
+}
+:root[data-admin-theme='light'] .admin-po-payment-select-head button {
+  color: #0f766e;
+}
+:root[data-admin-theme='light'] .admin-po-payment-confirm,
+:root[data-admin-theme='light'] .admin-po-payment-confirm span {
+  border-color: #172033;
+  background: #172033;
+  color: #fff !important;
+}
+:root[data-admin-theme='light'] .admin-po-payment-confirm:hover,
+:root[data-admin-theme='light'] .admin-po-payment-confirm:focus-visible {
+  background: #0f172a;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, .2);
+}
 @media (max-width: 900px) {
   .admin-po-page-head { align-items:stretch; flex-direction:column; }
   .admin-po-history-card { grid-template-columns:1fr; }
