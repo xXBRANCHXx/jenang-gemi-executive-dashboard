@@ -43,6 +43,7 @@ expect(script.includes('purchase_order_outflow?.orders'), 'Going Out must render
 expect(script.includes('POs left to pay'), 'The red bar must label remaining PO payments clearly.');
 expect(script.includes('admin-liquidity-commitment-overlay'), 'Going Out must occupy a proportional section of the liquid-assets bar.');
 expect(script.includes('reservedOutflow / total'), 'The Going Out overlay must be scaled against total liquid assets.');
+expect(script.includes('bankShare - reservedShare'), 'The Going Out highlight must be positioned inside the bank segment.');
 expect(script.includes('../dashboard/?view=po-detail&amp;po='), 'Purchase-order outflow rows must open the matching PO breakdown.');
 expect(script.includes("searchInput.matches('[data-accounting-category-search]')"), 'Category results must filter live as the user types.');
 expect(script.includes('categoryComboboxMarkup(item.category_id)'), 'Correction forms must use the same searchable category dropdown.');
@@ -52,6 +53,7 @@ expect(css.includes('.admin-liquidity-tooltip'), 'Hover and keyboard-focus chart
 expect(css.includes(':has(.admin-liquidity-segment:hover)'), 'Hovering the liquid-assets bar must de-emphasize the other segments.');
 expect(/filter:\s*grayscale\(1\)/.test(css), 'Inactive chart segments must fade to gray during inspection.');
 expect(!/\.admin-liquidity-bar\s*\{[^}]*border:[^;]*#eab308/.test(css), 'The liquid-assets bar must not use a yellow outer stroke.');
+expect(css.includes("data:image/svg+xml,%3Csvg"), 'Going Out must use a striped red highlight instead of a solid block.');
 expect(css.includes('.admin-accounting-ledger-row'), 'Visual ledger rows must be styled.');
 expect(css.includes('.admin-accounting-category-menu'), 'The in-dropdown category search menu must be styled.');
 expect(/\.admin-accounting-breakdown-body\s*\{[^}]*overflow-y:\s*auto/.test(css), 'Long Accounting breakdowns must scroll inside the modal.');

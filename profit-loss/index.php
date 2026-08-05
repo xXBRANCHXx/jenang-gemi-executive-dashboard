@@ -99,7 +99,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                         </div>
                     </div>
 
-                    <p class="admin-liquidity-help">Going Out occupies its real proportion of liquid assets. Hover or focus any color for a breakdown; click to open its overview.</p>
+                    <p class="admin-liquidity-help">The red stripes mark money reserved to leave the bank. Hover or focus any color for a breakdown; click to open its overview.</p>
                 </section>
 
                 <section class="admin-accounting-metrics admin-liquidity-metrics" aria-label="Liquid asset overviews">

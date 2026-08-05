@@ -656,8 +656,8 @@ if (root) {
     const scheduledOutflow = Math.max(0, Number(liquidity.scheduled_outflow || 0));
     const reservedOutflow = Math.min(total, scheduledOutflow);
     const reservedShare = total > 0 ? (reservedOutflow / total) * 100 : 0;
-    const availableShare = total > 0 ? (Math.max(0, Number(liquidity.available_now || 0)) / total) * 100 : 0;
-    const reservedStart = Math.max(0, Math.min(100 - reservedShare, availableShare - reservedShare));
+    const bankShare = total > 0 ? (Math.max(0, Number(segments.bank || 0)) / total) * 100 : 0;
+    const reservedStart = Math.max(0, Math.min(100 - reservedShare, bankShare - reservedShare));
     if (refs.liquidityAssetsBar) {
       refs.liquidityAssetsBar.innerHTML = positiveAssets.length
         ? `<div class="admin-liquidity-sources">${positiveAssets.map((segment) => `
@@ -666,9 +666,9 @@ if (root) {
             ${liquidityTooltip(segment.label, segment.rows.length ? segment.rows : [[segment.label, segment.amount]], segment.amount)}
           </button>
         `).join('')}</div>${reservedOutflow > 0 ? `
-          <button type="button" class="admin-liquidity-commitment-overlay" data-accounting-liquidity-segment="outflow" style="left:${reservedStart}%;width:${reservedShare}%" aria-label="Going out ${escapeHtml(formatCurrency(scheduledOutflow))}">
+          <button type="button" class="admin-liquidity-commitment-overlay" data-accounting-liquidity-segment="outflow" style="left:${reservedStart}%;width:${reservedShare}%" aria-label="Going out from bank ${escapeHtml(formatCurrency(scheduledOutflow))}">
             <span class="admin-visually-hidden">Going out</span>
-            ${liquidityTooltip('Going out', outflowRows, scheduledOutflow)}
+            ${liquidityTooltip('Going out from bank', outflowRows, scheduledOutflow)}
           </button>
         ` : ''}`
         : '<span class="admin-liquidity-loading">No liquid assets recorded yet.</span>';
