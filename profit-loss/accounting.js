@@ -722,7 +722,7 @@ if (root) {
     const reservedOutflow = Math.min(total, scheduledOutflow);
     const reservedShare = total > 0 ? (reservedOutflow / total) * 100 : 0;
     const bankShare = total > 0 ? (Math.max(0, Number(segments.bank || 0)) / total) * 100 : 0;
-    const reservedStart = Math.max(0, Math.min(100 - reservedShare, bankShare - reservedShare));
+    const bankRight = Math.max(0, 100 - bankShare);
     if (refs.liquidityAssetsBar) {
       refs.liquidityAssetsBar.innerHTML = positiveAssets.length
         ? `<div class="admin-liquidity-sources">${positiveAssets.map((segment) => `
@@ -731,12 +731,56 @@ if (root) {
             ${liquidityTooltip(segment.label, segment.rows.length ? segment.rows : [[segment.label, segment.amount]], segment.amount)}
           </button>
         `).join('')}</div>${reservedOutflow > 0 ? `
-          <button type="button" class="admin-liquidity-commitment-overlay" data-accounting-liquidity-segment="outflow" style="left:${reservedStart}%;width:${reservedShare}%" aria-label="Going out from bank ${escapeHtml(formatCurrency(scheduledOutflow))}">
+          <button type="button" class="admin-liquidity-commitment-overlay" data-accounting-liquidity-segment="outflow" style="right:${bankRight}%;width:min(${bankShare}%, max(${reservedShare}%, 10px))" aria-label="Going out from bank ${escapeHtml(formatCurrency(scheduledOutflow))}">
             <span class="admin-visually-hidden">Going out</span>
             ${liquidityTooltip('Going out from bank', outflowRows, scheduledOutflow)}
           </button>
         ` : ''}`
         : '<span class="admin-liquidity-loading">No liquid assets recorded yet.</span>';
+    }
+  };
+
+  let liquidityTooltipPortal = null;
+
+  const hideLiquidityTooltip = () => {
+    if (liquidityTooltipPortal) liquidityTooltipPortal.hidden = true;
+  };
+
+  const positionLiquidityTooltip = (segment) => {
+    if (!(segment instanceof HTMLElement)) return;
+    const source = segment.querySelector('.admin-liquidity-tooltip');
+    if (!(source instanceof HTMLElement)) return;
+    if (!(liquidityTooltipPortal instanceof HTMLElement)) {
+      liquidityTooltipPortal = document.createElement('div');
+      liquidityTooltipPortal.className = 'admin-liquidity-tooltip admin-liquidity-tooltip-portal';
+      liquidityTooltipPortal.setAttribute('role', 'tooltip');
+      document.body.appendChild(liquidityTooltipPortal);
+    }
+    const tooltip = liquidityTooltipPortal;
+    tooltip.innerHTML = source.innerHTML;
+    tooltip.hidden = false;
+    tooltip.style.left = '-9999px';
+    tooltip.style.top = '0px';
+    const anchor = segment.getBoundingClientRect();
+    const width = tooltip.offsetWidth;
+    const height = tooltip.offsetHeight;
+    const gutter = 12;
+    const centeredLeft = anchor.left + (anchor.width / 2) - (width / 2);
+    const desiredLeft = window.innerWidth - anchor.right >= width + gutter
+      ? anchor.right + gutter
+      : (anchor.left >= width + gutter ? anchor.left - width - gutter : centeredLeft);
+    const left = Math.max(gutter, Math.min(window.innerWidth - width - gutter, desiredLeft));
+    const centeredTop = anchor.top + (anchor.height / 2) - (height / 2);
+    tooltip.style.left = `${Math.round(left)}px`;
+    tooltip.style.top = `${Math.round(Math.max(gutter, Math.min(window.innerHeight - height - gutter, centeredTop)))}px`;
+  };
+
+  const repositionActiveLiquidityTooltip = () => {
+    const segment = refs.liquidityAssetsBar?.querySelector('[data-accounting-liquidity-segment]:hover, [data-accounting-liquidity-segment]:focus-visible');
+    if (segment instanceof HTMLElement) {
+      positionLiquidityTooltip(segment);
+    } else {
+      hideLiquidityTooltip();
     }
   };
 
@@ -2083,9 +2127,28 @@ if (root) {
   refs.cashHistoryAccount?.addEventListener('change', renderCashHistory);
   refs.cashHistoryDirection?.addEventListener('change', renderCashHistory);
   refs.marketplaceOpen?.addEventListener('click', openMarketplaceBreakdown);
+  refs.liquidityAssetsBar?.addEventListener('pointerover', (event) => {
+    const segment = event.target instanceof Element ? event.target.closest('[data-accounting-liquidity-segment]') : null;
+    if (segment instanceof HTMLElement) positionLiquidityTooltip(segment);
+  });
+  refs.liquidityAssetsBar?.addEventListener('pointerout', (event) => {
+    const segment = event.target instanceof Element ? event.target.closest('[data-accounting-liquidity-segment]') : null;
+    if (segment instanceof HTMLElement && !segment.contains(event.relatedTarget)) hideLiquidityTooltip();
+  });
+  refs.liquidityAssetsBar?.addEventListener('focusin', (event) => {
+    const segment = event.target instanceof Element ? event.target.closest('[data-accounting-liquidity-segment]') : null;
+    if (segment instanceof HTMLElement) positionLiquidityTooltip(segment);
+  });
+  refs.liquidityAssetsBar?.addEventListener('focusout', (event) => {
+    const segment = event.target instanceof Element ? event.target.closest('[data-accounting-liquidity-segment]') : null;
+    if (segment instanceof HTMLElement && !segment.contains(event.relatedTarget)) hideLiquidityTooltip();
+  });
+  window.addEventListener('resize', repositionActiveLiquidityTooltip);
+  window.addEventListener('scroll', repositionActiveLiquidityTooltip, true);
   refs.liquidityAssetsBar?.addEventListener('click', (event) => {
     const segment = event.target instanceof Element ? event.target.closest('[data-accounting-liquidity-segment]') : null;
     if (!(segment instanceof HTMLElement)) return;
+    hideLiquidityTooltip();
     const kind = segment.dataset.accountingLiquiditySegment || '';
     if (kind === 'bank' || kind === 'cash') {
       openCashHistory(kind);

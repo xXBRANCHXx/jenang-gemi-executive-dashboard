@@ -49,13 +49,16 @@ expect(script.includes('purchase_order_outflow?.orders'), 'Going Out must render
 expect(script.includes('POs left to pay'), 'The red bar must label remaining PO payments clearly.');
 expect(script.includes('admin-liquidity-commitment-overlay'), 'Going Out must occupy a proportional section of the liquid-assets bar.');
 expect(script.includes('reservedOutflow / total'), 'The Going Out overlay must be scaled against total liquid assets.');
-expect(script.includes('bankShare - reservedShare'), 'The Going Out highlight must be positioned inside the bank segment.');
+expect(script.includes('const bankRight = Math.max(0, 100 - bankShare)'), 'The Going Out highlight must anchor to the bank segment’s right edge.');
+expect(script.includes('width:min(${bankShare}%, max(${reservedShare}%, 10px))'), 'Small Going Out amounts must remain visible without spilling outside the bank segment.');
 expect(script.includes('../dashboard/?view=po-detail&amp;po='), 'Purchase-order outflow rows must open the matching PO breakdown.');
 expect(script.includes("searchInput.matches('[data-accounting-category-search]')"), 'Category results must filter live as the user types.');
 expect(script.includes('categoryComboboxMarkup(item.category_id)'), 'Correction forms must use the same searchable category dropdown.');
 
 expect(css.includes('.admin-liquidity-overview'), 'The liquid-assets visual hierarchy must be styled.');
 expect(css.includes('.admin-liquidity-tooltip'), 'Hover and keyboard-focus chart breakdowns must be styled.');
+expect(css.includes("data-admin-theme='light'] .admin-liquidity-tooltip"), 'Light mode must use a readable light tooltip surface.');
+expect(script.includes('positionLiquidityTooltip'), 'Chart tooltips must be positioned within the visible viewport.');
 expect(css.includes(':has(.admin-liquidity-segment:hover)'), 'Hovering the liquid-assets bar must de-emphasize the other segments.');
 expect(/filter:\s*grayscale\(1\)/.test(css), 'Inactive chart segments must fade to gray during inspection.');
 expect(!/\.admin-liquidity-bar\s*\{[^}]*border:[^;]*#eab308/.test(css), 'The liquid-assets bar must not use a yellow outer stroke.');
