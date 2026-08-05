@@ -20,6 +20,26 @@
 .product-costs-readiness.is-complete { color: #4ade80; }
 .product-costs-readiness.is-complete i { background: #22c55e; box-shadow: 0 0 0 4px color-mix(in srgb, #22c55e 14%, transparent); }
 .product-costs-table td small { display: block; max-width: 390px; margin-top: 4px; color: var(--admin-muted); line-height: 1.4; }
+.product-costs-group-row { cursor: pointer; }
+.product-costs-group-row:hover { background: color-mix(in srgb, var(--admin-accent-primary) 5%, transparent); }
+.product-costs-group-row:focus-visible { outline: 2px solid var(--admin-accent-primary); outline-offset: -2px; }
+.product-costs-group-row.is-expanded > td { border-bottom-color: transparent; }
+.product-costs-variant-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.product-costs-variant-summary > span { min-width: 0; }
+.product-costs-variant-summary svg { flex: 0 0 auto; width: 18px; height: 18px; fill: none; stroke: var(--admin-muted); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform .18s ease; }
+.product-costs-group-row.is-expanded .product-costs-variant-summary svg { transform: rotate(180deg); }
+.product-costs-sku-details > td { padding: 0 16px 16px; background: color-mix(in srgb, var(--admin-accent-primary) 4%, var(--admin-surface)); }
+.product-costs-sku-details-card { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--admin-border); border-radius: 14px; background: var(--admin-surface-soft); }
+.product-costs-sku-details-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.product-costs-sku-details-head > strong { font-size: 13px; }
+.product-costs-sku-details-head > small { color: var(--admin-muted); font-size: 11px; }
+.product-costs-sku-list { display: grid; }
+.product-costs-sku-list-head, .product-costs-sku-list-row { display: grid; grid-template-columns: minmax(130px, 1fr) minmax(170px, 1.2fr) minmax(110px, auto); gap: 16px; align-items: center; }
+.product-costs-sku-list-head { padding: 0 10px 7px; color: var(--admin-muted); font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+.product-costs-sku-list-row { min-height: 42px; padding: 9px 10px; border-top: 1px solid var(--admin-border); }
+.product-costs-sku-list-row strong { font-size: 12px; }
+.product-costs-sku-list-row code { overflow-wrap: anywhere; color: var(--admin-muted); font: 600 11px/1.4 "Space Grotesk", monospace; }
+.product-costs-sku-list-row b { text-align: right; white-space: nowrap; font-size: 13px; }
 .product-costs-table tr.is-missing { background: color-mix(in srgb, #ef4444 7%, transparent); }
 .product-costs-status { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; font-size: 12px; font-weight: 800; }
 .product-costs-status i { width: 9px; height: 9px; border-radius: 50%; background: #94a3b8; box-shadow: 0 0 0 4px color-mix(in srgb, #94a3b8 16%, transparent); }
@@ -96,6 +116,14 @@
   .product-costs-table tr { padding: 12px; border-bottom: 1px solid var(--admin-border); }
   .product-costs-table td { display: grid; grid-template-columns: 110px 1fr; gap: 10px; padding: 7px 0; border: 0; }
   .product-costs-table td::before { content: attr(data-col); color: var(--admin-muted); font-size: 11px; font-weight: 800; text-transform: uppercase; }
+  .product-costs-sku-details { padding: 0 12px 12px !important; }
+  .product-costs-sku-details > td { padding: 0; }
+  .product-costs-sku-details > td::before { content: none; }
+  .product-costs-sku-details-head { align-items: flex-start; flex-direction: column; gap: 3px; }
+  .product-costs-sku-list-head { display: none; }
+  .product-costs-sku-list-row { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; }
+  .product-costs-sku-list-row code { grid-column: 1 / -1; grid-row: 2; }
+  .product-costs-sku-list-row b { grid-column: 2; grid-row: 1; }
   .product-costs-date-range { grid-template-columns: 1fr; }
   .product-costs-variant-list { grid-template-columns: 1fr; }
   .product-costs-modal-actions { flex-direction: column; }

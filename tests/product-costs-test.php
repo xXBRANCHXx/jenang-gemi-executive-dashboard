@@ -59,6 +59,7 @@ product_costs_expect(str_contains($page, 'data-product-costs-back') && !str_cont
 product_costs_expect(str_contains($skuPage, 'admin-sku-costs-link') && str_contains($skuPage, 'Product Costs'), 'SKU DB must expose a dedicated Product Costs control.');
 product_costs_expect(str_contains($script, "action: 'save_packing'") && str_contains($script, 'groupKey'), 'Packing edits must use the grouped Product Costs workflow.');
 product_costs_expect(str_contains($script, 'selected_skus: selectedSkus') && str_contains($script, 'data-remove-cogs-variant') && str_contains($script, 'data-cogs-variant checked hidden'), 'COGS must select all grouped variants by default and expose a trash control to remove individual variants.');
+product_costs_expect(str_contains($script, 'data-toggle-cost-details') && str_contains($script, 'Current COGS per SKU') && str_contains($script, 'row.cogs'), 'Clicking a grouped product row must expose the current COGS for every individual SKU.');
 product_costs_expect(str_contains($page, 'Fully retroactive') && str_contains($page, 'data-packing-month-range'), 'Packing must support monthly, month-range, and fully retroactive timing.');
 product_costs_expect(str_contains($sales, "\$row['packing_cost'] = \$rowPacking") && str_contains($sales, '$cogsQuantity'), 'Sales enrichment must calculate packing from physical quantities.');
 product_costs_expect(str_contains($formula, '$revenue - $cogs - $packing'), 'Final gross profit must subtract COGS and packing separately.');

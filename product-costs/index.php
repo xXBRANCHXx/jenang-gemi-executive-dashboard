@@ -69,7 +69,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/product-costs.js');
                                 <p class="product-costs-readiness" data-cost-readiness><i></i><strong data-cost-missing>0</strong> <span data-cost-missing-label>need packing price</span></p>
                             </div>
                         </div>
-                        <p>One edit updates every flavor and variant in the same product family and volume.</p>
+                        <p>Click a row to inspect COGS per SKU. One edit updates every selected variant in the same product family and volume.</p>
                     </div>
                     <div class="admin-table-wrap product-costs-table-wrap">
                         <table class="admin-table product-costs-table">

@@ -2,7 +2,7 @@ const root = document.querySelector('[data-product-costs]');
 
 if (root) {
   const api = root.dataset.apiEndpoint || '../api/product-costs/';
-  const state = { rows: [], groups: [], period: null, defaultPeriod: null, nextQuarter: null, search: '', loading: false };
+  const state = { rows: [], groups: [], expandedGroups: new Set(), period: null, defaultPeriod: null, nextQuarter: null, search: '', loading: false };
   const refs = {
     back: root.querySelector('[data-product-costs-back]'),
     month: root.querySelector('[data-cost-month]'),
@@ -60,6 +60,28 @@ if (root) {
     });
   };
   const statusLabel = (status) => status === 'complete' ? 'Ready' : status === 'not_required' ? 'No packing' : 'Price needed';
+  const skuCogsDetails = (group, detailsId) => `
+    <tr class="product-costs-sku-details" id="${detailsId}" data-cost-details-for="${escapeHtml(group.key)}">
+      <td colspan="7">
+        <div class="product-costs-sku-details-card">
+          <div class="product-costs-sku-details-head">
+            <strong>Current COGS per SKU</strong>
+            <small>${group.rows.length} variant${group.rows.length === 1 ? '' : 's'} in this product volume</small>
+          </div>
+          <div class="product-costs-sku-list" role="table" aria-label="Current COGS per SKU for ${escapeHtml(group.productName)} ${escapeHtml(volume(group))}">
+            <div class="product-costs-sku-list-head" role="row">
+              <span role="columnheader">Variant</span><span role="columnheader">SKU</span><span role="columnheader">Current COGS</span>
+            </div>
+            ${group.rows.map((row) => `
+              <div class="product-costs-sku-list-row" role="row">
+                <strong role="cell">${escapeHtml(row.flavor_name || 'Variant')}</strong>
+                <code role="cell">${escapeHtml(row.sku)}</code>
+                <b role="cell">${money(row.cogs)}</b>
+              </div>`).join('')}
+          </div>
+        </div>
+      </td>
+    </tr>`;
   const render = () => {
     const query = state.search.trim().toLowerCase();
     const filtered = state.groups.filter((group) => !query || [group.brandName, group.productName, group.volume, ...group.rows.flatMap((row) => [row.sku, row.tag, row.flavor_name])].join(' ').toLowerCase().includes(query));
@@ -68,16 +90,20 @@ if (root) {
     refs.missing.textContent = String(missingCount);
     refs.missingLabel.textContent = missingCount === 1 ? 'needs packing price' : 'need packing price';
     refs.readiness.classList.toggle('is-complete', missingCount === 0);
-    refs.rows.innerHTML = filtered.length ? filtered.map((group) => `
-      <tr class="is-${group.status}">
+    refs.rows.innerHTML = filtered.length ? filtered.map((group) => {
+      const expanded = state.expandedGroups.has(group.key);
+      const detailsId = `product-costs-skus-${state.groups.indexOf(group)}`;
+      return `
+      <tr class="product-costs-group-row is-${group.status}${expanded ? ' is-expanded' : ''}" data-toggle-cost-details="${escapeHtml(group.key)}" tabindex="0" aria-expanded="${expanded}" aria-controls="${detailsId}" aria-label="${expanded ? 'Hide' : 'Show'} COGS per SKU for ${escapeHtml(group.productName)} ${escapeHtml(volume(group))}">
         <td data-col="Status"><span class="product-costs-status is-${group.status}"><i></i>${statusLabel(group.status)}</span></td>
         <td data-col="Product"><strong>${escapeHtml(group.productName)}</strong><small>${escapeHtml(group.brandName)}</small></td>
         <td data-col="Volume"><strong>${escapeHtml(volume(group))}</strong></td>
-        <td data-col="Variants"><strong>${group.rows.length} SKU${group.rows.length === 1 ? '' : 's'}</strong><small>${group.rows.map((row) => escapeHtml(row.flavor_name || row.sku)).join(' · ')}</small></td>
+        <td data-col="Variants"><span class="product-costs-variant-summary"><span><strong>${group.rows.length} SKU${group.rows.length === 1 ? '' : 's'}</strong><small>${group.rows.map((row) => escapeHtml(row.flavor_name || row.sku)).join(' · ')}</small></span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4"/></svg></span></td>
         <td data-col="Current COGS"><strong>${group.cogs === null ? 'Mixed' : money(group.cogs)}</strong></td>
         <td data-col="Packing / item"><strong>${group.status === 'not_required' ? 'Not required' : group.packing === null ? 'Missing' : money(group.packing)}</strong><small>${escapeHtml(state.period?.label || '')}</small></td>
         <td data-col="Actions"><div class="product-costs-row-actions"><button type="button" data-edit-packing="${escapeHtml(group.key)}">Packing</button><button type="button" data-edit-cogs="${escapeHtml(group.key)}">COGS</button></div></td>
-      </tr>`).join('') : '<tr><td colspan="7" class="admin-empty">No product groups match this search.</td></tr>';
+      </tr>${expanded ? skuCogsDetails(group, detailsId) : ''}`;
+    }).join('') : '<tr><td colspan="7" class="admin-empty">No product groups match this search.</td></tr>';
   };
   const load = async (useDefault = false) => {
     if (state.loading) return;
@@ -106,6 +132,13 @@ if (root) {
     }
   };
   const groupByKey = (key) => state.groups.find((group) => group.key === key);
+  const toggleCogsDetails = (key) => {
+    if (!groupByKey(key)) return;
+    if (state.expandedGroups.has(key)) state.expandedGroups.delete(key);
+    else state.expandedGroups.add(key);
+    render();
+    refs.rows.querySelector(`[data-toggle-cost-details="${CSS.escape(key)}"]`)?.focus();
+  };
   const skuTokens = (group) => group.rows.map((row) => `<span><b>${escapeHtml(row.flavor_name || 'Variant')}</b>${escapeHtml(row.sku)}</span>`).join('');
   const selectedCogsSkus = () => Array.from(refs.cogsSkus.querySelectorAll('[data-cogs-variant]:checked')).map((input) => input.value);
   const updateCogsSelection = () => {
@@ -184,9 +217,17 @@ if (root) {
   });
   root.addEventListener('click', (event) => {
     const packing = event.target.closest('[data-edit-packing]');
-    if (packing) { const group = groupByKey(packing.dataset.editPacking); if (group) openPacking(group); }
+    if (packing) { const group = groupByKey(packing.dataset.editPacking); if (group) openPacking(group); return; }
     const cogs = event.target.closest('[data-edit-cogs]');
-    if (cogs) { const group = groupByKey(cogs.dataset.editCogs); if (group) openCogs(group); }
+    if (cogs) { const group = groupByKey(cogs.dataset.editCogs); if (group) openCogs(group); return; }
+    const row = event.target.closest('[data-toggle-cost-details]');
+    if (row) toggleCogsDetails(row.dataset.toggleCostDetails);
+  });
+  root.addEventListener('keydown', (event) => {
+    const row = event.target.closest('[data-toggle-cost-details]');
+    if (!row || event.target !== row || !['Enter', ' '].includes(event.key)) return;
+    event.preventDefault();
+    toggleCogsDetails(row.dataset.toggleCostDetails);
   });
   refs.search.addEventListener('input', () => { state.search = refs.search.value; render(); });
   refs.month.addEventListener('change', () => load());
