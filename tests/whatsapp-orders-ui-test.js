@@ -31,7 +31,10 @@ assert.match(nav, /'whatsapp' => \[[\s\S]*?favicon-whatsapp-light\.svg[\s\S]*?fa
 assert.match(nav, /'whatsapp' => '<span class="admin-whatsapp-icon"/, 'The hamburger menu must use the real WhatsApp glyph.');
 
 const styles = fs.readFileSync(path.join(root, 'admin.css'), 'utf8');
-const whatsappStyles = styles.slice(styles.indexOf('/* WhatsApp order builder */'));
+const whatsappStyles = styles.slice(
+  styles.indexOf('/* WhatsApp order builder */'),
+  styles.indexOf('/* Partner billing notification remodel */')
+);
 assert.ok(!whatsappStyles.includes('gradient'), 'The WhatsApp order builder must not use gradients.');
 assert.match(whatsappStyles, /\.whatsapp-order-hero[\s\S]*?background: var\(--admin-surface\)/, 'The builder hero must use the active dashboard theme surface.');
 assert.match(whatsappStyles, /\.whatsapp-order-field-grid input[\s\S]*?background: var\(--admin-surface-soft\)/, 'Form fields must follow the active light or dark theme.');

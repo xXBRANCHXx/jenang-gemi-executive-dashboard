@@ -8,7 +8,10 @@ const admin = fs.readFileSync(path.join(root, 'admin.js'), 'utf8');
 const script = fs.readFileSync(path.join(root, 'shipment-arrangement.js'), 'utf8');
 const styles = fs.readFileSync(path.join(root, 'admin.css'), 'utf8');
 const endpoint = fs.readFileSync(path.join(root, 'api', 'shipment-arrangement', 'index.php'), 'utf8');
-const shipmentStyles = styles.slice(styles.indexOf('/* Shipment arrangement */'));
+const shipmentStyles = styles.slice(
+  styles.indexOf('/* Shipment arrangement */'),
+  styles.indexOf('/* WhatsApp order builder */')
+);
 const shipmentMarkup = dashboard.slice(
   dashboard.indexOf('<section class="admin-view admin-shipment-arrangement"'),
   dashboard.indexOf('<section class="admin-view admin-store-ops-layout"')
