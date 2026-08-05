@@ -35172,8 +35172,7 @@ button.admin-accounting-metric {
   border-left: 1px solid var(--accounting-border);
 }
 
-.admin-liquidity-projected > span,
-.admin-liquidity-outflow > div:first-child > span {
+.admin-liquidity-projected > span {
   color: var(--accounting-muted);
   font-size: .68rem;
   font-weight: 800;
@@ -35214,10 +35213,8 @@ button.admin-accounting-metric {
   gap: 12px;
 }
 
-.admin-liquidity-bar,
-.admin-liquidity-outflow-bar {
+.admin-liquidity-bar {
   position: relative;
-  display: flex;
   min-width: 0;
   border-radius: 14px;
 }
@@ -35228,8 +35225,16 @@ button.admin-accounting-metric {
   background: color-mix(in srgb, var(--accounting-text) 3%, transparent);
 }
 
+.admin-liquidity-sources {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  min-width: 0;
+  border-radius: inherit;
+}
+
 .admin-liquidity-segment,
-.admin-liquidity-outflow-segment {
+.admin-liquidity-commitment-overlay {
   position: relative;
   flex-basis: 0;
   min-width: 9px;
@@ -35243,16 +35248,13 @@ button.admin-accounting-metric {
   transition: filter .18s ease, opacity .18s ease, transform .18s ease, box-shadow .18s ease;
 }
 
-.admin-liquidity-segment:first-child,
-.admin-liquidity-outflow-segment:first-child { border-radius: 13px 0 0 13px; }
-.admin-liquidity-segment:last-child,
-.admin-liquidity-outflow-segment:last-child { border-right: 0; border-radius: 0 13px 13px 0; }
-.admin-liquidity-segment:only-child,
-.admin-liquidity-outflow-segment:only-child { border-radius: 13px; }
+.admin-liquidity-sources .admin-liquidity-segment:first-child { border-radius: 13px 0 0 13px; }
+.admin-liquidity-sources .admin-liquidity-segment:last-child { border-right: 0; border-radius: 0 13px 13px 0; }
+.admin-liquidity-sources .admin-liquidity-segment:only-child { border-radius: 13px; }
 .admin-liquidity-segment:hover,
 .admin-liquidity-segment:focus-visible,
-.admin-liquidity-outflow-segment:hover,
-.admin-liquidity-outflow-segment:focus-visible {
+.admin-liquidity-commitment-overlay:hover,
+.admin-liquidity-commitment-overlay:focus-visible {
   z-index: 6;
   filter: grayscale(0) brightness(1.06);
   outline: 0;
@@ -35262,8 +35264,10 @@ button.admin-accounting-metric {
 
 .admin-liquidity-bar:has(.admin-liquidity-segment:hover) .admin-liquidity-segment:not(:hover),
 .admin-liquidity-bar:has(.admin-liquidity-segment:focus-visible) .admin-liquidity-segment:not(:focus-visible),
-.admin-liquidity-outflow-bar:has(.admin-liquidity-outflow-segment:hover) .admin-liquidity-outflow-segment:not(:hover),
-.admin-liquidity-outflow-bar:has(.admin-liquidity-outflow-segment:focus-visible) .admin-liquidity-outflow-segment:not(:focus-visible) {
+.admin-liquidity-bar:has(.admin-liquidity-commitment-overlay:hover) .admin-liquidity-segment,
+.admin-liquidity-bar:has(.admin-liquidity-commitment-overlay:focus-visible) .admin-liquidity-segment,
+.admin-liquidity-bar:has(.admin-liquidity-segment:hover) .admin-liquidity-commitment-overlay:not(:hover),
+.admin-liquidity-bar:has(.admin-liquidity-segment:focus-visible) .admin-liquidity-commitment-overlay:not(:focus-visible) {
   filter: grayscale(1);
   opacity: .28;
 }
@@ -35273,6 +35277,18 @@ button.admin-accounting-metric {
 .admin-liquidity-segment.is-wallet { background: #9fe01c; }
 .admin-liquidity-segment.is-marketplace { background: #f5c518; }
 .admin-liquidity-segment.is-partner { background: #e9a80f; }
+
+.admin-liquidity-commitment-overlay {
+  position: absolute;
+  z-index: 5;
+  top: 0;
+  bottom: 0;
+  min-width: 10px;
+  border: 0;
+  border-radius: 3px;
+  background: #c00030;
+  box-shadow: -1px 0 0 rgba(0, 0, 0, .32), 1px 0 0 rgba(0, 0, 0, .32);
+}
 
 .admin-liquidity-tooltip {
   position: absolute;
@@ -35297,22 +35313,18 @@ button.admin-accounting-metric {
   transition: opacity .16s ease, transform .16s ease, visibility .16s ease;
 }
 
-.admin-liquidity-segment:first-child .admin-liquidity-tooltip,
-.admin-liquidity-outflow-segment:first-child .admin-liquidity-tooltip { left: 0; transform: translate(0, 7px); }
-.admin-liquidity-segment:last-child .admin-liquidity-tooltip,
-.admin-liquidity-outflow-segment:last-child .admin-liquidity-tooltip { right: 0; left: auto; transform: translate(0, 7px); }
+.admin-liquidity-segment:first-child .admin-liquidity-tooltip { left: 0; transform: translate(0, 7px); }
+.admin-liquidity-segment:last-child .admin-liquidity-tooltip { right: 0; left: auto; transform: translate(0, 7px); }
 .admin-liquidity-segment:hover .admin-liquidity-tooltip,
 .admin-liquidity-segment:focus-visible .admin-liquidity-tooltip,
-.admin-liquidity-outflow-segment:hover .admin-liquidity-tooltip,
-.admin-liquidity-outflow-segment:focus-visible .admin-liquidity-tooltip { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
+.admin-liquidity-commitment-overlay:hover .admin-liquidity-tooltip,
+.admin-liquidity-commitment-overlay:focus-visible .admin-liquidity-tooltip { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
 .admin-liquidity-segment:first-child:hover .admin-liquidity-tooltip,
 .admin-liquidity-segment:first-child:focus-visible .admin-liquidity-tooltip,
 .admin-liquidity-segment:last-child:hover .admin-liquidity-tooltip,
-.admin-liquidity-segment:last-child:focus-visible .admin-liquidity-tooltip,
-.admin-liquidity-outflow-segment:first-child:hover .admin-liquidity-tooltip,
-.admin-liquidity-outflow-segment:first-child:focus-visible .admin-liquidity-tooltip,
-.admin-liquidity-outflow-segment:last-child:hover .admin-liquidity-tooltip,
-.admin-liquidity-outflow-segment:last-child:focus-visible .admin-liquidity-tooltip { transform: translate(0, 0); }
+.admin-liquidity-segment:last-child:focus-visible .admin-liquidity-tooltip { transform: translate(0, 0); }
+.admin-liquidity-commitment-overlay:hover .admin-liquidity-tooltip,
+.admin-liquidity-commitment-overlay:focus-visible .admin-liquidity-tooltip { transform: translate(-50%, 0); }
 
 .admin-liquidity-tooltip > strong {
   padding-bottom: 3px;
@@ -35350,44 +35362,7 @@ button.admin-accounting-metric {
 .admin-liquidity-legend .is-expected::before { background: #f5c518; }
 .admin-liquidity-legend .is-outflow::before { background: #ef3131; }
 
-.admin-liquidity-outflow {
-  display: grid;
-  grid-template-columns: minmax(175px, auto) minmax(0, 1fr);
-  gap: 16px;
-  align-items: center;
-  padding-top: 16px;
-  border-top: 1px solid var(--accounting-border);
-}
-
-.admin-liquidity-outflow > div:first-child {
-  display: grid;
-  gap: 3px;
-}
-
-.admin-liquidity-outflow > div:first-child > strong {
-  color: #ff5555;
-  font: 800 1.05rem/1.2 "Space Grotesk", sans-serif;
-}
-
-.admin-liquidity-outflow-bar {
-  min-height: 42px;
-  background: color-mix(in srgb, #ef3131 9%, var(--accounting-surface));
-}
-
-.admin-liquidity-outflow-segment {
-  display: grid;
-  place-items: center;
-  background: #d93636;
-  color: #fff;
-  font-size: .6rem;
-  font-weight: 850;
-}
-.admin-liquidity-outflow-segment.is-overdue { background: #8f1717; }
-.admin-liquidity-outflow-segment.is-purchase-orders { background: #a61d2d; }
-.admin-liquidity-outflow-segment.is-due-soon { background: #c52626; }
-.admin-liquidity-outflow-segment.is-later { background: #ef4242; }
-.admin-liquidity-no-outflow,
-.admin-liquidity-loading { align-self: center; padding: 0 14px; color: var(--accounting-muted); font-size: .68rem; font-weight: 750; }
+.admin-liquidity-loading { display: flex; align-items: center; min-height: 70px; padding: 0 14px; color: var(--accounting-muted); font-size: .68rem; font-weight: 750; }
 .admin-liquidity-metric {
   grid-template-columns: 54px minmax(0, 1fr);
   align-items: center;
@@ -35493,8 +35468,7 @@ a.admin-accounting-breakdown-row:focus-visible { background: color-mix(in srgb, 
 }
 
 @media (max-width: 680px) {
-  .admin-liquidity-head,
-  .admin-liquidity-outflow {
+  .admin-liquidity-head {
     grid-template-columns: 1fr;
   }
 
@@ -35506,7 +35480,6 @@ a.admin-accounting-breakdown-row:focus-visible { background: color-mix(in srgb, 
   }
 
   .admin-liquidity-bar { min-height: 54px; }
-  .admin-liquidity-outflow-segment > span { display: none; }
 
   .admin-accounting-view .admin-accounting-metrics {
     grid-template-columns: 1fr;

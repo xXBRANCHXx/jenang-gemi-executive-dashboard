@@ -138,7 +138,6 @@ if (root) {
       projectedAfterBills: root.querySelector('[data-accounting-kpi="projected-after-bills"]'),
       availableNow: root.querySelector('[data-accounting-kpi="available-now"]'),
       expectedTotal: root.querySelector('[data-accounting-kpi="expected-total"]'),
-      scheduledOutflow: root.querySelector('[data-accounting-kpi="scheduled-outflow"]'),
       scheduledOutflowCard: root.querySelector('[data-accounting-kpi="scheduled-outflow-card"]'),
       overdue: root.querySelector('[data-accounting-kpi="overdue"]'),
       expenses: root.querySelector('[data-accounting-kpi="expenses"]'),
@@ -166,7 +165,6 @@ if (root) {
     pulseCash: root.querySelector('[data-accounting-pulse-cash]'),
     reconciliationCopy: root.querySelector('[data-accounting-reconciliation-copy]'),
     liquidityAssetsBar: root.querySelector('[data-accounting-liquidity-assets-bar]'),
-    liquidityOutflowBar: root.querySelector('[data-accounting-liquidity-outflow-bar]'),
     marketplaceOpen: root.querySelector('[data-accounting-marketplace-open]'),
     partnerBillsOpenButtons: root.querySelectorAll('[data-accounting-partner-bills-open]'),
     billsOpenButtons: root.querySelectorAll('[data-accounting-bills-open]'),
@@ -602,7 +600,6 @@ if (root) {
     if (refs.kpis.projectedAfterBills) refs.kpis.projectedAfterBills.textContent = formatCurrency(liquidity.projected_after_bills || 0);
     if (refs.kpis.availableNow) refs.kpis.availableNow.textContent = formatCurrency(liquidity.available_now || 0);
     if (refs.kpis.expectedTotal) refs.kpis.expectedTotal.textContent = formatCurrency(liquidity.expected_total || 0);
-    if (refs.kpis.scheduledOutflow) refs.kpis.scheduledOutflow.textContent = `−${formatCurrency(liquidity.scheduled_outflow || 0)}`;
     if (refs.kpis.scheduledOutflowCard) refs.kpis.scheduledOutflowCard.textContent = formatCurrency(liquidity.scheduled_outflow || 0);
     if (refs.kpis.overdue) refs.kpis.overdue.textContent = formatCurrency(kpis.overdue_bills || 0);
     if (refs.kpis.expenses) refs.kpis.expenses.textContent = formatCurrency(kpis.expenses_this_month || 0);
@@ -648,48 +645,33 @@ if (root) {
       { key: 'partner', label: 'Partner bills unpaid', amount: Number(segments.partner_unpaid || 0), rows: [['Unpaid partner bills', Number(segments.partner_unpaid || 0)]] }
     ];
     const positiveAssets = assetSegments.filter((segment) => segment.amount > 0);
+    const outflow = liquidity.outflow_segments || {};
+    const outflowRows = [
+      ['POs left to pay', Number(outflow.purchase_orders || 0)],
+      ['Supplier bills overdue', Number(outflow.overdue || 0)],
+      ['Supplier bills due in 7 days', Number(outflow.due_soon || 0)],
+      ['Supplier bills due later', Number(outflow.later || 0)]
+    ].filter(([, amount]) => amount > 0);
+    const total = Math.max(0, Number(liquidity.total || 0));
+    const scheduledOutflow = Math.max(0, Number(liquidity.scheduled_outflow || 0));
+    const reservedOutflow = Math.min(total, scheduledOutflow);
+    const reservedShare = total > 0 ? (reservedOutflow / total) * 100 : 0;
+    const availableShare = total > 0 ? (Math.max(0, Number(liquidity.available_now || 0)) / total) * 100 : 0;
+    const reservedStart = Math.max(0, Math.min(100 - reservedShare, availableShare - reservedShare));
     if (refs.liquidityAssetsBar) {
       refs.liquidityAssetsBar.innerHTML = positiveAssets.length
-        ? positiveAssets.map((segment) => `
+        ? `<div class="admin-liquidity-sources">${positiveAssets.map((segment) => `
           <button type="button" class="admin-liquidity-segment is-${segment.key}" data-accounting-liquidity-segment="${segment.key}" style="flex-grow:${Math.max(1, segment.amount)}" aria-label="${escapeHtml(segment.label)} ${escapeHtml(formatCurrency(segment.amount))}">
             <span class="admin-visually-hidden">${escapeHtml(segment.label)}</span>
             ${liquidityTooltip(segment.label, segment.rows.length ? segment.rows : [[segment.label, segment.amount]], segment.amount)}
           </button>
-        `).join('')
-        : '<span class="admin-liquidity-loading">No liquid assets recorded yet.</span>';
-    }
-    const outflow = liquidity.outflow_segments || {};
-    const purchaseOrders = Array.isArray(summary?.purchase_order_outflow?.orders)
-      ? summary.purchase_order_outflow.orders.filter((order) => Number(order.counted_amount || 0) > 0)
-      : [];
-    const purchaseOrderTooltipRows = purchaseOrders.slice(0, 5)
-      .map((order) => [order.po_number || 'Purchase order', Number(order.counted_amount || 0)]);
-    if (purchaseOrders.length > 5) {
-      purchaseOrderTooltipRows.push([
-        `${(purchaseOrders.length - 5).toLocaleString('id-ID')} more POs`,
-        purchaseOrders.slice(5).reduce((total, order) => total + Number(order.counted_amount || 0), 0)
-      ]);
-    }
-    const outflowSegments = [
-      {
-        key: 'purchase-orders',
-        label: 'POs left to pay',
-        amount: Number(outflow.purchase_orders || 0),
-        rows: purchaseOrderTooltipRows
-      },
-      { key: 'overdue', label: 'Overdue', amount: Number(outflow.overdue || 0) },
-      { key: 'due-soon', label: 'Due in 7 days', amount: Number(outflow.due_soon || 0) },
-      { key: 'later', label: 'Due later', amount: Number(outflow.later || 0) }
-    ].filter((segment) => segment.amount > 0);
-    if (refs.liquidityOutflowBar) {
-      refs.liquidityOutflowBar.innerHTML = outflowSegments.length
-        ? outflowSegments.map((segment) => `
-          <button type="button" class="admin-liquidity-outflow-segment is-${segment.key}" data-accounting-liquidity-segment="outflow" style="flex-grow:${Math.max(1, segment.amount)}" aria-label="${escapeHtml(segment.label)} ${escapeHtml(formatCurrency(segment.amount))}">
-            <span>${escapeHtml(segment.label)}</span>
-            ${liquidityTooltip('Going out', segment.rows?.length ? segment.rows : [[segment.label, segment.amount]], segment.amount)}
+        `).join('')}</div>${reservedOutflow > 0 ? `
+          <button type="button" class="admin-liquidity-commitment-overlay" data-accounting-liquidity-segment="outflow" style="left:${reservedStart}%;width:${reservedShare}%" aria-label="Going out ${escapeHtml(formatCurrency(scheduledOutflow))}">
+            <span class="admin-visually-hidden">Going out</span>
+            ${liquidityTooltip('Going out', outflowRows, scheduledOutflow)}
           </button>
-        `).join('')
-        : '<span class="admin-liquidity-no-outflow">No payments scheduled</span>';
+        ` : ''}`
+        : '<span class="admin-liquidity-loading">No liquid assets recorded yet.</span>';
     }
   };
 
@@ -1891,9 +1873,12 @@ if (root) {
       openPartnerBillsBreakdown('due');
       return;
     }
+    if (kind === 'outflow') {
+      openBillsBreakdown('scheduled');
+      return;
+    }
     openMarketplaceBreakdown();
   });
-  refs.liquidityOutflowBar?.addEventListener('click', () => openBillsBreakdown('scheduled'));
   refs.partnerBillsOpenButtons.forEach((button) => {
     button.addEventListener('click', () => openPartnerBillsBreakdown(button.dataset.accountingPartnerBillsOpen || 'due'));
   });

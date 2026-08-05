@@ -15,7 +15,7 @@ const expect = (condition, message) => {
 expect(html.includes('data-accounting-reconcile-form'), 'Accounting must expose the cash reconciliation form.');
 expect(html.includes('data-accounting-marketplace-open'), 'Expected receivables must open a visual breakdown.');
 expect(html.includes('data-accounting-liquidity-assets-bar'), 'Accounting must expose a liquid-assets composition bar.');
-expect(html.includes('data-accounting-liquidity-outflow-bar'), 'Accounting must expose scheduled supplier outflows separately.');
+expect(!html.includes('data-accounting-liquidity-outflow-bar'), 'Going Out must not be rendered as a misleading full-width second bar.');
 expect(html.includes('data-accounting-kpi="liquid-assets"'), 'Accounting must lead with total liquid assets.');
 expect(html.includes('unpaid partner bills'), 'Accounting must explain that unpaid partner bills are expected money.');
 expect(html.includes('data-accounting-ledger-body'), 'Accounting must expose the unified activity ledger.');
@@ -41,6 +41,8 @@ expect(script.includes('data-accounting-receivable-partner="due"'), 'Unpaid part
 expect(script.includes("openBillsBreakdown('scheduled')"), 'Scheduled outflow must open supplier bill details.');
 expect(script.includes('purchase_order_outflow?.orders'), 'Going Out must render existing purchase-order balances.');
 expect(script.includes('POs left to pay'), 'The red bar must label remaining PO payments clearly.');
+expect(script.includes('admin-liquidity-commitment-overlay'), 'Going Out must occupy a proportional section of the liquid-assets bar.');
+expect(script.includes('reservedOutflow / total'), 'The Going Out overlay must be scaled against total liquid assets.');
 expect(script.includes('../dashboard/?view=po-detail&amp;po='), 'Purchase-order outflow rows must open the matching PO breakdown.');
 expect(script.includes("searchInput.matches('[data-accounting-category-search]')"), 'Category results must filter live as the user types.');
 expect(script.includes('categoryComboboxMarkup(item.category_id)'), 'Correction forms must use the same searchable category dropdown.');

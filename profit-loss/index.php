@@ -99,14 +99,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                         </div>
                     </div>
 
-                    <div class="admin-liquidity-outflow">
-                        <div>
-                            <span>Going out</span>
-                            <strong data-accounting-kpi="scheduled-outflow">−Rp0</strong>
-                        </div>
-                        <div class="admin-liquidity-outflow-bar" data-accounting-liquidity-outflow-bar></div>
-                    </div>
-                    <p class="admin-liquidity-help">Hover or focus any color for a breakdown. Click a segment to open its overview.</p>
+                    <p class="admin-liquidity-help">Going Out occupies its real proportion of liquid assets. Hover or focus any color for a breakdown; click to open its overview.</p>
                 </section>
 
                 <section class="admin-accounting-metrics admin-liquidity-metrics" aria-label="Liquid asset overviews">
