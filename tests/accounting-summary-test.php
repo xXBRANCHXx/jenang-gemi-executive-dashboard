@@ -99,6 +99,36 @@ summary_expect(60000, $summary['monthly_summary']['wallet_withdrawals_to_bank'],
 summary_expect(80000, $summary['monthly_summary']['website_payments_to_bank'], 'Monthly confirmed website payments must be reported independently.');
 summary_expect(190000, $summary['monthly_summary']['estimated_net_cash_movement'], 'Monthly movement must combine manual and automatic money-in.');
 
+$poAccountingPdo = new PDO('sqlite::memory:');
+$poAccountingPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$poAccountingPdo->exec('CREATE TABLE accounting_bills (
+    id INTEGER PRIMARY KEY, bill_no TEXT NULL, status TEXT, outstanding_amount REAL
+)');
+$poAccountingPdo->exec("INSERT INTO accounting_bills VALUES
+    (1, 'JG-PO-RECEIVED', 'unpaid', 40000)");
+
+$poPdo = new PDO('sqlite::memory:');
+$poPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+jg_purchase_orders_ensure_schema($poPdo);
+$poPdo->exec("INSERT INTO purchase_orders
+    (id, po_number, request_key, status, tag, note, line_count, ordered_qty, received_qty,
+     estimated_total, placed_by, placed_at, confirmed_at, updated_at, completed_at)
+    VALUES
+    (1, 'JG-PO-OPEN', 'po-open', 'pending', 'Supplier A', '', 1, 10, 0, 100000, 'Test', '2026-07-01 00:00:00', '2026-07-01 00:00:00', '2026-07-01 00:00:00', NULL),
+    (2, 'JG-PO-DRAFT', 'po-draft', 'draft', '', '', 1, 5, 0, 50000, 'Test', '2026-07-02 00:00:00', NULL, '2026-07-02 00:00:00', NULL),
+    (3, 'JG-PO-CANCELLED', 'po-cancelled', 'cancelled', '', '', 1, 5, 0, 60000, 'Test', '2026-07-03 00:00:00', '2026-07-03 00:00:00', '2026-07-03 00:00:00', NULL),
+    (4, 'JG-PO-RECEIVED', 'po-received', 'received', 'Supplier B', '', 1, 4, 4, 40000, 'Test', '2026-07-04 00:00:00', '2026-07-04 00:00:00', '2026-07-04 00:00:00', '2026-07-05 00:00:00')");
+$poPdo->exec("INSERT INTO purchase_order_payments
+    (purchase_order_id, request_key, accounting_transaction_id, account_id, account_name,
+     amount, payment_mode, item_ids_json, paid_by, paid_at)
+    VALUES (1, 'po-payment', 99, 1, 'BCA Main', 30000, 'amount', '[]', 'Test', '2026-07-05 00:00:00')");
+$poOutflow = jg_accounting_purchase_order_outflow($poAccountingPdo, $poPdo);
+summary_expect(true, $poOutflow['available'], 'Purchase-order outflow must report when the SKU database is available.');
+summary_expect(110000, $poOutflow['gross_amount_due'], 'Going Out must see every confirmed PO amount left to pay, including received POs.');
+summary_expect(40000, $poOutflow['supplier_bill_overlap'], 'A supplier bill with the PO number must be recognized as an overlap.');
+summary_expect(70000, $poOutflow['amount'], 'Going Out must add only the PO balance not already represented by a supplier bill.');
+summary_expect(2, count($poOutflow['orders']), 'Draft and cancelled POs must stay out of Going Out.');
+
 $feePdo = new PDO('sqlite::memory:');
 $feePdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 $feePdo->exec('CREATE TABLE accounting_accounts (

@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/analytics-bootstrap.php';
 require_once __DIR__ . '/partner-billing-bootstrap.php';
+require_once __DIR__ . '/sku-db-bootstrap.php';
+require_once __DIR__ . '/purchase-orders-bootstrap.php';
 
 function jg_accounting_now(): DateTimeImmutable
 {
@@ -2649,6 +2651,15 @@ function jg_accounting_summary(PDO $pdo, string $month): array
            AND outstanding_amount > 0',
         []
     );
+    $purchaseOrderOutflow = (string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql'
+        ? jg_accounting_purchase_order_outflow($pdo)
+        : [
+            'amount' => 0,
+            'gross_amount_due' => 0,
+            'supplier_bill_overlap' => 0,
+            'available' => false,
+            'orders' => [],
+        ];
     $expenses = $sumBill(
         $pdo,
         'SELECT COALESCE(SUM(amount), 0)
@@ -2676,7 +2687,8 @@ function jg_accounting_summary(PDO $pdo, string $month): array
     $availableNow = $operatingFunds;
     $expectedTotal = $walletReady + $marketplaceOutstandingAmount + $partnerBillsDue;
     $liquidAssetsTotal = $availableNow + $expectedTotal;
-    $projectedAfterBills = $liquidAssetsTotal - $scheduledBills;
+    $scheduledOutflow = $scheduledBills + (int) ($purchaseOrderOutflow['amount'] ?? 0);
+    $projectedAfterBills = $liquidAssetsTotal - $scheduledOutflow;
     $scheduledBillsLater = max(0, $scheduledBills - $accountingBillsDueSoon - $overdueBills);
     $realCash = $operatingFunds;
     $safeCash = $realCash - $accountingBillsDueSoon - $overdueBills;
@@ -2692,6 +2704,8 @@ function jg_accounting_summary(PDO $pdo, string $month): array
             'marketplace_outstanding' => $marketplaceOutstanding['amount'],
             'bills_due_soon' => $billsDueSoon,
             'scheduled_bills' => $scheduledBills,
+            'purchase_orders_left_to_pay' => (int) ($purchaseOrderOutflow['amount'] ?? 0),
+            'going_out_total' => $scheduledOutflow,
             'partner_bills_due' => $partnerBillsDue,
             'partner_bills_in_progress' => $partnerBillsInProgress,
             'overdue_bills' => $overdueBills,
@@ -2703,7 +2717,7 @@ function jg_accounting_summary(PDO $pdo, string $month): array
             'total' => $liquidAssetsTotal,
             'available_now' => $availableNow,
             'expected_total' => $expectedTotal,
-            'scheduled_outflow' => $scheduledBills,
+            'scheduled_outflow' => $scheduledOutflow,
             'projected_after_bills' => $projectedAfterBills,
             'segments' => [
                 'bank' => $bankBalance,
@@ -2716,8 +2730,10 @@ function jg_accounting_summary(PDO $pdo, string $month): array
                 'overdue' => $overdueBills,
                 'due_soon' => $accountingBillsDueSoon,
                 'later' => $scheduledBillsLater,
+                'purchase_orders' => (int) ($purchaseOrderOutflow['amount'] ?? 0),
             ],
         ],
+        'purchase_order_outflow' => $purchaseOrderOutflow,
         'marketplace_outstanding_context' => $marketplaceOutstanding,
         'wallet_breakdown' => $walletBreakdown,
         'cash_reconciliation' => $cashReconciliation,
@@ -2735,6 +2751,128 @@ function jg_accounting_summary(PDO $pdo, string $month): array
         'channel_summary' => jg_accounting_group_summary($pdo, $month, 'channel'),
         'alerts' => jg_accounting_alerts($pdo, $billsDueSoon, $overdueBills),
     ];
+}
+
+function jg_accounting_reference_key(string $value): string
+{
+    return strtoupper(preg_replace('/[^A-Z0-9]+/i', '', trim($value)) ?? '');
+}
+
+function jg_accounting_purchase_order_db(): PDO
+{
+    static $pdo = null;
+    if ($pdo instanceof PDO) {
+        return $pdo;
+    }
+    $config = jg_sku_db_config();
+    if ($config['name'] === '' || $config['user'] === '') {
+        throw new RuntimeException('SKU database configuration is incomplete.');
+    }
+    $pdo = new PDO(
+        sprintf(
+            'mysql:host=%s;port=%s;dbname=%s;charset=%s',
+            $config['host'],
+            $config['port'],
+            $config['name'],
+            $config['charset']
+        ),
+        $config['user'],
+        $config['pass'],
+        [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES => false,
+        ]
+    );
+    return $pdo;
+}
+
+/**
+ * Returns the still-unpaid portion of confirmed purchase orders that is not
+ * already represented by a matching open supplier bill.
+ *
+ * @return array{amount:int,gross_amount_due:int,supplier_bill_overlap:int,available:bool,orders:array<int,array<string,mixed>>}
+ */
+function jg_accounting_purchase_order_outflow(PDO $accountingPdo, ?PDO $skuPdo = null): array
+{
+    try {
+        $skuPdo ??= jg_accounting_purchase_order_db();
+
+        $billReferences = [];
+        $billStmt = $accountingPdo->query(
+            'SELECT bill_no, outstanding_amount
+             FROM accounting_bills
+             WHERE status IN ("unpaid", "partially_paid", "overdue")
+               AND outstanding_amount > 0
+               AND bill_no IS NOT NULL
+               AND bill_no <> ""'
+        );
+        foreach (($billStmt ? $billStmt->fetchAll() : []) as $bill) {
+            $key = jg_accounting_reference_key((string) ($bill['bill_no'] ?? ''));
+            if ($key !== '') {
+                $billReferences[$key] = (int) ($billReferences[$key] ?? 0)
+                    + max(0, (int) round((float) ($bill['outstanding_amount'] ?? 0)));
+            }
+        }
+
+        $orders = $skuPdo->query(
+            'SELECT o.id, o.po_number, o.status, o.tag, o.estimated_total, o.placed_at,
+                    COALESCE(SUM(p.amount), 0) AS paid_total
+             FROM purchase_orders o
+             LEFT JOIN purchase_order_payments p ON p.purchase_order_id = o.id
+             WHERE o.status NOT IN ("draft", "cancelled")
+             GROUP BY o.id, o.po_number, o.status, o.tag, o.estimated_total, o.placed_at
+             ORDER BY o.placed_at DESC, o.id DESC'
+        )->fetchAll();
+
+        $rows = [];
+        $amount = 0;
+        $grossAmountDue = 0;
+        $supplierBillOverlap = 0;
+        foreach ($orders as $order) {
+            $estimatedTotal = max(0, (int) round((float) ($order['estimated_total'] ?? 0)));
+            $paidTotal = min($estimatedTotal, max(0, (int) round((float) ($order['paid_total'] ?? 0))));
+            $amountDue = max(0, $estimatedTotal - $paidTotal);
+            if ($amountDue <= 0) {
+                continue;
+            }
+            $referenceKey = jg_accounting_reference_key((string) ($order['po_number'] ?? ''));
+            $overlap = min($amountDue, max(0, (int) ($billReferences[$referenceKey] ?? 0)));
+            $countedAmount = max(0, $amountDue - $overlap);
+            $grossAmountDue += $amountDue;
+            $supplierBillOverlap += $overlap;
+            $amount += $countedAmount;
+            $rows[] = [
+                'id' => (int) ($order['id'] ?? 0),
+                'po_number' => (string) ($order['po_number'] ?? ''),
+                'status' => (string) ($order['status'] ?? ''),
+                'tag' => (string) ($order['tag'] ?? ''),
+                'placed_at' => (string) ($order['placed_at'] ?? ''),
+                'estimated_total' => $estimatedTotal,
+                'paid_total' => $paidTotal,
+                'amount_due' => $amountDue,
+                'supplier_bill_overlap' => $overlap,
+                'counted_amount' => $countedAmount,
+            ];
+        }
+
+        return [
+            'amount' => $amount,
+            'gross_amount_due' => $grossAmountDue,
+            'supplier_bill_overlap' => $supplierBillOverlap,
+            'available' => true,
+            'orders' => $rows,
+        ];
+    } catch (Throwable $error) {
+        error_log('Purchase order outflow unavailable: ' . $error->getMessage());
+        return [
+            'amount' => 0,
+            'gross_amount_due' => 0,
+            'supplier_bill_overlap' => 0,
+            'available' => false,
+            'orders' => [],
+        ];
+    }
 }
 
 function jg_accounting_monthly_summary(PDO $pdo, string $month): array

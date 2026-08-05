@@ -659,7 +659,24 @@ if (root) {
         : '<span class="admin-liquidity-loading">No liquid assets recorded yet.</span>';
     }
     const outflow = liquidity.outflow_segments || {};
+    const purchaseOrders = Array.isArray(summary?.purchase_order_outflow?.orders)
+      ? summary.purchase_order_outflow.orders.filter((order) => Number(order.counted_amount || 0) > 0)
+      : [];
+    const purchaseOrderTooltipRows = purchaseOrders.slice(0, 5)
+      .map((order) => [order.po_number || 'Purchase order', Number(order.counted_amount || 0)]);
+    if (purchaseOrders.length > 5) {
+      purchaseOrderTooltipRows.push([
+        `${(purchaseOrders.length - 5).toLocaleString('id-ID')} more POs`,
+        purchaseOrders.slice(5).reduce((total, order) => total + Number(order.counted_amount || 0), 0)
+      ]);
+    }
     const outflowSegments = [
+      {
+        key: 'purchase-orders',
+        label: 'POs left to pay',
+        amount: Number(outflow.purchase_orders || 0),
+        rows: purchaseOrderTooltipRows
+      },
       { key: 'overdue', label: 'Overdue', amount: Number(outflow.overdue || 0) },
       { key: 'due-soon', label: 'Due in 7 days', amount: Number(outflow.due_soon || 0) },
       { key: 'later', label: 'Due later', amount: Number(outflow.later || 0) }
@@ -669,10 +686,10 @@ if (root) {
         ? outflowSegments.map((segment) => `
           <button type="button" class="admin-liquidity-outflow-segment is-${segment.key}" data-accounting-liquidity-segment="outflow" style="flex-grow:${Math.max(1, segment.amount)}" aria-label="${escapeHtml(segment.label)} ${escapeHtml(formatCurrency(segment.amount))}">
             <span>${escapeHtml(segment.label)}</span>
-            ${liquidityTooltip('Scheduled supplier bills', [[segment.label, segment.amount]], segment.amount)}
+            ${liquidityTooltip('Going out', segment.rows?.length ? segment.rows : [[segment.label, segment.amount]], segment.amount)}
           </button>
         `).join('')
-        : '<span class="admin-liquidity-no-outflow">No supplier bills scheduled</span>';
+        : '<span class="admin-liquidity-no-outflow">No payments scheduled</span>';
     }
   };
 
@@ -1010,15 +1027,34 @@ if (root) {
         <span><small>Outstanding</small><strong>${formatCurrency(bill.outstanding_amount || 0)}</strong></span>
       </button>
     `);
+    if (kind === 'scheduled') {
+      const purchaseOrders = Array.isArray(state.summary?.purchase_order_outflow?.orders)
+        ? state.summary.purchase_order_outflow.orders
+        : [];
+      purchaseOrders.filter((order) => Number(order.counted_amount || 0) > 0).forEach((order) => {
+        const detail = [
+          order.tag || '',
+          String(order.status || '').replace(/_/g, ' '),
+          Number(order.paid_total || 0) > 0 ? `${formatCurrency(order.paid_total)} paid` : 'No payment recorded'
+        ].filter(Boolean).join(' · ');
+        rows.push(`
+          <a class="admin-accounting-breakdown-row is-purchase-order" href="../dashboard/?view=po-detail&amp;po=${Number(order.id || 0)}">
+            <span><strong>${escapeHtml(order.po_number || 'Purchase order')}</strong><small>${escapeHtml(detail)}</small></span>
+            <span><small>Type</small><strong>Purchase order</strong></span>
+            <span><small>Left to pay</small><strong>${formatCurrency(order.counted_amount || 0)}</strong></span>
+          </a>
+        `);
+      });
+    }
     openBreakdown({
       kicker: 'Cash commitments',
       title,
       copy: kind === 'scheduled'
-        ? 'These are unpaid supplier bills going out. Partner bills are receivables and never appear in this deduction.'
+        ? 'These are unpaid supplier bills and the amount left to pay on existing purchase orders. Partner bills are receivables and never appear in this deduction.'
         : (kind === 'overdue'
         ? 'These bills need action now. Open one to pay it or correct its details.'
         : 'These are the supplier bills that affect your next seven days.'),
-      empty: kind === 'scheduled' ? 'No supplier bills are scheduled.' : (kind === 'overdue' ? 'No overdue bills.' : 'No bills are due in the next seven days.'),
+      empty: kind === 'scheduled' ? 'No supplier bills or purchase-order balances are going out.' : (kind === 'overdue' ? 'No overdue bills.' : 'No bills are due in the next seven days.'),
       rows
     });
   };

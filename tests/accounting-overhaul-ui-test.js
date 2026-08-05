@@ -39,6 +39,9 @@ expect(script.includes("action: 'save_account'"), 'Account role settings must pe
 expect(script.includes('<small>Ready to withdraw</small>'), 'Expected-money breakdowns must distinguish withdrawable cash from outstanding orders.');
 expect(script.includes('data-accounting-receivable-partner="due"'), 'Unpaid partner bills must drill down from expected receivables.');
 expect(script.includes("openBillsBreakdown('scheduled')"), 'Scheduled outflow must open supplier bill details.');
+expect(script.includes('purchase_order_outflow?.orders'), 'Going Out must render existing purchase-order balances.');
+expect(script.includes('POs left to pay'), 'The red bar must label remaining PO payments clearly.');
+expect(script.includes('../dashboard/?view=po-detail&amp;po='), 'Purchase-order outflow rows must open the matching PO breakdown.');
 expect(script.includes("searchInput.matches('[data-accounting-category-search]')"), 'Category results must filter live as the user types.');
 expect(script.includes('categoryComboboxMarkup(item.category_id)'), 'Correction forms must use the same searchable category dropdown.');
 
@@ -46,6 +49,7 @@ expect(css.includes('.admin-liquidity-overview'), 'The liquid-assets visual hier
 expect(css.includes('.admin-liquidity-tooltip'), 'Hover and keyboard-focus chart breakdowns must be styled.');
 expect(css.includes(':has(.admin-liquidity-segment:hover)'), 'Hovering the liquid-assets bar must de-emphasize the other segments.');
 expect(/filter:\s*grayscale\(1\)/.test(css), 'Inactive chart segments must fade to gray during inspection.');
+expect(!/\.admin-liquidity-bar\s*\{[^}]*border:[^;]*#eab308/.test(css), 'The liquid-assets bar must not use a yellow outer stroke.');
 expect(css.includes('.admin-accounting-ledger-row'), 'Visual ledger rows must be styled.');
 expect(css.includes('.admin-accounting-category-menu'), 'The in-dropdown category search menu must be styled.');
 expect(/\.admin-accounting-breakdown-body\s*\{[^}]*overflow-y:\s*auto/.test(css), 'Long Accounting breakdowns must scroll inside the modal.');

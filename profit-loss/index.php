@@ -101,7 +101,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
 
                     <div class="admin-liquidity-outflow">
                         <div>
-                            <span>Scheduled supplier bills</span>
+                            <span>Going out</span>
                             <strong data-accounting-kpi="scheduled-outflow">−Rp0</strong>
                         </div>
                         <div class="admin-liquidity-outflow-bar" data-accounting-liquidity-outflow-bar></div>
@@ -137,7 +137,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                         <span class="admin-liquidity-metric-copy">
                             <span>Scheduled outflow</span>
                             <strong data-accounting-kpi="scheduled-outflow-card">Rp0</strong>
-                            <small>Unpaid supplier bills <b aria-hidden="true">→</b></small>
+                            <small>Supplier bills + PO balances <b aria-hidden="true">→</b></small>
                         </span>
                     </button>
                 </section>

@@ -35224,7 +35224,7 @@ button.admin-accounting-metric {
 
 .admin-liquidity-bar {
   min-height: 72px;
-  border: 1px solid color-mix(in srgb, #eab308 46%, var(--accounting-border));
+  border: 1px solid var(--accounting-border);
   background: color-mix(in srgb, var(--accounting-text) 3%, transparent);
 }
 
@@ -35383,6 +35383,7 @@ button.admin-accounting-metric {
   font-weight: 850;
 }
 .admin-liquidity-outflow-segment.is-overdue { background: #8f1717; }
+.admin-liquidity-outflow-segment.is-purchase-orders { background: #a61d2d; }
 .admin-liquidity-outflow-segment.is-due-soon { background: #c52626; }
 .admin-liquidity-outflow-segment.is-later { background: #ef4242; }
 .admin-liquidity-no-outflow,
@@ -35444,6 +35445,10 @@ button.admin-accounting-metric {
   white-space: nowrap;
 }
 .admin-accounting-breakdown-row.is-partner-receivable { border-color: color-mix(in srgb, #e9a80f 48%, var(--accounting-border)); }
+a.admin-accounting-breakdown-row { text-decoration: none; }
+a.admin-accounting-breakdown-row:hover,
+a.admin-accounting-breakdown-row:focus-visible { background: color-mix(in srgb, var(--accounting-text) 4%, transparent); outline: 2px solid var(--accounting-text); outline-offset: 2px; }
+.admin-accounting-breakdown-row.is-purchase-order { border-color: color-mix(in srgb, #c52626 42%, var(--accounting-border)); }
 
 .admin-visually-hidden {
   position: absolute !important;
