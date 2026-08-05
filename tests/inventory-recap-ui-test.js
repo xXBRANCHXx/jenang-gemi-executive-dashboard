@@ -45,6 +45,8 @@ assert.match(purchasePdfSource, /const pageWidth = 595;[\s\S]*const pageHeight =
 assert.doesNotMatch(purchasePdfSource, /#9dff00|#d6294f|#101419|#ffffff/i);
 assert.match(script, /action: 'create_draft'/);
 assert.match(script, /action: 'confirm_order'/);
+assert.match(script, /draftOrderId[\s\S]*action: 'confirm_order'[\s\S]*action: 'place_order'/);
+assert.match(script, /purchasePlanRefs\.place\.disabled = state\.inventoryRecap\.loading \|\| state\.inventoryRecap\.placingOrder \|\| !rows\.length;/);
 assert.match(script, /action: 'pay_order'/);
 assert.match(script, /data-purchase-plan-search/);
 assert.match(dashboard, /data-view-panel="po-history"[\s\S]*PO History/);

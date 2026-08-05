@@ -8780,7 +8780,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      purchasePlanRefs.copy.lastChild.textContent = state.inventoryRecap.copied ? ' Copied' : ' Copy text';
 	    }
 	    if (purchasePlanRefs.place) {
-	      purchasePlanRefs.place.disabled = state.inventoryRecap.loading || state.inventoryRecap.placingOrder || !rows.length || !state.inventoryRecap.activeDraftOrderId;
+	      purchasePlanRefs.place.disabled = state.inventoryRecap.loading || state.inventoryRecap.placingOrder || !rows.length;
 	      purchasePlanRefs.place.lastChild.textContent = state.inventoryRecap.placingOrder ? ' Confirming…' : ' Confirm Order';
 	    }
 	    if (purchasePlanRefs.download) {
@@ -10590,12 +10590,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	  const placeInventoryPurchaseOrder = async () => {
 	    const { rows } = purchasePlanSummary();
-	    if (!rows.length || state.inventoryRecap.placingOrder || !state.inventoryRecap.activeDraftOrderId) return;
+	    if (!rows.length || state.inventoryRecap.placingOrder) return;
+	    const draftOrderId = Number(state.inventoryRecap.activeDraftOrderId || 0);
+	    if (!draftOrderId && !state.inventoryRecap.placeRequestKey) {
+	      state.inventoryRecap.placeRequestKey = window.crypto?.randomUUID?.()
+	        || `po-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+	    }
 	    state.inventoryRecap.placingOrder = true;
 	    renderPurchasePlan();
 	    try {
-	      const data = await postPoAction({ action: 'confirm_order', order_id: state.inventoryRecap.activeDraftOrderId });
-	      state.inventoryRecap.placedOrder = data.updated_order || null;
+	      const data = await postPoAction(draftOrderId
+	        ? { action: 'confirm_order', order_id: draftOrderId }
+	        : {
+	            action: 'place_order',
+	            request_key: state.inventoryRecap.placeRequestKey,
+	            note: state.inventoryRecap.planNote,
+	            items: rows.map((item) => ({ sku: item.sku, quantity: item.quantity, line_note: item.note }))
+	          });
+	      state.inventoryRecap.placedOrder = data.updated_order || data.placed_order || null;
 	      state.inventoryRecap.placeRequestKey = '';
 	      state.inventoryRecap.activeDraftOrderId = 0;
 	      state.inventoryRecap.resumedDraftItems = [];
