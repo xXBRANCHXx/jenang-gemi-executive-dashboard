@@ -35286,10 +35286,18 @@ button.admin-accounting-metric {
   min-width: 10px;
   border: 0;
   border-radius: 3px;
-  background-color: #ef233c;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath d='M-4 14L14-4M3 18L18 3' stroke='%2370081a' stroke-width='6' stroke-opacity='.78'/%3E%3C/svg%3E");
-  background-size: 14px 14px;
-  box-shadow: -1px 0 0 rgba(64, 0, 12, .5), 1px 0 0 rgba(64, 0, 12, .5);
+  background-color: rgba(239, 35, 60, .14);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M-3 12L12-3M3 15L15 3' stroke='%23ff334f' stroke-width='3' stroke-opacity='.88'/%3E%3C/svg%3E");
+  background-size: 12px 12px;
+  box-shadow: inset 0 0 0 1px rgba(255, 67, 91, .72), 0 0 12px rgba(192, 0, 48, .18);
+  backdrop-filter: saturate(.78) brightness(.92);
+  -webkit-backdrop-filter: saturate(.78) brightness(.92);
+}
+
+.admin-liquidity-commitment-overlay:hover,
+.admin-liquidity-commitment-overlay:focus-visible {
+  background-color: rgba(239, 35, 60, .22);
+  box-shadow: inset 0 0 0 1px rgba(255, 92, 112, .92), 0 0 18px rgba(192, 0, 48, .3);
 }
 
 .admin-liquidity-tooltip {

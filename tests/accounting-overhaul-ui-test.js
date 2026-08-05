@@ -54,6 +54,7 @@ expect(css.includes(':has(.admin-liquidity-segment:hover)'), 'Hovering the liqui
 expect(/filter:\s*grayscale\(1\)/.test(css), 'Inactive chart segments must fade to gray during inspection.');
 expect(!/\.admin-liquidity-bar\s*\{[^}]*border:[^;]*#eab308/.test(css), 'The liquid-assets bar must not use a yellow outer stroke.');
 expect(css.includes("data:image/svg+xml,%3Csvg"), 'Going Out must use a striped red highlight instead of a solid block.');
+expect(css.includes('background-color: rgba(239, 35, 60, .14)'), 'Going Out must remain translucent so the bank color shows underneath.');
 expect(css.includes('.admin-accounting-ledger-row'), 'Visual ledger rows must be styled.');
 expect(css.includes('.admin-accounting-category-menu'), 'The in-dropdown category search menu must be styled.');
 expect(/\.admin-accounting-breakdown-body\s*\{[^}]*overflow-y:\s*auto/.test(css), 'Long Accounting breakdowns must scroll inside the modal.');
