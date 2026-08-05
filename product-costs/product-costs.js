@@ -26,6 +26,8 @@ if (root) {
     cogsForm: document.querySelector('[data-cogs-cost-form]'),
     cogsTitle: document.querySelector('[data-cogs-cost-title]'),
     cogsSkus: document.querySelector('[data-cogs-cost-skus]'),
+    cogsSelectionCount: document.querySelector('[data-cogs-selection-count]'),
+    cogsSelectAll: document.querySelector('[data-cogs-select-all]'),
     cogsError: document.querySelector('[data-cogs-cost-error]'),
     cogsDateRange: document.querySelector('[data-cogs-date-range]'),
     cogsQuarterLabel: document.querySelector('[data-cogs-quarter-label]')
@@ -105,6 +107,17 @@ if (root) {
   };
   const groupByKey = (key) => state.groups.find((group) => group.key === key);
   const skuTokens = (group) => group.rows.map((row) => `<span><b>${escapeHtml(row.flavor_name || 'Variant')}</b>${escapeHtml(row.sku)}</span>`).join('');
+  const selectedCogsSkus = () => Array.from(refs.cogsSkus.querySelectorAll('[data-cogs-variant]:checked')).map((input) => input.value);
+  const updateCogsSelection = () => {
+    const selected = selectedCogsSkus().length;
+    const total = refs.cogsSkus.querySelectorAll('[data-cogs-variant]').length;
+    refs.cogsSelectionCount.textContent = selected === total
+      ? `All ${total} variant${total === 1 ? '' : 's'} selected`
+      : `${selected} of ${total} variants selected`;
+    refs.cogsSelectAll.hidden = selected === total;
+    refs.cogsForm.querySelector('[type="submit"]').disabled = selected === 0;
+    if (selected > 0) refs.cogsError.hidden = true;
+  };
   const openPacking = (group) => {
     refs.packingForm.reset();
     refs.packingForm.elements.source_sku.value = group.sourceSku;
@@ -144,8 +157,17 @@ if (root) {
     refs.cogsForm.elements.source_sku.value = group.sourceSku;
     refs.cogsForm.elements.new_price.value = group.cogs ?? '';
     refs.cogsTitle.textContent = `${group.productName} · ${volume(group)}`;
-    refs.cogsSkus.innerHTML = skuTokens(group);
+    refs.cogsSkus.innerHTML = group.rows.map((row) => `
+      <div class="product-costs-variant-option">
+        <input type="checkbox" value="${escapeHtml(row.sku)}" data-cogs-variant checked hidden>
+        <span><b>${escapeHtml(row.flavor_name || 'Variant')}</b><small>${escapeHtml(row.sku)}</small></span>
+        <em>${money(row.cogs)}</em>
+        <button type="button" data-remove-cogs-variant aria-label="Remove ${escapeHtml(row.flavor_name || row.sku)} from this COGS change" title="Remove from change">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><path d="M10 11v6M14 11v6"/></svg>
+        </button>
+      </div>`).join('');
     refs.cogsError.hidden = true;
+    updateCogsSelection();
     syncCogsTiming();
     refs.cogsModal.hidden = false;
   };
@@ -172,6 +194,25 @@ if (root) {
   refs.packingForm.elements.packing_required.addEventListener('change', syncPackingRequired);
   refs.packingForm.querySelectorAll('[name="change_mode"]').forEach((input) => input.addEventListener('change', syncPackingTiming));
   refs.cogsForm.querySelectorAll('[name="change_mode"]').forEach((input) => input.addEventListener('change', syncCogsTiming));
+  refs.cogsSkus.addEventListener('click', (event) => {
+    const remove = event.target.closest('[data-remove-cogs-variant]');
+    if (!remove) return;
+    const option = remove.closest('.product-costs-variant-option');
+    const input = option?.querySelector('[data-cogs-variant]');
+    if (!option || !input) return;
+    input.checked = false;
+    option.hidden = true;
+    updateCogsSelection();
+    const nextRemove = refs.cogsSkus.querySelector('.product-costs-variant-option:not([hidden]) [data-remove-cogs-variant]');
+    (nextRemove || refs.cogsSelectAll).focus();
+  });
+  refs.cogsSelectAll.addEventListener('click', () => {
+    refs.cogsSkus.querySelectorAll('[data-cogs-variant]').forEach((input) => {
+      input.checked = true;
+      input.closest('.product-costs-variant-option').hidden = false;
+    });
+    updateCogsSelection();
+  });
   document.querySelectorAll('[data-close-packing]').forEach((node) => node.addEventListener('click', () => close(refs.packingModal)));
   document.querySelectorAll('[data-close-cost-cogs]').forEach((node) => node.addEventListener('click', () => close(refs.cogsModal)));
   refs.packingForm.addEventListener('submit', async (event) => {
@@ -196,17 +237,23 @@ if (root) {
     refs.cogsError.hidden = true;
     const data = new FormData(refs.cogsForm);
     const mode = data.get('change_mode');
+    const selectedSkus = selectedCogsSkus();
+    if (selectedSkus.length === 0) {
+      refs.cogsError.textContent = 'Select at least one variant to update.';
+      refs.cogsError.hidden = false;
+      return;
+    }
     if (mode === 'retroactive' && !window.confirm('Apply this COGS fully retroactively and supersede earlier schedules?')) return;
     const submit = refs.cogsForm.querySelector('[type="submit"]');
     submit.disabled = true;
     try {
-      const payload = await request(api, { method: 'POST', body: JSON.stringify({ action: 'save_cogs', source_sku: data.get('source_sku'), new_price: data.get('new_price'), change_mode: mode, start_date: data.get('start_date'), end_date: data.get('end_date'), year: state.period.year, month: state.period.month }) });
+      const payload = await request(api, { method: 'POST', body: JSON.stringify({ action: 'save_cogs', source_sku: data.get('source_sku'), selected_skus: selectedSkus, new_price: data.get('new_price'), change_mode: mode, start_date: data.get('start_date'), end_date: data.get('end_date'), year: state.period.year, month: state.period.month }) });
       state.rows = payload.rows || [];
       state.period = payload.period;
       buildGroups(); render(); close(refs.cogsModal);
       refs.status.textContent = mode === 'quarterly' ? `COGS scheduled for ${payload.next_quarter?.label || 'next quarter'}.` : 'COGS timeline updated.';
     } catch (error) { refs.cogsError.textContent = error.message; refs.cogsError.hidden = false; }
-    finally { submit.disabled = false; }
+    finally { submit.disabled = selectedCogsSkus().length === 0; }
   });
   load(true);
 }

@@ -23,6 +23,20 @@ $rows = [
 ];
 $group = jg_product_costs_group_skus($rows, 'JGAA0150AAAA');
 product_costs_expect($group === ['JGAA0150AAAA', 'JGAA0150BBBB'], 'Cost edits must include every variant in the same product family and volume only.');
+product_costs_expect(jg_product_costs_selected_group_skus($group, null) === $group, 'COGS edits must include the full aggregate group by default.');
+product_costs_expect(jg_product_costs_selected_group_skus($group, ['jgaa0150bbbb']) === ['JGAA0150BBBB'], 'COGS edits must allow variants to be removed from the default group.');
+try {
+    jg_product_costs_selected_group_skus($group, ['JGBB0150AAAA']);
+    product_costs_expect(false, 'COGS edits must reject SKUs outside the aggregate group.');
+} catch (InvalidArgumentException) {
+    // Expected.
+}
+try {
+    jg_product_costs_selected_group_skus($group, []);
+    product_costs_expect(false, 'COGS edits must require at least one selected variant.');
+} catch (InvalidArgumentException) {
+    // Expected.
+}
 $periods = jg_product_costs_month_range('2026-07', '2026-09');
 product_costs_expect(array_column($periods, 'key') === ['2026-07', '2026-08', '2026-09'], 'Specific packing periods must expand to each inclusive calendar month.');
 
@@ -44,6 +58,7 @@ product_costs_expect(str_contains($page, 'data-cost-missing') && !str_contains($
 product_costs_expect(str_contains($page, 'data-product-costs-back') && !str_contains($page, 'SKU cost control'), 'Product Costs must use a left-side back control without a redundant page eyebrow.');
 product_costs_expect(str_contains($skuPage, 'admin-sku-costs-link') && str_contains($skuPage, 'Product Costs'), 'SKU DB must expose a dedicated Product Costs control.');
 product_costs_expect(str_contains($script, "action: 'save_packing'") && str_contains($script, 'groupKey'), 'Packing edits must use the grouped Product Costs workflow.');
+product_costs_expect(str_contains($script, 'selected_skus: selectedSkus') && str_contains($script, 'data-remove-cogs-variant') && str_contains($script, 'data-cogs-variant checked hidden'), 'COGS must select all grouped variants by default and expose a trash control to remove individual variants.');
 product_costs_expect(str_contains($page, 'Fully retroactive') && str_contains($page, 'data-packing-month-range'), 'Packing must support monthly, month-range, and fully retroactive timing.');
 product_costs_expect(str_contains($sales, "\$row['packing_cost'] = \$rowPacking") && str_contains($sales, '$cogsQuantity'), 'Sales enrichment must calculate packing from physical quantities.');
 product_costs_expect(str_contains($formula, '$revenue - $cogs - $packing'), 'Final gross profit must subtract COGS and packing separately.');

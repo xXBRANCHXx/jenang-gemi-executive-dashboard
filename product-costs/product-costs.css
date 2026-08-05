@@ -52,6 +52,24 @@
 .product-costs-affected > div { display: flex; flex-wrap: wrap; gap: 7px; }
 .product-costs-affected > div span { display: grid; gap: 2px; padding: 8px 10px; border: 1px solid var(--admin-border); border-radius: 10px; font-size: 11px; }
 .product-costs-affected > div span b { font-size: 12px; }
+.product-costs-variant-picker { display: grid; gap: 9px; }
+.product-costs-variant-picker-head { display: flex; align-items: end; justify-content: space-between; gap: 12px; }
+.product-costs-variant-picker-head > span { display: grid; gap: 3px; }
+.product-costs-variant-picker-head strong { font-size: 13px; }
+.product-costs-variant-picker-head small { color: var(--admin-muted); font-size: 11px; }
+.product-costs-variant-picker-head button { border: 0; padding: 3px 0; background: transparent; color: var(--admin-accent-primary); font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }
+.product-costs-variant-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.product-costs-variant-option { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 9px; align-items: center; min-width: 0; padding: 10px; border: 1px solid color-mix(in srgb, var(--admin-accent-primary) 56%, var(--admin-border)); border-radius: 11px; background: color-mix(in srgb, var(--admin-accent-primary) 7%, var(--admin-surface-soft)); }
+.product-costs-variant-option[hidden] { display: none; }
+.product-costs-variant-option span { display: grid; gap: 2px; min-width: 0; }
+.product-costs-variant-option b, .product-costs-variant-option small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.product-costs-variant-option b { font-size: 12px; }
+.product-costs-variant-option small { color: var(--admin-muted); font-size: 10px; }
+.product-costs-variant-option em { color: var(--admin-muted); font-size: 11px; font-style: normal; font-weight: 700; }
+.product-costs-variant-option > button { display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 1px solid color-mix(in srgb, #f87171 32%, var(--admin-border)); border-radius: 8px; background: color-mix(in srgb, #ef4444 8%, transparent); color: #f87171; cursor: pointer; }
+.product-costs-variant-option > button:hover { border-color: color-mix(in srgb, #f87171 58%, var(--admin-border)); background: color-mix(in srgb, #ef4444 15%, transparent); color: #fca5a5; }
+.product-costs-variant-option > button:focus-visible { outline: 2px solid var(--admin-accent-primary); outline-offset: 2px; }
+.product-costs-variant-option > button svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 .product-costs-timing { display: grid; gap: 9px; margin: 0; padding: 0; border: 0; }
 .product-costs-timing legend { margin-bottom: 8px; font-weight: 800; font-size: 13px; }
 .product-costs-timing label { display: flex; gap: 11px; padding: 12px; border: 1px solid var(--admin-border); border-radius: 12px; cursor: pointer; }
@@ -79,5 +97,6 @@
   .product-costs-table td { display: grid; grid-template-columns: 110px 1fr; gap: 10px; padding: 7px 0; border: 0; }
   .product-costs-table td::before { content: attr(data-col); color: var(--admin-muted); font-size: 11px; font-weight: 800; text-transform: uppercase; }
   .product-costs-date-range { grid-template-columns: 1fr; }
+  .product-costs-variant-list { grid-template-columns: 1fr; }
   .product-costs-modal-actions { flex-direction: column; }
 }

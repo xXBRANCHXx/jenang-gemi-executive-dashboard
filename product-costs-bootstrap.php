@@ -85,6 +85,49 @@ function jg_product_costs_group_skus(array $rows, string $sourceSku): array
     return array_values(array_unique($skus));
 }
 
+/**
+ * Keep the grouped workflow as the default while allowing a COGS request to
+ * explicitly omit variants from that group.
+ *
+ * @param array<int, string> $groupSkus
+ * @return array<int, string>
+ */
+function jg_product_costs_selected_group_skus(array $groupSkus, mixed $requestedSkus): array
+{
+    $allowed = array_values(array_unique(array_filter(array_map(
+        static fn (mixed $sku): string => strtoupper(trim((string) $sku)),
+        $groupSkus
+    ))));
+    sort($allowed);
+
+    // Older clients do not send a selection, so they retain the aggregate-all
+    // behavior. An explicitly empty selection is never a valid COGS update.
+    if ($requestedSkus === null) {
+        return $allowed;
+    }
+    if (!is_array($requestedSkus)) {
+        throw new InvalidArgumentException('The selected variants are invalid.');
+    }
+
+    $selected = [];
+    foreach ($requestedSkus as $requestedSku) {
+        if (!is_string($requestedSku)) {
+            throw new InvalidArgumentException('The selected variants are invalid.');
+        }
+        $sku = strtoupper(trim((string) $requestedSku));
+        if ($sku === '' || !in_array($sku, $allowed, true)) {
+            throw new InvalidArgumentException('A selected variant is no longer part of this product group.');
+        }
+        $selected[] = $sku;
+    }
+    $selected = array_values(array_unique($selected));
+    sort($selected);
+    if ($selected === []) {
+        throw new InvalidArgumentException('Select at least one variant to update.');
+    }
+    return $selected;
+}
+
 /** @return array<string, array<string, mixed>> */
 function jg_product_costs_packing_lookup(PDO $pdo, int $year): array
 {

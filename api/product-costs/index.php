@@ -211,6 +211,14 @@ try {
     }
 
     if ($action === 'save_cogs') {
+        try {
+            $selectedGroupSkus = jg_product_costs_selected_group_skus(
+                $groupSkus,
+                array_key_exists('selected_skus', $body) ? $body['selected_skus'] : null
+            );
+        } catch (InvalidArgumentException $error) {
+            jg_product_costs_fail($error->getMessage());
+        }
         $newPrice = jg_product_costs_money($body['new_price'] ?? null, 'COGS');
         $mode = strtolower(trim((string) ($body['change_mode'] ?? 'quarterly')));
         if (!in_array($mode, ['quarterly', 'period', 'retroactive'], true)) {
@@ -237,7 +245,7 @@ try {
         foreach ($rows as $row) {
             $rowsBySku[(string) ($row['sku'] ?? '')] = $row;
         }
-        $plan = jg_astra_cogs_plan($rows, $groupSkus, $newPrice);
+        $plan = jg_astra_cogs_plan($rows, $selectedGroupSkus, $newPrice);
         if ($plan === []) {
             jg_product_costs_fail('No ASTRA-linked SKUs are available to update.');
         }

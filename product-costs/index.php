@@ -116,7 +116,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/product-costs.js');
 <div class="admin-modal-shell" data-cogs-cost-modal hidden>
     <div class="admin-modal-backdrop" data-close-cost-cogs></div>
     <div class="admin-modal-card product-costs-modal product-costs-cogs-modal" role="dialog" aria-modal="true" aria-labelledby="cost-cogs-modal-title">
-        <div class="product-costs-modal-head"><div><span>COGS timeline</span><h2 id="cost-cogs-modal-title" data-cogs-cost-title>Change COGS</h2><p>All matching variants and their ASTRA-linked selling sizes stay synchronized.</p></div><button type="button" data-close-cost-cogs aria-label="Close">&times;</button></div>
+        <div class="product-costs-modal-head"><div><span>COGS timeline</span><h2 id="cost-cogs-modal-title" data-cogs-cost-title>Change COGS</h2><p>Matching variants are included by default. Remove any that need a different COGS; selected variants still keep their ASTRA-linked selling sizes synchronized.</p></div><button type="button" data-close-cost-cogs aria-label="Close">&times;</button></div>
         <form data-cogs-cost-form>
             <input type="hidden" name="source_sku">
             <label><span>New COGS for this selling size</span><div class="product-costs-money"><b>Rp</b><input type="number" name="new_price" min="0" step="0.01" inputmode="decimal" required></div></label>
@@ -130,7 +130,10 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/product-costs.js');
                 <label><span>Start date</span><input type="date" name="start_date"></label>
                 <label><span>End date</span><input type="date" name="end_date"></label>
             </div>
-            <div class="product-costs-affected"><span>Affected product-volume SKUs</span><div data-cogs-cost-skus></div></div>
+            <div class="product-costs-variant-picker">
+                <div class="product-costs-variant-picker-head"><span><strong>Variants to update</strong><small data-cogs-selection-count>All variants selected</small></span><button type="button" data-cogs-select-all hidden>Restore all</button></div>
+                <div class="product-costs-variant-list" data-cogs-cost-skus></div>
+            </div>
             <p class="admin-form-error" data-cogs-cost-error hidden></p>
             <div class="product-costs-modal-actions"><button type="submit" class="admin-primary-btn">Save COGS change</button><button type="button" class="admin-ghost-btn" data-close-cost-cogs>Cancel</button></div>
         </form>
