@@ -119,7 +119,13 @@ pembukuan_expect(str_contains($journalXml, 'Nomor Jurnal') && str_contains($jour
 pembukuan_expect(str_contains($journalXml, '<v>1000</v>'), 'Monetary values must be stored as numeric XLSX cells.');
 
 $pdf = jg_pembukuan_write_pdf($report);
-pembukuan_expect(str_starts_with((string) file_get_contents($pdf, false, null, 0, 8), '%PDF-1.4'), 'Generated financial report must be a PDF.');
+$pdfContent = (string) file_get_contents($pdf);
+pembukuan_expect(str_starts_with($pdfContent, '%PDF-1.4'), 'Generated financial report must be a PDF.');
+preg_match_all('/1 0 0 1 40 ([0-9]+) Tm/', $pdfContent, $pdfPositions);
+pembukuan_expect(count($pdfPositions[1]) > 40, 'Every financial report line must use an explicit PDF text matrix.');
+pembukuan_expect(min(array_map('intval', $pdfPositions[1])) >= 42 && max(array_map('intval', $pdfPositions[1])) <= 800, 'Every PDF line must remain inside the printable A4 page.');
+pembukuan_expect(!str_contains($pdfContent, ' Td'), 'PDF lines must not accidentally accumulate relative text offsets.');
+pembukuan_expect(str_contains($pdfContent, 'Laporan Posisi Keuangan') && str_contains($pdfContent, 'Catatan Ekspor'), 'The visible PDF content must include its financial sections and notes.');
 $package = jg_pembukuan_write_package($report, $xlsx, $pdf);
 $packageZip = new ZipArchive();
 pembukuan_expect($packageZip->open($package) === true, 'Complete Package must be a readable ZIP.');

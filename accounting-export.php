@@ -942,13 +942,18 @@ function jg_pembukuan_write_pdf(array $report): string
     foreach ((array) ($report['validation']['warnings'] ?? []) as $warning) $lines[] = ['- ' . $warning, 9, false];
 
     $pages = [[]];
-    $remaining = 53;
+    $cursorY = 800;
+    $bottomMargin = 42;
     foreach ($lines as [$text, $size, $bold]) {
         $wrapped = $text === '' ? [''] : explode("\n", wordwrap((string) $text, $size >= 14 ? 72 : 92, "\n", true));
         foreach ($wrapped as $part) {
-            if ($remaining <= 0) { $pages[] = []; $remaining = 53; }
-            $pages[array_key_last($pages)][] = [$part, $size, $bold];
-            $remaining--;
+            $leading = max(13, (int) $size + 4);
+            if ($cursorY - $leading < $bottomMargin && $pages[array_key_last($pages)] !== []) {
+                $pages[] = [];
+                $cursorY = 800;
+            }
+            $pages[array_key_last($pages)][] = [$part, $size, $bold, $cursorY];
+            $cursorY -= $leading;
         }
     }
     $objects = [];
@@ -960,11 +965,10 @@ function jg_pembukuan_write_pdf(array $report): string
     $pageIds = [];
     foreach ($pages as $pageIndex => $pageLines) {
         $content = "BT\n";
-        $y = 800;
-        foreach ($pageLines as [$text, $size, $bold]) {
-            $leading = max(13, (int) $size + 4);
-            $content .= '/' . ($bold ? 'F2' : 'F1') . ' ' . (int) $size . " Tf\n40 " . $y . " Td\n(" . jg_pembukuan_pdf_text((string) $text) . ") Tj\n-40 -" . $leading . " Td\n";
-            $y -= $leading;
+        foreach ($pageLines as [$text, $size, $bold, $y]) {
+            $content .= '/' . ($bold ? 'F2' : 'F1') . ' ' . (int) $size
+                . " Tf\n1 0 0 1 40 " . $y . " Tm\n("
+                . jg_pembukuan_pdf_text((string) $text) . ") Tj\n";
         }
         $content .= "ET\n";
         $contentId = 5 + ($pageIndex * 2);
