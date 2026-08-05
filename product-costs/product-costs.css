@@ -1,6 +1,9 @@
 .is-product-costs .admin-shell-main { min-width: 0; }
-.product-costs-topbar { align-items: flex-start; gap: 24px; }
-.product-costs-head-actions { display: flex; align-items: center; gap: 10px; }
+.product-costs-topbar { align-items: center; gap: 14px; }
+.product-costs-topbar .admin-topbar-brand { flex: 1; }
+.product-costs-back { display: grid; place-items: center; flex: 0 0 auto; width: 42px; height: 42px; border: 1px solid var(--admin-border); border-radius: 50%; background: var(--admin-surface); color: var(--admin-text); cursor: pointer; transition: border-color 160ms ease, background 160ms ease, transform 160ms ease; }
+.product-costs-back svg { width: 21px; height: 21px; }
+.product-costs-back:hover, .product-costs-back:focus-visible { border-color: var(--admin-accent-primary); background: color-mix(in srgb, var(--admin-accent-primary) 8%, var(--admin-surface)); outline: none; transform: translateX(-2px); }
 .product-costs-layout { display: grid; gap: 18px; padding: 0 24px 32px; }
 .product-costs-controls { display: grid; grid-template-columns: minmax(170px, .45fr) minmax(260px, 1fr) auto; gap: 12px; align-items: end; padding: 18px; border: 1px solid var(--admin-border); border-radius: 20px; background: var(--admin-surface); }
 .product-costs-controls label { display: grid; gap: 7px; }
@@ -63,7 +66,6 @@
 .product-costs-date-range input { min-height: 44px; border: 1px solid var(--admin-border); border-radius: 11px; padding: 0 11px; background: var(--admin-surface-soft); color: var(--admin-text); }
 .product-costs-modal-actions { display: flex; justify-content: flex-end; gap: 9px; }
 @media (max-width: 900px) {
-  .product-costs-head-actions { align-items: flex-end; flex-direction: column-reverse; }
   .product-costs-controls { grid-template-columns: 1fr auto; }
   .product-costs-search { grid-column: 1 / -1; grid-row: 2; }
   .product-costs-panel-head { align-items: flex-start; flex-direction: column; }
@@ -72,7 +74,7 @@
 @media (max-width: 640px) {
   .product-costs-layout { padding: 0 12px 24px; }
   .product-costs-topbar { gap: 12px; }
-  .product-costs-head-actions > .admin-ghost-btn { width: 100%; justify-content: center; }
+  .product-costs-back { width: 38px; height: 38px; }
   .product-costs-controls { grid-template-columns: 1fr; }
   .product-costs-search { grid-column: auto; grid-row: auto; }
   .product-costs-table thead { display: none; }

@@ -31,19 +31,18 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/product-costs.js');
 <body class="admin-body is-dashboard is-product-costs">
 <div class="admin-app admin-app-suite" data-product-costs data-api-endpoint="../api/product-costs/">
     <div class="admin-shell">
-        <?php render_admin_sidebar('sku'); ?>
-        <div class="admin-shell-main">
-            <header class="admin-topbar product-costs-topbar">
-                <div class="admin-topbar-brand">
-                    <span class="admin-chip">SKU cost control</span>
-                    <h1>Product Costs</h1>
-                    <p>Set quarter-aware COGS and next-month packing prices without editing raw SKU records.</p>
-                </div>
-                <div class="product-costs-head-actions">
-                    <a class="admin-ghost-btn" href="../sku-db/">Back to SKU DB</a>
+            <?php render_admin_sidebar('sku'); ?>
+            <div class="admin-shell-main">
+                <header class="admin-topbar product-costs-topbar">
+                    <button type="button" class="product-costs-back" data-product-costs-back aria-label="Go back">
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m14.5 6-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </button>
+                    <div class="admin-topbar-brand">
+                        <h1>Product Costs</h1>
+                        <p>Set quarter-aware COGS and next-month packing prices without editing raw SKU records.</p>
+                    </div>
                     <?php render_admin_topbar_actions('sku-db'); ?>
-                </div>
-            </header>
+                </header>
 
             <main class="product-costs-layout">
                 <section class="product-costs-controls" aria-label="Packing price period and filters">

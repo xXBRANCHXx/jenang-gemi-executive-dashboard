@@ -4,6 +4,7 @@ if (root) {
   const api = root.dataset.apiEndpoint || '../api/product-costs/';
   const state = { rows: [], groups: [], period: null, defaultPeriod: null, nextQuarter: null, search: '', loading: false };
   const refs = {
+    back: root.querySelector('[data-product-costs-back]'),
     month: root.querySelector('[data-cost-month]'),
     search: root.querySelector('[data-cost-search]'),
     refresh: root.querySelector('[data-cost-refresh]'),
@@ -155,6 +156,10 @@ if (root) {
     refs.cogsForm.elements.end_date.required = mode === 'period';
   };
   const close = (modal) => { modal.hidden = true; };
+  refs.back?.addEventListener('click', () => {
+    if (window.history.length > 1) window.history.back();
+    else window.location.href = '../sku-db/';
+  });
   root.addEventListener('click', (event) => {
     const packing = event.target.closest('[data-edit-packing]');
     if (packing) { const group = groupByKey(packing.dataset.editPacking); if (group) openPacking(group); }

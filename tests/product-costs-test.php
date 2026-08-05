@@ -34,6 +34,7 @@ $sales = (string) file_get_contents($root . '/api/sales/index.php');
 $formula = (string) file_get_contents($root . '/sales-summary-stability.php');
 product_costs_expect(str_contains($page, 'Packing price per physical item') && str_contains($page, 'Change COGS'), 'Product Costs must expose user-friendly packing and COGS editors.');
 product_costs_expect(str_contains($page, 'data-cost-missing') && !str_contains($page, 'product-costs-kpis'), 'Packing readiness must use a compact inline count instead of summary cards.');
+product_costs_expect(str_contains($page, 'data-product-costs-back') && !str_contains($page, 'SKU cost control'), 'Product Costs must use a left-side back control without a redundant page eyebrow.');
 product_costs_expect(str_contains($skuPage, 'admin-sku-costs-link') && str_contains($skuPage, 'Product Costs'), 'SKU DB must expose a dedicated Product Costs control.');
 product_costs_expect(str_contains($script, "action: 'save_packing'") && str_contains($script, 'groupKey'), 'Packing edits must use the grouped Product Costs workflow.');
 product_costs_expect(str_contains($page, 'Fully retroactive') && str_contains($page, 'data-packing-month-range'), 'Packing must support monthly, month-range, and fully retroactive timing.');
