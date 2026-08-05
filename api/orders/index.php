@@ -2366,8 +2366,7 @@ function jg_orders_enrich_for_metrics(array $remoteRows, array $skuLookup): arra
         $revenue = (int) round((float) ($row['revenue'] ?? $row['net_revenue'] ?? $row['sales'] ?? 0));
         $orderDate = jg_orders_order_datetime($row['order_create_time'] ?? $row['timestamp'] ?? null);
         $localDate = ($orderDate ?? new DateTimeImmutable('now', jg_sku_business_timezone()))->setTimezone(jg_sku_business_timezone());
-        $packingSupported = (int) $localDate->format('Y') > 2026
-            || ((int) $localDate->format('Y') === 2026 && (int) $localDate->format('n') >= 6);
+        $packingSupported = (int) $localDate->format('Y') >= 2025;
         $packingMissingItems = $packingSupported ? $physicalQuantity : 0;
         $row['cogs'] = $cogs;
         $row['packing_cost'] = 0;
@@ -2790,7 +2789,7 @@ function jg_orders_packing_for_order(?array $sku, ?DateTimeImmutable $orderDate)
         ->setTimezone(jg_sku_business_timezone());
     $year = (int) $localDate->format('Y');
     $month = (int) $localDate->format('n');
-    if ($year < 2026 || ($year === 2026 && $month < 6)) {
+    if ($year < 2025) {
         return ['unit_cost' => 0.0, 'status' => 'legacy_unavailable'];
     }
     if ($sku === null) {

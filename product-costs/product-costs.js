@@ -18,6 +18,8 @@ if (root) {
     packingPeriod: document.querySelector('[data-packing-period]'),
     packingSkus: document.querySelector('[data-packing-skus]'),
     packingPriceField: document.querySelector('[data-packing-price-field]'),
+    packingMonthRange: document.querySelector('[data-packing-month-range]'),
+    packingMonthLabel: document.querySelector('[data-packing-month-label]'),
     packingError: document.querySelector('[data-packing-error]'),
     cogsModal: document.querySelector('[data-cogs-cost-modal]'),
     cogsForm: document.querySelector('[data-cogs-cost-form]'),
@@ -107,17 +109,34 @@ if (root) {
     refs.packingForm.elements.source_sku.value = group.sourceSku;
     refs.packingForm.elements.packing_required.checked = group.required;
     refs.packingForm.elements.packing_per_item.value = group.packing ?? '';
+    refs.packingForm.elements.start_month.value = state.period?.key || '';
+    refs.packingForm.elements.end_month.value = state.period?.key || '';
     refs.packingTitle.textContent = `${group.productName} · ${volume(group)}`;
     refs.packingPeriod.textContent = `Price for ${state.period?.label || 'selected month'} only`;
+    if (refs.packingMonthLabel) refs.packingMonthLabel.textContent = state.period?.label || 'Selected month only';
     refs.packingSkus.innerHTML = skuTokens(group);
     refs.packingError.hidden = true;
     syncPackingRequired();
+    syncPackingTiming();
     refs.packingModal.hidden = false;
   };
   const syncPackingRequired = () => {
     const required = refs.packingForm.elements.packing_required.checked;
     refs.packingPriceField.hidden = !required;
     refs.packingForm.elements.packing_per_item.required = required;
+  };
+  const syncPackingTiming = () => {
+    const mode = new FormData(refs.packingForm).get('change_mode') || 'monthly';
+    refs.packingMonthRange.hidden = mode !== 'period';
+    refs.packingForm.elements.start_month.required = mode === 'period';
+    refs.packingForm.elements.end_month.required = mode === 'period';
+    if (refs.packingPeriod) {
+      refs.packingPeriod.textContent = mode === 'period'
+        ? 'The same per-item price will be written to every month in the range.'
+        : mode === 'retroactive'
+          ? `Overwrites January 2025 through ${state.period?.label || 'the selected month'}. Future months stay separate.`
+          : `Price for ${state.period?.label || 'selected month'} only`;
+    }
   };
   const openCogs = (group) => {
     refs.cogsForm.reset();
@@ -146,6 +165,7 @@ if (root) {
   refs.month.addEventListener('change', () => load());
   refs.refresh.addEventListener('click', () => load());
   refs.packingForm.elements.packing_required.addEventListener('change', syncPackingRequired);
+  refs.packingForm.querySelectorAll('[name="change_mode"]').forEach((input) => input.addEventListener('change', syncPackingTiming));
   refs.cogsForm.querySelectorAll('[name="change_mode"]').forEach((input) => input.addEventListener('change', syncCogsTiming));
   document.querySelectorAll('[data-close-packing]').forEach((node) => node.addEventListener('click', () => close(refs.packingModal)));
   document.querySelectorAll('[data-close-cost-cogs]').forEach((node) => node.addEventListener('click', () => close(refs.cogsModal)));
@@ -153,14 +173,16 @@ if (root) {
     event.preventDefault();
     refs.packingError.hidden = true;
     const data = new FormData(refs.packingForm);
+    const mode = data.get('change_mode') || 'monthly';
+    if (mode === 'retroactive' && !window.confirm(`Overwrite packing prices from January 2025 through ${state.period?.label || 'the selected month'}?`)) return;
     const submit = refs.packingForm.querySelector('[type="submit"]');
     submit.disabled = true;
     try {
-      const payload = await request(api, { method: 'POST', body: JSON.stringify({ action: 'save_packing', source_sku: data.get('source_sku'), year: state.period.year, month: state.period.month, packing_required: data.get('packing_required') === 'on', packing_per_item: data.get('packing_per_item') }) });
+      const payload = await request(api, { method: 'POST', body: JSON.stringify({ action: 'save_packing', source_sku: data.get('source_sku'), year: state.period.year, month: state.period.month, packing_required: data.get('packing_required') === 'on', packing_per_item: data.get('packing_per_item'), change_mode: mode, start_month: data.get('start_month'), end_month: data.get('end_month') }) });
       state.rows = payload.rows || [];
       state.period = payload.period;
       buildGroups(); render(); close(refs.packingModal);
-      refs.status.textContent = `Packing prices saved for ${state.period.label}.`;
+      refs.status.textContent = mode === 'monthly' ? `Packing price saved for ${state.period.label}.` : mode === 'period' ? 'Packing price saved for the selected month range.' : `Packing price applied retroactively through ${state.period.label}.`;
     } catch (error) { refs.packingError.textContent = error.message; refs.packingError.hidden = false; }
     finally { submit.disabled = false; }
   });

@@ -30,6 +30,28 @@ function jg_product_costs_period(int $year, int $month): array
     ];
 }
 
+/** @return array<int, array{year:int, month:int, key:string, label:string}> */
+function jg_product_costs_month_range(string $startKey, string $endKey): array
+{
+    $pattern = '/^(\d{4})-(\d{2})$/';
+    if (preg_match($pattern, $startKey, $startMatch) !== 1 || preg_match($pattern, $endKey, $endMatch) !== 1) {
+        throw new InvalidArgumentException('Packing period is invalid.');
+    }
+    $start = jg_product_costs_period((int) $startMatch[1], (int) $startMatch[2]);
+    $end = jg_product_costs_period((int) $endMatch[1], (int) $endMatch[2]);
+    if ($end['key'] < $start['key']) {
+        throw new InvalidArgumentException('Packing period end must not be before its start.');
+    }
+    $cursor = new DateTimeImmutable($start['key'] . '-01 00:00:00', jg_sku_business_timezone());
+    $final = new DateTimeImmutable($end['key'] . '-01 00:00:00', jg_sku_business_timezone());
+    $periods = [];
+    while ($cursor <= $final) {
+        $periods[] = jg_product_costs_period((int) $cursor->format('Y'), (int) $cursor->format('n'));
+        $cursor = $cursor->modify('first day of next month');
+    }
+    return $periods;
+}
+
 function jg_product_costs_group_key(array $row): string
 {
     return implode('|', [

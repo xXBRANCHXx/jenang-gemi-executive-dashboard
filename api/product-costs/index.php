@@ -164,6 +164,24 @@ try {
         $required = $required ?? false;
         $price = $required ? jg_product_costs_money($body['packing_per_item'] ?? null, 'Packing price') : 0.0;
         $target = jg_product_costs_period((int) ($body['year'] ?? 0), (int) ($body['month'] ?? 0));
+        $mode = strtolower(trim((string) ($body['change_mode'] ?? 'monthly')));
+        if (!in_array($mode, ['monthly', 'period', 'retroactive'], true)) {
+            jg_product_costs_fail('Packing timing is invalid.');
+        }
+        if ($mode === 'period') {
+            try {
+                $targetPeriods = jg_product_costs_month_range(
+                    trim((string) ($body['start_month'] ?? '')),
+                    trim((string) ($body['end_month'] ?? ''))
+                );
+            } catch (InvalidArgumentException $error) {
+                jg_product_costs_fail($error->getMessage());
+            }
+        } elseif ($mode === 'retroactive') {
+            $targetPeriods = jg_product_costs_month_range('2025-01', $target['key']);
+        } else {
+            $targetPeriods = [$target];
+        }
         $pdo->beginTransaction();
         $requiredStmt = $pdo->prepare('UPDATE sku_skus SET packing_required = :required, updated_at = :updated_at WHERE sku = :sku');
         $packingStmt = $pdo->prepare(
@@ -177,13 +195,15 @@ try {
         $now = jg_sku_now();
         foreach ($groupSkus as $sku) {
             $requiredStmt->execute([':required' => $required ? 1 : 0, ':updated_at' => $now, ':sku' => $sku]);
-            $packingStmt->execute([
-                ':year' => $target['year'],
-                ':month' => $target['month'],
-                ':sku' => $sku,
-                ':price' => number_format($price, 2, '.', ''),
-                ':updated_at' => $now,
-            ]);
+            foreach ($targetPeriods as $targetPeriod) {
+                $packingStmt->execute([
+                    ':year' => $targetPeriod['year'],
+                    ':month' => $targetPeriod['month'],
+                    ':sku' => $sku,
+                    ':price' => number_format($price, 2, '.', ''),
+                    ':updated_at' => $now,
+                ]);
+            }
         }
         jg_sku_touch_version($pdo);
         $pdo->commit();

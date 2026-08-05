@@ -35,7 +35,7 @@ These endpoints live inside this executive dashboard and are already normalized 
 | `GET /api/analytics/?dataset=landing|website|affiliate` | Campaign, website, and affiliate analytics rollups from the dashboard analytics database. |
 | `GET /api/api-health/?run=1` | Runs every configured API/database probe and logs failures. |
 | `GET /api/sku-db/` | SKU master data and SKU approval workflow API. |
-| `GET/POST /api/product-costs/` | Admin-only grouped Product Costs API for quarter/period COGS and monthly per-item packing. |
+| `GET/POST /api/product-costs/` | Admin-only grouped Product Costs API for quarter/period COGS and monthly, month-range, or retroactive per-item packing. |
 | `GET /api/partner-db-status/` | Partner profile database status. |
 | `GET /api/partners/` | Partner profile management API. |
 

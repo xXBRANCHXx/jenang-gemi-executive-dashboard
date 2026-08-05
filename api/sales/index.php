@@ -710,7 +710,7 @@ function jg_sales_sku_packing_for_month(array $skuRecord, int $year, int $month)
 
 function jg_sales_packing_period_supported(int $year, int $month): bool
 {
-    return $year > 2026 || ($year === 2026 && $month >= 6);
+    return $year >= 2025 && $month >= 1 && $month <= 12;
 }
 
 /** @param array<string, mixed> $summary */

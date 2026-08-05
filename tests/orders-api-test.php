@@ -88,6 +88,7 @@ expect_same(840, $grossEnriched['gross_revenue'], 'Inventory enrichment must pre
 expect_same(760, $grossEnriched['order_net_revenue'], 'Inventory enrichment must preserve order-level net revenue context.');
 
 $datedSku = array_merge($sku, [
+    'packing_costs' => ['2026-03' => 0.0, '2026-04' => 0.0],
     'cogs_history' => [
         [
             'id' => 1,

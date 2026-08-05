@@ -95,9 +95,19 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/product-costs.js');
             <input type="hidden" name="source_sku">
             <label class="product-costs-toggle"><input type="checkbox" name="packing_required" checked><span><strong>Packing is required</strong><small>Turn this off only when this product needs no shipment packing cost.</small></span></label>
             <label data-packing-price-field><span>Packing price per physical item</span><div class="product-costs-money"><b>Rp</b><input type="number" name="packing_per_item" min="0" step="0.01" inputmode="decimal" required></div></label>
+            <fieldset class="product-costs-timing product-costs-packing-timing">
+                <legend>When should it apply?</legend>
+                <label><input type="radio" name="change_mode" value="monthly" checked><span><strong>Selected month</strong><small data-packing-month-label>Standard monthly price</small></span></label>
+                <label><input type="radio" name="change_mode" value="period"><span><strong>Specific period</strong><small>Apply the same price across an inclusive month range.</small></span></label>
+                <label class="is-danger"><input type="radio" name="change_mode" value="retroactive"><span><strong>Fully retroactive</strong><small>Overwrite every month from January 2025 through the selected month.</small></span></label>
+            </fieldset>
+            <div class="product-costs-date-range" data-packing-month-range hidden>
+                <label><span>Start month</span><input type="month" name="start_month" min="2025-01" max="2100-12"></label>
+                <label><span>End month</span><input type="month" name="end_month" min="2025-01" max="2100-12"></label>
+            </div>
             <div class="product-costs-affected"><span>Affected SKUs</span><div data-packing-skus></div></div>
             <p class="admin-form-error" data-packing-error hidden></p>
-            <div class="product-costs-modal-actions"><button type="submit" class="admin-primary-btn">Save monthly packing</button><button type="button" class="admin-ghost-btn" data-close-packing>Cancel</button></div>
+            <div class="product-costs-modal-actions"><button type="submit" class="admin-primary-btn">Save packing price</button><button type="button" class="admin-ghost-btn" data-close-packing>Cancel</button></div>
         </form>
     </div>
 </div>

@@ -23,6 +23,8 @@ $rows = [
 ];
 $group = jg_product_costs_group_skus($rows, 'JGAA0150AAAA');
 product_costs_expect($group === ['JGAA0150AAAA', 'JGAA0150BBBB'], 'Cost edits must include every variant in the same product family and volume only.');
+$periods = jg_product_costs_month_range('2026-07', '2026-09');
+product_costs_expect(array_column($periods, 'key') === ['2026-07', '2026-08', '2026-09'], 'Specific packing periods must expand to each inclusive calendar month.');
 
 $root = dirname(__DIR__);
 $page = (string) file_get_contents($root . '/product-costs/index.php');
@@ -34,6 +36,7 @@ product_costs_expect(str_contains($page, 'Packing price per physical item') && s
 product_costs_expect(str_contains($page, 'data-cost-missing') && !str_contains($page, 'product-costs-kpis'), 'Packing readiness must use a compact inline count instead of summary cards.');
 product_costs_expect(str_contains($skuPage, 'admin-sku-costs-link') && str_contains($skuPage, 'Product Costs'), 'SKU DB must expose a dedicated Product Costs control.');
 product_costs_expect(str_contains($script, "action: 'save_packing'") && str_contains($script, 'groupKey'), 'Packing edits must use the grouped Product Costs workflow.');
+product_costs_expect(str_contains($page, 'Fully retroactive') && str_contains($page, 'data-packing-month-range'), 'Packing must support monthly, month-range, and fully retroactive timing.');
 product_costs_expect(str_contains($sales, "\$row['packing_cost'] = \$rowPacking") && str_contains($sales, '$cogsQuantity'), 'Sales enrichment must calculate packing from physical quantities.');
 product_costs_expect(str_contains($formula, '$revenue - $cogs - $packing'), 'Final gross profit must subtract COGS and packing separately.');
 
