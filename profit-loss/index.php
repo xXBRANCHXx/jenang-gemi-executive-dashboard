@@ -111,19 +111,34 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
 
                 <section class="admin-accounting-metrics admin-liquidity-metrics" aria-label="Liquid asset overviews">
                     <button type="button" class="admin-accounting-metric admin-liquidity-metric is-available" data-accounting-cash-history-open="all" aria-haspopup="dialog" aria-controls="accounting-cash-history">
-                        <span>Available now</span>
-                        <strong data-accounting-kpi="available-now">Rp0</strong>
-                        <small>Bank + physical cash <b aria-hidden="true">→</b></small>
+                        <span class="admin-liquidity-metric-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><path d="M4 7.5h13.5A2.5 2.5 0 0 1 20 10v8.5H6A3 3 0 0 1 3 15.5V6a2.5 2.5 0 0 1 2.5-2.5H17"/><path d="M15 12h5v4h-5a2 2 0 0 1 0-4Z"/></svg>
+                        </span>
+                        <span class="admin-liquidity-metric-copy">
+                            <span>Available now</span>
+                            <strong data-accounting-kpi="available-now">Rp0</strong>
+                            <small>Bank + physical cash <b aria-hidden="true">→</b></small>
+                        </span>
                     </button>
                     <button type="button" class="admin-accounting-metric admin-liquidity-metric is-expected" data-accounting-marketplace-open aria-haspopup="dialog" aria-controls="accounting-breakdown">
-                        <span>Expected</span>
-                        <strong data-accounting-kpi="expected-total">Rp0</strong>
-                        <small>Wallets + marketplace + unpaid partner bills <b aria-hidden="true">→</b></small>
+                        <span class="admin-liquidity-metric-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><path d="M4 10h16l-1.5-5h-13L4 10Z"/><path d="M5 10v9h14v-9M9 19v-5h6v5"/><path d="M8 10c0 1.1-.9 2-2 2s-2-.9-2-2m8 0c0 1.1-.9 2-2 2s-2-.9-2-2m8 0c0 1.1-.9 2-2 2s-2-.9-2-2m8 0c0 1.1-.9 2-2 2s-2-.9-2-2"/></svg>
+                        </span>
+                        <span class="admin-liquidity-metric-copy">
+                            <span>Expected</span>
+                            <strong data-accounting-kpi="expected-total">Rp0</strong>
+                            <small>Wallets + marketplace + unpaid partner bills <b aria-hidden="true">→</b></small>
+                        </span>
                     </button>
                     <button type="button" class="admin-accounting-metric admin-liquidity-metric is-outflow" data-accounting-bills-open="scheduled" aria-haspopup="dialog" aria-controls="accounting-breakdown">
-                        <span>Scheduled outflow</span>
-                        <strong data-accounting-kpi="scheduled-outflow-card">Rp0</strong>
-                        <small>Unpaid supplier bills <b aria-hidden="true">→</b></small>
+                        <span class="admin-liquidity-metric-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="14" rx="2"/><path d="M8 3v5M16 3v5M4 10h16M8 14h3M8 17h6"/></svg>
+                        </span>
+                        <span class="admin-liquidity-metric-copy">
+                            <span>Scheduled outflow</span>
+                            <strong data-accounting-kpi="scheduled-outflow-card">Rp0</strong>
+                            <small>Unpaid supplier bills <b aria-hidden="true">→</b></small>
+                        </span>
                     </button>
                 </section>
 

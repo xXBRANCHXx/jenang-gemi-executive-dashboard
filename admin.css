@@ -35238,6 +35238,9 @@ button.admin-accounting-metric {
   border-right: 1px solid rgba(0, 0, 0, .24);
   color: #07130b;
   cursor: pointer;
+  filter: grayscale(0);
+  opacity: 1;
+  transition: filter .18s ease, opacity .18s ease, transform .18s ease, box-shadow .18s ease;
 }
 
 .admin-liquidity-segment:first-child,
@@ -35249,7 +35252,21 @@ button.admin-accounting-metric {
 .admin-liquidity-segment:hover,
 .admin-liquidity-segment:focus-visible,
 .admin-liquidity-outflow-segment:hover,
-.admin-liquidity-outflow-segment:focus-visible { z-index: 6; filter: brightness(1.1); outline: 2px solid var(--accounting-text); outline-offset: 2px; }
+.admin-liquidity-outflow-segment:focus-visible {
+  z-index: 6;
+  filter: grayscale(0) brightness(1.06);
+  outline: 0;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .28), 0 8px 26px rgba(0, 0, 0, .24);
+  transform: translateY(-1px);
+}
+
+.admin-liquidity-bar:has(.admin-liquidity-segment:hover) .admin-liquidity-segment:not(:hover),
+.admin-liquidity-bar:has(.admin-liquidity-segment:focus-visible) .admin-liquidity-segment:not(:focus-visible),
+.admin-liquidity-outflow-bar:has(.admin-liquidity-outflow-segment:hover) .admin-liquidity-outflow-segment:not(:hover),
+.admin-liquidity-outflow-bar:has(.admin-liquidity-outflow-segment:focus-visible) .admin-liquidity-outflow-segment:not(:focus-visible) {
+  filter: grayscale(1);
+  opacity: .28;
+}
 
 .admin-liquidity-segment.is-bank { background: #087443; }
 .admin-liquidity-segment.is-cash { background: #20c66b; }
@@ -35371,6 +35388,9 @@ button.admin-accounting-metric {
 .admin-liquidity-no-outflow,
 .admin-liquidity-loading { align-self: center; padding: 0 14px; color: var(--accounting-muted); font-size: .68rem; font-weight: 750; }
 .admin-liquidity-metric {
+  grid-template-columns: 54px minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
   min-height: 112px;
   border-top: 2px solid transparent;
   cursor: pointer;
@@ -35385,6 +35405,44 @@ button.admin-accounting-metric {
 .admin-liquidity-metric.is-available { border-top-color: #20c66b; }
 .admin-liquidity-metric.is-expected { border-top-color: #f5c518; }
 .admin-liquidity-metric.is-outflow { border-top-color: #ef3131; }
+.admin-accounting-view .admin-liquidity-metric-icon {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 18px;
+  color: #fff;
+}
+.admin-accounting-view .admin-liquidity-metric-icon svg {
+  width: 25px;
+  height: 25px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.admin-liquidity-metric.is-available .admin-liquidity-metric-icon { background: #087443; }
+.admin-liquidity-metric.is-expected .admin-liquidity-metric-icon { background: #d9a900; }
+.admin-liquidity-metric.is-outflow .admin-liquidity-metric-icon { background: #c52626; }
+.admin-liquidity-metric-copy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.admin-accounting-view .admin-liquidity-metric-copy > strong {
+  overflow: hidden;
+  color: var(--accounting-text);
+  font: 800 clamp(1rem, 1.55vw, 1.35rem)/1.1 "Space Grotesk", sans-serif;
+  letter-spacing: -.025em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-accounting-view .admin-liquidity-metric-copy > small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .admin-accounting-breakdown-row.is-partner-receivable { border-color: color-mix(in srgb, #e9a80f 48%, var(--accounting-border)); }
 
 .admin-visually-hidden {

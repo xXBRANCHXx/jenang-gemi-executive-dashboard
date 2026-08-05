@@ -22,6 +22,7 @@ expect(html.includes('data-accounting-ledger-body'), 'Accounting must expose the
 expect(html.includes('class="admin-accounting-more'), 'Secondary entry details must stay collapsed by default.');
 expect(html.includes('data-accounting-kpi="available-now"'), 'Accounting must group bank and physical cash as available now.');
 expect(html.includes('data-accounting-kpi="expected-total"'), 'Accounting must group expected marketplace and partner receivables.');
+expect((html.match(/admin-liquidity-metric-icon/g) || []).length === 3, 'Each liquid asset overview card must have a category icon.');
 expect(html.includes('data-accounting-account-settings'), 'Accounting must allow future payment and receipt accounts to be configured.');
 expect(html.includes('data-accounting-category-search'), 'The primary category selector must have live search.');
 expect(html.indexOf('data-accounting-category-menu') < html.indexOf('data-accounting-category-search'), 'Category search must live inside the dropdown menu.');
@@ -43,6 +44,8 @@ expect(script.includes('categoryComboboxMarkup(item.category_id)'), 'Correction 
 
 expect(css.includes('.admin-liquidity-overview'), 'The liquid-assets visual hierarchy must be styled.');
 expect(css.includes('.admin-liquidity-tooltip'), 'Hover and keyboard-focus chart breakdowns must be styled.');
+expect(css.includes(':has(.admin-liquidity-segment:hover)'), 'Hovering the liquid-assets bar must de-emphasize the other segments.');
+expect(/filter:\s*grayscale\(1\)/.test(css), 'Inactive chart segments must fade to gray during inspection.');
 expect(css.includes('.admin-accounting-ledger-row'), 'Visual ledger rows must be styled.');
 expect(css.includes('.admin-accounting-category-menu'), 'The in-dropdown category search menu must be styled.');
 expect(/\.admin-accounting-breakdown-body\s*\{[^}]*overflow-y:\s*auto/.test(css), 'Long Accounting breakdowns must scroll inside the modal.');
