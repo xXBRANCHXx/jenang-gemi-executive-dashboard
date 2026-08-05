@@ -794,9 +794,8 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                    <section class="admin-view admin-purchase-order-view" data-view-panel="purchase-order">
 	                        <div class="admin-purchase-toolbar">
 	                            <div class="admin-purchase-heading">
-	                                <button type="button" class="admin-purchase-back" data-view-switch="inventory-recap">
-	                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/><path d="M9 12h10"/></svg>
-	                                    Back to Inventory Recap
+                                <button type="button" class="admin-back-icon-button admin-purchase-back" data-view-switch="inventory-recap" aria-label="Back to Inventory Recap" title="Back to Inventory Recap">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg>
 	                                </button>
 	                                <span class="admin-panel-kicker">Triggered products only</span>
 	                                <strong>MOQ-ready purchase plan</strong>
@@ -867,7 +866,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                    <section class="admin-view admin-po-history-view" data-view-panel="po-history">
 	                        <header class="admin-po-page-head">
 	                            <div>
-	                                <button type="button" class="admin-purchase-back" data-view-switch="inventory-recap">← Back to Inventory Recap</button>
+	                                <button type="button" class="admin-back-icon-button admin-purchase-back" data-view-switch="inventory-recap" aria-label="Back to Inventory Recap" title="Back to Inventory Recap"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg></button>
 	                                <span class="admin-panel-kicker">Purchasing · archive</span>
 	                                <h2>PO History</h2>
 	                                <p>Search every draft, active, received, and cancelled purchase order by number, tag, or product.</p>
@@ -880,7 +879,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                    <section class="admin-view admin-po-detail-view" data-view-panel="po-detail">
 	                        <header class="admin-po-page-head">
 	                            <div>
-	                                <button type="button" class="admin-purchase-back" data-view-switch="po-history">← Back to PO History</button>
+	                                <button type="button" class="admin-back-icon-button admin-purchase-back" data-view-switch="po-history" aria-label="Back to PO History" title="Back to PO History"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg></button>
 	                                <span class="admin-panel-kicker">Purchase order</span>
 	                                <h2 data-po-detail-number>PO breakdown</h2>
 	                                <p data-po-detail-status>Loading order details.</p>
@@ -1432,7 +1431,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                     <div class="admin-website-header-copy">
                         <div class="admin-website-title-row">
                             <button type="button" class="admin-back-icon-button admin-website-back-button" data-website-back hidden aria-label="Back to website selector" title="Back to website selector">
-                                <img src="https://cdn.jsdelivr.net/npm/lucide-static@0.468.0/icons/arrow-left.svg" alt="" width="22" height="22" loading="lazy" referrerpolicy="no-referrer">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg>
                             </button>
                             <h2 data-website-hero-title>Select a website dashboard.</h2>
                         </div>

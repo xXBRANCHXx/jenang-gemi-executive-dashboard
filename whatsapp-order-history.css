@@ -351,20 +351,7 @@
   cursor: default;
 }
 
-.whatsapp-detail-back {
-  display: inline-flex;
-  margin-bottom: 18px;
-  color: var(--admin-muted);
-  font-size: 12px;
-  font-weight: 800;
-  text-decoration: none;
-}
-
-.whatsapp-detail-back:hover {
-  color: #60a5fa;
-}
-
-.whatsapp-detail-hero > div:first-child > span:not(.admin-panel-kicker) {
+.whatsapp-detail-identity > div > span:not(.admin-panel-kicker) {
   color: var(--admin-muted);
   font: 800 11px/1.2 "Space Grotesk", sans-serif;
   letter-spacing: .08em;

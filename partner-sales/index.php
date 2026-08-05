@@ -55,9 +55,9 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
 
                     <div data-sales-content hidden>
                         <header class="partner-sales-header">
-                            <div class="partner-sales-identity">
-                                <a class="partner-sales-back" href="../partner-profiles/" aria-label="Back to partner profiles" title="Back to partner profiles">
-                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg>
+                            <div class="partner-sales-identity admin-heading-with-back">
+                                <a class="admin-back-icon-link" href="../partner-profiles/" aria-label="Back to partner profiles" title="Back to partner profiles">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6"></path></svg>
                                 </a>
                                 <div>
                                     <span>Partner performance</span>

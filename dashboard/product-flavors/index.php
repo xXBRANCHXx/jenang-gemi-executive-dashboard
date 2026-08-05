@@ -47,8 +47,8 @@ $jsVersion = $buildVersion . '-' . (string) @filemtime(__DIR__ . '/product-flavo
         data-endpoint="../../api/orders/"
     >
         <header class="product-flavor-topbar">
-            <a class="product-flavor-close" href="../?view=overview#flavor-share" data-close-detail aria-label="Close flavor breakdown">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg>
+            <a class="admin-back-icon-link product-flavor-close" href="../?view=overview#flavor-share" data-close-detail aria-label="Back to overview" title="Back to overview">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg>
             </a>
             <div class="product-flavor-title">
                 <span>Product sales detail</span>

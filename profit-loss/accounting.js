@@ -904,7 +904,7 @@ if (root) {
     if (refs.breakdownCopy) refs.breakdownCopy.textContent = `${Number(bill.order_count || 0).toLocaleString('id-ID')} orders · ${Number(bill.unit_count || 0).toLocaleString('id-ID')} units`;
     refs.breakdownBody.innerHTML = `
       <div class="admin-accounting-partner-bill-toolbar">
-        <button type="button" class="admin-ghost-btn" data-accounting-partner-bills-back>← All partner bills</button>
+        <button type="button" class="admin-back-icon-button" data-accounting-partner-bills-back aria-label="Back to all partner bills" title="Back to all partner bills"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg></button>
         <span class="${statusClass(bill.status)}">${escapeHtml(partnerBillStatusLabel(bill.status))}</span>
       </div>
       <div class="admin-accounting-partner-bill-summary">

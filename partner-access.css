@@ -3245,7 +3245,6 @@
   letter-spacing: 0.06em;
 }
 
-.partner-sales-back,
 .partner-sales-modal-close,
 .partner-sales-order-toggle {
   display: inline-grid;
@@ -3260,12 +3259,6 @@
   cursor: pointer;
 }
 
-.partner-sales-back {
-  width: 28px;
-  height: 36px;
-}
-
-.partner-sales-back svg,
 .partner-sales-modal-close svg,
 .partner-sales-order-toggle svg {
   width: 22px;
@@ -3277,7 +3270,6 @@
   stroke-linejoin: round;
 }
 
-.partner-sales-back:hover,
 .partner-sales-modal-close:hover,
 .partner-sales-order-toggle:hover {
   color: var(--partner-muted);

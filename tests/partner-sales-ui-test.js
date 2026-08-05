@@ -7,6 +7,7 @@ const directory = fs.readFileSync(path.join(root, 'partner-profiles.js'), 'utf8'
 const page = fs.readFileSync(path.join(root, 'partner-sales', 'index.php'), 'utf8');
 const script = fs.readFileSync(path.join(root, 'partner-sales.js'), 'utf8');
 const styles = fs.readFileSync(path.join(root, 'partner-access.css'), 'utf8');
+const adminStyles = fs.readFileSync(path.join(root, 'admin.css'), 'utf8');
 const api = fs.readFileSync(path.join(root, 'api', 'partner-sales', 'index.php'), 'utf8');
 
 assert.match(directory, /data-partner-sales-url="\.\.\/partner-sales\/\?code=/, 'Partner directory rows should link to the sales breakdown.');
@@ -25,7 +26,8 @@ assert.match(api, /update_order_prices[\s\S]*jg_partner_sales_update_order_price
 assert.match(api, /jg_partner_sales_profile\(\?PDO[\s\S]*partners\.runtime\.json/, 'Partner profiles should retain the production JSON fallback.');
 assert.match(api, /jg_partner_sales_store_ops_orders[\s\S]*Authorization: Bearer/, 'Partner orders should use the secure Store Ops service connection when no Partner DB is configured.');
 assert.match(api, /\$paymentPdo = analyticsDb\(\)[\s\S]*jg_partner_sales_ensure_schema\(\$paymentPdo\)/, 'Settlements should use the dashboard database that is already configured in production.');
-assert.match(styles, /\.partner-sales-back,[\s\S]*border: 0;[\s\S]*background: transparent;/, 'Sales icon controls should be bare, without icon pills.');
+assert.match(page, /admin-back-icon-link[\s\S]*Back to partner profiles/, 'Partner Sales must use the shared back control.');
+assert.match(adminStyles, /\.admin-back-icon-link,[\s\S]*border-radius: 50%;[\s\S]*background: var\(--admin-surface\)/, 'Shared page back controls must use the standard circular treatment.');
 assert.match(styles, /\.partner-sales-stat-grid[\s\S]*grid-template-columns: repeat\(5/, 'The desktop summary should use a dense metric grid.');
 assert.match(styles, /\.partner-sales-order\.is-cancelled[\s\S]*#ef4444/, 'Cancelled order rows should receive a full-width red treatment.');
 assert.match(styles, /\.partner-sales-price-actions[\s\S]*\.partner-sales-price-editor/, 'Inline price editing should use visible controls in the expanded order row.');

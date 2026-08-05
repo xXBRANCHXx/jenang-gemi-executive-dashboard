@@ -22974,37 +22974,58 @@ body:has(.admin-app[data-sku-db])::after {
 .admin-back-icon-button {
   display: inline-grid;
   place-items: center;
+  flex: 0 0 auto;
   width: 42px;
   min-width: 42px;
   height: 42px;
   min-height: 42px;
   padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
+  border: 1px solid var(--admin-border);
+  border-radius: 50%;
+  background: var(--admin-surface);
   color: var(--admin-text);
   box-shadow: none;
   line-height: 1;
+  text-decoration: none;
   cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease, transform 160ms ease;
 }
 
 .admin-back-icon-link:hover,
 .admin-back-icon-link:focus-visible,
 .admin-back-icon-button:hover,
 .admin-back-icon-button:focus-visible {
-  background: transparent;
+  border-color: var(--admin-accent-primary);
+  background: color-mix(in srgb, var(--admin-accent-primary) 8%, var(--admin-surface));
   box-shadow: none;
-  opacity: 0.74;
-  transform: none;
+  color: var(--admin-text);
+  opacity: 1;
+  outline: none;
+  transform: translateX(-2px);
+}
+
+.admin-back-icon-link img,
+.admin-back-icon-button img,
+.admin-back-icon-link svg,
+.admin-back-icon-button svg {
+  display: block;
+  width: 22px;
+  height: 22px;
 }
 
 .admin-back-icon-link img,
 .admin-back-icon-button img {
-  display: block;
-  width: 22px;
-  height: 22px;
   filter: invert(1);
   opacity: 0.92;
+}
+
+.admin-back-icon-link svg,
+.admin-back-icon-button svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 :root[data-admin-theme='light'] .admin-back-icon-link img,
@@ -23016,6 +23037,23 @@ body:has(.admin-app[data-sku-db])::after {
   width: 42px;
   min-width: 42px;
   padding: 0;
+}
+
+.admin-heading-with-back {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .admin-back-icon-link,
+  .admin-back-icon-button {
+    width: 38px;
+    min-width: 38px;
+    height: 38px;
+    min-height: 38px;
+  }
 }
 
 .admin-shell .admin-rail-brand-wordmark,
@@ -25101,34 +25139,7 @@ body:has(.admin-app[data-sku-db])::after {
 }
 
 .admin-purchase-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  width: max-content;
-  min-height: 34px;
   margin-bottom: 7px;
-  padding: 0 10px;
-  border: 1px solid var(--inventory-line);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--admin-text);
-  font: 740 0.66rem/1 "Plus Jakarta Sans", sans-serif;
-  cursor: pointer;
-}
-
-.admin-purchase-back:hover,
-.admin-purchase-back:focus-visible {
-  border-color: var(--admin-text);
-}
-
-.admin-purchase-back svg {
-  width: 15px;
-  height: 15px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
 }
 
 .admin-purchase-toolbar > div:first-child strong {

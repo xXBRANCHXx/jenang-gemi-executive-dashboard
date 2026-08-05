@@ -53,43 +53,17 @@ html {
 
 .product-flavor-topbar {
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) auto;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
   gap: 18px;
   align-items: center;
   min-height: 126px;
   border-bottom: 1px solid var(--flavor-sheet-line);
 }
 
-.product-flavor-close {
-  display: grid;
-  width: 28px;
-  height: 44px;
-  place-items: center;
-  border: 0;
-  background: transparent;
-  color: var(--flavor-sheet-text);
-  transition: color 160ms ease, transform 160ms ease;
-}
-
-.product-flavor-close:hover {
-  color: var(--flavor-sheet-muted);
-  transform: rotate(4deg) scale(1.08);
-}
-
-.product-flavor-close:focus-visible,
 .product-flavor-controls button:focus-visible,
 .product-flavor-controls input:focus-visible {
   outline: 2px solid var(--flavor-sheet-accent);
   outline-offset: 3px;
-}
-
-.product-flavor-close svg {
-  width: 19px;
-  height: 19px;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-width: 1.8;
 }
 
 .product-flavor-title > span,
@@ -513,7 +487,7 @@ html {
   }
 
   .product-flavor-topbar {
-    grid-template-columns: 28px minmax(0, 1fr);
+    grid-template-columns: 38px minmax(0, 1fr);
     min-height: 112px;
   }
 

@@ -62,11 +62,15 @@ $storeOpsBaseUrl = rtrim(
 
                     <div data-detail-content hidden>
                         <section class="whatsapp-detail-hero">
-                            <div>
-                                <a href="../whatsapp-order-history/" class="whatsapp-detail-back">← All WhatsApp orders</a>
-                                <span data-detail-order-id>Order</span>
-                                <h2 data-detail-customer-name>Customer</h2>
-                                <p data-detail-created>Created date</p>
+                            <div class="whatsapp-detail-identity admin-heading-with-back">
+                                <a href="../whatsapp-order-history/" class="admin-back-icon-link whatsapp-detail-back" aria-label="Back to WhatsApp orders" title="Back to WhatsApp orders">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg>
+                                </a>
+                                <div>
+                                    <span data-detail-order-id>Order</span>
+                                    <h2 data-detail-customer-name>Customer</h2>
+                                    <p data-detail-created>Created date</p>
+                                </div>
                             </div>
                             <div class="whatsapp-detail-hero-actions">
                                 <span class="whatsapp-history-status" data-detail-status>Status</span>

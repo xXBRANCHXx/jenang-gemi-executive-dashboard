@@ -291,7 +291,7 @@ $pageBuildVersion = 'sku1.00.01';
                                                 <span>Push</span>
                                             </button>
                                             <button type="button" class="admin-back-icon-button admin-sku-action-btn" data-back-setup aria-label="Back to setup" title="Back to setup">
-                                                <img src="https://cdn.jsdelivr.net/npm/lucide-static@0.468.0/icons/arrow-left.svg" alt="" width="22" height="22" loading="lazy" referrerpolicy="no-referrer">
+                                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg>
                                             </button>
                                         </div>
                                     </form>

@@ -57,11 +57,15 @@ $profileJsVersion = (string) @filemtime(dirname(__DIR__) . '/affiliate-profile.j
 
                 <main class="admin-layout">
             <section class="admin-affiliate-toolbar admin-affiliate-profile-toolbar" aria-label="Affiliate profile identity">
-                <div class="admin-affiliate-identity">
-                    <span class="admin-chip admin-chip-accent" data-profile-code>Affiliate</span>
-                    <strong data-profile-name>Loading affiliate profile</strong>
+                <div class="admin-heading-with-back">
+                    <a class="admin-back-icon-link" href="../affiliate-profiles/" aria-label="Back to affiliate profiles" title="Back to affiliate profiles">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg>
+                    </a>
+                    <div class="admin-affiliate-identity">
+                        <span class="admin-chip admin-chip-accent" data-profile-code>Affiliate</span>
+                        <strong data-profile-name>Loading affiliate profile</strong>
+                    </div>
                 </div>
-                <a class="admin-ghost-btn admin-link-btn" href="../affiliate-profiles/">Affiliate Profiles</a>
             </section>
 
             <section class="admin-panel admin-panel-affiliates">

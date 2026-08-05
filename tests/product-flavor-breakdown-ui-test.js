@@ -17,7 +17,7 @@ const expect = (condition, message) => {
     `${product} flavor share must link to its product breakdown.`
   );
 });
-expect(detail.includes('data-close-detail'), 'The breakdown must expose an icon close action.');
+expect(detail.includes('data-close-detail') && detail.includes('admin-back-icon-link product-flavor-close'), 'The breakdown must expose the shared page back action.');
 expect(detail.includes('data-scope="year"') && detail.includes('data-scope="all"') && detail.includes('data-scope="custom"'), 'The breakdown must expose year, all-time, and custom scopes.');
 expect(detail.includes('data-grain="day"') && detail.includes('data-grain="week"') && detail.includes('data-grain="month"'), 'The breakdown must expose day, week, and month grouping.');
 expect(detail.includes('data-sheet-head') && detail.includes('data-sheet-body') && detail.includes('data-sheet-foot'), 'The breakdown must render as a spreadsheet with header, body, and totals.');

@@ -34,8 +34,8 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/product-costs.js');
             <?php render_admin_sidebar('sku'); ?>
             <div class="admin-shell-main">
                 <header class="admin-topbar product-costs-topbar">
-                    <div class="product-costs-heading">
-                        <button type="button" class="product-costs-back" data-product-costs-back aria-label="Go back">
+                    <div class="product-costs-heading admin-heading-with-back">
+                        <button type="button" class="admin-back-icon-button product-costs-back" data-product-costs-back aria-label="Go back" title="Go back">
                             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m14.5 6-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                         </button>
                         <div class="admin-topbar-brand">
