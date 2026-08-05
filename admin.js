@@ -57,6 +57,7 @@ const OVERVIEW_METRIC_UNITS = {
   revenue: 'idr',
   gross_profit: 'idr',
   cogs: 'idr',
+  packing_cost: 'idr',
   sales: 'idr',
   net_revenue: 'idr',
   marketplace_fees: 'idr',
@@ -1663,9 +1664,10 @@ const buildOverviewTooltipLines = (item, focusMetric = 'sales') => {
   const net = Number(item.net_revenue || item.sales || 0);
   const revenue = Number(item.revenue || net);
   const cogs = Number(item.cogs || 0);
+  const packing = Number(item.packing_cost || 0);
   const grossProfit = item.gross_profit === null
     ? null
-    : Number(item.gross_profit ?? (revenue - cogs));
+    : Number(item.gross_profit ?? (revenue - cogs - packing));
   const orders = Number(item.orders || 0);
   const items = Number(item.item_count || 0);
   const fees = Number(item.marketplace_fees || 0);
@@ -1697,6 +1699,7 @@ const buildOverviewTooltipLines = (item, focusMetric = 'sales') => {
     ['Items QTY', formatFullMetricValue('item_count', items, OVERVIEW_METRIC_UNITS), ''],
     ['Marketplace fees', formatFullMetricValue('marketplace_fees', fees, OVERVIEW_METRIC_UNITS), ''],
     ['COGS', formatFullMetricValue('cogs', cogs, OVERVIEW_METRIC_UNITS), ''],
+    ['Packing', formatFullMetricValue('packing_cost', packing, OVERVIEW_METRIC_UNITS), ''],
     ['AOV', formatFullMetricValue('average_order_value', aov, OVERVIEW_METRIC_UNITS), '']
   ];
   return rows.map(([label, value, className]) => `
@@ -5872,9 +5875,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const orderMetricRow = (order) => {
     const revenue = Number(order?.revenue || 0);
     const cogs = Number(order?.cogs || 0);
+    const packing = Number(order?.packing_cost || 0);
     return {
       revenue,
-      gross_profit: Number(order?.gross_profit ?? (revenue - cogs)),
+      gross_profit: Number(order?.gross_profit ?? (revenue - cogs - packing)),
       orders: 1,
       item_count: Number(order?.quantity || order?.item_count || 0)
     };
@@ -5883,14 +5887,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const addOrderMetrics = (target, order) => {
     const metrics = orderMetricRow(order);
     const cogs = Number(order?.cogs || 0);
+    const packing = Number(order?.packing_cost || 0);
     const coveredItems = Number(order?.cogs_covered_items || 0);
     const missingItems = Number(order?.cogs_missing_items || 0);
+    const packingMissingItems = Number(order?.packing_missing_items || 0);
     target.cogs = Number(target.cogs || 0) + cogs;
+    target.packing_cost = Number(target.packing_cost || 0) + packing;
     target.cogs_covered_items = Number(target.cogs_covered_items || 0) + coveredItems;
     target.cogs_missing_items = Number(target.cogs_missing_items || 0) + missingItems;
-    if (missingItems > 0) target._grossProfitComplete = false;
+    target.packing_missing_items = Number(target.packing_missing_items || 0) + packingMissingItems;
+    if (missingItems > 0 || packingMissingItems > 0) target._grossProfitComplete = false;
     if (isFreeGiftOrderRow(order)) {
-      target.gross_profit -= cogs;
+      target.gross_profit -= cogs + packing;
       return;
     }
     const orderId = String(order?.order_id || '').trim();
@@ -5907,7 +5915,7 @@ document.addEventListener('DOMContentLoaded', () => {
       ? (isFirstOrderRow ? orderRevenue : 0)
       : metrics.revenue;
     target.revenue += revenueContribution;
-    target.gross_profit += revenueContribution - cogs;
+    target.gross_profit += revenueContribution - cogs - packing;
     if (isFirstOrderRow) {
       target.orders += metrics.orders;
       if (orderId !== '') target._orderIds.add(orderKey);
@@ -5923,7 +5931,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const buckets = new Map();
     const ensureBucket = (key, label) => {
       if (!buckets.has(key)) {
-        buckets.set(key, { key, label, revenue: 0, cogs: 0, gross_profit: 0, orders: 0, item_count: 0, cogs_covered_items: 0, cogs_missing_items: 0, _grossProfitComplete: true });
+        buckets.set(key, { key, label, revenue: 0, cogs: 0, packing_cost: 0, gross_profit: 0, orders: 0, item_count: 0, cogs_covered_items: 0, cogs_missing_items: 0, packing_missing_items: 0, _grossProfitComplete: true });
       }
       return buckets.get(key);
     };
@@ -5993,11 +6001,13 @@ document.addEventListener('DOMContentLoaded', () => {
         future: hour > currentHour,
         revenue: 0,
         cogs: 0,
+        packing_cost: 0,
         gross_profit: 0,
         orders: 0,
         item_count: 0,
         cogs_covered_items: 0,
         cogs_missing_items: 0,
+        packing_missing_items: 0,
         _grossProfitComplete: true
       });
     }
@@ -6046,17 +6056,22 @@ document.addEventListener('DOMContentLoaded', () => {
     if (overviewRefs.hourlyMeta) {
       const hourlyTotal = state.overview.hourlyRows.reduce((sum, row) => sum + Number(row[state.overview.hourlyMetric] || 0), 0);
       const missingCogsItems = state.overview.hourlyRows.reduce((sum, row) => sum + Number(row.cogs_missing_items || 0), 0);
+      const missingPackingItems = state.overview.hourlyRows.reduce((sum, row) => sum + Number(row.packing_missing_items || 0), 0);
       const syncStatus = state.overview.data?.sync_status;
       const syncFinishedAt = syncStatus?.finished_at ? new Date(syncStatus.finished_at) : null;
       const staleLabel = syncStatus?.fresh === false
         ? `Data stale${syncFinishedAt && !Number.isNaN(syncFinishedAt.getTime()) ? ` since ${formatDashboardTime(syncFinishedAt, state.timezone, { hour: '2-digit', minute: '2-digit', hour12: false })} ${getTimezoneLabel(state.timezone)}` : ''}`
         : 'Live today, 0-23';
-      const metricValue = state.overview.hourlyMetric === 'gross_profit' && missingCogsItems > 0
+      const metricValue = state.overview.hourlyMetric === 'gross_profit' && (missingCogsItems > 0 || missingPackingItems > 0)
         ? `Partial ${formatFullMetricValue(state.overview.hourlyMetric, hourlyTotal, OVERVIEW_METRIC_UNITS)}`
         : formatFullMetricValue(state.overview.hourlyMetric, hourlyTotal, OVERVIEW_METRIC_UNITS);
-      const coverageLabel = missingCogsItems > 0
+      const cogsCoverageLabel = missingCogsItems > 0
         ? ` • COGS missing for ${missingCogsItems.toLocaleString('id-ID')} item${missingCogsItems === 1 ? '' : 's'}`
         : '';
+      const packingCoverageLabel = missingPackingItems > 0
+        ? ` • Packing missing for ${missingPackingItems.toLocaleString('id-ID')} item${missingPackingItems === 1 ? '' : 's'}`
+        : '';
+      const coverageLabel = `${cogsCoverageLabel}${packingCoverageLabel}`;
       overviewRefs.hourlyMeta.textContent = `${staleLabel} • ${metricValue}${coverageLabel}`;
     }
     overviewRefs.hourlyMetricButtons.forEach((button) => {
@@ -6250,13 +6265,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const pcs = optionalNumberFrom(row, ['item_count', 'total_pcs', 'pcs', 'quantity', 'qty', 'units', 'order_item_count']) ?? 0;
     const rev = optionalNumberFrom(row, ['revenue', 'net_revenue', 'sales', 'total_revenue', 'grossRevenue', 'gross_revenue']) ?? 0;
     const cogs = optionalNumberFrom(row, ['cogs', 'total_cogs', 'cost_of_goods_sold']);
+    const packing = optionalNumberFrom(row, ['packing_cost', 'packing', 'total_packing']) ?? 0;
     const directGp = optionalNumberFrom(row, ['gross_profit', 'grossProfit', 'gp', 'profit']);
-    const gp = cogs !== null ? rev - cogs : directGp;
+    const gp = cogs !== null ? rev - cogs - packing : directGp;
 
     return {
       pcs,
       rev,
       cogs,
+      packing,
       avgCogs: cogs !== null ? (pcs > 0 ? cogs / pcs : 0) : null,
       gp,
       avgGp: gp !== null ? (pcs > 0 ? gp / pcs : 0) : null,
@@ -6267,8 +6284,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const grossProfitFromSummaryRow = (row = {}) => {
     const revenue = optionalNumberFrom(row, ['revenue', 'net_revenue', 'sales']) ?? 0;
     const cogs = optionalNumberFrom(row, ['cogs']);
+    const packing = optionalNumberFrom(row, ['packing_cost', 'packing', 'total_packing']) ?? 0;
     return cogs !== null
-      ? revenue - cogs
+      ? revenue - cogs - packing
       : (optionalNumberFrom(row, ['gross_profit', 'grossProfit', 'gp', 'profit']) ?? 0);
   };
 
@@ -6278,14 +6296,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const hasFullCogs = values.every((item) => item.cogs !== null || (!item.pcs && !item.rev));
     const hasFullGp = values.every((item) => item.gp !== null || (!item.pcs && !item.rev));
     const cogs = hasFullCogs ? values.reduce((sum, item) => sum + Number(item.cogs || 0), 0) : null;
+    const packing = values.reduce((sum, item) => sum + Number(item.packing || 0), 0);
     const gp = hasFullGp
       ? values.reduce((sum, item) => sum + Number(item.gp || 0), 0)
-      : (cogs !== null ? rev - cogs : null);
+      : (cogs !== null ? rev - cogs - packing : null);
 
     return {
       pcs,
       rev,
       cogs,
+      packing,
       avgCogs: cogs !== null ? (pcs > 0 ? cogs / pcs : 0) : null,
       gp,
       avgGp: gp !== null ? (pcs > 0 ? gp / pcs : 0) : null,

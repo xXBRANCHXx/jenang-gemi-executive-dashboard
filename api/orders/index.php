@@ -5,6 +5,7 @@ require_once dirname(__DIR__, 2) . '/config.php';
 require_once dirname(__DIR__, 2) . '/auth.php';
 require_once dirname(__DIR__, 2) . '/analytics-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/sku-db-bootstrap.php';
+require_once dirname(__DIR__, 2) . '/product-costs-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/astra-stock-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/website-commerce-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/whatsapp-orders-bootstrap.php';
@@ -132,6 +133,7 @@ function jg_orders_handle_request(): void
             $rows = jg_orders_lightweight_rows($metricRows);
             $coveredItems = array_sum(array_map(static fn (array $row): int => (int) ($row['cogs_covered_items'] ?? 0), $rows));
             $missingItems = array_sum(array_map(static fn (array $row): int => (int) ($row['cogs_missing_items'] ?? 0), $rows));
+            $packingMissingItems = array_sum(array_map(static fn (array $row): int => (int) ($row['packing_missing_items'] ?? 0), $rows));
             $response = [
                 'ok' => true,
                 'start_date' => $startDate,
@@ -148,6 +150,10 @@ function jg_orders_handle_request(): void
                     'covered_items' => $coveredItems,
                     'missing_items' => $missingItems,
                     'complete' => $missingItems === 0,
+                ],
+                'packing_coverage' => [
+                    'missing_items' => $packingMissingItems,
+                    'complete' => $packingMissingItems === 0,
                 ],
                 'warning' => $inventoryWarning,
             ];
@@ -2245,8 +2251,10 @@ function jg_orders_lightweight_rows(array $remoteRows): array
         $orderNetRevenue = (int) round((float) ($remoteRow['order_net_revenue'] ?? $netRevenue));
         $marketplaceFees = (int) round((float) ($remoteRow['order_marketplace_fees'] ?? $remoteRow['marketplace_fees'] ?? 0));
         $cogs = (int) round((float) ($remoteRow['cogs'] ?? 0));
+        $packing = (int) round((float) ($remoteRow['packing_cost'] ?? 0));
         $cogsCoveredItems = max(0, (int) ($remoteRow['cogs_covered_items'] ?? 0));
         $cogsMissingItems = max(0, (int) ($remoteRow['cogs_missing_items'] ?? 0));
+        $packingMissingItems = max(0, (int) ($remoteRow['packing_missing_items'] ?? 0));
         $key = implode('|', [
             (string) ($remoteRow['platform'] ?? ''),
             (string) ($remoteRow['account_key'] ?? ''),
@@ -2273,9 +2281,11 @@ function jg_orders_lightweight_rows(array $remoteRows): array
                 'funds_release_status' => '',
                 'funds_release_source' => '',
                 'cogs' => 0,
+                'packing_cost' => 0,
                 'gross_profit' => $orderNetRevenue,
                 'cogs_covered_items' => 0,
                 'cogs_missing_items' => 0,
+                'packing_missing_items' => 0,
             ];
         }
         $rows[$key]['quantity'] += $quantity;
@@ -2296,11 +2306,15 @@ function jg_orders_lightweight_rows(array $remoteRows): array
             $rows[$key]['funds_release_source'] = (string) $remoteRow['funds_release_source'];
         }
         $rows[$key]['cogs'] += $cogs;
+        $rows[$key]['packing_cost'] += $packing;
         $rows[$key]['cogs_covered_items'] += $cogsCoveredItems;
         $rows[$key]['cogs_missing_items'] += $cogsMissingItems;
-        $rows[$key]['gross_profit'] = $rows[$key]['cogs_missing_items'] > 0
+        $rows[$key]['packing_missing_items'] += $packingMissingItems;
+        $rows[$key]['gross_profit'] = $rows[$key]['cogs_missing_items'] > 0 || $rows[$key]['packing_missing_items'] > 0
             ? null
-            : (int) ($rows[$key]['net_revenue'] ?? $orderNetRevenue) - (int) ($rows[$key]['cogs'] ?? 0);
+            : (int) ($rows[$key]['net_revenue'] ?? $orderNetRevenue)
+                - (int) ($rows[$key]['cogs'] ?? 0)
+                - (int) ($rows[$key]['packing_cost'] ?? 0);
     }
 
     return array_values($rows);
@@ -2350,8 +2364,16 @@ function jg_orders_enrich_for_metrics(array $remoteRows, array $skuLookup): arra
             || $source === 'website_paid_order'
             || in_array((string) ($row['cogs_source'] ?? ''), ['sku_quarter_history', 'sku_static_average'], true);
         $revenue = (int) round((float) ($row['revenue'] ?? $row['net_revenue'] ?? $row['sales'] ?? 0));
+        $orderDate = jg_orders_order_datetime($row['order_create_time'] ?? $row['timestamp'] ?? null);
+        $localDate = ($orderDate ?? new DateTimeImmutable('now', jg_sku_business_timezone()))->setTimezone(jg_sku_business_timezone());
+        $packingSupported = (int) $localDate->format('Y') > 2026
+            || ((int) $localDate->format('Y') === 2026 && (int) $localDate->format('n') >= 6);
+        $packingMissingItems = $packingSupported ? $physicalQuantity : 0;
         $row['cogs'] = $cogs;
-        $row['gross_profit'] = $hasTrustedEmbeddedCogs ? $revenue - $cogs : null;
+        $row['packing_cost'] = 0;
+        $row['packing_status'] = $packingSupported ? 'unmapped' : 'legacy_unavailable';
+        $row['packing_missing_items'] = $packingMissingItems;
+        $row['gross_profit'] = $hasTrustedEmbeddedCogs && $packingMissingItems === 0 ? $revenue - $cogs : null;
         $row['order_net_revenue'] = (int) round((float) ($remoteRow['order_net_revenue'] ?? $revenue));
         $row['order_marketplace_fees'] = (int) round((float) ($remoteRow['order_marketplace_fees'] ?? $remoteRow['marketplace_fees'] ?? 0));
         $row['sku_linked'] = false;
@@ -2499,7 +2521,7 @@ function jg_orders_sku_lookup(PDO $pdo): array
 {
     $productNameMap = jg_orders_product_name_map();
     $stmt = $pdo->query(
-        'SELECT s.sku, s.tag, s.brand_id, s.unit_id, s.product_id, s.flavor_id, s.volume, s.astra, s.current_stock, s.cogs,
+        'SELECT s.sku, s.tag, s.brand_id, s.unit_id, s.product_id, s.flavor_id, s.volume, s.astra, s.current_stock, s.cogs, s.packing_required,
                 b.name AS brand_name, u.name AS unit_name, p.name AS product_name, f.name AS flavor_name
          FROM sku_skus s
          INNER JOIN sku_brands b ON b.id = s.brand_id
@@ -2511,7 +2533,7 @@ function jg_orders_sku_lookup(PDO $pdo): array
     $skuRows = array_values(array_filter($stmt->fetchAll(), 'is_array'));
     $historyBySku = [];
     $historyStmt = $pdo->query(
-        'SELECT id, sku, old_price, new_price, change_mode, effective_at, recorded_at
+        'SELECT id, sku, old_price, new_price, change_mode, effective_at, effective_until, recorded_at
          FROM sku_cogs_history ORDER BY sku, recorded_at, id'
     );
     foreach (($historyStmt !== false ? $historyStmt->fetchAll() : []) as $historyRow) {
@@ -2522,8 +2544,19 @@ function jg_orders_sku_lookup(PDO $pdo): array
             'new_price' => (float) ($historyRow['new_price'] ?? 0),
             'change_mode' => (string) ($historyRow['change_mode'] ?? 'legacy'),
             'effective_at' => $historyRow['effective_at'] === null ? null : (string) $historyRow['effective_at'],
+            'effective_until' => $historyRow['effective_until'] === null ? null : (string) $historyRow['effective_until'],
             'recorded_at' => (string) ($historyRow['recorded_at'] ?? ''),
         ];
+    }
+    $packingBySku = [];
+    $packingStmt = $pdo->query('SELECT year, month, sku, packing_per_item FROM sku_packing_costs ORDER BY sku, year, month');
+    foreach (($packingStmt !== false ? $packingStmt->fetchAll() : []) as $packingRow) {
+        $packingSku = (string) ($packingRow['sku'] ?? '');
+        $packingYear = (int) ($packingRow['year'] ?? 0);
+        $packingMonth = (int) ($packingRow['month'] ?? 0);
+        if ($packingSku !== '' && $packingYear >= 2025 && $packingMonth >= 1 && $packingMonth <= 12) {
+            $packingBySku[$packingSku][sprintf('%04d-%02d', $packingYear, $packingMonth)] = (float) ($packingRow['packing_per_item'] ?? 0);
+        }
     }
     $stockMap = jg_astra_stock_map($skuRows);
     foreach ($skuRows as $row) {
@@ -2551,6 +2584,8 @@ function jg_orders_sku_lookup(PDO $pdo): array
             'cogs' => (float) ($row['cogs'] ?? 0),
             'base_cogs' => (float) ($stockRow['cogs'] ?? $row['cogs'] ?? 0),
             'cogs_history' => jg_astra_cogs_scale_history($historyBySku[$baseSku] ?? [], $cogsMultiplier),
+            'packing_required' => (int) ($row['packing_required'] ?? 1) === 1,
+            'packing_costs' => $packingBySku[$sku] ?? [],
             'stock_sku' => $baseSku,
             'stock_ratio' => $cogsMultiplier,
             'product_name' => jg_orders_sku_product_display_name($sku, $displayFallback, $productNameMap),
@@ -2749,6 +2784,29 @@ function jg_orders_allocation_map_key(string $orderItemKey, string $sku): string
     return $orderItemKey . "\x1f" . $sku;
 }
 
+function jg_orders_packing_for_order(?array $sku, ?DateTimeImmutable $orderDate): array
+{
+    $localDate = ($orderDate ?? new DateTimeImmutable('now', jg_sku_business_timezone()))
+        ->setTimezone(jg_sku_business_timezone());
+    $year = (int) $localDate->format('Y');
+    $month = (int) $localDate->format('n');
+    if ($year < 2026 || ($year === 2026 && $month < 6)) {
+        return ['unit_cost' => 0.0, 'status' => 'legacy_unavailable'];
+    }
+    if ($sku === null) {
+        return ['unit_cost' => null, 'status' => 'unmapped'];
+    }
+    $required = !array_key_exists('packing_required', $sku) || !empty($sku['packing_required']);
+    if (!$required) {
+        return ['unit_cost' => 0.0, 'status' => 'not_required'];
+    }
+    $costs = is_array($sku['packing_costs'] ?? null) ? $sku['packing_costs'] : [];
+    $key = $localDate->format('Y-m');
+    return array_key_exists($key, $costs)
+        ? ['unit_cost' => max(0.0, (float) $costs[$key]), 'status' => 'complete']
+        : ['unit_cost' => null, 'status' => 'missing'];
+}
+
 function jg_orders_enriched_row(
     array $remoteRow,
     ?array $sku,
@@ -2760,14 +2818,14 @@ function jg_orders_enriched_row(
     $saleQuantity = max(0, (int) ($remoteRow['quantity'] ?? 0));
     $physicalQuantity = jg_orders_stock_quantity($remoteRow);
     $isFreeGift = jg_orders_is_free_gift($remoteRow);
+    $orderDate = jg_orders_order_datetime(
+        $remoteRow['order_create_time'] ?? $remoteRow['timestamp'] ?? $remoteRow['created_at'] ?? null
+    );
     $unitCogs = 0.0;
     $hasCogsHistory = $sku !== null && is_array($sku['cogs_history'] ?? null) && $sku['cogs_history'] !== [];
     if ($sku !== null) {
         $unitCogs = (float) ($sku['cogs'] ?? 0);
         if ($hasCogsHistory) {
-            $orderDate = jg_orders_order_datetime(
-                $remoteRow['order_create_time'] ?? $remoteRow['timestamp'] ?? $remoteRow['created_at'] ?? null
-            );
             $targetAt = $orderDate instanceof DateTimeImmutable
                 ? $orderDate->setTimezone(jg_sku_business_timezone())->format('Y-m-d H:i:s')
                 : (new DateTimeImmutable('now', jg_sku_business_timezone()))->format('Y-m-d H:i:s');
@@ -2775,6 +2833,10 @@ function jg_orders_enriched_row(
         }
     }
     $totalCogs = $physicalQuantity * $unitCogs;
+    $packing = jg_orders_packing_for_order($sku, $orderDate);
+    $unitPacking = $packing['unit_cost'];
+    $totalPacking = (float) ($unitPacking ?? 0.0) * $physicalQuantity;
+    $packingMissingItems = in_array($packing['status'], ['missing', 'unmapped'], true) ? $physicalQuantity : 0;
     $revenue = (int) round((float) ($remoteRow['revenue'] ?? $remoteRow['net_revenue'] ?? $remoteRow['sales'] ?? 0));
     $grossRevenue = (int) round((float) ($remoteRow['gross_revenue'] ?? $revenue));
 
@@ -2812,9 +2874,13 @@ function jg_orders_enriched_row(
         'funds_release_status' => (string) ($remoteRow['funds_release_status'] ?? ''),
         'funds_release_source' => (string) ($remoteRow['funds_release_source'] ?? ''),
         'cogs' => (int) round($totalCogs),
+        'packing_cost' => (int) round($totalPacking),
+        'unit_packing_cost' => $unitPacking,
+        'packing_status' => (string) $packing['status'],
+        'packing_missing_items' => $packingMissingItems,
         'cogs_estimated' => false,
         'cogs_source' => $sku !== null ? ($hasCogsHistory ? 'sku_quarter_history' : 'sku_static_average') : 'none',
-        'gross_profit' => (int) round($revenue - $totalCogs),
+        'gross_profit' => $packingMissingItems > 0 ? null : (int) round($revenue - $totalCogs - $totalPacking),
         'username' => (string) ($remoteRow['username'] ?? ''),
         'address' => (string) ($remoteRow['address'] ?? ''),
         'phone' => (string) ($remoteRow['phone'] ?? ''),

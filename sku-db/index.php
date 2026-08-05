@@ -108,6 +108,7 @@ $pageBuildVersion = 'sku1.00.01';
                     <?php else: ?>
                         <button type="button" class="admin-sku-tier-button" data-branch-tier-open>Admin</button>
                     <?php endif; ?>
+                    <a class="admin-primary-btn" href="../product-costs/">Manage COGS &amp; Packing</a>
                 </div>
 
                 <main class="admin-layout admin-sku-layout">

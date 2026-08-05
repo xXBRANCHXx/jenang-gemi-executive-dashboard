@@ -70,18 +70,19 @@ sales_stability_expect(
 
 $inconsistentProfit = jg_sales_summary_enforce_profit_formula([
     'months' => [
-        ['month' => 6, 'revenue' => 1000, 'cogs' => 400, 'gross_profit' => 0],
-        ['month' => 7, 'net_revenue' => 800, 'cogs' => 250, 'gross_profit' => 999],
+        ['month' => 6, 'revenue' => 1000, 'cogs' => 400, 'packing_cost' => 100, 'gross_profit' => 0],
+        ['month' => 7, 'net_revenue' => 800, 'cogs' => 250, 'packing_cost' => 50, 'gross_profit' => 999],
     ],
     'totals' => ['revenue' => 9999, 'cogs' => 1, 'gross_profit' => 9998],
 ]);
 sales_stability_expect(
-    (float) $inconsistentProfit['months'][0]['gross_profit'] === 600.0
-        && (float) $inconsistentProfit['months'][1]['gross_profit'] === 550.0
+    (float) $inconsistentProfit['months'][0]['gross_profit'] === 500.0
+        && (float) $inconsistentProfit['months'][1]['gross_profit'] === 500.0
         && (float) $inconsistentProfit['totals']['revenue'] === 1800.0
         && (float) $inconsistentProfit['totals']['cogs'] === 650.0
-        && (float) $inconsistentProfit['totals']['gross_profit'] === 1150.0,
-    'Gross profit must always equal final net revenue minus final COGS.'
+        && (float) $inconsistentProfit['totals']['packing_cost'] === 150.0
+        && (float) $inconsistentProfit['totals']['gross_profit'] === 1000.0,
+    'Gross profit must always equal final net revenue minus final COGS and packing.'
 );
 
 $monthlyContextSummary = jg_executive_context_apply_summary([

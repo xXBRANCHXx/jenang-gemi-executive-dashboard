@@ -1,0 +1,37 @@
+<?php
+declare(strict_types=1);
+
+require_once dirname(__DIR__) . '/product-costs-bootstrap.php';
+
+function product_costs_expect(bool $condition, string $message): void
+{
+    if (!$condition) {
+        fwrite(STDERR, $message . PHP_EOL);
+        exit(1);
+    }
+}
+
+$jakarta = jg_sku_business_timezone();
+$next = jg_product_costs_next_month(new DateTimeImmutable('2026-08-05 12:00:00', $jakarta));
+product_costs_expect($next['key'] === '2026-09' && $next['label'] === 'September 2026', 'Packing entry must default to the next calendar month.');
+
+$rows = [
+    ['sku' => 'JGAA0150AAAA', 'product_id' => 'syrup', 'volume' => 15.0],
+    ['sku' => 'JGAA0150BBBB', 'product_id' => 'syrup', 'volume' => 15.0],
+    ['sku' => 'JGAA0300AAAA', 'product_id' => 'syrup', 'volume' => 30.0],
+    ['sku' => 'JGBB0150AAAA', 'product_id' => 'drops', 'volume' => 15.0],
+];
+$group = jg_product_costs_group_skus($rows, 'JGAA0150AAAA');
+product_costs_expect($group === ['JGAA0150AAAA', 'JGAA0150BBBB'], 'Cost edits must include every variant in the same product family and volume only.');
+
+$root = dirname(__DIR__);
+$page = (string) file_get_contents($root . '/product-costs/index.php');
+$script = (string) file_get_contents($root . '/product-costs/product-costs.js');
+$sales = (string) file_get_contents($root . '/api/sales/index.php');
+$formula = (string) file_get_contents($root . '/sales-summary-stability.php');
+product_costs_expect(str_contains($page, 'Packing price per physical item') && str_contains($page, 'Change COGS'), 'Product Costs must expose user-friendly packing and COGS editors.');
+product_costs_expect(str_contains($script, "action: 'save_packing'") && str_contains($script, 'groupKey'), 'Packing edits must use the grouped Product Costs workflow.');
+product_costs_expect(str_contains($sales, "\$row['packing_cost'] = \$rowPacking") && str_contains($sales, '$cogsQuantity'), 'Sales enrichment must calculate packing from physical quantities.');
+product_costs_expect(str_contains($formula, '$revenue - $cogs - $packing'), 'Final gross profit must subtract COGS and packing separately.');
+
+fwrite(STDOUT, "Product Costs tests passed.\n");

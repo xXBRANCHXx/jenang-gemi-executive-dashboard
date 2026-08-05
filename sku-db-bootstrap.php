@@ -159,6 +159,7 @@ function jg_sku_ensure_schema(PDO $pdo): void
             purchase_moq INT UNSIGNED NOT NULL DEFAULT 1,
             skip_scan TINYINT(1) NOT NULL DEFAULT 0,
             cogs DECIMAL(12,2) NOT NULL,
+            packing_required TINYINT(1) NOT NULL DEFAULT 1,
             sale_price DECIMAL(12,2) NOT NULL DEFAULT 0.00,
             approval_request_id BIGINT UNSIGNED NULL DEFAULT NULL,
             created_at DATETIME NOT NULL,
@@ -182,9 +183,21 @@ function jg_sku_ensure_schema(PDO $pdo): void
             takes_place VARCHAR(120) NOT NULL,
             change_mode VARCHAR(24) NOT NULL DEFAULT "legacy",
             effective_at DATETIME NULL DEFAULT NULL,
+            effective_until DATETIME NULL DEFAULT NULL,
             recorded_at DATETIME NOT NULL,
             KEY idx_sku_cogs_history_sku (sku, recorded_at),
             CONSTRAINT fk_sku_cogs_history_sku FOREIGN KEY (sku) REFERENCES sku_skus(sku) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+        'CREATE TABLE IF NOT EXISTS sku_packing_costs (
+            year SMALLINT UNSIGNED NOT NULL,
+            month TINYINT UNSIGNED NOT NULL,
+            sku VARCHAR(12) NOT NULL,
+            packing_per_item DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+            updated_by VARCHAR(160) NOT NULL DEFAULT "Admin",
+            updated_at DATETIME NOT NULL,
+            PRIMARY KEY (year, month, sku),
+            KEY idx_sku_packing_costs_sku (sku, year, month),
+            CONSTRAINT fk_sku_packing_costs_sku FOREIGN KEY (sku) REFERENCES sku_skus(sku) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
     ];
 
@@ -200,9 +213,11 @@ function jg_sku_ensure_schema(PDO $pdo): void
     jg_sku_ensure_column($pdo, 'sku_skus', 'package_height_cm', 'DECIMAL(8,2) NOT NULL DEFAULT 0.00 AFTER package_width_cm');
     jg_sku_ensure_column($pdo, 'sku_skus', 'purchase_moq', 'INT UNSIGNED NOT NULL DEFAULT 1 AFTER inventory_mode');
     jg_sku_ensure_column($pdo, 'sku_skus', 'skip_scan', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER inventory_mode');
+    jg_sku_ensure_column($pdo, 'sku_skus', 'packing_required', 'TINYINT(1) NOT NULL DEFAULT 1 AFTER cogs');
     jg_sku_ensure_column($pdo, 'sku_skus', 'sale_price', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER cogs');
     jg_sku_ensure_column($pdo, 'sku_cogs_history', 'change_mode', 'VARCHAR(24) NOT NULL DEFAULT "legacy" AFTER takes_place');
     jg_sku_ensure_column($pdo, 'sku_cogs_history', 'effective_at', 'DATETIME NULL DEFAULT NULL AFTER change_mode');
+    jg_sku_ensure_column($pdo, 'sku_cogs_history', 'effective_until', 'DATETIME NULL DEFAULT NULL AFTER effective_at');
     $pdo->exec('UPDATE sku_requests SET astra = volume WHERE astra <= 0');
     $pdo->exec('UPDATE sku_skus SET astra = volume WHERE astra <= 0');
     $pdo->exec('UPDATE sku_cogs_history SET effective_at = recorded_at WHERE effective_at IS NULL AND change_mode = "legacy"');
@@ -376,10 +391,7 @@ function jg_sku_quarter_label(string $dateTime): string
 function jg_sku_cogs_change_mode_allowed(string $changeMode, string $role): bool
 {
     $mode = strtolower(trim($changeMode));
-    if ($mode === 'quarterly') {
-        return in_array($role, ['requester', 'branch'], true);
-    }
-    return $mode === 'retroactive' && $role === 'branch';
+    return $role === 'requester' && in_array($mode, ['quarterly', 'period', 'retroactive'], true);
 }
 
 /** @param array<int, array<string, mixed>> $history */
@@ -391,6 +403,7 @@ function jg_sku_cogs_at(array $history, string $targetAt, float $fallback = 0.0)
     });
     $baseline = null;
     $datedChanges = [];
+    $periodChanges = [];
     foreach ($history as $change) {
         $mode = strtolower(trim((string) ($change['change_mode'] ?? 'legacy')));
         $newPrice = max(0.0, (float) ($change['new_price'] ?? 0));
@@ -400,6 +413,7 @@ function jg_sku_cogs_at(array $history, string $targetAt, float $fallback = 0.0)
         if ($mode === 'retroactive') {
             $baseline = $newPrice;
             $datedChanges = [];
+            $periodChanges = [];
             continue;
         }
         if ($mode === 'opening') {
@@ -413,7 +427,19 @@ function jg_sku_cogs_at(array $history, string $targetAt, float $fallback = 0.0)
         }
         $effectiveAt = trim((string) ($change['effective_at'] ?? '')) ?: trim((string) ($change['recorded_at'] ?? ''));
         if ($effectiveAt !== '') {
-            $datedChanges[] = ['effective_at' => $effectiveAt, 'new_price' => $newPrice, 'id' => (int) ($change['id'] ?? 0)];
+            $effectiveUntil = trim((string) ($change['effective_until'] ?? ''));
+            $candidate = [
+                'effective_at' => $effectiveAt,
+                'effective_until' => $effectiveUntil,
+                'new_price' => $newPrice,
+                'recorded_at' => (string) ($change['recorded_at'] ?? ''),
+                'id' => (int) ($change['id'] ?? 0),
+            ];
+            if ($effectiveUntil !== '') {
+                $periodChanges[] = $candidate;
+            } else {
+                $datedChanges[] = $candidate;
+            }
         }
     }
     $resolved = $baseline ?? max(0.0, $fallback);
@@ -425,6 +451,17 @@ function jg_sku_cogs_at(array $history, string $targetAt, float $fallback = 0.0)
         if (strcmp((string) $change['effective_at'], $targetAt) <= 0) {
             $resolved = (float) $change['new_price'];
         }
+    }
+    $activePeriods = array_values(array_filter($periodChanges, static function (array $change) use ($targetAt): bool {
+        return strcmp((string) $change['effective_at'], $targetAt) <= 0
+            && strcmp((string) $change['effective_until'], $targetAt) >= 0;
+    }));
+    usort($activePeriods, static function (array $left, array $right): int {
+        $recordedCompare = strcmp((string) $left['recorded_at'], (string) $right['recorded_at']);
+        return $recordedCompare !== 0 ? $recordedCompare : (int) $left['id'] <=> (int) $right['id'];
+    });
+    if ($activePeriods !== []) {
+        $resolved = (float) $activePeriods[count($activePeriods) - 1]['new_price'];
     }
     return round($resolved, 2);
 }
@@ -440,7 +477,7 @@ function jg_sku_sync_current_cogs(PDO $pdo): void
     }
     $historyBySku = [];
     $historyRows = $pdo->query(
-        'SELECT id, sku, old_price, new_price, change_mode, effective_at, recorded_at
+        'SELECT id, sku, old_price, new_price, change_mode, effective_at, effective_until, recorded_at
          FROM sku_cogs_history ORDER BY recorded_at, id'
     )->fetchAll();
     foreach ($historyRows as $row) {

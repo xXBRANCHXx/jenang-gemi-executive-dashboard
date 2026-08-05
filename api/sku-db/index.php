@@ -286,7 +286,7 @@ function jg_sku_date_value(mixed $value, string $label): string
 function jg_sku_build_takes_place(string $changeMode, ?string $effectiveAt): string
 {
     if ($changeMode === 'retroactive') {
-        return 'Branch hard set | Fully retroactive';
+        return 'Admin hard set | Fully retroactive';
     }
     return sprintf('Next quarter | %s', jg_sku_quarter_label((string) $effectiveAt));
 }
@@ -1382,6 +1382,9 @@ try {
     }
 
     if ($action === 'change_cogs') {
+        if (!jg_admin_is_authenticated()) {
+            jg_sku_fail('Executive Admin login is required for COGS changes.', 403);
+        }
         $sku = strtoupper(trim((string) ($request['sku'] ?? '')));
         if ($sku === '') {
             jg_sku_fail('SKU is required.');
@@ -1392,8 +1395,8 @@ try {
         if (!in_array($changeMode, ['quarterly', 'retroactive'], true)) {
             jg_sku_fail('COGS change type is invalid.');
         }
-        if (!jg_sku_cogs_change_mode_allowed($changeMode, jg_sku_session_role())) {
-            jg_sku_require_branch_json();
+        if (!jg_sku_cogs_change_mode_allowed($changeMode, 'requester')) {
+            jg_sku_fail('COGS change type is invalid.');
         }
         $effectiveAt = $changeMode === 'quarterly' ? jg_sku_next_quarter_start() : null;
         $takesPlace = jg_sku_build_takes_place($changeMode, $effectiveAt);

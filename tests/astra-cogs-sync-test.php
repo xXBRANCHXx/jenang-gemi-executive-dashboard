@@ -36,6 +36,7 @@ $pdo->exec('CREATE TABLE sku_cogs_history (
     new_price REAL,
     change_mode TEXT,
     effective_at TEXT,
+    effective_until TEXT,
     recorded_at TEXT
 )');
 $pdo->exec("INSERT INTO sku_skus VALUES
@@ -43,11 +44,11 @@ $pdo->exec("INSERT INTO sku_skus VALUES
     ('JGPC0300CHBU', 'brand-jg', 'unit-pcs', 'prod-bubur', 'flavor-chocolate', 30, 15, 15, 1000, '2026-01-01 00:00:00'),
     ('JGPC0450CHBU', 'brand-jg', 'unit-pcs', 'prod-bubur', 'flavor-chocolate', 45, 15, 10, 1000, '2026-01-01 00:00:00')");
 $pdo->exec("INSERT INTO sku_cogs_history
-    (sku, old_price, new_price, change_mode, effective_at, recorded_at)
+    (sku, old_price, new_price, change_mode, effective_at, effective_until, recorded_at)
     VALUES
-    ('JGPC0150CHBU', NULL, 1000, 'opening', '2025-01-01 00:00:00', '2025-01-01 00:00:00'),
-    ('JGPC0150CHBU', 1000, 1200, 'quarterly', '2026-04-01 00:00:00', '2026-02-01 00:00:00'),
-    ('JGPC0300CHBU', 1000, 1300, 'quarterly', '2026-04-01 00:00:00', '2026-02-01 00:00:00')");
+    ('JGPC0150CHBU', NULL, 1000, 'opening', '2025-01-01 00:00:00', NULL, '2025-01-01 00:00:00'),
+    ('JGPC0150CHBU', 1000, 1200, 'quarterly', '2026-04-01 00:00:00', NULL, '2026-02-01 00:00:00'),
+    ('JGPC0300CHBU', 1000, 1300, 'quarterly', '2026-04-01 00:00:00', NULL, '2026-02-01 00:00:00')");
 
 jg_sku_sync_current_cogs($pdo);
 $cogs = $pdo->query('SELECT sku, cogs FROM sku_skus ORDER BY sku')->fetchAll(PDO::FETCH_KEY_PAIR);

@@ -53,6 +53,7 @@ $remoteRow = [
     'sku' => 'JG0101',
     'quantity' => 3,
     'revenue' => 900,
+    'timestamp' => '2026-08-04T10:00:00Z',
     'product_name' => 'Marketplace product',
 ];
 $sku = [
@@ -61,6 +62,8 @@ $sku = [
     'volume' => 1.0,
     'astra' => 1.0,
     'cogs' => 100.0,
+    'packing_required' => true,
+    'packing_costs' => ['2026-08' => 10.0],
 ];
 $allocations = [[
     'po_number' => 'PO-1',
@@ -73,6 +76,7 @@ expect_same('shopee|main|ORDER-1|JG0101', jg_orders_order_item_key($remoteRow), 
 
 $enriched = jg_orders_enriched_row($remoteRow, $sku, 3.0, $allocations);
 expect_same(300, $enriched['cogs'], 'Read-only enrichment must use static SKU average COGS.');
+expect_same(30, $enriched['packing_cost'], 'Read-only enrichment must multiply monthly packing by physical item quantity.');
 expect_same(false, $enriched['cogs_estimated'], 'Static average COGS rows must not depend on allocation estimates.');
 expect_same('sku_static_average', $enriched['cogs_source'], 'Read-only enrichment must mark static SKU average COGS.');
 expect_same('SKU product', $enriched['product_name'], 'SKU product names must override marketplace names.');
@@ -137,16 +141,17 @@ $multiLineMetrics = jg_orders_lightweight_rows(jg_orders_enrich_for_metrics([
 ], [jg_orders_sku_key('JG0101') => $sku]));
 expect_same(900, $multiLineMetrics[0]['revenue'], 'Lightweight C4 metrics must retain order-level net revenue across item rows.');
 expect_same(300, $multiLineMetrics[0]['cogs'], 'Lightweight C4 metrics must sum item-level COGS once.');
-expect_same(600, $multiLineMetrics[0]['gross_profit'], 'Lightweight C4 metrics must reconcile order revenue minus all item COGS.');
+expect_same(30, $multiLineMetrics[0]['packing_cost'], 'Lightweight C4 metrics must sum per-item packing across order lines.');
+expect_same(570, $multiLineMetrics[0]['gross_profit'], 'Lightweight C4 metrics must reconcile order revenue minus all item COGS and packing.');
 
 $zeroProfitMetrics = jg_orders_lightweight_rows(jg_orders_enrich_for_metrics([
     array_merge($remoteRow, [
         'quantity' => 1,
-        'revenue' => 100,
-        'order_net_revenue' => 100,
+        'revenue' => 110,
+        'order_net_revenue' => 110,
     ]),
 ], [jg_orders_sku_key('JG0101') => $sku]));
-expect_same(0, $zeroProfitMetrics[0]['gross_profit'], 'A legitimate zero gross profit must remain zero.');
+expect_same(0, $zeroProfitMetrics[0]['gross_profit'], 'A legitimate zero gross profit after COGS and packing must remain zero.');
 
 $missingCogsMetrics = jg_orders_lightweight_rows(jg_orders_enrich_for_metrics([
     array_merge($remoteRow, [
@@ -243,7 +248,8 @@ $enrichedGift = jg_orders_enriched_row($freeGiftRows[0], $sku, 1.0, []);
 expect_same(0, $enrichedGift['quantity'], 'Inventory enrichment must retain zero sales quantity for gifts.');
 expect_same(1, $enrichedGift['cogs_quantity'], 'Inventory enrichment must retain gift stock quantity.');
 expect_same(100, $enrichedGift['cogs'], 'Free gifts must still incur SKU COGS.');
-expect_same(-100, $enrichedGift['gross_profit'], 'Order-based item profit must include free-gift COGS with no gift revenue.');
+expect_same(10, $enrichedGift['packing_cost'], 'Free gifts must incur packing for their physical item quantity.');
+expect_same(-110, $enrichedGift['gross_profit'], 'Order-based item profit must include free-gift COGS and packing with no gift revenue.');
 
 $legacyGift = jg_orders_mirror_response_row([
     'order_id' => 'ORDER-HISTORICAL-GIFT',

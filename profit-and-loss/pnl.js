@@ -7,7 +7,7 @@ if (root) {
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-  const state = { year: currentYear, period: 'ytd', rows: [], reviewItems: 0 };
+  const state = { year: currentYear, period: 'ytd', rows: [], reviewItems: 0, loadedAt: null };
   const refs = {
     year: root.querySelector('[data-pnl-year]'),
     period: root.querySelector('[data-pnl-period]'),
@@ -57,6 +57,7 @@ if (root) {
       const refunds = numeric(books, ['manual_refunds']);
       const revenue = sourceRevenue - refunds;
       const cogs = numeric(sale, ['cogs']);
+      const packing = numeric(sale, ['packing_cost']);
       const adCost = numeric(books, ['ad_cost']);
       const marketingOther = numeric(books, ['marketing_other']);
       const payroll = numeric(books, ['payroll']);
@@ -64,13 +65,15 @@ if (root) {
       const transferFees = numeric(books, ['transfer_fees']);
       const opex = adCost + marketingOther + payroll + operations + transferFees;
       const otherIncome = numeric(books, ['other_income']);
-      const grossProfit = revenue - cogs;
+      const grossProfit = revenue - cogs - packing;
       return {
         month,
         revenue,
         sourceRevenue,
         refunds,
         cogs,
+        packing,
+        packingMissingItems: numeric(sale, ['packing_missing_items']),
         grossProfit,
         marketing: adCost,
         marketingOther,
@@ -103,6 +106,7 @@ if (root) {
     const values = {
       revenue: selected.revenue || 0,
       cogs: selected.cogs || 0,
+      packing: selected.packing || 0,
       'gross-profit': selected.grossProfit || 0,
       'ad-cost': selected.marketing || 0,
       opex: selected.opex || 0,
@@ -117,6 +121,7 @@ if (root) {
       selected.refunds ? bridgeRow('Less: manual customer refunds', -(selected.refunds || 0), 'is-deduction') : '',
       bridgeRow('Net revenue', selected.revenue || 0, 'is-subtotal'),
       bridgeRow('Less: product COGS', -(selected.cogs || 0), 'is-deduction'),
+      bridgeRow('Less: per-item packing', -(selected.packing || 0), 'is-deduction'),
       bridgeRow('Gross profit', selected.grossProfit || 0, 'is-subtotal'),
       bridgeRow('Other operating income', selected.otherIncome || 0),
       bridgeRow('Less: platform ad cost', -(selected.marketing || 0), 'is-deduction'),
@@ -134,10 +139,16 @@ if (root) {
     ];
     const maxExpense = Math.max(...expenseRows.map(([, value]) => value), 1);
     if (refs.expenseMix) refs.expenseMix.innerHTML = expenseRows.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><i><b style="width:${Math.round(value / maxExpense * 100)}%"></b></i><strong>${money(value)}</strong></div>`).join('');
-    if (refs.months) refs.months.innerHTML = state.rows.map((row) => `<tr data-pnl-month="${row.month}" class="${state.period === String(row.month) ? 'is-selected' : ''}"><td><button type="button" data-pnl-focus-month="${row.month}">${monthNames[row.month - 1]}</button></td><td>${money(row.revenue)}</td><td>${money(row.cogs)}</td><td>${money(row.grossProfit)}</td><td>${money(row.marketing)}</td><td>${money(row.opex - row.marketing)}</td><td><strong>${money(row.netProfit)}</strong></td><td>${percent(row.netProfit, row.revenue)}</td></tr>`).join('');
+    if (refs.months) refs.months.innerHTML = state.rows.map((row) => `<tr data-pnl-month="${row.month}" class="${state.period === String(row.month) ? 'is-selected' : ''}"><td><button type="button" data-pnl-focus-month="${row.month}">${monthNames[row.month - 1]}</button></td><td>${money(row.revenue)}</td><td>${money(row.cogs)}</td><td>${money(row.packing)}</td><td>${money(row.grossProfit)}</td><td>${money(row.marketing)}</td><td>${money(row.opex - row.marketing)}</td><td><strong>${money(row.netProfit)}</strong></td><td>${percent(row.netProfit, row.revenue)}</td></tr>`).join('');
     const maxProfit = Math.max(...state.rows.map((row) => Math.abs(row.netProfit)), 1);
     if (refs.trend) refs.trend.innerHTML = state.rows.map((row) => `<button type="button" data-pnl-focus-month="${row.month}" title="${escapeHtml(`${monthNames[row.month - 1]}: ${money(row.netProfit)}`)}"><i class="${row.netProfit < 0 ? 'is-negative' : ''}" style="height:${Math.max(4, Math.round(Math.abs(row.netProfit) / maxProfit * 100))}%"></i><span>${monthNames[row.month - 1].slice(0, 3)}</span></button>`).join('');
     if (refs.reviewStatus) refs.reviewStatus.textContent = state.reviewItems > 0 ? `${state.reviewItems.toLocaleString('id-ID')} open item${state.reviewItems === 1 ? '' : 's'} should be corrected before relying on final profit.` : 'No open Accounting review items.';
+    if (refs.status && state.loadedAt) {
+      const missingPacking = selectedRows().reduce((sum, row) => sum + Number(row.packingMissingItems || 0), 0);
+      refs.status.textContent = missingPacking > 0
+        ? `Packing incomplete for ${missingPacking.toLocaleString('id-ID')} physical item${missingPacking === 1 ? '' : 's'} in this period.`
+        : `Updated ${new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' }).format(state.loadedAt)} WIB`;
+    }
   };
   const renderControls = (years = []) => {
     const options = [...new Set([currentYear, currentYear - 1, ...years.map(Number).filter(Number.isFinite)])].sort((a, b) => b - a);
@@ -156,12 +167,12 @@ if (root) {
       const accounting = accountingResponse.data || {};
       state.rows = combine(sales, accounting);
       state.reviewItems = Number(accounting.open_review_items || 0);
+      state.loadedAt = new Date();
       renderControls(Array.isArray(sales.years) ? sales.years : []);
       render();
-      if (refs.status) refs.status.textContent = `Updated ${new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' }).format(new Date())} WIB`;
     } catch (error) {
       if (refs.status) refs.status.textContent = error?.message || 'Unable to load the P&L.';
-      if (refs.months) refs.months.innerHTML = `<tr><td colspan="8" class="admin-empty">${escapeHtml(error?.message || 'Unable to load the P&L.')}</td></tr>`;
+      if (refs.months) refs.months.innerHTML = `<tr><td colspan="9" class="admin-empty">${escapeHtml(error?.message || 'Unable to load the P&L.')}</td></tr>`;
     }
   };
   refs.year?.addEventListener('change', () => { state.year = Number(refs.year.value) || currentYear; state.period = 'ytd'; load(); });

@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once dirname(__DIR__, 2) . '/config.php';
 require_once dirname(__DIR__, 2) . '/auth.php';
 require_once dirname(__DIR__, 2) . '/sku-db-bootstrap.php';
+require_once dirname(__DIR__, 2) . '/product-costs-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/analytics-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/executive-context.php';
 require_once dirname(__DIR__, 2) . '/sales-summary-stability.php';
@@ -309,6 +310,7 @@ function jg_sales_prepare_cached_response(string $baseResponse, int $year, bool 
     } catch (Throwable $whatsappSalesError) {
         error_log('Unable to merge WhatsApp sales: ' . $whatsappSalesError->getMessage());
     }
+    $decoded = jg_sales_apply_all_channel_packing($decoded, $year);
     $decoded = jg_sales_summary_enforce_profit_formula($decoded);
     if ($includeAudit) {
         jg_sales_attach_calculation_audit($decoded, $year);
@@ -553,8 +555,14 @@ function jg_sales_run_manual_refresh(string $setupToken, int $year, bool $includ
 function jg_sales_sku_lookup(): array
 {
     $historyBySku = [];
+    $packingBySku = [];
     try {
         $pdo = jg_sku_db();
+        try {
+            jg_product_costs_import_legacy_packing($pdo);
+        } catch (Throwable $migrationError) {
+            error_log('Unable to migrate legacy packing costs during sales enrichment: ' . $migrationError->getMessage());
+        }
         $productNameMap = jg_sales_product_name_map();
         $stmt = $pdo->query(
             'SELECT
@@ -568,6 +576,7 @@ function jg_sales_sku_lookup(): array
                 s.astra,
                 s.current_stock,
                 s.cogs,
+                s.packing_required,
                 p.name AS product_name,
                 f.name AS flavor_name,
                 u.name AS unit_name,
@@ -582,7 +591,7 @@ function jg_sales_sku_lookup(): array
         }
         $skuRows = array_values(array_filter($stmt->fetchAll(), 'is_array'));
         $historyStmt = $pdo->query(
-            'SELECT id, sku, old_price, new_price, change_mode, effective_at, recorded_at
+            'SELECT id, sku, old_price, new_price, change_mode, effective_at, effective_until, recorded_at
              FROM sku_cogs_history ORDER BY sku, recorded_at, id'
         );
         foreach (($historyStmt !== false ? $historyStmt->fetchAll() : []) as $historyRow) {
@@ -596,8 +605,23 @@ function jg_sales_sku_lookup(): array
                 'new_price' => (float) ($historyRow['new_price'] ?? 0),
                 'change_mode' => (string) ($historyRow['change_mode'] ?? 'legacy'),
                 'effective_at' => $historyRow['effective_at'] === null ? null : (string) $historyRow['effective_at'],
+                'effective_until' => $historyRow['effective_until'] === null ? null : (string) $historyRow['effective_until'],
                 'recorded_at' => (string) ($historyRow['recorded_at'] ?? ''),
             ];
+        }
+        $packingStmt = $pdo->query(
+            'SELECT year, month, sku, packing_per_item
+             FROM sku_packing_costs
+             ORDER BY sku, year, month'
+        );
+        foreach (($packingStmt !== false ? $packingStmt->fetchAll() : []) as $packingRow) {
+            $packingSku = jg_sales_normalize_sku_key($packingRow['sku'] ?? '');
+            $packingYear = (int) ($packingRow['year'] ?? 0);
+            $packingMonth = (int) ($packingRow['month'] ?? 0);
+            if ($packingSku === '' || $packingYear < 2025 || $packingMonth < 1 || $packingMonth > 12) {
+                continue;
+            }
+            $packingBySku[$packingSku][sprintf('%04d-%02d', $packingYear, $packingMonth)] = (float) ($packingRow['packing_per_item'] ?? 0);
         }
     } catch (Throwable $error) {
         error_log('Unable to load SKU DB for sales enrichment: ' . $error->getMessage());
@@ -637,6 +661,8 @@ function jg_sales_sku_lookup(): array
                 $historyBySku[jg_sales_normalize_sku_key($baseSku)] ?? [],
                 $cogsMultiplier
             ),
+            'packing_required' => (int) ($row['packing_required'] ?? 1) === 1,
+            'packing_costs' => $packingBySku[jg_sales_normalize_sku_key($sku)] ?? [],
             'is_syrup' => str_contains($productKindName, 'syrup') || str_contains($productKindName, 'sirup'),
             'is_drops' => str_contains($productKindName, 'drop'),
             'is_bubur' => str_contains($productKindName, 'bubur'),
@@ -671,6 +697,89 @@ function jg_sales_sku_cogs_for_month(array $skuRecord, int $year, int $month): f
     return jg_sku_cogs_at($history, $monthEnd->format('Y-m-d H:i:s'), (float) ($skuRecord['cogs'] ?? 0));
 }
 
+/** @param array<string, mixed> $skuRecord */
+function jg_sales_sku_packing_for_month(array $skuRecord, int $year, int $month): ?float
+{
+    if (array_key_exists('packing_required', $skuRecord) && empty($skuRecord['packing_required'])) {
+        return 0.0;
+    }
+    $costs = is_array($skuRecord['packing_costs'] ?? null) ? $skuRecord['packing_costs'] : [];
+    $key = sprintf('%04d-%02d', $year, $month);
+    return array_key_exists($key, $costs) ? max(0.0, (float) $costs[$key]) : null;
+}
+
+function jg_sales_packing_period_supported(int $year, int $month): bool
+{
+    return $year > 2026 || ($year === 2026 && $month >= 6);
+}
+
+/** @param array<string, mixed> $summary */
+function jg_sales_apply_all_channel_packing(array $summary, int $year): array
+{
+    $lookup = jg_sales_sku_lookup();
+    $products = is_array($summary['products'] ?? null) ? $summary['products'] : [];
+    $rows = is_array($products['by_month'] ?? null) ? $products['by_month'] : [];
+    $monthlyPacking = [];
+    $monthlyMissing = [];
+    foreach ($rows as &$row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $month = (int) ($row['month'] ?? 0);
+        if ($month < 1 || $month > 12) {
+            continue;
+        }
+        if (!jg_sales_packing_period_supported($year, $month)) {
+            $row['unit_packing_cost'] = null;
+            $row['packing_cost'] = 0;
+            $row['packing_status'] = 'legacy_unavailable';
+            continue;
+        }
+        $sku = jg_sales_normalize_sku_key($row['sku'] ?? $row['tag'] ?? '');
+        $skuRecord = $lookup[$sku] ?? null;
+        $quantity = (int) ($row['quantity'] ?? $row['item_count'] ?? 0);
+        $physicalQuantity = (int) ($row['cogs_quantity'] ?? $row['physical_quantity'] ?? $quantity);
+        $unitPacking = is_array($skuRecord) ? jg_sales_sku_packing_for_month($skuRecord, $year, $month) : null;
+        $packing = (int) round(($unitPacking ?? 0.0) * max(0, $physicalQuantity));
+        $required = is_array($skuRecord)
+            && (!array_key_exists('packing_required', $skuRecord) || !empty($skuRecord['packing_required']));
+        $row['cogs_quantity'] = $physicalQuantity;
+        $row['unit_packing_cost'] = $unitPacking;
+        $row['packing_cost'] = $packing;
+        $row['packing_status'] = !is_array($skuRecord) ? 'unmapped' : (!$required ? 'not_required' : ($unitPacking === null ? 'missing' : 'complete'));
+        $rowRevenue = jg_sales_seller_received($row);
+        $row['gross_profit'] = $rowRevenue - (float) ($row['cogs'] ?? 0) - $packing;
+        $monthlyPacking[$month] = (int) ($monthlyPacking[$month] ?? 0) + $packing;
+        if ((!is_array($skuRecord) || $required) && $unitPacking === null) {
+            $monthlyMissing[$month] = (int) ($monthlyMissing[$month] ?? 0) + max(0, $physicalQuantity);
+        }
+    }
+    unset($row);
+    $products['by_month'] = $rows;
+    $summary['products'] = $products;
+
+    $months = is_array($summary['months'] ?? null) ? array_values($summary['months']) : [];
+    foreach ($months as $index => &$monthRow) {
+        if (!is_array($monthRow)) {
+            continue;
+        }
+        $month = (int) ($monthRow['month'] ?? $index + 1);
+        $monthRow['packing_cost'] = (int) ($monthlyPacking[$month] ?? 0);
+        $monthRow['packing_missing_units'] = (int) ($monthlyMissing[$month] ?? 0);
+        $monthRow['packing_cost_status'] = !jg_sales_packing_period_supported($year, $month)
+            ? 'legacy_unavailable'
+            : ($monthRow['packing_missing_units'] > 0 ? 'incomplete' : 'complete');
+    }
+    unset($monthRow);
+    $summary['months'] = $months;
+    $summary['totals'] = is_array($summary['totals'] ?? null) ? $summary['totals'] : [];
+    $summary['totals']['packing_cost'] = array_sum($monthlyPacking);
+    $summary['totals']['packing_missing_units'] = array_sum($monthlyMissing);
+    $summary['packing_missing_units'] = array_sum($monthlyMissing);
+    $summary['packing_cost_status'] = $summary['packing_missing_units'] > 0 ? 'incomplete' : 'complete';
+    return $summary;
+}
+
 function jg_sales_product_name_map(): array
 {
     $path = dirname(__DIR__, 2) . '/sku-product-names.json';
@@ -697,7 +806,7 @@ function jg_sales_sku_product_display_name(string $sku, string $fallback, array 
  * @param array<string, mixed> $current
  * @return array<string, mixed>
  */
-function jg_sales_add_product_total(array $current, int $quantity, int $netRevenue, int $orders = 0, int $cogs = 0): array
+function jg_sales_add_product_total(array $current, int $quantity, int $netRevenue, int $orders = 0, int $cogs = 0, int $packing = 0): array
 {
     $current['quantity'] = (int) ($current['quantity'] ?? 0) + $quantity;
     $current['item_count'] = (int) ($current['item_count'] ?? 0) + $quantity;
@@ -705,7 +814,10 @@ function jg_sales_add_product_total(array $current, int $quantity, int $netReven
     $current['revenue'] = (int) ($current['revenue'] ?? 0) + $netRevenue;
     $current['orders'] = (int) ($current['orders'] ?? 0) + $orders;
     $current['cogs'] = (int) ($current['cogs'] ?? 0) + $cogs;
-    $current['gross_profit'] = (int) ($current['revenue'] ?? 0) - (int) ($current['cogs'] ?? 0);
+    $current['packing_cost'] = (int) ($current['packing_cost'] ?? 0) + $packing;
+    $current['gross_profit'] = (int) ($current['revenue'] ?? 0)
+        - (int) ($current['cogs'] ?? 0)
+        - (int) ($current['packing_cost'] ?? 0);
     return $current;
 }
 
@@ -775,6 +887,7 @@ function jg_sales_empty_flavor_row(string $flavorKey, string $flavorName): array
         'revenue' => 0,
         'orders' => 0,
         'cogs' => 0,
+        'packing_cost' => 0,
         'gross_profit' => 0,
         'platforms' => [],
     ];
@@ -794,6 +907,7 @@ function jg_sales_empty_rollup_row(string $key, string $label): array
         'revenue' => 0,
         'orders' => 0,
         'cogs' => 0,
+        'packing_cost' => 0,
         'gross_profit' => 0,
     ];
 }
@@ -866,8 +980,9 @@ function jg_sales_ratio(int $part, int $total): float
 /**
  * @param array<int, int> $monthlyCogs
  * @param array<int, int> $monthlyFees
+ * @param array<int, int> $monthlyPacking
  */
-function jg_sales_enrich_totals_with_profit(array &$summary, int $totalCogs, int $totalRevenue, int $totalItems, array $monthlyCogs = [], array $monthlyFees = []): void
+function jg_sales_enrich_totals_with_profit(array &$summary, int $totalCogs, int $totalRevenue, int $totalItems, array $monthlyCogs = [], array $monthlyFees = [], array $monthlyPacking = []): void
 {
     $totals = is_array($summary['totals'] ?? null) ? $summary['totals'] : [];
     if ($monthlyCogs !== []) {
@@ -878,10 +993,12 @@ function jg_sales_enrich_totals_with_profit(array &$summary, int $totalCogs, int
         ? array_sum($monthlyFees)
         : (int) round((float) ($totals['marketplace_fees'] ?? 0));
     $cogs = $totalCogs;
+    $packing = array_sum($monthlyPacking);
     $totals['revenue'] = $revenue;
     $totals['marketplace_fees'] = $fees;
     $totals['cogs'] = $cogs;
-    $totals['gross_profit'] = $revenue - $cogs;
+    $totals['packing_cost'] = $packing;
+    $totals['gross_profit'] = $revenue - $cogs - $packing;
     $summary['totals'] = $totals;
 
     $months = is_array($summary['months'] ?? null) ? $summary['months'] : [];
@@ -900,6 +1017,7 @@ function jg_sales_enrich_totals_with_profit(array &$summary, int $totalCogs, int
         $monthFees = $monthlyFees !== []
             ? (int) ($monthlyFees[$monthNumber] ?? 0)
             : (int) round((float) ($month['marketplace_fees'] ?? 0));
+        $monthPacking = (int) ($monthlyPacking[$monthNumber] ?? 0);
         $allocatedCogs += $monthCogs;
         if ($monthItems > 0) {
             $remainingMonthIndexes[] = $index;
@@ -907,7 +1025,8 @@ function jg_sales_enrich_totals_with_profit(array &$summary, int $totalCogs, int
         $month['revenue'] = $monthRevenue;
         $month['marketplace_fees'] = $monthFees;
         $month['cogs'] = $monthCogs;
-        $month['gross_profit'] = $monthRevenue - $monthCogs;
+        $month['packing_cost'] = $monthPacking;
+        $month['gross_profit'] = $monthRevenue - $monthCogs - $monthPacking;
         $month['cogs_source'] = $monthlyCogs !== [] ? 'product_monthly_rollups' : 'product_total_allocation';
     }
     unset($month);
@@ -916,7 +1035,9 @@ function jg_sales_enrich_totals_with_profit(array &$summary, int $totalCogs, int
         $lastIndex = $remainingMonthIndexes[count($remainingMonthIndexes) - 1];
         $delta = $totalCogs - $allocatedCogs;
         $months[$lastIndex]['cogs'] = (int) ($months[$lastIndex]['cogs'] ?? 0) + $delta;
-        $months[$lastIndex]['gross_profit'] = (int) ($months[$lastIndex]['revenue'] ?? 0) - (int) ($months[$lastIndex]['cogs'] ?? 0);
+        $months[$lastIndex]['gross_profit'] = (int) ($months[$lastIndex]['revenue'] ?? 0)
+            - (int) ($months[$lastIndex]['cogs'] ?? 0)
+            - (int) ($months[$lastIndex]['packing_cost'] ?? 0);
     }
     $summary['months'] = $months;
 }
@@ -924,18 +1045,21 @@ function jg_sales_enrich_totals_with_profit(array &$summary, int $totalCogs, int
 /**
  * @param array<string, mixed> $products
  * @param array<string, array{sku:string, tag:string, product_name:string, base_product_name:string, flavor_name:string, cogs:float, is_syrup:bool, is_drops:bool}> $lookup
- * @return array{cogs: array<int, int>, fees: array<int, int>, sku_cogs: array<string, int>}
+ * @return array{cogs: array<int, int>, packing: array<int, int>, fees: array<int, int>, sku_cogs: array<string, int>, sku_packing: array<string, int>, packing_missing_units: array<int, int>}
  */
 function jg_sales_enrich_monthly_product_cogs(array &$products, array $lookup, int $year): array
 {
     $rows = is_array($products['by_month'] ?? null) ? $products['by_month'] : [];
     if ($rows === []) {
-        return ['cogs' => [], 'fees' => [], 'sku_cogs' => []];
+        return ['cogs' => [], 'packing' => [], 'fees' => [], 'sku_cogs' => [], 'sku_packing' => [], 'packing_missing_units' => []];
     }
 
     $monthlyCogs = [];
     $monthlyFees = [];
+    $monthlyPacking = [];
+    $monthlyPackingMissingUnits = [];
     $skuCogs = [];
+    $skuPacking = [];
     $enrichedRows = [];
     foreach ($rows as $row) {
         if (!is_array($row)) {
@@ -953,17 +1077,24 @@ function jg_sales_enrich_monthly_product_cogs(array &$products, array $lookup, i
         $grossRevenue = (int) round((float) ($row['gross_revenue'] ?? $revenue));
         $fees = max(0, $grossRevenue - $revenue);
         $unitCogs = is_array($skuRecord) ? jg_sales_sku_cogs_for_month($skuRecord, $year, $month) : 0.0;
+        $unitPacking = is_array($skuRecord) ? jg_sales_sku_packing_for_month($skuRecord, $year, $month) : null;
         $displayProductName = trim((string) ($skuRecord['product_name'] ?? ''));
         $rowCogs = (int) round($unitCogs * $cogsQuantity);
+        $rowPacking = (int) round(($unitPacking ?? 0.0) * $cogsQuantity);
         $row['cogs_quantity'] = $cogsQuantity;
         $row['unit_cogs'] = $unitCogs;
         $row['cogs'] = $rowCogs;
+        $row['unit_packing_cost'] = $unitPacking;
+        $row['packing_cost'] = $rowPacking;
+        $row['packing_status'] = !is_array($skuRecord)
+            ? 'unmapped'
+            : (array_key_exists('packing_required', $skuRecord) && empty($skuRecord['packing_required']) ? 'not_required' : ($unitPacking === null ? 'missing' : 'complete'));
         $row['cogs_source'] = is_array($skuRecord)
             ? ((is_array($skuRecord['cogs_history'] ?? null) && $skuRecord['cogs_history'] !== []) ? 'sku_quarter_history' : 'sku_static_average')
             : 'none';
         $row['revenue'] = $revenue;
         $row['marketplace_fees'] = $fees;
-        $row['gross_profit'] = $revenue - $rowCogs;
+        $row['gross_profit'] = $revenue - $rowCogs - $rowPacking;
         if ($displayProductName !== '') {
             $row['product_name'] = $displayProductName;
             $row['label'] = $displayProductName;
@@ -971,13 +1102,28 @@ function jg_sales_enrich_monthly_product_cogs(array &$products, array $lookup, i
             $row['product_name_source'] = 'sku_db_product_name';
         }
         $monthlyCogs[$month] = (int) ($monthlyCogs[$month] ?? 0) + $rowCogs;
+        $monthlyPacking[$month] = (int) ($monthlyPacking[$month] ?? 0) + $rowPacking;
+        if ((!is_array($skuRecord)
+                || !array_key_exists('packing_required', $skuRecord)
+                || !empty($skuRecord['packing_required']))
+            && $unitPacking === null) {
+            $monthlyPackingMissingUnits[$month] = (int) ($monthlyPackingMissingUnits[$month] ?? 0) + $cogsQuantity;
+        }
         $monthlyFees[$month] = (int) ($monthlyFees[$month] ?? 0) + $fees;
         $skuCogs[$sku] = (int) ($skuCogs[$sku] ?? 0) + $rowCogs;
+        $skuPacking[$sku] = (int) ($skuPacking[$sku] ?? 0) + $rowPacking;
         $enrichedRows[] = $row;
     }
 
     $products['by_month'] = $enrichedRows;
-    return ['cogs' => $monthlyCogs, 'fees' => $monthlyFees, 'sku_cogs' => $skuCogs];
+    return [
+        'cogs' => $monthlyCogs,
+        'packing' => $monthlyPacking,
+        'fees' => $monthlyFees,
+        'sku_cogs' => $skuCogs,
+        'sku_packing' => $skuPacking,
+        'packing_missing_units' => $monthlyPackingMissingUnits,
+    ];
 }
 
 /**
@@ -1023,14 +1169,16 @@ function jg_sales_monthly_product_groups(array $rows, array $lookup, int $year):
         $net = jg_sales_seller_received($row);
         $orders = (int) ($row['orders'] ?? 0);
         $cogs = (int) round((float) ($row['cogs'] ?? 0));
+        $packing = (int) round((float) ($row['packing_cost'] ?? 0));
 
-        $months[$month] = jg_sales_add_product_total($months[$month], $quantity, $net, $orders, $cogs);
+        $months[$month] = jg_sales_add_product_total($months[$month], $quantity, $net, $orders, $cogs, $packing);
         $months[$month]['products'][$productKey] = jg_sales_add_product_total(
             $months[$month]['products'][$productKey] ?? jg_sales_empty_rollup_row($productKey, $productLabel),
             $quantity,
             $net,
             $orders,
-            $cogs
+            $cogs,
+            $packing
         );
     }
 
@@ -1086,6 +1234,7 @@ function jg_sales_product_detail_rollups(array $rows, array $lookup): array
         $net = jg_sales_seller_received($row);
         $orders = (int) ($row['orders'] ?? 0);
         $cogs = (int) round((float) ($row['cogs'] ?? 0));
+        $packing = (int) round((float) ($row['packing_cost'] ?? 0));
         $flavorName = trim((string) ($skuRecord['flavor_name'] ?? '')) !== '' ? trim((string) $skuRecord['flavor_name']) : 'Unspecified';
         $flavorKey = jg_sales_flavor_key($flavorName);
         $productFlavorGroups = [];
@@ -1104,7 +1253,7 @@ function jg_sales_product_detail_rollups(array $rows, array $lookup): array
                 'key' => $flavorKey,
                 'label' => $flavorName,
                 'platforms' => [],
-            ], $quantity, $net, $orders, $cogs);
+            ], $quantity, $net, $orders, $cogs, $packing);
         }
 
         $volumeKey = jg_sales_volume_key((float) ($skuRecord['volume'] ?? 0));
@@ -1117,7 +1266,8 @@ function jg_sales_product_detail_rollups(array $rows, array $lookup): array
                 $quantity,
                 $net,
                 $orders,
-                $cogs
+                $cogs,
+                $packing
             );
         }
     }
@@ -1173,6 +1323,7 @@ function jg_sales_enrich_with_sku_db(array $summary, int $year): array
     ];
     $enrichedRows = [];
     $totalCogs = 0;
+    $totalPacking = 0;
     $totalRevenue = 0;
     $totalItems = 0;
 
@@ -1188,16 +1339,21 @@ function jg_sales_enrich_with_sku_db(array $summary, int $year): array
         $rowCogs = array_key_exists($sku, $monthlyProductMetrics['sku_cogs'])
             ? (int) $monthlyProductMetrics['sku_cogs'][$sku]
             : (int) round((float) ($skuRecord['cogs'] ?? 0) * $cogsQuantity);
-        $unitCogs = $quantity > 0 ? $rowCogs / $quantity : (float) ($skuRecord['cogs'] ?? 0);
+        $rowPacking = array_key_exists($sku, $monthlyProductMetrics['sku_packing'])
+            ? (int) $monthlyProductMetrics['sku_packing'][$sku]
+            : 0;
+        $unitCogs = $cogsQuantity > 0 ? $rowCogs / $cogsQuantity : (float) ($skuRecord['cogs'] ?? 0);
+        $unitPacking = $cogsQuantity > 0 ? $rowPacking / $cogsQuantity : 0.0;
         $displayProductName = trim((string) ($skuRecord['product_name'] ?? ''));
         $row['cogs_quantity'] = $cogsQuantity;
         $row['unit_cogs'] = $unitCogs;
         $row['cogs'] = $rowCogs;
+        $row['packing_cost'] = $rowPacking;
         $row['cogs_source'] = is_array($skuRecord)
             ? ((is_array($skuRecord['cogs_history'] ?? null) && $skuRecord['cogs_history'] !== []) ? 'sku_quarter_history' : 'sku_static_average')
             : 'none';
         $row['revenue'] = $net;
-        $row['gross_profit'] = $net - $rowCogs;
+        $row['gross_profit'] = $net - $rowCogs - $rowPacking;
         if ($displayProductName !== '') {
             $row['product_name'] = $displayProductName;
             $row['label'] = $displayProductName;
@@ -1205,6 +1361,7 @@ function jg_sales_enrich_with_sku_db(array $summary, int $year): array
             $row['product_name_source'] = 'sku_db_product_name';
         }
         $totalCogs += $rowCogs;
+        $totalPacking += $rowPacking;
         $totalRevenue += $net;
         $totalItems += $quantity;
 
@@ -1217,11 +1374,13 @@ function jg_sales_enrich_with_sku_db(array $summary, int $year): array
             $platformCogsQuantity = (int) ($platformRow['cogs_quantity'] ?? $platformQuantity);
             $platformRevenue = jg_sales_seller_received($platformRow);
             $platformCogs = (int) round($unitCogs * $platformCogsQuantity);
+            $platformPacking = (int) round($unitPacking * $platformCogsQuantity);
             $platformRow['cogs_quantity'] = $platformCogsQuantity;
             $platformRow['unit_cogs'] = $unitCogs;
             $platformRow['cogs'] = $platformCogs;
+            $platformRow['packing_cost'] = $platformPacking;
             $platformRow['revenue'] = $platformRevenue;
-            $platformRow['gross_profit'] = $platformRevenue - $platformCogs;
+            $platformRow['gross_profit'] = $platformRevenue - $platformCogs - $platformPacking;
         }
         unset($platformRow);
         $row['platforms'] = $platforms;
@@ -1249,7 +1408,7 @@ function jg_sales_enrich_with_sku_db(array $summary, int $year): array
                 'key' => $flavorKey,
                 'label' => $flavorName,
                 'platforms' => [],
-            ], $quantity, $net, (int) ($row['orders'] ?? 0), $rowCogs);
+            ], $quantity, $net, (int) ($row['orders'] ?? 0), $rowCogs, $rowPacking);
 
             foreach ($platforms as $platformKey => $platformRow) {
                 if (!is_array($platformRow)) {
@@ -1259,10 +1418,11 @@ function jg_sales_enrich_with_sku_db(array $summary, int $year): array
                 $platformQuantity = (int) ($platformRow['quantity'] ?? 0);
                 $platformNet = jg_sales_seller_received($platformRow);
                 $platformCogs = (int) round((float) ($platformRow['cogs'] ?? 0));
+                $platformPacking = (int) round((float) ($platformRow['packing_cost'] ?? 0));
                 $flavorGroups[$flavorGroup][$flavorKey]['platforms'][$platform] = jg_sales_add_product_total($flavorGroups[$flavorGroup][$flavorKey]['platforms'][$platform] ?? [
                     'key' => $platform,
                     'label' => (string) ($platformRow['label'] ?? ucfirst($platform)),
-                ], $platformQuantity, $platformNet, (int) ($platformRow['orders'] ?? 0), $platformCogs);
+                ], $platformQuantity, $platformNet, (int) ($platformRow['orders'] ?? 0), $platformCogs, $platformPacking);
             }
         }
     }
@@ -1317,8 +1477,23 @@ function jg_sales_enrich_with_sku_db(array $summary, int $year): array
         $totalRevenue,
         $totalItems,
         $monthlyProductMetrics['cogs'],
-        $monthlyProductMetrics['fees']
+        $monthlyProductMetrics['fees'],
+        $monthlyProductMetrics['packing']
     );
+
+    $summary['packing_cost_status'] = array_sum($monthlyProductMetrics['packing_missing_units']) > 0 ? 'incomplete' : 'complete';
+    $summary['packing_missing_units'] = array_sum($monthlyProductMetrics['packing_missing_units']);
+    if (is_array($summary['months'] ?? null)) {
+        foreach ($summary['months'] as $index => &$monthRow) {
+            if (!is_array($monthRow)) {
+                continue;
+            }
+            $monthNumber = (int) ($monthRow['month'] ?? $index + 1);
+            $monthRow['packing_missing_units'] = (int) ($monthlyProductMetrics['packing_missing_units'][$monthNumber] ?? 0);
+            $monthRow['packing_cost_status'] = $monthRow['packing_missing_units'] > 0 ? 'incomplete' : 'complete';
+        }
+        unset($monthRow);
+    }
 
     return $summary;
 }
@@ -1332,7 +1507,8 @@ function jg_sales_attach_calculation_audit(array &$summary, int $year): void
     $revenue = jg_sales_seller_received($totals);
     $marketplaceFees = (int) round((float) ($totals['marketplace_fees'] ?? 0));
     $cogs = (int) round((float) ($totals['cogs'] ?? 0));
-    $grossProfit = (int) round((float) ($totals['gross_profit'] ?? ($revenue - $cogs)));
+    $packing = (int) round((float) ($totals['packing_cost'] ?? 0));
+    $grossProfit = (int) round((float) ($totals['gross_profit'] ?? ($revenue - $cogs - $packing)));
     $orders = (int) round((float) ($totals['orders'] ?? 0));
     $itemCount = (int) round((float) ($totals['item_count'] ?? 0));
     $averageOrderValue = $orders > 0 ? (int) round($revenue / $orders) : 0;
@@ -1392,11 +1568,12 @@ function jg_sales_attach_calculation_audit(array &$summary, int $year): void
                 'name' => 'Dashboard SKU DB enrichment',
                 'method' => 'local SQL',
                 'endpoint' => 'sku_skus',
-                'used_for' => 'COGS and gross profit',
+                'used_for' => 'COGS, monthly per-item packing, and gross profit',
                 'json_paths' => [
                     'sku_skus.sku',
                     'sku_skus.tag',
                     'sku_skus.cogs',
+                    'sku_packing_costs.packing_per_item',
                 ],
             ],
         ],
@@ -1419,9 +1596,14 @@ function jg_sales_attach_calculation_audit(array &$summary, int $year): void
                 'dashboard_json_paths' => ['months[].cogs', 'products.by_month[].cogs', 'products.by_product[].cogs'],
             ],
             'gross_profit' => [
-                'definition' => 'Company revenue after product cost.',
-                'formula' => 'revenue - cogs',
+                'definition' => 'Company revenue after product COGS and per-item packing cost.',
+                'formula' => 'revenue - cogs - packing_cost',
                 'dashboard_json_paths' => ['months[].gross_profit', 'totals.gross_profit', 'products.by_month[].gross_profit'],
+            ],
+            'packing_cost' => [
+                'definition' => 'Monthly shipment packing cost per physical SKU item, including free gifts.',
+                'formula' => 'SUM(sku_packing_costs.packing_per_item * products.by_month[].cogs_quantity)',
+                'dashboard_json_paths' => ['months[].packing_cost', 'totals.packing_cost', 'products.by_month[].packing_cost'],
             ],
             'orders' => [
                 'definition' => 'Completed marketplace orders included in revenue.',
@@ -1465,10 +1647,11 @@ function jg_sales_attach_calculation_audit(array &$summary, int $year): void
             ],
             'gross_profit' => [
                 'value' => $grossProfit,
-                'formula' => 'revenue - cogs',
+                'formula' => 'revenue - cogs - packing_cost',
                 'components' => [
                     ['path' => 'calculations.current_values.revenue.value', 'value' => $revenue],
                     ['path' => 'calculations.current_values.cogs.value', 'value' => $cogs],
+                    ['path' => 'totals.packing_cost', 'value' => $packing],
                 ],
             ],
             'orders' => [

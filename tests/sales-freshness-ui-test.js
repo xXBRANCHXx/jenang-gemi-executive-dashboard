@@ -17,9 +17,9 @@ assert(
   'The visible Overview must repaint from the authoritative summary every minute.'
 );
 assert(
-  source.includes('const gp = cogs !== null ? rev - cogs : directGp;')
-    && /const grossProfitFromSummaryRow[\s\S]*?revenue - cogs/.test(source),
-  'Gross Profit must be derived from Net Revenue minus COGS in every Overview presentation.'
+  source.includes('const gp = cogs !== null ? rev - cogs - packing : directGp;')
+    && /const grossProfitFromSummaryRow[\s\S]*?revenue - cogs - packing/.test(source),
+  'Gross Profit must be derived from Net Revenue minus COGS and packing in every Overview presentation.'
 );
 
 console.log('sales-freshness-ui-test: ok');

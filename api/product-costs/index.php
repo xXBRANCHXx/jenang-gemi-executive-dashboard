@@ -1,0 +1,270 @@
+<?php
+declare(strict_types=1);
+
+require_once dirname(__DIR__, 2) . '/auth.php';
+require_once dirname(__DIR__, 2) . '/product-costs-bootstrap.php';
+
+jg_admin_require_auth_json();
+header('Content-Type: application/json; charset=utf-8');
+
+function jg_product_costs_json(array $payload, int $status = 200): never
+{
+    http_response_code($status);
+    echo json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+function jg_product_costs_body(): array
+{
+    $decoded = json_decode((string) file_get_contents('php://input'), true);
+    return is_array($decoded) ? $decoded : [];
+}
+
+function jg_product_costs_fail(string $message, int $status = 422): never
+{
+    jg_product_costs_json(['ok' => false, 'error' => $message], $status);
+}
+
+function jg_product_costs_money(mixed $value, string $label): float
+{
+    if (!is_numeric($value)) {
+        jg_product_costs_fail($label . ' is required.');
+    }
+    $number = round((float) $value, 2);
+    if ($number < 0 || $number > 9999999999.99) {
+        jg_product_costs_fail($label . ' is outside the allowed range.');
+    }
+    return $number;
+}
+
+function jg_product_costs_date(mixed $value, string $label): string
+{
+    $date = trim((string) $value);
+    $parsed = DateTimeImmutable::createFromFormat('!Y-m-d', $date, jg_sku_business_timezone());
+    if (!$parsed || $parsed->format('Y-m-d') !== $date) {
+        jg_product_costs_fail($label . ' is invalid.');
+    }
+    return $date;
+}
+
+/** @return array<int, array<string, mixed>> */
+function jg_product_costs_catalog(PDO $pdo): array
+{
+    $stmt = $pdo->query(
+        'SELECT s.sku, s.tag, s.brand_id, s.unit_id, s.product_id, s.flavor_id,
+                s.volume, s.astra, s.current_stock, s.cogs, s.packing_required,
+                b.name AS brand_name, p.name AS product_name, f.name AS flavor_name,
+                u.name AS unit_name, u.code AS unit_code
+         FROM sku_skus s
+         INNER JOIN sku_brands b ON b.id = s.brand_id
+         INNER JOIN sku_products p ON p.id = s.product_id
+         INNER JOIN sku_flavors f ON f.id = s.flavor_id
+         INNER JOIN sku_units u ON u.id = s.unit_id
+         ORDER BY b.name, p.name, s.volume, f.name, s.sku'
+    );
+    return array_values(array_filter($stmt->fetchAll(), 'is_array'));
+}
+
+function jg_product_costs_response(PDO $pdo, int $year, int $month): never
+{
+    $period = jg_product_costs_period($year, $month);
+    $rows = jg_product_costs_catalog($pdo);
+    $packing = jg_product_costs_packing_lookup($pdo, $year);
+    $historyBySku = [];
+    $historyStmt = $pdo->query(
+        'SELECT id, sku, old_price, new_price, takes_place, change_mode,
+                effective_at, effective_until, recorded_at
+         FROM sku_cogs_history
+         ORDER BY sku, recorded_at, id'
+    );
+    foreach ($historyStmt->fetchAll() as $history) {
+        $historyBySku[(string) ($history['sku'] ?? '')][] = [
+            'id' => (int) ($history['id'] ?? 0),
+            'old_price' => $history['old_price'] === null ? null : (float) $history['old_price'],
+            'new_price' => (float) ($history['new_price'] ?? 0),
+            'takes_place' => (string) ($history['takes_place'] ?? ''),
+            'change_mode' => (string) ($history['change_mode'] ?? ''),
+            'effective_at' => $history['effective_at'] === null ? null : (string) $history['effective_at'],
+            'effective_until' => $history['effective_until'] === null ? null : (string) $history['effective_until'],
+            'recorded_at' => (string) ($history['recorded_at'] ?? ''),
+        ];
+    }
+
+    $payloadRows = [];
+    foreach ($rows as $row) {
+        $sku = (string) ($row['sku'] ?? '');
+        $packingRow = $packing[$sku . '|' . $month] ?? null;
+        $required = (int) ($row['packing_required'] ?? 1) === 1;
+        $payloadRows[] = [
+            'sku' => $sku,
+            'tag' => (string) ($row['tag'] ?? ''),
+            'brand_id' => (string) ($row['brand_id'] ?? ''),
+            'brand_name' => (string) ($row['brand_name'] ?? ''),
+            'product_id' => (string) ($row['product_id'] ?? ''),
+            'product_name' => (string) ($row['product_name'] ?? ''),
+            'flavor_name' => (string) ($row['flavor_name'] ?? ''),
+            'unit_name' => (string) ($row['unit_name'] ?? ''),
+            'unit_code' => (string) ($row['unit_code'] ?? ''),
+            'volume' => (float) ($row['volume'] ?? 0),
+            'astra' => (float) ($row['astra'] ?? 0),
+            'current_stock' => (int) ($row['current_stock'] ?? 0),
+            'cogs' => (float) ($row['cogs'] ?? 0),
+            'cogs_history' => $historyBySku[$sku] ?? [],
+            'packing_required' => $required,
+            'packing_per_item' => is_array($packingRow) ? (float) $packingRow['packing_per_item'] : null,
+            'packing_status' => !$required ? 'not_required' : (is_array($packingRow) ? 'complete' : 'missing'),
+            'packing_updated_at' => is_array($packingRow) ? (string) $packingRow['updated_at'] : '',
+        ];
+    }
+
+    $nextQuarter = jg_sku_next_quarter_start();
+    jg_product_costs_json([
+        'ok' => true,
+        'period' => $period,
+        'default_period' => jg_product_costs_next_month(),
+        'next_quarter' => [
+            'effective_at' => $nextQuarter,
+            'label' => jg_sku_quarter_label($nextQuarter),
+        ],
+        'rows' => $payloadRows,
+    ]);
+}
+
+try {
+    $pdo = jg_sku_db();
+    try {
+        jg_product_costs_import_legacy_packing($pdo);
+    } catch (Throwable $migrationError) {
+        error_log('Unable to migrate legacy packing costs: ' . $migrationError->getMessage());
+    }
+
+    $defaultPeriod = jg_product_costs_next_month();
+    $year = (int) ($_GET['year'] ?? $defaultPeriod['year']);
+    $month = (int) ($_GET['month'] ?? $defaultPeriod['month']);
+    $period = jg_product_costs_period($year, $month);
+
+    if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) === 'GET') {
+        jg_product_costs_response($pdo, $period['year'], $period['month']);
+    }
+
+    $body = jg_product_costs_body();
+    $action = strtolower(trim((string) ($body['action'] ?? '')));
+    $sourceSku = strtoupper(trim((string) ($body['source_sku'] ?? '')));
+    if (!preg_match('/^[A-Z0-9]{12}$/', $sourceSku)) {
+        jg_product_costs_fail('Select a valid SKU group.');
+    }
+    $rows = jg_product_costs_catalog($pdo);
+    $groupSkus = jg_product_costs_group_skus($rows, $sourceSku);
+    if ($groupSkus === []) {
+        jg_product_costs_fail('The selected product group is no longer available.', 404);
+    }
+
+    if ($action === 'save_packing') {
+        $required = filter_var($body['packing_required'] ?? true, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        $required = $required ?? false;
+        $price = $required ? jg_product_costs_money($body['packing_per_item'] ?? null, 'Packing price') : 0.0;
+        $target = jg_product_costs_period((int) ($body['year'] ?? 0), (int) ($body['month'] ?? 0));
+        $pdo->beginTransaction();
+        $requiredStmt = $pdo->prepare('UPDATE sku_skus SET packing_required = :required, updated_at = :updated_at WHERE sku = :sku');
+        $packingStmt = $pdo->prepare(
+            'INSERT INTO sku_packing_costs
+                (year, month, sku, packing_per_item, updated_by, updated_at)
+             VALUES
+                (:year, :month, :sku, :price, "Admin", :updated_at)
+             ON DUPLICATE KEY UPDATE packing_per_item = VALUES(packing_per_item),
+                updated_by = VALUES(updated_by), updated_at = VALUES(updated_at)'
+        );
+        $now = jg_sku_now();
+        foreach ($groupSkus as $sku) {
+            $requiredStmt->execute([':required' => $required ? 1 : 0, ':updated_at' => $now, ':sku' => $sku]);
+            $packingStmt->execute([
+                ':year' => $target['year'],
+                ':month' => $target['month'],
+                ':sku' => $sku,
+                ':price' => number_format($price, 2, '.', ''),
+                ':updated_at' => $now,
+            ]);
+        }
+        jg_sku_touch_version($pdo);
+        $pdo->commit();
+        jg_product_costs_response($pdo, $target['year'], $target['month']);
+    }
+
+    if ($action === 'save_cogs') {
+        $newPrice = jg_product_costs_money($body['new_price'] ?? null, 'COGS');
+        $mode = strtolower(trim((string) ($body['change_mode'] ?? 'quarterly')));
+        if (!in_array($mode, ['quarterly', 'period', 'retroactive'], true)) {
+            jg_product_costs_fail('COGS timing is invalid.');
+        }
+        $effectiveAt = null;
+        $effectiveUntil = null;
+        $takesPlace = 'Admin hard set | Fully retroactive';
+        if ($mode === 'quarterly') {
+            $effectiveAt = jg_sku_next_quarter_start();
+            $takesPlace = 'Admin schedule | ' . jg_sku_quarter_label($effectiveAt);
+        } elseif ($mode === 'period') {
+            $startDate = jg_product_costs_date($body['start_date'] ?? '', 'Start date');
+            $endDate = jg_product_costs_date($body['end_date'] ?? '', 'End date');
+            if ($endDate < $startDate) {
+                jg_product_costs_fail('End date must be on or after the start date.');
+            }
+            $effectiveAt = $startDate . ' 00:00:00';
+            $effectiveUntil = $endDate . ' 23:59:59';
+            $takesPlace = 'Admin period | ' . $startDate . ' to ' . $endDate;
+        }
+
+        $rowsBySku = [];
+        foreach ($rows as $row) {
+            $rowsBySku[(string) ($row['sku'] ?? '')] = $row;
+        }
+        $plan = jg_astra_cogs_plan($rows, $groupSkus, $newPrice);
+        if ($plan === []) {
+            jg_product_costs_fail('No ASTRA-linked SKUs are available to update.');
+        }
+
+        $pdo->beginTransaction();
+        $update = $pdo->prepare('UPDATE sku_skus SET cogs = :cogs, updated_at = :updated_at WHERE sku = :sku');
+        $history = $pdo->prepare(
+            'INSERT INTO sku_cogs_history
+                (sku, old_price, new_price, takes_place, change_mode, effective_at, effective_until, recorded_at)
+             VALUES
+                (:sku, :old_price, :new_price, :takes_place, :change_mode, :effective_at, :effective_until, :recorded_at)'
+        );
+        $now = jg_sku_now();
+        foreach ($plan as $change) {
+            $sku = (string) ($change['sku'] ?? '');
+            $row = $rowsBySku[$sku] ?? null;
+            if (!is_array($row)) {
+                continue;
+            }
+            $price = number_format((float) ($change['new_price'] ?? 0), 2, '.', '');
+            if ($mode === 'retroactive') {
+                $update->execute([':cogs' => $price, ':updated_at' => $now, ':sku' => $sku]);
+            }
+            $history->execute([
+                ':sku' => $sku,
+                ':old_price' => number_format((float) ($row['cogs'] ?? 0), 2, '.', ''),
+                ':new_price' => $price,
+                ':takes_place' => mb_substr($takesPlace, 0, 120),
+                ':change_mode' => $mode,
+                ':effective_at' => $effectiveAt,
+                ':effective_until' => $effectiveUntil,
+                ':recorded_at' => $now,
+            ]);
+        }
+        jg_sku_touch_version($pdo);
+        $pdo->commit();
+        jg_sku_sync_current_cogs($pdo);
+        jg_product_costs_response($pdo, $period['year'], $period['month']);
+    }
+
+    jg_product_costs_fail('Action is not supported.', 404);
+} catch (InvalidArgumentException $error) {
+    jg_product_costs_fail($error->getMessage());
+} catch (Throwable $error) {
+    if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    error_log('Product Costs API error: ' . $error->getMessage());
+    jg_product_costs_fail('Unable to update product costs right now.', 500);
+}

@@ -100,6 +100,8 @@ function jg_sku_attempt_login(string $username, string $password): bool
         $normalizedUsername = $branchUsername;
     } elseif (hash_equals(JG_ADMIN_CODE_HASH, hash('sha256', $normalizedPassword))) {
         $role = 'requester';
+        $_SESSION['jg_admin_authenticated'] = true;
+        $_SESSION['jg_admin_login_at'] = gmdate(DATE_ATOM);
     }
 
     if ($role === '') {

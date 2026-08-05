@@ -35,7 +35,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/pnl.js');
                 <div class="admin-topbar-brand">
                     <span class="admin-admin-mark">Executive finance</span>
                     <h1>Profit &amp; Loss</h1>
-                    <p>Revenue, product cost, operating expenses, and net profit.</p>
+                    <p>Revenue, product COGS, per-item packing, operating expenses, and net profit.</p>
                 </div>
                 <?php render_admin_topbar_actions('profit-loss'); ?>
             </header>
@@ -51,6 +51,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/pnl.js');
                 <section class="pnl-kpis" aria-label="Profit and loss summary">
                     <article><span>Net Revenue</span><strong data-pnl-kpi="revenue">Rp0</strong><small>Seller-received sales</small></article>
                     <article><span>Product COGS</span><strong data-pnl-kpi="cogs">Rp0</strong><small>Sold quantity × SKU cost</small></article>
+                    <article><span>Packing Cost</span><strong data-pnl-kpi="packing">Rp0</strong><small>Physical quantity × monthly item packing</small></article>
                     <article><span>Gross Profit</span><strong data-pnl-kpi="gross-profit">Rp0</strong><small data-pnl-margin>0% margin</small></article>
                     <article><span>Ad Cost</span><strong data-pnl-kpi="ad-cost">Rp0</strong><small>Posted marketing payments</small></article>
                     <article><span>Operating Expenses</span><strong data-pnl-kpi="opex">Rp0</strong><small>Excludes COGS purchases</small></article>
@@ -74,14 +75,14 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/pnl.js');
                     <div class="pnl-trend" data-pnl-trend aria-label="Monthly net profit trend"></div>
                     <div class="admin-table-wrap pnl-table-wrap">
                         <table class="admin-table pnl-table">
-                            <thead><tr><th>Month</th><th>Revenue</th><th>COGS</th><th>Gross Profit</th><th>Ad Cost</th><th>Other OpEx</th><th>Net Profit</th><th>Margin</th></tr></thead>
-                            <tbody data-pnl-months><tr><td colspan="8" class="admin-empty">Loading monthly statement.</td></tr></tbody>
+                            <thead><tr><th>Month</th><th>Revenue</th><th>COGS</th><th>Packing</th><th>Gross Profit</th><th>Ad Cost</th><th>Other OpEx</th><th>Net Profit</th><th>Margin</th></tr></thead>
+                            <tbody data-pnl-months><tr><td colspan="9" class="admin-empty">Loading monthly statement.</td></tr></tbody>
                         </table>
                     </div>
                 </section>
 
                 <section class="pnl-assurance" data-pnl-assurance>
-                    <div><strong>Calculation basis</strong><span>Marketplace seller-received revenue, sale-level SKU COGS, and posted cash-basis Accounting entries.</span></div>
+                    <div><strong>Calculation basis</strong><span>Marketplace seller-received revenue, physical-item SKU COGS, monthly per-item packing, and posted cash-basis Accounting entries.</span></div>
                     <div><strong>No double-counted inventory</strong><span>Product purchases remain visible in Accounting but are excluded here because sold units already carry SKU COGS.</span></div>
                     <div><strong>Review status</strong><span data-pnl-review-status>Checking Accounting review items…</span></div>
                 </section>

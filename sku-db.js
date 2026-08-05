@@ -1204,7 +1204,6 @@ document.addEventListener('DOMContentLoaded', () => {
               <button type="button" class="admin-menu-item" data-change-astra="${escapeHtml(row.sku || '')}">ASTRA</button>
               <button type="button" class="admin-menu-item" data-change-shipping="${escapeHtml(row.sku || '')}">Shipping Profile</button>
               <button type="button" class="admin-menu-item" data-change-inventory="${escapeHtml(row.sku || '')}">Inventory</button>
-              <button type="button" class="admin-menu-item" data-change-cogs="${escapeHtml(row.sku || '')}">COGS</button>
               <button type="button" class="admin-menu-item" data-change-sale-price="${escapeHtml(row.sku || '')}">Sale Price</button>
               ${role === 'branch' ? `<button type="button" class="admin-menu-item admin-menu-item-danger" data-delete-sku="${escapeHtml(row.sku || '')}">Delete SKU</button>` : ''}
             </div>

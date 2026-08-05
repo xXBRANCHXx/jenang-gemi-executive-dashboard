@@ -17,7 +17,7 @@ function jg_sales_summary_revenue_value(array $row): float
 /**
  * Gross profit is a derived value. Recalculate it after every sales source has
  * been merged so a stale or manually supplied GP value can never diverge from
- * final net revenue and COGS.
+ * final net revenue, COGS, and per-item packing cost.
  *
  * @param array<string, mixed> $summary
  * @return array<string, mixed>
@@ -27,19 +27,23 @@ function jg_sales_summary_enforce_profit_formula(array $summary): array
     $months = is_array($summary['months'] ?? null) ? array_values($summary['months']) : [];
     $totalRevenue = 0.0;
     $totalCogs = 0.0;
+    $totalPacking = 0.0;
     foreach ($months as &$month) {
         if (!is_array($month)) {
             continue;
         }
         $revenue = jg_sales_summary_revenue_value($month);
         $cogs = is_numeric($month['cogs'] ?? null) ? (float) $month['cogs'] : 0.0;
+        $packing = is_numeric($month['packing_cost'] ?? null) ? (float) $month['packing_cost'] : 0.0;
         $month['revenue'] = $revenue;
         $month['net_revenue'] = $revenue;
         $month['sales'] = $revenue;
         $month['cogs'] = $cogs;
-        $month['gross_profit'] = $revenue - $cogs;
+        $month['packing_cost'] = $packing;
+        $month['gross_profit'] = $revenue - $cogs - $packing;
         $totalRevenue += $revenue;
         $totalCogs += $cogs;
+        $totalPacking += $packing;
     }
     unset($month);
 
@@ -48,7 +52,8 @@ function jg_sales_summary_enforce_profit_formula(array $summary): array
     $totals['net_revenue'] = $totalRevenue;
     $totals['sales'] = $totalRevenue;
     $totals['cogs'] = $totalCogs;
-    $totals['gross_profit'] = $totalRevenue - $totalCogs;
+    $totals['packing_cost'] = $totalPacking;
+    $totals['gross_profit'] = $totalRevenue - $totalCogs - $totalPacking;
     $summary['months'] = $months;
     $summary['totals'] = $totals;
     return $summary;

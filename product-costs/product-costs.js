@@ -1,0 +1,183 @@
+const root = document.querySelector('[data-product-costs]');
+
+if (root) {
+  const api = root.dataset.apiEndpoint || '../api/product-costs/';
+  const state = { rows: [], groups: [], period: null, defaultPeriod: null, nextQuarter: null, search: '', loading: false };
+  const refs = {
+    month: root.querySelector('[data-cost-month]'),
+    search: root.querySelector('[data-cost-search]'),
+    refresh: root.querySelector('[data-cost-refresh]'),
+    status: root.querySelector('[data-cost-status]'),
+    rows: root.querySelector('[data-cost-rows]'),
+    kpis: Object.fromEntries([...root.querySelectorAll('[data-cost-kpi]')].map((node) => [node.dataset.costKpi, node])),
+    packingModal: document.querySelector('[data-packing-modal]'),
+    packingForm: document.querySelector('[data-packing-form]'),
+    packingTitle: document.querySelector('[data-packing-title]'),
+    packingPeriod: document.querySelector('[data-packing-period]'),
+    packingSkus: document.querySelector('[data-packing-skus]'),
+    packingPriceField: document.querySelector('[data-packing-price-field]'),
+    packingError: document.querySelector('[data-packing-error]'),
+    cogsModal: document.querySelector('[data-cogs-cost-modal]'),
+    cogsForm: document.querySelector('[data-cogs-cost-form]'),
+    cogsTitle: document.querySelector('[data-cogs-cost-title]'),
+    cogsSkus: document.querySelector('[data-cogs-cost-skus]'),
+    cogsError: document.querySelector('[data-cogs-cost-error]'),
+    cogsDateRange: document.querySelector('[data-cogs-date-range]'),
+    cogsQuarterLabel: document.querySelector('[data-cogs-quarter-label]')
+  };
+  const escapeHtml = (value) => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
+  const money = (value) => value === null || value === undefined || value === '' ? '—' : `Rp${Math.round(Number(value) || 0).toLocaleString('id-ID')}`;
+  const volume = (row) => `${Number(row.volume || 0).toLocaleString('en-US', { maximumFractionDigits: 1 })}${String(row.unit_code || row.unit_name || '').toLowerCase().includes('ml') ? ' ml' : ` ${row.unit_name || ''}`}`.trim();
+  const groupKey = (row) => `${row.product_id}|${Number(row.volume || 0).toFixed(2)}`;
+  const request = async (url, options = {}) => {
+    const response = await fetch(url, { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json', ...(options.body ? { 'Content-Type': 'application/json' } : {}) }, ...options });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.ok === false) throw new Error(payload.error || `HTTP ${response.status}`);
+    return payload;
+  };
+  const buildGroups = () => {
+    const groups = new Map();
+    state.rows.forEach((row) => {
+      const key = groupKey(row);
+      const group = groups.get(key) || { key, sourceSku: row.sku, brandName: row.brand_name, productName: row.product_name, volume: row.volume, unitName: row.unit_name, unitCode: row.unit_code, rows: [] };
+      group.rows.push(row);
+      groups.set(key, group);
+    });
+    state.groups = [...groups.values()].map((group) => {
+      const requiredValues = new Set(group.rows.map((row) => Boolean(row.packing_required)));
+      const packingValues = new Set(group.rows.map((row) => row.packing_per_item === null ? 'missing' : Number(row.packing_per_item).toFixed(2)));
+      const cogsValues = new Set(group.rows.map((row) => Number(row.cogs || 0).toFixed(2)));
+      const required = requiredValues.size === 1 ? Boolean(group.rows[0].packing_required) : true;
+      const status = !required && requiredValues.size === 1 ? 'not_required' : (packingValues.size === 1 && !packingValues.has('missing') ? 'complete' : 'missing');
+      return { ...group, required, status, packing: packingValues.size === 1 && !packingValues.has('missing') ? Number(group.rows[0].packing_per_item) : null, cogs: cogsValues.size === 1 ? Number(group.rows[0].cogs) : null };
+    });
+  };
+  const statusLabel = (status) => status === 'complete' ? 'Ready' : status === 'not_required' ? 'No packing' : 'Price needed';
+  const render = () => {
+    const query = state.search.trim().toLowerCase();
+    const filtered = state.groups.filter((group) => !query || [group.brandName, group.productName, group.volume, ...group.rows.flatMap((row) => [row.sku, row.tag, row.flavor_name])].join(' ').toLowerCase().includes(query));
+    const counts = state.groups.reduce((result, group) => ({ ...result, [group.status]: (result[group.status] || 0) + 1 }), {});
+    refs.kpis.missing.textContent = String(counts.missing || 0);
+    refs.kpis.complete.textContent = String(counts.complete || 0);
+    refs.kpis['not-required'].textContent = String(counts.not_required || 0);
+    refs.kpis.period.textContent = state.period?.label || '—';
+    refs.rows.innerHTML = filtered.length ? filtered.map((group) => `
+      <tr class="is-${group.status}">
+        <td data-col="Status"><span class="product-costs-status is-${group.status}"><i></i>${statusLabel(group.status)}</span></td>
+        <td data-col="Product"><strong>${escapeHtml(group.productName)}</strong><small>${escapeHtml(group.brandName)}</small></td>
+        <td data-col="Volume"><strong>${escapeHtml(volume(group))}</strong></td>
+        <td data-col="Variants"><strong>${group.rows.length} SKU${group.rows.length === 1 ? '' : 's'}</strong><small>${group.rows.map((row) => escapeHtml(row.flavor_name || row.sku)).join(' · ')}</small></td>
+        <td data-col="Current COGS"><strong>${group.cogs === null ? 'Mixed' : money(group.cogs)}</strong></td>
+        <td data-col="Packing / item"><strong>${group.status === 'not_required' ? 'Not required' : group.packing === null ? 'Missing' : money(group.packing)}</strong><small>${escapeHtml(state.period?.label || '')}</small></td>
+        <td data-col="Actions"><div class="product-costs-row-actions"><button type="button" data-edit-packing="${escapeHtml(group.key)}">Packing</button><button type="button" data-edit-cogs="${escapeHtml(group.key)}">COGS</button></div></td>
+      </tr>`).join('') : '<tr><td colspan="7" class="admin-empty">No product groups match this search.</td></tr>';
+  };
+  const load = async (useDefault = false) => {
+    if (state.loading) return;
+    state.loading = true;
+    refs.refresh.disabled = true;
+    refs.status.textContent = 'Loading live SKU costs…';
+    try {
+      let key = refs.month.value;
+      const suffix = key && !useDefault ? `?year=${encodeURIComponent(key.slice(0, 4))}&month=${encodeURIComponent(Number(key.slice(5, 7)))}` : '';
+      const payload = await request(`${api}${suffix}`);
+      state.rows = Array.isArray(payload.rows) ? payload.rows : [];
+      state.period = payload.period || null;
+      state.defaultPeriod = payload.default_period || null;
+      state.nextQuarter = payload.next_quarter || null;
+      refs.month.value = state.period?.key || state.defaultPeriod?.key || '';
+      if (refs.cogsQuarterLabel) refs.cogsQuarterLabel.textContent = `Starts ${state.nextQuarter?.label || 'next quarter'}`;
+      buildGroups();
+      render();
+      refs.status.textContent = `${state.groups.length.toLocaleString('id-ID')} grouped product volume${state.groups.length === 1 ? '' : 's'} · prices do not carry into another month`;
+    } catch (error) {
+      refs.status.textContent = error.message || 'Unable to load product costs.';
+      refs.rows.innerHTML = `<tr><td colspan="7" class="admin-empty">${escapeHtml(error.message || 'Unable to load product costs.')}</td></tr>`;
+    } finally {
+      state.loading = false;
+      refs.refresh.disabled = false;
+    }
+  };
+  const groupByKey = (key) => state.groups.find((group) => group.key === key);
+  const skuTokens = (group) => group.rows.map((row) => `<span><b>${escapeHtml(row.flavor_name || 'Variant')}</b>${escapeHtml(row.sku)}</span>`).join('');
+  const openPacking = (group) => {
+    refs.packingForm.reset();
+    refs.packingForm.elements.source_sku.value = group.sourceSku;
+    refs.packingForm.elements.packing_required.checked = group.required;
+    refs.packingForm.elements.packing_per_item.value = group.packing ?? '';
+    refs.packingTitle.textContent = `${group.productName} · ${volume(group)}`;
+    refs.packingPeriod.textContent = `Price for ${state.period?.label || 'selected month'} only`;
+    refs.packingSkus.innerHTML = skuTokens(group);
+    refs.packingError.hidden = true;
+    syncPackingRequired();
+    refs.packingModal.hidden = false;
+  };
+  const syncPackingRequired = () => {
+    const required = refs.packingForm.elements.packing_required.checked;
+    refs.packingPriceField.hidden = !required;
+    refs.packingForm.elements.packing_per_item.required = required;
+  };
+  const openCogs = (group) => {
+    refs.cogsForm.reset();
+    refs.cogsForm.elements.source_sku.value = group.sourceSku;
+    refs.cogsForm.elements.new_price.value = group.cogs ?? '';
+    refs.cogsTitle.textContent = `${group.productName} · ${volume(group)}`;
+    refs.cogsSkus.innerHTML = skuTokens(group);
+    refs.cogsError.hidden = true;
+    syncCogsTiming();
+    refs.cogsModal.hidden = false;
+  };
+  const syncCogsTiming = () => {
+    const mode = new FormData(refs.cogsForm).get('change_mode') || 'quarterly';
+    refs.cogsDateRange.hidden = mode !== 'period';
+    refs.cogsForm.elements.start_date.required = mode === 'period';
+    refs.cogsForm.elements.end_date.required = mode === 'period';
+  };
+  const close = (modal) => { modal.hidden = true; };
+  root.addEventListener('click', (event) => {
+    const packing = event.target.closest('[data-edit-packing]');
+    if (packing) { const group = groupByKey(packing.dataset.editPacking); if (group) openPacking(group); }
+    const cogs = event.target.closest('[data-edit-cogs]');
+    if (cogs) { const group = groupByKey(cogs.dataset.editCogs); if (group) openCogs(group); }
+  });
+  refs.search.addEventListener('input', () => { state.search = refs.search.value; render(); });
+  refs.month.addEventListener('change', () => load());
+  refs.refresh.addEventListener('click', () => load());
+  refs.packingForm.elements.packing_required.addEventListener('change', syncPackingRequired);
+  refs.cogsForm.querySelectorAll('[name="change_mode"]').forEach((input) => input.addEventListener('change', syncCogsTiming));
+  document.querySelectorAll('[data-close-packing]').forEach((node) => node.addEventListener('click', () => close(refs.packingModal)));
+  document.querySelectorAll('[data-close-cost-cogs]').forEach((node) => node.addEventListener('click', () => close(refs.cogsModal)));
+  refs.packingForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    refs.packingError.hidden = true;
+    const data = new FormData(refs.packingForm);
+    const submit = refs.packingForm.querySelector('[type="submit"]');
+    submit.disabled = true;
+    try {
+      const payload = await request(api, { method: 'POST', body: JSON.stringify({ action: 'save_packing', source_sku: data.get('source_sku'), year: state.period.year, month: state.period.month, packing_required: data.get('packing_required') === 'on', packing_per_item: data.get('packing_per_item') }) });
+      state.rows = payload.rows || [];
+      state.period = payload.period;
+      buildGroups(); render(); close(refs.packingModal);
+      refs.status.textContent = `Packing prices saved for ${state.period.label}.`;
+    } catch (error) { refs.packingError.textContent = error.message; refs.packingError.hidden = false; }
+    finally { submit.disabled = false; }
+  });
+  refs.cogsForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    refs.cogsError.hidden = true;
+    const data = new FormData(refs.cogsForm);
+    const mode = data.get('change_mode');
+    if (mode === 'retroactive' && !window.confirm('Apply this COGS fully retroactively and supersede earlier schedules?')) return;
+    const submit = refs.cogsForm.querySelector('[type="submit"]');
+    submit.disabled = true;
+    try {
+      const payload = await request(api, { method: 'POST', body: JSON.stringify({ action: 'save_cogs', source_sku: data.get('source_sku'), new_price: data.get('new_price'), change_mode: mode, start_date: data.get('start_date'), end_date: data.get('end_date'), year: state.period.year, month: state.period.month }) });
+      state.rows = payload.rows || [];
+      state.period = payload.period;
+      buildGroups(); render(); close(refs.cogsModal);
+      refs.status.textContent = mode === 'quarterly' ? `COGS scheduled for ${payload.next_quarter?.label || 'next quarter'}.` : 'COGS timeline updated.';
+    } catch (error) { refs.cogsError.textContent = error.message; refs.cogsError.hidden = false; }
+    finally { submit.disabled = false; }
+  });
+  load(true);
+}

@@ -27,8 +27,9 @@ assert_sku_cogs_test(
 assert_sku_cogs_test(jg_sku_quarter_label('2027-01-01 00:00:00') === 'Q1 2027', 'Quarter labels must include year rollover.');
 
 assert_sku_cogs_test(jg_sku_cogs_change_mode_allowed('quarterly', 'requester'), 'Admin-tier SKU users must be allowed to queue quarterly COGS.');
-assert_sku_cogs_test(!jg_sku_cogs_change_mode_allowed('retroactive', 'requester'), 'Admin-tier SKU users must not be allowed to hard set COGS.');
-assert_sku_cogs_test(jg_sku_cogs_change_mode_allowed('retroactive', 'branch'), 'Branch-tier SKU users must be allowed to hard set COGS.');
+assert_sku_cogs_test(jg_sku_cogs_change_mode_allowed('period', 'requester'), 'Admin-tier SKU users must be allowed to set a bounded COGS period.');
+assert_sku_cogs_test(jg_sku_cogs_change_mode_allowed('retroactive', 'requester'), 'Admin-tier SKU users must be allowed to hard set COGS.');
+assert_sku_cogs_test(!jg_sku_cogs_change_mode_allowed('retroactive', 'branch'), 'Branch-tier credentials must not authorize special COGS changes.');
 
 $history = [
     [
@@ -82,5 +83,17 @@ $history[] = [
 ];
 assert_sku_cogs_test(jg_sku_cogs_at($history, '2026-09-30 23:59:59') === 90.0, 'Post-hard-set COGS must remain until the next scheduled quarter.');
 assert_sku_cogs_test(jg_sku_cogs_at($history, '2026-10-01 00:00:00') === 110.0, 'Quarterly changes created after a hard set must still activate.');
+
+$history[] = [
+    'id' => 6,
+    'old_price' => 110,
+    'new_price' => 75,
+    'change_mode' => 'period',
+    'effective_at' => '2026-11-10 00:00:00',
+    'effective_until' => '2026-11-20 23:59:59',
+    'recorded_at' => '2026-10-20 00:00:00',
+];
+assert_sku_cogs_test(jg_sku_cogs_at($history, '2026-11-15 12:00:00') === 75.0, 'A bounded Admin period must override the normal COGS timeline while active.');
+assert_sku_cogs_test(jg_sku_cogs_at($history, '2026-11-21 00:00:00') === 110.0, 'COGS must return to the scheduled timeline after a bounded period ends.');
 
 fwrite(STDOUT, "SKU COGS quarter tests passed.\n");

@@ -29114,7 +29114,7 @@ button.admin-accounting-metric {
 
 .pnl-kpis {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -29350,7 +29350,7 @@ button.admin-accounting-metric {
 
 @media (max-width: 1320px) {
   .pnl-kpis {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
