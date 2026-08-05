@@ -69,6 +69,13 @@ geometry under Lucide's ISC license.
   transfer evidence is reconciled by account, amount, and date. Marketplace
   Receivable comes from unreleased settling orders and excludes released or
   non-settling orders.
+- Accounting's authenticated **Download Pembukuan** action generates Excel,
+  printable A4 PDF, or a complete ZIP package for the selected period. Formal
+  Indonesian account names are applied only inside these files. Configure
+  `JG_ACCOUNTING_ENTITY_NAME`, `JG_ACCOUNTING_TRADE_NAME`, `JG_ACCOUNTING_NPWP`,
+  `JG_ACCOUNTING_NITKU`, `JG_ACCOUNTING_ADDRESS`, and `JG_APP_VERSION` (or the
+  equivalent lowercase `config.local.php` keys) to populate export metadata;
+  missing legal fields are omitted rather than invented.
 - The notification drawer is the finance review queue for weekly partner bills. It previews private payment proofs, confirms each bill into Accounting exactly once, and provides accept/investigate/reject resolution for order-level disputes. Confirming a proof posts partner bill collection income to a spendable account and refreshes Cash Available; outstanding closed partner bills are included in Bills Due.
 - Partner billing uses the shared partner MySQL database configured by `partner_db_*`. Deploy the Partner Portal billing schema first; this dashboard also performs the same idempotent table checks when the notification feed opens. Accounting creates `accounting_partner_bill_receipts` automatically to prevent a retried confirmation from posting cash twice.
 - The P&L combines seller-received sales and sale-level SKU COGS with posted

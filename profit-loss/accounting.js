@@ -131,6 +131,7 @@ if (root) {
     openModeButtons: root.querySelectorAll('[data-accounting-open-mode]'),
     exportButton: root.querySelector('[data-accounting-export]'),
     cashRecordsExportButton: root.querySelector('[data-accounting-cash-records-export]'),
+    pembukuanExportButtons: [...root.querySelectorAll('[data-accounting-pembukuan-export]')],
     settingsButton: root.querySelector('[data-accounting-settings]'),
     kpis: {
       bankBalance: root.querySelector('[data-accounting-kpi="bank-balance"]'),
@@ -250,7 +251,8 @@ if (root) {
       'brand',
       'channel',
       'transaction_id',
-      'bill_id'
+      'bill_id',
+      'format'
     ].forEach((key) => {
       if (options[key]) params.set(key, options[key]);
     });
@@ -1832,6 +1834,45 @@ if (root) {
   });
   refs.cashRecordsExportButton?.addEventListener('click', () => {
     window.location.href = buildUrl('export_cash_records_csv', { ...rangeOptions() });
+  });
+  const downloadPembukuan = async (button) => {
+    if (button.disabled) return;
+    button.disabled = true;
+    const originalLabel = button.textContent;
+    button.textContent = 'Preparing…';
+    try {
+      const format = button.dataset.accountingPembukuanExport || 'xlsx';
+      const response = await fetch(buildUrl('export_pembukuan', { ...rangeOptions(), format }), {
+        credentials: 'same-origin'
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        const detail = Array.isArray(payload.errors) ? payload.errors[0] : null;
+        const message = [payload.error, detail?.record, detail?.expected_correction].filter(Boolean).join(' — ');
+        throw new Error(message || 'Unable to generate Pembukuan.');
+      }
+      const blob = await response.blob();
+      const disposition = response.headers.get('Content-Disposition') || '';
+      const filename = disposition.match(/filename="?([^";]+)"?/i)?.[1] || `pembukuan.${format}`;
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+      button.closest('details')?.removeAttribute('open');
+      showToast('Pembukuan downloaded.');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to generate Pembukuan.', true);
+    } finally {
+      button.disabled = false;
+      button.textContent = originalLabel;
+    }
+  };
+  refs.pembukuanExportButtons.forEach((button) => {
+    button.addEventListener('click', () => downloadPembukuan(button));
   });
   refs.settingsButton?.addEventListener('click', openAccountSettings);
   refs.accountSettingsCloseButtons.forEach((button) => button.addEventListener('click', closeAccountSettings));

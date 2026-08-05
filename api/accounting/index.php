@@ -5,6 +5,7 @@ require_once dirname(__DIR__, 2) . '/auth.php';
 jg_admin_require_auth_json();
 
 require_once dirname(__DIR__, 2) . '/accounting-bootstrap.php';
+require_once dirname(__DIR__, 2) . '/accounting-export.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
@@ -220,6 +221,9 @@ try {
         if ($action === 'export_cash_records_csv') {
             jg_accounting_export_cash_records_csv($pdo);
         }
+        if ($action === 'export_pembukuan') {
+            jg_pembukuan_export_response($pdo, (string) ($_GET['format'] ?? 'xlsx'), $_GET);
+        }
         jg_accounting_error('Unknown Accounting action.', 404);
     }
 
@@ -256,6 +260,12 @@ try {
     }
 
     jg_accounting_json(jg_accounting_endpoint_payload(['result' => $result], $month), 201);
+} catch (JgPembukuanValidationException $error) {
+    jg_accounting_json([
+        'ok' => false,
+        'error' => $error->getMessage(),
+        'errors' => $error->details,
+    ], 422);
 } catch (Throwable $error) {
     jg_accounting_json([
         'ok' => false,

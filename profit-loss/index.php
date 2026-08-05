@@ -54,8 +54,11 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                         <button type="button" class="admin-ghost-btn" data-accounting-refresh>Refresh</button>
                         <button type="button" class="admin-ghost-btn" data-accounting-settings>Accounts</button>
                         <details class="admin-accounting-export-menu">
-                            <summary class="admin-ghost-btn">Export</summary>
+                            <summary class="admin-ghost-btn">Download Pembukuan</summary>
                             <div>
+                                <button type="button" data-accounting-pembukuan-export="xlsx">Excel</button>
+                                <button type="button" data-accounting-pembukuan-export="pdf">PDF</button>
+                                <button type="button" data-accounting-pembukuan-export="zip">Complete Package</button>
                                 <button type="button" data-accounting-export>Manual ledger CSV</button>
                                 <button type="button" data-accounting-cash-records-export>Automatic cash CSV</button>
                             </div>

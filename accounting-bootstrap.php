@@ -2327,6 +2327,7 @@ function jg_accounting_wallet_cash_records(PDO $pdo, array $bounds = []): array
             'currency' => 'IDR',
             'record_status' => 'usable',
             'cash_basis' => 'wallet_withdrawal_to_bank',
+            'created_by' => (string) ($row['released_by'] ?? ''),
             'notes' => (string) ($row['release_note'] ?? ''),
         ];
     }
@@ -3033,7 +3034,9 @@ function jg_accounting_transactions(PDO $pdo, array $filters): array
         'review_reason' => $row['review_reason'],
         'bill_id' => $row['bill_id'] === null ? null : (int) $row['bill_id'],
         'bill_no' => $row['bill_no'],
+        'description' => $row['description'] ?? null,
         'notes' => $row['notes'],
+        'created_by' => !isset($row['created_by']) ? null : (int) $row['created_by'],
         'created_at' => (string) $row['created_at'],
     ], $stmt->fetchAll());
 }
