@@ -26,6 +26,13 @@ product_costs_expect($group === ['JGAA0150AAAA', 'JGAA0150BBBB'], 'Cost edits mu
 $periods = jg_product_costs_month_range('2026-07', '2026-09');
 product_costs_expect(array_column($periods, 'key') === ['2026-07', '2026-08', '2026-09'], 'Specific packing periods must expand to each inclusive calendar month.');
 
+$metaPdo = new PDO('sqlite::memory:');
+$metaPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$metaPdo->exec('CREATE TABLE sku_meta (meta_key TEXT PRIMARY KEY, meta_value TEXT NOT NULL, updated_at TEXT NOT NULL)');
+$metaPdo->exec("INSERT INTO sku_meta VALUES ('version', '1.00.09', '2026-08-05 00:00:00')");
+product_costs_expect(jg_sku_touch_version($metaPdo) === '1.00.10', 'Product Costs must be able to touch the shared SKU version after a save.');
+product_costs_expect(jg_sku_meta_version($metaPdo) === '1.00.10', 'The shared SKU version touch must persist its increment.');
+
 $root = dirname(__DIR__);
 $page = (string) file_get_contents($root . '/product-costs/index.php');
 $script = (string) file_get_contents($root . '/product-costs/product-costs.js');

@@ -355,6 +355,41 @@ function jg_sku_now(): string
     return gmdate('Y-m-d H:i:s');
 }
 
+function jg_sku_bump_patch(string $version): string
+{
+    if (!preg_match('/^(\d+)\.(\d{2})\.(\d{2})$/', $version, $matches)) {
+        return '1.00.00';
+    }
+
+    $major = (int) $matches[1];
+    $middle = (int) $matches[2];
+    $patch = (int) $matches[3] + 1;
+    if ($patch > 99) {
+        $patch = 0;
+        $middle += 1;
+    }
+
+    return sprintf('%d.%02d.%02d', $major, $middle, $patch);
+}
+
+function jg_sku_meta_version(PDO $pdo): string
+{
+    $stmt = $pdo->query('SELECT meta_value FROM sku_meta WHERE meta_key = "version" LIMIT 1');
+    $version = $stmt->fetchColumn();
+    return is_string($version) && $version !== '' ? $version : '1.00.00';
+}
+
+function jg_sku_touch_version(PDO $pdo): string
+{
+    $next = jg_sku_bump_patch(jg_sku_meta_version($pdo));
+    $stmt = $pdo->prepare('UPDATE sku_meta SET meta_value = :meta_value, updated_at = :updated_at WHERE meta_key = "version"');
+    $stmt->execute([
+        ':meta_value' => $next,
+        ':updated_at' => jg_sku_now(),
+    ]);
+    return $next;
+}
+
 function jg_sku_business_timezone(): DateTimeZone
 {
     static $timezone = null;

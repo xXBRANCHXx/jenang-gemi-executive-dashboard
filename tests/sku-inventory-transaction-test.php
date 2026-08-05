@@ -33,7 +33,7 @@ inventory_transaction_expect(
 );
 
 $helperStart = strpos($api, 'function jg_sku_inventory_adjust_lots_to_total');
-$helperEnd = strpos($api, 'function jg_sku_bump_patch', $helperStart ?: 0);
+$helperEnd = strpos($api, 'function jg_sku_next_code', $helperStart ?: 0);
 inventory_transaction_expect($helperStart !== false && $helperEnd !== false, 'The FIFO adjustment helper must be present.');
 $helper = substr($api, (int) $helperStart, (int) $helperEnd - (int) $helperStart);
 inventory_transaction_expect(
