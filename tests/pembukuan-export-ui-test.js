@@ -7,7 +7,7 @@ const page = fs.readFileSync(path.join(root, 'profit-loss', 'index.php'), 'utf8'
 const ui = fs.readFileSync(path.join(root, 'profit-loss', 'accounting.js'), 'utf8');
 const api = fs.readFileSync(path.join(root, 'api', 'accounting', 'index.php'), 'utf8');
 
-assert.match(page, /<summary class="admin-ghost-btn">Download Pembukuan<\/summary>/, 'Accounting must expose the requested Download Pembukuan action.');
+assert.match(page, /<summary class="admin-accounting-icon-action" aria-label="Download accounting reports"/, 'Accounting must expose an accessible icon-only Pembukuan download action.');
 for (const format of ['xlsx', 'pdf', 'zip']) assert.match(page, new RegExp(`data-accounting-pembukuan-export="${format}"`), `Accounting must expose ${format}.`);
 assert.match(ui, /buildUrl\('export_pembukuan',[\s\S]*format/, 'The existing Accounting script must route Pembukuan downloads through the authenticated API.');
 assert.match(ui, /'bill_id',\s*'format'/, 'The selected Pembukuan format must be preserved in the API URL.');

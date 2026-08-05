@@ -38,6 +38,22 @@ if (root) {
     return `${parts.year}-${parts.month}`;
   };
   const validMonthKey = (value) => /^\d{4}-\d{2}$/.test(String(value || ''));
+  const defaultPreferences = {
+    lists: {
+      entry_types: [['expense_paid', 'Expense paid'], ['bill_received', 'Bill received'], ['pay_bill', 'Bill paid'], ['customer_refund', 'Customer refund paid'], ['transfer', 'Money transferred'], ['manual_income', 'Other money received']],
+      brands: ['General / Shared', 'ZERO', 'Jenang Gemi', 'ZFit', 'Superfoods', 'Other'].map((value) => [value, value]),
+      channels: ['Internal', 'Shopee', 'TikTok', 'Tokopedia', 'Website', 'WhatsApp', 'Offline', 'Partner', 'Distributor', 'Reseller', 'Dropship', 'Ads', 'Production', 'Fulfillment'].map((value) => [value, value]),
+      payment_methods: ['Bank Transfer', 'Cash', 'QRIS', 'E-wallet', 'Card', 'Other'].map((value) => [value, value]),
+      receipt_statuses: [['missing', 'Missing'], ['attached', 'Attached'], ['not_required', 'Not required']],
+      income_types: [['manual_income', 'Offline customer payment'], ['manual_income', 'Website/manual invoice payment'], ['owner_injection', 'Owner injection'], ['loan_received', 'Loan received'], ['refund', 'Refund/reimbursement received'], ['manual_income', 'Other income']]
+    },
+    terms: {
+      liquid_assets: 'Liquid assets', available_now: 'Available now', expected: 'Expected', going_out: 'Going out', scheduled_outflow: 'Scheduled outflow', projected_after_bills: 'Projected after bills', daily_entry: 'Daily entry', activity_ledger: 'Activity ledger', vendor_source: 'Vendor / Source', paid_from: 'Paid From Account', category: 'Category', amount: 'Amount', brand: 'Brand', channel: 'Channel', payment_method: 'Payment Method', receipt_status: 'Receipt Status', notes: 'Notes'
+    }
+  };
+  Object.keys(defaultPreferences.lists).forEach((key) => {
+    defaultPreferences.lists[key] = defaultPreferences.lists[key].map(([value, label]) => ({ value, label, active: true }));
+  });
   const parseMonth = (monthKey) => {
     const [yearRaw, monthRaw] = String(monthKey || getMonthKey()).split('-');
     const year = Number(yearRaw);
@@ -115,16 +131,19 @@ if (root) {
     cashHistoryScope: 'all',
     partnerBills: null,
     partnerBillsRequest: 0,
-    partnerBillsScope: 'due'
+    partnerBillsScope: 'due',
+    ledgerImpact: 'all',
+    ledgerSearch: '',
+    preferences: JSON.parse(JSON.stringify(defaultPreferences))
   };
 
   const refs = {
     view: root.querySelector('[data-accounting-view]'),
     status: root.querySelector('[data-accounting-status]'),
-    refresh: root.querySelector('[data-accounting-refresh]'),
     monthInput: root.querySelector('[data-accounting-month-select]'),
-    previousMonth: root.querySelector('[data-accounting-previous-month]'),
-    currentMonth: root.querySelector('[data-accounting-current-month]'),
+    ledgerImpact: root.querySelector('[data-accounting-ledger-impact]'),
+    ledgerSearch: root.querySelector('[data-accounting-ledger-search]'),
+    ledgerClear: root.querySelector('[data-accounting-ledger-clear]'),
     dateFrom: root.querySelector('[data-accounting-date-from]'),
     dateTo: root.querySelector('[data-accounting-date-to]'),
     rangeButtons: root.querySelectorAll('[data-accounting-range]'),
@@ -192,6 +211,12 @@ if (root) {
     accountForm: root.querySelector('[data-accounting-account-form]'),
     accountNew: root.querySelector('[data-accounting-account-new]'),
     accountError: root.querySelector('[data-accounting-account-error]'),
+    settingsTabs: root.querySelectorAll('[data-accounting-settings-tab]'),
+    settingsPanels: root.querySelectorAll('[data-accounting-settings-panel]'),
+    categorySettings: root.querySelector('[data-accounting-category-settings]'),
+    optionSettings: root.querySelector('[data-accounting-option-settings]'),
+    termSettings: root.querySelector('[data-accounting-term-settings]'),
+    preferenceForms: root.querySelectorAll('[data-accounting-preferences-form]'),
     alerts: root.querySelector('[data-accounting-alerts]'),
     form: root.querySelector('[data-accounting-form]'),
     formStatus: root.querySelector('[data-accounting-form-status]'),
@@ -215,6 +240,8 @@ if (root) {
     brandSelect: root.querySelector('[data-accounting-brand-select]'),
     channelSelect: root.querySelector('[data-accounting-channel-select]'),
     incomeType: root.querySelector('[data-accounting-income-type]'),
+    paymentMethod: root.querySelector('[name="payment_method"]'),
+    receiptStatus: root.querySelector('[name="receipt_status"]'),
     billsBody: root.querySelector('[data-accounting-bills-body]'),
     transactionsBody: root.querySelector('[data-accounting-transactions-body]'),
     ledgerBody: root.querySelector('[data-accounting-ledger-body]'),
@@ -299,7 +326,8 @@ if (root) {
   const getLookupPayload = () => ({
     accounts: state.accounts,
     categories: state.categories,
-    counterparties: state.counterparties
+    counterparties: state.counterparties,
+    preferences: state.preferences
   });
 
   const applyLookupsPayload = (payload, { renderControls = true } = {}) => {
@@ -309,6 +337,12 @@ if (root) {
     state.accounts = payload.accounts;
     state.categories = payload.categories;
     state.counterparties = payload.counterparties;
+    if (payload.preferences && typeof payload.preferences === 'object') {
+      state.preferences = {
+        lists: { ...defaultPreferences.lists, ...(payload.preferences.lists || {}) },
+        terms: { ...defaultPreferences.terms, ...(payload.preferences.terms || {}) }
+      };
+    }
     state.lookupsLoaded = true;
     if (renderControls) renderLookups();
     return true;
@@ -514,6 +548,36 @@ if (root) {
     });
   };
 
+  const activeChoices = (key) => {
+    const rows = Array.isArray(state.preferences?.lists?.[key]) ? state.preferences.lists[key] : defaultPreferences.lists[key];
+    return rows.filter((row) => row && row.value !== undefined && row.label && row.active !== false && Number(row.active) !== 0);
+  };
+
+  const renderChoiceSelect = (select, key, allowedValues = null) => {
+    if (!(select instanceof HTMLSelectElement)) return;
+    const selected = select.value;
+    const rows = activeChoices(key).filter((row) => !allowedValues || allowedValues.includes(String(row.value)));
+    select.innerHTML = rows.map((row) => option(row.value, row.label, String(row.value) === selected)).join('');
+    if (rows.some((row) => String(row.value) === selected)) select.value = selected;
+  };
+
+  const applyTerminology = () => {
+    root.querySelectorAll('[data-accounting-term]').forEach((node) => {
+      const key = node.getAttribute('data-accounting-term') || '';
+      if (state.preferences?.terms?.[key]) node.textContent = state.preferences.terms[key];
+    });
+  };
+
+  const renderPreferenceDrivenControls = () => {
+    renderChoiceSelect(refs.modeSelect, 'entry_types', Object.keys(modeConfig));
+    renderChoiceSelect(refs.brandSelect, 'brands');
+    renderChoiceSelect(refs.channelSelect, 'channels');
+    renderChoiceSelect(refs.paymentMethod, 'payment_methods');
+    renderChoiceSelect(refs.receiptStatus, 'receipt_statuses', ['missing', 'attached', 'not_required']);
+    renderChoiceSelect(refs.incomeType, 'income_types', ['manual_income', 'owner_injection', 'loan_received', 'refund']);
+    applyTerminology();
+  };
+
   const renderLookups = () => {
     const openBills = state.bills.filter((bill) => ['unpaid', 'partially_paid', 'overdue'].includes(String(bill.status || '')));
     const selectedBill = refs.billSelect?.value || '';
@@ -531,6 +595,7 @@ if (root) {
         .map((item) => `<option value="${escapeHtml(item.name || '')}"></option>`)
         .join('');
     }
+    renderPreferenceDrivenControls();
     renderAccountSettings();
   };
 
@@ -1043,6 +1108,78 @@ if (root) {
 
   const editableAccounts = () => state.accounts.filter((account) => String(account.type || '') !== 'marketplace_wallet');
 
+  const settingsListMeta = {
+    entry_types: ['Entry types', 'The workflows shown under “What happened?”'],
+    brands: ['Brands', 'Business units attached to entries and bills'],
+    channels: ['Channels', 'Where the transaction or order originated'],
+    payment_methods: ['Payment methods', 'How money was paid or received'],
+    receipt_statuses: ['Receipt statuses', 'Document-completeness choices'],
+    income_types: ['Income sources', 'Types shown when other money is received']
+  };
+  const extensibleSettingsLists = new Set(['brands', 'channels', 'payment_methods']);
+  const termLabels = {
+    liquid_assets: 'Liquid assets', available_now: 'Available now', expected: 'Expected', going_out: 'Going out', scheduled_outflow: 'Scheduled outflow', projected_after_bills: 'Projected after bills', daily_entry: 'Daily entry', activity_ledger: 'Activity ledger', vendor_source: 'Vendor / Source', paid_from: 'Paid From Account', category: 'Category', amount: 'Amount', brand: 'Brand', channel: 'Channel', payment_method: 'Payment Method', receipt_status: 'Receipt Status', notes: 'Notes'
+  };
+
+  const renderOptionSettings = () => {
+    if (!refs.optionSettings) return;
+    refs.optionSettings.innerHTML = Object.entries(settingsListMeta).map(([key, [title, description]]) => {
+      const rows = Array.isArray(state.preferences?.lists?.[key]) ? state.preferences.lists[key] : [];
+      return `
+        <details class="admin-accounting-option-group" data-accounting-option-group="${escapeHtml(key)}"${key === 'entry_types' ? ' open' : ''}>
+          <summary><span><strong>${escapeHtml(title)}</strong><small>${escapeHtml(description)}</small></span><b>${rows.length}</b></summary>
+          <div class="admin-accounting-option-rows">
+            ${rows.map((row) => `
+              <div class="admin-accounting-option-row" data-accounting-option-row>
+                <label><span>Label</span><input type="text" data-accounting-option-label value="${escapeHtml(row.label || '')}" maxlength="120" required></label>
+                <label><span>Stored value</span><input type="text" data-accounting-option-value value="${escapeHtml(row.value || '')}" maxlength="80" ${extensibleSettingsLists.has(key) ? '' : 'readonly'} required></label>
+                <label class="admin-accounting-option-active"><input type="checkbox" data-accounting-option-active${row.active !== false && Number(row.active) !== 0 ? ' checked' : ''}><span>Shown</span></label>
+                ${extensibleSettingsLists.has(key) ? '<button type="button" data-accounting-option-remove aria-label="Remove choice" title="Remove choice">×</button>' : ''}
+              </div>
+            `).join('')}
+            ${extensibleSettingsLists.has(key) ? '<button type="button" class="admin-accounting-add-choice" data-accounting-option-add>+ Add choice</button>' : ''}
+          </div>
+        </details>
+      `;
+    }).join('');
+  };
+
+  const renderTermSettings = () => {
+    if (!refs.termSettings) return;
+    refs.termSettings.innerHTML = Object.entries(termLabels).map(([key, fallback]) => `
+      <label><span>${escapeHtml(fallback)}</span><input type="text" name="${escapeHtml(key)}" value="${escapeHtml(state.preferences?.terms?.[key] || fallback)}" maxlength="120" required></label>
+    `).join('');
+  };
+
+  const categoryTypes = ['income', 'expense', 'cogs_support', 'marketing', 'operations', 'payroll', 'asset', 'transfer', 'owner', 'tax', 'adjustment', 'other'];
+  const renderCategorySettings = () => {
+    if (!refs.categorySettings) return;
+    refs.categorySettings.innerHTML = `
+      <form class="admin-accounting-category-settings-form" data-accounting-category-settings-form>
+        <label><span>Category to edit</span><select name="category_id"><option value="">New category</option>${state.categories.map((category) => option(category.id, categoryLabel(category))).join('')}</select></label>
+        <div class="admin-accounting-settings-form-grid">
+          <label><span>Name</span><input type="text" name="name" maxlength="160" placeholder="e.g. Packaging supplies" required></label>
+          <label><span>Type</span><select name="type">${categoryTypes.map((type) => option(type, type.replaceAll('_', ' '))).join('')}</select></label>
+          <label><span>Parent category</span><select name="parent_id"><option value="">No parent</option>${state.categories.filter((category) => category.parent_id === null).map((category) => option(category.id, category.name)).join('')}</select></label>
+        </div>
+        <div class="admin-accounting-category-flags">
+          <label><input type="checkbox" name="requires_receipt"><span>Require a receipt</span></label>
+          <label><input type="checkbox" name="is_billable" checked><span>Available on bills and entries</span></label>
+          <label><input type="checkbox" name="is_active" checked><span>Active</span></label>
+        </div>
+        <p class="admin-form-error" data-accounting-category-settings-error hidden></p>
+        <div><button type="reset" class="admin-ghost-btn">New category</button><button type="submit" class="admin-primary-btn">Save category</button></div>
+      </form>
+    `;
+  };
+
+  const renderSettingsWorkspace = () => {
+    renderAccountSettings();
+    renderCategorySettings();
+    renderOptionSettings();
+    renderTermSettings();
+  };
+
   const renderAccountSettings = () => {
     if (!refs.accountList) return;
     const accounts = editableAccounts();
@@ -1078,10 +1215,64 @@ if (root) {
 
   const openAccountSettings = () => {
     if (!refs.accountSettings) return;
-    renderAccountSettings();
+    renderSettingsWorkspace();
     fillAccountForm(editableAccounts()[0] || null);
+    activateSettingsTab('accounts');
     refs.accountSettings.hidden = false;
     refs.accountSettingsCard?.focus();
+  };
+
+  const activateSettingsTab = (tab) => {
+    refs.settingsTabs.forEach((button) => button.classList.toggle('is-active', button.dataset.accountingSettingsTab === tab));
+    refs.settingsPanels.forEach((panel) => { panel.hidden = panel.dataset.accountingSettingsPanel !== tab; });
+  };
+
+  const submitPreferences = async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (!(form instanceof HTMLFormElement)) return;
+    const preferences = JSON.parse(JSON.stringify(state.preferences));
+    if (form.dataset.accountingPreferencesForm === 'lists') {
+      refs.optionSettings?.querySelectorAll('[data-accounting-option-group]').forEach((group) => {
+        const key = group.getAttribute('data-accounting-option-group') || '';
+        preferences.lists[key] = [...group.querySelectorAll('[data-accounting-option-row]')].map((row) => ({
+          value: row.querySelector('[data-accounting-option-value]')?.value.trim() || '',
+          label: row.querySelector('[data-accounting-option-label]')?.value.trim() || '',
+          active: Boolean(row.querySelector('[data-accounting-option-active]')?.checked)
+        })).filter((row) => row.value && row.label);
+      });
+    } else {
+      new FormData(form).forEach((value, key) => { preferences.terms[key] = String(value).trim(); });
+    }
+    try {
+      const payload = await requestJson(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'save_ui_preferences', preferences }) });
+      state.preferences = payload.data?.result?.preferences || preferences;
+      renderPreferenceDrivenControls();
+      renderSettingsWorkspace();
+      writeCacheEntry(ACCOUNTING_LOOKUPS_CACHE_KEY, getLookupPayload());
+      showToast('Accounting settings saved.');
+    } catch (error) {
+      showToast(error?.message || 'Unable to save accounting settings.', true);
+    }
+  };
+
+  const submitCategorySettings = async (form) => {
+    const data = new FormData(form);
+    const payload = Object.fromEntries(data.entries());
+    payload.action = 'save_category';
+    payload.requires_receipt = data.has('requires_receipt') ? '1' : '0';
+    payload.is_billable = data.has('is_billable') ? '1' : '0';
+    payload.is_active = data.has('is_active') ? '1' : '0';
+    try {
+      await requestJson(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      state.lookupsLoaded = false;
+      await loadLookups(true);
+      renderSettingsWorkspace();
+      showToast('Category saved.');
+    } catch (error) {
+      const node = form.querySelector('[data-accounting-category-settings-error]');
+      if (node) { node.hidden = false; node.textContent = error?.message || 'Unable to save category.'; }
+    }
   };
 
   const closeAccountSettings = () => {
@@ -1285,10 +1476,26 @@ if (root) {
 
   const renderLedger = () => {
     if (!refs.ledgerBody) return;
-    const rows = state.ledger;
-    if (refs.ledgerMeta) refs.ledgerMeta.textContent = `${rows.length.toLocaleString('id-ID')} entries · manual + automatic`;
+    const query = state.ledgerSearch.trim().toLowerCase();
+    const rows = state.ledger.filter((row) => {
+      const impact = String(row.impact || '');
+      const impactMatches = state.ledgerImpact === 'all'
+        || impact === state.ledgerImpact
+        || (state.ledgerImpact === 'transfer' && /transfer/i.test(`${row.title || ''} ${row.subtitle || ''}`));
+      if (!impactMatches) return false;
+      if (!query) return true;
+      return [row.title, row.subtitle, row.account, row.status, row.kind, row.date]
+        .some((value) => String(value || '').toLowerCase().includes(query));
+    });
+    if (refs.ledgerMeta) {
+      const total = state.ledger.length;
+      refs.ledgerMeta.textContent = rows.length === total
+        ? `${total.toLocaleString('id-ID')} entries · manual + automatic`
+        : `${rows.length.toLocaleString('id-ID')} of ${total.toLocaleString('id-ID')} entries`;
+    }
+    refs.ledgerClear?.classList.toggle('is-visible', Boolean(query || state.ledgerImpact !== 'all' || state.month !== getMonthKey()));
     if (!rows.length) {
-      refs.ledgerBody.innerHTML = '<p class="admin-empty">No entries for this month yet.</p>';
+      refs.ledgerBody.innerHTML = `<p class="admin-empty">${state.ledger.length ? 'No entries match these filters.' : 'No entries for this month yet.'}</p>`;
       return;
     }
     refs.ledgerBody.innerHTML = rows.map((row) => {
@@ -1400,8 +1607,9 @@ if (root) {
       const drawerAccountRole = kind === 'bill' || item.direction !== 'money_in' ? 'pay' : 'receive';
       const accountOptions = [option('', 'Choose account'), ...accountOptionsForRole(drawerAccountRole)
         .map((account) => option(account.id, account.name, Number(account.id) === Number(item.account_id || item.expected_account_id)))].join('');
-      const receiptOptions = ['missing', 'attached', 'not_required']
-        .map((status) => option(status, status.replace(/_/g, ' '), status === item.receipt_status)).join('');
+      const receiptOptions = activeChoices('receipt_statuses')
+        .filter((row) => ['missing', 'attached', 'not_required'].includes(String(row.value)))
+        .map((row) => option(row.value, row.label, String(row.value) === item.receipt_status)).join('');
       refs.drawerBody.innerHTML = kind === 'bill' ? `
         <form class="admin-accounting-edit-form" data-accounting-edit-form data-kind="bill" data-id="${escapeHtml(String(item.id))}">
           <label><span>Bill / invoice no.</span><input name="bill_no" value="${escapeHtml(item.bill_no || '')}"></label>
@@ -1467,15 +1675,17 @@ if (root) {
       const cached = readCacheEntry(ACCOUNTING_LOOKUPS_CACHE_KEY);
       if (cached && applyLookupsPayload(cached.data)) return;
     }
-    const [accounts, categories, counterparties] = await Promise.all([
+    const [accounts, categories, counterparties, preferences] = await Promise.all([
       requestJson(buildUrl('accounts', { cacheBust: force })),
       requestJson(buildUrl('categories', { cacheBust: force })),
-      requestJson(buildUrl('counterparties', { cacheBust: force }))
+      requestJson(buildUrl('counterparties', { cacheBust: force })),
+      requestJson(buildUrl('ui_preferences', { cacheBust: force }))
     ]);
     const payload = {
       accounts: Array.isArray(accounts.data?.accounts) ? accounts.data.accounts : [],
       categories: Array.isArray(categories.data?.categories) ? categories.data.categories : [],
-      counterparties: Array.isArray(counterparties.data?.counterparties) ? counterparties.data.counterparties : []
+      counterparties: Array.isArray(counterparties.data?.counterparties) ? counterparties.data.counterparties : [],
+      preferences: preferences.data?.preferences || defaultPreferences
     };
     applyLookupsPayload(payload);
     writeCacheEntry(ACCOUNTING_LOOKUPS_CACHE_KEY, payload);
@@ -1674,6 +1884,27 @@ if (root) {
       await loadSafely(false);
     });
   }
+  refs.ledgerImpact?.addEventListener('change', () => {
+    state.ledgerImpact = refs.ledgerImpact?.value || 'all';
+    renderLedger();
+  });
+  refs.ledgerSearch?.addEventListener('input', () => {
+    state.ledgerSearch = refs.ledgerSearch?.value || '';
+    renderLedger();
+  });
+  refs.ledgerClear?.addEventListener('click', async () => {
+    const monthChanged = state.month !== getMonthKey();
+    state.ledgerImpact = 'all';
+    state.ledgerSearch = '';
+    if (refs.ledgerImpact) refs.ledgerImpact.value = 'all';
+    if (refs.ledgerSearch) refs.ledgerSearch.value = '';
+    if (monthChanged) {
+      state.month = getMonthKey();
+      await loadSafely(false);
+    } else {
+      renderLedger();
+    }
+  });
 
   refs.rangeButtons.forEach((button) => {
     button.addEventListener('click', async () => {
@@ -1746,14 +1977,6 @@ if (root) {
   refs.form?.addEventListener('reset', () => {
     if (resettingForm) return;
     window.setTimeout(resetForm, 0);
-  });
-  refs.previousMonth?.addEventListener('click', async () => {
-    state.month = lastMonthKey();
-    await loadSafely(false);
-  });
-  refs.currentMonth?.addEventListener('click', async () => {
-    state.month = getMonthKey();
-    await loadSafely(false);
   });
   refs.alerts?.addEventListener('click', (event) => {
     const billTarget = event.target instanceof Element ? event.target.closest('[data-accounting-alert-bills]') : null;
@@ -1849,7 +2072,6 @@ if (root) {
       renderInsights(state.summary);
     });
   });
-  refs.refresh?.addEventListener('click', async () => loadSafely(true));
   refs.cashHistoryOpenButtons.forEach((button) => {
     button.addEventListener('click', () => openCashHistory(button.dataset.accountingCashHistoryOpen || 'all'));
   });
@@ -1962,6 +2184,44 @@ if (root) {
   });
   refs.settingsButton?.addEventListener('click', openAccountSettings);
   refs.accountSettingsCloseButtons.forEach((button) => button.addEventListener('click', closeAccountSettings));
+  refs.settingsTabs.forEach((button) => button.addEventListener('click', () => activateSettingsTab(button.dataset.accountingSettingsTab || 'accounts')));
+  refs.preferenceForms.forEach((form) => form.addEventListener('submit', submitPreferences));
+  refs.optionSettings?.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    const remove = target?.closest('[data-accounting-option-remove]');
+    if (remove) {
+      remove.closest('[data-accounting-option-row]')?.remove();
+      return;
+    }
+    const add = target?.closest('[data-accounting-option-add]');
+    if (!add) return;
+    const rows = add.closest('.admin-accounting-option-rows');
+    const row = document.createElement('div');
+    row.className = 'admin-accounting-option-row';
+    row.dataset.accountingOptionRow = '';
+    row.innerHTML = '<label><span>Label</span><input type="text" data-accounting-option-label maxlength="120" required></label><label><span>Stored value</span><input type="text" data-accounting-option-value maxlength="80" placeholder="Unique value" required></label><label class="admin-accounting-option-active"><input type="checkbox" data-accounting-option-active checked><span>Shown</span></label><button type="button" data-accounting-option-remove aria-label="Remove choice" title="Remove choice">×</button>';
+    rows?.insertBefore(row, add);
+    row.querySelector('input')?.focus();
+  });
+  refs.categorySettings?.addEventListener('change', (event) => {
+    const select = event.target;
+    if (!(select instanceof HTMLSelectElement) || select.name !== 'category_id') return;
+    const form = select.closest('form');
+    if (!(form instanceof HTMLFormElement)) return;
+    const category = state.categories.find((item) => Number(item.id) === Number(select.value));
+    form.elements.name.value = category?.name || '';
+    form.elements.type.value = category?.type || 'expense';
+    form.elements.parent_id.value = category?.parent_id ? String(category.parent_id) : '';
+    form.elements.requires_receipt.checked = Boolean(Number(category?.requires_receipt || 0));
+    form.elements.is_billable.checked = category ? Boolean(Number(category.is_billable)) : true;
+    form.elements.is_active.checked = true;
+  });
+  refs.categorySettings?.addEventListener('submit', (event) => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement) || !form.matches('[data-accounting-category-settings-form]')) return;
+    event.preventDefault();
+    submitCategorySettings(form);
+  });
   refs.accountNew?.addEventListener('click', () => fillAccountForm());
   refs.accountList?.addEventListener('click', (event) => {
     const target = event.target instanceof Element ? event.target.closest('[data-accounting-account-edit]') : null;

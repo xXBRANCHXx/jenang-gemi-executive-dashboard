@@ -171,6 +171,11 @@ function jg_accounting_ensure_schema(PDO $pdo): void
             version VARCHAR(80) NOT NULL PRIMARY KEY,
             applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+        'CREATE TABLE IF NOT EXISTS accounting_ui_preferences (
+            preference_key VARCHAR(80) NOT NULL PRIMARY KEY,
+            preference_json LONGTEXT NOT NULL,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
         'CREATE TABLE IF NOT EXISTS accounting_accounts (
             id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
             account_key VARCHAR(80) UNIQUE NOT NULL,
@@ -1046,6 +1051,141 @@ function jg_accounting_categories(PDO $pdo): array
         'requires_receipt' => (int) $row['requires_receipt'],
         'is_billable' => (int) $row['is_billable'],
     ], $rows);
+}
+
+function jg_accounting_default_ui_preferences(): array
+{
+    $choice = static fn (string $value, string $label): array => [
+        'value' => $value,
+        'label' => $label,
+        'active' => true,
+    ];
+    return [
+        'lists' => [
+            'entry_types' => [
+                $choice('expense_paid', 'Expense paid'),
+                $choice('bill_received', 'Bill received'),
+                $choice('pay_bill', 'Bill paid'),
+                $choice('customer_refund', 'Customer refund paid'),
+                $choice('transfer', 'Money transferred'),
+                $choice('manual_income', 'Other money received'),
+            ],
+            'brands' => array_map(static fn (string $value): array => $choice($value, $value), ['General / Shared', 'ZERO', 'Jenang Gemi', 'ZFit', 'Superfoods', 'Other']),
+            'channels' => array_map(static fn (string $value): array => $choice($value, $value), ['Internal', 'Shopee', 'TikTok', 'Tokopedia', 'Website', 'WhatsApp', 'Offline', 'Partner', 'Distributor', 'Reseller', 'Dropship', 'Ads', 'Production', 'Fulfillment']),
+            'payment_methods' => array_map(static fn (string $value): array => $choice($value, $value), ['Bank Transfer', 'Cash', 'QRIS', 'E-wallet', 'Card', 'Other']),
+            'receipt_statuses' => [
+                $choice('missing', 'Missing'),
+                $choice('attached', 'Attached'),
+                $choice('not_required', 'Not required'),
+            ],
+            'income_types' => [
+                $choice('manual_income', 'Offline customer payment'),
+                $choice('manual_income', 'Website/manual invoice payment'),
+                $choice('owner_injection', 'Owner injection'),
+                $choice('loan_received', 'Loan received'),
+                $choice('refund', 'Refund/reimbursement received'),
+                $choice('manual_income', 'Other income'),
+            ],
+        ],
+        'terms' => [
+            'liquid_assets' => 'Liquid assets',
+            'available_now' => 'Available now',
+            'expected' => 'Expected',
+            'going_out' => 'Going out',
+            'scheduled_outflow' => 'Scheduled outflow',
+            'projected_after_bills' => 'Projected after bills',
+            'daily_entry' => 'Daily entry',
+            'activity_ledger' => 'Activity ledger',
+            'vendor_source' => 'Vendor / Source',
+            'paid_from' => 'Paid From Account',
+            'category' => 'Category',
+            'amount' => 'Amount',
+            'brand' => 'Brand',
+            'channel' => 'Channel',
+            'payment_method' => 'Payment Method',
+            'receipt_status' => 'Receipt Status',
+            'notes' => 'Notes',
+        ],
+    ];
+}
+
+function jg_accounting_ui_preferences(PDO $pdo): array
+{
+    $defaults = jg_accounting_default_ui_preferences();
+    try {
+        $stmt = $pdo->prepare('SELECT preference_json FROM accounting_ui_preferences WHERE preference_key = :preference_key LIMIT 1');
+        $stmt->execute([':preference_key' => 'accounting_workspace']);
+        $stored = $stmt->fetchColumn();
+    } catch (Throwable) {
+        return $defaults;
+    }
+    if (!is_string($stored) || $stored === '') {
+        return $defaults;
+    }
+    $decoded = json_decode($stored, true);
+    if (!is_array($decoded)) {
+        return $defaults;
+    }
+    return [
+        'lists' => is_array($decoded['lists'] ?? null) ? array_replace($defaults['lists'], $decoded['lists']) : $defaults['lists'],
+        'terms' => is_array($decoded['terms'] ?? null) ? array_replace($defaults['terms'], $decoded['terms']) : $defaults['terms'],
+    ];
+}
+
+function jg_accounting_save_ui_preferences(PDO $pdo, array $body): array
+{
+    $incoming = is_array($body['preferences'] ?? null) ? $body['preferences'] : $body;
+    $current = jg_accounting_ui_preferences($pdo);
+    $defaults = jg_accounting_default_ui_preferences();
+    $lists = $current['lists'];
+    foreach ($defaults['lists'] as $key => $fallbackRows) {
+        if (!is_array($incoming['lists'][$key] ?? null)) {
+            continue;
+        }
+        $rows = [];
+        foreach (array_slice($incoming['lists'][$key], 0, 80) as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $value = jg_accounting_text($row['value'] ?? '', 80);
+            $label = jg_accounting_text($row['label'] ?? '', 120);
+            if ($value === '' || $label === '') {
+                continue;
+            }
+            $rows[] = ['value' => $value, 'label' => $label, 'active' => jg_accounting_bool($row['active'] ?? true)];
+        }
+        if ($rows !== []) {
+            $lists[$key] = $rows;
+        }
+    }
+    $terms = $current['terms'];
+    foreach ($defaults['terms'] as $key => $fallback) {
+        if (!array_key_exists($key, $incoming['terms'] ?? [])) {
+            continue;
+        }
+        $label = jg_accounting_text($incoming['terms'][$key], 120);
+        $terms[$key] = $label !== '' ? $label : $fallback;
+    }
+    $preferences = ['lists' => $lists, 'terms' => $terms];
+    $json = json_encode($preferences, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if (!is_string($json)) {
+        jg_accounting_error('Unable to encode accounting settings.', 422);
+    }
+    if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
+        $stmt = $pdo->prepare(
+            'INSERT INTO accounting_ui_preferences (preference_key, preference_json, updated_at)
+             VALUES (:preference_key, :preference_json, CURRENT_TIMESTAMP)
+             ON CONFLICT(preference_key) DO UPDATE SET preference_json = excluded.preference_json, updated_at = CURRENT_TIMESTAMP'
+        );
+    } else {
+        $stmt = $pdo->prepare(
+            'INSERT INTO accounting_ui_preferences (preference_key, preference_json, updated_at)
+             VALUES (:preference_key, :preference_json, UTC_TIMESTAMP())
+             ON DUPLICATE KEY UPDATE preference_json = VALUES(preference_json), updated_at = UTC_TIMESTAMP()'
+        );
+    }
+    $stmt->execute([':preference_key' => 'accounting_workspace', ':preference_json' => $json]);
+    return ['preferences' => $preferences];
 }
 
 function jg_accounting_counterparties(PDO $pdo, string $search = ''): array
@@ -4062,6 +4202,75 @@ function jg_accounting_create_category(PDO $pdo, array $body): array
         ':requires_receipt' => jg_accounting_bool($body['requires_receipt'] ?? false) ? 1 : 0,
     ]);
     return ['id' => (int) $pdo->lastInsertId()];
+}
+
+function jg_accounting_save_category(PDO $pdo, array $body): array
+{
+    $id = (int) ($body['category_id'] ?? $body['id'] ?? 0);
+    $name = jg_accounting_text($body['name'] ?? '', 160);
+    if ($name === '') {
+        jg_accounting_error('Category name is required.', 422, 'name');
+    }
+    $allowedTypes = ['income','expense','cogs_support','marketing','operations','payroll','asset','transfer','owner','tax','adjustment','other'];
+    $type = jg_accounting_text($body['type'] ?? 'expense', 40);
+    if (!in_array($type, $allowedTypes, true)) {
+        jg_accounting_error('Choose a valid category type.', 422, 'type');
+    }
+    $parentId = (int) ($body['parent_id'] ?? 0);
+    $parentId = $parentId > 0 && $parentId !== $id ? $parentId : null;
+    $requiresReceipt = jg_accounting_bool($body['requires_receipt'] ?? false) ? 1 : 0;
+    $isBillable = jg_accounting_bool($body['is_billable'] ?? true) ? 1 : 0;
+    $isActive = jg_accounting_bool($body['is_active'] ?? true) ? 1 : 0;
+    if ($id > 0) {
+        $stmt = $pdo->prepare(
+            'UPDATE accounting_categories
+             SET name = :name, type = :type, parent_id = :parent_id, requires_receipt = :requires_receipt,
+                 is_billable = :is_billable, is_active = :is_active
+             WHERE id = :id'
+        );
+        $stmt->execute([
+            ':name' => $name,
+            ':type' => $type,
+            ':parent_id' => $parentId,
+            ':requires_receipt' => $requiresReceipt,
+            ':is_billable' => $isBillable,
+            ':is_active' => $isActive,
+            ':id' => $id,
+        ]);
+        if ($stmt->rowCount() === 0) {
+            $exists = $pdo->prepare('SELECT COUNT(*) FROM accounting_categories WHERE id = :id');
+            $exists->execute([':id' => $id]);
+            if ((int) $exists->fetchColumn() === 0) {
+                jg_accounting_error('Category was not found.', 404, 'category_id');
+            }
+        }
+    } else {
+        $key = strtolower(trim(preg_replace('/[^a-z0-9]+/i', '-', $name) ?? '', '-')) ?: jg_accounting_key('category');
+        $exists = $pdo->prepare('SELECT COUNT(*) FROM accounting_categories WHERE category_key = :category_key');
+        $exists->execute([':category_key' => $key]);
+        if ((int) $exists->fetchColumn() > 0) {
+            $key = mb_substr($key, 0, 69) . '-' . bin2hex(random_bytes(4));
+        }
+        $sortOrder = (int) ($pdo->query('SELECT COALESCE(MAX(sort_order), 0) + 10 FROM accounting_categories')->fetchColumn() ?: 100);
+        $stmt = $pdo->prepare(
+            'INSERT INTO accounting_categories
+                (category_key, parent_id, name, type, requires_receipt, is_billable, is_active, sort_order)
+             VALUES
+                (:category_key, :parent_id, :name, :type, :requires_receipt, :is_billable, :is_active, :sort_order)'
+        );
+        $stmt->execute([
+            ':category_key' => mb_substr($key, 0, 80),
+            ':parent_id' => $parentId,
+            ':name' => $name,
+            ':type' => $type,
+            ':requires_receipt' => $requiresReceipt,
+            ':is_billable' => $isBillable,
+            ':is_active' => $isActive,
+            ':sort_order' => $sortOrder,
+        ]);
+        $id = (int) $pdo->lastInsertId();
+    }
+    return ['category_id' => $id];
 }
 
 function jg_accounting_mark_review_resolved(PDO $pdo, array $body): array

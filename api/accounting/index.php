@@ -187,6 +187,11 @@ try {
                 'categories' => jg_accounting_categories($pdo),
             ], $month));
         }
+        if ($action === 'ui_preferences') {
+            jg_accounting_json(jg_accounting_endpoint_payload([
+                'preferences' => jg_accounting_ui_preferences($pdo),
+            ], $month));
+        }
         if ($action === 'counterparties') {
             jg_accounting_json(jg_accounting_endpoint_payload([
                 'counterparties' => jg_accounting_counterparties($pdo, (string) ($_GET['q'] ?? $_GET['search'] ?? '')),
@@ -249,7 +254,9 @@ try {
             ];
         })(),
         'create_category' => jg_accounting_create_category($pdo, $body),
+        'save_category' => jg_accounting_save_category($pdo, $body),
         'save_account' => jg_accounting_save_account($pdo, $body),
+        'save_ui_preferences' => jg_accounting_save_ui_preferences($pdo, $body),
         'mark_review_resolved' => jg_accounting_mark_review_resolved($pdo, $body),
         'reconcile_cash' => jg_accounting_create_cash_reconciliation($pdo, $body),
         default => null,

@@ -24,6 +24,11 @@ expect(html.includes('data-accounting-kpi="available-now"'), 'Accounting must gr
 expect(html.includes('data-accounting-kpi="expected-total"'), 'Accounting must group expected marketplace and partner receivables.');
 expect((html.match(/admin-liquidity-metric-icon/g) || []).length === 3, 'Each liquid asset overview card must have a category icon.');
 expect(html.includes('data-accounting-account-settings'), 'Accounting must allow future payment and receipt accounts to be configured.');
+expect(!html.includes('data-accounting-refresh'), 'Accounting must not expose a redundant manual refresh button.');
+expect(!html.includes('data-accounting-previous-month'), 'Month navigation must not live in the top command bar.');
+expect(html.indexOf('data-accounting-month-select') > html.indexOf('id="accounting-ledger"'), 'The month picker must live inside the ledger filters.');
+expect(html.includes('data-accounting-ledger-impact') && html.includes('data-accounting-ledger-search'), 'The ledger must provide useful activity and search filters.');
+expect(html.includes('data-accounting-settings-tab="lists"') && html.includes('data-accounting-settings-tab="language"'), 'Accounting settings must manage dropdown choices and interface language.');
 expect(html.includes('data-accounting-category-search'), 'The primary category selector must have live search.');
 expect(html.indexOf('data-accounting-category-menu') < html.indexOf('data-accounting-category-search'), 'Category search must live inside the dropdown menu.');
 expect(!html.includes('data-accounting-category-select'), 'Category selection must not use an expanded native select.');
@@ -36,6 +41,7 @@ expect(script.includes("action: 'reconcile_cash'"), 'The reconciliation UI must 
 expect(script.includes('accountOptionsForRole'), 'Paid-from and received-into options must be filtered by account role.');
 expect(script.includes("String(account.type || '') !== 'marketplace_wallet'"), 'Marketplace wallets must never appear as entry accounts.');
 expect(script.includes("action: 'save_account'"), 'Account role settings must persist through the Accounting API.');
+expect(script.includes("action: 'save_ui_preferences'"), 'Dropdown and terminology settings must persist through the Accounting API.');
 expect(script.includes('<small>Ready to withdraw</small>'), 'Expected-money breakdowns must distinguish withdrawable cash from outstanding orders.');
 expect(script.includes('data-accounting-receivable-partner="due"'), 'Unpaid partner bills must drill down from expected receivables.');
 expect(script.includes("openBillsBreakdown('scheduled')"), 'Scheduled outflow must open supplier bill details.');
