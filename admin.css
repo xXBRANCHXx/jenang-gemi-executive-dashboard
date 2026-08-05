@@ -18579,7 +18579,9 @@ body:has(.admin-app[data-sku-db])::after {
 
 .admin-app[data-sku-db] .admin-sku-tierbar {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 8px;
   min-height: 44px;
 }
 
@@ -18609,6 +18611,68 @@ body:has(.admin-app[data-sku-db])::after {
   border-color: color-mix(in srgb, var(--sku-ink) 34%, transparent);
   background: color-mix(in srgb, var(--sku-ink) 10%, transparent);
   outline: none;
+}
+
+.admin-app[data-sku-db] .admin-sku-costs-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 44px;
+  padding: 5px 10px 5px 6px;
+  border: 1px solid color-mix(in srgb, var(--admin-accent-primary) 34%, var(--sku-line));
+  border-radius: var(--sku-control-radius);
+  background: color-mix(in srgb, var(--admin-accent-primary) 6%, var(--sku-panel-strong));
+  color: var(--sku-ink);
+  text-decoration: none;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.admin-app[data-sku-db] .admin-sku-costs-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: var(--admin-accent-primary);
+  color: #0a0d08;
+}
+
+.admin-app[data-sku-db] .admin-sku-costs-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.admin-app[data-sku-db] .admin-sku-costs-link > span:nth-child(2) {
+  display: grid;
+  gap: 1px;
+  line-height: 1.05;
+}
+
+.admin-app[data-sku-db] .admin-sku-costs-link strong {
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.admin-app[data-sku-db] .admin-sku-costs-link small {
+  color: var(--sku-muted);
+  font-size: 0.61rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-app[data-sku-db] .admin-sku-costs-arrow {
+  color: var(--admin-accent-primary);
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.admin-app[data-sku-db] .admin-sku-costs-link:hover,
+.admin-app[data-sku-db] .admin-sku-costs-link:focus-visible {
+  border-color: var(--admin-accent-primary);
+  background: color-mix(in srgb, var(--admin-accent-primary) 11%, var(--sku-panel-strong));
+  outline: none;
+  transform: translateY(-1px);
 }
 
 .admin-app[data-sku-db] :where(
@@ -26479,6 +26543,12 @@ body:has(.admin-app[data-sku-db])::after {
   background: #ffffff;
   color: #111827;
   box-shadow: 0 14px 36px rgba(15, 23, 42, 0.06);
+}
+
+:root[data-admin-theme='light'] .admin-app[data-sku-db] .admin-sku-costs-link {
+  border-color: color-mix(in srgb, var(--admin-accent-primary) 52%, rgba(15, 23, 42, 0.12));
+  background: color-mix(in srgb, var(--admin-accent-primary) 8%, #ffffff);
+  color: #111827;
 }
 
 :root[data-admin-theme='light'] .admin-app[data-sku-db] .admin-sku-preview-surface,

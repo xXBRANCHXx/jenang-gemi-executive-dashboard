@@ -9,7 +9,9 @@ if (root) {
     refresh: root.querySelector('[data-cost-refresh]'),
     status: root.querySelector('[data-cost-status]'),
     rows: root.querySelector('[data-cost-rows]'),
-    kpis: Object.fromEntries([...root.querySelectorAll('[data-cost-kpi]')].map((node) => [node.dataset.costKpi, node])),
+    missing: root.querySelector('[data-cost-missing]'),
+    missingLabel: root.querySelector('[data-cost-missing-label]'),
+    readiness: root.querySelector('[data-cost-readiness]'),
     packingModal: document.querySelector('[data-packing-modal]'),
     packingForm: document.querySelector('[data-packing-form]'),
     packingTitle: document.querySelector('[data-packing-title]'),
@@ -57,10 +59,10 @@ if (root) {
     const query = state.search.trim().toLowerCase();
     const filtered = state.groups.filter((group) => !query || [group.brandName, group.productName, group.volume, ...group.rows.flatMap((row) => [row.sku, row.tag, row.flavor_name])].join(' ').toLowerCase().includes(query));
     const counts = state.groups.reduce((result, group) => ({ ...result, [group.status]: (result[group.status] || 0) + 1 }), {});
-    refs.kpis.missing.textContent = String(counts.missing || 0);
-    refs.kpis.complete.textContent = String(counts.complete || 0);
-    refs.kpis['not-required'].textContent = String(counts.not_required || 0);
-    refs.kpis.period.textContent = state.period?.label || '—';
+    const missingCount = counts.missing || 0;
+    refs.missing.textContent = String(missingCount);
+    refs.missingLabel.textContent = missingCount === 1 ? 'needs packing price' : 'need packing price';
+    refs.readiness.classList.toggle('is-complete', missingCount === 0);
     refs.rows.innerHTML = filtered.length ? filtered.map((group) => `
       <tr class="is-${group.status}">
         <td data-col="Status"><span class="product-costs-status is-${group.status}"><i></i>${statusLabel(group.status)}</span></td>

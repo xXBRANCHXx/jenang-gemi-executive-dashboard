@@ -59,16 +59,15 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/product-costs.js');
                     <p data-cost-status>Loading product costs…</p>
                 </section>
 
-                <section class="product-costs-kpis" aria-label="Packing readiness">
-                    <article class="is-missing"><span>Needs packing price</span><strong data-cost-kpi="missing">0</strong><small>Product-volume groups still incomplete</small></article>
-                    <article class="is-complete"><span>Ready</span><strong data-cost-kpi="complete">0</strong><small>Monthly packing price saved</small></article>
-                    <article><span>No packing</span><strong data-cost-kpi="not-required">0</strong><small>Explicitly excluded groups</small></article>
-                    <article><span>Target month</span><strong data-cost-kpi="period">—</strong><small>Prices apply only to this month</small></article>
-                </section>
-
                 <section class="product-costs-panel">
                     <div class="product-costs-panel-head">
-                        <div><span>Grouped editing</span><h2>Product and volume costs</h2></div>
+                        <div>
+                            <span>Grouped editing</span>
+                            <div class="product-costs-title-line">
+                                <h2>Product and volume costs</h2>
+                                <p class="product-costs-readiness" data-cost-readiness><i></i><strong data-cost-missing>0</strong> <span data-cost-missing-label>need packing price</span></p>
+                            </div>
+                        </div>
                         <p>One edit updates every flavor and variant in the same product family and volume.</p>
                     </div>
                     <div class="admin-table-wrap product-costs-table-wrap">

@@ -108,7 +108,13 @@ $pageBuildVersion = 'sku1.00.01';
                     <?php else: ?>
                         <button type="button" class="admin-sku-tier-button" data-branch-tier-open>Admin</button>
                     <?php endif; ?>
-                    <a class="admin-primary-btn" href="../product-costs/">Manage COGS &amp; Packing</a>
+                    <a class="admin-sku-costs-link" href="../product-costs/">
+                        <span class="admin-sku-costs-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none"><path d="M4.5 7.5 12 3.8l7.5 3.7v9L12 20.2l-7.5-3.7v-9ZM4.8 7.7l7.2 3.6 7.2-3.6M12 11.3v8.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </span>
+                        <span><strong>Product Costs</strong><small>COGS + packing</small></span>
+                        <span class="admin-sku-costs-arrow" aria-hidden="true">→</span>
+                    </a>
                 </div>
 
                 <main class="admin-layout admin-sku-layout">

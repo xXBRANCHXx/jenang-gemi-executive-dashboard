@@ -7,18 +7,18 @@
 .product-costs-controls label span { color: var(--admin-muted); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
 .product-costs-controls input { width: 100%; min-height: 44px; border: 1px solid var(--admin-border); border-radius: 12px; padding: 0 13px; background: var(--admin-surface-soft); color: var(--admin-text); font: inherit; }
 .product-costs-controls p { grid-column: 1 / -1; margin: 0; color: var(--admin-muted); font-size: 13px; }
-.product-costs-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-.product-costs-kpis article { display: grid; gap: 5px; padding: 17px 18px; border: 1px solid var(--admin-border); border-radius: 18px; background: var(--admin-surface); }
-.product-costs-kpis span, .product-costs-kpis small { color: var(--admin-muted); }
-.product-costs-kpis span { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; }
-.product-costs-kpis strong { font: 700 25px/1.1 "Space Grotesk", sans-serif; }
-.product-costs-kpis .is-missing strong { color: #f97373; }
-.product-costs-kpis .is-complete strong { color: #4ade80; }
 .product-costs-panel { overflow: hidden; border: 1px solid var(--admin-border); border-radius: 22px; background: var(--admin-surface); }
 .product-costs-panel-head { display: flex; justify-content: space-between; gap: 20px; align-items: end; padding: 20px; border-bottom: 1px solid var(--admin-border); }
-.product-costs-panel-head span { color: var(--admin-muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; }
+.product-costs-panel-head > div > span { color: var(--admin-muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; }
 .product-costs-panel-head h2 { margin: 4px 0 0; font-size: 21px; }
 .product-costs-panel-head p { max-width: 520px; margin: 0; color: var(--admin-muted); font-size: 13px; text-align: right; }
+.product-costs-title-line { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.product-costs-panel-head .product-costs-readiness { display: inline-flex; align-items: center; gap: 5px; color: #fb7185; font-size: 12px; font-weight: 700; text-align: left; white-space: nowrap; }
+.product-costs-readiness span { color: inherit; font: inherit; letter-spacing: 0; text-transform: none; }
+.product-costs-readiness i { width: 7px; height: 7px; border-radius: 50%; background: #f43f5e; box-shadow: 0 0 0 4px color-mix(in srgb, #f43f5e 14%, transparent); }
+.product-costs-readiness strong { color: inherit; }
+.product-costs-readiness.is-complete { color: #4ade80; }
+.product-costs-readiness.is-complete i { background: #22c55e; box-shadow: 0 0 0 4px color-mix(in srgb, #22c55e 14%, transparent); }
 .product-costs-table td small { display: block; max-width: 390px; margin-top: 4px; color: var(--admin-muted); line-height: 1.4; }
 .product-costs-table tr.is-missing { background: color-mix(in srgb, #ef4444 7%, transparent); }
 .product-costs-status { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; font-size: 12px; font-weight: 800; }
@@ -66,7 +66,6 @@
   .product-costs-head-actions { align-items: flex-end; flex-direction: column-reverse; }
   .product-costs-controls { grid-template-columns: 1fr auto; }
   .product-costs-search { grid-column: 1 / -1; grid-row: 2; }
-  .product-costs-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .product-costs-panel-head { align-items: flex-start; flex-direction: column; }
   .product-costs-panel-head p { text-align: left; }
 }
@@ -76,7 +75,6 @@
   .product-costs-head-actions > .admin-ghost-btn { width: 100%; justify-content: center; }
   .product-costs-controls { grid-template-columns: 1fr; }
   .product-costs-search { grid-column: auto; grid-row: auto; }
-  .product-costs-kpis { grid-template-columns: 1fr; }
   .product-costs-table thead { display: none; }
   .product-costs-table, .product-costs-table tbody, .product-costs-table tr, .product-costs-table td { display: block; width: 100%; }
   .product-costs-table tr { padding: 12px; border-bottom: 1px solid var(--admin-border); }
