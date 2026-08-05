@@ -35121,9 +35121,287 @@ button.admin-accounting-metric {
   .admin-billing-loading > span { animation: none; }
 }
 
-/* Keep the cash-first accounting layout authoritative over legacy page rules. */
+/* Liquid assets: one readable view of cash, receivables, and supplier commitments. */
+.admin-liquidity-overview {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+  padding: clamp(22px, 2.4vw, 34px);
+  overflow: visible;
+  border: 1px solid var(--accounting-border);
+  border-radius: 22px;
+  background: var(--accounting-surface);
+  box-shadow: var(--admin-shadow);
+}
+
+.admin-liquidity-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 28px;
+  align-items: end;
+}
+
+.admin-liquidity-head h2 {
+  margin: 4px 0 3px;
+  color: var(--accounting-text);
+  font: 800 1.05rem/1.2 "Space Grotesk", sans-serif;
+}
+
+.admin-liquidity-head > div:first-child > strong {
+  display: block;
+  color: var(--accounting-text);
+  font: 800 clamp(2.35rem, 5vw, 4.65rem)/.96 "Space Grotesk", sans-serif;
+  letter-spacing: -.055em;
+}
+
+.admin-liquidity-head p,
+.admin-liquidity-help {
+  margin: 8px 0 0;
+  color: var(--accounting-muted);
+  font-size: .72rem;
+  line-height: 1.5;
+}
+
+.admin-liquidity-projected {
+  display: grid;
+  gap: 4px;
+  min-width: 250px;
+  padding-left: 24px;
+  border-left: 1px solid var(--accounting-border);
+}
+
+.admin-liquidity-projected > span,
+.admin-liquidity-outflow > div:first-child > span {
+  color: var(--accounting-muted);
+  font-size: .68rem;
+  font-weight: 800;
+}
+
+.admin-liquidity-projected > strong {
+  color: var(--accounting-text);
+  font: 800 clamp(1.45rem, 2.8vw, 2.3rem)/1.08 "Space Grotesk", sans-serif;
+  letter-spacing: -.035em;
+}
+
+.admin-liquidity-projected > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.admin-liquidity-projected button {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--accounting-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--accounting-muted);
+  font: 800 .62rem/1 "Plus Jakarta Sans", sans-serif;
+  cursor: pointer;
+}
+
+.admin-liquidity-projected button:hover,
+.admin-liquidity-projected button:focus-visible {
+  border-color: var(--accounting-text);
+  color: var(--accounting-text);
+}
+
+.admin-liquidity-chart {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-liquidity-bar,
+.admin-liquidity-outflow-bar {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  border-radius: 14px;
+}
+
+.admin-liquidity-bar {
+  min-height: 72px;
+  border: 1px solid color-mix(in srgb, #eab308 46%, var(--accounting-border));
+  background: color-mix(in srgb, var(--accounting-text) 3%, transparent);
+}
+
+.admin-liquidity-segment,
+.admin-liquidity-outflow-segment {
+  position: relative;
+  flex-basis: 0;
+  min-width: 9px;
+  padding: 0;
+  border: 0;
+  border-right: 1px solid rgba(0, 0, 0, .24);
+  color: #07130b;
+  cursor: pointer;
+}
+
+.admin-liquidity-segment:first-child,
+.admin-liquidity-outflow-segment:first-child { border-radius: 13px 0 0 13px; }
+.admin-liquidity-segment:last-child,
+.admin-liquidity-outflow-segment:last-child { border-right: 0; border-radius: 0 13px 13px 0; }
+.admin-liquidity-segment:only-child,
+.admin-liquidity-outflow-segment:only-child { border-radius: 13px; }
+.admin-liquidity-segment:hover,
+.admin-liquidity-segment:focus-visible,
+.admin-liquidity-outflow-segment:hover,
+.admin-liquidity-outflow-segment:focus-visible { z-index: 6; filter: brightness(1.1); outline: 2px solid var(--accounting-text); outline-offset: 2px; }
+
+.admin-liquidity-segment.is-bank { background: #087443; }
+.admin-liquidity-segment.is-cash { background: #20c66b; }
+.admin-liquidity-segment.is-wallet { background: #9fe01c; }
+.admin-liquidity-segment.is-marketplace { background: #f5c518; }
+.admin-liquidity-segment.is-partner { background: #e9a80f; }
+
+.admin-liquidity-tooltip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 13px);
+  z-index: 20;
+  display: grid;
+  gap: 8px;
+  width: max-content;
+  min-width: 235px;
+  max-width: min(360px, calc(100vw - 42px));
+  padding: 14px;
+  border: 1px solid #4a4a4a;
+  border-radius: 12px;
+  background: #121212;
+  color: #f7f7f2;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, .48);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translate(-50%, 7px);
+  transition: opacity .16s ease, transform .16s ease, visibility .16s ease;
+}
+
+.admin-liquidity-segment:first-child .admin-liquidity-tooltip,
+.admin-liquidity-outflow-segment:first-child .admin-liquidity-tooltip { left: 0; transform: translate(0, 7px); }
+.admin-liquidity-segment:last-child .admin-liquidity-tooltip,
+.admin-liquidity-outflow-segment:last-child .admin-liquidity-tooltip { right: 0; left: auto; transform: translate(0, 7px); }
+.admin-liquidity-segment:hover .admin-liquidity-tooltip,
+.admin-liquidity-segment:focus-visible .admin-liquidity-tooltip,
+.admin-liquidity-outflow-segment:hover .admin-liquidity-tooltip,
+.admin-liquidity-outflow-segment:focus-visible .admin-liquidity-tooltip { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
+.admin-liquidity-segment:first-child:hover .admin-liquidity-tooltip,
+.admin-liquidity-segment:first-child:focus-visible .admin-liquidity-tooltip,
+.admin-liquidity-segment:last-child:hover .admin-liquidity-tooltip,
+.admin-liquidity-segment:last-child:focus-visible .admin-liquidity-tooltip,
+.admin-liquidity-outflow-segment:first-child:hover .admin-liquidity-tooltip,
+.admin-liquidity-outflow-segment:first-child:focus-visible .admin-liquidity-tooltip,
+.admin-liquidity-outflow-segment:last-child:hover .admin-liquidity-tooltip,
+.admin-liquidity-outflow-segment:last-child:focus-visible .admin-liquidity-tooltip { transform: translate(0, 0); }
+
+.admin-liquidity-tooltip > strong {
+  padding-bottom: 3px;
+  font-size: .75rem;
+}
+
+.admin-liquidity-tooltip > span {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.admin-liquidity-tooltip small { color: #a7a7a2; font-size: .62rem; }
+.admin-liquidity-tooltip b { color: #f7f7f2; font-size: .65rem; white-space: nowrap; }
+.admin-liquidity-tooltip .admin-liquidity-tooltip-total { padding-top: 8px; border-top: 1px solid #383838; }
+
+.admin-liquidity-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  color: var(--accounting-muted);
+  font-size: .66rem;
+  font-weight: 750;
+}
+
+.admin-liquidity-legend span::before {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 7px;
+  border-radius: 50%;
+  content: "";
+}
+.admin-liquidity-legend .is-available::before { background: #20c66b; }
+.admin-liquidity-legend .is-expected::before { background: #f5c518; }
+.admin-liquidity-legend .is-outflow::before { background: #ef3131; }
+
+.admin-liquidity-outflow {
+  display: grid;
+  grid-template-columns: minmax(175px, auto) minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+  padding-top: 16px;
+  border-top: 1px solid var(--accounting-border);
+}
+
+.admin-liquidity-outflow > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.admin-liquidity-outflow > div:first-child > strong {
+  color: #ff5555;
+  font: 800 1.05rem/1.2 "Space Grotesk", sans-serif;
+}
+
+.admin-liquidity-outflow-bar {
+  min-height: 42px;
+  background: color-mix(in srgb, #ef3131 9%, var(--accounting-surface));
+}
+
+.admin-liquidity-outflow-segment {
+  display: grid;
+  place-items: center;
+  background: #d93636;
+  color: #fff;
+  font-size: .6rem;
+  font-weight: 850;
+}
+.admin-liquidity-outflow-segment.is-overdue { background: #8f1717; }
+.admin-liquidity-outflow-segment.is-due-soon { background: #c52626; }
+.admin-liquidity-outflow-segment.is-later { background: #ef4242; }
+.admin-liquidity-no-outflow,
+.admin-liquidity-loading { align-self: center; padding: 0 14px; color: var(--accounting-muted); font-size: .68rem; font-weight: 750; }
+.admin-liquidity-metric {
+  min-height: 112px;
+  border-top: 2px solid transparent;
+  cursor: pointer;
+  transition: border-color .16s ease, background .16s ease, transform .16s ease;
+}
+.admin-liquidity-metric:hover,
+.admin-liquidity-metric:focus-visible {
+  background: color-mix(in srgb, var(--accounting-text) 4%, var(--accounting-surface));
+  transform: translateY(-1px);
+}
+.admin-liquidity-metric:focus-visible { outline: 2px solid var(--accounting-text); outline-offset: 3px; }
+.admin-liquidity-metric.is-available { border-top-color: #20c66b; }
+.admin-liquidity-metric.is-expected { border-top-color: #f5c518; }
+.admin-liquidity-metric.is-outflow { border-top-color: #ef3131; }
+.admin-accounting-breakdown-row.is-partner-receivable { border-color: color-mix(in srgb, #e9a80f 48%, var(--accounting-border)); }
+
+.admin-visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* Keep the liquid-assets accounting layout authoritative over legacy page rules. */
 .admin-accounting-view .admin-accounting-metrics {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .admin-accounting-view .admin-accounting-more > div {
@@ -35152,8 +35430,23 @@ button.admin-accounting-metric {
 }
 
 @media (max-width: 680px) {
+  .admin-liquidity-head,
+  .admin-liquidity-outflow {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-liquidity-projected {
+    min-width: 0;
+    padding: 16px 0 0;
+    border-top: 1px solid var(--accounting-border);
+    border-left: 0;
+  }
+
+  .admin-liquidity-bar { min-height: 54px; }
+  .admin-liquidity-outflow-segment > span { display: none; }
+
   .admin-accounting-view .admin-accounting-metrics {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 
   .admin-accounting-view .admin-accounting-more > div {

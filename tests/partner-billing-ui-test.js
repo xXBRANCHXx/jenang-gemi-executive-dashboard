@@ -25,12 +25,12 @@ assert.match(billingApi, /adjust_dispute[\s\S]*jg_admin_partner_billing_adjust_d
 assert.match(notifications, /application\/pdf[\s\S]*<object/, 'PDF payment proof should render in an inline preview.');
 assert.match(notifications, /partner-billing:confirmed/, 'Accounting should be notified immediately after confirmation.');
 assert.match(billingApi, /dispute_history[\s\S]*jg_admin_partner_billing_dispute_history/, 'The billing API should expose authenticated dispute history to Partner Sales.');
-assert.match(accounting, /billsDueSoon = \$accountingBillsDueSoon \+ \$partnerBillsDue/, 'Unpaid partner bills should count toward Bills Due.');
+assert.match(accounting, /expectedTotal = \$walletReady \+ \$marketplaceOutstandingAmount \+ \$partnerBillsDue/, 'Unpaid partner bills should count toward expected liquid assets.');
+assert.match(accounting, /billsDueSoon = \$accountingBillsDueSoon;/, 'Partner receivables must stay out of supplier bills due.');
 assert.match(accounting, /safeCash = \$realCash - \$accountingBillsDueSoon - \$overdueBills/, 'Partner receivables should not be subtracted from Safe Cash as liabilities.');
 assert.match(accounting, /accounting_partner_bill_receipts/, 'Confirmed partner cash should be idempotently mapped to Accounting.');
-assert.match(accountingPage, /data-accounting-partner-bills-open="in_progress"[\s\S]*Partner Bills In Progress/, 'Accounting should expose accruing weekly bills separately.');
-assert.match(accountingPage, /data-accounting-partner-bills-open="due"[\s\S]*Partner Bills Due/, 'The former Overdue card should become Partner Bills Due.');
-assert.match(accountingUi, /kpis\.partner_bills_in_progress[\s\S]*kpis\.partner_bills_due/, 'The two Partner Bills cards should use separate totals.');
+assert.match(accountingPage, /Expected[\s\S]*unpaid partner bills/, 'Accounting should present unpaid partner bills as expected money.');
+assert.match(accountingUi, /kpis\?\.partner_bills_due[\s\S]*kpis\?\.partner_bills_in_progress/, 'The expected-money overview should keep issued and accruing partner totals separate.');
 assert.match(accountingUi, /scope === 'in_progress'[\s\S]*status === 'accruing'/, 'The bill list should filter accruing periods from bills that are due.');
 assert.match(accountingUi, /action[^\n]*partner_bills|buildUrl\('partner_bills'/, 'Opening Partner Bills should request the weekly bill records.');
 assert.match(accountingUi, /data-accounting-partner-bill[\s\S]*data-accounting-partner-order/, 'A weekly partner bill should drill down to its order-level breakdown.');

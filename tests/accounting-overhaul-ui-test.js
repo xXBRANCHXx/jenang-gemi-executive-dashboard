@@ -13,15 +13,15 @@ const expect = (condition, message) => {
 };
 
 expect(html.includes('data-accounting-reconcile-form'), 'Accounting must expose the cash reconciliation form.');
-expect(html.includes('data-accounting-marketplace-open'), 'Marketplace outstanding must open a visual breakdown.');
-expect(html.includes('data-accounting-partner-bills-open="in_progress"'), 'Partner Bills In Progress must be an interactive drill-down.');
-expect(html.includes('data-accounting-partner-bills-open="due"'), 'Partner Bills Due must be an interactive drill-down.');
-expect(html.includes('data-accounting-wallet-breakdown'), 'Accounting must show a compact wallet balance strip.');
-expect(html.includes('<h2>Ready to withdraw</h2>'), 'Accounting must identify marketplace cash that is currently withdrawable.');
+expect(html.includes('data-accounting-marketplace-open'), 'Expected receivables must open a visual breakdown.');
+expect(html.includes('data-accounting-liquidity-assets-bar'), 'Accounting must expose a liquid-assets composition bar.');
+expect(html.includes('data-accounting-liquidity-outflow-bar'), 'Accounting must expose scheduled supplier outflows separately.');
+expect(html.includes('data-accounting-kpi="liquid-assets"'), 'Accounting must lead with total liquid assets.');
+expect(html.includes('unpaid partner bills'), 'Accounting must explain that unpaid partner bills are expected money.');
 expect(html.includes('data-accounting-ledger-body'), 'Accounting must expose the unified activity ledger.');
 expect(html.includes('class="admin-accounting-more'), 'Secondary entry details must stay collapsed by default.');
-expect(html.includes('data-accounting-kpi="bank-balance"'), 'Accounting must show bank balance separately.');
-expect(html.includes('data-accounting-kpi="cash-available"'), 'Accounting must show physical available cash separately.');
+expect(html.includes('data-accounting-kpi="available-now"'), 'Accounting must group bank and physical cash as available now.');
+expect(html.includes('data-accounting-kpi="expected-total"'), 'Accounting must group expected marketplace and partner receivables.');
 expect(html.includes('data-accounting-account-settings'), 'Accounting must allow future payment and receipt accounts to be configured.');
 expect(html.includes('data-accounting-category-search'), 'The primary category selector must have live search.');
 expect(html.indexOf('data-accounting-category-menu') < html.indexOf('data-accounting-category-search'), 'Category search must live inside the dropdown menu.');
@@ -35,12 +35,14 @@ expect(script.includes("action: 'reconcile_cash'"), 'The reconciliation UI must 
 expect(script.includes('accountOptionsForRole'), 'Paid-from and received-into options must be filtered by account role.');
 expect(script.includes("String(account.type || '') !== 'marketplace_wallet'"), 'Marketplace wallets must never appear as entry accounts.');
 expect(script.includes("action: 'save_account'"), 'Account role settings must persist through the Accounting API.');
-expect(script.includes('<small>Ready to withdraw</small>'), 'Accounting wallet breakdowns must distinguish withdrawable cash from outstanding orders.');
+expect(script.includes('<small>Ready to withdraw</small>'), 'Expected-money breakdowns must distinguish withdrawable cash from outstanding orders.');
+expect(script.includes('data-accounting-receivable-partner="due"'), 'Unpaid partner bills must drill down from expected receivables.');
+expect(script.includes("openBillsBreakdown('scheduled')"), 'Scheduled outflow must open supplier bill details.');
 expect(script.includes("searchInput.matches('[data-accounting-category-search]')"), 'Category results must filter live as the user types.');
 expect(script.includes('categoryComboboxMarkup(item.category_id)'), 'Correction forms must use the same searchable category dropdown.');
 
-expect(css.includes('.admin-accounting-pulse'), 'The cash-first visual hierarchy must be styled.');
-expect(css.includes('.admin-accounting-wallet-strip'), 'Compact wallet balances must be styled.');
+expect(css.includes('.admin-liquidity-overview'), 'The liquid-assets visual hierarchy must be styled.');
+expect(css.includes('.admin-liquidity-tooltip'), 'Hover and keyboard-focus chart breakdowns must be styled.');
 expect(css.includes('.admin-accounting-ledger-row'), 'Visual ledger rows must be styled.');
 expect(css.includes('.admin-accounting-category-menu'), 'The in-dropdown category search menu must be styled.');
 expect(/\.admin-accounting-breakdown-body\s*\{[^}]*overflow-y:\s*auto/.test(css), 'Long Accounting breakdowns must scroll inside the modal.');

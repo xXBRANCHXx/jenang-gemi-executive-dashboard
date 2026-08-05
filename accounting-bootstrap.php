@@ -2631,7 +2631,7 @@ function jg_accounting_summary(PDO $pdo, string $month): array
         : ['due_amount' => 0, 'in_progress_amount' => 0];
     $partnerBillsDue = (int) ($partnerBillTotals['due_amount'] ?? 0);
     $partnerBillsInProgress = (int) ($partnerBillTotals['in_progress_amount'] ?? 0);
-    $billsDueSoon = $accountingBillsDueSoon + $partnerBillsDue;
+    $billsDueSoon = $accountingBillsDueSoon;
     $overdueBills = $sumBill(
         $pdo,
         'SELECT COALESCE(SUM(outstanding_amount), 0)
@@ -2640,6 +2640,14 @@ function jg_accounting_summary(PDO $pdo, string $month): array
            AND outstanding_amount > 0
            AND due_date < :today',
         [':today' => $today]
+    );
+    $scheduledBills = $sumBill(
+        $pdo,
+        'SELECT COALESCE(SUM(outstanding_amount), 0)
+         FROM accounting_bills
+         WHERE status IN ("unpaid", "partially_paid", "overdue")
+           AND outstanding_amount > 0',
+        []
     );
     $expenses = $sumBill(
         $pdo,
@@ -2657,6 +2665,19 @@ function jg_accounting_summary(PDO $pdo, string $month): array
          WHERE status = "open"'
     )->fetchColumn();
     $marketplaceOutstanding = jg_accounting_marketplace_outstanding_context($pdo);
+    $walletBreakdown = jg_accounting_wallet_breakdown($pdo, $marketplaceOutstanding);
+    $walletReady = array_sum(array_map(
+        static fn (array $wallet): int => max(0, (int) ($wallet['current_balance'] ?? 0)),
+        $walletBreakdown
+    ));
+    $marketplaceOutstandingAmount = $marketplaceOutstanding['available'] === false
+        ? 0
+        : max(0, (int) ($marketplaceOutstanding['amount'] ?? 0));
+    $availableNow = $operatingFunds;
+    $expectedTotal = $walletReady + $marketplaceOutstandingAmount + $partnerBillsDue;
+    $liquidAssetsTotal = $availableNow + $expectedTotal;
+    $projectedAfterBills = $liquidAssetsTotal - $scheduledBills;
+    $scheduledBillsLater = max(0, $scheduledBills - $accountingBillsDueSoon - $overdueBills);
     $realCash = $operatingFunds;
     $safeCash = $realCash - $accountingBillsDueSoon - $overdueBills;
 
@@ -2670,6 +2691,7 @@ function jg_accounting_summary(PDO $pdo, string $month): array
             'operating_funds' => $operatingFunds,
             'marketplace_outstanding' => $marketplaceOutstanding['amount'],
             'bills_due_soon' => $billsDueSoon,
+            'scheduled_bills' => $scheduledBills,
             'partner_bills_due' => $partnerBillsDue,
             'partner_bills_in_progress' => $partnerBillsInProgress,
             'overdue_bills' => $overdueBills,
@@ -2677,8 +2699,27 @@ function jg_accounting_summary(PDO $pdo, string $month): array
             'net_safe_cash' => $safeCash,
             'pending_manual_review' => $pendingReview,
         ],
+        'liquid_assets' => [
+            'total' => $liquidAssetsTotal,
+            'available_now' => $availableNow,
+            'expected_total' => $expectedTotal,
+            'scheduled_outflow' => $scheduledBills,
+            'projected_after_bills' => $projectedAfterBills,
+            'segments' => [
+                'bank' => $bankBalance,
+                'cash' => $cashAvailable,
+                'wallet_ready' => $walletReady,
+                'marketplace_outstanding' => $marketplaceOutstandingAmount,
+                'partner_unpaid' => $partnerBillsDue,
+            ],
+            'outflow_segments' => [
+                'overdue' => $overdueBills,
+                'due_soon' => $accountingBillsDueSoon,
+                'later' => $scheduledBillsLater,
+            ],
+        ],
         'marketplace_outstanding_context' => $marketplaceOutstanding,
-        'wallet_breakdown' => jg_accounting_wallet_breakdown($pdo, $marketplaceOutstanding),
+        'wallet_breakdown' => $walletBreakdown,
         'cash_reconciliation' => $cashReconciliation,
         'balance_reconciliations' => (array) ($cashHistory['summary']['reconciliations'] ?? []),
         'automatic_usable_cash_context' => $automaticUsableCash,

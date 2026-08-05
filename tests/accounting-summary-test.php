@@ -86,7 +86,15 @@ summary_expect(20000, $summary['kpis']['bills_due_soon'], 'Bills due soon must i
 summary_expect(0, $summary['kpis']['partner_bills_due'], 'Partner Bills Due must stay separate when the partner database is unavailable.');
 summary_expect(0, $summary['kpis']['partner_bills_in_progress'], 'Partner Bills In Progress must stay separate when the partner database is unavailable.');
 summary_expect(10000, $summary['kpis']['overdue_bills'], 'Overdue bills must remain separate from due-soon bills.');
+summary_expect(30000, $summary['kpis']['scheduled_bills'], 'Scheduled bills must include every open supplier liability.');
 summary_expect(160000, $summary['kpis']['net_safe_cash'], 'Safe cash must subtract obligations from available cash without treating receivables as cash.');
+summary_expect(260000, $summary['liquid_assets']['total'], 'Liquid assets must combine available bank and cash with expected receivables.');
+summary_expect(190000, $summary['liquid_assets']['available_now'], 'Available now must combine bank and physical cash only.');
+summary_expect(70000, $summary['liquid_assets']['expected_total'], 'Expected money must include marketplace and partner receivables without supplier liabilities.');
+summary_expect(30000, $summary['liquid_assets']['scheduled_outflow'], 'Scheduled outflow must include supplier bills, not partner receivables.');
+summary_expect(230000, $summary['liquid_assets']['projected_after_bills'], 'Projected liquid assets must deduct scheduled supplier bills.');
+summary_expect(20000, $summary['liquid_assets']['outflow_segments']['due_soon'], 'The outflow chart must separate bills due soon.');
+summary_expect(10000, $summary['liquid_assets']['outflow_segments']['overdue'], 'The outflow chart must separate overdue bills.');
 summary_expect(60000, $summary['monthly_summary']['wallet_withdrawals_to_bank'], 'Monthly Wallet withdrawals must be reported independently.');
 summary_expect(80000, $summary['monthly_summary']['website_payments_to_bank'], 'Monthly confirmed website payments must be reported independently.');
 summary_expect(190000, $summary['monthly_summary']['estimated_net_cash_movement'], 'Monthly movement must combine manual and automatic money-in.');

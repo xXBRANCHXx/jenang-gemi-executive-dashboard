@@ -70,60 +70,60 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                     </div>
                 </section>
 
-                <section class="admin-accounting-pulse" aria-label="Cash position">
-                    <div class="admin-accounting-pulse-main">
-                        <span class="admin-panel-kicker">Bank balance</span>
-                        <strong data-accounting-pulse-bank>Rp0</strong>
-                        <p data-accounting-reconciliation-copy>Money already deposited and available in business bank accounts.</p>
+                <section class="admin-liquidity-overview" aria-labelledby="liquid-assets-title">
+                    <header class="admin-liquidity-head">
                         <div>
-                            <button type="button" class="admin-primary-btn" data-accounting-reconcile-open="bank">Reconcile bank</button>
-                            <button type="button" class="admin-ghost-btn" data-accounting-cash-history-open="bank">View bank ledger</button>
+                            <span class="admin-panel-kicker">Treasury at a glance</span>
+                            <h2 id="liquid-assets-title">Liquid assets</h2>
+                            <strong data-accounting-kpi="liquid-assets">Rp0</strong>
+                            <p>Money available now or expected from marketplaces and unpaid partner bills.</p>
                         </div>
-                        <div class="admin-accounting-cash-pocket">
-                            <span>Available cash · Cash Office</span>
-                            <strong data-accounting-pulse-cash>Rp0</strong>
+                        <div class="admin-liquidity-projected">
+                            <span>Projected after bills</span>
+                            <strong data-accounting-kpi="projected-after-bills">Rp0</strong>
                             <div>
-                                <button type="button" data-accounting-reconcile-open="cash">Reconcile cash</button>
-                                <button type="button" data-accounting-cash-history-open="cash">View cash ledger</button>
+                                <button type="button" data-accounting-reconcile-open="bank">Reconcile bank</button>
+                                <button type="button" data-accounting-reconcile-open="cash">Count cash</button>
                             </div>
                         </div>
-                    </div>
-                    <div class="admin-accounting-wallets">
-                        <div class="admin-accounting-wallets-head">
-                            <div><span class="admin-panel-kicker">Wallets</span><h2>Ready to withdraw</h2></div>
-                            <span data-accounting-wallets-meta>Live wallet feed</span>
+                    </header>
+
+                    <div class="admin-liquidity-chart" aria-label="Liquid asset composition">
+                        <div class="admin-liquidity-bar" data-accounting-liquidity-assets-bar>
+                            <span class="admin-liquidity-loading">Loading liquid assets…</span>
                         </div>
-                        <div class="admin-accounting-wallet-strip" data-accounting-wallet-breakdown>
-                            <div class="admin-accounting-wallet"><span>Loading wallets</span><strong>—</strong></div>
+                        <div class="admin-liquidity-legend" aria-label="Chart legend">
+                            <span class="is-available">Available now</span>
+                            <span class="is-expected">Expected</span>
+                            <span class="is-outflow">Going out</span>
                         </div>
                     </div>
+
+                    <div class="admin-liquidity-outflow">
+                        <div>
+                            <span>Scheduled supplier bills</span>
+                            <strong data-accounting-kpi="scheduled-outflow">−Rp0</strong>
+                        </div>
+                        <div class="admin-liquidity-outflow-bar" data-accounting-liquidity-outflow-bar></div>
+                    </div>
+                    <p class="admin-liquidity-help">Hover or focus any color for a breakdown. Click a segment to open its overview.</p>
                 </section>
 
-                <section class="admin-accounting-metrics" aria-label="Accounting metrics">
-                    <button type="button" class="admin-accounting-metric admin-accounting-cash-card" data-accounting-cash-history-open="bank" aria-haspopup="dialog" aria-controls="accounting-cash-history" aria-label="View Bank Balance history">
-                        <span>Bank Balance</span>
-                        <strong data-accounting-kpi="bank-balance">Rp0</strong>
-                        <small>Deposited funds <b aria-hidden="true">→</b></small>
+                <section class="admin-accounting-metrics admin-liquidity-metrics" aria-label="Liquid asset overviews">
+                    <button type="button" class="admin-accounting-metric admin-liquidity-metric is-available" data-accounting-cash-history-open="all" aria-haspopup="dialog" aria-controls="accounting-cash-history">
+                        <span>Available now</span>
+                        <strong data-accounting-kpi="available-now">Rp0</strong>
+                        <small>Bank + physical cash <b aria-hidden="true">→</b></small>
                     </button>
-                    <button type="button" class="admin-accounting-metric admin-accounting-cash-card" data-accounting-cash-history-open="cash" aria-haspopup="dialog" aria-controls="accounting-cash-history" aria-label="View Available Cash history">
-                        <span>Available Cash</span>
-                        <strong data-accounting-kpi="cash-available">Rp0</strong>
-                        <small>Physical cash on hand <b aria-hidden="true">→</b></small>
+                    <button type="button" class="admin-accounting-metric admin-liquidity-metric is-expected" data-accounting-marketplace-open aria-haspopup="dialog" aria-controls="accounting-breakdown">
+                        <span>Expected</span>
+                        <strong data-accounting-kpi="expected-total">Rp0</strong>
+                        <small>Wallets + marketplace + unpaid partner bills <b aria-hidden="true">→</b></small>
                     </button>
-                    <button type="button" class="admin-accounting-metric admin-accounting-cash-card" data-accounting-marketplace-open aria-haspopup="dialog">
-                        <span>Marketplace</span>
-                        <strong data-accounting-kpi="marketplace-outstanding">Rp0</strong>
-                        <small>See outstanding by wallet <b aria-hidden="true">→</b></small>
-                    </button>
-                    <button type="button" class="admin-accounting-metric admin-accounting-cash-card" data-accounting-partner-bills-open="in_progress" aria-haspopup="dialog" aria-controls="accounting-breakdown">
-                        <span>Partner Bills In Progress</span>
-                        <strong data-accounting-kpi="partner-bills-in-progress">Rp0</strong>
-                        <small>Current billing periods <b aria-hidden="true">→</b></small>
-                    </button>
-                    <button type="button" class="admin-accounting-metric admin-accounting-cash-card" data-accounting-partner-bills-open="due" aria-haspopup="dialog" aria-controls="accounting-breakdown">
-                        <span>Partner Bills Due</span>
-                        <strong data-accounting-kpi="partner-bills-due">Rp0</strong>
-                        <small>Awaiting partner payment <b aria-hidden="true">→</b></small>
+                    <button type="button" class="admin-accounting-metric admin-liquidity-metric is-outflow" data-accounting-bills-open="scheduled" aria-haspopup="dialog" aria-controls="accounting-breakdown">
+                        <span>Scheduled outflow</span>
+                        <strong data-accounting-kpi="scheduled-outflow-card">Rp0</strong>
+                        <small>Unpaid supplier bills <b aria-hidden="true">→</b></small>
                     </button>
                 </section>
 

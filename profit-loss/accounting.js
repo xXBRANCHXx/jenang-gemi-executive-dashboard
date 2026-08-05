@@ -134,11 +134,12 @@ if (root) {
     pembukuanExportButtons: [...root.querySelectorAll('[data-accounting-pembukuan-export]')],
     settingsButton: root.querySelector('[data-accounting-settings]'),
     kpis: {
-      bankBalance: root.querySelector('[data-accounting-kpi="bank-balance"]'),
-      cashAvailable: root.querySelector('[data-accounting-kpi="cash-available"]'),
-      marketplaceOutstanding: root.querySelector('[data-accounting-kpi="marketplace-outstanding"]'),
-      partnerBillsInProgress: root.querySelector('[data-accounting-kpi="partner-bills-in-progress"]'),
-      partnerBillsDue: root.querySelector('[data-accounting-kpi="partner-bills-due"]'),
+      liquidAssets: root.querySelector('[data-accounting-kpi="liquid-assets"]'),
+      projectedAfterBills: root.querySelector('[data-accounting-kpi="projected-after-bills"]'),
+      availableNow: root.querySelector('[data-accounting-kpi="available-now"]'),
+      expectedTotal: root.querySelector('[data-accounting-kpi="expected-total"]'),
+      scheduledOutflow: root.querySelector('[data-accounting-kpi="scheduled-outflow"]'),
+      scheduledOutflowCard: root.querySelector('[data-accounting-kpi="scheduled-outflow-card"]'),
       overdue: root.querySelector('[data-accounting-kpi="overdue"]'),
       expenses: root.querySelector('[data-accounting-kpi="expenses"]'),
       safeCash: root.querySelector('[data-accounting-kpi="safe-cash"]'),
@@ -164,8 +165,8 @@ if (root) {
     pulseBank: root.querySelector('[data-accounting-pulse-bank]'),
     pulseCash: root.querySelector('[data-accounting-pulse-cash]'),
     reconciliationCopy: root.querySelector('[data-accounting-reconciliation-copy]'),
-    walletBreakdown: root.querySelector('[data-accounting-wallet-breakdown]'),
-    walletsMeta: root.querySelector('[data-accounting-wallets-meta]'),
+    liquidityAssetsBar: root.querySelector('[data-accounting-liquidity-assets-bar]'),
+    liquidityOutflowBar: root.querySelector('[data-accounting-liquidity-outflow-bar]'),
     marketplaceOpen: root.querySelector('[data-accounting-marketplace-open]'),
     partnerBillsOpenButtons: root.querySelectorAll('[data-accounting-partner-bills-open]'),
     billsOpenButtons: root.querySelectorAll('[data-accounting-bills-open]'),
@@ -252,7 +253,8 @@ if (root) {
       'channel',
       'transaction_id',
       'bill_id',
-      'format'
+      'format',
+      'limit'
     ].forEach((key) => {
       if (options[key]) params.set(key, options[key]);
     });
@@ -595,17 +597,13 @@ if (root) {
 
   const renderKpis = (summary) => {
     const kpis = summary?.kpis || {};
-    if (refs.kpis.bankBalance) refs.kpis.bankBalance.textContent = formatCurrency(kpis.bank_balance || 0);
-    if (refs.kpis.cashAvailable) refs.kpis.cashAvailable.textContent = formatCurrency(kpis.cash_available || 0);
-    if (refs.pulseBank) refs.pulseBank.textContent = formatCurrency(kpis.bank_balance || 0);
-    if (refs.pulseCash) refs.pulseCash.textContent = formatCurrency(kpis.cash_available || 0);
-    if (refs.kpis.marketplaceOutstanding) {
-      refs.kpis.marketplaceOutstanding.textContent = summary?.marketplace_outstanding_context?.available === false
-        ? 'Unavailable'
-        : formatCurrency(kpis.marketplace_outstanding || 0);
-    }
-    if (refs.kpis.partnerBillsInProgress) refs.kpis.partnerBillsInProgress.textContent = formatCurrency(kpis.partner_bills_in_progress || 0);
-    if (refs.kpis.partnerBillsDue) refs.kpis.partnerBillsDue.textContent = formatCurrency(kpis.partner_bills_due || 0);
+    const liquidity = summary?.liquid_assets || {};
+    if (refs.kpis.liquidAssets) refs.kpis.liquidAssets.textContent = formatCurrency(liquidity.total || 0);
+    if (refs.kpis.projectedAfterBills) refs.kpis.projectedAfterBills.textContent = formatCurrency(liquidity.projected_after_bills || 0);
+    if (refs.kpis.availableNow) refs.kpis.availableNow.textContent = formatCurrency(liquidity.available_now || 0);
+    if (refs.kpis.expectedTotal) refs.kpis.expectedTotal.textContent = formatCurrency(liquidity.expected_total || 0);
+    if (refs.kpis.scheduledOutflow) refs.kpis.scheduledOutflow.textContent = `−${formatCurrency(liquidity.scheduled_outflow || 0)}`;
+    if (refs.kpis.scheduledOutflowCard) refs.kpis.scheduledOutflowCard.textContent = formatCurrency(liquidity.scheduled_outflow || 0);
     if (refs.kpis.overdue) refs.kpis.overdue.textContent = formatCurrency(kpis.overdue_bills || 0);
     if (refs.kpis.expenses) refs.kpis.expenses.textContent = formatCurrency(kpis.expenses_this_month || 0);
     if (refs.kpis.safeCash) refs.kpis.safeCash.textContent = formatCurrency(kpis.net_safe_cash || 0);
@@ -621,28 +619,61 @@ if (root) {
         ? `Bank baseline set ${formatHistoryDate(String(bankReconciliation.reconciled_at || '').slice(0, 10))}; later deposits and payments move from it.`
         : 'Deposits, payments, and transfers determine the bank balance. Reconcile it against your statement when needed.';
     }
-    renderWalletBreakdown(summary);
+    renderLiquidityOverview(summary);
   };
 
-  const renderWalletBreakdown = (summary) => {
-    if (!refs.walletBreakdown) return;
+  const liquidityTooltip = (title, rows, total) => `
+    <span class="admin-liquidity-tooltip" role="tooltip">
+      <strong>${escapeHtml(title)}</strong>
+      ${rows.map(([label, amount]) => `<span><small>${escapeHtml(label)}</small><b>${formatCurrency(amount)}</b></span>`).join('')}
+      <span class="admin-liquidity-tooltip-total"><small>Total</small><b>${formatCurrency(total)}</b></span>
+    </span>
+  `;
+
+  const renderLiquidityOverview = (summary) => {
+    const liquidity = summary?.liquid_assets || {};
+    const segments = liquidity.segments || {};
     const wallets = Array.isArray(summary?.wallet_breakdown) ? summary.wallet_breakdown : [];
-    if (refs.walletsMeta) {
-      refs.walletsMeta.textContent = wallets.length
-        ? `${wallets.length.toLocaleString('id-ID')} connected`
-        : 'No live balance yet';
+    const walletReadyRows = wallets
+      .filter((wallet) => wallet.current_balance !== null && Number(wallet.current_balance || 0) > 0)
+      .map((wallet) => [wallet.label || wallet.account_key || 'Wallet', Number(wallet.current_balance || 0)]);
+    const marketplaceRows = wallets
+      .filter((wallet) => Number(wallet.outstanding_amount || 0) > 0)
+      .map((wallet) => [wallet.label || wallet.account_key || 'Wallet', Number(wallet.outstanding_amount || 0)]);
+    const assetSegments = [
+      { key: 'bank', label: 'Bank', amount: Number(segments.bank || 0), rows: [['Deposited funds', Number(segments.bank || 0)]] },
+      { key: 'cash', label: 'Cash', amount: Number(segments.cash || 0), rows: [['Physical cash', Number(segments.cash || 0)]] },
+      { key: 'wallet', label: 'Wallets ready', amount: Number(segments.wallet_ready || 0), rows: walletReadyRows },
+      { key: 'marketplace', label: 'Marketplace outstanding', amount: Number(segments.marketplace_outstanding || 0), rows: marketplaceRows },
+      { key: 'partner', label: 'Partner bills unpaid', amount: Number(segments.partner_unpaid || 0), rows: [['Unpaid partner bills', Number(segments.partner_unpaid || 0)]] }
+    ];
+    const positiveAssets = assetSegments.filter((segment) => segment.amount > 0);
+    if (refs.liquidityAssetsBar) {
+      refs.liquidityAssetsBar.innerHTML = positiveAssets.length
+        ? positiveAssets.map((segment) => `
+          <button type="button" class="admin-liquidity-segment is-${segment.key}" data-accounting-liquidity-segment="${segment.key}" style="flex-grow:${Math.max(1, segment.amount)}" aria-label="${escapeHtml(segment.label)} ${escapeHtml(formatCurrency(segment.amount))}">
+            <span class="admin-visually-hidden">${escapeHtml(segment.label)}</span>
+            ${liquidityTooltip(segment.label, segment.rows.length ? segment.rows : [[segment.label, segment.amount]], segment.amount)}
+          </button>
+        `).join('')
+        : '<span class="admin-liquidity-loading">No liquid assets recorded yet.</span>';
     }
-    if (!wallets.length) {
-      refs.walletBreakdown.innerHTML = '<p class="admin-empty">Ready-to-withdraw balances appear after the first Wallet sync.</p>';
-      return;
+    const outflow = liquidity.outflow_segments || {};
+    const outflowSegments = [
+      { key: 'overdue', label: 'Overdue', amount: Number(outflow.overdue || 0) },
+      { key: 'due-soon', label: 'Due in 7 days', amount: Number(outflow.due_soon || 0) },
+      { key: 'later', label: 'Due later', amount: Number(outflow.later || 0) }
+    ].filter((segment) => segment.amount > 0);
+    if (refs.liquidityOutflowBar) {
+      refs.liquidityOutflowBar.innerHTML = outflowSegments.length
+        ? outflowSegments.map((segment) => `
+          <button type="button" class="admin-liquidity-outflow-segment is-${segment.key}" data-accounting-liquidity-segment="outflow" style="flex-grow:${Math.max(1, segment.amount)}" aria-label="${escapeHtml(segment.label)} ${escapeHtml(formatCurrency(segment.amount))}">
+            <span>${escapeHtml(segment.label)}</span>
+            ${liquidityTooltip('Scheduled supplier bills', [[segment.label, segment.amount]], segment.amount)}
+          </button>
+        `).join('')
+        : '<span class="admin-liquidity-no-outflow">No supplier bills scheduled</span>';
     }
-    refs.walletBreakdown.innerHTML = wallets.map((wallet) => `
-      <div class="admin-accounting-wallet">
-        <span>${escapeHtml(wallet.label || wallet.account_key || 'Wallet')}</span>
-        <strong>${wallet.current_balance === null ? 'Unavailable' : formatCurrency(wallet.current_balance || 0)}</strong>
-        <small>${Number(wallet.outstanding_amount || 0) > 0 ? `${formatCurrency(wallet.outstanding_amount)} outstanding` : 'No outstanding orders'}</small>
-      </div>
-    `).join('');
   };
 
   const formatHistoryDate = (value) => {
@@ -816,18 +847,39 @@ if (root) {
   const openMarketplaceBreakdown = () => {
     state.partnerBillsRequest += 1;
     const wallets = Array.isArray(state.summary?.wallet_breakdown) ? state.summary.wallet_breakdown : [];
+    const partnerDue = Number(state.summary?.kpis?.partner_bills_due || 0);
+    const partnerInProgress = Number(state.summary?.kpis?.partner_bills_in_progress || 0);
+    const rows = wallets.map((wallet) => `
+      <div class="admin-accounting-breakdown-row">
+        <span><strong>${escapeHtml(wallet.label || wallet.account_key || 'Wallet')}</strong><small>${Number(wallet.order_count || 0).toLocaleString('id-ID')} unreleased orders</small></span>
+        <span><small>Ready to withdraw</small><strong>${wallet.current_balance === null ? 'Unavailable' : formatCurrency(wallet.current_balance || 0)}</strong></span>
+        <span><small>Outstanding</small><strong>${formatCurrency(wallet.outstanding_amount || 0)}</strong></span>
+      </div>
+    `);
+    if (partnerDue > 0) {
+      rows.push(`
+        <button type="button" class="admin-accounting-breakdown-row is-partner-receivable" data-accounting-receivable-partner="due">
+          <span><strong>Unpaid partner bills</strong><small>Issued bills awaiting payment, review, or dispute resolution</small></span>
+          <span><small>Type</small><strong>Money in</strong></span>
+          <span><small>Outstanding</small><strong>${formatCurrency(partnerDue)}</strong></span>
+        </button>
+      `);
+    }
+    if (partnerInProgress > 0) {
+      rows.push(`
+        <button type="button" class="admin-accounting-breakdown-row" data-accounting-receivable-partner="in_progress">
+          <span><strong>Partner billing in progress</strong><small>Current periods still accumulating; excluded from liquid assets until issued</small></span>
+          <span><small>Type</small><strong>Not issued</strong></span>
+          <span><small>Current total</small><strong>${formatCurrency(partnerInProgress)}</strong></span>
+        </button>
+      `);
+    }
     openBreakdown({
-      kicker: 'Marketplace receivable',
-      title: 'Outstanding and withdrawable by wallet',
-      copy: 'Outstanding orders are not withdrawable yet. Ready to withdraw comes from each marketplace finance feed; a completed withdrawal moves into bank cash.',
-      empty: 'No outstanding orders or ready-to-withdraw wallet balances are available.',
-      rows: wallets.map((wallet) => `
-        <div class="admin-accounting-breakdown-row">
-          <span><strong>${escapeHtml(wallet.label || wallet.account_key || 'Wallet')}</strong><small>${Number(wallet.order_count || 0).toLocaleString('id-ID')} unreleased orders</small></span>
-          <span><small>Ready to withdraw</small><strong>${wallet.current_balance === null ? 'Unavailable' : formatCurrency(wallet.current_balance || 0)}</strong></span>
-          <span><small>Outstanding</small><strong>${formatCurrency(wallet.outstanding_amount || 0)}</strong></span>
-        </div>
-      `)
+      kicker: 'Expected money',
+      title: 'Receivables overview',
+      copy: 'Wallet balances, marketplace orders, and unpaid partner bills are money expected to reach the business. Partner periods still in progress are shown for context but are not included yet.',
+      empty: 'No marketplace or partner receivables are available.',
+      rows
     });
   };
 
@@ -945,11 +997,12 @@ if (root) {
     const today = getDateString();
     const soon = addDays(today, 7);
     const bills = state.bills.filter((bill) => {
+      if (kind === 'scheduled') return ['unpaid', 'partially_paid', 'overdue'].includes(String(bill.status || ''));
       const due = String(bill.due_date || '');
       if (!due) return false;
       return kind === 'overdue' ? due < today : due >= today && due <= soon;
     });
-    const title = kind === 'overdue' ? 'Overdue bills' : 'Bills due in 7 days';
+    const title = kind === 'scheduled' ? 'Scheduled supplier bills' : (kind === 'overdue' ? 'Overdue bills' : 'Bills due in 7 days');
     const rows = bills.map((bill) => `
       <button type="button" class="admin-accounting-breakdown-row" data-accounting-breakdown-bill="${escapeHtml(String(bill.id))}">
         <span><strong>${escapeHtml(bill.vendor_name || 'Supplier')}</strong><small>${escapeHtml(bill.bill_no || bill.bill_key || 'No reference')}</small></span>
@@ -957,23 +1010,15 @@ if (root) {
         <span><small>Outstanding</small><strong>${formatCurrency(bill.outstanding_amount || 0)}</strong></span>
       </button>
     `);
-    const partnerDue = Number(state.summary?.kpis?.partner_bills_due || 0);
-    if (kind === 'due' && partnerDue > 0) {
-      rows.push(`
-        <div class="admin-accounting-breakdown-row">
-          <span><strong>Partner weekly bills</strong><small>Receivable from partners · managed in notifications</small></span>
-          <span><small>Type</small><strong>Money in</strong></span>
-          <span><small>Outstanding</small><strong>${formatCurrency(partnerDue)}</strong></span>
-        </div>
-      `);
-    }
     openBreakdown({
       kicker: 'Cash commitments',
       title,
-      copy: kind === 'overdue'
+      copy: kind === 'scheduled'
+        ? 'These are unpaid supplier bills going out. Partner bills are receivables and never appear in this deduction.'
+        : (kind === 'overdue'
         ? 'These bills need action now. Open one to pay it or correct its details.'
-        : 'These are the supplier bills that affect your next seven days.',
-      empty: kind === 'overdue' ? 'No overdue bills.' : 'No bills are due in the next seven days.',
+        : 'These are the supplier bills that affect your next seven days.'),
+      empty: kind === 'scheduled' ? 'No supplier bills are scheduled.' : (kind === 'overdue' ? 'No overdue bills.' : 'No bills are due in the next seven days.'),
       rows
     });
   };
@@ -1445,7 +1490,7 @@ if (root) {
       }
     }
     if (refs.status) refs.status.textContent = renderedCache ? 'Refreshing accounting data' : 'Loading accounting data';
-    const billOptions = { month: options.month, status: 'open' };
+    const billOptions = { month: options.month, status: 'open', limit: '200' };
     try {
       const [summary, bills, transactions, ledger, review] = await Promise.all([
         requestJson(buildUrl('summary', { ...options, cacheBust: force })),
@@ -1798,6 +1843,21 @@ if (root) {
   refs.cashHistoryAccount?.addEventListener('change', renderCashHistory);
   refs.cashHistoryDirection?.addEventListener('change', renderCashHistory);
   refs.marketplaceOpen?.addEventListener('click', openMarketplaceBreakdown);
+  refs.liquidityAssetsBar?.addEventListener('click', (event) => {
+    const segment = event.target instanceof Element ? event.target.closest('[data-accounting-liquidity-segment]') : null;
+    if (!(segment instanceof HTMLElement)) return;
+    const kind = segment.dataset.accountingLiquiditySegment || '';
+    if (kind === 'bank' || kind === 'cash') {
+      openCashHistory(kind);
+      return;
+    }
+    if (kind === 'partner') {
+      openPartnerBillsBreakdown('due');
+      return;
+    }
+    openMarketplaceBreakdown();
+  });
+  refs.liquidityOutflowBar?.addEventListener('click', () => openBillsBreakdown('scheduled'));
   refs.partnerBillsOpenButtons.forEach((button) => {
     button.addEventListener('click', () => openPartnerBillsBreakdown(button.dataset.accountingPartnerBillsOpen || 'due'));
   });
@@ -1806,6 +1866,11 @@ if (root) {
   });
   refs.breakdownCloseButtons.forEach((button) => button.addEventListener('click', closeBreakdown));
   refs.breakdownBody?.addEventListener('click', (event) => {
+    const partnerReceivable = event.target instanceof Element ? event.target.closest('[data-accounting-receivable-partner]') : null;
+    if (partnerReceivable instanceof HTMLElement) {
+      openPartnerBillsBreakdown(partnerReceivable.dataset.accountingReceivablePartner || 'due');
+      return;
+    }
     const partnerBill = event.target instanceof Element ? event.target.closest('[data-accounting-partner-bill]') : null;
     if (partnerBill instanceof HTMLElement) {
       openPartnerBillDetail(partnerBill.dataset.accountingPartnerBill || '');
