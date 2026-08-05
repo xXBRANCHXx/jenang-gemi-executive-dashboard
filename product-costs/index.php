@@ -34,12 +34,14 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/product-costs.js');
             <?php render_admin_sidebar('sku'); ?>
             <div class="admin-shell-main">
                 <header class="admin-topbar product-costs-topbar">
-                    <button type="button" class="product-costs-back" data-product-costs-back aria-label="Go back">
-                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m14.5 6-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                    </button>
-                    <div class="admin-topbar-brand">
-                        <h1>Product Costs</h1>
-                        <p>Set quarter-aware COGS and next-month packing prices without editing raw SKU records.</p>
+                    <div class="product-costs-heading">
+                        <button type="button" class="product-costs-back" data-product-costs-back aria-label="Go back">
+                            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m14.5 6-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </button>
+                        <div class="admin-topbar-brand">
+                            <h1>Product Costs</h1>
+                            <p>Set quarter-aware COGS and next-month packing prices without editing raw SKU records.</p>
+                        </div>
                     </div>
                     <?php render_admin_topbar_actions('sku-db'); ?>
                 </header>
