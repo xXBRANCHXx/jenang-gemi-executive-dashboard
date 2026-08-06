@@ -30,7 +30,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/blog-builder.js');
 <?php render_admin_favicons('website'); ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap">
     <link rel="stylesheet" href="../admin.css?v=<?php echo urlencode($adminCssVersion ?: '1'); ?>">
     <link rel="stylesheet" href="./blog-builder.css?v=<?php echo urlencode($pageCssVersion ?: '1'); ?>">
 </head>
@@ -139,6 +139,9 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/blog-builder.js');
                                         <button type="button" class="blog-icon-button" data-preview-post title="Preview article" aria-label="Preview article">
                                             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
                                         </button>
+                                        <button type="button" class="blog-icon-button blog-share-button" data-share-preview title="Share private preview" aria-label="Share private preview">
+                                            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4"/></svg>
+                                        </button>
                                         <button type="button" class="blog-secondary-button" data-save-draft>Save draft</button>
                                         <button type="button" class="blog-primary-button" data-schedule-post>Schedule</button>
                                         <button type="button" class="blog-more-button" data-more-toggle aria-expanded="false" aria-label="More article actions">
@@ -171,6 +174,12 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/blog-builder.js');
                                         </label>
 
                                         <div class="blog-format-toolbar" role="toolbar" aria-label="Article formatting">
+                                            <label class="blog-font-control"><span>Font</span><select name="font_key" data-article-font-select aria-label="Article font">
+<?php foreach (jg_blog_fonts() as $fontKey => $fontLabel): ?>
+                                                <option value="<?php echo htmlspecialchars($fontKey, ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($fontLabel, ENT_QUOTES, 'UTF-8'); ?></option>
+<?php endforeach; ?>
+                                            </select></label>
+                                            <span></span>
                                             <button type="button" data-format="formatBlock" data-value="p" title="Paragraph">P</button>
                                             <button type="button" data-format="formatBlock" data-value="h2" title="Heading 2">H2</button>
                                             <button type="button" data-format="formatBlock" data-value="h3" title="Heading 3">H3</button>
@@ -193,6 +202,24 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/blog-builder.js');
                                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 7 10 10M5 5h14M12 5l-4 14M17 17h4"/></svg>
                                             </button>
                                         </div>
+                                        <section class="blog-image-layout" data-image-layout hidden contenteditable="false" aria-label="Selected image layout">
+                                            <div class="blog-image-layout-head">
+                                                <span><strong>Image layout</strong><small>Resize, crop, or describe the selected image.</small></span>
+                                                <button type="button" data-image-layout-close aria-label="Close image controls">×</button>
+                                            </div>
+                                            <div class="blog-image-layout-controls">
+                                                <label class="blog-image-scale"><span>Scale</span><input type="range" min="40" max="100" step="10" value="100" data-image-scale><output data-image-scale-output>100%</output></label>
+                                                <div class="blog-image-shapes" role="group" aria-label="Image shape">
+                                                    <span>Shape</span>
+                                                    <button type="button" data-image-shape="original">Original</button>
+                                                    <button type="button" data-image-shape="landscape">Landscape</button>
+                                                    <button type="button" data-image-shape="square">Square</button>
+                                                    <button type="button" data-image-shape="portrait">Portrait</button>
+                                                </div>
+                                            </div>
+                                            <label class="blog-image-alt"><span>Alt text</span><input type="text" maxlength="240" placeholder="Describe this image for accessibility" data-image-alt></label>
+                                            <button type="button" class="blog-image-remove" data-image-remove>Remove image</button>
+                                        </section>
                                         <div class="blog-body-editor" data-body-editor contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Begin with the idea your reader needs most. Drag images anywhere into the article, then use short paragraphs, useful headings, and practical steps…"></div>
                                         <footer class="blog-writing-footer">
                                             <span><strong data-word-count>0</strong> words</span>
@@ -284,6 +311,34 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/blog-builder.js');
                     <img data-preview-image alt="" hidden>
                     <div class="blog-preview-body" data-preview-body></div>
                 </article>
+            </div>
+        </dialog>
+
+        <dialog class="blog-share-dialog" data-share-dialog>
+            <div class="blog-share-card">
+                <header>
+                    <span class="blog-share-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4"/></svg></span>
+                    <div><span class="blog-eyebrow">Private preview</span><h2>Share this draft</h2></div>
+                    <button type="button" data-share-close aria-label="Close share preview">×</button>
+                </header>
+                <p class="blog-share-intro">Anyone with this unlisted link can read the latest saved version without signing into the dashboard. It will not appear on the public ZERO website.</p>
+                <div class="blog-share-link" data-share-link-wrap hidden>
+                    <label for="blog-share-url">Preview URL</label>
+                    <div><input id="blog-share-url" type="url" readonly data-share-url><button type="button" data-share-copy>Copy link</button></div>
+                    <span><i></i> Link active · saved draft changes appear automatically</span>
+                </div>
+                <div class="blog-share-empty" data-share-empty>
+                    <strong>No preview link yet</strong>
+                    <span>Create an unlisted link when you are ready to share this draft.</span>
+                </div>
+                <div class="blog-share-primary-actions">
+                    <button type="button" class="blog-primary-button" data-share-enable>Create preview link</button>
+                    <a class="blog-secondary-button" data-share-open target="_blank" rel="noopener" hidden>Open preview</a>
+                </div>
+                <footer data-share-management hidden>
+                    <button type="button" data-share-regenerate>Replace link</button>
+                    <button type="button" class="is-danger" data-share-disable>Turn off sharing</button>
+                </footer>
             </div>
         </dialog>
 

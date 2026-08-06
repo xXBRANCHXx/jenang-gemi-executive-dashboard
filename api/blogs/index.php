@@ -105,6 +105,19 @@ try {
             (int) ($payload['version'] ?? 0)
         )]);
     }
+    if ($method === 'POST' && $action === 'share_preview') {
+        jg_blog_api_response(['ok' => true, 'post' => jg_blog_enable_preview(
+            $pdo,
+            (int) ($payload['id'] ?? 0),
+            !empty($payload['rotate'])
+        )]);
+    }
+    if ($method === 'POST' && $action === 'disable_preview') {
+        jg_blog_api_response(['ok' => true, 'post' => jg_blog_disable_preview(
+            $pdo,
+            (int) ($payload['id'] ?? 0)
+        )]);
+    }
     if ($method === 'POST' && $action === 'save') {
         $post = jg_blog_save($pdo, $payload);
         jg_blog_api_response(['ok' => true, 'post' => $post, 'revisions' => jg_blog_revisions($pdo, $post['id'])], (int) ($payload['id'] ?? 0) ? 200 : 201);

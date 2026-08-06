@@ -8,6 +8,8 @@ const api = fs.readFileSync(path.join(root, 'api/blogs/index.php'), 'utf8');
 const nav = fs.readFileSync(path.join(root, 'admin-nav.php'), 'utf8');
 const bootstrap = fs.readFileSync(path.join(root, 'blog-builder-bootstrap.php'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'blog-builder/blog-builder.css'), 'utf8');
+const sharedPreview = fs.readFileSync(path.join(root, 'blog-preview/index.php'), 'utf8');
+const sharedPreviewCss = fs.readFileSync(path.join(root, 'blog-preview/blog-preview.css'), 'utf8');
 
 const expect = (condition, message) => {
   if (!condition) throw new Error(message);
@@ -20,7 +22,8 @@ for (const topic of ['healthy-eating', 'keeping-fit', 'losing-weight', 'diabetes
 for (const control of [
   'data-body-editor', 'data-schedule-input', 'data-cover-input', 'data-preview-dialog',
   'data-history-dialog', 'data-seo-description', 'data-checklist', 'data-library-search',
-  'data-inline-image', 'data-inline-image-input'
+  'data-inline-image', 'data-inline-image-input', 'data-share-preview', 'data-share-dialog',
+  'data-image-scale', 'data-image-shape', 'data-article-font-select'
 ]) {
   expect(php.includes(control), `Builder is missing ${control}.`);
 }
@@ -45,5 +48,12 @@ expect(css.includes('.blog-body-editor :is(p, h2, h3, ul, ol, li, strong, em)'),
 expect(css.includes('.blog-preview-dialog .blog-preview-article :is(h1, h2, h3, p, ul, ol, li, strong, em)'), 'Dashboard themes must not recolor preview article HTML.');
 expect(!php.includes('>•••</button>'), 'The more-actions control must use a consistently sized icon instead of font bullets.');
 expect(php.includes('data-more-toggle') && css.includes('.blog-more-button svg'), 'The more-actions icon must have fixed SVG sizing.');
+expect(api.includes("action === 'share_preview'") && api.includes("action === 'disable_preview'"), 'Authenticated editors must be able to create and revoke preview links.');
+expect(sharedPreview.includes("X-Robots-Tag: noindex, nofollow, noarchive"), 'Shared drafts must stay out of search engines.');
+expect(sharedPreview.includes('jg_blog_public_body_html'), 'Shared previews must render sanitized article HTML.');
+expect(js.includes('enableSharedPreview') && js.includes('copySharedPreview'), 'The editor must create and copy private preview links.');
+expect(js.includes("figure.dataset.scale") && js.includes("figure.dataset.shape"), 'Inline image scale and shape controls must persist layout metadata.');
+expect(sharedPreviewCss.includes('figure[data-shape="square"]') && sharedPreviewCss.includes('figure[data-scale="70"]'), 'Shared previews must render saved image shapes and scales.');
+expect(bootstrap.includes('zero_blog_post_styles') && bootstrap.includes('function jg_blog_fonts'), 'Article font choices must persist independently from dashboard themes.');
 
 console.log('blog builder UI tests passed');

@@ -15767,6 +15767,31 @@ body::after {
   color: rgba(242, 242, 242, 0.58);
 }
 
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-active-view='website'] .admin-website-header-copy h2,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-active-view='website'] .admin-website-node-copy strong,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-active-view='website'] .admin-website-growth-copy strong {
+  color: #111827;
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-active-view='website'] .admin-website-header-copy p,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-active-view='website'] .admin-website-node-copy small,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-active-view='website'] .admin-website-node-copy em,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-active-view='website'] .admin-website-growth-copy small,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-active-view='website'] .admin-website-growth-copy em {
+  color: #667085;
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-active-view='website'] .admin-website-growth-icon {
+  border-color: rgba(17, 24, 39, 0.12);
+  background: rgba(17, 24, 39, 0.035);
+  color: #111827;
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite[data-active-view='website'] .admin-website-growth-label i {
+  background: #111827;
+  box-shadow: 0 0 0 5px rgba(17, 24, 39, 0.07), 0 0 20px rgba(17, 24, 39, 0.2);
+}
+
 @media (max-width: 1260px) {
   .admin-app.admin-app-suite .admin-website-header:not(.is-detail) {
     grid-template-columns: 1fr;

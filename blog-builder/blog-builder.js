@@ -23,6 +23,7 @@ if (root) {
     title: root.querySelector('[name="title"]'),
     excerpt: root.querySelector('[name="excerpt"]'),
     topic: root.querySelector('[name="topic"]'),
+    font: root.querySelector('[data-article-font-select]'),
     id: root.querySelector('[name="id"]'),
     version: root.querySelector('[name="version"]'),
     assetId: root.querySelector('[name="featured_asset_id"]'),
@@ -46,6 +47,18 @@ if (root) {
     toast: root.querySelector('[data-toast]'),
     moreMenu: root.querySelector('[data-more-menu]'),
     previewDialog: root.querySelector('[data-preview-dialog]'),
+    shareDialog: root.querySelector('[data-share-dialog]'),
+    shareUrl: root.querySelector('[data-share-url]'),
+    shareLinkWrap: root.querySelector('[data-share-link-wrap]'),
+    shareEmpty: root.querySelector('[data-share-empty]'),
+    shareEnable: root.querySelector('[data-share-enable]'),
+    shareOpen: root.querySelector('[data-share-open]'),
+    shareManagement: root.querySelector('[data-share-management]'),
+    shareButton: root.querySelector('[data-share-preview]'),
+    imageLayout: root.querySelector('[data-image-layout]'),
+    imageScale: root.querySelector('[data-image-scale]'),
+    imageScaleOutput: root.querySelector('[data-image-scale-output]'),
+    imageAlt: root.querySelector('[data-image-alt]'),
     historyDialog: root.querySelector('[data-history-dialog]'),
     historyList: root.querySelector('[data-history-list]'),
     workbench: root.querySelector('.blog-workbench')
@@ -64,7 +77,8 @@ if (root) {
     saveTimer: 0,
     toastTimer: 0,
     loadSequence: 0,
-    editorRange: null
+    editorRange: null,
+    selectedFigure: null
   };
 
   const escapeHtml = (value) => String(value ?? '')
@@ -108,10 +122,17 @@ if (root) {
     });
     template.content.querySelectorAll('*').forEach((node) => {
       [...node.attributes].forEach((attribute) => {
-        if (attribute.name.startsWith('on') || (attribute.name === 'href' && !/^(https?:|mailto:|#)/i.test(attribute.value))) {
-          node.removeAttribute(attribute.name);
-        }
+        const tag = node.tagName.toLowerCase();
+        const allowed = tag === 'a' ? ['href', 'rel']
+          : tag === 'img' ? ['src', 'alt', 'loading', 'decoding']
+            : tag === 'figure' ? ['data-scale', 'data-shape'] : [];
+        if (!allowed.includes(attribute.name) || (attribute.name === 'href' && !/^(https?:|mailto:|#)/i.test(attribute.value))) node.removeAttribute(attribute.name);
       });
+    });
+    template.content.querySelectorAll('figure').forEach((figure) => {
+      const scale = Number(figure.dataset.scale);
+      figure.dataset.scale = [40, 50, 60, 70, 80, 90, 100].includes(scale) ? String(scale) : '100';
+      figure.dataset.shape = ['original', 'landscape', 'square', 'portrait'].includes(figure.dataset.shape) ? figure.dataset.shape : 'original';
     });
     return template.innerHTML;
   };
@@ -316,6 +337,42 @@ if (root) {
     if (url) elements.coverPreview.src = url;
   };
 
+  const previewUrl = (path) => path ? new URL(path, window.location.href).href : '';
+
+  const renderShareState = (post = state.current) => {
+    const enabled = Boolean(post?.preview_enabled && post?.preview_path);
+    const url = enabled ? previewUrl(post.preview_path) : '';
+    elements.shareButton.classList.toggle('is-active', enabled);
+    elements.shareButton.setAttribute('aria-label', enabled ? 'Manage active private preview' : 'Share private preview');
+    elements.shareLinkWrap.hidden = !enabled;
+    elements.shareEmpty.hidden = enabled;
+    elements.shareEnable.hidden = enabled;
+    elements.shareOpen.hidden = !enabled;
+    elements.shareManagement.hidden = !enabled;
+    elements.shareUrl.value = url;
+    elements.shareOpen.href = url || '#';
+  };
+
+  const selectFigure = (figure = null) => {
+    if (state.selectedFigure && state.selectedFigure !== figure) state.selectedFigure.classList.remove('is-selected');
+    if (!(figure instanceof HTMLElement) || !elements.body.contains(figure)) {
+      state.selectedFigure = null;
+      elements.imageLayout.hidden = true;
+      return;
+    }
+    const scale = [40, 50, 60, 70, 80, 90, 100].includes(Number(figure.dataset.scale)) ? Number(figure.dataset.scale) : 100;
+    const shape = ['original', 'landscape', 'square', 'portrait'].includes(figure.dataset.shape) ? figure.dataset.shape : 'original';
+    figure.dataset.scale = String(scale);
+    figure.dataset.shape = shape;
+    figure.classList.add('is-selected');
+    state.selectedFigure = figure;
+    elements.imageScale.value = String(scale);
+    elements.imageScaleOutput.textContent = `${scale}%`;
+    elements.imageAlt.value = figure.querySelector('img')?.getAttribute('alt') || '';
+    root.querySelectorAll('[data-image-shape]').forEach((button) => button.classList.toggle('is-active', button.dataset.imageShape === shape));
+    elements.imageLayout.hidden = false;
+  };
+
   const blankPost = () => ({
     id: null,
     version: 0,
@@ -328,8 +385,11 @@ if (root) {
     author: 'ZERO Editorial',
     seo_title: '',
     seo_description: '',
+    font_key: 'editorial',
     featured_asset_id: null,
     featured_image_url: null,
+    preview_enabled: false,
+    preview_path: null,
     scheduled_at: null,
     word_count: 0
   });
@@ -346,6 +406,8 @@ if (root) {
     elements.excerpt.value = post.excerpt || '';
     elements.body.innerHTML = safePreviewHtml(post.body_html || '');
     elements.topic.value = post.topic || 'healthy-eating';
+    elements.font.value = post.font_key || 'editorial';
+    root.querySelector('.blog-writing-page').dataset.articleFont = elements.font.value;
     elements.status.value = post.status || 'draft';
     elements.author.value = post.author || 'ZERO Editorial';
     elements.slug.value = post.slug || '';
@@ -353,6 +415,8 @@ if (root) {
     elements.seoTitle.value = post.seo_title || '';
     elements.seoDescription.value = post.seo_description || '';
     setCover(post.featured_asset_id, post.featured_image_url);
+    selectFigure(null);
+    renderShareState(post);
     elements.form.hidden = false;
     elements.empty.hidden = true;
     elements.inspector.hidden = false;
@@ -377,6 +441,7 @@ if (root) {
     author: elements.author.value,
     seo_title: elements.seoTitle.value,
     seo_description: elements.seoDescription.value,
+    font_key: elements.font.value,
     featured_asset_id: Number(elements.assetId.value) || null,
     scheduled_at: elements.schedule.value || null
   });
@@ -419,6 +484,7 @@ if (root) {
         state.dirty = false;
       }
       upsertSummary(response.post);
+      renderShareState(response.post);
       renderHistory();
       updateDerived();
       setSaveState(hasNewerChanges ? 'Saving latest changes…' : 'All changes saved', hasNewerChanges ? 'saving' : 'ready');
@@ -522,6 +588,8 @@ if (root) {
     image.setAttribute('alt', elements.title.value.trim() || 'ZERO article image');
     image.setAttribute('loading', 'lazy');
     image.setAttribute('decoding', 'async');
+    figure.dataset.scale = '100';
+    figure.dataset.shape = 'original';
     figure.append(image, caption);
     const continuation = document.createElement('p');
     continuation.append(document.createElement('br'));
@@ -544,6 +612,7 @@ if (root) {
     selection?.addRange(typingRange);
     state.editorRange = typingRange.cloneRange();
     elements.body.focus();
+    selectFigure(figure);
     markDirty();
     const nextInsertionRange = document.createRange();
     nextInsertionRange.setStartAfter(continuation);
@@ -582,6 +651,7 @@ if (root) {
     root.querySelector('[data-preview-author]').textContent = elements.author.value.trim() || 'ZERO Editorial';
     root.querySelector('[data-preview-reading]').textContent = `${Math.max(1, Math.ceil(wordCount(plainText(elements.body.innerHTML)) / 220))} min read`;
     root.querySelector('[data-preview-body]').innerHTML = safePreviewHtml(elements.body.innerHTML) || '<p>Start writing to see the article preview.</p>';
+    root.querySelector('.blog-preview-article').dataset.articleFont = elements.font.value;
     const previewImage = root.querySelector('[data-preview-image]');
     previewImage.hidden = !elements.coverPreview.src || elements.coverPreview.hidden;
     if (!previewImage.hidden) previewImage.src = elements.coverPreview.src;
@@ -646,6 +716,76 @@ if (root) {
     } catch (error) { showToast(error.message, 'error'); }
   };
 
+  const waitForSaveIdle = async () => {
+    const started = Date.now();
+    while (state.saving && Date.now() - started < 20000) {
+      await new Promise((resolve) => window.setTimeout(resolve, 50));
+    }
+    return !state.saving;
+  };
+
+  const ensureLatestSaved = async () => {
+    if (!(await waitForSaveIdle())) {
+      showToast('The current save is taking too long. Try sharing again in a moment.', 'error');
+      return null;
+    }
+    if (state.dirty || !Number(elements.id.value)) return savePost();
+    return state.current;
+  };
+
+  const setShareBusy = (busy, label = '') => {
+    root.querySelectorAll('[data-share-enable], [data-share-regenerate], [data-share-disable], [data-share-copy]').forEach((button) => { button.disabled = busy; });
+    if (label) elements.shareEnable.textContent = label;
+    else elements.shareEnable.textContent = 'Create preview link';
+  };
+
+  const enableSharedPreview = async (rotate = false) => {
+    if (rotate && !window.confirm('Replace the preview link? The current link will stop working immediately.')) return;
+    setShareBusy(true, rotate ? '' : 'Creating link…');
+    try {
+      const saved = await ensureLatestSaved();
+      if (!saved) return;
+      const response = await api('share_preview', { method: 'POST', body: { id: Number(elements.id.value), rotate } });
+      state.current = response.post;
+      upsertSummary(response.post);
+      renderShareState(response.post);
+      showToast(rotate ? 'Preview link replaced.' : 'Private preview link created.');
+    } catch (error) {
+      showToast(error.message, 'error');
+    } finally {
+      setShareBusy(false);
+    }
+  };
+
+  const disableSharedPreview = async () => {
+    if (!window.confirm('Turn off sharing? Anyone using the current preview link will immediately lose access.')) return;
+    setShareBusy(true);
+    try {
+      const response = await api('disable_preview', { method: 'POST', body: { id: Number(elements.id.value) } });
+      state.current = response.post;
+      upsertSummary(response.post);
+      renderShareState(response.post);
+      showToast('Private preview sharing turned off.');
+    } catch (error) {
+      showToast(error.message, 'error');
+    } finally {
+      setShareBusy(false);
+    }
+  };
+
+  const copySharedPreview = async () => {
+    const url = elements.shareUrl.value;
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch (_error) {
+      elements.shareUrl.focus();
+      elements.shareUrl.select();
+      document.execCommand('copy');
+    }
+    showToast('Preview link copied.');
+  };
+
   const restoreRevision = async (revisionId) => {
     if (!window.confirm('Restore this earlier version? Your current version will remain in history.')) return;
     try {
@@ -672,12 +812,14 @@ if (root) {
     }));
 
     elements.form.addEventListener('submit', (event) => event.preventDefault());
-    [elements.title, elements.excerpt, elements.topic, elements.status, elements.author, elements.slug, elements.schedule, elements.seoTitle, elements.seoDescription].forEach((control) => control.addEventListener('input', () => {
+    [elements.title, elements.excerpt, elements.topic, elements.font, elements.status, elements.author, elements.slug, elements.schedule, elements.seoTitle, elements.seoDescription].forEach((control) => control.addEventListener('input', () => {
       if (control === elements.slug) state.slugTouched = true;
       if (control === elements.title && !state.slugTouched) elements.slug.value = slugify(elements.title.value);
+      if (control === elements.font) root.querySelector('.blog-writing-page').dataset.articleFont = elements.font.value;
       markDirty();
     }));
     elements.body.addEventListener('input', markDirty);
+    elements.body.addEventListener('click', (event) => selectFigure(event.target.closest('figure')));
     ['keyup', 'mouseup', 'focus'].forEach((type) => elements.body.addEventListener(type, rememberEditorRange));
     elements.body.addEventListener('paste', (event) => {
       const images = [...(event.clipboardData?.files || [])].filter((file) => file.type.startsWith('image/'));
@@ -731,12 +873,46 @@ if (root) {
     root.querySelector('[data-inline-image]').addEventListener('pointerdown', rememberEditorRange);
     root.querySelector('[data-inline-image]').addEventListener('click', () => elements.inlineImageInput.click());
     elements.inlineImageInput.addEventListener('change', () => uploadInlineImages(elements.inlineImageInput.files, state.editorRange));
+    elements.imageScale.addEventListener('input', () => {
+      if (!state.selectedFigure) return;
+      state.selectedFigure.dataset.scale = elements.imageScale.value;
+      elements.imageScaleOutput.textContent = `${elements.imageScale.value}%`;
+      markDirty();
+    });
+    root.querySelectorAll('[data-image-shape]').forEach((button) => button.addEventListener('click', () => {
+      if (!state.selectedFigure) return;
+      state.selectedFigure.dataset.shape = button.dataset.imageShape;
+      selectFigure(state.selectedFigure);
+      markDirty();
+    }));
+    elements.imageAlt.addEventListener('input', () => {
+      const image = state.selectedFigure?.querySelector('img');
+      if (!image) return;
+      image.setAttribute('alt', elements.imageAlt.value);
+      markDirty();
+    });
+    root.querySelector('[data-image-layout-close]').addEventListener('click', () => selectFigure(null));
+    root.querySelector('[data-image-remove]').addEventListener('click', () => {
+      if (!state.selectedFigure || !window.confirm('Remove this image from the article?')) return;
+      const figure = state.selectedFigure;
+      selectFigure(null);
+      figure.remove();
+      markDirty();
+      showToast('Image removed from the article.');
+    });
 
     root.querySelector('[data-save-draft]').addEventListener('click', () => savePost({ forcedStatus: 'draft', announce: true }));
     root.querySelector('[data-schedule-post]').addEventListener('click', schedulePost);
     root.querySelector('[data-preview-post]').addEventListener('click', openPreview);
     root.querySelector('[data-preview-close]').addEventListener('click', () => elements.previewDialog.close());
     elements.previewDialog.addEventListener('click', (event) => { if (event.target === elements.previewDialog) elements.previewDialog.close(); });
+    elements.shareButton.addEventListener('click', () => { renderShareState(); elements.shareDialog.showModal(); });
+    root.querySelector('[data-share-close]').addEventListener('click', () => elements.shareDialog.close());
+    elements.shareDialog.addEventListener('click', (event) => { if (event.target === elements.shareDialog) elements.shareDialog.close(); });
+    elements.shareEnable.addEventListener('click', () => enableSharedPreview(false));
+    root.querySelector('[data-share-regenerate]').addEventListener('click', () => enableSharedPreview(true));
+    root.querySelector('[data-share-disable]').addEventListener('click', disableSharedPreview);
+    root.querySelector('[data-share-copy]').addEventListener('click', copySharedPreview);
 
     root.querySelector('[data-more-toggle]').addEventListener('click', (event) => {
       event.stopPropagation();

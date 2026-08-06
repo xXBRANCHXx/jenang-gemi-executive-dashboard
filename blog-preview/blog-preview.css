@@ -1,0 +1,92 @@
+:root {
+  color-scheme: light;
+  --paper: #fbfcf8;
+  --paper-soft: #f1f4ed;
+  --ink: #172018;
+  --muted: #687269;
+  --line: rgba(23, 32, 24, .13);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: Inter, "Helvetica Neue", Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html { min-height: 100%; background: var(--paper); }
+body { min-height: 100vh; margin: 0; background: var(--paper); color: var(--ink); }
+
+.preview-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+  min-height: 68px;
+  padding: 10px clamp(18px, 4vw, 54px);
+  border-bottom: 1px solid var(--line);
+  background: rgba(251, 252, 248, .93);
+  backdrop-filter: blur(18px);
+}
+
+.preview-brand { color: #0c120d; font-size: 20px; font-weight: 900; letter-spacing: -.06em; text-decoration: none; }
+.preview-bar-copy { display: grid; gap: 3px; }
+.preview-bar-copy strong { font-size: 12px; }
+.preview-bar-copy span { color: var(--muted); font-size: 10px; }
+.preview-status { display: inline-flex; align-items: center; gap: 7px; padding: 8px 11px; border: 1px solid var(--line); border-radius: 99px; color: #465048; font-size: 10px; font-weight: 800; }
+.preview-status i { width: 7px; height: 7px; border-radius: 50%; background: #79ae1d; box-shadow: 0 0 0 4px rgba(121, 174, 29, .12); }
+
+.preview-article { --article-body-font: Inter, Arial, sans-serif; --article-heading-font: Inter, Arial, sans-serif; width: min(760px, calc(100% - 40px)); margin: 0 auto; padding: clamp(58px, 9vw, 110px) 0 100px; font-family: var(--article-body-font); }
+.preview-article[data-topic="healthy-eating"] { --topic-accent: #9dff00; }
+.preview-article[data-topic="keeping-fit"] { --topic-accent: #22d3ee; }
+.preview-article[data-topic="losing-weight"] { --topic-accent: #ffd400; }
+.preview-article[data-topic="diabetes-remission"] { --topic-accent: #a78bfa; }
+.preview-article[data-article-font="classic"] { --article-body-font: Georgia, "Times New Roman", serif; --article-heading-font: Georgia, "Times New Roman", serif; }
+.preview-article[data-article-font="humanist"] { --article-body-font: "Trebuchet MS", Arial, sans-serif; --article-heading-font: "Trebuchet MS", Arial, sans-serif; }
+.preview-article[data-article-font="editorial"] { --article-body-font: "Plus Jakarta Sans", Arial, sans-serif; --article-heading-font: "Space Grotesk", "Plus Jakarta Sans", Arial, sans-serif; }
+.preview-article-header { text-align: left; }
+.preview-topic { color: color-mix(in srgb, var(--topic-accent) 62%, #28410d); font-size: 11px; font-weight: 850; letter-spacing: .11em; text-transform: uppercase; }
+.preview-article h1 { margin: 17px 0 21px; color: var(--ink); font-family: var(--article-heading-font); font-size: clamp(42px, 8vw, 72px); line-height: 1.01; letter-spacing: -.052em; }
+.preview-excerpt { max-width: 680px; margin: 0; color: #556058; font-size: clamp(17px, 2.3vw, 20px); line-height: 1.65; }
+.preview-meta { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 28px; color: var(--muted); font-size: 11px; font-weight: 700; }
+.preview-cover { display: block; width: 100%; max-height: 500px; margin-top: 48px; border-radius: 22px; object-fit: cover; background: var(--paper-soft); }
+
+.preview-body { margin-top: 52px; color: var(--ink); font-size: 17px; line-height: 1.86; }
+.preview-body p { margin: 0 0 1.35em; }
+.preview-body h2 { margin: 2em 0 .7em; font-family: var(--article-heading-font); font-size: clamp(28px, 4vw, 34px); line-height: 1.18; letter-spacing: -.035em; }
+.preview-body h3 { margin: 1.7em 0 .65em; font-family: var(--article-heading-font); font-size: 23px; line-height: 1.28; letter-spacing: -.025em; }
+.preview-body ul,
+.preview-body ol { margin: 1.2em 0 1.6em; padding-left: 1.4em; }
+.preview-body li { margin: .48em 0; }
+.preview-body blockquote { margin: 1.8em 0; padding: 3px 0 3px 22px; border-left: 3px solid #79ae1d; color: #465048; font-size: 20px; font-style: italic; }
+.preview-body a { color: #28657f; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.preview-body figure { width: 100%; margin: 2.3em auto; }
+.preview-body figure[data-scale="40"] { width: 40%; }
+.preview-body figure[data-scale="50"] { width: 50%; }
+.preview-body figure[data-scale="60"] { width: 60%; }
+.preview-body figure[data-scale="70"] { width: 70%; }
+.preview-body figure[data-scale="80"] { width: 80%; }
+.preview-body figure[data-scale="90"] { width: 90%; }
+.preview-body figure img { display: block; width: 100%; max-height: 680px; border-radius: 16px; object-fit: contain; background: #edf0e9; }
+.preview-body figure[data-shape="landscape"] img { aspect-ratio: 16 / 9; object-fit: cover; }
+.preview-body figure[data-shape="square"] img { aspect-ratio: 1; object-fit: cover; }
+.preview-body figure[data-shape="portrait"] img { aspect-ratio: 4 / 5; object-fit: cover; }
+.preview-body figcaption { padding: 10px 8px 0; color: var(--muted); font-size: 11px; line-height: 1.5; text-align: center; }
+.preview-empty { padding: 32px; border: 1px dashed var(--line); border-radius: 16px; background: var(--paper-soft); color: var(--muted); text-align: center; }
+
+.preview-footer { display: flex; justify-content: center; gap: 8px 16px; padding: 28px 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10px; text-align: center; }
+.preview-footer strong { color: var(--ink); }
+
+.preview-unavailable { display: grid; width: min(520px, calc(100% - 40px)); min-height: 100vh; margin: auto; place-content: center; text-align: center; }
+.preview-unavailable-mark { display: grid; width: 58px; height: 58px; margin: 34px auto 0; place-items: center; border: 1px solid var(--line); border-radius: 18px; background: var(--paper-soft); font-size: 28px; }
+.preview-unavailable h1 { margin: 22px 0 10px; font-size: clamp(30px, 7vw, 46px); letter-spacing: -.045em; }
+.preview-unavailable p { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.7; }
+
+@media (max-width: 620px) {
+  .preview-bar { grid-template-columns: auto 1fr; }
+  .preview-bar-copy span { display: none; }
+  .preview-status { display: none; }
+  .preview-article { width: min(100% - 32px, 760px); padding-top: 48px; }
+  .preview-body figure[data-scale] { width: 100%; }
+  .preview-footer { display: grid; }
+}

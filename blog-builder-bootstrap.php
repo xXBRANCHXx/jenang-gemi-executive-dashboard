@@ -25,6 +25,16 @@ function jg_blog_statuses(): array
     ];
 }
 
+function jg_blog_fonts(): array
+{
+    return [
+        'editorial' => 'ZERO Editorial',
+        'modern' => 'Modern Sans',
+        'classic' => 'Classic Serif',
+        'humanist' => 'Humanist Sans',
+    ];
+}
+
 function jg_blog_db(): PDO
 {
     static $pdo = null;
@@ -88,6 +98,25 @@ function jg_blog_ensure_schema(PDO $pdo): void
             created_at DATETIME NOT NULL,
             UNIQUE KEY uniq_zero_blog_revision (post_id, version),
             KEY idx_zero_blog_revisions_post (post_id, created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+    );
+
+    $pdo->exec(
+        'CREATE TABLE IF NOT EXISTS zero_blog_preview_links (
+            post_id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
+            share_token CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            UNIQUE KEY uniq_zero_blog_preview_token (share_token),
+            KEY idx_zero_blog_preview_updated (updated_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+    );
+
+    $pdo->exec(
+        'CREATE TABLE IF NOT EXISTS zero_blog_post_styles (
+            post_id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
+            font_key VARCHAR(32) NOT NULL DEFAULT "editorial",
+            updated_at DATETIME NOT NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
     );
 }
@@ -206,6 +235,8 @@ function jg_blog_sanitize_html(mixed $html): string
                 $originalHref = $tag === 'a' ? $node->getAttribute('href') : '';
                 $originalSrc = $tag === 'img' ? $node->getAttribute('src') : '';
                 $originalAlt = $tag === 'img' ? $node->getAttribute('alt') : '';
+                $originalScale = $tag === 'figure' ? $node->getAttribute('data-scale') : '';
+                $originalShape = $tag === 'figure' ? $node->getAttribute('data-shape') : '';
                 $walk($node);
                 foreach (iterator_to_array($node->attributes) as $attribute) {
                     $node->removeAttribute($attribute->name);
@@ -230,6 +261,11 @@ function jg_blog_sanitize_html(mixed $html): string
                     $node->setAttribute('alt', jg_blog_clean_text($originalAlt, 240));
                     $node->setAttribute('loading', 'lazy');
                     $node->setAttribute('decoding', 'async');
+                }
+                if ($tag === 'figure') {
+                    $scale = (int) $originalScale;
+                    $node->setAttribute('data-scale', in_array($scale, [40, 50, 60, 70, 80, 90, 100], true) ? (string) $scale : '100');
+                    $node->setAttribute('data-shape', in_array($originalShape, ['original', 'landscape', 'square', 'portrait'], true) ? $originalShape : 'original');
                 }
             }
             $node = $next;
@@ -289,6 +325,7 @@ function jg_blog_validate_payload(array $payload, bool $forRestore = false): arr
 {
     $topics = jg_blog_topics();
     $statuses = jg_blog_statuses();
+    $fonts = jg_blog_fonts();
     $title = jg_blog_clean_text($payload['title'] ?? '', 240);
     $excerpt = jg_blog_clean_text($payload['excerpt'] ?? '', 400);
     $bodyHtml = jg_blog_sanitize_html($payload['body_html'] ?? '');
@@ -298,12 +335,16 @@ function jg_blog_validate_payload(array $payload, bool $forRestore = false): arr
     $author = jg_blog_clean_text($payload['author'] ?? 'ZERO Editorial', 120);
     $scheduledAt = jg_blog_parse_wib_datetime($payload['scheduled_at'] ?? '');
     $assetId = max(0, (int) ($payload['featured_asset_id'] ?? 0));
+    $fontKey = strtolower(trim((string) ($payload['font_key'] ?? 'editorial')));
 
     if (!isset($topics[$topic])) {
         throw new InvalidArgumentException('Choose one of the four ZERO article topics.');
     }
     if (!isset($statuses[$status])) {
         throw new InvalidArgumentException('Choose a valid editorial status.');
+    }
+    if (!isset($fonts[$fontKey])) {
+        throw new InvalidArgumentException('Choose a supported article font.');
     }
     if ($status === 'in_review' && ($title === '' || jg_blog_word_count($bodyText) < 30)) {
         throw new InvalidArgumentException('Add a title and at least 30 words before sending an article to review.');
@@ -333,6 +374,7 @@ function jg_blog_validate_payload(array $payload, bool $forRestore = false): arr
         'seo_description' => jg_blog_clean_text($payload['seo_description'] ?? '', 320),
         'featured_asset_id' => $assetId > 0 ? $assetId : null,
         'scheduled_at' => $scheduledAt,
+        'font_key' => $fontKey,
     ];
 }
 
@@ -349,6 +391,8 @@ function jg_blog_format_post(array $row, bool $includeBody = true): array
     $bodyText = (string) ($row['body_text'] ?? '');
     $wordCount = jg_blog_word_count($bodyText);
     $assetId = (int) ($row['featured_asset_id'] ?? 0);
+    $previewToken = strtolower(trim((string) ($row['share_token'] ?? '')));
+    $previewEnabled = jg_blog_valid_share_token($previewToken);
     $post = [
         'id' => (int) $row['id'],
         'title' => (string) $row['title'],
@@ -360,6 +404,7 @@ function jg_blog_format_post(array $row, bool $includeBody = true): array
         'author' => (string) $row['author'],
         'seo_title' => (string) $row['seo_title'],
         'seo_description' => (string) $row['seo_description'],
+        'font_key' => isset(jg_blog_fonts()[(string) ($row['font_key'] ?? '')]) ? (string) $row['font_key'] : 'editorial',
         'featured_asset_id' => $assetId ?: null,
         'featured_image_url' => $assetId ? '/api/blogs/?action=asset&id=' . $assetId : null,
         'scheduled_at' => jg_blog_wib_value($row['scheduled_at'] ?? null),
@@ -367,6 +412,8 @@ function jg_blog_format_post(array $row, bool $includeBody = true): array
         'version' => (int) $row['version'],
         'word_count' => $wordCount,
         'reading_minutes' => max(1, (int) ceil($wordCount / 220)),
+        'preview_enabled' => $previewEnabled,
+        'preview_path' => $previewEnabled ? '/blog-preview/?token=' . $previewToken : null,
         'created_at' => gmdate(DATE_ATOM, strtotime((string) $row['created_at'] . ' UTC')),
         'updated_at' => gmdate(DATE_ATOM, strtotime((string) $row['updated_at'] . ' UTC')),
     ];
@@ -379,7 +426,13 @@ function jg_blog_format_post(array $row, bool $includeBody = true): array
 
 function jg_blog_post(PDO $pdo, int $id): array
 {
-    $stmt = $pdo->prepare('SELECT * FROM zero_blog_posts WHERE id = :id LIMIT 1');
+    $stmt = $pdo->prepare(
+        'SELECT posts.*, previews.share_token, COALESCE(styles.font_key, "editorial") AS font_key
+         FROM zero_blog_posts posts
+         LEFT JOIN zero_blog_preview_links previews ON previews.post_id = posts.id
+         LEFT JOIN zero_blog_post_styles styles ON styles.post_id = posts.id
+         WHERE posts.id = :id LIMIT 1'
+    );
     $stmt->execute([':id' => $id]);
     $row = $stmt->fetch();
     if (!is_array($row)) {
@@ -390,8 +443,113 @@ function jg_blog_post(PDO $pdo, int $id): array
 
 function jg_blog_list(PDO $pdo): array
 {
-    $rows = $pdo->query('SELECT * FROM zero_blog_posts ORDER BY updated_at DESC, id DESC LIMIT 500')->fetchAll();
+    $rows = $pdo->query(
+        'SELECT posts.*, previews.share_token, COALESCE(styles.font_key, "editorial") AS font_key
+         FROM zero_blog_posts posts
+         LEFT JOIN zero_blog_preview_links previews ON previews.post_id = posts.id
+         LEFT JOIN zero_blog_post_styles styles ON styles.post_id = posts.id
+         ORDER BY posts.updated_at DESC, posts.id DESC LIMIT 500'
+    )->fetchAll();
     return array_map(static fn (array $row): array => jg_blog_format_post($row, false), $rows);
+}
+
+function jg_blog_valid_share_token(string $token): bool
+{
+    return preg_match('/^[a-f0-9]{64}$/D', $token) === 1;
+}
+
+function jg_blog_enable_preview(PDO $pdo, int $postId, bool $rotate = false): array
+{
+    jg_blog_post($pdo, $postId);
+    $stmt = $pdo->prepare('SELECT share_token FROM zero_blog_preview_links WHERE post_id = :post_id LIMIT 1');
+    $stmt->execute([':post_id' => $postId]);
+    $existing = strtolower(trim((string) $stmt->fetchColumn()));
+    if (!$rotate && jg_blog_valid_share_token($existing)) {
+        return jg_blog_post($pdo, $postId);
+    }
+
+    $now = jg_blog_now();
+    for ($attempt = 0; $attempt < 3; $attempt++) {
+        $token = bin2hex(random_bytes(32));
+        try {
+            $save = $pdo->prepare(
+                'INSERT INTO zero_blog_preview_links (post_id, share_token, created_at, updated_at)
+                 VALUES (:post_id, :share_token, :created_at, :updated_at)
+                 ON DUPLICATE KEY UPDATE share_token = VALUES(share_token), updated_at = VALUES(updated_at)'
+            );
+            $save->execute([
+                ':post_id' => $postId,
+                ':share_token' => $token,
+                ':created_at' => $now,
+                ':updated_at' => $now,
+            ]);
+            return jg_blog_post($pdo, $postId);
+        } catch (PDOException $error) {
+            if ((string) $error->getCode() !== '23000' || $attempt === 2) {
+                throw $error;
+            }
+        }
+    }
+    throw new RuntimeException('A private preview link could not be created.');
+}
+
+function jg_blog_disable_preview(PDO $pdo, int $postId): array
+{
+    jg_blog_post($pdo, $postId);
+    $stmt = $pdo->prepare('DELETE FROM zero_blog_preview_links WHERE post_id = :post_id');
+    $stmt->execute([':post_id' => $postId]);
+    return jg_blog_post($pdo, $postId);
+}
+
+function jg_blog_shared_post(PDO $pdo, string $token): array
+{
+    $token = strtolower(trim($token));
+    if (!jg_blog_valid_share_token($token)) {
+        throw new OutOfBoundsException('Preview not found.');
+    }
+    $stmt = $pdo->prepare(
+        'SELECT posts.*, previews.share_token, COALESCE(styles.font_key, "editorial") AS font_key
+         FROM zero_blog_preview_links previews
+         INNER JOIN zero_blog_posts posts ON posts.id = previews.post_id
+         LEFT JOIN zero_blog_post_styles styles ON styles.post_id = posts.id
+         WHERE previews.share_token = :share_token LIMIT 1'
+    );
+    $stmt->execute([':share_token' => $token]);
+    $row = $stmt->fetch();
+    if (!is_array($row)) {
+        throw new OutOfBoundsException('Preview not found.');
+    }
+    return jg_blog_format_post($row);
+}
+
+function jg_blog_post_asset_ids(array $post): array
+{
+    $ids = [];
+    $featuredId = (int) ($post['featured_asset_id'] ?? 0);
+    if ($featuredId > 0) {
+        $ids[$featuredId] = true;
+    }
+    preg_match_all('~/api/blogs/\\?action=asset(?:&amp;|&)id=(\\d+)~i', (string) ($post['body_html'] ?? ''), $matches);
+    foreach ($matches[1] ?? [] as $id) {
+        if ((int) $id > 0) {
+            $ids[(int) $id] = true;
+        }
+    }
+    return array_map('intval', array_keys($ids));
+}
+
+function jg_blog_public_body_html(string $html, string $token): string
+{
+    $token = strtolower(trim($token));
+    if (!jg_blog_valid_share_token($token)) {
+        return '';
+    }
+    $safeHtml = jg_blog_sanitize_html($html);
+    return (string) preg_replace_callback(
+        '~src="/api/blogs/\\?action=asset(?:&amp;|&)id=(\\d+)"~i',
+        static fn (array $match): string => 'src="/blog-preview/asset.php?token=' . $token . '&amp;id=' . (int) $match[1] . '"',
+        $safeHtml
+    );
 }
 
 function jg_blog_stats(array $posts): array
@@ -411,7 +569,7 @@ function jg_blog_snapshot(array $row): array
 {
     return array_intersect_key($row, array_flip([
         'title', 'slug', 'excerpt', 'body_html', 'body_text', 'topic', 'status', 'author',
-        'seo_title', 'seo_description', 'featured_asset_id', 'scheduled_at',
+        'seo_title', 'seo_description', 'featured_asset_id', 'scheduled_at', 'font_key',
     ]));
 }
 
@@ -434,6 +592,8 @@ function jg_blog_save(PDO $pdo, array $payload): array
     $id = max(0, (int) ($payload['id'] ?? 0));
     $expectedVersion = max(0, (int) ($payload['version'] ?? 0));
     $values = jg_blog_validate_payload($payload);
+    $fontKey = (string) $values['font_key'];
+    unset($values['font_key']);
     if ($values['featured_asset_id'] !== null) {
         $asset = $pdo->prepare('SELECT id FROM zero_blog_assets WHERE id = :id LIMIT 1');
         $asset->execute([':id' => $values['featured_asset_id']]);
@@ -458,7 +618,12 @@ function jg_blog_save(PDO $pdo, array $payload): array
             $stmt->execute($values + [':created_at' => $now, ':updated_at' => $now]);
             $id = (int) $pdo->lastInsertId();
         } else {
-            $select = $pdo->prepare('SELECT * FROM zero_blog_posts WHERE id = :id FOR UPDATE');
+            $select = $pdo->prepare(
+                'SELECT posts.*, COALESCE(styles.font_key, "editorial") AS font_key
+                 FROM zero_blog_posts posts
+                 LEFT JOIN zero_blog_post_styles styles ON styles.post_id = posts.id
+                 WHERE posts.id = :id FOR UPDATE'
+            );
             $select->execute([':id' => $id]);
             $current = $select->fetch();
             if (!is_array($current)) {
@@ -471,7 +636,7 @@ function jg_blog_save(PDO $pdo, array $payload): array
             $values['slug'] = jg_blog_unique_slug($pdo, $values['slug'], $values['title'], $id);
             $currentSnapshot = jg_blog_snapshot($current);
             $changed = false;
-            foreach ($values as $key => $value) {
+            foreach ($values + ['font_key' => $fontKey] as $key => $value) {
                 if (($currentSnapshot[$key] ?? null) != $value) {
                     $changed = true;
                     break;
@@ -479,7 +644,7 @@ function jg_blog_save(PDO $pdo, array $payload): array
             }
             if (!$changed) {
                 $pdo->commit();
-                return jg_blog_format_post($current);
+                return jg_blog_post($pdo, $id);
             }
 
             jg_blog_write_revision($pdo, $current);
@@ -496,6 +661,12 @@ function jg_blog_save(PDO $pdo, array $payload): array
                 throw new UnexpectedValueException('This article changed while it was saving. Reload it before trying again.');
             }
         }
+        $style = $pdo->prepare(
+            'INSERT INTO zero_blog_post_styles (post_id, font_key, updated_at)
+             VALUES (:post_id, :font_key, :updated_at)
+             ON DUPLICATE KEY UPDATE font_key = VALUES(font_key), updated_at = VALUES(updated_at)'
+        );
+        $style->execute([':post_id' => $id, ':font_key' => $fontKey, ':updated_at' => $now]);
         $pdo->commit();
         return jg_blog_post($pdo, $id);
     } catch (Throwable $error) {

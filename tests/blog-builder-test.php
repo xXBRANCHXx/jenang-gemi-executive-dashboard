@@ -29,11 +29,19 @@ blog_expect(false, str_contains($safeHtml, 'javascript:'), 'Unsafe link protocol
 blog_expect(true, str_contains($safeHtml, 'href="https://zerofoods.id/path"'), 'Safe links should remain available.');
 blog_expect(true, str_contains($safeHtml, '<h2>Useful heading</h2>'), 'Supported editorial headings should be preserved.');
 
-$imageHtml = jg_blog_sanitize_html('<figure class="bad"><img src="/api/blogs/?action=asset&amp;id=42" alt="Healthy plate" onerror="bad()"><figcaption>A balanced lunch</figcaption></figure><img src="https://example.com/tracker.gif">');
+$imageHtml = jg_blog_sanitize_html('<figure class="bad" data-scale="70" data-shape="square"><img src="/api/blogs/?action=asset&amp;id=42" alt="Healthy plate" onerror="bad()"><figcaption>A balanced lunch</figcaption></figure><img src="https://example.com/tracker.gif">');
 blog_expect(true, str_contains($imageHtml, 'src="/api/blogs/?action=asset&amp;id=42"'), 'Uploaded inline article images should be preserved.');
 blog_expect(true, str_contains($imageHtml, '<figcaption>A balanced lunch</figcaption>'), 'Inline image captions should be preserved.');
+blog_expect(true, str_contains($imageHtml, 'data-scale="70"'), 'Validated inline image scale should be preserved.');
+blog_expect(true, str_contains($imageHtml, 'data-shape="square"'), 'Validated inline image shape should be preserved.');
 blog_expect(false, str_contains($imageHtml, 'onerror'), 'Inline images must not retain event attributes.');
 blog_expect(false, str_contains($imageHtml, 'tracker.gif'), 'External image sources must be rejected.');
+
+$shareToken = str_repeat('a', 64);
+blog_expect(true, jg_blog_valid_share_token($shareToken), 'Private preview tokens must use a full 256 bits of hex data.');
+blog_expect(false, jg_blog_valid_share_token('short-token'), 'Malformed private preview tokens must be rejected.');
+$publicImageHtml = jg_blog_public_body_html($imageHtml, $shareToken);
+blog_expect(true, str_contains($publicImageHtml, '/blog-preview/asset.php?token=' . $shareToken . '&amp;id=42'), 'Shared previews must use token-protected image URLs.');
 
 blog_expect(6, jg_blog_word_count('ZERO helps people eat better today.'), 'Word counting should support reading-time estimates.');
 
@@ -49,6 +57,7 @@ $scheduled = jg_blog_validate_payload([
     'scheduled_at' => '2030-08-07T09:30',
 ]);
 blog_expect('scheduled', $scheduled['status'], 'Complete articles should be schedulable.');
+blog_expect('editorial', $scheduled['font_key'], 'Articles should use the ZERO Editorial font by default.');
 blog_expect(105, jg_blog_word_count($scheduled['body_text']), 'Sanitized article text should retain its words.');
 
 $invalidTopicRejected = false;

@@ -47,5 +47,6 @@ expect(campaignPanel.includes('data-view-switch="website"'), 'Campaigns must pro
 expect(affiliateProgram.includes('href="../dashboard/?view=website"'), 'Affiliates must provide a back button to Website.');
 expect(styles.includes('@media (max-width: 720px)'), 'Website ecosystem must include a compact mobile layout.');
 expect(script.includes("websiteRefs.heroTitle.textContent = 'Your web ecosystem.'"), 'Selector title must survive client-side view resets.');
+expect(styles.includes(":root[data-admin-theme='light'] .admin-app.admin-app-suite[data-active-view='website'] .admin-website-header-copy h2"), 'Website ecosystem must explicitly restore readable heading contrast in light mode.');
 
 console.log('Website ecosystem UI checks passed.');
