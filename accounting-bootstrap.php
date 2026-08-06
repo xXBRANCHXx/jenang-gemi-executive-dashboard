@@ -588,20 +588,40 @@ function jg_accounting_store_receipt(PDO $pdo, string $entityType, int $entityId
     $createdAt = strtolower((string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME)) === 'sqlite'
         ? 'CURRENT_TIMESTAMP'
         : 'UTC_TIMESTAMP()';
-    $stmt = $pdo->prepare(
-        'INSERT INTO accounting_receipt_files
-            (entity_type, entity_id, original_name, mime_type, size_bytes, file_data, uploaded_by, created_at)
-         VALUES
-            (:entity_type, :entity_id, :original_name, :mime_type, :size_bytes, :file_data, NULL, ' . $createdAt . ')'
+    $existing = $pdo->prepare(
+        'SELECT id FROM accounting_receipt_files
+         WHERE entity_type = :entity_type AND entity_id = :entity_id
+         LIMIT 1'
     );
-    $stmt->bindValue(':entity_type', $entityType);
-    $stmt->bindValue(':entity_id', $entityId, PDO::PARAM_INT);
+    $existing->execute([':entity_type' => $entityType, ':entity_id' => $entityId]);
+    $receiptId = (int) ($existing->fetchColumn() ?: 0);
+    $stmt = $receiptId > 0
+        ? $pdo->prepare(
+            'UPDATE accounting_receipt_files
+             SET original_name = :original_name, mime_type = :mime_type, size_bytes = :size_bytes,
+                 file_data = :file_data, created_at = ' . $createdAt . '
+             WHERE id = :receipt_id'
+        )
+        : $pdo->prepare(
+            'INSERT INTO accounting_receipt_files
+                (entity_type, entity_id, original_name, mime_type, size_bytes, file_data, uploaded_by, created_at)
+             VALUES
+                (:entity_type, :entity_id, :original_name, :mime_type, :size_bytes, :file_data, NULL, ' . $createdAt . ')'
+        );
+    if ($receiptId > 0) {
+        $stmt->bindValue(':receipt_id', $receiptId, PDO::PARAM_INT);
+    } else {
+        $stmt->bindValue(':entity_type', $entityType);
+        $stmt->bindValue(':entity_id', $entityId, PDO::PARAM_INT);
+    }
     $stmt->bindValue(':original_name', $receipt['original_name']);
     $stmt->bindValue(':mime_type', $receipt['mime_type']);
     $stmt->bindValue(':size_bytes', $receipt['size_bytes'], PDO::PARAM_INT);
     $stmt->bindValue(':file_data', $receipt['data'], PDO::PARAM_LOB);
     $stmt->execute();
-    $receiptId = (int) $pdo->lastInsertId();
+    if ($receiptId < 1) {
+        $receiptId = (int) $pdo->lastInsertId();
+    }
     $receiptUrl = '/api/accounting/?action=receipt&id=' . $receiptId;
 
     $table = $entityType === 'bill' ? 'accounting_bills' : 'accounting_transactions';
@@ -612,6 +632,17 @@ function jg_accounting_store_receipt(PDO $pdo, string $entityType, int $entityId
          WHERE id = :entity_id'
     );
     $update->execute([':receipt_url' => $receiptUrl, ':entity_id' => $entityId]);
+    try {
+        $resolveReview = $pdo->prepare(
+            'UPDATE accounting_review_queue
+             SET status = "resolved", resolved_at = ' . $createdAt . '
+             WHERE entity_type = :entity_type AND entity_id = :entity_id
+               AND issue_key = "missing_receipt" AND status = "open"'
+        );
+        $resolveReview->execute([':entity_type' => $entityType, ':entity_id' => $entityId]);
+    } catch (Throwable) {
+        // Lightweight test schemas and installations awaiting migration may not have the review table yet.
+    }
     return [
         'id' => $receiptId,
         'url' => $receiptUrl,

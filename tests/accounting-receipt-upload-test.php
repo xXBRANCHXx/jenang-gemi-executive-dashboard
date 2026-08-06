@@ -44,13 +44,25 @@ try {
         original_name TEXT, mime_type TEXT, size_bytes INTEGER, file_data BLOB,
         uploaded_by INTEGER NULL, created_at TEXT
     )');
+    $pdo->exec('CREATE TABLE accounting_review_queue (
+        id INTEGER PRIMARY KEY, entity_type TEXT, entity_id INTEGER, issue_key TEXT,
+        status TEXT, resolved_at TEXT NULL
+    )');
     $pdo->exec("INSERT INTO accounting_transactions VALUES (7, '', 'missing')");
+    $pdo->exec("INSERT INTO accounting_review_queue VALUES (1, 'transaction', 7, 'missing_receipt', 'open', NULL)");
 
     $stored = jg_accounting_store_receipt($pdo, 'transaction', 7, $validated);
     receipt_upload_expect('/api/accounting/?action=receipt&id=1', $stored['url'], 'Stored receipts must use the authenticated preview endpoint.');
     $transaction = $pdo->query('SELECT receipt_url, receipt_status FROM accounting_transactions WHERE id = 7')->fetch();
     receipt_upload_expect('attached', $transaction['receipt_status'] ?? '', 'Uploading a receipt must mark the transaction receipt as attached.');
     receipt_upload_expect(strlen($png), (int) $pdo->query('SELECT size_bytes FROM accounting_receipt_files')->fetchColumn(), 'Stored receipt bytes must be retained exactly.');
+    receipt_upload_expect('resolved', $pdo->query('SELECT status FROM accounting_review_queue WHERE id = 1')->fetchColumn(), 'Uploading a receipt must resolve the missing-receipt review item.');
+
+    $replacement = [...$validated, 'original_name' => 'replacement.png'];
+    $replaced = jg_accounting_store_receipt($pdo, 'transaction', 7, $replacement);
+    receipt_upload_expect($stored['id'], $replaced['id'], 'Replacing a receipt must retain the stable preview URL.');
+    receipt_upload_expect(1, (int) $pdo->query('SELECT COUNT(*) FROM accounting_receipt_files')->fetchColumn(), 'Replacing a receipt must not leave duplicate stored files.');
+    receipt_upload_expect('replacement.png', $pdo->query('SELECT original_name FROM accounting_receipt_files')->fetchColumn(), 'The replacement receipt metadata must be saved.');
 } finally {
     @unlink($path);
 }

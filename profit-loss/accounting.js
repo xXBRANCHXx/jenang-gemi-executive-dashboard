@@ -1805,6 +1805,7 @@ if (root) {
           <label><span>Category</span>${categoryComboboxMarkup(item.category_id)}</label>
           <label><span>Receipt status</span><select name="receipt_status">${receiptOptions}</select></label>
           <label><span>Receipt URL</span><input type="url" name="receipt_url" value="${escapeHtml(item.receipt_url || '')}"></label>
+          <label class="admin-accounting-receipt-upload"><span>Upload receipt <small>Optional · PDF or image · max 10 MB</small></span><input type="file" name="receipt_file" data-accounting-edit-receipt-file accept="application/pdf,image/png,image/jpeg,image/webp"></label>
           <label><span>Reference no.</span><input name="reference_no" value="${escapeHtml(item.reference_no || '')}"></label>
           <label><span>Order / SKU</span><input name="order_no" value="${escapeHtml(item.order_no || '')}"></label>
           <label class="admin-accounting-form-wide"><span>Notes</span><textarea name="notes" rows="4">${escapeHtml(item.notes || '')}</textarea></label>
@@ -2469,6 +2470,13 @@ if (root) {
   window.addEventListener('partner-billing:confirmed', () => {
     loadSafely(true);
   });
+  refs.drawerBody?.addEventListener('change', (event) => {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement) || !input.matches('[data-accounting-edit-receipt-file]')) return;
+    const form = input.closest('[data-accounting-edit-form]');
+    const receiptStatus = form?.querySelector('[name="receipt_status"]');
+    if (input.files?.length && receiptStatus instanceof HTMLSelectElement) receiptStatus.value = 'attached';
+  });
   refs.drawerBody?.addEventListener('submit', async (event) => {
     const form = event.target;
     if (!(form instanceof HTMLFormElement) || !form.matches('[data-accounting-edit-form]')) return;
@@ -2477,6 +2485,11 @@ if (root) {
     const kind = form.dataset.kind === 'bill' ? 'bill' : 'transaction';
     const original = (kind === 'bill' ? state.bills : state.transactions).find((row) => Number(row.id) === Number(form.dataset.id));
     if (!original) return;
+    const receiptCandidate = data.get('receipt_file');
+    const receiptFile = kind === 'transaction' && receiptCandidate instanceof File && receiptCandidate.size > 0
+      ? receiptCandidate
+      : null;
+    data.delete('receipt_file');
     const payload = Object.fromEntries(data.entries());
     payload.action = kind === 'bill' ? 'update_bill' : 'update_transaction';
     payload[`${kind}_id`] = form.dataset.id || '';
@@ -2492,11 +2505,19 @@ if (root) {
     }
     const errorNode = form.querySelector('[data-accounting-edit-error]');
     try {
-      await requestJson(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      if (receiptFile) {
+        const multipartBody = new FormData();
+        Object.entries(payload).forEach(([key, value]) => multipartBody.append(key, String(value ?? '')));
+        multipartBody.set('receipt_status', 'attached');
+        multipartBody.append('receipt_file', receiptFile, receiptFile.name);
+        await requestJson(endpoint, { method: 'POST', body: multipartBody });
+      } else {
+        await requestJson(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      }
       showToast('Correction saved and audit history updated.');
       refs.drawer.hidden = true;
       await loadSafely(true);

@@ -250,13 +250,21 @@ try {
         ? jg_accounting_validate_receipt_upload($_FILES['receipt_file'])
         : null;
 
-    if ($action === 'create_transaction' && is_array($receiptUpload)) {
+    if (is_array($receiptUpload) && !in_array($action, ['create_transaction', 'update_transaction'], true)) {
+        throw new InvalidArgumentException('Receipt uploads are supported for expense transactions.');
+    }
+
+    if (in_array($action, ['create_transaction', 'update_transaction'], true) && is_array($receiptUpload)) {
         $body['receipt_status'] = 'attached';
         $body['receipt_url'] = 'pending-secure-upload';
         $pdo->beginTransaction();
         try {
-            $result = jg_accounting_create_transaction($pdo, $body);
-            $transactionId = (int) ($result['id'] ?? 0);
+            $result = $action === 'create_transaction'
+                ? jg_accounting_create_transaction($pdo, $body)
+                : jg_accounting_update_transaction($pdo, $body);
+            $transactionId = $action === 'create_transaction'
+                ? (int) ($result['id'] ?? 0)
+                : (int) ($result['transaction_id'] ?? 0);
             $result['receipt'] = jg_accounting_store_receipt($pdo, 'transaction', $transactionId, $receiptUpload);
             jg_accounting_insert_audit($pdo, 'transaction', $transactionId, 'attach_receipt', null, $result['receipt']);
             $pdo->commit();

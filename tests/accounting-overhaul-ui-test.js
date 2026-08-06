@@ -5,6 +5,7 @@ const root = path.resolve(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'profit-loss', 'index.php'), 'utf8');
 const script = fs.readFileSync(path.join(root, 'profit-loss', 'accounting.js'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'admin.css'), 'utf8');
+const api = fs.readFileSync(path.join(root, 'api', 'accounting', 'index.php'), 'utf8');
 
 const expect = (condition, message) => {
   if (condition) return;
@@ -45,6 +46,9 @@ expect(script.includes('data-accounting-receipt-open') && script.includes('<span
 expect(script.includes("['http:', 'https:'].includes(parsed.protocol)"), 'Receipt previews must reject unsafe URL protocols.');
 expect(script.includes('const blob = await response.blob()') && script.includes('URL.createObjectURL(blob)'), 'Same-origin receipts must be fetched into a blob preview so frame-blocking headers cannot break the popup.');
 expect(script.includes("multipartBody.append('receipt_file'"), 'Receipt files must submit as multipart form data.');
+expect(script.includes('data-accounting-edit-receipt-file'), 'The transaction correction drawer must allow a missing receipt to be uploaded.');
+expect(script.includes("kind === 'transaction' && receiptCandidate instanceof File"), 'Correction uploads must be limited to transaction receipts.');
+expect(api.includes("['create_transaction', 'update_transaction']") && api.includes('jg_accounting_update_transaction($pdo, $body)'), 'The Accounting API must persist receipt uploads from both new and corrected transactions.');
 expect(script.includes("action: 'reconcile_cash'"), 'The reconciliation UI must post an auditable baseline.');
 expect(script.includes('accountOptionsForRole'), 'Paid-from and received-into options must be filtered by account role.');
 expect(script.includes("String(account.type || '') !== 'marketplace_wallet'"), 'Marketplace wallets must never appear as entry accounts.');
