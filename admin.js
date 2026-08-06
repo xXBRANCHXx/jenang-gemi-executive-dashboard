@@ -4249,7 +4249,7 @@ document.addEventListener('DOMContentLoaded', () => {
       'store-ops': 'orders',
       'shipment-arrangement': 'orders',
       context: 'home',
-      home: 'campaigns',
+      home: 'website',
       'ad-view': 'ad-view',
       website: 'website',
       'hard-set': 'hard-set',
@@ -9140,8 +9140,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (zeroStoreRefs.panel) zeroStoreRefs.panel.hidden = true;
       if (jenangGemiStoreRefs.panel) jenangGemiStoreRefs.panel.hidden = true;
       if (websiteRefs.heroChip) websiteRefs.heroChip.textContent = 'Official Website Dashboard';
-      if (websiteRefs.heroTitle) websiteRefs.heroTitle.textContent = 'Select a website dashboard.';
-      if (websiteRefs.heroCopy) websiteRefs.heroCopy.textContent = 'Choose jenanggemi.com or zerofoods.id to open the dedicated website analytics page. Each page uses browser-tagged website visits only.';
+      if (websiteRefs.heroTitle) websiteRefs.heroTitle.textContent = 'Your web ecosystem.';
+      if (websiteRefs.heroCopy) websiteRefs.heroCopy.textContent = 'See the storefronts you own and the growth channels that bring people to them—all from one connected workspace.';
       return;
     }
 

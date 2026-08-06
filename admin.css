@@ -15104,6 +15104,445 @@ body::after {
   }
 }
 
+/* Website ecosystem hub: storefront analytics and their acquisition loop. */
+.admin-app.admin-app-suite .admin-website-header:not(.is-detail) {
+  grid-template-columns: minmax(300px, 0.82fr) minmax(560px, 1.18fr);
+  gap: clamp(28px, 4vw, 72px);
+}
+
+.admin-app.admin-app-suite .admin-website-ecosystem {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.admin-app.admin-app-suite .admin-website-ecosystem-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 4px;
+  color: var(--admin-muted);
+  font-size: 0.69rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-app.admin-app-suite .admin-website-ecosystem-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--admin-text);
+}
+
+.admin-app.admin-app-suite .admin-website-ecosystem-kicker i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #78e09a;
+  box-shadow: 0 0 0 4px rgba(120, 224, 154, 0.1), 0 0 18px rgba(120, 224, 154, 0.56);
+}
+
+.admin-app.admin-app-suite .admin-website-ecosystem-map {
+  position: relative;
+  min-height: 430px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.06), transparent 25%),
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    rgba(255, 255, 255, 0.018);
+  background-size: auto, 34px 34px, 34px 34px, auto;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+.admin-app.admin-app-suite .admin-website-ecosystem-map::after {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  left: 50%;
+  top: 46%;
+  width: 170px;
+  height: 170px;
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 34px rgba(255, 255, 255, 0.012), 0 0 0 68px rgba(255, 255, 255, 0.008);
+  pointer-events: none;
+}
+
+.admin-app.admin-app-suite .admin-website-ecosystem-paths {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.admin-app.admin-app-suite .admin-website-ecosystem-paths path {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.2);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-dasharray: 4 8;
+  animation: admin-website-signal-flow 7s linear infinite;
+}
+
+.admin-app.admin-app-suite .admin-website-ecosystem-paths path:nth-child(2) {
+  animation-delay: -2.25s;
+}
+
+.admin-app.admin-app-suite .admin-website-ecosystem-paths path:nth-child(3) {
+  animation-delay: -4.5s;
+}
+
+@keyframes admin-website-signal-flow {
+  to { stroke-dashoffset: -48; }
+}
+
+.admin-app.admin-app-suite .admin-website-storefronts,
+.admin-app.admin-app-suite .admin-website-growth-nodes {
+  position: absolute;
+  z-index: 3;
+  left: 24px;
+  right: 24px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.admin-app.admin-app-suite .admin-website-storefronts {
+  top: 24px;
+}
+
+.admin-app.admin-app-suite .admin-website-growth-nodes {
+  bottom: 24px;
+}
+
+.admin-app.admin-app-suite .admin-website-selection-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  grid-template-rows: 1fr auto;
+  gap: 12px 14px;
+  min-height: 164px;
+  padding: 18px;
+  overflow: hidden;
+  border-color: rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  background: rgba(9, 12, 17, 0.9);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(12px);
+}
+
+.admin-app.admin-app-suite .admin-website-selection-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.075), transparent 42%);
+  opacity: 0;
+  transition: opacity 180ms ease;
+  pointer-events: none;
+}
+
+.admin-app.admin-app-suite .admin-website-selection-card:hover,
+.admin-app.admin-app-suite .admin-website-selection-card:focus-visible {
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(18, 22, 29, 0.96);
+  transform: translateY(-3px);
+}
+
+.admin-app.admin-app-suite .admin-website-selection-card:hover::before,
+.admin-app.admin-app-suite .admin-website-selection-card:focus-visible::before {
+  opacity: 1;
+}
+
+.admin-app.admin-app-suite .admin-website-node-index {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  color: rgba(255, 255, 255, 0.25);
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.67rem;
+  letter-spacing: 0.12em;
+}
+
+.admin-app.admin-app-suite .admin-website-node-mark {
+  display: grid;
+  place-items: center;
+  align-self: start;
+  width: 46px;
+  height: 46px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 15px;
+  background: #f3eee4;
+  color: #111318;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+
+.admin-app.admin-app-suite .admin-website-node-mark-zero {
+  border-radius: 50%;
+  background: #181c23;
+  color: #f4f6f8;
+  font-size: 1.2rem;
+}
+
+.admin-app.admin-app-suite .admin-website-node-copy {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-width: 0;
+  padding-right: 16px;
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.admin-app.admin-app-suite .admin-website-node-copy small,
+.admin-app.admin-app-suite .admin-website-growth-copy small {
+  color: var(--admin-muted);
+  font-size: 0.6rem;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.admin-app.admin-app-suite .admin-website-node-copy strong {
+  color: var(--admin-text);
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: clamp(1.05rem, 1.7vw, 1.36rem);
+  line-height: 1;
+  letter-spacing: -0.025em;
+}
+
+.admin-app.admin-app-suite .admin-website-node-copy em,
+.admin-app.admin-app-suite .admin-website-growth-copy em {
+  color: var(--admin-muted);
+  font-size: 0.7rem;
+  font-style: normal;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.admin-app.admin-app-suite .admin-website-node-action {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 11px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.67rem;
+  font-weight: 850;
+  letter-spacing: 0.035em;
+}
+
+.admin-app.admin-app-suite .admin-website-node-action b {
+  font-size: 0.92rem;
+  transition: transform 180ms ease;
+}
+
+.admin-app.admin-app-suite .admin-website-selection-card:hover .admin-website-node-action b,
+.admin-app.admin-app-suite .admin-website-selection-card:focus-visible .admin-website-node-action b {
+  transform: translate(2px, -2px);
+}
+
+.admin-app.admin-app-suite .admin-website-growth-label {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  top: 222px;
+  display: grid;
+  place-items: center;
+  gap: 7px;
+  transform: translateX(-50%);
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.admin-app.admin-app-suite .admin-website-growth-label i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.07), 0 0 20px rgba(255, 255, 255, 0.4);
+}
+
+.admin-app.admin-app-suite .admin-website-growth-node {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  gap: 11px;
+  align-items: center;
+  min-height: 106px;
+  padding: 14px 15px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  background: rgba(17, 20, 26, 0.92);
+  color: var(--admin-text);
+  text-decoration: none;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(12px);
+  transition: border-color 180ms ease, background 180ms ease, transform 180ms ease;
+}
+
+.admin-app.admin-app-suite .admin-website-growth-node:hover,
+.admin-app.admin-app-suite .admin-website-growth-node:focus-visible {
+  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(28, 32, 40, 0.98);
+  outline: 2px solid transparent;
+  transform: translateY(-3px);
+}
+
+.admin-app.admin-app-suite .admin-website-growth-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.admin-app.admin-app-suite .admin-website-growth-icon svg {
+  width: 21px;
+  height: 21px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.admin-app.admin-app-suite .admin-website-growth-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.admin-app.admin-app-suite .admin-website-growth-copy strong {
+  color: var(--admin-text);
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1rem;
+  line-height: 1.1;
+}
+
+.admin-app.admin-app-suite .admin-website-growth-arrow {
+  color: rgba(255, 255, 255, 0.44);
+  font-size: 1rem;
+  transition: color 180ms ease, transform 180ms ease;
+}
+
+.admin-app.admin-app-suite .admin-website-growth-node:hover .admin-website-growth-arrow,
+.admin-app.admin-app-suite .admin-website-growth-node:focus-visible .admin-website-growth-arrow {
+  color: #ffffff;
+  transform: translateX(3px);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-ecosystem-map {
+  border-color: rgba(15, 23, 42, 0.11);
+  background:
+    radial-gradient(circle at 50% 42%, rgba(15, 23, 42, 0.055), transparent 25%),
+    linear-gradient(rgba(15, 23, 42, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.035) 1px, transparent 1px),
+    rgba(248, 250, 252, 0.7);
+  background-size: auto, 34px 34px, 34px 34px, auto;
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-ecosystem-paths path {
+  stroke: rgba(15, 23, 42, 0.2);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-selection-card,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-growth-node {
+  border-color: rgba(15, 23, 42, 0.12);
+  background: rgba(255, 255, 255, 0.91);
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.08);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-selection-card:hover,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-selection-card:focus-visible,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-growth-node:hover,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-growth-node:focus-visible {
+  border-color: rgba(15, 23, 42, 0.26);
+  background: #ffffff;
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-node-index,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-growth-label,
+:root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-growth-arrow {
+  color: rgba(15, 23, 42, 0.4);
+}
+
+:root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-node-action {
+  border-top-color: rgba(15, 23, 42, 0.08);
+  color: rgba(15, 23, 42, 0.66);
+}
+
+@media (max-width: 1260px) {
+  .admin-app.admin-app-suite .admin-website-header:not(.is-detail) {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-app.admin-app-suite .admin-website-header-copy {
+    max-width: 880px;
+  }
+}
+
+@media (max-width: 720px) {
+  .admin-app.admin-app-suite .admin-website-ecosystem-heading {
+    align-items: flex-start;
+  }
+
+  .admin-app.admin-app-suite .admin-website-ecosystem-map {
+    display: grid;
+    gap: 12px;
+    min-height: 0;
+    padding: 14px;
+    border-radius: 20px;
+  }
+
+  .admin-app.admin-app-suite .admin-website-ecosystem-paths,
+  .admin-app.admin-app-suite .admin-website-ecosystem-map::after,
+  .admin-app.admin-app-suite .admin-website-growth-label {
+    display: none;
+  }
+
+  .admin-app.admin-app-suite .admin-website-storefronts,
+  .admin-app.admin-app-suite .admin-website-growth-nodes {
+    position: relative;
+    inset: auto;
+    grid-template-columns: 1fr;
+  }
+
+  .admin-app.admin-app-suite .admin-website-selection-card {
+    min-height: 150px;
+  }
+
+  .admin-app.admin-app-suite .admin-website-growth-node {
+    min-height: 92px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-app.admin-app-suite .admin-website-ecosystem-paths path {
+    animation: none;
+  }
+}
+
 /* Sliding metric selectors for Executive Sales charts. */
 .admin-app.admin-app-suite .admin-sliding-chart-toggle {
   --sliding-toggle-pad: 4px;

@@ -547,14 +547,6 @@ function render_admin_sidebar(string $activeSection = ''): void
             'view' => 'overview',
         ],
         [
-            'key' => 'campaigns',
-            'href' => '../dashboard/?view=campaigns',
-            'label' => 'Campaigns',
-            'icon' => 'admin-rail-icon-campaigns',
-            'aria' => 'Open campaigns dashboard',
-            'view' => 'home',
-        ],
-        [
             'key' => 'orders',
             'href' => '../dashboard/?view=orders',
             'label' => 'Orders',
@@ -607,13 +599,6 @@ function render_admin_sidebar(string $activeSection = ''): void
             'label' => 'P&L',
             'icon' => 'admin-rail-icon-profit-loss',
             'aria' => 'Open profit and loss report',
-        ],
-        [
-            'key' => 'affiliate',
-            'href' => '../affiliate-program/',
-            'label' => 'Affiliate',
-            'icon' => 'admin-rail-icon-affiliate',
-            'aria' => 'Open affiliate program dashboard',
         ],
         [
             'key' => 'partner',

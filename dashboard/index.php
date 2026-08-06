@@ -31,10 +31,12 @@ if ($isAuthenticated) {
     }
 }
 $isAdView = $isAuthenticated && in_array($requestedView ?? '', ['ad-view', 'ads', 'ad_view', 'shopee-ads'], true);
-$sidebarSection = in_array($requestedView ?? '', ['inventory', 'inventory_recap', 'inventory-recap', 'purchase', 'purchase_order', 'purchase-order', 'po-history', 'po-detail'], true)
-    ? 'inventory-recap'
-    : 'home';
-$dashboardBuildVersion = 'exec3.97.5';
+$sidebarSection = match (true) {
+    in_array($requestedView ?? '', ['inventory', 'inventory_recap', 'inventory-recap', 'purchase', 'purchase_order', 'purchase-order', 'po-history', 'po-detail'], true) => 'inventory-recap',
+    in_array($requestedView ?? '', ['website', 'site', 'home', 'campaign', 'campaigns', 'landing', 'landing-pages'], true) => 'website',
+    default => 'home',
+};
+$dashboardBuildVersion = 'exec3.97.6';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -1433,21 +1435,76 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                             <button type="button" class="admin-back-icon-button admin-website-back-button" data-website-back hidden aria-label="Back to website selector" title="Back to website selector">
                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg>
                             </button>
-                            <h2 data-website-hero-title>Select a website dashboard.</h2>
+                            <h2 data-website-hero-title>Your web ecosystem.</h2>
                         </div>
-                        <p data-website-hero-copy>Choose Jenang Gemi or ZERO to open the dedicated website analytics page. Each page uses browser-tagged website visits only.</p>
+                        <p data-website-hero-copy>See the storefronts you own and the growth channels that bring people to them—all from one connected workspace.</p>
                     </div>
-                    <div class="admin-website-selector" data-website-selector aria-label="Website selection">
-                        <button type="button" class="admin-website-selection-card" data-website-open="jenang_gemi">
-                            <span>Jenang Gemi</span>
-                            <strong>jenanggemi.com</strong>
-                            <small>Traffic, cart intent, checkout clicks, paid orders, and store settings.</small>
-                        </button>
-                        <button type="button" class="admin-website-selection-card" data-website-open="zero">
-                            <span>ZERO</span>
-                            <strong>zerofoods.id</strong>
-                            <small>Traffic, cart intent, checkout clicks, paid orders, and product setup.</small>
-                        </button>
+                    <div class="admin-website-selector admin-website-ecosystem" data-website-selector aria-label="Website ecosystem navigation">
+                        <div class="admin-website-ecosystem-heading">
+                            <span class="admin-website-ecosystem-kicker"><i aria-hidden="true"></i> Live web operations</span>
+                            <small>Storefronts + acquisition</small>
+                        </div>
+
+                        <div class="admin-website-ecosystem-map">
+                            <svg class="admin-website-ecosystem-paths" viewBox="0 0 720 430" preserveAspectRatio="none" aria-hidden="true">
+                                <path d="M140 336 C140 242 250 250 250 156" />
+                                <path d="M580 336 C580 242 470 250 470 156" />
+                                <path d="M250 156 C320 156 315 86 360 86 C405 86 400 156 470 156" />
+                            </svg>
+
+                            <div class="admin-website-storefronts" aria-label="Owned storefront analytics">
+                                <button type="button" class="admin-website-selection-card" data-website-open="jenang_gemi">
+                                    <span class="admin-website-node-index">01</span>
+                                    <span class="admin-website-node-mark" aria-hidden="true">JG</span>
+                                    <span class="admin-website-node-copy">
+                                        <small>Owned storefront</small>
+                                        <strong>jenanggemi.com</strong>
+                                        <em>Traffic, checkout, sales &amp; store settings</em>
+                                    </span>
+                                    <span class="admin-website-node-action">Enter analytics <b aria-hidden="true">↗</b></span>
+                                </button>
+                                <button type="button" class="admin-website-selection-card" data-website-open="zero">
+                                    <span class="admin-website-node-index">02</span>
+                                    <span class="admin-website-node-mark admin-website-node-mark-zero" aria-hidden="true">0</span>
+                                    <span class="admin-website-node-copy">
+                                        <small>Owned storefront</small>
+                                        <strong>zerofoods.id</strong>
+                                        <em>Traffic, checkout, sales &amp; product setup</em>
+                                    </span>
+                                    <span class="admin-website-node-action">Enter analytics <b aria-hidden="true">↗</b></span>
+                                </button>
+                            </div>
+
+                            <div class="admin-website-growth-label" aria-hidden="true">
+                                <span>Growth loop</span>
+                                <i></i>
+                            </div>
+
+                            <div class="admin-website-growth-nodes" aria-label="Website growth channels">
+                                <a class="admin-website-growth-node admin-website-growth-node-campaigns" href="../dashboard/?view=campaigns" data-dashboard-view-link="home">
+                                    <span class="admin-website-growth-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 32 32"><path d="M5 13h13l7-5v16l-7-5H5z"/><path d="m9 19 2 7h5l-2-7M27 13v6"/></svg>
+                                    </span>
+                                    <span class="admin-website-growth-copy">
+                                        <small>Attract</small>
+                                        <strong>Campaigns</strong>
+                                        <em>Build and read the landing-page journey</em>
+                                    </span>
+                                    <span class="admin-website-growth-arrow" aria-hidden="true">→</span>
+                                </a>
+                                <a class="admin-website-growth-node admin-website-growth-node-affiliates" href="../affiliate-program/">
+                                    <span class="admin-website-growth-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 32 32"><circle cx="16" cy="7" r="3"/><circle cx="8" cy="23" r="4"/><circle cx="24" cy="23" r="4"/><path d="M16 10v5M10.5 19.5l4-4h3l4 4"/></svg>
+                                    </span>
+                                    <span class="admin-website-growth-copy">
+                                        <small>Amplify</small>
+                                        <strong>Affiliates</strong>
+                                        <em>Manage partners, reach and attributed sales</em>
+                                    </span>
+                                    <span class="admin-website-growth-arrow" aria-hidden="true">→</span>
+                                </a>
+                            </div>
+                        </div>
                     </div>
                 </section>
 

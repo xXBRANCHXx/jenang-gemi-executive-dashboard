@@ -43,7 +43,7 @@ $profilesJsVersion = (string) @filemtime(dirname(__DIR__) . '/affiliate-profiles
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
         <div class="admin-shell">
-            <?php render_admin_sidebar('affiliate'); ?>
+            <?php render_admin_sidebar('website'); ?>
 
             <div class="admin-shell-main">
                 <header class="admin-topbar">
