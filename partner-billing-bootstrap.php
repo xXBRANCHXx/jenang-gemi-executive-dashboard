@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/partner-db-bootstrap.php';
+require_once __DIR__ . '/partner-sales-bootstrap.php';
 
 const JG_ADMIN_PARTNER_BILLING_MAX_FILE_BYTES = 10 * 1024 * 1024;
 
@@ -1240,6 +1241,90 @@ function jg_admin_partner_billing_reject_dispute(PDO $pdo, int $disputeId, strin
     }
 }
 
+function jg_admin_partner_billing_sync_confirmed_order_payments(
+    PDO $partnerPdo,
+    PDO $accountingPdo,
+    ?string $billId = null,
+    ?string $partnerCode = null
+): int {
+    jg_admin_partner_billing_ensure_schema($partnerPdo);
+    jg_partner_sales_ensure_schema($accountingPdo);
+
+    $where = ['p.status = "confirmed"', 'i.status = "paid"'];
+    $params = [];
+    if ($billId !== null && trim($billId) !== '') {
+        $where[] = 'p.bill_id = :bill_id';
+        $params[':bill_id'] = trim($billId);
+    }
+    if ($partnerCode !== null && trim($partnerCode) !== '') {
+        $where[] = 'p.partner_code = :partner_code';
+        $params[':partner_code'] = strtoupper(trim($partnerCode));
+    }
+    $stmt = $partnerPdo->prepare(
+        'SELECT p.bill_id, p.partner_code, p.proof_file_id, p.accounting_transaction_id, p.submitted_at,
+                COALESCE(p.confirmed_at, p.updated_at) AS confirmed_at,
+                i.order_id, i.amount, f.original_name AS proof_name,
+                f.mime_type AS proof_mime_type, f.size_bytes AS proof_size_bytes
+         FROM partner_weekly_bill_payments p
+         JOIN partner_weekly_bill_items i ON i.bill_id = p.bill_id
+         JOIN partner_weekly_bill_files f ON f.id = p.proof_file_id
+         WHERE ' . implode(' AND ', $where) . '
+         ORDER BY p.confirmed_at ASC, i.id ASC'
+    );
+    $stmt->execute($params);
+    $rows = array_values(array_filter($stmt->fetchAll(), 'is_array'));
+    if ($rows === []) return 0;
+
+    $insert = $accountingPdo->prepare(
+        'INSERT INTO partner_order_payments
+            (partner_code, order_id, amount, payment_date, payment_method, reference_no, notes,
+             source_type, source_reference, source_submitted_at, source_confirmed_at, proof_file_id,
+             proof_name, proof_mime_type, proof_size_bytes, source_accounting_transaction_id,
+             created_at, voided_at, void_reason)
+         VALUES
+            (:partner_code, :order_id, :amount, :payment_date, "Partner bill", :reference_no,
+             "Confirmed from partner proof of payment.", "partner_weekly_bill", :source_reference,
+             :source_submitted_at, :source_confirmed_at, :proof_file_id,
+             :proof_name, :proof_mime_type, :proof_size_bytes,
+             :source_accounting_transaction_id, UTC_TIMESTAMP(), NULL, "")
+         ON DUPLICATE KEY UPDATE
+            amount = VALUES(amount), payment_date = VALUES(payment_date),
+            source_submitted_at = VALUES(source_submitted_at), source_confirmed_at = VALUES(source_confirmed_at),
+            proof_file_id = VALUES(proof_file_id), proof_name = VALUES(proof_name),
+            proof_mime_type = VALUES(proof_mime_type), proof_size_bytes = VALUES(proof_size_bytes),
+            source_accounting_transaction_id = VALUES(source_accounting_transaction_id),
+            voided_at = NULL, void_reason = ""'
+    );
+    $synced = 0;
+    $jakarta = new DateTimeZone('Asia/Jakarta');
+    $utc = new DateTimeZone('UTC');
+    foreach ($rows as $row) {
+        $confirmedAt = trim((string) ($row['confirmed_at'] ?? '')) ?: gmdate('Y-m-d H:i:s');
+        try {
+            $paymentDate = (new DateTimeImmutable($confirmedAt, $utc))->setTimezone($jakarta)->format('Y-m-d');
+        } catch (Throwable) {
+            $paymentDate = (new DateTimeImmutable('now', $jakarta))->format('Y-m-d');
+        }
+        $insert->execute([
+            ':partner_code' => (string) $row['partner_code'],
+            ':order_id' => (string) $row['order_id'],
+            ':amount' => number_format(max(0, (float) ($row['amount'] ?? 0)), 2, '.', ''),
+            ':payment_date' => $paymentDate,
+            ':reference_no' => (string) $row['bill_id'],
+            ':source_reference' => (string) $row['bill_id'],
+            ':source_submitted_at' => (string) ($row['submitted_at'] ?? ''),
+            ':source_confirmed_at' => $confirmedAt,
+            ':proof_file_id' => (int) ($row['proof_file_id'] ?? 0),
+            ':proof_name' => (string) ($row['proof_name'] ?? 'Payment proof'),
+            ':proof_mime_type' => (string) ($row['proof_mime_type'] ?? ''),
+            ':proof_size_bytes' => (int) ($row['proof_size_bytes'] ?? 0),
+            ':source_accounting_transaction_id' => (int) ($row['accounting_transaction_id'] ?? 0),
+        ]);
+        $synced++;
+    }
+    return $synced;
+}
+
 function jg_admin_partner_billing_accounting_receipt(PDO $accountingPdo, array $payment): int
 {
     if (!function_exists('jg_accounting_ensure_schema') || !function_exists('jg_accounting_create_transaction')) {
@@ -1327,7 +1412,13 @@ function jg_admin_partner_billing_confirm_payment(PDO $partnerPdo, PDO $accounti
     $payment = $stmt->fetch();
     if (!is_array($payment)) throw new InvalidArgumentException('Payment submission not found.');
     if ((string) $payment['status'] === 'confirmed') {
-        return ['ok' => true, 'payment_id' => $paymentId, 'transaction_id' => (int) ($payment['accounting_transaction_id'] ?? 0), 'status' => 'confirmed'];
+        try {
+            $syncedOrders = jg_admin_partner_billing_sync_confirmed_order_payments($partnerPdo, $accountingPdo, (string) $payment['bill_id']);
+        } catch (Throwable $error) {
+            error_log('Confirmed partner order settlement sync failed: ' . $error->getMessage());
+            $syncedOrders = 0;
+        }
+        return ['ok' => true, 'payment_id' => $paymentId, 'transaction_id' => (int) ($payment['accounting_transaction_id'] ?? 0), 'status' => 'confirmed', 'orders_synced' => $syncedOrders];
     }
     if ((string) $payment['status'] !== 'pending') throw new InvalidArgumentException('This payment is not awaiting confirmation.');
     if ((int) $payment['amount'] !== (int) $payment['total_amount']) throw new RuntimeException('The submitted amount no longer matches the bill total.');
@@ -1367,7 +1458,13 @@ function jg_admin_partner_billing_confirm_payment(PDO $partnerPdo, PDO $accounti
         if ($partnerPdo->inTransaction()) $partnerPdo->rollBack();
         throw $error;
     }
-    return ['ok' => true, 'payment_id' => $paymentId, 'transaction_id' => $transactionId, 'status' => 'confirmed'];
+    try {
+        $syncedOrders = jg_admin_partner_billing_sync_confirmed_order_payments($partnerPdo, $accountingPdo, (string) $payment['bill_id']);
+    } catch (Throwable $error) {
+        error_log('Confirmed partner order settlement sync failed: ' . $error->getMessage());
+        $syncedOrders = 0;
+    }
+    return ['ok' => true, 'payment_id' => $paymentId, 'transaction_id' => $transactionId, 'status' => 'confirmed', 'orders_synced' => $syncedOrders];
 }
 
 /** @param list<array<string,mixed>> $bills */

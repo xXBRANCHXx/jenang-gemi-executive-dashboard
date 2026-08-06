@@ -180,6 +180,19 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
         </div>
     </div>
 
+    <div class="admin-modal-shell" data-settlement-detail-modal hidden>
+        <div class="admin-modal-backdrop" data-close-settlement-detail></div>
+        <article class="admin-modal-card partner-settlement-detail-modal" role="dialog" aria-modal="true" aria-labelledby="settlement-detail-title">
+            <header>
+                <div><span>Confirmed payment record</span><h3 id="settlement-detail-title">Settlement breakdown</h3></div>
+                <button type="button" class="partner-sales-modal-close" data-close-settlement-detail aria-label="Close settlement breakdown">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"></path></svg>
+                </button>
+            </header>
+            <div class="partner-settlement-detail-body" data-settlement-detail-body></div>
+        </article>
+    </div>
+
     <div class="admin-modal-shell partner-disputes-modal-shell" data-disputes-modal hidden>
         <div class="admin-modal-backdrop" data-close-disputes></div>
         <div class="admin-modal-card partner-disputes-modal" role="dialog" aria-modal="true" aria-labelledby="disputes-modal-title">

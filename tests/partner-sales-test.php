@@ -80,5 +80,10 @@ partner_sales_expect(
     str_contains($source, 'restore_accepted_price') && str_contains($source, 'Price corrected by finance after investigation.'),
     'Admin price edits must restore an order mistakenly removed by an accepted price dispute.'
 );
+partner_sales_expect(
+    true,
+    str_contains($source, 'source_reference') && str_contains($source, 'uq_partner_order_payment_source') && str_contains($source, 'proof_mime_type'),
+    'Automatic bill settlements must retain one idempotent source reference and proof metadata.'
+);
 
 echo "partner-sales-test: ok\n";

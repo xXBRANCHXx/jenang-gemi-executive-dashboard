@@ -12,8 +12,36 @@ function jg_partner_sales_table_exists(PDO $pdo, string $tableName): bool
     $stmt->execute([':table_name' => $tableName]);
     return (int) $stmt->fetchColumn() > 0;
 }
+
+function jg_partner_sales_ensure_column(PDO $pdo, string $column, string $definition): void
+{
+    $stmt = $pdo->prepare(
+        'SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = "partner_order_payments" AND COLUMN_NAME = :column_name'
+    );
+    $stmt->execute([':column_name' => $column]);
+    if ((int) $stmt->fetchColumn() > 0) return;
+    $safeColumn = preg_replace('/[^a-zA-Z0-9_]/', '', $column) ?: $column;
+    $pdo->exec(sprintf('ALTER TABLE partner_order_payments ADD COLUMN `%s` %s', $safeColumn, $definition));
+}
+
+function jg_partner_sales_ensure_index(PDO $pdo, string $index, string $definition): void
+{
+    $stmt = $pdo->prepare(
+        'SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = "partner_order_payments" AND INDEX_NAME = :index_name'
+    );
+    $stmt->execute([':index_name' => $index]);
+    if ((int) $stmt->fetchColumn() > 0) return;
+    $safeIndex = preg_replace('/[^a-zA-Z0-9_]/', '', $index) ?: $index;
+    $pdo->exec(sprintf('ALTER TABLE partner_order_payments ADD UNIQUE INDEX `%s` %s', $safeIndex, $definition));
+}
+
 function jg_partner_sales_ensure_schema(PDO $pdo): void
 {
+    static $prepared = [];
+    $key = spl_object_id($pdo);
+    if (isset($prepared[$key])) return;
     $pdo->exec(
         'CREATE TABLE IF NOT EXISTS partner_order_payments (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -24,14 +52,43 @@ function jg_partner_sales_ensure_schema(PDO $pdo): void
             payment_method VARCHAR(80) NOT NULL DEFAULT "",
             reference_no VARCHAR(120) NOT NULL DEFAULT "",
             notes VARCHAR(300) NOT NULL DEFAULT "",
+            source_type VARCHAR(32) NULL DEFAULT NULL,
+            source_reference VARCHAR(120) NULL DEFAULT NULL,
+            source_submitted_at DATETIME NULL DEFAULT NULL,
+            source_confirmed_at DATETIME NULL DEFAULT NULL,
+            proof_file_id BIGINT UNSIGNED NULL DEFAULT NULL,
+            proof_name VARCHAR(255) NULL DEFAULT NULL,
+            proof_mime_type VARCHAR(120) NULL DEFAULT NULL,
+            proof_size_bytes BIGINT UNSIGNED NULL DEFAULT NULL,
+            source_accounting_transaction_id BIGINT UNSIGNED NULL DEFAULT NULL,
             created_at DATETIME NOT NULL,
             voided_at DATETIME NULL DEFAULT NULL,
             void_reason VARCHAR(300) NOT NULL DEFAULT "",
             KEY idx_partner_order_payments_partner_date (partner_code, payment_date),
             KEY idx_partner_order_payments_order (partner_code, order_id),
-            KEY idx_partner_order_payments_voided (voided_at)
+            KEY idx_partner_order_payments_voided (voided_at),
+            UNIQUE KEY uq_partner_order_payment_source (partner_code, order_id, source_type, source_reference)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
     );
+    foreach ([
+        'source_type' => 'VARCHAR(32) NULL DEFAULT NULL AFTER notes',
+        'source_reference' => 'VARCHAR(120) NULL DEFAULT NULL AFTER source_type',
+        'source_submitted_at' => 'DATETIME NULL DEFAULT NULL AFTER source_reference',
+        'source_confirmed_at' => 'DATETIME NULL DEFAULT NULL AFTER source_submitted_at',
+        'proof_file_id' => 'BIGINT UNSIGNED NULL DEFAULT NULL AFTER source_confirmed_at',
+        'proof_name' => 'VARCHAR(255) NULL DEFAULT NULL AFTER proof_file_id',
+        'proof_mime_type' => 'VARCHAR(120) NULL DEFAULT NULL AFTER proof_name',
+        'proof_size_bytes' => 'BIGINT UNSIGNED NULL DEFAULT NULL AFTER proof_mime_type',
+        'source_accounting_transaction_id' => 'BIGINT UNSIGNED NULL DEFAULT NULL AFTER proof_size_bytes',
+    ] as $column => $definition) {
+        jg_partner_sales_ensure_column($pdo, $column, $definition);
+    }
+    jg_partner_sales_ensure_index(
+        $pdo,
+        'uq_partner_order_payment_source',
+        '(partner_code, order_id, source_type, source_reference)'
+    );
+    $prepared[$key] = true;
 }
 
 function jg_partner_sales_is_cancelled(mixed $status): bool

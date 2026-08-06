@@ -35,6 +35,9 @@ $statusSource = file_get_contents(dirname(__DIR__) . '/api/partner-db-status/ind
 admin_partner_billing_expect(true, str_contains($source, 'accounting_partner_bill_receipts'), 'Accounting confirmation must have an idempotency ledger.');
 admin_partner_billing_expect(true, str_contains($source, 'billing_status = "dispute_accepted"'), 'Accepted disputes must mark claimed orders paid in storage.');
 admin_partner_billing_expect(true, str_contains($source, 'billing_status = "bill_paid"'), 'Confirmed bills must mark included orders paid in storage.');
+admin_partner_billing_expect(true, str_contains($source, 'function jg_admin_partner_billing_sync_confirmed_order_payments'), 'Confirmed bills must synchronize into the Partner Sales settlement ledger.');
+admin_partner_billing_expect(true, str_contains($source, 'ON DUPLICATE KEY UPDATE') && str_contains($source, 'partner_weekly_bill'), 'Confirmed-order settlement synchronization must be idempotent.');
+admin_partner_billing_expect(true, str_contains($source, "'orders_synced' => \$syncedOrders"), 'Payment confirmation should report the order-ledger synchronization result.');
 admin_partner_billing_expect(true, str_contains($source, 'function jg_admin_partner_billing_dispute_history'), 'Admin billing should expose historical disputes by billing window.');
 admin_partner_billing_expect(true, str_contains($source, "'messages' => \$messages") && str_contains($source, "'evidence' => \$evidenceId"), 'Dispute history must preserve the partner and finance messages plus screenshot evidence.');
 admin_partner_billing_expect(true, str_contains($source, "'attachments' => \$attachmentsByBill") && str_contains($source, "'Partner payment proof'"), 'Dispute history must include bill-level partner screenshots as well as finance evidence.');

@@ -3097,7 +3097,7 @@
 }
 
 /* Partner sales and settlement workspace. */
-:root[data-admin-theme='dark'] :is(.partner-sales-page, [data-payment-modal], [data-disputes-modal]) {
+:root[data-admin-theme='dark'] :is(.partner-sales-page, [data-payment-modal], [data-settlement-detail-modal], [data-disputes-modal]) {
   --partner-bg: #000000;
   --partner-panel: #080808;
   --partner-panel-soft: #111111;
@@ -3111,7 +3111,7 @@
   --partner-input: #111111;
 }
 
-:root[data-admin-theme='light'] :is(.partner-sales-page, [data-payment-modal], [data-disputes-modal]) {
+:root[data-admin-theme='light'] :is(.partner-sales-page, [data-payment-modal], [data-settlement-detail-modal], [data-disputes-modal]) {
   --partner-bg: #f7f7f7;
   --partner-panel: #ffffff;
   --partner-panel-soft: #f1f1f1;
@@ -3287,6 +3287,7 @@
 
 .partner-sales-page :is(.admin-primary-btn, .admin-ghost-btn),
 [data-payment-modal] :is(.admin-primary-btn, .admin-ghost-btn),
+[data-settlement-detail-modal] :is(.admin-primary-btn, .admin-ghost-btn),
 [data-disputes-modal] :is(.admin-primary-btn, .admin-ghost-btn) {
   min-height: 44px;
   border-radius: 22px;
@@ -3294,6 +3295,7 @@
 
 .partner-sales-page .admin-primary-btn,
 [data-payment-modal] .admin-primary-btn,
+[data-settlement-detail-modal] .admin-primary-btn,
 [data-disputes-modal] .admin-primary-btn {
   border-color: var(--partner-border-strong);
   background: var(--partner-primary-bg);
@@ -3302,6 +3304,7 @@
 
 .partner-sales-page .admin-ghost-btn,
 [data-payment-modal] .admin-ghost-btn,
+[data-settlement-detail-modal] .admin-ghost-btn,
 [data-disputes-modal] .admin-ghost-btn {
   border-color: var(--partner-border);
   background: var(--partner-panel-soft);
@@ -3624,7 +3627,14 @@
   min-height: 62px;
   padding: 10px 0;
   border-top: 1px solid var(--partner-border);
+  cursor: pointer;
+  transition: background 150ms ease, padding 150ms ease;
 }
+
+.partner-sales-payment-row:hover,
+.partner-sales-payment-row:focus-visible { padding-inline:10px; background:var(--partner-panel-soft); outline:0; }
+.partner-sales-payment-row.is-confirmed-bill { border-left:2px solid var(--partner-text); }
+.partner-sales-payment-row > i { color:var(--partner-muted); font-style:normal; }
 
 .partner-sales-payment-row > div {
   display: grid;
@@ -3958,9 +3968,22 @@
 
 .partner-sales-order-payment {
   grid-template-columns: auto auto minmax(0, 1fr);
+  width:100%;
   min-height: 48px;
+  padding:0;
   border-top: 1px solid var(--partner-border);
+  border-right:0;
+  border-bottom:0;
+  border-left:0;
+  border-radius:0;
+  background:transparent;
+  font:inherit;
+  text-align:left;
+  cursor:pointer;
 }
+
+.partner-sales-order-payment:hover,
+.partner-sales-order-payment:focus-visible { background:color-mix(in srgb, var(--partner-text) 4%, transparent); outline:0; }
 
 .partner-sales-order-detail aside {
   display: grid;
@@ -4017,6 +4040,54 @@
 body.partner-disputes-open {
   overflow: hidden;
 }
+
+body.partner-settlement-open { overflow:hidden; }
+
+[data-settlement-detail-modal] { z-index:1550; }
+.partner-settlement-detail-modal { width:min(940px,calc(100vw - 32px)); max-height:min(900px,calc(100vh - 32px)); overflow:auto; border:1px solid var(--partner-border); border-radius:18px; background:var(--partner-panel); color:var(--partner-text); box-shadow:0 34px 90px rgba(0,0,0,.52); }
+.partner-settlement-detail-modal > header { position:sticky; top:0; z-index:2; display:flex; align-items:center; justify-content:space-between; gap:18px; padding:20px 22px; border-bottom:1px solid var(--partner-border); background:var(--partner-panel); }
+.partner-settlement-detail-modal > header > div { display:grid; gap:4px; }
+.partner-settlement-detail-modal > header span,
+.partner-settlement-hero > span,
+.partner-settlement-updates > header span,
+.partner-settlement-detail-body > footer span { color:var(--partner-muted); font-size:10px; font-weight:800; letter-spacing:.09em; text-transform:uppercase; }
+.partner-settlement-detail-modal h3 { margin:0; color:var(--partner-text); font-family:'Space Grotesk',sans-serif; font-size:24px; }
+.partner-settlement-detail-body { display:grid; grid-template-columns:minmax(0,1.25fr) minmax(280px,.75fr); gap:16px; padding:20px; }
+.partner-settlement-hero,
+.partner-settlement-timeline,
+.partner-settlement-proof,
+.partner-settlement-updates,
+.partner-settlement-no-proof,
+.partner-settlement-detail-body > footer { border:1px solid var(--partner-border); border-radius:14px; background:var(--partner-panel-soft); }
+.partner-settlement-hero { display:grid; align-content:center; gap:7px; min-height:142px; padding:20px; }
+.partner-settlement-hero > strong { color:var(--partner-text); font-family:'Space Grotesk',sans-serif; font-size:34px; }
+.partner-settlement-hero > small { color:var(--partner-muted); }
+.partner-settlement-timeline { display:grid; align-content:center; gap:18px; padding:20px; }
+.partner-settlement-timeline > div { display:grid; grid-template-columns:auto minmax(0,1fr); gap:11px; align-items:start; }
+.partner-settlement-timeline i { width:9px; height:9px; margin-top:4px; border:2px solid var(--partner-text); border-radius:50%; }
+.partner-settlement-timeline span { display:grid; gap:4px; }
+.partner-settlement-timeline small { color:var(--partner-muted); }
+.partner-settlement-proof { grid-column:1/-1; overflow:hidden; }
+.partner-settlement-proof > header { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px 16px; border-bottom:1px solid var(--partner-border); }
+.partner-settlement-proof > header > div { display:grid; gap:3px; }
+.partner-settlement-proof > header span,
+.partner-settlement-proof > header small { color:var(--partner-muted); font-size:10px; }
+.partner-settlement-proof > header a { color:var(--partner-text); font-size:11px; font-weight:800; text-decoration:none; }
+.partner-settlement-proof-frame { display:grid; place-items:center; min-height:320px; max-height:520px; overflow:auto; background:#050505; }
+.partner-settlement-proof-frame object { width:100%; min-height:500px; border:0; }
+.partner-settlement-proof-frame img { display:block; max-width:100%; max-height:500px; object-fit:contain; }
+.partner-settlement-updates { grid-column:1/-1; overflow:hidden; }
+.partner-settlement-updates > header { display:flex; justify-content:space-between; gap:14px; padding:14px 16px; border-bottom:1px solid var(--partner-border); }
+.partner-settlement-updates > div { display:grid; }
+.partner-settlement-updates article { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:13px 16px; border-bottom:1px solid var(--partner-border); }
+.partner-settlement-updates article:last-child { border-bottom:0; }
+.partner-settlement-updates article > div,
+.partner-settlement-updates article > span { display:grid; gap:3px; }
+.partner-settlement-updates article > span { text-align:right; }
+.partner-settlement-updates article small { color:var(--partner-muted); font-size:10px; }
+.partner-settlement-no-proof { grid-column:1/-1; display:grid; gap:5px; padding:18px; }
+.partner-settlement-no-proof span { color:var(--partner-muted); font-size:11px; }
+.partner-settlement-detail-body > footer { grid-column:1/-1; display:flex; justify-content:space-between; gap:18px; padding:16px; }
 
 .partner-disputes-modal-shell {
   z-index: 1500;
@@ -4731,6 +4802,12 @@ body.partner-disputes-open {
 }
 
 @media (max-width: 900px) {
+  .partner-settlement-detail-body { grid-template-columns:1fr; }
+  .partner-settlement-proof,
+  .partner-settlement-updates,
+  .partner-settlement-no-proof,
+  .partner-settlement-detail-body > footer { grid-column:auto; }
+
   .partner-sales-header,
   .partner-sales-ledger-head {
     align-items: stretch;
@@ -4784,6 +4861,15 @@ body.partner-disputes-open {
 }
 
 @media (max-width: 680px) {
+  .partner-settlement-detail-modal { width:calc(100vw - 18px); max-height:calc(100vh - 18px); border-radius:15px; }
+  .partner-settlement-detail-modal > header,
+  .partner-settlement-detail-body { padding:15px; }
+  .partner-settlement-proof-frame { min-height:240px; }
+  .partner-settlement-proof-frame object { min-height:360px; }
+  .partner-settlement-updates article,
+  .partner-settlement-detail-body > footer { align-items:flex-start; flex-direction:column; }
+  .partner-settlement-updates article > span { text-align:left; }
+
   .partner-sales-header,
   .partner-sales-panel,
   .partner-sales-ledger-head {

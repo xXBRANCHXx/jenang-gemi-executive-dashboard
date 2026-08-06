@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     channels: $('[data-sales-channels]'), products: $('[data-sales-products]'), payments: $('[data-sales-payments]'), orders: $('[data-sales-orders]'),
     search: $('[data-sales-search]'), statusFilter: $('[data-sales-status-filter]'), ledgerCount: $('[data-sales-ledger-count]'), limitNote: $('[data-sales-limit-note]'),
     paymentModal: $('[data-payment-modal]'), paymentForm: $('[data-payment-form]'), paymentError: $('[data-payment-error]'), paymentBalance: $('[data-payment-balance]'), paymentTitle: $('[data-payment-order-title]'), toast: $('[data-sales-toast]'),
+    settlementModal: $('[data-settlement-detail-modal]'), settlementBody: $('[data-settlement-detail-body]'),
     disputesButton: $('[data-open-disputes]'), disputesModal: $('[data-disputes-modal]'), disputesPicker: $('[data-disputes-picker]'), disputesHistory: $('[data-disputes-history]'), disputesForm: $('[data-disputes-window-form]'), disputesWeek: $('[data-disputes-week]'), disputesSubmit: $('[data-view-disputes]'), disputesError: $('[data-disputes-error]'), disputesWindowLabel: $('[data-disputes-window-label]'), disputesSummary: $('[data-disputes-summary]'), disputesList: $('[data-disputes-list]')
   };
 
@@ -25,8 +26,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const number = (value) => new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 }).format(Number(value || 0));
   const isoDate = (date) => date.toISOString().slice(0, 10);
   const parseDate = (value) => {
-    const normalized = String(value || '').replace(' ', 'T');
-    const date = new Date(normalized);
+    const raw = String(value || '').trim();
+    const normalized = raw.replace(' ', 'T');
+    const hasTime = /T\d{2}:\d{2}/.test(normalized);
+    const hasZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(normalized);
+    const date = new Date(hasTime && !hasZone ? `${normalized}Z` : normalized);
     return Number.isNaN(date.getTime()) ? null : date;
   };
   const dateLabel = (value, withTime = false) => {
@@ -37,6 +41,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const statusLabel = (status) => ({ paid: 'Paid', partial: 'Partially paid', unpaid: 'Unpaid', cancelled: 'Cancelled' }[status] || status || 'Unknown');
   const orderStatusLabel = (status) => String(status || 'Unknown').toLowerCase().replace(/^is_/, '').replace(/_/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
   const orderCountLabel = (value) => `${number(value)} ${Number(value) === 1 ? 'order' : 'orders'}`;
+  const fileSize = (value) => {
+    const bytes = Math.max(0, Number(value || 0));
+    if (bytes < 1024) return `${number(bytes)} B`;
+    if (bytes < 1024 * 1024) return `${number(bytes / 1024)} KB`;
+    return `${number(bytes / (1024 * 1024))} MB`;
+  };
 
   const requestJson = async (url, options = {}) => {
     const response = await fetch(url, {
@@ -149,10 +159,46 @@ document.addEventListener('DOMContentLoaded', () => {
     if (refs.products) refs.products.innerHTML = productRows.length ? productRows.map((row) => rankingRow(row.name, `${row.sku} · ${number(row.units)} units`, currency(row.value), orderValue ? (row.value / orderValue) * 100 : 0)).join('') : '<p class="partner-sales-empty">No product data yet.</p>';
   };
 
+  const paymentGroupKey = (payment) => payment.source_type === 'partner_weekly_bill' && payment.source_reference
+    ? `partner_weekly_bill:${payment.source_reference}` : `manual:${Number(payment.id || 0)}`;
+
+  const settlementGroups = () => {
+    const groups = new Map();
+    (state.payload?.payments || []).forEach((payment) => {
+      const key = paymentGroupKey(payment);
+      if (!groups.has(key)) groups.set(key, {
+        key,
+        source_type: payment.source_type || 'manual',
+        reference: payment.source_reference || payment.reference_no || '',
+        payment_date: payment.payment_date || '',
+        submitted_at: payment.submitted_at || '',
+        confirmed_at: payment.confirmed_at || payment.created_at || '',
+        payment_method: payment.payment_method || 'Payment',
+        proof: payment.proof || null,
+        accounting_transaction_id: Number(payment.accounting_transaction_id || 0),
+        amount: 0,
+        payments: [],
+      });
+      const group = groups.get(key);
+      group.amount += Number(payment.amount || 0);
+      group.payments.push(payment);
+      if (!group.proof && payment.proof) group.proof = payment.proof;
+    });
+    return [...groups.values()].sort((left, right) => String(right.confirmed_at || right.payment_date).localeCompare(String(left.confirmed_at || left.payment_date)));
+  };
+
   const renderPayments = () => {
     if (!refs.payments) return;
-    const payments = [...(state.payload?.payments || [])].sort((a, b) => String(b.payment_date).localeCompare(String(a.payment_date))).slice(0, 10);
-    refs.payments.innerHTML = payments.length ? payments.map((payment) => `<div class="partner-sales-payment-row"><div><strong>${currency(payment.amount)}</strong><small>${escapeHtml(payment.order_id)} · ${escapeHtml(payment.payment_method || 'Payment')}</small></div><span>${escapeHtml(dateLabel(payment.payment_date))}</span><button type="button" data-void-payment="${Number(payment.id)}" aria-label="Void payment for ${escapeHtml(payment.order_id)}" title="Void payment">Remove</button></div>`).join('') : '<p class="partner-sales-empty">No payments recorded yet.</p>';
+    const settlements = settlementGroups().slice(0, 10);
+    refs.payments.innerHTML = settlements.length ? settlements.map((settlement) => {
+      const automatic = settlement.source_type === 'partner_weekly_bill';
+      const orderLabel = automatic ? `${orderCountLabel(settlement.payments.length)} updated` : settlement.payments[0]?.order_id || 'Order payment';
+      return `<div class="partner-sales-payment-row${automatic ? ' is-confirmed-bill' : ''}" data-settlement-open="${escapeHtml(settlement.key)}" tabindex="0" role="button" aria-label="Open settlement ${escapeHtml(settlement.reference || orderLabel)}">
+        <div><strong>${currency(settlement.amount)}</strong><small>${escapeHtml(orderLabel)} · ${escapeHtml(automatic ? 'Confirmed partner bill' : settlement.payment_method)}</small></div>
+        <span>${escapeHtml(dateLabel(settlement.confirmed_at || settlement.payment_date, automatic))}</span>
+        ${automatic ? '<i aria-hidden="true">→</i>' : `<button type="button" data-void-payment="${Number(settlement.payments[0]?.id || 0)}" aria-label="Void payment for ${escapeHtml(settlement.payments[0]?.order_id || '')}" title="Void payment">Remove</button>`}
+      </div>`;
+    }).join('') : '<p class="partner-sales-empty">No payments recorded yet.</p>';
   };
 
   const itemUnitPrice = (order, item) => {
@@ -172,7 +218,7 @@ document.addEventListener('DOMContentLoaded', () => {
       : `<span>${currency(line)}</span>`}</div>`;
   }).join('');
 
-  const paymentRows = (order) => order.payments?.length ? order.payments.map((payment) => `<div class="partner-sales-order-payment"><span>${escapeHtml(dateLabel(payment.payment_date))}</span><strong>${currency(payment.amount)}</strong><small>${escapeHtml([payment.payment_method, payment.reference_no].filter(Boolean).join(' · ') || 'Payment')}</small></div>`).join('') : '<p class="partner-sales-empty">No settlements recorded for this order.</p>';
+  const paymentRows = (order) => order.payments?.length ? order.payments.map((payment) => `<button type="button" class="partner-sales-order-payment" data-settlement-open="${escapeHtml(paymentGroupKey(payment))}"><span>${escapeHtml(dateLabel(payment.confirmed_at || payment.payment_date, payment.source_type === 'partner_weekly_bill'))}</span><strong>${currency(payment.amount)}</strong><small>${escapeHtml([payment.payment_method, payment.reference_no].filter(Boolean).join(' · ') || 'Payment')}${payment.proof?.url ? ' · View proof' : ''}</small></button>`).join('') : '<p class="partner-sales-empty">No settlements recorded for this order.</p>';
 
   const renderOrders = () => {
     if (!refs.orders) return;
@@ -408,6 +454,37 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const closePaymentModal = () => { if (refs.paymentModal) refs.paymentModal.hidden = true; state.activeOrder = null; };
+  const closeSettlementDetail = () => {
+    if (refs.settlementModal) refs.settlementModal.hidden = true;
+    document.body.classList.remove('partner-settlement-open');
+  };
+  const openSettlementDetail = (key) => {
+    const settlement = settlementGroups().find((candidate) => candidate.key === key);
+    if (!settlement || !refs.settlementModal || !refs.settlementBody) return;
+    const automatic = settlement.source_type === 'partner_weekly_bill';
+    const proof = settlement.proof || null;
+    const isPdf = proof?.mime_type === 'application/pdf';
+    const orderRows = settlement.payments.map((payment) => {
+      const order = (state.payload?.orders || []).find((candidate) => candidate.id === payment.order_id) || {};
+      return `<article><div><strong>${escapeHtml(payment.order_id || 'Order')}</strong><small>${escapeHtml([order.marketplace_platform, order.customer_name].filter(Boolean).join(' · ') || 'Partner order')}</small></div><span><strong>${currency(payment.amount)}</strong><small>Marked paid</small></span></article>`;
+    }).join('');
+    refs.settlementBody.innerHTML = `
+      <section class="partner-settlement-hero">
+        <span>${automatic ? 'Confirmed partner bill' : 'Recorded order payment'}</span>
+        <strong>${currency(settlement.amount)}</strong>
+        <small>${escapeHtml(settlement.reference || settlement.payments[0]?.order_id || 'Settlement record')}</small>
+      </section>
+      <section class="partner-settlement-timeline">
+        <div><i></i><span><small>${automatic ? 'Proof submitted by partner' : 'Payment recorded'}</small><strong>${escapeHtml(dateLabel(settlement.submitted_at || settlement.confirmed_at || settlement.payment_date, true))}</strong></span></div>
+        <div><i></i><span><small>${automatic ? 'Confirmed by finance' : 'Entered in Partner Sales'}</small><strong>${escapeHtml(dateLabel(settlement.confirmed_at || settlement.payment_date, true))}</strong></span></div>
+      </section>
+      ${proof?.url ? `<section class="partner-settlement-proof"><header><div><span>Proof of payment</span><strong>${escapeHtml(proof.name || 'Payment proof')}</strong><small>${escapeHtml([proof.mime_type, proof.size_bytes ? fileSize(proof.size_bytes) : ''].filter(Boolean).join(' · '))}</small></div><a href="${escapeHtml(proof.url)}" target="_blank" rel="noopener">Open original ↗</a></header><div class="partner-settlement-proof-frame is-${isPdf ? 'pdf' : 'image'}">${isPdf ? `<object data="${escapeHtml(proof.url)}" type="application/pdf"><a href="${escapeHtml(proof.url)}" target="_blank" rel="noopener">Open payment proof</a></object>` : `<img src="${escapeHtml(proof.url)}" alt="Proof of payment for ${escapeHtml(settlement.reference || 'settlement')}">`}</div></section>` : '<section class="partner-settlement-no-proof"><strong>No proof attached</strong><span>This manually recorded payment predates proof capture.</span></section>'}
+      <section class="partner-settlement-updates"><header><span>What was updated</span><strong>${orderCountLabel(settlement.payments.length)}</strong></header><div>${orderRows}</div></section>
+      <footer><span>Accounting treatment</span><strong>${automatic ? `Cash received and order balances marked paid${settlement.accounting_transaction_id ? ` · transaction #${settlement.accounting_transaction_id}` : ''}` : 'Order balance updated manually'}</strong></footer>`;
+    refs.settlementModal.hidden = false;
+    document.body.classList.add('partner-settlement-open');
+    refs.settlementModal.querySelector('[data-close-settlement-detail]')?.focus();
+  };
   const showToast = (title = 'Payment recorded', message = 'The order balance is up to date.') => {
     if (!refs.toast) return;
     const heading = refs.toast.querySelector('strong');
@@ -424,6 +501,8 @@ document.addEventListener('DOMContentLoaded', () => {
   refs.statusFilter?.addEventListener('change', () => { state.status = refs.statusFilter.value || 'all'; renderOrders(); });
 
   refs.orders?.addEventListener('click', (event) => {
+    const settlementButton = event.target.closest('[data-settlement-open]');
+    if (settlementButton) { openSettlementDetail(settlementButton.dataset.settlementOpen || ''); return; }
     const paymentButton = event.target.closest('[data-record-payment]');
     if (paymentButton) { openPaymentModal(paymentButton.dataset.recordPayment); return; }
     const editPrices = event.target.closest('[data-edit-order-prices]');
@@ -465,6 +544,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.querySelectorAll('[data-close-payment-modal]').forEach((button) => button.addEventListener('click', closePaymentModal));
+  document.querySelectorAll('[data-close-settlement-detail]').forEach((button) => button.addEventListener('click', closeSettlementDetail));
   refs.disputesButton?.addEventListener('click', openDisputes);
   document.querySelectorAll('[data-close-disputes]').forEach((button) => button.addEventListener('click', closeDisputes));
   $('[data-change-dispute-week]')?.addEventListener('click', showDisputePicker);
@@ -490,6 +570,11 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   refs.payments?.addEventListener('click', async (event) => {
+    const settlement = event.target.closest('[data-settlement-open]');
+    if (settlement && !event.target.closest('[data-void-payment]')) {
+      openSettlementDetail(settlement.dataset.settlementOpen || '');
+      return;
+    }
     const button = event.target.closest('[data-void-payment]');
     if (!button || !window.confirm('Remove this payment from the active settlement history? The audit record will be retained.')) return;
     button.disabled = true;
@@ -498,8 +583,16 @@ document.addEventListener('DOMContentLoaded', () => {
       await load();
     } catch (error) { setError(error.message || 'Unable to remove payment.'); }
   });
+  refs.payments?.addEventListener('keydown', (event) => {
+    if (!['Enter', ' '].includes(event.key) || event.target.closest('[data-void-payment]')) return;
+    const settlement = event.target.closest('[data-settlement-open]');
+    if (!settlement) return;
+    event.preventDefault();
+    openSettlementDetail(settlement.dataset.settlementOpen || '');
+  });
 
   document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && refs.settlementModal && !refs.settlementModal.hidden) { closeSettlementDetail(); return; }
     if (event.key === 'Escape' && refs.disputesModal && !refs.disputesModal.hidden) closeDisputes();
   });
 

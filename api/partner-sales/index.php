@@ -72,7 +72,9 @@ function jg_partner_sales_profile(?PDO $partnerPdo, string $code): ?array
 function jg_partner_sales_payments(PDO $pdo, string $code): array
 {
     $stmt = $pdo->prepare(
-        'SELECT id, partner_code, order_id, amount, payment_date, payment_method, reference_no, notes, created_at
+        'SELECT id, partner_code, order_id, amount, payment_date, payment_method, reference_no, notes,
+                source_type, source_reference, source_submitted_at, source_confirmed_at, proof_file_id,
+                proof_name, proof_mime_type, proof_size_bytes, source_accounting_transaction_id, created_at
          FROM partner_order_payments
          WHERE partner_code = :partner_code AND voided_at IS NULL
          ORDER BY payment_date DESC, id DESC'
@@ -89,6 +91,18 @@ function jg_partner_sales_payments(PDO $pdo, string $code): array
             'payment_method' => (string) ($row['payment_method'] ?? ''),
             'reference_no' => (string) ($row['reference_no'] ?? ''),
             'notes' => (string) ($row['notes'] ?? ''),
+            'source_type' => trim((string) ($row['source_type'] ?? '')) ?: 'manual',
+            'source_reference' => (string) ($row['source_reference'] ?? ''),
+            'submitted_at' => (string) ($row['source_submitted_at'] ?? ''),
+            'confirmed_at' => (string) ($row['source_confirmed_at'] ?? ''),
+            'accounting_transaction_id' => (int) ($row['source_accounting_transaction_id'] ?? 0),
+            'proof' => (int) ($row['proof_file_id'] ?? 0) > 0 ? [
+                'file_id' => (int) $row['proof_file_id'],
+                'url' => '../api/partner-billing/?action=file&id=' . (int) $row['proof_file_id'],
+                'name' => (string) ($row['proof_name'] ?? 'Payment proof'),
+                'mime_type' => (string) ($row['proof_mime_type'] ?? ''),
+                'size_bytes' => (int) ($row['proof_size_bytes'] ?? 0),
+            ] : null,
             'created_at' => (string) ($row['created_at'] ?? ''),
         ];
         $payments[$payment['order_id']][] = $payment;
@@ -219,6 +233,9 @@ try {
 
     $paymentPdo = analyticsDb();
     jg_partner_sales_ensure_schema($paymentPdo);
+    if ($partnerPdo instanceof PDO) {
+        jg_admin_partner_billing_sync_confirmed_order_payments($partnerPdo, $paymentPdo, null, $code);
+    }
     $source = jg_partner_sales_order_rows($partnerPdo, $code, $from, $to);
     $rows = $source['orders'];
 
@@ -262,7 +279,8 @@ try {
         } elseif ($action === 'void_payment') {
             $stmt = $paymentPdo->prepare(
                 'UPDATE partner_order_payments SET voided_at = UTC_TIMESTAMP(), void_reason = :void_reason
-                 WHERE id = :id AND partner_code = :partner_code AND voided_at IS NULL'
+                 WHERE id = :id AND partner_code = :partner_code AND voided_at IS NULL
+                   AND (source_type IS NULL OR source_type = "manual")'
             );
             $stmt->execute([
                 ':id' => max(0, (int) ($body['payment_id'] ?? 0)),

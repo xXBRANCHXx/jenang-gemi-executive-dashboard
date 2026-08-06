@@ -77,6 +77,12 @@ geometry under Lucide's ISC license.
   equivalent lowercase `config.local.php` keys) to populate export metadata;
   missing legal fields are omitted rather than invented.
 - The notification drawer is the finance review queue for partner bills. It previews private payment proofs, confirms each bill into Accounting exactly once, and provides accept/investigate/reject resolution for order-level disputes. Confirming a proof posts partner bill collection income to a spendable account and refreshes Cash Available; outstanding closed partner bills are included in Bills Due.
+- Confirmed partner bills also reconcile into Partner Sales automatically. The
+  settlement card groups the affected orders under the bill reference and opens
+  a read-only breakdown with proof submission/confirmation times, the private
+  proof preview, total received, and every order amount marked paid. Opening a
+  Partner Sales page idempotently backfills confirmations made before this link
+  existed, so partners never need to submit the same payment twice.
 - Partner billing uses the shared partner MySQL database configured by `partner_db_*`. Deploy the Partner Portal billing schema first; this dashboard also performs the same idempotent table checks when the notification feed opens. Accounting creates `accounting_partner_bill_receipts` automatically to prevent a retried confirmation from posting cash twice.
 - Each partner profile chooses either a Monday–Friday business week (the default) or a calendar month for billing. Saving a changed period atomically rebuckets unpaid/accruing orders, removes empty obsolete POs, and leaves paid or actively reviewed POs untouched; Accounting continues to derive outstanding partner receivables from the recalculated PO totals.
 - The P&L combines seller-received sales and sale-level SKU COGS with posted
