@@ -530,6 +530,23 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                         <p class="admin-accounting-cash-history-note" data-accounting-cash-history-note>Cash history includes the latest reconciliation, posted entries, wallet withdrawals, confirmed website payments, and completed direct orders.</p>
                     </section>
                 </div>
+
+                <section class="admin-accounting-wallet-destination" aria-labelledby="accounting-wallet-destination-title">
+                    <div class="admin-accounting-wallet-destination-copy">
+                        <span class="admin-accounting-wallet-destination-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><path d="M4 7.5h15a2 2 0 0 1 2 2V19H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h12"/><path d="M16 12h5v4h-5a2 2 0 0 1 0-4Z"/></svg>
+                        </span>
+                        <div>
+                            <span class="admin-panel-kicker">Marketplace funds</span>
+                            <h2 id="accounting-wallet-destination-title">Wallet operations</h2>
+                            <p>Review ready-to-withdraw balances, release history, and marketplace wallet details.</p>
+                        </div>
+                    </div>
+                    <a class="admin-destination-button" href="../dashboard/?view=wallet">
+                        <span>Open Wallet</span>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                    </a>
+                </section>
             </main>
         </div>
     </div>

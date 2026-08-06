@@ -1909,6 +1909,23 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                             <p class="admin-empty">Belum ada device yang dikecualikan.</p>
                         </div>
                     </article>
+
+                    <article class="admin-panel admin-settings-card admin-settings-destination-card admin-settings-card-wide">
+                        <div class="admin-settings-destination-copy">
+                            <span class="admin-settings-destination-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24"><path d="M22 12h-4M6 12H2M12 6V2M12 22v-4"/><circle cx="12" cy="12" r="4"/><path d="m16.24 7.76 2.83-2.83M4.93 19.07l2.83-2.83M16.24 16.24l2.83 2.83M4.93 4.93l2.83 2.83"/></svg>
+                            </span>
+                            <div>
+                                <span class="admin-panel-kicker">Advanced</span>
+                                <h3>API health</h3>
+                                <p>Run operational checks for marketplace ingest, Store Ops, and dashboard databases.</p>
+                            </div>
+                        </div>
+                        <a class="admin-destination-button" href="../api-health/">
+                            <span>Open API health</span>
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                        </a>
+                    </article>
                 </section>
                     </section>
                 </main>
@@ -1924,9 +1941,9 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>
             <span>Orders</span>
         </button>
-        <button type="button" class="admin-mobile-tab" data-view-switch="wallet" aria-label="Open wallet">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5h15a2 2 0 0 1 2 2V19H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h12"/><path d="M16 12h5v4h-5a2 2 0 0 1 0-4z"/></svg>
-            <span>Wallet</span>
+        <button type="button" class="admin-mobile-tab" data-view-switch="inventory-recap" aria-label="Open inventory recap">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 16h6M19 13l3 3-3 3"/><path d="M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l2-1.14"/><path d="M3.29 7 12 12l8.71-5M12 22V12"/></svg>
+            <span>Inventory</span>
         </button>
         <button type="button" class="admin-mobile-tab" data-view-switch="daily" aria-label="Open daily report">
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/><path d="M8 14h3M8 17h6"/></svg>

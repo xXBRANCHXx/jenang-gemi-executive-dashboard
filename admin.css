@@ -24236,6 +24236,110 @@ body:has(.admin-app[data-sku-db])::after {
   grid-column: 1 / -1;
 }
 
+.admin-settings-destination-card {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.admin-settings-destination-copy,
+.admin-accounting-wallet-destination-copy {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.admin-settings-destination-copy > div,
+.admin-accounting-wallet-destination-copy > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.admin-settings-destination-copy h3,
+.admin-accounting-wallet-destination-copy h2 {
+  margin: 0;
+  color: var(--admin-text);
+}
+
+.admin-settings-destination-copy p,
+.admin-accounting-wallet-destination-copy p {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.admin-settings-destination-icon,
+.admin-accounting-wallet-destination-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 50px;
+  height: 50px;
+  border: 1px solid var(--admin-border);
+  border-radius: 16px;
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+}
+
+.admin-settings-destination-icon svg,
+.admin-accounting-wallet-destination-icon svg {
+  width: 23px;
+  height: 23px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.admin-destination-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex: 0 0 auto;
+  min-height: 46px;
+  padding: 0 18px;
+  border: 1px solid var(--admin-text);
+  border-radius: 14px;
+  background: var(--admin-text);
+  color: var(--admin-bg);
+  font: 800 0.8rem/1 "Space Grotesk", sans-serif;
+  text-decoration: none;
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.admin-destination-button svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 160ms ease;
+}
+
+.admin-destination-button:hover {
+  color: var(--admin-bg);
+  opacity: 0.82;
+  transform: translateY(-1px);
+}
+
+.admin-destination-button:hover svg {
+  transform: translateX(2px);
+}
+
+.admin-destination-button:focus-visible {
+  outline: 2px solid var(--admin-text);
+  outline-offset: 3px;
+}
+
 @media (min-width: 1280px) {
   .admin-settings-grid-minimal {
     grid-template-columns: minmax(680px, 1fr) minmax(380px, 0.46fr) 42px;
@@ -24523,6 +24627,15 @@ body:has(.admin-app[data-sku-db])::after {
     flex-direction: column;
   }
 
+  .admin-settings-destination-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-settings-destination-card .admin-destination-button {
+    align-self: flex-start;
+  }
+
   .admin-regional-preview {
     text-align: left;
   }
@@ -24540,6 +24653,16 @@ body:has(.admin-app[data-sku-db])::after {
 
   .admin-theme-toggle {
     grid-template-columns: 1fr;
+  }
+
+  .admin-settings-destination-copy,
+  .admin-accounting-wallet-destination-copy {
+    align-items: flex-start;
+  }
+
+  .admin-settings-destination-card .admin-destination-button,
+  .admin-accounting-wallet-destination .admin-destination-button {
+    width: 100%;
   }
 }
 
@@ -27633,6 +27756,37 @@ button.admin-accounting-metric {
   align-items: start;
 }
 
+.admin-accounting-wallet-destination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px;
+  border: 1px solid var(--accounting-border);
+  border-radius: var(--admin-card-radius);
+  background: var(--accounting-surface);
+  box-shadow: var(--admin-shadow);
+}
+
+.admin-accounting-wallet-destination-copy h2 {
+  font-size: 1.15rem;
+  line-height: 1.15;
+}
+
+.admin-accounting-wallet-destination .admin-accounting-wallet-destination-icon {
+  border-color: var(--accounting-border);
+  background: color-mix(in srgb, var(--accounting-text) 5%, var(--accounting-surface));
+  color: var(--accounting-text);
+}
+
+.admin-accounting-wallet-destination .admin-accounting-wallet-destination-copy h2 {
+  color: var(--accounting-text);
+}
+
+.admin-accounting-wallet-destination .admin-accounting-wallet-destination-copy p {
+  color: var(--accounting-muted);
+}
+
 .admin-accounting-secondary {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -28239,6 +28393,12 @@ button.admin-accounting-metric {
   .admin-accounting-command-actions,
   .admin-accounting-form-actions {
     width: 100%;
+  }
+
+  .admin-accounting-wallet-destination {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 18px;
   }
 
   .admin-accounting-view :is(.admin-primary-btn, .admin-ghost-btn, .admin-soft-btn, .admin-danger-btn, .admin-toggle-pill) {
