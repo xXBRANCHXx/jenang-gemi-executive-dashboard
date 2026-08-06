@@ -3,7 +3,7 @@ const root = document.querySelector('[data-accounting-page]');
 if (root) {
   const DASHBOARD_TIMEZONE = 'Asia/Jakarta';
   const endpoint = root.dataset.accountingEndpoint || '../api/accounting/';
-  const ACCOUNTING_CACHE_PREFIX = 'jg-accounting-page-cache-v6';
+  const ACCOUNTING_CACHE_PREFIX = 'jg-accounting-page-cache-v7';
   const ACCOUNTING_LOOKUPS_CACHE_KEY = 'jg-accounting-lookups-cache-v2';
   const ACCOUNTING_CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
   const escapeHtml = (value) => String(value ?? '')
@@ -242,6 +242,9 @@ if (root) {
     incomeType: root.querySelector('[data-accounting-income-type]'),
     paymentMethod: root.querySelector('[name="payment_method"]'),
     receiptStatus: root.querySelector('[name="receipt_status"]'),
+    receiptUrl: root.querySelector('[name="receipt_url"]'),
+    receiptUpload: root.querySelector('[data-accounting-receipt-upload]'),
+    receiptFile: root.querySelector('[data-accounting-receipt-file]'),
     billsBody: root.querySelector('[data-accounting-bills-body]'),
     transactionsBody: root.querySelector('[data-accounting-transactions-body]'),
     ledgerBody: root.querySelector('[data-accounting-ledger-body]'),
@@ -256,7 +259,13 @@ if (root) {
     drawerCloseButtons: root.querySelectorAll('[data-accounting-drawer-close]'),
     drawerKicker: root.querySelector('[data-accounting-drawer-kicker]'),
     drawerTitle: root.querySelector('[data-accounting-drawer-title]'),
-    drawerBody: root.querySelector('[data-accounting-drawer-body]')
+    drawerBody: root.querySelector('[data-accounting-drawer-body]'),
+    receiptModal: root.querySelector('[data-accounting-receipt-modal]'),
+    receiptCard: root.querySelector('.admin-accounting-receipt-card'),
+    receiptCloseButtons: root.querySelectorAll('[data-accounting-receipt-close]'),
+    receiptFrame: root.querySelector('[data-accounting-receipt-frame]'),
+    receiptTitle: root.querySelector('[data-accounting-receipt-title]'),
+    receiptNewTab: root.querySelector('[data-accounting-receipt-new-tab]')
   };
 
   const buildUrl = (action, options = {}) => {
@@ -423,6 +432,35 @@ if (root) {
     showToast.timer = window.setTimeout(() => {
       toast.hidden = true;
     }, 3000);
+  };
+
+  const safeReceiptUrl = (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    try {
+      const parsed = new URL(raw, window.location.origin);
+      return ['http:', 'https:'].includes(parsed.protocol) ? parsed.href : '';
+    } catch (_error) {
+      return '';
+    }
+  };
+
+  const closeReceipt = () => {
+    if (refs.receiptModal) refs.receiptModal.hidden = true;
+    if (refs.receiptFrame) refs.receiptFrame.src = 'about:blank';
+  };
+
+  const openReceipt = (url, name = 'Receipt') => {
+    const safeUrl = safeReceiptUrl(url);
+    if (!safeUrl || !refs.receiptModal || !refs.receiptFrame) {
+      showToast('This receipt link cannot be previewed.', true);
+      return;
+    }
+    if (refs.receiptTitle) refs.receiptTitle.textContent = name || 'Receipt';
+    if (refs.receiptNewTab) refs.receiptNewTab.href = safeUrl;
+    refs.receiptFrame.src = safeUrl;
+    refs.receiptModal.hidden = false;
+    window.requestAnimationFrame(() => refs.receiptCard?.focus());
   };
 
   const setFormError = (message = '') => {
@@ -633,6 +671,12 @@ if (root) {
     }
     if (refs.counterpartyInput) {
       refs.counterpartyInput.placeholder = nextMode === 'manual_income' ? 'Source / customer' : 'Search or quick-create';
+    }
+    const canUploadReceipt = ['expense_paid', 'customer_refund'].includes(nextMode);
+    if (refs.receiptUpload) refs.receiptUpload.hidden = !canUploadReceipt;
+    if (refs.receiptFile) {
+      refs.receiptFile.disabled = !canUploadReceipt;
+      if (!canUploadReceipt) refs.receiptFile.value = '';
     }
     renderAccountOptions();
     setFormError('');
@@ -1530,7 +1574,7 @@ if (root) {
         || (state.ledgerImpact === 'transfer' && /transfer/i.test(`${row.title || ''} ${row.subtitle || ''}`));
       if (!impactMatches) return false;
       if (!query) return true;
-      return [row.title, row.subtitle, row.account, row.status, row.kind, row.date]
+      return [row.title, row.subtitle, row.account, row.category, row.note, row.reference, row.status, row.kind, row.date]
         .some((value) => String(value || '').toLowerCase().includes(query));
     });
     if (refs.ledgerMeta) {
@@ -1550,17 +1594,27 @@ if (root) {
         : (row.impact === 'cash_out' ? 'is-subtracted' : '');
       const prefix = row.impact === 'cash_in' ? '+' : (row.impact === 'cash_out' ? '−' : '');
       const canOpen = ['transaction', 'bill'].includes(String(row.kind || ''));
+      const details = [row.subtitle, row.account].filter(Boolean).join(' · ');
+      const receiptUrl = safeReceiptUrl(row.receipt_url || '');
       return `
-        <${canOpen ? 'button' : 'div'} class="admin-accounting-ledger-row" ${canOpen ? `type="button" data-accounting-ledger-open="${escapeHtml(row.kind)}:${escapeHtml(String(row.source_id || ''))}"` : ''}>
+        <div class="admin-accounting-ledger-row">
           <time>${escapeHtml(formatHistoryDate(row.date || ''))}</time>
           <span class="admin-accounting-ledger-mark is-${escapeHtml(row.impact || 'entry')}" aria-hidden="true"></span>
-          <span class="admin-accounting-ledger-copy">
+          <${canOpen ? 'button' : 'span'} class="admin-accounting-ledger-copy" ${canOpen ? `type="button" data-accounting-ledger-open="${escapeHtml(row.kind)}:${escapeHtml(String(row.source_id || ''))}"` : ''}>
             <strong>${escapeHtml(row.title || 'Accounting entry')}</strong>
-            <small>${escapeHtml([row.subtitle, row.account].filter(Boolean).join(' · '))}</small>
-          </span>
+            ${details ? `<small>${escapeHtml(details)}</small>` : ''}
+            ${row.category ? `<small class="admin-accounting-ledger-category">Category: ${escapeHtml(row.category)}</small>` : ''}
+            ${row.note ? `<small class="admin-accounting-ledger-note"><b>Note:</b> ${escapeHtml(row.note)}</small>` : ''}
+          </${canOpen ? 'button' : 'span'}>
+          ${receiptUrl ? `
+            <button type="button" class="admin-accounting-review-receipt" data-accounting-receipt-open="${escapeHtml(receiptUrl)}" data-accounting-receipt-name="${escapeHtml(row.receipt_name || row.reference || 'Receipt')}">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5c-5.2 0-9.2 4.1-10.5 7.5C2.8 15.4 6.8 19.5 12 19.5s9.2-4.1 10.5-7.5C21.2 8.6 17.2 4.5 12 4.5Zm0 12.2a4.7 4.7 0 1 1 0-9.4 4.7 4.7 0 0 1 0 9.4Zm0-2.4a2.3 2.3 0 1 0 0-4.6 2.3 2.3 0 0 0 0 4.6Z"/></svg>
+              <span>Review receipt</span>
+            </button>
+          ` : ''}
           <span class="admin-accounting-ledger-state">${escapeHtml(String(row.status || '').replace(/_/g, ' '))}</span>
           <strong class="admin-accounting-ledger-amount ${amountClass}">${prefix}${formatCurrency(row.amount || 0)}</strong>
-        </${canOpen ? 'button' : 'div'}>
+        </div>
       `;
     }).join('');
   };
@@ -1900,16 +1954,26 @@ if (root) {
     if (validation || !payload) return;
     if (refs.formStatus) refs.formStatus.textContent = 'Saving...';
     try {
-      await requestJson(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      const receiptFile = refs.receiptFile?.files?.[0] || null;
+      if (receiptFile) {
+        const multipartBody = new FormData();
+        Object.entries(payload).forEach(([key, value]) => multipartBody.append(key, String(value ?? '')));
+        multipartBody.set('receipt_status', 'attached');
+        multipartBody.append('receipt_file', receiptFile, receiptFile.name);
+        await requestJson(endpoint, { method: 'POST', body: multipartBody });
+      } else {
+        await requestJson(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      }
       if (refs.formStatus) refs.formStatus.textContent = 'Saved';
       showToast('Saved');
       await loadAccounting(true);
       if (submitter?.hasAttribute('data-accounting-save-add')) {
         if (refs.amountInput) refs.amountInput.value = '';
+        if (refs.receiptFile) refs.receiptFile.value = '';
         root.querySelectorAll('[name="receipt_url"], [name="reference_no"], [name="order_no"], [name="notes"]').forEach((input) => {
           input.value = '';
         });
@@ -1981,6 +2045,11 @@ if (root) {
   });
   refs.transferFeeInput?.addEventListener('input', () => {
     refs.transferFeeInput.value = normalizeAmountInput(refs.transferFeeInput.value);
+  });
+  refs.receiptFile?.addEventListener('change', () => {
+    if (refs.receiptFile?.files?.length && refs.receiptStatus) {
+      refs.receiptStatus.value = 'attached';
+    }
   });
   root.addEventListener('click', (event) => {
     const target = event.target instanceof Element ? event.target : null;
@@ -2086,6 +2155,11 @@ if (root) {
   });
 
   refs.ledgerBody?.addEventListener('click', (event) => {
+    const receipt = event.target instanceof Element ? event.target.closest('[data-accounting-receipt-open]') : null;
+    if (receipt instanceof HTMLElement) {
+      openReceipt(receipt.dataset.accountingReceiptOpen || '', receipt.dataset.accountingReceiptName || 'Receipt');
+      return;
+    }
     const target = event.target instanceof Element ? event.target.closest('[data-accounting-ledger-open]') : null;
     if (!(target instanceof HTMLElement)) return;
     const [kind, id] = String(target.dataset.accountingLedgerOpen || '').split(':');
@@ -2305,6 +2379,7 @@ if (root) {
       if (refs.drawer) refs.drawer.hidden = true;
     });
   });
+  refs.receiptCloseButtons.forEach((button) => button.addEventListener('click', closeReceipt));
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
       const openCombobox = root.querySelector('[data-accounting-category-trigger][aria-expanded="true"]')?.closest('[data-accounting-category-combobox]');
@@ -2315,6 +2390,7 @@ if (root) {
       closeBreakdown();
       closeReconcile();
       closeAccountSettings();
+      closeReceipt();
     }
   });
   window.addEventListener('partner-billing:confirmed', () => {

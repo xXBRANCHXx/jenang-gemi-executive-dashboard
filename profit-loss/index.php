@@ -271,6 +271,10 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                                         <span>Receipt URL</span>
                                         <input type="url" name="receipt_url" placeholder="https://...">
                                     </label>
+                                    <label class="admin-accounting-receipt-upload" data-accounting-receipt-upload>
+                                        <span>Upload receipt <small>Optional · PDF or image · max 10 MB</small></span>
+                                        <input type="file" name="receipt_file" data-accounting-receipt-file accept="application/pdf,image/png,image/jpeg,image/webp">
+                                    </label>
                                     <label>
                                         <span data-accounting-term="receipt_status">Receipt Status</span>
                                         <select name="receipt_status">
@@ -357,6 +361,25 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                             <p class="admin-empty">Select a bill or transaction.</p>
                         </div>
                     </aside>
+                </div>
+
+                <div class="admin-modal-shell admin-accounting-receipt-modal" data-accounting-receipt-modal hidden>
+                    <button type="button" class="admin-modal-backdrop" data-accounting-receipt-close aria-label="Close receipt"></button>
+                    <section class="admin-modal-card admin-accounting-receipt-card" role="dialog" aria-modal="true" aria-labelledby="accounting-receipt-title" tabindex="-1">
+                        <div class="admin-modal-head">
+                            <div>
+                                <span class="admin-panel-kicker">Attachment</span>
+                                <h3 id="accounting-receipt-title" data-accounting-receipt-title>Receipt</h3>
+                            </div>
+                            <div class="admin-accounting-receipt-actions">
+                                <a href="#" target="_blank" rel="noopener noreferrer" data-accounting-receipt-new-tab>Open in new tab</a>
+                                <button type="button" class="admin-accounting-receipt-close" data-accounting-receipt-close aria-label="Close receipt">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+                                </button>
+                            </div>
+                        </div>
+                        <iframe data-accounting-receipt-frame title="Receipt preview" sandbox referrerpolicy="no-referrer"></iframe>
+                    </section>
                 </div>
 
                 <div class="admin-modal-shell admin-accounting-breakdown" id="accounting-breakdown" data-accounting-breakdown hidden>

@@ -19,6 +19,8 @@ expect(!html.includes('data-accounting-liquidity-outflow-bar'), 'Going Out must 
 expect(html.includes('data-accounting-kpi="liquid-assets"'), 'Accounting must lead with total liquid assets.');
 expect(html.includes('unpaid partner bills'), 'Accounting must explain that unpaid partner bills are expected money.');
 expect(html.includes('data-accounting-ledger-body'), 'Accounting must expose the unified activity ledger.');
+expect(html.includes('data-accounting-receipt-file') && html.includes('application/pdf,image/png,image/jpeg,image/webp'), 'Expense entry must accept an optional PDF or image receipt upload.');
+expect(html.includes('data-accounting-receipt-modal') && html.includes('data-accounting-receipt-frame'), 'Receipt review must open in an in-page popup.');
 expect(html.includes('class="admin-accounting-more'), 'Secondary entry details must stay collapsed by default.');
 expect(html.includes('data-accounting-kpi="available-now"'), 'Accounting must group bank and physical cash as available now.');
 expect(html.includes('data-accounting-kpi="expected-total"'), 'Accounting must group expected marketplace and partner receivables.');
@@ -37,6 +39,11 @@ expect(script.includes('let resettingForm = false'), 'Form reset must be guarded
 expect(script.includes('if (resettingForm) return;'), 'The reset event must ignore programmatic resets.');
 expect(script.includes('restorePendingEntry()'), 'Refreshes must preserve an entry already being typed.');
 expect(script.includes("buildUrl('activity_ledger'"), 'The UI must load manual and automatic ledger rows together.');
+expect(script.includes('Category: ${escapeHtml(row.category)}'), 'Ledger rows must show the bookkeeping category.');
+expect(script.includes('<b>Note:</b> ${escapeHtml(row.note)}'), 'Ledger rows must show the saved note.');
+expect(script.includes('data-accounting-receipt-open') && script.includes('<span>Review receipt</span>'), 'Ledger receipts must use a text-and-eye review action.');
+expect(script.includes("['http:', 'https:'].includes(parsed.protocol)"), 'Receipt previews must reject unsafe URL protocols.');
+expect(script.includes("multipartBody.append('receipt_file'"), 'Receipt files must submit as multipart form data.');
 expect(script.includes("action: 'reconcile_cash'"), 'The reconciliation UI must post an auditable baseline.');
 expect(script.includes('accountOptionsForRole'), 'Paid-from and received-into options must be filtered by account role.');
 expect(script.includes("String(account.type || '') !== 'marketplace_wallet'"), 'Marketplace wallets must never appear as entry accounts.');
@@ -66,6 +73,7 @@ expect(css.includes('repeating-linear-gradient(135deg'), 'Going Out must use one
 expect(css.includes('background-color: rgba(239, 35, 60, .14)'), 'Going Out must remain translucent so the bank color shows underneath.');
 expect(css.includes('.admin-liquidity-segment.is-direct { background: #d6c34f; }'), 'Unpaid direct orders must use a distinct expected-money yellow instead of outflow red.');
 expect(css.includes('.admin-accounting-ledger-row'), 'Visual ledger rows must be styled.');
+expect(css.includes('.admin-accounting-review-receipt svg') && css.includes('fill: currentColor') && css.includes('stroke: none'), 'The receipt eye must be a filled icon without a stroked pill.');
 expect(css.includes('.admin-accounting-category-menu'), 'The in-dropdown category search menu must be styled.');
 expect(/\.admin-accounting-breakdown-body\s*\{[^}]*overflow-y:\s*auto/.test(css), 'Long Accounting breakdowns must scroll inside the modal.');
 

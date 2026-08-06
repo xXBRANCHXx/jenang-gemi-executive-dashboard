@@ -144,11 +144,20 @@ try {
     $pdo = analyticsDb();
     jg_accounting_ensure_schema($pdo);
     $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
-    $body = $method === 'GET' ? [] : jg_accounting_body();
+    $multipart = $method === 'POST'
+        && str_contains(strtolower((string) ($_SERVER['CONTENT_TYPE'] ?? '')), 'multipart/form-data');
+    $body = $method === 'GET' ? [] : ($multipart ? $_POST : jg_accounting_body());
     $action = strtolower(jg_accounting_text($body['action'] ?? $_GET['action'] ?? 'summary', 80));
     $month = jg_accounting_month($body['month'] ?? $_GET['month'] ?? null);
 
     if ($method === 'GET') {
+        if ($action === 'receipt') {
+            $receiptId = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT);
+            if ($receiptId === false || $receiptId < 1) {
+                throw new InvalidArgumentException('Receipt not found.');
+            }
+            jg_accounting_stream_receipt($pdo, $receiptId);
+        }
         if ($action === 'summary') {
             jg_accounting_json(jg_accounting_endpoint_payload(jg_accounting_summary($pdo, $month), $month));
         }
@@ -236,31 +245,54 @@ try {
         jg_accounting_error('Method not allowed.', 405);
     }
 
-    $result = match ($action) {
-        'create_transaction' => jg_accounting_create_transaction($pdo, $body),
-        'create_bill' => jg_accounting_create_bill($pdo, $body),
-        'mark_bill_paid' => jg_accounting_mark_bill_paid($pdo, $body),
-        'update_transaction' => jg_accounting_update_transaction($pdo, $body),
-        'update_bill' => jg_accounting_update_bill($pdo, $body),
-        'void_transaction' => jg_accounting_void_transaction($pdo, $body),
-        'void_bill' => jg_accounting_void_bill($pdo, $body),
-        'create_counterparty' => (function () use ($pdo, $body): array {
-            $name = trim((string) ($body['name'] ?? $body['counterparty_name'] ?? ''));
-            if ($name === '') {
-                jg_accounting_error('Counterparty name is required.', 422, 'name');
+    $receiptUpload = $multipart && isset($_FILES['receipt_file']) && is_array($_FILES['receipt_file'])
+        && (int) ($_FILES['receipt_file']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE
+        ? jg_accounting_validate_receipt_upload($_FILES['receipt_file'])
+        : null;
+
+    if ($action === 'create_transaction' && is_array($receiptUpload)) {
+        $body['receipt_status'] = 'attached';
+        $body['receipt_url'] = 'pending-secure-upload';
+        $pdo->beginTransaction();
+        try {
+            $result = jg_accounting_create_transaction($pdo, $body);
+            $transactionId = (int) ($result['id'] ?? 0);
+            $result['receipt'] = jg_accounting_store_receipt($pdo, 'transaction', $transactionId, $receiptUpload);
+            jg_accounting_insert_audit($pdo, 'transaction', $transactionId, 'attach_receipt', null, $result['receipt']);
+            $pdo->commit();
+        } catch (Throwable $error) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
             }
-            return [
-                'id' => jg_accounting_get_counterparty($pdo, null, $name, (string) ($body['type'] ?? 'other')),
-            ];
-        })(),
-        'create_category' => jg_accounting_create_category($pdo, $body),
-        'save_category' => jg_accounting_save_category($pdo, $body),
-        'save_account' => jg_accounting_save_account($pdo, $body),
-        'save_ui_preferences' => jg_accounting_save_ui_preferences($pdo, $body),
-        'mark_review_resolved' => jg_accounting_mark_review_resolved($pdo, $body),
-        'reconcile_cash' => jg_accounting_create_cash_reconciliation($pdo, $body),
-        default => null,
-    };
+            throw $error;
+        }
+    } else {
+        $result = match ($action) {
+            'create_transaction' => jg_accounting_create_transaction($pdo, $body),
+            'create_bill' => jg_accounting_create_bill($pdo, $body),
+            'mark_bill_paid' => jg_accounting_mark_bill_paid($pdo, $body),
+            'update_transaction' => jg_accounting_update_transaction($pdo, $body),
+            'update_bill' => jg_accounting_update_bill($pdo, $body),
+            'void_transaction' => jg_accounting_void_transaction($pdo, $body),
+            'void_bill' => jg_accounting_void_bill($pdo, $body),
+            'create_counterparty' => (function () use ($pdo, $body): array {
+                $name = trim((string) ($body['name'] ?? $body['counterparty_name'] ?? ''));
+                if ($name === '') {
+                    jg_accounting_error('Counterparty name is required.', 422, 'name');
+                }
+                return [
+                    'id' => jg_accounting_get_counterparty($pdo, null, $name, (string) ($body['type'] ?? 'other')),
+                ];
+            })(),
+            'create_category' => jg_accounting_create_category($pdo, $body),
+            'save_category' => jg_accounting_save_category($pdo, $body),
+            'save_account' => jg_accounting_save_account($pdo, $body),
+            'save_ui_preferences' => jg_accounting_save_ui_preferences($pdo, $body),
+            'mark_review_resolved' => jg_accounting_mark_review_resolved($pdo, $body),
+            'reconcile_cash' => jg_accounting_create_cash_reconciliation($pdo, $body),
+            default => null,
+        };
+    }
 
     if ($result === null) {
         jg_accounting_error('Unknown Accounting action.', 404);
@@ -272,6 +304,12 @@ try {
         'ok' => false,
         'error' => $error->getMessage(),
         'errors' => $error->details,
+    ], 422);
+} catch (InvalidArgumentException $error) {
+    jg_accounting_json([
+        'ok' => false,
+        'error' => $error->getMessage(),
+        'errors' => [['message' => $error->getMessage()]],
     ], 422);
 } catch (Throwable $error) {
     jg_accounting_json([

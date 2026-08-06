@@ -114,7 +114,7 @@ $poPdo->exec("INSERT INTO purchase_orders
     (id, po_number, request_key, status, tag, note, line_count, ordered_qty, received_qty,
      estimated_total, placed_by, placed_at, confirmed_at, updated_at, completed_at)
     VALUES
-    (1, 'JG-PO-OPEN', 'po-open', 'pending', 'Supplier A', '', 1, 10, 0, 100000, 'Test', '2026-07-01 00:00:00', '2026-07-01 00:00:00', '2026-07-01 00:00:00', NULL),
+    (1, 'JG-PO-OPEN', 'po-open', 'pending', 'Supplier A', 'Restock for August', 1, 10, 0, 100000, 'Test', '2026-07-01 00:00:00', '2026-07-01 00:00:00', '2026-07-01 00:00:00', NULL),
     (2, 'JG-PO-DRAFT', 'po-draft', 'draft', '', '', 1, 5, 0, 50000, 'Test', '2026-07-02 00:00:00', NULL, '2026-07-02 00:00:00', NULL),
     (3, 'JG-PO-CANCELLED', 'po-cancelled', 'cancelled', '', '', 1, 5, 0, 60000, 'Test', '2026-07-03 00:00:00', '2026-07-03 00:00:00', '2026-07-03 00:00:00', NULL),
     (4, 'JG-PO-RECEIVED', 'po-received', 'received', 'Supplier B', '', 1, 4, 4, 40000, 'Test', '2026-07-04 00:00:00', '2026-07-04 00:00:00', '2026-07-04 00:00:00', '2026-07-05 00:00:00')");
@@ -128,6 +128,11 @@ summary_expect(110000, $poOutflow['gross_amount_due'], 'Going Out must see every
 summary_expect(40000, $poOutflow['supplier_bill_overlap'], 'A supplier bill with the PO number must be recognized as an overlap.');
 summary_expect(70000, $poOutflow['amount'], 'Going Out must add only the PO balance not already represented by a supplier bill.');
 summary_expect(2, count($poOutflow['orders']), 'Draft and cancelled POs must stay out of Going Out.');
+$poLedger = jg_accounting_purchase_order_payment_ledger_rows('2026-07', $poPdo);
+summary_expect(1, count($poLedger), 'Paid purchase orders must be available to the activity ledger even when their accounting transaction is missing.');
+summary_expect(99, $poLedger[0]['linked_transaction_id'], 'PO ledger rows must retain their accounting transaction link for deduplication.');
+summary_expect('Finished Goods Purchase', $poLedger[0]['category'], 'PO ledger rows must expose their bookkeeping category.');
+summary_expect('Restock for August', $poLedger[0]['note'], 'PO ledger rows must expose the purchase order note.');
 
 $feePdo = new PDO('sqlite::memory:');
 $feePdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);

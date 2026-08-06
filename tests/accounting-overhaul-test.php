@@ -62,13 +62,14 @@ $pdo->exec('CREATE TABLE whatsapp_orders (
 
 $pdo->exec("INSERT INTO accounting_accounts VALUES
     (1, 'bca-main', 'BCA Main', 'bank', '', 'Jenang Gemi', 500000, NULL, 1, 1, 'bank', 1, 1, 1, 10, '2026-01-01 00:00:00')");
+$pdo->exec("INSERT INTO accounting_categories VALUES (1, 'Supplies')");
 $pdo->exec("INSERT INTO accounting_transactions
     (id, transaction_key, status, type, direction, account_id, to_account_id, counterparty_id, category_id,
      business_month, transaction_date, amount, transfer_fee_amount, reference_no, order_no, invoice_no, notes, channel, brand,
      payment_method, receipt_status, receipt_url, review_status, review_reason, bill_id, created_at)
     VALUES
     (1, 'PRE-RECON', 'posted', 'manual_income', 'money_in', 1, NULL, NULL, NULL, '2026-07', '2026-07-01', 20000, 0, '', '', '', '', 'Offline', 'Jenang Gemi', 'Cash', 'not_required', '', 'clean', '', NULL, '2026-07-01 00:00:00'),
-    (2, 'POST-RECON', 'posted', 'expense', 'money_out', 1, NULL, NULL, NULL, '2026-07', '2026-07-11', 10000, 0, '', '', '', 'Supplies', 'Offline', 'Jenang Gemi', 'Cash', 'not_required', '', 'clean', '', NULL, '2026-07-11 00:00:00')");
+    (2, 'POST-RECON', 'posted', 'expense', 'money_out', 1, NULL, NULL, 1, '2026-07', '2026-07-11', 10000, 0, '', '', '', 'Restocked office supplies', 'Offline', 'Jenang Gemi', 'Cash', 'not_required', '', 'clean', '', NULL, '2026-07-11 00:00:00')");
 $pdo->exec("INSERT INTO accounting_cash_reconciliations VALUES
     (1, 'recon-test', 1, 100000, 1, 'Verified bank close', '2026-07-10 00:00:00', '2026-07-10 00:00:00')");
 $pdo->exec("INSERT INTO website_orders VALUES
@@ -98,5 +99,11 @@ $ledgerKinds = array_values(array_unique(array_column($ledger, 'kind')));
 overhaul_expect(true, in_array('transaction', $ledgerKinds, true), 'Manual entries must appear in the unified activity ledger.');
 overhaul_expect(true, in_array('automatic', $ledgerKinds, true), 'Automatic cash must appear in the unified activity ledger.');
 overhaul_expect(true, in_array('reconciliation', $ledgerKinds, true), 'Reconciliations must appear in the unified activity ledger.');
+$expenseLedger = current(array_filter($ledger, static fn (array $row): bool => ($row['id'] ?? '') === 'transaction:2'));
+overhaul_expect('Supplies', $expenseLedger['category'] ?? '', 'Ledger transactions must expose their category.');
+overhaul_expect('Restocked office supplies', $expenseLedger['note'] ?? '', 'Ledger transactions must expose their note.');
+$newerIndex = array_search('transaction:2', array_column($ledger, 'id'), true);
+$olderIndex = array_search('transaction:1', array_column($ledger, 'id'), true);
+overhaul_expect(true, is_int($newerIndex) && is_int($olderIndex) && $newerIndex < $olderIndex, 'The activity ledger must rank newer entries above older entries.');
 
 echo "accounting-overhaul-test: ok\n";

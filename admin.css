@@ -750,7 +750,7 @@
 
 .admin-accounting-ledger-row {
   display: grid;
-  grid-template-columns: 96px 10px minmax(180px, 1fr) auto minmax(120px, auto);
+  grid-template-columns: 96px 10px minmax(220px, 1fr) auto auto minmax(120px, auto);
   gap: 14px;
   align-items: center;
   width: 100%;
@@ -762,14 +762,6 @@
   color: var(--accounting-text);
   font: inherit;
   text-align: left;
-}
-
-button.admin-accounting-ledger-row {
-  cursor: pointer;
-}
-
-button.admin-accounting-ledger-row:hover {
-  background: color-mix(in srgb, var(--accounting-text) 4%, transparent);
 }
 
 .admin-accounting-ledger-row time,
@@ -802,10 +794,28 @@ button.admin-accounting-ledger-row:hover {
   display: grid;
   gap: 3px;
   min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
 }
 
-.admin-accounting-ledger-copy strong,
-.admin-accounting-ledger-copy small {
+.admin-accounting-ledger-copy:is(button) {
+  cursor: pointer;
+}
+
+.admin-accounting-ledger-copy:is(button):hover strong,
+.admin-accounting-ledger-copy:is(button):focus-visible strong {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.admin-accounting-ledger-copy > strong,
+.admin-accounting-ledger-copy > small:not(.admin-accounting-ledger-note) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -813,6 +823,49 @@ button.admin-accounting-ledger-row:hover {
 
 .admin-accounting-ledger-copy strong {
   font-size: .78rem;
+}
+
+.admin-accounting-ledger-copy .admin-accounting-ledger-category {
+  color: var(--accounting-text);
+  opacity: .82;
+}
+
+.admin-accounting-ledger-copy .admin-accounting-ledger-note {
+  max-width: 920px;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  line-height: 1.45;
+}
+
+.admin-accounting-ledger-copy .admin-accounting-ledger-note b {
+  color: var(--accounting-text);
+}
+
+.admin-accounting-review-receipt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--accounting-muted);
+  font: 800 .67rem/1.2 "Plus Jakarta Sans", sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.admin-accounting-review-receipt:hover,
+.admin-accounting-review-receipt:focus-visible {
+  color: var(--accounting-text);
+}
+
+.admin-accounting-review-receipt svg {
+  width: 17px;
+  height: 17px;
+  fill: currentColor;
+  stroke: none;
 }
 
 .admin-accounting-ledger-state {
@@ -835,6 +888,97 @@ button.admin-accounting-ledger-row:hover {
 
 .admin-accounting-ledger-amount.is-subtracted {
   color: #ff6b6b;
+}
+
+.admin-accounting-receipt-upload > span {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.admin-accounting-receipt-upload > span small {
+  color: var(--accounting-muted);
+  font-size: .57rem;
+  font-weight: 700;
+}
+
+.admin-accounting-receipt-upload input[type="file"] {
+  padding: 7px 9px;
+  font-size: .68rem;
+}
+
+.admin-accounting-receipt-upload input[type="file"]::file-selector-button {
+  margin-right: 9px;
+  padding: 6px 9px;
+  border: 0;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--accounting-text) 10%, transparent);
+  color: var(--accounting-text);
+  font: 800 .64rem/1 "Plus Jakarta Sans", sans-serif;
+  cursor: pointer;
+}
+
+.admin-accounting-receipt-card {
+  width: min(1060px, calc(100vw - 28px));
+  height: min(820px, calc(100svh - 28px));
+  overflow: hidden;
+}
+
+.admin-accounting-receipt-card > .admin-modal-head {
+  border-bottom: 1px solid var(--accounting-border);
+}
+
+.admin-accounting-receipt-card iframe {
+  width: 100%;
+  height: calc(100% - 78px);
+  border: 0;
+  background: #ffffff;
+}
+
+.admin-accounting-receipt-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.admin-accounting-receipt-actions > a {
+  color: var(--accounting-muted);
+  font-size: .7rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.admin-accounting-receipt-actions > a:hover {
+  color: var(--accounting-text);
+}
+
+.admin-accounting-receipt-close {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--accounting-muted);
+  cursor: pointer;
+}
+
+.admin-accounting-receipt-close:hover,
+.admin-accounting-receipt-close:focus-visible {
+  color: var(--accounting-text);
+  background: color-mix(in srgb, var(--accounting-text) 7%, transparent);
+}
+
+.admin-accounting-receipt-close svg {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
 }
 
 .admin-accounting-review {
@@ -1171,11 +1315,29 @@ button.admin-accounting-breakdown-row:hover {
     display: none;
   }
 
+  .admin-accounting-ledger-mark {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .admin-accounting-ledger-copy {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .admin-accounting-review-receipt {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: start;
+  }
+
   .admin-accounting-ledger-state {
     display: none;
   }
 
   .admin-accounting-ledger-amount {
+    grid-column: 3;
+    grid-row: 1;
     font-size: .74rem;
   }
 
