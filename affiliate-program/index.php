@@ -56,6 +56,12 @@ $affiliateJsVersion = (string) @filemtime(dirname(__DIR__) . '/affiliate-program
 
                 <main class="admin-layout">
             <section class="admin-affiliate-toolbar" aria-label="Affiliate shortcuts">
+                <div class="admin-website-child-return">
+                    <a class="admin-back-icon-link" href="../dashboard/?view=website" aria-label="Back to Website ecosystem" title="Back to Website ecosystem">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg>
+                    </a>
+                    <span><small>Website ecosystem</small><strong>Affiliates</strong></span>
+                </div>
                 <a class="admin-primary-btn admin-link-btn" href="../affiliate-profiles/">Affiliate Profiles</a>
                 <a class="admin-ghost-btn admin-link-btn" href="../dashboard/?view=campaigns">Campaigns</a>
             </section>

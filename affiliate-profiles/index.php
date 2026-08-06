@@ -56,6 +56,12 @@ $profilesJsVersion = (string) @filemtime(dirname(__DIR__) . '/affiliate-profiles
 
                 <main class="admin-layout">
             <section class="admin-affiliate-toolbar" aria-label="Affiliate profile shortcuts">
+                <div class="admin-website-child-return">
+                    <a class="admin-back-icon-link" href="../affiliate-program/" aria-label="Back to Affiliate Program" title="Back to Affiliate Program">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg>
+                    </a>
+                    <span><small>Affiliates</small><strong>Profiles</strong></span>
+                </div>
                 <button type="button" class="admin-primary-btn" data-open-affiliate-modal>Add Affiliate</button>
                 <a class="admin-ghost-btn admin-link-btn" href="../affiliate-program/">Affiliate Program</a>
             </section>

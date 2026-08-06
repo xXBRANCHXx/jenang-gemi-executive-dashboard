@@ -14821,7 +14821,7 @@ body::after {
 }
 
 .admin-app.admin-app-suite[data-active-view='website'] {
-  background: #0b0f14;
+  background: #0b0b0b;
 }
 
 .admin-app.admin-app-suite .admin-website-controls {
@@ -15112,36 +15112,8 @@ body::after {
 
 .admin-app.admin-app-suite .admin-website-ecosystem {
   display: grid;
-  gap: 14px;
+  gap: 0;
   min-width: 0;
-}
-
-.admin-app.admin-app-suite .admin-website-ecosystem-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 0 4px;
-  color: var(--admin-muted);
-  font-size: 0.69rem;
-  font-weight: 850;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.admin-app.admin-app-suite .admin-website-ecosystem-kicker {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--admin-text);
-}
-
-.admin-app.admin-app-suite .admin-website-ecosystem-kicker i {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #78e09a;
-  box-shadow: 0 0 0 4px rgba(120, 224, 154, 0.1), 0 0 18px rgba(120, 224, 154, 0.56);
 }
 
 .admin-app.admin-app-suite .admin-website-ecosystem-map {
@@ -15154,7 +15126,7 @@ body::after {
     radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.06), transparent 25%),
     linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-    rgba(255, 255, 255, 0.018);
+    #0b0b0b;
   background-size: auto, 34px 34px, 34px 34px, auto;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
 }
@@ -15234,7 +15206,7 @@ body::after {
   overflow: hidden;
   border-color: rgba(255, 255, 255, 0.1);
   border-radius: 18px;
-  background: rgba(9, 12, 17, 0.9);
+  background: rgba(12, 12, 12, 0.94);
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.22);
   backdrop-filter: blur(12px);
 }
@@ -15253,7 +15225,7 @@ body::after {
 .admin-app.admin-app-suite .admin-website-selection-card:hover,
 .admin-app.admin-app-suite .admin-website-selection-card:focus-visible {
   border-color: rgba(255, 255, 255, 0.3);
-  background: rgba(18, 22, 29, 0.96);
+  background: rgba(24, 24, 24, 0.98);
   transform: translateY(-3px);
 }
 
@@ -15280,8 +15252,8 @@ body::after {
   height: 46px;
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 15px;
-  background: #f3eee4;
-  color: #111318;
+  background: #f2f2f2;
+  color: #111111;
   font-family: 'Space Grotesk', sans-serif;
   font-size: 0.78rem;
   font-weight: 900;
@@ -15290,8 +15262,8 @@ body::after {
 
 .admin-app.admin-app-suite .admin-website-node-mark-zero {
   border-radius: 50%;
-  background: #181c23;
-  color: #f4f6f8;
+  background: #181818;
+  color: #f4f4f4;
   font-size: 1.2rem;
 }
 
@@ -15391,7 +15363,7 @@ body::after {
   padding: 14px 15px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
-  background: rgba(17, 20, 26, 0.92);
+  background: rgba(18, 18, 18, 0.94);
   color: var(--admin-text);
   text-decoration: none;
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18);
@@ -15402,7 +15374,7 @@ body::after {
 .admin-app.admin-app-suite .admin-website-growth-node:hover,
 .admin-app.admin-app-suite .admin-website-growth-node:focus-visible {
   border-color: rgba(255, 255, 255, 0.28);
-  background: rgba(28, 32, 40, 0.98);
+  background: rgba(30, 30, 30, 0.98);
   outline: 2px solid transparent;
   transform: translateY(-3px);
 }
@@ -15453,43 +15425,57 @@ body::after {
 }
 
 :root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-ecosystem-map {
-  border-color: rgba(15, 23, 42, 0.11);
+  border-color: rgba(24, 24, 24, 0.11);
   background:
-    radial-gradient(circle at 50% 42%, rgba(15, 23, 42, 0.055), transparent 25%),
-    linear-gradient(rgba(15, 23, 42, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(15, 23, 42, 0.035) 1px, transparent 1px),
-    rgba(248, 250, 252, 0.7);
+    radial-gradient(circle at 50% 42%, rgba(24, 24, 24, 0.055), transparent 25%),
+    linear-gradient(rgba(24, 24, 24, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(24, 24, 24, 0.035) 1px, transparent 1px),
+    rgba(250, 250, 250, 0.72);
   background-size: auto, 34px 34px, 34px 34px, auto;
 }
 
 :root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-ecosystem-paths path {
-  stroke: rgba(15, 23, 42, 0.2);
+  stroke: rgba(24, 24, 24, 0.2);
 }
 
 :root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-selection-card,
 :root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-growth-node {
-  border-color: rgba(15, 23, 42, 0.12);
+  border-color: rgba(24, 24, 24, 0.12);
   background: rgba(255, 255, 255, 0.91);
-  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 18px 44px rgba(24, 24, 24, 0.08);
 }
 
 :root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-selection-card:hover,
 :root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-selection-card:focus-visible,
 :root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-growth-node:hover,
 :root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-growth-node:focus-visible {
-  border-color: rgba(15, 23, 42, 0.26);
+  border-color: rgba(24, 24, 24, 0.26);
   background: #ffffff;
 }
 
 :root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-node-index,
 :root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-growth-label,
 :root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-growth-arrow {
-  color: rgba(15, 23, 42, 0.4);
+  color: rgba(24, 24, 24, 0.4);
 }
 
 :root[data-admin-theme='light'] .admin-app.admin-app-suite .admin-website-node-action {
-  border-top-color: rgba(15, 23, 42, 0.08);
-  color: rgba(15, 23, 42, 0.66);
+  border-top-color: rgba(24, 24, 24, 0.08);
+  color: rgba(24, 24, 24, 0.66);
+}
+
+.admin-app.admin-app-suite[data-active-view='website'] .admin-website-header-copy h2,
+.admin-app.admin-app-suite[data-active-view='website'] .admin-website-node-copy strong,
+.admin-app.admin-app-suite[data-active-view='website'] .admin-website-growth-copy strong {
+  color: #f2f2f2;
+}
+
+.admin-app.admin-app-suite[data-active-view='website'] .admin-website-header-copy p,
+.admin-app.admin-app-suite[data-active-view='website'] .admin-website-node-copy small,
+.admin-app.admin-app-suite[data-active-view='website'] .admin-website-node-copy em,
+.admin-app.admin-app-suite[data-active-view='website'] .admin-website-growth-copy small,
+.admin-app.admin-app-suite[data-active-view='website'] .admin-website-growth-copy em {
+  color: rgba(242, 242, 242, 0.58);
 }
 
 @media (max-width: 1260px) {
@@ -15503,10 +15489,6 @@ body::after {
 }
 
 @media (max-width: 720px) {
-  .admin-app.admin-app-suite .admin-website-ecosystem-heading {
-    align-items: flex-start;
-  }
-
   .admin-app.admin-app-suite .admin-website-ecosystem-map {
     display: grid;
     gap: 12px;
@@ -36391,4 +36373,69 @@ a.admin-accounting-breakdown-row:focus-visible { background: color-mix(in srgb, 
   .admin-accounting-ledger-search { grid-column:auto; }
   .admin-accounting-option-row { grid-template-columns:1fr 1fr; padding-bottom:10px; border-bottom:1px solid var(--accounting-border); }
   .admin-accounting-settings-nav strong { font-size:.62rem; }
+}
+
+/* Neutral child-page return navigation for the Website ecosystem. */
+.admin-website-child-return {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-right: auto;
+  color: #f2f2f2;
+}
+
+.admin-website-child-return > span {
+  display: grid;
+  gap: 2px;
+}
+
+.admin-website-child-return small {
+  color: rgba(242, 242, 242, 0.5);
+  font-size: 0.58rem;
+  font-weight: 850;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.admin-website-child-return strong {
+  color: #f2f2f2;
+  font-family: 'Space Grotesk', 'Plus Jakarta Sans', sans-serif;
+  font-size: 0.92rem;
+}
+
+.admin-website-child-return :is(.admin-back-icon-link, .admin-back-icon-button) {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: #141414;
+  color: #f2f2f2;
+}
+
+.admin-website-child-return :is(.admin-back-icon-link, .admin-back-icon-button):hover,
+.admin-website-child-return :is(.admin-back-icon-link, .admin-back-icon-button):focus-visible {
+  border-color: rgba(255, 255, 255, 0.42);
+  background: #202020;
+  color: #ffffff;
+}
+
+:root[data-admin-theme='light'] .admin-website-child-return {
+  color: #181818;
+}
+
+:root[data-admin-theme='light'] .admin-website-child-return small {
+  color: rgba(24, 24, 24, 0.52);
+}
+
+:root[data-admin-theme='light'] .admin-website-child-return strong {
+  color: #181818;
+}
+
+:root[data-admin-theme='light'] .admin-website-child-return :is(.admin-back-icon-link, .admin-back-icon-button) {
+  border-color: rgba(24, 24, 24, 0.16);
+  background: #f4f4f4;
+  color: #181818;
+}
+
+:root[data-admin-theme='light'] .admin-website-child-return :is(.admin-back-icon-link, .admin-back-icon-button):hover,
+:root[data-admin-theme='light'] .admin-website-child-return :is(.admin-back-icon-link, .admin-back-icon-button):focus-visible {
+  border-color: rgba(24, 24, 24, 0.38);
+  background: #e8e8e8;
 }

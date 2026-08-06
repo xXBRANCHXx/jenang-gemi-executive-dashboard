@@ -36,7 +36,7 @@ $sidebarSection = match (true) {
     in_array($requestedView ?? '', ['website', 'site', 'home', 'campaign', 'campaigns', 'landing', 'landing-pages'], true) => 'website',
     default => 'home',
 };
-$dashboardBuildVersion = 'exec3.97.6';
+$dashboardBuildVersion = 'exec3.97.7';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -1164,6 +1164,12 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 
                     <section class="admin-view admin-campaign-view" data-view-panel="home">
                 <section class="admin-campaign-command" aria-label="Campaign shortcuts">
+                    <div class="admin-website-child-return">
+                        <button type="button" class="admin-back-icon-button" data-view-switch="website" aria-label="Back to Website ecosystem" title="Back to Website ecosystem">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg>
+                        </button>
+                        <span><small>Website ecosystem</small><strong>Campaigns</strong></span>
+                    </div>
                     <a class="admin-primary-btn admin-link-btn" href="../affiliate-program/">Affiliate Program</a>
                     <div class="admin-launchpad admin-launchpad-compact" aria-label="Landing page launchpad">
                         <div class="admin-launchpad-section">
@@ -1440,11 +1446,6 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                         <p data-website-hero-copy>See the storefronts you own and the growth channels that bring people to them—all from one connected workspace.</p>
                     </div>
                     <div class="admin-website-selector admin-website-ecosystem" data-website-selector aria-label="Website ecosystem navigation">
-                        <div class="admin-website-ecosystem-heading">
-                            <span class="admin-website-ecosystem-kicker"><i aria-hidden="true"></i> Live web operations</span>
-                            <small>Storefronts + acquisition</small>
-                        </div>
-
                         <div class="admin-website-ecosystem-map">
                             <svg class="admin-website-ecosystem-paths" viewBox="0 0 720 430" preserveAspectRatio="none" aria-hidden="true">
                                 <path d="M140 336 C140 242 250 250 250 156" />
