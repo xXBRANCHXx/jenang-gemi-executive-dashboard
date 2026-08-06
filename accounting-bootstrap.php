@@ -477,6 +477,56 @@ function jg_accounting_ensure_schema(PDO $pdo): void
         $recordRoleMigration = $pdo->prepare('INSERT INTO accounting_migrations (version, applied_at) VALUES (:version, UTC_TIMESTAMP())');
         $recordRoleMigration->execute([':version' => $roleMigration]);
     }
+
+    $legalExpenseCorrection = '2026_08_06_void_mistaken_legal_expense_v1';
+    $legalExpenseCorrectionStmt = $pdo->prepare('SELECT COUNT(*) FROM accounting_migrations WHERE version = :version');
+    $legalExpenseCorrectionStmt->execute([':version' => $legalExpenseCorrection]);
+    if ((int) $legalExpenseCorrectionStmt->fetchColumn() === 0) {
+        $pdo->beginTransaction();
+        try {
+            $mistakenExpenseStmt = $pdo->prepare(
+                'SELECT * FROM accounting_transactions
+                 WHERE transaction_key = :transaction_key
+                   AND transaction_date = :transaction_date
+                   AND type = "expense"
+                   AND amount = :amount
+                 LIMIT 1 FOR UPDATE'
+            );
+            $mistakenExpenseStmt->execute([
+                ':transaction_key' => 'txn-20260806164531-1dbc9200',
+                ':transaction_date' => '2026-08-03',
+                ':amount' => 120500,
+            ]);
+            $mistakenExpense = $mistakenExpenseStmt->fetch();
+            if (is_array($mistakenExpense) && (string) ($mistakenExpense['status'] ?? '') !== 'void') {
+                $reason = 'Voided at owner request: Legal expense was entered incorrectly.';
+                $voidMistakenExpense = $pdo->prepare(
+                    'UPDATE accounting_transactions
+                     SET status = "void", voided_at = UTC_TIMESTAMP(), void_reason = :reason
+                     WHERE id = :id'
+                );
+                $voidMistakenExpense->execute([':reason' => $reason, ':id' => (int) $mistakenExpense['id']]);
+                $resolveMistakenExpenseReviews = $pdo->prepare(
+                    'UPDATE accounting_review_queue
+                     SET status = "resolved", resolved_at = UTC_TIMESTAMP()
+                     WHERE entity_type = "transaction" AND entity_id = :id AND status = "open"'
+                );
+                $resolveMistakenExpenseReviews->execute([':id' => (int) $mistakenExpense['id']]);
+                jg_accounting_insert_audit($pdo, 'transaction', (int) $mistakenExpense['id'], 'void', $mistakenExpense, [
+                    'void_reason' => $reason,
+                    'migration' => $legalExpenseCorrection,
+                ]);
+            }
+            $recordLegalExpenseCorrection = $pdo->prepare(
+                'INSERT IGNORE INTO accounting_migrations (version, applied_at) VALUES (:version, UTC_TIMESTAMP())'
+            );
+            $recordLegalExpenseCorrection->execute([':version' => $legalExpenseCorrection]);
+            $pdo->commit();
+        } catch (Throwable $error) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            throw $error;
+        }
+    }
     $pdo->exec(
         'UPDATE accounting_cash_reconciliations
          SET account_id = (SELECT id FROM accounting_accounts WHERE account_key = "bca-main" LIMIT 1)
@@ -939,7 +989,7 @@ function jg_accounting_review_transaction(PDO $pdo, int $id): void
         return;
     }
 
-    if (empty($row['category_id'])) {
+    if (empty($row['category_id']) && (string) ($row['type'] ?? '') !== 'bill_payment') {
         jg_accounting_mark_transaction_review($pdo, $id, 'Missing category');
         jg_accounting_add_review($pdo, 'transaction', $id, 'warning', 'missing_category', 'Missing category.', 'Choose a category so reports stay clean.');
     }
@@ -3328,14 +3378,14 @@ function jg_accounting_pnl_summary(PDO $pdo, int $year): array
     $year = max(2025, min(2100, $year));
     $stmt = $pdo->prepare(
         'SELECT t.business_month,
-            SUM(CASE WHEN t.direction = "money_out" AND t.type <> "refund" AND c.category_key IN ("meta-ads","google-ads","shopee-ads","tiktok-ads") THEN t.amount ELSE 0 END) AS ad_cost,
-            SUM(CASE WHEN t.direction = "money_out" AND t.type <> "refund" AND c.type = "marketing" AND c.category_key NOT IN ("meta-ads","google-ads","shopee-ads","tiktok-ads") THEN t.amount ELSE 0 END) AS marketing_other,
-            SUM(CASE WHEN t.direction = "money_out" AND t.type <> "refund" AND c.type = "payroll" THEN t.amount ELSE 0 END) AS payroll,
-            SUM(CASE WHEN t.direction = "money_out" AND t.type <> "refund" AND c.type IN ("operations","tax","other") THEN t.amount ELSE 0 END) AS operations,
-            SUM(CASE WHEN t.direction = "money_out" AND c.type = "cogs_support" THEN t.amount ELSE 0 END) AS product_purchases,
+            SUM(CASE WHEN t.direction = "money_out" AND t.type NOT IN ("refund","bill_payment") AND c.category_key IN ("meta-ads","google-ads","shopee-ads","tiktok-ads") THEN t.amount ELSE 0 END) AS ad_cost,
+            SUM(CASE WHEN t.direction = "money_out" AND t.type NOT IN ("refund","bill_payment") AND c.type = "marketing" AND c.category_key NOT IN ("meta-ads","google-ads","shopee-ads","tiktok-ads") THEN t.amount ELSE 0 END) AS marketing_other,
+            SUM(CASE WHEN t.direction = "money_out" AND t.type NOT IN ("refund","bill_payment") AND c.type = "payroll" THEN t.amount ELSE 0 END) AS payroll,
+            SUM(CASE WHEN t.direction = "money_out" AND t.type NOT IN ("refund","bill_payment") AND c.type IN ("operations","tax","other") THEN t.amount ELSE 0 END) AS operations,
+            SUM(CASE WHEN t.direction = "money_out" AND t.type <> "bill_payment" AND c.type = "cogs_support" THEN t.amount ELSE 0 END) AS product_purchases,
             SUM(CASE WHEN t.direction = "money_out" AND t.type = "refund" THEN t.amount ELSE 0 END) AS manual_refunds,
             SUM(CASE WHEN t.direction = "money_in" AND t.type = "manual_income" THEN t.amount ELSE 0 END) AS other_income,
-            SUM(CASE WHEN t.direction = "money_out" AND c.type = "asset" THEN t.amount ELSE 0 END) AS asset_purchases,
+            SUM(CASE WHEN t.direction = "money_out" AND t.type <> "bill_payment" AND c.type = "asset" THEN t.amount ELSE 0 END) AS asset_purchases,
             SUM(t.transfer_fee_amount) AS transfer_fees
          FROM accounting_transactions t
          LEFT JOIN accounting_categories c ON c.id = t.category_id
@@ -3348,6 +3398,32 @@ function jg_accounting_pnl_summary(PDO $pdo, int $year): array
     $indexed = [];
     foreach ($stmt->fetchAll() as $row) {
         $indexed[(string) $row['business_month']] = $row;
+    }
+    if (jg_accounting_table_has_column($pdo, 'accounting_bill_payments', 'transaction_id')) {
+        $allocationStmt = $pdo->prepare(
+            'SELECT t.business_month,
+                SUM(CASE WHEN c.category_key IN ("meta-ads","google-ads","shopee-ads","tiktok-ads") THEN bp.amount ELSE 0 END) AS ad_cost,
+                SUM(CASE WHEN c.type = "marketing" AND c.category_key NOT IN ("meta-ads","google-ads","shopee-ads","tiktok-ads") THEN bp.amount ELSE 0 END) AS marketing_other,
+                SUM(CASE WHEN c.type = "payroll" THEN bp.amount ELSE 0 END) AS payroll,
+                SUM(CASE WHEN c.type IN ("operations","tax","other") THEN bp.amount ELSE 0 END) AS operations,
+                SUM(CASE WHEN c.type = "cogs_support" THEN bp.amount ELSE 0 END) AS product_purchases,
+                SUM(CASE WHEN c.type = "asset" THEN bp.amount ELSE 0 END) AS asset_purchases
+             FROM accounting_bill_payments bp
+             INNER JOIN accounting_transactions t ON t.id = bp.transaction_id
+             INNER JOIN accounting_bills b ON b.id = bp.bill_id
+             LEFT JOIN accounting_categories c ON c.id = b.category_id
+             WHERE t.status = "posted" AND t.business_month LIKE :year_prefix
+             GROUP BY t.business_month'
+        );
+        $allocationStmt->execute([':year_prefix' => $year . '-%']);
+        foreach ($allocationStmt->fetchAll() as $allocation) {
+            $key = (string) $allocation['business_month'];
+            $indexed[$key] ??= ['business_month' => $key];
+            foreach (['ad_cost', 'marketing_other', 'payroll', 'operations', 'product_purchases', 'asset_purchases'] as $field) {
+                $indexed[$key][$field] = (int) round((float) ($indexed[$key][$field] ?? 0))
+                    + (int) round((float) ($allocation[$field] ?? 0));
+            }
+        }
     }
 
     $months = [];
@@ -3396,11 +3472,25 @@ function jg_accounting_category_type_total(PDO $pdo, string $month, string $type
          INNER JOIN accounting_categories c ON c.id = t.category_id
          WHERE t.status = "posted"
            AND t.direction = "money_out"
+           AND t.type <> "bill_payment"
            AND t.business_month = :month
            AND c.type = :type'
     );
     $stmt->execute([':month' => $month, ':type' => $type]);
-    return (int) round((float) ($stmt->fetchColumn() ?: 0));
+    $total = (int) round((float) ($stmt->fetchColumn() ?: 0));
+    if (jg_accounting_table_has_column($pdo, 'accounting_bill_payments', 'transaction_id')) {
+        $allocationStmt = $pdo->prepare(
+            'SELECT COALESCE(SUM(bp.amount), 0)
+             FROM accounting_bill_payments bp
+             INNER JOIN accounting_transactions t ON t.id = bp.transaction_id
+             INNER JOIN accounting_bills b ON b.id = bp.bill_id
+             INNER JOIN accounting_categories c ON c.id = b.category_id
+             WHERE t.status = "posted" AND t.business_month = :month AND c.type = :type'
+        );
+        $allocationStmt->execute([':month' => $month, ':type' => $type]);
+        $total += (int) round((float) ($allocationStmt->fetchColumn() ?: 0));
+    }
+    return $total;
 }
 
 function jg_accounting_category_parent_total(PDO $pdo, string $month, string $parentKey): int
@@ -3412,15 +3502,72 @@ function jg_accounting_category_parent_total(PDO $pdo, string $month, string $pa
          INNER JOIN accounting_categories p ON p.id = c.parent_id
          WHERE t.status = "posted"
            AND t.direction = "money_out"
+           AND t.type <> "bill_payment"
            AND t.business_month = :month
            AND p.category_key = :parent_key'
     );
     $stmt->execute([':month' => $month, ':parent_key' => $parentKey]);
-    return (int) round((float) ($stmt->fetchColumn() ?: 0));
+    $total = (int) round((float) ($stmt->fetchColumn() ?: 0));
+    if (jg_accounting_table_has_column($pdo, 'accounting_bill_payments', 'transaction_id')) {
+        $allocationStmt = $pdo->prepare(
+            'SELECT COALESCE(SUM(bp.amount), 0)
+             FROM accounting_bill_payments bp
+             INNER JOIN accounting_transactions t ON t.id = bp.transaction_id
+             INNER JOIN accounting_bills b ON b.id = bp.bill_id
+             INNER JOIN accounting_categories c ON c.id = b.category_id
+             INNER JOIN accounting_categories p ON p.id = c.parent_id
+             WHERE t.status = "posted" AND t.business_month = :month AND p.category_key = :parent_key'
+        );
+        $allocationStmt->execute([':month' => $month, ':parent_key' => $parentKey]);
+        $total += (int) round((float) ($allocationStmt->fetchColumn() ?: 0));
+    }
+    return $total;
 }
 
 function jg_accounting_group_summary(PDO $pdo, string $month, string $group): array
 {
+    if (in_array($group, ['category', 'brand', 'channel'], true)
+        && jg_accounting_table_has_column($pdo, 'accounting_bill_payments', 'transaction_id')) {
+        $transactionLabel = match ($group) {
+            'category' => 'COALESCE(c.name, "Uncategorized")',
+            'brand' => 'COALESCE(NULLIF(t.brand, ""), "General / Shared")',
+            default => 'COALESCE(NULLIF(t.channel, ""), "Internal")',
+        };
+        $allocationLabel = match ($group) {
+            'category' => 'COALESCE(c.name, "Uncategorized")',
+            'brand' => 'COALESCE(NULLIF(b.brand, ""), "General / Shared")',
+            default => 'COALESCE(NULLIF(b.channel, ""), "Internal")',
+        };
+        $transactionCategoryJoin = $group === 'category' ? 'LEFT JOIN accounting_categories c ON c.id = t.category_id' : '';
+        $allocationCategoryJoin = $group === 'category' ? 'LEFT JOIN accounting_categories c ON c.id = b.category_id' : '';
+        $stmt = $pdo->prepare(
+            'SELECT label, SUM(amount) AS this_month
+             FROM (
+                SELECT ' . $transactionLabel . ' AS label, t.amount
+                FROM accounting_transactions t
+                ' . $transactionCategoryJoin . '
+                WHERE t.business_month = :transaction_month
+                  AND t.status = "posted" AND t.direction = "money_out" AND t.type <> "bill_payment"
+                UNION ALL
+                SELECT ' . $allocationLabel . ' AS label, bp.amount
+                FROM accounting_bill_payments bp
+                INNER JOIN accounting_transactions t ON t.id = bp.transaction_id
+                INNER JOIN accounting_bills b ON b.id = bp.bill_id
+                ' . $allocationCategoryJoin . '
+                WHERE t.business_month = :allocation_month AND t.status = "posted"
+             ) categorized_cash_out
+             GROUP BY label
+             ORDER BY this_month DESC, label ASC
+             LIMIT 12'
+        );
+        $stmt->execute([':transaction_month' => $month, ':allocation_month' => $month]);
+        return array_map(static fn (array $row): array => [
+            'label' => (string) ($row['label'] ?? '-'),
+            'this_month' => (int) round((float) ($row['this_month'] ?? 0)),
+            'last_transaction' => null,
+        ], $stmt->fetchAll());
+    }
+
     $select = 'COALESCE(c.name, "Uncategorized") AS label';
     $join = 'LEFT JOIN accounting_categories c ON c.id = t.category_id';
     $groupBy = 'label';
@@ -3563,7 +3710,7 @@ function jg_accounting_transactions(PDO $pdo, array $filters): array
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
 
-    return array_map(static fn (array $row): array => [
+    $transactions = array_map(static fn (array $row): array => [
         'id' => (int) $row['id'],
         'transaction_key' => (string) $row['transaction_key'],
         'transaction_date' => (string) $row['transaction_date'],
@@ -3597,7 +3744,49 @@ function jg_accounting_transactions(PDO $pdo, array $filters): array
         'notes' => $row['notes'],
         'created_by' => !isset($row['created_by']) ? null : (int) $row['created_by'],
         'created_at' => (string) $row['created_at'],
+        'bill_count' => $row['bill_id'] === null ? 0 : 1,
+        'bill_numbers' => $row['bill_no'] === null ? [] : [(string) $row['bill_no']],
     ], $stmt->fetchAll());
+
+    $billPaymentIds = array_values(array_map(
+        static fn (array $row): int => (int) $row['id'],
+        array_filter($transactions, static fn (array $row): bool => (string) $row['type'] === 'bill_payment')
+    ));
+    if ($billPaymentIds !== []) {
+        try {
+            $placeholders = implode(',', array_fill(0, count($billPaymentIds), '?'));
+            $allocationStmt = $pdo->prepare(
+                'SELECT bp.transaction_id, bp.amount, b.bill_no, b.bill_key, c.name AS category_name
+                 FROM accounting_bill_payments bp
+                 INNER JOIN accounting_bills b ON b.id = bp.bill_id
+                 LEFT JOIN accounting_categories c ON c.id = b.category_id
+                 WHERE bp.transaction_id IN (' . $placeholders . ')
+                 ORDER BY bp.transaction_id ASC, bp.id ASC'
+            );
+            $allocationStmt->execute($billPaymentIds);
+            $allocationMap = [];
+            foreach ($allocationStmt->fetchAll() as $allocation) {
+                $transactionId = (int) $allocation['transaction_id'];
+                $allocationMap[$transactionId]['numbers'][] = trim((string) ($allocation['bill_no'] ?? '')) ?: (string) $allocation['bill_key'];
+                $categoryName = trim((string) ($allocation['category_name'] ?? ''));
+                if ($categoryName !== '') $allocationMap[$transactionId]['categories'][$categoryName] = true;
+            }
+            foreach ($transactions as &$transaction) {
+                $allocation = $allocationMap[(int) $transaction['id']] ?? null;
+                if (!is_array($allocation)) continue;
+                $transaction['bill_numbers'] = array_values($allocation['numbers'] ?? []);
+                $transaction['bill_count'] = count($transaction['bill_numbers']);
+                $categories = array_keys($allocation['categories'] ?? []);
+                $transaction['category_name'] = count($categories) === 1 ? $categories[0] : (count($categories) > 1 ? 'Multiple bill categories' : null);
+                $transaction['bill_no'] = implode(', ', $transaction['bill_numbers']);
+            }
+            unset($transaction);
+        } catch (Throwable) {
+            // Lightweight test databases and pre-migration installations may not expose payment allocations yet.
+        }
+    }
+
+    return $transactions;
 }
 
 function jg_accounting_bills(PDO $pdo, array $filters): array
@@ -3777,7 +3966,10 @@ function jg_accounting_activity_ledger(PDO $pdo, array $filters): array
             'date' => (string) $transaction['transaction_date'],
             'sort_at' => (string) $transaction['transaction_date'] . ' ' . ($createdTime !== '' ? $createdTime : '12:00:00'),
             'title' => $title,
-            'subtitle' => ucwords(str_replace('_', ' ', (string) ($transaction['type'] ?? 'entry'))),
+            'subtitle' => ucwords(str_replace('_', ' ', (string) ($transaction['type'] ?? 'entry')))
+                . ((string) ($transaction['type'] ?? '') === 'bill_payment' && (int) ($transaction['bill_count'] ?? 0) > 1
+                    ? ' · ' . (int) $transaction['bill_count'] . ' invoices'
+                    : ''),
             'account' => $account,
             'category' => (string) ($transaction['category_name'] ?? ''),
             'note' => trim((string) ($transaction['notes'] ?? '')),
@@ -3985,7 +4177,7 @@ function jg_accounting_create_transaction(PDO $pdo, array $body): array
     }
 
     $categoryId = (int) ($body['category_id'] ?? 0);
-    if ($type !== 'transfer' && $categoryId <= 0) {
+    if (!in_array($type, ['transfer', 'bill_payment'], true) && $categoryId <= 0) {
         jg_accounting_error('Choose a category so reports stay clean.', 422, 'category_id');
     }
 
@@ -4126,28 +4318,77 @@ function jg_accounting_create_bill(PDO $pdo, array $body): array
 
 function jg_accounting_mark_bill_paid(PDO $pdo, array $body): array
 {
-    $billId = (int) ($body['bill_id'] ?? 0);
-    if ($billId <= 0) {
-        jg_accounting_error('Choose a bill.', 422, 'bill_id');
-    }
     $paymentDate = jg_accounting_date($body['payment_date'] ?? null, 'payment_date', jg_accounting_now()->format('Y-m-d'));
-    $amount = jg_accounting_amount($body['amount'] ?? null);
     $accountId = (int) ($body['account_id'] ?? 0);
     if ($accountId <= 0) {
         jg_accounting_error('Choose which account paid this.', 422, 'account_id');
     }
 
+    $rawAllocations = $body['bill_allocations'] ?? null;
+    if (is_string($rawAllocations)) {
+        $decoded = json_decode($rawAllocations, true);
+        $rawAllocations = is_array($decoded) ? $decoded : null;
+    }
+    if (!is_array($rawAllocations) || $rawAllocations === []) {
+        $legacyBillId = (int) ($body['bill_id'] ?? 0);
+        $rawAllocations = $legacyBillId > 0
+            ? [['bill_id' => $legacyBillId, 'amount' => $body['amount'] ?? null]]
+            : [];
+    }
+    if ($rawAllocations === [] || count($rawAllocations) > 100) {
+        jg_accounting_error('Choose between 1 and 100 bills.', 422, 'bill_allocations');
+    }
+
+    $allocations = [];
+    foreach ($rawAllocations as $rawAllocation) {
+        if (!is_array($rawAllocation)) {
+            jg_accounting_error('Invalid bill allocation.', 422, 'bill_allocations');
+        }
+        $billId = (int) ($rawAllocation['bill_id'] ?? 0);
+        if ($billId <= 0 || isset($allocations[$billId])) {
+            jg_accounting_error('Each selected bill must appear once.', 422, 'bill_allocations');
+        }
+        $allocations[$billId] = jg_accounting_amount($rawAllocation['amount'] ?? null, 'bill_allocations');
+    }
+    ksort($allocations, SORT_NUMERIC);
+    $amount = array_sum($allocations);
+    $submittedTotal = trim((string) ($body['amount'] ?? ''));
+    if ($submittedTotal !== '' && jg_accounting_amount($submittedTotal) !== $amount) {
+        jg_accounting_error('The transfer total must equal the bill allocations.', 422, 'amount');
+    }
+
     $pdo->beginTransaction();
     try {
-        $stmt = $pdo->prepare('SELECT * FROM accounting_bills WHERE id = :id FOR UPDATE');
-        $stmt->execute([':id' => $billId]);
-        $bill = $stmt->fetch();
-        if (!is_array($bill) || (string) $bill['status'] === 'void') {
-            throw new RuntimeException('Bill not found.');
+        $bills = [];
+        $vendorId = null;
+        foreach ($allocations as $billId => $allocationAmount) {
+            $stmt = $pdo->prepare('SELECT * FROM accounting_bills WHERE id = :id FOR UPDATE');
+            $stmt->execute([':id' => $billId]);
+            $bill = $stmt->fetch();
+            if (!is_array($bill) || !in_array((string) $bill['status'], ['unpaid', 'partially_paid', 'overdue'], true)) {
+                throw new InvalidArgumentException('One of the selected bills is no longer open. Refresh and try again.');
+            }
+            if ($vendorId === null) {
+                $vendorId = (int) $bill['vendor_id'];
+            } elseif ($vendorId !== (int) $bill['vendor_id']) {
+                throw new InvalidArgumentException('A combined transfer can only contain bills from one vendor.');
+            }
+            if ($allocationAmount > (int) $bill['outstanding_amount']) {
+                throw new InvalidArgumentException('A payment allocation is larger than its bill balance.');
+            }
+            $bills[$billId] = $bill;
         }
-        $outstanding = (int) $bill['outstanding_amount'];
-        if ($amount > $outstanding) {
-            throw new InvalidArgumentException('Payment amount is larger than outstanding bill.');
+
+        $categoryIds = array_values(array_unique(array_map(static fn (array $bill): int => (int) ($bill['category_id'] ?? 0), $bills)));
+        $brands = array_values(array_unique(array_map(static fn (array $bill): string => trim((string) ($bill['brand'] ?? '')), $bills)));
+        $channels = array_values(array_unique(array_map(static fn (array $bill): string => trim((string) ($bill['channel'] ?? '')), $bills)));
+        $billReferences = array_map(
+            static fn (array $bill): string => trim((string) ($bill['bill_no'] ?? '')) ?: (string) $bill['bill_key'],
+            $bills
+        );
+        $transactionNotes = jg_accounting_long_text($body['notes'] ?? '', 2000);
+        if (count($bills) > 1 && $transactionNotes === '') {
+            $transactionNotes = 'Combined payment for ' . count($bills) . ' bills: ' . implode(', ', $billReferences);
         }
 
         $transaction = jg_accounting_create_transaction($pdo, [
@@ -4155,17 +4396,19 @@ function jg_accounting_mark_bill_paid(PDO $pdo, array $body): array
             'type' => 'bill_payment',
             'direction' => 'money_out',
             'account_id' => $accountId,
-            'counterparty_id' => (int) $bill['vendor_id'],
-            'category_id' => (int) $bill['category_id'],
-            'bill_id' => $billId,
-            'brand' => (string) ($bill['brand'] ?? ''),
-            'channel' => (string) ($bill['channel'] ?? ''),
+            'counterparty_id' => (int) $vendorId,
+            'category_id' => count($categoryIds) === 1 ? $categoryIds[0] : null,
+            'bill_id' => count($bills) === 1 ? (int) array_key_first($bills) : null,
+            'brand' => count($brands) === 1 ? $brands[0] : '',
+            'channel' => count($channels) === 1 ? $channels[0] : '',
             'amount' => $amount,
             'payment_method' => $body['payment_method'] ?? '',
             'reference_no' => $body['reference_no'] ?? '',
+            'invoice_no' => implode(', ', $billReferences),
             'receipt_url' => $body['receipt_url'] ?? '',
-            'receipt_status' => ($body['receipt_url'] ?? '') !== '' ? 'attached' : 'missing',
-            'notes' => $body['notes'] ?? '',
+            'receipt_status' => $body['receipt_status'] ?? (($body['receipt_url'] ?? '') !== '' ? 'attached' : 'missing'),
+            'description' => count($bills) > 1 ? 'Combined supplier payment' : 'Supplier bill payment',
+            'notes' => $transactionNotes,
         ]);
         $transactionId = (int) $transaction['id'];
 
@@ -4175,23 +4418,6 @@ function jg_accounting_mark_bill_paid(PDO $pdo, array $body): array
              VALUES
                 (:bill_id, :transaction_id, :payment_date, :amount, :account_id, :payment_method, :reference_no, :notes, NULL, UTC_TIMESTAMP())'
         );
-        $paymentStmt->execute([
-            ':bill_id' => $billId,
-            ':transaction_id' => $transactionId,
-            ':payment_date' => $paymentDate,
-            ':amount' => $amount,
-            ':account_id' => $accountId,
-            ':payment_method' => jg_accounting_text($body['payment_method'] ?? '', 80),
-            ':reference_no' => jg_accounting_text($body['reference_no'] ?? '', 160),
-            ':notes' => jg_accounting_long_text($body['notes'] ?? '', 2000),
-        ]);
-
-        $newPaid = (int) $bill['paid_amount'] + $amount;
-        $newOutstanding = max(0, (int) $bill['total_amount'] - $newPaid);
-        $newStatus = $newOutstanding <= 0 ? 'paid' : 'partially_paid';
-        if ($newStatus !== 'paid' && (string) ($bill['due_date'] ?? '') !== '' && (string) $bill['due_date'] < jg_accounting_now()->format('Y-m-d')) {
-            $newStatus = 'overdue';
-        }
         $update = $pdo->prepare(
             'UPDATE accounting_bills
              SET paid_amount = :paid_amount,
@@ -4199,20 +4425,51 @@ function jg_accounting_mark_bill_paid(PDO $pdo, array $body): array
                  status = :status
              WHERE id = :id'
         );
-        $update->execute([
-            ':paid_amount' => $newPaid,
-            ':outstanding_amount' => $newOutstanding,
-            ':status' => $newStatus,
-            ':id' => $billId,
-        ]);
-        jg_accounting_insert_audit($pdo, 'bill', $billId, 'pay', $bill, [
-            'paid_amount' => $newPaid,
-            'outstanding_amount' => $newOutstanding,
-            'status' => $newStatus,
-            'transaction_id' => $transactionId,
-        ]);
+        $results = [];
+        foreach ($allocations as $billId => $allocationAmount) {
+            $bill = $bills[$billId];
+            $paymentStmt->execute([
+                ':bill_id' => $billId,
+                ':transaction_id' => $transactionId,
+                ':payment_date' => $paymentDate,
+                ':amount' => $allocationAmount,
+                ':account_id' => $accountId,
+                ':payment_method' => jg_accounting_text($body['payment_method'] ?? '', 80),
+                ':reference_no' => jg_accounting_text($body['reference_no'] ?? '', 160),
+                ':notes' => jg_accounting_long_text($body['notes'] ?? '', 2000),
+            ]);
+            $newPaid = (int) $bill['paid_amount'] + $allocationAmount;
+            $newOutstanding = max(0, (int) $bill['total_amount'] - $newPaid);
+            $newStatus = $newOutstanding <= 0 ? 'paid' : 'partially_paid';
+            if ($newStatus !== 'paid' && (string) ($bill['due_date'] ?? '') !== '' && (string) $bill['due_date'] < jg_accounting_now()->format('Y-m-d')) {
+                $newStatus = 'overdue';
+            }
+            $update->execute([
+                ':paid_amount' => $newPaid,
+                ':outstanding_amount' => $newOutstanding,
+                ':status' => $newStatus,
+                ':id' => $billId,
+            ]);
+            $result = [
+                'bill_id' => $billId,
+                'amount' => $allocationAmount,
+                'paid_amount' => $newPaid,
+                'outstanding_amount' => $newOutstanding,
+                'status' => $newStatus,
+                'transaction_id' => $transactionId,
+            ];
+            jg_accounting_insert_audit($pdo, 'bill', $billId, 'pay', $bill, $result);
+            $results[] = $result;
+        }
         $pdo->commit();
-        return ['bill_id' => $billId, 'transaction_id' => $transactionId, 'status' => $newStatus];
+        return [
+            'transaction_id' => $transactionId,
+            'amount' => $amount,
+            'bill_count' => count($results),
+            'allocations' => $results,
+            'bill_id' => count($results) === 1 ? $results[0]['bill_id'] : null,
+            'status' => count($results) === 1 ? $results[0]['status'] : 'allocated',
+        ];
     } catch (InvalidArgumentException $error) {
         $pdo->rollBack();
         jg_accounting_error($error->getMessage(), 422, 'amount');
@@ -4247,15 +4504,24 @@ function jg_accounting_void_transaction(PDO $pdo, array $body): array
         $update = $pdo->prepare('UPDATE accounting_transactions SET status = "void", voided_at = UTC_TIMESTAMP(), void_reason = :reason WHERE id = :id');
         $update->execute([':reason' => $reason, ':id' => $id]);
 
-        if ((string) $tx['type'] === 'bill_payment' && (int) ($tx['bill_id'] ?? 0) > 0) {
-            $payment = $pdo->prepare('SELECT * FROM accounting_bill_payments WHERE transaction_id = :transaction_id LIMIT 1');
+        if ((string) $tx['type'] === 'bill_payment') {
+            $payment = $pdo->prepare('SELECT * FROM accounting_bill_payments WHERE transaction_id = :transaction_id ORDER BY id ASC');
             $payment->execute([':transaction_id' => $id]);
-            $paymentRow = $payment->fetch();
-            $amount = is_array($paymentRow) ? (int) $paymentRow['amount'] : (int) $tx['amount'];
+            $paymentRows = $payment->fetchAll();
+            if ($paymentRows === [] && (int) ($tx['bill_id'] ?? 0) > 0) {
+                $paymentRows = [[
+                    'bill_id' => (int) $tx['bill_id'],
+                    'amount' => (int) $tx['amount'],
+                ]];
+            }
             $billStmt = $pdo->prepare('SELECT * FROM accounting_bills WHERE id = :id FOR UPDATE');
-            $billStmt->execute([':id' => (int) $tx['bill_id']]);
-            $bill = $billStmt->fetch();
-            if (is_array($bill)) {
+            foreach ($paymentRows as $paymentRow) {
+                $billId = (int) ($paymentRow['bill_id'] ?? 0);
+                $amount = (int) ($paymentRow['amount'] ?? 0);
+                if ($billId <= 0 || $amount <= 0) continue;
+                $billStmt->execute([':id' => $billId]);
+                $bill = $billStmt->fetch();
+                if (!is_array($bill)) continue;
                 $paid = max(0, (int) $bill['paid_amount'] - $amount);
                 $outstanding = max(0, (int) $bill['total_amount'] - $paid);
                 $status = $outstanding <= 0 ? 'paid' : ($paid > 0 ? 'partially_paid' : 'unpaid');
@@ -4267,9 +4533,9 @@ function jg_accounting_void_transaction(PDO $pdo, array $body): array
                     ':paid' => $paid,
                     ':outstanding' => $outstanding,
                     ':status' => $status,
-                    ':id' => (int) $bill['id'],
+                    ':id' => $billId,
                 ]);
-                jg_accounting_insert_audit($pdo, 'bill', (int) $bill['id'], 'reverse_payment', $bill, [
+                jg_accounting_insert_audit($pdo, 'bill', $billId, 'reverse_payment', $bill, [
                     'voided_transaction_id' => $id,
                     'paid_amount' => $paid,
                     'outstanding_amount' => $outstanding,
@@ -4278,6 +4544,12 @@ function jg_accounting_void_transaction(PDO $pdo, array $body): array
             }
         }
 
+        $resolveReviews = $pdo->prepare(
+            'UPDATE accounting_review_queue
+             SET status = "resolved", resolved_at = UTC_TIMESTAMP()
+             WHERE entity_type = "transaction" AND entity_id = :id AND status = "open"'
+        );
+        $resolveReviews->execute([':id' => $id]);
         jg_accounting_insert_audit($pdo, 'transaction', $id, 'void', $tx, ['void_reason' => $reason]);
         $pdo->commit();
         return ['transaction_id' => $id, 'status' => 'void'];

@@ -134,6 +134,7 @@ if (root) {
     partnerBillsScope: 'due',
     ledgerImpact: 'all',
     ledgerSearch: '',
+    billAllocations: {},
     preferences: JSON.parse(JSON.stringify(defaultPreferences))
   };
 
@@ -236,7 +237,11 @@ if (root) {
     categoryValue: root.querySelector('[data-accounting-category-value]'),
     counterpartyInput: root.querySelector('[data-accounting-counterparty-input]'),
     counterpartyOptions: root.querySelector('[data-accounting-counterparty-options]'),
-    billSelect: root.querySelector('[data-accounting-bill-select]'),
+    billPicker: root.querySelector('[data-accounting-bill-picker]'),
+    billTrigger: root.querySelector('[data-accounting-bill-trigger]'),
+    billMenu: root.querySelector('[data-accounting-bill-menu]'),
+    billLabel: root.querySelector('[data-accounting-bill-label]'),
+    billResults: root.querySelector('[data-accounting-bill-results]'),
     brandSelect: root.querySelector('[data-accounting-brand-select]'),
     channelSelect: root.querySelector('[data-accounting-channel-select]'),
     incomeType: root.querySelector('[data-accounting-income-type]'),
@@ -666,6 +671,56 @@ if (root) {
     if (rows.some((row) => String(row.value) === selected)) select.value = selected;
   };
 
+  const openBills = () => state.bills.filter((bill) => ['unpaid', 'partially_paid', 'overdue'].includes(String(bill.status || '')));
+
+  const selectedBillRows = () => openBills().filter((bill) => Object.prototype.hasOwnProperty.call(state.billAllocations, String(bill.id)));
+
+  const syncBillPaymentTotal = () => {
+    if (state.mode !== 'pay_bill') return;
+    const total = Object.values(state.billAllocations).reduce((sum, amount) => sum + Number(amount || 0), 0);
+    if (refs.amountInput) refs.amountInput.value = total > 0 ? normalizeAmountInput(String(total)) : '';
+  };
+
+  const closeBillPicker = () => {
+    if (refs.billMenu) refs.billMenu.hidden = true;
+    refs.billTrigger?.setAttribute('aria-expanded', 'false');
+  };
+
+  const renderBillPicker = () => {
+    if (!refs.billResults) return;
+    const bills = openBills();
+    const billIds = new Set(bills.map((bill) => String(bill.id)));
+    Object.keys(state.billAllocations).forEach((id) => {
+      if (!billIds.has(id)) delete state.billAllocations[id];
+    });
+    const selected = selectedBillRows();
+    const selectedVendorId = selected.length ? String(selected[0].vendor_id || '') : '';
+    if (refs.billLabel) {
+      refs.billLabel.textContent = selected.length
+        ? `${selected[0].vendor_name || 'Vendor'} · ${selected.length} ${selected.length === 1 ? 'bill' : 'bills'} selected`
+        : 'Choose one or more bills';
+    }
+    refs.billResults.innerHTML = bills.length ? bills.map((bill) => {
+      const id = String(bill.id);
+      const isSelected = Object.prototype.hasOwnProperty.call(state.billAllocations, id);
+      const isOtherVendor = selectedVendorId !== '' && String(bill.vendor_id || '') !== selectedVendorId;
+      const reference = bill.bill_no || bill.bill_key || `Bill ${id}`;
+      const due = bill.due_date ? `Due ${formatHistoryDate(bill.due_date)}` : 'No due date';
+      const amount = isSelected ? state.billAllocations[id] : Number(bill.outstanding_amount || 0);
+      return `
+        <div class="admin-accounting-bill-option${isSelected ? ' is-selected' : ''}${isOtherVendor ? ' is-disabled' : ''}">
+          <label>
+            <input type="checkbox" data-accounting-bill-option="${escapeHtml(id)}" ${isSelected ? 'checked' : ''} ${isOtherVendor ? 'disabled' : ''}>
+            <span><strong>${escapeHtml(reference)}</strong><small>${escapeHtml(bill.vendor_name || 'Vendor')} · ${escapeHtml(due)} · ${escapeHtml(bill.category_name || 'Uncategorized')}</small></span>
+            <b>${formatCurrency(bill.outstanding_amount || 0)}</b>
+          </label>
+          ${isSelected ? `<label class="admin-accounting-bill-allocation"><span>Pay toward this bill</span><input type="text" inputmode="numeric" data-accounting-bill-allocation="${escapeHtml(id)}" value="${escapeHtml(normalizeAmountInput(String(amount || '')))}" aria-label="Amount allocated to ${escapeHtml(reference)}"><small>Outstanding ${formatCurrency(bill.outstanding_amount || 0)}</small></label>` : ''}
+        </div>
+      `;
+    }).join('') : '<p class="admin-accounting-category-empty">No open bills to pay.</p>';
+    syncBillPaymentTotal();
+  };
+
   const applyTerminology = () => {
     root.querySelectorAll('[data-accounting-term]').forEach((node) => {
       const key = node.getAttribute('data-accounting-term') || '';
@@ -684,17 +739,9 @@ if (root) {
   };
 
   const renderLookups = () => {
-    const openBills = state.bills.filter((bill) => ['unpaid', 'partially_paid', 'overdue'].includes(String(bill.status || '')));
-    const selectedBill = refs.billSelect?.value || '';
     renderAccountOptions();
     renderCategoryOptions();
-    if (refs.billSelect) {
-      refs.billSelect.innerHTML = [
-        option('', 'Choose bill'),
-        ...openBills.map((bill) => option(bill.id, `${bill.vendor_name || 'Vendor'} - ${bill.bill_no || bill.bill_key} - ${formatCurrency(bill.outstanding_amount || 0)}`))
-      ].join('');
-      refs.billSelect.value = openBills.some((bill) => String(bill.id) === selectedBill) ? selectedBill : '';
-    }
+    renderBillPicker();
     if (refs.counterpartyOptions) {
       refs.counterpartyOptions.innerHTML = state.counterparties
         .map((item) => `<option value="${escapeHtml(item.name || '')}"></option>`)
@@ -739,6 +786,12 @@ if (root) {
     if (refs.counterpartyInput) {
       refs.counterpartyInput.placeholder = nextMode === 'manual_income' ? 'Source / customer' : 'Search or quick-create';
     }
+    if (refs.amountInput) {
+      refs.amountInput.readOnly = nextMode === 'pay_bill';
+      refs.amountInput.setAttribute('aria-readonly', nextMode === 'pay_bill' ? 'true' : 'false');
+    }
+    if (nextMode === 'pay_bill') renderBillPicker();
+    if (nextMode !== 'pay_bill') closeBillPicker();
     const canUploadReceipt = ['expense_paid', 'customer_refund'].includes(nextMode);
     if (refs.receiptUpload) refs.receiptUpload.hidden = !canUploadReceipt;
     if (refs.receiptFile) {
@@ -755,6 +808,8 @@ if (root) {
     resettingForm = true;
     try {
       refs.form?.reset();
+      state.billAllocations = {};
+      closeBillPicker();
       const today = getDateString();
       if (refs.dateInput) refs.dateInput.value = today;
       if (refs.issueDateInput) refs.issueDateInput.value = today;
@@ -1941,12 +1996,11 @@ if (root) {
     return /(shopee|tiktok|tik ?tok|tokopedia)/.test(text);
   };
 
-  const fillPayBillAmount = () => {
-    if (state.mode !== 'pay_bill' || !refs.billSelect || !refs.amountInput) return;
-    const bill = state.bills.find((item) => Number(item.id) === Number(refs.billSelect.value));
-    if (bill && !amountInputToRaw(refs.amountInput.value)) {
-      refs.amountInput.value = normalizeAmountInput(String(bill.outstanding_amount || 0));
-    }
+  const selectBillForPayment = (billId) => {
+    const bill = openBills().find((item) => String(item.id) === String(billId));
+    if (!bill) return;
+    state.billAllocations = { [String(bill.id)]: Number(bill.outstanding_amount || 0) };
+    renderBillPicker();
   };
 
   const payloadFromForm = (submitter) => {
@@ -1962,7 +2016,6 @@ if (root) {
       transaction_date: String(data.get('transaction_date') || ''),
       issue_date: String(data.get('issue_date') || ''),
       due_date: String(data.get('due_date') || ''),
-      bill_id: String(data.get('bill_id') || ''),
       account_id: String(data.get('account_id') || ''),
       to_account_id: String(data.get('to_account_id') || ''),
       category_id: String(data.get('category_id') || ''),
@@ -1990,6 +2043,11 @@ if (root) {
     if (state.mode === 'pay_bill') {
       payload.action = 'mark_bill_paid';
       payload.payment_date = payload.transaction_date;
+      payload.bill_allocations = selectedBillRows().map((bill) => ({
+        bill_id: Number(bill.id),
+        amount: Number(state.billAllocations[String(bill.id)] || 0)
+      }));
+      payload.bill_id = payload.bill_allocations.length === 1 ? String(payload.bill_allocations[0].bill_id) : '';
     }
     return payload;
   };
@@ -2003,7 +2061,8 @@ if (root) {
       if (!payload.counterparty_name) return 'Choose a vendor/payee.';
       if (!payload.category_id) return 'Choose a category so reports stay clean.';
     } else if (state.mode === 'pay_bill') {
-      if (!payload.bill_id) return 'Choose a bill.';
+      if (!Array.isArray(payload.bill_allocations) || !payload.bill_allocations.length) return 'Choose at least one bill.';
+      if (payload.bill_allocations.some((allocation) => Number(allocation.amount || 0) <= 0)) return 'Each selected bill needs a payment amount.';
       if (!payload.account_id) return 'Choose which account paid this.';
     } else if (state.mode === 'transfer') {
       if (!payload.account_id || !payload.to_account_id) return 'Choose both transfer accounts.';
@@ -2125,6 +2184,38 @@ if (root) {
       refs.receiptStatus.value = 'attached';
     }
   });
+  refs.billTrigger?.addEventListener('click', () => {
+    const opening = Boolean(refs.billMenu?.hidden);
+    if (refs.billMenu) refs.billMenu.hidden = !opening;
+    refs.billTrigger?.setAttribute('aria-expanded', opening ? 'true' : 'false');
+  });
+  refs.billResults?.addEventListener('change', (event) => {
+    const checkbox = event.target;
+    if (!(checkbox instanceof HTMLInputElement) || !checkbox.matches('[data-accounting-bill-option]')) return;
+    const bill = openBills().find((item) => String(item.id) === String(checkbox.dataset.accountingBillOption || ''));
+    if (!bill) return;
+    const id = String(bill.id);
+    if (checkbox.checked) {
+      const selected = selectedBillRows();
+      if (selected.length && String(selected[0].vendor_id || '') !== String(bill.vendor_id || '')) {
+        checkbox.checked = false;
+        showToast('A combined transfer can only contain bills from one vendor.', true);
+        return;
+      }
+      state.billAllocations[id] = Number(bill.outstanding_amount || 0);
+    } else {
+      delete state.billAllocations[id];
+    }
+    renderBillPicker();
+  });
+  refs.billResults?.addEventListener('input', (event) => {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement) || !input.matches('[data-accounting-bill-allocation]')) return;
+    const id = String(input.dataset.accountingBillAllocation || '');
+    input.value = normalizeAmountInput(input.value);
+    state.billAllocations[id] = Number(amountInputToRaw(input.value) || 0);
+    syncBillPaymentTotal();
+  });
   root.addEventListener('click', (event) => {
     const target = event.target instanceof Element ? event.target : null;
     const trigger = target?.closest('[data-accounting-category-trigger]');
@@ -2160,8 +2251,8 @@ if (root) {
   document.addEventListener('click', (event) => {
     const target = event.target instanceof Element ? event.target : null;
     if (!target?.closest('[data-accounting-category-combobox]')) closeCategoryComboboxes();
+    if (!target?.closest('[data-accounting-bill-picker]')) closeBillPicker();
   });
-  refs.billSelect?.addEventListener('change', fillPayBillAmount);
   refs.form?.addEventListener('submit', submitForm);
   refs.form?.addEventListener('reset', () => {
     if (resettingForm) return;
@@ -2183,9 +2274,7 @@ if (root) {
     const payButton = target.closest('[data-accounting-pay-bill]');
     if (payButton instanceof HTMLElement) {
       setMode('pay_bill');
-      if (refs.billSelect) refs.billSelect.value = payButton.dataset.accountingPayBill || '';
-      if (refs.amountInput) refs.amountInput.value = '';
-      fillPayBillAmount();
+      selectBillForPayment(payButton.dataset.accountingPayBill || '');
       refs.form?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
     }
@@ -2459,6 +2548,7 @@ if (root) {
       const openCombobox = root.querySelector('[data-accounting-category-trigger][aria-expanded="true"]')?.closest('[data-accounting-category-combobox]');
       const categoryTrigger = openCombobox?.querySelector('[data-accounting-category-trigger]');
       closeCategoryComboboxes();
+      closeBillPicker();
       if (categoryTrigger instanceof HTMLButtonElement) categoryTrigger.focus();
       closeCashHistory();
       closeBreakdown();

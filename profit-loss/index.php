@@ -166,10 +166,19 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                                 <span>Due Date</span>
                                 <input type="date" name="due_date">
                             </label>
-                            <label data-accounting-field="bill_id" hidden>
-                                <span>Bill</span>
-                                <select name="bill_id" data-accounting-bill-select></select>
-                            </label>
+                            <div class="admin-accounting-bill-field admin-accounting-form-wide" data-accounting-field="bill_id" hidden>
+                                <span>Bills</span>
+                                <div class="admin-accounting-bill-picker" data-accounting-bill-picker>
+                                    <button type="button" class="admin-accounting-bill-trigger" data-accounting-bill-trigger aria-haspopup="listbox" aria-expanded="false">
+                                        <span data-accounting-bill-label>Choose one or more bills</span>
+                                        <b aria-hidden="true">⌄</b>
+                                    </button>
+                                    <div class="admin-accounting-bill-menu" data-accounting-bill-menu hidden>
+                                        <p>Select bills from one vendor. Each allocation remains linked to its original invoice while the bank sees one combined transfer.</p>
+                                        <div class="admin-accounting-bill-results" data-accounting-bill-results role="listbox" aria-multiselectable="true"></div>
+                                    </div>
+                                </div>
+                            </div>
                             <label>
                                 <span data-accounting-term="amount">Amount</span>
                                 <input type="text" inputmode="numeric" name="amount" data-accounting-amount placeholder="Rp0" required>

@@ -35,6 +35,7 @@ expect(html.includes('data-accounting-settings-tab="lists"') && html.includes('d
 expect(html.includes('data-accounting-category-search'), 'The primary category selector must have live search.');
 expect(html.indexOf('data-accounting-category-menu') < html.indexOf('data-accounting-category-search'), 'Category search must live inside the dropdown menu.');
 expect(!html.includes('data-accounting-category-select'), 'Category selection must not use an expanded native select.');
+expect(html.includes('data-accounting-bill-picker') && html.includes('aria-multiselectable="true"'), 'Bill payments must provide a multi-bill allocation picker.');
 
 expect(script.includes('let resettingForm = false'), 'Form reset must be guarded against recursive dropdown clearing.');
 expect(script.includes('if (resettingForm) return;'), 'The reset event must ignore programmatic resets.');
@@ -66,6 +67,8 @@ expect(script.includes('width:min(${bankShare}%, max(${reservedShare}%, 10px))')
 expect(script.includes('../dashboard/?view=po-detail&amp;po='), 'Purchase-order outflow rows must open the matching PO breakdown.');
 expect(script.includes("searchInput.matches('[data-accounting-category-search]')"), 'Category results must filter live as the user types.');
 expect(script.includes('categoryComboboxMarkup(item.category_id)'), 'Correction forms must use the same searchable category dropdown.');
+expect(script.includes('payload.bill_allocations = selectedBillRows()'), 'Bill payments must submit each selected invoice allocation.');
+expect(script.includes('A combined transfer can only contain bills from one vendor.'), 'The bill picker must prevent combining unrelated vendors.');
 
 expect(css.includes('.admin-liquidity-overview'), 'The liquid-assets visual hierarchy must be styled.');
 expect(css.includes('.admin-liquidity-tooltip'), 'Hover and keyboard-focus chart breakdowns must be styled.');
@@ -80,6 +83,7 @@ expect(css.includes('.admin-liquidity-segment.is-direct { background: #d6c34f; }
 expect(css.includes('.admin-accounting-ledger-row'), 'Visual ledger rows must be styled.');
 expect(css.includes('.admin-accounting-review-receipt svg') && css.includes('fill: currentColor') && css.includes('stroke: none'), 'The receipt eye must be a filled icon without a stroked pill.');
 expect(css.includes('.admin-accounting-category-menu'), 'The in-dropdown category search menu must be styled.');
+expect(css.includes('.admin-accounting-bill-menu') && css.includes('.admin-accounting-bill-allocation'), 'Multi-bill payment allocations must be styled as a compact dropdown.');
 expect(/\.admin-accounting-breakdown-body\s*\{[^}]*overflow-y:\s*auto/.test(css), 'Long Accounting breakdowns must scroll inside the modal.');
 
 process.stdout.write('accounting-overhaul-ui-test: ok\n');

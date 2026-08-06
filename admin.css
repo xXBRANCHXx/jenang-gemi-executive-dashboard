@@ -30027,6 +30027,176 @@ button.admin-accounting-metric {
   min-width: 0;
 }
 
+.admin-accounting-bill-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.admin-accounting-bill-field > span {
+  color: var(--accounting-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.admin-accounting-bill-picker {
+  position: relative;
+  min-width: 0;
+}
+
+.admin-accounting-bill-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--accounting-border);
+  border-radius: 8px;
+  background: var(--accounting-surface);
+  color: var(--accounting-text);
+  font: 800 0.82rem/1 "Space Grotesk", sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+
+.admin-accounting-bill-trigger:focus-visible,
+.admin-accounting-bill-trigger[aria-expanded='true'] {
+  outline: none;
+  border-color: color-mix(in srgb, var(--admin-accent) 58%, var(--accounting-border));
+}
+
+.admin-accounting-bill-trigger > b {
+  color: var(--accounting-muted);
+  transition: transform 140ms ease;
+}
+
+.admin-accounting-bill-trigger[aria-expanded='true'] > b {
+  transform: rotate(180deg);
+}
+
+.admin-accounting-bill-menu {
+  position: absolute;
+  z-index: 85;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--accounting-border);
+  border-radius: 11px;
+  background: var(--accounting-surface);
+  box-shadow: 0 18px 48px rgb(0 0 0 / 26%);
+}
+
+.admin-accounting-bill-menu[hidden] {
+  display: none !important;
+}
+
+.admin-accounting-bill-menu > p {
+  margin: 0 0 8px;
+  color: var(--accounting-muted);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.admin-accounting-bill-results {
+  display: grid;
+  gap: 5px;
+  max-height: 330px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.admin-accounting-bill-option {
+  padding: 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accounting-text) 3%, transparent);
+}
+
+.admin-accounting-bill-option.is-selected {
+  border-color: color-mix(in srgb, var(--admin-accent) 45%, var(--accounting-border));
+  background: color-mix(in srgb, var(--admin-accent) 7%, var(--accounting-surface));
+}
+
+.admin-accounting-bill-option.is-disabled {
+  opacity: 0.46;
+}
+
+.admin-accounting-bill-option > label:first-child {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.admin-accounting-bill-option > label:first-child input {
+  width: 16px;
+  min-height: 16px;
+  margin: 0;
+  accent-color: var(--admin-accent);
+}
+
+.admin-accounting-bill-option > label:first-child > span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.admin-accounting-bill-option > label:first-child strong,
+.admin-accounting-bill-option > label:first-child b {
+  color: var(--accounting-text);
+  font-size: 0.76rem;
+}
+
+.admin-accounting-bill-option > label:first-child small {
+  overflow: hidden;
+  color: var(--accounting-muted);
+  font-size: 0.65rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-accounting-bill-allocation {
+  display: grid;
+  grid-template-columns: minmax(130px, 1fr) minmax(140px, .55fr) auto;
+  align-items: center;
+  gap: 8px;
+  margin: 9px 0 0 26px;
+}
+
+.admin-accounting-bill-allocation > span,
+.admin-accounting-bill-allocation > small {
+  color: var(--accounting-muted);
+  font-size: 0.64rem;
+  font-weight: 750;
+}
+
+.admin-accounting-bill-allocation > input {
+  min-height: 36px;
+}
+
+@media (max-width: 680px) {
+  .admin-accounting-bill-menu {
+    width: calc(100vw - 48px);
+    max-width: 100%;
+  }
+
+  .admin-accounting-bill-option > label:first-child {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .admin-accounting-bill-option > label:first-child > b {
+    grid-column: 2;
+  }
+
+  .admin-accounting-bill-allocation {
+    grid-template-columns: 1fr;
+  }
+}
+
 .admin-accounting-category-trigger {
   display: flex;
   align-items: center;
