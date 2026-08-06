@@ -2532,6 +2532,7 @@ document.addEventListener('DOMContentLoaded', () => {
       paymentOrderId: '',
       paymentSaving: false,
       paymentAuditRunning: false,
+      paymentAuditError: '',
       renderLimit: ORDER_RENDER_BATCH_SIZE,
       scrollPending: false,
       ensureRunning: false,
@@ -4966,19 +4967,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (state.orders.paymentAuditRunning || backtrack.active) {
       const current = String(backtrack.last_message || '').trim();
+      const requestError = String(state.orders.paymentAuditError || '').trim();
       renderProgress(
         `Verifying paid-status history · ${progress}%`,
         daysTotal
-          ? `${formatRegionalInteger(daysCompleted)} of ${formatRegionalInteger(daysTotal)} days complete · ${formatRegionalInteger(daysRemaining)} left · ${formatRegionalInteger(importedRows)} order rows checked${current ? ` · ${current}` : ''}`
-          : `Preparing May 20 history${current ? ` · ${current}` : ''}`,
+          ? `${formatRegionalInteger(daysCompleted)} of ${formatRegionalInteger(daysTotal)} days complete · ${formatRegionalInteger(daysRemaining)} left · ${formatRegionalInteger(importedRows)} order rows checked${requestError ? ` · Last request: ${requestError}` : (current ? ` · ${current}` : '')}`
+          : `Preparing May 20 history${requestError ? ` · Last request: ${requestError}` : (current ? ` · ${current}` : '')}`,
         'is-running'
       );
       return;
     }
     if (normalizeOrderFilterValue(backtrack.status) === 'failed') {
+      const failure = String(backtrack.last_error || '').trim();
       renderProgress(
         `Paid-status verification paused · ${progress}%`,
-        `${formatRegionalInteger(daysCompleted)} of ${formatRegionalInteger(daysTotal)} days complete · ${formatRegionalInteger(daysRemaining)} left · it will resume from here`,
+        `${formatRegionalInteger(daysCompleted)} of ${formatRegionalInteger(daysTotal)} days complete · ${formatRegionalInteger(daysRemaining)} left · ${failure ? `stopped because ${failure}` : 'it will resume from here'}`,
         'is-warning'
       );
       return;
@@ -10969,6 +10972,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	  const runWalletBacktrack = async (startNew = true, range = {}) => {
 	    if (state.wallet.backtrackRunning) return true;
 	    state.wallet.backtrackRunning = true;
+	    state.orders.paymentAuditError = '';
 	    state.wallet.cancelBacktrackRequested = false;
 	    state.wallet.actionId = 'backtrack';
 	    renderWallet(state.wallet.data);
@@ -10990,19 +10994,57 @@ document.addEventListener('DOMContentLoaded', () => {
 	      }
 
 	      let backtrack = data?.backtrack || state.wallet.data?.backtrack || {};
-	      while (backtrack.active && !state.wallet.cancelBacktrackRequested) {
-	        await wait(200);
+	      let resumeAttempts = 0;
+	      while (!state.wallet.cancelBacktrackRequested) {
+	        if (!backtrack.active) {
+	          if (normalizeOrderFilterValue(backtrack.status) !== 'failed' || resumeAttempts >= 3) break;
+	          resumeAttempts += 1;
+	          await wait(resumeAttempts * 1500);
+	          const resumedData = await requestJson(walletActionUrl('backtrack'), {
+	            method: 'POST',
+	            headers: { 'Content-Type': 'application/json' },
+	            body: JSON.stringify({
+	              ...(range.startDate ? { start_date: range.startDate } : {}),
+	              ...(range.endDate ? { end_date: range.endDate } : {})
+	            }),
+	            timeoutMs: 30000
+	          });
+	          renderWallet(resumedData);
+	          renderOrdersPaymentAudit();
+	          backtrack = resumedData.backtrack || {};
+	          continue;
+	        }
+
+	        await wait(350);
 	        if (state.wallet.cancelBacktrackRequested) break;
-	        const stepData = await requestJson(walletActionUrl('backtrack_step'), {
-	          method: 'POST',
-	          headers: { 'Content-Type': 'application/json' },
-	          body: JSON.stringify({ run_key: backtrack.run_key || '' }),
-	          timeoutMs: 65000
-	        });
-	        state.wallet.loadedAt = Date.now();
-	        renderWallet(stepData);
-	        renderOrdersPaymentAudit();
-	        backtrack = stepData.backtrack || {};
+	        const beforeStep = `${backtrack.cursor_date || ''}:${backtrack.phase || ''}:${backtrack.account_index || 0}:${backtrack.import_offset || 0}`;
+	        try {
+	          const stepData = await requestJson(walletActionUrl('backtrack_step'), {
+	            method: 'POST',
+	            headers: { 'Content-Type': 'application/json' },
+	            body: JSON.stringify({ run_key: backtrack.run_key || '' }),
+	            timeoutMs: 65000
+	          });
+	          state.wallet.loadedAt = Date.now();
+	          renderWallet(stepData);
+	          renderOrdersPaymentAudit();
+	          backtrack = stepData.backtrack || {};
+	          const afterStep = `${backtrack.cursor_date || ''}:${backtrack.phase || ''}:${backtrack.account_index || 0}:${backtrack.import_offset || 0}`;
+	          if (afterStep !== beforeStep) {
+	            resumeAttempts = 0;
+	            state.orders.paymentAuditError = '';
+	          }
+	        } catch (stepError) {
+	          resumeAttempts += 1;
+	          state.orders.paymentAuditError = stepError?.message || 'Backfill step did not respond.';
+	          await wait(Math.min(5000, resumeAttempts * 1500));
+	          await loadWalletSafely({ force: true, preferStale: false, background: true });
+	          backtrack = state.wallet.data?.backtrack || backtrack;
+	          renderOrdersPaymentAudit();
+	          if (resumeAttempts >= 3 && backtrack.active) {
+	            throw stepError;
+	          }
+	        }
 	      }
 
 	      if (backtrack.status === 'complete') {
@@ -11010,6 +11052,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      }
 	      return backtrack.status === 'complete';
 	    } catch (error) {
+	      state.orders.paymentAuditError = error?.message || 'Paid-status history could not advance.';
 	      renderViewError('wallet', error);
 	      return false;
 	    } finally {

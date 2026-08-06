@@ -62,6 +62,12 @@ assert(
   'Orders must show persisted paid-status progress, completed days, remaining days, and a progress bar.'
 );
 assert(
+  admin.includes('let resumeAttempts = 0')
+    && admin.includes('resumeAttempts >= 3')
+    && admin.includes('backtrack.last_error'),
+  'The paid-status audit must resume transient failures on the same run and expose a terminal error instead of appearing frozen.'
+);
+assert(
   /marketplaceOrder[\s\S]*?'Funds not released[^']*'[\s\S]*?: 'Payment outstanding'/.test(admin),
   'Partner and other non-marketplace unpaid orders must be labeled as payment outstanding, not as unreleased wallet funds.'
 );

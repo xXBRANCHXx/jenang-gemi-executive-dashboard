@@ -1817,13 +1817,22 @@ function jg_wallet_run_backtrack_step(PDO $pdo, array $run): array
     if ($phase !== 'import' && $accountIndex < count($accounts)) {
         $account = $accounts[$accountIndex];
         $syncPayload = jg_orders_fetch_json_with_timeout(jg_orders_remote_url('/sales/sync', [
-            'mode' => 'wallet_backtrack',
+            // Paid-state history only needs the marketplace release evidence.
+            // wallet_refresh fetches that evidence without the much slower
+            // forced per-order finance-detail repair used by wallet_backtrack.
+            'mode' => 'wallet_refresh',
             'platform' => $account['platform'],
             'account_key' => $account['account_key'],
             'start_date' => $cursorDate,
             'end_date' => $chunkEnd,
             'summary' => '0',
         ]), JG_WALLET_BACKTRACK_REMOTE_TIMEOUT_SECONDS);
+        $syncAccount = is_array($syncPayload['sync']['accounts'][0] ?? null)
+            ? $syncPayload['sync']['accounts'][0]
+            : [];
+        if ($syncAccount !== [] && empty($syncAccount['ok']) && empty($syncAccount['skipped'])) {
+            throw new RuntimeException((string) ($syncAccount['error'] ?? 'marketplace_payment_status_sync_failed'));
+        }
         $nextAccountIndex = $accountIndex + 1;
         $nextPhase = $nextAccountIndex >= count($accounts) ? 'import' : 'sync';
         $message = sprintf(
