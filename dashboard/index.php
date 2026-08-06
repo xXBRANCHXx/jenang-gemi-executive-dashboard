@@ -906,6 +906,11 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                            </div>
 	                            <div data-po-payment-fields></div>
 	                            <label class="admin-po-payment-account"><span>Pay from balance</span><select required data-po-payment-account></select></label>
+	                            <label class="admin-po-payment-proof">
+	                                <span>Proof of payment</span>
+	                                <input type="file" name="proof" accept="application/pdf,image/png,image/jpeg,image/webp,.pdf,.png,.jpg,.jpeg,.webp" required data-po-payment-proof>
+	                                <small data-po-payment-proof-name>Required · PDF, PNG, JPG, or WebP · maximum 10 MB</small>
+	                            </label>
 	                            <div class="admin-po-payment-total"><span>Payment now</span><strong data-po-payment-total>Rp0</strong></div>
 	                            <button type="submit" class="admin-po-payment-confirm" data-po-payment-confirm>
 	                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>

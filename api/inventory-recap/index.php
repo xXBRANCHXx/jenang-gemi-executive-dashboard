@@ -17,6 +17,12 @@ header('Pragma: no-cache');
 try {
     $analyticsPdo = analyticsDb();
     $skuPdo = jg_sku_db();
+    if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) === 'GET'
+        && strtolower(trim((string) ($_GET['action'] ?? ''))) === 'payment_proof') {
+        $paymentId = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT);
+        if ($paymentId === false || $paymentId < 1) throw new InvalidArgumentException('Payment proof not found.');
+        jg_purchase_orders_stream_payment_proof($skuPdo, $paymentId);
+    }
     $month = function_exists('jg_accounting_month') ? jg_accounting_month($_GET['month'] ?? null) : gmdate('Y-m');
     $cashContext = jg_inventory_recap_accounting_cash_context($analyticsPdo, $month);
     $placedOrder = null;
@@ -24,7 +30,8 @@ try {
     $updatedOrder = null;
     $cancelledOrder = null;
     if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) === 'POST') {
-        $body = json_decode((string) file_get_contents('php://input'), true);
+        $multipart = str_contains(strtolower((string) ($_SERVER['CONTENT_TYPE'] ?? '')), 'multipart/form-data');
+        $body = $multipart ? $_POST : json_decode((string) file_get_contents('php://input'), true);
         $action = is_array($body) ? (string) ($body['action'] ?? '') : '';
         if ($action === 'update_purchase_days') {
             $purchaseDays = filter_var($body['purchase_days'] ?? null, FILTER_VALIDATE_FLOAT);
@@ -101,7 +108,12 @@ try {
             $due = max(0.0, (float) ($order['amount_due'] ?? 0));
             if ($due < 0.01) throw new InvalidArgumentException('This purchase order is already paid.');
             $mode = strtolower(trim((string) ($body['payment_mode'] ?? 'full')));
-            $itemIds = is_array($body['item_ids'] ?? null) ? array_values(array_unique(array_map('intval', $body['item_ids']))) : [];
+            $rawItemIds = $body['item_ids'] ?? [];
+            if (is_string($rawItemIds)) {
+                $decodedItemIds = json_decode($rawItemIds, true);
+                $rawItemIds = is_array($decodedItemIds) ? $decodedItemIds : [];
+            }
+            $itemIds = is_array($rawItemIds) ? array_values(array_unique(array_map('intval', $rawItemIds))) : [];
             if ($mode === 'full') {
                 $amount = $due;
             } elseif ($mode === 'percentage') {
@@ -133,6 +145,8 @@ try {
             if ($categoryId < 1) throw new RuntimeException('The Finished Goods Purchase accounting category is unavailable.');
             $requestKey = trim((string) ($body['request_key'] ?? ''));
             if ($requestKey === '') throw new InvalidArgumentException('A payment request key is required.');
+            $proofFile = isset($_FILES['proof']) && is_array($_FILES['proof']) ? $_FILES['proof'] : [];
+            $proof = jg_purchase_orders_validate_payment_proof($proofFile);
             $paymentExists = $skuPdo->prepare('SELECT accounting_transaction_id FROM purchase_order_payments WHERE request_key = :request_key LIMIT 1');
             $paymentExists->execute([':request_key' => $requestKey]);
             $transactionId = (int) ($paymentExists->fetchColumn() ?: 0);
@@ -169,7 +183,7 @@ try {
             }
             $updatedOrder = jg_purchase_orders_record_payment(
                 $skuPdo, $orderId, $requestKey, $transactionId, $accountId,
-                (string) ($account['name'] ?? ''), $amount, $mode, $itemIds
+                (string) ($account['name'] ?? ''), $amount, $mode, $itemIds, $proof
             );
         } elseif ($action === 'cancel_order') {
             $orderId = filter_var($body['order_id'] ?? null, FILTER_VALIDATE_INT);

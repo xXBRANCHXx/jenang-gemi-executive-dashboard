@@ -200,11 +200,22 @@ inventory_recap_expect(0, $incomingBySku['SKU-FLAT']['recommended_order_qty'] ??
 inventory_recap_expect(11, $incomingBySku['SKU-MANUAL']['incoming_qty'] ?? 0, 'An open PO must expose its still-unreceived quantity.');
 inventory_recap_expect(11, $incomingBySku['SKU-MANUAL']['recommended_order_qty'] ?? 0, 'A partial open PO must reduce, not erase, the remaining MOQ-rounded recommendation.');
 
+$proofPath = tempnam(sys_get_temp_dir(), 'po-proof-');
+file_put_contents($proofPath, "%PDF-1.4\n% purchase order proof\n");
+$validatedProof = jg_purchase_orders_validate_payment_proof([
+    'error' => UPLOAD_ERR_OK,
+    'tmp_name' => $proofPath,
+    'size' => filesize($proofPath),
+    'name' => 'supplier-payment.pdf',
+]);
 $partPaidOrder = jg_purchase_orders_record_payment(
-    $skuPdo, (int) $placedOrder['id'], 'payment-test-request', 1234, 8, 'BCA Main', 10000, 'amount', []
+    $skuPdo, (int) $placedOrder['id'], 'payment-test-request', 1234, 8, 'BCA Main', 10000, 'amount', [], $validatedProof
 );
+@unlink($proofPath);
 inventory_recap_expect(10000.0, $partPaidOrder['paid_total'] ?? 0, 'PO payments must accumulate against the COGS-based order total.');
 inventory_recap_expect(23000.0, $partPaidOrder['amount_due'] ?? 0, 'A partial payment must leave the correct COGS-based balance due.');
+inventory_recap_expect('supplier-payment.pdf', $partPaidOrder['payments'][0]['proof']['name'] ?? '', 'PO history must retain the private proof metadata for each payment.');
+inventory_recap_expect('/api/inventory-recap/?action=payment_proof&id=1', $partPaidOrder['payments'][0]['proof']['url'] ?? '', 'PO payment proofs must use the authenticated streaming endpoint.');
 $samePaymentOrder = jg_purchase_orders_record_payment(
     $skuPdo, (int) $placedOrder['id'], 'payment-test-request', 1234, 8, 'BCA Main', 10000, 'amount', []
 );

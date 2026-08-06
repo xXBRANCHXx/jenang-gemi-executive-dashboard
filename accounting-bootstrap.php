@@ -804,7 +804,7 @@ function jg_accounting_review_transaction(PDO $pdo, int $id): void
          WHERE id <> :id
            AND status <> "void"
            AND amount = :amount
-           AND transaction_date BETWEEN DATE_SUB(:transaction_date, INTERVAL 3 DAY) AND DATE_ADD(:transaction_date, INTERVAL 3 DAY)
+           AND transaction_date BETWEEN DATE_SUB(:transaction_date_start, INTERVAL 3 DAY) AND DATE_ADD(:transaction_date_end, INTERVAL 3 DAY)
            AND COALESCE(counterparty_id, 0) = COALESCE(:counterparty_id, 0)
            AND COALESCE(category_id, 0) = COALESCE(:category_id, 0)
          LIMIT 1'
@@ -812,7 +812,8 @@ function jg_accounting_review_transaction(PDO $pdo, int $id): void
     $dupStmt->execute([
         ':id' => $id,
         ':amount' => (int) ($row['amount'] ?? 0),
-        ':transaction_date' => (string) ($row['transaction_date'] ?? ''),
+        ':transaction_date_start' => (string) ($row['transaction_date'] ?? ''),
+        ':transaction_date_end' => (string) ($row['transaction_date'] ?? ''),
         ':counterparty_id' => $row['counterparty_id'] ?? null,
         ':category_id' => $row['category_id'] ?? null,
     ]);

@@ -24,11 +24,15 @@ assert.match(notifications, /Accept proposed prices[\s\S]*Reject dispute/, 'Pric
 assert.match(billingApi, /adjust_dispute[\s\S]*jg_admin_partner_billing_adjust_dispute/, 'Admin price adjustments should flow through the authenticated billing API.');
 assert.match(notifications, /application\/pdf[\s\S]*<object/, 'PDF payment proof should render in an inline preview.');
 assert.match(notifications, /partner-billing:confirmed/, 'Accounting should be notified immediately after confirmation.');
+assert.match(notifications, /reconcileList[\s\S]*data-billing-event-id/, 'Background billing refreshes should reconcile notification rows by stable event ID.');
+assert.match(notifications, /eventVersion\(previousSelected\)[\s\S]*eventVersion\(nextSelected\)/, 'An open proof must stay mounted when polling returns unchanged data.');
 assert.match(billingApi, /dispute_history[\s\S]*jg_admin_partner_billing_dispute_history/, 'The billing API should expose authenticated dispute history to Partner Sales.');
 assert.match(accounting, /expectedTotal = \$walletReady \+ \$marketplaceOutstandingAmount \+ \$partnerBillsDue/, 'Unpaid partner bills should count toward expected liquid assets.');
 assert.match(accounting, /billsDueSoon = \$accountingBillsDueSoon;/, 'Partner receivables must stay out of supplier bills due.');
 assert.match(accounting, /safeCash = \$realCash - \$accountingBillsDueSoon - \$overdueBills/, 'Partner receivables should not be subtracted from Safe Cash as liabilities.');
 assert.match(accounting, /accounting_partner_bill_receipts/, 'Confirmed partner cash should be idempotently mapped to Accounting.');
+assert.match(accounting, /DATE_SUB\(:transaction_date_start[\s\S]*DATE_ADD\(:transaction_date_end/, 'Transaction duplicate review must use unique native-MySQL placeholders during payment confirmation.');
+assert.doesNotMatch(accounting, /DATE_SUB\(:transaction_date,[\s\S]{0,80}DATE_ADD\(:transaction_date,/, 'Payment confirmation must not reuse one named placeholder twice.');
 assert.match(accountingPage, /Expected[\s\S]*unpaid partner bills/, 'Accounting should present unpaid partner bills as expected money.');
 assert.match(accountingUi, /kpis\?\.partner_bills_due[\s\S]*kpis\?\.partner_bills_in_progress/, 'The expected-money overview should keep issued and accruing partner totals separate.');
 assert.match(accountingUi, /period_type === 'calendar_month'[\s\S]*'Calendar month'[\s\S]*'Business week'/, 'Accounting must label each receivable using its partner-specific billing period.');

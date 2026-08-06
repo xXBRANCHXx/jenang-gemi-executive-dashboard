@@ -58,23 +58,26 @@ document.addEventListener('DOMContentLoaded', () => {
     ? `${event.partner_name} proposed new prices for ${event.items?.length || 0} orders`
     : `${event.partner_name} disputed ${event.items?.length || 0} orders on ${event.period_label}`;
 
-  const listMarkup = () => {
-    if (!state.events.length) {
-      return `<div class="admin-notification-empty admin-billing-empty"><span>✓</span><strong>All caught up</strong><p>No partner payments or disputes need review.</p></div>`;
-    }
-    return state.events.map((event, index) => `
-      <article class="admin-billing-notification-row is-${escapeHtml(event.type)}" style="--billing-row-index:${index}">
+  const eventVersion = (event) => JSON.stringify(event);
+  const listRowMarkup = (event, index) => `
+      <article class="admin-billing-notification-row is-${escapeHtml(event.type)}" style="--billing-row-index:${index}" data-billing-event-id="${escapeHtml(event.id)}">
         <button type="button" class="admin-billing-notification-main" data-billing-select="${escapeHtml(event.id)}">
           ${avatarMarkup(event)}
           <span class="admin-billing-notification-copy">
             <strong>${escapeHtml(event.type === 'payment' ? paymentTitle(event) : disputeTitle(event))}</strong>
             <small>${escapeHtml(event.type === 'payment' ? 'Check proof of payment' : (event.dispute_type === 'price' ? 'Review the proposed product prices' : 'Review the claimed paid orders'))}</small>
-            <em>${escapeHtml(event.type === 'dispute' && event.dispute_type === 'price' ? `${money(event.amount)} → ${money((event.items || []).reduce((sum, item) => sum + Number(item.proposed_amount || 0), 0))}` : money(event.amount))} · ${escapeHtml(relativeTime(event.created_at))}</em>
+            <em><span>${escapeHtml(event.type === 'dispute' && event.dispute_type === 'price' ? `${money(event.amount)} → ${money((event.items || []).reduce((sum, item) => sum + Number(item.proposed_amount || 0), 0))}` : money(event.amount))}</span> · <span data-billing-relative-time>${escapeHtml(relativeTime(event.created_at))}</span></em>
           </span>
           <svg class="admin-billing-row-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
         </button>
         ${event.type === 'dispute' ? `<div class="admin-billing-quick-actions"><button type="button" data-billing-action="accept_dispute" data-record-id="${Number(event.record_id)}">${event.dispute_type === 'price' ? 'Accept proposed prices' : 'Accept'}</button><button type="button" data-billing-select="${escapeHtml(event.id)}">Investigate</button></div>` : ''}
-      </article>`).join('');
+      </article>`;
+
+  const listMarkup = () => {
+    if (!state.events.length) {
+      return `<div class="admin-notification-empty admin-billing-empty"><span>✓</span><strong>All caught up</strong><p>No partner payments or disputes need review.</p></div>`;
+    }
+    return state.events.map(listRowMarkup).join('');
   };
 
   const paymentDetail = (event) => {
@@ -142,6 +145,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const bindAvatarFallbacks = () => {
     list.querySelectorAll('[data-billing-avatar-image]').forEach((image) => {
+      if (image.dataset.billingAvatarBound === 'true') return;
+      image.dataset.billingAvatarBound = 'true';
       const fallback = image.parentElement?.querySelector('[data-billing-avatar-fallback]');
       const showFallback = () => { image.hidden = true; if (fallback instanceof HTMLElement) fallback.hidden = false; };
       if (!(image instanceof HTMLImageElement) || !image.getAttribute('src')) showFallback();
@@ -152,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
-  const render = () => {
+  const renderChrome = () => {
     const selected = state.events.find((event) => event.id === state.selectedId) || null;
     if (count instanceof HTMLElement) {
       count.hidden = state.events.length === 0;
@@ -163,9 +168,55 @@ document.addEventListener('DOMContentLoaded', () => {
     if (mode instanceof HTMLElement) mode.textContent = selected
       ? (selected.type === 'payment' ? 'Check proof of payment' : 'Accept or investigate disputed orders')
       : 'Payment confirmations and disputes';
+  };
+
+  const reconcileList = () => {
+    renderChrome();
+    if (!state.events.length) {
+      if (!list.querySelector('.admin-billing-empty') || list.children.length !== 1) list.innerHTML = listMarkup();
+      return;
+    }
+
+    list.querySelectorAll(':scope > :not([data-billing-event-id])').forEach((node) => node.remove());
+    const retainedIds = new Set(state.events.map((event) => event.id));
+    list.querySelectorAll(':scope > [data-billing-event-id]').forEach((node) => {
+      if (!retainedIds.has(node.getAttribute('data-billing-event-id') || '')) node.remove();
+    });
+
+    state.events.forEach((event, index) => {
+      let row = Array.from(list.children).find((node) => node.getAttribute('data-billing-event-id') === event.id);
+      const version = eventVersion(event);
+      if (!(row instanceof HTMLElement) || row.dataset.billingEventVersion !== version) {
+        const template = document.createElement('template');
+        template.innerHTML = listRowMarkup(event, index).trim();
+        const replacement = template.content.firstElementChild;
+        if (!(replacement instanceof HTMLElement)) return;
+        replacement.dataset.billingEventVersion = version;
+        if (row) row.replaceWith(replacement);
+        else list.appendChild(replacement);
+        row = replacement;
+      }
+      row.style.setProperty('--billing-row-index', String(index));
+      const relative = row.querySelector('[data-billing-relative-time]');
+      if (relative) relative.textContent = relativeTime(event.created_at);
+      const expected = list.children[index];
+      if (expected !== row) list.insertBefore(row, expected || null);
+    });
+    bindAvatarFallbacks();
+  };
+
+  const render = () => {
+    const selected = state.events.find((event) => event.id === state.selectedId) || null;
+    renderChrome();
     if (state.feedback) list.innerHTML = feedbackMarkup();
     else if (selected) list.innerHTML = selected.type === 'payment' ? paymentDetail(selected) : disputeDetail(selected);
-    else list.innerHTML = listMarkup();
+    else {
+      list.innerHTML = listMarkup();
+      state.events.forEach((event) => {
+        const row = Array.from(list.children).find((node) => node.getAttribute('data-billing-event-id') === event.id);
+        if (row instanceof HTMLElement) row.dataset.billingEventVersion = eventVersion(event);
+      });
+    }
     bindAvatarFallbacks();
   };
 
@@ -175,9 +226,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!silent && !state.events.length) list.innerHTML = '<div class="admin-billing-loading"><span></span><span></span><span></span><p>Loading billing reviews…</p></div>';
     try {
       const payload = await request();
-      state.events = Array.isArray(payload.notifications) ? payload.notifications : [];
+      const previousSelected = state.events.find((event) => event.id === state.selectedId) || null;
+      const nextEvents = Array.isArray(payload.notifications) ? payload.notifications : [];
+      const nextSelected = nextEvents.find((event) => event.id === state.selectedId) || null;
+      state.events = nextEvents;
       if (state.selectedId && !state.events.some((event) => event.id === state.selectedId)) state.selectedId = '';
-      render();
+      if (state.feedback) renderChrome();
+      else if (state.selectedId) {
+        if (eventVersion(previousSelected) !== eventVersion(nextSelected)) render();
+        else renderChrome();
+      } else reconcileList();
     } catch (error) {
       if (!silent) list.innerHTML = `<div class="admin-billing-feedback is-error"><strong>Billing unavailable</strong><p>${escapeHtml(error.message)}</p><button type="button" data-billing-retry>Try again</button></div>`;
       if (summary instanceof HTMLElement) summary.textContent = 'Billing status unavailable';

@@ -143,3 +143,8 @@ geometry under Lucide's ISC license.
   `purchase_order_receipts` in the SKU database. Placing a plan snapshots
   server-validated MOQ quantities, marks them as incoming in the recap, and keeps
   the PO pending until Store Ops confirms full or partial delivery.
+- PO History keeps each purchase-order payment linked to its private proof of
+  payment. New PO payments require a PDF, PNG, JPG, or WebP proof (maximum 10 MB),
+  which is stored in the SKU database and served only through the authenticated
+  Inventory Recap API. Legacy payment rows remain readable and are marked when no
+  proof was captured.
