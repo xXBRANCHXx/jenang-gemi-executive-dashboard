@@ -64,6 +64,7 @@ expect(/filter:\s*grayscale\(1\)/.test(css), 'Inactive chart segments must fade 
 expect(!/\.admin-liquidity-bar\s*\{[^}]*border:[^;]*#eab308/.test(css), 'The liquid-assets bar must not use a yellow outer stroke.');
 expect(css.includes('repeating-linear-gradient(135deg'), 'Going Out must use one continuous striped rectangle instead of tiled stripe squares.');
 expect(css.includes('background-color: rgba(239, 35, 60, .14)'), 'Going Out must remain translucent so the bank color shows underneath.');
+expect(css.includes('.admin-liquidity-segment.is-direct { background: #d6c34f; }'), 'Unpaid direct orders must use a distinct expected-money yellow instead of outflow red.');
 expect(css.includes('.admin-accounting-ledger-row'), 'Visual ledger rows must be styled.');
 expect(css.includes('.admin-accounting-category-menu'), 'The in-dropdown category search menu must be styled.');
 expect(/\.admin-accounting-breakdown-body\s*\{[^}]*overflow-y:\s*auto/.test(css), 'Long Accounting breakdowns must scroll inside the modal.');

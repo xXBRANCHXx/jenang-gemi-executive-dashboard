@@ -41,6 +41,10 @@ assert(
   'Marketplace payment dots must follow seller wallet release state instead of defaulting every order to paid.'
 );
 assert(
+  admin.includes("marketplaceOrder ? 'Funds not released' : 'Payment outstanding'"),
+  'Partner and other non-marketplace unpaid orders must be labeled as payment outstanding, not as unreleased wallet funds.'
+);
+assert(
   /const orderIdAccent = \(value\) => \{[\s\S]*?Math\.imul\(hash, 16777619\)[\s\S]*?getOverviewAccountColor\(hash >>> 0\)/.test(admin)
     && admin.includes('class="admin-order-id"')
     && admin.includes('const orderAccent = orderIdAccent(orderId);')

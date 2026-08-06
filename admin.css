@@ -36090,7 +36090,7 @@ button.admin-accounting-metric {
 .admin-liquidity-segment.is-cash { background: #20c66b; }
 .admin-liquidity-segment.is-wallet { background: #9fe01c; }
 .admin-liquidity-segment.is-marketplace { background: #f5c518; }
-.admin-liquidity-segment.is-direct { background: #ef4444; }
+.admin-liquidity-segment.is-direct { background: #d6c34f; }
 .admin-liquidity-segment.is-partner { background: #e9a80f; }
 
 .admin-liquidity-commitment-overlay {

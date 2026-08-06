@@ -74,11 +74,13 @@ $pdo->exec("INSERT INTO accounting_cash_reconciliations VALUES
 $pdo->exec("INSERT INTO website_orders VALUES
     (1, 'jenang_gemi_website', 'WEB-BEFORE', 'PAID', 'Earlier customer', 80000, 80000, '2026-07-09 02:00:00', '2026-07-09 01:00:00')");
 $pdo->exec("INSERT INTO whatsapp_orders VALUES
-    (1, 'WA-AFTER', 'whatsapp', 'Direct customer', 45000, 5000, 'FULFILLED', '2026-07-12 02:00:00', '2026-07-11 01:00:00')");
+    (1, 'WA-AFTER', 'whatsapp', 'Direct customer', 45000, 5000, 'FULFILLED', '2026-07-12 02:00:00', '2026-07-11 01:00:00'),
+    (2, 'WA-BEFORE', 'whatsapp', 'Earlier direct customer', 25000, 0, 'FULFILLED', '2026-07-09 02:00:00', '2026-07-09 01:00:00')");
 
 $direct = jg_accounting_direct_order_cash_records($pdo);
-overhaul_expect(1, count($direct), 'A completed WhatsApp order must create one automatic cash record.');
-overhaul_expect(50000, $direct[0]['usable_cash_amount'], 'Direct-order cash must include merchandise and shipping paid by the customer.');
+overhaul_expect(2, count($direct), 'Completed WhatsApp orders must remain available for automatic cash reconciliation.');
+$afterDirect = current(array_values(array_filter($direct, static fn (array $row): bool => ($row['order_id'] ?? '') === 'WA-AFTER')));
+overhaul_expect(50000, $afterDirect['usable_cash_amount'] ?? 0, 'Direct-order cash must include merchandise and shipping paid by the customer.');
 
 $history = jg_accounting_cash_history($pdo);
 overhaul_expect(140000, $history['summary']['current_cash'], 'Reconciled cash must use the baseline plus only later manual and automatic movements.');
@@ -89,6 +91,7 @@ overhaul_expect(1, count($reconciliationRows), 'The reconciliation baseline must
 $ids = array_column($history['rows'], 'id');
 overhaul_expect(false, in_array('transaction:1:source', $ids, true), 'Entries included in the reconciliation cutoff must not be counted again.');
 overhaul_expect(false, in_array('website_order:jenang_gemi_website:WEB-BEFORE', $ids, true), 'Automatic cash received before reconciliation must not be counted again.');
+overhaul_expect(false, in_array('direct_order:WA-BEFORE', $ids, true), 'Backfilled direct-order payments before reconciliation must not alter the reconciled bank balance.');
 
 $ledger = jg_accounting_activity_ledger($pdo, ['month' => '2026-07']);
 $ledgerKinds = array_values(array_unique(array_column($ledger, 'kind')));

@@ -10,6 +10,7 @@ require_once dirname(__DIR__, 2) . '/astra-stock-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/website-commerce-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/whatsapp-orders-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/partner-db-bootstrap.php';
+require_once dirname(__DIR__, 2) . '/partner-billing-bootstrap.php';
 
 if (!defined('JG_ORDERS_API_NO_DISPATCH')) {
     jg_orders_handle_request();
@@ -109,7 +110,13 @@ function jg_orders_handle_request(): void
                 error_log('WhatsApp orders unavailable in central order view: ' . $whatsappOrdersError->getMessage());
             }
             try {
-                $remoteRows = array_merge($remoteRows, jg_orders_partner_order_rows($partnerPdo, $startDate, $endDate, $partnerProfiles));
+                $remoteRows = array_merge($remoteRows, jg_orders_partner_order_rows(
+                    $partnerPdo,
+                    $startDate,
+                    $endDate,
+                    $partnerProfiles,
+                    $mirrorPdo ?? null
+                ));
             } catch (Throwable $partnerOrdersError) {
                 error_log('Partner orders unavailable in central order view: ' . $partnerOrdersError->getMessage());
                 $remoteWarning = $remoteWarning !== '' ? $remoteWarning : 'partner_orders_unavailable';
@@ -295,13 +302,115 @@ function jg_orders_partner_table_exists(PDO $pdo): bool
     return (int) $stmt->fetchColumn() > 0;
 }
 
+function jg_orders_partner_backfill_paid_status(PDO $pdo): int
+{
+    if (!jg_orders_partner_table_exists($pdo)) {
+        return 0;
+    }
+    $tables = $pdo->prepare(
+        'SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ("partner_weekly_bills", "partner_weekly_bill_items")'
+    );
+    $tables->execute();
+    if ((int) $tables->fetchColumn() !== 2) {
+        return 0;
+    }
+
+    $update = $pdo->prepare(
+        'UPDATE partner_orders o
+         JOIN partner_weekly_bill_items i ON i.order_id = o.id
+         JOIN partner_weekly_bills b ON b.bill_id = i.bill_id
+         SET o.billing_status = "bill_paid",
+             o.billing_reference = i.bill_id,
+             o.billing_paid_at = COALESCE(i.paid_at, b.paid_at, o.billing_paid_at, o.updated_at)
+         WHERE i.status = "paid"
+           AND (o.billing_status <> "bill_paid" OR o.billing_paid_at IS NULL OR o.billing_reference = "")'
+    );
+    $update->execute();
+    return $update->rowCount();
+}
+
 function jg_orders_partner_decode_items(mixed $value): array
 {
     $items = is_array($value) ? $value : json_decode((string) $value, true);
     return is_array($items) ? array_values(array_filter($items, 'is_array')) : [];
 }
 
-function jg_orders_partner_rows_from_records(array $orders, array $profiles): array
+function jg_orders_partner_payment_key(string $partnerCode, string $orderId): string
+{
+    return strtoupper(trim($partnerCode)) . "\x1f" . trim($orderId);
+}
+
+/** @return array<string,array{paid_amount:float,paid_at:string,payment_method:string}> */
+function jg_orders_partner_payment_totals(?PDO $pdo, array $orders): array
+{
+    if (!$pdo instanceof PDO || $orders === []) {
+        return [];
+    }
+
+    try {
+        jg_partner_sales_ensure_schema($pdo);
+    } catch (Throwable $error) {
+        error_log('Partner payment ledger unavailable in Orders: ' . $error->getMessage());
+        return [];
+    }
+
+    $orderIds = array_values(array_unique(array_filter(array_map(
+        static fn (array $order): string => trim((string) ($order['id'] ?? '')),
+        array_values(array_filter($orders, 'is_array'))
+    ))));
+    $totals = [];
+    foreach (array_chunk($orderIds, 400) as $chunk) {
+        if ($chunk === []) continue;
+        $placeholders = implode(',', array_fill(0, count($chunk), '?'));
+        $stmt = $pdo->prepare(
+            'SELECT partner_code, order_id, SUM(amount) AS paid_amount,
+                    MAX(COALESCE(source_confirmed_at, CONCAT(payment_date, " 12:00:00"), created_at)) AS paid_at,
+                    CASE COUNT(DISTINCT NULLIF(payment_method, ""))
+                         WHEN 0 THEN "partner payment"
+                         WHEN 1 THEN MAX(payment_method)
+                         ELSE "multiple partner payments" END AS payment_method
+             FROM partner_order_payments
+             WHERE voided_at IS NULL AND order_id IN (' . $placeholders . ')
+             GROUP BY partner_code, order_id'
+        );
+        $stmt->execute($chunk);
+        foreach ($stmt->fetchAll() as $row) {
+            $totals[jg_orders_partner_payment_key(
+                (string) ($row['partner_code'] ?? ''),
+                (string) ($row['order_id'] ?? '')
+            )] = [
+                'paid_amount' => max(0.0, (float) ($row['paid_amount'] ?? 0)),
+                'paid_at' => (string) ($row['paid_at'] ?? ''),
+                'payment_method' => (string) ($row['payment_method'] ?? ''),
+            ];
+        }
+    }
+    return $totals;
+}
+
+/** @return array{status:string,paid_amount:float,outstanding_amount:float,paid_at:string,payment_method:string} */
+function jg_orders_partner_payment_state(array $order, array $payment = []): array
+{
+    $orderStatus = strtoupper(trim((string) ($order['status'] ?? '')));
+    $orderTotal = max(0.0, (float) ($order['revenue_total'] ?? 0));
+    $paidAmount = max(0.0, (float) ($payment['paid_amount'] ?? 0));
+    $billingStatus = strtolower(trim((string) ($order['billing_status'] ?? '')));
+    $billingPaidAt = trim((string) ($order['billing_paid_at'] ?? ''));
+    $canceled = in_array($orderStatus, ['CANCELLED', 'CANCELED', 'VOID', 'VOIDED'], true);
+    $billingPaid = $billingPaidAt !== '' || in_array($billingStatus, ['bill_paid', 'dispute_accepted', 'paid'], true);
+    $fullyPaid = $billingPaid || ($orderTotal > 0 && $paidAmount + 0.005 >= $orderTotal);
+
+    return [
+        'status' => $canceled ? 'canceled' : ($fullyPaid ? 'paid' : 'unpaid'),
+        'paid_amount' => $fullyPaid && $paidAmount <= 0 ? $orderTotal : min($orderTotal, $paidAmount),
+        'outstanding_amount' => $canceled ? 0.0 : ($fullyPaid ? 0.0 : max(0.0, $orderTotal - $paidAmount)),
+        'paid_at' => $billingPaidAt !== '' ? $billingPaidAt : (string) ($payment['paid_at'] ?? ''),
+        'payment_method' => trim((string) ($payment['payment_method'] ?? '')) ?: ($billingPaid ? 'partner billing' : ''),
+    ];
+}
+
+function jg_orders_partner_rows_from_records(array $orders, array $profiles, array $paymentTotals = []): array
 {
     $rows = [];
     foreach ($orders as $order) {
@@ -334,6 +443,10 @@ function jg_orders_partner_rows_from_records(array $orders, array $profiles): ar
         $profile = $profiles[$partnerCode] ?? [];
         $partnerName = trim((string) ($profile['name'] ?? $partnerCode));
         $timestamp = trim((string) ($order['order_timestamp'] ?? $order['created_at'] ?? ''));
+        $paymentState = jg_orders_partner_payment_state(
+            $order,
+            $paymentTotals[jg_orders_partner_payment_key($partnerCode, $orderId)] ?? []
+        );
 
         foreach ($items as $index => $item) {
             $quantity = max(0, (int) ($item['quantity'] ?? 0));
@@ -370,6 +483,13 @@ function jg_orders_partner_rows_from_records(array $orders, array $profiles): ar
                 'address' => '',
                 'phone' => '',
                 'status' => (string) ($order['status'] ?? ''),
+                'payment_status' => $paymentState['status'],
+                'payment_method' => $paymentState['payment_method'],
+                'paid_at' => $paymentState['paid_at'],
+                'paid_amount' => $paymentState['paid_amount'],
+                'outstanding_amount' => $paymentState['outstanding_amount'],
+                'billing_status' => (string) ($order['billing_status'] ?? ''),
+                'billing_reference' => (string) ($order['billing_reference'] ?? ''),
                 'partner_code' => $partnerCode,
                 'partner_name' => $partnerName,
                 'source_type' => 'partner',
@@ -380,15 +500,27 @@ function jg_orders_partner_rows_from_records(array $orders, array $profiles): ar
     return $rows;
 }
 
-function jg_orders_partner_order_rows(?PDO $pdo, string $startDate, string $endDate, array $profiles): array
+function jg_orders_partner_order_rows(
+    ?PDO $pdo,
+    string $startDate,
+    string $endDate,
+    array $profiles,
+    ?PDO $paymentPdo = null
+): array
 {
     if (!$pdo instanceof PDO || !jg_orders_partner_table_exists($pdo)) {
         return [];
     }
 
+    // Repair legacy confirmed bill items into the order-level marker used by
+    // Orders. This is status-only and never posts an Accounting transaction.
+    jg_admin_partner_billing_ensure_schema($pdo);
+    jg_orders_partner_backfill_paid_status($pdo);
+
     $stmt = $pdo->prepare(
         'SELECT id, partner_code, customer_name, brand_name, product_name, sku_code, sku_label, quantity,
-                status, order_timestamp, revenue_total, items_json, created_at
+                status, order_timestamp, revenue_total, items_json, billing_status, billing_reference,
+                billing_paid_at, created_at
          FROM partner_orders
          WHERE COALESCE(order_timestamp, created_at) >= :from_date
            AND COALESCE(order_timestamp, created_at) < DATE_ADD(:to_date, INTERVAL 1 DAY)
@@ -398,7 +530,8 @@ function jg_orders_partner_order_rows(?PDO $pdo, string $startDate, string $endD
         ':from_date' => $startDate . ' 00:00:00',
         ':to_date' => $endDate . ' 00:00:00',
     ]);
-    return jg_orders_partner_rows_from_records($stmt->fetchAll(), $profiles);
+    $orders = array_values(array_filter($stmt->fetchAll(), 'is_array'));
+    return jg_orders_partner_rows_from_records($orders, $profiles, jg_orders_partner_payment_totals($paymentPdo, $orders));
 }
 
 function jg_orders_handle_webhook(): void

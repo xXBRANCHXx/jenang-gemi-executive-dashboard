@@ -923,7 +923,7 @@ const ORDER_BOOTSTRAP_MIN_ROWS = 320;
 const ORDER_BOOTSTRAP_MAX_WINDOWS = 2;
 const ORDER_BACKGROUND_TARGET_ROWS = 24000;
 const ORDER_BACKGROUND_MAX_WINDOWS = 72;
-const ORDER_CLIENT_CACHE_VERSION = 4;
+const ORDER_CLIENT_CACHE_VERSION = 5;
 const OVERVIEW_LOCATION_PAGE_SIZE = 2000;
 const OVERVIEW_LOCATION_MAX_PAGES = 25;
 const OVERVIEW_LOCATION_CACHE_VERSION = 5;
@@ -7879,13 +7879,16 @@ document.addEventListener('DOMContentLoaded', () => {
 	        : '-';
 	      const paymentStatus = orderPaymentStatus(row);
       const directOrder = ['whatsapp', 'walk-in', 'walk_in'].includes(normalizeOrderFilterValue(row.platform));
+      const marketplaceOrder = ['shopee', 'tiktok', 'tokopedia'].includes(normalizeOrderFilterValue(row.platform));
       const paymentTitle = paymentStatus === 'paid'
-        ? (['shopee', 'tiktok', 'tokopedia'].includes(normalizeOrderFilterValue(row.platform))
+        ? (marketplaceOrder
           ? `Funds released${row.funds_released_at ? ` at ${formatOrderTimestamp(row.funds_released_at)}` : ''}`
           : `Paid${row.payment_method ? ` by ${row.payment_method}` : ''}${row.paid_at ? ` at ${formatOrderTimestamp(row.paid_at)}` : ''}`)
         : (paymentStatus === 'canceled'
           ? 'Canceled order'
-          : (directOrder ? 'Unpaid — click to confirm payment' : 'Funds not released'));
+          : (directOrder
+            ? 'Unpaid — click to confirm payment'
+            : (marketplaceOrder ? 'Funds not released' : 'Payment outstanding')));
       const paymentDot = directOrder && paymentStatus === 'unpaid'
         ? `<button type="button" class="admin-order-payment-dot is-unpaid" data-confirm-order-payment="${escapeHtml(orderId)}" title="${escapeHtml(paymentTitle)}" aria-label="${escapeHtml(paymentTitle)}"></button>`
         : `<span class="admin-order-payment-dot is-${escapeHtml(paymentStatus)}" title="${escapeHtml(paymentTitle)}" aria-label="${escapeHtml(paymentTitle)}"></span>`;

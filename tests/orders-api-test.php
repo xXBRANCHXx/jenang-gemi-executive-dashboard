@@ -42,6 +42,34 @@ expect_same('partner', $partnerRows[0]['platform'], 'Partner order facts must us
 expect_same('partner-partner-one', $partnerRows[0]['account_key'], 'Partner order facts must retain their specific partner account.');
 expect_same('Partner Buyer', $partnerRows[0]['username'], 'Partner customer names must flow into the Orders customer field.');
 expect_same(50000.0, $partnerRows[0]['revenue'], 'Partner item revenue must remain item-level in Orders.');
+expect_same('unpaid', $partnerRows[0]['payment_status'], 'Partner orders without confirmed payment must fail closed to unpaid.');
+$paidPartnerRows = jg_orders_partner_rows_from_records([[
+    'id' => 'PARTNER-ORDER-PAID',
+    'partner_code' => 'PARTNER-ONE',
+    'customer_name' => 'Paid Partner Buyer',
+    'status' => 'IS_LISTED',
+    'billing_status' => 'bill_paid',
+    'billing_paid_at' => '2026-08-05 08:00:00',
+    'revenue_total' => 75000,
+    'quantity' => 1,
+    'product_name' => 'Paid product',
+]], $partnerProfiles);
+expect_same('paid', $paidPartnerRows[0]['payment_status'], 'Confirmed partner bills must appear paid in Orders.');
+$partiallyPaidPartnerRows = jg_orders_partner_rows_from_records([[
+    'id' => 'PARTNER-ORDER-PARTIAL',
+    'partner_code' => 'PARTNER-ONE',
+    'customer_name' => 'Partial Partner Buyer',
+    'status' => 'IS_LISTED',
+    'billing_status' => 'unbilled',
+    'revenue_total' => 75000,
+    'quantity' => 1,
+    'product_name' => 'Partial product',
+]], $partnerProfiles, [
+    jg_orders_partner_payment_key('PARTNER-ONE', 'PARTNER-ORDER-PARTIAL') => ['paid_amount' => 25000],
+]);
+expect_same('unpaid', $partiallyPaidPartnerRows[0]['payment_status'], 'Partially paid partner orders must remain unpaid in Orders.');
+expect_same(50000.0, $partiallyPaidPartnerRows[0]['outstanding_amount'], 'Partner outstanding amounts must reflect recorded partial payments.');
+expect_same(true, str_contains((string) file_get_contents(dirname(__DIR__) . '/api/orders/index.php'), 'jg_orders_partner_backfill_paid_status'), 'Orders must backfill legacy confirmed partner bill items into order payment status.');
 $enrichedPartnerRow = jg_orders_enrich_without_inventory([$partnerRows[0]])[0];
 expect_same('Partner One', $enrichedPartnerRow['account_label'], 'Partner display names must survive Orders inventory enrichment.');
 
