@@ -41,5 +41,9 @@ expect(js.includes("event.clipboardData?.files"), 'The article body must accept 
 expect(css.includes('--blog-paper: #fbfcf8'), 'The reader-facing writing paper must remain light in dark dashboard mode.');
 expect(css.includes(':root[data-admin-theme] .blog-writing-page .blog-title-input'), 'Dashboard form colors must not override the light article title canvas.');
 expect(css.includes(':root[data-admin-theme] .blog-writing-page .blog-excerpt-field textarea'), 'Dashboard form colors must not override the light article summary canvas.');
+expect(css.includes('.blog-body-editor :is(p, h2, h3, ul, ol, li, strong, em)'), 'Dashboard themes must not recolor authored article HTML.');
+expect(css.includes('.blog-preview-dialog .blog-preview-article :is(h1, h2, h3, p, ul, ol, li, strong, em)'), 'Dashboard themes must not recolor preview article HTML.');
+expect(!php.includes('>•••</button>'), 'The more-actions control must use a consistently sized icon instead of font bullets.');
+expect(php.includes('data-more-toggle') && css.includes('.blog-more-button svg'), 'The more-actions icon must have fixed SVG sizing.');
 
 console.log('blog builder UI tests passed');

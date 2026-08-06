@@ -141,7 +141,9 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/blog-builder.js');
                                         </button>
                                         <button type="button" class="blog-secondary-button" data-save-draft>Save draft</button>
                                         <button type="button" class="blog-primary-button" data-schedule-post>Schedule</button>
-                                        <button type="button" class="blog-more-button" data-more-toggle aria-expanded="false" aria-label="More article actions">•••</button>
+                                        <button type="button" class="blog-more-button" data-more-toggle aria-expanded="false" aria-label="More article actions">
+                                            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+                                        </button>
                                         <div class="blog-more-menu" data-more-menu hidden>
                                             <button type="button" data-duplicate-post>Duplicate article</button>
                                             <button type="button" data-history-toggle>Version history</button>

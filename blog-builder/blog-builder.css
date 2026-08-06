@@ -444,7 +444,7 @@
 .blog-more-button:hover,
 .blog-secondary-button:hover { border-color: color-mix(in srgb, var(--admin-text) 20%, var(--admin-border)); color: var(--admin-text); }
 .blog-icon-button svg { width: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.blog-more-button { font-size: 15px; letter-spacing: 1px; }
+.blog-more-button svg { width: 18px; height: 18px; fill: currentColor; }
 .blog-more-menu { position: absolute; top: calc(100% + 8px); right: 0; z-index: 80; display: grid; width: 185px; padding: 6px; border: 1px solid var(--admin-border); border-radius: 12px; background: var(--admin-surface); box-shadow: var(--admin-shadow); }
 .blog-more-menu[hidden] { display: none; }
 .blog-more-menu button { padding: 10px; border: 0; border-radius: 8px; background: transparent; color: var(--admin-text); cursor: pointer; font: inherit; font-size: 11px; text-align: left; }
@@ -551,6 +551,11 @@
   box-shadow: none;
 }
 
+/* Article HTML is a public-site surface, so dashboard themes must never recolor it. */
+:root[data-admin-theme] .blog-writing-page .blog-body-editor :is(p, h2, h3, ul, ol, li, strong, em) {
+  color: var(--blog-paper-text);
+}
+
 :root[data-admin-theme] .blog-writing-page .blog-title-input::placeholder,
 :root[data-admin-theme] .blog-writing-page .blog-excerpt-field textarea::placeholder,
 .blog-writing-page .blog-body-editor:empty::before,
@@ -586,13 +591,14 @@
   color: var(--blog-paper-text);
 }
 
-.blog-writing-page .blog-body-editor blockquote {
+:root[data-admin-theme] .blog-writing-page .blog-body-editor blockquote {
   border-color: #79ae1d;
   color: #465048;
 }
 
-.blog-writing-page .blog-body-editor a { color: #346d86; }
+:root[data-admin-theme] .blog-writing-page .blog-body-editor a { color: #346d86; }
 .blog-writing-page .blog-body-editor figure img { background: #edf0e9; }
+:root[data-admin-theme] .blog-writing-page .blog-body-editor figcaption { color: var(--blog-paper-muted); }
 .blog-writing-page .blog-body-editor.is-image-dragover { background: rgba(121, 174, 29, .07); outline-color: #79ae1d; }
 
 .blog-inspector { padding: 0 18px 28px; border-left: 1px solid var(--admin-border); }
@@ -700,6 +706,18 @@
 .blog-preview-body figure { margin: 2em 0; }
 .blog-preview-body figure img { display: block; width: 100%; max-height: 580px; border-radius: 16px; object-fit: contain; background: #edf0e9; }
 .blog-preview-body figcaption { padding-top: 9px; color: #687269; font-size: 11px; text-align: center; }
+
+/* Preview is the same public article in every dashboard theme. */
+:root[data-admin-theme] .blog-preview-dialog .blog-preview-article,
+:root[data-admin-theme] .blog-preview-dialog .blog-preview-article :is(h1, h2, h3, p, ul, ol, li, strong, em) {
+  color: #172018;
+}
+
+:root[data-admin-theme] .blog-preview-dialog .blog-preview-excerpt { color: #556058; }
+:root[data-admin-theme] .blog-preview-dialog .blog-preview-byline,
+:root[data-admin-theme] .blog-preview-dialog .blog-preview-body figcaption { color: #687269; }
+:root[data-admin-theme] .blog-preview-dialog .blog-preview-body blockquote { color: #465048; }
+:root[data-admin-theme] .blog-preview-dialog .blog-preview-body a { color: #346d86; }
 
 .blog-history-dialog { width: min(520px, calc(100vw - 30px)); background: var(--admin-surface); color: var(--admin-text); }
 .blog-history-card { padding: 23px; }
