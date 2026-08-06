@@ -729,6 +729,7 @@ $pageBuildVersion = 'sku1.00.01';
                     <select class="admin-select" name="inventory_action" data-inventory-action required>
                         <option value="set_total">Set base stock</option>
                         <option value="add_stock">Add base stock</option>
+                        <option value="subtract_stock">Subtract base stock</option>
                     </select>
                 </label>
                 <label class="admin-sku-full-span">
@@ -738,6 +739,10 @@ $pageBuildVersion = 'sku1.00.01';
                 <label class="admin-sku-full-span" data-inventory-add-wrap hidden>
                     <span>Base stock units to add</span>
                     <input type="number" name="quantity_to_add" min="1" step="1">
+                </label>
+                <label class="admin-sku-full-span" data-inventory-subtract-wrap hidden>
+                    <span>Base stock units to subtract</span>
+                    <input type="number" name="quantity_to_subtract" min="1" step="1">
                 </label>
                 <label class="admin-sku-full-span" data-inventory-po-wrap hidden>
                     <span>PO Number</span>

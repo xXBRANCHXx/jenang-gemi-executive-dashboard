@@ -1619,7 +1619,7 @@ try {
         }
 
         $inventoryAction = trim((string) ($request['inventory_action'] ?? 'set_total'));
-        if (!in_array($inventoryAction, ['set_total', 'add_stock'], true)) {
+        if (!in_array($inventoryAction, ['set_total', 'add_stock', 'subtract_stock'], true)) {
             jg_sku_fail('Inventory action is invalid.');
         }
 
@@ -1637,6 +1637,12 @@ try {
             }
             $baseQuantityToAdd = $quantityToAdd;
             $poNumber = jg_sku_po_number($request['po_number'] ?? null, true);
+        } elseif ($inventoryAction === 'subtract_stock') {
+            $quantityToSubtract = jg_sku_integer($request['quantity_to_subtract'] ?? null, 'Quantity to subtract');
+            if ($quantityToSubtract < 1) {
+                jg_sku_fail('Quantity to subtract must be at least 1.');
+            }
+            $baseQuantityToSubtract = $quantityToSubtract;
         } else {
             $newStock = jg_sku_integer($request['new_stock'] ?? null, 'New stock');
             $baseNewStock = $newStock;
@@ -1683,6 +1689,40 @@ try {
                 ':received_at' => jg_sku_now(),
                 ':created_at' => jg_sku_now(),
                 ':updated_at' => jg_sku_now(),
+            ]);
+        } elseif ($inventoryAction === 'subtract_stock') {
+            $updateStmt = $pdo->prepare(
+                'UPDATE sku_skus
+                 SET current_stock = current_stock - :quantity_to_subtract, updated_at = :updated_at
+                 WHERE sku = :sku AND current_stock >= :available_quantity'
+            );
+            $updateStmt->execute([
+                ':quantity_to_subtract' => $baseQuantityToSubtract,
+                ':updated_at' => jg_sku_now(),
+                ':sku' => $stockSku,
+                ':available_quantity' => $baseQuantityToSubtract,
+            ]);
+            if ($updateStmt->rowCount() !== 1) {
+                jg_sku_fail('Quantity to subtract cannot exceed the available base stock.');
+            }
+
+            $currentStmt = $pdo->prepare('SELECT current_stock FROM sku_skus WHERE sku = :sku LIMIT 1');
+            $currentStmt->execute([':sku' => $stockSku]);
+            $baseNewStock = jg_sku_integer($currentStmt->fetchColumn(), 'Updated stock');
+            jg_sku_inventory_adjust_lots_to_total($pdo, $stockSku, $baseNewStock, (float) ($stockRow['cogs'] ?? 0));
+
+            $historyStmt = $pdo->prepare(
+                'INSERT INTO sku_cogs_history (
+                    sku, old_price, new_price, takes_place, change_mode, effective_at, recorded_at
+                 ) VALUES (
+                    :sku, NULL, :new_price, :takes_place, "audit", NULL, :recorded_at
+                 )'
+            );
+            $historyStmt->execute([
+                ':sku' => $stockSku,
+                ':new_price' => number_format((float) ($stockRow['cogs'] ?? 0), 2, '.', ''),
+                ':takes_place' => sprintf('Inventory subtract | Base Qty %d%s', $baseQuantityToSubtract, $stockSku !== $sku ? ' | from ' . $sku : ''),
+                ':recorded_at' => jg_sku_now(),
             ]);
         } else {
             jg_sku_inventory_adjust_lots_to_total($pdo, $stockSku, $baseNewStock, (float) ($stockRow['cogs'] ?? 0));

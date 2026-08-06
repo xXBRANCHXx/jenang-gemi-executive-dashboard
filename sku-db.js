@@ -607,23 +607,29 @@ document.addEventListener('DOMContentLoaded', () => {
     const mode = String(inventoryAction?.value || 'set_total');
     const newStockWrap = inventoryForm.querySelector('[name="new_stock"]')?.closest('label');
     const addWrap = inventoryForm.querySelector('[data-inventory-add-wrap]');
+    const subtractWrap = inventoryForm.querySelector('[data-inventory-subtract-wrap]');
     const poWrap = inventoryForm.querySelector('[data-inventory-po-wrap]');
     const newStock = inventoryForm.elements.new_stock;
     const quantityToAdd = inventoryForm.elements.quantity_to_add;
+    const quantityToSubtract = inventoryForm.elements.quantity_to_subtract;
     const poNumber = inventoryForm.elements.po_number;
 
-    if (newStockWrap instanceof HTMLElement) newStockWrap.hidden = mode === 'add_stock';
+    if (newStockWrap instanceof HTMLElement) newStockWrap.hidden = mode !== 'set_total';
     if (addWrap instanceof HTMLElement) addWrap.hidden = mode !== 'add_stock';
+    if (subtractWrap instanceof HTMLElement) subtractWrap.hidden = mode !== 'subtract_stock';
     if (poWrap instanceof HTMLElement) poWrap.hidden = mode !== 'add_stock';
 
-    setRequired(newStock, mode !== 'add_stock');
+    setRequired(newStock, mode === 'set_total');
     setRequired(quantityToAdd, mode === 'add_stock');
+    setRequired(quantityToSubtract, mode === 'subtract_stock');
     setRequired(poNumber, mode === 'add_stock');
 
     if (mode !== 'add_stock') {
       quantityToAdd.value = '';
       poNumber.value = '';
-    } else {
+    }
+    if (mode !== 'subtract_stock') quantityToSubtract.value = '';
+    if (mode !== 'set_total') {
       newStock.value = '';
     }
   };
@@ -1594,6 +1600,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (inventoryAction instanceof HTMLSelectElement) inventoryAction.value = 'set_total';
     inventoryForm.elements.new_stock.value = String(row.base_current_stock ?? row.current_stock ?? row.starting_stock ?? 0);
     inventoryForm.elements.quantity_to_add.value = '';
+    inventoryForm.elements.quantity_to_subtract.value = '';
     inventoryForm.elements.po_number.value = '';
     syncInventoryFields();
     setError(inventoryError, '');
@@ -2201,6 +2208,7 @@ document.addEventListener('DOMContentLoaded', () => {
         inventory_action: formData.get('inventory_action'),
         new_stock: formData.get('new_stock'),
         quantity_to_add: formData.get('quantity_to_add'),
+        quantity_to_subtract: formData.get('quantity_to_subtract'),
         po_number: String(formData.get('po_number') || '').toUpperCase()
       });
       closeInventoryModal();
