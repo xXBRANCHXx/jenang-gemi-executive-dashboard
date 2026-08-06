@@ -48,6 +48,18 @@ $exactItemSale = jg_whatsapp_item_sale_price_discount(10000, 11900, 2);
 whatsapp_expect(23800.0, $exactItemSale['net'] + $exactItemSale['total'], 'Edited item sale prices must preserve catalog gross revenue.');
 whatsapp_expect(3800.0, $exactItemSale['total'], 'Edited item sale prices must become an exact item discount.');
 whatsapp_expect(20000.0, $exactItemSale['net'], 'Edited item sale prices must become exact net line revenue.');
+whatsapp_expect(24000.0, jg_whatsapp_metric_line_revenue([
+    'quantity' => 2,
+    'unit_price' => 12000,
+    'discount_total' => 0,
+    'line_total' => 0,
+]), 'Legacy zero item totals must be reconstructed from their snapshotted unit price.');
+whatsapp_expect(0.0, jg_whatsapp_metric_line_revenue([
+    'quantity' => 2,
+    'unit_price' => 12000,
+    'discount_total' => 24000,
+    'line_total' => 0,
+]), 'Genuine fully discounted item lines must remain zero revenue.');
 $allocated = jg_whatsapp_allocate_discount([
     ['line_total' => 60000],
     ['line_total' => 40000],

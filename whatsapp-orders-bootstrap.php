@@ -995,6 +995,27 @@ function jg_whatsapp_order_history(PDO $pdo, int $page = 1, int $perPage = 50, s
     ];
 }
 
+function jg_whatsapp_metric_line_revenue(array $row): float
+{
+    $lineTotal = round(max(0.0, (float) ($row['line_total'] ?? 0)), 2);
+    if ($lineTotal > 0) {
+        return $lineTotal;
+    }
+
+    $quantity = max(0, (int) ($row['quantity'] ?? 0));
+    $unitPrice = round(max(0.0, (float) ($row['unit_price'] ?? 0)), 2);
+    $gross = round($quantity * $unitPrice, 2);
+    if ($gross <= 0) {
+        return 0.0;
+    }
+
+    // Old direct-order rows can contain a zero line_total despite retaining
+    // their unit price. Reconstruct those lines, but keep genuine fully
+    // discounted products at zero.
+    $discount = round(max(0.0, (float) ($row['discount_total'] ?? 0)), 2);
+    return $discount + 0.009 >= $gross ? 0.0 : round(max(0.0, $gross - $discount), 2);
+}
+
 function jg_whatsapp_metric_order_rows(PDO $pdo, string $startDate, string $endDate): array
 {
     jg_whatsapp_ensure_schema($pdo);
@@ -1009,7 +1030,7 @@ function jg_whatsapp_metric_order_rows(PDO $pdo, string $startDate, string $endD
                 o.payment_status, o.payment_method, o.payment_account_key, o.paid_at, o.created_at, o.listed_at,
                 o.merchandise_total, o.shipping_cost,
                 i.id AS item_id, i.sku, i.product_name, i.brand_name, i.base_product_name, i.flavor_name,
-                i.quantity, i.unit_price, i.unit_cogs, i.line_total
+                i.quantity, i.unit_price, i.unit_cogs, i.discount_total, i.line_total
          FROM whatsapp_orders o
          INNER JOIN whatsapp_order_items i ON i.whatsapp_order_id = o.id
          WHERE o.status IN (' . $statusSql . ')
@@ -1023,7 +1044,7 @@ function jg_whatsapp_metric_order_rows(PDO $pdo, string $startDate, string $endD
         $salesChannel = jg_whatsapp_sales_channel($row['sales_channel'] ?? 'whatsapp');
         $platform = $salesChannel === 'walk_in' ? 'walk-in' : 'whatsapp';
         $quantity = (int) $row['quantity'];
-        $lineRevenue = (float) $row['line_total'];
+        $lineRevenue = jg_whatsapp_metric_line_revenue($row);
         return [
             'timestamp' => $timestamp,
             'timestamp_utc' => $timestamp,

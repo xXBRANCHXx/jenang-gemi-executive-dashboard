@@ -37,6 +37,10 @@ assert(
   'Unpaid direct-order dots must confirm and route payments to Cash Office or Bank Balance.'
 );
 assert(
+  /\['shopee', 'tiktok', 'tokopedia'\]\.includes\(platform\)[\s\S]*?funds_released[\s\S]*?return fundsReleased \? 'paid' : 'unpaid'/.test(admin),
+  'Marketplace payment dots must follow seller wallet release state instead of defaulting every order to paid.'
+);
+assert(
   /const orderIdAccent = \(value\) => \{[\s\S]*?Math\.imul\(hash, 16777619\)[\s\S]*?getOverviewAccountColor\(hash >>> 0\)/.test(admin)
     && admin.includes('class="admin-order-id"')
     && admin.includes('const orderAccent = orderIdAccent(orderId);')

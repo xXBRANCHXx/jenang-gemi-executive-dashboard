@@ -923,7 +923,7 @@ const ORDER_BOOTSTRAP_MIN_ROWS = 320;
 const ORDER_BOOTSTRAP_MAX_WINDOWS = 2;
 const ORDER_BACKGROUND_TARGET_ROWS = 24000;
 const ORDER_BACKGROUND_MAX_WINDOWS = 72;
-const ORDER_CLIENT_CACHE_VERSION = 3;
+const ORDER_CLIENT_CACHE_VERSION = 4;
 const OVERVIEW_LOCATION_PAGE_SIZE = 2000;
 const OVERVIEW_LOCATION_MAX_PAGES = 25;
 const OVERVIEW_LOCATION_CACHE_VERSION = 5;
@@ -4929,6 +4929,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const orderPaymentStatus = (row) => {
     const lifecycle = normalizeOrderFilterValue(row?.status || row?.order_status || row?.fulfillment_status || '');
     if (lifecycle.includes('cancel') || lifecycle === 'void' || lifecycle === 'voided') return 'canceled';
+    const platform = normalizeOrderFilterValue(row?.platform || '');
+    if (['shopee', 'tiktok', 'tokopedia'].includes(platform)) {
+      const fundsReleased = row?.funds_released === true
+        || row?.funds_released === 1
+        || normalizeOrderFilterValue(row?.funds_released) === 'true';
+      return fundsReleased ? 'paid' : 'unpaid';
+    }
     const explicit = normalizeOrderFilterValue(row?.payment_status || '');
     if (['paid', 'unpaid', 'canceled'].includes(explicit)) return explicit;
     if (lifecycle.includes('unpaid') || lifecycle.includes('pending_payment')) return 'unpaid';
@@ -7873,8 +7880,12 @@ document.addEventListener('DOMContentLoaded', () => {
 	      const paymentStatus = orderPaymentStatus(row);
       const directOrder = ['whatsapp', 'walk-in', 'walk_in'].includes(normalizeOrderFilterValue(row.platform));
       const paymentTitle = paymentStatus === 'paid'
-        ? `Paid${row.payment_method ? ` by ${row.payment_method}` : ''}${row.paid_at ? ` at ${formatOrderTimestamp(row.paid_at)}` : ''}`
-        : (paymentStatus === 'canceled' ? 'Canceled order' : (directOrder ? 'Unpaid — click to confirm payment' : 'Unpaid'));
+        ? (['shopee', 'tiktok', 'tokopedia'].includes(normalizeOrderFilterValue(row.platform))
+          ? `Funds released${row.funds_released_at ? ` at ${formatOrderTimestamp(row.funds_released_at)}` : ''}`
+          : `Paid${row.payment_method ? ` by ${row.payment_method}` : ''}${row.paid_at ? ` at ${formatOrderTimestamp(row.paid_at)}` : ''}`)
+        : (paymentStatus === 'canceled'
+          ? 'Canceled order'
+          : (directOrder ? 'Unpaid — click to confirm payment' : 'Funds not released'));
       const paymentDot = directOrder && paymentStatus === 'unpaid'
         ? `<button type="button" class="admin-order-payment-dot is-unpaid" data-confirm-order-payment="${escapeHtml(orderId)}" title="${escapeHtml(paymentTitle)}" aria-label="${escapeHtml(paymentTitle)}"></button>`
         : `<span class="admin-order-payment-dot is-${escapeHtml(paymentStatus)}" title="${escapeHtml(paymentTitle)}" aria-label="${escapeHtml(paymentTitle)}"></span>`;
