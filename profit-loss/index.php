@@ -378,7 +378,11 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                                 </button>
                             </div>
                         </div>
-                        <iframe data-accounting-receipt-frame title="Receipt preview" sandbox referrerpolicy="no-referrer"></iframe>
+                        <div class="admin-accounting-receipt-preview" data-accounting-receipt-preview>
+                            <p data-accounting-receipt-loading>Loading receipt…</p>
+                            <img data-accounting-receipt-image alt="Receipt preview" referrerpolicy="no-referrer" hidden>
+                            <object data-accounting-receipt-pdf type="application/pdf" aria-label="Receipt PDF preview" hidden></object>
+                        </div>
                     </section>
                 </div>
 

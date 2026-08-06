@@ -263,7 +263,10 @@ if (root) {
     receiptModal: root.querySelector('[data-accounting-receipt-modal]'),
     receiptCard: root.querySelector('.admin-accounting-receipt-card'),
     receiptCloseButtons: root.querySelectorAll('[data-accounting-receipt-close]'),
-    receiptFrame: root.querySelector('[data-accounting-receipt-frame]'),
+    receiptPreview: root.querySelector('[data-accounting-receipt-preview]'),
+    receiptLoading: root.querySelector('[data-accounting-receipt-loading]'),
+    receiptImage: root.querySelector('[data-accounting-receipt-image]'),
+    receiptPdf: root.querySelector('[data-accounting-receipt-pdf]'),
     receiptTitle: root.querySelector('[data-accounting-receipt-title]'),
     receiptNewTab: root.querySelector('[data-accounting-receipt-new-tab]')
   };
@@ -445,22 +448,86 @@ if (root) {
     }
   };
 
-  const closeReceipt = () => {
-    if (refs.receiptModal) refs.receiptModal.hidden = true;
-    if (refs.receiptFrame) refs.receiptFrame.src = 'about:blank';
+  let receiptObjectUrl = '';
+  let receiptRequest = 0;
+
+  const resetReceiptPreview = () => {
+    if (receiptObjectUrl) URL.revokeObjectURL(receiptObjectUrl);
+    receiptObjectUrl = '';
+    if (refs.receiptImage) {
+      refs.receiptImage.hidden = true;
+      refs.receiptImage.onload = null;
+      refs.receiptImage.onerror = null;
+      refs.receiptImage.removeAttribute('src');
+    }
+    if (refs.receiptPdf) {
+      refs.receiptPdf.hidden = true;
+      refs.receiptPdf.removeAttribute('data');
+    }
   };
 
-  const openReceipt = (url, name = 'Receipt') => {
+  const closeReceipt = () => {
+    receiptRequest += 1;
+    if (refs.receiptModal) refs.receiptModal.hidden = true;
+    resetReceiptPreview();
+  };
+
+  const openReceipt = async (url, name = 'Receipt') => {
     const safeUrl = safeReceiptUrl(url);
-    if (!safeUrl || !refs.receiptModal || !refs.receiptFrame) {
+    if (!safeUrl || !refs.receiptModal) {
       showToast('This receipt link cannot be previewed.', true);
       return;
     }
+    const requestId = ++receiptRequest;
+    resetReceiptPreview();
     if (refs.receiptTitle) refs.receiptTitle.textContent = name || 'Receipt';
     if (refs.receiptNewTab) refs.receiptNewTab.href = safeUrl;
-    refs.receiptFrame.src = safeUrl;
+    if (refs.receiptLoading) {
+      refs.receiptLoading.hidden = false;
+      refs.receiptLoading.textContent = 'Loading receipt…';
+    }
     refs.receiptModal.hidden = false;
     window.requestAnimationFrame(() => refs.receiptCard?.focus());
+    try {
+      const parsed = new URL(safeUrl);
+      if (parsed.origin !== window.location.origin) throw new Error('external_receipt');
+      const response = await fetch(safeUrl, { credentials: 'same-origin', cache: 'no-store' });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const blob = await response.blob();
+      if (requestId !== receiptRequest) return;
+      const mime = String(blob.type || response.headers.get('Content-Type') || '').split(';')[0].toLowerCase();
+      receiptObjectUrl = URL.createObjectURL(blob);
+      if (mime.startsWith('image/') && refs.receiptImage) {
+        refs.receiptImage.src = receiptObjectUrl;
+        refs.receiptImage.hidden = false;
+      } else if (mime === 'application/pdf' && refs.receiptPdf) {
+        refs.receiptPdf.data = receiptObjectUrl;
+        refs.receiptPdf.hidden = false;
+      } else {
+        throw new Error('unsupported_receipt');
+      }
+      if (refs.receiptLoading) refs.receiptLoading.hidden = true;
+    } catch (_error) {
+      if (requestId !== receiptRequest) return;
+      resetReceiptPreview();
+      const isExternal = new URL(safeUrl).origin !== window.location.origin;
+      if (isExternal && refs.receiptImage) {
+        refs.receiptImage.onload = () => {
+          if (requestId === receiptRequest && refs.receiptLoading) refs.receiptLoading.hidden = true;
+        };
+        refs.receiptImage.onerror = () => {
+          if (requestId !== receiptRequest || !refs.receiptLoading) return;
+          refs.receiptImage.hidden = true;
+          refs.receiptLoading.hidden = false;
+          refs.receiptLoading.textContent = 'This receipt host does not allow an embedded preview. Use “Open in new tab” to review it.';
+        };
+        refs.receiptImage.src = safeUrl;
+        refs.receiptImage.hidden = false;
+      } else if (refs.receiptLoading) {
+        refs.receiptLoading.hidden = false;
+        refs.receiptLoading.textContent = 'Preview unavailable. Use “Open in new tab” to review this receipt.';
+      }
+    }
   };
 
   const setFormError = (message = '') => {
@@ -1603,9 +1670,15 @@ if (root) {
           <${canOpen ? 'button' : 'span'} class="admin-accounting-ledger-copy" ${canOpen ? `type="button" data-accounting-ledger-open="${escapeHtml(row.kind)}:${escapeHtml(String(row.source_id || ''))}"` : ''}>
             <strong>${escapeHtml(row.title || 'Accounting entry')}</strong>
             ${details ? `<small>${escapeHtml(details)}</small>` : ''}
-            ${row.category ? `<small class="admin-accounting-ledger-category">Category: ${escapeHtml(row.category)}</small>` : ''}
-            ${row.note ? `<small class="admin-accounting-ledger-note"><b>Note:</b> ${escapeHtml(row.note)}</small>` : ''}
           </${canOpen ? 'button' : 'span'}>
+          <span class="admin-accounting-ledger-field admin-accounting-ledger-category">
+            <b>Category</b>
+            <span>${escapeHtml(row.category || '—')}</span>
+          </span>
+          <span class="admin-accounting-ledger-field admin-accounting-ledger-note">
+            <b>Note</b>
+            <span>${escapeHtml(row.note || '—')}</span>
+          </span>
           ${receiptUrl ? `
             <button type="button" class="admin-accounting-review-receipt" data-accounting-receipt-open="${escapeHtml(receiptUrl)}" data-accounting-receipt-name="${escapeHtml(row.receipt_name || row.reference || 'Receipt')}">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5c-5.2 0-9.2 4.1-10.5 7.5C2.8 15.4 6.8 19.5 12 19.5s9.2-4.1 10.5-7.5C21.2 8.6 17.2 4.5 12 4.5Zm0 12.2a4.7 4.7 0 1 1 0-9.4 4.7 4.7 0 0 1 0 9.4Zm0-2.4a2.3 2.3 0 1 0 0-4.6 2.3 2.3 0 0 0 0 4.6Z"/></svg>

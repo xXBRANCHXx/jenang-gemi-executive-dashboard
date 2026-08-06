@@ -750,7 +750,7 @@
 
 .admin-accounting-ledger-row {
   display: grid;
-  grid-template-columns: 96px 10px minmax(220px, 1fr) auto auto minmax(120px, auto);
+  grid-template-columns: 96px 10px minmax(190px, .85fr) minmax(150px, .55fr) minmax(210px, 1fr) auto auto minmax(120px, auto);
   gap: 14px;
   align-items: center;
   width: 100%;
@@ -815,7 +815,7 @@
 }
 
 .admin-accounting-ledger-copy > strong,
-.admin-accounting-ledger-copy > small:not(.admin-accounting-ledger-note) {
+.admin-accounting-ledger-copy > small {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -825,20 +825,28 @@
   font-size: .78rem;
 }
 
-.admin-accounting-ledger-copy .admin-accounting-ledger-category {
-  color: var(--accounting-text);
-  opacity: .82;
+.admin-accounting-ledger-field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
 }
 
-.admin-accounting-ledger-copy .admin-accounting-ledger-note {
-  max-width: 920px;
-  overflow-wrap: anywhere;
-  white-space: normal;
-  line-height: 1.45;
+.admin-accounting-ledger-field > b {
+  color: var(--accounting-muted);
+  font-size: .56rem;
+  font-weight: 850;
+  letter-spacing: .055em;
+  text-transform: uppercase;
 }
 
-.admin-accounting-ledger-copy .admin-accounting-ledger-note b {
+.admin-accounting-ledger-field > span {
+  overflow: hidden;
   color: var(--accounting-text);
+  font-size: .68rem;
+  font-weight: 750;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-accounting-review-receipt {
@@ -929,11 +937,42 @@
   border-bottom: 1px solid var(--accounting-border);
 }
 
-.admin-accounting-receipt-card iframe {
+.admin-accounting-receipt-preview {
+  display: grid;
+  place-items: center;
   width: 100%;
   height: calc(100% - 78px);
-  border: 0;
   background: #ffffff;
+  overflow: auto;
+}
+
+.admin-accounting-receipt-preview > p {
+  max-width: 520px;
+  margin: 0;
+  padding: 30px;
+  color: #676767;
+  font-size: .78rem;
+  font-weight: 750;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.admin-accounting-receipt-preview > img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  margin: auto;
+  object-fit: contain;
+}
+
+.admin-accounting-receipt-preview > object {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.admin-accounting-receipt-preview > [hidden] {
+  display: none !important;
 }
 
 .admin-accounting-receipt-actions {
@@ -1266,6 +1305,33 @@ button.admin-accounting-breakdown-row:hover {
   color: var(--admin-text);
 }
 
+@media (max-width: 1180px) {
+  .admin-accounting-ledger-row {
+    grid-template-columns: 76px 8px minmax(180px, 1fr) minmax(150px, .75fr) auto auto minmax(110px, auto);
+    gap: 10px;
+  }
+
+  .admin-accounting-ledger-note {
+    grid-column: 3 / 5;
+    grid-row: 2;
+  }
+
+  .admin-accounting-review-receipt {
+    grid-column: 5;
+    grid-row: 1;
+  }
+
+  .admin-accounting-ledger-state {
+    grid-column: 6;
+    grid-row: 1;
+  }
+
+  .admin-accounting-ledger-amount {
+    grid-column: 7;
+    grid-row: 1;
+  }
+}
+
 @media (max-width: 980px) {
   .admin-accounting-pulse {
     grid-template-columns: 1fr;
@@ -1325,9 +1391,19 @@ button.admin-accounting-breakdown-row:hover {
     grid-row: 1;
   }
 
-  .admin-accounting-review-receipt {
+  .admin-accounting-ledger-category {
     grid-column: 2;
     grid-row: 2;
+  }
+
+  .admin-accounting-ledger-note {
+    grid-column: 2;
+    grid-row: 3;
+  }
+
+  .admin-accounting-review-receipt {
+    grid-column: 2;
+    grid-row: 4;
     justify-self: start;
   }
 
