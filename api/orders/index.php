@@ -1596,6 +1596,48 @@ function jg_orders_daily_add_summary_row(
     }
 }
 
+function jg_orders_daily_add_order_rows(array &$days, array &$accounts, array $rows): int
+{
+    $eligibleRows = array_values(array_filter($rows, static function (mixed $row): bool {
+        if (!is_array($row)) {
+            return false;
+        }
+        $status = strtoupper(trim((string) ($row['status'] ?? '')));
+        $paymentStatus = strtolower(trim((string) ($row['payment_status'] ?? '')));
+        return $paymentStatus !== 'canceled'
+            && !in_array($status, ['CANCELLED', 'CANCELED', 'VOID', 'VOIDED'], true);
+    }));
+
+    $added = 0;
+    foreach (jg_orders_lightweight_rows($eligibleRows) as $row) {
+        $date = jg_orders_local_date_from_utc(jg_orders_order_datetime(
+            $row['order_create_time'] ?? $row['timestamp'] ?? null
+        ));
+        if ($date === null || !isset($days[$date])) {
+            continue;
+        }
+
+        $platform = (string) ($row['platform'] ?? '');
+        $platformKey = jg_orders_daily_normalize_key($platform);
+        $accountKey = in_array($platformKey, ['partner', 'walk-in', 'whatsapp'], true)
+            ? 'other'
+            : (string) ($row['account_key'] ?? '');
+        jg_orders_daily_add_summary_row(
+            $days,
+            $accounts,
+            $date,
+            $platform,
+            $accountKey,
+            (int) ($row['quantity'] ?? $row['item_count'] ?? 0),
+            (float) ($row['revenue'] ?? $row['net_revenue'] ?? 0),
+            1
+        );
+        $added += 1;
+    }
+
+    return $added;
+}
+
 function jg_orders_daily_summary_payload(PDO $pdo, string $startDate, string $endDate, bool $forceRepair = false): array
 {
     $repair = ['attempted' => false, 'fetched' => 0, 'upserted' => 0];
@@ -1672,25 +1714,31 @@ function jg_orders_daily_summary_payload(PDO $pdo, string $startDate, string $en
     } catch (Throwable $websiteOrdersError) {
         error_log('Website paid orders unavailable in daily summary: ' . $websiteOrdersError->getMessage());
     }
-    foreach ($websiteRows as $row) {
-        if (!is_array($row)) {
-            continue;
-        }
-        $date = jg_orders_local_date_from_utc(jg_orders_order_datetime($row['order_create_time'] ?? $row['timestamp'] ?? null));
-        if ($date === null) {
-            continue;
-        }
-        jg_orders_daily_add_summary_row(
-            $days,
-            $accounts,
-            $date,
-            (string) ($row['platform'] ?? ''),
-            (string) ($row['account_key'] ?? ''),
-            (int) ($row['quantity'] ?? $row['item_count'] ?? 0),
-            (float) ($row['revenue'] ?? $row['net_revenue'] ?? 0),
-            1
-        );
+    $websiteOrderCount = jg_orders_daily_add_order_rows($days, $accounts, $websiteRows);
+
+    $directRows = [];
+    try {
+        $directRows = jg_whatsapp_metric_order_rows($pdo, $startDate, $endDate);
+    } catch (Throwable $directOrdersError) {
+        error_log('WhatsApp and walk-in orders unavailable in daily summary: ' . $directOrdersError->getMessage());
     }
+    $directOrderCount = jg_orders_daily_add_order_rows($days, $accounts, $directRows);
+
+    $partnerRows = [];
+    try {
+        $partnerPdo = jg_partner_db();
+        $partnerProfiles = jg_orders_partner_profiles($partnerPdo);
+        $partnerRows = jg_orders_partner_order_rows(
+            $partnerPdo,
+            $startDate,
+            $endDate,
+            $partnerProfiles,
+            $pdo
+        );
+    } catch (Throwable $partnerOrdersError) {
+        error_log('Partner orders unavailable in daily summary: ' . $partnerOrdersError->getMessage());
+    }
+    $partnerOrderCount = jg_orders_daily_add_order_rows($days, $accounts, $partnerRows);
 
     uasort($accounts, static function (array $left, array $right): int {
         return strcmp((string) ($left['platform_label'] ?? $left['platform'] ?? ''), (string) ($right['platform_label'] ?? $right['platform'] ?? ''))
@@ -1751,8 +1799,8 @@ function jg_orders_daily_summary_payload(PDO $pdo, string $startDate, string $en
         'end_date' => $endDate,
         'month' => substr($startDate, 0, 7),
         'day_count' => $dayCount,
-        'rows_count' => (int) ($mirrorSummary['rows'] ?? 0) + count($websiteRows),
-        'distinct_orders' => (int) ($mirrorSummary['distinct_orders'] ?? 0) + count($websiteRows),
+        'rows_count' => (int) ($mirrorSummary['rows'] ?? 0) + $websiteOrderCount + $directOrderCount + $partnerOrderCount,
+        'distinct_orders' => (int) ($mirrorSummary['distinct_orders'] ?? 0) + $websiteOrderCount + $directOrderCount + $partnerOrderCount,
         'accounts' => $accountRows,
         'days' => array_values($days),
         'totals' => [

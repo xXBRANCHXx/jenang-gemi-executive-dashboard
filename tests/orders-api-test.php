@@ -405,6 +405,67 @@ expect_same(1, $dailyDays['2026-07-01']['orders'], 'Daily summary must add order
 expect_same(true, isset($dailyAccounts['zero-website:zero-website']), 'Daily summary must create stable platform/account keys.');
 expect_same('ZERO Website', $dailyAccounts['zero-website:zero-website']['label'], 'Daily summary must preserve website platform labels.');
 
+$directDailyRows = [
+    [
+        'platform' => 'whatsapp',
+        'account_key' => 'direct',
+        'order_id' => 'WA-DAILY-1',
+        'order_create_time' => '2026-06-30T18:30:00Z',
+        'quantity' => 2,
+        'revenue' => 50000,
+        'order_net_revenue' => 75000,
+        'status' => 'IS_LISTED',
+    ],
+    [
+        'platform' => 'whatsapp',
+        'account_key' => 'direct',
+        'order_id' => 'WA-DAILY-1',
+        'order_create_time' => '2026-06-30T18:30:00Z',
+        'quantity' => 1,
+        'revenue' => 25000,
+        'order_net_revenue' => 75000,
+        'status' => 'IS_LISTED',
+    ],
+    [
+        'platform' => 'walk-in',
+        'account_key' => 'counter',
+        'order_id' => 'WALKIN-DAILY-1',
+        'order_create_time' => '2026-07-01T03:00:00Z',
+        'quantity' => 1,
+        'revenue' => 20000,
+        'order_net_revenue' => 20000,
+        'status' => 'FULFILLED',
+    ],
+    [
+        'platform' => 'partner',
+        'account_key' => 'partner-partner-one',
+        'order_id' => 'PARTNER-DAILY-1',
+        'order_create_time' => '2026-07-01T04:00:00Z',
+        'quantity' => 4,
+        'revenue' => 100000,
+        'order_net_revenue' => 100000,
+        'status' => 'IS_LISTED',
+    ],
+    [
+        'platform' => 'partner',
+        'account_key' => 'partner-cancelled',
+        'order_id' => 'PARTNER-DAILY-CANCELLED',
+        'order_create_time' => '2026-07-01T04:00:00Z',
+        'quantity' => 9,
+        'revenue' => 999999,
+        'order_net_revenue' => 999999,
+        'status' => 'CANCELLED',
+    ],
+];
+$addedDirectOrders = jg_orders_daily_add_order_rows($dailyDays, $dailyAccounts, $directDailyRows);
+expect_same(3, $addedDirectOrders, 'Daily summary must collapse direct item rows to distinct orders and omit cancelled sales.');
+expect_same(3, $dailyAccounts['whatsapp:other']['qty'], 'Daily summary must include all WhatsApp order item quantities.');
+expect_same(75000.0, $dailyAccounts['whatsapp:other']['revenue'], 'Daily summary must count WhatsApp order revenue once across item rows.');
+expect_same(1, $dailyAccounts['whatsapp:other']['orders'], 'Daily summary must count a multi-line WhatsApp order once.');
+expect_same(1, $dailyAccounts['walk-in:other']['qty'], 'Daily summary must include walk-in order quantities.');
+expect_same(4, $dailyAccounts['partner:other']['qty'], 'Daily summary must include Partner order quantities in the existing Other account bucket.');
+expect_same(100000.0, $dailyAccounts['partner:other']['revenue'], 'Daily summary must include Partner order revenue and omit cancelled Partner sales.');
+
 $breakdownLookup = [
     jg_orders_sku_key('SYRUP-50-ORIGINAL') => [
         'sku' => 'SYRUP-50-ORIGINAL',
