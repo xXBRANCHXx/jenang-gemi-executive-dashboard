@@ -106,6 +106,13 @@ function admin_quick_menu_definitions(): array
             'label' => 'Campaigns',
             'description' => 'Landing-page analytics',
         ],
+        'website' => [
+            'href' => '../dashboard/?view=website',
+            'view' => 'website',
+            'icon' => 'website',
+            'label' => 'Website',
+            'description' => 'Storefront analytics and website controls',
+        ],
         'ad-view' => [
             'href' => '../dashboard/?view=ad-view',
             'view' => 'ad-view',
@@ -132,6 +139,12 @@ function admin_quick_menu_definitions(): array
             'icon' => 'hard-set',
             'label' => 'Hard Set',
             'description' => 'Website order cutover control',
+        ],
+        'blog-builder' => [
+            'href' => '../blog-builder/',
+            'icon' => 'blog',
+            'label' => 'Blog Studio',
+            'description' => 'Write, review, and schedule ZERO articles',
         ],
         'accounting' => [
             'href' => '../profit-loss/',
@@ -211,7 +224,8 @@ function admin_quick_menu_context_map(): array
         'hard-set' => ['home', 'settings'],
         'accounting' => ['home', 'profit-loss', 'orders', 'context', 'settings'],
         'profit-loss' => ['home', 'accounting', 'orders', 'campaigns', 'context', 'settings'],
-        'website' => ['home', 'daily', 'orders', 'campaigns', 'affiliates', 'settings'],
+        'website' => ['blog-builder', 'home', 'daily', 'orders', 'campaigns', 'affiliates', 'settings'],
+        'blog-builder' => ['home', 'campaigns', 'affiliates', 'website', 'settings'],
         'partners' => ['home', 'partner-profiles', 'daily', 'orders', 'campaigns', 'settings'],
         'api' => ['home', 'back-dash', 'context', 'hard-set', 'settings'],
         'sku-db' => ['home', 'daily', 'orders', 'back-dash', 'settings'],
@@ -260,6 +274,9 @@ function admin_normalize_quick_menu_context(string $context): string
         'customers' => 'customers',
         'customer-profiles' => 'customers',
         'repeat-customers' => 'customers',
+        'blog' => 'blog-builder',
+        'blogs' => 'blog-builder',
+        'blog-studio' => 'blog-builder',
     ];
     $context = $aliases[$normalized] ?? $normalized;
 
@@ -305,6 +322,9 @@ function admin_dashboard_view_menu_context(): string
 function admin_current_menu_context(): string
 {
     $path = strtolower((string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH));
+    if (str_contains($path, '/blog-builder/')) {
+        return 'blog-builder';
+    }
     if (str_contains($path, '/dashboard/')) {
         return admin_dashboard_view_menu_context();
     }
@@ -482,6 +502,9 @@ function admin_normalize_favicon_key(string $key): string
         'profit-and-loss' => 'profit-loss',
         'customers' => 'affiliates',
         'customer-profiles' => 'affiliates',
+        'blog' => 'website',
+        'blogs' => 'website',
+        'blog-builder' => 'website',
     ];
     $key = $aliases[$normalized] ?? $normalized;
 
@@ -577,6 +600,13 @@ function render_admin_sidebar(string $activeSection = ''): void
             'icon' => 'admin-rail-icon-globe',
             'aria' => 'Open website dashboard',
             'view' => 'website',
+        ],
+        [
+            'key' => 'blog-builder',
+            'href' => '../blog-builder/',
+            'label' => 'Blog Studio',
+            'icon' => 'admin-rail-icon-blog',
+            'aria' => 'Open ZERO blog writing and scheduling studio',
         ],
         [
             'key' => 'accounting',
@@ -918,6 +948,7 @@ function admin_topbar_menu_icon(string $icon): string
         'back-dash' => '<svg viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>',
         'context' => '<svg viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>',
         'website' => '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>',
+        'blog' => '<svg viewBox="0 0 24 24"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M5 3h9l5 5v13H5z"/><path d="M8 13h8M8 17h6"/></svg>',
         'hard-set' => '<svg viewBox="0 0 24 24"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/></svg>',
         'affiliate' => '<svg viewBox="0 0 24 24"><path d="M18 18.72a9 9 0 0 0 3-6.72 9 9 0 1 0-18 0 9 9 0 0 0 3 6.72"/><path d="M7 20c1.2-2 2.9-3 5-3s3.8 1 5 3"/><circle cx="12" cy="10" r="3"/></svg>',
         'users' => '<svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',

@@ -1450,6 +1450,12 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                             <h2 data-website-hero-title>Your web ecosystem.</h2>
                         </div>
                         <p data-website-hero-copy>See the storefronts you own and the growth channels that bring people to them—all from one connected workspace.</p>
+                        <a class="admin-website-blog-entry" href="../blog-builder/">
+                            <span aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M5 3h9l5 5v13H5z"/><path d="M8 13h8M8 17h6"/></svg></span>
+                            <strong>Open ZERO Blog Studio</strong>
+                            <small>Write, review &amp; schedule articles</small>
+                            <b aria-hidden="true">→</b>
+                        </a>
                     </div>
                     <div class="admin-website-selector admin-website-ecosystem" data-website-selector aria-label="Website ecosystem navigation">
                         <div class="admin-website-ecosystem-map">

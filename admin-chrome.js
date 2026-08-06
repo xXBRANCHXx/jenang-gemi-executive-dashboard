@@ -126,6 +126,13 @@ const JENANG_GEMI_SEARCH_INDEX = [
     keywords: ['website dashboard', 'site analytics', 'traffic']
   },
   {
+    title: 'ZERO Blog Studio',
+    section: 'Admin',
+    description: 'Write, review, preview, and schedule ZERO health articles.',
+    url: '../blog-builder/',
+    keywords: ['zero', 'blog', 'article', 'editor', 'content', 'schedule', 'healthy eating', 'fitness', 'weight loss', 'diabetes remission']
+  },
+  {
     title: 'Dashboard Settings',
     section: 'Admin',
     description: 'Appearance, lock controls, and analytics device exclusions.',
