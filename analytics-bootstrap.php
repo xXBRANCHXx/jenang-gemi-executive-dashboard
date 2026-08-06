@@ -85,28 +85,8 @@ function analyticsDb(): PDO
         return $pdo;
     }
 
-    $config = analyticsResolveDatabaseConfig();
-    if ($config['host'] === '' || $config['user'] === '') {
-        analyticsJsonResponse(['error' => 'Database environment variables are not configured.'], 503);
-    }
-
     try {
-        $pdo = new PDO(
-            sprintf(
-                'mysql:host=%s;port=%s;dbname=%s;charset=%s',
-                $config['host'],
-                $config['port'],
-                $config['name'],
-                $config['charset']
-            ),
-            $config['user'],
-            $config['pass'],
-            [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES => false,
-            ]
-        );
+        $pdo = analyticsFreshDb();
     } catch (Throwable $error) {
         analyticsJsonResponse([
             'error' => 'Unable to connect to analytics database.',
@@ -118,6 +98,46 @@ function analyticsDb(): PDO
     $schemaEnsured = true;
 
     return $pdo;
+}
+
+/**
+ * Open a non-static connection for long-running request workflows. Hostinger
+ * may close an otherwise idle MySQL connection while an upstream HTTP request
+ * is in flight, so callers must be able to reconnect before saving a cursor.
+ */
+function analyticsFreshDb(): PDO
+{
+    $config = analyticsResolveDatabaseConfig();
+    if ($config['host'] === '' || $config['user'] === '') {
+        throw new RuntimeException('Database environment variables are not configured.');
+    }
+
+    return new PDO(
+        sprintf(
+            'mysql:host=%s;port=%s;dbname=%s;charset=%s',
+            $config['host'],
+            $config['port'],
+            $config['name'],
+            $config['charset']
+        ),
+        $config['user'],
+        $config['pass'],
+        [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES => false,
+        ]
+    );
+}
+
+function analyticsEnsureLiveDb(PDO $pdo): PDO
+{
+    try {
+        $pdo->query('SELECT 1');
+        return $pdo;
+    } catch (Throwable) {
+        return analyticsFreshDb();
+    }
 }
 
 function analyticsEnsureDatabaseSchema(PDO $pdo): void

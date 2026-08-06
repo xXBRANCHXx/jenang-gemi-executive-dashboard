@@ -2198,6 +2198,7 @@ function jg_orders_import_mirror_range_from_api(
             'limit' => (string) $pageLimit,
             'offset' => (string) $offset,
         ]), $timeout);
+        $pdo = analyticsEnsureLiveDb($pdo);
         $rows = is_array($payload['orders'] ?? null) ? $payload['orders'] : [];
         $pageRows = [];
         foreach ($rows as $row) {

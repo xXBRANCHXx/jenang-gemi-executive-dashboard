@@ -70,6 +70,7 @@ wallet_expect(true, str_contains($walletApiSource, 'jg_wallet_acquire_named_lock
 wallet_expect(true, str_contains($walletApiSource, 'jg_wallet_backtrack_covering'), 'A completed or failed covering run must be reused instead of creating the same backtrack twice.');
 wallet_expect(true, str_contains($walletApiSource, "if (\$phase === 'wallet')"), 'Wallet history must run as its own resumable account-bounded phase.');
 wallet_expect(true, str_contains($walletApiSource, "'mode' => 'wallet_refresh'"), 'Paid-status backtrack steps must use the bounded release refresh instead of forced per-order finance repair.');
+wallet_expect(true, str_contains($walletApiSource, 'analyticsEnsureLiveDb($pdo)'), 'Backtrack steps must reconnect after remote calls before persisting their cursor.');
 wallet_expect('2026-05-21', jg_wallet_chunk_end('2026-05-20', '2026-05-25', 2), 'Wallet backtrack chunks must stay bounded.');
 wallet_expect(3, jg_wallet_total_chunks('2026-05-20', '2026-05-25', 2), 'Wallet backtrack must calculate resumable chunk counts.');
 wallet_expect(100, jg_wallet_backtrack_public_state([

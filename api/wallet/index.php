@@ -1407,6 +1407,7 @@ function jg_wallet_import_platform_transactions_from_api(
                 'start_date' => $startDate,
                 'end_date' => $endDate,
             ]), $timeout);
+            $pdo = analyticsEnsureLiveDb($pdo);
             $remoteAccounts = is_array($payload['wallet_transactions']['accounts'] ?? null)
                 ? $payload['wallet_transactions']['accounts']
                 : [];
@@ -1738,6 +1739,7 @@ function jg_wallet_step_backtrack(PDO $pdo, array $payload): array
                 $run = jg_wallet_run_backtrack_step($pdo, $run);
                 analyticsTouchLiveState('wallet_backtrack');
             } catch (Throwable $error) {
+                $pdo = analyticsEnsureLiveDb($pdo);
                 $run = jg_wallet_fail_backtrack($pdo, $run, $error->getMessage());
             }
         }
@@ -1748,7 +1750,7 @@ function jg_wallet_step_backtrack(PDO $pdo, array $payload): array
     return jg_wallet_summary_with_backtrack($pdo, $run);
 }
 
-function jg_wallet_run_backtrack_step(PDO $pdo, array $run): array
+function jg_wallet_run_backtrack_step(PDO &$pdo, array $run): array
 {
     $accounts = jg_wallet_backtrack_accounts();
     if ($accounts === []) {
@@ -1778,6 +1780,7 @@ function jg_wallet_run_backtrack_step(PDO $pdo, array $run): array
                 JG_WALLET_BACKTRACK_TRANSACTION_TIMEOUT_SECONDS,
                 [$account]
             );
+            $pdo = analyticsEnsureLiveDb($pdo);
             $nextAccountIndex = $accountIndex + 1;
             $finishedWallets = $nextAccountIndex >= count($walletAccounts);
             $nextCursorDate = $finishedWallets ? jg_wallet_add_days($chunkEnd, 1) : $cursorDate;
@@ -1827,6 +1830,7 @@ function jg_wallet_run_backtrack_step(PDO $pdo, array $run): array
             'end_date' => $chunkEnd,
             'summary' => '0',
         ]), JG_WALLET_BACKTRACK_REMOTE_TIMEOUT_SECONDS);
+        $pdo = analyticsEnsureLiveDb($pdo);
         $syncAccount = is_array($syncPayload['sync']['accounts'][0] ?? null)
             ? $syncPayload['sync']['accounts'][0]
             : [];
@@ -1877,6 +1881,7 @@ function jg_wallet_run_backtrack_step(PDO $pdo, array $run): array
         JG_WALLET_BACKTRACK_IMPORT_TIMEOUT_SECONDS,
         true
     );
+    $pdo = analyticsEnsureLiveDb($pdo);
     $hasMore = !empty($import['has_more']);
     $nextOffset = $hasMore ? max(0, (int) ($import['next_offset'] ?? 0)) : 0;
     $walletAccounts = jg_wallet_transaction_accounts($accounts);
