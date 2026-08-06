@@ -105,6 +105,14 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                                             <input type="text" name="partner_slug" maxlength="160">
                                         </label>
                                         <label>
+                                            <span>Billing period</span>
+                                            <select name="billing_period_type">
+                                                <option value="business_week">Business Week (Monday–Friday)</option>
+                                                <option value="calendar_month">Calendar Month</option>
+                                            </select>
+                                            <small>Changing this automatically reorganizes unpaid orders into new POs.</small>
+                                        </label>
+                                        <label>
                                             <span>Portal password</span>
                                             <div class="partner-profile-password-row">
                                                 <input type="text" name="portal_password" maxlength="160" placeholder="Unlock Branch-tier access" autocomplete="new-password" data-branch-protected-control disabled>

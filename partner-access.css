@@ -1523,6 +1523,7 @@
 
 .partner-profile-code-row input,
 .partner-profile-field-stack input,
+.partner-profile-field-stack select,
 .partner-profile-search input,
 .partner-profile-price input {
   width: 100%;
@@ -1536,6 +1537,7 @@
 
 .partner-profile-code-row input,
 .partner-profile-field-stack input,
+.partner-profile-field-stack select,
 .partner-profile-search input {
   min-height: 42px;
   padding: 0 12px;
@@ -1549,6 +1551,7 @@
 
 .partner-profile-code-row input:focus,
 .partner-profile-field-stack input:focus,
+.partner-profile-field-stack select:focus,
 .partner-profile-search input:focus,
 .partner-profile-price input:focus {
   border-color: rgba(255, 255, 255, 0.28);
@@ -2471,6 +2474,7 @@
   [data-partner-modal] .partner-pricing-row input,
   .partner-profile-code-row input,
   .partner-profile-field-stack input,
+  .partner-profile-field-stack select,
   .partner-profile-search input,
   .partner-profile-price input
 ) {
@@ -2500,6 +2504,7 @@
   [data-partner-modal] .partner-pricing-row input:focus,
   .partner-profile-code-row input:focus,
   .partner-profile-field-stack input:focus,
+  .partner-profile-field-stack select:focus,
   .partner-profile-search input:focus,
   .partner-profile-price input:focus
 ) {

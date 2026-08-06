@@ -6,6 +6,7 @@ require_once dirname(__DIR__, 2) . '/sku-db-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/astra-stock-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/partner-db-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/partner-pricing.php';
+require_once dirname(__DIR__, 2) . '/partner-billing-bootstrap.php';
 
 jg_admin_require_auth_json();
 
@@ -69,7 +70,7 @@ function jg_partner_read_database(): array
     $pdo = jg_partner_db();
     if ($pdo instanceof PDO) {
         $stmt = $pdo->query(
-            'SELECT code, name, partner_slug, notes, selected_skus_json, pricing_json, discount_enabled, discount_percent, password_hash, password_updated_at,
+            'SELECT code, name, partner_slug, notes, selected_skus_json, pricing_json, billing_period_type, discount_enabled, discount_percent, password_hash, password_updated_at,
                     password_reset_key_hash, password_reset_key_created_at, password_reset_token_hash, password_reset_token_expires_at,
                     created_at, updated_at
              FROM partner_profiles
@@ -90,6 +91,7 @@ function jg_partner_read_database(): array
                 'notes' => (string) ($row['notes'] ?? ''),
                 'selected_skus' => is_array($selectedSkus) ? array_values(array_filter(array_map('strval', $selectedSkus))) : [],
                 'pricing' => is_array($pricing) ? $pricing : [],
+                'billing_period_type' => jg_admin_partner_billing_period_type($row['billing_period_type'] ?? null),
                 'discount_enabled' => (bool) ($row['discount_enabled'] ?? false),
                 'discount_percent' => jg_partner_discount_percent($row),
                 'password_hash' => (string) ($row['password_hash'] ?? ''),
@@ -156,11 +158,11 @@ function jg_partner_write_database(array $database): void
             $pdo->exec('DELETE FROM partner_profiles');
             $stmt = $pdo->prepare(
                 'INSERT INTO partner_profiles
-                    (code, name, partner_slug, notes, selected_skus_json, pricing_json, discount_enabled, discount_percent, password_hash, password_updated_at,
+                    (code, name, partner_slug, notes, selected_skus_json, pricing_json, billing_period_type, discount_enabled, discount_percent, password_hash, password_updated_at,
                      password_reset_key_hash, password_reset_key_created_at, password_reset_token_hash, password_reset_token_expires_at,
                      created_at, updated_at)
                  VALUES
-                    (:code, :name, :partner_slug, :notes, :selected_skus_json, :pricing_json, :discount_enabled, :discount_percent, :password_hash, :password_updated_at,
+                    (:code, :name, :partner_slug, :notes, :selected_skus_json, :pricing_json, :billing_period_type, :discount_enabled, :discount_percent, :password_hash, :password_updated_at,
                      :password_reset_key_hash, :password_reset_key_created_at, :password_reset_token_hash, :password_reset_token_expires_at,
                      :created_at, :updated_at)'
             );
@@ -176,6 +178,7 @@ function jg_partner_write_database(array $database): void
                     ':notes' => (string) ($partner['notes'] ?? ''),
                     ':selected_skus_json' => json_encode(array_values(array_filter((array) ($partner['selected_skus'] ?? []), 'is_string')), JSON_UNESCAPED_SLASHES),
                     ':pricing_json' => json_encode((array) ($partner['pricing'] ?? []), JSON_UNESCAPED_SLASHES),
+                    ':billing_period_type' => jg_admin_partner_billing_period_type($partner['billing_period_type'] ?? null),
                     ':discount_enabled' => jg_partner_discount_enabled($partner) ? 1 : 0,
                     ':discount_percent' => jg_partner_discount_percent($partner),
                     ':password_hash' => (string) ($partner['password_hash'] ?? ''),
@@ -800,6 +803,9 @@ function jg_partner_build_record(array $payload, array $database, array $catalog
     $existingPricing = is_array($existing['pricing'] ?? null) ? $existing['pricing'] : [];
     $pricing = jg_partner_normalize_pricing($payload['pricing'] ?? $existingPricing, $selectedSkuRecords, $existingPricing);
     $discountSettings = jg_partner_normalize_discount_settings($payload, $existing);
+    $billingPeriodType = jg_admin_partner_billing_period_type(
+        $payload['billing_period_type'] ?? $existing['billing_period_type'] ?? null
+    );
 
     return [
         'code' => $code,
@@ -809,6 +815,7 @@ function jg_partner_build_record(array $payload, array $database, array $catalog
         'notes' => $notes,
         'selected_skus' => $selectedSkuCodes,
         'pricing' => $pricing,
+        'billing_period_type' => $billingPeriodType,
         'discount_enabled' => $discountSettings['discount_enabled'],
         'discount_percent' => $discountSettings['discount_percent'],
         'password_hash' => $passwordHash,
@@ -917,6 +924,11 @@ if ($action === 'update') {
     $database['partners'][$matchIndex] = jg_partner_build_record($request, $database, $skuCatalog, $existing);
     jg_partner_touch_meta($database);
     jg_partner_write_database($database);
+    jg_admin_partner_billing_rebucket_partner(
+        jg_admin_partner_billing_db(),
+        (string) ($database['partners'][$matchIndex]['code'] ?? $currentCode),
+        (string) ($database['partners'][$matchIndex]['billing_period_type'] ?? 'business_week')
+    );
     jg_partner_response($database, $skuCatalog, $database['partners'][$matchIndex]);
 }
 

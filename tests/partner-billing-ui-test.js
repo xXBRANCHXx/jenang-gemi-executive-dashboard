@@ -16,7 +16,7 @@ for (const source of [nav, dashboard]) {
   assert.match(source, /data-billing-notification-toggle/, 'Every admin chrome variant should use partner billing notifications.');
   assert.doesNotMatch(source, /data-notification-toggle/, 'The visible notification trigger should no longer activate website-order verification.');
 }
-assert.match(notifications, /paid their weekly bill/, 'Payment notifications should name the partner and weekly period.');
+assert.match(notifications, /period_type === 'calendar_month'[\s\S]*'monthly'[\s\S]*'business-week'/, 'Payment notifications should name the partner-specific billing period.');
 assert.match(notifications, /Check proof of payment/, 'Payment notification helper copy should be explicit.');
 assert.match(notifications, /accept_dispute[\s\S]*Investigate/, 'Dispute notifications should offer Accept and Investigate.');
 assert.match(notifications, /data-billing-adjust-price[\s\S]*Apply adjusted prices/, 'Investigation should expose every product price as an editable value.');
@@ -31,9 +31,10 @@ assert.match(accounting, /safeCash = \$realCash - \$accountingBillsDueSoon - \$o
 assert.match(accounting, /accounting_partner_bill_receipts/, 'Confirmed partner cash should be idempotently mapped to Accounting.');
 assert.match(accountingPage, /Expected[\s\S]*unpaid partner bills/, 'Accounting should present unpaid partner bills as expected money.');
 assert.match(accountingUi, /kpis\?\.partner_bills_due[\s\S]*kpis\?\.partner_bills_in_progress/, 'The expected-money overview should keep issued and accruing partner totals separate.');
+assert.match(accountingUi, /period_type === 'calendar_month'[\s\S]*'Calendar month'[\s\S]*'Business week'/, 'Accounting must label each receivable using its partner-specific billing period.');
 assert.match(accountingUi, /scope === 'in_progress'[\s\S]*status === 'accruing'/, 'The bill list should filter accruing periods from bills that are due.');
-assert.match(accountingUi, /action[^\n]*partner_bills|buildUrl\('partner_bills'/, 'Opening Partner Bills should request the weekly bill records.');
-assert.match(accountingUi, /data-accounting-partner-bill[\s\S]*data-accounting-partner-order/, 'A weekly partner bill should drill down to its order-level breakdown.');
+assert.match(accountingUi, /action[^\n]*partner_bills|buildUrl\('partner_bills'/, 'Opening Partner Bills should request the partner bill records.');
+assert.match(accountingUi, /data-accounting-partner-bill[\s\S]*data-accounting-partner-order/, 'A partner bill should drill down to its order-level breakdown.');
 assert.match(styles, /\.admin-accounting-partner-bill-summary[\s\S]*\.admin-accounting-partner-order/, 'Partner bill totals and order rows should have dedicated responsive styling.');
 assert.match(styles, /\.admin-billing-proof-close\s*\{[\s\S]*border:\s*0[\s\S]*background:\s*transparent/, 'Proof preview close should be a real icon without a pill.');
 assert.match(styles, /\.admin-billing-avatar[\s\S]*\.admin-billing-avatar > img/, 'Partner favicons should have a styled notification slot and fallback.');

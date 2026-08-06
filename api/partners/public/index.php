@@ -108,7 +108,7 @@ function jg_public_partner_read_database(): array
     $pdo = jg_partner_db();
     if ($pdo instanceof PDO) {
         $stmt = $pdo->query(
-            'SELECT code, name, partner_slug, notes, selected_skus_json, pricing_json, discount_enabled, discount_percent, created_at, updated_at
+            'SELECT code, name, partner_slug, notes, selected_skus_json, pricing_json, billing_period_type, discount_enabled, discount_percent, created_at, updated_at
              FROM partner_profiles
              ORDER BY updated_at DESC, code ASC'
         );
@@ -126,6 +126,9 @@ function jg_public_partner_read_database(): array
                 'notes' => (string) ($row['notes'] ?? ''),
                 'selected_skus' => is_array($selectedSkus) ? array_values(array_filter(array_map('strval', $selectedSkus))) : [],
                 'pricing' => is_array($pricing) ? $pricing : [],
+                'billing_period_type' => in_array(($row['billing_period_type'] ?? ''), ['business_week', 'calendar_month'], true)
+                    ? (string) $row['billing_period_type']
+                    : 'business_week',
                 'discount_enabled' => (bool) ($row['discount_enabled'] ?? false),
                 'discount_percent' => jg_partner_discount_percent($row),
                 'created_at' => (string) ($row['created_at'] ?? ''),

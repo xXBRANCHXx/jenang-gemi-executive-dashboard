@@ -998,6 +998,7 @@ if (root) {
     disputed: 'Disputed',
     paid: 'Paid'
   }[String(status || '')] || String(status || 'Unknown').replace(/_/g, ' '));
+  const partnerBillPeriodLabel = (bill) => bill?.period_type === 'calendar_month' ? 'Calendar month' : 'Business week';
 
   const renderPartnerBillsList = () => {
     const scope = state.partnerBillsScope;
@@ -1012,14 +1013,14 @@ if (root) {
       kicker: 'Partner receivables',
       title: inProgress ? 'Partner Bills In Progress' : 'Partner Bills Due',
       copy: inProgress
-        ? 'Current weekly periods still accumulating partner orders. Select a bill to see its live order breakdown.'
-        : 'Closed weekly periods awaiting payment or review. Select a bill to see its totals and order-by-order breakdown.',
+        ? 'Current configured periods still accumulating partner orders. Select a bill to see its live order breakdown.'
+        : 'Closed configured periods awaiting payment or review. Select a bill to see its totals and order-by-order breakdown.',
       empty: state.partnerBills?.available === false
         ? 'Partner billing is temporarily unavailable.'
         : (inProgress ? 'No partner billing periods are in progress.' : 'No partner bills are currently due.'),
       rows: bills.map((bill) => `
         <button type="button" class="admin-accounting-breakdown-row" data-accounting-partner-bill="${escapeHtml(bill.id || '')}">
-          <span><strong>${escapeHtml(bill.partner_name || bill.partner_code || 'Partner')}</strong><small>${escapeHtml(bill.period_label || 'Weekly bill')} · ${Number(bill.order_count || 0).toLocaleString('id-ID')} orders</small></span>
+          <span><strong>${escapeHtml(bill.partner_name || bill.partner_code || 'Partner')}</strong><small>${escapeHtml(partnerBillPeriodLabel(bill))} · ${escapeHtml(bill.period_label || 'Billing period')} · ${Number(bill.order_count || 0).toLocaleString('id-ID')} orders</small></span>
           <span><small>Status</small><strong>${escapeHtml(partnerBillStatusLabel(bill.status))}</strong></span>
           <span><small>${bill.status === 'paid' ? 'Paid total' : 'Bill total'}</small><strong>${formatCurrency(bill.total_amount || 0)}</strong></span>
         </button>
@@ -1034,7 +1035,7 @@ if (root) {
     openBreakdown({
       kicker: 'Partner receivables',
       title: inProgress ? 'Partner Bills In Progress' : 'Partner Bills Due',
-      copy: 'Loading weekly bills and their order details.',
+      copy: 'Loading partner bills and their order details.',
       empty: 'Loading partner bills…',
       rows: []
     });
@@ -1049,7 +1050,7 @@ if (root) {
       openBreakdown({
         kicker: 'Partner receivables',
         title: 'Partner Bills',
-        copy: 'Weekly bill details could not be loaded.',
+        copy: 'Partner bill details could not be loaded.',
         empty: error?.message || 'Partner billing is temporarily unavailable.',
         rows: []
       });
@@ -1062,7 +1063,7 @@ if (root) {
     if (!bill || !refs.breakdownBody) return;
     const items = Array.isArray(bill.items) ? bill.items : [];
     if (refs.breakdownKicker) refs.breakdownKicker.textContent = bill.partner_name || bill.partner_code || 'Partner bill';
-    if (refs.breakdownTitle) refs.breakdownTitle.textContent = bill.period_label || 'Weekly bill';
+    if (refs.breakdownTitle) refs.breakdownTitle.textContent = `${partnerBillPeriodLabel(bill)} · ${bill.period_label || 'Billing period'}`;
     if (refs.breakdownCopy) refs.breakdownCopy.textContent = `${Number(bill.order_count || 0).toLocaleString('id-ID')} orders · ${Number(bill.unit_count || 0).toLocaleString('id-ID')} units`;
     refs.breakdownBody.innerHTML = `
       <div class="admin-accounting-partner-bill-toolbar">

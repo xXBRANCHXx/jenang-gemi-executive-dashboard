@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
       </span>
     </span>`;
 
-  const paymentTitle = (event) => `${event.partner_name} paid their weekly bill ${event.period_label}`;
+  const paymentTitle = (event) => `${event.partner_name} paid their ${event.period_type === 'calendar_month' ? 'monthly' : 'business-week'} bill ${event.period_label}`;
   const disputeTitle = (event) => event.dispute_type === 'price'
     ? `${event.partner_name} proposed new prices for ${event.items?.length || 0} orders`
     : `${event.partner_name} disputed ${event.items?.length || 0} orders on ${event.period_label}`;

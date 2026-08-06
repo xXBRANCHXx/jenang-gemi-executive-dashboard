@@ -560,6 +560,7 @@ document.addEventListener('DOMContentLoaded', () => {
     form.elements.partner_code.value = partner.code || '';
     form.elements.name.value = partner.name || '';
     form.elements.partner_slug.value = partner.partner_slug || '';
+    form.elements.billing_period_type.value = partner.billing_period_type || 'business_week';
     form.elements.portal_password.value = '';
     form.elements.notes.value = partner.notes || '';
 
@@ -835,6 +836,7 @@ document.addEventListener('DOMContentLoaded', () => {
           code: formData.get('partner_code'),
           name: formData.get('name'),
           partner_slug: formData.get('partner_slug'),
+          billing_period_type: formData.get('billing_period_type'),
           portal_password: savedPortalPassword,
           partner_password_unlock_token: savedPortalPassword ? state.branchUnlockToken : '',
           selected_skus: [...new Set(state.selections.skus)],

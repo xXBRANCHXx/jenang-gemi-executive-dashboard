@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS `partner_profiles` (
   `notes` VARCHAR(300) NOT NULL DEFAULT '',
   `selected_skus_json` LONGTEXT NULL DEFAULT NULL,
   `pricing_json` LONGTEXT NULL DEFAULT NULL,
+  `billing_period_type` VARCHAR(32) NOT NULL DEFAULT 'business_week',
   `discount_enabled` TINYINT(1) NOT NULL DEFAULT 0,
   `discount_percent` DECIMAL(5,2) NOT NULL DEFAULT 0.00,
   `password_hash` VARCHAR(255) NOT NULL DEFAULT '',
