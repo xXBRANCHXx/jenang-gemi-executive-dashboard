@@ -8,10 +8,20 @@ require_once __DIR__ . '/website-commerce-bootstrap.php';
 
 const JG_WHATSAPP_ORDER_OPEN_STATUSES = ['PENDING_PUBLISH', 'PUBLISH_FAILED', 'IS_LISTED', 'IS_BEING_FULFILLED'];
 const JG_WHATSAPP_ORDER_METRIC_STATUSES = ['IS_LISTED', 'IS_BEING_FULFILLED', 'FULFILLED'];
+const JG_WHATSAPP_PAY_LATER_LAUNCHED_AT = '2026-08-06 05:38:14.000000';
 
 function jg_whatsapp_now(): string
 {
     return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('Y-m-d H:i:s.u');
+}
+
+function jg_whatsapp_legacy_order_was_paid(array $row): bool
+{
+    $createdAt = trim((string) ($row['created_at'] ?? ''));
+    $status = strtoupper(trim((string) ($row['status'] ?? '')));
+    return $createdAt !== ''
+        && $createdAt < JG_WHATSAPP_PAY_LATER_LAUNCHED_AT
+        && in_array($status, JG_WHATSAPP_ORDER_METRIC_STATUSES, true);
 }
 
 function jg_whatsapp_ensure_schema(PDO $pdo): void
@@ -62,13 +72,30 @@ function jg_whatsapp_ensure_schema(PDO $pdo): void
     if ($needsPaymentBackfill) {
         $pdo->exec(
             'UPDATE whatsapp_orders
-             SET payment_status = CASE WHEN status = "CANCELLED" THEN "canceled" WHEN status = "FULFILLED" THEN "paid" ELSE "unpaid" END,
-                 pay_later = CASE WHEN status IN ("CANCELLED", "FULFILLED") THEN 0 ELSE 1 END,
-                 payment_method = CASE WHEN status = "FULFILLED" THEN "bank" ELSE "" END,
-                 payment_account_key = CASE WHEN status = "FULFILLED" THEN "bca-main" ELSE "" END,
-                 paid_at = CASE WHEN status = "FULFILLED" THEN COALESCE(fulfilled_at, updated_at, created_at) ELSE NULL END'
+             SET payment_status = CASE WHEN status = "CANCELLED" THEN "canceled" WHEN status IN ("IS_LISTED", "IS_BEING_FULFILLED", "FULFILLED") THEN "paid" ELSE "unpaid" END,
+                 pay_later = 0,
+                 payment_method = CASE WHEN status IN ("IS_LISTED", "IS_BEING_FULFILLED", "FULFILLED") THEN "bank" ELSE "" END,
+                 payment_account_key = CASE WHEN status IN ("IS_LISTED", "IS_BEING_FULFILLED", "FULFILLED") THEN "bca-main" ELSE "" END,
+                 paid_at = CASE WHEN status IN ("IS_LISTED", "IS_BEING_FULFILLED", "FULFILLED") THEN COALESCE(fulfilled_at, listed_at, created_at, updated_at) ELSE NULL END'
         );
     }
+    // Pay Later did not exist before this UTC deployment timestamp. The first
+    // payment migration incorrectly marked legacy listed/in-progress orders as
+    // Pay Later. Repair only that impossible historical state and retain the
+    // original order timestamp so reconciled accounting periods stay closed.
+    $legacyPaymentRepair = $pdo->prepare(
+        'UPDATE whatsapp_orders
+         SET payment_status = "paid",
+             pay_later = 0,
+             payment_method = "bank",
+             payment_account_key = "bca-main",
+             paid_at = COALESCE(fulfilled_at, listed_at, created_at, updated_at)
+         WHERE created_at < :pay_later_launched_at
+           AND status IN ("IS_LISTED", "IS_BEING_FULFILLED", "FULFILLED")
+           AND payment_status = "unpaid"
+           AND paid_at IS NULL'
+    );
+    $legacyPaymentRepair->execute([':pay_later_launched_at' => JG_WHATSAPP_PAY_LATER_LAUNCHED_AT]);
     $pdo->exec(
         'CREATE TABLE IF NOT EXISTS whatsapp_order_items (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,

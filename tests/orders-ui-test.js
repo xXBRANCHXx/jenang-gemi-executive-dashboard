@@ -37,8 +37,15 @@ assert(
   'Unpaid direct-order dots must confirm and route payments to Cash Office or Bank Balance.'
 );
 assert(
-  /\['shopee', 'tiktok', 'tokopedia'\]\.includes\(platform\)[\s\S]*?funds_released[\s\S]*?return fundsReleased \? 'paid' : 'unpaid'/.test(admin),
-  'Marketplace payment dots must follow seller wallet release state instead of defaulting every order to paid.'
+  /\['shopee', 'tiktok', 'tokopedia'\]\.includes\(platform\)[\s\S]*?funds_released[\s\S]*?ordersPaymentHistoryVerified\(\) \? 'unpaid' : 'unknown'/.test(admin),
+  'Marketplace payment dots must follow verified seller-wallet release history instead of defaulting every order to paid.'
+);
+assert(
+  admin.includes("const ORDER_PAYMENT_AUDIT_START_DATE = '2026-05-20'")
+    && admin.includes('ensureOrdersPaymentHistoryAudit().catch')
+    && dashboard.includes('data-orders-payment-audit')
+    && dashboard.includes('data-toggle-order-payment="unknown"'),
+  'Orders must automatically verify the May 20 marketplace history and identify unverified payment states.'
 );
 assert(
   admin.includes("marketplaceOrder ? 'Funds not released' : 'Payment outstanding'"),

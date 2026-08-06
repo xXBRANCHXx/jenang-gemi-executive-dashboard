@@ -18,6 +18,22 @@ whatsapp_expect('Customer One', jg_whatsapp_text(" Customer\nOne ", 'Customer na
 whatsapp_expect(true, str_starts_with(jg_whatsapp_generate_order_id(), 'WAEXEC-'), 'Executive WhatsApp orders need a distinct Store Ops prefix.');
 whatsapp_expect(false, in_array('CANCELLED', JG_WHATSAPP_ORDER_OPEN_STATUSES, true), 'Cancelled WhatsApp orders must leave the Store Ops feed.');
 whatsapp_expect(false, in_array('CANCELLED', JG_WHATSAPP_ORDER_METRIC_STATUSES, true), 'Cancelled WhatsApp orders must not count as completed sales.');
+whatsapp_expect(true, jg_whatsapp_legacy_order_was_paid([
+    'status' => 'IS_LISTED',
+    'created_at' => '2026-08-03 10:04:00.000000',
+]), 'A successfully listed WhatsApp order from before Pay Later existed must be backfilled as paid.');
+whatsapp_expect(true, jg_whatsapp_legacy_order_was_paid([
+    'status' => 'IS_BEING_FULFILLED',
+    'created_at' => '2026-08-06 05:38:13.999999',
+]), 'The legacy paid backfill must include in-progress orders immediately before launch.');
+whatsapp_expect(false, jg_whatsapp_legacy_order_was_paid([
+    'status' => 'PUBLISH_FAILED',
+    'created_at' => '2026-08-03 10:04:00.000000',
+]), 'A failed legacy WhatsApp draft must not be backfilled as paid.');
+whatsapp_expect(false, jg_whatsapp_legacy_order_was_paid([
+    'status' => 'IS_LISTED',
+    'created_at' => JG_WHATSAPP_PAY_LATER_LAUNCHED_AT,
+]), 'Orders created after Pay Later launched must keep their explicit payment choice.');
 $storeOpsFinancials = jg_whatsapp_store_ops_financials([
     'merchandise_subtotal' => 457000,
     'merchandise_total' => 381500,

@@ -25087,6 +25087,18 @@ button.admin-order-payment-dot:focus-visible {
 .admin-order-payment-dot.is-paid { color: #16a34a; }
 .admin-order-payment-dot.is-unpaid { color: #dc2626; }
 .admin-order-payment-dot.is-canceled { color: #6b7280; }
+.admin-order-payment-dot.is-unknown { color: #d6a900; }
+
+.admin-orders-payment-audit {
+  display: block;
+  margin-top: 5px;
+  color: var(--admin-muted);
+  font: 750 0.66rem/1.25 "Plus Jakarta Sans", sans-serif;
+  letter-spacing: 0.04em;
+}
+
+.admin-orders-payment-audit.is-verified { color: #16a34a; }
+.admin-orders-payment-audit.is-warning { color: #d6a900; }
 
 .admin-orders-payment-filters {
   display: flex;
