@@ -143,6 +143,24 @@ function jg_blog_safe_href(string $href): string
     return in_array($scheme, ['http', 'https', 'mailto'], true) ? $href : '';
 }
 
+function jg_blog_safe_asset_src(string $src): string
+{
+    $parts = parse_url(trim($src));
+    if (!is_array($parts) || !empty($parts['scheme']) || !empty($parts['host'])) {
+        return '';
+    }
+    $path = '/' . ltrim((string) ($parts['path'] ?? ''), '/');
+    if (rtrim($path, '/') !== '/api/blogs') {
+        return '';
+    }
+    parse_str((string) ($parts['query'] ?? ''), $query);
+    $id = (int) ($query['id'] ?? 0);
+    if (($query['action'] ?? '') !== 'asset' || $id < 1) {
+        return '';
+    }
+    return '/api/blogs/?action=asset&id=' . $id;
+}
+
 function jg_blog_sanitize_html(mixed $html): string
 {
     $html = trim((string) $html);
@@ -160,7 +178,7 @@ function jg_blog_sanitize_html(mixed $html): string
         return '';
     }
 
-    $allowed = ['p', 'h2', 'h3', 'ul', 'ol', 'li', 'strong', 'em', 'a', 'blockquote', 'br'];
+    $allowed = ['p', 'h2', 'h3', 'ul', 'ol', 'li', 'strong', 'em', 'a', 'blockquote', 'br', 'figure', 'img', 'figcaption'];
     $walk = static function (DOMNode $parent) use (&$walk, $allowed): void {
         for ($node = $parent->firstChild; $node !== null;) {
             $next = $node->nextSibling;
@@ -186,6 +204,8 @@ function jg_blog_sanitize_html(mixed $html): string
                 }
 
                 $originalHref = $tag === 'a' ? $node->getAttribute('href') : '';
+                $originalSrc = $tag === 'img' ? $node->getAttribute('src') : '';
+                $originalAlt = $tag === 'img' ? $node->getAttribute('alt') : '';
                 $walk($node);
                 foreach (iterator_to_array($node->attributes) as $attribute) {
                     $node->removeAttribute($attribute->name);
@@ -198,6 +218,18 @@ function jg_blog_sanitize_html(mixed $html): string
                             $node->setAttribute('rel', 'noopener noreferrer');
                         }
                     }
+                }
+                if ($tag === 'img') {
+                    $safeSrc = jg_blog_safe_asset_src($originalSrc);
+                    if ($safeSrc === '') {
+                        $parent->removeChild($node);
+                        $node = $next;
+                        continue;
+                    }
+                    $node->setAttribute('src', $safeSrc);
+                    $node->setAttribute('alt', jg_blog_clean_text($originalAlt, 240));
+                    $node->setAttribute('loading', 'lazy');
+                    $node->setAttribute('decoding', 'async');
                 }
             }
             $node = $next;

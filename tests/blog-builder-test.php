@@ -29,6 +29,12 @@ blog_expect(false, str_contains($safeHtml, 'javascript:'), 'Unsafe link protocol
 blog_expect(true, str_contains($safeHtml, 'href="https://zerofoods.id/path"'), 'Safe links should remain available.');
 blog_expect(true, str_contains($safeHtml, '<h2>Useful heading</h2>'), 'Supported editorial headings should be preserved.');
 
+$imageHtml = jg_blog_sanitize_html('<figure class="bad"><img src="/api/blogs/?action=asset&amp;id=42" alt="Healthy plate" onerror="bad()"><figcaption>A balanced lunch</figcaption></figure><img src="https://example.com/tracker.gif">');
+blog_expect(true, str_contains($imageHtml, 'src="/api/blogs/?action=asset&amp;id=42"'), 'Uploaded inline article images should be preserved.');
+blog_expect(true, str_contains($imageHtml, '<figcaption>A balanced lunch</figcaption>'), 'Inline image captions should be preserved.');
+blog_expect(false, str_contains($imageHtml, 'onerror'), 'Inline images must not retain event attributes.');
+blog_expect(false, str_contains($imageHtml, 'tracker.gif'), 'External image sources must be rejected.');
+
 blog_expect(6, jg_blog_word_count('ZERO helps people eat better today.'), 'Word counting should support reading-time estimates.');
 
 $body = '<p>' . implode(' ', array_fill(0, 105, 'helpful')) . '</p>';

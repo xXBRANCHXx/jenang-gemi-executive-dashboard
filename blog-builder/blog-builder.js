@@ -37,6 +37,7 @@ if (root) {
     coverEmpty: root.querySelector('[data-cover-empty]'),
     coverPreview: root.querySelector('[data-cover-preview]'),
     coverChange: root.querySelector('[data-cover-change]'),
+    inlineImageInput: root.querySelector('[data-inline-image-input]'),
     currentStatus: root.querySelector('[data-current-status]'),
     articleMeta: root.querySelector('[data-article-meta]'),
     slugPreview: root.querySelector('[data-slug-preview]'),
@@ -58,10 +59,12 @@ if (root) {
     dirty: false,
     saving: false,
     hydrating: false,
+    changeRevision: 0,
     slugTouched: false,
     saveTimer: 0,
     toastTimer: 0,
-    loadSequence: 0
+    loadSequence: 0,
+    editorRange: null
   };
 
   const escapeHtml = (value) => String(value ?? '')
@@ -90,7 +93,19 @@ if (root) {
   const safePreviewHtml = (html) => {
     const template = document.createElement('template');
     template.innerHTML = html || '';
-    template.content.querySelectorAll('script,style,iframe,object,embed,form,input,button,img,video,audio').forEach((node) => node.remove());
+    template.content.querySelectorAll('script,style,iframe,object,embed,form,input,button,video,audio').forEach((node) => node.remove());
+    template.content.querySelectorAll('img').forEach((image) => {
+      const src = image.getAttribute('src') || '';
+      if (!/^\/api\/blogs\/?\?action=asset&id=\d+$/i.test(src)) {
+        image.remove();
+        return;
+      }
+      [...image.attributes].forEach((attribute) => {
+        if (!['src', 'alt', 'loading', 'decoding'].includes(attribute.name)) image.removeAttribute(attribute.name);
+      });
+      image.setAttribute('loading', 'lazy');
+      image.setAttribute('decoding', 'async');
+    });
     template.content.querySelectorAll('*').forEach((node) => {
       [...node.attributes].forEach((attribute) => {
         if (attribute.name.startsWith('on') || (attribute.name === 'href' && !/^(https?:|mailto:|#)/i.test(attribute.value))) {
@@ -142,6 +157,30 @@ if (root) {
     elements.saveState.textContent = label;
     elements.saveStateWrap.classList.toggle('is-saving', mode === 'saving');
     elements.saveStateWrap.classList.toggle('is-error', mode === 'error');
+  };
+
+  const rangeBelongsToEditor = (range) => Boolean(range && elements.body.contains(range.commonAncestorContainer));
+
+  const rememberEditorRange = () => {
+    const selection = window.getSelection();
+    if (selection?.rangeCount) {
+      const range = selection.getRangeAt(0);
+      if (rangeBelongsToEditor(range)) state.editorRange = range.cloneRange();
+    }
+  };
+
+  const rangeAtPoint = (x, y) => {
+    let range = null;
+    if (document.caretRangeFromPoint) range = document.caretRangeFromPoint(x, y);
+    else if (document.caretPositionFromPoint) {
+      const position = document.caretPositionFromPoint(x, y);
+      if (position) {
+        range = document.createRange();
+        range.setStart(position.offsetNode, position.offset);
+        range.collapse(true);
+      }
+    }
+    return rangeBelongsToEditor(range) ? range : null;
   };
 
   const relativeTime = (iso) => {
@@ -299,6 +338,7 @@ if (root) {
     state.hydrating = true;
     state.current = post;
     state.revisions = revisions;
+    state.changeRevision = 0;
     state.slugTouched = Boolean(post.id);
     elements.id.value = post.id || '';
     elements.version.value = post.version || 0;
@@ -359,6 +399,8 @@ if (root) {
     if (forcedStatus) elements.status.value = forcedStatus;
     updateDerived();
     const payload = gatherPost();
+    const saveRevision = state.changeRevision;
+    let saveSucceeded = false;
     state.saving = true;
     setSaveState('Saving…', 'saving');
     root.querySelectorAll('[data-save-draft], [data-schedule-post]').forEach((button) => { button.disabled = true; });
@@ -368,15 +410,18 @@ if (root) {
       state.revisions = response.revisions || [];
       elements.id.value = response.post.id;
       elements.version.value = response.post.version;
-      elements.slug.value = response.post.slug;
-      elements.status.value = response.post.status;
-      elements.body.innerHTML = response.post.body_html || '';
       state.slugTouched = true;
-      state.dirty = false;
+      saveSucceeded = true;
+      const hasNewerChanges = state.changeRevision !== saveRevision;
+      if (!hasNewerChanges) {
+        elements.slug.value = response.post.slug;
+        elements.status.value = response.post.status;
+        state.dirty = false;
+      }
       upsertSummary(response.post);
       renderHistory();
       updateDerived();
-      setSaveState('All changes saved');
+      setSaveState(hasNewerChanges ? 'Saving latest changes…' : 'All changes saved', hasNewerChanges ? 'saving' : 'ready');
       if (announce) showToast(response.post.status === 'scheduled' ? `Scheduled for ${formatSchedule(response.post.scheduled_at)}.` : 'Draft saved.');
       return response.post;
     } catch (error) {
@@ -388,6 +433,10 @@ if (root) {
     } finally {
       state.saving = false;
       root.querySelectorAll('[data-save-draft], [data-schedule-post]').forEach((button) => { button.disabled = false; });
+      if (saveSucceeded && state.dirty && state.changeRevision !== saveRevision) {
+        window.clearTimeout(state.saveTimer);
+        state.saveTimer = window.setTimeout(() => savePost(), 250);
+      }
     }
   };
 
@@ -400,6 +449,7 @@ if (root) {
 
   const markDirty = () => {
     if (state.hydrating) return;
+    state.changeRevision += 1;
     state.dirty = true;
     setSaveState('Unsaved changes', 'saving');
     updateDerived();
@@ -433,21 +483,94 @@ if (root) {
 
   const uploadCover = async (file) => {
     if (!file) return;
-    const formData = new FormData();
-    formData.append('image', file);
-    formData.append('alt_text', elements.title.value.trim() || 'ZERO article cover');
     elements.coverDrop.classList.remove('is-dragover');
     setSaveState('Uploading cover…', 'saving');
     try {
-      const response = await api('upload', { method: 'POST', body: formData });
-      setCover(response.asset.id, response.asset.url);
+      const asset = await uploadAsset(file, elements.title.value.trim() || 'ZERO article cover');
+      setCover(asset.id, asset.url);
       markDirty();
-      showToast(`Cover uploaded · ${response.asset.width} × ${response.asset.height}px.`);
+      showToast(`Cover uploaded · ${asset.width} × ${asset.height}px.`);
     } catch (error) {
       setSaveState('Upload failed', 'error');
       showToast(error.message, 'error');
     } finally {
       elements.coverInput.value = '';
+    }
+  };
+
+  const uploadAsset = async (file, altText) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('alt_text', altText);
+    const response = await api('upload', { method: 'POST', body: formData });
+    return response.asset;
+  };
+
+  const insertInlineImage = (asset, requestedRange = null) => {
+    const range = rangeBelongsToEditor(requestedRange)
+      ? requestedRange
+      : (rangeBelongsToEditor(state.editorRange) ? state.editorRange : document.createRange());
+    if (!rangeBelongsToEditor(range)) {
+      range.selectNodeContents(elements.body);
+      range.collapse(false);
+    }
+
+    const figure = document.createElement('figure');
+    const image = document.createElement('img');
+    const caption = document.createElement('figcaption');
+    image.setAttribute('src', asset.url);
+    image.setAttribute('alt', elements.title.value.trim() || 'ZERO article image');
+    image.setAttribute('loading', 'lazy');
+    image.setAttribute('decoding', 'async');
+    figure.append(image, caption);
+    const continuation = document.createElement('p');
+    continuation.append(document.createElement('br'));
+
+    range.deleteContents();
+    let anchor = range.startContainer.nodeType === Node.ELEMENT_NODE ? range.startContainer : range.startContainer.parentElement;
+    while (anchor && anchor !== elements.body && anchor.parentElement !== elements.body) anchor = anchor.parentElement;
+    if (anchor && anchor !== elements.body) {
+      anchor.after(figure, continuation);
+    } else {
+      const reference = elements.body.childNodes[range.startOffset] || null;
+      elements.body.insertBefore(figure, reference);
+      figure.after(continuation);
+    }
+    const selection = window.getSelection();
+    const typingRange = document.createRange();
+    typingRange.setStart(continuation, 0);
+    typingRange.collapse(true);
+    selection?.removeAllRanges();
+    selection?.addRange(typingRange);
+    state.editorRange = typingRange.cloneRange();
+    elements.body.focus();
+    markDirty();
+    const nextInsertionRange = document.createRange();
+    nextInsertionRange.setStartAfter(continuation);
+    nextInsertionRange.collapse(true);
+    return nextInsertionRange;
+  };
+
+  const uploadInlineImages = async (files, requestedRange = null) => {
+    const images = [...(files || [])].filter((file) => file.type.startsWith('image/'));
+    if (!images.length) {
+      showToast('Drop a JPEG, PNG, WebP, or GIF image into the article.', 'error');
+      return;
+    }
+    let insertionRange = requestedRange?.cloneRange?.() || state.editorRange?.cloneRange?.() || null;
+    setSaveState(images.length > 1 ? `Uploading ${images.length} images…` : 'Uploading image…', 'saving');
+    try {
+      for (const file of images) {
+        const asset = await uploadAsset(file, elements.title.value.trim() || 'ZERO article image');
+        insertionRange = insertInlineImage(asset, insertionRange);
+      }
+      showToast(`${images.length} inline image${images.length === 1 ? '' : 's'} added.`);
+    } catch (error) {
+      setSaveState('Upload failed', 'error');
+      showToast(error.message, 'error');
+    } finally {
+      elements.inlineImageInput.value = '';
+      elements.body.classList.remove('is-image-dragover');
     }
   };
 
@@ -555,12 +678,36 @@ if (root) {
       markDirty();
     }));
     elements.body.addEventListener('input', markDirty);
+    ['keyup', 'mouseup', 'focus'].forEach((type) => elements.body.addEventListener(type, rememberEditorRange));
     elements.body.addEventListener('paste', (event) => {
+      const images = [...(event.clipboardData?.files || [])].filter((file) => file.type.startsWith('image/'));
+      if (images.length) {
+        event.preventDefault();
+        uploadInlineImages(images, state.editorRange);
+        return;
+      }
       event.preventDefault();
       const text = event.clipboardData?.getData('text/plain') || '';
       const lines = text.split(/\r?\n/);
       const html = lines.map((line) => line ? escapeHtml(line) : '<br>').join('<br>');
       document.execCommand('insertHTML', false, html);
+    });
+    elements.body.addEventListener('dragover', (event) => {
+      if ([...(event.dataTransfer?.items || [])].some((item) => item.kind === 'file')) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'copy';
+        elements.body.classList.add('is-image-dragover');
+      }
+    });
+    elements.body.addEventListener('dragleave', (event) => {
+      if (!elements.body.contains(event.relatedTarget)) elements.body.classList.remove('is-image-dragover');
+    });
+    elements.body.addEventListener('drop', (event) => {
+      const files = [...(event.dataTransfer?.files || [])];
+      if (!files.length) return;
+      event.preventDefault();
+      const range = rangeAtPoint(event.clientX, event.clientY);
+      uploadInlineImages(files, range);
     });
 
     root.querySelectorAll('[data-format]').forEach((button) => button.addEventListener('click', () => {
@@ -581,6 +728,9 @@ if (root) {
       document.execCommand('createLink', false, safe);
       markDirty();
     });
+    root.querySelector('[data-inline-image]').addEventListener('pointerdown', rememberEditorRange);
+    root.querySelector('[data-inline-image]').addEventListener('click', () => elements.inlineImageInput.click());
+    elements.inlineImageInput.addEventListener('change', () => uploadInlineImages(elements.inlineImageInput.files, state.editorRange));
 
     root.querySelector('[data-save-draft]').addEventListener('click', () => savePost({ forcedStatus: 'draft', announce: true }));
     root.querySelector('[data-schedule-post]').addEventListener('click', schedulePost);

@@ -183,11 +183,15 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/blog-builder.js');
                                             <button type="button" data-add-link title="Add link">
                                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1-1"/></svg>
                                             </button>
+                                            <button type="button" data-inline-image title="Insert image" aria-label="Insert image">
+                                                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m21 15-5-5L5 20"/></svg>
+                                            </button>
+                                            <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple data-inline-image-input hidden>
                                             <button type="button" data-format="removeFormat" title="Clear formatting">
                                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 7 10 10M5 5h14M12 5l-4 14M17 17h4"/></svg>
                                             </button>
                                         </div>
-                                        <div class="blog-body-editor" data-body-editor contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Begin with the idea your reader needs most. Use short paragraphs, useful headings, and practical steps…"></div>
+                                        <div class="blog-body-editor" data-body-editor contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Begin with the idea your reader needs most. Drag images anywhere into the article, then use short paragraphs, useful headings, and practical steps…"></div>
                                         <footer class="blog-writing-footer">
                                             <span><strong data-word-count>0</strong> words</span>
                                             <span><strong data-read-time>1</strong> min read</span>
@@ -206,9 +210,9 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/blog-builder.js');
                             </div>
 
                             <div class="blog-inspector-panel is-active" data-inspector-panel="settings">
-                                <label class="blog-field"><span>Status</span><select name="status" form="blog-external-form" data-status-select><option value="draft">Draft</option><option value="in_review">In review</option><option value="scheduled">Scheduled</option><option value="archived">Archived</option></select></label>
-                                <label class="blog-field"><span>Author</span><input name="author" form="blog-external-form" maxlength="120" value="ZERO Editorial" placeholder="Author name" data-author-input></label>
-                                <label class="blog-field"><span>URL slug</span><div class="blog-prefix-input"><span>/blog/</span><input name="slug" form="blog-external-form" maxlength="220" placeholder="article-url" data-slug-input></div></label>
+                                <label class="blog-field"><span>Status</span><select name="status" data-status-select><option value="draft">Draft</option><option value="in_review">In review</option><option value="scheduled">Scheduled</option><option value="archived">Archived</option></select></label>
+                                <label class="blog-field"><span>Author</span><input name="author" maxlength="120" value="ZERO Editorial" placeholder="Author name" data-author-input></label>
+                                <label class="blog-field"><span>URL slug</span><div class="blog-prefix-input"><span>/blog/</span><input name="slug" maxlength="220" placeholder="article-url" data-slug-input></div></label>
                                 <div class="blog-field">
                                     <span>Cover image</span>
                                     <label class="blog-cover-drop" data-cover-drop>
@@ -223,7 +227,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/blog-builder.js');
                                 </div>
                                 <div class="blog-field blog-schedule-card" data-schedule-card>
                                     <span>Schedule (WIB)</span>
-                                    <input type="datetime-local" name="scheduled_at" form="blog-external-form" data-schedule-input>
+                                    <input type="datetime-local" name="scheduled_at" data-schedule-input>
                                     <small>Jakarta time · the article will wait in the ready queue after this time.</small>
                                     <div class="blog-schedule-shortcuts">
                                         <button type="button" data-schedule-shortcut="tomorrow">Tomorrow 09:00</button>
@@ -237,8 +241,8 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/blog-builder.js');
                             </div>
 
                             <div class="blog-inspector-panel" data-inspector-panel="seo" hidden>
-                                <label class="blog-field"><span>SEO title</span><input name="seo_title" form="blog-external-form" maxlength="240" placeholder="Defaults to article title" data-seo-title><small><b data-seo-title-count>0</b>/60 recommended</small></label>
-                                <label class="blog-field"><span>Meta description</span><textarea name="seo_description" form="blog-external-form" rows="5" maxlength="320" placeholder="A compelling summary for search results" data-seo-description></textarea><small><b data-seo-description-count>0</b>/160 recommended</small></label>
+                                <label class="blog-field"><span>SEO title</span><input name="seo_title" maxlength="240" placeholder="Defaults to article title" data-seo-title><small><b data-seo-title-count>0</b>/60 recommended</small></label>
+                                <label class="blog-field"><span>Meta description</span><textarea name="seo_description" rows="5" maxlength="320" placeholder="A compelling summary for search results" data-seo-description></textarea><small><b data-seo-description-count>0</b>/160 recommended</small></label>
                                 <article class="blog-serp-preview">
                                     <small>zerofoods.id › blog › <span data-serp-slug>untitled-article</span></small>
                                     <h3 data-serp-title>Untitled article</h3>
@@ -263,8 +267,6 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/blog-builder.js');
                 </main>
             </div>
         </div>
-
-        <form id="blog-external-form" hidden></form>
 
         <dialog class="blog-preview-dialog" data-preview-dialog>
             <div class="blog-preview-frame">
