@@ -641,6 +641,44 @@ function render_admin_sidebar(string $activeSection = ''): void
     echo '</div>';
     echo '</aside>';
     render_admin_mobile_sidebar_script();
+    render_admin_unpaid_order_indicator_script();
+}
+
+function render_admin_unpaid_order_indicator_script(): void
+{
+    static $rendered = false;
+    if ($rendered) return;
+    $rendered = true;
+    echo <<<'HTML'
+<script>
+(() => {
+    const refresh = async () => {
+        const links = document.querySelectorAll('[data-dashboard-nav-section="orders"]');
+        if (!links.length) return;
+        try {
+            const response = await fetch('/api/whatsapp-orders/?action=unpaid_summary', {
+                credentials: 'same-origin',
+                cache: 'no-store'
+            });
+            const payload = await response.json();
+            if (!response.ok || !payload.ok) return;
+            const count = Math.max(0, Number(payload.unpaid?.count || 0));
+            links.forEach((link) => {
+                link.classList.toggle('has-unpaid-direct-order', count > 0);
+                const baseLabel = link.getAttribute('data-nav-label') || 'Orders';
+                link.setAttribute('aria-label', count > 0 ? `${baseLabel}, ${count} unpaid direct order${count === 1 ? '' : 's'}` : baseLabel);
+                link.title = count > 0 ? `${count} unpaid WhatsApp or walk-in order${count === 1 ? '' : 's'}` : '';
+            });
+        } catch (_error) {
+            // Keep navigation usable when the payment summary is temporarily unavailable.
+        }
+    };
+    window.refreshDirectOrderUnpaidIndicator = refresh;
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', refresh, { once: true });
+    else refresh();
+})();
+</script>
+HTML;
 }
 
 function render_admin_mobile_sidebar_script(): void
@@ -724,6 +762,9 @@ function render_admin_sidebar_item(array $item, string $activeSection): void
     echo '<a ' . implode(' ', $attributes) . '>';
     $iconText = htmlspecialchars((string) ($item['icon_text'] ?? ''), ENT_QUOTES, 'UTF-8');
     echo '<span class="admin-rail-icon ' . $iconClass . '" aria-hidden="true"><span>' . $iconText . '</span></span>';
+    if (strtolower((string) ($item['key'] ?? '')) === 'orders') {
+        echo '<i class="admin-rail-unpaid-dot" aria-hidden="true"></i>';
+    }
     echo '<span class="admin-rail-link-text">' . $label . '</span>';
     echo '</a>';
 }

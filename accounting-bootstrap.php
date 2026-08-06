@@ -5,6 +5,7 @@ require_once __DIR__ . '/analytics-bootstrap.php';
 require_once __DIR__ . '/partner-billing-bootstrap.php';
 require_once __DIR__ . '/sku-db-bootstrap.php';
 require_once __DIR__ . '/purchase-orders-bootstrap.php';
+require_once __DIR__ . '/whatsapp-orders-bootstrap.php';
 
 function jg_accounting_now(): DateTimeImmutable
 {
@@ -162,6 +163,18 @@ function jg_accounting_has_column(PDO $pdo, string $table, string $column): bool
     );
     $stmt->execute([':table_name' => $table, ':column_name' => $column]);
     return (int) $stmt->fetchColumn() > 0;
+}
+
+function jg_accounting_table_has_column(PDO $pdo, string $table, string $column): bool
+{
+    if ((string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'sqlite') {
+        return jg_accounting_has_column($pdo, $table, $column);
+    }
+    if (!preg_match('/^[a-z0-9_]+$/i', $table)) return false;
+    foreach ($pdo->query('PRAGMA table_info("' . $table . '")')->fetchAll() as $row) {
+        if (strcasecmp((string) ($row['name'] ?? ''), $column) === 0) return true;
+    }
+    return false;
 }
 
 function jg_accounting_ensure_schema(PDO $pdo): void
@@ -1311,6 +1324,26 @@ function jg_accounting_automatic_account_at(PDO $pdo, string $occurredAt, array 
     return jg_accounting_default_account_id($pdo, 'automatic');
 }
 
+function jg_accounting_cash_record_account_id(PDO $pdo, array $record, array $automaticRoutes = []): int
+{
+    $accountKey = trim((string) ($record['account_key'] ?? ''));
+    if ($accountKey !== '') {
+        $stmt = $pdo->prepare(
+            'SELECT id FROM accounting_accounts
+             WHERE account_key = :account_key AND is_active = 1 AND can_receive = 1
+             LIMIT 1'
+        );
+        $stmt->execute([':account_key' => $accountKey]);
+        $accountId = (int) ($stmt->fetchColumn() ?: 0);
+        if ($accountId > 0) return $accountId;
+    }
+    return jg_accounting_automatic_account_at(
+        $pdo,
+        (string) ($record['occurred_at'] ?? ''),
+        $automaticRoutes
+    );
+}
+
 function jg_accounting_latest_cash_reconciliation(PDO $pdo, ?int $accountId = null): ?array
 {
     try {
@@ -1551,7 +1584,7 @@ function jg_accounting_cash_history(PDO $pdo): array
     foreach (jg_accounting_automatic_cash_records($pdo) as $record) {
         $amount = (int) ($record['usable_cash_amount'] ?? 0);
         $occurredAt = (string) ($record['occurred_at'] ?? (($record['record_date'] ?? '') . ' 12:00:00'));
-        $automaticAccountId = jg_accounting_automatic_account_at($pdo, $occurredAt, $automaticRoutes);
+        $automaticAccountId = jg_accounting_cash_record_account_id($pdo, $record, $automaticRoutes);
         if ($amount <= 0 || !isset($accounts[$automaticAccountId])) {
             continue;
         }
@@ -2601,17 +2634,29 @@ function jg_accounting_website_cash_records(PDO $pdo, array $bounds = []): array
 
 function jg_accounting_direct_order_cash_records(PDO $pdo, array $bounds = []): array
 {
-    $where = ['status = "FULFILLED"', 'fulfilled_at IS NOT NULL'];
+    $isMysql = (string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql';
+    if ($isMysql) {
+        jg_whatsapp_ensure_schema($pdo);
+    }
+    $hasPaymentSchema = jg_accounting_table_has_column($pdo, 'whatsapp_orders', 'payment_status')
+        && jg_accounting_table_has_column($pdo, 'whatsapp_orders', 'paid_at');
+    $where = $hasPaymentSchema
+        ? ['payment_status = "paid"', 'paid_at IS NOT NULL', 'status <> "CANCELLED"']
+        : ['status = "FULFILLED"', 'fulfilled_at IS NOT NULL'];
     $params = [];
-    jg_accounting_apply_source_time_filter($where, $params, $bounds, 'fulfilled_at', 'direct_paid');
+    $paymentTimeColumn = $hasPaymentSchema ? 'paid_at' : 'fulfilled_at';
+    jg_accounting_apply_source_time_filter($where, $params, $bounds, $paymentTimeColumn, 'direct_paid');
 
     try {
+        $paymentColumns = $hasPaymentSchema
+            ? 'payment_status, payment_method, payment_account_key, paid_at,'
+            : '"paid" AS payment_status, "bank" AS payment_method, "bca-main" AS payment_account_key, fulfilled_at AS paid_at,';
         $stmt = $pdo->prepare(
             'SELECT id, order_id, sales_channel, customer_name, merchandise_total, shipping_cost,
-                    status, fulfilled_at, created_at
+                    status, ' . $paymentColumns . ' fulfilled_at, created_at
              FROM whatsapp_orders
              WHERE ' . implode(' AND ', $where) . '
-             ORDER BY fulfilled_at ASC, id ASC'
+             ORDER BY ' . $paymentTimeColumn . ' ASC, id ASC'
         );
         $stmt->execute($params);
         $rows = $stmt->fetchAll();
@@ -2632,7 +2677,7 @@ function jg_accounting_direct_order_cash_records(PDO $pdo, array $bounds = []): 
         ));
         $manualOffset = min($gross, max(0, (int) ($offsets[$orderId] ?? 0)));
         $usable = max(0, $gross - $manualOffset);
-        $occurredAt = trim((string) ($row['fulfilled_at'] ?? $row['created_at'] ?? ''));
+        $occurredAt = trim((string) ($row['paid_at'] ?? $row['created_at'] ?? ''));
         $salesChannel = strtolower(trim((string) ($row['sales_channel'] ?? 'whatsapp')));
         $platform = $salesChannel === 'walk_in' ? 'walk_in' : 'whatsapp';
         $records[] = [
@@ -2645,7 +2690,7 @@ function jg_accounting_direct_order_cash_records(PDO $pdo, array $bounds = []): 
             'record_date' => jg_accounting_source_local_date($occurredAt),
             'business_month' => jg_accounting_source_business_month($occurredAt),
             'platform' => $platform,
-            'account_key' => 'bca-main',
+            'account_key' => (string) (($row['payment_account_key'] ?? '') ?: (($row['payment_method'] ?? '') === 'cash' ? 'cash-office' : 'bca-main')),
             'order_id' => $orderId,
             'counterparty' => (string) ($row['customer_name'] ?? ''),
             'gross_amount' => $gross,
@@ -2654,11 +2699,39 @@ function jg_accounting_direct_order_cash_records(PDO $pdo, array $bounds = []): 
             'amount' => $usable,
             'currency' => 'IDR',
             'record_status' => $usable > 0 ? ($manualOffset > 0 ? 'partially_offset' : 'usable') : 'fully_offset',
-            'cash_basis' => 'completed_direct_order_customer_total',
-            'notes' => (string) ($row['status'] ?? ''),
+            'cash_basis' => 'confirmed_direct_order_customer_total',
+            'notes' => trim(ucfirst((string) ($row['payment_method'] ?? '')) . ' • ' . (string) ($row['status'] ?? ''), ' •'),
         ];
     }
     return $records;
+}
+
+function jg_accounting_direct_order_outstanding_context(PDO $pdo): array
+{
+    try {
+        if ((string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql') {
+            jg_whatsapp_ensure_schema($pdo);
+        }
+        if (!jg_accounting_table_has_column($pdo, 'whatsapp_orders', 'payment_status')) {
+            return ['amount' => 0, 'order_count' => 0, 'available' => false, 'source' => 'unavailable', 'label' => 'Direct order receivables unavailable'];
+        }
+        $row = $pdo->query(
+            'SELECT COUNT(*) AS order_count,
+                    COALESCE(SUM(merchandise_total + shipping_cost), 0) AS amount
+             FROM whatsapp_orders
+             WHERE payment_status = "unpaid" AND status <> "CANCELLED"'
+        )->fetch() ?: [];
+        return [
+            'amount' => max(0, (int) round((float) ($row['amount'] ?? 0))),
+            'order_count' => max(0, (int) ($row['order_count'] ?? 0)),
+            'available' => true,
+            'source' => 'whatsapp_orders',
+            'label' => 'Unpaid WhatsApp and walk-in orders',
+        ];
+    } catch (Throwable $error) {
+        error_log('Direct order receivables unavailable: ' . $error->getMessage());
+        return ['amount' => 0, 'order_count' => 0, 'available' => false, 'source' => 'unavailable', 'label' => 'Direct order receivables unavailable'];
+    }
 }
 
 function jg_accounting_automatic_cash_records(PDO $pdo, array $filters = []): array
@@ -2817,6 +2890,7 @@ function jg_accounting_summary(PDO $pdo, string $month): array
          WHERE status = "open"'
     )->fetchColumn();
     $marketplaceOutstanding = jg_accounting_marketplace_outstanding_context($pdo);
+    $directOrderOutstanding = jg_accounting_direct_order_outstanding_context($pdo);
     $walletBreakdown = jg_accounting_wallet_breakdown($pdo, $marketplaceOutstanding);
     $walletReady = array_sum(array_map(
         static fn (array $wallet): int => max(0, (int) ($wallet['current_balance'] ?? 0)),
@@ -2826,7 +2900,8 @@ function jg_accounting_summary(PDO $pdo, string $month): array
         ? 0
         : max(0, (int) ($marketplaceOutstanding['amount'] ?? 0));
     $availableNow = $operatingFunds;
-    $expectedTotal = $walletReady + $marketplaceOutstandingAmount + $partnerBillsDue;
+    $directOrderOutstandingAmount = max(0, (int) ($directOrderOutstanding['amount'] ?? 0));
+    $expectedTotal = $walletReady + $marketplaceOutstandingAmount + $partnerBillsDue + $directOrderOutstandingAmount;
     $liquidAssetsTotal = $availableNow + $expectedTotal;
     $scheduledOutflow = $scheduledBills + (int) ($purchaseOrderOutflow['amount'] ?? 0);
     $projectedAfterBills = $liquidAssetsTotal - $scheduledOutflow;
@@ -2843,6 +2918,7 @@ function jg_accounting_summary(PDO $pdo, string $month): array
             'cash_available' => $cashAvailable,
             'operating_funds' => $operatingFunds,
             'marketplace_outstanding' => $marketplaceOutstanding['amount'],
+            'direct_order_outstanding' => $directOrderOutstandingAmount,
             'bills_due_soon' => $billsDueSoon,
             'scheduled_bills' => $scheduledBills,
             'purchase_orders_left_to_pay' => (int) ($purchaseOrderOutflow['amount'] ?? 0),
@@ -2866,6 +2942,7 @@ function jg_accounting_summary(PDO $pdo, string $month): array
                 'wallet_ready' => $walletReady,
                 'marketplace_outstanding' => $marketplaceOutstandingAmount,
                 'partner_unpaid' => $partnerBillsDue,
+                'direct_order_unpaid' => $directOrderOutstandingAmount,
             ],
             'outflow_segments' => [
                 'overdue' => $overdueBills,
@@ -2876,6 +2953,7 @@ function jg_accounting_summary(PDO $pdo, string $month): array
         ],
         'purchase_order_outflow' => $purchaseOrderOutflow,
         'marketplace_outstanding_context' => $marketplaceOutstanding,
+        'direct_order_outstanding_context' => $directOrderOutstanding,
         'wallet_breakdown' => $walletBreakdown,
         'cash_reconciliation' => $cashReconciliation,
         'balance_reconciliations' => (array) ($cashHistory['summary']['reconciliations'] ?? []),
@@ -3534,11 +3612,7 @@ function jg_accounting_activity_ledger(PDO $pdo, array $filters): array
             'direct_order_payment' => 'Direct order payment',
             default => 'Wallet payout',
         };
-        $automaticAccountId = jg_accounting_automatic_account_at(
-            $pdo,
-            (string) ($record['occurred_at'] ?? ''),
-            $automaticRoutes
-        );
+        $automaticAccountId = jg_accounting_cash_record_account_id($pdo, $record, $automaticRoutes);
         $rows[] = [
             'id' => 'automatic:' . (string) ($record['source_key'] ?? ''),
             'kind' => 'automatic',

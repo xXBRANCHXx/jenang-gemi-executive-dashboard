@@ -36,7 +36,7 @@ $sidebarSection = match (true) {
     in_array($requestedView ?? '', ['website', 'site', 'home', 'campaign', 'campaigns', 'landing', 'landing-pages'], true) => 'website',
     default => 'home',
 };
-$dashboardBuildVersion = 'exec3.97.7';
+$dashboardBuildVersion = 'exec3.97.8';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -662,7 +662,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                                         <th>PO</th>
 	                                        <th>Net Revenue</th>
 	                                        <th>COGS</th>
-	                                        <th>Wallet</th>
+	                                        <th>Paid</th>
 	                                        <th>Username</th>
 	                                        <th>Address</th>
 	                                        <th>Phone</th>
@@ -2071,11 +2071,24 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                             </div>
                         </div>
                     </section>
+                    <section class="admin-orders-filter-section admin-orders-payment-section">
+                        <div class="admin-orders-filter-section-head">
+                            <div>
+                                <span class="admin-orders-filter-step">3</span>
+                                <div><h4>Payment status</h4><p>Show paid, unpaid, or canceled orders.</p></div>
+                            </div>
+                        </div>
+                        <div class="admin-orders-payment-filters" data-orders-payment-filters>
+                            <button type="button" data-toggle-order-payment="paid">Paid</button>
+                            <button type="button" data-toggle-order-payment="unpaid">Unpaid</button>
+                            <button type="button" data-toggle-order-payment="canceled">Canceled</button>
+                        </div>
+                    </section>
                 </div>
                 <section class="admin-orders-filter-section admin-orders-catalog-section">
                     <div class="admin-orders-filter-section-head">
                         <div>
-                            <span class="admin-orders-filter-step">3</span>
+                            <span class="admin-orders-filter-step">4</span>
                             <div><h4>Products and flavors</h4><p>Narrow the result further using your SKU catalog.</p></div>
                         </div>
                     </div>
@@ -2098,6 +2111,19 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
             </div>
         </section>
     </div>
+    <dialog class="admin-hard-set-dialog admin-order-payment-dialog" data-order-payment-dialog aria-labelledby="order-payment-title">
+        <form method="dialog" data-order-payment-form>
+            <span class="admin-panel-kicker">Confirm payment</span>
+            <h2 id="order-payment-title">Mark direct order as paid</h2>
+            <p><strong data-order-payment-id>-</strong> will be added to Accounting when you confirm how the customer paid.</p>
+            <div class="admin-order-payment-methods">
+                <label><input type="radio" name="payment_method" value="cash" checked><span>Cash<small>Add to Cash Office</small></span></label>
+                <label><input type="radio" name="payment_method" value="bank"><span>Bank<small>Add to Bank Balance</small></span></label>
+            </div>
+            <p class="admin-form-error" data-order-payment-error hidden></p>
+            <div class="admin-modal-actions"><button type="button" class="admin-ghost-btn" data-order-payment-cancel>Cancel</button><button type="submit" class="admin-primary-btn" data-order-payment-confirm>Confirm paid</button></div>
+        </form>
+    </dialog>
     <script type="module" src="../admin.js?v=<?php echo urlencode($adminJsVersion ?: '1'); ?>"></script>
     <script type="module" src="../partner-billing-notifications.js?v=<?php echo urlencode((string) @filemtime(dirname(__DIR__) . '/partner-billing-notifications.js')); ?>"></script>
     <script src="../store-ops.js?v=<?php echo urlencode($storeOpsJsVersion ?: '1'); ?>" defer></script>

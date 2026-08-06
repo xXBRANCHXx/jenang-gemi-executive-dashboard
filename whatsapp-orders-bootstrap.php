@@ -25,6 +25,11 @@ function jg_whatsapp_ensure_schema(PDO $pdo): void
             customer_name VARCHAR(160) NOT NULL,
             customer_address VARCHAR(1000) NOT NULL DEFAULT "",
             customer_phone VARCHAR(50) NOT NULL DEFAULT "",
+            pay_later TINYINT(1) NOT NULL DEFAULT 0,
+            payment_status VARCHAR(24) NOT NULL DEFAULT "unpaid",
+            payment_method VARCHAR(24) NOT NULL DEFAULT "",
+            payment_account_key VARCHAR(80) NOT NULL DEFAULT "",
+            paid_at DATETIME(6) NULL DEFAULT NULL,
             merchandise_subtotal DECIMAL(16,2) NOT NULL DEFAULT 0,
             merchandise_total DECIMAL(16,2) NOT NULL DEFAULT 0,
             discount_type VARCHAR(24) NOT NULL DEFAULT "",
@@ -48,6 +53,22 @@ function jg_whatsapp_ensure_schema(PDO $pdo): void
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
     );
     jg_whatsapp_ensure_column($pdo, 'whatsapp_orders', 'sales_channel', 'VARCHAR(24) NOT NULL DEFAULT "whatsapp" AFTER status');
+    $needsPaymentBackfill = !jg_whatsapp_has_column($pdo, 'whatsapp_orders', 'payment_status');
+    jg_whatsapp_ensure_column($pdo, 'whatsapp_orders', 'pay_later', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER customer_phone');
+    jg_whatsapp_ensure_column($pdo, 'whatsapp_orders', 'payment_status', 'VARCHAR(24) NOT NULL DEFAULT "unpaid" AFTER pay_later');
+    jg_whatsapp_ensure_column($pdo, 'whatsapp_orders', 'payment_method', 'VARCHAR(24) NOT NULL DEFAULT "" AFTER payment_status');
+    jg_whatsapp_ensure_column($pdo, 'whatsapp_orders', 'payment_account_key', 'VARCHAR(80) NOT NULL DEFAULT "" AFTER payment_method');
+    jg_whatsapp_ensure_column($pdo, 'whatsapp_orders', 'paid_at', 'DATETIME(6) NULL DEFAULT NULL AFTER payment_account_key');
+    if ($needsPaymentBackfill) {
+        $pdo->exec(
+            'UPDATE whatsapp_orders
+             SET payment_status = CASE WHEN status = "CANCELLED" THEN "canceled" WHEN status = "FULFILLED" THEN "paid" ELSE "unpaid" END,
+                 pay_later = CASE WHEN status IN ("CANCELLED", "FULFILLED") THEN 0 ELSE 1 END,
+                 payment_method = CASE WHEN status = "FULFILLED" THEN "bank" ELSE "" END,
+                 payment_account_key = CASE WHEN status = "FULFILLED" THEN "bca-main" ELSE "" END,
+                 paid_at = CASE WHEN status = "FULFILLED" THEN COALESCE(fulfilled_at, updated_at, created_at) ELSE NULL END'
+        );
+    }
     $pdo->exec(
         'CREATE TABLE IF NOT EXISTS whatsapp_order_items (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -81,16 +102,49 @@ function jg_whatsapp_ensure_schema(PDO $pdo): void
     jg_whatsapp_ensure_column($pdo, 'whatsapp_order_items', 'discount_total', 'DECIMAL(16,2) NOT NULL DEFAULT 0 AFTER discount_rate');
 }
 
-function jg_whatsapp_ensure_column(PDO $pdo, string $tableName, string $columnName, string $definition): void
+function jg_whatsapp_has_column(PDO $pdo, string $tableName, string $columnName): bool
 {
     $stmt = $pdo->prepare(
         'SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table_name AND COLUMN_NAME = :column_name'
     );
     $stmt->execute([':table_name' => $tableName, ':column_name' => $columnName]);
-    if ((int) $stmt->fetchColumn() === 0) {
+    return (int) $stmt->fetchColumn() > 0;
+}
+
+function jg_whatsapp_ensure_column(PDO $pdo, string $tableName, string $columnName, string $definition): void
+{
+    if (!jg_whatsapp_has_column($pdo, $tableName, $columnName)) {
         $pdo->exec(sprintf('ALTER TABLE `%s` ADD COLUMN `%s` %s', $tableName, $columnName, $definition));
     }
+}
+
+function jg_whatsapp_bool(mixed $value): bool
+{
+    if (is_bool($value)) return $value;
+    return in_array(strtolower(trim((string) $value)), ['1', 'true', 'yes', 'on'], true);
+}
+
+function jg_whatsapp_payment_method(mixed $value, bool $required = true): string
+{
+    $method = strtolower(trim((string) $value));
+    if ($method === '' && !$required) return '';
+    if (!in_array($method, ['cash', 'bank'], true)) {
+        throw new InvalidArgumentException('Choose whether the customer paid in cash or by bank.');
+    }
+    return $method;
+}
+
+function jg_whatsapp_payment_account_key(string $method): string
+{
+    return $method === 'cash' ? 'cash-office' : 'bca-main';
+}
+
+function jg_whatsapp_payment_status(array $row): string
+{
+    if (strtoupper(trim((string) ($row['status'] ?? ''))) === 'CANCELLED') return 'canceled';
+    $status = strtolower(trim((string) ($row['payment_status'] ?? 'unpaid')));
+    return in_array($status, ['paid', 'unpaid', 'canceled'], true) ? $status : 'unpaid';
 }
 
 function jg_whatsapp_money(mixed $value, string $label): float
@@ -408,6 +462,7 @@ function jg_whatsapp_order_items(PDO $pdo, int $id): array
 function jg_whatsapp_format_order(PDO $pdo, array $row, bool $includeItems = true): array
 {
     $items = $includeItems ? jg_whatsapp_order_items($pdo, (int) $row['id']) : [];
+    $paymentStatus = jg_whatsapp_payment_status($row);
     return [
         'order_id' => (string) $row['order_id'],
         'status' => (string) $row['status'],
@@ -417,6 +472,12 @@ function jg_whatsapp_format_order(PDO $pdo, array $row, bool $includeItems = tru
             'address' => (string) $row['customer_address'],
             'phone' => (string) $row['customer_phone'],
         ],
+        'pay_later' => (int) ($row['pay_later'] ?? 0) === 1,
+        'payment_status' => $paymentStatus,
+        'payment_method' => (string) ($row['payment_method'] ?? ''),
+        'payment_account_key' => (string) ($row['payment_account_key'] ?? ''),
+        'paid_at' => !empty($row['paid_at']) ? jg_website_atom((string) $row['paid_at']) : null,
+        'can_confirm_payment' => $paymentStatus === 'unpaid',
         'merchandise_subtotal' => (float) (($row['merchandise_subtotal'] ?? 0) ?: $row['merchandise_total']),
         'merchandise_total' => (float) $row['merchandise_total'],
         'discount_type' => (string) ($row['discount_type'] ?? ''),
@@ -459,6 +520,10 @@ function jg_whatsapp_create_order(PDO $pdo, PDO $skuPdo, array $payload, array $
     $customerName = jg_whatsapp_text($payload['customer_name'] ?? '', 'Customer name', 160, true);
     $customerAddress = jg_whatsapp_text($payload['customer_address'] ?? '', 'Customer address', 1000);
     $customerPhone = jg_whatsapp_text($payload['customer_phone'] ?? '', 'Customer phone', 50);
+    $payLater = jg_whatsapp_bool($payload['pay_later'] ?? false);
+    $paymentMethod = $payLater ? '' : jg_whatsapp_payment_method($payload['payment_method'] ?? '');
+    $paymentStatus = $payLater ? 'unpaid' : 'paid';
+    $paymentAccountKey = $payLater ? '' : jg_whatsapp_payment_account_key($paymentMethod);
     $notes = jg_whatsapp_text($payload['notes'] ?? '', 'Notes', 500);
     $shippingCost = $isWalkIn ? 0.0 : jg_whatsapp_money($payload['shipping_cost'] ?? null, 'Shipping cost');
     $deadlineHours = $isWalkIn ? 0 : (int) ($payload['deadline_hours'] ?? 24);
@@ -483,11 +548,13 @@ function jg_whatsapp_create_order(PDO $pdo, PDO $skuPdo, array $payload, array $
         $initialStatus = $isWalkIn ? 'FULFILLED' : 'PENDING_PUBLISH';
         $stmt = $pdo->prepare(
             'INSERT INTO whatsapp_orders
-                (order_id, status, sales_channel, customer_name, customer_address, customer_phone, merchandise_subtotal, merchandise_total,
+                (order_id, status, sales_channel, customer_name, customer_address, customer_phone,
+                 pay_later, payment_status, payment_method, payment_account_key, paid_at, merchandise_subtotal, merchandise_total,
                  discount_type, discount_value, discount_total, shipping_cost,
                  deadline_hours, label_storage_key, label_original_name, label_size_bytes, notes, listed_at, fulfilled_at, created_at, updated_at)
              VALUES
-                (:order_id, :status, :sales_channel, :customer_name, :customer_address, :customer_phone, :merchandise_subtotal, :merchandise_total,
+                (:order_id, :status, :sales_channel, :customer_name, :customer_address, :customer_phone,
+                 :pay_later, :payment_status, :payment_method, :payment_account_key, :paid_at, :merchandise_subtotal, :merchandise_total,
                  :discount_type, :discount_value, :discount_total, :shipping_cost,
                  :deadline_hours, :label_storage_key, :label_original_name, :label_size_bytes, :notes, :listed_at, :fulfilled_at, :created_at, :updated_at)'
         );
@@ -498,6 +565,11 @@ function jg_whatsapp_create_order(PDO $pdo, PDO $skuPdo, array $payload, array $
             ':customer_name' => $customerName,
             ':customer_address' => $customerAddress,
             ':customer_phone' => $customerPhone,
+            ':pay_later' => $payLater ? 1 : 0,
+            ':payment_status' => $paymentStatus,
+            ':payment_method' => $paymentMethod,
+            ':payment_account_key' => $paymentAccountKey,
+            ':paid_at' => $payLater ? null : $now,
             ':merchandise_subtotal' => number_format($merchandiseSubtotal, 2, '.', ''),
             ':merchandise_total' => number_format($merchandiseTotal, 2, '.', ''),
             ':discount_type' => $orderDiscount['type'],
@@ -714,7 +786,7 @@ function jg_whatsapp_cancel_order(PDO $pdo, string $orderId): array
             }
             $pdo->prepare(
                 'UPDATE whatsapp_orders
-                 SET status = "CANCELLED", updated_at = :updated_at
+                 SET status = "CANCELLED", payment_status = "canceled", updated_at = :updated_at
                  WHERE id = :id'
             )->execute([':updated_at' => jg_whatsapp_now(), ':id' => $row['id']]);
         }
@@ -726,6 +798,59 @@ function jg_whatsapp_cancel_order(PDO $pdo, string $orderId): array
         throw $error;
     }
     return jg_whatsapp_format_order($pdo, jg_whatsapp_internal_order($pdo, $orderId));
+}
+
+function jg_whatsapp_confirm_payment(PDO $pdo, string $orderId, mixed $method): array
+{
+    jg_whatsapp_ensure_schema($pdo);
+    $orderId = trim($orderId);
+    if ($orderId === '') throw new InvalidArgumentException('Choose a direct order to confirm.');
+    $paymentMethod = jg_whatsapp_payment_method($method);
+    $now = jg_whatsapp_now();
+
+    $pdo->beginTransaction();
+    try {
+        $row = jg_whatsapp_internal_order($pdo, $orderId, true);
+        $status = jg_whatsapp_payment_status($row);
+        if ($status === 'canceled') {
+            throw new RuntimeException('Canceled orders cannot be marked paid.');
+        }
+        if ($status === 'unpaid') {
+            $pdo->prepare(
+                'UPDATE whatsapp_orders
+                 SET payment_status = "paid", pay_later = 0, payment_method = :payment_method,
+                     payment_account_key = :payment_account_key, paid_at = :paid_at, updated_at = :updated_at
+                 WHERE id = :id AND payment_status = "unpaid"'
+            )->execute([
+                ':payment_method' => $paymentMethod,
+                ':payment_account_key' => jg_whatsapp_payment_account_key($paymentMethod),
+                ':paid_at' => $now,
+                ':updated_at' => $now,
+                ':id' => $row['id'],
+            ]);
+        }
+        $pdo->commit();
+    } catch (Throwable $error) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $error;
+    }
+    return jg_whatsapp_format_order($pdo, jg_whatsapp_internal_order($pdo, $orderId));
+}
+
+/** @return array{count:int,amount:float} */
+function jg_whatsapp_unpaid_summary(PDO $pdo): array
+{
+    jg_whatsapp_ensure_schema($pdo);
+    $row = $pdo->query(
+        'SELECT COUNT(*) AS unpaid_count,
+                COALESCE(SUM(merchandise_total + shipping_cost), 0) AS unpaid_amount
+         FROM whatsapp_orders
+         WHERE payment_status = "unpaid" AND status <> "CANCELLED"'
+    )->fetch() ?: [];
+    return [
+        'count' => (int) ($row['unpaid_count'] ?? 0),
+        'amount' => (float) ($row['unpaid_amount'] ?? 0),
+    ];
 }
 
 /** @return array<string,mixed> */
@@ -751,7 +876,7 @@ function jg_whatsapp_order_detail(PDO $pdo, string $orderId): array
         $state = jg_whatsapp_store_ops_state($orderId);
         if (!empty($state['cancelled']) && strtoupper((string) ($row['status'] ?? '')) === 'IS_LISTED') {
             $pdo->prepare(
-                'UPDATE whatsapp_orders SET status = "CANCELLED", updated_at = :updated_at
+                'UPDATE whatsapp_orders SET status = "CANCELLED", payment_status = "canceled", updated_at = :updated_at
                  WHERE id = :id AND status = "IS_LISTED"'
             )->execute([':updated_at' => jg_whatsapp_now(), ':id' => $row['id']]);
             $row = jg_whatsapp_internal_order($pdo, $orderId);
@@ -880,7 +1005,8 @@ function jg_whatsapp_metric_order_rows(PDO $pdo, string $startDate, string $endD
         ->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s.u');
     $statusSql = implode(',', array_fill(0, count(JG_WHATSAPP_ORDER_METRIC_STATUSES), '?'));
     $stmt = $pdo->prepare(
-        'SELECT o.order_id, o.status, o.sales_channel, o.customer_name, o.customer_address, o.customer_phone, o.created_at, o.listed_at,
+        'SELECT o.order_id, o.status, o.sales_channel, o.customer_name, o.customer_address, o.customer_phone,
+                o.payment_status, o.payment_method, o.payment_account_key, o.paid_at, o.created_at, o.listed_at,
                 o.merchandise_total, o.shipping_cost,
                 i.id AS item_id, i.sku, i.product_name, i.brand_name, i.base_product_name, i.flavor_name,
                 i.quantity, i.unit_price, i.unit_cogs, i.line_total
@@ -924,6 +1050,14 @@ function jg_whatsapp_metric_order_rows(PDO $pdo, string $startDate, string $endD
             'customer_name' => (string) $row['customer_name'],
             'shipping_address' => (string) $row['customer_address'],
             'customer_phone' => (string) $row['customer_phone'],
+            'username' => (string) $row['customer_name'],
+            'address' => (string) $row['customer_address'],
+            'phone' => (string) $row['customer_phone'],
+            'payment_status' => jg_whatsapp_payment_status($row),
+            'payment_method' => (string) ($row['payment_method'] ?? ''),
+            'payment_account_key' => (string) ($row['payment_account_key'] ?? ''),
+            'paid_at' => !empty($row['paid_at']) ? jg_website_atom((string) $row['paid_at']) : null,
+            'can_confirm_payment' => jg_whatsapp_payment_status($row) === 'unpaid',
             'status' => (string) $row['status'],
             'source' => $salesChannel === 'whatsapp' ? 'whatsapp_listed_order' : 'walk_in_direct_order',
         ];

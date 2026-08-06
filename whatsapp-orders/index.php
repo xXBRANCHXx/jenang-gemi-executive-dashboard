@@ -27,7 +27,7 @@ $pageJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-orders.js');
     <link rel="stylesheet" href="../admin.css?v=<?php echo urlencode($adminCssVersion ?: '1'); ?>">
 </head>
 <body class="admin-body is-dashboard is-whatsapp-orders-page">
-    <div class="admin-build-badge" aria-label="Dashboard build version">Build exec3.93.0</div>
+    <div class="admin-build-badge" aria-label="Dashboard build version">Build exec3.97.8</div>
     <div class="admin-app admin-app-suite" data-whatsapp-orders data-endpoint="../api/whatsapp-orders/">
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
@@ -160,7 +160,19 @@ $pageJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-orders.js');
                                     <span class="is-total">Customer total <strong data-customer-total>Rp0</strong></span>
                                 </div>
                                 <p class="admin-form-error" data-form-error hidden></p>
-                                        <button type="submit" class="admin-primary-btn" data-submit-order disabled>Send listed order to Store Ops</button>
+                                <div class="whatsapp-payment-controls">
+                                    <div class="whatsapp-payment-method" data-payment-method>
+                                        <span>Paid via</span>
+                                        <label><input type="radio" name="payment_method" value="cash"><span>Cash</span></label>
+                                        <label><input type="radio" name="payment_method" value="bank" checked><span>Bank</span></label>
+                                    </div>
+                                    <label class="whatsapp-pay-later-toggle">
+                                        <span><strong>Pay later</strong><small>Leave this order unpaid</small></span>
+                                        <input type="checkbox" name="pay_later" value="1" data-pay-later>
+                                        <i aria-hidden="true"></i>
+                                    </label>
+                                    <button type="submit" class="admin-primary-btn" data-submit-order disabled>Send listed order to Store Ops</button>
+                                </div>
                             </section>
                         </form>
                     </section>

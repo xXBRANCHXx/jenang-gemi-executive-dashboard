@@ -25,6 +25,18 @@ assert(
   'The Orders revenue column must identify the displayed amount as net revenue.'
 );
 assert(
+  dashboard.includes('<th>Paid</th>')
+    && dashboard.includes('data-toggle-order-payment="unpaid"')
+    && dashboard.includes('data-order-payment-dialog'),
+  'Orders must expose payment status, paid/unpaid filtering, and the direct-order payment confirmation dialog.'
+);
+assert(
+  admin.includes('data-confirm-order-payment')
+    && admin.includes("payment_status: 'paid'")
+    && admin.includes("method === 'cash' ? 'cash-office' : 'bca-main'"),
+  'Unpaid direct-order dots must confirm and route payments to Cash Office or Bank Balance.'
+);
+assert(
   /const orderIdAccent = \(value\) => \{[\s\S]*?Math\.imul\(hash, 16777619\)[\s\S]*?getOverviewAccountColor\(hash >>> 0\)/.test(admin)
     && admin.includes('class="admin-order-id"')
     && admin.includes('const orderAccent = orderIdAccent(orderId);')

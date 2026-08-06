@@ -923,7 +923,7 @@ const ORDER_BOOTSTRAP_MIN_ROWS = 320;
 const ORDER_BOOTSTRAP_MAX_WINDOWS = 2;
 const ORDER_BACKGROUND_TARGET_ROWS = 24000;
 const ORDER_BACKGROUND_MAX_WINDOWS = 72;
-const ORDER_CLIENT_CACHE_VERSION = 2;
+const ORDER_CLIENT_CACHE_VERSION = 3;
 const OVERVIEW_LOCATION_PAGE_SIZE = 2000;
 const OVERVIEW_LOCATION_MAX_PAGES = 25;
 const OVERVIEW_LOCATION_CACHE_VERSION = 5;
@@ -2527,6 +2527,8 @@ document.addEventListener('DOMContentLoaded', () => {
       loadGeneration: 0,
       loadedAll: false,
       exporting: false,
+      paymentOrderId: '',
+      paymentSaving: false,
       renderLimit: ORDER_RENDER_BATCH_SIZE,
       scrollPending: false,
       ensureRunning: false,
@@ -2540,6 +2542,7 @@ document.addEventListener('DOMContentLoaded', () => {
         flavors: [],
         platforms: [],
         accounts: [],
+        payments: [],
         startDate: '',
         endDate: ''
 	      },
@@ -2811,6 +2814,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 	  const customerProfilesEndpoint = root.dataset.customerProfilesEndpoint || '../api/customer-profiles/?summary=1';
 	  const ordersEndpoint = root.dataset.ordersEndpoint || '../api/orders/';
+	  const directOrdersPaymentEndpoint = '../api/whatsapp-orders/';
 	  const ordersRefs = {
     tableBody: document.querySelector('[data-orders-table-body]'),
     scroll: document.querySelector('[data-orders-scroll]'),
@@ -2830,6 +2834,7 @@ document.addEventListener('DOMContentLoaded', () => {
     companyTree: document.querySelector('[data-orders-company-tree]'),
     catalogSearch: document.querySelector('[data-orders-catalog-search]'),
     platforms: document.querySelector('[data-orders-platforms]'),
+    paymentFilters: document.querySelector('[data-orders-payment-filters]'),
     quickRanges: document.querySelectorAll('[data-orders-quick-range]'),
     startLabel: document.querySelector('[data-orders-start-label]'),
     endLabel: document.querySelector('[data-orders-end-label]'),
@@ -2838,7 +2843,13 @@ document.addEventListener('DOMContentLoaded', () => {
     dateGrid: document.querySelector('[data-orders-date-grid]'),
     dateMonth: document.querySelector('[data-orders-date-month]'),
     datePrev: document.querySelector('[data-orders-date-prev]'),
-	    dateNext: document.querySelector('[data-orders-date-next]')
+	    dateNext: document.querySelector('[data-orders-date-next]'),
+    paymentDialog: document.querySelector('[data-order-payment-dialog]'),
+    paymentForm: document.querySelector('[data-order-payment-form]'),
+    paymentOrderId: document.querySelector('[data-order-payment-id]'),
+    paymentError: document.querySelector('[data-order-payment-error]'),
+    paymentCancel: document.querySelector('[data-order-payment-cancel]'),
+    paymentConfirm: document.querySelector('[data-order-payment-confirm]')
 	  };
 	  const walletRefs = {
 	    status: document.querySelector('[data-wallet-status]'),
@@ -4915,6 +4926,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const compactOrderFilterValue = (value) => normalizeOrderFilterValue(value).replace(/[^a-z0-9]+/g, '');
 
+  const orderPaymentStatus = (row) => {
+    const lifecycle = normalizeOrderFilterValue(row?.status || row?.order_status || row?.fulfillment_status || '');
+    if (lifecycle.includes('cancel') || lifecycle === 'void' || lifecycle === 'voided') return 'canceled';
+    const explicit = normalizeOrderFilterValue(row?.payment_status || '');
+    if (['paid', 'unpaid', 'canceled'].includes(explicit)) return explicit;
+    if (lifecycle.includes('unpaid') || lifecycle.includes('pending_payment')) return 'unpaid';
+    return 'paid';
+  };
+
   const orderFiltersSignature = () => {
     const filters = state.orders.filters;
     return [
@@ -4923,6 +4943,7 @@ document.addEventListener('DOMContentLoaded', () => {
       filters.flavors.join('\u001f'),
       filters.platforms.join('\u001f'),
       filters.accounts.join('\u001f'),
+      filters.payments.join('\u001f'),
       filters.startDate || '',
       filters.endDate || ''
     ].join('\u001e');
@@ -4941,6 +4962,7 @@ document.addEventListener('DOMContentLoaded', () => {
       flavors: createOrderFilterMatchList(filters.flavors),
       platforms: new Set(filters.platforms.map(normalizeOrderFilterValue).filter(Boolean)),
       accounts: new Set(filters.accounts.map(normalizeOrderFilterValue).filter(Boolean)),
+      payments: new Set(filters.payments.map(normalizeOrderFilterValue).filter(Boolean)),
       startDate: filters.startDate || '',
       endDate: filters.endDate || ''
     };
@@ -5715,7 +5737,8 @@ document.addEventListener('DOMContentLoaded', () => {
       orderFilterMatchesAny(filters.products, orderProductValues(row)) &&
       orderFilterMatchesAny(filters.flavors, orderFlavorValues(row)) &&
       (!filters.platforms.size || filters.platforms.has(row._platformKey || normalizeOrderFilterValue(row.platform || ''))) &&
-      (!filters.accounts.size || filters.accounts.has(row._accountFilterKey || orderAccountFilterKey(row)))
+      (!filters.accounts.size || filters.accounts.has(row._accountFilterKey || orderAccountFilterKey(row))) &&
+      (!filters.payments.size || filters.payments.has(orderPaymentStatus(row)))
     );
   };
 
@@ -5727,7 +5750,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const hasOrderFilters = () => {
     const filters = state.orders.filters;
-    return Boolean(filters.companies.length || filters.products.length || filters.flavors.length || filters.platforms.length || filters.accounts.length || filters.startDate || filters.endDate);
+    return Boolean(filters.companies.length || filters.products.length || filters.flavors.length || filters.platforms.length || filters.accounts.length || filters.payments.length || filters.startDate || filters.endDate);
   };
 
   const resetOrderRenderWindow = () => {
@@ -5766,6 +5789,7 @@ document.addEventListener('DOMContentLoaded', () => {
       flavors: [],
       platforms: [],
       accounts: [],
+      payments: [],
       startDate: '',
       endDate: ''
     };
@@ -7519,6 +7543,7 @@ document.addEventListener('DOMContentLoaded', () => {
     filters.flavors.forEach((value) => addChip('flavors', `Flavor: ${value}`, value));
     filters.platforms.forEach((value) => addChip('platforms', `Platform: ${platformLabel(value)}`, value));
     filters.accounts.forEach((value) => addChip('accounts', `Account: ${orderAccountLabelFromKey(value)}`, value));
+    filters.payments.forEach((value) => addChip('payments', `Payment: ${toTitleCase(value)}`, value));
     if (filters.startDate) addChip('startDate', `From: ${filters.startDate}`, filters.startDate);
     if (filters.endDate) addChip('endDate', `To: ${filters.endDate}`, filters.endDate);
     ordersRefs.activeFilters.hidden = !chips.length;
@@ -7729,6 +7754,7 @@ document.addEventListener('DOMContentLoaded', () => {
       + filters.flavors.length
       + filters.platforms.length
       + filters.accounts.length
+      + filters.payments.length
       + (filters.startDate || filters.endDate ? 1 : 0);
   };
 
@@ -7758,6 +7784,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const range = button.getAttribute('data-orders-quick-range') || 'all';
       const dates = orderQuickRangeDates(range);
       const selected = state.orders.filters.startDate === dates.startDate && state.orders.filters.endDate === dates.endDate;
+      button.classList.toggle('is-selected', selected);
+      button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+    });
+    ordersRefs.paymentFilters?.querySelectorAll('[data-toggle-order-payment]').forEach((button) => {
+      const value = normalizeOrderFilterValue(button.getAttribute('data-toggle-order-payment'));
+      const selected = state.orders.filters.payments.some((item) => normalizeOrderFilterValue(item) === value);
       button.classList.toggle('is-selected', selected);
       button.setAttribute('aria-pressed', selected ? 'true' : 'false');
     });
@@ -7838,11 +7870,14 @@ document.addEventListener('DOMContentLoaded', () => {
 	      const poNumbers = Array.isArray(row.allocations) && row.allocations.length
 	        ? [...new Set(row.allocations.map((item) => item.po_number).filter(Boolean))].join(', ')
 	        : '-';
-	      const fundsReleased = row.funds_released === true || row.funds_released === 1 || String(row.funds_released || '').toLowerCase() === 'true';
-	      const releasedAmount = Number(row.funds_released_amount || row.order_net_revenue || row.revenue || 0);
-	      const releasedTitle = fundsReleased
-	        ? `Funds released${releasedAmount > 0 ? `: ${formatCurrency(releasedAmount)}` : ''}${row.funds_released_at ? ` at ${formatOrderTimestamp(row.funds_released_at)}` : ''}`
-	        : 'Funds not released';
+	      const paymentStatus = orderPaymentStatus(row);
+      const directOrder = ['whatsapp', 'walk-in', 'walk_in'].includes(normalizeOrderFilterValue(row.platform));
+      const paymentTitle = paymentStatus === 'paid'
+        ? `Paid${row.payment_method ? ` by ${row.payment_method}` : ''}${row.paid_at ? ` at ${formatOrderTimestamp(row.paid_at)}` : ''}`
+        : (paymentStatus === 'canceled' ? 'Canceled order' : (directOrder ? 'Unpaid — click to confirm payment' : 'Unpaid'));
+      const paymentDot = directOrder && paymentStatus === 'unpaid'
+        ? `<button type="button" class="admin-order-payment-dot is-unpaid" data-confirm-order-payment="${escapeHtml(orderId)}" title="${escapeHtml(paymentTitle)}" aria-label="${escapeHtml(paymentTitle)}"></button>`
+        : `<span class="admin-order-payment-dot is-${escapeHtml(paymentStatus)}" title="${escapeHtml(paymentTitle)}" aria-label="${escapeHtml(paymentTitle)}"></span>`;
 	      return `
 	        <tr>
 	          <td>${escapeHtml(formatOrderTimestamp(row.order_create_time || row.timestamp))}</td>
@@ -7853,7 +7888,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td title="${escapeHtml(allocation)}">${escapeHtml(poNumbers)}</td>
 	          <td title="Recalculated net revenue allocated to this order line">${formatCellCurrency(orderNetRevenue(row))}</td>
 	          <td title="Static average COGS from SKU DB">${formatCellCurrency(row.cogs || 0)}</td>
-	          <td class="admin-order-wallet-cell"><span class="admin-order-wallet-symbol${fundsReleased ? ' is-released' : ' is-pending'}" title="${escapeHtml(releasedTitle)}" aria-label="${escapeHtml(releasedTitle)}">${fundsReleased ? 'Rp' : '-'}</span></td>
+	          <td class="admin-order-wallet-cell">${paymentDot}</td>
 	          <td>${contactButton(row.username, 'username')}</td>
 	          <td>${contactButton(row.address, 'address')}</td>
 	          <td>${contactButton(row.phone, 'phone')}</td>
@@ -7861,6 +7896,65 @@ document.addEventListener('DOMContentLoaded', () => {
 	      `;
 	    }, 'No loaded orders match the current filters yet.');
 	  };
+
+  const openOrderPaymentDialog = (orderId) => {
+    if (!ordersRefs.paymentDialog || !orderId) return;
+    state.orders.paymentOrderId = orderId;
+    if (ordersRefs.paymentOrderId) ordersRefs.paymentOrderId.textContent = orderId;
+    if (ordersRefs.paymentError) {
+      ordersRefs.paymentError.hidden = true;
+      ordersRefs.paymentError.textContent = '';
+    }
+    const cash = ordersRefs.paymentForm?.querySelector('input[name="payment_method"][value="cash"]');
+    if (cash instanceof HTMLInputElement) cash.checked = true;
+    ordersRefs.paymentDialog.showModal?.();
+  };
+
+  const confirmDirectOrderPayment = async () => {
+    const orderId = state.orders.paymentOrderId;
+    const method = ordersRefs.paymentForm?.querySelector('input[name="payment_method"]:checked')?.value || '';
+    if (!orderId || !method || state.orders.paymentSaving) return;
+    state.orders.paymentSaving = true;
+    if (ordersRefs.paymentConfirm) {
+      ordersRefs.paymentConfirm.disabled = true;
+      ordersRefs.paymentConfirm.textContent = 'Confirming...';
+    }
+    try {
+      const response = await fetch(`${directOrdersPaymentEndpoint}?action=confirm_payment`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: orderId, payment_method: method })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.ok) throw new Error(payload.error || 'Payment could not be confirmed.');
+      const paid = payload.order || {};
+      state.orders.rows = state.orders.rows.map((row) => String(row.order_id || '') === orderId ? {
+        ...row,
+        payment_status: 'paid',
+        payment_method: paid.payment_method || method,
+        payment_account_key: paid.payment_account_key || (method === 'cash' ? 'cash-office' : 'bca-main'),
+        paid_at: paid.paid_at || new Date().toISOString(),
+        can_confirm_payment: false
+      } : row);
+      state.orders.data = { ...(state.orders.data || {}), orders: state.orders.rows };
+      writeOrdersClientCache();
+      renderOrders();
+      ordersRefs.paymentDialog.close?.();
+      window.refreshDirectOrderUnpaidIndicator?.();
+    } catch (error) {
+      if (ordersRefs.paymentError) {
+        ordersRefs.paymentError.hidden = false;
+        ordersRefs.paymentError.textContent = error?.message || 'Payment could not be confirmed.';
+      }
+    } finally {
+      state.orders.paymentSaving = false;
+      if (ordersRefs.paymentConfirm) {
+        ordersRefs.paymentConfirm.disabled = false;
+        ordersRefs.paymentConfirm.textContent = 'Confirm paid';
+      }
+    }
+  };
 
   const orderCsvText = (value) => {
     const text = String(value ?? '').replace(/\r?\n/g, ' ').trim();
@@ -7878,7 +7972,7 @@ document.addEventListener('DOMContentLoaded', () => {
       'PO',
       'Net Revenue',
       'COGS',
-      'Wallet Status',
+      'Payment Status',
       'Username',
       'Address',
       'Phone'
@@ -7889,9 +7983,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const poNumbers = Array.isArray(row.allocations) && row.allocations.length
           ? [...new Set(row.allocations.map((item) => item.po_number).filter(Boolean))].join(', ')
           : '';
-        const fundsReleased = row.funds_released === true
-          || row.funds_released === 1
-          || String(row.funds_released || '').toLowerCase() === 'true';
         return [
           orderCsvText(row.order_create_time || row.timestamp || ''),
           orderCsvText(row.order_id),
@@ -7902,7 +7993,7 @@ document.addEventListener('DOMContentLoaded', () => {
           orderCsvText(poNumbers),
           orderNetRevenue(row),
           Number(row.cogs || 0),
-          fundsReleased ? 'Released' : 'Pending',
+          orderPaymentStatus(row),
           orderCsvText(row.username),
           orderCsvText(row.address),
           orderCsvText(row.phone)
@@ -13373,6 +13464,22 @@ document.addEventListener('DOMContentLoaded', () => {
   ordersRefs.filterReset?.addEventListener('click', clearOrderFilters);
   ordersRefs.filterClear?.addEventListener('click', clearOrderFilters);
 
+  ordersRefs.paymentFilters?.addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-toggle-order-payment]');
+    if (!button) return;
+    const payment = button.getAttribute('data-toggle-order-payment') || '';
+    if (state.orders.filters.payments.some((item) => normalizeOrderFilterValue(item) === normalizeOrderFilterValue(payment))) {
+      state.orders.filters.payments = state.orders.filters.payments.filter((item) => normalizeOrderFilterValue(item) !== normalizeOrderFilterValue(payment));
+      resetOrderRenderWindow();
+      syncOrderLoadedAll();
+    } else {
+      addOrderFilter('payments', payment);
+    }
+    syncOrderFilterControls();
+    renderOrders();
+    try { await ensureEnoughOrderRows(); } catch (error) { showOrderLoadError(error); }
+  });
+
   ordersRefs.activeFilters?.addEventListener('click', (event) => {
     const button = event.target.closest('[data-remove-order-filter]');
     if (!button) return;
@@ -13537,10 +13644,22 @@ document.addEventListener('DOMContentLoaded', () => {
   ordersRefs.tableBody?.addEventListener('click', (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
+    const paymentButton = target.closest('[data-confirm-order-payment]');
+    if (paymentButton instanceof HTMLElement) {
+      event.stopPropagation();
+      openOrderPaymentDialog(paymentButton.getAttribute('data-confirm-order-payment') || '');
+      return;
+    }
     const button = target.closest('[data-order-popover]');
     if (!(button instanceof HTMLElement)) return;
     event.stopPropagation();
     openOrderPopover(button, button.dataset.orderPopover || '');
+  });
+
+  ordersRefs.paymentCancel?.addEventListener('click', () => ordersRefs.paymentDialog?.close?.());
+  ordersRefs.paymentForm?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    confirmDirectOrderPayment().catch(() => {});
   });
 
   contextRefs.groupButtons.forEach((button) => {

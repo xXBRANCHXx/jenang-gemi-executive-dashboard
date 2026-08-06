@@ -15,8 +15,10 @@ assert.match(page, /name="shipping_cost"[\s\S]*?Saved for metrics and the custom
 assert.match(page, /data-discount-mode="sale_price"[\s\S]*?data-discount-mode="percentage"/, 'The builder must offer sale-price and percentage discounts.');
 assert.match(page, /data-merchandise-subtotal[\s\S]*?data-discount-total[\s\S]*?data-merchandise-total/, 'The totals must show subtotal, discount, and net merchandise.');
 assert.match(page, /name="label"[\s\S]*?deadline_hours/, 'The order must follow the Partner label and deadline flow.');
+assert.match(page, /name="payment_method" value="cash"[\s\S]*?name="payment_method" value="bank"[\s\S]*?data-pay-later/, 'Direct orders must choose Cash or Bank unless Pay Later is enabled.');
 assert.match(page, /data-company-filter[\s\S]*?data-product-filter[\s\S]*?data-flavor-filter[\s\S]*?Order preview/, 'Product entry must separate products by company before flavor filtering.');
 assert.match(script, /items: \[\.\.\.state\.cart\.values\(\)\][\s\S]*?action=create/, 'The builder must submit constructed SKU lines.');
+assert.match(script, /pay_later: Boolean\(payLaterInput\?\.checked\)[\s\S]*?payment_method:/, 'The builder must submit explicit payment timing and routing.');
 assert.match(script, /discount: values\.discount\.type[\s\S]*?value: values\.discount\.value/, 'The builder must persist the selected order discount.');
 assert.match(script, /data-cart-discount-toggle[\s\S]*?data-cart-discount-label[\s\S]*?data-cart-discount/, 'Each order-preview line must expose a compact percentage discount editor.');
 assert.match(script, /discount_rate: itemDiscountRate\(item\)/, 'The builder must submit each item percentage to the server.');
@@ -65,5 +67,6 @@ const salesApi = fs.readFileSync(path.join(root, 'api', 'sales', 'index.php'), '
 const ordersApi = fs.readFileSync(path.join(root, 'api', 'orders', 'index.php'), 'utf8');
 assert.match(salesApi, /jg_sales_apply_executive_context[\s\S]*?jg_whatsapp_merge_sales_summary/, 'WhatsApp metrics must be added after historical Executive context so they are not overwritten.');
 assert.match(ordersApi, /jg_whatsapp_metric_order_rows/, 'WhatsApp order facts must feed the Executive Orders and hourly metrics path.');
+assert.match(bootstrap, /'username' => \(string\) \$row\['customer_name'\][\s\S]*?'address' => \(string\) \$row\['customer_address'\][\s\S]*?'phone' => \(string\) \$row\['customer_phone'\]/, 'Direct-order customer details must populate the central Orders columns.');
 
 console.log('whatsapp-orders-ui-test: ok');

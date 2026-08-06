@@ -79,6 +79,9 @@ try {
     if ($method === 'GET' && $action === 'list') {
         jg_whatsapp_api_json(['ok' => true, 'orders' => jg_whatsapp_list_orders($pdo)]);
     }
+    if ($method === 'GET' && $action === 'unpaid_summary') {
+        jg_whatsapp_api_json(['ok' => true, 'unpaid' => jg_whatsapp_unpaid_summary($pdo)]);
+    }
     if ($method === 'GET' && $action === 'history') {
         jg_whatsapp_api_json(['ok' => true] + jg_whatsapp_order_history(
             $pdo,
@@ -105,6 +108,14 @@ try {
         jg_whatsapp_api_json(['ok' => true, 'order' => jg_whatsapp_cancel_order(
             $pdo,
             trim((string) ($body['order_id'] ?? $body['order'] ?? ''))
+        )]);
+    }
+    if ($action === 'confirm_payment') {
+        $body = jg_whatsapp_api_body();
+        jg_whatsapp_api_json(['ok' => true, 'order' => jg_whatsapp_confirm_payment(
+            $pdo,
+            trim((string) ($body['order_id'] ?? $body['order'] ?? '')),
+            $body['payment_method'] ?? ''
         )]);
     }
     if ($action === 'create') {

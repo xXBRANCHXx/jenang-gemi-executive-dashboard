@@ -34,6 +34,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const builderDescription = root.querySelector('[data-builder-description]');
   const customerSectionTitle = root.querySelector('[data-customer-section-title]');
   const customerSectionNote = root.querySelector('[data-customer-section-note]');
+  const payLaterInput = root.querySelector('[data-pay-later]');
+  const paymentMethod = root.querySelector('[data-payment-method]');
 
   const state = {
     skus: [], cart: new Map(), company: '', product: '', flavor: '', submitting: false,
@@ -110,13 +112,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const updateSubmitState = () => {
     const needsLabel = state.salesChannel === 'whatsapp';
-    const ready = state.cart.size > 0 && (!needsLabel || Boolean(labelInput?.files?.[0])) && Boolean(customerNameInput?.value.trim()) && totals().discount.valid;
+    const hasPaymentMethod = Boolean(form?.querySelector('input[name="payment_method"]:checked'));
+    const ready = state.cart.size > 0 && (!needsLabel || Boolean(labelInput?.files?.[0])) && Boolean(customerNameInput?.value.trim())
+      && totals().discount.valid && (Boolean(payLaterInput?.checked) || hasPaymentMethod);
     if (submitButton) {
       submitButton.disabled = state.submitting || !ready;
       submitButton.textContent = state.submitting
         ? (needsLabel ? 'Sending to Store Ops…' : 'Recording walk-in sale…')
         : (needsLabel ? 'Send listed order to Store Ops' : 'Complete walk-in sale');
     }
+  };
+
+  const syncPaymentChoice = () => {
+    const payLater = Boolean(payLaterInput?.checked);
+    paymentMethod?.classList.toggle('is-disabled', payLater);
+    paymentMethod?.querySelectorAll('input[name="payment_method"]').forEach((input) => {
+      input.disabled = payLater;
+    });
+    updateSubmitState();
   };
 
   const syncSalesChannel = () => {
@@ -239,6 +252,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="whatsapp-history-meta"><span>${escapeHtml(quantity)} item${quantity === 1 ? '' : 's'}</span><span>${escapeHtml(money(order.merchandise_total))}${Number(order.discount_total || 0) > 0 ? ` after ${escapeHtml(money(order.discount_total))} discount` : ''} + ${escapeHtml(money(order.shipping_cost))} shipping</span><span>${escapeHtml(dateTime.format(new Date(order.created_at)))}</span></div>
         </div>
         <div class="whatsapp-history-card-state">
+          <span class="whatsapp-payment-badge is-${escapeHtml(order.payment_status || 'unpaid')}">${escapeHtml(order.payment_status === 'paid' ? `Paid · ${order.payment_method || 'confirmed'}` : (order.payment_status === 'canceled' ? 'Canceled' : 'Unpaid'))}</span>
           <span class="whatsapp-status is-${escapeHtml(String(order.status || '').toLowerCase().replaceAll('_', '-'))}">${escapeHtml(statusLabel(order.status))}</span>
           <a class="admin-ghost-btn" href="../whatsapp-order/?order=${encodeURIComponent(order.order_id)}">View details</a>
           ${failed ? `<button type="button" class="admin-ghost-btn" data-retry-order="${escapeHtml(order.order_id)}">Retry Store Ops</button>` : ''}
@@ -413,6 +427,8 @@ document.addEventListener('DOMContentLoaded', () => {
     updateSubmitState();
   });
   channelInputs.forEach((input) => input.addEventListener('change', syncSalesChannel));
+  payLaterInput?.addEventListener('change', syncPaymentChoice);
+  paymentMethod?.addEventListener('change', updateSubmitState);
 
   form?.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -434,6 +450,8 @@ document.addEventListener('DOMContentLoaded', () => {
       customer_address: fields.get('customer_address'), notes: fields.get('notes'),
       shipping_cost: Number(fields.get('shipping_cost') || 0),
       deadline_hours: Number(fields.get('deadline_hours') || 24),
+      pay_later: Boolean(payLaterInput?.checked),
+      payment_method: payLaterInput?.checked ? '' : String(fields.get('payment_method') || ''),
       discount: values.discount.type ? { type: values.discount.type, value: values.discount.value } : null,
       items: [...state.cart.values()].map((item) => ({
         sku: item.sku, quantity: item.quantity, unit_price: itemListPrice(item), sale_price: itemSalePrice(item),
@@ -456,6 +474,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (deadlineValue) deadlineValue.textContent = '24h';
       if (labelName) labelName.textContent = 'Choose shipping label';
       syncSalesChannel();
+      syncPaymentChoice();
       renderCatalog();
       renderCart();
       await loadOrders();
@@ -487,6 +506,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   renderCart();
   syncSalesChannel();
+  syncPaymentChoice();
   loadCatalog();
   loadOrders();
 });

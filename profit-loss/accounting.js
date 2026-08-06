@@ -707,6 +707,7 @@ if (root) {
       { key: 'cash', label: 'Cash', amount: Number(segments.cash || 0), rows: [['Physical cash', Number(segments.cash || 0)]] },
       { key: 'wallet', label: 'Wallets ready', amount: Number(segments.wallet_ready || 0), rows: walletReadyRows },
       { key: 'marketplace', label: 'Marketplace outstanding', amount: Number(segments.marketplace_outstanding || 0), rows: marketplaceRows },
+      { key: 'direct', label: 'Direct orders unpaid', amount: Number(segments.direct_order_unpaid || 0), rows: [['WhatsApp and walk-in outstanding', Number(segments.direct_order_unpaid || 0)]] },
       { key: 'partner', label: 'Partner bills unpaid', amount: Number(segments.partner_unpaid || 0), rows: [['Unpaid partner bills', Number(segments.partner_unpaid || 0)]] }
     ];
     const positiveAssets = assetSegments.filter((segment) => segment.amount > 0);
