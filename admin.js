@@ -4939,24 +4939,51 @@ document.addEventListener('DOMContentLoaded', () => {
   const renderOrdersPaymentAudit = () => {
     if (!ordersRefs.paymentAuditStatus) return;
     const backtrack = state.wallet.data?.backtrack || {};
+    const progress = Math.max(0, Math.min(100, Math.round(Number(backtrack.progress) || 0)));
+    const daysTotal = Math.max(0, Math.round(Number(backtrack.days_total) || 0));
+    const daysCompleted = Math.max(0, Math.min(daysTotal, Math.round(Number(backtrack.days_completed) || 0)));
+    const daysRemaining = Math.max(0, Math.round(Number(backtrack.days_remaining) || (daysTotal - daysCompleted)));
+    const importedRows = Math.max(0, Math.round(Number(backtrack.imported_rows) || 0));
+    const renderProgress = (title, detail, tone) => {
+      ordersRefs.paymentAuditStatus.className = `admin-orders-payment-audit ${tone}`;
+      ordersRefs.paymentAuditStatus.innerHTML = `
+        <span class="admin-orders-payment-audit-copy">
+          <strong>${escapeHtml(title)}</strong>
+          <small>${escapeHtml(detail)}</small>
+        </span>
+        <span class="admin-orders-payment-audit-track" role="progressbar" aria-label="Paid-status history verification" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}">
+          <i style="--admin-orders-audit-progress:${progress}%"></i>
+        </span>
+      `;
+    };
     if (ordersPaymentHistoryVerified(backtrack)) {
-      ordersRefs.paymentAuditStatus.textContent = 'Paid-status history verified from May 20';
-      ordersRefs.paymentAuditStatus.className = 'admin-orders-payment-audit is-verified';
+      renderProgress(
+        'Paid-status history verified · 100%',
+        `${formatRegionalInteger(daysTotal)} of ${formatRegionalInteger(daysTotal)} days complete · ${formatRegionalInteger(importedRows)} order rows checked`,
+        'is-verified'
+      );
       return;
     }
-    const progress = Math.max(0, Math.min(99, Math.round(Number(backtrack.progress) || 0)));
     if (state.orders.paymentAuditRunning || backtrack.active) {
-      ordersRefs.paymentAuditStatus.textContent = `Verifying paid-status history from May 20${progress ? ` / ${progress}%` : ''}`;
-      ordersRefs.paymentAuditStatus.className = 'admin-orders-payment-audit is-running';
+      const current = String(backtrack.last_message || '').trim();
+      renderProgress(
+        `Verifying paid-status history · ${progress}%`,
+        daysTotal
+          ? `${formatRegionalInteger(daysCompleted)} of ${formatRegionalInteger(daysTotal)} days complete · ${formatRegionalInteger(daysRemaining)} left · ${formatRegionalInteger(importedRows)} order rows checked${current ? ` · ${current}` : ''}`
+          : `Preparing May 20 history${current ? ` · ${current}` : ''}`,
+        'is-running'
+      );
       return;
     }
     if (normalizeOrderFilterValue(backtrack.status) === 'failed') {
-      ordersRefs.paymentAuditStatus.textContent = 'Paid-status history verification will retry';
-      ordersRefs.paymentAuditStatus.className = 'admin-orders-payment-audit is-warning';
+      renderProgress(
+        `Paid-status verification paused · ${progress}%`,
+        `${formatRegionalInteger(daysCompleted)} of ${formatRegionalInteger(daysTotal)} days complete · ${formatRegionalInteger(daysRemaining)} left · it will resume from here`,
+        'is-warning'
+      );
       return;
     }
-    ordersRefs.paymentAuditStatus.textContent = 'Paid-status history verification queued from May 20';
-    ordersRefs.paymentAuditStatus.className = 'admin-orders-payment-audit is-running';
+    renderProgress('Paid-status history queued · 0%', 'Starting from May 20, 2026', 'is-running');
   };
 
   const orderPaymentStatus = (row) => {
@@ -4967,7 +4994,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const fundsReleased = row?.funds_released === true
         || row?.funds_released === 1
         || normalizeOrderFilterValue(row?.funds_released) === 'true';
-      return fundsReleased ? 'paid' : (ordersPaymentHistoryVerified() ? 'unpaid' : 'unknown');
+      return fundsReleased ? 'paid' : 'unpaid';
     }
     const explicit = normalizeOrderFilterValue(row?.payment_status || '');
     if (['paid', 'unpaid', 'canceled'].includes(explicit)) return explicit;
@@ -7920,11 +7947,11 @@ document.addEventListener('DOMContentLoaded', () => {
           : `Paid${row.payment_method ? ` by ${row.payment_method}` : ''}${row.paid_at ? ` at ${formatOrderTimestamp(row.paid_at)}` : ''}`)
         : (paymentStatus === 'canceled'
           ? 'Canceled order'
-          : (paymentStatus === 'unknown'
-            ? 'Marketplace payment history is being verified'
           : (directOrder
             ? 'Unpaid — click to confirm payment'
-            : (marketplaceOrder ? 'Funds not released' : 'Payment outstanding'))));
+            : (marketplaceOrder
+              ? (ordersPaymentHistoryVerified() ? 'Funds not released' : 'Funds not released — history verification is still running')
+              : 'Payment outstanding')));
       const paymentDot = directOrder && paymentStatus === 'unpaid'
         ? `<button type="button" class="admin-order-payment-dot is-unpaid" data-confirm-order-payment="${escapeHtml(orderId)}" title="${escapeHtml(paymentTitle)}" aria-label="${escapeHtml(paymentTitle)}"></button>`
         : `<span class="admin-order-payment-dot is-${escapeHtml(paymentStatus)}" title="${escapeHtml(paymentTitle)}" aria-label="${escapeHtml(paymentTitle)}"></span>`;
@@ -10939,7 +10966,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    }
 	  };
 
-	  const runWalletBacktrack = async (startNew = true) => {
+	  const runWalletBacktrack = async (startNew = true, range = {}) => {
 	    if (state.wallet.backtrackRunning) return true;
 	    state.wallet.backtrackRunning = true;
 	    state.wallet.cancelBacktrackRequested = false;
@@ -10951,7 +10978,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	        data = await requestJson(walletActionUrl('backtrack'), {
 	          method: 'POST',
 	          headers: { 'Content-Type': 'application/json' },
-	          body: JSON.stringify({}),
+	          body: JSON.stringify({
+	            ...(range.startDate ? { start_date: range.startDate } : {}),
+	            ...(range.endDate ? { end_date: range.endDate } : {})
+	          }),
 	          timeoutMs: 30000
 	        });
 	        state.wallet.loadedAt = Date.now();
@@ -10960,14 +10990,14 @@ document.addEventListener('DOMContentLoaded', () => {
 	      }
 
 	      let backtrack = data?.backtrack || state.wallet.data?.backtrack || {};
-	      for (let step = 0; backtrack.active && !state.wallet.cancelBacktrackRequested && step < 1000; step += 1) {
+	      while (backtrack.active && !state.wallet.cancelBacktrackRequested) {
 	        await wait(200);
 	        if (state.wallet.cancelBacktrackRequested) break;
 	        const stepData = await requestJson(walletActionUrl('backtrack_step'), {
 	          method: 'POST',
 	          headers: { 'Content-Type': 'application/json' },
 	          body: JSON.stringify({ run_key: backtrack.run_key || '' }),
-	          timeoutMs: 130000
+	          timeoutMs: 65000
 	        });
 	        state.wallet.loadedAt = Date.now();
 	        renderWallet(stepData);
@@ -11001,7 +11031,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	        return true;
 	      }
 	      const backtrack = state.wallet.data?.backtrack || {};
-	      const complete = await runWalletBacktrack(!backtrack.active);
+	      const complete = await runWalletBacktrack(!backtrack.active, {
+	        startDate: ORDER_PAYMENT_AUDIT_START_DATE,
+	        endDate: ORDER_PAYMENT_AUDIT_END_DATE
+	      });
 	      if (complete) {
 	        // Release markers can change rows already held in memory, so reload the
 	        // visible order windows after the historical ledger audit completes.

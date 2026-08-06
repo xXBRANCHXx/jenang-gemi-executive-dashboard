@@ -62,6 +62,13 @@ wallet_expect(45000, jg_wallet_release_amount('Rp45.000', 100000), 'Release amou
 wallet_expect_exception('wallet_release_amount_exceeds_balance', static fn () => jg_wallet_release_amount('125000', 100000), 'Release amount must not exceed wallet balance.');
 wallet_expect('2026-05-20', jg_wallet_date('', JG_WALLET_BACKTRACK_START_DATE), 'Wallet backtrack must default to May 20, 2026.');
 wallet_expect(6, count(jg_wallet_backtrack_accounts()), 'Wallet backtrack must step every known marketplace wallet account.');
+wallet_expect(3, count(jg_wallet_transaction_accounts(jg_wallet_backtrack_accounts())), 'Backtrack wallet history must be split into one Shopee account per step.');
+wallet_expect(true, JG_WALLET_BACKTRACK_REMOTE_TIMEOUT_SECONDS < 60, 'Every remote backtrack step must finish below the web request ceiling.');
+wallet_expect(true, JG_WALLET_BACKTRACK_IMPORT_TIMEOUT_SECONDS < 60, 'Every mirror import step must finish below the web request ceiling.');
+$walletApiSource = (string) file_get_contents(dirname(__DIR__) . '/api/wallet/index.php');
+wallet_expect(true, str_contains($walletApiSource, 'jg_wallet_acquire_named_lock'), 'Backtrack start and step requests must use database locks to prevent duplicate work.');
+wallet_expect(true, str_contains($walletApiSource, 'jg_wallet_backtrack_covering'), 'A completed or failed covering run must be reused instead of creating the same backtrack twice.');
+wallet_expect(true, str_contains($walletApiSource, "if (\$phase === 'wallet')"), 'Wallet history must run as its own resumable account-bounded phase.');
 wallet_expect('2026-05-21', jg_wallet_chunk_end('2026-05-20', '2026-05-25', 2), 'Wallet backtrack chunks must stay bounded.');
 wallet_expect(3, jg_wallet_total_chunks('2026-05-20', '2026-05-25', 2), 'Wallet backtrack must calculate resumable chunk counts.');
 wallet_expect(100, jg_wallet_backtrack_public_state([
@@ -73,6 +80,19 @@ wallet_expect(100, jg_wallet_backtrack_public_state([
     'cursor_date' => '2026-05-25',
     'chunk_days' => 2,
 ])['progress'], 'Completed wallet backtracks must report 100 percent progress.');
+$runningBacktrack = jg_wallet_backtrack_public_state([
+    'run_key' => 'running-progress',
+    'status' => 'running',
+    'phase' => 'sync',
+    'start_date' => '2026-05-20',
+    'end_date' => '2026-05-25',
+    'cursor_date' => '2026-05-22',
+    'cursor_account_index' => 0,
+    'chunk_days' => 1,
+]);
+wallet_expect(2, $runningBacktrack['days_completed'], 'Backtrack progress must expose fully completed calendar days.');
+wallet_expect(6, $runningBacktrack['days_total'], 'Backtrack progress must expose the complete date range.');
+wallet_expect(4, $runningBacktrack['days_remaining'], 'Backtrack progress must expose how many calendar days remain.');
 $cancelledBacktrack = jg_wallet_backtrack_public_state([
     'run_key' => 'cancelled',
     'status' => 'cancelled',

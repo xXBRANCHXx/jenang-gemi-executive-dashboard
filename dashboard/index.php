@@ -2076,14 +2076,13 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                         <div class="admin-orders-filter-section-head">
                             <div>
                                 <span class="admin-orders-filter-step">3</span>
-                                <div><h4>Payment status</h4><p>Show paid, unpaid, canceled, or marketplace orders still being verified.</p></div>
+                                <div><h4>Payment status</h4><p>Show paid, unpaid, or canceled orders.</p></div>
                             </div>
                         </div>
                         <div class="admin-orders-payment-filters" data-orders-payment-filters>
                             <button type="button" data-toggle-order-payment="paid">Paid</button>
                             <button type="button" data-toggle-order-payment="unpaid">Unpaid</button>
                             <button type="button" data-toggle-order-payment="canceled">Canceled</button>
-                            <button type="button" data-toggle-order-payment="unknown">Verifying</button>
                         </div>
                     </section>
                 </div>

@@ -133,7 +133,10 @@ geometry under Lucide's ISC license.
   or one-time account-bounded finance syncs; all other wallet actions remain
   admin-session protected. The Wallet refresh button runs the quick release sync.
   The Backtrack button starts the chunked backtrack repair so releases after a
-  balance anchor can be recovered without one long request. Use
+  balance anchor can be recovered without one long request. Each persisted step
+  makes at most one bounded marketplace call. Concurrent tabs share a database
+  lock, failed runs resume their saved cursor, and a completed date range is not
+  enqueued again. Use
   `POST /api/wallet/?action=backfill_releases` to run a larger marketplace
   release backfill and log before/after wallet totals.
 - Website checkout notifications and paid metrics are independent of the Hard Set switch. An explicit high-entropy `store_ops_website_token` can be configured on both applications; otherwise both deployments derive the bearer token from their existing shared marketplace setup credential. Configure `store_ops_base_url` and `executive_dashboard_url` before activation readiness can pass.

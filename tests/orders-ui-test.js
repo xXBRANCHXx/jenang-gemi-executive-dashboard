@@ -37,18 +37,32 @@ assert(
   'Unpaid direct-order dots must confirm and route payments to Cash Office or Bank Balance.'
 );
 assert(
-  /\['shopee', 'tiktok', 'tokopedia'\]\.includes\(platform\)[\s\S]*?funds_released[\s\S]*?ordersPaymentHistoryVerified\(\) \? 'unpaid' : 'unknown'/.test(admin),
-  'Marketplace payment dots must follow verified seller-wallet release history instead of defaulting every order to paid.'
+  /\['shopee', 'tiktok', 'tokopedia'\]\.includes\(platform\)[\s\S]*?funds_released[\s\S]*?return fundsReleased \? 'paid' : 'unpaid'/.test(admin),
+  'Marketplace payment dots must expose only paid or unpaid from seller-wallet release history.'
 );
 assert(
   admin.includes("const ORDER_PAYMENT_AUDIT_START_DATE = '2026-05-20'")
     && admin.includes('ensureOrdersPaymentHistoryAudit().catch')
     && dashboard.includes('data-orders-payment-audit')
-    && dashboard.includes('data-toggle-order-payment="unknown"'),
-  'Orders must automatically verify the May 20 marketplace history and identify unverified payment states.'
+    && !dashboard.includes('data-toggle-order-payment="unknown"')
+    && !styles.includes('.admin-order-payment-dot.is-unknown'),
+  'Orders must automatically verify the May 20 marketplace history without exposing a fourth payment state.'
 );
 assert(
-  admin.includes("marketplaceOrder ? 'Funds not released' : 'Payment outstanding'"),
+  admin.includes('startDate: ORDER_PAYMENT_AUDIT_START_DATE')
+    && admin.includes('endDate: ORDER_PAYMENT_AUDIT_END_DATE')
+    && admin.includes('timeoutMs: 65000'),
+  'The paid-status audit must resume one fixed range through bounded requests.'
+);
+assert(
+  admin.includes('backtrack.days_completed')
+    && admin.includes('backtrack.days_remaining')
+    && admin.includes('admin-orders-payment-audit-track')
+    && styles.includes('--admin-orders-audit-progress'),
+  'Orders must show persisted paid-status progress, completed days, remaining days, and a progress bar.'
+);
+assert(
+  /marketplaceOrder[\s\S]*?'Funds not released[^']*'[\s\S]*?: 'Payment outstanding'/.test(admin),
   'Partner and other non-marketplace unpaid orders must be labeled as payment outstanding, not as unreleased wallet funds.'
 );
 assert(
