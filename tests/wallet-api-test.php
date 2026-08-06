@@ -31,11 +31,13 @@ function wallet_expect_exception(string $expectedMessage, callable $callback, st
 }
 
 $accounts = jg_wallet_known_accounts();
-wallet_expect(6, count($accounts), 'Wallet page must seed Shopee and TikTok wallets for each account.');
+wallet_expect(4, count($accounts), 'Wallet page must seed only the active Jenang Gemi and ZERO marketplace wallets.');
 wallet_expect(2, JG_WALLET_RELEASE_SYNC_DAYS, 'Routine order-release repair must use the rolling two-day window.');
 wallet_expect(true, JG_WALLET_RELEASE_SYNC_IMPORT_ROWS <= 5000, 'Routine order-release repair must keep mirror imports bounded.');
-wallet_expect(3, count(jg_wallet_transaction_accounts()), 'Wallet-ledger refresh must identify all Shopee accounts for concurrent work.');
-wallet_expect(3, count(jg_wallet_tiktok_withdrawal_accounts()), 'TikTok withdrawal refresh must identify every TikTok shop in its own pipeline.');
+wallet_expect(2, count(jg_wallet_transaction_accounts()), 'Wallet-ledger refresh must identify the two active Shopee accounts.');
+wallet_expect(2, count(jg_wallet_tiktok_withdrawal_accounts()), 'TikTok withdrawal refresh must identify the two active TikTok shops.');
+wallet_expect(null, jg_wallet_known_account('shopee', 'zfit-shopee'), 'Unused ZFIT Shopee must not enter wallet refreshes or paid-status backfills.');
+wallet_expect(null, jg_wallet_known_account('tiktok', 'zfit-tiktok'), 'Unused ZFIT TikTok must not enter wallet refreshes or paid-status backfills.');
 wallet_expect('zero-tiktok', jg_wallet_tiktok_withdrawal_accounts([jg_wallet_known_account('tiktok', 'zero-tiktok')])[0]['account_key'] ?? '', 'TikTok withdrawal pipeline must preserve an explicitly bounded account.');
 wallet_expect('zero-shopee', jg_wallet_known_account('Shopee', 'ZERO Shopee')['account_key'] ?? '', 'Account-bounded wallet refresh must normalize and validate known accounts.');
 wallet_expect(null, jg_wallet_known_account('tiktok', 'not-a-wallet'), 'Account-bounded wallet refresh must reject unknown accounts.');
@@ -61,8 +63,8 @@ wallet_expect(25000, jg_wallet_release_amount('25000', 100000), 'Release amount 
 wallet_expect(45000, jg_wallet_release_amount('Rp45.000', 100000), 'Release amount must accept formatted Rupiah input.');
 wallet_expect_exception('wallet_release_amount_exceeds_balance', static fn () => jg_wallet_release_amount('125000', 100000), 'Release amount must not exceed wallet balance.');
 wallet_expect('2026-05-20', jg_wallet_date('', JG_WALLET_BACKTRACK_START_DATE), 'Wallet backtrack must default to May 20, 2026.');
-wallet_expect(6, count(jg_wallet_backtrack_accounts()), 'Wallet backtrack must step every known marketplace wallet account.');
-wallet_expect(3, count(jg_wallet_transaction_accounts(jg_wallet_backtrack_accounts())), 'Backtrack wallet history must be split into one Shopee account per step.');
+wallet_expect(4, count(jg_wallet_backtrack_accounts()), 'Wallet backtrack must step only the active Jenang Gemi and ZERO marketplace accounts.');
+wallet_expect(2, count(jg_wallet_transaction_accounts(jg_wallet_backtrack_accounts())), 'Backtrack wallet history must be split into one active Shopee account per step.');
 wallet_expect(true, JG_WALLET_BACKTRACK_REMOTE_TIMEOUT_SECONDS < 60, 'Every remote backtrack step must finish below the web request ceiling.');
 wallet_expect(true, JG_WALLET_BACKTRACK_IMPORT_TIMEOUT_SECONDS < 60, 'Every mirror import step must finish below the web request ceiling.');
 $walletApiSource = (string) file_get_contents(dirname(__DIR__) . '/api/wallet/index.php');

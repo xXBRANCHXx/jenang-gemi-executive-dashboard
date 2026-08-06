@@ -301,10 +301,8 @@ function jg_wallet_known_accounts(): array
     return [
         ['platform' => 'shopee', 'account_key' => 'jenang-gemi-shopee', 'company' => 'Jenang Gemi', 'label' => 'Jenang Gemi Shopee'],
         ['platform' => 'shopee', 'account_key' => 'zero-shopee', 'company' => 'ZERO', 'label' => 'ZERO Shopee'],
-        ['platform' => 'shopee', 'account_key' => 'zfit-shopee', 'company' => 'ZFIT', 'label' => 'ZFIT Shopee'],
         ['platform' => 'tiktok', 'account_key' => 'jenang-gemi-tiktok', 'company' => 'Jenang Gemi', 'label' => 'Jenang Gemi TikTok / Tokopedia'],
         ['platform' => 'tiktok', 'account_key' => 'zero-tiktok', 'company' => 'ZERO', 'label' => 'ZERO TikTok / Tokopedia'],
-        ['platform' => 'tiktok', 'account_key' => 'zfit-tiktok', 'company' => 'ZFIT', 'label' => 'ZFIT TikTok / Tokopedia'],
     ];
 }
 
