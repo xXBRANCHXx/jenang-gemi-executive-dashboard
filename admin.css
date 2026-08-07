@@ -37389,6 +37389,22 @@ a.admin-accounting-breakdown-row:focus-visible { background: color-mix(in srgb, 
 .admin-accounting-move-dates label { display:grid; gap:5px; }
 .admin-accounting-category-move > .admin-form-error { grid-column:1 / -1; }
 .admin-accounting-category-move > button { justify-self:end; grid-column:1 / -1; }
+.admin-accounting-removal-card { width:min(560px,calc(100vw - 28px)); padding:22px; border-color:color-mix(in srgb,#ef233c 42%,var(--accounting-border)); }
+.admin-accounting-removal-card > .admin-modal-head { padding-bottom:16px; border-bottom:1px solid var(--accounting-border); }
+.admin-accounting-removal-card > .admin-modal-head p { max-width:430px; margin:5px 0 0; color:var(--accounting-muted); font-size:.69rem; line-height:1.5; }
+.admin-accounting-removal-card form { display:grid; gap:13px; padding-top:16px; }
+.admin-accounting-removal-card form > label { display:grid; gap:6px; }
+.admin-accounting-removal-card form > label > span { color:var(--accounting-text); font-size:.7rem; font-weight:850; }
+.admin-accounting-removal-card form > label > small { color:var(--accounting-muted); font-size:.61rem; line-height:1.4; }
+.admin-accounting-removal-card :is(input[type=text],input[type=password],textarea) { width:100%; padding:10px 11px; border:1px solid var(--accounting-border); border-radius:9px; outline:0; background:var(--accounting-surface); color:var(--accounting-text); font:650 .75rem/1.45 "Plus Jakarta Sans",sans-serif; }
+.admin-accounting-removal-card :is(input,textarea):focus { border-color:#ef233c; box-shadow:0 0 0 3px color-mix(in srgb,#ef233c 12%,transparent); }
+.admin-accounting-removal-warning { padding:12px 13px; border:1px solid color-mix(in srgb,#ef233c 40%,var(--accounting-border)); border-radius:10px; background:color-mix(in srgb,#ef233c 8%,transparent); }
+.admin-accounting-removal-warning strong { color:#ff6b7d; font-size:.72rem; }
+.admin-accounting-removal-warning p { margin:4px 0 0; color:var(--accounting-muted); font-size:.63rem; line-height:1.45; }
+.admin-accounting-removal-card code { justify-self:start; padding:6px 8px; border-radius:6px; background:color-mix(in srgb,var(--accounting-text) 8%,transparent); color:var(--accounting-text); font-size:.68rem; font-weight:850; user-select:all; }
+.admin-accounting-removal-actions { display:flex; justify-content:flex-end; gap:8px; padding-top:3px; }
+.admin-accounting-ledger-remove { align-self:center; border:0; background:transparent; color:var(--accounting-muted); font-size:.61rem; font-weight:800; text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
+.admin-accounting-ledger-remove:hover { color:#ef233c; }
 
 @media (max-width:860px) {
   .admin-accounting-ledger-filters { grid-template-columns:1fr 1fr; }

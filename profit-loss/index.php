@@ -567,6 +567,34 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                     </section>
                 </div>
 
+                <div class="admin-modal-shell admin-accounting-removal" data-accounting-removal hidden>
+                    <button type="button" class="admin-modal-backdrop" data-accounting-removal-close aria-label="Cancel removal"></button>
+                    <section class="admin-modal-card admin-accounting-removal-card" role="dialog" aria-modal="true" aria-labelledby="accounting-removal-title" tabindex="-1">
+                        <div class="admin-modal-head">
+                            <div>
+                                <span class="admin-panel-kicker">Protected admin action</span>
+                                <h3 id="accounting-removal-title">Are you sure?</h3>
+                                <p data-accounting-removal-summary>This entry will disappear from normal transaction history and the Activity ledger.</p>
+                            </div>
+                            <button type="button" class="admin-accounting-cash-history-close" data-accounting-removal-close aria-label="Cancel removal">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+                            </button>
+                        </div>
+                        <form data-accounting-removal-form>
+                            <input type="hidden" name="kind"><input type="hidden" name="source_id">
+                            <div class="admin-accounting-removal-warning">
+                                <strong>This cannot be undone from the screen.</strong>
+                                <p data-accounting-removal-impact>The accounting audit trail will retain the reason for this removal.</p>
+                            </div>
+                            <label><span>Why should this be removed?</span><textarea name="removal_reason" rows="3" minlength="10" maxlength="1000" placeholder="Explain the mistake and the intended correction…" required></textarea><small>At least 10 characters. This reason is saved in the audit trail.</small></label>
+                            <label><span>Admin login key</span><input type="password" name="admin_key" autocomplete="off" required><small>The same key used to enter the admin dashboard.</small></label>
+                            <label><span>Type this exact phrase</span><code data-accounting-removal-phrase>REMOVE TRANSACTION 0</code><input type="text" name="confirmation" autocomplete="off" autocapitalize="characters" spellcheck="false" required></label>
+                            <p class="admin-form-error" data-accounting-removal-error hidden></p>
+                            <div class="admin-accounting-removal-actions"><button type="button" class="admin-ghost-btn" data-accounting-removal-close>Keep entry</button><button type="submit" class="admin-danger-btn" data-accounting-removal-submit>Remove from normal views</button></div>
+                        </form>
+                    </section>
+                </div>
+
                 <section class="admin-accounting-wallet-destination" aria-labelledby="accounting-wallet-destination-title">
                     <div class="admin-accounting-wallet-destination-copy">
                         <span class="admin-accounting-wallet-destination-icon" aria-hidden="true">

@@ -270,6 +270,15 @@ if (root) {
     drawerKicker: root.querySelector('[data-accounting-drawer-kicker]'),
     drawerTitle: root.querySelector('[data-accounting-drawer-title]'),
     drawerBody: root.querySelector('[data-accounting-drawer-body]'),
+    removal: root.querySelector('[data-accounting-removal]'),
+    removalCard: root.querySelector('.admin-accounting-removal-card'),
+    removalCloseButtons: root.querySelectorAll('[data-accounting-removal-close]'),
+    removalForm: root.querySelector('[data-accounting-removal-form]'),
+    removalSummary: root.querySelector('[data-accounting-removal-summary]'),
+    removalImpact: root.querySelector('[data-accounting-removal-impact]'),
+    removalPhrase: root.querySelector('[data-accounting-removal-phrase]'),
+    removalError: root.querySelector('[data-accounting-removal-error]'),
+    removalSubmit: root.querySelector('[data-accounting-removal-submit]'),
     receiptModal: root.querySelector('[data-accounting-receipt-modal]'),
     receiptCard: root.querySelector('.admin-accounting-receipt-card'),
     receiptCloseButtons: root.querySelectorAll('[data-accounting-receipt-close]'),
@@ -480,6 +489,87 @@ if (root) {
     receiptRequest += 1;
     if (refs.receiptModal) refs.receiptModal.hidden = true;
     resetReceiptPreview();
+  };
+
+  const closeRemoval = () => {
+    if (refs.removal) refs.removal.hidden = true;
+    if (refs.removalForm instanceof HTMLFormElement) refs.removalForm.reset();
+    if (refs.removalError) refs.removalError.hidden = true;
+  };
+
+  const openRemoval = (kind, id) => {
+    if (!refs.removal || !(refs.removalForm instanceof HTMLFormElement)) return;
+    const safeKind = kind === 'bill' ? 'bill' : 'transaction';
+    const numericId = Number(id || 0);
+    if (!Number.isInteger(numericId) || numericId < 1) return;
+    const item = safeKind === 'bill'
+      ? state.bills.find((row) => Number(row.id) === numericId)
+      : state.transactions.find((row) => Number(row.id) === numericId);
+    const ledgerItem = state.ledger.find((row) => row.kind === safeKind && Number(row.source_id) === numericId);
+    const reference = safeKind === 'bill'
+      ? (item?.bill_no || item?.bill_key || `Bill #${numericId}`)
+      : (item?.transaction_key || `Transaction #${numericId}`);
+    const phrase = `REMOVE ${safeKind.toUpperCase()} ${numericId}`;
+    refs.removalForm.reset();
+    refs.removalForm.elements.kind.value = safeKind;
+    refs.removalForm.elements.source_id.value = String(numericId);
+    if (refs.removalPhrase) refs.removalPhrase.textContent = phrase;
+    if (refs.removalSummary) refs.removalSummary.textContent = `${reference} will disappear from normal transaction history and the Activity ledger.`;
+    if (refs.removalImpact) {
+      refs.removalImpact.textContent = safeKind === 'transaction' && (item?.type === 'bill_payment' || ledgerItem?.entry_type === 'bill_payment')
+        ? 'This payment will be reversed and its bills will become outstanding again. The reason remains in the private audit trail.'
+        : (safeKind === 'bill'
+          ? 'A bill with payments cannot be removed until its payment transactions are removed first. The reason remains in the private audit trail.'
+          : 'Accounting totals will stop including this transaction. The reason remains in the private audit trail.');
+    }
+    if (refs.removalError) refs.removalError.hidden = true;
+    refs.removal.hidden = false;
+    window.requestAnimationFrame(() => {
+      refs.removalCard?.focus();
+      refs.removalForm?.elements.removal_reason?.focus();
+    });
+  };
+
+  const submitRemoval = async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (!(form instanceof HTMLFormElement)) return;
+    const data = new FormData(form);
+    const kind = String(data.get('kind') || '') === 'bill' ? 'bill' : 'transaction';
+    const sourceId = String(data.get('source_id') || '');
+    const originalLabel = refs.removalSubmit?.textContent || 'Remove from normal views';
+    if (refs.removalSubmit instanceof HTMLButtonElement) {
+      refs.removalSubmit.disabled = true;
+      refs.removalSubmit.textContent = 'Removing…';
+    }
+    try {
+      await requestJson(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: `remove_${kind}`,
+          [`${kind}_id`]: sourceId,
+          removal_reason: String(data.get('removal_reason') || '').trim(),
+          admin_key: String(data.get('admin_key') || ''),
+          confirmation: String(data.get('confirmation') || '').trim()
+        })
+      });
+      closeRemoval();
+      if (refs.drawer) refs.drawer.hidden = true;
+      state.cashHistoryLoaded = false;
+      showToast(`${kind === 'bill' ? 'Bill' : 'Transaction'} removed from normal views.`);
+      await loadSafely(true);
+    } catch (error) {
+      if (refs.removalError) {
+        refs.removalError.hidden = false;
+        refs.removalError.textContent = error?.message || 'Unable to remove this entry.';
+      }
+    } finally {
+      if (refs.removalSubmit instanceof HTMLButtonElement) {
+        refs.removalSubmit.disabled = false;
+        refs.removalSubmit.textContent = originalLabel;
+      }
+    }
   };
 
   const openReceipt = async (url, name = 'Receipt') => {
@@ -1773,7 +1863,7 @@ if (root) {
           <div class="admin-accounting-row-actions">
             <button type="button" class="admin-soft-btn" data-accounting-pay-bill="${escapeHtml(String(bill.id))}">Pay</button>
             <button type="button" class="admin-ghost-btn" data-accounting-view-bill="${escapeHtml(String(bill.id))}">Fix / view</button>
-            <button type="button" class="admin-danger-btn" data-accounting-void-bill="${escapeHtml(String(bill.id))}">Void</button>
+            <button type="button" class="admin-danger-btn" data-accounting-remove-kind="bill" data-accounting-remove-id="${escapeHtml(String(bill.id))}">Remove</button>
           </div>
         </td>
       </tr>
@@ -1806,7 +1896,7 @@ if (root) {
         <td>
           <div class="admin-accounting-row-actions">
             <button type="button" class="admin-ghost-btn" data-accounting-view-transaction="${escapeHtml(String(row.id))}">Fix / view</button>
-            <button type="button" class="admin-danger-btn" data-accounting-void-transaction="${escapeHtml(String(row.id))}">Void</button>
+            <button type="button" class="admin-danger-btn" data-accounting-remove-kind="transaction" data-accounting-remove-id="${escapeHtml(String(row.id))}">Remove</button>
           </div>
         </td>
       </tr>
@@ -1872,7 +1962,7 @@ if (root) {
             </button>
           ` : ''}
           <span class="admin-accounting-ledger-state">${escapeHtml(String(row.status || '').replace(/_/g, ' '))}</span>
-          <span class="admin-accounting-ledger-amount-wrap">${isBillRecord ? '<small>Amount to pay</small>' : ''}<strong class="admin-accounting-ledger-amount ${amountClass}">${prefix}${formatCurrency(row.amount || 0)}</strong></span>
+          <span class="admin-accounting-ledger-amount-wrap">${isBillRecord ? '<small>Amount to pay</small>' : ''}<strong class="admin-accounting-ledger-amount ${amountClass}">${prefix}${formatCurrency(row.amount || 0)}</strong>${canOpen ? `<button type="button" class="admin-accounting-ledger-remove" data-accounting-remove-kind="${escapeHtml(String(row.kind))}" data-accounting-remove-id="${escapeHtml(String(row.source_id || ''))}">Remove</button>` : ''}</span>
         </div>
       `;
     }).join('');
@@ -2388,6 +2478,11 @@ if (root) {
   });
   root.addEventListener('click', (event) => {
     const target = event.target instanceof Element ? event.target : null;
+    const removeButton = target?.closest('[data-accounting-remove-kind]');
+    if (removeButton instanceof HTMLElement) {
+      openRemoval(removeButton.dataset.accountingRemoveKind || 'transaction', removeButton.dataset.accountingRemoveId || '');
+      return;
+    }
     const trigger = target?.closest('[data-accounting-category-trigger]');
     if (trigger instanceof HTMLButtonElement) {
       const combobox = trigger.closest('[data-accounting-category-combobox]');
@@ -2453,17 +2548,6 @@ if (root) {
       openDrawer('bill', viewButton.dataset.accountingViewBill || '');
       return;
     }
-    const voidButton = target.closest('[data-accounting-void-bill]');
-    if (voidButton instanceof HTMLElement) {
-      const reason = window.prompt('Void reason');
-      if (!reason) return;
-      await requestJson(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'void_bill', bill_id: voidButton.dataset.accountingVoidBill, void_reason: reason })
-      }).then(() => showToast('Bill voided')).catch((error) => setFormError(error.message));
-      await loadSafely(true);
-    }
   });
 
   refs.transactionsBody?.addEventListener('click', async (event) => {
@@ -2473,17 +2557,6 @@ if (root) {
     if (viewButton instanceof HTMLElement) {
       openDrawer('transaction', viewButton.dataset.accountingViewTransaction || '');
       return;
-    }
-    const voidButton = target.closest('[data-accounting-void-transaction]');
-    if (voidButton instanceof HTMLElement) {
-      const reason = window.prompt('Void reason');
-      if (!reason) return;
-      await requestJson(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'void_transaction', transaction_id: voidButton.dataset.accountingVoidTransaction, void_reason: reason })
-      }).then(() => showToast('Transaction voided')).catch((error) => setFormError(error.message));
-      await loadSafely(true);
     }
   });
 
@@ -2759,6 +2832,8 @@ if (root) {
       if (refs.drawer) refs.drawer.hidden = true;
     });
   });
+  refs.removalCloseButtons.forEach((button) => button.addEventListener('click', closeRemoval));
+  refs.removalForm?.addEventListener('submit', submitRemoval);
   refs.receiptCloseButtons.forEach((button) => button.addEventListener('click', closeReceipt));
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
@@ -2771,6 +2846,7 @@ if (root) {
       closeBreakdown();
       closeReconcile();
       closeAccountSettings();
+      closeRemoval();
       closeReceipt();
     }
   });

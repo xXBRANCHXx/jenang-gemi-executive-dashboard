@@ -69,7 +69,7 @@ $cssVersion = (string) @filemtime(__DIR__ . '/flow.css');
             <article><b>01</b><div><h3>Stable identity</h3><p>External IDs, references, and transaction keys prevent the same event from being imported twice.</p></div></article>
             <article><b>02</b><div><h3>Payment documentation</h3><p>Paid-status history and backfills convert undocumented order payments into recorded receipts, reducing false outstanding value.</p></div></article>
             <article><b>03</b><div><h3>Receipt and category review</h3><p>Missing proof, missing categories, overdue bills, and suspected duplicates enter the review queue.</p></div></article>
-            <article><b>04</b><div><h3>Permanent audit trail</h3><p>Edits, reconciliations, voids, bill allocations, and category moves retain who/what changed and never silently erase history.</p></div></article>
+            <article><b>04</b><div><h3>Permanent audit trail</h3><p>Edits, reconciliations, bill allocations, category moves, and intentional removals retain what changed and why. Removed entries leave normal views but never silently erase the audit record.</p></div></article>
         </div>
     </section>
 

@@ -23,6 +23,30 @@ function jg_accounting_endpoint_payload(array $data, string $month = ''): array
     ];
 }
 
+function jg_accounting_require_removal_intent(array $body, string $kind): array
+{
+    $kind = $kind === 'bill' ? 'bill' : 'transaction';
+    $idField = $kind . '_id';
+    $id = (int) ($body[$idField] ?? $body['id'] ?? 0);
+    if ($id < 1) {
+        jg_accounting_error(ucfirst($kind) . ' is required.', 422, $idField);
+    }
+    $adminKey = trim((string) ($body['admin_key'] ?? ''));
+    if ($adminKey === '' || !jg_admin_code_matches($adminKey)) {
+        jg_accounting_error('The admin login key is incorrect.', 403, 'admin_key');
+    }
+    $expected = 'REMOVE ' . strtoupper($kind) . ' ' . $id;
+    $confirmation = trim(preg_replace('/\s+/', ' ', (string) ($body['confirmation'] ?? '')) ?? '');
+    if (!hash_equals($expected, $confirmation)) {
+        jg_accounting_error('Type “' . $expected . '” exactly to confirm removal.', 422, 'confirmation');
+    }
+    $reason = jg_accounting_long_text($body['removal_reason'] ?? $body['void_reason'] ?? '', 1000);
+    if (mb_strlen($reason) < 10) {
+        jg_accounting_error('Explain why this should be removed in at least 10 characters.', 422, 'removal_reason');
+    }
+    return [$idField => $id, 'void_reason' => 'Admin removal: ' . $reason];
+}
+
 function jg_accounting_export_csv(PDO $pdo): void
 {
     $month = jg_accounting_month($_GET['month'] ?? null);
@@ -281,8 +305,14 @@ try {
             'mark_bill_paid' => jg_accounting_mark_bill_paid($pdo, $body),
             'update_transaction' => jg_accounting_update_transaction($pdo, $body),
             'update_bill' => jg_accounting_update_bill($pdo, $body),
-            'void_transaction' => jg_accounting_void_transaction($pdo, $body),
-            'void_bill' => jg_accounting_void_bill($pdo, $body),
+            'void_transaction', 'remove_transaction' => (function () use ($pdo, $body): array {
+                $result = jg_accounting_void_transaction($pdo, [...$body, ...jg_accounting_require_removal_intent($body, 'transaction')]);
+                return [...$result, 'removed' => true];
+            })(),
+            'void_bill', 'remove_bill' => (function () use ($pdo, $body): array {
+                $result = jg_accounting_void_bill($pdo, [...$body, ...jg_accounting_require_removal_intent($body, 'bill')]);
+                return [...$result, 'removed' => true];
+            })(),
             'create_counterparty' => (function () use ($pdo, $body): array {
                 $name = trim((string) ($body['name'] ?? $body['counterparty_name'] ?? ''));
                 if ($name === '') {

@@ -3838,6 +3838,9 @@ function jg_accounting_bills(PDO $pdo, array $filters): array
             $params[':status'] = $status;
         }
     }
+    if (!jg_accounting_bool($filters['include_voided'] ?? false)) {
+        $where[] = 'b.status <> "void"';
+    }
     foreach (['brand', 'channel'] as $key) {
         $value = jg_accounting_text($filters[$key] ?? '', 80);
         if ($value !== '') {
@@ -4586,7 +4589,8 @@ function jg_accounting_void_transaction(PDO $pdo, array $body): array
              WHERE entity_type = "transaction" AND entity_id = :id AND status = "open"'
         );
         $resolveReviews->execute([':id' => $id]);
-        jg_accounting_insert_audit($pdo, 'transaction', $id, 'void', $tx, ['void_reason' => $reason]);
+        $auditAction = str_starts_with($reason, 'Admin removal: ') ? 'remove' : 'void';
+        jg_accounting_insert_audit($pdo, 'transaction', $id, $auditAction, $tx, ['void_reason' => $reason]);
         $pdo->commit();
         return ['transaction_id' => $id, 'status' => 'void'];
     } catch (Throwable $error) {
@@ -4616,7 +4620,8 @@ function jg_accounting_void_bill(PDO $pdo, array $body): array
     }
     $update = $pdo->prepare('UPDATE accounting_bills SET status = "void", voided_at = UTC_TIMESTAMP(), void_reason = :reason WHERE id = :id');
     $update->execute([':reason' => $reason, ':id' => $id]);
-    jg_accounting_insert_audit($pdo, 'bill', $id, 'void', $bill, ['void_reason' => $reason]);
+    $auditAction = str_starts_with($reason, 'Admin removal: ') ? 'remove' : 'void';
+    jg_accounting_insert_audit($pdo, 'bill', $id, $auditAction, $bill, ['void_reason' => $reason]);
     return ['bill_id' => $id, 'status' => 'void'];
 }
 
