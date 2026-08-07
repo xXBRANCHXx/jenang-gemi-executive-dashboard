@@ -561,6 +561,7 @@ function jg_accounting_ensure_schema(PDO $pdo): void
     );
     jg_accounting_seed_categories($pdo);
     jg_accounting_seed_counterparties($pdo);
+    jg_accounting_apply_august_2026_wallet_ads_correction($pdo);
 }
 
 function jg_accounting_seed_accounts(PDO $pdo): void
@@ -878,6 +879,124 @@ function jg_accounting_seed_counterparties(PDO $pdo): void
             ':name' => $name,
             ':type' => $type,
         ]);
+    }
+}
+
+function jg_accounting_apply_august_2026_wallet_ads_correction(PDO $pdo): void
+{
+    $migration = '2026_08_07_shopee_wallet_ads_spm_deduct_v1';
+    $migrationStmt = $pdo->prepare('SELECT COUNT(*) FROM accounting_migrations WHERE version = :version');
+    $migrationStmt->execute([':version' => $migration]);
+    if ((int) $migrationStmt->fetchColumn() > 0) {
+        return;
+    }
+
+    $source = null;
+    try {
+        $sourceStmt = $pdo->prepare(
+            'SELECT id, transaction_id, transaction_at, transaction_type, money_flow, amount, raw_json,
+                    "dashboard_wallet_platform_transactions" AS source_table
+             FROM dashboard_wallet_platform_transactions
+             WHERE LOWER(platform) = "shopee"
+               AND LOWER(account_key) = "jenang-gemi-shopee"
+               AND amount = -2775000
+               AND transaction_at >= "2026-08-01 17:00:00"
+               AND transaction_at < "2026-08-02 17:00:00"
+               AND (UPPER(transaction_type) = "SPM_DEDUCT" OR UPPER(raw_json) LIKE "%SPM_DEDUCT%")
+             ORDER BY id ASC
+             LIMIT 1'
+        );
+        $sourceStmt->execute();
+        $source = $sourceStmt->fetch();
+    } catch (Throwable) {
+        $source = null;
+    }
+    if (!is_array($source)) {
+        try {
+            $sourceStmt = $pdo->prepare(
+                'SELECT id, CONCAT("wallet-release:", id) AS transaction_id,
+                        COALESCE(withdrawn_at, created_at) AS transaction_at,
+                        release_note AS transaction_type, "MONEY_OUT" AS money_flow, -amount AS amount, NULL AS raw_json,
+                        "dashboard_wallet_releases" AS source_table
+                 FROM dashboard_wallet_releases
+                 WHERE LOWER(platform) = "shopee"
+                   AND LOWER(account_key) = "jenang-gemi-shopee"
+                   AND amount = 2775000
+                   AND COALESCE(withdrawn_at, created_at) >= "2026-08-01 17:00:00"
+                   AND COALESCE(withdrawn_at, created_at) < "2026-08-02 17:00:00"
+                   AND UPPER(release_note) LIKE "%SPM_DEDUCT%"
+                 ORDER BY id ASC
+                 LIMIT 1'
+            );
+            $sourceStmt->execute();
+            $source = $sourceStmt->fetch();
+        } catch (Throwable) {
+            $source = null;
+        }
+    }
+    if (!is_array($source)) {
+        // The correction waits until the exact wallet source row is available.
+        return;
+    }
+
+    $accountStmt = $pdo->prepare('SELECT id FROM accounting_accounts WHERE account_key = "shopee-jg-wallet" LIMIT 1');
+    $accountStmt->execute();
+    $accountId = (int) ($accountStmt->fetchColumn() ?: 0);
+    $categoryStmt = $pdo->prepare('SELECT id FROM accounting_categories WHERE category_key = "shopee-ads" LIMIT 1');
+    $categoryStmt->execute();
+    $categoryId = (int) ($categoryStmt->fetchColumn() ?: 0);
+    $counterpartyStmt = $pdo->prepare('SELECT id FROM accounting_counterparties WHERE counterparty_key = "shopee-ads" LIMIT 1');
+    $counterpartyStmt->execute();
+    $counterpartyId = (int) ($counterpartyStmt->fetchColumn() ?: 0);
+    if ($accountId < 1 || $categoryId < 1 || $counterpartyId < 1) {
+        throw new RuntimeException('Unable to prepare the historical Shopee wallet ads correction.');
+    }
+
+    $transactionKey = 'correction-shopee-wallet-ads-20260802-2775000';
+    $pdo->beginTransaction();
+    try {
+        $existingStmt = $pdo->prepare('SELECT id FROM accounting_transactions WHERE transaction_key = :transaction_key LIMIT 1');
+        $existingStmt->execute([':transaction_key' => $transactionKey]);
+        $transactionId = (int) ($existingStmt->fetchColumn() ?: 0);
+        if ($transactionId < 1) {
+            $insertStmt = $pdo->prepare(
+                'INSERT INTO accounting_transactions
+                    (transaction_key, transaction_date, business_month, type, direction, status, account_id, to_account_id,
+                     counterparty_id, category_id, bill_id, brand, channel, amount, transfer_fee_amount, currency,
+                     payment_method, reference_no, invoice_no, order_no, receipt_url, receipt_status, description, notes,
+                     review_status, created_by, created_at)
+                 VALUES
+                    (:transaction_key, "2026-08-02", "2026-08", "expense", "money_out", "posted", :account_id, NULL,
+                     :counterparty_id, :category_id, NULL, "Jenang Gemi", "Shopee", 2775000, 0, "IDR",
+                     "Marketplace wallet", :reference_no, NULL, NULL, NULL, "not_required", :description, :notes,
+                     "clean", NULL, UTC_TIMESTAMP())'
+            );
+            $insertStmt->execute([
+                ':transaction_key' => $transactionKey,
+                ':account_id' => $accountId,
+                ':counterparty_id' => $counterpartyId,
+                ':category_id' => $categoryId,
+                ':reference_no' => jg_accounting_text((string) ($source['transaction_id'] ?? 'SPM_DEDUCT'), 160),
+                ':description' => 'Shopee advertising paid directly from the Jenang Gemi marketplace wallet.',
+                ':notes' => 'Historical correction: SPM_DEDUCT was an ads payment from the Shopee wallet, not a payout to BCA.',
+            ]);
+            $transactionId = (int) $pdo->lastInsertId();
+            jg_accounting_insert_audit($pdo, 'transaction', $transactionId, 'historical_correction', null, [
+                'migration' => $migration,
+                'source_wallet_transaction' => $source,
+                'classification' => 'Shopee Ads paid from Shopee Wallet - Jenang Gemi',
+                'bank_cash_impact' => 0,
+                'expense_amount' => 2775000,
+            ]);
+        }
+        $recordMigration = $pdo->prepare('INSERT INTO accounting_migrations (version, applied_at) VALUES (:version, UTC_TIMESTAMP())');
+        $recordMigration->execute([':version' => $migration]);
+        $pdo->commit();
+    } catch (Throwable $error) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $error;
     }
 }
 
@@ -2477,10 +2596,24 @@ function jg_accounting_wallet_platform_transaction_text(array $row): string
     return trim(preg_replace('/[^a-z0-9]+/', ' ', $text) ?? '');
 }
 
+function jg_accounting_is_august_2026_wallet_ads_payment(array $row): bool
+{
+    $occurredAt = (string) ($row['transaction_at'] ?? $row['occurred_at'] ?? $row['withdrawn_at'] ?? $row['created_at'] ?? '');
+    $text = trim(jg_accounting_wallet_platform_transaction_text($row) . ' ' . strtolower((string) ($row['release_note'] ?? '')));
+    return strtolower(trim((string) ($row['platform'] ?? ''))) === 'shopee'
+        && strtolower(trim((string) ($row['account_key'] ?? ''))) === 'jenang-gemi-shopee'
+        && abs((int) round((float) ($row['amount'] ?? 0))) === 2775000
+        && jg_accounting_source_local_date($occurredAt) === '2026-08-02'
+        && str_contains(trim(preg_replace('/[^a-z0-9]+/', ' ', $text) ?? ''), 'spm deduct');
+}
+
 function jg_accounting_is_wallet_platform_cash_out(array $row): bool
 {
     $amount = (int) round((float) ($row['amount'] ?? 0));
     if ($amount >= 0) {
+        return false;
+    }
+    if (jg_accounting_is_august_2026_wallet_ads_payment($row)) {
         return false;
     }
 
@@ -2711,6 +2844,9 @@ function jg_accounting_wallet_cash_records(PDO $pdo, array $bounds = []): array
 
     $records = [];
     foreach ($rows as $row) {
+        if (jg_accounting_is_august_2026_wallet_ads_payment($row)) {
+            continue;
+        }
         $gross = max(0, (int) round((float) ($row['amount'] ?? 0)));
         if ($gross <= 0) {
             continue;
