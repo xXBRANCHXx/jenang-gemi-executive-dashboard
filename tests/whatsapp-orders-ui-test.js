@@ -58,7 +58,8 @@ assert.ok(outboundPayload.includes("'status' => 'IS_LISTED'"), 'Store Ops must r
 assert.ok(outboundPayload.includes("'shipping_cost'"), 'Store Ops must receive shipping cost for the customer invoice total.');
 assert.ok(bootstrap.includes("'unit_price' => (float) ($item['unit_price']"), 'Store Ops must receive saved unit prices for invoice lines.');
 assert.ok(outboundPayload.includes("'discount_total'"), 'Store Ops must receive saved discounts for invoice reconciliation.');
-assert.match(bootstrap, /current_stock[\s\S]*?only has %d unit/, 'Submission must reject quantities above current SKU stock.');
+assert.ok(!script.includes('Math.min(available') && !script.includes('data-cart-quantity="${escapeHtml(item.sku)}"><button type="button" data-cart-delta="1" data-cart-sku="${escapeHtml(item.sku)}"${'), 'Direct-order quantity controls must not stop at the currently recorded stock.');
+assert.ok(!bootstrap.includes('only has %d unit'), 'Direct-order submission must allow quantities above currently recorded stock.');
 assert.match(bootstrap, /jg_whatsapp_item_discount[\s\S]*?discount_rate[\s\S]*?discountableSubtotal/, 'The server must apply item discounts before the order discount.');
 assert.match(bootstrap, /jg_whatsapp_item_sale_price_discount[\s\S]*?Catalog unit price/, 'The server must retain catalog price as gross and convert edited sale price to an exact discount.');
 assert.match(bootstrap, /function jg_whatsapp_merge_sales_summary[\s\S]*?whatsapp_orders_merged/, 'Listed WhatsApp orders must merge into Executive metrics.');

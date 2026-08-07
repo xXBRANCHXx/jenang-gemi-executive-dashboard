@@ -31,6 +31,11 @@ batch_payment_expect(
     'Every invoice allocation must update its own outstanding balance.'
 );
 batch_payment_expect(
+    str_contains($source, 'AND issue_key = "overdue_bill" AND status = "open"')
+        && str_contains($source, "if (\$newStatus === 'paid')"),
+    'Fully paid bills must close their overdue warnings without hiding unrelated review issues.'
+);
+batch_payment_expect(
     str_contains($source, 'SELECT * FROM accounting_bill_payments WHERE transaction_id = :transaction_id ORDER BY id ASC'),
     'Voiding a combined transfer must discover all of its bill allocations.'
 );

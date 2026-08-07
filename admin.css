@@ -764,6 +764,33 @@
   text-align: left;
 }
 
+.admin-accounting-ledger-row.is-bill-record {
+  background: color-mix(in srgb, var(--accounting-muted) 5%, transparent);
+}
+
+.admin-accounting-ledger-row.is-paid-bill {
+  opacity: .52;
+  filter: grayscale(.8);
+}
+
+.admin-accounting-ledger-row.is-bill-payment {
+  background: color-mix(in srgb, #38d996 5%, transparent);
+}
+
+.admin-accounting-ledger-row.is-highlighted {
+  position: relative;
+  z-index: 1;
+  opacity: 1;
+  filter: none;
+  background: color-mix(in srgb, #7c3aed 14%, var(--accounting-surface));
+  box-shadow: inset 3px 0 #7c3aed, 0 0 0 2px color-mix(in srgb, #7c3aed 32%, transparent);
+  animation: admin-accounting-ledger-highlight 1s ease-out 2;
+}
+
+@keyframes admin-accounting-ledger-highlight {
+  50% { box-shadow: inset 3px 0 #7c3aed, 0 0 0 5px color-mix(in srgb, #7c3aed 16%, transparent); }
+}
+
 .admin-accounting-ledger-row time,
 .admin-accounting-ledger-copy small,
 .admin-accounting-ledger-state {
@@ -825,6 +852,24 @@
   font-size: .78rem;
 }
 
+.admin-accounting-ledger-kind {
+  display: inline-flex;
+  margin-right: 7px;
+  padding: 2px 6px;
+  border: 1px solid var(--accounting-border);
+  border-radius: 999px;
+  color: var(--accounting-muted);
+  font: 850 .52rem/1.2 "Plus Jakarta Sans", sans-serif;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  vertical-align: 1px;
+}
+
+.admin-accounting-ledger-kind.is-payment {
+  border-color: color-mix(in srgb, #38d996 45%, var(--accounting-border));
+  color: color-mix(in srgb, #16865b 85%, var(--accounting-text));
+}
+
 .admin-accounting-ledger-field {
   display: grid;
   gap: 4px;
@@ -881,6 +926,22 @@
   border: 1px solid var(--accounting-border);
   border-radius: 999px;
   text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.admin-accounting-ledger-amount-wrap {
+  display: grid;
+  gap: 2px;
+  justify-items: end;
+  min-width: 0;
+}
+
+.admin-accounting-ledger-amount-wrap > small {
+  color: var(--accounting-muted);
+  font-size: .52rem;
+  font-weight: 800;
+  letter-spacing: .03em;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
@@ -1326,7 +1387,7 @@ button.admin-accounting-breakdown-row:hover {
     grid-row: 1;
   }
 
-  .admin-accounting-ledger-amount {
+  .admin-accounting-ledger-amount-wrap {
     grid-column: 7;
     grid-row: 1;
   }
@@ -1411,9 +1472,16 @@ button.admin-accounting-breakdown-row:hover {
     display: none;
   }
 
-  .admin-accounting-ledger-amount {
+  .admin-accounting-ledger-amount-wrap {
     grid-column: 3;
     grid-row: 1;
+  }
+
+  .admin-accounting-ledger-amount-wrap > small {
+    display: none;
+  }
+
+  .admin-accounting-ledger-amount {
     font-size: .74rem;
   }
 

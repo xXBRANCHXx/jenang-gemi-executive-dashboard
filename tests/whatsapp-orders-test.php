@@ -116,6 +116,26 @@ try {
 }
 whatsapp_expect(true, $itemMarkupRejected, 'An edited item sale price cannot exceed its catalog price.');
 
+if (in_array('sqlite', PDO::getAvailableDrivers(), true)) {
+    $skuPdo = new PDO('sqlite::memory:');
+    $skuPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $skuPdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+    $skuPdo->exec('CREATE TABLE sku_brands (id INTEGER PRIMARY KEY, name TEXT NOT NULL)');
+    $skuPdo->exec('CREATE TABLE sku_products (id INTEGER PRIMARY KEY, name TEXT NOT NULL)');
+    $skuPdo->exec('CREATE TABLE sku_flavors (id INTEGER PRIMARY KEY, name TEXT NOT NULL)');
+    $skuPdo->exec('CREATE TABLE sku_skus (sku TEXT PRIMARY KEY, sale_price REAL, cogs REAL, current_stock INTEGER, skip_scan INTEGER, brand_id INTEGER, product_id INTEGER, flavor_id INTEGER)');
+    $skuPdo->exec("INSERT INTO sku_brands VALUES (1, 'ZERO')");
+    $skuPdo->exec("INSERT INTO sku_products VALUES (1, 'Maple Topping')");
+    $skuPdo->exec("INSERT INTO sku_flavors VALUES (1, 'Unflavored')");
+    $skuPdo->exec("INSERT INTO sku_skus VALUES ('010155000006', 149000, 50000, 6, 0, 1, 1, 1)");
+    $aboveRecordedStock = jg_whatsapp_normalize_items($skuPdo, [[
+        'sku' => '010155000006',
+        'quantity' => 60,
+        'sale_price' => 149000,
+    ]]);
+    whatsapp_expect(60, $aboveRecordedStock[0]['quantity'], 'Direct-order quantity must not be capped by the currently recorded SKU stock.');
+}
+
 $metricSummary = jg_whatsapp_apply_sales_aggregates(
     ['ok' => true, 'year' => 2026, 'months' => [], 'totals' => [], 'platforms' => [], 'accounts' => [], 'products' => []],
     [[

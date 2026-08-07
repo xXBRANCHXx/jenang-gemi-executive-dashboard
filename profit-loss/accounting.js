@@ -134,6 +134,7 @@ if (root) {
     partnerBillsScope: 'due',
     ledgerImpact: 'all',
     ledgerSearch: '',
+    highlightedLedgerId: '',
     billAllocations: {},
     preferences: JSON.parse(JSON.stringify(defaultPreferences))
   };
@@ -1711,6 +1712,10 @@ if (root) {
       return;
     }
     refs.ledgerBody.innerHTML = rows.map((row) => {
+      const ledgerId = `${String(row.kind || '')}:${String(row.source_id || '')}`;
+      const isBillRecord = String(row.kind || '') === 'bill';
+      const isPaidBill = isBillRecord && String(row.status || '') === 'paid';
+      const isBillPayment = String(row.entry_type || '') === 'bill_payment';
       const amountClass = ['cash_in', 'baseline'].includes(String(row.impact || ''))
         ? 'is-added'
         : (row.impact === 'cash_out' ? 'is-subtracted' : '');
@@ -1719,11 +1724,11 @@ if (root) {
       const details = [row.subtitle, row.account].filter(Boolean).join(' · ');
       const receiptUrl = safeReceiptUrl(row.receipt_url || '');
       return `
-        <div class="admin-accounting-ledger-row">
+        <div class="admin-accounting-ledger-row${isBillRecord ? ' is-bill-record' : ''}${isPaidBill ? ' is-paid-bill' : ''}${isBillPayment ? ' is-bill-payment' : ''}${state.highlightedLedgerId === ledgerId ? ' is-highlighted' : ''}" data-accounting-ledger-row="${escapeHtml(ledgerId)}" tabindex="-1">
           <time>${escapeHtml(formatHistoryDate(row.date || ''))}</time>
           <span class="admin-accounting-ledger-mark is-${escapeHtml(row.impact || 'entry')}" aria-hidden="true"></span>
           <${canOpen ? 'button' : 'span'} class="admin-accounting-ledger-copy" ${canOpen ? `type="button" data-accounting-ledger-open="${escapeHtml(row.kind)}:${escapeHtml(String(row.source_id || ''))}"` : ''}>
-            <strong>${escapeHtml(row.title || 'Accounting entry')}</strong>
+            <strong>${isBillRecord ? '<span class="admin-accounting-ledger-kind is-bill">Bill</span>' : (isBillPayment ? '<span class="admin-accounting-ledger-kind is-payment">Payment</span>' : '')}${escapeHtml(row.title || 'Accounting entry')}</strong>
             ${details ? `<small>${escapeHtml(details)}</small>` : ''}
           </${canOpen ? 'button' : 'span'}>
           <span class="admin-accounting-ledger-field admin-accounting-ledger-category">
@@ -1741,7 +1746,7 @@ if (root) {
             </button>
           ` : ''}
           <span class="admin-accounting-ledger-state">${escapeHtml(String(row.status || '').replace(/_/g, ' '))}</span>
-          <strong class="admin-accounting-ledger-amount ${amountClass}">${prefix}${formatCurrency(row.amount || 0)}</strong>
+          <span class="admin-accounting-ledger-amount-wrap">${isBillRecord ? '<small>Amount to pay</small>' : ''}<strong class="admin-accounting-ledger-amount ${amountClass}">${prefix}${formatCurrency(row.amount || 0)}</strong></span>
         </div>
       `;
     }).join('');
@@ -1809,7 +1814,7 @@ if (root) {
         <td><span class="${statusClass(row.severity)}">${escapeHtml(row.severity || 'warning')}</span></td>
         <td>${escapeHtml(row.entity_type || '-')} #${Number(row.entity_id || 0).toLocaleString('id-ID')}</td>
         <td>${escapeHtml(row.suggested_action || '-')}</td>
-        <td><div class="admin-accounting-row-actions"><button type="button" class="admin-primary-btn" data-accounting-fix-review="${escapeHtml(String(row.id))}" data-accounting-entity-type="${escapeHtml(row.entity_type || '')}" data-accounting-entity-id="${escapeHtml(String(row.entity_id || ''))}">Fix</button><button type="button" class="admin-soft-btn" data-accounting-resolve-review="${escapeHtml(String(row.id))}">Mark reviewed</button></div></td>
+        <td><div class="admin-accounting-row-actions"><button type="button" class="admin-primary-btn" data-accounting-fix-review="${escapeHtml(String(row.id))}" data-accounting-entity-type="${escapeHtml(row.entity_type || '')}" data-accounting-entity-id="${escapeHtml(String(row.entity_id || ''))}">View in ledger</button><button type="button" class="admin-soft-btn" data-accounting-resolve-review="${escapeHtml(String(row.id))}">Mark reviewed</button></div></td>
       </tr>
     `).join('');
   };
@@ -1871,6 +1876,45 @@ if (root) {
       refs.drawerBody.querySelectorAll('[data-accounting-category-combobox]').forEach(renderCategoryCombobox);
     }
     refs.drawer.hidden = false;
+  };
+
+  const focusLedgerEntry = async (kind, id) => {
+    const ledgerId = `${kind}:${id}`;
+    let row = state.ledger.find((entry) => `${entry.kind}:${entry.source_id}` === ledgerId);
+    if (!row) {
+      try {
+        const payload = await requestJson(buildUrl(kind, { [`${kind}_id`]: id, cacheBust: true }));
+        const item = payload.data?.[kind] || null;
+        const itemDate = String(kind === 'bill' ? item?.issue_date : item?.transaction_date).slice(0, 10);
+        const itemMonth = itemDate.slice(0, 7);
+        if (validMonthKey(itemMonth) && itemMonth !== state.month) {
+          state.month = itemMonth;
+          if (refs.monthInput) refs.monthInput.value = itemMonth;
+          await loadSafely(true);
+        }
+      } catch (error) {
+        showToast(error?.message || 'Unable to locate this ledger entry.', true);
+        return;
+      }
+      row = state.ledger.find((entry) => `${entry.kind}:${entry.source_id}` === ledgerId);
+    }
+    if (!row) {
+      showToast('This item is outside the loaded ledger history.', true);
+      return;
+    }
+    state.ledgerImpact = 'all';
+    state.ledgerSearch = '';
+    state.highlightedLedgerId = ledgerId;
+    if (refs.ledgerImpact) refs.ledgerImpact.value = 'all';
+    if (refs.ledgerSearch) refs.ledgerSearch.value = '';
+    renderLedger();
+    const target = refs.ledgerBody?.querySelector(`[data-accounting-ledger-row="${CSS.escape(ledgerId)}"]`);
+    target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    target?.focus({ preventScroll: true });
+    window.setTimeout(() => {
+      if (state.highlightedLedgerId === ledgerId) state.highlightedLedgerId = '';
+      target?.classList.remove('is-highlighted');
+    }, 5000);
   };
 
   const render = ({ savedAt = Date.now(), cached = false } = {}) => {
@@ -2336,7 +2380,7 @@ if (root) {
     if (fixButton instanceof HTMLElement) {
       const kind = fixButton.dataset.accountingEntityType === 'bill' ? 'bill' : 'transaction';
       const id = fixButton.dataset.accountingEntityId || '';
-      openDrawer(kind, id);
+      await focusLedgerEntry(kind, id);
       return;
     }
     const button = target.closest('[data-accounting-resolve-review]');

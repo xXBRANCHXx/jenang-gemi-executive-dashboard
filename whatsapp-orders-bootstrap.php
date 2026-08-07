@@ -361,15 +361,6 @@ function jg_whatsapp_normalize_items(PDO $skuPdo, mixed $value): array
             throw new InvalidArgumentException('SKU quantity must be between 1 and 9,999.');
         }
         $row = $catalog[$sku];
-        $available = max(0, (int) ($row['current_stock'] ?? 0));
-        if ($quantity > $available) {
-            throw new InvalidArgumentException(sprintf(
-                '%s only has %d unit%s in stock.',
-                $sku,
-                $available,
-                $available === 1 ? '' : 's'
-            ));
-        }
         $unitPrice = jg_whatsapp_money($row['sale_price'] ?? 0, 'Catalog unit price');
         $name = implode(' · ', array_values(array_filter([
             trim((string) ($row['brand_name'] ?? '')),

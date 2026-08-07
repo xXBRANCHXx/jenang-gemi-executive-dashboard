@@ -3962,6 +3962,7 @@ function jg_accounting_activity_ledger(PDO $pdo, array $filters): array
         $rows[] = [
             'id' => 'transaction:' . (int) $transaction['id'],
             'kind' => 'transaction',
+            'entry_type' => (string) ($transaction['type'] ?? ''),
             'source_id' => (int) $transaction['id'],
             'date' => (string) $transaction['transaction_date'],
             'sort_at' => (string) $transaction['transaction_date'] . ' ' . ($createdTime !== '' ? $createdTime : '12:00:00'),
@@ -4011,6 +4012,7 @@ function jg_accounting_activity_ledger(PDO $pdo, array $filters): array
         $rows[] = [
             'id' => 'bill:' . (int) $bill['id'],
             'kind' => 'bill',
+            'entry_type' => 'bill',
             'source_id' => (int) $bill['id'],
             'date' => (string) ($bill['issue_date'] ?? ''),
             'sort_at' => (string) ($bill['issue_date'] ?? '') . ' ' . ($createdTime !== '' ? $createdTime : '10:00:00'),
@@ -4425,6 +4427,12 @@ function jg_accounting_mark_bill_paid(PDO $pdo, array $body): array
                  status = :status
              WHERE id = :id'
         );
+        $resolvePaidReview = $pdo->prepare(
+            'UPDATE accounting_review_queue
+             SET status = "resolved", resolved_at = UTC_TIMESTAMP()
+             WHERE entity_type = "bill" AND entity_id = :bill_id
+               AND issue_key = "overdue_bill" AND status = "open"'
+        );
         $results = [];
         foreach ($allocations as $billId => $allocationAmount) {
             $bill = $bills[$billId];
@@ -4450,6 +4458,9 @@ function jg_accounting_mark_bill_paid(PDO $pdo, array $body): array
                 ':status' => $newStatus,
                 ':id' => $billId,
             ]);
+            if ($newStatus === 'paid') {
+                $resolvePaidReview->execute([':bill_id' => $billId]);
+            }
             $result = [
                 'bill_id' => $billId,
                 'amount' => $allocationAmount,

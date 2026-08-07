@@ -69,6 +69,9 @@ expect(script.includes("searchInput.matches('[data-accounting-category-search]')
 expect(script.includes('categoryComboboxMarkup(item.category_id)'), 'Correction forms must use the same searchable category dropdown.');
 expect(script.includes('payload.bill_allocations = selectedBillRows()'), 'Bill payments must submit each selected invoice allocation.');
 expect(script.includes('A combined transfer can only contain bills from one vendor.'), 'The bill picker must prevent combining unrelated vendors.');
+expect(script.includes('Amount to pay') && script.includes('is-paid-bill'), 'Paid bill records must remain visible as zero-outstanding, visually muted obligations.');
+expect(script.includes('is-bill-payment') && script.includes('admin-accounting-ledger-kind is-payment'), 'Bill payments must be visually distinct from the original bill records.');
+expect(script.includes('focusLedgerEntry') && script.includes('View in ledger'), 'Review actions must reveal and highlight their exact activity-ledger row.');
 
 expect(css.includes('.admin-liquidity-overview'), 'The liquid-assets visual hierarchy must be styled.');
 expect(css.includes('.admin-liquidity-tooltip'), 'Hover and keyboard-focus chart breakdowns must be styled.');
@@ -81,6 +84,7 @@ expect(css.includes('repeating-linear-gradient(135deg'), 'Going Out must use one
 expect(css.includes('background-color: rgba(239, 35, 60, .14)'), 'Going Out must remain translucent so the bank color shows underneath.');
 expect(css.includes('.admin-liquidity-segment.is-direct { background: #d6c34f; }'), 'Unpaid direct orders must use a distinct expected-money yellow instead of outflow red.');
 expect(css.includes('.admin-accounting-ledger-row'), 'Visual ledger rows must be styled.');
+expect(css.includes('.admin-accounting-ledger-row.is-paid-bill') && css.includes('.admin-accounting-ledger-row.is-highlighted'), 'Paid bills and selected review targets must have clear visual states.');
 expect(css.includes('.admin-accounting-review-receipt svg') && css.includes('fill: currentColor') && css.includes('stroke: none'), 'The receipt eye must be a filled icon without a stroked pill.');
 expect(css.includes('.admin-accounting-category-menu'), 'The in-dropdown category search menu must be styled.');
 expect(css.includes('.admin-accounting-bill-menu') && css.includes('.admin-accounting-bill-allocation'), 'Multi-bill payment allocations must be styled as a compact dropdown.');
