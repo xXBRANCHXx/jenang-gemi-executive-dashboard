@@ -72,6 +72,10 @@ expect(script.includes('A combined transfer can only contain bills from one vend
 expect(script.includes('Amount to pay') && script.includes('is-paid-bill'), 'Paid bill records must remain visible as zero-outstanding, visually muted obligations.');
 expect(script.includes('is-bill-payment') && script.includes('admin-accounting-ledger-kind is-payment'), 'Bill payments must be visually distinct from the original bill records.');
 expect(script.includes('focusLedgerEntry') && script.includes('View in ledger'), 'Review actions must reveal and highlight their exact activity-ledger row.');
+expect(script.includes('Is money coming in or going out?') && script.includes('Which big group?') && script.includes('What exactly was it?'), 'Category settings must use the three plain-language hierarchy steps.');
+expect(script.includes('Show as a choice on new bills and entries') && script.includes('Active but hidden is allowed'), 'Category availability controls must explain active-versus-visible behavior.');
+expect(script.includes('Number(item.is_selectable) === 1'), 'New-entry category lists must use the API selection rule that excludes hidden categories and children of inactive groups.');
+expect(script.includes("payload.action = 'move_category'") && script.includes('Everything — fully retroactive'), 'Category settings must support date-range and fully retroactive moves.');
 
 expect(css.includes('.admin-liquidity-overview'), 'The liquid-assets visual hierarchy must be styled.');
 expect(css.includes('.admin-liquidity-tooltip'), 'Hover and keyboard-focus chart breakdowns must be styled.');
@@ -89,5 +93,11 @@ expect(css.includes('.admin-accounting-review-receipt svg') && css.includes('fil
 expect(css.includes('.admin-accounting-category-menu'), 'The in-dropdown category search menu must be styled.');
 expect(css.includes('.admin-accounting-bill-menu') && css.includes('.admin-accounting-bill-allocation'), 'Multi-bill payment allocations must be styled as a compact dropdown.');
 expect(/\.admin-accounting-breakdown-body\s*\{[^}]*overflow-y:\s*auto/.test(css), 'Long Accounting breakdowns must scroll inside the modal.');
+
+const flowHtml = fs.readFileSync(path.join(root, 'accounting-flow', 'index.php'), 'utf8');
+expect(flowHtml.includes('How money becomes one trustworthy number'), 'The private Accounting flow page must explain the complete system.');
+expect(flowHtml.includes('Bills are obligations') && flowHtml.includes('Bill payments are cash movements'), 'The flow page must explain why bills and payments are not counted twice.');
+expect(flowHtml.includes('Profit &amp; Loss') && flowHtml.includes('Executive Dashboard') && flowHtml.includes('Wallet operations'), 'The flow page must map Accounting effects onto connected pages.');
+expect(!html.includes('accounting-flow'), 'The standalone Accounting flow URL must not be linked from the Accounting navigation or page.');
 
 process.stdout.write('accounting-overhaul-ui-test: ok\n');

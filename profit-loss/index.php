@@ -486,7 +486,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                                     </div>
                                 </section>
                                 <section data-accounting-settings-panel="categories" hidden>
-                                    <div class="admin-accounting-settings-intro"><h4>Categories</h4><p>Add or refine the bookkeeping categories available on entries and bills.</p></div>
+                                    <div class="admin-accounting-settings-intro"><h4>Where money belongs</h4><p>Choose money in or money out, then a big group, then the exact choice your team will use.</p></div>
                                     <div data-accounting-category-settings></div>
                                 </section>
                                 <section data-accounting-settings-panel="lists" hidden>

@@ -37352,11 +37352,43 @@ a.admin-accounting-breakdown-row:focus-visible { background: color-mix(in srgb, 
 .admin-accounting-add-choice { justify-self:start; padding:8px 2px; border:0; background:transparent; color:#20d98a; font-weight:800; cursor:pointer; }
 [data-accounting-preferences-form] > .admin-primary-btn { float:right; margin-top:16px; }
 .admin-accounting-language-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
-.admin-accounting-category-settings-form { display:grid; gap:15px; max-width:760px; padding:18px; border:1px solid var(--accounting-border); border-radius:14px; }
+.admin-accounting-category-steps { display:grid; gap:10px; max-width:820px; margin-bottom:14px; }
+.admin-accounting-category-step { display:grid; grid-template-columns:32px minmax(150px,.8fr) minmax(280px,1.4fr); align-items:center; gap:12px; padding:13px; border:1px solid var(--accounting-border); border-radius:13px; background:color-mix(in srgb,var(--accounting-surface) 95%,var(--accounting-text) 5%); }
+.admin-accounting-category-step > b { display:grid; place-items:center; width:28px; height:28px; border-radius:50%; background:var(--accounting-text); color:var(--accounting-surface); font-size:.72rem; }
+.admin-accounting-category-step h5 { margin:0 0 3px; color:var(--accounting-text); font-size:.76rem; }
+.admin-accounting-category-step p { margin:0; color:var(--accounting-muted); font-size:.62rem; line-height:1.4; }
+.admin-accounting-category-step.is-disabled { opacity:.52; }
+.admin-accounting-flow-choice { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+.admin-accounting-flow-choice button { min-height:44px; border:1px solid var(--accounting-border); border-radius:10px; background:var(--accounting-surface); color:var(--accounting-text); font-weight:850; cursor:pointer; }
+.admin-accounting-flow-choice button span { margin-right:5px; }
+.admin-accounting-flow-choice button.is-active { border-color:#20d98a; background:color-mix(in srgb,#00d97e 13%,var(--accounting-surface)); box-shadow:inset 0 0 0 1px #20d98a; }
+.admin-accounting-step-control { display:grid; grid-template-columns:minmax(170px,1fr) auto auto; align-items:center; gap:7px; }
+.admin-accounting-step-control select { width:100%; min-height:42px; padding:0 10px; border:1px solid var(--accounting-border); border-radius:9px; background:var(--accounting-surface); color:var(--accounting-text); }
+.admin-link-btn { border:0; background:transparent; color:#20d98a; font-size:.64rem; font-weight:800; cursor:pointer; }
+.admin-accounting-category-settings-form { display:grid; gap:15px; max-width:820px; margin-top:12px; padding:18px; border:1px solid var(--accounting-border); border-radius:14px; }
 .admin-accounting-settings-form-grid { display:grid; grid-template-columns:1.2fr .8fr 1fr; gap:10px; }
-.admin-accounting-category-flags { display:flex; flex-wrap:wrap; gap:16px; }
-.admin-accounting-category-flags label { display:flex; align-items:center; gap:7px; color:var(--accounting-muted); font-size:.68rem; font-weight:750; }
-.admin-accounting-category-settings-form > div:last-child { display:flex; justify-content:flex-end; gap:8px; }
+.admin-accounting-settings-form-grid--two { grid-template-columns:1fr 1fr; }
+.admin-accounting-category-editor-head { display:flex; justify-content:space-between; }
+.admin-accounting-category-editor-head > div { display:grid; gap:3px; }
+.admin-accounting-category-editor-head strong,.admin-accounting-category-move > div > strong { color:var(--accounting-text); font-size:.8rem; }
+.admin-accounting-category-editor-head small,.admin-accounting-category-move > div > small { color:var(--accounting-muted); font-size:.63rem; }
+.admin-accounting-category-behavior { display:grid; gap:8px; }
+.admin-accounting-plain-toggle,.admin-accounting-move-scope > label { display:grid!important; grid-template-columns:18px 1fr; align-items:start!important; gap:9px!important; padding:11px; border:1px solid var(--accounting-border); border-radius:10px; cursor:pointer; }
+.admin-accounting-plain-toggle input,.admin-accounting-move-scope input { width:16px; height:16px; margin-top:2px; }
+.admin-accounting-plain-toggle span,.admin-accounting-move-scope label span { display:grid; gap:3px; color:var(--accounting-text)!important; }
+.admin-accounting-plain-toggle strong,.admin-accounting-move-scope strong { font-size:.7rem; }
+.admin-accounting-plain-toggle small,.admin-accounting-move-scope small { color:var(--accounting-muted); font-size:.61rem; font-weight:500; line-height:1.4; }
+.admin-accounting-category-form-actions { display:flex; justify-content:flex-end; gap:8px; }
+.admin-accounting-category-move { display:grid; grid-template-columns:minmax(180px,.7fr) minmax(180px,1fr); gap:12px; max-width:820px; margin-top:12px; padding:18px; border:1px dashed var(--accounting-border); border-radius:14px; }
+.admin-accounting-category-move > div:first-child { display:grid; align-content:start; gap:3px; }
+.admin-accounting-category-move > label { display:grid; gap:5px; }
+.admin-accounting-category-move > label > span,.admin-accounting-move-dates span { color:var(--accounting-muted); font-size:.62rem; font-weight:800; }
+.admin-accounting-category-move select,.admin-accounting-category-move input[type=date] { min-height:40px; padding:0 10px; border:1px solid var(--accounting-border); border-radius:8px; background:var(--accounting-surface); color:var(--accounting-text); }
+.admin-accounting-move-scope { grid-column:1 / -1; display:grid; gap:8px; }
+.admin-accounting-move-dates { display:grid; grid-template-columns:1fr 1fr; gap:8px; padding-left:27px; }
+.admin-accounting-move-dates label { display:grid; gap:5px; }
+.admin-accounting-category-move > .admin-form-error { grid-column:1 / -1; }
+.admin-accounting-category-move > button { justify-self:end; grid-column:1 / -1; }
 
 @media (max-width:860px) {
   .admin-accounting-ledger-filters { grid-template-columns:1fr 1fr; }
@@ -37376,6 +37408,10 @@ a.admin-accounting-breakdown-row:focus-visible { background: color-mix(in srgb, 
   .admin-accounting-ledger-search { grid-column:auto; }
   .admin-accounting-option-row { grid-template-columns:1fr 1fr; padding-bottom:10px; border-bottom:1px solid var(--accounting-border); }
   .admin-accounting-settings-nav strong { font-size:.62rem; }
+  .admin-accounting-category-step { grid-template-columns:30px 1fr; }
+  .admin-accounting-category-step > :last-child { grid-column:1 / -1; }
+  .admin-accounting-step-control,.admin-accounting-settings-form-grid--two,.admin-accounting-category-move { grid-template-columns:1fr; }
+  .admin-accounting-category-move > * { grid-column:1!important; }
 }
 
 /* Neutral child-page return navigation for the Website ecosystem. */

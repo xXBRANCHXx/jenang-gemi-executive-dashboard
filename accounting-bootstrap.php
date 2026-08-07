@@ -217,6 +217,7 @@ function jg_accounting_ensure_schema(PDO $pdo): void
             parent_id BIGINT UNSIGNED NULL,
             name VARCHAR(160) NOT NULL,
             type ENUM("income","expense","cogs_support","marketing","operations","payroll","asset","transfer","owner","tax","adjustment","other") NOT NULL,
+            flow ENUM("income","expense") NOT NULL DEFAULT "expense",
             requires_receipt TINYINT(1) NOT NULL DEFAULT 0,
             is_billable TINYINT(1) NOT NULL DEFAULT 1,
             is_active TINYINT(1) NOT NULL DEFAULT 1,
@@ -436,6 +437,24 @@ function jg_accounting_ensure_schema(PDO $pdo): void
         if (!jg_accounting_has_column($pdo, 'accounting_accounts', $column) && !analyticsTryExec($pdo, $sql)) {
             throw new RuntimeException('Unable to update Accounting account roles.');
         }
+    }
+
+    if (!jg_accounting_has_column($pdo, 'accounting_categories', 'flow')) {
+        if (!analyticsTryExec($pdo, 'ALTER TABLE accounting_categories ADD COLUMN flow ENUM("income","expense") NOT NULL DEFAULT "expense" AFTER type')) {
+            throw new RuntimeException('Unable to add Accounting category direction.');
+        }
+    }
+    $categoryFlowMigration = '2026_08_07_accounting_category_flow_v1';
+    $categoryFlowMigrationStmt = $pdo->prepare('SELECT COUNT(*) FROM accounting_migrations WHERE version = :version');
+    $categoryFlowMigrationStmt->execute([':version' => $categoryFlowMigration]);
+    if ((int) $categoryFlowMigrationStmt->fetchColumn() === 0) {
+        $pdo->exec(
+            'UPDATE accounting_categories
+             SET flow = "income"
+             WHERE type = "income" OR category_key IN ("owner-injection", "loan-received", "reimbursement")'
+        );
+        $recordCategoryFlowMigration = $pdo->prepare('INSERT INTO accounting_migrations (version, applied_at) VALUES (:version, UTC_TIMESTAMP())');
+        $recordCategoryFlowMigration->execute([':version' => $categoryFlowMigration]);
     }
     if (!jg_accounting_has_column($pdo, 'accounting_cash_reconciliations', 'account_id')) {
         if (!analyticsTryExec($pdo, 'ALTER TABLE accounting_cash_reconciliations ADD COLUMN account_id BIGINT UNSIGNED NULL AFTER reconciliation_key')) {
@@ -748,16 +767,11 @@ function jg_accounting_seed_categories(PDO $pdo): void
 
     $insert = $pdo->prepare(
         'INSERT INTO accounting_categories
-            (category_key, parent_id, name, type, requires_receipt, is_billable, is_active, sort_order)
+            (category_key, parent_id, name, type, flow, requires_receipt, is_billable, is_active, sort_order)
          VALUES
-            (:category_key, :parent_id, :name, :type, :requires_receipt, :is_billable, 1, :sort_order)
+            (:category_key, :parent_id, :name, :type, :flow, :requires_receipt, :is_billable, 1, :sort_order)
          ON DUPLICATE KEY UPDATE
-            parent_id = VALUES(parent_id),
-            name = VALUES(name),
-            type = VALUES(type),
-            requires_receipt = VALUES(requires_receipt),
-            is_billable = VALUES(is_billable),
-            sort_order = VALUES(sort_order)'
+            category_key = VALUES(category_key)'
     );
 
     $groupIds = [];
@@ -767,6 +781,7 @@ function jg_accounting_seed_categories(PDO $pdo): void
             ':parent_id' => null,
             ':name' => $name,
             ':type' => $type,
+            ':flow' => 'expense',
             ':requires_receipt' => 0,
             ':is_billable' => 1,
             ':sort_order' => ($index + 1) * 100,
@@ -827,6 +842,7 @@ function jg_accounting_seed_categories(PDO $pdo): void
             ':parent_id' => $groupIds[$parentKey] ?? null,
             ':name' => $name,
             ':type' => $type,
+            ':flow' => in_array($key, ['owner-injection', 'loan-received', 'reimbursement'], true) || $type === 'income' ? 'income' : 'expense',
             ':requires_receipt' => $requiresReceipt,
             ':is_billable' => 1,
             ':sort_order' => ($index + 1) * 10,
@@ -920,11 +936,12 @@ function jg_accounting_get_counterparty(PDO $pdo, mixed $counterpartyId, string 
 
 function jg_accounting_insert_audit(PDO $pdo, string $entityType, int $entityId, string $action, mixed $oldValue, mixed $newValue): void
 {
+    $nowExpression = (string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite' ? 'CURRENT_TIMESTAMP' : 'UTC_TIMESTAMP()';
     $stmt = $pdo->prepare(
         'INSERT INTO accounting_audit_log
             (entity_type, entity_id, action, old_value_json, new_value_json, created_by, created_at)
          VALUES
-            (:entity_type, :entity_id, :action, :old_value_json, :new_value_json, NULL, UTC_TIMESTAMP())'
+            (:entity_type, :entity_id, :action, :old_value_json, :new_value_json, NULL, ' . $nowExpression . ')'
     );
     $stmt->execute([
         ':entity_type' => $entityType,
@@ -1257,15 +1274,15 @@ function jg_accounting_save_account(PDO $pdo, array $body): array
     ))[0] ?? null];
 }
 
-function jg_accounting_categories(PDO $pdo): array
+function jg_accounting_categories(PDO $pdo, bool $includeInactive = false): array
 {
-    $rows = $pdo->query(
-        'SELECT c.*, p.name AS parent_name
+    $sql =
+        'SELECT c.*, p.name AS parent_name, p.is_active AS parent_is_active, p.flow AS parent_flow
          FROM accounting_categories c
          LEFT JOIN accounting_categories p ON p.id = c.parent_id
-         WHERE c.is_active = 1
-         ORDER BY COALESCE(p.sort_order, c.sort_order), c.parent_id IS NOT NULL, c.sort_order, c.name'
-    )->fetchAll();
+         ' . ($includeInactive ? '' : 'WHERE c.is_active = 1 AND (c.parent_id IS NULL OR p.is_active = 1) ') . '
+         ORDER BY COALESCE(p.sort_order, c.sort_order), c.parent_id IS NOT NULL, c.sort_order, c.name';
+    $rows = $pdo->query($sql)->fetchAll();
     return array_map(static fn (array $row): array => [
         'id' => (int) $row['id'],
         'category_key' => (string) $row['category_key'],
@@ -1273,8 +1290,16 @@ function jg_accounting_categories(PDO $pdo): array
         'parent_name' => $row['parent_name'],
         'name' => (string) $row['name'],
         'type' => (string) $row['type'],
+        'flow' => in_array((string) ($row['flow'] ?? ''), ['income', 'expense'], true) ? (string) $row['flow'] : 'expense',
         'requires_receipt' => (int) $row['requires_receipt'],
         'is_billable' => (int) $row['is_billable'],
+        'is_active' => (int) $row['is_active'],
+        'parent_is_active' => $row['parent_id'] === null ? null : (int) ($row['parent_is_active'] ?? 0),
+        'parent_flow' => $row['parent_id'] === null ? null : (string) ($row['parent_flow'] ?? 'expense'),
+        'is_selectable' => $row['parent_id'] !== null
+            && (int) $row['is_active'] === 1
+            && (int) $row['is_billable'] === 1
+            && (int) ($row['parent_is_active'] ?? 0) === 1 ? 1 : 0,
     ], $rows);
 }
 
@@ -4800,9 +4825,11 @@ function jg_accounting_create_category(PDO $pdo, array $body): array
     if (!in_array($type, ['income','expense','cogs_support','marketing','operations','payroll','asset','transfer','owner','tax','adjustment','other'], true)) {
         $type = 'expense';
     }
+    $flow = jg_accounting_text($body['flow'] ?? ($type === 'income' ? 'income' : 'expense'), 20);
+    $flow = in_array($flow, ['income', 'expense'], true) ? $flow : 'expense';
     $stmt = $pdo->prepare(
-        'INSERT INTO accounting_categories (category_key, parent_id, name, type, requires_receipt, is_billable, is_active, sort_order)
-         VALUES (:category_key, :parent_id, :name, :type, :requires_receipt, 1, 1, 500)
+        'INSERT INTO accounting_categories (category_key, parent_id, name, type, flow, requires_receipt, is_billable, is_active, sort_order)
+         VALUES (:category_key, :parent_id, :name, :type, :flow, :requires_receipt, 1, 1, 500)
          ON DUPLICATE KEY UPDATE name = VALUES(name), type = VALUES(type), requires_receipt = VALUES(requires_receipt)'
     );
     $stmt->execute([
@@ -4810,6 +4837,7 @@ function jg_accounting_create_category(PDO $pdo, array $body): array
         ':parent_id' => (int) ($body['parent_id'] ?? 0) > 0 ? (int) $body['parent_id'] : null,
         ':name' => $name,
         ':type' => $type,
+        ':flow' => $flow,
         ':requires_receipt' => jg_accounting_bool($body['requires_receipt'] ?? false) ? 1 : 0,
     ]);
     return ['id' => (int) $pdo->lastInsertId()];
@@ -4827,34 +4855,46 @@ function jg_accounting_save_category(PDO $pdo, array $body): array
     if (!in_array($type, $allowedTypes, true)) {
         jg_accounting_error('Choose a valid category type.', 422, 'type');
     }
+    $flow = jg_accounting_text($body['flow'] ?? ($type === 'income' ? 'income' : 'expense'), 20);
+    if (!in_array($flow, ['income', 'expense'], true)) {
+        jg_accounting_error('Choose whether this is money in or money out.', 422, 'flow');
+    }
     $parentId = (int) ($body['parent_id'] ?? 0);
     $parentId = $parentId > 0 && $parentId !== $id ? $parentId : null;
+    if ($parentId !== null) {
+        $parentStmt = $pdo->prepare('SELECT id FROM accounting_categories WHERE id = :id AND parent_id IS NULL LIMIT 1');
+        $parentStmt->execute([':id' => $parentId]);
+        if ($parentStmt->fetchColumn() === false) {
+            jg_accounting_error('Choose a valid group.', 422, 'parent_id');
+        }
+    }
     $requiresReceipt = jg_accounting_bool($body['requires_receipt'] ?? false) ? 1 : 0;
     $isBillable = jg_accounting_bool($body['is_billable'] ?? true) ? 1 : 0;
     $isActive = jg_accounting_bool($body['is_active'] ?? true) ? 1 : 0;
+    $old = null;
     if ($id > 0) {
+        $oldStmt = $pdo->prepare('SELECT * FROM accounting_categories WHERE id = :id LIMIT 1');
+        $oldStmt->execute([':id' => $id]);
+        $old = $oldStmt->fetch();
+        if (!is_array($old)) {
+            jg_accounting_error('Category was not found.', 404, 'category_id');
+        }
         $stmt = $pdo->prepare(
             'UPDATE accounting_categories
-             SET name = :name, type = :type, parent_id = :parent_id, requires_receipt = :requires_receipt,
+             SET name = :name, type = :type, flow = :flow, parent_id = :parent_id, requires_receipt = :requires_receipt,
                  is_billable = :is_billable, is_active = :is_active
              WHERE id = :id'
         );
         $stmt->execute([
             ':name' => $name,
             ':type' => $type,
+            ':flow' => $flow,
             ':parent_id' => $parentId,
             ':requires_receipt' => $requiresReceipt,
             ':is_billable' => $isBillable,
             ':is_active' => $isActive,
             ':id' => $id,
         ]);
-        if ($stmt->rowCount() === 0) {
-            $exists = $pdo->prepare('SELECT COUNT(*) FROM accounting_categories WHERE id = :id');
-            $exists->execute([':id' => $id]);
-            if ((int) $exists->fetchColumn() === 0) {
-                jg_accounting_error('Category was not found.', 404, 'category_id');
-            }
-        }
     } else {
         $key = strtolower(trim(preg_replace('/[^a-z0-9]+/i', '-', $name) ?? '', '-')) ?: jg_accounting_key('category');
         $exists = $pdo->prepare('SELECT COUNT(*) FROM accounting_categories WHERE category_key = :category_key');
@@ -4865,15 +4905,16 @@ function jg_accounting_save_category(PDO $pdo, array $body): array
         $sortOrder = (int) ($pdo->query('SELECT COALESCE(MAX(sort_order), 0) + 10 FROM accounting_categories')->fetchColumn() ?: 100);
         $stmt = $pdo->prepare(
             'INSERT INTO accounting_categories
-                (category_key, parent_id, name, type, requires_receipt, is_billable, is_active, sort_order)
+                (category_key, parent_id, name, type, flow, requires_receipt, is_billable, is_active, sort_order)
              VALUES
-                (:category_key, :parent_id, :name, :type, :requires_receipt, :is_billable, :is_active, :sort_order)'
+                (:category_key, :parent_id, :name, :type, :flow, :requires_receipt, :is_billable, :is_active, :sort_order)'
         );
         $stmt->execute([
             ':category_key' => mb_substr($key, 0, 80),
             ':parent_id' => $parentId,
             ':name' => $name,
             ':type' => $type,
+            ':flow' => $flow,
             ':requires_receipt' => $requiresReceipt,
             ':is_billable' => $isBillable,
             ':is_active' => $isActive,
@@ -4881,7 +4922,145 @@ function jg_accounting_save_category(PDO $pdo, array $body): array
         ]);
         $id = (int) $pdo->lastInsertId();
     }
+    jg_accounting_insert_audit($pdo, 'category', $id, $old ? 'update' : 'create', is_array($old) ? $old : null, [
+        'name' => $name,
+        'parent_id' => $parentId,
+        'type' => $type,
+        'flow' => $flow,
+        'requires_receipt' => $requiresReceipt,
+        'is_billable' => $isBillable,
+        'is_active' => $isActive,
+    ]);
     return ['category_id' => $id];
+}
+
+function jg_accounting_move_category(PDO $pdo, array $body): array
+{
+    $categoryId = (int) ($body['category_id'] ?? 0);
+    $targetParentId = (int) ($body['target_parent_id'] ?? 0);
+    $scope = jg_accounting_text($body['scope'] ?? 'all', 20);
+    if ($categoryId < 1 || $targetParentId < 1 || $categoryId === $targetParentId) {
+        jg_accounting_error('Choose a category and a different destination group.', 422, 'target_parent_id');
+    }
+
+    $sourceStmt = $pdo->prepare('SELECT * FROM accounting_categories WHERE id = :id AND parent_id IS NOT NULL LIMIT 1');
+    $sourceStmt->execute([':id' => $categoryId]);
+    $source = $sourceStmt->fetch();
+    $targetStmt = $pdo->prepare('SELECT * FROM accounting_categories WHERE id = :id AND parent_id IS NULL LIMIT 1');
+    $targetStmt->execute([':id' => $targetParentId]);
+    $target = $targetStmt->fetch();
+    if (!is_array($source) || !is_array($target)) {
+        jg_accounting_error('The category or destination group was not found.', 404, 'category_id');
+    }
+    if ((int) $source['parent_id'] === $targetParentId) {
+        jg_accounting_error('That category is already in this group.', 422, 'target_parent_id');
+    }
+    $flow = jg_accounting_text($body['flow'] ?? $source['flow'] ?? 'expense', 20);
+    $flow = in_array($flow, ['income', 'expense'], true) ? $flow : 'expense';
+    $dateFrom = null;
+    $dateTo = null;
+    if ($scope !== 'all') {
+        $dateFrom = jg_accounting_date($body['date_from'] ?? '', 'date_from');
+        $dateTo = jg_accounting_date($body['date_to'] ?? '', 'date_to');
+        if ($dateFrom > $dateTo) {
+            jg_accounting_error('The end date must be on or after the start date.', 422, 'date_to');
+        }
+    }
+
+    $pdo->beginTransaction();
+    try {
+        if ($scope === 'all') {
+            $moveStmt = $pdo->prepare(
+                'UPDATE accounting_categories SET parent_id = :parent_id, type = :type, flow = :flow WHERE id = :id'
+            );
+            $moveStmt->execute([
+                ':parent_id' => $targetParentId,
+                ':type' => (string) $target['type'],
+                ':flow' => $flow,
+                ':id' => $categoryId,
+            ]);
+            $result = [
+                'category_id' => $categoryId,
+                'destination_category_id' => $categoryId,
+                'scope' => 'all',
+                'transactions_moved' => 'all',
+                'bills_moved' => 'all',
+            ];
+        } else {
+            $destinationStmt = $pdo->prepare(
+                'SELECT id FROM accounting_categories
+                 WHERE parent_id = :parent_id AND LOWER(name) = LOWER(:name) AND flow = :flow
+                 ORDER BY id LIMIT 1'
+            );
+            $destinationStmt->execute([
+                ':parent_id' => $targetParentId,
+                ':name' => (string) $source['name'],
+                ':flow' => $flow,
+            ]);
+            $destinationId = (int) ($destinationStmt->fetchColumn() ?: 0);
+            if ($destinationId < 1) {
+                $baseKey = strtolower(trim(preg_replace('/[^a-z0-9]+/i', '-', (string) $source['name']) ?? '', '-')) ?: 'category';
+                $categoryKey = mb_substr($baseKey, 0, 57) . '-moved-' . bin2hex(random_bytes(4));
+                $insertStmt = $pdo->prepare(
+                    'INSERT INTO accounting_categories
+                        (category_key, parent_id, name, type, flow, requires_receipt, is_billable, is_active, sort_order)
+                     VALUES
+                        (:category_key, :parent_id, :name, :type, :flow, :requires_receipt, 0, 1, :sort_order)'
+                );
+                $insertStmt->execute([
+                    ':category_key' => $categoryKey,
+                    ':parent_id' => $targetParentId,
+                    ':name' => (string) $source['name'],
+                    ':type' => (string) $target['type'],
+                    ':flow' => $flow,
+                    ':requires_receipt' => (int) $source['requires_receipt'],
+                    ':sort_order' => (int) $source['sort_order'],
+                ]);
+                $destinationId = (int) $pdo->lastInsertId();
+            }
+            $transactionsStmt = $pdo->prepare(
+                'UPDATE accounting_transactions SET category_id = :destination_id
+                 WHERE category_id = :source_id AND transaction_date BETWEEN :date_from AND :date_to'
+            );
+            $transactionsStmt->execute([
+                ':destination_id' => $destinationId,
+                ':source_id' => $categoryId,
+                ':date_from' => $dateFrom,
+                ':date_to' => $dateTo,
+            ]);
+            $billsStmt = $pdo->prepare(
+                'UPDATE accounting_bills SET category_id = :destination_id
+                 WHERE category_id = :source_id AND issue_date BETWEEN :date_from AND :date_to'
+            );
+            $billsStmt->execute([
+                ':destination_id' => $destinationId,
+                ':source_id' => $categoryId,
+                ':date_from' => $dateFrom,
+                ':date_to' => $dateTo,
+            ]);
+            $result = [
+                'category_id' => $categoryId,
+                'destination_category_id' => $destinationId,
+                'scope' => 'period',
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+                'transactions_moved' => $transactionsStmt->rowCount(),
+                'bills_moved' => $billsStmt->rowCount(),
+            ];
+        }
+        jg_accounting_insert_audit($pdo, 'category', $categoryId, 'move', $source, $result + [
+            'target_parent_id' => $targetParentId,
+            'target_parent_name' => (string) $target['name'],
+            'flow' => $flow,
+        ]);
+        $pdo->commit();
+        return $result;
+    } catch (Throwable $error) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $error;
+    }
 }
 
 function jg_accounting_mark_review_resolved(PDO $pdo, array $body): array

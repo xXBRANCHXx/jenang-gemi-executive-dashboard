@@ -4,7 +4,7 @@ if (root) {
   const DASHBOARD_TIMEZONE = 'Asia/Jakarta';
   const endpoint = root.dataset.accountingEndpoint || '../api/accounting/';
   const ACCOUNTING_CACHE_PREFIX = 'jg-accounting-page-cache-v7';
-  const ACCOUNTING_LOOKUPS_CACHE_KEY = 'jg-accounting-lookups-cache-v2';
+  const ACCOUNTING_LOOKUPS_CACHE_KEY = 'jg-accounting-lookups-cache-v3';
   const ACCOUNTING_CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
   const escapeHtml = (value) => String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -123,6 +123,10 @@ if (root) {
     reviewQueue: [],
     accounts: [],
     categories: [],
+    categorySettingsFlow: 'expense',
+    categorySettingsParentId: '',
+    categorySettingsCategoryId: '',
+    categorySettingsMode: 'browse',
     counterparties: [],
     lookupsLoaded: false,
     cashHistory: [],
@@ -571,7 +575,8 @@ if (root) {
   };
 
   const billableCategories = () => state.categories.filter((item) => (
-    item.parent_id !== null || Number(item.is_billable) === 1
+    item.parent_id !== null
+    && Number(item.is_selectable) === 1
   ));
 
   const categoryLabel = (category) => (
@@ -603,7 +608,7 @@ if (root) {
     const results = combobox.querySelector('[data-accounting-category-results]');
     if (!(valueInput instanceof HTMLInputElement) || !(results instanceof HTMLElement)) return;
     const selectedValue = valueInput.value;
-    const selectedCategory = billableCategories().find((category) => String(category.id) === selectedValue);
+    const selectedCategory = state.categories.find((category) => category.parent_id !== null && String(category.id) === selectedValue);
     if (label instanceof HTMLElement) label.textContent = selectedCategory ? categoryLabel(selectedCategory) : 'Choose category';
     const search = String(searchInput?.value || '').trim().toLocaleLowerCase('id-ID');
     const visible = billableCategories().filter((category) => (
@@ -1364,26 +1369,117 @@ if (root) {
     `).join('');
   };
 
-  const categoryTypes = ['income', 'expense', 'cogs_support', 'marketing', 'operations', 'payroll', 'asset', 'transfer', 'owner', 'tax', 'adjustment', 'other'];
+  const categoryTypeChoices = {
+    expense: [
+      ['expense', 'General expense'], ['marketing', 'Marketing'], ['cogs_support', 'Product / COGS support'],
+      ['operations', 'Operations'], ['payroll', 'Payroll / labor'], ['asset', 'Assets / equipment'],
+      ['tax', 'Tax / legal'], ['owner', 'Owner / loans'], ['adjustment', 'Corrections'], ['other', 'Other expense']
+    ],
+    income: [['income', 'Sales / other income'], ['owner', 'Owner funding / loans'], ['adjustment', 'Corrections'], ['other', 'Other income']]
+  };
+
+  const categoryGroupsForFlow = (flow) => state.categories.filter((category) => {
+    if (category.parent_id !== null) return false;
+    return category.flow === flow || state.categories.some((child) => Number(child.parent_id) === Number(category.id) && child.flow === flow);
+  });
+
   const renderCategorySettings = () => {
     if (!refs.categorySettings) return;
+    const flow = state.categorySettingsFlow === 'income' ? 'income' : 'expense';
+    const groups = categoryGroupsForFlow(flow);
+    let group = groups.find((item) => String(item.id) === String(state.categorySettingsParentId)) || null;
+    if (!group && groups.length && state.categorySettingsMode !== 'new-group') {
+      group = groups[0];
+      state.categorySettingsParentId = String(group.id);
+    }
+    const leaves = group ? state.categories.filter((item) => Number(item.parent_id) === Number(group.id) && item.flow === flow) : [];
+    let category = leaves.find((item) => String(item.id) === String(state.categorySettingsCategoryId)) || null;
+    if (!category && leaves.length && state.categorySettingsMode === 'browse') {
+      category = leaves[0];
+      state.categorySettingsCategoryId = String(category.id);
+    }
+    const editingGroup = state.categorySettingsMode === 'new-group' || state.categorySettingsMode === 'edit-group';
+    const editingCategory = state.categorySettingsMode === 'new-category' || Boolean(category);
+    const groupType = group?.type || (flow === 'income' ? 'income' : 'expense');
+    const currentTypeChoices = categoryTypeChoices[flow] || categoryTypeChoices.expense;
+    const otherGroups = groups.filter((item) => !group || Number(item.id) !== Number(group.id));
     refs.categorySettings.innerHTML = `
-      <form class="admin-accounting-category-settings-form" data-accounting-category-settings-form>
-        <label><span>Category to edit</span><select name="category_id"><option value="">New category</option>${state.categories.map((category) => option(category.id, categoryLabel(category))).join('')}</select></label>
-        <div class="admin-accounting-settings-form-grid">
-          <label><span>Name</span><input type="text" name="name" maxlength="160" placeholder="e.g. Packaging supplies" required></label>
-          <label><span>Type</span><select name="type">${categoryTypes.map((type) => option(type, type.replaceAll('_', ' '))).join('')}</select></label>
-          <label><span>Parent category</span><select name="parent_id"><option value="">No parent</option>${state.categories.filter((category) => category.parent_id === null).map((category) => option(category.id, category.name)).join('')}</select></label>
+      <div class="admin-accounting-category-steps">
+        <section class="admin-accounting-category-step">
+          <b>1</b><div><h5>Is money coming in or going out?</h5><p>Start with the easiest choice.</p></div>
+          <div class="admin-accounting-flow-choice" role="group" aria-label="Money direction">
+            <button type="button" data-accounting-category-flow="income" class="${flow === 'income' ? 'is-active' : ''}"><span aria-hidden="true">↓</span> Money in</button>
+            <button type="button" data-accounting-category-flow="expense" class="${flow === 'expense' ? 'is-active' : ''}"><span aria-hidden="true">↑</span> Money out</button>
+          </div>
+        </section>
+        <section class="admin-accounting-category-step">
+          <b>2</b><div><h5>Which big group?</h5><p>For example: Marketing or Operations.</p></div>
+          <div class="admin-accounting-step-control">
+            <select data-accounting-category-group aria-label="Big group"><option value="">Choose a group</option>${groups.map((item) => option(item.id, `${item.name}${Number(item.is_active) ? '' : ' (not active)'}`)).join('')}</select>
+            <button type="button" class="admin-ghost-btn" data-accounting-category-new-group>+ New group</button>
+            ${group ? '<button type="button" class="admin-link-btn" data-accounting-category-edit-group>Edit this group</button>' : ''}
+          </div>
+        </section>
+        <section class="admin-accounting-category-step ${group ? '' : 'is-disabled'}">
+          <b>3</b><div><h5>What exactly was it?</h5><p>For example: Shopee Ads inside Marketing.</p></div>
+          <div class="admin-accounting-step-control">
+            <select data-accounting-category-leaf aria-label="Exact category" ${group ? '' : 'disabled'}><option value="">Choose the exact category</option>${leaves.map((item) => option(item.id, `${item.name}${Number(item.is_active) ? (Number(item.is_billable) ? '' : ' (hidden from entry lists)') : ' (not active)'}`)).join('')}</select>
+            <button type="button" class="admin-ghost-btn" data-accounting-category-new-leaf ${group ? '' : 'disabled'}>+ New exact category</button>
+          </div>
+        </section>
+      </div>
+      ${editingGroup ? `
+      <form class="admin-accounting-category-settings-form" data-accounting-category-settings-form data-category-kind="group">
+        <input type="hidden" name="category_id" value="${state.categorySettingsMode === 'edit-group' && group ? escapeHtml(String(group.id)) : ''}">
+        <input type="hidden" name="parent_id" value="">
+        <input type="hidden" name="flow" value="${escapeHtml(flow)}">
+        <input type="hidden" name="requires_receipt" value="0">
+        <input type="hidden" name="is_billable" value="0">
+        <div class="admin-accounting-category-editor-head"><div><strong>${state.categorySettingsMode === 'new-group' ? 'Add a big group' : 'Edit this big group'}</strong><small>Groups organize the exact choices your team uses.</small></div></div>
+        <div class="admin-accounting-settings-form-grid admin-accounting-settings-form-grid--two">
+          <label><span>Group name</span><input type="text" name="name" maxlength="160" value="${escapeHtml(state.categorySettingsMode === 'edit-group' ? (group?.name || '') : '')}" placeholder="e.g. Advertising costs" required></label>
+          <label><span>How this group appears in reports</span><select name="type">${currentTypeChoices.map(([value, label]) => option(value, label)).join('')}</select></label>
         </div>
-        <div class="admin-accounting-category-flags">
-          <label><input type="checkbox" name="requires_receipt"><span>Require a receipt</span></label>
-          <label><input type="checkbox" name="is_billable" checked><span>Available on bills and entries</span></label>
-          <label><input type="checkbox" name="is_active" checked><span>Active</span></label>
+        <label class="admin-accounting-plain-toggle"><input type="checkbox" name="is_active" ${state.categorySettingsMode !== 'edit-group' || Number(group?.is_active) ? 'checked' : ''}><span><strong>Keep this group active</strong><small>Turn this off only when the whole group is retired. Its history stays in reports.</small></span></label>
+        <p class="admin-form-error" data-accounting-category-settings-error hidden></p>
+        <div class="admin-accounting-category-form-actions"><button type="button" class="admin-ghost-btn" data-accounting-category-cancel>Cancel</button><button type="submit" class="admin-primary-btn">Save group</button></div>
+      </form>` : ''}
+      ${!editingGroup && editingCategory && group ? `
+      <form class="admin-accounting-category-settings-form" data-accounting-category-settings-form data-category-kind="leaf">
+        <input type="hidden" name="category_id" value="${category ? escapeHtml(String(category.id)) : ''}">
+        <input type="hidden" name="parent_id" value="${escapeHtml(String(group.id))}">
+        <input type="hidden" name="flow" value="${escapeHtml(flow)}">
+        <input type="hidden" name="type" value="${escapeHtml(category?.type || groupType)}">
+        <div class="admin-accounting-category-editor-head"><div><strong>${category ? `Edit “${escapeHtml(category.name)}”` : `Add an exact category to ${escapeHtml(group.name)}`}</strong><small>This is the final choice people see when entering money.</small></div></div>
+        <label><span>Exact category name</span><input type="text" name="name" maxlength="160" value="${escapeHtml(category?.name || '')}" placeholder="e.g. Shopee Ads" required></label>
+        <div class="admin-accounting-category-behavior">
+          <label class="admin-accounting-plain-toggle"><input type="checkbox" name="requires_receipt" ${Number(category?.requires_receipt) ? 'checked' : ''}><span><strong>Ask for a receipt</strong><small>When selected, new entries in this category should include proof.</small></span></label>
+          <label class="admin-accounting-plain-toggle"><input type="checkbox" name="is_billable" ${!category || Number(category.is_billable) ? 'checked' : ''}><span><strong>Show as a choice on new bills and entries</strong><small>Turn this off to hide it from dropdown lists. Existing records and reports do not change.</small></span></label>
+          <label class="admin-accounting-plain-toggle"><input type="checkbox" name="is_active" ${!category || Number(category.is_active) ? 'checked' : ''}><span><strong>Keep this category active</strong><small>Active but hidden is allowed: it remains usable for history and reports without appearing on new-entry lists.</small></span></label>
         </div>
         <p class="admin-form-error" data-accounting-category-settings-error hidden></p>
-        <div><button type="reset" class="admin-ghost-btn">New category</button><button type="submit" class="admin-primary-btn">Save category</button></div>
+        <div class="admin-accounting-category-form-actions"><button type="button" class="admin-ghost-btn" data-accounting-category-cancel>Cancel</button><button type="submit" class="admin-primary-btn">Save exact category</button></div>
       </form>
+      ${category && otherGroups.length ? `
+      <form class="admin-accounting-category-move" data-accounting-category-move-form>
+        <input type="hidden" name="category_id" value="${escapeHtml(String(category.id))}"><input type="hidden" name="flow" value="${escapeHtml(flow)}">
+        <div><strong>Move this category</strong><small>Reclassify it without changing any recorded amount.</small></div>
+        <label><span>Move to</span><select name="target_parent_id" required><option value="">Choose another group</option>${otherGroups.map((item) => option(item.id, item.name)).join('')}</select></label>
+        <div class="admin-accounting-move-scope">
+          <label><input type="radio" name="scope" value="period" checked><span><strong>Only records in a date range</strong><small>Records outside these dates stay where they are.</small></span></label>
+          <div class="admin-accounting-move-dates"><label><span>From</span><input type="date" name="date_from" required></label><label><span>Through</span><input type="date" name="date_to" required></label></div>
+          <label><input type="radio" name="scope" value="all"><span><strong>Everything — fully retroactive</strong><small>Move the category itself, so all past records and every future use follow it.</small></span></label>
+        </div>
+        <p class="admin-form-error" data-accounting-category-move-error hidden></p>
+        <button type="submit" class="admin-ghost-btn">Move category</button>
+      </form>` : ''}` : ''}
     `;
+    const groupSelect = refs.categorySettings.querySelector('[data-accounting-category-group]');
+    if (groupSelect instanceof HTMLSelectElement) groupSelect.value = group ? String(group.id) : '';
+    const leafSelect = refs.categorySettings.querySelector('[data-accounting-category-leaf]');
+    if (leafSelect instanceof HTMLSelectElement) leafSelect.value = category ? String(category.id) : '';
+    const reportType = refs.categorySettings.querySelector('form[data-category-kind="group"] select[name="type"]');
+    if (reportType instanceof HTMLSelectElement) reportType.value = groupType;
   };
 
   const renderSettingsWorkspace = () => {
@@ -1477,14 +1573,44 @@ if (root) {
     payload.is_billable = data.has('is_billable') ? '1' : '0';
     payload.is_active = data.has('is_active') ? '1' : '0';
     try {
-      await requestJson(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const response = await requestJson(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const savedId = String(response.data?.result?.category_id || '');
       state.lookupsLoaded = false;
       await loadLookups(true);
-      renderSettingsWorkspace();
-      showToast('Category saved.');
+      if (form.dataset.categoryKind === 'group') {
+        state.categorySettingsParentId = savedId;
+        state.categorySettingsCategoryId = '';
+      } else {
+        state.categorySettingsCategoryId = savedId;
+      }
+      state.categorySettingsMode = 'browse';
+      renderCategorySettings();
+      renderCategoryOptions();
+      showToast(form.dataset.categoryKind === 'group' ? 'Group saved.' : 'Exact category saved.');
     } catch (error) {
       const node = form.querySelector('[data-accounting-category-settings-error]');
       if (node) { node.hidden = false; node.textContent = error?.message || 'Unable to save category.'; }
+    }
+  };
+
+  const submitCategoryMove = async (form) => {
+    const data = new FormData(form);
+    const payload = Object.fromEntries(data.entries());
+    payload.action = 'move_category';
+    const errorNode = form.querySelector('[data-accounting-category-move-error]');
+    try {
+      const response = await requestJson(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      state.lookupsLoaded = false;
+      await loadLookups(true);
+      const moved = response.data?.result || {};
+      if (moved.scope === 'all') state.categorySettingsParentId = String(payload.target_parent_id || '');
+      state.categorySettingsMode = 'browse';
+      renderCategorySettings();
+      renderCategoryOptions();
+      const count = Number(moved.transactions_moved || 0) + Number(moved.bills_moved || 0);
+      showToast(moved.scope === 'all' ? 'Category moved for all time.' : `${count} record${count === 1 ? '' : 's'} moved. Amounts were not changed.`);
+    } catch (error) {
+      if (errorNode) { errorNode.hidden = false; errorNode.textContent = error?.message || 'Unable to move category.'; }
     }
   };
 
@@ -2549,24 +2675,71 @@ if (root) {
     rows?.insertBefore(row, add);
     row.querySelector('input')?.focus();
   });
+  refs.categorySettings?.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    const flowButton = target?.closest('[data-accounting-category-flow]');
+    if (flowButton instanceof HTMLElement) {
+      state.categorySettingsFlow = flowButton.dataset.accountingCategoryFlow === 'income' ? 'income' : 'expense';
+      state.categorySettingsParentId = '';
+      state.categorySettingsCategoryId = '';
+      state.categorySettingsMode = 'browse';
+      renderCategorySettings();
+      return;
+    }
+    if (target?.closest('[data-accounting-category-new-group]')) {
+      state.categorySettingsParentId = '';
+      state.categorySettingsCategoryId = '';
+      state.categorySettingsMode = 'new-group';
+      renderCategorySettings();
+      refs.categorySettings.querySelector('input[name="name"]')?.focus();
+      return;
+    }
+    if (target?.closest('[data-accounting-category-edit-group]')) {
+      state.categorySettingsCategoryId = '';
+      state.categorySettingsMode = 'edit-group';
+      renderCategorySettings();
+      return;
+    }
+    if (target?.closest('[data-accounting-category-new-leaf]')) {
+      state.categorySettingsCategoryId = '';
+      state.categorySettingsMode = 'new-category';
+      renderCategorySettings();
+      refs.categorySettings.querySelector('input[name="name"]')?.focus();
+      return;
+    }
+    if (target?.closest('[data-accounting-category-cancel]')) {
+      state.categorySettingsMode = 'browse';
+      renderCategorySettings();
+    }
+  });
   refs.categorySettings?.addEventListener('change', (event) => {
     const select = event.target;
-    if (!(select instanceof HTMLSelectElement) || select.name !== 'category_id') return;
-    const form = select.closest('form');
-    if (!(form instanceof HTMLFormElement)) return;
-    const category = state.categories.find((item) => Number(item.id) === Number(select.value));
-    form.elements.name.value = category?.name || '';
-    form.elements.type.value = category?.type || 'expense';
-    form.elements.parent_id.value = category?.parent_id ? String(category.parent_id) : '';
-    form.elements.requires_receipt.checked = Boolean(Number(category?.requires_receipt || 0));
-    form.elements.is_billable.checked = category ? Boolean(Number(category.is_billable)) : true;
-    form.elements.is_active.checked = true;
+    if (select instanceof HTMLInputElement && select.name === 'scope') {
+      const moveForm = select.closest('[data-accounting-category-move-form]');
+      moveForm?.querySelectorAll('.admin-accounting-move-dates input').forEach((input) => {
+        input.disabled = select.value === 'all';
+        input.required = select.value !== 'all';
+      });
+      return;
+    }
+    if (!(select instanceof HTMLSelectElement)) return;
+    if (select.matches('[data-accounting-category-group]')) {
+      state.categorySettingsParentId = select.value;
+      state.categorySettingsCategoryId = '';
+      state.categorySettingsMode = 'browse';
+      renderCategorySettings();
+    } else if (select.matches('[data-accounting-category-leaf]')) {
+      state.categorySettingsCategoryId = select.value;
+      state.categorySettingsMode = 'browse';
+      renderCategorySettings();
+    }
   });
   refs.categorySettings?.addEventListener('submit', (event) => {
     const form = event.target;
-    if (!(form instanceof HTMLFormElement) || !form.matches('[data-accounting-category-settings-form]')) return;
+    if (!(form instanceof HTMLFormElement)) return;
     event.preventDefault();
-    submitCategorySettings(form);
+    if (form.matches('[data-accounting-category-settings-form]')) submitCategorySettings(form);
+    if (form.matches('[data-accounting-category-move-form]')) submitCategoryMove(form);
   });
   refs.accountNew?.addEventListener('click', () => fillAccountForm());
   refs.accountList?.addEventListener('click', (event) => {
