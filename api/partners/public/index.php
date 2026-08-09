@@ -126,9 +126,9 @@ function jg_public_partner_read_database(): array
                 'notes' => (string) ($row['notes'] ?? ''),
                 'selected_skus' => is_array($selectedSkus) ? array_values(array_filter(array_map('strval', $selectedSkus))) : [],
                 'pricing' => is_array($pricing) ? $pricing : [],
-                'billing_period_type' => in_array(($row['billing_period_type'] ?? ''), ['business_week', 'calendar_month'], true)
+                'billing_period_type' => in_array(($row['billing_period_type'] ?? ''), ['calendar_week', 'calendar_month'], true)
                     ? (string) $row['billing_period_type']
-                    : 'business_week',
+                    : 'calendar_week',
                 'discount_enabled' => (bool) ($row['discount_enabled'] ?? false),
                 'discount_percent' => jg_partner_discount_percent($row),
                 'created_at' => (string) ($row['created_at'] ?? ''),

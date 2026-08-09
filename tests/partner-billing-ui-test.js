@@ -16,7 +16,7 @@ for (const source of [nav, dashboard]) {
   assert.match(source, /data-billing-notification-toggle/, 'Every admin chrome variant should use partner billing notifications.');
   assert.doesNotMatch(source, /data-notification-toggle/, 'The visible notification trigger should no longer activate website-order verification.');
 }
-assert.match(notifications, /period_type === 'calendar_month'[\s\S]*'monthly'[\s\S]*'business-week'/, 'Payment notifications should name the partner-specific billing period.');
+assert.match(notifications, /period_type === 'calendar_month'[\s\S]*'monthly'[\s\S]*'calendar-week'/, 'Payment notifications should name the partner-specific billing period.');
 assert.match(notifications, /Check proof of payment/, 'Payment notification helper copy should be explicit.');
 assert.match(notifications, /accept_dispute[\s\S]*Investigate/, 'Dispute notifications should offer Accept and Investigate.');
 assert.match(notifications, /data-billing-adjust-price[\s\S]*Apply adjusted prices/, 'Investigation should expose every product price as an editable value.');
@@ -35,7 +35,7 @@ assert.match(accounting, /DATE_SUB\(:transaction_date_start[\s\S]*DATE_ADD\(:tra
 assert.doesNotMatch(accounting, /DATE_SUB\(:transaction_date,[\s\S]{0,80}DATE_ADD\(:transaction_date,/, 'Payment confirmation must not reuse one named placeholder twice.');
 assert.match(accountingPage, /Expected[\s\S]*unpaid partner bills/, 'Accounting should present unpaid partner bills as expected money.');
 assert.match(accountingUi, /kpis\?\.partner_bills_due[\s\S]*kpis\?\.partner_bills_in_progress/, 'The expected-money overview should keep issued and accruing partner totals separate.');
-assert.match(accountingUi, /period_type === 'calendar_month'[\s\S]*'Calendar month'[\s\S]*'Business week'/, 'Accounting must label each receivable using its partner-specific billing period.');
+assert.match(accountingUi, /period_type === 'calendar_month'[\s\S]*'Calendar month'[\s\S]*'Calendar week'/, 'Accounting must label each receivable using its partner-specific billing period.');
 assert.match(accountingUi, /scope === 'in_progress'[\s\S]*status === 'accruing'/, 'The bill list should filter accruing periods from bills that are due.');
 assert.match(accountingUi, /action[^\n]*partner_bills|buildUrl\('partner_bills'/, 'Opening Partner Bills should request the partner bill records.');
 assert.match(accountingUi, /data-accounting-partner-bill[\s\S]*data-accounting-partner-order/, 'A partner bill should drill down to its order-level breakdown.');

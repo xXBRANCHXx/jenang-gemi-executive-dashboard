@@ -560,7 +560,7 @@ document.addEventListener('DOMContentLoaded', () => {
     form.elements.partner_code.value = partner.code || '';
     form.elements.name.value = partner.name || '';
     form.elements.partner_slug.value = partner.partner_slug || '';
-    form.elements.billing_period_type.value = partner.billing_period_type || 'business_week';
+    form.elements.billing_period_type.value = partner.billing_period_type === 'calendar_month' ? 'calendar_month' : 'calendar_week';
     form.elements.portal_password.value = '';
     form.elements.notes.value = partner.notes || '';
 

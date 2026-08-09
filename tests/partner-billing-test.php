@@ -13,19 +13,20 @@ function admin_partner_billing_expect(mixed $expected, mixed $actual, string $me
 }
 
 $period = jg_admin_partner_billing_period(new DateTimeImmutable('2026-07-01 12:00:00', new DateTimeZone('Asia/Jakarta')));
-admin_partner_billing_expect('business_week', $period['type'], 'Business week must be the safe default.');
-admin_partner_billing_expect('2026-06-29', $period['start'], 'A Wednesday must start in its Monday business week.');
-admin_partner_billing_expect('2026-07-03', $period['end'], 'A business week must end on Friday.');
-admin_partner_billing_expect('2026-07-06', $period['due'], 'A business-week PO remains due three days after Friday.');
+admin_partner_billing_expect('calendar_week', $period['type'], 'Calendar week must be the safe default.');
+admin_partner_billing_expect('2026-06-29', $period['start'], 'A Wednesday must start in its Monday calendar week.');
+admin_partner_billing_expect('2026-07-05', $period['end'], 'A calendar week must end on Sunday.');
+admin_partner_billing_expect('2026-07-08', $period['due'], 'A calendar-week PO remains due three days after Sunday.');
 $weekend = jg_admin_partner_billing_period(new DateTimeImmutable('2026-07-04 12:00:00', new DateTimeZone('Asia/Jakarta')));
-admin_partner_billing_expect('2026-07-06', $weekend['start'], 'Weekend orders must roll into the following business week.');
+admin_partner_billing_expect('2026-06-29', $weekend['start'], 'Weekend orders must remain in their Monday–Sunday calendar week.');
 $month = jg_admin_partner_billing_period(new DateTimeImmutable('2026-07-18 12:00:00', new DateTimeZone('Asia/Jakarta')), 'calendar_month');
 admin_partner_billing_expect('2026-07-01', $month['start'], 'Calendar-month billing must begin on day one.');
 admin_partner_billing_expect('2026-07-31', $month['end'], 'Calendar-month billing must use the actual month end.');
 admin_partner_billing_expect('2026-08-03', $month['due'], 'Calendar-month POs remain due three days after month end.');
 admin_partner_billing_expect('July 1–31, 2026', jg_admin_partner_billing_period_label('2026-07-01', '2026-07-31'), 'Notification copy should use the configured period dates.');
-admin_partner_billing_expect('business_week', jg_admin_partner_billing_period_type('invalid'), 'Invalid profile values must fail closed to the default business week.');
-admin_partner_billing_expect(false, jg_admin_partner_billing_bill_id('BAGGOS', '2026-07-01', 'business_week') === jg_admin_partner_billing_bill_id('BAGGOS', '2026-07-01', 'calendar_month'), 'PO identifiers must stay unique across billing-period types.');
+admin_partner_billing_expect('calendar_week', jg_admin_partner_billing_period_type('invalid'), 'Invalid profile values must fail closed to the default calendar week.');
+admin_partner_billing_expect('calendar_week', jg_admin_partner_billing_period_type('business_week'), 'Legacy business-week profiles must migrate to calendar-week behavior.');
+admin_partner_billing_expect(false, jg_admin_partner_billing_bill_id('BAGGOS', '2026-07-01', 'calendar_week') === jg_admin_partner_billing_bill_id('BAGGOS', '2026-07-01', 'calendar_month'), 'PO identifiers must stay unique across billing-period types.');
 admin_partner_billing_expect(['local.server', 'localhost'], jg_partner_db_host_candidates('local.server'), 'Hostinger partner DB connections should fall back to localhost.');
 admin_partner_billing_expect('2026-07-30 01:52:31', jg_partner_db_legacy_datetime('2026-07-30 01:52:31', true), 'Legacy partner timestamps should remain stable during migration.');
 admin_partner_billing_expect(null, jg_partner_db_legacy_datetime('', false), 'Optional empty legacy timestamps should stay null.');

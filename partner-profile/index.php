@@ -107,7 +107,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                                         <label>
                                             <span>Billing period</span>
                                             <select name="billing_period_type">
-                                                <option value="business_week">Business Week (Monday–Friday)</option>
+                                                <option value="calendar_week">Calendar Week (Monday–Sunday)</option>
                                                 <option value="calendar_month">Calendar Month</option>
                                             </select>
                                             <small>Changing this automatically reorganizes unpaid orders into new POs.</small>

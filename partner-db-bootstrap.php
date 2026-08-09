@@ -111,9 +111,9 @@ function jg_partner_db_migrate_legacy_registry(PDO $pdo): int
                     ':notes' => substr((string) ($partner['notes'] ?? ''), 0, 300),
                     ':selected_skus_json' => json_encode(array_values(array_filter((array) ($partner['selected_skus'] ?? []), 'is_string')), JSON_UNESCAPED_SLASHES),
                     ':pricing_json' => json_encode((array) ($partner['pricing'] ?? []), JSON_UNESCAPED_SLASHES),
-                    ':billing_period_type' => in_array(($partner['billing_period_type'] ?? ''), ['business_week', 'calendar_month'], true)
+                    ':billing_period_type' => in_array(($partner['billing_period_type'] ?? ''), ['calendar_week', 'calendar_month'], true)
                         ? (string) $partner['billing_period_type']
-                        : 'business_week',
+                        : 'calendar_week',
                     ':discount_enabled' => filter_var($partner['discount_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0,
                     ':discount_percent' => $discount,
                     ':password_hash' => (string) ($partner['password_hash'] ?? ''),
@@ -204,7 +204,7 @@ function jg_partner_db_ensure_schema(PDO $pdo): void
             notes VARCHAR(300) NOT NULL DEFAULT "",
             selected_skus_json LONGTEXT NULL DEFAULT NULL,
             pricing_json LONGTEXT NULL DEFAULT NULL,
-            billing_period_type VARCHAR(32) NOT NULL DEFAULT "business_week",
+            billing_period_type VARCHAR(32) NOT NULL DEFAULT "calendar_week",
             discount_enabled TINYINT(1) NOT NULL DEFAULT 0,
             discount_percent DECIMAL(5,2) NOT NULL DEFAULT 0.00,
             password_hash VARCHAR(255) NOT NULL DEFAULT "",
@@ -237,7 +237,7 @@ function jg_partner_db_ensure_schema(PDO $pdo): void
         $pdo->exec('ALTER TABLE partner_profiles ADD COLUMN password_hash VARCHAR(255) NOT NULL DEFAULT "" AFTER pricing_json');
     }
     if (!isset($columns['billing_period_type'])) {
-        $pdo->exec('ALTER TABLE partner_profiles ADD COLUMN billing_period_type VARCHAR(32) NOT NULL DEFAULT "business_week" AFTER pricing_json');
+        $pdo->exec('ALTER TABLE partner_profiles ADD COLUMN billing_period_type VARCHAR(32) NOT NULL DEFAULT "calendar_week" AFTER pricing_json');
     }
     if (!isset($columns['discount_enabled'])) {
         $pdo->exec('ALTER TABLE partner_profiles ADD COLUMN discount_enabled TINYINT(1) NOT NULL DEFAULT 0 AFTER pricing_json');

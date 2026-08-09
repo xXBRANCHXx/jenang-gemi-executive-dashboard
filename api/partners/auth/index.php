@@ -91,7 +91,7 @@ function jg_partner_auth_read_database(): array
                 'pricing' => is_array($pricing) ? $pricing : [],
                 'billing_period_type' => (string) ($row['billing_period_type'] ?? '') === 'calendar_month'
                     ? 'calendar_month'
-                    : 'business_week',
+                    : 'calendar_week',
                 'discount_enabled' => (bool) ($row['discount_enabled'] ?? false),
                 'discount_percent' => max(0.0, min(100.0, (float) ($row['discount_percent'] ?? 0))),
                 'password_hash' => (string) ($row['password_hash'] ?? ''),

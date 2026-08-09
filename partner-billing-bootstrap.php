@@ -96,7 +96,7 @@ function jg_admin_partner_billing_ensure_schema(PDO $pdo): void
         'CREATE TABLE IF NOT EXISTS partner_weekly_bills (
             bill_id VARCHAR(120) NOT NULL PRIMARY KEY,
             partner_code VARCHAR(64) NOT NULL,
-            period_type VARCHAR(32) NOT NULL DEFAULT "business_week",
+            period_type VARCHAR(32) NOT NULL DEFAULT "calendar_week",
             period_start DATE NOT NULL,
             period_end DATE NOT NULL,
             due_date DATE NOT NULL,
@@ -206,7 +206,7 @@ function jg_admin_partner_billing_ensure_schema(PDO $pdo): void
     jg_admin_partner_billing_ensure_column($pdo, 'partner_orders', 'billing_status', 'VARCHAR(32) NOT NULL DEFAULT "unbilled"');
     jg_admin_partner_billing_ensure_column($pdo, 'partner_orders', 'billing_reference', 'VARCHAR(120) NOT NULL DEFAULT ""');
     jg_admin_partner_billing_ensure_column($pdo, 'partner_orders', 'billing_paid_at', 'DATETIME NULL DEFAULT NULL');
-    jg_admin_partner_billing_ensure_column($pdo, 'partner_weekly_bills', 'period_type', 'VARCHAR(32) NOT NULL DEFAULT "business_week" AFTER partner_code');
+    jg_admin_partner_billing_ensure_column($pdo, 'partner_weekly_bills', 'period_type', 'VARCHAR(32) NOT NULL DEFAULT "calendar_week" AFTER partner_code');
     jg_admin_partner_billing_ensure_column($pdo, 'partner_favicons', 'file_data', 'LONGBLOB NULL DEFAULT NULL');
     jg_admin_partner_billing_ensure_column($pdo, 'partner_weekly_bill_disputes', 'dispute_type', 'VARCHAR(32) NOT NULL DEFAULT "paid"');
     jg_admin_partner_billing_ensure_column($pdo, 'partner_weekly_bill_dispute_items', 'original_amount', 'BIGINT NULL DEFAULT NULL');
@@ -241,10 +241,10 @@ function jg_admin_partner_billing_today(): string
 
 function jg_admin_partner_billing_period_type(mixed $value): string
 {
-    return (string) $value === 'calendar_month' ? 'calendar_month' : 'business_week';
+    return (string) $value === 'calendar_month' ? 'calendar_month' : 'calendar_week';
 }
 
-function jg_admin_partner_billing_period(DateTimeImmutable $date, string $periodType = 'business_week'): array
+function jg_admin_partner_billing_period(DateTimeImmutable $date, string $periodType = 'calendar_week'): array
 {
     $periodType = jg_admin_partner_billing_period_type($periodType);
     $timezone = new DateTimeZone('Asia/Jakarta');
@@ -253,11 +253,9 @@ function jg_admin_partner_billing_period(DateTimeImmutable $date, string $period
         $start = $localDate->modify('first day of this month');
         $end = $localDate->modify('last day of this month');
     } else {
-        $weekday = (int) $localDate->format('N');
-        $start = $weekday <= 5
-            ? $localDate->modify('-' . ($weekday - 1) . ' days')
-            : $localDate->modify('+' . (8 - $weekday) . ' days');
-        $end = $start->modify('+4 days');
+        $daysSinceMonday = (int) $localDate->format('N') - 1;
+        $start = $daysSinceMonday > 0 ? $localDate->modify('-' . $daysSinceMonday . ' days') : $localDate;
+        $end = $start->modify('+6 days');
     }
     return [
         'type' => $periodType,
@@ -267,9 +265,9 @@ function jg_admin_partner_billing_period(DateTimeImmutable $date, string $period
     ];
 }
 
-function jg_admin_partner_billing_bill_id(string $partnerCode, string $periodStart, string $periodType = 'business_week'): string
+function jg_admin_partner_billing_bill_id(string $partnerCode, string $periodStart, string $periodType = 'calendar_week'): string
 {
-    $typeCode = jg_admin_partner_billing_period_type($periodType) === 'calendar_month' ? 'CM' : 'BW';
+    $typeCode = jg_admin_partner_billing_period_type($periodType) === 'calendar_month' ? 'CM' : 'CW';
     return 'PB-' . $typeCode . '-' . str_replace('-', '', $periodStart) . '-' . strtoupper(substr(hash('sha256', strtoupper(trim($partnerCode))), 0, 12));
 }
 
@@ -514,7 +512,7 @@ function jg_admin_partner_billing_sync(PDO $pdo): void
             } catch (Throwable) {
                 $date = new DateTimeImmutable('now', new DateTimeZone('UTC'));
             }
-            $periodType = $periodTypes[$partnerCode] ?? 'business_week';
+            $periodType = $periodTypes[$partnerCode] ?? 'calendar_week';
             $period = jg_admin_partner_billing_period($date, $periodType);
             $billId = jg_admin_partner_billing_bill_id($partnerCode, $period['start'], $periodType);
             $billIds[$billId] = true;
@@ -1372,7 +1370,7 @@ function jg_admin_partner_billing_accounting_receipt(PDO $accountingPdo, array $
             'reference_no' => (string) $payment['bill_id'],
             'receipt_url' => '../api/partner-billing/?action=file&id=' . (int) $payment['proof_file_id'],
             'receipt_status' => 'attached',
-            'description' => 'Confirmed partner ' . (jg_admin_partner_billing_period_type($payment['period_type'] ?? null) === 'calendar_month' ? 'calendar-month' : 'business-week') . ' bill ' . (string) $payment['period_label'],
+            'description' => 'Confirmed partner ' . (jg_admin_partner_billing_period_type($payment['period_type'] ?? null) === 'calendar_month' ? 'calendar-month' : 'calendar-week') . ' bill ' . (string) $payment['period_label'],
             'notes' => 'Posted automatically after proof-of-payment confirmation.',
         ]);
         $transactionId = (int) $transaction['id'];

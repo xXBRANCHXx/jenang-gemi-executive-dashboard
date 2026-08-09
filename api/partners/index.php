@@ -927,7 +927,7 @@ if ($action === 'update') {
     jg_admin_partner_billing_rebucket_partner(
         jg_admin_partner_billing_db(),
         (string) ($database['partners'][$matchIndex]['code'] ?? $currentCode),
-        (string) ($database['partners'][$matchIndex]['billing_period_type'] ?? 'business_week')
+        (string) ($database['partners'][$matchIndex]['billing_period_type'] ?? 'calendar_week')
     );
     jg_partner_response($database, $skuCatalog, $database['partners'][$matchIndex]);
 }

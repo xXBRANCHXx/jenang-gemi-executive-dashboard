@@ -1261,7 +1261,7 @@ if (root) {
     disputed: 'Disputed',
     paid: 'Paid'
   }[String(status || '')] || String(status || 'Unknown').replace(/_/g, ' '));
-  const partnerBillPeriodLabel = (bill) => bill?.period_type === 'calendar_month' ? 'Calendar month' : 'Business week';
+  const partnerBillPeriodLabel = (bill) => bill?.period_type === 'calendar_month' ? 'Calendar month' : 'Calendar week';
 
   const renderPartnerBillsList = () => {
     const scope = state.partnerBillsScope;
