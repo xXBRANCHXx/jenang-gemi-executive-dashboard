@@ -76,6 +76,8 @@ expect(script.includes('Is money coming in or going out?') && script.includes('W
 expect(script.includes('Show as a choice on new bills and entries') && script.includes('Active but hidden is allowed'), 'Category availability controls must explain active-versus-visible behavior.');
 expect(script.includes('Number(item.is_selectable) === 1'), 'New-entry category lists must use the API selection rule that excludes hidden categories and children of inactive groups.');
 expect(script.includes("payload.action = 'move_category'") && script.includes('Everything — fully retroactive'), 'Category settings must support date-range and fully retroactive moves.');
+expect(script.includes("ACCOUNTING_LOOKUPS_CACHE_KEY = 'jg-accounting-lookups-cache-v4'") && script.includes('requestId !== lookupRequestId'), 'Shared accounting choices must revalidate without allowing an older request to overwrite a newer save.');
+expect(script.includes('const savedCategory = response.data?.result?.category') && script.includes('state.categories.push(savedCategory)'), 'A successfully saved category must appear immediately without depending on a second request.');
 expect(html.includes('data-accounting-removal-form') && html.includes('Admin login key') && html.includes('Are you sure?'), 'Accounting removals must use a guided admin-key confirmation modal.');
 expect(script.includes('data-accounting-remove-kind') && script.includes('admin-accounting-ledger-remove'), 'Manual transactions and bills must be removable from both history and the Activity ledger.');
 

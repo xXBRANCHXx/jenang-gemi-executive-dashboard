@@ -1422,6 +1422,16 @@ function jg_accounting_categories(PDO $pdo, bool $includeInactive = false): arra
     ], $rows);
 }
 
+function jg_accounting_category_by_id(PDO $pdo, int $categoryId): ?array
+{
+    foreach (jg_accounting_categories($pdo, true) as $category) {
+        if ((int) $category['id'] === $categoryId) {
+            return $category;
+        }
+    }
+    return null;
+}
+
 function jg_accounting_default_ui_preferences(): array
 {
     $choice = static fn (string $value, string $label): array => [
@@ -4957,31 +4967,38 @@ function jg_accounting_update_bill(PDO $pdo, array $body): array
 
 function jg_accounting_create_category(PDO $pdo, array $body): array
 {
-    $name = jg_accounting_text($body['name'] ?? '', 160);
-    if ($name === '') {
-        jg_accounting_error('Category name is required.', 422, 'name');
-    }
-    $key = strtolower(trim(preg_replace('/[^a-z0-9]+/i', '-', $name) ?? '', '-'));
-    $type = jg_accounting_text($body['type'] ?? 'expense', 40);
-    if (!in_array($type, ['income','expense','cogs_support','marketing','operations','payroll','asset','transfer','owner','tax','adjustment','other'], true)) {
-        $type = 'expense';
-    }
-    $flow = jg_accounting_text($body['flow'] ?? ($type === 'income' ? 'income' : 'expense'), 20);
-    $flow = in_array($flow, ['income', 'expense'], true) ? $flow : 'expense';
-    $stmt = $pdo->prepare(
-        'INSERT INTO accounting_categories (category_key, parent_id, name, type, flow, requires_receipt, is_billable, is_active, sort_order)
-         VALUES (:category_key, :parent_id, :name, :type, :flow, :requires_receipt, 1, 1, 500)
-         ON DUPLICATE KEY UPDATE name = VALUES(name), type = VALUES(type), requires_receipt = VALUES(requires_receipt)'
-    );
-    $stmt->execute([
-        ':category_key' => mb_substr($key ?: jg_accounting_key('category'), 0, 80),
-        ':parent_id' => (int) ($body['parent_id'] ?? 0) > 0 ? (int) $body['parent_id'] : null,
-        ':name' => $name,
-        ':type' => $type,
-        ':flow' => $flow,
-        ':requires_receipt' => jg_accounting_bool($body['requires_receipt'] ?? false) ? 1 : 0,
+    $result = jg_accounting_save_category($pdo, [
+        ...$body,
+        'category_id' => 0,
+        'is_billable' => $body['is_billable'] ?? true,
+        'is_active' => $body['is_active'] ?? true,
     ]);
-    return ['id' => (int) $pdo->lastInsertId()];
+    return [
+        ...$result,
+        'id' => (int) ($result['category_id'] ?? 0),
+    ];
+}
+
+function jg_accounting_unique_category_key(PDO $pdo, string $name): string
+{
+    $slug = strtolower(trim(preg_replace('/[^a-z0-9]+/i', '-', $name) ?? '', '-'));
+    if ($slug === '') {
+        $slug = 'category-' . bin2hex(random_bytes(8));
+    }
+    $exists = $pdo->prepare('SELECT COUNT(*) FROM accounting_categories WHERE category_key = :category_key');
+    $candidate = mb_substr($slug, 0, 80);
+    $exists->execute([':category_key' => $candidate]);
+    if ((int) $exists->fetchColumn() === 0) {
+        return $candidate;
+    }
+    for ($attempt = 0; $attempt < 20; $attempt++) {
+        $candidate = mb_substr($slug, 0, 71) . '-' . bin2hex(random_bytes(4));
+        $exists->execute([':category_key' => $candidate]);
+        if ((int) $exists->fetchColumn() === 0) {
+            return $candidate;
+        }
+    }
+    throw new RuntimeException('Unable to generate a unique category key.');
 }
 
 function jg_accounting_save_category(PDO $pdo, array $body): array
@@ -5037,12 +5054,7 @@ function jg_accounting_save_category(PDO $pdo, array $body): array
             ':id' => $id,
         ]);
     } else {
-        $key = strtolower(trim(preg_replace('/[^a-z0-9]+/i', '-', $name) ?? '', '-')) ?: jg_accounting_key('category');
-        $exists = $pdo->prepare('SELECT COUNT(*) FROM accounting_categories WHERE category_key = :category_key');
-        $exists->execute([':category_key' => $key]);
-        if ((int) $exists->fetchColumn() > 0) {
-            $key = mb_substr($key, 0, 69) . '-' . bin2hex(random_bytes(4));
-        }
+        $key = jg_accounting_unique_category_key($pdo, $name);
         $sortOrder = (int) ($pdo->query('SELECT COALESCE(MAX(sort_order), 0) + 10 FROM accounting_categories')->fetchColumn() ?: 100);
         $stmt = $pdo->prepare(
             'INSERT INTO accounting_categories
@@ -5051,7 +5063,7 @@ function jg_accounting_save_category(PDO $pdo, array $body): array
                 (:category_key, :parent_id, :name, :type, :flow, :requires_receipt, :is_billable, :is_active, :sort_order)'
         );
         $stmt->execute([
-            ':category_key' => mb_substr($key, 0, 80),
+            ':category_key' => $key,
             ':parent_id' => $parentId,
             ':name' => $name,
             ':type' => $type,
@@ -5072,7 +5084,10 @@ function jg_accounting_save_category(PDO $pdo, array $body): array
         'is_billable' => $isBillable,
         'is_active' => $isActive,
     ]);
-    return ['category_id' => $id];
+    return [
+        'category_id' => $id,
+        'category' => jg_accounting_category_by_id($pdo, $id),
+    ];
 }
 
 function jg_accounting_move_category(PDO $pdo, array $body): array

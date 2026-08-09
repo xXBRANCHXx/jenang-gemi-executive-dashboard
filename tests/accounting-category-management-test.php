@@ -38,8 +38,56 @@ $pdo->exec("INSERT INTO accounting_transactions VALUES
 $pdo->exec("INSERT INTO accounting_bills VALUES
     (1, 3, '2026-02-11', '2026-02'), (2, 3, '2026-04-01', '2026-04')");
 
+$bulkGroup = jg_accounting_save_category($pdo, [
+    'name' => 'Accountant-defined costs',
+    'type' => 'expense',
+    'flow' => 'expense',
+    'is_billable' => false,
+    'is_active' => true,
+]);
+$bulkGroupId = (int) ($bulkGroup['category_id'] ?? 0);
+category_management_expect($bulkGroupId, (int) ($bulkGroup['category']['id'] ?? 0), 'A saved group must be returned immediately to the browser.');
+for ($index = 1; $index <= 250; $index++) {
+    $saved = jg_accounting_save_category($pdo, [
+        'name' => 'Accountant category ' . $index,
+        'parent_id' => $bulkGroupId,
+        'type' => 'expense',
+        'flow' => 'expense',
+        'is_billable' => true,
+        'is_active' => true,
+    ]);
+    category_management_expect((int) ($saved['category_id'] ?? 0), (int) ($saved['category']['id'] ?? 0), 'Every saved subcategory must be returned immediately to the browser.');
+}
+$bulkCategories = array_values(array_filter(
+    jg_accounting_categories($pdo, true),
+    static fn (array $row): bool => (int) ($row['parent_id'] ?? 0) === $bulkGroupId
+));
+category_management_expect(250, count($bulkCategories), 'Category retrieval must not impose an application-level row limit.');
+
+$duplicateName = jg_accounting_create_category($pdo, [
+    'name' => 'Accountant category 1',
+    'parent_id' => 2,
+    'type' => 'operations',
+    'flow' => 'expense',
+]);
+category_management_expect(true, (int) ($duplicateName['id'] ?? 0) > 0, 'The legacy creation endpoint must create rather than overwrite a same-named category in another group.');
+category_management_expect(2, (int) ($duplicateName['category']['parent_id'] ?? 0), 'The legacy creation endpoint must return the newly saved category.');
+
+$longPrefix = str_repeat('Long category prefix ', 6);
+$longNameOne = jg_accounting_save_category($pdo, [
+    'name' => $longPrefix . 'one', 'parent_id' => $bulkGroupId, 'type' => 'expense', 'flow' => 'expense',
+]);
+$longNameTwo = jg_accounting_save_category($pdo, [
+    'name' => $longPrefix . 'two', 'parent_id' => $bulkGroupId, 'type' => 'expense', 'flow' => 'expense',
+]);
+category_management_expect(
+    false,
+    ($longNameOne['category']['category_key'] ?? '') === ($longNameTwo['category']['category_key'] ?? ''),
+    'Long category names with the same first 80 key characters must still receive unique storage keys.'
+);
+
 $all = jg_accounting_categories($pdo, true);
-category_management_expect(4, count($all), 'Settings must receive active, hidden, and retired categories so they can be managed.');
+category_management_expect(258, count($all), 'Settings must receive every active, hidden, retired, and user-created category.');
 $hidden = current(array_filter($all, static fn (array $row): bool => (int) $row['id'] === 3));
 category_management_expect(0, $hidden['is_billable'] ?? null, 'An active category hidden from entry lists must retain that independent setting.');
 category_management_expect(1, $hidden['is_active'] ?? null, 'Hidden-from-lists must not mean inactive.');

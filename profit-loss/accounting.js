@@ -4,7 +4,7 @@ if (root) {
   const DASHBOARD_TIMEZONE = 'Asia/Jakarta';
   const endpoint = root.dataset.accountingEndpoint || '../api/accounting/';
   const ACCOUNTING_CACHE_PREFIX = 'jg-accounting-page-cache-v7';
-  const ACCOUNTING_LOOKUPS_CACHE_KEY = 'jg-accounting-lookups-cache-v3';
+  const ACCOUNTING_LOOKUPS_CACHE_KEY = 'jg-accounting-lookups-cache-v4';
   const ACCOUNTING_CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
   const escapeHtml = (value) => String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -142,6 +142,7 @@ if (root) {
     billAllocations: {},
     preferences: JSON.parse(JSON.stringify(defaultPreferences))
   };
+  let lookupRequestId = 0;
 
   const refs = {
     view: root.querySelector('[data-accounting-view]'),
@@ -1658,6 +1659,7 @@ if (root) {
   const submitCategorySettings = async (form) => {
     const data = new FormData(form);
     const payload = Object.fromEntries(data.entries());
+    const categoryKind = form.dataset.categoryKind;
     payload.action = 'save_category';
     payload.requires_receipt = data.has('requires_receipt') ? '1' : '0';
     payload.is_billable = data.has('is_billable') ? '1' : '0';
@@ -1665,9 +1667,15 @@ if (root) {
     try {
       const response = await requestJson(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const savedId = String(response.data?.result?.category_id || '');
-      state.lookupsLoaded = false;
-      await loadLookups(true);
-      if (form.dataset.categoryKind === 'group') {
+      const savedCategory = response.data?.result?.category;
+      if (savedCategory && typeof savedCategory === 'object') {
+        const existingIndex = state.categories.findIndex((category) => String(category.id) === savedId);
+        if (existingIndex >= 0) state.categories[existingIndex] = savedCategory;
+        else state.categories.push(savedCategory);
+        state.lookupsLoaded = true;
+        writeCacheEntry(ACCOUNTING_LOOKUPS_CACHE_KEY, getLookupPayload());
+      }
+      if (categoryKind === 'group') {
         state.categorySettingsParentId = savedId;
         state.categorySettingsCategoryId = '';
       } else {
@@ -1676,7 +1684,12 @@ if (root) {
       state.categorySettingsMode = 'browse';
       renderCategorySettings();
       renderCategoryOptions();
-      showToast(form.dataset.categoryKind === 'group' ? 'Group saved.' : 'Exact category saved.');
+      const refreshed = await loadLookups(true);
+      renderCategorySettings();
+      renderCategoryOptions();
+      showToast(refreshed === false
+        ? `${categoryKind === 'group' ? 'Group' : 'Exact category'} saved. The shared list will refresh again automatically.`
+        : (categoryKind === 'group' ? 'Group saved.' : 'Exact category saved.'));
     } catch (error) {
       const node = form.querySelector('[data-accounting-category-settings-error]');
       if (node) { node.hidden = false; node.textContent = error?.message || 'Unable to save category.'; }
@@ -2156,28 +2169,33 @@ if (root) {
   };
 
   const loadLookups = async (force = false) => {
-    if (state.lookupsLoaded && !force) {
-      renderLookups();
-      return;
-    }
+    let hasFallback = state.lookupsLoaded || state.accounts.length > 0 || state.categories.length > 0 || state.counterparties.length > 0;
     if (!force) {
       const cached = readCacheEntry(ACCOUNTING_LOOKUPS_CACHE_KEY);
-      if (cached && applyLookupsPayload(cached.data)) return;
+      if (cached && applyLookupsPayload(cached.data)) hasFallback = true;
     }
-    const [accounts, categories, counterparties, preferences] = await Promise.all([
-      requestJson(buildUrl('accounts', { cacheBust: force })),
-      requestJson(buildUrl('categories', { cacheBust: force })),
-      requestJson(buildUrl('counterparties', { cacheBust: force })),
-      requestJson(buildUrl('ui_preferences', { cacheBust: force }))
-    ]);
-    const payload = {
-      accounts: Array.isArray(accounts.data?.accounts) ? accounts.data.accounts : [],
-      categories: Array.isArray(categories.data?.categories) ? categories.data.categories : [],
-      counterparties: Array.isArray(counterparties.data?.counterparties) ? counterparties.data.counterparties : [],
-      preferences: preferences.data?.preferences || defaultPreferences
-    };
-    applyLookupsPayload(payload);
-    writeCacheEntry(ACCOUNTING_LOOKUPS_CACHE_KEY, payload);
+    const requestId = ++lookupRequestId;
+    try {
+      const [accounts, categories, counterparties, preferences] = await Promise.all([
+        requestJson(buildUrl('accounts', { cacheBust: true })),
+        requestJson(buildUrl('categories', { cacheBust: true })),
+        requestJson(buildUrl('counterparties', { cacheBust: true })),
+        requestJson(buildUrl('ui_preferences', { cacheBust: true }))
+      ]);
+      if (requestId !== lookupRequestId) return false;
+      const payload = {
+        accounts: Array.isArray(accounts.data?.accounts) ? accounts.data.accounts : [],
+        categories: Array.isArray(categories.data?.categories) ? categories.data.categories : [],
+        counterparties: Array.isArray(counterparties.data?.counterparties) ? counterparties.data.counterparties : [],
+        preferences: preferences.data?.preferences || defaultPreferences
+      };
+      applyLookupsPayload(payload);
+      writeCacheEntry(ACCOUNTING_LOOKUPS_CACHE_KEY, payload);
+      return true;
+    } catch (error) {
+      if (!hasFallback) throw error;
+      return false;
+    }
   };
 
   const loadAccounting = async (force = false) => {
