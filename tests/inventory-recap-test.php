@@ -214,12 +214,19 @@ $partPaidOrder = jg_purchase_orders_record_payment(
 @unlink($proofPath);
 inventory_recap_expect(10000.0, $partPaidOrder['paid_total'] ?? 0, 'PO payments must accumulate against the COGS-based order total.');
 inventory_recap_expect(23000.0, $partPaidOrder['amount_due'] ?? 0, 'A partial payment must leave the correct COGS-based balance due.');
+inventory_recap_expect(false, $partPaidOrder['is_paid'] ?? null, 'A partially paid PO must remain active.');
 inventory_recap_expect('supplier-payment.pdf', $partPaidOrder['payments'][0]['proof']['name'] ?? '', 'PO history must retain the private proof metadata for each payment.');
 inventory_recap_expect('/api/inventory-recap/?action=payment_proof&id=1', $partPaidOrder['payments'][0]['proof']['url'] ?? '', 'PO payment proofs must use the authenticated streaming endpoint.');
 $samePaymentOrder = jg_purchase_orders_record_payment(
     $skuPdo, (int) $placedOrder['id'], 'payment-test-request', 1234, 8, 'BCA Main', 10000, 'amount', []
 );
 inventory_recap_expect(10000.0, $samePaymentOrder['paid_total'] ?? 0, 'Retrying one payment request must not charge the PO twice.');
+
+$fullyPaidOrder = jg_purchase_orders_record_payment(
+    $skuPdo, (int) $placedOrder['id'], 'payment-final-request', 1235, 8, 'BCA Main', 23000, 'full', []
+);
+inventory_recap_expect(0, $fullyPaidOrder['amount_due'] ?? -1, 'A full PO payment must clear the balance due.');
+inventory_recap_expect(true, $fullyPaidOrder['is_paid'] ?? false, 'A fully paid PO must be identified for removal from the active inventory board.');
 
 $cancelledOrder = jg_purchase_orders_cancel($skuPdo, (int) ($placedOrder['id'] ?? 0));
 inventory_recap_expect('cancelled', $cancelledOrder['status'] ?? '', 'Cancelling a PO must close it at the shared source of truth.');

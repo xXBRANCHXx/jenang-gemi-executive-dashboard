@@ -69,6 +69,8 @@ assert.doesNotMatch(script, /data-purchase-plan-remove|planExcluded/);
 assert.match(script, /quantitySku[\s\S]*planEdited\[quantitySku\] = true/);
 assert.match(script, /data-inventory-po-cancel[\s\S]*action: 'cancel_order'/);
 assert.match(script, /removed from Store Ops/);
+assert.match(script, /const purchaseOrderIsPaid[\s\S]*paid_total[\s\S]*amount_due/);
+assert.match(script, /filter\(\(order\) => String\(order\.status \|\| ''\) !== 'cancelled' && !purchaseOrderIsPaid\(order\)\)/);
 assert.match(script, /state\.activeView === 'purchase-order' \? 'inventory-recap'/);
 assert.doesNotMatch(script, /inventoryRecapDays|current_days_remaining/);
 

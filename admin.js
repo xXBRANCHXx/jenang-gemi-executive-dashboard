@@ -8464,6 +8464,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	  const purchaseOrders = () => Array.isArray(state.inventoryRecap.data?.purchase_orders)
 	    ? state.inventoryRecap.data.purchase_orders : [];
+	  const purchaseOrderIsPaid = (order) => Boolean(order?.is_paid)
+	    || (Number(order?.paid_total || 0) > 0 && Number(order?.amount_due || 0) <= 0);
 	  const selectedPurchaseOrder = () => purchaseOrders().find((order) => Number(order.id || 0) === Number(state.inventoryRecap.selectedOrderId || 0));
 
 	  const orderSearchText = (order) => [
@@ -8533,7 +8535,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (!inventoryRecapRefs.poList) return;
 	    const orders = (Array.isArray(state.inventoryRecap.data?.purchase_orders)
 	      ? state.inventoryRecap.data.purchase_orders
-	      : []).filter((order) => String(order.status || '') !== 'cancelled');
+	      : []).filter((order) => String(order.status || '') !== 'cancelled' && !purchaseOrderIsPaid(order));
 	    const openOrders = orders.filter((order) => ['pending', 'partially_received'].includes(String(order.status || '')));
 	    if (inventoryRecapRefs.poSummary) {
 	      const incoming = Number(state.inventoryRecap.data?.summary?.incoming_qty || 0);

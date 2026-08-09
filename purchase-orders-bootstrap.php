@@ -286,6 +286,8 @@ function jg_purchase_orders_fetch(PDO $pdo, int $limit = 20): array
         }, $paymentsStmt->fetchAll());
         $paidTotal = array_sum(array_map(static fn (array $payment): float => (float) $payment['amount'], $payments));
         $estimatedTotal = max(0.0, (float) ($order['estimated_total'] ?? 0));
+        $amountDue = max(0, $estimatedTotal - $paidTotal);
+        $isPaid = $paidTotal > 0 && $amountDue < 0.01;
         return [
             'id' => (int) ($order['id'] ?? 0),
             'po_number' => (string) ($order['po_number'] ?? ''),
@@ -299,7 +301,8 @@ function jg_purchase_orders_fetch(PDO $pdo, int $limit = 20): array
             'progress_percent' => $ordered > 0 ? (int) round(($received / $ordered) * 100) : 0,
             'estimated_total' => $estimatedTotal,
             'paid_total' => min($estimatedTotal, $paidTotal),
-            'amount_due' => max(0, $estimatedTotal - $paidTotal),
+            'amount_due' => $amountDue,
+            'is_paid' => $isPaid,
             'payment_percent' => $estimatedTotal > 0 ? min(100, (int) round(($paidTotal / $estimatedTotal) * 100)) : 100,
             'placed_by' => (string) ($order['placed_by'] ?? ''),
             'placed_at' => (string) ($order['placed_at'] ?? ''),
