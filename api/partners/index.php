@@ -924,10 +924,18 @@ if ($action === 'update') {
     $database['partners'][$matchIndex] = jg_partner_build_record($request, $database, $skuCatalog, $existing);
     jg_partner_touch_meta($database);
     jg_partner_write_database($database);
+    $billingPdo = jg_admin_partner_billing_db();
+    $billingPartnerCode = (string) ($database['partners'][$matchIndex]['code'] ?? $currentCode);
+    $billingPeriodType = (string) ($database['partners'][$matchIndex]['billing_period_type'] ?? 'calendar_week');
     jg_admin_partner_billing_rebucket_partner(
-        jg_admin_partner_billing_db(),
-        (string) ($database['partners'][$matchIndex]['code'] ?? $currentCode),
-        (string) ($database['partners'][$matchIndex]['billing_period_type'] ?? 'calendar_week')
+        $billingPdo,
+        $billingPartnerCode,
+        $billingPeriodType
+    );
+    jg_admin_partner_billing_merge_duplicate_periods(
+        $billingPdo,
+        $billingPartnerCode,
+        $billingPeriodType
     );
     jg_partner_response($database, $skuCatalog, $database['partners'][$matchIndex]);
 }

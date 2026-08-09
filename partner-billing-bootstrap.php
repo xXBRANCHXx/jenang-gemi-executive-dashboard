@@ -417,6 +417,115 @@ function jg_admin_partner_billing_rebucket_partner(PDO $pdo, string $partnerCode
     return array_keys($affected);
 }
 
+/**
+ * Merge an audit-only legacy PO into the canonical PO when both describe the
+ * same exact configured period. Active payments and disputes still freeze both
+ * records; accepted/rejected history is moved with its items and attachments.
+ *
+ * @return list<string> Canonical bill IDs recalculated after the merge.
+ */
+function jg_admin_partner_billing_merge_duplicate_periods(PDO $pdo, string $partnerCode, string $periodType): array
+{
+    jg_admin_partner_billing_ensure_schema($pdo);
+    $partnerCode = strtoupper(trim($partnerCode));
+    $periodType = jg_admin_partner_billing_period_type($periodType);
+    if ($partnerCode === '') return [];
+
+    $sourceStmt = $pdo->prepare(
+        'SELECT b.*,
+                EXISTS(
+                    SELECT 1 FROM partner_weekly_bill_payments p
+                    WHERE p.bill_id = b.bill_id AND p.status IN ("pending", "confirmed")
+                ) AS has_active_payment,
+                EXISTS(
+                    SELECT 1 FROM partner_weekly_bill_disputes d
+                    WHERE d.bill_id = b.bill_id AND d.status = "pending"
+                ) AS has_active_dispute,
+                EXISTS(SELECT 1 FROM partner_weekly_bill_payments p WHERE p.bill_id = b.bill_id) AS has_any_payment
+         FROM partner_weekly_bills b
+         WHERE b.partner_code = :partner_code
+         ORDER BY b.created_at ASC, b.bill_id ASC'
+    );
+    $sourceStmt->execute([':partner_code' => $partnerCode]);
+    $sources = $sourceStmt->fetchAll();
+    $targetStmt = $pdo->prepare(
+        'SELECT b.*,
+                EXISTS(
+                    SELECT 1 FROM partner_weekly_bill_payments p
+                    WHERE p.bill_id = b.bill_id AND p.status IN ("pending", "confirmed")
+                ) AS has_active_payment,
+                EXISTS(
+                    SELECT 1 FROM partner_weekly_bill_disputes d
+                    WHERE d.bill_id = b.bill_id AND d.status = "pending"
+                ) AS has_active_dispute,
+                EXISTS(SELECT 1 FROM partner_weekly_bill_payments p WHERE p.bill_id = b.bill_id) AS has_any_payment
+         FROM partner_weekly_bills b
+         WHERE b.bill_id = :bill_id
+         LIMIT 1 FOR UPDATE'
+    );
+    $moveItems = $pdo->prepare('UPDATE partner_weekly_bill_items SET bill_id = :target_id, updated_at = UTC_TIMESTAMP() WHERE bill_id = :source_id');
+    $moveDisputes = $pdo->prepare('UPDATE partner_weekly_bill_disputes SET bill_id = :target_id, updated_at = UTC_TIMESTAMP() WHERE bill_id = :source_id');
+    $moveFiles = $pdo->prepare('UPDATE partner_weekly_bill_files SET bill_id = :target_id WHERE bill_id = :source_id');
+    $movePayments = $pdo->prepare('UPDATE partner_weekly_bill_payments SET bill_id = :target_id, updated_at = UTC_TIMESTAMP() WHERE bill_id = :source_id');
+    $moveOrderReferences = $pdo->prepare(
+        'UPDATE partner_orders SET billing_reference = :target_id, updated_at = UTC_TIMESTAMP()
+         WHERE partner_code = :partner_code AND billing_reference = :source_id'
+    );
+    $deleteSource = $pdo->prepare('DELETE FROM partner_weekly_bills WHERE bill_id = :source_id');
+    $timezone = new DateTimeZone('Asia/Jakarta');
+    $merged = [];
+
+    $pdo->beginTransaction();
+    try {
+        foreach ($sources as $source) {
+            if (jg_admin_partner_billing_period_type($source['period_type'] ?? null) !== $periodType
+                || !jg_admin_partner_billing_bill_is_mutable($source)) {
+                continue;
+            }
+            try {
+                $sourceStart = new DateTimeImmutable((string) $source['period_start'], $timezone);
+            } catch (Throwable) {
+                continue;
+            }
+            $period = jg_admin_partner_billing_period($sourceStart, $periodType);
+            if ((string) ($source['period_start'] ?? '') !== $period['start']
+                || (string) ($source['period_end'] ?? '') !== $period['end']) {
+                continue;
+            }
+
+            $sourceId = (string) ($source['bill_id'] ?? '');
+            $targetId = jg_admin_partner_billing_bill_id($partnerCode, $period['start'], $periodType);
+            if ($sourceId === '' || $sourceId === $targetId) continue;
+
+            $targetStmt->execute([':bill_id' => $targetId]);
+            $target = $targetStmt->fetch();
+            if (!is_array($target)
+                || (string) ($target['period_start'] ?? '') !== $period['start']
+                || (string) ($target['period_end'] ?? '') !== $period['end']
+                || !jg_admin_partner_billing_bill_is_mutable($target)
+                || ((int) ($source['has_any_payment'] ?? 0) !== 0 && (int) ($target['has_any_payment'] ?? 0) !== 0)) {
+                continue;
+            }
+
+            $params = [':target_id' => $targetId, ':source_id' => $sourceId];
+            $moveItems->execute($params);
+            $moveDisputes->execute($params);
+            $moveFiles->execute($params);
+            $movePayments->execute($params);
+            $moveOrderReferences->execute($params + [':partner_code' => $partnerCode]);
+            $deleteSource->execute([':source_id' => $sourceId]);
+            jg_admin_partner_billing_recalculate($pdo, $targetId);
+            $merged[$targetId] = true;
+        }
+        $pdo->commit();
+    } catch (Throwable $error) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $error;
+    }
+
+    return array_keys($merged);
+}
+
 function jg_admin_partner_billing_recalculate(PDO $pdo, string $billId): void
 {
     $totalsStmt = $pdo->prepare(
@@ -559,6 +668,11 @@ function jg_admin_partner_billing_sync(PDO $pdo): void
     } catch (Throwable $error) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         throw $error;
+    }
+    foreach ($periodTypes as $code => $periodType) {
+        foreach (jg_admin_partner_billing_merge_duplicate_periods($pdo, $code, $periodType) as $billId) {
+            $billIds[$billId] = true;
+        }
     }
     foreach ($pdo->query('SELECT bill_id FROM partner_weekly_bills')->fetchAll(PDO::FETCH_COLUMN) as $billId) {
         $billIds[(string) $billId] = true;

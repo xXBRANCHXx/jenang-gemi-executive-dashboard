@@ -61,6 +61,8 @@ admin_partner_billing_expect(['due_amount' => 200000, 'in_progress_amount' => 40
 admin_partner_billing_expect(true, str_contains($source, 'i.paid_at IS NULL') && str_contains($source, 'i.status <> "removed"'), 'Rebucketing must move only unpaid, non-removed orders.');
 admin_partner_billing_expect(true, strpos($source, 'jg_admin_partner_billing_recalculate($pdo, $billId);') < strpos($source, '$deleteEmpty = $pdo->prepare('), 'Old and new PO totals must recalculate before obsolete POs are deleted in the same transaction.');
 admin_partner_billing_expect(true, str_contains($source, 'NOT EXISTS(SELECT 1 FROM partner_weekly_bill_payments') && str_contains($source, 'NOT EXISTS(SELECT 1 FROM partner_weekly_bill_disputes'), 'Obsolete PO deletion must preserve payment and dispute audit records.');
+admin_partner_billing_expect(true, str_contains($source, 'function jg_admin_partner_billing_merge_duplicate_periods'), 'Exact duplicate periods must be consolidated after rebucketing.');
+admin_partner_billing_expect(true, str_contains($source, 'UPDATE partner_weekly_bill_items SET bill_id = :target_id') && str_contains($source, 'UPDATE partner_weekly_bill_disputes SET bill_id = :target_id'), 'Duplicate consolidation must preserve item and dispute audit history on the canonical PO.');
 
 $resolution = jg_admin_partner_billing_price_resolution([
     'order_id' => 'PO-PRICE-1',
