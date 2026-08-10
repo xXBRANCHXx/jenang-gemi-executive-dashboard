@@ -107,6 +107,8 @@ assert(
     && script.includes('zero-weekend-automatic')
     && script.includes('zero-weekend-cutoff')
     && script.includes('zero-weekend-pickup')
+    && script.includes("weekend.cutoff || '12:00'")
+    && script.includes('due Saturday or Sunday as urgent')
     && script.includes("classList.toggle('is-read-only', !branch)")
     && endpoint.includes("'expected_revision' => (int)"),
   'ZERO Shopee retry, deadline, drop-off, and Weekend Dependent behavior must be visual, interactive, revisioned, and visible before unlock.'

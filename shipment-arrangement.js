@@ -122,7 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
       packageRetryMinutes: Math.max(1, Number(guards.package_not_ready_retry_minutes || 10)),
       weekendEnabled: weekend.enabled !== false,
       weekendAutomatic: weekend.automatic_arrangement !== false,
-      weekendCutoff: String(weekend.cutoff || '11:30'),
+      weekendCutoff: String(weekend.cutoff || '12:00'),
       weekendPickupFallback: weekend.pickup_fallback !== false
     };
   };
@@ -860,8 +860,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const weekend = !rules.weekendEnabled
       ? 'Weekend Dependent handling is off'
       : rules.weekendAutomatic
-        ? `Saturday due Sunday: use Saturday pickup before ${rules.weekendCutoff} when drop-off is unavailable`
-        : `Saturday due Sunday: flag for manual handling; no automatic weekend arrangement`;
+        ? `Saturday order due Saturday/Sunday: use Saturday pickup before ${rules.weekendCutoff} when drop-off is unavailable`
+        : `Saturday order due Saturday/Sunday: flag for manual handling; no automatic weekend arrangement`;
     preview.innerHTML = [
       ['1', 'Start', preference, 'is-start'],
       ['2', 'Pickup filter', pickupScope, rules.weekdayPickupOnly ? 'is-pickup' : 'is-neutral'],
@@ -892,7 +892,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <label><span>No-weekday retry <em>All shops</em></span><div class="admin-arrangement-unit-input"><input type="number" name="weekday-retry-days" min="1" max="7" value="${zero.weekdayRetryDays}"><b>days</b></div><small>Shared timing; continue only while the next run is before ship-by.</small></label>
           <label><span>Package not ready <em>All shops</em></span><div class="admin-arrangement-unit-input"><input type="number" name="package-retry-minutes" min="1" max="1440" value="${zero.packageRetryMinutes}"><b>minutes</b></div><small>Shared delay before asking a marketplace for shipping options again.</small></label>
           <label class="admin-arrangement-switch-control"><span>Deadline drop-off</span><input type="checkbox" name="zero-deadline-dropoff" ${zero.deadlineDropoffFallback ? 'checked' : ''}><small>Use offered drop-off when another pickup retry would miss ship-by.</small></label>
-          <label class="admin-arrangement-switch-control"><span>Weekend Dependent</span><input type="checkbox" name="zero-weekend-enabled" ${zero.weekendEnabled ? 'checked' : ''}><small>Recognize Saturday orders due Sunday as urgent.</small></label>
+          <label class="admin-arrangement-switch-control"><span>Weekend Dependent</span><input type="checkbox" name="zero-weekend-enabled" ${zero.weekendEnabled ? 'checked' : ''}><small>Recognize Saturday orders due Saturday or Sunday as urgent.</small></label>
           <label class="admin-arrangement-switch-control"><span>Automatic Saturday exception</span><input type="checkbox" name="zero-weekend-automatic" ${zero.weekendAutomatic ? 'checked' : ''}><small>The only automatic path allowed while Hard Set is paused.</small></label>
           <label><span>Saturday cutoff</span><input type="time" name="zero-weekend-cutoff" value="${escapeHtml(zero.weekendCutoff)}"><small>At this exact time, automatic handling closes.</small></label>
           <label class="admin-arrangement-switch-control"><span>Saturday pickup fallback</span><input type="checkbox" name="zero-weekend-pickup" ${zero.weekendPickupFallback ? 'checked' : ''}><small>Use Saturday pickup when drop-off is unavailable.</small></label>
