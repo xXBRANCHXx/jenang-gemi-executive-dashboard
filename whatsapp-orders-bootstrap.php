@@ -932,25 +932,31 @@ function jg_whatsapp_sync_history_lifecycle(PDO $pdo): void
     }
     $allowed = ['IS_LISTED', 'IS_BEING_FULFILLED', 'FULFILLED', 'CANCELLED'];
     $now = jg_whatsapp_now();
-    $update = $pdo->prepare(
+    $updateStatus = $pdo->prepare(
         'UPDATE whatsapp_orders
-         SET status = :status,
-             payment_status = CASE WHEN :cancel_status = "CANCELLED" THEN "canceled" ELSE payment_status END,
-             fulfilled_at = CASE WHEN :fulfilled_status = "FULFILLED" THEN COALESCE(fulfilled_at, :fulfilled_at) ELSE fulfilled_at END,
-             updated_at = :updated_at
+         SET status = :status, updated_at = :updated_at
+         WHERE order_id = :order_id AND status IN ("IS_LISTED", "IS_BEING_FULFILLED")'
+    );
+    $updateCancelled = $pdo->prepare(
+        'UPDATE whatsapp_orders
+         SET status = "CANCELLED", payment_status = "canceled", updated_at = :updated_at
+         WHERE order_id = :order_id AND status IN ("IS_LISTED", "IS_BEING_FULFILLED")'
+    );
+    $updateFulfilled = $pdo->prepare(
+        'UPDATE whatsapp_orders
+         SET status = "FULFILLED", fulfilled_at = COALESCE(fulfilled_at, :fulfilled_at), updated_at = :updated_at
          WHERE order_id = :order_id AND status IN ("IS_LISTED", "IS_BEING_FULFILLED")'
     );
     foreach ($states as $orderId => $state) {
         $displayStatus = strtoupper(trim((string) ($state['display_status'] ?? '')));
         if (!in_array($displayStatus, $allowed, true) || ($currentByOrder[$orderId] ?? '') === $displayStatus) continue;
-        $update->execute([
-            ':status' => $displayStatus,
-            ':cancel_status' => $displayStatus,
-            ':fulfilled_status' => $displayStatus,
-            ':fulfilled_at' => $now,
-            ':updated_at' => $now,
-            ':order_id' => $orderId,
-        ]);
+        if ($displayStatus === 'CANCELLED') {
+            $updateCancelled->execute([':updated_at' => $now, ':order_id' => $orderId]);
+        } elseif ($displayStatus === 'FULFILLED') {
+            $updateFulfilled->execute([':fulfilled_at' => $now, ':updated_at' => $now, ':order_id' => $orderId]);
+        } else {
+            $updateStatus->execute([':status' => $displayStatus, ':updated_at' => $now, ':order_id' => $orderId]);
+        }
     }
 }
 

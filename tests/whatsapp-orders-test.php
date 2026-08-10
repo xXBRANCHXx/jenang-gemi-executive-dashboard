@@ -20,6 +20,7 @@ whatsapp_expect(false, in_array('CANCELLED', JG_WHATSAPP_ORDER_OPEN_STATUSES, tr
 whatsapp_expect(false, in_array('CANCELLED', JG_WHATSAPP_ORDER_METRIC_STATUSES, true), 'Cancelled WhatsApp orders must not count as completed sales.');
 $historySource = (string) file_get_contents(dirname(__DIR__) . '/whatsapp-orders-bootstrap.php');
 whatsapp_expect(true, str_contains($historySource, "'FULFILLED', 'CANCELLED'") && str_contains($historySource, 'syncLifecycle'), 'WhatsApp History must filter and reconcile the complete fulfillment lifecycle.');
+whatsapp_expect(false, str_contains($historySource, ':cancel_status = "CANCELLED"'), 'Lifecycle reconciliation must not compare bound parameters with differently collated MySQL status literals.');
 whatsapp_expect(true, jg_whatsapp_legacy_order_was_paid([
     'status' => 'IS_LISTED',
     'created_at' => '2026-08-03 10:04:00.000000',
