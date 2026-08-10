@@ -139,10 +139,11 @@ try {
             if ($amount > (float) ($accountBalances[$accountId] ?? 0)) {
                 throw new InvalidArgumentException(sprintf('%s does not have enough available balance for this payment.', (string) ($account['name'] ?? 'That account')));
             }
-            $categoryStmt = $analyticsPdo->prepare('SELECT id FROM accounting_categories WHERE category_key = "finished-goods-purchase" LIMIT 1');
-            $categoryStmt->execute();
+            $poCategory = jg_purchase_orders_accounting_category($order);
+            $categoryStmt = $analyticsPdo->prepare('SELECT id FROM accounting_categories WHERE category_key = :category_key LIMIT 1');
+            $categoryStmt->execute([':category_key' => $poCategory['key']]);
             $categoryId = (int) ($categoryStmt->fetchColumn() ?: 0);
-            if ($categoryId < 1) throw new RuntimeException('The Finished Goods Purchase accounting category is unavailable.');
+            if ($categoryId < 1) throw new RuntimeException(sprintf('The %s accounting category is unavailable.', $poCategory['name']));
             $requestKey = trim((string) ($body['request_key'] ?? ''));
             if ($requestKey === '') throw new InvalidArgumentException('A payment request key is required.');
             $proofFile = isset($_FILES['proof']) && is_array($_FILES['proof']) ? $_FILES['proof'] : [];
@@ -176,7 +177,7 @@ try {
                     'reference_no' => (string) ($order['po_number'] ?? ''),
                     'order_no' => (string) ($order['po_number'] ?? ''),
                     'receipt_status' => 'not_required',
-                    'description' => 'Purchase order payment — ' . (string) ($order['po_number'] ?? ''),
+                    'description' => $poCategory['description'] . ' — ' . (string) ($order['po_number'] ?? ''),
                     'notes' => $accountingRequestNote,
                 ]);
                 $transactionId = (int) ($transaction['id'] ?? 0);

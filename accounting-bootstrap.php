@@ -803,6 +803,7 @@ function jg_accounting_seed_categories(PDO $pdo): void
         ['product-cogs-support', 'raw-materials', 'Raw Materials', 'cogs_support', 1],
         ['product-cogs-support', 'packaging', 'Packaging', 'cogs_support', 1],
         ['product-cogs-support', 'finished-goods-purchase', 'Finished Goods Purchase', 'cogs_support', 1],
+        ['product-cogs-support', 'returned-damaged-goods', 'Returned damaged goods', 'cogs_support', 1],
         ['product-cogs-support', 'labels-stickers', 'Labels / Stickers', 'cogs_support', 1],
         ['product-cogs-support', 'production-labor', 'Production Labor', 'payroll', 1],
         ['product-cogs-support', 'product-testing', 'Product Testing', 'cogs_support', 1],
@@ -4077,7 +4078,7 @@ function jg_accounting_purchase_order_payment_ledger_rows(string $month, ?PDO $s
             'SELECT p.id, p.purchase_order_id, p.accounting_transaction_id, p.account_name,
                     p.amount, p.payment_mode, p.proof_original_name, p.proof_mime_type,
                     p.proof_size_bytes, p.paid_by, p.paid_at,
-                    o.po_number, o.note
+                    o.po_number, o.note, o.tag, o.placed_by
              FROM purchase_order_payments p
              INNER JOIN purchase_orders o ON o.id = p.purchase_order_id
              WHERE p.paid_at >= :start_at AND p.paid_at < :end_at
@@ -4087,6 +4088,7 @@ function jg_accounting_purchase_order_payment_ledger_rows(string $month, ?PDO $s
         return array_map(static function (array $payment): array {
             $paymentId = (int) ($payment['id'] ?? 0);
             $hasProof = (int) ($payment['proof_size_bytes'] ?? 0) > 0;
+            $category = jg_purchase_orders_accounting_category($payment);
             return [
                 'id' => 'purchase_order_payment:' . $paymentId,
                 'kind' => 'purchase_order_payment',
@@ -4097,7 +4099,7 @@ function jg_accounting_purchase_order_payment_ledger_rows(string $month, ?PDO $s
                 'title' => 'Purchase order paid',
                 'subtitle' => (string) ($payment['po_number'] ?? 'Purchase order'),
                 'account' => (string) ($payment['account_name'] ?? 'Payment account'),
-                'category' => 'Finished Goods Purchase',
+                'category' => $category['name'],
                 'note' => trim((string) ($payment['note'] ?? '')),
                 'amount' => (int) round((float) ($payment['amount'] ?? 0)),
                 'signed_amount' => -(int) round((float) ($payment['amount'] ?? 0)),

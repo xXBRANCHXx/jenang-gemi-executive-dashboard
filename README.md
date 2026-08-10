@@ -164,3 +164,7 @@ geometry under Lucide's ISC license.
   which is stored in the SKU database and served only through the authenticated
   Inventory Recap API. Legacy payment rows remain readable and are marked when no
   proof was captured.
+- Store Ops production-return POs arrive through the same shared tables with
+  `Store Ops Returns` as their source. They remain payable and receivable like
+  normal POs, while payment is automatically posted to the `Returned damaged
+  goods` Accounting category and shown with that category in the activity ledger.

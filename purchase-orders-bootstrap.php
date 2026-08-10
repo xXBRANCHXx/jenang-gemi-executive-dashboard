@@ -210,6 +210,25 @@ function jg_purchase_orders_number(): string
     return sprintf('JG-PO-%s-%04d', gmdate('Ymd'), random_int(0, 9999));
 }
 
+/** @return array{key:string,name:string,description:string} */
+function jg_purchase_orders_accounting_category(array $order): array
+{
+    $tag = strtolower(trim((string) ($order['tag'] ?? '')));
+    $placedBy = strtolower(trim((string) ($order['placed_by'] ?? '')));
+    $isReturnedDamagedGoods = $tag === 'returned damaged goods' || $placedBy === 'store ops returns';
+    return $isReturnedDamagedGoods
+        ? [
+            'key' => 'returned-damaged-goods',
+            'name' => 'Returned damaged goods',
+            'description' => 'Returned damaged goods replacement',
+        ]
+        : [
+            'key' => 'finished-goods-purchase',
+            'name' => 'Finished Goods Purchase',
+            'description' => 'Purchase order payment',
+        ];
+}
+
 function jg_purchase_orders_fetch(PDO $pdo, int $limit = 20): array
 {
     jg_purchase_orders_ensure_schema($pdo);
