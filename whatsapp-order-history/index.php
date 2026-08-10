@@ -85,8 +85,9 @@ $historyJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-order-hist
                                     <option value="PENDING_PUBLISH">Sending</option>
                                     <option value="PUBLISH_FAILED">Needs retry</option>
                                     <option value="IS_LISTED">Listed</option>
-                                    <option value="IS_BEING_FULFILLED">Being fulfilled</option>
+                                    <option value="IS_BEING_FULFILLED">Processing</option>
                                     <option value="FULFILLED">Fulfilled</option>
+                                    <option value="CANCELLED">Cancelled</option>
                                 </select>
                             </label>
                         </div>

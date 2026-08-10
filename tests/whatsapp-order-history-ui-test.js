@@ -16,8 +16,10 @@ const builderScript = fs.readFileSync(path.join(root, 'whatsapp-orders.js'), 'ut
 
 assert.match(historyPage, /All direct-order records[\s\S]*?data-history-summary="orders"[\s\S]*?data-history-body/, 'History page must expose a complete ledger and summary.');
 assert.match(historyPage, /data-history-search[\s\S]*?data-history-status-filter[\s\S]*?data-history-previous[\s\S]*?data-history-next/, 'History ledger must support search, status filters, and pagination.');
+assert.match(historyPage, /value="IS_LISTED"[\s\S]*?value="IS_BEING_FULFILLED">Processing[\s\S]*?value="FULFILLED">Fulfilled[\s\S]*?value="CANCELLED">Cancelled/, 'History status filters must expose the full Listed, Processing, Fulfilled, and Cancelled lifecycle.');
 assert.match(historyPage, /<th>Payment<\/th>[\s\S]*?data-history-payment-dialog[\s\S]*?name="payment_method" value="cash"[\s\S]*?name="payment_method" value="bank"/, 'History must expose payment status and a Cash or Bank confirmation dialog.');
 assert.match(historyScript, /action: 'history'/, 'History rows must load the paginated history API.');
+assert.match(historyScript, /lifecycleSynced: false[\s\S]*?sync_lifecycle[\s\S]*?lifecycleSynced = true/, 'History must reconcile lifecycle status once per page load before filtering records.');
 assert.match(historyScript, /whatsapp-order\/\?order=[\s\S]*?data-order-url/, 'History rows must open dedicated detail pages.');
 assert.match(historyScript, /order\.pay_later === true[\s\S]*?data-history-confirm-payment[\s\S]*?action=confirm_payment[\s\S]*?payment_method: method[\s\S]*?payment_status: 'paid'/, 'Only pay-later history rows may offer the authenticated payment confirmation action and update immediately afterward.');
 assert.match(detailPage, /Ordered items[\s\S]*?Unit price[\s\S]*?Gross[\s\S]*?Discount[\s\S]*?Net/, 'Detail page must show the complete item price breakdown.');
@@ -31,6 +33,7 @@ assert.match(detailScript, /unit_cogs[\s\S]*?discount_total[\s\S]*?line_total[\s
 assert.match(api, /action === 'history'[\s\S]*?jg_whatsapp_order_history[\s\S]*?action === 'order'/, 'WhatsApp API must expose history and single-order reads.');
 assert.match(api, /action === 'cancel'[\s\S]*?jg_whatsapp_cancel_order/, 'WhatsApp API must expose authenticated order cancellation.');
 assert.match(bootstrap, /function jg_whatsapp_order_history[\s\S]*?COUNT\(\*\)[\s\S]*?LIMIT/, 'History backend must paginate over all matching orders.');
+assert.match(bootstrap, /function jg_whatsapp_store_ops_states[\s\S]*?whatsapp_statuses[\s\S]*?function jg_whatsapp_sync_history_lifecycle[\s\S]*?IS_BEING_FULFILLED[\s\S]*?FULFILLED[\s\S]*?CANCELLED/, 'History must batch-reconcile authoritative Store Ops lifecycle states, including stale records.');
 assert.match(bootstrap, /function jg_whatsapp_cancel_order[\s\S]*?action=cancel[\s\S]*?SET status = "CANCELLED"/, 'Executive cancellation must be authorized atomically by Store Ops before changing the order record.');
 assert.match(bootstrap, /function jg_whatsapp_store_ops_state[\s\S]*?action=whatsapp_status[\s\S]*?function jg_whatsapp_order_detail[\s\S]*?lifecycle_status/, 'Order details must reconcile the authoritative Store Ops claim and cancellation state.');
 assert.match(nav, /'whatsapp-history'[\s\S]*?Full direct-order ledger and details/, 'Executive quick navigation must expose WhatsApp History.');

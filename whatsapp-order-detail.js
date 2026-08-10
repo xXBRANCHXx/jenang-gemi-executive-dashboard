@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   const statusLabel = (status) => ({
     PENDING_PUBLISH: 'Sending', PUBLISH_FAILED: 'Needs retry', IS_LISTED: 'Listed',
-    IS_BEING_FULFILLED: 'Being fulfilled', FULFILLED: 'Fulfilled', CANCELLED: 'Cancelled'
+    IS_BEING_FULFILLED: 'Processing', FULFILLED: 'Fulfilled', CANCELLED: 'Cancelled'
   }[status] || String(status || 'Unknown').replaceAll('_', ' '));
   const statusClass = (status) => String(status || 'unknown').toLowerCase().replaceAll('_', '-');
   const setText = (selector, value) => {

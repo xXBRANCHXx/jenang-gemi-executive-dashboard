@@ -30,6 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loading: false,
     paymentSaving: false,
     paymentOrderId: '',
+    lifecycleSynced: false,
     requestController: null,
     searchTimer: 0
   };
@@ -48,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   const statusLabel = (status) => ({
     PENDING_PUBLISH: 'Sending', PUBLISH_FAILED: 'Needs retry', IS_LISTED: 'Listed',
-    IS_BEING_FULFILLED: 'Being fulfilled', FULFILLED: 'Fulfilled'
+    IS_BEING_FULFILLED: 'Processing', FULFILLED: 'Fulfilled', CANCELLED: 'Cancelled'
   }[status] || String(status || 'Unknown').replaceAll('_', ' '));
   const statusClass = (status) => String(status || 'unknown').toLowerCase().replaceAll('_', '-');
   const paymentLabel = (order) => {
@@ -134,6 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams({
       action: 'history', page: String(state.page), per_page: String(state.perPage)
     });
+    if (!state.lifecycleSynced) params.set('sync_lifecycle', '1');
     if (state.query) params.set('query', state.query);
     if (state.status) params.set('status', state.status);
     try {
@@ -143,6 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !payload.ok) throw new Error(payload.error || 'Unable to load WhatsApp order history.');
+      state.lifecycleSynced = true;
       state.pagination = payload.pagination || state.pagination;
       state.page = Number(state.pagination.page || 1);
       renderSummary(payload.summary || {});

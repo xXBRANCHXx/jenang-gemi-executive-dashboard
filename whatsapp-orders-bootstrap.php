@@ -885,6 +885,75 @@ function jg_whatsapp_store_ops_state(string $orderId): array
     return is_array($response['order'] ?? null) ? $response['order'] : [];
 }
 
+/** @return array<string,array<string,mixed>> */
+function jg_whatsapp_store_ops_states(array $orderIds): array
+{
+    $base = rtrim(jg_website_config('JG_STORE_OPS_BASE_URL', 'store_ops_base_url'), '/');
+    $token = jg_website_store_ops_token();
+    if ($base === '' || $token === '') {
+        throw new RuntimeException('Store Ops order integration is not configured.');
+    }
+    $orderIds = array_slice(array_values(array_unique(array_filter(array_map(
+        static fn (mixed $orderId): string => trim((string) $orderId),
+        $orderIds
+    )))), 0, 100);
+    if ($orderIds === []) return [];
+    $response = jg_website_http_json('POST', $base . '/api/website-orders/?action=whatsapp_statuses', [
+        'order_ids' => $orderIds,
+    ], $token);
+    $states = [];
+    foreach (is_array($response['orders'] ?? null) ? $response['orders'] : [] as $state) {
+        if (!is_array($state)) continue;
+        $orderId = trim((string) ($state['order_id'] ?? ''));
+        if ($orderId !== '') $states[$orderId] = $state;
+    }
+    return $states;
+}
+
+function jg_whatsapp_sync_history_lifecycle(PDO $pdo): void
+{
+    $rows = $pdo->query(
+        'SELECT order_id, status FROM whatsapp_orders
+         WHERE status IN ("IS_LISTED", "IS_BEING_FULFILLED")
+         ORDER BY updated_at DESC, id DESC LIMIT 100'
+    )->fetchAll();
+    if ($rows === []) return;
+
+    try {
+        $states = jg_whatsapp_store_ops_states(array_column($rows, 'order_id'));
+    } catch (Throwable $error) {
+        error_log('WhatsApp history lifecycle sync failed: ' . $error->getMessage());
+        return;
+    }
+
+    $currentByOrder = [];
+    foreach ($rows as $row) {
+        $currentByOrder[(string) $row['order_id']] = strtoupper((string) $row['status']);
+    }
+    $allowed = ['IS_LISTED', 'IS_BEING_FULFILLED', 'FULFILLED', 'CANCELLED'];
+    $now = jg_whatsapp_now();
+    $update = $pdo->prepare(
+        'UPDATE whatsapp_orders
+         SET status = :status,
+             payment_status = CASE WHEN :cancel_status = "CANCELLED" THEN "canceled" ELSE payment_status END,
+             fulfilled_at = CASE WHEN :fulfilled_status = "FULFILLED" THEN COALESCE(fulfilled_at, :fulfilled_at) ELSE fulfilled_at END,
+             updated_at = :updated_at
+         WHERE order_id = :order_id AND status IN ("IS_LISTED", "IS_BEING_FULFILLED")'
+    );
+    foreach ($states as $orderId => $state) {
+        $displayStatus = strtoupper(trim((string) ($state['display_status'] ?? '')));
+        if (!in_array($displayStatus, $allowed, true) || ($currentByOrder[$orderId] ?? '') === $displayStatus) continue;
+        $update->execute([
+            ':status' => $displayStatus,
+            ':cancel_status' => $displayStatus,
+            ':fulfilled_status' => $displayStatus,
+            ':fulfilled_at' => $now,
+            ':updated_at' => $now,
+            ':order_id' => $orderId,
+        ]);
+    }
+}
+
 /** @return array<string,mixed> */
 function jg_whatsapp_order_detail(PDO $pdo, string $orderId): array
 {
@@ -923,14 +992,15 @@ function jg_whatsapp_list_orders(PDO $pdo, int $limit = 100): array
 }
 
 /** @return array{orders:array<int,array<string,mixed>>,summary:array<string,float|int>,pagination:array<string,int>,filters:array<string,string>} */
-function jg_whatsapp_order_history(PDO $pdo, int $page = 1, int $perPage = 50, string $query = '', string $status = ''): array
+function jg_whatsapp_order_history(PDO $pdo, int $page = 1, int $perPage = 50, string $query = '', string $status = '', bool $syncLifecycle = false): array
 {
     jg_whatsapp_ensure_schema($pdo);
+    if ($syncLifecycle) jg_whatsapp_sync_history_lifecycle($pdo);
     $page = max(1, $page);
     $perPage = max(10, min(100, $perPage));
     $query = trim($query);
     $status = strtoupper(trim($status));
-    $allowedStatuses = ['', 'PENDING_PUBLISH', 'PUBLISH_FAILED', 'IS_LISTED', 'IS_BEING_FULFILLED', 'FULFILLED'];
+    $allowedStatuses = ['', 'PENDING_PUBLISH', 'PUBLISH_FAILED', 'IS_LISTED', 'IS_BEING_FULFILLED', 'FULFILLED', 'CANCELLED'];
     if (!in_array($status, $allowedStatuses, true)) {
         throw new InvalidArgumentException('Choose a valid WhatsApp order status.');
     }

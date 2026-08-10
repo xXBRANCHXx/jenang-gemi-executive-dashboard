@@ -18,6 +18,8 @@ whatsapp_expect('Customer One', jg_whatsapp_text(" Customer\nOne ", 'Customer na
 whatsapp_expect(true, str_starts_with(jg_whatsapp_generate_order_id(), 'WAEXEC-'), 'Executive WhatsApp orders need a distinct Store Ops prefix.');
 whatsapp_expect(false, in_array('CANCELLED', JG_WHATSAPP_ORDER_OPEN_STATUSES, true), 'Cancelled WhatsApp orders must leave the Store Ops feed.');
 whatsapp_expect(false, in_array('CANCELLED', JG_WHATSAPP_ORDER_METRIC_STATUSES, true), 'Cancelled WhatsApp orders must not count as completed sales.');
+$historySource = (string) file_get_contents(dirname(__DIR__) . '/whatsapp-orders-bootstrap.php');
+whatsapp_expect(true, str_contains($historySource, "'FULFILLED', 'CANCELLED'") && str_contains($historySource, 'syncLifecycle'), 'WhatsApp History must filter and reconcile the complete fulfillment lifecycle.');
 whatsapp_expect(true, jg_whatsapp_legacy_order_was_paid([
     'status' => 'IS_LISTED',
     'created_at' => '2026-08-03 10:04:00.000000',

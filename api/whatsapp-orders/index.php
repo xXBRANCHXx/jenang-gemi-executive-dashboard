@@ -88,7 +88,8 @@ try {
             (int) ($_GET['page'] ?? 1),
             (int) ($_GET['per_page'] ?? 50),
             (string) ($_GET['query'] ?? ''),
-            (string) ($_GET['status'] ?? '')
+            (string) ($_GET['status'] ?? ''),
+            (string) ($_GET['sync_lifecycle'] ?? '') === '1'
         ));
     }
     if ($method === 'GET' && $action === 'order') {
