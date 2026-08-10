@@ -1361,17 +1361,29 @@ function jg_whatsapp_update_status(PDO $pdo, string $orderId, string $status): a
             : in_array((string) $row['status'], ['IS_LISTED', 'IS_BEING_FULFILLED', 'FULFILLED'], true);
         if (!$allowed) throw new RuntimeException('Invalid WhatsApp order status transition.');
         $now = jg_whatsapp_now();
-        $pdo->prepare(
-            'UPDATE whatsapp_orders SET status = :status,
-             fulfilled_at = CASE WHEN :status_again = "FULFILLED" THEN COALESCE(fulfilled_at, :fulfilled_at) ELSE fulfilled_at END,
-             updated_at = :updated_at WHERE id = :id'
-        )->execute([
-            ':status' => $status,
-            ':status_again' => $status,
-            ':fulfilled_at' => $now,
-            ':updated_at' => $now,
-            ':id' => $row['id'],
-        ]);
+        if ($status === 'FULFILLED') {
+            // Do not compare a bound parameter with a differently collated SQL
+            // literal. Production has legacy general_ci columns alongside the
+            // unicode_ci WhatsApp schema, and that comparison rejected valid
+            // Store Ops callbacks before the update could run.
+            $pdo->prepare(
+                'UPDATE whatsapp_orders SET status = "FULFILLED",
+                 fulfilled_at = COALESCE(fulfilled_at, :fulfilled_at),
+                 updated_at = :updated_at WHERE id = :id'
+            )->execute([
+                ':fulfilled_at' => $now,
+                ':updated_at' => $now,
+                ':id' => $row['id'],
+            ]);
+        } else {
+            $pdo->prepare(
+                'UPDATE whatsapp_orders SET status = "IS_BEING_FULFILLED",
+                 updated_at = :updated_at WHERE id = :id'
+            )->execute([
+                ':updated_at' => $now,
+                ':id' => $row['id'],
+            ]);
+        }
         $pdo->commit();
     } catch (Throwable $error) {
         if ($pdo->inTransaction()) $pdo->rollBack();
