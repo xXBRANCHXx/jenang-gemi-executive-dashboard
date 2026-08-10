@@ -11,7 +11,13 @@ document.addEventListener('DOMContentLoaded', () => {
     statusFilter: root.querySelector('[data-history-status-filter]'),
     previous: root.querySelector('[data-history-previous]'),
     next: root.querySelector('[data-history-next]'),
-    page: root.querySelector('[data-history-page]')
+    page: root.querySelector('[data-history-page]'),
+    paymentDialog: root.querySelector('[data-history-payment-dialog]'),
+    paymentForm: root.querySelector('[data-history-payment-form]'),
+    paymentOrderId: root.querySelector('[data-history-payment-id]'),
+    paymentError: root.querySelector('[data-history-payment-error]'),
+    paymentCancel: root.querySelector('[data-history-payment-cancel]'),
+    paymentConfirm: root.querySelector('[data-history-payment-confirm]')
   };
   const initialParams = new URLSearchParams(window.location.search);
   const state = {
@@ -19,8 +25,11 @@ document.addEventListener('DOMContentLoaded', () => {
     perPage: 50,
     query: initialParams.get('query') || '',
     status: initialParams.get('status') || '',
+    orders: [],
     pagination: { page: 1, total_pages: 1, total: 0 },
     loading: false,
+    paymentSaving: false,
+    paymentOrderId: '',
     requestController: null,
     searchTimer: 0
   };
@@ -42,6 +51,13 @@ document.addEventListener('DOMContentLoaded', () => {
     IS_BEING_FULFILLED: 'Being fulfilled', FULFILLED: 'Fulfilled'
   }[status] || String(status || 'Unknown').replaceAll('_', ' '));
   const statusClass = (status) => String(status || 'unknown').toLowerCase().replaceAll('_', '-');
+  const paymentLabel = (order) => {
+    const status = String(order.payment_status || 'unpaid').toLowerCase();
+    const method = { cash: 'Cash', bank: 'Bank' }[String(order.payment_method || '').toLowerCase()] || '';
+    if (status === 'paid') return `Paid${method ? ` · ${method}` : ''}`;
+    if (status === 'canceled') return 'Canceled';
+    return order.pay_later ? 'Pay later' : 'Unpaid';
+  };
 
   const setError = (message = '') => {
     if (!refs.error) return;
@@ -70,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const renderOrders = (orders = []) => {
     if (!refs.body) return;
     if (!orders.length) {
-      refs.body.innerHTML = '<tr><td colspan="9" class="admin-empty">No WhatsApp orders match these filters.</td></tr>';
+      refs.body.innerHTML = '<tr><td colspan="10" class="admin-empty">No WhatsApp orders match these filters.</td></tr>';
       return;
     }
     refs.body.innerHTML = orders.map((order) => {
@@ -78,6 +94,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const itemCount = Number(order.item_count || items.reduce((sum, item) => sum + Number(item.quantity || 0), 0));
       const url = `../whatsapp-order/?order=${encodeURIComponent(order.order_id)}`;
       const contact = order.customer?.phone || order.customer?.address || 'No contact details';
+      const paymentStatus = String(order.payment_status || 'unpaid').toLowerCase();
+      const canConfirmPayment = order.pay_later === true
+        && order.can_confirm_payment === true
+        && paymentStatus === 'unpaid';
+      const payment = canConfirmPayment
+        ? `<button type="button" class="whatsapp-history-pay-btn" data-history-confirm-payment="${escapeHtml(order.order_id)}">Mark paid</button>`
+        : `<span class="whatsapp-history-payment-status is-${escapeHtml(paymentStatus)}">${escapeHtml(paymentLabel(order))}</span>`;
       return `<tr class="whatsapp-history-row" tabindex="0" role="link" data-order-url="${escapeHtml(url)}" aria-label="Open ${escapeHtml(order.order_id)}">
         <td><a href="${escapeHtml(url)}"><strong>${escapeHtml(order.order_id)}</strong><small>${escapeHtml(order.label_original_name || 'WhatsApp order')}</small></a></td>
         <td><strong>${escapeHtml(order.customer?.name || 'WhatsApp customer')}</strong><small>${escapeHtml(contact)}</small></td>
@@ -86,6 +109,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <td><strong>${escapeHtml(money(order.merchandise_total))}</strong>${Number(order.discount_total || 0) > 0 ? `<small>−${escapeHtml(money(order.discount_total))}</small>` : ''}</td>
         <td>${escapeHtml(money(order.shipping_cost))}</td>
         <td><strong>${escapeHtml(money(Number(order.merchandise_total || 0) + Number(order.shipping_cost || 0)))}</strong></td>
+        <td class="whatsapp-history-payment-cell">${payment}</td>
         <td>${escapeHtml(formatDate(order.created_at))}</td>
         <td><span class="whatsapp-history-open" aria-hidden="true">→</span></td>
       </tr>`;
@@ -122,7 +146,8 @@ document.addEventListener('DOMContentLoaded', () => {
       state.pagination = payload.pagination || state.pagination;
       state.page = Number(state.pagination.page || 1);
       renderSummary(payload.summary || {});
-      renderOrders(Array.isArray(payload.orders) ? payload.orders : []);
+      state.orders = Array.isArray(payload.orders) ? payload.orders : [];
+      renderOrders(state.orders);
       if (refs.status) refs.status.textContent = `${integer.format(state.pagination.total || 0)} order${Number(state.pagination.total || 0) === 1 ? '' : 's'} found`;
       syncUrl();
     } catch (error) {
@@ -163,7 +188,75 @@ document.addEventListener('DOMContentLoaded', () => {
     state.page += 1;
     loadHistory();
   });
+  const closePaymentDialog = () => {
+    if (state.paymentSaving) return;
+    state.paymentOrderId = '';
+    refs.paymentDialog?.close?.();
+  };
+  const openPaymentDialog = (orderId) => {
+    const order = state.orders.find((item) => String(item.order_id || '') === orderId);
+    if (!order || order.pay_later !== true || order.can_confirm_payment !== true) return;
+    state.paymentOrderId = orderId;
+    if (refs.paymentOrderId) refs.paymentOrderId.textContent = orderId;
+    if (refs.paymentError) {
+      refs.paymentError.textContent = '';
+      refs.paymentError.hidden = true;
+    }
+    const cash = refs.paymentForm?.querySelector('input[name="payment_method"][value="cash"]');
+    if (cash instanceof HTMLInputElement) cash.checked = true;
+    refs.paymentDialog?.showModal?.();
+  };
+  const confirmPayment = async () => {
+    const orderId = state.paymentOrderId;
+    const method = refs.paymentForm?.querySelector('input[name="payment_method"]:checked')?.value || '';
+    if (!orderId || !method || state.paymentSaving) return;
+    state.paymentSaving = true;
+    if (refs.paymentConfirm) {
+      refs.paymentConfirm.disabled = true;
+      refs.paymentConfirm.textContent = 'Confirming…';
+    }
+    try {
+      const response = await fetch(`${endpoint}?action=confirm_payment`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: orderId, payment_method: method })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.ok) throw new Error(payload.error || 'Payment could not be confirmed.');
+      const paidOrder = payload.order || {};
+      state.orders = state.orders.map((order) => String(order.order_id || '') === orderId
+        ? { ...order, ...paidOrder, payment_status: 'paid', can_confirm_payment: false }
+        : order);
+      renderOrders(state.orders);
+      state.paymentOrderId = '';
+      refs.paymentDialog?.close?.();
+      window.refreshDirectOrderUnpaidIndicator?.();
+    } catch (error) {
+      if (refs.paymentError) {
+        refs.paymentError.textContent = error instanceof Error ? error.message : 'Payment could not be confirmed.';
+        refs.paymentError.hidden = false;
+      }
+    } finally {
+      state.paymentSaving = false;
+      if (refs.paymentConfirm) {
+        refs.paymentConfirm.disabled = false;
+        refs.paymentConfirm.textContent = 'Confirm paid';
+      }
+    }
+  };
+  refs.paymentCancel?.addEventListener('click', closePaymentDialog);
+  refs.paymentForm?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    confirmPayment();
+  });
   refs.body?.addEventListener('click', (event) => {
+    const paymentButton = event.target.closest('[data-history-confirm-payment]');
+    if (paymentButton) {
+      openPaymentDialog(paymentButton.dataset.historyConfirmPayment || '');
+      return;
+    }
     if (event.target.closest('a, button')) return;
     const row = event.target.closest('[data-order-url]');
     if (row?.dataset.orderUrl) window.location.href = row.dataset.orderUrl;

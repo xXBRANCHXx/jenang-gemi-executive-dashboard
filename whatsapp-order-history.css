@@ -314,6 +314,61 @@
   background: color-mix(in srgb, #fb7185 8%, var(--admin-surface));
 }
 
+.whatsapp-history-payment-cell {
+  min-width: 108px;
+  white-space: nowrap;
+}
+
+.whatsapp-history-payment-status,
+.whatsapp-history-pay-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 7px 10px;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  font: 850 10px/1 "Plus Jakarta Sans", sans-serif;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+
+.whatsapp-history-payment-status {
+  color: var(--admin-muted);
+  background: var(--admin-surface-soft);
+}
+
+.whatsapp-history-payment-status.is-paid {
+  border-color: color-mix(in srgb, #16a34a 36%, var(--admin-border));
+  color: #16a34a;
+  background: color-mix(in srgb, #16a34a 8%, var(--admin-surface));
+}
+
+.whatsapp-history-payment-status.is-canceled {
+  border-color: color-mix(in srgb, #dc2626 36%, var(--admin-border));
+  color: #dc2626;
+  background: color-mix(in srgb, #dc2626 7%, var(--admin-surface));
+}
+
+.whatsapp-history-pay-btn {
+  border-color: color-mix(in srgb, #dc2626 45%, var(--admin-border));
+  color: #dc2626;
+  background: color-mix(in srgb, #dc2626 7%, var(--admin-surface));
+  cursor: pointer;
+  transition: border-color .16s ease, background .16s ease, transform .16s ease;
+}
+
+.whatsapp-history-pay-btn:hover,
+.whatsapp-history-pay-btn:focus-visible {
+  border-color: #dc2626;
+  background: color-mix(in srgb, #dc2626 12%, var(--admin-surface));
+  transform: translateY(-1px);
+}
+
+.whatsapp-history-payment-dialog form {
+  min-width: min(460px, calc(100vw - 40px));
+}
+
 .whatsapp-history-open {
   display: grid;
   place-items: center;

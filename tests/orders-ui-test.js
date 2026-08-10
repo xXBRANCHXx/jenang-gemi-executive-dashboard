@@ -6,6 +6,10 @@ const root = path.resolve(__dirname, '..');
 const admin = fs.readFileSync(path.join(root, 'admin.js'), 'utf8');
 const dashboard = fs.readFileSync(path.join(root, 'dashboard', 'index.php'), 'utf8');
 const styles = fs.readFileSync(path.join(root, 'admin.css'), 'utf8');
+const ordersFilterStyles = styles.slice(
+  styles.indexOf('.admin-modal-card.admin-orders-filter-card'),
+  styles.indexOf('@media (max-width: 900px)', styles.indexOf('.admin-modal-card.admin-orders-filter-card'))
+);
 const ordersActivation = admin.slice(
   admin.indexOf('const activateOrdersViewInstantly'),
   admin.indexOf('const activateWalletViewInstantly')
@@ -151,8 +155,15 @@ assert(
   'Selected catalog filters must be removable from the same control.'
 );
 assert(
-  /\.admin-modal-card\.admin-orders-filter-card \{[\s\S]*?width: min\(1520px,[\s\S]*?height: min\(960px,[\s\S]*?backdrop-filter: none;[\s\S]*?\.admin-orders-filter-head \{[\s\S]*?background: #0b0b0b;[\s\S]*?grid-template-columns: minmax\(480px, 0\.9fr\) minmax\(600px, 1\.1fr\)[\s\S]*?overflow: hidden;/.test(styles)
+  /\.admin-modal-card\.admin-orders-filter-card \{[\s\S]*?width: min\(1520px,[\s\S]*?height: min\(960px,[\s\S]*?background: var\(--admin-surface\);[\s\S]*?backdrop-filter: none;[\s\S]*?\.admin-orders-filter-head \{[\s\S]*?background: var\(--admin-surface\);[\s\S]*?grid-template-columns: minmax\(480px, 0\.9fr\) minmax\(600px, 1\.1fr\)[\s\S]*?background: var\(--admin-bg\);/.test(styles)
     && /@media \(max-width: 720px\)[\s\S]*?width: 100vw;[\s\S]*?height: 100svh;/.test(styles),
-  'The filter workspace must be large, flat, monochrome, and full-screen on mobile without a whole-dialog scroll.'
+  'The filter workspace must be large, theme-aware, and full-screen on mobile without a whole-dialog scroll.'
+);
+assert(
+  !ordersFilterStyles.includes('background: #0b0b0b;')
+    && !ordersFilterStyles.includes('background: #080808;')
+    && ordersFilterStyles.includes('color: var(--admin-text);')
+    && ordersFilterStyles.includes('color: var(--admin-bg);'),
+  'The Orders filter must use light/dark theme tokens instead of a hardcoded dark canvas.'
 );
 console.log('orders-ui-test: ok');

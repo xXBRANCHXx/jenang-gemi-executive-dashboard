@@ -103,12 +103,13 @@ $historyJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-order-hist
                                         <th>Merchandise</th>
                                         <th>Shipping</th>
                                         <th>Customer total</th>
+                                        <th>Payment</th>
                                         <th>Created</th>
                                         <th aria-label="Open order"></th>
                                     </tr>
                                 </thead>
                                 <tbody data-history-body>
-                                    <tr><td colspan="9" class="admin-empty">Loading WhatsApp orders…</td></tr>
+                                    <tr><td colspan="10" class="admin-empty">Loading WhatsApp orders…</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -122,6 +123,23 @@ $historyJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-order-hist
                 </main>
             </div>
         </div>
+
+        <dialog class="admin-hard-set-dialog admin-order-payment-dialog whatsapp-history-payment-dialog" data-history-payment-dialog aria-labelledby="history-payment-title">
+            <form method="dialog" data-history-payment-form>
+                <span class="admin-panel-kicker">Confirm payment</span>
+                <h2 id="history-payment-title">Mark WhatsApp order as paid</h2>
+                <p><strong data-history-payment-id>-</strong> will be added to Accounting when you confirm how the customer paid.</p>
+                <div class="admin-order-payment-methods">
+                    <label><input type="radio" name="payment_method" value="cash" checked><span>Cash<small>Add to Cash Office</small></span></label>
+                    <label><input type="radio" name="payment_method" value="bank"><span>Bank<small>Add to Bank Balance</small></span></label>
+                </div>
+                <p class="admin-form-error" data-history-payment-error hidden></p>
+                <div class="admin-modal-actions">
+                    <button type="button" class="admin-ghost-btn" data-history-payment-cancel>Cancel</button>
+                    <button type="submit" class="admin-primary-btn" data-history-payment-confirm>Confirm paid</button>
+                </div>
+            </form>
+        </dialog>
     </div>
 
     <?php render_admin_notification_drawer(); ?>

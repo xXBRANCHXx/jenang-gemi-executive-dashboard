@@ -16,8 +16,10 @@ const builderScript = fs.readFileSync(path.join(root, 'whatsapp-orders.js'), 'ut
 
 assert.match(historyPage, /All direct-order records[\s\S]*?data-history-summary="orders"[\s\S]*?data-history-body/, 'History page must expose a complete ledger and summary.');
 assert.match(historyPage, /data-history-search[\s\S]*?data-history-status-filter[\s\S]*?data-history-previous[\s\S]*?data-history-next/, 'History ledger must support search, status filters, and pagination.');
+assert.match(historyPage, /<th>Payment<\/th>[\s\S]*?data-history-payment-dialog[\s\S]*?name="payment_method" value="cash"[\s\S]*?name="payment_method" value="bank"/, 'History must expose payment status and a Cash or Bank confirmation dialog.');
 assert.match(historyScript, /action: 'history'/, 'History rows must load the paginated history API.');
 assert.match(historyScript, /whatsapp-order\/\?order=[\s\S]*?data-order-url/, 'History rows must open dedicated detail pages.');
+assert.match(historyScript, /order\.pay_later === true[\s\S]*?data-history-confirm-payment[\s\S]*?action=confirm_payment[\s\S]*?payment_method: method[\s\S]*?payment_status: 'paid'/, 'Only pay-later history rows may offer the authenticated payment confirmation action and update immediately afterward.');
 assert.match(detailPage, /Ordered items[\s\S]*?Unit price[\s\S]*?Gross[\s\S]*?Discount[\s\S]*?Net/, 'Detail page must show the complete item price breakdown.');
 assert.match(detailPage, /Delivery details[\s\S]*?Cost and margin[\s\S]*?Order timing/, 'Detail page must include customer, economics, and lifecycle context.');
 assert.match(detailPage, /data-detail-cancel[\s\S]*?<circle cx="12" cy="12" r="9"/, 'Detail page must provide a real cancel icon for cancellable orders.');
@@ -35,6 +37,7 @@ assert.match(nav, /'whatsapp-history'[\s\S]*?Full direct-order ledger and detail
 assert.match(builderPage, /href="\.\.\/whatsapp-order-history\/"[^>]*>View all history/, 'The order builder must link to the full history page.');
 assert.match(builderScript, /href="\.\.\/whatsapp-order\/\?order=/, 'Recent order cards must link to the dedicated detail page.');
 assert.match(styles, /\.whatsapp-history-row:hover[\s\S]*?\.whatsapp-detail-items-table/, 'History and detail views must share a polished responsive visual system.');
+assert.match(styles, /\.whatsapp-history-pay-btn[\s\S]*?\.whatsapp-history-payment-dialog/, 'Pay-later history actions and the confirmation dialog must have dedicated responsive styling.');
 assert.match(styles, /\.whatsapp-detail-icon-action[\s\S]*?background: transparent[\s\S]*?\.whatsapp-detail-icon-action\.is-cancel[\s\S]*?color: #ef4444/, 'Header actions must be bare icons and cancellation must be red.');
 
 console.log('whatsapp-order-history-ui-test: ok');
