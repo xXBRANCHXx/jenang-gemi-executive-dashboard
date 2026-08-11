@@ -636,6 +636,7 @@
 .blog-image-handle.is-se { right: 5px; bottom: 5px; cursor: nwse-resize; }
 .blog-image-handle.is-sw { bottom: 5px; left: 5px; cursor: nesw-resize; }
 .blog-body-editor figure.is-cropping .blog-image-handle.is-resize { display: none; }
+.blog-body-editor figure.is-cropping [data-image-frame] { cursor: grab; }
 .blog-body-editor figure.is-cropping .blog-image-handle.is-crop { display: block; border: 0; border-radius: 4px; background: #fff; box-shadow: 0 0 0 2px #527514, 0 2px 7px rgba(0, 0, 0, .35); }
 .blog-image-handle.is-crop.is-top, .blog-image-handle.is-crop.is-bottom { left: 50%; width: 34px; height: 7px; transform: translateX(-50%); cursor: ns-resize; }
 .blog-image-handle.is-crop.is-left, .blog-image-handle.is-crop.is-right { top: 50%; width: 7px; height: 34px; transform: translateY(-50%); cursor: ew-resize; }

@@ -57,6 +57,7 @@ expect(js.includes('const HISTORY_LIMIT = 100') && js.includes('const undo = () 
 expect(js.includes("key === 'z' && !event.shiftKey") && js.includes("key === 'z' && event.shiftKey"), 'Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z must operate article history.');
 expect(js.includes("['nw', 'ne', 'se', 'sw']") && js.includes("['top', 'right', 'bottom', 'left']"), 'Images must expose corner resize and side crop handles.');
 expect(js.includes("elements.body.addEventListener('dblclick'") && css.includes('figure.is-cropping'), 'Double-clicking an image must enable direct side cropping.');
+expect(js.includes("requestedKind = ''") && js.includes("beginImageInteraction(event, frame, 'pan')"), 'Crop mode must let editors drag the image within its crop frame.');
 expect(sharedPreviewCss.includes('figure[data-align="left"]') && sharedPreviewCss.includes('[data-image-frame]'), 'Shared previews must render text wrapping and saved crops.');
 expect(bootstrap.includes('zero_blog_post_styles') && bootstrap.includes('function jg_blog_fonts'), 'Article font choices must persist independently from dashboard themes.');
 
