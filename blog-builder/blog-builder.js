@@ -1044,6 +1044,7 @@ if (root) {
     const frame = figure.querySelector('[data-image-frame]');
     if (!frame) return;
     const frameRect = frame.getBoundingClientRect();
+    const editorRect = elements.body.getBoundingClientRect();
     const crop = {
       top: Number(figure.dataset.cropTop) || 0,
       right: Number(figure.dataset.cropRight) || 0,
@@ -1059,7 +1060,9 @@ if (root) {
       startX: event.clientX,
       startY: event.clientY,
       startWidth: Number(figure.dataset.width) || 100,
-      editorWidth: elements.body.getBoundingClientRect().width || 1,
+      startAlign: figure.dataset.align || 'center',
+      editorLeft: editorRect.left,
+      editorWidth: editorRect.width || 1,
       frameWidth: frameRect.width || 1,
       frameHeight: frameRect.height || 1,
       crop,
@@ -1080,6 +1083,18 @@ if (root) {
       const nextWidth = String(clamp(Math.round(width), 25, 100));
       interaction.changed ||= figure.dataset.width !== nextWidth;
       figure.dataset.width = nextWidth;
+    } else if (interaction.kind === 'place') {
+      if (Math.hypot(event.clientX - interaction.startX, event.clientY - interaction.startY) < 6) return;
+      const horizontalPosition = clamp((event.clientX - interaction.editorLeft) / interaction.editorWidth, 0, 1);
+      const nextAlign = horizontalPosition < .36 ? 'left' : (horizontalPosition > .64 ? 'right' : 'center');
+      interaction.changed ||= figure.dataset.align !== nextAlign;
+      figure.dataset.align = nextAlign;
+      if (nextAlign !== 'center' && Number(figure.dataset.width) > 70) {
+        figure.dataset.width = '50';
+        interaction.changed = true;
+      }
+      figure.classList.add('is-being-placed');
+      root.querySelectorAll('[data-image-align]').forEach((button) => button.classList.toggle('is-active', button.dataset.imageAlign === nextAlign));
     } else if (interaction.kind === 'pan') {
       const totalX = crop.left + crop.right;
       const totalY = crop.top + crop.bottom;
@@ -1116,13 +1131,14 @@ if (root) {
       figure.dataset[cropKey] = nextValue;
     }
     applyFigureGeometry(figure);
-    root.querySelector('[data-image-reset-crop]').disabled = false;
+    if (interaction.kind === 'crop' || interaction.kind === 'pan') root.querySelector('[data-image-reset-crop]').disabled = false;
   };
 
   const endImageInteraction = (event) => {
     const interaction = state.imageInteraction;
     if (!interaction || event.pointerId !== interaction.pointerId) return;
     interaction.control.releasePointerCapture?.(event.pointerId);
+    interaction.figure.classList.remove('is-being-placed');
     state.imageInteraction = null;
     document.body.classList.remove('is-adjusting-blog-image');
     if (interaction.changed) markDirty();
@@ -1164,7 +1180,7 @@ if (root) {
         return;
       }
       const frame = event.target.closest('[data-image-frame]');
-      if (frame?.closest('figure')?.classList.contains('is-cropping')) beginImageInteraction(event, frame, 'pan');
+      if (frame) beginImageInteraction(event, frame, frame.closest('figure')?.classList.contains('is-cropping') ? 'pan' : 'place');
     });
     document.addEventListener('pointermove', moveImageInteraction, { passive: false });
     document.addEventListener('pointerup', endImageInteraction);

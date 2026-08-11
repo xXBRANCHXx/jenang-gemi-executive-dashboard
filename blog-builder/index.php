@@ -211,7 +211,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/blog-builder.js');
                                         </div>
                                         <section class="blog-image-layout" data-image-layout hidden contenteditable="false" aria-label="Selected image layout">
                                             <div class="blog-image-layout-head">
-                                                <span><strong>Image layout</strong><small>Drag a corner to resize. Double-click, then drag the image to reposition or a side to crop.</small></span>
+                                                <span><strong>Image layout</strong><small>Drag the image left or right to place it. Drag a corner to resize. Double-click to crop and reposition.</small></span>
                                                 <button type="button" data-image-layout-close aria-label="Close image controls">×</button>
                                             </div>
                                             <div class="blog-image-layout-controls">
