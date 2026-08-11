@@ -16,6 +16,7 @@ blog_expect(
     array_keys(jg_blog_topics()),
     'The editorial taxonomy must expose exactly the four approved ZERO topics.'
 );
+blog_expect(['off' => 'Off', 'sandbox' => 'Sandbox', 'live' => 'Live'], jg_blog_delivery_modes(), 'Delivery modes must support hidden, unlisted test, and public states.');
 blog_expect('makan-sehat-untuk-keluarga', jg_blog_slugify('Makan Sehat untuk Keluarga!'), 'Slugs should be URL safe.');
 blog_expect('untitled-article', jg_blog_slugify('---'), 'Empty slugs need a stable fallback.');
 blog_expect('2026-08-07 02:30:00', jg_blog_parse_wib_datetime('2026-08-07T09:30'), 'WIB schedules must persist as UTC.');

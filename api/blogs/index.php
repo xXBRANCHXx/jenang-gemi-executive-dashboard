@@ -74,7 +74,8 @@ try {
             'stats' => jg_blog_stats($posts),
             'topics' => jg_blog_topics(),
             'statuses' => jg_blog_statuses(),
-            'publishing_connected' => false,
+            'publishing_connected' => true,
+            'delivery' => jg_blog_delivery($pdo),
             'timezone' => JG_BLOG_TIMEZONE,
         ]);
     }
@@ -87,6 +88,12 @@ try {
     }
 
     $payload = jg_blog_api_json();
+    if ($method === 'POST' && $action === 'delivery') {
+        jg_blog_api_response(['ok' => true, 'delivery' => jg_blog_set_delivery(
+            $pdo,
+            (string) ($payload['mode'] ?? '')
+        )]);
+    }
     if ($method === 'POST' && $action === 'duplicate') {
         jg_blog_api_response(['ok' => true, 'post' => jg_blog_duplicate($pdo, (int) ($payload['id'] ?? 0))], 201);
     }

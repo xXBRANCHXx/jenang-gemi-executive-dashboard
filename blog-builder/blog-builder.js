@@ -61,6 +61,9 @@ if (root) {
     imageAlt: root.querySelector('[data-image-alt]'),
     historyDialog: root.querySelector('[data-history-dialog]'),
     historyList: root.querySelector('[data-history-list]'),
+    deliveryControl: root.querySelector('[data-delivery-control]'),
+    deliveryLabel: root.querySelector('[data-delivery-label]'),
+    sandboxLink: root.querySelector('[data-sandbox-link]'),
     workbench: root.querySelector('.blog-workbench')
   };
 
@@ -85,7 +88,9 @@ if (root) {
     historyTimer: 0,
     restoringHistory: false,
     imageInteraction: null,
-    imageLayoutFrame: 0
+    imageLayoutFrame: 0,
+    delivery: null,
+    deliverySaving: false
   };
 
   const HISTORY_LIMIT = 100;
@@ -198,6 +203,52 @@ if (root) {
     elements.saveState.textContent = label;
     elements.saveStateWrap.classList.toggle('is-saving', mode === 'saving');
     elements.saveStateWrap.classList.toggle('is-error', mode === 'error');
+  };
+
+  const renderDelivery = (delivery) => {
+    if (!delivery || !elements.deliveryControl) return;
+    state.delivery = delivery;
+    const descriptions = {
+      off: 'Off · public page hidden',
+      sandbox: 'Sandbox · unlisted and noindex',
+      live: 'Live · public and indexable'
+    };
+    elements.deliveryLabel.textContent = descriptions[delivery.mode] || delivery.label || 'Off';
+    elements.deliveryControl.dataset.mode = delivery.mode;
+    statusLabels.ready = delivery.mode === 'live' ? 'Published' : 'Ready in queue';
+    const readyMetricLabel = root.querySelector('[data-library-status="ready"] span');
+    if (readyMetricLabel) readyMetricLabel.textContent = statusLabels.ready;
+    elements.deliveryControl.querySelectorAll('[data-delivery-mode]').forEach((button) => {
+      button.classList.toggle('is-active', button.dataset.deliveryMode === delivery.mode);
+      button.setAttribute('aria-pressed', String(button.dataset.deliveryMode === delivery.mode));
+      button.disabled = state.deliverySaving;
+    });
+    elements.sandboxLink.href = delivery.sandbox_url || 'https://zerofoods.id/articles/sandbox/';
+    elements.sandboxLink.hidden = delivery.mode === 'off';
+    if (state.posts.length) {
+      renderStats();
+      renderLibrary();
+    }
+  };
+
+  const setDelivery = async (mode) => {
+    if (state.deliverySaving || mode === state.delivery?.mode) return;
+    state.deliverySaving = true;
+    renderDelivery(state.delivery || { mode: 'off' });
+    try {
+      const response = await api('delivery', { method: 'POST', body: { mode } });
+      state.deliverySaving = false;
+      renderDelivery(response.delivery);
+      showToast(mode === 'live'
+        ? 'Articles are live and available for indexing.'
+        : mode === 'sandbox'
+          ? 'Sandbox is on. The preview URL stays out of site navigation and search indexes.'
+          : 'Website articles are now hidden.');
+    } catch (error) {
+      state.deliverySaving = false;
+      renderDelivery(state.delivery || { mode: 'off' });
+      showToast(error.message, 'error');
+    }
   };
 
   const rangeBelongsToEditor = (range) => Boolean(range && elements.body.contains(range.commonAncestorContainer));
@@ -1179,6 +1230,9 @@ if (root) {
   };
 
   const bind = () => {
+    elements.deliveryControl?.querySelectorAll('[data-delivery-mode]').forEach((button) => {
+      button.addEventListener('click', () => setDelivery(button.dataset.deliveryMode));
+    });
     root.querySelectorAll('[data-new-post]').forEach((button) => button.addEventListener('click', newPost));
     elements.library.addEventListener('click', (event) => {
       const item = event.target.closest('[data-post-id]');
@@ -1374,6 +1428,7 @@ if (root) {
     try {
       const response = await api('list');
       state.posts = response.posts || [];
+      renderDelivery(response.delivery || { mode: 'off', label: 'Off' });
       renderStats();
       renderLibrary();
       setSaveState('Ready');

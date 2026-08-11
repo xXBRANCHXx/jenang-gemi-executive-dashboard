@@ -130,11 +130,53 @@
   flex: 0 0 auto;
   align-items: center;
   gap: 11px;
-  padding: 12px 15px;
+  padding: 10px 12px;
   border: 1px solid color-mix(in srgb, #fbbf24 35%, var(--admin-border));
   border-radius: 15px;
   background: color-mix(in srgb, #fbbf24 6%, var(--admin-surface));
 }
+
+.blog-delivery-copy { min-width: 154px; }
+
+.blog-delivery-switch {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--admin-bg) 75%, transparent);
+}
+
+.blog-delivery-switch button {
+  min-height: 28px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--admin-muted);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.blog-delivery-switch button:hover { color: var(--admin-text); }
+.blog-delivery-switch button.is-active { background: var(--admin-text); color: var(--admin-bg); }
+.blog-connection-state[data-mode="sandbox"] { border-color: color-mix(in srgb, #38bdf8 48%, var(--admin-border)); }
+.blog-connection-state[data-mode="sandbox"] .blog-connection-icon { background: rgba(56, 189, 248, .12); color: #38bdf8; }
+.blog-connection-state[data-mode="live"] { border-color: color-mix(in srgb, #22c55e 48%, var(--admin-border)); }
+.blog-connection-state[data-mode="live"] .blog-connection-icon { background: rgba(34, 197, 94, .12); color: #22c55e; }
+
+.blog-delivery-link {
+  color: var(--admin-text);
+  font-size: 10px;
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.blog-delivery-link:hover { text-decoration: underline; }
 
 .blog-connection-icon {
   display: grid;
@@ -940,7 +982,8 @@ button:disabled { cursor: not-allowed !important; opacity: .5; }
   .blog-topbar-state { margin-left: auto; }
   .blog-studio { height: auto; min-height: calc(100vh - 76px); overflow: visible; padding: 20px 14px 60px; }
   .blog-studio-intro { align-items: stretch; flex-direction: column; }
-  .blog-connection-state { align-self: flex-start; }
+  .blog-connection-state { align-self: stretch; flex-wrap: wrap; }
+  .blog-delivery-switch { margin-left: auto; }
   .blog-metric-strip { grid-template-columns: repeat(5, minmax(105px, 1fr)); overflow-x: auto; }
   .blog-metric { border-bottom: 0; }
   .blog-workbench { display: block; min-height: 0; overflow: visible; }

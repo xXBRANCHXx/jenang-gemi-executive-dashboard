@@ -35,15 +35,17 @@ function jg_blog_fonts(): array
     ];
 }
 
-function jg_blog_db(): PDO
+function jg_blog_db(bool $ensureSchema = true): PDO
 {
     static $pdo = null;
-    if ($pdo instanceof PDO) {
-        return $pdo;
+    static $schemaEnsured = false;
+    if (!$pdo instanceof PDO) {
+        $pdo = analyticsFreshDb();
     }
-
-    $pdo = analyticsFreshDb();
-    jg_blog_ensure_schema($pdo);
+    if ($ensureSchema && !$schemaEnsured) {
+        jg_blog_ensure_schema($pdo);
+        $schemaEnsured = true;
+    }
     return $pdo;
 }
 
@@ -119,6 +121,65 @@ function jg_blog_ensure_schema(PDO $pdo): void
             updated_at DATETIME NOT NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
     );
+
+    $pdo->exec(
+        'CREATE TABLE IF NOT EXISTS zero_blog_delivery (
+            id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
+            delivery_mode VARCHAR(16) NOT NULL DEFAULT "off",
+            updated_at DATETIME NOT NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+    );
+    $delivery = $pdo->prepare(
+        'INSERT IGNORE INTO zero_blog_delivery (id, delivery_mode, updated_at)
+         VALUES (1, "off", :updated_at)'
+    );
+    $delivery->execute([':updated_at' => jg_blog_now()]);
+}
+
+function jg_blog_delivery_modes(): array
+{
+    return [
+        'off' => 'Off',
+        'sandbox' => 'Sandbox',
+        'live' => 'Live',
+    ];
+}
+
+function jg_blog_delivery(PDO $pdo): array
+{
+    try {
+        $row = $pdo->query('SELECT delivery_mode, updated_at FROM zero_blog_delivery WHERE id = 1 LIMIT 1')->fetch();
+    } catch (PDOException) {
+        $row = false;
+    }
+    $mode = is_array($row) ? strtolower((string) ($row['delivery_mode'] ?? 'off')) : 'off';
+    if (!isset(jg_blog_delivery_modes()[$mode])) {
+        $mode = 'off';
+    }
+    return [
+        'mode' => $mode,
+        'label' => jg_blog_delivery_modes()[$mode],
+        'sandbox_url' => 'https://zerofoods.id/articles/sandbox/',
+        'public_url' => 'https://zerofoods.id/articles/',
+        'updated_at' => is_array($row) && !empty($row['updated_at'])
+            ? gmdate(DATE_ATOM, strtotime((string) $row['updated_at'] . ' UTC'))
+            : null,
+    ];
+}
+
+function jg_blog_set_delivery(PDO $pdo, string $mode): array
+{
+    $mode = strtolower(trim($mode));
+    if (!isset(jg_blog_delivery_modes()[$mode])) {
+        throw new InvalidArgumentException('Choose Off, Sandbox, or Live delivery.');
+    }
+    $stmt = $pdo->prepare(
+        'INSERT INTO zero_blog_delivery (id, delivery_mode, updated_at)
+         VALUES (1, :delivery_mode, :updated_at)
+         ON DUPLICATE KEY UPDATE delivery_mode = VALUES(delivery_mode), updated_at = VALUES(updated_at)'
+    );
+    $stmt->execute([':delivery_mode' => $mode, ':updated_at' => jg_blog_now()]);
+    return jg_blog_delivery($pdo);
 }
 
 function jg_blog_now(): string
@@ -830,4 +891,44 @@ function jg_blog_asset(PDO $pdo, int $id): array
         throw new OutOfBoundsException('Image not found.');
     }
     return $row;
+}
+
+function jg_blog_delivery_posts(PDO $pdo, bool $sandbox = false): array
+{
+    $where = $sandbox
+        ? 'posts.status = "scheduled"'
+        : 'posts.status = "scheduled" AND posts.scheduled_at IS NOT NULL AND posts.scheduled_at <= UTC_TIMESTAMP()';
+    $rows = $pdo->query(
+        'SELECT posts.*, COALESCE(styles.font_key, "editorial") AS font_key, "" AS share_token
+         FROM zero_blog_posts posts
+         LEFT JOIN zero_blog_post_styles styles ON styles.post_id = posts.id
+         WHERE ' . $where . '
+         ORDER BY posts.scheduled_at DESC, posts.id DESC LIMIT 500'
+    )->fetchAll();
+    return array_map(static fn (array $row): array => jg_blog_format_post($row, true), $rows);
+}
+
+function jg_blog_delivery_post(PDO $pdo, string $slug, bool $sandbox = false): array
+{
+    $slug = jg_blog_slugify($slug);
+    $where = $sandbox
+        ? 'posts.status = "scheduled"'
+        : 'posts.status = "scheduled" AND posts.scheduled_at IS NOT NULL AND posts.scheduled_at <= UTC_TIMESTAMP()';
+    $stmt = $pdo->prepare(
+        'SELECT posts.*, COALESCE(styles.font_key, "editorial") AS font_key, "" AS share_token
+         FROM zero_blog_posts posts
+         LEFT JOIN zero_blog_post_styles styles ON styles.post_id = posts.id
+         WHERE posts.slug = :slug AND ' . $where . ' LIMIT 1'
+    );
+    $stmt->execute([':slug' => $slug]);
+    $row = $stmt->fetch();
+    if (!is_array($row)) {
+        throw new OutOfBoundsException('Article not found.');
+    }
+    return jg_blog_format_post($row, true);
+}
+
+function jg_blog_delivery_asset_allowed(array $post, int $assetId): bool
+{
+    return $assetId > 0 && in_array($assetId, jg_blog_post_asset_ids($post), true);
 }

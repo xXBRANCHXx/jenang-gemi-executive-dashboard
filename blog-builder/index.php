@@ -35,7 +35,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/blog-builder.js');
     <link rel="stylesheet" href="./blog-builder.css?v=<?php echo urlencode($pageCssVersion ?: '1'); ?>">
 </head>
 <body class="admin-body is-dashboard is-blog-builder-page">
-    <div class="admin-build-badge" aria-label="Dashboard build version">Build exec3.98.0</div>
+    <div class="admin-build-badge" aria-label="Dashboard build version">Build exec3.98.1</div>
     <div class="admin-app admin-app-suite" data-blog-builder data-endpoint="../api/blogs/" data-csrf-token="<?php echo htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8'); ?>">
         <div class="admin-shell">
             <?php render_admin_sidebar('blog-builder'); ?>
@@ -59,13 +59,19 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/blog-builder.js');
                         <div>
                             <span class="blog-eyebrow">Editorial workspace</span>
                             <h2>Write useful stories. Schedule them with confidence.</h2>
-                            <p>Create and review ZERO articles here. Scheduled articles stay in the dashboard queue until public-site publishing is connected.</p>
+                            <p>Create, review, and deliver ZERO articles here. Use Sandbox to inspect scheduled stories at the unlisted preview URL, then switch to Live when the public library is ready.</p>
                         </div>
-                        <div class="blog-connection-state" title="This release does not change the public ZERO website">
+                        <div class="blog-connection-state" data-delivery-control>
                             <span class="blog-connection-icon" aria-hidden="true">
                                 <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.1-1.1"/><path d="M8 2v3M2 8h3M16 19v3M19 16h3"/></svg>
                             </span>
-                            <span><small>Public delivery</small><strong>Connection pending</strong></span>
+                            <span class="blog-delivery-copy"><small>Website articles</small><strong data-delivery-label>Loading…</strong></span>
+                            <div class="blog-delivery-switch" role="group" aria-label="Website article visibility">
+                                <button type="button" data-delivery-mode="off">Off</button>
+                                <button type="button" data-delivery-mode="sandbox">Sandbox</button>
+                                <button type="button" data-delivery-mode="live">Live</button>
+                            </div>
+                            <a class="blog-delivery-link" href="https://zerofoods.id/articles/sandbox/" target="_blank" rel="noopener noreferrer" data-sandbox-link hidden>Open sandbox ↗</a>
                         </div>
                     </section>
 
