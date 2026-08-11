@@ -59,7 +59,8 @@ expect(js.includes("['nw', 'ne', 'se', 'sw']") && js.includes("['top', 'right', 
 expect(js.includes("elements.body.addEventListener('dblclick'") && css.includes('figure.is-cropping'), 'Double-clicking an image must enable direct side cropping.');
 expect(js.includes("requestedKind = ''") && js.includes("interaction.kind === 'pan'"), 'Crop mode must let editors drag the image within its crop frame.');
 expect(js.includes("? 'pan' : 'place'") && js.includes("horizontalPosition < .36 ? 'left'"), 'Dragging the whole image must place it on the left, center, or right.');
-expect(css.includes('.blog-image-layout { position: sticky;') && css.includes('z-index: 32'), 'Selected image controls must stay pinned above the writing canvas.');
+expect(css.includes('.blog-image-layout { position: fixed;') && css.includes('z-index: 80') && js.includes('const positionImageLayout = () =>'), 'Selected image controls must float above and follow the selected image.');
+expect(css.includes('.blog-body-editor { display: flow-root;') && css.includes('.blog-writing-footer { clear: both;'), 'Wrapped images must remain inside the writing paper and clear the article footer.');
 expect(sharedPreviewCss.includes('figure[data-align="left"]') && sharedPreviewCss.includes('[data-image-frame]'), 'Shared previews must render text wrapping and saved crops.');
 expect(bootstrap.includes('zero_blog_post_styles') && bootstrap.includes('function jg_blog_fonts'), 'Article font choices must persist independently from dashboard themes.');
 

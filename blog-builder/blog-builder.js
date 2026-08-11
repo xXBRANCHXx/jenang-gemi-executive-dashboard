@@ -84,7 +84,8 @@ if (root) {
     historySnapshot: null,
     historyTimer: 0,
     restoringHistory: false,
-    imageInteraction: null
+    imageInteraction: null,
+    imageLayoutFrame: 0
   };
 
   const HISTORY_LIMIT = 100;
@@ -481,11 +482,41 @@ if (root) {
     return clone.innerHTML;
   };
 
+  const positionImageLayout = () => {
+    window.cancelAnimationFrame(state.imageLayoutFrame);
+    state.imageLayoutFrame = window.requestAnimationFrame(() => {
+      const figure = state.selectedFigure;
+      const panel = elements.imageLayout;
+      const frame = figure?.querySelector('[data-image-frame]');
+      if (panel.hidden || !frame || !elements.body.contains(figure)) return;
+      const editorRect = elements.form.getBoundingClientRect();
+      const frameRect = frame.getBoundingClientRect();
+      const panelWidth = Math.max(300, Math.min(560, editorRect.width - 24, window.innerWidth - 24));
+      panel.style.width = `${panelWidth}px`;
+      const panelHeight = panel.offsetHeight;
+      const leftBoundary = Math.max(12, editorRect.left + 12);
+      const rightBoundary = Math.min(window.innerWidth - 12, editorRect.right - 12);
+      const topBoundary = Math.max(12, editorRect.top + 12);
+      const bottomBoundary = Math.min(window.innerHeight - 12, editorRect.bottom - 12);
+      const preferredLeft = frameRect.left + frameRect.width / 2 - panelWidth / 2;
+      const left = clamp(preferredLeft, leftBoundary, Math.max(leftBoundary, rightBoundary - panelWidth));
+      const above = frameRect.top - panelHeight - 12;
+      const below = frameRect.bottom + 12;
+      const top = above >= topBoundary
+        ? above
+        : (below + panelHeight <= bottomBoundary ? below : clamp(frameRect.top + 12, topBoundary, Math.max(topBoundary, bottomBoundary - panelHeight)));
+      panel.style.left = `${Math.round(left)}px`;
+      panel.style.top = `${Math.round(top)}px`;
+      panel.style.visibility = 'visible';
+    });
+  };
+
   const selectFigure = (figure = null) => {
     if (state.selectedFigure && state.selectedFigure !== figure) state.selectedFigure.classList.remove('is-selected', 'is-cropping');
     if (!(figure instanceof HTMLElement) || !elements.body.contains(figure)) {
       state.selectedFigure = null;
       elements.imageLayout.hidden = true;
+      elements.imageLayout.removeAttribute('style');
       return;
     }
     if (figure.querySelector('[data-image-handle="resize"]')) applyFigureGeometry(figure);
@@ -495,7 +526,9 @@ if (root) {
     elements.imageAlt.value = figure.querySelector('img')?.getAttribute('alt') || '';
     root.querySelectorAll('[data-image-align]').forEach((button) => button.classList.toggle('is-active', button.dataset.imageAlign === figure.dataset.align));
     root.querySelector('[data-image-reset-crop]').disabled = ['Top', 'Right', 'Bottom', 'Left'].every((edge) => Number(figure.dataset[`crop${edge}`]) === 0);
+    if (elements.imageLayout.hidden) elements.imageLayout.style.visibility = 'hidden';
     elements.imageLayout.hidden = false;
+    positionImageLayout();
   };
 
   const blankPost = () => ({
@@ -1131,6 +1164,7 @@ if (root) {
       figure.dataset[cropKey] = nextValue;
     }
     applyFigureGeometry(figure);
+    positionImageLayout();
     if (interaction.kind === 'crop' || interaction.kind === 'pan') root.querySelector('[data-image-reset-crop]').disabled = false;
   };
 
@@ -1185,6 +1219,8 @@ if (root) {
     document.addEventListener('pointermove', moveImageInteraction, { passive: false });
     document.addEventListener('pointerup', endImageInteraction);
     document.addEventListener('pointercancel', endImageInteraction);
+    document.addEventListener('scroll', positionImageLayout, true);
+    window.addEventListener('resize', positionImageLayout);
     ['keyup', 'mouseup', 'focus'].forEach((type) => elements.body.addEventListener(type, rememberEditorRange));
     elements.body.addEventListener('paste', (event) => {
       const images = [...(event.clipboardData?.files || [])].filter((file) => file.type.startsWith('image/'));
