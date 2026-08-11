@@ -37,6 +37,14 @@ blog_expect(true, str_contains($imageHtml, 'data-shape="square"'), 'Validated in
 blog_expect(false, str_contains($imageHtml, 'onerror'), 'Inline images must not retain event attributes.');
 blog_expect(false, str_contains($imageHtml, 'tracker.gif'), 'External image sources must be rejected.');
 
+$croppedImageHtml = jg_blog_sanitize_html('<figure data-width="52" data-align="left" data-aspect="1.7778" data-crop-top="5" data-crop-right="12.5" data-crop-bottom="10" data-crop-left="7.5" style="position:fixed"><div data-image-frame><img src="/api/blogs/?action=asset&amp;id=42" alt="Healthy plate"></div><figcaption>Wrapped image</figcaption></figure>');
+blog_expect(true, str_contains($croppedImageHtml, 'data-width="52"'), 'Direct image widths should survive sanitization.');
+blog_expect(true, str_contains($croppedImageHtml, 'data-align="left"'), 'Image text-flow alignment should survive sanitization.');
+blog_expect(true, str_contains($croppedImageHtml, 'data-crop-right="12.5"'), 'Precise crop edges should survive sanitization.');
+blog_expect(true, str_contains($croppedImageHtml, 'data-image-frame'), 'The safe crop viewport should survive sanitization.');
+blog_expect(false, str_contains($croppedImageHtml, 'position:fixed'), 'Authored image styles must be replaced by validated geometry.');
+blog_expect(true, str_contains($croppedImageHtml, '--figure-width:52%'), 'Validated image geometry should be emitted for public previews.');
+
 $shareToken = str_repeat('a', 64);
 blog_expect(true, jg_blog_valid_share_token($shareToken), 'Private preview tokens must use a full 256 bits of hex data.');
 blog_expect(false, jg_blog_valid_share_token('short-token'), 'Malformed private preview tokens must be rejected.');

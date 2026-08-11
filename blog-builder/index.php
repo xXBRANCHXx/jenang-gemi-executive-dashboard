@@ -180,6 +180,13 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/blog-builder.js');
 <?php endforeach; ?>
                                             </select></label>
                                             <span></span>
+                                            <button type="button" data-undo title="Undo (Ctrl+Z)" aria-label="Undo" disabled>
+                                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7-5 5 5 5"/><path d="M20 17a7 7 0 0 0-7-7H4"/></svg>
+                                            </button>
+                                            <button type="button" data-redo title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled>
+                                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 7 5 5-5 5"/><path d="M4 17a7 7 0 0 1 7-7h9"/></svg>
+                                            </button>
+                                            <span></span>
                                             <button type="button" data-format="formatBlock" data-value="p" title="Paragraph">P</button>
                                             <button type="button" data-format="formatBlock" data-value="h2" title="Heading 2">H2</button>
                                             <button type="button" data-format="formatBlock" data-value="h3" title="Heading 3">H3</button>
@@ -204,18 +211,17 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/blog-builder.js');
                                         </div>
                                         <section class="blog-image-layout" data-image-layout hidden contenteditable="false" aria-label="Selected image layout">
                                             <div class="blog-image-layout-head">
-                                                <span><strong>Image layout</strong><small>Resize, crop, or describe the selected image.</small></span>
+                                                <span><strong>Image layout</strong><small>Drag a corner to resize. Double-click the image, then drag a side to crop.</small></span>
                                                 <button type="button" data-image-layout-close aria-label="Close image controls">×</button>
                                             </div>
                                             <div class="blog-image-layout-controls">
-                                                <label class="blog-image-scale"><span>Scale</span><input type="range" min="40" max="100" step="10" value="100" data-image-scale><output data-image-scale-output>100%</output></label>
-                                                <div class="blog-image-shapes" role="group" aria-label="Image shape">
-                                                    <span>Shape</span>
-                                                    <button type="button" data-image-shape="original">Original</button>
-                                                    <button type="button" data-image-shape="landscape">Landscape</button>
-                                                    <button type="button" data-image-shape="square">Square</button>
-                                                    <button type="button" data-image-shape="portrait">Portrait</button>
+                                                <div class="blog-image-flow" role="group" aria-label="Text flow around image">
+                                                    <span>Text flow</span>
+                                                    <button type="button" data-image-align="center">No wrap</button>
+                                                    <button type="button" data-image-align="left">Text on right</button>
+                                                    <button type="button" data-image-align="right">Text on left</button>
                                                 </div>
+                                                <button type="button" class="blog-image-reset-crop" data-image-reset-crop>Reset crop</button>
                                             </div>
                                             <label class="blog-image-alt"><span>Alt text</span><input type="text" maxlength="240" placeholder="Describe this image for accessibility" data-image-alt></label>
                                             <button type="button" class="blog-image-remove" data-image-remove>Remove image</button>

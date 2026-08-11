@@ -60,7 +60,10 @@ body { min-height: 100vh; margin: 0; background: var(--paper); color: var(--ink)
 .preview-body li { margin: .48em 0; }
 .preview-body blockquote { margin: 1.8em 0; padding: 3px 0 3px 22px; border-left: 3px solid #79ae1d; color: #465048; font-size: 20px; font-style: italic; }
 .preview-body a { color: #28657f; text-decoration-thickness: 1px; text-underline-offset: 3px; }
-.preview-body figure { width: 100%; margin: 2.3em auto; }
+.preview-body figure { width: var(--figure-width, 100%); max-width: 100%; margin: 2.3em auto; }
+.preview-body figure[data-align="left"] { float: left; margin: .45em 1.6em 1em 0; }
+.preview-body figure[data-align="right"] { float: right; margin: .45em 0 1em 1.6em; }
+.preview-body figure[data-align="center"] { clear: both; }
 .preview-body figure[data-scale="40"] { width: 40%; }
 .preview-body figure[data-scale="50"] { width: 50%; }
 .preview-body figure[data-scale="60"] { width: 60%; }
@@ -68,6 +71,8 @@ body { min-height: 100vh; margin: 0; background: var(--paper); color: var(--ink)
 .preview-body figure[data-scale="80"] { width: 80%; }
 .preview-body figure[data-scale="90"] { width: 90%; }
 .preview-body figure img { display: block; width: 100%; max-height: 680px; border-radius: 16px; object-fit: contain; background: #edf0e9; }
+.preview-body [data-image-frame] { position: relative; width: 100%; aspect-ratio: var(--crop-aspect, 1.5); overflow: hidden; border-radius: 16px; background: #edf0e9; }
+.preview-body [data-image-frame] > img { position: absolute; top: var(--crop-image-top, 0); left: var(--crop-image-left, 0); width: var(--crop-image-width, 100%); height: var(--crop-image-height, 100%); max-height: none; border-radius: 0; object-fit: fill; }
 .preview-body figure[data-shape="landscape"] img { aspect-ratio: 16 / 9; object-fit: cover; }
 .preview-body figure[data-shape="square"] img { aspect-ratio: 1; object-fit: cover; }
 .preview-body figure[data-shape="portrait"] img { aspect-ratio: 4 / 5; object-fit: cover; }
@@ -87,6 +92,6 @@ body { min-height: 100vh; margin: 0; background: var(--paper); color: var(--ink)
   .preview-bar-copy span { display: none; }
   .preview-status { display: none; }
   .preview-article { width: min(100% - 32px, 760px); padding-top: 48px; }
-  .preview-body figure[data-scale] { width: 100%; }
+  .preview-body figure { width: 100%; float: none; margin: 2.3em auto; }
   .preview-footer { display: grid; }
 }

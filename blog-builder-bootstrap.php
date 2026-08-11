@@ -207,7 +207,7 @@ function jg_blog_sanitize_html(mixed $html): string
         return '';
     }
 
-    $allowed = ['p', 'h2', 'h3', 'ul', 'ol', 'li', 'strong', 'em', 'a', 'blockquote', 'br', 'figure', 'img', 'figcaption'];
+    $allowed = ['p', 'h2', 'h3', 'ul', 'ol', 'li', 'strong', 'em', 'a', 'blockquote', 'br', 'figure', 'div', 'img', 'figcaption'];
     $walk = static function (DOMNode $parent) use (&$walk, $allowed): void {
         for ($node = $parent->firstChild; $node !== null;) {
             $next = $node->nextSibling;
@@ -237,6 +237,14 @@ function jg_blog_sanitize_html(mixed $html): string
                 $originalAlt = $tag === 'img' ? $node->getAttribute('alt') : '';
                 $originalScale = $tag === 'figure' ? $node->getAttribute('data-scale') : '';
                 $originalShape = $tag === 'figure' ? $node->getAttribute('data-shape') : '';
+                $originalWidth = $tag === 'figure' ? $node->getAttribute('data-width') : '';
+                $originalAlign = $tag === 'figure' ? $node->getAttribute('data-align') : '';
+                $originalAspect = $tag === 'figure' ? $node->getAttribute('data-aspect') : '';
+                $originalCropTop = $tag === 'figure' ? $node->getAttribute('data-crop-top') : '';
+                $originalCropRight = $tag === 'figure' ? $node->getAttribute('data-crop-right') : '';
+                $originalCropBottom = $tag === 'figure' ? $node->getAttribute('data-crop-bottom') : '';
+                $originalCropLeft = $tag === 'figure' ? $node->getAttribute('data-crop-left') : '';
+                $isImageFrame = $tag === 'div' && $node->hasAttribute('data-image-frame');
                 $walk($node);
                 foreach (iterator_to_array($node->attributes) as $attribute) {
                     $node->removeAttribute($attribute->name);
@@ -262,9 +270,46 @@ function jg_blog_sanitize_html(mixed $html): string
                     $node->setAttribute('loading', 'lazy');
                     $node->setAttribute('decoding', 'async');
                 }
+                if ($tag === 'div' && $isImageFrame) {
+                    $node->setAttribute('data-image-frame', '');
+                }
                 if ($tag === 'figure') {
                     $scale = (int) $originalScale;
-                    $node->setAttribute('data-scale', in_array($scale, [40, 50, 60, 70, 80, 90, 100], true) ? (string) $scale : '100');
+                    $legacyScale = in_array($scale, [40, 50, 60, 70, 80, 90, 100], true) ? $scale : 100;
+                    $width = $originalWidth !== '' ? (int) $originalWidth : $legacyScale;
+                    $width = max(25, min(100, $width));
+                    $align = in_array($originalAlign, ['left', 'center', 'right'], true) ? $originalAlign : 'center';
+                    $aspect = (float) $originalAspect;
+                    $aspect = $aspect >= 0.1 && $aspect <= 10 ? $aspect : 1.5;
+                    $cropTop = max(0.0, min(45.0, (float) $originalCropTop));
+                    $cropRight = max(0.0, min(45.0, (float) $originalCropRight));
+                    $cropBottom = max(0.0, min(45.0, (float) $originalCropBottom));
+                    $cropLeft = max(0.0, min(45.0, (float) $originalCropLeft));
+                    if ($cropLeft + $cropRight > 75) {
+                        $cropRight = 75 - $cropLeft;
+                    }
+                    if ($cropTop + $cropBottom > 75) {
+                        $cropBottom = 75 - $cropTop;
+                    }
+                    $visibleX = (100 - $cropLeft - $cropRight) / 100;
+                    $visibleY = (100 - $cropTop - $cropBottom) / 100;
+                    $formatNumber = static fn (float $value): string => rtrim(rtrim(number_format($value, 4, '.', ''), '0'), '.');
+                    $node->setAttribute('data-width', (string) $width);
+                    $node->setAttribute('data-align', $align);
+                    $node->setAttribute('data-aspect', $formatNumber($aspect));
+                    $node->setAttribute('data-crop-top', $formatNumber($cropTop));
+                    $node->setAttribute('data-crop-right', $formatNumber($cropRight));
+                    $node->setAttribute('data-crop-bottom', $formatNumber($cropBottom));
+                    $node->setAttribute('data-crop-left', $formatNumber($cropLeft));
+                    $node->setAttribute('style', implode(';', [
+                        '--figure-width:' . $width . '%',
+                        '--crop-aspect:' . $formatNumber($aspect * $visibleX / $visibleY),
+                        '--crop-image-width:' . $formatNumber(100 / $visibleX) . '%',
+                        '--crop-image-height:' . $formatNumber(100 / $visibleY) . '%',
+                        '--crop-image-left:' . $formatNumber(-$cropLeft / $visibleX) . '%',
+                        '--crop-image-top:' . $formatNumber(-$cropTop / $visibleY) . '%',
+                    ]));
+                    $node->setAttribute('data-scale', (string) $legacyScale);
                     $node->setAttribute('data-shape', in_array($originalShape, ['original', 'landscape', 'square', 'portrait'], true) ? $originalShape : 'original');
                 }
             }

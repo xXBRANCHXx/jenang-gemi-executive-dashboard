@@ -23,7 +23,7 @@ for (const control of [
   'data-body-editor', 'data-schedule-input', 'data-cover-input', 'data-preview-dialog',
   'data-history-dialog', 'data-seo-description', 'data-checklist', 'data-library-search',
   'data-inline-image', 'data-inline-image-input', 'data-share-preview', 'data-share-dialog',
-  'data-image-scale', 'data-image-shape', 'data-article-font-select'
+  'data-undo', 'data-redo', 'data-image-align', 'data-image-reset-crop', 'data-article-font-select'
 ]) {
   expect(php.includes(control), `Builder is missing ${control}.`);
 }
@@ -52,8 +52,12 @@ expect(api.includes("action === 'share_preview'") && api.includes("action === 'd
 expect(sharedPreview.includes("X-Robots-Tag: noindex, nofollow, noarchive"), 'Shared drafts must stay out of search engines.');
 expect(sharedPreview.includes('jg_blog_public_body_html'), 'Shared previews must render sanitized article HTML.');
 expect(js.includes('enableSharedPreview') && js.includes('copySharedPreview'), 'The editor must create and copy private preview links.');
-expect(js.includes("figure.dataset.scale") && js.includes("figure.dataset.shape"), 'Inline image scale and shape controls must persist layout metadata.');
-expect(sharedPreviewCss.includes('figure[data-shape="square"]') && sharedPreviewCss.includes('figure[data-scale="70"]'), 'Shared previews must render saved image shapes and scales.');
+expect(!php.includes('data-image-scale') && !php.includes('type="range"'), 'Image sizing must use direct manipulation instead of a scale slider.');
+expect(js.includes('const HISTORY_LIMIT = 100') && js.includes('const undo = () =>') && js.includes('const redo = () =>'), 'The editor must retain a conventional 100-step undo/redo history.');
+expect(js.includes("key === 'z' && !event.shiftKey") && js.includes("key === 'z' && event.shiftKey"), 'Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z must operate article history.');
+expect(js.includes("['nw', 'ne', 'se', 'sw']") && js.includes("['top', 'right', 'bottom', 'left']"), 'Images must expose corner resize and side crop handles.');
+expect(js.includes("elements.body.addEventListener('dblclick'") && css.includes('figure.is-cropping'), 'Double-clicking an image must enable direct side cropping.');
+expect(sharedPreviewCss.includes('figure[data-align="left"]') && sharedPreviewCss.includes('[data-image-frame]'), 'Shared previews must render text wrapping and saved crops.');
 expect(bootstrap.includes('zero_blog_post_styles') && bootstrap.includes('function jg_blog_fonts'), 'Article font choices must persist independently from dashboard themes.');
 
 console.log('blog builder UI tests passed');
