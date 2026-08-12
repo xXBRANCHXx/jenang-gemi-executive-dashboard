@@ -168,7 +168,7 @@ $pageJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-orders.js');
                                     </div>
                                     <label class="whatsapp-pay-later-toggle">
                                         <span><strong>Pay later</strong><small>Leave this order unpaid</small></span>
-                                        <input type="checkbox" name="pay_later" value="1" data-pay-later>
+                                        <input type="checkbox" name="pay_later" value="1" data-pay-later checked>
                                         <i aria-hidden="true"></i>
                                     </label>
                                     <button type="submit" class="admin-primary-btn" data-submit-order disabled>Send listed order to Store Ops</button>

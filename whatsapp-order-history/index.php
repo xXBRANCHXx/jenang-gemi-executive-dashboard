@@ -90,6 +90,14 @@ $historyJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-order-hist
                                     <option value="CANCELLED">Cancelled</option>
                                 </select>
                             </label>
+                            <label>
+                                <span>Records</span>
+                                <select data-history-archive-filter>
+                                    <option value="active">Active orders</option>
+                                    <option value="archived">Archived orders</option>
+                                    <option value="all">All records</option>
+                                </select>
+                            </label>
                         </div>
 
                         <p class="admin-form-error" data-history-error hidden></p>
@@ -106,7 +114,7 @@ $historyJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-order-hist
                                         <th>Customer total</th>
                                         <th>Payment</th>
                                         <th>Created</th>
-                                        <th aria-label="Open order"></th>
+                                        <th aria-label="Order actions"></th>
                                     </tr>
                                 </thead>
                                 <tbody data-history-body>
@@ -131,13 +139,48 @@ $historyJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-order-hist
                 <h2 id="history-payment-title">Mark WhatsApp order as paid</h2>
                 <p><strong data-history-payment-id>-</strong> will be added to Accounting when you confirm how the customer paid.</p>
                 <div class="admin-order-payment-methods">
-                    <label><input type="radio" name="payment_method" value="cash" checked><span>Cash<small>Add to Cash Office</small></span></label>
-                    <label><input type="radio" name="payment_method" value="bank"><span>Bank<small>Add to Bank Balance</small></span></label>
+                    <label><input type="radio" name="payment_method" value="cash"><span>Cash<small>Add to Cash Office</small></span></label>
+                    <label><input type="radio" name="payment_method" value="bank" checked><span>Bank<small>Add to Bank Balance</small></span></label>
                 </div>
                 <p class="admin-form-error" data-history-payment-error hidden></p>
                 <div class="admin-modal-actions">
                     <button type="button" class="admin-ghost-btn" data-history-payment-cancel>Cancel</button>
                     <button type="submit" class="admin-primary-btn" data-history-payment-confirm>Confirm paid</button>
+                </div>
+            </form>
+        </dialog>
+
+        <dialog class="whatsapp-archive-dialog" data-history-archive-dialog aria-labelledby="history-archive-title">
+            <form method="dialog" data-history-archive-form>
+                <div class="whatsapp-archive-dialog-head">
+                    <span class="whatsapp-archive-dialog-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24"><path d="M4 7h16M5 7l1 13h12l1-13M9 11h6M8 4h8l1 3H7l1-3Z"/></svg>
+                    </span>
+                    <div><span class="admin-panel-kicker">Archive direct order</span><h2 id="history-archive-title">Choose what to correct</h2></div>
+                </div>
+                <p class="whatsapp-archive-dialog-copy"><strong data-history-archive-id>Order</strong> will leave the active ledger. Its record and fulfillment status stay available for audit.</p>
+                <div class="whatsapp-archive-options">
+                    <label>
+                        <input type="checkbox" name="hide_charts" checked>
+                        <span class="whatsapp-archive-option-icon"><svg viewBox="0 0 24 24"><path d="M4 19V9m6 10V5m6 14v-7m4 7H2"/></svg></span>
+                        <span><strong>Hide from charts</strong><small>Remove revenue, orders, units, COGS, and customer metrics from analytics.</small></span>
+                    </label>
+                    <label>
+                        <input type="checkbox" name="hide_financials" checked>
+                        <span class="whatsapp-archive-option-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18m-5 5h2"/></svg></span>
+                        <span><strong>Remove financial impact</strong><small>Exclude the order from Bank, Cash, and unpaid receivable totals.</small></span>
+                    </label>
+                    <label>
+                        <input type="checkbox" name="restore_stock">
+                        <span class="whatsapp-archive-option-icon"><svg viewBox="0 0 24 24"><path d="M20 8 12 3 4 8v9l8 4 8-4V8Z"/><path d="m4 8 8 4 8-4m-8 4v9m6-16-8 5"/></svg></span>
+                        <span><strong>Redeem stock</strong><small>Add every ordered unit back to its SKU stock. Retries cannot add stock twice.</small></span>
+                    </label>
+                </div>
+                <p class="whatsapp-archive-notice"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01"/></svg><span>This does not cancel the order in Store Ops or change its fulfillment state.</span></p>
+                <p class="admin-form-error" data-history-archive-error hidden></p>
+                <div class="admin-modal-actions">
+                    <button type="button" class="admin-ghost-btn" data-history-archive-cancel>Keep active</button>
+                    <button type="submit" class="admin-primary-btn is-archive" data-history-archive-confirm>Archive order</button>
                 </div>
             </form>
         </dialog>

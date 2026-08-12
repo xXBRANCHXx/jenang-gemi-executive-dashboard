@@ -16,6 +16,7 @@ assert.match(page, /data-discount-mode="sale_price"[\s\S]*?data-discount-mode="p
 assert.match(page, /data-merchandise-subtotal[\s\S]*?data-discount-total[\s\S]*?data-merchandise-total/, 'The totals must show subtotal, discount, and net merchandise.');
 assert.match(page, /name="label"[\s\S]*?deadline_hours/, 'The order must follow the Partner label and deadline flow.');
 assert.match(page, /name="payment_method" value="cash"[\s\S]*?name="payment_method" value="bank"[\s\S]*?data-pay-later/, 'Direct orders must choose Cash or Bank unless Pay Later is enabled.');
+assert.match(page, /data-pay-later checked/, 'Pay Later must be on by default for every new direct order.');
 assert.match(page, /data-company-filter[\s\S]*?data-product-filter[\s\S]*?data-flavor-filter[\s\S]*?Order preview/, 'Product entry must separate products by company before flavor filtering.');
 assert.match(script, /items: \[\.\.\.state\.cart\.values\(\)\][\s\S]*?action=create/, 'The builder must submit constructed SKU lines.');
 assert.match(script, /pay_later: Boolean\(payLaterInput\?\.checked\)[\s\S]*?payment_method:/, 'The builder must submit explicit payment timing and routing.');

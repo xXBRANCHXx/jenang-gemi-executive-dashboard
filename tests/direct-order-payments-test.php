@@ -19,7 +19,7 @@ $pdo->exec('CREATE TABLE whatsapp_orders (
     id INTEGER PRIMARY KEY, order_id TEXT, sales_channel TEXT, customer_name TEXT,
     merchandise_total REAL, shipping_cost REAL, status TEXT, payment_status TEXT,
     payment_method TEXT, payment_account_key TEXT, paid_at TEXT NULL, fulfilled_at TEXT NULL,
-    created_at TEXT
+    archive_hide_financials INTEGER DEFAULT 0, created_at TEXT
 )');
 $pdo->exec('CREATE TABLE accounting_transactions (
     status TEXT, direction TEXT, type TEXT, order_no TEXT, reference_no TEXT, invoice_no TEXT, amount REAL
@@ -32,9 +32,10 @@ $pdo->exec("INSERT INTO accounting_accounts VALUES
     (1, 'bca-main', 1, 1, 1, 'bank', 'bank', 10),
     (2, 'cash-office', 1, 1, 0, 'cash', 'cash', 20)");
 $pdo->exec("INSERT INTO whatsapp_orders VALUES
-    (1, 'WA-UNPAID', 'whatsapp', 'Waiting Buyer', 90000, 10000, 'IS_LISTED', 'unpaid', '', '', NULL, NULL, '2026-08-01 01:00:00'),
-    (2, 'WALKIN-CASH', 'walk_in', 'Cash Buyer', 50000, 0, 'FULFILLED', 'paid', 'cash', 'cash-office', '2026-08-02 02:00:00', '2026-08-02 02:00:00', '2026-08-02 01:00:00'),
-    (3, 'WA-CANCELED', 'whatsapp', 'Canceled Buyer', 70000, 5000, 'CANCELLED', 'canceled', 'bank', 'bca-main', '2026-08-03 02:00:00', NULL, '2026-08-03 01:00:00')");
+    (1, 'WA-UNPAID', 'whatsapp', 'Waiting Buyer', 90000, 10000, 'IS_LISTED', 'unpaid', '', '', NULL, NULL, 0, '2026-08-01 01:00:00'),
+    (2, 'WALKIN-CASH', 'walk_in', 'Cash Buyer', 50000, 0, 'FULFILLED', 'paid', 'cash', 'cash-office', '2026-08-02 02:00:00', '2026-08-02 02:00:00', 0, '2026-08-02 01:00:00'),
+    (3, 'WA-CANCELED', 'whatsapp', 'Canceled Buyer', 70000, 5000, 'CANCELLED', 'canceled', 'bank', 'bca-main', '2026-08-03 02:00:00', NULL, 0, '2026-08-03 01:00:00'),
+    (4, 'WA-ARCHIVED', 'whatsapp', 'Archived Buyer', 120000, 5000, 'FULFILLED', 'paid', 'bank', 'bca-main', '2026-08-04 02:00:00', '2026-08-04 02:00:00', 1, '2026-08-04 01:00:00')");
 
 $records = jg_accounting_direct_order_cash_records($pdo);
 direct_payment_expect(1, count($records), 'Only paid, non-canceled direct orders may become spendable cash.');

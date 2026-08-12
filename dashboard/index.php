@@ -2124,8 +2124,8 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
             <h2 id="order-payment-title">Mark direct order as paid</h2>
             <p><strong data-order-payment-id>-</strong> will be added to Accounting when you confirm how the customer paid.</p>
             <div class="admin-order-payment-methods">
-                <label><input type="radio" name="payment_method" value="cash" checked><span>Cash<small>Add to Cash Office</small></span></label>
-                <label><input type="radio" name="payment_method" value="bank"><span>Bank<small>Add to Bank Balance</small></span></label>
+                <label><input type="radio" name="payment_method" value="cash"><span>Cash<small>Add to Cash Office</small></span></label>
+                <label><input type="radio" name="payment_method" value="bank" checked><span>Bank<small>Add to Bank Balance</small></span></label>
             </div>
             <p class="admin-form-error" data-order-payment-error hidden></p>
             <div class="admin-modal-actions"><button type="button" class="admin-ghost-btn" data-order-payment-cancel>Cancel</button><button type="submit" class="admin-primary-btn" data-order-payment-confirm>Confirm paid</button></div>

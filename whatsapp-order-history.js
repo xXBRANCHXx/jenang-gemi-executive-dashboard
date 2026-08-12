@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     error: root.querySelector('[data-history-error]'),
     search: root.querySelector('[data-history-search]'),
     statusFilter: root.querySelector('[data-history-status-filter]'),
+    archiveFilter: root.querySelector('[data-history-archive-filter]'),
     previous: root.querySelector('[data-history-previous]'),
     next: root.querySelector('[data-history-next]'),
     page: root.querySelector('[data-history-page]'),
@@ -17,7 +18,13 @@ document.addEventListener('DOMContentLoaded', () => {
     paymentOrderId: root.querySelector('[data-history-payment-id]'),
     paymentError: root.querySelector('[data-history-payment-error]'),
     paymentCancel: root.querySelector('[data-history-payment-cancel]'),
-    paymentConfirm: root.querySelector('[data-history-payment-confirm]')
+    paymentConfirm: root.querySelector('[data-history-payment-confirm]'),
+    archiveDialog: root.querySelector('[data-history-archive-dialog]'),
+    archiveForm: root.querySelector('[data-history-archive-form]'),
+    archiveOrderId: root.querySelector('[data-history-archive-id]'),
+    archiveError: root.querySelector('[data-history-archive-error]'),
+    archiveCancel: root.querySelector('[data-history-archive-cancel]'),
+    archiveConfirm: root.querySelector('[data-history-archive-confirm]')
   };
   const initialParams = new URLSearchParams(window.location.search);
   const state = {
@@ -25,11 +32,14 @@ document.addEventListener('DOMContentLoaded', () => {
     perPage: 50,
     query: initialParams.get('query') || '',
     status: initialParams.get('status') || '',
+    archive: ['active', 'archived', 'all'].includes(initialParams.get('archive')) ? initialParams.get('archive') : 'active',
     orders: [],
     pagination: { page: 1, total_pages: 1, total: 0 },
     loading: false,
     paymentSaving: false,
     paymentOrderId: '',
+    archiveSaving: false,
+    archiveOrderId: '',
     lifecycleSynced: false,
     requestController: null,
     searchTimer: 0
@@ -70,6 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams();
     if (state.query) params.set('query', state.query);
     if (state.status) params.set('status', state.status);
+    if (state.archive !== 'active') params.set('archive', state.archive);
     if (state.page > 1) params.set('page', String(state.page));
     const query = params.toString();
     window.history.replaceState(null, '', `${window.location.pathname}${query ? `?${query}` : ''}`);
@@ -102,8 +113,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const payment = canConfirmPayment
         ? `<button type="button" class="whatsapp-history-pay-btn" data-history-confirm-payment="${escapeHtml(order.order_id)}">Mark paid</button>`
         : `<span class="whatsapp-history-payment-status is-${escapeHtml(paymentStatus)}">${escapeHtml(paymentLabel(order))}</span>`;
-      return `<tr class="whatsapp-history-row" tabindex="0" role="link" data-order-url="${escapeHtml(url)}" aria-label="Open ${escapeHtml(order.order_id)}">
-        <td><a href="${escapeHtml(url)}"><strong>${escapeHtml(order.order_id)}</strong><small>${escapeHtml(order.label_original_name || 'WhatsApp order')}</small></a></td>
+      const archiveAction = order.can_archive === true
+        ? `<button type="button" class="whatsapp-history-icon-btn is-archive" data-history-archive="${escapeHtml(order.order_id)}" aria-label="Archive ${escapeHtml(order.order_id)}" title="Archive order"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M5 7l1 13h12l1-13M9 11h6M8 4h8l1 3H7l1-3Z"/></svg></button>`
+        : '<span class="whatsapp-history-archived-mark" title="Archived"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M5 7l1 13h12l1-13M9 11h6M8 4h8l1 3H7l1-3Z"/></svg></span>';
+      return `<tr class="whatsapp-history-row${order.archived ? ' is-archived' : ''}" tabindex="0" role="link" data-order-url="${escapeHtml(url)}" aria-label="Open ${escapeHtml(order.order_id)}">
+        <td><a href="${escapeHtml(url)}"><strong>${escapeHtml(order.order_id)}</strong><small>${escapeHtml(order.archived ? `Archived ${formatDate(order.archived_at)}` : (order.label_original_name || 'WhatsApp order'))}</small></a></td>
         <td><strong>${escapeHtml(order.customer?.name || 'WhatsApp customer')}</strong><small>${escapeHtml(contact)}</small></td>
         <td><span class="whatsapp-history-status ${escapeHtml(statusClass(order.status))}">${escapeHtml(statusLabel(order.status))}</span></td>
         <td>${escapeHtml(integer.format(itemCount))}</td>
@@ -112,7 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <td><strong>${escapeHtml(money(Number(order.merchandise_total || 0) + Number(order.shipping_cost || 0)))}</strong></td>
         <td class="whatsapp-history-payment-cell">${payment}</td>
         <td>${escapeHtml(formatDate(order.created_at))}</td>
-        <td><span class="whatsapp-history-open" aria-hidden="true">→</span></td>
+        <td><span class="whatsapp-history-row-actions">${archiveAction}<span class="whatsapp-history-open" aria-hidden="true">→</span></span></td>
       </tr>`;
     }).join('');
   };
@@ -138,6 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!state.lifecycleSynced) params.set('sync_lifecycle', '1');
     if (state.query) params.set('query', state.query);
     if (state.status) params.set('status', state.status);
+    params.set('archive', state.archive);
     try {
       const response = await fetch(`${endpoint}?${params}`, {
         credentials: 'same-origin', cache: 'no-store', signal: controller.signal,
@@ -168,6 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (refs.search) refs.search.value = state.query;
   if (refs.statusFilter) refs.statusFilter.value = state.status;
+  if (refs.archiveFilter) refs.archiveFilter.value = state.archive;
   refs.search?.addEventListener('input', () => {
     window.clearTimeout(state.searchTimer);
     state.searchTimer = window.setTimeout(() => {
@@ -178,6 +194,11 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   refs.statusFilter?.addEventListener('change', () => {
     state.status = refs.statusFilter.value;
+    state.page = 1;
+    loadHistory();
+  });
+  refs.archiveFilter?.addEventListener('change', () => {
+    state.archive = refs.archiveFilter.value;
     state.page = 1;
     loadHistory();
   });
@@ -205,8 +226,8 @@ document.addEventListener('DOMContentLoaded', () => {
       refs.paymentError.textContent = '';
       refs.paymentError.hidden = true;
     }
-    const cash = refs.paymentForm?.querySelector('input[name="payment_method"][value="cash"]');
-    if (cash instanceof HTMLInputElement) cash.checked = true;
+    const bank = refs.paymentForm?.querySelector('input[name="payment_method"][value="bank"]');
+    if (bank instanceof HTMLInputElement) bank.checked = true;
     refs.paymentDialog?.showModal?.();
   };
   const confirmPayment = async () => {
@@ -254,10 +275,81 @@ document.addEventListener('DOMContentLoaded', () => {
     event.preventDefault();
     confirmPayment();
   });
+  const closeArchiveDialog = () => {
+    if (state.archiveSaving) return;
+    state.archiveOrderId = '';
+    refs.archiveDialog?.close?.();
+  };
+  const openArchiveDialog = (orderId) => {
+    const order = state.orders.find((item) => String(item.order_id || '') === orderId);
+    if (!order || order.can_archive !== true) return;
+    state.archiveOrderId = orderId;
+    if (refs.archiveOrderId) refs.archiveOrderId.textContent = orderId;
+    if (refs.archiveError) {
+      refs.archiveError.textContent = '';
+      refs.archiveError.hidden = true;
+    }
+    const charts = refs.archiveForm?.querySelector('input[name="hide_charts"]');
+    const financials = refs.archiveForm?.querySelector('input[name="hide_financials"]');
+    const stock = refs.archiveForm?.querySelector('input[name="restore_stock"]');
+    if (charts instanceof HTMLInputElement) charts.checked = true;
+    if (financials instanceof HTMLInputElement) financials.checked = true;
+    if (stock instanceof HTMLInputElement) stock.checked = false;
+    refs.archiveDialog?.showModal?.();
+  };
+  const archiveOrder = async () => {
+    const orderId = state.archiveOrderId;
+    if (!orderId || state.archiveSaving) return;
+    const checked = (name) => refs.archiveForm?.querySelector(`input[name="${name}"]`)?.checked === true;
+    state.archiveSaving = true;
+    if (refs.archiveConfirm) {
+      refs.archiveConfirm.disabled = true;
+      refs.archiveConfirm.textContent = 'Archiving…';
+    }
+    try {
+      const response = await fetch(`${endpoint}?action=archive`, {
+        method: 'POST', credentials: 'same-origin', cache: 'no-store',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_id: orderId,
+          hide_charts: checked('hide_charts'),
+          hide_financials: checked('hide_financials'),
+          restore_stock: checked('restore_stock')
+        })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.ok) throw new Error(payload.error || 'Order could not be archived.');
+      state.archiveOrderId = '';
+      refs.archiveDialog?.close?.();
+      window.refreshDirectOrderUnpaidIndicator?.();
+      await loadHistory();
+    } catch (error) {
+      if (refs.archiveError) {
+        refs.archiveError.textContent = error instanceof Error ? error.message : 'Order could not be archived.';
+        refs.archiveError.hidden = false;
+      }
+    } finally {
+      state.archiveSaving = false;
+      if (refs.archiveConfirm) {
+        refs.archiveConfirm.disabled = false;
+        refs.archiveConfirm.textContent = 'Archive order';
+      }
+    }
+  };
+  refs.archiveCancel?.addEventListener('click', closeArchiveDialog);
+  refs.archiveForm?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    archiveOrder();
+  });
   refs.body?.addEventListener('click', (event) => {
     const paymentButton = event.target.closest('[data-history-confirm-payment]');
     if (paymentButton) {
       openPaymentDialog(paymentButton.dataset.historyConfirmPayment || '');
+      return;
+    }
+    const archiveButton = event.target.closest('[data-history-archive]');
+    if (archiveButton) {
+      openArchiveDialog(archiveButton.dataset.historyArchive || '');
       return;
     }
     if (event.target.closest('a, button')) return;

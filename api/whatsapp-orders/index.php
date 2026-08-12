@@ -89,7 +89,8 @@ try {
             (int) ($_GET['per_page'] ?? 50),
             (string) ($_GET['query'] ?? ''),
             (string) ($_GET['status'] ?? ''),
-            (string) ($_GET['sync_lifecycle'] ?? '') === '1'
+            (string) ($_GET['sync_lifecycle'] ?? '') === '1',
+            (string) ($_GET['archive'] ?? 'active')
         ));
     }
     if ($method === 'GET' && $action === 'order') {
@@ -117,6 +118,16 @@ try {
             $pdo,
             trim((string) ($body['order_id'] ?? $body['order'] ?? '')),
             $body['payment_method'] ?? ''
+        )]);
+    }
+    if ($action === 'archive') {
+        $body = jg_whatsapp_api_body();
+        $restoreStock = jg_whatsapp_bool($body['restore_stock'] ?? false);
+        jg_whatsapp_api_json(['ok' => true, 'order' => jg_whatsapp_archive_order(
+            $pdo,
+            $restoreStock ? jg_sku_db() : null,
+            trim((string) ($body['order_id'] ?? $body['order'] ?? '')),
+            $body
         )]);
     }
     if ($action === 'create') {

@@ -26,6 +26,9 @@ function jg_whatsapp_legacy_order_was_paid(array $row): bool
 
 function jg_whatsapp_ensure_schema(PDO $pdo): void
 {
+    // Test and reporting adapters provide their own lightweight schema. The
+    // production migration below intentionally uses MySQL-specific DDL.
+    if ((string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'mysql') return;
     $pdo->exec(
         'CREATE TABLE IF NOT EXISTS whatsapp_orders (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -40,6 +43,10 @@ function jg_whatsapp_ensure_schema(PDO $pdo): void
             payment_method VARCHAR(24) NOT NULL DEFAULT "",
             payment_account_key VARCHAR(80) NOT NULL DEFAULT "",
             paid_at DATETIME(6) NULL DEFAULT NULL,
+            archived_at DATETIME(6) NULL DEFAULT NULL,
+            archive_hide_charts TINYINT(1) NOT NULL DEFAULT 0,
+            archive_hide_financials TINYINT(1) NOT NULL DEFAULT 0,
+            archive_restore_stock TINYINT(1) NOT NULL DEFAULT 0,
             merchandise_subtotal DECIMAL(16,2) NOT NULL DEFAULT 0,
             merchandise_total DECIMAL(16,2) NOT NULL DEFAULT 0,
             discount_type VARCHAR(24) NOT NULL DEFAULT "",
@@ -69,6 +76,10 @@ function jg_whatsapp_ensure_schema(PDO $pdo): void
     jg_whatsapp_ensure_column($pdo, 'whatsapp_orders', 'payment_method', 'VARCHAR(24) NOT NULL DEFAULT "" AFTER payment_status');
     jg_whatsapp_ensure_column($pdo, 'whatsapp_orders', 'payment_account_key', 'VARCHAR(80) NOT NULL DEFAULT "" AFTER payment_method');
     jg_whatsapp_ensure_column($pdo, 'whatsapp_orders', 'paid_at', 'DATETIME(6) NULL DEFAULT NULL AFTER payment_account_key');
+    jg_whatsapp_ensure_column($pdo, 'whatsapp_orders', 'archived_at', 'DATETIME(6) NULL DEFAULT NULL AFTER paid_at');
+    jg_whatsapp_ensure_column($pdo, 'whatsapp_orders', 'archive_hide_charts', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER archived_at');
+    jg_whatsapp_ensure_column($pdo, 'whatsapp_orders', 'archive_hide_financials', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER archive_hide_charts');
+    jg_whatsapp_ensure_column($pdo, 'whatsapp_orders', 'archive_restore_stock', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER archive_hide_financials');
     if ($needsPaymentBackfill) {
         $pdo->exec(
             'UPDATE whatsapp_orders
@@ -172,6 +183,16 @@ function jg_whatsapp_payment_status(array $row): string
     if (strtoupper(trim((string) ($row['status'] ?? ''))) === 'CANCELLED') return 'canceled';
     $status = strtolower(trim((string) ($row['payment_status'] ?? 'unpaid')));
     return in_array($status, ['paid', 'unpaid', 'canceled'], true) ? $status : 'unpaid';
+}
+
+/** @return array{hide_charts:bool,hide_financials:bool,restore_stock:bool} */
+function jg_whatsapp_archive_options(array $payload): array
+{
+    return [
+        'hide_charts' => jg_whatsapp_bool($payload['hide_charts'] ?? false),
+        'hide_financials' => jg_whatsapp_bool($payload['hide_financials'] ?? false),
+        'restore_stock' => jg_whatsapp_bool($payload['restore_stock'] ?? false),
+    ];
 }
 
 function jg_whatsapp_money(mixed $value, string $label): float
@@ -495,7 +516,15 @@ function jg_whatsapp_format_order(PDO $pdo, array $row, bool $includeItems = tru
         'payment_method' => (string) ($row['payment_method'] ?? ''),
         'payment_account_key' => (string) ($row['payment_account_key'] ?? ''),
         'paid_at' => !empty($row['paid_at']) ? jg_website_atom((string) $row['paid_at']) : null,
-        'can_confirm_payment' => $paymentStatus === 'unpaid',
+        'archived' => !empty($row['archived_at']),
+        'archived_at' => !empty($row['archived_at']) ? jg_website_atom((string) $row['archived_at']) : null,
+        'archive_impact' => [
+            'hide_charts' => (int) ($row['archive_hide_charts'] ?? 0) === 1,
+            'hide_financials' => (int) ($row['archive_hide_financials'] ?? 0) === 1,
+            'restore_stock' => (int) ($row['archive_restore_stock'] ?? 0) === 1,
+        ],
+        'can_archive' => empty($row['archived_at']),
+        'can_confirm_payment' => $paymentStatus === 'unpaid' && empty($row['archived_at']),
         'merchandise_subtotal' => (float) (($row['merchandise_subtotal'] ?? 0) ?: $row['merchandise_total']),
         'merchandise_total' => (float) $row['merchandise_total'],
         'discount_type' => (string) ($row['discount_type'] ?? ''),
@@ -522,7 +551,8 @@ function jg_whatsapp_format_order(PDO $pdo, array $row, bool $includeItems = tru
 
 function jg_whatsapp_internal_order(PDO $pdo, string $orderId, bool $forUpdate = false): array
 {
-    $stmt = $pdo->prepare('SELECT * FROM whatsapp_orders WHERE order_id = :order_id' . ($forUpdate ? ' FOR UPDATE' : ''));
+    $lock = $forUpdate && (string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+    $stmt = $pdo->prepare('SELECT * FROM whatsapp_orders WHERE order_id = :order_id' . $lock);
     $stmt->execute([':order_id' => trim($orderId)]);
     $row = $stmt->fetch();
     if (!is_array($row)) throw new RuntimeException('WhatsApp order was not found.');
@@ -538,7 +568,7 @@ function jg_whatsapp_create_order(PDO $pdo, PDO $skuPdo, array $payload, array $
     $customerName = jg_whatsapp_text($payload['customer_name'] ?? '', 'Customer name', 160, true);
     $customerAddress = jg_whatsapp_text($payload['customer_address'] ?? '', 'Customer address', 1000);
     $customerPhone = jg_whatsapp_text($payload['customer_phone'] ?? '', 'Customer phone', 50);
-    $payLater = jg_whatsapp_bool($payload['pay_later'] ?? false);
+    $payLater = jg_whatsapp_bool($payload['pay_later'] ?? true);
     $paymentMethod = $payLater ? '' : jg_whatsapp_payment_method($payload['payment_method'] ?? '');
     $paymentStatus = $payLater ? 'unpaid' : 'paid';
     $paymentAccountKey = $payLater ? '' : jg_whatsapp_payment_account_key($paymentMethod);
@@ -776,6 +806,7 @@ function jg_whatsapp_cancel_order(PDO $pdo, string $orderId): array
     }
 
     $row = jg_whatsapp_internal_order($pdo, $orderId);
+    if (!empty($row['archived_at'])) throw new RuntimeException('Archived orders cannot be cancelled.');
     $status = strtoupper(trim((string) ($row['status'] ?? '')));
     if ($status === 'CANCELLED') {
         return jg_whatsapp_format_order($pdo, $row);
@@ -829,6 +860,7 @@ function jg_whatsapp_confirm_payment(PDO $pdo, string $orderId, mixed $method): 
     $pdo->beginTransaction();
     try {
         $row = jg_whatsapp_internal_order($pdo, $orderId, true);
+        if (!empty($row['archived_at'])) throw new RuntimeException('Archived orders cannot be marked paid.');
         $status = jg_whatsapp_payment_status($row);
         if ($status === 'canceled') {
             throw new RuntimeException('Canceled orders cannot be marked paid.');
@@ -855,6 +887,168 @@ function jg_whatsapp_confirm_payment(PDO $pdo, string $orderId, mixed $method): 
     return jg_whatsapp_format_order($pdo, jg_whatsapp_internal_order($pdo, $orderId));
 }
 
+function jg_whatsapp_ensure_inventory_restore_schema(PDO $skuPdo): void
+{
+    $skuPdo->exec(
+        'CREATE TABLE IF NOT EXISTS direct_order_inventory_restorations (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            order_id VARCHAR(40) NOT NULL,
+            sku VARCHAR(24) NOT NULL,
+            quantity INT UNSIGNED NOT NULL,
+            restored_at DATETIME NOT NULL,
+            UNIQUE KEY uniq_direct_order_restore (order_id, sku),
+            KEY idx_direct_order_restore_sku (sku, restored_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+    );
+    $skuPdo->exec(
+        'CREATE TABLE IF NOT EXISTS sku_stock_lots (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            sku VARCHAR(12) NOT NULL,
+            po_number VARCHAR(80) NOT NULL,
+            received_qty_astra DECIMAL(14,2) NOT NULL DEFAULT 0,
+            remaining_qty_astra DECIMAL(14,2) NOT NULL DEFAULT 0,
+            cogs_per_astra DECIMAL(12,2) NOT NULL DEFAULT 0,
+            received_at DATETIME NOT NULL,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            KEY idx_sku_stock_lots_fifo (sku, received_at, id),
+            KEY idx_sku_stock_lots_po (po_number, sku)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+    );
+}
+
+/**
+ * Restore an archived direct order to SKU stock exactly once. The unique audit
+ * row and the stock mutation share one SKU-database transaction, so a retried
+ * request cannot add the same quantity twice.
+ */
+function jg_whatsapp_restore_order_inventory(PDO $analyticsPdo, PDO $skuPdo, array $order): void
+{
+    $orderId = trim((string) ($order['order_id'] ?? ''));
+    if ($orderId === '') throw new InvalidArgumentException('Choose a direct order to restore.');
+
+    $quantities = [];
+    foreach (jg_whatsapp_order_items($analyticsPdo, (int) ($order['id'] ?? 0)) as $item) {
+        $sku = trim((string) ($item['sku'] ?? ''));
+        $quantity = max(0, (int) ($item['quantity'] ?? 0));
+        if ($sku !== '' && $quantity > 0) $quantities[$sku] = ($quantities[$sku] ?? 0) + $quantity;
+    }
+    if ($quantities === []) throw new RuntimeException('This order has no SKU quantities to restore.');
+    ksort($quantities);
+
+    // DDL can implicitly commit in MySQL, so both tables must exist before the
+    // inventory transaction starts.
+    jg_whatsapp_ensure_inventory_restore_schema($skuPdo);
+    $now = jg_sku_now();
+    $skuPdo->beginTransaction();
+    try {
+        $lockSku = $skuPdo->prepare('SELECT sku, current_stock, cogs FROM sku_skus WHERE sku = :sku FOR UPDATE');
+        $findAudit = $skuPdo->prepare(
+            'SELECT id FROM direct_order_inventory_restorations WHERE order_id = :order_id AND sku = :sku LIMIT 1'
+        );
+        $insertAudit = $skuPdo->prepare(
+            'INSERT INTO direct_order_inventory_restorations (order_id, sku, quantity, restored_at)
+             VALUES (:order_id, :sku, :quantity, :restored_at)'
+        );
+        $addStock = $skuPdo->prepare(
+            'UPDATE sku_skus SET current_stock = current_stock + :quantity, updated_at = :updated_at WHERE sku = :sku'
+        );
+        $addLot = $skuPdo->prepare(
+            'INSERT INTO sku_stock_lots
+                (sku, po_number, received_qty_astra, remaining_qty_astra, cogs_per_astra, received_at, created_at, updated_at)
+             VALUES
+                (:sku, :po_number, :quantity, :quantity, :cogs, :received_at, :created_at, :updated_at)'
+        );
+        $addHistory = $skuPdo->prepare(
+            'INSERT INTO sku_cogs_history
+                (sku, old_price, new_price, takes_place, change_mode, effective_at, recorded_at)
+             VALUES
+                (:sku, NULL, :cogs, :takes_place, "audit", NULL, :recorded_at)'
+        );
+
+        foreach ($quantities as $sku => $quantity) {
+            $lockSku->execute([':sku' => $sku]);
+            $skuRow = $lockSku->fetch();
+            if (!is_array($skuRow)) {
+                throw new RuntimeException(sprintf('SKU %s no longer exists. Inventory was not changed.', $sku));
+            }
+            $findAudit->execute([':order_id' => $orderId, ':sku' => $sku]);
+            if ($findAudit->fetchColumn() !== false) continue;
+
+            $cogs = max(0.0, (float) ($skuRow['cogs'] ?? 0));
+            $insertAudit->execute([
+                ':order_id' => $orderId,
+                ':sku' => $sku,
+                ':quantity' => $quantity,
+                ':restored_at' => $now,
+            ]);
+            $addStock->execute([':quantity' => $quantity, ':updated_at' => $now, ':sku' => $sku]);
+            $addLot->execute([
+                ':sku' => $sku,
+                ':po_number' => mb_substr('DIRECT-ARCHIVE-' . $orderId, 0, 80),
+                ':quantity' => number_format((float) $quantity, 2, '.', ''),
+                ':cogs' => number_format($cogs, 2, '.', ''),
+                ':received_at' => $now,
+                ':created_at' => $now,
+                ':updated_at' => $now,
+            ]);
+            $addHistory->execute([
+                ':sku' => $sku,
+                ':cogs' => number_format($cogs, 2, '.', ''),
+                ':takes_place' => mb_substr(sprintf('Direct order archive | %s | Restored %d', $orderId, $quantity), 0, 120),
+                ':recorded_at' => $now,
+            ]);
+        }
+        jg_astra_stock_sync($skuPdo);
+        jg_sku_touch_version($skuPdo);
+        $skuPdo->commit();
+    } catch (Throwable $error) {
+        if ($skuPdo->inTransaction()) $skuPdo->rollBack();
+        throw $error;
+    }
+}
+
+function jg_whatsapp_archive_order(PDO $pdo, ?PDO $skuPdo, string $orderId, array $payload): array
+{
+    jg_whatsapp_ensure_schema($pdo);
+    $orderId = trim($orderId);
+    if ($orderId === '') throw new InvalidArgumentException('Choose a direct order to archive.');
+    $options = jg_whatsapp_archive_options($payload);
+    $row = jg_whatsapp_internal_order($pdo, $orderId);
+
+    if ($options['restore_stock']) {
+        if (!$skuPdo instanceof PDO) throw new RuntimeException('SKU inventory is unavailable. Stock was not changed.');
+        jg_whatsapp_restore_order_inventory($pdo, $skuPdo, $row);
+    }
+
+    $now = jg_whatsapp_now();
+    $pdo->beginTransaction();
+    try {
+        $row = jg_whatsapp_internal_order($pdo, $orderId, true);
+        $pdo->prepare(
+            'UPDATE whatsapp_orders
+             SET archived_at = COALESCE(archived_at, :archived_at),
+                 archive_hide_charts = CASE WHEN archive_hide_charts = 1 THEN 1 ELSE :hide_charts END,
+                 archive_hide_financials = CASE WHEN archive_hide_financials = 1 THEN 1 ELSE :hide_financials END,
+                 archive_restore_stock = CASE WHEN archive_restore_stock = 1 THEN 1 ELSE :restore_stock END,
+                 updated_at = :updated_at
+             WHERE id = :id'
+        )->execute([
+            ':archived_at' => $now,
+            ':hide_charts' => $options['hide_charts'] ? 1 : 0,
+            ':hide_financials' => $options['hide_financials'] ? 1 : 0,
+            ':restore_stock' => $options['restore_stock'] ? 1 : 0,
+            ':updated_at' => $now,
+            ':id' => $row['id'],
+        ]);
+        $pdo->commit();
+    } catch (Throwable $error) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $error;
+    }
+    return jg_whatsapp_format_order($pdo, jg_whatsapp_internal_order($pdo, $orderId));
+}
+
 /** @return array{count:int,amount:float} */
 function jg_whatsapp_unpaid_summary(PDO $pdo): array
 {
@@ -863,7 +1057,7 @@ function jg_whatsapp_unpaid_summary(PDO $pdo): array
         'SELECT COUNT(*) AS unpaid_count,
                 COALESCE(SUM(merchandise_total + shipping_cost), 0) AS unpaid_amount
          FROM whatsapp_orders
-         WHERE payment_status = "unpaid" AND status <> "CANCELLED"'
+         WHERE payment_status = "unpaid" AND status <> "CANCELLED" AND archive_hide_financials = 0'
     )->fetch() ?: [];
     return [
         'count' => (int) ($row['unpaid_count'] ?? 0),
@@ -975,13 +1169,13 @@ function jg_whatsapp_order_detail(PDO $pdo, string $orderId): array
             $row = jg_whatsapp_internal_order($pdo, $orderId);
             $order = jg_whatsapp_format_order($pdo, $row);
         }
-        $order['can_cancel'] = !empty($state['can_cancel']);
+        $order['can_cancel'] = empty($order['archived']) && !empty($state['can_cancel']);
         $order['claimed'] = !empty($state['claimed']);
         $order['processed'] = !empty($state['processed']);
         $order['lifecycle_status'] = (string) ($state['display_status'] ?? $order['status']);
     } catch (Throwable $error) {
         error_log('WhatsApp Store Ops state check failed: ' . $error->getMessage());
-        $order['can_cancel'] = strtoupper((string) ($order['status'] ?? '')) === 'IS_LISTED';
+        $order['can_cancel'] = empty($order['archived']) && strtoupper((string) ($order['status'] ?? '')) === 'IS_LISTED';
         $order['claimed'] = false;
         $order['processed'] = strtoupper((string) ($order['status'] ?? '')) === 'FULFILLED';
         $order['lifecycle_status'] = (string) ($order['status'] ?? '');
@@ -993,12 +1187,12 @@ function jg_whatsapp_list_orders(PDO $pdo, int $limit = 100): array
 {
     jg_whatsapp_ensure_schema($pdo);
     $limit = max(1, min(250, $limit));
-    $stmt = $pdo->query('SELECT * FROM whatsapp_orders ORDER BY created_at DESC, id DESC LIMIT ' . $limit);
+    $stmt = $pdo->query('SELECT * FROM whatsapp_orders WHERE archived_at IS NULL ORDER BY created_at DESC, id DESC LIMIT ' . $limit);
     return array_map(static fn (array $row): array => jg_whatsapp_format_order($pdo, $row), $stmt->fetchAll());
 }
 
 /** @return array{orders:array<int,array<string,mixed>>,summary:array<string,float|int>,pagination:array<string,int>,filters:array<string,string>} */
-function jg_whatsapp_order_history(PDO $pdo, int $page = 1, int $perPage = 50, string $query = '', string $status = '', bool $syncLifecycle = false): array
+function jg_whatsapp_order_history(PDO $pdo, int $page = 1, int $perPage = 50, string $query = '', string $status = '', bool $syncLifecycle = false, string $archive = 'active'): array
 {
     jg_whatsapp_ensure_schema($pdo);
     if ($syncLifecycle) jg_whatsapp_sync_history_lifecycle($pdo);
@@ -1006,13 +1200,19 @@ function jg_whatsapp_order_history(PDO $pdo, int $page = 1, int $perPage = 50, s
     $perPage = max(10, min(100, $perPage));
     $query = trim($query);
     $status = strtoupper(trim($status));
+    $archive = strtolower(trim($archive));
     $allowedStatuses = ['', 'PENDING_PUBLISH', 'PUBLISH_FAILED', 'IS_LISTED', 'IS_BEING_FULFILLED', 'FULFILLED', 'CANCELLED'];
     if (!in_array($status, $allowedStatuses, true)) {
         throw new InvalidArgumentException('Choose a valid WhatsApp order status.');
     }
+    if (!in_array($archive, ['active', 'archived', 'all'], true)) {
+        throw new InvalidArgumentException('Choose a valid archive view.');
+    }
 
     $where = [];
     $params = [];
+    if ($archive === 'active') $where[] = 'o.archived_at IS NULL';
+    if ($archive === 'archived') $where[] = 'o.archived_at IS NOT NULL';
     if ($query !== '') {
         $where[] = '(o.order_id LIKE :query_order OR o.customer_name LIKE :query_customer
             OR o.customer_phone LIKE :query_phone OR o.customer_address LIKE :query_address
@@ -1085,7 +1285,7 @@ function jg_whatsapp_order_history(PDO $pdo, int $page = 1, int $perPage = 50, s
             'total' => $total,
             'total_pages' => $totalPages,
         ],
-        'filters' => ['query' => $query, 'status' => $status],
+        'filters' => ['query' => $query, 'status' => $status, 'archive' => $archive],
     ];
 }
 
@@ -1128,6 +1328,7 @@ function jg_whatsapp_metric_order_rows(PDO $pdo, string $startDate, string $endD
          FROM whatsapp_orders o
          INNER JOIN whatsapp_order_items i ON i.whatsapp_order_id = o.id
          WHERE o.status IN (' . $statusSql . ')
+           AND o.archive_hide_charts = 0
            AND COALESCE(o.listed_at, o.created_at) >= ?
            AND COALESCE(o.listed_at, o.created_at) < ?
          ORDER BY COALESCE(o.listed_at, o.created_at) DESC, o.id DESC, i.id'
@@ -1319,6 +1520,7 @@ function jg_whatsapp_merge_sales_summary(PDO $pdo, array $summary, int $year): a
              FROM whatsapp_order_items GROUP BY whatsapp_order_id
          ) items ON items.whatsapp_order_id = o.id
          WHERE o.status IN (' . $statusSql . ')
+           AND o.archive_hide_charts = 0
            AND YEAR(DATE_ADD(COALESCE(o.listed_at, o.created_at), INTERVAL 7 HOUR)) = ?
          GROUP BY o.sales_channel, MONTH(DATE_ADD(COALESCE(o.listed_at, o.created_at), INTERVAL 7 HOUR))'
     );
@@ -1331,6 +1533,7 @@ function jg_whatsapp_merge_sales_summary(PDO $pdo, array $summary, int $year): a
          FROM whatsapp_orders o
          INNER JOIN whatsapp_order_items i ON i.whatsapp_order_id = o.id
          WHERE o.status IN (' . $statusSql . ')
+           AND o.archive_hide_charts = 0
            AND YEAR(DATE_ADD(COALESCE(o.listed_at, o.created_at), INTERVAL 7 HOUR)) = ?
          GROUP BY o.sales_channel, MONTH(DATE_ADD(COALESCE(o.listed_at, o.created_at), INTERVAL 7 HOUR)),
                   i.sku, i.product_name, i.brand_name, i.base_product_name, i.flavor_name'

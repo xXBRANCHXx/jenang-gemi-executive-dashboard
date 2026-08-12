@@ -12,8 +12,18 @@ document.addEventListener('DOMContentLoaded', () => {
     items: root.querySelector('[data-detail-items]'),
     label: root.querySelector('[data-detail-label-link]'),
     invoice: root.querySelector('[data-detail-invoice-link]'),
-    cancel: root.querySelector('[data-detail-cancel]')
+    cancel: root.querySelector('[data-detail-cancel]'),
+    archive: root.querySelector('[data-detail-archive]'),
+    archived: root.querySelector('[data-detail-archived]'),
+    archiveDialog: root.querySelector('[data-detail-archive-dialog]'),
+    archiveForm: root.querySelector('[data-detail-archive-form]'),
+    archiveOrderId: root.querySelector('[data-detail-archive-id]'),
+    archiveError: root.querySelector('[data-detail-archive-error]'),
+    archiveCancel: root.querySelector('[data-detail-archive-cancel]'),
+    archiveConfirm: root.querySelector('[data-detail-archive-confirm]')
   };
+  let currentOrder = null;
+  let archiveSaving = false;
   const currency = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 });
   const integer = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 });
   const percentage = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 });
@@ -39,6 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const renderOrder = (order) => {
+    currentOrder = order;
     const items = Array.isArray(order.items) ? order.items : [];
     const subtotal = Number(order.merchandise_subtotal || 0);
     const merchandise = Number(order.merchandise_total || 0);
@@ -98,9 +109,18 @@ document.addEventListener('DOMContentLoaded', () => {
       refs.invoice.hidden = false;
     }
     if (refs.cancel) {
-      refs.cancel.hidden = order.can_cancel !== true;
+      refs.cancel.hidden = order.can_cancel !== true || order.archived === true;
       refs.cancel.disabled = false;
       refs.cancel.classList.remove('is-loading');
+    }
+    if (refs.archive) {
+      refs.archive.hidden = order.can_archive !== true;
+      refs.archive.disabled = false;
+      refs.archive.classList.remove('is-loading');
+    }
+    if (refs.archived) {
+      refs.archived.hidden = order.archived !== true;
+      refs.archived.title = order.archived_at ? `Archived ${formatDate(order.archived_at)}` : 'Archived';
     }
     if (refs.items) {
       refs.items.innerHTML = items.length ? items.map((item) => {
@@ -166,6 +186,69 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   refs.cancel?.addEventListener('click', cancelOrder);
+
+  const closeArchiveDialog = () => {
+    if (archiveSaving) return;
+    refs.archiveDialog?.close?.();
+  };
+  const openArchiveDialog = () => {
+    if (!currentOrder || currentOrder.can_archive !== true) return;
+    if (refs.archiveOrderId) refs.archiveOrderId.textContent = currentOrder.order_id || orderId;
+    if (refs.archiveError) {
+      refs.archiveError.textContent = '';
+      refs.archiveError.hidden = true;
+    }
+    const charts = refs.archiveForm?.querySelector('input[name="hide_charts"]');
+    const financials = refs.archiveForm?.querySelector('input[name="hide_financials"]');
+    const stock = refs.archiveForm?.querySelector('input[name="restore_stock"]');
+    if (charts instanceof HTMLInputElement) charts.checked = true;
+    if (financials instanceof HTMLInputElement) financials.checked = true;
+    if (stock instanceof HTMLInputElement) stock.checked = false;
+    refs.archiveDialog?.showModal?.();
+  };
+  const archiveOrder = async () => {
+    if (!orderId || archiveSaving) return;
+    const checked = (name) => refs.archiveForm?.querySelector(`input[name="${name}"]`)?.checked === true;
+    archiveSaving = true;
+    if (refs.archiveConfirm) {
+      refs.archiveConfirm.disabled = true;
+      refs.archiveConfirm.textContent = 'Archiving…';
+    }
+    try {
+      const response = await fetch(`${endpoint}?action=archive`, {
+        method: 'POST', credentials: 'same-origin', cache: 'no-store',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_id: orderId,
+          hide_charts: checked('hide_charts'),
+          hide_financials: checked('hide_financials'),
+          restore_stock: checked('restore_stock')
+        })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.ok) throw new Error(payload.error || 'Order could not be archived.');
+      refs.archiveDialog?.close?.();
+      renderOrder({ ...currentOrder, ...(payload.order || {}) });
+      window.refreshDirectOrderUnpaidIndicator?.();
+    } catch (error) {
+      if (refs.archiveError) {
+        refs.archiveError.textContent = error instanceof Error ? error.message : 'Order could not be archived.';
+        refs.archiveError.hidden = false;
+      }
+    } finally {
+      archiveSaving = false;
+      if (refs.archiveConfirm) {
+        refs.archiveConfirm.disabled = false;
+        refs.archiveConfirm.textContent = 'Archive order';
+      }
+    }
+  };
+  refs.archive?.addEventListener('click', openArchiveDialog);
+  refs.archiveCancel?.addEventListener('click', closeArchiveDialog);
+  refs.archiveForm?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    archiveOrder();
+  });
 
   loadOrder().catch((error) => {
     if (refs.loading) refs.loading.hidden = true;

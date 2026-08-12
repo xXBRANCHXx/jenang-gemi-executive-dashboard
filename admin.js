@@ -7985,8 +7985,8 @@ document.addEventListener('DOMContentLoaded', () => {
       ordersRefs.paymentError.hidden = true;
       ordersRefs.paymentError.textContent = '';
     }
-    const cash = ordersRefs.paymentForm?.querySelector('input[name="payment_method"][value="cash"]');
-    if (cash instanceof HTMLInputElement) cash.checked = true;
+    const bank = ordersRefs.paymentForm?.querySelector('input[name="payment_method"][value="bank"]');
+    if (bank instanceof HTMLInputElement) bank.checked = true;
     ordersRefs.paymentDialog.showModal?.();
   };
 

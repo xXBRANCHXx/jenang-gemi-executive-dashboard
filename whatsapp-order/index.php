@@ -74,6 +74,14 @@ $storeOpsBaseUrl = rtrim(
                             </div>
                             <div class="whatsapp-detail-hero-actions">
                                 <span class="whatsapp-history-status" data-detail-status>Status</span>
+                                <span class="whatsapp-detail-archived-badge" data-detail-archived hidden>
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M5 7l1 13h12l1-13M9 11h6M8 4h8l1 3H7l1-3Z"/></svg>
+                                    Archived
+                                </span>
+                                <button type="button" class="whatsapp-detail-icon-action is-archive" data-detail-archive aria-label="Archive order" title="Archive order">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M5 7l1 13h12l1-13M9 11h6M8 4h8l1 3H7l1-3Z"/></svg>
+                                    <span class="admin-sr-only">Archive order</span>
+                                </button>
                                 <button type="button" class="whatsapp-detail-icon-action is-cancel" data-detail-cancel aria-label="Cancel order" title="Cancel order" hidden>
                                     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6M15 9l-6 6"/></svg>
                                     <span class="admin-sr-only">Cancel order</span>
@@ -146,6 +154,24 @@ $storeOpsBaseUrl = rtrim(
                 </main>
             </div>
         </div>
+
+        <dialog class="whatsapp-archive-dialog" data-detail-archive-dialog aria-labelledby="detail-archive-title">
+            <form method="dialog" data-detail-archive-form>
+                <div class="whatsapp-archive-dialog-head">
+                    <span class="whatsapp-archive-dialog-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7h16M5 7l1 13h12l1-13M9 11h6M8 4h8l1 3H7l1-3Z"/></svg></span>
+                    <div><span class="admin-panel-kicker">Archive direct order</span><h2 id="detail-archive-title">Choose what to correct</h2></div>
+                </div>
+                <p class="whatsapp-archive-dialog-copy"><strong data-detail-archive-id>Order</strong> will leave the active ledger. Its record and fulfillment status stay available for audit.</p>
+                <div class="whatsapp-archive-options">
+                    <label><input type="checkbox" name="hide_charts" checked><span class="whatsapp-archive-option-icon"><svg viewBox="0 0 24 24"><path d="M4 19V9m6 10V5m6 14v-7m4 7H2"/></svg></span><span><strong>Hide from charts</strong><small>Remove revenue, orders, units, COGS, and customer metrics from analytics.</small></span></label>
+                    <label><input type="checkbox" name="hide_financials" checked><span class="whatsapp-archive-option-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18m-5 5h2"/></svg></span><span><strong>Remove financial impact</strong><small>Exclude the order from Bank, Cash, and unpaid receivable totals.</small></span></label>
+                    <label><input type="checkbox" name="restore_stock"><span class="whatsapp-archive-option-icon"><svg viewBox="0 0 24 24"><path d="M20 8 12 3 4 8v9l8 4 8-4V8Z"/><path d="m4 8 8 4 8-4m-8 4v9m6-16-8 5"/></svg></span><span><strong>Redeem stock</strong><small>Add every ordered unit back to its SKU stock. Retries cannot add stock twice.</small></span></label>
+                </div>
+                <p class="whatsapp-archive-notice"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01"/></svg><span>This does not cancel the order in Store Ops or change its fulfillment state.</span></p>
+                <p class="admin-form-error" data-detail-archive-error hidden></p>
+                <div class="admin-modal-actions"><button type="button" class="admin-ghost-btn" data-detail-archive-cancel>Keep active</button><button type="submit" class="admin-primary-btn is-archive" data-detail-archive-confirm>Archive order</button></div>
+            </form>
+        </dialog>
     </div>
 
     <?php render_admin_notification_drawer(); ?>

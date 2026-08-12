@@ -160,7 +160,7 @@
 
 .whatsapp-history-filters {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) minmax(190px, .28fr);
+  grid-template-columns: minmax(260px, 1fr) minmax(180px, .28fr) minmax(180px, .28fr);
   gap: 12px;
   margin: 22px 0 16px;
 }
@@ -385,6 +385,58 @@
   color: #60a5fa;
 }
 
+.whatsapp-history-row.is-archived {
+  background: color-mix(in srgb, var(--admin-muted) 4%, transparent);
+}
+
+.whatsapp-history-row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.whatsapp-history-icon-btn,
+.whatsapp-history-archived-mark {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--admin-border);
+  border-radius: 50%;
+  color: var(--admin-muted);
+  background: transparent;
+}
+
+.whatsapp-history-icon-btn {
+  cursor: pointer;
+  transition: color .16s ease, border-color .16s ease, background .16s ease;
+}
+
+.whatsapp-history-icon-btn svg,
+.whatsapp-history-archived-mark svg,
+.whatsapp-detail-archived-badge svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.whatsapp-history-icon-btn.is-archive:hover,
+.whatsapp-history-icon-btn.is-archive:focus-visible {
+  border-color: color-mix(in srgb, #f59e0b 55%, var(--admin-border));
+  color: #f59e0b;
+  background: color-mix(in srgb, #f59e0b 8%, var(--admin-surface));
+}
+
+.whatsapp-history-archived-mark {
+  border-color: transparent;
+  color: #f59e0b;
+}
+
 .whatsapp-history-pagination {
   display: flex;
   align-items: center;
@@ -455,6 +507,193 @@
 
 .whatsapp-detail-icon-action.is-cancel {
   color: #ef4444;
+}
+
+.whatsapp-detail-icon-action.is-archive {
+  color: #f59e0b;
+}
+
+.whatsapp-detail-icon-action.is-archive:hover,
+.whatsapp-detail-icon-action.is-archive:focus-visible {
+  color: #fbbf24;
+}
+
+.whatsapp-detail-archived-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid color-mix(in srgb, #f59e0b 42%, var(--admin-border));
+  border-radius: 999px;
+  color: #f59e0b;
+  background: color-mix(in srgb, #f59e0b 7%, var(--admin-surface));
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.whatsapp-archive-dialog {
+  width: min(620px, calc(100vw - 32px));
+  max-height: min(780px, calc(100vh - 32px));
+  padding: 0;
+  overflow: auto;
+  border: 1px solid var(--admin-border);
+  border-radius: 20px;
+  color: var(--admin-text);
+  background: var(--admin-surface);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .42);
+}
+
+.whatsapp-archive-dialog::backdrop {
+  background: rgba(0, 0, 0, .72);
+}
+
+.whatsapp-archive-dialog form {
+  display: grid;
+  gap: 20px;
+  padding: clamp(22px, 4vw, 32px);
+}
+
+.whatsapp-archive-dialog-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.whatsapp-archive-dialog-head h2 {
+  margin: 4px 0 0;
+  color: var(--admin-text);
+  font: 700 clamp(23px, 4vw, 29px)/1.1 "Space Grotesk", sans-serif;
+  letter-spacing: -.03em;
+}
+
+.whatsapp-archive-dialog-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 46px;
+  height: 46px;
+  border: 1px solid color-mix(in srgb, #f59e0b 45%, var(--admin-border));
+  border-radius: 13px;
+  color: #f59e0b;
+  background: color-mix(in srgb, #f59e0b 8%, var(--admin-surface));
+}
+
+.whatsapp-archive-dialog-icon svg,
+.whatsapp-archive-option-icon svg,
+.whatsapp-archive-notice svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.whatsapp-archive-dialog-copy {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.whatsapp-archive-dialog-copy strong {
+  color: var(--admin-text);
+}
+
+.whatsapp-archive-options {
+  display: grid;
+  gap: 10px;
+}
+
+.whatsapp-archive-options label {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: 13px;
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  background: var(--admin-surface-soft);
+  cursor: pointer;
+  transition: border-color .16s ease, background .16s ease;
+}
+
+.whatsapp-archive-options label:has(input:checked) {
+  border-color: color-mix(in srgb, #60a5fa 45%, var(--admin-border));
+  background: color-mix(in srgb, #3b82f6 7%, var(--admin-surface));
+}
+
+.whatsapp-archive-options input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: #3b82f6;
+}
+
+.whatsapp-archive-option-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  color: var(--admin-muted);
+  background: var(--admin-surface);
+}
+
+.whatsapp-archive-option-icon svg {
+  width: 19px;
+  height: 19px;
+}
+
+.whatsapp-archive-options label > span:last-child {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.whatsapp-archive-options strong {
+  color: var(--admin-text);
+  font-size: 13px;
+}
+
+.whatsapp-archive-options small {
+  color: var(--admin-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.whatsapp-archive-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: -4px 0 0;
+  color: var(--admin-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.whatsapp-archive-notice svg {
+  flex: 0 0 auto;
+  width: 17px;
+  height: 17px;
+  margin-top: 1px;
+}
+
+.admin-primary-btn.is-archive {
+  border-color: #f59e0b;
+  color: #111827;
+  background: #f59e0b;
+}
+
+.admin-primary-btn.is-archive:hover,
+.admin-primary-btn.is-archive:focus-visible {
+  background: #fbbf24;
 }
 
 .whatsapp-detail-icon-action.is-cancel:hover,
@@ -586,8 +825,14 @@
     grid-column: auto;
   }
   .whatsapp-detail-hero-actions {
-    align-items: stretch;
-    flex-direction: column;
+    align-items: center;
+    flex-flow: row wrap;
+  }
+  .whatsapp-archive-options label {
+    grid-template-columns: auto 1fr;
+  }
+  .whatsapp-archive-option-icon {
+    display: none;
   }
   .whatsapp-history-pagination {
     justify-content: space-between;

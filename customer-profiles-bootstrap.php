@@ -315,7 +315,8 @@ function jg_customer_profiles_source_rows(PDO $pdo): array
                 i.quantity, i.product_name
          FROM whatsapp_orders o
          INNER JOIN whatsapp_order_items i ON i.whatsapp_order_id = o.id
-         WHERE o.status IN ("IS_LISTED", "IS_BEING_FULFILLED", "FULFILLED")'
+         WHERE o.status IN ("IS_LISTED", "IS_BEING_FULFILLED", "FULFILLED")
+           AND o.archive_hide_charts = 0'
     );
     if ($direct) $rows = array_merge($rows, $direct->fetchAll());
     return $rows;

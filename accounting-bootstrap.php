@@ -3023,9 +3023,11 @@ function jg_accounting_direct_order_cash_records(PDO $pdo, array $bounds = []): 
     }
     $hasPaymentSchema = jg_accounting_table_has_column($pdo, 'whatsapp_orders', 'payment_status')
         && jg_accounting_table_has_column($pdo, 'whatsapp_orders', 'paid_at');
+    $hasArchiveSchema = jg_accounting_table_has_column($pdo, 'whatsapp_orders', 'archive_hide_financials');
     $where = $hasPaymentSchema
         ? ['payment_status = "paid"', 'paid_at IS NOT NULL', 'status <> "CANCELLED"']
         : ['status = "FULFILLED"', 'fulfilled_at IS NOT NULL'];
+    if ($hasArchiveSchema) $where[] = 'archive_hide_financials = 0';
     $params = [];
     $paymentTimeColumn = $hasPaymentSchema ? 'paid_at' : 'fulfilled_at';
     jg_accounting_apply_source_time_filter($where, $params, $bounds, $paymentTimeColumn, 'direct_paid');
@@ -3098,11 +3100,13 @@ function jg_accounting_direct_order_outstanding_context(PDO $pdo): array
         if (!jg_accounting_table_has_column($pdo, 'whatsapp_orders', 'payment_status')) {
             return ['amount' => 0, 'order_count' => 0, 'available' => false, 'source' => 'unavailable', 'label' => 'Direct order receivables unavailable'];
         }
+        $archiveWhere = jg_accounting_table_has_column($pdo, 'whatsapp_orders', 'archive_hide_financials')
+            ? ' AND archive_hide_financials = 0' : '';
         $row = $pdo->query(
             'SELECT COUNT(*) AS order_count,
                     COALESCE(SUM(merchandise_total + shipping_cost), 0) AS amount
              FROM whatsapp_orders
-             WHERE payment_status = "unpaid" AND status <> "CANCELLED"'
+             WHERE payment_status = "unpaid" AND status <> "CANCELLED"' . $archiveWhere
         )->fetch() ?: [];
         return [
             'amount' => max(0, (int) round((float) ($row['amount'] ?? 0))),

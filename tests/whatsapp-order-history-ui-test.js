@@ -13,25 +13,36 @@ const bootstrap = fs.readFileSync(path.join(root, 'whatsapp-orders-bootstrap.php
 const nav = fs.readFileSync(path.join(root, 'admin-nav.php'), 'utf8');
 const builderPage = fs.readFileSync(path.join(root, 'whatsapp-orders', 'index.php'), 'utf8');
 const builderScript = fs.readFileSync(path.join(root, 'whatsapp-orders.js'), 'utf8');
+const dashboardPage = fs.readFileSync(path.join(root, 'dashboard', 'index.php'), 'utf8');
+const dashboardScript = fs.readFileSync(path.join(root, 'admin.js'), 'utf8');
 
 assert.match(historyPage, /All direct-order records[\s\S]*?data-history-summary="orders"[\s\S]*?data-history-body/, 'History page must expose a complete ledger and summary.');
 assert.match(historyPage, /data-history-search[\s\S]*?data-history-status-filter[\s\S]*?data-history-previous[\s\S]*?data-history-next/, 'History ledger must support search, status filters, and pagination.');
 assert.match(historyPage, /value="IS_LISTED"[\s\S]*?value="IS_BEING_FULFILLED">Processing[\s\S]*?value="FULFILLED">Fulfilled[\s\S]*?value="CANCELLED">Cancelled/, 'History status filters must expose the full Listed, Processing, Fulfilled, and Cancelled lifecycle.');
 assert.match(historyPage, /<th>Payment<\/th>[\s\S]*?data-history-payment-dialog[\s\S]*?name="payment_method" value="cash"[\s\S]*?name="payment_method" value="bank"/, 'History must expose payment status and a Cash or Bank confirmation dialog.');
+assert.match(historyPage, /name="payment_method" value="bank" checked/, 'Bank must be the default when a Pay Later order is marked paid.');
+assert.match(dashboardPage, /data-order-payment-form[\s\S]*?name="payment_method" value="bank" checked/, 'The central Orders payment dialog must also default to Bank.');
+assert.match(dashboardScript, /openOrderPaymentDialog[\s\S]*?value="bank"[\s\S]*?bank\.checked = true/, 'Opening the central payment dialog must reset its default to Bank.');
+assert.match(historyPage, /data-history-archive-filter[\s\S]*?value="archived">Archived orders[\s\S]*?data-history-archive-dialog/, 'History must expose active and archived records plus an archive workflow.');
+assert.match(historyPage, /name="hide_charts" checked[\s\S]*?name="hide_financials" checked[\s\S]*?name="restore_stock"/, 'The archive dialog must let the operator independently correct charts, financials, and inventory.');
 assert.match(historyScript, /action: 'history'/, 'History rows must load the paginated history API.');
 assert.match(historyScript, /lifecycleSynced: false[\s\S]*?sync_lifecycle[\s\S]*?lifecycleSynced = true/, 'History must reconcile lifecycle status once per page load before filtering records.');
 assert.match(historyScript, /whatsapp-order\/\?order=[\s\S]*?data-order-url/, 'History rows must open dedicated detail pages.');
 assert.match(historyScript, /order\.pay_later === true[\s\S]*?data-history-confirm-payment[\s\S]*?action=confirm_payment[\s\S]*?payment_method: method[\s\S]*?payment_status: 'paid'/, 'Only pay-later history rows may offer the authenticated payment confirmation action and update immediately afterward.');
+assert.match(historyScript, /data-history-archive[\s\S]*?action=archive[\s\S]*?hide_charts[\s\S]*?hide_financials[\s\S]*?restore_stock/, 'History rows must archive through the protected API with explicit metric corrections.');
 assert.match(detailPage, /Ordered items[\s\S]*?Unit price[\s\S]*?Gross[\s\S]*?Discount[\s\S]*?Net/, 'Detail page must show the complete item price breakdown.');
 assert.match(detailPage, /Delivery details[\s\S]*?Cost and margin[\s\S]*?Order timing/, 'Detail page must include customer, economics, and lifecycle context.');
 assert.match(detailPage, /data-detail-cancel[\s\S]*?<circle cx="12" cy="12" r="9"/, 'Detail page must provide a real cancel icon for cancellable orders.');
 assert.match(detailPage, /data-detail-invoice-link[\s\S]*?<rect x="6" y="14" width="12" height="7"/, 'Invoice action must use a real bare printer icon.');
 assert.match(detailPage, /data-detail-label-link[\s\S]*?<circle cx="16" cy="8" r="1"/, 'Shipping-label action must use a real bare label icon.');
+assert.match(detailPage, /data-detail-archive[\s\S]*?data-detail-archive-dialog[\s\S]*?Redeem stock/, 'The order detail page must expose the same archive workflow with real icons.');
 assert.match(detailScript, /invoicePrinterUrl[\s\S]*?order_id[\s\S]*?print[\s\S]*?refs\.invoice\.href/, 'Invoice action must pass the order ID into the auto-print route.');
 assert.match(detailScript, /order\.can_cancel !== true[\s\S]*?action=cancel[\s\S]*?order_id: orderId/, 'Cancellation must follow authoritative Store Ops eligibility and use the protected API.');
 assert.match(detailScript, /unit_cogs[\s\S]*?discount_total[\s\S]*?line_total[\s\S]*?action: 'order'/, 'Detail client must calculate from saved line economics.');
 assert.match(api, /action === 'history'[\s\S]*?jg_whatsapp_order_history[\s\S]*?action === 'order'/, 'WhatsApp API must expose history and single-order reads.');
 assert.match(api, /action === 'cancel'[\s\S]*?jg_whatsapp_cancel_order/, 'WhatsApp API must expose authenticated order cancellation.');
+assert.match(api, /action === 'archive'[\s\S]*?jg_whatsapp_archive_order/, 'WhatsApp API must expose authenticated direct-order archiving.');
+assert.match(bootstrap, /direct_order_inventory_restorations[\s\S]*?UNIQUE KEY uniq_direct_order_restore[\s\S]*?function jg_whatsapp_archive_order/, 'Inventory restoration must have an idempotent audit boundary before archiving.');
 assert.match(bootstrap, /function jg_whatsapp_order_history[\s\S]*?COUNT\(\*\)[\s\S]*?LIMIT/, 'History backend must paginate over all matching orders.');
 assert.match(bootstrap, /function jg_whatsapp_store_ops_states[\s\S]*?whatsapp_statuses[\s\S]*?function jg_whatsapp_sync_history_lifecycle[\s\S]*?IS_BEING_FULFILLED[\s\S]*?FULFILLED[\s\S]*?CANCELLED/, 'History must batch-reconcile authoritative Store Ops lifecycle states, including stale records.');
 assert.match(bootstrap, /function jg_whatsapp_cancel_order[\s\S]*?action=cancel[\s\S]*?SET status = "CANCELLED"/, 'Executive cancellation must be authorized atomically by Store Ops before changing the order record.');
@@ -42,5 +53,7 @@ assert.match(builderScript, /href="\.\.\/whatsapp-order\/\?order=/, 'Recent orde
 assert.match(styles, /\.whatsapp-history-row:hover[\s\S]*?\.whatsapp-detail-items-table/, 'History and detail views must share a polished responsive visual system.');
 assert.match(styles, /\.whatsapp-history-pay-btn[\s\S]*?\.whatsapp-history-payment-dialog/, 'Pay-later history actions and the confirmation dialog must have dedicated responsive styling.');
 assert.match(styles, /\.whatsapp-detail-icon-action[\s\S]*?background: transparent[\s\S]*?\.whatsapp-detail-icon-action\.is-cancel[\s\S]*?color: #ef4444/, 'Header actions must be bare icons and cancellation must be red.');
+assert.match(styles, /\.whatsapp-archive-dialog[\s\S]*?\.whatsapp-archive-options[\s\S]*?\.admin-primary-btn\.is-archive/, 'Archive controls must use a dedicated, responsive visual system.');
+assert.ok(!styles.includes('gradient'), 'WhatsApp History and archive UI must use solid surfaces without gradients.');
 
 console.log('whatsapp-order-history-ui-test: ok');
