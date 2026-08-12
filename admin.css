@@ -14523,6 +14523,14 @@ body::after {
   min-width: 0;
 }
 
+.admin-customer-lifecycle-card {
+  grid-column: 1 / -2;
+}
+
+.admin-repeat-orders-card {
+  grid-column: -2 / -1;
+}
+
 .admin-app.admin-app-suite .admin-main-grid-compact .admin-repeat-orders-canvas {
   height: 180px;
 }
