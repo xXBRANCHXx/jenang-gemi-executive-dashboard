@@ -134,11 +134,85 @@ function jg_customer_profiles_collapse_orders(array $rows): array
     return array_values($orders);
 }
 
+/** @return array<int,array<string,mixed>> */
+function jg_customer_profiles_repeat_order_trend(array $orders, string $timezone = 'Asia/Jakarta'): array
+{
+    try {
+        $businessTimezone = new DateTimeZone($timezone);
+    } catch (Throwable) {
+        $businessTimezone = new DateTimeZone('Asia/Jakarta');
+    }
+
+    $attributedOrders = [];
+    foreach ($orders as $index => $order) {
+        if (!is_array($order)) continue;
+        $identity = jg_customer_profiles_identity($order);
+        $occurredAt = jg_customer_profiles_date($order['occurred_at'] ?? '');
+        if ($identity['key'] === '' || !$occurredAt) continue;
+        $attributedOrders[] = [
+            'identity' => $identity['key'],
+            'occurred_at' => $occurredAt,
+            'sort_key' => implode('|', [
+                (string) ($order['channel'] ?? ''),
+                (string) ($order['account'] ?? ''),
+                (string) ($order['order_id'] ?? ''),
+                (string) $index,
+            ]),
+            'revenue' => max(0.0, (float) ($order['revenue'] ?? 0)),
+        ];
+    }
+
+    usort($attributedOrders, static function (array $left, array $right): int {
+        $dateOrder = $left['occurred_at'] <=> $right['occurred_at'];
+        return $dateOrder !== 0 ? $dateOrder : strcmp((string) $left['sort_key'], (string) $right['sort_key']);
+    });
+
+    $seenCustomers = [];
+    $months = [];
+    foreach ($attributedOrders as $order) {
+        $identity = (string) $order['identity'];
+        $isRepeat = ($seenCustomers[$identity] ?? 0) > 0;
+        $seenCustomers[$identity] = ($seenCustomers[$identity] ?? 0) + 1;
+        $month = $order['occurred_at']->setTimezone($businessTimezone)->format('Y-m');
+        if (!isset($months[$month])) {
+            $months[$month] = [
+                'month' => $month,
+                'label' => $order['occurred_at']->setTimezone($businessTimezone)->format('M Y'),
+                'orders' => 0,
+                'new_customer_orders' => 0,
+                'repeat_customer_orders' => 0,
+                'revenue' => 0.0,
+                'repeat_order_revenue' => 0.0,
+            ];
+        }
+        $months[$month]['orders']++;
+        $months[$month][$isRepeat ? 'repeat_customer_orders' : 'new_customer_orders']++;
+        $months[$month]['revenue'] += (float) $order['revenue'];
+        if ($isRepeat) $months[$month]['repeat_order_revenue'] += (float) $order['revenue'];
+    }
+
+    ksort($months);
+    return array_values(array_map(static function (array $month): array {
+        $orders = (int) $month['orders'];
+        $revenue = (float) $month['revenue'];
+        $month['repeat_order_share'] = $orders > 0
+            ? round((int) $month['repeat_customer_orders'] / $orders * 100, 1)
+            : 0.0;
+        $month['repeat_revenue_share'] = $revenue > 0
+            ? round((float) $month['repeat_order_revenue'] / $revenue * 100, 1)
+            : 0.0;
+        $month['revenue'] = round($revenue, 2);
+        $month['repeat_order_revenue'] = round((float) $month['repeat_order_revenue'], 2);
+        return $month;
+    }, $months));
+}
+
 /** @return array<string,mixed> */
 function jg_customer_profiles_build(array $sourceRows, ?DateTimeImmutable $now = null): array
 {
     $now = ($now ?? new DateTimeImmutable('now', new DateTimeZone('UTC')))->setTimezone(new DateTimeZone('UTC'));
     $orders = jg_customer_profiles_collapse_orders($sourceRows);
+    $repeatOrderTrend = jg_customer_profiles_repeat_order_trend($orders);
     $profiles = [];
     $unattributed = 0;
     foreach ($orders as $order) {
@@ -268,11 +342,14 @@ function jg_customer_profiles_build(array $sourceRows, ?DateTimeImmutable $now =
         ],
         'segments' => $segmentCounts,
         'lifecycle_chart' => $lifecycleChart,
+        'repeat_order_trend' => $repeatOrderTrend,
         'lifecycle' => $lifecycleCounts,
         'channels' => array_values($channelStats),
         'profiles' => $profiles,
         'definitions' => [
             'repeat_customer' => 'A profiled customer with at least 2 recorded orders in the selected history.',
+            'repeat_order' => 'A customer\'s second or later identified order. The earlier order may be in the same month or any previous month.',
+            'repeat_order_share' => 'Repeat customer orders divided by all identified customer orders in that calendar month.',
             'identity' => 'Phone number links customers across channels; without a phone, name/username only links within one channel.',
             'order_grain' => 'Distinct orders per customer. Order-item rows are collapsed by channel, account, and order ID before lifecycle assignment.',
             'segments' => array_map(static fn (array $definition): string => $definition['order_band'], $segmentDefinitions),

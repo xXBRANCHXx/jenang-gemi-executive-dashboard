@@ -14484,6 +14484,49 @@ body::after {
   line-height: 1;
 }
 
+.admin-repeat-orders-summary {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  min-width: 150px;
+  text-align: right;
+}
+
+.admin-repeat-orders-summary strong {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.65rem;
+  line-height: 1;
+}
+
+.admin-repeat-orders-summary span {
+  color: var(--admin-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.admin-repeat-orders-summary span.is-up {
+  color: #6ee7b7;
+}
+
+.admin-repeat-orders-summary span.is-down {
+  color: #fb7185;
+}
+
+.admin-repeat-orders-chart {
+  margin-top: 4px;
+  min-height: 180px;
+}
+
+.admin-customer-lifecycle-card,
+.admin-repeat-orders-card {
+  align-self: stretch;
+  min-width: 0;
+}
+
+.admin-app.admin-app-suite .admin-main-grid-compact .admin-repeat-orders-canvas {
+  height: 180px;
+}
+
 .admin-customer-lifecycle-summary span,
 .admin-customer-lifecycle-status {
   color: var(--admin-muted);
@@ -14558,6 +14601,34 @@ body::after {
 .admin-customer-lifecycle-status {
   display: block;
   margin-top: 18px;
+}
+
+@media (max-width: 1260px) {
+  .admin-app.admin-app-suite .admin-customer-lifecycle-card,
+  .admin-app.admin-app-suite .admin-repeat-orders-card {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-repeat-orders-card .admin-panel-head {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .admin-repeat-orders-summary {
+    justify-items: start;
+    min-width: 0;
+    text-align: left;
+  }
+}
+
+:root[data-admin-theme='light'] .admin-repeat-orders-summary span.is-up {
+  color: #15803d;
+}
+
+:root[data-admin-theme='light'] .admin-repeat-orders-summary span.is-down {
+  color: #be123c;
 }
 
 .admin-app.admin-app-suite .admin-overview-hourly-card {

@@ -67,6 +67,10 @@ const OVERVIEW_METRIC_UNITS = {
   quantity: 'qty'
 };
 
+const REPEAT_ORDER_METRIC_UNITS = {
+  repeat_order_share: 'percent'
+};
+
 const DAILY_METRIC_LABELS = {
   revenue: 'Revenue by day',
   qty: 'Quantity by day',
@@ -897,12 +901,14 @@ const formatCellCurrency = (value) => formatCurrency(value, { compact: true });
 const formatFullMetricValue = (metric, value, unitsMap) => {
   const unit = unitsMap[metric] || 'units';
   if (unit === 'idr') return formatCurrency(value);
+  if (unit === 'percent') return `${Number(value || 0).toLocaleString('id-ID', { maximumFractionDigits: 1 })}%`;
   return `${formatRegionalNumber(Math.round(Number(value) || 0))} ${unit}`;
 };
 
 const formatMetricValue = (metric, value, unitsMap) => {
   const unit = unitsMap[metric] || 'units';
   if (unit === 'idr') return formatCurrency(value, { compact: true });
+  if (unit === 'percent') return `${Number(value || 0).toLocaleString('id-ID', { maximumFractionDigits: 1 })}%`;
   return `${formatCompactNumber(value)} ${unit}`;
 };
 
@@ -1489,7 +1495,7 @@ const drawLineChart = (canvas, items, metric, unitsMap, options = {}) => {
     return Number.isFinite(value) ? value : null;
   };
   const values = items.flatMap((item) => [chartValue(item), projectionValue(item)]).filter((value) => Number.isFinite(value));
-  const maxValue = Math.max(...values, 1);
+  const maxValue = Math.max(Number(options.maxValue) || 0, ...values, 1);
   const palette = getThemePalette();
   const points = [];
   const activeHover = chartActivePointState.get(canvas) || null;
@@ -2782,6 +2788,10 @@ document.addEventListener('DOMContentLoaded', () => {
     customerLifecycleChart: document.querySelector('[data-customer-lifecycle-chart]'),
     customerLifecycleTotal: document.querySelector('[data-customer-lifecycle-total]'),
     customerLifecycleStatus: document.querySelector('[data-customer-lifecycle-status]'),
+    repeatOrderCanvas: document.querySelector('[data-repeat-order-chart]'),
+    repeatOrderCurrent: document.querySelector('[data-repeat-order-current]'),
+    repeatOrderDelta: document.querySelector('[data-repeat-order-delta]'),
+    repeatOrderStatus: document.querySelector('[data-repeat-order-status]'),
     trendTitle: document.querySelector('[data-overview-trend-title]'),
     trendMeta: document.querySelector('[data-overview-trend-meta]'),
     hourlyTitle: document.querySelector('[data-overview-hourly-title]'),
@@ -6863,6 +6873,108 @@ document.addEventListener('DOMContentLoaded', () => {
     if (overviewRefs.customerLifecycleStatus) {
       overviewRefs.customerLifecycleStatus.textContent = `${formatRegionalNumber(totalOrders)} distinct orders across ${formatRegionalNumber(totalCustomers)} customers · item rows are collapsed first`;
     }
+    renderRepeatOrderTrend(data);
+  };
+
+  const repeatOrderMonthOffset = (monthKey, offset) => {
+    const match = String(monthKey || '').match(/^(\d{4})-(\d{2})$/);
+    if (!match) return '';
+    const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1 + offset, 1));
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+  };
+
+  const repeatOrderMonthLabel = (monthKey, includeYear = false) => {
+    const match = String(monthKey || '').match(/^(\d{4})-(\d{2})$/);
+    if (!match) return monthKey || '-';
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      ...(includeYear ? { year: '2-digit' } : {}),
+      timeZone: 'UTC'
+    }).format(new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, 1)));
+  };
+
+  const repeatOrderChartRows = (data) => {
+    const source = (Array.isArray(data?.repeat_order_trend) ? data.repeat_order_trend : [])
+      .filter((row) => /^\d{4}-\d{2}$/.test(String(row?.month || '')))
+      .sort((left, right) => String(left.month).localeCompare(String(right.month)));
+    if (!source.length) return [];
+    const currentMonth = getMonthKeyForTimezone(new Date(), state.timezone);
+    const earliestVisibleMonth = repeatOrderMonthOffset(currentMonth, -11);
+    const available = source.filter((row) => row.month <= currentMonth && row.month >= earliestVisibleMonth);
+    const startMonth = available[0]?.month || earliestVisibleMonth;
+    const byMonth = new Map(source.map((row) => [row.month, row]));
+    const rows = [];
+    for (let month = startMonth; month && month <= currentMonth; month = repeatOrderMonthOffset(month, 1)) {
+      const item = byMonth.get(month);
+      const orders = Math.max(0, Number(item?.orders || 0));
+      const repeatOrders = Math.max(0, Number(item?.repeat_customer_orders || 0));
+      rows.push({
+        month,
+        label: repeatOrderMonthLabel(month, month.endsWith('-01') || month === startMonth),
+        repeat_order_share: orders > 0 ? Number(item?.repeat_order_share || 0) : null,
+        orders,
+        repeat_customer_orders: repeatOrders,
+        tooltipTitle: `${repeatOrderMonthLabel(month, true)} repeat customer orders`,
+        tooltipLinesHtml: orders > 0
+          ? `<div class="admin-chart-tooltip-row is-primary"><span>Repeat share</span><strong>${escapeHtml(formatFullMetricValue('repeat_order_share', item?.repeat_order_share || 0, REPEAT_ORDER_METRIC_UNITS))}</strong></div><div class="admin-chart-tooltip-row"><span>Repeat orders</span><strong>${escapeHtml(formatRegionalNumber(repeatOrders))} of ${escapeHtml(formatRegionalNumber(orders))}</strong></div>`
+          : '<div class="admin-chart-tooltip-row"><span>No identified orders</span></div>'
+      });
+      if (month === currentMonth) break;
+    }
+    return rows;
+  };
+
+  const renderRepeatOrderTrend = (data) => {
+    if (!overviewRefs.repeatOrderCanvas) return;
+    const rows = repeatOrderChartRows(data);
+    const currentMonth = getMonthKeyForTimezone(new Date(), state.timezone);
+    const previousMonth = repeatOrderMonthOffset(currentMonth, -1);
+    const current = rows.find((row) => row.month === currentMonth);
+    const previous = rows.find((row) => row.month === previousMonth);
+    const hasCurrent = Number(current?.orders || 0) > 0;
+    const hasPrevious = Number(previous?.orders || 0) > 0;
+
+    if (overviewRefs.repeatOrderCurrent) {
+      overviewRefs.repeatOrderCurrent.textContent = hasCurrent
+        ? formatFullMetricValue('repeat_order_share', current.repeat_order_share, REPEAT_ORDER_METRIC_UNITS)
+        : '—';
+    }
+    if (overviewRefs.repeatOrderDelta) {
+      overviewRefs.repeatOrderDelta.classList.remove('is-up', 'is-down', 'is-flat');
+      if (hasCurrent && hasPrevious) {
+        const delta = Number(current.repeat_order_share || 0) - Number(previous.repeat_order_share || 0);
+        const direction = delta > 0.05 ? 'is-up' : delta < -0.05 ? 'is-down' : 'is-flat';
+        const arrow = delta > 0.05 ? '↑' : delta < -0.05 ? '↓' : '→';
+        overviewRefs.repeatOrderDelta.classList.add(direction);
+        overviewRefs.repeatOrderDelta.textContent = `${arrow} ${Math.abs(delta).toLocaleString('id-ID', { maximumFractionDigits: 1 })} pts vs ${repeatOrderMonthLabel(previousMonth)}`;
+      } else {
+        overviewRefs.repeatOrderDelta.textContent = hasCurrent ? `No ${repeatOrderMonthLabel(previousMonth)} comparison` : `${repeatOrderMonthLabel(currentMonth, true)} has no identified orders`;
+      }
+    }
+    if (overviewRefs.repeatOrderStatus) {
+      overviewRefs.repeatOrderStatus.textContent = hasCurrent
+        ? `${formatRegionalNumber(current.repeat_customer_orders)} of ${formatRegionalNumber(current.orders)} identified orders this month are repeat · MTD`
+        : 'Percentage uses identified customer orders; unattributed orders are excluded';
+    }
+
+    if (!rows.length) {
+      drawChartMessage(overviewRefs.repeatOrderCanvas, 'No identified customer orders yet.');
+      return;
+    }
+
+    drawChartSafely(overviewRefs.repeatOrderCanvas, () => drawLineChart(
+      overviewRefs.repeatOrderCanvas,
+      rows,
+      'repeat_order_share',
+      REPEAT_ORDER_METRIC_UNITS,
+      {
+        maxValue: 100,
+        padding: { top: 14, right: 16, bottom: 38, left: 62 },
+        maxLabels: 6,
+        labelFont: '600 10px "Plus Jakarta Sans", sans-serif',
+        lineColor: '#8b5cf6'
+      }
+    ), 'No repeat-order history yet');
   };
 
   const renderCustomerLifecycleError = (error) => {
@@ -6872,6 +6984,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (overviewRefs.customerLifecycleStatus) {
       overviewRefs.customerLifecycleStatus.textContent = 'Open Customer Profiles for the full customer directory';
     }
+    if (overviewRefs.repeatOrderCanvas) drawChartMessage(overviewRefs.repeatOrderCanvas, 'Repeat-order history is unavailable.');
+    if (overviewRefs.repeatOrderCurrent) overviewRefs.repeatOrderCurrent.textContent = '—';
+    if (overviewRefs.repeatOrderDelta) overviewRefs.repeatOrderDelta.textContent = 'Unable to compare months';
+    if (overviewRefs.repeatOrderStatus) overviewRefs.repeatOrderStatus.textContent = error?.message || 'Customer order history is unavailable';
   };
 
   const platformLabel = (value) => toTitleCase(String(value || 'unknown').replace(/[-_]/g, ' '));

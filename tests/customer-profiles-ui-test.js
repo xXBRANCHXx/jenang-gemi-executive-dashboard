@@ -22,6 +22,9 @@ expect(ordersPage.includes('All-channel order facts'), 'Orders must clearly desc
 expect(ordersPage.includes('data-customer-lifecycle') && ordersPage.includes('href="../customer-profiles/"'), 'The homepage must expose a clickable Customer Lifecycle chart linked to Customer Profiles.');
 expect(ordersPage.includes('Customers grouped by their distinct order count'), 'The homepage lifecycle chart must state that its grain is customer orders.');
 expect(dashboardScript.includes('lifecycle_chart') && dashboardScript.includes('profiled_orders') && dashboardScript.includes('item rows are collapsed first'), 'The homepage chart must render the order-grain lifecycle payload and explain the denominator.');
+expect(ordersPage.includes('data-repeat-order-chart') && ordersPage.includes('Repeat customer order share'), 'The homepage must place a monthly repeat-customer order chart beside Customer Lifecycle.');
+expect(dashboardScript.includes('repeat_order_trend') && dashboardScript.includes('repeat_customer_orders') && dashboardScript.includes('identified orders this month are repeat'), 'The repeat-order chart must show monthly trend data and the current-month numerator and denominator.');
+expect(ordersPage.includes('same-month and prior history') && ordersPage.includes('identity data are excluded'), 'The repeat-order chart must explain its historical rule and identity-data denominator.');
 expect(!sidebarSource.includes("'key' => 'customers'"), 'Customer Profiles must not appear in the left sidebar.');
 
 console.log('customer profiles UI tests passed');

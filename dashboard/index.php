@@ -314,7 +314,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                     </article>
                     </div>
 
-                    <a class="admin-panel admin-panel-chart admin-panel-wide admin-customer-lifecycle-card" data-chart-id="CL" data-customer-lifecycle href="../customer-profiles/" aria-label="Open Customer Profiles and the full customer lifecycle analysis">
+                    <a class="admin-panel admin-panel-chart admin-customer-lifecycle-card" data-chart-id="CL" data-customer-lifecycle href="../customer-profiles/" aria-label="Open Customer Profiles and the full customer lifecycle analysis">
                         <div class="admin-panel-head">
                             <div>
                                 <div class="admin-chart-title-row">
@@ -333,6 +333,26 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                         </div>
                         <small class="admin-customer-lifecycle-status" data-customer-lifecycle-status>Based on one count per order, not item rows</small>
                     </a>
+
+                    <article class="admin-panel admin-panel-chart admin-repeat-orders-card" data-chart-id="RO" data-repeat-order-trend>
+                        <div class="admin-panel-head">
+                            <div>
+                                <div class="admin-chart-title-row">
+                                    <h3>Repeat customer order share</h3>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About repeat customer order share" data-chart-info="Shows the percentage of identified customer orders in each month that came after that customer's first recorded order. An earlier order can be from the same month or any previous month. Orders without enough customer identity data are excluded."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                </div>
+                                <span class="admin-panel-meta">Monthly repeat orders · same-month and prior history</span>
+                            </div>
+                            <div class="admin-repeat-orders-summary">
+                                <strong data-repeat-order-current>—</strong>
+                                <span data-repeat-order-delta>Current month</span>
+                            </div>
+                        </div>
+                        <div class="admin-chart-surface admin-repeat-orders-chart">
+                            <canvas class="admin-chart-canvas admin-repeat-orders-canvas" data-repeat-order-chart width="880" height="240"></canvas>
+                        </div>
+                        <small class="admin-customer-lifecycle-status" data-repeat-order-status>Loading identified customer orders…</small>
+                    </article>
 
                     <article class="admin-panel admin-panel-chart admin-panel-wide" data-chart-id="C5">
                         <div class="admin-panel-head">

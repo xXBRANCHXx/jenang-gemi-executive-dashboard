@@ -51,4 +51,13 @@ customer_profile_expect(2, $lifecycleByKey['returning']['customers'] ?? 0, 'Retu
 customer_profile_expect(4, $lifecycleByKey['returning']['orders'] ?? 0, 'Lifecycle chart order totals must sum distinct orders belonging to customers in that stage.');
 customer_profile_expect('Distinct orders per customer. Order-item rows are collapsed by channel, account, and order ID before lifecycle assignment.', $payload['definitions']['order_grain'] ?? '', 'The API must state its order-grain contract explicitly.');
 
+$repeatTrendByMonth = array_column($payload['repeat_order_trend'] ?? [], null, 'month');
+customer_profile_expect(1, $repeatTrendByMonth['2026-01']['orders'] ?? 0, 'Multiple item rows from the first order must remain one monthly customer order.');
+customer_profile_expect(0, $repeatTrendByMonth['2026-01']['repeat_customer_orders'] ?? -1, 'A customer\'s first-ever order must not count as repeat.');
+customer_profile_expect(1, $repeatTrendByMonth['2026-03']['repeat_customer_orders'] ?? 0, 'An order following one from a previous month must count as repeat.');
+customer_profile_expect(3, $repeatTrendByMonth['2026-07']['orders'] ?? 0, 'Monthly repeat share must use identified distinct orders as its denominator.');
+customer_profile_expect(1, $repeatTrendByMonth['2026-07']['repeat_customer_orders'] ?? 0, 'A second order later in the same month must count as repeat.');
+customer_profile_expect(33.3, $repeatTrendByMonth['2026-07']['repeat_order_share'] ?? 0, 'Monthly repeat-order percentage must be repeat orders divided by identified customer orders.');
+customer_profile_expect('A customer\'s second or later identified order. The earlier order may be in the same month or any previous month.', $payload['definitions']['repeat_order'] ?? '', 'The repeat-order contract must explicitly include same-month and prior-month history.');
+
 echo "customer profiles tests passed\n";
