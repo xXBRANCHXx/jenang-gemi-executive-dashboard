@@ -8625,6 +8625,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    const draft = String(order.status || '') === 'draft';
 	    if (poRefs.detailActions) poRefs.detailActions.innerHTML = `
 	      <label class="admin-po-tag"><span>Tag</span><input type="text" maxlength="120" value="${escapeHtml(order.tag || '')}" data-po-tag="${Number(order.id || 0)}" placeholder="Add tag"></label>
+	      <button type="button" class="admin-po-download-action" data-po-download="${Number(order.id || 0)}" aria-label="Download ${escapeHtml(order.po_number || 'purchase order')} PDF"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 20h14"/></svg><span><strong>Download PO</strong><small>PDF copy</small></span></button>
 	      ${draft ? `<button type="button" class="admin-po-resume-action" data-po-resume="${Number(order.id || 0)}"><span>Resume draft</span><b>Continue this purchase order</b></button>` : `<button type="button" class="admin-po-pay-action${due <= 0 ? ' is-paid' : ''}" data-po-pay="${Number(order.id || 0)}" ${due <= 0 ? 'disabled' : ''}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg><span><strong>${due <= 0 ? 'Paid' : 'Pay PO'}</strong><small>${due <= 0 ? 'Payment complete' : `${formatCurrency(paid)} paid · ${formatCurrency(due)} left`}</small></span></button>`}
 	    `;
 	    const items = Array.isArray(order.items) ? order.items : [];
@@ -13612,6 +13613,12 @@ document.addEventListener('DOMContentLoaded', () => {
 	  });
 	  poRefs.detailActions?.addEventListener('click', (event) => {
 	    const target = event.target instanceof Element ? event.target : null;
+	    const download = target?.closest('[data-po-download]');
+	    if (download) {
+	      const order = purchaseOrders().find((candidate) => Number(candidate.id || 0) === Number(download.getAttribute('data-po-download') || 0));
+	      if (order) downloadInventoryPurchasePdf(order);
+	      return;
+	    }
 	    const resume = target?.closest('[data-po-resume]');
 	    if (resume) { resumePoDraft(Number(resume.getAttribute('data-po-resume') || 0)).catch(() => {}); return; }
 	    const pay = target?.closest('[data-po-pay]');

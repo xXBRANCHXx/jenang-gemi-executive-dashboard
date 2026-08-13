@@ -37142,7 +37142,7 @@ a.admin-accounting-breakdown-row:focus-visible { background: color-mix(in srgb, 
 .admin-po-tag input { min-height:34px; }
 .admin-po-detail-actions { display:flex; align-items:flex-end; gap:12px; }
 .admin-po-detail-actions .admin-po-tag { min-width:210px; }
-.admin-po-pay-action, .admin-po-resume-action {
+.admin-po-pay-action, .admin-po-resume-action, .admin-po-download-action {
   display:flex;
   align-items:center;
   gap:11px;
@@ -37156,16 +37156,18 @@ a.admin-accounting-breakdown-row:focus-visible { background: color-mix(in srgb, 
   text-align:left;
   cursor:pointer;
 }
-.admin-po-pay-action svg { width:21px; height:21px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
-.admin-po-pay-action > span, .admin-po-resume-action > span { display:grid; gap:3px; }
-.admin-po-pay-action strong, .admin-po-resume-action > span { font:800 .8rem/1 "Plus Jakarta Sans",sans-serif; }
-.admin-po-pay-action small, .admin-po-resume-action b { color:inherit; font:650 .61rem/1.2 "Plus Jakarta Sans",sans-serif; opacity:.68; }
+.admin-po-download-action { min-width:164px; border-color:#333; background:#111; color:var(--admin-text); }
+.admin-po-pay-action svg, .admin-po-download-action svg { width:21px; height:21px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.admin-po-pay-action > span, .admin-po-resume-action > span, .admin-po-download-action > span { display:grid; gap:3px; }
+.admin-po-pay-action strong, .admin-po-resume-action > span, .admin-po-download-action strong { font:800 .8rem/1 "Plus Jakarta Sans",sans-serif; }
+.admin-po-pay-action small, .admin-po-resume-action b, .admin-po-download-action small { color:inherit; font:650 .61rem/1.2 "Plus Jakarta Sans",sans-serif; opacity:.68; }
 .admin-po-pay-action:not(.is-paid),
 .admin-po-pay-action:not(.is-paid) strong,
 .admin-po-pay-action:not(.is-paid) small,
 .admin-po-pay-action:not(.is-paid) span { color:#090909 !important; }
 .admin-po-pay-action:not(.is-paid) small { opacity:.62; }
-.admin-po-pay-action:hover, .admin-po-pay-action:focus-visible, .admin-po-resume-action:hover, .admin-po-resume-action:focus-visible { transform:translateY(-1px); box-shadow:0 9px 24px rgba(0,0,0,.22); }
+.admin-po-pay-action:hover, .admin-po-pay-action:focus-visible, .admin-po-resume-action:hover, .admin-po-resume-action:focus-visible, .admin-po-download-action:hover, .admin-po-download-action:focus-visible { transform:translateY(-1px); box-shadow:0 9px 24px rgba(0,0,0,.22); }
+.admin-po-download-action:hover, .admin-po-download-action:focus-visible { border-color:#666; background:#191919; }
 .admin-po-pay-action.is-paid { border-color:#292929; background:#181818; color:#747474; cursor:not-allowed; transform:none; box-shadow:none; }
 .admin-po-detail-content { padding:32px 0 80px; }
 .admin-po-detail-summary { display:grid; grid-template-columns:repeat(4,1fr); border:1px solid #282828; border-radius:12px; overflow:hidden; }
@@ -37293,6 +37295,16 @@ a.admin-accounting-breakdown-row:focus-visible { background: color-mix(in srgb, 
   border-color: #172033;
   background: #172033;
 }
+:root[data-admin-theme='light'] .admin-po-download-action {
+  border-color: #d8dee8;
+  background: #fff;
+  color: #172033;
+}
+:root[data-admin-theme='light'] .admin-po-download-action:hover,
+:root[data-admin-theme='light'] .admin-po-download-action:focus-visible {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
 :root[data-admin-theme='light'] .admin-po-pay-action.is-paid {
   border-color: #d8dee8;
   background: #eef2f6;
@@ -37366,7 +37378,7 @@ a.admin-accounting-breakdown-row:focus-visible { background: color-mix(in srgb, 
   .admin-po-history-card-money { text-align:left; }
   .admin-po-detail-summary { grid-template-columns:1fr 1fr; }
   .admin-po-detail-actions { align-items:stretch; flex-direction:column; }
-  .admin-po-detail-actions .admin-po-tag, .admin-po-pay-action, .admin-po-resume-action { width:100%; min-width:0; }
+  .admin-po-detail-actions .admin-po-tag, .admin-po-pay-action, .admin-po-resume-action, .admin-po-download-action { width:100%; min-width:0; }
 }
 @media (max-width: 560px) {
   .admin-purchase-selection-bar { align-items:stretch; flex-direction:column; }
