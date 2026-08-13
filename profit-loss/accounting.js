@@ -468,6 +468,29 @@ if (root) {
     }
   };
 
+  const receiptItems = (record) => {
+    const items = (Array.isArray(record?.receipts) ? record.receipts : [])
+      .map((receipt) => ({
+        ...receipt,
+        url: safeReceiptUrl(receipt?.url || '')
+      }))
+      .filter((receipt) => receipt.url);
+    if (items.length) return items;
+    const fallbackUrl = safeReceiptUrl(record?.receipt_url || record?.attachment_url || '');
+    return fallbackUrl ? [{ url: fallbackUrl, name: record?.receipt_name || 'Receipt' }] : [];
+  };
+
+  const receiptButtonsMarkup = (record, compact = false) => {
+    const items = receiptItems(record);
+    if (!items.length) return '';
+    return `<div class="admin-accounting-receipt-links${compact ? ' is-compact' : ''}">${items.map((receipt, index) => `
+      <button type="button" class="admin-accounting-review-receipt" data-accounting-receipt-open="${escapeHtml(receipt.url)}" data-accounting-receipt-name="${escapeHtml(receipt.name || `Receipt ${index + 1}`)}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5c-5.2 0-9.2 4.1-10.5 7.5C2.8 15.4 6.8 19.5 12 19.5s9.2-4.1 10.5-7.5C21.2 8.6 17.2 4.5 12 4.5Zm0 12.2a4.7 4.7 0 1 1 0-9.4 4.7 4.7 0 0 1 0 9.4Zm0-2.4a2.3 2.3 0 1 0 0-4.6 2.3 2.3 0 0 0 0 4.6Z"/></svg>
+        <span>Review receipt</span>${items.length > 1 ? `<small>${index + 1}/${items.length}</small>` : ''}
+      </button>
+    `).join('')}</div>`;
+  };
+
   let receiptObjectUrl = '';
   let receiptRequest = 0;
 
@@ -1951,7 +1974,6 @@ if (root) {
       const prefix = row.impact === 'cash_in' ? '+' : (row.impact === 'cash_out' ? '−' : '');
       const canOpen = ['transaction', 'bill'].includes(String(row.kind || ''));
       const details = [row.subtitle, row.account].filter(Boolean).join(' · ');
-      const receiptUrl = safeReceiptUrl(row.receipt_url || '');
       return `
         <div class="admin-accounting-ledger-row${isBillRecord ? ' is-bill-record' : ''}${isPaidBill ? ' is-paid-bill' : ''}${isBillPayment ? ' is-bill-payment' : ''}${state.highlightedLedgerId === ledgerId ? ' is-highlighted' : ''}" data-accounting-ledger-row="${escapeHtml(ledgerId)}" tabindex="-1">
           <time>${escapeHtml(formatHistoryDate(row.date || ''))}</time>
@@ -1968,12 +1990,7 @@ if (root) {
             <b>Note</b>
             <span>${escapeHtml(row.note || '—')}</span>
           </span>
-          ${receiptUrl ? `
-            <button type="button" class="admin-accounting-review-receipt" data-accounting-receipt-open="${escapeHtml(receiptUrl)}" data-accounting-receipt-name="${escapeHtml(row.receipt_name || row.reference || 'Receipt')}">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5c-5.2 0-9.2 4.1-10.5 7.5C2.8 15.4 6.8 19.5 12 19.5s9.2-4.1 10.5-7.5C21.2 8.6 17.2 4.5 12 4.5Zm0 12.2a4.7 4.7 0 1 1 0-9.4 4.7 4.7 0 0 1 0 9.4Zm0-2.4a2.3 2.3 0 1 0 0-4.6 2.3 2.3 0 0 0 0 4.6Z"/></svg>
-              <span>Review receipt</span>
-            </button>
-          ` : ''}
+          ${receiptButtonsMarkup(row, true)}
           <span class="admin-accounting-ledger-state">${escapeHtml(String(row.status || '').replace(/_/g, ' '))}</span>
           <span class="admin-accounting-ledger-amount-wrap">${isBillRecord ? '<small>Amount to pay</small>' : ''}<strong class="admin-accounting-ledger-amount ${amountClass}">${prefix}${formatCurrency(row.amount || 0)}</strong>${canOpen ? `<button type="button" class="admin-accounting-ledger-remove" data-accounting-remove-kind="${escapeHtml(String(row.kind))}" data-accounting-remove-id="${escapeHtml(String(row.source_id || ''))}">Remove</button>` : ''}</span>
         </div>
@@ -2072,6 +2089,8 @@ if (root) {
       const receiptOptions = activeChoices('receipt_statuses')
         .filter((row) => ['missing', 'attached', 'not_required'].includes(String(row.value)))
         .map((row) => option(row.value, row.label, String(row.value) === item.receipt_status)).join('');
+      const existingReceipts = receiptItems(item);
+      const remainingReceiptSlots = Math.max(0, 5 - existingReceipts.length);
       refs.drawerBody.innerHTML = kind === 'bill' ? `
         <form class="admin-accounting-edit-form" data-accounting-edit-form data-kind="bill" data-id="${escapeHtml(String(item.id))}">
           <label><span>Bill / invoice no.</span><input name="bill_no" value="${escapeHtml(item.bill_no || '')}"></label>
@@ -2094,7 +2113,8 @@ if (root) {
           <label><span>Category</span>${categoryComboboxMarkup(item.category_id)}</label>
           <label><span>Receipt status</span><select name="receipt_status">${receiptOptions}</select></label>
           <label><span>Receipt URL</span><input type="url" name="receipt_url" value="${escapeHtml(item.receipt_url || '')}"></label>
-          <label class="admin-accounting-receipt-upload"><span>Upload receipt <small>Optional · PDF or image · max 10 MB</small></span><input type="file" name="receipt_file" data-accounting-edit-receipt-file accept="application/pdf,image/png,image/jpeg,image/webp"></label>
+          ${existingReceipts.length ? `<div class="admin-accounting-existing-receipts"><span>Proofs of payment (${existingReceipts.length}/5)</span>${receiptButtonsMarkup(item)}</div>` : ''}
+          <label class="admin-accounting-receipt-upload"><span>Add proof of payment <small>${remainingReceiptSlots ? `Up to ${remainingReceiptSlots} more · ` : 'Limit reached · '}PDF or image · max 10 MB each</small></span><input type="file" name="receipt_files[]" data-accounting-edit-receipt-file data-accounting-receipt-capacity="${remainingReceiptSlots}" accept="application/pdf,image/png,image/jpeg,image/webp" multiple ${remainingReceiptSlots ? '' : 'disabled'}></label>
           <label><span>Reference no.</span><input name="reference_no" value="${escapeHtml(item.reference_no || '')}"></label>
           <label><span>Order / SKU</span><input name="order_no" value="${escapeHtml(item.order_no || '')}"></label>
           <label class="admin-accounting-form-wide"><span>Notes</span><textarea name="notes" rows="4">${escapeHtml(item.notes || '')}</textarea></label>
@@ -2363,14 +2383,22 @@ if (root) {
     const validation = validatePayload(payload);
     setFormError(validation);
     if (validation || !payload) return;
+    const receiptFiles = Array.from(refs.receiptFile?.files || []);
+    if (receiptFiles.length > 5) {
+      setFormError('Choose no more than 5 proof-of-payment files.');
+      return;
+    }
+    if (receiptFiles.some((file) => file.size > 10 * 1024 * 1024)) {
+      setFormError('Each proof-of-payment file must be 10 MB or smaller.');
+      return;
+    }
     if (refs.formStatus) refs.formStatus.textContent = 'Saving...';
     try {
-      const receiptFile = refs.receiptFile?.files?.[0] || null;
-      if (receiptFile) {
+      if (receiptFiles.length) {
         const multipartBody = new FormData();
         Object.entries(payload).forEach(([key, value]) => multipartBody.append(key, String(value ?? '')));
         multipartBody.set('receipt_status', 'attached');
-        multipartBody.append('receipt_file', receiptFile, receiptFile.name);
+        receiptFiles.forEach((receiptFile) => multipartBody.append('receipt_files[]', receiptFile, receiptFile.name));
         await requestJson(endpoint, { method: 'POST', body: multipartBody });
       } else {
         await requestJson(endpoint, {
@@ -2876,7 +2904,24 @@ if (root) {
     if (!(input instanceof HTMLInputElement) || !input.matches('[data-accounting-edit-receipt-file]')) return;
     const form = input.closest('[data-accounting-edit-form]');
     const receiptStatus = form?.querySelector('[name="receipt_status"]');
+    const capacity = Math.max(0, Number(input.dataset.accountingReceiptCapacity || 5));
+    if ((input.files?.length || 0) > capacity) {
+      input.value = '';
+      showToast(`This entry can accept ${capacity} more proof-of-payment file${capacity === 1 ? '' : 's'}.`, true);
+      return;
+    }
+    if (Array.from(input.files || []).some((file) => file.size > 10 * 1024 * 1024)) {
+      input.value = '';
+      showToast('Each proof-of-payment file must be 10 MB or smaller.', true);
+      return;
+    }
     if (input.files?.length && receiptStatus instanceof HTMLSelectElement) receiptStatus.value = 'attached';
+  });
+  refs.drawerBody?.addEventListener('click', (event) => {
+    const receipt = event.target instanceof Element ? event.target.closest('[data-accounting-receipt-open]') : null;
+    if (receipt instanceof HTMLElement) {
+      openReceipt(receipt.dataset.accountingReceiptOpen || '', receipt.dataset.accountingReceiptName || 'Receipt');
+    }
   });
   refs.drawerBody?.addEventListener('submit', async (event) => {
     const form = event.target;
@@ -2886,11 +2931,11 @@ if (root) {
     const kind = form.dataset.kind === 'bill' ? 'bill' : 'transaction';
     const original = (kind === 'bill' ? state.bills : state.transactions).find((row) => Number(row.id) === Number(form.dataset.id));
     if (!original) return;
-    const receiptCandidate = data.get('receipt_file');
-    const receiptFile = kind === 'transaction' && receiptCandidate instanceof File && receiptCandidate.size > 0
-      ? receiptCandidate
-      : null;
-    data.delete('receipt_file');
+    const receiptInput = form.querySelector('[data-accounting-edit-receipt-file]');
+    const receiptFiles = kind === 'transaction' && receiptInput instanceof HTMLInputElement
+      ? Array.from(receiptInput.files || [])
+      : [];
+    data.delete('receipt_files[]');
     const payload = Object.fromEntries(data.entries());
     payload.action = kind === 'bill' ? 'update_bill' : 'update_transaction';
     payload[`${kind}_id`] = form.dataset.id || '';
@@ -2906,11 +2951,11 @@ if (root) {
     }
     const errorNode = form.querySelector('[data-accounting-edit-error]');
     try {
-      if (receiptFile) {
+      if (receiptFiles.length) {
         const multipartBody = new FormData();
         Object.entries(payload).forEach(([key, value]) => multipartBody.append(key, String(value ?? '')));
         multipartBody.set('receipt_status', 'attached');
-        multipartBody.append('receipt_file', receiptFile, receiptFile.name);
+        receiptFiles.forEach((receiptFile) => multipartBody.append('receipt_files[]', receiptFile, receiptFile.name));
         await requestJson(endpoint, { method: 'POST', body: multipartBody });
       } else {
         await requestJson(endpoint, {

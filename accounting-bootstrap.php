@@ -177,6 +177,24 @@ function jg_accounting_table_has_column(PDO $pdo, string $table, string $column)
     return false;
 }
 
+function jg_accounting_has_index(PDO $pdo, string $table, string $index): bool
+{
+    if ((string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
+        if (!preg_match('/^[a-z0-9_]+$/i', $table)) return false;
+        foreach ($pdo->query('PRAGMA index_list("' . $table . '")')->fetchAll() as $row) {
+            if (strcasecmp((string) ($row['name'] ?? ''), $index) === 0) return true;
+        }
+        return false;
+    }
+    $stmt = $pdo->prepare(
+        'SELECT COUNT(*)
+         FROM information_schema.STATISTICS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table_name AND INDEX_NAME = :index_name'
+    );
+    $stmt->execute([':table_name' => $table, ':index_name' => $index]);
+    return (int) $stmt->fetchColumn() > 0;
+}
+
 function jg_accounting_ensure_schema(PDO $pdo): void
 {
     $statements = [
@@ -369,7 +387,7 @@ function jg_accounting_ensure_schema(PDO $pdo): void
             file_data LONGBLOB NOT NULL,
             uploaded_by BIGINT UNSIGNED NULL,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE KEY uniq_accounting_receipt_entity (entity_type, entity_id),
+            KEY idx_accounting_receipt_entity (entity_type, entity_id, id),
             KEY idx_accounting_receipt_created (created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
         'CREATE TABLE IF NOT EXISTS accounting_review_queue (
@@ -425,6 +443,24 @@ function jg_accounting_ensure_schema(PDO $pdo): void
         if (!analyticsTryExec($pdo, $sql)) {
             throw new RuntimeException('Unable to prepare Accounting storage.');
         }
+    }
+
+    $multiReceiptMigration = '2026_08_13_accounting_multi_receipts_v1';
+    $multiReceiptMigrationStmt = $pdo->prepare('SELECT COUNT(*) FROM accounting_migrations WHERE version = :version');
+    $multiReceiptMigrationStmt->execute([':version' => $multiReceiptMigration]);
+    if ((int) $multiReceiptMigrationStmt->fetchColumn() === 0) {
+        if (jg_accounting_has_index($pdo, 'accounting_receipt_files', 'uniq_accounting_receipt_entity')
+            && !analyticsTryExec($pdo, 'ALTER TABLE accounting_receipt_files DROP INDEX uniq_accounting_receipt_entity')) {
+            throw new RuntimeException('Unable to allow multiple Accounting receipts.');
+        }
+        if (!jg_accounting_has_index($pdo, 'accounting_receipt_files', 'idx_accounting_receipt_entity')
+            && !analyticsTryExec($pdo, 'ALTER TABLE accounting_receipt_files ADD INDEX idx_accounting_receipt_entity (entity_type, entity_id, id)')) {
+            throw new RuntimeException('Unable to index multiple Accounting receipts.');
+        }
+        $recordMultiReceiptMigration = $pdo->prepare(
+            'INSERT INTO accounting_migrations (version, applied_at) VALUES (:version, UTC_TIMESTAMP())'
+        );
+        $recordMultiReceiptMigration->execute([':version' => $multiReceiptMigration]);
     }
 
     $accountRoleColumns = [
@@ -649,50 +685,131 @@ function jg_accounting_validate_receipt_upload(array $file): array
     ];
 }
 
-/** @param array{original_name:string,mime_type:string,size_bytes:int,data:string} $receipt */
-function jg_accounting_store_receipt(PDO $pdo, string $entityType, int $entityId, array $receipt): array
+/** @return list<array{error:int,tmp_name:string,size:int,name:string}> */
+function jg_accounting_normalize_receipt_uploads(array $files): array
+{
+    $names = $files['name'] ?? [];
+    if (!is_array($names)) {
+        return (int) ($files['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE ? [] : [[
+            'error' => (int) ($files['error'] ?? UPLOAD_ERR_NO_FILE),
+            'tmp_name' => (string) ($files['tmp_name'] ?? ''),
+            'size' => (int) ($files['size'] ?? 0),
+            'name' => (string) $names,
+        ]];
+    }
+    $uploads = [];
+    foreach (array_keys($names) as $index) {
+        $error = (int) ($files['error'][$index] ?? UPLOAD_ERR_NO_FILE);
+        if ($error === UPLOAD_ERR_NO_FILE) continue;
+        $uploads[] = [
+            'error' => $error,
+            'tmp_name' => (string) ($files['tmp_name'][$index] ?? ''),
+            'size' => (int) ($files['size'][$index] ?? 0),
+            'name' => (string) ($names[$index] ?? 'receipt'),
+        ];
+    }
+    if (count($uploads) > 5) {
+        throw new InvalidArgumentException('Choose no more than 5 receipt files.');
+    }
+    return $uploads;
+}
+
+/** @return list<array{id:int,url:string,name:string,mime_type:string,size_bytes:int,created_at:string}> */
+function jg_accounting_receipts(PDO $pdo, string $entityType, int $entityId): array
+{
+    if (!in_array($entityType, ['transaction', 'bill'], true) || $entityId < 1) return [];
+    $stmt = $pdo->prepare(
+        'SELECT id, original_name, mime_type, size_bytes, created_at
+         FROM accounting_receipt_files
+         WHERE entity_type = :entity_type AND entity_id = :entity_id
+         ORDER BY id ASC'
+    );
+    $stmt->execute([':entity_type' => $entityType, ':entity_id' => $entityId]);
+    return array_map(static fn (array $row): array => [
+        'id' => (int) $row['id'],
+        'url' => '/api/accounting/?action=receipt&id=' . (int) $row['id'],
+        'name' => (string) $row['original_name'],
+        'mime_type' => (string) $row['mime_type'],
+        'size_bytes' => (int) $row['size_bytes'],
+        'created_at' => (string) ($row['created_at'] ?? ''),
+    ], $stmt->fetchAll());
+}
+
+/** @param list<int> $entityIds @return array<int,list<array{id:int,url:string,name:string,mime_type:string,size_bytes:int,created_at:string}>> */
+function jg_accounting_receipts_for_entities(PDO $pdo, string $entityType, array $entityIds): array
+{
+    $entityIds = array_values(array_unique(array_filter(array_map('intval', $entityIds), static fn (int $id): bool => $id > 0)));
+    if (!in_array($entityType, ['transaction', 'bill'], true) || $entityIds === []) return [];
+    $placeholders = implode(',', array_fill(0, count($entityIds), '?'));
+    $stmt = $pdo->prepare(
+        'SELECT id, entity_id, original_name, mime_type, size_bytes, created_at
+         FROM accounting_receipt_files
+         WHERE entity_type = ? AND entity_id IN (' . $placeholders . ')
+         ORDER BY entity_id ASC, id ASC'
+    );
+    $stmt->execute([$entityType, ...$entityIds]);
+    $grouped = [];
+    foreach ($stmt->fetchAll() as $row) {
+        $entityId = (int) $row['entity_id'];
+        $grouped[$entityId][] = [
+            'id' => (int) $row['id'],
+            'url' => '/api/accounting/?action=receipt&id=' . (int) $row['id'],
+            'name' => (string) $row['original_name'],
+            'mime_type' => (string) $row['mime_type'],
+            'size_bytes' => (int) $row['size_bytes'],
+            'created_at' => (string) ($row['created_at'] ?? ''),
+        ];
+    }
+    return $grouped;
+}
+
+/**
+ * @param list<array{original_name:string,mime_type:string,size_bytes:int,data:string}> $receipts
+ * @return list<array{id:int,url:string,name:string,mime_type:string,size_bytes:int,created_at:string}>
+ */
+function jg_accounting_store_receipts(PDO $pdo, string $entityType, int $entityId, array $receipts): array
 {
     if (!in_array($entityType, ['transaction', 'bill'], true) || $entityId < 1) {
         throw new InvalidArgumentException('The receipt must be attached to a valid accounting entry.');
     }
+    if ($receipts === []) return jg_accounting_receipts($pdo, $entityType, $entityId);
+    if ((string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'sqlite') {
+        $entityTable = $entityType === 'bill' ? 'accounting_bills' : 'accounting_transactions';
+        $entityLock = $pdo->prepare('SELECT id FROM ' . $entityTable . ' WHERE id = :entity_id FOR UPDATE');
+        $entityLock->execute([':entity_id' => $entityId]);
+        if ((int) ($entityLock->fetchColumn() ?: 0) !== $entityId) {
+            throw new InvalidArgumentException('The receipt must be attached to a valid accounting entry.');
+        }
+    }
+    $existingCountStmt = $pdo->prepare(
+        'SELECT COUNT(*) FROM accounting_receipt_files
+         WHERE entity_type = :entity_type AND entity_id = :entity_id'
+    );
+    $existingCountStmt->execute([':entity_type' => $entityType, ':entity_id' => $entityId]);
+    $existingCount = (int) $existingCountStmt->fetchColumn();
+    if ($existingCount + count($receipts) > 5) {
+        throw new InvalidArgumentException('Each accounting entry can have up to 5 receipt files.');
+    }
     $createdAt = strtolower((string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME)) === 'sqlite'
         ? 'CURRENT_TIMESTAMP'
         : 'UTC_TIMESTAMP()';
-    $existing = $pdo->prepare(
-        'SELECT id FROM accounting_receipt_files
-         WHERE entity_type = :entity_type AND entity_id = :entity_id
-         LIMIT 1'
+    $stmt = $pdo->prepare(
+        'INSERT INTO accounting_receipt_files
+            (entity_type, entity_id, original_name, mime_type, size_bytes, file_data, uploaded_by, created_at)
+         VALUES
+            (:entity_type, :entity_id, :original_name, :mime_type, :size_bytes, :file_data, NULL, ' . $createdAt . ')'
     );
-    $existing->execute([':entity_type' => $entityType, ':entity_id' => $entityId]);
-    $receiptId = (int) ($existing->fetchColumn() ?: 0);
-    $stmt = $receiptId > 0
-        ? $pdo->prepare(
-            'UPDATE accounting_receipt_files
-             SET original_name = :original_name, mime_type = :mime_type, size_bytes = :size_bytes,
-                 file_data = :file_data, created_at = ' . $createdAt . '
-             WHERE id = :receipt_id'
-        )
-        : $pdo->prepare(
-            'INSERT INTO accounting_receipt_files
-                (entity_type, entity_id, original_name, mime_type, size_bytes, file_data, uploaded_by, created_at)
-             VALUES
-                (:entity_type, :entity_id, :original_name, :mime_type, :size_bytes, :file_data, NULL, ' . $createdAt . ')'
-        );
-    if ($receiptId > 0) {
-        $stmt->bindValue(':receipt_id', $receiptId, PDO::PARAM_INT);
-    } else {
+    $latestReceiptUrl = '';
+    foreach ($receipts as $receipt) {
         $stmt->bindValue(':entity_type', $entityType);
         $stmt->bindValue(':entity_id', $entityId, PDO::PARAM_INT);
+        $stmt->bindValue(':original_name', $receipt['original_name']);
+        $stmt->bindValue(':mime_type', $receipt['mime_type']);
+        $stmt->bindValue(':size_bytes', $receipt['size_bytes'], PDO::PARAM_INT);
+        $stmt->bindValue(':file_data', $receipt['data'], PDO::PARAM_LOB);
+        $stmt->execute();
+        $latestReceiptUrl = '/api/accounting/?action=receipt&id=' . (int) $pdo->lastInsertId();
     }
-    $stmt->bindValue(':original_name', $receipt['original_name']);
-    $stmt->bindValue(':mime_type', $receipt['mime_type']);
-    $stmt->bindValue(':size_bytes', $receipt['size_bytes'], PDO::PARAM_INT);
-    $stmt->bindValue(':file_data', $receipt['data'], PDO::PARAM_LOB);
-    $stmt->execute();
-    if ($receiptId < 1) {
-        $receiptId = (int) $pdo->lastInsertId();
-    }
-    $receiptUrl = '/api/accounting/?action=receipt&id=' . $receiptId;
 
     $table = $entityType === 'bill' ? 'accounting_bills' : 'accounting_transactions';
     $urlColumn = $entityType === 'bill' ? 'attachment_url' : 'receipt_url';
@@ -701,7 +818,7 @@ function jg_accounting_store_receipt(PDO $pdo, string $entityType, int $entityId
          SET ' . $urlColumn . ' = :receipt_url, receipt_status = "attached"
          WHERE id = :entity_id'
     );
-    $update->execute([':receipt_url' => $receiptUrl, ':entity_id' => $entityId]);
+    $update->execute([':receipt_url' => $latestReceiptUrl, ':entity_id' => $entityId]);
     try {
         $resolveReview = $pdo->prepare(
             'UPDATE accounting_review_queue
@@ -713,13 +830,14 @@ function jg_accounting_store_receipt(PDO $pdo, string $entityType, int $entityId
     } catch (Throwable) {
         // Lightweight test schemas and installations awaiting migration may not have the review table yet.
     }
-    return [
-        'id' => $receiptId,
-        'url' => $receiptUrl,
-        'name' => $receipt['original_name'],
-        'mime_type' => $receipt['mime_type'],
-        'size_bytes' => $receipt['size_bytes'],
-    ];
+    return jg_accounting_receipts($pdo, $entityType, $entityId);
+}
+
+/** @param array{original_name:string,mime_type:string,size_bytes:int,data:string} $receipt */
+function jg_accounting_store_receipt(PDO $pdo, string $entityType, int $entityId, array $receipt): array
+{
+    $receipts = jg_accounting_store_receipts($pdo, $entityType, $entityId, [$receipt]);
+    return $receipts[array_key_last($receipts)];
 }
 
 function jg_accounting_stream_receipt(PDO $pdo, int $receiptId): never
@@ -3962,6 +4080,21 @@ function jg_accounting_transactions(PDO $pdo, array $filters): array
         }
     }
 
+    try {
+        $receiptMap = jg_accounting_receipts_for_entities(
+            $pdo,
+            'transaction',
+            array_map(static fn (array $row): int => (int) $row['id'], $transactions)
+        );
+        foreach ($transactions as &$transaction) {
+            $transaction['receipts'] = $receiptMap[(int) $transaction['id']] ?? [];
+        }
+        unset($transaction);
+    } catch (Throwable) {
+        foreach ($transactions as &$transaction) $transaction['receipts'] = [];
+        unset($transaction);
+    }
+
     return $transactions;
 }
 
@@ -4089,9 +4222,10 @@ function jg_accounting_purchase_order_payment_ledger_rows(string $month, ?PDO $s
              ORDER BY p.paid_at DESC, p.id DESC'
         );
         $stmt->execute([':start_at' => $range['start_at'], ':end_at' => $range['end_at']]);
-        return array_map(static function (array $payment): array {
+        return array_map(static function (array $payment) use ($skuPdo): array {
             $paymentId = (int) ($payment['id'] ?? 0);
-            $hasProof = (int) ($payment['proof_size_bytes'] ?? 0) > 0;
+            $proofs = jg_purchase_orders_payment_proofs($skuPdo, $payment);
+            $primaryProof = $proofs[0] ?? null;
             $category = jg_purchase_orders_accounting_category($payment);
             return [
                 'id' => 'purchase_order_payment:' . $paymentId,
@@ -4110,8 +4244,9 @@ function jg_accounting_purchase_order_payment_ledger_rows(string $month, ?PDO $s
                 'impact' => 'cash_out',
                 'status' => 'paid',
                 'reference' => (string) ($payment['po_number'] ?? ''),
-                'receipt_url' => $hasProof ? '/api/inventory-recap/?action=payment_proof&id=' . $paymentId : '',
-                'receipt_name' => $hasProof ? (string) ($payment['proof_original_name'] ?? 'PO payment receipt') : '',
+                'receipt_url' => (string) ($primaryProof['url'] ?? ''),
+                'receipt_name' => (string) ($primaryProof['name'] ?? ''),
+                'receipts' => $proofs,
             ];
         }, $stmt->fetchAll());
     } catch (Throwable) {
@@ -4161,6 +4296,7 @@ function jg_accounting_activity_ledger(PDO $pdo, array $filters): array
             'reference' => (string) ($transaction['reference_no'] ?? $transaction['transaction_key'] ?? ''),
             'receipt_url' => trim((string) ($transaction['receipt_url'] ?? '')),
             'receipt_name' => 'Receipt',
+            'receipts' => array_values($transaction['receipts'] ?? []),
         ];
     }
 
@@ -4180,6 +4316,7 @@ function jg_accounting_activity_ledger(PDO $pdo, array $filters): array
                 'reference' => $payment['reference'],
                 'receipt_url' => $payment['receipt_url'] ?: $rows[$index]['receipt_url'],
                 'receipt_name' => $payment['receipt_name'] ?: $rows[$index]['receipt_name'],
+                'receipts' => array_values(array_merge($rows[$index]['receipts'] ?? [], $payment['receipts'] ?? [])),
             ];
             continue;
         }
@@ -4208,6 +4345,7 @@ function jg_accounting_activity_ledger(PDO $pdo, array $filters): array
             'reference' => (string) ($bill['bill_no'] ?? $bill['bill_key'] ?? ''),
             'receipt_url' => trim((string) ($bill['attachment_url'] ?? '')),
             'receipt_name' => 'Bill receipt',
+            'receipts' => [],
         ];
     }
 

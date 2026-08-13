@@ -58,11 +58,28 @@ try {
     receipt_upload_expect(strlen($png), (int) $pdo->query('SELECT size_bytes FROM accounting_receipt_files')->fetchColumn(), 'Stored receipt bytes must be retained exactly.');
     receipt_upload_expect('resolved', $pdo->query('SELECT status FROM accounting_review_queue WHERE id = 1')->fetchColumn(), 'Uploading a receipt must resolve the missing-receipt review item.');
 
-    $replacement = [...$validated, 'original_name' => 'replacement.png'];
-    $replaced = jg_accounting_store_receipt($pdo, 'transaction', 7, $replacement);
-    receipt_upload_expect($stored['id'], $replaced['id'], 'Replacing a receipt must retain the stable preview URL.');
-    receipt_upload_expect(1, (int) $pdo->query('SELECT COUNT(*) FROM accounting_receipt_files')->fetchColumn(), 'Replacing a receipt must not leave duplicate stored files.');
-    receipt_upload_expect('replacement.png', $pdo->query('SELECT original_name FROM accounting_receipt_files')->fetchColumn(), 'The replacement receipt metadata must be saved.');
+    $second = [...$validated, 'original_name' => 'second.png'];
+    $storedSecond = jg_accounting_store_receipt($pdo, 'transaction', 7, $second);
+    receipt_upload_expect(true, $storedSecond['id'] !== $stored['id'], 'Additional proofs must be stored as separate files.');
+    receipt_upload_expect(2, (int) $pdo->query('SELECT COUNT(*) FROM accounting_receipt_files')->fetchColumn(), 'Adding another proof must preserve the first file.');
+
+    $allReceipts = jg_accounting_store_receipts($pdo, 'transaction', 7, [
+        [...$validated, 'original_name' => 'third.png'],
+        [...$validated, 'original_name' => 'fourth.png'],
+        [...$validated, 'original_name' => 'fifth.png'],
+    ]);
+    receipt_upload_expect(5, count($allReceipts), 'All five proof files must be returned for display.');
+    receipt_upload_expect(
+        ['August receipt.png', 'second.png', 'third.png', 'fourth.png', 'fifth.png'],
+        array_column($allReceipts, 'name'),
+        'Proof metadata must retain every file in upload order.'
+    );
+    try {
+        jg_accounting_store_receipt($pdo, 'transaction', 7, [...$validated, 'original_name' => 'sixth.png']);
+        receipt_upload_expect(true, false, 'A sixth proof must be rejected.');
+    } catch (InvalidArgumentException $error) {
+        receipt_upload_expect(true, str_contains($error->getMessage(), 'up to 5'), 'The five-file limit must be explicit.');
+    }
 } finally {
     @unlink($path);
 }

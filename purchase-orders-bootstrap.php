@@ -93,6 +93,19 @@ function jg_purchase_orders_ensure_schema(PDO $pdo): void
         ] as $column => $sql) {
             if (!in_array($column, $paymentColumns, true)) $pdo->exec($sql);
         }
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS purchase_order_payment_proofs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                payment_id INTEGER NOT NULL,
+                original_name TEXT NOT NULL,
+                mime_type TEXT NOT NULL,
+                size_bytes INTEGER NOT NULL,
+                file_data BLOB NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (payment_id) REFERENCES purchase_order_payments(id) ON DELETE CASCADE
+            )'
+        );
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_purchase_order_payment_proofs_payment ON purchase_order_payment_proofs (payment_id, id)');
         return;
     }
 
@@ -198,6 +211,20 @@ function jg_purchase_orders_ensure_schema(PDO $pdo): void
         $paymentColumnStmt->execute([':column_name' => $column]);
         if ((int) $paymentColumnStmt->fetchColumn() === 0) $pdo->exec($sql);
     }
+    $pdo->exec(
+        'CREATE TABLE IF NOT EXISTS purchase_order_payment_proofs (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            payment_id BIGINT UNSIGNED NOT NULL,
+            original_name VARCHAR(255) NOT NULL,
+            mime_type VARCHAR(120) NOT NULL,
+            size_bytes BIGINT UNSIGNED NOT NULL,
+            file_data LONGBLOB NOT NULL,
+            created_at DATETIME NOT NULL,
+            KEY idx_purchase_order_payment_proofs_payment (payment_id, id),
+            CONSTRAINT fk_purchase_order_payment_proofs_payment
+                FOREIGN KEY (payment_id) REFERENCES purchase_order_payments(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+    );
 }
 
 function jg_purchase_orders_lock_suffix(PDO $pdo): string
@@ -260,7 +287,7 @@ function jg_purchase_orders_fetch(PDO $pdo, int $limit = 20): array
          ORDER BY paid_at ASC, id ASC'
     );
 
-    return array_map(static function (array $order) use ($itemsStmt, $paymentsStmt): array {
+    return array_map(static function (array $order) use ($pdo, $itemsStmt, $paymentsStmt): array {
         $itemsStmt->execute([':purchase_order_id' => (int) $order['id']]);
         $items = array_map(static function (array $item): array {
             $ordered = max(0, (int) ($item['ordered_qty'] ?? 0));
@@ -281,10 +308,10 @@ function jg_purchase_orders_fetch(PDO $pdo, int $limit = 20): array
         $ordered = max(0, (int) ($order['ordered_qty'] ?? 0));
         $received = max(0, min($ordered, (int) ($order['received_qty'] ?? 0)));
         $paymentsStmt->execute([':purchase_order_id' => (int) $order['id']]);
-        $payments = array_map(static function (array $payment): array {
+        $payments = array_map(static function (array $payment) use ($pdo): array {
             $itemIds = json_decode((string) ($payment['item_ids_json'] ?? '[]'), true);
             $paymentId = (int) ($payment['id'] ?? 0);
-            $proofSize = max(0, (int) ($payment['proof_size_bytes'] ?? 0));
+            $proofs = jg_purchase_orders_payment_proofs($pdo, $payment);
             return [
                 'id' => $paymentId,
                 'accounting_transaction_id' => (int) ($payment['accounting_transaction_id'] ?? 0),
@@ -293,12 +320,8 @@ function jg_purchase_orders_fetch(PDO $pdo, int $limit = 20): array
                 'amount' => (float) ($payment['amount'] ?? 0),
                 'payment_mode' => (string) ($payment['payment_mode'] ?? 'amount'),
                 'item_ids' => is_array($itemIds) ? array_values(array_map('intval', $itemIds)) : [],
-                'proof' => $proofSize > 0 ? [
-                    'url' => '/api/inventory-recap/?action=payment_proof&id=' . $paymentId,
-                    'name' => (string) ($payment['proof_original_name'] ?? 'Payment proof'),
-                    'mime_type' => (string) ($payment['proof_mime_type'] ?? ''),
-                    'size_bytes' => $proofSize,
-                ] : null,
+                'proof' => $proofs[0] ?? null,
+                'proofs' => $proofs,
                 'paid_by' => (string) ($payment['paid_by'] ?? ''),
                 'paid_at' => (string) ($payment['paid_at'] ?? ''),
             ];
@@ -595,13 +618,20 @@ function jg_purchase_orders_record_payment(
     float $amount,
     string $mode,
     array $itemIds,
-    ?array $proof = null
+    ?array $proofs = null
 ): array {
     jg_purchase_orders_ensure_schema($pdo);
     $existing = $pdo->prepare('SELECT purchase_order_id FROM purchase_order_payments WHERE request_key = :request_key LIMIT 1');
     $existing->execute([':request_key' => $requestKey]);
     if ((int) ($existing->fetchColumn() ?: 0) > 0) return jg_purchase_orders_find($pdo, $orderId);
-    $stmt = $pdo->prepare(
+    if (is_array($proofs) && array_key_exists('data', $proofs)) $proofs = [$proofs];
+    $proofs = is_array($proofs) ? array_values($proofs) : [];
+    if (count($proofs) > 5) throw new InvalidArgumentException('Choose no more than 5 proofs of payment.');
+    $primaryProof = $proofs[0] ?? null;
+    $ownsTransaction = !$pdo->inTransaction();
+    if ($ownsTransaction) $pdo->beginTransaction();
+    try {
+        $stmt = $pdo->prepare(
         'INSERT INTO purchase_order_payments
             (purchase_order_id, request_key, accounting_transaction_id, account_id, account_name,
             amount, payment_mode, item_ids_json, proof_original_name, proof_mime_type,
@@ -610,21 +640,81 @@ function jg_purchase_orders_record_payment(
              :amount, :payment_mode, :item_ids_json, :proof_name, :proof_mime, :proof_size,
              :proof_data, "Executive", :paid_at)'
     );
-    $stmt->bindValue(':purchase_order_id', $orderId, PDO::PARAM_INT);
-    $stmt->bindValue(':request_key', mb_substr(trim($requestKey), 0, 100));
-    $stmt->bindValue(':transaction_id', $accountingTransactionId, PDO::PARAM_INT);
-    $stmt->bindValue(':account_id', $accountId, PDO::PARAM_INT);
-    $stmt->bindValue(':account_name', mb_substr(trim($accountName), 0, 160));
-    $stmt->bindValue(':amount', number_format($amount, 2, '.', ''));
-    $stmt->bindValue(':payment_mode', mb_substr(trim($mode), 0, 24));
-    $stmt->bindValue(':item_ids_json', json_encode(array_values(array_unique(array_map('intval', $itemIds)))));
-    $stmt->bindValue(':proof_name', isset($proof['original_name']) ? (string) $proof['original_name'] : null);
-    $stmt->bindValue(':proof_mime', isset($proof['mime_type']) ? (string) $proof['mime_type'] : null);
-    $stmt->bindValue(':proof_size', isset($proof['size_bytes']) ? (int) $proof['size_bytes'] : null, isset($proof['size_bytes']) ? PDO::PARAM_INT : PDO::PARAM_NULL);
-    $stmt->bindValue(':proof_data', isset($proof['data']) ? (string) $proof['data'] : null, isset($proof['data']) ? PDO::PARAM_LOB : PDO::PARAM_NULL);
-    $stmt->bindValue(':paid_at', jg_purchase_orders_now());
-    $stmt->execute();
+        $stmt->bindValue(':purchase_order_id', $orderId, PDO::PARAM_INT);
+        $stmt->bindValue(':request_key', mb_substr(trim($requestKey), 0, 100));
+        $stmt->bindValue(':transaction_id', $accountingTransactionId, PDO::PARAM_INT);
+        $stmt->bindValue(':account_id', $accountId, PDO::PARAM_INT);
+        $stmt->bindValue(':account_name', mb_substr(trim($accountName), 0, 160));
+        $stmt->bindValue(':amount', number_format($amount, 2, '.', ''));
+        $stmt->bindValue(':payment_mode', mb_substr(trim($mode), 0, 24));
+        $stmt->bindValue(':item_ids_json', json_encode(array_values(array_unique(array_map('intval', $itemIds)))));
+        $stmt->bindValue(':proof_name', is_array($primaryProof) ? (string) $primaryProof['original_name'] : null);
+        $stmt->bindValue(':proof_mime', is_array($primaryProof) ? (string) $primaryProof['mime_type'] : null);
+        $stmt->bindValue(':proof_size', is_array($primaryProof) ? (int) $primaryProof['size_bytes'] : null, is_array($primaryProof) ? PDO::PARAM_INT : PDO::PARAM_NULL);
+        $stmt->bindValue(':proof_data', is_array($primaryProof) ? (string) $primaryProof['data'] : null, is_array($primaryProof) ? PDO::PARAM_LOB : PDO::PARAM_NULL);
+        $stmt->bindValue(':paid_at', jg_purchase_orders_now());
+        $stmt->execute();
+        $paymentId = (int) $pdo->lastInsertId();
+        if (count($proofs) > 1) {
+            $proofStmt = $pdo->prepare(
+            'INSERT INTO purchase_order_payment_proofs
+                (payment_id, original_name, mime_type, size_bytes, file_data, created_at)
+             VALUES
+                (:payment_id, :original_name, :mime_type, :size_bytes, :file_data, :created_at)'
+        );
+            foreach (array_slice($proofs, 1) as $proof) {
+                $proofStmt->bindValue(':payment_id', $paymentId, PDO::PARAM_INT);
+                $proofStmt->bindValue(':original_name', (string) $proof['original_name']);
+                $proofStmt->bindValue(':mime_type', (string) $proof['mime_type']);
+                $proofStmt->bindValue(':size_bytes', (int) $proof['size_bytes'], PDO::PARAM_INT);
+                $proofStmt->bindValue(':file_data', (string) $proof['data'], PDO::PARAM_LOB);
+                $proofStmt->bindValue(':created_at', jg_purchase_orders_now());
+                $proofStmt->execute();
+            }
+        }
+        if ($ownsTransaction) $pdo->commit();
+    } catch (Throwable $error) {
+        if ($ownsTransaction && $pdo->inTransaction()) $pdo->rollBack();
+        throw $error;
+    }
     return jg_purchase_orders_find($pdo, $orderId);
+}
+
+/** @return list<array{url:string,name:string,mime_type:string,size_bytes:int}> */
+function jg_purchase_orders_payment_proofs(PDO $pdo, array $payment): array
+{
+    $paymentId = (int) ($payment['id'] ?? 0);
+    if ($paymentId < 1) return [];
+    $proofs = [];
+    $legacySize = max(0, (int) ($payment['proof_size_bytes'] ?? 0));
+    if ($legacySize > 0) {
+        $proofs[] = [
+            'url' => '/api/inventory-recap/?action=payment_proof&id=' . $paymentId,
+            'name' => (string) ($payment['proof_original_name'] ?? 'Payment proof'),
+            'mime_type' => (string) ($payment['proof_mime_type'] ?? ''),
+            'size_bytes' => $legacySize,
+        ];
+    }
+    try {
+        $stmt = $pdo->prepare(
+            'SELECT id, original_name, mime_type, size_bytes
+             FROM purchase_order_payment_proofs
+             WHERE payment_id = :payment_id
+             ORDER BY id ASC'
+        );
+        $stmt->execute([':payment_id' => $paymentId]);
+        foreach ($stmt->fetchAll() as $proof) {
+            $proofs[] = [
+                'url' => '/api/inventory-recap/?action=payment_proof&id=' . $paymentId . '&proof_id=' . (int) $proof['id'],
+                'name' => (string) ($proof['original_name'] ?? 'Payment proof'),
+                'mime_type' => (string) ($proof['mime_type'] ?? ''),
+                'size_bytes' => max(0, (int) ($proof['size_bytes'] ?? 0)),
+            ];
+        }
+    } catch (Throwable) {
+        // Older installations may not have created the child proof table yet.
+    }
+    return array_slice($proofs, 0, 5);
 }
 
 /** @return array{mime_type:string,size_bytes:int,data:string,original_name:string} */
@@ -656,14 +746,44 @@ function jg_purchase_orders_validate_payment_proof(array $file): array
     ];
 }
 
-function jg_purchase_orders_stream_payment_proof(PDO $pdo, int $paymentId): never
+/** @return list<array{mime_type:string,size_bytes:int,data:string,original_name:string}> */
+function jg_purchase_orders_validate_payment_proofs(array $files): array
+{
+    $names = $files['name'] ?? [];
+    if (!is_array($names)) return [jg_purchase_orders_validate_payment_proof($files)];
+    $uploads = [];
+    foreach (array_keys($names) as $index) {
+        if ((int) ($files['error'][$index] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) continue;
+        $uploads[] = [
+            'error' => (int) ($files['error'][$index] ?? UPLOAD_ERR_NO_FILE),
+            'tmp_name' => (string) ($files['tmp_name'][$index] ?? ''),
+            'size' => (int) ($files['size'][$index] ?? 0),
+            'name' => (string) ($names[$index] ?? 'payment-proof'),
+        ];
+    }
+    if ($uploads === [] || count($uploads) > 5) {
+        throw new InvalidArgumentException('Choose between 1 and 5 proofs of payment.');
+    }
+    return array_map('jg_purchase_orders_validate_payment_proof', $uploads);
+}
+
+function jg_purchase_orders_stream_payment_proof(PDO $pdo, int $paymentId, int $proofId = 0): never
 {
     jg_purchase_orders_ensure_schema($pdo);
-    $stmt = $pdo->prepare(
-        'SELECT proof_original_name, proof_mime_type, proof_size_bytes, proof_data
-         FROM purchase_order_payments WHERE id = :id LIMIT 1'
-    );
-    $stmt->execute([':id' => $paymentId]);
+    $stmt = $proofId > 0
+        ? $pdo->prepare(
+            'SELECT original_name AS proof_original_name, mime_type AS proof_mime_type,
+                    size_bytes AS proof_size_bytes, file_data AS proof_data
+             FROM purchase_order_payment_proofs
+             WHERE id = :proof_id AND payment_id = :payment_id LIMIT 1'
+        )
+        : $pdo->prepare(
+            'SELECT proof_original_name, proof_mime_type, proof_size_bytes, proof_data
+             FROM purchase_order_payments WHERE id = :payment_id LIMIT 1'
+        );
+    $params = [':payment_id' => $paymentId];
+    if ($proofId > 0) $params[':proof_id'] = $proofId;
+    $stmt->execute($params);
     $proof = $stmt->fetch();
     if (!is_array($proof) || (int) ($proof['proof_size_bytes'] ?? 0) <= 0 || !is_string($proof['proof_data'] ?? null)) {
         throw new InvalidArgumentException('Payment proof not found.');

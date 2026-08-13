@@ -20,7 +20,7 @@ expect(!html.includes('data-accounting-liquidity-outflow-bar'), 'Going Out must 
 expect(html.includes('data-accounting-kpi="liquid-assets"'), 'Accounting must lead with total liquid assets.');
 expect(html.includes('unpaid partner bills'), 'Accounting must explain that unpaid partner bills are expected money.');
 expect(html.includes('data-accounting-ledger-body'), 'Accounting must expose the unified activity ledger.');
-expect(html.includes('data-accounting-receipt-file') && html.includes('application/pdf,image/png,image/jpeg,image/webp'), 'Expense entry must accept an optional PDF or image receipt upload.');
+expect(html.includes('data-accounting-receipt-file') && html.includes('name="receipt_files[]"') && html.includes('multiple') && html.includes('up to 5 PDF or image files'), 'Expense entry must accept up to five PDF or image proof uploads.');
 expect(html.includes('data-accounting-receipt-modal') && html.includes('data-accounting-receipt-image') && html.includes('data-accounting-receipt-pdf'), 'Receipt review must open images and PDFs in an in-page popup.');
 expect(html.includes('class="admin-accounting-more'), 'Secondary entry details must stay collapsed by default.');
 expect(html.includes('data-accounting-kpi="available-now"'), 'Accounting must group bank and physical cash as available now.');
@@ -46,9 +46,10 @@ expect(script.includes('admin-accounting-ledger-field admin-accounting-ledger-no
 expect(script.includes('data-accounting-receipt-open') && script.includes('<span>Review receipt</span>'), 'Ledger receipts must use a text-and-eye review action.');
 expect(script.includes("['http:', 'https:'].includes(parsed.protocol)"), 'Receipt previews must reject unsafe URL protocols.');
 expect(script.includes('const blob = await response.blob()') && script.includes('URL.createObjectURL(blob)'), 'Same-origin receipts must be fetched into a blob preview so frame-blocking headers cannot break the popup.');
-expect(script.includes("multipartBody.append('receipt_file'"), 'Receipt files must submit as multipart form data.');
+expect(script.includes("multipartBody.append('receipt_files[]'"), 'All receipt files must submit as multipart form data.');
 expect(script.includes('data-accounting-edit-receipt-file'), 'The transaction correction drawer must allow a missing receipt to be uploaded.');
-expect(script.includes("kind === 'transaction' && receiptCandidate instanceof File"), 'Correction uploads must be limited to transaction receipts.');
+expect(script.includes("kind === 'transaction' && receiptInput instanceof HTMLInputElement"), 'Correction uploads must be limited to transaction receipts.');
+expect(script.includes('receiptButtonsMarkup(row, true)') && script.includes('receiptButtonsMarkup(item)'), 'Every stored receipt must remain visible in both the ledger and correction drawer.');
 expect(api.includes("['create_transaction', 'update_transaction']") && api.includes('jg_accounting_update_transaction($pdo, $body)'), 'The Accounting API must persist receipt uploads from both new and corrected transactions.');
 expect(script.includes("action: 'reconcile_cash'"), 'The reconciliation UI must post an auditable baseline.');
 expect(script.includes('accountOptionsForRole'), 'Paid-from and received-into options must be filtered by account role.');

@@ -8587,7 +8587,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	  const orderSearchText = (order) => [
 	    order.po_number, order.tag, order.note, order.status,
 	    ...(Array.isArray(order.items) ? order.items.flatMap((item) => [item.sku, item.product_name, item.line_note]) : []),
-	    ...(Array.isArray(order.payments) ? order.payments.flatMap((payment) => [payment.account_name, payment.proof?.name]) : [])
+	    ...(Array.isArray(order.payments) ? order.payments.flatMap((payment) => [payment.account_name, ...(payment.proofs || []).map((proof) => proof.name)]) : [])
 	  ].join(' ').toLowerCase();
 
 	  const renderPoHistory = () => {
@@ -8600,7 +8600,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    }
 	    poRefs.historyList.innerHTML = orders.map((order) => {
 	      const draft = String(order.status || '') === 'draft';
-	      const proofCount = (order.payments || []).filter((payment) => payment.proof?.url).length;
+	      const proofCount = (order.payments || []).reduce((total, payment) => total + (payment.proofs || (payment.proof?.url ? [payment.proof] : [])).length, 0);
 	      return `<article class="admin-po-history-card is-${escapeHtml(order.status || 'pending')}" data-po-open="${Number(order.id || 0)}" ${draft ? `data-po-draft-context="${Number(order.id || 0)}"` : ''} tabindex="0" role="button">
 	        <div><span class="admin-po-status">${escapeHtml(purchaseOrderStatusLabel(order.status))}</span><strong>${escapeHtml(order.po_number || 'Purchase order')}</strong><small>${escapeHtml(String(order.placed_at || '').slice(0, 10))} · ${formatRegionalInteger(order.line_count || 0)} products · ${formatRegionalInteger(order.ordered_qty || 0)} units</small></div>
 	        <div class="admin-po-history-card-money"><strong>${formatCurrency(order.estimated_total || 0)}</strong><span>${Number(order.amount_due || 0) > 0 ? `${formatCurrency(order.amount_due)} due` : 'Paid'}</span><small>${proofCount ? `${formatRegionalInteger(proofCount)} payment proof${proofCount === 1 ? '' : 's'}` : 'No payment proof'}</small></div>
@@ -8643,7 +8643,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	        }).join('')}</div>
 	      </section>
 	      <section class="admin-po-detail-section"><div class="admin-po-section-head"><div><span class="admin-panel-kicker">Payment activity</span><h3>Accounting ledger links</h3></div></div>
-	        <div class="admin-po-payment-list">${(order.payments || []).length ? order.payments.map((payment) => `<article><div><strong>${formatCurrency(payment.amount || 0)}</strong><span>${escapeHtml(payment.account_name || 'Payment account')}</span></div><div class="admin-po-payment-record-meta"><small>${escapeHtml(String(payment.paid_at || '').replace('T', ' '))} · Accounting transaction #${Number(payment.accounting_transaction_id || 0)}</small>${payment.proof?.url ? `<a href="${escapeHtml(payment.proof.url)}" target="_blank" rel="noopener" class="admin-po-proof-link"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7M10 14 21 3M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg><span>Open proof</span><small>${escapeHtml(payment.proof.name || 'Payment proof')}</small></a>` : '<span class="admin-po-proof-missing">No proof was captured for this older payment.</span>'}</div></article>`).join('') : '<p class="admin-empty">No payments recorded yet.</p>'}</div>
+	        <div class="admin-po-payment-list">${(order.payments || []).length ? order.payments.map((payment) => { const proofs = payment.proofs || (payment.proof?.url ? [payment.proof] : []); return `<article><div><strong>${formatCurrency(payment.amount || 0)}</strong><span>${escapeHtml(payment.account_name || 'Payment account')}</span></div><div class="admin-po-payment-record-meta"><small>${escapeHtml(String(payment.paid_at || '').replace('T', ' '))} · Accounting transaction #${Number(payment.accounting_transaction_id || 0)}</small>${proofs.length ? `<div class="admin-po-proof-links">${proofs.map((proof, index) => `<a href="${escapeHtml(proof.url)}" target="_blank" rel="noopener" class="admin-po-proof-link"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7M10 14 21 3M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg><span>Open proof ${proofs.length > 1 ? index + 1 : ''}</span><small>${escapeHtml(proof.name || 'Payment proof')}</small></a>`).join('')}</div>` : '<span class="admin-po-proof-missing">No proof was captured for this older payment.</span>'}</div></article>`; }).join('') : '<p class="admin-empty">No payments recorded yet.</p>'}</div>
 	      </section>`;
 	  };
 
@@ -8825,7 +8825,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (poRefs.paymentModal) poRefs.paymentModal.hidden = false;
 	    if (poRefs.paymentForm instanceof HTMLFormElement) poRefs.paymentForm.reset();
 	    const proofName = poRefs.paymentForm?.querySelector('[data-po-payment-proof-name]');
-	    if (proofName) proofName.textContent = 'Required · PDF, PNG, JPG, or WebP · maximum 10 MB';
+	    if (proofName) proofName.textContent = 'Required · up to 5 PDF, PNG, JPG, or WebP files · maximum 10 MB each';
 	    if (poRefs.paymentMessage) poRefs.paymentMessage.textContent = '';
 	    renderPoPayment();
 	  };
@@ -13643,9 +13643,14 @@ document.addEventListener('DOMContentLoaded', () => {
 	  poRefs.paymentForm?.addEventListener('change', (event) => {
 	    const input = event.target;
 	    if (!(input instanceof HTMLInputElement) || !input.matches('[data-po-payment-proof]')) return;
-	    const file = input.files?.[0];
+	    const files = Array.from(input.files || []);
 	    const name = poRefs.paymentForm?.querySelector('[data-po-payment-proof-name]');
-	    if (name) name.textContent = file ? `${file.name} · ${(file.size / (1024 * 1024)).toFixed(1)} MB` : 'Required · PDF, PNG, JPG, or WebP · maximum 10 MB';
+	    if (files.length > 5) {
+	      input.value = '';
+	      if (name) name.textContent = 'Choose no more than 5 proof files.';
+	      return;
+	    }
+	    if (name) name.textContent = files.length ? `${files.length} file${files.length === 1 ? '' : 's'} selected · ${files.map((file) => file.name).join(', ')}` : 'Required · up to 5 PDF, PNG, JPG, or WebP files · maximum 10 MB each';
 	  });
 	  poRefs.paymentForm?.addEventListener('submit', async (event) => {
 	    event.preventDefault();
@@ -13654,9 +13659,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	    const amount = paymentAmount(order);
 	    if (amount < 1) { if (poRefs.paymentMessage) poRefs.paymentMessage.textContent = 'Choose an amount greater than Rp0.'; return; }
 	    const proofInput = poRefs.paymentForm.querySelector('[data-po-payment-proof]');
-	    const proof = proofInput instanceof HTMLInputElement ? proofInput.files?.[0] : null;
-	    if (!(proof instanceof File)) { if (poRefs.paymentMessage) poRefs.paymentMessage.textContent = 'Choose a proof of payment.'; return; }
-	    if (proof.size > 10 * 1024 * 1024) { if (poRefs.paymentMessage) poRefs.paymentMessage.textContent = 'Payment proof must be 10 MB or smaller.'; return; }
+	    const proofs = proofInput instanceof HTMLInputElement ? Array.from(proofInput.files || []) : [];
+	    if (!proofs.length || proofs.length > 5) { if (poRefs.paymentMessage) poRefs.paymentMessage.textContent = 'Choose between 1 and 5 proofs of payment.'; return; }
+	    if (proofs.some((proof) => proof.size > 10 * 1024 * 1024)) { if (poRefs.paymentMessage) poRefs.paymentMessage.textContent = 'Each payment proof must be 10 MB or smaller.'; return; }
 	    state.inventoryRecap.paymentBusy = true;
 	    if (poRefs.paymentMessage) poRefs.paymentMessage.textContent = 'Saving payment and proof in Accounting…';
 	    try {
@@ -13669,7 +13674,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      form.set('percentage', String(Number(poRefs.paymentFields?.querySelector('[data-po-payment-percentage]')?.value || 0)));
 	      form.set('item_ids', JSON.stringify(Object.keys(state.inventoryRecap.paymentItemIds).filter((id) => state.inventoryRecap.paymentItemIds[id]).map(Number)));
 	      form.set('account_id', String(Number(poRefs.paymentAccount?.value || 0)));
-	      form.set('proof', proof);
+	      proofs.forEach((proof) => form.append('proofs[]', proof, proof.name));
 	      const data = await requestJson(inventoryRecapUrl({ force: true }), { method: 'POST', body: form, cache: 'no-store', timeoutMs: 30000 });
 	      applyInventoryRecapData(data);
 	      if (poRefs.paymentModal) poRefs.paymentModal.hidden = true;

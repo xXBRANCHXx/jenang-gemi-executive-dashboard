@@ -21,7 +21,8 @@ try {
         && strtolower(trim((string) ($_GET['action'] ?? ''))) === 'payment_proof') {
         $paymentId = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT);
         if ($paymentId === false || $paymentId < 1) throw new InvalidArgumentException('Payment proof not found.');
-        jg_purchase_orders_stream_payment_proof($skuPdo, $paymentId);
+        $proofId = filter_var($_GET['proof_id'] ?? 0, FILTER_VALIDATE_INT);
+        jg_purchase_orders_stream_payment_proof($skuPdo, $paymentId, $proofId === false ? 0 : max(0, (int) $proofId));
     }
     $month = function_exists('jg_accounting_month') ? jg_accounting_month($_GET['month'] ?? null) : gmdate('Y-m');
     $cashContext = jg_inventory_recap_accounting_cash_context($analyticsPdo, $month);
@@ -146,8 +147,10 @@ try {
             if ($categoryId < 1) throw new RuntimeException(sprintf('The %s accounting category is unavailable.', $poCategory['name']));
             $requestKey = trim((string) ($body['request_key'] ?? ''));
             if ($requestKey === '') throw new InvalidArgumentException('A payment request key is required.');
-            $proofFile = isset($_FILES['proof']) && is_array($_FILES['proof']) ? $_FILES['proof'] : [];
-            $proof = jg_purchase_orders_validate_payment_proof($proofFile);
+            $proofFiles = isset($_FILES['proofs']) && is_array($_FILES['proofs'])
+                ? $_FILES['proofs']
+                : (isset($_FILES['proof']) && is_array($_FILES['proof']) ? $_FILES['proof'] : []);
+            $proofs = jg_purchase_orders_validate_payment_proofs($proofFiles);
             $paymentExists = $skuPdo->prepare('SELECT accounting_transaction_id FROM purchase_order_payments WHERE request_key = :request_key LIMIT 1');
             $paymentExists->execute([':request_key' => $requestKey]);
             $transactionId = (int) ($paymentExists->fetchColumn() ?: 0);
@@ -184,7 +187,7 @@ try {
             }
             $updatedOrder = jg_purchase_orders_record_payment(
                 $skuPdo, $orderId, $requestKey, $transactionId, $accountId,
-                (string) ($account['name'] ?? ''), $amount, $mode, $itemIds, $proof
+                (string) ($account['name'] ?? ''), $amount, $mode, $itemIds, $proofs
             );
         } elseif ($action === 'cancel_order') {
             $orderId = filter_var($body['order_id'] ?? null, FILTER_VALIDATE_INT);

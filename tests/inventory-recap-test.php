@@ -208,8 +208,25 @@ $validatedProof = jg_purchase_orders_validate_payment_proof([
     'size' => filesize($proofPath),
     'name' => 'supplier-payment.pdf',
 ]);
+$validatedProofs = jg_purchase_orders_validate_payment_proofs([
+    'error' => array_fill(0, 5, UPLOAD_ERR_OK),
+    'tmp_name' => array_fill(0, 5, $proofPath),
+    'size' => array_fill(0, 5, filesize($proofPath)),
+    'name' => array_map(static fn (int $index): string => $index === 1 ? 'supplier-payment.pdf' : 'supplier-payment-' . $index . '.pdf', range(1, 5)),
+]);
+try {
+    jg_purchase_orders_validate_payment_proofs([
+        'error' => array_fill(0, 6, UPLOAD_ERR_OK),
+        'tmp_name' => array_fill(0, 6, $proofPath),
+        'size' => array_fill(0, 6, filesize($proofPath)),
+        'name' => array_fill(0, 6, 'too-many.pdf'),
+    ]);
+    inventory_recap_expect_true(false, 'A sixth PO payment proof must be rejected.');
+} catch (InvalidArgumentException $error) {
+    inventory_recap_expect_true(str_contains($error->getMessage(), '1 and 5'), 'The PO proof limit must be explicit.');
+}
 $partPaidOrder = jg_purchase_orders_record_payment(
-    $skuPdo, (int) $placedOrder['id'], 'payment-test-request', 1234, 8, 'BCA Main', 10000, 'amount', [], $validatedProof
+    $skuPdo, (int) $placedOrder['id'], 'payment-test-request', 1234, 8, 'BCA Main', 10000, 'amount', [], $validatedProofs
 );
 @unlink($proofPath);
 inventory_recap_expect(10000.0, $partPaidOrder['paid_total'] ?? 0, 'PO payments must accumulate against the COGS-based order total.');
@@ -217,6 +234,9 @@ inventory_recap_expect(23000.0, $partPaidOrder['amount_due'] ?? 0, 'A partial pa
 inventory_recap_expect(false, $partPaidOrder['is_paid'] ?? null, 'A partially paid PO must remain active.');
 inventory_recap_expect('supplier-payment.pdf', $partPaidOrder['payments'][0]['proof']['name'] ?? '', 'PO history must retain the private proof metadata for each payment.');
 inventory_recap_expect('/api/inventory-recap/?action=payment_proof&id=1', $partPaidOrder['payments'][0]['proof']['url'] ?? '', 'PO payment proofs must use the authenticated streaming endpoint.');
+inventory_recap_expect(5, count($partPaidOrder['payments'][0]['proofs'] ?? []), 'A PO payment must retain all five proofs.');
+inventory_recap_expect('/api/inventory-recap/?action=payment_proof&id=1&proof_id=4', $partPaidOrder['payments'][0]['proofs'][4]['url'] ?? '', 'Additional PO proofs must use their authenticated child-file endpoint.');
+inventory_recap_expect(4, (int) $skuPdo->query('SELECT COUNT(*) FROM purchase_order_payment_proofs')->fetchColumn(), 'The four additional PO proofs must be stored as separate blobs.');
 $samePaymentOrder = jg_purchase_orders_record_payment(
     $skuPdo, (int) $placedOrder['id'], 'payment-test-request', 1234, 8, 'BCA Main', 10000, 'amount', []
 );

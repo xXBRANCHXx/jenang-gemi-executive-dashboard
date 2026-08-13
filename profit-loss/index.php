@@ -281,8 +281,8 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                                         <input type="url" name="receipt_url" placeholder="https://...">
                                     </label>
                                     <label class="admin-accounting-receipt-upload" data-accounting-receipt-upload>
-                                        <span>Upload receipt <small>Optional · PDF or image · max 10 MB</small></span>
-                                        <input type="file" name="receipt_file" data-accounting-receipt-file accept="application/pdf,image/png,image/jpeg,image/webp">
+                                        <span>Upload proof of payment <small>Optional · up to 5 PDF or image files · max 10 MB each</small></span>
+                                        <input type="file" name="receipt_files[]" data-accounting-receipt-file accept="application/pdf,image/png,image/jpeg,image/webp" multiple>
                                     </label>
                                     <label>
                                         <span data-accounting-term="receipt_status">Receipt Status</span>
