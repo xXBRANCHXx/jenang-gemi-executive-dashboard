@@ -80,14 +80,17 @@ try {
                 $items,
                 (string) ($body['note'] ?? ''),
                 (string) ($body['request_key'] ?? ''),
-                'Executive'
+                'Executive',
+                'pending',
+                (string) ($body['order_type'] ?? 'reorder')
             );
         } elseif ($action === 'create_draft') {
             $draftOrder = jg_purchase_orders_create_draft(
                 $skuPdo,
                 is_array($body['items'] ?? null) ? $body['items'] : [],
                 (string) ($body['note'] ?? ''),
-                (string) ($body['request_key'] ?? '')
+                (string) ($body['request_key'] ?? ''),
+                (string) ($body['order_type'] ?? 'reorder')
             );
         } elseif ($action === 'confirm_order') {
             $updatedOrder = jg_purchase_orders_confirm($skuPdo, (int) ($body['order_id'] ?? 0));

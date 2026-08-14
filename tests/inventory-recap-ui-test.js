@@ -9,6 +9,7 @@ const styles = fs.readFileSync(path.join(root, 'admin.css'), 'utf8');
 const navigation = fs.readFileSync(path.join(root, 'admin-nav.php'), 'utf8');
 const api = fs.readFileSync(path.join(root, 'api/inventory-recap/index.php'), 'utf8');
 const purchaseOrders = fs.readFileSync(path.join(root, 'purchase-orders-bootstrap.php'), 'utf8');
+const inventoryBootstrap = fs.readFileSync(path.join(root, 'inventory-recap-bootstrap.php'), 'utf8');
 
 assert.match(dashboard, /data-view-panel="inventory-recap"[\s\S]*Reorder triggers[\s\S]*data-inventory-filter="triggered"[\s\S]*Needs purchase/);
 assert.match(dashboard, /Automatic triggers learn from 90 days of demand/);
@@ -18,6 +19,9 @@ assert.match(dashboard, /75% order 19 ÷ MOQ 11 → buy 22/);
 assert.match(dashboard, /data-view-panel="purchase-order"[\s\S]*MOQ-ready purchase plan[\s\S]*data-purchase-plan-place[\s\S]*data-purchase-plan-download/);
 assert.match(dashboard, /admin-back-icon-button admin-purchase-back[^>]*data-view-switch="inventory-recap"[^>]*aria-label="Back to Inventory Recap"/);
 assert.match(dashboard, /data-purchase-plan-toggle-all[^>]*disabled[^>]*>Select all</);
+assert.match(dashboard, /data-purchase-mode-open="overflow"[\s\S]*Buy overflow/);
+assert.match(dashboard, /data-purchase-plan-mode="overflow"[\s\S]*Add any product and pay for the exact extra quantity/);
+assert.match(dashboard, /data-overflow-product-search[\s\S]*data-overflow-product-results/);
 assert.match(dashboard, /admin-purchase-rule[\s\S]*admin-purchase-selection-bar[\s\S]*data-purchase-plan-toggle-all[\s\S]*data-purchase-plan-list/);
 assert.match(dashboard, /Sent to Store Ops[\s\S]*confirmed and pending in Store Ops/);
 assert.match(dashboard, /Stock already on the way[\s\S]*data-inventory-po-list/);
@@ -66,6 +70,10 @@ assert.match(script, /inventoryUrgencyCompare[\s\S]*\.sort\(inventoryUrgencyComp
 assert.match(script, /const purchasePlanRows[\s\S]*suggestions\.map[\s\S]*\.sort\(inventoryUrgencyCompare\)/);
 assert.match(script, /admin-inventory-incoming-qty[\s\S]*units in process[\s\S]*buy \$\{formatRegionalInteger\(item\.recommended_order_qty/);
 assert.match(script, /planSelected:\s*\{\}/);
+assert.match(script, /purchaseMode:[\s\S]*overflowProductSearch:[\s\S]*overflowItems:/);
+assert.match(script, /const purchaseCatalogRows[\s\S]*const renderOverflowProductResults/);
+assert.match(inventoryBootstrap, /'purchase_catalog'\s*=>\s*array_values\(\$skus\)/);
+assert.match(script, /order_type: state\.inventoryRecap\.purchaseMode/);
 assert.match(script, /data-purchase-plan-select[\s\S]*planSelected\[selectionSku\] = input\.checked/);
 assert.match(script, /purchasePlanRefs\.toggleAll[\s\S]*every\(\(item\) => item\.selected\)/);
 assert.doesNotMatch(script, /data-purchase-plan-remove|planExcluded/);
@@ -97,7 +105,10 @@ assert.match(styles, /\.admin-rail-icon-inventory/);
 assert.match(styles, /admin-rail-icon-inventory[\s\S]{0,700}M9 3v3h6V3/);
 assert.match(styles, /\.admin-purchase-select\s*\{[\s\S]*\.admin-purchase-select input:checked \+ span/);
 assert.match(styles, /\.admin-inventory-incoming-qty\s*\{[\s\S]*color:\s*#60a5fa/);
-assert.doesNotMatch(styles, /\.admin-purchase-remove/);
+assert.match(styles, /\.admin-purchase-remove/);
+assert.match(styles, /\.admin-overflow-product-adder/);
+assert.match(purchaseOrders, /order_type[\s\S]*\['reorder', 'overflow'\]/);
+assert.match(purchaseOrders, /\$orderType === 'overflow'[\s\S]*\(int\) \$request\['quantity'\]/);
 
 const inventoryStyles = styles.slice(
   styles.indexOf('/* Inventory coverage and editable purchase plan */'),

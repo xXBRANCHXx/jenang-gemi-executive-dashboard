@@ -36,7 +36,7 @@ $sidebarSection = match (true) {
     in_array($requestedView ?? '', ['website', 'site', 'home', 'campaign', 'campaigns', 'landing', 'landing-pages'], true) => 'website',
     default => 'home',
 };
-$dashboardBuildVersion = 'exec3.97.14';
+$dashboardBuildVersion = 'exec3.97.15';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -758,9 +758,13 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                                <p>Make the buying decision from stock quantities, not a countdown. Automatic triggers learn from 90 days of demand; every trigger and MOQ stays editable.</p>
 	                            </div>
 	                            <div class="admin-inventory-global-actions">
-	                                <button type="button" class="admin-inventory-order-action" data-view-switch="purchase-order">
+	                                <button type="button" class="admin-inventory-overflow-action" data-view-switch="purchase-order" data-purchase-mode-open="overflow">
+	                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+	                                    Buy overflow
+	                                </button>
+	                                <button type="button" class="admin-inventory-order-action" data-view-switch="purchase-order" data-purchase-mode-open="reorder">
 	                                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h8.78a2 2 0 0 0 1.95-1.57L21 7H5.12"/></svg>
-	                                    Order
+	                                    Order low stock
 	                                </button>
 	                            </div>
 	                        </header>
@@ -820,8 +824,8 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                                 <button type="button" class="admin-back-icon-button admin-purchase-back" data-view-switch="inventory-recap" aria-label="Back to Inventory Recap" title="Back to Inventory Recap">
                                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg>
 	                                </button>
-	                                <span class="admin-panel-kicker">Triggered products only</span>
-	                                <strong>MOQ-ready purchase plan</strong>
+	                                <span class="admin-panel-kicker" data-purchase-plan-kicker>Triggered products only</span>
+	                                <strong data-purchase-plan-title>MOQ-ready purchase plan</strong>
 	                                <span data-purchase-plan-status>Loading current recommendations</span>
 	                            </div>
 	                            <div class="admin-purchase-actions">
@@ -839,12 +843,22 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                                </button>
 	                            </div>
 	                        </div>
+	                        <div class="admin-purchase-mode-picker" role="group" aria-label="Purchase order type">
+	                            <button type="button" class="is-active" data-purchase-plan-mode="reorder" aria-pressed="true">
+	                                <strong>Reorder low stock</strong>
+	                                <span>Use the automatic MOQ-ready recommendations</span>
+	                            </button>
+	                            <button type="button" data-purchase-plan-mode="overflow" aria-pressed="false">
+	                                <strong>Buy overflow stock</strong>
+	                                <span>Add any product and pay for the exact extra quantity</span>
+	                            </button>
+	                        </div>
 	                        <div class="admin-purchase-ledger-meta">
 	                            <span>Accounting cash <strong data-inventory-recap-cash>Rp0</strong></span>
 	                            <span>Purchase total <strong data-inventory-recap-cost>Rp0</strong></span>
 	                            <span data-inventory-recap-funding>Waiting for inventory</span>
 	                        </div>
-	                        <div class="admin-purchase-rule">
+	                        <div class="admin-purchase-rule" data-purchase-plan-rule>
 	                            <strong>How quantities are chosen</strong>
 	                            <span>Trigger at 25% of the monthly average. One shared Order Days setting controls every product, then each quantity rounds up to its MOQ.</span>
 	                            <code>75% order 19 ÷ MOQ 11 → buy 22</code>
@@ -855,6 +869,18 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                                <span>Choose the products to include in this purchase order</span>
 	                            </div>
 	                            <label class="admin-purchase-search"><span>Search products</span><input type="search" data-purchase-plan-search placeholder="Search name or SKU" autocomplete="off"></label>
+	                        </div>
+	                        <div class="admin-overflow-product-adder" data-overflow-product-adder hidden>
+	                            <div>
+	                                <span class="admin-panel-kicker">Add products</span>
+	                                <strong>What extra stock did production make?</strong>
+	                                <p>Search the complete product catalog, add a product, then enter the exact quantity. MOQ rounding is not applied to overflow orders.</p>
+	                            </div>
+	                            <label class="admin-overflow-product-search">
+	                                <span>Find a product</span>
+	                                <input type="search" data-overflow-product-search placeholder="Type a product name or SKU" autocomplete="off">
+	                            </label>
+	                            <div class="admin-overflow-product-results" data-overflow-product-results aria-live="polite"></div>
 	                        </div>
 	                        <div class="admin-purchase-list" data-purchase-plan-list>
 	                            <p class="admin-empty">Loading recommended products.</p>

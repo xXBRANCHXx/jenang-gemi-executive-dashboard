@@ -157,8 +157,10 @@ geometry under Lucide's ISC license.
 - Repeat Customers profiles use normalized phone numbers as the only cross-channel identity link. When phone is unavailable, normalized name/username matching is deliberately scoped to a single channel to reduce false merges. Segments are New (1 order), Returning (2–3), Loyal (4–7), and Champion (8+).
 - Inventory Recap and Store Ops share `purchase_orders`, `purchase_order_items`, and
   `purchase_order_receipts` in the SKU database. Placing a plan snapshots
-  server-validated MOQ quantities, marks them as incoming in the recap, and keeps
-  the PO pending until Store Ops confirms full or partial delivery.
+  server-validated quantities, marks them as incoming in the recap, and keeps the
+  PO pending until Store Ops confirms full or partial delivery. Low-stock reorders
+  continue to round up to MOQ; production-overflow POs can add any active catalog
+  product and preserve the exact extra quantity without MOQ rounding.
 - PO History keeps each purchase-order payment linked to its private proof of
   payment. New PO payments require a PDF, PNG, JPG, or WebP proof (maximum 10 MB),
   which is stored in the SKU database and served only through the authenticated

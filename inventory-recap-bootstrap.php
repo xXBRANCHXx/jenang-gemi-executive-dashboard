@@ -828,6 +828,7 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
         ],
         'suggestions' => $suggestions,
         'items' => $items,
+        'purchase_catalog' => array_values($skus),
         'purchase_orders' => $purchaseOrders,
         'production_order_draft' => jg_inventory_recap_order_draft($suggestions, $summary, $options),
     ];

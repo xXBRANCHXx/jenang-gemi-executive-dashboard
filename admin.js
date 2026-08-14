@@ -2591,6 +2591,11 @@ document.addEventListener('DOMContentLoaded', () => {
 	      planSelected: {},
 	      planSearch: '',
 	      planNote: '',
+	      purchaseMode: new URLSearchParams(window.location.search).get('purchase') === 'overflow' ? 'overflow' : 'reorder',
+	      overflowProductSearch: '',
+	      overflowItems: {},
+	      overflowQuantities: {},
+	      overflowNotes: {},
 	      activeDraftOrderId: 0,
 	      resumedDraftItems: [],
 	      selectedOrderId: Number(new URLSearchParams(window.location.search).get('po') || 0),
@@ -2903,10 +2908,18 @@ document.addEventListener('DOMContentLoaded', () => {
 	    poSummary: document.querySelector('[data-inventory-po-summary]')
 	  };
 	  const purchasePlanRefs = {
+	    kicker: document.querySelector('[data-purchase-plan-kicker]'),
+	    title: document.querySelector('[data-purchase-plan-title]'),
 	    status: document.querySelector('[data-purchase-plan-status]'),
 	    list: document.querySelector('[data-purchase-plan-list]'),
+	    modes: document.querySelectorAll('[data-purchase-plan-mode]'),
+	    rule: document.querySelector('[data-purchase-plan-rule]'),
+	    selectionBar: document.querySelector('.admin-purchase-selection-bar'),
 	    toggleAll: document.querySelector('[data-purchase-plan-toggle-all]'),
 	    search: document.querySelector('[data-purchase-plan-search]'),
+	    overflowAdder: document.querySelector('[data-overflow-product-adder]'),
+	    overflowSearch: document.querySelector('[data-overflow-product-search]'),
+	    overflowResults: document.querySelector('[data-overflow-product-results]'),
 	    copy: document.querySelector('[data-purchase-plan-copy]'),
 	    place: document.querySelector('[data-purchase-plan-place]'),
 	    download: document.querySelector('[data-purchase-plan-download]'),
@@ -8580,12 +8593,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	  const purchaseOrders = () => Array.isArray(state.inventoryRecap.data?.purchase_orders)
 	    ? state.inventoryRecap.data.purchase_orders : [];
+	  const purchaseOrderTypeLabel = (order) => String(order?.order_type || '') === 'overflow' ? 'Overflow stock' : 'Stock reorder';
 	  const purchaseOrderIsPaid = (order) => Boolean(order?.is_paid)
 	    || (Number(order?.paid_total || 0) > 0 && Number(order?.amount_due || 0) <= 0);
 	  const selectedPurchaseOrder = () => purchaseOrders().find((order) => Number(order.id || 0) === Number(state.inventoryRecap.selectedOrderId || 0));
 
 	  const orderSearchText = (order) => [
-	    order.po_number, order.tag, order.note, order.status,
+	    order.po_number, order.tag, order.note, order.status, order.order_type, purchaseOrderTypeLabel(order),
 	    ...(Array.isArray(order.items) ? order.items.flatMap((item) => [item.sku, item.product_name, item.line_note]) : []),
 	    ...(Array.isArray(order.payments) ? order.payments.flatMap((payment) => [payment.account_name, ...(payment.proofs || []).map((proof) => proof.name)]) : [])
 	  ].join(' ').toLowerCase();
@@ -8602,7 +8616,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      const draft = String(order.status || '') === 'draft';
 	      const proofCount = (order.payments || []).reduce((total, payment) => total + (payment.proofs || (payment.proof?.url ? [payment.proof] : [])).length, 0);
 	      return `<article class="admin-po-history-card is-${escapeHtml(order.status || 'pending')}" data-po-open="${Number(order.id || 0)}" ${draft ? `data-po-draft-context="${Number(order.id || 0)}"` : ''} tabindex="0" role="button">
-	        <div><span class="admin-po-status">${escapeHtml(purchaseOrderStatusLabel(order.status))}</span><strong>${escapeHtml(order.po_number || 'Purchase order')}</strong><small>${escapeHtml(String(order.placed_at || '').slice(0, 10))} · ${formatRegionalInteger(order.line_count || 0)} products · ${formatRegionalInteger(order.ordered_qty || 0)} units</small></div>
+	        <div><span class="admin-po-status">${escapeHtml(purchaseOrderStatusLabel(order.status))}</span><strong>${escapeHtml(order.po_number || 'Purchase order')}</strong><small>${escapeHtml(purchaseOrderTypeLabel(order))} · ${escapeHtml(String(order.placed_at || '').slice(0, 10))} · ${formatRegionalInteger(order.line_count || 0)} products · ${formatRegionalInteger(order.ordered_qty || 0)} units</small></div>
 	        <div class="admin-po-history-card-money"><strong>${formatCurrency(order.estimated_total || 0)}</strong><span>${Number(order.amount_due || 0) > 0 ? `${formatCurrency(order.amount_due)} due` : 'Paid'}</span><small>${proofCount ? `${formatRegionalInteger(proofCount)} payment proof${proofCount === 1 ? '' : 's'}` : 'No payment proof'}</small></div>
 	        <label class="admin-po-tag" onclick="event.stopPropagation()"><span>Tag</span><input type="text" maxlength="120" value="${escapeHtml(order.tag || '')}" data-po-tag="${Number(order.id || 0)}" placeholder="Add tag"></label>
 	        <button type="button" ${draft ? `data-po-resume="${Number(order.id || 0)}"` : `data-po-open="${Number(order.id || 0)}"`}>${draft ? 'Resume' : 'View breakdown'} →</button>
@@ -8619,7 +8633,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      return;
 	    }
 	    if (poRefs.detailNumber) poRefs.detailNumber.textContent = order.po_number || 'PO breakdown';
-	    if (poRefs.detailStatus) poRefs.detailStatus.textContent = `${purchaseOrderStatusLabel(order.status)} · created ${String(order.placed_at || '').slice(0, 10)}`;
+	    if (poRefs.detailStatus) poRefs.detailStatus.textContent = `${purchaseOrderTypeLabel(order)} · ${purchaseOrderStatusLabel(order.status)} · created ${String(order.placed_at || '').slice(0, 10)}`;
 	    const paid = Math.max(0, Number(order.paid_total || 0));
 	    const due = Math.max(0, Number(order.amount_due || 0));
 	    const draft = String(order.status || '') === 'draft';
@@ -8680,7 +8694,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	          <div class="admin-inventory-po-card-head">
 	            <div>
 	              <strong>${escapeHtml(order.po_number || 'Purchase order')}</strong>
-	              <span>${escapeHtml(purchaseOrderStatusLabel(order.status))}</span>
+	              <span>${escapeHtml(purchaseOrderTypeLabel(order))} · ${escapeHtml(purchaseOrderStatusLabel(order.status))}</span>
 	            </div>
 	            <div class="admin-inventory-po-card-actions">
 	              <b>${formatRegionalInteger(progress)}%</b>
@@ -8751,18 +8765,29 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (!order || String(order.status || '') !== 'draft') return;
 	    state.inventoryRecap.activeDraftOrderId = Number(order.id || 0);
 	    state.inventoryRecap.resumedDraftItems = Array.isArray(order.items) ? order.items : [];
+	    state.inventoryRecap.purchaseMode = String(order.order_type || '') === 'overflow' ? 'overflow' : 'reorder';
 	    state.inventoryRecap.planSelected = {};
 	    state.inventoryRecap.planQuantities = {};
 	    state.inventoryRecap.planNotes = {};
+	    state.inventoryRecap.overflowItems = {};
+	    state.inventoryRecap.overflowQuantities = {};
+	    state.inventoryRecap.overflowNotes = {};
 	    (order.items || []).forEach((item) => {
-	      state.inventoryRecap.planSelected[String(item.sku || '')] = true;
-	      state.inventoryRecap.planQuantities[String(item.sku || '')] = Number(item.ordered_qty || 0);
-	      state.inventoryRecap.planEdited[String(item.sku || '')] = true;
-	      state.inventoryRecap.planNotes[String(item.sku || '')] = String(item.line_note || '');
+	      const sku = String(item.sku || '');
+	      if (state.inventoryRecap.purchaseMode === 'overflow') {
+	        state.inventoryRecap.overflowItems[sku] = true;
+	        state.inventoryRecap.overflowQuantities[sku] = Number(item.ordered_qty || 0);
+	        state.inventoryRecap.overflowNotes[sku] = String(item.line_note || '');
+	      } else {
+	        state.inventoryRecap.planSelected[sku] = true;
+	        state.inventoryRecap.planQuantities[sku] = Number(item.ordered_qty || 0);
+	        state.inventoryRecap.planEdited[sku] = true;
+	        state.inventoryRecap.planNotes[sku] = String(item.line_note || '');
+	      }
 	    });
 	    state.inventoryRecap.planNote = String(order.note || '');
 	    await switchView('purchase-order');
-	    renderPurchasePlan();
+	    setPurchasePlanMode(state.inventoryRecap.purchaseMode, { focus: false });
 	  };
 
 	  const removePoDraft = async (orderId) => {
@@ -8940,6 +8965,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	  };
 
 	  const initializePurchasePlan = () => {
+	    if (state.inventoryRecap.purchaseMode === 'overflow') return;
 	    const suggestions = Array.isArray(state.inventoryRecap.data?.suggestions) ? state.inventoryRecap.data.suggestions : [];
 	    suggestions.forEach((item) => {
 	      const sku = String(item.sku || '');
@@ -8953,7 +8979,44 @@ document.addEventListener('DOMContentLoaded', () => {
 	    });
 	  };
 
+	  const purchaseCatalogRows = () => {
+	    const catalog = Array.isArray(state.inventoryRecap.data?.purchase_catalog)
+	      ? [...state.inventoryRecap.data.purchase_catalog]
+	      : (Array.isArray(state.inventoryRecap.data?.items) ? [...state.inventoryRecap.data.items] : []);
+	    const knownSkus = new Set(catalog.map((item) => String(item.sku || '')));
+	    (state.inventoryRecap.resumedDraftItems || []).forEach((item) => {
+	      const sku = String(item.sku || '');
+	      if (!sku || knownSkus.has(sku)) return;
+	      catalog.push({
+	        sku,
+	        product_name: item.product_name || sku,
+	        purchase_moq: item.moq || 1,
+	        cogs: item.unit_cost || 0,
+	        current_stock: 0,
+	        incoming_qty: 0,
+	        risk: 'quiet'
+	      });
+	    });
+	    return catalog.sort((left, right) => String(left.product_name || left.sku || '').localeCompare(String(right.product_name || right.sku || '')));
+	  };
+
 	  const purchasePlanRows = () => {
+	    if (state.inventoryRecap.purchaseMode === 'overflow') {
+	      return purchaseCatalogRows().filter((item) => Boolean(state.inventoryRecap.overflowItems[String(item.sku || '')])).map((item) => {
+	        const sku = String(item.sku || '');
+	        const quantity = Math.max(0, Math.round(Number(state.inventoryRecap.overflowQuantities[sku] || 0)));
+	        const unitCost = Math.max(0, Number(item.cogs || 0));
+	        return {
+	          ...item,
+	          selected: true,
+	          quantity,
+	          moq: Math.max(1, Math.round(Number(item.purchase_moq || 1))),
+	          unitCost,
+	          subtotal: quantity * unitCost,
+	          note: String(state.inventoryRecap.overflowNotes[sku] || '')
+	        };
+	      });
+	    }
 	    const suggestions = Array.isArray(state.inventoryRecap.data?.suggestions) ? [...state.inventoryRecap.data.suggestions] : [];
 	    const knownSkus = new Set(suggestions.map((item) => String(item.sku || '')));
 	    (state.inventoryRecap.resumedDraftItems || []).forEach((item) => {
@@ -8985,6 +9048,44 @@ document.addEventListener('DOMContentLoaded', () => {
 	    };
 	  };
 
+	  const renderOverflowProductResults = () => {
+	    if (!purchasePlanRefs.overflowResults) return;
+	    const query = String(state.inventoryRecap.overflowProductSearch || '').trim().toLowerCase();
+	    if (!query) {
+	      purchasePlanRefs.overflowResults.innerHTML = '<p class="admin-empty">Start typing to find a product.</p>';
+	      return;
+	    }
+	    const results = purchaseCatalogRows().filter((item) => `${item.product_name || ''} ${item.sku || ''}`.toLowerCase().includes(query)).slice(0, 12);
+	    if (!results.length) {
+	      purchasePlanRefs.overflowResults.innerHTML = '<p class="admin-empty">No products match that search.</p>';
+	      return;
+	    }
+	    purchasePlanRefs.overflowResults.innerHTML = results.map((item) => {
+	      const sku = String(item.sku || '');
+	      const added = Boolean(state.inventoryRecap.overflowItems[sku]);
+	      return `<article class="admin-overflow-product-result">
+	        <strong>${escapeHtml(item.product_name || sku)}</strong>
+	        <span>${escapeHtml(sku)} · stock ${formatRegionalInteger(item.current_stock || 0)} · usual MOQ ${formatRegionalInteger(item.purchase_moq || 1)}</span>
+	        <button type="button" data-overflow-product-add="${escapeHtml(sku)}" ${added ? 'disabled' : ''}>${added ? 'Added' : 'Add'}</button>
+	      </article>`;
+	    }).join('');
+	  };
+
+	  const setPurchasePlanMode = (mode, options = {}) => {
+	    const nextMode = mode === 'overflow' ? 'overflow' : 'reorder';
+	    if (state.inventoryRecap.activeDraftOrderId && state.inventoryRecap.purchaseMode !== nextMode) return;
+	    state.inventoryRecap.purchaseMode = nextMode;
+	    state.inventoryRecap.placeRequestKey = '';
+	    if (state.activeView === 'purchase-order') {
+	      const viewUrl = new URL(window.location.href);
+	      if (nextMode === 'overflow') viewUrl.searchParams.set('purchase', 'overflow');
+	      else viewUrl.searchParams.delete('purchase');
+	      window.history.replaceState(null, '', `${viewUrl.pathname}${viewUrl.search}`);
+	    }
+	    renderPurchasePlan();
+	    if (nextMode === 'overflow' && options.focus !== false) purchasePlanRefs.overflowSearch?.focus();
+	  };
+
 	  const renderPurchasePlan = () => {
 	    if (!purchasePlanRefs.list) return;
 	    if (state.inventoryRecap.loading && !state.inventoryRecap.data) {
@@ -8996,15 +9097,33 @@ document.addEventListener('DOMContentLoaded', () => {
 	      return;
 	    }
 	    initializePurchasePlan();
+	    const overflowMode = state.inventoryRecap.purchaseMode === 'overflow';
 	    const draftLocked = Boolean(state.inventoryRecap.activeDraftOrderId);
 	    const allRows = purchasePlanRows();
 	    const search = String(state.inventoryRecap.planSearch || '').trim().toLowerCase();
-	    const visibleRows = allRows.filter((item) => !search || `${item.product_name || ''} ${item.sku || ''}`.toLowerCase().includes(search));
+	    const visibleRows = overflowMode ? allRows : allRows.filter((item) => !search || `${item.product_name || ''} ${item.sku || ''}`.toLowerCase().includes(search));
 	    const { rows, lines, total } = purchasePlanSummary();
 	    const cash = Number(state.inventoryRecap.data?.summary?.cash_available || state.inventoryRecap.data?.cash?.available || 0);
 	    const shortfall = Math.max(0, total - cash);
+	    if (purchasePlanRefs.kicker) purchasePlanRefs.kicker.textContent = overflowMode ? 'Manual production overflow' : 'Triggered products only';
+	    if (purchasePlanRefs.title) purchasePlanRefs.title.textContent = overflowMode ? 'Buy extra finished stock' : 'MOQ-ready purchase plan';
+	    purchasePlanRefs.modes.forEach((button) => {
+	      const active = button.getAttribute('data-purchase-plan-mode') === state.inventoryRecap.purchaseMode;
+	      button.classList.toggle('is-active', active);
+	      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+	      button.disabled = draftLocked && !active;
+	    });
+	    if (purchasePlanRefs.rule) purchasePlanRefs.rule.hidden = overflowMode;
+	    if (purchasePlanRefs.selectionBar) purchasePlanRefs.selectionBar.hidden = overflowMode;
+	    if (purchasePlanRefs.overflowAdder) purchasePlanRefs.overflowAdder.hidden = !overflowMode;
+	    if (purchasePlanRefs.overflowSearch instanceof HTMLInputElement && document.activeElement !== purchasePlanRefs.overflowSearch) {
+	      purchasePlanRefs.overflowSearch.value = state.inventoryRecap.overflowProductSearch;
+	    }
+	    if (overflowMode) renderOverflowProductResults();
 	    if (!allRows.length) {
-	      purchasePlanRefs.list.innerHTML = '<p class="admin-empty">Nothing is below its trigger. The purchase plan is clear.</p>';
+	      purchasePlanRefs.list.innerHTML = overflowMode
+	        ? '<p class="admin-empty">No overflow products added yet. Search above to add the extra stock you need to pay for.</p>'
+	        : '<p class="admin-empty">Nothing is below its trigger. The purchase plan is clear.</p>';
 	    } else if (!visibleRows.length) {
 	      purchasePlanRefs.list.innerHTML = '<p class="admin-empty">No purchase recommendations match this search.</p>';
 	    } else {
@@ -9012,19 +9131,19 @@ document.addEventListener('DOMContentLoaded', () => {
 	        const purchaseDaysLabel = formatRegionalNumber(item.purchase_days || 22.5, { maximumFractionDigits: 1 });
 	        return `
 	        <article class="admin-purchase-row ${inventoryRecapRiskClass(item.risk)}${item.selected ? ' is-selected' : ''}">
-	          <label class="admin-purchase-select">
+	          ${overflowMode ? `<button type="button" class="admin-purchase-remove" data-overflow-product-remove="${escapeHtml(item.sku || '')}" ${draftLocked ? 'disabled' : ''} aria-label="Remove ${escapeHtml(item.product_name || item.sku || '')}">×</button>` : `<label class="admin-purchase-select">
 	            <input type="checkbox" data-purchase-plan-select="${escapeHtml(item.sku || '')}" ${item.selected ? 'checked' : ''} ${draftLocked ? 'disabled' : ''} aria-label="Include ${escapeHtml(item.product_name || item.sku || '')} in this purchase order">
 	            <span aria-hidden="true"></span>
-	          </label>
+	          </label>`}
 	          <div class="admin-purchase-product">
 	            <strong>${escapeHtml(item.product_name || item.sku || '-')}</strong>
-	            <span>${escapeHtml(item.sku || '')} · stock ${formatRegionalInteger(item.current_stock || 0)} / trigger ${formatRegionalInteger(item.trigger_qty || 0)}</span>
-	            <small>Trigger gap ${formatRegionalInteger(item.trigger_shortfall_qty || 0)} · ${purchaseDaysLabel}-day order ${formatRegionalInteger(item.raw_purchase_qty || 0)} · MOQ ${formatRegionalInteger(item.moq)} · rounded +${formatRegionalInteger(item.moq_rounding_qty || 0)}${Number(item.incoming_qty || 0) > 0 ? ` · <b class="admin-inventory-incoming-qty">${formatRegionalInteger(item.incoming_qty || 0)} units in process</b>` : ''}</small>
+	            <span>${overflowMode ? `${escapeHtml(item.sku || '')} · ${formatRegionalInteger(item.current_stock || 0)} currently in stock` : `${escapeHtml(item.sku || '')} · stock ${formatRegionalInteger(item.current_stock || 0)} / trigger ${formatRegionalInteger(item.trigger_qty || 0)}`}</span>
+	            <small>${overflowMode ? `Usual MOQ ${formatRegionalInteger(item.moq)} is shown for reference only · this PO keeps your exact quantity` : `Trigger gap ${formatRegionalInteger(item.trigger_shortfall_qty || 0)} · ${purchaseDaysLabel}-day order ${formatRegionalInteger(item.raw_purchase_qty || 0)} · MOQ ${formatRegionalInteger(item.moq)} · rounded +${formatRegionalInteger(item.moq_rounding_qty || 0)}${Number(item.incoming_qty || 0) > 0 ? ` · <b class="admin-inventory-incoming-qty">${formatRegionalInteger(item.incoming_qty || 0)} units in process</b>` : ''}`}</small>
 	          </div>
 	          <label class="admin-purchase-quantity">
-	            <span>Buy quantity</span>
-	            <input type="number" min="0" step="${item.moq}" value="${item.quantity}" data-purchase-plan-qty="${escapeHtml(item.sku || '')}" ${draftLocked ? 'disabled' : ''} aria-label="Purchase quantity for ${escapeHtml(item.product_name || item.sku || '')}">
-	            <small>Multiples of ${formatRegionalInteger(item.moq)}</small>
+	            <span>${overflowMode ? 'Extra quantity' : 'Buy quantity'}</span>
+	            <input type="number" min="${overflowMode ? '1' : '0'}" step="${overflowMode ? '1' : item.moq}" value="${item.quantity}" data-purchase-plan-qty="${escapeHtml(item.sku || '')}" ${draftLocked ? 'disabled' : ''} aria-label="Purchase quantity for ${escapeHtml(item.product_name || item.sku || '')}">
+	            <small>${overflowMode ? 'Exact units' : `Multiples of ${formatRegionalInteger(item.moq)}`}</small>
 	          </label>
 	          <div class="admin-purchase-cost">
 	            <span>${formatCurrency(item.unitCost)} each</span>
@@ -9041,11 +9160,13 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (purchasePlanRefs.status) {
 	      purchasePlanRefs.status.textContent = draftLocked
 	        ? `${formatRegionalInteger(lines)} products locked to the draft PDF · confirm after production accepts it`
-	        : `${formatRegionalInteger(lines)} selected of ${formatRegionalInteger(allRows.length)} products · quantities stay in full MOQ multiples`;
+	        : overflowMode
+	          ? `${formatRegionalInteger(lines)} products added · exact quantities, no MOQ rounding`
+	          : `${formatRegionalInteger(lines)} selected of ${formatRegionalInteger(allRows.length)} products · quantities stay in full MOQ multiples`;
 	    }
 	    if (purchasePlanRefs.toggleAll) {
 	      const allSelected = visibleRows.length > 0 && visibleRows.every((item) => item.selected);
-	      purchasePlanRefs.toggleAll.disabled = state.inventoryRecap.loading || !visibleRows.length || draftLocked;
+	      purchasePlanRefs.toggleAll.disabled = overflowMode || state.inventoryRecap.loading || !visibleRows.length || draftLocked;
 	      purchasePlanRefs.toggleAll.textContent = allSelected ? 'Clear all' : 'Select all';
 	      purchasePlanRefs.toggleAll.setAttribute('aria-pressed', allSelected ? 'true' : 'false');
 	    }
@@ -9081,15 +9202,18 @@ document.addEventListener('DOMContentLoaded', () => {
 	  const purchasePlanText = () => {
 	    const { rows, total } = purchasePlanSummary();
 	    const date = state.inventoryRecap.data?.meta?.end_date || activeLocalDate;
+	    const overflowMode = state.inventoryRecap.purchaseMode === 'overflow';
 	    const lines = rows.map((item, index) => {
 	      const note = item.note ? ` | Note: ${item.note}` : '';
-	      return `${index + 1}. ${item.product_name || item.sku} (${item.sku}) | Stock ${formatRegionalInteger(item.current_stock)} | Trigger ${formatRegionalInteger(item.trigger_qty)} | ${formatRegionalNumber(item.purchase_days || 22.5, { maximumFractionDigits: 1 })}-day order ${formatRegionalInteger(item.raw_purchase_qty)} | MOQ ${formatRegionalInteger(item.moq)} | Buy ${formatRegionalInteger(item.quantity)} | ${formatCurrency(item.subtotal)}${note}`;
+	      return overflowMode
+	        ? `${index + 1}. ${item.product_name || item.sku} (${item.sku}) | Exact overflow QTY ${formatRegionalInteger(item.quantity)} | ${formatCurrency(item.subtotal)}${note}`
+	        : `${index + 1}. ${item.product_name || item.sku} (${item.sku}) | Stock ${formatRegionalInteger(item.current_stock)} | Trigger ${formatRegionalInteger(item.trigger_qty)} | ${formatRegionalNumber(item.purchase_days || 22.5, { maximumFractionDigits: 1 })}-day order ${formatRegionalInteger(item.raw_purchase_qty)} | MOQ ${formatRegionalInteger(item.moq)} | Buy ${formatRegionalInteger(item.quantity)} | ${formatCurrency(item.subtotal)}${note}`;
 	    });
 	    return [
-	      'JENANG GEMI - RECOMMENDED STOCK PURCHASE',
-	      `Demand through: ${date}`,
-	      'Trigger model: 25% of the flat monthly average (90-day demand divided by 3)',
-	      'Purchase rule: one shared order-days setting for every product, then round up to MOQ',
+	      overflowMode ? 'JENANG GEMI - OVERFLOW STOCK PURCHASE' : 'JENANG GEMI - RECOMMENDED STOCK PURCHASE',
+	      overflowMode ? `Created: ${date}` : `Demand through: ${date}`,
+	      overflowMode ? 'Purchase rule: exact production overflow quantities; MOQ rounding is not applied' : 'Trigger model: 25% of the flat monthly average (90-day demand divided by 3)',
+	      overflowMode ? '' : 'Purchase rule: one shared order-days setting for every product, then round up to MOQ',
 	      '',
 	      ...lines,
 	      '',
@@ -10709,7 +10833,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    .replace(/[^\x20-\x7E]/g, '')
 	    .slice(0, maximum);
 
-	  const buildPurchaseOrderPdf = ({ rows, total, date, poNumber, note }) => {
+	  const buildPurchaseOrderPdf = ({ rows, total, date, poNumber, note, orderType = 'reorder' }) => {
 	    const pageWidth = 595;
 	    const pageHeight = 842;
 	    const margin = 36;
@@ -10737,14 +10861,16 @@ document.addEventListener('DOMContentLoaded', () => {
 	      page.push(textCommand(poNumber || 'DRAFT', 405, 780, 10, true, '#111111'));
 	      page.push(textCommand(`Issued ${date}`, 405, 763, 7.5, false, '#4b5563'));
 	      page.push(line(margin, 744, pageWidth - margin, 744, '#111111'));
-	      page.push(textCommand('Production purchase / quantities validated against live MOQ', margin, 726, 7, false, '#4b5563'));
+	      page.push(textCommand(orderType === 'overflow'
+	        ? 'Production overflow / exact quantities / MOQ not enforced'
+	        : 'Production purchase / quantities validated against live MOQ', margin, 726, 7, false, '#4b5563'));
 	      page.push(textCommand(`Page ${pageNumber}`, 520, 26, 7, false, '#6b7280'));
 	      page.push(textCommand('Executive Dashboard / Receiving tracked in Store Ops', margin, 26, 7, false, '#6b7280'));
 	      page.push(rect(margin, 708, pageWidth - (margin * 2), 24, '#eeeeee'));
 	      page.push(textCommand('#', 42, 717, 6.5, true, '#222222'));
 	      page.push(textCommand('PRODUCT', 58, 717, 6.5, true, '#222222'));
 	      page.push(textCommand('SKU', 244, 717, 6.5, true, '#222222'));
-	      page.push(textCommand('MOQ', 342, 717, 6.5, true, '#222222'));
+	      page.push(textCommand(orderType === 'overflow' ? 'MOQ*' : 'MOQ', 342, 717, 6.5, true, '#222222'));
 	      page.push(textCommand('QTY', 383, 717, 6.5, true, '#222222'));
 	      page.push(textCommand('UNIT', 423, 717, 6.5, true, '#222222'));
 	      page.push(textCommand('TOTAL', 498, 717, 6.5, true, '#222222'));
@@ -10834,7 +10960,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	    const total = isPlacedOrder ? Number(placedOrder.estimated_total || 0) : current.total;
 	    const poNumber = isPlacedOrder ? String(placedOrder.po_number || '') : '';
 	    const note = isPlacedOrder ? String(placedOrder.note || '') : state.inventoryRecap.planNote;
-	    const pdf = buildPurchaseOrderPdf({ rows, total, date, poNumber, note });
+	    const orderType = isPlacedOrder ? String(placedOrder.order_type || 'reorder') : state.inventoryRecap.purchaseMode;
+	    const pdf = buildPurchaseOrderPdf({ rows, total, date, poNumber, note, orderType });
 	    const blob = new Blob([pdf], { type: 'application/pdf' });
 	    const link = document.createElement('a');
 	    link.href = URL.createObjectURL(blob);
@@ -10862,6 +10989,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      const requestKey = window.crypto?.randomUUID?.() || `draft-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 	      const data = await postPoAction({
 	        action: 'create_draft', request_key: requestKey, note: state.inventoryRecap.planNote,
+	        order_type: state.inventoryRecap.purchaseMode,
 	        items: rows.map((item) => ({ sku: item.sku, quantity: item.quantity, line_note: item.note }))
 	      });
 	      const draft = data.draft_order;
@@ -10894,6 +11022,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	            action: 'place_order',
 	            request_key: state.inventoryRecap.placeRequestKey,
 	            note: state.inventoryRecap.planNote,
+	            order_type: state.inventoryRecap.purchaseMode,
 	            items: rows.map((item) => ({ sku: item.sku, quantity: item.quantity, line_note: item.note }))
 	          });
 	      state.inventoryRecap.placedOrder = data.updated_order || data.placed_order || null;
@@ -10903,6 +11032,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	      state.inventoryRecap.planEdited = {};
 	      state.inventoryRecap.planQuantities = {};
 	      state.inventoryRecap.planSelected = {};
+	      state.inventoryRecap.overflowItems = {};
+	      state.inventoryRecap.overflowQuantities = {};
+	      state.inventoryRecap.overflowNotes = {};
 	      applyInventoryRecapData(data);
 	      if (purchasePlanRefs.modalNumber) {
 	        purchasePlanRefs.modalNumber.textContent = state.inventoryRecap.placedOrder?.po_number || 'Purchase order';
@@ -13522,6 +13654,11 @@ document.addEventListener('DOMContentLoaded', () => {
 	    }
 	    const sku = input.getAttribute('data-purchase-plan-qty');
 	    if (!sku) return;
+	    if (state.inventoryRecap.purchaseMode === 'overflow') {
+	      state.inventoryRecap.overflowQuantities[sku] = Math.max(1, Math.round(Number(input.value || 1)));
+	      renderPurchasePlan();
+	      return;
+	    }
 	    const item = (state.inventoryRecap.data?.suggestions || []).find((row) => String(row.sku || '') === sku);
 	    const moq = Math.max(1, Math.round(Number(item?.purchase_moq || 1)));
 	    const entered = Math.max(0, Math.round(Number(input.value || 0)));
@@ -13535,12 +13672,29 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (!(input instanceof HTMLInputElement)) return;
 	    const quantitySku = input.getAttribute('data-purchase-plan-qty');
 	    if (quantitySku) {
-	      state.inventoryRecap.planQuantities[quantitySku] = Math.max(0, Math.round(Number(input.value || 0)));
-	      state.inventoryRecap.planEdited[quantitySku] = true;
+	      if (state.inventoryRecap.purchaseMode === 'overflow') {
+	        state.inventoryRecap.overflowQuantities[quantitySku] = Math.max(0, Math.round(Number(input.value || 0)));
+	      } else {
+	        state.inventoryRecap.planQuantities[quantitySku] = Math.max(0, Math.round(Number(input.value || 0)));
+	        state.inventoryRecap.planEdited[quantitySku] = true;
+	      }
 	      return;
 	    }
 	    const noteSku = input.getAttribute('data-purchase-plan-line-note');
-	    if (noteSku) state.inventoryRecap.planNotes[noteSku] = input.value;
+	    if (noteSku) {
+	      if (state.inventoryRecap.purchaseMode === 'overflow') state.inventoryRecap.overflowNotes[noteSku] = input.value;
+	      else state.inventoryRecap.planNotes[noteSku] = input.value;
+	    }
+	  });
+
+	  purchasePlanRefs.list?.addEventListener('click', (event) => {
+	    const remove = event.target instanceof Element ? event.target.closest('[data-overflow-product-remove]') : null;
+	    if (!remove || state.inventoryRecap.activeDraftOrderId) return;
+	    const sku = String(remove.getAttribute('data-overflow-product-remove') || '');
+	    delete state.inventoryRecap.overflowItems[sku];
+	    delete state.inventoryRecap.overflowQuantities[sku];
+	    delete state.inventoryRecap.overflowNotes[sku];
+	    renderPurchasePlan();
 	  });
 
 	  purchasePlanRefs.note?.addEventListener('input', () => {
@@ -13566,6 +13720,28 @@ document.addEventListener('DOMContentLoaded', () => {
 	  purchasePlanRefs.search?.addEventListener('input', () => {
 	    state.inventoryRecap.planSearch = purchasePlanRefs.search instanceof HTMLInputElement ? purchasePlanRefs.search.value : '';
 	    renderPurchasePlan();
+	  });
+
+	  purchasePlanRefs.modes.forEach((button) => button.addEventListener('click', () => {
+	    setPurchasePlanMode(button.getAttribute('data-purchase-plan-mode') || 'reorder');
+	  }));
+
+	  purchasePlanRefs.overflowSearch?.addEventListener('input', () => {
+	    state.inventoryRecap.overflowProductSearch = purchasePlanRefs.overflowSearch instanceof HTMLInputElement ? purchasePlanRefs.overflowSearch.value : '';
+	    renderOverflowProductResults();
+	  });
+
+	  purchasePlanRefs.overflowResults?.addEventListener('click', (event) => {
+	    const add = event.target instanceof Element ? event.target.closest('[data-overflow-product-add]') : null;
+	    if (!add || state.inventoryRecap.activeDraftOrderId) return;
+	    const sku = String(add.getAttribute('data-overflow-product-add') || '');
+	    if (!sku) return;
+	    state.inventoryRecap.overflowItems[sku] = true;
+	    if (!state.inventoryRecap.overflowQuantities[sku]) state.inventoryRecap.overflowQuantities[sku] = 1;
+	    if (!Object.prototype.hasOwnProperty.call(state.inventoryRecap.overflowNotes, sku)) state.inventoryRecap.overflowNotes[sku] = '';
+	    state.inventoryRecap.overflowProductSearch = '';
+	    renderPurchasePlan();
+	    purchasePlanRefs.overflowSearch?.focus();
 	  });
 
 	  purchasePlanRefs.place?.addEventListener('click', () => {
@@ -14184,7 +14360,10 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('[data-view-switch]').forEach((button) => {
     button.addEventListener('click', async (event) => {
       event.preventDefault();
+	  const purchaseMode = button.dataset.purchaseModeOpen;
+	  if (purchaseMode) setPurchasePlanMode(purchaseMode, { focus: false });
       await switchView(button.dataset.viewSwitch || 'home');
+	  if (purchaseMode) setPurchasePlanMode(purchaseMode);
     });
   });
 

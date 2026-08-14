@@ -64,6 +64,7 @@ function jg_purchase_orders_ensure_schema(PDO $pdo): void
         $columns = array_map(static fn (array $row): string => (string) ($row['name'] ?? ''), $pdo->query('PRAGMA table_info(purchase_orders)')->fetchAll());
         if (!in_array('tag', $columns, true)) $pdo->exec('ALTER TABLE purchase_orders ADD COLUMN tag TEXT NOT NULL DEFAULT ""');
         if (!in_array('confirmed_at', $columns, true)) $pdo->exec('ALTER TABLE purchase_orders ADD COLUMN confirmed_at TEXT NULL');
+        if (!in_array('order_type', $columns, true)) $pdo->exec('ALTER TABLE purchase_orders ADD COLUMN order_type TEXT NOT NULL DEFAULT "reorder"');
         $pdo->exec(
             'CREATE TABLE IF NOT EXISTS purchase_order_payments (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -115,6 +116,7 @@ function jg_purchase_orders_ensure_schema(PDO $pdo): void
             po_number VARCHAR(64) NOT NULL,
             request_key VARCHAR(80) NULL,
             status VARCHAR(24) NOT NULL DEFAULT "pending",
+            order_type VARCHAR(24) NOT NULL DEFAULT "reorder",
             note TEXT NOT NULL,
             line_count INT UNSIGNED NOT NULL DEFAULT 0,
             ordered_qty INT UNSIGNED NOT NULL DEFAULT 0,
@@ -170,6 +172,7 @@ function jg_purchase_orders_ensure_schema(PDO $pdo): void
     );
     foreach ([
         'tag' => 'ALTER TABLE purchase_orders ADD COLUMN tag VARCHAR(120) NOT NULL DEFAULT "" AFTER status',
+        'order_type' => 'ALTER TABLE purchase_orders ADD COLUMN order_type VARCHAR(24) NOT NULL DEFAULT "reorder" AFTER status',
         'confirmed_at' => 'ALTER TABLE purchase_orders ADD COLUMN confirmed_at DATETIME NULL AFTER placed_at',
     ] as $column => $sql) {
         $columnStmt->execute([':column_name' => $column]);
@@ -261,7 +264,7 @@ function jg_purchase_orders_fetch(PDO $pdo, int $limit = 20): array
     jg_purchase_orders_ensure_schema($pdo);
     $limit = max(1, min(1000, $limit));
     $orders = $pdo->query(
-        'SELECT id, po_number, status, tag, note, line_count, ordered_qty, received_qty,
+        'SELECT id, po_number, status, order_type, tag, note, line_count, ordered_qty, received_qty,
                 estimated_total, placed_by, placed_at, confirmed_at, updated_at, completed_at
          FROM purchase_orders
          ORDER BY placed_at DESC, id DESC
@@ -334,6 +337,7 @@ function jg_purchase_orders_fetch(PDO $pdo, int $limit = 20): array
             'id' => (int) ($order['id'] ?? 0),
             'po_number' => (string) ($order['po_number'] ?? ''),
             'status' => (string) ($order['status'] ?? 'pending'),
+            'order_type' => (string) ($order['order_type'] ?? 'reorder'),
             'tag' => (string) ($order['tag'] ?? ''),
             'note' => (string) ($order['note'] ?? ''),
             'line_count' => (int) ($order['line_count'] ?? count($items)),
@@ -426,7 +430,8 @@ function jg_purchase_orders_place(
     string $note,
     string $requestKey,
     string $placedBy = 'Executive',
-    string $initialStatus = 'pending'
+    string $initialStatus = 'pending',
+    string $orderType = 'reorder'
 ): array {
     jg_purchase_orders_ensure_schema($pdo);
     $requestKey = trim($requestKey);
@@ -445,6 +450,10 @@ function jg_purchase_orders_place(
 
     if (!in_array($initialStatus, ['draft', 'pending'], true)) {
         throw new InvalidArgumentException('Invalid purchase order status.');
+    }
+    $orderType = strtolower(trim($orderType));
+    if (!in_array($orderType, ['reorder', 'overflow'], true)) {
+        throw new InvalidArgumentException('Invalid purchase order type.');
     }
     $requested = [];
     foreach ($inputItems as $item) {
@@ -472,7 +481,9 @@ function jg_purchase_orders_place(
     foreach ($requested as $sku => $request) {
         $row = $catalog[$sku];
         $moq = max(1, (int) ($row['purchase_moq'] ?? 1));
-        $quantity = (int) (ceil($request['quantity'] / $moq) * $moq);
+        $quantity = $orderType === 'overflow'
+            ? (int) $request['quantity']
+            : (int) (ceil($request['quantity'] / $moq) * $moq);
         $unitCost = max(0.0, (float) ($row['cogs'] ?? 0));
         $lines[] = [
             'sku' => $sku,
@@ -491,10 +502,10 @@ function jg_purchase_orders_place(
     try {
         $insertOrder = $pdo->prepare(
             'INSERT INTO purchase_orders (
-                po_number, request_key, status, note, line_count, ordered_qty,
+                po_number, request_key, status, order_type, note, line_count, ordered_qty,
                 received_qty, estimated_total, placed_by, placed_at, confirmed_at, updated_at
              ) VALUES (
-                :po_number, :request_key, :status, :note, :line_count, :ordered_qty,
+                :po_number, :request_key, :status, :order_type, :note, :line_count, :ordered_qty,
                 0, :estimated_total, :placed_by, :placed_at, :confirmed_at, :updated_at
              )'
         );
@@ -506,6 +517,7 @@ function jg_purchase_orders_place(
                     ':po_number' => $poNumber,
                     ':request_key' => $requestKey,
                     ':status' => $initialStatus,
+                    ':order_type' => $orderType,
                     ':note' => mb_substr(trim($note), 0, 5000),
                     ':line_count' => count($lines),
                     ':ordered_qty' => $orderedQty,
@@ -559,9 +571,9 @@ function jg_purchase_orders_place(
     throw new RuntimeException('The purchase order was saved but could not be reloaded.');
 }
 
-function jg_purchase_orders_create_draft(PDO $pdo, array $items, string $note, string $requestKey): array
+function jg_purchase_orders_create_draft(PDO $pdo, array $items, string $note, string $requestKey, string $orderType = 'reorder'): array
 {
-    return jg_purchase_orders_place($pdo, $items, $note, $requestKey, 'Executive', 'draft');
+    return jg_purchase_orders_place($pdo, $items, $note, $requestKey, 'Executive', 'draft', $orderType);
 }
 
 function jg_purchase_orders_find(PDO $pdo, int $orderId): array

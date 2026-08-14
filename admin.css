@@ -26124,6 +26124,151 @@ button.admin-order-payment-dot:focus-visible {
   font-weight: 700;
 }
 
+.admin-purchase-mode-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--inventory-line);
+}
+
+.admin-purchase-mode-picker button {
+  display: grid;
+  gap: 5px;
+  min-height: 70px;
+  padding: 13px 15px;
+  border: 1px solid var(--inventory-line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--admin-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.admin-purchase-mode-picker button.is-active {
+  border-color: var(--admin-text);
+  background: color-mix(in srgb, var(--admin-text) 7%, transparent);
+  box-shadow: inset 3px 0 0 var(--admin-text);
+}
+
+.admin-purchase-mode-picker strong {
+  font: 780 0.78rem/1.2 "Plus Jakarta Sans", sans-serif;
+}
+
+.admin-purchase-mode-picker span {
+  color: var(--admin-muted);
+  font: 650 0.66rem/1.35 "Plus Jakarta Sans", sans-serif;
+}
+
+.admin-overflow-product-adder {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(260px, 0.75fr) minmax(280px, 1fr);
+  gap: 18px 28px;
+  align-items: end;
+  padding: 18px;
+  border: 1px solid var(--inventory-line);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--admin-text) 3%, transparent);
+  margin: 14px 0 4px;
+}
+
+.admin-overflow-product-adder[hidden] {
+  display: none;
+}
+
+.admin-overflow-product-adder > div:first-child {
+  display: grid;
+  gap: 6px;
+}
+
+.admin-overflow-product-adder > div:first-child > strong {
+  color: var(--admin-text);
+  font: 780 0.92rem/1.25 "Plus Jakarta Sans", sans-serif;
+}
+
+.admin-overflow-product-adder p {
+  margin: 0;
+  color: var(--admin-muted);
+  font: 650 0.68rem/1.5 "Plus Jakarta Sans", sans-serif;
+}
+
+.admin-overflow-product-search {
+  display: grid;
+  gap: 6px;
+  color: var(--admin-muted);
+  font-size: 0.64rem;
+  font-weight: 720;
+}
+
+.admin-overflow-product-search input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--inventory-line);
+  border-radius: 7px;
+  outline: 0;
+  background: var(--admin-bg);
+  color: var(--admin-text);
+  font: 720 0.78rem/1.2 "Plus Jakarta Sans", sans-serif;
+}
+
+.admin-overflow-product-search input:focus {
+  border-color: var(--admin-text);
+}
+
+.admin-overflow-product-results {
+  display: grid;
+  grid-column: 2;
+  gap: 6px;
+  max-height: 238px;
+  overflow-y: auto;
+}
+
+.admin-overflow-product-result {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  align-items: center;
+  min-height: 52px;
+  padding: 8px 10px;
+  border: 1px solid var(--inventory-line);
+  border-radius: 7px;
+  background: var(--admin-bg);
+  color: var(--admin-text);
+}
+
+.admin-overflow-product-result strong {
+  overflow: hidden;
+  font: 740 0.72rem/1.25 "Plus Jakarta Sans", sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-overflow-product-result span {
+  grid-column: 1;
+  color: var(--admin-muted);
+  font: 650 0.62rem/1.25 "Plus Jakarta Sans", sans-serif;
+}
+
+.admin-overflow-product-result button {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--admin-text);
+  border-radius: 6px;
+  background: var(--admin-text);
+  color: var(--admin-bg);
+  font: 760 0.67rem/1 "Plus Jakarta Sans", sans-serif;
+  cursor: pointer;
+}
+
+.admin-overflow-product-result button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .admin-inventory-recap-brief > span:first-child {
   max-width: 320px;
   overflow: hidden;
@@ -26381,6 +26526,11 @@ button.admin-order-payment-dot:focus-visible {
   border-bottom: 1px solid var(--inventory-line);
 }
 
+.admin-purchase-selection-bar[hidden],
+.admin-purchase-rule[hidden] {
+  display: none;
+}
+
 .admin-purchase-selection-bar button {
   min-height: 36px;
   padding: 0 13px;
@@ -26580,6 +26730,25 @@ button.admin-order-payment-dot:focus-visible {
   outline-offset: 3px;
 }
 
+.admin-purchase-remove {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--inventory-line);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--admin-muted);
+  font: 500 1.1rem/1 sans-serif;
+  cursor: pointer;
+}
+
+.admin-purchase-remove:hover,
+.admin-purchase-remove:focus-visible {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
 .admin-purchase-order-note {
   margin-top: 18px;
 }
@@ -26704,6 +26873,15 @@ button.admin-order-payment-dot:focus-visible {
     justify-content: center;
   }
 
+  .admin-purchase-mode-picker,
+  .admin-overflow-product-adder {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-overflow-product-results {
+    grid-column: 1;
+  }
+
   .admin-purchase-ledger-meta {
     align-items: flex-start;
     flex-direction: column;
@@ -26776,9 +26954,11 @@ button.admin-order-payment-dot:focus-visible {
 .admin-inventory-global-actions {
   display: flex;
   align-items: flex-end;
+  gap: 9px;
 }
 
-.admin-inventory-trigger-hero .admin-inventory-order-action {
+.admin-inventory-trigger-hero .admin-inventory-order-action,
+.admin-inventory-trigger-hero .admin-inventory-overflow-action {
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -26788,7 +26968,8 @@ button.admin-order-payment-dot:focus-visible {
   font-size: 0.9rem;
 }
 
-.admin-inventory-trigger-hero .admin-inventory-order-action svg {
+.admin-inventory-trigger-hero .admin-inventory-order-action svg,
+.admin-inventory-trigger-hero .admin-inventory-overflow-action svg {
   width: 20px;
   height: 20px;
   fill: none;
@@ -26796,6 +26977,12 @@ button.admin-order-payment-dot:focus-visible {
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.admin-inventory-trigger-hero .admin-inventory-overflow-action {
+  border-color: var(--inventory-line);
+  background: transparent;
+  color: var(--admin-text);
 }
 
 .admin-inventory-utility-bar {
@@ -27296,6 +27483,11 @@ button.admin-order-payment-dot:focus-visible {
   .admin-inventory-global-actions {
     align-items: stretch;
     width: 100%;
+  }
+
+  .admin-inventory-global-actions button {
+    flex: 1;
+    justify-content: center;
   }
 
   .admin-inventory-utility-bar {
