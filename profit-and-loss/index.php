@@ -49,7 +49,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/pnl.js');
                 </section>
 
                 <section class="pnl-kpis" aria-label="Profit and loss summary">
-                    <article><span>Net Revenue</span><strong data-pnl-kpi="revenue">Rp0</strong><small>Seller-received sales</small></article>
+                    <article><span>Net Revenue</span><strong data-pnl-kpi="revenue">Rp0</strong><small>All operating revenue received</small></article>
                     <article><span>Product COGS</span><strong data-pnl-kpi="cogs">Rp0</strong><small>Sold quantity × SKU cost</small></article>
                     <article><span>Packing Cost</span><strong data-pnl-kpi="packing">Rp0</strong><small>Physical quantity × monthly item packing</small></article>
                     <article><span>Gross Profit</span><strong data-pnl-kpi="gross-profit">Rp0</strong><small data-pnl-margin>0% margin</small></article>
@@ -82,7 +82,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/pnl.js');
                 </section>
 
                 <section class="pnl-assurance" data-pnl-assurance>
-                    <div><strong>Calculation basis</strong><span>Marketplace seller-received revenue, physical-item SKU COGS, monthly per-item packing, and posted cash-basis Accounting entries.</span></div>
+                    <div><strong>Calculation basis</strong><span>Marketplace seller-received revenue, confirmed partner payments, physical-item SKU COGS, monthly per-item packing, and posted cash-basis Accounting entries.</span></div>
                     <div><strong>No double-counted inventory</strong><span>Product purchases remain visible in Accounting but are excluded here because sold units already carry SKU COGS.</span></div>
                     <div><strong>Review status</strong><span data-pnl-review-status>Checking Accounting review items…</span></div>
                 </section>

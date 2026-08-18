@@ -3678,7 +3678,8 @@ function jg_accounting_pnl_summary(PDO $pdo, int $year): array
             SUM(CASE WHEN t.direction = "money_out" AND t.type NOT IN ("refund","bill_payment") AND c.type IN ("operations","tax","other") THEN t.amount ELSE 0 END) AS operations,
             SUM(CASE WHEN t.direction = "money_out" AND t.type <> "bill_payment" AND c.type = "cogs_support" THEN t.amount ELSE 0 END) AS product_purchases,
             SUM(CASE WHEN t.direction = "money_out" AND t.type = "refund" THEN t.amount ELSE 0 END) AS manual_refunds,
-            SUM(CASE WHEN t.direction = "money_in" AND t.type = "manual_income" THEN t.amount ELSE 0 END) AS other_income,
+            SUM(CASE WHEN t.direction = "money_in" AND t.type = "manual_income" AND c.category_key = "partner-bill-collections" THEN t.amount ELSE 0 END) AS partner_payments,
+            SUM(CASE WHEN t.direction = "money_in" AND t.type = "manual_income" AND COALESCE(c.category_key, "") <> "partner-bill-collections" THEN t.amount ELSE 0 END) AS other_income,
             SUM(CASE WHEN t.direction = "money_out" AND t.type <> "bill_payment" AND c.type = "asset" THEN t.amount ELSE 0 END) AS asset_purchases,
             SUM(t.transfer_fee_amount) AS transfer_fees
          FROM accounting_transactions t
@@ -3740,6 +3741,7 @@ function jg_accounting_pnl_summary(PDO $pdo, int $year): array
             'transfer_fees' => $transferFees,
             'operating_expenses' => $adCost + $marketingOther + $payroll + $operations + $transferFees,
             'manual_refunds' => (int) round((float) ($row['manual_refunds'] ?? 0)),
+            'partner_payments' => (int) round((float) ($row['partner_payments'] ?? 0)),
             'other_income' => (int) round((float) ($row['other_income'] ?? 0)),
             'product_purchases' => (int) round((float) ($row['product_purchases'] ?? 0)),
             'asset_purchases' => (int) round((float) ($row['asset_purchases'] ?? 0)),

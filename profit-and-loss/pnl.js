@@ -55,7 +55,9 @@ if (root) {
       const books = accountingMonths.find((row, rowIndex) => monthNumber(row, rowIndex + 1) === month) || {};
       const sourceRevenue = numeric(sale, ['revenue', 'net_revenue', 'seller_received', 'sales']);
       const refunds = numeric(books, ['manual_refunds']);
-      const revenue = sourceRevenue - refunds;
+      const partnerPayments = numeric(books, ['partner_payments']);
+      const otherIncome = numeric(books, ['other_income']);
+      const revenue = sourceRevenue + partnerPayments + otherIncome - refunds;
       const cogs = numeric(sale, ['cogs']);
       const packing = numeric(sale, ['packing_cost']);
       const adCost = numeric(books, ['ad_cost']);
@@ -64,12 +66,12 @@ if (root) {
       const operations = numeric(books, ['operations']);
       const transferFees = numeric(books, ['transfer_fees']);
       const opex = adCost + marketingOther + payroll + operations + transferFees;
-      const otherIncome = numeric(books, ['other_income']);
       const grossProfit = revenue - cogs - packing;
       return {
         month,
         revenue,
         sourceRevenue,
+        partnerPayments,
         refunds,
         cogs,
         packing,
@@ -82,7 +84,7 @@ if (root) {
         transferFees,
         opex,
         otherIncome,
-        netProfit: grossProfit + otherIncome - opex,
+        netProfit: grossProfit - opex,
         productPurchases: numeric(books, ['product_purchases'])
       };
     });
@@ -118,12 +120,13 @@ if (root) {
     refs.netCard?.classList.toggle('is-negative', Number(selected.netProfit || 0) < 0);
     if (refs.bridge) refs.bridge.innerHTML = [
       bridgeRow('Seller-received sales', selected.sourceRevenue || 0),
+      bridgeRow('Partner payments', selected.partnerPayments || 0),
+      selected.otherIncome ? bridgeRow('Other revenue', selected.otherIncome || 0) : '',
       selected.refunds ? bridgeRow('Less: manual customer refunds', -(selected.refunds || 0), 'is-deduction') : '',
       bridgeRow('Net revenue', selected.revenue || 0, 'is-subtotal'),
       bridgeRow('Less: product COGS', -(selected.cogs || 0), 'is-deduction'),
       bridgeRow('Less: per-item packing', -(selected.packing || 0), 'is-deduction'),
       bridgeRow('Gross profit', selected.grossProfit || 0, 'is-subtotal'),
-      bridgeRow('Other operating income', selected.otherIncome || 0),
       bridgeRow('Less: platform ad cost', -(selected.marketing || 0), 'is-deduction'),
       bridgeRow('Less: other marketing', -(selected.marketingOther || 0), 'is-deduction'),
       bridgeRow('Less: payroll and labor', -(selected.payroll || 0), 'is-deduction'),
