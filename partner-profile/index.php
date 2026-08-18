@@ -260,7 +260,6 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                                     <span class="partner-profile-portal-note" data-note-url>Partner URL pending</span>
                                     <button type="submit" class="admin-primary-btn" data-save-profile>Save profile</button>
                                     <a class="admin-ghost-btn admin-link-btn" href="https://partner.jenanggemi.com" target="_blank" rel="noopener" data-partner-portal-link>Open partner portal</a>
-                                    <a class="admin-ghost-btn admin-link-btn" href="../partner-stock-orders/" data-partner-stock-link hidden>Class B operations</a>
                                     <button type="button" class="admin-danger-btn" data-delete-profile hidden>Delete partner</button>
                                 </div>
                             </aside>

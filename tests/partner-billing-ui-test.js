@@ -13,7 +13,9 @@ const accountingUi = fs.readFileSync(path.join(root, 'profit-loss', 'accounting.
 const styles = fs.readFileSync(path.join(root, 'admin.css'), 'utf8');
 
 for (const source of [nav, dashboard]) {
-  assert.match(source, /data-billing-notification-toggle/, 'Every admin chrome variant should use partner billing notifications.');
+  assert.match(source, /data-billing-notification-toggle/, 'Every admin chrome variant should use the unified notification feed.');
+  assert.match(source, />Notifications</, 'The visible review drawer must be called Notifications.');
+  assert.doesNotMatch(source, />Partner billing</, 'Notification chrome must not be presented as Partner billing.');
   assert.doesNotMatch(source, /data-notification-toggle/, 'The visible notification trigger should no longer activate website-order verification.');
 }
 assert.match(notifications, /period_type === 'calendar_month'[\s\S]*'monthly'[\s\S]*'calendar-week'/, 'Payment notifications should name the partner-specific billing period.');

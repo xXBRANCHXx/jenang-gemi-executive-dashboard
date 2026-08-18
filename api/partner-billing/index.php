@@ -118,12 +118,12 @@ try {
         ]);
     }
 
-    jg_admin_partner_billing_json(['ok' => false, 'error' => 'Unknown partner billing action.'], 400);
+    jg_admin_partner_billing_json(['ok' => false, 'error' => 'Unknown notification action.'], 400);
 } catch (InvalidArgumentException $error) {
     jg_admin_partner_billing_json(['ok' => false, 'error' => $error->getMessage()], 422);
 } catch (RuntimeException $error) {
     jg_admin_partner_billing_json(['ok' => false, 'error' => $error->getMessage()], 409);
 } catch (Throwable $error) {
     error_log('Admin partner billing failed: ' . $error->getMessage());
-    jg_admin_partner_billing_json(['ok' => false, 'error' => 'Partner billing is temporarily unavailable.'], 500);
+    jg_admin_partner_billing_json(['ok' => false, 'error' => 'Notifications are temporarily unavailable.'], 500);
 }

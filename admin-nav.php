@@ -833,7 +833,7 @@ function render_admin_topbar_action_buttons(string $menuContext = ''): void
     echo '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>';
     echo '<span data-billing-notification-count hidden>0</span>';
     echo '</span>';
-    echo '<span class="admin-notification-button-copy"><strong>Partner reviews</strong><small data-billing-notification-summary>No reviews pending</small></span>';
+    echo '<span class="admin-notification-button-copy"><strong>Notifications</strong><small data-billing-notification-summary>No notifications</small></span>';
     echo '</button>';
 
     echo '<div class="admin-menu-shell" data-menu-shell>';
@@ -965,20 +965,20 @@ function admin_topbar_menu_icon(string $icon): string
 
 function render_admin_notification_drawer(): void
 {
-    echo '<aside class="admin-notification-drawer admin-partner-billing-drawer" data-billing-notification-drawer role="dialog" aria-label="Partner review queue" aria-hidden="true">';
+    echo '<aside class="admin-notification-drawer admin-partner-billing-drawer" data-billing-notification-drawer role="dialog" aria-label="Notifications" aria-hidden="true">';
     echo '<div class="admin-notification-head">';
     echo '<div class="admin-notification-head-main">';
-    echo '<button type="button" class="admin-notification-round-btn admin-notification-back" data-billing-notification-back aria-label="Back to billing notifications" hidden>';
+    echo '<button type="button" class="admin-notification-round-btn admin-notification-back" data-billing-notification-back aria-label="Back to notifications" hidden>';
     echo '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>';
     echo '</button>';
     echo '<span class="admin-notification-store-icon" aria-hidden="true">';
     echo '<svg viewBox="0 0 24 24"><path d="M6 3h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>';
     echo '</span>';
-    echo '<div><h2>Partner reviews</h2><p class="admin-notification-mode" data-billing-notification-mode>Payments, deposits and stock orders</p></div>';
+    echo '<div><h2>Notifications</h2><p class="admin-notification-mode" data-billing-notification-mode>Partner activity requiring attention</p></div>';
     echo '</div>';
     echo '<button type="button" class="admin-orders-icon-btn" data-billing-notification-close aria-label="Close notifications"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>';
     echo '</div>';
-    echo '<div class="admin-notification-list admin-partner-billing-list" data-billing-notification-list aria-live="polite"><p class="admin-empty">Loading billing reviews...</p></div>';
+    echo '<div class="admin-notification-list admin-partner-billing-list" data-billing-notification-list aria-live="polite"><p class="admin-empty">Loading notifications...</p></div>';
     echo '</aside>';
     echo '<div class="admin-notification-backdrop" data-billing-notification-backdrop hidden></div>';
 }

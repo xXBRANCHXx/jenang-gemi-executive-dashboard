@@ -4,10 +4,17 @@ const root = require('node:path').resolve(__dirname, '..');
 const partner = fs.readFileSync(`${root}/partner-stock-orders.js`, 'utf8');
 const page = fs.readFileSync(`${root}/partner-stock-orders/index.php`, 'utf8');
 const notifications = fs.readFileSync(`${root}/partner-billing-notifications.js`, 'utf8');
+const program = fs.readFileSync(`${root}/partner-program/index.php`, 'utf8');
+const profile = fs.readFileSync(`${root}/partner-profile/index.php`, 'utf8');
+const sales = fs.readFileSync(`${root}/partner-sales/index.php`, 'utf8');
 
-assert.match(page, /Shipment orders/);
-assert.match(page, /Balance requests/);
-assert.match(page, /Partner balances/);
+assert.match(page, /\$_GET\['partner'\]/);
+assert.match(page, /partner-sales\/\?code=/);
+assert.match(page, /Orders &amp; balance/);
+assert.doesNotMatch(page, /Class B Operations|Stock Operations|Class B orders/);
+assert.doesNotMatch(program, /partner-stock-orders/);
+assert.doesNotMatch(profile, /partner-stock-orders/);
+assert.match(sales, /Orders &amp; balance/);
 assert.match(partner, /Copy-ready shipping/);
 assert.match(partner, /Status timeline/);
 assert.match(partner, /Paid from balance/);
@@ -19,5 +26,7 @@ assert.match(notifications, /stock_order/);
 assert.match(notifications, /approve_deposit/);
 assert.match(notifications, /investigate_deposit/);
 assert.match(notifications, /reject_deposit/);
+assert.doesNotMatch(notifications, /Class B stock order|Class B balance request/);
+assert.match(notifications, /Open partner activity/);
 
 console.log('Partner Class B UI tests passed.');

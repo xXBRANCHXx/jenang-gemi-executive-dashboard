@@ -25,7 +25,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const copyCodeButton = document.querySelector('[data-copy-partner-code]');
   const saveButtons = document.querySelectorAll('[data-save-profile]');
   const portalLinks = document.querySelectorAll('[data-partner-portal-link]');
-  const stockLink = document.querySelector('[data-partner-stock-link]');
 
   const brandFilterList = document.querySelector('[data-brand-filter-list]');
   const productFilterList = document.querySelector('[data-product-filter-list]');
@@ -601,10 +600,6 @@ document.addEventListener('DOMContentLoaded', () => {
       link.href = portalHref;
     });
     if (urlNote) urlNote.textContent = portalHref;
-    if (stockLink instanceof HTMLAnchorElement) {
-      stockLink.hidden = partner.partner_class === 'A';
-      stockLink.href = `../partner-stock-orders/?partner=${encodeURIComponent(partner.code || '')}`;
-    }
 
     if (deleteButton) {
       deleteButton.hidden = false;

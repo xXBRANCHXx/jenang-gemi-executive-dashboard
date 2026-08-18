@@ -86,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </button>
         ${event.type === 'dispute' ? `<div class="admin-billing-quick-actions"><button type="button" data-billing-action="accept_dispute" data-record-id="${Number(event.record_id)}">${event.dispute_type === 'price' ? 'Accept proposed prices' : 'Accept'}</button><button type="button" data-billing-select="${escapeHtml(event.id)}">Investigate</button></div>` : ''}
         ${event.type === 'balance_deposit' ? `<div class="admin-billing-quick-actions"><button type="button" data-stock-action="approve_deposit" data-record-id="${Number(event.record_id)}">Approve</button><a href="${escapeHtml(event.detail_url)}">Investigate</a></div>` : ''}
-        ${event.type === 'stock_order' ? `<div class="admin-billing-quick-actions"><a href="${escapeHtml(event.detail_url)}">Open shipping workspace</a></div>` : ''}
+        ${event.type === 'stock_order' ? `<div class="admin-billing-quick-actions"><a href="${escapeHtml(event.detail_url)}">Open partner activity</a></div>` : ''}
       </article>`;
 
   const listMarkup = () => {
@@ -158,12 +158,12 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const stockDetail = (event) => {
-    if (event.type === 'stock_order') return `<article class="admin-billing-detail admin-stock-notification-detail"><header class="admin-billing-dispute-head">${avatarMarkup(event)}<div><small>Class B stock order</small><strong>${escapeHtml(event.partner_name)}</strong><span>${escapeHtml(event.record_id)} · ${escapeHtml(money(event.amount))}</span></div></header><section class="admin-billing-investigate-orders"><div><span>Products paid from balance</span><strong>${event.items?.length || 0}</strong></div>${(event.items || []).map(item => `<article class="admin-billing-price-order"><header><span><strong>${escapeHtml(item.sku_label || item.product || item.sku_code)}</strong><small>${escapeHtml(item.sku_code || '')} · ${Number(item.quantity || 0)} units</small></span><strong>${escapeHtml(money(item.line_revenue || 0))}</strong></header></article>`).join('')}</section><a class="admin-billing-confirm-button admin-link-btn" href="${escapeHtml(event.detail_url)}">Open shipping workspace</a></article>`;
+    if (event.type === 'stock_order') return `<article class="admin-billing-detail admin-stock-notification-detail"><header class="admin-billing-dispute-head">${avatarMarkup(event)}<div><small>Stock order</small><strong>${escapeHtml(event.partner_name)}</strong><span>${escapeHtml(event.record_id)} · ${escapeHtml(money(event.amount))}</span></div></header><section class="admin-billing-investigate-orders"><div><span>Products paid from balance</span><strong>${event.items?.length || 0}</strong></div>${(event.items || []).map(item => `<article class="admin-billing-price-order"><header><span><strong>${escapeHtml(item.sku_label || item.product || item.sku_code)}</strong><small>${escapeHtml(item.sku_code || '')} · ${Number(item.quantity || 0)} units</small></span><strong>${escapeHtml(money(item.line_revenue || 0))}</strong></header></article>`).join('')}</section><a class="admin-billing-confirm-button admin-link-btn" href="${escapeHtml(event.detail_url)}">Open partner activity</a></article>`;
     const proof = event.proof || {}; const isPdf = proof.mime_type === 'application/pdf';
-    return `<article class="admin-billing-detail admin-stock-notification-detail" data-billing-record="${Number(event.record_id)}"><div class="admin-billing-proof-head"><div>${avatarMarkup(event)}<span><small>Class B balance request</small><strong>${escapeHtml(event.partner_name)}</strong><em>${escapeHtml(shortDate(event.created_at))}</em></span></div></div><div class="admin-billing-proof-frame is-${isPdf ? 'pdf' : 'image'}">${isPdf ? `<object data="${escapeHtml(proof.url)}" type="application/pdf"><a href="${escapeHtml(proof.url)}" target="_blank" rel="noopener">Open proof</a></object>` : `<img src="${escapeHtml(proof.url)}" alt="Payment proof from ${escapeHtml(event.partner_name)}">`}</div><form class="admin-stock-deposit-review" data-stock-deposit-form><label><span>Amount to credit</span><span class="admin-billing-price-input"><em>Rp</em><input type="number" name="amount" min="1" max="1000000000000" step="0.01" value="${Number(event.amount || 0)}" required></span></label><label><span>Review note</span><textarea name="note" maxlength="1000" placeholder="Optional note or reason for a correction"></textarea></label><p class="admin-billing-detail-error" data-billing-detail-error hidden></p><div class="admin-billing-investigate-actions"><button type="button" class="is-accept" data-stock-action="approve_deposit" data-record-id="${Number(event.record_id)}">Approve balance</button><button type="button" data-stock-action="investigate_deposit" data-record-id="${Number(event.record_id)}">Save investigation</button><button type="button" class="is-reject" data-stock-action="reject_deposit" data-record-id="${Number(event.record_id)}">Reject</button></div></form><a class="admin-ghost-btn admin-link-btn" href="${escapeHtml(event.detail_url)}">Open complete history</a></article>`;
+    return `<article class="admin-billing-detail admin-stock-notification-detail" data-billing-record="${Number(event.record_id)}"><div class="admin-billing-proof-head"><div>${avatarMarkup(event)}<span><small>Balance request</small><strong>${escapeHtml(event.partner_name)}</strong><em>${escapeHtml(shortDate(event.created_at))}</em></span></div></div><div class="admin-billing-proof-frame is-${isPdf ? 'pdf' : 'image'}">${isPdf ? `<object data="${escapeHtml(proof.url)}" type="application/pdf"><a href="${escapeHtml(proof.url)}" target="_blank" rel="noopener">Open proof</a></object>` : `<img src="${escapeHtml(proof.url)}" alt="Payment proof from ${escapeHtml(event.partner_name)}">`}</div><form class="admin-stock-deposit-review" data-stock-deposit-form><label><span>Amount to credit</span><span class="admin-billing-price-input"><em>Rp</em><input type="number" name="amount" min="1" max="1000000000000" step="0.01" value="${Number(event.amount || 0)}" required></span></label><label><span>Review note</span><textarea name="note" maxlength="1000" placeholder="Optional note or reason for a correction"></textarea></label><p class="admin-billing-detail-error" data-billing-detail-error hidden></p><div class="admin-billing-investigate-actions"><button type="button" class="is-accept" data-stock-action="approve_deposit" data-record-id="${Number(event.record_id)}">Approve balance</button><button type="button" data-stock-action="investigate_deposit" data-record-id="${Number(event.record_id)}">Save investigation</button><button type="button" class="is-reject" data-stock-action="reject_deposit" data-record-id="${Number(event.record_id)}">Reject</button></div></form><a class="admin-ghost-btn admin-link-btn" href="${escapeHtml(event.detail_url)}">Open partner activity</a></article>`;
   };
 
-  const feedbackMarkup = () => `<div class="admin-billing-feedback"><span>✓</span><strong>${escapeHtml(state.feedback?.title || 'Review complete')}</strong><p>${escapeHtml(state.feedback?.message || 'The billing record was updated.')}</p></div>`;
+  const feedbackMarkup = () => `<div class="admin-billing-feedback"><span>✓</span><strong>${escapeHtml(state.feedback?.title || 'Review complete')}</strong><p>${escapeHtml(state.feedback?.message || 'The record was updated.')}</p></div>`;
 
   const bindAvatarFallbacks = () => {
     list.querySelectorAll('[data-billing-avatar-image]').forEach((image) => {
@@ -185,11 +185,11 @@ document.addEventListener('DOMContentLoaded', () => {
       count.hidden = state.events.length === 0;
       count.textContent = state.events.length > 99 ? '99+' : String(state.events.length);
     }
-    if (summary instanceof HTMLElement) summary.textContent = state.events.length ? `${state.events.length} partner review${state.events.length === 1 ? '' : 's'} pending` : 'No reviews pending';
+    if (summary instanceof HTMLElement) summary.textContent = state.events.length ? `${state.events.length} notification${state.events.length === 1 ? '' : 's'}` : 'No notifications';
     if (back instanceof HTMLButtonElement) back.hidden = !selected && !state.feedback;
     if (mode instanceof HTMLElement) mode.textContent = selected
       ? eventSubtitle(selected)
-      : 'Payments, deposits and stock orders';
+      : 'Partner activity requiring attention';
   };
 
   const reconcileList = () => {
@@ -245,7 +245,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const load = async ({ silent = false } = {}) => {
     if (state.loading) return;
     state.loading = true;
-    if (!silent && !state.events.length) list.innerHTML = '<div class="admin-billing-loading"><span></span><span></span><span></span><p>Loading billing reviews…</p></div>';
+    if (!silent && !state.events.length) list.innerHTML = '<div class="admin-billing-loading"><span></span><span></span><span></span><p>Loading notifications…</p></div>';
     try {
       const payload = await request();
       const previousSelected = state.events.find((event) => event.id === state.selectedId) || null;
@@ -259,8 +259,8 @@ document.addEventListener('DOMContentLoaded', () => {
         else renderChrome();
       } else reconcileList();
     } catch (error) {
-      if (!silent) list.innerHTML = `<div class="admin-billing-feedback is-error"><strong>Billing unavailable</strong><p>${escapeHtml(error.message)}</p><button type="button" data-billing-retry>Try again</button></div>`;
-      if (summary instanceof HTMLElement) summary.textContent = 'Review status unavailable';
+      if (!silent) list.innerHTML = `<div class="admin-billing-feedback is-error"><strong>Notifications unavailable</strong><p>${escapeHtml(error.message)}</p><button type="button" data-billing-retry>Try again</button></div>`;
+      if (summary instanceof HTMLElement) summary.textContent = 'Notifications unavailable';
     } finally {
       state.loading = false;
     }
