@@ -4250,7 +4250,8 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const syncInventoryRecapAlert = () => {
-    const critical = state.activeView === 'overview' && Boolean(state.inventoryRecap.data?.summary?.is_critical);
+    const summary = state.inventoryRecap.data?.summary;
+    const critical = Boolean(summary?.has_alert ?? summary?.is_critical);
     menuTrigger?.classList.toggle('has-critical-dot', critical);
     document.querySelectorAll('[data-menu-alert-item="inventory-recap"]').forEach((item) => {
       item.classList.toggle('has-critical-dot', critical);
@@ -8561,7 +8562,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	  const inventoryRecapRiskClass = (risk) => {
 	    const normalized = String(risk || '').toLowerCase();
-	    return ['triggered', 'near', 'healthy', 'quiet', 'incoming'].includes(normalized)
+	    return ['urgent', 'triggered', 'near', 'healthy', 'quiet', 'incoming'].includes(normalized)
 	      ? `is-${normalized}`
 	      : 'is-quiet';
 	  };
@@ -8854,12 +8855,12 @@ document.addEventListener('DOMContentLoaded', () => {
 	  };
 
 	  const inventoryUrgencyCompare = (left, right) => {
-	    const priority = { triggered: 5, near: 4, incoming: 3, healthy: 2, quiet: 1 };
+	    const priority = { urgent: 6, triggered: 5, near: 4, incoming: 3, healthy: 2, quiet: 1 };
 	    const riskDifference = (priority[String(right.risk || '')] || 0) - (priority[String(left.risk || '')] || 0);
 	    if (riskDifference) return riskDifference;
 	    const coverage = (item) => {
 	      const trigger = Math.max(0, Number(item.trigger_qty || 0));
-	      return trigger > 0 ? Math.max(0, Number(item.current_stock || 0)) / trigger : Number.POSITIVE_INFINITY;
+	      return trigger > 0 ? Number(item.predicted_stock ?? item.current_stock ?? 0) / trigger : Number.POSITIVE_INFINITY;
 	    };
 	    const leftCoverage = coverage(left);
 	    const rightCoverage = coverage(right);
@@ -8880,7 +8881,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	      ? [...rows].sort(inventoryUrgencyCompare)
 	      : rows.filter((item) => filter === 'manual'
 	        ? String(item.trigger_mode || '') === 'manual'
-	        : String(item.risk || '') === filter);
+	        : filter === 'triggered'
+	          ? ['urgent', 'triggered'].includes(String(item.risk || ''))
+	          : String(item.risk || '') === filter);
 	    inventoryRecapRefs.filters.forEach((button) => {
 	      button.classList.toggle('is-active', button.getAttribute('data-inventory-filter') === filter);
 	    });
@@ -8894,10 +8897,12 @@ document.addEventListener('DOMContentLoaded', () => {
 	      const saving = state.inventoryRecap.settingsSaving === sku;
 	      const message = String(state.inventoryRecap.settingsMessage[sku] || '');
 	      const stock = Math.max(0, Number(item.current_stock || 0));
+	      const predictedStock = Number(item.predicted_stock ?? stock);
+	      const predictedDailyDemand = Math.max(0, Number(item.predicted_daily_demand || 0));
 	      const trigger = Math.max(0, Number(item.trigger_qty || 0));
 	      const purchaseDays = Math.max(1, Number(item.purchase_days || 22.5));
 	      const purchaseDaysLabel = formatRegionalNumber(purchaseDays, { maximumFractionDigits: 1 });
-	      const stockPercent = Math.max(0, Math.min(100, trigger > 0 ? (stock / trigger) * 100 : 100));
+	      const stockPercent = Math.max(0, Math.min(100, trigger > 0 ? (predictedStock / trigger) * 100 : 100));
 	      return `
 	      <article class="admin-inventory-trigger-row ${inventoryRecapRiskClass(item.risk)}">
 	        <div class="admin-inventory-trigger-product">
@@ -8907,14 +8912,15 @@ document.addEventListener('DOMContentLoaded', () => {
 	        </div>
 	        <div class="admin-inventory-trigger-balance">
 	          <div><span>Stock now</span><strong>${formatRegionalInteger(stock)}</strong></div>
+	          <div class="admin-inventory-predicted-stock"><span>Predicted today</span><strong>${formatRegionalNumber(predictedStock, { maximumFractionDigits: 1 })}</strong></div>
 	          <div><span>Trigger at</span><strong>${formatRegionalInteger(trigger)}</strong></div>
 	          <div class="admin-inventory-trigger-meter"><i style="width:${stockPercent}%"></i><mark style="left:100%"></mark></div>
 	          ${Number(item.incoming_qty || 0) > 0 ? `<span class="admin-inventory-incoming-qty">${formatRegionalInteger(item.incoming_qty || 0)} units in process</span>` : ''}
 	          <small>${Number(item.incoming_qty || 0) > 0
-	            ? `${formatRegionalInteger(item.current_stock || 0)} on hand + ${formatRegionalInteger(item.incoming_qty || 0)} in process = ${formatRegionalInteger(item.projected_stock || 0)} projected · buy ${formatRegionalInteger(item.recommended_order_qty || 0)} more`
+	            ? `${formatRegionalNumber(item.current_stock || 0, { maximumFractionDigits: 1 })} on hand − ${formatRegionalNumber(predictedDailyDemand, { maximumFractionDigits: 1 })} expected today + ${formatRegionalInteger(item.incoming_qty || 0)} incoming = ${formatRegionalNumber(predictedStock, { maximumFractionDigits: 1 })} predicted · buy ${formatRegionalInteger(item.recommended_order_qty || 0)} more`
 	            : item.restock_needed
-	            ? `${formatRegionalInteger(item.trigger_shortfall_qty || 0)} below trigger · ${purchaseDaysLabel}-day order ${formatRegionalInteger(item.raw_purchase_qty || 0)} · buy ${formatRegionalInteger(item.recommended_order_qty || 0)}`
-	            : trigger > 0 ? `${formatRegionalInteger(Math.max(0, stock - trigger))} above trigger` : 'No demand trigger yet'}</small>
+	            ? `${formatRegionalNumber(predictedDailyDemand, { maximumFractionDigits: 1 })} expected today · ${formatRegionalInteger(item.trigger_shortfall_qty || 0)} below trigger · ${purchaseDaysLabel}-day order ${formatRegionalInteger(item.raw_purchase_qty || 0)} · buy ${formatRegionalInteger(item.recommended_order_qty || 0)}`
+	            : trigger > 0 ? `${formatRegionalNumber(Math.max(0, predictedStock - trigger), { maximumFractionDigits: 1 })} predicted above trigger` : 'No demand trigger yet'}</small>
 	        </div>
 	        <div class="admin-inventory-trigger-signal">
 	          <div class="admin-inventory-bucket-chart" aria-label="Nine ten-day demand blocks">${inventoryBucketBars(item)}</div>
@@ -9120,7 +9126,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	          </label>`}
 	          <div class="admin-purchase-product">
 	            <strong>${escapeHtml(item.product_name || item.sku || '-')}</strong>
-	            <span>${overflowMode ? `${escapeHtml(item.sku || '')} · ${formatRegionalInteger(item.current_stock || 0)} currently in stock` : `${escapeHtml(item.sku || '')} · stock ${formatRegionalInteger(item.current_stock || 0)} / trigger ${formatRegionalInteger(item.trigger_qty || 0)}`}</span>
+	            <span>${overflowMode ? `${escapeHtml(item.sku || '')} · ${formatRegionalInteger(item.current_stock || 0)} currently in stock` : `${escapeHtml(item.sku || '')} · stock ${formatRegionalInteger(item.current_stock || 0)} / predicted ${formatRegionalNumber(item.predicted_stock ?? item.current_stock ?? 0, { maximumFractionDigits: 1 })} / trigger ${formatRegionalInteger(item.trigger_qty || 0)}`}</span>
 	            <small>${overflowMode ? `Usual MOQ ${formatRegionalInteger(item.moq)} is shown for reference only · this PO keeps your exact quantity` : `Trigger gap ${formatRegionalInteger(item.trigger_shortfall_qty || 0)} · ${purchaseDaysLabel}-day order ${formatRegionalInteger(item.raw_purchase_qty || 0)} · MOQ ${formatRegionalInteger(item.moq)} · rounded +${formatRegionalInteger(item.moq_rounding_qty || 0)}${Number(item.incoming_qty || 0) > 0 ? ` · <b class="admin-inventory-incoming-qty">${formatRegionalInteger(item.incoming_qty || 0)} units in process</b>` : ''}`}</small>
 	          </div>
 	          <label class="admin-purchase-quantity">
@@ -9190,7 +9196,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      const note = item.note ? ` | Note: ${item.note}` : '';
 	      return overflowMode
 	        ? `${index + 1}. ${item.product_name || item.sku} (${item.sku}) | Exact overflow QTY ${formatRegionalInteger(item.quantity)} | ${formatCurrency(item.subtotal)}${note}`
-	        : `${index + 1}. ${item.product_name || item.sku} (${item.sku}) | Stock ${formatRegionalInteger(item.current_stock)} | Trigger ${formatRegionalInteger(item.trigger_qty)} | ${formatRegionalNumber(item.purchase_days || 22.5, { maximumFractionDigits: 1 })}-day order ${formatRegionalInteger(item.raw_purchase_qty)} | MOQ ${formatRegionalInteger(item.moq)} | Buy ${formatRegionalInteger(item.quantity)} | ${formatCurrency(item.subtotal)}${note}`;
+	        : `${index + 1}. ${item.product_name || item.sku} (${item.sku}) | Stock ${formatRegionalInteger(item.current_stock)} | Predicted today ${formatRegionalNumber(item.predicted_stock ?? item.current_stock ?? 0, { maximumFractionDigits: 1 })} | Trigger ${formatRegionalInteger(item.trigger_qty)} | ${formatRegionalNumber(item.purchase_days || 22.5, { maximumFractionDigits: 1 })}-day order ${formatRegionalInteger(item.raw_purchase_qty)} | MOQ ${formatRegionalInteger(item.moq)} | Buy ${formatRegionalInteger(item.quantity)} | ${formatCurrency(item.subtotal)}${note}`;
 	    });
 	    return [
 	      overflowMode ? 'JENANG GEMI - OVERFLOW STOCK PURCHASE' : 'JENANG GEMI - RECOMMENDED STOCK PURCHASE',

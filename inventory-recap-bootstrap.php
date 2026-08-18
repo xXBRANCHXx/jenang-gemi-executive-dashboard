@@ -495,13 +495,32 @@ function jg_inventory_recap_match_sku_index(array $orderRow, array $lookup): ?in
     return null;
 }
 
-function jg_inventory_recap_status(float $currentStock, int $triggerQty, bool $hasDemand, string $mode): array
+function jg_inventory_recap_status(
+    float $currentStock,
+    float $predictedStock,
+    int $triggerQty,
+    bool $hasDemand,
+    string $mode,
+    int $incomingQty = 0,
+    bool $needsPurchase = false
+): array
 {
-    if ($triggerQty > 0 && $currentStock < $triggerQty) {
-        return ['key' => 'triggered', 'label' => 'Purchase triggered', 'color' => '#dc2626', 'score' => 3];
+    if ($triggerQty > 0 && $predictedStock <= 0 && $needsPurchase) {
+        return [
+            'key' => 'urgent',
+            'label' => $currentStock <= 0 ? 'Out of stock now' : 'Goes out of stock today',
+            'color' => '#dc2626',
+            'score' => 100,
+        ];
     }
-    if ($triggerQty > 0 && $currentStock <= $triggerQty * 1.2) {
-        return ['key' => 'near', 'label' => 'Near trigger', 'color' => '#d97706', 'score' => 2];
+    if ($triggerQty > 0 && $predictedStock <= $triggerQty && $needsPurchase) {
+        return ['key' => 'triggered', 'label' => 'Purchase soon', 'color' => '#d97706', 'score' => 50];
+    }
+    if ($incomingQty > 0 && !$needsPurchase && $triggerQty > 0 && ($predictedStock - $incomingQty) <= $triggerQty) {
+        return ['key' => 'incoming', 'label' => 'Covered by PO', 'color' => '#3b82f6', 'score' => 15];
+    }
+    if ($triggerQty > 0 && $predictedStock <= $triggerQty * 1.2) {
+        return ['key' => 'near', 'label' => 'Near trigger', 'color' => '#d97706', 'score' => 10];
     }
     if (!$hasDemand && $mode === 'auto') {
         return ['key' => 'quiet', 'label' => 'Build history', 'color' => '#64748b', 'score' => 0];
@@ -526,10 +545,11 @@ function jg_inventory_recap_order_draft(array $suggestions, array $summary, arra
     $lines = [];
     foreach ($suggestions as $item) {
         $lines[] = sprintf(
-            '- %s / %s: stock %d, trigger %d, trigger gap %d, %s-day order %d, MOQ %d, buy %d, est. %s',
+            '- %s / %s: stock %d, predicted today %.1f, trigger %d, trigger gap %d, %s-day order %d, MOQ %d, buy %d, est. %s',
             (string) ($item['sku'] ?? ''),
             (string) ($item['product_name'] ?? ''),
             (int) ($item['current_stock'] ?? 0),
+            (float) ($item['predicted_stock'] ?? $item['current_stock'] ?? 0),
             (int) ($item['trigger_qty'] ?? 0),
             (int) ($item['trigger_shortfall_qty'] ?? 0),
             rtrim(rtrim(number_format((float) ($item['purchase_days'] ?? 22.5), 1, '.', ''), '0'), '.'),
@@ -550,7 +570,7 @@ function jg_inventory_recap_order_draft(array $suggestions, array $summary, arra
         'Inventory Recap production draft',
         'Generated: ' . gmdate(DATE_ATOM),
         sprintf('Demand basis: %d days in nine 10-day blocks through %s', (int) $options['lookback_days'], (string) ($options['end_date'] ?? '')),
-        'Decision rule: monthly average is 90-day demand divided by 3; trigger at 25%, use the shared order-days setting for every product, then round up to MOQ.',
+        'Decision rule: predicted stock is on-hand stock minus one day of average demand plus confirmed incoming PO units; alert at or below the trigger, use the shared order-days setting, then round up to MOQ.',
         'Estimated production cost: ' . jg_inventory_recap_format_idr((float) ($summary['total_recommended_cost'] ?? 0)),
         'Accounting Cash Available: ' . jg_inventory_recap_format_idr((float) ($summary['cash_available'] ?? 0)),
         'Funding: ' . $funding,
@@ -684,33 +704,39 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
         $purchaseMoq = max(1, (int) ($sku['purchase_moq'] ?? 1));
         $purchaseDays = max(1.0, min(90.0, (float) ($options['purchase_days_equivalent'] ?? 22.5)));
         $incomingQty = max(0, (int) ($incomingBySku[strtoupper((string) ($sku['sku'] ?? ''))] ?? 0));
+        $predictedDailyDemand = round(max(0.0, (float) ($model['average_30_day_demand'] ?? 0)) / 30, 2);
+        $predictedStockWithoutIncoming = round($currentStock - $predictedDailyDemand, 2);
         $projectedStock = $currentStock + $incomingQty;
-        $physicalTriggerShortfallQty = max(0, (int) ceil($triggerQty - $currentStock));
-        $triggerShortfallQty = max(0, (int) ceil($triggerQty - $projectedStock));
+        $predictedStock = round($projectedStock - $predictedDailyDemand, 2);
+        $physicalTriggerShortfallQty = max(0, (int) ceil($triggerQty - $predictedStockWithoutIncoming));
+        $triggerShortfallQty = max(0, (int) ceil($triggerQty - $predictedStock));
         $purchaseTargetQty = max(0, (int) ceil((float) ($model['average_30_day_demand'] ?? 0) * ($purchaseDays / 30)));
-        $physicalRawPurchaseQty = $physicalTriggerShortfallQty > 0
-            ? max($physicalTriggerShortfallQty, $purchaseTargetQty)
+        $physicalNeedsPurchase = $triggerQty > 0 && $predictedStockWithoutIncoming <= $triggerQty;
+        $physicalRawPurchaseQty = $physicalNeedsPurchase
+            ? max(1, $physicalTriggerShortfallQty, $purchaseTargetQty)
             : 0;
         $rawPurchaseQty = max(0, $physicalRawPurchaseQty - $incomingQty);
         $recommendedOrderQty = jg_inventory_recap_round_to_moq($rawPurchaseQty, $purchaseMoq);
         $moqRoundingQty = max(0, $recommendedOrderQty - $rawPurchaseQty);
         $postOrderStock = $projectedStock + $recommendedOrderQty;
-        $risk = jg_inventory_recap_status($currentStock, $triggerQty, $hasDemand, $triggerMode);
-        if ($incomingQty > 0 && (string) ($risk['key'] ?? '') === 'triggered' && $recommendedOrderQty === 0) {
-            $risk = [
-                'key' => 'incoming',
-                'label' => 'Covered by PO',
-                'color' => '#3b82f6',
-                'score' => 15,
-            ];
-        }
+        $needsPurchase = $recommendedOrderQty > 0;
+        $risk = jg_inventory_recap_status(
+            $currentStock,
+            $predictedStock,
+            $triggerQty,
+            $hasDemand,
+            $triggerMode,
+            $incomingQty,
+            $needsPurchase
+        );
         $estimatedCost = (int) round($recommendedOrderQty * (float) ($sku['cogs'] ?? 0));
         $rawCost = (int) round($rawPurchaseQty * (float) ($sku['cogs'] ?? 0));
         $currentStockValue = (int) round($currentStock * (float) ($sku['cogs'] ?? 0));
         $sellingSkus = array_keys($demand[$index]['selling_skus'] ?? []);
         sort($sellingSkus);
 
-        $restockNeeded = (string) ($risk['key'] ?? '') === 'triggered' && $recommendedOrderQty > 0;
+        $restockNeeded = in_array((string) ($risk['key'] ?? ''), ['urgent', 'triggered'], true)
+            && $recommendedOrderQty > 0;
 
         $items[] = [
             ...$sku,
@@ -742,6 +768,9 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
             'physical_trigger_shortfall_qty' => $physicalTriggerShortfallQty,
             'incoming_qty' => $incomingQty,
             'projected_stock' => $projectedStock,
+            'predicted_daily_demand' => $predictedDailyDemand,
+            'predicted_stock_without_incoming' => $predictedStockWithoutIncoming,
+            'predicted_stock' => $predictedStock,
             'raw_purchase_qty' => $rawPurchaseQty,
             'minimum_order_qty' => $rawPurchaseQty,
             'recommended_order_qty' => $recommendedOrderQty,
@@ -773,7 +802,11 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
     $totalMinimumCost = array_sum(array_map(static fn (array $item): int => (int) ($item['minimum_cost'] ?? 0), $suggestions));
     $cashAvailable = max(0, (int) round(jg_inventory_recap_number($cashContext['amount'] ?? $cashContext['cash_available'] ?? 0)));
     $fundingGap = max(0, $totalRecommendedCost - $cashAvailable);
-    $criticalCount = count(array_filter($items, static fn (array $item): bool => ($item['risk'] ?? '') === 'triggered'));
+    $urgentCount = count(array_filter($items, static fn (array $item): bool => ($item['risk'] ?? '') === 'urgent'));
+    $triggeredCount = count(array_filter(
+        $items,
+        static fn (array $item): bool => in_array((string) ($item['risk'] ?? ''), ['urgent', 'triggered'], true)
+    ));
     $highCount = count(array_filter($items, static fn (array $item): bool => ($item['risk'] ?? '') === 'near'));
     $manualCount = count(array_filter($items, static fn (array $item): bool => ($item['trigger_mode'] ?? '') === 'manual'));
     $incomingCount = count(array_filter($items, static fn (array $item): bool => (int) ($item['incoming_qty'] ?? 0) > 0));
@@ -783,13 +816,15 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
         $purchaseOrders,
         static fn (array $order): bool => in_array((string) ($order['status'] ?? ''), ['pending', 'partially_received'], true)
     ));
-    $reportCritical = $criticalCount > 0;
+    $reportAlert = $triggeredCount > 0;
 
     $summary = [
         'total_skus' => count($items),
         'suggested_count' => count($suggestions),
-        'critical_count' => $criticalCount,
-        'triggered_count' => $criticalCount,
+        'critical_count' => $triggeredCount,
+        'urgent_count' => $urgentCount,
+        'alert_count' => $triggeredCount,
+        'triggered_count' => $triggeredCount,
         'watch_count' => $highCount,
         'manual_count' => $manualCount,
         'incoming_count' => $incomingCount,
@@ -805,8 +840,9 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
         'cash_available' => $cashAvailable,
         'funding_gap' => $fundingGap,
         'can_fund_recommended' => $fundingGap === 0,
-        'report_status' => $reportCritical ? 'triggered' : ($highCount > 0 ? 'near' : 'clear'),
-        'is_critical' => $reportCritical,
+        'report_status' => $urgentCount > 0 ? 'urgent' : ($triggeredCount > 0 ? 'triggered' : ($highCount > 0 ? 'near' : 'clear')),
+        'has_alert' => $reportAlert,
+        'is_critical' => $reportAlert,
         'matched_order_rows' => $matchedOrders,
         'unmatched_order_rows' => $unmatchedOrders,
     ];
