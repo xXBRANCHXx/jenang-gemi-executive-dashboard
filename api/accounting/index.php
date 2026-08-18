@@ -220,6 +220,12 @@ try {
                 'categories' => jg_accounting_categories($pdo, true),
             ], $month));
         }
+        if ($action === 'category_guidance') {
+            $categoryId = filter_var($_GET['category_id'] ?? $_GET['id'] ?? null, FILTER_VALIDATE_INT);
+            $guidance = $categoryId === false ? null : jg_accounting_category_guidance($pdo, (int) $categoryId);
+            if ($guidance === null) jg_accounting_error('Category was not found.', 404, 'category_id');
+            jg_accounting_json(jg_accounting_endpoint_payload($guidance, $month));
+        }
         if ($action === 'ui_preferences') {
             jg_accounting_json(jg_accounting_endpoint_payload([
                 'preferences' => jg_accounting_ui_preferences($pdo),
@@ -330,6 +336,27 @@ try {
             })(),
             'create_category' => jg_accounting_create_category($pdo, $body),
             'save_category' => jg_accounting_save_category($pdo, $body),
+            'save_category_guidance' => jg_accounting_save_category_guidance($pdo, $body),
+            'save_category_with_guidance' => (function () use ($pdo, $body): array {
+                $pdo->beginTransaction();
+                try {
+                    $categoryResult = jg_accounting_save_category($pdo, $body);
+                    $guidanceResult = jg_accounting_save_category_guidance($pdo, [
+                        ...$body,
+                        'category_id' => (int) ($categoryResult['category_id'] ?? 0),
+                    ]);
+                    $savedCategory = jg_accounting_category_by_id($pdo, (int) ($categoryResult['category_id'] ?? 0));
+                    $pdo->commit();
+                    return [
+                        ...$categoryResult,
+                        'category' => $savedCategory,
+                        'guidance' => $guidanceResult['guidance'] ?? null,
+                    ];
+                } catch (Throwable $error) {
+                    if ($pdo->inTransaction()) $pdo->rollBack();
+                    throw $error;
+                }
+            })(),
             'move_category' => jg_accounting_move_category($pdo, $body),
             'save_account' => jg_accounting_save_account($pdo, $body),
             'save_ui_preferences' => jg_accounting_save_ui_preferences($pdo, $body),

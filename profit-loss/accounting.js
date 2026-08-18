@@ -726,17 +726,26 @@ if (root) {
     if (label instanceof HTMLElement) label.textContent = selectedCategory ? categoryLabel(selectedCategory) : 'Choose category';
     const search = String(searchInput?.value || '').trim().toLocaleLowerCase('id-ID');
     const visible = billableCategories().filter((category) => (
-      !search || `${category.parent_name || ''} ${category.name || ''}`.toLocaleLowerCase('id-ID').includes(search)
+      !search || `${category.parent_name || ''} ${category.name || ''} ${category.account_code || ''}`.toLocaleLowerCase('id-ID').includes(search)
     ));
     results.innerHTML = visible.length
       ? visible.map((category) => {
         const selected = String(category.id) === selectedValue;
+        const summary = String(category.help_summary || category.guidance?.hover_summary || `Open the full guide for ${category.name || 'this category'}.`);
+        const codeCopy = category.account_code && !String(category.name || '').includes(String(category.account_code))
+          ? ` · Code ${category.account_code}`
+          : '';
         return `
-          <button type="button" role="option" data-accounting-category-option="${escapeHtml(String(category.id))}" aria-selected="${selected ? 'true' : 'false'}">
-            <span>${escapeHtml(category.name || '')}</span>
-            <small>${escapeHtml(category.parent_name || 'General')}</small>
-            <b aria-hidden="true">${selected ? '✓' : ''}</b>
-          </button>
+          <div class="admin-accounting-category-result">
+            <button type="button" role="option" data-accounting-category-option="${escapeHtml(String(category.id))}" aria-selected="${selected ? 'true' : 'false'}">
+              <span>${escapeHtml(category.name || '')}</span>
+              <small>${escapeHtml(`${category.parent_name || 'General'}${codeCopy}`)}</small>
+              <b aria-hidden="true">${selected ? '✓' : ''}</b>
+            </button>
+            <a class="admin-accounting-category-info" href="../accounting-category/?category_id=${encodeURIComponent(String(category.id))}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(summary)}" aria-label="About ${escapeHtml(category.name || 'this category')}; opens detailed guidance in a new tab">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 10v6M12 7h.01"/></svg>
+            </a>
+          </div>
         `;
       }).join('')
       : '<p class="admin-accounting-category-empty">No matching categories</p>';
@@ -1566,6 +1575,32 @@ if (root) {
         <input type="hidden" name="type" value="${escapeHtml(category?.type || groupType)}">
         <div class="admin-accounting-category-editor-head"><div><strong>${category ? `Edit “${escapeHtml(category.name)}”` : `Add an exact category to ${escapeHtml(group.name)}`}</strong><small>This is the final choice people see when entering money.</small></div></div>
         <label><span>Exact category name</span><input type="text" name="name" maxlength="160" value="${escapeHtml(category?.name || '')}" placeholder="e.g. Shopee Ads" required></label>
+        ${category ? `
+        <details class="admin-accounting-guidance-editor" open>
+          <summary><span><strong>Information guide</strong><small>Edit the hover explanation and full reference page.</small></span><b aria-hidden="true">⌄</b></summary>
+          <div class="admin-accounting-guidance-fields">
+            <div class="admin-accounting-settings-form-grid admin-accounting-settings-form-grid--two">
+              <label><span>Account code</span><input type="text" name="account_code" maxlength="32" value="${escapeHtml(category.guidance?.account_code || category.account_code || '')}" placeholder="e.g. 7101"></label>
+              <label><span>Short hover explanation</span><textarea name="hover_summary" rows="3" maxlength="500" required>${escapeHtml(category.guidance?.hover_summary || category.help_summary || '')}</textarea></label>
+            </div>
+            <label><span>What it is and what it means</span><textarea name="definition" rows="4" maxlength="8000" required>${escapeHtml(category.guidance?.definition || '')}</textarea></label>
+            <div class="admin-accounting-settings-form-grid admin-accounting-settings-form-grid--two">
+              <label><span>When to use it</span><textarea name="when_to_use" rows="7" maxlength="8000">${escapeHtml(category.guidance?.when_to_use || '')}</textarea></label>
+              <label><span>When not to use it</span><textarea name="when_not_to_use" rows="7" maxlength="8000">${escapeHtml(category.guidance?.when_not_to_use || '')}</textarea></label>
+            </div>
+            <label><span>Examples</span><textarea name="examples" rows="7" maxlength="8000">${escapeHtml(category.guidance?.examples || '')}</textarea></label>
+            <div class="admin-accounting-settings-form-grid admin-accounting-settings-form-grid--two">
+              <label><span>Documents to keep</span><textarea name="documentation" rows="8" maxlength="8000">${escapeHtml(category.guidance?.documentation || '')}</textarea></label>
+              <label><span>Accounting treatment</span><textarea name="accounting_treatment" rows="8" maxlength="8000">${escapeHtml(category.guidance?.accounting_treatment || '')}</textarea></label>
+            </div>
+            <div class="admin-accounting-settings-form-grid admin-accounting-settings-form-grid--two">
+              <label><span>Tax and legal review notes</span><textarea name="tax_legal_notes" rows="8" maxlength="8000">${escapeHtml(category.guidance?.tax_legal_notes || '')}</textarea></label>
+              <label><span>Controls and reviewer checks</span><textarea name="controls" rows="8" maxlength="8000">${escapeHtml(category.guidance?.controls || '')}</textarea></label>
+            </div>
+            <label><span>References — one per line, optionally “Label | https://…”</span><textarea name="references" rows="6" maxlength="8000">${escapeHtml(category.guidance?.references || '')}</textarea></label>
+            <p>These notes are operational guidance. Review tax and employment requirements whenever the rules or facts change.</p>
+          </div>
+        </details>` : ''}
         <div class="admin-accounting-category-behavior">
           <label class="admin-accounting-plain-toggle"><input type="checkbox" name="requires_receipt" ${Number(category?.requires_receipt) ? 'checked' : ''}><span><strong>Ask for a receipt</strong><small>When selected, new entries in this category should include proof.</small></span></label>
           <label class="admin-accounting-plain-toggle"><input type="checkbox" name="is_billable" ${!category || Number(category.is_billable) ? 'checked' : ''}><span><strong>Show as a choice on new bills and entries</strong><small>Turn this off to hide it from dropdown lists. Existing records and reports do not change.</small></span></label>
@@ -1683,7 +1718,7 @@ if (root) {
     const data = new FormData(form);
     const payload = Object.fromEntries(data.entries());
     const categoryKind = form.dataset.categoryKind;
-    payload.action = 'save_category';
+    payload.action = categoryKind === 'leaf' && data.has('hover_summary') ? 'save_category_with_guidance' : 'save_category';
     payload.requires_receipt = data.has('requires_receipt') ? '1' : '0';
     payload.is_billable = data.has('is_billable') ? '1' : '0';
     payload.is_active = data.has('is_active') ? '1' : '0';
@@ -2976,5 +3011,17 @@ if (root) {
   });
 
   resetForm();
-  loadSafely(false);
+  loadSafely(false).then(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('settings') !== 'categories') return;
+    const requestedId = params.get('category_id') || '';
+    const requestedCategory = state.categories.find((category) => String(category.id) === requestedId && category.parent_id !== null);
+    if (requestedCategory) {
+      state.categorySettingsFlow = requestedCategory.flow === 'income' ? 'income' : 'expense';
+      state.categorySettingsParentId = String(requestedCategory.parent_id);
+      state.categorySettingsCategoryId = String(requestedCategory.id);
+    }
+    openAccountSettings();
+    activateSettingsTab('categories');
+  });
 }

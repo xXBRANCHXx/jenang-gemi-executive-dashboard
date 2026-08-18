@@ -6,6 +6,7 @@ require_once __DIR__ . '/partner-billing-bootstrap.php';
 require_once __DIR__ . '/sku-db-bootstrap.php';
 require_once __DIR__ . '/purchase-orders-bootstrap.php';
 require_once __DIR__ . '/whatsapp-orders-bootstrap.php';
+require_once __DIR__ . '/accounting-category-guidance.php';
 
 function jg_accounting_now(): DateTimeImmutable
 {
@@ -243,6 +244,23 @@ function jg_accounting_ensure_schema(PDO $pdo): void
             KEY idx_accounting_categories_parent (parent_id),
             KEY idx_accounting_categories_active (is_active, sort_order),
             KEY idx_accounting_categories_type (type)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+        'CREATE TABLE IF NOT EXISTS accounting_category_guidance (
+            category_id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
+            account_code VARCHAR(32) NOT NULL DEFAULT "",
+            hover_summary VARCHAR(500) NOT NULL,
+            definition LONGTEXT NOT NULL,
+            when_to_use LONGTEXT NOT NULL,
+            when_not_to_use LONGTEXT NOT NULL,
+            examples LONGTEXT NOT NULL,
+            documentation LONGTEXT NOT NULL,
+            accounting_treatment LONGTEXT NOT NULL,
+            tax_legal_notes LONGTEXT NOT NULL,
+            controls LONGTEXT NOT NULL,
+            `references` LONGTEXT NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            KEY idx_accounting_category_guidance_code (account_code)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
         'CREATE TABLE IF NOT EXISTS accounting_counterparties (
             id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -1521,7 +1539,7 @@ function jg_accounting_categories(PDO $pdo, bool $includeInactive = false): arra
          ' . ($includeInactive ? '' : 'WHERE c.is_active = 1 AND (c.parent_id IS NULL OR p.is_active = 1) ') . '
          ORDER BY COALESCE(p.sort_order, c.sort_order), c.parent_id IS NOT NULL, c.sort_order, c.name';
     $rows = $pdo->query($sql)->fetchAll();
-    return array_map(static fn (array $row): array => [
+    $categories = array_map(static fn (array $row): array => [
         'id' => (int) $row['id'],
         'category_key' => (string) $row['category_key'],
         'parent_id' => $row['parent_id'] === null ? null : (int) $row['parent_id'],
@@ -1539,6 +1557,7 @@ function jg_accounting_categories(PDO $pdo, bool $includeInactive = false): arra
             && (int) $row['is_billable'] === 1
             && (int) ($row['parent_is_active'] ?? 0) === 1 ? 1 : 0,
     ], $rows);
+    return jg_accounting_attach_category_guidance($pdo, $categories);
 }
 
 function jg_accounting_category_by_id(PDO $pdo, int $categoryId): ?array
