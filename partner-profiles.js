@@ -56,6 +56,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const stepOrder = ['brands', 'products'];
 
+  const syncContactRequirements = () => {
+    if (!(partnerForm instanceof HTMLFormElement)) return;
+    const required = partnerForm.elements.partner_class?.value === 'B';
+    ['contact_email', 'contact_phone', 'contact_address'].forEach((name) => {
+      const field = partnerForm.elements[name];
+      if (field instanceof HTMLElement) field.toggleAttribute('required', required);
+    });
+  };
+
   const generatePortalPassword = () => {
     const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
     const bytes = new Uint32Array(14);
@@ -483,7 +492,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </span>
             <span class="partner-directory-identity">
               <strong>${escapeHtml(partner.name || 'Partner')}</strong>
-              <span>${escapeHtml(partner.code || '')}</span>
+              <span>Class ${escapeHtml(partner.partner_class || 'B')} · ${escapeHtml(partner.code || '')}</span>
             </span>
           </div>
           <div class="partner-directory-row-stats">
@@ -744,11 +753,15 @@ document.addEventListener('DOMContentLoaded', () => {
         method: 'POST',
         body: {
           action: 'create',
+          partner_class: formData.get('partner_class'),
           name: formData.get('name'),
           partner_slug: formData.get('partner_slug'),
           portal_password: formData.get('portal_password'),
           selected_skus: selectedSkuPayload(),
           pricing: state.pricing,
+          contact_email: formData.get('contact_email'),
+          contact_phone: formData.get('contact_phone'),
+          contact_address: formData.get('contact_address'),
           notes: formData.get('notes')
         }
       });
@@ -764,6 +777,9 @@ document.addEventListener('DOMContentLoaded', () => {
     partnerForm.elements.portal_password.value = generatePortalPassword();
     updateCreatePreview();
   });
+
+  partnerForm?.elements.partner_class?.addEventListener('change', syncContactRequirements);
+  syncContactRequirements();
 
   loadPartners().catch((error) => {
     setError(error instanceof Error ? error.message : 'Unable to load partners.');

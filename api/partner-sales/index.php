@@ -42,6 +42,7 @@ function jg_partner_sales_profile_from_row(array $row): array
         'code' => (string) ($row['code'] ?? ''),
         'name' => (string) ($row['name'] ?? ''),
         'partner_slug' => $slug,
+        'partner_class' => strtoupper((string) ($row['partner_class'] ?? 'B')) === 'A' ? 'A' : 'B',
         'notes' => (string) ($row['notes'] ?? ''),
         'created_at' => (string) ($row['created_at'] ?? ''),
         'updated_at' => (string) ($row['updated_at'] ?? ''),
@@ -51,7 +52,7 @@ function jg_partner_sales_profile_from_row(array $row): array
 function jg_partner_sales_profile(?PDO $partnerPdo, string $code): ?array
 {
     if ($partnerPdo instanceof PDO) {
-        $stmt = $partnerPdo->prepare('SELECT code, name, partner_slug, notes, created_at, updated_at FROM partner_profiles WHERE code = :code LIMIT 1');
+        $stmt = $partnerPdo->prepare('SELECT code, name, partner_slug, partner_class, notes, created_at, updated_at FROM partner_profiles WHERE code = :code LIMIT 1');
         $stmt->execute([':code' => $code]);
         $row = $stmt->fetch();
         if (is_array($row)) return jg_partner_sales_profile_from_row($row);
@@ -112,7 +113,7 @@ function jg_partner_sales_payments(PDO $pdo, string $code): array
 
 function jg_partner_sales_database_orders(PDO $pdo, string $code, ?string $from, ?string $to): array
 {
-    $where = ['partner_code = :partner_code'];
+    $where = ['partner_code = :partner_code', 'COALESCE(order_type, "class_a_dropship") <> "class_b_stock"'];
     $params = [':partner_code' => $code];
     $dateColumn = 'COALESCE(order_timestamp, created_at)';
     if ($from !== null) {

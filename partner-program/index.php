@@ -41,9 +41,10 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                 <main class="partner-program-landing" aria-labelledby="partner-program-title">
                     <section class="partner-program-intro">
                         <h1 id="partner-program-title">Jenang Gemi Partner Program</h1>
-                        <p>Partners are people who sell Jenang Gemi. Use Partner Profiles to add them or change what they can sell. Use Partner Portal to see the place partners log in and make orders.</p>
+                        <p>Manage Class A dropship partners and Class B stock partners from one program. Profiles control pricing and approved SKUs; Class B Operations handles prepaid balances and shipping release.</p>
                         <div class="partner-program-actions">
                             <a class="admin-primary-btn admin-link-btn" href="../partner-profiles/">Partner Profiles</a>
+                            <a class="admin-ghost-btn admin-link-btn" href="../partner-stock-orders/">Class B Operations</a>
                             <a class="admin-ghost-btn admin-link-btn" href="https://partner.jenanggemi.com" target="_blank" rel="noopener">Partner Portal</a>
                         </div>
                     </section>

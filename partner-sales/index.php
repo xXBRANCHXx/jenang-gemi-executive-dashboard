@@ -66,6 +66,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                                 </div>
                             </div>
                             <div class="partner-sales-header-actions">
+                                <a class="admin-ghost-btn admin-link-btn" href="../partner-stock-orders/" data-sales-stock-link hidden>Class B order history</a>
                                 <a class="admin-ghost-btn admin-link-btn" href="../partner-profile/" data-sales-settings-link>Profile settings</a>
                                 <a class="admin-primary-btn admin-link-btn" href="https://partner.jenanggemi.com" target="_blank" rel="noopener" data-sales-portal-link>Open portal</a>
                             </div>

@@ -105,6 +105,26 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                                             <input type="text" name="partner_slug" maxlength="160">
                                         </label>
                                         <label>
+                                            <span>Partner class</span>
+                                            <select name="partner_class" data-partner-class>
+                                                <option value="B">Class B · stocks products</option>
+                                                <option value="A">Class A · dropshipper</option>
+                                            </select>
+                                            <small>Class B prepays from a balance. Class A is billed for dropship sales.</small>
+                                        </label>
+                                        <label>
+                                            <span>Email address</span>
+                                            <input type="email" name="contact_email" maxlength="190" placeholder="orders@partner.com">
+                                        </label>
+                                        <label>
+                                            <span>Phone number</span>
+                                            <input type="tel" name="contact_phone" maxlength="64" placeholder="+62 812 3456 7890">
+                                        </label>
+                                        <label>
+                                            <span>Full shipping address</span>
+                                            <textarea name="contact_address" maxlength="2000" rows="4" placeholder="Street, district, city, province and postal code"></textarea>
+                                        </label>
+                                        <label>
                                             <span>Billing period</span>
                                             <select name="billing_period_type">
                                                 <option value="calendar_week">Calendar Week (Monday–Sunday)</option>
@@ -240,6 +260,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                                     <span class="partner-profile-portal-note" data-note-url>Partner URL pending</span>
                                     <button type="submit" class="admin-primary-btn" data-save-profile>Save profile</button>
                                     <a class="admin-ghost-btn admin-link-btn" href="https://partner.jenanggemi.com" target="_blank" rel="noopener" data-partner-portal-link>Open partner portal</a>
+                                    <a class="admin-ghost-btn admin-link-btn" href="../partner-stock-orders/" data-partner-stock-link hidden>Class B operations</a>
                                     <button type="button" class="admin-danger-btn" data-delete-profile hidden>Delete partner</button>
                                 </div>
                             </aside>

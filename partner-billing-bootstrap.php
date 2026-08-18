@@ -225,6 +225,7 @@ function jg_admin_partner_billing_ensure_schema(PDO $pdo): void
     jg_admin_partner_billing_ensure_column($pdo, 'partner_orders', 'billing_status', 'VARCHAR(32) NOT NULL DEFAULT "unbilled"');
     jg_admin_partner_billing_ensure_column($pdo, 'partner_orders', 'billing_reference', 'VARCHAR(120) NOT NULL DEFAULT ""');
     jg_admin_partner_billing_ensure_column($pdo, 'partner_orders', 'billing_paid_at', 'DATETIME NULL DEFAULT NULL');
+    jg_admin_partner_billing_ensure_column($pdo, 'partner_orders', 'order_type', 'VARCHAR(32) NOT NULL DEFAULT "class_a_dropship"');
     jg_admin_partner_billing_ensure_column($pdo, 'partner_weekly_bills', 'period_type', 'VARCHAR(32) NOT NULL DEFAULT "calendar_week" AFTER partner_code');
     jg_admin_partner_billing_ensure_column($pdo, 'partner_favicons', 'file_data', 'LONGBLOB NULL DEFAULT NULL');
     jg_admin_partner_billing_ensure_column($pdo, 'partner_weekly_bill_disputes', 'dispute_type', 'VARCHAR(32) NOT NULL DEFAULT "paid"');
@@ -613,6 +614,7 @@ function jg_admin_partner_billing_sync(PDO $pdo): void
         'SELECT id, partner_code, customer_name, product_name, sku_code, sku_label, quantity, status,
                 marketplace_platform, revenue_total, items_json, order_timestamp, created_at, billing_paid_at
          FROM partner_orders WHERE revenue_total > 0
+           AND COALESCE(order_type, "class_a_dropship") <> "class_b_stock"
          ORDER BY COALESCE(order_timestamp, created_at) ASC, id ASC'
     )->fetchAll();
     $billIds = [];

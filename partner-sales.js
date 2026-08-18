@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const $ = (selector) => document.querySelector(selector);
   const refs = {
     loading: $('[data-sales-loading]'), content: $('[data-sales-content]'), error: $('[data-sales-error]'),
-    name: $('[data-sales-partner-name]'), code: $('[data-sales-partner-code]'), settings: $('[data-sales-settings-link]'), portal: $('[data-sales-portal-link]'),
+    name: $('[data-sales-partner-name]'), code: $('[data-sales-partner-code]'), settings: $('[data-sales-settings-link]'), portal: $('[data-sales-portal-link]'), stock: $('[data-sales-stock-link]'),
     from: $('[data-sales-from]'), to: $('[data-sales-to]'), updated: $('[data-sales-updated]'),
     total: $('[data-sales-total]'), paid: $('[data-sales-paid]'), outstanding: $('[data-sales-outstanding]'), units: $('[data-sales-units]'), average: $('[data-sales-average]'),
     orderCount: $('[data-sales-order-count]'), rate: $('[data-sales-collection-rate]'), unpaidCount: $('[data-sales-unpaid-count]'), cancelledCount: $('[data-sales-cancelled-count]'),
@@ -401,6 +401,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (refs.code) refs.code.textContent = partner.code || partnerCode;
     if (refs.settings) refs.settings.href = `../partner-profile/?code=${encodeURIComponent(partner.code || partnerCode)}`;
     if (refs.portal) refs.portal.href = `https://partner.jenanggemi.com/${encodeURIComponent(partner.partner_slug || '')}/`;
+    if (refs.stock) {
+      refs.stock.hidden = partner.partner_class !== 'B';
+      refs.stock.href = `../partner-stock-orders/?partner=${encodeURIComponent(partner.code || partnerCode)}`;
+    }
     if (refs.updated) refs.updated.textContent = `${payload.orders?.length || 0} ledger entries · refreshed ${new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' }).format(new Date())}`;
     if (refs.limitNote) refs.limitNote.hidden = !payload.source?.orders_limited;
     renderStats(); renderChart(); renderBreakdowns(); renderPayments(); renderOrders();

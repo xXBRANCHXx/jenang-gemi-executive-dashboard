@@ -70,7 +70,7 @@ function jg_partner_read_database(): array
     $pdo = jg_partner_db();
     if ($pdo instanceof PDO) {
         $stmt = $pdo->query(
-            'SELECT code, name, partner_slug, notes, selected_skus_json, pricing_json, billing_period_type, discount_enabled, discount_percent, password_hash, password_updated_at,
+            'SELECT code, name, partner_slug, notes, selected_skus_json, pricing_json, partner_class, contact_email, contact_phone, contact_address, billing_period_type, discount_enabled, discount_percent, password_hash, password_updated_at,
                     password_reset_key_hash, password_reset_key_created_at, password_reset_token_hash, password_reset_token_expires_at,
                     created_at, updated_at
              FROM partner_profiles
@@ -91,6 +91,10 @@ function jg_partner_read_database(): array
                 'notes' => (string) ($row['notes'] ?? ''),
                 'selected_skus' => is_array($selectedSkus) ? array_values(array_filter(array_map('strval', $selectedSkus))) : [],
                 'pricing' => is_array($pricing) ? $pricing : [],
+                'partner_class' => strtoupper((string) ($row['partner_class'] ?? 'B')) === 'A' ? 'A' : 'B',
+                'contact_email' => (string) ($row['contact_email'] ?? ''),
+                'contact_phone' => (string) ($row['contact_phone'] ?? ''),
+                'contact_address' => (string) ($row['contact_address'] ?? ''),
                 'billing_period_type' => jg_admin_partner_billing_period_type($row['billing_period_type'] ?? null),
                 'discount_enabled' => (bool) ($row['discount_enabled'] ?? false),
                 'discount_percent' => jg_partner_discount_percent($row),
@@ -158,11 +162,11 @@ function jg_partner_write_database(array $database): void
             $pdo->exec('DELETE FROM partner_profiles');
             $stmt = $pdo->prepare(
                 'INSERT INTO partner_profiles
-                    (code, name, partner_slug, notes, selected_skus_json, pricing_json, billing_period_type, discount_enabled, discount_percent, password_hash, password_updated_at,
+                    (code, name, partner_slug, notes, selected_skus_json, pricing_json, partner_class, contact_email, contact_phone, contact_address, billing_period_type, discount_enabled, discount_percent, password_hash, password_updated_at,
                      password_reset_key_hash, password_reset_key_created_at, password_reset_token_hash, password_reset_token_expires_at,
                      created_at, updated_at)
                  VALUES
-                    (:code, :name, :partner_slug, :notes, :selected_skus_json, :pricing_json, :billing_period_type, :discount_enabled, :discount_percent, :password_hash, :password_updated_at,
+                    (:code, :name, :partner_slug, :notes, :selected_skus_json, :pricing_json, :partner_class, :contact_email, :contact_phone, :contact_address, :billing_period_type, :discount_enabled, :discount_percent, :password_hash, :password_updated_at,
                      :password_reset_key_hash, :password_reset_key_created_at, :password_reset_token_hash, :password_reset_token_expires_at,
                      :created_at, :updated_at)'
             );
@@ -178,6 +182,10 @@ function jg_partner_write_database(array $database): void
                     ':notes' => (string) ($partner['notes'] ?? ''),
                     ':selected_skus_json' => json_encode(array_values(array_filter((array) ($partner['selected_skus'] ?? []), 'is_string')), JSON_UNESCAPED_SLASHES),
                     ':pricing_json' => json_encode((array) ($partner['pricing'] ?? []), JSON_UNESCAPED_SLASHES),
+                    ':partner_class' => strtoupper((string) ($partner['partner_class'] ?? 'B')) === 'A' ? 'A' : 'B',
+                    ':contact_email' => (string) ($partner['contact_email'] ?? ''),
+                    ':contact_phone' => (string) ($partner['contact_phone'] ?? ''),
+                    ':contact_address' => (string) ($partner['contact_address'] ?? ''),
                     ':billing_period_type' => jg_admin_partner_billing_period_type($partner['billing_period_type'] ?? null),
                     ':discount_enabled' => jg_partner_discount_enabled($partner) ? 1 : 0,
                     ':discount_percent' => jg_partner_discount_percent($partner),
@@ -756,6 +764,21 @@ function jg_partner_build_record(array $payload, array $database, array $catalog
     $slugSource = jg_partner_normalize_text($payload['partner_slug'] ?? $name, 'Partner page slug', 160, false);
     $partnerSlug = jg_partner_slugify($slugSource !== '' ? $slugSource : $name);
     $notes = jg_partner_normalize_text($payload['notes'] ?? null, 'Notes', 300, false);
+    $partnerClass = strtoupper(trim((string) ($payload['partner_class'] ?? $existing['partner_class'] ?? 'B'))) === 'A' ? 'A' : 'B';
+    if (in_array(mb_strtolower(trim($name)), ['baggos', 'baggos media', 'orezz'], true)
+        || in_array(mb_strtolower(trim($partnerSlug)), ['baggos', 'baggosmedia', 'orezz'], true)) {
+        $partnerClass = 'A';
+    }
+    $contactEmail = strtolower(jg_partner_normalize_text($payload['contact_email'] ?? $existing['contact_email'] ?? '', 'Email address', 190, false));
+    if ($contactEmail !== '' && !filter_var($contactEmail, FILTER_VALIDATE_EMAIL)) {
+        jg_partner_fail('Enter a valid partner email address.');
+    }
+    $contactPhone = jg_partner_normalize_text($payload['contact_phone'] ?? $existing['contact_phone'] ?? '', 'Phone number', 64, false);
+    $contactAddress = trim((string) ($payload['contact_address'] ?? $existing['contact_address'] ?? ''));
+    if (mb_strlen($contactAddress) > 2000) jg_partner_fail('Address must be 2,000 characters or fewer.');
+    if ($partnerClass === 'B' && ($contactEmail === '' || $contactPhone === '' || $contactAddress === '')) {
+        jg_partner_fail('Class B partners require an email address, phone number, and full address.');
+    }
     $selectedSkuRecords = jg_partner_validate_selected_skus((array) ($payload['selected_skus'] ?? []), $catalog);
 
     foreach ($database['partners'] ?? [] as $partner) {
@@ -815,6 +838,10 @@ function jg_partner_build_record(array $payload, array $database, array $catalog
         'notes' => $notes,
         'selected_skus' => $selectedSkuCodes,
         'pricing' => $pricing,
+        'partner_class' => $partnerClass,
+        'contact_email' => $contactEmail,
+        'contact_phone' => $contactPhone,
+        'contact_address' => $contactAddress,
         'billing_period_type' => $billingPeriodType,
         'discount_enabled' => $discountSettings['discount_enabled'],
         'discount_percent' => $discountSettings['discount_percent'],

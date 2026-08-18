@@ -71,7 +71,7 @@ function jg_partner_auth_read_database(): array
     $pdo = jg_partner_db();
     if ($pdo instanceof PDO) {
         $stmt = $pdo->query(
-            'SELECT code, name, partner_slug, notes, selected_skus_json, pricing_json, billing_period_type, discount_enabled, discount_percent, password_hash, password_updated_at,
+            'SELECT code, name, partner_slug, notes, selected_skus_json, pricing_json, partner_class, contact_email, contact_phone, contact_address, billing_period_type, discount_enabled, discount_percent, password_hash, password_updated_at,
                     password_reset_key_hash, password_reset_key_created_at, password_reset_token_hash, password_reset_token_expires_at,
                     created_at, updated_at
              FROM partner_profiles
@@ -89,6 +89,10 @@ function jg_partner_auth_read_database(): array
                 'notes' => (string) ($row['notes'] ?? ''),
                 'selected_skus' => is_array($selectedSkus) ? array_values(array_filter(array_map('strval', $selectedSkus))) : [],
                 'pricing' => is_array($pricing) ? $pricing : [],
+                'partner_class' => strtoupper((string) ($row['partner_class'] ?? 'B')) === 'A' ? 'A' : 'B',
+                'contact_email' => (string) ($row['contact_email'] ?? ''),
+                'contact_phone' => (string) ($row['contact_phone'] ?? ''),
+                'contact_address' => (string) ($row['contact_address'] ?? ''),
                 'billing_period_type' => (string) ($row['billing_period_type'] ?? '') === 'calendar_month'
                     ? 'calendar_month'
                     : 'calendar_week',
@@ -245,6 +249,13 @@ function jg_partner_auth_public_partner(array $partner): array
     $partner['password_configured'] = $hash !== '';
     $partner['password_updated_at'] = (string) ($partner['password_updated_at'] ?? '');
     $partner['store_path'] = '/' . trim((string) ($partner['partner_slug'] ?? ''), '/') . '/';
+    $classKey = strtolower(trim((string) ($partner['name'] ?? '')));
+    $classSlug = strtolower(trim((string) ($partner['partner_slug'] ?? ''), '/'));
+    $partner['partner_class'] = strtoupper((string) ($partner['partner_class'] ?? '')) === 'A'
+        || in_array($classKey, ['baggos', 'baggos media', 'orezz'], true)
+        || in_array($classSlug, ['baggos', 'baggosmedia', 'orezz'], true)
+        ? 'A'
+        : 'B';
 
     return $partner;
 }

@@ -57,6 +57,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const disputeTitle = (event) => event.dispute_type === 'price'
     ? `${event.partner_name} proposed new prices for ${event.items?.length || 0} orders`
     : `${event.partner_name} disputed ${event.items?.length || 0} orders on ${event.period_label}`;
+  const eventTitle = (event) => {
+    if (event.type === 'payment') return paymentTitle(event);
+    if (event.type === 'dispute') return disputeTitle(event);
+    if (event.type === 'balance_deposit') return `${event.partner_name} requested a balance deposit`;
+    if (event.type === 'stock_order') return `${event.partner_name} placed a stock order`;
+    return `${event.partner_name || 'Partner'} needs review`;
+  };
+  const eventSubtitle = (event) => {
+    if (event.type === 'payment') return 'Check proof of payment';
+    if (event.type === 'dispute') return event.dispute_type === 'price' ? 'Review the proposed product prices' : 'Review the claimed paid orders';
+    if (event.type === 'balance_deposit') return event.status === 'investigating' ? 'Investigation in progress · review corrected amount' : 'Verify proof and approve the balance';
+    if (event.type === 'stock_order') return `${event.items?.length || 0} products · arrange shipment and upload label`;
+    return 'Open review';
+  };
 
   const eventVersion = (event) => JSON.stringify(event);
   const listRowMarkup = (event, index) => `
@@ -64,18 +78,20 @@ document.addEventListener('DOMContentLoaded', () => {
         <button type="button" class="admin-billing-notification-main" data-billing-select="${escapeHtml(event.id)}">
           ${avatarMarkup(event)}
           <span class="admin-billing-notification-copy">
-            <strong>${escapeHtml(event.type === 'payment' ? paymentTitle(event) : disputeTitle(event))}</strong>
-            <small>${escapeHtml(event.type === 'payment' ? 'Check proof of payment' : (event.dispute_type === 'price' ? 'Review the proposed product prices' : 'Review the claimed paid orders'))}</small>
+            <strong>${escapeHtml(eventTitle(event))}</strong>
+            <small>${escapeHtml(eventSubtitle(event))}</small>
             <em><span>${escapeHtml(event.type === 'dispute' && event.dispute_type === 'price' ? `${money(event.amount)} → ${money((event.items || []).reduce((sum, item) => sum + Number(item.proposed_amount || 0), 0))}` : money(event.amount))}</span> · <span data-billing-relative-time>${escapeHtml(relativeTime(event.created_at))}</span></em>
           </span>
           <svg class="admin-billing-row-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
         </button>
         ${event.type === 'dispute' ? `<div class="admin-billing-quick-actions"><button type="button" data-billing-action="accept_dispute" data-record-id="${Number(event.record_id)}">${event.dispute_type === 'price' ? 'Accept proposed prices' : 'Accept'}</button><button type="button" data-billing-select="${escapeHtml(event.id)}">Investigate</button></div>` : ''}
+        ${event.type === 'balance_deposit' ? `<div class="admin-billing-quick-actions"><button type="button" data-stock-action="approve_deposit" data-record-id="${Number(event.record_id)}">Approve</button><a href="${escapeHtml(event.detail_url)}">Investigate</a></div>` : ''}
+        ${event.type === 'stock_order' ? `<div class="admin-billing-quick-actions"><a href="${escapeHtml(event.detail_url)}">Open shipping workspace</a></div>` : ''}
       </article>`;
 
   const listMarkup = () => {
     if (!state.events.length) {
-      return `<div class="admin-notification-empty admin-billing-empty"><span>✓</span><strong>All caught up</strong><p>No partner payments or disputes need review.</p></div>`;
+      return `<div class="admin-notification-empty admin-billing-empty"><span>✓</span><strong>All caught up</strong><p>No partner payments, deposits, disputes, or stock orders need review.</p></div>`;
     }
     return state.events.map(listRowMarkup).join('');
   };
@@ -141,6 +157,12 @@ document.addEventListener('DOMContentLoaded', () => {
     </article>`;
   };
 
+  const stockDetail = (event) => {
+    if (event.type === 'stock_order') return `<article class="admin-billing-detail admin-stock-notification-detail"><header class="admin-billing-dispute-head">${avatarMarkup(event)}<div><small>Class B stock order</small><strong>${escapeHtml(event.partner_name)}</strong><span>${escapeHtml(event.record_id)} · ${escapeHtml(money(event.amount))}</span></div></header><section class="admin-billing-investigate-orders"><div><span>Products paid from balance</span><strong>${event.items?.length || 0}</strong></div>${(event.items || []).map(item => `<article class="admin-billing-price-order"><header><span><strong>${escapeHtml(item.sku_label || item.product || item.sku_code)}</strong><small>${escapeHtml(item.sku_code || '')} · ${Number(item.quantity || 0)} units</small></span><strong>${escapeHtml(money(item.line_revenue || 0))}</strong></header></article>`).join('')}</section><a class="admin-billing-confirm-button admin-link-btn" href="${escapeHtml(event.detail_url)}">Open shipping workspace</a></article>`;
+    const proof = event.proof || {}; const isPdf = proof.mime_type === 'application/pdf';
+    return `<article class="admin-billing-detail admin-stock-notification-detail" data-billing-record="${Number(event.record_id)}"><div class="admin-billing-proof-head"><div>${avatarMarkup(event)}<span><small>Class B balance request</small><strong>${escapeHtml(event.partner_name)}</strong><em>${escapeHtml(shortDate(event.created_at))}</em></span></div></div><div class="admin-billing-proof-frame is-${isPdf ? 'pdf' : 'image'}">${isPdf ? `<object data="${escapeHtml(proof.url)}" type="application/pdf"><a href="${escapeHtml(proof.url)}" target="_blank" rel="noopener">Open proof</a></object>` : `<img src="${escapeHtml(proof.url)}" alt="Payment proof from ${escapeHtml(event.partner_name)}">`}</div><form class="admin-stock-deposit-review" data-stock-deposit-form><label><span>Amount to credit</span><span class="admin-billing-price-input"><em>Rp</em><input type="number" name="amount" min="1" max="1000000000000" step="0.01" value="${Number(event.amount || 0)}" required></span></label><label><span>Review note</span><textarea name="note" maxlength="1000" placeholder="Optional note or reason for a correction"></textarea></label><p class="admin-billing-detail-error" data-billing-detail-error hidden></p><div class="admin-billing-investigate-actions"><button type="button" class="is-accept" data-stock-action="approve_deposit" data-record-id="${Number(event.record_id)}">Approve balance</button><button type="button" data-stock-action="investigate_deposit" data-record-id="${Number(event.record_id)}">Save investigation</button><button type="button" class="is-reject" data-stock-action="reject_deposit" data-record-id="${Number(event.record_id)}">Reject</button></div></form><a class="admin-ghost-btn admin-link-btn" href="${escapeHtml(event.detail_url)}">Open complete history</a></article>`;
+  };
+
   const feedbackMarkup = () => `<div class="admin-billing-feedback"><span>✓</span><strong>${escapeHtml(state.feedback?.title || 'Review complete')}</strong><p>${escapeHtml(state.feedback?.message || 'The billing record was updated.')}</p></div>`;
 
   const bindAvatarFallbacks = () => {
@@ -163,11 +185,11 @@ document.addEventListener('DOMContentLoaded', () => {
       count.hidden = state.events.length === 0;
       count.textContent = state.events.length > 99 ? '99+' : String(state.events.length);
     }
-    if (summary instanceof HTMLElement) summary.textContent = state.events.length ? `${state.events.length} billing review${state.events.length === 1 ? '' : 's'} pending` : 'No billing reviews pending';
+    if (summary instanceof HTMLElement) summary.textContent = state.events.length ? `${state.events.length} partner review${state.events.length === 1 ? '' : 's'} pending` : 'No reviews pending';
     if (back instanceof HTMLButtonElement) back.hidden = !selected && !state.feedback;
     if (mode instanceof HTMLElement) mode.textContent = selected
-      ? (selected.type === 'payment' ? 'Check proof of payment' : 'Accept or investigate disputed orders')
-      : 'Payment confirmations and disputes';
+      ? eventSubtitle(selected)
+      : 'Payments, deposits and stock orders';
   };
 
   const reconcileList = () => {
@@ -209,7 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const selected = state.events.find((event) => event.id === state.selectedId) || null;
     renderChrome();
     if (state.feedback) list.innerHTML = feedbackMarkup();
-    else if (selected) list.innerHTML = selected.type === 'payment' ? paymentDetail(selected) : disputeDetail(selected);
+    else if (selected) list.innerHTML = selected.type === 'payment' ? paymentDetail(selected) : (selected.type === 'dispute' ? disputeDetail(selected) : stockDetail(selected));
     else {
       list.innerHTML = listMarkup();
       state.events.forEach((event) => {
@@ -238,7 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } else reconcileList();
     } catch (error) {
       if (!silent) list.innerHTML = `<div class="admin-billing-feedback is-error"><strong>Billing unavailable</strong><p>${escapeHtml(error.message)}</p><button type="button" data-billing-retry>Try again</button></div>`;
-      if (summary instanceof HTMLElement) summary.textContent = 'Billing status unavailable';
+      if (summary instanceof HTMLElement) summary.textContent = 'Review status unavailable';
     } finally {
       state.loading = false;
     }
@@ -287,13 +309,42 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const performStockAction = async (action, recordId, button) => {
+    if (button instanceof HTMLButtonElement) button.disabled = true;
+    const form = button.closest('[data-stock-deposit-form]');
+    const amount = form instanceof HTMLFormElement ? form.elements.amount?.value : null;
+    const note = form instanceof HTMLFormElement ? form.elements.note?.value : '';
+    if (action === 'reject_deposit' && !String(note || '').trim()) {
+      if (button instanceof HTMLButtonElement) button.disabled = false;
+      showError('Add a short reason before rejecting this deposit.');
+      return;
+    }
+    try {
+      await request({
+        url: '/api/partner-stock/', method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, deposit_id: recordId, amount, note })
+      });
+      state.selectedId = '';
+      state.feedback = {
+        title: action === 'approve_deposit' ? 'Balance approved' : (action === 'reject_deposit' ? 'Deposit rejected' : 'Investigation saved'),
+        message: action === 'approve_deposit' ? 'The approved amount is now available in the partner balance.' : 'The request history and partner view have been updated.'
+      };
+      await load({ silent: true });
+      render();
+      window.setTimeout(() => { state.feedback = null; render(); }, 1700);
+    } catch (error) {
+      if (button instanceof HTMLButtonElement) button.disabled = false;
+      showError(error.message);
+    }
+  };
+
   toggle.addEventListener('click', () => setOpen(!state.open));
   close?.addEventListener('click', () => setOpen(false));
   backdrop?.addEventListener('click', () => setOpen(false));
   back?.addEventListener('click', () => { state.selectedId = ''; state.feedback = null; render(); });
 
   list.addEventListener('click', async (event) => {
-    const target = event.target instanceof Element ? event.target.closest('[data-billing-select], [data-billing-action], [data-billing-preview-close], [data-billing-choose-evidence], [data-billing-retry]') : null;
+    const target = event.target instanceof Element ? event.target.closest('[data-billing-select], [data-billing-action], [data-stock-action], [data-billing-preview-close], [data-billing-choose-evidence], [data-billing-retry]') : null;
     if (!(target instanceof HTMLElement)) return;
     if (target.hasAttribute('data-billing-retry')) { load(); return; }
     if (target.hasAttribute('data-billing-preview-close')) { state.selectedId = ''; render(); return; }
@@ -302,6 +353,11 @@ document.addEventListener('DOMContentLoaded', () => {
       state.selectedId = target.dataset.billingSelect || '';
       state.feedback = null;
       render();
+      return;
+    }
+    const stockAction = target.dataset.stockAction || '';
+    if (stockAction) {
+      await performStockAction(stockAction, Number(target.dataset.recordId || 0), target);
       return;
     }
     const action = target.dataset.billingAction || '';

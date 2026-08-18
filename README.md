@@ -77,6 +77,8 @@ geometry under Lucide's ISC license.
   equivalent lowercase `config.local.php` keys) to populate export metadata;
   missing legal fields are omitted rather than invented.
 - The notification drawer is the finance review queue for partner bills. It previews private payment proofs, confirms each bill into Accounting exactly once, and provides accept/investigate/reject resolution for order-level disputes. Confirming a proof posts partner bill collection income to a spendable account and refreshes Cash Available; outstanding closed partner bills are included in Bills Due.
+- Partner reviews also include Class B balance deposits and prepaid stock orders. `/partner-stock-orders/` provides proof review with editable approved amounts, balance history, copy-ready shipping details, consolidated product lists, status timelines, and private shipping-label upload. A Class B order reaches Store Ops only after its executive-uploaded label changes it to `IS_LISTED`.
+- Baggos and Orezz are migrated explicitly to Class A and retain the existing dropship billing dashboard and complete bill/payment/dispute history. Every other existing partner defaults to Class B; the classification migration changes profile metadata only and does not rewrite historical billing tables.
 - Confirmed partner bills also reconcile into Partner Sales automatically. The
   settlement card groups the affected orders under the bill reference and opens
   a read-only breakdown with proof submission/confirmation times, the private

@@ -185,6 +185,7 @@ function jg_partner_db(): ?PDO
             );
             jg_partner_db_ensure_schema($pdo);
             jg_partner_db_migrate_legacy_registry($pdo);
+            $pdo->exec('UPDATE partner_profiles SET partner_class = "A" WHERE LOWER(TRIM(name)) IN ("baggos", "baggos media", "orezz") OR LOWER(TRIM(partner_slug)) IN ("baggos", "baggosmedia", "orezz")');
             break;
         } catch (Throwable) {
             $pdo = null;
@@ -204,6 +205,10 @@ function jg_partner_db_ensure_schema(PDO $pdo): void
             notes VARCHAR(300) NOT NULL DEFAULT "",
             selected_skus_json LONGTEXT NULL DEFAULT NULL,
             pricing_json LONGTEXT NULL DEFAULT NULL,
+            partner_class CHAR(1) NOT NULL DEFAULT "B",
+            contact_email VARCHAR(190) NOT NULL DEFAULT "",
+            contact_phone VARCHAR(64) NOT NULL DEFAULT "",
+            contact_address TEXT NULL DEFAULT NULL,
             billing_period_type VARCHAR(32) NOT NULL DEFAULT "calendar_week",
             discount_enabled TINYINT(1) NOT NULL DEFAULT 0,
             discount_percent DECIMAL(5,2) NOT NULL DEFAULT 0.00,
@@ -236,6 +241,19 @@ function jg_partner_db_ensure_schema(PDO $pdo): void
     if (!isset($columns['password_hash'])) {
         $pdo->exec('ALTER TABLE partner_profiles ADD COLUMN password_hash VARCHAR(255) NOT NULL DEFAULT "" AFTER pricing_json');
     }
+    if (!isset($columns['partner_class'])) {
+        $pdo->exec('ALTER TABLE partner_profiles ADD COLUMN partner_class CHAR(1) NOT NULL DEFAULT "B" AFTER pricing_json');
+        $pdo->exec('UPDATE partner_profiles SET partner_class = "A" WHERE LOWER(TRIM(name)) IN ("baggos", "baggos media", "orezz") OR LOWER(TRIM(partner_slug)) IN ("baggos", "baggosmedia", "orezz")');
+    }
+    if (!isset($columns['contact_email'])) {
+        $pdo->exec('ALTER TABLE partner_profiles ADD COLUMN contact_email VARCHAR(190) NOT NULL DEFAULT "" AFTER partner_class');
+    }
+    if (!isset($columns['contact_phone'])) {
+        $pdo->exec('ALTER TABLE partner_profiles ADD COLUMN contact_phone VARCHAR(64) NOT NULL DEFAULT "" AFTER contact_email');
+    }
+    if (!isset($columns['contact_address'])) {
+        $pdo->exec('ALTER TABLE partner_profiles ADD COLUMN contact_address TEXT NULL DEFAULT NULL AFTER contact_phone');
+    }
     if (!isset($columns['billing_period_type'])) {
         $pdo->exec('ALTER TABLE partner_profiles ADD COLUMN billing_period_type VARCHAR(32) NOT NULL DEFAULT "calendar_week" AFTER pricing_json');
     }
@@ -260,4 +278,7 @@ function jg_partner_db_ensure_schema(PDO $pdo): void
     if (!isset($columns['password_reset_token_expires_at'])) {
         $pdo->exec('ALTER TABLE partner_profiles ADD COLUMN password_reset_token_expires_at DATETIME NULL DEFAULT NULL AFTER password_reset_token_hash');
     }
+    // These two existing partners are the fixed Class A cohort; every other
+    // existing row receives the Class B default during the column migration.
+    $pdo->exec('UPDATE partner_profiles SET partner_class = "A" WHERE LOWER(TRIM(name)) IN ("baggos", "baggos media", "orezz") OR LOWER(TRIM(partner_slug)) IN ("baggos", "baggosmedia", "orezz")');
 }

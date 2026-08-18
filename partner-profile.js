@@ -25,6 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const copyCodeButton = document.querySelector('[data-copy-partner-code]');
   const saveButtons = document.querySelectorAll('[data-save-profile]');
   const portalLinks = document.querySelectorAll('[data-partner-portal-link]');
+  const stockLink = document.querySelector('[data-partner-stock-link]');
 
   const brandFilterList = document.querySelector('[data-brand-filter-list]');
   const productFilterList = document.querySelector('[data-product-filter-list]');
@@ -71,6 +72,15 @@ document.addEventListener('DOMContentLoaded', () => {
     currentPartnerCode: root.dataset.partnerCode || '',
     branchUnlocked: false,
     branchUnlockToken: ''
+  };
+
+  const syncContactRequirements = () => {
+    if (!(form instanceof HTMLFormElement)) return;
+    const required = form.elements.partner_class?.value === 'B';
+    ['contact_email', 'contact_phone', 'contact_address'].forEach((name) => {
+      const field = form.elements[name];
+      if (field instanceof HTMLElement) field.toggleAttribute('required', required);
+    });
   };
 
   const generatePartnerCode = () => {
@@ -560,6 +570,11 @@ document.addEventListener('DOMContentLoaded', () => {
     form.elements.partner_code.value = partner.code || '';
     form.elements.name.value = partner.name || '';
     form.elements.partner_slug.value = partner.partner_slug || '';
+    form.elements.partner_class.value = partner.partner_class === 'A' ? 'A' : 'B';
+    syncContactRequirements();
+    form.elements.contact_email.value = partner.contact_email || '';
+    form.elements.contact_phone.value = partner.contact_phone || '';
+    form.elements.contact_address.value = partner.contact_address || '';
     form.elements.billing_period_type.value = partner.billing_period_type === 'calendar_month' ? 'calendar_month' : 'calendar_week';
     form.elements.portal_password.value = '';
     form.elements.notes.value = partner.notes || '';
@@ -586,6 +601,10 @@ document.addEventListener('DOMContentLoaded', () => {
       link.href = portalHref;
     });
     if (urlNote) urlNote.textContent = portalHref;
+    if (stockLink instanceof HTMLAnchorElement) {
+      stockLink.hidden = partner.partner_class === 'A';
+      stockLink.href = `../partner-stock-orders/?partner=${encodeURIComponent(partner.code || '')}`;
+    }
 
     if (deleteButton) {
       deleteButton.hidden = false;
@@ -835,6 +854,7 @@ document.addEventListener('DOMContentLoaded', () => {
           current_code: state.currentPartnerCode,
           code: formData.get('partner_code'),
           name: formData.get('name'),
+          partner_class: formData.get('partner_class'),
           partner_slug: formData.get('partner_slug'),
           billing_period_type: formData.get('billing_period_type'),
           portal_password: savedPortalPassword,
@@ -843,6 +863,9 @@ document.addEventListener('DOMContentLoaded', () => {
           pricing: state.pricing,
           discount_enabled: state.discount.enabled,
           discount_percent: state.discount.percent,
+          contact_email: formData.get('contact_email'),
+          contact_phone: formData.get('contact_phone'),
+          contact_address: formData.get('contact_address'),
           notes: formData.get('notes')
         }
       });
@@ -893,6 +916,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   renderBranchProtection();
+
+  form?.elements.partner_class?.addEventListener('change', syncContactRequirements);
 
   loadPartner().catch((error) => {
     if (loadingNode) loadingNode.hidden = true;

@@ -106,6 +106,13 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                             </div>
                             <div class="partner-create-field-grid">
                                 <label>
+                                    <span>Partner class</span>
+                                    <select name="partner_class" required>
+                                        <option value="B" selected>Class B · stocks products</option>
+                                        <option value="A">Class A · dropshipper</option>
+                                    </select>
+                                </label>
+                                <label>
                                     <span>Name</span>
                                     <input type="text" name="name" maxlength="160" placeholder="Baggos" required data-partner-name-input>
                                 </label>
@@ -123,6 +130,18 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                                 <label>
                                     <span>Notes</span>
                                     <input type="text" name="notes" maxlength="300" placeholder="Optional">
+                                </label>
+                                <label>
+                                    <span>Email address</span>
+                                    <input type="email" name="contact_email" maxlength="190" placeholder="orders@partner.com">
+                                </label>
+                                <label>
+                                    <span>Phone number</span>
+                                    <input type="tel" name="contact_phone" maxlength="64" placeholder="+62 812 3456 7890">
+                                </label>
+                                <label class="partner-create-field-wide">
+                                    <span>Full shipping address</span>
+                                    <textarea name="contact_address" maxlength="2000" rows="3" placeholder="Street, district, city, province and postal code"></textarea>
                                 </label>
                             </div>
                             <div class="partner-create-preview">

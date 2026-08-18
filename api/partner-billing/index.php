@@ -6,6 +6,18 @@ jg_admin_require_auth_json();
 
 require_once dirname(__DIR__, 2) . '/partner-billing-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/accounting-bootstrap.php';
+require_once dirname(__DIR__, 2) . '/partner-stock-bootstrap.php';
+
+function jg_admin_partner_all_notifications(string $endpoint): array
+{
+    $stockPdo = jg_partner_stock_db();
+    $events = array_merge(
+        jg_admin_partner_billing_notifications($endpoint),
+        jg_partner_stock_notifications($stockPdo)
+    );
+    usort($events, static fn (array $a, array $b): int => strcmp((string) ($b['created_at'] ?? ''), (string) ($a['created_at'] ?? '')));
+    return $events;
+}
 
 function jg_admin_partner_billing_json(array $payload, int $status = 200): never
 {
@@ -42,7 +54,7 @@ try {
     if ($method === 'GET' && $action === 'notifications') {
         jg_admin_partner_billing_json([
             'ok' => true,
-            'notifications' => jg_admin_partner_billing_notifications($endpoint),
+            'notifications' => jg_admin_partner_all_notifications($endpoint),
             'generated_at' => gmdate(DATE_ATOM),
         ]);
     }
@@ -67,7 +79,7 @@ try {
         jg_admin_partner_billing_json([
             'ok' => true,
             'result' => $result,
-            'notifications' => jg_admin_partner_billing_notifications($endpoint),
+            'notifications' => jg_admin_partner_all_notifications($endpoint),
         ]);
     }
     if ($action === 'accept_dispute') {
@@ -75,7 +87,7 @@ try {
         jg_admin_partner_billing_json([
             'ok' => true,
             'result' => $result,
-            'notifications' => jg_admin_partner_billing_notifications($endpoint),
+            'notifications' => jg_admin_partner_all_notifications($endpoint),
         ]);
     }
     if ($action === 'adjust_dispute') {
@@ -88,7 +100,7 @@ try {
         jg_admin_partner_billing_json([
             'ok' => true,
             'result' => $result,
-            'notifications' => jg_admin_partner_billing_notifications($endpoint),
+            'notifications' => jg_admin_partner_all_notifications($endpoint),
         ]);
     }
     if ($action === 'reject_dispute') {
@@ -102,7 +114,7 @@ try {
         jg_admin_partner_billing_json([
             'ok' => true,
             'result' => $result,
-            'notifications' => jg_admin_partner_billing_notifications($endpoint),
+            'notifications' => jg_admin_partner_all_notifications($endpoint),
         ]);
     }
 
