@@ -8860,7 +8860,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (riskDifference) return riskDifference;
 	    const coverage = (item) => {
 	      const trigger = Math.max(0, Number(item.trigger_qty || 0));
-	      return trigger > 0 ? Number(item.predicted_stock ?? item.current_stock ?? 0) / trigger : Number.POSITIVE_INFINITY;
+	      return trigger > 0 ? Number(item.covered_stock ?? item.predicted_stock ?? item.current_stock ?? 0) / trigger : Number.POSITIVE_INFINITY;
 	    };
 	    const leftCoverage = coverage(left);
 	    const rightCoverage = coverage(right);
@@ -8898,11 +8898,13 @@ document.addEventListener('DOMContentLoaded', () => {
 	      const message = String(state.inventoryRecap.settingsMessage[sku] || '');
 	      const stock = Math.max(0, Number(item.current_stock || 0));
 	      const predictedStock = Number(item.predicted_stock ?? stock);
-	      const predictedDailyDemand = Math.max(0, Number(item.predicted_daily_demand || 0));
+	      const coveredStock = Number(item.covered_stock ?? predictedStock);
+	      const committedQty = Math.max(0, Number(item.committed_qty || 0));
+	      const predictionAvailable = Boolean(item.prediction_available);
 	      const trigger = Math.max(0, Number(item.trigger_qty || 0));
 	      const purchaseDays = Math.max(1, Number(item.purchase_days || 22.5));
 	      const purchaseDaysLabel = formatRegionalNumber(purchaseDays, { maximumFractionDigits: 1 });
-	      const stockPercent = Math.max(0, Math.min(100, trigger > 0 ? (predictedStock / trigger) * 100 : 100));
+	      const stockPercent = Math.max(0, Math.min(100, trigger > 0 ? (coveredStock / trigger) * 100 : 100));
 	      return `
 	      <article class="admin-inventory-trigger-row ${inventoryRecapRiskClass(item.risk)}">
 	        <div class="admin-inventory-trigger-product">
@@ -8912,14 +8914,16 @@ document.addEventListener('DOMContentLoaded', () => {
 	        </div>
 	        <div class="admin-inventory-trigger-balance">
 	          <div><span>Stock now</span><strong>${formatRegionalInteger(stock)}</strong></div>
-	          <div class="admin-inventory-predicted-stock"><span>Predicted today</span><strong>${formatRegionalNumber(predictedStock, { maximumFractionDigits: 1 })}</strong></div>
+	          <div class="admin-inventory-predicted-stock"><span>Predicted stock</span><strong>${predictionAvailable ? formatRegionalNumber(predictedStock, { maximumFractionDigits: 1 }) : '—'}</strong></div>
 	          <div><span>Trigger at</span><strong>${formatRegionalInteger(trigger)}</strong></div>
 	          <div class="admin-inventory-trigger-meter"><i style="width:${stockPercent}%"></i><mark style="left:100%"></mark></div>
 	          ${Number(item.incoming_qty || 0) > 0 ? `<span class="admin-inventory-incoming-qty">${formatRegionalInteger(item.incoming_qty || 0)} units in process</span>` : ''}
-	          <small>${Number(item.incoming_qty || 0) > 0
-	            ? `${formatRegionalNumber(item.current_stock || 0, { maximumFractionDigits: 1 })} on hand − ${formatRegionalNumber(predictedDailyDemand, { maximumFractionDigits: 1 })} expected today + ${formatRegionalInteger(item.incoming_qty || 0)} incoming = ${formatRegionalNumber(predictedStock, { maximumFractionDigits: 1 })} predicted · buy ${formatRegionalInteger(item.recommended_order_qty || 0)} more`
+	          <small>${!predictionAvailable
+	            ? 'Store Ops commitments unavailable · using on-hand stock until the queue reconnects'
+	            : Number(item.incoming_qty || 0) > 0
+	            ? `${formatRegionalNumber(stock, { maximumFractionDigits: 1 })} on hand − ${formatRegionalNumber(committedQty, { maximumFractionDigits: 1 })} committed = ${formatRegionalNumber(predictedStock, { maximumFractionDigits: 1 })} predicted · + ${formatRegionalInteger(item.incoming_qty || 0)} incoming PO = ${formatRegionalNumber(coveredStock, { maximumFractionDigits: 1 })} covered · buy ${formatRegionalInteger(item.recommended_order_qty || 0)} more`
 	            : item.restock_needed
-	            ? `${formatRegionalNumber(predictedDailyDemand, { maximumFractionDigits: 1 })} expected today · ${formatRegionalInteger(item.trigger_shortfall_qty || 0)} below trigger · ${purchaseDaysLabel}-day order ${formatRegionalInteger(item.raw_purchase_qty || 0)} · buy ${formatRegionalInteger(item.recommended_order_qty || 0)}`
+	            ? `${formatRegionalNumber(committedQty, { maximumFractionDigits: 1 })} committed to listed Store Ops orders · ${formatRegionalInteger(item.trigger_shortfall_qty || 0)} below trigger · ${purchaseDaysLabel}-day order ${formatRegionalInteger(item.raw_purchase_qty || 0)} · buy ${formatRegionalInteger(item.recommended_order_qty || 0)}`
 	            : trigger > 0 ? `${formatRegionalNumber(Math.max(0, predictedStock - trigger), { maximumFractionDigits: 1 })} predicted above trigger` : 'No demand trigger yet'}</small>
 	        </div>
 	        <div class="admin-inventory-trigger-signal">
@@ -9126,7 +9130,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	          </label>`}
 	          <div class="admin-purchase-product">
 	            <strong>${escapeHtml(item.product_name || item.sku || '-')}</strong>
-	            <span>${overflowMode ? `${escapeHtml(item.sku || '')} · ${formatRegionalInteger(item.current_stock || 0)} currently in stock` : `${escapeHtml(item.sku || '')} · stock ${formatRegionalInteger(item.current_stock || 0)} / predicted ${formatRegionalNumber(item.predicted_stock ?? item.current_stock ?? 0, { maximumFractionDigits: 1 })} / trigger ${formatRegionalInteger(item.trigger_qty || 0)}`}</span>
+	            <span>${overflowMode ? `${escapeHtml(item.sku || '')} · ${formatRegionalInteger(item.current_stock || 0)} currently in stock` : `${escapeHtml(item.sku || '')} · stock ${formatRegionalInteger(item.current_stock || 0)} / predicted after listed orders ${formatRegionalNumber(item.predicted_stock ?? item.current_stock ?? 0, { maximumFractionDigits: 1 })} / trigger ${formatRegionalInteger(item.trigger_qty || 0)}`}</span>
 	            <small>${overflowMode ? `Usual MOQ ${formatRegionalInteger(item.moq)} is shown for reference only · this PO keeps your exact quantity` : `Trigger gap ${formatRegionalInteger(item.trigger_shortfall_qty || 0)} · ${purchaseDaysLabel}-day order ${formatRegionalInteger(item.raw_purchase_qty || 0)} · MOQ ${formatRegionalInteger(item.moq)} · rounded +${formatRegionalInteger(item.moq_rounding_qty || 0)}${Number(item.incoming_qty || 0) > 0 ? ` · <b class="admin-inventory-incoming-qty">${formatRegionalInteger(item.incoming_qty || 0)} units in process</b>` : ''}`}</small>
 	          </div>
 	          <label class="admin-purchase-quantity">
@@ -9196,7 +9200,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      const note = item.note ? ` | Note: ${item.note}` : '';
 	      return overflowMode
 	        ? `${index + 1}. ${item.product_name || item.sku} (${item.sku}) | Exact overflow QTY ${formatRegionalInteger(item.quantity)} | ${formatCurrency(item.subtotal)}${note}`
-	        : `${index + 1}. ${item.product_name || item.sku} (${item.sku}) | Stock ${formatRegionalInteger(item.current_stock)} | Predicted today ${formatRegionalNumber(item.predicted_stock ?? item.current_stock ?? 0, { maximumFractionDigits: 1 })} | Trigger ${formatRegionalInteger(item.trigger_qty)} | ${formatRegionalNumber(item.purchase_days || 22.5, { maximumFractionDigits: 1 })}-day order ${formatRegionalInteger(item.raw_purchase_qty)} | MOQ ${formatRegionalInteger(item.moq)} | Buy ${formatRegionalInteger(item.quantity)} | ${formatCurrency(item.subtotal)}${note}`;
+	        : `${index + 1}. ${item.product_name || item.sku} (${item.sku}) | Stock ${formatRegionalInteger(item.current_stock)} | Store Ops committed ${formatRegionalNumber(item.committed_qty || 0, { maximumFractionDigits: 1 })} | Predicted stock ${formatRegionalNumber(item.predicted_stock ?? item.current_stock ?? 0, { maximumFractionDigits: 1 })} | Trigger ${formatRegionalInteger(item.trigger_qty)} | ${formatRegionalNumber(item.purchase_days || 22.5, { maximumFractionDigits: 1 })}-day order ${formatRegionalInteger(item.raw_purchase_qty)} | MOQ ${formatRegionalInteger(item.moq)} | Buy ${formatRegionalInteger(item.quantity)} | ${formatCurrency(item.subtotal)}${note}`;
 	    });
 	    return [
 	      overflowMode ? 'JENANG GEMI - OVERFLOW STOCK PURCHASE' : 'JENANG GEMI - RECOMMENDED STOCK PURCHASE',
@@ -9220,8 +9224,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	    const rows = Array.isArray(state.inventoryRecap.data?.items) ? state.inventoryRecap.data.items : [];
 	    if (inventoryRecapRefs.status) {
 	      inventoryRecapRefs.status.textContent = state.inventoryRecap.loading
-	        ? 'Updating 90-day model'
-	        : `${formatRegionalInteger(summary.total_skus || rows.length)} products through ${meta.end_date || activeLocalDate}`;
+	        ? 'Reading Store Ops commitments'
+	        : summary.prediction_available
+	          ? `${formatRegionalInteger(summary.listed_order_count || 0)} listed orders · ${formatRegionalNumber(summary.committed_qty || 0, { maximumFractionDigits: 1 })} units committed`
+	          : 'Prediction unavailable';
 	    }
 	    if (inventoryRecapRefs.triggered) inventoryRecapRefs.triggered.textContent = formatRegionalInteger(summary.triggered_count || 0);
 	    if (inventoryRecapRefs.suggested) inventoryRecapRefs.suggested.textContent = formatRegionalInteger(summary.total_recommended_qty || 0);
@@ -9232,7 +9238,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      ), 0));
 	      inventoryRecapRefs.stockValue.textContent = formatCurrency(stockValue);
 	    }
-	    if (inventoryRecapRefs.window) inventoryRecapRefs.window.textContent = `${formatRegionalInteger(meta.lookback_days || 90)} days · nine 10-day blocks`;
+	    if (inventoryRecapRefs.window) inventoryRecapRefs.window.textContent = summary.prediction_warning || (summary.prediction_available ? 'Live Store Ops queue' : 'Using on-hand stock only');
 	    if (inventoryRecapRefs.globalDays instanceof HTMLInputElement && document.activeElement !== inventoryRecapRefs.globalDays) {
 	      inventoryRecapRefs.globalDays.value = String(Math.max(1, Number(meta.purchase_days_equivalent || 22.5)));
 	    }

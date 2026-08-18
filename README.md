@@ -163,10 +163,12 @@ geometry under Lucide's ISC license.
   PO pending until Store Ops confirms full or partial delivery. Low-stock reorders
   continue to round up to MOQ; production-overflow POs can add any active catalog
   product and preserve the exact extra quantity without MOQ rounding.
-- Inventory alerts use predicted end-of-day stock: on-hand units minus one day of
-  the 90-day average demand, plus confirmed PO units that have not been received.
-  A prediction at or below zero is urgent, a positive prediction at or below the
-  trigger is a purchase alert, and a fully covering PO suppresses a duplicate order.
+- Inventory alerts use operational predicted stock: on-hand units minus every
+  matched unit on the live listed/in-progress Store Ops queue. A prediction at or
+  below zero is urgent, a positive prediction at or below the trigger is a purchase
+  alert, and confirmed unreceived PO units can cover the risk without hiding the
+  underlying prediction. If the Store Ops feed is unavailable or partial, the recap
+  shows that condition instead of presenting the prediction as complete.
 - PO History keeps each purchase-order payment linked to its private proof of
   payment. New PO payments require a PDF, PNG, JPG, or WebP proof (maximum 10 MB),
   which is stored in the SKU database and served only through the authenticated

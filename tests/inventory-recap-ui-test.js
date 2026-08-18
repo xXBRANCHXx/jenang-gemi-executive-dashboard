@@ -12,9 +12,10 @@ const purchaseOrders = fs.readFileSync(path.join(root, 'purchase-orders-bootstra
 const inventoryBootstrap = fs.readFileSync(path.join(root, 'inventory-recap-bootstrap.php'), 'utf8');
 
 assert.match(dashboard, /data-view-panel="inventory-recap"[\s\S]*Reorder triggers[\s\S]*data-inventory-filter="triggered"[\s\S]*Needs purchase/);
-assert.match(dashboard, /Automatic triggers learn from 90 days of demand/);
+assert.match(dashboard, /stock will remain after every listed Store Ops order is fulfilled/);
 assert.match(dashboard, /Stock alerts[\s\S]*Predicted at or below trigger/);
-assert.match(dashboard, /Predicted today = stock now − one day of average demand \+ confirmed incoming PO units/);
+assert.match(dashboard, /Predicted stock = stock now − every unit committed to listed Store Ops orders/);
+assert.match(dashboard, /Store Ops commitments[\s\S]*Reading listed orders/);
 assert.match(dashboard, /data-inventory-recap-manual/);
 assert.match(dashboard, /data-inventory-recap-stock-value>Rp0<[\s\S]*On-hand units × COGS/);
 assert.match(dashboard, /75% order 19 ÷ MOQ 11 → buy 22/);
@@ -71,7 +72,7 @@ assert.match(script, /downloadInventoryPurchasePdf\(state\.inventoryRecap\.place
 assert.match(script, /inventoryUrgencyCompare[\s\S]*\.sort\(inventoryUrgencyCompare\)/);
 assert.match(script, /priority = \{ urgent: 6,[\s\S]*predicted_stock/);
 assert.match(script, /filter === 'triggered'[\s\S]*\['urgent', 'triggered'\]/);
-assert.match(script, /Predicted today[\s\S]*predictedDailyDemand[\s\S]*incoming/);
+assert.match(script, /Predicted stock[\s\S]*committedQty[\s\S]*incoming PO[\s\S]*covered/);
 assert.match(script, /const syncInventoryRecapAlert[\s\S]*summary\?\.has_alert \?\? summary\?\.is_critical/);
 assert.doesNotMatch(script, /const syncInventoryRecapAlert[\s\S]{0,180}state\.activeView === 'overview'/);
 assert.match(script, /const purchasePlanRows[\s\S]*suggestions\.map[\s\S]*\.sort\(inventoryUrgencyCompare\)/);
@@ -80,6 +81,8 @@ assert.match(script, /planSelected:\s*\{\}/);
 assert.match(script, /purchaseMode:[\s\S]*overflowProductSearch:[\s\S]*overflowItems:/);
 assert.match(script, /const purchaseCatalogRows[\s\S]*const renderOverflowProductResults/);
 assert.match(inventoryBootstrap, /'purchase_catalog'\s*=>\s*array_values\(\$skus\)/);
+assert.match(inventoryBootstrap, /inventory_commitments=1[\s\S]*Authorization: Bearer/);
+assert.match(inventoryBootstrap, /currentStock - \$committedQty/);
 assert.match(script, /order_type: state\.inventoryRecap\.purchaseMode/);
 assert.match(script, /data-purchase-plan-select[\s\S]*planSelected\[selectionSku\] = input\.checked/);
 assert.match(script, /purchasePlanRefs\.toggleAll[\s\S]*every\(\(item\) => item\.selected\)/);

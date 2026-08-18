@@ -61,9 +61,18 @@ inventory_recap_expect(30.0, $risingModel['trend_adjustment'], 'Ten-day and over
 inventory_recap_expect(38, $risingModel['automatic_trigger'], 'Trend must not change the trigger based on the flat monthly average.');
 inventory_recap_expect(113, $risingModel['purchase_target_qty'], 'Trend must not change the remaining 75% purchase quantity.');
 
+$normalizedCommitments = jg_inventory_recap_normalize_store_ops_commitments([
+    'ok' => true,
+    'commitments' => [['sku' => 'sku-flat', 'quantity' => 4, 'order_count' => 2]],
+    'summary' => ['listed_order_count' => 2, 'unmatched_line_count' => 1, 'queue_error_count' => 0],
+]);
+inventory_recap_expect(true, $normalizedCommitments['available'], 'A valid Store Ops commitment feed must be available.');
+inventory_recap_expect('SKU-FLAT', $normalizedCommitments['commitments'][0]['sku'] ?? '', 'Commitment SKUs must be normalized for matching.');
+inventory_recap_expect_true(str_contains($normalizedCommitments['warning'], 'could not be matched'), 'Partial Store Ops coverage must remain visible.');
+
 $urgentStatus = jg_inventory_recap_status(1, 0, 8, true, 'auto', 0, true);
 inventory_recap_expect('urgent', $urgentStatus['key'], 'A non-positive predicted stock must become urgent when another PO is needed.');
-inventory_recap_expect('Goes out of stock today', $urgentStatus['label'], 'An imminent forecast stockout must say when it happens.');
+inventory_recap_expect('Stockout after listed orders', $urgentStatus['label'], 'An operational stockout must name the Store Ops fulfillment horizon.');
 $thresholdStatus = jg_inventory_recap_status(11, 10, 10, true, 'auto', 0, true);
 inventory_recap_expect('triggered', $thresholdStatus['key'], 'Predicted stock equal to its trigger must create an orange purchase alert.');
 $coveredStatus = jg_inventory_recap_status(1, 22, 8, true, 'auto', 22, false);
@@ -103,7 +112,7 @@ $skuPdo->exec("INSERT INTO sku_products VALUES ('product-test', 'Product')");
 $skuPdo->exec("INSERT INTO sku_flavors VALUES ('flat', 'Flat'), ('manual', 'Manual'), ('safe', 'Safe')");
 $skuPdo->exec("INSERT INTO sku_meta VALUES ('inventory_purchase_days', '15', '2026-07-30 00:00:00')");
 $skuPdo->exec("INSERT INTO sku_skus VALUES
-    ('SKU-FLAT', 'FLAT', 'brand-test', 'unit-pcs', 1, 1, 'flat', 'product-test', 1, 1, 0, 'auto', 11, 0, 1000, 5000),
+    ('SKU-FLAT', 'FLAT', 'brand-test', 'unit-pcs', 1, 1, 'flat', 'product-test', 4, 4, 0, 'auto', 11, 0, 1000, 5000),
     ('SKU-MANUAL', 'MANUAL', 'brand-test', 'unit-pcs', 1, 1, 'manual', 'product-test', 3, 3, 22, 'manual', 11, 0, 1000, 5000),
     ('SKU-SAFE', 'SAFE', 'brand-test', 'unit-pcs', 1, 1, 'safe', 'product-test', 100, 100, 0, 'auto', 1, 0, 1000, 5000)");
 
@@ -133,19 +142,38 @@ for ($day = 0; $day < 90; $day++) {
     ]);
 }
 
+$recapInput = [
+    'today' => '2026-07-30',
+    'store_ops_commitments' => [
+        'ok' => true,
+        'source' => 'store_ops_listed_orders',
+        'commitments' => [['sku' => 'SKU-FLAT', 'quantity' => 4, 'order_count' => 2]],
+        'summary' => [
+            'listed_order_count' => 2,
+            'committed_sku_count' => 1,
+            'committed_qty' => 4,
+            'unmatched_line_count' => 0,
+            'queue_error_count' => 0,
+        ],
+    ],
+];
+
 $payload = jg_inventory_recap_payload($skuPdo, $analyticsPdo, [
     'amount' => 100000,
     'source' => 'test',
-], ['today' => '2026-07-30']);
+], $recapInput);
 
 inventory_recap_expect(true, $payload['ok'], 'Inventory payload must succeed.');
 inventory_recap_expect(2, $payload['summary']['triggered_count'], 'Automatic and manual shortfalls must both enter the report.');
 inventory_recap_expect(2, $payload['summary']['suggested_count'], 'Only below-trigger products belong in the purchase plan.');
 inventory_recap_expect(44, $payload['summary']['total_recommended_qty'], 'The summary must total MOQ-rounded quantities.');
 inventory_recap_expect(44000, $payload['summary']['total_recommended_cost'], 'The purchase cost must use MOQ-rounded quantities.');
-inventory_recap_expect(104000, $payload['summary']['total_current_stock_value'], 'Current stock value must total on-hand quantity multiplied by COGS.');
+inventory_recap_expect(107000, $payload['summary']['total_current_stock_value'], 'Current stock value must total on-hand quantity multiplied by COGS.');
 inventory_recap_expect(1, $payload['summary']['urgent_count'], 'A predicted stockout must be counted as urgent.');
 inventory_recap_expect(true, $payload['summary']['has_alert'], 'Predicted purchase needs must activate the dashboard alert.');
+inventory_recap_expect(true, $payload['summary']['prediction_available'], 'The recap must report a healthy Store Ops prediction source.');
+inventory_recap_expect(2, $payload['summary']['listed_order_count'], 'The recap must expose the listed Store Ops order count.');
+inventory_recap_expect(4.0, $payload['summary']['committed_qty'], 'The recap must total stock committed to Store Ops.');
 inventory_recap_expect(1, $payload['summary']['manual_count'], 'Manual trigger mode must be counted.');
 
 $bySku = [];
@@ -155,9 +183,9 @@ foreach ($payload['items'] as $item) {
 $flat = $bySku['SKU-FLAT'] ?? [];
 $manual = $bySku['SKU-MANUAL'] ?? [];
 inventory_recap_expect(8, $flat['automatic_trigger'] ?? 0, 'The payload must expose the one-week automatic trigger.');
-inventory_recap_expect(1000, $flat['current_stock_value'] ?? 0, 'Each item must expose its on-hand value at COGS.');
-inventory_recap_expect(1.0, $flat['predicted_daily_demand'] ?? -1, 'The daily prediction must come from the 90-day monthly average.');
-inventory_recap_expect(0.0, $flat['predicted_stock'] ?? -1, 'Predicted stock must subtract today\'s expected demand.');
+inventory_recap_expect(4000, $flat['current_stock_value'] ?? 0, 'Each item must expose its on-hand value at COGS.');
+inventory_recap_expect(4.0, $flat['committed_qty'] ?? -1, 'The product must expose its Store Ops committed quantity.');
+inventory_recap_expect(0.0, $flat['predicted_stock'] ?? -1, 'Predicted stock must subtract all listed Store Ops commitments.');
 inventory_recap_expect('urgent', $flat['risk'] ?? '', 'A predicted stockout without PO coverage must become urgent.');
 inventory_recap_expect(8, $flat['trigger_shortfall_qty'] ?? 0, 'The trigger shortfall must use predicted stock.');
 inventory_recap_expect(15.0, $flat['purchase_days'] ?? 0, 'The global order-days setting must be exposed on every product.');
@@ -177,7 +205,7 @@ inventory_recap_expect(12.5, jg_inventory_recap_set_global_purchase_days($skuPdo
 inventory_recap_expect(12.5, jg_inventory_recap_global_purchase_days($skuPdo), 'The shared setting must persist once for the report.');
 
 $skuPdo->exec("UPDATE sku_skus SET inventory_mode = 'manual', stock_trigger = 100, purchase_moq = 5 WHERE sku = 'SKU-SAFE'");
-$atTriggerPayload = jg_inventory_recap_payload($skuPdo, $analyticsPdo, ['amount' => 100000], ['today' => '2026-07-30']);
+$atTriggerPayload = jg_inventory_recap_payload($skuPdo, $analyticsPdo, ['amount' => 100000], $recapInput);
 $atTriggerItem = array_values(array_filter(
     $atTriggerPayload['items'],
     static fn (array $item): bool => ($item['sku'] ?? '') === 'SKU-SAFE'
@@ -213,14 +241,15 @@ inventory_recap_expect(
     'Retrying the same request key must return the original PO instead of creating a duplicate.'
 );
 
-$withIncoming = jg_inventory_recap_payload($skuPdo, $analyticsPdo, ['amount' => 100000], ['today' => '2026-07-30']);
+$withIncoming = jg_inventory_recap_payload($skuPdo, $analyticsPdo, ['amount' => 100000], $recapInput);
 $incomingBySku = [];
 foreach ($withIncoming['items'] as $item) {
     $incomingBySku[(string) $item['sku']] = $item;
 }
 inventory_recap_expect(33, $withIncoming['summary']['incoming_qty'] ?? 0, 'The recap must total all unreceived PO units.');
 inventory_recap_expect(22, $incomingBySku['SKU-FLAT']['incoming_qty'] ?? 0, 'Incoming PO stock must be attached to its SKU.');
-inventory_recap_expect(22.0, $incomingBySku['SKU-FLAT']['predicted_stock'] ?? -1, 'Confirmed incoming units must cover the predicted stock balance.');
+inventory_recap_expect(0.0, $incomingBySku['SKU-FLAT']['predicted_stock'] ?? -1, 'Incoming POs must not hide the underlying predicted stock.');
+inventory_recap_expect(22.0, $incomingBySku['SKU-FLAT']['covered_stock'] ?? -1, 'Confirmed incoming units must cover the predicted stock balance.');
 inventory_recap_expect('incoming', $incomingBySku['SKU-FLAT']['risk'] ?? '', 'A fully covered shortage must no longer render as critical.');
 inventory_recap_expect(0, $incomingBySku['SKU-FLAT']['recommended_order_qty'] ?? -1, 'Incoming stock must prevent a duplicate purchase recommendation.');
 inventory_recap_expect(11, $incomingBySku['SKU-MANUAL']['incoming_qty'] ?? 0, 'An open PO must expose its still-unreceived quantity.');
@@ -276,7 +305,7 @@ inventory_recap_expect(true, $fullyPaidOrder['is_paid'] ?? false, 'A fully paid 
 
 $cancelledOrder = jg_purchase_orders_cancel($skuPdo, (int) ($placedOrder['id'] ?? 0));
 inventory_recap_expect('cancelled', $cancelledOrder['status'] ?? '', 'Cancelling a PO must close it at the shared source of truth.');
-$afterCancellation = jg_inventory_recap_payload($skuPdo, $analyticsPdo, ['amount' => 100000], ['today' => '2026-07-30']);
+$afterCancellation = jg_inventory_recap_payload($skuPdo, $analyticsPdo, ['amount' => 100000], $recapInput);
 inventory_recap_expect(0, $afterCancellation['summary']['incoming_qty'] ?? -1, 'A cancelled PO must stop contributing incoming stock.');
 inventory_recap_expect(0, $afterCancellation['summary']['open_purchase_orders'] ?? -1, 'A cancelled PO must disappear from open Store Ops work.');
 

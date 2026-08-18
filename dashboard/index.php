@@ -36,7 +36,7 @@ $sidebarSection = match (true) {
     in_array($requestedView ?? '', ['website', 'site', 'home', 'campaign', 'campaigns', 'landing', 'landing-pages'], true) => 'website',
     default => 'home',
 };
-$dashboardBuildVersion = 'exec3.98.2';
+$dashboardBuildVersion = 'exec3.98.3';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -755,7 +755,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                            <div>
 	                                <span class="admin-panel-kicker">Inventory · purchasing</span>
 	                                <h2>Reorder triggers</h2>
-	                                <p>See where stock will finish today, not only what is on hand now. Automatic triggers learn from 90 days of demand, and predictions include confirmed incoming POs.</p>
+	                                <p>See what stock will remain after every listed Store Ops order is fulfilled. Confirmed incoming POs cover that commitment before another purchase is raised.</p>
 	                            </div>
 	                            <div class="admin-inventory-global-actions">
 	                                <button type="button" class="admin-inventory-overflow-action" data-view-switch="purchase-order" data-purchase-mode-open="overflow">
@@ -801,7 +801,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                            <div><span>Units to buy</span><strong data-inventory-recap-suggested>0</strong><small>After MOQ rounding</small></div>
 	                            <div><span>Manual triggers</span><strong data-inventory-recap-manual>0</strong><small>Automatic model off</small></div>
 	                            <div><span>Current stock value</span><strong data-inventory-recap-stock-value>Rp0</strong><small>On-hand units × COGS</small></div>
-	                            <div class="admin-inventory-trigger-status"><span>Demand data</span><strong data-inventory-recap-status>Reading 90 days</strong><small data-inventory-recap-window>Nine 10-day blocks</small></div>
+	                            <div class="admin-inventory-trigger-status"><span>Store Ops commitments</span><strong data-inventory-recap-status>Reading listed orders</strong><small data-inventory-recap-window>Live Store Ops queue</small></div>
 	                        </div>
 	                        <div class="admin-inventory-recap-controls">
 	                            <div class="admin-inventory-filters" role="group" aria-label="Filter products by trigger status">
@@ -811,7 +811,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                                <button type="button" data-inventory-filter="healthy">Above trigger</button>
 	                                <button type="button" data-inventory-filter="manual">Manual</button>
 	                            </div>
-	                            <p>Predicted today = stock now − one day of average demand + confirmed incoming PO units</p>
+	                            <p>Predicted stock = stock now − every unit committed to listed Store Ops orders</p>
 	                        </div>
 	                        <div class="admin-inventory-visual-list" data-inventory-recap-list>
 	                            <p class="admin-empty">Calculating product triggers.</p>

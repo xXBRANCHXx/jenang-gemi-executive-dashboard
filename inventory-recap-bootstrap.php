@@ -466,6 +466,102 @@ function jg_inventory_recap_order_rows(PDO $analyticsPdo, array $options): array
     );
 }
 
+function jg_inventory_recap_normalize_store_ops_commitments(array $payload): array
+{
+    if (empty($payload['ok']) || !is_array($payload['commitments'] ?? null)) {
+        return [
+            'available' => false,
+            'commitments' => [],
+            'summary' => [],
+            'warning' => trim((string) ($payload['error'] ?? 'Store Ops commitments are unavailable.')),
+        ];
+    }
+
+    $commitments = [];
+    foreach ($payload['commitments'] as $row) {
+        if (!is_array($row)) continue;
+        $sku = strtoupper(trim((string) ($row['sku'] ?? '')));
+        $quantity = max(0.0, jg_inventory_recap_number($row['quantity'] ?? 0));
+        if ($sku === '' || $quantity <= 0) continue;
+        $commitments[] = [
+            'sku' => $sku,
+            'quantity' => $quantity,
+            'order_count' => max(0, (int) ($row['order_count'] ?? 0)),
+        ];
+    }
+
+    $summary = is_array($payload['summary'] ?? null) ? $payload['summary'] : [];
+    $warnings = [];
+    if ((int) ($summary['unmatched_line_count'] ?? 0) > 0) {
+        $warnings[] = (int) $summary['unmatched_line_count'] . ' Store Ops line(s) could not be matched to a SKU';
+    }
+    if ((int) ($summary['queue_error_count'] ?? 0) > 0) {
+        $warnings[] = (int) $summary['queue_error_count'] . ' Store Ops source(s) did not load';
+    }
+
+    return [
+        'available' => true,
+        'commitments' => $commitments,
+        'summary' => $summary,
+        'warning' => implode('; ', $warnings),
+    ];
+}
+
+function jg_inventory_recap_store_ops_commitments(array $input = []): array
+{
+    if (is_array($input['store_ops_commitments'] ?? null)) {
+        return jg_inventory_recap_normalize_store_ops_commitments($input['store_ops_commitments']);
+    }
+    if (!function_exists('jg_website_config') || !function_exists('jg_website_store_ops_token')) {
+        return jg_inventory_recap_normalize_store_ops_commitments(['ok' => false]);
+    }
+
+    $baseUrl = rtrim(jg_website_config('JG_STORE_OPS_BASE_URL', 'store_ops_base_url'), '/');
+    $token = jg_website_store_ops_token();
+    if ($baseUrl === '' || $token === '') {
+        return jg_inventory_recap_normalize_store_ops_commitments([
+            'ok' => false,
+            'error' => 'Store Ops commitments are not configured.',
+        ]);
+    }
+
+    $url = $baseUrl . '/api/orders/?inventory_commitments=1';
+    $raw = false;
+    $status = 0;
+    if (function_exists('curl_init')) {
+        $curl = curl_init($url);
+        if ($curl !== false) {
+            curl_setopt_array($curl, [
+                CURLOPT_HTTPHEADER => ['Accept: application/json', 'Authorization: Bearer ' . $token],
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_CONNECTTIMEOUT => 4,
+                CURLOPT_TIMEOUT => 12,
+            ]);
+            $raw = curl_exec($curl);
+            $status = (int) curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
+            curl_close($curl);
+        }
+    } else {
+        $context = stream_context_create(['http' => [
+            'method' => 'GET',
+            'header' => "Accept: application/json\r\nAuthorization: Bearer {$token}\r\n",
+            'timeout' => 12,
+            'ignore_errors' => true,
+        ]]);
+        $raw = @file_get_contents($url, false, $context);
+        $status = is_string($raw) ? 200 : 0;
+    }
+
+    $decoded = is_string($raw) ? json_decode($raw, true) : null;
+    if ($status < 200 || $status >= 300 || !is_array($decoded)) {
+        return jg_inventory_recap_normalize_store_ops_commitments([
+            'ok' => false,
+            'error' => 'Could not read the current Store Ops commitments.',
+        ]);
+    }
+    return jg_inventory_recap_normalize_store_ops_commitments($decoded);
+}
+
 function jg_inventory_recap_match_sku_index(array $orderRow, array $lookup): ?int
 {
     $candidates = [
@@ -508,7 +604,7 @@ function jg_inventory_recap_status(
     if ($triggerQty > 0 && $predictedStock <= 0 && $needsPurchase) {
         return [
             'key' => 'urgent',
-            'label' => $currentStock <= 0 ? 'Out of stock now' : 'Goes out of stock today',
+            'label' => $currentStock <= 0 ? 'Out of stock now' : 'Stockout after listed orders',
             'color' => '#dc2626',
             'score' => 100,
         ];
@@ -545,10 +641,11 @@ function jg_inventory_recap_order_draft(array $suggestions, array $summary, arra
     $lines = [];
     foreach ($suggestions as $item) {
         $lines[] = sprintf(
-            '- %s / %s: stock %d, predicted today %.1f, trigger %d, trigger gap %d, %s-day order %d, MOQ %d, buy %d, est. %s',
+            '- %s / %s: stock %d, Store Ops committed %.1f, predicted stock %.1f, trigger %d, trigger gap %d, %s-day order %d, MOQ %d, buy %d, est. %s',
             (string) ($item['sku'] ?? ''),
             (string) ($item['product_name'] ?? ''),
             (int) ($item['current_stock'] ?? 0),
+            (float) ($item['committed_qty'] ?? 0),
             (float) ($item['predicted_stock'] ?? $item['current_stock'] ?? 0),
             (int) ($item['trigger_qty'] ?? 0),
             (int) ($item['trigger_shortfall_qty'] ?? 0),
@@ -570,7 +667,7 @@ function jg_inventory_recap_order_draft(array $suggestions, array $summary, arra
         'Inventory Recap production draft',
         'Generated: ' . gmdate(DATE_ATOM),
         sprintf('Demand basis: %d days in nine 10-day blocks through %s', (int) $options['lookback_days'], (string) ($options['end_date'] ?? '')),
-        'Decision rule: predicted stock is on-hand stock minus one day of average demand plus confirmed incoming PO units; alert at or below the trigger, use the shared order-days setting, then round up to MOQ.',
+        'Decision rule: predicted stock is on-hand stock minus every unit committed to listed Store Ops orders; confirmed incoming PO units cover the risk before another order is recommended.',
         'Estimated production cost: ' . jg_inventory_recap_format_idr((float) ($summary['total_recommended_cost'] ?? 0)),
         'Accounting Cash Available: ' . jg_inventory_recap_format_idr((float) ($summary['cash_available'] ?? 0)),
         'Funding: ' . $funding,
@@ -644,6 +741,26 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
     $stockIndexBySkuIndex = jg_inventory_recap_stock_index_map($skus);
     $purchaseOrders = jg_purchase_orders_fetch($skuPdo, 1000);
     $incomingBySku = jg_purchase_orders_incoming_by_sku($skuPdo);
+    $storeOpsCommitments = jg_inventory_recap_store_ops_commitments($input);
+    $commitmentsByStockIndex = array_fill(0, count($skus), ['quantity' => 0.0, 'order_count' => 0]);
+    $unmatchedCommitments = 0;
+    foreach ((array) ($storeOpsCommitments['commitments'] ?? []) as $commitment) {
+        if (!is_array($commitment)) continue;
+        $skuIndex = jg_inventory_recap_match_sku_index($commitment, $lookup);
+        if ($skuIndex === null || !isset($skus[$skuIndex])) {
+            $unmatchedCommitments++;
+            continue;
+        }
+        $stockIndex = (int) ($stockIndexBySkuIndex[$skuIndex] ?? $skuIndex);
+        $quantityMultiplier = max(1.0, (float) ($skus[$skuIndex]['quantity_multiplier'] ?? 1));
+        $commitmentsByStockIndex[$stockIndex]['quantity'] += max(0.0, (float) ($commitment['quantity'] ?? 0)) * $quantityMultiplier;
+        $commitmentsByStockIndex[$stockIndex]['order_count'] += max(0, (int) ($commitment['order_count'] ?? 0));
+    }
+    if ($unmatchedCommitments > 0) {
+        $existingWarning = trim((string) ($storeOpsCommitments['warning'] ?? ''));
+        $storeOpsCommitments['warning'] = trim($existingWarning . ($existingWarning !== '' ? '; ' : '')
+            . $unmatchedCommitments . ' commitment SKU(s) were not found in Inventory Recap');
+    }
     $demand = array_fill(0, count($skus), [
         'sold_qty' => 0.0,
         'sold_units' => 0,
@@ -704,12 +821,13 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
         $purchaseMoq = max(1, (int) ($sku['purchase_moq'] ?? 1));
         $purchaseDays = max(1.0, min(90.0, (float) ($options['purchase_days_equivalent'] ?? 22.5)));
         $incomingQty = max(0, (int) ($incomingBySku[strtoupper((string) ($sku['sku'] ?? ''))] ?? 0));
-        $predictedDailyDemand = round(max(0.0, (float) ($model['average_30_day_demand'] ?? 0)) / 30, 2);
-        $predictedStockWithoutIncoming = round($currentStock - $predictedDailyDemand, 2);
+        $committedQty = round(max(0.0, (float) ($commitmentsByStockIndex[$index]['quantity'] ?? 0)), 2);
+        $committedOrderCount = max(0, (int) ($commitmentsByStockIndex[$index]['order_count'] ?? 0));
+        $predictedStockWithoutIncoming = round($currentStock - $committedQty, 2);
         $projectedStock = $currentStock + $incomingQty;
-        $predictedStock = round($projectedStock - $predictedDailyDemand, 2);
+        $coveredStock = round($predictedStockWithoutIncoming + $incomingQty, 2);
         $physicalTriggerShortfallQty = max(0, (int) ceil($triggerQty - $predictedStockWithoutIncoming));
-        $triggerShortfallQty = max(0, (int) ceil($triggerQty - $predictedStock));
+        $triggerShortfallQty = max(0, (int) ceil($triggerQty - $coveredStock));
         $purchaseTargetQty = max(0, (int) ceil((float) ($model['average_30_day_demand'] ?? 0) * ($purchaseDays / 30)));
         $physicalNeedsPurchase = $triggerQty > 0 && $predictedStockWithoutIncoming <= $triggerQty;
         $physicalRawPurchaseQty = $physicalNeedsPurchase
@@ -718,11 +836,11 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
         $rawPurchaseQty = max(0, $physicalRawPurchaseQty - $incomingQty);
         $recommendedOrderQty = jg_inventory_recap_round_to_moq($rawPurchaseQty, $purchaseMoq);
         $moqRoundingQty = max(0, $recommendedOrderQty - $rawPurchaseQty);
-        $postOrderStock = $projectedStock + $recommendedOrderQty;
+        $postOrderStock = $coveredStock + $recommendedOrderQty;
         $needsPurchase = $recommendedOrderQty > 0;
         $risk = jg_inventory_recap_status(
             $currentStock,
-            $predictedStock,
+            $coveredStock,
             $triggerQty,
             $hasDemand,
             $triggerMode,
@@ -768,9 +886,11 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
             'physical_trigger_shortfall_qty' => $physicalTriggerShortfallQty,
             'incoming_qty' => $incomingQty,
             'projected_stock' => $projectedStock,
-            'predicted_daily_demand' => $predictedDailyDemand,
-            'predicted_stock_without_incoming' => $predictedStockWithoutIncoming,
-            'predicted_stock' => $predictedStock,
+            'committed_qty' => $committedQty,
+            'committed_order_count' => $committedOrderCount,
+            'prediction_available' => !empty($storeOpsCommitments['available']),
+            'predicted_stock' => $predictedStockWithoutIncoming,
+            'covered_stock' => $coveredStock,
             'raw_purchase_qty' => $rawPurchaseQty,
             'minimum_order_qty' => $rawPurchaseQty,
             'recommended_order_qty' => $recommendedOrderQty,
@@ -811,6 +931,8 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
     $manualCount = count(array_filter($items, static fn (array $item): bool => ($item['trigger_mode'] ?? '') === 'manual'));
     $incomingCount = count(array_filter($items, static fn (array $item): bool => (int) ($item['incoming_qty'] ?? 0) > 0));
     $incomingQty = array_sum(array_map(static fn (array $item): int => (int) ($item['incoming_qty'] ?? 0), $items));
+    $committedQty = array_sum(array_map(static fn (array $item): float => (float) ($item['committed_qty'] ?? 0), $items));
+    $listedOrderCount = max(0, (int) ($storeOpsCommitments['summary']['listed_order_count'] ?? 0));
     $totalCurrentStockValue = array_sum(array_map(static fn (array $item): int => (int) ($item['current_stock_value'] ?? 0), $items));
     $openPurchaseOrders = count(array_filter(
         $purchaseOrders,
@@ -829,6 +951,11 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
         'manual_count' => $manualCount,
         'incoming_count' => $incomingCount,
         'incoming_qty' => $incomingQty,
+        'prediction_available' => !empty($storeOpsCommitments['available']),
+        'prediction_source' => 'store_ops_listed_orders',
+        'prediction_warning' => (string) ($storeOpsCommitments['warning'] ?? ''),
+        'listed_order_count' => $listedOrderCount,
+        'committed_qty' => round($committedQty, 2),
         'total_current_stock_value' => $totalCurrentStockValue,
         'open_purchase_orders' => $openPurchaseOrders,
         'total_recommended_qty' => array_sum(array_map(static fn (array $item): int => (int) ($item['recommended_order_qty'] ?? 0), $suggestions)),
@@ -853,6 +980,8 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
             'generated_at' => gmdate(DATE_ATOM),
             'source' => 'inventory_recap',
             'cash_source' => (string) ($cashContext['source'] ?? 'accounting_summary'),
+            'prediction_source' => 'store_ops_listed_orders',
+            'prediction_available' => !empty($storeOpsCommitments['available']),
             ...$options,
         ],
         'summary' => $summary,

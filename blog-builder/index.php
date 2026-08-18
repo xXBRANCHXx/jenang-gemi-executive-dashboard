@@ -35,7 +35,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/blog-builder.js');
     <link rel="stylesheet" href="./blog-builder.css?v=<?php echo urlencode($pageCssVersion ?: '1'); ?>">
 </head>
 <body class="admin-body is-dashboard is-blog-builder-page">
-    <div class="admin-build-badge" aria-label="Dashboard build version">Build exec3.98.2</div>
+    <div class="admin-build-badge" aria-label="Dashboard build version">Build exec3.98.3</div>
     <div class="admin-app admin-app-suite" data-blog-builder data-endpoint="../api/blogs/" data-csrf-token="<?php echo htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8'); ?>">
         <div class="admin-shell">
             <?php render_admin_sidebar('blog-builder'); ?>
