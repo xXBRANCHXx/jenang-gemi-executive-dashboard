@@ -14,8 +14,9 @@ const inventoryBootstrap = fs.readFileSync(path.join(root, 'inventory-recap-boot
 assert.match(dashboard, /data-view-panel="inventory-recap"[\s\S]*Reorder triggers[\s\S]*data-inventory-filter="triggered"[\s\S]*Needs purchase/);
 assert.match(dashboard, /data-inventory-filter="partial"[\s\S]*Partial required/);
 assert.match(dashboard, /stock will remain after every listed Store Ops order is fulfilled/);
-assert.match(dashboard, /Stock alerts[\s\S]*Predicted at or below trigger/);
-assert.match(dashboard, /Predicted stock = stock now − every unit committed to listed Store Ops orders/);
+assert.match(dashboard, /Stock alerts[\s\S]*Projected at or below trigger/);
+assert.match(dashboard, /Projected stock = stock now − every unit committed to listed Store Ops orders/);
+assert.match(dashboard, /data-inventory-filter="partial"[\s\S]*data-inventory-partial-alert[^>]*hidden/);
 assert.match(dashboard, /Store Ops commitments[\s\S]*Reading listed orders/);
 assert.match(dashboard, /data-inventory-recap-manual/);
 assert.match(dashboard, /data-inventory-recap-stock-value>Rp0<[\s\S]*On-hand units × COGS/);
@@ -72,10 +73,13 @@ assert.match(script, /admin-inventory-po-card-meta[\s\S]{0,700}admin-po-card-tag
 assert.match(script, /downloadInventoryPurchasePdf\(state\.inventoryRecap\.placedOrder\)/);
 assert.match(script, /inventoryUrgencyCompare[\s\S]*\.sort\(inventoryUrgencyCompare\)/);
 assert.match(script, /priority = \{ urgent: 7, partial: 6,[\s\S]*predicted_stock/);
+assert.match(script, /return trigger > 0 \? Number\(item\.predicted_stock \?\? item\.current_stock \?\? 0\) \/ trigger/);
+assert.match(script, /stockPercent = [^;]*predictedStock \/ trigger/);
 assert.match(script, /filter === 'triggered'[\s\S]*\['urgent', 'triggered'\]/);
 assert.match(script, /\['urgent', 'triggered', 'partial', 'near', 'healthy', 'quiet', 'incoming'\]/);
 assert.match(script, /summary\.alert_count \?\? summary\.triggered_count/);
-assert.match(script, /Predicted stock[\s\S]*committedQty[\s\S]*incoming PO[\s\S]*covered/);
+assert.match(script, /Projected stock[\s\S]*committedQty[\s\S]*incoming PO[\s\S]*covered/);
+assert.match(script, /partialRequiredCount[\s\S]*partialAlert\.hidden = partialRequiredCount === 0[\s\S]*Partial required,/);
 assert.match(script, /const syncInventoryRecapAlert[\s\S]*summary\?\.has_alert \?\? summary\?\.is_critical/);
 assert.doesNotMatch(script, /const syncInventoryRecapAlert[\s\S]{0,180}state\.activeView === 'overview'/);
 assert.match(script, /const purchasePlanRows[\s\S]*suggestions\.map[\s\S]*\.sort\(inventoryUrgencyCompare\)/);
@@ -120,8 +124,10 @@ assert.match(styles, /\.admin-purchase-select\s*\{[\s\S]*\.admin-purchase-select
 assert.match(styles, /\.admin-inventory-incoming-qty\s*\{[\s\S]*color:\s*#60a5fa/);
 assert.match(styles, /\.admin-inventory-trigger-row\.is-urgent[\s\S]*var\(--inventory-red\)/);
 assert.match(styles, /\.admin-inventory-trigger-row\.is-triggered[\s\S]*var\(--inventory-amber\)/);
+assert.match(styles, /\.admin-inventory-filter-alert\s*\{[\s\S]*background:\s*var\(--inventory-red\)/);
 assert.match(styles, /\.admin-inventory-trigger-row\.is-incoming,[\s\S]*\.admin-inventory-trigger-row\.is-partial[\s\S]*#3b82f6/);
-assert.match(inventoryBootstrap, /\(\$predictedStock - \$incomingQty\) < 0[\s\S]*'key' => 'partial'[\s\S]*'label' => 'Partial required'/);
+assert.match(inventoryBootstrap, /\$predictedStock = \$coveredStock - \$incomingQty[\s\S]*\$predictedStock < 0[\s\S]*'key' => 'partial'[\s\S]*'label' => 'Partial required'/);
+assert.match(inventoryBootstrap, /'trigger_gap' => \(int\) floor\(\$predictedStockWithoutIncoming - \$triggerQty\)/);
 assert.match(styles, /\.admin-purchase-remove/);
 assert.match(styles, /\.admin-overflow-product-adder/);
 assert.match(purchaseOrders, /order_type[\s\S]*\['reorder', 'overflow'\]/);

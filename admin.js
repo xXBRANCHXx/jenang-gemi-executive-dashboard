@@ -2900,6 +2900,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	    window: document.querySelector('[data-inventory-recap-window]'),
 	    list: document.querySelector('[data-inventory-recap-list]'),
 	    filters: document.querySelectorAll('[data-inventory-filter]'),
+	    partialFilter: document.querySelector('[data-inventory-filter="partial"]'),
+	    partialAlert: document.querySelector('[data-inventory-partial-alert]'),
 	    globalDaysForm: document.querySelector('[data-inventory-global-days-form]'),
 	    globalDays: document.querySelector('[data-inventory-global-days]'),
 	    globalDaysSave: document.querySelector('[data-inventory-global-days-save]'),
@@ -8860,7 +8862,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (riskDifference) return riskDifference;
 	    const coverage = (item) => {
 	      const trigger = Math.max(0, Number(item.trigger_qty || 0));
-	      return trigger > 0 ? Number(item.covered_stock ?? item.predicted_stock ?? item.current_stock ?? 0) / trigger : Number.POSITIVE_INFINITY;
+	      return trigger > 0 ? Number(item.predicted_stock ?? item.current_stock ?? 0) / trigger : Number.POSITIVE_INFINITY;
 	    };
 	    const leftCoverage = coverage(left);
 	    const rightCoverage = coverage(right);
@@ -8904,7 +8906,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      const trigger = Math.max(0, Number(item.trigger_qty || 0));
 	      const purchaseDays = Math.max(1, Number(item.purchase_days || 22.5));
 	      const purchaseDaysLabel = formatRegionalNumber(purchaseDays, { maximumFractionDigits: 1 });
-	      const stockPercent = Math.max(0, Math.min(100, trigger > 0 ? (coveredStock / trigger) * 100 : 100));
+	      const stockPercent = Math.max(0, Math.min(100, trigger > 0 ? (predictedStock / trigger) * 100 : 100));
 	      return `
 	      <article class="admin-inventory-trigger-row ${inventoryRecapRiskClass(item.risk)}">
 	        <div class="admin-inventory-trigger-product">
@@ -8914,17 +8916,17 @@ document.addEventListener('DOMContentLoaded', () => {
 	        </div>
 	        <div class="admin-inventory-trigger-balance">
 	          <div><span>Stock now</span><strong>${formatRegionalInteger(stock)}</strong></div>
-	          <div class="admin-inventory-predicted-stock"><span>Predicted stock</span><strong>${predictionAvailable ? formatRegionalNumber(predictedStock, { maximumFractionDigits: 1 }) : '—'}</strong></div>
+	          <div class="admin-inventory-predicted-stock"><span>Projected stock</span><strong>${predictionAvailable ? formatRegionalNumber(predictedStock, { maximumFractionDigits: 1 }) : '—'}</strong></div>
 	          <div><span>Trigger at</span><strong>${formatRegionalInteger(trigger)}</strong></div>
 	          <div class="admin-inventory-trigger-meter"><i style="width:${stockPercent}%"></i><mark style="left:100%"></mark></div>
 	          ${Number(item.incoming_qty || 0) > 0 ? `<span class="admin-inventory-incoming-qty">${formatRegionalInteger(item.incoming_qty || 0)} units in process</span>` : ''}
 	          <small>${!predictionAvailable
 	            ? 'Store Ops commitments unavailable · using on-hand stock until the queue reconnects'
 	            : Number(item.incoming_qty || 0) > 0
-	            ? `${formatRegionalNumber(stock, { maximumFractionDigits: 1 })} on hand − ${formatRegionalNumber(committedQty, { maximumFractionDigits: 1 })} committed = ${formatRegionalNumber(predictedStock, { maximumFractionDigits: 1 })} predicted · + ${formatRegionalInteger(item.incoming_qty || 0)} incoming PO = ${formatRegionalNumber(coveredStock, { maximumFractionDigits: 1 })} covered · buy ${formatRegionalInteger(item.recommended_order_qty || 0)} more`
+	            ? `${formatRegionalNumber(stock, { maximumFractionDigits: 1 })} on hand − ${formatRegionalNumber(committedQty, { maximumFractionDigits: 1 })} committed = ${formatRegionalNumber(predictedStock, { maximumFractionDigits: 1 })} projected · + ${formatRegionalInteger(item.incoming_qty || 0)} incoming PO = ${formatRegionalNumber(coveredStock, { maximumFractionDigits: 1 })} covered · buy ${formatRegionalInteger(item.recommended_order_qty || 0)} more`
 	            : item.restock_needed
 	            ? `${formatRegionalNumber(committedQty, { maximumFractionDigits: 1 })} committed to listed Store Ops orders · ${formatRegionalInteger(item.trigger_shortfall_qty || 0)} below trigger · ${purchaseDaysLabel}-day order ${formatRegionalInteger(item.raw_purchase_qty || 0)} · buy ${formatRegionalInteger(item.recommended_order_qty || 0)}`
-	            : trigger > 0 ? `${formatRegionalNumber(Math.max(0, predictedStock - trigger), { maximumFractionDigits: 1 })} predicted above trigger` : 'No demand trigger yet'}</small>
+	            : trigger > 0 ? `${formatRegionalNumber(Math.max(0, predictedStock - trigger), { maximumFractionDigits: 1 })} projected above trigger` : 'No demand trigger yet'}</small>
 	        </div>
 	        <div class="admin-inventory-trigger-signal">
 	          <div class="admin-inventory-bucket-chart" aria-label="Nine ten-day demand blocks">${inventoryBucketBars(item)}</div>
@@ -9200,7 +9202,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      const note = item.note ? ` | Note: ${item.note}` : '';
 	      return overflowMode
 	        ? `${index + 1}. ${item.product_name || item.sku} (${item.sku}) | Exact overflow QTY ${formatRegionalInteger(item.quantity)} | ${formatCurrency(item.subtotal)}${note}`
-	        : `${index + 1}. ${item.product_name || item.sku} (${item.sku}) | Stock ${formatRegionalInteger(item.current_stock)} | Store Ops committed ${formatRegionalNumber(item.committed_qty || 0, { maximumFractionDigits: 1 })} | Predicted stock ${formatRegionalNumber(item.predicted_stock ?? item.current_stock ?? 0, { maximumFractionDigits: 1 })} | Trigger ${formatRegionalInteger(item.trigger_qty)} | ${formatRegionalNumber(item.purchase_days || 22.5, { maximumFractionDigits: 1 })}-day order ${formatRegionalInteger(item.raw_purchase_qty)} | MOQ ${formatRegionalInteger(item.moq)} | Buy ${formatRegionalInteger(item.quantity)} | ${formatCurrency(item.subtotal)}${note}`;
+	        : `${index + 1}. ${item.product_name || item.sku} (${item.sku}) | Stock ${formatRegionalInteger(item.current_stock)} | Store Ops committed ${formatRegionalNumber(item.committed_qty || 0, { maximumFractionDigits: 1 })} | Projected stock ${formatRegionalNumber(item.predicted_stock ?? item.current_stock ?? 0, { maximumFractionDigits: 1 })} | Trigger ${formatRegionalInteger(item.trigger_qty)} | ${formatRegionalNumber(item.purchase_days || 22.5, { maximumFractionDigits: 1 })}-day order ${formatRegionalInteger(item.raw_purchase_qty)} | MOQ ${formatRegionalInteger(item.moq)} | Buy ${formatRegionalInteger(item.quantity)} | ${formatCurrency(item.subtotal)}${note}`;
 	    });
 	    return [
 	      overflowMode ? 'JENANG GEMI - OVERFLOW STOCK PURCHASE' : 'JENANG GEMI - RECOMMENDED STOCK PURCHASE',
@@ -9222,12 +9224,19 @@ document.addEventListener('DOMContentLoaded', () => {
 	    const summary = state.inventoryRecap.data?.summary || {};
 	    const meta = state.inventoryRecap.data?.meta || {};
 	    const rows = Array.isArray(state.inventoryRecap.data?.items) ? state.inventoryRecap.data.items : [];
+	    const partialRequiredCount = Math.max(0, Number(summary.partial_required_count || 0));
+	    if (inventoryRecapRefs.partialAlert) inventoryRecapRefs.partialAlert.hidden = partialRequiredCount === 0;
+	    if (inventoryRecapRefs.partialFilter) {
+	      inventoryRecapRefs.partialFilter.setAttribute('aria-label', partialRequiredCount > 0
+	        ? `Partial required, ${formatRegionalInteger(partialRequiredCount)} items`
+	        : 'Partial required');
+	    }
 	    if (inventoryRecapRefs.status) {
 	      inventoryRecapRefs.status.textContent = state.inventoryRecap.loading
 	        ? 'Reading Store Ops commitments'
 	        : summary.prediction_available
 	          ? `${formatRegionalInteger(summary.listed_order_count || 0)} listed orders · ${formatRegionalNumber(summary.committed_qty || 0, { maximumFractionDigits: 1 })} units committed`
-	          : 'Prediction unavailable';
+	          : 'Projection unavailable';
 	    }
 	    if (inventoryRecapRefs.triggered) inventoryRecapRefs.triggered.textContent = formatRegionalInteger(summary.alert_count ?? summary.triggered_count ?? 0);
 	    if (inventoryRecapRefs.suggested) inventoryRecapRefs.suggested.textContent = formatRegionalInteger(summary.total_recommended_qty || 0);

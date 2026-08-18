@@ -26113,6 +26113,21 @@ button.admin-order-payment-dot:focus-visible {
   color: var(--admin-bg);
 }
 
+.admin-inventory-filter-alert {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 5px;
+  border-radius: 50%;
+  background: var(--inventory-red);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--inventory-red) 22%, transparent);
+  vertical-align: 1px;
+}
+
+.admin-inventory-filter-alert[hidden] {
+  display: none;
+}
+
 .admin-inventory-recap-brief,
 .admin-purchase-ledger-meta {
   display: flex;

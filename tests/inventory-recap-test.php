@@ -75,6 +75,8 @@ inventory_recap_expect('urgent', $urgentStatus['key'], 'A non-positive predicted
 inventory_recap_expect('Stockout after listed orders', $urgentStatus['label'], 'An operational stockout must name the Store Ops fulfillment horizon.');
 $thresholdStatus = jg_inventory_recap_status(11, 10, 10, true, 'auto', 0, true);
 inventory_recap_expect('triggered', $thresholdStatus['key'], 'Predicted stock equal to its trigger must create an orange purchase alert.');
+$coveredAboveTriggerStatus = jg_inventory_recap_status(1, 9, 8, true, 'auto', 9, true);
+inventory_recap_expect('triggered', $coveredAboveTriggerStatus['key'], 'Incoming coverage must not hide a trigger reached by underlying predicted stock when another PO is still needed.');
 $coveredStatus = jg_inventory_recap_status(1, 22, 8, true, 'auto', 22, false);
 inventory_recap_expect('incoming', $coveredStatus['key'], 'A confirmed PO that covers the risk must suppress the urgent state.');
 $partialStatus = jg_inventory_recap_status(0, 41, 2, true, 'auto', 44, false);
@@ -83,6 +85,8 @@ $zeroPredictedStatus = jg_inventory_recap_status(0, 22, 8, true, 'auto', 22, fal
 inventory_recap_expect('incoming', $zeroPredictedStatus['key'], 'Predicted stock of zero must remain covered by PO rather than require a partial.');
 $healthyIncomingStatus = jg_inventory_recap_status(100, 110, 8, true, 'auto', 10, false);
 inventory_recap_expect('healthy', $healthyIncomingStatus['key'], 'An unrelated incoming PO must not relabel already-healthy stock as covered.');
+$nearIncomingStatus = jg_inventory_recap_status(100, 109, 8, true, 'auto', 100, false);
+inventory_recap_expect('near', $nearIncomingStatus['key'], 'Near-trigger status must compare the trigger with predicted stock rather than incoming-covered stock.');
 
 $skuPdo = new PDO('sqlite::memory:');
 $skuPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -192,6 +196,8 @@ inventory_recap_expect(4.0, $flat['committed_qty'] ?? -1, 'The product must expo
 inventory_recap_expect(0.0, $flat['predicted_stock'] ?? -1, 'Predicted stock must subtract all listed Store Ops commitments.');
 inventory_recap_expect('urgent', $flat['risk'] ?? '', 'A predicted stockout without PO coverage must become urgent.');
 inventory_recap_expect(8, $flat['trigger_shortfall_qty'] ?? 0, 'The trigger shortfall must use predicted stock.');
+inventory_recap_expect(-8, $flat['trigger_gap'] ?? 0, 'The trigger gap must compare the trigger with predicted stock rather than stock now.');
+inventory_recap_expect(8, $flat['predicted_trigger_shortfall_qty'] ?? 0, 'The payload must expose the predicted-stock trigger shortfall explicitly.');
 inventory_recap_expect(15.0, $flat['purchase_days'] ?? 0, 'The global order-days setting must be exposed on every product.');
 inventory_recap_expect(15.0, $manual['purchase_days'] ?? 0, 'Every product must use the same global order-days setting.');
 inventory_recap_expect(15, $flat['raw_purchase_qty'] ?? 0, 'The raw purchase must use the shared order days.');

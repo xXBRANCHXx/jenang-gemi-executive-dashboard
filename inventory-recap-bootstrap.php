@@ -593,7 +593,7 @@ function jg_inventory_recap_match_sku_index(array $orderRow, array $lookup): ?in
 
 function jg_inventory_recap_status(
     float $currentStock,
-    float $predictedStock,
+    float $coveredStock,
     int $triggerQty,
     bool $hasDemand,
     string $mode,
@@ -601,7 +601,8 @@ function jg_inventory_recap_status(
     bool $needsPurchase = false
 ): array
 {
-    if ($triggerQty > 0 && $predictedStock <= 0 && $needsPurchase) {
+    $predictedStock = $coveredStock - $incomingQty;
+    if ($triggerQty > 0 && $coveredStock <= 0 && $needsPurchase) {
         return [
             'key' => 'urgent',
             'label' => $currentStock <= 0 ? 'Out of stock now' : 'Stockout after listed orders',
@@ -612,10 +613,10 @@ function jg_inventory_recap_status(
     if ($triggerQty > 0 && $predictedStock <= $triggerQty && $needsPurchase) {
         return ['key' => 'triggered', 'label' => 'Purchase soon', 'color' => '#d97706', 'score' => 50];
     }
-    if ($incomingQty > 0 && !$needsPurchase && ($predictedStock - $incomingQty) < 0) {
+    if ($incomingQty > 0 && !$needsPurchase && $predictedStock < 0) {
         return ['key' => 'partial', 'label' => 'Partial required', 'color' => '#3b82f6', 'score' => 75];
     }
-    if ($incomingQty > 0 && !$needsPurchase && $triggerQty > 0 && ($predictedStock - $incomingQty) <= $triggerQty) {
+    if ($incomingQty > 0 && !$needsPurchase && $triggerQty > 0 && $predictedStock <= $triggerQty) {
         return ['key' => 'incoming', 'label' => 'Covered by PO', 'color' => '#3b82f6', 'score' => 15];
     }
     if ($triggerQty > 0 && $predictedStock <= $triggerQty * 1.2) {
@@ -644,7 +645,7 @@ function jg_inventory_recap_order_draft(array $suggestions, array $summary, arra
     $lines = [];
     foreach ($suggestions as $item) {
         $lines[] = sprintf(
-            '- %s / %s: stock %d, Store Ops committed %.1f, predicted stock %.1f, trigger %d, trigger gap %d, %s-day order %d, MOQ %d, buy %d, est. %s',
+            '- %s / %s: stock %d, Store Ops committed %.1f, projected stock %.1f, trigger %d, trigger gap %d, %s-day order %d, MOQ %d, buy %d, est. %s',
             (string) ($item['sku'] ?? ''),
             (string) ($item['product_name'] ?? ''),
             (int) ($item['current_stock'] ?? 0),
@@ -670,7 +671,7 @@ function jg_inventory_recap_order_draft(array $suggestions, array $summary, arra
         'Inventory Recap production draft',
         'Generated: ' . gmdate(DATE_ATOM),
         sprintf('Demand basis: %d days in nine 10-day blocks through %s', (int) $options['lookback_days'], (string) ($options['end_date'] ?? '')),
-        'Decision rule: predicted stock is on-hand stock minus every unit committed to listed Store Ops orders; confirmed incoming PO units cover the risk before another order is recommended.',
+        'Decision rule: projected stock is on-hand stock minus every unit committed to listed Store Ops orders; confirmed incoming PO units cover the risk before another order is recommended.',
         'Estimated production cost: ' . jg_inventory_recap_format_idr((float) ($summary['total_recommended_cost'] ?? 0)),
         'Accounting Cash Available: ' . jg_inventory_recap_format_idr((float) ($summary['cash_available'] ?? 0)),
         'Funding: ' . $funding,
@@ -884,9 +885,10 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
             'manual_trigger' => $manualTrigger,
             'trigger_mode' => $triggerMode,
             'trigger_qty' => $triggerQty,
-            'trigger_gap' => (int) floor($currentStock - $triggerQty),
+            'trigger_gap' => (int) floor($predictedStockWithoutIncoming - $triggerQty),
             'trigger_shortfall_qty' => $triggerShortfallQty,
             'physical_trigger_shortfall_qty' => $physicalTriggerShortfallQty,
+            'predicted_trigger_shortfall_qty' => $physicalTriggerShortfallQty,
             'incoming_qty' => $incomingQty,
             'projected_stock' => $projectedStock,
             'committed_qty' => $committedQty,
