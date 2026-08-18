@@ -8562,7 +8562,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	  const inventoryRecapRiskClass = (risk) => {
 	    const normalized = String(risk || '').toLowerCase();
-	    return ['urgent', 'triggered', 'near', 'healthy', 'quiet', 'incoming'].includes(normalized)
+	    return ['urgent', 'triggered', 'partial', 'near', 'healthy', 'quiet', 'incoming'].includes(normalized)
 	      ? `is-${normalized}`
 	      : 'is-quiet';
 	  };
@@ -8855,7 +8855,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	  };
 
 	  const inventoryUrgencyCompare = (left, right) => {
-	    const priority = { urgent: 6, triggered: 5, near: 4, incoming: 3, healthy: 2, quiet: 1 };
+	    const priority = { urgent: 7, partial: 6, triggered: 5, near: 4, incoming: 3, healthy: 2, quiet: 1 };
 	    const riskDifference = (priority[String(right.risk || '')] || 0) - (priority[String(left.risk || '')] || 0);
 	    if (riskDifference) return riskDifference;
 	    const coverage = (item) => {
@@ -9229,7 +9229,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	          ? `${formatRegionalInteger(summary.listed_order_count || 0)} listed orders · ${formatRegionalNumber(summary.committed_qty || 0, { maximumFractionDigits: 1 })} units committed`
 	          : 'Prediction unavailable';
 	    }
-	    if (inventoryRecapRefs.triggered) inventoryRecapRefs.triggered.textContent = formatRegionalInteger(summary.triggered_count || 0);
+	    if (inventoryRecapRefs.triggered) inventoryRecapRefs.triggered.textContent = formatRegionalInteger(summary.alert_count ?? summary.triggered_count ?? 0);
 	    if (inventoryRecapRefs.suggested) inventoryRecapRefs.suggested.textContent = formatRegionalInteger(summary.total_recommended_qty || 0);
 	    if (inventoryRecapRefs.manual) inventoryRecapRefs.manual.textContent = formatRegionalInteger(summary.manual_count || 0);
 	    if (inventoryRecapRefs.stockValue) {

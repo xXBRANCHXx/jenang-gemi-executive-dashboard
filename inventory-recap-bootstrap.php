@@ -612,6 +612,9 @@ function jg_inventory_recap_status(
     if ($triggerQty > 0 && $predictedStock <= $triggerQty && $needsPurchase) {
         return ['key' => 'triggered', 'label' => 'Purchase soon', 'color' => '#d97706', 'score' => 50];
     }
+    if ($incomingQty > 0 && !$needsPurchase && ($predictedStock - $incomingQty) < 0) {
+        return ['key' => 'partial', 'label' => 'Partial required', 'color' => '#3b82f6', 'score' => 75];
+    }
     if ($incomingQty > 0 && !$needsPurchase && $triggerQty > 0 && ($predictedStock - $incomingQty) <= $triggerQty) {
         return ['key' => 'incoming', 'label' => 'Covered by PO', 'color' => '#3b82f6', 'score' => 15];
     }
@@ -927,6 +930,8 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
         $items,
         static fn (array $item): bool => in_array((string) ($item['risk'] ?? ''), ['urgent', 'triggered'], true)
     ));
+    $partialRequiredCount = count(array_filter($items, static fn (array $item): bool => ($item['risk'] ?? '') === 'partial'));
+    $alertCount = $triggeredCount + $partialRequiredCount;
     $highCount = count(array_filter($items, static fn (array $item): bool => ($item['risk'] ?? '') === 'near'));
     $manualCount = count(array_filter($items, static fn (array $item): bool => ($item['trigger_mode'] ?? '') === 'manual'));
     $incomingCount = count(array_filter($items, static fn (array $item): bool => (int) ($item['incoming_qty'] ?? 0) > 0));
@@ -938,15 +943,16 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
         $purchaseOrders,
         static fn (array $order): bool => in_array((string) ($order['status'] ?? ''), ['pending', 'partially_received'], true)
     ));
-    $reportAlert = $triggeredCount > 0;
+    $reportAlert = $alertCount > 0;
 
     $summary = [
         'total_skus' => count($items),
         'suggested_count' => count($suggestions),
         'critical_count' => $triggeredCount,
         'urgent_count' => $urgentCount,
-        'alert_count' => $triggeredCount,
+        'alert_count' => $alertCount,
         'triggered_count' => $triggeredCount,
+        'partial_required_count' => $partialRequiredCount,
         'watch_count' => $highCount,
         'manual_count' => $manualCount,
         'incoming_count' => $incomingCount,
@@ -967,7 +973,7 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
         'cash_available' => $cashAvailable,
         'funding_gap' => $fundingGap,
         'can_fund_recommended' => $fundingGap === 0,
-        'report_status' => $urgentCount > 0 ? 'urgent' : ($triggeredCount > 0 ? 'triggered' : ($highCount > 0 ? 'near' : 'clear')),
+        'report_status' => $urgentCount > 0 ? 'urgent' : ($partialRequiredCount > 0 ? 'partial' : ($triggeredCount > 0 ? 'triggered' : ($highCount > 0 ? 'near' : 'clear'))),
         'has_alert' => $reportAlert,
         'is_critical' => $reportAlert,
         'matched_order_rows' => $matchedOrders,

@@ -27715,16 +27715,19 @@ button.admin-order-payment-dot:focus-visible {
   color: var(--admin-text);
 }
 
-.admin-inventory-trigger-row.is-incoming {
+.admin-inventory-trigger-row.is-incoming,
+.admin-inventory-trigger-row.is-partial {
   border-left-color: #3b82f6;
 }
 
-.is-incoming .admin-inventory-trigger-state {
+.is-incoming .admin-inventory-trigger-state,
+.is-partial .admin-inventory-trigger-state {
   border-color: color-mix(in srgb, #3b82f6 48%, transparent);
   color: #60a5fa;
 }
 
-.is-incoming .admin-inventory-trigger-meter i {
+.is-incoming .admin-inventory-trigger-meter i,
+.is-partial .admin-inventory-trigger-meter i {
   background: #3b82f6;
 }
 

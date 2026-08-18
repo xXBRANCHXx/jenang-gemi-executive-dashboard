@@ -36,7 +36,7 @@ $sidebarSection = match (true) {
     in_array($requestedView ?? '', ['website', 'site', 'home', 'campaign', 'campaigns', 'landing', 'landing-pages'], true) => 'website',
     default => 'home',
 };
-$dashboardBuildVersion = 'exec3.98.3';
+$dashboardBuildVersion = 'exec3.98.4';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -807,6 +807,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                            <div class="admin-inventory-filters" role="group" aria-label="Filter products by trigger status">
 	                                <button type="button" class="is-active" data-inventory-filter="all">All products</button>
 	                                <button type="button" data-inventory-filter="triggered">Needs purchase</button>
+	                                <button type="button" data-inventory-filter="partial">Partial required</button>
 	                                <button type="button" data-inventory-filter="near">Near trigger</button>
 	                                <button type="button" data-inventory-filter="healthy">Above trigger</button>
 	                                <button type="button" data-inventory-filter="manual">Manual</button>

@@ -77,6 +77,10 @@ $thresholdStatus = jg_inventory_recap_status(11, 10, 10, true, 'auto', 0, true);
 inventory_recap_expect('triggered', $thresholdStatus['key'], 'Predicted stock equal to its trigger must create an orange purchase alert.');
 $coveredStatus = jg_inventory_recap_status(1, 22, 8, true, 'auto', 22, false);
 inventory_recap_expect('incoming', $coveredStatus['key'], 'A confirmed PO that covers the risk must suppress the urgent state.');
+$partialStatus = jg_inventory_recap_status(0, 41, 2, true, 'auto', 44, false);
+inventory_recap_expect('partial', $partialStatus['key'], 'Negative predicted stock covered by an incoming PO must require a production partial.');
+$zeroPredictedStatus = jg_inventory_recap_status(0, 22, 8, true, 'auto', 22, false);
+inventory_recap_expect('incoming', $zeroPredictedStatus['key'], 'Predicted stock of zero must remain covered by PO rather than require a partial.');
 $healthyIncomingStatus = jg_inventory_recap_status(100, 110, 8, true, 'auto', 10, false);
 inventory_recap_expect('healthy', $healthyIncomingStatus['key'], 'An unrelated incoming PO must not relabel already-healthy stock as covered.');
 
@@ -241,17 +245,23 @@ inventory_recap_expect(
     'Retrying the same request key must return the original PO instead of creating a duplicate.'
 );
 
-$withIncoming = jg_inventory_recap_payload($skuPdo, $analyticsPdo, ['amount' => 100000], $recapInput);
+$partialRecapInput = $recapInput;
+$partialRecapInput['store_ops_commitments']['commitments'][0]['quantity'] = 5;
+$partialRecapInput['store_ops_commitments']['summary']['committed_qty'] = 5;
+$withIncoming = jg_inventory_recap_payload($skuPdo, $analyticsPdo, ['amount' => 100000], $partialRecapInput);
 $incomingBySku = [];
 foreach ($withIncoming['items'] as $item) {
     $incomingBySku[(string) $item['sku']] = $item;
 }
 inventory_recap_expect(33, $withIncoming['summary']['incoming_qty'] ?? 0, 'The recap must total all unreceived PO units.');
 inventory_recap_expect(22, $incomingBySku['SKU-FLAT']['incoming_qty'] ?? 0, 'Incoming PO stock must be attached to its SKU.');
-inventory_recap_expect(0.0, $incomingBySku['SKU-FLAT']['predicted_stock'] ?? -1, 'Incoming POs must not hide the underlying predicted stock.');
-inventory_recap_expect(22.0, $incomingBySku['SKU-FLAT']['covered_stock'] ?? -1, 'Confirmed incoming units must cover the predicted stock balance.');
-inventory_recap_expect('incoming', $incomingBySku['SKU-FLAT']['risk'] ?? '', 'A fully covered shortage must no longer render as critical.');
+inventory_recap_expect(-1.0, $incomingBySku['SKU-FLAT']['predicted_stock'] ?? 0, 'Incoming POs must not hide the underlying negative predicted stock.');
+inventory_recap_expect(21.0, $incomingBySku['SKU-FLAT']['covered_stock'] ?? -1, 'Confirmed incoming units must cover the predicted stock balance.');
+inventory_recap_expect('partial', $incomingBySku['SKU-FLAT']['risk'] ?? '', 'A covered item with negative predicted stock must require a production partial.');
 inventory_recap_expect(0, $incomingBySku['SKU-FLAT']['recommended_order_qty'] ?? -1, 'Incoming stock must prevent a duplicate purchase recommendation.');
+inventory_recap_expect(1, $withIncoming['summary']['partial_required_count'] ?? 0, 'The recap must count partial-required products separately.');
+inventory_recap_expect(2, $withIncoming['summary']['alert_count'] ?? 0, 'Partial-required products must remain part of the actionable alert count.');
+inventory_recap_expect(true, $withIncoming['summary']['has_alert'] ?? false, 'A partial requirement must keep the dashboard alert active.');
 inventory_recap_expect(11, $incomingBySku['SKU-MANUAL']['incoming_qty'] ?? 0, 'An open PO must expose its still-unreceived quantity.');
 inventory_recap_expect(11, $incomingBySku['SKU-MANUAL']['recommended_order_qty'] ?? 0, 'A partial open PO must reduce, not erase, the remaining MOQ-rounded recommendation.');
 
