@@ -124,7 +124,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                                             <span>Full shipping address</span>
                                             <textarea name="contact_address" maxlength="2000" rows="4" placeholder="Street, district, city, province and postal code"></textarea>
                                         </label>
-                                        <label>
+                                        <label data-class-a-only>
                                             <span>Billing period</span>
                                             <select name="billing_period_type">
                                                 <option value="calendar_week">Calendar Week (Monday–Sunday)</option>

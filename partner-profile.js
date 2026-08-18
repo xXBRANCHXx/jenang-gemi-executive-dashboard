@@ -75,10 +75,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const syncContactRequirements = () => {
     if (!(form instanceof HTMLFormElement)) return;
-    const required = form.elements.partner_class?.value === 'B';
+    const partnerClass = form.elements.partner_class?.value === 'A' ? 'A' : 'B';
+    const required = partnerClass === 'B';
     ['contact_email', 'contact_phone', 'contact_address'].forEach((name) => {
       const field = form.elements[name];
       if (field instanceof HTMLElement) field.toggleAttribute('required', required);
+    });
+    form.querySelectorAll('[data-class-a-only]').forEach((field) => {
+      field.hidden = partnerClass !== 'A';
+      field.querySelectorAll('input, select, textarea').forEach((control) => {
+        control.disabled = partnerClass !== 'A';
+      });
     });
   };
 
