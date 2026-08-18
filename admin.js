@@ -6006,7 +6006,6 @@ document.addEventListener('DOMContentLoaded', () => {
     target.cogs_covered_items = Number(target.cogs_covered_items || 0) + coveredItems;
     target.cogs_missing_items = Number(target.cogs_missing_items || 0) + missingItems;
     target.packing_missing_items = Number(target.packing_missing_items || 0) + packingMissingItems;
-    if (missingItems > 0 || packingMissingItems > 0) target._grossProfitComplete = false;
     if (isFreeGiftOrderRow(order)) {
       target.gross_profit -= cogs + packing;
       return;
@@ -6041,7 +6040,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const buckets = new Map();
     const ensureBucket = (key, label) => {
       if (!buckets.has(key)) {
-        buckets.set(key, { key, label, revenue: 0, cogs: 0, packing_cost: 0, gross_profit: 0, orders: 0, item_count: 0, cogs_covered_items: 0, cogs_missing_items: 0, packing_missing_items: 0, _grossProfitComplete: true });
+        buckets.set(key, { key, label, revenue: 0, cogs: 0, packing_cost: 0, gross_profit: 0, orders: 0, item_count: 0, cogs_covered_items: 0, cogs_missing_items: 0, packing_missing_items: 0 });
       }
       return buckets.get(key);
     };
@@ -6085,9 +6084,8 @@ document.addEventListener('DOMContentLoaded', () => {
       rows: Array.from(buckets.values()).map((row) => {
         const normalized = {
           ...row,
-          gross_profit: row._grossProfitComplete === false ? null : row.gross_profit,
+          gross_profit: row.gross_profit,
           _orderIds: undefined,
-          _grossProfitComplete: undefined,
           average_order_value: row.orders > 0 ? row.revenue / row.orders : 0
         };
         return {
@@ -6117,8 +6115,7 @@ document.addEventListener('DOMContentLoaded', () => {
         item_count: 0,
         cogs_covered_items: 0,
         cogs_missing_items: 0,
-        packing_missing_items: 0,
-        _grossProfitComplete: true
+        packing_missing_items: 0
       });
     }
 
@@ -6136,9 +6133,8 @@ document.addEventListener('DOMContentLoaded', () => {
     return rows.map((row) => {
       const normalized = {
         ...row,
-        gross_profit: row._grossProfitComplete === false ? null : row.gross_profit,
-        _orderIds: undefined,
-        _grossProfitComplete: undefined
+        gross_profit: row.gross_profit,
+        _orderIds: undefined
       };
       return {
         ...normalized,
@@ -6165,24 +6161,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (overviewRefs.hourlyMeta) {
       const hourlyTotal = state.overview.hourlyRows.reduce((sum, row) => sum + Number(row[state.overview.hourlyMetric] || 0), 0);
-      const missingCogsItems = state.overview.hourlyRows.reduce((sum, row) => sum + Number(row.cogs_missing_items || 0), 0);
-      const missingPackingItems = state.overview.hourlyRows.reduce((sum, row) => sum + Number(row.packing_missing_items || 0), 0);
-      const syncStatus = state.overview.data?.sync_status;
-      const syncFinishedAt = syncStatus?.finished_at ? new Date(syncStatus.finished_at) : null;
-      const staleLabel = syncStatus?.fresh === false
-        ? `Data stale${syncFinishedAt && !Number.isNaN(syncFinishedAt.getTime()) ? ` since ${formatDashboardTime(syncFinishedAt, state.timezone, { hour: '2-digit', minute: '2-digit', hour12: false })} ${getTimezoneLabel(state.timezone)}` : ''}`
-        : 'Live today, 0-23';
-      const metricValue = state.overview.hourlyMetric === 'gross_profit' && (missingCogsItems > 0 || missingPackingItems > 0)
-        ? `Partial ${formatFullMetricValue(state.overview.hourlyMetric, hourlyTotal, OVERVIEW_METRIC_UNITS)}`
-        : formatFullMetricValue(state.overview.hourlyMetric, hourlyTotal, OVERVIEW_METRIC_UNITS);
-      const cogsCoverageLabel = missingCogsItems > 0
-        ? ` • COGS missing for ${missingCogsItems.toLocaleString('id-ID')} item${missingCogsItems === 1 ? '' : 's'}`
-        : '';
-      const packingCoverageLabel = missingPackingItems > 0
-        ? ` • Packing missing for ${missingPackingItems.toLocaleString('id-ID')} item${missingPackingItems === 1 ? '' : 's'}`
-        : '';
-      const coverageLabel = `${cogsCoverageLabel}${packingCoverageLabel}`;
-      overviewRefs.hourlyMeta.textContent = `${staleLabel} • ${metricValue}${coverageLabel}`;
+      overviewRefs.hourlyMeta.textContent = formatFullMetricValue(
+        state.overview.hourlyMetric,
+        hourlyTotal,
+        OVERVIEW_METRIC_UNITS
+      );
     }
     overviewRefs.hourlyMetricButtons.forEach((button) => {
       button.classList.toggle('is-active', button.dataset.overviewHourlyMetric === state.overview.hourlyMetric);

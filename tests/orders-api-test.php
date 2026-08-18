@@ -93,6 +93,24 @@ $sku = [
     'packing_required' => true,
     'packing_costs' => ['2026-08' => 10.0],
 ];
+$namedSku = array_merge($sku, [
+    'tag' => 'JG-SYRUP-SC-250',
+    'brand_name' => 'Jenang Gemi',
+    'base_product_name' => 'Syrup',
+    'flavor_name' => 'Salt Caramel',
+    'unit_name' => 'ml',
+    'volume' => 250.0,
+]);
+$namedLookup = [];
+foreach (jg_orders_sku_lookup_aliases($namedSku) as $alias) {
+    $namedLookup[$alias] = $namedSku;
+}
+$matchedByMarketplaceName = jg_orders_match_sku([
+    'sku' => '',
+    'item_key' => 'marketplace-line-9812',
+    'product_name' => 'Jenang Gemi Syrup Salted Caramel 250 ml - Best Seller',
+], $namedLookup);
+expect_same('JG0101', $matchedByMarketplaceName['sku'] ?? null, 'C4 must recover SKU costs from a marketplace product name when the seller SKU is absent.');
 $allocations = [[
     'po_number' => 'PO-1',
     'qty_astra_consumed' => 2.0,
@@ -192,8 +210,19 @@ $missingCogsMetrics = jg_orders_lightweight_rows(jg_orders_enrich_for_metrics([
         'cogs' => 0,
     ]),
 ], []));
-expect_same(null, $missingCogsMetrics[0]['gross_profit'], 'Missing COGS must not masquerade as revenue-equivalent gross profit.');
+expect_same(500, $missingCogsMetrics[0]['gross_profit'], 'C4 must keep its known hourly margin numeric when SKU cost coverage is incomplete.');
 expect_same(2, $missingCogsMetrics[0]['cogs_missing_items'], 'Missing SKU mappings must be exposed in COGS coverage.');
+
+$missingPackingSku = array_merge($sku, ['packing_costs' => []]);
+$missingPackingMetrics = jg_orders_lightweight_rows(jg_orders_enrich_for_metrics([
+    array_merge($remoteRow, [
+        'quantity' => 3,
+        'revenue' => 900,
+        'order_net_revenue' => 900,
+    ]),
+], [jg_orders_sku_key('JG0101') => $missingPackingSku]));
+expect_same(600, $missingPackingMetrics[0]['gross_profit'], 'C4 must plot revenue minus known COGS when a packing rate is not configured.');
+expect_same(3, $missingPackingMetrics[0]['packing_missing_items'], 'C4 must retain missing packing coverage as API diagnostics.');
 
 $fallback = jg_orders_enrich_without_inventory([$remoteRow]);
 expect_same(1, count($fallback), 'Inventory fallback must retain order rows.');

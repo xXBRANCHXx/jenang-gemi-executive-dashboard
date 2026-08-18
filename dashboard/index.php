@@ -299,7 +299,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                                     <h3 data-overview-hourly-title>Today Orders QTY by hour</h3>
                                     <button type="button" class="admin-chart-info-btn" aria-label="About today by hour" data-chart-info="Shows today's marketplace activity by hour in the selected timezone. Use it to spot the hours when customers are buying, then switch metrics to compare orders, units, revenue, or gross profit."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
-                                <span class="admin-panel-meta" data-overview-hourly-meta>Live today, 0-23</span>
+                                <span class="admin-panel-meta" data-overview-hourly-meta>0 orders</span>
                             </div>
                             <div class="admin-panel-inline-toggles admin-sliding-chart-toggle" data-sliding-chart-toggle role="group" aria-label="Hourly chart metric">
                                 <button type="button" class="admin-toggle-pill is-active" data-overview-hourly-metric="orders"><span>Orders</span></button>

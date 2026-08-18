@@ -2492,11 +2492,9 @@ function jg_orders_lightweight_rows(array $remoteRows): array
         $rows[$key]['cogs_covered_items'] += $cogsCoveredItems;
         $rows[$key]['cogs_missing_items'] += $cogsMissingItems;
         $rows[$key]['packing_missing_items'] += $packingMissingItems;
-        $rows[$key]['gross_profit'] = $rows[$key]['cogs_missing_items'] > 0 || $rows[$key]['packing_missing_items'] > 0
-            ? null
-            : (int) ($rows[$key]['net_revenue'] ?? $orderNetRevenue)
-                - (int) ($rows[$key]['cogs'] ?? 0)
-                - (int) ($rows[$key]['packing_cost'] ?? 0);
+        $rows[$key]['gross_profit'] = (int) ($rows[$key]['net_revenue'] ?? $orderNetRevenue)
+            - (int) ($rows[$key]['cogs'] ?? 0)
+            - (int) ($rows[$key]['packing_cost'] ?? 0);
     }
 
     return array_values($rows);
@@ -2554,7 +2552,7 @@ function jg_orders_enrich_for_metrics(array $remoteRows, array $skuLookup): arra
         $row['packing_cost'] = 0;
         $row['packing_status'] = $packingSupported ? 'unmapped' : 'legacy_unavailable';
         $row['packing_missing_items'] = $packingMissingItems;
-        $row['gross_profit'] = $hasTrustedEmbeddedCogs && $packingMissingItems === 0 ? $revenue - $cogs : null;
+        $row['gross_profit'] = $revenue - $cogs;
         $row['order_net_revenue'] = (int) round((float) ($remoteRow['order_net_revenue'] ?? $revenue));
         $row['order_marketplace_fees'] = (int) round((float) ($remoteRow['order_marketplace_fees'] ?? $remoteRow['marketplace_fees'] ?? 0));
         $row['sku_linked'] = false;
@@ -3066,7 +3064,7 @@ function jg_orders_enriched_row(
         'packing_missing_items' => $packingMissingItems,
         'cogs_estimated' => false,
         'cogs_source' => $sku !== null ? ($hasCogsHistory ? 'sku_quarter_history' : 'sku_static_average') : 'none',
-        'gross_profit' => $packingMissingItems > 0 ? null : (int) round($revenue - $totalCogs - $totalPacking),
+        'gross_profit' => (int) round($revenue - $totalCogs - $totalPacking),
         'username' => (string) ($remoteRow['username'] ?? ''),
         'address' => (string) ($remoteRow['address'] ?? ''),
         'phone' => (string) ($remoteRow['phone'] ?? ''),
@@ -3084,6 +3082,11 @@ function jg_orders_match_sku(array $remoteRow, array $skuLookup): ?array
 {
     $candidates = [
         (string) ($remoteRow['sku'] ?? ''),
+        (string) ($remoteRow['marketplace_sku'] ?? ''),
+        (string) ($remoteRow['seller_sku'] ?? ''),
+        (string) ($remoteRow['model_sku'] ?? ''),
+        (string) ($remoteRow['item_sku'] ?? ''),
+        (string) ($remoteRow['sku_code'] ?? ''),
         (string) ($remoteRow['item_key'] ?? ''),
     ];
     foreach ($candidates as $candidate) {
@@ -3093,14 +3096,34 @@ function jg_orders_match_sku(array $remoteRow, array $skuLookup): ?array
         }
     }
 
-    $haystack = jg_orders_sku_key(implode(' ', $candidates));
+    $identityValues = array_merge($candidates, [
+        (string) ($remoteRow['product_name'] ?? ''),
+        (string) ($remoteRow['marketplace_product_name'] ?? ''),
+        (string) ($remoteRow['base_product_name'] ?? ''),
+        (string) ($remoteRow['flavor'] ?? ''),
+        (string) ($remoteRow['flavor_name'] ?? ''),
+    ]);
+    $haystacks = array_values(array_filter(array_map('jg_orders_sku_key', $identityValues)));
+    $bestMatch = null;
+    $bestLength = 0;
     foreach ($skuLookup as $key => $record) {
-        if (strlen($key) >= 3 && $haystack !== '' && str_contains($haystack, $key)) {
-            return $record;
+        $keyLength = strlen($key);
+        $matchesIdentity = false;
+        if ($keyLength >= 3) {
+            foreach ($haystacks as $haystack) {
+                if (str_contains($haystack, $key)) {
+                    $matchesIdentity = true;
+                    break;
+                }
+            }
+        }
+        if ($matchesIdentity && $keyLength > $bestLength) {
+            $bestMatch = $record;
+            $bestLength = $keyLength;
         }
     }
 
-    return null;
+    return $bestMatch;
 }
 
 function jg_orders_allocate_fifo(PDO $pdo, array $remoteRow, array $sku, float $astraQty): array
