@@ -108,7 +108,9 @@ function jg_public_partner_read_database(): array
     $pdo = jg_partner_db();
     if ($pdo instanceof PDO) {
         $stmt = $pdo->query(
-            'SELECT code, name, partner_slug, notes, selected_skus_json, pricing_json, billing_period_type, discount_enabled, discount_percent, created_at, updated_at
+            'SELECT code, name, partner_slug, notes, selected_skus_json, pricing_json,
+                    partner_class, contact_email, contact_phone, contact_address,
+                    billing_period_type, discount_enabled, discount_percent, created_at, updated_at
              FROM partner_profiles
              ORDER BY updated_at DESC, code ASC'
         );
@@ -126,6 +128,10 @@ function jg_public_partner_read_database(): array
                 'notes' => (string) ($row['notes'] ?? ''),
                 'selected_skus' => is_array($selectedSkus) ? array_values(array_filter(array_map('strval', $selectedSkus))) : [],
                 'pricing' => is_array($pricing) ? $pricing : [],
+                'partner_class' => strtoupper(trim((string) ($row['partner_class'] ?? 'B'))) === 'A' ? 'A' : 'B',
+                'contact_email' => (string) ($row['contact_email'] ?? ''),
+                'contact_phone' => (string) ($row['contact_phone'] ?? ''),
+                'contact_address' => (string) ($row['contact_address'] ?? ''),
                 'billing_period_type' => in_array(($row['billing_period_type'] ?? ''), ['calendar_week', 'calendar_month'], true)
                     ? (string) $row['billing_period_type']
                     : 'calendar_week',
@@ -167,7 +173,17 @@ function jg_public_partner_read_database(): array
     }
 
     $database['meta'] = is_array($database['meta'] ?? null) ? $database['meta'] : ['version' => '1.00.00', 'updated_at' => ''];
-    $database['partners'] = array_values(array_filter($database['partners'] ?? [], 'is_array'));
+    $database['partners'] = array_values(array_map(static function (array $partner): array {
+        $name = strtolower(trim((string) ($partner['name'] ?? '')));
+        $slug = strtolower(trim((string) ($partner['partner_slug'] ?? '')));
+        $legacyClassA = in_array($name, ['baggos', 'baggos media', 'orezz'], true)
+            || in_array($slug, ['baggos', 'baggosmedia', 'orezz'], true);
+        $partner['partner_class'] = strtoupper(trim((string) ($partner['partner_class'] ?? ($legacyClassA ? 'A' : 'B')))) === 'A' ? 'A' : 'B';
+        $partner['contact_email'] = (string) ($partner['contact_email'] ?? '');
+        $partner['contact_phone'] = (string) ($partner['contact_phone'] ?? '');
+        $partner['contact_address'] = (string) ($partner['contact_address'] ?? '');
+        return $partner;
+    }, array_values(array_filter($database['partners'] ?? [], 'is_array'))));
 
     return $database;
 }

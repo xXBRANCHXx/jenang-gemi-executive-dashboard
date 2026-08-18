@@ -15,6 +15,10 @@ class_b_migration_expect(!str_contains($profiles, 'DELETE FROM partner_weekly_bi
 class_b_migration_expect(!str_contains($profiles, 'DELETE FROM partner_weekly_bill_items'), 'Partner classification must not delete historical bill items.');
 class_b_migration_expect(!str_contains($profiles, 'DELETE FROM partner_weekly_bill_payments'), 'Partner classification must not delete historical payment proofs.');
 class_b_migration_expect(!str_contains($profiles, 'DELETE FROM partner_weekly_bill_disputes'), 'Partner classification must not delete historical disputes.');
+$publicPartners = (string) file_get_contents(dirname(__DIR__) . '/api/partners/public/index.php');
+foreach (['partner_class', 'contact_email', 'contact_phone', 'contact_address'] as $profileField) {
+    class_b_migration_expect(str_contains($publicPartners, $profileField), 'The public partner workspace feed must include ' . $profileField . '.');
+}
 
 $billing = (string) file_get_contents(dirname(__DIR__) . '/partner-billing-bootstrap.php');
 class_b_migration_expect(str_contains($billing, 'COALESCE(order_type, "class_a_dropship") <> "class_b_stock"'), 'Prepaid orders must be excluded from post-sale billing.');
