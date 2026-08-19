@@ -545,6 +545,74 @@ expect_same('2026-07-06', $breakdown['periods'][0]['key'], 'Flavor breakdown per
 expect_same(2, count($breakdown['volumes']), 'Flavor breakdown must expose every catalog volume for the product.');
 expect_same('Original', $breakdown['flavors'][0]['label'], 'Flavor breakdown must expose the SKU flavor catalog.');
 
+$analyticsLookup = $breakdownLookup + [
+    jg_orders_sku_key('SYRUP-50-BUTTERSCOTCH') => [
+        'sku' => 'SYRUP-50-BUTTERSCOTCH',
+        'base_product_name' => 'Syrup',
+        'flavor_name' => 'Butterscotch',
+        'volume' => 50.0,
+        'unit_name' => 'ml',
+    ],
+];
+$analytics = jg_orders_aggregate_product_analytics_rows([
+    [
+        'sku' => 'SYRUP-50-ORIGINAL',
+        'order_create_time' => '2026-07-12T02:00:00Z',
+        'platform' => 'shopee',
+        'account_key' => 'main',
+        'quantity' => 10,
+        'revenue' => 100000,
+        'transactions' => 4,
+    ],
+    [
+        'sku' => 'SYRUP-50-ORIGINAL',
+        'order_create_time' => '2026-08-12T02:00:00Z',
+        'platform' => 'partner',
+        'account_key' => 'partner-one',
+        'account_label' => 'Partner One',
+        'quantity' => 15,
+        'revenue' => 150000,
+        'transactions' => 2,
+    ],
+    [
+        'sku' => 'SYRUP-50-BUTTERSCOTCH',
+        'order_create_time' => '2026-08-13T02:00:00Z',
+        'platform' => 'tokopedia',
+        'account_key' => 'main',
+        'quantity' => 99,
+        'revenue' => 990000,
+    ],
+    [
+        'sku' => 'SYRUP-250-ORIGINAL',
+        'order_create_time' => '2026-08-14T02:00:00Z',
+        'platform' => 'shopee',
+        'account_key' => 'main',
+        'quantity' => 5,
+        'revenue' => 75000,
+    ],
+], $analyticsLookup, 'syrup', 'month', '2026-07-01', '2026-08-19', [
+    'dimension' => 'flavor',
+    'flavor' => 'original',
+    'volume' => '',
+]);
+expect_same(30, $analytics['totals']['quantity'], 'Flavor analytics must include every volume but exclude other flavors.');
+expect_same(2, count($analytics['history']), 'Product analytics must return zero-fillable chronological monthly history.');
+expect_same(100, $analytics['history'][1]['quantity_change_percent'], 'Product analytics must calculate month-over-month change.');
+expect_same(3, count($analytics['forecast']), 'Product analytics must predict the next three periods.');
+expect_same(30, $analytics['forecast'][0]['quantity'], 'Product analytics forecast must follow the recent least-squares unit trend.');
+expect_same(2, count($analytics['breakdowns']['volumes']), 'Flavor analytics must expose its complete volume mix.');
+expect_same(2, count($analytics['breakdowns']['platforms']), 'Product analytics must rank every matching sales platform.');
+expect_same('Partner One', $analytics['breakdowns']['partners'][0]['label'], 'Product analytics must retain the specific partner display name.');
+expect_same('Original Syrup', $analytics['selection']['title'], 'Flavor analytics must expose a human-readable page title.');
+$exactAnalytics = jg_orders_aggregate_product_analytics_rows([
+    ['sku' => 'SYRUP-50-ORIGINAL', 'order_create_time' => '2026-08-12T02:00:00Z', 'platform' => 'partner', 'account_key' => 'partner-one', 'quantity' => 15, 'revenue' => 150000],
+    ['sku' => 'SYRUP-250-ORIGINAL', 'order_create_time' => '2026-08-14T02:00:00Z', 'platform' => 'shopee', 'account_key' => 'main', 'quantity' => 5, 'revenue' => 75000],
+], $analyticsLookup, 'syrup', 'month', '2026-08-01', '2026-08-19', [
+    'dimension' => 'sku', 'flavor' => 'original', 'volume' => '50-ml',
+]);
+expect_same(15, $exactAnalytics['totals']['quantity'], 'Cell analytics must isolate the exact flavor and volume combination.');
+expect_same('seasonal-special', jg_orders_breakdown_product('Seasonal Special'), 'Analytics must accept future SKU-database products without a hardcoded allowlist.');
+
 $ordersUrl = jg_orders_remote_url('/sales/orders', [
     'start_date' => '2026-06-01',
     'end_date' => '2026-06-03',

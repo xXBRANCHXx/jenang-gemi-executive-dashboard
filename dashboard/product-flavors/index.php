@@ -9,17 +9,12 @@ if (!jg_admin_is_authenticated()) {
     exit;
 }
 
-$productKey = strtolower(trim((string) ($_GET['product'] ?? 'syrup')));
-$products = [
-    'syrup' => 'Syrup',
-    'drops' => 'Drops',
-    'bubur' => 'Bubur',
-];
-if (!isset($products[$productKey])) {
+$productKey = strtolower(trim((string) preg_replace('/[^a-z0-9]+/i', '-', (string) ($_GET['product'] ?? 'syrup')), '-'));
+if ($productKey === '') {
     $productKey = 'syrup';
 }
-$productLabel = $products[$productKey];
-$buildVersion = 'flavor-detail-1.1.0';
+$productLabel = ucwords(str_replace('-', ' ', $productKey));
+$buildVersion = 'flavor-detail-2.0.0';
 $cssVersion = $buildVersion . '-' . (string) @filemtime(__DIR__ . '/product-flavors.css');
 $jsVersion = $buildVersion . '-' . (string) @filemtime(__DIR__ . '/product-flavors.js');
 ?>
@@ -53,11 +48,14 @@ $jsVersion = $buildVersion . '-' . (string) @filemtime(__DIR__ . '/product-flavo
             <div class="product-flavor-title">
                 <span>Product sales detail</span>
                 <h1><?php echo htmlspecialchars($productLabel, ENT_QUOTES); ?> flavor breakdown</h1>
-                <p>Flavor performance across every sold volume, arranged as a clean time-based sheet.</p>
+                <p>Select any flavor, volume, or individual cell to open its complete sales story.</p>
             </div>
-            <div class="product-flavor-live-status" aria-live="polite">
-                <i aria-hidden="true"></i>
-                <span data-load-status>Loading sales…</span>
+            <div class="product-flavor-top-actions">
+                <a href="../product-analytics/?product=<?php echo urlencode($productKey); ?>&amp;dimension=product">Product overview</a>
+                <div class="product-flavor-live-status" aria-live="polite">
+                    <i aria-hidden="true"></i>
+                    <span data-load-status>Loading sales…</span>
+                </div>
             </div>
         </header>
 

@@ -69,6 +69,20 @@ function jg_orders_handle_request(): void
             echo json_encode($response, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             return;
         }
+        if ($method === 'GET' && in_array($action, ['product_analytics', 'product_drilldown'], true)) {
+            $pdo = analyticsDb();
+            jg_orders_ensure_mirror_schema($pdo);
+            $product = jg_orders_breakdown_product($_GET['product'] ?? '');
+            $grain = jg_orders_breakdown_grain($_GET['grain'] ?? 'month');
+            $selection = [
+                'dimension' => jg_orders_analytics_dimension($_GET['dimension'] ?? 'product'),
+                'flavor' => jg_orders_breakdown_slug($_GET['flavor'] ?? ''),
+                'volume' => jg_orders_breakdown_slug($_GET['volume'] ?? ''),
+            ];
+            $response = jg_orders_product_analytics_payload($pdo, $startDate, $endDate, $product, $grain, $selection);
+            echo json_encode($response, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            return;
+        }
 
         $payload = [];
         if ($method === 'POST') {
@@ -1277,11 +1291,27 @@ function jg_orders_mirror_payload(PDO $pdo, string $startDate, string $endDate, 
 
 function jg_orders_breakdown_product(mixed $value): string
 {
-    $product = strtolower(trim((string) $value));
-    if (!in_array($product, ['syrup', 'drops', 'bubur'], true)) {
-        throw new InvalidArgumentException('Product must be syrup, drops, or bubur.');
+    $product = jg_orders_breakdown_slug($value);
+    if ($product === '') {
+        throw new InvalidArgumentException('A product is required.');
     }
     return $product;
+}
+
+function jg_orders_breakdown_slug(mixed $value): string
+{
+    $slug = strtolower(trim((string) $value));
+    $slug = trim((string) preg_replace('/[^a-z0-9]+/', '-', $slug), '-');
+    return substr($slug, 0, 80);
+}
+
+function jg_orders_analytics_dimension(mixed $value): string
+{
+    $dimension = strtolower(trim((string) $value));
+    if (!in_array($dimension, ['product', 'flavor', 'volume', 'sku'], true)) {
+        throw new InvalidArgumentException('Dimension must be product, flavor, volume, or sku.');
+    }
+    return $dimension;
 }
 
 function jg_orders_breakdown_grain(mixed $value): string
@@ -1378,6 +1408,11 @@ function jg_orders_aggregate_product_flavor_rows(
     $totals = ['quantity' => 0, 'revenue' => 0, 'matched_rows' => 0];
     foreach ($rows as $row) {
         if (!is_array($row)) {
+            continue;
+        }
+        $status = strtoupper(trim((string) ($row['status'] ?? '')));
+        $paymentStatus = strtolower(trim((string) ($row['payment_status'] ?? '')));
+        if ($paymentStatus === 'canceled' || in_array($status, ['CANCELLED', 'CANCELED', 'VOID', 'VOIDED'], true)) {
             continue;
         }
         $sku = jg_orders_match_sku($row, $skuLookup);
@@ -1505,6 +1540,372 @@ function jg_orders_product_flavor_breakdown_payload(
         $grain,
         $startDate,
         $endDate
+    );
+}
+
+/**
+ * @param array<string, mixed> $sku
+ * @param array<string, string> $selection
+ */
+function jg_orders_analytics_sku_matches(array $sku, string $product, array $selection): bool
+{
+    if (!jg_orders_breakdown_sku_matches_product($sku, $product)) {
+        return false;
+    }
+    $dimension = (string) ($selection['dimension'] ?? 'product');
+    $flavorKey = jg_orders_breakdown_slug($sku['flavor_name'] ?? 'unspecified') ?: 'unspecified';
+    $volumeKey = jg_orders_breakdown_volume_key($sku);
+    if (in_array($dimension, ['flavor', 'sku'], true)
+        && (string) ($selection['flavor'] ?? '') !== $flavorKey) {
+        return false;
+    }
+    if (in_array($dimension, ['volume', 'sku'], true)
+        && (string) ($selection['volume'] ?? '') !== $volumeKey) {
+        return false;
+    }
+    return true;
+}
+
+/** @param array<string, mixed> $sku */
+function jg_orders_breakdown_volume_key(array $sku): string
+{
+    $volume = (float) ($sku['volume'] ?? 0);
+    $unit = trim((string) ($sku['unit_name'] ?? 'ml')) ?: 'ml';
+    $number = rtrim(rtrim(number_format($volume, 1, '.', ''), '0'), '.');
+    return jg_orders_breakdown_slug($number . '-' . $unit);
+}
+
+/** @param array<string, mixed> $sku */
+function jg_orders_breakdown_volume_label(array $sku): string
+{
+    $volume = (float) ($sku['volume'] ?? 0);
+    $unit = trim((string) ($sku['unit_name'] ?? 'ml')) ?: 'ml';
+    return rtrim(rtrim(number_format($volume, 1, '.', ''), '0'), '.') . ' ' . strtoupper($unit);
+}
+
+/**
+ * @return array<int, array<string, mixed>>
+ */
+function jg_orders_analytics_period_scaffold(string $startDate, string $endDate, string $grain): array
+{
+    $timezone = new DateTimeZone('Asia/Jakarta');
+    $cursor = new DateTimeImmutable($startDate . ' 00:00:00', $timezone);
+    $end = new DateTimeImmutable($endDate . ' 23:59:59', $timezone);
+    if ($grain === 'week') {
+        $cursor = $cursor->modify('monday this week');
+    } elseif ($grain === 'month') {
+        $cursor = $cursor->modify('first day of this month');
+    }
+    $step = match ($grain) {
+        'day' => '+1 day',
+        'week' => '+1 week',
+        default => '+1 month',
+    };
+    $periods = [];
+    $guard = 0;
+    while ($cursor <= $end && $guard < 5000) {
+        $period = jg_orders_breakdown_period($cursor, $grain);
+        $periods[(string) $period['key']] = [
+            ...$period,
+            'quantity' => 0,
+            'revenue' => 0,
+            'transactions' => 0,
+        ];
+        $cursor = $cursor->modify($step);
+        $guard++;
+    }
+    return $periods;
+}
+
+/**
+ * @param array<string, array<string, mixed>> $groups
+ * @return array<int, array<string, mixed>>
+ */
+function jg_orders_analytics_ranked_groups(array $groups, array $totals): array
+{
+    uasort($groups, static fn (array $left, array $right): int =>
+        ((int) ($right['quantity'] ?? 0) <=> (int) ($left['quantity'] ?? 0))
+        ?: ((int) ($right['revenue'] ?? 0) <=> (int) ($left['revenue'] ?? 0))
+        ?: strcasecmp((string) ($left['label'] ?? ''), (string) ($right['label'] ?? ''))
+    );
+    return array_values(array_map(static function (array $group) use ($totals): array {
+        $quantity = (int) ($group['quantity'] ?? 0);
+        $revenue = (int) ($group['revenue'] ?? 0);
+        return [
+            ...$group,
+            'quantity_share' => (int) ($totals['quantity'] ?? 0) > 0 ? $quantity / (int) $totals['quantity'] : 0,
+            'revenue_share' => (int) ($totals['revenue'] ?? 0) > 0 ? $revenue / (int) $totals['revenue'] : 0,
+        ];
+    }, $groups));
+}
+
+/**
+ * A small, explainable least-squares forecast. Recent six periods are used so
+ * operational changes outweigh old launch data; predictions never go negative.
+ *
+ * @param array<int, array<string, mixed>> $periods
+ * @return array<int, array<string, mixed>>
+ */
+function jg_orders_analytics_forecast(array $periods, string $grain): array
+{
+    $observed = array_slice($periods, -6);
+    if ($observed === []) {
+        return [];
+    }
+    $predict = static function (string $metric, int $offset) use ($observed): int {
+        $count = count($observed);
+        $values = array_map(static fn (array $row): float => (float) ($row[$metric] ?? 0), $observed);
+        if ($count === 1) {
+            return max(0, (int) round($values[0]));
+        }
+        $xMean = ($count - 1) / 2;
+        $yMean = array_sum($values) / $count;
+        $numerator = 0.0;
+        $denominator = 0.0;
+        foreach ($values as $index => $value) {
+            $numerator += ($index - $xMean) * ($value - $yMean);
+            $denominator += ($index - $xMean) ** 2;
+        }
+        $slope = $denominator > 0 ? $numerator / $denominator : 0;
+        return max(0, (int) round($yMean + $slope * (($count - 1 + $offset) - $xMean)));
+    };
+    $last = end($periods);
+    $lastStart = new DateTimeImmutable((string) ($last['start_date'] ?? 'now'), new DateTimeZone('Asia/Jakarta'));
+    $step = match ($grain) {
+        'day' => '+1 day',
+        'week' => '+1 week',
+        default => '+1 month',
+    };
+    $forecast = [];
+    for ($offset = 1; $offset <= 3; $offset++) {
+        $date = $lastStart;
+        for ($move = 0; $move < $offset; $move++) {
+            $date = $date->modify($step);
+        }
+        $period = jg_orders_breakdown_period($date, $grain);
+        $forecast[] = [
+            ...$period,
+            'quantity' => $predict('quantity', $offset),
+            'revenue' => $predict('revenue', $offset),
+            'predicted' => true,
+        ];
+    }
+    return $forecast;
+}
+
+/**
+ * @param array<int, array<string, mixed>> $rows
+ * @param array<string, array<string, mixed>> $skuLookup
+ * @param array<string, string> $selection
+ * @return array<string, mixed>
+ */
+function jg_orders_aggregate_product_analytics_rows(
+    array $rows,
+    array $skuLookup,
+    string $product,
+    string $grain,
+    string $startDate,
+    string $endDate,
+    array $selection
+): array {
+    $periods = jg_orders_analytics_period_scaffold($startDate, $endDate, $grain);
+    $flavors = [];
+    $volumes = [];
+    $platforms = [];
+    $partners = [];
+    $totals = ['quantity' => 0, 'revenue' => 0, 'transactions' => 0];
+    $catalogProductLabel = ucfirst(str_replace('-', ' ', $product));
+    $selectionFlavorLabel = '';
+    $selectionVolumeLabel = '';
+
+    foreach ($skuLookup as $sku) {
+        if (!is_array($sku) || !jg_orders_breakdown_sku_matches_product($sku, $product)) {
+            continue;
+        }
+        $catalogProductLabel = trim((string) ($sku['base_product_name'] ?? '')) ?: $catalogProductLabel;
+        $flavorKey = jg_orders_breakdown_slug($sku['flavor_name'] ?? 'unspecified') ?: 'unspecified';
+        $volumeKey = jg_orders_breakdown_volume_key($sku);
+        if ($flavorKey === (string) ($selection['flavor'] ?? '')) {
+            $selectionFlavorLabel = trim((string) ($sku['flavor_name'] ?? '')) ?: 'Unspecified';
+        }
+        if ($volumeKey === (string) ($selection['volume'] ?? '')) {
+            $selectionVolumeLabel = jg_orders_breakdown_volume_label($sku);
+        }
+    }
+
+    foreach ($rows as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $status = strtoupper(trim((string) ($row['status'] ?? '')));
+        $paymentStatus = strtolower(trim((string) ($row['payment_status'] ?? '')));
+        if ($paymentStatus === 'canceled' || in_array($status, ['CANCELLED', 'CANCELED', 'VOID', 'VOIDED'], true)) {
+            continue;
+        }
+        $sku = jg_orders_match_sku($row, $skuLookup);
+        if (!is_array($sku) || !jg_orders_analytics_sku_matches($sku, $product, $selection)) {
+            continue;
+        }
+        $date = jg_orders_order_datetime($row['order_create_time'] ?? $row['timestamp'] ?? null);
+        if (!$date) {
+            continue;
+        }
+        $row = jg_orders_interpret_sales_row($row);
+        $quantity = max(0, (int) ($row['quantity'] ?? 0));
+        $revenue = max(0, (int) round((float) ($row['revenue'] ?? $row['net_revenue'] ?? 0)));
+        if ($quantity === 0 && $revenue === 0) {
+            continue;
+        }
+        $transactions = max(1, (int) ($row['transactions'] ?? 1));
+        $period = jg_orders_breakdown_period($date, $grain);
+        $periodKey = (string) $period['key'];
+        $periods[$periodKey] ??= [...$period, 'quantity' => 0, 'revenue' => 0, 'transactions' => 0];
+
+        $flavorLabel = trim((string) ($sku['flavor_name'] ?? '')) ?: 'Unspecified';
+        $flavorKey = jg_orders_breakdown_slug($flavorLabel) ?: 'unspecified';
+        $volumeKey = jg_orders_breakdown_volume_key($sku);
+        $volumeLabel = jg_orders_breakdown_volume_label($sku);
+        $platformKey = jg_orders_breakdown_slug($row['platform'] ?? 'unknown') ?: 'unknown';
+        $platformLabel = jg_orders_daily_title((string) ($row['platform'] ?? 'Unknown'));
+        $accountKey = trim((string) ($row['account_key'] ?? ''));
+        $accountLabel = trim((string) ($row['account_label'] ?? ''));
+        if ($accountLabel === '') {
+            $accountLabel = $accountKey !== '' ? jg_orders_daily_title($accountKey) : $platformLabel;
+        }
+
+        $flavors[$flavorKey] ??= ['key' => $flavorKey, 'label' => $flavorLabel, 'quantity' => 0, 'revenue' => 0];
+        $volumes[$volumeKey] ??= ['key' => $volumeKey, 'label' => $volumeLabel, 'quantity' => 0, 'revenue' => 0, 'volume' => (float) ($sku['volume'] ?? 0), 'unit' => (string) ($sku['unit_name'] ?? '')];
+        $platforms[$platformKey] ??= ['key' => $platformKey, 'label' => $platformLabel, 'quantity' => 0, 'revenue' => 0];
+        $flavors[$flavorKey]['quantity'] += $quantity;
+        $flavors[$flavorKey]['revenue'] += $revenue;
+        $volumes[$volumeKey]['quantity'] += $quantity;
+        $volumes[$volumeKey]['revenue'] += $revenue;
+        $platforms[$platformKey]['quantity'] += $quantity;
+        $platforms[$platformKey]['revenue'] += $revenue;
+        if ($platformKey === 'partner') {
+            $partnerKey = $accountKey !== '' ? jg_orders_breakdown_slug($accountKey) : 'partner';
+            $partners[$partnerKey] ??= ['key' => $partnerKey, 'label' => $accountLabel, 'quantity' => 0, 'revenue' => 0];
+            $partners[$partnerKey]['quantity'] += $quantity;
+            $partners[$partnerKey]['revenue'] += $revenue;
+        }
+
+        $periods[$periodKey]['quantity'] += $quantity;
+        $periods[$periodKey]['revenue'] += $revenue;
+        $periods[$periodKey]['transactions'] += $transactions;
+        $totals['quantity'] += $quantity;
+        $totals['revenue'] += $revenue;
+        $totals['transactions'] += $transactions;
+    }
+    ksort($periods);
+    $periodRows = array_values($periods);
+    foreach ($periodRows as $index => &$period) {
+        $previous = $periodRows[$index - 1] ?? null;
+        foreach (['quantity', 'revenue'] as $metric) {
+            $currentValue = (int) ($period[$metric] ?? 0);
+            $previousValue = $previous === null ? null : (int) ($previous[$metric] ?? 0);
+            $period[$metric . '_change'] = $previousValue === null ? null : $currentValue - $previousValue;
+            $period[$metric . '_change_percent'] = $previousValue > 0
+                ? (($currentValue - $previousValue) / $previousValue) * 100
+                : null;
+        }
+    }
+    unset($period);
+
+    $dimension = (string) ($selection['dimension'] ?? 'product');
+    $title = match ($dimension) {
+        'flavor' => ($selectionFlavorLabel ?: 'Unknown flavor') . ' ' . $catalogProductLabel,
+        'volume' => ($selectionVolumeLabel ?: 'Unknown volume') . ' ' . $catalogProductLabel,
+        'sku' => trim(($selectionFlavorLabel ?: 'Unknown flavor') . ' · ' . ($selectionVolumeLabel ?: 'Unknown volume') . ' ' . $catalogProductLabel),
+        default => $catalogProductLabel,
+    };
+
+    return [
+        'ok' => true,
+        'selection' => [
+            'dimension' => $dimension,
+            'product' => $product,
+            'product_label' => $catalogProductLabel,
+            'flavor' => (string) ($selection['flavor'] ?? ''),
+            'flavor_label' => $selectionFlavorLabel,
+            'volume' => (string) ($selection['volume'] ?? ''),
+            'volume_label' => $selectionVolumeLabel,
+            'title' => $title,
+        ],
+        'grain' => $grain,
+        'start_date' => $startDate,
+        'end_date' => $endDate,
+        'timezone' => 'Asia/Jakarta',
+        'totals' => $totals,
+        'history' => $periodRows,
+        'forecast' => jg_orders_analytics_forecast($periodRows, $grain),
+        'forecast_method' => 'Least-squares trend over the latest six periods; estimates are directional and never below zero.',
+        'breakdowns' => [
+            'flavors' => jg_orders_analytics_ranked_groups($flavors, $totals),
+            'volumes' => jg_orders_analytics_ranked_groups($volumes, $totals),
+            'platforms' => jg_orders_analytics_ranked_groups($platforms, $totals),
+            'partners' => jg_orders_analytics_ranked_groups($partners, $totals),
+        ],
+        'generated_at' => gmdate(DATE_ATOM),
+    ];
+}
+
+function jg_orders_product_analytics_payload(
+    PDO $pdo,
+    string $startDate,
+    string $endDate,
+    string $product,
+    string $grain,
+    array $selection
+): array {
+    [$from, $to] = jg_orders_range_bounds($startDate, $endDate);
+    $stmt = $pdo->prepare(
+        'SELECT CASE WHEN sku <> "" THEN sku ELSE item_key END AS sku,
+                "" AS item_key,
+                MIN(order_create_time) AS order_create_time,
+                platform,
+                account_key,
+                SUM(CASE WHEN is_free_gift = 1 THEN 0 ELSE quantity END) AS quantity,
+                SUM(CASE WHEN is_free_gift = 1 THEN 0 ELSE revenue END) AS revenue,
+                COUNT(DISTINCT CONCAT_WS("|", platform, account_key, CASE WHEN order_id = "" THEN order_item_hash ELSE order_id END)) AS transactions,
+                0 AS is_free_gift
+         FROM dashboard_order_mirror
+         WHERE deleted_at IS NULL
+           AND order_create_time >= :from_date
+           AND order_create_time < :to_date
+         GROUP BY CASE WHEN sku <> "" THEN sku ELSE item_key END,
+                  DATE_FORMAT(DATE_ADD(order_create_time, INTERVAL 7 HOUR), "%Y-%m-%d"),
+                  platform, account_key
+         ORDER BY order_create_time ASC'
+    );
+    $stmt->execute([':from_date' => $from, ':to_date' => $to]);
+    $rows = array_values(array_filter($stmt->fetchAll(), 'is_array'));
+
+    try {
+        $rows = array_merge($rows, jg_website_paid_order_rows($pdo, $startDate, $endDate));
+    } catch (Throwable $error) {
+        error_log('Website rows unavailable for product analytics: ' . $error->getMessage());
+    }
+    try {
+        $rows = array_merge($rows, jg_whatsapp_metric_order_rows($pdo, $startDate, $endDate));
+    } catch (Throwable $error) {
+        error_log('Direct order rows unavailable for product analytics: ' . $error->getMessage());
+    }
+    try {
+        $partnerPdo = jg_partner_db();
+        $profiles = jg_orders_partner_profiles($partnerPdo);
+        $rows = array_merge($rows, jg_orders_partner_order_rows($partnerPdo, $startDate, $endDate, $profiles, $pdo));
+    } catch (Throwable $error) {
+        error_log('Partner rows unavailable for product analytics: ' . $error->getMessage());
+    }
+
+    return jg_orders_aggregate_product_analytics_rows(
+        $rows,
+        jg_orders_sku_lookup(jg_sku_db()),
+        $product,
+        $grain,
+        $startDate,
+        $endDate,
+        $selection
     );
 }
 

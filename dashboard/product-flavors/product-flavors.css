@@ -88,6 +88,29 @@ html {
   font-size: 12px;
 }
 
+.product-flavor-top-actions {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.product-flavor-top-actions > a {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 13px;
+  border: 1px solid var(--flavor-sheet-line);
+  border-radius: 999px;
+  color: var(--flavor-sheet-text);
+  font-size: 10px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.product-flavor-top-actions > a:hover {
+  background: var(--flavor-sheet-surface-2);
+}
+
 .product-flavor-live-status {
   display: flex;
   align-items: center;
@@ -383,6 +406,65 @@ html {
   font-weight: 700;
 }
 
+.product-flavor-drill-link,
+.product-flavor-cell-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.product-flavor-drill-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 42px;
+}
+
+.product-flavor-drill-link.is-column {
+  justify-content: flex-end;
+  min-height: 44px;
+}
+
+.product-flavor-drill-link svg,
+.product-flavor-cell-link svg {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+  opacity: 0;
+  transform: translateX(-3px);
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+
+.product-flavor-cell-link {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  min-height: 42px;
+  margin: 0 -13px;
+  padding: 0 13px;
+}
+
+.product-flavor-drill-link:hover svg,
+.product-flavor-drill-link:focus-visible svg,
+.product-flavor-cell-link:hover svg,
+.product-flavor-cell-link:focus-visible svg {
+  opacity: 0.72;
+  transform: translateX(0);
+}
+
+.product-flavor-drill-link:focus-visible,
+.product-flavor-cell-link:focus-visible {
+  border-radius: 5px;
+  outline: 2px solid var(--flavor-sheet-text);
+  outline-offset: -2px;
+}
+
 .product-flavor-table .is-value {
   --performance-fill: var(--flavor-sheet-cell);
   background-image: linear-gradient(
@@ -492,7 +574,7 @@ html {
   }
 
   .product-flavor-title p,
-  .product-flavor-live-status {
+  .product-flavor-top-actions {
     display: none;
   }
 

@@ -71,6 +71,12 @@
       : new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Jakarta' }).format(date);
   };
   const grainLabel = () => ({ day: 'day', week: 'week', month: 'month' }[state.grain] || state.grain);
+  const analyticsHref = (dimension, flavor = '', volume = '') => {
+    const params = new URLSearchParams({ product: state.product, dimension });
+    if (flavor) params.set('flavor', flavor);
+    if (volume) params.set('volume', volume);
+    return `../product-analytics/?${params.toString()}`;
+  };
 
   const setStatus = (message, mode = '') => {
     refs.status.textContent = message;
@@ -128,7 +134,7 @@
       <tr>
         <th class="is-period" scope="col">Period</th>
         <th class="is-flavor" scope="col">Flavor</th>
-        ${volumes.map((volume) => `<th scope="col">${escapeHtml(volume.label)}</th>`).join('')}
+        ${volumes.map((volume) => `<th scope="col"><a class="product-flavor-drill-link is-column" href="${escapeHtml(analyticsHref('volume', '', volume.key))}" title="Open analytics for every ${escapeHtml(volume.label)} flavor">${escapeHtml(volume.label)}<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg></a></th>`).join('')}
         <th class="is-total" scope="col">${metric === 'revenue' ? 'Total revenue' : 'Total units'}</th>
         <th class="is-revenue" scope="col">${metric === 'revenue' ? 'Units sold' : 'Seller revenue'}</th>
       </tr>
@@ -141,7 +147,7 @@
         rows.push(`
           <tr>
             ${index === 0 ? `<th class="is-period" scope="rowgroup" rowspan="${flavors.length}">${escapeHtml(period.label || period.key)}</th>` : ''}
-            <th class="is-flavor" scope="row">${escapeHtml(flavor.label || 'Unspecified')}</th>
+            <th class="is-flavor" scope="row"><a class="product-flavor-drill-link" href="${escapeHtml(analyticsHref('flavor', flavor.key))}" title="Open complete ${escapeHtml(flavor.label || 'Unspecified')} analytics">${escapeHtml(flavor.label || 'Unspecified')}<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg></a></th>
             ${volumes.map((volume) => {
               const value = Number(flavor.volumes?.[volume.key]?.[metric] || 0);
               const previousPeriod = periods[periodIndex + 1];
@@ -164,7 +170,7 @@
                 ? 'No previous period available'
                 : `${trend === 'up' ? 'Increase' : trend === 'down' ? 'Decrease' : 'No change'} from ${formatMetric(previousValue)}`;
               const title = `${flavor.label} · ${volume.label} · ${formatMetric(value)} · ${comparison}`;
-              return `<td class="is-value is-${trend}${value === 0 ? ' is-zero' : ''}" style="--cell-fill:${fill.toFixed(1)}%" title="${escapeHtml(title)}">${value === 0 ? '—' : escapeHtml(formatMetric(value))}</td>`;
+              return `<td class="is-value is-${trend}${value === 0 ? ' is-zero' : ''}" style="--cell-fill:${fill.toFixed(1)}%"><a class="product-flavor-cell-link" href="${escapeHtml(analyticsHref('sku', flavor.key, volume.key))}" title="${escapeHtml(title)}"><span>${value === 0 ? '—' : escapeHtml(formatMetric(value))}</span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg></a></td>`;
             }).join('')}
             <td class="is-total">${escapeHtml(formatMetric(flavor[metric] || 0))}</td>
             <td class="is-revenue">${escapeHtml(metric === 'revenue' ? formatInteger(flavor.quantity || 0) : formatCurrency(flavor.revenue || 0))}</td>
