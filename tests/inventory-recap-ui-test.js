@@ -18,7 +18,7 @@ assert.match(dashboard, /Stock alerts[\s\S]*Projected at or below trigger/);
 assert.doesNotMatch(dashboard, /Projected stock = stock now − every unit committed to listed Store Ops orders/);
 assert.match(dashboard, /data-inventory-filter="triggered"[\s\S]*data-inventory-partial-alert[^>]*hidden/);
 assert.match(dashboard, /data-inventory-product-search[^>]*placeholder="Search products\.\.\."/);
-assert.match(dashboard, /data-inventory-product-search-field[\s\S]*>Brand<[\s\S]*>Product<[\s\S]*>Flavor \(SKU DB\)</);
+assert.match(dashboard, /data-inventory-product-brand[\s\S]*All brands[\s\S]*data-inventory-product-type[\s\S]*All products[\s\S]*data-inventory-product-flavor[\s\S]*All flavors/);
 assert.match(dashboard, /data-inventory-product-volume[^>]*placeholder="250"/);
 assert.match(dashboard, /Store Ops commitments[\s\S]*Reading listed orders/);
 assert.match(dashboard, /data-inventory-recap-manual/);
@@ -80,7 +80,8 @@ assert.match(script, /return trigger > 0 \? Number\(item\.predicted_stock \?\? i
 assert.match(script, /stockPercent = [^;]*predictedStock \/ trigger/);
 assert.match(script, /filter: 'triggered'/);
 assert.match(script, /needsPurchaseRisks = \['urgent', 'triggered', 'partial', 'near'\]/);
-assert.match(script, /inventoryProductMatchesSearch[\s\S]*brand_name[\s\S]*base_product_name[\s\S]*flavor_name[\s\S]*query\.split\(\/\\s\+\//);
+assert.match(script, /syncInventoryProductFilters[\s\S]*inventoryDistinctValues\(rows, 'brand_name'\)[\s\S]*inventoryDistinctValues\(brandRows, 'base_product_name'\)[\s\S]*inventoryDistinctValues\(productRows, 'flavor_name'\)/);
+assert.match(script, /inventoryProductMatchesSearch[\s\S]*matchesBrand[\s\S]*matchesProduct[\s\S]*matchesFlavor[\s\S]*matchesVolume/);
 assert.match(script, /Math\.abs\(Number\(item\.volume \|\| 0\) - requestedVolume\) < 0\.01/);
 assert.match(script, /\['urgent', 'triggered', 'partial', 'near', 'healthy', 'quiet', 'incoming'\]/);
 assert.match(script, /summary\.alert_count \?\? summary\.triggered_count/);

@@ -814,13 +814,22 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                                    <span class="admin-sr-only">Search products</span>
 	                                    <input type="search" data-inventory-product-search placeholder="Search products..." autocomplete="off">
 	                                </label>
-	                                <label class="admin-inventory-product-search-field">
-	                                    <span>Search by</span>
-	                                    <select data-inventory-product-search-field aria-label="Search product field">
-	                                        <option value="all">All fields</option>
-	                                        <option value="brand">Brand</option>
-	                                        <option value="product">Product</option>
-	                                        <option value="flavor">Flavor (SKU DB)</option>
+	                                <label class="admin-inventory-product-search-filter">
+	                                    <span>Brand</span>
+	                                    <select data-inventory-product-brand aria-label="Filter by brand">
+	                                        <option value="">All brands</option>
+	                                    </select>
+	                                </label>
+	                                <label class="admin-inventory-product-search-filter">
+	                                    <span>Product</span>
+	                                    <select data-inventory-product-type aria-label="Filter by product">
+	                                        <option value="">All products</option>
+	                                    </select>
+	                                </label>
+	                                <label class="admin-inventory-product-search-filter">
+	                                    <span>Flavor</span>
+	                                    <select data-inventory-product-flavor aria-label="Filter by flavor from SKU DB">
+	                                        <option value="">All flavors</option>
 	                                    </select>
 	                                </label>
 	                                <label class="admin-inventory-product-search-volume">

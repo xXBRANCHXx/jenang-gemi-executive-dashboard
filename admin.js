@@ -2586,7 +2586,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	      copied: false,
 	      filter: 'triggered',
 	      productSearch: '',
-	      productSearchField: 'all',
+	      productBrand: '',
+	      productType: '',
+	      productFlavor: '',
 	      productVolume: '',
 	      planQuantities: {},
 	      planEdited: {},
@@ -2906,7 +2908,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	    triggeredFilter: document.querySelector('[data-inventory-filter="triggered"]'),
 	    partialAlert: document.querySelector('[data-inventory-partial-alert]'),
 	    productSearch: document.querySelector('[data-inventory-product-search]'),
-	    productSearchField: document.querySelector('[data-inventory-product-search-field]'),
+	    productBrand: document.querySelector('[data-inventory-product-brand]'),
+	    productType: document.querySelector('[data-inventory-product-type]'),
+	    productFlavor: document.querySelector('[data-inventory-product-flavor]'),
 	    productVolume: document.querySelector('[data-inventory-product-volume]'),
 	    globalDaysForm: document.querySelector('[data-inventory-global-days-form]'),
 	    globalDays: document.querySelector('[data-inventory-global-days]'),
@@ -8885,22 +8889,78 @@ document.addEventListener('DOMContentLoaded', () => {
 	    .replace(/[^a-z0-9.]+/g, ' ')
 	    .trim();
 
+	  const inventoryDistinctValues = (rows, field) => Array.from(new Map(rows
+	    .map((item) => String(item?.[field] || '').trim())
+	    .filter(Boolean)
+	    .map((value) => [inventorySearchToken(value), value])).values())
+	    .sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'base' }));
+
+	  const syncInventoryProductFilter = (select, allLabel, values, selectedValue) => {
+	    if (!(select instanceof HTMLSelectElement)) return '';
+	    const normalizedSelection = inventorySearchToken(selectedValue);
+	    const resolvedSelection = values.find((value) => inventorySearchToken(value) === normalizedSelection) || '';
+	    const optionSignature = JSON.stringify([allLabel, ...values]);
+	    if (select.dataset.optionSignature !== optionSignature) {
+	      const options = [
+	        { value: '', label: allLabel },
+	        ...values.map((value) => ({ value, label: value }))
+	      ];
+	      select.replaceChildren(...options.map(({ value, label }) => {
+	        const option = document.createElement('option');
+	        option.value = value;
+	        option.textContent = label;
+	        return option;
+	      }));
+	      select.dataset.optionSignature = optionSignature;
+	    }
+	    select.value = resolvedSelection;
+	    return resolvedSelection;
+	  };
+
+	  const syncInventoryProductFilters = (rows) => {
+	    state.inventoryRecap.productBrand = syncInventoryProductFilter(
+	      inventoryRecapRefs.productBrand,
+	      'All brands',
+	      inventoryDistinctValues(rows, 'brand_name'),
+	      state.inventoryRecap.productBrand
+	    );
+	    const brandRows = state.inventoryRecap.productBrand
+	      ? rows.filter((item) => inventorySearchToken(item.brand_name) === inventorySearchToken(state.inventoryRecap.productBrand))
+	      : rows;
+	    state.inventoryRecap.productType = syncInventoryProductFilter(
+	      inventoryRecapRefs.productType,
+	      'All products',
+	      inventoryDistinctValues(brandRows, 'base_product_name'),
+	      state.inventoryRecap.productType
+	    );
+	    const productRows = state.inventoryRecap.productType
+	      ? brandRows.filter((item) => inventorySearchToken(item.base_product_name) === inventorySearchToken(state.inventoryRecap.productType))
+	      : brandRows;
+	    state.inventoryRecap.productFlavor = syncInventoryProductFilter(
+	      inventoryRecapRefs.productFlavor,
+	      'All flavors',
+	      inventoryDistinctValues(productRows, 'flavor_name'),
+	      state.inventoryRecap.productFlavor
+	    );
+	  };
+
 	  const inventoryProductMatchesSearch = (item) => {
 	    const query = inventorySearchToken(state.inventoryRecap.productSearch);
-	    const field = String(state.inventoryRecap.productSearchField || 'all');
-	    const fields = {
-	      brand: [item.brand_name],
-	      product: [item.base_product_name, item.product_name],
-	      flavor: [item.flavor_name],
-	      all: [item.sku, item.tag, item.brand_name, item.base_product_name, item.product_name, item.flavor_name]
-	    };
-	    const haystack = inventorySearchToken((fields[field] || fields.all).join(' '));
+	    const haystack = inventorySearchToken([
+	      item.sku, item.tag, item.brand_name, item.base_product_name, item.product_name, item.flavor_name
+	    ].join(' '));
 	    const matchesQuery = query === '' || query.split(/\s+/).every((token) => haystack.includes(token));
+	    const matchesBrand = !state.inventoryRecap.productBrand
+	      || inventorySearchToken(item.brand_name) === inventorySearchToken(state.inventoryRecap.productBrand);
+	    const matchesProduct = !state.inventoryRecap.productType
+	      || inventorySearchToken(item.base_product_name) === inventorySearchToken(state.inventoryRecap.productType);
+	    const matchesFlavor = !state.inventoryRecap.productFlavor
+	      || inventorySearchToken(item.flavor_name) === inventorySearchToken(state.inventoryRecap.productFlavor);
 	    const volumeInput = String(state.inventoryRecap.productVolume || '').trim();
 	    const requestedVolume = Number(volumeInput);
 	    const matchesVolume = volumeInput === ''
 	      || (Number.isFinite(requestedVolume) && Math.abs(Number(item.volume || 0) - requestedVolume) < 0.01);
-	    return matchesQuery && matchesVolume;
+	    return matchesQuery && matchesBrand && matchesProduct && matchesFlavor && matchesVolume;
 	  };
 
 	  const renderInventoryRecapList = (rows) => {
@@ -8910,6 +8970,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      return;
 	    }
 	    const filter = state.inventoryRecap.filter || 'triggered';
+	    syncInventoryProductFilters(rows);
 	    const needsPurchaseRisks = ['urgent', 'triggered', 'partial', 'near'];
 	    const visibleRows = rows.filter((item) => (
 	      (filter === 'all' || needsPurchaseRisks.includes(String(item.risk || '')))
@@ -8920,6 +8981,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	    });
 	    if (!visibleRows.length) {
 	      const hasProductSearch = String(state.inventoryRecap.productSearch || '').trim() !== ''
+	        || state.inventoryRecap.productBrand !== ''
+	        || state.inventoryRecap.productType !== ''
+	        || state.inventoryRecap.productFlavor !== ''
 	        || String(state.inventoryRecap.productVolume || '').trim() !== '';
 	      inventoryRecapRefs.list.innerHTML = `<p class="admin-empty">${hasProductSearch ? 'No products match this search.' : 'No products currently need purchase.'}</p>`;
 	      return;
@@ -13636,8 +13700,18 @@ document.addEventListener('DOMContentLoaded', () => {
 	    renderInventoryRecap(state.inventoryRecap.data);
 	  });
 
-	  inventoryRecapRefs.productSearchField?.addEventListener('change', () => {
-	    state.inventoryRecap.productSearchField = inventoryRecapRefs.productSearchField.value || 'all';
+	  inventoryRecapRefs.productBrand?.addEventListener('change', () => {
+	    state.inventoryRecap.productBrand = inventoryRecapRefs.productBrand.value;
+	    renderInventoryRecap(state.inventoryRecap.data);
+	  });
+
+	  inventoryRecapRefs.productType?.addEventListener('change', () => {
+	    state.inventoryRecap.productType = inventoryRecapRefs.productType.value;
+	    renderInventoryRecap(state.inventoryRecap.data);
+	  });
+
+	  inventoryRecapRefs.productFlavor?.addEventListener('change', () => {
+	    state.inventoryRecap.productFlavor = inventoryRecapRefs.productFlavor.value;
 	    renderInventoryRecap(state.inventoryRecap.data);
 	  });
 

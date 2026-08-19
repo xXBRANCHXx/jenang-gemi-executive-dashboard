@@ -27148,9 +27148,9 @@ button.admin-order-payment-dot:focus-visible {
 
 .admin-inventory-product-search {
   display: grid;
-  grid-template-columns: minmax(240px, 1fr) minmax(120px, auto) 92px;
+  grid-template-columns: minmax(240px, 1fr) repeat(3, minmax(112px, auto)) 92px;
   gap: 8px;
-  width: min(700px, 100%);
+  width: min(920px, 100%);
 }
 
 .admin-inventory-product-search label {
@@ -27204,13 +27204,13 @@ button.admin-order-payment-dot:focus-visible {
   border-color: var(--admin-text);
 }
 
-.admin-inventory-product-search-field,
+.admin-inventory-product-search-filter,
 .admin-inventory-product-search-volume {
   position: relative;
   display: block;
 }
 
-.admin-inventory-product-search-field > span,
+.admin-inventory-product-search-filter > span,
 .admin-inventory-product-search-volume > span {
   position: absolute;
   z-index: 1;
@@ -27224,7 +27224,7 @@ button.admin-order-payment-dot:focus-visible {
 }
 
 .admin-inventory-product-search select,
-.admin-inventory-product-search-field input,
+.admin-inventory-product-search-filter input,
 .admin-inventory-product-search-volume input {
   padding-top: 10px;
 }
@@ -27621,6 +27621,7 @@ button.admin-order-payment-dot:focus-visible {
   }
 
   .admin-inventory-product-search {
+    grid-template-columns: minmax(220px, 1fr) repeat(3, minmax(95px, 1fr)) 92px;
     width: 100%;
   }
 
