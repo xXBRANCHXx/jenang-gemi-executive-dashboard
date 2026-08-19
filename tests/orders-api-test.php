@@ -624,6 +624,14 @@ expect_same(1, count($accountAnalytics['breakdowns']['platforms']), 'TikTok and 
 expect_same('TikTok (incl. Tokopedia)', $accountAnalytics['breakdowns']['platforms'][0]['label'], 'The combined TikTok platform label must disclose Tokopedia inclusion.');
 expect_same(2, count($accountAnalytics['breakdowns']['accounts']), 'Platform analytics must retain each underlying marketplace account.');
 expect_same('Jenang Gemi', $accountAnalytics['breakdowns']['accounts'][0]['label'], 'Account labels must not repeat the platform name as a prefix.');
+$familyTitleAnalytics = jg_orders_aggregate_product_analytics_rows([], [
+    jg_orders_sku_key('FIBER-SYRUP-550') => [
+        'sku' => 'FIBER-SYRUP-550', 'base_product_name' => 'Fiber Syrup', 'flavor_name' => 'Original', 'volume' => 550.0, 'unit_name' => 'ml',
+    ],
+], 'syrup', 'month', '2026-08-01', '2026-08-19', [
+    'dimension' => 'volume', 'flavor' => '', 'volume' => '550-ml',
+]);
+expect_same('550 ML Syrup', $familyTitleAnalytics['selection']['title'], 'Analytics titles must use the requested product family instead of the longer SKU base-product name.');
 expect_same('seasonal-special', jg_orders_breakdown_product('Seasonal Special'), 'Analytics must accept future SKU-database products without a hardcoded allowlist.');
 
 $ordersUrl = jg_orders_remote_url('/sales/orders', [

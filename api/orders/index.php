@@ -1718,7 +1718,7 @@ function jg_orders_aggregate_product_analytics_rows(
     $accounts = [];
     $partners = [];
     $totals = ['quantity' => 0, 'revenue' => 0, 'transactions' => 0];
-    $catalogProductLabel = ucfirst(str_replace('-', ' ', $product));
+    $catalogProductLabel = ucwords(str_replace('-', ' ', $product));
     $selectionFlavorLabel = '';
     $selectionVolumeLabel = '';
 
@@ -1726,7 +1726,6 @@ function jg_orders_aggregate_product_analytics_rows(
         if (!is_array($sku) || !jg_orders_breakdown_sku_matches_product($sku, $product)) {
             continue;
         }
-        $catalogProductLabel = trim((string) ($sku['base_product_name'] ?? '')) ?: $catalogProductLabel;
         $flavorKey = jg_orders_breakdown_slug($sku['flavor_name'] ?? 'unspecified') ?: 'unspecified';
         $volumeKey = jg_orders_breakdown_volume_key($sku);
         if ($flavorKey === (string) ($selection['flavor'] ?? '')) {
