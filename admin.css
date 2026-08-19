@@ -31062,6 +31062,271 @@ button.admin-accounting-metric {
   font-size: 0.76rem;
 }
 
+.pnl-allocation-panel {
+  overflow: hidden;
+}
+
+.pnl-settings-button {
+  flex: 0 0 auto;
+}
+
+.pnl-allocation-intro {
+  margin: -6px 0 14px;
+  color: var(--pnl-muted);
+  font-size: 0.74rem;
+  line-height: 1.5;
+}
+
+.pnl-allocation-tree {
+  display: grid;
+}
+
+.pnl-allocation-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+  min-height: 58px;
+  padding: 10px 0 10px calc(10px + (var(--pnl-allocation-depth) * 28px));
+  border-bottom: 1px solid var(--pnl-border);
+}
+
+.pnl-allocation-row:last-child {
+  border-bottom: 0;
+}
+
+.pnl-allocation-row > span {
+  position: relative;
+  display: grid;
+  gap: 4px;
+}
+
+.pnl-allocation-row[style*="depth:1"] > span::before,
+.pnl-allocation-row[style*="depth:2"] > span::before,
+.pnl-allocation-row[style*="depth:3"] > span::before,
+.pnl-allocation-row[style*="depth:4"] > span::before,
+.pnl-allocation-row[style*="depth:5"] > span::before,
+.pnl-allocation-row[style*="depth:6"] > span::before,
+.pnl-allocation-row[style*="depth:7"] > span::before,
+.pnl-allocation-row[style*="depth:8"] > span::before {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: -15px;
+  width: 1px;
+  background: color-mix(in srgb, var(--pnl-muted) 35%, transparent);
+  content: "";
+}
+
+.pnl-allocation-row > span strong,
+.pnl-allocation-row > b {
+  color: var(--pnl-text);
+  font-size: 0.82rem;
+}
+
+.pnl-allocation-row.has-children > span strong {
+  font-weight: 850;
+}
+
+.pnl-allocation-row > span small {
+  color: var(--pnl-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.pnl-allocation-empty {
+  margin: 0;
+  padding: 20px;
+  color: var(--pnl-muted);
+  text-align: center;
+}
+
+.pnl-allocation-dialog {
+  width: min(980px, calc(100vw - 32px));
+  max-height: min(850px, calc(100vh - 32px));
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--pnl-border, var(--admin-border));
+  border-radius: 16px;
+  background: var(--pnl-surface, var(--admin-surface));
+  color: var(--pnl-text, var(--admin-text));
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.42);
+}
+
+.pnl-allocation-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(3px);
+}
+
+.pnl-allocation-form {
+  display: grid;
+  gap: 16px;
+  max-height: min(850px, calc(100vh - 32px));
+  padding: 22px;
+}
+
+.pnl-allocation-dialog-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.pnl-allocation-dialog-head span,
+.pnl-allocation-editor-row label > span {
+  color: var(--admin-muted);
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+
+.pnl-allocation-dialog-head h2 {
+  margin: 4px 0;
+  font: 800 1.35rem/1.1 "Space Grotesk", sans-serif;
+}
+
+.pnl-allocation-dialog-head p {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 0.74rem;
+}
+
+.pnl-dialog-close,
+.pnl-allocation-remove {
+  border: 0;
+  background: transparent;
+  color: var(--admin-muted);
+  cursor: pointer;
+}
+
+.pnl-dialog-close {
+  width: 36px;
+  height: 36px;
+  font-size: 1.7rem;
+  line-height: 1;
+}
+
+.pnl-allocation-editor {
+  display: grid;
+  gap: 12px;
+  max-height: min(570px, calc(100vh - 280px));
+  padding: 14px;
+  overflow: auto;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--admin-surface) 94%, var(--admin-text) 6%);
+}
+
+.pnl-allocation-editor-level {
+  display: grid;
+  gap: 10px;
+}
+
+.pnl-allocation-editor-level .pnl-allocation-editor-level {
+  margin: 12px 0 0 24px;
+  padding-left: 14px;
+  border-left: 1px solid var(--admin-border);
+}
+
+.pnl-allocation-level-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--admin-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.pnl-allocation-level-summary strong.is-valid {
+  color: #4ade80;
+}
+
+.pnl-allocation-level-summary strong.is-invalid,
+.pnl-allocation-error {
+  color: #f87171;
+}
+
+.pnl-allocation-editor-item {
+  min-width: 0;
+}
+
+.pnl-allocation-editor-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(120px, 0.35fr) auto auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.pnl-allocation-editor-row label {
+  position: relative;
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.pnl-allocation-editor-row input {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  padding: 0 11px;
+  font: 750 0.78rem/1 "Plus Jakarta Sans", sans-serif;
+}
+
+.pnl-allocation-percentage input {
+  padding-right: 28px;
+}
+
+.pnl-allocation-percentage > b {
+  position: absolute;
+  right: 10px;
+  bottom: 12px;
+  color: var(--admin-muted);
+  font-size: 0.72rem;
+}
+
+.pnl-allocation-editor-row .admin-ghost-btn {
+  min-height: 40px;
+  white-space: nowrap;
+}
+
+.pnl-allocation-remove {
+  min-height: 40px;
+  padding: 0 6px;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.pnl-allocation-error {
+  margin: 0;
+  font-size: 0.74rem;
+  font-weight: 750;
+}
+
+.pnl-allocation-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+:root[data-admin-theme='light'] .pnl-allocation-dialog {
+  border-color: rgba(15, 23, 42, 0.12);
+  background: #fff;
+}
+
+:root[data-admin-theme='light'] .pnl-allocation-editor {
+  background: #f8fafc;
+}
+
+:root[data-admin-theme='light'] .pnl-allocation-level-summary strong.is-valid {
+  color: #15803d;
+}
+
+:root[data-admin-theme='light'] .pnl-allocation-level-summary strong.is-invalid,
+:root[data-admin-theme='light'] .pnl-allocation-error {
+  color: #b91c1c;
+}
+
 .pnl-trend {
   display: grid;
   grid-template-columns: repeat(12, minmax(28px, 1fr));
@@ -31310,6 +31575,34 @@ button.admin-accounting-metric {
 
   .pnl-expense-mix i {
     display: none;
+  }
+
+  .pnl-allocation-dialog {
+    width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+  }
+
+  .pnl-allocation-form {
+    max-height: calc(100vh - 16px);
+    padding: 16px;
+  }
+
+  .pnl-allocation-editor-row {
+    grid-template-columns: minmax(0, 1fr) 100px;
+  }
+
+  .pnl-allocation-editor-row .admin-ghost-btn,
+  .pnl-allocation-remove {
+    width: 100%;
+  }
+
+  .pnl-allocation-editor-level .pnl-allocation-editor-level {
+    margin-left: 10px;
+    padding-left: 8px;
+  }
+
+  .pnl-allocation-row {
+    padding-left: calc(4px + (var(--pnl-allocation-depth) * 16px));
   }
 
   .pnl-trend {

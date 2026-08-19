@@ -27,7 +27,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/pnl.js');
     <link rel="stylesheet" href="../admin.css?v=<?php echo urlencode($adminCssVersion ?: '1'); ?>">
 </head>
 <body class="admin-body is-dashboard is-executive-dashboard is-profit-and-loss">
-<div class="admin-app admin-app-suite" data-pnl-page data-sales-endpoint="../api/sales/" data-accounting-endpoint="../api/accounting/">
+<div class="admin-app admin-app-suite" data-pnl-page data-sales-endpoint="../api/sales/" data-accounting-endpoint="../api/accounting/" data-profit-loss-endpoint="../api/profit-loss/">
     <div class="admin-shell">
         <?php render_admin_sidebar('profit-loss'); ?>
         <div class="admin-shell-main">
@@ -70,6 +70,15 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/pnl.js');
                     </article>
                 </section>
 
+                <section class="pnl-panel pnl-allocation-panel" aria-labelledby="pnl-allocation-title">
+                    <div class="pnl-panel-head">
+                        <div><span>After net profit</span><h2 id="pnl-allocation-title">Profit allocation</h2></div>
+                        <button type="button" class="admin-ghost-btn pnl-settings-button" data-pnl-edit-allocation>Allocation settings</button>
+                    </div>
+                    <p class="pnl-allocation-intro" data-pnl-allocation-intro>Positive net profit is distributed through the configured sharing levels.</p>
+                    <div class="pnl-allocation-tree" data-pnl-allocation-tree></div>
+                </section>
+
                 <section class="pnl-panel pnl-monthly-panel">
                     <div class="pnl-panel-head"><div><span>Year at a glance</span><h2>Monthly performance</h2></div><small>Tap a month to focus the report</small></div>
                     <div class="pnl-trend" data-pnl-trend aria-label="Monthly net profit trend"></div>
@@ -89,6 +98,21 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/pnl.js');
             </main>
         </div>
     </div>
+    <dialog class="pnl-allocation-dialog" data-pnl-allocation-dialog aria-labelledby="pnl-allocation-settings-title">
+        <form class="pnl-allocation-form" data-pnl-allocation-form>
+            <div class="pnl-allocation-dialog-head">
+                <div><span>Selected year: <b data-pnl-allocation-year>—</b></span><h2 id="pnl-allocation-settings-title">Profit allocation settings</h2><p>Rename items, change percentages, or add sub-splits. Every level must total 100%.</p></div>
+                <button type="button" class="pnl-dialog-close" data-pnl-close-allocation aria-label="Close allocation settings">×</button>
+            </div>
+            <div class="pnl-allocation-editor" data-pnl-allocation-editor></div>
+            <button type="button" class="admin-ghost-btn" data-pnl-add-allocation>Add profit allocation</button>
+            <p class="pnl-allocation-error" data-pnl-allocation-error hidden></p>
+            <div class="pnl-allocation-actions">
+                <button type="button" class="admin-ghost-btn" data-pnl-cancel-allocation>Cancel</button>
+                <button type="submit" class="admin-primary-btn" data-pnl-save-allocation>Save allocation</button>
+            </div>
+        </form>
+    </dialog>
 </div>
 <?php render_admin_notification_drawer(); ?>
 <?php render_admin_chrome_script('../'); ?>

@@ -209,6 +209,13 @@ try {
     $year = jg_profit_loss_year($body['year'] ?? $_GET['year'] ?? gmdate('Y'));
 
     if ($method === 'GET') {
+        if (strtolower((string) ($_GET['scope'] ?? '')) === 'allocation_settings') {
+            jg_profit_loss_json([
+                'ok' => true,
+                'year' => $year,
+                'settings' => jg_profit_loss_settings($pdo, $year),
+            ]);
+        }
         $skuStmt = $pdo->prepare(
             'SELECT year, month, sku, cogs_override, packaging_per_unit, labor_per_unit,
                     other_per_unit, notes, updated_at
@@ -405,6 +412,26 @@ try {
             array_map(static fn (string $field): string => ':' . $field, $fields),
             array_values($values)
         ));
+        jg_profit_loss_json(['ok' => true, 'settings' => jg_profit_loss_settings($pdo, $year)]);
+    }
+
+    if ($action === 'save_allocation_tree') {
+        try {
+            $allocationTree = jg_profit_loss_normalize_allocation_tree($body['allocation_tree'] ?? null);
+        } catch (InvalidArgumentException $error) {
+            jg_profit_loss_json(['ok' => false, 'error' => $error->getMessage()], 422);
+        }
+        $encodedTree = json_encode($allocationTree, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        if (!is_string($encodedTree)) {
+            jg_profit_loss_json(['ok' => false, 'error' => 'Unable to encode the profit allocation.'], 422);
+        }
+        $stmt = $pdo->prepare(
+            'INSERT INTO profit_loss_settings (year, allocation_tree_json, updated_at)
+             VALUES (:year, :allocation_tree_json, UTC_TIMESTAMP(6))
+             ON DUPLICATE KEY UPDATE
+                allocation_tree_json = VALUES(allocation_tree_json), updated_at = VALUES(updated_at)'
+        );
+        $stmt->execute([':year' => $year, ':allocation_tree_json' => $encodedTree]);
         jg_profit_loss_json(['ok' => true, 'settings' => jg_profit_loss_settings($pdo, $year)]);
     }
 

@@ -33,13 +33,14 @@ function jg_profit_loss_ensure_schema(PDO $pdo): void
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
         'CREATE TABLE IF NOT EXISTS profit_loss_settings (
             year SMALLINT UNSIGNED NOT NULL PRIMARY KEY,
-            reinvest_pct DECIMAL(7,4) NOT NULL DEFAULT 25,
+            reinvest_pct DECIMAL(7,4) NOT NULL DEFAULT 20,
             offering_pct DECIMAL(7,4) NOT NULL DEFAULT 10,
             ownership_pct DECIMAL(7,4) NOT NULL DEFAULT 65,
             director_pct DECIMAL(7,4) NOT NULL DEFAULT 30,
             bng_loan_pct DECIMAL(7,4) NOT NULL DEFAULT 50,
             commissioner_pct DECIMAL(7,4) NOT NULL DEFAULT 25,
             advisor_pct DECIMAL(7,4) NOT NULL DEFAULT 25,
+            allocation_tree_json LONGTEXT NULL,
             updated_at DATETIME(6) NOT NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
         'CREATE TABLE IF NOT EXISTS profit_loss_syrup_groups (
@@ -92,6 +93,7 @@ function jg_profit_loss_ensure_schema(PDO $pdo): void
     }
 
     analyticsEnsureTableColumn($pdo, 'profit_loss_product_cards', 'layout_json', 'LONGTEXT NULL AFTER `sku_codes_json`');
+    analyticsEnsureTableColumn($pdo, 'profit_loss_settings', 'allocation_tree_json', 'LONGTEXT NULL AFTER `advisor_pct`');
 
     jg_profit_loss_seed_syrup_groups($pdo);
     jg_profit_loss_seed_statement_metrics($pdo);
@@ -199,22 +201,129 @@ function jg_profit_loss_settings(PDO $pdo, int $year): array
 {
     $stmt = $pdo->prepare(
         'SELECT reinvest_pct, offering_pct, ownership_pct, director_pct,
-                bng_loan_pct, commissioner_pct, advisor_pct, updated_at
+                bng_loan_pct, commissioner_pct, advisor_pct, allocation_tree_json, updated_at
          FROM profit_loss_settings WHERE year = :year LIMIT 1'
     );
     $stmt->execute([':year' => $year]);
     $row = $stmt->fetch();
 
+    $allocationTree = jg_profit_loss_default_allocation_tree();
+    $storedTree = json_decode((string) ($row['allocation_tree_json'] ?? ''), true);
+    if (is_array($storedTree)) {
+        try {
+            $allocationTree = jg_profit_loss_normalize_allocation_tree($storedTree);
+        } catch (InvalidArgumentException) {
+            // Keep the safe defaults when a manually edited legacy value is invalid.
+        }
+    }
+
     return [
-        'reinvest_pct' => (float) ($row['reinvest_pct'] ?? 25),
+        'reinvest_pct' => (float) ($row['reinvest_pct'] ?? 20),
         'offering_pct' => (float) ($row['offering_pct'] ?? 10),
         'ownership_pct' => (float) ($row['ownership_pct'] ?? 65),
         'director_pct' => (float) ($row['director_pct'] ?? 30),
         'bng_loan_pct' => (float) ($row['bng_loan_pct'] ?? 50),
         'commissioner_pct' => (float) ($row['commissioner_pct'] ?? 25),
         'advisor_pct' => (float) ($row['advisor_pct'] ?? 25),
+        'allocation_tree' => $allocationTree,
         'updated_at' => (string) ($row['updated_at'] ?? ''),
     ];
+}
+
+function jg_profit_loss_default_allocation_tree(): array
+{
+    return [
+        ['id' => 'reinvested', 'name' => 'Re-invested', 'percentage' => 20.0, 'children' => []],
+        ['id' => 'tithe', 'name' => 'Tithe', 'percentage' => 10.0, 'children' => []],
+        [
+            'id' => 'owners', 'name' => 'Owners', 'percentage' => 65.0,
+            'children' => [
+                ['id' => 'ren-director', 'name' => 'Ren (Director)', 'percentage' => 30.0, 'children' => []],
+                [
+                    'id' => 'bng', 'name' => 'BNG', 'percentage' => 70.0,
+                    'children' => [
+                        ['id' => 'loan-to-bng', 'name' => 'Loan to BNG', 'percentage' => 50.0, 'children' => []],
+                        ['id' => 'commissioner-giri-gusman', 'name' => 'Commissioner (Giri Gusman)', 'percentage' => 25.0, 'children' => []],
+                        ['id' => 'advisor-brent-vincent', 'name' => 'Advisor (Brent Vincent)', 'percentage' => 25.0, 'children' => []],
+                    ],
+                ],
+            ],
+        ],
+        ['id' => 'employee-profit-sharing', 'name' => 'Employee profit sharing', 'percentage' => 5.0, 'children' => []],
+    ];
+}
+
+function jg_profit_loss_normalize_allocation_tree(mixed $value): array
+{
+    if (!is_array($value) || $value === []) {
+        throw new InvalidArgumentException('Add at least one profit allocation.');
+    }
+
+    $nodeCount = 0;
+    $usedIds = [];
+    $normalizeLevel = function (array $nodes, int $depth) use (&$normalizeLevel, &$nodeCount, &$usedIds): array {
+        if ($depth > 8) {
+            throw new InvalidArgumentException('Profit allocations can be split up to 8 levels deep.');
+        }
+        if ($nodes === []) {
+            throw new InvalidArgumentException('An allocation group cannot be empty.');
+        }
+
+        $normalized = [];
+        $levelTotal = 0.0;
+        foreach (array_values($nodes) as $index => $node) {
+            if (!is_array($node)) {
+                throw new InvalidArgumentException('Every profit allocation must be an object.');
+            }
+            $nodeCount++;
+            if ($nodeCount > 100) {
+                throw new InvalidArgumentException('Profit allocation is limited to 100 items.');
+            }
+
+            $name = mb_substr(trim(preg_replace('/\s+/', ' ', (string) ($node['name'] ?? '')) ?? ''), 0, 120);
+            if ($name === '') {
+                throw new InvalidArgumentException('Every profit allocation needs a name.');
+            }
+            if (!is_numeric($node['percentage'] ?? null)) {
+                throw new InvalidArgumentException($name . ' needs a valid percentage.');
+            }
+            $percentage = round((float) $node['percentage'], 4);
+            if ($percentage < 0 || $percentage > 100) {
+                throw new InvalidArgumentException($name . ' must be between 0% and 100%.');
+            }
+
+            $id = strtolower(trim((string) ($node['id'] ?? '')));
+            $id = preg_replace('/[^a-z0-9_-]+/', '-', $id) ?? '';
+            $id = trim($id, '-_');
+            $id = mb_substr($id, 0, 80);
+            if ($id === '' || isset($usedIds[$id])) {
+                $id = 'allocation-' . ($nodeCount + ($depth * 100)) . '-' . ($index + 1);
+                while (isset($usedIds[$id])) {
+                    $id .= '-x';
+                }
+            }
+            $usedIds[$id] = true;
+
+            $children = $node['children'] ?? [];
+            if (!is_array($children)) {
+                throw new InvalidArgumentException($name . ' has invalid sub-allocations.');
+            }
+            $normalized[] = [
+                'id' => $id,
+                'name' => $name,
+                'percentage' => $percentage,
+                'children' => $children === [] ? [] : $normalizeLevel($children, $depth + 1),
+            ];
+            $levelTotal += $percentage;
+        }
+
+        if (abs($levelTotal - 100.0) > 0.01) {
+            throw new InvalidArgumentException(sprintf('Each allocation level must total 100%% (currently %s%%).', rtrim(rtrim(number_format($levelTotal, 4, '.', ''), '0'), '.')));
+        }
+        return $normalized;
+    };
+
+    return $normalizeLevel($value, 1);
 }
 
 function jg_profit_loss_decode_json_list(mixed $value): array
