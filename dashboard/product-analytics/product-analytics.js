@@ -121,6 +121,11 @@
     return [rows.at(-1) || null, rows.at(-2) || null];
   };
 
+  const rankedByMetric = (rows) => [...(rows || [])].sort((left, right) => (
+    Number(right?.[state.metric] || 0) - Number(left?.[state.metric] || 0)
+    || String(left?.label || '').localeCompare(String(right?.label || ''))
+  ));
+
   const renderKpis = () => {
     const totals = state.data.totals || {};
     const [latest, previous] = lastPair();
@@ -134,13 +139,15 @@
     const changeNote = (value, label) => value === null
       ? `<small>No earlier month to compare</small>`
       : `<small class="${value > 0 ? 'is-up' : value < 0 ? 'is-down' : ''}">${value > 0 ? '↑' : value < 0 ? '↓' : '→'} ${escapeHtml(percent(value))} ${escapeHtml(label)}</small>`;
-    const bestPlatform = state.data.breakdowns?.platforms?.[0];
-    const bestPartner = state.data.breakdowns?.partners?.[0];
+    const accountRows = rankedByMetric(state.data.breakdowns?.accounts).slice(0, 4);
+    const accountLeaderboard = accountRows.length
+      ? `<ol class="product-analytics-kpi-ranking">${accountRows.map((row, index) => `<li><i>${index + 1}</i><span><b title="${escapeHtml(row.label)}">${escapeHtml(row.label)}</b><small>${escapeHtml(row.platform_label || '')}</small></span><em>${escapeHtml(compact(row[state.metric]))}</em></li>`).join('')}</ol>`
+      : '<p class="product-analytics-kpi-ranking-empty">No Shopee or TikTok account sales</p>';
     refs.kpis.innerHTML = `
       <article class="product-analytics-kpi"><span>Total units</span><strong>${escapeHtml(integer(totals.quantity))}</strong>${changeNote(quantityChange, comparisonLabel)}</article>
       <article class="product-analytics-kpi"><span>Seller revenue</span><strong>${escapeHtml(compact(totals.revenue, 'revenue'))}</strong>${changeNote(revenueChange, comparisonLabel)}</article>
       <article class="product-analytics-kpi"><span>Revenue / unit</span><strong>${escapeHtml(currency(Number(totals.quantity) > 0 ? Number(totals.revenue) / Number(totals.quantity) : 0))}</strong><small>Average across the selected history</small></article>
-      <article class="product-analytics-kpi"><span>${bestPartner ? 'Top partner' : 'Top platform'}</span><strong title="${escapeHtml((bestPartner || bestPlatform)?.label || 'No sales')}">${escapeHtml((bestPartner || bestPlatform)?.label || '—')}</strong><small>${bestPartner || bestPlatform ? `${escapeHtml(percent(((bestPartner || bestPlatform)?.quantity_share || 0) * 100))} of units sold` : 'No channel data in this period'}</small></article>
+      <article class="product-analytics-kpi is-ranking"><span>Account ranking · ${state.metric === 'revenue' ? 'revenue' : 'units'}</span>${accountLeaderboard}</article>
     `;
   };
 
@@ -150,16 +157,19 @@
       target.innerHTML = `<div class="product-analytics-ranking-empty">${type === 'partner' ? 'No partner sales match this selection yet.' : 'No breakdown data is available.'}</div>`;
       return;
     }
-    const maximum = Math.max(1, ...rows.map((row) => Number(row[state.metric] || 0)));
-    target.innerHTML = rows.slice(0, 12).map((row, index) => {
+    const rankedRows = rankedByMetric(rows);
+    const maximum = Math.max(1, ...rankedRows.map((row) => Number(row[state.metric] || 0)));
+    target.innerHTML = rankedRows.slice(0, 12).map((row, index) => {
       const value = Number(row[state.metric] || 0);
       const share = Number(row[`${state.metric}_share`] || 0) * 100;
       const href = type === 'flavor' ? selectedUrl('flavor', row.key) : type === 'volume' ? selectedUrl('volume', '', row.key) : '';
+      const visibleLabel = type === 'account' ? (row.account_label || row.label) : row.label;
       const label = href
         ? `<a href="${escapeHtml(href)}" title="Open ${escapeHtml(row.label)} analytics">${escapeHtml(row.label)}</a>`
-        : `<strong title="${escapeHtml(row.label)}">${escapeHtml(row.label)}</strong>`;
-      return `<div class="product-analytics-rank-row">
-        <div class="product-analytics-rank-label">${label}<small>${escapeHtml(percent(share))} share</small></div>
+        : `<strong title="${escapeHtml(visibleLabel)}">${type === 'account' ? `<b class="product-analytics-rank-number">${index + 1}</b>` : ''}${escapeHtml(visibleLabel)}</strong>`;
+      const meta = type === 'account' ? `${row.platform_label || 'Marketplace'} · ${percent(share)} share` : `${percent(share)} share`;
+      return `<div class="product-analytics-rank-row${type === 'account' ? ' is-account' : ''}">
+        <div class="product-analytics-rank-label">${label}<small>${escapeHtml(meta)}</small></div>
         <div class="product-analytics-rank-track" aria-hidden="true"><i style="--rank-fill:${Math.max(2, (value / maximum) * 100).toFixed(1)}%;--rank-color:${rankPalette[index % rankPalette.length]}"></i></div>
         <div class="product-analytics-rank-value"><strong>${escapeHtml(compact(value))}</strong><small>${state.metric === 'revenue' ? 'revenue' : 'units'}</small></div>
       </div>`;
@@ -202,11 +212,6 @@
     </tr>`).join('');
   };
 
-  const chartRows = () => [
-    ...(state.data?.history || []).map((row) => ({ ...row, predicted: false })),
-    ...(state.data?.forecast || []).map((row) => ({ ...row, predicted: true }))
-  ];
-
   const drawChart = () => {
     const canvas = refs.canvas;
     const bounds = canvas.getBoundingClientRect();
@@ -221,9 +226,11 @@
     const padding = { top: 24, right: 23, bottom: 42, left: width < 600 ? 44 : 62 };
     const plotWidth = width - padding.left - padding.right;
     const plotHeight = height - padding.top - padding.bottom;
-    const rows = chartRows();
+    const rows = (state.data.history || []).map((row) => ({ ...row, predicted: false }));
+    const projection = state.data.forecast?.[0] ? { ...state.data.forecast[0], predicted: true } : null;
     const values = rows.map((row) => Number(row[state.metric] || 0));
-    const maximum = Math.max(1, ...values) * 1.12;
+    const projectionValue = Number(projection?.[state.metric] || 0);
+    const maximum = Math.max(1, ...values, projectionValue) * 1.12;
     const x = (index) => padding.left + (rows.length <= 1 ? plotWidth / 2 : (index / (rows.length - 1)) * plotWidth);
     const y = (value) => padding.top + plotHeight - (Number(value || 0) / maximum) * plotHeight;
     context.clearRect(0, 0, width, height);
@@ -245,7 +252,7 @@
       context.fillText(dateLabel(row.start_date), x(index), height - 17);
     });
 
-    const actualCount = state.data.history?.length || 0;
+    const actualCount = rows.length;
     if (actualCount > 1) {
       const gradient = context.createLinearGradient(0, padding.top, 0, height - padding.bottom);
       gradient.addColorStop(0, `${css('--pa-actual')}35`);
@@ -265,8 +272,16 @@
       context.setLineDash(dashed ? [6, 6] : []); context.stroke(); context.setLineDash([]);
     };
     drawLine(0, Math.max(0, actualCount - 1), css('--pa-actual'));
-    if (rows.length > actualCount && actualCount > 0) drawLine(actualCount - 1, rows.length - 1, css('--pa-forecast'), true);
     state.chartPoints = rows.map((row, index) => ({ row, x: x(index), y: y(values[index]) }));
+    if (projection && actualCount > 0) {
+      const forecastX = x(actualCount - 1);
+      const actualY = y(values[actualCount - 1]);
+      const forecastY = y(projectionValue);
+      context.beginPath(); context.moveTo(forecastX, actualY); context.lineTo(forecastX, forecastY);
+      context.strokeStyle = css('--pa-forecast'); context.lineWidth = 2.25; context.lineCap = 'round';
+      context.setLineDash([6, 6]); context.stroke(); context.setLineDash([]);
+      state.chartPoints.push({ row: projection, x: forecastX, y: forecastY });
+    }
     state.chartPoints.forEach((point) => {
       context.beginPath(); context.arc(point.x, point.y, point.row.predicted ? 3 : 2.5, 0, Math.PI * 2);
       context.fillStyle = point.row.predicted ? css('--pa-forecast') : css('--pa-actual'); context.fill();
@@ -387,8 +402,10 @@
   refs.canvas.addEventListener('mousemove', (event) => {
     const bounds = refs.canvas.getBoundingClientRect();
     const mouseX = event.clientX - bounds.left;
-    const nearest = state.chartPoints.reduce((best, point) => !best || Math.abs(point.x - mouseX) < Math.abs(best.x - mouseX) ? point : best, null);
-    if (!nearest || Math.abs(nearest.x - mouseX) > 28) { refs.tooltip.hidden = true; return; }
+    const mouseY = event.clientY - bounds.top;
+    const distance = (point) => Math.hypot(point.x - mouseX, point.y - mouseY);
+    const nearest = state.chartPoints.reduce((best, point) => !best || distance(point) < distance(best) ? point : best, null);
+    if (!nearest || distance(nearest) > 32) { refs.tooltip.hidden = true; return; }
     refs.tooltip.innerHTML = `<strong>${escapeHtml(nearest.row.label || dateLabel(nearest.row.start_date))}</strong><span>${escapeHtml(metricValue(nearest.row[state.metric]))} · ${nearest.row.predicted ? 'Projected month-end' : 'Actual to date'}</span>`;
     refs.tooltip.hidden = false;
     const left = Math.max(8, Math.min(bounds.width - refs.tooltip.offsetWidth - 8, nearest.x + 12));

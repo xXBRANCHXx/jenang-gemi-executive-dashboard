@@ -1787,7 +1787,7 @@ function jg_orders_aggregate_product_analytics_rows(
         if (in_array($platformKey, ['shopee', 'tiktok'], true)) {
             $accounts[$accountGroupKey] ??= [
                 'key' => $accountGroupKey,
-                'label' => $platformLabel . ' · ' . $accountLabel,
+                'label' => $accountLabel,
                 'platform_key' => $platformKey,
                 'platform_label' => $platformLabel,
                 'account_key' => $accountKey,
