@@ -1640,57 +1640,60 @@ function jg_orders_analytics_ranked_groups(array $groups, array $totals): array
 }
 
 /**
- * A small, explainable least-squares forecast. Recent six periods are used so
- * operational changes outweigh old launch data; predictions never go negative.
+ * Project only the current month at its observed daily run rate. This is not a
+ * future-sales model: recorded month-to-date sales are scaled to the number of
+ * calendar days in the current month.
  *
  * @param array<int, array<string, mixed>> $periods
  * @return array<int, array<string, mixed>>
  */
-function jg_orders_analytics_forecast(array $periods, string $grain): array
-{
-    $observed = array_slice($periods, -6);
-    if ($observed === []) {
+function jg_orders_analytics_forecast(
+    array $periods,
+    string $grain,
+    string $startDate,
+    string $endDate,
+    ?DateTimeImmutable $asOf = null
+): array {
+    if ($grain !== 'month' || $periods === []) {
         return [];
     }
-    $predict = static function (string $metric, int $offset) use ($observed): int {
-        $count = count($observed);
-        $values = array_map(static fn (array $row): float => (float) ($row[$metric] ?? 0), $observed);
-        if ($count === 1) {
-            return max(0, (int) round($values[0]));
-        }
-        $xMean = ($count - 1) / 2;
-        $yMean = array_sum($values) / $count;
-        $numerator = 0.0;
-        $denominator = 0.0;
-        foreach ($values as $index => $value) {
-            $numerator += ($index - $xMean) * ($value - $yMean);
-            $denominator += ($index - $xMean) ** 2;
-        }
-        $slope = $denominator > 0 ? $numerator / $denominator : 0;
-        return max(0, (int) round($yMean + $slope * (($count - 1 + $offset) - $xMean)));
-    };
-    $last = end($periods);
-    $lastStart = new DateTimeImmutable((string) ($last['start_date'] ?? 'now'), new DateTimeZone('Asia/Jakarta'));
-    $step = match ($grain) {
-        'day' => '+1 day',
-        'week' => '+1 week',
-        default => '+1 month',
-    };
-    $forecast = [];
-    for ($offset = 1; $offset <= 3; $offset++) {
-        $date = $lastStart;
-        for ($move = 0; $move < $offset; $move++) {
-            $date = $date->modify($step);
-        }
-        $period = jg_orders_breakdown_period($date, $grain);
-        $forecast[] = [
-            ...$period,
-            'quantity' => $predict('quantity', $offset),
-            'revenue' => $predict('revenue', $offset),
-            'predicted' => true,
-        ];
+    $timezone = new DateTimeZone('Asia/Jakarta');
+    $asOf = ($asOf ?? new DateTimeImmutable('now', $timezone))->setTimezone($timezone);
+    $monthStart = $asOf->modify('first day of this month')->setTime(0, 0);
+    $rangeStart = new DateTimeImmutable($startDate . ' 00:00:00', $timezone);
+    $rangeEnd = new DateTimeImmutable($endDate . ' 23:59:59', $timezone);
+    if ($rangeStart > $monthStart || $rangeEnd < $monthStart) {
+        return [];
     }
-    return $forecast;
+
+    $currentKey = $asOf->format('Y-m');
+    $current = null;
+    foreach ($periods as $period) {
+        if ((string) ($period['key'] ?? '') === $currentKey) {
+            $current = $period;
+            break;
+        }
+    }
+    if (!is_array($current)) {
+        return [];
+    }
+
+    $dataThrough = $rangeEnd < $asOf ? $rangeEnd : $asOf;
+    $elapsedDays = max(1, (int) $dataThrough->format('j'));
+    $daysInMonth = (int) $asOf->format('t');
+    $runRateMultiplier = $daysInMonth / $elapsedDays;
+    return [[
+        ...$current,
+        'label' => (string) ($current['label'] ?? $asOf->format('M Y')) . ' projected',
+        'quantity' => max(0, (int) round((float) ($current['quantity'] ?? 0) * $runRateMultiplier)),
+        'revenue' => max(0, (int) round((float) ($current['revenue'] ?? 0) * $runRateMultiplier)),
+        'actual_quantity' => (int) ($current['quantity'] ?? 0),
+        'actual_revenue' => (int) ($current['revenue'] ?? 0),
+        'days_elapsed' => $elapsedDays,
+        'days_in_month' => $daysInMonth,
+        'as_of_date' => $dataThrough->format('Y-m-d'),
+        'predicted' => true,
+    ]];
 }
 
 /**
@@ -1712,6 +1715,7 @@ function jg_orders_aggregate_product_analytics_rows(
     $flavors = [];
     $volumes = [];
     $platforms = [];
+    $accounts = [];
     $partners = [];
     $totals = ['quantity' => 0, 'revenue' => 0, 'transactions' => 0];
     $catalogProductLabel = ucfirst(str_replace('-', ' ', $product));
@@ -1765,23 +1769,43 @@ function jg_orders_aggregate_product_analytics_rows(
         $flavorKey = jg_orders_breakdown_slug($flavorLabel) ?: 'unspecified';
         $volumeKey = jg_orders_breakdown_volume_key($sku);
         $volumeLabel = jg_orders_breakdown_volume_label($sku);
-        $platformKey = jg_orders_breakdown_slug($row['platform'] ?? 'unknown') ?: 'unknown';
-        $platformLabel = jg_orders_daily_title((string) ($row['platform'] ?? 'Unknown'));
+        $rawPlatformKey = jg_orders_breakdown_slug($row['platform'] ?? 'unknown') ?: 'unknown';
+        $platformKey = in_array($rawPlatformKey, ['tiktok', 'tiktok-shop', 'tokopedia'], true) ? 'tiktok' : $rawPlatformKey;
+        $platformLabel = $platformKey === 'tiktok'
+            ? 'TikTok (incl. Tokopedia)'
+            : jg_orders_daily_title((string) ($row['platform'] ?? 'Unknown'));
         $accountKey = trim((string) ($row['account_key'] ?? ''));
         $accountLabel = trim((string) ($row['account_label'] ?? ''));
         if ($accountLabel === '') {
             $accountLabel = $accountKey !== '' ? jg_orders_daily_title($accountKey) : $platformLabel;
         }
+        $accountGroupKey = $platformKey . ':' . (jg_orders_breakdown_slug($accountKey) ?: 'default');
 
         $flavors[$flavorKey] ??= ['key' => $flavorKey, 'label' => $flavorLabel, 'quantity' => 0, 'revenue' => 0];
         $volumes[$volumeKey] ??= ['key' => $volumeKey, 'label' => $volumeLabel, 'quantity' => 0, 'revenue' => 0, 'volume' => (float) ($sku['volume'] ?? 0), 'unit' => (string) ($sku['unit_name'] ?? '')];
         $platforms[$platformKey] ??= ['key' => $platformKey, 'label' => $platformLabel, 'quantity' => 0, 'revenue' => 0];
+        if (in_array($platformKey, ['shopee', 'tiktok'], true)) {
+            $accounts[$accountGroupKey] ??= [
+                'key' => $accountGroupKey,
+                'label' => $platformLabel . ' · ' . $accountLabel,
+                'platform_key' => $platformKey,
+                'platform_label' => $platformLabel,
+                'account_key' => $accountKey,
+                'account_label' => $accountLabel,
+                'quantity' => 0,
+                'revenue' => 0,
+            ];
+        }
         $flavors[$flavorKey]['quantity'] += $quantity;
         $flavors[$flavorKey]['revenue'] += $revenue;
         $volumes[$volumeKey]['quantity'] += $quantity;
         $volumes[$volumeKey]['revenue'] += $revenue;
         $platforms[$platformKey]['quantity'] += $quantity;
         $platforms[$platformKey]['revenue'] += $revenue;
+        if (isset($accounts[$accountGroupKey])) {
+            $accounts[$accountGroupKey]['quantity'] += $quantity;
+            $accounts[$accountGroupKey]['revenue'] += $revenue;
+        }
         if ($platformKey === 'partner') {
             $partnerKey = $accountKey !== '' ? jg_orders_breakdown_slug($accountKey) : 'partner';
             $partners[$partnerKey] ??= ['key' => $partnerKey, 'label' => $accountLabel, 'quantity' => 0, 'revenue' => 0];
@@ -1819,6 +1843,16 @@ function jg_orders_aggregate_product_analytics_rows(
         default => $catalogProductLabel,
     };
 
+    $forecast = jg_orders_analytics_forecast($periodRows, $grain, $startDate, $endDate);
+    $forecastMethod = $forecast !== []
+        ? sprintf(
+            'Current-month run rate: sales recorded through %s (%d of %d days) are scaled to a full month. No future months are predicted.',
+            (string) ($forecast[0]['as_of_date'] ?? $endDate),
+            (int) ($forecast[0]['days_elapsed'] ?? 0),
+            (int) ($forecast[0]['days_in_month'] ?? 0)
+        )
+        : 'A month-end projection appears only when the selected range includes the current month from its first day.';
+
     return [
         'ok' => true,
         'selection' => [
@@ -1837,12 +1871,13 @@ function jg_orders_aggregate_product_analytics_rows(
         'timezone' => 'Asia/Jakarta',
         'totals' => $totals,
         'history' => $periodRows,
-        'forecast' => jg_orders_analytics_forecast($periodRows, $grain),
-        'forecast_method' => 'Least-squares trend over the latest six periods; estimates are directional and never below zero.',
+        'forecast' => $forecast,
+        'forecast_method' => $forecastMethod,
         'breakdowns' => [
             'flavors' => jg_orders_analytics_ranked_groups($flavors, $totals),
             'volumes' => jg_orders_analytics_ranked_groups($volumes, $totals),
             'platforms' => jg_orders_analytics_ranked_groups($platforms, $totals),
+            'accounts' => jg_orders_analytics_ranked_groups($accounts, $totals),
             'partners' => jg_orders_analytics_ranked_groups($partners, $totals),
         ],
         'generated_at' => gmdate(DATE_ATOM),

@@ -28,6 +28,7 @@
     volumes: root.querySelector('[data-volume-breakdown]'),
     platforms: root.querySelector('[data-platform-breakdown]'),
     partners: root.querySelector('[data-partner-breakdown]'),
+    accounts: root.querySelector('[data-account-breakdown]'),
     history: root.querySelector('[data-history-body]')
   };
 
@@ -123,18 +124,21 @@
   const renderKpis = () => {
     const totals = state.data.totals || {};
     const [latest, previous] = lastPair();
-    const quantityChange = latest && previous && Number(previous.quantity) > 0
-      ? ((Number(latest.quantity) - Number(previous.quantity)) / Number(previous.quantity)) * 100 : null;
-    const revenueChange = latest && previous && Number(previous.revenue) > 0
-      ? ((Number(latest.revenue) - Number(previous.revenue)) / Number(previous.revenue)) * 100 : null;
+    const projection = state.data.forecast?.[0] || null;
+    const comparison = projection || latest;
+    const quantityChange = comparison && previous && Number(previous.quantity) > 0
+      ? ((Number(comparison.quantity) - Number(previous.quantity)) / Number(previous.quantity)) * 100 : null;
+    const revenueChange = comparison && previous && Number(previous.revenue) > 0
+      ? ((Number(comparison.revenue) - Number(previous.revenue)) / Number(previous.revenue)) * 100 : null;
+    const comparisonLabel = projection ? 'projected month-end' : 'latest month';
     const changeNote = (value, label) => value === null
       ? `<small>No earlier month to compare</small>`
       : `<small class="${value > 0 ? 'is-up' : value < 0 ? 'is-down' : ''}">${value > 0 ? '↑' : value < 0 ? '↓' : '→'} ${escapeHtml(percent(value))} ${escapeHtml(label)}</small>`;
     const bestPlatform = state.data.breakdowns?.platforms?.[0];
     const bestPartner = state.data.breakdowns?.partners?.[0];
     refs.kpis.innerHTML = `
-      <article class="product-analytics-kpi"><span>Total units</span><strong>${escapeHtml(integer(totals.quantity))}</strong>${changeNote(quantityChange, 'latest month')}</article>
-      <article class="product-analytics-kpi"><span>Seller revenue</span><strong>${escapeHtml(compact(totals.revenue, 'revenue'))}</strong>${changeNote(revenueChange, 'latest month')}</article>
+      <article class="product-analytics-kpi"><span>Total units</span><strong>${escapeHtml(integer(totals.quantity))}</strong>${changeNote(quantityChange, comparisonLabel)}</article>
+      <article class="product-analytics-kpi"><span>Seller revenue</span><strong>${escapeHtml(compact(totals.revenue, 'revenue'))}</strong>${changeNote(revenueChange, comparisonLabel)}</article>
       <article class="product-analytics-kpi"><span>Revenue / unit</span><strong>${escapeHtml(currency(Number(totals.quantity) > 0 ? Number(totals.revenue) / Number(totals.quantity) : 0))}</strong><small>Average across the selected history</small></article>
       <article class="product-analytics-kpi"><span>${bestPartner ? 'Top partner' : 'Top platform'}</span><strong title="${escapeHtml((bestPartner || bestPlatform)?.label || 'No sales')}">${escapeHtml((bestPartner || bestPlatform)?.label || '—')}</strong><small>${bestPartner || bestPlatform ? `${escapeHtml(percent(((bestPartner || bestPlatform)?.quantity_share || 0) * 100))} of units sold` : 'No channel data in this period'}</small></article>
     `;
@@ -174,15 +178,15 @@
   const renderHistory = () => {
     const actual = state.data.history || [];
     const combined = actual.map((row) => ({ ...row, predicted: false }));
-    let prior = actual.at(-1) || null;
+    let prior = actual.length > 1 ? actual.at(-2) : null;
     (state.data.forecast || []).forEach((row) => {
       const quantityPrevious = Number(prior?.quantity || 0);
       const revenuePrevious = Number(prior?.revenue || 0);
       combined.push({
         ...row,
-        quantity_change: Number(row.quantity || 0) - quantityPrevious,
+        quantity_change: prior ? Number(row.quantity || 0) - quantityPrevious : null,
         quantity_change_percent: quantityPrevious > 0 ? ((Number(row.quantity || 0) - quantityPrevious) / quantityPrevious) * 100 : null,
-        revenue_change: Number(row.revenue || 0) - revenuePrevious,
+        revenue_change: prior ? Number(row.revenue || 0) - revenuePrevious : null,
         revenue_change_percent: revenuePrevious > 0 ? ((Number(row.revenue || 0) - revenuePrevious) / revenuePrevious) * 100 : null,
         predicted: true
       });
@@ -194,7 +198,7 @@
       <td>${changeCell(row.quantity_change, row.quantity_change_percent)}</td>
       <td>${escapeHtml(currency(row.revenue))}</td>
       <td>${changeCell(row.revenue_change, row.revenue_change_percent)}</td>
-      <td><span class="product-analytics-status-pill ${row.predicted ? 'is-predicted' : ''}">${row.predicted ? 'Predicted' : 'Actual'}</span></td>
+      <td><span class="product-analytics-status-pill ${row.predicted ? 'is-predicted' : ''}">${row.predicted ? 'Projected month-end' : 'Actual'}</span></td>
     </tr>`).join('');
   };
 
@@ -286,6 +290,7 @@
     renderRanking(refs.volumes, data.breakdowns?.volumes, 'volume');
     renderRanking(refs.platforms, data.breakdowns?.platforms, 'platform');
     renderRanking(refs.partners, data.breakdowns?.partners, 'partner');
+    renderRanking(refs.accounts, data.breakdowns?.accounts, 'account');
     renderHistory();
     window.requestAnimationFrame(drawChart);
   };
@@ -333,7 +338,7 @@
     if (!state.data) return;
     const rows = [['Month', 'Units', 'Unit change', 'Revenue', 'Revenue change', 'Status']];
     (state.data.history || []).forEach((row) => rows.push([row.label, row.quantity, row.quantity_change ?? '', row.revenue, row.revenue_change ?? '', 'Actual']));
-    (state.data.forecast || []).forEach((row) => rows.push([row.label, row.quantity, '', row.revenue, '', 'Predicted']));
+    (state.data.forecast || []).forEach((row) => rows.push([row.label, row.quantity, '', row.revenue, '', 'Projected month-end']));
     const encode = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
     const blob = new Blob([rows.map((row) => row.map(encode).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
     const link = document.createElement('a');
@@ -384,7 +389,7 @@
     const mouseX = event.clientX - bounds.left;
     const nearest = state.chartPoints.reduce((best, point) => !best || Math.abs(point.x - mouseX) < Math.abs(best.x - mouseX) ? point : best, null);
     if (!nearest || Math.abs(nearest.x - mouseX) > 28) { refs.tooltip.hidden = true; return; }
-    refs.tooltip.innerHTML = `<strong>${escapeHtml(nearest.row.label || dateLabel(nearest.row.start_date))}</strong><span>${escapeHtml(metricValue(nearest.row[state.metric]))} · ${nearest.row.predicted ? 'Predicted' : 'Actual'}</span>`;
+    refs.tooltip.innerHTML = `<strong>${escapeHtml(nearest.row.label || dateLabel(nearest.row.start_date))}</strong><span>${escapeHtml(metricValue(nearest.row[state.metric]))} · ${nearest.row.predicted ? 'Projected month-end' : 'Actual to date'}</span>`;
     refs.tooltip.hidden = false;
     const left = Math.max(8, Math.min(bounds.width - refs.tooltip.offsetWidth - 8, nearest.x + 12));
     const top = Math.max(8, nearest.y - refs.tooltip.offsetHeight - 12);

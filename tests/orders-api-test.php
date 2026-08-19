@@ -598,8 +598,11 @@ $analytics = jg_orders_aggregate_product_analytics_rows([
 expect_same(30, $analytics['totals']['quantity'], 'Flavor analytics must include every volume but exclude other flavors.');
 expect_same(2, count($analytics['history']), 'Product analytics must return zero-fillable chronological monthly history.');
 expect_same(100, $analytics['history'][1]['quantity_change_percent'], 'Product analytics must calculate month-over-month change.');
-expect_same(3, count($analytics['forecast']), 'Product analytics must predict the next three periods.');
-expect_same(30, $analytics['forecast'][0]['quantity'], 'Product analytics forecast must follow the recent least-squares unit trend.');
+expect_same(1, count($analytics['forecast']), 'Product analytics must project only the current month.');
+$runRateForecast = jg_orders_analytics_forecast($analytics['history'], 'month', '2026-07-01', '2026-08-19', new DateTimeImmutable('2026-08-19 12:00:00', new DateTimeZone('Asia/Jakarta')));
+expect_same(33, $runRateForecast[0]['quantity'], 'Current-month projection must scale month-to-date units by elapsed calendar days.');
+expect_same('2026-08', $runRateForecast[0]['key'], 'Current-month projection must not invent a future month.');
+expect_same(19, $runRateForecast[0]['days_elapsed'], 'Current-month projection must disclose the number of observed days.');
 expect_same(2, count($analytics['breakdowns']['volumes']), 'Flavor analytics must expose its complete volume mix.');
 expect_same(2, count($analytics['breakdowns']['platforms']), 'Product analytics must rank every matching sales platform.');
 expect_same('Partner One', $analytics['breakdowns']['partners'][0]['label'], 'Product analytics must retain the specific partner display name.');
@@ -611,6 +614,15 @@ $exactAnalytics = jg_orders_aggregate_product_analytics_rows([
     'dimension' => 'sku', 'flavor' => 'original', 'volume' => '50-ml',
 ]);
 expect_same(15, $exactAnalytics['totals']['quantity'], 'Cell analytics must isolate the exact flavor and volume combination.');
+$accountAnalytics = jg_orders_aggregate_product_analytics_rows([
+    ['sku' => 'SYRUP-50-ORIGINAL', 'order_create_time' => '2026-08-12T02:00:00Z', 'platform' => 'tiktok', 'account_key' => 'zero-main', 'quantity' => 2, 'revenue' => 20000],
+    ['sku' => 'SYRUP-50-ORIGINAL', 'order_create_time' => '2026-08-13T02:00:00Z', 'platform' => 'tokopedia', 'account_key' => 'jenang-gemi', 'quantity' => 3, 'revenue' => 30000],
+], $analyticsLookup, 'syrup', 'month', '2026-08-01', '2026-08-19', [
+    'dimension' => 'product', 'flavor' => '', 'volume' => '',
+]);
+expect_same(1, count($accountAnalytics['breakdowns']['platforms']), 'TikTok and Tokopedia must roll up into one platform family.');
+expect_same('TikTok (incl. Tokopedia)', $accountAnalytics['breakdowns']['platforms'][0]['label'], 'The combined TikTok platform label must disclose Tokopedia inclusion.');
+expect_same(2, count($accountAnalytics['breakdowns']['accounts']), 'Platform analytics must retain each underlying marketplace account.');
 expect_same('seasonal-special', jg_orders_breakdown_product('Seasonal Special'), 'Analytics must accept future SKU-database products without a hardcoded allowlist.');
 
 $ordersUrl = jg_orders_remote_url('/sales/orders', [

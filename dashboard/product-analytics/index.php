@@ -100,8 +100,8 @@ $jsVersion = $buildVersion . '-' . (string) @filemtime(__DIR__ . '/product-analy
 
             <section class="product-analytics-hero" aria-labelledby="sales-history-title">
                 <div class="product-analytics-section-heading">
-                    <div><span>Actual + forecast</span><h2 id="sales-history-title">Monthly sales history</h2></div>
-                    <div class="product-analytics-chart-legend" aria-label="Chart legend"><span class="is-actual"><i></i>Actual</span><span class="is-forecast"><i></i>Predicted</span></div>
+                    <div><span>Actual + run rate</span><h2 id="sales-history-title">Monthly sales pace</h2></div>
+                    <div class="product-analytics-chart-legend" aria-label="Chart legend"><span class="is-actual"><i></i>Actual to date</span><span class="is-forecast"><i></i>Projected month-end</span></div>
                 </div>
                 <div class="product-analytics-chart-wrap">
                     <canvas data-history-chart role="img" aria-label="Monthly actual and predicted sales chart"></canvas>
@@ -127,12 +127,16 @@ $jsVersion = $buildVersion . '-' . (string) @filemtime(__DIR__ . '/product-analy
                     <div class="product-analytics-section-heading"><div><span>Who sells it</span><h2>Partner breakdown</h2></div></div>
                     <div class="product-analytics-ranking" data-partner-breakdown></div>
                 </article>
+                <article class="product-analytics-panel is-wide">
+                    <div class="product-analytics-section-heading"><div><span>Marketplace identities</span><h2>Shopee &amp; TikTok by account</h2></div><p>Tokopedia sales are grouped under the TikTok platform family.</p></div>
+                    <div class="product-analytics-ranking is-account-grid" data-account-breakdown></div>
+                </article>
             </section>
 
             <section class="product-analytics-history" aria-labelledby="monthly-change-title">
                 <div class="product-analytics-section-heading">
                     <div><span>Every period</span><h2 id="monthly-change-title">Monthly increase &amp; decrease</h2></div>
-                    <p>Predictions are visually separated from recorded sales.</p>
+                    <p>The current month projection is separated from recorded sales.</p>
                 </div>
                 <div class="product-analytics-table-scroll">
                     <table>
