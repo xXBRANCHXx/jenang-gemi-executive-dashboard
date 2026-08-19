@@ -21,7 +21,7 @@ expect(script.includes('Account ranking ·') && script.includes('rankedByMetric'
 expect(page.includes('data-theme-toggle') && styles.includes(":root[data-admin-theme='light']"), 'Analytics must support deliberate light and dark modes.');
 expect(script.includes("url.searchParams.set('action', 'product_analytics')"), 'Analytics must use the dedicated aggregate endpoint.');
 expect(script.includes('Projected month-end') && script.includes('quantity_change') && script.includes('revenue_change'), 'The monthly view must distinguish the current run-rate projection and increases/decreases.');
-expect(script.includes('const forecastX = x(actualCount - 1)') && script.includes('context.lineTo(forecastX, forecastY)'), 'The projection must share the current month axis and draw vertically to its purple dot.');
+expect(script.includes('const previousMonthIndex = actualCount - 2') && script.includes('context.moveTo(x(previousMonthIndex), y(values[previousMonthIndex]))') && script.includes('context.lineTo(forecastX, forecastY)'), 'The projected current-month dot must branch from the previous completed month to show its predicted increase or decrease.');
 expect(script.includes("url.searchParams.set('action', 'status')"), 'All-time analytics must discover the full mirrored history.');
 expect(api.includes('Current-month run rate') && api.includes('days_elapsed') && api.includes('No future months are predicted'), 'The API forecast must project only the current month from elapsed days.');
 expect(api.includes("'accounts' => jg_orders_analytics_ranked_groups") && api.includes("['tiktok', 'tiktok-shop', 'tokopedia']"), 'The API must retain platform accounts while grouping Tokopedia into TikTok.');

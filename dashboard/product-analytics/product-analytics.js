@@ -275,11 +275,15 @@
     state.chartPoints = rows.map((row, index) => ({ row, x: x(index), y: y(values[index]) }));
     if (projection && actualCount > 0) {
       const forecastX = x(actualCount - 1);
-      const actualY = y(values[actualCount - 1]);
       const forecastY = y(projectionValue);
-      context.beginPath(); context.moveTo(forecastX, actualY); context.lineTo(forecastX, forecastY);
-      context.strokeStyle = css('--pa-forecast'); context.lineWidth = 2.25; context.lineCap = 'round';
-      context.setLineDash([6, 6]); context.stroke(); context.setLineDash([]);
+      if (actualCount > 1) {
+        const previousMonthIndex = actualCount - 2;
+        context.beginPath();
+        context.moveTo(x(previousMonthIndex), y(values[previousMonthIndex]));
+        context.lineTo(forecastX, forecastY);
+        context.strokeStyle = css('--pa-forecast'); context.lineWidth = 2.25; context.lineCap = 'round';
+        context.setLineDash([6, 6]); context.stroke(); context.setLineDash([]);
+      }
       state.chartPoints.push({ row: projection, x: forecastX, y: forecastY });
     }
     state.chartPoints.forEach((point) => {
