@@ -11,12 +11,15 @@ const api = fs.readFileSync(path.join(root, 'api/inventory-recap/index.php'), 'u
 const purchaseOrders = fs.readFileSync(path.join(root, 'purchase-orders-bootstrap.php'), 'utf8');
 const inventoryBootstrap = fs.readFileSync(path.join(root, 'inventory-recap-bootstrap.php'), 'utf8');
 
-assert.match(dashboard, /data-view-panel="inventory-recap"[\s\S]*Reorder triggers[\s\S]*data-inventory-filter="triggered"[\s\S]*Needs purchase/);
-assert.match(dashboard, /data-inventory-filter="partial"[\s\S]*Partial required/);
+assert.match(dashboard, /data-view-panel="inventory-recap"[\s\S]*Reorder triggers[\s\S]*data-inventory-filter="triggered"[^>]*>Needs purchase[\s\S]*data-inventory-filter="all"[^>]*>All products/);
+assert.doesNotMatch(dashboard, /data-inventory-filter="(?:partial|near|healthy|manual)"/);
 assert.match(dashboard, /stock will remain after every listed Store Ops order is fulfilled/);
 assert.match(dashboard, /Stock alerts[\s\S]*Projected at or below trigger/);
-assert.match(dashboard, /Projected stock = stock now − every unit committed to listed Store Ops orders/);
-assert.match(dashboard, /data-inventory-filter="partial"[\s\S]*data-inventory-partial-alert[^>]*hidden/);
+assert.doesNotMatch(dashboard, /Projected stock = stock now − every unit committed to listed Store Ops orders/);
+assert.match(dashboard, /data-inventory-filter="triggered"[\s\S]*data-inventory-partial-alert[^>]*hidden/);
+assert.match(dashboard, /data-inventory-product-search[^>]*placeholder="Search products\.\.\."/);
+assert.match(dashboard, /data-inventory-product-search-field[\s\S]*>Brand<[\s\S]*>Product<[\s\S]*>Flavor \(SKU DB\)</);
+assert.match(dashboard, /data-inventory-product-volume[^>]*placeholder="250"/);
 assert.match(dashboard, /Store Ops commitments[\s\S]*Reading listed orders/);
 assert.match(dashboard, /data-inventory-recap-manual/);
 assert.match(dashboard, /data-inventory-recap-stock-value>Rp0<[\s\S]*On-hand units × COGS/);
@@ -75,11 +78,14 @@ assert.match(script, /inventoryUrgencyCompare[\s\S]*\.sort\(inventoryUrgencyComp
 assert.match(script, /priority = \{ urgent: 7, partial: 6,[\s\S]*predicted_stock/);
 assert.match(script, /return trigger > 0 \? Number\(item\.predicted_stock \?\? item\.current_stock \?\? 0\) \/ trigger/);
 assert.match(script, /stockPercent = [^;]*predictedStock \/ trigger/);
-assert.match(script, /filter === 'triggered'[\s\S]*\['urgent', 'triggered'\]/);
+assert.match(script, /filter: 'triggered'/);
+assert.match(script, /needsPurchaseRisks = \['urgent', 'triggered', 'partial', 'near'\]/);
+assert.match(script, /inventoryProductMatchesSearch[\s\S]*brand_name[\s\S]*base_product_name[\s\S]*flavor_name[\s\S]*query\.split\(\/\\s\+\//);
+assert.match(script, /Math\.abs\(Number\(item\.volume \|\| 0\) - requestedVolume\) < 0\.01/);
 assert.match(script, /\['urgent', 'triggered', 'partial', 'near', 'healthy', 'quiet', 'incoming'\]/);
 assert.match(script, /summary\.alert_count \?\? summary\.triggered_count/);
 assert.match(script, /Projected stock[\s\S]*committedQty[\s\S]*incoming PO[\s\S]*covered/);
-assert.match(script, /partialRequiredCount[\s\S]*partialAlert\.hidden = partialRequiredCount === 0[\s\S]*Partial required,/);
+assert.match(script, /partialRequiredCount[\s\S]*partialAlert\.hidden = partialRequiredCount === 0[\s\S]*Needs purchase, including/);
 assert.match(script, /const syncInventoryRecapAlert[\s\S]*summary\?\.has_alert \?\? summary\?\.is_critical/);
 assert.doesNotMatch(script, /const syncInventoryRecapAlert[\s\S]{0,180}state\.activeView === 'overview'/);
 assert.match(script, /const purchasePlanRows[\s\S]*suggestions\.map[\s\S]*\.sort\(inventoryUrgencyCompare\)/);

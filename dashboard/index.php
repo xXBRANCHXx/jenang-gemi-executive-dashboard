@@ -805,14 +805,29 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                        </div>
 	                        <div class="admin-inventory-recap-controls">
 	                            <div class="admin-inventory-filters" role="group" aria-label="Filter products by trigger status">
-	                                <button type="button" class="is-active" data-inventory-filter="all">All products</button>
-	                                <button type="button" data-inventory-filter="triggered">Needs purchase</button>
-	                                <button type="button" data-inventory-filter="partial">Partial required <span class="admin-inventory-filter-alert" data-inventory-partial-alert hidden aria-hidden="true"></span></button>
-	                                <button type="button" data-inventory-filter="near">Near trigger</button>
-	                                <button type="button" data-inventory-filter="healthy">Above trigger</button>
-	                                <button type="button" data-inventory-filter="manual">Manual</button>
+	                                <button type="button" class="is-active" data-inventory-filter="triggered">Needs purchase <span class="admin-inventory-filter-alert" data-inventory-partial-alert hidden aria-hidden="true"></span></button>
+	                                <button type="button" data-inventory-filter="all">All products</button>
 	                            </div>
-	                            <p>Projected stock = stock now − every unit committed to listed Store Ops orders</p>
+	                            <div class="admin-inventory-product-search" role="search" aria-label="Search inventory products">
+	                                <label class="admin-inventory-product-search-query">
+	                                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+	                                    <span class="admin-sr-only">Search products</span>
+	                                    <input type="search" data-inventory-product-search placeholder="Search products..." autocomplete="off">
+	                                </label>
+	                                <label class="admin-inventory-product-search-field">
+	                                    <span>Search by</span>
+	                                    <select data-inventory-product-search-field aria-label="Search product field">
+	                                        <option value="all">All fields</option>
+	                                        <option value="brand">Brand</option>
+	                                        <option value="product">Product</option>
+	                                        <option value="flavor">Flavor (SKU DB)</option>
+	                                    </select>
+	                                </label>
+	                                <label class="admin-inventory-product-search-volume">
+	                                    <span>Volume</span>
+	                                    <input type="number" min="0" step="0.1" inputmode="decimal" data-inventory-product-volume placeholder="250" aria-label="Filter by exact product volume">
+	                                </label>
+	                            </div>
 	                        </div>
 	                        <div class="admin-inventory-visual-list" data-inventory-recap-list>
 	                            <p class="admin-empty">Calculating product triggers.</p>

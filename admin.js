@@ -2584,7 +2584,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	      loadedAt: 0,
 	      loading: false,
 	      copied: false,
-	      filter: 'all',
+	      filter: 'triggered',
+	      productSearch: '',
+	      productSearchField: 'all',
+	      productVolume: '',
 	      planQuantities: {},
 	      planEdited: {},
 	      planNotes: {},
@@ -2900,8 +2903,11 @@ document.addEventListener('DOMContentLoaded', () => {
 	    window: document.querySelector('[data-inventory-recap-window]'),
 	    list: document.querySelector('[data-inventory-recap-list]'),
 	    filters: document.querySelectorAll('[data-inventory-filter]'),
-	    partialFilter: document.querySelector('[data-inventory-filter="partial"]'),
+	    triggeredFilter: document.querySelector('[data-inventory-filter="triggered"]'),
 	    partialAlert: document.querySelector('[data-inventory-partial-alert]'),
+	    productSearch: document.querySelector('[data-inventory-product-search]'),
+	    productSearchField: document.querySelector('[data-inventory-product-search-field]'),
+	    productVolume: document.querySelector('[data-inventory-product-volume]'),
 	    globalDaysForm: document.querySelector('[data-inventory-global-days-form]'),
 	    globalDays: document.querySelector('[data-inventory-global-days]'),
 	    globalDaysSave: document.querySelector('[data-inventory-global-days-save]'),
@@ -8872,25 +8878,50 @@ document.addEventListener('DOMContentLoaded', () => {
 	    return String(left.product_name || left.sku || '').localeCompare(String(right.product_name || right.sku || ''));
 	  };
 
+	  const inventorySearchToken = (value) => String(value || '')
+	    .normalize('NFKD')
+	    .replace(/[\u0300-\u036f]/g, '')
+	    .toLowerCase()
+	    .replace(/[^a-z0-9.]+/g, ' ')
+	    .trim();
+
+	  const inventoryProductMatchesSearch = (item) => {
+	    const query = inventorySearchToken(state.inventoryRecap.productSearch);
+	    const field = String(state.inventoryRecap.productSearchField || 'all');
+	    const fields = {
+	      brand: [item.brand_name],
+	      product: [item.base_product_name, item.product_name],
+	      flavor: [item.flavor_name],
+	      all: [item.sku, item.tag, item.brand_name, item.base_product_name, item.product_name, item.flavor_name]
+	    };
+	    const haystack = inventorySearchToken((fields[field] || fields.all).join(' '));
+	    const matchesQuery = query === '' || query.split(/\s+/).every((token) => haystack.includes(token));
+	    const volumeInput = String(state.inventoryRecap.productVolume || '').trim();
+	    const requestedVolume = Number(volumeInput);
+	    const matchesVolume = volumeInput === ''
+	      || (Number.isFinite(requestedVolume) && Math.abs(Number(item.volume || 0) - requestedVolume) < 0.01);
+	    return matchesQuery && matchesVolume;
+	  };
+
 	  const renderInventoryRecapList = (rows) => {
 	    if (!inventoryRecapRefs.list) return;
 	    if (state.inventoryRecap.loading && !state.inventoryRecap.data) {
 	      inventoryRecapRefs.list.innerHTML = '<p class="admin-empty">Building 90-day product triggers.</p>';
 	      return;
 	    }
-	    const filter = state.inventoryRecap.filter || 'all';
-	    const visibleRows = filter === 'all'
-	      ? [...rows].sort(inventoryUrgencyCompare)
-	      : rows.filter((item) => filter === 'manual'
-	        ? String(item.trigger_mode || '') === 'manual'
-	        : filter === 'triggered'
-	          ? ['urgent', 'triggered'].includes(String(item.risk || ''))
-	          : String(item.risk || '') === filter);
+	    const filter = state.inventoryRecap.filter || 'triggered';
+	    const needsPurchaseRisks = ['urgent', 'triggered', 'partial', 'near'];
+	    const visibleRows = rows.filter((item) => (
+	      (filter === 'all' || needsPurchaseRisks.includes(String(item.risk || '')))
+	      && inventoryProductMatchesSearch(item)
+	    )).sort(inventoryUrgencyCompare);
 	    inventoryRecapRefs.filters.forEach((button) => {
 	      button.classList.toggle('is-active', button.getAttribute('data-inventory-filter') === filter);
 	    });
 	    if (!visibleRows.length) {
-	      inventoryRecapRefs.list.innerHTML = '<p class="admin-empty">No products match this trigger view.</p>';
+	      const hasProductSearch = String(state.inventoryRecap.productSearch || '').trim() !== ''
+	        || String(state.inventoryRecap.productVolume || '').trim() !== '';
+	      inventoryRecapRefs.list.innerHTML = `<p class="admin-empty">${hasProductSearch ? 'No products match this search.' : 'No products currently need purchase.'}</p>`;
 	      return;
 	    }
 	    inventoryRecapRefs.list.innerHTML = visibleRows.map((item) => {
@@ -9226,10 +9257,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	    const rows = Array.isArray(state.inventoryRecap.data?.items) ? state.inventoryRecap.data.items : [];
 	    const partialRequiredCount = Math.max(0, Number(summary.partial_required_count || 0));
 	    if (inventoryRecapRefs.partialAlert) inventoryRecapRefs.partialAlert.hidden = partialRequiredCount === 0;
-	    if (inventoryRecapRefs.partialFilter) {
-	      inventoryRecapRefs.partialFilter.setAttribute('aria-label', partialRequiredCount > 0
-	        ? `Partial required, ${formatRegionalInteger(partialRequiredCount)} items`
-	        : 'Partial required');
+	    if (inventoryRecapRefs.triggeredFilter) {
+	      inventoryRecapRefs.triggeredFilter.setAttribute('aria-label', partialRequiredCount > 0
+	        ? `Needs purchase, including ${formatRegionalInteger(partialRequiredCount)} partially covered items`
+	        : 'Needs purchase');
 	    }
 	    if (inventoryRecapRefs.status) {
 	      inventoryRecapRefs.status.textContent = state.inventoryRecap.loading
@@ -13598,6 +13629,21 @@ document.addEventListener('DOMContentLoaded', () => {
 	      state.inventoryRecap.filter = button.getAttribute('data-inventory-filter') || 'all';
 	      renderInventoryRecap(state.inventoryRecap.data);
 	    });
+	  });
+
+	  inventoryRecapRefs.productSearch?.addEventListener('input', () => {
+	    state.inventoryRecap.productSearch = inventoryRecapRefs.productSearch.value;
+	    renderInventoryRecap(state.inventoryRecap.data);
+	  });
+
+	  inventoryRecapRefs.productSearchField?.addEventListener('change', () => {
+	    state.inventoryRecap.productSearchField = inventoryRecapRefs.productSearchField.value || 'all';
+	    renderInventoryRecap(state.inventoryRecap.data);
+	  });
+
+	  inventoryRecapRefs.productVolume?.addEventListener('input', () => {
+	    state.inventoryRecap.productVolume = inventoryRecapRefs.productVolume.value;
+	    renderInventoryRecap(state.inventoryRecap.data);
 	  });
 
 	  inventoryRecapRefs.globalDaysForm?.addEventListener('submit', (event) => {
