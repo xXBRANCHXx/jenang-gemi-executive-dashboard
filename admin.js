@@ -11996,25 +11996,20 @@ document.addEventListener('DOMContentLoaded', () => {
     return compact ? formatCompactNumber(value) : formatRegionalNumber(Math.round(Number(value) || 0));
   };
 
-  const estimateAdViewQuarterHourMetrics = (hourMetrics, nextHourMetrics, progress) => {
-    const ratio = Math.max(0, Math.min(1, Number(progress) || 0));
-    const interpolate = (key) => {
-      const current = Number(hourMetrics[key] || 0);
-      const next = Number(nextHourMetrics?.[key] ?? current);
-      return current + ((next - current) * ratio);
-    };
-    const hasNetRevenue = hourMetrics.net_revenue_available && (nextHourMetrics?.net_revenue_available ?? true);
+  const estimateAdViewQuarterHourMetrics = (hourMetrics, share) => {
+    const factor = Math.max(0, Number(share) || 0);
+    const scale = (key) => Number(hourMetrics[key] || 0) * factor;
     return aggregateAdViewMetrics([{
-      impressions: interpolate('impressions'),
-      clicks: interpolate('clicks'),
-      expense: interpolate('expense'),
-      broad_orders: interpolate('broad_orders'),
-      broad_items: interpolate('broad_items'),
-      broad_gmv: interpolate('broad_gmv'),
-      net_revenue: hasNetRevenue ? interpolate('net_revenue') : null,
-      direct_orders: interpolate('direct_orders'),
-      direct_items: interpolate('direct_items'),
-      direct_gmv: interpolate('direct_gmv')
+      impressions: scale('impressions'),
+      clicks: scale('clicks'),
+      expense: scale('expense'),
+      broad_orders: scale('broad_orders'),
+      broad_items: scale('broad_items'),
+      broad_gmv: scale('broad_gmv'),
+      net_revenue: hourMetrics.net_revenue_available ? scale('net_revenue') : null,
+      direct_orders: scale('direct_orders'),
+      direct_items: scale('direct_items'),
+      direct_gmv: scale('direct_gmv')
     }]);
   };
 
@@ -12053,6 +12048,11 @@ document.addEventListener('DOMContentLoaded', () => {
       metric,
       Math.max(1, ...rows.map((row) => Number(row.metrics?.[metric] || 0)))
     ]));
+    const blockChart = rows.every((row) => Number.isFinite(row.startPosition) && Number.isFinite(row.endPosition));
+    const minPosition = blockChart ? Math.min(...rows.map((row) => row.startPosition)) : 0;
+    const maxPosition = blockChart ? Math.max(...rows.map((row) => row.endPosition), minPosition + 1) : Math.max(rows.length - 1, 1);
+    const positionX = (position) => padding.left + (chartWidth * (position - minPosition) / Math.max(maxPosition - minPosition, 1));
+    const rowX = (row, index) => blockChart ? positionX(row.endPosition) : padding.left + (chartWidth * index / Math.max(rows.length - 1, 1));
 
     selectedMetrics.forEach((metric) => {
       const color = AD_VIEW_METRIC_COLORS[metric] || '#00c987';
@@ -12060,8 +12060,27 @@ document.addEventListener('DOMContentLoaded', () => {
       ctx.lineWidth = 3;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
+      if (blockChart) {
+        rows.forEach((row) => {
+          const startX = positionX(row.startPosition);
+          const endX = positionX(row.endPosition);
+          const startY = padding.top + chartHeight;
+          const value = Number(row.metrics?.[metric] || 0);
+          const endY = padding.top + chartHeight - ((value / maxByMetric[metric]) * (chartHeight - 8));
+          const blockWidth = Math.max(0, endX - startX);
+          ctx.beginPath();
+          ctx.moveTo(startX, startY);
+          ctx.bezierCurveTo(
+            startX + (blockWidth * 0.46), startY,
+            startX + (blockWidth * 0.78), endY,
+            endX, endY
+          );
+          ctx.stroke();
+        });
+        return;
+      }
       const points = rows.map((row, index) => {
-        const x = padding.left + (chartWidth * index / Math.max(rows.length - 1, 1));
+        const x = rowX(row, index);
         const value = Number(row.metrics?.[metric] || 0);
         const y = padding.top + chartHeight - ((value / maxByMetric[metric]) * (chartHeight - 8));
         return { x, y };
@@ -12083,7 +12102,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     rows.forEach((row, index) => {
-      const x = padding.left + (chartWidth * index / Math.max(rows.length - 1, 1));
+      const x = rowX(row, index);
+      const startX = blockChart ? positionX(row.startPosition) : (index === 0 ? padding.left : (rowX(rows[index - 1], index - 1) + x) / 2);
+      const endX = blockChart ? Math.max(x, startX + 2) : (index === rows.length - 1 ? width - padding.right : (x + rowX(rows[index + 1], index + 1)) / 2);
       const tooltipRows = selectedMetrics.map((selectedMetric) => `
         <div class="admin-chart-tooltip-row">
           <span class="admin-chart-tooltip-dot" style="background:${AD_VIEW_METRIC_COLORS[selectedMetric]}"></span>
@@ -12104,8 +12125,8 @@ document.addEventListener('DOMContentLoaded', () => {
         tooltipTitle: row.tooltipLabel || row.label,
         tooltipLinesHtml: `${tooltipRows}${row.estimated ? '<small>15 min estimate</small>' : ''}`,
         hitbox: {
-          left: index === 0 ? padding.left : x - (chartWidth / Math.max(rows.length - 1, 1) / 2),
-          right: index === rows.length - 1 ? width - padding.right : x + (chartWidth / Math.max(rows.length - 1, 1) / 2),
+          left: startX,
+          right: endX,
           top: padding.top,
           bottom: padding.top + chartHeight
         }
@@ -12114,7 +12135,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.fillStyle = palette.muted;
         ctx.font = '600 11px "Plus Jakarta Sans", sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(row.label, x, height - 17);
+        ctx.fillText(row.label, blockChart ? startX : x, height - 17);
       }
     });
     if (activeHover?.metricPoints?.length) {
@@ -12195,19 +12216,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentHour = Number(timeParts.hour || 0);
     const currentMinute = Number(timeParts.minute || 0);
     const chartRows = hourly && state.adView.startDate === state.adView.endDate
-      ? hourlyRows.flatMap((row, rowIndex) => {
+      ? hourlyRows.flatMap((row) => {
           const activeQuarterCount = today && row.hour === currentHour ? Math.min(4, Math.floor(currentMinute / 15) + 1) : 4;
           return Array.from({ length: activeQuarterCount }, (_, quarter) => {
             const minute = quarter * 15;
             const endMinute = minute + 14;
             const hourLabel = String(row.hour).padStart(2, '0');
+            const currentBlock = today && row.hour === currentHour && quarter === activeQuarterCount - 1;
+            const currentHourBlockMinutes = currentBlock ? currentMinute % 15 : 15;
+            const blockShare = today && row.hour === currentHour
+              ? (currentMinute > 0 ? currentHourBlockMinutes / currentMinute : 0)
+              : 0.25;
             return {
               key: `${row.key}:${String(minute).padStart(2, '0')}`,
               label: `${hourLabel}:${String(minute).padStart(2, '0')}`,
               tooltipLabel: `${hourLabel}:${String(minute).padStart(2, '0')}–${hourLabel}:${String(endMinute).padStart(2, '0')}`,
-              metrics: estimateAdViewQuarterHourMetrics(row.metrics, hourlyRows[rowIndex + 1]?.metrics, quarter / 4),
+              metrics: estimateAdViewQuarterHourMetrics(row.metrics, blockShare),
               hour: row.hour,
               minute,
+              startPosition: (row.hour * 60) + minute,
+              endPosition: (row.hour * 60) + minute + (currentBlock ? Math.max(0, currentMinute % 15) : 14.9),
               estimated: true
             };
           });
