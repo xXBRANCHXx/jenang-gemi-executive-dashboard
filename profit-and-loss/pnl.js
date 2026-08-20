@@ -8,7 +8,7 @@ if (root) {
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-  const state = { year: currentYear, period: 'ytd', rows: [], reviewItems: 0, loadedAt: null, allocationTree: [], allocationDraft: [], allocationId: 0 };
+  const state = { year: currentYear, period: String(currentMonth), rows: [], reviewItems: 0, loadedAt: null, allocationTree: [], allocationDraft: [], allocationId: 0 };
   const refs = {
     year: root.querySelector('[data-pnl-year]'),
     period: root.querySelector('[data-pnl-period]'),
