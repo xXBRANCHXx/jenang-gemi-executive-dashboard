@@ -32,6 +32,12 @@ assert(js.includes('AD_VIEW_ATTRIBUTION_REFRESH_DAYS = 8'), 'Ad View must refres
 assert(js.includes('state.adView.startDate < trailingAttributionStart'), 'Background sync must include visible prior days that Shopee can re-attribute.');
 assert(!js.includes('const syncStartDate = background ? today : state.adView.startDate'), 'Background sync must not refresh only today.');
 assert(js.includes('scheduleAdViewAutoSync();'), 'Loading Ad View must schedule a background Shopee sync.');
+assert(js.includes("AD_VIEW_PREFERENCES_STORAGE_KEY = 'jg-dashboard-ad-view-preferences-v1'"), 'Ad View must use a versioned browser-local preference record.');
+assert(js.includes('const adViewPreferences = readAdViewPreferences();'), 'Ad View must restore saved preferences before initializing state.');
+for (const preference of ['account', 'timeframe', 'startDate', 'endDate', 'selectedMetrics', 'compareA', 'compareB', 'selectedCampaignKey']) {
+  assert(js.includes(`${preference}: state.adView.${preference}`), `Ad View must persist ${preference}.`);
+}
+assert(js.includes('persistAdViewPreferences();'), 'Ad View control changes must save their state for hard refreshes.');
 assert(js.includes('estimateAdViewQuarterHourMetrics'), 'Hourly Shopee data must be presented in quarter-hour hover intervals.');
 assert(js.includes("'<small>15 min estimate</small>'"), 'Estimated 15-minute values must disclose their hourly source without a verbose tooltip.');
 assert(js.includes('ctx.bezierCurveTo('), 'Ad View trends must use smooth curved paths.');

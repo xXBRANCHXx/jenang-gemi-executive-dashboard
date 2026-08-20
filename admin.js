@@ -605,6 +605,7 @@ const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const OVERVIEW_SNAPSHOT_REFRESH_INTERVAL_MS = 60 * 1000;
 const AD_VIEW_AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000;
 const AD_VIEW_ATTRIBUTION_REFRESH_DAYS = 8;
+const AD_VIEW_PREFERENCES_STORAGE_KEY = 'jg-dashboard-ad-view-preferences-v1';
 const AUTO_MARKETPLACE_REFRESH_MIN_MS = 5 * 60 * 1000;
 const AUTO_MARKETPLACE_REFRESH_STORAGE_KEY = 'jg-dashboard-auto-marketplace-refresh-at-v1';
 const HOME_CACHE_PREFIX = 'jg-dashboard-home-cache-v1';
@@ -2467,6 +2468,40 @@ document.addEventListener('DOMContentLoaded', () => {
     const requestedView = params.get('view') || window.location.hash.replace(/^#/, '');
     return normalizeDashboardView(requestedView || window.localStorage.getItem(viewStorageKey));
   };
+  const readAdViewPreferences = () => {
+    const defaults = {
+      account: 'all',
+      timeframe: 'today',
+      startDate: getDateKeyForTimezone(),
+      endDate: getDateKeyForTimezone(),
+      selectedMetrics: ['broad_orders', 'expense', 'net_revenue', 'net_roas'],
+      compareA: '',
+      compareB: '',
+      selectedCampaignKey: ''
+    };
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(AD_VIEW_PREFERENCES_STORAGE_KEY) || '{}');
+      const validAccounts = new Set(['all', 'jenang-gemi-shopee', 'zero-shopee', 'zfit-shopee']);
+      const validTimeframes = new Set(['today', '7d', '30d', 'custom']);
+      const validMetrics = new Set(Object.keys(AD_VIEW_METRIC_LABELS));
+      const selectedMetrics = Array.isArray(saved.selectedMetrics)
+        ? saved.selectedMetrics.filter((metric) => validMetrics.has(metric)).slice(0, 4)
+        : defaults.selectedMetrics;
+      return {
+        account: validAccounts.has(saved.account) ? saved.account : defaults.account,
+        timeframe: validTimeframes.has(saved.timeframe) ? saved.timeframe : defaults.timeframe,
+        startDate: /^\d{4}-\d{2}-\d{2}$/.test(saved.startDate || '') ? saved.startDate : defaults.startDate,
+        endDate: /^\d{4}-\d{2}-\d{2}$/.test(saved.endDate || '') ? saved.endDate : defaults.endDate,
+        selectedMetrics,
+        compareA: String(saved.compareA || ''),
+        compareB: String(saved.compareB || ''),
+        selectedCampaignKey: String(saved.selectedCampaignKey || '')
+      };
+    } catch (_error) {
+      return defaults;
+    }
+  };
+  const adViewPreferences = readAdViewPreferences();
 
   const state = {
     activeView: resolveInitialView(),
@@ -2655,14 +2690,14 @@ document.addEventListener('DOMContentLoaded', () => {
       requestToken: 0
     },
     adView: {
-      account: 'all',
-      timeframe: 'today',
-      startDate: getDateKeyForTimezone(),
-      endDate: getDateKeyForTimezone(),
-      selectedMetrics: ['broad_orders', 'expense', 'net_revenue', 'net_roas'],
-      compareA: '',
-      compareB: '',
-      selectedCampaignKey: '',
+      account: adViewPreferences.account,
+      timeframe: adViewPreferences.timeframe,
+      startDate: adViewPreferences.startDate,
+      endDate: adViewPreferences.endDate,
+      selectedMetrics: adViewPreferences.selectedMetrics,
+      compareA: adViewPreferences.compareA,
+      compareB: adViewPreferences.compareB,
+      selectedCampaignKey: adViewPreferences.selectedCampaignKey,
       search: '',
       data: null,
       loadedAt: 0,
@@ -3073,6 +3108,22 @@ document.addEventListener('DOMContentLoaded', () => {
       expense: document.querySelector('[data-ad-view-kpi="expense"]'),
       netRevenue: document.querySelector('[data-ad-view-kpi="net-revenue"]'),
       netRoas: document.querySelector('[data-ad-view-kpi="net-roas"]')
+    }
+  };
+  const persistAdViewPreferences = () => {
+    try {
+      window.localStorage.setItem(AD_VIEW_PREFERENCES_STORAGE_KEY, JSON.stringify({
+        account: state.adView.account,
+        timeframe: state.adView.timeframe,
+        startDate: state.adView.startDate,
+        endDate: state.adView.endDate,
+        selectedMetrics: state.adView.selectedMetrics,
+        compareA: state.adView.compareA,
+        compareB: state.adView.compareB,
+        selectedCampaignKey: state.adView.selectedCampaignKey
+      }));
+    } catch (_error) {
+      // Ad View preferences are a browser-local enhancement only.
     }
   };
 
@@ -12302,6 +12353,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (adViewRefs.compareA) adViewRefs.compareA.value = state.adView.compareA;
     if (adViewRefs.compareB) adViewRefs.compareB.value = state.adView.compareB;
     if (adViewRefs.actionCampaign) adViewRefs.actionCampaign.value = state.adView.selectedCampaignKey;
+    persistAdViewPreferences();
 
     const selectedAccounts = state.adView.account === 'all'
       ? (data.accounts || [])
@@ -14586,6 +14638,7 @@ document.addEventListener('DOMContentLoaded', () => {
       showAdViewError('The start date must be on or before the end date.');
       return;
     }
+    persistAdViewPreferences();
     showAdViewError();
     await loadAdViewSafely({ force: true });
   });
@@ -14600,12 +14653,16 @@ document.addEventListener('DOMContentLoaded', () => {
         entry.setAttribute('aria-pressed', active ? 'true' : 'false');
       });
       if (adViewRefs.customRange) adViewRefs.customRange.hidden = timeframe !== 'custom';
-      if (timeframe === 'custom') return;
+      if (timeframe === 'custom') {
+        persistAdViewPreferences();
+        return;
+      }
       const endDate = getDateKeyForTimezone();
       const days = timeframe === '30d' ? 30 : (timeframe === '7d' ? 7 : 1);
       state.adView.endDate = endDate;
       state.adView.startDate = getDateKeyForTimezone(new Date(Date.now() - ((days - 1) * 86400000)));
       state.adView.loadedAt = 0;
+      persistAdViewPreferences();
       showAdViewError();
       await loadAdViewSafely({ force: true });
     });
@@ -14616,16 +14673,19 @@ document.addEventListener('DOMContentLoaded', () => {
     state.adView.selectedCampaignKey = '';
     state.adView.compareA = '';
     state.adView.compareB = '';
+    persistAdViewPreferences();
     await loadAdViewSafely({ force: true });
   });
 
   adViewRefs.compareA?.addEventListener('change', () => {
     state.adView.compareA = adViewRefs.compareA?.value || '';
+    persistAdViewPreferences();
     renderAdViewScorecard();
   });
 
   adViewRefs.compareB?.addEventListener('change', () => {
     state.adView.compareB = adViewRefs.compareB?.value || '';
+    persistAdViewPreferences();
     renderAdViewScorecard();
   });
 
@@ -14633,6 +14693,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const button = event.target instanceof Element ? event.target.closest('[data-ad-view-select]') : null;
     if (!(button instanceof HTMLElement)) return;
     state.adView.selectedCampaignKey = button.dataset.adViewSelect || '';
+    persistAdViewPreferences();
     renderAdViewLiveList();
     renderAdViewKpis();
     renderAdViewDetail();
@@ -14659,6 +14720,7 @@ document.addEventListener('DOMContentLoaded', () => {
         entry.classList.toggle('is-selected', selected);
         entry.setAttribute('aria-pressed', selected ? 'true' : 'false');
       });
+      persistAdViewPreferences();
       renderAdViewChart();
     });
   });
@@ -14737,6 +14799,7 @@ document.addEventListener('DOMContentLoaded', () => {
         })
       });
       state.adView.selectedCampaignKey = campaignKey;
+      persistAdViewPreferences();
       adViewRefs.actionForm.reset();
       setAdViewEventTimeDefault();
       await loadAdViewSafely({ force: true });
