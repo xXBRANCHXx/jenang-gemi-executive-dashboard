@@ -27,7 +27,7 @@ inventory_recap_expect(0.25, $options['reorder_fraction'], 'The automatic trigge
 inventory_recap_expect(7.5, $options['reorder_days_equivalent'], 'One quarter of a 30-day demand value is about 7.5 days.');
 inventory_recap_expect(0.75, $options['purchase_fraction'], 'A triggered purchase must use the remaining 75% of monthly demand.');
 inventory_recap_expect(22.5, $options['purchase_days_equivalent'], 'The purchase quantity must represent the remaining three quarters of a month.');
-inventory_recap_expect('90_day_trigger', $options['forecast_model'], 'The quantity trigger model must identify itself.');
+inventory_recap_expect('adaptive_trigger', $options['forecast_model'], 'The quantity trigger model must identify itself.');
 
 inventory_recap_expect(22, jg_inventory_recap_round_to_moq(19, 11), 'A need of 19 with MOQ 11 must round to 22.');
 inventory_recap_expect(9, jg_inventory_recap_round_to_moq(1, 9), 'Any positive need must reach one complete MOQ.');
@@ -46,6 +46,60 @@ inventory_recap_expect(30.0, $flatModel['adjusted_30_day_demand'], 'The decision
 inventory_recap_expect(0.0, $flatModel['applied_buffer'], 'No fluctuation or large-order buffer may be applied.');
 inventory_recap_expect(8, $flatModel['automatic_trigger'], 'The automatic trigger must be 25% of the adjusted monthly demand.');
 inventory_recap_expect(23, $flatModel['purchase_target_qty'], 'A triggered order must use the remaining 75% of monthly demand.');
+inventory_recap_expect(8, $flatModel['demand_trigger'], 'Mature demand must still establish the normal trigger before the safety-floor check.');
+inventory_recap_expect(false, $flatModel['minimum_floor_applied'], 'The floor must not replace a mature demand trigger of five or more.');
+
+// Production snapshot, 2026-08-19: Fiber Syrup Lemonade Pomegranate 250ml
+// sold 18 units, has COGS Rp21,106, MOQ 7, and one unit per customer order.
+$fiberHistory = [];
+$fiberBuckets = [2, 4, 0, 4, 0, 0, 1, 3, 4];
+foreach ($fiberBuckets as $block => $quantity) {
+    if ($quantity > 0) $fiberHistory[$start->modify('+' . ($block * 10) . ' days')->format('Y-m-d')] = $quantity;
+}
+$fiberModel = jg_inventory_recap_trigger_model($fiberHistory, $options, [
+    'stocked_age_days' => 180,
+    'order_quantities' => array_fill(0, 18, 1),
+    'cogs' => 21106,
+    'reference_cogs' => 7500,
+    'purchase_moq' => 7,
+]);
+inventory_recap_expect(18.0, $fiberModel['total_90_day_demand'], 'The real Fiber regression must retain its 18-unit demand.');
+inventory_recap_expect(2, $fiberModel['demand_trigger'], 'Fiber demand alone would still produce the old two-unit trigger.');
+inventory_recap_expect(1.0, $fiberModel['large_order_p90'], 'Fiber customer orders are normally one unit, distinct from two units sold on one day.');
+inventory_recap_expect(6, $fiberModel['cost_floor_units'], 'Fiber inventory cost must hold the cost-aware floor to six units.');
+inventory_recap_expect(7, $fiberModel['bare_minimum_trigger'], 'Fiber MOQ must raise its product-specific bare minimum to seven.');
+inventory_recap_expect(7, $fiberModel['automatic_trigger'], 'Fiber must use its seven-unit product-specific trigger instead of a fixed six.');
+$noDemandEstablished = jg_inventory_recap_trigger_model([], $options, [
+    'stocked_age_days' => 180,
+    'cogs' => 21106,
+    'reference_cogs' => 7500,
+    'purchase_moq' => 7,
+]);
+inventory_recap_expect(false, $noDemandEstablished['has_demand'], 'No sales must remain visible as no demand history.');
+inventory_recap_expect(7, $noDemandEstablished['automatic_trigger'], 'A previously stocked product with no recent sales must retain its product-specific floor.');
+$fiveTriggerHistory = [];
+for ($day = 0; $day < 60; $day++) $fiveTriggerHistory[$start->modify("+{$day} days")->format('Y-m-d')] = 1;
+$fiveTriggerModel = jg_inventory_recap_trigger_model($fiveTriggerHistory, $options, [
+    'stocked_age_days' => 180,
+    'cogs' => 16500,
+    'reference_cogs' => 7500,
+    'purchase_moq' => 9,
+]);
+inventory_recap_expect(5, $fiveTriggerModel['demand_trigger'], 'The threshold fixture must produce a five-unit demand trigger.');
+inventory_recap_expect(5, $fiveTriggerModel['automatic_trigger'], 'A demand trigger of exactly five must not be replaced by the bare minimum.');
+
+$plain60Initial = jg_inventory_recap_initial_purchase_model(361 / 90, 16, $options);
+inventory_recap_expect(14, $plain60Initial['coverage_days'], 'A never-stocked product must open with two weeks of coverage.');
+inventory_recap_expect(57, $plain60Initial['raw_qty'], '60ml Plain must inherit a two-week estimate from the real 50ml Plain demand of 361 per 90 days.');
+inventory_recap_expect(64, $plain60Initial['rounded_qty'], '60ml Plain must round its 57-unit opening estimate to MOQ 16.');
+inventory_recap_expect(true, jg_inventory_recap_is_initial_purchase(0, false), 'Zero stock that has never been stocked must be an initial purchase.');
+inventory_recap_expect(false, jg_inventory_recap_is_initial_purchase(0, true), 'A previously stocked product at zero must remain replenishment, not initial purchase.');
+inventory_recap_expect(false, jg_inventory_recap_is_initial_purchase(1, false), 'Any positive current stock must leave the initial-purchase filter.');
+inventory_recap_expect(14, jg_inventory_recap_history_days(13), 'The learning model must begin with a two-week window.');
+inventory_recap_expect(14, jg_inventory_recap_history_days(20), 'An incomplete third week must stay on the two-week window.');
+inventory_recap_expect(21, jg_inventory_recap_history_days(21), 'A completed third week must expand the learning window to three weeks.');
+inventory_recap_expect(84, jg_inventory_recap_history_days(89), 'Weekly learning must stop at twelve complete weeks before maturity.');
+inventory_recap_expect(90, jg_inventory_recap_history_days(90), 'At 90 days the mature model must take over.');
 
 $risingHistory = [];
 for ($block = 0; $block < 9; $block++) {
@@ -324,5 +378,34 @@ inventory_recap_expect('cancelled', $cancelledOrder['status'] ?? '', 'Cancelling
 $afterCancellation = jg_inventory_recap_payload($skuPdo, $analyticsPdo, ['amount' => 100000], $recapInput);
 inventory_recap_expect(0, $afterCancellation['summary']['incoming_qty'] ?? -1, 'A cancelled PO must stop contributing incoming stock.');
 inventory_recap_expect(0, $afterCancellation['summary']['open_purchase_orders'] ?? -1, 'A cancelled PO must disappear from open Store Ops work.');
+
+$skuPdo->exec("INSERT INTO sku_skus VALUES
+    ('SKU-PEER', 'PLAIN50', 'brand-test', 'unit-pcs', 50, 50, 'flat', 'product-test', 100, 100, 0, 'auto', 20, 0, 2700, 11000),
+    ('SKU-NEW', 'PLAIN60', 'brand-test', 'unit-pcs', 60, 60, 'flat', 'product-test', 0, 0, 0, 'auto', 16, 0, 3200, 13500)");
+$peerInsert = $analyticsPdo->prepare('INSERT INTO dashboard_order_mirror
+    (sku, item_key, product_name, marketplace_product_name, base_product_name, flavor_name,
+     quantity, order_create_time, timestamp_utc, platform, account_key, order_id, status,
+     revenue, net_revenue, deleted_at)
+    VALUES ("SKU-PEER", :item_key, "50ml Plain Syrup", "50ml Plain Syrup", "50ml Plain Syrup", "Flat", :quantity,
+            :occurred_at, :occurred_at, "shopee", "test", :order_id, "COMPLETED", 11000, 11000, NULL)');
+for ($day = 0; $day < 90; $day++) {
+    $peerInsert->execute([
+        ':item_key' => 'peer-line-' . $day,
+        ':quantity' => $day === 0 ? 5 : 4,
+        ':occurred_at' => $start->modify("+{$day} days")->format('Y-m-d') . ' 02:00:00.000000',
+        ':order_id' => 'PEER-ORDER-' . $day,
+    ]);
+}
+$initialPayload = jg_inventory_recap_payload($skuPdo, $analyticsPdo, ['amount' => 1000000], $recapInput);
+$initialBySku = [];
+foreach ($initialPayload['items'] as $item) $initialBySku[(string) ($item['sku'] ?? '')] = $item;
+$newPlain60 = $initialBySku['SKU-NEW'] ?? [];
+inventory_recap_expect(true, $newPlain60['initial_purchase'] ?? false, 'A zero-stock SKU with no stock history must enter Initial purchases.');
+inventory_recap_expect('SKU-PEER', $newPlain60['peer_sku'] ?? '', 'The 60ml opening estimate must choose the closest same-flavor product.');
+inventory_recap_expect(57, $newPlain60['initial_raw_qty'] ?? 0, 'The integrated initial estimate must cover two weeks of the peer demand.');
+inventory_recap_expect(64, $newPlain60['recommended_order_qty'] ?? 0, 'The integrated initial recommendation must round 57 units to MOQ 16.');
+inventory_recap_expect('initial', $newPlain60['risk'] ?? '', 'Initial purchases must have their own filter state rather than Needs purchase.');
+inventory_recap_expect(false, $newPlain60['restock_needed'] ?? true, 'An initial purchase must not be classified as replenishment.');
+inventory_recap_expect(1, $initialPayload['summary']['initial_purchase_count'] ?? 0, 'The recap must count never-stocked products separately.');
 
 echo "inventory-recap-test: ok\n";

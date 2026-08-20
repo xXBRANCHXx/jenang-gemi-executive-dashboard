@@ -27258,6 +27258,10 @@ button.admin-order-payment-dot:focus-visible {
   border-left-color: var(--inventory-green);
 }
 
+.admin-inventory-trigger-row.is-initial {
+  border-left-color: #8b5cf6;
+}
+
 .admin-inventory-trigger-product,
 .admin-inventory-trigger-balance,
 .admin-inventory-trigger-signal {
@@ -27316,6 +27320,11 @@ button.admin-order-payment-dot:focus-visible {
 .is-near .admin-inventory-trigger-state {
   border-color: color-mix(in srgb, var(--inventory-amber) 45%, transparent);
   color: #f3a93b;
+}
+
+.is-initial .admin-inventory-trigger-state {
+  border-color: color-mix(in srgb, #8b5cf6 48%, transparent);
+  color: #a78bfa;
 }
 
 .admin-inventory-trigger-balance {
@@ -27382,7 +27391,7 @@ button.admin-order-payment-dot:focus-visible {
 
 .admin-inventory-bucket-chart {
   display: grid;
-  grid-template-columns: repeat(9, 1fr);
+  grid-template-columns: repeat(var(--bucket-count, 9), 1fr);
   gap: 3px;
   align-items: end;
   height: 45px;
@@ -27478,12 +27487,64 @@ button.admin-order-payment-dot:focus-visible {
   opacity: 0.5;
 }
 
-.admin-inventory-trigger-settings > small {
+.admin-inventory-setting-status {
   grid-column: 1 / -1;
 }
 
-.admin-inventory-trigger-settings > small.is-error {
+.admin-inventory-setting-status > small {
+  color: var(--admin-muted);
+  font-size: 0.63rem;
+  font-weight: 680;
+  line-height: 1.4;
+}
+
+.admin-inventory-setting-status > small.is-error {
   color: #f87171;
+}
+
+.admin-inventory-trigger-why {
+  position: relative;
+  display: inline-block;
+  margin-left: 6px;
+}
+
+.admin-inventory-trigger-why summary {
+  color: var(--admin-muted);
+  font-size: 0.61rem;
+  font-weight: 760;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.admin-inventory-trigger-why summary::-webkit-details-marker {
+  display: none;
+}
+
+.admin-inventory-trigger-why > div {
+  position: absolute;
+  z-index: 20;
+  right: 0;
+  bottom: calc(100% + 8px);
+  display: grid;
+  gap: 6px;
+  width: min(310px, 76vw);
+  padding: 11px;
+  border: 1px solid var(--inventory-line);
+  border-radius: 7px;
+  background: var(--admin-bg);
+  box-shadow: 0 14px 32px rgb(0 0 0 / 34%);
+}
+
+.admin-inventory-trigger-why > div span {
+  color: var(--admin-muted);
+  font-size: 0.61rem;
+  line-height: 1.35;
+}
+
+.admin-inventory-trigger-why > div b {
+  color: var(--admin-text);
 }
 
 .admin-inventory-auto-switch {

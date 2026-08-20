@@ -806,6 +806,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                        <div class="admin-inventory-recap-controls">
 	                            <div class="admin-inventory-filters" role="group" aria-label="Filter products by trigger status">
 	                                <button type="button" class="is-active" data-inventory-filter="triggered">Needs purchase <span class="admin-inventory-filter-alert" data-inventory-partial-alert hidden aria-hidden="true"></span></button>
+	                                <button type="button" data-inventory-filter="initial">Initial purchases</button>
 	                                <button type="button" data-inventory-filter="all">All products</button>
 	                            </div>
 	                            <div class="admin-inventory-product-search" role="search" aria-label="Search inventory products">
