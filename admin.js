@@ -12048,11 +12048,7 @@ document.addEventListener('DOMContentLoaded', () => {
       metric,
       Math.max(1, ...rows.map((row) => Number(row.metrics?.[metric] || 0)))
     ]));
-    const blockChart = rows.every((row) => Number.isFinite(row.startPosition) && Number.isFinite(row.endPosition));
-    const minPosition = blockChart ? Math.min(...rows.map((row) => row.startPosition)) : 0;
-    const maxPosition = blockChart ? Math.max(...rows.map((row) => row.endPosition), minPosition + 1) : Math.max(rows.length - 1, 1);
-    const positionX = (position) => padding.left + (chartWidth * (position - minPosition) / Math.max(maxPosition - minPosition, 1));
-    const rowX = (row, index) => blockChart ? positionX(row.endPosition) : padding.left + (chartWidth * index / Math.max(rows.length - 1, 1));
+    const rowX = (index) => padding.left + (chartWidth * index / Math.max(rows.length - 1, 1));
 
     selectedMetrics.forEach((metric) => {
       const color = AD_VIEW_METRIC_COLORS[metric] || '#00c987';
@@ -12060,27 +12056,8 @@ document.addEventListener('DOMContentLoaded', () => {
       ctx.lineWidth = 3;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-      if (blockChart) {
-        rows.forEach((row) => {
-          const startX = positionX(row.startPosition);
-          const endX = positionX(row.endPosition);
-          const startY = padding.top + chartHeight;
-          const value = Number(row.metrics?.[metric] || 0);
-          const endY = padding.top + chartHeight - ((value / maxByMetric[metric]) * (chartHeight - 8));
-          const blockWidth = Math.max(0, endX - startX);
-          ctx.beginPath();
-          ctx.moveTo(startX, startY);
-          ctx.bezierCurveTo(
-            startX + (blockWidth * 0.46), startY,
-            startX + (blockWidth * 0.78), endY,
-            endX, endY
-          );
-          ctx.stroke();
-        });
-        return;
-      }
       const points = rows.map((row, index) => {
-        const x = rowX(row, index);
+        const x = rowX(index);
         const value = Number(row.metrics?.[metric] || 0);
         const y = padding.top + chartHeight - ((value / maxByMetric[metric]) * (chartHeight - 8));
         return { x, y };
@@ -12102,9 +12079,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     rows.forEach((row, index) => {
-      const x = rowX(row, index);
-      const startX = blockChart ? positionX(row.startPosition) : (index === 0 ? padding.left : (rowX(rows[index - 1], index - 1) + x) / 2);
-      const endX = blockChart ? Math.max(x, startX + 2) : (index === rows.length - 1 ? width - padding.right : (x + rowX(rows[index + 1], index + 1)) / 2);
+      const x = rowX(index);
+      const startX = index === 0 ? padding.left : (rowX(index - 1) + x) / 2;
+      const endX = index === rows.length - 1 ? width - padding.right : (x + rowX(index + 1)) / 2;
       const tooltipRows = selectedMetrics.map((selectedMetric) => `
         <div class="admin-chart-tooltip-row">
           <span class="admin-chart-tooltip-dot" style="background:${AD_VIEW_METRIC_COLORS[selectedMetric]}"></span>
@@ -12135,7 +12112,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.fillStyle = palette.muted;
         ctx.font = '600 11px "Plus Jakarta Sans", sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(row.label, blockChart ? startX : x, height - 17);
+        ctx.fillText(row.label, x, height - 17);
       }
     });
     if (activeHover?.metricPoints?.length) {
@@ -12234,8 +12211,6 @@ document.addEventListener('DOMContentLoaded', () => {
               metrics: estimateAdViewQuarterHourMetrics(row.metrics, blockShare),
               hour: row.hour,
               minute,
-              startPosition: (row.hour * 60) + minute,
-              endPosition: (row.hour * 60) + minute + (currentBlock ? Math.max(0, currentMinute % 15) : 14.9),
               estimated: true
             };
           });

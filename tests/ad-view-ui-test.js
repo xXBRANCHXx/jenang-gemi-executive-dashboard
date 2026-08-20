@@ -35,9 +35,8 @@ assert(js.includes('scheduleAdViewAutoSync();'), 'Loading Ad View must schedule 
 assert(js.includes('estimateAdViewQuarterHourMetrics'), 'Hourly Shopee data must be presented in quarter-hour hover intervals.');
 assert(js.includes("'<small>15 min estimate</small>'"), 'Estimated 15-minute values must disclose their hourly source without a verbose tooltip.');
 assert(js.includes('ctx.bezierCurveTo('), 'Ad View trends must use smooth curved paths.');
-assert(js.includes('startPosition: (row.hour * 60) + minute'), 'Each quarter-hour block must have its own zero-based start position.');
-assert(js.includes('ctx.moveTo(startX, startY)'), 'Every quarter-hour curve must restart at the zero baseline.');
 assert(js.includes('currentHourBlockMinutes / currentMinute'), 'The active quarter-hour block must build upward from zero while preserving the elapsed hourly total.');
+assert(!js.includes('Number.isFinite(row.startPosition)'), 'Quarter-hour resets must not be drawn as separate spike curves.');
 const adChartStart = js.indexOf('const drawAdViewMetricChart');
 const adChartEnd = js.indexOf('const renderAdViewKpis', adChartStart);
 assert(adChartStart >= 0 && adChartEnd > adChartStart, 'The Ad View chart renderer must exist.');
