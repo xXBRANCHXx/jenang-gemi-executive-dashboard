@@ -33,12 +33,14 @@ assert(js.includes('state.adView.startDate < trailingAttributionStart'), 'Backgr
 assert(!js.includes('const syncStartDate = background ? today : state.adView.startDate'), 'Background sync must not refresh only today.');
 assert(js.includes('scheduleAdViewAutoSync();'), 'Loading Ad View must schedule a background Shopee sync.');
 assert(js.includes('estimateAdViewQuarterHourMetrics'), 'Hourly Shopee data must be presented in quarter-hour hover intervals.');
-assert(js.includes('Estimated from Shopee hourly totals'), 'Estimated 15-minute values must disclose their hourly source.');
+assert(js.includes("'<small>15 min estimate</small>'"), 'Estimated 15-minute values must disclose their hourly source without a verbose tooltip.');
 assert(js.includes('ctx.bezierCurveTo('), 'Ad View trends must use smooth curved paths.');
 const adChartStart = js.indexOf('const drawAdViewMetricChart');
 const adChartEnd = js.indexOf('const renderAdViewKpis', adChartStart);
 assert(adChartStart >= 0 && adChartEnd > adChartStart, 'The Ad View chart renderer must exist.');
-assert(!js.slice(adChartStart, adChartEnd).includes('ctx.arc('), 'Ad View curves must not draw persistent point dots.');
+assert(js.slice(adChartStart, adChartEnd).includes('activeHover?.metricPoints?.length'), 'The Ad View chart must draw markers only for the hovered interval.');
+assert(js.slice(adChartStart, adChartEnd).includes('ctx.arc(activeHover.x, point.y'), 'The hovered interval must be marked directly on each visible curve.');
+assert(!js.includes('tooltipLabel: `${state.adView.startDate}'), 'Quarter-hour tooltips must not repeat the already-selected date.');
 assert(js.includes("result.cac = result.broad_items > 0 ? result.expense / result.broad_items : 0"), 'CAC must use attributed units sold.');
 assert(js.includes('Ad cost ÷ attributed units sold'), 'The CAC card must explain its unit-based calculation.');
 assert(js.includes("net_revenue: 'Net revenue received'"), 'Ad View must use seller-received net revenue.');

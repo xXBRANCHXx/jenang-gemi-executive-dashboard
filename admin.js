@@ -11996,19 +11996,25 @@ document.addEventListener('DOMContentLoaded', () => {
     return compact ? formatCompactNumber(value) : formatRegionalNumber(Math.round(Number(value) || 0));
   };
 
-  const estimateAdViewQuarterHourMetrics = (hourMetrics, quarterCount) => {
-    const divisor = Math.max(1, Number(quarterCount) || 1);
+  const estimateAdViewQuarterHourMetrics = (hourMetrics, nextHourMetrics, progress) => {
+    const ratio = Math.max(0, Math.min(1, Number(progress) || 0));
+    const interpolate = (key) => {
+      const current = Number(hourMetrics[key] || 0);
+      const next = Number(nextHourMetrics?.[key] ?? current);
+      return current + ((next - current) * ratio);
+    };
+    const hasNetRevenue = hourMetrics.net_revenue_available && (nextHourMetrics?.net_revenue_available ?? true);
     return aggregateAdViewMetrics([{
-      impressions: Number(hourMetrics.impressions || 0) / divisor,
-      clicks: Number(hourMetrics.clicks || 0) / divisor,
-      expense: Number(hourMetrics.expense || 0) / divisor,
-      broad_orders: Number(hourMetrics.broad_orders || 0) / divisor,
-      broad_items: Number(hourMetrics.broad_items || 0) / divisor,
-      broad_gmv: Number(hourMetrics.broad_gmv || 0) / divisor,
-      net_revenue: hourMetrics.net_revenue_available ? Number(hourMetrics.net_revenue || 0) / divisor : null,
-      direct_orders: Number(hourMetrics.direct_orders || 0) / divisor,
-      direct_items: Number(hourMetrics.direct_items || 0) / divisor,
-      direct_gmv: Number(hourMetrics.direct_gmv || 0) / divisor
+      impressions: interpolate('impressions'),
+      clicks: interpolate('clicks'),
+      expense: interpolate('expense'),
+      broad_orders: interpolate('broad_orders'),
+      broad_items: interpolate('broad_items'),
+      broad_gmv: interpolate('broad_gmv'),
+      net_revenue: hasNetRevenue ? interpolate('net_revenue') : null,
+      direct_orders: interpolate('direct_orders'),
+      direct_items: interpolate('direct_items'),
+      direct_gmv: interpolate('direct_gmv')
     }]);
   };
 
@@ -12021,6 +12027,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const chartWidth = width - padding.left - padding.right;
     const chartHeight = height - padding.top - padding.bottom;
     const palette = getThemePalette();
+    const activeHover = chartActivePointState.get(canvas) || null;
     const hoverColumns = [];
     bindChartHover(canvas);
 
@@ -12065,7 +12072,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const previous = points[index - 1] || point;
         const next = points[index + 1];
         const afterNext = points[index + 2] || next;
-        const tension = 0.82;
+        const tension = 1.18;
         const controlOneX = point.x + ((next.x - previous.x) / 6 * tension);
         const controlOneY = Math.max(padding.top, Math.min(padding.top + chartHeight, point.y + ((next.y - previous.y) / 6 * tension)));
         const controlTwoX = next.x - ((afterNext.x - point.x) / 6 * tension);
@@ -12086,9 +12093,16 @@ document.addEventListener('DOMContentLoaded', () => {
       hoverColumns[index] = {
         x,
         y: padding.top + (chartHeight / 2),
+        metricPoints: selectedMetrics.map((metric) => {
+          const value = Number(row.metrics?.[metric] || 0);
+          return {
+            color: AD_VIEW_METRIC_COLORS[metric] || '#00c987',
+            y: padding.top + chartHeight - ((value / maxByMetric[metric]) * (chartHeight - 8))
+          };
+        }),
         hoverKey: `ad-view:${row.key}`,
         tooltipTitle: row.tooltipLabel || row.label,
-        tooltipLinesHtml: `${tooltipRows}${row.estimated ? '<small>Estimated from Shopee hourly totals</small>' : ''}`,
+        tooltipLinesHtml: `${tooltipRows}${row.estimated ? '<small>15 min estimate</small>' : ''}`,
         hitbox: {
           left: index === 0 ? padding.left : x - (chartWidth / Math.max(rows.length - 1, 1) / 2),
           right: index === rows.length - 1 ? width - padding.right : x + (chartWidth / Math.max(rows.length - 1, 1) / 2),
@@ -12096,13 +12110,24 @@ document.addEventListener('DOMContentLoaded', () => {
           bottom: padding.top + chartHeight
         }
       };
-      if (index === 0 || index === rows.length - 1 || rows.length <= 8 || index % Math.ceil(rows.length / 6) === 0) {
+      if (index === 0 || index === rows.length - 1 || rows.length <= 8 || (row.minute === 0 && row.hour % 3 === 0)) {
         ctx.fillStyle = palette.muted;
         ctx.font = '600 11px "Plus Jakarta Sans", sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText(row.label, x, height - 17);
       }
     });
+    if (activeHover?.metricPoints?.length) {
+      activeHover.metricPoints.forEach((point) => {
+        ctx.fillStyle = point.color;
+        ctx.strokeStyle = palette.surface;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(activeHover.x, point.y, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      });
+    }
     chartHoverState.set(canvas, hoverColumns.filter(Boolean));
   };
 
@@ -12170,9 +12195,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentHour = Number(timeParts.hour || 0);
     const currentMinute = Number(timeParts.minute || 0);
     const chartRows = hourly && state.adView.startDate === state.adView.endDate
-      ? hourlyRows.flatMap((row) => {
+      ? hourlyRows.flatMap((row, rowIndex) => {
           const activeQuarterCount = today && row.hour === currentHour ? Math.min(4, Math.floor(currentMinute / 15) + 1) : 4;
-          const quarterMetrics = estimateAdViewQuarterHourMetrics(row.metrics, activeQuarterCount);
           return Array.from({ length: activeQuarterCount }, (_, quarter) => {
             const minute = quarter * 15;
             const endMinute = minute + 14;
@@ -12180,8 +12204,10 @@ document.addEventListener('DOMContentLoaded', () => {
             return {
               key: `${row.key}:${String(minute).padStart(2, '0')}`,
               label: `${hourLabel}:${String(minute).padStart(2, '0')}`,
-              tooltipLabel: `${state.adView.startDate} • ${hourLabel}:${String(minute).padStart(2, '0')}–${hourLabel}:${String(endMinute).padStart(2, '0')}`,
-              metrics: quarterMetrics,
+              tooltipLabel: `${hourLabel}:${String(minute).padStart(2, '0')}–${hourLabel}:${String(endMinute).padStart(2, '0')}`,
+              metrics: estimateAdViewQuarterHourMetrics(row.metrics, hourlyRows[rowIndex + 1]?.metrics, quarter / 4),
+              hour: row.hour,
+              minute,
               estimated: true
             };
           });
@@ -12195,7 +12221,7 @@ document.addEventListener('DOMContentLoaded', () => {
       : 'Select a live ad';
     if (adViewRefs.trendMeta) {
       adViewRefs.trendMeta.textContent = state.adView.selectedMetrics.length
-        ? `${state.adView.selectedMetrics.map((metric) => AD_VIEW_METRIC_LABELS[metric]).join(' • ')} • ${hourly ? '15 min estimate from hourly data • ' : ''}each curve uses its own scale`
+        ? `${state.adView.selectedMetrics.map((metric) => AD_VIEW_METRIC_LABELS[metric]).join(' • ')} • ${hourly ? 'hover for 15 min detail • ' : ''}each curve uses its own scale`
         : 'Select up to four metric cards';
     }
   };
