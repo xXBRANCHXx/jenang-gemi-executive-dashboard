@@ -37,6 +37,7 @@ assert.match(dashboard, /Stock already on the way[\s\S]*data-inventory-po-list/)
 assert.match(script, /data-inventory-automatic/);
 assert.match(script, /data-inventory-manual-trigger/);
 assert.match(script, /data-inventory-moq/);
+assert.match(script, /data-inventory-moq-save[^>]*>\$\{moqSaving \? 'Saving' : 'Save MOQ'\}/);
 assert.match(dashboard, /admin-inventory-order-action[\s\S]*<svg[\s\S]*Order[\s\S]*<\/header>[\s\S]*admin-inventory-utility-bar[\s\S]*>See History<[\s\S]*data-inventory-global-days-form[\s\S]*Order days/);
 assert.match(dashboard, /admin-inventory-po-board-head[\s\S]*admin-inventory-po-board-tools[\s\S]*admin-inventory-utility-bar/);
 assert.match(dashboard, /admin-po-payment-modes admin-sliding-chart-toggle[\s\S]*admin-toggle-pill is-active[\s\S]*data-po-payment-mode="products"/);
@@ -46,7 +47,21 @@ assert.match(styles, /admin-po-pay-action:not\(\.is-paid\)[\s\S]*color:#090909 !
 assert.match(styles, /admin-po-payment-modes\[data-active-mode="products"\][\s\S]*translate3d\(300%/);
 assert.match(script, /data-inventory-global-days/);
 assert.match(script, /Math\.ceil\(entered \/ moq\) \* moq/);
-assert.match(script, /saveInventorySettings/);
+const modeSaveSource = script.slice(
+  script.indexOf('const saveInventoryMode'),
+  script.indexOf('const saveInventoryManualTrigger')
+);
+assert.match(modeSaveSource, /action: 'update_inventory_mode'/);
+assert.doesNotMatch(modeSaveSource, /manual_trigger:|purchase_moq:/, 'Automatic must persist without bundling trigger or MOQ values.');
+assert.match(modeSaveSource, /modeSaving\[sku\][\s\S]*while \(state\.inventoryRecap\.modeDesired\[sku\] !== state\.inventoryRecap\.modePersisted\[sku\]\)/, 'Each SKU must save independently and preserve the last toggle choice.');
+const moqSaveSource = script.slice(
+  script.indexOf('const saveInventoryMoq'),
+  script.indexOf('const saveGlobalInventoryDays')
+);
+assert.match(moqSaveSource, /action: 'update_purchase_moq'[\s\S]*purchase_moq: purchaseMoq/);
+assert.doesNotMatch(moqSaveSource, /automatic:|manual_trigger:/, 'The MOQ button must save only MOQ.');
+assert.match(script, /action: 'update_manual_trigger'/, 'Manual trigger changes must save without using the MOQ button.');
+assert.match(script, /queueInventorySettingRefresh[\s\S]*settingsRevision/, 'Derived inventory figures must refresh after fast setting updates without accepting stale responses.');
 assert.match(script, /Trigger model: weekly learning up to 90 days, with a cost, order-quantity, and MOQ safety floor for triggers below 5/);
 assert.match(script, /const inventoryTriggerWhy[\s\S]*admin-inventory-trigger-why[\s\S]*See why/);
 assert.match(script, /demand_trigger[\s\S]*large_order_p90[\s\S]*cost_floor_units[\s\S]*bare_minimum_trigger/);
@@ -116,6 +131,10 @@ assert.doesNotMatch(script, /inventoryRecapDays|current_days_remaining/);
 
 assert.match(api, /update_settings/);
 assert.match(api, /purchase_moq = :purchase_moq/);
+assert.match(api, /update_inventory_mode[\s\S]*inventory_mode = :inventory_mode/);
+assert.match(api, /update_manual_trigger[\s\S]*stock_trigger = :stock_trigger/);
+assert.match(api, /update_purchase_moq[\s\S]*purchase_moq = :purchase_moq/);
+assert.match(api, /is_array\(\$fastSettingUpdate\)[\s\S]*settings_updated[\s\S]*return;/, 'Single-product settings must return before the full inventory payload is rebuilt.');
 assert.match(api, /update_purchase_days/);
 assert.match(api, /jg_purchase_orders_place/);
 assert.match(api, /jg_purchase_orders_create_draft/);

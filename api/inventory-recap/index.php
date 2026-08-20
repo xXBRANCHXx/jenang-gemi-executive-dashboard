@@ -15,7 +15,7 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 
 try {
-    $analyticsPdo = analyticsDb();
+    $analyticsPdo = null;
     $skuPdo = jg_sku_db();
     if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) === 'GET'
         && strtolower(trim((string) ($_GET['action'] ?? ''))) === 'payment_proof') {
@@ -24,12 +24,19 @@ try {
         $proofId = filter_var($_GET['proof_id'] ?? 0, FILTER_VALIDATE_INT);
         jg_purchase_orders_stream_payment_proof($skuPdo, $paymentId, $proofId === false ? 0 : max(0, (int) $proofId));
     }
-    $month = function_exists('jg_accounting_month') ? jg_accounting_month($_GET['month'] ?? null) : gmdate('Y-m');
-    $cashContext = jg_inventory_recap_accounting_cash_context($analyticsPdo, $month);
     $placedOrder = null;
     $draftOrder = null;
     $updatedOrder = null;
     $cancelledOrder = null;
+    $fastSettingUpdate = null;
+    $ensureSkuExists = static function (PDO $pdo, string $sku): void {
+        $exists = $pdo->prepare('SELECT COUNT(*) FROM sku_skus WHERE sku = :sku');
+        $exists->execute([':sku' => $sku]);
+        if ((int) $exists->fetchColumn() === 0) {
+            http_response_code(404);
+            throw new RuntimeException('Product was not found.');
+        }
+    };
     if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) === 'POST') {
         $multipart = str_contains(strtolower((string) ($_SERVER['CONTENT_TYPE'] ?? '')), 'multipart/form-data');
         $body = $multipart ? $_POST : json_decode((string) file_get_contents('php://input'), true);
@@ -41,6 +48,80 @@ try {
                 throw new InvalidArgumentException('Order days must be between 1 and 90.');
             }
             jg_inventory_recap_set_global_purchase_days($skuPdo, (float) $purchaseDays);
+        } elseif ($action === 'update_inventory_mode') {
+            $sku = trim((string) ($body['sku'] ?? ''));
+            $automatic = filter_var($body['automatic'] ?? null, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            if ($sku === '' || !array_key_exists('automatic', $body) || $automatic === null) {
+                http_response_code(422);
+                throw new InvalidArgumentException('SKU and automatic mode are required.');
+            }
+            $stmt = $skuPdo->prepare(
+                'UPDATE sku_skus
+                 SET inventory_mode = :inventory_mode,
+                     updated_at = :updated_at
+                 WHERE sku = :sku'
+            );
+            $stmt->execute([
+                ':inventory_mode' => $automatic ? 'auto' : 'manual',
+                ':updated_at' => gmdate('Y-m-d H:i:s'),
+                ':sku' => $sku,
+            ]);
+            if ($stmt->rowCount() === 0) $ensureSkuExists($skuPdo, $sku);
+            $fastSettingUpdate = [
+                'setting' => 'automatic',
+                'sku' => $sku,
+                'automatic' => $automatic,
+            ];
+        } elseif ($action === 'update_manual_trigger') {
+            $sku = trim((string) ($body['sku'] ?? ''));
+            $manualTrigger = filter_var($body['manual_trigger'] ?? null, FILTER_VALIDATE_INT);
+            if ($sku === '' || $manualTrigger === false || $manualTrigger < 0) {
+                http_response_code(422);
+                throw new InvalidArgumentException('SKU and a valid manual trigger are required.');
+            }
+            $manualTrigger = min(1000000, $manualTrigger);
+            $stmt = $skuPdo->prepare(
+                'UPDATE sku_skus
+                 SET stock_trigger = :stock_trigger,
+                     updated_at = :updated_at
+                 WHERE sku = :sku'
+            );
+            $stmt->execute([
+                ':stock_trigger' => $manualTrigger,
+                ':updated_at' => gmdate('Y-m-d H:i:s'),
+                ':sku' => $sku,
+            ]);
+            if ($stmt->rowCount() === 0) $ensureSkuExists($skuPdo, $sku);
+            $fastSettingUpdate = [
+                'setting' => 'manual_trigger',
+                'sku' => $sku,
+                'manual_trigger' => $manualTrigger,
+            ];
+        } elseif ($action === 'update_purchase_moq') {
+            $sku = trim((string) ($body['sku'] ?? ''));
+            $purchaseMoq = filter_var($body['purchase_moq'] ?? null, FILTER_VALIDATE_INT);
+            if ($sku === '' || $purchaseMoq === false || $purchaseMoq < 1) {
+                http_response_code(422);
+                throw new InvalidArgumentException('SKU and a valid MOQ are required.');
+            }
+            $purchaseMoq = min(100000, $purchaseMoq);
+            $stmt = $skuPdo->prepare(
+                'UPDATE sku_skus
+                 SET purchase_moq = :purchase_moq,
+                     updated_at = :updated_at
+                 WHERE sku = :sku'
+            );
+            $stmt->execute([
+                ':purchase_moq' => $purchaseMoq,
+                ':updated_at' => gmdate('Y-m-d H:i:s'),
+                ':sku' => $sku,
+            ]);
+            if ($stmt->rowCount() === 0) $ensureSkuExists($skuPdo, $sku);
+            $fastSettingUpdate = [
+                'setting' => 'purchase_moq',
+                'sku' => $sku,
+                'purchase_moq' => $purchaseMoq,
+            ];
         } elseif ($action === 'update_settings') {
             $sku = trim((string) ($body['sku'] ?? ''));
             $mode = !empty($body['automatic']) ? 'auto' : 'manual';
@@ -103,6 +184,7 @@ try {
                 (string) ($body['tag'] ?? '')
             );
         } elseif ($action === 'pay_order') {
+            $analyticsPdo ??= analyticsDb();
             jg_accounting_ensure_schema($analyticsPdo);
             $orderId = (int) ($body['order_id'] ?? 0);
             $order = jg_purchase_orders_find($skuPdo, $orderId);
@@ -202,6 +284,17 @@ try {
             throw new InvalidArgumentException('Invalid inventory settings request.');
         }
     }
+    if (is_array($fastSettingUpdate)) {
+        echo json_encode([
+            'ok' => true,
+            'settings_updated' => true,
+            ...$fastSettingUpdate,
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        return;
+    }
+    $analyticsPdo ??= analyticsDb();
+    $month = function_exists('jg_accounting_month') ? jg_accounting_month($_GET['month'] ?? null) : gmdate('Y-m');
+    $cashContext = jg_inventory_recap_accounting_cash_context($analyticsPdo, $month);
     $payload = jg_inventory_recap_payload($skuPdo, $analyticsPdo, $cashContext, $_GET);
     jg_accounting_ensure_schema($analyticsPdo);
     $balances = jg_accounting_cash_account_balances($analyticsPdo);

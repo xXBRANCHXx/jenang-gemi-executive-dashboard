@@ -2612,7 +2612,12 @@ document.addEventListener('DOMContentLoaded', () => {
 	      placeRequestKey: '',
 	      placedOrder: null,
 	      cancellingOrderId: 0,
-	      settingsSaving: '',
+	      modeSaving: {},
+	      modeDesired: {},
+	      modePersisted: {},
+	      manualSaving: {},
+	      moqSaving: {},
+	      settingsRevision: 0,
 	      settingsMessage: {},
 	      globalSettingsSaving: false,
 	      globalSettingsMessage: '',
@@ -9020,7 +9025,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	    inventoryRecapRefs.list.innerHTML = visibleRows.map((item) => {
 	      const sku = String(item.sku || '');
 	      const automatic = String(item.trigger_mode || 'auto') !== 'manual';
-	      const saving = state.inventoryRecap.settingsSaving === sku;
+	      const moqSaving = Boolean(state.inventoryRecap.moqSaving[sku]);
+	      const modeSaving = Boolean(state.inventoryRecap.modeSaving[sku]);
 	      const message = String(state.inventoryRecap.settingsMessage[sku] || '');
 	      const stock = Math.max(0, Number(item.current_stock || 0));
 	      const predictedStock = Number(item.predicted_stock ?? stock);
@@ -9067,7 +9073,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	        </div>
 	        <form class="admin-inventory-trigger-settings" data-inventory-settings="${escapeHtml(sku)}">
 	          <label class="admin-inventory-auto-switch">
-	            <input type="checkbox" data-inventory-automatic ${automatic ? 'checked' : ''}>
+	            <input type="checkbox" data-inventory-automatic ${automatic ? 'checked' : ''} ${modeSaving ? 'aria-busy="true"' : ''}>
 	            <span aria-hidden="true"></span>
 	            <b>Automatic</b>
 	          </label>
@@ -9079,7 +9085,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	            <span>MOQ</span>
 	            <input type="number" min="1" step="1" value="${Math.max(1, Number(item.purchase_moq || 1))}" data-inventory-moq>
 	          </label>
-	          <button type="submit" ${saving ? 'disabled' : ''}>${saving ? 'Saving' : 'Save'}</button>
+	          <button type="button" data-inventory-moq-save ${moqSaving ? 'disabled' : ''}>${moqSaving ? 'Saving' : 'Save MOQ'}</button>
 	          <div class="admin-inventory-setting-status">
 	            <small class="${message.startsWith('Could') ? 'is-error' : ''}" data-inventory-setting-message>${escapeHtml(message || (initialPurchase ? `Initial target ${formatRegionalInteger(item.initial_target_qty || 0)}` : automatic ? `Auto value ${formatRegionalInteger(item.automatic_trigger || 0)}` : 'Manual value active'))}</small>
 	            ${!message && (automatic || initialPurchase) ? inventoryTriggerWhy(item) : ''}
@@ -9398,41 +9404,182 @@ document.addEventListener('DOMContentLoaded', () => {
 	    renderPoDetail();
 	  };
 
-	  const saveInventorySettings = async (form) => {
+	  const inventorySettingItem = (sku) => (state.inventoryRecap.data?.items || [])
+	    .find((item) => String(item.sku || '') === sku);
+
+	  const inventorySettingForm = (sku) => Array.from(inventoryRecapRefs.list?.querySelectorAll('[data-inventory-settings]') || [])
+	    .find((form) => form.getAttribute('data-inventory-settings') === sku);
+
+	  const setInventorySettingMessage = (sku, message, preferredForm = null) => {
+	    state.inventoryRecap.settingsMessage[sku] = message;
+	    const form = preferredForm?.isConnected ? preferredForm : inventorySettingForm(sku);
+	    const status = form?.querySelector('[data-inventory-setting-message]');
+	    if (status) {
+	      status.textContent = message;
+	      status.classList.toggle('is-error', message.startsWith('Could'));
+	    }
+	    const why = form?.querySelector('.admin-inventory-trigger-why');
+	    if (why) why.hidden = message !== '';
+	  };
+
+	  const postInventoryProductSetting = (body) => requestJson(inventoryRecapUrl({ force: true }), {
+	    method: 'POST',
+	    headers: { 'Content-Type': 'application/json' },
+	    body: JSON.stringify(body),
+	    cache: 'no-store',
+	    timeoutMs: 10000
+	  });
+
+	  const inventorySettingsHavePendingRequests = () => (
+	    Object.keys(state.inventoryRecap.modeSaving).length > 0
+	    || Object.keys(state.inventoryRecap.manualSaving).length > 0
+	    || Object.keys(state.inventoryRecap.moqSaving).length > 0
+	  );
+
+	  let inventorySettingRefreshTimer = null;
+	  let inventorySettingRefreshPromise = null;
+	  const queueInventorySettingRefresh = () => {
+	    if (inventorySettingRefreshTimer) window.clearTimeout(inventorySettingRefreshTimer);
+	    inventorySettingRefreshTimer = window.setTimeout(async () => {
+	      inventorySettingRefreshTimer = null;
+	      if (inventorySettingsHavePendingRequests() || inventorySettingRefreshPromise) {
+	        queueInventorySettingRefresh();
+	        return;
+	      }
+	      const revision = state.inventoryRecap.settingsRevision;
+	      const refresh = requestJson(inventoryRecapUrl({ force: true }), { cache: 'no-store', timeoutMs: 30000 });
+	      inventorySettingRefreshPromise = refresh;
+	      try {
+	        const data = await refresh;
+	        if (revision !== state.inventoryRecap.settingsRevision || inventorySettingsHavePendingRequests()) {
+	          queueInventorySettingRefresh();
+	          return;
+	        }
+	        Object.entries(state.inventoryRecap.settingsMessage).forEach(([sku, message]) => {
+	          if (!String(message).startsWith('Could')) delete state.inventoryRecap.settingsMessage[sku];
+	        });
+	        state.inventoryRecap.planEdited = {};
+	        writeViewClientCache('inventory-recap', inventoryRecapClientCacheKey(), data);
+	        applyInventoryRecapData(data);
+	      } catch (error) {
+	        // The setting is already persisted. The regular view refresh can retry the derived figures.
+	      } finally {
+	        if (inventorySettingRefreshPromise === refresh) inventorySettingRefreshPromise = null;
+	      }
+	    }, 600);
+	  };
+
+	  const saveInventoryMode = async (form, automaticInput) => {
 	    const sku = String(form?.getAttribute('data-inventory-settings') || '');
-	    if (!sku || state.inventoryRecap.settingsSaving) return;
-	    const automaticInput = form.querySelector('[data-inventory-automatic]');
-	    const triggerInput = form.querySelector('[data-inventory-manual-trigger]');
-	    const moqInput = form.querySelector('[data-inventory-moq]');
-	    const automatic = automaticInput instanceof HTMLInputElement ? automaticInput.checked : true;
-	    const manualTrigger = triggerInput instanceof HTMLInputElement ? Math.max(0, Math.round(Number(triggerInput.value || 0))) : 0;
-	    const purchaseMoq = moqInput instanceof HTMLInputElement ? Math.max(1, Math.round(Number(moqInput.value || 1))) : 1;
-	    state.inventoryRecap.settingsSaving = sku;
-	    state.inventoryRecap.settingsMessage[sku] = '';
-	    renderInventoryRecap(state.inventoryRecap.data);
+	    if (!sku || !(automaticInput instanceof HTMLInputElement)) return;
+	    const item = inventorySettingItem(sku);
+	    const currentAutomatic = String(item?.trigger_mode || 'auto') !== 'manual';
+	    if (!Object.prototype.hasOwnProperty.call(state.inventoryRecap.modePersisted, sku)) {
+	      state.inventoryRecap.modePersisted[sku] = currentAutomatic;
+	    }
+	    const desiredAutomatic = automaticInput.checked;
+	    state.inventoryRecap.modeDesired[sku] = desiredAutomatic;
+	    if (item) item.trigger_mode = desiredAutomatic ? 'auto' : 'manual';
+	    const manualInput = form.querySelector('[data-inventory-manual-trigger]');
+	    if (manualInput instanceof HTMLInputElement) manualInput.disabled = desiredAutomatic;
+	    state.inventoryRecap.settingsRevision += 1;
+	    setInventorySettingMessage(sku, desiredAutomatic ? 'Saving automatic…' : 'Saving manual mode…', form);
+	    if (state.inventoryRecap.modeSaving[sku]) return;
+
+	    state.inventoryRecap.modeSaving[sku] = true;
+	    automaticInput.setAttribute('aria-busy', 'true');
+	    let failed = false;
+	    while (state.inventoryRecap.modeDesired[sku] !== state.inventoryRecap.modePersisted[sku]) {
+	      const requestedAutomatic = Boolean(state.inventoryRecap.modeDesired[sku]);
+	      try {
+	        await postInventoryProductSetting({ action: 'update_inventory_mode', sku, automatic: requestedAutomatic });
+	        state.inventoryRecap.modePersisted[sku] = requestedAutomatic;
+	      } catch (error) {
+	        failed = true;
+	        const persistedAutomatic = Boolean(state.inventoryRecap.modePersisted[sku]);
+	        state.inventoryRecap.modeDesired[sku] = persistedAutomatic;
+	        if (item) item.trigger_mode = persistedAutomatic ? 'auto' : 'manual';
+	        const liveForm = inventorySettingForm(sku) || form;
+	        const liveToggle = liveForm?.querySelector('[data-inventory-automatic]');
+	        const liveManual = liveForm?.querySelector('[data-inventory-manual-trigger]');
+	        if (liveToggle instanceof HTMLInputElement) liveToggle.checked = persistedAutomatic;
+	        if (liveManual instanceof HTMLInputElement) liveManual.disabled = persistedAutomatic;
+	        setInventorySettingMessage(sku, `Could not change Automatic: ${error.message || 'request failed'}`, liveForm);
+	        break;
+	      }
+	    }
+	    delete state.inventoryRecap.modeSaving[sku];
+	    const liveForm = inventorySettingForm(sku) || form;
+	    const liveToggle = liveForm?.querySelector('[data-inventory-automatic]');
+	    if (liveToggle instanceof HTMLInputElement) liveToggle.removeAttribute('aria-busy');
+	    if (!failed) {
+	      const savedAutomatic = Boolean(state.inventoryRecap.modePersisted[sku]);
+	      setInventorySettingMessage(sku, savedAutomatic ? 'Automatic saved' : 'Manual mode saved', liveForm);
+	    }
+	    queueInventorySettingRefresh();
+	  };
+
+	  const saveInventoryManualTrigger = async (form, triggerInput) => {
+	    const sku = String(form?.getAttribute('data-inventory-settings') || '');
+	    if (!sku || !(triggerInput instanceof HTMLInputElement) || state.inventoryRecap.manualSaving[sku]) return;
+	    const item = inventorySettingItem(sku);
+	    const previousTrigger = Math.max(0, Math.round(Number(item?.manual_trigger || 0)));
+	    const manualTrigger = Math.max(0, Math.round(Number(triggerInput.value || 0)));
+	    triggerInput.value = String(manualTrigger);
+	    if (item) item.manual_trigger = manualTrigger;
+	    state.inventoryRecap.manualSaving[sku] = true;
+	    state.inventoryRecap.settingsRevision += 1;
+	    triggerInput.disabled = true;
+	    setInventorySettingMessage(sku, 'Saving manual trigger…', form);
 	    try {
-	      const data = await requestJson(inventoryRecapUrl({ force: true }), {
-	        method: 'POST',
-	        headers: { 'Content-Type': 'application/json' },
-	        body: JSON.stringify({
-	          action: 'update_settings',
-	          sku,
-	          automatic,
-	          manual_trigger: manualTrigger,
-	          purchase_moq: purchaseMoq
-	        }),
-	        cache: 'no-store',
-	        timeoutMs: 30000
-	      });
-	      state.inventoryRecap.settingsSaving = '';
-	      state.inventoryRecap.settingsMessage[sku] = 'Saved';
-	      state.inventoryRecap.planEdited = {};
-	      writeViewClientCache('inventory-recap', inventoryRecapClientCacheKey(), data);
-	      applyInventoryRecapData(data);
+	      await postInventoryProductSetting({ action: 'update_manual_trigger', sku, manual_trigger: manualTrigger });
+	      setInventorySettingMessage(sku, 'Manual trigger saved', form);
 	    } catch (error) {
-	      state.inventoryRecap.settingsSaving = '';
-	      state.inventoryRecap.settingsMessage[sku] = `Could not save: ${error.message || 'request failed'}`;
-	      renderInventoryRecap(state.inventoryRecap.data);
+	      if (item) item.manual_trigger = previousTrigger;
+	      triggerInput.value = String(previousTrigger);
+	      setInventorySettingMessage(sku, `Could not save manual trigger: ${error.message || 'request failed'}`, form);
+	    } finally {
+	      delete state.inventoryRecap.manualSaving[sku];
+	      const liveForm = inventorySettingForm(sku) || form;
+	      const liveTrigger = liveForm?.querySelector('[data-inventory-manual-trigger]');
+	      const liveAutomatic = liveForm?.querySelector('[data-inventory-automatic]');
+	      if (liveTrigger instanceof HTMLInputElement) liveTrigger.disabled = liveAutomatic instanceof HTMLInputElement ? liveAutomatic.checked : false;
+	      queueInventorySettingRefresh();
+	    }
+	  };
+
+	  const saveInventoryMoq = async (form) => {
+	    const sku = String(form?.getAttribute('data-inventory-settings') || '');
+	    if (!sku || state.inventoryRecap.moqSaving[sku]) return;
+	    const moqInput = form.querySelector('[data-inventory-moq]');
+	    if (!(moqInput instanceof HTMLInputElement)) return;
+	    const item = inventorySettingItem(sku);
+	    const previousMoq = Math.max(1, Math.round(Number(item?.purchase_moq || 1)));
+	    const purchaseMoq = Math.max(1, Math.round(Number(moqInput.value || 1)));
+	    moqInput.value = String(purchaseMoq);
+	    state.inventoryRecap.moqSaving[sku] = true;
+	    state.inventoryRecap.settingsRevision += 1;
+	    const saveButton = form.querySelector('[data-inventory-moq-save]');
+	    if (saveButton instanceof HTMLButtonElement) {
+	      saveButton.disabled = true;
+	      saveButton.textContent = 'Saving';
+	    }
+	    setInventorySettingMessage(sku, 'Saving MOQ…', form);
+	    try {
+	      await postInventoryProductSetting({ action: 'update_purchase_moq', sku, purchase_moq: purchaseMoq });
+	      if (item) item.purchase_moq = purchaseMoq;
+	      setInventorySettingMessage(sku, 'MOQ saved', form);
+	    } catch (error) {
+	      moqInput.value = String(previousMoq);
+	      setInventorySettingMessage(sku, `Could not save MOQ: ${error.message || 'request failed'}`, form);
+	    } finally {
+	      delete state.inventoryRecap.moqSaving[sku];
+	      const liveButton = (inventorySettingForm(sku) || form)?.querySelector('[data-inventory-moq-save]');
+	      if (liveButton instanceof HTMLButtonElement) {
+	        liveButton.disabled = false;
+	        liveButton.textContent = 'Save MOQ';
+	      }
+	      queueInventorySettingRefresh();
 	    }
 	  };
 
@@ -13787,20 +13934,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	  inventoryRecapRefs.list?.addEventListener('change', (event) => {
 	    const toggle = event.target.closest('[data-inventory-automatic]');
-	    if (!(toggle instanceof HTMLInputElement)) return;
-	    const form = toggle.closest('[data-inventory-settings]');
-	    const manualInput = form?.querySelector('[data-inventory-manual-trigger]');
-	    if (manualInput instanceof HTMLInputElement) {
-	      manualInput.disabled = toggle.checked;
-	      if (!toggle.checked) manualInput.focus();
+	    if (toggle instanceof HTMLInputElement) {
+	      const form = toggle.closest('[data-inventory-settings]');
+	      if (form instanceof HTMLFormElement) saveInventoryMode(form, toggle).catch(() => {});
+	      return;
 	    }
+	    const manualTrigger = event.target.closest('[data-inventory-manual-trigger]');
+	    if (!(manualTrigger instanceof HTMLInputElement)) return;
+	    const form = manualTrigger.closest('[data-inventory-settings]');
+	    if (form instanceof HTMLFormElement) saveInventoryManualTrigger(form, manualTrigger).catch(() => {});
 	  });
 
-	  inventoryRecapRefs.list?.addEventListener('submit', (event) => {
-	    const form = event.target.closest('[data-inventory-settings]');
+	  inventoryRecapRefs.list?.addEventListener('click', (event) => {
+	    const saveMoq = event.target.closest('[data-inventory-moq-save]');
+	    if (!(saveMoq instanceof HTMLButtonElement)) return;
+	    const form = saveMoq.closest('[data-inventory-settings]');
+	    if (form instanceof HTMLFormElement) saveInventoryMoq(form).catch(() => {});
+	  });
+
+	  inventoryRecapRefs.list?.addEventListener('keydown', (event) => {
+	    if (event.key !== 'Enter') return;
+	    const input = event.target;
+	    if (!(input instanceof HTMLInputElement)) return;
+	    const form = input.closest('[data-inventory-settings]');
 	    if (!(form instanceof HTMLFormElement)) return;
-	    event.preventDefault();
-	    saveInventorySettings(form).catch(() => {});
+	    if (input.matches('[data-inventory-manual-trigger]')) {
+	      event.preventDefault();
+	      input.blur();
+	    } else if (input.matches('[data-inventory-moq]')) {
+	      event.preventDefault();
+	      saveInventoryMoq(form).catch(() => {});
+	    }
 	  });
 
 	  purchasePlanRefs.list?.addEventListener('change', (event) => {
