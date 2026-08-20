@@ -11996,6 +11996,22 @@ document.addEventListener('DOMContentLoaded', () => {
     return compact ? formatCompactNumber(value) : formatRegionalNumber(Math.round(Number(value) || 0));
   };
 
+  const estimateAdViewQuarterHourMetrics = (hourMetrics, quarterCount) => {
+    const divisor = Math.max(1, Number(quarterCount) || 1);
+    return aggregateAdViewMetrics([{
+      impressions: Number(hourMetrics.impressions || 0) / divisor,
+      clicks: Number(hourMetrics.clicks || 0) / divisor,
+      expense: Number(hourMetrics.expense || 0) / divisor,
+      broad_orders: Number(hourMetrics.broad_orders || 0) / divisor,
+      broad_items: Number(hourMetrics.broad_items || 0) / divisor,
+      broad_gmv: Number(hourMetrics.broad_gmv || 0) / divisor,
+      net_revenue: hourMetrics.net_revenue_available ? Number(hourMetrics.net_revenue || 0) / divisor : null,
+      direct_orders: Number(hourMetrics.direct_orders || 0) / divisor,
+      direct_items: Number(hourMetrics.direct_items || 0) / divisor,
+      direct_gmv: Number(hourMetrics.direct_gmv || 0) / divisor
+    }]);
+  };
+
   const drawAdViewMetricChart = (canvas, rows, selectedMetrics) => {
     chartRendererState.set(canvas, () => drawAdViewMetricChart(canvas, rows, selectedMetrics));
     const prepared = prepareCanvas(canvas);
@@ -12005,7 +12021,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const chartWidth = width - padding.left - padding.right;
     const chartHeight = height - padding.top - padding.bottom;
     const palette = getThemePalette();
-    const activeHover = chartActivePointState.get(canvas) || null;
     const hoverColumns = [];
     bindChartHover(canvas);
 
@@ -12036,56 +12051,58 @@ document.addEventListener('DOMContentLoaded', () => {
       const color = AD_VIEW_METRIC_COLORS[metric] || '#00c987';
       ctx.strokeStyle = color;
       ctx.lineWidth = 3;
-      ctx.beginPath();
-      rows.forEach((row, index) => {
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      const points = rows.map((row, index) => {
         const x = padding.left + (chartWidth * index / Math.max(rows.length - 1, 1));
         const value = Number(row.metrics?.[metric] || 0);
         const y = padding.top + chartHeight - ((value / maxByMetric[metric]) * (chartHeight - 8));
-        if (index === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
+        return { x, y };
+      });
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      points.slice(0, -1).forEach((point, index) => {
+        const previous = points[index - 1] || point;
+        const next = points[index + 1];
+        const afterNext = points[index + 2] || next;
+        const tension = 0.82;
+        const controlOneX = point.x + ((next.x - previous.x) / 6 * tension);
+        const controlOneY = Math.max(padding.top, Math.min(padding.top + chartHeight, point.y + ((next.y - previous.y) / 6 * tension)));
+        const controlTwoX = next.x - ((afterNext.x - point.x) / 6 * tension);
+        const controlTwoY = Math.max(padding.top, Math.min(padding.top + chartHeight, next.y - ((afterNext.y - point.y) / 6 * tension)));
+        ctx.bezierCurveTo(controlOneX, controlOneY, controlTwoX, controlTwoY, next.x, next.y);
       });
       ctx.stroke();
-
-      rows.forEach((row, index) => {
-        const x = padding.left + (chartWidth * index / Math.max(rows.length - 1, 1));
-        const value = Number(row.metrics?.[metric] || 0);
-        const y = padding.top + chartHeight - ((value / maxByMetric[metric]) * (chartHeight - 8));
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.arc(x, y, 3.5, 0, Math.PI * 2);
-        ctx.fill();
-        if (!hoverColumns[index]) {
-          const tooltipRows = selectedMetrics.map((selectedMetric) => `
-            <div class="admin-chart-tooltip-row">
-              <span class="admin-chart-tooltip-dot" style="background:${AD_VIEW_METRIC_COLORS[selectedMetric]}"></span>
-              <span>${escapeHtml(AD_VIEW_METRIC_LABELS[selectedMetric])}: ${escapeHtml(formatAdViewMetricValue(selectedMetric, row.metrics?.[selectedMetric] || 0))}</span>
-            </div>
-          `).join('');
-          hoverColumns[index] = {
-            x,
-            y,
-            hoverKey: `ad-view:${row.key}`,
-            tooltipTitle: row.tooltipLabel || row.label,
-            tooltipLinesHtml: tooltipRows,
-            hitbox: {
-              left: index === 0 ? padding.left : x - (chartWidth / Math.max(rows.length - 1, 1) / 2),
-              right: index === rows.length - 1 ? width - padding.right : x + (chartWidth / Math.max(rows.length - 1, 1) / 2),
-              top: padding.top,
-              bottom: padding.top + chartHeight
-            }
-          };
-        }
-        if (index === 0 || index === rows.length - 1 || rows.length <= 8 || index % Math.ceil(rows.length / 6) === 0) {
-          ctx.fillStyle = palette.muted;
-          ctx.font = '600 11px "Plus Jakarta Sans", sans-serif';
-          ctx.textAlign = 'center';
-          ctx.fillText(row.label, x, height - 17);
-        }
-      });
     });
-    if (activeHover && Number.isFinite(activeHover.x)) {
-      drawHoverGuide(ctx, activeHover, padding, chartHeight, '#8b95a5');
-    }
+
+    rows.forEach((row, index) => {
+      const x = padding.left + (chartWidth * index / Math.max(rows.length - 1, 1));
+      const tooltipRows = selectedMetrics.map((selectedMetric) => `
+        <div class="admin-chart-tooltip-row">
+          <span class="admin-chart-tooltip-dot" style="background:${AD_VIEW_METRIC_COLORS[selectedMetric]}"></span>
+          <span>${escapeHtml(AD_VIEW_METRIC_LABELS[selectedMetric])}: ${escapeHtml(formatAdViewMetricValue(selectedMetric, row.metrics?.[selectedMetric] || 0))}</span>
+        </div>
+      `).join('');
+      hoverColumns[index] = {
+        x,
+        y: padding.top + (chartHeight / 2),
+        hoverKey: `ad-view:${row.key}`,
+        tooltipTitle: row.tooltipLabel || row.label,
+        tooltipLinesHtml: `${tooltipRows}${row.estimated ? '<small>Estimated from Shopee hourly totals</small>' : ''}`,
+        hitbox: {
+          left: index === 0 ? padding.left : x - (chartWidth / Math.max(rows.length - 1, 1) / 2),
+          right: index === rows.length - 1 ? width - padding.right : x + (chartWidth / Math.max(rows.length - 1, 1) / 2),
+          top: padding.top,
+          bottom: padding.top + chartHeight
+        }
+      };
+      if (index === 0 || index === rows.length - 1 || rows.length <= 8 || index % Math.ceil(rows.length / 6) === 0) {
+        ctx.fillStyle = palette.muted;
+        ctx.font = '600 11px "Plus Jakarta Sans", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(row.label, x, height - 17);
+      }
+    });
     chartHoverState.set(canvas, hoverColumns.filter(Boolean));
   };
 
@@ -12121,30 +12138,64 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     if (selectedCampaign && hourly && state.adView.startDate === state.adView.endDate) {
       const today = state.adView.endDate === getDateKeyForTimezone();
-      const lastHour = today ? Number(new Intl.DateTimeFormat('en-GB', { timeZone: state.timezone, hour: '2-digit', hourCycle: 'h23' }).format(new Date())) : 23;
+      const currentTimeParts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: state.timezone,
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23'
+      }).formatToParts(new Date()).reduce((parts, part) => ({ ...parts, [part.type]: part.value }), {});
+      const lastHour = today ? Number(currentTimeParts.hour || 0) : 23;
       for (let hour = 0; hour <= lastHour; hour += 1) {
         const key = `${state.adView.startDate}:${String(hour).padStart(2, '0')}`;
         if (!rowsByBucket.has(key)) rowsByBucket.set(key, []);
       }
     }
-    const chartRows = [...rowsByBucket.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([key, bucketRows]) => {
+    const hourlyRows = [...rowsByBucket.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([key, bucketRows]) => {
       const hour = key.includes(':') ? Number(key.slice(-2)) : null;
       return {
         key,
+        hour,
         label: hour === null ? key.slice(5) : `${String(hour).padStart(2, '0')}:00`,
         tooltipLabel: hour === null ? key : `${key.slice(0, 10)} • ${String(hour).padStart(2, '0')}:00`,
         metrics: aggregateAdViewMetrics(bucketRows)
       };
     });
+    const today = state.adView.endDate === getDateKeyForTimezone();
+    const timeParts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: state.timezone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23'
+    }).formatToParts(new Date()).reduce((parts, part) => ({ ...parts, [part.type]: part.value }), {});
+    const currentHour = Number(timeParts.hour || 0);
+    const currentMinute = Number(timeParts.minute || 0);
+    const chartRows = hourly && state.adView.startDate === state.adView.endDate
+      ? hourlyRows.flatMap((row) => {
+          const activeQuarterCount = today && row.hour === currentHour ? Math.min(4, Math.floor(currentMinute / 15) + 1) : 4;
+          const quarterMetrics = estimateAdViewQuarterHourMetrics(row.metrics, activeQuarterCount);
+          return Array.from({ length: activeQuarterCount }, (_, quarter) => {
+            const minute = quarter * 15;
+            const endMinute = minute + 14;
+            const hourLabel = String(row.hour).padStart(2, '0');
+            return {
+              key: `${row.key}:${String(minute).padStart(2, '0')}`,
+              label: `${hourLabel}:${String(minute).padStart(2, '0')}`,
+              tooltipLabel: `${state.adView.startDate} • ${hourLabel}:${String(minute).padStart(2, '0')}–${hourLabel}:${String(endMinute).padStart(2, '0')}`,
+              metrics: quarterMetrics,
+              estimated: true
+            };
+          });
+        })
+      : hourlyRows;
     drawAdViewMetricChart(adViewRefs.chart, chartRows, state.adView.selectedMetrics);
     if (adViewRefs.trendTitle) adViewRefs.trendTitle.textContent = selectedCampaign
       ? `${selectedCampaign.display_name} • ${hourly
-        ? `${state.adView.endDate === getDateKeyForTimezone() ? 'Today' : state.adView.endDate} by hour`
+        ? `${today ? 'Today' : state.adView.endDate} • 15 min`
         : `${state.adView.startDate} — ${state.adView.endDate}`}`
       : 'Select a live ad';
     if (adViewRefs.trendMeta) {
       adViewRefs.trendMeta.textContent = state.adView.selectedMetrics.length
-        ? `${state.adView.selectedMetrics.map((metric) => AD_VIEW_METRIC_LABELS[metric]).join(' • ')} • each line uses its own scale`
+        ? `${state.adView.selectedMetrics.map((metric) => AD_VIEW_METRIC_LABELS[metric]).join(' • ')} • ${hourly ? '15 min estimate from hourly data • ' : ''}each curve uses its own scale`
         : 'Select up to four metric cards';
     }
   };
@@ -12257,7 +12308,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const updatedLabel = latestMetricUpdate
       ? new Date(`${latestMetricUpdate.replace(' ', 'T')}Z`).toLocaleTimeString('id-ID', { timeZone: state.timezone, hour: '2-digit', minute: '2-digit' })
       : new Date().toLocaleTimeString('id-ID', { timeZone: state.timezone, hour: '2-digit', minute: '2-digit' });
-    const granularity = selectedAccounts.length && selectedAccounts.every((account) => account.granularity === 'hourly') ? 'hourly' : 'daily';
+    const granularity = selectedAccounts.length && selectedAccounts.every((account) => account.granularity === 'hourly') ? '15 min estimate' : 'daily';
     if (adViewRefs.status) adViewRefs.status.textContent = `${visibleCampaigns.length} live ads • ${granularity} • refreshed ${updatedLabel}`;
     renderAdViewLiveList();
     renderAdViewDetail();
