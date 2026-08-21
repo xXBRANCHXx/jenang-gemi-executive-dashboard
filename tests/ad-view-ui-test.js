@@ -39,6 +39,8 @@ for (const preference of ['account', 'timeframe', 'startDate', 'endDate', 'selec
 }
 assert(js.includes('persistAdViewPreferences();'), 'Ad View control changes must save their state for hard refreshes.');
 assert(js.includes('estimateAdViewQuarterHourMetrics'), 'Hourly Shopee data must be presented in quarter-hour hover intervals.');
+assert(js.includes('AD_VIEW_COUNT_METRICS.has(key) ? Math.round(estimate) : estimate'), 'Count curves and tooltips must use the same integer bucket estimate.');
+assert(js.includes('point.value === 0 && next.value === 0'), 'Adjacent zero-count buckets must remain on the baseline without curve overshoot.');
 assert(js.includes("'<small>15 min estimate</small>'"), 'Estimated 15-minute values must disclose their hourly source without a verbose tooltip.');
 assert(js.includes('ctx.bezierCurveTo('), 'Ad View trends must use smooth curved paths.');
 assert(js.includes('currentHourBlockMinutes / currentMinute'), 'The active quarter-hour block must build upward from zero while preserving the elapsed hourly total.');

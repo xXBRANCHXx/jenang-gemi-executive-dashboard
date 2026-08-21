@@ -317,6 +317,11 @@ const AD_VIEW_METRIC_COLORS = {
   net_roas: '#f2c94c'
 };
 
+const AD_VIEW_COUNT_METRICS = new Set([
+  'impressions', 'clicks', 'broad_orders', 'broad_items',
+  'direct_orders', 'direct_items'
+]);
+
 const WEBSITE_SITE_LABELS = {
   jenang_gemi: {
     title: 'jenanggemi.com',
@@ -12049,7 +12054,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const estimateAdViewQuarterHourMetrics = (hourMetrics, share) => {
     const factor = Math.max(0, Number(share) || 0);
-    const scale = (key) => Number(hourMetrics[key] || 0) * factor;
+    const scale = (key) => {
+      const estimate = Number(hourMetrics[key] || 0) * factor;
+      return AD_VIEW_COUNT_METRICS.has(key) ? Math.round(estimate) : estimate;
+    };
     return aggregateAdViewMetrics([{
       impressions: scale('impressions'),
       clicks: scale('clicks'),
@@ -12111,7 +12119,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const x = rowX(index);
         const value = Number(row.metrics?.[metric] || 0);
         const y = padding.top + chartHeight - ((value / maxByMetric[metric]) * (chartHeight - 8));
-        return { x, y };
+        return { x, y, value };
       });
       ctx.beginPath();
       ctx.moveTo(points[0].x, points[0].y);
@@ -12119,6 +12127,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const previous = points[index - 1] || point;
         const next = points[index + 1];
         const afterNext = points[index + 2] || next;
+        if (point.value === 0 && next.value === 0) {
+          ctx.lineTo(next.x, next.y);
+          return;
+        }
         const tension = 1.18;
         const controlOneX = point.x + ((next.x - previous.x) / 6 * tension);
         const controlOneY = Math.max(padding.top, Math.min(padding.top + chartHeight, point.y + ((next.y - previous.y) / 6 * tension)));
