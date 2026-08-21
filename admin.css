@@ -38212,10 +38212,10 @@ a.admin-accounting-breakdown-row:focus-visible { background: color-mix(in srgb, 
 .admin-accounting-plain-toggle,.admin-accounting-move-scope > label { display:grid!important; grid-template-columns:1fr auto; align-items:center!important; gap:14px!important; padding:11px; border:1px solid var(--accounting-border); border-radius:10px; cursor:pointer; }
 .admin-accounting-plain-toggle input { grid-column:2; grid-row:1; position:relative; width:38px; height:22px; margin:0; border:1px solid var(--accounting-border); border-radius:999px; appearance:none; -webkit-appearance:none; background:color-mix(in srgb,var(--accounting-text) 12%,var(--accounting-surface)); cursor:pointer; transition:background-color .18s ease,border-color .18s ease; }
 .admin-accounting-plain-toggle input::before { content:""; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:var(--accounting-muted); box-shadow:0 1px 3px rgba(0,0,0,.28); transition:transform .18s ease,background-color .18s ease; }
-.admin-accounting-plain-toggle input:checked { border-color:#20d98a; background:#00b96b; }
+.admin-accounting-plain-toggle:has(input:checked) { border-color:color-mix(in srgb,#00d97e 42%,var(--accounting-border)); background:color-mix(in srgb,#00d97e 7%,transparent); }
+.admin-accounting-plain-toggle input:checked { border-color:#00d97e!important; background:#00d97e!important; box-shadow:0 0 0 3px rgba(0,217,126,.14)!important; }
 .admin-accounting-plain-toggle input:checked::before { transform:translateX(16px); background:#fff; }
 .admin-accounting-plain-toggle input:focus-visible { outline:2px solid #20d98a; outline-offset:3px; }
-.admin-accounting-plain-toggle--archive input:checked { border-color:#ef6a79; background:#d9485f; }
 .admin-accounting-move-scope input { width:16px; height:16px; margin-top:2px; }
 .admin-accounting-plain-toggle span { grid-column:1; grid-row:1; }
 .admin-accounting-plain-toggle span,.admin-accounting-move-scope label span { display:grid; gap:3px; color:var(--accounting-text)!important; }

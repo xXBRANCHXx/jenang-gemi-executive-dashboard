@@ -1597,9 +1597,8 @@ if (root) {
         <div class="admin-accounting-category-editor-head"><div><strong>${category ? `Edit “${escapeHtml(category.name)}”` : `Add an exact category to ${escapeHtml(group.name)}`}</strong><small>This is the final choice people see when entering money.</small></div></div>
         <label><span>Exact category name</span><input type="text" name="name" maxlength="160" value="${escapeHtml(category?.name || '')}" placeholder="e.g. Shopee Ads" required></label>
         <div class="admin-accounting-category-behavior">
-          <label class="admin-accounting-plain-toggle"><input type="checkbox" role="switch" name="is_billable" ${!category || Number(category.is_billable) ? 'checked' : ''}><span><strong>Available for new entries</strong><small>Show this category in new bill and entry pickers. Turn it off to hide the choice temporarily; existing records stay unchanged.</small></span></label>
+          <label class="admin-accounting-plain-toggle"><input type="checkbox" role="switch" name="is_available" ${!category || (Number(category.is_active) && Number(category.is_billable)) ? 'checked' : ''}><span><strong>Available for new entries</strong><small>Show this category in new bill and entry pickers. Turn it off to remove the choice; existing records and reports stay unchanged.</small></span></label>
           <label class="admin-accounting-plain-toggle"><input type="checkbox" role="switch" name="requires_receipt" ${Number(category?.requires_receipt) ? 'checked' : ''}><span><strong>Require a receipt</strong><small>Prompt for proof when this category is selected for a new entry.</small></span></label>
-          <label class="admin-accounting-plain-toggle admin-accounting-plain-toggle--archive"><input type="checkbox" role="switch" name="is_archived" ${category && !Number(category.is_active) ? 'checked' : ''}><span><strong>Archive this category</strong><small>Retire this category from future use. Its existing records and report history remain intact, and you can restore it later.</small></span></label>
         </div>
         ${category ? `
         <details class="admin-accounting-guidance-editor" open>
@@ -1741,11 +1740,12 @@ if (root) {
     const categoryKind = form.dataset.categoryKind;
     payload.action = categoryKind === 'leaf' && data.has('hover_summary') ? 'save_category_with_guidance' : 'save_category';
     payload.requires_receipt = data.has('requires_receipt') ? '1' : '0';
-    payload.is_billable = data.has('is_billable') ? '1' : '0';
+    const leafIsAvailable = data.has('is_available');
+    payload.is_billable = categoryKind === 'leaf' ? (leafIsAvailable ? '1' : '0') : '0';
     payload.is_active = categoryKind === 'leaf'
-      ? (data.has('is_archived') ? '0' : '1')
+      ? (leafIsAvailable ? '1' : '0')
       : (data.has('is_active') ? '1' : '0');
-    delete payload.is_archived;
+    delete payload.is_available;
     try {
       const response = await requestJson(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const savedId = String(response.data?.result?.category_id || '');
