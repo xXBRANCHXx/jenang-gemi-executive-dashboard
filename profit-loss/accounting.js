@@ -759,7 +759,12 @@ if (root) {
     if (!(combobox instanceof HTMLElement)) return;
     const menu = combobox.querySelector('[data-accounting-category-menu]');
     const trigger = combobox.querySelector('[data-accounting-category-trigger]');
-    if (menu instanceof HTMLElement) menu.hidden = true;
+    if (menu instanceof HTMLElement) {
+      menu.hidden = true;
+      menu.classList.remove('opens-upward');
+      menu.classList.remove('aligns-left');
+      menu.style.removeProperty('--accounting-category-results-max-height');
+    }
     if (trigger instanceof HTMLButtonElement) trigger.setAttribute('aria-expanded', 'false');
   };
 
@@ -781,6 +786,22 @@ if (root) {
     if (searchInput instanceof HTMLInputElement) searchInput.value = '';
     renderCategoryCombobox(combobox);
     window.requestAnimationFrame(() => {
+      const triggerRect = trigger?.getBoundingClientRect();
+      const scrollContainer = combobox.closest('.admin-accounting-drawer-card, .admin-modal-card');
+      const containerRect = scrollContainer?.getBoundingClientRect();
+      if (triggerRect) {
+        const topBoundary = Math.max(12, containerRect?.top || 12);
+        const bottomBoundary = Math.min(window.innerHeight - 12, containerRect?.bottom || window.innerHeight - 12);
+        const leftBoundary = Math.max(12, containerRect?.left || 12);
+        const menuWidth = Math.min(380, window.innerWidth - 32);
+        const availableAbove = Math.max(0, triggerRect.top - topBoundary - 8);
+        const availableBelow = Math.max(0, bottomBoundary - triggerRect.bottom - 8);
+        const opensUpward = availableBelow < 300 && availableAbove > availableBelow;
+        const availableHeight = opensUpward ? availableAbove : availableBelow;
+        menu.classList.toggle('aligns-left', triggerRect.right - menuWidth < leftBoundary);
+        menu.classList.toggle('opens-upward', opensUpward);
+        menu.style.setProperty('--accounting-category-results-max-height', `${Math.max(90, availableHeight - 62)}px`);
+      }
       if (searchInput instanceof HTMLInputElement) searchInput.focus();
       const selected = combobox.querySelector('[data-accounting-category-option][aria-selected="true"]');
       selected?.scrollIntoView({ block: 'nearest' });
@@ -1563,7 +1584,7 @@ if (root) {
           <label><span>Group name</span><input type="text" name="name" maxlength="160" value="${escapeHtml(state.categorySettingsMode === 'edit-group' ? (group?.name || '') : '')}" placeholder="e.g. Advertising costs" required></label>
           <label><span>How this group appears in reports</span><select name="type">${currentTypeChoices.map(([value, label]) => option(value, label)).join('')}</select></label>
         </div>
-        <label class="admin-accounting-plain-toggle"><input type="checkbox" name="is_active" ${state.categorySettingsMode !== 'edit-group' || Number(group?.is_active) ? 'checked' : ''}><span><strong>Keep this group active</strong><small>Turn this off only when the whole group is retired. Its history stays in reports.</small></span></label>
+        <label class="admin-accounting-plain-toggle"><input type="checkbox" name="is_active" ${state.categorySettingsMode !== 'edit-group' || Number(group?.is_active) ? 'checked' : ''}><span><strong>Show this group in new bills and entries</strong><small>Turn this off to hide every category in this group. Existing records and reports do not change.</small></span></label>
         <p class="admin-form-error" data-accounting-category-settings-error hidden></p>
         <div class="admin-accounting-category-form-actions"><button type="button" class="admin-ghost-btn" data-accounting-category-cancel>Cancel</button><button type="submit" class="admin-primary-btn">Save group</button></div>
       </form>` : ''}
@@ -1575,6 +1596,11 @@ if (root) {
         <input type="hidden" name="type" value="${escapeHtml(category?.type || groupType)}">
         <div class="admin-accounting-category-editor-head"><div><strong>${category ? `Edit “${escapeHtml(category.name)}”` : `Add an exact category to ${escapeHtml(group.name)}`}</strong><small>This is the final choice people see when entering money.</small></div></div>
         <label><span>Exact category name</span><input type="text" name="name" maxlength="160" value="${escapeHtml(category?.name || '')}" placeholder="e.g. Shopee Ads" required></label>
+        <div class="admin-accounting-category-behavior">
+          <label class="admin-accounting-plain-toggle"><input type="checkbox" name="is_billable" ${!category || Number(category.is_billable) ? 'checked' : ''}><span><strong>Show this category in new bills and entries</strong><small>Turn this off to hide only this category. Existing records and reports do not change.</small></span></label>
+          <label class="admin-accounting-plain-toggle"><input type="checkbox" name="requires_receipt" ${Number(category?.requires_receipt) ? 'checked' : ''}><span><strong>Ask for a receipt</strong><small>When selected, new entries in this category should include proof.</small></span></label>
+          <label class="admin-accounting-plain-toggle"><input type="checkbox" name="is_active" ${!category || Number(category.is_active) ? 'checked' : ''}><span><strong>Keep this category active</strong><small>Active but hidden is allowed: it remains usable for history and reports without appearing on new-entry lists.</small></span></label>
+        </div>
         ${category ? `
         <details class="admin-accounting-guidance-editor" open>
           <summary><span><strong>Information guide</strong><small>Edit the hover explanation and full reference page.</small></span><b aria-hidden="true">⌄</b></summary>
@@ -1601,11 +1627,6 @@ if (root) {
             <p>These notes are operational guidance. Review tax and employment requirements whenever the rules or facts change.</p>
           </div>
         </details>` : ''}
-        <div class="admin-accounting-category-behavior">
-          <label class="admin-accounting-plain-toggle"><input type="checkbox" name="requires_receipt" ${Number(category?.requires_receipt) ? 'checked' : ''}><span><strong>Ask for a receipt</strong><small>When selected, new entries in this category should include proof.</small></span></label>
-          <label class="admin-accounting-plain-toggle"><input type="checkbox" name="is_billable" ${!category || Number(category.is_billable) ? 'checked' : ''}><span><strong>Show as a choice on new bills and entries</strong><small>Turn this off to hide it from dropdown lists. Existing records and reports do not change.</small></span></label>
-          <label class="admin-accounting-plain-toggle"><input type="checkbox" name="is_active" ${!category || Number(category.is_active) ? 'checked' : ''}><span><strong>Keep this category active</strong><small>Active but hidden is allowed: it remains usable for history and reports without appearing on new-entry lists.</small></span></label>
-        </div>
         <p class="admin-form-error" data-accounting-category-settings-error hidden></p>
         <div class="admin-accounting-category-form-actions"><button type="button" class="admin-ghost-btn" data-accounting-category-cancel>Cancel</button><button type="submit" class="admin-primary-btn">Save exact category</button></div>
       </form>
@@ -1730,6 +1751,17 @@ if (root) {
         const existingIndex = state.categories.findIndex((category) => String(category.id) === savedId);
         if (existingIndex >= 0) state.categories[existingIndex] = savedCategory;
         else state.categories.push(savedCategory);
+        if (categoryKind === 'group') {
+          const parentIsActive = Number(savedCategory.is_active) === 1 ? 1 : 0;
+          state.categories = state.categories.map((item) => {
+            if (String(item.parent_id || '') !== savedId) return item;
+            return {
+              ...item,
+              parent_is_active: parentIsActive,
+              is_selectable: parentIsActive && Number(item.is_active) === 1 && Number(item.is_billable) === 1 ? 1 : 0
+            };
+          });
+        }
         state.lookupsLoaded = true;
         writeCacheEntry(ACCOUNTING_LOOKUPS_CACHE_KEY, getLookupPayload());
       }

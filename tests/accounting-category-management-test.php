@@ -93,6 +93,37 @@ category_management_expect(0, $hidden['is_billable'] ?? null, 'An active categor
 category_management_expect(1, $hidden['is_active'] ?? null, 'Hidden-from-lists must not mean inactive.');
 category_management_expect(0, $hidden['is_selectable'] ?? null, 'The API must explicitly prevent hidden categories from appearing on new bills and entries.');
 
+jg_accounting_save_category($pdo, [
+    'category_id' => $bulkGroupId,
+    'name' => 'Accountant-defined costs',
+    'type' => 'expense',
+    'flow' => 'expense',
+    'is_billable' => false,
+    'is_active' => false,
+]);
+$hiddenGroupChildren = array_values(array_filter(
+    jg_accounting_categories($pdo, true),
+    static fn (array $row): bool => (int) ($row['parent_id'] ?? 0) === $bulkGroupId
+));
+category_management_expect(
+    0,
+    count(array_filter($hiddenGroupChildren, static fn (array $row): bool => (int) ($row['is_selectable'] ?? 0) === 1)),
+    'Hiding a group must hide every category inside it from new-entry lists.'
+);
+category_management_expect(
+    0,
+    count(array_filter(jg_accounting_categories($pdo), static fn (array $row): bool => (int) ($row['parent_id'] ?? 0) === $bulkGroupId)),
+    'Normal category retrieval must omit every child of a hidden group.'
+);
+jg_accounting_save_category($pdo, [
+    'category_id' => $bulkGroupId,
+    'name' => 'Accountant-defined costs',
+    'type' => 'expense',
+    'flow' => 'expense',
+    'is_billable' => false,
+    'is_active' => true,
+]);
+
 $period = jg_accounting_move_category($pdo, [
     'category_id' => 3,
     'target_parent_id' => 2,
