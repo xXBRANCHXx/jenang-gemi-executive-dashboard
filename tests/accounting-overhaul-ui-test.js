@@ -103,6 +103,8 @@ expect(css.includes('.admin-liquidity-segment.is-direct { background: #d6c34f; }
 expect(css.includes('.admin-accounting-ledger-row'), 'Visual ledger rows must be styled.');
 expect(css.includes('.admin-accounting-plain-toggle input::before') && css.includes('appearance:none'), 'Category behavior controls must be rendered as toggle switches.');
 expect(css.includes('.admin-accounting-plain-toggle:has(input:checked)') && css.includes('background:#00d97e!important'), 'Enabled category switches must have an unmistakable green checked state.');
+expect(css.includes('button[data-accounting-category-flow="income"].is-active') && css.includes('button[data-accounting-category-flow="expense"].is-active'), 'Selected Money in and Money out controls must have separate semantic color states.');
+expect(css.includes('border-color:#00d97e') && css.includes('border-color:#ef233c'), 'Selected money direction colors must be green for income and red for expense.');
 expect(css.includes('overflow-x:hidden') && css.includes('resize:vertical'), 'Accounting settings must prevent horizontally resized guidance fields from breaking the modal layout.');
 expect(css.includes('.admin-accounting-ledger-row.is-paid-bill') && css.includes('.admin-accounting-ledger-row.is-highlighted'), 'Paid bills and selected review targets must have clear visual states.');
 expect(css.includes('.admin-accounting-review-receipt svg') && css.includes('fill: currentColor') && css.includes('stroke: none'), 'The receipt eye must be a filled icon without a stroked pill.');

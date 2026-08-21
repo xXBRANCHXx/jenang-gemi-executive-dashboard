@@ -38196,7 +38196,8 @@ a.admin-accounting-breakdown-row:focus-visible { background: color-mix(in srgb, 
 .admin-accounting-flow-choice { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
 .admin-accounting-flow-choice button { min-height:44px; border:1px solid var(--accounting-border); border-radius:10px; background:var(--accounting-surface); color:var(--accounting-text); font-weight:850; cursor:pointer; }
 .admin-accounting-flow-choice button span { margin-right:5px; }
-.admin-accounting-flow-choice button.is-active { border-color:#20d98a; background:color-mix(in srgb,#00d97e 13%,var(--accounting-surface)); box-shadow:inset 0 0 0 1px #20d98a; }
+.admin-accounting-flow-choice button[data-accounting-category-flow="income"].is-active { border-color:#00d97e; background:color-mix(in srgb,#00d97e 16%,var(--accounting-surface)); color:#39e8a0; box-shadow:inset 0 0 0 1px #00d97e; }
+.admin-accounting-flow-choice button[data-accounting-category-flow="expense"].is-active { border-color:#ef233c; background:color-mix(in srgb,#ef233c 16%,var(--accounting-surface)); color:#ff687a; box-shadow:inset 0 0 0 1px #ef233c; }
 .admin-accounting-step-control { display:grid; grid-template-columns:minmax(170px,1fr) auto auto; align-items:center; gap:7px; }
 .admin-accounting-step-control select { width:100%; min-height:42px; padding:0 10px; border:1px solid var(--accounting-border); border-radius:9px; background:var(--accounting-surface); color:var(--accounting-text); }
 .admin-link-btn { border:0; background:transparent; color:#20d98a; font-size:.64rem; font-weight:800; cursor:pointer; }
