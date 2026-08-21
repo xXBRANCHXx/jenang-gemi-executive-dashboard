@@ -77,8 +77,10 @@ expect(script.includes('Amount to pay') && script.includes('is-paid-bill'), 'Pai
 expect(script.includes('is-bill-payment') && script.includes('admin-accounting-ledger-kind is-payment'), 'Bill payments must be visually distinct from the original bill records.');
 expect(script.includes('focusLedgerEntry') && script.includes('View in ledger'), 'Review actions must reveal and highlight their exact activity-ledger row.');
 expect(script.includes('Is money coming in or going out?') && script.includes('Which big group?') && script.includes('What exactly was it?'), 'Category settings must use the three plain-language hierarchy steps.');
-expect(script.includes('Show this category in new bills and entries') && script.includes('Turn this off to hide only this category.'), 'Exact categories must expose an individual visibility control near the top of the editor.');
-expect(script.includes('Show this group in new bills and entries') && script.includes('hide every category in this group'), 'Group visibility must clearly explain its cascade to every child category.');
+expect(script.includes('Available for new entries') && script.includes('hide the choice temporarily'), 'Exact categories must expose a clearly named picker-visibility control near the top of the editor.');
+expect(script.includes('Archive this category') && script.includes("data.has('is_archived') ? '0' : '1'"), 'Archiving must be clearly distinguished from temporary picker visibility and map back to the active API field.');
+expect(script.includes('Show this group and its categories in new bills and entries'), 'Group visibility must clearly explain its cascade to every child category.');
+expect(script.includes('role="switch"'), 'Category behavior controls must expose switch semantics instead of looking like checkboxes.');
 expect(script.includes('Number(item.is_selectable) === 1'), 'New-entry category lists must use the API selection rule that excludes hidden categories and children of inactive groups.');
 expect(script.includes('parent_is_active: parentIsActive') && script.includes('is_selectable: parentIsActive'), 'Saving group visibility must immediately update every child category in the browser.');
 expect(script.includes("payload.action = 'move_category'") && script.includes('Everything — fully retroactive'), 'Category settings must support date-range and fully retroactive moves.');
@@ -98,6 +100,8 @@ expect(css.includes('repeating-linear-gradient(135deg'), 'Going Out must use one
 expect(css.includes('background-color: rgba(239, 35, 60, .14)'), 'Going Out must remain translucent so the bank color shows underneath.');
 expect(css.includes('.admin-liquidity-segment.is-direct { background: #d6c34f; }'), 'Unpaid direct orders must use a distinct expected-money yellow instead of outflow red.');
 expect(css.includes('.admin-accounting-ledger-row'), 'Visual ledger rows must be styled.');
+expect(css.includes('.admin-accounting-plain-toggle input::before') && css.includes('appearance:none'), 'Category behavior controls must be rendered as toggle switches.');
+expect(css.includes('overflow-x:hidden') && css.includes('resize:vertical'), 'Accounting settings must prevent horizontally resized guidance fields from breaking the modal layout.');
 expect(css.includes('.admin-accounting-ledger-row.is-paid-bill') && css.includes('.admin-accounting-ledger-row.is-highlighted'), 'Paid bills and selected review targets must have clear visual states.');
 expect(css.includes('.admin-accounting-review-receipt svg') && css.includes('fill: currentColor') && css.includes('stroke: none'), 'The receipt eye must be a filled icon without a stroked pill.');
 expect(css.includes('.admin-accounting-category-menu'), 'The in-dropdown category search menu must be styled.');

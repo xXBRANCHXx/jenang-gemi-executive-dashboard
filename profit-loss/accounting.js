@@ -1584,7 +1584,7 @@ if (root) {
           <label><span>Group name</span><input type="text" name="name" maxlength="160" value="${escapeHtml(state.categorySettingsMode === 'edit-group' ? (group?.name || '') : '')}" placeholder="e.g. Advertising costs" required></label>
           <label><span>How this group appears in reports</span><select name="type">${currentTypeChoices.map(([value, label]) => option(value, label)).join('')}</select></label>
         </div>
-        <label class="admin-accounting-plain-toggle"><input type="checkbox" name="is_active" ${state.categorySettingsMode !== 'edit-group' || Number(group?.is_active) ? 'checked' : ''}><span><strong>Show this group in new bills and entries</strong><small>Turn this off to hide every category in this group. Existing records and reports do not change.</small></span></label>
+        <label class="admin-accounting-plain-toggle"><input type="checkbox" role="switch" name="is_active" ${state.categorySettingsMode !== 'edit-group' || Number(group?.is_active) ? 'checked' : ''}><span><strong>Available for new entries</strong><small>Show this group and its categories in new bills and entries. Existing records and reports do not change.</small></span></label>
         <p class="admin-form-error" data-accounting-category-settings-error hidden></p>
         <div class="admin-accounting-category-form-actions"><button type="button" class="admin-ghost-btn" data-accounting-category-cancel>Cancel</button><button type="submit" class="admin-primary-btn">Save group</button></div>
       </form>` : ''}
@@ -1597,9 +1597,9 @@ if (root) {
         <div class="admin-accounting-category-editor-head"><div><strong>${category ? `Edit “${escapeHtml(category.name)}”` : `Add an exact category to ${escapeHtml(group.name)}`}</strong><small>This is the final choice people see when entering money.</small></div></div>
         <label><span>Exact category name</span><input type="text" name="name" maxlength="160" value="${escapeHtml(category?.name || '')}" placeholder="e.g. Shopee Ads" required></label>
         <div class="admin-accounting-category-behavior">
-          <label class="admin-accounting-plain-toggle"><input type="checkbox" name="is_billable" ${!category || Number(category.is_billable) ? 'checked' : ''}><span><strong>Show this category in new bills and entries</strong><small>Turn this off to hide only this category. Existing records and reports do not change.</small></span></label>
-          <label class="admin-accounting-plain-toggle"><input type="checkbox" name="requires_receipt" ${Number(category?.requires_receipt) ? 'checked' : ''}><span><strong>Ask for a receipt</strong><small>When selected, new entries in this category should include proof.</small></span></label>
-          <label class="admin-accounting-plain-toggle"><input type="checkbox" name="is_active" ${!category || Number(category.is_active) ? 'checked' : ''}><span><strong>Keep this category active</strong><small>Active but hidden is allowed: it remains usable for history and reports without appearing on new-entry lists.</small></span></label>
+          <label class="admin-accounting-plain-toggle"><input type="checkbox" role="switch" name="is_billable" ${!category || Number(category.is_billable) ? 'checked' : ''}><span><strong>Available for new entries</strong><small>Show this category in new bill and entry pickers. Turn it off to hide the choice temporarily; existing records stay unchanged.</small></span></label>
+          <label class="admin-accounting-plain-toggle"><input type="checkbox" role="switch" name="requires_receipt" ${Number(category?.requires_receipt) ? 'checked' : ''}><span><strong>Require a receipt</strong><small>Prompt for proof when this category is selected for a new entry.</small></span></label>
+          <label class="admin-accounting-plain-toggle admin-accounting-plain-toggle--archive"><input type="checkbox" role="switch" name="is_archived" ${category && !Number(category.is_active) ? 'checked' : ''}><span><strong>Archive this category</strong><small>Retire this category from future use. Its existing records and report history remain intact, and you can restore it later.</small></span></label>
         </div>
         ${category ? `
         <details class="admin-accounting-guidance-editor" open>
@@ -1742,7 +1742,10 @@ if (root) {
     payload.action = categoryKind === 'leaf' && data.has('hover_summary') ? 'save_category_with_guidance' : 'save_category';
     payload.requires_receipt = data.has('requires_receipt') ? '1' : '0';
     payload.is_billable = data.has('is_billable') ? '1' : '0';
-    payload.is_active = data.has('is_active') ? '1' : '0';
+    payload.is_active = categoryKind === 'leaf'
+      ? (data.has('is_archived') ? '0' : '1')
+      : (data.has('is_active') ? '1' : '0');
+    delete payload.is_archived;
     try {
       const response = await requestJson(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const savedId = String(response.data?.result?.category_id || '');
