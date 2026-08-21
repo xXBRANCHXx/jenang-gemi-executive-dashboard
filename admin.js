@@ -12052,11 +12052,16 @@ document.addEventListener('DOMContentLoaded', () => {
     return compact ? formatCompactNumber(value) : formatRegionalNumber(Math.round(Number(value) || 0));
   };
 
-  const estimateAdViewQuarterHourMetrics = (hourMetrics, share) => {
+  const estimateAdViewQuarterHourMetrics = (hourMetrics, share, cumulativeShare = 0) => {
     const factor = Math.max(0, Number(share) || 0);
+    const factorBefore = Math.max(0, Number(cumulativeShare) || 0);
     const scale = (key) => {
-      const estimate = Number(hourMetrics[key] || 0) * factor;
-      return AD_VIEW_COUNT_METRICS.has(key) ? Math.round(estimate) : estimate;
+      const hourlyTotal = Number(hourMetrics[key] || 0);
+      if (!AD_VIEW_COUNT_METRICS.has(key)) return hourlyTotal * factor;
+      return Math.max(0,
+        Math.round(hourlyTotal * (factorBefore + factor))
+        - Math.round(hourlyTotal * factorBefore)
+      );
     };
     return aggregateAdViewMetrics([{
       impressions: scale('impressions'),
@@ -12178,13 +12183,17 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.fillText(row.label, x, height - 17);
       }
     });
-    if (activeHover?.metricPoints?.length) {
-      activeHover.metricPoints.forEach((point) => {
+    const refreshedActiveHover = activeHover
+      ? hoverColumns.find((point) => point.hoverKey === activeHover.hoverKey) || null
+      : null;
+    if (refreshedActiveHover) chartActivePointState.set(canvas, refreshedActiveHover);
+    if (refreshedActiveHover?.metricPoints?.length) {
+      refreshedActiveHover.metricPoints.forEach((point) => {
         ctx.fillStyle = point.color;
         ctx.strokeStyle = palette.surface;
         ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.arc(activeHover.x, point.y, 6, 0, Math.PI * 2);
+        ctx.arc(refreshedActiveHover.x, point.y, 6, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
       });
@@ -12264,14 +12273,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const hourLabel = String(row.hour).padStart(2, '0');
             const currentBlock = today && row.hour === currentHour && quarter === activeQuarterCount - 1;
             const currentHourBlockMinutes = currentBlock ? currentMinute % 15 : 15;
-            const blockShare = today && row.hour === currentHour
-              ? (currentMinute > 0 ? currentHourBlockMinutes / currentMinute : 0)
-              : 0.25;
+            const elapsedHourMinutes = today && row.hour === currentHour ? currentMinute : 60;
+            const blockShare = elapsedHourMinutes > 0 ? currentHourBlockMinutes / elapsedHourMinutes : 0;
+            const cumulativeShare = elapsedHourMinutes > 0 ? minute / elapsedHourMinutes : 0;
             return {
               key: `${row.key}:${String(minute).padStart(2, '0')}`,
               label: `${hourLabel}:${String(minute).padStart(2, '0')}`,
               tooltipLabel: `${hourLabel}:${String(minute).padStart(2, '0')}–${hourLabel}:${String(endMinute).padStart(2, '0')}`,
-              metrics: estimateAdViewQuarterHourMetrics(row.metrics, blockShare),
+              metrics: estimateAdViewQuarterHourMetrics(row.metrics, blockShare, cumulativeShare),
               hour: row.hour,
               minute,
               estimated: true

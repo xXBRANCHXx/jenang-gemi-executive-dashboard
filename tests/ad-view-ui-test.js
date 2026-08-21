@@ -39,17 +39,27 @@ for (const preference of ['account', 'timeframe', 'startDate', 'endDate', 'selec
 }
 assert(js.includes('persistAdViewPreferences();'), 'Ad View control changes must save their state for hard refreshes.');
 assert(js.includes('estimateAdViewQuarterHourMetrics'), 'Hourly Shopee data must be presented in quarter-hour hover intervals.');
-assert(js.includes('AD_VIEW_COUNT_METRICS.has(key) ? Math.round(estimate) : estimate'), 'Count curves and tooltips must use the same integer bucket estimate.');
+assert(js.includes('Math.round(hourlyTotal * (factorBefore + factor))'), 'Quarter-hour count estimates must use cumulative allocation.');
+assert(js.includes('- Math.round(hourlyTotal * factorBefore)'), 'Quarter-hour count buckets must not duplicate an hourly integer total.');
+for (let hourlyTotal = 0; hourlyTotal <= 25; hourlyTotal += 1) {
+  const buckets = [0, 1, 2, 3].map((quarter) => (
+    Math.round(hourlyTotal * ((quarter + 1) / 4))
+    - Math.round(hourlyTotal * (quarter / 4))
+  ));
+  assert.equal(buckets.reduce((sum, value) => sum + value, 0), hourlyTotal, `Quarter-hour buckets must preserve an hourly total of ${hourlyTotal}.`);
+}
 assert(js.includes('point.value === 0 && next.value === 0'), 'Adjacent zero-count buckets must remain on the baseline without curve overshoot.');
 assert(js.includes("'<small>15 min estimate</small>'"), 'Estimated 15-minute values must disclose their hourly source without a verbose tooltip.');
 assert(js.includes('ctx.bezierCurveTo('), 'Ad View trends must use smooth curved paths.');
-assert(js.includes('currentHourBlockMinutes / currentMinute'), 'The active quarter-hour block must build upward from zero while preserving the elapsed hourly total.');
+assert(js.includes('currentHourBlockMinutes / elapsedHourMinutes'), 'The active quarter-hour block must use its share of the elapsed hour.');
+assert(js.includes('minute / elapsedHourMinutes'), 'Quarter-hour count allocation must track the preceding share of the hour.');
 assert(!js.includes('Number.isFinite(row.startPosition)'), 'Quarter-hour resets must not be drawn as separate spike curves.');
 const adChartStart = js.indexOf('const drawAdViewMetricChart');
 const adChartEnd = js.indexOf('const renderAdViewKpis', adChartStart);
 assert(adChartStart >= 0 && adChartEnd > adChartStart, 'The Ad View chart renderer must exist.');
-assert(js.slice(adChartStart, adChartEnd).includes('activeHover?.metricPoints?.length'), 'The Ad View chart must draw markers only for the hovered interval.');
-assert(js.slice(adChartStart, adChartEnd).includes('ctx.arc(activeHover.x, point.y'), 'The hovered interval must be marked directly on each visible curve.');
+assert(js.slice(adChartStart, adChartEnd).includes('refreshedActiveHover?.metricPoints?.length'), 'The Ad View chart must draw markers only for the hovered interval.');
+assert(js.slice(adChartStart, adChartEnd).includes('point.hoverKey === activeHover.hoverKey'), 'Hover markers must be refreshed from the latest chart rows.');
+assert(js.slice(adChartStart, adChartEnd).includes('ctx.arc(refreshedActiveHover.x, point.y'), 'The hovered interval must be marked directly on each current curve.');
 assert(!js.includes('tooltipLabel: `${state.adView.startDate}'), 'Quarter-hour tooltips must not repeat the already-selected date.');
 assert(js.includes("result.cac = result.broad_items > 0 ? result.expense / result.broad_items : 0"), 'CAC must use attributed units sold.');
 assert(js.includes('Ad cost ÷ attributed units sold'), 'The CAC card must explain its unit-based calculation.');
