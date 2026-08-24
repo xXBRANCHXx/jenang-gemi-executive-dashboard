@@ -6026,8 +6026,54 @@ document.addEventListener('DOMContentLoaded', () => {
     const value = String(timestamp || '').trim();
     if (!value) return null;
     const normalized = value.includes('T') ? value : value.replace(' ', 'T');
-    const date = new Date(normalized.includes('+') || normalized.endsWith('Z') ? normalized : `${normalized}Z`);
+    const hasTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(normalized);
+    const date = new Date(hasTimezone ? normalized : `${normalized}Z`);
     return Number.isNaN(date.getTime()) ? null : date;
+  };
+
+  const zonedDateTimeParts = (date, timezone) => {
+    const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23'
+    }).formatToParts(date).filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]));
+    return {
+      date: `${parts.year}-${parts.month}-${parts.day}`,
+      hour: Number(parts.hour),
+      minute: Number(parts.minute)
+    };
+  };
+
+  const partnerOrderWallClockParts = (order) => {
+    if (String(order?.platform || '').trim().toLowerCase() !== 'partner') return null;
+    const value = String(order?.order_create_time || order?.timestamp || '').trim();
+    if (!value || /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value)) return null;
+    const match = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}):(\d{2})/.exec(value);
+    if (!match) return null;
+    return {
+      date: match[1],
+      hour: Number(match[2]),
+      minute: Number(match[3])
+    };
+  };
+
+  const orderHourlyClock = (order, now, timezone, today) => {
+    const current = zonedDateTimeParts(now, timezone);
+    const partnerWallClock = partnerOrderWallClockParts(order);
+    if (partnerWallClock) {
+      const orderMinute = (partnerWallClock.hour * 60) + partnerWallClock.minute;
+      const currentMinute = (current.hour * 60) + current.minute;
+      return partnerWallClock.date === today && orderMinute <= currentMinute ? partnerWallClock : null;
+    }
+
+    const date = parseOrderTimestamp(order?.order_create_time || order?.timestamp);
+    if (!date || date.getTime() > now.getTime()) return null;
+    const clock = zonedDateTimeParts(date, timezone);
+    return clock.date === today ? clock : null;
   };
 
   const formatOrderTimestamp = (timestamp) => {
@@ -6194,13 +6240,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     orders.forEach((order) => {
-      const date = parseOrderTimestamp(order?.order_create_time || order?.timestamp);
-      if (!date) return;
-      if (date.getTime() > now.getTime()) return;
-      const localDate = new Intl.DateTimeFormat('en-CA', { timeZone: state.timezone }).format(date);
-      if (localDate !== localToday) return;
-      const hour = localHour(date);
-      const row = rows.find((item) => item.hour === hour);
+      const clock = orderHourlyClock(order, now, state.timezone, localToday);
+      if (!clock) return;
+      const row = rows.find((item) => item.hour === clock.hour);
       if (row) addOrderMetrics(row, order);
     });
 
