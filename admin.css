@@ -27347,6 +27347,112 @@ button.admin-order-payment-dot:focus-visible {
   font: 800 1.35rem/1 "Space Grotesk", sans-serif;
 }
 
+.admin-inventory-commitment-details {
+  position: relative;
+  width: max-content;
+}
+
+.admin-inventory-commitment-details summary {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: max-content;
+  cursor: pointer;
+  list-style: none;
+}
+
+.admin-inventory-commitment-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.admin-inventory-commitment-details summary strong {
+  text-decoration: underline dotted color-mix(in srgb, currentColor 55%, transparent);
+  text-underline-offset: 4px;
+}
+
+.admin-inventory-commitment-details summary::after {
+  color: currentColor;
+  content: "›";
+  font-size: 0.85rem;
+  font-weight: 850;
+  transform: rotate(90deg);
+  transition: transform 140ms ease;
+}
+
+.admin-inventory-commitment-details[open] summary::after {
+  transform: rotate(-90deg);
+}
+
+.admin-inventory-commitment-details summary:focus-visible {
+  border-radius: 3px;
+  outline: 2px solid color-mix(in srgb, currentColor 45%, transparent);
+  outline-offset: 3px;
+}
+
+.admin-inventory-commitment-panel {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 9px);
+  left: 0;
+  width: min(300px, 78vw);
+  padding: 12px;
+  border: 1px solid var(--inventory-line);
+  border-radius: 8px;
+  background: var(--admin-bg);
+  box-shadow: 0 16px 38px rgb(0 0 0 / 36%);
+}
+
+.admin-inventory-commitment-panel header {
+  display: grid;
+  gap: 3px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--inventory-line);
+}
+
+.admin-inventory-commitment-panel header > b {
+  color: var(--admin-text);
+  font-size: 0.69rem;
+}
+
+.admin-inventory-commitment-panel ul {
+  display: grid;
+  max-height: 220px;
+  margin: 0;
+  padding: 5px 0 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.admin-inventory-commitment-panel li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 7px 2px;
+  border-bottom: 1px solid color-mix(in srgb, var(--inventory-line) 70%, transparent);
+}
+
+.admin-inventory-commitment-panel li:last-child {
+  border-bottom: 0;
+}
+
+.admin-inventory-trigger-balance .admin-inventory-commitment-panel li > span {
+  overflow-wrap: anywhere;
+  color: var(--admin-text);
+  font: 720 0.66rem/1.35 "Plus Jakarta Sans", sans-serif;
+}
+
+.admin-inventory-commitment-panel li > b {
+  flex: 0 0 auto;
+  color: var(--admin-muted);
+  font-size: 0.64rem;
+}
+
+:root[data-admin-theme='light'] .admin-inventory-commitment-panel {
+  background: #ffffff;
+  box-shadow: 0 16px 38px rgb(15 23 42 / 18%);
+}
+
 .admin-inventory-trigger-meter {
   position: relative;
   grid-column: 1 / -1;

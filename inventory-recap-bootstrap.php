@@ -720,10 +720,26 @@ function jg_inventory_recap_normalize_store_ops_commitments(array $payload): arr
         $sku = strtoupper(trim((string) ($row['sku'] ?? '')));
         $quantity = max(0.0, jg_inventory_recap_number($row['quantity'] ?? 0));
         if ($sku === '' || $quantity <= 0) continue;
+        $ordersById = [];
+        foreach ((array) ($row['orders'] ?? []) as $order) {
+            if (!is_array($order)) continue;
+            $orderId = trim((string) ($order['order_id'] ?? $order['id'] ?? ''));
+            if ($orderId === '') continue;
+            if (!isset($ordersById[$orderId])) $ordersById[$orderId] = 0.0;
+            $ordersById[$orderId] += max(0.0, jg_inventory_recap_number($order['quantity'] ?? 0));
+        }
+        $orders = [];
+        foreach ($ordersById as $orderId => $orderQuantity) {
+            $orders[] = [
+                'order_id' => $orderId,
+                'quantity' => round($orderQuantity, 2),
+            ];
+        }
         $commitments[] = [
             'sku' => $sku,
             'quantity' => $quantity,
             'order_count' => max(0, (int) ($row['order_count'] ?? 0)),
+            'orders' => $orders,
         ];
     }
 
@@ -983,7 +999,7 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
     $purchaseOrders = jg_purchase_orders_fetch($skuPdo, 1000);
     $incomingBySku = jg_purchase_orders_incoming_by_sku($skuPdo);
     $storeOpsCommitments = jg_inventory_recap_store_ops_commitments($input);
-    $commitmentsByStockIndex = array_fill(0, count($skus), ['quantity' => 0.0, 'order_count' => 0]);
+    $commitmentsByStockIndex = array_fill(0, count($skus), ['quantity' => 0.0, 'order_count' => 0, 'orders' => []]);
     $unmatchedCommitments = 0;
     foreach ((array) ($storeOpsCommitments['commitments'] ?? []) as $commitment) {
         if (!is_array($commitment)) continue;
@@ -996,6 +1012,15 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
         $quantityMultiplier = max(1.0, (float) ($skus[$skuIndex]['quantity_multiplier'] ?? 1));
         $commitmentsByStockIndex[$stockIndex]['quantity'] += max(0.0, (float) ($commitment['quantity'] ?? 0)) * $quantityMultiplier;
         $commitmentsByStockIndex[$stockIndex]['order_count'] += max(0, (int) ($commitment['order_count'] ?? 0));
+        foreach ((array) ($commitment['orders'] ?? []) as $order) {
+            if (!is_array($order)) continue;
+            $orderId = trim((string) ($order['order_id'] ?? ''));
+            if ($orderId === '') continue;
+            if (!isset($commitmentsByStockIndex[$stockIndex]['orders'][$orderId])) {
+                $commitmentsByStockIndex[$stockIndex]['orders'][$orderId] = 0.0;
+            }
+            $commitmentsByStockIndex[$stockIndex]['orders'][$orderId] += max(0.0, (float) ($order['quantity'] ?? 0)) * $quantityMultiplier;
+        }
     }
     if ($unmatchedCommitments > 0) {
         $existingWarning = trim((string) ($storeOpsCommitments['warning'] ?? ''));
@@ -1093,6 +1118,13 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
         $incomingQty = max(0, (int) ($incomingBySku[strtoupper((string) ($sku['sku'] ?? ''))] ?? 0));
         $committedQty = round(max(0.0, (float) ($commitmentsByStockIndex[$index]['quantity'] ?? 0)), 2);
         $committedOrderCount = max(0, (int) ($commitmentsByStockIndex[$index]['order_count'] ?? 0));
+        $committedOrders = [];
+        foreach ((array) ($commitmentsByStockIndex[$index]['orders'] ?? []) as $orderId => $orderQuantity) {
+            $committedOrders[] = [
+                'order_id' => (string) $orderId,
+                'quantity' => round(max(0.0, (float) $orderQuantity), 2),
+            ];
+        }
         $history = $stockHistory[$index] ?? ['ever_stocked' => false, 'first_stocked_at' => '', 'stocked_age_days' => null];
         $initialPurchase = jg_inventory_recap_is_initial_purchase($currentStock, !empty($history['ever_stocked']));
         $peer = jg_inventory_recap_peer_demand($index, $skus, $demand, $stockIndexBySkuIndex);
@@ -1221,6 +1253,7 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
             'projected_stock' => $projectedStock,
             'committed_qty' => $committedQty,
             'committed_order_count' => $committedOrderCount,
+            'committed_orders' => $committedOrders,
             'prediction_available' => !empty($storeOpsCommitments['available']),
             'predicted_stock' => $predictedStockWithoutIncoming,
             'covered_stock' => $coveredStock,

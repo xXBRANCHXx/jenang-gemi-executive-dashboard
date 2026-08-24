@@ -117,11 +117,15 @@ inventory_recap_expect(113, $risingModel['purchase_target_qty'], 'Trend must not
 
 $normalizedCommitments = jg_inventory_recap_normalize_store_ops_commitments([
     'ok' => true,
-    'commitments' => [['sku' => 'sku-flat', 'quantity' => 4, 'order_count' => 2]],
+    'commitments' => [['sku' => 'sku-flat', 'quantity' => 4, 'order_count' => 2, 'orders' => [
+        ['order_id' => 'ORDER-A', 'quantity' => 3],
+        ['order_id' => 'ORDER-B', 'quantity' => 1],
+    ]]],
     'summary' => ['listed_order_count' => 2, 'unmatched_line_count' => 1, 'queue_error_count' => 0],
 ]);
 inventory_recap_expect(true, $normalizedCommitments['available'], 'A valid Store Ops commitment feed must be available.');
 inventory_recap_expect('SKU-FLAT', $normalizedCommitments['commitments'][0]['sku'] ?? '', 'Commitment SKUs must be normalized for matching.');
+inventory_recap_expect('ORDER-A', $normalizedCommitments['commitments'][0]['orders'][0]['order_id'] ?? '', 'Commitment order IDs must be retained for the projected-stock drilldown.');
 inventory_recap_expect_true(str_contains($normalizedCommitments['warning'], 'could not be matched'), 'Partial Store Ops coverage must remain visible.');
 
 $urgentStatus = jg_inventory_recap_status(1, 0, 8, true, 'auto', 0, true);
@@ -209,7 +213,10 @@ $recapInput = [
     'store_ops_commitments' => [
         'ok' => true,
         'source' => 'store_ops_listed_orders',
-        'commitments' => [['sku' => 'SKU-FLAT', 'quantity' => 4, 'order_count' => 2]],
+        'commitments' => [['sku' => 'SKU-FLAT', 'quantity' => 4, 'order_count' => 2, 'orders' => [
+            ['order_id' => 'ORDER-A', 'quantity' => 3],
+            ['order_id' => 'ORDER-B', 'quantity' => 1],
+        ]]],
         'summary' => [
             'listed_order_count' => 2,
             'committed_sku_count' => 1,
@@ -247,6 +254,10 @@ $manual = $bySku['SKU-MANUAL'] ?? [];
 inventory_recap_expect(8, $flat['automatic_trigger'] ?? 0, 'The payload must expose the one-week automatic trigger.');
 inventory_recap_expect(4000, $flat['current_stock_value'] ?? 0, 'Each item must expose its on-hand value at COGS.');
 inventory_recap_expect(4.0, $flat['committed_qty'] ?? -1, 'The product must expose its Store Ops committed quantity.');
+inventory_recap_expect([
+    ['order_id' => 'ORDER-A', 'quantity' => 3.0],
+    ['order_id' => 'ORDER-B', 'quantity' => 1.0],
+], $flat['committed_orders'] ?? [], 'The product must expose the Store Ops order IDs and quantities reducing projected stock.');
 inventory_recap_expect(0.0, $flat['predicted_stock'] ?? -1, 'Predicted stock must subtract all listed Store Ops commitments.');
 inventory_recap_expect('urgent', $flat['risk'] ?? '', 'A predicted stockout without PO coverage must become urgent.');
 inventory_recap_expect(8, $flat['trigger_shortfall_qty'] ?? 0, 'The trigger shortfall must use predicted stock.');

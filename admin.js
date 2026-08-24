@@ -9050,6 +9050,35 @@ document.addEventListener('DOMContentLoaded', () => {
 	    return matchesQuery && matchesBrand && matchesProduct && matchesFlavor && matchesVolume;
 	  };
 
+	  const inventoryProjectedStockMarkup = (item, predictedStock, predictionAvailable) => {
+	    const value = predictionAvailable
+	      ? formatRegionalNumber(predictedStock, { maximumFractionDigits: 1 })
+	      : '—';
+	    const orders = Array.isArray(item.committed_orders)
+	      ? item.committed_orders.filter((order) => String(order?.order_id || '').trim() !== '')
+	      : [];
+	    if (!predictionAvailable || !orders.length) return `<strong>${value}</strong>`;
+	    const orderLabel = orders.length === 1 ? 'order' : 'orders';
+	    return `
+	      <details class="admin-inventory-commitment-details" name="inventory-commitments">
+	        <summary aria-label="Projected stock ${escapeHtml(value)}. Show ${formatRegionalInteger(orders.length)} contributing ${orderLabel}">
+	          <strong>${value}</strong>
+	        </summary>
+	        <div class="admin-inventory-commitment-panel">
+	          <header>
+	            <b>Orders reducing stock</b>
+	            <small>${formatRegionalNumber(item.committed_qty || 0, { maximumFractionDigits: 1 })} units committed</small>
+	          </header>
+	          <ul>${orders.map((order) => `
+	            <li>
+	              <span>${escapeHtml(String(order.order_id || ''))}</span>
+	              <b>−${formatRegionalNumber(order.quantity || 0, { maximumFractionDigits: 1 })}</b>
+	            </li>
+	          `).join('')}</ul>
+	        </div>
+	      </details>`;
+	  };
+
 	  const renderInventoryRecapList = (rows) => {
 	    if (!inventoryRecapRefs.list) return;
 	    if (state.inventoryRecap.loading && !state.inventoryRecap.data) {
@@ -9104,7 +9133,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	        </div>
 	        <div class="admin-inventory-trigger-balance">
 	          <div><span>Stock now</span><strong>${formatRegionalInteger(stock)}</strong></div>
-	          <div class="admin-inventory-predicted-stock"><span>${initialPurchase ? 'Initial target' : 'Projected stock'}</span><strong>${initialPurchase ? formatRegionalInteger(item.initial_target_qty || 0) : (predictionAvailable ? formatRegionalNumber(predictedStock, { maximumFractionDigits: 1 }) : '—')}</strong></div>
+	          <div class="admin-inventory-predicted-stock"><span>${initialPurchase ? 'Initial target' : 'Projected stock'}</span>${initialPurchase ? `<strong>${formatRegionalInteger(item.initial_target_qty || 0)}</strong>` : inventoryProjectedStockMarkup(item, predictedStock, predictionAvailable)}</div>
 	          <div><span>${initialPurchase ? 'Buy now' : 'Trigger at'}</span><strong>${formatRegionalInteger(initialPurchase ? item.recommended_order_qty || 0 : trigger)}</strong></div>
 	          <div class="admin-inventory-trigger-meter"><i style="width:${stockPercent}%"></i><mark style="left:100%"></mark></div>
 	          ${Number(item.incoming_qty || 0) > 0 ? `<span class="admin-inventory-incoming-qty">${formatRegionalInteger(item.incoming_qty || 0)} units in process</span>` : ''}
