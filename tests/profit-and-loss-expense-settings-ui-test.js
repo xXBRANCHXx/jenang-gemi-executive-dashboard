@@ -9,7 +9,10 @@ const styles = fs.readFileSync(path.join(root, 'admin.css'), 'utf8');
 
 assert.match(page, /data-pnl-edit-expenses/, 'Expense mix must expose category settings.');
 assert.match(page, /data-pnl-expense-dialog/, 'P&L must provide an Accounting-category settings dialog.');
+assert.match(page, /data-pnl-expense-search/, 'The category settings dialog must be searchable by name or account code.');
 assert.match(script, /state\.categorySettings = Array\.isArray\(accounting\.category_settings\)/, 'Every Accounting category returned by the API must populate the settings editor.');
+assert.match(script, /const categoryDisplay = \(category\)/, 'Long imported Accounting labels must be reduced to a compact primary title.');
+assert.match(script, /No categories loaded/, 'An empty category response must show an explicit state instead of a blank settings dialog.');
 assert.match(script, /data-pnl-category-include/, 'Every category must expose an include/exclude toggle.');
 assert.match(script, /data-pnl-category-bucket/, 'Every category must expose an editable P&L treatment.');
 assert.match(script, /action: 'save_pnl_category_settings'/, 'Category settings must persist through Accounting.');

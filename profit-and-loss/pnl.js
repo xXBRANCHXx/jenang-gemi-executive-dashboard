@@ -18,7 +18,8 @@ if (root) {
     allocationDraft: [],
     allocationId: 0,
     categorySettings: [],
-    categoryDraft: []
+    categoryDraft: [],
+    expenseQuery: ''
   };
   const refs = {
     year: root.querySelector('[data-pnl-year]'),
@@ -45,6 +46,8 @@ if (root) {
     expenseDialog: root.querySelector('[data-pnl-expense-dialog]'),
     expenseForm: root.querySelector('[data-pnl-expense-form]'),
     expenseEditor: root.querySelector('[data-pnl-expense-editor]'),
+    expenseSearch: root.querySelector('[data-pnl-expense-search]'),
+    expenseCount: root.querySelector('[data-pnl-expense-count]'),
     expenseError: root.querySelector('[data-pnl-expense-error]'),
     saveExpenses: root.querySelector('[data-pnl-save-expenses]'),
     kpis: Object.fromEntries([...root.querySelectorAll('[data-pnl-kpi]')].map((node) => [node.dataset.pnlKpi, node]))
@@ -200,7 +203,21 @@ if (root) {
     exclude: 'Excluded from Net Profit'
   };
   const operatingBuckets = new Set(['ad_cost', 'marketing', 'payroll', 'operations', 'fees']);
-  const categoryLabel = (category) => `${category.parent_name ? `${category.parent_name} · ` : ''}${category.name || 'Category'}`;
+  const categoryDisplay = (category) => {
+    const rawName = String(category?.name || 'Category').trim();
+    const leafName = rawName.includes(' | ') ? rawName.split(' | ').at(-1).trim() : rawName;
+    const codeMatch = leafName.match(/(?:\s+[–—-]\s*|\s+)([0-9]{4,}(?:-[A-Za-z0-9]+)?)\s*$/);
+    const code = String(category?.account_code || codeMatch?.[1] || '').trim();
+    const withoutCode = codeMatch ? leafName.slice(0, codeMatch.index).trim() : leafName;
+    const translationMatch = withoutCode.match(/\(([^()]*)\)\s*$/);
+    const translation = String(translationMatch?.[1] || '').trim();
+    const title = (translationMatch ? withoutCode.slice(0, translationMatch.index) : withoutCode).trim() || withoutCode || 'Category';
+    const rawParent = String(category?.parent_name || '').trim();
+    const parentLeaf = rawParent.includes(' | ') ? rawParent.split(' | ').at(-1).trim() : rawParent;
+    const parent = parentLeaf.replace(/\s*\([^()]*(?:\([^()]*\)[^()]*)*\)\s*$/, '').trim();
+    return { title, translation, code, parent, rawName, rawParent };
+  };
+  const categoryLabel = (category) => categoryDisplay(category).title;
   const categoryTotals = (rows) => rows.reduce((totals, row) => {
     Object.entries(row.categoryAmounts || {}).forEach(([categoryId, amount]) => {
       totals[categoryId] = (totals[categoryId] || 0) + Number(amount || 0);
@@ -264,26 +281,50 @@ if (root) {
   };
   const renderExpenseEditor = () => {
     if (!refs.expenseEditor) return;
-    const categories = state.categoryDraft.filter((category) => !category.is_group);
+    const query = state.expenseQuery.trim().toLocaleLowerCase();
+    const allCategories = state.categoryDraft.filter((category) => !category.is_group);
+    const categories = allCategories.filter((category) => {
+      if (!query) return true;
+      const display = categoryDisplay(category);
+      return [display.title, display.translation, display.code, display.parent, display.rawName, display.rawParent, pnlBucketLabels[category.pnl_bucket], category.type]
+        .some((value) => String(value || '').toLocaleLowerCase().includes(query));
+    });
+    if (refs.expenseCount) refs.expenseCount.textContent = query
+      ? `${categories.length} of ${allCategories.length} categories`
+      : `${allCategories.length} ${allCategories.length === 1 ? 'category' : 'categories'}`;
+    if (!allCategories.length) {
+      refs.expenseEditor.innerHTML = '<p class="pnl-expense-empty"><strong>No categories loaded</strong><span>Accounting did not return any editable categories. Refresh this page and try again.</span></p>';
+      return;
+    }
+    if (!categories.length) {
+      refs.expenseEditor.innerHTML = '<p class="pnl-expense-empty"><strong>No matching category</strong><span>Try a shorter name or search by account code.</span></p>';
+      return;
+    }
     const groups = categories.reduce((result, category) => {
-      const group = String(category.parent_name || 'Ungrouped');
+      const group = categoryDisplay({ name: category.parent_name || 'Other Accounting categories' }).title;
       (result[group] ||= []).push(category);
       return result;
     }, {});
-    refs.expenseEditor.innerHTML = Object.entries(groups).map(([group, rows]) => `
+    refs.expenseEditor.innerHTML = Object.entries(groups)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([group, rows]) => `
       <section class="pnl-expense-settings-group">
         <h3>${escapeHtml(group)}</h3>
-        ${rows.map((category) => `
+        ${rows.sort((a, b) => categoryLabel(a).localeCompare(categoryLabel(b))).map((category) => {
+          const display = categoryDisplay(category);
+          const details = [display.translation, display.code ? `Code ${display.code}` : '', category.is_active ? '' : 'Inactive'].filter(Boolean);
+          return `
           <div class="pnl-expense-setting-row" data-pnl-expense-category="${escapeHtml(category.category_id)}">
-            <span><strong>${escapeHtml(category.name || 'Category')}</strong><small>${category.account_code ? `Code ${escapeHtml(category.account_code)} · ` : ''}${escapeHtml(category.type || 'other')}${category.is_active ? '' : ' · inactive'}</small></span>
+            <span title="${escapeHtml(display.rawName)}"><strong>${escapeHtml(display.title)}</strong><small>${escapeHtml(details.join(' · ') || category.type || 'Accounting category')}</small></span>
             <label class="pnl-category-toggle">
               <input type="checkbox" data-pnl-category-include="${escapeHtml(category.category_id)}"${category.include_in_net_profit ? ' checked' : ''}>
               <span></span>
             </label>
-            <select data-pnl-category-bucket="${escapeHtml(category.category_id)}" aria-label="P&L treatment for ${escapeHtml(category.name || 'category')}">
+            <select data-pnl-category-bucket="${escapeHtml(category.category_id)}" aria-label="P&L treatment for ${escapeHtml(display.title)}">
               ${Object.entries(pnlBucketLabels).map(([value, label]) => `<option value="${value}"${String(category.pnl_bucket) === value ? ' selected' : ''}>${escapeHtml(label)}</option>`).join('')}
             </select>
-          </div>`).join('')}
+          </div>`;
+        }).join('')}
       </section>`).join('');
   };
   const render = () => {
@@ -314,12 +355,18 @@ if (root) {
       bridgeRow('Less: actual PO / product payments', -(selected.cogs || 0), 'is-deduction'),
       bridgeRow('Less: actual Accounting packing costs', -(selected.packing || 0), 'is-deduction'),
       bridgeRow('Gross profit', selected.grossProfit || 0, 'is-subtotal'),
-      ...operatingRows.map((category) => bridgeRow(`Less: ${category.name}`, -category.amount, 'is-deduction')),
+      ...operatingRows.map((category) => {
+        const display = categoryDisplay(category);
+        return bridgeRow(`Less: ${display.title}${display.code ? ` · ${display.code}` : ''}`, -category.amount, 'is-deduction');
+      }),
       selected.transferFees ? bridgeRow('Less: transfer fees', -(selected.transferFees || 0), 'is-deduction') : '',
       bridgeRow('Net profit', selected.netProfit || 0, 'is-total')
     ].join('');
     const expenseRows = [
-      ...operatingRows.map((category) => [categoryLabel(category), category.amount, pnlBucketLabels[category.pnl_bucket] || 'Operating expense']),
+      ...operatingRows.map((category) => {
+        const display = categoryDisplay(category);
+        return [display.title, category.amount, [display.code, pnlBucketLabels[category.pnl_bucket] || 'Operating expense'].filter(Boolean).join(' · ')];
+      }),
       ...(selected.transferFees ? [['Transfer fees', selected.transferFees, 'System-calculated fee']] : [])
     ];
     const maxExpense = Math.max(...expenseRows.map(([, value]) => value), 1);
@@ -374,13 +421,23 @@ if (root) {
     refs.allocationDialog?.showModal();
   });
   root.querySelectorAll('[data-pnl-close-allocation], [data-pnl-cancel-allocation]').forEach((button) => button.addEventListener('click', () => refs.allocationDialog?.close()));
-  root.querySelector('[data-pnl-edit-expenses]')?.addEventListener('click', () => {
+  root.querySelector('[data-pnl-edit-expenses]')?.addEventListener('click', async () => {
+    state.expenseQuery = '';
+    if (refs.expenseSearch) refs.expenseSearch.value = '';
+    refs.expenseDialog?.showModal();
+    if (!state.categorySettings.length) {
+      if (refs.expenseEditor) refs.expenseEditor.innerHTML = '<p class="pnl-expense-empty"><strong>Loading Accounting categories…</strong></p>';
+      await load(true);
+    }
     state.categoryDraft = cloneAllocations(state.categorySettings);
     showExpenseError();
     renderExpenseEditor();
-    refs.expenseDialog?.showModal();
   });
   root.querySelectorAll('[data-pnl-close-expenses], [data-pnl-cancel-expenses]').forEach((button) => button.addEventListener('click', () => refs.expenseDialog?.close()));
+  refs.expenseSearch?.addEventListener('input', () => {
+    state.expenseQuery = refs.expenseSearch.value || '';
+    renderExpenseEditor();
+  });
   refs.expenseEditor?.addEventListener('change', (event) => {
     const input = event.target;
     const categoryId = input instanceof HTMLInputElement

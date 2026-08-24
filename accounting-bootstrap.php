@@ -3831,7 +3831,6 @@ function jg_accounting_pnl_category_settings(PDO $pdo): array
     $hasType = jg_accounting_table_has_column($pdo, 'accounting_categories', 'type');
     $hasFlow = jg_accounting_table_has_column($pdo, 'accounting_categories', 'flow');
     $hasActive = jg_accounting_table_has_column($pdo, 'accounting_categories', 'is_active');
-    $hasBillable = jg_accounting_table_has_column($pdo, 'accounting_categories', 'is_billable');
     $parentJoin = $hasParent && $hasName ? 'LEFT JOIN accounting_categories p ON p.id = c.parent_id' : '';
     $rows = $pdo->query(
         'SELECT c.id,
@@ -3846,6 +3845,11 @@ function jg_accounting_pnl_category_settings(PDO $pdo): array
          ' . $parentJoin . '
          ORDER BY ' . ($hasName && $hasParent ? 'COALESCE(p.name, c.name), c.parent_id IS NOT NULL, c.name' : 'c.id')
     )->fetchAll();
+
+    $parentIds = [];
+    foreach ($rows as $row) {
+        if ($row['parent_id'] !== null) $parentIds[(int) $row['parent_id']] = true;
+    }
 
     $stored = [];
     try {
@@ -3864,12 +3868,12 @@ function jg_accounting_pnl_category_settings(PDO $pdo): array
         // Account codes are optional P&L display metadata.
     }
 
-    return array_map(static function (array $row) use ($stored, $codes, $hasBillable): array {
+    return array_map(static function (array $row) use ($stored, $codes, $parentIds): array {
         $categoryId = (int) $row['id'];
         $category = [
             ...$row,
             'account_code' => (string) ($codes[$categoryId] ?? ''),
-            'is_group' => $hasBillable && $row['parent_id'] === null,
+            'is_group' => isset($parentIds[$categoryId]),
         ];
         if ($category['account_code'] === '') {
             $category['account_code'] = jg_accounting_category_account_code($category);

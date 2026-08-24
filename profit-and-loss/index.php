@@ -119,6 +119,10 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/pnl.js');
                 <div><span>Accounting category controls</span><h2 id="pnl-expense-settings-title">Expense mix settings</h2><p>Choose whether each Accounting category reduces profit and where it appears. Green means the category is included.</p></div>
                 <button type="button" class="pnl-dialog-close" data-pnl-close-expenses aria-label="Close expense settings">×</button>
             </div>
+            <div class="pnl-expense-searchbar">
+                <label><span>Find a category</span><input type="search" autocomplete="off" placeholder="Search name, English title, or account code…" data-pnl-expense-search></label>
+                <strong data-pnl-expense-count>0 categories</strong>
+            </div>
             <div class="pnl-expense-editor" data-pnl-expense-editor></div>
             <p class="pnl-allocation-error" data-pnl-expense-error hidden></p>
             <div class="pnl-allocation-actions">

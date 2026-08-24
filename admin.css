@@ -31414,6 +31414,65 @@ button.admin-accounting-metric {
   background: color-mix(in srgb, var(--admin-surface) 94%, var(--admin-text) 6%);
 }
 
+.pnl-expense-searchbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: end;
+}
+
+.pnl-expense-searchbar label {
+  display: grid;
+  gap: 6px;
+}
+
+.pnl-expense-searchbar label span,
+.pnl-expense-searchbar > strong {
+  color: var(--admin-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.pnl-expense-searchbar input {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 13px;
+  border: 1px solid var(--admin-border);
+  border-radius: 9px;
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  font: 750 0.76rem/1.2 "Inter", sans-serif;
+}
+
+.pnl-expense-searchbar input:focus {
+  border-color: color-mix(in srgb, #4ade80 65%, var(--admin-border));
+  outline: 2px solid color-mix(in srgb, #4ade80 20%, transparent);
+}
+
+.pnl-expense-searchbar > strong {
+  padding-bottom: 13px;
+  white-space: nowrap;
+}
+
+.pnl-expense-empty {
+  display: grid;
+  gap: 5px;
+  place-content: center;
+  min-height: 180px;
+  margin: 0;
+  color: var(--admin-muted);
+  text-align: center;
+}
+
+.pnl-expense-empty strong {
+  color: var(--admin-text);
+  font-size: 0.86rem;
+}
+
+.pnl-expense-empty span {
+  font-size: 0.72rem;
+}
+
 .pnl-expense-settings-group {
   display: grid;
   overflow: hidden;
@@ -31438,6 +31497,7 @@ button.admin-accounting-metric {
   grid-template-columns: minmax(220px, 1fr) 64px minmax(190px, 0.7fr);
   gap: 14px;
   align-items: center;
+  min-height: 62px;
   padding: 11px 14px;
   border-bottom: 1px solid var(--admin-border);
 }
@@ -31453,7 +31513,8 @@ button.admin-accounting-metric {
 
 .pnl-expense-setting-row > span strong {
   color: var(--admin-text);
-  font-size: 0.78rem;
+  font-size: 0.82rem;
+  line-height: 1.25;
 }
 
 .pnl-expense-setting-row > span small {
@@ -31896,6 +31957,14 @@ button.admin-accounting-metric {
 
   .pnl-expense-setting-row {
     grid-template-columns: minmax(0, 1fr) 64px;
+  }
+
+  .pnl-expense-searchbar {
+    grid-template-columns: 1fr;
+  }
+
+  .pnl-expense-searchbar > strong {
+    padding: 0;
   }
 
   .pnl-expense-setting-row select {
