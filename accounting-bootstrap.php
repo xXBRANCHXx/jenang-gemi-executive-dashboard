@@ -614,6 +614,7 @@ function jg_accounting_ensure_schema(PDO $pdo): void
          LIMIT 1'
     );
     jg_accounting_seed_categories($pdo);
+    jg_accounting_apply_internal_transfer_category($pdo);
     jg_accounting_seed_counterparties($pdo);
     jg_accounting_apply_august_2026_wallet_ads_correction($pdo);
 }
@@ -1234,6 +1235,70 @@ function jg_accounting_category_requires_receipt(PDO $pdo, ?int $categoryId): bo
     $stmt = $pdo->prepare('SELECT requires_receipt FROM accounting_categories WHERE id = :id LIMIT 1');
     $stmt->execute([':id' => $categoryId]);
     return (int) ($stmt->fetchColumn() ?: 0) === 1;
+}
+
+function jg_accounting_internal_transfer_category_id(PDO $pdo): ?int
+{
+    try {
+        $stmt = $pdo->prepare(
+            'SELECT c.id
+             FROM accounting_categories c
+             INNER JOIN accounting_category_guidance g ON g.category_id = c.id
+             WHERE TRIM(g.account_code) = :account_code
+             ORDER BY c.id ASC
+             LIMIT 1'
+        );
+        $stmt->execute([':account_code' => '11102']);
+        $categoryId = (int) ($stmt->fetchColumn() ?: 0);
+        if ($categoryId > 0) return $categoryId;
+    } catch (Throwable) {
+        // Older/lightweight schemas may not have editable category guidance yet.
+    }
+
+    try {
+        $stmt = $pdo->query(
+            'SELECT c.id
+             FROM accounting_categories c
+             INNER JOIN accounting_categories p ON p.id = c.parent_id
+             WHERE (LOWER(TRIM(c.name)) LIKE "kas operasional%" OR LOWER(TRIM(c.name)) LIKE "operating cash%")
+               AND (LOWER(TRIM(p.name)) LIKE "kas, bank & settlement%" OR LOWER(TRIM(p.name)) LIKE "cash, bank & settlement%")
+             ORDER BY c.id ASC
+             LIMIT 1'
+        );
+        $categoryId = (int) ($stmt->fetchColumn() ?: 0);
+        return $categoryId > 0 ? $categoryId : null;
+    } catch (Throwable) {
+        return null;
+    }
+}
+
+function jg_accounting_transaction_category_id(PDO $pdo, string $type, string $direction, mixed $requestedCategoryId): ?int
+{
+    if ($type === 'transfer' && $direction === 'internal_transfer') {
+        return jg_accounting_internal_transfer_category_id($pdo);
+    }
+    $categoryId = (int) $requestedCategoryId;
+    return $categoryId > 0 ? $categoryId : null;
+}
+
+function jg_accounting_apply_internal_transfer_category(PDO $pdo): int
+{
+    $categoryId = jg_accounting_internal_transfer_category_id($pdo);
+    if ($categoryId === null) return 0;
+
+    $stmt = $pdo->prepare(
+        'UPDATE accounting_transactions
+         SET category_id = :category_id
+         WHERE type = "transfer"
+           AND direction = "internal_transfer"
+           AND status <> "void"
+           AND (category_id IS NULL OR category_id <> :current_category_id)'
+    );
+    $stmt->execute([
+        ':category_id' => $categoryId,
+        ':current_category_id' => $categoryId,
+    ]);
+    return $stmt->rowCount();
 }
 
 function jg_accounting_mark_transaction_review(PDO $pdo, int $id, string $reason): void
@@ -4517,7 +4582,10 @@ function jg_accounting_create_transaction(PDO $pdo, array $body): array
         jg_accounting_account_for_role($pdo, $toAccountId, 'receive');
     }
 
-    $categoryId = (int) ($body['category_id'] ?? 0);
+    $categoryId = jg_accounting_transaction_category_id($pdo, $type, $direction, $body['category_id'] ?? 0);
+    if ($type === 'transfer' && $direction === 'internal_transfer' && $categoryId === null) {
+        jg_accounting_error('Internal transfer category 11102 (Kas Operasional) is unavailable.', 422, 'category_id');
+    }
     if (!in_array($type, ['transfer', 'bill_payment'], true) && $categoryId <= 0) {
         jg_accounting_error('Choose a category so reports stay clean.', 422, 'category_id');
     }
@@ -4559,7 +4627,7 @@ function jg_accounting_create_transaction(PDO $pdo, array $body): array
         ':account_id' => $accountId,
         ':to_account_id' => $toAccountId > 0 ? $toAccountId : null,
         ':counterparty_id' => $counterpartyId,
-        ':category_id' => $categoryId > 0 ? $categoryId : null,
+        ':category_id' => $categoryId,
         ':bill_id' => (int) ($body['bill_id'] ?? 0) > 0 ? (int) $body['bill_id'] : null,
         ':brand' => jg_accounting_text($body['brand'] ?? '', 80),
         ':channel' => jg_accounting_text($body['channel'] ?? '', 80),
@@ -4984,6 +5052,15 @@ function jg_accounting_update_transaction(PDO $pdo, array $body): array
         (string) ($body['counterparty_name'] ?? ''),
         $direction === 'money_in' ? 'customer' : 'supplier'
     );
+    $categoryId = jg_accounting_transaction_category_id(
+        $pdo,
+        $type,
+        $direction,
+        $body['category_id'] ?? $old['category_id']
+    );
+    if ($type === 'transfer' && $direction === 'internal_transfer' && $categoryId === null) {
+        jg_accounting_error('Internal transfer category 11102 (Kas Operasional) is unavailable.', 422, 'category_id');
+    }
     $new = [
         ':id' => $id,
         ':transaction_date' => $date,
@@ -4993,7 +5070,7 @@ function jg_accounting_update_transaction(PDO $pdo, array $body): array
         ':account_id' => $accountId,
         ':to_account_id' => $toAccountId ?: null,
         ':counterparty_id' => $counterpartyId,
-        ':category_id' => (int) ($body['category_id'] ?? $old['category_id']) ?: null,
+        ':category_id' => $categoryId,
         ':brand' => jg_accounting_text($body['brand'] ?? $old['brand'], 80),
         ':channel' => jg_accounting_text($body['channel'] ?? $old['channel'], 80),
         ':amount' => $amount,

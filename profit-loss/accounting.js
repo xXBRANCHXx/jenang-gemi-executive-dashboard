@@ -428,7 +428,7 @@ if (root) {
       action: 'create_transaction',
       type: 'transfer',
       direction: 'internal_transfer',
-      shown: ['transaction_date', 'account_id', 'to_account_id', 'transfer_fee_amount']
+      shown: ['transaction_date', 'account_id', 'to_account_id', 'transfer_fee_amount', 'category_id']
     },
     manual_income: {
       helper: 'Non-marketplace money in.',
@@ -697,6 +697,25 @@ if (root) {
     category?.parent_name ? `${category.parent_name} - ${category.name}` : String(category?.name || '')
   );
 
+  const internalTransferCategories = () => state.categories.filter((category) => category.parent_id !== null);
+
+  const internalTransferCategory = () => internalTransferCategories().find((category) => (
+    String(category.account_code || '').trim() === '11102'
+  )) || internalTransferCategories().find((category) => {
+    const name = String(category.name || '').trim().toLocaleLowerCase('id-ID');
+    const parentName = String(category.parent_name || '').trim().toLocaleLowerCase('id-ID');
+    return (name.startsWith('kas operasional') || name.startsWith('operating cash'))
+      && (parentName.startsWith('kas, bank & settlement') || parentName.startsWith('cash, bank & settlement'));
+  });
+
+  const categoriesForCombobox = (combobox) => {
+    if (combobox === refs.categoryCombobox && state.mode === 'transfer') {
+      const category = internalTransferCategory();
+      return category ? [category] : [];
+    }
+    return billableCategories();
+  };
+
   const categoryComboboxMarkup = (selectedCategoryId = '') => `
     <div class="admin-accounting-category-combobox" data-accounting-category-combobox>
       <input type="hidden" name="category_id" value="${escapeHtml(String(selectedCategoryId || ''))}" data-accounting-category-value>
@@ -725,7 +744,7 @@ if (root) {
     const selectedCategory = state.categories.find((category) => category.parent_id !== null && String(category.id) === selectedValue);
     if (label instanceof HTMLElement) label.textContent = selectedCategory ? categoryLabel(selectedCategory) : 'Choose category';
     const search = String(searchInput?.value || '').trim().toLocaleLowerCase('id-ID');
-    const visible = billableCategories().filter((category) => (
+    const visible = categoriesForCombobox(combobox).filter((category) => (
       !search || `${category.parent_name || ''} ${category.name || ''} ${category.account_code || ''}`.toLocaleLowerCase('id-ID').includes(search)
     ));
     results.innerHTML = visible.length
@@ -752,6 +771,9 @@ if (root) {
   };
 
   const renderCategoryOptions = () => {
+    if (state.mode === 'transfer' && refs.categoryValue) {
+      refs.categoryValue.value = String(internalTransferCategory()?.id || '');
+    }
     renderCategoryCombobox(refs.categoryCombobox);
   };
 
@@ -903,6 +925,7 @@ if (root) {
 
   const setMode = (mode) => {
     const nextMode = modeConfig[mode] ? mode : 'expense_paid';
+    const previousMode = state.mode;
     state.mode = nextMode;
     const config = modeConfig[nextMode];
     if (refs.modeField) refs.modeField.value = nextMode;
@@ -948,7 +971,12 @@ if (root) {
       refs.receiptFile.disabled = !canUploadReceipt;
       if (!canUploadReceipt) refs.receiptFile.value = '';
     }
+    if (previousMode === 'transfer' && nextMode !== 'transfer' && refs.categoryValue) {
+      const transferCategoryId = String(internalTransferCategory()?.id || '');
+      if (transferCategoryId !== '' && refs.categoryValue.value === transferCategoryId) refs.categoryValue.value = '';
+    }
     renderAccountOptions();
+    renderCategoryOptions();
     setFormError('');
   };
 
@@ -2435,6 +2463,7 @@ if (root) {
     } else if (state.mode === 'transfer') {
       if (!payload.account_id || !payload.to_account_id) return 'Choose both transfer accounts.';
       if (payload.account_id === payload.to_account_id) return 'From Account and To Account cannot be the same.';
+      if (!payload.category_id) return 'Internal transfer category 11102 (Kas Operasional) is unavailable.';
     } else {
       if (!payload.account_id) return 'Choose which account paid this.';
       if (!payload.category_id) return 'Choose a category so reports stay clean.';
