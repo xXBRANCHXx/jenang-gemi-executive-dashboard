@@ -17,9 +17,7 @@ if (root) {
     allocationTree: [],
     allocationDraft: [],
     allocationId: 0,
-    categorySettings: [],
-    categoryDraft: [],
-    expenseQuery: ''
+    categorySettings: []
   };
   const refs = {
     year: root.querySelector('[data-pnl-year]'),
@@ -43,13 +41,6 @@ if (root) {
     allocationError: root.querySelector('[data-pnl-allocation-error]'),
     allocationYear: root.querySelector('[data-pnl-allocation-year]'),
     saveAllocation: root.querySelector('[data-pnl-save-allocation]'),
-    expenseDialog: root.querySelector('[data-pnl-expense-dialog]'),
-    expenseForm: root.querySelector('[data-pnl-expense-form]'),
-    expenseEditor: root.querySelector('[data-pnl-expense-editor]'),
-    expenseSearch: root.querySelector('[data-pnl-expense-search]'),
-    expenseCount: root.querySelector('[data-pnl-expense-count]'),
-    expenseError: root.querySelector('[data-pnl-expense-error]'),
-    saveExpenses: root.querySelector('[data-pnl-save-expenses]'),
     kpis: Object.fromEntries([...root.querySelectorAll('[data-pnl-kpi]')].map((node) => [node.dataset.pnlKpi, node]))
   };
   const escapeHtml = (value) => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
@@ -63,18 +54,6 @@ if (root) {
   };
   const postJson = async (payload) => {
     const response = await fetch(profitLossEndpoint, {
-      method: 'POST',
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok || result.ok === false) throw new Error(result.error || result.details || `HTTP ${response.status}`);
-    return result;
-  };
-  const postAccountingJson = async (payload) => {
-    const response = await fetch(accountingEndpoint, {
       method: 'POST',
       credentials: 'same-origin',
       cache: 'no-store',
@@ -217,7 +196,6 @@ if (root) {
     const parent = parentLeaf.replace(/\s*\([^()]*(?:\([^()]*\)[^()]*)*\)\s*$/, '').trim();
     return { title, translation, code, parent, rawName, rawParent };
   };
-  const categoryLabel = (category) => categoryDisplay(category).title;
   const categoryTotals = (rows) => rows.reduce((totals, row) => {
     Object.entries(row.categoryAmounts || {}).forEach(([categoryId, amount]) => {
       totals[categoryId] = (totals[categoryId] || 0) + Number(amount || 0);
@@ -273,59 +251,6 @@ if (root) {
     if (!refs.allocationError) return;
     refs.allocationError.textContent = message;
     refs.allocationError.hidden = !message;
-  };
-  const showExpenseError = (message = '') => {
-    if (!refs.expenseError) return;
-    refs.expenseError.textContent = message;
-    refs.expenseError.hidden = !message;
-  };
-  const renderExpenseEditor = () => {
-    if (!refs.expenseEditor) return;
-    const query = state.expenseQuery.trim().toLocaleLowerCase();
-    const allCategories = state.categoryDraft.filter((category) => !category.is_group);
-    const categories = allCategories.filter((category) => {
-      if (!query) return true;
-      const display = categoryDisplay(category);
-      return [display.title, display.translation, display.code, display.parent, display.rawName, display.rawParent, pnlBucketLabels[category.pnl_bucket], category.type]
-        .some((value) => String(value || '').toLocaleLowerCase().includes(query));
-    });
-    if (refs.expenseCount) refs.expenseCount.textContent = query
-      ? `${categories.length} of ${allCategories.length} categories`
-      : `${allCategories.length} ${allCategories.length === 1 ? 'category' : 'categories'}`;
-    if (!allCategories.length) {
-      refs.expenseEditor.innerHTML = '<p class="pnl-expense-empty"><strong>No categories loaded</strong><span>Accounting did not return any editable categories. Refresh this page and try again.</span></p>';
-      return;
-    }
-    if (!categories.length) {
-      refs.expenseEditor.innerHTML = '<p class="pnl-expense-empty"><strong>No matching category</strong><span>Try a shorter name or search by account code.</span></p>';
-      return;
-    }
-    const groups = categories.reduce((result, category) => {
-      const group = categoryDisplay({ name: category.parent_name || 'Other Accounting categories' }).title;
-      (result[group] ||= []).push(category);
-      return result;
-    }, {});
-    refs.expenseEditor.innerHTML = Object.entries(groups)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([group, rows]) => `
-      <section class="pnl-expense-settings-group">
-        <h3>${escapeHtml(group)}</h3>
-        ${rows.sort((a, b) => categoryLabel(a).localeCompare(categoryLabel(b))).map((category) => {
-          const display = categoryDisplay(category);
-          const details = [display.translation, display.code ? `Code ${display.code}` : '', category.is_active ? '' : 'Inactive'].filter(Boolean);
-          return `
-          <div class="pnl-expense-setting-row" data-pnl-expense-category="${escapeHtml(category.category_id)}">
-            <span title="${escapeHtml(display.rawName)}"><strong>${escapeHtml(display.title)}</strong><small>${escapeHtml(details.join(' · ') || category.type || 'Accounting category')}</small></span>
-            <label class="pnl-category-toggle">
-              <input type="checkbox" data-pnl-category-include="${escapeHtml(category.category_id)}"${category.include_in_net_profit ? ' checked' : ''}>
-              <span></span>
-            </label>
-            <select data-pnl-category-bucket="${escapeHtml(category.category_id)}" aria-label="P&L treatment for ${escapeHtml(display.title)}">
-              ${Object.entries(pnlBucketLabels).map(([value, label]) => `<option value="${value}"${String(category.pnl_bucket) === value ? ' selected' : ''}>${escapeHtml(label)}</option>`).join('')}
-            </select>
-          </div>`;
-        }).join('')}
-      </section>`).join('');
   };
   const render = () => {
     const selected = sumRows(selectedRows());
@@ -421,69 +346,6 @@ if (root) {
     refs.allocationDialog?.showModal();
   });
   root.querySelectorAll('[data-pnl-close-allocation], [data-pnl-cancel-allocation]').forEach((button) => button.addEventListener('click', () => refs.allocationDialog?.close()));
-  root.querySelector('[data-pnl-edit-expenses]')?.addEventListener('click', async () => {
-    state.expenseQuery = '';
-    if (refs.expenseSearch) refs.expenseSearch.value = '';
-    refs.expenseDialog?.showModal();
-    if (!state.categorySettings.length) {
-      if (refs.expenseEditor) refs.expenseEditor.innerHTML = '<p class="pnl-expense-empty"><strong>Loading Accounting categories…</strong></p>';
-      await load(true);
-    }
-    state.categoryDraft = cloneAllocations(state.categorySettings);
-    showExpenseError();
-    renderExpenseEditor();
-  });
-  root.querySelectorAll('[data-pnl-close-expenses], [data-pnl-cancel-expenses]').forEach((button) => button.addEventListener('click', () => refs.expenseDialog?.close()));
-  refs.expenseSearch?.addEventListener('input', () => {
-    state.expenseQuery = refs.expenseSearch.value || '';
-    renderExpenseEditor();
-  });
-  refs.expenseEditor?.addEventListener('change', (event) => {
-    const input = event.target;
-    const categoryId = input instanceof HTMLInputElement
-      ? input.dataset.pnlCategoryInclude
-      : (input instanceof HTMLSelectElement ? input.dataset.pnlCategoryBucket : '');
-    const category = state.categoryDraft.find((item) => String(item.category_id) === String(categoryId || ''));
-    if (!category) return;
-    const row = input.closest('[data-pnl-expense-category]');
-    if (input instanceof HTMLInputElement) {
-      category.include_in_net_profit = input.checked;
-      if (input.checked && category.pnl_bucket === 'exclude') {
-        category.pnl_bucket = 'operations';
-        const bucket = row?.querySelector('[data-pnl-category-bucket]');
-        if (bucket instanceof HTMLSelectElement) bucket.value = 'operations';
-      }
-    }
-    if (input instanceof HTMLSelectElement) {
-      category.pnl_bucket = input.value;
-      if (input.value === 'exclude') {
-        category.include_in_net_profit = false;
-        const include = row?.querySelector('[data-pnl-category-include]');
-        if (include instanceof HTMLInputElement) include.checked = false;
-      }
-    }
-  });
-  refs.expenseForm?.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    showExpenseError();
-    try {
-      if (refs.saveExpenses) refs.saveExpenses.disabled = true;
-      await postAccountingJson({
-        action: 'save_pnl_category_settings',
-        settings: state.categoryDraft.filter((category) => !category.is_group).map((category) => ({
-          category_id: category.category_id,
-          include_in_net_profit: Boolean(category.include_in_net_profit),
-          pnl_bucket: category.pnl_bucket
-        }))
-      });
-      refs.expenseDialog?.close();
-      await load(true);
-    } catch (error) {
-      showExpenseError(error?.message || 'Unable to save expense settings.');
-    } finally {
-      if (refs.saveExpenses) refs.saveExpenses.disabled = false;
-    }
-  });
   root.querySelector('[data-pnl-add-allocation]')?.addEventListener('click', () => {
     state.allocationDraft.push(newAllocation());
     showAllocationError();

@@ -65,7 +65,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/pnl.js');
                     </article>
 
                     <article class="pnl-panel">
-                        <div class="pnl-panel-head"><div><span>Operating spend</span><h2>Expense mix</h2></div><button type="button" class="admin-ghost-btn pnl-settings-button" data-pnl-edit-expenses>Expense settings</button></div>
+                        <div class="pnl-panel-head"><div><span>Operating spend</span><h2>Expense mix</h2></div><a class="admin-ghost-btn pnl-settings-button" href="./expense-settings/">Expense settings</a></div>
                         <div class="pnl-expense-mix" data-pnl-expense-mix></div>
                     </article>
                 </section>
@@ -110,24 +110,6 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/pnl.js');
             <div class="pnl-allocation-actions">
                 <button type="button" class="admin-ghost-btn" data-pnl-cancel-allocation>Cancel</button>
                 <button type="submit" class="admin-primary-btn" data-pnl-save-allocation>Save allocation</button>
-            </div>
-        </form>
-    </dialog>
-    <dialog class="pnl-allocation-dialog pnl-expense-dialog" data-pnl-expense-dialog aria-labelledby="pnl-expense-settings-title">
-        <form class="pnl-allocation-form" data-pnl-expense-form>
-            <div class="pnl-allocation-dialog-head">
-                <div><span>Accounting category controls</span><h2 id="pnl-expense-settings-title">Expense mix settings</h2><p>Choose whether each Accounting category reduces profit and where it appears. Green means the category is included.</p></div>
-                <button type="button" class="pnl-dialog-close" data-pnl-close-expenses aria-label="Close expense settings">×</button>
-            </div>
-            <div class="pnl-expense-searchbar">
-                <label><span>Find a category</span><input type="search" autocomplete="off" placeholder="Search name, English title, or account code…" data-pnl-expense-search></label>
-                <strong data-pnl-expense-count>0 categories</strong>
-            </div>
-            <div class="pnl-expense-editor" data-pnl-expense-editor></div>
-            <p class="pnl-allocation-error" data-pnl-expense-error hidden></p>
-            <div class="pnl-allocation-actions">
-                <button type="button" class="admin-ghost-btn" data-pnl-cancel-expenses>Cancel</button>
-                <button type="submit" class="admin-primary-btn" data-pnl-save-expenses>Save expense settings</button>
             </div>
         </form>
     </dialog>

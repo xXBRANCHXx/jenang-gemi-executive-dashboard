@@ -189,6 +189,12 @@ try {
             $year = max(2025, (int) ($_GET['year'] ?? substr($month, 0, 4)));
             jg_accounting_json(jg_accounting_endpoint_payload(jg_accounting_pnl_summary($pdo, $year), $month));
         }
+        if ($action === 'pnl_category_settings') {
+            jg_accounting_json(jg_accounting_endpoint_payload([
+                'category_settings' => jg_accounting_pnl_category_settings($pdo),
+                'pnl_buckets' => jg_accounting_pnl_buckets(),
+            ], $month));
+        }
         if ($action === 'transactions') {
             jg_accounting_json(jg_accounting_endpoint_payload([
                 'transactions' => jg_accounting_transactions($pdo, $_GET),
