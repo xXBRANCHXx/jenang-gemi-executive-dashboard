@@ -864,7 +864,7 @@ function jg_sales_target_volume_groups(): array
     return [
         'syrup' => [
             'label' => 'Syrup',
-            'volumes' => [550.0, 250.0, 50.0],
+            'volumes' => [550.0, 250.0, 60.0, 50.0],
         ],
         'drops' => [
             'label' => 'Drops',

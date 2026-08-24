@@ -479,9 +479,9 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                             <div>
                                 <div class="admin-chart-title-row">
                                     <h3>Syrup volume mix</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About Syrup volume mix" data-chart-info="Shows Syrup sales split by the requested SKU DB sizes: 550ml, 250ml, and 50ml."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About Syrup volume mix" data-chart-info="Shows Syrup sales split by the requested SKU DB sizes: 550ml, 250ml, 60ml, and 50ml."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
-                                <span class="admin-panel-meta">550ml, 250ml, 50ml</span>
+                                <span class="admin-panel-meta">550ml, 250ml, 60ml, 50ml</span>
                             </div>
                             <div class="admin-panel-inline-toggles admin-sliding-chart-toggle" data-sliding-chart-toggle role="group" aria-label="Syrup volume chart metric">
                                 <button type="button" class="admin-toggle-pill is-active" data-overview-product-metric="quantity"><span>Qty</span></button>

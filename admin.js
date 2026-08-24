@@ -6887,7 +6887,7 @@ document.addEventListener('DOMContentLoaded', () => {
     drawChartSafely(overviewRefs.syrupVolumeCanvas, () => drawPieChart(overviewRefs.syrupVolumeCanvas, syrupVolumeRows, {
       metric: state.overview.productMetric,
       unitsMap: OVERVIEW_METRIC_UNITS,
-      limit: 3,
+      limit: 4,
       emptyMessage: 'No syrup volume sales yet',
       colorForIndex: getOverviewFlavorColor
     }), 'No syrup volume sales yet');
