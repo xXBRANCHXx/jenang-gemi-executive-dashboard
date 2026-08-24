@@ -262,6 +262,13 @@ function jg_accounting_ensure_schema(PDO $pdo): void
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             KEY idx_accounting_category_guidance_code (account_code)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+        'CREATE TABLE IF NOT EXISTS accounting_pnl_category_settings (
+            category_id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
+            include_in_net_profit TINYINT(1) NOT NULL DEFAULT 0,
+            pnl_bucket VARCHAR(32) NOT NULL DEFAULT "exclude",
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            KEY idx_accounting_pnl_category_bucket (include_in_net_profit, pnl_bucket)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
         'CREATE TABLE IF NOT EXISTS accounting_counterparties (
             id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
             counterparty_key VARCHAR(100) UNIQUE NULL,
@@ -3746,25 +3753,216 @@ function jg_accounting_monthly_summary(PDO $pdo, string $month): array
     ];
 }
 
+function jg_accounting_pnl_buckets(): array
+{
+    return ['product_cost', 'packing_cost', 'ad_cost', 'marketing', 'payroll', 'operations', 'fees', 'exclude'];
+}
+
+/** @param array<string,mixed> $category @return array{include_in_net_profit:bool,pnl_bucket:string} */
+function jg_accounting_default_pnl_category_setting(array $category): array
+{
+    if (!empty($category['is_group'])) {
+        return ['include_in_net_profit' => false, 'pnl_bucket' => 'exclude'];
+    }
+
+    $type = strtolower(trim((string) ($category['type'] ?? 'other')));
+    $flow = strtolower(trim((string) ($category['flow'] ?? 'expense')));
+    $key = strtolower(trim((string) ($category['category_key'] ?? '')));
+    $name = strtolower(trim((string) ($category['name'] ?? '')));
+    $accountCode = trim((string) ($category['account_code'] ?? ''));
+    $numericCode = preg_match('/([0-9]{4,8})/', $accountCode, $codeMatch) === 1 ? (string) $codeMatch[1] : '';
+    $search = $key . ' ' . $name . ' ' . strtolower($accountCode);
+
+    if ($numericCode === '1210'
+        || preg_match('/bahan.kemasan|packag|packing|pengemasan|label|sticker|shipping.suppl/u', $search) === 1) {
+        return ['include_in_net_profit' => true, 'pnl_bucket' => 'packing_cost'];
+    }
+    if (in_array($numericCode, ['1200', '1230', '5100'], true)
+        || preg_match('/bahan.baku|raw.material|barang.jadi|finished.good|product.cogs|production.labo/u', $search) === 1) {
+        return ['include_in_net_profit' => true, 'pnl_bucket' => 'product_cost'];
+    }
+    if ($numericCode === '6100' || preg_match('/beban.iklan|meta.ads|google.ads|shopee.ads|tiktok.ads|advertis/u', $search) === 1) {
+        return ['include_in_net_profit' => true, 'pnl_bucket' => 'ad_cost'];
+    }
+    if (in_array($numericCode, ['6110', '6190'], true)
+        || preg_match('/bank.fee|transfer.fee|admin.fee|pemrosesan.pembayaran/u', $search) === 1) {
+        return ['include_in_net_profit' => true, 'pnl_bucket' => 'fees'];
+    }
+    if ($numericCode === '6120' || preg_match('/beban.promosi|pemasaran|promotion/u', $search) === 1) {
+        return ['include_in_net_profit' => true, 'pnl_bucket' => 'marketing'];
+    }
+    if ($numericCode === '6130' || str_starts_with($numericCode, '71')
+        || preg_match('/gaji|pegawai|salary|payroll|upah|wage|lembur|overtime|tunjangan/u', $search) === 1) {
+        return ['include_in_net_profit' => true, 'pnl_bucket' => 'payroll'];
+    }
+    if (in_array($numericCode, ['6140', '6150', '6160', '6170', '6180', '6200', '6210', '6290'], true)) {
+        return ['include_in_net_profit' => true, 'pnl_bucket' => 'operations'];
+    }
+
+    if ($flow === 'income'
+        || in_array($type, ['income', 'asset', 'transfer', 'owner'], true)
+        || preg_match('/refund|reimburse|owner|loan.received|injection|draw|cash|bank.*settlement/u', $search) === 1) {
+        return ['include_in_net_profit' => false, 'pnl_bucket' => 'exclude'];
+    }
+    if ($type === 'cogs_support') {
+        $packing = preg_match('/packag|packing|label|sticker|shipping.suppl/u', $search) === 1;
+        return ['include_in_net_profit' => true, 'pnl_bucket' => $packing ? 'packing_cost' : 'product_cost'];
+    }
+    if ($type === 'marketing') {
+        $platformAd = preg_match('/meta.ads|google.ads|shopee.ads|tiktok.ads|advertis|iklan/u', $search) === 1;
+        return ['include_in_net_profit' => true, 'pnl_bucket' => $platformAd ? 'ad_cost' : 'marketing'];
+    }
+    if ($type === 'payroll') {
+        $packingLabor = preg_match('/packing.labor|packing.labour/u', $search) === 1;
+        return ['include_in_net_profit' => true, 'pnl_bucket' => $packingLabor ? 'packing_cost' : 'payroll'];
+    }
+    if (in_array($type, ['operations', 'tax', 'expense', 'other', 'adjustment'], true)) {
+        return ['include_in_net_profit' => true, 'pnl_bucket' => 'operations'];
+    }
+    return ['include_in_net_profit' => false, 'pnl_bucket' => 'exclude'];
+}
+
+/** @return array<int,array<string,mixed>> */
+function jg_accounting_pnl_category_settings(PDO $pdo): array
+{
+    $hasParent = jg_accounting_table_has_column($pdo, 'accounting_categories', 'parent_id');
+    $hasName = jg_accounting_table_has_column($pdo, 'accounting_categories', 'name');
+    $hasKey = jg_accounting_table_has_column($pdo, 'accounting_categories', 'category_key');
+    $hasType = jg_accounting_table_has_column($pdo, 'accounting_categories', 'type');
+    $hasFlow = jg_accounting_table_has_column($pdo, 'accounting_categories', 'flow');
+    $hasActive = jg_accounting_table_has_column($pdo, 'accounting_categories', 'is_active');
+    $hasBillable = jg_accounting_table_has_column($pdo, 'accounting_categories', 'is_billable');
+    $parentJoin = $hasParent && $hasName ? 'LEFT JOIN accounting_categories p ON p.id = c.parent_id' : '';
+    $rows = $pdo->query(
+        'SELECT c.id,
+            ' . ($hasParent ? 'c.parent_id' : 'NULL') . ' AS parent_id,
+            ' . ($hasName ? 'c.name' : '"Category"') . ' AS name,
+            ' . ($hasName && $hasParent ? 'p.name' : 'NULL') . ' AS parent_name,
+            ' . ($hasKey ? 'c.category_key' : '""') . ' AS category_key,
+            ' . ($hasType ? 'c.type' : '"other"') . ' AS type,
+            ' . ($hasFlow ? 'c.flow' : '"expense"') . ' AS flow,
+            ' . ($hasActive ? 'c.is_active' : '1') . ' AS is_active
+         FROM accounting_categories c
+         ' . $parentJoin . '
+         ORDER BY ' . ($hasName && $hasParent ? 'COALESCE(p.name, c.name), c.parent_id IS NOT NULL, c.name' : 'c.id')
+    )->fetchAll();
+
+    $stored = [];
+    try {
+        foreach ($pdo->query('SELECT category_id, include_in_net_profit, pnl_bucket, updated_at FROM accounting_pnl_category_settings')->fetchAll() as $row) {
+            $stored[(int) ($row['category_id'] ?? 0)] = $row;
+        }
+    } catch (Throwable) {
+        // Lightweight tests and installations awaiting schema preparation use defaults.
+    }
+    $codes = [];
+    try {
+        foreach ($pdo->query('SELECT category_id, account_code FROM accounting_category_guidance')->fetchAll() as $row) {
+            $codes[(int) ($row['category_id'] ?? 0)] = trim((string) ($row['account_code'] ?? ''));
+        }
+    } catch (Throwable) {
+        // Account codes are optional P&L display metadata.
+    }
+
+    return array_map(static function (array $row) use ($stored, $codes, $hasBillable): array {
+        $categoryId = (int) $row['id'];
+        $category = [
+            ...$row,
+            'account_code' => (string) ($codes[$categoryId] ?? ''),
+            'is_group' => $hasBillable && $row['parent_id'] === null,
+        ];
+        if ($category['account_code'] === '') {
+            $category['account_code'] = jg_accounting_category_account_code($category);
+        }
+        $default = jg_accounting_default_pnl_category_setting($category);
+        $saved = $stored[$categoryId] ?? null;
+        $bucket = is_array($saved) && in_array((string) ($saved['pnl_bucket'] ?? ''), jg_accounting_pnl_buckets(), true)
+            ? (string) $saved['pnl_bucket']
+            : $default['pnl_bucket'];
+        $included = is_array($saved)
+            ? (int) ($saved['include_in_net_profit'] ?? 0) === 1
+            : $default['include_in_net_profit'];
+        if (!empty($category['is_group'])) {
+            $included = false;
+            $bucket = 'exclude';
+        }
+        return [
+            'category_id' => $categoryId,
+            'category_key' => (string) ($row['category_key'] ?? ''),
+            'account_code' => (string) $category['account_code'],
+            'name' => (string) ($row['name'] ?? 'Category'),
+            'parent_id' => $row['parent_id'] === null ? null : (int) $row['parent_id'],
+            'parent_name' => $row['parent_name'] ?? null,
+            'type' => (string) ($row['type'] ?? 'other'),
+            'flow' => (string) ($row['flow'] ?? 'expense'),
+            'is_active' => (int) ($row['is_active'] ?? 1) === 1,
+            'is_group' => (bool) ($category['is_group'] ?? false),
+            'include_in_net_profit' => $included,
+            'pnl_bucket' => $bucket,
+            'is_customized' => is_array($saved),
+            'updated_at' => is_array($saved) ? (string) ($saved['updated_at'] ?? '') : '',
+        ];
+    }, $rows);
+}
+
+function jg_accounting_save_pnl_category_settings(PDO $pdo, array $body): array
+{
+    $settings = $body['settings'] ?? $body['categories'] ?? null;
+    if (!is_array($settings)) {
+        jg_accounting_error('Category settings are required.', 422, 'settings');
+    }
+    $validIds = array_fill_keys(array_map('intval', $pdo->query('SELECT id FROM accounting_categories')->fetchAll(PDO::FETCH_COLUMN)), true);
+    $sqlite = (string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite';
+    $stmt = $pdo->prepare($sqlite
+        ? 'INSERT INTO accounting_pnl_category_settings
+              (category_id, include_in_net_profit, pnl_bucket, updated_at)
+           VALUES
+              (:category_id, :include_in_net_profit, :pnl_bucket, CURRENT_TIMESTAMP)
+           ON CONFLICT(category_id) DO UPDATE SET
+              include_in_net_profit = excluded.include_in_net_profit,
+              pnl_bucket = excluded.pnl_bucket,
+              updated_at = excluded.updated_at'
+        : 'INSERT INTO accounting_pnl_category_settings
+              (category_id, include_in_net_profit, pnl_bucket, updated_at)
+           VALUES
+              (:category_id, :include_in_net_profit, :pnl_bucket, UTC_TIMESTAMP())
+           ON DUPLICATE KEY UPDATE
+              include_in_net_profit = VALUES(include_in_net_profit),
+              pnl_bucket = VALUES(pnl_bucket),
+              updated_at = VALUES(updated_at)'
+    );
+    foreach ($settings as $setting) {
+        if (!is_array($setting)) continue;
+        $categoryId = (int) ($setting['category_id'] ?? 0);
+        if ($categoryId < 1 || !isset($validIds[$categoryId])) {
+            jg_accounting_error('An Accounting category was not found.', 422, 'category_id');
+        }
+        $bucket = strtolower(trim((string) ($setting['pnl_bucket'] ?? 'exclude')));
+        if (!in_array($bucket, jg_accounting_pnl_buckets(), true)) {
+            jg_accounting_error('Choose a valid P&L treatment.', 422, 'pnl_bucket');
+        }
+        $stmt->execute([
+            ':category_id' => $categoryId,
+            ':include_in_net_profit' => $bucket !== 'exclude' && jg_accounting_bool($setting['include_in_net_profit'] ?? false) ? 1 : 0,
+            ':pnl_bucket' => $bucket,
+        ]);
+    }
+    return ['category_settings' => jg_accounting_pnl_category_settings($pdo)];
+}
+
 /**
- * Cash-basis operating inputs for the executive P&L. Product-purchase categories
- * are reported for reconciliation but deliberately excluded from operating expense;
- * sale-level SKU COGS is supplied by the sales service instead.
+ * Cash-basis inputs for the executive P&L. Product and packing costs come from
+ * actual posted Accounting expenses and paid-bill allocations, classified by
+ * the editable per-category P&L settings below.
  */
 function jg_accounting_pnl_summary(PDO $pdo, int $year): array
 {
     $year = max(2025, min(2100, $year));
     $stmt = $pdo->prepare(
         'SELECT t.business_month,
-            SUM(CASE WHEN t.direction = "money_out" AND t.type NOT IN ("refund","bill_payment") AND c.category_key IN ("meta-ads","google-ads","shopee-ads","tiktok-ads") THEN t.amount ELSE 0 END) AS ad_cost,
-            SUM(CASE WHEN t.direction = "money_out" AND t.type NOT IN ("refund","bill_payment") AND c.type = "marketing" AND c.category_key NOT IN ("meta-ads","google-ads","shopee-ads","tiktok-ads") THEN t.amount ELSE 0 END) AS marketing_other,
-            SUM(CASE WHEN t.direction = "money_out" AND t.type NOT IN ("refund","bill_payment") AND c.type = "payroll" THEN t.amount ELSE 0 END) AS payroll,
-            SUM(CASE WHEN t.direction = "money_out" AND t.type NOT IN ("refund","bill_payment") AND c.type IN ("operations","tax","other") THEN t.amount ELSE 0 END) AS operations,
-            SUM(CASE WHEN t.direction = "money_out" AND t.type <> "bill_payment" AND c.type = "cogs_support" THEN t.amount ELSE 0 END) AS product_purchases,
             SUM(CASE WHEN t.direction = "money_out" AND t.type = "refund" THEN t.amount ELSE 0 END) AS manual_refunds,
             SUM(CASE WHEN t.direction = "money_in" AND t.type = "manual_income" AND c.category_key = "partner-bill-collections" THEN t.amount ELSE 0 END) AS partner_payments,
             SUM(CASE WHEN t.direction = "money_in" AND t.type = "manual_income" AND COALESCE(c.category_key, "") <> "partner-bill-collections" THEN t.amount ELSE 0 END) AS other_income,
-            SUM(CASE WHEN t.direction = "money_out" AND t.type <> "bill_payment" AND c.type = "asset" THEN t.amount ELSE 0 END) AS asset_purchases,
             SUM(t.transfer_fee_amount) AS transfer_fees
          FROM accounting_transactions t
          LEFT JOIN accounting_categories c ON c.id = t.category_id
@@ -3778,68 +3976,103 @@ function jg_accounting_pnl_summary(PDO $pdo, int $year): array
     foreach ($stmt->fetchAll() as $row) {
         $indexed[(string) $row['business_month']] = $row;
     }
+
+    $categoryAmounts = [];
+    $categoryStmt = $pdo->prepare(
+        'SELECT t.business_month, t.category_id, SUM(t.amount) AS total_amount
+         FROM accounting_transactions t
+         WHERE t.status = "posted"
+           AND t.direction = "money_out"
+           AND t.type IN ("expense", "adjustment")
+           AND t.category_id IS NOT NULL
+           AND t.business_month LIKE :year_prefix
+         GROUP BY t.business_month, t.category_id'
+    );
+    $categoryStmt->execute([':year_prefix' => $year . '-%']);
+    foreach ($categoryStmt->fetchAll() as $row) {
+        $categoryAmounts[(string) $row['business_month']][(int) $row['category_id']] = (int) round((float) ($row['total_amount'] ?? 0));
+    }
     if (jg_accounting_table_has_column($pdo, 'accounting_bill_payments', 'transaction_id')) {
         $allocationStmt = $pdo->prepare(
-            'SELECT t.business_month,
-                SUM(CASE WHEN c.category_key IN ("meta-ads","google-ads","shopee-ads","tiktok-ads") THEN bp.amount ELSE 0 END) AS ad_cost,
-                SUM(CASE WHEN c.type = "marketing" AND c.category_key NOT IN ("meta-ads","google-ads","shopee-ads","tiktok-ads") THEN bp.amount ELSE 0 END) AS marketing_other,
-                SUM(CASE WHEN c.type = "payroll" THEN bp.amount ELSE 0 END) AS payroll,
-                SUM(CASE WHEN c.type IN ("operations","tax","other") THEN bp.amount ELSE 0 END) AS operations,
-                SUM(CASE WHEN c.type = "cogs_support" THEN bp.amount ELSE 0 END) AS product_purchases,
-                SUM(CASE WHEN c.type = "asset" THEN bp.amount ELSE 0 END) AS asset_purchases
+            'SELECT t.business_month, b.category_id, SUM(bp.amount) AS total_amount
              FROM accounting_bill_payments bp
              INNER JOIN accounting_transactions t ON t.id = bp.transaction_id
              INNER JOIN accounting_bills b ON b.id = bp.bill_id
-             LEFT JOIN accounting_categories c ON c.id = b.category_id
              WHERE t.status = "posted" AND t.business_month LIKE :year_prefix
-             GROUP BY t.business_month'
+               AND b.category_id IS NOT NULL
+             GROUP BY t.business_month, b.category_id'
         );
         $allocationStmt->execute([':year_prefix' => $year . '-%']);
         foreach ($allocationStmt->fetchAll() as $allocation) {
             $key = (string) $allocation['business_month'];
-            $indexed[$key] ??= ['business_month' => $key];
-            foreach (['ad_cost', 'marketing_other', 'payroll', 'operations', 'product_purchases', 'asset_purchases'] as $field) {
-                $indexed[$key][$field] = (int) round((float) ($indexed[$key][$field] ?? 0))
-                    + (int) round((float) ($allocation[$field] ?? 0));
-            }
+            $categoryId = (int) ($allocation['category_id'] ?? 0);
+            $categoryAmounts[$key][$categoryId] = (int) ($categoryAmounts[$key][$categoryId] ?? 0)
+                + (int) round((float) ($allocation['total_amount'] ?? 0));
         }
     }
 
+    $categorySettings = jg_accounting_pnl_category_settings($pdo);
+    $settingsById = [];
+    foreach ($categorySettings as $setting) $settingsById[(int) $setting['category_id']] = $setting;
+    $yearCategoryTotals = [];
     $months = [];
     for ($month = 1; $month <= 12; $month++) {
         $key = sprintf('%04d-%02d', $year, $month);
         $row = $indexed[$key] ?? [];
-        $adCost = (int) round((float) ($row['ad_cost'] ?? 0));
-        $marketingOther = (int) round((float) ($row['marketing_other'] ?? 0));
-        $payroll = (int) round((float) ($row['payroll'] ?? 0));
-        $operations = (int) round((float) ($row['operations'] ?? 0));
+        $amounts = $categoryAmounts[$key] ?? [];
+        $buckets = array_fill_keys(jg_accounting_pnl_buckets(), 0);
+        $assetPurchases = 0;
+        foreach ($amounts as $categoryId => $amount) {
+            $yearCategoryTotals[$categoryId] = (int) ($yearCategoryTotals[$categoryId] ?? 0) + (int) $amount;
+            $setting = $settingsById[(int) $categoryId] ?? null;
+            if (is_array($setting) && (string) ($setting['type'] ?? '') === 'asset') {
+                $assetPurchases += (int) $amount;
+            }
+            if (!is_array($setting) || empty($setting['include_in_net_profit'])) continue;
+            $bucket = (string) ($setting['pnl_bucket'] ?? 'exclude');
+            if ($bucket === 'exclude' || !array_key_exists($bucket, $buckets)) continue;
+            $buckets[$bucket] += (int) $amount;
+        }
         $transferFees = (int) round((float) ($row['transfer_fees'] ?? 0));
+        $buckets['fees'] += $transferFees;
+        $operatingExpenses = $buckets['ad_cost'] + $buckets['marketing'] + $buckets['payroll'] + $buckets['operations'] + $buckets['fees'];
         $months[] = [
             'month' => $month,
             'period_key' => $key,
-            'ad_cost' => $adCost,
-            'marketing_other' => $marketingOther,
-            'marketing' => $adCost + $marketingOther,
-            'payroll' => $payroll,
-            'operations' => $operations,
+            'product_costs' => $buckets['product_cost'],
+            'packing_costs' => $buckets['packing_cost'],
+            'ad_cost' => $buckets['ad_cost'],
+            'marketing_other' => $buckets['marketing'],
+            'marketing' => $buckets['ad_cost'] + $buckets['marketing'],
+            'payroll' => $buckets['payroll'],
+            'operations' => $buckets['operations'],
             'transfer_fees' => $transferFees,
-            'operating_expenses' => $adCost + $marketingOther + $payroll + $operations + $transferFees,
+            'fees' => $buckets['fees'],
+            'operating_expenses' => $operatingExpenses,
             'manual_refunds' => (int) round((float) ($row['manual_refunds'] ?? 0)),
             'partner_payments' => (int) round((float) ($row['partner_payments'] ?? 0)),
             'other_income' => (int) round((float) ($row['other_income'] ?? 0)),
-            'product_purchases' => (int) round((float) ($row['product_purchases'] ?? 0)),
-            'asset_purchases' => (int) round((float) ($row['asset_purchases'] ?? 0)),
+            'product_purchases' => $buckets['product_cost'],
+            'asset_purchases' => $assetPurchases,
+            'category_amounts' => array_map('intval', $amounts),
         ];
     }
+
+    $categorySettings = array_map(static fn (array $setting): array => [
+        ...$setting,
+        'year_total' => (int) ($yearCategoryTotals[(int) $setting['category_id']] ?? 0),
+    ], $categorySettings);
 
     return [
         'year' => $year,
         'basis' => 'cash_basis_posted_accounting_entries',
         'months' => $months,
+        'category_settings' => $categorySettings,
+        'pnl_buckets' => jg_accounting_pnl_buckets(),
         'open_review_items' => (int) $pdo->query('SELECT COUNT(*) FROM accounting_review_queue WHERE status = "open"')->fetchColumn(),
         'notes' => [
-            'Product purchases are excluded from operating expenses because the P&L uses sale-level SKU COGS.',
-            'Owner movements, loans, transfers, and asset purchases are excluded from net profit.',
+            'Product and packing costs use actual posted Accounting payments, not sale-level gross-profit estimates.',
+            'Net profit is net revenue minus included product, packing, and operating categories.',
         ],
     ];
 }

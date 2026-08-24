@@ -337,6 +337,7 @@ try {
             'create_category' => jg_accounting_create_category($pdo, $body),
             'save_category' => jg_accounting_save_category($pdo, $body),
             'save_category_guidance' => jg_accounting_save_category_guidance($pdo, $body),
+            'save_pnl_category_settings' => jg_accounting_save_pnl_category_settings($pdo, $body),
             'save_category_with_guidance' => (function () use ($pdo, $body): array {
                 $pdo->beginTransaction();
                 try {

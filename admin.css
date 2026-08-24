@@ -31239,6 +31239,17 @@ button.admin-accounting-metric {
   font-size: 0.76rem;
 }
 
+.pnl-expense-mix > div > span {
+  display: grid;
+  gap: 3px;
+}
+
+.pnl-expense-mix > div > span small {
+  color: color-mix(in srgb, var(--pnl-muted) 80%, transparent);
+  font-size: 0.62rem;
+  font-weight: 650;
+}
+
 .pnl-allocation-panel {
   overflow: hidden;
 }
@@ -31390,6 +31401,121 @@ button.admin-accounting-metric {
   border: 1px solid var(--admin-border);
   border-radius: 12px;
   background: color-mix(in srgb, var(--admin-surface) 94%, var(--admin-text) 6%);
+}
+
+.pnl-expense-editor {
+  display: grid;
+  gap: 16px;
+  max-height: min(620px, calc(100vh - 240px));
+  padding: 14px;
+  overflow: auto;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--admin-surface) 94%, var(--admin-text) 6%);
+}
+
+.pnl-expense-settings-group {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  background: var(--admin-surface);
+}
+
+.pnl-expense-settings-group h3 {
+  margin: 0;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--admin-border);
+  color: var(--admin-muted);
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.pnl-expense-setting-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 64px minmax(190px, 0.7fr);
+  gap: 14px;
+  align-items: center;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.pnl-expense-setting-row:last-child {
+  border-bottom: 0;
+}
+
+.pnl-expense-setting-row > span {
+  display: grid;
+  gap: 3px;
+}
+
+.pnl-expense-setting-row > span strong {
+  color: var(--admin-text);
+  font-size: 0.78rem;
+}
+
+.pnl-expense-setting-row > span small {
+  color: var(--admin-muted);
+  font-size: 0.64rem;
+  text-transform: capitalize;
+}
+
+.pnl-expense-setting-row select {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  font-size: 0.7rem;
+  font-weight: 750;
+}
+
+.pnl-category-toggle {
+  display: inline-flex;
+  cursor: pointer;
+}
+
+.pnl-category-toggle input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pnl-category-toggle span {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  min-height: 32px;
+  border: 1px solid var(--admin-border);
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--admin-muted) 12%, transparent);
+  color: var(--admin-muted);
+  font-size: 0.64rem;
+  font-weight: 850;
+  transition: 150ms ease;
+}
+
+.pnl-category-toggle span::after {
+  content: "No";
+}
+
+.pnl-category-toggle input:checked + span {
+  border-color: color-mix(in srgb, #22c55e 60%, transparent);
+  background: color-mix(in srgb, #22c55e 22%, transparent);
+  color: #4ade80;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #22c55e 20%, transparent);
+}
+
+.pnl-category-toggle input:checked + span::after {
+  content: "Yes";
+}
+
+.pnl-category-toggle input:focus-visible + span {
+  outline: 2px solid #4ade80;
+  outline-offset: 2px;
 }
 
 .pnl-allocation-editor-level {
@@ -31766,6 +31892,14 @@ button.admin-accounting-metric {
 
   .pnl-allocation-editor-row {
     grid-template-columns: minmax(0, 1fr) 100px;
+  }
+
+  .pnl-expense-setting-row {
+    grid-template-columns: minmax(0, 1fr) 64px;
+  }
+
+  .pnl-expense-setting-row select {
+    grid-column: 1 / -1;
   }
 
   .pnl-allocation-editor-row .admin-ghost-btn,

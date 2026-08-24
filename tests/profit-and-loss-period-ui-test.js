@@ -7,7 +7,7 @@ const script = fs.readFileSync(path.join(root, 'profit-and-loss', 'pnl.js'), 'ut
 
 assert.match(
   script,
-  /const state = \{ year: currentYear, period: String\(currentMonth\),/,
+  /const state = \{[\s\S]*?year: currentYear,[\s\S]*?period: String\(currentMonth\),/,
   'The P&L must open on the current month instead of the year-to-date period.'
 );
 assert.match(

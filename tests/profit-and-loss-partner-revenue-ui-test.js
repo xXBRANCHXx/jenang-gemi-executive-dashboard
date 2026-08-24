@@ -16,7 +16,12 @@ assert.match(
   /bridgeRow\('Seller-received sales'[\s\S]*?bridgeRow\('Partner payments'[\s\S]*?bridgeRow\('Net revenue'/,
   'The statement must identify partner payments inside the revenue section.'
 );
-assert.match(script, /netProfit: grossProfit - opex/, 'Income must not be added to profit below gross profit.');
+assert.match(
+  script,
+  /netProfit: revenue - productCosts - packingCosts - opex/,
+  'Net Profit must be calculated directly from revenue and actual Accounting costs.'
+);
+assert.doesNotMatch(script, /netProfit: grossProfit - opex/, 'Net Profit must not use Gross Profit as its calculation input.');
 assert.doesNotMatch(script, /bridgeRow\('Other operating income'/, 'Income must not appear below gross profit.');
 assert.match(page, /All operating revenue received/, 'The revenue KPI must describe its complete operating-income basis.');
 

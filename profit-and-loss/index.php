@@ -35,7 +35,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/pnl.js');
                 <div class="admin-topbar-brand">
                     <span class="admin-admin-mark">Executive finance</span>
                     <h1>Profit &amp; Loss</h1>
-                    <p>Revenue, product COGS, per-item packing, operating expenses, and net profit.</p>
+                    <p>Revenue, actual Accounting product and packing costs, operating expenses, and net profit.</p>
                 </div>
                 <?php render_admin_topbar_actions('profit-loss'); ?>
             </header>
@@ -50,11 +50,11 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/pnl.js');
 
                 <section class="pnl-kpis" aria-label="Profit and loss summary">
                     <article><span>Net Revenue</span><strong data-pnl-kpi="revenue">Rp0</strong><small>All operating revenue received</small></article>
-                    <article><span>Product COGS</span><strong data-pnl-kpi="cogs">Rp0</strong><small>Sold quantity × SKU cost</small></article>
-                    <article><span>Packing Cost</span><strong data-pnl-kpi="packing">Rp0</strong><small>Physical quantity × monthly item packing</small></article>
+                    <article><span>PO / Product Cost</span><strong data-pnl-kpi="cogs">Rp0</strong><small>Actual included Accounting payments</small></article>
+                    <article><span>Actual Packing Cost</span><strong data-pnl-kpi="packing">Rp0</strong><small>Included packing payments from Accounting</small></article>
                     <article><span>Gross Profit</span><strong data-pnl-kpi="gross-profit">Rp0</strong><small data-pnl-margin>0% margin</small></article>
                     <article><span>Ad Cost</span><strong data-pnl-kpi="ad-cost">Rp0</strong><small>Posted marketing payments</small></article>
-                    <article><span>Operating Expenses</span><strong data-pnl-kpi="opex">Rp0</strong><small>Excludes COGS purchases</small></article>
+                    <article><span>Operating Expenses</span><strong data-pnl-kpi="opex">Rp0</strong><small>After product and packing costs</small></article>
                     <article class="pnl-net-card" data-pnl-net-card><span>Net Profit</span><strong data-pnl-kpi="net-profit">Rp0</strong><small data-pnl-net-margin>0% margin</small></article>
                 </section>
 
@@ -65,7 +65,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/pnl.js');
                     </article>
 
                     <article class="pnl-panel">
-                        <div class="pnl-panel-head"><div><span>Operating spend</span><h2>Expense mix</h2></div></div>
+                        <div class="pnl-panel-head"><div><span>Operating spend</span><h2>Expense mix</h2></div><button type="button" class="admin-ghost-btn pnl-settings-button" data-pnl-edit-expenses>Expense settings</button></div>
                         <div class="pnl-expense-mix" data-pnl-expense-mix></div>
                     </article>
                 </section>
@@ -84,15 +84,15 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/pnl.js');
                     <div class="pnl-trend" data-pnl-trend aria-label="Monthly net profit trend"></div>
                     <div class="admin-table-wrap pnl-table-wrap">
                         <table class="admin-table pnl-table">
-                            <thead><tr><th>Month</th><th>Revenue</th><th>COGS</th><th>Packing</th><th>Gross Profit</th><th>Ad Cost</th><th>Other OpEx</th><th>Net Profit</th><th>Margin</th></tr></thead>
+                            <thead><tr><th>Month</th><th>Revenue</th><th>PO / Product</th><th>Actual Packing</th><th>Gross Profit</th><th>Ad Cost</th><th>Other OpEx</th><th>Net Profit</th><th>Margin</th></tr></thead>
                             <tbody data-pnl-months><tr><td colspan="9" class="admin-empty">Loading monthly statement.</td></tr></tbody>
                         </table>
                     </div>
                 </section>
 
                 <section class="pnl-assurance" data-pnl-assurance>
-                    <div><strong>Calculation basis</strong><span>Marketplace seller-received revenue, confirmed partner payments, physical-item SKU COGS, monthly per-item packing, and posted cash-basis Accounting entries.</span></div>
-                    <div><strong>No double-counted inventory</strong><span>Product purchases remain visible in Accounting but are excluded here because sold units already carry SKU COGS.</span></div>
+                    <div><strong>Calculation basis</strong><span>Net revenue minus actual included PO/product payments, actual included packing payments, and included operating expenses from posted cash-basis Accounting entries.</span></div>
+                    <div><strong>Direct net-profit formula</strong><span>Net Profit is calculated directly from revenue and actual Accounting costs. It does not use an imported or estimated Gross Profit value.</span></div>
                     <div><strong>Review status</strong><span data-pnl-review-status>Checking Accounting review items…</span></div>
                 </section>
             </main>
@@ -110,6 +110,20 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/pnl.js');
             <div class="pnl-allocation-actions">
                 <button type="button" class="admin-ghost-btn" data-pnl-cancel-allocation>Cancel</button>
                 <button type="submit" class="admin-primary-btn" data-pnl-save-allocation>Save allocation</button>
+            </div>
+        </form>
+    </dialog>
+    <dialog class="pnl-allocation-dialog pnl-expense-dialog" data-pnl-expense-dialog aria-labelledby="pnl-expense-settings-title">
+        <form class="pnl-allocation-form" data-pnl-expense-form>
+            <div class="pnl-allocation-dialog-head">
+                <div><span>Accounting category controls</span><h2 id="pnl-expense-settings-title">Expense mix settings</h2><p>Choose whether each Accounting category reduces profit and where it appears. Green means the category is included.</p></div>
+                <button type="button" class="pnl-dialog-close" data-pnl-close-expenses aria-label="Close expense settings">×</button>
+            </div>
+            <div class="pnl-expense-editor" data-pnl-expense-editor></div>
+            <p class="pnl-allocation-error" data-pnl-expense-error hidden></p>
+            <div class="pnl-allocation-actions">
+                <button type="button" class="admin-ghost-btn" data-pnl-cancel-expenses>Cancel</button>
+                <button type="submit" class="admin-primary-btn" data-pnl-save-expenses>Save expense settings</button>
             </div>
         </form>
     </dialog>

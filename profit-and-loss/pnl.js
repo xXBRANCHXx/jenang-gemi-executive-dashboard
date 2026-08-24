@@ -8,7 +8,18 @@ if (root) {
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-  const state = { year: currentYear, period: String(currentMonth), rows: [], reviewItems: 0, loadedAt: null, allocationTree: [], allocationDraft: [], allocationId: 0 };
+  const state = {
+    year: currentYear,
+    period: String(currentMonth),
+    rows: [],
+    reviewItems: 0,
+    loadedAt: null,
+    allocationTree: [],
+    allocationDraft: [],
+    allocationId: 0,
+    categorySettings: [],
+    categoryDraft: []
+  };
   const refs = {
     year: root.querySelector('[data-pnl-year]'),
     period: root.querySelector('[data-pnl-period]'),
@@ -31,6 +42,11 @@ if (root) {
     allocationError: root.querySelector('[data-pnl-allocation-error]'),
     allocationYear: root.querySelector('[data-pnl-allocation-year]'),
     saveAllocation: root.querySelector('[data-pnl-save-allocation]'),
+    expenseDialog: root.querySelector('[data-pnl-expense-dialog]'),
+    expenseForm: root.querySelector('[data-pnl-expense-form]'),
+    expenseEditor: root.querySelector('[data-pnl-expense-editor]'),
+    expenseError: root.querySelector('[data-pnl-expense-error]'),
+    saveExpenses: root.querySelector('[data-pnl-save-expenses]'),
     kpis: Object.fromEntries([...root.querySelectorAll('[data-pnl-kpi]')].map((node) => [node.dataset.pnlKpi, node]))
   };
   const escapeHtml = (value) => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
@@ -44,6 +60,18 @@ if (root) {
   };
   const postJson = async (payload) => {
     const response = await fetch(profitLossEndpoint, {
+      method: 'POST',
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || result.ok === false) throw new Error(result.error || result.details || `HTTP ${response.status}`);
+    return result;
+  };
+  const postAccountingJson = async (payload) => {
+    const response = await fetch(accountingEndpoint, {
       method: 'POST',
       credentials: 'same-origin',
       cache: 'no-store',
@@ -116,34 +144,36 @@ if (root) {
       const partnerPayments = numeric(books, ['partner_payments']);
       const otherIncome = numeric(books, ['other_income']);
       const revenue = sourceRevenue + partnerPayments + otherIncome - refunds;
-      const cogs = numeric(sale, ['cogs']);
-      const packing = numeric(sale, ['packing_cost']);
+      const productCosts = numeric(books, ['product_costs', 'product_purchases']);
+      const packingCosts = numeric(books, ['packing_costs']);
       const adCost = numeric(books, ['ad_cost']);
       const marketingOther = numeric(books, ['marketing_other']);
       const payroll = numeric(books, ['payroll']);
       const operations = numeric(books, ['operations']);
+      const fees = numeric(books, ['fees', 'transfer_fees']);
       const transferFees = numeric(books, ['transfer_fees']);
-      const opex = adCost + marketingOther + payroll + operations + transferFees;
-      const grossProfit = revenue - cogs - packing;
+      const opex = adCost + marketingOther + payroll + operations + fees;
+      const grossProfit = revenue - productCosts - packingCosts;
       return {
         month,
         revenue,
         sourceRevenue,
         partnerPayments,
         refunds,
-        cogs,
-        packing,
-        packingMissingItems: numeric(sale, ['packing_missing_items']),
+        cogs: productCosts,
+        packing: packingCosts,
         grossProfit,
         marketing: adCost,
         marketingOther,
         payroll,
         operations,
         transferFees,
+        fees,
         opex,
         otherIncome,
-        netProfit: grossProfit - opex,
-        productPurchases: numeric(books, ['product_purchases'])
+        netProfit: revenue - productCosts - packingCosts - opex,
+        productPurchases: productCosts,
+        categoryAmounts: books?.category_amounts && typeof books.category_amounts === 'object' ? books.category_amounts : {}
       };
     });
   };
@@ -159,6 +189,32 @@ if (root) {
     return state.rows.filter((row) => row.month <= through);
   };
   const bridgeRow = (label, value, className = '') => `<div class="${className}"><span>${escapeHtml(label)}</span><strong>${money(value)}</strong></div>`;
+  const pnlBucketLabels = {
+    product_cost: 'PO / product cost',
+    packing_cost: 'Actual packing cost',
+    ad_cost: 'Marketing / platform ads',
+    marketing: 'Other marketing',
+    payroll: 'Payroll / labor',
+    operations: 'Operations / tax',
+    fees: 'Bank / payment fees',
+    exclude: 'Excluded from Net Profit'
+  };
+  const operatingBuckets = new Set(['ad_cost', 'marketing', 'payroll', 'operations', 'fees']);
+  const categoryLabel = (category) => `${category.parent_name ? `${category.parent_name} · ` : ''}${category.name || 'Category'}`;
+  const categoryTotals = (rows) => rows.reduce((totals, row) => {
+    Object.entries(row.categoryAmounts || {}).forEach(([categoryId, amount]) => {
+      totals[categoryId] = (totals[categoryId] || 0) + Number(amount || 0);
+    });
+    return totals;
+  }, {});
+  const operatingCategoryRows = (rows) => {
+    const totals = categoryTotals(rows);
+    return state.categorySettings
+      .filter((category) => category.include_in_net_profit && operatingBuckets.has(String(category.pnl_bucket || '')))
+      .map((category) => ({ ...category, amount: Number(totals[String(category.category_id)] || 0) }))
+      .filter((category) => category.amount !== 0)
+      .sort((a, b) => Number(b.amount) - Number(a.amount));
+  };
   const allocationRows = (nodes, parentAmount, parentName = 'Net profit', depth = 0) => nodes.map((node) => {
     const amount = parentAmount * (Number(node.percentage) || 0) / 100;
     const children = Array.isArray(node.children) ? node.children : [];
@@ -201,6 +257,35 @@ if (root) {
     refs.allocationError.textContent = message;
     refs.allocationError.hidden = !message;
   };
+  const showExpenseError = (message = '') => {
+    if (!refs.expenseError) return;
+    refs.expenseError.textContent = message;
+    refs.expenseError.hidden = !message;
+  };
+  const renderExpenseEditor = () => {
+    if (!refs.expenseEditor) return;
+    const categories = state.categoryDraft.filter((category) => !category.is_group);
+    const groups = categories.reduce((result, category) => {
+      const group = String(category.parent_name || 'Ungrouped');
+      (result[group] ||= []).push(category);
+      return result;
+    }, {});
+    refs.expenseEditor.innerHTML = Object.entries(groups).map(([group, rows]) => `
+      <section class="pnl-expense-settings-group">
+        <h3>${escapeHtml(group)}</h3>
+        ${rows.map((category) => `
+          <div class="pnl-expense-setting-row" data-pnl-expense-category="${escapeHtml(category.category_id)}">
+            <span><strong>${escapeHtml(category.name || 'Category')}</strong><small>${category.account_code ? `Code ${escapeHtml(category.account_code)} · ` : ''}${escapeHtml(category.type || 'other')}${category.is_active ? '' : ' · inactive'}</small></span>
+            <label class="pnl-category-toggle">
+              <input type="checkbox" data-pnl-category-include="${escapeHtml(category.category_id)}"${category.include_in_net_profit ? ' checked' : ''}>
+              <span></span>
+            </label>
+            <select data-pnl-category-bucket="${escapeHtml(category.category_id)}" aria-label="P&L treatment for ${escapeHtml(category.name || 'category')}">
+              ${Object.entries(pnlBucketLabels).map(([value, label]) => `<option value="${value}"${String(category.pnl_bucket) === value ? ' selected' : ''}>${escapeHtml(label)}</option>`).join('')}
+            </select>
+          </div>`).join('')}
+      </section>`).join('');
+  };
   const render = () => {
     const selected = sumRows(selectedRows());
     const periodName = state.period === 'ytd' ? `${state.year} year to date` : `${monthNames[Number(state.period) - 1]} ${state.year}`;
@@ -218,40 +303,36 @@ if (root) {
     if (refs.margin) refs.margin.textContent = `${percent(selected.grossProfit, selected.revenue)} margin`;
     if (refs.netMargin) refs.netMargin.textContent = `${percent(selected.netProfit, selected.revenue)} margin`;
     refs.netCard?.classList.toggle('is-negative', Number(selected.netProfit || 0) < 0);
+    const periodRows = selectedRows();
+    const operatingRows = operatingCategoryRows(periodRows);
     if (refs.bridge) refs.bridge.innerHTML = [
       bridgeRow('Seller-received sales', selected.sourceRevenue || 0),
       bridgeRow('Partner payments', selected.partnerPayments || 0),
       selected.otherIncome ? bridgeRow('Other revenue', selected.otherIncome || 0) : '',
       selected.refunds ? bridgeRow('Less: manual customer refunds', -(selected.refunds || 0), 'is-deduction') : '',
       bridgeRow('Net revenue', selected.revenue || 0, 'is-subtotal'),
-      bridgeRow('Less: product COGS', -(selected.cogs || 0), 'is-deduction'),
-      bridgeRow('Less: per-item packing', -(selected.packing || 0), 'is-deduction'),
+      bridgeRow('Less: actual PO / product payments', -(selected.cogs || 0), 'is-deduction'),
+      bridgeRow('Less: actual Accounting packing costs', -(selected.packing || 0), 'is-deduction'),
       bridgeRow('Gross profit', selected.grossProfit || 0, 'is-subtotal'),
-      bridgeRow('Less: platform ad cost', -(selected.marketing || 0), 'is-deduction'),
-      bridgeRow('Less: other marketing', -(selected.marketingOther || 0), 'is-deduction'),
-      bridgeRow('Less: payroll and labor', -(selected.payroll || 0), 'is-deduction'),
-      bridgeRow('Less: operations and fees', -((selected.operations || 0) + (selected.transferFees || 0)), 'is-deduction'),
+      ...operatingRows.map((category) => bridgeRow(`Less: ${category.name}`, -category.amount, 'is-deduction')),
+      selected.transferFees ? bridgeRow('Less: transfer fees', -(selected.transferFees || 0), 'is-deduction') : '',
       bridgeRow('Net profit', selected.netProfit || 0, 'is-total')
     ].join('');
     const expenseRows = [
-      ['Marketing / ads', selected.marketing || 0],
-      ['Other marketing', selected.marketingOther || 0],
-      ['Payroll / labor', selected.payroll || 0],
-      ['Operations / tax', selected.operations || 0],
-      ['Bank / transfer fees', selected.transferFees || 0]
+      ...operatingRows.map((category) => [categoryLabel(category), category.amount, pnlBucketLabels[category.pnl_bucket] || 'Operating expense']),
+      ...(selected.transferFees ? [['Transfer fees', selected.transferFees, 'System-calculated fee']] : [])
     ];
     const maxExpense = Math.max(...expenseRows.map(([, value]) => value), 1);
-    if (refs.expenseMix) refs.expenseMix.innerHTML = expenseRows.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><i><b style="width:${Math.round(value / maxExpense * 100)}%"></b></i><strong>${money(value)}</strong></div>`).join('');
+    if (refs.expenseMix) refs.expenseMix.innerHTML = expenseRows.length
+      ? expenseRows.map(([label, value, bucket]) => `<div><span>${escapeHtml(label)}<small>${escapeHtml(bucket)}</small></span><i><b style="width:${Math.round(value / maxExpense * 100)}%"></b></i><strong>${money(value)}</strong></div>`).join('')
+      : '<p class="pnl-allocation-empty">No included operating expenses in this period.</p>';
     if (refs.months) refs.months.innerHTML = state.rows.map((row) => `<tr data-pnl-month="${row.month}" class="${state.period === String(row.month) ? 'is-selected' : ''}"><td><button type="button" data-pnl-focus-month="${row.month}">${monthNames[row.month - 1]}</button></td><td>${money(row.revenue)}</td><td>${money(row.cogs)}</td><td>${money(row.packing)}</td><td>${money(row.grossProfit)}</td><td>${money(row.marketing)}</td><td>${money(row.opex - row.marketing)}</td><td><strong>${money(row.netProfit)}</strong></td><td>${percent(row.netProfit, row.revenue)}</td></tr>`).join('');
     const maxProfit = Math.max(...state.rows.map((row) => Math.abs(row.netProfit)), 1);
     if (refs.trend) refs.trend.innerHTML = state.rows.map((row) => `<button type="button" data-pnl-focus-month="${row.month}" title="${escapeHtml(`${monthNames[row.month - 1]}: ${money(row.netProfit)}`)}"><i class="${row.netProfit < 0 ? 'is-negative' : ''}" style="height:${Math.max(4, Math.round(Math.abs(row.netProfit) / maxProfit * 100))}%"></i><span>${monthNames[row.month - 1].slice(0, 3)}</span></button>`).join('');
     if (refs.reviewStatus) refs.reviewStatus.textContent = state.reviewItems > 0 ? `${state.reviewItems.toLocaleString('id-ID')} open item${state.reviewItems === 1 ? '' : 's'} should be corrected before relying on final profit.` : 'No open Accounting review items.';
     renderAllocation(selected.netProfit || 0);
     if (refs.status && state.loadedAt) {
-      const missingPacking = selectedRows().reduce((sum, row) => sum + Number(row.packingMissingItems || 0), 0);
-      refs.status.textContent = missingPacking > 0
-        ? `Packing incomplete for ${missingPacking.toLocaleString('id-ID')} physical item${missingPacking === 1 ? '' : 's'} in this period.`
-        : `Updated ${new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' }).format(state.loadedAt)} WIB`;
+      refs.status.textContent = `Updated ${new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' }).format(state.loadedAt)} WIB`;
     }
   };
   const renderControls = (years = []) => {
@@ -271,6 +352,7 @@ if (root) {
       ]);
       const accounting = accountingResponse.data || {};
       state.rows = combine(sales, accounting);
+      state.categorySettings = Array.isArray(accounting.category_settings) ? accounting.category_settings : [];
       state.allocationTree = cloneAllocations(profitLossResponse?.settings?.allocation_tree || []);
       state.reviewItems = Number(accounting.open_review_items || 0);
       state.loadedAt = new Date();
@@ -292,6 +374,59 @@ if (root) {
     refs.allocationDialog?.showModal();
   });
   root.querySelectorAll('[data-pnl-close-allocation], [data-pnl-cancel-allocation]').forEach((button) => button.addEventListener('click', () => refs.allocationDialog?.close()));
+  root.querySelector('[data-pnl-edit-expenses]')?.addEventListener('click', () => {
+    state.categoryDraft = cloneAllocations(state.categorySettings);
+    showExpenseError();
+    renderExpenseEditor();
+    refs.expenseDialog?.showModal();
+  });
+  root.querySelectorAll('[data-pnl-close-expenses], [data-pnl-cancel-expenses]').forEach((button) => button.addEventListener('click', () => refs.expenseDialog?.close()));
+  refs.expenseEditor?.addEventListener('change', (event) => {
+    const input = event.target;
+    const categoryId = input instanceof HTMLInputElement
+      ? input.dataset.pnlCategoryInclude
+      : (input instanceof HTMLSelectElement ? input.dataset.pnlCategoryBucket : '');
+    const category = state.categoryDraft.find((item) => String(item.category_id) === String(categoryId || ''));
+    if (!category) return;
+    const row = input.closest('[data-pnl-expense-category]');
+    if (input instanceof HTMLInputElement) {
+      category.include_in_net_profit = input.checked;
+      if (input.checked && category.pnl_bucket === 'exclude') {
+        category.pnl_bucket = 'operations';
+        const bucket = row?.querySelector('[data-pnl-category-bucket]');
+        if (bucket instanceof HTMLSelectElement) bucket.value = 'operations';
+      }
+    }
+    if (input instanceof HTMLSelectElement) {
+      category.pnl_bucket = input.value;
+      if (input.value === 'exclude') {
+        category.include_in_net_profit = false;
+        const include = row?.querySelector('[data-pnl-category-include]');
+        if (include instanceof HTMLInputElement) include.checked = false;
+      }
+    }
+  });
+  refs.expenseForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    showExpenseError();
+    try {
+      if (refs.saveExpenses) refs.saveExpenses.disabled = true;
+      await postAccountingJson({
+        action: 'save_pnl_category_settings',
+        settings: state.categoryDraft.filter((category) => !category.is_group).map((category) => ({
+          category_id: category.category_id,
+          include_in_net_profit: Boolean(category.include_in_net_profit),
+          pnl_bucket: category.pnl_bucket
+        }))
+      });
+      refs.expenseDialog?.close();
+      await load(true);
+    } catch (error) {
+      showExpenseError(error?.message || 'Unable to save expense settings.');
+    } finally {
+      if (refs.saveExpenses) refs.saveExpenses.disabled = false;
+    }
+  });
   root.querySelector('[data-pnl-add-allocation]')?.addEventListener('click', () => {
     state.allocationDraft.push(newAllocation());
     showAllocationError();
