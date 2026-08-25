@@ -1120,11 +1120,79 @@
   border-bottom: 1px solid var(--accounting-border);
 }
 
+.admin-accounting-receipt-gallery {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  min-height: 0;
+  height: calc(100% - 78px);
+}
+
+.admin-accounting-receipt-gallery > aside {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-width: 0;
+  padding: 12px;
+  overflow-y: auto;
+  border-right: 1px solid var(--accounting-border);
+  background: color-mix(in srgb, var(--accounting-text) 2.5%, var(--accounting-surface));
+}
+
+.admin-accounting-receipt-gallery > aside > button {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 9px;
+  border: 1px solid var(--accounting-border);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--accounting-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.admin-accounting-receipt-gallery > aside > button.is-active {
+  border-color: color-mix(in srgb, #38d996 55%, var(--accounting-border));
+  background: color-mix(in srgb, #38d996 9%, transparent);
+}
+
+.admin-accounting-receipt-gallery > aside b { display:grid; place-items:center; width:28px; height:28px; border-radius:7px; background:color-mix(in srgb,var(--accounting-text) 8%,transparent); font-size:.65rem; }
+.admin-accounting-receipt-gallery > aside span { display:grid; gap:2px; min-width:0; }
+.admin-accounting-receipt-gallery > aside strong { overflow:hidden; font-size:.64rem; text-overflow:ellipsis; white-space:nowrap; }
+.admin-accounting-receipt-gallery > aside small { color:var(--accounting-muted); font-size:.55rem; }
+
+.admin-accounting-receipt-stage {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  background: #fff;
+}
+
+.admin-accounting-receipt-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 42px;
+  padding: 6px 10px;
+  border-bottom: 1px solid #e7e7e7;
+  background: #f8f8f8;
+  color: #333;
+}
+
+.admin-accounting-receipt-nav[hidden] { display:none; }
+.admin-accounting-receipt-nav strong { min-width:56px; font-size:.66rem; text-align:center; }
+.admin-accounting-receipt-nav button { width:28px; height:28px; padding:0; border:1px solid #d8d8d8; border-radius:50%; background:#fff; color:#333; cursor:pointer; }
+.admin-accounting-receipt-nav button:disabled { opacity:.32; cursor:default; }
+
 .admin-accounting-receipt-preview {
   display: grid;
   place-items: center;
   width: 100%;
-  height: calc(100% - 78px);
+  height: 100%;
   background: #ffffff;
   overflow: auto;
 }
@@ -1163,6 +1231,9 @@
   align-items: center;
   gap: 14px;
 }
+
+.admin-accounting-receipt-actions > span { color:var(--accounting-text); font-size:.65rem; font-weight:850; white-space:nowrap; }
+.admin-accounting-receipt-actions > .admin-soft-btn { min-height:30px; padding:0 10px; font-size:.62rem; white-space:nowrap; }
 
 .admin-accounting-receipt-actions > a {
   color: var(--accounting-muted);
@@ -1555,6 +1626,14 @@ button.admin-accounting-breakdown-row:hover {
   .admin-accounting-receipt-management-list > div { align-items:stretch; flex-direction:column; }
 
   .admin-accounting-receipt-selection-grid { grid-template-columns:1fr; }
+
+  .admin-accounting-receipt-card { height:calc(100svh - 14px); }
+  .admin-accounting-receipt-card > .admin-modal-head { align-items:flex-start; }
+  .admin-accounting-receipt-actions { flex-wrap:wrap; justify-content:flex-end; gap:7px; }
+  .admin-accounting-receipt-actions > span { flex-basis:100%; text-align:right; }
+  .admin-accounting-receipt-gallery { grid-template-columns:1fr; grid-template-rows:auto minmax(0,1fr); height:calc(100% - 112px); }
+  .admin-accounting-receipt-gallery > aside { display:flex; gap:7px; padding:8px; overflow-x:auto; overflow-y:hidden; border-right:0; border-bottom:1px solid var(--accounting-border); }
+  .admin-accounting-receipt-gallery > aside > button { flex:0 0 190px; }
 
   .admin-accounting-wallet-strip {
     max-height: 190px;

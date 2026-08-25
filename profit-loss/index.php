@@ -382,16 +382,28 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                                 <h3 id="accounting-receipt-title" data-accounting-receipt-title>Receipt</h3>
                             </div>
                             <div class="admin-accounting-receipt-actions">
+                                <span data-accounting-receipt-count>1 receipt attached</span>
+                                <button type="button" class="admin-soft-btn" data-accounting-receipt-add hidden>Add another proof</button>
                                 <a href="#" target="_blank" rel="noopener noreferrer" data-accounting-receipt-new-tab>Open in new tab</a>
                                 <button type="button" class="admin-accounting-receipt-close" data-accounting-receipt-close aria-label="Close receipt">
                                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
                                 </button>
                             </div>
                         </div>
-                        <div class="admin-accounting-receipt-preview" data-accounting-receipt-preview>
-                            <p data-accounting-receipt-loading>Loading receipt…</p>
-                            <img data-accounting-receipt-image alt="Receipt preview" referrerpolicy="no-referrer" hidden>
-                            <object data-accounting-receipt-pdf type="application/pdf" aria-label="Receipt PDF preview" hidden></object>
+                        <div class="admin-accounting-receipt-gallery">
+                            <aside data-accounting-receipt-list aria-label="Attached receipts"></aside>
+                            <div class="admin-accounting-receipt-stage">
+                                <div class="admin-accounting-receipt-nav" data-accounting-receipt-nav hidden>
+                                    <button type="button" data-accounting-receipt-previous aria-label="Previous receipt">←</button>
+                                    <strong data-accounting-receipt-position>1 of 1</strong>
+                                    <button type="button" data-accounting-receipt-next aria-label="Next receipt">→</button>
+                                </div>
+                                <div class="admin-accounting-receipt-preview" data-accounting-receipt-preview>
+                                    <p data-accounting-receipt-loading>Loading receipt…</p>
+                                    <img data-accounting-receipt-image alt="Receipt preview" referrerpolicy="no-referrer" hidden>
+                                    <object data-accounting-receipt-pdf type="application/pdf" aria-label="Receipt PDF preview" hidden></object>
+                                </div>
+                            </div>
                         </div>
                     </section>
                 </div>

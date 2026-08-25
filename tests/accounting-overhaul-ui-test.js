@@ -24,6 +24,7 @@ expect(html.includes('data-accounting-ledger-body'), 'Accounting must expose the
 expect(html.includes('data-accounting-receipt-file') && html.includes('name="receipt_files[]"') && html.includes('multiple') && html.includes('up to 5 PDF or image files'), 'Expense entry must accept up to five PDF or image proof uploads.');
 expect(html.includes('data-accounting-receipt-selection') && script.includes('renderReceiptSelection') && script.includes('admin-accounting-receipt-selection-grid'), 'Receipt selection must show every pending file before the payment is saved.');
 expect(html.includes('data-accounting-receipt-modal') && html.includes('data-accounting-receipt-image') && html.includes('data-accounting-receipt-pdf'), 'Receipt review must open images and PDFs in an in-page popup.');
+expect(html.includes('data-accounting-receipt-list') && html.includes('data-accounting-receipt-count') && html.includes('data-accounting-receipt-next'), 'The receipt popup must visibly count and navigate every stored proof.');
 expect(html.includes('class="admin-accounting-more'), 'Secondary entry details must stay collapsed by default.');
 expect(html.includes('data-accounting-kpi="available-now"'), 'Accounting must group bank and physical cash as available now.');
 expect(html.includes('data-accounting-kpi="expected-total"'), 'Accounting must group expected marketplace and partner receivables.');
@@ -45,7 +46,8 @@ expect(script.includes('restorePendingEntry()'), 'Refreshes must preserve an ent
 expect(script.includes("buildUrl('activity_ledger'"), 'The UI must load manual and automatic ledger rows together.');
 expect(script.includes('admin-accounting-ledger-field admin-accounting-ledger-category'), 'Ledger rows must show the bookkeeping category in a dedicated column.');
 expect(script.includes('admin-accounting-ledger-field admin-accounting-ledger-note'), 'Ledger rows must show the saved note in a dedicated column.');
-expect(script.includes('data-accounting-receipt-open') && script.includes('<span>Review receipt</span>'), 'Ledger receipts must use a text-and-eye review action.');
+expect(script.includes('data-accounting-receipt-open') && script.includes('Review ${escapeHtml(countLabel)}') && script.includes('Open gallery'), 'Ledger receipts must show the exact stored count and open the receipt gallery.');
+expect(script.includes('renderReceiptGalleryControls') && script.includes('receiptGalleryItems[nextIndex]') && script.includes("openDrawer('transaction', String(transactionId))"), 'The receipt gallery must navigate all proofs and let the user add another proof to the payment.');
 expect(script.includes("['http:', 'https:'].includes(parsed.protocol)"), 'Receipt previews must reject unsafe URL protocols.');
 expect(script.includes('const blob = await response.blob()') && script.includes('URL.createObjectURL(blob)'), 'Same-origin receipts must be fetched into a blob preview so frame-blocking headers cannot break the popup.');
 expect(script.includes("multipartBody.append('receipt_files[]'"), 'All receipt files must submit as multipart form data.');

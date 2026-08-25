@@ -292,6 +292,13 @@ if (root) {
     receiptPdf: root.querySelector('[data-accounting-receipt-pdf]'),
     receiptTitle: root.querySelector('[data-accounting-receipt-title]'),
     receiptNewTab: root.querySelector('[data-accounting-receipt-new-tab]'),
+    receiptCount: root.querySelector('[data-accounting-receipt-count]'),
+    receiptList: root.querySelector('[data-accounting-receipt-list]'),
+    receiptNav: root.querySelector('[data-accounting-receipt-nav]'),
+    receiptPosition: root.querySelector('[data-accounting-receipt-position]'),
+    receiptPrevious: root.querySelector('[data-accounting-receipt-previous]'),
+    receiptNext: root.querySelector('[data-accounting-receipt-next]'),
+    receiptAdd: root.querySelector('[data-accounting-receipt-add]'),
     receiptManagement: root.querySelector('[data-accounting-receipt-management]'),
     receiptManagementCloseButtons: root.querySelectorAll('[data-accounting-receipt-management-close]'),
     receiptManagementForm: root.querySelector('[data-accounting-receipt-management-form]'),
@@ -495,12 +502,20 @@ if (root) {
   const receiptButtonsMarkup = (record, compact = false) => {
     const items = receiptItems(record);
     if (!items.length) return '';
-    return `<div class="admin-accounting-receipt-links${compact ? ' is-compact' : ''}">${items.map((receipt, index) => `
-      <button type="button" class="admin-accounting-review-receipt" data-accounting-receipt-open="${escapeHtml(receipt.url)}" data-accounting-receipt-name="${escapeHtml(receipt.name || `Receipt ${index + 1}`)}">
+    const galleryItems = items.map((receipt, index) => ({
+      url: receipt.url,
+      name: receipt.name || `Receipt ${index + 1}`
+    }));
+    const transactionId = String(record?.kind || '') === 'transaction' || record?.transaction_key
+      ? Number(record?.source_id || record?.id || 0)
+      : 0;
+    const countLabel = `${items.length} ${items.length === 1 ? 'receipt' : 'receipts'}`;
+    return `<div class="admin-accounting-receipt-links${compact ? ' is-compact' : ''}">
+      <button type="button" class="admin-accounting-review-receipt" data-accounting-receipt-open="${escapeHtml(items[0].url)}" data-accounting-receipt-name="${escapeHtml(galleryItems[0].name)}" data-accounting-receipt-items="${escapeHtml(encodeURIComponent(JSON.stringify(galleryItems)))}" data-accounting-receipt-transaction-id="${transactionId}">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5c-5.2 0-9.2 4.1-10.5 7.5C2.8 15.4 6.8 19.5 12 19.5s9.2-4.1 10.5-7.5C21.2 8.6 17.2 4.5 12 4.5Zm0 12.2a4.7 4.7 0 1 1 0-9.4 4.7 4.7 0 0 1 0 9.4Zm0-2.4a2.3 2.3 0 1 0 0-4.6 2.3 2.3 0 0 0 0 4.6Z"/></svg>
-        <span>Review receipt</span>${items.length > 1 ? `<small>${index + 1}/${items.length}</small>` : ''}
+        <span>Review ${escapeHtml(countLabel)}</span><small>Open gallery</small>
       </button>
-    `).join('')}</div>`;
+    </div>`;
   };
 
   const receiptManagementMarkup = (record) => {
@@ -613,6 +628,9 @@ if (root) {
 
   let receiptObjectUrl = '';
   let receiptRequest = 0;
+  let receiptGalleryItems = [];
+  let receiptGalleryIndex = 0;
+  let receiptGalleryTransactionId = 0;
 
   const resetReceiptPreview = () => {
     if (receiptObjectUrl) URL.revokeObjectURL(receiptObjectUrl);
@@ -633,6 +651,10 @@ if (root) {
     receiptRequest += 1;
     if (refs.receiptModal) refs.receiptModal.hidden = true;
     resetReceiptPreview();
+    receiptGalleryItems = [];
+    receiptGalleryIndex = 0;
+    receiptGalleryTransactionId = 0;
+    if (refs.receiptList) refs.receiptList.replaceChildren();
   };
 
   const closeRemoval = () => {
@@ -815,12 +837,42 @@ if (root) {
     }
   };
 
-  const openReceipt = async (url, name = 'Receipt') => {
+  const renderReceiptGalleryControls = () => {
+    const count = receiptGalleryItems.length;
+    if (refs.receiptCount) refs.receiptCount.textContent = `${count} ${count === 1 ? 'receipt' : 'receipts'} attached`;
+    if (refs.receiptPosition) refs.receiptPosition.textContent = `${receiptGalleryIndex + 1} of ${count}`;
+    if (refs.receiptNav) refs.receiptNav.hidden = count < 2;
+    if (refs.receiptPrevious instanceof HTMLButtonElement) refs.receiptPrevious.disabled = receiptGalleryIndex <= 0;
+    if (refs.receiptNext instanceof HTMLButtonElement) refs.receiptNext.disabled = receiptGalleryIndex >= count - 1;
+    if (refs.receiptAdd instanceof HTMLButtonElement) refs.receiptAdd.hidden = receiptGalleryTransactionId < 1 || count >= 5;
+    if (refs.receiptList) {
+      refs.receiptList.innerHTML = receiptGalleryItems.map((receipt, index) => `
+        <button type="button" class="${index === receiptGalleryIndex ? 'is-active' : ''}" data-accounting-receipt-gallery-index="${index}">
+          <b>${index + 1}</b>
+          <span><strong>${escapeHtml(receipt.name || `Receipt ${index + 1}`)}</strong><small>${index === receiptGalleryIndex ? 'Viewing now' : 'View receipt'}</small></span>
+        </button>
+      `).join('');
+    }
+  };
+
+  const openReceipt = async (url, name = 'Receipt', galleryItems = null, galleryIndex = 0, transactionId = 0) => {
     const safeUrl = safeReceiptUrl(url);
     if (!safeUrl || !refs.receiptModal) {
       showToast('This receipt link cannot be previewed.', true);
       return;
     }
+    if (Array.isArray(galleryItems) && galleryItems.length) {
+      receiptGalleryItems = galleryItems
+        .map((item, index) => ({ url: safeReceiptUrl(item?.url || ''), name: String(item?.name || `Receipt ${index + 1}`) }))
+        .filter((item) => item.url);
+      receiptGalleryIndex = Math.max(0, Math.min(receiptGalleryItems.length - 1, Number(galleryIndex || 0)));
+      receiptGalleryTransactionId = Number(transactionId || 0);
+    } else if (!receiptGalleryItems.length) {
+      receiptGalleryItems = [{ url: safeUrl, name: name || 'Receipt' }];
+      receiptGalleryIndex = 0;
+      receiptGalleryTransactionId = Number(transactionId || 0);
+    }
+    renderReceiptGalleryControls();
     const requestId = ++receiptRequest;
     resetReceiptPreview();
     if (refs.receiptTitle) refs.receiptTitle.textContent = name || 'Receipt';
@@ -871,6 +923,29 @@ if (root) {
         refs.receiptLoading.textContent = 'Preview unavailable. Use “Open in new tab” to review this receipt.';
       }
     }
+  };
+
+  const openReceiptFromButton = (button) => {
+    if (!(button instanceof HTMLElement)) return;
+    let items = [];
+    try {
+      const decoded = decodeURIComponent(button.dataset.accountingReceiptItems || '');
+      const parsed = JSON.parse(decoded);
+      if (Array.isArray(parsed)) items = parsed;
+    } catch (_error) {
+      items = [];
+    }
+    const gallery = items.length ? items : [{
+      url: button.dataset.accountingReceiptOpen || '',
+      name: button.dataset.accountingReceiptName || 'Receipt'
+    }];
+    openReceipt(
+      gallery[0]?.url || '',
+      gallery[0]?.name || 'Receipt',
+      gallery,
+      0,
+      Number(button.dataset.accountingReceiptTransactionId || 0)
+    );
   };
 
   const setFormError = (message = '') => {
@@ -2965,7 +3040,7 @@ if (root) {
   refs.ledgerBody?.addEventListener('click', (event) => {
     const receipt = event.target instanceof Element ? event.target.closest('[data-accounting-receipt-open]') : null;
     if (receipt instanceof HTMLElement) {
-      openReceipt(receipt.dataset.accountingReceiptOpen || '', receipt.dataset.accountingReceiptName || 'Receipt');
+      openReceiptFromButton(receipt);
       return;
     }
     const target = event.target instanceof Element ? event.target.closest('[data-accounting-ledger-open]') : null;
@@ -3237,6 +3312,28 @@ if (root) {
   refs.removalCloseButtons.forEach((button) => button.addEventListener('click', closeRemoval));
   refs.removalForm?.addEventListener('submit', submitRemoval);
   refs.receiptCloseButtons.forEach((button) => button.addEventListener('click', closeReceipt));
+  refs.receiptPrevious?.addEventListener('click', () => {
+    const nextIndex = Math.max(0, receiptGalleryIndex - 1);
+    const receipt = receiptGalleryItems[nextIndex];
+    if (receipt) openReceipt(receipt.url, receipt.name, receiptGalleryItems, nextIndex, receiptGalleryTransactionId);
+  });
+  refs.receiptNext?.addEventListener('click', () => {
+    const nextIndex = Math.min(receiptGalleryItems.length - 1, receiptGalleryIndex + 1);
+    const receipt = receiptGalleryItems[nextIndex];
+    if (receipt) openReceipt(receipt.url, receipt.name, receiptGalleryItems, nextIndex, receiptGalleryTransactionId);
+  });
+  refs.receiptList?.addEventListener('click', (event) => {
+    const button = event.target instanceof Element ? event.target.closest('[data-accounting-receipt-gallery-index]') : null;
+    if (!(button instanceof HTMLElement)) return;
+    const nextIndex = Number(button.dataset.accountingReceiptGalleryIndex || 0);
+    const receipt = receiptGalleryItems[nextIndex];
+    if (receipt) openReceipt(receipt.url, receipt.name, receiptGalleryItems, nextIndex, receiptGalleryTransactionId);
+  });
+  refs.receiptAdd?.addEventListener('click', async () => {
+    const transactionId = receiptGalleryTransactionId;
+    closeReceipt();
+    if (transactionId > 0) await openDrawer('transaction', String(transactionId));
+  });
   refs.receiptManagementCloseButtons.forEach((button) => button.addEventListener('click', closeReceiptManagement));
   refs.receiptManagementForm?.addEventListener('submit', submitReceiptManagement);
   refs.receiptManagementReplacementFile?.addEventListener('change', () => {
@@ -3289,7 +3386,7 @@ if (root) {
     }
     const receipt = event.target instanceof Element ? event.target.closest('[data-accounting-receipt-open]') : null;
     if (receipt instanceof HTMLElement) {
-      openReceipt(receipt.dataset.accountingReceiptOpen || '', receipt.dataset.accountingReceiptName || 'Receipt');
+      openReceiptFromButton(receipt);
     }
   });
   refs.drawerBody?.addEventListener('submit', async (event) => {
