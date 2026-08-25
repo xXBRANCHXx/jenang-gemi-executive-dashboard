@@ -61,6 +61,12 @@
   margin-top: 20px;
 }
 
+.admin-order-breakdown-loading[hidden],
+.admin-order-breakdown-error[hidden],
+[data-order-content][hidden] {
+  display: none !important;
+}
+
 .admin-order-breakdown-loading span {
   height: 120px;
   border: 1px solid #202225;
@@ -90,6 +96,37 @@
 .admin-order-economics .is-profit strong { color: #30e89e; }
 .admin-order-economics strong.is-negative,
 .admin-order-product dd.is-negative { color: #ff7184; }
+
+.admin-order-metric-label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.admin-order-metric-label i {
+  display: grid;
+  place-items: center;
+  width: 29px;
+  height: 29px;
+  border: 1px solid #303339;
+  border-radius: 9px;
+  background: #141619;
+  color: #a3a9b2;
+}
+
+.admin-order-metric-label svg,
+.admin-order-timeline-marker svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.admin-order-economics .is-net .admin-order-metric-label i { border-color: rgba(121, 83, 255, .45); color: #9a7cff; background: rgba(121, 83, 255, .1); }
+.admin-order-economics .is-profit .admin-order-metric-label i { border-color: rgba(0, 220, 130, .38); color: #30e89e; background: rgba(0, 220, 130, .08); }
 
 .admin-order-cost-quality {
   display: flex;
@@ -137,15 +174,64 @@
 .admin-order-product dd { margin: 5px 0 0; font-weight: 750; }
 .admin-order-product-note { display: block; margin-top: 12px; color: #a88aff; }
 
-.admin-order-timeline { list-style: none; margin: 0; padding: 6px 22px 18px; }
-.admin-order-timeline li { position: relative; padding: 16px 0 16px 26px; border-bottom: 1px solid #222426; }
-.admin-order-timeline li::before { content: ""; position: absolute; top: 22px; left: 2px; width: 9px; height: 9px; border-radius: 50%; background: #6d5cff; box-shadow: 0 0 0 5px rgba(109, 92, 255, .13); }
+.admin-order-timeline {
+  position: relative;
+  list-style: none;
+  margin: 0;
+  padding: 10px 22px 18px;
+}
+
+.admin-order-timeline::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: 34px;
+  bottom: 42px;
+  left: 41px;
+  width: 1px;
+  background: linear-gradient(#6d5cff, #287ddc 45%, #d99b24 78%, #34383e);
+}
+
+.admin-order-timeline li {
+  --timeline-tone: #8064ff;
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-height: 74px;
+  border-bottom: 1px solid #222426;
+}
+
+.admin-order-timeline li.is-payment,
+.admin-order-timeline li.is-funds,
+.admin-order-timeline li.is-pickup_confirmed { --timeline-tone: #20cf8a; }
+.admin-order-timeline li.is-arranged { --timeline-tone: #438ee8; }
+.admin-order-timeline li.is-pickup_window,
+.admin-order-timeline li.is-deadline { --timeline-tone: #e5a82f; }
+.admin-order-timeline li.is-scheduled { --timeline-tone: #e5a82f; }
+
+.admin-order-timeline-marker {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid color-mix(in srgb, var(--timeline-tone) 58%, #222426);
+  border-radius: 50%;
+  background: #0d0f11;
+  color: var(--timeline-tone);
+  box-shadow: 0 0 0 5px #090a0b;
+}
+
+.admin-order-timeline-copy strong,
+.admin-order-timeline-copy span,
 .admin-order-timeline time,
-.admin-order-timeline strong,
-.admin-order-timeline span { display: block; }
-.admin-order-timeline time { color: #767b82; font-size: .68rem; }
-.admin-order-timeline strong { margin-top: 5px; }
-.admin-order-timeline span { margin-top: 4px; color: #8c9198; font-size: .75rem; line-height: 1.45; }
+.admin-order-timeline time small { display: block; }
+.admin-order-timeline-copy strong { font-size: .88rem; }
+.admin-order-timeline-copy span { margin-top: 5px; color: #8c9198; font-size: .72rem; line-height: 1.4; }
+.admin-order-timeline time { color: #858b93; font-size: .66rem; text-align: right; white-space: nowrap; }
+.admin-order-timeline time small { margin-top: 5px; color: var(--timeline-tone); font-size: .58rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 
 .admin-order-facts-card { margin-top: 16px; }
 .admin-order-facts { display: grid; grid-template-columns: repeat(4, 1fr); margin: 0; }

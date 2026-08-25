@@ -55,10 +55,22 @@ $assetVersion = (string) max(
 
         <div data-order-content hidden>
             <section class="admin-order-economics" aria-label="Order economics">
-                <article class="is-net"><span>Net revenue</span><strong data-order-net>Rp0</strong><small>Seller-received order revenue</small></article>
-                <article><span>COGS</span><strong data-order-cogs>Rp0</strong><small>Effective SKU cost at order date</small></article>
-                <article><span>Packing cost</span><strong data-order-packing>Rp0</strong><small>Monthly packing cost × physical units</small></article>
-                <article class="is-profit"><span>Estimated GP</span><strong data-order-gp>Rp0</strong><small data-order-margin>Net revenue − COGS − packing</small></article>
+                <article class="is-net">
+                    <div class="admin-order-metric-label"><i aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M16 12h5M7 6V4h10v2"/><circle cx="16" cy="12.5" r="1"/></svg></i><span>Net revenue</span></div>
+                    <strong data-order-net>Rp0</strong><small>Seller-received order revenue</small>
+                </article>
+                <article>
+                    <div class="admin-order-metric-label"><i aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m4 8 8-4 8 4-8 4-8-4Z"/><path d="m4 12 8 4 8-4M4 16l8 4 8-4"/></svg></i><span>COGS</span></div>
+                    <strong data-order-cogs>Rp0</strong><small>Effective SKU cost at order date</small>
+                </article>
+                <article>
+                    <div class="admin-order-metric-label"><i aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m4 7 8-4 8 4v10l-8 4-8-4V7Z"/><path d="m4 7 8 4 8-4M12 11v10"/></svg></i><span>Packing cost</span></div>
+                    <strong data-order-packing>Rp0</strong><small>Monthly packing cost × physical units</small>
+                </article>
+                <article class="is-profit">
+                    <div class="admin-order-metric-label"><i aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 19V5M4 19h16"/><path d="m7 15 4-4 3 2 5-6"/><path d="M16 7h3v3"/></svg></i><span>Estimated GP</span></div>
+                    <strong data-order-gp>Rp0</strong><small data-order-margin>Net revenue − COGS − packing</small>
+                </article>
             </section>
 
             <section class="admin-order-cost-quality" data-order-coverage></section>

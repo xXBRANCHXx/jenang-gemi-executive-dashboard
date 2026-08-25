@@ -42,6 +42,19 @@ if (root) {
       dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Jakarta'
     }).format(date);
   };
+  const timelineIcon = (kind) => {
+    const icons = {
+      order: '<svg viewBox="0 0 24 24"><path d="M5 7h14l-1 12H6L5 7Z"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/></svg>',
+      payment: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 10h18M7 15h3"/></svg>',
+      arranged: '<svg viewBox="0 0 24 24"><path d="M3 6h11v11H3zM14 10h4l3 3v4h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>',
+      pickup_window: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/><path d="M12 13v4l3 1"/></svg>',
+      deadline: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/></svg>',
+      pickup_confirmed: '<svg viewBox="0 0 24 24"><path d="M3 6h11v11H3zM14 10h4l3 3v4h-7z"/><path d="m6 11 2 2 4-4"/><circle cx="18" cy="18" r="2"/></svg>',
+      funds: '<svg viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></svg>',
+      event: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>'
+    };
+    return icons[String(kind || '').toLowerCase()] || icons.event;
+  };
 
   const render = (payload) => {
     const order = payload.order || {};
@@ -91,12 +104,20 @@ if (root) {
         ${item.is_free_gift ? '<small class="admin-order-product-note">Free gift · costs included with no attributed revenue</small>' : ''}
       </article>`).join('') : '<p class="admin-empty">No product lines are stored for this order yet.</p>';
 
-    refs.timeline.innerHTML = timeline.length ? timeline.map((event) => `
-      <li class="is-${escapeHtml(event.kind || 'event')}">
-        <time>${escapeHtml(dateTime(event.at))}</time>
-        <strong>${escapeHtml(event.label || 'Order event')}</strong>
-        ${event.note ? `<span>${escapeHtml(event.note)}</span>` : ''}
-      </li>`).join('') : '<li class="is-empty"><strong>No timeline facts stored</strong><span>The source has not supplied lifecycle timestamps yet.</span></li>';
+    refs.timeline.innerHTML = timeline.length ? timeline.map((event) => {
+      const kind = String(event.kind || 'event').toLowerCase();
+      const at = new Date(event.at || '');
+      const scheduled = !Number.isNaN(at.getTime()) && at.getTime() > Date.now();
+      return `
+        <li class="is-${escapeHtml(kind)} ${scheduled ? 'is-scheduled' : 'is-complete'}">
+          <div class="admin-order-timeline-marker" aria-hidden="true">${timelineIcon(kind)}</div>
+          <div class="admin-order-timeline-copy">
+            <strong>${escapeHtml(event.label || 'Order event')}</strong>
+            ${event.note ? `<span>${escapeHtml(event.note)}</span>` : ''}
+          </div>
+          <time>${escapeHtml(dateTime(event.at))}${scheduled ? '<small>Scheduled</small>' : ''}</time>
+        </li>`;
+    }).join('') : '<li class="is-empty"><div class="admin-order-timeline-marker" aria-hidden="true">' + timelineIcon('event') + '</div><div class="admin-order-timeline-copy"><strong>No timeline facts stored</strong><span>The source has not supplied lifecycle timestamps yet.</span></div></li>';
 
     const facts = [
       ['Order ID', order.order_id],

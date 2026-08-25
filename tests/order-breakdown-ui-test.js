@@ -15,6 +15,10 @@ assert.match(script, /action: 'order_detail'[\s\S]*order_id: orderId/);
 assert.match(script, /coverage\.complete[\s\S]*missing COGS[\s\S]*missing packing cost/);
 assert.match(script, /item\.net_revenue[\s\S]*item\.cogs[\s\S]*item\.packing_cost[\s\S]*item\.estimated_gross_profit/);
 assert.match(styles, /\.admin-order-economics[\s\S]*grid-template-columns: repeat\(4/);
+assert.match(styles, /\.admin-order-breakdown-loading\[hidden\][\s\S]*display: none !important/, 'The loading skeleton must disappear after the order loads.');
+assert.match(script, /const timelineIcon[\s\S]*pickup_window[\s\S]*pickup_confirmed[\s\S]*funds/);
+assert.match(script, /admin-order-timeline-marker[\s\S]*admin-order-timeline-copy/);
+assert.match(styles, /\.admin-order-timeline::before[\s\S]*linear-gradient/, 'Timeline events must be connected by a visible lifecycle rail.');
 assert.match(api, /function jg_orders_order_detail_from_rows[\s\S]*estimated_gross_profit'[\s\S]*\$netRevenue - \$cogs - \$packing/);
 assert.match(api, /function jg_orders_optional_fulfillment_detail[\s\S]*\/fulfillment\/order-detail/);
 
