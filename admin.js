@@ -14591,7 +14591,7 @@ document.addEventListener('DOMContentLoaded', () => {
     syncOrderLoadedAll();
     syncOrderFilterControls();
     renderOrders();
-    try { await ensureEnoughOrderRows(); } catch (error) { showOrderLoadError(error); }
+    try { await ensureEnoughOrderRows({ repair: cancellation === 'canceled' }); } catch (error) { showOrderLoadError(error); }
   };
 
   const handleOrderCancellationFilterClick = (event) => {

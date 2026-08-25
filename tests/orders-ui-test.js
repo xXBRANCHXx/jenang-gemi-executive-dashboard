@@ -98,7 +98,8 @@ assert(
     && dashboard.includes('data-orders-cancellation-quick')
     && admin.includes('orderCancellationStatus')
     && admin.includes('filters.cancellations.has(orderCancellationStatus(row))')
-    && admin.includes('findingCanceledOrders ? state.orders.monthRanges.length'),
+    && admin.includes('findingCanceledOrders ? state.orders.monthRanges.length')
+    && admin.includes("ensureEnoughOrderRows({ repair: cancellation === 'canceled' })"),
   'Orders must expose a visible cancellation filter and search older windows until canceled rows are found.'
 );
 assert(
