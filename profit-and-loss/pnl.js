@@ -32,6 +32,25 @@ if (root) {
     margin: root.querySelector('[data-pnl-margin]'),
     netMargin: root.querySelector('[data-pnl-net-margin]'),
     netCard: root.querySelector('[data-pnl-net-card]'),
+    bottomPeriod: root.querySelector('[data-pnl-bottom-period]'),
+    compare: root.querySelector('[data-pnl-compare]'),
+    retentionRing: root.querySelector('[data-pnl-retention-ring]'),
+    spentRate: root.querySelector('[data-pnl-spent-rate]'),
+    profitRate: root.querySelector('[data-pnl-profit-rate]'),
+    hundredProfit: root.querySelector('[data-pnl-hundred-profit]'),
+    costCopy: root.querySelector('[data-pnl-cost-copy]'),
+    revenueCaption: root.querySelector('[data-pnl-revenue-caption]'),
+    composition: root.querySelector('[data-pnl-composition]'),
+    compositionLegend: root.querySelector('[data-pnl-composition-legend]'),
+    revenueTotal: root.querySelector('[data-pnl-revenue-total]'),
+    costTotal: root.querySelector('[data-pnl-cost-total]'),
+    netProfit: root.querySelector('[data-pnl-net-profit]'),
+    expenseRate: root.querySelector('[data-pnl-expense-rate]'),
+    expenseTotal: root.querySelector('[data-pnl-expense-total]'),
+    expenseComposition: root.querySelector('[data-pnl-expense-composition]'),
+    formulaRevenue: root.querySelector('[data-pnl-formula-revenue]'),
+    formulaGross: root.querySelector('[data-pnl-formula-gross]'),
+    formulaNet: root.querySelector('[data-pnl-formula-net]'),
     reviewStatus: root.querySelector('[data-pnl-review-status]'),
     allocationTree: root.querySelector('[data-pnl-allocation-tree]'),
     allocationIntro: root.querySelector('[data-pnl-allocation-intro]'),
@@ -46,6 +65,8 @@ if (root) {
   const escapeHtml = (value) => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
   const money = (value) => `Rp${Math.round(Number(value) || 0).toLocaleString('id-ID')}`;
   const percent = (numerator, denominator) => denominator ? `${(Number(numerator || 0) / Number(denominator) * 100).toLocaleString('en-US', { maximumFractionDigits: 1 })}%` : '0%';
+  const percentNumber = (numerator, denominator) => denominator ? Number(numerator || 0) / Number(denominator) * 100 : 0;
+  const rupiahPerHundred = (value) => `Rp${Number(value || 0).toLocaleString('en-US', { maximumFractionDigits: 1 })}`;
   const requestJson = async (url) => {
     const response = await fetch(url, { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
     const payload = await response.json().catch(() => ({}));
@@ -292,25 +313,92 @@ if (root) {
     refs.allocationError.textContent = message;
     refs.allocationError.hidden = !message;
   };
+  const setActiveTab = (tabName = 'statement') => {
+    root.querySelectorAll('[data-pnl-tab]').forEach((button) => {
+      const active = button.dataset.pnlTab === tabName;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+      button.tabIndex = active ? 0 : -1;
+    });
+    root.querySelectorAll('[data-pnl-tab-panel]').forEach((panel) => {
+      panel.hidden = panel.dataset.pnlTabPanel !== tabName;
+    });
+  };
+  const animateRetentionRing = (margin) => {
+    if (!refs.retentionRing) return;
+    const visibleMargin = Math.min(100, Math.max(0, Number(margin) || 0));
+    refs.retentionRing.setAttribute('stroke-dasharray', `${visibleMargin} ${100 - visibleMargin}`);
+    refs.retentionRing.getAnimations().forEach((animation) => animation.cancel());
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    refs.retentionRing.animate(
+      [{ strokeDashoffset: 100 }, { strokeDashoffset: 0 }],
+      { duration: 720, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'both' }
+    );
+  };
   const render = () => {
     const selected = sumRows(selectedRows());
     const periodName = state.period === 'ytd' ? `${state.year} year to date` : `${monthNames[Number(state.period) - 1]} ${state.year}`;
-    if (refs.periodTitle) refs.periodTitle.textContent = periodName;
-    const values = {
-      revenue: selected.revenue || 0,
-      cogs: selected.cogs || 0,
-      packing: selected.packing || 0,
-      'gross-profit': selected.grossProfit || 0,
-      'ad-cost': selected.marketing || 0,
-      opex: selected.opex || 0,
-      'net-profit': selected.netProfit || 0
-    };
-    Object.entries(values).forEach(([key, value]) => { if (refs.kpis[key]) refs.kpis[key].textContent = money(value); });
-    if (refs.margin) refs.margin.textContent = `${percent(selected.grossProfit, selected.revenue)} margin`;
-    if (refs.netMargin) refs.netMargin.textContent = `${percent(selected.netProfit, selected.revenue)} margin`;
-    refs.netCard?.classList.toggle('is-negative', Number(selected.netProfit || 0) < 0);
     const periodRows = selectedRows();
     const operatingRows = operatingCategoryRows(periodRows);
+    const revenue = Number(selected.revenue || 0);
+    const productCosts = Number(selected.cogs || 0);
+    const packingCosts = Number(selected.packing || 0);
+    const operatingExpenses = Number(selected.opex || 0);
+    const grossProfit = Number(selected.grossProfit || 0);
+    const netProfit = Number(selected.netProfit || 0);
+    const costTotal = productCosts + packingCosts + operatingExpenses;
+    const netMargin = percentNumber(netProfit, revenue);
+    const costRate = percentNumber(costTotal, revenue);
+    const isLoss = netProfit < 0;
+
+    root.classList.toggle('is-pnl-loss', isLoss);
+    if (refs.periodTitle) refs.periodTitle.textContent = `${periodName} statement`;
+    if (refs.bottomPeriod) refs.bottomPeriod.textContent = `${periodName} performance`;
+    if (refs.margin) refs.margin.textContent = percent(netProfit, revenue);
+    if (refs.netMargin) refs.netMargin.textContent = `${percent(netProfit, revenue)} net margin`;
+    if (refs.margin?.nextElementSibling) refs.margin.nextElementSibling.textContent = isLoss ? 'net loss margin' : 'of revenue kept';
+    if (refs.spentRate) refs.spentRate.textContent = percent(costTotal, revenue);
+    if (refs.profitRate) refs.profitRate.textContent = percent(netProfit, revenue);
+    if (refs.profitRate?.parentElement?.lastChild) refs.profitRate.parentElement.lastChild.textContent = isLoss ? ' loss' : ' profit';
+    if (refs.hundredProfit) refs.hundredProfit.textContent = isLoss
+      ? `${rupiahPerHundred(Math.abs(netMargin))} became net loss.`
+      : `${rupiahPerHundred(netMargin)} remained as net profit.`;
+    if (refs.costCopy) refs.costCopy.textContent = isLoss
+      ? `${rupiahPerHundred(costRate)} was subtracted, so costs exceeded every Rp100 of counted revenue.`
+      : `${rupiahPerHundred(costRate)} was subtracted for recorded product costs, packing, and operating expenses.`;
+    if (refs.revenueCaption) refs.revenueCaption.textContent = `${money(revenue)} total revenue`;
+    if (refs.revenueTotal) refs.revenueTotal.textContent = money(revenue);
+    if (refs.costTotal) refs.costTotal.textContent = money(costTotal);
+    if (refs.netProfit) refs.netProfit.textContent = money(netProfit);
+    animateRetentionRing(isLoss ? 0 : netMargin);
+
+    const previousMonth = state.period !== 'ytd' ? Number(state.period) - 1 : 0;
+    const previous = previousMonth > 0 ? state.rows.find((row) => row.month === previousMonth) : null;
+    if (refs.compare) {
+      const previousProfit = Number(previous?.netProfit || 0);
+      const change = previousProfit ? (netProfit - previousProfit) / Math.abs(previousProfit) * 100 : 0;
+      refs.compare.hidden = !previous || !previousProfit;
+      refs.compare.classList.toggle('is-down', change < 0);
+      refs.compare.textContent = `${change >= 0 ? '↗' : '↘'} ${Math.abs(change).toLocaleString('en-US', { maximumFractionDigits: 1 })}% vs ${monthNames[previousMonth - 1]}`;
+    }
+
+    const compositionRows = [
+      ['Product cost', productCosts, 'product'],
+      ['Packing', packingCosts, 'packing'],
+      ['Operating expenses', operatingExpenses, 'opex'],
+      [isLoss ? 'Net loss' : 'Net profit', Math.max(0, netProfit), 'profit']
+    ];
+    const compositionBase = isLoss ? Math.max(costTotal, 1) : Math.max(revenue, 1);
+    if (refs.composition) refs.composition.innerHTML = compositionRows
+      .filter(([, value]) => value > 0)
+      .map(([label, value, tone], index) => {
+        const size = Math.max(0.35, value / compositionBase * 100);
+        return `<i class="pnl-v2-segment-${tone}" style="--pnl-size:${size}%;animation-delay:${index * 55}ms" title="${escapeHtml(`${label}: ${money(value)} · ${percent(value, revenue)} of revenue`)}"></i>`;
+      }).join('');
+    if (refs.compositionLegend) refs.compositionLegend.innerHTML = compositionRows.map(([label, value, tone]) => `
+      <span><label><i class="pnl-v2-segment-${tone}"></i>${escapeHtml(label)}</label><b>${percent(value, revenue)}</b></span>
+    `).join('');
+
     if (refs.bridge) refs.bridge.innerHTML = [
       bridgeRow('Seller-received sales', selected.sourceRevenue || 0),
       bridgeRow('Partner payments', selected.partnerPayments || 0),
@@ -335,12 +423,27 @@ if (root) {
       ...(selected.transferFees ? [['Transfer fees', selected.transferFees, 'System-calculated fee']] : [])
     ];
     const maxExpense = Math.max(...expenseRows.map(([, value]) => value), 1);
+    if (refs.expenseRate) refs.expenseRate.textContent = percent(operatingExpenses, revenue);
+    if (refs.expenseTotal) refs.expenseTotal.textContent = money(operatingExpenses);
+    if (refs.expenseComposition) refs.expenseComposition.innerHTML = expenseRows.length
+      ? expenseRows.map(([label, value], index) => `<i class="pnl-v2-segment-${index % 6}" style="--pnl-size:${Math.max(0.4, Number(value || 0) / Math.max(operatingExpenses, 1) * 100)}%;animation-delay:${index * 45}ms" title="${escapeHtml(`${label}: ${money(value)} · ${percent(value, operatingExpenses)} of OpEx`)}"></i>`).join('')
+      : '';
     if (refs.expenseMix) refs.expenseMix.innerHTML = expenseRows.length
-      ? expenseRows.map(([label, value, bucket]) => `<div><span>${escapeHtml(label)}<small>${escapeHtml(bucket)}</small></span><i><b style="width:${Math.round(value / maxExpense * 100)}%"></b></i><strong>${money(value)}</strong></div>`).join('')
+      ? expenseRows.map(([label, value, bucket], index) => `<div><span>${escapeHtml(label)}<small>${escapeHtml(bucket)} · ${percent(value, operatingExpenses)} of OpEx</small></span><i><b style="--pnl-size:${Math.round(value / maxExpense * 100)}%;--pnl-accent:var(--pnl-v2-${['cost', 'product', 'purple', 'packing', 'teal'][index % 5]});animation-delay:${index * 45}ms"></b></i><strong>${money(value)}</strong></div>`).join('')
       : '<p class="pnl-allocation-empty">No included operating expenses in this period.</p>';
     if (refs.months) refs.months.innerHTML = state.rows.map((row) => `<tr data-pnl-month="${row.month}" class="${state.period === String(row.month) ? 'is-selected' : ''}"><td><button type="button" data-pnl-focus-month="${row.month}">${monthNames[row.month - 1]}</button></td><td>${money(row.revenue)}</td><td>${money(row.cogs)}</td><td>${money(row.packing)}</td><td>${money(row.grossProfit)}</td><td>${money(row.marketing)}</td><td>${money(row.opex - row.marketing)}</td><td><strong>${money(row.netProfit)}</strong></td><td>${percent(row.netProfit, row.revenue)}</td></tr>`).join('');
     const maxProfit = Math.max(...state.rows.map((row) => Math.abs(row.netProfit)), 1);
-    if (refs.trend) refs.trend.innerHTML = state.rows.map((row) => `<button type="button" data-pnl-focus-month="${row.month}" title="${escapeHtml(`${monthNames[row.month - 1]}: ${money(row.netProfit)}`)}"><i class="${row.netProfit < 0 ? 'is-negative' : ''}" style="height:${Math.max(4, Math.round(Math.abs(row.netProfit) / maxProfit * 100))}%"></i><span>${monthNames[row.month - 1].slice(0, 3)}</span></button>`).join('');
+    if (refs.trend) refs.trend.innerHTML = state.rows.map((row, index) => `<button type="button" class="${state.period === String(row.month) ? 'is-selected' : ''}" data-pnl-focus-month="${row.month}" title="${escapeHtml(`${monthNames[row.month - 1]}: ${money(row.netProfit)}`)}"><i class="${row.netProfit < 0 ? 'is-negative' : ''}" style="height:${Math.max(4, Math.round(Math.abs(row.netProfit) / maxProfit * 100))}%;animation-delay:${index * 35}ms"></i><span>${monthNames[row.month - 1].slice(0, 3)}</span></button>`).join('');
+
+    if (refs.formulaRevenue) refs.formulaRevenue.textContent = [
+      money(selected.sourceRevenue || 0),
+      `+ ${money(selected.partnerPayments || 0)}`,
+      `+ ${money(selected.otherIncome || 0)}`,
+      ...(selected.refunds ? [`− ${money(selected.refunds || 0)}`] : []),
+      `= ${money(revenue)}`
+    ].join(' ');
+    if (refs.formulaGross) refs.formulaGross.textContent = `${money(revenue)} − ${money(productCosts)} − ${money(packingCosts)} = ${money(grossProfit)}`;
+    if (refs.formulaNet) refs.formulaNet.textContent = `${money(grossProfit)} − ${money(operatingExpenses)} = ${money(netProfit)}`;
     if (refs.reviewStatus) refs.reviewStatus.textContent = state.reviewItems > 0 ? `${state.reviewItems.toLocaleString('id-ID')} open item${state.reviewItems === 1 ? '' : 's'} should be corrected before relying on final profit.` : 'No open Accounting review items.';
     renderAllocation(selected.netProfit || 0);
     if (refs.status && state.loadedAt) {
@@ -355,6 +458,8 @@ if (root) {
   };
   const load = async (force = false) => {
     if (refs.status) refs.status.textContent = 'Loading revenue, COGS, and Accounting entries…';
+    refs.refresh?.classList.add('is-loading');
+    if (refs.refresh) refs.refresh.disabled = true;
     try {
       const suffix = force ? `&_ts=${Date.now()}` : '';
       const [sales, accountingResponse, profitLossResponse] = await Promise.all([
@@ -373,8 +478,26 @@ if (root) {
     } catch (error) {
       if (refs.status) refs.status.textContent = error?.message || 'Unable to load the P&L.';
       if (refs.months) refs.months.innerHTML = `<tr><td colspan="9" class="admin-empty">${escapeHtml(error?.message || 'Unable to load the P&L.')}</td></tr>`;
+    } finally {
+      refs.refresh?.classList.remove('is-loading');
+      if (refs.refresh) refs.refresh.disabled = false;
     }
   };
+  const tabButtons = [...root.querySelectorAll('[data-pnl-tab]')];
+  tabButtons.forEach((button, index) => {
+    button.addEventListener('click', () => setActiveTab(button.dataset.pnlTab || 'statement'));
+    button.addEventListener('keydown', (event) => {
+      const direction = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+      let targetIndex = direction ? (index + direction + tabButtons.length) % tabButtons.length : index;
+      if (event.key === 'Home') targetIndex = 0;
+      if (event.key === 'End') targetIndex = tabButtons.length - 1;
+      if (!direction && event.key !== 'Home' && event.key !== 'End') return;
+      event.preventDefault();
+      const target = tabButtons[targetIndex];
+      setActiveTab(target.dataset.pnlTab || 'statement');
+      target.focus();
+    });
+  });
   refs.year?.addEventListener('change', () => { state.year = Number(refs.year.value) || currentYear; state.period = 'ytd'; load(); });
   refs.period?.addEventListener('change', () => { state.period = refs.period.value || 'ytd'; render(); });
   refs.refresh?.addEventListener('click', () => load(true));
@@ -451,9 +574,11 @@ if (root) {
     if (!(button instanceof HTMLElement)) return;
     state.period = button.dataset.pnlFocusMonth || 'ytd';
     refs.period.value = state.period;
+    setActiveTab('statement');
     render();
-    root.querySelector('.pnl-kpis')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    root.querySelector('.pnl-v2-bottom-line')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
+  setActiveTab('statement');
   renderControls();
   load();
 }

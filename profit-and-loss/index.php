@@ -10,6 +10,7 @@ if (!jg_admin_is_authenticated()) {
 }
 
 $adminCssVersion = (string) @filemtime(dirname(__DIR__) . '/admin.css');
+$pageCssVersion = (string) @filemtime(__DIR__ . '/pnl.css');
 $pageJsVersion = (string) @filemtime(__DIR__ . '/pnl.js');
 ?>
 <!DOCTYPE html>
@@ -25,6 +26,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/pnl.js');
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Space+Grotesk:wght@500;700&amp;display=swap">
     <link rel="stylesheet" href="../admin.css?v=<?php echo urlencode($adminCssVersion ?: '1'); ?>">
+    <link rel="stylesheet" href="./pnl.css?v=<?php echo urlencode($pageCssVersion ?: '1'); ?>">
 </head>
 <body class="admin-body is-dashboard is-executive-dashboard is-profit-and-loss">
 <div class="admin-app admin-app-suite" data-pnl-page data-sales-endpoint="../api/sales/" data-accounting-endpoint="../api/accounting/" data-profit-loss-endpoint="../api/profit-loss/">
@@ -33,54 +35,80 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/pnl.js');
         <div class="admin-shell-main">
             <header class="admin-topbar profit-loss-topbar admin-finance-page-head">
                 <div class="admin-topbar-brand">
-                    <span class="admin-admin-mark">Executive finance</span>
                     <h1>Profit &amp; Loss</h1>
-                    <p>Revenue, actual Accounting product and packing costs, operating expenses, and net profit.</p>
+                    <p>See exactly how counted revenue becomes net profit.</p>
                 </div>
                 <?php render_admin_topbar_actions('profit-loss'); ?>
             </header>
 
-            <main class="pnl-layout" data-pnl-view>
-                <section class="pnl-controls" aria-label="Profit and loss period">
+            <main class="pnl-layout pnl-v2-layout" data-pnl-view>
+                <section class="pnl-controls pnl-v2-controls" aria-label="Profit and loss period">
                     <label><span>Year</span><select data-pnl-year></select></label>
                     <label><span>Period</span><select data-pnl-period></select></label>
-                    <button type="button" class="admin-ghost-btn" data-pnl-refresh>Refresh</button>
-                    <p data-pnl-status>Loading financial report…</p>
+                    <button type="button" class="admin-ghost-btn pnl-v2-refresh" data-pnl-refresh>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6v5h-5M4 18v-5h5M18.5 9A7 7 0 0 0 6 6.5L4 9m2 6a7 7 0 0 0 12 2.5L20 15"/></svg>
+                        <span>Refresh</span>
+                    </button>
                 </section>
 
-                <section class="pnl-kpis" aria-label="Profit and loss summary">
-                    <article><span>Net Revenue</span><strong data-pnl-kpi="revenue">Rp0</strong><small>All operating revenue received</small></article>
-                    <article><span>PO / Product Cost</span><strong data-pnl-kpi="cogs">Rp0</strong><small>Recorded partial + full PO payments only</small></article>
-                    <article><span>Actual Packing Cost</span><strong data-pnl-kpi="packing">Rp0</strong><small>Included packing payments from Accounting</small></article>
-                    <article><span>Gross Profit</span><strong data-pnl-kpi="gross-profit">Rp0</strong><small data-pnl-margin>0% margin</small></article>
-                    <article><span>Ad Cost</span><strong data-pnl-kpi="ad-cost">Rp0</strong><small>Posted marketing payments</small></article>
-                    <article><span>Operating Expenses</span><strong data-pnl-kpi="opex">Rp0</strong><small>After product and packing costs</small></article>
-                    <article class="pnl-net-card" data-pnl-net-card><span>Net Profit</span><strong data-pnl-kpi="net-profit">Rp0</strong><small data-pnl-net-margin>0% margin</small></article>
-                </section>
-
-                <section class="pnl-grid">
-                    <article class="pnl-panel pnl-bridge-panel">
-                        <div class="pnl-panel-head"><div><span>Statement</span><h2 data-pnl-period-title>Profit bridge</h2></div><a href="../profit-loss/">Open Accounting</a></div>
-                        <div class="pnl-bridge" data-pnl-bridge></div>
-                    </article>
-
-                    <article class="pnl-panel">
-                        <div class="pnl-panel-head"><div><span>Operating spend</span><h2>Expense mix</h2></div><a class="admin-ghost-btn pnl-settings-button" href="./expense-settings/">Expense settings</a></div>
-                        <div class="pnl-expense-mix" data-pnl-expense-mix></div>
-                    </article>
-                </section>
-
-                <section class="pnl-panel pnl-allocation-panel" aria-labelledby="pnl-allocation-title">
-                    <div class="pnl-panel-head">
-                        <div><span>After net profit</span><h2 id="pnl-allocation-title">Profit allocation</h2></div>
-                        <button type="button" class="admin-ghost-btn pnl-settings-button" data-pnl-edit-allocation>Allocation settings</button>
+                <section class="pnl-v2-bottom-line" aria-labelledby="pnl-bottom-line-title">
+                    <header class="pnl-v2-bottom-head">
+                        <div><h2 id="pnl-bottom-line-title">Bottom line</h2><p data-pnl-bottom-period>Loading current period…</p></div>
+                        <span class="pnl-v2-compare" data-pnl-compare hidden></span>
+                    </header>
+                    <div class="pnl-v2-bottom-grid">
+                        <div class="pnl-v2-retention">
+                            <svg viewBox="0 0 42 42" aria-hidden="true">
+                                <circle class="pnl-v2-ring-track" cx="21" cy="21" r="15.9155"/>
+                                <circle class="pnl-v2-ring-value" data-pnl-retention-ring cx="21" cy="21" r="15.9155"/>
+                            </svg>
+                            <div><strong data-pnl-margin>0%</strong><span>of revenue kept</span></div>
+                            <p><span><i></i><b data-pnl-spent-rate>0%</b> costs</span><span><i></i><b data-pnl-profit-rate>0%</b> profit</span></p>
+                        </div>
+                        <div class="pnl-v2-story">
+                            <h3>For every Rp100 of counted revenue, <strong data-pnl-hundred-profit>Rp0 remained as net profit.</strong></h3>
+                            <p data-pnl-cost-copy>Loading the exact cost share…</p>
+                            <div class="pnl-v2-composition-head"><span>How counted revenue was used</span><strong data-pnl-revenue-caption>Rp0 total revenue</strong></div>
+                            <div class="pnl-v2-composition" data-pnl-composition aria-label="Revenue composition"></div>
+                            <div class="pnl-v2-composition-legend" data-pnl-composition-legend></div>
+                        </div>
+                        <dl class="pnl-v2-totals">
+                            <div><dt>Revenue counted<small>Seller + partner + other posted revenue</small></dt><dd data-pnl-revenue-total>Rp0</dd></div>
+                            <div class="is-cost"><dt>Costs subtracted<small>PO/product + packing + posted OpEx</small></dt><dd data-pnl-cost-total>Rp0</dd></div>
+                            <div class="is-profit"><dt>Net profit<small data-pnl-net-margin>0% net margin</small></dt><dd data-pnl-net-profit>Rp0</dd></div>
+                        </dl>
                     </div>
-                    <p class="pnl-allocation-intro" data-pnl-allocation-intro>Positive net profit is distributed through the configured sharing levels.</p>
-                    <div class="pnl-allocation-tree" data-pnl-allocation-tree></div>
                 </section>
 
-                <section class="pnl-panel pnl-monthly-panel">
-                    <div class="pnl-panel-head"><div><span>Year at a glance</span><h2>Monthly performance</h2></div><small>Tap a month to focus the report</small></div>
+                <nav class="pnl-v2-tabs" aria-label="Profit and loss views">
+                    <div role="tablist">
+                        <button type="button" id="pnl-tab-statement" class="is-active" role="tab" aria-selected="true" aria-controls="pnl-panel-statement" data-pnl-tab="statement">Statement</button>
+                        <button type="button" id="pnl-tab-monthly" role="tab" aria-selected="false" aria-controls="pnl-panel-monthly" data-pnl-tab="monthly">Monthly performance</button>
+                        <button type="button" id="pnl-tab-allocation" role="tab" aria-selected="false" aria-controls="pnl-panel-allocation" data-pnl-tab="allocation">Profit allocation</button>
+                    </div>
+                    <p data-pnl-status>Loading financial report…</p>
+                </nav>
+
+                <section id="pnl-panel-statement" class="pnl-v2-tab-panel" role="tabpanel" aria-labelledby="pnl-tab-statement" data-pnl-tab-panel="statement">
+                    <div class="pnl-grid pnl-v2-statement-grid">
+                        <article class="pnl-panel pnl-bridge-panel">
+                            <div class="pnl-panel-head"><h2 data-pnl-period-title>Statement</h2><a class="pnl-v2-action" href="../profit-loss/">Open Accounting ↗</a></div>
+                            <div class="pnl-bridge" data-pnl-bridge></div>
+                        </article>
+
+                        <article class="pnl-panel pnl-v2-expenses">
+                            <div class="pnl-panel-head"><h2>What consumed profit</h2><a class="pnl-v2-action" href="./expense-settings/">Manage categories →</a></div>
+                            <div class="pnl-v2-expense-overview">
+                                <p><span>Operating expense rate</span><strong data-pnl-expense-rate>0%</strong><small><b data-pnl-expense-total>Rp0</b> of revenue</small></p>
+                                <div class="pnl-v2-expense-composition" data-pnl-expense-composition aria-label="Operating expense composition"></div>
+                            </div>
+                            <div class="pnl-expense-mix" data-pnl-expense-mix></div>
+                        </article>
+                    </div>
+                </section>
+
+                <section id="pnl-panel-monthly" class="pnl-panel pnl-monthly-panel pnl-v2-tab-panel" role="tabpanel" aria-labelledby="pnl-tab-monthly" data-pnl-tab-panel="monthly" hidden>
+                    <div class="pnl-panel-head"><h2>Monthly net profit</h2><small>Choose a month to focus the statement</small></div>
                     <div class="pnl-trend" data-pnl-trend aria-label="Monthly net profit trend"></div>
                     <div class="admin-table-wrap pnl-table-wrap">
                         <table class="admin-table pnl-table">
@@ -90,10 +118,21 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/pnl.js');
                     </div>
                 </section>
 
-                <section class="pnl-assurance" data-pnl-assurance>
-                    <div><strong>Calculation basis</strong><span>Net revenue minus recorded partial/full PO payments, actual included packing payments, and included operating expenses from posted cash-basis Accounting entries. Unpaid PO balances are excluded.</span></div>
-                    <div><strong>Direct net-profit formula</strong><span>Net Profit is calculated directly from revenue and actual Accounting costs. It does not use an imported or estimated Gross Profit value.</span></div>
-                    <div><strong>Review status</strong><span data-pnl-review-status>Checking Accounting review items…</span></div>
+                <section id="pnl-panel-allocation" class="pnl-panel pnl-allocation-panel pnl-v2-tab-panel" role="tabpanel" data-pnl-tab-panel="allocation" hidden aria-labelledby="pnl-tab-allocation pnl-allocation-title">
+                    <div class="pnl-panel-head">
+                        <h2 id="pnl-allocation-title">Profit allocation</h2>
+                        <button type="button" class="pnl-v2-action" data-pnl-edit-allocation>Allocation settings</button>
+                    </div>
+                    <p class="pnl-allocation-intro" data-pnl-allocation-intro>Positive net profit is distributed through the configured sharing levels.</p>
+                    <div class="pnl-allocation-tree" data-pnl-allocation-tree></div>
+                </section>
+
+                <section class="pnl-v2-formula" aria-label="Exact profit calculation">
+                    <div><b>1</b><p><strong>Revenue counted</strong><span>All operating revenue received: seller-received sales + partner payments + other revenue − refunds</span><em data-pnl-formula-revenue>Rp0 = Rp0</em></p></div>
+                    <i aria-hidden="true">→</i>
+                    <div><b>2</b><p><strong>Gross profit</strong><span>Recorded partial + full PO payments only; actual Accounting packing costs. Unpaid PO balances are excluded.</span><em data-pnl-formula-gross>Rp0 − Rp0 − Rp0 = Rp0</em></p></div>
+                    <i aria-hidden="true">→</i>
+                    <div><b>3</b><p><strong>Net profit</strong><span>Gross profit − posted operating expenses. It does not use an imported or estimated Gross Profit value.</span><em data-pnl-formula-net>Rp0 − Rp0 = Rp0</em><small data-pnl-review-status>Checking Accounting review items…</small></p></div>
                 </section>
             </main>
         </div>
