@@ -3050,6 +3050,7 @@ function jg_orders_import_mirror_range_from_api(
         $payload = jg_orders_fetch_json(jg_orders_remote_url('/sales/orders', [
             'start_date' => $startDate,
             'end_date' => $endDate,
+            'include_canceled' => '1',
             'skip_sync' => '1',
             'sync' => '0',
             'lightweight' => $lightweight ? '1' : '0',

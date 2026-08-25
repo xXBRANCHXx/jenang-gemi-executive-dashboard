@@ -2906,7 +2906,9 @@ document.addEventListener('DOMContentLoaded', () => {
     companyTree: document.querySelector('[data-orders-company-tree]'),
     catalogSearch: document.querySelector('[data-orders-catalog-search]'),
     platforms: document.querySelector('[data-orders-platforms]'),
+    cancellationQuick: document.querySelector('[data-orders-cancellation-quick]'),
     cancellationFilters: document.querySelector('[data-orders-cancellation-filters]'),
+    cancellationButtons: document.querySelectorAll('[data-toggle-order-cancellation]'),
     paymentFilters: document.querySelector('[data-orders-payment-filters]'),
     quickRanges: document.querySelectorAll('[data-orders-quick-range]'),
     startLabel: document.querySelector('[data-orders-start-label]'),
@@ -5105,7 +5107,15 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const orderPaymentStatus = (row) => {
-    const lifecycles = [row?.status, row?.order_status, row?.fulfillment_status]
+    const lifecycles = [
+      row?.status,
+      row?.order_status,
+      row?.fulfillment_status,
+      row?.funds_release_status,
+      row?.lifecycle_status,
+      row?.cancel_status,
+      row?.payment_status
+    ]
       .map(normalizeOrderFilterValue)
       .filter(Boolean);
     if (lifecycles.some((lifecycle) => lifecycle.includes('cancel') || lifecycle === 'void' || lifecycle === 'voided')) return 'canceled';
@@ -8120,7 +8130,7 @@ document.addEventListener('DOMContentLoaded', () => {
       button.classList.toggle('is-selected', selected);
       button.setAttribute('aria-pressed', selected ? 'true' : 'false');
     });
-    ordersRefs.cancellationFilters?.querySelectorAll('[data-toggle-order-cancellation]').forEach((button) => {
+    ordersRefs.cancellationButtons.forEach((button) => {
       const value = normalizeOrderFilterValue(button.getAttribute('data-toggle-order-cancellation'));
       const selected = state.orders.filters.cancellations.some((item) => normalizeOrderFilterValue(item) === value);
       button.classList.toggle('is-selected', selected);
@@ -11015,8 +11025,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!state.orders.monthRanges.length && !state.orders.loadedAll) resetOrderWindowsFromOverview();
       syncOrderLoadedAll();
       let loadedWindows = 0;
-      while (!state.orders.loadedAll && loadedWindows < ORDER_BOOTSTRAP_MAX_WINDOWS) {
+      const findingCanceledOrders = state.orders.filters.cancellations.some((value) => normalizeOrderFilterValue(value) === 'canceled');
+      const maxWindows = findingCanceledOrders ? state.orders.monthRanges.length : ORDER_BOOTSTRAP_MAX_WINDOWS;
+      while (!state.orders.loadedAll && loadedWindows < maxWindows) {
         const rows = filteredOrderRows();
+        if (findingCanceledOrders && rows.length > 0) break;
         const needsViewportFill = ordersRefs.scroll
           ? ordersRefs.scroll.scrollHeight <= ordersRefs.scroll.clientHeight + 24
           : rows.length < ORDER_BOOTSTRAP_MIN_ROWS;
@@ -14569,10 +14582,9 @@ document.addEventListener('DOMContentLoaded', () => {
     try { await ensureEnoughOrderRows(); } catch (error) { showOrderLoadError(error); }
   });
 
-  ordersRefs.cancellationFilters?.addEventListener('click', async (event) => {
-    const button = event.target.closest('[data-toggle-order-cancellation]');
-    if (!button) return;
-    const cancellation = normalizeOrderFilterValue(button.getAttribute('data-toggle-order-cancellation'));
+  const toggleOrderCancellationFilter = async (cancellation) => {
+    cancellation = normalizeOrderFilterValue(cancellation);
+    if (!['active', 'canceled'].includes(cancellation)) return;
     const selected = state.orders.filters.cancellations.some((item) => normalizeOrderFilterValue(item) === cancellation);
     state.orders.filters.cancellations = selected ? [] : [cancellation];
     resetOrderRenderWindow();
@@ -14580,7 +14592,16 @@ document.addEventListener('DOMContentLoaded', () => {
     syncOrderFilterControls();
     renderOrders();
     try { await ensureEnoughOrderRows(); } catch (error) { showOrderLoadError(error); }
-  });
+  };
+
+  const handleOrderCancellationFilterClick = (event) => {
+    const button = event.target.closest('[data-toggle-order-cancellation]');
+    if (!button) return;
+    toggleOrderCancellationFilter(button.getAttribute('data-toggle-order-cancellation') || '').catch(() => {});
+  };
+
+  ordersRefs.cancellationQuick?.addEventListener('click', handleOrderCancellationFilterClick);
+  ordersRefs.cancellationFilters?.addEventListener('click', handleOrderCancellationFilterClick);
 
   ordersRefs.activeFilters?.addEventListener('click', (event) => {
     const button = event.target.closest('[data-remove-order-filter]');

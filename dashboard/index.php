@@ -661,6 +661,10 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                                 <button type="button" class="admin-soft-btn admin-orders-arrangement-btn" data-view-switch="shipment-arrangement">Shipment Arrangement</button>
                                 <button type="button" class="admin-orders-export-btn" data-orders-export disabled title="Choose both a start and end date in Filters">Export CSV</button>
                                 <button type="button" class="admin-orders-load-btn" data-orders-load-more hidden>Load older</button>
+                                <div class="admin-orders-cancellation-quick" data-orders-cancellation-quick role="group" aria-label="Cancellation status">
+                                    <button type="button" data-toggle-order-cancellation="active">Non-canceled</button>
+                                    <button type="button" data-toggle-order-cancellation="canceled">Canceled</button>
+                                </div>
                                 <button type="button" class="admin-orders-icon-btn admin-orders-filter-open-btn" data-orders-filter-open aria-label="Open order filters">
                                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-6.2 7.1v5.2l-3.6 1.8v-7z"/></svg>
                                     <span data-orders-filter-open-label>Filters</span>

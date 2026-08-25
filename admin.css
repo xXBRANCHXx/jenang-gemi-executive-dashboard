@@ -5043,6 +5043,37 @@ button, input {
   cursor: pointer;
 }
 
+.admin-orders-cancellation-quick {
+  display: inline-flex;
+  min-height: 34px;
+  padding: 2px;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  background: var(--admin-surface-soft);
+}
+
+.admin-orders-cancellation-quick button {
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--admin-muted);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.admin-orders-cancellation-quick button.is-selected {
+  background: var(--admin-text);
+  color: var(--admin-bg);
+}
+
+.admin-orders-cancellation-quick button[data-toggle-order-cancellation='canceled'].is-selected {
+  background: #dc2626;
+  color: #fff;
+}
+
 .admin-orders-load-btn:disabled,
 .admin-orders-export-btn:disabled {
   opacity: 0.58;

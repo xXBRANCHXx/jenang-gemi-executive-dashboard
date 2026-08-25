@@ -96,6 +96,20 @@ wallet_expect(false, jg_wallet_release_source_verified([
     'fetched' => 1,
     'truncated' => false,
 ]), 'One failed marketplace account must prevent a 100 percent paid-status claim.');
+wallet_expect(true, jg_wallet_release_source_verified([
+    'ok' => true,
+    'sync' => ['accounts' => [
+        ['platform' => 'shopee', 'account_key' => 'jenang-gemi-shopee', 'ok' => true],
+        ['platform' => 'tiktok', 'account_key' => 'jenang-gemi-tiktok', 'ok' => true],
+        ['platform' => 'shopee', 'account_key' => 'zfit-shopee', 'ok' => false, 'skipped' => true],
+    ]],
+], [
+    'fetched' => 2,
+    'truncated' => false,
+], [
+    ['platform' => 'shopee', 'account_key' => 'jenang-gemi-shopee'],
+    ['platform' => 'tiktok', 'account_key' => 'jenang-gemi-tiktok'],
+]), 'Unconfigured accounts outside the active wallet scope must not fail paid-status verification.');
 wallet_expect(3, jg_wallet_total_chunks('2026-05-20', '2026-05-25', 2), 'Wallet backtrack must calculate resumable chunk counts.');
 wallet_expect(100, jg_wallet_backtrack_public_state([
     'run_key' => 'abc',

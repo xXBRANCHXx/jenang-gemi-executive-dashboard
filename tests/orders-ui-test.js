@@ -6,6 +6,7 @@ const root = path.resolve(__dirname, '..');
 const admin = fs.readFileSync(path.join(root, 'admin.js'), 'utf8');
 const dashboard = fs.readFileSync(path.join(root, 'dashboard', 'index.php'), 'utf8');
 const styles = fs.readFileSync(path.join(root, 'admin.css'), 'utf8');
+const ordersApi = fs.readFileSync(path.join(root, 'api', 'orders', 'index.php'), 'utf8');
 const ordersFilterStyles = styles.slice(
   styles.indexOf('.admin-modal-card.admin-orders-filter-card'),
   styles.indexOf('@media (max-width: 900px)', styles.indexOf('.admin-modal-card.admin-orders-filter-card'))
@@ -94,12 +95,19 @@ assert(
 assert(
   dashboard.includes('data-toggle-order-cancellation="active"')
     && dashboard.includes('data-toggle-order-cancellation="canceled"')
+    && dashboard.includes('data-orders-cancellation-quick')
     && admin.includes('orderCancellationStatus')
-    && admin.includes('filters.cancellations.has(orderCancellationStatus(row))'),
-  'Orders must filter explicitly between non-canceled and canceled rows.'
+    && admin.includes('filters.cancellations.has(orderCancellationStatus(row))')
+    && admin.includes('findingCanceledOrders ? state.orders.monthRanges.length'),
+  'Orders must expose a visible cancellation filter and search older windows until canceled rows are found.'
+);
+assert(
+  ordersApi.includes("'include_canceled' => '1'"),
+  'The dashboard mirror import must explicitly request canceled marketplace orders from API Ingest.'
 );
 assert(
   admin.includes('class="is-canceled"')
+    && admin.includes('row?.funds_release_status')
     && styles.includes('.admin-orders-table tbody tr.is-canceled > td')
     && styles.includes('rgba(153, 27, 27, 0.62)'),
   'Canceled orders must receive a red treatment across the whole row.'

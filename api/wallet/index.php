@@ -1334,7 +1334,7 @@ function jg_wallet_run_release_refresh(PDO $pdo, array $payload, array $options)
 
         $summary = jg_wallet_summary_with_backtrack($pdo, jg_wallet_backtrack_latest($pdo));
         $after = jg_wallet_summary_snapshot($summary);
-        $sourceVerified = jg_wallet_release_source_verified($sync, $import);
+        $sourceVerified = jg_wallet_release_source_verified($sync, $import, jg_wallet_backtrack_accounts());
         $ok = $sourceVerified
             || (empty($walletTransactions['skipped']) && !empty($walletTransactions['ok']));
         $summary[$responseKey] = [
@@ -1376,7 +1376,7 @@ function jg_wallet_run_release_refresh(PDO $pdo, array $payload, array $options)
     }
 }
 
-function jg_wallet_release_source_verified(array $sync, array $import): bool
+function jg_wallet_release_source_verified(array $sync, array $import, array $expectedAccounts = []): bool
 {
     if (!empty($sync['skipped']) || empty($sync['ok']) || !empty($sync['error']) || !empty($import['error']) || !empty($import['truncated'])) {
         return false;
@@ -1384,6 +1384,23 @@ function jg_wallet_release_source_verified(array $sync, array $import): bool
     $accounts = is_array($sync['sync']['accounts'] ?? null) ? $sync['sync']['accounts'] : [];
     if ($accounts === []) {
         return false;
+    }
+    if ($expectedAccounts !== []) {
+        $actualByKey = [];
+        foreach ($accounts as $account) {
+            if (!is_array($account)) continue;
+            $key = jg_wallet_account_key((string) ($account['platform'] ?? ''), (string) ($account['account_key'] ?? ''));
+            if ($key !== '|') $actualByKey[$key] = $account;
+        }
+        foreach ($expectedAccounts as $expected) {
+            if (!is_array($expected)) return false;
+            $key = jg_wallet_account_key((string) ($expected['platform'] ?? ''), (string) ($expected['account_key'] ?? ''));
+            $account = $actualByKey[$key] ?? null;
+            if (!is_array($account) || empty($account['ok']) || !empty($account['skipped']) || !empty($account['error'])) {
+                return false;
+            }
+        }
+        return true;
     }
     foreach ($accounts as $account) {
         if (!is_array($account) || empty($account['ok']) || !empty($account['skipped']) || !empty($account['error'])) {
