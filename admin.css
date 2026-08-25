@@ -1021,6 +1021,95 @@
   cursor: pointer;
 }
 
+.admin-accounting-receipt-selection {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 9px;
+  min-width: 0;
+  padding: 11px;
+  border: 1px solid color-mix(in srgb, #38d996 32%, var(--accounting-border));
+  border-radius: 10px;
+  background: color-mix(in srgb, #38d996 5%, transparent);
+}
+
+.admin-accounting-receipt-selection[hidden] { display: none; }
+
+.admin-accounting-receipt-selection-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-accounting-receipt-selection-head strong {
+  color: var(--accounting-text);
+  font-size: .7rem;
+}
+
+.admin-accounting-receipt-selection-head span {
+  color: var(--accounting-muted);
+  font-size: .6rem;
+}
+
+.admin-accounting-receipt-selection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 7px;
+}
+
+.admin-accounting-receipt-selection-card {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 26px;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 7px;
+  border: 1px solid var(--accounting-border);
+  border-radius: 8px;
+  background: var(--accounting-surface);
+}
+
+.admin-accounting-receipt-selection-preview {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accounting-text) 8%, transparent);
+  color: var(--accounting-muted);
+}
+
+.admin-accounting-receipt-selection-preview img { width:100%; height:100%; object-fit:cover; }
+.admin-accounting-receipt-selection-preview b { font-size:.58rem; letter-spacing:.06em; }
+.admin-accounting-receipt-selection-copy { display:grid; gap:3px; min-width:0; }
+.admin-accounting-receipt-selection-copy strong { overflow:hidden; color:var(--accounting-text); font-size:.66rem; text-overflow:ellipsis; white-space:nowrap; }
+.admin-accounting-receipt-selection-copy small { color:#38a978; font-size:.56rem; font-weight:750; }
+.admin-accounting-receipt-selection-card > button { width:26px; height:26px; padding:0; border:0; border-radius:50%; background:transparent; color:var(--accounting-muted); font-size:1rem; cursor:pointer; }
+.admin-accounting-receipt-selection-card > button:hover,
+.admin-accounting-receipt-selection-card > button:focus-visible { background:color-mix(in srgb,#ef233c 12%,transparent); color:#ff6b7d; }
+
+.admin-accounting-receipt-management-list {
+  display: grid;
+  gap: 6px;
+  padding-top: 4px;
+  border-top: 1px solid var(--accounting-border);
+}
+
+.admin-accounting-receipt-management-list > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.admin-accounting-receipt-management-list > div > span:first-child { display:grid; gap:2px; min-width:0; }
+.admin-accounting-receipt-management-list strong { overflow:hidden; color:var(--accounting-text); font-size:.65rem; text-overflow:ellipsis; white-space:nowrap; }
+.admin-accounting-receipt-management-list small { color:var(--accounting-muted); font-size:.56rem; }
+.admin-accounting-receipt-management-list > div > span:last-child { display:flex; gap:6px; }
+.admin-accounting-receipt-management-list button { min-height:28px; padding:0 9px; font-size:.59rem; }
+.admin-accounting-receipt-management input[type="file"] { width:100%; padding:8px; border:1px solid var(--accounting-border); border-radius:9px; color:var(--accounting-text); font-size:.68rem; }
+
 .admin-accounting-receipt-card {
   width: min(1060px, calc(100vw - 28px));
   height: min(820px, calc(100svh - 28px));
@@ -1461,6 +1550,11 @@ button.admin-accounting-breakdown-row:hover {
   .admin-accounting-more > div {
     grid-template-columns: 1fr;
   }
+
+  .admin-accounting-receipt-selection-head,
+  .admin-accounting-receipt-management-list > div { align-items:stretch; flex-direction:column; }
+
+  .admin-accounting-receipt-selection-grid { grid-template-columns:1fr; }
 
   .admin-accounting-wallet-strip {
     max-height: 190px;

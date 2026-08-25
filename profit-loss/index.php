@@ -233,7 +233,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                                 <input type="text" inputmode="numeric" name="transfer_fee_amount" placeholder="Rp0">
                             </label>
                             <details class="admin-accounting-more admin-accounting-form-wide">
-                                <summary>More details <span>Brand, channel, receipt, reference, notes</span></summary>
+                                <summary>More details <span data-accounting-more-summary>Brand, channel, receipt, reference, notes</span></summary>
                                 <div>
                                     <label>
                                         <span data-accounting-term="brand">Brand</span>
@@ -276,7 +276,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                                             <option>Other</option>
                                         </select>
                                     </label>
-                                    <label>
+                                    <label data-accounting-receipt-detail>
                                         <span>Receipt URL</span>
                                         <input type="url" name="receipt_url" placeholder="https://...">
                                     </label>
@@ -284,7 +284,8 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                                         <span>Upload proof of payment <small>Optional · up to 5 PDF or image files · max 10 MB each</small></span>
                                         <input type="file" name="receipt_files[]" data-accounting-receipt-file accept="application/pdf,image/png,image/jpeg,image/webp" multiple>
                                     </label>
-                                    <label>
+                                    <div class="admin-accounting-receipt-selection" data-accounting-receipt-selection aria-live="polite" hidden></div>
+                                    <label data-accounting-receipt-detail>
                                         <span data-accounting-term="receipt_status">Receipt Status</span>
                                         <select name="receipt_status">
                                             <option value="missing">Missing</option>
@@ -392,6 +393,43 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                             <img data-accounting-receipt-image alt="Receipt preview" referrerpolicy="no-referrer" hidden>
                             <object data-accounting-receipt-pdf type="application/pdf" aria-label="Receipt PDF preview" hidden></object>
                         </div>
+                    </section>
+                </div>
+
+                <div class="admin-modal-shell admin-accounting-receipt-management" data-accounting-receipt-management hidden>
+                    <button type="button" class="admin-modal-backdrop" data-accounting-receipt-management-close aria-label="Close receipt management"></button>
+                    <section class="admin-modal-card admin-accounting-removal-card" role="dialog" aria-modal="true" aria-labelledby="accounting-receipt-management-title" tabindex="-1">
+                        <div class="admin-modal-head">
+                            <div>
+                                <span class="admin-panel-kicker">Protected receipt change</span>
+                                <h3 id="accounting-receipt-management-title" data-accounting-receipt-management-title>Manage receipt</h3>
+                                <p data-accounting-receipt-management-copy>Enter the admin login key to continue.</p>
+                            </div>
+                            <button type="button" class="admin-ghost-btn" data-accounting-receipt-management-close>Close</button>
+                        </div>
+                        <form data-accounting-receipt-management-form>
+                            <input type="hidden" name="receipt_id">
+                            <input type="hidden" name="receipt_action">
+                            <div class="admin-accounting-removal-warning">
+                                <strong>Admin approval is required</strong>
+                                <p>Receipt changes are checked again by the server and written to the private audit trail.</p>
+                            </div>
+                            <label data-accounting-receipt-replacement hidden>
+                                <span>Replacement proof</span>
+                                <small>Choose one PDF or image file · max 10 MB.</small>
+                                <input type="file" name="receipt_file" data-accounting-receipt-replacement-file data-accounting-receipt-capacity="1" accept="application/pdf,image/png,image/jpeg,image/webp">
+                            </label>
+                            <div class="admin-accounting-receipt-selection" data-accounting-receipt-selection aria-live="polite" hidden></div>
+                            <label>
+                                <span>Admin login key</span>
+                                <input type="password" name="admin_key" autocomplete="current-password" required>
+                            </label>
+                            <p class="admin-form-error" data-accounting-receipt-management-error hidden></p>
+                            <div class="admin-accounting-removal-actions">
+                                <button type="button" class="admin-ghost-btn" data-accounting-receipt-management-close>Cancel</button>
+                                <button type="submit" class="admin-danger-btn" data-accounting-receipt-management-submit>Delete receipt</button>
+                            </div>
+                        </form>
                     </section>
                 </div>
 

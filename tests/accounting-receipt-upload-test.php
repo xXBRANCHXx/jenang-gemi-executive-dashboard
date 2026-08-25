@@ -48,7 +48,13 @@ try {
         id INTEGER PRIMARY KEY, entity_type TEXT, entity_id INTEGER, issue_key TEXT,
         status TEXT, resolved_at TEXT NULL
     )');
-    $pdo->exec("INSERT INTO accounting_transactions VALUES (7, '', 'missing')");
+    $pdo->exec('CREATE TABLE accounting_audit_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, entity_type TEXT, entity_id INTEGER, action TEXT,
+        old_value_json TEXT NULL, new_value_json TEXT NULL, created_by INTEGER NULL, created_at TEXT
+    )');
+    $pdo->exec("INSERT INTO accounting_transactions VALUES
+        (7, '', 'missing'),
+        (8, 'https://example.com/legacy-proof.pdf', 'attached')");
     $pdo->exec("INSERT INTO accounting_review_queue VALUES (1, 'transaction', 7, 'missing_receipt', 'open', NULL)");
 
     $stored = jg_accounting_store_receipt($pdo, 'transaction', 7, $validated);
@@ -80,6 +86,29 @@ try {
     } catch (InvalidArgumentException $error) {
         receipt_upload_expect(true, str_contains($error->getMessage(), 'up to 5'), 'The five-file limit must be explicit.');
     }
+
+    try {
+        jg_accounting_delete_receipt($pdo, (int) $storedSecond['id']);
+        receipt_upload_expect(true, false, 'Receipt deletion must fail without explicit admin authorization.');
+    } catch (RuntimeException $error) {
+        receipt_upload_expect(true, str_contains($error->getMessage(), 'admin approval'), 'Receipt deletion must require admin authorization inside the domain function.');
+    }
+
+    $deleted = jg_accounting_delete_receipt($pdo, (int) $storedSecond['id'], true);
+    receipt_upload_expect(4, count($deleted['remaining_receipts']), 'Deleting one proof must preserve every other receipt.');
+    receipt_upload_expect(
+        (string) $allReceipts[array_key_last($allReceipts)]['url'],
+        (string) $pdo->query('SELECT receipt_url FROM accounting_transactions WHERE id = 7')->fetchColumn(),
+        'Deleting a proof must keep the newest remaining proof as the transaction fallback URL.'
+    );
+    $replaced = jg_accounting_store_receipts($pdo, 'transaction', 7, [[...$validated, 'original_name' => 'replacement.png']]);
+    receipt_upload_expect(5, count($replaced), 'A replacement must fill the deleted proof slot without exceeding the five-file limit.');
+    receipt_upload_expect(true, in_array('replacement.png', array_column($replaced, 'name'), true), 'The replacement proof must be returned for immediate display.');
+    receipt_upload_expect(1, (int) $pdo->query("SELECT COUNT(*) FROM accounting_audit_log WHERE action = 'delete_receipt'")->fetchColumn(), 'Receipt deletion must be recorded in the private audit trail.');
+
+    $clearedLegacy = jg_accounting_clear_transaction_receipt($pdo, 8, true);
+    receipt_upload_expect(8, $clearedLegacy['transaction_id'], 'Protected receipt management must also support older URL-only proofs.');
+    receipt_upload_expect('', (string) $pdo->query('SELECT receipt_url FROM accounting_transactions WHERE id = 8')->fetchColumn(), 'Deleting a legacy receipt must clear its URL.');
 } finally {
     @unlink($path);
 }

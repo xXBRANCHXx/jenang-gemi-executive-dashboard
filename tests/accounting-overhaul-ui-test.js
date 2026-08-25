@@ -6,6 +6,7 @@ const html = fs.readFileSync(path.join(root, 'profit-loss', 'index.php'), 'utf8'
 const script = fs.readFileSync(path.join(root, 'profit-loss', 'accounting.js'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'admin.css'), 'utf8');
 const api = fs.readFileSync(path.join(root, 'api', 'accounting', 'index.php'), 'utf8');
+const backend = fs.readFileSync(path.join(root, 'accounting-bootstrap.php'), 'utf8');
 
 const expect = (condition, message) => {
   if (condition) return;
@@ -21,6 +22,7 @@ expect(html.includes('data-accounting-kpi="liquid-assets"'), 'Accounting must le
 expect(html.includes('unpaid partner bills'), 'Accounting must explain that unpaid partner bills are expected money.');
 expect(html.includes('data-accounting-ledger-body'), 'Accounting must expose the unified activity ledger.');
 expect(html.includes('data-accounting-receipt-file') && html.includes('name="receipt_files[]"') && html.includes('multiple') && html.includes('up to 5 PDF or image files'), 'Expense entry must accept up to five PDF or image proof uploads.');
+expect(html.includes('data-accounting-receipt-selection') && script.includes('renderReceiptSelection') && script.includes('admin-accounting-receipt-selection-grid'), 'Receipt selection must show every pending file before the payment is saved.');
 expect(html.includes('data-accounting-receipt-modal') && html.includes('data-accounting-receipt-image') && html.includes('data-accounting-receipt-pdf'), 'Receipt review must open images and PDFs in an in-page popup.');
 expect(html.includes('class="admin-accounting-more'), 'Secondary entry details must stay collapsed by default.');
 expect(html.includes('data-accounting-kpi="available-now"'), 'Accounting must group bank and physical cash as available now.');
@@ -50,7 +52,13 @@ expect(script.includes("multipartBody.append('receipt_files[]'"), 'All receipt f
 expect(script.includes('data-accounting-edit-receipt-file'), 'The transaction correction drawer must allow a missing receipt to be uploaded.');
 expect(script.includes("kind === 'transaction' && receiptInput instanceof HTMLInputElement"), 'Correction uploads must be limited to transaction receipts.');
 expect(script.includes('receiptButtonsMarkup(row, true)') && script.includes('receiptButtonsMarkup(item)'), 'Every stored receipt must remain visible in both the ledger and correction drawer.');
+expect(script.includes("isBillRecord ? '' : receiptButtonsMarkup(row, true)"), 'Bill-received ledger rows must never expose payment receipt actions.');
+expect(backend.includes("'entry_type' => 'bill'") && backend.includes("'receipt_url' => ''") && backend.includes("$receiptStatus = 'not_required';"), 'Bill records must be receipt-free in the ledger and persistence layer.');
+expect(script.includes("['expense_paid', 'pay_bill', 'customer_refund']"), 'Proof uploads must be available when a supplier bill is actually paid, not when it is merely received.');
+expect(html.includes('data-accounting-receipt-management-form') && html.includes('Admin login key') && script.includes("action: 'delete_receipt'") && script.includes("body.set('action', 'replace_receipt')"), 'Stored receipts must expose admin-key-protected delete and replacement controls.');
 expect(api.includes("['create_transaction', 'update_transaction']") && api.includes('jg_accounting_update_transaction($pdo, $body)'), 'The Accounting API must persist receipt uploads from both new and corrected transactions.');
+expect(api.includes('jg_accounting_require_receipt_admin_key') && api.includes('jg_admin_code_matches($adminKey)') && api.includes('jg_accounting_delete_receipt($pdo, $receiptId, true)'), 'Receipt deletion and replacement must be authorized with the admin login key on the server.');
+expect(api.includes("unset($body['receipt_url'])"), 'Normal correction requests must not bypass protected receipt replacement by rewriting the stored receipt URL.');
 expect(script.includes("action: 'reconcile_cash'"), 'The reconciliation UI must post an auditable baseline.');
 expect(script.includes('accountOptionsForRole'), 'Paid-from and received-into options must be filtered by account role.');
 expect(script.includes("String(account.type || '') !== 'marketplace_wallet'"), 'Marketplace wallets must never appear as entry accounts.');

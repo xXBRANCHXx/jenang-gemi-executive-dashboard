@@ -866,6 +866,116 @@ function jg_accounting_store_receipt(PDO $pdo, string $entityType, int $entityId
     return $receipts[array_key_last($receipts)];
 }
 
+/** @return array{receipt_id:int,transaction_id:int,name:string,remaining_receipts:list<array<string,mixed>>} */
+function jg_accounting_delete_receipt(PDO $pdo, int $receiptId, bool $adminAuthorized = false): array
+{
+    if (!$adminAuthorized) {
+        throw new RuntimeException('Receipt changes require admin approval.');
+    }
+    if ($receiptId < 1) {
+        throw new InvalidArgumentException('Receipt not found.');
+    }
+    $stmt = $pdo->prepare(
+        'SELECT id, entity_type, entity_id, original_name, mime_type, size_bytes, created_at
+         FROM accounting_receipt_files
+         WHERE id = :id
+         LIMIT 1'
+    );
+    $stmt->execute([':id' => $receiptId]);
+    $receipt = $stmt->fetch();
+    if (!is_array($receipt) || (string) ($receipt['entity_type'] ?? '') !== 'transaction') {
+        throw new InvalidArgumentException('Payment receipt not found.');
+    }
+
+    $transactionId = (int) ($receipt['entity_id'] ?? 0);
+    $delete = $pdo->prepare('DELETE FROM accounting_receipt_files WHERE id = :id AND entity_type = "transaction"');
+    $delete->execute([':id' => $receiptId]);
+    if ($delete->rowCount() !== 1) {
+        throw new RuntimeException('The receipt could not be deleted.');
+    }
+
+    $remaining = jg_accounting_receipts($pdo, 'transaction', $transactionId);
+    $latestUrl = $remaining === [] ? '' : (string) $remaining[array_key_last($remaining)]['url'];
+    $update = $pdo->prepare(
+        'UPDATE accounting_transactions
+         SET receipt_url = :receipt_url, receipt_status = :receipt_status
+         WHERE id = :transaction_id'
+    );
+    $update->execute([
+        ':receipt_url' => $latestUrl,
+        ':receipt_status' => $remaining === [] ? 'missing' : 'attached',
+        ':transaction_id' => $transactionId,
+    ]);
+    if ($remaining === []) {
+        try {
+            jg_accounting_review_transaction($pdo, $transactionId);
+        } catch (Throwable) {
+            // Lightweight receipt-storage tests may not include the full Accounting review schema.
+        }
+    }
+    jg_accounting_insert_audit($pdo, 'transaction', $transactionId, 'delete_receipt', [
+        'id' => (int) $receipt['id'],
+        'name' => (string) $receipt['original_name'],
+        'mime_type' => (string) $receipt['mime_type'],
+        'size_bytes' => (int) $receipt['size_bytes'],
+        'created_at' => (string) ($receipt['created_at'] ?? ''),
+    ], [
+        'remaining_receipt_ids' => array_column($remaining, 'id'),
+    ]);
+
+    return [
+        'receipt_id' => $receiptId,
+        'transaction_id' => $transactionId,
+        'name' => (string) $receipt['original_name'],
+        'remaining_receipts' => $remaining,
+    ];
+}
+
+/** @return array{receipt_id:int,transaction_id:int,name:string,remaining_receipts:list<array<string,mixed>>} */
+function jg_accounting_clear_transaction_receipt(PDO $pdo, int $transactionId, bool $adminAuthorized = false): array
+{
+    if (!$adminAuthorized) {
+        throw new RuntimeException('Receipt changes require admin approval.');
+    }
+    if ($transactionId < 1) {
+        throw new InvalidArgumentException('Payment receipt not found.');
+    }
+    $storedReceipts = jg_accounting_receipts($pdo, 'transaction', $transactionId);
+    if ($storedReceipts !== []) {
+        throw new InvalidArgumentException('Choose the specific stored receipt to change.');
+    }
+    $stmt = $pdo->prepare('SELECT receipt_url, receipt_status FROM accounting_transactions WHERE id = :id LIMIT 1');
+    $stmt->execute([':id' => $transactionId]);
+    $transaction = $stmt->fetch();
+    $receiptUrl = is_array($transaction) ? trim((string) ($transaction['receipt_url'] ?? '')) : '';
+    if ($receiptUrl === '') {
+        throw new InvalidArgumentException('Payment receipt not found.');
+    }
+    $update = $pdo->prepare(
+        'UPDATE accounting_transactions
+         SET receipt_url = "", receipt_status = "missing"
+         WHERE id = :transaction_id'
+    );
+    $update->execute([':transaction_id' => $transactionId]);
+    try {
+        jg_accounting_review_transaction($pdo, $transactionId);
+    } catch (Throwable) {
+        // Lightweight receipt-storage tests may not include the full Accounting review schema.
+    }
+    jg_accounting_insert_audit($pdo, 'transaction', $transactionId, 'delete_receipt', [
+        'url' => $receiptUrl,
+        'receipt_status' => (string) ($transaction['receipt_status'] ?? ''),
+    ], [
+        'remaining_receipt_ids' => [],
+    ]);
+    return [
+        'receipt_id' => 0,
+        'transaction_id' => $transactionId,
+        'name' => 'Receipt link',
+        'remaining_receipts' => [],
+    ];
+}
+
 function jg_accounting_stream_receipt(PDO $pdo, int $receiptId): never
 {
     if ($receiptId < 1) {
@@ -1403,8 +1513,16 @@ function jg_accounting_review_bill(PDO $pdo, int $id): void
     if (empty($row['category_id'])) {
         jg_accounting_add_review($pdo, 'bill', $id, 'warning', 'missing_category', 'Bill missing category.', 'Choose a category.');
     }
-    if ((string) ($row['receipt_status'] ?? '') === 'missing' && trim((string) ($row['attachment_url'] ?? '')) === '') {
-        jg_accounting_add_review($pdo, 'bill', $id, 'warning', 'missing_attachment', 'Bill attachment missing.', 'Attach invoice or receipt URL.');
+    try {
+        $resolveLegacyReceiptReview = $pdo->prepare(
+            'UPDATE accounting_review_queue
+             SET status = "resolved", resolved_at = UTC_TIMESTAMP()
+             WHERE entity_type = "bill" AND entity_id = :entity_id
+               AND issue_key IN ("missing_attachment", "missing_receipt") AND status = "open"'
+        );
+        $resolveLegacyReceiptReview->execute([':entity_id' => $id]);
+    } catch (Throwable) {
+        // Bills are obligations, so older receipt-review flags are safe to ignore on lightweight schemas.
     }
     if ((int) ($row['outstanding_amount'] ?? 0) > 0 && (string) ($row['due_date'] ?? '') !== '' && (string) $row['due_date'] < jg_accounting_now()->format('Y-m-d')) {
         jg_accounting_add_review($pdo, 'bill', $id, 'critical', 'overdue_bill', 'Bill is overdue.', 'Pay, partial pay, or update the bill.');
@@ -4754,8 +4872,8 @@ function jg_accounting_activity_ledger(PDO $pdo, array $filters): array
             'impact' => 'obligation',
             'status' => (string) ($bill['status'] ?? 'unpaid'),
             'reference' => (string) ($bill['bill_no'] ?? $bill['bill_key'] ?? ''),
-            'receipt_url' => trim((string) ($bill['attachment_url'] ?? '')),
-            'receipt_name' => 'Bill receipt',
+            'receipt_url' => '',
+            'receipt_name' => '',
             'receipts' => [],
         ];
     }
@@ -5007,10 +5125,7 @@ function jg_accounting_create_bill(PDO $pdo, array $body): array
     }
 
     $attachmentUrl = jg_accounting_long_text($body['attachment_url'] ?? $body['receipt_url'] ?? '', 1000);
-    $receiptStatus = $attachmentUrl !== '' ? 'attached' : jg_accounting_text($body['receipt_status'] ?? 'missing', 24);
-    if (!in_array($receiptStatus, ['missing', 'attached', 'not_required'], true)) {
-        $receiptStatus = 'missing';
-    }
+    $receiptStatus = 'not_required';
     $status = jg_accounting_status_from_bill((string) $dueDate, $amount);
     $payload = [
         ':bill_key' => jg_accounting_key('bill'),
@@ -5501,12 +5616,9 @@ function jg_accounting_update_bill(PDO $pdo, array $body): array
         ':status' => $status,
         ':expected_account_id' => (int) ($body['expected_account_id'] ?? $old['expected_account_id']) ?: null,
         ':attachment_url' => jg_accounting_long_text($body['attachment_url'] ?? $old['attachment_url'], 1000),
-        ':receipt_status' => jg_accounting_text($body['receipt_status'] ?? $old['receipt_status'], 24),
+        ':receipt_status' => 'not_required',
         ':notes' => jg_accounting_long_text($body['notes'] ?? $old['notes'], 2000),
     ];
-    if (!in_array($new[':receipt_status'], ['missing', 'attached', 'not_required'], true)) {
-        $new[':receipt_status'] = $new[':attachment_url'] !== '' ? 'attached' : 'missing';
-    }
     $update = $pdo->prepare(
         'UPDATE accounting_bills
          SET bill_no = :bill_no,

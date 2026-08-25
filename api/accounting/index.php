@@ -47,6 +47,21 @@ function jg_accounting_require_removal_intent(array $body, string $kind): array
     return [$idField => $id, 'void_reason' => 'Admin removal: ' . $reason];
 }
 
+/** @return array{receipt_id:int,transaction_id:int} */
+function jg_accounting_require_receipt_admin_key(array $body): array
+{
+    $receiptId = (int) ($body['receipt_id'] ?? $body['id'] ?? 0);
+    $transactionId = (int) ($body['transaction_id'] ?? 0);
+    if ($receiptId < 1 && $transactionId < 1) {
+        jg_accounting_error('Receipt is required.', 422, 'receipt_id');
+    }
+    $adminKey = trim((string) ($body['admin_key'] ?? ''));
+    if ($adminKey === '' || !jg_admin_code_matches($adminKey)) {
+        jg_accounting_error('The admin login key is incorrect.', 403, 'admin_key');
+    }
+    return ['receipt_id' => $receiptId, 'transaction_id' => $transactionId];
+}
+
 function jg_accounting_export_csv(PDO $pdo): void
 {
     $month = jg_accounting_month($_GET['month'] ?? null);
@@ -291,11 +306,35 @@ try {
         }
     }
 
-    if ($receiptUploads !== [] && !in_array($action, ['create_transaction', 'update_transaction'], true)) {
-        throw new InvalidArgumentException('Receipt uploads are supported for expense transactions.');
-    }
-
-    if (in_array($action, ['create_transaction', 'update_transaction'], true) && $receiptUploads !== []) {
+    if (in_array($action, ['delete_receipt', 'replace_receipt'], true)) {
+        $receiptTarget = jg_accounting_require_receipt_admin_key($body);
+        $receiptId = (int) $receiptTarget['receipt_id'];
+        if ($action === 'delete_receipt' && $receiptUploads !== []) {
+            throw new InvalidArgumentException('Deleting a receipt does not accept a new file.');
+        }
+        if ($action === 'replace_receipt' && count($receiptUploads) !== 1) {
+            throw new InvalidArgumentException('Choose exactly one replacement receipt.');
+        }
+        $pdo->beginTransaction();
+        try {
+            $result = $receiptId > 0
+                ? jg_accounting_delete_receipt($pdo, $receiptId, true)
+                : jg_accounting_clear_transaction_receipt($pdo, (int) $receiptTarget['transaction_id'], true);
+            if ($action === 'replace_receipt') {
+                $transactionId = (int) ($result['transaction_id'] ?? 0);
+                $receipts = jg_accounting_store_receipts($pdo, 'transaction', $transactionId, $receiptUploads);
+                $result['receipts'] = $receipts;
+                $result['receipt'] = $receipts[array_key_last($receipts)];
+                jg_accounting_insert_audit($pdo, 'transaction', $transactionId, 'replace_receipt', ['receipt_id' => $receiptId], $result['receipt']);
+            }
+            $pdo->commit();
+        } catch (Throwable $error) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            throw $error;
+        }
+    } elseif ($receiptUploads !== [] && !in_array($action, ['create_transaction', 'update_transaction', 'mark_bill_paid'], true)) {
+        throw new InvalidArgumentException('Receipt uploads are supported for payment transactions.');
+    } elseif (in_array($action, ['create_transaction', 'update_transaction'], true) && $receiptUploads !== []) {
         $body['receipt_status'] = 'attached';
         $body['receipt_url'] = 'pending-secure-upload';
         $pdo->beginTransaction();
@@ -316,7 +355,26 @@ try {
             }
             throw $error;
         }
+    } elseif ($action === 'mark_bill_paid' && $receiptUploads !== []) {
+        $body['receipt_status'] = 'attached';
+        $body['receipt_url'] = 'pending-secure-upload';
+        $result = jg_accounting_mark_bill_paid($pdo, $body);
+        $transactionId = (int) ($result['transaction_id'] ?? 0);
+        $pdo->beginTransaction();
+        try {
+            $result['receipts'] = jg_accounting_store_receipts($pdo, 'transaction', $transactionId, $receiptUploads);
+            $result['receipt'] = $result['receipts'][array_key_last($result['receipts'])];
+            jg_accounting_insert_audit($pdo, 'transaction', $transactionId, 'attach_receipts', null, $result['receipts']);
+            $pdo->commit();
+        } catch (Throwable $error) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            throw $error;
+        }
     } else {
+        if ($action === 'update_transaction') {
+            // Stored receipt URLs can only be changed through the admin-key-protected receipt actions.
+            unset($body['receipt_url']);
+        }
         $result = match ($action) {
             'create_transaction' => jg_accounting_create_transaction($pdo, $body),
             'create_bill' => jg_accounting_create_bill($pdo, $body),

@@ -254,8 +254,11 @@ if (root) {
     paymentMethod: root.querySelector('[name="payment_method"]'),
     receiptStatus: root.querySelector('[name="receipt_status"]'),
     receiptUrl: root.querySelector('[name="receipt_url"]'),
+    receiptDetails: root.querySelectorAll('[data-accounting-receipt-detail]'),
+    moreSummary: root.querySelector('[data-accounting-more-summary]'),
     receiptUpload: root.querySelector('[data-accounting-receipt-upload]'),
     receiptFile: root.querySelector('[data-accounting-receipt-file]'),
+    receiptSelection: root.querySelector('[data-accounting-receipt-selection]'),
     billsBody: root.querySelector('[data-accounting-bills-body]'),
     transactionsBody: root.querySelector('[data-accounting-transactions-body]'),
     ledgerBody: root.querySelector('[data-accounting-ledger-body]'),
@@ -288,7 +291,16 @@ if (root) {
     receiptImage: root.querySelector('[data-accounting-receipt-image]'),
     receiptPdf: root.querySelector('[data-accounting-receipt-pdf]'),
     receiptTitle: root.querySelector('[data-accounting-receipt-title]'),
-    receiptNewTab: root.querySelector('[data-accounting-receipt-new-tab]')
+    receiptNewTab: root.querySelector('[data-accounting-receipt-new-tab]'),
+    receiptManagement: root.querySelector('[data-accounting-receipt-management]'),
+    receiptManagementCloseButtons: root.querySelectorAll('[data-accounting-receipt-management-close]'),
+    receiptManagementForm: root.querySelector('[data-accounting-receipt-management-form]'),
+    receiptManagementTitle: root.querySelector('[data-accounting-receipt-management-title]'),
+    receiptManagementCopy: root.querySelector('[data-accounting-receipt-management-copy]'),
+    receiptManagementReplacement: root.querySelector('[data-accounting-receipt-replacement]'),
+    receiptManagementReplacementFile: root.querySelector('[data-accounting-receipt-replacement-file]'),
+    receiptManagementError: root.querySelector('[data-accounting-receipt-management-error]'),
+    receiptManagementSubmit: root.querySelector('[data-accounting-receipt-management-submit]')
   };
 
   const buildUrl = (action, options = {}) => {
@@ -491,6 +503,114 @@ if (root) {
     `).join('')}</div>`;
   };
 
+  const receiptManagementMarkup = (record) => {
+    const items = receiptItems(record);
+    if (!items.length) return '';
+    return `<div class="admin-accounting-receipt-management-list">${items.map((receipt, index) => `
+      <div>
+        <span><strong>${escapeHtml(receipt.name || `Receipt ${index + 1}`)}</strong><small>Protected proof ${index + 1} of ${items.length}</small></span>
+        <span>
+          <button type="button" class="admin-soft-btn" data-accounting-receipt-manage="replace" data-accounting-receipt-id="${Number(receipt.id)}" data-accounting-receipt-transaction-id="${Number(record?.id || 0)}" data-accounting-receipt-name="${escapeHtml(receipt.name || `Receipt ${index + 1}`)}">Replace</button>
+          <button type="button" class="admin-danger-btn" data-accounting-receipt-manage="delete" data-accounting-receipt-id="${Number(receipt.id)}" data-accounting-receipt-transaction-id="${Number(record?.id || 0)}" data-accounting-receipt-name="${escapeHtml(receipt.name || `Receipt ${index + 1}`)}">Delete</button>
+        </span>
+      </div>
+    `).join('')}</div>`;
+  };
+
+  const selectedReceiptPreviewUrls = new WeakMap();
+  const receiptFilesBeforeBrowse = new WeakMap();
+
+  const clearSelectedReceiptPreviews = (input, container) => {
+    (selectedReceiptPreviewUrls.get(input) || []).forEach((url) => URL.revokeObjectURL(url));
+    selectedReceiptPreviewUrls.delete(input);
+    if (container instanceof HTMLElement) {
+      container.replaceChildren();
+      container.hidden = true;
+    }
+  };
+
+  const formatFileSize = (bytes) => {
+    const size = Number(bytes || 0);
+    if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`;
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const renderReceiptSelection = (input, container) => {
+    if (!(input instanceof HTMLInputElement) || !(container instanceof HTMLElement)) return;
+    clearSelectedReceiptPreviews(input, container);
+    const files = Array.from(input.files || []);
+    if (!files.length) return;
+    const capacity = Math.max(1, Number(input.dataset.accountingReceiptCapacity || 5));
+    const previewUrls = [];
+    const cards = files.map((file, index) => {
+      const isImage = String(file.type || '').startsWith('image/');
+      const previewUrl = isImage ? URL.createObjectURL(file) : '';
+      if (previewUrl) previewUrls.push(previewUrl);
+      return `
+        <article class="admin-accounting-receipt-selection-card">
+          <span class="admin-accounting-receipt-selection-preview${previewUrl ? ' has-image' : ''}">
+            ${previewUrl ? `<img src="${escapeHtml(previewUrl)}" alt="">` : '<b>PDF</b>'}
+          </span>
+          <span class="admin-accounting-receipt-selection-copy">
+            <strong title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</strong>
+            <small>${escapeHtml(formatFileSize(file.size))} · ready to upload</small>
+          </span>
+          <button type="button" data-accounting-receipt-remove="${index}" aria-label="Remove ${escapeHtml(file.name)}">×</button>
+        </article>
+      `;
+    });
+    selectedReceiptPreviewUrls.set(input, previewUrls);
+    container.innerHTML = `
+      <div class="admin-accounting-receipt-selection-head">
+        <strong>${files.length} of ${capacity} ${capacity === 1 ? 'file' : 'files'} selected</strong>
+        <span>All listed files will be saved with this payment.</span>
+      </div>
+      <div class="admin-accounting-receipt-selection-grid">${cards.join('')}</div>
+    `;
+    container.hidden = false;
+  };
+
+  const removeSelectedReceipt = (input, index, container) => {
+    if (!(input instanceof HTMLInputElement) || !Number.isInteger(index)) return;
+    const transfer = new DataTransfer();
+    Array.from(input.files || []).forEach((file, fileIndex) => {
+      if (fileIndex !== index) transfer.items.add(file);
+    });
+    input.files = transfer.files;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+
+  const mergeReceiptFileSelection = (input) => {
+    if (!(input instanceof HTMLInputElement) || !input.multiple) return;
+    const previousFiles = receiptFilesBeforeBrowse.get(input) || [];
+    receiptFilesBeforeBrowse.delete(input);
+    if (!previousFiles.length) return;
+    const combined = [...previousFiles, ...Array.from(input.files || [])];
+    const uniqueFiles = combined.filter((file, index) => combined.findIndex((candidate) => (
+      candidate.name === file.name
+      && candidate.size === file.size
+      && candidate.lastModified === file.lastModified
+    )) === index);
+    const transfer = new DataTransfer();
+    uniqueFiles.forEach((file) => transfer.items.add(file));
+    input.files = transfer.files;
+  };
+
+  const validateReceiptFiles = (input, capacity = 5) => {
+    const files = Array.from(input?.files || []);
+    if (files.length > capacity) {
+      input.value = '';
+      showToast(`Choose no more than ${capacity} proof-of-payment file${capacity === 1 ? '' : 's'}.`, true);
+      return false;
+    }
+    if (files.some((file) => file.size > 10 * 1024 * 1024)) {
+      input.value = '';
+      showToast('Each proof-of-payment file must be 10 MB or smaller.', true);
+      return false;
+    }
+    return true;
+  };
+
   let receiptObjectUrl = '';
   let receiptRequest = 0;
 
@@ -592,6 +712,105 @@ if (root) {
       if (refs.removalSubmit instanceof HTMLButtonElement) {
         refs.removalSubmit.disabled = false;
         refs.removalSubmit.textContent = originalLabel;
+      }
+    }
+  };
+
+  const closeReceiptManagement = () => {
+    if (refs.receiptManagement) refs.receiptManagement.hidden = true;
+    if (refs.receiptManagementForm instanceof HTMLFormElement) {
+      const selection = refs.receiptManagementForm.querySelector('[data-accounting-receipt-selection]');
+      if (refs.receiptManagementReplacementFile instanceof HTMLInputElement) {
+        clearSelectedReceiptPreviews(refs.receiptManagementReplacementFile, selection);
+      }
+      refs.receiptManagementForm.reset();
+      delete refs.receiptManagementForm.dataset.transactionId;
+    }
+    if (refs.receiptManagementError) refs.receiptManagementError.hidden = true;
+  };
+
+  const openReceiptManagement = (button) => {
+    if (!(button instanceof HTMLElement) || !refs.receiptManagement || !(refs.receiptManagementForm instanceof HTMLFormElement)) return;
+    const action = button.dataset.accountingReceiptManage === 'replace' ? 'replace' : 'delete';
+    const receiptId = Number(button.dataset.accountingReceiptId || 0);
+    const transactionId = Number(button.dataset.accountingReceiptTransactionId || 0);
+    if (!Number.isInteger(receiptId) || receiptId < 0 || !Number.isInteger(transactionId) || transactionId < 1) return;
+    const name = button.dataset.accountingReceiptName || `Receipt ${receiptId}`;
+    refs.receiptManagementForm.reset();
+    refs.receiptManagementForm.elements.receipt_id.value = String(receiptId);
+    refs.receiptManagementForm.elements.receipt_action.value = action;
+    refs.receiptManagementForm.dataset.transactionId = String(transactionId);
+    if (refs.receiptManagementTitle) refs.receiptManagementTitle.textContent = action === 'replace' ? 'Replace receipt' : 'Delete receipt';
+    if (refs.receiptManagementCopy) {
+      refs.receiptManagementCopy.textContent = action === 'replace'
+        ? `Replace “${name}” with one new proof. The other receipts stay unchanged.`
+        : `Permanently remove “${name}” from this payment.`;
+    }
+    if (refs.receiptManagementReplacement instanceof HTMLElement) refs.receiptManagementReplacement.hidden = action !== 'replace';
+    if (refs.receiptManagementReplacementFile instanceof HTMLInputElement) refs.receiptManagementReplacementFile.required = action === 'replace';
+    if (refs.receiptManagementSubmit instanceof HTMLButtonElement) {
+      refs.receiptManagementSubmit.textContent = action === 'replace' ? 'Replace receipt' : 'Delete receipt';
+    }
+    if (refs.receiptManagementError) refs.receiptManagementError.hidden = true;
+    refs.receiptManagement.hidden = false;
+    window.requestAnimationFrame(() => refs.receiptManagementForm?.elements.admin_key?.focus());
+  };
+
+  const submitReceiptManagement = async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (!(form instanceof HTMLFormElement)) return;
+    const data = new FormData(form);
+    const action = String(data.get('receipt_action') || '') === 'replace' ? 'replace' : 'delete';
+    const receiptId = String(data.get('receipt_id') || '');
+    const transactionId = String(form.dataset.transactionId || '');
+    const replacementFile = refs.receiptManagementReplacementFile?.files?.[0] || null;
+    if (action === 'replace' && !replacementFile) {
+      if (refs.receiptManagementError) {
+        refs.receiptManagementError.hidden = false;
+        refs.receiptManagementError.textContent = 'Choose the replacement proof first.';
+      }
+      return;
+    }
+    const originalLabel = refs.receiptManagementSubmit?.textContent || 'Save receipt change';
+    if (refs.receiptManagementSubmit instanceof HTMLButtonElement) {
+      refs.receiptManagementSubmit.disabled = true;
+      refs.receiptManagementSubmit.textContent = action === 'replace' ? 'Replacing…' : 'Deleting…';
+    }
+    try {
+      if (action === 'replace' && replacementFile) {
+        const body = new FormData();
+        body.set('action', 'replace_receipt');
+        body.set('receipt_id', receiptId);
+        body.set('transaction_id', transactionId);
+        body.set('admin_key', String(data.get('admin_key') || ''));
+        body.set('receipt_file', replacementFile, replacementFile.name);
+        await requestJson(endpoint, { method: 'POST', body });
+      } else {
+        await requestJson(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'delete_receipt',
+            receipt_id: receiptId,
+            transaction_id: transactionId,
+            admin_key: String(data.get('admin_key') || '')
+          })
+        });
+      }
+      closeReceiptManagement();
+      showToast(action === 'replace' ? 'Receipt replaced.' : 'Receipt deleted.');
+      await loadSafely(true);
+      if (transactionId) await openDrawer('transaction', transactionId);
+    } catch (error) {
+      if (refs.receiptManagementError) {
+        refs.receiptManagementError.hidden = false;
+        refs.receiptManagementError.textContent = error?.message || 'Unable to change this receipt.';
+      }
+    } finally {
+      if (refs.receiptManagementSubmit instanceof HTMLButtonElement) {
+        refs.receiptManagementSubmit.disabled = false;
+        refs.receiptManagementSubmit.textContent = originalLabel;
       }
     }
   };
@@ -965,11 +1184,26 @@ if (root) {
     }
     if (nextMode === 'pay_bill') renderBillPicker();
     if (nextMode !== 'pay_bill') closeBillPicker();
-    const canUploadReceipt = ['expense_paid', 'customer_refund'].includes(nextMode);
+    const canUploadReceipt = ['expense_paid', 'pay_bill', 'customer_refund'].includes(nextMode);
+    refs.receiptDetails.forEach((field) => { field.hidden = nextMode === 'bill_received'; });
+    if (refs.moreSummary) {
+      refs.moreSummary.textContent = nextMode === 'bill_received'
+        ? 'Brand, channel, reference, notes'
+        : 'Brand, channel, receipt, reference, notes';
+    }
     if (refs.receiptUpload) refs.receiptUpload.hidden = !canUploadReceipt;
     if (refs.receiptFile) {
       refs.receiptFile.disabled = !canUploadReceipt;
-      if (!canUploadReceipt) refs.receiptFile.value = '';
+      if (!canUploadReceipt) {
+        refs.receiptFile.value = '';
+        clearSelectedReceiptPreviews(refs.receiptFile, refs.receiptSelection);
+      }
+    }
+    if (nextMode === 'bill_received') {
+      if (refs.receiptUrl) refs.receiptUrl.value = '';
+      if (refs.receiptStatus) refs.receiptStatus.value = 'not_required';
+    } else if (previousMode === 'bill_received' && refs.receiptStatus) {
+      refs.receiptStatus.value = 'missing';
     }
     if (previousMode === 'transfer' && nextMode !== 'transfer' && refs.categoryValue) {
       const transferCategoryId = String(internalTransferCategory()?.id || '');
@@ -995,6 +1229,7 @@ if (root) {
       if (refs.transferFeeInput) refs.transferFeeInput.value = '';
       if (refs.brandSelect) refs.brandSelect.value = 'General / Shared';
       if (refs.channelSelect) refs.channelSelect.value = 'Internal';
+      if (refs.receiptFile) clearSelectedReceiptPreviews(refs.receiptFile, refs.receiptSelection);
       renderLookups();
       setMode(state.mode);
     } finally {
@@ -2088,7 +2323,7 @@ if (root) {
             <b>Note</b>
             <span>${escapeHtml(row.note || '—')}</span>
           </span>
-          ${receiptButtonsMarkup(row, true)}
+          ${isBillRecord ? '' : receiptButtonsMarkup(row, true)}
           <span class="admin-accounting-ledger-state">${escapeHtml(String(row.status || '').replace(/_/g, ' '))}</span>
           <span class="admin-accounting-ledger-amount-wrap">${isBillRecord ? '<small>Amount to pay</small>' : ''}<strong class="admin-accounting-ledger-amount ${amountClass}">${prefix}${formatCurrency(row.amount || 0)}</strong>${canOpen ? `<button type="button" class="admin-accounting-ledger-remove" data-accounting-remove-kind="${escapeHtml(String(row.kind))}" data-accounting-remove-id="${escapeHtml(String(row.source_id || ''))}">Remove</button>` : ''}</span>
         </div>
@@ -2197,8 +2432,7 @@ if (root) {
           <label><span>Total</span><input name="total_amount" inputmode="numeric" value="${escapeHtml(String(item.total_amount || ''))}" ${Number(item.paid_amount || 0) > 0 ? 'disabled' : ''} required></label>
           <label><span>Category</span>${categoryComboboxMarkup(item.category_id)}</label>
           <label><span>Expected account</span><select name="expected_account_id">${accountOptions}</select></label>
-          <label><span>Receipt status</span><select name="receipt_status">${receiptOptions}</select></label>
-          <label><span>Attachment URL</span><input type="url" name="attachment_url" value="${escapeHtml(item.attachment_url || '')}"></label>
+          <label><span>Bill / invoice URL</span><input type="url" name="attachment_url" value="${escapeHtml(item.attachment_url || '')}"></label>
           <label class="admin-accounting-form-wide"><span>Notes</span><textarea name="notes" rows="4">${escapeHtml(item.notes || '')}</textarea></label>
           <p class="admin-form-error" data-accounting-edit-error hidden></p>
           <button type="submit" class="admin-primary-btn">Save correction</button>
@@ -2210,9 +2444,9 @@ if (root) {
           <label><span>Account</span><select name="account_id" required>${accountOptions}</select></label>
           <label><span>Category</span>${categoryComboboxMarkup(item.category_id)}</label>
           <label><span>Receipt status</span><select name="receipt_status">${receiptOptions}</select></label>
-          <label><span>Receipt URL</span><input type="url" name="receipt_url" value="${escapeHtml(item.receipt_url || '')}"></label>
-          ${existingReceipts.length ? `<div class="admin-accounting-existing-receipts"><span>Proofs of payment (${existingReceipts.length}/5)</span>${receiptButtonsMarkup(item)}</div>` : ''}
+          ${existingReceipts.length ? `<div class="admin-accounting-existing-receipts"><span>Proofs of payment (${existingReceipts.length}/5)</span>${receiptButtonsMarkup(item)}${receiptManagementMarkup(item)}</div>` : ''}
           <label class="admin-accounting-receipt-upload"><span>Add proof of payment <small>${remainingReceiptSlots ? `Up to ${remainingReceiptSlots} more · ` : 'Limit reached · '}PDF or image · max 10 MB each</small></span><input type="file" name="receipt_files[]" data-accounting-edit-receipt-file data-accounting-receipt-capacity="${remainingReceiptSlots}" accept="application/pdf,image/png,image/jpeg,image/webp" multiple ${remainingReceiptSlots ? '' : 'disabled'}></label>
+          <div class="admin-accounting-receipt-selection" data-accounting-receipt-selection aria-live="polite" hidden></div>
           <label><span>Reference no.</span><input name="reference_no" value="${escapeHtml(item.reference_no || '')}"></label>
           <label><span>Order / SKU</span><input name="order_no" value="${escapeHtml(item.order_no || '')}"></label>
           <label class="admin-accounting-form-wide"><span>Notes</span><textarea name="notes" rows="4">${escapeHtml(item.notes || '')}</textarea></label>
@@ -2495,7 +2729,10 @@ if (root) {
     try {
       if (receiptFiles.length) {
         const multipartBody = new FormData();
-        Object.entries(payload).forEach(([key, value]) => multipartBody.append(key, String(value ?? '')));
+        Object.entries(payload).forEach(([key, value]) => multipartBody.append(
+          key,
+          value && typeof value === 'object' ? JSON.stringify(value) : String(value ?? '')
+        ));
         multipartBody.set('receipt_status', 'attached');
         receiptFiles.forEach((receiptFile) => multipartBody.append('receipt_files[]', receiptFile, receiptFile.name));
         await requestJson(endpoint, { method: 'POST', body: multipartBody });
@@ -2511,7 +2748,10 @@ if (root) {
       await loadAccounting(true);
       if (submitter?.hasAttribute('data-accounting-save-add')) {
         if (refs.amountInput) refs.amountInput.value = '';
-        if (refs.receiptFile) refs.receiptFile.value = '';
+        if (refs.receiptFile) {
+          refs.receiptFile.value = '';
+          clearSelectedReceiptPreviews(refs.receiptFile, refs.receiptSelection);
+        }
         root.querySelectorAll('[name="receipt_url"], [name="reference_no"], [name="order_no"], [name="notes"]').forEach((input) => {
           input.value = '';
         });
@@ -2585,6 +2825,12 @@ if (root) {
     refs.transferFeeInput.value = normalizeAmountInput(refs.transferFeeInput.value);
   });
   refs.receiptFile?.addEventListener('change', () => {
+    mergeReceiptFileSelection(refs.receiptFile);
+    if (!validateReceiptFiles(refs.receiptFile, 5)) {
+      clearSelectedReceiptPreviews(refs.receiptFile, refs.receiptSelection);
+      return;
+    }
+    renderReceiptSelection(refs.receiptFile, refs.receiptSelection);
     if (refs.receiptFile?.files?.length && refs.receiptStatus) {
       refs.receiptStatus.value = 'attached';
     }
@@ -2623,6 +2869,17 @@ if (root) {
   });
   root.addEventListener('click', (event) => {
     const target = event.target instanceof Element ? event.target : null;
+    if (target instanceof HTMLInputElement && target.type === 'file' && target.multiple) {
+      receiptFilesBeforeBrowse.set(target, Array.from(target.files || []));
+    }
+    const receiptRemove = target?.closest('[data-accounting-receipt-remove]');
+    if (receiptRemove instanceof HTMLButtonElement) {
+      const container = receiptRemove.closest('[data-accounting-receipt-selection]');
+      const form = receiptRemove.closest('form');
+      const input = form?.querySelector('input[type="file"]');
+      removeSelectedReceipt(input, Number(receiptRemove.dataset.accountingReceiptRemove), container);
+      return;
+    }
     const removeButton = target?.closest('[data-accounting-remove-kind]');
     if (removeButton instanceof HTMLElement) {
       openRemoval(removeButton.dataset.accountingRemoveKind || 'transaction', removeButton.dataset.accountingRemoveId || '');
@@ -2980,6 +3237,16 @@ if (root) {
   refs.removalCloseButtons.forEach((button) => button.addEventListener('click', closeRemoval));
   refs.removalForm?.addEventListener('submit', submitRemoval);
   refs.receiptCloseButtons.forEach((button) => button.addEventListener('click', closeReceipt));
+  refs.receiptManagementCloseButtons.forEach((button) => button.addEventListener('click', closeReceiptManagement));
+  refs.receiptManagementForm?.addEventListener('submit', submitReceiptManagement);
+  refs.receiptManagementReplacementFile?.addEventListener('change', () => {
+    const selection = refs.receiptManagementForm?.querySelector('[data-accounting-receipt-selection]');
+    if (!validateReceiptFiles(refs.receiptManagementReplacementFile, 1)) {
+      clearSelectedReceiptPreviews(refs.receiptManagementReplacementFile, selection);
+      return;
+    }
+    renderReceiptSelection(refs.receiptManagementReplacementFile, selection);
+  });
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
       const openCombobox = root.querySelector('[data-accounting-category-trigger][aria-expanded="true"]')?.closest('[data-accounting-category-combobox]');
@@ -2993,6 +3260,7 @@ if (root) {
       closeAccountSettings();
       closeRemoval();
       closeReceipt();
+      closeReceiptManagement();
     }
   });
   window.addEventListener('partner-billing:confirmed', () => {
@@ -3001,22 +3269,24 @@ if (root) {
   refs.drawerBody?.addEventListener('change', (event) => {
     const input = event.target;
     if (!(input instanceof HTMLInputElement) || !input.matches('[data-accounting-edit-receipt-file]')) return;
+    mergeReceiptFileSelection(input);
     const form = input.closest('[data-accounting-edit-form]');
     const receiptStatus = form?.querySelector('[name="receipt_status"]');
+    const selection = form?.querySelector('[data-accounting-receipt-selection]');
     const capacity = Math.max(0, Number(input.dataset.accountingReceiptCapacity || 5));
-    if ((input.files?.length || 0) > capacity) {
-      input.value = '';
-      showToast(`This entry can accept ${capacity} more proof-of-payment file${capacity === 1 ? '' : 's'}.`, true);
+    if (!validateReceiptFiles(input, capacity)) {
+      clearSelectedReceiptPreviews(input, selection);
       return;
     }
-    if (Array.from(input.files || []).some((file) => file.size > 10 * 1024 * 1024)) {
-      input.value = '';
-      showToast('Each proof-of-payment file must be 10 MB or smaller.', true);
-      return;
-    }
+    renderReceiptSelection(input, selection);
     if (input.files?.length && receiptStatus instanceof HTMLSelectElement) receiptStatus.value = 'attached';
   });
   refs.drawerBody?.addEventListener('click', (event) => {
+    const manage = event.target instanceof Element ? event.target.closest('[data-accounting-receipt-manage]') : null;
+    if (manage instanceof HTMLElement) {
+      openReceiptManagement(manage);
+      return;
+    }
     const receipt = event.target instanceof Element ? event.target.closest('[data-accounting-receipt-open]') : null;
     if (receipt instanceof HTMLElement) {
       openReceipt(receipt.dataset.accountingReceiptOpen || '', receipt.dataset.accountingReceiptName || 'Receipt');
