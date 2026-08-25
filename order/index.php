@@ -83,6 +83,7 @@ $assetVersion = (string) max(
 
                 <section class="admin-order-breakdown-card">
                     <header><div><span class="admin-panel-kicker">Processing</span><h2>Order timeline</h2></div></header>
+                    <div class="admin-order-timeline-summary" data-order-timeline-summary></div>
                     <ol class="admin-order-timeline" data-order-timeline></ol>
                 </section>
             </div>

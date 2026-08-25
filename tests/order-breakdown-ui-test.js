@@ -18,7 +18,10 @@ assert.match(styles, /\.admin-order-economics[\s\S]*grid-template-columns: repea
 assert.match(styles, /\.admin-order-breakdown-loading\[hidden\][\s\S]*display: none !important/, 'The loading skeleton must disappear after the order loads.');
 assert.match(script, /const timelineIcon[\s\S]*pickup_window[\s\S]*pickup_confirmed[\s\S]*funds/);
 assert.match(script, /admin-order-timeline-marker[\s\S]*admin-order-timeline-copy/);
+assert.match(script, /nextIndex[\s\S]*completedCount[\s\S]*Next milestone[\s\S]*milestones done/);
+assert.match(script, /milestoneState === 'done' \? 'Done'[\s\S]*'Next'[\s\S]*'Current'[\s\S]*'Upcoming'/);
 assert.match(styles, /\.admin-order-timeline::before[\s\S]*linear-gradient/, 'Timeline events must be connected by a visible lifecycle rail.');
+assert.match(styles, /\.admin-order-current-state[\s\S]*admin-order-current-pulse[\s\S]*\.admin-order-next-state/);
 assert.match(api, /function jg_orders_order_detail_from_rows[\s\S]*estimated_gross_profit'[\s\S]*\$netRevenue - \$cogs - \$packing/);
 assert.match(api, /function jg_orders_optional_fulfillment_detail[\s\S]*\/fulfillment\/order-detail/);
 

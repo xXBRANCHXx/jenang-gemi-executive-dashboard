@@ -18,6 +18,7 @@ if (root) {
     coverage: root.querySelector('[data-order-coverage]'),
     itemCount: root.querySelector('[data-order-item-count]'),
     items: root.querySelector('[data-order-items]'),
+    timelineSummary: root.querySelector('[data-order-timeline-summary]'),
     timeline: root.querySelector('[data-order-timeline]'),
     facts: root.querySelector('[data-order-facts]')
   };
@@ -65,6 +66,15 @@ if (root) {
     const currency = financials.currency || 'IDR';
     const status = order.workflow_status || order.status || order.package_status || 'Order found';
     const physicalItems = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+    const now = Date.now();
+    const timelineDates = timeline.map((event) => {
+      const date = new Date(event.at || '');
+      return Number.isNaN(date.getTime()) ? null : date;
+    });
+    const nextIndex = timelineDates.findIndex((date) => date && date.getTime() > now);
+    const completedCount = timelineDates.filter((date) => date && date.getTime() <= now).length;
+    const nextEvent = nextIndex >= 0 ? timeline[nextIndex] : null;
+    const progress = timeline.length ? Math.min(100, Math.max(0, (completedCount / timeline.length) * 100)) : 0;
 
     document.title = `${order.order_id || root.dataset.orderId} · Order breakdown`;
     refs.title.textContent = order.order_id || root.dataset.orderId;
@@ -104,18 +114,36 @@ if (root) {
         ${item.is_free_gift ? '<small class="admin-order-product-note">Free gift · costs included with no attributed revenue</small>' : ''}
       </article>`).join('') : '<p class="admin-empty">No product lines are stored for this order yet.</p>';
 
-    refs.timeline.innerHTML = timeline.length ? timeline.map((event) => {
+    refs.timelineSummary.innerHTML = `
+      <div class="admin-order-current-state">
+        <i aria-hidden="true"></i>
+        <div><span>Current status</span><strong>${escapeHtml(readable(status))}</strong></div>
+      </div>
+      <div class="admin-order-next-state">
+        <span>${nextEvent ? 'Next milestone' : 'Next update'}</span>
+        <strong>${escapeHtml(nextEvent?.label || 'Waiting for source confirmation')}</strong>
+        <small>${nextEvent ? escapeHtml(dateTime(nextEvent.at)) : 'No later milestone has been supplied yet'}</small>
+      </div>
+      <div class="admin-order-progress" aria-label="${completedCount} of ${timeline.length} recorded milestones completed">
+        <span><strong>${completedCount}</strong> of ${timeline.length} milestones done</span>
+        <div><i style="--order-progress:${progress}%"></i></div>
+      </div>`;
+
+    refs.timeline.innerHTML = timeline.length ? timeline.map((event, index) => {
       const kind = String(event.kind || 'event').toLowerCase();
-      const at = new Date(event.at || '');
-      const scheduled = !Number.isNaN(at.getTime()) && at.getTime() > Date.now();
+      const at = timelineDates[index];
+      const scheduled = at && at.getTime() > now;
+      const milestoneState = scheduled
+        ? (index === nextIndex ? 'next' : 'upcoming')
+        : (nextIndex < 0 && index === timeline.length - 1 ? 'current' : 'done');
       return `
-        <li class="is-${escapeHtml(kind)} ${scheduled ? 'is-scheduled' : 'is-complete'}">
+        <li class="is-${escapeHtml(kind)} is-${milestoneState}">
           <div class="admin-order-timeline-marker" aria-hidden="true">${timelineIcon(kind)}</div>
           <div class="admin-order-timeline-copy">
-            <strong>${escapeHtml(event.label || 'Order event')}</strong>
+            <div><strong>${escapeHtml(event.label || 'Order event')}</strong><b>${milestoneState === 'done' ? 'Done' : milestoneState === 'next' ? 'Next' : milestoneState === 'current' ? 'Current' : 'Upcoming'}</b></div>
             ${event.note ? `<span>${escapeHtml(event.note)}</span>` : ''}
           </div>
-          <time>${escapeHtml(dateTime(event.at))}${scheduled ? '<small>Scheduled</small>' : ''}</time>
+          <time>${escapeHtml(dateTime(event.at))}</time>
         </li>`;
     }).join('') : '<li class="is-empty"><div class="admin-order-timeline-marker" aria-hidden="true">' + timelineIcon('event') + '</div><div class="admin-order-timeline-copy"><strong>No timeline facts stored</strong><span>The source has not supplied lifecycle timestamps yet.</span></div></li>';
 
