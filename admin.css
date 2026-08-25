@@ -4969,6 +4969,40 @@ button, input {
   text-overflow: ellipsis;
 }
 
+.admin-orders-table tr[data-order-detail-url] {
+  cursor: pointer;
+}
+
+.admin-orders-table tr[data-order-detail-url]:focus-visible {
+  outline: 2px solid var(--admin-text);
+  outline-offset: -2px;
+}
+
+.admin-orders-table tbody tr[data-order-detail-url]:not(.is-canceled):hover > td {
+  background: color-mix(in srgb, var(--admin-text) 5%, transparent);
+}
+
+.admin-orders-table tbody tr.is-canceled > td {
+  border-bottom-color: rgba(239, 68, 68, 0.58);
+  background: rgba(153, 27, 27, 0.62);
+  color: #fff5f5;
+}
+
+.admin-orders-table tbody tr.is-canceled:hover > td,
+.admin-orders-table tbody tr.is-canceled:focus-visible > td {
+  background: rgba(185, 28, 28, 0.78);
+}
+
+:root[data-admin-theme='light'] .admin-orders-table tbody tr.is-canceled > td {
+  background: rgba(254, 202, 202, 0.9);
+  color: #7f1d1d;
+}
+
+:root[data-admin-theme='light'] .admin-orders-table tbody tr.is-canceled:hover > td,
+:root[data-admin-theme='light'] .admin-orders-table tbody tr.is-canceled:focus-visible > td {
+  background: rgba(252, 165, 165, 0.95);
+}
+
 .admin-orders-table strong {
   display: inline;
   font-size: inherit;

@@ -935,9 +935,8 @@ const ORDER_BOOTSTRAP_MIN_ROWS = 320;
 const ORDER_BOOTSTRAP_MAX_WINDOWS = 2;
 const ORDER_BACKGROUND_TARGET_ROWS = 24000;
 const ORDER_BACKGROUND_MAX_WINDOWS = 72;
-const ORDER_CLIENT_CACHE_VERSION = 6;
+const ORDER_CLIENT_CACHE_VERSION = 7;
 const ORDER_PAYMENT_AUDIT_START_DATE = '2026-05-20';
-const ORDER_PAYMENT_AUDIT_END_DATE = '2026-08-06';
 const OVERVIEW_LOCATION_PAGE_SIZE = 2000;
 const OVERVIEW_LOCATION_MAX_PAGES = 25;
 const OVERVIEW_LOCATION_CACHE_VERSION = 5;
@@ -2579,6 +2578,8 @@ document.addEventListener('DOMContentLoaded', () => {
       paymentSaving: false,
       paymentAuditRunning: false,
       paymentAuditError: '',
+      paymentReconciledAt: 0,
+      paymentReconcilePromise: null,
       renderLimit: ORDER_RENDER_BATCH_SIZE,
       scrollPending: false,
       ensureRunning: false,
@@ -2592,6 +2593,7 @@ document.addEventListener('DOMContentLoaded', () => {
         flavors: [],
         platforms: [],
         accounts: [],
+        cancellations: [],
         payments: [],
         startDate: '',
         endDate: ''
@@ -2904,6 +2906,7 @@ document.addEventListener('DOMContentLoaded', () => {
     companyTree: document.querySelector('[data-orders-company-tree]'),
     catalogSearch: document.querySelector('[data-orders-catalog-search]'),
     platforms: document.querySelector('[data-orders-platforms]'),
+    cancellationFilters: document.querySelector('[data-orders-cancellation-filters]'),
     paymentFilters: document.querySelector('[data-orders-payment-filters]'),
     quickRanges: document.querySelectorAll('[data-orders-quick-range]'),
     startLabel: document.querySelector('[data-orders-start-label]'),
@@ -5028,10 +5031,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const compactOrderFilterValue = (value) => normalizeOrderFilterValue(value).replace(/[^a-z0-9]+/g, '');
 
-  const ordersPaymentHistoryVerified = (backtrack = state.wallet.data?.backtrack) => (
+  const orderPaymentAuditEndDate = () => activeLocalDate;
+
+  const ordersPaymentHistoryCoverageComplete = (backtrack = state.wallet.data?.backtrack) => (
     normalizeOrderFilterValue(backtrack?.status) === 'complete'
       && String(backtrack?.start_date || '') <= ORDER_PAYMENT_AUDIT_START_DATE
-      && String(backtrack?.end_date || '') >= ORDER_PAYMENT_AUDIT_END_DATE
+      && String(backtrack?.end_date || '') >= orderPaymentAuditEndDate()
+  );
+
+  const ordersPaymentHistoryVerified = (backtrack = state.wallet.data?.backtrack) => (
+    ordersPaymentHistoryCoverageComplete(backtrack)
+      && Date.now() - Number(state.orders.paymentReconciledAt || 0) < AUTO_REFRESH_INTERVAL_MS
   );
 
   const renderOrdersPaymentAudit = () => {
@@ -5057,7 +5067,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (ordersPaymentHistoryVerified(backtrack)) {
       renderProgress(
         'Paid-status history verified · 100%',
-        `${formatRegionalInteger(daysTotal)} of ${formatRegionalInteger(daysTotal)} days complete · ${formatRegionalInteger(importedRows)} order rows checked`,
+        `${formatRegionalInteger(daysTotal)} of ${formatRegionalInteger(daysTotal)} days complete through ${orderPaymentAuditEndDate()} · ${formatRegionalInteger(importedRows)} order rows checked`,
         'is-verified'
       );
       return;
@@ -5074,6 +5084,14 @@ document.addEventListener('DOMContentLoaded', () => {
       );
       return;
     }
+    if (ordersPaymentHistoryCoverageComplete(backtrack) && state.orders.paymentAuditError) {
+      renderProgress(
+        'Current paid-status check needs retry',
+        `${state.orders.paymentAuditError} · outstanding money has not been marked verified`,
+        'is-warning'
+      );
+      return;
+    }
     if (normalizeOrderFilterValue(backtrack.status) === 'failed') {
       const failure = String(backtrack.last_error || '').trim();
       renderProgress(
@@ -5083,12 +5101,15 @@ document.addEventListener('DOMContentLoaded', () => {
       );
       return;
     }
-    renderProgress('Paid-status history queued · 0%', 'Starting from May 20, 2026', 'is-running');
+    renderProgress('Paid-status history queued · 0%', `Checking May 20, 2026 through ${orderPaymentAuditEndDate()}`, 'is-running');
   };
 
   const orderPaymentStatus = (row) => {
-    const lifecycle = normalizeOrderFilterValue(row?.status || row?.order_status || row?.fulfillment_status || '');
-    if (lifecycle.includes('cancel') || lifecycle === 'void' || lifecycle === 'voided') return 'canceled';
+    const lifecycles = [row?.status, row?.order_status, row?.fulfillment_status]
+      .map(normalizeOrderFilterValue)
+      .filter(Boolean);
+    if (lifecycles.some((lifecycle) => lifecycle.includes('cancel') || lifecycle === 'void' || lifecycle === 'voided')) return 'canceled';
+    const lifecycle = lifecycles[0] || '';
     const platform = normalizeOrderFilterValue(row?.platform || '');
     if (['shopee', 'tiktok', 'tokopedia'].includes(platform)) {
       const fundsReleased = row?.funds_released === true
@@ -5102,6 +5123,8 @@ document.addEventListener('DOMContentLoaded', () => {
     return 'paid';
   };
 
+  const orderCancellationStatus = (row) => orderPaymentStatus(row) === 'canceled' ? 'canceled' : 'active';
+
   const orderFiltersSignature = () => {
     const filters = state.orders.filters;
     return [
@@ -5110,6 +5133,7 @@ document.addEventListener('DOMContentLoaded', () => {
       filters.flavors.join('\u001f'),
       filters.platforms.join('\u001f'),
       filters.accounts.join('\u001f'),
+      filters.cancellations.join('\u001f'),
       filters.payments.join('\u001f'),
       filters.startDate || '',
       filters.endDate || ''
@@ -5129,6 +5153,7 @@ document.addEventListener('DOMContentLoaded', () => {
       flavors: createOrderFilterMatchList(filters.flavors),
       platforms: new Set(filters.platforms.map(normalizeOrderFilterValue).filter(Boolean)),
       accounts: new Set(filters.accounts.map(normalizeOrderFilterValue).filter(Boolean)),
+      cancellations: new Set(filters.cancellations.map(normalizeOrderFilterValue).filter(Boolean)),
       payments: new Set(filters.payments.map(normalizeOrderFilterValue).filter(Boolean)),
       startDate: filters.startDate || '',
       endDate: filters.endDate || ''
@@ -5905,6 +5930,7 @@ document.addEventListener('DOMContentLoaded', () => {
       orderFilterMatchesAny(filters.flavors, orderFlavorValues(row)) &&
       (!filters.platforms.size || filters.platforms.has(row._platformKey || normalizeOrderFilterValue(row.platform || ''))) &&
       (!filters.accounts.size || filters.accounts.has(row._accountFilterKey || orderAccountFilterKey(row))) &&
+      (!filters.cancellations.size || filters.cancellations.has(orderCancellationStatus(row))) &&
       (!filters.payments.size || filters.payments.has(orderPaymentStatus(row)))
     );
   };
@@ -5917,7 +5943,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const hasOrderFilters = () => {
     const filters = state.orders.filters;
-    return Boolean(filters.companies.length || filters.products.length || filters.flavors.length || filters.platforms.length || filters.accounts.length || filters.payments.length || filters.startDate || filters.endDate);
+    return Boolean(filters.companies.length || filters.products.length || filters.flavors.length || filters.platforms.length || filters.accounts.length || filters.cancellations.length || filters.payments.length || filters.startDate || filters.endDate);
   };
 
   const resetOrderRenderWindow = () => {
@@ -5956,6 +5982,7 @@ document.addEventListener('DOMContentLoaded', () => {
       flavors: [],
       platforms: [],
       accounts: [],
+      cancellations: [],
       payments: [],
       startDate: '',
       endDate: ''
@@ -7841,6 +7868,7 @@ document.addEventListener('DOMContentLoaded', () => {
     filters.flavors.forEach((value) => addChip('flavors', `Flavor: ${value}`, value));
     filters.platforms.forEach((value) => addChip('platforms', `Platform: ${platformLabel(value)}`, value));
     filters.accounts.forEach((value) => addChip('accounts', `Account: ${orderAccountLabelFromKey(value)}`, value));
+    filters.cancellations.forEach((value) => addChip('cancellations', value === 'canceled' ? 'Orders: Canceled' : 'Orders: Non-canceled', value));
     filters.payments.forEach((value) => addChip('payments', `Payment: ${toTitleCase(value)}`, value));
     if (filters.startDate) addChip('startDate', `From: ${filters.startDate}`, filters.startDate);
     if (filters.endDate) addChip('endDate', `To: ${filters.endDate}`, filters.endDate);
@@ -8052,6 +8080,7 @@ document.addEventListener('DOMContentLoaded', () => {
       + filters.flavors.length
       + filters.platforms.length
       + filters.accounts.length
+      + filters.cancellations.length
       + filters.payments.length
       + (filters.startDate || filters.endDate ? 1 : 0);
   };
@@ -8088,6 +8117,12 @@ document.addEventListener('DOMContentLoaded', () => {
     ordersRefs.paymentFilters?.querySelectorAll('[data-toggle-order-payment]').forEach((button) => {
       const value = normalizeOrderFilterValue(button.getAttribute('data-toggle-order-payment'));
       const selected = state.orders.filters.payments.some((item) => normalizeOrderFilterValue(item) === value);
+      button.classList.toggle('is-selected', selected);
+      button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+    });
+    ordersRefs.cancellationFilters?.querySelectorAll('[data-toggle-order-cancellation]').forEach((button) => {
+      const value = normalizeOrderFilterValue(button.getAttribute('data-toggle-order-cancellation'));
+      const selected = state.orders.filters.cancellations.some((item) => normalizeOrderFilterValue(item) === value);
       button.classList.toggle('is-selected', selected);
       button.setAttribute('aria-pressed', selected ? 'true' : 'false');
     });
@@ -8170,6 +8205,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	        ? [...new Set(row.allocations.map((item) => item.po_number).filter(Boolean))].join(', ')
 	        : '-';
 	      const paymentStatus = orderPaymentStatus(row);
+      const canceled = orderCancellationStatus(row) === 'canceled';
+      const detailUrl = orderId ? `../order/?order_id=${encodeURIComponent(orderId)}` : '';
       const directOrder = ['whatsapp', 'walk-in', 'walk_in'].includes(normalizeOrderFilterValue(row.platform));
       const marketplaceOrder = ['shopee', 'tiktok', 'tokopedia'].includes(normalizeOrderFilterValue(row.platform));
       const paymentTitle = paymentStatus === 'paid'
@@ -8187,7 +8224,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ? `<button type="button" class="admin-order-payment-dot is-unpaid" data-confirm-order-payment="${escapeHtml(orderId)}" title="${escapeHtml(paymentTitle)}" aria-label="${escapeHtml(paymentTitle)}"></button>`
         : `<span class="admin-order-payment-dot is-${escapeHtml(paymentStatus)}" title="${escapeHtml(paymentTitle)}" aria-label="${escapeHtml(paymentTitle)}"></span>`;
 	      return `
-	        <tr>
+	        <tr${canceled ? ' class="is-canceled"' : ''}${detailUrl ? ` data-order-detail-url="${escapeHtml(detailUrl)}" tabindex="0" role="link" aria-label="Open order ${escapeHtml(orderId)} breakdown in a new tab"` : ''}>
 	          <td>${escapeHtml(formatOrderTimestamp(row.order_create_time || row.timestamp))}</td>
 	          <td><strong class="admin-order-id"${orderAccent ? ` style="--admin-order-id-color: ${orderAccent}; --admin-order-id-rgb: ${hexToRgbParts(orderAccent)}"` : ''}>${escapeHtml(orderId)}</strong></td>
 	          <td>${escapeHtml(platform)}</td>
@@ -8204,6 +8241,13 @@ document.addEventListener('DOMContentLoaded', () => {
 	      `;
 	    }, 'No loaded orders match the current filters yet.');
 	  };
+
+  const openOrderBreakdown = (row) => {
+    const detailUrl = row?.getAttribute?.('data-order-detail-url') || '';
+    if (!detailUrl) return;
+    const detailWindow = window.open(detailUrl, '_blank', 'noopener,noreferrer');
+    if (detailWindow) detailWindow.opener = null;
+  };
 
   const openOrderPaymentDialog = (orderId) => {
     if (!ordersRefs.paymentDialog || !orderId) return;
@@ -11475,6 +11519,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		      });
 		      applyWalletData(data, { usingCache: false });
 		      const responseKey = options.responseKey || 'release_sync';
+          if (options.requireSourceVerified) return data?.[responseKey]?.source_verified === true;
 		      return data?.[responseKey]?.ok !== false;
 	    } catch (error) {
 	      if (options.silent) {
@@ -11566,6 +11611,39 @@ document.addEventListener('DOMContentLoaded', () => {
 	      renderWallet(state.wallet.data);
 	    }
 	  };
+
+  const reconcileOrdersPaymentStatus = async () => {
+    if (state.orders.paymentReconcilePromise) return state.orders.paymentReconcilePromise;
+    state.orders.paymentReconcilePromise = (async () => {
+      const verified = await postWalletAction(
+        'sync_releases',
+        { phase: 'orders', days: 2 },
+        'sync_releases:orders',
+        {
+          timeoutMs: 65000,
+          silent: true,
+          background: true,
+          requireSourceVerified: true
+        }
+      );
+      if (!verified) {
+        state.orders.paymentReconciledAt = 0;
+        state.orders.paymentAuditError = 'Marketplace release reconciliation did not verify every active account';
+        return false;
+      }
+      state.orders.paymentReconciledAt = Date.now();
+      state.orders.paymentAuditError = '';
+      // The source sync updates release markers in the mirror. Discard the old
+      // browser rows before calculating Paid and outstanding states again.
+      state.orders.monthsSignature = '';
+      await loadOrdersSafely({ force: true, preferStale: false, repair: true });
+      return true;
+    })().finally(() => {
+      state.orders.paymentReconcilePromise = null;
+      renderOrdersPaymentAudit();
+    });
+    return state.orders.paymentReconcilePromise;
+  };
 
 	  const shouldAutoSyncWalletReleases = (options = {}) => {
 	    if (!isBrowserOnline() || document.hidden || state.wallet.backtrackRunning) return false;
@@ -11736,15 +11814,12 @@ document.addEventListener('DOMContentLoaded', () => {
 	        return true;
 	      }
 	      const backtrack = state.wallet.data?.backtrack || {};
-	      const complete = await runWalletBacktrack(!backtrack.active, {
-	        startDate: ORDER_PAYMENT_AUDIT_START_DATE,
-	        endDate: ORDER_PAYMENT_AUDIT_END_DATE
-	      });
+	      const complete = ordersPaymentHistoryCoverageComplete(backtrack) || await runWalletBacktrack(!backtrack.active, {
+	          startDate: ORDER_PAYMENT_AUDIT_START_DATE,
+	          endDate: orderPaymentAuditEndDate()
+	        });
 	      if (complete) {
-	        // Release markers can change rows already held in memory, so reload the
-	        // visible order windows after the historical ledger audit completes.
-	        state.orders.monthsSignature = '';
-	        await loadOrdersSafely({ force: true, preferStale: false, repair: true });
+	        return await reconcileOrdersPaymentStatus();
 	      }
 	      return complete;
 	    } finally {
@@ -14494,6 +14569,19 @@ document.addEventListener('DOMContentLoaded', () => {
     try { await ensureEnoughOrderRows(); } catch (error) { showOrderLoadError(error); }
   });
 
+  ordersRefs.cancellationFilters?.addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-toggle-order-cancellation]');
+    if (!button) return;
+    const cancellation = normalizeOrderFilterValue(button.getAttribute('data-toggle-order-cancellation'));
+    const selected = state.orders.filters.cancellations.some((item) => normalizeOrderFilterValue(item) === cancellation);
+    state.orders.filters.cancellations = selected ? [] : [cancellation];
+    resetOrderRenderWindow();
+    syncOrderLoadedAll();
+    syncOrderFilterControls();
+    renderOrders();
+    try { await ensureEnoughOrderRows(); } catch (error) { showOrderLoadError(error); }
+  });
+
   ordersRefs.activeFilters?.addEventListener('click', (event) => {
     const button = event.target.closest('[data-remove-order-filter]');
     if (!button) return;
@@ -14665,9 +14753,20 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     const button = target.closest('[data-order-popover]');
-    if (!(button instanceof HTMLElement)) return;
-    event.stopPropagation();
-    openOrderPopover(button, button.dataset.orderPopover || '');
+    if (button instanceof HTMLElement) {
+      event.stopPropagation();
+      openOrderPopover(button, button.dataset.orderPopover || '');
+      return;
+    }
+    if (target.closest('a, button, input, select, textarea')) return;
+    openOrderBreakdown(target.closest('[data-order-detail-url]'));
+  });
+
+  ordersRefs.tableBody?.addEventListener('keydown', (event) => {
+    const row = event.target instanceof HTMLElement ? event.target.closest('[data-order-detail-url]') : null;
+    if (!row || event.target !== row || !['Enter', ' '].includes(event.key)) return;
+    event.preventDefault();
+    openOrderBreakdown(row);
   });
 
   ordersRefs.paymentCancel?.addEventListener('click', () => ordersRefs.paymentDialog?.close?.());
@@ -15337,6 +15436,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    connectLiveStream();
 	    if (canStartBackgroundPageWork()) preloadOrderMemory().catch(() => {});
 	    scheduleWalletBackgroundRefresh({ force: true });
+    if (state.activeView === 'orders') ensureOrdersPaymentHistoryAudit().catch(() => {});
     refreshOverviewSnapshot().catch(() => {});
     if (state.activeView === 'ad-view') scheduleAdViewAutoSync({ delay: 250 });
     refreshForLocalDateRollover()
@@ -15354,6 +15454,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    runAutomaticMarketplaceRefresh().catch(() => {});
 	    refreshOverviewSnapshot().catch(() => {});
 	    scheduleWalletBackgroundRefresh({ force: true });
+    if (state.activeView === 'orders') ensureOrdersPaymentHistoryAudit().catch(() => {});
     if (state.activeView === 'ad-view') scheduleAdViewAutoSync({ delay: 250 });
     if (state.activeView === 'overview') {
       refreshOverviewHourlyRows(null, { repair: true }).catch(() => {});
@@ -15361,12 +15462,14 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   window.addEventListener('online', () => {
     scheduleWalletBackgroundRefresh({ force: true });
+    if (state.activeView === 'orders') ensureOrdersPaymentHistoryAudit().catch(() => {});
   });
   window.setInterval(() => {
     if (!document.hidden) {
       refreshForLocalDateRollover().catch(() => {});
       runAutomaticMarketplaceRefresh().catch(() => {});
       scheduleWalletBackgroundRefresh();
+	      if (state.activeView === 'orders') ensureOrdersPaymentHistoryAudit().catch(() => {});
 	      if (state.activeView === 'overview') {
 	        refreshOverviewHourlyRows(null, { repair: true }).catch(() => {});
       }

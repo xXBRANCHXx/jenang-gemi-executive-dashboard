@@ -54,9 +54,17 @@ assert(
 );
 assert(
   admin.includes('startDate: ORDER_PAYMENT_AUDIT_START_DATE')
-    && admin.includes('endDate: ORDER_PAYMENT_AUDIT_END_DATE')
+    && admin.includes('endDate: orderPaymentAuditEndDate()')
+    && admin.includes('const orderPaymentAuditEndDate = () => activeLocalDate')
     && admin.includes('timeoutMs: 65000'),
-  'The paid-status audit must resume one fixed range through bounded requests.'
+  'The paid-status audit must resume through the current Jakarta date with bounded requests.'
+);
+assert(
+  admin.includes('reconcileOrdersPaymentStatus')
+    && admin.includes("{ phase: 'orders', days: 2 }")
+    && admin.includes('requireSourceVerified: true')
+    && admin.includes('paymentReconciledAt'),
+  'A verified paid state must include a fresh, successful rolling marketplace release reconciliation.'
 );
 assert(
   admin.includes('backtrack.days_completed')
@@ -82,6 +90,25 @@ assert(
     && admin.includes('--admin-order-id-rgb: ${hexToRgbParts(orderAccent)}')
     && styles.includes('.admin-orders-table .admin-order-id'),
   'Each order ID must receive a stable, high-visibility accent badge so every line from the same order is easy to identify.'
+);
+assert(
+  dashboard.includes('data-toggle-order-cancellation="active"')
+    && dashboard.includes('data-toggle-order-cancellation="canceled"')
+    && admin.includes('orderCancellationStatus')
+    && admin.includes('filters.cancellations.has(orderCancellationStatus(row))'),
+  'Orders must filter explicitly between non-canceled and canceled rows.'
+);
+assert(
+  admin.includes('class="is-canceled"')
+    && styles.includes('.admin-orders-table tbody tr.is-canceled > td')
+    && styles.includes('rgba(153, 27, 27, 0.62)'),
+  'Canceled orders must receive a red treatment across the whole row.'
+);
+assert(
+  admin.includes('data-order-detail-url')
+    && admin.includes('../order/?order_id=${encodeURIComponent(orderId)}')
+    && admin.includes("window.open(detailUrl, '_blank', 'noopener,noreferrer')"),
+  'Clicking or keyboard-activating an order row must open the order breakdown in a safe new tab.'
 );
 assert(
   /const preloadOrderMemory = async[\s\S]*?state\.activeView === 'orders' \|\| !canStartBackgroundPageWork\(\)/.test(admin),

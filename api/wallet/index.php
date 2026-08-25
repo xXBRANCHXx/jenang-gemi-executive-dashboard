@@ -1334,12 +1334,12 @@ function jg_wallet_run_release_refresh(PDO $pdo, array $payload, array $options)
 
         $summary = jg_wallet_summary_with_backtrack($pdo, jg_wallet_backtrack_latest($pdo));
         $after = jg_wallet_summary_snapshot($summary);
-        $ok = (empty($sync['skipped']) && !empty($sync['ok']))
-            || !empty($import['upserted'])
-            || !empty($import['fetched'])
+        $sourceVerified = jg_wallet_release_source_verified($sync, $import);
+        $ok = $sourceVerified
             || (empty($walletTransactions['skipped']) && !empty($walletTransactions['ok']));
         $summary[$responseKey] = [
             'ok' => $ok,
+            'source_verified' => $sourceVerified,
             'run_key' => $runKey,
             'range' => [
                 'start_date' => $startDate,
@@ -1374,6 +1374,23 @@ function jg_wallet_run_release_refresh(PDO $pdo, array $payload, array $options)
             fclose($lock);
         }
     }
+}
+
+function jg_wallet_release_source_verified(array $sync, array $import): bool
+{
+    if (!empty($sync['skipped']) || empty($sync['ok']) || !empty($sync['error']) || !empty($import['error']) || !empty($import['truncated'])) {
+        return false;
+    }
+    $accounts = is_array($sync['sync']['accounts'] ?? null) ? $sync['sync']['accounts'] : [];
+    if ($accounts === []) {
+        return false;
+    }
+    foreach ($accounts as $account) {
+        if (!is_array($account) || empty($account['ok']) || !empty($account['skipped']) || !empty($account['error'])) {
+            return false;
+        }
+    }
+    return true;
 }
 
 /**
@@ -1645,6 +1662,32 @@ function jg_wallet_start_backtrack(PDO $pdo, array $payload): array
             return jg_wallet_summary_with_backtrack(
                 $pdo,
                 jg_wallet_backtrack_by_key($pdo, (string) $failed['run_key']) ?: $failed
+            );
+        }
+
+        // Continue the durable audit from the next unverified day. Extending the
+        // same persisted run keeps daily checks cheap while preserving continuous
+        // coverage from the original May 20 start date.
+        $extendable = jg_wallet_backtrack_extendable($pdo, $startDate, $endDate);
+        if (is_array($extendable)) {
+            $nextDate = jg_wallet_add_days((string) $extendable['end_date'], 1);
+            $extend = $pdo->prepare(
+                'UPDATE dashboard_wallet_backtrack_runs
+                 SET status = "running", phase = "sync", end_date = :end_date,
+                     cursor_date = :cursor_date, cursor_account_index = 0, import_offset = 0,
+                     last_message = :last_message, last_error = "", completed_at = NULL,
+                     updated_at = UTC_TIMESTAMP(6)
+                 WHERE run_key = :run_key AND status = "complete"'
+            );
+            $extend->execute([
+                ':end_date' => $endDate,
+                ':cursor_date' => $nextDate,
+                ':last_message' => sprintf('Paid-status audit extended through %s.', $endDate),
+                ':run_key' => (string) $extendable['run_key'],
+            ]);
+            return jg_wallet_summary_with_backtrack(
+                $pdo,
+                jg_wallet_backtrack_by_key($pdo, (string) $extendable['run_key']) ?: $extendable
             );
         }
 
@@ -2780,6 +2823,23 @@ function jg_wallet_backtrack_covering(PDO $pdo, string $startDate, string $endDa
          LIMIT 1'
     );
     $stmt->execute(array_merge([$startDate, $endDate], $statuses));
+    $row = $stmt->fetch();
+    return is_array($row) ? $row : null;
+}
+
+function jg_wallet_backtrack_extendable(PDO $pdo, string $startDate, string $endDate): ?array
+{
+    $stmt = $pdo->prepare(
+        'SELECT *
+         FROM dashboard_wallet_backtrack_runs
+         WHERE status = "complete" AND start_date <= :start_date AND end_date < :end_date
+         ORDER BY end_date DESC, updated_at DESC, id DESC
+         LIMIT 1'
+    );
+    $stmt->execute([
+        ':start_date' => $startDate,
+        ':end_date' => $endDate,
+    ]);
     $row = $stmt->fetch();
     return is_array($row) ? $row : null;
 }

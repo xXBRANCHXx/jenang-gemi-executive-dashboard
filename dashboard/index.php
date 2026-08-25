@@ -2154,20 +2154,31 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                         <div class="admin-orders-filter-section-head">
                             <div>
                                 <span class="admin-orders-filter-step">3</span>
-                                <div><h4>Payment status</h4><p>Show paid, unpaid, or canceled orders.</p></div>
+                                <div><h4>Cancellation status</h4><p>Show only non-canceled orders or only canceled orders.</p></div>
+                            </div>
+                        </div>
+                        <div class="admin-orders-payment-filters" data-orders-cancellation-filters>
+                            <button type="button" data-toggle-order-cancellation="active">Non-canceled</button>
+                            <button type="button" data-toggle-order-cancellation="canceled">Canceled</button>
+                        </div>
+                    </section>
+                    <section class="admin-orders-filter-section admin-orders-payment-section">
+                        <div class="admin-orders-filter-section-head">
+                            <div>
+                                <span class="admin-orders-filter-step">4</span>
+                                <div><h4>Payment status</h4><p>Show paid or unpaid orders. Canceled orders are controlled above.</p></div>
                             </div>
                         </div>
                         <div class="admin-orders-payment-filters" data-orders-payment-filters>
                             <button type="button" data-toggle-order-payment="paid">Paid</button>
                             <button type="button" data-toggle-order-payment="unpaid">Unpaid</button>
-                            <button type="button" data-toggle-order-payment="canceled">Canceled</button>
                         </div>
                     </section>
                 </div>
                 <section class="admin-orders-filter-section admin-orders-catalog-section">
                     <div class="admin-orders-filter-section-head">
                         <div>
-                            <span class="admin-orders-filter-step">4</span>
+                            <span class="admin-orders-filter-step">5</span>
                             <div><h4>Products and flavors</h4><p>Narrow the result further using your SKU catalog.</p></div>
                         </div>
                     </div>
