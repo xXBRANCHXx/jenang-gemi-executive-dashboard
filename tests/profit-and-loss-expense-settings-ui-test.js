@@ -23,6 +23,9 @@ assert.match(settingsScript, /data\.categoryInclude|dataset\.categoryInclude/, '
 assert.match(settingsScript, /dataset\.categoryBucket/, 'Every category must expose an editable P&L treatment.');
 assert.match(settingsScript, /action: 'save_pnl_category_settings'/, 'Category settings must persist through Accounting.');
 assert.match(settingsStyles, /\.pnl-expense-page-toggle input:checked \+ span[\s\S]*?#4ade80/, 'Included category toggles must display in green.');
+assert.match(script, /shopee: 'Shopee Ads'/, 'Built-in and imported Shopee advertising categories must share one report title.');
+assert.match(script, /key: `platform-ads:/, 'Platform advertising categories must roll up to one expense row instead of rendering separately.');
+assert.match(script, /existing\.amount \+= category\.amount/, 'A rolled-up expense must sum every matching Accounting category amount.');
 
 assert.match(script, /const productCosts = numeric\(books, \['product_costs', 'product_purchases'\]\);/, 'PO/product costs must come from Accounting.');
 assert.match(script, /const packingCosts = numeric\(books, \['packing_costs'\]\);/, 'Actual packing cost must come from Accounting.');

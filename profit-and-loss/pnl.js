@@ -202,13 +202,53 @@ if (root) {
     });
     return totals;
   }, {});
+  const advertisingPlatformLabels = {
+    shopee: 'Shopee Ads',
+    tiktok: 'TikTok Ads',
+    tokopedia: 'Tokopedia Ads',
+    meta: 'Meta Ads',
+    facebook: 'Meta Ads',
+    google: 'Google Ads'
+  };
+  const expenseRollup = (category) => {
+    if (String(category.pnl_bucket || '') !== 'ad_cost') {
+      return { key: `category:${category.category_id}`, title: '', parent: '', code: null };
+    }
+    const display = categoryDisplay(category);
+    const search = `${category.category_key || ''} ${display.rawName} ${display.rawParent}`.toLocaleLowerCase();
+    const platform = Object.keys(advertisingPlatformLabels).find((key) => search.includes(key));
+    if (!platform) return { key: `category:${category.category_id}`, title: '', parent: '', code: null };
+    return {
+      key: `platform-ads:${advertisingPlatformLabels[platform].toLocaleLowerCase().replaceAll(' ', '-')}`,
+      title: advertisingPlatformLabels[platform],
+      parent: 'Marketing',
+      code: ''
+    };
+  };
   const operatingCategoryRows = (rows) => {
     const totals = categoryTotals(rows);
-    return state.categorySettings
+    const rollups = new Map();
+    state.categorySettings
       .filter((category) => category.include_in_net_profit && operatingBuckets.has(String(category.pnl_bucket || '')))
       .map((category) => ({ ...category, amount: Number(totals[String(category.category_id)] || 0) }))
       .filter((category) => category.amount !== 0)
-      .sort((a, b) => Number(b.amount) - Number(a.amount));
+      .forEach((category) => {
+        const rollup = expenseRollup(category);
+        const existing = rollups.get(rollup.key);
+        if (existing) {
+          existing.amount += category.amount;
+          existing.source_category_count += 1;
+          return;
+        }
+        rollups.set(rollup.key, {
+          ...category,
+          name: rollup.title || category.name,
+          parent_name: rollup.parent || category.parent_name,
+          account_code: rollup.code === null ? category.account_code : rollup.code,
+          source_category_count: 1
+        });
+      });
+    return [...rollups.values()].sort((a, b) => Number(b.amount) - Number(a.amount));
   };
   const allocationRows = (nodes, parentAmount, parentName = 'Net profit', depth = 0) => nodes.map((node) => {
     const amount = parentAmount * (Number(node.percentage) || 0) / 100;
