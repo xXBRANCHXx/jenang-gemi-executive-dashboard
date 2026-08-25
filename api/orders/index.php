@@ -261,6 +261,9 @@ function jg_orders_handle_request(): void
 function jg_orders_stream_shipping_label(array $input): void
 {
     $platform = strtolower(trim((string) ($input['platform'] ?? '')));
+    if ($platform === 'tokopedia') {
+        $platform = 'tiktok';
+    }
     $accountKey = trim((string) ($input['account_key'] ?? $input['account'] ?? ''));
     $orderId = trim((string) ($input['order_id'] ?? $input['order'] ?? ''));
     $packageId = trim((string) ($input['package_id'] ?? $input['package'] ?? ''));
@@ -273,6 +276,7 @@ function jg_orders_stream_shipping_label(array $input): void
             'account' => $accountKey,
             'order' => $orderId,
             'package' => $packageId,
+            'reprint' => '1',
         ]);
         $context = stream_context_create(['http' => [
             'method' => 'GET',
@@ -300,6 +304,30 @@ function jg_orders_stream_shipping_label(array $input): void
     } catch (Throwable $error) {
         jg_orders_json(['ok' => false, 'error' => 'shipping_label_unavailable', 'message' => $error->getMessage()], 404);
     }
+}
+
+/** @param array<string, mixed> $fulfillmentOrder @param array<string, mixed> $sourceRow */
+function jg_orders_label_available(array $fulfillmentOrder, array $sourceRow): bool
+{
+    if (!empty($fulfillmentOrder['label_ready']) || !empty($sourceRow['label_ready'])) {
+        return true;
+    }
+    $platform = strtolower(trim((string) ($fulfillmentOrder['platform'] ?? $sourceRow['platform'] ?? '')));
+    if ($platform === 'tokopedia') {
+        $platform = 'tiktok';
+    }
+    $status = strtoupper(trim((string) ($fulfillmentOrder['marketplace_status'] ?? $sourceRow['status'] ?? '')));
+    if ($status === '' || preg_match('/CANCEL|RETURN|FAILED/', $status) === 1) {
+        return false;
+    }
+    if ($platform === 'shopee') {
+        return in_array($status, ['READY_TO_SHIP', 'PROCESSED', 'TO_SHIP'], true);
+    }
+    if ($platform === 'tiktok') {
+        $packageId = trim((string) ($fulfillmentOrder['package_id'] ?? $sourceRow['package_id'] ?? ''));
+        return $packageId !== '' && in_array($status, ['AWAITING_SHIPMENT', 'READY_TO_SHIP', 'TO_SHIP', 'PROCESSING'], true);
+    }
+    return false;
 }
 
 /**
@@ -470,6 +498,7 @@ function jg_orders_order_detail_from_rows(array $sourceRows, array $skuLookup, a
     }
     $first = $rows[0];
     $fulfillmentOrder = is_array($fulfillment['order'] ?? null) ? $fulfillment['order'] : [];
+    $labelAvailable = jg_orders_label_available($fulfillmentOrder, $first);
     $netRevenue = max(array_map(static fn (array $row): int => (int) round((float) ($row['order_net_revenue'] ?? $row['net_revenue'] ?? 0)), $rows));
     $grossRevenue = array_sum(array_map(static fn (array $row): int => (int) round((float) ($row['gross_revenue'] ?? 0)), $rows));
     $marketplaceFees = array_sum(array_map(static fn (array $row): int => (int) round((float) ($row['marketplace_fees'] ?? 0)), $rows));
@@ -515,8 +544,8 @@ function jg_orders_order_detail_from_rows(array $sourceRows, array $skuLookup, a
             'package_status' => (string) ($fulfillmentOrder['package_status'] ?? ''),
             'shipping_provider' => (string) ($fulfillmentOrder['shipping_provider'] ?? ''),
             'package_id' => (string) ($fulfillmentOrder['package_id'] ?? ''),
-            'label_ready' => !empty($fulfillmentOrder['label_ready']) || !empty($first['label_ready']),
-            'label_url' => (!empty($fulfillmentOrder['label_ready']) || !empty($first['label_ready']))
+            'label_ready' => $labelAvailable,
+            'label_url' => $labelAvailable
                 ? '/api/orders/?' . http_build_query([
                     'action' => 'shipping_label',
                     'platform' => (string) ($fulfillmentOrder['platform'] ?? $first['platform'] ?? ''),

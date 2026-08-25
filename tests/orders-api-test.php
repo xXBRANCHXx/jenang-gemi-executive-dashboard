@@ -693,5 +693,17 @@ $labelDetail = jg_orders_order_detail_from_rows([[
 expect_same(true, $labelDetail['order']['label_ready'], 'Order detail must expose label availability as a dedicated control state.');
 expect_same(true, str_contains((string) $labelDetail['order']['label_url'], 'action=shipping_label'), 'Available labels must use the authenticated Executive label proxy.');
 expect_same('READY_TO_SHIP', $labelDetail['order']['status'], 'The visible order status must remain marketplace status instead of label workflow status.');
+$processedLabelDetail = jg_orders_order_detail_from_rows([[
+    'order_id' => 'DETAIL-PROCESSED-1', 'platform' => 'shopee', 'account_key' => 'main', 'status' => 'PROCESSED',
+    'order_create_time' => '2026-08-12T02:00:00Z', 'sku' => 'DETAIL-ONE', 'quantity' => 1,
+    'revenue' => 500, 'order_net_revenue' => 500,
+]], [jg_orders_sku_key('DETAIL-ONE') => $detailSkuOne], [
+    'order' => [
+        'platform' => 'shopee', 'account_key' => 'main', 'package_id' => 'PACKAGE-2',
+        'marketplace_status' => 'PROCESSED', 'workflow_status' => 'IS_PROCESSED', 'label_ready' => false,
+    ],
+]);
+expect_same(true, $processedLabelDetail['order']['label_ready'], 'Processed Shopee orders must offer live label regeneration after the temporary saved PDF is removed.');
+expect_same(true, str_contains((string) $processedLabelDetail['order']['label_url'], 'action=shipping_label'), 'Processed Shopee labels must remain reachable through the Executive proxy.');
 
 echo "orders-api-test: ok\n";

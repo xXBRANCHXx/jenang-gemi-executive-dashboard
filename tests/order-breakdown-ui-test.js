@@ -29,6 +29,7 @@ assert.match(script, /labelAvailable[\s\S]*View label[\s\S]*Label unavailable/);
 assert.match(styles, /\.admin-order-timeline li\.is-done \{ --timeline-tone: #25df93; \}[\s\S]*\.admin-order-timeline li\.is-next \{ --timeline-tone: #f0f2f4; \}/, 'Only completed timeline milestones should use green; the next step must remain white.');
 assert.match(api, /function jg_orders_order_detail_from_rows[\s\S]*estimated_gross_profit'[\s\S]*\$netRevenue - \$cogs - \$packing/);
 assert.match(api, /function jg_orders_optional_fulfillment_detail[\s\S]*\/fulfillment\/order-detail/);
-assert.match(api, /function jg_orders_stream_shipping_label[\s\S]*orders\/shipping-label[\s\S]*Content-Disposition: inline/);
+assert.match(api, /function jg_orders_stream_shipping_label[\s\S]*orders\/shipping-label[\s\S]*'reprint' => '1'[\s\S]*Content-Disposition: inline/);
+assert.match(api, /function jg_orders_label_available[\s\S]*\['READY_TO_SHIP', 'PROCESSED', 'TO_SHIP'\]/, 'Processed Shopee orders must retain live label regeneration eligibility.');
 
 console.log('order-breakdown-ui-test: ok');
