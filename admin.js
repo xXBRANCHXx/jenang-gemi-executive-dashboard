@@ -9113,7 +9113,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	          </header>
 	          <ul>${orders.map((order) => `
 	            <li>
-	              <span>${escapeHtml(String(order.order_id || ''))}</span>
+	              <a href="../order/?order_id=${encodeURIComponent(String(order.order_id || ''))}" target="_blank" rel="noopener noreferrer" aria-label="Open order ${escapeHtml(String(order.order_id || ''))} breakdown in a new tab">
+	                <span>${escapeHtml(String(order.order_id || ''))}</span><i aria-hidden="true">↗</i>
+	              </a>
 	              <b>−${formatRegionalNumber(order.quantity || 0, { maximumFractionDigits: 1 })}</b>
 	            </li>
 	          `).join('')}</ul>

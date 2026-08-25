@@ -44,6 +44,20 @@ function jg_orders_handle_request(): void
             ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             return;
         }
+        if ($method === 'GET' && in_array($action, ['order_detail', 'detail'], true)) {
+            $orderId = trim((string) ($_GET['order_id'] ?? $_GET['order'] ?? ''));
+            if ($orderId === '' || strlen($orderId) > 160) {
+                jg_orders_json([
+                    'ok' => false,
+                    'error' => 'invalid_order_id',
+                    'message' => 'A valid order ID is required.',
+                ], 422);
+                return;
+            }
+            $detail = jg_orders_order_detail_payload($orderId);
+            jg_orders_json($detail, !empty($detail['ok']) ? 200 : 404);
+            return;
+        }
         if ($method === 'GET' && in_array($action, ['daily_summary', 'daily'], true)) {
             $pdo = analyticsDb();
             jg_orders_ensure_mirror_schema($pdo);
@@ -237,6 +251,278 @@ function jg_orders_handle_request(): void
             'message' => $error->getMessage(),
         ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
+}
+
+/**
+ * Resolve one order without relying on the date window used by the Orders table.
+ * Inventory Recap links only carry an order ID because Store Ops commitments are
+ * intentionally source-agnostic.
+ *
+ * @return array<int, array<string, mixed>>
+ */
+function jg_orders_detail_source_rows(string $orderId): array
+{
+    $analyticsPdo = analyticsDb();
+    jg_orders_ensure_mirror_schema($analyticsPdo);
+    $stmt = $analyticsPdo->prepare(
+        'SELECT * FROM dashboard_order_mirror
+         WHERE deleted_at IS NULL AND order_id = :order_id
+         ORDER BY order_create_time, id'
+    );
+    $stmt->execute([':order_id' => $orderId]);
+    $rows = array_map('jg_orders_mirror_response_row', array_values(array_filter($stmt->fetchAll(), 'is_array')));
+    if ($rows !== []) {
+        return $rows;
+    }
+
+    try {
+        $remote = jg_orders_fetch_json(jg_orders_remote_url('/sales/order', ['order_id' => $orderId]));
+        $rows = array_values(array_filter((array) ($remote['orders'] ?? []), 'is_array'));
+        if ($rows !== []) {
+            return $rows;
+        }
+    } catch (Throwable $error) {
+        error_log('Order detail marketplace lookup failed for ' . $orderId . ': ' . $error->getMessage());
+    }
+
+    try {
+        jg_website_ensure_schema($analyticsPdo);
+        $order = jg_website_order_internal_row($analyticsPdo, $orderId);
+        $items = jg_website_order_items($analyticsPdo, (int) ($order['id'] ?? 0));
+        $rows = array_map(static function (array $item) use ($order): array {
+            $quantity = max(0, (int) ($item['quantity'] ?? 0));
+            return [
+                'timestamp' => jg_website_atom((string) ($order['paid_at'] ?? $order['created_at'] ?? '')),
+                'order_create_time' => jg_website_atom((string) ($order['created_at'] ?? '')),
+                'platform' => (string) ($order['platform'] ?? 'website'),
+                'account_key' => (string) ($order['platform'] ?? 'website'),
+                'order_id' => (string) ($order['order_id'] ?? ''),
+                'status' => (string) ($order['status'] ?? ''),
+                'sku' => (string) ($item['sku'] ?? ''),
+                'item_key' => (string) ($item['item_key'] ?? ''),
+                'product_name' => (string) ($item['product_name'] ?? ''),
+                'flavor' => (string) ($item['option_name'] ?? ''),
+                'quantity' => $quantity,
+                'gross_revenue' => (float) ($item['unit_gross_price'] ?? 0) * $quantity,
+                'revenue' => (float) ($item['unit_net_price'] ?? 0) * $quantity,
+                'order_net_revenue' => (float) ($order['net_revenue'] ?? 0),
+                'marketplace_fees' => 0,
+                'cogs' => (float) ($item['unit_cogs'] ?? 0) * $quantity,
+                'username' => (string) ($order['customer_name'] ?? ''),
+                'address' => (string) ($order['customer_address'] ?? ''),
+                'phone' => (string) ($order['customer_phone'] ?? ''),
+                'source' => 'website_paid_order',
+            ];
+        }, $items);
+        if ($rows !== []) {
+            return $rows;
+        }
+    } catch (Throwable) {
+        // Not a website order.
+    }
+
+    try {
+        jg_whatsapp_ensure_schema($analyticsPdo);
+        $order = jg_whatsapp_internal_order($analyticsPdo, $orderId);
+        $items = jg_whatsapp_order_items($analyticsPdo, (int) ($order['id'] ?? 0));
+        $rows = array_map(static function (array $item) use ($order): array {
+            $quantity = max(0, (int) ($item['quantity'] ?? 0));
+            $lineRevenue = jg_whatsapp_metric_line_revenue($item);
+            $salesChannel = jg_whatsapp_sales_channel($order['sales_channel'] ?? 'whatsapp');
+            return [
+                'timestamp' => jg_website_atom((string) (($order['listed_at'] ?? '') ?: ($order['created_at'] ?? ''))),
+                'order_create_time' => jg_website_atom((string) ($order['created_at'] ?? '')),
+                'platform' => $salesChannel === 'walk_in' ? 'walk-in' : 'whatsapp',
+                'account_key' => $salesChannel === 'walk_in' ? 'counter' : 'direct',
+                'order_id' => (string) ($order['order_id'] ?? ''),
+                'status' => (string) ($order['status'] ?? ''),
+                'sku' => (string) ($item['sku'] ?? ''),
+                'product_name' => (string) ($item['product_name'] ?? ''),
+                'flavor' => (string) ($item['flavor_name'] ?? ''),
+                'quantity' => $quantity,
+                'gross_revenue' => $lineRevenue,
+                'revenue' => $lineRevenue,
+                'order_net_revenue' => (float) ($order['merchandise_total'] ?? 0),
+                'marketplace_fees' => 0,
+                'cogs' => (float) ($item['unit_cogs'] ?? 0) * $quantity,
+                'username' => (string) ($order['customer_name'] ?? ''),
+                'address' => (string) ($order['customer_address'] ?? ''),
+                'phone' => (string) ($order['customer_phone'] ?? ''),
+                'source' => $salesChannel === 'walk_in' ? 'walk_in_direct_order' : 'whatsapp_order',
+            ];
+        }, $items);
+        if ($rows !== []) {
+            return $rows;
+        }
+    } catch (Throwable) {
+        // Not a WhatsApp or walk-in order.
+    }
+
+    try {
+        $partnerPdo = jg_partner_db();
+        if (jg_orders_partner_table_exists($partnerPdo)) {
+            $stmt = $partnerPdo->prepare(
+                'SELECT id, partner_code, customer_name, brand_name, product_name, sku_code, sku_label, quantity,
+                        status, order_timestamp, revenue_total, items_json, billing_status, billing_reference,
+                        billing_paid_at, created_at
+                 FROM partner_orders WHERE id = :order_id LIMIT 1'
+            );
+            $stmt->execute([':order_id' => $orderId]);
+            $record = $stmt->fetch();
+            if (is_array($record)) {
+                $profiles = jg_orders_partner_profiles($partnerPdo);
+                return jg_orders_partner_rows_from_records([$record], $profiles, jg_orders_partner_payment_totals($analyticsPdo, [$record]));
+            }
+        }
+    } catch (Throwable $error) {
+        error_log('Order detail partner lookup failed for ' . $orderId . ': ' . $error->getMessage());
+    }
+
+    return [];
+}
+
+/** @return array<string, mixed> */
+function jg_orders_optional_fulfillment_detail(array $row): array
+{
+    $platform = trim((string) ($row['platform'] ?? ''));
+    $accountKey = trim((string) ($row['account_key'] ?? ''));
+    $orderId = trim((string) ($row['order_id'] ?? ''));
+    $token = jg_website_store_ops_token();
+    if (!in_array(strtolower($platform), ['shopee', 'tiktok', 'tokopedia'], true) || $accountKey === '' || $orderId === '' || $token === '') {
+        return [];
+    }
+    $query = http_build_query([
+        'platform' => $platform,
+        'account_key' => $accountKey,
+        'order_id' => $orderId,
+        'package_id' => '',
+    ], '', '&', PHP_QUERY_RFC3986);
+    $context = stream_context_create(['http' => [
+        'method' => 'GET',
+        'header' => "Accept: application/json\r\nAuthorization: Bearer {$token}\r\n",
+        'timeout' => 8,
+        'ignore_errors' => true,
+    ]]);
+    $raw = @file_get_contents(jg_dashboard_marketplace_api_base_url() . '/fulfillment/order-detail?' . $query, false, $context);
+    $decoded = is_string($raw) ? json_decode($raw, true) : null;
+    return is_array($decoded) && !empty($decoded['ok']) ? $decoded : [];
+}
+
+/**
+ * @param array<int, array<string, mixed>> $sourceRows
+ * @param array<string, array<string, mixed>> $skuLookup
+ * @return array<string, mixed>
+ */
+function jg_orders_order_detail_from_rows(array $sourceRows, array $skuLookup, array $fulfillment = []): array
+{
+    $rows = jg_orders_enrich_for_metrics($sourceRows, $skuLookup);
+    if ($rows === []) {
+        return ['ok' => false, 'error' => 'order_not_found', 'message' => 'This order could not be found.'];
+    }
+    $first = $rows[0];
+    $fulfillmentOrder = is_array($fulfillment['order'] ?? null) ? $fulfillment['order'] : [];
+    $netRevenue = max(array_map(static fn (array $row): int => (int) round((float) ($row['order_net_revenue'] ?? $row['net_revenue'] ?? 0)), $rows));
+    $grossRevenue = array_sum(array_map(static fn (array $row): int => (int) round((float) ($row['gross_revenue'] ?? 0)), $rows));
+    $marketplaceFees = array_sum(array_map(static fn (array $row): int => (int) round((float) ($row['marketplace_fees'] ?? 0)), $rows));
+    $fulfillmentFinancials = is_array($fulfillment['financials'] ?? null) ? $fulfillment['financials'] : [];
+    if (!empty($fulfillmentFinancials['available'])) {
+        $netRevenue = (int) round((float) ($fulfillmentFinancials['net_revenue'] ?? $netRevenue));
+        $grossRevenue = (int) round((float) ($fulfillmentFinancials['gross_revenue'] ?? $grossRevenue));
+        $marketplaceFees = (int) round((float) ($fulfillmentFinancials['marketplace_fees'] ?? $marketplaceFees));
+    }
+    $cogs = array_sum(array_map(static fn (array $row): int => (int) round((float) ($row['cogs'] ?? 0)), $rows));
+    $packing = array_sum(array_map(static fn (array $row): int => (int) round((float) ($row['packing_cost'] ?? 0)), $rows));
+    $physicalItems = array_sum(array_map(static fn (array $row): int => max(0, (int) ($row['cogs_quantity'] ?? $row['quantity'] ?? 0)), $rows));
+    $cogsMissing = array_sum(array_map(static fn (array $row): int => max(0, (int) ($row['cogs_missing_items'] ?? 0)), $rows));
+    $packingMissing = array_sum(array_map(static fn (array $row): int => max(0, (int) ($row['packing_missing_items'] ?? 0)), $rows));
+    $timeline = is_array($fulfillment['timeline'] ?? null) ? array_values($fulfillment['timeline']) : [];
+    if ($timeline === [] && trim((string) ($first['order_create_time'] ?? '')) !== '') {
+        $timeline[] = [
+            'label' => 'Order placed',
+            'at' => (string) $first['order_create_time'],
+            'kind' => 'order',
+            'note' => 'Order created in the source system',
+        ];
+    }
+    $hasFundsEvent = array_filter($timeline, static fn (array $event): bool => strtolower((string) ($event['kind'] ?? '')) === 'funds') !== [];
+    if (!$hasFundsEvent && !empty($first['funds_released']) && trim((string) ($first['funds_released_at'] ?? '')) !== '') {
+        $timeline[] = [
+            'label' => 'Funds released',
+            'at' => (string) $first['funds_released_at'],
+            'kind' => 'funds',
+            'note' => (string) ($first['funds_release_status'] ?? ''),
+        ];
+    }
+
+    return [
+        'ok' => true,
+        'generated_at' => gmdate(DATE_ATOM),
+        'order' => [
+            'order_id' => (string) ($first['order_id'] ?? ''),
+            'platform' => (string) ($fulfillmentOrder['platform'] ?? $first['platform'] ?? ''),
+            'account_key' => (string) ($fulfillmentOrder['account_key'] ?? $first['account_key'] ?? ''),
+            'status' => (string) ($fulfillmentOrder['marketplace_status'] ?? $first['status'] ?? ''),
+            'workflow_status' => (string) ($fulfillmentOrder['workflow_status'] ?? ''),
+            'package_status' => (string) ($fulfillmentOrder['package_status'] ?? ''),
+            'shipping_provider' => (string) ($fulfillmentOrder['shipping_provider'] ?? ''),
+            'ordered_at' => (string) ($first['order_create_time'] ?? $first['timestamp'] ?? ''),
+            'updated_at' => (string) ($fulfillmentOrder['updated_at'] ?? $first['mirrored_at'] ?? ''),
+            'customer' => [
+                'name' => (string) ($first['username'] ?? $first['customer_name'] ?? ''),
+                'address' => (string) ($first['address'] ?? $first['shipping_address'] ?? ''),
+                'phone' => (string) ($first['phone'] ?? $first['customer_phone'] ?? ''),
+            ],
+        ],
+        'financials' => [
+            'currency' => (string) ($first['currency'] ?? 'IDR'),
+            'net_revenue' => $netRevenue,
+            'gross_revenue' => $grossRevenue,
+            'marketplace_fees' => $marketplaceFees,
+            'cogs' => $cogs,
+            'packing_cost' => $packing,
+            'estimated_gross_profit' => $netRevenue - $cogs - $packing,
+            'gross_margin_percent' => $netRevenue !== 0 ? round((($netRevenue - $cogs - $packing) / $netRevenue) * 100, 1) : null,
+            'funds_released' => !empty($first['funds_released']),
+        ],
+        'coverage' => [
+            'physical_items' => $physicalItems,
+            'cogs_missing_items' => $cogsMissing,
+            'packing_missing_items' => $packingMissing,
+            'complete' => $cogsMissing === 0 && $packingMissing === 0,
+        ],
+        'items' => array_map(static fn (array $row): array => [
+            'sku' => (string) ($row['sku'] ?? $row['marketplace_sku'] ?? ''),
+            'marketplace_sku' => (string) ($row['marketplace_sku'] ?? ''),
+            'name' => (string) ($row['product_name'] ?? $row['marketplace_product_name'] ?? 'Order item'),
+            'flavor' => (string) ($row['flavor_name'] ?? $row['flavor'] ?? ''),
+            'quantity' => max(0, (int) ($row['cogs_quantity'] ?? $row['quantity'] ?? 0)),
+            'is_free_gift' => !empty($row['is_free_gift']),
+            'net_revenue' => (int) round((float) ($row['net_revenue'] ?? 0)),
+            'cogs' => (int) round((float) ($row['cogs'] ?? 0)),
+            'packing_cost' => (int) round((float) ($row['packing_cost'] ?? 0)),
+            'estimated_gross_profit' => (int) round((float) ($row['gross_profit'] ?? 0)),
+            'cogs_source' => (string) ($row['cogs_source'] ?? 'none'),
+            'packing_status' => (string) ($row['packing_status'] ?? 'unmapped'),
+        ], $rows),
+        'timeline' => $timeline,
+    ];
+}
+
+/** @return array<string, mixed> */
+function jg_orders_order_detail_payload(string $orderId): array
+{
+    $sourceRows = jg_orders_detail_source_rows($orderId);
+    if ($sourceRows === []) {
+        return ['ok' => false, 'error' => 'order_not_found', 'message' => 'This order could not be found.'];
+    }
+    $fulfillment = jg_orders_optional_fulfillment_detail($sourceRows[0]);
+    try {
+        $skuLookup = jg_orders_sku_lookup(jg_sku_db());
+    } catch (Throwable $error) {
+        error_log('Order detail SKU cost lookup failed for ' . $orderId . ': ' . $error->getMessage());
+        $skuLookup = [];
+    }
+    return jg_orders_order_detail_from_rows($sourceRows, $skuLookup, $fulfillment);
 }
 
 function jg_orders_json(array $payload, int $status = 200): void

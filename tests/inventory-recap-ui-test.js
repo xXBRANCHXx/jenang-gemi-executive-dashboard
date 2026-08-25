@@ -105,6 +105,7 @@ assert.match(script, /filter === 'initial' && Boolean\(item\.initial_purchase\)/
 assert.match(script, /summary\.alert_count \?\? summary\.triggered_count/);
 assert.match(script, /Projected stock[\s\S]*committedQty[\s\S]*incoming PO[\s\S]*covered/);
 assert.match(script, /const inventoryProjectedStockMarkup[\s\S]*committed_orders[\s\S]*admin-inventory-commitment-details[\s\S]*Orders reducing stock/);
+assert.match(script, /href="\.\.\/order\/\?order_id=\$\{encodeURIComponent[\s\S]*target="_blank"[\s\S]*rel="noopener noreferrer"/, 'Committed order IDs must open the Executive order breakdown in a new tab.');
 assert.match(script, /admin-inventory-predicted-stock[\s\S]*inventoryProjectedStockMarkup\(item, predictedStock, predictionAvailable\)/);
 assert.match(styles, /\.admin-inventory-commitment-details summary[\s\S]*cursor: pointer[\s\S]*\.admin-inventory-commitment-panel[\s\S]*max-height: 220px/);
 assert.match(script, /partialRequiredCount[\s\S]*partialAlert\.hidden = partialRequiredCount === 0[\s\S]*Needs purchase, including/);

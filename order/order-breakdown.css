@@ -1,0 +1,174 @@
+.admin-order-breakdown-body {
+  min-height: 100vh;
+  overflow-y: auto;
+  background:
+    radial-gradient(circle at 18% -10%, rgba(71, 85, 255, .15), transparent 34rem),
+    #050606;
+}
+
+.admin-order-breakdown-shell {
+  width: min(1480px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 52px 0 72px;
+}
+
+.admin-order-breakdown-hero,
+.admin-order-breakdown-card,
+.admin-order-economics article,
+.admin-order-cost-quality,
+.admin-order-breakdown-error {
+  border: 1px solid var(--admin-border, #282a2d);
+  background: rgba(10, 11, 12, .94);
+  border-radius: 20px;
+}
+
+.admin-order-breakdown-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 28px 30px;
+}
+
+.admin-order-breakdown-hero h1 {
+  margin: 7px 0 5px;
+  font: 700 clamp(1.55rem, 3vw, 2.45rem)/1.05 "Space Grotesk", sans-serif;
+  letter-spacing: -.04em;
+}
+
+.admin-order-breakdown-hero p,
+.admin-order-breakdown-card h2 { margin: 0; }
+.admin-order-breakdown-hero p { color: #979a9f; }
+
+.admin-order-breakdown-status {
+  padding: 9px 13px;
+  border: 1px solid #34373b;
+  border-radius: 999px;
+  color: #b7bbc1;
+  font-size: .75rem;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.admin-order-breakdown-status[data-tone="ready"] { border-color: rgba(0, 220, 130, .35); color: #25df93; background: rgba(0, 220, 130, .08); }
+.admin-order-breakdown-status[data-tone="danger"] { border-color: rgba(255, 80, 100, .38); color: #ff7184; background: rgba(255, 80, 100, .08); }
+
+.admin-order-breakdown-loading {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.admin-order-breakdown-loading span {
+  height: 120px;
+  border: 1px solid #202225;
+  border-radius: 18px;
+  background: linear-gradient(100deg, #0b0c0d 20%, #17191b 48%, #0b0c0d 76%);
+  background-size: 200% 100%;
+  animation: admin-order-shimmer 1.4s linear infinite;
+}
+
+@keyframes admin-order-shimmer { to { background-position: -200% 0; } }
+
+.admin-order-economics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.admin-order-economics article { padding: 20px; }
+.admin-order-economics span,
+.admin-order-economics small { display: block; color: #888d94; }
+.admin-order-economics span { font-size: .74rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.admin-order-economics strong { display: block; margin: 10px 0 5px; font: 700 clamp(1.25rem, 2vw, 1.85rem)/1 "Space Grotesk", sans-serif; }
+.admin-order-economics small { line-height: 1.45; }
+.admin-order-economics .is-net { border-color: rgba(105, 91, 255, .55); }
+.admin-order-economics .is-profit { border-color: rgba(0, 220, 130, .4); }
+.admin-order-economics .is-profit strong { color: #30e89e; }
+.admin-order-economics strong.is-negative,
+.admin-order-product dd.is-negative { color: #ff7184; }
+
+.admin-order-cost-quality {
+  display: flex;
+  gap: 14px;
+  align-items: baseline;
+  margin-top: 14px;
+  padding: 14px 18px;
+  font-size: .82rem;
+}
+.admin-order-cost-quality.is-complete { border-color: rgba(0, 220, 130, .28); }
+.admin-order-cost-quality.is-complete strong { color: #30e89e; }
+.admin-order-cost-quality.is-partial { border-color: rgba(255, 184, 0, .38); }
+.admin-order-cost-quality.is-partial strong { color: #ffc435; }
+.admin-order-cost-quality span { color: #969ba2; }
+
+.admin-order-breakdown-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(340px, .65fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.admin-order-breakdown-card { overflow: hidden; }
+.admin-order-breakdown-card > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 16px;
+  padding: 20px 22px;
+  border-bottom: 1px solid #26282b;
+}
+.admin-order-breakdown-card h2 { margin-top: 5px; font-size: 1.05rem; }
+.admin-order-breakdown-card > header > strong { color: #a8adb4; font-size: .8rem; }
+
+.admin-order-product { padding: 20px 22px; border-bottom: 1px solid #222426; }
+.admin-order-product:last-child { border-bottom: 0; }
+.admin-order-product-head { display: flex; justify-content: space-between; gap: 16px; }
+.admin-order-product-head strong,
+.admin-order-product-head span { display: block; }
+.admin-order-product-head span { margin-top: 4px; color: #858a91; font-size: .76rem; }
+.admin-order-product-head b { padding: 5px 9px; border-radius: 999px; background: #181a1c; height: fit-content; }
+.admin-order-product dl { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 0; }
+.admin-order-product dl div { padding: 10px; border-radius: 10px; background: #111214; }
+.admin-order-product dt { color: #777c83; font-size: .68rem; }
+.admin-order-product dd { margin: 5px 0 0; font-weight: 750; }
+.admin-order-product-note { display: block; margin-top: 12px; color: #a88aff; }
+
+.admin-order-timeline { list-style: none; margin: 0; padding: 6px 22px 18px; }
+.admin-order-timeline li { position: relative; padding: 16px 0 16px 26px; border-bottom: 1px solid #222426; }
+.admin-order-timeline li::before { content: ""; position: absolute; top: 22px; left: 2px; width: 9px; height: 9px; border-radius: 50%; background: #6d5cff; box-shadow: 0 0 0 5px rgba(109, 92, 255, .13); }
+.admin-order-timeline time,
+.admin-order-timeline strong,
+.admin-order-timeline span { display: block; }
+.admin-order-timeline time { color: #767b82; font-size: .68rem; }
+.admin-order-timeline strong { margin-top: 5px; }
+.admin-order-timeline span { margin-top: 4px; color: #8c9198; font-size: .75rem; line-height: 1.45; }
+
+.admin-order-facts-card { margin-top: 16px; }
+.admin-order-facts { display: grid; grid-template-columns: repeat(4, 1fr); margin: 0; }
+.admin-order-facts div { min-width: 0; padding: 18px 22px; border-right: 1px solid #222426; border-bottom: 1px solid #222426; }
+.admin-order-facts dt { color: #757a81; font-size: .7rem; }
+.admin-order-facts dd { margin: 7px 0 0; overflow-wrap: anywhere; font-weight: 650; }
+
+.admin-order-breakdown-error { max-width: 650px; margin: 40px auto 0; padding: 34px; text-align: center; }
+.admin-order-breakdown-error h2 { margin: 9px 0; }
+.admin-order-breakdown-error p { color: #94999f; }
+
+@media (max-width: 900px) {
+  .admin-order-breakdown-shell { width: min(100% - 28px, 720px); padding-top: 22px; }
+  .admin-order-economics { grid-template-columns: repeat(2, 1fr); }
+  .admin-order-breakdown-columns { grid-template-columns: 1fr; }
+  .admin-order-facts { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 560px) {
+  .admin-order-breakdown-hero { padding: 22px; }
+  .admin-order-breakdown-hero { flex-direction: column; }
+  .admin-order-economics { grid-template-columns: 1fr; }
+  .admin-order-product dl { grid-template-columns: repeat(2, 1fr); }
+  .admin-order-facts { grid-template-columns: 1fr; }
+  .admin-order-cost-quality { align-items: flex-start; flex-direction: column; }
+}

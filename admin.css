@@ -27436,10 +27436,28 @@ button.admin-order-payment-dot:focus-visible {
   border-bottom: 0;
 }
 
-.admin-inventory-trigger-balance .admin-inventory-commitment-panel li > span {
+.admin-inventory-trigger-balance .admin-inventory-commitment-panel li > a {
+  display: inline-flex;
+  gap: 5px;
+  align-items: baseline;
+  min-width: 0;
   overflow-wrap: anywhere;
   color: var(--admin-text);
   font: 720 0.66rem/1.35 "Plus Jakarta Sans", sans-serif;
+  text-decoration: none;
+}
+
+.admin-inventory-trigger-balance .admin-inventory-commitment-panel li > a:hover span,
+.admin-inventory-trigger-balance .admin-inventory-commitment-panel li > a:focus-visible span {
+  color: var(--admin-accent, #735cff);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.admin-inventory-trigger-balance .admin-inventory-commitment-panel li > a i {
+  flex: 0 0 auto;
+  color: var(--admin-muted);
+  font-style: normal;
 }
 
 .admin-inventory-commitment-panel li > b {

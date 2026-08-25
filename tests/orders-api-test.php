@@ -648,4 +648,37 @@ expect_same('480', $ordersQuery['offset'] ?? '', 'Orders proxy must forward row 
 expect_same('1', $ordersQuery['skip_sync'] ?? '', 'Orders proxy must skip on-demand sync for paged reads.');
 expect_same('0', $ordersQuery['sync'] ?? '', 'Orders mirror repair must request read-only API rows.');
 
+$detailSkuOne = [
+    'sku' => 'DETAIL-ONE', 'product_name' => 'Detail One', 'brand_name' => 'ZERO',
+    'base_product_name' => 'Syrup', 'flavor_name' => 'One', 'volume' => 60.0, 'astra' => 60.0,
+    'cogs' => 100.0, 'cogs_history' => [], 'packing_required' => true,
+    'packing_costs' => ['2026-08' => 10.0],
+];
+$detailSkuTwo = [
+    'sku' => 'DETAIL-TWO', 'product_name' => 'Detail Two', 'brand_name' => 'ZERO',
+    'base_product_name' => 'Syrup', 'flavor_name' => 'Two', 'volume' => 60.0, 'astra' => 60.0,
+    'cogs' => 50.0, 'cogs_history' => [], 'packing_required' => true,
+    'packing_costs' => ['2026-08' => 5.0],
+];
+$orderDetail = jg_orders_order_detail_from_rows([
+    [
+        'order_id' => 'DETAIL-ORDER-1', 'platform' => 'shopee', 'account_key' => 'main', 'status' => 'READY_TO_SHIP',
+        'order_create_time' => '2026-08-12T02:00:00Z', 'sku' => 'DETAIL-ONE', 'quantity' => 2,
+        'revenue' => 600, 'order_net_revenue' => 1000, 'gross_revenue' => 700, 'marketplace_fees' => 100,
+    ],
+    [
+        'order_id' => 'DETAIL-ORDER-1', 'platform' => 'shopee', 'account_key' => 'main', 'status' => 'READY_TO_SHIP',
+        'order_create_time' => '2026-08-12T02:00:00Z', 'sku' => 'DETAIL-TWO', 'quantity' => 1,
+        'revenue' => 400, 'order_net_revenue' => 1000, 'gross_revenue' => 450, 'marketplace_fees' => 50,
+    ],
+], [
+    jg_orders_sku_key('DETAIL-ONE') => $detailSkuOne,
+    jg_orders_sku_key('DETAIL-TWO') => $detailSkuTwo,
+]);
+expect_same(1000, $orderDetail['financials']['net_revenue'], 'Order detail must count order-level net revenue once across multiple product lines.');
+expect_same(250, $orderDetail['financials']['cogs'], 'Order detail must sum effective SKU COGS across physical quantities.');
+expect_same(25, $orderDetail['financials']['packing_cost'], 'Order detail must sum monthly packing costs across physical quantities.');
+expect_same(725, $orderDetail['financials']['estimated_gross_profit'], 'Estimated GP must equal net revenue minus COGS and packing.');
+expect_same(true, $orderDetail['coverage']['complete'], 'Order detail must report complete cost coverage when every item is mapped.');
+
 echo "orders-api-test: ok\n";

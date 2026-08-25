@@ -36,7 +36,7 @@ $sidebarSection = match (true) {
     in_array($requestedView ?? '', ['website', 'site', 'home', 'campaign', 'campaigns', 'landing', 'landing-pages'], true) => 'website',
     default => 'home',
 };
-$dashboardBuildVersion = 'exec3.98.5';
+$dashboardBuildVersion = 'exec3.98.6';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
