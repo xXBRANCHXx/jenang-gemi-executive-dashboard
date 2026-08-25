@@ -16,6 +16,11 @@ function pnl_expect(mixed $expected, mixed $actual, string $message): void
 
 $pdo = new PDO('sqlite::memory:');
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$poPdo = new PDO('sqlite::memory:');
+$poPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$poPdo->exec('CREATE TABLE purchase_orders (id INTEGER PRIMARY KEY, estimated_total REAL)');
+$poPdo->exec('CREATE TABLE purchase_order_payments (id INTEGER PRIMARY KEY, accounting_transaction_id INTEGER, amount REAL)');
+$poPdo->exec('INSERT INTO purchase_orders VALUES (1, 10000), (2, 900), (3, 999)');
 $pdo->exec('CREATE TABLE accounting_categories (id INTEGER PRIMARY KEY, type TEXT, category_key TEXT)');
 $pdo->exec('CREATE TABLE accounting_pnl_category_settings (
     category_id INTEGER PRIMARY KEY, include_in_net_profit INTEGER NOT NULL, pnl_bucket TEXT NOT NULL, updated_at TEXT
@@ -42,10 +47,16 @@ $pdo->exec("INSERT INTO accounting_transactions VALUES
     (10, '2026-07', 'void', 'money_out', 'expense', 1, 999, 0),
     (11, '2026-07', 'posted', 'money_out', 'expense', 6, 75, 0),
     (12, '2026-07', 'posted', 'money_in', 'manual_income', 7, 60, 0),
-    (13, '2026-07', 'posted', 'money_out', 'expense', 8, 80, 0)");
+    (13, '2026-07', 'posted', 'money_out', 'expense', 8, 80, 0),
+    (14, '2026-07', 'posted', 'money_out', 'expense', 2, 300, 0),
+    (15, '2026-07', 'void', 'money_out', 'expense', 2, 999, 0)");
 $pdo->exec("INSERT INTO accounting_review_queue VALUES (1, 'open'), (2, 'open'), (3, 'resolved')");
+$poPdo->exec("INSERT INTO purchase_order_payments VALUES
+    (1, 2, 200),
+    (2, 14, 300),
+    (3, 15, 999)");
 
-$summary = jg_accounting_pnl_summary($pdo, 2026);
+$summary = jg_accounting_pnl_summary($pdo, 2026, $poPdo);
 $july = $summary['months'][6];
 pnl_expect(100, $july['ad_cost'], 'Only platform-ad categories must become ad cost.');
 pnl_expect(75, $july['marketing_other'], 'Non-ad marketing must remain visible without inflating ad cost.');
@@ -54,8 +65,10 @@ pnl_expect(200, $july['payroll'], 'Payroll must remain a separate operating expe
 pnl_expect(150, $july['operations'], 'Operations must exclude refunds, assets, and voided rows.');
 pnl_expect(10, $july['transfer_fees'], 'Transfer fees must be treated as operating cost.');
 pnl_expect(535, $july['operating_expenses'], 'Operating expense must combine ads, other marketing, payroll, operations, and fees.');
-pnl_expect(500, $july['product_purchases'], 'Product purchases must remain available for reconciliation.');
-pnl_expect(500, $july['product_costs'], 'Raw-material payments must become actual product cost before gross profit.');
+pnl_expect(500, $july['product_purchases'], 'Product purchases must equal the two recorded partial/full PO payments only.');
+pnl_expect(500, $july['product_costs'], 'Actual product cost must sum PO payment rows instead of PO estimates or mirrored category totals.');
+pnl_expect(2, $summary['po_payment_count'], 'Only PO payments linked to posted Accounting transactions may be counted.');
+pnl_expect('posted_linked_purchase_order_payments', $summary['product_cost_basis'], 'The P&L must disclose its strict paid-PO source.');
 pnl_expect(80, $july['packing_costs'], 'Packaging payments must become actual packing cost before gross profit.');
 pnl_expect(50, $july['manual_refunds'], 'Manual customer refunds must reduce report revenue separately.');
 pnl_expect(60, $july['partner_payments'], 'Confirmed partner payments must be identified as revenue.');
@@ -73,7 +86,7 @@ jg_accounting_save_pnl_category_settings($pdo, ['settings' => [
     ['category_id' => 4, 'include_in_net_profit' => false, 'pnl_bucket' => 'operations'],
     ['category_id' => 5, 'include_in_net_profit' => true, 'pnl_bucket' => 'operations'],
 ]]);
-$customSummary = jg_accounting_pnl_summary($pdo, 2026);
+$customSummary = jg_accounting_pnl_summary($pdo, 2026, $poPdo);
 $customJuly = $customSummary['months'][6];
 pnl_expect(300, $customJuly['operations'], 'Saved toggles must exclude rent and allow an explicitly included asset category.');
 pnl_expect(685, $customJuly['operating_expenses'], 'Net-profit expenses must immediately reflect saved category settings.');

@@ -50,7 +50,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/pnl.js');
 
                 <section class="pnl-kpis" aria-label="Profit and loss summary">
                     <article><span>Net Revenue</span><strong data-pnl-kpi="revenue">Rp0</strong><small>All operating revenue received</small></article>
-                    <article><span>PO / Product Cost</span><strong data-pnl-kpi="cogs">Rp0</strong><small>Actual included Accounting payments</small></article>
+                    <article><span>PO / Product Cost</span><strong data-pnl-kpi="cogs">Rp0</strong><small>Recorded partial + full PO payments only</small></article>
                     <article><span>Actual Packing Cost</span><strong data-pnl-kpi="packing">Rp0</strong><small>Included packing payments from Accounting</small></article>
                     <article><span>Gross Profit</span><strong data-pnl-kpi="gross-profit">Rp0</strong><small data-pnl-margin>0% margin</small></article>
                     <article><span>Ad Cost</span><strong data-pnl-kpi="ad-cost">Rp0</strong><small>Posted marketing payments</small></article>
@@ -91,7 +91,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/pnl.js');
                 </section>
 
                 <section class="pnl-assurance" data-pnl-assurance>
-                    <div><strong>Calculation basis</strong><span>Net revenue minus actual included PO/product payments, actual included packing payments, and included operating expenses from posted cash-basis Accounting entries.</span></div>
+                    <div><strong>Calculation basis</strong><span>Net revenue minus recorded partial/full PO payments, actual included packing payments, and included operating expenses from posted cash-basis Accounting entries. Unpaid PO balances are excluded.</span></div>
                     <div><strong>Direct net-profit formula</strong><span>Net Profit is calculated directly from revenue and actual Accounting costs. It does not use an imported or estimated Gross Profit value.</span></div>
                     <div><strong>Review status</strong><span data-pnl-review-status>Checking Accounting review items…</span></div>
                 </section>

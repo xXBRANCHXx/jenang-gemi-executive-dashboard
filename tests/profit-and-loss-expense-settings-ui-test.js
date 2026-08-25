@@ -28,6 +28,8 @@ assert.match(script, /key: `platform-ads:/, 'Platform advertising categories mus
 assert.match(script, /existing\.amount \+= category\.amount/, 'A rolled-up expense must sum every matching Accounting category amount.');
 
 assert.match(script, /const productCosts = numeric\(books, \['product_costs', 'product_purchases'\]\);/, 'PO/product costs must come from Accounting.');
+assert.match(page, /Recorded partial \+ full PO payments only/, 'The PO cost card must disclose that only actual recorded payments are counted.');
+assert.match(page, /Unpaid PO balances are excluded\./, 'The P&L must explicitly disclose that unpaid PO balances are excluded.');
 assert.match(script, /const packingCosts = numeric\(books, \['packing_costs'\]\);/, 'Actual packing cost must come from Accounting.');
 assert.doesNotMatch(script, /const cogs = numeric\(sale, \['cogs'\]\)/, 'P&L must not use sales-service estimated SKU COGS.');
 assert.doesNotMatch(script, /const packing = numeric\(sale, \['packing_cost'\]\)/, 'P&L must not use sales-service per-item packing estimates.');

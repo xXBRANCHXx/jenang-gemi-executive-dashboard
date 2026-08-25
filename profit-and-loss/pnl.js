@@ -317,7 +317,7 @@ if (root) {
       selected.otherIncome ? bridgeRow('Other revenue', selected.otherIncome || 0) : '',
       selected.refunds ? bridgeRow('Less: manual customer refunds', -(selected.refunds || 0), 'is-deduction') : '',
       bridgeRow('Net revenue', selected.revenue || 0, 'is-subtotal'),
-      bridgeRow('Less: actual PO / product payments', -(selected.cogs || 0), 'is-deduction'),
+      bridgeRow('Less: recorded PO payments', -(selected.cogs || 0), 'is-deduction'),
       bridgeRow('Less: actual Accounting packing costs', -(selected.packing || 0), 'is-deduction'),
       bridgeRow('Gross profit', selected.grossProfit || 0, 'is-subtotal'),
       ...operatingRows.map((category) => {
