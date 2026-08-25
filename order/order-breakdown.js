@@ -5,6 +5,7 @@ if (root) {
     title: root.querySelector('[data-order-title]'),
     subtitle: root.querySelector('[data-order-subtitle]'),
     status: root.querySelector('[data-order-status]'),
+    label: root.querySelector('[data-order-label]'),
     loading: root.querySelector('[data-order-loading]'),
     error: root.querySelector('[data-order-error]'),
     errorMessage: root.querySelector('[data-order-error-message]'),
@@ -64,7 +65,7 @@ if (root) {
     const items = Array.isArray(payload.items) ? payload.items : [];
     const timeline = Array.isArray(payload.timeline) ? payload.timeline : [];
     const currency = financials.currency || 'IDR';
-    const status = order.workflow_status || order.status || order.package_status || 'Order found';
+    const status = order.status || order.package_status || 'Order found';
     const physicalItems = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
     const now = Date.now();
     const timelineDates = timeline.map((event) => {
@@ -81,7 +82,22 @@ if (root) {
     refs.subtitle.textContent = [readable(order.platform, ''), order.account_key, dateTime(order.ordered_at)]
       .filter(Boolean).join(' · ');
     refs.status.textContent = readable(status);
-    refs.status.dataset.tone = /cancel|fail|remove/.test(String(status).toLowerCase()) ? 'danger' : 'ready';
+    refs.status.dataset.tone = /cancel|fail|remove/.test(String(status).toLowerCase())
+      ? 'danger'
+      : /fulfilled|delivered|completed|processed/.test(String(status).toLowerCase()) ? 'done' : 'neutral';
+    const labelAvailable = Boolean(order.label_ready && order.label_url);
+    refs.label.classList.toggle('is-available', labelAvailable);
+    refs.label.setAttribute('aria-disabled', labelAvailable ? 'false' : 'true');
+    refs.label.querySelector('span').textContent = labelAvailable ? 'View label' : 'Label unavailable';
+    if (labelAvailable) {
+      refs.label.href = order.label_url;
+      refs.label.target = '_blank';
+      refs.label.rel = 'noopener noreferrer';
+    } else {
+      refs.label.removeAttribute('href');
+      refs.label.removeAttribute('target');
+      refs.label.removeAttribute('rel');
+    }
     refs.net.textContent = money(financials.net_revenue, currency);
     refs.cogs.textContent = money(financials.cogs, currency);
     refs.packing.textContent = money(financials.packing_cost, currency);
@@ -133,14 +149,12 @@ if (root) {
       const kind = String(event.kind || 'event').toLowerCase();
       const at = timelineDates[index];
       const scheduled = at && at.getTime() > now;
-      const milestoneState = scheduled
-        ? (index === nextIndex ? 'next' : 'upcoming')
-        : (nextIndex < 0 && index === timeline.length - 1 ? 'current' : 'done');
+      const milestoneState = scheduled ? (index === nextIndex ? 'next' : 'upcoming') : 'done';
       return `
         <li class="is-${escapeHtml(kind)} is-${milestoneState}">
           <div class="admin-order-timeline-marker" aria-hidden="true">${timelineIcon(kind)}</div>
           <div class="admin-order-timeline-copy">
-            <div><strong>${escapeHtml(event.label || 'Order event')}</strong><b>${milestoneState === 'done' ? 'Done' : milestoneState === 'next' ? 'Next' : milestoneState === 'current' ? 'Current' : 'Upcoming'}</b></div>
+            <div><strong>${escapeHtml(event.label || 'Order event')}</strong><b>${milestoneState === 'done' ? 'Done' : milestoneState === 'next' ? 'Next' : 'Upcoming'}</b></div>
             ${event.note ? `<span>${escapeHtml(event.note)}</span>` : ''}
           </div>
           <time>${escapeHtml(dateTime(event.at))}</time>
@@ -152,7 +166,6 @@ if (root) {
       ['Source', readable(order.platform)],
       ['Account', order.account_key || 'Not supplied'],
       ['Marketplace status', readable(order.status)],
-      ['Workflow status', readable(order.workflow_status)],
       ['Package status', readable(order.package_status)],
       ['Courier', order.shipping_provider || 'Not supplied'],
       ['Last data update', dateTime(order.updated_at)]

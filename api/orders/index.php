@@ -26,6 +26,10 @@ function jg_orders_handle_request(): void
     }
 
     jg_admin_require_auth();
+    if ($method === 'GET' && $action === 'shipping_label') {
+        jg_orders_stream_shipping_label($_GET);
+        return;
+    }
     header('Content-Type: application/json; charset=utf-8');
 
     try {
@@ -253,6 +257,51 @@ function jg_orders_handle_request(): void
     }
 }
 
+/** @param array<string, mixed> $input */
+function jg_orders_stream_shipping_label(array $input): void
+{
+    $platform = strtolower(trim((string) ($input['platform'] ?? '')));
+    $accountKey = trim((string) ($input['account_key'] ?? $input['account'] ?? ''));
+    $orderId = trim((string) ($input['order_id'] ?? $input['order'] ?? ''));
+    $packageId = trim((string) ($input['package_id'] ?? $input['package'] ?? ''));
+    if (!in_array($platform, ['shopee', 'tiktok', 'tokopedia'], true) || $accountKey === '' || $orderId === '') {
+        jg_orders_json(['ok' => false, 'error' => 'A marketplace source and order ID are required.'], 422);
+        return;
+    }
+    try {
+        $url = jg_orders_remote_url('/' . rawurlencode($platform) . '/orders/shipping-label', [
+            'account' => $accountKey,
+            'order' => $orderId,
+            'package' => $packageId,
+        ]);
+        $context = stream_context_create(['http' => [
+            'method' => 'GET',
+            'header' => "Accept: application/pdf,application/octet-stream\r\nUser-Agent: Jenang-Gemi-Executive-Dashboard/1.0\r\n",
+            'timeout' => 45,
+            'ignore_errors' => true,
+        ]]);
+        $raw = @file_get_contents($url, false, $context);
+        $status = 0;
+        foreach (($http_response_header ?? []) as $header) {
+            if (preg_match('/^HTTP\/\S+\s+(\d{3})/', (string) $header, $match) === 1) {
+                $status = (int) $match[1];
+            }
+        }
+        if (!is_string($raw) || $raw === '' || $status < 200 || $status >= 300) {
+            $decoded = is_string($raw) ? json_decode($raw, true) : null;
+            throw new RuntimeException((string) ($decoded['error'] ?? 'Shipping label is unavailable.'));
+        }
+        $filename = $platform . '-label-' . (preg_replace('/[^A-Za-z0-9_-]+/', '-', $orderId) ?: 'order') . '.pdf';
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: inline; filename="' . $filename . '"');
+        header('Content-Length: ' . strlen($raw));
+        header('Cache-Control: private, no-store');
+        echo $raw;
+    } catch (Throwable $error) {
+        jg_orders_json(['ok' => false, 'error' => 'shipping_label_unavailable', 'message' => $error->getMessage()], 404);
+    }
+}
+
 /**
  * Resolve one order without relying on the date window used by the Orders table.
  * Inventory Recap links only carry an order ID because Store Ops commitments are
@@ -465,6 +514,17 @@ function jg_orders_order_detail_from_rows(array $sourceRows, array $skuLookup, a
             'workflow_status' => (string) ($fulfillmentOrder['workflow_status'] ?? ''),
             'package_status' => (string) ($fulfillmentOrder['package_status'] ?? ''),
             'shipping_provider' => (string) ($fulfillmentOrder['shipping_provider'] ?? ''),
+            'package_id' => (string) ($fulfillmentOrder['package_id'] ?? ''),
+            'label_ready' => !empty($fulfillmentOrder['label_ready']) || !empty($first['label_ready']),
+            'label_url' => (!empty($fulfillmentOrder['label_ready']) || !empty($first['label_ready']))
+                ? '/api/orders/?' . http_build_query([
+                    'action' => 'shipping_label',
+                    'platform' => (string) ($fulfillmentOrder['platform'] ?? $first['platform'] ?? ''),
+                    'account_key' => (string) ($fulfillmentOrder['account_key'] ?? $first['account_key'] ?? ''),
+                    'order_id' => (string) ($first['order_id'] ?? ''),
+                    'package_id' => (string) ($fulfillmentOrder['package_id'] ?? ''),
+                ], '', '&', PHP_QUERY_RFC3986)
+                : '',
             'ordered_at' => (string) ($first['order_create_time'] ?? $first['timestamp'] ?? ''),
             'updated_at' => (string) ($fulfillmentOrder['updated_at'] ?? $first['mirrored_at'] ?? ''),
             'customer' => [

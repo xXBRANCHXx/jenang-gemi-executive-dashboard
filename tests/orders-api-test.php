@@ -680,5 +680,18 @@ expect_same(250, $orderDetail['financials']['cogs'], 'Order detail must sum effe
 expect_same(25, $orderDetail['financials']['packing_cost'], 'Order detail must sum monthly packing costs across physical quantities.');
 expect_same(725, $orderDetail['financials']['estimated_gross_profit'], 'Estimated GP must equal net revenue minus COGS and packing.');
 expect_same(true, $orderDetail['coverage']['complete'], 'Order detail must report complete cost coverage when every item is mapped.');
+$labelDetail = jg_orders_order_detail_from_rows([[
+    'order_id' => 'DETAIL-LABEL-1', 'platform' => 'shopee', 'account_key' => 'main', 'status' => 'READY_TO_SHIP',
+    'order_create_time' => '2026-08-12T02:00:00Z', 'sku' => 'DETAIL-ONE', 'quantity' => 1,
+    'revenue' => 500, 'order_net_revenue' => 500,
+]], [jg_orders_sku_key('DETAIL-ONE') => $detailSkuOne], [
+    'order' => [
+        'platform' => 'shopee', 'account_key' => 'main', 'package_id' => 'PACKAGE-1',
+        'marketplace_status' => 'READY_TO_SHIP', 'workflow_status' => 'LABEL_READY', 'label_ready' => true,
+    ],
+]);
+expect_same(true, $labelDetail['order']['label_ready'], 'Order detail must expose label availability as a dedicated control state.');
+expect_same(true, str_contains((string) $labelDetail['order']['label_url'], 'action=shipping_label'), 'Available labels must use the authenticated Executive label proxy.');
+expect_same('READY_TO_SHIP', $labelDetail['order']['status'], 'The visible order status must remain marketplace status instead of label workflow status.');
 
 echo "orders-api-test: ok\n";

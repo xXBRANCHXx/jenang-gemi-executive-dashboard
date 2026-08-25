@@ -19,10 +19,16 @@ assert.match(styles, /\.admin-order-breakdown-loading\[hidden\][\s\S]*display: n
 assert.match(script, /const timelineIcon[\s\S]*pickup_window[\s\S]*pickup_confirmed[\s\S]*funds/);
 assert.match(script, /admin-order-timeline-marker[\s\S]*admin-order-timeline-copy/);
 assert.match(script, /nextIndex[\s\S]*completedCount[\s\S]*Next milestone[\s\S]*milestones done/);
-assert.match(script, /milestoneState === 'done' \? 'Done'[\s\S]*'Next'[\s\S]*'Current'[\s\S]*'Upcoming'/);
-assert.match(styles, /\.admin-order-timeline::before[\s\S]*linear-gradient/, 'Timeline events must be connected by a visible lifecycle rail.');
+assert.match(script, /milestoneState === 'done' \? 'Done'[\s\S]*'Next'[\s\S]*'Upcoming'/);
+assert.match(styles, /\.admin-order-timeline::before[\s\S]*background: #34383e/, 'Timeline events must be connected by a neutral lifecycle rail.');
 assert.match(styles, /\.admin-order-current-state[\s\S]*admin-order-current-pulse[\s\S]*\.admin-order-next-state/);
+assert.doesNotMatch(page, /admin-panel-kicker/, 'Order breakdown headings must not use eyebrow labels.');
+assert.doesNotMatch(styles, /gradient\(/, 'The order breakdown must not use gradients.');
+assert.match(page, /data-order-label[\s\S]*Label unavailable/);
+assert.match(script, /labelAvailable[\s\S]*View label[\s\S]*Label unavailable/);
+assert.match(styles, /\.admin-order-timeline li\.is-done \{ --timeline-tone: #25df93; \}[\s\S]*\.admin-order-timeline li\.is-next \{ --timeline-tone: #f0f2f4; \}/, 'Only completed timeline milestones should use green; the next step must remain white.');
 assert.match(api, /function jg_orders_order_detail_from_rows[\s\S]*estimated_gross_profit'[\s\S]*\$netRevenue - \$cogs - \$packing/);
 assert.match(api, /function jg_orders_optional_fulfillment_detail[\s\S]*\/fulfillment\/order-detail/);
+assert.match(api, /function jg_orders_stream_shipping_label[\s\S]*orders\/shipping-label[\s\S]*Content-Disposition: inline/);
 
 console.log('order-breakdown-ui-test: ok');

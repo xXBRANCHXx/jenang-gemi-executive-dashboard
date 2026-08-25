@@ -35,11 +35,16 @@ $assetVersion = (string) max(
     <main class="admin-order-breakdown-shell" data-order-breakdown data-endpoint="../api/orders/" data-order-id="<?php echo htmlspecialchars($orderId, ENT_QUOTES); ?>">
         <header class="admin-order-breakdown-hero">
             <div>
-                <span class="admin-panel-kicker">Executive order breakdown</span>
                 <h1 data-order-title><?php echo htmlspecialchars($orderId !== '' ? $orderId : 'Order not selected', ENT_QUOTES); ?></h1>
                 <p data-order-subtitle>Loading status, products, and order economics…</p>
             </div>
-            <span class="admin-order-breakdown-status" data-order-status>Loading</span>
+            <div class="admin-order-hero-actions">
+                <span class="admin-order-breakdown-status" data-order-status>Loading</span>
+                <a class="admin-order-label-button" data-order-label aria-disabled="true">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M10 13h5M10 17h5"/></svg>
+                    <span>Label unavailable</span>
+                </a>
+            </div>
         </header>
 
         <section class="admin-order-breakdown-loading" data-order-loading aria-live="polite">
@@ -47,7 +52,6 @@ $assetVersion = (string) max(
         </section>
 
         <section class="admin-order-breakdown-error" data-order-error hidden>
-            <span class="admin-panel-kicker">Order unavailable</span>
             <h2>The order breakdown could not be loaded</h2>
             <p data-order-error-message>Please retry after the order source finishes syncing.</p>
             <button type="button" class="admin-primary-btn" data-order-retry>Retry</button>
@@ -77,19 +81,19 @@ $assetVersion = (string) max(
 
             <div class="admin-order-breakdown-columns">
                 <section class="admin-order-breakdown-card">
-                    <header><div><span class="admin-panel-kicker">Contents</span><h2>Products processed</h2></div><strong data-order-item-count>0 units</strong></header>
+                    <header><div><h2>Products processed</h2></div><strong data-order-item-count>0 units</strong></header>
                     <div class="admin-order-product-list" data-order-items></div>
                 </section>
 
                 <section class="admin-order-breakdown-card">
-                    <header><div><span class="admin-panel-kicker">Processing</span><h2>Order timeline</h2></div></header>
+                    <header><div><h2>Order timeline</h2></div></header>
                     <div class="admin-order-timeline-summary" data-order-timeline-summary></div>
                     <ol class="admin-order-timeline" data-order-timeline></ol>
                 </section>
             </div>
 
             <section class="admin-order-breakdown-card admin-order-facts-card">
-                <header><div><span class="admin-panel-kicker">Order facts</span><h2>Source and fulfillment</h2></div></header>
+                <header><div><h2>Source and fulfillment</h2></div></header>
                 <dl class="admin-order-facts" data-order-facts></dl>
             </section>
         </div>
