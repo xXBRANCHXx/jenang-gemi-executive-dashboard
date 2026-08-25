@@ -25659,8 +25659,7 @@ button.admin-order-payment-dot:focus-visible {
 .admin-order-payment-dot.is-canceled { color: #6b7280; }
 
 .admin-orders-payment-audit {
-  display: grid;
-  gap: 6px;
+  display: block;
   width: min(620px, 100%);
   margin-top: 5px;
   color: var(--admin-muted);
@@ -25668,41 +25667,7 @@ button.admin-order-payment-dot:focus-visible {
   letter-spacing: 0.04em;
 }
 
-.admin-orders-payment-audit-copy {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 10px;
-}
-
-.admin-orders-payment-audit-copy strong { color: currentColor; }
-
-.admin-orders-payment-audit-copy small {
-  color: var(--admin-muted);
-  font: inherit;
-  letter-spacing: 0.01em;
-}
-
-.admin-orders-payment-audit-track {
-  display: block;
-  width: 100%;
-  height: 4px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--admin-muted) 18%, transparent);
-}
-
-.admin-orders-payment-audit-track i {
-  display: block;
-  width: var(--admin-orders-audit-progress, 0%);
-  height: 100%;
-  border-radius: inherit;
-  background: currentColor;
-  transition: width 220ms ease;
-}
-
-.admin-orders-payment-audit.is-verified { color: #16a34a; }
-.admin-orders-payment-audit.is-warning { color: #6b7280; }
+.admin-orders-payment-audit.is-automatic { color: #16a34a; }
 
 .admin-orders-payment-filters {
   display: flex;

@@ -46,39 +46,21 @@ assert(
   'Marketplace payment dots must expose only paid or unpaid from seller-wallet release history.'
 );
 assert(
-  admin.includes("const ORDER_PAYMENT_AUDIT_START_DATE = '2026-05-20'")
-    && admin.includes('ensureOrdersPaymentHistoryAudit().catch')
-    && dashboard.includes('data-orders-payment-audit')
+  dashboard.includes('data-orders-payment-audit')
+    && dashboard.includes('Order and payment statuses reconcile automatically in the background')
+    && admin.includes("ordersRefs.paymentAuditStatus.className = 'admin-orders-payment-audit is-automatic'")
+    && styles.includes('.admin-orders-payment-audit.is-automatic')
     && !dashboard.includes('data-toggle-order-payment="unknown"')
     && !styles.includes('.admin-order-payment-dot.is-unknown'),
-  'Orders must automatically verify the May 20 marketplace history without exposing a fourth payment state.'
+  'Orders must explain that lifecycle and payment reconciliation is automatic without exposing a fourth payment state.'
 );
 assert(
-  admin.includes('startDate: ORDER_PAYMENT_AUDIT_START_DATE')
-    && admin.includes('endDate: orderPaymentAuditEndDate()')
-    && admin.includes('const orderPaymentAuditEndDate = () => activeLocalDate')
-    && admin.includes('timeoutMs: 65000'),
-  'The paid-status audit must resume through the current Jakarta date with bounded requests.'
-);
-assert(
-  admin.includes('reconcileOrdersPaymentStatus')
-    && admin.includes("{ phase: 'orders', days: 2 }")
-    && admin.includes('requireSourceVerified: true')
-    && admin.includes('paymentReconciledAt'),
-  'A verified paid state must include a fresh, successful rolling marketplace release reconciliation.'
-);
-assert(
-  admin.includes('backtrack.days_completed')
-    && admin.includes('backtrack.days_remaining')
-    && admin.includes('admin-orders-payment-audit-track')
-    && styles.includes('--admin-orders-audit-progress'),
-  'Orders must show persisted paid-status progress, completed days, remaining days, and a progress bar.'
-);
-assert(
-  admin.includes('let resumeAttempts = 0')
-    && admin.includes('resumeAttempts >= 3')
-    && admin.includes('backtrack.last_error'),
-  'The paid-status audit must resume transient failures on the same run and expose a terminal error instead of appearing frozen.'
+  !admin.includes('ensureOrdersPaymentHistoryAudit')
+    && !admin.includes('reconcileOrdersPaymentStatus')
+    && !admin.includes('Current paid-status check needs retry')
+    && !admin.includes('history verification is still running')
+    && !styles.includes('admin-orders-payment-audit-track'),
+  'Opening or focusing Orders must never start a browser-driven reconciliation or show a manual retry state.'
 );
 assert(
   /marketplaceOrder[\s\S]*?'Funds not released[^']*'[\s\S]*?: 'Payment outstanding'/.test(admin),

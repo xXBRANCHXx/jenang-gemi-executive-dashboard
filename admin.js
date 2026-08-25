@@ -936,7 +936,6 @@ const ORDER_BOOTSTRAP_MAX_WINDOWS = 2;
 const ORDER_BACKGROUND_TARGET_ROWS = 24000;
 const ORDER_BACKGROUND_MAX_WINDOWS = 72;
 const ORDER_CLIENT_CACHE_VERSION = 7;
-const ORDER_PAYMENT_AUDIT_START_DATE = '2026-05-20';
 const OVERVIEW_LOCATION_PAGE_SIZE = 2000;
 const OVERVIEW_LOCATION_MAX_PAGES = 25;
 const OVERVIEW_LOCATION_CACHE_VERSION = 5;
@@ -2576,10 +2575,6 @@ document.addEventListener('DOMContentLoaded', () => {
       exporting: false,
       paymentOrderId: '',
       paymentSaving: false,
-      paymentAuditRunning: false,
-      paymentAuditError: '',
-      paymentReconciledAt: 0,
-      paymentReconcilePromise: null,
       renderLimit: ORDER_RENDER_BATCH_SIZE,
       scrollPending: false,
       ensureRunning: false,
@@ -5033,77 +5028,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const compactOrderFilterValue = (value) => normalizeOrderFilterValue(value).replace(/[^a-z0-9]+/g, '');
 
-  const orderPaymentAuditEndDate = () => activeLocalDate;
-
-  const ordersPaymentHistoryCoverageComplete = (backtrack = state.wallet.data?.backtrack) => (
-    normalizeOrderFilterValue(backtrack?.status) === 'complete'
-      && String(backtrack?.start_date || '') <= ORDER_PAYMENT_AUDIT_START_DATE
-      && String(backtrack?.end_date || '') >= orderPaymentAuditEndDate()
-  );
-
-  const ordersPaymentHistoryVerified = (backtrack = state.wallet.data?.backtrack) => (
-    ordersPaymentHistoryCoverageComplete(backtrack)
-      && Date.now() - Number(state.orders.paymentReconciledAt || 0) < AUTO_REFRESH_INTERVAL_MS
-  );
-
   const renderOrdersPaymentAudit = () => {
     if (!ordersRefs.paymentAuditStatus) return;
-    const backtrack = state.wallet.data?.backtrack || {};
-    const progress = Math.max(0, Math.min(100, Math.round(Number(backtrack.progress) || 0)));
-    const daysTotal = Math.max(0, Math.round(Number(backtrack.days_total) || 0));
-    const daysCompleted = Math.max(0, Math.min(daysTotal, Math.round(Number(backtrack.days_completed) || 0)));
-    const daysRemaining = Math.max(0, Math.round(Number(backtrack.days_remaining) || (daysTotal - daysCompleted)));
-    const importedRows = Math.max(0, Math.round(Number(backtrack.imported_rows) || 0));
-    const renderProgress = (title, detail, tone) => {
-      ordersRefs.paymentAuditStatus.className = `admin-orders-payment-audit ${tone}`;
-      ordersRefs.paymentAuditStatus.innerHTML = `
-        <span class="admin-orders-payment-audit-copy">
-          <strong>${escapeHtml(title)}</strong>
-          <small>${escapeHtml(detail)}</small>
-        </span>
-        <span class="admin-orders-payment-audit-track" role="progressbar" aria-label="Paid-status history verification" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}">
-          <i style="--admin-orders-audit-progress:${progress}%"></i>
-        </span>
-      `;
-    };
-    if (ordersPaymentHistoryVerified(backtrack)) {
-      renderProgress(
-        'Paid-status history verified · 100%',
-        `${formatRegionalInteger(daysTotal)} of ${formatRegionalInteger(daysTotal)} days complete through ${orderPaymentAuditEndDate()} · ${formatRegionalInteger(importedRows)} order rows checked`,
-        'is-verified'
-      );
-      return;
-    }
-    if (state.orders.paymentAuditRunning || backtrack.active) {
-      const current = String(backtrack.last_message || '').trim();
-      const requestError = String(state.orders.paymentAuditError || '').trim();
-      renderProgress(
-        `Verifying paid-status history · ${progress}%`,
-        daysTotal
-          ? `${formatRegionalInteger(daysCompleted)} of ${formatRegionalInteger(daysTotal)} days complete · ${formatRegionalInteger(daysRemaining)} left · ${formatRegionalInteger(importedRows)} order rows checked${requestError ? ` · Last request: ${requestError}` : (current ? ` · ${current}` : '')}`
-          : `Preparing May 20 history${requestError ? ` · Last request: ${requestError}` : (current ? ` · ${current}` : '')}`,
-        'is-running'
-      );
-      return;
-    }
-    if (ordersPaymentHistoryCoverageComplete(backtrack) && state.orders.paymentAuditError) {
-      renderProgress(
-        'Current paid-status check needs retry',
-        `${state.orders.paymentAuditError} · outstanding money has not been marked verified`,
-        'is-warning'
-      );
-      return;
-    }
-    if (normalizeOrderFilterValue(backtrack.status) === 'failed') {
-      const failure = String(backtrack.last_error || '').trim();
-      renderProgress(
-        `Paid-status verification paused · ${progress}%`,
-        `${formatRegionalInteger(daysCompleted)} of ${formatRegionalInteger(daysTotal)} days complete · ${formatRegionalInteger(daysRemaining)} left · ${failure ? `stopped because ${failure}` : 'it will resume from here'}`,
-        'is-warning'
-      );
-      return;
-    }
-    renderProgress('Paid-status history queued · 0%', `Checking May 20, 2026 through ${orderPaymentAuditEndDate()}`, 'is-running');
+    ordersRefs.paymentAuditStatus.className = 'admin-orders-payment-audit is-automatic';
+    ordersRefs.paymentAuditStatus.textContent = 'Order and payment statuses reconcile automatically in the background';
   };
 
   const orderPaymentStatus = (row) => {
@@ -8228,7 +8156,7 @@ document.addEventListener('DOMContentLoaded', () => {
           : (directOrder
             ? 'Unpaid — click to confirm payment'
             : (marketplaceOrder
-              ? (ordersPaymentHistoryVerified() ? 'Funds not released' : 'Funds not released — history verification is still running')
+              ? 'Funds not released'
               : 'Payment outstanding')));
       const paymentDot = directOrder && paymentStatus === 'unpaid'
         ? `<button type="button" class="admin-order-payment-dot is-unpaid" data-confirm-order-payment="${escapeHtml(orderId)}" title="${escapeHtml(paymentTitle)}" aria-label="${escapeHtml(paymentTitle)}"></button>`
@@ -11625,39 +11553,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	    }
 	  };
 
-  const reconcileOrdersPaymentStatus = async () => {
-    if (state.orders.paymentReconcilePromise) return state.orders.paymentReconcilePromise;
-    state.orders.paymentReconcilePromise = (async () => {
-      const verified = await postWalletAction(
-        'sync_releases',
-        { phase: 'orders', days: 2 },
-        'sync_releases:orders',
-        {
-          timeoutMs: 65000,
-          silent: true,
-          background: true,
-          requireSourceVerified: true
-        }
-      );
-      if (!verified) {
-        state.orders.paymentReconciledAt = 0;
-        state.orders.paymentAuditError = 'Marketplace release reconciliation did not verify every active account';
-        return false;
-      }
-      state.orders.paymentReconciledAt = Date.now();
-      state.orders.paymentAuditError = '';
-      // The source sync updates release markers in the mirror. Discard the old
-      // browser rows before calculating Paid and outstanding states again.
-      state.orders.monthsSignature = '';
-      await loadOrdersSafely({ force: true, preferStale: false, repair: true });
-      return true;
-    })().finally(() => {
-      state.orders.paymentReconcilePromise = null;
-      renderOrdersPaymentAudit();
-    });
-    return state.orders.paymentReconcilePromise;
-  };
-
 	  const shouldAutoSyncWalletReleases = (options = {}) => {
 	    if (!isBrowserOnline() || document.hidden || state.wallet.backtrackRunning) return false;
 	    if (state.wallet.releaseSyncPromise) return false;
@@ -11725,7 +11620,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	  const runWalletBacktrack = async (startNew = true, range = {}) => {
 	    if (state.wallet.backtrackRunning) return true;
 	    state.wallet.backtrackRunning = true;
-	    state.orders.paymentAuditError = '';
 	    state.wallet.cancelBacktrackRequested = false;
 	    state.wallet.actionId = 'backtrack';
 	    renderWallet(state.wallet.data);
@@ -11785,11 +11679,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	          const afterStep = `${backtrack.cursor_date || ''}:${backtrack.phase || ''}:${backtrack.account_index || 0}:${backtrack.import_offset || 0}`;
 	          if (afterStep !== beforeStep) {
 	            resumeAttempts = 0;
-	            state.orders.paymentAuditError = '';
 	          }
 	        } catch (stepError) {
 	          resumeAttempts += 1;
-	          state.orders.paymentAuditError = stepError?.message || 'Backfill step did not respond.';
 	          await wait(Math.min(5000, resumeAttempts * 1500));
 	          await loadWalletSafely({ force: true, preferStale: false, background: true });
 	          backtrack = state.wallet.data?.backtrack || backtrack;
@@ -11805,7 +11697,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	      }
 	      return backtrack.status === 'complete';
 	    } catch (error) {
-	      state.orders.paymentAuditError = error?.message || 'Paid-status history could not advance.';
 	      renderViewError('wallet', error);
 	      return false;
 	    } finally {
@@ -11813,31 +11704,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	      state.wallet.backtrackRunning = false;
 	      renderWallet(state.wallet.data);
 	      renderOrdersPaymentAudit();
-	    }
-	  };
-
-	  const ensureOrdersPaymentHistoryAudit = async () => {
-	    if (state.orders.paymentAuditRunning || !isBrowserOnline() || document.hidden) return false;
-	    state.orders.paymentAuditRunning = true;
-	    renderOrdersPaymentAudit();
-	    try {
-	      await loadWalletSafely({ force: true, preferStale: false, background: true });
-	      if (ordersPaymentHistoryVerified()) {
-	        renderOrders();
-	        return true;
-	      }
-	      const backtrack = state.wallet.data?.backtrack || {};
-	      const complete = ordersPaymentHistoryCoverageComplete(backtrack) || await runWalletBacktrack(!backtrack.active, {
-	          startDate: ORDER_PAYMENT_AUDIT_START_DATE,
-	          endDate: orderPaymentAuditEndDate()
-	        });
-	      if (complete) {
-	        return await reconcileOrdersPaymentStatus();
-	      }
-	      return complete;
-	    } finally {
-	      state.orders.paymentAuditRunning = false;
-	      renderOrders();
 	    }
 	  };
 
@@ -13014,10 +12880,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	        writeOrdersClientCache();
 	      })
       .catch(showOrderLoadError);
-	    ensureOrdersPaymentHistoryAudit().catch(() => {
-	      state.orders.paymentAuditRunning = false;
-	      renderOrdersPaymentAudit();
-	    });
   };
 
 	  const activateWalletViewInstantly = () => {
@@ -15457,7 +15319,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	    connectLiveStream();
 	    if (canStartBackgroundPageWork()) preloadOrderMemory().catch(() => {});
 	    scheduleWalletBackgroundRefresh({ force: true });
-    if (state.activeView === 'orders') ensureOrdersPaymentHistoryAudit().catch(() => {});
     refreshOverviewSnapshot().catch(() => {});
     if (state.activeView === 'ad-view') scheduleAdViewAutoSync({ delay: 250 });
     refreshForLocalDateRollover()
@@ -15475,7 +15336,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	    runAutomaticMarketplaceRefresh().catch(() => {});
 	    refreshOverviewSnapshot().catch(() => {});
 	    scheduleWalletBackgroundRefresh({ force: true });
-    if (state.activeView === 'orders') ensureOrdersPaymentHistoryAudit().catch(() => {});
     if (state.activeView === 'ad-view') scheduleAdViewAutoSync({ delay: 250 });
     if (state.activeView === 'overview') {
       refreshOverviewHourlyRows(null, { repair: true }).catch(() => {});
@@ -15483,14 +15343,12 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   window.addEventListener('online', () => {
     scheduleWalletBackgroundRefresh({ force: true });
-    if (state.activeView === 'orders') ensureOrdersPaymentHistoryAudit().catch(() => {});
   });
   window.setInterval(() => {
     if (!document.hidden) {
       refreshForLocalDateRollover().catch(() => {});
       runAutomaticMarketplaceRefresh().catch(() => {});
       scheduleWalletBackgroundRefresh();
-	      if (state.activeView === 'orders') ensureOrdersPaymentHistoryAudit().catch(() => {});
 	      if (state.activeView === 'overview') {
 	        refreshOverviewHourlyRows(null, { repair: true }).catch(() => {});
       }

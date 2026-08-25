@@ -654,7 +654,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                                 <span class="admin-panel-kicker">Orders</span>
                                 <h3>All-channel order facts</h3>
                                 <span class="admin-panel-meta" data-orders-status>Loading marketplace, partner, WhatsApp, website, and walk-in orders</span>
-                                <span class="admin-orders-payment-audit is-running" data-orders-payment-audit>Paid-status history verification queued from May 20</span>
+                                <span class="admin-orders-payment-audit is-automatic" data-orders-payment-audit>Order and payment statuses reconcile automatically in the background</span>
                             </div>
                             <div class="admin-orders-actions">
                                 <button type="button" class="admin-primary-btn admin-orders-ops-btn" data-view-switch="store-ops">Ops</button>
