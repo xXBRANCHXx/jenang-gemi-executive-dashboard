@@ -43,6 +43,8 @@ expect(html.includes('data-accounting-bill-picker') && html.includes('aria-multi
 expect(script.includes('let resettingForm = false'), 'Form reset must be guarded against recursive dropdown clearing.');
 expect(script.includes('if (resettingForm) return;'), 'The reset event must ignore programmatic resets.');
 expect(script.includes('restorePendingEntry()'), 'Refreshes must preserve an entry already being typed.');
+expect(script.includes("field.type === 'file'") && script.includes("field.type !== 'file'"), 'Entry refreshes must never read and restore the protected value of a file input.');
+expect(script.includes('if (entrySubmissionPending) return;') && script.includes("'Saved · refresh needed'"), 'A completed entry save must block duplicate submits and remain reported as saved if the follow-up refresh fails.');
 expect(script.includes("buildUrl('activity_ledger'"), 'The UI must load manual and automatic ledger rows together.');
 expect(script.includes('admin-accounting-ledger-field admin-accounting-ledger-category'), 'Ledger rows must show the bookkeeping category in a dedicated column.');
 expect(script.includes('admin-accounting-ledger-field admin-accounting-ledger-note'), 'Ledger rows must show the saved note in a dedicated column.');

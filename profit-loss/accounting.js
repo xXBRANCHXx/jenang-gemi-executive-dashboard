@@ -2630,6 +2630,7 @@ if (root) {
     const cacheKey = accountingCacheKey(options);
     const pendingEntry = refs.form instanceof HTMLFormElement
       ? [...refs.form.querySelectorAll('input[name], select[name], textarea[name]')].reduce((values, field) => {
+          if (field instanceof HTMLInputElement && field.type === 'file') return values;
           values[field.name] = field.value;
           return values;
         }, {})
@@ -2638,7 +2639,7 @@ if (root) {
       if (!(refs.form instanceof HTMLFormElement)) return;
       Object.entries(pendingEntry).forEach(([name, value]) => {
         const field = [...refs.form.elements].find((element) => element.name === name);
-        if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement) {
+        if ((field instanceof HTMLInputElement && field.type !== 'file') || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement) {
           field.value = value;
         }
       });
@@ -2784,8 +2785,10 @@ if (root) {
     return '';
   };
 
+  let entrySubmissionPending = false;
   const submitForm = async (event) => {
     event.preventDefault();
+    if (entrySubmissionPending) return;
     const submitter = event.submitter instanceof HTMLElement ? event.submitter : null;
     const payload = payloadFromForm(submitter);
     const validation = validatePayload(payload);
@@ -2800,27 +2803,35 @@ if (root) {
       setFormError('Each proof-of-payment file must be 10 MB or smaller.');
       return;
     }
+    entrySubmissionPending = true;
+    if (submitter instanceof HTMLButtonElement) submitter.disabled = true;
     if (refs.formStatus) refs.formStatus.textContent = 'Saving...';
     try {
-      if (receiptFiles.length) {
-        const multipartBody = new FormData();
-        Object.entries(payload).forEach(([key, value]) => multipartBody.append(
-          key,
-          value && typeof value === 'object' ? JSON.stringify(value) : String(value ?? '')
-        ));
-        multipartBody.set('receipt_status', 'attached');
-        receiptFiles.forEach((receiptFile) => multipartBody.append('receipt_files[]', receiptFile, receiptFile.name));
-        await requestJson(endpoint, { method: 'POST', body: multipartBody });
-      } else {
-        await requestJson(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
+      try {
+        if (receiptFiles.length) {
+          const multipartBody = new FormData();
+          Object.entries(payload).forEach(([key, value]) => multipartBody.append(
+            key,
+            value && typeof value === 'object' ? JSON.stringify(value) : String(value ?? '')
+          ));
+          multipartBody.set('receipt_status', 'attached');
+          receiptFiles.forEach((receiptFile) => multipartBody.append('receipt_files[]', receiptFile, receiptFile.name));
+          await requestJson(endpoint, { method: 'POST', body: multipartBody });
+        } else {
+          await requestJson(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+        }
+      } catch (error) {
+        const message = error?.message || 'Unable to save Accounting entry.';
+        setFormError(message);
+        if (refs.formStatus) refs.formStatus.textContent = 'Needs attention';
+        return;
       }
       if (refs.formStatus) refs.formStatus.textContent = 'Saved';
       showToast('Saved');
-      await loadAccounting(true);
       if (submitter?.hasAttribute('data-accounting-save-add')) {
         if (refs.amountInput) refs.amountInput.value = '';
         if (refs.receiptFile) {
@@ -2833,10 +2844,15 @@ if (root) {
       } else {
         resetForm();
       }
-    } catch (error) {
-      const message = error?.message || 'Unable to save Accounting entry.';
-      setFormError(message);
-      if (refs.formStatus) refs.formStatus.textContent = 'Needs attention';
+      try {
+        await loadAccounting(true);
+      } catch (error) {
+        if (refs.formStatus) refs.formStatus.textContent = 'Saved · refresh needed';
+        showToast('Entry saved. Reload the page to refresh Accounting totals.', true);
+      }
+    } finally {
+      entrySubmissionPending = false;
+      if (submitter instanceof HTMLButtonElement) submitter.disabled = false;
     }
   };
 
