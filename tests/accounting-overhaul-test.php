@@ -59,6 +59,11 @@ $pdo->exec('CREATE TABLE whatsapp_orders (
     id INTEGER PRIMARY KEY, order_id TEXT, sales_channel TEXT, customer_name TEXT,
     merchandise_total REAL, shipping_cost REAL, status TEXT, fulfilled_at TEXT NULL, created_at TEXT
 )');
+$pdo->exec('CREATE TABLE accounting_receipt_files (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, entity_type TEXT, entity_id INTEGER,
+    original_name TEXT, mime_type TEXT, size_bytes INTEGER, file_data BLOB,
+    uploaded_by INTEGER NULL, created_at TEXT
+)');
 
 $pdo->exec("INSERT INTO accounting_accounts VALUES
     (1, 'bca-main', 'BCA Main', 'bank', '', 'Jenang Gemi', 500000, NULL, 1, 1, 'bank', 1, 1, 1, 10, '2026-01-01 00:00:00')");
@@ -75,13 +80,17 @@ $pdo->exec("INSERT INTO accounting_cash_reconciliations VALUES
 $pdo->exec("INSERT INTO website_orders VALUES
     (1, 'jenang_gemi_website', 'WEB-BEFORE', 'PAID', 'Earlier customer', 80000, 80000, '2026-07-09 02:00:00', '2026-07-09 01:00:00')");
 $pdo->exec("INSERT INTO whatsapp_orders VALUES
-    (1, 'WA-AFTER', 'whatsapp', 'Direct customer', 45000, 5000, 'FULFILLED', '2026-07-12 02:00:00', '2026-07-11 01:00:00'),
+    (1, 'WA-AFTER', 'walk_in', 'Walk-in customer', 45000, 5000, 'FULFILLED', '2026-07-12 02:00:00', '2026-07-11 01:00:00'),
     (2, 'WA-BEFORE', 'whatsapp', 'Earlier direct customer', 25000, 0, 'FULFILLED', '2026-07-09 02:00:00', '2026-07-09 01:00:00')");
+$pdo->exec("INSERT INTO accounting_receipt_files
+    (entity_type, entity_id, original_name, mime_type, size_bytes, file_data, created_at)
+    VALUES ('direct_order', 1, 'walk-in-proof.png', 'image/png', 68, X'00', '2026-07-12 02:05:00')");
 
 $direct = jg_accounting_direct_order_cash_records($pdo);
 overhaul_expect(2, count($direct), 'Completed WhatsApp orders must remain available for automatic cash reconciliation.');
 $afterDirect = current(array_values(array_filter($direct, static fn (array $row): bool => ($row['order_id'] ?? '') === 'WA-AFTER')));
 overhaul_expect(50000, $afterDirect['usable_cash_amount'] ?? 0, 'Direct-order cash must include merchandise and shipping paid by the customer.');
+overhaul_expect('walk_in', $afterDirect['platform'] ?? '', 'Walk-in sales must share the direct-order Accounting path without losing their channel.');
 
 $history = jg_accounting_cash_history($pdo);
 overhaul_expect(140000, $history['summary']['current_cash'], 'Reconciled cash must use the baseline plus only later manual and automatic movements.');
@@ -102,6 +111,10 @@ overhaul_expect(true, in_array('reconciliation', $ledgerKinds, true), 'Reconcili
 $expenseLedger = current(array_filter($ledger, static fn (array $row): bool => ($row['id'] ?? '') === 'transaction:2'));
 overhaul_expect('Supplies', $expenseLedger['category'] ?? '', 'Ledger transactions must expose their category.');
 overhaul_expect('Restocked office supplies', $expenseLedger['note'] ?? '', 'Ledger transactions must expose their note.');
+$walkInLedger = current(array_filter($ledger, static fn (array $row): bool => ($row['reference'] ?? '') === 'WA-AFTER'));
+overhaul_expect('Walk-in order payment', $walkInLedger['title'] ?? '', 'The Activity ledger must identify walk-in payments clearly.');
+overhaul_expect('direct_order', $walkInLedger['receipt_entity_type'] ?? '', 'Walk-in and direct-order ledger rows must expose their receipt target.');
+overhaul_expect('walk-in-proof.png', $walkInLedger['receipts'][0]['name'] ?? '', 'The Activity ledger must return receipts stored against a walk-in order.');
 $newerIndex = array_search('transaction:2', array_column($ledger, 'id'), true);
 $olderIndex = array_search('transaction:1', array_column($ledger, 'id'), true);
 overhaul_expect(true, is_int($newerIndex) && is_int($olderIndex) && $newerIndex < $olderIndex, 'The activity ledger must rank newer entries above older entries.');

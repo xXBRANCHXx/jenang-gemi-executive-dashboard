@@ -306,7 +306,25 @@ try {
         }
     }
 
-    if (in_array($action, ['delete_receipt', 'replace_receipt'], true)) {
+    if ($action === 'attach_direct_order_receipts') {
+        $directOrderId = (int) ($body['direct_order_id'] ?? 0);
+        if ($receiptUploads === []) {
+            throw new InvalidArgumentException('Choose at least one receipt for this direct order.');
+        }
+        $pdo->beginTransaction();
+        try {
+            $receipts = jg_accounting_store_receipts($pdo, 'direct_order', $directOrderId, $receiptUploads);
+            $result = [
+                'direct_order_id' => $directOrderId,
+                'receipts' => $receipts,
+            ];
+            jg_accounting_insert_audit($pdo, 'direct_order', $directOrderId, 'attach_receipts', null, $receipts);
+            $pdo->commit();
+        } catch (Throwable $error) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            throw $error;
+        }
+    } elseif (in_array($action, ['delete_receipt', 'replace_receipt'], true)) {
         $receiptTarget = jg_accounting_require_receipt_admin_key($body);
         $receiptId = (int) $receiptTarget['receipt_id'];
         if ($action === 'delete_receipt' && $receiptUploads !== []) {

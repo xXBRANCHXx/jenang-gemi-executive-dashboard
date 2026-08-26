@@ -404,7 +404,7 @@ function jg_accounting_ensure_schema(PDO $pdo): void
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
         'CREATE TABLE IF NOT EXISTS accounting_receipt_files (
             id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            entity_type ENUM("transaction","bill") NOT NULL,
+            entity_type ENUM("transaction","bill","direct_order") NOT NULL,
             entity_id BIGINT UNSIGNED NOT NULL,
             original_name VARCHAR(255) NOT NULL,
             mime_type VARCHAR(120) NOT NULL,
@@ -486,6 +486,19 @@ function jg_accounting_ensure_schema(PDO $pdo): void
             'INSERT INTO accounting_migrations (version, applied_at) VALUES (:version, UTC_TIMESTAMP())'
         );
         $recordMultiReceiptMigration->execute([':version' => $multiReceiptMigration]);
+    }
+
+    $directOrderReceiptMigration = '2026_08_26_accounting_direct_order_receipts_v1';
+    $directOrderReceiptMigrationStmt = $pdo->prepare('SELECT COUNT(*) FROM accounting_migrations WHERE version = :version');
+    $directOrderReceiptMigrationStmt->execute([':version' => $directOrderReceiptMigration]);
+    if ((int) $directOrderReceiptMigrationStmt->fetchColumn() === 0) {
+        if (!analyticsTryExec($pdo, 'ALTER TABLE accounting_receipt_files MODIFY COLUMN entity_type ENUM("transaction","bill","direct_order") NOT NULL')) {
+            throw new RuntimeException('Unable to enable receipts for direct orders.');
+        }
+        $recordDirectOrderReceiptMigration = $pdo->prepare(
+            'INSERT INTO accounting_migrations (version, applied_at) VALUES (:version, UTC_TIMESTAMP())'
+        );
+        $recordDirectOrderReceiptMigration->execute([':version' => $directOrderReceiptMigration]);
     }
 
     $accountRoleColumns = [
@@ -743,7 +756,7 @@ function jg_accounting_normalize_receipt_uploads(array $files): array
 /** @return list<array{id:int,url:string,name:string,mime_type:string,size_bytes:int,created_at:string}> */
 function jg_accounting_receipts(PDO $pdo, string $entityType, int $entityId): array
 {
-    if (!in_array($entityType, ['transaction', 'bill'], true) || $entityId < 1) return [];
+    if (!in_array($entityType, ['transaction', 'bill', 'direct_order'], true) || $entityId < 1) return [];
     $stmt = $pdo->prepare(
         'SELECT id, original_name, mime_type, size_bytes, created_at
          FROM accounting_receipt_files
@@ -765,7 +778,7 @@ function jg_accounting_receipts(PDO $pdo, string $entityType, int $entityId): ar
 function jg_accounting_receipts_for_entities(PDO $pdo, string $entityType, array $entityIds): array
 {
     $entityIds = array_values(array_unique(array_filter(array_map('intval', $entityIds), static fn (int $id): bool => $id > 0)));
-    if (!in_array($entityType, ['transaction', 'bill'], true) || $entityIds === []) return [];
+    if (!in_array($entityType, ['transaction', 'bill', 'direct_order'], true) || $entityIds === []) return [];
     $placeholders = implode(',', array_fill(0, count($entityIds), '?'));
     $stmt = $pdo->prepare(
         'SELECT id, entity_id, original_name, mime_type, size_bytes, created_at
@@ -795,17 +808,21 @@ function jg_accounting_receipts_for_entities(PDO $pdo, string $entityType, array
  */
 function jg_accounting_store_receipts(PDO $pdo, string $entityType, int $entityId, array $receipts): array
 {
-    if (!in_array($entityType, ['transaction', 'bill'], true) || $entityId < 1) {
+    if (!in_array($entityType, ['transaction', 'bill', 'direct_order'], true) || $entityId < 1) {
         throw new InvalidArgumentException('The receipt must be attached to a valid accounting entry.');
     }
     if ($receipts === []) return jg_accounting_receipts($pdo, $entityType, $entityId);
-    if ((string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'sqlite') {
-        $entityTable = $entityType === 'bill' ? 'accounting_bills' : 'accounting_transactions';
-        $entityLock = $pdo->prepare('SELECT id FROM ' . $entityTable . ' WHERE id = :entity_id FOR UPDATE');
-        $entityLock->execute([':entity_id' => $entityId]);
-        if ((int) ($entityLock->fetchColumn() ?: 0) !== $entityId) {
-            throw new InvalidArgumentException('The receipt must be attached to a valid accounting entry.');
-        }
+    $driver = strtolower((string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME));
+    $entityTable = match ($entityType) {
+        'bill' => 'accounting_bills',
+        'direct_order' => 'whatsapp_orders',
+        default => 'accounting_transactions',
+    };
+    $entityLockSql = 'SELECT id FROM ' . $entityTable . ' WHERE id = :entity_id' . ($driver === 'sqlite' ? '' : ' FOR UPDATE');
+    $entityLock = $pdo->prepare($entityLockSql);
+    $entityLock->execute([':entity_id' => $entityId]);
+    if ((int) ($entityLock->fetchColumn() ?: 0) !== $entityId) {
+        throw new InvalidArgumentException('The receipt must be attached to a valid accounting entry.');
     }
     $existingCountStmt = $pdo->prepare(
         'SELECT COUNT(*) FROM accounting_receipt_files
@@ -816,7 +833,7 @@ function jg_accounting_store_receipts(PDO $pdo, string $entityType, int $entityI
     if ($existingCount + count($receipts) > 5) {
         throw new InvalidArgumentException('Each accounting entry can have up to 5 receipt files.');
     }
-    $createdAt = strtolower((string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME)) === 'sqlite'
+    $createdAt = $driver === 'sqlite'
         ? 'CURRENT_TIMESTAMP'
         : 'UTC_TIMESTAMP()';
     $stmt = $pdo->prepare(
@@ -837,24 +854,26 @@ function jg_accounting_store_receipts(PDO $pdo, string $entityType, int $entityI
         $latestReceiptUrl = '/api/accounting/?action=receipt&id=' . (int) $pdo->lastInsertId();
     }
 
-    $table = $entityType === 'bill' ? 'accounting_bills' : 'accounting_transactions';
-    $urlColumn = $entityType === 'bill' ? 'attachment_url' : 'receipt_url';
-    $update = $pdo->prepare(
-        'UPDATE ' . $table . '
-         SET ' . $urlColumn . ' = :receipt_url, receipt_status = "attached"
-         WHERE id = :entity_id'
-    );
-    $update->execute([':receipt_url' => $latestReceiptUrl, ':entity_id' => $entityId]);
-    try {
-        $resolveReview = $pdo->prepare(
-            'UPDATE accounting_review_queue
-             SET status = "resolved", resolved_at = ' . $createdAt . '
-             WHERE entity_type = :entity_type AND entity_id = :entity_id
-               AND issue_key = "missing_receipt" AND status = "open"'
+    if ($entityType !== 'direct_order') {
+        $table = $entityType === 'bill' ? 'accounting_bills' : 'accounting_transactions';
+        $urlColumn = $entityType === 'bill' ? 'attachment_url' : 'receipt_url';
+        $update = $pdo->prepare(
+            'UPDATE ' . $table . '
+             SET ' . $urlColumn . ' = :receipt_url, receipt_status = "attached"
+             WHERE id = :entity_id'
         );
-        $resolveReview->execute([':entity_type' => $entityType, ':entity_id' => $entityId]);
-    } catch (Throwable) {
-        // Lightweight test schemas and installations awaiting migration may not have the review table yet.
+        $update->execute([':receipt_url' => $latestReceiptUrl, ':entity_id' => $entityId]);
+        try {
+            $resolveReview = $pdo->prepare(
+                'UPDATE accounting_review_queue
+                 SET status = "resolved", resolved_at = ' . $createdAt . '
+                 WHERE entity_type = :entity_type AND entity_id = :entity_id
+                   AND issue_key = "missing_receipt" AND status = "open"'
+            );
+            $resolveReview->execute([':entity_type' => $entityType, ':entity_id' => $entityId]);
+        } catch (Throwable) {
+            // Lightweight test schemas and installations awaiting migration may not have the review table yet.
+        }
     }
     return jg_accounting_receipts($pdo, $entityType, $entityId);
 }
@@ -4887,7 +4906,18 @@ function jg_accounting_activity_ledger(PDO $pdo, array $filters): array
     } catch (Throwable) {
         $automaticAccountNames = [];
     }
-    foreach (jg_accounting_automatic_cash_records($pdo, ['month' => $month]) as $record) {
+    $automaticRecords = jg_accounting_automatic_cash_records($pdo, ['month' => $month]);
+    $directOrderReceiptIds = array_map(
+        static fn (array $record): int => (int) ($record['source_id'] ?? 0),
+        array_filter($automaticRecords, static fn (array $record): bool => ($record['source_type'] ?? '') === 'direct_order_payment')
+    );
+    try {
+        $directOrderReceipts = jg_accounting_receipts_for_entities($pdo, 'direct_order', $directOrderReceiptIds);
+    } catch (Throwable) {
+        // Deployments still completing the direct-order receipt migration should keep the ledger available.
+        $directOrderReceipts = [];
+    }
+    foreach ($automaticRecords as $record) {
         $amount = (int) ($record['usable_cash_amount'] ?? 0);
         if ($amount <= 0) {
             continue;
@@ -4895,14 +4925,16 @@ function jg_accounting_activity_ledger(PDO $pdo, array $filters): array
         $sourceType = (string) ($record['source_type'] ?? '');
         $title = match ($sourceType) {
             'website_payment' => 'Website payment',
-            'direct_order_payment' => 'Direct order payment',
+            'direct_order_payment' => ($record['platform'] ?? '') === 'walk_in' ? 'Walk-in order payment' : 'Direct order payment',
             default => 'Wallet payout',
         };
         $automaticAccountId = jg_accounting_cash_record_account_id($pdo, $record, $automaticRoutes);
+        $sourceId = (int) ($record['source_id'] ?? 0);
+        $isDirectOrder = $sourceType === 'direct_order_payment';
         $rows[] = [
             'id' => 'automatic:' . (string) ($record['source_key'] ?? ''),
             'kind' => 'automatic',
-            'source_id' => (int) ($record['source_id'] ?? 0),
+            'source_id' => $sourceId,
             'date' => (string) ($record['record_date'] ?? ''),
             'sort_at' => (string) ($record['occurred_at'] ?? ''),
             'title' => $title,
@@ -4917,6 +4949,9 @@ function jg_accounting_activity_ledger(PDO $pdo, array $filters): array
             'reference' => (string) ($record['order_id'] ?? $record['source_key'] ?? ''),
             'receipt_url' => '',
             'receipt_name' => '',
+            'receipt_entity_type' => $isDirectOrder ? 'direct_order' : '',
+            'receipt_entity_id' => $isDirectOrder ? $sourceId : 0,
+            'receipts' => $isDirectOrder ? array_values($directOrderReceipts[$sourceId] ?? []) : [],
         ];
     }
 

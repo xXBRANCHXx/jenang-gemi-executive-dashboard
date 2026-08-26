@@ -501,7 +501,10 @@ if (root) {
 
   const receiptButtonsMarkup = (record, compact = false) => {
     const items = receiptItems(record);
-    if (!items.length) return '';
+    const directOrderId = record?.receipt_entity_type === 'direct_order'
+      ? Number(record?.receipt_entity_id || record?.source_id || 0)
+      : 0;
+    if (!items.length && directOrderId < 1) return '';
     const galleryItems = items.map((receipt, index) => ({
       url: receipt.url,
       name: receipt.name || `Receipt ${index + 1}`
@@ -511,10 +514,13 @@ if (root) {
       : 0;
     const countLabel = `${items.length} ${items.length === 1 ? 'receipt' : 'receipts'}`;
     return `<div class="admin-accounting-receipt-links${compact ? ' is-compact' : ''}">
-      <button type="button" class="admin-accounting-review-receipt" data-accounting-receipt-open="${escapeHtml(items[0].url)}" data-accounting-receipt-name="${escapeHtml(galleryItems[0].name)}" data-accounting-receipt-items="${escapeHtml(encodeURIComponent(JSON.stringify(galleryItems)))}" data-accounting-receipt-transaction-id="${transactionId}">
+      ${items.length ? `<button type="button" class="admin-accounting-review-receipt" data-accounting-receipt-open="${escapeHtml(items[0].url)}" data-accounting-receipt-name="${escapeHtml(galleryItems[0].name)}" data-accounting-receipt-items="${escapeHtml(encodeURIComponent(JSON.stringify(galleryItems)))}" data-accounting-receipt-transaction-id="${transactionId}">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5c-5.2 0-9.2 4.1-10.5 7.5C2.8 15.4 6.8 19.5 12 19.5s9.2-4.1 10.5-7.5C21.2 8.6 17.2 4.5 12 4.5Zm0 12.2a4.7 4.7 0 1 1 0-9.4 4.7 4.7 0 0 1 0 9.4Zm0-2.4a2.3 2.3 0 1 0 0-4.6 2.3 2.3 0 0 0 0 4.6Z"/></svg>
         <span>Review ${escapeHtml(countLabel)}</span><small>Open gallery</small>
-      </button>
+      </button>` : ''}
+      ${directOrderId > 0 && items.length < 5 ? `<button type="button" class="admin-accounting-review-receipt" data-accounting-direct-order-receipt-add="${directOrderId}" data-accounting-receipt-capacity="${5 - items.length}">
+        <span>+ ${items.length ? 'Add another receipt' : 'Add receipt'}</span><small>${5 - items.length} ${5 - items.length === 1 ? 'slot' : 'slots'} left</small>
+      </button>` : ''}
     </div>`;
   };
 
@@ -624,6 +630,49 @@ if (root) {
       return false;
     }
     return true;
+  };
+
+  const chooseDirectOrderReceipts = (button) => {
+    if (!(button instanceof HTMLButtonElement)) return;
+    const directOrderId = Number(button.dataset.accountingDirectOrderReceiptAdd || 0);
+    const capacity = Math.max(0, Number(button.dataset.accountingReceiptCapacity || 0));
+    if (!Number.isInteger(directOrderId) || directOrderId < 1 || capacity < 1) return;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/pdf,image/png,image/jpeg,image/webp';
+    input.multiple = true;
+    input.hidden = true;
+    input.addEventListener('change', async () => {
+      const receiptFiles = Array.from(input.files || []);
+      if (!receiptFiles.length || !validateReceiptFiles(input, capacity)) {
+        input.remove();
+        return;
+      }
+      button.disabled = true;
+      button.setAttribute('aria-busy', 'true');
+      try {
+        const body = new FormData();
+        body.set('action', 'attach_direct_order_receipts');
+        body.set('direct_order_id', String(directOrderId));
+        receiptFiles.forEach((file) => body.append('receipt_files[]', file, file.name));
+        await requestJson(endpoint, { method: 'POST', body });
+        showToast(`${receiptFiles.length} ${receiptFiles.length === 1 ? 'receipt' : 'receipts'} attached to the direct order.`);
+        await loadSafely(true);
+      } catch (error) {
+        showToast(error?.message || 'Unable to attach the receipt to this direct order.', true);
+      } finally {
+        button.disabled = false;
+        button.removeAttribute('aria-busy');
+        input.remove();
+      }
+    }, { once: true });
+    document.body.append(input);
+    window.addEventListener('focus', () => {
+      window.setTimeout(() => {
+        if (!input.files?.length) input.remove();
+      }, 0);
+    }, { once: true });
+    input.click();
   };
 
   let receiptObjectUrl = '';
@@ -3054,6 +3103,11 @@ if (root) {
   });
 
   refs.ledgerBody?.addEventListener('click', (event) => {
+    const directOrderReceipt = event.target instanceof Element ? event.target.closest('[data-accounting-direct-order-receipt-add]') : null;
+    if (directOrderReceipt instanceof HTMLButtonElement) {
+      chooseDirectOrderReceipts(directOrderReceipt);
+      return;
+    }
     const receipt = event.target instanceof Element ? event.target.closest('[data-accounting-receipt-open]') : null;
     if (receipt instanceof HTMLElement) {
       openReceiptFromButton(receipt);

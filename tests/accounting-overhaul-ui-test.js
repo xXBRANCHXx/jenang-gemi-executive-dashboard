@@ -53,6 +53,7 @@ expect(script.includes('renderReceiptGalleryControls') && script.includes('recei
 expect(script.includes("['http:', 'https:'].includes(parsed.protocol)"), 'Receipt previews must reject unsafe URL protocols.');
 expect(script.includes('const blob = await response.blob()') && script.includes('URL.createObjectURL(blob)'), 'Same-origin receipts must be fetched into a blob preview so frame-blocking headers cannot break the popup.');
 expect(script.includes("multipartBody.append('receipt_files[]'"), 'All receipt files must submit as multipart form data.');
+expect(script.includes('data-accounting-direct-order-receipt-add') && script.includes("body.set('action', 'attach_direct_order_receipts')"), 'Walk-in and direct-order ledger rows must allow receipts to be attached to the original order.');
 expect(script.includes('data-accounting-edit-receipt-file'), 'The transaction correction drawer must allow a missing receipt to be uploaded.');
 expect(script.includes("kind === 'transaction' && receiptInput instanceof HTMLInputElement"), 'Correction uploads must be limited to transaction receipts.');
 expect(script.includes('receiptButtonsMarkup(row, true)') && script.includes('receiptButtonsMarkup(item)'), 'Every stored receipt must remain visible in both the ledger and correction drawer.');
@@ -61,6 +62,7 @@ expect(backend.includes("'entry_type' => 'bill'") && backend.includes("'receipt_
 expect(script.includes("['expense_paid', 'pay_bill', 'customer_refund']"), 'Proof uploads must be available when a supplier bill is actually paid, not when it is merely received.');
 expect(html.includes('data-accounting-receipt-management-form') && html.includes('Admin login key') && script.includes("action: 'delete_receipt'") && script.includes("body.set('action', 'replace_receipt')"), 'Stored receipts must expose admin-key-protected delete and replacement controls.');
 expect(api.includes("['create_transaction', 'update_transaction']") && api.includes('jg_accounting_update_transaction($pdo, $body)'), 'The Accounting API must persist receipt uploads from both new and corrected transactions.');
+expect(api.includes("jg_accounting_store_receipts($pdo, 'direct_order', $directOrderId, $receiptUploads)"), 'The Accounting API must persist walk-in and direct-order receipts against the source order ID.');
 expect(api.includes('jg_accounting_require_receipt_admin_key') && api.includes('jg_admin_code_matches($adminKey)') && api.includes('jg_accounting_delete_receipt($pdo, $receiptId, true)'), 'Receipt deletion and replacement must be authorized with the admin login key on the server.');
 expect(api.includes("unset($body['receipt_url'])"), 'Normal correction requests must not bypass protected receipt replacement by rewriting the stored receipt URL.');
 expect(script.includes("action: 'reconcile_cash'"), 'The reconciliation UI must post an auditable baseline.');

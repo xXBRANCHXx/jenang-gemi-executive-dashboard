@@ -39,6 +39,7 @@ try {
     $pdo->exec('CREATE TABLE accounting_transactions (
         id INTEGER PRIMARY KEY, receipt_url TEXT, receipt_status TEXT
     )');
+    $pdo->exec('CREATE TABLE whatsapp_orders (id INTEGER PRIMARY KEY, order_id TEXT)');
     $pdo->exec('CREATE TABLE accounting_receipt_files (
         id INTEGER PRIMARY KEY AUTOINCREMENT, entity_type TEXT, entity_id INTEGER,
         original_name TEXT, mime_type TEXT, size_bytes INTEGER, file_data BLOB,
@@ -55,6 +56,7 @@ try {
     $pdo->exec("INSERT INTO accounting_transactions VALUES
         (7, '', 'missing'),
         (8, 'https://example.com/legacy-proof.pdf', 'attached')");
+    $pdo->exec("INSERT INTO whatsapp_orders VALUES (21, 'WALK-IN-21')");
     $pdo->exec("INSERT INTO accounting_review_queue VALUES (1, 'transaction', 7, 'missing_receipt', 'open', NULL)");
 
     $stored = jg_accounting_store_receipt($pdo, 'transaction', 7, $validated);
@@ -105,6 +107,18 @@ try {
     receipt_upload_expect(5, count($replaced), 'A replacement must fill the deleted proof slot without exceeding the five-file limit.');
     receipt_upload_expect(true, in_array('replacement.png', array_column($replaced, 'name'), true), 'The replacement proof must be returned for immediate display.');
     receipt_upload_expect(1, (int) $pdo->query("SELECT COUNT(*) FROM accounting_audit_log WHERE action = 'delete_receipt'")->fetchColumn(), 'Receipt deletion must be recorded in the private audit trail.');
+
+    $directOrderReceipts = jg_accounting_store_receipts($pdo, 'direct_order', 21, [
+        [...$validated, 'original_name' => 'walk-in-payment.png'],
+    ]);
+    receipt_upload_expect(1, count($directOrderReceipts), 'Walk-in and direct orders must accept receipt files against their original order ID.');
+    receipt_upload_expect('direct_order', (string) $pdo->query("SELECT entity_type FROM accounting_receipt_files WHERE entity_id = 21")->fetchColumn(), 'Direct-order proofs must remain distinct from manual Accounting transaction receipts.');
+    try {
+        jg_accounting_store_receipt($pdo, 'direct_order', 999, $validated);
+        receipt_upload_expect(true, false, 'A receipt must not attach to a direct order that does not exist.');
+    } catch (InvalidArgumentException $error) {
+        receipt_upload_expect(true, str_contains($error->getMessage(), 'valid accounting entry'), 'Direct-order receipt storage must validate the target order.');
+    }
 
     $clearedLegacy = jg_accounting_clear_transaction_receipt($pdo, 8, true);
     receipt_upload_expect(8, $clearedLegacy['transaction_id'], 'Protected receipt management must also support older URL-only proofs.');
