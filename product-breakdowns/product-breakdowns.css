@@ -95,15 +95,15 @@ html,
 
 .product-catalog-search {
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) 34px;
-  gap: 12px;
+  grid-template-columns: 24px minmax(0, 1fr) 32px;
+  gap: 10px;
   align-items: center;
-  width: 100%;
-  min-height: 54px;
+  width: min(100%, 720px);
+  min-height: 48px;
   margin-top: 24px;
-  padding: 0 15px;
+  padding: 0 13px;
   border: 1px solid var(--pc-line-strong);
-  border-radius: 10px;
+  border-radius: 9px;
   background: var(--pc-surface);
 }
 
@@ -113,7 +113,7 @@ html,
 .product-catalog-search input {
   appearance: none;
   width: 100%;
-  height: 52px;
+  height: 46px;
   padding: 0;
   border: 0 !important;
   border-radius: 0 !important;
@@ -121,7 +121,7 @@ html,
   background: transparent !important;
   box-shadow: none !important;
   color: var(--pc-text);
-  font: 600 clamp(13px, 1.2vw, 16px)/1 "Plus Jakarta Sans", sans-serif;
+  font: 600 clamp(13px, 1.1vw, 15px)/1 "Plus Jakarta Sans", sans-serif;
 }
 .product-catalog-search input::placeholder { color: color-mix(in srgb, var(--pc-muted) 75%, transparent); }
 .product-catalog-search input::-webkit-search-cancel-button { display: none; }

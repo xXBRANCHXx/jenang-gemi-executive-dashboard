@@ -7,6 +7,8 @@ const script = fs.readFileSync(path.join(root, 'product-breakdowns', 'product-br
 const styles = fs.readFileSync(path.join(root, 'product-breakdowns', 'product-breakdowns.css'), 'utf8');
 const nav = fs.readFileSync(path.join(root, 'admin-nav.php'), 'utf8');
 const adminStyles = fs.readFileSync(path.join(root, 'admin.css'), 'utf8');
+const lightFavicon = fs.readFileSync(path.join(root, 'assets', 'admin-icons', 'favicon-product-breakdowns-light.svg'), 'utf8');
+const darkFavicon = fs.readFileSync(path.join(root, 'assets', 'admin-icons', 'favicon-product-breakdowns-dark.svg'), 'utf8');
 const api = fs.readFileSync(path.join(root, 'api', 'orders', 'index.php'), 'utf8');
 
 const expect = (condition, message) => {
@@ -16,11 +18,13 @@ const expect = (condition, message) => {
 expect(page.includes("render_admin_sidebar('product-breakdowns')"), 'The product catalog must render as an active sidebar destination.');
 expect(page.includes('../admin.css?v=') && page.includes("@filemtime(dirname(__DIR__) . '/admin.css')"), 'The page must cache-bust shared sidebar styles after every deployment.');
 expect(nav.includes("'href' => '../product-breakdowns/'") && nav.includes("'icon' => 'admin-rail-icon-product-breakdowns'"), 'The shared sidebar must link to Product Breakdowns with its own icon.');
-expect(nav.includes("'icon_svg' => '<svg"), 'The Product Breakdowns sidebar icon must render as an inline SVG without a mask fallback.');
-expect(adminStyles.includes('.admin-shell .admin-rail-icon-product-breakdowns'), 'The sidebar destination must use a real product-search icon.');
+expect(nav.includes("'icon_svg' => '<svg") && nav.includes('M21 12c.552'), 'The Product Breakdowns sidebar must retain its pie-chart icon.');
+expect(adminStyles.includes('.admin-shell .admin-rail-icon-product-breakdowns'), 'The sidebar destination must render its dedicated inline icon.');
 expect(!styles.includes('.admin-product-catalog-app .admin-rail'), 'The page must not override or hide the universal sidebar behavior.');
 expect(nav.includes('favicon-product-breakdowns-light.svg') && nav.includes('favicon-product-breakdowns-dark.svg'), 'The page must have a matching adaptive favicon.');
+expect(lightFavicon.includes('M28 16c.7') && darkFavicon.includes('M28 16c.7'), 'Both adaptive favicons must retain the product-breakdown pie chart.');
 expect(page.includes('Search product, flavor, size, brand, tag, or SKU'), 'The page must advertise catalog-wide search.');
+expect(styles.includes('width: min(100%, 720px)') && styles.includes('min-height: 48px'), 'The desktop search control must be genuinely compact while remaining fluid on narrow screens.');
 expect(!page.includes('data-catalog-summary'), 'The page must not waste primary space on catalog counter cards.');
 ['product', 'flavor', 'volume', 'variant'].forEach((type) => {
   expect(script.includes(`type: '${type}'`), `The search index must include ${type} results.`);
