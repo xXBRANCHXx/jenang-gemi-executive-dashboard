@@ -14,6 +14,7 @@ const expect = (condition, message) => {
 };
 
 expect(page.includes("render_admin_sidebar('product-breakdowns')"), 'The product catalog must render as an active sidebar destination.');
+expect(page.includes('../admin.css?v=') && page.includes("@filemtime(dirname(__DIR__) . '/admin.css')"), 'The page must cache-bust shared sidebar styles after every deployment.');
 expect(nav.includes("'href' => '../product-breakdowns/'") && nav.includes("'icon' => 'admin-rail-icon-product-breakdowns'"), 'The shared sidebar must link to Product Breakdowns with its own icon.');
 expect(nav.includes("'icon_svg' => '<svg"), 'The Product Breakdowns sidebar icon must render as an inline SVG without a mask fallback.');
 expect(adminStyles.includes('.admin-shell .admin-rail-icon-product-breakdowns'), 'The sidebar destination must use a real product-search icon.');

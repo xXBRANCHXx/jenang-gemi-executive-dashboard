@@ -9,7 +9,8 @@ if (!jg_admin_is_authenticated()) {
     exit;
 }
 
-$buildVersion = 'product-breakdowns-1.0.0';
+$buildVersion = 'product-breakdowns-1.0.1';
+$adminCssVersion = $buildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $cssVersion = $buildVersion . '-' . (string) @filemtime(__DIR__ . '/product-breakdowns.css');
 $jsVersion = $buildVersion . '-' . (string) @filemtime(__DIR__ . '/product-breakdowns.js');
 ?>
@@ -25,7 +26,7 @@ $jsVersion = $buildVersion . '-' . (string) @filemtime(__DIR__ . '/product-break
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap">
-    <link rel="stylesheet" href="../admin.css">
+    <link rel="stylesheet" href="../admin.css?v=<?php echo urlencode($adminCssVersion); ?>">
     <link rel="stylesheet" href="./product-breakdowns.css?v=<?php echo urlencode($cssVersion); ?>">
 </head>
 <body class="product-catalog-body">
@@ -42,7 +43,6 @@ $jsVersion = $buildVersion . '-' . (string) @filemtime(__DIR__ . '/product-break
                     <header class="product-catalog-header">
                         <h1>Product breakdowns</h1>
                         <div class="product-catalog-header-actions">
-                            <span class="product-catalog-status" data-catalog-status aria-live="polite">Loading catalog</span>
                             <button type="button" class="product-catalog-icon-button" data-theme-toggle aria-label="Switch color mode" title="Switch color mode">
                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6.5 6.5 0 1 0 9 9 8 8 0 1 1-9-9z"/></svg>
                             </button>

@@ -233,10 +233,8 @@
       state.catalog = payload.products;
       state.entries = buildEntries(payload.products);
       const totals = payload.totals || {};
-      refs.status.textContent = `${number(totals.variants)} variants ready`;
       render();
     } catch (error) {
-      refs.status.textContent = 'Catalog unavailable';
       refs.results.innerHTML = '';
       refs.results.hidden = true;
       refs.empty.hidden = false;
