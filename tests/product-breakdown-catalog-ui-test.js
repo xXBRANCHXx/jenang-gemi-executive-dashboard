@@ -15,9 +15,12 @@ const expect = (condition, message) => {
 
 expect(page.includes("render_admin_sidebar('product-breakdowns')"), 'The product catalog must render as an active sidebar destination.');
 expect(nav.includes("'href' => '../product-breakdowns/'") && nav.includes("'icon' => 'admin-rail-icon-product-breakdowns'"), 'The shared sidebar must link to Product Breakdowns with its own icon.');
+expect(nav.includes("'icon_svg' => '<svg"), 'The Product Breakdowns sidebar icon must render as an inline SVG without a mask fallback.');
 expect(adminStyles.includes('.admin-shell .admin-rail-icon-product-breakdowns'), 'The sidebar destination must use a real product-search icon.');
+expect(!styles.includes('.admin-product-catalog-app .admin-rail'), 'The page must not override or hide the universal sidebar behavior.');
 expect(nav.includes('favicon-product-breakdowns-light.svg') && nav.includes('favicon-product-breakdowns-dark.svg'), 'The page must have a matching adaptive favicon.');
 expect(page.includes('Search product, flavor, size, brand, tag, or SKU'), 'The page must advertise catalog-wide search.');
+expect(!page.includes('data-catalog-summary'), 'The page must not waste primary space on catalog counter cards.');
 ['product', 'flavor', 'volume', 'variant'].forEach((type) => {
   expect(script.includes(`type: '${type}'`), `The search index must include ${type} results.`);
 });

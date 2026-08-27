@@ -589,6 +589,7 @@ function render_admin_sidebar(string $activeSection = ''): void
             'href' => '../product-breakdowns/',
             'label' => 'Product Breakdowns',
             'icon' => 'admin-rail-icon-product-breakdowns',
+            'icon_svg' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.953C12.449 1.995 12 2.448 12 3v8a1 1 0 0 0 1 1z"/><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/></svg>',
             'aria' => 'Search product, flavor, and size breakdowns',
         ],
         [
@@ -805,7 +806,14 @@ function render_admin_sidebar_item(array $item, string $activeSection): void
 
     echo '<a ' . implode(' ', $attributes) . '>';
     $iconText = htmlspecialchars((string) ($item['icon_text'] ?? ''), ENT_QUOTES, 'UTF-8');
-    echo '<span class="admin-rail-icon ' . $iconClass . '" aria-hidden="true"><span>' . $iconText . '</span></span>';
+    $iconSvg = (string) ($item['icon_svg'] ?? '');
+    echo '<span class="admin-rail-icon ' . $iconClass . '" aria-hidden="true">';
+    if ($iconSvg !== '') {
+        echo $iconSvg;
+    } else {
+        echo '<span>' . $iconText . '</span>';
+    }
+    echo '</span>';
     if (strtolower((string) ($item['key'] ?? '')) === 'orders') {
         echo '<i class="admin-rail-unpaid-dot" aria-hidden="true"></i>';
     }

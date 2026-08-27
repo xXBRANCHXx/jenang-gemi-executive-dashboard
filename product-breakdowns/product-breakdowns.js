@@ -9,7 +9,6 @@
     theme: root.querySelector('[data-theme-toggle]'),
     search: root.querySelector('[data-catalog-search]'),
     clear: root.querySelector('[data-search-clear]'),
-    summary: root.querySelector('[data-catalog-summary]'),
     filters: Array.from(root.querySelectorAll('[data-result-type]')),
     title: root.querySelector('[data-results-title]'),
     count: root.querySelector('[data-results-count]'),
@@ -234,9 +233,6 @@
       state.catalog = payload.products;
       state.entries = buildEntries(payload.products);
       const totals = payload.totals || {};
-      refs.summary.innerHTML = [
-        [totals.products, 'Products'], [totals.flavors, 'Flavors'], [totals.sizes, 'Sizes'], [totals.variants, 'Variants']
-      ].map(([value, label]) => `<div><strong>${escapeHtml(number(value))}</strong><span>${label}</span></div>`).join('');
       refs.status.textContent = `${number(totals.variants)} variants ready`;
       render();
     } catch (error) {

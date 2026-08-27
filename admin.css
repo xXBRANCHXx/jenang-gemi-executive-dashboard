@@ -10399,7 +10399,18 @@ body::after {
 }
 
 .admin-shell .admin-rail-icon-product-breakdowns {
-  --admin-rail-icon-mask: url('/assets/admin-icons/product-breakdowns.svg');
+  --admin-rail-icon-mask: none;
+}
+
+.admin-shell .admin-rail-icon-product-breakdowns::before {
+  display: none !important;
+  content: none !important;
+}
+
+.admin-shell .admin-rail-icon-product-breakdowns > svg {
+  display: block;
+  width: 22px;
+  height: 22px;
 }
 
 .admin-shell .admin-rail-icon-wallet {

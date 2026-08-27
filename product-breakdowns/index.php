@@ -41,19 +41,6 @@ $jsVersion = $buildVersion . '-' . (string) @filemtime(__DIR__ . '/product-break
                 >
                     <header class="product-catalog-header">
                         <h1>Product breakdowns</h1>
-                        <section class="product-catalog-search" aria-label="Search the product catalog">
-                            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 4.5 4.5"/></svg>
-                            <input
-                                type="search"
-                                data-catalog-search
-                                placeholder="Search product, flavor, size, brand, tag, or SKU"
-                                autocomplete="off"
-                                aria-label="Search product, flavor, size, brand, tag, or SKU"
-                            >
-                            <button type="button" data-search-clear aria-label="Clear search" title="Clear search" hidden>
-                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
-                            </button>
-                        </section>
                         <div class="product-catalog-header-actions">
                             <span class="product-catalog-status" data-catalog-status aria-live="polite">Loading catalog</span>
                             <button type="button" class="product-catalog-icon-button" data-theme-toggle aria-label="Switch color mode" title="Switch color mode">
@@ -62,11 +49,18 @@ $jsVersion = $buildVersion . '-' . (string) @filemtime(__DIR__ . '/product-break
                         </div>
                     </header>
 
-                    <section class="product-catalog-summary" aria-label="Catalog totals" data-catalog-summary>
-                        <div><strong>—</strong><span>Products</span></div>
-                        <div><strong>—</strong><span>Flavors</span></div>
-                        <div><strong>—</strong><span>Sizes</span></div>
-                        <div><strong>—</strong><span>Variants</span></div>
+                    <section class="product-catalog-search" aria-label="Search the product catalog">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 4.5 4.5"/></svg>
+                        <input
+                            type="search"
+                            data-catalog-search
+                            placeholder="Search any product, flavor, size, brand, tag, or SKU"
+                            autocomplete="off"
+                            aria-label="Search product, flavor, size, brand, tag, or SKU"
+                        >
+                        <button type="button" data-search-clear aria-label="Clear search" title="Clear search" hidden>
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+                        </button>
                     </section>
 
                     <nav class="product-catalog-filters" aria-label="Breakdown type" data-catalog-filters>
