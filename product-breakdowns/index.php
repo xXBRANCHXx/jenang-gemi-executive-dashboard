@@ -9,7 +9,7 @@ if (!jg_admin_is_authenticated()) {
     exit;
 }
 
-$buildVersion = 'product-breakdowns-1.0.2';
+$buildVersion = 'product-breakdowns-1.0.3';
 $adminCssVersion = $buildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $cssVersion = $buildVersion . '-' . (string) @filemtime(__DIR__ . '/product-breakdowns.css');
 $jsVersion = $buildVersion . '-' . (string) @filemtime(__DIR__ . '/product-breakdowns.js');

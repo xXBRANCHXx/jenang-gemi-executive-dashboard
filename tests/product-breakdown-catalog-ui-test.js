@@ -20,7 +20,8 @@ expect(page.includes('../admin.css?v=') && page.includes("@filemtime(dirname(__D
 expect(nav.includes("'href' => '../product-breakdowns/'") && nav.includes("'icon' => 'admin-rail-icon-product-breakdowns'"), 'The shared sidebar must link to Product Breakdowns with its own icon.');
 expect(nav.includes("'icon_svg' => '<svg") && nav.includes('M21 12c.552'), 'The Product Breakdowns sidebar must retain its pie-chart icon.');
 expect(adminStyles.includes('.admin-shell .admin-rail-icon-product-breakdowns'), 'The sidebar destination must render its dedicated inline icon.');
-expect(!styles.includes('.admin-product-catalog-app .admin-rail'), 'The page must not override or hide the universal sidebar behavior.');
+expect(styles.includes('grid-template-columns: 84px minmax(0, 1fr)') && styles.includes('.admin-product-catalog-app .admin-rail'), 'The product catalog must retain its compact 84px sidebar.');
+expect(styles.includes(".admin-product-catalog-app .admin-rail-link[aria-current='page']") && styles.includes('background: transparent'), 'The compact sidebar must use a line-only active state without a filled tile.');
 expect(nav.includes('favicon-product-breakdowns-light.svg') && nav.includes('favicon-product-breakdowns-dark.svg'), 'The page must have a matching adaptive favicon.');
 expect(lightFavicon.includes('M28 16c.7') && darkFavicon.includes('M28 16c.7'), 'Both adaptive favicons must retain the product-breakdown pie chart.');
 expect(page.includes('Search product, flavor, size, brand, tag, or SKU'), 'The page must advertise catalog-wide search.');
