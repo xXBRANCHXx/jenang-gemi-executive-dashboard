@@ -22,6 +22,7 @@ expect(nav.includes("'icon_svg' => '<svg") && nav.includes('M21 12c.552'), 'The 
 expect(adminStyles.includes('.admin-shell .admin-rail-icon-product-breakdowns'), 'The sidebar destination must render its dedicated inline icon.');
 expect(styles.includes('grid-template-columns: 84px minmax(0, 1fr)') && styles.includes('.admin-product-catalog-app .admin-rail'), 'The product catalog must retain its compact 84px sidebar.');
 expect(styles.includes(".admin-product-catalog-app .admin-rail-link[aria-current='page']") && styles.includes('background: transparent'), 'The compact sidebar must use a line-only active state without a filled tile.');
+expect(!styles.includes('.admin-product-catalog-app .admin-rail-link-text') && adminStyles.includes('.admin-shell .admin-rail:hover .admin-rail-link-text'), 'The expanded sidebar must reveal its navigation page titles.');
 expect(nav.includes('favicon-product-breakdowns-light.svg') && nav.includes('favicon-product-breakdowns-dark.svg'), 'The page must have a matching adaptive favicon.');
 expect(lightFavicon.includes('M28 16c.7') && darkFavicon.includes('M28 16c.7'), 'Both adaptive favicons must retain the product-breakdown pie chart.');
 expect(page.includes('Search product, flavor, size, brand, tag, or SKU'), 'The page must advertise catalog-wide search.');

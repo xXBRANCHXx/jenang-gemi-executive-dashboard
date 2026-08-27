@@ -72,8 +72,7 @@ html,
   padding: 0 0 12px;
 }
 
-.admin-product-catalog-app .admin-rail-brand-wordmark,
-.admin-product-catalog-app .admin-rail-link-text { display: none; }
+.admin-product-catalog-app .admin-rail-brand-wordmark { display: none; }
 
 .admin-product-catalog-app .admin-rail-nav,
 .admin-product-catalog-app .admin-rail-footer {
