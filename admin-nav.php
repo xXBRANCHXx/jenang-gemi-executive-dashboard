@@ -400,6 +400,10 @@ function admin_favicon_assets(): array
             'light' => '/assets/admin-icons/favicon-sku-db-light.svg',
             'dark' => '/assets/admin-icons/favicon-sku-db-dark.svg',
         ],
+        'product-breakdowns' => [
+            'light' => '/assets/admin-icons/favicon-product-breakdowns-light.svg',
+            'dark' => '/assets/admin-icons/favicon-product-breakdowns-dark.svg',
+        ],
         'api' => [
             'light' => '/assets/admin-icons/favicon-api-light.svg',
             'dark' => '/assets/admin-icons/favicon-api-dark.svg',
@@ -496,6 +500,9 @@ function admin_normalize_favicon_key(string $key): string
         'partner-profiles' => 'partners',
         'api-health' => 'api',
         'sku' => 'sku-db',
+        'product-breakdown' => 'product-breakdowns',
+        'product-breakdowns' => 'product-breakdowns',
+        'product-explorer' => 'product-breakdowns',
         'accounting' => 'accounting',
         'cash-control' => 'accounting',
         'p&l' => 'profit-loss',
@@ -576,6 +583,13 @@ function render_admin_sidebar(string $activeSection = ''): void
             'icon' => 'admin-rail-icon-orders',
             'aria' => 'Open all-channel orders',
             'view' => 'orders',
+        ],
+        [
+            'key' => 'product-breakdowns',
+            'href' => '../product-breakdowns/',
+            'label' => 'Product Breakdowns',
+            'icon' => 'admin-rail-icon-product-breakdowns',
+            'aria' => 'Search product, flavor, and size breakdowns',
         ],
         [
             'key' => 'inventory-recap',

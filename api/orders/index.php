@@ -48,6 +48,13 @@ function jg_orders_handle_request(): void
             ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             return;
         }
+        if ($method === 'GET' && in_array($action, ['product_breakdown_catalog', 'breakdown_catalog'], true)) {
+            echo json_encode(
+                jg_orders_product_breakdown_catalog_payload(jg_sku_db()),
+                JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+            );
+            return;
+        }
         if ($method === 'GET' && in_array($action, ['order_detail', 'detail'], true)) {
             $orderId = trim((string) ($_GET['order_id'] ?? $_GET['order'] ?? ''));
             if ($orderId === '' || strlen($orderId) > 160) {
@@ -1696,6 +1703,123 @@ function jg_orders_breakdown_grain(mixed $value): string
         throw new InvalidArgumentException('Grain must be day, week, or month.');
     }
     return $grain;
+}
+
+/**
+ * Build the product explorer from the SKU database so every analytics link uses
+ * the same product, flavor, and volume keys as the order breakdown endpoints.
+ *
+ * @return array<string, mixed>
+ */
+function jg_orders_product_breakdown_catalog_payload(PDO $pdo): array
+{
+    $stmt = $pdo->query(
+        'SELECT s.sku, s.tag, s.volume,
+                b.name AS brand_name,
+                u.name AS unit_name,
+                p.name AS product_name,
+                f.name AS flavor_name
+         FROM sku_skus s
+         INNER JOIN sku_brands b ON b.id = s.brand_id
+         INNER JOIN sku_units u ON u.id = s.unit_id
+         INNER JOIN sku_products p ON p.id = s.product_id
+         INNER JOIN sku_flavors f ON f.id = s.flavor_id
+         ORDER BY p.name, f.name, u.name, s.volume, s.sku'
+    );
+
+    $products = [];
+    foreach (($stmt !== false ? $stmt->fetchAll() : []) as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $productLabel = trim((string) ($row['product_name'] ?? ''));
+        $productKey = jg_orders_breakdown_slug($productLabel);
+        if ($productKey === '') {
+            continue;
+        }
+        $flavorLabel = trim((string) ($row['flavor_name'] ?? '')) ?: 'Unspecified';
+        $flavorKey = jg_orders_breakdown_slug($flavorLabel) ?: 'unspecified';
+        $volumeKey = jg_orders_breakdown_volume_key($row);
+        $volumeLabel = jg_orders_breakdown_volume_label($row);
+        $brandLabel = trim((string) ($row['brand_name'] ?? ''));
+        $sku = trim((string) ($row['sku'] ?? ''));
+
+        $products[$productKey] ??= [
+            'key' => $productKey,
+            'label' => $productLabel,
+            'brands' => [],
+            'flavors' => [],
+            'volumes' => [],
+            'variants' => [],
+        ];
+        if ($brandLabel !== '') {
+            $products[$productKey]['brands'][jg_orders_breakdown_slug($brandLabel)] = $brandLabel;
+        }
+        $products[$productKey]['flavors'][$flavorKey] = [
+            'key' => $flavorKey,
+            'label' => $flavorLabel,
+        ];
+        $products[$productKey]['volumes'][$volumeKey] = [
+            'key' => $volumeKey,
+            'label' => $volumeLabel,
+            'volume' => (float) ($row['volume'] ?? 0),
+            'unit' => trim((string) ($row['unit_name'] ?? '')),
+        ];
+        $variantKey = $sku !== '' ? $sku : implode(':', [$productKey, $flavorKey, $volumeKey, $brandLabel]);
+        $products[$productKey]['variants'][$variantKey] = [
+            'sku' => $sku,
+            'tag' => trim((string) ($row['tag'] ?? '')),
+            'brand' => $brandLabel,
+            'product_key' => $productKey,
+            'product_label' => $productLabel,
+            'flavor_key' => $flavorKey,
+            'flavor_label' => $flavorLabel,
+            'volume_key' => $volumeKey,
+            'volume_label' => $volumeLabel,
+        ];
+    }
+
+    foreach ($products as &$product) {
+        uasort($product['flavors'], static fn (array $left, array $right): int =>
+            strcasecmp((string) $left['label'], (string) $right['label'])
+        );
+        uasort($product['volumes'], static function (array $left, array $right): int {
+            $unitOrder = strcasecmp((string) ($left['unit'] ?? ''), (string) ($right['unit'] ?? ''));
+            return $unitOrder !== 0
+                ? $unitOrder
+                : ((float) ($left['volume'] ?? 0) <=> (float) ($right['volume'] ?? 0));
+        });
+        uasort($product['variants'], static fn (array $left, array $right): int =>
+            strcasecmp(
+                implode(' ', [(string) $left['flavor_label'], (string) $left['volume_label'], (string) $left['sku']]),
+                implode(' ', [(string) $right['flavor_label'], (string) $right['volume_label'], (string) $right['sku']])
+            )
+        );
+        $product['brands'] = array_values($product['brands']);
+        $product['flavors'] = array_values($product['flavors']);
+        $product['volumes'] = array_values($product['volumes']);
+        $product['variants'] = array_values($product['variants']);
+        $product['flavor_count'] = count($product['flavors']);
+        $product['volume_count'] = count($product['volumes']);
+        $product['variant_count'] = count($product['variants']);
+    }
+    unset($product);
+
+    uasort($products, static fn (array $left, array $right): int =>
+        strcasecmp((string) $left['label'], (string) $right['label'])
+    );
+
+    return [
+        'ok' => true,
+        'products' => array_values($products),
+        'totals' => [
+            'products' => count($products),
+            'flavors' => array_sum(array_map(static fn (array $product): int => (int) $product['flavor_count'], $products)),
+            'sizes' => array_sum(array_map(static fn (array $product): int => (int) $product['volume_count'], $products)),
+            'variants' => array_sum(array_map(static fn (array $product): int => (int) $product['variant_count'], $products)),
+        ],
+        'generated_at' => gmdate(DATE_ATOM),
+    ];
 }
 
 /**
