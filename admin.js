@@ -8973,6 +8973,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	          <span><b>${formatRegionalInteger(item.cost_floor_units || 0)}</b> cost-aware floor</span>
 	          <span><b>${formatRegionalInteger(item.purchase_moq || 1)}</b> supplier MOQ</span>
 	          <span><b>${formatRegionalInteger(item.bare_minimum_trigger || 0)}</b> bare minimum${item.minimum_floor_applied ? ' applied' : ' checked but not needed'}</span>
+	          ${item.slow_mover_boost_applied ? `<span><b>+${formatRegionalInteger(item.slow_mover_boost_units || 5)}</b> slow-mover safety below ${formatRegionalInteger(item.slow_mover_trigger_threshold || 15)}</span>` : ''}
 	        </div>
 	      </details>`;
 	  };
@@ -9455,7 +9456,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    return [
 	      overflowMode ? 'JENANG GEMI - OVERFLOW STOCK PURCHASE' : 'JENANG GEMI - RECOMMENDED STOCK PURCHASE',
 	      overflowMode ? `Created: ${date}` : `Demand through: ${date}`,
-	      overflowMode ? 'Purchase rule: exact production overflow quantities; MOQ rounding is not applied' : 'Trigger model: weekly learning up to 90 days, with a cost, order-quantity, and MOQ safety floor for triggers below 5',
+	      overflowMode ? 'Purchase rule: exact production overflow quantities; MOQ rounding is not applied' : 'Trigger model: weekly learning up to 90 days, with a cost, order-quantity, and MOQ floor plus 5 units when the calculated trigger is below 15',
 	      overflowMode ? '' : 'Purchase rule: one shared order-days setting for every product, then round up to MOQ',
 	      '',
 	      ...lines,

@@ -62,9 +62,10 @@ assert.match(moqSaveSource, /action: 'update_purchase_moq'[\s\S]*purchase_moq: p
 assert.doesNotMatch(moqSaveSource, /automatic:|manual_trigger:/, 'The MOQ button must save only MOQ.');
 assert.match(script, /action: 'update_manual_trigger'/, 'Manual trigger changes must save without using the MOQ button.');
 assert.match(script, /queueInventorySettingRefresh[\s\S]*settingsRevision/, 'Derived inventory figures must refresh after fast setting updates without accepting stale responses.');
-assert.match(script, /Trigger model: weekly learning up to 90 days, with a cost, order-quantity, and MOQ safety floor for triggers below 5/);
+assert.match(script, /Trigger model: weekly learning up to 90 days, with a cost, order-quantity, and MOQ floor plus 5 units when the calculated trigger is below 15/);
 assert.match(script, /const inventoryTriggerWhy[\s\S]*admin-inventory-trigger-why[\s\S]*See why/);
 assert.match(script, /demand_trigger[\s\S]*large_order_p90[\s\S]*cost_floor_units[\s\S]*bare_minimum_trigger/);
+assert.match(script, /slow_mover_boost_applied[\s\S]*slow_mover_boost_units[\s\S]*slow_mover_trigger_threshold/);
 assert.match(script, /buildPurchaseOrderPdf/);
 assert.match(script, /PURCHASE ORDER/);
 const purchasePdfSource = script.slice(
