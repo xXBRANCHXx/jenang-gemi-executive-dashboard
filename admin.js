@@ -9200,7 +9200,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	          <button type="button" data-inventory-moq-save ${moqSaving ? 'disabled' : ''}>${moqSaving ? 'Saving' : 'Save MOQ'}</button>
 	          <div class="admin-inventory-setting-status">
 	            <small class="${message.startsWith('Could') ? 'is-error' : ''}" data-inventory-setting-message>${escapeHtml(message || (initialPurchase ? `Initial target ${formatRegionalInteger(item.initial_target_qty || 0)}` : automatic ? `Auto value ${formatRegionalInteger(item.automatic_trigger || 0)}` : 'Manual value active'))}</small>
-	            ${!message && (automatic || initialPurchase) ? inventoryTriggerWhy(item) : ''}
+	            ${inventoryTriggerWhy(item)}
 	          </div>
 	        </form>
 	      </article>
