@@ -81,6 +81,9 @@ $youngHistory = [
 ];
 inventory_recap_expect(5, jg_inventory_recap_sales_age_days($youngHistory, new DateTimeImmutable('2026-07-30')), 'Sales age must begin on the first positive sale.');
 inventory_recap_expect(null, jg_inventory_recap_sales_age_days([], new DateTimeImmutable('2026-07-30')), 'A product with no sales must not start the small-data clock.');
+inventory_recap_expect(5, jg_inventory_recap_observation_days(5, 21), 'A five-day sales history must override a 21-day stock age.');
+inventory_recap_expect(21, jg_inventory_recap_observation_days(null, 21), 'Stock age remains the fallback before the first sale.');
+inventory_recap_expect(90, jg_inventory_recap_observation_days(95, 120), 'The mature observation window must cap at 90 sales days.');
 $youngContext = [
     'stocked_age_days' => 5,
     'order_quantities' => [1, 1, 1, 1, 2],
@@ -90,16 +93,18 @@ $youngContext = [
 ];
 $fiveDayModel = jg_inventory_recap_trigger_model($youngHistory, $options, $youngContext);
 inventory_recap_expect(23.0, $fiveDayModel['total_90_day_demand'], 'The young-product regression must retain all 23 units sold in five days.');
-inventory_recap_expect(13, $fiveDayModel['demand_trigger'], 'The short history must produce its existing thirteen-unit time trigger.');
+inventory_recap_expect(5, $fiveDayModel['history_days'], 'The time-based observation window must begin with the first sale.');
+inventory_recap_expect(35, $fiveDayModel['demand_trigger'], 'Twenty-three units over five sales days must produce a thirty-five-unit time trigger.');
 inventory_recap_expect(5, $fiveDayModel['sales_age_days'], 'The model must expose five days since the first sale.');
-inventory_recap_expect(10, $fiveDayModel['small_data_addition'], 'Five stocked days must add the ten-unit first-week allowance.');
-inventory_recap_expect(36, $fiveDayModel['automatic_trigger'], 'The five-day product must increase from 26 to 36 with the small-data allowance.');
+inventory_recap_expect(10, $fiveDayModel['small_data_addition'], 'Five sales days must add the ten-unit first-week allowance.');
+inventory_recap_expect(53, $fiveDayModel['automatic_trigger'], 'The five-day product must add 35 time + 2 high order + 6 price + 10 small data.');
 
 $olderStockYoungSalesModel = jg_inventory_recap_trigger_model($youngHistory, $options, [
     ...$youngContext,
     'stocked_age_days' => 42,
 ]);
 inventory_recap_expect(5, $olderStockYoungSalesModel['sales_age_days'], 'An older stock record must not age the product beyond its first sale.');
+inventory_recap_expect(5, $olderStockYoungSalesModel['history_days'], 'An older stock record must not lengthen the time-based sales window.');
 inventory_recap_expect(10, $olderStockYoungSalesModel['small_data_addition'], 'A product stocked earlier but first sold five days ago must receive the first-week allowance.');
 
 $peerOnlyModel = jg_inventory_recap_trigger_model($youngHistory, $options, [

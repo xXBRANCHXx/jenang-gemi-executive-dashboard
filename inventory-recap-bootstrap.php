@@ -202,6 +202,12 @@ function jg_inventory_recap_sales_age_days(array $dailyHistory, DateTimeImmutabl
         : null;
 }
 
+function jg_inventory_recap_observation_days(?int $salesAgeDays, ?int $stockedAgeDays): int
+{
+    if ($salesAgeDays !== null) return max(1, min(90, $salesAgeDays));
+    return jg_inventory_recap_history_days($stockedAgeDays);
+}
+
 function jg_inventory_recap_initial_purchase_model(float $peerDailyDemand, int $moq, array $options): array
 {
     $coverageDays = max(14, (int) ($options['initial_coverage_days'] ?? 14));
@@ -335,8 +341,8 @@ function jg_inventory_recap_empty_trigger_model(array $options): array
 }
 
 /**
- * Builds a weekly learning window for young products and a 90-day window for
- * mature products. The automatic trigger adds the high-order, slow-mover,
+ * Builds a daily window from first sale for young products and a 90-day window
+ * for mature products. The automatic trigger adds the high-order, slow-mover,
  * price, and small-data allowances to the time-based demand trigger. MOQ is
  * deliberately excluded here and is only used later to round purchases. The
  * small-data clock begins with the product's first positive sale, not stocking.
@@ -352,7 +358,7 @@ function jg_inventory_recap_trigger_model(array $dailyHistory, array $options, a
     $stockedAgeDays = array_key_exists('stocked_age_days', $context) && $context['stocked_age_days'] !== null
         ? max(1, (int) $context['stocked_age_days'])
         : null;
-    $historyDays = jg_inventory_recap_history_days($stockedAgeDays);
+    $historyDays = jg_inventory_recap_observation_days($salesAgeDays, $stockedAgeDays);
     $start = $today instanceof DateTimeImmutable
         ? $today->modify('-' . ($historyDays - 1) . ' days')
         : null;
@@ -361,7 +367,7 @@ function jg_inventory_recap_trigger_model(array $dailyHistory, array $options, a
     }
 
     $bucketDays = $historyDays === 90 ? 10 : 7;
-    $bucketCount = $historyDays === 90 ? 9 : max(2, intdiv($historyDays, 7));
+    $bucketCount = $historyDays === 90 ? 9 : max(2, (int) ceil($historyDays / 7));
     $buckets = array_fill(0, $bucketCount, 0.0);
     $dailyQuantities = [];
     $soldDays = 0;
@@ -384,9 +390,9 @@ function jg_inventory_recap_trigger_model(array $dailyHistory, array $options, a
             ...$triggerAdditions,
             'sales_age_days' => $salesAgeDays,
             'history_days' => $historyDays,
-            'history_weeks' => $historyDays === 90 ? 13 : intdiv($historyDays, 7),
+            'history_weeks' => $historyDays === 90 ? 13 : max(1, (int) ceil($historyDays / 7)),
             'history_start_date' => $start->format('Y-m-d'),
-            'forecast_method' => $historyDays === 90 ? '90_day_adaptive' : 'weekly_adaptive',
+            'forecast_method' => $historyDays === 90 ? '90_day_adaptive' : 'sales_age_adaptive',
         ];
     }
 
@@ -451,11 +457,11 @@ function jg_inventory_recap_trigger_model(array $dailyHistory, array $options, a
         'small_data_mature_days' => (int) $triggerAdditions['small_data_mature_days'],
         'trigger_addition_total' => (int) $triggerAdditions['trigger_addition_total'],
         'history_days' => $historyDays,
-        'history_weeks' => $historyDays === 90 ? 13 : intdiv($historyDays, 7),
+        'history_weeks' => $historyDays === 90 ? 13 : max(1, (int) ceil($historyDays / 7)),
         'history_start_date' => $start->format('Y-m-d'),
         'automatic_trigger' => (int) $triggerAdditions['automatic_trigger'],
         'forecast_confidence' => jg_inventory_recap_forecast_confidence($soldDays, $total),
-        'forecast_method' => $historyDays === 90 ? '90_day_adaptive' : 'weekly_adaptive',
+        'forecast_method' => $historyDays === 90 ? '90_day_adaptive' : 'sales_age_adaptive',
     ];
 }
 

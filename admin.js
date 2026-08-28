@@ -5015,7 +5015,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	  const homeClientCacheKey = () => dashboardClientCacheKey('home', [state.home.timeframe, state.timezone, activeLocalDate]);
 	  const websiteClientCacheKey = () => dashboardClientCacheKey('website', [state.website.site || 'select', state.website.timeframe, state.timezone, activeLocalDate]);
 	  const walletClientCacheKey = () => dashboardClientCacheKey('wallet', [activeLocalDate]);
-	  const inventoryRecapClientCacheKey = () => dashboardClientCacheKey('inventory-recap', ['trigger-v8', activeLocalDate]);
+	  const inventoryRecapClientCacheKey = () => dashboardClientCacheKey('inventory-recap', ['trigger-v9', activeLocalDate]);
 	  const dailyClientCacheKey = () => dashboardClientCacheKey('daily', [state.daily.month, state.timezone]);
 	  const ordersClientCacheKey = () => dashboardClientCacheKey('orders', [`v${ORDER_CLIENT_CACHE_VERSION}`, state.overview.year, activeLocalDate]);
 	  const settingsClientCacheKey = () => dashboardClientCacheKey('settings', [activeLocalDate]);
@@ -8968,7 +8968,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      <details class="admin-inventory-trigger-why">
 	        <summary>See why</summary>
 	        <div>
-	          <span><b>${formatRegionalInteger(item.demand_trigger || 0)}</b> time-based demand trigger from ${formatRegionalInteger(item.history_days || 90)} days</span>
+	          <span><b>${formatRegionalInteger(item.demand_trigger || 0)}</b> time-based demand trigger from ${formatRegionalInteger(item.history_days || 90)} sales days</span>
 	          <span><b>+${formatRegionalInteger(item.large_order_addition || 0)}</b> high-quantity order allowance</span>
 	          <span><b>+${formatRegionalInteger(item.slow_mover_boost_units || 0)}</b> slow-mover allowance${item.slow_mover_boost_applied ? ` below ${formatRegionalInteger(item.slow_mover_trigger_threshold || 15)}` : ''}</span>
 	          <span><b>+${formatRegionalInteger(item.price_addition || 0)}</b> price allowance</span>
@@ -9182,7 +9182,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	            <span><b>${formatRegionalNumber(item.average_30_day_demand || 0, { maximumFractionDigits: 1 })}</b> monthly average</span>
 	            <span><b>${formatRegionalInteger(initialPurchase ? item.initial_target_qty || 0 : item.automatic_trigger || 0)}</b> ${initialPurchase ? 'initial target' : 'auto trigger'}</span>
 	          </div>
-	          <small>${initialPurchase ? 'The first purchase is kept separate from replenishment.' : 'The observation window grows weekly until the 90-day model takes over.'}</small>
+	          <small>${initialPurchase ? 'The first purchase is kept separate from replenishment.' : 'The observation window starts on the first sale and grows daily until the 90-day model takes over.'}</small>
 	        </div>
 	        <form class="admin-inventory-trigger-settings" data-inventory-settings="${escapeHtml(sku)}">
 	          <label class="admin-inventory-auto-switch">

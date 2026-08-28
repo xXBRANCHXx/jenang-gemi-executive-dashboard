@@ -35,7 +35,7 @@ assert.match(dashboard, /Sent to Store Ops[\s\S]*confirmed and pending in Store 
 assert.match(dashboard, /Stock already on the way[\s\S]*data-inventory-po-list/);
 
 assert.match(script, /data-inventory-automatic/);
-assert.match(script, /inventoryRecapClientCacheKey[\s\S]*trigger-v8/, 'The first-sale small-data model must not restore pre-change cached values.');
+assert.match(script, /inventoryRecapClientCacheKey[\s\S]*trigger-v9/, 'The first-sale observation model must not restore pre-change cached values.');
 assert.match(script, /data-inventory-manual-trigger/);
 assert.match(script, /data-inventory-moq/);
 assert.match(script, /data-inventory-moq-save[^>]*>\$\{moqSaving \? 'Saving' : 'Save MOQ'\}/);
@@ -68,6 +68,8 @@ assert.match(script, /const inventoryTriggerWhy[\s\S]*admin-inventory-trigger-wh
 assert.match(script, /data-inventory-setting-message[\s\S]*\$\{inventoryTriggerWhy\(item\)\}/, 'Every inventory row must render its trigger explanation, including manual-mode rows.');
 assert.doesNotMatch(script, /!message && \(automatic \|\| initialPurchase\)[\s\S]{0,80}inventoryTriggerWhy/, 'Saving state and manual mode must not hide the trigger explanation.');
 assert.match(script, /large_order_addition[\s\S]*slow_mover_boost_units[\s\S]*price_addition[\s\S]*small_data_addition[\s\S]*automatic_trigger/);
+assert.match(script, /time-based demand trigger from[\s\S]*sales days/);
+assert.match(script, /observation window starts on the first sale and grows daily until the 90-day model takes over/);
 assert.match(script, /MOQ is not included in the trigger; it only rounds a purchase quantity/);
 assert.match(script, /buildPurchaseOrderPdf/);
 assert.match(script, /PURCHASE ORDER/);
