@@ -79,6 +79,8 @@ $youngHistory = [
     '2026-07-29' => 5,
     '2026-07-30' => 5,
 ];
+inventory_recap_expect(5, jg_inventory_recap_sales_age_days($youngHistory, new DateTimeImmutable('2026-07-30')), 'Sales age must begin on the first positive sale.');
+inventory_recap_expect(null, jg_inventory_recap_sales_age_days([], new DateTimeImmutable('2026-07-30')), 'A product with no sales must not start the small-data clock.');
 $youngContext = [
     'stocked_age_days' => 5,
     'order_quantities' => [1, 1, 1, 1, 2],
@@ -89,8 +91,23 @@ $youngContext = [
 $fiveDayModel = jg_inventory_recap_trigger_model($youngHistory, $options, $youngContext);
 inventory_recap_expect(23.0, $fiveDayModel['total_90_day_demand'], 'The young-product regression must retain all 23 units sold in five days.');
 inventory_recap_expect(13, $fiveDayModel['demand_trigger'], 'The short history must produce its existing thirteen-unit time trigger.');
+inventory_recap_expect(5, $fiveDayModel['sales_age_days'], 'The model must expose five days since the first sale.');
 inventory_recap_expect(10, $fiveDayModel['small_data_addition'], 'Five stocked days must add the ten-unit first-week allowance.');
 inventory_recap_expect(36, $fiveDayModel['automatic_trigger'], 'The five-day product must increase from 26 to 36 with the small-data allowance.');
+
+$olderStockYoungSalesModel = jg_inventory_recap_trigger_model($youngHistory, $options, [
+    ...$youngContext,
+    'stocked_age_days' => 42,
+]);
+inventory_recap_expect(5, $olderStockYoungSalesModel['sales_age_days'], 'An older stock record must not age the product beyond its first sale.');
+inventory_recap_expect(10, $olderStockYoungSalesModel['small_data_addition'], 'A product stocked earlier but first sold five days ago must receive the first-week allowance.');
+
+$peerOnlyModel = jg_inventory_recap_trigger_model($youngHistory, $options, [
+    ...$youngContext,
+    'sales_age_days' => null,
+]);
+inventory_recap_expect(null, $peerOnlyModel['sales_age_days'], 'Peer-ramp demand must not masquerade as the product\'s first sale.');
+inventory_recap_expect(0, $peerOnlyModel['small_data_addition'], 'The small-data clock must remain stopped until an actual sale exists.');
 
 $smallDataBoundaryExpectations = [
     7 => [10, 36],
@@ -102,13 +119,13 @@ $smallDataBoundaryExpectations = [
     89 => [5, 31],
     90 => [0, 26],
 ];
-foreach ($smallDataBoundaryExpectations as $stockedAgeDays => [$expectedAddition, $expectedTrigger]) {
+foreach ($smallDataBoundaryExpectations as $salesAgeDays => [$expectedAddition, $expectedTrigger]) {
     $boundaryAdditions = jg_inventory_recap_trigger_additions(13, [
         ...$youngContext,
-        'stocked_age_days' => $stockedAgeDays,
+        'sales_age_days' => $salesAgeDays,
     ], $options);
-    inventory_recap_expect($expectedAddition, $boundaryAdditions['small_data_addition'], "Day {$stockedAgeDays} must use the correct small-data allowance.");
-    inventory_recap_expect($expectedTrigger, $boundaryAdditions['automatic_trigger'], "Day {$stockedAgeDays} must use the correct buffered trigger.");
+    inventory_recap_expect($expectedAddition, $boundaryAdditions['small_data_addition'], "Sales day {$salesAgeDays} must use the correct small-data allowance.");
+    inventory_recap_expect($expectedTrigger, $boundaryAdditions['automatic_trigger'], "Sales day {$salesAgeDays} must use the correct buffered trigger.");
 }
 
 for ($day = 0; $day < 90; $day++) {
@@ -330,6 +347,7 @@ foreach ($payload['items'] as $item) {
 $flat = $bySku['SKU-FLAT'] ?? [];
 $manual = $bySku['SKU-MANUAL'] ?? [];
 inventory_recap_expect(20, $flat['automatic_trigger'] ?? 0, 'The payload must expose 8 demand + 1 high order + 5 slow mover + 6 price.');
+inventory_recap_expect(90, $flat['sales_age_days'] ?? null, 'The payload must expose age from first sale independently of stock age.');
 inventory_recap_expect(4000, $flat['current_stock_value'] ?? 0, 'Each item must expose its on-hand value at COGS.');
 inventory_recap_expect(4.0, $flat['committed_qty'] ?? -1, 'The product must expose its Store Ops committed quantity.');
 inventory_recap_expect([

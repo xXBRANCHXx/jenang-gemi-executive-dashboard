@@ -35,7 +35,7 @@ assert.match(dashboard, /Sent to Store Ops[\s\S]*confirmed and pending in Store 
 assert.match(dashboard, /Stock already on the way[\s\S]*data-inventory-po-list/);
 
 assert.match(script, /data-inventory-automatic/);
-assert.match(script, /inventoryRecapClientCacheKey[\s\S]*trigger-v7/, 'The tapered small-data model must not restore pre-change cached values.');
+assert.match(script, /inventoryRecapClientCacheKey[\s\S]*trigger-v8/, 'The first-sale small-data model must not restore pre-change cached values.');
 assert.match(script, /data-inventory-manual-trigger/);
 assert.match(script, /data-inventory-moq/);
 assert.match(script, /data-inventory-moq-save[^>]*>\$\{moqSaving \? 'Saving' : 'Save MOQ'\}/);
@@ -63,7 +63,7 @@ assert.match(moqSaveSource, /action: 'update_purchase_moq'[\s\S]*purchase_moq: p
 assert.doesNotMatch(moqSaveSource, /automatic:|manual_trigger:/, 'The MOQ button must save only MOQ.');
 assert.match(script, /action: 'update_manual_trigger'/, 'Manual trigger changes must save without using the MOQ button.');
 assert.match(script, /queueInventorySettingRefresh[\s\S]*settingsRevision/, 'Derived inventory figures must refresh after fast setting updates without accepting stale responses.');
-assert.match(script, /Trigger model: time-based demand \+ high-order allowance \+ slow-mover allowance \+ price allowance \+ tapering small-data allowance \(10, 8, 6, then 5 until day 90\); MOQ does not affect the trigger/);
+assert.match(script, /Trigger model: time-based demand \+ high-order allowance \+ slow-mover allowance \+ price allowance \+ tapering small-data allowance counted from first sale \(10, 8, 6, then 5 until sales day 90\); MOQ does not affect the trigger/);
 assert.match(script, /const inventoryTriggerWhy[\s\S]*admin-inventory-trigger-why[\s\S]*See why/);
 assert.match(script, /data-inventory-setting-message[\s\S]*\$\{inventoryTriggerWhy\(item\)\}/, 'Every inventory row must render its trigger explanation, including manual-mode rows.');
 assert.doesNotMatch(script, /!message && \(automatic \|\| initialPurchase\)[\s\S]{0,80}inventoryTriggerWhy/, 'Saving state and manual mode must not hide the trigger explanation.');
@@ -129,6 +129,8 @@ const triggerAdditionsSource = inventoryBootstrap.slice(
   inventoryBootstrap.indexOf('function jg_inventory_recap_empty_trigger_model')
 );
 assert.match(triggerAdditionsSource, /demandTrigger[\s\S]*slowMoverAddition[\s\S]*smallDataAddition[\s\S]*largeOrderAddition[\s\S]*priceAddition[\s\S]*automatic_trigger/);
+assert.match(triggerAdditionsSource, /sales_age_days/);
+assert.doesNotMatch(triggerAdditionsSource, /stocked_age_days/, 'Stock age must not control the small-data allowance.');
 assert.doesNotMatch(triggerAdditionsSource, /purchase_moq|purchaseMoq/, 'MOQ must not participate in automatic trigger arithmetic.');
 assert.match(script, /order_type: state\.inventoryRecap\.purchaseMode/);
 assert.match(script, /data-purchase-plan-select[\s\S]*planSelected\[selectionSku\] = input\.checked/);

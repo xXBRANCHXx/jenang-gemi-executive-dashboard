@@ -186,6 +186,22 @@ function jg_inventory_recap_history_days(?int $stockedAgeDays): int
     return max(14, min(84, intdiv($stockedAgeDays, 7) * 7));
 }
 
+function jg_inventory_recap_sales_age_days(array $dailyHistory, DateTimeImmutable $today): ?int
+{
+    $firstSale = null;
+    foreach ($dailyHistory as $date => $quantity) {
+        if (jg_inventory_recap_number($quantity) <= 0) continue;
+        $saleDate = jg_inventory_recap_date_from_string((string) $date);
+        if (!$saleDate instanceof DateTimeImmutable || $saleDate > $today) continue;
+        if (!$firstSale instanceof DateTimeImmutable || $saleDate < $firstSale) {
+            $firstSale = $saleDate;
+        }
+    }
+    return $firstSale instanceof DateTimeImmutable
+        ? ((int) $firstSale->diff($today)->format('%a')) + 1
+        : null;
+}
+
 function jg_inventory_recap_initial_purchase_model(float $peerDailyDemand, int $moq, array $options): array
 {
     $coverageDays = max(14, (int) ($options['initial_coverage_days'] ?? 14));
@@ -237,17 +253,17 @@ function jg_inventory_recap_trigger_additions(int $demandTrigger, array $context
     $smallDataSecondWeekBoost = max(0, (int) ($options['small_data_second_week_boost'] ?? 8));
     $smallDataFirstMonthBoost = max(0, (int) ($options['small_data_first_month_boost'] ?? 6));
     $smallDataLearningBoost = max(0, (int) ($options['small_data_learning_boost'] ?? 5));
-    $stockedAgeDays = array_key_exists('stocked_age_days', $context) && $context['stocked_age_days'] !== null
-        ? max(1, (int) $context['stocked_age_days'])
+    $salesAgeDays = array_key_exists('sales_age_days', $context) && $context['sales_age_days'] !== null
+        ? max(1, (int) $context['sales_age_days'])
         : null;
     $smallDataAddition = 0;
-    if ($stockedAgeDays !== null && $stockedAgeDays <= $smallDataFirstWeekDays) {
+    if ($salesAgeDays !== null && $salesAgeDays <= $smallDataFirstWeekDays) {
         $smallDataAddition = $smallDataFirstWeekBoost;
-    } elseif ($stockedAgeDays !== null && $stockedAgeDays <= $smallDataSecondWeekDays) {
+    } elseif ($salesAgeDays !== null && $salesAgeDays <= $smallDataSecondWeekDays) {
         $smallDataAddition = $smallDataSecondWeekBoost;
-    } elseif ($stockedAgeDays !== null && $stockedAgeDays <= $smallDataFirstMonthDays) {
+    } elseif ($salesAgeDays !== null && $salesAgeDays <= $smallDataFirstMonthDays) {
         $smallDataAddition = $smallDataFirstMonthBoost;
-    } elseif ($stockedAgeDays !== null && $stockedAgeDays < $smallDataMatureDays) {
+    } elseif ($salesAgeDays !== null && $salesAgeDays < $smallDataMatureDays) {
         $smallDataAddition = $smallDataLearningBoost;
     }
     $smallDataApplied = $smallDataAddition > 0;
@@ -303,6 +319,7 @@ function jg_inventory_recap_empty_trigger_model(array $options): array
         'slow_mover_trigger_threshold' => max(1, (int) ($options['slow_mover_trigger_threshold'] ?? 15)),
         'small_data_buffer_applied' => false,
         'small_data_addition' => 0,
+        'sales_age_days' => null,
         'small_data_first_week_days' => max(1, (int) ($options['small_data_first_week_days'] ?? 7)),
         'small_data_second_week_days' => max(7, (int) ($options['small_data_second_week_days'] ?? 14)),
         'small_data_first_month_days' => max(14, (int) ($options['small_data_first_month_days'] ?? 30)),
@@ -321,11 +338,17 @@ function jg_inventory_recap_empty_trigger_model(array $options): array
  * Builds a weekly learning window for young products and a 90-day window for
  * mature products. The automatic trigger adds the high-order, slow-mover,
  * price, and small-data allowances to the time-based demand trigger. MOQ is
- * deliberately excluded here and is only used later to round purchases.
+ * deliberately excluded here and is only used later to round purchases. The
+ * small-data clock begins with the product's first positive sale, not stocking.
  */
 function jg_inventory_recap_trigger_model(array $dailyHistory, array $options, array $context = []): array
 {
     $today = jg_inventory_recap_date_from_string((string) ($options['today'] ?? ''));
+    $salesAgeDays = array_key_exists('sales_age_days', $context)
+        ? ($context['sales_age_days'] !== null ? max(1, (int) $context['sales_age_days']) : null)
+        : ($today instanceof DateTimeImmutable ? jg_inventory_recap_sales_age_days($dailyHistory, $today) : null);
+    $triggerContext = $context;
+    $triggerContext['sales_age_days'] = $salesAgeDays;
     $stockedAgeDays = array_key_exists('stocked_age_days', $context) && $context['stocked_age_days'] !== null
         ? max(1, (int) $context['stocked_age_days'])
         : null;
@@ -355,10 +378,11 @@ function jg_inventory_recap_trigger_model(array $dailyHistory, array $options, a
 
     $total = array_sum($dailyQuantities);
     if ($total <= 0) {
-        $triggerAdditions = jg_inventory_recap_trigger_additions(0, $context, $options);
+        $triggerAdditions = jg_inventory_recap_trigger_additions(0, $triggerContext, $options);
         return [
             ...jg_inventory_recap_empty_trigger_model($options),
             ...$triggerAdditions,
+            'sales_age_days' => $salesAgeDays,
             'history_days' => $historyDays,
             'history_weeks' => $historyDays === 90 ? 13 : intdiv($historyDays, 7),
             'history_start_date' => $start->format('Y-m-d'),
@@ -389,7 +413,7 @@ function jg_inventory_recap_trigger_model(array $dailyHistory, array $options, a
     $purchaseFraction = max(1 / 30, min(3.0, (float) ($options['purchase_fraction'] ?? 0.75)));
 
     $demandTrigger = (int) ceil($adjusted30 * $reorderFraction);
-    $triggerAdditions = jg_inventory_recap_trigger_additions($demandTrigger, $context, $options);
+    $triggerAdditions = jg_inventory_recap_trigger_additions($demandTrigger, $triggerContext, $options);
 
     return [
         'has_demand' => true,
@@ -420,6 +444,7 @@ function jg_inventory_recap_trigger_model(array $dailyHistory, array $options, a
         'slow_mover_trigger_threshold' => (int) $triggerAdditions['slow_mover_trigger_threshold'],
         'small_data_buffer_applied' => (bool) $triggerAdditions['small_data_buffer_applied'],
         'small_data_addition' => (int) $triggerAdditions['small_data_addition'],
+        'sales_age_days' => $salesAgeDays,
         'small_data_first_week_days' => (int) $triggerAdditions['small_data_first_week_days'],
         'small_data_second_week_days' => (int) $triggerAdditions['small_data_second_week_days'],
         'small_data_first_month_days' => (int) $triggerAdditions['small_data_first_month_days'],
@@ -1206,7 +1231,9 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
         $history = $stockHistory[$index] ?? ['ever_stocked' => false, 'first_stocked_at' => '', 'stocked_age_days' => null];
         $initialPurchase = jg_inventory_recap_is_initial_purchase($currentStock, !empty($history['ever_stocked']));
         $peer = jg_inventory_recap_peer_demand($index, $skus, $demand, $stockIndexBySkuIndex);
-        $modelHistory = (array) ($demand[$index]['daily_history'] ?? []);
+        $actualSalesHistory = (array) ($demand[$index]['daily_history'] ?? []);
+        $salesAgeDays = jg_inventory_recap_sales_age_days($actualSalesHistory, $today);
+        $modelHistory = $actualSalesHistory;
         $usesPeerRamp = !$initialPurchase
             && $history['stocked_age_days'] !== null
             && (int) $history['stocked_age_days'] < 14
@@ -1221,6 +1248,7 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
             ? jg_inventory_recap_empty_trigger_model($options)
             : jg_inventory_recap_trigger_model($modelHistory, $options, [
                 'stocked_age_days' => $history['stocked_age_days'],
+                'sales_age_days' => $salesAgeDays,
                 'order_quantities' => array_values((array) ($demand[$index]['order_quantities'] ?? [])),
                 'cogs' => (float) ($sku['cogs'] ?? 0),
                 'reference_cogs' => $referenceCogs,
@@ -1289,6 +1317,7 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
             'history_weeks' => (int) ($model['history_weeks'] ?? 13),
             'history_start_date' => (string) ($model['history_start_date'] ?? $options['start_date']),
             'stocked_age_days' => $history['stocked_age_days'],
+            'sales_age_days' => $salesAgeDays,
             'first_stocked_at' => (string) ($history['first_stocked_at'] ?? ''),
             'ever_stocked' => !empty($history['ever_stocked']),
             'initial_purchase' => $initialPurchase,
