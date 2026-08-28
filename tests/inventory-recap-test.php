@@ -31,9 +31,13 @@ inventory_recap_expect('adaptive_trigger', $options['forecast_model'], 'The quan
 inventory_recap_expect(15, $options['slow_mover_trigger_threshold'], 'Slow-moving triggers must be identified below fifteen units.');
 inventory_recap_expect(5, $options['slow_mover_trigger_boost'], 'Slow-moving triggers must receive five additional units.');
 inventory_recap_expect(7, $options['small_data_first_week_days'], 'The strongest small-data allowance must cover the first week.');
-inventory_recap_expect(14, $options['small_data_second_week_days'], 'The reduced small-data allowance must cover the second week.');
+inventory_recap_expect(14, $options['small_data_second_week_days'], 'The eight-unit small-data allowance must cover the second week.');
+inventory_recap_expect(30, $options['small_data_first_month_days'], 'The six-unit small-data allowance must continue through the first month.');
+inventory_recap_expect(90, $options['small_data_mature_days'], 'The small-data allowance must end when the 90-day model takes over.');
 inventory_recap_expect(10, $options['small_data_first_week_boost'], 'The first week must add ten units.');
-inventory_recap_expect(5, $options['small_data_second_week_boost'], 'The second week must add five units.');
+inventory_recap_expect(8, $options['small_data_second_week_boost'], 'The second week must add eight units.');
+inventory_recap_expect(6, $options['small_data_first_month_boost'], 'Days fifteen through thirty must add six units.');
+inventory_recap_expect(5, $options['small_data_learning_boost'], 'Days thirty-one through eighty-nine must add five units.');
 
 $productionAdditions = jg_inventory_recap_trigger_additions(10, [
     'order_quantities' => [1, 1, 1, 1, 1, 1, 1, 1, 2, 2],
@@ -88,19 +92,24 @@ inventory_recap_expect(13, $fiveDayModel['demand_trigger'], 'The short history m
 inventory_recap_expect(10, $fiveDayModel['small_data_addition'], 'Five stocked days must add the ten-unit first-week allowance.');
 inventory_recap_expect(36, $fiveDayModel['automatic_trigger'], 'The five-day product must increase from 26 to 36 with the small-data allowance.');
 
-$secondWeekModel = jg_inventory_recap_trigger_model($youngHistory, $options, [
-    ...$youngContext,
-    'stocked_age_days' => 14,
-]);
-inventory_recap_expect(5, $secondWeekModel['small_data_addition'], 'Fourteen stocked days must add the five-unit second-week allowance.');
-inventory_recap_expect(31, $secondWeekModel['automatic_trigger'], 'The same signals must total 31 during the second week.');
-
-$matureDataModel = jg_inventory_recap_trigger_model($youngHistory, $options, [
-    ...$youngContext,
-    'stocked_age_days' => 15,
-]);
-inventory_recap_expect(0, $matureDataModel['small_data_addition'], 'The small-data allowance must end after day fourteen.');
-inventory_recap_expect(26, $matureDataModel['automatic_trigger'], 'The same signals must return to 26 after the first two weeks.');
+$smallDataBoundaryExpectations = [
+    7 => [10, 36],
+    8 => [8, 34],
+    14 => [8, 34],
+    15 => [6, 32],
+    30 => [6, 32],
+    31 => [5, 31],
+    89 => [5, 31],
+    90 => [0, 26],
+];
+foreach ($smallDataBoundaryExpectations as $stockedAgeDays => [$expectedAddition, $expectedTrigger]) {
+    $boundaryAdditions = jg_inventory_recap_trigger_additions(13, [
+        ...$youngContext,
+        'stocked_age_days' => $stockedAgeDays,
+    ], $options);
+    inventory_recap_expect($expectedAddition, $boundaryAdditions['small_data_addition'], "Day {$stockedAgeDays} must use the correct small-data allowance.");
+    inventory_recap_expect($expectedTrigger, $boundaryAdditions['automatic_trigger'], "Day {$stockedAgeDays} must use the correct buffered trigger.");
+}
 
 for ($day = 0; $day < 90; $day++) {
     $flatHistory[$start->modify("+{$day} days")->format('Y-m-d')] = 1;
