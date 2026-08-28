@@ -52,6 +52,10 @@ function jg_inventory_recap_options(array $input = []): array
         'minimum_trigger_units' => 6,
         'slow_mover_trigger_threshold' => 15,
         'slow_mover_trigger_boost' => 5,
+        'small_data_first_week_days' => 7,
+        'small_data_second_week_days' => 14,
+        'small_data_first_week_boost' => 10,
+        'small_data_second_week_boost' => 5,
         'initial_coverage_days' => 14,
     ];
 }
@@ -221,9 +225,20 @@ function jg_inventory_recap_trigger_additions(int $demandTrigger, array $context
     $boost = max(0, (int) ($options['slow_mover_trigger_boost'] ?? 5));
     $slowMoverApplied = $demandTrigger < $threshold && $boost > 0;
     $slowMoverAddition = $slowMoverApplied ? $boost : 0;
+    $smallDataFirstWeekDays = max(1, (int) ($options['small_data_first_week_days'] ?? 7));
+    $smallDataSecondWeekDays = max($smallDataFirstWeekDays, (int) ($options['small_data_second_week_days'] ?? 14));
+    $smallDataFirstWeekBoost = max(0, (int) ($options['small_data_first_week_boost'] ?? 10));
+    $smallDataSecondWeekBoost = max(0, (int) ($options['small_data_second_week_boost'] ?? 5));
+    $stockedAgeDays = array_key_exists('stocked_age_days', $context) && $context['stocked_age_days'] !== null
+        ? max(1, (int) $context['stocked_age_days'])
+        : null;
+    $smallDataAddition = $stockedAgeDays !== null && $stockedAgeDays <= $smallDataFirstWeekDays
+        ? $smallDataFirstWeekBoost
+        : ($stockedAgeDays !== null && $stockedAgeDays <= $smallDataSecondWeekDays ? $smallDataSecondWeekBoost : 0);
+    $smallDataApplied = $smallDataAddition > 0;
     $largeOrderAddition = max(0, (int) ceil((float) $minimum['large_order_p90']));
     $priceAddition = max(0, (int) $minimum['cost_floor_units']);
-    $additionTotal = $largeOrderAddition + $slowMoverAddition + $priceAddition;
+    $additionTotal = $largeOrderAddition + $slowMoverAddition + $priceAddition + $smallDataAddition;
     return [
         ...$minimum,
         'large_order_addition' => $largeOrderAddition,
@@ -231,6 +246,10 @@ function jg_inventory_recap_trigger_additions(int $demandTrigger, array $context
         'slow_mover_boost_applied' => $slowMoverApplied,
         'slow_mover_boost_units' => $slowMoverAddition,
         'slow_mover_trigger_threshold' => $threshold,
+        'small_data_buffer_applied' => $smallDataApplied,
+        'small_data_addition' => $smallDataAddition,
+        'small_data_first_week_days' => $smallDataFirstWeekDays,
+        'small_data_second_week_days' => $smallDataSecondWeekDays,
         'trigger_addition_total' => $additionTotal,
         'automatic_trigger' => max(0, $demandTrigger) + $additionTotal,
     ];
@@ -265,6 +284,10 @@ function jg_inventory_recap_empty_trigger_model(array $options): array
         'slow_mover_boost_applied' => false,
         'slow_mover_boost_units' => 0,
         'slow_mover_trigger_threshold' => max(1, (int) ($options['slow_mover_trigger_threshold'] ?? 15)),
+        'small_data_buffer_applied' => false,
+        'small_data_addition' => 0,
+        'small_data_first_week_days' => max(1, (int) ($options['small_data_first_week_days'] ?? 7)),
+        'small_data_second_week_days' => max(7, (int) ($options['small_data_second_week_days'] ?? 14)),
         'trigger_addition_total' => 0,
         'history_days' => 90,
         'history_weeks' => 13,
@@ -278,8 +301,8 @@ function jg_inventory_recap_empty_trigger_model(array $options): array
 /**
  * Builds a weekly learning window for young products and a 90-day window for
  * mature products. The automatic trigger adds the high-order, slow-mover,
- * and price allowances to the time-based demand trigger. MOQ is deliberately
- * excluded here and is only used later to round purchase quantities.
+ * price, and small-data allowances to the time-based demand trigger. MOQ is
+ * deliberately excluded here and is only used later to round purchases.
  */
 function jg_inventory_recap_trigger_model(array $dailyHistory, array $options, array $context = []): array
 {
@@ -376,6 +399,10 @@ function jg_inventory_recap_trigger_model(array $dailyHistory, array $options, a
         'slow_mover_boost_applied' => (bool) $triggerAdditions['slow_mover_boost_applied'],
         'slow_mover_boost_units' => (int) $triggerAdditions['slow_mover_boost_units'],
         'slow_mover_trigger_threshold' => (int) $triggerAdditions['slow_mover_trigger_threshold'],
+        'small_data_buffer_applied' => (bool) $triggerAdditions['small_data_buffer_applied'],
+        'small_data_addition' => (int) $triggerAdditions['small_data_addition'],
+        'small_data_first_week_days' => (int) $triggerAdditions['small_data_first_week_days'],
+        'small_data_second_week_days' => (int) $triggerAdditions['small_data_second_week_days'],
         'trigger_addition_total' => (int) $triggerAdditions['trigger_addition_total'],
         'history_days' => $historyDays,
         'history_weeks' => $historyDays === 90 ? 13 : intdiv($historyDays, 7),
@@ -1276,6 +1303,10 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
             'slow_mover_boost_applied' => !empty($model['slow_mover_boost_applied']),
             'slow_mover_boost_units' => (int) ($model['slow_mover_boost_units'] ?? 0),
             'slow_mover_trigger_threshold' => (int) ($model['slow_mover_trigger_threshold'] ?? 15),
+            'small_data_buffer_applied' => !empty($model['small_data_buffer_applied']),
+            'small_data_addition' => (int) ($model['small_data_addition'] ?? 0),
+            'small_data_first_week_days' => (int) ($model['small_data_first_week_days'] ?? 7),
+            'small_data_second_week_days' => (int) ($model['small_data_second_week_days'] ?? 14),
             'trigger_addition_total' => (int) ($model['trigger_addition_total'] ?? 0),
             'automatic_trigger' => $automaticTrigger,
             'manual_trigger' => $manualTrigger,

@@ -5015,7 +5015,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	  const homeClientCacheKey = () => dashboardClientCacheKey('home', [state.home.timeframe, state.timezone, activeLocalDate]);
 	  const websiteClientCacheKey = () => dashboardClientCacheKey('website', [state.website.site || 'select', state.website.timeframe, state.timezone, activeLocalDate]);
 	  const walletClientCacheKey = () => dashboardClientCacheKey('wallet', [activeLocalDate]);
-	  const inventoryRecapClientCacheKey = () => dashboardClientCacheKey('inventory-recap', ['trigger-v5', activeLocalDate]);
+	  const inventoryRecapClientCacheKey = () => dashboardClientCacheKey('inventory-recap', ['trigger-v6', activeLocalDate]);
 	  const dailyClientCacheKey = () => dashboardClientCacheKey('daily', [state.daily.month, state.timezone]);
 	  const ordersClientCacheKey = () => dashboardClientCacheKey('orders', [`v${ORDER_CLIENT_CACHE_VERSION}`, state.overview.year, activeLocalDate]);
 	  const settingsClientCacheKey = () => dashboardClientCacheKey('settings', [activeLocalDate]);
@@ -8972,6 +8972,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	          <span><b>+${formatRegionalInteger(item.large_order_addition || 0)}</b> high-quantity order allowance</span>
 	          <span><b>+${formatRegionalInteger(item.slow_mover_boost_units || 0)}</b> slow-mover allowance${item.slow_mover_boost_applied ? ` below ${formatRegionalInteger(item.slow_mover_trigger_threshold || 15)}` : ''}</span>
 	          <span><b>+${formatRegionalInteger(item.price_addition || 0)}</b> price allowance</span>
+	          <span><b>+${formatRegionalInteger(item.small_data_addition || 0)}</b> small-data allowance${Number(item.small_data_addition || 0) >= 10 ? ` during the first ${formatRegionalInteger(item.small_data_first_week_days || 7)} days` : Number(item.small_data_addition || 0) > 0 ? ` during days ${formatRegionalInteger((item.small_data_first_week_days || 7) + 1)}–${formatRegionalInteger(item.small_data_second_week_days || 14)}` : ''}</span>
 	          <span><b>= ${formatRegionalInteger(item.automatic_trigger || 0)}</b> automatic trigger</span>
 	          <span>MOQ is not included in the trigger; it only rounds a purchase quantity.</span>
 	        </div>
@@ -9456,7 +9457,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    return [
 	      overflowMode ? 'JENANG GEMI - OVERFLOW STOCK PURCHASE' : 'JENANG GEMI - RECOMMENDED STOCK PURCHASE',
 	      overflowMode ? `Created: ${date}` : `Demand through: ${date}`,
-	      overflowMode ? 'Purchase rule: exact production overflow quantities; MOQ rounding is not applied' : 'Trigger model: time-based demand + high-order allowance + slow-mover allowance + price allowance; MOQ does not affect the trigger',
+	      overflowMode ? 'Purchase rule: exact production overflow quantities; MOQ rounding is not applied' : 'Trigger model: time-based demand + high-order allowance + slow-mover allowance + price allowance + small-data allowance (10 in week one, 5 in week two); MOQ does not affect the trigger',
 	      overflowMode ? '' : 'Purchase rule: one shared order-days setting for every product, then round up to MOQ',
 	      '',
 	      ...lines,
