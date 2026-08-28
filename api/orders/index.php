@@ -1117,6 +1117,8 @@ function jg_orders_ensure_mirror_schema(PDO $pdo): void
             cogs DECIMAL(16,2) NOT NULL DEFAULT 0,
             gross_profit DECIMAL(16,2) NOT NULL DEFAULT 0,
             username VARCHAR(255) NOT NULL DEFAULT "",
+            customer_identity VARCHAR(255) NOT NULL DEFAULT "",
+            customer_identity_confidence VARCHAR(40) NOT NULL DEFAULT "",
             address TEXT NULL,
             phone VARCHAR(80) NOT NULL DEFAULT "",
             source_event VARCHAR(80) NOT NULL DEFAULT "",
@@ -1139,6 +1141,8 @@ function jg_orders_ensure_mirror_schema(PDO $pdo): void
     analyticsEnsureTableColumn($pdo, 'dashboard_order_mirror', 'funds_released_amount', 'DECIMAL(16,2) NOT NULL DEFAULT 0 AFTER `funds_released_at`');
     analyticsEnsureTableColumn($pdo, 'dashboard_order_mirror', 'funds_release_status', 'VARCHAR(80) NOT NULL DEFAULT "" AFTER `funds_released_amount`');
     analyticsEnsureTableColumn($pdo, 'dashboard_order_mirror', 'funds_release_source', 'VARCHAR(220) NOT NULL DEFAULT "" AFTER `funds_release_status`');
+    analyticsEnsureTableColumn($pdo, 'dashboard_order_mirror', 'customer_identity', 'VARCHAR(255) NOT NULL DEFAULT "" AFTER `username`');
+    analyticsEnsureTableColumn($pdo, 'dashboard_order_mirror', 'customer_identity_confidence', 'VARCHAR(40) NOT NULL DEFAULT "" AFTER `customer_identity`');
     analyticsEnsureTableColumn($pdo, 'dashboard_order_mirror', 'deleted_at', 'DATETIME(6) NULL DEFAULT NULL AFTER `mirrored_at`');
 }
 
@@ -1510,6 +1514,8 @@ function jg_orders_normalize_mirror_row(array $row, array $payload): ?array
         'cogs' => $cogs,
         'gross_profit' => $grossProfit,
         'username' => substr((string) jg_orders_pick($row, ['username', 'buyer_username', 'customer_name'], $customer['name'] ?? ''), 0, 255),
+        'customer_identity' => substr((string) jg_orders_pick($row, ['customer_identity'], $customer['identity'] ?? ''), 0, 255),
+        'customer_identity_confidence' => substr((string) jg_orders_pick($row, ['customer_identity_confidence'], $customer['identity_confidence'] ?? ''), 0, 40),
         'address' => (string) jg_orders_pick($row, ['address', 'customer_address', 'shipping_address'], $customer['address'] ?? ''),
         'phone' => substr((string) jg_orders_pick($row, ['phone', 'customer_phone', 'buyer_phone'], $customer['phone'] ?? ''), 0, 80),
         'source_event' => $sourceEvent,
@@ -1529,7 +1535,8 @@ function jg_orders_upsert_mirror_rows(PDO $pdo, array $rows, array $payload): ar
              product_name, marketplace_product_name, base_product_name, flavor_name,
              product_type, flavor, quantity, cogs_quantity, is_free_gift, revenue, order_net_revenue, gross_revenue,
              marketplace_fees, funds_released, funds_released_at, funds_released_amount,
-             funds_release_status, funds_release_source, cogs, gross_profit, username, address, phone,
+             funds_release_status, funds_release_source, cogs, gross_profit, username, customer_identity,
+             customer_identity_confidence, address, phone,
              source_event, source_updated_at, raw_json, mirrored_at, deleted_at)
          VALUES
             (:order_item_hash, :platform, :account_key, :order_id, :item_key, :sku, :status,
@@ -1537,7 +1544,8 @@ function jg_orders_upsert_mirror_rows(PDO $pdo, array $rows, array $payload): ar
              :product_name, :marketplace_product_name, :base_product_name, :flavor_name,
              :product_type, :flavor, :quantity, :cogs_quantity, :is_free_gift, :revenue, :order_net_revenue, :gross_revenue,
              :marketplace_fees, :funds_released, :funds_released_at, :funds_released_amount,
-             :funds_release_status, :funds_release_source, :cogs, :gross_profit, :username, :address, :phone,
+             :funds_release_status, :funds_release_source, :cogs, :gross_profit, :username, :customer_identity,
+             :customer_identity_confidence, :address, :phone,
              :source_event, :source_updated_at, :raw_json, :mirrored_at, :deleted_at)
          ON DUPLICATE KEY UPDATE
              platform = VALUES(platform),
@@ -1576,6 +1584,8 @@ function jg_orders_upsert_mirror_rows(PDO $pdo, array $rows, array $payload): ar
              cogs = VALUES(cogs),
              gross_profit = VALUES(gross_profit),
              username = VALUES(username),
+             customer_identity = VALUES(customer_identity),
+             customer_identity_confidence = VALUES(customer_identity_confidence),
              address = VALUES(address),
              phone = VALUES(phone),
              source_event = VALUES(source_event),

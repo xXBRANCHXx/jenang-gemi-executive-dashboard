@@ -23,8 +23,8 @@ expect(ordersPage.includes('data-customer-lifecycle') && ordersPage.includes('hr
 expect(ordersPage.includes('Customers grouped by their distinct order count'), 'The homepage lifecycle chart must state that its grain is customer orders.');
 expect(dashboardScript.includes('lifecycle_chart') && dashboardScript.includes('profiled_orders') && dashboardScript.includes('item rows are collapsed first'), 'The homepage chart must render the order-grain lifecycle payload and explain the denominator.');
 expect(ordersPage.includes('data-repeat-order-chart') && ordersPage.includes('Repeat customer order share'), 'The homepage must place a monthly repeat-customer order chart beside Customer Lifecycle.');
-expect(dashboardScript.includes('repeat_order_trend') && dashboardScript.includes('repeat_customer_orders') && dashboardScript.includes('identified orders this month are repeat'), 'The repeat-order chart must show monthly trend data and the current-month numerator and denominator.');
-expect(ordersPage.includes('same-month and prior history') && ordersPage.includes('identity data are excluded'), 'The repeat-order chart must explain its historical rule and identity-data denominator.');
+expect(dashboardScript.includes('repeat_order_trend') && dashboardScript.includes('repeat_customer_orders') && dashboardScript.includes('identified marketplace orders this month are repeat'), 'The repeat-order chart must show marketplace-only monthly trend data and the current-month numerator and denominator.');
+expect(ordersPage.includes('Shopee · TikTok · Tokopedia') && ordersPage.includes('Partner, website, WhatsApp, and walk-in orders are excluded') && ordersPage.includes('stable marketplace buyer identity'), 'The repeat-order chart must explain its marketplace allowlist, exclusions, and stable-identity denominator.');
 expect(!sidebarSource.includes("'key' => 'customers'"), 'Customer Profiles must not appear in the left sidebar.');
 
 console.log('customer profiles UI tests passed');

@@ -8,7 +8,9 @@ declare(strict_types=1);
  */
 function jg_customer_profiles_normalize_phone(mixed $value): string
 {
-    $digits = preg_replace('/\D+/', '', (string) $value) ?? '';
+    $raw = trim((string) $value);
+    if ($raw === '' || preg_match('/[\x{2022}\x{2026}*]/u', $raw)) return '';
+    $digits = preg_replace('/\D+/', '', $raw) ?? '';
     if (str_starts_with($digits, '00')) $digits = substr($digits, 2);
     if (str_starts_with($digits, '0')) $digits = '62' . substr($digits, 1);
     elseif (str_starts_with($digits, '8')) $digits = '62' . $digits;
@@ -30,6 +32,7 @@ function jg_customer_profiles_channel(mixed $value): string
     if (str_contains($channel, 'website') || str_contains($channel, 'web')) return 'website';
     if (str_contains($channel, 'shopee')) return 'shopee';
     if (str_contains($channel, 'tiktok')) return 'tiktok';
+    if (str_contains($channel, 'tokopedia') || str_contains($channel, 'toped')) return 'tokopedia';
     return $channel !== '' ? $channel : 'other';
 }
 
@@ -40,9 +43,76 @@ function jg_customer_profiles_channel_label(string $channel): string
         'whatsapp' => 'WhatsApp',
         'shopee' => 'Shopee',
         'tiktok' => 'TikTok',
+        'tokopedia' => 'Tokopedia',
         'website' => 'Website',
         default => ucwords(str_replace(['_', '-'], ' ', $channel)),
     };
+}
+
+function jg_customer_profiles_is_repeat_marketplace(string $channel): bool
+{
+    return in_array(jg_customer_profiles_channel($channel), ['shopee', 'tiktok', 'tokopedia'], true);
+}
+
+function jg_customer_profiles_stable_marketplace_identity(mixed $value): string
+{
+    $value = mb_strtolower(trim((string) $value));
+    if ($value === '' || mb_strlen($value) < 2 || preg_match('/[\x{2022}\x{2026}*]/u', $value)) return '';
+    return $value;
+}
+
+function jg_customer_profiles_nested_value(array $source, array $path): mixed
+{
+    $value = $source;
+    foreach ($path as $key) {
+        if (!is_array($value) || !array_key_exists($key, $value)) return null;
+        $value = $value[$key];
+    }
+    return $value;
+}
+
+function jg_customer_profiles_marketplace_identity_from_raw(mixed $rawJson): string
+{
+    $decoded = is_array($rawJson) ? $rawJson : json_decode((string) $rawJson, true);
+    if (!is_array($decoded)) return '';
+    foreach ([
+        ['customer_identity'],
+        ['customer', 'identity'],
+        ['raw', 'buyer_info', 'buyer_user_id'],
+        ['raw', 'buyer_info', 'buyer_id'],
+        ['raw', 'buyer_info', 'user_id'],
+        ['raw', 'buyer', 'id'],
+        ['raw', 'buyer', 'user_id'],
+        ['raw', 'customer', 'id'],
+        ['raw', 'buyer_user_id'],
+        ['raw', 'buyer_id'],
+        ['raw', 'customer_id'],
+        ['raw', 'buyer_info', 'buyer_username'],
+        ['raw', 'buyer_info', 'buyer_user_name'],
+        ['raw', 'buyer_username'],
+        ['raw', 'buyer_user_name'],
+    ] as $path) {
+        $identity = jg_customer_profiles_stable_marketplace_identity(jg_customer_profiles_nested_value($decoded, $path));
+        if ($identity !== '') return $identity;
+    }
+    return '';
+}
+
+/** @return array{key:string,confidence:string,phone:string} */
+function jg_customer_profiles_repeat_identity(array $order): array
+{
+    $channel = jg_customer_profiles_channel($order['channel'] ?? '');
+    if (!jg_customer_profiles_is_repeat_marketplace($channel)) {
+        return ['key' => '', 'confidence' => 'excluded_channel', 'phone' => ''];
+    }
+    $identity = jg_customer_profiles_stable_marketplace_identity($order['customer_identity'] ?? '');
+    if ($identity === '') $identity = jg_customer_profiles_marketplace_identity_from_raw($order['raw_json'] ?? '');
+    if ($identity !== '') {
+        return ['key' => 'marketplace:' . $channel . ':' . $identity, 'confidence' => 'marketplace_identity', 'phone' => ''];
+    }
+    $phone = jg_customer_profiles_normalize_phone($order['phone'] ?? '');
+    if ($phone !== '') return ['key' => 'phone:' . $phone, 'confidence' => 'phone', 'phone' => $phone];
+    return ['key' => '', 'confidence' => 'unidentified', 'phone' => ''];
 }
 
 /** @return array{key:string,confidence:string,phone:string} */
@@ -114,6 +184,8 @@ function jg_customer_profiles_collapse_orders(array $rows): array
                 'occurred_at' => (string) ($row['occurred_at'] ?? $row['order_create_time'] ?? $row['timestamp'] ?? ''),
                 'customer_name' => trim((string) ($row['customer_name'] ?? $row['username'] ?? '')),
                 'username' => trim((string) ($row['username'] ?? '')),
+                'customer_identity' => trim((string) ($row['customer_identity'] ?? '')),
+                'raw_json' => (string) ($row['raw_json'] ?? ''),
                 'phone' => trim((string) ($row['phone'] ?? $row['customer_phone'] ?? '')),
                 'address' => trim((string) ($row['address'] ?? $row['shipping_address'] ?? '')),
                 'revenue' => 0.0,
@@ -124,7 +196,7 @@ function jg_customer_profiles_collapse_orders(array $rows): array
         $orders[$key]['revenue'] += max(0, (float) ($row['revenue'] ?? $row['net_revenue'] ?? 0));
         $quantity = max(0, (int) ($row['quantity'] ?? $row['items'] ?? 0));
         $orders[$key]['items'] += $quantity;
-        foreach (['customer_name', 'username', 'phone', 'address'] as $field) {
+        foreach (['customer_name', 'username', 'customer_identity', 'raw_json', 'phone', 'address'] as $field) {
             $candidate = trim((string) ($row[$field] ?? ($field === 'address' ? ($row['shipping_address'] ?? '') : '')));
             if ($orders[$key][$field] === '' && $candidate !== '') $orders[$key][$field] = $candidate;
         }
@@ -146,7 +218,7 @@ function jg_customer_profiles_repeat_order_trend(array $orders, string $timezone
     $attributedOrders = [];
     foreach ($orders as $index => $order) {
         if (!is_array($order)) continue;
-        $identity = jg_customer_profiles_identity($order);
+        $identity = jg_customer_profiles_repeat_identity($order);
         $occurredAt = jg_customer_profiles_date($order['occurred_at'] ?? '');
         if ($identity['key'] === '' || !$occurredAt) continue;
         $attributedOrders[] = [
@@ -348,8 +420,9 @@ function jg_customer_profiles_build(array $sourceRows, ?DateTimeImmutable $now =
         'profiles' => $profiles,
         'definitions' => [
             'repeat_customer' => 'A profiled customer with at least 2 recorded orders in the selected history.',
-            'repeat_order' => 'A customer\'s second or later identified order. The earlier order may be in the same month or any previous month.',
-            'repeat_order_share' => 'Repeat customer orders divided by all identified customer orders in that calendar month.',
+            'repeat_order' => 'A Shopee, TikTok, or Tokopedia customer\'s second or later identified marketplace order. The earlier order may be in the same month or any previous month.',
+            'repeat_order_share' => 'Repeat Shopee, TikTok, and Tokopedia orders divided by all identified orders from those marketplaces in that calendar month.',
+            'repeat_order_identity' => 'Stable marketplace buyer ID or buyer username; an unmasked phone is used only when the marketplace provides neither. Recipient names and masked contact data never link orders.',
             'identity' => 'Phone number links customers across channels; without a phone, name/username only links within one channel.',
             'order_grain' => 'Distinct orders per customer. Order-item rows are collapsed by channel, account, and order ID before lifecycle assignment.',
             'segments' => array_map(static fn (array $definition): string => $definition['order_band'], $segmentDefinitions),
@@ -367,7 +440,8 @@ function jg_customer_profiles_source_rows(PDO $pdo): array
 
     $marketplace = $pdo->query(
         'SELECT platform AS channel, account_key AS account, order_id, order_create_time AS occurred_at,
-                username AS customer_name, username, phone, address, revenue, quantity, product_name, status
+                username AS customer_name, username, customer_identity, customer_identity_confidence,
+                phone, address, revenue, quantity, product_name, status, raw_json
          FROM dashboard_order_mirror
          WHERE deleted_at IS NULL AND order_create_time IS NOT NULL
            AND UPPER(status) NOT LIKE "%CANCEL%" AND UPPER(status) NOT LIKE "%REFUND%"

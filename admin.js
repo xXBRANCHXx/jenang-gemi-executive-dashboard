@@ -6994,7 +6994,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tooltipTitle: `${repeatOrderMonthLabel(month, true)} repeat customer orders`,
         tooltipLinesHtml: orders > 0
           ? `<div class="admin-chart-tooltip-row is-primary"><span>Repeat share</span><strong>${escapeHtml(formatFullMetricValue('repeat_order_share', item?.repeat_order_share || 0, REPEAT_ORDER_METRIC_UNITS))}</strong></div><div class="admin-chart-tooltip-row"><span>Repeat orders</span><strong>${escapeHtml(formatRegionalNumber(repeatOrders))} of ${escapeHtml(formatRegionalNumber(orders))}</strong></div>`
-          : '<div class="admin-chart-tooltip-row"><span>No identified orders</span></div>'
+          : '<div class="admin-chart-tooltip-row"><span>No identified marketplace orders</span></div>'
       });
       if (month === currentMonth) break;
     }
@@ -7025,13 +7025,13 @@ document.addEventListener('DOMContentLoaded', () => {
         overviewRefs.repeatOrderDelta.classList.add(direction);
         overviewRefs.repeatOrderDelta.textContent = `${arrow} ${Math.abs(delta).toLocaleString('id-ID', { maximumFractionDigits: 1 })} pts vs ${repeatOrderMonthLabel(previousMonth)}`;
       } else {
-        overviewRefs.repeatOrderDelta.textContent = hasCurrent ? `No ${repeatOrderMonthLabel(previousMonth)} comparison` : `${repeatOrderMonthLabel(currentMonth, true)} has no identified orders`;
+        overviewRefs.repeatOrderDelta.textContent = hasCurrent ? `No ${repeatOrderMonthLabel(previousMonth)} comparison` : `${repeatOrderMonthLabel(currentMonth, true)} has no identified marketplace orders`;
       }
     }
     if (overviewRefs.repeatOrderStatus) {
       overviewRefs.repeatOrderStatus.textContent = hasCurrent
-        ? `${formatRegionalNumber(current.repeat_customer_orders)} of ${formatRegionalNumber(current.orders)} identified orders this month are repeat · MTD`
-        : 'Percentage uses identified customer orders; unattributed orders are excluded';
+        ? `${formatRegionalNumber(current.repeat_customer_orders)} of ${formatRegionalNumber(current.orders)} identified marketplace orders this month are repeat · MTD`
+        : 'Percentage uses identified Shopee, TikTok, and Tokopedia orders; other channels and unattributed orders are excluded';
     }
 
     if (!rows.length) {

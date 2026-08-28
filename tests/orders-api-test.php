@@ -254,6 +254,8 @@ $webhookRows = jg_orders_webhook_rows([
         'funds_release_source' => 'finance_statement.status=SETTLED',
         'customer' => [
             'name' => 'Buyer One',
+            'identity' => 'BUYER-123',
+            'identity_confidence' => 'buyer_id',
             'phone' => '+620000',
         ],
         'items' => [[
@@ -273,6 +275,8 @@ expect_same(1200.0, $webhookRows[0]['order_net_revenue'], 'Webhook rows must pre
 expect_same(1, $webhookRows[0]['funds_released'], 'Webhook rows must preserve released wallet flags.');
 expect_same(1200.0, $webhookRows[0]['funds_released_amount'], 'Webhook rows must preserve released wallet amounts.');
 expect_same('Buyer One', $webhookRows[0]['username'], 'Webhook rows must map customer names.');
+expect_same('BUYER-123', $webhookRows[0]['customer_identity'], 'Webhook rows must persist stable marketplace buyer identities.');
+expect_same('buyer_id', $webhookRows[0]['customer_identity_confidence'], 'Webhook rows must persist marketplace identity confidence.');
 
 $freeGiftRows = jg_orders_webhook_rows([
     'event' => 'marketplace_orders_upserted',

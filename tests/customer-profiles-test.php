@@ -12,7 +12,9 @@ function customer_profile_expect(mixed $expected, mixed $actual, string $message
 }
 
 customer_profile_expect('6281234567890', jg_customer_profiles_normalize_phone('0812-3456-7890'), 'Indonesian local phones must normalize to country-code form.');
+customer_profile_expect('', jg_customer_profiles_normalize_phone('0812****7890'), 'Masked phone numbers must never become customer identities.');
 customer_profile_expect('walk_in', jg_customer_profiles_channel('walk-in'), 'Walk-in variants must share one channel key.');
+customer_profile_expect('tokopedia', jg_customer_profiles_channel('toped'), 'Toped aliases must normalize to Tokopedia.');
 customer_profile_expect('', jg_customer_profiles_identity(['channel' => 'walk_in', 'customer_name' => 'Walk-in customer'])['key'], 'Generic counter labels must not collapse unrelated customers.');
 
 $collapsedOrderRows = jg_customer_profiles_collapse_orders([
@@ -51,13 +53,27 @@ customer_profile_expect(2, $lifecycleByKey['returning']['customers'] ?? 0, 'Retu
 customer_profile_expect(4, $lifecycleByKey['returning']['orders'] ?? 0, 'Lifecycle chart order totals must sum distinct orders belonging to customers in that stage.');
 customer_profile_expect('Distinct orders per customer. Order-item rows are collapsed by channel, account, and order ID before lifecycle assignment.', $payload['definitions']['order_grain'] ?? '', 'The API must state its order-grain contract explicitly.');
 
-$repeatTrendByMonth = array_column($payload['repeat_order_trend'] ?? [], null, 'month');
+$repeatTrendRows = jg_customer_profiles_collapse_orders([
+    ['channel' => 'shopee', 'account' => 'jg-shopee', 'order_id' => 'S-10', 'occurred_at' => '2026-01-02 08:00:00', 'customer_identity' => 'BUYER-10', 'revenue' => 30000],
+    ['channel' => 'shopee', 'account' => 'jg-shopee', 'order_id' => 'S-11', 'occurred_at' => '2026-03-03 08:00:00', 'customer_identity' => 'BUYER-10', 'revenue' => 40000],
+    ['channel' => 'toped', 'account' => 'jg-toped', 'order_id' => 'TOP-1', 'occurred_at' => '2026-07-01 08:00:00', 'customer_identity' => 'TOP-BUYER', 'revenue' => 25000],
+    ['channel' => 'tokopedia', 'account' => 'jg-toped', 'order_id' => 'TOP-2', 'occurred_at' => '2026-07-20 08:00:00', 'customer_identity' => 'TOP-BUYER', 'revenue' => 25000],
+    ['channel' => 'partner', 'account' => 'partner-1', 'order_id' => 'P-1', 'occurred_at' => '2026-07-02 08:00:00', 'customer_identity' => 'PARTNER-1', 'revenue' => 200000],
+    ['channel' => 'partner', 'account' => 'partner-1', 'order_id' => 'P-2', 'occurred_at' => '2026-07-22 08:00:00', 'customer_identity' => 'PARTNER-1', 'revenue' => 200000],
+    ['channel' => 'whatsapp', 'account' => 'whatsapp', 'order_id' => 'W-10', 'occurred_at' => '2026-07-23 08:00:00', 'customer_identity' => 'DIRECT-1', 'revenue' => 50000],
+    ['channel' => 'shopee', 'account' => 'jg-shopee', 'order_id' => 'S-MASKED', 'occurred_at' => '2026-07-24 08:00:00', 'customer_identity' => 'a***i', 'phone' => '0812****7890', 'revenue' => 15000],
+    ['channel' => 'tiktok', 'account' => 'jg-tiktok', 'order_id' => 'T-RAW-1', 'occurred_at' => '2026-08-01 08:00:00', 'raw_json' => json_encode(['raw' => ['buyer_info' => ['buyer_user_id' => 'TIKTOK-22']]]), 'revenue' => 35000],
+    ['channel' => 'tiktok', 'account' => 'jg-tiktok', 'order_id' => 'T-RAW-2', 'occurred_at' => '2026-08-05 08:00:00', 'raw_json' => json_encode(['raw' => ['buyer_info' => ['buyer_user_id' => 'TIKTOK-22']]]), 'revenue' => 45000],
+]);
+$repeatTrendByMonth = array_column(jg_customer_profiles_repeat_order_trend($repeatTrendRows), null, 'month');
 customer_profile_expect(1, $repeatTrendByMonth['2026-01']['orders'] ?? 0, 'Multiple item rows from the first order must remain one monthly customer order.');
 customer_profile_expect(0, $repeatTrendByMonth['2026-01']['repeat_customer_orders'] ?? -1, 'A customer\'s first-ever order must not count as repeat.');
 customer_profile_expect(1, $repeatTrendByMonth['2026-03']['repeat_customer_orders'] ?? 0, 'An order following one from a previous month must count as repeat.');
-customer_profile_expect(3, $repeatTrendByMonth['2026-07']['orders'] ?? 0, 'Monthly repeat share must use identified distinct orders as its denominator.');
+customer_profile_expect(2, $repeatTrendByMonth['2026-07']['orders'] ?? 0, 'Only identified Shopee, TikTok, and Tokopedia orders may enter the denominator.');
 customer_profile_expect(1, $repeatTrendByMonth['2026-07']['repeat_customer_orders'] ?? 0, 'A second order later in the same month must count as repeat.');
-customer_profile_expect(33.3, $repeatTrendByMonth['2026-07']['repeat_order_share'] ?? 0, 'Monthly repeat-order percentage must be repeat orders divided by identified customer orders.');
-customer_profile_expect('A customer\'s second or later identified order. The earlier order may be in the same month or any previous month.', $payload['definitions']['repeat_order'] ?? '', 'The repeat-order contract must explicitly include same-month and prior-month history.');
+customer_profile_expect(50.0, $repeatTrendByMonth['2026-07']['repeat_order_share'] ?? 0, 'Monthly repeat-order percentage must be repeat orders divided by identified marketplace orders.');
+customer_profile_expect(2, $repeatTrendByMonth['2026-08']['orders'] ?? 0, 'Historical mirror rows must recover stable buyer IDs from their raw marketplace payload.');
+customer_profile_expect(1, $repeatTrendByMonth['2026-08']['repeat_customer_orders'] ?? 0, 'Recovered historical buyer IDs must identify genuine repeat orders.');
+customer_profile_expect('A Shopee, TikTok, or Tokopedia customer\'s second or later identified marketplace order. The earlier order may be in the same month or any previous month.', $payload['definitions']['repeat_order'] ?? '', 'The repeat-order contract must explicitly restrict sources and include same-month history.');
 
 echo "customer profiles tests passed\n";

@@ -339,9 +339,9 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                             <div>
                                 <div class="admin-chart-title-row">
                                     <h3>Repeat customer order share</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About repeat customer order share" data-chart-info="Shows the percentage of identified customer orders in each month that came after that customer's first recorded order. An earlier order can be from the same month or any previous month. Orders without enough customer identity data are excluded."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About repeat customer order share" data-chart-info="Shows the percentage of identified Shopee, TikTok, and Tokopedia orders in each month that came after that customer's first recorded marketplace order. Partner, website, WhatsApp, and walk-in orders are excluded. An earlier order can be from the same month or any previous month. Orders without a stable marketplace buyer identity are excluded."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
-                                <span class="admin-panel-meta">Monthly repeat orders · same-month and prior history</span>
+                                <span class="admin-panel-meta">Shopee · TikTok · Tokopedia · same-month and prior history</span>
                             </div>
                             <div class="admin-repeat-orders-summary">
                                 <strong data-repeat-order-current>—</strong>
