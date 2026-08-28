@@ -31,19 +31,17 @@ inventory_recap_expect('adaptive_trigger', $options['forecast_model'], 'The quan
 inventory_recap_expect(15, $options['slow_mover_trigger_threshold'], 'Slow-moving triggers must be identified below fifteen units.');
 inventory_recap_expect(5, $options['slow_mover_trigger_boost'], 'Slow-moving triggers must receive five additional units.');
 
-inventory_recap_expect(15, jg_inventory_recap_slow_mover_trigger(10, $options)['automatic_trigger'], 'The ten-unit production trigger must increase to fifteen.');
-inventory_recap_expect([
-    'automatic_trigger' => 19,
-    'slow_mover_boost_applied' => true,
-    'slow_mover_boost_units' => 5,
-    'slow_mover_trigger_threshold' => 15,
-], jg_inventory_recap_slow_mover_trigger(14, $options), 'A trigger below fifteen must receive the five-unit slow-mover safety.');
-inventory_recap_expect([
-    'automatic_trigger' => 15,
-    'slow_mover_boost_applied' => false,
-    'slow_mover_boost_units' => 0,
-    'slow_mover_trigger_threshold' => 15,
-], jg_inventory_recap_slow_mover_trigger(15, $options), 'A trigger of exactly fifteen must remain unchanged.');
+$productionAdditions = jg_inventory_recap_trigger_additions(10, [
+    'order_quantities' => [1, 1, 1, 1, 1, 1, 1, 1, 2, 2],
+    'cogs' => 16500,
+    'reference_cogs' => 7500,
+    'purchase_moq' => 99,
+], $options);
+inventory_recap_expect(2, $productionAdditions['large_order_addition'], 'A two-unit high order must add two units.');
+inventory_recap_expect(5, $productionAdditions['slow_mover_boost_units'], 'A ten-unit time trigger must add five slow-mover units.');
+inventory_recap_expect(6, $productionAdditions['price_addition'], 'The production price signal must add six units.');
+inventory_recap_expect(23, $productionAdditions['automatic_trigger'], 'The trigger must add 10 time + 2 high order + 5 slow mover + 6 price.');
+inventory_recap_expect(6, $productionAdditions['bare_minimum_trigger'], 'MOQ must not affect any trigger signal.');
 
 inventory_recap_expect(22, jg_inventory_recap_round_to_moq(19, 11), 'A need of 19 with MOQ 11 must round to 22.');
 inventory_recap_expect(9, jg_inventory_recap_round_to_moq(1, 9), 'Any positive need must reach one complete MOQ.');
@@ -51,6 +49,21 @@ inventory_recap_expect(0, jg_inventory_recap_round_to_moq(0, 11), 'Zero need mus
 
 $flatHistory = [];
 $start = new DateTimeImmutable('2026-05-02');
+$productionHistory = [];
+for ($day = 0; $day < 90; $day++) {
+    $productionHistory[$start->modify("+{$day} days")->format('Y-m-d')] = $day < 24 ? 2 : 1;
+}
+$productionModel = jg_inventory_recap_trigger_model($productionHistory, $options, [
+    'stocked_age_days' => 180,
+    'order_quantities' => [1, 1, 1, 1, 1, 1, 1, 1, 2, 2],
+    'cogs' => 16500,
+    'reference_cogs' => 7500,
+    'purchase_moq' => 99,
+]);
+inventory_recap_expect(114.0, $productionModel['total_90_day_demand'], 'The production regression must retain 114 units of demand.');
+inventory_recap_expect(10, $productionModel['demand_trigger'], 'The time model must produce the expected ten-unit trigger.');
+inventory_recap_expect(23, $productionModel['automatic_trigger'], 'The production regression must total 10 + 2 + 5 + 6 = 23 without MOQ.');
+
 for ($day = 0; $day < 90; $day++) {
     $flatHistory[$start->modify("+{$day} days")->format('Y-m-d')] = 1;
 }
@@ -60,10 +73,10 @@ inventory_recap_expect(30.0, $flatModel['average_30_day_demand'], 'The 90-day to
 inventory_recap_expect(array_fill(0, 9, 10.0), $flatModel['ten_day_buckets'], 'Flat sales must produce nine equal blocks.');
 inventory_recap_expect(30.0, $flatModel['adjusted_30_day_demand'], 'The decision basis must remain the flat monthly average without a buffer.');
 inventory_recap_expect(0.0, $flatModel['applied_buffer'], 'No fluctuation or large-order buffer may be applied.');
-inventory_recap_expect(13, $flatModel['automatic_trigger'], 'A calculated eight-unit trigger must receive the five-unit slow-mover safety.');
+inventory_recap_expect(19, $flatModel['automatic_trigger'], 'A calculated eight-unit trigger must add five slow-mover and six price units.');
 inventory_recap_expect(23, $flatModel['purchase_target_qty'], 'A triggered order must use the remaining 75% of monthly demand.');
-inventory_recap_expect(8, $flatModel['demand_trigger'], 'Mature demand must still establish the normal trigger before the safety-floor check.');
-inventory_recap_expect(false, $flatModel['minimum_floor_applied'], 'The floor must not replace a mature demand trigger of five or more.');
+inventory_recap_expect(8, $flatModel['demand_trigger'], 'Mature demand must establish the time-based trigger before additive allowances.');
+inventory_recap_expect(false, $flatModel['minimum_floor_applied'], 'The additive model must not replace demand with a competing floor.');
 inventory_recap_expect(true, $flatModel['slow_mover_boost_applied'], 'The slow-mover safety must apply below fifteen units.');
 
 // Production snapshot, 2026-08-19: Fiber Syrup Lemonade Pomegranate 250ml
@@ -84,8 +97,9 @@ inventory_recap_expect(18.0, $fiberModel['total_90_day_demand'], 'The real Fiber
 inventory_recap_expect(2, $fiberModel['demand_trigger'], 'Fiber demand alone would still produce the old two-unit trigger.');
 inventory_recap_expect(1.0, $fiberModel['large_order_p90'], 'Fiber customer orders are normally one unit, distinct from two units sold on one day.');
 inventory_recap_expect(6, $fiberModel['cost_floor_units'], 'Fiber inventory cost must hold the cost-aware floor to six units.');
-inventory_recap_expect(7, $fiberModel['bare_minimum_trigger'], 'Fiber MOQ must raise its product-specific bare minimum to seven.');
-inventory_recap_expect(12, $fiberModel['automatic_trigger'], 'Fiber must add five units to its seven-unit product-specific trigger.');
+inventory_recap_expect(6, $fiberModel['bare_minimum_trigger'], 'Fiber MOQ must not affect its trigger signals.');
+inventory_recap_expect(1, $fiberModel['large_order_addition'], 'Fiber must add its one-unit high-order allowance.');
+inventory_recap_expect(14, $fiberModel['automatic_trigger'], 'Fiber must add 2 demand + 1 high order + 5 slow mover + 6 price.');
 $noDemandEstablished = jg_inventory_recap_trigger_model([], $options, [
     'stocked_age_days' => 180,
     'cogs' => 21106,
@@ -93,7 +107,7 @@ $noDemandEstablished = jg_inventory_recap_trigger_model([], $options, [
     'purchase_moq' => 7,
 ]);
 inventory_recap_expect(false, $noDemandEstablished['has_demand'], 'No sales must remain visible as no demand history.');
-inventory_recap_expect(12, $noDemandEstablished['automatic_trigger'], 'A previously stocked product with no recent sales must add five units to its product-specific floor.');
+inventory_recap_expect(11, $noDemandEstablished['automatic_trigger'], 'A previously stocked product with no recent sales must retain slow-mover and price allowances.');
 $fiveTriggerHistory = [];
 for ($day = 0; $day < 60; $day++) $fiveTriggerHistory[$start->modify("+{$day} days")->format('Y-m-d')] = 1;
 $fiveTriggerModel = jg_inventory_recap_trigger_model($fiveTriggerHistory, $options, [
@@ -103,7 +117,7 @@ $fiveTriggerModel = jg_inventory_recap_trigger_model($fiveTriggerHistory, $optio
     'purchase_moq' => 9,
 ]);
 inventory_recap_expect(5, $fiveTriggerModel['demand_trigger'], 'The threshold fixture must produce a five-unit demand trigger.');
-inventory_recap_expect(10, $fiveTriggerModel['automatic_trigger'], 'A demand trigger of exactly five must retain its demand basis and receive the slow-mover safety.');
+inventory_recap_expect(16, $fiveTriggerModel['automatic_trigger'], 'A five-unit demand trigger must add five slow-mover and six price units without MOQ.');
 
 $plain60Initial = jg_inventory_recap_initial_purchase_model(361 / 90, 16, $options);
 inventory_recap_expect(14, $plain60Initial['coverage_days'], 'A never-stocked product must open with two weeks of coverage.');
@@ -129,7 +143,7 @@ $risingModel = jg_inventory_recap_trigger_model($risingHistory, $options);
 inventory_recap_expect(10.0, $risingModel['average_10_day_change'], 'The average ten-day increase must be retained.');
 inventory_recap_expect(80.0, $risingModel['overall_90_day_change'], 'The first-to-last block increase must be retained.');
 inventory_recap_expect(30.0, $risingModel['trend_adjustment'], 'Ten-day and overall movement must normalize to one 30-day trend adjustment.');
-inventory_recap_expect(38, $risingModel['automatic_trigger'], 'Trend must not change the trigger based on the flat monthly average.');
+inventory_recap_expect(44, $risingModel['automatic_trigger'], 'Trend must not change the demand basis, while the six-unit price allowance remains additive.');
 inventory_recap_expect(113, $risingModel['purchase_target_qty'], 'Trend must not change the remaining 75% purchase quantity.');
 
 $normalizedCommitments = jg_inventory_recap_normalize_store_ops_commitments([
@@ -268,7 +282,7 @@ foreach ($payload['items'] as $item) {
 }
 $flat = $bySku['SKU-FLAT'] ?? [];
 $manual = $bySku['SKU-MANUAL'] ?? [];
-inventory_recap_expect(13, $flat['automatic_trigger'] ?? 0, 'The payload must expose the slow-mover-adjusted automatic trigger.');
+inventory_recap_expect(20, $flat['automatic_trigger'] ?? 0, 'The payload must expose 8 demand + 1 high order + 5 slow mover + 6 price.');
 inventory_recap_expect(4000, $flat['current_stock_value'] ?? 0, 'Each item must expose its on-hand value at COGS.');
 inventory_recap_expect(4.0, $flat['committed_qty'] ?? -1, 'The product must expose its Store Ops committed quantity.');
 inventory_recap_expect([
@@ -277,14 +291,14 @@ inventory_recap_expect([
 ], $flat['committed_orders'] ?? [], 'The product must expose the Store Ops order IDs and quantities reducing projected stock.');
 inventory_recap_expect(0.0, $flat['predicted_stock'] ?? -1, 'Predicted stock must subtract all listed Store Ops commitments.');
 inventory_recap_expect('urgent', $flat['risk'] ?? '', 'A predicted stockout without PO coverage must become urgent.');
-inventory_recap_expect(13, $flat['trigger_shortfall_qty'] ?? 0, 'The trigger shortfall must use the adjusted trigger and predicted stock.');
-inventory_recap_expect(-13, $flat['trigger_gap'] ?? 0, 'The trigger gap must compare the adjusted trigger with predicted stock rather than stock now.');
-inventory_recap_expect(13, $flat['predicted_trigger_shortfall_qty'] ?? 0, 'The payload must expose the adjusted predicted-stock trigger shortfall explicitly.');
+inventory_recap_expect(20, $flat['trigger_shortfall_qty'] ?? 0, 'The trigger shortfall must use the additive trigger and predicted stock.');
+inventory_recap_expect(-20, $flat['trigger_gap'] ?? 0, 'The trigger gap must compare the additive trigger with predicted stock rather than stock now.');
+inventory_recap_expect(20, $flat['predicted_trigger_shortfall_qty'] ?? 0, 'The payload must expose the additive predicted-stock trigger shortfall explicitly.');
 inventory_recap_expect(15.0, $flat['purchase_days'] ?? 0, 'The global order-days setting must be exposed on every product.');
 inventory_recap_expect(15.0, $manual['purchase_days'] ?? 0, 'Every product must use the same global order-days setting.');
-inventory_recap_expect(15, $flat['raw_purchase_qty'] ?? 0, 'The raw purchase must use the shared order days.');
+inventory_recap_expect(20, $flat['raw_purchase_qty'] ?? 0, 'The raw purchase must cover the larger additive trigger shortfall.');
 inventory_recap_expect(22, $flat['recommended_order_qty'] ?? 0, 'The customized order must round up to MOQ 11.');
-inventory_recap_expect(7, $flat['moq_rounding_qty'] ?? 0, 'The MOQ uplift must remain auditable.');
+inventory_recap_expect(2, $flat['moq_rounding_qty'] ?? 0, 'The MOQ uplift must remain auditable without affecting the trigger.');
 
 inventory_recap_expect('manual', $manual['trigger_mode'] ?? '', 'Manual mode must override the automatic model.');
 inventory_recap_expect(22, $manual['trigger_qty'] ?? 0, 'The stored manual trigger must become effective.');

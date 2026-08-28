@@ -5015,7 +5015,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	  const homeClientCacheKey = () => dashboardClientCacheKey('home', [state.home.timeframe, state.timezone, activeLocalDate]);
 	  const websiteClientCacheKey = () => dashboardClientCacheKey('website', [state.website.site || 'select', state.website.timeframe, state.timezone, activeLocalDate]);
 	  const walletClientCacheKey = () => dashboardClientCacheKey('wallet', [activeLocalDate]);
-	  const inventoryRecapClientCacheKey = () => dashboardClientCacheKey('inventory-recap', ['trigger-v4', activeLocalDate]);
+	  const inventoryRecapClientCacheKey = () => dashboardClientCacheKey('inventory-recap', ['trigger-v5', activeLocalDate]);
 	  const dailyClientCacheKey = () => dashboardClientCacheKey('daily', [state.daily.month, state.timezone]);
 	  const ordersClientCacheKey = () => dashboardClientCacheKey('orders', [`v${ORDER_CLIENT_CACHE_VERSION}`, state.overview.year, activeLocalDate]);
 	  const settingsClientCacheKey = () => dashboardClientCacheKey('settings', [activeLocalDate]);
@@ -8968,12 +8968,12 @@ document.addEventListener('DOMContentLoaded', () => {
 	      <details class="admin-inventory-trigger-why">
 	        <summary>See why</summary>
 	        <div>
-	          <span><b>${formatRegionalInteger(item.demand_trigger || 0)}</b> demand trigger from ${formatRegionalInteger(item.history_days || 90)} days</span>
-	          <span><b>${formatRegionalNumber(item.large_order_p90 || 0, { maximumFractionDigits: 1 })}</b> units in a high-quantity customer order</span>
-	          <span><b>${formatRegionalInteger(item.cost_floor_units || 0)}</b> cost-aware floor</span>
-	          <span><b>${formatRegionalInteger(item.purchase_moq || 1)}</b> supplier MOQ</span>
-	          <span><b>${formatRegionalInteger(item.bare_minimum_trigger || 0)}</b> bare minimum${item.minimum_floor_applied ? ' applied' : ' checked but not needed'}</span>
-	          ${item.slow_mover_boost_applied ? `<span><b>+${formatRegionalInteger(item.slow_mover_boost_units || 5)}</b> slow-mover safety below ${formatRegionalInteger(item.slow_mover_trigger_threshold || 15)}</span>` : ''}
+	          <span><b>${formatRegionalInteger(item.demand_trigger || 0)}</b> time-based demand trigger from ${formatRegionalInteger(item.history_days || 90)} days</span>
+	          <span><b>+${formatRegionalInteger(item.large_order_addition || 0)}</b> high-quantity order allowance</span>
+	          <span><b>+${formatRegionalInteger(item.slow_mover_boost_units || 0)}</b> slow-mover allowance${item.slow_mover_boost_applied ? ` below ${formatRegionalInteger(item.slow_mover_trigger_threshold || 15)}` : ''}</span>
+	          <span><b>+${formatRegionalInteger(item.price_addition || 0)}</b> price allowance</span>
+	          <span><b>= ${formatRegionalInteger(item.automatic_trigger || 0)}</b> automatic trigger</span>
+	          <span>MOQ is not included in the trigger; it only rounds a purchase quantity.</span>
 	        </div>
 	      </details>`;
 	  };
@@ -9456,7 +9456,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    return [
 	      overflowMode ? 'JENANG GEMI - OVERFLOW STOCK PURCHASE' : 'JENANG GEMI - RECOMMENDED STOCK PURCHASE',
 	      overflowMode ? `Created: ${date}` : `Demand through: ${date}`,
-	      overflowMode ? 'Purchase rule: exact production overflow quantities; MOQ rounding is not applied' : 'Trigger model: weekly learning up to 90 days, with a cost, order-quantity, and MOQ floor plus 5 units when the calculated trigger is below 15',
+	      overflowMode ? 'Purchase rule: exact production overflow quantities; MOQ rounding is not applied' : 'Trigger model: time-based demand + high-order allowance + slow-mover allowance + price allowance; MOQ does not affect the trigger',
 	      overflowMode ? '' : 'Purchase rule: one shared order-days setting for every product, then round up to MOQ',
 	      '',
 	      ...lines,

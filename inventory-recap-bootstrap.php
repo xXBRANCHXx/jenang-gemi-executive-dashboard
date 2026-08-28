@@ -206,25 +206,33 @@ function jg_inventory_recap_bare_minimum(array $context, array $options): array
     }
     $largeOrderP90 = jg_inventory_recap_percentile((array) ($context['order_quantities'] ?? []), 0.9);
     $bulkFloor = max($minimumUnits, (int) ceil($largeOrderP90 * 2));
-    $purchaseMoq = max(1, (int) ($context['purchase_moq'] ?? 1));
     return [
-        'bare_minimum_trigger' => max($minimumUnits, $costFloor, $bulkFloor, $purchaseMoq),
+        'bare_minimum_trigger' => max($minimumUnits, $costFloor, $bulkFloor),
         'cost_floor_units' => $costFloor,
         'bulk_floor_units' => $bulkFloor,
         'large_order_p90' => round($largeOrderP90, 2),
     ];
 }
 
-function jg_inventory_recap_slow_mover_trigger(int $trigger, array $options): array
+function jg_inventory_recap_trigger_additions(int $demandTrigger, array $context, array $options): array
 {
+    $minimum = jg_inventory_recap_bare_minimum($context, $options);
     $threshold = max(1, (int) ($options['slow_mover_trigger_threshold'] ?? 15));
     $boost = max(0, (int) ($options['slow_mover_trigger_boost'] ?? 5));
-    $applied = $trigger < $threshold && $boost > 0;
+    $slowMoverApplied = $demandTrigger < $threshold && $boost > 0;
+    $slowMoverAddition = $slowMoverApplied ? $boost : 0;
+    $largeOrderAddition = max(0, (int) ceil((float) $minimum['large_order_p90']));
+    $priceAddition = max(0, (int) $minimum['cost_floor_units']);
+    $additionTotal = $largeOrderAddition + $slowMoverAddition + $priceAddition;
     return [
-        'automatic_trigger' => $applied ? $trigger + $boost : $trigger,
-        'slow_mover_boost_applied' => $applied,
-        'slow_mover_boost_units' => $applied ? $boost : 0,
+        ...$minimum,
+        'large_order_addition' => $largeOrderAddition,
+        'price_addition' => $priceAddition,
+        'slow_mover_boost_applied' => $slowMoverApplied,
+        'slow_mover_boost_units' => $slowMoverAddition,
         'slow_mover_trigger_threshold' => $threshold,
+        'trigger_addition_total' => $additionTotal,
+        'automatic_trigger' => max(0, $demandTrigger) + $additionTotal,
     ];
 }
 
@@ -251,10 +259,13 @@ function jg_inventory_recap_empty_trigger_model(array $options): array
         'cost_floor_units' => 0,
         'bulk_floor_units' => 0,
         'large_order_p90' => 0.0,
+        'large_order_addition' => 0,
+        'price_addition' => 0,
         'minimum_floor_applied' => false,
         'slow_mover_boost_applied' => false,
         'slow_mover_boost_units' => 0,
         'slow_mover_trigger_threshold' => max(1, (int) ($options['slow_mover_trigger_threshold'] ?? 15)),
+        'trigger_addition_total' => 0,
         'history_days' => 90,
         'history_weeks' => 13,
         'history_start_date' => (string) ($options['start_date'] ?? ''),
@@ -266,9 +277,9 @@ function jg_inventory_recap_empty_trigger_model(array $options): array
 
 /**
  * Builds a weekly learning window for young products and a 90-day window for
- * mature products. A low demand trigger is replaced by a product-specific
- * floor derived from inventory cost, customer-order quantities, and MOQ,
- * then triggers below 15 receive a five-unit slow-mover safety increase.
+ * mature products. The automatic trigger adds the high-order, slow-mover,
+ * and price allowances to the time-based demand trigger. MOQ is deliberately
+ * excluded here and is only used later to round purchase quantities.
  */
 function jg_inventory_recap_trigger_model(array $dailyHistory, array $options, array $context = []): array
 {
@@ -302,13 +313,10 @@ function jg_inventory_recap_trigger_model(array $dailyHistory, array $options, a
 
     $total = array_sum($dailyQuantities);
     if ($total <= 0) {
-        $minimum = jg_inventory_recap_bare_minimum($context, $options);
-        $slowMoverTrigger = jg_inventory_recap_slow_mover_trigger((int) $minimum['bare_minimum_trigger'], $options);
+        $triggerAdditions = jg_inventory_recap_trigger_additions(0, $context, $options);
         return [
             ...jg_inventory_recap_empty_trigger_model($options),
-            ...$minimum,
-            ...$slowMoverTrigger,
-            'minimum_floor_applied' => true,
+            ...$triggerAdditions,
             'history_days' => $historyDays,
             'history_weeks' => $historyDays === 90 ? 13 : intdiv($historyDays, 7),
             'history_start_date' => $start->format('Y-m-d'),
@@ -339,11 +347,7 @@ function jg_inventory_recap_trigger_model(array $dailyHistory, array $options, a
     $purchaseFraction = max(1 / 30, min(3.0, (float) ($options['purchase_fraction'] ?? 0.75)));
 
     $demandTrigger = (int) ceil($adjusted30 * $reorderFraction);
-    $minimumThreshold = max(1, (int) ($options['minimum_trigger_threshold'] ?? 5));
-    $minimum = jg_inventory_recap_bare_minimum($context, $options);
-    $bareMinimum = (int) $minimum['bare_minimum_trigger'];
-    $minimumApplied = $demandTrigger < $minimumThreshold;
-    $slowMoverTrigger = jg_inventory_recap_slow_mover_trigger($minimumApplied ? $bareMinimum : $demandTrigger, $options);
+    $triggerAdditions = jg_inventory_recap_trigger_additions($demandTrigger, $context, $options);
 
     return [
         'has_demand' => true,
@@ -362,18 +366,21 @@ function jg_inventory_recap_trigger_model(array $dailyHistory, array $options, a
         'purchase_fraction' => $purchaseFraction,
         'purchase_target_qty' => (int) ceil($adjusted30 * $purchaseFraction),
         'demand_trigger' => $demandTrigger,
-        'bare_minimum_trigger' => $bareMinimum,
-        'cost_floor_units' => (int) $minimum['cost_floor_units'],
-        'bulk_floor_units' => (int) $minimum['bulk_floor_units'],
-        'large_order_p90' => (float) $minimum['large_order_p90'],
-        'minimum_floor_applied' => $minimumApplied,
-        'slow_mover_boost_applied' => (bool) $slowMoverTrigger['slow_mover_boost_applied'],
-        'slow_mover_boost_units' => (int) $slowMoverTrigger['slow_mover_boost_units'],
-        'slow_mover_trigger_threshold' => (int) $slowMoverTrigger['slow_mover_trigger_threshold'],
+        'bare_minimum_trigger' => (int) $triggerAdditions['bare_minimum_trigger'],
+        'cost_floor_units' => (int) $triggerAdditions['cost_floor_units'],
+        'bulk_floor_units' => (int) $triggerAdditions['bulk_floor_units'],
+        'large_order_p90' => (float) $triggerAdditions['large_order_p90'],
+        'large_order_addition' => (int) $triggerAdditions['large_order_addition'],
+        'price_addition' => (int) $triggerAdditions['price_addition'],
+        'minimum_floor_applied' => false,
+        'slow_mover_boost_applied' => (bool) $triggerAdditions['slow_mover_boost_applied'],
+        'slow_mover_boost_units' => (int) $triggerAdditions['slow_mover_boost_units'],
+        'slow_mover_trigger_threshold' => (int) $triggerAdditions['slow_mover_trigger_threshold'],
+        'trigger_addition_total' => (int) $triggerAdditions['trigger_addition_total'],
         'history_days' => $historyDays,
         'history_weeks' => $historyDays === 90 ? 13 : intdiv($historyDays, 7),
         'history_start_date' => $start->format('Y-m-d'),
-        'automatic_trigger' => (int) $slowMoverTrigger['automatic_trigger'],
+        'automatic_trigger' => (int) $triggerAdditions['automatic_trigger'],
         'forecast_confidence' => jg_inventory_recap_forecast_confidence($soldDays, $total),
         'forecast_method' => $historyDays === 90 ? '90_day_adaptive' : 'weekly_adaptive',
     ];
@@ -1263,10 +1270,13 @@ function jg_inventory_recap_payload(PDO $skuPdo, PDO $analyticsPdo, array $cashC
             'cost_floor_units' => (int) ($model['cost_floor_units'] ?? 0),
             'bulk_floor_units' => (int) ($model['bulk_floor_units'] ?? 0),
             'large_order_p90' => (float) ($model['large_order_p90'] ?? 0),
+            'large_order_addition' => (int) ($model['large_order_addition'] ?? 0),
+            'price_addition' => (int) ($model['price_addition'] ?? 0),
             'minimum_floor_applied' => !empty($model['minimum_floor_applied']),
             'slow_mover_boost_applied' => !empty($model['slow_mover_boost_applied']),
             'slow_mover_boost_units' => (int) ($model['slow_mover_boost_units'] ?? 0),
             'slow_mover_trigger_threshold' => (int) ($model['slow_mover_trigger_threshold'] ?? 15),
+            'trigger_addition_total' => (int) ($model['trigger_addition_total'] ?? 0),
             'automatic_trigger' => $automaticTrigger,
             'manual_trigger' => $manualTrigger,
             'trigger_mode' => $triggerMode,
