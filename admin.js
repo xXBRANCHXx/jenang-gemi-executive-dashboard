@@ -928,6 +928,7 @@ const normalizeSourceKey = (value) => String(value || '').trim().toLowerCase();
 const HIDDEN_HOME_SOURCES = new Set(['internal', 'direct']);
 const OVERVIEW_DATA_CACHE_VERSION = 16;
 const OVERVIEW_CACHE_PREFIX = `jg-overview-summary-v${OVERVIEW_DATA_CACHE_VERSION}`;
+const OVERVIEW_LEGEND_PREVIEW_LIMIT = 5;
 const ORDER_RENDER_BATCH_SIZE = 120;
 const ORDER_LOAD_WINDOW_DAYS = 14;
 const ORDER_LOAD_PAGE_SIZE = 1000;
@@ -1869,7 +1870,7 @@ const normalizeOverviewMonthlyProductRows = (rows, year = new Date().getFullYear
   };
 });
 
-const productSeriesFromMonthlyRows = (rows) => {
+const productSeriesFromMonthlyRows = (rows, metric = 'quantity') => {
   const keyed = new Map();
   rows.forEach((month) => {
     Object.entries(month?.products || {}).forEach(([key, product]) => {
@@ -1880,7 +1881,7 @@ const productSeriesFromMonthlyRows = (rows) => {
         label: product?.label || toTitleCase(normalizedKey),
         total: 0
       };
-      current.total += Number(product?.quantity || product?.item_count || product?.net_revenue || product?.revenue || 0);
+      current.total += Number(product?.[metric] || 0);
       keyed.set(normalizedKey, current);
     });
   });
@@ -1890,7 +1891,8 @@ const productSeriesFromMonthlyRows = (rows) => {
     .map((series, index) => ({
       key: series.key,
       label: series.label,
-      color: getOverviewProductColor(index)
+      color: getOverviewProductColor(index),
+      total: series.total
     }));
 };
 
@@ -2229,6 +2231,7 @@ const drawPieChart = (canvas, items, config) => {
   const rows = visibleItems.filter((item) => Number(item[metric] || 0) > 0);
   const total = rows.reduce((sum, item) => sum + Number(item[metric] || 0), 0);
   const colorForIndex = typeof config.colorForIndex === 'function' ? config.colorForIndex : getOverviewProductColor;
+  const showLegend = config.showLegend !== false;
   const drawLegend = () => {
     const textColor = getComputedStyle(document.documentElement).getPropertyValue('--admin-text') || '#f3f6f8';
     const mutedColor = getComputedStyle(document.documentElement).getPropertyValue('--admin-muted') || '#9ca3af';
@@ -2256,15 +2259,15 @@ const drawPieChart = (canvas, items, config) => {
     ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--admin-muted') || '#9ca3af';
     ctx.font = '700 14px "Plus Jakarta Sans", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(config.emptyMessage || 'No flavor sales yet', width * 0.31, height / 2);
-    drawLegend();
+    ctx.fillText(config.emptyMessage || 'No flavor sales yet', width * (showLegend ? 0.31 : 0.5), height / 2);
+    if (showLegend) drawLegend();
     chartHoverState.set(canvas, []);
     return;
   }
 
-  const cx = width < 640 ? width * 0.32 : width * 0.31;
+  const cx = showLegend ? (width < 640 ? width * 0.32 : width * 0.31) : width * 0.5;
   const cy = height * 0.5;
-  const radius = Math.min(width * 0.3, height * 0.37);
+  const radius = Math.min(width * (showLegend ? 0.3 : 0.38), height * 0.4);
   let start = -Math.PI / 2;
   const hoverPoints = [];
   rows.forEach((item, index) => {
@@ -2310,7 +2313,7 @@ const drawPieChart = (canvas, items, config) => {
     start = end;
   });
 
-  drawLegend();
+  if (showLegend) drawLegend();
 
   chartHoverState.set(canvas, hoverPoints);
 };
@@ -2517,6 +2520,12 @@ document.addEventListener('DOMContentLoaded', () => {
       hourlyMetric: 'orders',
       productMetric: 'quantity',
       flavorMetric: 'quantity',
+      expandedLegends: {
+        syrup: false,
+        drops: false,
+        bubur: false,
+        'sku-product': false
+      },
       salesRecapOpen: false,
       salesRecapExport: null,
       customRange: {
@@ -2876,7 +2885,8 @@ document.addEventListener('DOMContentLoaded', () => {
     volumeMetricButtons: document.querySelectorAll('[data-overview-volume-metric]'),
     hourlyMetricButtons: document.querySelectorAll('[data-overview-hourly-metric]'),
     productMetricButtons: document.querySelectorAll('[data-overview-product-metric]'),
-    flavorMetricButtons: document.querySelectorAll('[data-overview-flavor-metric]')
+    flavorMetricButtons: document.querySelectorAll('[data-overview-flavor-metric]'),
+    legendContainers: new Map(Array.from(document.querySelectorAll('[data-overview-chart-legend]')).map((element) => [element.dataset.overviewChartLegend, element]))
   };
 	  const customerProfilesEndpoint = root.dataset.customerProfilesEndpoint || '../api/customer-profiles/?summary=1';
 	  const ordersEndpoint = root.dataset.ordersEndpoint || '../api/orders/';
@@ -6685,6 +6695,47 @@ document.addEventListener('DOMContentLoaded', () => {
     setSalesRecapExportActionsEnabled();
   };
 
+  const rankOverviewLegendItems = (items, valueForItem) => [...(Array.isArray(items) ? items : [])]
+    .sort((left, right) => Number(valueForItem(right) || 0) - Number(valueForItem(left) || 0));
+
+  const renderOverviewExpandableLegend = (key, items, options = {}) => {
+    const container = overviewRefs.legendContainers.get(key);
+    if (!container) return;
+    const rows = Array.isArray(items) ? items : [];
+    const expanded = Boolean(state.overview.expandedLegends[key]);
+    const visibleRows = expanded ? rows : rows.slice(0, OVERVIEW_LEGEND_PREVIEW_LIMIT);
+    const metric = options.metric || 'quantity';
+    const valueForItem = typeof options.value === 'function'
+      ? options.value
+      : (item) => Number(item?.[metric] || 0);
+    const colorForIndex = typeof options.colorForIndex === 'function'
+      ? options.colorForIndex
+      : (index, item) => item?.color || getOverviewProductColor(index);
+
+    container.hidden = rows.length === 0;
+    container.innerHTML = rows.length ? `
+      <div class="admin-expandable-chart-legend-list">
+        ${visibleRows.map((item, index) => {
+          const color = colorForIndex(index, item);
+          const label = String(item?.label || item?.key || '-');
+          const value = Number(valueForItem(item) || 0);
+          return `
+            <div class="admin-expandable-chart-legend-item" title="${escapeHtml(label)}">
+              <i style="background:${escapeHtml(color)}" aria-hidden="true"></i>
+              <span>${escapeHtml(label)}</span>
+              <strong>${escapeHtml(formatMetricValue(metric, value, OVERVIEW_METRIC_UNITS))}</strong>
+            </div>
+          `;
+        }).join('')}
+      </div>
+      ${rows.length > OVERVIEW_LEGEND_PREVIEW_LIMIT ? `
+        <button type="button" class="admin-expandable-chart-legend-toggle" data-overview-legend-toggle="${escapeHtml(key)}" aria-expanded="${expanded ? 'true' : 'false'}">
+          ${expanded ? `Show top ${OVERVIEW_LEGEND_PREVIEW_LIMIT}` : `Show all ${rows.length}`}
+        </button>
+      ` : ''}
+    ` : '';
+  };
+
   const renderOverview = (data) => {
     state.overview.data = data;
     const totals = data.totals || {};
@@ -6833,8 +6884,13 @@ document.addEventListener('DOMContentLoaded', () => {
       padding: { top: 12, right: 16, bottom: 12, left: 16 },
       limit: 12
     }));
-    const productSeries = productSeriesFromMonthlyRows(elapsedMonthlyProductRows).filter(shouldIncludeSkuProductSeries);
+    const productSeries = productSeriesFromMonthlyRows(elapsedMonthlyProductRows, state.overview.productMetric).filter(shouldIncludeSkuProductSeries);
     const filteredMonthlyProductRows = filterMonthlyProductRowsForChart(elapsedMonthlyProductRows, productSeries);
+    renderOverviewExpandableLegend('sku-product', productSeries, {
+      metric: state.overview.productMetric,
+      value: (item) => item.total,
+      colorForIndex: (_index, item) => item.color
+    });
     drawChartSafely(overviewRefs.productStackCanvas, () => drawStackedBarChart(overviewRefs.productStackCanvas, filteredMonthlyProductRows, {
       series: productSeries,
       metric: state.overview.productMetric,
@@ -6844,9 +6900,8 @@ document.addEventListener('DOMContentLoaded', () => {
       tooltipTitle: (item) => item.label || 'Month',
       includeEmptyItems: true,
       sortItems: false,
-      showLegend: true,
-      legendPosition: 'side',
-      padding: { top: 22, right: 150, bottom: 44, left: 64 },
+      showLegend: false,
+      padding: { top: 22, right: 20, bottom: 44, left: 64 },
       limit: 12
     }), 'No monthly product sales yet');
     drawChartSafely(overviewRefs.syrupVolumeCanvas, () => drawPieChart(overviewRefs.syrupVolumeCanvas, syrupVolumeRows, {
@@ -6875,26 +6930,41 @@ document.addEventListener('DOMContentLoaded', () => {
       sortItems: false,
       limit: 12
     }), 'No monthly account unit data yet');
-    drawChartSafely(overviewRefs.syrupFlavorCanvas, () => drawPieChart(overviewRefs.syrupFlavorCanvas, syrupFlavorRows, {
+    const flavorValue = (item) => Number(item?.[state.overview.flavorMetric] || 0);
+    const rankedSyrupFlavorRows = rankOverviewLegendItems(syrupFlavorRows, flavorValue);
+    const rankedDropsFlavorRows = rankOverviewLegendItems(dropsFlavorRows, flavorValue);
+    const rankedBuburFlavorRows = rankOverviewLegendItems(buburFlavorRows, flavorValue);
+    [
+      ['syrup', rankedSyrupFlavorRows],
+      ['drops', rankedDropsFlavorRows],
+      ['bubur', rankedBuburFlavorRows]
+    ].forEach(([key, rows]) => renderOverviewExpandableLegend(key, rows, {
+      metric: state.overview.flavorMetric,
+      colorForIndex: getOverviewFlavorColor
+    }));
+    drawChartSafely(overviewRefs.syrupFlavorCanvas, () => drawPieChart(overviewRefs.syrupFlavorCanvas, rankedSyrupFlavorRows, {
       metric: state.overview.flavorMetric,
       unitsMap: OVERVIEW_METRIC_UNITS,
-      limit: syrupFlavorRows.length,
+      limit: Math.max(1, rankedSyrupFlavorRows.length),
       emptyMessage: 'No syrup flavor sales yet',
-      colorForIndex: getOverviewFlavorColor
+      colorForIndex: getOverviewFlavorColor,
+      showLegend: false
     }));
-    drawChartSafely(overviewRefs.dropsFlavorCanvas, () => drawPieChart(overviewRefs.dropsFlavorCanvas, dropsFlavorRows, {
+    drawChartSafely(overviewRefs.dropsFlavorCanvas, () => drawPieChart(overviewRefs.dropsFlavorCanvas, rankedDropsFlavorRows, {
       metric: state.overview.flavorMetric,
       unitsMap: OVERVIEW_METRIC_UNITS,
-      limit: dropsFlavorRows.length,
+      limit: Math.max(1, rankedDropsFlavorRows.length),
       emptyMessage: 'No drops flavor sales yet',
-      colorForIndex: getOverviewFlavorColor
+      colorForIndex: getOverviewFlavorColor,
+      showLegend: false
     }));
-    drawChartSafely(overviewRefs.buburFlavorCanvas, () => drawPieChart(overviewRefs.buburFlavorCanvas, buburFlavorRows, {
+    drawChartSafely(overviewRefs.buburFlavorCanvas, () => drawPieChart(overviewRefs.buburFlavorCanvas, rankedBuburFlavorRows, {
       metric: state.overview.flavorMetric,
       unitsMap: OVERVIEW_METRIC_UNITS,
-      limit: buburFlavorRows.length,
+      limit: Math.max(1, rankedBuburFlavorRows.length),
       emptyMessage: 'No Bubur flavor sales yet',
-      colorForIndex: getOverviewFlavorColor
+      colorForIndex: getOverviewFlavorColor,
+      showLegend: false
     }));
     if (state.activeView === 'overview') {
       ensureOverviewLocationHeatmap();
@@ -13565,6 +13635,17 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       if (state.overview.data) renderOverview(state.overview.data);
     });
+  });
+
+  root.addEventListener('click', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const button = target.closest('[data-overview-legend-toggle]');
+    if (!(button instanceof HTMLElement)) return;
+    const key = button.dataset.overviewLegendToggle || '';
+    if (!Object.prototype.hasOwnProperty.call(state.overview.expandedLegends, key)) return;
+    state.overview.expandedLegends[key] = !state.overview.expandedLegends[key];
+    if (state.overview.data) renderOverview(state.overview.data);
   });
 
   dailyRefs.monthInput?.addEventListener('change', async () => {

@@ -388,6 +388,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                             <canvas class="admin-chart-canvas admin-chart-canvas-lg" data-overview-syrup-flavor-chart width="720" height="440"></canvas>
                             <span class="admin-chart-detail-cue">Open breakdown <i aria-hidden="true">↗</i></span>
                         </a>
+                        <div class="admin-expandable-chart-legend" data-overview-chart-legend="syrup" aria-label="Syrup flavor legend"></div>
                     </article>
 
                     <article class="admin-panel admin-panel-chart admin-flavor-chart-card" data-chart-id="C7">
@@ -408,6 +409,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                             <canvas class="admin-chart-canvas admin-chart-canvas-lg" data-overview-drops-flavor-chart width="720" height="440"></canvas>
                             <span class="admin-chart-detail-cue">Open breakdown <i aria-hidden="true">↗</i></span>
                         </a>
+                        <div class="admin-expandable-chart-legend" data-overview-chart-legend="drops" aria-label="Drops flavor legend"></div>
                     </article>
 
                     <article class="admin-panel admin-panel-chart admin-flavor-chart-card" data-chart-id="C8">
@@ -428,6 +430,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                             <canvas class="admin-chart-canvas admin-chart-canvas-lg" data-overview-bubur-flavor-chart width="720" height="440"></canvas>
                             <span class="admin-chart-detail-cue">Open breakdown <i aria-hidden="true">↗</i></span>
                         </a>
+                        <div class="admin-expandable-chart-legend" data-overview-chart-legend="bubur" aria-label="Bubur flavor legend"></div>
                     </article>
                     </div>
 
@@ -472,6 +475,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                         <div class="admin-chart-surface">
                             <canvas class="admin-chart-canvas" data-overview-product-stack-chart width="760" height="300"></canvas>
                         </div>
+                        <div class="admin-expandable-chart-legend" data-overview-chart-legend="sku-product" aria-label="SKU product legend"></div>
                     </article>
 
                     <article class="admin-panel admin-panel-chart admin-product-mix-card" data-chart-id="C14">

@@ -20629,6 +20629,78 @@ body:has(.admin-app[data-sku-db])::after {
   outline-offset: 3px;
 }
 
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-expandable-chart-legend {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 11px 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--admin-surface-soft) 86%, transparent);
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-expandable-chart-legend[hidden] {
+  display: none;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-expandable-chart-legend-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-expandable-chart-legend-item {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--admin-text);
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-expandable-chart-legend-item i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-expandable-chart-legend-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-expandable-chart-legend-item strong {
+  color: var(--admin-muted);
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-expandable-chart-legend-toggle {
+  justify-self: end;
+  min-height: 28px;
+  padding: 5px 10px;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--admin-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-expandable-chart-legend-toggle:hover,
+.admin-app.admin-app-suite[data-admin-dashboard] .admin-expandable-chart-legend-toggle:focus-visible {
+  border-color: color-mix(in srgb, var(--admin-accent-primary) 42%, var(--admin-border));
+  color: var(--admin-text);
+}
+
 .admin-app.admin-app-suite[data-admin-dashboard] .admin-chart-detail-cue {
   position: absolute;
   z-index: 4;
@@ -22328,6 +22400,10 @@ body:has(.admin-app[data-sku-db])::after {
 
   .admin-app.admin-app-suite[data-admin-dashboard] .admin-panel {
     padding: 14px;
+  }
+
+  .admin-app.admin-app-suite[data-admin-dashboard] .admin-expandable-chart-legend-list {
+    grid-template-columns: 1fr;
   }
 
   .admin-app.admin-app-suite[data-admin-dashboard] .admin-main-grid-compact .admin-panel-head h3,
