@@ -375,7 +375,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                             <div>
                                 <div class="admin-chart-title-row">
                                     <h3>Syrup flavor share</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About syrup flavor share" data-chart-info="Looks only at syrup SKUs from the SKU database and groups sales by flavor. Switch between Qty and Rp to see whether a flavor is winning by units sold or by seller-received revenue."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About syrup flavor share" data-chart-info="Shows sold SKUs whose SKU Database brand is exactly ZERO and product is exactly Syrup, grouped by flavor. Switch between Qty and Rp to compare units sold with seller-received revenue."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                                 <span class="admin-panel-meta">Most popular syrup flavors</span>
                             </div>
@@ -395,7 +395,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                             <div>
                                 <div class="admin-chart-title-row">
                                     <h3>Drops flavor share</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About drops flavor share" data-chart-info="Looks only at drops SKUs from the SKU database and groups sales by flavor. Switch between Qty and Rp to compare unit demand against seller-received revenue."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About drops flavor share" data-chart-info="Shows sold SKUs whose SKU Database brand is exactly ZERO and product is exactly Drops, grouped by flavor. Switch between Qty and Rp to compare units sold with seller-received revenue."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                                 <span class="admin-panel-meta">Most popular drops flavors</span>
                             </div>
@@ -415,7 +415,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                             <div>
                                 <div class="admin-chart-title-row">
                                     <h3>Bubur flavor share</h3>
-                                    <button type="button" class="admin-chart-info-btn" aria-label="About Bubur flavor share" data-chart-info="Looks only at Jenang Gemi Bubur SKUs from the SKU database and groups sales by flavor, matching the Syrup and Drops flavor chart behavior."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
+                                    <button type="button" class="admin-chart-info-btn" aria-label="About Bubur flavor share" data-chart-info="Shows sold SKUs whose SKU Database brand is exactly Jenang Gemi and product is exactly Bubur, grouped by flavor."><span class="admin-chart-info-icon" aria-hidden="true"></span></button>
                                 </div>
                                 <span class="admin-panel-meta">Most popular Bubur flavors</span>
                             </div>

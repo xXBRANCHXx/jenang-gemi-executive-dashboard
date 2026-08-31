@@ -926,7 +926,7 @@ const formatPageLabel = (pagePath = '') => {
 const normalizeSourceKey = (value) => String(value || '').trim().toLowerCase();
 
 const HIDDEN_HOME_SOURCES = new Set(['internal', 'direct']);
-const OVERVIEW_DATA_CACHE_VERSION = 15;
+const OVERVIEW_DATA_CACHE_VERSION = 16;
 const OVERVIEW_CACHE_PREFIX = `jg-overview-summary-v${OVERVIEW_DATA_CACHE_VERSION}`;
 const ORDER_RENDER_BATCH_SIZE = 120;
 const ORDER_LOAD_WINDOW_DAYS = 14;
@@ -6878,21 +6878,21 @@ document.addEventListener('DOMContentLoaded', () => {
     drawChartSafely(overviewRefs.syrupFlavorCanvas, () => drawPieChart(overviewRefs.syrupFlavorCanvas, syrupFlavorRows, {
       metric: state.overview.flavorMetric,
       unitsMap: OVERVIEW_METRIC_UNITS,
-      limit: 32,
+      limit: syrupFlavorRows.length,
       emptyMessage: 'No syrup flavor sales yet',
       colorForIndex: getOverviewFlavorColor
     }));
     drawChartSafely(overviewRefs.dropsFlavorCanvas, () => drawPieChart(overviewRefs.dropsFlavorCanvas, dropsFlavorRows, {
       metric: state.overview.flavorMetric,
       unitsMap: OVERVIEW_METRIC_UNITS,
-      limit: 32,
+      limit: dropsFlavorRows.length,
       emptyMessage: 'No drops flavor sales yet',
       colorForIndex: getOverviewFlavorColor
     }));
     drawChartSafely(overviewRefs.buburFlavorCanvas, () => drawPieChart(overviewRefs.buburFlavorCanvas, buburFlavorRows, {
       metric: state.overview.flavorMetric,
       unitsMap: OVERVIEW_METRIC_UNITS,
-      limit: 32,
+      limit: buburFlavorRows.length,
       emptyMessage: 'No Bubur flavor sales yet',
       colorForIndex: getOverviewFlavorColor
     }));
