@@ -485,6 +485,31 @@ $fullyPaidOrder = jg_purchase_orders_record_payment(
 inventory_recap_expect(0, $fullyPaidOrder['amount_due'] ?? -1, 'A full PO payment must clear the balance due.');
 inventory_recap_expect(true, $fullyPaidOrder['is_paid'] ?? false, 'A fully paid PO must be identified for removal from the active inventory board.');
 
+$historicalPdo = new PDO('sqlite::memory:');
+$historicalPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+jg_purchase_orders_ensure_schema($historicalPdo);
+$historicalPdo->exec("INSERT INTO purchase_orders
+    (id, po_number, request_key, status, tag, note, line_count, ordered_qty, received_qty,
+     estimated_total, placed_by, placed_at, confirmed_at, updated_at, completed_at)
+    VALUES
+    (1, 'JG-PO-HISTORICAL', 'historical', 'received', '', '', 1, 1, 1, 25000, 'Test',
+     '2026-08-30 00:00:00', '2026-08-30 00:00:00', '2026-08-30 00:00:00', '2026-08-30 01:00:00'),
+    (2, 'JG-PO-FUTURE', 'future', 'received', '', '', 1, 1, 1, 30000, 'Test',
+     '2026-09-01 00:00:00', '2026-09-01 00:00:00', '2026-09-01 00:00:00', '2026-09-01 01:00:00')");
+$historicalBefore = jg_purchase_orders_find($historicalPdo, 1);
+inventory_recap_expect(true, $historicalBefore['temporary_mark_paid_eligible'] ?? false, 'Only a pre-cutoff unpaid PO must expose the temporary cleanup action.');
+$historicalPaid = jg_purchase_orders_mark_historical_paid($historicalPdo, 1);
+inventory_recap_expect(true, $historicalPaid['is_paid'] ?? false, 'The temporary cleanup action must clear the canonical PO balance.');
+inventory_recap_expect(false, $historicalPaid['temporary_mark_paid_eligible'] ?? true, 'The temporary action must delete itself from a reconciled PO.');
+inventory_recap_expect(0, $historicalPaid['payments'][0]['accounting_transaction_id'] ?? -1, 'Historical cleanup must not create or duplicate an Accounting cash transaction.');
+inventory_recap_expect('historical_full', $historicalPaid['payments'][0]['payment_mode'] ?? '', 'Historical cleanup must remain auditable as a distinct payment mode.');
+try {
+    jg_purchase_orders_mark_historical_paid($historicalPdo, 2);
+    inventory_recap_expect_true(false, 'A post-cutoff PO must never receive the temporary cleanup action.');
+} catch (InvalidArgumentException $error) {
+    inventory_recap_expect_true(str_contains($error->getMessage(), 'original cleanup set'), 'The cutoff guard must explain why a future PO is ineligible.');
+}
+
 $cancelledOrder = jg_purchase_orders_cancel($skuPdo, (int) ($placedOrder['id'] ?? 0));
 inventory_recap_expect('cancelled', $cancelledOrder['status'] ?? '', 'Cancelling a PO must close it at the shared source of truth.');
 $afterCancellation = jg_inventory_recap_payload($skuPdo, $analyticsPdo, ['amount' => 100000], $recapInput);

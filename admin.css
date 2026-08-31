@@ -38522,6 +38522,19 @@ a.admin-accounting-breakdown-row:focus-visible { background: color-mix(in srgb, 
 .admin-po-history-card strong { font-size:15px; }
 .admin-po-history-card small, .admin-po-history-card span { color:var(--admin-muted); }
 .admin-po-history-card-money { display:grid; gap:5px; text-align:right; }
+.admin-po-history-actions { display:flex; align-items:center; justify-content:flex-end; gap:8px; }
+.admin-po-temporary-paid {
+  min-height:36px;
+  padding:0 12px;
+  border:1px solid #15803d;
+  border-radius:8px;
+  background:#12341f;
+  color:#86efac;
+  font-weight:800;
+  cursor:pointer;
+}
+.admin-po-temporary-paid:hover, .admin-po-temporary-paid:focus-visible { background:#166534; color:#fff; outline:none; }
+.admin-po-temporary-paid:disabled { opacity:.55; cursor:wait; }
 .admin-po-status { color:#6ee7ff !important; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; }
 .admin-po-tag { display:grid; gap:5px; }
 .admin-po-tag input { min-height:34px; }
@@ -38669,6 +38682,13 @@ a.admin-accounting-breakdown-row:focus-visible { background: color-mix(in srgb, 
   border-color: #94a3b8;
   box-shadow: 0 12px 30px rgba(15, 23, 42, .08);
 }
+:root[data-admin-theme='light'] .admin-po-temporary-paid {
+  border-color:#15803d;
+  background:#ecfdf5;
+  color:#166534;
+}
+:root[data-admin-theme='light'] .admin-po-temporary-paid:hover,
+:root[data-admin-theme='light'] .admin-po-temporary-paid:focus-visible { background:#166534; color:#fff; }
 :root[data-admin-theme='light'] .admin-po-pay-action:not(.is-paid),
 :root[data-admin-theme='light'] .admin-po-pay-action:not(.is-paid) strong,
 :root[data-admin-theme='light'] .admin-po-pay-action:not(.is-paid) small,
@@ -38761,6 +38781,7 @@ a.admin-accounting-breakdown-row:focus-visible { background: color-mix(in srgb, 
   .admin-po-page-head { align-items:stretch; flex-direction:column; }
   .admin-po-history-card { grid-template-columns:1fr; }
   .admin-po-history-card-money { text-align:left; }
+  .admin-po-history-actions { justify-content:flex-start; flex-wrap:wrap; }
   .admin-po-detail-summary { grid-template-columns:1fr 1fr; }
   .admin-po-detail-actions { align-items:stretch; flex-direction:column; }
   .admin-po-detail-actions .admin-po-tag, .admin-po-pay-action, .admin-po-resume-action, .admin-po-download-action { width:100%; min-width:0; }

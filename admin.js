@@ -2654,6 +2654,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	      paymentMode: 'full',
 	      paymentItemIds: {},
 	      paymentBusy: false,
+	      historicalPaidOrderId: 0,
 	      placingOrder: false,
 	      placeRequestKey: '',
 	      placedOrder: null,
@@ -8786,14 +8787,36 @@ document.addEventListener('DOMContentLoaded', () => {
 	    }
 	    poRefs.historyList.innerHTML = orders.map((order) => {
 	      const draft = String(order.status || '') === 'draft';
+	      const historicalPaidBusy = state.inventoryRecap.historicalPaidOrderId === Number(order.id || 0);
 	      const proofCount = (order.payments || []).reduce((total, payment) => total + (payment.proofs || (payment.proof?.url ? [payment.proof] : [])).length, 0);
 	      return `<article class="admin-po-history-card is-${escapeHtml(order.status || 'pending')}" data-po-open="${Number(order.id || 0)}" ${draft ? `data-po-draft-context="${Number(order.id || 0)}"` : ''} tabindex="0" role="button">
 	        <div><span class="admin-po-status">${escapeHtml(purchaseOrderStatusLabel(order.status))}</span><strong>${escapeHtml(order.po_number || 'Purchase order')}</strong><small>${escapeHtml(purchaseOrderTypeLabel(order))} · ${escapeHtml(String(order.placed_at || '').slice(0, 10))} · ${formatRegionalInteger(order.line_count || 0)} products · ${formatRegionalInteger(order.ordered_qty || 0)} units</small></div>
 	        <div class="admin-po-history-card-money"><strong>${formatCurrency(order.estimated_total || 0)}</strong><span>${Number(order.amount_due || 0) > 0 ? `${formatCurrency(order.amount_due)} due` : 'Paid'}</span><small>${proofCount ? `${formatRegionalInteger(proofCount)} payment proof${proofCount === 1 ? '' : 's'}` : 'No payment proof'}</small></div>
 	        <label class="admin-po-tag" onclick="event.stopPropagation()"><span>Tag</span><input type="text" maxlength="120" value="${escapeHtml(order.tag || '')}" data-po-tag="${Number(order.id || 0)}" placeholder="Add tag"></label>
-	        <button type="button" ${draft ? `data-po-resume="${Number(order.id || 0)}"` : `data-po-open="${Number(order.id || 0)}"`}>${draft ? 'Resume' : 'View breakdown'} →</button>
+	        <div class="admin-po-history-actions">
+	          ${order.temporary_mark_paid_eligible ? `<button type="button" class="admin-po-temporary-paid" data-po-mark-historical-paid="${Number(order.id || 0)}" data-po-number="${escapeHtml(order.po_number || '')}" ${historicalPaidBusy ? 'disabled' : ''}>${historicalPaidBusy ? 'Marking…' : 'Mark paid'}</button>` : ''}
+	          <button type="button" ${draft ? `data-po-resume="${Number(order.id || 0)}"` : `data-po-open="${Number(order.id || 0)}"`}>${draft ? 'Resume' : 'View breakdown'} →</button>
+	        </div>
 	      </article>`;
 	    }).join('');
+	  };
+
+	  const markHistoricalPoPaid = async (orderId, poNumber) => {
+	    if (orderId < 1 || state.inventoryRecap.historicalPaidOrderId) return;
+	    const order = purchaseOrders().find((candidate) => Number(candidate.id || 0) === orderId);
+	    if (!order?.temporary_mark_paid_eligible) return;
+	    if (!window.confirm(`Mark ${poNumber || order.po_number || 'this purchase order'} as fully paid? This historical cleanup will not create another Accounting cash expense.`)) return;
+	    state.inventoryRecap.historicalPaidOrderId = orderId;
+	    renderPoHistory();
+	    try {
+	      const data = await postPoAction({ action: 'mark_historical_paid', order_id: orderId });
+	      state.inventoryRecap.historicalPaidOrderId = 0;
+	      applyInventoryRecapData(data);
+	    } catch (error) {
+	      state.inventoryRecap.historicalPaidOrderId = 0;
+	      renderPoHistory();
+	      window.alert(error?.message || 'The purchase order could not be marked paid.');
+	    }
 	  };
 
 	  const renderPoDetail = () => {
@@ -14570,6 +14593,14 @@ document.addEventListener('DOMContentLoaded', () => {
 	  });
 	  poRefs.historyList?.addEventListener('click', (event) => {
 	    const target = event.target instanceof Element ? event.target : null;
+	    const historicalPaid = target?.closest('[data-po-mark-historical-paid]');
+	    if (historicalPaid) {
+	      markHistoricalPoPaid(
+	        Number(historicalPaid.getAttribute('data-po-mark-historical-paid') || 0),
+	        historicalPaid.getAttribute('data-po-number') || ''
+	      ).catch(() => {});
+	      return;
+	    }
 	    const resume = target?.closest('[data-po-resume]');
 	    if (resume) { resumePoDraft(Number(resume.getAttribute('data-po-resume') || 0)).catch(() => {}); return; }
 	    const open = target?.closest('[data-po-open]');

@@ -183,6 +183,12 @@ try {
                 (int) ($body['order_id'] ?? 0),
                 (string) ($body['tag'] ?? '')
             );
+        } elseif ($action === 'mark_historical_paid') {
+            $orderId = filter_var($body['order_id'] ?? null, FILTER_VALIDATE_INT);
+            if ($orderId === false || $orderId < 1) {
+                throw new InvalidArgumentException('Choose a purchase order to reconcile.');
+            }
+            $updatedOrder = jg_purchase_orders_mark_historical_paid($skuPdo, (int) $orderId);
         } elseif ($action === 'pay_order') {
             $analyticsPdo ??= analyticsDb();
             jg_accounting_ensure_schema($analyticsPdo);

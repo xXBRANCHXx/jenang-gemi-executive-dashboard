@@ -11,6 +11,30 @@ function jg_purchase_orders_now(): string
     return gmdate('Y-m-d H:i:s');
 }
 
+/**
+ * One-time cutoff for reconciling the unpaid POs that existed when the
+ * temporary cleanup control was requested. Orders created after this instant
+ * can only be paid through the normal audited Pay PO workflow.
+ */
+function jg_purchase_orders_historical_paid_cutoff(): string
+{
+    return '2026-08-31 03:56:55';
+}
+
+function jg_purchase_orders_historical_paid_eligible(array $order): bool
+{
+    $status = (string) ($order['status'] ?? '');
+    $placedAt = (string) ($order['placed_at'] ?? '');
+    $amountDue = max(0.0, (float) ($order['amount_due'] ?? 0));
+    $isPaid = !empty($order['is_paid'])
+        || ((float) ($order['paid_total'] ?? 0) > 0 && $amountDue < 0.01);
+    return !in_array($status, ['draft', 'cancelled'], true)
+        && $placedAt !== ''
+        && $placedAt <= jg_purchase_orders_historical_paid_cutoff()
+        && !$isPaid
+        && $amountDue >= 0.01;
+}
+
 function jg_purchase_orders_ensure_schema(PDO $pdo): void
 {
     if (jg_purchase_orders_driver($pdo) === 'sqlite') {
@@ -349,6 +373,12 @@ function jg_purchase_orders_fetch(PDO $pdo, int $limit = 20): array
             'paid_total' => min($estimatedTotal, $paidTotal),
             'amount_due' => $amountDue,
             'is_paid' => $isPaid,
+            'temporary_mark_paid_eligible' => jg_purchase_orders_historical_paid_eligible([
+                ...$order,
+                'paid_total' => min($estimatedTotal, $paidTotal),
+                'amount_due' => $amountDue,
+                'is_paid' => $isPaid,
+            ]),
             'payment_percent' => $estimatedTotal > 0 ? min(100, (int) round(($paidTotal / $estimatedTotal) * 100)) : 100,
             'placed_by' => (string) ($order['placed_by'] ?? ''),
             'placed_at' => (string) ($order['placed_at'] ?? ''),
@@ -359,6 +389,35 @@ function jg_purchase_orders_fetch(PDO $pdo, int $limit = 20): array
             'payments' => $payments,
         ];
     }, $orders);
+}
+
+/**
+ * Reconciles a pre-cutoff PO that was paid before the Pay PO workflow was
+ * used. This writes only the canonical PO payment record and intentionally
+ * uses transaction/account zero so it cannot create or duplicate cash impact.
+ */
+function jg_purchase_orders_mark_historical_paid(PDO $pdo, int $orderId): array
+{
+    $order = jg_purchase_orders_find($pdo, $orderId);
+    if (!empty($order['is_paid']) || (float) ($order['amount_due'] ?? 0) < 0.01) {
+        return $order;
+    }
+    if (!jg_purchase_orders_historical_paid_eligible($order)) {
+        throw new InvalidArgumentException('This temporary action is only available for the unpaid POs in the original cleanup set.');
+    }
+
+    return jg_purchase_orders_record_payment(
+        $pdo,
+        $orderId,
+        'historical-paid-reconciliation-' . $orderId,
+        0,
+        0,
+        'Previously paid · historical reconciliation',
+        (float) $order['amount_due'],
+        'historical_full',
+        [],
+        null
+    );
 }
 
 function jg_purchase_orders_incoming_by_sku(PDO $pdo): array
