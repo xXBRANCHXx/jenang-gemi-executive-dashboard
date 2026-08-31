@@ -3710,6 +3710,111 @@ function jg_accounting_reference_key(string $value): string
     return strtoupper(preg_replace('/[^A-Z0-9]+/i', '', trim($value)) ?? '');
 }
 
+/**
+ * Finds posted Accounting payments that were entered outside the PO payment
+ * workflow. A paid supplier bill is matched by its bill number; a standalone
+ * expense is matched through Order / SKU, Reference No., or Invoice No.
+ * Transactions already linked to a purchase_order_payments row are
+ * deliberately ignored so one payment can never reduce the balance twice.
+ *
+ * @param array<string,bool> $purchaseOrderReferences
+ * @param array<int,bool> $linkedTransactionIds
+ * @return array<string,array{amount:int,transaction_count:int}>
+ */
+function jg_accounting_purchase_order_reference_payments(
+    PDO $accountingPdo,
+    array $purchaseOrderReferences,
+    array $linkedTransactionIds
+): array {
+    if ($purchaseOrderReferences === []) {
+        return [];
+    }
+
+    $payments = [];
+    $recognizedAccountingTransactionIds = [];
+    try {
+        $billPaymentStmt = $accountingPdo->query(
+            'SELECT bp.transaction_id, bp.amount, b.bill_no
+             FROM accounting_bill_payments bp
+             INNER JOIN accounting_bills b ON b.id = bp.bill_id
+             INNER JOIN accounting_transactions t ON t.id = bp.transaction_id
+             WHERE t.status = "posted"
+               AND t.direction = "money_out"
+               AND bp.amount > 0
+               AND COALESCE(b.bill_no, "") <> ""
+             ORDER BY bp.id ASC'
+        );
+        foreach (($billPaymentStmt ? $billPaymentStmt->fetchAll() : []) as $billPayment) {
+            $transactionId = (int) ($billPayment['transaction_id'] ?? 0);
+            $reference = jg_accounting_reference_key((string) ($billPayment['bill_no'] ?? ''));
+            if (
+                $transactionId < 1
+                || isset($linkedTransactionIds[$transactionId])
+                || $reference === ''
+                || !isset($purchaseOrderReferences[$reference])
+            ) {
+                continue;
+            }
+            $payments[$reference] ??= ['amount' => 0, 'transaction_count' => 0];
+            $payments[$reference]['amount'] += max(0, (int) round((float) ($billPayment['amount'] ?? 0)));
+            $payments[$reference]['transaction_count']++;
+            $recognizedAccountingTransactionIds[$transactionId] = true;
+        }
+    } catch (Throwable) {
+        // Lightweight/older Accounting schemas may not have bill allocations.
+    }
+
+    try {
+        $stmt = $accountingPdo->query(
+            'SELECT id, amount, order_no, reference_no, invoice_no
+             FROM accounting_transactions
+             WHERE status = "posted"
+               AND direction = "money_out"
+               AND type IN ("expense", "bill_payment")
+               AND amount > 0
+               AND (
+                    COALESCE(order_no, "") <> ""
+                    OR COALESCE(reference_no, "") <> ""
+                    OR COALESCE(invoice_no, "") <> ""
+               )
+             ORDER BY id ASC'
+        );
+        $transactions = $stmt ? $stmt->fetchAll() : [];
+    } catch (Throwable) {
+        return $payments;
+    }
+    foreach ($transactions as $transaction) {
+        $transactionId = (int) ($transaction['id'] ?? 0);
+        if (
+            $transactionId < 1
+            || isset($linkedTransactionIds[$transactionId])
+            || isset($recognizedAccountingTransactionIds[$transactionId])
+        ) {
+            continue;
+        }
+
+        // Order / SKU is the most explicit PO field. If it does not identify
+        // a current PO, fall back to the general reference and invoice fields.
+        $matchedReference = '';
+        foreach (['order_no', 'reference_no', 'invoice_no'] as $field) {
+            $candidate = jg_accounting_reference_key((string) ($transaction[$field] ?? ''));
+            if ($candidate !== '' && isset($purchaseOrderReferences[$candidate])) {
+                $matchedReference = $candidate;
+                break;
+            }
+        }
+        if ($matchedReference === '') {
+            continue;
+        }
+
+        $payments[$matchedReference] ??= ['amount' => 0, 'transaction_count' => 0];
+        $payments[$matchedReference]['amount'] += max(0, (int) round((float) ($transaction['amount'] ?? 0)));
+        $payments[$matchedReference]['transaction_count']++;
+    }
+
+    return $payments;
+}
+
 function jg_accounting_purchase_order_db(): PDO
 {
     static $pdo = null;
@@ -3768,40 +3873,76 @@ function jg_accounting_purchase_order_outflow(PDO $accountingPdo, ?PDO $skuPdo =
         }
 
         $orders = $skuPdo->query(
-            'SELECT o.id, o.po_number, o.status, o.tag, o.estimated_total, o.placed_at,
-                    COALESCE(SUM(p.amount), 0) AS paid_total
+            'SELECT o.id, o.po_number, o.status, o.tag, o.estimated_total, o.placed_at
              FROM purchase_orders o
-             LEFT JOIN purchase_order_payments p ON p.purchase_order_id = o.id
              WHERE o.status NOT IN ("draft", "cancelled")
-             GROUP BY o.id, o.po_number, o.status, o.tag, o.estimated_total, o.placed_at
              ORDER BY o.placed_at DESC, o.id DESC'
         )->fetchAll();
+
+        $workflowPayments = [];
+        $linkedTransactionIds = [];
+        $paymentStmt = $skuPdo->query(
+            'SELECT purchase_order_id, accounting_transaction_id, amount
+             FROM purchase_order_payments
+             WHERE amount > 0'
+        );
+        foreach (($paymentStmt ? $paymentStmt->fetchAll() : []) as $payment) {
+            $orderId = (int) ($payment['purchase_order_id'] ?? 0);
+            if ($orderId < 1) {
+                continue;
+            }
+            $workflowPayments[$orderId] = (int) ($workflowPayments[$orderId] ?? 0)
+                + max(0, (int) round((float) ($payment['amount'] ?? 0)));
+            $transactionId = (int) ($payment['accounting_transaction_id'] ?? 0);
+            if ($transactionId > 0) {
+                $linkedTransactionIds[$transactionId] = true;
+            }
+        }
+
+        $purchaseOrderReferences = [];
+        foreach ($orders as $order) {
+            $referenceKey = jg_accounting_reference_key((string) ($order['po_number'] ?? ''));
+            if ($referenceKey !== '') {
+                $purchaseOrderReferences[$referenceKey] = true;
+            }
+        }
+        $accountingReferencePayments = jg_accounting_purchase_order_reference_payments(
+            $accountingPdo,
+            $purchaseOrderReferences,
+            $linkedTransactionIds
+        );
 
         $rows = [];
         $amount = 0;
         $grossAmountDue = 0;
         $supplierBillOverlap = 0;
         foreach ($orders as $order) {
+            $orderId = (int) ($order['id'] ?? 0);
             $estimatedTotal = max(0, (int) round((float) ($order['estimated_total'] ?? 0)));
-            $paidTotal = min($estimatedTotal, max(0, (int) round((float) ($order['paid_total'] ?? 0))));
+            $referenceKey = jg_accounting_reference_key((string) ($order['po_number'] ?? ''));
+            $workflowPaidTotal = max(0, (int) ($workflowPayments[$orderId] ?? 0));
+            $accountingPaidTotal = max(0, (int) ($accountingReferencePayments[$referenceKey]['amount'] ?? 0));
+            $paidTotal = min($estimatedTotal, $workflowPaidTotal + $accountingPaidTotal);
             $amountDue = max(0, $estimatedTotal - $paidTotal);
             if ($amountDue <= 0) {
                 continue;
             }
-            $referenceKey = jg_accounting_reference_key((string) ($order['po_number'] ?? ''));
             $overlap = min($amountDue, max(0, (int) ($billReferences[$referenceKey] ?? 0)));
             $countedAmount = max(0, $amountDue - $overlap);
             $grossAmountDue += $amountDue;
             $supplierBillOverlap += $overlap;
             $amount += $countedAmount;
             $rows[] = [
-                'id' => (int) ($order['id'] ?? 0),
+                'id' => $orderId,
                 'po_number' => (string) ($order['po_number'] ?? ''),
                 'status' => (string) ($order['status'] ?? ''),
                 'tag' => (string) ($order['tag'] ?? ''),
                 'placed_at' => (string) ($order['placed_at'] ?? ''),
                 'estimated_total' => $estimatedTotal,
                 'paid_total' => $paidTotal,
+                'workflow_paid_total' => min($estimatedTotal, $workflowPaidTotal),
+                'accounting_paid_total' => min($estimatedTotal, $accountingPaidTotal),
+                'accounting_payment_count' => (int) ($accountingReferencePayments[$referenceKey]['transaction_count'] ?? 0),
                 'amount_due' => $amountDue,
                 'supplier_bill_overlap' => $overlap,
                 'counted_amount' => $countedAmount,

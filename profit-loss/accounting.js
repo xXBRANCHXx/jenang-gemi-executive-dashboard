@@ -1828,10 +1828,13 @@ if (root) {
         ? state.summary.purchase_order_outflow.orders
         : [];
       purchaseOrders.filter((order) => Number(order.counted_amount || 0) > 0).forEach((order) => {
+        const paidDetail = Number(order.paid_total || 0) > 0
+          ? `${formatCurrency(order.paid_total)} paid${Number(order.accounting_paid_total || 0) > 0 ? ' · Accounting matched' : ''}`
+          : 'No payment recorded';
         const detail = [
           order.tag || '',
           String(order.status || '').replace(/_/g, ' '),
-          Number(order.paid_total || 0) > 0 ? `${formatCurrency(order.paid_total)} paid` : 'No payment recorded'
+          paidDetail
         ].filter(Boolean).join(' · ');
         rows.push(`
           <a class="admin-accounting-breakdown-row is-purchase-order" href="../dashboard/?view=po-detail&amp;po=${Number(order.id || 0)}">
