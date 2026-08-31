@@ -3872,30 +3872,25 @@ function jg_accounting_purchase_order_outflow(PDO $accountingPdo, ?PDO $skuPdo =
             }
         }
 
-        $orders = $skuPdo->query(
-            'SELECT o.id, o.po_number, o.status, o.tag, o.estimated_total, o.placed_at
-             FROM purchase_orders o
-             WHERE o.status NOT IN ("draft", "cancelled")
-             ORDER BY o.placed_at DESC, o.id DESC'
-        )->fetchAll();
+        // Use the same canonical PO projection as Inventory and the PO detail
+        // screen. This is where payment rows become paid_total, amount_due,
+        // and is_paid; Accounting must not maintain a second interpretation.
+        $orders = array_values(array_filter(
+            jg_purchase_orders_fetch($skuPdo, 1000),
+            static fn (array $order): bool => !in_array(
+                (string) ($order['status'] ?? ''),
+                ['draft', 'cancelled'],
+                true
+            )
+        ));
 
-        $workflowPayments = [];
         $linkedTransactionIds = [];
-        $paymentStmt = $skuPdo->query(
-            'SELECT purchase_order_id, accounting_transaction_id, amount
-             FROM purchase_order_payments
-             WHERE amount > 0'
-        );
-        foreach (($paymentStmt ? $paymentStmt->fetchAll() : []) as $payment) {
-            $orderId = (int) ($payment['purchase_order_id'] ?? 0);
-            if ($orderId < 1) {
-                continue;
-            }
-            $workflowPayments[$orderId] = (int) ($workflowPayments[$orderId] ?? 0)
-                + max(0, (int) round((float) ($payment['amount'] ?? 0)));
-            $transactionId = (int) ($payment['accounting_transaction_id'] ?? 0);
-            if ($transactionId > 0) {
-                $linkedTransactionIds[$transactionId] = true;
+        foreach ($orders as $order) {
+            foreach ((array) ($order['payments'] ?? []) as $payment) {
+                $transactionId = (int) ($payment['accounting_transaction_id'] ?? 0);
+                if ($transactionId > 0) {
+                    $linkedTransactionIds[$transactionId] = true;
+                }
             }
         }
 
@@ -3920,11 +3915,13 @@ function jg_accounting_purchase_order_outflow(PDO $accountingPdo, ?PDO $skuPdo =
             $orderId = (int) ($order['id'] ?? 0);
             $estimatedTotal = max(0, (int) round((float) ($order['estimated_total'] ?? 0)));
             $referenceKey = jg_accounting_reference_key((string) ($order['po_number'] ?? ''));
-            $workflowPaidTotal = max(0, (int) ($workflowPayments[$orderId] ?? 0));
+            $workflowPaidTotal = max(0, (int) round((float) ($order['paid_total'] ?? 0)));
+            $workflowAmountDue = max(0, (int) round((float) ($order['amount_due'] ?? ($estimatedTotal - $workflowPaidTotal))));
             $accountingPaidTotal = max(0, (int) ($accountingReferencePayments[$referenceKey]['amount'] ?? 0));
             $paidTotal = min($estimatedTotal, $workflowPaidTotal + $accountingPaidTotal);
-            $amountDue = max(0, $estimatedTotal - $paidTotal);
-            if ($amountDue <= 0) {
+            $amountDue = max(0, $workflowAmountDue - $accountingPaidTotal);
+            $isPaid = !empty($order['is_paid']) || ($workflowPaidTotal > 0 && $workflowAmountDue <= 0);
+            if ($isPaid || $amountDue <= 0) {
                 continue;
             }
             $overlap = min($amountDue, max(0, (int) ($billReferences[$referenceKey] ?? 0)));

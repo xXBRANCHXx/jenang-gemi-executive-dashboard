@@ -153,6 +153,12 @@ summary_expect(30000, $poRowsByNumber['JG-PO-OPEN']['paid_total'], 'A linked PO 
 summary_expect(20000, $poRowsByNumber['JG-PO-MANUAL-PARTIAL']['accounting_paid_total'], 'A posted Accounting expense with the PO reference must reduce its unpaid balance.');
 summary_expect(false, isset($poRowsByNumber['JG-PO-MANUAL-PAID']), 'A PO fully covered by a matching Accounting payment must disappear from cash commitments.');
 summary_expect(false, isset($poRowsByNumber['JG-PO-PAID-BILL']), 'A PO covered by a paid supplier bill with the same number must disappear from cash commitments.');
+$canonicalPoRows = array_column(jg_purchase_orders_fetch($poPdo, 1000), null, 'po_number');
+summary_expect(
+    (int) round((float) $canonicalPoRows['JG-PO-OPEN']['amount_due']),
+    $poRowsByNumber['JG-PO-OPEN']['amount_due'],
+    'Accounting must use the same amount due calculated by the canonical PO lifecycle.'
+);
 $poLedger = jg_accounting_purchase_order_payment_ledger_rows('2026-07', $poPdo);
 summary_expect(1, count($poLedger), 'Paid purchase orders must be available to the activity ledger even when their accounting transaction is missing.');
 summary_expect(99, $poLedger[0]['linked_transaction_id'], 'PO ledger rows must retain their accounting transaction link for deduplication.');
