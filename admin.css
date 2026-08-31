@@ -25423,11 +25423,222 @@ body:has(.admin-app[data-sku-db])::after {
   outline: none;
 }
 
+.admin-marketplace-auth-card {
+  grid-column: 1 / -1;
+}
+
+.admin-marketplace-auth-head > div:first-child {
+  max-width: 760px;
+}
+
+.admin-marketplace-auth-head p,
+.admin-marketplace-auth-footnote {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.admin-marketplace-auth-list {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-marketplace-auth-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(150px, 0.7fr) minmax(190px, 0.8fr) auto;
+  align-items: center;
+  gap: 16px;
+  min-height: 76px;
+  padding: 14px 16px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-card-inner-radius);
+  background: var(--admin-surface-soft);
+}
+
+.admin-marketplace-auth-shop,
+.admin-marketplace-auth-date {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.admin-marketplace-auth-shop strong,
+.admin-marketplace-auth-date strong {
+  overflow: hidden;
+  color: var(--admin-text);
+  font-size: 0.9rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-marketplace-auth-shop span,
+.admin-marketplace-auth-date span {
+  color: var(--admin-muted);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.admin-marketplace-auth-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: max-content;
+  max-width: 100%;
+  min-height: 30px;
+  padding: 0 11px;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  color: var(--admin-muted);
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.admin-marketplace-auth-status::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.admin-marketplace-auth-status.is-connected {
+  border-color: rgba(34, 197, 94, 0.28);
+  background: rgba(34, 197, 94, 0.09);
+  color: #22c55e;
+}
+
+.admin-marketplace-auth-status.is-renewal-due {
+  border-color: rgba(245, 158, 11, 0.32);
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.admin-marketplace-auth-status.is-expired,
+.admin-marketplace-auth-status.is-not-connected {
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.09);
+  color: #ef4444;
+}
+
+.admin-marketplace-auth-row .admin-primary-btn {
+  min-width: 168px;
+  min-height: 42px;
+  white-space: nowrap;
+}
+
+.admin-marketplace-auth-row .admin-primary-btn:disabled,
+.admin-marketplace-auth-head button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.admin-marketplace-auth-notice {
+  padding: 12px 14px;
+  border: 1px solid rgba(34, 197, 94, 0.28);
+  border-radius: 12px;
+  background: rgba(34, 197, 94, 0.09);
+  color: #22c55e;
+  font-size: 0.8rem;
+  font-weight: 750;
+  line-height: 1.5;
+}
+
+.admin-marketplace-auth-notice.is-error {
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.09);
+  color: #ef4444;
+}
+
+.admin-marketplace-auth-dialog {
+  width: min(580px, calc(100vw - 32px));
+  max-height: calc(100vh - 40px);
+  padding: 0;
+  overflow: auto;
+  border: 1px solid var(--admin-border);
+  border-radius: 22px;
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.4);
+}
+
+.admin-marketplace-auth-dialog::backdrop {
+  background: rgba(2, 6, 23, 0.72);
+  backdrop-filter: blur(5px);
+}
+
+.admin-marketplace-auth-dialog-card {
+  display: grid;
+  grid-template-columns: 50px minmax(0, 1fr);
+  gap: 16px;
+  margin: 0;
+  padding: 24px;
+}
+
+.admin-marketplace-auth-dialog-icon {
+  display: grid;
+  place-items: center;
+  width: 50px;
+  height: 50px;
+  border-radius: 16px;
+  background: #ee4d2d;
+  color: #fff;
+  font: 800 1.45rem/1 "Space Grotesk", sans-serif;
+}
+
+.admin-marketplace-auth-dialog-card h3,
+.admin-marketplace-auth-dialog-card p {
+  margin: 0;
+}
+
+.admin-marketplace-auth-dialog-card > div:nth-child(2) {
+  display: grid;
+  gap: 6px;
+}
+
+.admin-marketplace-auth-dialog-card > div:nth-child(2) p,
+.admin-marketplace-auth-dialog-card ol,
+.admin-marketplace-auth-dialog-warning {
+  color: var(--admin-muted);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.admin-marketplace-auth-dialog-card ol,
+.admin-marketplace-auth-dialog-warning,
+.admin-marketplace-auth-dialog-card .admin-form-error,
+.admin-marketplace-auth-dialog-actions {
+  grid-column: 1 / -1;
+}
+
+.admin-marketplace-auth-dialog-card ol {
+  display: grid;
+  gap: 10px;
+  margin: 4px 0 0;
+  padding-left: 24px;
+}
+
+.admin-marketplace-auth-dialog-warning {
+  padding: 12px 14px;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: 12px;
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.admin-marketplace-auth-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
 :root[data-admin-theme='light'] .admin-settings-grid-minimal .admin-panel,
 :root[data-admin-theme='light'] .admin-regional-preview,
 :root[data-admin-theme='light'] .admin-device-current,
 :root[data-admin-theme='light'] .admin-device-manual-entry,
-:root[data-admin-theme='light'] .admin-settings-device-row {
+:root[data-admin-theme='light'] .admin-settings-device-row,
+:root[data-admin-theme='light'] .admin-marketplace-auth-row {
   border-color: rgba(15, 23, 42, 0.1);
   background: #ffffff;
 }
@@ -25478,6 +25689,19 @@ body:has(.admin-app[data-sku-db])::after {
     width: 100%;
     min-width: 0;
   }
+
+  .admin-marketplace-auth-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .admin-marketplace-auth-date {
+    grid-column: 1;
+  }
+
+  .admin-marketplace-auth-row .admin-primary-btn {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
 }
 
 @media (max-width: 540px) {
@@ -25496,6 +25720,40 @@ body:has(.admin-app[data-sku-db])::after {
 
   .admin-settings-destination-card .admin-destination-button,
   .admin-accounting-wallet-destination .admin-destination-button {
+    width: 100%;
+  }
+
+  .admin-marketplace-auth-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .admin-marketplace-auth-date,
+  .admin-marketplace-auth-row .admin-primary-btn {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .admin-marketplace-auth-row .admin-primary-btn {
+    width: 100%;
+  }
+
+  .admin-marketplace-auth-dialog-card {
+    grid-template-columns: 42px minmax(0, 1fr);
+    padding: 20px;
+  }
+
+  .admin-marketplace-auth-dialog-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 13px;
+  }
+
+  .admin-marketplace-auth-dialog-actions {
+    flex-direction: column-reverse;
+  }
+
+  .admin-marketplace-auth-dialog-actions button {
     width: 100%;
   }
 }

@@ -8,17 +8,39 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('Expires: 0');
 
+function jg_dashboard_post_login_location(): string
+{
+    $view = strtolower(trim((string) ($_GET['view'] ?? '')));
+    $result = strtolower(trim((string) ($_GET['shopee_auth'] ?? '')));
+    if ($view !== 'settings' || !in_array($result, ['success', 'failed'], true)) {
+        return './';
+    }
+
+    $params = ['view' => 'settings', 'shopee_auth' => $result];
+    $account = strtolower(trim((string) ($_GET['account'] ?? '')));
+    if (in_array($account, ['jenang-gemi-shopee', 'zero-shopee', 'zfit-shopee'], true)) {
+        $params['account'] = $account;
+    }
+    $reason = strtolower(trim((string) ($_GET['reason'] ?? '')));
+    if (preg_match('/^[a-z0-9_-]{1,80}$/D', $reason) === 1) {
+        $params['reason'] = $reason;
+    }
+
+    return './?' . http_build_query($params, '', '&', PHP_QUERY_RFC3986);
+}
+
 $hasError = false;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $submittedCode = (string) ($_POST['admin_code'] ?? '');
     if (jg_admin_attempt_login($submittedCode)) {
-        header('Location: ./');
+        header('Location: ' . jg_dashboard_post_login_location());
         exit;
     }
     $hasError = true;
 }
 
 $isAuthenticated = jg_admin_is_authenticated();
+$marketplaceAuthCsrf = $isAuthenticated ? jg_admin_csrf_token() : '';
 if ($isAuthenticated) {
     $requestedView = strtolower(trim((string) ($_GET['view'] ?? 'overview')));
     if (in_array($requestedView, ['accounting', 'cash-control', 'cash_control'], true)) {
@@ -36,7 +58,7 @@ $sidebarSection = match (true) {
     in_array($requestedView ?? '', ['website', 'site', 'home', 'campaign', 'campaigns', 'landing', 'landing-pages'], true) => 'website',
     default => 'home',
 };
-$dashboardBuildVersion = 'exec3.98.6';
+$dashboardBuildVersion = 'exec3.98.7';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -106,7 +128,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
             <strong class="admin-loader-label" data-admin-loader-label>Initializing...</strong>
         </div>
     </div>
-    <div class="admin-app admin-app-suite" data-admin-dashboard data-analytics-endpoint="../api/analytics/" data-live-endpoint="../api/live/" data-settings-endpoint="../api/settings/" data-sales-endpoint="../api/sales/" data-orders-endpoint="../api/orders/" data-customer-profiles-endpoint="../api/customer-profiles/?summary=1" data-wallet-endpoint="../api/wallet/" data-inventory-recap-endpoint="../api/inventory-recap/" data-ads-endpoint="../api/ads/" data-sku-catalog-endpoint="../api/sales/?action=sku_catalog" data-context-endpoint="../api/context/" data-zero-store-endpoint="../api/zero-store/" data-jenang-gemi-store-endpoint="../api/jenang-gemi-store/" data-website-orders-endpoint="../api/website-orders/" data-hard-set-endpoint="../api/hard-set/" data-daily-columns-endpoint="../api/daily-columns/" data-province-map-url="../assets/data/indonesia-38-provinces.geojson">
+    <div class="admin-app admin-app-suite" data-admin-dashboard data-analytics-endpoint="../api/analytics/" data-live-endpoint="../api/live/" data-settings-endpoint="../api/settings/" data-sales-endpoint="../api/sales/" data-orders-endpoint="../api/orders/" data-customer-profiles-endpoint="../api/customer-profiles/?summary=1" data-wallet-endpoint="../api/wallet/" data-inventory-recap-endpoint="../api/inventory-recap/" data-ads-endpoint="../api/ads/" data-sku-catalog-endpoint="../api/sales/?action=sku_catalog" data-context-endpoint="../api/context/" data-zero-store-endpoint="../api/zero-store/" data-jenang-gemi-store-endpoint="../api/jenang-gemi-store/" data-website-orders-endpoint="../api/website-orders/" data-hard-set-endpoint="../api/hard-set/" data-daily-columns-endpoint="../api/daily-columns/" data-marketplace-auth-endpoint="../api/marketplace-auth/" data-marketplace-auth-csrf="<?php echo htmlspecialchars($marketplaceAuthCsrf, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?>" data-province-map-url="../assets/data/indonesia-38-provinces.geojson">
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
         <div class="admin-shell">
@@ -1997,6 +2019,22 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                         </div>
                     </article>
 
+                    <article class="admin-panel admin-settings-card admin-settings-card-wide admin-marketplace-auth-card" data-marketplace-auth-card>
+                        <div class="admin-settings-card-head admin-marketplace-auth-head">
+                            <div>
+                                <span class="admin-panel-kicker">Marketplace access</span>
+                                <h3>Shopee authorization</h3>
+                                <p>Renew a shop without handling API keys or asking a developer. API Ingest keeps using the current connection until Shopee verifies the replacement.</p>
+                            </div>
+                            <button type="button" class="admin-ghost-btn" data-marketplace-auth-refresh>Refresh status</button>
+                        </div>
+                        <div class="admin-marketplace-auth-notice" data-marketplace-auth-notice role="status" aria-live="polite" hidden></div>
+                        <div class="admin-marketplace-auth-list" data-marketplace-auth-list aria-live="polite">
+                            <p class="admin-empty">Checking Shopee authorization status...</p>
+                        </div>
+                        <p class="admin-marketplace-auth-footnote">Shopee will ask the shop owner or administrator to sign in, complete OTP if required, and confirm access. The Dashboard handles everything else.</p>
+                    </article>
+
                     <article class="admin-panel admin-settings-card admin-settings-destination-card admin-settings-card-wide">
                         <div class="admin-settings-destination-copy">
                             <span class="admin-settings-destination-icon" aria-hidden="true">
@@ -2013,6 +2051,28 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
                         </a>
                     </article>
+
+                    <dialog class="admin-marketplace-auth-dialog" data-marketplace-auth-dialog aria-labelledby="shopee-renew-title">
+                        <form method="dialog" class="admin-marketplace-auth-dialog-card">
+                            <div class="admin-marketplace-auth-dialog-icon" aria-hidden="true">S</div>
+                            <div>
+                                <span class="admin-panel-kicker">Secure handoff</span>
+                                <h3 id="shopee-renew-title">Renew Shopee authorization</h3>
+                                <p data-marketplace-auth-dialog-shop>Preparing the selected shop...</p>
+                            </div>
+                            <ol>
+                                <li>Continue to Shopee and sign in as the owner or administrator of the named shop.</li>
+                                <li>Check that Shopee shows <strong>Auto Transactions</strong>, then confirm authorization.</li>
+                                <li>Wait for Shopee to return you here. API Ingest verifies the shop before changing its connection.</li>
+                            </ol>
+                            <p class="admin-marketplace-auth-dialog-warning">If Shopee shows a different shop, cancel and switch accounts. The Dashboard will reject a mismatched shop.</p>
+                            <p class="admin-form-error" data-marketplace-auth-dialog-error hidden></p>
+                            <div class="admin-marketplace-auth-dialog-actions">
+                                <button type="submit" value="cancel" class="admin-ghost-btn" data-marketplace-auth-cancel>Cancel</button>
+                                <button type="button" class="admin-primary-btn" data-marketplace-auth-continue>Continue to Shopee</button>
+                            </div>
+                        </form>
+                    </dialog>
                 </section>
                     </section>
                 </main>

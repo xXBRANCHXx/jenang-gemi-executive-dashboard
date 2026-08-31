@@ -47,6 +47,34 @@ function jg_admin_attempt_login(string $code): bool
     return true;
 }
 
+function jg_admin_csrf_token(): string
+{
+    jg_admin_start_session();
+    $token = trim((string) ($_SESSION['jg_admin_csrf_token'] ?? ''));
+    if (preg_match('/^[a-f0-9]{64}$/D', $token) !== 1) {
+        $token = bin2hex(random_bytes(32));
+        $_SESSION['jg_admin_csrf_token'] = $token;
+    }
+    return $token;
+}
+
+function jg_admin_require_csrf_json(): void
+{
+    jg_admin_start_session();
+    $expected = trim((string) ($_SESSION['jg_admin_csrf_token'] ?? ''));
+    $provided = trim((string) ($_SERVER['HTTP_X_JG_CSRF_TOKEN'] ?? ''));
+    if ($expected !== '' && $provided !== '' && hash_equals($expected, $provided)) {
+        jg_admin_release_session();
+        return;
+    }
+
+    jg_admin_release_session();
+    http_response_code(403);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['ok' => false, 'error' => 'Invalid or expired dashboard request.'], JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
 function jg_admin_release_session(): void
 {
     if (session_status() === PHP_SESSION_ACTIVE) {

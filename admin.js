@@ -2729,6 +2729,14 @@ document.addEventListener('DOMContentLoaded', () => {
       requestToken: 0,
       settingsRequestToken: 0
     },
+    marketplaceAuthorization: {
+      accounts: [],
+      loadedAt: 0,
+      loading: false,
+      selectedAccount: '',
+      selectedCompany: '',
+      starting: false
+    },
     zeroStore: {
       items: [],
       discounts: [],
@@ -2789,6 +2797,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	  const websiteOrdersEndpoint = root.dataset.websiteOrdersEndpoint || '../api/website-orders/';
 	  const hardSetEndpoint = root.dataset.hardSetEndpoint || '../api/hard-set/';
 	  const dailyColumnsEndpoint = root.dataset.dailyColumnsEndpoint || '../api/daily-columns/';
+	  const marketplaceAuthEndpoint = root.dataset.marketplaceAuthEndpoint || '../api/marketplace-auth/';
+	  const marketplaceAuthCsrf = root.dataset.marketplaceAuthCsrf || '';
 	  const walletEndpoint = root.dataset.walletEndpoint || '../api/wallet/';
 	  const inventoryRecapEndpoint = root.dataset.inventoryRecapEndpoint || '../api/inventory-recap/';
 	  const provinceMapUrl = root.dataset.provinceMapUrl || '../assets/data/indonesia-38-provinces.geojson';
@@ -3192,6 +3202,17 @@ document.addEventListener('DOMContentLoaded', () => {
     controls: document.querySelectorAll('[data-regional-setting]'),
     previewDate: document.querySelector('[data-regional-preview-date]'),
     previewCurrency: document.querySelector('[data-regional-preview-currency]')
+  };
+
+  const marketplaceAuthRefs = {
+    card: document.querySelector('[data-marketplace-auth-card]'),
+    list: document.querySelector('[data-marketplace-auth-list]'),
+    notice: document.querySelector('[data-marketplace-auth-notice]'),
+    refresh: document.querySelector('[data-marketplace-auth-refresh]'),
+    dialog: document.querySelector('[data-marketplace-auth-dialog]'),
+    dialogShop: document.querySelector('[data-marketplace-auth-dialog-shop]'),
+    dialogError: document.querySelector('[data-marketplace-auth-dialog-error]'),
+    continueButton: document.querySelector('[data-marketplace-auth-continue]')
   };
 
   const zeroStoreRefs = {
@@ -10382,6 +10403,200 @@ document.addEventListener('DOMContentLoaded', () => {
     websiteRefs.deviceExclusionError.textContent = '';
   };
 
+  const marketplaceAuthorizationDate = (value) => {
+    const text = String(value || '').trim();
+    if (!text) return 'Not available';
+    const normalized = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(text)
+      ? text
+      : `${text.replace(' ', 'T')}Z`;
+    const date = new Date(normalized);
+    if (!Number.isFinite(date.getTime())) return text;
+    return new Intl.DateTimeFormat(getRegionalDateLocale(), {
+      timeZone: state.timezone,
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    }).format(date);
+  };
+
+  const setMarketplaceAuthorizationNotice = (message = '', isError = false) => {
+    if (!marketplaceAuthRefs.notice) return;
+    marketplaceAuthRefs.notice.hidden = !message;
+    marketplaceAuthRefs.notice.textContent = message;
+    marketplaceAuthRefs.notice.classList.toggle('is-error', Boolean(isError));
+  };
+
+  const marketplaceAuthorizationStatus = (row) => {
+    const token = row && typeof row.token === 'object' ? row.token : null;
+    const status = String(token?.authorization_state || (token ? 'connected' : 'not_connected'));
+    if (status === 'renewal_due') return { status, label: 'Renewal due', button: 'Renew authorization' };
+    if (status === 'expired') return { status, label: 'Authorization expired', button: 'Reconnect Shopee' };
+    if (status === 'connected') return { status, label: 'Connected', button: 'Renew authorization' };
+    return { status: 'not_connected', label: 'Not connected', button: 'Connect Shopee' };
+  };
+
+  const renderMarketplaceAuthorization = () => {
+    if (!marketplaceAuthRefs.list) return;
+    if (state.marketplaceAuthorization.loading && !state.marketplaceAuthorization.accounts.length) {
+      marketplaceAuthRefs.list.innerHTML = '<p class="admin-empty">Checking Shopee authorization status...</p>';
+      return;
+    }
+    if (!state.marketplaceAuthorization.accounts.length) {
+      marketplaceAuthRefs.list.innerHTML = '<p class="admin-empty">Shopee authorization status is temporarily unavailable. Existing API Ingest connections have not been changed.</p>';
+      return;
+    }
+
+    marketplaceAuthRefs.list.innerHTML = state.marketplaceAuthorization.accounts.map((row) => {
+      const token = row && typeof row.token === 'object' ? row.token : null;
+      const status = marketplaceAuthorizationStatus(row);
+      const accountKey = String(row.account_key || '');
+      const company = String(row.company || accountKey || 'Shopee shop');
+      const shopId = Number(row.configured_shop_id || token?.shop_id || 0);
+      const credentials = row && typeof row.credentials === 'object' ? row.credentials : {};
+      const ready = Boolean(credentials.partner_id && credentials.partner_key && shopId > 0);
+      const expiry = marketplaceAuthorizationDate(token?.authorization_expires_at);
+      const authorized = marketplaceAuthorizationDate(token?.authorized_at);
+      const exactExpiry = token?.authorization_expiry_source === 'shopee_partner_api';
+      const dateTitle = status.status === 'not_connected'
+        ? 'Authorization'
+        : (exactExpiry ? 'Renew before' : 'Estimated renew by');
+      const dateValue = status.status === 'not_connected' ? 'Not completed' : expiry;
+      const detail = token ? `Last confirmed ${authorized}` : 'No saved Shopee authorization';
+      return `
+        <div class="admin-marketplace-auth-row" data-marketplace-auth-account="${escapeHtml(accountKey)}">
+          <div class="admin-marketplace-auth-shop">
+            <strong>${escapeHtml(company)}</strong>
+            <span>${shopId > 0 ? `Shopee Shop ID ${escapeHtml(String(shopId))}` : 'Expected Shop ID is not configured'}</span>
+          </div>
+          <span class="admin-marketplace-auth-status is-${escapeHtml(status.status.replaceAll('_', '-'))}">${escapeHtml(status.label)}</span>
+          <div class="admin-marketplace-auth-date">
+            <span>${escapeHtml(dateTitle)}</span>
+            <strong>${escapeHtml(dateValue)}</strong>
+            <span>${escapeHtml(detail)}</span>
+          </div>
+          <button type="button" class="admin-primary-btn" data-marketplace-auth-renew="${escapeHtml(accountKey)}" data-marketplace-auth-company="${escapeHtml(company)}" ${ready ? '' : 'disabled'}>${escapeHtml(ready ? status.button : 'Configuration required')}</button>
+        </div>
+      `;
+    }).join('');
+  };
+
+  const loadMarketplaceAuthorization = async (options = {}) => {
+    const now = Date.now();
+    if (!options.force && state.marketplaceAuthorization.loadedAt && now - state.marketplaceAuthorization.loadedAt < 60 * 1000) {
+      renderMarketplaceAuthorization();
+      return true;
+    }
+    state.marketplaceAuthorization.loading = true;
+    renderMarketplaceAuthorization();
+    if (marketplaceAuthRefs.refresh) marketplaceAuthRefs.refresh.disabled = true;
+    try {
+      const separator = marketplaceAuthEndpoint.includes('?') ? '&' : '?';
+      const data = await requestJson(`${marketplaceAuthEndpoint}${separator}_ts=${Date.now()}`, {
+        cache: 'no-store',
+        timeoutMs: 22000
+      });
+      state.marketplaceAuthorization.accounts = Array.isArray(data.accounts) ? data.accounts : [];
+      state.marketplaceAuthorization.loadedAt = Date.now();
+      renderMarketplaceAuthorization();
+      return true;
+    } finally {
+      state.marketplaceAuthorization.loading = false;
+      if (marketplaceAuthRefs.refresh) marketplaceAuthRefs.refresh.disabled = false;
+      renderMarketplaceAuthorization();
+    }
+  };
+
+  const showMarketplaceAuthorizationDialog = (accountKey, company) => {
+    state.marketplaceAuthorization.selectedAccount = accountKey;
+    state.marketplaceAuthorization.selectedCompany = company;
+    if (marketplaceAuthRefs.dialogShop) {
+      marketplaceAuthRefs.dialogShop.textContent = `You are renewing ${company}. Use that shop's owner or administrator account on Shopee.`;
+    }
+    if (marketplaceAuthRefs.dialogError) {
+      marketplaceAuthRefs.dialogError.hidden = true;
+      marketplaceAuthRefs.dialogError.textContent = '';
+    }
+    if (
+      typeof HTMLDialogElement !== 'undefined'
+      && marketplaceAuthRefs.dialog instanceof HTMLDialogElement
+      && typeof marketplaceAuthRefs.dialog.showModal === 'function'
+    ) {
+      marketplaceAuthRefs.dialog.showModal();
+    } else {
+      marketplaceAuthRefs.dialog?.setAttribute('open', '');
+    }
+  };
+
+  const startMarketplaceAuthorization = async () => {
+    const accountKey = state.marketplaceAuthorization.selectedAccount;
+    if (!accountKey || state.marketplaceAuthorization.starting) return;
+    state.marketplaceAuthorization.starting = true;
+    if (marketplaceAuthRefs.continueButton) {
+      marketplaceAuthRefs.continueButton.disabled = true;
+      marketplaceAuthRefs.continueButton.textContent = 'Opening Shopee...';
+    }
+    if (marketplaceAuthRefs.dialogError) marketplaceAuthRefs.dialogError.hidden = true;
+    try {
+      const data = await requestJson(marketplaceAuthEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-JG-CSRF-Token': marketplaceAuthCsrf
+        },
+        body: JSON.stringify({ account_key: accountKey }),
+        cache: 'no-store',
+        timeoutMs: 25000
+      });
+      const destination = new URL(String(data.authorization_url || ''));
+      if (destination.protocol !== 'https:' || !destination.hostname.toLowerCase().endsWith('.shopeemobile.com')) {
+        throw new Error('Shopee returned an invalid authorization link.');
+      }
+      window.location.assign(destination.href);
+    } catch (error) {
+      state.marketplaceAuthorization.starting = false;
+      if (marketplaceAuthRefs.continueButton) {
+        marketplaceAuthRefs.continueButton.disabled = false;
+        marketplaceAuthRefs.continueButton.textContent = 'Continue to Shopee';
+      }
+      if (marketplaceAuthRefs.dialogError) {
+        marketplaceAuthRefs.dialogError.hidden = false;
+        marketplaceAuthRefs.dialogError.textContent = error?.message || 'Unable to open Shopee. Please try again.';
+      }
+    }
+  };
+
+  const showMarketplaceAuthorizationCallbackResult = () => {
+    const url = new URL(window.location.href);
+    const result = url.searchParams.get('shopee_auth');
+    if (!result) return;
+    const accountKey = url.searchParams.get('account') || '';
+    const accountNames = {
+      'jenang-gemi-shopee': 'Jenang Gemi',
+      'zero-shopee': 'ZERO',
+      'zfit-shopee': 'ZFIT'
+    };
+    const company = accountNames[accountKey] || 'Shopee';
+    if (result === 'success') {
+      setMarketplaceAuthorizationNotice(`${company} authorization was verified and API Ingest is connected.`, false);
+      state.marketplaceAuthorization.loadedAt = 0;
+    } else {
+      const reason = url.searchParams.get('reason') || '';
+      const messages = {
+        cancelled: 'Shopee authorization was cancelled. The existing API Ingest connection was not replaced.',
+        wrong_shop: 'Shopee returned a different shop. API Ingest rejected it and kept the previous connection.',
+        expired_session: 'The secure authorization link expired. Start again to generate a fresh link.',
+        invalid_session: 'The secure authorization link was invalid. Start again from this Settings page.',
+        missing_code_or_shop: 'Shopee did not finish the authorization. The existing connection was not replaced.',
+        verification_failed: 'The new Shopee connection could not be verified. API Ingest kept the previous saved connection.'
+      };
+      setMarketplaceAuthorizationNotice(messages[reason] || 'Shopee authorization did not complete. API Ingest kept the previous saved connection.', true);
+    }
+    url.searchParams.delete('shopee_auth');
+    url.searchParams.delete('account');
+    url.searchParams.delete('reason');
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+  };
+
   const refreshAnalyticsAfterDeviceExclusion = async () => {
     await Promise.allSettled([
       loadOverviewSafely({ force: true, preferStale: false }),
@@ -12655,7 +12870,10 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     if (state.activeView === 'settings') {
-      await loadWebsiteSettings(options);
+      await Promise.all([
+        loadWebsiteSettings(options),
+        loadMarketplaceAuthorization(options)
+      ]);
     }
   };
 
@@ -12706,16 +12924,23 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const loadWebsiteSettingsSafely = async (options = {}) => {
-    try {
-      await loadWebsiteSettings(options);
-      return true;
-    } catch (error) {
+    const [websiteResult, marketplaceResult] = await Promise.allSettled([
+      loadWebsiteSettings(options),
+      loadMarketplaceAuthorization(options)
+    ]);
+    if (websiteResult.status === 'rejected') {
       if (websiteRefs.deviceExclusionError) {
         websiteRefs.deviceExclusionError.hidden = false;
-        websiteRefs.deviceExclusionError.textContent = `Gagal memuat excluded device list: ${error.message}`;
+        websiteRefs.deviceExclusionError.textContent = `Gagal memuat excluded device list: ${websiteResult.reason?.message || 'Unknown error'}`;
       }
-      return false;
     }
+    if (marketplaceResult.status === 'rejected') {
+      setMarketplaceAuthorizationNotice(
+        `Shopee status could not be refreshed: ${marketplaceResult.reason?.message || 'service unavailable'}. Existing API Ingest connections were not changed.`,
+        true
+      );
+    }
+    return websiteResult.status === 'fulfilled' || marketplaceResult.status === 'fulfilled';
   };
 
   const loadActiveViewSafely = async (options = {}) => {
@@ -14982,6 +15207,38 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!(button instanceof HTMLElement)) return;
     openAdViewEditor(button.dataset.adViewEdit || '');
   });
+
+  marketplaceAuthRefs.list?.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target.closest('[data-marketplace-auth-renew]') : null;
+    if (!(target instanceof HTMLButtonElement) || target.disabled) return;
+    showMarketplaceAuthorizationDialog(
+      String(target.dataset.marketplaceAuthRenew || ''),
+      String(target.dataset.marketplaceAuthCompany || 'Shopee shop')
+    );
+  });
+
+  marketplaceAuthRefs.refresh?.addEventListener('click', () => {
+    setMarketplaceAuthorizationNotice();
+    loadMarketplaceAuthorization({ force: true }).catch((error) => {
+      setMarketplaceAuthorizationNotice(`Shopee status could not be refreshed: ${error?.message || 'service unavailable'}.`, true);
+    });
+  });
+
+  marketplaceAuthRefs.continueButton?.addEventListener('click', () => {
+    startMarketplaceAuthorization();
+  });
+
+  marketplaceAuthRefs.dialog?.addEventListener('close', () => {
+    if (state.marketplaceAuthorization.starting) return;
+    state.marketplaceAuthorization.selectedAccount = '';
+    state.marketplaceAuthorization.selectedCompany = '';
+    if (marketplaceAuthRefs.continueButton) {
+      marketplaceAuthRefs.continueButton.disabled = false;
+      marketplaceAuthRefs.continueButton.textContent = 'Continue to Shopee';
+    }
+  });
+
+  showMarketplaceAuthorizationCallbackResult();
 
   document.querySelectorAll('[data-view-switch]').forEach((button) => {
     button.addEventListener('click', async (event) => {

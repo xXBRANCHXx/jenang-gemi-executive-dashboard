@@ -37,6 +37,21 @@ Private admin dashboard for `admin.jenanggemi.com` behind a public Launch Pad.
 - `/api/zero-commerce/` (Biteship rates/orders, Duitku POP, and A5 labels; feature-gated)
 - `/api/jenang-gemi-website-orders/`
 - `/api/hard-set/`
+- `/api/marketplace-auth/` (authenticated Shopee status and renewal handoff)
+
+## Shopee self-service renewal
+
+**Dashboard → Settings → Shopee authorization** shows each configured shop and
+opens a guided Shopee reauthorization. The browser never receives the API
+Ingest setup token: this Dashboard calls API Ingest server-to-server, receives
+a ten-minute one-time Shopee destination, and sends the executive there. API
+Ingest verifies the returned Shop ID and new token before replacing the saved
+connection, then returns the executive to Settings with a success or safe
+retry message.
+
+The flow uses the existing `JG_API_INGEST_BASE_URL` and
+`JG_API_INGEST_SETUP_TOKEN` environment/config values. No additional Dashboard
+secret is required.
 
 Ad View shows ongoing Shopee campaigns only. It opens on today's hourly
 performance, keeps every summary metric inside the selected timeframe, and
