@@ -3965,69 +3965,6 @@ function jg_accounting_purchase_order_outflow(PDO $accountingPdo, ?PDO $skuPdo =
     }
 }
 
-/**
- * Cash-basis PO product cost comes only from recorded PO payment rows whose
- * linked Accounting transaction is still posted. PO estimates and unpaid
- * balances are deliberately absent from this query.
- *
- * @return array{months:array<string,int>,transactions:array<int,array<string,mixed>>,payment_count:int}
- */
-function jg_accounting_paid_purchase_order_costs(PDO $accountingPdo, int $year, ?PDO $skuPdo = null): array
-{
-    $year = max(2025, min(2100, $year));
-    $skuPdo ??= jg_accounting_purchase_order_db();
-    $paymentRows = $skuPdo->query(
-        'SELECT accounting_transaction_id, amount
-         FROM purchase_order_payments
-         WHERE accounting_transaction_id > 0 AND amount > 0'
-    )->fetchAll();
-    $paymentsByTransaction = [];
-    $paymentCountsByTransaction = [];
-    foreach ($paymentRows as $payment) {
-        $transactionId = (int) ($payment['accounting_transaction_id'] ?? 0);
-        if ($transactionId < 1) continue;
-        $paymentsByTransaction[$transactionId] = (int) ($paymentsByTransaction[$transactionId] ?? 0)
-            + max(0, (int) round((float) ($payment['amount'] ?? 0)));
-        $paymentCountsByTransaction[$transactionId] = (int) ($paymentCountsByTransaction[$transactionId] ?? 0) + 1;
-    }
-    if ($paymentsByTransaction === []) {
-        return ['months' => [], 'transactions' => [], 'payment_count' => 0];
-    }
-
-    $months = [];
-    $transactions = [];
-    $paymentCount = 0;
-    foreach (array_chunk(array_keys($paymentsByTransaction), 500) as $transactionIds) {
-        $idList = implode(',', array_map('intval', $transactionIds));
-        $stmt = $accountingPdo->prepare(
-            'SELECT id, business_month, category_id, amount
-             FROM accounting_transactions
-             WHERE id IN (' . $idList . ')
-               AND status = "posted"
-               AND direction = "money_out"
-               AND type = "expense"
-               AND business_month LIKE :year_prefix'
-        );
-        $stmt->execute([':year_prefix' => $year . '-%']);
-        foreach ($stmt->fetchAll() as $transaction) {
-            $transactionId = (int) ($transaction['id'] ?? 0);
-            $month = (string) ($transaction['business_month'] ?? '');
-            $paidAmount = max(0, (int) ($paymentsByTransaction[$transactionId] ?? 0));
-            if ($paidAmount < 1 || !preg_match('/^\d{4}-\d{2}$/', $month)) continue;
-            $months[$month] = (int) ($months[$month] ?? 0) + $paidAmount;
-            $paymentCount += (int) ($paymentCountsByTransaction[$transactionId] ?? 0);
-            $transactions[] = [
-                'transaction_id' => $transactionId,
-                'business_month' => $month,
-                'category_id' => $transaction['category_id'] === null ? null : (int) $transaction['category_id'],
-                'accounting_amount' => max(0, (int) round((float) ($transaction['amount'] ?? 0))),
-                'paid_amount' => $paidAmount,
-            ];
-        }
-    }
-    return ['months' => $months, 'transactions' => $transactions, 'payment_count' => $paymentCount];
-}
-
 function jg_accounting_monthly_summary(PDO $pdo, string $month): array
 {
     $stmt = $pdo->prepare(
@@ -4293,18 +4230,13 @@ function jg_accounting_save_pnl_category_settings(PDO $pdo, array $body): array
 }
 
 /**
- * Cash-basis inputs for the executive P&L. Product and packing costs come from
- * actual posted Accounting expenses and paid-bill allocations, classified by
- * the editable per-category P&L settings below.
+ * Cash-basis operating inputs for the executive P&L. Product and packing
+ * category totals are returned for Accounting reconciliation only. Gross
+ * profit uses sold-unit COGS from Sales and a fixed packing assumption.
  */
-function jg_accounting_pnl_summary(PDO $pdo, int $year, ?PDO $purchaseOrderPdo = null): array
+function jg_accounting_pnl_summary(PDO $pdo, int $year): array
 {
     $year = max(2025, min(2100, $year));
-    try {
-        $paidPurchaseOrders = jg_accounting_paid_purchase_order_costs($pdo, $year, $purchaseOrderPdo);
-    } catch (Throwable $error) {
-        throw new RuntimeException('Actual paid PO costs could not be loaded, so the P&L was not calculated.', 0, $error);
-    }
     $stmt = $pdo->prepare(
         'SELECT t.business_month,
             SUM(CASE WHEN t.direction = "money_out" AND t.type = "refund" THEN t.amount ELSE 0 END) AS manual_refunds,
@@ -4442,21 +4374,6 @@ function jg_accounting_pnl_summary(PDO $pdo, int $year, ?PDO $purchaseOrderPdo =
         }
     }
 
-    // Automatic PO payments are sourced from purchase_order_payments below.
-    // Remove their mirrored Accounting transactions from category totals so a
-    // changed category setting can never count the same payment a second time.
-    foreach ($paidPurchaseOrders['transactions'] as $transaction) {
-        $key = (string) ($transaction['business_month'] ?? '');
-        $categoryId = (int) ($transaction['category_id'] ?? 0);
-        if ($categoryId < 1 || !isset($categoryAmounts[$key][$categoryId])) continue;
-        $remaining = (int) $categoryAmounts[$key][$categoryId] - (int) ($transaction['accounting_amount'] ?? 0);
-        if ($remaining > 0) {
-            $categoryAmounts[$key][$categoryId] = $remaining;
-        } else {
-            unset($categoryAmounts[$key][$categoryId]);
-        }
-    }
-
     $categorySettings = jg_accounting_pnl_category_settings($pdo);
     $settingsById = [];
     foreach ($categorySettings as $setting) $settingsById[(int) $setting['category_id']] = $setting;
@@ -4483,11 +4400,9 @@ function jg_accounting_pnl_summary(PDO $pdo, int $year, ?PDO $purchaseOrderPdo =
             }
             if (!is_array($setting) || empty($setting['include_in_net_profit'])) continue;
             $bucket = (string) ($setting['pnl_bucket'] ?? 'exclude');
-            if ($bucket === 'product_cost') continue;
             if ($bucket === 'exclude' || !array_key_exists($bucket, $buckets)) continue;
             $buckets[$bucket] += (int) $amount;
         }
-        $buckets['product_cost'] = (int) ($paidPurchaseOrders['months'][$key] ?? 0);
         $transferFees = (int) round((float) ($row['transfer_fees'] ?? 0));
         $buckets['fees'] += $transferFees;
         $operatingExpenses = $buckets['ad_cost'] + $buckets['marketing'] + $buckets['payroll'] + $buckets['operations'] + $buckets['fees'];
@@ -4525,13 +4440,13 @@ function jg_accounting_pnl_summary(PDO $pdo, int $year, ?PDO $purchaseOrderPdo =
         'months' => $months,
         'category_settings' => $categorySettings,
         'pnl_buckets' => jg_accounting_pnl_buckets(),
-        'po_payment_count' => (int) ($paidPurchaseOrders['payment_count'] ?? 0),
-        'product_cost_basis' => 'posted_linked_purchase_order_payments',
+        'product_cost_basis' => 'sales_service_sold_unit_cogs',
+        'packing_cost_basis' => 'sold_units_x_1500',
         'open_review_items' => (int) $pdo->query('SELECT COUNT(*) FROM accounting_review_queue WHERE status = "open"')->fetchColumn(),
         'notes' => [
-            'Product cost uses only recorded partial/full PO payments linked to posted Accounting transactions; unpaid PO balances and estimates are excluded.',
-            'Packing cost uses actual posted Accounting payments, not sale-level estimates.',
-            'Net profit is net revenue minus included product, packing, and operating categories.',
+            'Gross profit uses Sales COGS for products sold; purchase-order values and payments are not part of the calculation.',
+            'Packing cost is estimated at Rp 1.500 for every unit sold instead of using actual packing purchases.',
+            'Net profit is gross profit minus included operating categories.',
         ],
     ];
 }

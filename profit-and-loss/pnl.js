@@ -8,6 +8,7 @@ if (root) {
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const PACKING_COST_PER_SOLD_UNIT = 1500;
   const state = {
     year: currentYear,
     period: String(currentMonth),
@@ -148,8 +149,9 @@ if (root) {
       const partnerPayments = numeric(books, ['partner_payments']);
       const otherIncome = numeric(books, ['other_income']);
       const revenue = sourceRevenue + partnerPayments + otherIncome - refunds;
-      const productCosts = numeric(books, ['product_costs', 'product_purchases']);
-      const packingCosts = numeric(books, ['packing_costs']);
+      const soldUnits = Math.max(0, numeric(sale, ['item_count', 'items_qty', 'units', 'quantity']));
+      const productCosts = Math.max(0, numeric(sale, ['cogs', 'cost_of_goods_sold']));
+      const packingCosts = soldUnits * PACKING_COST_PER_SOLD_UNIT;
       const adCost = numeric(books, ['ad_cost']);
       const marketingOther = numeric(books, ['marketing_other']);
       const payroll = numeric(books, ['payroll']);
@@ -162,6 +164,7 @@ if (root) {
         month,
         revenue,
         sourceRevenue,
+        soldUnits,
         partnerPayments,
         refunds,
         cogs: productCosts,
@@ -176,7 +179,6 @@ if (root) {
         opex,
         otherIncome,
         netProfit: revenue - productCosts - packingCosts - opex,
-        productPurchases: productCosts,
         categoryAmounts: books?.category_amounts && typeof books.category_amounts === 'object' ? books.category_amounts : {},
         categoryBreakdowns: books?.category_breakdowns && typeof books.category_breakdowns === 'object' ? books.category_breakdowns : {}
       };
@@ -195,8 +197,8 @@ if (root) {
   };
   const bridgeRow = (label, value, className = '') => `<div class="${className}"><span>${escapeHtml(label)}</span><strong>${money(value)}</strong></div>`;
   const pnlBucketLabels = {
-    product_cost: 'PO / product cost',
-    packing_cost: 'Actual packing cost',
+    product_cost: 'Accounting product purchase (reconciliation only)',
+    packing_cost: 'Accounting packing purchase (reconciliation only)',
     ad_cost: 'Marketing / platform ads',
     marketing: 'Other marketing',
     payroll: 'Payroll / labor',
@@ -419,7 +421,7 @@ if (root) {
       : `${rupiahPerHundred(netMargin)} remained as net profit.`;
     if (refs.costCopy) refs.costCopy.textContent = isLoss
       ? `${rupiahPerHundred(costRate)} was subtracted, so costs exceeded every Rp100 of counted revenue.`
-      : `${rupiahPerHundred(costRate)} was subtracted for recorded product costs, packing, and operating expenses.`;
+      : `${rupiahPerHundred(costRate)} was subtracted for sold-product COGS, assumed packing, and operating expenses.`;
     if (refs.revenueCaption) refs.revenueCaption.textContent = `${money(revenue)} total revenue`;
     if (refs.revenueTotal) refs.revenueTotal.textContent = money(revenue);
     if (refs.costTotal) refs.costTotal.textContent = money(costTotal);
@@ -437,8 +439,8 @@ if (root) {
     }
 
     const compositionRows = [
-      ['Product cost', productCosts, 'product'],
-      ['Packing', packingCosts, 'packing'],
+      ['Product COGS', productCosts, 'product'],
+      ['Packing @ Rp1.500/unit', packingCosts, 'packing'],
       ['Operating expenses', operatingExpenses, 'opex'],
       [isLoss ? 'Net loss' : 'Net profit', Math.max(0, netProfit), 'profit']
     ];
@@ -459,8 +461,8 @@ if (root) {
       selected.otherIncome ? bridgeRow('Other revenue', selected.otherIncome || 0) : '',
       selected.refunds ? bridgeRow('Less: manual customer refunds', -(selected.refunds || 0), 'is-deduction') : '',
       bridgeRow('Net revenue', selected.revenue || 0, 'is-subtotal'),
-      bridgeRow('Less: recorded PO payments', -(selected.cogs || 0), 'is-deduction'),
-      bridgeRow('Less: actual Accounting packing costs', -(selected.packing || 0), 'is-deduction'),
+      bridgeRow('Less: COGS of products sold', -(selected.cogs || 0), 'is-deduction'),
+      bridgeRow('Less: packing assumption (Rp1.500 × units sold)', -(selected.packing || 0), 'is-deduction'),
       bridgeRow('Gross profit', selected.grossProfit || 0, 'is-subtotal'),
       ...operatingRows.map((category) => {
         const display = categoryDisplay(category);
@@ -544,7 +546,7 @@ if (root) {
     refs.period.value = state.period;
   };
   const load = async (force = false) => {
-    if (refs.status) refs.status.textContent = 'Loading revenue, COGS, and Accounting entries…';
+    if (refs.status) refs.status.textContent = 'Loading net revenue, sold-product COGS, and Accounting entries…';
     refs.refresh?.classList.add('is-loading');
     if (refs.refresh) refs.refresh.disabled = true;
     try {

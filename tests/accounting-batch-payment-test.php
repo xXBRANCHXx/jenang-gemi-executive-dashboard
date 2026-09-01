@@ -49,9 +49,6 @@ batch_payment_expect(
 require_once dirname(__DIR__) . '/accounting-bootstrap.php';
 $pdo = new PDO('sqlite::memory:');
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-$poPdo = new PDO('sqlite::memory:');
-$poPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-$poPdo->exec('CREATE TABLE purchase_order_payments (accounting_transaction_id INTEGER, amount INTEGER)');
 $pdo->exec('CREATE TABLE accounting_transactions (
     id INTEGER PRIMARY KEY, business_month TEXT, status TEXT, direction TEXT, type TEXT,
     category_id INTEGER NULL, brand TEXT, channel TEXT, amount INTEGER, transfer_fee_amount INTEGER
@@ -82,7 +79,7 @@ batch_payment_expect(
     jg_accounting_category_type_total($pdo, '2026-08', 'marketing') === 100,
     'Category totals must use each invoice allocation instead of assigning the whole bank transfer to one category.'
 );
-$pnl = jg_accounting_pnl_summary($pdo, 2026, $poPdo);
+$pnl = jg_accounting_pnl_summary($pdo, 2026);
 $august = $pnl['months'][7] ?? [];
 batch_payment_expect(
     (int) ($august['ad_cost'] ?? 0) === 100 && (int) ($august['operations'] ?? 0) === 200,

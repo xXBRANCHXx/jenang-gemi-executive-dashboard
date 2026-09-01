@@ -3,8 +3,8 @@ const root = document.querySelector('[data-pnl-expense-page]');
 if (root) {
   const endpoint = root.dataset.accountingEndpoint || '../../api/accounting/';
   const bucketLabels = {
-    product_cost: 'PO / product cost',
-    packing_cost: 'Actual packing cost',
+    product_cost: 'Accounting product purchase (reconciliation)',
+    packing_cost: 'Accounting packing purchase (reconciliation)',
     ad_cost: 'Marketing / platform ads',
     marketing: 'Other marketing',
     payroll: 'Payroll / labor',

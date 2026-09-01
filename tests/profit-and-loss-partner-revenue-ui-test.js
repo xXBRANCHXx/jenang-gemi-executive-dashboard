@@ -19,7 +19,7 @@ assert.match(
 assert.match(
   script,
   /netProfit: revenue - productCosts - packingCosts - opex/,
-  'Net Profit must be calculated directly from revenue and actual Accounting costs.'
+  'Net Profit must be calculated directly from revenue, sold-product COGS, assumed packing, and operating expenses.'
 );
 assert.doesNotMatch(script, /netProfit: grossProfit - opex/, 'Net Profit must not use Gross Profit as its calculation input.');
 assert.doesNotMatch(script, /bridgeRow\('Other operating income'/, 'Income must not appear below gross profit.');

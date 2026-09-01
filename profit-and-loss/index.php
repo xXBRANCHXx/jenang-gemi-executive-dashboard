@@ -74,7 +74,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/pnl.js');
                         </div>
                         <dl class="pnl-v2-totals">
                             <div><dt>Revenue counted<small>Seller + partner + other posted revenue</small></dt><dd data-pnl-revenue-total>Rp0</dd></div>
-                            <div class="is-cost"><dt>Costs subtracted<small>PO/product + packing + posted OpEx</small></dt><dd data-pnl-cost-total>Rp0</dd></div>
+                            <div class="is-cost"><dt>Costs subtracted<small>Sold-product COGS + Rp1.500/unit packing + posted OpEx</small></dt><dd data-pnl-cost-total>Rp0</dd></div>
                             <div class="is-profit"><dt>Net profit<small data-pnl-net-margin>0% net margin</small></dt><dd data-pnl-net-profit>Rp0</dd></div>
                         </dl>
                     </div>
@@ -112,7 +112,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/pnl.js');
                     <div class="pnl-trend" data-pnl-trend aria-label="Monthly net profit trend"></div>
                     <div class="admin-table-wrap pnl-table-wrap">
                         <table class="admin-table pnl-table">
-                            <thead><tr><th>Month</th><th>Revenue</th><th>PO / Product</th><th>Actual Packing</th><th>Gross Profit</th><th>Ad Cost</th><th>Other OpEx</th><th>Net Profit</th><th>Margin</th></tr></thead>
+                            <thead><tr><th>Month</th><th>Revenue</th><th>Product COGS</th><th>Packing @ Rp1.500</th><th>Gross Profit</th><th>Ad Cost</th><th>Other OpEx</th><th>Net Profit</th><th>Margin</th></tr></thead>
                             <tbody data-pnl-months><tr><td colspan="9" class="admin-empty">Loading monthly statement.</td></tr></tbody>
                         </table>
                     </div>
@@ -130,7 +130,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/pnl.js');
                 <section class="pnl-v2-formula" aria-label="Exact profit calculation">
                     <div><b>1</b><p><strong>Revenue counted</strong><span>All operating revenue received: seller-received sales + partner payments + other revenue − refunds</span><em data-pnl-formula-revenue>Rp0 = Rp0</em></p></div>
                     <i aria-hidden="true">→</i>
-                    <div><b>2</b><p><strong>Gross profit</strong><span>Recorded partial + full PO payments only; actual Accounting packing costs. Unpaid PO balances are excluded.</span><em data-pnl-formula-gross>Rp0 − Rp0 − Rp0 = Rp0</em></p></div>
+                    <div><b>2</b><p><strong>Gross profit</strong><span>Net revenue − COGS of products sold − Rp1.500 for every unit sold. Purchase-order payments and actual packing purchases are not used.</span><em data-pnl-formula-gross>Rp0 − Rp0 − Rp0 = Rp0</em></p></div>
                     <i aria-hidden="true">→</i>
                     <div><b>3</b><p><strong>Net profit</strong><span>Gross profit − posted operating expenses. It does not use an imported or estimated Gross Profit value.</span><em data-pnl-formula-net>Rp0 − Rp0 = Rp0</em><small data-pnl-review-status>Checking Accounting review items…</small></p></div>
                 </section>

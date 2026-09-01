@@ -38,7 +38,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/expense-settings.js');
                 <div class="admin-topbar-brand">
                     <span class="admin-admin-mark">Profit &amp; Loss controls</span>
                     <h1>Expense settings</h1>
-                    <p>Decide which Accounting categories reduce Net Profit and where each cost appears.</p>
+                    <p>Choose which Accounting operating expenses reduce Net Profit. Product and packing purchases stay reconciliation-only because Gross Profit uses sold-product COGS and fixed packing.</p>
                 </div>
                 <?php render_admin_topbar_actions('profit-loss'); ?>
             </header>
@@ -81,7 +81,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/expense-settings.js');
                 <section class="pnl-expense-page-list" aria-labelledby="expense-category-list-title">
                     <header>
                         <div><span>Accounting source</span><h2 id="expense-category-list-title">Category treatment</h2></div>
-                        <p>Green Yes means payments assigned to that category reduce Net Profit.</p>
+                        <p>Green Yes reduces Net Profit when the category uses an operating-expense treatment. Product and packing purchase treatments are reconciliation-only.</p>
                     </header>
                     <div class="pnl-expense-page-columns" aria-hidden="true"><span>Category</span><span>Accounting group</span><span>Include?</span><span>P&amp;L treatment</span></div>
                     <div data-expense-rows><p class="pnl-expense-page-empty">Loading categories…</p></div>

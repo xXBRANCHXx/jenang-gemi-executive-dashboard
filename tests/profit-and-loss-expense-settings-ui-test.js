@@ -35,14 +35,19 @@ assert.match(script, /return 'ZERO Shopee'/, 'The ZERO Shopee ad breakdown must 
 assert.match(script, /return 'Jenang Gemi Shopee'/, 'The Jenang Gemi Shopee ad breakdown must use the requested account label.');
 assert.match(styles, /\.pnl-expense-breakdown\s*\{/, 'Expanded expense children must have a dedicated downward-flowing layout.');
 
-assert.match(script, /const productCosts = numeric\(books, \['product_costs', 'product_purchases'\]\);/, 'PO/product costs must come from Accounting.');
-assert.match(page, /Recorded partial \+ full PO payments only/, 'The PO cost card must disclose that only actual recorded payments are counted.');
-assert.match(page, /Unpaid PO balances are excluded\./, 'The P&L must explicitly disclose that unpaid PO balances are excluded.');
-assert.match(script, /const packingCosts = numeric\(books, \['packing_costs'\]\);/, 'Actual packing cost must come from Accounting.');
-assert.doesNotMatch(script, /const cogs = numeric\(sale, \['cogs'\]\)/, 'P&L must not use sales-service estimated SKU COGS.');
-assert.doesNotMatch(script, /const packing = numeric\(sale, \['packing_cost'\]\)/, 'P&L must not use sales-service per-item packing estimates.');
-assert.match(script, /netProfit: revenue - productCosts - packingCosts - opex/, 'Net Profit must use the direct revenue-minus-actual-costs formula.');
+assert.match(script, /const PACKING_COST_PER_SOLD_UNIT = 1500;/, 'P&L must use the fixed Rp1,500 packing assumption.');
+assert.match(script, /const soldUnits = Math\.max\(0, numeric\(sale, \['item_count', 'items_qty', 'units', 'quantity'\]\)\);/, 'Packing must use the monthly quantity sold.');
+assert.match(script, /const productCosts = Math\.max\(0, numeric\(sale, \['cogs', 'cost_of_goods_sold'\]\)\);/, 'Product cost must use sales-service COGS for products sold.');
+assert.match(script, /const packingCosts = soldUnits \* PACKING_COST_PER_SOLD_UNIT;/, 'Packing must equal sold units times Rp1,500.');
+assert.doesNotMatch(script, /const productCosts = numeric\(books,/, 'P&L product COGS must not come from Accounting or PO payments.');
+assert.doesNotMatch(script, /const packingCosts = numeric\(books,/, 'P&L packing must not use actual Accounting packing purchases.');
+assert.doesNotMatch(script, /numeric\(sale, \['packing_cost'\]\)/, 'P&L must ignore variable per-item packing rates from Sales.');
+assert.match(page, /Net revenue − COGS of products sold − Rp1\.500 for every unit sold\./, 'The P&L must state the corrected gross-profit formula.');
+assert.match(page, /Purchase-order payments and actual packing purchases are not used\./, 'The P&L must disclose that actual PO and packing payments do not drive GP.');
+assert.match(script, /netProfit: revenue - productCosts - packingCosts - opex/, 'Net Profit must use the direct revenue-minus-product-costs-minus-assumed-packing formula.');
 assert.doesNotMatch(script, /netProfit: grossProfit - opex/, 'Net Profit must never be derived from Gross Profit.');
 assert.match(page, /It does not use an imported or estimated Gross Profit value\./, 'The page must disclose the direct Net Profit basis.');
+assert.match(settingsScript, /Accounting product purchase \(reconciliation\)/, 'Accounting product purchases must be labeled as reconciliation-only.');
+assert.match(settingsPage, /Product and packing purchases stay reconciliation-only/, 'Expense settings must explain that purchase payments do not drive Gross Profit.');
 
 console.log('Profit and loss expense category settings UI checks passed.');
