@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { pathToFileURL } = require('node:url');
 
 const root = path.resolve(__dirname, '..');
 const script = fs.readFileSync(path.join(root, 'profit-and-loss', 'pnl.js'), 'utf8');
@@ -16,4 +17,25 @@ assert.match(script, /validateAllocationTree/, 'Every allocation level must be v
 assert.match(script, /Math\.max\(0, Number\(netProfit\)/, 'Only positive net profit may be distributed.');
 assert.match(styles, /\.pnl-allocation-dialog::backdrop/, 'The allocation editor must have modal styling.');
 
-console.log('Profit allocation UI checks passed.');
+(async () => {
+  const { balanceAllocationRounding } = await import(pathToFileURL(path.join(root, 'profit-and-loss', 'pnl.js')).href);
+  const balanced = balanceAllocationRounding([{
+    id: 'parent',
+    name: 'Parent',
+    percentage: 100,
+    children: [
+      { id: 'a', name: 'A', percentage: 33.33, children: [] },
+      { id: 'b', name: 'B', percentage: 33.33, children: [] },
+      { id: 'c', name: 'C', percentage: 33.33, children: [] }
+    ]
+  }]);
+  assert.deepEqual(
+    balanced[0].children.map((item) => item.percentage),
+    [33.33, 33.33, 33.34],
+    'The browser must turn a rounded nested three-way split into exactly 100% before saving.'
+  );
+  console.log('Profit allocation UI checks passed.');
+})().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

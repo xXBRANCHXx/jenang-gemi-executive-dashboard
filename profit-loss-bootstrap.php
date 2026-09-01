@@ -269,8 +269,11 @@ function jg_profit_loss_normalize_allocation_tree(mixed $value): array
             throw new InvalidArgumentException('An allocation group cannot be empty.');
         }
 
+        $percentageScale = 10000;
+        $targetTotalUnits = 100 * $percentageScale;
+        $roundingToleranceUnits = (int) (0.01 * $percentageScale);
         $normalized = [];
-        $levelTotal = 0.0;
+        $levelTotalUnits = 0;
         foreach (array_values($nodes) as $index => $node) {
             if (!is_array($node)) {
                 throw new InvalidArgumentException('Every profit allocation must be an object.');
@@ -287,7 +290,8 @@ function jg_profit_loss_normalize_allocation_tree(mixed $value): array
             if (!is_numeric($node['percentage'] ?? null)) {
                 throw new InvalidArgumentException($name . ' needs a valid percentage.');
             }
-            $percentage = round((float) $node['percentage'], 4);
+            $percentageUnits = (int) round((float) $node['percentage'] * $percentageScale);
+            $percentage = (float) ($percentageUnits / $percentageScale);
             if ($percentage < 0 || $percentage > 100) {
                 throw new InvalidArgumentException($name . ' must be between 0% and 100%.');
             }
@@ -314,11 +318,23 @@ function jg_profit_loss_normalize_allocation_tree(mixed $value): array
                 'percentage' => $percentage,
                 'children' => $children === [] ? [] : $normalizeLevel($children, $depth + 1),
             ];
-            $levelTotal += $percentage;
+            $levelTotalUnits += $percentageUnits;
         }
 
-        if (abs($levelTotal - 100.0) > 0.01) {
+        $adjustmentUnits = $targetTotalUnits - $levelTotalUnits;
+        if (abs($adjustmentUnits) > $roundingToleranceUnits) {
+            $levelTotal = $levelTotalUnits / $percentageScale;
             throw new InvalidArgumentException(sprintf('Each allocation level must total 100%% (currently %s%%).', rtrim(rtrim(number_format($levelTotal, 4, '.', ''), '0'), '.')));
+        }
+        if ($adjustmentUnits !== 0) {
+            for ($index = count($normalized) - 1; $index >= 0; $index--) {
+                $adjustedUnits = (int) round($normalized[$index]['percentage'] * $percentageScale) + $adjustmentUnits;
+                if ($adjustedUnits < 0 || $adjustedUnits > $targetTotalUnits) {
+                    continue;
+                }
+                $normalized[$index]['percentage'] = (float) ($adjustedUnits / $percentageScale);
+                break;
+            }
         }
         return $normalized;
     };

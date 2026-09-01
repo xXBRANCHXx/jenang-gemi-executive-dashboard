@@ -50,4 +50,24 @@ $custom = [
 $normalized = jg_profit_loss_normalize_allocation_tree($custom);
 expect_profit_allocation($normalized[0]['children'][1]['name'] === 'Custom B', 'Custom names and nested allocations must be preserved.');
 
+$thirds = [[
+    'id' => 'three-way-parent',
+    'name' => 'Three-way parent',
+    'percentage' => 100,
+    'children' => [
+        ['id' => 'third-a', 'name' => 'Third A', 'percentage' => 33.33, 'children' => []],
+        ['id' => 'third-b', 'name' => 'Third B', 'percentage' => 33.33, 'children' => []],
+        ['id' => 'third-c', 'name' => 'Third C', 'percentage' => 33.33, 'children' => []],
+    ],
+]];
+$normalizedThirds = jg_profit_loss_normalize_allocation_tree($thirds);
+expect_profit_allocation(
+    array_column($normalizedThirds[0]['children'], 'percentage') === [33.33, 33.33, 33.34],
+    'A three-way 33.33% split must apply the missing 0.01% to the final allocation.'
+);
+expect_profit_allocation(
+    array_sum(array_column($normalizedThirds[0]['children'], 'percentage')) === 100.0,
+    'A rounded three-way split must be stored as exactly 100%.'
+);
+
 echo "Profit allocation checks passed.\n";

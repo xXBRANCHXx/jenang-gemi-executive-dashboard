@@ -29,6 +29,34 @@ export const separatePnlSalesRevenue = (sale = {}) => {
   };
 };
 
+const ALLOCATION_PERCENTAGE_SCALE = 10000;
+const ALLOCATION_TOTAL_UNITS = 100 * ALLOCATION_PERCENTAGE_SCALE;
+const ALLOCATION_ROUNDING_TOLERANCE_UNITS = 0.01 * ALLOCATION_PERCENTAGE_SCALE;
+const allocationPercentageUnits = (value) => Math.round((Number(value) || 0) * ALLOCATION_PERCENTAGE_SCALE);
+const allocationLevelUnits = (nodes) => (Array.isArray(nodes) ? nodes : [])
+  .reduce((sum, node) => sum + allocationPercentageUnits(node?.percentage), 0);
+const allocationLevelIsComplete = (nodes) => Math.abs(allocationLevelUnits(nodes) - ALLOCATION_TOTAL_UNITS) <= ALLOCATION_ROUNDING_TOLERANCE_UNITS;
+
+export const balanceAllocationRounding = (nodes) => {
+  const balanced = JSON.parse(JSON.stringify(Array.isArray(nodes) ? nodes : []));
+  const balanceLevel = (level) => {
+    level.forEach((node) => {
+      if (Array.isArray(node.children) && node.children.length) balanceLevel(node.children);
+    });
+
+    const adjustment = ALLOCATION_TOTAL_UNITS - allocationLevelUnits(level);
+    if (adjustment === 0 || Math.abs(adjustment) > ALLOCATION_ROUNDING_TOLERANCE_UNITS) return;
+    for (let index = level.length - 1; index >= 0; index -= 1) {
+      const adjustedUnits = allocationPercentageUnits(level[index]?.percentage) + adjustment;
+      if (adjustedUnits < 0 || adjustedUnits > ALLOCATION_TOTAL_UNITS) continue;
+      level[index].percentage = adjustedUnits / ALLOCATION_PERCENTAGE_SCALE;
+      break;
+    }
+  };
+  balanceLevel(balanced);
+  return balanced;
+};
+
 const root = typeof document === 'object' ? document.querySelector('[data-pnl-page]') : null;
 
 if (root) {
@@ -119,7 +147,7 @@ if (root) {
     return result;
   };
   const cloneAllocations = (nodes) => JSON.parse(JSON.stringify(Array.isArray(nodes) ? nodes : []));
-  const allocationTotal = (nodes) => (Array.isArray(nodes) ? nodes : []).reduce((sum, node) => sum + (Number(node?.percentage) || 0), 0);
+  const allocationTotal = (nodes) => allocationLevelUnits(nodes) / ALLOCATION_PERCENTAGE_SCALE;
   const formatPercentage = (value) => Number(value || 0).toLocaleString('en-US', { maximumFractionDigits: 4 });
   const findAllocation = (id, nodes = state.allocationDraft) => {
     for (const node of nodes) {
@@ -153,7 +181,7 @@ if (root) {
       if (Array.isArray(node.children) && node.children.length) validateAllocationTree(node.children, node.name, depth + 1);
     }
     const total = allocationTotal(nodes);
-    if (Math.abs(total - 100) > 0.01) throw new Error(`${parentName} allocations must total 100% (currently ${formatPercentage(total)}%).`);
+    if (!allocationLevelIsComplete(nodes)) throw new Error(`${parentName} allocations must total 100% (currently ${formatPercentage(total)}%).`);
   };
   const numeric = (row, keys) => {
     for (const key of keys) {
@@ -379,7 +407,7 @@ if (root) {
   };
   const renderAllocationEditorLevel = (nodes, parentName = 'Net profit', depth = 0) => `
     <section class="pnl-allocation-editor-level" style="--pnl-editor-depth:${depth}">
-      <div class="pnl-allocation-level-summary"><span>${escapeHtml(parentName)} split</span><strong class="${Math.abs(allocationTotal(nodes) - 100) <= 0.01 ? 'is-valid' : 'is-invalid'}">${formatPercentage(allocationTotal(nodes))}% / 100%</strong></div>
+      <div class="pnl-allocation-level-summary"><span>${escapeHtml(parentName)} split</span><strong class="${allocationLevelIsComplete(nodes) ? 'is-valid' : 'is-invalid'}">${formatPercentage(allocationTotal(nodes))}% / 100%</strong></div>
       ${nodes.map((node) => `
         <div class="pnl-allocation-editor-item">
           <div class="pnl-allocation-editor-row">
@@ -664,10 +692,12 @@ if (root) {
       const item = input.closest('.pnl-allocation-editor-item');
       const siblingsContainer = item?.parentElement;
       const siblingIds = siblingsContainer ? [...siblingsContainer.children].filter((child) => child.classList.contains('pnl-allocation-editor-item')).map((child) => child.querySelector('[data-pnl-allocation-name]')?.dataset.pnlAllocationName).filter(Boolean) : [];
-      const total = siblingIds.reduce((sum, siblingId) => sum + (Number(findAllocation(siblingId)?.percentage) || 0), 0);
+      const siblings = siblingIds.map((siblingId) => findAllocation(siblingId));
+      const total = allocationTotal(siblings);
+      const isComplete = allocationLevelIsComplete(siblings);
       summary.textContent = `${formatPercentage(total)}% / 100%`;
-      summary.classList.toggle('is-valid', Math.abs(total - 100) <= 0.01);
-      summary.classList.toggle('is-invalid', Math.abs(total - 100) > 0.01);
+      summary.classList.toggle('is-valid', isComplete);
+      summary.classList.toggle('is-invalid', !isComplete);
     }
     showAllocationError();
   });
@@ -693,7 +723,9 @@ if (root) {
     event.preventDefault();
     showAllocationError();
     try {
+      state.allocationDraft = balanceAllocationRounding(state.allocationDraft);
       validateAllocationTree(state.allocationDraft);
+      renderAllocationEditor();
       if (refs.saveAllocation) refs.saveAllocation.disabled = true;
       const response = await postJson({ action: 'save_allocation_tree', year: state.year, allocation_tree: state.allocationDraft });
       state.allocationTree = cloneAllocations(response?.settings?.allocation_tree || state.allocationDraft);
