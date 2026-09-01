@@ -610,30 +610,125 @@
   scrollbar-color: var(--pnl-v2-border) transparent;
 }
 
-.pnl-v2-layout .pnl-expense-mix > div {
-  grid-template-columns: minmax(130px, 1fr) minmax(90px, 1.2fr) auto;
-  padding: 10px 0;
-  border-bottom-color: var(--pnl-v2-border-soft);
+.pnl-v2-layout .pnl-expense-group {
+  display: block;
+  padding: 0;
+  border-bottom: 1px solid var(--pnl-v2-border-soft);
 }
 
-.pnl-v2-layout .pnl-expense-mix i {
+.pnl-v2-layout .pnl-expense-row {
+  display: grid;
+  grid-template-columns: minmax(130px, 1fr) minmax(90px, 1.2fr) auto;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  padding: 10px 0;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+
+.pnl-v2-layout .pnl-expense-row:hover .pnl-expense-row-label > span,
+.pnl-v2-layout .pnl-expense-row:focus-visible .pnl-expense-row-label > span {
+  color: var(--pnl-v2-text);
+}
+
+.pnl-v2-layout .pnl-expense-row:focus-visible {
+  outline: 1px solid var(--pnl-v2-profit);
+  outline-offset: -1px;
+}
+
+.pnl-v2-layout .pnl-expense-row > i {
   height: 4px;
   background: var(--pnl-v2-border);
 }
 
-.pnl-v2-layout .pnl-expense-mix b {
+.pnl-v2-layout .pnl-expense-row > i > b {
+  display: block;
+  height: 100%;
   width: var(--pnl-size);
   background: var(--pnl-accent, var(--pnl-v2-cost));
   animation: pnl-v2-segment-in 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
-.pnl-v2-layout .pnl-expense-mix strong {
+.pnl-v2-layout .pnl-expense-row > strong {
   color: var(--pnl-v2-text);
   font-variant-numeric: tabular-nums;
 }
 
-.pnl-v2-layout .pnl-expense-mix > div > span small {
+.pnl-expense-row-label > span {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  color: var(--pnl-v2-muted);
+  font-weight: 700;
+  transition: color 0.15s ease;
+}
+
+.pnl-expense-row-label svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  transition: transform 0.18s ease;
+}
+
+.pnl-expense-row[aria-expanded="true"] .pnl-expense-row-label svg {
+  transform: rotate(180deg);
+}
+
+.pnl-v2-layout .pnl-expense-row-label small {
+  display: block;
+  margin-top: 2px;
   color: var(--pnl-v2-muted-2);
+  font-size: 0.62rem;
+}
+
+.pnl-expense-breakdown {
+  padding: 0 0 9px 18px;
+  animation: pnl-expense-breakdown-in 0.18s ease both;
+}
+
+.pnl-expense-breakdown > div {
+  display: grid;
+  grid-template-columns: minmax(130px, 1fr) minmax(90px, 1.2fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-height: 31px;
+  color: var(--pnl-v2-muted);
+}
+
+.pnl-expense-breakdown > div > span {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.68rem;
+}
+
+.pnl-expense-breakdown > div > span i {
+  width: 9px;
+  height: 1px;
+  background: var(--pnl-v2-border);
+}
+
+.pnl-expense-breakdown > div > small {
+  color: var(--pnl-v2-muted-2);
+  font-size: 0.58rem;
+}
+
+.pnl-expense-breakdown > div > strong {
+  color: var(--pnl-v2-muted);
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes pnl-expense-breakdown-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .pnl-v2-layout .pnl-trend i {
@@ -858,11 +953,13 @@
     grid-template-columns: 1fr;
   }
 
-  .pnl-v2-layout .pnl-expense-mix > div {
+  .pnl-v2-layout .pnl-expense-row,
+  .pnl-expense-breakdown > div {
     grid-template-columns: minmax(100px, 1fr) auto;
   }
 
-  .pnl-v2-layout .pnl-expense-mix i {
+  .pnl-v2-layout .pnl-expense-row > i,
+  .pnl-expense-breakdown > div > small {
     grid-column: 1 / -1;
     grid-row: 2;
   }

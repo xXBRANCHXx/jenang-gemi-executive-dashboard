@@ -88,6 +88,15 @@ batch_payment_expect(
     (int) ($august['ad_cost'] ?? 0) === 100 && (int) ($august['operations'] ?? 0) === 200,
     'Cash-basis P&L must preserve mixed categories inside a combined bill payment.'
 );
+$adBreakdown = $august['category_breakdowns'][1] ?? [];
+$legalBreakdown = $august['category_breakdowns'][2] ?? [];
+batch_payment_expect(
+    ($adBreakdown[0]['label'] ?? '') === 'Jenang Gemi'
+        && (int) ($adBreakdown[0]['amount'] ?? 0) === 100
+        && ($legalBreakdown[0]['label'] ?? '') === 'ZERO'
+        && (int) ($legalBreakdown[0]['amount'] ?? 0) === 200,
+    'Every P&L expense category must retain the exact brand breakdown behind its parent total.'
+);
 $categorySummary = jg_accounting_group_summary($pdo, '2026-08', 'category');
 batch_payment_expect(
     array_column($categorySummary, 'this_month', 'label') === ['Legal / Permits' => 200, 'Meta ads' => 100],

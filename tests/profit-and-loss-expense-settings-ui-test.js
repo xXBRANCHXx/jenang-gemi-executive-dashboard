@@ -5,6 +5,7 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const script = fs.readFileSync(path.join(root, 'profit-and-loss', 'pnl.js'), 'utf8');
 const page = fs.readFileSync(path.join(root, 'profit-and-loss', 'index.php'), 'utf8');
+const styles = fs.readFileSync(path.join(root, 'profit-and-loss', 'pnl.css'), 'utf8');
 const settingsPage = fs.readFileSync(path.join(root, 'profit-and-loss', 'expense-settings', 'index.php'), 'utf8');
 const settingsScript = fs.readFileSync(path.join(root, 'profit-and-loss', 'expense-settings', 'expense-settings.js'), 'utf8');
 const settingsStyles = fs.readFileSync(path.join(root, 'profit-and-loss', 'expense-settings', 'expense-settings.css'), 'utf8');
@@ -26,6 +27,13 @@ assert.match(settingsStyles, /\.pnl-expense-page-toggle input:checked \+ span[\s
 assert.match(script, /shopee: 'Shopee Ads'/, 'Built-in and imported Shopee advertising categories must share one report title.');
 assert.match(script, /key: `platform-ads:/, 'Platform advertising categories must roll up to one expense row instead of rendering separately.');
 assert.match(script, /existing\.amount \+= category\.amount/, 'A rolled-up expense must sum every matching Accounting category amount.');
+assert.match(script, /expandedExpenses: new Set\(\)/, 'Expanded expense groups must retain their open state across P&L renders.');
+assert.match(script, /data-pnl-expense-toggle=/, 'Every rendered expense group must expose an interactive disclosure control.');
+assert.match(script, /aria-expanded=/, 'Expense disclosures must expose their state to assistive technology.');
+assert.match(script, /label: display\.title,[\s\S]*?kind: 'category'/, 'Every expense must have a visible fallback breakdown even when no narrower Accounting dimension exists.');
+assert.match(script, /return 'ZERO Shopee'/, 'The ZERO Shopee ad breakdown must use the requested account label.');
+assert.match(script, /return 'Jenang Gemi Shopee'/, 'The Jenang Gemi Shopee ad breakdown must use the requested account label.');
+assert.match(styles, /\.pnl-expense-breakdown\s*\{/, 'Expanded expense children must have a dedicated downward-flowing layout.');
 
 assert.match(script, /const productCosts = numeric\(books, \['product_costs', 'product_purchases'\]\);/, 'PO/product costs must come from Accounting.');
 assert.match(page, /Recorded partial \+ full PO payments only/, 'The PO cost card must disclose that only actual recorded payments are counted.');

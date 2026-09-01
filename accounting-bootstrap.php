@@ -4325,36 +4325,120 @@ function jg_accounting_pnl_summary(PDO $pdo, int $year, ?PDO $purchaseOrderPdo =
     }
 
     $categoryAmounts = [];
+    $categoryBreakdowns = [];
+    $recordCategoryBreakdown = static function (array &$target, array $row, int $amount): void {
+        $month = (string) ($row['business_month'] ?? '');
+        $categoryId = (int) ($row['category_id'] ?? 0);
+        if ($month === '' || $categoryId < 1 || $amount === 0) return;
+
+        $brand = trim((string) ($row['bill_brand'] ?? ''));
+        if ($brand === '') $brand = trim((string) ($row['transaction_brand'] ?? ''));
+        if ($brand === '') $brand = trim((string) ($row['account_brand'] ?? ''));
+        $counterparty = trim((string) ($row['counterparty_name'] ?? ''));
+        $account = trim((string) ($row['account_name'] ?? ''));
+        if ($brand !== '') {
+            $label = $brand;
+            $kind = 'brand';
+        } elseif ($counterparty !== '') {
+            $label = $counterparty;
+            $kind = 'counterparty';
+        } elseif ($account !== '') {
+            $label = $account;
+            $kind = 'account';
+        } else {
+            $label = 'Other';
+            $kind = 'other';
+        }
+        $key = strtolower($kind . ':' . $label);
+        if (!isset($target[$month][$categoryId][$key])) {
+            $target[$month][$categoryId][$key] = [
+                'key' => $key,
+                'label' => $label,
+                'kind' => $kind,
+                'amount' => 0,
+            ];
+        }
+        $target[$month][$categoryId][$key]['amount'] += $amount;
+    };
+    $transactionBrandExpression = jg_accounting_table_has_column($pdo, 'accounting_transactions', 'brand') ? 't.brand' : 'NULL';
+    $hasTransactionAccount = jg_accounting_table_has_column($pdo, 'accounting_transactions', 'account_id');
+    $hasAccountNames = jg_accounting_table_has_column($pdo, 'accounting_accounts', 'id')
+        && jg_accounting_table_has_column($pdo, 'accounting_accounts', 'name');
+    $hasAccountBrands = $hasAccountNames && jg_accounting_table_has_column($pdo, 'accounting_accounts', 'brand');
+    $accountJoin = $hasTransactionAccount && $hasAccountNames ? 'LEFT JOIN accounting_accounts a ON a.id = t.account_id' : '';
+    $accountBrandExpression = $accountJoin !== '' && $hasAccountBrands ? 'a.brand' : 'NULL';
+    $accountNameExpression = $accountJoin !== '' ? 'a.name' : 'NULL';
+    $hasTransactionCounterparty = jg_accounting_table_has_column($pdo, 'accounting_transactions', 'counterparty_id');
+    $hasCounterpartyNames = jg_accounting_table_has_column($pdo, 'accounting_counterparties', 'id')
+        && jg_accounting_table_has_column($pdo, 'accounting_counterparties', 'name');
+    $counterpartyJoin = $hasTransactionCounterparty && $hasCounterpartyNames
+        ? 'LEFT JOIN accounting_counterparties cp ON cp.id = t.counterparty_id'
+        : '';
+    $counterpartyNameExpression = $counterpartyJoin !== '' ? 'cp.name' : 'NULL';
     $categoryStmt = $pdo->prepare(
-        'SELECT t.business_month, t.category_id, SUM(t.amount) AS total_amount
+        'SELECT t.business_month, t.category_id,
+                ' . $transactionBrandExpression . ' AS transaction_brand,
+                ' . $accountBrandExpression . ' AS account_brand,
+                ' . $counterpartyNameExpression . ' AS counterparty_name,
+                ' . $accountNameExpression . ' AS account_name,
+                SUM(t.amount) AS total_amount
          FROM accounting_transactions t
+         ' . $accountJoin . '
+         ' . $counterpartyJoin . '
          WHERE t.status = "posted"
            AND t.direction = "money_out"
            AND t.type IN ("expense", "adjustment")
            AND t.category_id IS NOT NULL
            AND t.business_month LIKE :year_prefix
-         GROUP BY t.business_month, t.category_id'
+         GROUP BY t.business_month, t.category_id, transaction_brand, account_brand, counterparty_name, account_name'
     );
     $categoryStmt->execute([':year_prefix' => $year . '-%']);
     foreach ($categoryStmt->fetchAll() as $row) {
-        $categoryAmounts[(string) $row['business_month']][(int) $row['category_id']] = (int) round((float) ($row['total_amount'] ?? 0));
+        $monthKey = (string) $row['business_month'];
+        $categoryId = (int) $row['category_id'];
+        $amount = (int) round((float) ($row['total_amount'] ?? 0));
+        $categoryAmounts[$monthKey][$categoryId] = (int) ($categoryAmounts[$monthKey][$categoryId] ?? 0) + $amount;
+        $recordCategoryBreakdown($categoryBreakdowns, $row, $amount);
     }
     if (jg_accounting_table_has_column($pdo, 'accounting_bill_payments', 'transaction_id')) {
+        $billBrandExpression = jg_accounting_table_has_column($pdo, 'accounting_bills', 'brand') ? 'b.brand' : 'NULL';
+        $allocationAccountColumn = jg_accounting_table_has_column($pdo, 'accounting_bill_payments', 'account_id')
+            ? 'bp.account_id'
+            : ($hasTransactionAccount ? 't.account_id' : '');
+        $allocationAccountJoin = $allocationAccountColumn !== '' && $hasAccountNames
+            ? 'LEFT JOIN accounting_accounts a ON a.id = ' . $allocationAccountColumn
+            : '';
+        $allocationAccountBrandExpression = $allocationAccountJoin !== '' && $hasAccountBrands ? 'a.brand' : 'NULL';
+        $allocationAccountNameExpression = $allocationAccountJoin !== '' ? 'a.name' : 'NULL';
+        $hasBillVendor = jg_accounting_table_has_column($pdo, 'accounting_bills', 'vendor_id');
+        $vendorJoin = $hasBillVendor && $hasCounterpartyNames
+            ? 'LEFT JOIN accounting_counterparties vendor ON vendor.id = b.vendor_id'
+            : '';
+        $vendorNameExpression = $vendorJoin !== '' ? 'vendor.name' : 'NULL';
         $allocationStmt = $pdo->prepare(
-            'SELECT t.business_month, b.category_id, SUM(bp.amount) AS total_amount
+            'SELECT t.business_month, b.category_id,
+                    ' . $billBrandExpression . ' AS bill_brand,
+                    ' . $transactionBrandExpression . ' AS transaction_brand,
+                    ' . $allocationAccountBrandExpression . ' AS account_brand,
+                    ' . $vendorNameExpression . ' AS counterparty_name,
+                    ' . $allocationAccountNameExpression . ' AS account_name,
+                    SUM(bp.amount) AS total_amount
              FROM accounting_bill_payments bp
              INNER JOIN accounting_transactions t ON t.id = bp.transaction_id
              INNER JOIN accounting_bills b ON b.id = bp.bill_id
+             ' . $allocationAccountJoin . '
+             ' . $vendorJoin . '
              WHERE t.status = "posted" AND t.business_month LIKE :year_prefix
                AND b.category_id IS NOT NULL
-             GROUP BY t.business_month, b.category_id'
+             GROUP BY t.business_month, b.category_id, bill_brand, transaction_brand, account_brand, counterparty_name, account_name'
         );
         $allocationStmt->execute([':year_prefix' => $year . '-%']);
         foreach ($allocationStmt->fetchAll() as $allocation) {
             $key = (string) $allocation['business_month'];
             $categoryId = (int) ($allocation['category_id'] ?? 0);
-            $categoryAmounts[$key][$categoryId] = (int) ($categoryAmounts[$key][$categoryId] ?? 0)
-                + (int) round((float) ($allocation['total_amount'] ?? 0));
+            $amount = (int) round((float) ($allocation['total_amount'] ?? 0));
+            $categoryAmounts[$key][$categoryId] = (int) ($categoryAmounts[$key][$categoryId] ?? 0) + $amount;
+            $recordCategoryBreakdown($categoryBreakdowns, $allocation, $amount);
         }
     }
 
@@ -4382,6 +4466,13 @@ function jg_accounting_pnl_summary(PDO $pdo, int $year, ?PDO $purchaseOrderPdo =
         $key = sprintf('%04d-%02d', $year, $month);
         $row = $indexed[$key] ?? [];
         $amounts = $categoryAmounts[$key] ?? [];
+        $breakdowns = array_map(
+            static fn (array $entries): array => array_values(array_map(
+                static fn (array $entry): array => [...$entry, 'amount' => (int) ($entry['amount'] ?? 0)],
+                $entries
+            )),
+            $categoryBreakdowns[$key] ?? []
+        );
         $buckets = array_fill_keys(jg_accounting_pnl_buckets(), 0);
         $assetPurchases = 0;
         foreach ($amounts as $categoryId => $amount) {
@@ -4419,6 +4510,7 @@ function jg_accounting_pnl_summary(PDO $pdo, int $year, ?PDO $purchaseOrderPdo =
             'product_purchases' => $buckets['product_cost'],
             'asset_purchases' => $assetPurchases,
             'category_amounts' => array_map('intval', $amounts),
+            'category_breakdowns' => $breakdowns,
         ];
     }
 
