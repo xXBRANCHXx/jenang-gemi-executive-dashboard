@@ -7,7 +7,7 @@ const helperStart = source.indexOf('const getDateKeyForTimezone');
 const helperEnd = source.indexOf('const jgValidMonthKey', helperStart);
 
 assert(
-  source.includes('const DAILY_DATA_CACHE_VERSION = 2;')
+  source.includes('const DAILY_DATA_CACHE_VERSION = 3;')
     && source.includes("dashboardClientCacheKey('daily', [`v${DAILY_DATA_CACHE_VERSION}`, state.daily.month, state.timezone])"),
   'Daily data fixes must invalidate persisted summaries instead of restoring pre-fix quantities.'
 );

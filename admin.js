@@ -927,7 +927,7 @@ const normalizeSourceKey = (value) => String(value || '').trim().toLowerCase();
 
 const HIDDEN_HOME_SOURCES = new Set(['internal', 'direct']);
 const OVERVIEW_DATA_CACHE_VERSION = 17;
-const DAILY_DATA_CACHE_VERSION = 2;
+const DAILY_DATA_CACHE_VERSION = 3;
 const OVERVIEW_CACHE_PREFIX = `jg-overview-summary-v${OVERVIEW_DATA_CACHE_VERSION}`;
 const OVERVIEW_LEGEND_PREVIEW_LIMIT = 5;
 const ORDER_RENDER_BATCH_SIZE = 120;

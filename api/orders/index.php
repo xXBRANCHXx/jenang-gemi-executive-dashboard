@@ -1037,6 +1037,17 @@ function jg_orders_is_canceled_sale_status(mixed $value): bool
     return str_contains($status, 'CANCEL') || in_array($status, ['VOID', 'VOIDED'], true);
 }
 
+function jg_orders_is_excluded_sale_status(mixed $value): bool
+{
+    $status = jg_orders_normalized_status($value);
+    foreach (['CANCEL', 'UNPAID', 'REFUND', 'RETURN', 'REJECT', 'FAILED', 'EXPIRED', 'CLOSED', 'VOID'] as $marker) {
+        if (str_contains($status, $marker)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 function jg_orders_active_sale_status_sql(string $column): string
 {
     $safeColumn = preg_replace('/[^a-zA-Z0-9_.]+/', '', $column) ?? '';
@@ -1045,6 +1056,16 @@ function jg_orders_active_sale_status_sql(string $column): string
     }
     return 'UPPER(TRIM(' . $safeColumn . ')) NOT LIKE "%CANCEL%"'
         . ' AND UPPER(TRIM(' . $safeColumn . ')) NOT IN ("VOID", "VOIDED")';
+}
+
+function jg_orders_included_sale_status_sql(string $column): string
+{
+    $safeColumn = preg_replace('/[^a-zA-Z0-9_.]+/', '', $column) ?? '';
+    if ($safeColumn === '') {
+        throw new InvalidArgumentException('A valid status column is required.');
+    }
+    return 'UPPER(COALESCE(' . $safeColumn . ', ""))'
+        . ' NOT REGEXP "(CANCEL|UNPAID|REFUND|RETURN|REJECT|FAILED|EXPIRED|CLOSED|VOID)"';
 }
 
 function jg_orders_release_marker_trusted(string $platform, mixed $orderStatus, mixed $releaseStatus, mixed $releaseSource): bool
@@ -2564,7 +2585,7 @@ function jg_orders_daily_add_order_rows(array &$days, array &$accounts, array $r
         }
         $paymentStatus = strtolower(trim((string) ($row['payment_status'] ?? '')));
         return $paymentStatus !== 'canceled'
-            && !jg_orders_is_canceled_sale_status($row['status'] ?? '');
+            && !jg_orders_is_excluded_sale_status($row['status'] ?? '');
     }));
 
     $added = 0;
@@ -2626,7 +2647,7 @@ function jg_orders_daily_summary_payload(PDO $pdo, string $startDate, string $en
     $accounts = [];
     [$from, $to] = jg_orders_range_bounds($startDate, $endDate);
     $freeGiftSql = jg_orders_free_gift_sql('dashboard_order_mirror');
-    $activeSaleSql = jg_orders_active_sale_status_sql('dashboard_order_mirror.status')
+    $activeSaleSql = jg_orders_included_sale_status_sql('dashboard_order_mirror.status')
         . ' AND ' . jg_orders_active_sale_status_sql('dashboard_order_mirror.funds_release_status');
     $stmt = $pdo->prepare(
         'SELECT daily_date, platform, account_key,
