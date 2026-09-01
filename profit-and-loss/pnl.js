@@ -115,11 +115,12 @@ if (root) {
     reviewStatus: root.querySelector('[data-pnl-review-status]'),
     allocationTree: root.querySelector('[data-pnl-allocation-tree]'),
     allocationIntro: root.querySelector('[data-pnl-allocation-intro]'),
+    editAllocation: root.querySelector('[data-pnl-edit-allocation]'),
     allocationDialog: root.querySelector('[data-pnl-allocation-dialog]'),
     allocationForm: root.querySelector('[data-pnl-allocation-form]'),
     allocationEditor: root.querySelector('[data-pnl-allocation-editor]'),
     allocationError: root.querySelector('[data-pnl-allocation-error]'),
-    allocationYear: root.querySelector('[data-pnl-allocation-year]'),
+    allocationPeriod: root.querySelector('[data-pnl-allocation-period]'),
     saveAllocation: root.querySelector('[data-pnl-save-allocation]'),
     kpis: Object.fromEntries([...root.querySelectorAll('[data-pnl-kpi]')].map((node) => [node.dataset.pnlKpi, node]))
   };
@@ -149,6 +150,10 @@ if (root) {
   const cloneAllocations = (nodes) => JSON.parse(JSON.stringify(Array.isArray(nodes) ? nodes : []));
   const allocationTotal = (nodes) => allocationLevelUnits(nodes) / ALLOCATION_PERCENTAGE_SCALE;
   const formatPercentage = (value) => Number(value || 0).toLocaleString('en-US', { maximumFractionDigits: 4 });
+  const selectedAllocationMonth = () => {
+    const month = Number(state.period);
+    return Number.isInteger(month) && month >= 1 && month <= 12 ? month : null;
+  };
   const findAllocation = (id, nodes = state.allocationDraft) => {
     for (const node of nodes) {
       if (String(node.id) === String(id)) return node;
@@ -395,6 +400,13 @@ if (root) {
   }).join('');
   const renderAllocation = (netProfit) => {
     if (!refs.allocationTree) return;
+    const month = selectedAllocationMonth();
+    if (refs.editAllocation) refs.editAllocation.disabled = month === null;
+    if (month === null) {
+      refs.allocationTree.innerHTML = '<p class="pnl-allocation-empty">Select a month to view or edit its profit allocation.</p>';
+      if (refs.allocationIntro) refs.allocationIntro.textContent = 'Profit allocation settings are stored separately for each month.';
+      return;
+    }
     const distributableProfit = Math.max(0, Number(netProfit) || 0);
     if (!state.allocationTree.length) {
       refs.allocationTree.innerHTML = '<p class="pnl-allocation-empty">No profit allocation is configured.</p>';
@@ -606,16 +618,40 @@ if (root) {
     refs.period.innerHTML = [`<option value="ytd">${state.year === currentYear ? 'Year to date' : 'Full year'}</option>`, ...monthNames.map((name, index) => `<option value="${index + 1}">${name}</option>`)].join('');
     refs.period.value = state.period;
   };
+  const loadAllocationSettings = async (force = false) => {
+    const month = selectedAllocationMonth();
+    if (month === null) {
+      state.allocationTree = [];
+      render();
+      return;
+    }
+    const requestedYear = state.year;
+    const requestedMonth = month;
+    const suffix = force ? `&_ts=${Date.now()}` : '';
+    try {
+      const response = await requestJson(`${profitLossEndpoint}?year=${requestedYear}&month=${requestedMonth}&scope=allocation_settings${suffix}`);
+      if (state.year !== requestedYear || selectedAllocationMonth() !== requestedMonth) return;
+      state.allocationTree = cloneAllocations(response?.settings?.allocation_tree || []);
+      render();
+    } catch (error) {
+      if (state.year !== requestedYear || selectedAllocationMonth() !== requestedMonth) return;
+      state.allocationTree = [];
+      if (refs.allocationTree) refs.allocationTree.innerHTML = `<p class="pnl-allocation-empty">${escapeHtml(error?.message || 'Unable to load this month’s profit allocation.')}</p>`;
+    }
+  };
   const load = async (force = false) => {
     if (refs.status) refs.status.textContent = 'Loading net revenue, sold-product COGS, and Accounting entries…';
     refs.refresh?.classList.add('is-loading');
     if (refs.refresh) refs.refresh.disabled = true;
     try {
       const suffix = force ? `&_ts=${Date.now()}` : '';
+      const month = selectedAllocationMonth();
       const [sales, accountingResponse, profitLossResponse] = await Promise.all([
         requestJson(`${salesEndpoint}?year=${state.year}${suffix}`),
         requestJson(`${accountingEndpoint}?action=pnl_summary&year=${state.year}${suffix}`),
-        requestJson(`${profitLossEndpoint}?year=${state.year}&scope=allocation_settings${suffix}`)
+        month === null
+          ? Promise.resolve({ settings: { allocation_tree: [] } })
+          : requestJson(`${profitLossEndpoint}?year=${state.year}&month=${month}&scope=allocation_settings${suffix}`)
       ]);
       const accounting = accountingResponse.data || {};
       state.rows = combine(sales, accounting);
@@ -649,7 +685,12 @@ if (root) {
     });
   });
   refs.year?.addEventListener('change', () => { state.year = Number(refs.year.value) || currentYear; state.period = 'ytd'; load(); });
-  refs.period?.addEventListener('change', () => { state.period = refs.period.value || 'ytd'; render(); });
+  refs.period?.addEventListener('change', () => {
+    state.period = refs.period.value || 'ytd';
+    state.allocationTree = [];
+    render();
+    loadAllocationSettings();
+  });
   refs.refresh?.addEventListener('click', () => load(true));
   refs.expenseMix?.addEventListener('click', (event) => {
     const button = event.target instanceof Element ? event.target.closest('[data-pnl-expense-toggle]') : null;
@@ -665,9 +706,11 @@ if (root) {
     group?.classList.toggle('is-expanded', expanded);
     if (panel) panel.hidden = !expanded;
   });
-  root.querySelector('[data-pnl-edit-allocation]')?.addEventListener('click', () => {
+  refs.editAllocation?.addEventListener('click', () => {
+    const month = selectedAllocationMonth();
+    if (month === null) return;
     state.allocationDraft = cloneAllocations(state.allocationTree);
-    if (refs.allocationYear) refs.allocationYear.textContent = String(state.year);
+    if (refs.allocationPeriod) refs.allocationPeriod.textContent = `${monthNames[month - 1]} ${state.year}`;
     showAllocationError();
     renderAllocationEditor();
     refs.allocationDialog?.showModal();
@@ -727,7 +770,9 @@ if (root) {
       validateAllocationTree(state.allocationDraft);
       renderAllocationEditor();
       if (refs.saveAllocation) refs.saveAllocation.disabled = true;
-      const response = await postJson({ action: 'save_allocation_tree', year: state.year, allocation_tree: state.allocationDraft });
+      const month = selectedAllocationMonth();
+      if (month === null) throw new Error('Select a month before saving its profit allocation.');
+      const response = await postJson({ action: 'save_allocation_tree', year: state.year, month, allocation_tree: state.allocationDraft });
       state.allocationTree = cloneAllocations(response?.settings?.allocation_tree || state.allocationDraft);
       refs.allocationDialog?.close();
       render();
@@ -742,8 +787,10 @@ if (root) {
     if (!(button instanceof HTMLElement)) return;
     state.period = button.dataset.pnlFocusMonth || 'ytd';
     refs.period.value = state.period;
+    state.allocationTree = [];
     setActiveTab('statement');
     render();
+    loadAllocationSettings();
     root.querySelector('.pnl-v2-bottom-line')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
   setActiveTab('statement');

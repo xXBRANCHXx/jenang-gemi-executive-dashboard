@@ -140,7 +140,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/pnl.js');
     <dialog class="pnl-allocation-dialog" data-pnl-allocation-dialog aria-labelledby="pnl-allocation-settings-title">
         <form class="pnl-allocation-form" data-pnl-allocation-form>
             <div class="pnl-allocation-dialog-head">
-                <div><span>Selected year: <b data-pnl-allocation-year>—</b></span><h2 id="pnl-allocation-settings-title">Profit allocation settings</h2><p>Rename items, change percentages, or add sub-splits. Every level must total 100%.</p></div>
+                <div><span>Selected month: <b data-pnl-allocation-period>—</b></span><h2 id="pnl-allocation-settings-title">Profit allocation settings</h2><p>Rename items, change percentages, or add sub-splits. Every level must total 100%.</p></div>
                 <button type="button" class="pnl-dialog-close" data-pnl-close-allocation aria-label="Close allocation settings">×</button>
             </div>
             <div class="pnl-allocation-editor" data-pnl-allocation-editor></div>

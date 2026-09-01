@@ -210,10 +210,12 @@ try {
 
     if ($method === 'GET') {
         if (strtolower((string) ($_GET['scope'] ?? '')) === 'allocation_settings') {
+            $allocationMonth = isset($_GET['month']) ? jg_profit_loss_month($_GET['month']) : null;
             jg_profit_loss_json([
                 'ok' => true,
                 'year' => $year,
-                'settings' => jg_profit_loss_settings($pdo, $year),
+                'month' => $allocationMonth,
+                'settings' => jg_profit_loss_settings($pdo, $year, $allocationMonth),
             ]);
         }
         $skuStmt = $pdo->prepare(
@@ -416,6 +418,7 @@ try {
     }
 
     if ($action === 'save_allocation_tree') {
+        $month = jg_profit_loss_month($body['month'] ?? 0);
         try {
             $allocationTree = jg_profit_loss_normalize_allocation_tree($body['allocation_tree'] ?? null);
         } catch (InvalidArgumentException $error) {
@@ -426,13 +429,13 @@ try {
             jg_profit_loss_json(['ok' => false, 'error' => 'Unable to encode the profit allocation.'], 422);
         }
         $stmt = $pdo->prepare(
-            'INSERT INTO profit_loss_settings (year, allocation_tree_json, updated_at)
-             VALUES (:year, :allocation_tree_json, UTC_TIMESTAMP(6))
+            'INSERT INTO profit_loss_allocation_settings (year, month, allocation_tree_json, updated_at)
+             VALUES (:year, :month, :allocation_tree_json, UTC_TIMESTAMP(6))
              ON DUPLICATE KEY UPDATE
                 allocation_tree_json = VALUES(allocation_tree_json), updated_at = VALUES(updated_at)'
         );
-        $stmt->execute([':year' => $year, ':allocation_tree_json' => $encodedTree]);
-        jg_profit_loss_json(['ok' => true, 'settings' => jg_profit_loss_settings($pdo, $year)]);
+        $stmt->execute([':year' => $year, ':month' => $month, ':allocation_tree_json' => $encodedTree]);
+        jg_profit_loss_json(['ok' => true, 'settings' => jg_profit_loss_settings($pdo, $year, $month)]);
     }
 
     if ($action === 'save_syrup_groups') {

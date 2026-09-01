@@ -70,4 +70,38 @@ expect_profit_allocation(
     'A rounded three-way split must be stored as exactly 100%.'
 );
 
+$pdo = new PDO('sqlite::memory:');
+$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$pdo->exec('CREATE TABLE profit_loss_settings (
+    year INTEGER PRIMARY KEY,
+    reinvest_pct REAL,
+    offering_pct REAL,
+    ownership_pct REAL,
+    director_pct REAL,
+    bng_loan_pct REAL,
+    commissioner_pct REAL,
+    advisor_pct REAL,
+    allocation_tree_json TEXT,
+    updated_at TEXT
+)');
+$pdo->exec('CREATE TABLE profit_loss_allocation_settings (
+    year INTEGER NOT NULL,
+    month INTEGER NOT NULL,
+    allocation_tree_json TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (year, month)
+)');
+$yearTree = [['id' => 'year', 'name' => 'Year fallback', 'percentage' => 100, 'children' => []]];
+$monthTree = [['id' => 'month', 'name' => 'August only', 'percentage' => 100, 'children' => []]];
+$yearStmt = $pdo->prepare('INSERT INTO profit_loss_settings (year, allocation_tree_json, updated_at) VALUES (2026, :tree, "year")');
+$yearStmt->execute([':tree' => json_encode($yearTree)]);
+$monthStmt = $pdo->prepare('INSERT INTO profit_loss_allocation_settings (year, month, allocation_tree_json, updated_at) VALUES (2026, 8, :tree, "month")');
+$monthStmt->execute([':tree' => json_encode($monthTree)]);
+$augustSettings = jg_profit_loss_settings($pdo, 2026, 8);
+$septemberSettings = jg_profit_loss_settings($pdo, 2026, 9);
+expect_profit_allocation($augustSettings['allocation_tree'][0]['name'] === 'August only', 'A monthly allocation must override the yearly fallback for that month only.');
+expect_profit_allocation($augustSettings['allocation_source'] === 'month', 'A monthly allocation must report its monthly source.');
+expect_profit_allocation($septemberSettings['allocation_tree'][0]['name'] === 'Year fallback', 'A month without an override must inherit the existing yearly allocation.');
+expect_profit_allocation($septemberSettings['allocation_source'] === 'year_fallback', 'An inherited allocation must report its yearly fallback source.');
+
 echo "Profit allocation checks passed.\n";

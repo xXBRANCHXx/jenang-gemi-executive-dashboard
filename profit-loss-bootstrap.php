@@ -43,6 +43,14 @@ function jg_profit_loss_ensure_schema(PDO $pdo): void
             allocation_tree_json LONGTEXT NULL,
             updated_at DATETIME(6) NOT NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+        'CREATE TABLE IF NOT EXISTS profit_loss_allocation_settings (
+            year SMALLINT UNSIGNED NOT NULL,
+            month TINYINT UNSIGNED NOT NULL,
+            allocation_tree_json LONGTEXT NOT NULL,
+            updated_at DATETIME(6) NOT NULL,
+            PRIMARY KEY (year, month),
+            KEY idx_profit_loss_allocation_updated (updated_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
         'CREATE TABLE IF NOT EXISTS profit_loss_syrup_groups (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
             label VARCHAR(80) NOT NULL,
@@ -197,7 +205,7 @@ function jg_profit_loss_default_entries(): array
     ];
 }
 
-function jg_profit_loss_settings(PDO $pdo, int $year): array
+function jg_profit_loss_settings(PDO $pdo, int $year, ?int $month = null): array
 {
     $stmt = $pdo->prepare(
         'SELECT reinvest_pct, offering_pct, ownership_pct, director_pct,
@@ -205,15 +213,40 @@ function jg_profit_loss_settings(PDO $pdo, int $year): array
          FROM profit_loss_settings WHERE year = :year LIMIT 1'
     );
     $stmt->execute([':year' => $year]);
-    $row = $stmt->fetch();
+    $row = $stmt->fetch() ?: [];
 
     $allocationTree = jg_profit_loss_default_allocation_tree();
-    $storedTree = json_decode((string) ($row['allocation_tree_json'] ?? ''), true);
-    if (is_array($storedTree)) {
+    $allocationSource = 'default';
+    $allocationUpdatedAt = '';
+    $storedTrees = [];
+    if ($month !== null && $month >= 1 && $month <= 12) {
+        $monthStmt = $pdo->prepare(
+            'SELECT allocation_tree_json, updated_at
+             FROM profit_loss_allocation_settings
+             WHERE year = :year AND month = :month
+             LIMIT 1'
+        );
+        $monthStmt->execute([':year' => $year, ':month' => $month]);
+        $monthRow = $monthStmt->fetch() ?: [];
+        if ($monthRow !== []) {
+            $storedTrees[] = ['month', $monthRow];
+        }
+    }
+    if ($row !== []) {
+        $storedTrees[] = ['year_fallback', $row];
+    }
+    foreach ($storedTrees as [$source, $storedRow]) {
+        $storedTree = json_decode((string) ($storedRow['allocation_tree_json'] ?? ''), true);
+        if (!is_array($storedTree)) {
+            continue;
+        }
         try {
             $allocationTree = jg_profit_loss_normalize_allocation_tree($storedTree);
+            $allocationSource = $source;
+            $allocationUpdatedAt = (string) ($storedRow['updated_at'] ?? '');
+            break;
         } catch (InvalidArgumentException) {
-            // Keep the safe defaults when a manually edited legacy value is invalid.
+            // Try the yearly fallback, then safe defaults, when stored JSON is invalid.
         }
     }
 
@@ -226,7 +259,10 @@ function jg_profit_loss_settings(PDO $pdo, int $year): array
         'commissioner_pct' => (float) ($row['commissioner_pct'] ?? 25),
         'advisor_pct' => (float) ($row['advisor_pct'] ?? 25),
         'allocation_tree' => $allocationTree,
-        'updated_at' => (string) ($row['updated_at'] ?? ''),
+        'allocation_year' => $year,
+        'allocation_month' => $month,
+        'allocation_source' => $allocationSource,
+        'updated_at' => $allocationUpdatedAt,
     ];
 }
 
