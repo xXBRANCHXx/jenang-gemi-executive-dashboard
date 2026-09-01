@@ -4441,11 +4441,11 @@ function jg_accounting_pnl_summary(PDO $pdo, int $year): array
         'category_settings' => $categorySettings,
         'pnl_buckets' => jg_accounting_pnl_buckets(),
         'product_cost_basis' => 'sales_service_sold_unit_cogs',
-        'packing_cost_basis' => 'sold_units_x_1500',
+        'packing_cost_basis' => 'sold_units_x_1000',
         'open_review_items' => (int) $pdo->query('SELECT COUNT(*) FROM accounting_review_queue WHERE status = "open"')->fetchColumn(),
         'notes' => [
             'Gross profit uses Sales COGS for products sold; purchase-order values and payments are not part of the calculation.',
-            'Packing cost is estimated at Rp 1.500 for every unit sold instead of using actual packing purchases.',
+            'Packing cost is estimated at Rp 1.000 for every unit sold instead of using actual packing purchases.',
             'Net profit is gross profit minus included operating categories.',
         ],
     ];

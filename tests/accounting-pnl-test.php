@@ -59,7 +59,7 @@ pnl_expect(800, $july['product_purchases'], 'Accounting product purchases must r
 pnl_expect(800, $july['product_costs'], 'Accounting product category totals must not be replaced by PO payment rows.');
 pnl_expect(false, array_key_exists('po_payment_count', $summary), 'The P&L summary must not depend on PO payment counts.');
 pnl_expect('sales_service_sold_unit_cogs', $summary['product_cost_basis'], 'The P&L must disclose sold-product COGS as its product-cost basis.');
-pnl_expect('sold_units_x_1500', $summary['packing_cost_basis'], 'The P&L must disclose the fixed packing assumption.');
+pnl_expect('sold_units_x_1000', $summary['packing_cost_basis'], 'The P&L must disclose the fixed packing assumption.');
 pnl_expect(80, $july['packing_costs'], 'Accounting packaging payments must remain available for reconciliation only.');
 pnl_expect(50, $july['manual_refunds'], 'Manual customer refunds must reduce report revenue separately.');
 pnl_expect(60, $july['partner_payments'], 'Confirmed partner payments must be identified as revenue.');

@@ -8,7 +8,7 @@ if (root) {
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-  const PACKING_COST_PER_SOLD_UNIT = 1500;
+  const PACKING_COST_PER_SOLD_UNIT = 1000;
   const state = {
     year: currentYear,
     period: String(currentMonth),
@@ -440,7 +440,7 @@ if (root) {
 
     const compositionRows = [
       ['Product COGS', productCosts, 'product'],
-      ['Packing @ Rp1.500/unit', packingCosts, 'packing'],
+      ['Packing @ Rp1.000/unit', packingCosts, 'packing'],
       ['Operating expenses', operatingExpenses, 'opex'],
       [isLoss ? 'Net loss' : 'Net profit', Math.max(0, netProfit), 'profit']
     ];
@@ -462,7 +462,7 @@ if (root) {
       selected.refunds ? bridgeRow('Less: manual customer refunds', -(selected.refunds || 0), 'is-deduction') : '',
       bridgeRow('Net revenue', selected.revenue || 0, 'is-subtotal'),
       bridgeRow('Less: COGS of products sold', -(selected.cogs || 0), 'is-deduction'),
-      bridgeRow('Less: packing assumption (Rp1.500 × units sold)', -(selected.packing || 0), 'is-deduction'),
+      bridgeRow('Less: packing assumption (Rp1.000 × units sold)', -(selected.packing || 0), 'is-deduction'),
       bridgeRow('Gross profit', selected.grossProfit || 0, 'is-subtotal'),
       ...operatingRows.map((category) => {
         const display = categoryDisplay(category);

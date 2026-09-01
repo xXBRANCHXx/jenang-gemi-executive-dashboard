@@ -35,14 +35,14 @@ assert.match(script, /return 'ZERO Shopee'/, 'The ZERO Shopee ad breakdown must 
 assert.match(script, /return 'Jenang Gemi Shopee'/, 'The Jenang Gemi Shopee ad breakdown must use the requested account label.');
 assert.match(styles, /\.pnl-expense-breakdown\s*\{/, 'Expanded expense children must have a dedicated downward-flowing layout.');
 
-assert.match(script, /const PACKING_COST_PER_SOLD_UNIT = 1500;/, 'P&L must use the fixed Rp1,500 packing assumption.');
+assert.match(script, /const PACKING_COST_PER_SOLD_UNIT = 1000;/, 'P&L must use the fixed Rp1.000 packing assumption.');
 assert.match(script, /const soldUnits = Math\.max\(0, numeric\(sale, \['item_count', 'items_qty', 'units', 'quantity'\]\)\);/, 'Packing must use the monthly quantity sold.');
 assert.match(script, /const productCosts = Math\.max\(0, numeric\(sale, \['cogs', 'cost_of_goods_sold'\]\)\);/, 'Product cost must use sales-service COGS for products sold.');
-assert.match(script, /const packingCosts = soldUnits \* PACKING_COST_PER_SOLD_UNIT;/, 'Packing must equal sold units times Rp1,500.');
+assert.match(script, /const packingCosts = soldUnits \* PACKING_COST_PER_SOLD_UNIT;/, 'Packing must equal sold units times Rp1.000.');
 assert.doesNotMatch(script, /const productCosts = numeric\(books,/, 'P&L product COGS must not come from Accounting or PO payments.');
 assert.doesNotMatch(script, /const packingCosts = numeric\(books,/, 'P&L packing must not use actual Accounting packing purchases.');
 assert.doesNotMatch(script, /numeric\(sale, \['packing_cost'\]\)/, 'P&L must ignore variable per-item packing rates from Sales.');
-assert.match(page, /Net revenue − COGS of products sold − Rp1\.500 for every unit sold\./, 'The P&L must state the corrected gross-profit formula.');
+assert.match(page, /Net revenue − COGS of products sold − Rp1\.000 for every unit sold\./, 'The P&L must state the corrected gross-profit formula.');
 assert.match(page, /Purchase-order payments and actual packing purchases are not used\./, 'The P&L must disclose that actual PO and packing payments do not drive GP.');
 assert.match(script, /netProfit: revenue - productCosts - packingCosts - opex/, 'Net Profit must use the direct revenue-minus-product-costs-minus-assumed-packing formula.');
 assert.doesNotMatch(script, /netProfit: grossProfit - opex/, 'Net Profit must never be derived from Gross Profit.');
