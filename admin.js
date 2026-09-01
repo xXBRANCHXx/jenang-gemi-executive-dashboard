@@ -927,6 +927,7 @@ const normalizeSourceKey = (value) => String(value || '').trim().toLowerCase();
 
 const HIDDEN_HOME_SOURCES = new Set(['internal', 'direct']);
 const OVERVIEW_DATA_CACHE_VERSION = 17;
+const DAILY_DATA_CACHE_VERSION = 2;
 const OVERVIEW_CACHE_PREFIX = `jg-overview-summary-v${OVERVIEW_DATA_CACHE_VERSION}`;
 const OVERVIEW_LEGEND_PREVIEW_LIMIT = 5;
 const ORDER_RENDER_BATCH_SIZE = 120;
@@ -5048,7 +5049,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	  const websiteClientCacheKey = () => dashboardClientCacheKey('website', [state.website.site || 'select', state.website.timeframe, state.timezone, activeLocalDate]);
 	  const walletClientCacheKey = () => dashboardClientCacheKey('wallet', [activeLocalDate]);
 	  const inventoryRecapClientCacheKey = () => dashboardClientCacheKey('inventory-recap', ['trigger-v9', activeLocalDate]);
-	  const dailyClientCacheKey = () => dashboardClientCacheKey('daily', [state.daily.month, state.timezone]);
+	  const dailyClientCacheKey = () => dashboardClientCacheKey('daily', [`v${DAILY_DATA_CACHE_VERSION}`, state.daily.month, state.timezone]);
 	  const ordersClientCacheKey = () => dashboardClientCacheKey('orders', [`v${ORDER_CLIENT_CACHE_VERSION}`, state.overview.year, activeLocalDate]);
 	  const settingsClientCacheKey = () => dashboardClientCacheKey('settings', [activeLocalDate]);
 	  const hardSetClientCacheKey = () => dashboardClientCacheKey('hard-set', ['state']);

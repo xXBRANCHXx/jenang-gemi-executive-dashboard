@@ -2626,7 +2626,8 @@ function jg_orders_daily_summary_payload(PDO $pdo, string $startDate, string $en
     $accounts = [];
     [$from, $to] = jg_orders_range_bounds($startDate, $endDate);
     $freeGiftSql = jg_orders_free_gift_sql('dashboard_order_mirror');
-    $activeSaleSql = jg_orders_active_sale_status_sql('dashboard_order_mirror.status');
+    $activeSaleSql = jg_orders_active_sale_status_sql('dashboard_order_mirror.status')
+        . ' AND ' . jg_orders_active_sale_status_sql('dashboard_order_mirror.funds_release_status');
     $stmt = $pdo->prepare(
         'SELECT daily_date, platform, account_key,
                 COUNT(*) AS orders,

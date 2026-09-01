@@ -6,6 +6,12 @@ const source = fs.readFileSync(path.resolve(__dirname, '..', 'admin.js'), 'utf8'
 const helperStart = source.indexOf('const getDateKeyForTimezone');
 const helperEnd = source.indexOf('const jgValidMonthKey', helperStart);
 
+assert(
+  source.includes('const DAILY_DATA_CACHE_VERSION = 2;')
+    && source.includes("dashboardClientCacheKey('daily', [`v${DAILY_DATA_CACHE_VERSION}`, state.daily.month, state.timezone])"),
+  'Daily data fixes must invalidate persisted summaries instead of restoring pre-fix quantities.'
+);
+
 assert(helperStart >= 0 && helperEnd > helperStart, 'Daily elapsed-day helpers must remain available.');
 
 const helpers = new Function(`${source.slice(helperStart, helperEnd)}\nreturn { getElapsedDayCountForMonth };`)();

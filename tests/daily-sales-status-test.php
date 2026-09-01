@@ -23,8 +23,10 @@ daily_status_expect(true, str_contains($activeSaleSql, 'NOT LIKE "%CANCEL%"'), '
 $ordersApi = file_get_contents(dirname(__DIR__) . '/api/orders/index.php');
 daily_status_expect(
     true,
-    str_contains((string) $ordersApi, "AND ' . \$activeSaleSql . '"),
-    'The Daily mirror query must apply the active-sale status clause.'
+    str_contains((string) $ordersApi, "jg_orders_active_sale_status_sql('dashboard_order_mirror.status')")
+        && str_contains((string) $ordersApi, "jg_orders_active_sale_status_sql('dashboard_order_mirror.funds_release_status')")
+        && str_contains((string) $ordersApi, "AND ' . \$activeSaleSql . '"),
+    'The Daily mirror query must reject canceled order and funds-release lifecycles.'
 );
 
 echo "daily-sales-status-test: ok\n";
