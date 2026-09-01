@@ -413,6 +413,17 @@ function jg_sales_merge_partner_summary(array $summary, int $year): array
             $monthsByNumber[$month][$key] = (float) ($monthsByNumber[$month][$key] ?? 0) + $value;
             $platformTotals[$key] += $value;
         }
+        // Keep the all-channel totals above unchanged for Sales Recap and its
+        // charts, while exposing the Partner portion so reports that recognize
+        // confirmed Partner payments can remove order revenue before adding
+        // those payments. Without this marker, the P&L counts Partner revenue
+        // once at order time and again when the Partner bill is paid.
+        $monthsByNumber[$month]['revenue_breakdown'] =
+            is_array($monthsByNumber[$month]['revenue_breakdown'] ?? null)
+                ? $monthsByNumber[$month]['revenue_breakdown']
+                : [];
+        $monthsByNumber[$month]['revenue_breakdown']['partner_orders'] =
+            (float) ($monthsByNumber[$month]['revenue_breakdown']['partner_orders'] ?? 0) + $revenue;
         $monthsByNumber[$month]['platforms'] = is_array($monthsByNumber[$month]['platforms'] ?? null)
             ? $monthsByNumber[$month]['platforms'] : [];
         $monthsByNumber[$month]['platforms']['partner'] = array_merge(
@@ -433,6 +444,12 @@ function jg_sales_merge_partner_summary(array $summary, int $year): array
     foreach ($platformTotals as $key => $value) {
         $summary['totals'][$key] = (float) ($summary['totals'][$key] ?? 0) + $value;
     }
+    $summary['totals']['revenue_breakdown'] =
+        is_array($summary['totals']['revenue_breakdown'] ?? null)
+            ? $summary['totals']['revenue_breakdown']
+            : [];
+    $summary['totals']['revenue_breakdown']['partner_orders'] =
+        (float) ($summary['totals']['revenue_breakdown']['partner_orders'] ?? 0) + (float) $platformTotals['revenue'];
 
     $platformRows = [];
     foreach ((array) ($summary['platforms'] ?? []) as $row) {
@@ -467,6 +484,7 @@ function jg_sales_merge_partner_summary(array $summary, int $year): array
     );
     $summary['meta'] = is_array($summary['meta'] ?? null) ? $summary['meta'] : [];
     $summary['meta']['partner_sales_merged'] = true;
+    $summary['meta']['revenue_includes_partner_orders'] = true;
     return $summary;
 }
 

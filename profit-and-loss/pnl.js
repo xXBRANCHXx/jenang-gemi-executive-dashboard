@@ -1,4 +1,35 @@
-const root = document.querySelector('[data-pnl-page]');
+export const separatePnlSalesRevenue = (sale = {}) => {
+  const read = (row, keys) => {
+    for (const key of keys) {
+      const value = Number(row?.[key]);
+      if (Number.isFinite(value)) return value;
+    }
+    return 0;
+  };
+  const objectRows = (value) => {
+    if (!value || typeof value !== 'object') return [];
+    return Object.entries(value)
+      .filter(([, row]) => row && typeof row === 'object')
+      .map(([collectionKey, row]) => ({ collectionKey, ...row }));
+  };
+  const allChannelSales = Math.max(0, read(sale, ['revenue', 'net_revenue', 'seller_received', 'sales']));
+  const explicitPartnerRevenue = Number(sale?.revenue_breakdown?.partner_orders ?? sale?.partner_order_revenue);
+  const partner = [...objectRows(sale?.platforms), ...objectRows(sale?.accounts)].find((row) => {
+    const key = String(row?.key || row?.platform || row?.account_key || row?.collectionKey || '').trim().toLowerCase();
+    return key === 'partner';
+  });
+  const reportedPartnerRevenue = Number.isFinite(explicitPartnerRevenue)
+    ? Math.max(0, explicitPartnerRevenue)
+    : Math.max(0, read(partner, ['revenue', 'net_revenue', 'seller_received', 'sales']));
+  const partnerOrders = Math.min(allChannelSales, reportedPartnerRevenue);
+  return {
+    allChannelSales,
+    partnerOrders,
+    sellerReceivedSales: allChannelSales - partnerOrders
+  };
+};
+
+const root = typeof document === 'object' ? document.querySelector('[data-pnl-page]') : null;
 
 if (root) {
   const salesEndpoint = root.dataset.salesEndpoint || '../api/sales/';
@@ -144,11 +175,11 @@ if (root) {
       const month = index + 1;
       const sale = salesMonths.find((row, rowIndex) => monthNumber(row, rowIndex + 1) === month) || {};
       const books = accountingMonths.find((row, rowIndex) => monthNumber(row, rowIndex + 1) === month) || {};
-      const sourceRevenue = numeric(sale, ['revenue', 'net_revenue', 'seller_received', 'sales']);
+      const { allChannelSales, partnerOrders, sellerReceivedSales } = separatePnlSalesRevenue(sale);
       const refunds = numeric(books, ['manual_refunds']);
       const partnerPayments = numeric(books, ['partner_payments']);
       const otherIncome = numeric(books, ['other_income']);
-      const revenue = sourceRevenue + partnerPayments + otherIncome - refunds;
+      const revenue = sellerReceivedSales + partnerPayments + otherIncome - refunds;
       const soldUnits = Math.max(0, numeric(sale, ['item_count', 'items_qty', 'units', 'quantity']));
       const productCosts = Math.max(0, numeric(sale, ['cogs', 'cost_of_goods_sold']));
       const packingCosts = soldUnits * PACKING_COST_PER_SOLD_UNIT;
@@ -163,7 +194,9 @@ if (root) {
       return {
         month,
         revenue,
-        sourceRevenue,
+        sellerReceivedSales,
+        allChannelSales,
+        partnerOrderRevenue: partnerOrders,
         soldUnits,
         partnerPayments,
         refunds,
@@ -456,7 +489,7 @@ if (root) {
     `).join('');
 
     if (refs.bridge) refs.bridge.innerHTML = [
-      bridgeRow('Seller-received sales', selected.sourceRevenue || 0),
+      bridgeRow('Seller-received sales', selected.sellerReceivedSales || 0),
       bridgeRow('Partner payments', selected.partnerPayments || 0),
       selected.otherIncome ? bridgeRow('Other revenue', selected.otherIncome || 0) : '',
       selected.refunds ? bridgeRow('Less: manual customer refunds', -(selected.refunds || 0), 'is-deduction') : '',
@@ -525,7 +558,7 @@ if (root) {
     if (refs.trend) refs.trend.innerHTML = state.rows.map((row, index) => `<button type="button" class="${state.period === String(row.month) ? 'is-selected' : ''}" data-pnl-focus-month="${row.month}" title="${escapeHtml(`${monthNames[row.month - 1]}: ${money(row.netProfit)}`)}"><i class="${row.netProfit < 0 ? 'is-negative' : ''}" style="height:${Math.max(4, Math.round(Math.abs(row.netProfit) / maxProfit * 100))}%;animation-delay:${index * 35}ms"></i><span>${monthNames[row.month - 1].slice(0, 3)}</span></button>`).join('');
 
     if (refs.formulaRevenue) refs.formulaRevenue.textContent = [
-      money(selected.sourceRevenue || 0),
+      money(selected.sellerReceivedSales || 0),
       `+ ${money(selected.partnerPayments || 0)}`,
       `+ ${money(selected.otherIncome || 0)}`,
       ...(selected.refunds ? [`− ${money(selected.refunds || 0)}`] : []),

@@ -52,5 +52,17 @@ partner_summary_expect(
     substr_count((string) $salesApi, 'jg_sales_merge_partner_summary($'),
     'Both cached and context-only Sales Recap responses must merge Partner sales.'
 );
+partner_summary_expect(
+    true,
+    str_contains((string) $salesApi, '$monthsByNumber[$month][\'revenue_breakdown\'][\'partner_orders\']')
+        && str_contains((string) $salesApi, '$summary[\'totals\'][\'revenue_breakdown\'][\'partner_orders\']'),
+    'Sales must expose the Partner-order portion without removing it from all-channel chart totals.'
+);
+partner_summary_expect(
+    true,
+    str_contains((string) $salesApi, '$monthsByNumber[$month][$key] = (float) ($monthsByNumber[$month][$key] ?? 0) + $value')
+        && str_contains((string) $salesApi, '$summary[\'totals\'][$key] = (float) ($summary[\'totals\'][$key] ?? 0) + $value'),
+    'Existing all-channel month and total metrics must continue adding Partner orders for Sales Recap charts.'
+);
 
 echo "partner-sales-summary-test: ok\n";

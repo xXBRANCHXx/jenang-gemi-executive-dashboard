@@ -73,7 +73,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/pnl.js');
                             <div class="pnl-v2-composition-legend" data-pnl-composition-legend></div>
                         </div>
                         <dl class="pnl-v2-totals">
-                            <div><dt>Revenue counted<small>Seller + partner + other posted revenue</small></dt><dd data-pnl-revenue-total>Rp0</dd></div>
+                            <div><dt>Revenue counted<small>Non-Partner sales + Partner payments + other posted revenue</small></dt><dd data-pnl-revenue-total>Rp0</dd></div>
                             <div class="is-cost"><dt>Costs subtracted<small>Sold-product COGS + Rp1.000/unit packing + posted OpEx</small></dt><dd data-pnl-cost-total>Rp0</dd></div>
                             <div class="is-profit"><dt>Net profit<small data-pnl-net-margin>0% net margin</small></dt><dd data-pnl-net-profit>Rp0</dd></div>
                         </dl>
@@ -128,7 +128,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/pnl.js');
                 </section>
 
                 <section class="pnl-v2-formula" aria-label="Exact profit calculation">
-                    <div><b>1</b><p><strong>Revenue counted</strong><span>All operating revenue received: seller-received sales + partner payments + other revenue − refunds</span><em data-pnl-formula-revenue>Rp0 = Rp0</em></p></div>
+                    <div><b>1</b><p><strong>Revenue counted</strong><span>Seller-received sales from walk-ins, WhatsApp, and online platforms (Partner excluded) + confirmed Partner payments + other revenue not already counted − refunds</span><em data-pnl-formula-revenue>Rp0 = Rp0</em></p></div>
                     <i aria-hidden="true">→</i>
                     <div><b>2</b><p><strong>Gross profit</strong><span>Net revenue − COGS of products sold − Rp1.000 for every unit sold. Purchase-order payments and actual packing purchases are not used.</span><em data-pnl-formula-gross>Rp0 − Rp0 − Rp0 = Rp0</em></p></div>
                     <i aria-hidden="true">→</i>
