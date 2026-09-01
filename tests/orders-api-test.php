@@ -498,6 +498,12 @@ expect_same(1, $dailyAccounts['whatsapp:other']['orders'], 'Daily summary must c
 expect_same(1, $dailyAccounts['walk-in:other']['qty'], 'Daily summary must include walk-in order quantities.');
 expect_same(4, $dailyAccounts['partner:other']['qty'], 'Daily summary must include Partner order quantities in the existing Other account bucket.');
 expect_same(100000.0, $dailyAccounts['partner:other']['revenue'], 'Daily summary must include Partner order revenue and omit cancelled Partner sales.');
+expect_same(true, jg_orders_is_canceled_sale_status('CANCELLED_BY_BUYER'), 'Daily sales must reject marketplace cancellation variants.');
+expect_same(true, jg_orders_is_canceled_sale_status('in_cancel'), 'Daily sales must reject in-progress cancellations.');
+expect_same(true, jg_orders_is_canceled_sale_status('VOIDED'), 'Daily sales must reject voided orders.');
+expect_same(false, jg_orders_is_canceled_sale_status('COMPLETED'), 'Daily sales must retain completed orders.');
+$activeSaleSql = jg_orders_active_sale_status_sql('dashboard_order_mirror.status');
+expect_same(true, str_contains($activeSaleSql, 'NOT LIKE "%CANCEL%"'), 'Daily mirror SQL must exclude every marketplace cancellation status.');
 
 $breakdownLookup = [
     jg_orders_sku_key('SYRUP-50-ORIGINAL') => [

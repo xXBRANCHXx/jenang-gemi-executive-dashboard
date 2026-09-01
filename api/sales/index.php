@@ -11,6 +11,7 @@ require_once dirname(__DIR__, 2) . '/sales-summary-stability.php';
 require_once dirname(__DIR__, 2) . '/sales-flavor-scope.php';
 require_once dirname(__DIR__, 2) . '/website-commerce-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/whatsapp-orders-bootstrap.php';
+require_once dirname(__DIR__, 2) . '/partner-sales-summary.php';
 
 jg_admin_require_auth();
 
@@ -293,6 +294,182 @@ function jg_sales_normalize_sku_key(mixed $value): string
     return strtoupper(trim((string) $value));
 }
 
+/**
+ * Merge non-canceled Partner orders into the all-channel Executive summary.
+ * Daily already includes this source, so keeping it here prevents the monthly
+ * Sales Recap from reporting a different definition of sold quantity.
+ *
+ * @param array<string, mixed> $summary
+ * @return array<string, mixed>
+ */
+function jg_sales_merge_partner_summary(array $summary, int $year): array
+{
+    if (!empty($summary['meta']['partner_sales_merged'])) {
+        return $summary;
+    }
+    $pdo = jg_partner_db();
+    if (!$pdo instanceof PDO) {
+        return $summary;
+    }
+
+    $facts = jg_partner_sales_summary_facts(jg_partner_sales_summary_orders($pdo, $year), $year);
+    if ($facts['months'] === []) {
+        $summary['meta'] = is_array($summary['meta'] ?? null) ? $summary['meta'] : [];
+        $summary['meta']['partner_sales_merged'] = true;
+        return $summary;
+    }
+
+    $monthsByNumber = [];
+    foreach (array_values((array) ($summary['months'] ?? [])) as $index => $monthRow) {
+        if (!is_array($monthRow)) {
+            continue;
+        }
+        $monthNumber = (int) ($monthRow['month'] ?? $index + 1);
+        if ($monthNumber >= 1 && $monthNumber <= 12) {
+            $monthsByNumber[$monthNumber] = $monthRow;
+        }
+    }
+    for ($month = 1; $month <= 12; $month++) {
+        $monthsByNumber[$month] ??= [
+            'month' => $month,
+            'label' => (new DateTimeImmutable(sprintf('%04d-%02d-01', $year, $month)))->format('M'),
+        ];
+    }
+
+    // Monthly Context rows are authoritative historical replacements. Live
+    // Partner facts are only additive outside those hard-set months.
+    $includedMonths = [];
+    foreach ($facts['months'] as $month => $values) {
+        if (($monthsByNumber[$month]['context_source'] ?? '') === 'monthly_context') {
+            continue;
+        }
+        $includedMonths[(int) $month] = true;
+    }
+    if ($includedMonths === []) {
+        $summary['months'] = array_values($monthsByNumber);
+        $summary['meta'] = is_array($summary['meta'] ?? null) ? $summary['meta'] : [];
+        $summary['meta']['partner_sales_merged'] = true;
+        return $summary;
+    }
+
+    $lookup = jg_sales_sku_lookup();
+    $monthlyCogs = [];
+    $partnerProducts = [];
+    foreach ($facts['products'] as $row) {
+        $month = (int) ($row['month'] ?? 0);
+        if (empty($includedMonths[$month])) {
+            continue;
+        }
+        $quantity = max(0, (int) ($row['quantity'] ?? 0));
+        $sku = jg_sales_normalize_sku_key($row['sku'] ?? $row['tag'] ?? '');
+        $skuRecord = $lookup[$sku] ?? null;
+        $unitCogs = is_array($skuRecord) ? jg_sales_sku_cogs_for_month($skuRecord, $year, $month) : 0.0;
+        $cogs = (int) round($unitCogs * $quantity);
+        $revenue = jg_sales_seller_received($row);
+        $row['cogs_quantity'] = $quantity;
+        $row['unit_cogs'] = $unitCogs;
+        $row['cogs'] = $cogs;
+        $row['packing_cost'] = 0;
+        $row['gross_profit'] = $revenue - $cogs;
+        $row['cogs_source'] = is_array($skuRecord)
+            ? ((is_array($skuRecord['cogs_history'] ?? null) && $skuRecord['cogs_history'] !== []) ? 'sku_quarter_history' : 'sku_static_average')
+            : 'none';
+        $monthlyCogs[$month] = (int) ($monthlyCogs[$month] ?? 0) + $cogs;
+        $partnerProducts[] = $row;
+    }
+
+    $platformTotals = [
+        'orders' => 0,
+        'item_count' => 0,
+        'gross_revenue' => 0.0,
+        'revenue' => 0.0,
+        'net_revenue' => 0.0,
+        'marketplace_fees' => 0.0,
+        'cogs' => 0.0,
+        'packing_cost' => 0.0,
+        'gross_profit' => 0.0,
+        'sales' => 0.0,
+    ];
+    foreach ($facts['months'] as $month => $fact) {
+        $month = (int) $month;
+        if (empty($includedMonths[$month])) {
+            continue;
+        }
+        $revenue = (float) ($fact['revenue'] ?? 0);
+        $cogs = (float) ($monthlyCogs[$month] ?? 0);
+        $values = [
+            'orders' => (int) ($fact['orders'] ?? 0),
+            'item_count' => (int) ($fact['item_count'] ?? 0),
+            'gross_revenue' => $revenue,
+            'revenue' => $revenue,
+            'net_revenue' => $revenue,
+            'marketplace_fees' => 0.0,
+            'cogs' => $cogs,
+            'packing_cost' => 0.0,
+            'gross_profit' => $revenue - $cogs,
+            'sales' => $revenue,
+        ];
+        foreach ($values as $key => $value) {
+            $monthsByNumber[$month][$key] = (float) ($monthsByNumber[$month][$key] ?? 0) + $value;
+            $platformTotals[$key] += $value;
+        }
+        $monthsByNumber[$month]['platforms'] = is_array($monthsByNumber[$month]['platforms'] ?? null)
+            ? $monthsByNumber[$month]['platforms'] : [];
+        $monthsByNumber[$month]['platforms']['partner'] = array_merge(
+            ['key' => 'partner', 'label' => 'Partner'],
+            $values
+        );
+        $monthsByNumber[$month]['accounts'] = is_array($monthsByNumber[$month]['accounts'] ?? null)
+            ? $monthsByNumber[$month]['accounts'] : [];
+        $monthsByNumber[$month]['accounts']['partner'] = array_merge(
+            ['key' => 'partner', 'account_key' => 'partner', 'platform' => 'partner', 'label' => 'Partner'],
+            $values
+        );
+    }
+
+    ksort($monthsByNumber);
+    $summary['months'] = array_values($monthsByNumber);
+    $summary['totals'] = is_array($summary['totals'] ?? null) ? $summary['totals'] : [];
+    foreach ($platformTotals as $key => $value) {
+        $summary['totals'][$key] = (float) ($summary['totals'][$key] ?? 0) + $value;
+    }
+
+    $platformRows = [];
+    foreach ((array) ($summary['platforms'] ?? []) as $row) {
+        if (is_array($row)) {
+            $platformRows[(string) ($row['key'] ?? $row['platform'] ?? '')] = $row;
+        }
+    }
+    $platformRows['partner'] = array_merge(
+        $platformRows['partner'] ?? [],
+        ['key' => 'partner', 'platform' => 'partner', 'label' => 'Partner'],
+        $platformTotals
+    );
+    $summary['platforms'] = array_values($platformRows);
+
+    $accountRows = [];
+    foreach ((array) ($summary['accounts'] ?? []) as $row) {
+        if (is_array($row)) {
+            $accountRows[(string) ($row['key'] ?? $row['account_key'] ?? '')] = $row;
+        }
+    }
+    $accountRows['partner'] = array_merge(
+        $accountRows['partner'] ?? [],
+        ['key' => 'partner', 'account_key' => 'partner', 'platform' => 'partner', 'label' => 'Partner'],
+        $platformTotals
+    );
+    $summary['accounts'] = array_values($accountRows);
+
+    $summary['products'] = is_array($summary['products'] ?? null) ? $summary['products'] : [];
+    $summary['products']['by_month'] = array_merge(
+        is_array($summary['products']['by_month'] ?? null) ? $summary['products']['by_month'] : [],
+        $partnerProducts
+    );
+    $summary['meta'] = is_array($summary['meta'] ?? null) ? $summary['meta'] : [];
+    $summary['meta']['partner_sales_merged'] = true;
+    return $summary;
+}
+
 function jg_sales_prepare_cached_response(string $baseResponse, int $year, bool $includeAudit): string
 {
     $decoded = json_decode($baseResponse, true);
@@ -310,6 +487,11 @@ function jg_sales_prepare_cached_response(string $baseResponse, int $year, bool 
         $decoded = jg_whatsapp_merge_sales_summary(analyticsDb(), $decoded, $year);
     } catch (Throwable $whatsappSalesError) {
         error_log('Unable to merge WhatsApp sales: ' . $whatsappSalesError->getMessage());
+    }
+    try {
+        $decoded = jg_sales_merge_partner_summary($decoded, $year);
+    } catch (Throwable $partnerSalesError) {
+        error_log('Unable to merge Partner sales: ' . $partnerSalesError->getMessage());
     }
     $decoded = jg_sales_apply_all_channel_packing($decoded, $year);
     $decoded = jg_sales_summary_enforce_profit_formula($decoded);
@@ -409,6 +591,11 @@ function jg_sales_context_only_summary(int $year): ?array
         $summary = jg_whatsapp_merge_sales_summary(analyticsDb(), $summary, $year);
     } catch (Throwable $whatsappSalesError) {
         error_log('Unable to merge WhatsApp sales into context summary: ' . $whatsappSalesError->getMessage());
+    }
+    try {
+        $summary = jg_sales_merge_partner_summary($summary, $year);
+    } catch (Throwable $partnerSalesError) {
+        error_log('Unable to merge Partner sales into context summary: ' . $partnerSalesError->getMessage());
     }
     $summary = jg_sales_summary_enforce_profit_formula($summary);
     if ($context === [] && (int) ($summary['totals']['orders'] ?? 0) === 0) {
@@ -1493,6 +1680,17 @@ function jg_sales_attach_calculation_audit(array &$summary, int $year): void
                     'sku_skus.tag',
                     'sku_skus.cogs',
                     'sku_packing_costs.packing_per_item',
+                ],
+            ],
+            [
+                'name' => 'Partner sales',
+                'method' => 'local SQL',
+                'endpoint' => 'partner_orders',
+                'used_for' => 'Non-canceled Partner revenue, completed orders, item quantity, and product rollups',
+                'json_paths' => [
+                    'months[].platforms.partner',
+                    'months[].accounts.partner',
+                    'products.by_month[].source=partner_order',
                 ],
             ],
         ],

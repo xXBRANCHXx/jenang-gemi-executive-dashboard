@@ -51,6 +51,7 @@ partner_sales_expect(120000.0, $summary['order_value'], 'Sales value should excl
 partner_sales_expect(70000.0, $summary['paid_amount'], 'Paid value should include all active settlements.');
 partner_sales_expect(50000.0, $summary['outstanding_amount'], 'Summary outstanding should reconcile.');
 partner_sales_expect(1, $summary['payment_statuses']['cancelled'], 'Cancelled orders should remain auditable.');
+partner_sales_expect(true, jg_partner_sales_is_cancelled('CANCELLED_BY_BUYER'), 'Partner sale totals must reject cancellation variants.');
 
 $adjusted = jg_partner_sales_apply_item_prices([
     ['sku_code' => 'JG-01', 'quantity' => 2, 'unit_revenue' => 25000],

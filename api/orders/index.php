@@ -1031,6 +1031,22 @@ function jg_orders_normalized_status(mixed $value): string
     return trim(preg_replace('/[^A-Z0-9]+/', '_', strtoupper((string) $value)) ?? '', '_');
 }
 
+function jg_orders_is_canceled_sale_status(mixed $value): bool
+{
+    $status = jg_orders_normalized_status($value);
+    return str_contains($status, 'CANCEL') || in_array($status, ['VOID', 'VOIDED'], true);
+}
+
+function jg_orders_active_sale_status_sql(string $column): string
+{
+    $safeColumn = preg_replace('/[^a-zA-Z0-9_.]+/', '', $column) ?? '';
+    if ($safeColumn === '') {
+        throw new InvalidArgumentException('A valid status column is required.');
+    }
+    return 'UPPER(TRIM(' . $safeColumn . ')) NOT LIKE "%CANCEL%"'
+        . ' AND UPPER(TRIM(' . $safeColumn . ')) NOT IN ("VOID", "VOIDED")';
+}
+
 function jg_orders_release_marker_trusted(string $platform, mixed $orderStatus, mixed $releaseStatus, mixed $releaseSource): bool
 {
     $platform = strtolower(trim($platform));
@@ -2546,10 +2562,9 @@ function jg_orders_daily_add_order_rows(array &$days, array &$accounts, array $r
         if (!is_array($row)) {
             return false;
         }
-        $status = strtoupper(trim((string) ($row['status'] ?? '')));
         $paymentStatus = strtolower(trim((string) ($row['payment_status'] ?? '')));
         return $paymentStatus !== 'canceled'
-            && !in_array($status, ['CANCELLED', 'CANCELED', 'VOID', 'VOIDED'], true);
+            && !jg_orders_is_canceled_sale_status($row['status'] ?? '');
     }));
 
     $added = 0;
@@ -2611,6 +2626,7 @@ function jg_orders_daily_summary_payload(PDO $pdo, string $startDate, string $en
     $accounts = [];
     [$from, $to] = jg_orders_range_bounds($startDate, $endDate);
     $freeGiftSql = jg_orders_free_gift_sql('dashboard_order_mirror');
+    $activeSaleSql = jg_orders_active_sale_status_sql('dashboard_order_mirror.status');
     $stmt = $pdo->prepare(
         'SELECT daily_date, platform, account_key,
                 COUNT(*) AS orders,
@@ -2628,6 +2644,7 @@ function jg_orders_daily_summary_payload(PDO $pdo, string $startDate, string $en
                     END AS order_revenue
              FROM dashboard_order_mirror
              WHERE deleted_at IS NULL
+               AND ' . $activeSaleSql . '
                AND order_create_time >= :from_date
                AND order_create_time < :to_date
              GROUP BY daily_date, platform, account_key, daily_order_key

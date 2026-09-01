@@ -93,7 +93,8 @@ function jg_partner_sales_ensure_schema(PDO $pdo): void
 
 function jg_partner_sales_is_cancelled(mixed $status): bool
 {
-    return in_array(strtoupper(trim((string) $status)), ['CANCELLED', 'CANCELED', 'VOID', 'VOIDED'], true);
+    $normalized = trim(preg_replace('/[^A-Z0-9]+/', '_', strtoupper((string) $status)) ?? '', '_');
+    return str_contains($normalized, 'CANCEL') || in_array($normalized, ['VOID', 'VOIDED'], true);
 }
 
 function jg_partner_sales_decode_items(mixed $value): array
