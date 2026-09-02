@@ -103,6 +103,21 @@ if (jgAdViewEstimateNetRevenue(100000, 2, 0.8, 35000) !== 80000.0
     throw new RuntimeException('Ad View net revenue must prefer the actual SKU net-to-gross ratio and never fall back to Shopee gross value.');
 }
 
+$creditAlertAccounts = jgAdViewApplyCreditAlerts([
+    ['account_key' => 'jenang-gemi-shopee', 'balance' => ['total_balance' => 100000]],
+    ['account_key' => 'zero-shopee', 'balance' => ['total_balance' => 100001]],
+    ['account_key' => 'zfit-shopee', 'balance' => ['total_balance' => 0]],
+], [
+    'jenang-gemi-shopee' => 100000,
+    'zero-shopee' => 100000,
+    'zfit-shopee' => 0,
+]);
+if (($creditAlertAccounts[0]['credit_alert_active'] ?? null) !== true
+    || ($creditAlertAccounts[1]['credit_alert_active'] ?? null) !== false
+    || ($creditAlertAccounts[2]['credit_alert_active'] ?? null) !== true) {
+    throw new RuntimeException('Ad credit alerts must trigger when balance is equal to or below the account threshold.');
+}
+
 $tagMatchedQuantity = $quantities[$costs['JGBUBUR_ORIGINAL_30SACHET']['source_key']] ?? $quantities[$costs['JGBUBUR_ORIGINAL_30SACHET']['sku']] ?? 0;
 $weightedCogs = (($costs['JGBUBUR_ORIGINAL_30SACHET']['cogs'] * $tagMatchedQuantity) + ($costs['SKU-B']['cogs'] * $quantities['SKU-B']))
     / array_sum($quantities);

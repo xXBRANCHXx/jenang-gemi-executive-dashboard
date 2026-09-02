@@ -2713,6 +2713,10 @@ document.addEventListener('DOMContentLoaded', () => {
       selectedCampaignKey: adViewPreferences.selectedCampaignKey,
       search: '',
       data: null,
+      creditAlerts: {},
+      creditAlertAccounts: {},
+      creditAlertLoadedAt: 0,
+      creditAlertPromise: null,
       loadedAt: 0,
       lastSyncAt: 0,
       syncPromise: null,
@@ -3118,6 +3122,9 @@ document.addEventListener('DOMContentLoaded', () => {
     trendMeta: document.querySelector('[data-ad-view-trend-meta]'),
     summaryMetricButtons: document.querySelectorAll('[data-ad-view-summary-metric]'),
     credits: document.querySelector('[data-ad-view-credits]'),
+    creditAlertDialog: document.querySelector('[data-ad-view-credit-alert-dialog]'),
+    creditAlertForm: document.querySelector('[data-ad-view-credit-alert-form]'),
+    creditAlertError: document.querySelector('[data-ad-view-credit-alert-error]'),
     events: document.querySelector('[data-ad-view-events]'),
     library: document.querySelector('[data-ad-view-library]'),
     libraryMeta: document.querySelector('[data-ad-view-library-meta]'),
@@ -12678,8 +12685,63 @@ document.addEventListener('DOMContentLoaded', () => {
     }).join('');
   };
 
+  const applyAdCreditAlertState = (data = {}) => {
+    if (data.credit_alerts && typeof data.credit_alerts === 'object') {
+      state.adView.creditAlerts = { ...state.adView.creditAlerts, ...data.credit_alerts };
+    }
+    (Array.isArray(data.accounts) ? data.accounts : []).forEach((account) => {
+      const accountKey = String(account?.account_key || '');
+      if (!accountKey) return;
+      state.adView.creditAlertAccounts[accountKey] = Boolean(account.credit_alert_active);
+    });
+    const alertActive = Object.values(state.adView.creditAlertAccounts).some(Boolean);
+    document.querySelectorAll('[data-dashboard-nav-section="ad-view"]').forEach((link) => {
+      link.classList.toggle('is-credit-alert', alertActive);
+      if (!link.dataset.defaultAriaLabel) link.dataset.defaultAriaLabel = link.getAttribute('aria-label') || 'Open Ad View';
+      link.setAttribute('aria-label', alertActive
+        ? `${link.dataset.defaultAriaLabel} — low ad credit alert active`
+        : link.dataset.defaultAriaLabel);
+    });
+  };
+
+  const refreshAdCreditAlertStatus = async (options = {}) => {
+    const now = Date.now();
+    if (!options.force && state.adView.creditAlertLoadedAt && now - state.adView.creditAlertLoadedAt < AD_VIEW_AUTO_SYNC_INTERVAL_MS) return false;
+    if (state.adView.creditAlertPromise) return state.adView.creditAlertPromise;
+    state.adView.creditAlertPromise = requestJson(`${adsEndpoint}?action=credit_alert_status`, { cache: 'no-store' })
+      .then((data) => {
+        state.adView.creditAlertLoadedAt = Date.now();
+        applyAdCreditAlertState(data);
+        return true;
+      })
+      .finally(() => {
+        state.adView.creditAlertPromise = null;
+      });
+    return state.adView.creditAlertPromise;
+  };
+
+  const openAdCreditAlertDialog = () => {
+    if (!adViewRefs.creditAlertDialog || !adViewRefs.creditAlertForm) return;
+    const defaults = {
+      'jenang-gemi-shopee': 100000,
+      'zero-shopee': 100000,
+      'zfit-shopee': 100000
+    };
+    Object.entries(defaults).forEach(([accountKey, fallback]) => {
+      const input = adViewRefs.creditAlertForm.elements.namedItem(accountKey);
+      if (input instanceof HTMLInputElement) input.value = String(Number(state.adView.creditAlerts[accountKey] ?? fallback));
+    });
+    if (adViewRefs.creditAlertError) {
+      adViewRefs.creditAlertError.hidden = true;
+      adViewRefs.creditAlertError.textContent = '';
+    }
+    if (typeof adViewRefs.creditAlertDialog.showModal === 'function') adViewRefs.creditAlertDialog.showModal();
+    else adViewRefs.creditAlertDialog.setAttribute('open', '');
+  };
+
   const renderAdView = (data) => {
     state.adView.data = data;
+    applyAdCreditAlertState(data);
     const campaigns = getAdViewCampaigns();
     const metrics = getAdViewMetrics();
     const accountOptions = data.account_options || [];
@@ -12719,11 +12781,11 @@ document.addEventListener('DOMContentLoaded', () => {
       : (data.accounts || []).filter((account) => account.account_key === state.adView.account);
     if (adViewRefs.credits) {
       const balances = selectedAccounts.map((account) => `
-        <span><small>${escapeHtml(account.company || account.account_key)}</small><strong>${formatCurrency(Number(account.balance?.total_balance || 0))}</strong></span>
+        <span><small>${escapeHtml(account.company || account.account_key)}</small><strong class="${account.credit_alert_active ? 'is-credit-alert' : ''}">${formatCurrency(Number(account.balance?.total_balance || 0))}</strong></span>
       `).join('');
       adViewRefs.credits.innerHTML = `
         <article>
-          <div><span><i class="admin-status-dot"></i>Ad credit</span><small>Live Shopee balance by account</small></div>
+          <div><span><i class="admin-status-dot"></i>Ad credit <button type="button" class="admin-ad-view-credit-settings" data-ad-view-credit-settings aria-label="Edit ad credit alert triggers" title="Edit alert triggers"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.09A1.7 1.7 0 0 0 8.5 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.09A1.7 1.7 0 0 0 4.6 8.5a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.09A1.7 1.7 0 0 0 15.5 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.15.38.36.72.67 1 .3.26.68.4 1.08.4H21v4h-.09a1.7 1.7 0 0 0-1.51.6Z"/></svg></button></span><small>Live Shopee balance by account</small></div>
           <div class="admin-ad-view-credit-breakdown">${balances || '<span><small>No balances available</small><strong>—</strong></span>'}</div>
         </article>
       `;
@@ -13664,6 +13726,9 @@ document.addEventListener('DOMContentLoaded', () => {
   renderDailyPlatformList();
   syncViewState();
   renderContextEditor();
+  window.setTimeout(() => {
+    refreshAdCreditAlertStatus({ force: true }).catch(() => false);
+  }, 0);
   if (state.activeView === 'overview' && !DASHBOARD_FORCE_FRESH_LOAD) {
     window.setTimeout(() => ensureOverviewLocationHeatmap(), 0);
   }
@@ -15093,6 +15158,51 @@ document.addEventListener('DOMContentLoaded', () => {
     await loadAdViewSafely({ force: true });
   });
 
+  adViewRefs.credits?.addEventListener('click', (event) => {
+    const button = event.target instanceof Element ? event.target.closest('[data-ad-view-credit-settings]') : null;
+    if (button) openAdCreditAlertDialog();
+  });
+
+  document.querySelectorAll('[data-ad-view-credit-alert-close]').forEach((button) => {
+    button.addEventListener('click', () => adViewRefs.creditAlertDialog?.close());
+  });
+
+  adViewRefs.creditAlertForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = new FormData(adViewRefs.creditAlertForm);
+    const thresholds = {};
+    ['jenang-gemi-shopee', 'zero-shopee', 'zfit-shopee'].forEach((accountKey) => {
+      thresholds[accountKey] = Number(form.get(accountKey));
+    });
+    const submit = adViewRefs.creditAlertForm.querySelector('[type="submit"]');
+    if (submit) submit.disabled = true;
+    if (adViewRefs.creditAlertError) {
+      adViewRefs.creditAlertError.hidden = true;
+      adViewRefs.creditAlertError.textContent = '';
+    }
+    try {
+      const result = await requestJson(adsEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'save_credit_alerts', thresholds })
+      });
+      state.adView.creditAlerts = { ...state.adView.creditAlerts, ...(result.credit_alerts || thresholds) };
+      state.adView.creditAlertLoadedAt = 0;
+      adViewRefs.creditAlertDialog?.close();
+      await Promise.all([
+        loadAdViewSafely({ force: true }),
+        refreshAdCreditAlertStatus({ force: true }).catch(() => false)
+      ]);
+    } catch (error) {
+      if (adViewRefs.creditAlertError) {
+        adViewRefs.creditAlertError.hidden = false;
+        adViewRefs.creditAlertError.textContent = error?.message || 'Unable to save credit alert triggers.';
+      }
+    } finally {
+      if (submit) submit.disabled = false;
+    }
+  });
+
   adViewRefs.compareA?.addEventListener('change', () => {
     state.adView.compareA = adViewRefs.compareA?.value || '';
     persistAdViewPreferences();
@@ -15708,6 +15818,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    runAutomaticMarketplaceRefresh().catch(() => {});
 	    refreshOverviewSnapshot().catch(() => {});
 	    scheduleWalletBackgroundRefresh({ force: true });
+    refreshAdCreditAlertStatus({ force: true }).catch(() => false);
     if (state.activeView === 'ad-view') scheduleAdViewAutoSync({ delay: 250 });
     if (state.activeView === 'overview') {
       refreshOverviewHourlyRows(null, { repair: true }).catch(() => {});
@@ -15715,12 +15826,14 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   window.addEventListener('online', () => {
     scheduleWalletBackgroundRefresh({ force: true });
+    refreshAdCreditAlertStatus({ force: true }).catch(() => false);
   });
   window.setInterval(() => {
     if (!document.hidden) {
       refreshForLocalDateRollover().catch(() => {});
       runAutomaticMarketplaceRefresh().catch(() => {});
       scheduleWalletBackgroundRefresh();
+      refreshAdCreditAlertStatus().catch(() => false);
 	      if (state.activeView === 'overview') {
 	        refreshOverviewHourlyRows(null, { repair: true }).catch(() => {});
       }

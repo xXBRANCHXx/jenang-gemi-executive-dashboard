@@ -58,7 +58,7 @@ $sidebarSection = match (true) {
     in_array($requestedView ?? '', ['website', 'site', 'home', 'campaign', 'campaigns', 'landing', 'landing-pages'], true) => 'website',
     default => 'home',
 };
-$dashboardBuildVersion = 'exec3.98.7';
+$dashboardBuildVersion = 'exec3.98.8';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -1540,7 +1540,24 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                         <div class="admin-ad-view-editor-actions"><button type="button" class="admin-ghost-btn" data-ad-view-editor-close>Cancel</button><button type="submit" class="admin-primary-btn">Save changes</button></div>
                     </form>
                 </dialog>
-                    </section>
+                <dialog class="admin-ad-view-editor admin-ad-view-credit-alert-dialog" data-ad-view-credit-alert-dialog>
+                    <form method="dialog" class="admin-ad-view-editor-card" data-ad-view-credit-alert-form>
+                        <div class="admin-panel-head">
+                            <div><span class="admin-panel-kicker">Ad Credit Alerts</span><h3>Low-balance triggers</h3></div>
+                            <button type="button" class="admin-icon-btn" data-ad-view-credit-alert-close aria-label="Close">×</button>
+                        </div>
+                        <p>Set the Shopee ad balance that should trigger the repeating red alert for each account.</p>
+                        <div class="admin-ad-view-credit-alert-fields">
+                            <label><span>Jenang Gemi</span><span class="admin-ad-view-currency-input"><b>Rp</b><input type="number" name="jenang-gemi-shopee" min="0" step="1" inputmode="numeric" required></span></label>
+                            <label><span>ZERO</span><span class="admin-ad-view-currency-input"><b>Rp</b><input type="number" name="zero-shopee" min="0" step="1" inputmode="numeric" required></span></label>
+                            <label><span>ZFIT</span><span class="admin-ad-view-currency-input"><b>Rp</b><input type="number" name="zfit-shopee" min="0" step="1" inputmode="numeric" required></span></label>
+                        </div>
+                        <small>The alert starts when an account balance is equal to or below its trigger and stops after the balance rises above it.</small>
+                        <p class="admin-form-error" data-ad-view-credit-alert-error hidden></p>
+                        <div class="admin-ad-view-editor-actions"><button type="button" class="admin-ghost-btn" data-ad-view-credit-alert-close>Cancel</button><button type="submit" class="admin-primary-btn">Save triggers</button></div>
+                    </form>
+                </dialog>
+            </section>
 
                     <section class="admin-view" data-view-panel="website">
                 <section class="admin-website-header" data-website-header>

@@ -441,6 +441,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const notificationMode = document.querySelector('[data-notification-mode]');
   const notificationList = document.querySelector('[data-notification-list]');
   const websiteOrdersEndpoint = chromeRoot?.dataset.websiteOrdersEndpoint || '../api/website-orders/';
+  const adViewNavLink = document.querySelector('[data-dashboard-nav-section="ad-view"]');
+  const adCreditAlertEndpoint = adViewNavLink
+    ? new URL('../api/ads/?action=credit_alert_status', adViewNavLink.href).href
+    : '';
   const state = {
     notifications: {
       open: false,
@@ -454,6 +458,37 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   let notificationFeedbackTimer = null;
   let searchFocusTimer = null;
+
+  const applyAdCreditAlertState = (data = {}) => {
+    if (!adViewNavLink) return;
+    const alertActive = Boolean(data.credit_alert_active)
+      || (Array.isArray(data.accounts) && data.accounts.some((account) => Boolean(account.credit_alert_active)));
+    adViewNavLink.classList.toggle('is-credit-alert', alertActive);
+    if (!adViewNavLink.dataset.defaultAriaLabel) {
+      adViewNavLink.dataset.defaultAriaLabel = adViewNavLink.getAttribute('aria-label') || 'Open Ad View';
+    }
+    adViewNavLink.setAttribute('aria-label', alertActive
+      ? `${adViewNavLink.dataset.defaultAriaLabel} — low ad credit alert active`
+      : adViewNavLink.dataset.defaultAriaLabel);
+  };
+
+  const refreshAdCreditAlert = async () => {
+    if (!adCreditAlertEndpoint || document.hidden) return;
+    const response = await fetch(adCreditAlertEndpoint, {
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+      cache: 'no-store'
+    });
+    if (!response.ok) throw new Error(`Ad credit alert check failed (${response.status})`);
+    applyAdCreditAlertState(await response.json());
+  };
+
+  refreshAdCreditAlert().catch(() => {});
+  window.setInterval(() => refreshAdCreditAlert().catch(() => {}), 5 * 60 * 1000);
+  window.addEventListener('focus', () => refreshAdCreditAlert().catch(() => {}));
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) refreshAdCreditAlert().catch(() => {});
+  });
 
   applyTheme(readStoredTheme() || 'dark');
   systemThemeQuery?.addEventListener?.('change', () => {

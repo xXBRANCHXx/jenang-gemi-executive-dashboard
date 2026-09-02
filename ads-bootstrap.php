@@ -11,6 +11,8 @@ const JG_AD_VIEW_ACCOUNTS = [
     'zfit-shopee' => 'ZFIT',
 ];
 
+const JG_AD_VIEW_DEFAULT_CREDIT_ALERT_THRESHOLD = 100000.0;
+
 function jgAdViewEnsureSchema(PDO $pdo): void
 {
     $pdo->exec(
@@ -52,7 +54,76 @@ function jgAdViewEnsureSchema(PDO $pdo): void
             PRIMARY KEY (account_key, budget_month)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
     );
+    $pdo->exec(
+        'CREATE TABLE IF NOT EXISTS ad_view_credit_alerts (
+            account_key VARCHAR(80) NOT NULL,
+            alert_threshold DECIMAL(18,2) NOT NULL DEFAULT 100000,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (account_key)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+    );
     analyticsEnsureTableColumn($pdo, 'ad_view_campaigns', 'unit_cogs_override', 'DECIMAL(18,2) NULL DEFAULT NULL AFTER `tags_json`');
+}
+
+/** @return array<string, float> */
+function jgAdViewCreditAlertThresholds(PDO $pdo): array
+{
+    $thresholds = array_fill_keys(array_keys(JG_AD_VIEW_ACCOUNTS), JG_AD_VIEW_DEFAULT_CREDIT_ALERT_THRESHOLD);
+    $rows = $pdo->query('SELECT account_key, alert_threshold FROM ad_view_credit_alerts')->fetchAll();
+    foreach ($rows as $row) {
+        $accountKey = (string) ($row['account_key'] ?? '');
+        if (isset($thresholds[$accountKey])) {
+            $thresholds[$accountKey] = max(0, (float) ($row['alert_threshold'] ?? 0));
+        }
+    }
+    return $thresholds;
+}
+
+/**
+ * @param array<int, array<string, mixed>> $accounts
+ * @param array<string, float> $thresholds
+ * @return array<int, array<string, mixed>>
+ */
+function jgAdViewApplyCreditAlerts(array $accounts, array $thresholds): array
+{
+    foreach ($accounts as &$account) {
+        $accountKey = (string) ($account['account_key'] ?? '');
+        $threshold = max(0, (float) ($thresholds[$accountKey] ?? JG_AD_VIEW_DEFAULT_CREDIT_ALERT_THRESHOLD));
+        $rawBalance = $account['balance']['total_balance'] ?? null;
+        $balanceAvailable = is_numeric($rawBalance);
+        $balance = $balanceAvailable ? max(0, (float) $rawBalance) : 0.0;
+        $account['credit_alert_threshold'] = $threshold;
+        $account['credit_alert_active'] = $balanceAvailable && $balance <= $threshold;
+    }
+    unset($account);
+    return $accounts;
+}
+
+/** @param array<string, mixed> $payload @return array<string, mixed> */
+function jgAdViewCreditAlertStatusPayload(PDO $pdo, array $payload): array
+{
+    $thresholds = jgAdViewCreditAlertThresholds($pdo);
+    $accounts = jgAdViewApplyCreditAlerts(
+        is_array($payload['accounts'] ?? null) ? $payload['accounts'] : [],
+        $thresholds
+    );
+    return [
+        'ok' => true,
+        'accounts' => array_map(static fn (array $account): array => [
+            'account_key' => (string) ($account['account_key'] ?? ''),
+            'company' => JG_AD_VIEW_ACCOUNTS[(string) ($account['account_key'] ?? '')] ?? (string) ($account['account_key'] ?? ''),
+            'balance' => [
+                'total_balance' => max(0, (float) ($account['balance']['total_balance'] ?? 0)),
+            ],
+            'credit_alert_threshold' => (float) ($account['credit_alert_threshold'] ?? 0),
+            'credit_alert_active' => (bool) ($account['credit_alert_active'] ?? false),
+        ], $accounts),
+        'credit_alerts' => $thresholds,
+        'credit_alert_active' => count(array_filter(
+            $accounts,
+            static fn (array $account): bool => !empty($account['credit_alert_active'])
+        )) > 0,
+    ];
 }
 
 function jgAdViewJsonBody(): array
@@ -716,7 +787,14 @@ function jgAdViewEnrich(PDO $pdo, array $payload, string $startDate, string $end
     }
     unset($account);
 
+    $creditAlertThresholds = jgAdViewCreditAlertThresholds($pdo);
+    $accounts = jgAdViewApplyCreditAlerts($accounts, $creditAlertThresholds);
     $payload['accounts'] = $accounts;
+    $payload['credit_alerts'] = $creditAlertThresholds;
+    $payload['credit_alert_active'] = count(array_filter(
+        $accounts,
+        static fn (array $account): bool => !empty($account['credit_alert_active'])
+    )) > 0;
     $payload['events'] = $events;
     $payload['account_options'] = array_map(
         static fn (string $label, string $key): array => ['key' => $key, 'label' => $label],
@@ -834,6 +912,35 @@ function jgAdViewHandle(): void
             ]);
             analyticsJsonResponse(['ok' => true]);
         }
+        if ($action === 'save_credit_alerts') {
+            $thresholds = is_array($body['thresholds'] ?? null) ? $body['thresholds'] : [];
+            if ($thresholds === []) {
+                analyticsJsonResponse(['ok' => false, 'error' => 'missing_credit_alert_thresholds'], 422);
+            }
+            $normalizedThresholds = [];
+            foreach ($thresholds as $accountKey => $threshold) {
+                $account = jgAdViewAccount($accountKey, false);
+                if (!is_numeric($threshold)) {
+                    analyticsJsonResponse(['ok' => false, 'error' => 'invalid_credit_alert_threshold'], 422);
+                }
+                $normalizedThresholds[$account] = round(max(0, min(9999999999999999.99, (float) $threshold)), 2);
+            }
+            $statement = $pdo->prepare(
+                'INSERT INTO ad_view_credit_alerts (account_key, alert_threshold)
+                 VALUES (:account_key, :alert_threshold)
+                 ON DUPLICATE KEY UPDATE alert_threshold = VALUES(alert_threshold), updated_at = UTC_TIMESTAMP()'
+            );
+            foreach ($normalizedThresholds as $account => $threshold) {
+                $statement->execute([
+                    ':account_key' => $account,
+                    ':alert_threshold' => $threshold,
+                ]);
+            }
+            analyticsJsonResponse([
+                'ok' => true,
+                'credit_alerts' => jgAdViewCreditAlertThresholds($pdo),
+            ]);
+        }
         if ($action !== 'sync') {
             analyticsJsonResponse(['ok' => false, 'error' => 'unknown_ad_view_action'], 422);
         }
@@ -844,6 +951,15 @@ function jgAdViewHandle(): void
         analyticsJsonResponse(jgAdViewEnrich($pdo, $payload, $startDate, $endDate));
     }
 
+    $getAction = strtolower(trim((string) ($_GET['action'] ?? '')));
+    if ($getAction === 'credit_alert_status') {
+        $payload = jgAdViewUpstream('/ads/summary', [
+            'account' => 'all',
+            'start_date' => $today->format('Y-m-d'),
+            'end_date' => $today->format('Y-m-d'),
+        ]);
+        analyticsJsonResponse(jgAdViewCreditAlertStatusPayload($pdo, $payload));
+    }
     $account = jgAdViewAccount($_GET['account'] ?? 'all');
     $startDate = jgAdViewDate($_GET['start_date'] ?? '', $today->format('Y-m-d'));
     $endDate = jgAdViewDate($_GET['end_date'] ?? '', $today->format('Y-m-d'));

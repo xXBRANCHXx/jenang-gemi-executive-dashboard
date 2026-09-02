@@ -33688,6 +33688,38 @@ button.admin-accounting-metric {
   font-weight: 850;
 }
 
+.admin-ad-view-credit-settings {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-left: 1px;
+  padding: 0;
+  border: 1px solid var(--admin-border);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--admin-muted);
+  cursor: pointer;
+  transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
+}
+
+.admin-ad-view-credit-settings:hover,
+.admin-ad-view-credit-settings:focus-visible {
+  border-color: currentColor;
+  background: var(--admin-surface);
+  color: var(--admin-text);
+}
+
+.admin-ad-view-credit-settings svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .admin-ad-view-credits small {
   color: var(--admin-muted);
   font-size: 0.59rem;
@@ -33712,6 +33744,75 @@ button.admin-accounting-metric {
 .admin-ad-view-credit-breakdown strong {
   color: var(--admin-text);
   font: 700 0.76rem/1.2 'Space Grotesk', sans-serif;
+}
+
+@keyframes admin-ad-credit-alert-flash {
+  0%, 100% {
+    color: #ff334f;
+    opacity: 1;
+    filter: drop-shadow(0 0 7px rgba(255, 51, 79, 0.72));
+  }
+  50% {
+    color: #ff334f;
+    opacity: 0.24;
+    filter: drop-shadow(0 0 1px rgba(255, 51, 79, 0.2));
+  }
+}
+
+.admin-ad-view-credit-breakdown strong.is-credit-alert,
+.admin-rail-link.is-credit-alert {
+  animation: admin-ad-credit-alert-flash 1.15s ease-in-out infinite;
+}
+
+.admin-rail-link.is-credit-alert::before {
+  width: 24px;
+  background: #ff334f;
+  opacity: 1;
+}
+
+.admin-ad-view-credit-alert-fields {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-ad-view-currency-input {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  background: var(--admin-input-bg);
+}
+
+.admin-ad-view-currency-input:focus-within {
+  border-color: color-mix(in srgb, var(--admin-text) 48%, var(--admin-border));
+}
+
+.admin-ad-view-currency-input b {
+  padding-left: 12px;
+  color: var(--admin-muted);
+  font-size: 0.76rem;
+}
+
+.admin-ad-view-editor-card .admin-ad-view-currency-input input {
+  width: 100%;
+  border: 0;
+  background: transparent;
+}
+
+.admin-ad-view-credit-alert-dialog .admin-form-error {
+  margin: 0;
+  color: #ff6073;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-ad-view-credit-breakdown strong.is-credit-alert,
+  .admin-rail-link.is-credit-alert {
+    animation: none;
+    color: #ff334f;
+    filter: drop-shadow(0 0 5px rgba(255, 51, 79, 0.6));
+  }
 }
 
 .admin-ad-view-trend-panel {

@@ -5,6 +5,8 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'dashboard/index.php'), 'utf8');
 const js = fs.readFileSync(path.join(root, 'admin.js'), 'utf8');
+const css = fs.readFileSync(path.join(root, 'admin.css'), 'utf8');
+const chromeJs = fs.readFileSync(path.join(root, 'admin-chrome.js'), 'utf8');
 
 const kpiIndex = html.indexOf('class="admin-ad-view-kpis"');
 const chartIndex = html.indexOf('class="admin-panel admin-ad-view-trend-panel"');
@@ -26,6 +28,15 @@ assert(js.includes("startDate: getDateKeyForTimezone()"), 'Ad View must initiali
 assert(js.includes("selectedMetrics.length >= 4"), 'The chart must enforce its four-metric limit.');
 assert(js.includes("row.campaign_key === state.adView.selectedCampaignKey"), 'KPIs and chart data must follow the selected campaign.');
 assert(js.includes('admin-ad-view-credit-breakdown'), 'Ad balances must share one compact breakdown card.');
+assert(html.includes('data-ad-view-credit-alert-dialog'), 'Ad credit must provide a settings popup for per-account alert triggers.');
+for (const account of ['jenang-gemi-shopee', 'zero-shopee', 'zfit-shopee']) {
+  assert(html.includes(`name="${account}"`), `Missing credit alert trigger for ${account}.`);
+}
+assert(js.includes("action: 'save_credit_alerts'"), 'Credit alert triggers must persist through the Ad View API.');
+assert(js.includes('account.credit_alert_active'), 'Ad credit balances must use their server-calculated alert state.');
+assert(js.includes("[data-dashboard-nav-section=\"ad-view\"]"), 'The Ad View sidebar icon must receive the low-credit state.');
+assert(chromeJs.includes('action=credit_alert_status'), 'Shared admin pages must also refresh the Ad View sidebar alert.');
+assert(css.includes('admin-ad-credit-alert-flash'), 'Low-credit balances and the sidebar icon must flash repeatedly.');
 assert(!js.includes('<section class="admin-ad-view-shopee-metrics">'), 'Selected-ad details must not repeat the seven Shopee metrics.');
 assert(js.includes('AD_VIEW_AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000'), 'Ad View must automatically sync every five minutes.');
 assert(js.includes('AD_VIEW_ATTRIBUTION_REFRESH_DAYS = 8'), 'Ad View must refresh Shopee’s trailing attribution window.');
