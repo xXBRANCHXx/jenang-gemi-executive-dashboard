@@ -347,6 +347,7 @@ function jg_blog_sanitize_html(mixed $html): string
                 $originalCropLeft = $tag === 'figure' ? $node->getAttribute('data-crop-left') : '';
                 $originalYoutubeId = $tag === 'figure' ? $node->getAttribute('data-youtube-id') : '';
                 $originalYoutubeWidth = $tag === 'figure' ? $node->getAttribute('data-youtube-width') : '';
+                $originalYoutubeAlign = $tag === 'figure' ? $node->getAttribute('data-youtube-align') : '';
                 $isImageFrame = $tag === 'div' && $node->hasAttribute('data-image-frame');
                 $isYoutubeThumbnail = $tag === 'div' && $node->hasAttribute('data-youtube-thumbnail');
                 $isYoutubeTrigger = $tag === 'a' && $node->hasAttribute('data-youtube-trigger');
@@ -407,8 +408,10 @@ function jg_blog_sanitize_html(mixed $html): string
                     $youtubeId = jg_blog_youtube_id($originalYoutubeId);
                     if ($youtubeId !== '') {
                         $youtubeWidth = max(10, min(100, (int) $originalYoutubeWidth ?: 100));
+                        $youtubeAlign = in_array($originalYoutubeAlign, ['left', 'center', 'right'], true) ? $originalYoutubeAlign : 'center';
                         $node->setAttribute('data-youtube-id', $youtubeId);
                         $node->setAttribute('data-youtube-width', (string) $youtubeWidth);
+                        $node->setAttribute('data-youtube-align', $youtubeAlign);
                         $node->setAttribute('style', '--youtube-width:' . $youtubeWidth . '%');
                         $node = $next;
                         continue;

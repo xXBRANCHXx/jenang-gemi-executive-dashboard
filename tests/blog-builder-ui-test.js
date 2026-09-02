@@ -62,6 +62,7 @@ expect(sharedPreviewJs.includes('youtube-nocookie.com/embed/') && sharedPreviewJ
 expect(js.includes('enableSharedPreview') && js.includes('copySharedPreview'), 'The editor must create and copy private preview links.');
 expect(js.includes('youtubeVideoId') && js.includes('youtube-nocookie.com/embed/') && js.includes('insertYoutubeVideo'), 'The editor must validate, insert, and preview YouTube video blocks.');
 expect(js.includes('beginYoutubeResize') && js.includes("clamp(Math.round(width), 10, 100)"), 'YouTube cards must support direct resizing down to a compact ten-percent width.');
+expect(js.includes('beginYoutubePlacement') && js.includes("position < .36 ? 'left'"), 'YouTube cards must support direct left, center, and right placement.');
 expect(js.includes("[data-youtube-editor-control]") && js.includes('clone.querySelectorAll'), 'Editor-only YouTube controls must not be saved into article HTML.');
 expect(!php.includes('data-image-scale') && !php.includes('type="range"'), 'Image sizing must use direct manipulation instead of a scale slider.');
 expect(js.includes('const HISTORY_LIMIT = 100') && js.includes('const undo = () =>') && js.includes('const redo = () =>'), 'The editor must retain a conventional 100-step undo/redo history.');
@@ -75,6 +76,7 @@ expect(css.includes('.blog-body-editor { display: flow-root;') && css.includes('
 expect(sharedPreviewCss.includes('figure[data-align="left"]') && sharedPreviewCss.includes('[data-image-frame]'), 'Shared previews must render text wrapping and saved crops.');
 expect(css.includes('figure[data-youtube-id]') && sharedPreviewCss.includes('figure[data-youtube-id]'), 'YouTube previews must have a responsive landing-page treatment in the editor and shared preview.');
 expect(css.includes('var(--youtube-width, 100%)') && sharedPreviewCss.includes('var(--youtube-width, 100%)'), 'Saved YouTube widths must render consistently in dashboard and shared previews.');
+expect(css.includes('data-youtube-align="right"') && sharedPreviewCss.includes('data-youtube-align="right"'), 'Saved YouTube placement must render consistently in dashboard and shared previews.');
 expect(bootstrap.includes('zero_blog_post_styles') && bootstrap.includes('function jg_blog_fonts'), 'Article font choices must persist independently from dashboard themes.');
 
 console.log('blog builder UI tests passed');

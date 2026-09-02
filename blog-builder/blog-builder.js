@@ -99,6 +99,8 @@ if (root) {
     restoringHistory: false,
     imageInteraction: null,
     youtubeResize: null,
+    youtubePlacement: null,
+    suppressYoutubeClick: false,
     imageLayoutFrame: 0,
     delivery: null,
     deliverySaving: false
@@ -171,7 +173,7 @@ if (root) {
         const tag = node.tagName.toLowerCase();
         const allowed = tag === 'a' ? ['href', 'rel', 'target', 'data-youtube-trigger', 'data-youtube-link']
           : tag === 'img' ? ['src', 'alt', 'loading', 'decoding']
-            : tag === 'figure' ? ['data-scale', 'data-shape', 'data-width', 'data-align', 'data-crop-top', 'data-crop-right', 'data-crop-bottom', 'data-crop-left', 'data-aspect', 'data-youtube-id', 'data-youtube-width']
+            : tag === 'figure' ? ['data-scale', 'data-shape', 'data-width', 'data-align', 'data-crop-top', 'data-crop-right', 'data-crop-bottom', 'data-crop-left', 'data-aspect', 'data-youtube-id', 'data-youtube-width', 'data-youtube-align']
               : tag === 'div' ? ['data-image-frame', 'data-youtube-thumbnail']
                 : tag === 'span' ? ['data-youtube-play', 'data-youtube-label', 'data-youtube-platform'] : [];
         if (!allowed.includes(attribute.name) || (attribute.name === 'href' && !/^(https?:|mailto:|#)/i.test(attribute.value))) node.removeAttribute(attribute.name);
@@ -181,10 +183,12 @@ if (root) {
       const videoId = youtubeVideoId(figure.dataset.youtubeId);
       if (videoId) {
         const width = clamp(Number(figure.dataset.youtubeWidth) || 100, 10, 100);
+        const align = ['left', 'center', 'right'].includes(figure.dataset.youtubeAlign) ? figure.dataset.youtubeAlign : 'center';
         figure.dataset.youtubeId = videoId;
         figure.dataset.youtubeWidth = String(Math.round(width));
+        figure.dataset.youtubeAlign = align;
         [...figure.attributes].forEach((attribute) => {
-          if (!['data-youtube-id', 'data-youtube-width'].includes(attribute.name)) figure.removeAttribute(attribute.name);
+          if (!['data-youtube-id', 'data-youtube-width', 'data-youtube-align'].includes(attribute.name)) figure.removeAttribute(attribute.name);
         });
         figure.style.setProperty('--youtube-width', `${Math.round(width)}%`);
         return;
@@ -569,7 +573,9 @@ if (root) {
     figure.contentEditable = 'false';
     figure.querySelectorAll('[data-youtube-editor-control]').forEach((control) => control.remove());
     const width = clamp(Math.round(Number(figure.dataset.youtubeWidth) || 100), 10, 100);
+    const align = ['left', 'center', 'right'].includes(figure.dataset.youtubeAlign) ? figure.dataset.youtubeAlign : 'center';
     figure.dataset.youtubeWidth = String(width);
+    figure.dataset.youtubeAlign = align;
     figure.style.setProperty('--youtube-width', `${width}%`);
     const remove = document.createElement('button');
     remove.type = 'button';
@@ -583,7 +589,7 @@ if (root) {
     size.dataset.youtubeEditorControl = '';
     size.dataset.youtubeSize = '';
     size.className = 'blog-youtube-size';
-    size.textContent = `${width}%`;
+    size.textContent = `${width}% · ${align[0].toUpperCase()}${align.slice(1)}`;
     const resize = document.createElement('span');
     resize.dataset.youtubeEditorControl = '';
     resize.dataset.youtubeResize = '';
@@ -1076,6 +1082,7 @@ if (root) {
     const figure = document.createElement('figure');
     figure.dataset.youtubeId = id;
     figure.dataset.youtubeWidth = '100';
+    figure.dataset.youtubeAlign = 'center';
     figure.style.setProperty('--youtube-width', '100%');
     figure.innerHTML = `<a href="${watchUrl}" target="_blank" rel="noopener noreferrer" data-youtube-trigger><div data-youtube-thumbnail><img src="${youtubeThumbnailUrl(id)}" alt="YouTube video preview" loading="lazy" decoding="async"><span data-youtube-play aria-hidden="true">▶</span><span data-youtube-label>Watch video</span></div></a><figcaption><span data-youtube-platform>YouTube</span><a href="${watchUrl}" target="_blank" rel="noopener noreferrer" data-youtube-link>View on YouTube ↗</a></figcaption>`;
     const continuation = document.createElement('p');
@@ -1421,7 +1428,8 @@ if (root) {
     interaction.figure.dataset.youtubeWidth = nextWidth;
     interaction.figure.style.setProperty('--youtube-width', `${nextWidth}%`);
     const label = interaction.figure.querySelector('[data-youtube-size]');
-    if (label) label.textContent = `${nextWidth}%`;
+    const align = interaction.figure.dataset.youtubeAlign || 'center';
+    if (label) label.textContent = `${nextWidth}% · ${align[0].toUpperCase()}${align.slice(1)}`;
   };
 
   const endYoutubeResize = (event) => {
@@ -1431,6 +1439,60 @@ if (root) {
     interaction.figure.classList.remove('is-resizing');
     state.youtubeResize = null;
     document.body.classList.remove('is-resizing-blog-youtube');
+    if (interaction.changed) markDirty();
+  };
+
+  const beginYoutubePlacement = (event, thumbnail) => {
+    const figure = thumbnail.closest('figure[data-youtube-id]');
+    if (!figure) return;
+    const editorRect = elements.body.getBoundingClientRect();
+    state.youtubePlacement = {
+      control: thumbnail,
+      figure,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      editorLeft: editorRect.left,
+      editorWidth: editorRect.width || 1,
+      changed: false,
+      dragging: false
+    };
+    thumbnail.setPointerCapture?.(event.pointerId);
+  };
+
+  const moveYoutubePlacement = (event) => {
+    const interaction = state.youtubePlacement;
+    if (!interaction || event.pointerId !== interaction.pointerId) return;
+    if (!interaction.dragging && Math.hypot(event.clientX - interaction.startX, event.clientY - interaction.startY) < 6) return;
+    event.preventDefault();
+    interaction.dragging = true;
+    const position = clamp((event.clientX - interaction.editorLeft) / interaction.editorWidth, 0, 1);
+    const align = position < .36 ? 'left' : (position > .64 ? 'right' : 'center');
+    interaction.changed ||= interaction.figure.dataset.youtubeAlign !== align;
+    interaction.figure.dataset.youtubeAlign = align;
+    if (align !== 'center' && Number(interaction.figure.dataset.youtubeWidth) > 70) {
+      interaction.figure.dataset.youtubeWidth = '60';
+      interaction.figure.style.setProperty('--youtube-width', '60%');
+      interaction.changed = true;
+    }
+    const width = interaction.figure.dataset.youtubeWidth || '100';
+    const label = interaction.figure.querySelector('[data-youtube-size]');
+    if (label) label.textContent = `${width}% · ${align[0].toUpperCase()}${align.slice(1)}`;
+    interaction.figure.classList.add('is-being-placed');
+    document.body.classList.add('is-placing-blog-youtube');
+  };
+
+  const endYoutubePlacement = (event) => {
+    const interaction = state.youtubePlacement;
+    if (!interaction || event.pointerId !== interaction.pointerId) return;
+    interaction.control.releasePointerCapture?.(event.pointerId);
+    interaction.figure.classList.remove('is-being-placed');
+    state.youtubePlacement = null;
+    document.body.classList.remove('is-placing-blog-youtube');
+    if (interaction.dragging) {
+      state.suppressYoutubeClick = true;
+      window.setTimeout(() => { state.suppressYoutubeClick = false; }, 0);
+    }
     if (interaction.changed) markDirty();
   };
 
@@ -1475,6 +1537,11 @@ if (root) {
         beginYoutubeResize(event, youtubeResize);
         return;
       }
+      const youtubeThumbnail = event.target.closest('[data-youtube-thumbnail]');
+      if (youtubeThumbnail) {
+        beginYoutubePlacement(event, youtubeThumbnail);
+        return;
+      }
       const handle = event.target.closest('[data-image-handle]');
       if (handle) {
         beginImageInteraction(event, handle);
@@ -1483,12 +1550,18 @@ if (root) {
       const frame = event.target.closest('[data-image-frame]');
       if (frame) beginImageInteraction(event, frame, frame.closest('figure')?.classList.contains('is-cropping') ? 'pan' : 'place');
     });
+    elements.body.addEventListener('dragstart', (event) => {
+      if (event.target.closest('figure[data-youtube-id]')) event.preventDefault();
+    });
     document.addEventListener('pointermove', moveImageInteraction, { passive: false });
     document.addEventListener('pointerup', endImageInteraction);
     document.addEventListener('pointercancel', endImageInteraction);
     document.addEventListener('pointermove', moveYoutubeResize, { passive: false });
     document.addEventListener('pointerup', endYoutubeResize);
     document.addEventListener('pointercancel', endYoutubeResize);
+    document.addEventListener('pointermove', moveYoutubePlacement, { passive: false });
+    document.addEventListener('pointerup', endYoutubePlacement);
+    document.addEventListener('pointercancel', endYoutubePlacement);
     document.addEventListener('scroll', positionImageLayout, true);
     window.addEventListener('resize', positionImageLayout);
     ['keyup', 'mouseup', 'focus'].forEach((type) => elements.body.addEventListener(type, rememberEditorRange));
@@ -1574,6 +1647,10 @@ if (root) {
       }
       const trigger = event.target.closest('[data-youtube-trigger]');
       if (!trigger) return;
+      if (state.suppressYoutubeClick) {
+        event.preventDefault();
+        return;
+      }
       const id = trigger.closest('figure[data-youtube-id]')?.dataset.youtubeId;
       if (!id) return;
       event.preventDefault();
